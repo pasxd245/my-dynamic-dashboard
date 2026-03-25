@@ -1,0 +1,17 @@
+{
+  "name": "my-dynamic-dashboard",
+  "version": "0.0.1",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.22.0",
+  "dependencies": {
+    "@nci-gis/js-tmpl": "0.0.1-beta.2",
+    "a2scaffold": "^0.0.2"
+  }
+}
