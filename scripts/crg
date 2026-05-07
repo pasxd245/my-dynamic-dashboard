@@ -1,0 +1,303 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+INVOKED_PATH="${BASH_SOURCE[0]}"
+if [[ "$INVOKED_PATH" != */* ]]; then
+    INVOKED_PATH="$(command -v -- "$INVOKED_PATH")"
+fi
+
+SCRIPT_DIR="$(cd "$(dirname "$INVOKED_PATH")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+CLI_BIN="$REPO_ROOT/.venv/bin/code-review-graph"
+DEFAULT_APPS_DIR="$REPO_ROOT/apps"
+
+die() {
+    local message="${1:-Error}"
+    echo "ERROR: $message" >&2
+    exit 1
+}
+
+show_usage() {
+        cat <<'EOF'
+Usage:
+    ./scripts/crg -h|--help
+    ./scripts/crg -- <pass-through-args>
+    ./scripts/crg setup [options]
+    ./scripts/crg apps [apps_root] [options]
+    ./scripts/crg unregister [options]
+
+Sub-commands:
+    setup
+        Install/update local CLI and run MCP install.
+        Options:
+            -- <args>    Pass args to: code-review-graph install <args>
+
+    apps
+        Run CRG command for each repo under apps_root/*.
+        apps_root resolution:
+            omitted      REPO_ROOT/apps
+            absolute     use as-is (e.g. /path/to/apps)
+            relative     resolve as REPO_ROOT/<apps_root>
+        Options:
+            --register   Register each repo with its name as alias.
+            --build      Build graph with --skip-postprocess for each repo.
+            -- <args>    Additional pass-through args to code-review-graph (optional).
+
+    unregister
+        Unregister repos from the CLI registry.
+        Options:
+            <alias>           Unregister repo by alias name.
+            --all             Use all repos from: code-review-graph repos
+            --grep <text>     Filter repos from: code-review-graph repos | grep <text>
+
+Examples:
+    ./scripts/crg setup
+    ./scripts/crg setup -- --no-instructions
+    ./scripts/crg apps --register
+    ./scripts/crg apps --build
+    ./scripts/crg apps --register --build
+    ./scripts/crg apps -- update
+    ./scripts/crg apps --register --build -- update
+    ./scripts/crg apps apps-custom --build
+    ./scripts/crg apps /abs/path/to/apps --register
+    ./scripts/crg unregister myrepo
+    ./scripts/crg unregister --all
+    ./scripts/crg unregister --grep billing
+    ./scripts/crg -- --version
+EOF
+}
+
+fail_usage() {
+    local message="${1:-Invalid command.}"
+    echo "ERROR: $message" >&2
+    echo >&2
+    show_usage >&2
+    exit 2
+}
+
+ensure_cli_bin() {
+    if [[ ! -x "$CLI_BIN" ]]; then
+        echo "ERROR: code-review-graph is not installed at $CLI_BIN" >&2
+        echo "Run ./scripts/crg setup first." >&2
+        exit 1
+    fi
+}
+
+run_setup() {
+    local passthrough=()
+    
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --)
+                shift
+                passthrough=("$@")
+                break
+            ;;
+            *)
+                fail_usage "Unknown setup option: $1"
+            ;;
+        esac
+    done
+    
+    if ! command -v uv >/dev/null 2>&1; then
+        cat >&2 <<'EOF'
+ERROR: `uv` is not on PATH. Install it first, e.g.:
+  curl -LsSf https://astral.sh/uv/install.sh | sh
+EOF
+        exit 1
+    fi
+    
+    if [[ ! -d "$REPO_ROOT/.venv" ]]; then
+        echo "==> Creating uv venv at $REPO_ROOT/.venv (Python 3.12)"
+        (cd "$REPO_ROOT" && uv venv --python 3.12 .venv)
+    else
+        echo "==> Reusing existing venv at $REPO_ROOT/.venv"
+    fi
+    
+    echo "==> Installing code-review-graph (+ igraph for Leiden community detection) into venv"
+    uv pip install --python "$REPO_ROOT/.venv/bin/python" code-review-graph igraph
+    
+    ensure_cli_bin
+    
+    echo "==> CLI version: $("$CLI_BIN" --version 2>/dev/null || echo 'unknown')"
+    echo "==> Registering MCP server with Claude Code"
+    (cd "$REPO_ROOT" && "$CLI_BIN" install "${passthrough[@]}")
+    
+    cat <<'EOF'
+
+Setup complete.
+
+Next steps:
+  1. Restart Claude Code (or run /mcp inside it) to pick up MCP changes.
+  2. Run commands across app repos:
+    ./scripts/crg apps -- --update
+EOF
+}
+
+run_apps() {
+    local apps_root="!~" # special sentinel value to detect if root was provided.
+    local do_register=0
+    local do_build=0
+    local passthrough=()
+    
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --register)
+                do_register=1
+                shift
+            ;;
+            --build)
+                do_build=1
+                shift
+            ;;
+            --)
+                shift
+                passthrough=("$@")
+                break
+            ;;
+            --*)
+                fail_usage "Unknown apps option: $1"
+            ;;
+            *)
+                if [[ "$apps_root" == "!~" ]]; then
+                    apps_root="$1"
+                    shift
+                else
+                    fail_usage "Unexpected argument: $1"
+                fi
+            ;;
+        esac
+    done
+    
+    [[ $do_register -eq 1 || $do_build -eq 1 || ${#passthrough[@]} -gt 0 ]] || fail_usage "apps requires at least one action (--register, --build) or pass-through args (--)"
+    
+    ensure_cli_bin
+    
+    local target_path
+    if [[ "$apps_root" == "!~" ]]; then
+        target_path="$DEFAULT_APPS_DIR"
+        elif [[ "$apps_root" == /* ]]; then
+        target_path="$apps_root"
+    else
+        target_path="$REPO_ROOT/$apps_root"
+    fi
+    
+    [[ -d "$target_path" ]] || fail_usage "apps root does not exist: $target_path"
+    
+    shopt -s nullglob
+    repos=("$target_path"/*/)
+    shopt -u nullglob
+    
+    [[ ${#repos[@]} -gt 0 ]] || fail_usage "No app repositories found under $target_path"
+    
+    echo "==> apps root: $target_path"
+    
+    for repo in "${repos[@]}"; do
+        [[ -d "$repo" ]] || continue
+        alias="$(basename "$repo")"
+        echo "---- $alias ----"
+        
+        if [[ $do_register -eq 1 ]]; then
+            echo "  register: $alias"
+            "$CLI_BIN" register --alias "$alias" "$repo" || die "register failed for $alias"
+        fi
+        
+        if [[ $do_build -eq 1 ]]; then
+            echo "  build: $alias"
+            (cd "$repo" && "$CLI_BIN" build --skip-postprocess) || die "build failed for $alias"
+        fi
+        
+        if [[ ${#passthrough[@]} -gt 0 ]]; then
+            echo "  run: ${passthrough[*]}"
+            (cd "$repo" && "$CLI_BIN" "${passthrough[@]}") || die "command failed for $alias"
+        fi
+    done
+}
+
+run_unregister() {
+    local mode=""
+    local grep_text=""
+    local alias=""
+    local repo_paths=()
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --all)
+                [[ -z "$mode" ]] || fail_usage "unregister accepts exactly one of --all, --grep, or <alias>"
+                mode="all"
+                shift
+            ;;
+            --grep)
+                [[ -z "$mode" ]] || fail_usage "unregister accepts exactly one of --all, --grep, or <alias>"
+                shift
+                [[ $# -gt 0 ]] || fail_usage "unregister --grep requires a text argument"
+                mode="grep"
+                grep_text="$1"
+                shift
+            ;;
+            --*)
+                fail_usage "Unknown unregister option: $1"
+            ;;
+            *)
+                [[ -z "$mode" ]] || fail_usage "unregister accepts exactly one of --all, --grep, or <alias>"
+                mode="alias"
+                alias="$1"
+                shift
+            ;;
+        esac
+    done
+
+    [[ -n "$mode" ]] || fail_usage "unregister requires one option: <alias>, --all, or --grep <text>"
+
+    ensure_cli_bin
+
+    if [[ "$mode" == "alias" ]]; then
+        repo_paths=("$alias")
+    elif [[ "$mode" == "all" ]]; then
+        mapfile -t repo_paths < <("$CLI_BIN" repos | awk 'NF {print $1}')
+    else
+        mapfile -t repo_paths < <("$CLI_BIN" repos | grep -- "$grep_text" | awk 'NF {print $1}')
+    fi
+
+    [[ ${#repo_paths[@]} -gt 0 ]] || fail_usage "No repositories matched for unregister"
+
+    echo "==> unregister mode: $mode"
+    if [[ "$mode" == "grep" ]]; then
+        echo "==> grep text: $grep_text"
+    fi
+
+    for repo_path in "${repo_paths[@]}"; do
+        echo "---- unregister: $repo_path ----"
+        "$CLI_BIN" unregister "$repo_path" || die "unregister failed for $repo_path"
+    done
+}
+
+[[ $# -gt 0 ]] || fail_usage "Missing command"
+
+if [[ "$1" == "--" ]]; then
+    shift
+    [[ $# -gt 0 ]] || fail_usage "Missing pass-through args after '--'"
+    ensure_cli_bin
+    exec "$CLI_BIN" "$@"
+fi
+
+case "$1" in
+    -h|--help)
+        show_usage
+    ;;
+    setup)
+        shift
+        run_setup "$@"
+    ;;
+    apps)
+        shift
+        run_apps "$@"
+    ;;
+    unregister)
+        shift
+        run_unregister "$@"
+    ;;
+    *)
+        fail_usage "Unknown command: $1"
+    ;;
+esac
