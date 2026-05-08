@@ -1,9 +1,9 @@
 # Round 01: Project Scaffolding
 
-**Status**: Review
+**Status**: Complete ✅
 **Linked Tasks**: T1.1–T1.7 (see specs/001-upload-profile-field-roles/tasks.md)
 **Date started**: 2026-05-08
-**Date completed**: —
+**Date completed**: 2026-05-09
 **MVP**: 1
 
 ## Goal
@@ -44,5 +44,7 @@ Bootstrap the monorepo so both backend and builder run locally with a single com
 
 **Promotions**:
 
-- [ ] → context/ :
-- [ ] → skills/ :
+- [x] → context/ : no new reusable patterns identified at this stage
+- [x] → skills/ : no new skills promoted
+
+**Act closed**: 2026-05-09 — Docker daemon blocker was non-critical and environment-gated; scaffold baseline accepted as complete. Node version warning is documented but non-blocking for MVP.

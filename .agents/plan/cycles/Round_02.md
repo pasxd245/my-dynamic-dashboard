@@ -1,9 +1,9 @@
 # Round 02: Data Upload & Schema Detection
 
-**Status**: Review
+**Status**: Complete ✅
 **Linked Tasks**: T2.1–T2.8 (see specs/001-upload-profile-field-roles/tasks.md)
 **Date started**: 2026-05-08
-**Date completed**: —
+**Date completed**: 2026-05-09
 **MVP**: 1
 
 ## Goal
@@ -45,5 +45,8 @@ Users can upload Excel/CSV files. Polars detects schema, stores versioned Parque
 
 **Promotions**:
 
-- [ ] → context/ :
-- [ ] → skills/ :
+- [x] → context/ : no new reusable patterns identified at this stage
+- [x] → skills/ : no new skills promoted
+
+**Act closed**: 2026-05-09 — T032 (multi-sheet Excel handling) and US4/polish tasks deferred to future scope per Go/No-Go decision. Core upload flow (T001-T031, T033-T035) complete and validated. Defer acceptance criteria are documented in spec.
+**Date completed**: 2026-05-09
