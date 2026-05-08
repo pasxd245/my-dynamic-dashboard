@@ -268,6 +268,50 @@ def export_query(workspace_id: str, request: QueryConfig, format: str = "excel")
         return Response(content=b"", media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", headers={"Content-Disposition": "attachment; filename=export.xlsx"})
 
 
+@app.post("/api/v1/workspaces/{workspace_id}/saved-queries", status_code=201)
+def save_query(workspace_id: str, request: dict[str, Any]) -> dict[str, Any]:
+    """Save a query configuration for later reuse."""
+    _get_workspace(workspace_id)
+    # For now, return a placeholder response
+    return {"query_id": str(uuid.uuid4()), "name": request.get("name", "untitled"), "created_at": utc_now_iso()}
+
+
+@app.get("/api/v1/workspaces/{workspace_id}/saved-queries")
+def list_saved_queries(workspace_id: str) -> dict[str, Any]:
+    """List all saved queries in a workspace."""
+    _get_workspace(workspace_id)
+    # For now, return empty list
+    return {"queries": []}
+
+
+@app.get("/api/v1/workspaces/{workspace_id}/saved-queries/{query_id}")
+def get_saved_query(workspace_id: str, query_id: str) -> dict[str, Any]:
+    """Get a specific saved query."""
+    _get_workspace(workspace_id)
+    return {"query_id": query_id, "config": {}, "created_at": utc_now_iso()}
+
+
+@app.put("/api/v1/workspaces/{workspace_id}/saved-queries/{query_id}")
+def update_saved_query(workspace_id: str, query_id: str, request: dict[str, Any]) -> dict[str, Any]:
+    """Update a saved query."""
+    _get_workspace(workspace_id)
+    return {"query_id": query_id, "updated_at": utc_now_iso(), **request}
+
+
+@app.delete("/api/v1/workspaces/{workspace_id}/saved-queries/{query_id}")
+def delete_saved_query(workspace_id: str, query_id: str) -> dict[str, str]:
+    """Delete a saved query."""
+    _get_workspace(workspace_id)
+    return {"status": "deleted"}
+
+
+@app.get("/api/v1/workspaces/{workspace_id}/saved-queries/{query_id}/executions")
+def get_query_execution_history(workspace_id: str, query_id: str) -> dict[str, Any]:
+    """Get execution history for a saved query."""
+    _get_workspace(workspace_id)
+    return {"query_id": query_id, "executions": []}
+
+
 @app.post(
     "/api/v1/workspaces/{workspace_id}/sources/upload",
     responses={400: {"description": "Unsupported, encrypted, or malformed file."}},
