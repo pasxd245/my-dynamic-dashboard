@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import json
 import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Iterator
+import uuid
 
 
 def init_metadata_db(db_path: Path) -> None:
@@ -239,3 +241,96 @@ def get_connection(db_path: Path) -> Iterator[sqlite3.Connection]:
         conn.commit()
     finally:
         conn.close()
+
+
+def persist_role_assignment(
+    conn: sqlite3.Connection,
+    *,
+    workspace_id: str,
+    column_id: str,
+    role: str,
+    override_used: bool,
+    override_reason: str | None,
+    assigned_by: str,
+    assigned_at: str,
+) -> None:
+    conn.execute(
+        """
+        INSERT INTO role_assignments (
+            id, column_id, role, accepted, override_used,
+            override_reason, assigned_by, assigned_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            str(uuid.uuid4()),
+            column_id,
+            role,
+            1,
+            int(override_used),
+            override_reason,
+            assigned_by,
+            assigned_at,
+        ),
+    )
+
+    if not override_used or not override_reason:
+        return
+
+    old_value_json = json.dumps(
+        {"override_reason": None, "override_used": False, "role": role},
+        separators=(",", ":"),
+        sort_keys=True,
+    )
+    new_value_json = json.dumps(
+        {
+            "override_reason": override_reason,
+            "override_used": True,
+            "role": role,
+        },
+        separators=(",", ":"),
+        sort_keys=True,
+    )
+    conn.execute(
+        """
+        INSERT INTO override_logs (
+            id, workspace_id, target_kind, target_id,
+            old_value_json, new_value_json, reason, actor, created_at
+        ) VALUES (?, ?, 'role_assignment', ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            str(uuid.uuid4()),
+            workspace_id,
+            column_id,
+            old_value_json,
+            new_value_json,
+            override_reason,
+            assigned_by,
+            assigned_at,
+        ),
+    )
+
+
+def persist_manifest_snapshot(
+    conn: sqlite3.Connection,
+    *,
+    workspace_id: str,
+    manifest_version: int,
+    manifest_json: str,
+    manifest_hash: str,
+    exported_at: str,
+) -> None:
+    conn.execute(
+        """
+        INSERT INTO manifest_snapshots (
+            id, workspace_id, manifest_version, manifest_json, manifest_hash, exported_at
+        ) VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        (
+            str(uuid.uuid4()),
+            workspace_id,
+            manifest_version,
+            manifest_json,
+            manifest_hash,
+            exported_at,
+        ),
+    )

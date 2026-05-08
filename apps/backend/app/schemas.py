@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+from typing import Any
+
 from pydantic import BaseModel
 
 
 class ApiErrorModel(BaseModel):
     code: str
     message: str
-    details: dict[str, str] | None = None
+    details: dict[str, Any] | None = None
 
 
 class ErrorResponse(BaseModel):

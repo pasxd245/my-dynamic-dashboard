@@ -8,12 +8,19 @@ from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
 
 from app.core.config import metadata_db_path, parquet_root_dir
-from app.core.metadata_db import get_connection, init_metadata_db
+from app.core.metadata_db import (
+    get_connection,
+    init_metadata_db,
+    persist_manifest_snapshot,
+    persist_role_assignment,
+)
 from app.schemas import (
     ApiErrorModel,
     ColumnSchema,
     ColumnProfileResponse,
     ErrorResponse,
+    ManifestImportRequest,
+    ManifestResponse,
     SheetOverrideRequest,
     SheetResponse,
     SourceUploadResponse,
@@ -29,7 +36,14 @@ from app.schemas import (
 )
 from app.services.profile_service import compute_column_profile, compute_profiles
 from app.services.profile_service import validate_role_compatibility
-from app.services.manifest_service import compute_source_hash
+from app.services.manifest_service import (
+    collect_source_hash_mismatches,
+    compute_source_hash,
+    export_workspace_manifest,
+    import_workspace_manifest,
+    split_manifest_hash,
+    validate_manifest_hash,
+)
 from app.services.upload_service import (
     build_upload_result,
     compute_column_profiles,
@@ -48,10 +62,17 @@ PARQUET_ROOT = parquet_root_dir()
 
 
 class ApiError(Exception):
-    def __init__(self, status_code: int, code: str, message: str) -> None:
+    def __init__(
+        self,
+        status_code: int,
+        code: str,
+        message: str,
+        details: dict[str, object] | None = None,
+    ) -> None:
         self.status_code = status_code
         self.code = code
         self.message = message
+        self.details = details
         super().__init__(message)
 
 
@@ -62,7 +83,9 @@ def startup_event() -> None:
 
 @app.exception_handler(ApiError)
 def handle_api_error(_: object, exc: ApiError) -> JSONResponse:
-    payload = ErrorResponse(error=ApiErrorModel(code=exc.code, message=exc.message))
+    payload = ErrorResponse(
+        error=ApiErrorModel(code=exc.code, message=exc.message, details=exc.details)
+    )
     return JSONResponse(status_code=exc.status_code, content=payload.model_dump())
 
 
@@ -432,22 +455,15 @@ def assign_column_roles(
                     message=compatibility.reason or "Role compatibility violation",
                 )
 
-            conn.execute(
-                """
-                INSERT INTO role_assignments (
-                    id, column_id, role, accepted, override_used,
-                    override_reason, assigned_by, assigned_at
-                ) VALUES (?, ?, ?, ?, ?, ?, 'user', ?)
-                """,
-                (
-                    str(uuid.uuid4()),
-                    column_id,
-                    role,
-                    1,
-                    int(compatibility.override_required),
-                    request.override_reason,
-                    assigned_at,
-                ),
+            persist_role_assignment(
+                conn,
+                workspace_id=workspace_id,
+                column_id=column_id,
+                role=role,
+                override_used=compatibility.override_required,
+                override_reason=request.override_reason,
+                assigned_by="user",
+                assigned_at=assigned_at,
             )
 
             results.append(
@@ -515,6 +531,70 @@ def get_workspace_readiness(workspace_id: str) -> ReadinessStatusResponse:
         missing_required_roles=missing_required,
         unresolved_critical_warnings=unresolved_critical,
         surface_role="analysis_workbench",
+    )
+
+
+@app.post("/api/v1/workspaces/{workspace_id}/manifest/export")
+def export_manifest(workspace_id: str) -> ManifestResponse:
+    workspace = _get_workspace(workspace_id)
+
+    with get_connection(DB_PATH) as conn:
+        manifest = export_workspace_manifest(conn, workspace_id)
+        _, manifest_hash = split_manifest_hash(manifest)
+        exported_at = utc_now_iso()
+        persist_manifest_snapshot(
+            conn,
+            workspace_id=workspace_id,
+            manifest_version=int(workspace["manifest_version"]),
+            manifest_json=json.dumps(manifest, separators=(",", ":"), sort_keys=True),
+            manifest_hash=manifest_hash or "",
+            exported_at=exported_at,
+        )
+        conn.execute(
+            "UPDATE workspaces SET content_hash = ?, updated_at = ? WHERE id = ?",
+            (manifest_hash, exported_at, workspace_id),
+        )
+
+    return ManifestResponse(**manifest)
+
+
+@app.post("/api/v1/workspaces/manifest/import")
+def import_manifest(request: ManifestImportRequest) -> WorkspaceResponse:
+    try:
+        validate_manifest_hash(request.manifest)
+    except ValueError as exc:
+        raise ApiError(
+            status_code=400,
+            code="invalid_manifest_hash",
+            message=str(exc),
+        ) from exc
+
+    with get_connection(DB_PATH) as conn:
+        mismatches = collect_source_hash_mismatches(conn, request.manifest)
+        if mismatches:
+            raise ApiError(
+                status_code=409,
+                code="manifest_hash_mismatch",
+                message="Source hash mismatch blocked workspace reconstruction.",
+                details={"mismatches": mismatches},
+            )
+
+        imported_at = utc_now_iso()
+        workspace = import_workspace_manifest(conn, request.manifest, imported_at=imported_at)
+        persist_manifest_snapshot(
+            conn,
+            workspace_id=workspace["id"],
+            manifest_version=int(workspace["manifest_version"]),
+            manifest_json=json.dumps(request.manifest, separators=(",", ":"), sort_keys=True),
+            manifest_hash=str(workspace["manifest_hash"]),
+            exported_at=imported_at,
+        )
+
+    return WorkspaceResponse(
+        id=str(workspace["id"]),
+        name=str(workspace["name"]),
+        status=str(workspace["status"]),
+        manifest_version=int(workspace["manifest_version"]),
     )
 
 
