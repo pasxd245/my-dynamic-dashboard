@@ -1,6 +1,6 @@
 # Round 14: MVP 1 Bootstrap (Round 01 DoD)
 
-**Status**: In Progress
+**Status**: Review
 **Date started**: 2026-05-08
 **Date completed**:
 **MVP**: 1
@@ -18,7 +18,7 @@ top of a stable monorepo baseline.
 - [x] Add `/api` proxy from builder to backend
 - [x] Add docker compose to start both services
 - [x] Validate checks and update DoD statuses
-- [ ] Commit the round
+- [x] Commit the round
 
 ## Do
 

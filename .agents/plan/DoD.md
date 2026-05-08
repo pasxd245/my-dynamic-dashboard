@@ -45,12 +45,12 @@ Agents may mark `auto` and `demo` items. Only the user may mark `user` items.
 
 | #   | Task                                                              | Verify | Status | Round |
 | --- | ----------------------------------------------------------------- | ------ | ------ | ----- |
-| 2.1 | `POST /api/v1/tables/upload` accepts Excel and CSV                | auto   | [ ]    | 02    |
-| 2.2 | Polars reads file and detects column names, types, nullability    | auto   | [ ]    | 02    |
-| 2.3 | Data saved as versioned Parquet (`data/parquet/{id}/v1.parquet`)  | auto   | [ ]    | 02    |
-| 2.4 | Schema metadata stored in SQLite (`files`, `file_schemas` tables) | auto   | [ ]    | 02    |
-| 2.5 | `GET /api/v1/tables` returns uploaded files with schema summary   | auto   | [ ]    | 02    |
-| 2.6 | Re-upload same filename creates v2, detects schema changes        | auto   | [ ]    | 02    |
+| 2.1 | `POST /api/v1/tables/upload` accepts Excel and CSV                | auto   | [x]    | 02    |
+| 2.2 | Polars reads file and detects column names, types, nullability    | auto   | [x]    | 02    |
+| 2.3 | Data saved as versioned Parquet (`data/parquet/{id}/v1.parquet`)  | auto   | [x]    | 02    |
+| 2.4 | Schema metadata stored in SQLite (`files`, `file_schemas` tables) | auto   | [x]    | 02    |
+| 2.5 | `GET /api/v1/tables` returns uploaded files with schema summary   | auto   | [x]    | 02    |
+| 2.6 | Re-upload same filename creates v2, detects schema changes        | auto   | [x]    | 02    |
 | 2.7 | Upload 100k-row file completes in < 30 seconds                    | demo   | [ ]    | 02    |
 | 2.8 | User uploads their real Sales.xlsx successfully                   | user   | [ ]    | 02    |
 
