@@ -1,10 +1,11 @@
 # Round 06: Builder UI — Visual Relationship Builder
 
-**Status**: Planning
+**Status**: Deferred
 **Date started**:
 **Date completed**:
 **MVP**: 1
 **DoD tasks**: 6.1–6.7
+**Canonical state**: Branch `001-upload-profile-field-roles` (US1-US3 complete)
 
 ## Goal
 
@@ -23,7 +24,7 @@ Flow graph. Relationships save to the backend and persist across sessions.
 
 ## Do
 
-_Progress log — update as work proceeds._
+**Context**: Depends on Round 05 builder UI scaffolding. Backend relationship endpoints not yet implemented (deferred from Round 03). Will start after Round 04 SQL translator to ensure DuckDB joins are compatible with relationship metadata.
 
 ## Check
 
@@ -37,6 +38,8 @@ _Progress log — update as work proceeds._
 ## Act
 
 ## **Learnings**
+
+**Dependencies**: Requires Round 04 SQL translator and Round 05 builder shell. Relationship endpoints (POST/GET/DELETE /api/v1/relationships) must be implemented on backend to persist JOIN metadata.
 
 **Promotions**:
 

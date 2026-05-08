@@ -1,10 +1,11 @@
 # Round 09: Saved Queries & Dashboard Foundation
 
-**Status**: Planning
+**Status**: Deferred
 **Date started**:
 **Date completed**:
 **MVP**: 2
 **DoD tasks**: 9.1–9.7
+**Canonical state**: Branch `001-upload-profile-field-roles` (US1-US3 complete, MVP1 gates pending)
 
 ## Goal
 
@@ -24,7 +25,7 @@ the builder.
 
 ## Do
 
-_Progress log — update as work proceeds._
+**Context**: MVP2 foundation. Begins after MVP1 feedback gate (Round 08) validates end-to-end workflow. Adds persistence layer for query templates and report consumers.
 
 ## Check
 
@@ -38,6 +39,8 @@ _Progress log — update as work proceeds._
 ## Act
 
 ## **Learnings**
+
+**MVP2 Foundation**: Extends backend with query persistence and introduces Streamlit for report consumers. Separates builder (expert) from dashboard (analyst) workflows.
 
 **Promotions**:
 

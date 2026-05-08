@@ -1,6 +1,6 @@
 # Round 03: Relationship Management
 
-**Status**: Planning
+**Status**: Planning (Deferred)
 **Date started**:
 **Date completed**:
 **MVP**: 1
@@ -22,7 +22,10 @@ Schema changes on re-upload flag affected relationships as broken.
 
 ## Do
 
-_Progress log — update as work proceeds._
+- Round 03 has not started yet in this branch.
+- Execution order was intentionally shifted to Spec Kit US1-US3 work
+  (upload/profile/roles) before relationship CRUD from DoD 3.x.
+- No Round 03 implementation commit exists yet.
 
 ## Check
 
@@ -34,6 +37,9 @@ _Progress log — update as work proceeds._
 ## Act
 
 ## **Learnings**
+
+- Keep Round 03 deferred until remaining MVP 1 Spec Kit tasks (US4 manifest)
+  are completed or the team explicitly reprioritizes relationship work.
 
 **Promotions**:
 

@@ -1,10 +1,11 @@
 # Round 08: MVP 1 Feedback Gate
 
-**Status**: Planning
+**Status**: Deferred
 **Date started**:
 **Date completed**:
 **MVP**: 1
 **DoD tasks**: 8.1–8.6
+**Canonical state**: Branch `001-upload-profile-field-roles` (US1-US3 complete)
 
 ## Goal
 
@@ -22,7 +23,7 @@ This round is primarily user-verified.
 
 ## Do
 
-_Progress log — update as work proceeds._
+**Context**: Acceptance gate for MVP1 (Rounds 05-07 UI complete). Validates end-to-end workflow with real users before committing to dashboard/saved queries (MVP2). Will execute after Round 07 query builder fully functional.
 
 ## Check
 
@@ -36,5 +37,7 @@ _Progress log — update as work proceeds._
 ## Act
 
 ## **Learnings**
+
+**Gate**: MVP1 acceptance validation. Go/no-go decision for MVP2 investment (Rounds 09-13). Outcome determines phase priorities and post-launch backlog.
 
 **Decision**: Proceed to MVP 2 / Iterate more on MVP 1

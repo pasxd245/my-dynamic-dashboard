@@ -1,10 +1,11 @@
 # Round 10: Dashboard Visualisations
 
-**Status**: Planning
+**Status**: Deferred
 **Date started**:
 **Date completed**:
 **MVP**: 2
 **DoD tasks**: 10.1–10.6
+**Canonical state**: Branch `001-upload-profile-field-roles` (US1-US3 complete, MVP1 gates pending)
 
 ## Goal
 
@@ -22,7 +23,7 @@ presents them alongside KPIs and the data table.
 
 ## Do
 
-_Progress log — update as work proceeds._
+**Context**: MVP2 visualization layer. Follows Round 09 saved queries implementation. Auto-detects query result shape and generates appropriate Plotly visualizations.
 
 ## Check
 
@@ -35,6 +36,8 @@ _Progress log — update as work proceeds._
 ## Act
 
 ## **Learnings**
+
+**Analytics Layer**: Auto-visualization transforms raw query results into consumable dashboards. Plotly enables interactivity; column type detection ensures relevance.
 
 **Promotions**:
 

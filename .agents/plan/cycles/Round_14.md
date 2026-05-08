@@ -1,8 +1,8 @@
-# Round 14: MVP 1 Bootstrap (Round 01 DoD)
+# Round 14: MVP 1 Bootstrap (Superseded)
 
-**Status**: Review
+**Status**: Complete
 **Date started**: 2026-05-08
-**Date completed**:
+**Date completed**: 2026-05-08
 **MVP**: 1
 **DoD tasks**: 1.1-1.7
 
@@ -10,6 +10,11 @@
 
 Establish runnable backend and builder foundations so MVP 1 work can start on
 top of a stable monorepo baseline.
+
+> Superseded note: The canonical tracking for this work has been reconciled into
+> Round_01.md to keep round numbering aligned with DoD.
+
+Canonical reference: Round_01.md (scaffold baseline).
 
 ## Plan
 

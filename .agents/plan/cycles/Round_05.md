@@ -1,10 +1,11 @@
 # Round 05: Builder UI — Upload & Schema
 
-**Status**: Planning
+**Status**: Deferred
 **Date started**:
 **Date completed**:
 **MVP**: 1
 **DoD tasks**: 5.1–5.7
+**Canonical state**: Branch `001-upload-profile-field-roles` (US1-US3 complete)
 
 ## Goal
 
@@ -24,7 +25,7 @@ list, and a schema viewer. TanStack Query handles all API state.
 
 ## Do
 
-_Progress log — update as work proceeds._
+**Context**: Builder currently only has stub App.jsx. This round will implement the primary UI shell: multi-step workflow (upload → schema → relationships → queries). Core backend (upload, profile, roles) is complete and tested. Will start after US4 manifest endpoints finalized.
 
 ## Check
 
@@ -37,6 +38,8 @@ _Progress log — update as work proceeds._
 ## Act
 
 ## **Learnings**
+
+**Foundation**: Core builder UI shell. Establishes routing, state management (TanStack Query), and component library baseline (Tailwind).
 
 **Promotions**:
 

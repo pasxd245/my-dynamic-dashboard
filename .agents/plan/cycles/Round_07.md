@@ -1,10 +1,11 @@
 # Round 07: Builder UI — Query Builder & Export
 
-**Status**: Planning
+**Status**: Deferred
 **Date started**:
 **Date completed**:
 **MVP**: 1
 **DoD tasks**: 7.1–7.8
+**Canonical state**: Branch `001-upload-profile-field-roles` (US1-US3 complete)
 
 ## Goal
 
@@ -25,7 +26,7 @@ builder UI.
 
 ## Do
 
-_Progress log — update as work proceeds._
+**Context**: Final UI layer of MVP1. Depends on Rounds 04-06 (SQL translator, relationships, query execution). Will start after all query engine components are in place.
 
 ## Check
 
@@ -39,6 +40,8 @@ _Progress log — update as work proceeds._
 ## Act
 
 ## **Learnings**
+
+**MVP1 Closure**: Final UI layer. Completes the end-to-end workflow (upload → schema → relationships → query → export). Ready for Round 08 user validation.
 
 **Promotions**:
 

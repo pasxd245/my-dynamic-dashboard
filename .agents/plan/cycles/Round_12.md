@@ -1,10 +1,11 @@
 # Round 12: Deployment
 
-**Status**: Planning
+**Status**: Deferred
 **Date started**:
 **Date completed**:
 **MVP**: 2
 **DoD tasks**: 12.1–12.8
+**Canonical state**: Branch `001-upload-profile-field-roles` (US1-US3 complete, MVP1 gates pending)
 
 ## Goal
 
@@ -24,7 +25,7 @@ auto-restart, and users access everything via URL.
 
 ## Do
 
-_Progress log — update as work proceeds._
+**Context**: Production deployment round. Follows Polish gate (Round 11). Containerizes backend (FastAPI), builder (Vite/React), and dashboard (Streamlit) for cloud/on-prem deployment.
 
 ## Check
 
@@ -39,6 +40,8 @@ _Progress log — update as work proceeds._
 ## Act
 
 ## **Learnings**
+
+**Operations**: Containerization enables repeatable deployment and scaling. Health checks + restart policies + data mounts ensure production reliability.
 
 **Promotions**:
 

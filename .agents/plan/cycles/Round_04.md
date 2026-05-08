@@ -1,10 +1,11 @@
 # Round 04: SQL Translator & Query Execution
 
-**Status**: Planning
+**Status**: Deferred
 **Date started**:
 **Date completed**:
 **MVP**: 1
 **DoD tasks**: 4.1–4.10
+**Canonical state**: Branch `001-upload-profile-field-roles` (US1-US3 complete)
 
 ## Goal
 
@@ -27,7 +28,9 @@ preview or downloadable Excel/CSV.
 
 ## Do
 
-_Progress log — update as work proceeds._
+**Context**: Awaiting completion of US4 (Manifest export/import, T036-T043) and builder UI scaffolding (Round 05). SQL translator depends on relationship graph finalization. Will start after Round 03 relationships CRUD and Round 05 builder upload workflow complete.
+
+**Status**: Not yet started. Planned to begin after US3 role assignment (done) and US4 manifest export (in progress).
 
 ## Check
 
@@ -42,6 +45,8 @@ _Progress log — update as work proceeds._
 ## Act
 
 ## **Learnings**
+
+**Dependencies**: Blocked on Round 03 (relationship CRUD). Relationship graph must be finalized before JOIN path finding is implemented.
 
 **Promotions**:
 

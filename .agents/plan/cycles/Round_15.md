@@ -1,8 +1,8 @@
-# Round 15: Data Upload and Schema Detection (Round 02 DoD)
+# Round 15: Data Upload and Schema Detection (Superseded)
 
-**Status**: Review
+**Status**: Complete
 **Date started**: 2026-05-08
-**Date completed**:
+**Date completed**: 2026-05-08
 **MVP**: 1
 **DoD tasks**: 2.1-2.8
 
@@ -10,6 +10,11 @@
 
 Implement backend upload and schema detection so source files can be ingested,
 versioned, and listed with metadata for downstream relationship and query work.
+
+> Superseded note: The canonical tracking for this work has been reconciled into
+> Round_02.md to keep round numbering aligned with DoD.
+
+Canonical reference: Round_02.md (upload/schema baseline + branch extension note).
 
 ## Plan
 
