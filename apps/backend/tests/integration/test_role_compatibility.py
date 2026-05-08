@@ -1,7 +1,9 @@
+import sqlite3
 from pathlib import Path
 
 from fastapi.testclient import TestClient
 
+from app.core.config import metadata_db_path
 from app.main import app
 
 
@@ -39,3 +41,28 @@ def test_time_anchor_hard_reject_and_measure_soft_override(tmp_path: Path) -> No
     )
     assert soft_ok.status_code == 200
     assert soft_ok.json()["assignments"][0]["override_used"] is True
+
+    with sqlite3.connect(metadata_db_path()) as conn:
+        role_row = conn.execute(
+            """
+            SELECT role, override_used, override_reason
+            FROM role_assignments
+            WHERE column_id = ?
+            ORDER BY assigned_at DESC
+            LIMIT 1
+            """,
+            (name_column_id,),
+        ).fetchone()
+        override_row = conn.execute(
+            """
+            SELECT target_kind, target_id, reason
+            FROM override_logs
+            WHERE workspace_id = ? AND target_id = ?
+            ORDER BY created_at DESC
+            LIMIT 1
+            """,
+            (workspace_id, name_column_id),
+        ).fetchone()
+
+    assert role_row == ("measure", 1, "business exception")
+    assert override_row == ("role_assignment", name_column_id, "business exception")
