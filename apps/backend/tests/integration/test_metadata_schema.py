@@ -15,7 +15,8 @@ REQUIRED_TABLES = {
     "manifest_snapshots",
     "files",
     "file_schemas",
-    "relationships",
+    "relationship_rules",
+    "relationship_audit",
 }
 
 
