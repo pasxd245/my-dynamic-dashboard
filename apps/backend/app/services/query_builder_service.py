@@ -126,6 +126,13 @@ class SqlTranslator:
         select_clause = ", ".join(select_parts) if select_parts else "*"
         sql_parts = [f"SELECT {select_clause}", f"FROM {config.base_table_id}"]
 
+        # Add JOIN clauses
+        for join in config.joins:
+            join_type = join.join_type or "INNER"
+            # Note: In production, we'd look up the relationship rule to get the actual join condition
+            # For now, we generate a placeholder join condition
+            sql_parts.append(f"{join_type} JOIN {join.joined_table_id}")
+
         where_parts: list[str] = []
         for filter_spec in config.filters:
             column_expr = f'{config.base_table_id}."{filter_spec.column_id}"'

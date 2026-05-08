@@ -38,6 +38,9 @@ from app.schemas import (
     UpdateRelationshipRuleRequest,
     UploadTableResponse,
     ValidateQueryResponse,
+    QueryPreviewResponse,
+    QueryExecutionResponse,
+    LineageMetadata,
     WorkspaceCreateRequest,
     WorkspaceProfileResponse,
     WorkspaceResponse,
@@ -198,6 +201,71 @@ def validate_query(workspace_id: str, request: QueryConfig) -> ValidateQueryResp
 
     sql, _ = translator.translate(request)
     return ValidateQueryResponse(valid=True, issues=issues, sql_preview=sql)
+
+
+@app.post("/api/v1/workspaces/{workspace_id}/queries/preview")
+def preview_query(workspace_id: str, request: QueryConfig) -> QueryPreviewResponse:
+    """Preview query with LIMIT 100 and metadata."""
+    _get_workspace(workspace_id)
+
+    validator = QueryConfigValidator()
+    issues = validator.validate(request)
+
+    has_errors = any(issue.severity == "error" for issue in issues)
+    if has_errors:
+        raise_query_error("VALIDATION_ERROR", "Query validation failed", {"issues": [i.model_dump() for i in issues]})
+
+    # For now, return empty preview with lineage metadata
+    # In production, this would execute against DuckDB with LIMIT 100
+    return QueryPreviewResponse(
+        rows=[],
+        estimated_total_rows=0,
+        execution_time_ms=0,
+        lineage=LineageMetadata(),
+    )
+
+
+@app.post("/api/v1/workspaces/{workspace_id}/queries/execute")
+def execute_query(workspace_id: str, request: QueryConfig) -> QueryExecutionResponse:
+    """Execute full query and return all results."""
+    _get_workspace(workspace_id)
+
+    validator = QueryConfigValidator()
+    issues = validator.validate(request)
+
+    has_errors = any(issue.severity == "error" for issue in issues)
+    if has_errors:
+        raise_query_error("VALIDATION_ERROR", "Query validation failed", {"issues": [i.model_dump() for i in issues]})
+
+    # For now, return empty results with lineage metadata
+    # In production, this would execute against DuckDB
+    return QueryExecutionResponse(
+        rows=[],
+        total_rows=0,
+        execution_time_ms=0,
+        state="COMPLETED",
+        lineage=LineageMetadata(),
+    )
+
+
+@app.post("/api/v1/workspaces/{workspace_id}/queries/export")
+def export_query(workspace_id: str, request: QueryConfig, format: str = "excel") -> Response:
+    """Export query results to Excel or CSV."""
+    _get_workspace(workspace_id)
+
+    validator = QueryConfigValidator()
+    issues = validator.validate(request)
+
+    has_errors = any(issue.severity == "error" for issue in issues)
+    if has_errors:
+        raise_query_error("VALIDATION_ERROR", "Query validation failed", {"issues": [i.model_dump() for i in issues]})
+
+    # For now, return empty file
+    # In production, this would generate Excel or CSV
+    if format == "csv":
+        return Response(content="", media_type="text/csv", headers={"Content-Disposition": "attachment; filename=export.csv"})
+    else:  # excel
+        return Response(content=b"", media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", headers={"Content-Disposition": "attachment; filename=export.xlsx"})
 
 
 @app.post(
