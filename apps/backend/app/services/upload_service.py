@@ -114,3 +114,36 @@ def build_upload_result(
 
 def utc_now_iso() -> str:
     return datetime.now(UTC).isoformat()
+
+
+def normalize_effective_type(dtype: str) -> str:
+    lower = dtype.lower()
+
+    if "date" in lower or "time" in lower:
+        return "date"
+    if "int" in lower:
+        return "integer"
+    if any(token in lower for token in ["float", "decimal", "double"]):
+        return "numeric"
+    if "bool" in lower:
+        return "boolean"
+    return "string"
+
+
+def _excel_column_label(index: int) -> str:
+    label = ""
+    current = index + 1
+    while current > 0:
+        current, remainder = divmod(current - 1, 26)
+        label = chr(65 + remainder) + label
+    return label
+
+
+def detect_data_range(df: pl.DataFrame) -> str:
+    if not df.columns:
+        return "A1:A1"
+
+    final_column = _excel_column_label(len(df.columns) - 1)
+    # +1 for header row in A1 notation.
+    final_row = max(df.height + 1, 1)
+    return f"A1:{final_column}{final_row}"

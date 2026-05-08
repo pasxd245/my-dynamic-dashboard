@@ -42,16 +42,16 @@ Independent Test: Upload bundled sample files, verify all sheets and inferred ty
 
 ### Tests for User Story 1
 
-- [ ] T012 [P] [US1] Add contract test for create workspace and upload source endpoints in apps/backend/tests/contract/test_upload_parse_contract.py
-- [ ] T013 [P] [US1] Add integration test for sheet header/range override recompute isolation in apps/backend/tests/integration/test_sheet_override_reparse.py
-- [ ] T014 [P] [US1] Add integration test for ambiguous CSV delimiter/encoding confirmation behavior in apps/backend/tests/integration/test_csv_ambiguity_flow.py
+- [x] T012 [P] [US1] Add contract test for create workspace and upload source endpoints in apps/backend/tests/contract/test_upload_parse_contract.py
+- [x] T013 [P] [US1] Add integration test for sheet header/range override recompute isolation in apps/backend/tests/integration/test_sheet_override_reparse.py
+- [x] T014 [P] [US1] Add integration test for ambiguous CSV delimiter/encoding confirmation behavior in apps/backend/tests/integration/test_csv_ambiguity_flow.py
 
 ### Implementation for User Story 1
 
 - [x] T015 [US1] Implement create workspace endpoint POST /api/v1/workspaces in apps/backend/app/main.py
-- [ ] T016 [US1] Implement upload endpoint POST /api/v1/workspaces/{workspaceId}/sources/upload (xlsx/csv parse + encrypted rejection) in apps/backend/app/main.py and apps/backend/app/services/upload_service.py
-- [ ] T017 [US1] Implement sheet override endpoint PATCH /api/v1/workspaces/{workspaceId}/sheets/{sheetId}/override in apps/backend/app/main.py and apps/backend/app/services/upload_service.py
-- [ ] T018 [US1] Persist source/sheet/column parse results and override logs in apps/backend/app/core/metadata_db.py
+- [x] T016 [US1] Implement upload endpoint POST /api/v1/workspaces/{workspaceId}/sources/upload (xlsx/csv parse + encrypted rejection) in apps/backend/app/main.py and apps/backend/app/services/upload_service.py
+- [x] T017 [US1] Implement sheet override endpoint PATCH /api/v1/workspaces/{workspaceId}/sheets/{sheetId}/override in apps/backend/app/main.py and apps/backend/app/services/upload_service.py
+- [x] T018 [US1] Persist source/sheet/column parse results and override logs in apps/backend/app/core/metadata_db.py
 - [ ] T019 [US1] Implement builder upload + sheet parse inspector + override action wiring in apps/builder/src/App.jsx and apps/builder/src/api/workspaceApi.js
 
 Checkpoint: US1 is independently functional.

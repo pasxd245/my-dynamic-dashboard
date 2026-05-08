@@ -24,6 +24,19 @@ class WorkspaceResponse(BaseModel):
     manifest_version: int
 
 
+class SheetResponse(BaseModel):
+    id: str
+    name: str
+    header_row_effective: int
+    data_range_effective: str
+
+
+class SourceUploadResponse(BaseModel):
+    source_id: str
+    warnings: list[str]
+    sheets: list[SheetResponse]
+
+
 class ColumnSchema(BaseModel):
     name: str
     data_type: str

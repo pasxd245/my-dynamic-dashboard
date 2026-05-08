@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import uuid
 from typing import Annotated
 
@@ -12,13 +13,20 @@ from app.schemas import (
     ApiErrorModel,
     ColumnSchema,
     ErrorResponse,
+    SheetOverrideRequest,
+    SheetResponse,
+    SourceUploadResponse,
     TableSummary,
     UploadTableResponse,
     WorkspaceCreateRequest,
     WorkspaceResponse,
 )
+from app.services.manifest_service import compute_source_hash
 from app.services.upload_service import (
     build_upload_result,
+    compute_column_profiles,
+    detect_data_range,
+    normalize_effective_type,
     read_dataframe,
     save_parquet,
     slugify_filename,
@@ -87,6 +95,221 @@ def create_workspace(request: WorkspaceCreateRequest) -> WorkspaceResponse:
         status="draft",
         manifest_version=1,
     )
+
+
+def _get_workspace(workspace_id: str) -> dict:
+    with get_connection(DB_PATH) as conn:
+        row = conn.execute(
+            "SELECT id, name, status, manifest_version FROM workspaces WHERE id = ?",
+            (workspace_id,),
+        ).fetchone()
+
+    if row is None:
+        raise ApiError(status_code=404, code="workspace_not_found", message="Workspace not found")
+
+    return {
+        "id": str(row["id"]),
+        "name": str(row["name"]),
+        "status": str(row["status"]),
+        "manifest_version": int(row["manifest_version"]),
+    }
+
+
+@app.post(
+    "/api/v1/workspaces/{workspace_id}/sources/upload",
+    responses={400: {"description": "Unsupported, encrypted, or malformed file."}},
+)
+async def upload_source_for_workspace(
+    workspace_id: str,
+    file: Annotated[UploadFile, File(...)],
+) -> SourceUploadResponse:
+    _get_workspace(workspace_id)
+
+    filename = file.filename or ""
+    lower_name = filename.lower()
+    if not (lower_name.endswith(".csv") or lower_name.endswith(".xlsx")):
+        raise ApiError(
+            status_code=400,
+            code="unsupported_file",
+            message="Unsupported file type. Only .csv and .xlsx are allowed.",
+        )
+
+    file_bytes = await file.read()
+
+    try:
+        df = read_dataframe(filename=filename, file_bytes=file_bytes)
+    except Exception as exc:
+        lowered = str(exc).lower()
+        if "password" in lowered or "encrypted" in lowered:
+            raise ApiError(
+                status_code=400,
+                code="encrypted_file",
+                message="Encrypted Excel files are not supported.",
+            ) from exc
+        raise ApiError(
+            status_code=400,
+            code="parse_failed",
+            message=f"Unable to parse file: {exc}",
+        ) from exc
+
+    now = utc_now_iso()
+    source_id = str(uuid.uuid4())
+    sheet_id = str(uuid.uuid4())
+    data_range = detect_data_range(df)
+    profiles = compute_column_profiles(df)
+    warnings: list[str] = []
+
+    with get_connection(DB_PATH) as conn:
+        conn.execute(
+            """
+            INSERT INTO source_files (
+                id, workspace_id, filename_original, extension, content_hash,
+                encoding_detected, parse_status, reject_reason, uploaded_at
+            ) VALUES (?, ?, ?, ?, ?, ?, 'parsed', NULL, ?)
+            """,
+            (
+                source_id,
+                workspace_id,
+                filename,
+                filename.rsplit(".", 1)[-1].lower(),
+                compute_source_hash(file_bytes),
+                "utf-8" if lower_name.endswith(".csv") else None,
+                now,
+            ),
+        )
+        conn.execute(
+            """
+            INSERT INTO sheets (
+                id, source_file_id, sheet_name,
+                header_row_detected, header_row_effective,
+                data_range_detected, data_range_effective,
+                multi_range_warning, committed_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?)
+            """,
+            (
+                sheet_id,
+                source_id,
+                "Sheet1",
+                1,
+                1,
+                data_range,
+                data_range,
+                now,
+            ),
+        )
+
+        for index, profile in enumerate(profiles):
+            conn.execute(
+                """
+                INSERT INTO columns (
+                    id, sheet_id, name, ordinal,
+                    inferred_type, effective_type,
+                    type_override_reason, is_all_null
+                ) VALUES (?, ?, ?, ?, ?, ?, NULL, ?)
+                """,
+                (
+                    str(uuid.uuid4()),
+                    sheet_id,
+                    profile.name,
+                    index,
+                    normalize_effective_type(profile.data_type),
+                    normalize_effective_type(profile.data_type),
+                    int(df.get_column(profile.name).null_count() == df.height),
+                ),
+            )
+
+    return SourceUploadResponse(
+        source_id=source_id,
+        warnings=warnings,
+        sheets=[
+            SheetResponse(
+                id=sheet_id,
+                name="Sheet1",
+                header_row_effective=1,
+                data_range_effective=data_range,
+            )
+        ],
+    )
+
+
+@app.patch("/api/v1/workspaces/{workspace_id}/sheets/{sheet_id}/override")
+def override_sheet_range(
+    workspace_id: str,
+    sheet_id: str,
+    request: SheetOverrideRequest,
+) -> SheetResponse:
+    if request.header_row is None and request.data_range is None:
+        raise ApiError(
+            status_code=400,
+            code="invalid_override",
+            message="At least one of header_row or data_range is required.",
+        )
+
+    with get_connection(DB_PATH) as conn:
+        row = conn.execute(
+            """
+            SELECT s.id, s.sheet_name, s.header_row_effective, s.data_range_effective
+            FROM sheets s
+            JOIN source_files sf ON sf.id = s.source_file_id
+            WHERE s.id = ? AND sf.workspace_id = ?
+            """,
+            (sheet_id, workspace_id),
+        ).fetchone()
+
+        if row is None:
+            raise ApiError(status_code=404, code="sheet_not_found", message="Sheet not found")
+
+        new_header = request.header_row or int(row["header_row_effective"])
+        new_range = request.data_range or str(row["data_range_effective"])
+        now = utc_now_iso()
+
+        conn.execute(
+            """
+            UPDATE sheets
+            SET header_row_effective = ?, data_range_effective = ?, committed_at = ?
+            WHERE id = ?
+            """,
+            (new_header, new_range, now, sheet_id),
+        )
+
+        if request.reason:
+            old_value_json = json.dumps(
+                {
+                    "header_row": int(row["header_row_effective"]),
+                    "data_range": str(row["data_range_effective"]),
+                },
+                separators=(",", ":"),
+                sort_keys=True,
+            )
+            new_value_json = json.dumps(
+                {"header_row": new_header, "data_range": new_range},
+                separators=(",", ":"),
+                sort_keys=True,
+            )
+            conn.execute(
+                """
+                INSERT INTO override_logs (
+                    id, workspace_id, target_kind, target_id,
+                    old_value_json, new_value_json, reason, actor, created_at
+                ) VALUES (?, ?, 'sheet_range', ?, ?, ?, ?, 'user', ?)
+                """,
+                (
+                    str(uuid.uuid4()),
+                    workspace_id,
+                    sheet_id,
+                    old_value_json,
+                    new_value_json,
+                    request.reason,
+                    now,
+                ),
+            )
+
+        return SheetResponse(
+            id=str(row["id"]),
+            name=str(row["sheet_name"]),
+            header_row_effective=new_header,
+            data_range_effective=new_range,
+        )
 
 
 @app.post(
