@@ -91,6 +91,23 @@ class ApiError(Exception):
         super().__init__(message)
 
 
+QUERY_ERROR_STATUS_BY_CODE = {
+    "VALIDATION_ERROR": 400,
+    "TIMEOUT": 408,
+    "UNAPPROVED_RELATIONSHIP": 409,
+    "MEMORY_ERROR": 413,
+}
+
+
+def raise_query_error(
+    code: str,
+    message: str,
+    details: dict[str, object] | None = None,
+) -> None:
+    status_code = QUERY_ERROR_STATUS_BY_CODE.get(code, 400)
+    raise ApiError(status_code=status_code, code=code, message=message, details=details)
+
+
 @app.on_event("startup")
 def startup_event() -> None:
     init_metadata_db(DB_PATH)

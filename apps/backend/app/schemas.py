@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel
 
@@ -205,3 +205,118 @@ class ManifestResponse(BaseModel):
     roles: list[dict]
     overrides: list[dict]
     manifest_hash: str
+
+
+FilterOperator = Literal["=", "!=", "<", ">", "<=", ">=", "IN", "LIKE", "IS NULL", "IS NOT NULL"]
+AggregationFunction = Literal["SUM", "COUNT", "AVG", "MAX", "MIN"]
+JoinType = Literal["INNER", "LEFT", "RIGHT", "FULL"]
+ExecutionState = Literal["QUEUED", "RUNNING", "COMPLETED", "TIMEOUT", "FAILED"]
+
+
+class SelectedColumn(BaseModel):
+    table_id: str
+    column_name: str
+    alias: str | None = None
+
+
+class FilterSpec(BaseModel):
+    column_id: str
+    operator: FilterOperator
+    value: Any | None = None
+
+
+class AggregationSpec(BaseModel):
+    column_id: str
+    function: AggregationFunction
+    alias: str
+
+
+class JoinSpec(BaseModel):
+    relationship_rule_id: str
+    join_type: JoinType
+    joined_table_id: str
+
+
+class QueryConfig(BaseModel):
+    base_table_id: str
+    selected_columns: list[SelectedColumn]
+    filters: list[FilterSpec] = []
+    aggregations: list[AggregationSpec] = []
+    group_by_columns: list[str] = []
+    joins: list[JoinSpec] = []
+    result_limit: int | None = None
+    execution_timeout_seconds: int = 5
+
+
+class ValidationIssue(BaseModel):
+    code: str
+    message: str
+    field: str | None = None
+    severity: Literal["error", "warning"] = "error"
+
+
+class SourceTableMetadata(BaseModel):
+    table_id: str
+    table_name: str
+    row_count_at_execution: int | None = None
+
+
+class RelationshipRuleMetadata(BaseModel):
+    rule_id: str
+    rule_name: str | None = None
+    rule_type: str | None = None
+    approval_status: str | None = None
+
+
+class LineageMetadata(BaseModel):
+    source_tables: list[SourceTableMetadata] = []
+    relationship_rules_used: list[RelationshipRuleMetadata] = []
+    filters_applied: list[FilterSpec] = []
+    aggregations_applied: list[AggregationSpec] = []
+    group_by_columns: list[str] = []
+    query_config_hash: str | None = None
+    execution_timestamp: str | None = None
+    execution_time_ms: int | None = None
+
+
+class ValidateQueryResponse(BaseModel):
+    valid: bool
+    issues: list[ValidationIssue] = []
+    sql_preview: str | None = None
+
+
+class QueryPreviewResponse(BaseModel):
+    rows: list[dict[str, Any]]
+    estimated_total_rows: int | None = None
+    execution_time_ms: int
+    lineage: LineageMetadata
+
+
+class QueryExecutionResponse(BaseModel):
+    rows: list[dict[str, Any]]
+    total_rows: int
+    execution_time_ms: int
+    state: ExecutionState
+    lineage: LineageMetadata
+
+
+class SavedQueryRequest(BaseModel):
+    name: str
+    description: str | None = None
+    config: QueryConfig
+
+
+class SavedQueryResponse(BaseModel):
+    query_id: str
+    workspace_id: str
+    name: str
+    description: str | None = None
+    config_hash: str
+    config: QueryConfig
+    created_at: str
+    updated_at: str
+    last_executed_at: str | None = None
+
+
+class SavedQueryListResponse(BaseModel):
+    items: list[SavedQueryResponse]

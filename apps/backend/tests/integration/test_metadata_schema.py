@@ -17,6 +17,8 @@ REQUIRED_TABLES = {
     "file_schemas",
     "relationship_rules",
     "relationship_audit",
+    "saved_queries",
+    "query_execution_log",
 }
 
 

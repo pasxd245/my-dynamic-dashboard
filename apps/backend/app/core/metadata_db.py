@@ -206,6 +206,44 @@ def init_metadata_db(db_path: Path) -> None:
             )
             """
         )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS saved_queries (
+                query_id TEXT PRIMARY KEY,
+                workspace_id TEXT NOT NULL,
+                name TEXT NOT NULL,
+                description TEXT,
+                query_config TEXT NOT NULL,
+                config_hash TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                last_executed_at TEXT,
+                created_by TEXT,
+                FOREIGN KEY(workspace_id) REFERENCES workspaces(id)
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS query_execution_log (
+                execution_id TEXT PRIMARY KEY,
+                query_id TEXT,
+                workspace_id TEXT NOT NULL,
+                state TEXT NOT NULL,
+                result_row_count INTEGER,
+                result_column_count INTEGER,
+                execution_time_ms INTEGER,
+                is_preview INTEGER NOT NULL DEFAULT 0,
+                error_message TEXT,
+                error_code TEXT,
+                lineage_metadata TEXT NOT NULL,
+                query_config_snapshot TEXT NOT NULL,
+                executed_at TEXT NOT NULL,
+                FOREIGN KEY(workspace_id) REFERENCES workspaces(id),
+                FOREIGN KEY(query_id) REFERENCES saved_queries(query_id)
+            )
+            """
+        )
         conn.execute("DROP TABLE IF EXISTS relationships")
         conn.execute(
             """
@@ -271,6 +309,36 @@ def init_metadata_db(db_path: Path) -> None:
             """
             CREATE INDEX IF NOT EXISTS idx_roles_column
             ON role_assignments(column_id)
+            """
+        )
+        conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_saved_queries_workspace
+            ON saved_queries(workspace_id)
+            """
+        )
+        conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_saved_queries_created_at
+            ON saved_queries(created_at DESC)
+            """
+        )
+        conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_query_execution_workspace
+            ON query_execution_log(workspace_id)
+            """
+        )
+        conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_query_execution_query
+            ON query_execution_log(query_id)
+            """
+        )
+        conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_query_execution_timeline
+            ON query_execution_log(executed_at DESC)
             """
         )
 

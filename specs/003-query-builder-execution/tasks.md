@@ -17,11 +17,11 @@
 
 **Purpose**: Create feature scaffolding and test entry points.
 
-- [ ] T001 Create backend query contract test module in apps/backend/tests/contract/test_query_builder_contract.py
-- [ ] T002 [P] Create backend preview/execute integration test module in apps/backend/tests/integration/test_query_builder_execution.py
-- [ ] T003 [P] Create backend saved-query integration test module in apps/backend/tests/integration/test_query_builder_saved_queries.py
-- [ ] T004 [P] Create builder query API module in apps/builder/src/api/queryBuilderApi.ts and apps/builder/src/api/queryBuilderTypes.ts
-- [ ] T005 [P] Create builder query UI module stubs in apps/builder/src/components/query-builder/QueryBuilderPanel.tsx, apps/builder/src/components/query-builder/JoinPanel.tsx, apps/builder/src/components/query-builder/PreviewPanel.tsx, apps/builder/src/components/query-builder/ExecutionPanel.tsx, apps/builder/src/components/query-builder/ExportPanel.tsx, and apps/builder/src/components/query-builder/SavedQueriesPanel.tsx
+- [x] T001 Create backend query contract test module in apps/backend/tests/contract/test_query_builder_contract.py
+- [x] T002 [P] Create backend preview/execute integration test module in apps/backend/tests/integration/test_query_builder_execution.py
+- [x] T003 [P] Create backend saved-query integration test module in apps/backend/tests/integration/test_query_builder_saved_queries.py
+- [x] T004 [P] Create builder query API module in apps/builder/src/api/queryBuilderApi.ts and apps/builder/src/api/queryBuilderTypes.ts
+- [x] T005 [P] Create builder query UI module stubs in apps/builder/src/components/query-builder/QueryBuilderPanel.tsx, apps/builder/src/components/query-builder/JoinPanel.tsx, apps/builder/src/components/query-builder/PreviewPanel.tsx, apps/builder/src/components/query-builder/ExecutionPanel.tsx, apps/builder/src/components/query-builder/ExportPanel.tsx, and apps/builder/src/components/query-builder/SavedQueriesPanel.tsx
 
 ---
 
@@ -31,16 +31,16 @@
 
 **CRITICAL**: Complete this phase before starting user story phases.
 
-- [ ] T006 Add saved query and execution log table DDL in apps/backend/app/core/metadata_db.py
-- [ ] T007 [P] Add saved query and execution log indexes in apps/backend/app/core/metadata_db.py
-- [ ] T008 Add query DTOs and enums (QueryConfig, SelectedColumn, FilterSpec, AggregationSpec, JoinSpec, ValidationIssue, LineageMetadata, SavedQuery payloads) in apps/backend/app/schemas.py
-- [ ] T009 [P] Add QueryConfigValidator skeleton in apps/backend/app/services/query_builder_service.py
-- [ ] T010 [P] Add JoinGraphValidator skeleton (approved-only + acyclic checks) in apps/backend/app/services/query_builder_service.py
-- [ ] T011 [P] Add SqlTranslator skeleton (DuckDB SQL + ordered parameters) in apps/backend/app/services/query_builder_service.py
-- [ ] T012 [P] Add QueryExecutionService skeleton (preview/execute timeout wrapper) in apps/backend/app/services/query_execution_service.py
-- [ ] T013 [P] Add QueryExportService skeleton (excel/csv generation with lineage metadata) in apps/backend/app/services/query_export_service.py
-- [ ] T014 [P] Add QueryPersistenceService skeleton (save/load/update/delete/list/history + config hash) in apps/backend/app/services/query_persistence_service.py
-- [ ] T015 Add shared query exception mapping for 400/408/409/413 in apps/backend/app/main.py
+- [x] T006 Add saved query and execution log table DDL in apps/backend/app/core/metadata_db.py
+- [x] T007 [P] Add saved query and execution log indexes in apps/backend/app/core/metadata_db.py
+- [x] T008 Add query DTOs and enums (QueryConfig, SelectedColumn, FilterSpec, AggregationSpec, JoinSpec, ValidationIssue, LineageMetadata, SavedQuery payloads) in apps/backend/app/schemas.py
+- [x] T009 [P] Add QueryConfigValidator skeleton in apps/backend/app/services/query_builder_service.py
+- [x] T010 [P] Add JoinGraphValidator skeleton (approved-only + acyclic checks) in apps/backend/app/services/query_builder_service.py
+- [x] T011 [P] Add SqlTranslator skeleton (DuckDB SQL + ordered parameters) in apps/backend/app/services/query_builder_service.py
+- [x] T012 [P] Add QueryExecutionService skeleton (preview/execute timeout wrapper) in apps/backend/app/services/query_execution_service.py
+- [x] T013 [P] Add QueryExportService skeleton (excel/csv generation with lineage metadata) in apps/backend/app/services/query_export_service.py
+- [x] T014 [P] Add QueryPersistenceService skeleton (save/load/update/delete/list/history + config hash) in apps/backend/app/services/query_persistence_service.py
+- [x] T015 Add shared query exception mapping for 400/408/409/413 in apps/backend/app/main.py
 
 **Checkpoint**: Foundation complete; user stories can proceed.
 
