@@ -130,7 +130,7 @@ Setup complete.
 Next steps:
   1. Restart Claude Code (or run /mcp inside it) to pick up MCP changes.
   2. Run commands across app repos:
-    ./scripts/crg apps -- --update
+    ./scripts/crg -- update
 EOF
 }
 
