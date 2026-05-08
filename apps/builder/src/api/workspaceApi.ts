@@ -1,0 +1,149 @@
+import type {
+  ApiError,
+  WorkspaceCreateRequest,
+  WorkspaceResponse,
+  UploadResponse,
+  OverridePayload,
+  ProfileResponse,
+  AssignRolePayload,
+  ReadinessResponse,
+  ManifestResponse,
+  ImportManifestPayload,
+} from "./types";
+
+async function readApiError(response: Response, fallbackMessage: string): Promise<string> {
+  try {
+    const payload = (await response.json()) as ApiError;
+    const detailMessage = payload?.error?.message;
+    const mismatchDetails = payload?.error?.details?.mismatches;
+
+    if (Array.isArray(mismatchDetails) && mismatchDetails.length > 0) {
+      return `${detailMessage ?? fallbackMessage}: ${JSON.stringify(mismatchDetails)}`;
+    }
+
+    return detailMessage ?? fallbackMessage;
+  } catch {
+    return fallbackMessage;
+  }
+}
+
+export async function createWorkspace(name: string): Promise<WorkspaceResponse> {
+  const response = await fetch("/api/v1/workspaces", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ name } as WorkspaceCreateRequest),
+  });
+
+  if (!response.ok) {
+    throw new Error(await readApiError(response, "Failed to create workspace"));
+  }
+
+  return response.json() as Promise<WorkspaceResponse>;
+}
+
+export async function uploadSource(
+  workspaceId: string,
+  file: File,
+): Promise<UploadResponse> {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const response = await fetch(`/api/v1/workspaces/${workspaceId}/sources/upload`, {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!response.ok) {
+    throw new Error(await readApiError(response, "Failed to upload source"));
+  }
+
+  return response.json() as Promise<UploadResponse>;
+}
+
+export async function overrideSheet(
+  workspaceId: string,
+  sheetId: string,
+  payload: OverridePayload,
+): Promise<UploadResponse["sheets"][0]> {
+  const response = await fetch(`/api/v1/workspaces/${workspaceId}/sheets/${sheetId}/override`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    throw new Error(await readApiError(response, "Failed to override sheet settings"));
+  }
+
+  return response.json();
+}
+
+export async function getWorkspaceProfile(workspaceId: string): Promise<ProfileResponse> {
+  const response = await fetch(`/api/v1/workspaces/${workspaceId}/profile`);
+
+  if (!response.ok) {
+    throw new Error(await readApiError(response, "Failed to fetch workspace profile"));
+  }
+
+  return response.json() as Promise<ProfileResponse>;
+}
+
+export async function assignColumnRoles(
+  workspaceId: string,
+  columnId: string,
+  payload: AssignRolePayload,
+): Promise<void> {
+  const response = await fetch(`/api/v1/workspaces/${workspaceId}/columns/${columnId}/roles`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    throw new Error(await readApiError(response, "Failed to assign column role"));
+  }
+}
+
+export async function getReadiness(workspaceId: string): Promise<ReadinessResponse> {
+  const response = await fetch(`/api/v1/workspaces/${workspaceId}/readiness`);
+
+  if (!response.ok) {
+    throw new Error(await readApiError(response, "Failed to fetch readiness"));
+  }
+
+  return response.json() as Promise<ReadinessResponse>;
+}
+
+export async function exportManifest(workspaceId: string): Promise<ManifestResponse> {
+  const response = await fetch(`/api/v1/workspaces/${workspaceId}/manifest/export`, {
+    method: "POST",
+  });
+
+  if (!response.ok) {
+    throw new Error(await readApiError(response, "Failed to export manifest"));
+  }
+
+  return response.json() as Promise<ManifestResponse>;
+}
+
+export async function importManifest(manifest: ManifestResponse): Promise<WorkspaceResponse> {
+  const response = await fetch("/api/v1/workspaces/manifest/import", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ manifest } as ImportManifestPayload),
+  });
+
+  if (!response.ok) {
+    throw new Error(await readApiError(response, "Failed to import manifest"));
+  }
+
+  return response.json() as Promise<WorkspaceResponse>;
+}
