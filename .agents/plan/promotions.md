@@ -44,3 +44,9 @@
 **Source**: human-authored awareness note
 **Rationale**: Make agents aware of `./scripts/crg` (code-review-graph wrapper + MCP) so they can recommend it for cross-repo investigation/impact-tracing alongside SDD, without promoting it to a full skill until repeatable usage patterns emerge.
 **Promoted by**: human curated
+
+## 2026-05-09: pdca-next + /pdca prompt → .agents/skills/ + .agents/prompts/
+
+**Source**: human-authored request (implemented by agent)
+**Rationale**: Add a reusable PDCA next-action helper that reads plan governance artifacts and returns one concrete next step, including compaction checkpoint awareness.
+**Promoted by**: human curated
