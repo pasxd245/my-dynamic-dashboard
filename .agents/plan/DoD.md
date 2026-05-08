@@ -31,12 +31,12 @@ Agents may mark `auto` and `demo` items. Only the user may mark `user` items.
 
 | #   | Task                                                                  | Verify | Status | Round |
 | --- | --------------------------------------------------------------------- | ------ | ------ | ----- |
-| 1.1 | pnpm monorepo with `apps/backend` and `apps/builder`                  | auto   | [ ]    | 01    |
-| 1.2 | FastAPI skeleton returns `{"status":"ok"}` on `/health`               | demo   | [ ]    | 01    |
-| 1.3 | React builder renders hello world on `localhost:3000`                 | demo   | [ ]    | 01    |
-| 1.4 | Vite proxies `/api` to backend at `localhost:8000`                    | demo   | [ ]    | 01    |
-| 1.5 | `docker-compose.yml` starts both services                             | demo   | [ ]    | 01    |
-| 1.6 | `.gitignore` covers `data/`, `node_modules/`, `venv/`, `__pycache__/` | auto   | [ ]    | 01    |
+| 1.1 | pnpm monorepo with `apps/backend` and `apps/builder`                  | auto   | [x]    | 01    |
+| 1.2 | FastAPI skeleton returns `{"status":"ok"}` on `/health`               | demo   | [x]    | 01    |
+| 1.3 | React builder renders hello world on `localhost:3000`                 | demo   | [x]    | 01    |
+| 1.4 | Vite proxies `/api` to backend at `localhost:8000`                    | demo   | [x]    | 01    |
+| 1.5 | `docker-compose.yml` starts both services                             | demo   | [!]    | 01    |
+| 1.6 | `.gitignore` covers `data/`, `node_modules/`, `venv/`, `__pycache__/` | auto   | [x]    | 01    |
 | 1.7 | User confirms project boots cleanly                                   | user   | [ ]    | 01    |
 
 ---
