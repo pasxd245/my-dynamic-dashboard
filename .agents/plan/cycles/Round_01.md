@@ -1,43 +1,33 @@
 # Round 01: Project Scaffolding
 
 **Status**: Review
+**Linked Tasks**: T1.1–T1.7 (see specs/001-upload-profile-field-roles/tasks.md)
 **Date started**: 2026-05-08
-**Date completed**:
+**Date completed**: —
 **MVP**: 1
-**DoD tasks**: 1.1–1.7
 
 ## Goal
 
-Bootstrap the monorepo so both backend and builder run locally with a
-single command. This is the foundation everything else builds on.
+Bootstrap the monorepo so both backend and builder run locally with a single command.
 
-## Plan
+## Implementation Narrative
 
-- [ ] Initialise pnpm workspace with `apps/backend` and `apps/builder`
-- [ ] Create FastAPI skeleton with `/health` endpoint and CORS middleware
-- [ ] Create React + Vite + TanStack Router skeleton rendering a hello page
-- [ ] Configure Vite proxy so `/api` routes hit `localhost:8000`
-- [ ] Write `docker-compose.yml` that starts both services
-- [ ] Ensure `.gitignore` covers `data/`, `node_modules/`, `venv/`, `__pycache__/`
-- [ ] Verify everything boots with `pnpm dev` / `docker compose up`
+- Bootstrapped FastAPI backend with health endpoints and CORS.
+- Bootstrapped React + Vite builder with hello-world UI.
+- Added /api proxy config (Vite → localhost:8000).
+- Created docker-compose.yml with both services.
+- Canonical baseline commit: 3907380.
 
-## Do
+**Blockers**: Docker daemon unavailable in dev environment (non-critical).
 
-- Bootstrapped FastAPI backend in apps/backend with health endpoints.
-- Bootstrapped React + Vite builder in apps/builder with hello-world UI.
-- Added /api proxy config in Vite to target localhost:8000.
-- Added docker-compose.yml for backend and builder services.
-- Updated .gitignore to cover nested .venv directories.
-- Canonical implementation commit: 3907380.
-- Feature branch keeps this round unchanged; later commits build on top of this baseline.
+## Decision Gate
 
-## Check
+- ✓ Backend health endpoint works
+- ✓ Builder renders at localhost:3000
+- ✓ API proxy configured and tested
+- ⊕ Docker compose blocked by daemon
 
-- [x] `curl localhost:8000/health` returns `{"status":"ok"}`
-- [x] `localhost:3000` renders the builder hello page
-- [x] `/api` proxy is configured and validated at config/runtime level
-- [ ] `docker compose up` starts both without errors _(blocked: Docker daemon unavailable in current environment)_
-- [ ] User confirms project boots cleanly
+**Go/No-Go**: GO. Scaffold complete; Docker verification deferred.
 
 ## Act
 

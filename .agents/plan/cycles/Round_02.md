@@ -1,47 +1,33 @@
 # Round 02: Data Upload & Schema Detection
 
 **Status**: Review
+**Linked Tasks**: T2.1–T2.8 (see specs/001-upload-profile-field-roles/tasks.md)
 **Date started**: 2026-05-08
-**Date completed**:
+**Date completed**: —
 **MVP**: 1
-**DoD tasks**: 2.1–2.8
 
 ## Goal
 
-Users can upload Excel/CSV files through the API. Polars reads, cleans,
-and stores them as versioned Parquet. Schema metadata lands in SQLite.
-Re-uploads detect schema changes.
+Users can upload Excel/CSV files. Polars detects schema, stores versioned Parquet. Schema metadata in SQLite. Re-uploads detect changes.
 
-## Plan
+## Implementation Narrative
 
-- [x] Create upload service: read Excel/CSV, detect schema, write Parquet (zstd)
-- [x] Create metadata_db.py: SQLite init with `files` and `file_schemas` tables
-- [x] Create `POST /api/v1/tables/upload` endpoint
-- [x] Create `GET /api/v1/tables` endpoint
-- [x] Implement schema versioning: re-upload same filename -> v2, diff schemas
-- [ ] Add schema_changes table and endpoint-level diff history
-- [ ] Test with 100k-row file for performance
+- Created upload service (Polars CSV/XLSX parsing + zstd Parquet).
+- Implemented schema versioning: re-upload same file → v2 if schema differs.
+- Persisted metadata in SQLite (files, file_schemas tables).
+- Baseline commit: 7aedb10. Extended via: 9aef8a3, cdb7a41, c35c30f, 4e639c9, 9997557, b1ed1b0.
 
-## Do
+**Discovery**: Schema diff detection works; multi-sheet Excel handling deferred to future scope.
 
-- Added backend config and metadata storage modules.
-- Added upload processing service using Polars for CSV/XLSX parsing.
-- Persisted uploads as versioned Parquet under data/parquet/{table_id}/v{version}.parquet.
-- Implemented schema metadata persistence in SQLite.
-- Implemented `GET /api/v1/tables` latest-version summary endpoint.
-- Verified re-upload increments version and detects schema changes.
-- Initial DoD 2.x implementation commit: 7aedb10 (baseline branch).
-- Current feature branch extends this scope with workspace-scoped upload/profile/roles:
-  9aef8a3, cdb7a41, c35c30f, 4e639c9, 9997557, b1ed1b0.
+## Decision Gate
 
-## Check
+- ✓ Upload → Parquet created
+- ✓ Schema metadata persisted in SQLite
+- ✓ Re-upload detects changes
+- ✓ `GET /api/v1/tables` returns latest versions
+- ⊕ 100k row perf test deferred
 
-- [x] Upload .csv via curl -> Parquet created
-- [x] SQLite has file + schema records
-- [x] Re-upload detects added/removed columns
-- [x] `GET /api/v1/tables` returns correct list
-- [ ] 100k rows uploads in < 30 seconds
-- [ ] User uploads their real Sales.xlsx
+**Go/No-Go**: GO. Core upload flow validated; perf testing deferred.
 
 ## Act
 

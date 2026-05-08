@@ -1,47 +1,31 @@
 # Round 03: Relationship Management
 
-**Status**: Planning (Deferred)
-**Date started**:
-**Date completed**:
+**Status**: Deferred
+**Linked Tasks**: T3.1–T3.7 (see specs/001-upload-profile-field-roles/tasks.md)
+**Date started**: —
+**Date completed**: —
 **MVP**: 1
-**DoD tasks**: 3.1–3.7
 
 ## Goal
 
-Users can define, list, and delete relationships between uploaded tables.
-Schema changes on re-upload flag affected relationships as broken.
+Users define relationships between tables. Schema changes flag affected relationships as broken.
 
-## Plan
+## Implementation Narrative
 
-- [ ] Add `relationships` table to SQLite (from/to file+column, join type, broken flag)
-- [ ] Create `POST /api/v1/relationships` with validation (tables/columns must exist)
-- [ ] Create `GET /api/v1/relationships`
-- [ ] Create `DELETE /api/v1/relationships/{id}`
-- [ ] On schema change (Round 02), check if removed columns break existing relationships
-- [ ] Mark broken relationships and include in upload response warnings
+**Not yet started**. Deferred from original MVP1 sequencing. US1-US3 (upload, profile, roles) prioritized to establish data layer foundation first. Scheduled to begin after US4 (manifest export) and Round 05 (builder upload UI).
 
-## Do
+**Blocking**: Relationship CRUD endpoints (T3.1-T3.7) required by Round 04 SQL translator (needs join graph).
 
-- Round 03 has not started yet in this branch.
-- Execution order was intentionally shifted to Spec Kit US1-US3 work
-  (upload/profile/roles) before relationship CRUD from DoD 3.x.
-- No Round 03 implementation commit exists yet.
+## Decision Gate
 
-## Check
+**Blocked**: Scheduled after US4 manifest + Round 05 builder. Start criteria:
 
-- [ ] Can create, list, delete relationships via API
-- [ ] Validation rejects bad table/column references
-- [ ] Re-upload with removed column flags the relationship as broken
-- [ ] User defines Sales → Agents relationship
+- Manifest export endpoints complete (T036-T043)
+- Builder upload UI shell done (Round 05)
+- SQL translator ready (Round 04 prerequisite)
 
-## Act
+**Success criteria**:
 
-## **Learnings**
-
-- Keep Round 03 deferred until remaining MVP 1 Spec Kit tasks (US4 manifest)
-  are completed or the team explicitly reprioritizes relationship work.
-
-**Promotions**:
-
-- [ ] → context/ :
-- [ ] → skills/ :
+- Create/list/delete relationships via API
+- Validation rejects bad table/column references
+- Schema change detection marks broken relationships

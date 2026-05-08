@@ -1,33 +1,19 @@
 # Round 10: Dashboard Visualisations
 
 **Status**: Deferred
-**Date started**:
-**Date completed**:
+**Linked Tasks**: T10.1–T10.6 (see specs/001-upload-profile-field-roles/tasks.md)
+**Date started**: —
+**Date completed**: —
 **MVP**: 2
-**DoD tasks**: 10.1–10.6
-**Canonical state**: Branch `001-upload-profile-field-roles` (US1-US3 complete, MVP1 gates pending)
 
 ## Goal
 
-The Streamlit dashboard auto-generates charts from query results and
-presents them alongside KPIs and the data table.
+Streamlit dashboard auto-generates charts. Plotly + KPI metrics + data table.
 
-## Plan
+## Implementation Narrative
 
-- [ ] Detect column types in result DataFrame (numeric, categorical, date)
-- [ ] Generate bar chart for categorical × numeric combinations
-- [ ] Generate line chart for date × numeric combinations
-- [ ] Add metrics row at top: row count, totals, averages (from numeric columns)
-- [ ] Layout: metrics → chart(s) → data table → export buttons
-- [ ] Use Plotly with `use_container_width=True`
+**Not yet started**. MVP2 visualization layer, follows Round 09 (saved queries). Auto-detects result shape → generates bar/line charts.
 
-## Do
-
-**Context**: MVP2 visualization layer. Follows Round 09 saved queries implementation. Auto-detects query result shape and generates appropriate Plotly visualizations.
-
-## Check
-
-- [ ] Charts auto-generate without hardcoded column names
 - [ ] Charts are interactive (hover, zoom)
 - [ ] KPI metrics display correct calculations
 - [ ] Page layout is clear and not cluttered

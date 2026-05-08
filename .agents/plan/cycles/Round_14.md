@@ -1,6 +1,6 @@
 # Round 14: MVP 1 Bootstrap (Superseded)
 
-**Status**: Complete
+**Status**: Superseded
 **Date started**: 2026-05-08
 **Date completed**: 2026-05-08
 **MVP**: 1

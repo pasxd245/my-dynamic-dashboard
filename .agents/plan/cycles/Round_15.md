@@ -1,6 +1,6 @@
 # Round 15: Data Upload and Schema Detection (Superseded)
 
-**Status**: Complete
+**Status**: Superseded
 **Date started**: 2026-05-08
 **Date completed**: 2026-05-08
 **MVP**: 1
