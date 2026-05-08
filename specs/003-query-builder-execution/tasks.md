@@ -54,16 +54,16 @@
 
 ### Tests for User Story 1
 
-- [ ] T016 [P] [US1] Add contract test for POST /api/v1/workspaces/{workspaceId}/queries/validate in apps/backend/tests/contract/test_query_builder_contract.py
-- [ ] T017 [P] [US1] Add integration test for single-table SQL generation and parameter ordering in apps/backend/tests/integration/test_query_builder_execution.py
-- [ ] T018 [P] [US1] Add integration test for invalid filter/operator/aggregation/group-by validation failures in apps/backend/tests/integration/test_query_builder_execution.py
+- [x] T016 [P] [US1] Add contract test for POST /api/v1/workspaces/{workspaceId}/queries/validate in apps/backend/tests/contract/test_query_builder_contract.py
+- [x] T017 [P] [US1] Add integration test for single-table SQL generation and parameter ordering in apps/backend/tests/integration/test_query_builder_execution.py
+- [x] T018 [P] [US1] Add integration test for invalid filter/operator/aggregation/group-by validation failures in apps/backend/tests/integration/test_query_builder_execution.py
 
 ### Implementation for User Story 1
 
-- [ ] T019 [US1] Implement filter operator whitelist and type checks in QueryConfigValidator in apps/backend/app/services/query_builder_service.py
-- [ ] T020 [US1] Implement GROUP BY consistency validation in QueryConfigValidator in apps/backend/app/services/query_builder_service.py
-- [ ] T021 [US1] Implement single-table SQL translation with placeholders in SqlTranslator in apps/backend/app/services/query_builder_service.py
-- [ ] T022 [US1] Add validate endpoint wiring for POST /api/v1/workspaces/{workspaceId}/queries/validate in apps/backend/app/main.py
+- [x] T019 [US1] Implement filter operator whitelist and type checks in QueryConfigValidator in apps/backend/app/services/query_builder_service.py
+- [x] T020 [US1] Implement GROUP BY consistency validation in QueryConfigValidator in apps/backend/app/services/query_builder_service.py
+- [x] T021 [US1] Implement single-table SQL translation with placeholders in SqlTranslator in apps/backend/app/services/query_builder_service.py
+- [x] T022 [US1] Add validate endpoint wiring for POST /api/v1/workspaces/{workspaceId}/queries/validate in apps/backend/app/main.py
 - [ ] T023 [P] [US1] Implement validateQuery API client in apps/builder/src/api/queryBuilderApi.ts and types in apps/builder/src/api/queryBuilderTypes.ts
 - [ ] T024 [P] [US1] Implement base table, columns, filters, aggregations, and SQL preview UI in apps/builder/src/components/query-builder/QueryBuilderPanel.tsx
 - [ ] T025 [US1] Integrate QueryBuilderPanel in apps/builder/src/App.tsx

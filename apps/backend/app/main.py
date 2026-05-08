@@ -34,8 +34,10 @@ from app.schemas import (
     SheetResponse,
     SourceUploadResponse,
     TableSummary,
+    QueryConfig,
     UpdateRelationshipRuleRequest,
     UploadTableResponse,
+    ValidateQueryResponse,
     WorkspaceCreateRequest,
     WorkspaceProfileResponse,
     WorkspaceResponse,
@@ -59,6 +61,7 @@ from app.services.relationship_service import (
     review_rule,
     update_rule,
 )
+from app.services.query_builder_service import JoinGraphValidator, QueryConfigValidator, SqlTranslator
 from app.services.upload_service import (
     build_upload_result,
     compute_column_profiles,
@@ -176,6 +179,25 @@ def _get_workspace(workspace_id: str) -> dict:
         "status": str(row["status"]),
         "manifest_version": int(row["manifest_version"]),
     }
+
+
+@app.post("/api/v1/workspaces/{workspace_id}/queries/validate")
+def validate_query(workspace_id: str, request: QueryConfig) -> ValidateQueryResponse:
+    _get_workspace(workspace_id)
+
+    validator = QueryConfigValidator()
+    join_validator = JoinGraphValidator()
+    translator = SqlTranslator()
+
+    issues = validator.validate(request)
+    issues.extend(join_validator.validate_joins(request.base_table_id, request.joins))
+
+    has_errors = any(issue.severity == "error" for issue in issues)
+    if has_errors:
+        return ValidateQueryResponse(valid=False, issues=issues)
+
+    sql, _ = translator.translate(request)
+    return ValidateQueryResponse(valid=True, issues=issues, sql_preview=sql)
 
 
 @app.post(

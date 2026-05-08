@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ApiErrorModel(BaseModel):
@@ -240,10 +240,10 @@ class JoinSpec(BaseModel):
 class QueryConfig(BaseModel):
     base_table_id: str
     selected_columns: list[SelectedColumn]
-    filters: list[FilterSpec] = []
-    aggregations: list[AggregationSpec] = []
-    group_by_columns: list[str] = []
-    joins: list[JoinSpec] = []
+    filters: list[FilterSpec] = Field(default_factory=list)
+    aggregations: list[AggregationSpec] = Field(default_factory=list)
+    group_by_columns: list[str] = Field(default_factory=list)
+    joins: list[JoinSpec] = Field(default_factory=list)
     result_limit: int | None = None
     execution_timeout_seconds: int = 5
 
@@ -269,11 +269,11 @@ class RelationshipRuleMetadata(BaseModel):
 
 
 class LineageMetadata(BaseModel):
-    source_tables: list[SourceTableMetadata] = []
-    relationship_rules_used: list[RelationshipRuleMetadata] = []
-    filters_applied: list[FilterSpec] = []
-    aggregations_applied: list[AggregationSpec] = []
-    group_by_columns: list[str] = []
+    source_tables: list[SourceTableMetadata] = Field(default_factory=list)
+    relationship_rules_used: list[RelationshipRuleMetadata] = Field(default_factory=list)
+    filters_applied: list[FilterSpec] = Field(default_factory=list)
+    aggregations_applied: list[AggregationSpec] = Field(default_factory=list)
+    group_by_columns: list[str] = Field(default_factory=list)
     query_config_hash: str | None = None
     execution_timestamp: str | None = None
     execution_time_ms: int | None = None
@@ -281,7 +281,7 @@ class LineageMetadata(BaseModel):
 
 class ValidateQueryResponse(BaseModel):
     valid: bool
-    issues: list[ValidationIssue] = []
+    issues: list[ValidationIssue] = Field(default_factory=list)
     sql_preview: str | None = None
 
 
