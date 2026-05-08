@@ -16,6 +16,6 @@
 
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan:
-specs/002-relationship-rules/plan.md
+specs/006-production-deployment/plan.md
 
 <!-- SPECKIT END -->
