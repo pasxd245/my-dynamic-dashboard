@@ -88,16 +88,16 @@ Independent Test: Assign all required roles, verify hard failures for invalid ti
 
 ### Tests for User Story 3
 
-- [ ] T028 [P] [US3] Add contract test for PUT /api/v1/workspaces/{workspaceId}/columns/{columnId}/roles and GET /api/v1/workspaces/{workspaceId}/readiness in apps/backend/tests/contract/test_roles_readiness_contract.py
-- [ ] T029 [P] [US3] Add integration test for hard time-anchor rejection and soft override-required paths in apps/backend/tests/integration/test_role_compatibility.py
-- [ ] T030 [P] [US3] Add integration test for readiness blocking on unresolved CRITICAL warnings in apps/backend/tests/integration/test_readiness_critical_warnings.py
+- [x] T028 [P] [US3] Add contract test for PUT /api/v1/workspaces/{workspaceId}/columns/{columnId}/roles and GET /api/v1/workspaces/{workspaceId}/readiness in apps/backend/tests/contract/test_roles_readiness_contract.py
+- [x] T029 [P] [US3] Add integration test for hard time-anchor rejection and soft override-required paths in apps/backend/tests/integration/test_role_compatibility.py
+- [x] T030 [P] [US3] Add integration test for readiness blocking on unresolved CRITICAL warnings in apps/backend/tests/integration/test_readiness_critical_warnings.py
 
 ### Implementation for User Story 3
 
-- [ ] T031 [US3] Implement role compatibility engine (hard/soft constraints) in apps/backend/app/services/profile_service.py
+- [x] T031 [US3] Implement role compatibility engine (hard/soft constraints) in apps/backend/app/services/profile_service.py
 - [ ] T032 [US3] Implement role assignment persistence and override audit writes in apps/backend/app/core/metadata_db.py
-- [ ] T033 [US3] Implement role assignment endpoint and readiness endpoint in apps/backend/app/main.py
-- [ ] T034 [US3] Implement field-role summary with source-sheet-column traceability metadata in apps/backend/app/schemas.py
+- [x] T033 [US3] Implement role assignment endpoint and readiness endpoint in apps/backend/app/main.py
+- [x] T034 [US3] Implement field-role summary with source-sheet-column traceability metadata in apps/backend/app/schemas.py
 - [ ] T035 [US3] Implement builder role assignment UX (override reason capture, readiness badge, traceability links) in apps/builder/src/App.jsx
 
 Checkpoint: US3 is independently functional and provides MVP 1 readiness evaluation.

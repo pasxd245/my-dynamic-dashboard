@@ -22,8 +22,13 @@ from app.schemas import (
     WorkspaceCreateRequest,
     WorkspaceProfileResponse,
     WorkspaceResponse,
+    ReadinessStatusResponse,
+    RoleAssignmentRequest,
+    RoleAssignmentResponse,
+    RoleAssignmentResult,
 )
 from app.services.profile_service import compute_column_profile, compute_profiles
+from app.services.profile_service import validate_role_compatibility
 from app.services.manifest_service import compute_source_hash
 from app.services.upload_service import (
     build_upload_result,
@@ -383,6 +388,134 @@ def get_workspace_profile(workspace_id: str) -> WorkspaceProfileResponse:
     ]
 
     return WorkspaceProfileResponse(columns=profiles)
+
+
+@app.put("/api/v1/workspaces/{workspace_id}/columns/{column_id}/roles")
+def assign_column_roles(
+    workspace_id: str,
+    column_id: str,
+    request: RoleAssignmentRequest,
+) -> RoleAssignmentResponse:
+    _get_workspace(workspace_id)
+
+    with get_connection(DB_PATH) as conn:
+        context = conn.execute(
+            """
+            SELECT c.id AS column_id, c.effective_type, cp.uniqueness_ratio
+            FROM columns c
+            JOIN sheets s ON s.id = c.sheet_id
+            JOIN source_files sf ON sf.id = s.source_file_id
+            JOIN column_profiles cp ON cp.column_id = c.id
+            WHERE sf.workspace_id = ? AND c.id = ?
+            """,
+            (workspace_id, column_id),
+        ).fetchone()
+
+        if context is None:
+            raise ApiError(status_code=404, code="column_not_found", message="Column not found")
+
+        assigned_at = utc_now_iso()
+        results: list[RoleAssignmentResult] = []
+
+        for role in request.roles:
+            compatibility = validate_role_compatibility(
+                role=role,
+                effective_type=str(context["effective_type"]),
+                uniqueness_ratio=float(context["uniqueness_ratio"]),
+                has_override_reason=bool(request.override_reason),
+            )
+
+            if not compatibility.accepted:
+                raise ApiError(
+                    status_code=422,
+                    code="compatibility_violation",
+                    message=compatibility.reason or "Role compatibility violation",
+                )
+
+            conn.execute(
+                """
+                INSERT INTO role_assignments (
+                    id, column_id, role, accepted, override_used,
+                    override_reason, assigned_by, assigned_at
+                ) VALUES (?, ?, ?, ?, ?, ?, 'user', ?)
+                """,
+                (
+                    str(uuid.uuid4()),
+                    column_id,
+                    role,
+                    1,
+                    int(compatibility.override_required),
+                    request.override_reason,
+                    assigned_at,
+                ),
+            )
+
+            results.append(
+                RoleAssignmentResult(
+                    column_id=column_id,
+                    role=role,
+                    accepted=True,
+                    override_used=compatibility.override_required,
+                    override_reason=request.override_reason,
+                    assigned_at=assigned_at,
+                )
+            )
+
+    return RoleAssignmentResponse(assignments=results)
+
+
+@app.get("/api/v1/workspaces/{workspace_id}/readiness")
+def get_workspace_readiness(workspace_id: str) -> ReadinessStatusResponse:
+    _get_workspace(workspace_id)
+
+    required_roles = ["identity_key", "time_anchor", "measure", "source_of_truth_outcome"]
+    critical_warning_codes = {"mixed_type_values", "date_out_of_range", "sentinel_values_detected"}
+
+    with get_connection(DB_PATH) as conn:
+        role_rows = conn.execute(
+            """
+            SELECT DISTINCT ra.role
+            FROM role_assignments ra
+            JOIN columns c ON c.id = ra.column_id
+            JOIN sheets s ON s.id = c.sheet_id
+            JOIN source_files sf ON sf.id = s.source_file_id
+            WHERE sf.workspace_id = ? AND ra.accepted = 1
+            """,
+            (workspace_id,),
+        ).fetchall()
+        assigned_roles = {str(row["role"]) for row in role_rows}
+
+        warning_rows = conn.execute(
+            """
+            SELECT ra.role, cp.warnings_json
+            FROM role_assignments ra
+            JOIN columns c ON c.id = ra.column_id
+            JOIN sheets s ON s.id = c.sheet_id
+            JOIN source_files sf ON sf.id = s.source_file_id
+            JOIN column_profiles cp ON cp.column_id = c.id
+            WHERE sf.workspace_id = ? AND ra.accepted = 1
+            """,
+            (workspace_id,),
+        ).fetchall()
+
+    missing_required = [role for role in required_roles if role not in assigned_roles]
+    unresolved_critical: list[str] = []
+
+    for row in warning_rows:
+        role = str(row["role"])
+        warnings = json.loads(str(row["warnings_json"]))
+        for warning in warnings:
+            if warning in critical_warning_codes:
+                unresolved_critical.append(f"{role}:{warning}")
+
+    complete = not missing_required and not unresolved_critical
+
+    return ReadinessStatusResponse(
+        complete=complete,
+        missing_required_roles=missing_required,
+        unresolved_critical_warnings=unresolved_critical,
+        surface_role="analysis_workbench",
+    )
 
 
 @app.post(

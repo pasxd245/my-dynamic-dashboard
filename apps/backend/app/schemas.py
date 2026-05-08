@@ -120,6 +120,10 @@ class RoleAssignmentResult(BaseModel):
     assigned_at: str
 
 
+class RoleAssignmentResponse(BaseModel):
+    assignments: list[RoleAssignmentResult]
+
+
 class ReadinessStatusResponse(BaseModel):
     complete: bool
     missing_required_roles: list[str]
