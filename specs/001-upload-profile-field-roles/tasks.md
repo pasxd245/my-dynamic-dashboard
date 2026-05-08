@@ -52,7 +52,7 @@ Independent Test: Upload bundled sample files, verify all sheets and inferred ty
 - [x] T016 [US1] Implement upload endpoint POST /api/v1/workspaces/{workspaceId}/sources/upload (xlsx/csv parse + encrypted rejection) in apps/backend/app/main.py and apps/backend/app/services/upload_service.py
 - [x] T017 [US1] Implement sheet override endpoint PATCH /api/v1/workspaces/{workspaceId}/sheets/{sheetId}/override in apps/backend/app/main.py and apps/backend/app/services/upload_service.py
 - [x] T018 [US1] Persist source/sheet/column parse results and override logs in apps/backend/app/core/metadata_db.py
-- [ ] T019 [US1] Implement builder upload + sheet parse inspector + override action wiring in apps/builder/src/App.jsx and apps/builder/src/api/workspaceApi.js
+- [x] T019 [US1] Implement builder upload + sheet parse inspector + override action wiring in apps/builder/src/App.jsx and apps/builder/src/api/workspaceApi.js
 
 Checkpoint: US1 is independently functional.
 

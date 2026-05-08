@@ -13,3 +13,35 @@ export async function createWorkspace(name) {
 
   return response.json();
 }
+
+export async function uploadSource(workspaceId, file) {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const response = await fetch(`/api/v1/workspaces/${workspaceId}/sources/upload`, {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to upload source");
+  }
+
+  return response.json();
+}
+
+export async function overrideSheet(workspaceId, sheetId, payload) {
+  const response = await fetch(`/api/v1/workspaces/${workspaceId}/sheets/${sheetId}/override`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to override sheet settings");
+  }
+
+  return response.json();
+}
