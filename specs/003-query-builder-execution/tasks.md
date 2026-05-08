@@ -1,258 +1,235 @@
 # Tasks: Query Builder & Execution (Spec 003)
 
-Input: design documents from `/specs/003-query-builder-execution/`
-Prerequisites: plan.md, spec.md, research.md, data-model.md, quickstart.md, contracts/query-builder-execution.openapi.yaml
+**Input**: Design documents from `/specs/003-query-builder-execution/`  
+**Prerequisites**: plan.md, spec.md, research.md, data-model.md, quickstart.md, contracts/query-builder-execution.openapi.yaml
 
-Tests: Included per user story (contract + integration) and ordered before implementation tasks.
-Organization: Tasks are grouped by user story so each story is independently implementable and testable.
+**Tests**: Included. The spec defines mandatory independent tests per user story and contract/integration verification.
+
+**Organization**: Tasks are dependency-ordered and grouped by user story so each story can be implemented and tested independently.
+
+## Format: `[ID] [P?] [Story] Description`
+
+- **[P]**: Parallelizable (different files, no unmet dependency)
+- **[Story]**: User story label ([US1]...[US7])
+- Every task includes concrete file path(s)
 
 ## Phase 1: Setup (Shared Infrastructure)
 
-Purpose: Prepare repository scaffolding and test harness for query-builder delivery.
+**Purpose**: Create feature scaffolding and test entry points.
 
-- [ ] T001 Add query service module scaffold in apps/backend/app/services/query_service.py
-- [ ] T002 Add query contract test module scaffold in apps/backend/tests/contract/test_query_builder_contract.py
-- [ ] T003 [P] Add query integration test module scaffolds in apps/backend/tests/integration/test_query_builder_flows.py and apps/backend/tests/integration/test_query_execution_timeout.py
-- [ ] T004 [P] Add builder query API client scaffold functions in apps/builder/src/api/queryApi.js
-- [ ] T005 [P] Add builder query UI component scaffolds: QueryBuilder.tsx, FilterPanel.tsx, AggregationPanel.tsx, ResultsViewer.tsx, SavedQueriesList.tsx in apps/builder/src/components/
+- [ ] T001 Create backend query contract test module in apps/backend/tests/contract/test_query_builder_contract.py
+- [ ] T002 [P] Create backend preview/execute integration test module in apps/backend/tests/integration/test_query_builder_execution.py
+- [ ] T003 [P] Create backend saved-query integration test module in apps/backend/tests/integration/test_query_builder_saved_queries.py
+- [ ] T004 [P] Create builder query API module in apps/builder/src/api/queryBuilderApi.ts and apps/builder/src/api/queryBuilderTypes.ts
+- [ ] T005 [P] Create builder query UI module stubs in apps/builder/src/components/query-builder/QueryBuilderPanel.tsx, apps/builder/src/components/query-builder/JoinPanel.tsx, apps/builder/src/components/query-builder/PreviewPanel.tsx, apps/builder/src/components/query-builder/ExecutionPanel.tsx, apps/builder/src/components/query-builder/ExportPanel.tsx, and apps/builder/src/components/query-builder/SavedQueriesPanel.tsx
 
 ---
 
 ## Phase 2: Foundational (Blocking Prerequisites)
 
-Purpose: Implement shared schema, storage, and API wiring required by all stories.
+**Purpose**: Shared schema, persistence, validation, and route wiring required by all stories.
 
-CRITICAL: Complete this phase before user story implementation.
+**CRITICAL**: Complete this phase before starting user story phases.
 
-- [ ] T006 Add saved_queries and query_execution_log table initialization in apps/backend/app/core/metadata_db.py
-- [ ] T007 [P] Add metadata DB indexes for saved_queries workspace/created_at lookups and query_execution_log workspace/query_id/executed_at timeline reads in apps/backend/app/core/metadata_db.py
-- [ ] T008 [P] Add shared Pydantic enums and base DTOs (QueryConfig, FilterSpec, AggregationSpec, JoinSpec, ExecutionState, LineageMetadata) in apps/backend/app/schemas.py
-- [ ] T009 [P] Add CardinalityEstimator class with estimate() method in apps/backend/app/services/query_service.py
-- [ ] T010 [P] Add JoinValidator class with validate_joins() method for circular dependency detection and approved-only enforcement in apps/backend/app/services/query_service.py
-- [ ] T011 [P] Add QueryConfigValidator class with validate_columns(), validate_filters(), validate_aggregations(), validate_group_by() methods in apps/backend/app/services/query_service.py
-- [ ] T012 Implement shared query error mapping (400/408/409/413) and response helpers in apps/backend/app/main.py
-- [ ] T013 [P] Add foundational metadata schema verification assertions for new query tables in apps/backend/tests/integration/test_metadata_schema.py
-- [ ] T014 [P] Extend API schema smoke coverage for query-builder contract surface in apps/backend/tests/contract/test_schema_contract_smoke.py
+- [ ] T006 Add saved query and execution log table DDL in apps/backend/app/core/metadata_db.py
+- [ ] T007 [P] Add saved query and execution log indexes in apps/backend/app/core/metadata_db.py
+- [ ] T008 Add query DTOs and enums (QueryConfig, SelectedColumn, FilterSpec, AggregationSpec, JoinSpec, ValidationIssue, LineageMetadata, SavedQuery payloads) in apps/backend/app/schemas.py
+- [ ] T009 [P] Add QueryConfigValidator skeleton in apps/backend/app/services/query_builder_service.py
+- [ ] T010 [P] Add JoinGraphValidator skeleton (approved-only + acyclic checks) in apps/backend/app/services/query_builder_service.py
+- [ ] T011 [P] Add SqlTranslator skeleton (DuckDB SQL + ordered parameters) in apps/backend/app/services/query_builder_service.py
+- [ ] T012 [P] Add QueryExecutionService skeleton (preview/execute timeout wrapper) in apps/backend/app/services/query_execution_service.py
+- [ ] T013 [P] Add QueryExportService skeleton (excel/csv generation with lineage metadata) in apps/backend/app/services/query_export_service.py
+- [ ] T014 [P] Add QueryPersistenceService skeleton (save/load/update/delete/list/history + config hash) in apps/backend/app/services/query_persistence_service.py
+- [ ] T015 Add shared query exception mapping for 400/408/409/413 in apps/backend/app/main.py
 
-Checkpoint: Foundation complete; user stories can proceed.
+**Checkpoint**: Foundation complete; user stories can proceed.
 
 ---
 
-## Phase 3: User Story 1 - Build Query Visually (Priority: P1) MVP
+## Phase 3: User Story 1 - Build a Query Visually (Priority: P1)
 
-Goal: Allow analysts to select base table, columns, filters, aggregations, and see SQL preview without execution.
-Independent Test: Build single-table query with filter and aggregation, verify SQL preview is valid and syntactically correct.
+**Goal**: Build valid single-table query configs and SQL preview from visual selections.
+
+**Independent Test**: Build single-table query with filter + aggregation and verify SQL preview is valid and parameterized.
 
 ### Tests for User Story 1
 
-- [ ] T015 [P] [US1] Add contract test for POST /api/v1/workspaces/{workspaceId}/queries/validate request/response shape in apps/backend/tests/contract/test_query_builder_contract.py
-- [ ] T016 [P] [US1] Add integration test for single-table query builder with filters, aggregations, and GROUP BY SQL generation in apps/backend/tests/integration/test_query_builder_flows.py
-- [ ] T017 [P] [US1] Add integration test for query builder validation failures (orphaned filter columns, invalid aggregation types, GROUP BY without aggregations) in apps/backend/tests/integration/test_query_builder_flows.py
+- [ ] T016 [P] [US1] Add contract test for POST /api/v1/workspaces/{workspaceId}/queries/validate in apps/backend/tests/contract/test_query_builder_contract.py
+- [ ] T017 [P] [US1] Add integration test for single-table SQL generation and parameter ordering in apps/backend/tests/integration/test_query_builder_execution.py
+- [ ] T018 [P] [US1] Add integration test for invalid filter/operator/aggregation/group-by validation failures in apps/backend/tests/integration/test_query_builder_execution.py
 
 ### Implementation for User Story 1
 
-- [ ] T018 [US1] Implement QueryBuilder class with generate_sql() method for single-table queries in apps/backend/app/services/query_service.py
-- [ ] T019 [US1] Implement parameterized filter binding (? placeholders) and get_parameters() method in QueryBuilder in apps/backend/app/services/query_service.py
-- [ ] T020 [US1] Add QueryConfig and related Pydantic DTOs (SelectedColumn, FilterSpec, AggregationSpec) to apps/backend/app/schemas.py
-- [ ] T021 [US1] Add POST /api/v1/workspaces/{workspaceId}/queries/validate endpoint wiring in apps/backend/app/main.py
-- [ ] T022 [P] [US1] Build QueryBuilder React component with base-table selector, column picker checkboxes, filter/aggregation UI in apps/builder/src/components/QueryBuilder.tsx
-- [ ] T023 [P] [US1] Build FilterPanel React component with operator selector (=, !=, <, >, <=, >=, IN, LIKE, IS NULL, IS NOT NULL) in apps/builder/src/components/FilterPanel.tsx
-- [ ] T024 [P] [US1] Build AggregationPanel React component with function selector (SUM, COUNT, AVG, MAX, MIN) in apps/builder/src/components/AggregationPanel.tsx
-- [ ] T025 [US1] Implement QueryBuilder API client functions (validate) in apps/builder/src/api/queryApi.js
-- [ ] T026 [US1] Connect QueryBuilder UI to backend validate endpoint and display SQL preview (read-only) in apps/builder/src/components/QueryBuilder.tsx
+- [ ] T019 [US1] Implement filter operator whitelist and type checks in QueryConfigValidator in apps/backend/app/services/query_builder_service.py
+- [ ] T020 [US1] Implement GROUP BY consistency validation in QueryConfigValidator in apps/backend/app/services/query_builder_service.py
+- [ ] T021 [US1] Implement single-table SQL translation with placeholders in SqlTranslator in apps/backend/app/services/query_builder_service.py
+- [ ] T022 [US1] Add validate endpoint wiring for POST /api/v1/workspaces/{workspaceId}/queries/validate in apps/backend/app/main.py
+- [ ] T023 [P] [US1] Implement validateQuery API client in apps/builder/src/api/queryBuilderApi.ts and types in apps/builder/src/api/queryBuilderTypes.ts
+- [ ] T024 [P] [US1] Implement base table, columns, filters, aggregations, and SQL preview UI in apps/builder/src/components/query-builder/QueryBuilderPanel.tsx
+- [ ] T025 [US1] Integrate QueryBuilderPanel in apps/builder/src/App.tsx
 
-Checkpoint: US1 is independently functional; analysts can build queries and see SQL previews.
+**Checkpoint**: US1 is independently functional and testable.
 
 ---
 
 ## Phase 4: User Story 2 - Add Joins Using Approved Relationships (Priority: P1)
 
-Goal: Allow safe multi-table queries via approved relationship rules from spec 002; reject unapproved joins.
-Independent Test: Create and approve relationship rule in spec 002, then use in query builder, verify join clause appears in SQL and tables without approved relationships are not joinable.
+**Goal**: Enable governed multi-table joins using only approved relationship rules from spec 002.
+
+**Independent Test**: Join two tables using an approved rule and verify SQL preview includes correct JOIN clause; unapproved rules are rejected.
 
 ### Tests for User Story 2
 
-- [ ] T027 [P] [US2] Add contract test for multi-table query validation with approved relationships in apps/backend/tests/contract/test_query_builder_contract.py
-- [ ] T028 [P] [US2] Add integration test for join SQL generation with approved relationship rule in apps/backend/tests/integration/test_query_builder_flows.py
-- [ ] T029 [P] [US2] Add integration test for unapproved relationship rejection (409 error) in apps/backend/tests/integration/test_query_builder_flows.py
-- [ ] T030 [P] [US2] Add integration test for circular join detection and rejection in apps/backend/tests/integration/test_query_builder_flows.py
+- [ ] T026 [P] [US2] Add contract coverage for validate errors on unapproved relationships in apps/backend/tests/contract/test_query_builder_contract.py
+- [ ] T027 [P] [US2] Add integration test for approved-rule join SQL generation in apps/backend/tests/integration/test_query_builder_execution.py
+- [ ] T028 [P] [US2] Add integration test for relationship status drift rejection (409) at execution-time validation in apps/backend/tests/integration/test_query_builder_execution.py
+- [ ] T029 [P] [US2] Add integration test for circular join graph rejection in apps/backend/tests/integration/test_query_builder_execution.py
 
 ### Implementation for User Story 2
 
-- [ ] T031 [US2] Extend JoinValidator with approved-status check against relationship_rules table in apps/backend/app/services/query_service.py
-- [ ] T032 [US2] Extend JoinValidator with circular-dependency detection via DFS in apps/backend/app/services/query_service.py
-- [ ] T033 [US2] Extend QueryBuilder.generate_sql() to add JOIN clauses using relationship rule join conditions in apps/backend/app/services/query_service.py
-- [ ] T034 [US2] Add JoinSpec DTO to apps/backend/app/schemas.py
-- [ ] T035 [US2] Update POST /api/v1/workspaces/{workspaceId}/queries/validate to enforce join validation in apps/backend/app/main.py
-- [ ] T036 [P] [US2] Build join-builder UI with approved relationship selector and join-type toggle in apps/builder/src/components/QueryBuilder.tsx
-- [ ] T037 [US2] Fetch approved relationships from backend and populate join builder dropdown in apps/builder/src/api/queryApi.js
+- [ ] T030 [US2] Implement approved-rule enforcement against relationship_rules status in JoinGraphValidator in apps/backend/app/services/query_builder_service.py
+- [ ] T031 [US2] Implement acyclic join graph validation and join ordering in JoinGraphValidator in apps/backend/app/services/query_builder_service.py
+- [ ] T032 [US2] Extend SQL translation for JOIN clauses based on approved relationship rules in SqlTranslator in apps/backend/app/services/query_builder_service.py
+- [ ] T033 [P] [US2] Implement join builder UI and approved-relationship selection in apps/builder/src/components/query-builder/JoinPanel.tsx
+- [ ] T034 [US2] Integrate JoinPanel with QueryBuilderPanel validation flow in apps/builder/src/components/query-builder/QueryBuilderPanel.tsx
 
-Checkpoint: US2 is independently functional; analysts can safely join tables via approved relationships.
+**Checkpoint**: US2 is independently functional and testable.
 
 ---
 
 ## Phase 5: User Story 3 - Preview Results Safely (Priority: P1)
 
-Goal: Execute query with LIMIT 100, enforce 5-second timeout, display preview with row count metadata.
-Independent Test: Build query with large result set, click preview, verify exactly 100 rows shown within 5 seconds and "Showing 100 of ~X rows" indicator appears.
+**Goal**: Provide LIMIT 100 preview with 5-second hard timeout and metadata.
+
+**Independent Test**: Preview query returning 10k+ rows and verify at most 100 rows plus "Showing 100 of ~X" metadata or timeout messaging.
 
 ### Tests for User Story 3
 
-- [ ] T038 [P] [US3] Add contract test for POST /api/v1/workspaces/{workspaceId}/queries/preview request/response shape in apps/backend/tests/contract/test_query_builder_contract.py
-- [ ] T039 [P] [US3] Add integration test for preview LIMIT 100 execution and cardinality estimation in apps/backend/tests/integration/test_query_builder_flows.py
-- [ ] T040 [P] [US3] Add integration test for preview timeout (5-second hard limit triggers 408 response) in apps/backend/tests/integration/test_query_execution_timeout.py
-- [ ] T041 [P] [US3] Add integration test for preview with empty result set (0 rows) in apps/backend/tests/integration/test_query_builder_flows.py
+- [ ] T035 [P] [US3] Add contract test for POST /api/v1/workspaces/{workspaceId}/queries/preview response shape in apps/backend/tests/contract/test_query_builder_contract.py
+- [ ] T036 [P] [US3] Add integration test for preview LIMIT 100 behavior and estimated total metadata in apps/backend/tests/integration/test_query_builder_execution.py
+- [ ] T037 [P] [US3] Add integration test for 5-second preview timeout mapping to 408 in apps/backend/tests/integration/test_query_builder_execution.py
+- [ ] T038 [P] [US3] Add integration test for preview empty result messaging payload in apps/backend/tests/integration/test_query_builder_execution.py
 
 ### Implementation for User Story 3
 
-- [ ] T042 [US3] Implement QueryExecutor class with execute() method supporting timeout enforcement via signal.alarm() or threading.Timer() in apps/backend/app/services/query_service.py
-- [ ] T043 [US3] Implement timeout cancellation logic (hard cancel, no graceful degradation) in QueryExecutor in apps/backend/app/services/query_service.py
-- [ ] T044 [US3] Implement preview execution (LIMIT 100 + cardinality estimation) in QueryExecutor in apps/backend/app/services/query_service.py
-- [ ] T045 [US3] Add PreviewResultsResponse DTO (rows, totalEstimated, sql, executionMs) to apps/backend/app/schemas.py
-- [ ] T046 [US3] Add POST /api/v1/workspaces/{workspaceId}/queries/preview endpoint wiring in apps/backend/app/main.py
-- [ ] T047 [P] [US3] Build ResultsViewer React component with paginated table, row-count metadata display in apps/builder/src/components/ResultsViewer.tsx
-- [ ] T048 [P] [US3] Implement preview execution with spinner and timeout progress indicator in apps/builder/src/components/QueryBuilder.tsx
-- [ ] T049 [US3] Implement preview client function in apps/builder/src/api/queryApi.js
-- [ ] T050 [US3] Connect preview button to backend and display results in ResultsViewer in apps/builder/src/components/QueryBuilder.tsx
+- [ ] T039 [US3] Implement preview execution path (LIMIT 100 + estimated total rows) in QueryExecutionService in apps/backend/app/services/query_execution_service.py
+- [ ] T040 [US3] Implement hard timeout cancellation and TIMEOUT error mapping in QueryExecutionService in apps/backend/app/services/query_execution_service.py
+- [ ] T041 [US3] Add preview endpoint wiring for POST /api/v1/workspaces/{workspaceId}/queries/preview in apps/backend/app/main.py
+- [ ] T042 [P] [US3] Implement preview API client and DTOs in apps/builder/src/api/queryBuilderApi.ts and apps/builder/src/api/queryBuilderTypes.ts
+- [ ] T043 [US3] Implement preview state, row metadata, and timeout messaging in apps/builder/src/components/query-builder/PreviewPanel.tsx
 
-Checkpoint: US3 is independently functional; safe preview prevents runaway queries.
+**Checkpoint**: US3 is independently functional and testable.
 
 ---
 
-## Phase 6: User Story 4 - Execute Full Query & Handle Large Result Sets (Priority: P1)
+## Phase 6: User Story 4 - Execute Full Query and Handle Large Result Sets (Priority: P1)
 
-Goal: Execute full query without LIMIT, return all rows (with pagination UI support), handle timeouts and errors gracefully.
-Independent Test: Execute query on 100k+ row dataset, confirm completion under 5 seconds or timeout message, verify all results available via pagination.
+**Goal**: Execute full queries with runtime safeguards, clear failures, and large-result UX safety.
+
+**Independent Test**: Execute on 100k+ rows and verify success or graceful timeout/memory rejection with user guidance.
 
 ### Tests for User Story 4
 
-- [ ] T051 [P] [US4] Add contract test for POST /api/v1/workspaces/{workspaceId}/queries/execute request/response shape in apps/backend/tests/contract/test_query_builder_contract.py
-- [ ] T052 [P] [US4] Add integration test for full-query execution returning all rows in apps/backend/tests/integration/test_query_builder_flows.py
-- [ ] T053 [P] [US4] Add integration test for execution timeout (5-second target with 408 response) in apps/backend/tests/integration/test_query_execution_timeout.py
-- [ ] T054 [P] [US4] Add integration test for execution SQL error handling (400 with user-friendly message) in apps/backend/tests/integration/test_query_builder_flows.py
-- [ ] T055 [P] [US4] Add integration test for memory estimation rejection (413 response for oversized result set) in apps/backend/tests/integration/test_query_builder_flows.py
+- [ ] T044 [P] [US4] Add contract test for POST /api/v1/workspaces/{workspaceId}/queries/execute response shape in apps/backend/tests/contract/test_query_builder_contract.py
+- [ ] T045 [P] [US4] Add integration test for full execution success response and row counts in apps/backend/tests/integration/test_query_builder_execution.py
+- [ ] T046 [P] [US4] Add integration test for execution timeout (408) and remediation message in apps/backend/tests/integration/test_query_builder_execution.py
+- [ ] T047 [P] [US4] Add integration test for memory pre-check rejection (413) in apps/backend/tests/integration/test_query_builder_execution.py
 
 ### Implementation for User Story 4
 
-- [ ] T056 [US4] Extend QueryExecutor.execute() for full-query execution (no LIMIT) in apps/backend/app/services/query_service.py
-- [ ] T057 [US4] Implement result-set materialization and memory estimation in QueryExecutor in apps/backend/app/services/query_service.py
-- [ ] T058 [US4] Implement error handling with user-friendly messages (no stack traces) in QueryExecutor in apps/backend/app/services/query_service.py
-- [ ] T059 [US4] Add ExecutionResultResponse DTO (rows, totalCount, sql, executionMs, lineage) to apps/backend/app/schemas.py
-- [ ] T060 [US4] Add POST /api/v1/workspaces/{workspaceId}/queries/execute endpoint wiring in apps/backend/app/main.py
-- [ ] T061 [P] [US4] Extend ResultsViewer with pagination controls and lazy-load support for large result sets in apps/builder/src/components/ResultsViewer.tsx
-- [ ] T062 [P] [US4] Add progress indicator and timeout countdown in ResultsViewer in apps/builder/src/components/ResultsViewer.tsx
-- [ ] T063 [P] [US4] Add error display (user-friendly message formatting) in ResultsViewer in apps/builder/src/components/ResultsViewer.tsx
-- [ ] T064 [US4] Implement execute client function in apps/builder/src/api/queryApi.js
-- [ ] T065 [US4] Connect execute button to backend and display results with pagination in apps/builder/src/components/QueryBuilder.tsx
+- [ ] T048 [US4] Implement full execution path and result metadata in QueryExecutionService in apps/backend/app/services/query_execution_service.py
+- [ ] T049 [US4] Implement memory/cardinality pre-check guardrails in QueryExecutionService in apps/backend/app/services/query_execution_service.py
+- [ ] T050 [US4] Add execute endpoint wiring for POST /api/v1/workspaces/{workspaceId}/queries/execute in apps/backend/app/main.py
+- [ ] T051 [P] [US4] Implement execute API client and DTOs in apps/builder/src/api/queryBuilderApi.ts and apps/builder/src/api/queryBuilderTypes.ts
+- [ ] T052 [US4] Implement execution progress, result rendering, and user-friendly errors in apps/builder/src/components/query-builder/ExecutionPanel.tsx
 
-Checkpoint: US4 is independently functional; full-query execution with result materialization works end-to-end.
+**Checkpoint**: US4 is independently functional and testable.
 
 ---
 
 ## Phase 7: User Story 5 - Export Results to Excel or CSV (Priority: P1)
 
-Goal: Download query results as .xlsx or .csv with full lineage metadata (Excel includes "Lineage" sheet, CSV includes header comments).
-Independent Test: Execute query, export as Excel and CSV, verify both files open correctly, contain all rows, and include lineage (table names, rules, filters, timestamp).
+**Goal**: Export execution results to Excel/CSV with immutable lineage metadata for traceability.
+
+**Independent Test**: Export same execution to Excel and CSV; verify both formats include full results and lineage fields required by spec/constitution.
 
 ### Tests for User Story 5
 
-- [ ] T066 [P] [US5] Add contract test for GET /api/v1/workspaces/{workspaceId}/queries/{queryId}/download?format=excel|csv in apps/backend/tests/contract/test_query_builder_contract.py
-- [ ] T067 [P] [US5] Add integration test for Excel export with Lineage worksheet in apps/backend/tests/integration/test_query_builder_flows.py
-- [ ] T068 [P] [US5] Add integration test for CSV export with lineage header comments in apps/backend/tests/integration/test_query_builder_flows.py
-- [ ] T069 [P] [US5] Add integration test for export of large result set (1M+ rows) without browser/backend hang in apps/backend/tests/integration/test_query_builder_flows.py
+- [ ] T053 [P] [US5] Add contract test for POST /api/v1/workspaces/{workspaceId}/queries/export (format=excel|csv) in apps/backend/tests/contract/test_query_builder_contract.py
+- [ ] T054 [P] [US5] Add integration test for Excel export with Results and Lineage sheets in apps/backend/tests/integration/test_query_builder_execution.py
+- [ ] T055 [P] [US5] Add integration test for CSV export with lineage header comments in apps/backend/tests/integration/test_query_builder_execution.py
+- [ ] T056 [P] [US5] Add integration test for null/special-character export handling in apps/backend/tests/integration/test_query_builder_execution.py
 
 ### Implementation for User Story 5
 
-- [ ] T070 [US5] Implement ResultsLineage class with capture() method for execution-time metadata in apps/backend/app/services/query_service.py
-- [ ] T071 [US5] Implement Excel export with openpyxl (Results + Lineage worksheets) in apps/backend/app/services/query_service.py
-- [ ] T072 [US5] Implement CSV export with lineage header comments in apps/backend/app/services/query_service.py
-- [ ] T073 [US5] Add LineageMetadata, SourceTableMetadata, RelationshipRuleMetadata DTOs to apps/backend/app/schemas.py
-- [ ] T074 [US5] Add GET /api/v1/workspaces/{workspaceId}/queries/{queryId}/download endpoint in apps/backend/app/main.py
-- [ ] T075 [P] [US5] Add download buttons (Excel/CSV) to ResultsViewer in apps/builder/src/components/ResultsViewer.tsx
-- [ ] T076 [P] [US5] Implement file download handling (browser download trigger) in apps/builder/src/components/ResultsViewer.tsx
-- [ ] T077 [US5] Implement download client functions in apps/builder/src/api/queryApi.js
-- [ ] T078 [US5] Connect download buttons to backend export endpoints in apps/builder/src/components/ResultsViewer.tsx
+- [ ] T057 [US5] Implement immutable lineage snapshot builder (source tables, relationships with status, filters, aggregations, group-by, timestamp, config hash) in apps/backend/app/services/query_export_service.py
+- [ ] T058 [US5] Implement Excel export writer with Results and Lineage sheets in apps/backend/app/services/query_export_service.py
+- [ ] T059 [US5] Implement CSV export writer with lineage comment headers in apps/backend/app/services/query_export_service.py
+- [ ] T060 [US5] Add export endpoint wiring for POST /api/v1/workspaces/{workspaceId}/queries/export in apps/backend/app/main.py
+- [ ] T061 [US5] Implement export actions and download UX in apps/builder/src/components/query-builder/ExportPanel.tsx
 
-Checkpoint: US5 is independently functional; analysts can export query results with full traceability.
+**Checkpoint**: US5 is independently functional and testable.
 
 ---
 
-## Phase 8: User Story 6 - Validate Query & Surface Errors Early (Priority: P2)
+## Phase 8: User Story 6 - Validate Query and Surface Errors Early (Priority: P2)
 
-Goal: Run continuous validation as query is built, highlight orphaned columns, unapproved joins, GROUP BY issues before execution.
-Independent Test: Build query with filter on non-existent column, verify validation error appears, remove filter, confirm error clears.
+**Goal**: Continuously validate builder state and block invalid execution paths early.
+
+**Independent Test**: Introduce orphaned filter/group-by config and verify inline validation appears and clears after correction.
 
 ### Tests for User Story 6
 
-- [ ] T079 [P] [US6] Add integration test for orphaned filter column detection and error messaging in apps/backend/tests/integration/test_query_builder_flows.py
-- [ ] T080 [P] [US6] Add integration test for GROUP BY without aggregations warning in apps/backend/tests/integration/test_query_builder_flows.py
-- [ ] T081 [P] [US6] Add integration test for ambiguous column names in multi-table queries in apps/backend/tests/integration/test_query_builder_flows.py
+- [ ] T062 [P] [US6] Add integration test for orphaned column validation errors in apps/backend/tests/integration/test_query_builder_execution.py
+- [ ] T063 [P] [US6] Add integration test for GROUP BY without aggregation warning/error semantics in apps/backend/tests/integration/test_query_builder_execution.py
+- [ ] T064 [P] [US6] Add integration test for ambiguous multi-table column reference validation in apps/backend/tests/integration/test_query_builder_execution.py
 
 ### Implementation for User Story 6
 
-- [ ] T082 [US6] Extend QueryConfigValidator with orphaned-column detection for filters, aggregations, GROUP BY in apps/backend/app/services/query_service.py
-- [ ] T083 [US6] Extend QueryConfigValidator with GROUP BY consistency checks (non-aggregated columns, existence validation) in apps/backend/app/services/query_service.py
-- [ ] T084 [US6] Add ambiguous column-name detection in multi-table queries in apps/backend/app/services/query_service.py
-- [ ] T085 [US6] Extend POST /api/v1/workspaces/{workspaceId}/queries/validate to return detailed validation warnings in apps/backend/app/main.py
-- [ ] T086 [P] [US6] Add real-time validation feedback in QueryBuilder UI (error badges on invalid columns/filters) in apps/builder/src/components/QueryBuilder.tsx
-- [ ] T087 [US6] Implement debounced validate() calls on query config changes in apps/builder/src/api/queryApi.js
-- [ ] T088 [US6] Display validation errors inline in QueryBuilder (red highlights on problematic fields) in apps/builder/src/components/QueryBuilder.tsx
+- [ ] T065 [US6] Extend QueryConfigValidator for orphaned references and ambiguity checks in apps/backend/app/services/query_builder_service.py
+- [ ] T066 [US6] Return structured warnings/errors from validate endpoint in apps/backend/app/main.py
+- [ ] T067 [P] [US6] Implement debounced validation API calls in apps/builder/src/components/query-builder/QueryBuilderPanel.tsx
+- [ ] T068 [US6] Render inline validation badges/messages in apps/builder/src/components/query-builder/QueryBuilderPanel.tsx
 
-Checkpoint: US6 is independently functional; early validation prevents wasted compute time.
+**Checkpoint**: US6 is independently functional and testable.
 
 ---
 
-## Phase 9: User Story 7 - Save & Reuse Query Configurations (Priority: P2)
+## Phase 9: User Story 7 - Save and Reuse Query Configurations (Priority: P2)
 
-Goal: Save queries with name/description, retrieve from library, load, duplicate, and delete saved queries.
-Independent Test: Build query, save with name, reload workspace, retrieve saved query, verify all settings restored; duplicate and verify copy created.
+**Goal**: Persist, reload, duplicate, and audit saved query configurations with reproducibility metadata.
+
+**Independent Test**: Save query, reload it after refresh, duplicate it, and view execution history for the saved query.
 
 ### Tests for User Story 7
 
-- [ ] T089 [P] [US7] Add contract tests for POST/GET/PUT/DELETE /api/v1/workspaces/{workspaceId}/saved-queries endpoints in apps/backend/tests/contract/test_query_builder_contract.py
-- [ ] T090 [P] [US7] Add integration test for save query lifecycle (create, retrieve, update) in apps/backend/tests/integration/test_query_builder_flows.py
-- [ ] T091 [P] [US7] Add integration test for orphaned saved query detection (table/column no longer exists) in apps/backend/tests/integration/test_query_builder_flows.py
-- [ ] T092 [P] [US7] Add integration test for execution history retrieval in apps/backend/tests/integration/test_query_builder_flows.py
+- [ ] T069 [P] [US7] Add contract test coverage for POST/GET /saved-queries and GET/PUT/DELETE /saved-queries/{queryId} in apps/backend/tests/contract/test_query_builder_contract.py
+- [ ] T070 [P] [US7] Add contract test for GET /api/v1/workspaces/{workspaceId}/saved-queries/{queryId}/executions in apps/backend/tests/contract/test_query_builder_contract.py
+- [ ] T071 [P] [US7] Add integration test for save/load/update/delete lifecycle in apps/backend/tests/integration/test_query_builder_saved_queries.py
+- [ ] T072 [P] [US7] Add integration test for schema-drift warning on saved query load in apps/backend/tests/integration/test_query_builder_saved_queries.py
 
 ### Implementation for User Story 7
 
-- [ ] T093 [US7] Implement SavedQuery service methods (create, read, update, delete, list) in apps/backend/app/services/query_service.py
-- [ ] T094 [US7] Implement query config hash computation (SHA256) for reproducibility tracking in apps/backend/app/services/query_service.py
-- [ ] T095 [US7] Implement orphaned-query detection (missing table/column) on load in apps/backend/app/services/query_service.py
-- [ ] T096 [US7] Add SavedQueryResponse DTO to apps/backend/app/schemas.py
-- [ ] T097 [US7] Add POST /api/v1/workspaces/{workspaceId}/saved-queries endpoint in apps/backend/app/main.py
-- [ ] T098 [US7] Add GET /api/v1/workspaces/{workspaceId}/saved-queries (list) and GET /api/v1/workspaces/{workspaceId}/saved-queries/{queryId} (detail) endpoints in apps/backend/app/main.py
-- [ ] T099 [US7] Add PUT /api/v1/workspaces/{workspaceId}/saved-queries/{queryId} (update) endpoint in apps/backend/app/main.py
-- [ ] T100 [US7] Add DELETE /api/v1/workspaces/{workspaceId}/saved-queries/{queryId} endpoint in apps/backend/app/main.py
-- [ ] T101 [P] [US7] Build SavedQueriesList React component with list table, load/duplicate/delete actions in apps/builder/src/components/SavedQueriesList.tsx
-- [ ] T102 [P] [US7] Add orphaned-query warning display and re-validation prompt in SavedQueriesList in apps/builder/src/components/SavedQueriesList.tsx
-- [ ] T103 [US7] Implement saved-query client functions (create, list, get, update, delete) in apps/builder/src/api/queryApi.js
-- [ ] T104 [US7] Integrate SavedQueriesList into QueryBuilder UI (load from library, save current query) in apps/builder/src/components/QueryBuilder.tsx
+- [ ] T073 [US7] Implement save/list/get/update/delete services and config hash generation in apps/backend/app/services/query_persistence_service.py
+- [ ] T074 [US7] Implement saved-query execution history retrieval service in apps/backend/app/services/query_persistence_service.py
+- [ ] T075 [US7] Add saved-query CRUD and history endpoint wiring in apps/backend/app/main.py
+- [ ] T076 [P] [US7] Implement saved-query API client functions in apps/builder/src/api/queryBuilderApi.ts and apps/builder/src/api/queryBuilderTypes.ts
+- [ ] T077 [P] [US7] Implement saved query list/load/duplicate/delete UI in apps/builder/src/components/query-builder/SavedQueriesPanel.tsx
+- [ ] T078 [US7] Integrate saved-query flows into QueryBuilderPanel in apps/builder/src/components/query-builder/QueryBuilderPanel.tsx
 
-Checkpoint: US7 is independently functional; query reuse and configuration management works end-to-end.
+**Checkpoint**: US7 is independently functional and testable.
 
 ---
 
-## Phase 10: Query Execution Audit & History
+## Phase 10: Polish & Cross-Cutting Concerns
 
-Purpose: Logging and reproducibility tracking across all user stories.
+**Purpose**: Final alignment to quickstart, constitution gates, and end-to-end stability.
 
-- [ ] T105 [US1-US7] Implement execution log persistence (log all query runs to query_execution_log table) in apps/backend/app/services/query_service.py
-- [ ] T106 [US1-US7] Add GET /api/v1/workspaces/{workspaceId}/queries/{queryId}/executions endpoint to retrieve execution history in apps/backend/app/main.py
-- [ ] T107 [P] [US1-US7] Add execution history viewer (optional in UI, shows past runs with timestamps/errors) in apps/builder/src/components/QueryBuilder.tsx
-
----
-
-## Phase 11: Builder UI + Polish & Integration
-
-Purpose: End-to-end validation, integration, and quickstart alignment.
-
-- [ ] T108 [P] Integrate all query API functions in apps/builder/src/api/queryApi.js (validate, preview, execute, export, save/load/delete)
-- [ ] T109 Implement complete QueryBuilder page layout with all panels (table selector, column picker, filter, aggregation, join, GROUP BY, SQL preview) in apps/builder/src/App.tsx
-- [ ] T110 [P] Add end-to-end regression scenarios: build single-table → preview → execute → export; build multi-table with join → preview → execute → export in apps/backend/tests/integration/test_query_builder_flows.py
-- [ ] T111 [P] Add builder smoke test: pnpm --filter builder build completes without errors; manual flow check for query building, preview, execute in apps/builder/
-- [ ] T112 Update execution and verification steps in specs/003-query-builder-execution/quickstart.md
-- [ ] T113 [P] Extend repository documentation: README.md add query builder usage section
+- [ ] T079 Add end-to-end integration scenario coverage for build->preview->execute->export with approved joins in apps/backend/tests/integration/test_query_builder_execution.py
+- [ ] T080 [P] Add end-to-end integration scenario coverage for save->reload->execute->history in apps/backend/tests/integration/test_query_builder_saved_queries.py
+- [ ] T081 [P] Add query builder integration mount and user-flow wiring in apps/builder/src/App.tsx
+- [ ] T082 Update feature quickstart verification steps in specs/003-query-builder-execution/quickstart.md
+- [ ] T083 Add query builder capability notes to README.md
 
 ---
 
@@ -260,144 +237,69 @@ Purpose: End-to-end validation, integration, and quickstart alignment.
 
 ### Phase Dependencies
 
-- Setup (Phase 1): No dependencies - can start immediately.
-- Foundational (Phase 2): Depends on Setup; **BLOCKS all user story work**.
-- User Story phases (Phases 3–9): All depend on Phase 2; execute in priority order P1 (US1–US5) then P2 (US6–US7).
-- Query Execution Audit (Phase 10): Depends on foundational + at least US1 core logic; can be integrated throughout.
-- Builder/Polish (Phase 11): Depends on all user story phases; final integration and validation.
+- Setup (Phase 1): no dependencies.
+- Foundational (Phase 2): depends on Setup and blocks all user stories.
+- User stories (Phases 3-9): depend on Foundational completion.
+- Polish (Phase 10): depends on all targeted user stories.
 
 ### User Story Dependencies
 
-- **US1** (Build Query): Can begin after Phase 2; no dependencies on other stories.
-- **US2** (Joins): Depends on US1 query config structure; can begin after Phase 2 since join handling is independent.
-- **US3** (Preview): Depends on US1 query builder; can begin after Phase 2.
-- **US4** (Execute): Depends on US3 query execution foundation; can begin after Phase 2.
-- **US5** (Export): Depends on US4 execution results; can begin after Phase 2.
-- **US6** (Validation): Cross-cutting; enhances all previous stories; can begin after Phase 2.
-- **US7** (Save/Reuse): Depends on US1 query config structure; can begin after Phase 2.
+- US1 (P1): starts after Phase 2; no story dependency.
+- US2 (P1): starts after US1 SQL/validation foundations (T019-T022).
+- US3 (P1): starts after US1 validation/translation foundations (T019-T022).
+- US4 (P1): starts after US3 preview/runtime foundation (T039-T041).
+- US5 (P1): starts after US4 execution foundation (T048-T050).
+- US6 (P2): starts after US1/US2 foundations, enhances validation feedback.
+- US7 (P2): starts after Phase 2; best integrated after US4 execution logging is available.
 
-### Within-Story Ordering Rules
+### Within Each User Story
 
-- **Tests FIRST**: Write and verify tests fail before implementing.
-- **Backend then Frontend**: Service/endpoint implementation before UI.
-- **Models before Services**: Define DTOs/schemas before business logic.
-- **Services before Endpoints**: Implement query logic before REST wiring.
-- **Core before Integration**: Single-table before multi-table; execute before export.
+- Tests first (contract/integration) before implementation.
+- Backend service and schema updates before route wiring.
+- API client before UI integration.
 
 ---
 
-## Parallel Execution Opportunities
+## Parallel Opportunities
 
-### Phase 1 (Setup) - All tasks can run in parallel
+### Setup
 
-```
-T001, T002, T003, T004, T005 → simultaneous scaffolding
-```
+- T002-T005 can run in parallel after T001.
 
-### Phase 2 (Foundational) - Parallelizable by subsystem
+### Foundational
 
-```
-[Database] T006 → T007 (index creation depends on table creation)
-[Schemas] T008 (first, all DTOs)
-[Services] T009, T010, T011 (can run parallel after T008)
-[API] T012 (after T008, T009, T010, T011)
-[Tests] T013, T014 (after all above)
-```
+- T009-T014 can run in parallel after T008.
 
-### Phase 3–9 (User Stories) - Each story is independently parallelizable
+### Per Story
 
-```
-Phase 3 (US1):
-  [Tests] T015, T016, T017 → [Implementation] T018–T026 → [UI] T022, T023, T024 → [Integration] T025, T026
+- Contract and integration test tasks marked [P] can run concurrently.
+- Builder API client tasks and isolated UI panel tasks marked [P] can run concurrently after endpoint contracts are stable.
 
-Phase 4 (US2) [can start after Phase 2]:
-  [Tests] T027, T028, T029, T030 → [Implementation] T031–T035 → [UI] T036, T037
+### Example: User Story 3 Parallel Batch
 
-Phase 5 (US3) [can start after Phase 2]:
-  [Tests] T038–T041 → [Implementation] T042–T046 → [UI] T047, T048 → [Integration] T049, T050
-```
-
-### Phase 11 (Polish) - Parallelizable tests and documentation
-
-```
-T110, T111, T112, T113 → simultaneous validation and docs
-```
-
----
-
-## MVP Scope (Minimum Viable Phase)
-
-**Phase 1–5 deliverables constitute the MVP**:
-
-- ✅ Phase 1: Scaffolding
-- ✅ Phase 2: Data model + shared validation
-- ✅ Phase 3: Single-table query building
-- ✅ Phase 4: Multi-table joins via approved relationships
-- ✅ Phase 5: Safe preview (LIMIT 100, 5-second timeout)
-- ✅ Phase 6: Full execution with results
-- ✅ Phase 7: Export to Excel/CSV with lineage
-
-**Optional enhancements (P2)**:
-
-- Early validation (Phase 8 / US6)
-- Query save/reuse library (Phase 9 / US7)
-- Execution audit trail (Phase 10)
-
----
-
-## Task Count Summary
-
-| Phase     | User Story             | Count   | Status  |
-| --------- | ---------------------- | ------- | ------- |
-| Phase 1   | Setup                  | 5       | ✓ Ready |
-| Phase 2   | Foundational           | 9       | ✓ Ready |
-| Phase 3   | US1 (Build Query)      | 12      | ✓ Ready |
-| Phase 4   | US2 (Joins)            | 11      | ✓ Ready |
-| Phase 5   | US3 (Preview Safe)     | 13      | ✓ Ready |
-| Phase 6   | US4 (Execute Full)     | 15      | ✓ Ready |
-| Phase 7   | US5 (Export Excel/CSV) | 14      | ✓ Ready |
-| Phase 8   | US6 (Validate Early)   | 9       | ✓ Ready |
-| Phase 9   | US7 (Save/Reuse)       | 16      | ✓ Ready |
-| Phase 10  | Audit & History        | 3       | ✓ Ready |
-| Phase 11  | Polish & Integration   | 6       | ✓ Ready |
-| **TOTAL** |                        | **113** | ✓ Ready |
+- T035, T036, T037, T038 in parallel (test authoring).
+- T042 and T043 in parallel after T041 is implemented.
 
 ---
 
 ## Implementation Strategy
 
-### MVP First (Phases 1–7: 72 tasks)
+### MVP First (P1 scope)
 
-Deliver core query building, execution, and export within MVP 1 timeline:
+1. Complete Phase 1 and Phase 2.
+2. Deliver US1 -> US2 -> US3 -> US4 -> US5.
+3. Validate quickstart flow before moving to P2 stories.
 
-- Week 1: Phases 1–2 (scaffolding + foundation)
-- Week 2–3: Phases 3–7 (user stories P1, core delivery)
+### Incremental Delivery
 
-### Iterative Enhancement (Phases 8–11: 41 tasks)
+1. Foundation complete (Phase 2).
+2. Ship US1-2 (governed builder + approved joins).
+3. Ship US3-4 (safe preview + full execution).
+4. Ship US5 (traceable export).
+5. Add US6-7 enhancements.
 
-Add validation, reusability, and polish:
+### Constitution Alignment Notes
 
-- Week 4+: Phases 8–9 (validation, save/load)
-- Week 5+: Phase 10–11 (audit, integration)
-
----
-
-## Format Reference
-
-Each task follows strict checklist format:
-
-```
-- [ ] [TaskID] [P?] [Story?] Description with file path
-```
-
-- **Checkbox**: `- [ ]` (unchecked during planning)
-- **Task ID**: Sequential (T001, T002, ..., T113)
-- **[P] marker**: Parallelizable (different files, no ordering dependency)
-- **[Story] label**: User story marker (US1, US2, ..., US7) for story-phase tasks
-- **Description**: Clear action + exact file path
-
-**Examples**:
-
-- ✅ `- [ ] T001 Add query service module scaffold in apps/backend/app/services/query_service.py`
-- ✅ `- [ ] T015 [P] [US1] Add contract test for POST /api/.../queries/validate in apps/backend/tests/contract/test_query_builder_contract.py`
-- ✅ `- [ ] T042 [US3] Implement QueryExecutor class with execute() method in apps/backend/app/services/query_service.py`
+- Principle III enforced by approved-only join tasks (T030-T032).
+- Principle VI enforced by immutable lineage tasks (T057-T060).
+- Principle VII enforced by config hash and execution snapshot tasks (T073-T075).

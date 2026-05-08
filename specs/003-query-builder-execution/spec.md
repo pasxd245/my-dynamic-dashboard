@@ -2,7 +2,7 @@
 
 **Feature Branch**: `003-query-builder-execution`  
 **Created**: 2026-05-08  
-**Status**: Draft  
+**Status**: Validated (specify repair pass)  
 **Input**: MVP 1 core engine requirement from `docs/analysis/09-mvp-plan.md` and user description above.
 
 ## Business Question _(mandatory for this project)_
@@ -15,15 +15,21 @@
 **Decision consumed**: Whether the analyst can move from manual Excel data wrangling to
 a governed, repeatable query process within MVP 1 timeline and performance constraints.
 
-**Primary roles**: Data analyst (builds queries, executes exports), business owner (receives
-decision-ready exports with full lineage).
+**Primary roles**: Data analyst (builds and runs governed queries), business stakeholder
+(consumes traceable exports from exploration workflows).
 
 **Constitution alignment**:
 
 - **Principle I (Business-Question-First)**: Answers specific business question about
   data transformation without manual Excel workflow.
+- **Principle II (Metric Contract Before Visualization)**: This feature is query
+  execution only; it does not define or approve business metrics.
 - **Principle III (Relationship Rule Before Cross-Table Query)**: Only approved
   relationships from spec 002 are usable in joins; no ad-hoc SQL.
+- **Principle IV (Reconciliation Before Recommendation)**: This feature does not produce
+  recommendation language; reconciliation requirements remain downstream.
+- **Principle V (Challenge & Sensitivity Before Decision-Ready)**: Surface role for this
+  feature is exploration / analysis workbench, not decision-ready reporting.
 - **Principle VI (Traceability For Every Claim)**: Every export includes source tables,
   relationship rules used, filters applied, aggregations, and cardinality.
 - **Principle VII (Reproducibility From Raw Inputs)**: Query configuration is versioned
@@ -185,7 +191,8 @@ both files open correctly, contain all results, and include lineage metadata.
    timestamp.
 3. **Given** a successful query execution with results, **When** the analyst clicks
    "Download as CSV", **Then** a .csv file is generated with all result rows, using
-   standard CSV encoding (UTF-8, comma-delimited).
+   standard CSV encoding (UTF-8, comma-delimited), and includes lineage metadata as
+   export header comments.
 4. **Given** an export is requested for a very large result set (1M+ rows), **When** the
    export is in progress, **Then** a progress indicator is shown and the download
    completes without browser hang or memory exhaustion.
@@ -316,111 +323,39 @@ the saved query, and verify all settings are restored.
 - **FR-016**: System MUST provide clear, user-friendly error messages for execution
   failures (not raw stack traces).
 - **FR-017**: System MUST save query configurations with name and description,
-  persisting to metadata store (SQLite).
+  persisting to the workspace metadata store.
 - **FR-018**: System MUST allow loading, duplicating, and deleting saved queries.
 - **FR-019**: System MUST handle schema changes gracefully; queries referring to
   deleted/renamed tables or columns MUST fail with clear guidance to rebuild query.
 - **FR-020**: System MUST log all query executions with query ID, configuration, actor,
   timestamp, result row count, execution time, and outcome (success/timeout/error).
+- **FR-021**: System MUST include lineage metadata in both Excel and CSV exports
+  (Excel in a dedicated worksheet; CSV as metadata header comments).
 
-### API Endpoints
+## Interface Contract Alignment
 
-#### Query Builder Backend API
+Canonical API definitions for this feature are maintained in:
+`specs/003-query-builder-execution/contracts/query-builder-execution.openapi.yaml`.
 
-- **POST /api/queries/validate**
-  - Input: `{ baseTable, columns, filters, joins, aggregations, groupBy }`
-  - Output: `{ valid: bool, errors: [], warnings: [] }`
-  - Validates query configuration without execution.
+The contract-aligned operations for this spec are:
 
-- **POST /api/queries/preview**
-  - Input: `{ baseTable, columns, filters, joins, aggregations, groupBy }`
-  - Output: `{ rows: [...], totalEstimated: int, sql: string, executionMs: int }`
-  - Executes query with LIMIT 100, times out at 5 seconds, returns preview metadata.
+- `POST /api/v1/workspaces/{workspaceId}/queries/validate`
+- `POST /api/v1/workspaces/{workspaceId}/queries/preview`
+- `POST /api/v1/workspaces/{workspaceId}/queries/execute`
+- `POST /api/v1/workspaces/{workspaceId}/queries/export?format=excel|csv`
+- `POST /api/v1/workspaces/{workspaceId}/saved-queries`
+- `GET /api/v1/workspaces/{workspaceId}/saved-queries`
+- `GET /api/v1/workspaces/{workspaceId}/saved-queries/{queryId}`
+- `PUT /api/v1/workspaces/{workspaceId}/saved-queries/{queryId}`
+- `DELETE /api/v1/workspaces/{workspaceId}/saved-queries/{queryId}`
+- `GET /api/v1/workspaces/{workspaceId}/saved-queries/{queryId}/executions`
 
-- **POST /api/queries/execute**
-  - Input: `{ baseTable, columns, filters, joins, aggregations, groupBy }`
-  - Output: `{ queryId, rows: [...], totalCount: int, sql: string, executionMs: int,
-lineage: { tables, rules, filters, aggregations, groupBy } }`
-  - Executes full query, streams/chunks if result set is large, supports pagination.
+## Data Persistence Alignment
 
-- **GET /api/queries/{queryId}**
-  - Output: `{ queryId, configuration, results, status, executionTime, lineage }`
-  - Retrieves previously executed query and results.
-
-- **POST /api/queries/save**
-  - Input: `{ configuration: {...}, name, description }`
-  - Output: `{ queryId, savedAt, configuration }`
-  - Saves a query configuration to the metadata store.
-
-- **GET /api/queries**
-  - Output: `{ queries: [{ queryId, name, description, createdAt, lastExecutedAt,
-configuration: {...} }] }`
-  - Lists all saved queries in the workspace.
-
-- **GET /api/queries/{queryId}/download?format=excel|csv**
-  - Output: Binary file (Excel or CSV).
-  - Downloads query results in the specified format with lineage metadata.
-
-- **DELETE /api/queries/{queryId}**
-  - Output: `{ deleted: bool }`
-  - Deletes a saved query configuration.
-
-#### Query Metadata & Schema API
-
-- **GET /api/tables**
-  - Output: `{ tables: [{ name, schema: { columns: [{ name, type }] }, rowCount: int,
-approvedRelationships: [...] }] }`
-  - Lists all available tables with schema and approved relationships for join options.
-
-- **GET /api/relationships/approved**
-  - Output: `{ relationships: [{ ruleId, sourceTable, sourceColumn, targetTable,
-targetColumn, type, joinType, overlap, cardinality }] }`
-  - Lists all approved relationship rules available for join builder (from spec 002).
-
-### Data Model Changes
-
-#### Query Configurations (SQLite metadata store)
-
-```sql
-CREATE TABLE query_configurations (
-  query_id TEXT PRIMARY KEY,
-  workspace_id TEXT NOT NULL,
-  name TEXT NOT NULL,
-  description TEXT,
-  configuration JSON NOT NULL,  -- { baseTable, columns, filters, joins, aggregations, groupBy }
-  created_by TEXT NOT NULL,
-  created_at TIMESTAMP NOT NULL,
-  updated_at TIMESTAMP NOT NULL,
-  FOREIGN KEY (workspace_id) REFERENCES workspaces(workspace_id)
-);
-```
-
-#### Query Execution History (SQLite metadata store)
-
-```sql
-CREATE TABLE query_executions (
-  execution_id TEXT PRIMARY KEY,
-  query_id TEXT,
-  workspace_id TEXT NOT NULL,
-  configuration JSON NOT NULL,  -- snapshot of configuration at execution time
-  generated_sql TEXT NOT NULL,
-  executed_by TEXT NOT NULL,
-  executed_at TIMESTAMP NOT NULL,
-  status TEXT NOT NULL,  -- 'success', 'timeout', 'error'
-  error_message TEXT,
-  result_row_count INT,
-  execution_ms INT,
-  lineage JSON NOT NULL,  -- { tables, rules, filters, aggregations, groupBy, ruleStatuses }
-  FOREIGN KEY (workspace_id) REFERENCES workspaces(workspace_id),
-  FOREIGN KEY (query_id) REFERENCES query_configurations(query_id)
-);
-```
-
-#### Result Materialization (DuckDB / temporary storage)
-
-- Large result sets (>100k rows) are materialized to DuckDB or a temporary table for
-  pagination, export, and download.
-- Results are keyed by `execution_id` and purged after 24 hours or workspace cleanup.
+- Saved query configurations are stored as versioned metadata records per workspace.
+- Query execution history stores configuration snapshot, execution outcome, timing, and
+  lineage snapshot for traceability and reproducibility.
+- Large execution outputs may be materialized temporarily for safe pagination and export.
 
 ### Key Entities
 

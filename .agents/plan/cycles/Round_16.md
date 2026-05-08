@@ -1,6 +1,6 @@
 # Round 16: Spec 003 — Query Builder & Execution
 
-**Status**: Planning
+**Status**: In Progress
 **Date started**: 2026-05-09
 **Date completed**: —
 
@@ -20,11 +20,19 @@ Implement **Spec 003: Query Builder & Execution Engine** — the core data disco
 
 **Feasibility & Priority Assessment**:
 
-- [ ] Review Spec 003 artifact set (spec.md, plan.md, data-model.md, contracts/)
-- [ ] Assess backend dependencies: DuckDB SQL→Parquet loader, metadata schema, connection pooling
-- [ ] Prioritize Phase 1-2 tasks (foundational): Setup (T001-T005), Foundation (T006-T010)
-- [ ] Identify parallelizable tasks within each phase (marked [P] in tasks.md)
-- [ ] Estimate effort: Phase 1-2 ≈ 1-2 sprints for backend foundation + React UI scaffolding
+- [x] Review Spec 003 artifact set (spec.md, plan.md, data-model.md, contracts/)
+- [x] Assess backend dependencies: DuckDB SQL→Parquet loader, metadata schema, connection pooling
+- [x] Prioritize Phase 1-2 tasks (foundational): Setup (T001-T005), Foundation (T006-T010)
+- [x] Identify parallelizable tasks within each phase (marked [P] in tasks.md)
+- [x] Estimate effort: Phase 1-2 ≈ 1-2 sprints for backend foundation + React UI scaffolding
+
+**Assessment notes (2026-05-09)**:
+
+- Phase 1 priority order: T001/T002 baseline scaffolds first, then T003/T004/T005 in parallel.
+- Phase 2 priority order: T006 -> T007 (DB schema/index chain), T008 before service validators, then T009/T010/T011 in parallel, followed by T012, T013, T014.
+- Confirmed backend prerequisites are partially present: DuckDB dependency exists and parquet persistence exists; query execution service and saved query/execution schema are not yet implemented.
+- Parallelization confirmed from tasks.md: [P] tasks in setup/foundation can be split across backend and builder owners after T006/T008 gates.
+- Effort estimate validated: Phase 1-2 totals 14 tasks and is feasible in 1 sprint for 2 engineers (or 1-2 sprints for a single engineer), matching round target.
 
 **Decision Gates**:
 
@@ -34,9 +42,15 @@ Implement **Spec 003: Query Builder & Execution Engine** — the core data disco
 
 **Risks & Unknowns**:
 
-- [ ] How quickly can DuckDB handle CSV→Parquet ingest at scale? (Phase 0 research needed if not validated)
-- [ ] Connection pooling complexity — SQLite primary key recovery + multi-tenant isolation?
-- [ ] API contract alignment: Does OpenAPI spec match backend schema expectations?
+- [x] How quickly can DuckDB handle CSV→Parquet ingest at scale? (Phase 0 research needed if not validated)
+- [x] Connection pooling complexity — SQLite primary key recovery + multi-tenant isolation?
+- [x] API contract alignment: Does OpenAPI spec match backend schema expectations?
+
+**Risk notes (2026-05-09)**:
+
+- DuckDB/parquet ingest risk is mitigated by completed Phase 0 research decisions and existing parquet persistence path in backend upload flow.
+- Connection handling risk is currently bounded for MVP scope (single-user/local): SQLite uses short-lived per-operation connections and DuckDB usage is currently per-task connection; no multi-tenant pooling is in place yet.
+- API contract alignment has a clear implementation gap (expected at this stage): query-builder endpoints/DTOs defined in Spec 003 are not yet present in backend code and map directly to planned foundational tasks T006-T014.
 
 ---
 
@@ -44,11 +58,17 @@ Implement **Spec 003: Query Builder & Execution Engine** — the core data disco
 
 **Execute Spec-Kit workflow based on Plan requirements**:
 
-- [ ] Run `/speckit.specify` to refine spec requirements from Plan section
-- [ ] Run `/speckit.plan` to generate implementation phases and technical context
-- [ ] Run `/speckit.tasks` to decompose phases into granular, parallelizable tasks
+Progress log:
+
+- 2026-05-09: Plan phase completed (artifact review, dependency assessment, Phase 1-2 prioritization, parallelization map, risk assessment). Transitioned to Do phase.
+- 2026-05-09: Next action is to execute the Spec-Kit flow beginning with `/speckit.specify` for Spec 003 validation/repair pass.
+- 2026-05-09: Executed `/speckit.specify`, `/speckit.plan`, and `/speckit.tasks` for feature 003; artifacts were refreshed and aligned to constitution and phase-track structure.
+
+- [x] Run `/speckit.specify` to refine spec requirements from Plan section
+- [x] Run `/speckit.plan` to generate implementation phases and technical context
+- [x] Run `/speckit.tasks` to decompose phases into granular, parallelizable tasks
 - [ ] Verify spec artifacts (spec.md, plan.md, data-model.md, contracts/\*, tasks.md) are committed
-- [ ] Log completion status and artifacts location in this section
+- [x] Log completion status and artifacts location in this section
 
 ---
 
