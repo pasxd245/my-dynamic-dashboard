@@ -1,8 +1,10 @@
 import { useMemo, useState } from "react";
 
 import {
+  assignColumnRoles,
   createWorkspace,
   getWorkspaceProfile,
+  getReadiness,
   overrideSheet,
   uploadSource,
 } from "./api/workspaceApi";
@@ -16,6 +18,10 @@ function App() {
   const [dataRange, setDataRange] = useState("");
   const [reason, setReason] = useState("");
   const [profile, setProfile] = useState(null);
+  const [selectedColumnId, setSelectedColumnId] = useState("");
+  const [selectedRole, setSelectedRole] = useState("identity_key");
+  const [overrideReason, setOverrideReason] = useState("");
+  const [readiness, setReadiness] = useState(null);
   const [message, setMessage] = useState("");
 
   const currentSheet = useMemo(() => uploadResult?.sheets?.[0] ?? null, [uploadResult]);
@@ -78,7 +84,40 @@ function App() {
     try {
       const payload = await getWorkspaceProfile(workspaceId);
       setProfile(payload);
+      setSelectedColumnId(payload.columns?.[0]?.column_id ?? "");
       setMessage("Profile loaded.");
+    } catch (error) {
+      setMessage(error.message);
+    }
+  };
+
+  const onAssignRole = async () => {
+    if (!workspaceId || !selectedColumnId) {
+      setMessage("Load profile and choose a column first.");
+      return;
+    }
+
+    try {
+      await assignColumnRoles(workspaceId, selectedColumnId, {
+        roles: [selectedRole],
+        override_reason: overrideReason || null,
+      });
+      setMessage(`Role ${selectedRole} assigned.`);
+    } catch (error) {
+      setMessage(error.message);
+    }
+  };
+
+  const onLoadReadiness = async () => {
+    if (!workspaceId) {
+      setMessage("Create workspace first.");
+      return;
+    }
+
+    try {
+      const payload = await getReadiness(workspaceId);
+      setReadiness(payload);
+      setMessage("Readiness loaded.");
     } catch (error) {
       setMessage(error.message);
     }
@@ -140,11 +179,46 @@ function App() {
         <button onClick={onLoadProfile} style={{ marginBottom: "0.75rem" }}>
           Load profile
         </button>
+        <div style={{ display: "grid", gap: "0.5rem", maxWidth: "520px", marginBottom: "1rem" }}>
+          <select
+            value={selectedColumnId}
+            onChange={(event) => setSelectedColumnId(event.target.value)}
+          >
+            <option value="">Select column</option>
+            {(profile?.columns ?? []).map((column) => (
+              <option key={column.column_id} value={column.column_id}>
+                {column.column_name} ({column.column_id})
+              </option>
+            ))}
+          </select>
+          <select value={selectedRole} onChange={(event) => setSelectedRole(event.target.value)}>
+            <option value="identity_key">identity_key</option>
+            <option value="time_anchor">time_anchor</option>
+            <option value="measure">measure</option>
+            <option value="dimension">dimension</option>
+            <option value="status">status</option>
+            <option value="source_of_truth_outcome">source_of_truth_outcome</option>
+          </select>
+          <input
+            value={overrideReason}
+            onChange={(event) => setOverrideReason(event.target.value)}
+            placeholder="Override reason (optional)"
+          />
+          <div>
+            <button onClick={onAssignRole} style={{ marginRight: "0.5rem" }}>
+              Assign role
+            </button>
+            <button onClick={onLoadReadiness}>Load readiness</button>
+          </div>
+        </div>
         <pre style={{ background: "#f4f4f4", padding: "0.75rem", overflowX: "auto" }}>
           {JSON.stringify(uploadResult, null, 2)}
         </pre>
         <pre style={{ background: "#eef7ff", padding: "0.75rem", overflowX: "auto" }}>
           {JSON.stringify(profile, null, 2)}
+        </pre>
+        <pre style={{ background: "#ecfff3", padding: "0.75rem", overflowX: "auto" }}>
+          {JSON.stringify(readiness, null, 2)}
         </pre>
         <p>{message}</p>
       </section>

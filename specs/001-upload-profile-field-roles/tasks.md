@@ -98,7 +98,7 @@ Independent Test: Assign all required roles, verify hard failures for invalid ti
 - [ ] T032 [US3] Implement role assignment persistence and override audit writes in apps/backend/app/core/metadata_db.py
 - [x] T033 [US3] Implement role assignment endpoint and readiness endpoint in apps/backend/app/main.py
 - [x] T034 [US3] Implement field-role summary with source-sheet-column traceability metadata in apps/backend/app/schemas.py
-- [ ] T035 [US3] Implement builder role assignment UX (override reason capture, readiness badge, traceability links) in apps/builder/src/App.jsx
+- [x] T035 [US3] Implement builder role assignment UX (override reason capture, readiness badge, traceability links) in apps/builder/src/App.jsx
 
 Checkpoint: US3 is independently functional and provides MVP 1 readiness evaluation.
 

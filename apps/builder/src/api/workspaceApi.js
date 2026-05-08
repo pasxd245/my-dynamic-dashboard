@@ -55,3 +55,29 @@ export async function getWorkspaceProfile(workspaceId) {
 
   return response.json();
 }
+
+export async function assignColumnRoles(workspaceId, columnId, payload) {
+  const response = await fetch(`/api/v1/workspaces/${workspaceId}/columns/${columnId}/roles`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to assign column role");
+  }
+
+  return response.json();
+}
+
+export async function getReadiness(workspaceId) {
+  const response = await fetch(`/api/v1/workspaces/${workspaceId}/readiness`);
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch readiness");
+  }
+
+  return response.json();
+}
