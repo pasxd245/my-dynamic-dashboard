@@ -95,7 +95,7 @@ Independent Test: Assign all required roles, verify hard failures for invalid ti
 ### Implementation for User Story 3
 
 - [x] T031 [US3] Implement role compatibility engine (hard/soft constraints) in apps/backend/app/services/profile_service.py
-- [ ] T032 [US3] Implement role assignment persistence and override audit writes in apps/backend/app/core/metadata_db.py
+- [x] T032 [US3] Implement role assignment persistence and override audit writes in apps/backend/app/core/metadata_db.py
 - [x] T033 [US3] Implement role assignment endpoint and readiness endpoint in apps/backend/app/main.py
 - [x] T034 [US3] Implement field-role summary with source-sheet-column traceability metadata in apps/backend/app/schemas.py
 - [x] T035 [US3] Implement builder role assignment UX (override reason capture, readiness badge, traceability links) in apps/builder/src/App.jsx
@@ -111,17 +111,17 @@ Independent Test: Export manifest, import on fresh workspace with same files for
 
 ### Tests for User Story 4
 
-- [ ] T036 [P] [US4] Add contract test for POST /api/v1/workspaces/{workspaceId}/manifest/export and POST /api/v1/workspaces/manifest/import in apps/backend/tests/contract/test_manifest_contract.py
-- [ ] T037 [P] [US4] Add integration test for manifest round-trip reproducibility in apps/backend/tests/integration/test_manifest_roundtrip.py
-- [ ] T038 [P] [US4] Add integration test for hash mismatch blocking and diff response in apps/backend/tests/integration/test_manifest_hash_mismatch.py
+- [x] T036 [P] [US4] Add contract test for POST /api/v1/workspaces/{workspaceId}/manifest/export and POST /api/v1/workspaces/manifest/import in apps/backend/tests/contract/test_manifest_contract.py
+- [x] T037 [P] [US4] Add integration test for manifest round-trip reproducibility in apps/backend/tests/integration/test_manifest_roundtrip.py
+- [x] T038 [P] [US4] Add integration test for hash mismatch blocking and diff response in apps/backend/tests/integration/test_manifest_hash_mismatch.py
 
 ### Implementation for User Story 4
 
-- [ ] T039 [US4] Implement manifest export serialization with deterministic ordering in apps/backend/app/services/manifest_service.py
-- [ ] T040 [US4] Implement manifest import reconstruction and hash verification in apps/backend/app/services/manifest_service.py
-- [ ] T041 [US4] Implement manifest export/import endpoints in apps/backend/app/main.py
-- [ ] T042 [US4] Persist manifest snapshots and hash-diff diagnostics in apps/backend/app/core/metadata_db.py
-- [ ] T043 [US4] Implement builder manifest export/import actions and mismatch feedback in apps/builder/src/App.jsx and apps/builder/src/api/workspaceApi.js
+- [x] T039 [US4] Implement manifest export serialization with deterministic ordering in apps/backend/app/services/manifest_service.py
+- [x] T040 [US4] Implement manifest import reconstruction and hash verification in apps/backend/app/services/manifest_service.py
+- [x] T041 [US4] Implement manifest export/import endpoints in apps/backend/app/main.py
+- [x] T042 [US4] Persist manifest snapshots and hash-diff diagnostics in apps/backend/app/core/metadata_db.py
+- [x] T043 [US4] Implement builder manifest export/import actions and mismatch feedback in apps/builder/src/App.jsx and apps/builder/src/api/workspaceApi.js
 
 Checkpoint: US4 is independently functional.
 
@@ -131,10 +131,10 @@ Checkpoint: US4 is independently functional.
 
 Purpose: Final quality gates against success criteria and quickstart validation.
 
-- [ ] T044 Add end-to-end MVP1 flow regression test (upload -> profile -> roles -> readiness -> manifest) in apps/backend/tests/integration/test_mvp1_flow.py
-- [ ] T045 [P] Add SC-005 latency guard test for malformed/encrypted upload error path in apps/backend/tests/integration/test_upload_error_latency.py
-- [ ] T046 [P] Add SC-001 execution-time benchmark harness for sample workspace setup in apps/backend/tests/integration/test_sample_workspace_timing.py
-- [ ] T047 Update execution and verification notes for implemented flow in specs/001-upload-profile-field-roles/quickstart.md
+- [x] T044 Add end-to-end MVP1 flow regression test (upload -> profile -> roles -> readiness -> manifest) in apps/backend/tests/integration/test_mvp1_flow.py
+- [x] T045 [P] Add SC-005 latency guard test for malformed/encrypted upload error path in apps/backend/tests/integration/test_upload_error_latency.py
+- [x] T046 [P] Add SC-001 execution-time benchmark harness for sample workspace setup in apps/backend/tests/integration/test_sample_workspace_timing.py
+- [x] T047 Update execution and verification notes for implemented flow in specs/001-upload-profile-field-roles/quickstart.md
 
 ---
 

@@ -74,17 +74,29 @@ Open builder at <http://localhost:3000>.
 
 ## 8. Verification commands
 
-Backend tests (when added in implementation phase):
+Backend tests (all 20 pass as of MVP 1 implementation):
 
 ```bash
 cd apps/backend
 pytest
 ```
 
+Test coverage by phase:
+
+| Phase | Files | Tests |
+|-------|-------|-------|
+| Smoke | `tests/contract/test_schema_contract_smoke.py` | create workspace shape |
+| US1 Upload | `tests/contract/test_upload_parse_contract.py`, `tests/integration/test_sheet_override_reparse.py`, `tests/integration/test_csv_ambiguity_flow.py` | upload contract, override isolation, malformed CSV |
+| US2 Profile | `tests/contract/test_profile_contract.py`, `tests/integration/test_profile_warnings.py`, `tests/integration/test_profile_sampling.py` | profile shape, warnings, sampling |
+| US3 Roles | `tests/contract/test_roles_readiness_contract.py`, `tests/integration/test_role_compatibility.py`, `tests/integration/test_readiness_critical_warnings.py` | role/readiness shapes, hard/soft rules, critical warning blocking |
+| US4 Manifest | `tests/contract/test_manifest_contract.py`, `tests/integration/test_manifest_roundtrip.py`, `tests/integration/test_manifest_hash_mismatch.py` | export/import shapes, round-trip, hash mismatch |
+| Phase 7 Polish | `tests/integration/test_mvp1_flow.py`, `tests/integration/test_upload_error_latency.py`, `tests/integration/test_sample_workspace_timing.py` | e2e regression, SC-005 latency, SC-001 timing |
+
 Builder smoke build:
 
 ```bash
 cd apps/builder
+pnpm install
 pnpm build
 ```
 
