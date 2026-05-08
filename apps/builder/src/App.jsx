@@ -3,11 +3,27 @@ import { useMemo, useState } from "react";
 import {
   assignColumnRoles,
   createWorkspace,
+  exportManifest,
   getWorkspaceProfile,
   getReadiness,
+  importManifest,
   overrideSheet,
   uploadSource,
 } from "./api/workspaceApi";
+
+const panelStyle = {
+  marginTop: "1.5rem",
+  padding: "1rem",
+  border: "1px solid #d8d8d8",
+  borderRadius: "0.75rem",
+  background: "#ffffff",
+};
+
+const preStyle = {
+  padding: "0.75rem",
+  overflowX: "auto",
+  borderRadius: "0.5rem",
+};
 
 function App() {
   const [workspaceName, setWorkspaceName] = useState("MVP1 Workspace");
@@ -22,6 +38,8 @@ function App() {
   const [selectedRole, setSelectedRole] = useState("identity_key");
   const [overrideReason, setOverrideReason] = useState("");
   const [readiness, setReadiness] = useState(null);
+  const [manifestText, setManifestText] = useState("");
+  const [manifestPreview, setManifestPreview] = useState(null);
   const [message, setMessage] = useState("");
 
   const currentSheet = useMemo(() => uploadResult?.sheets?.[0] ?? null, [uploadResult]);
@@ -123,23 +141,69 @@ function App() {
     }
   };
 
-  return (
-    <main style={{ fontFamily: "sans-serif", padding: "2rem", maxWidth: "860px" }}>
-      <h1>My Dynamic Dashboard Builder</h1>
-      <p>US1 flow: create workspace, upload source, override sheet settings.</p>
+  const onExportManifest = async () => {
+    if (!workspaceId) {
+      setMessage("Create workspace first.");
+      return;
+    }
 
-      <section style={{ marginTop: "1.5rem" }}>
+    try {
+      const payload = await exportManifest(workspaceId);
+      setManifestPreview(payload);
+      setManifestText(JSON.stringify(payload, null, 2));
+      setMessage("Manifest exported.");
+    } catch (error) {
+      setMessage(error.message);
+    }
+  };
+
+  const onImportManifest = async () => {
+    if (!manifestText.trim()) {
+      setMessage("Paste or export a manifest first.");
+      return;
+    }
+
+    try {
+      const manifest = JSON.parse(manifestText);
+      const payload = await importManifest(manifest);
+      setWorkspaceId(payload.id);
+      setWorkspaceName(payload.name);
+      setUploadResult(null);
+      setProfile(null);
+      setReadiness(null);
+      setMessage(`Manifest imported into workspace: ${payload.id}`);
+    } catch (error) {
+      setMessage(error.message);
+    }
+  };
+
+  return (
+    <main
+      style={{
+        fontFamily: "Georgia, 'Times New Roman', serif",
+        padding: "2rem",
+        maxWidth: "960px",
+        margin: "0 auto",
+        color: "#1b1b1b",
+        background: "linear-gradient(180deg, #fffdf6 0%, #f6f0df 100%)",
+        minHeight: "100vh",
+      }}
+    >
+      <h1>My Dynamic Dashboard Builder</h1>
+      <p>Upload, profile, role assignment, readiness, and manifest reproducibility flow.</p>
+
+      <section style={panelStyle}>
         <h2>Create Workspace</h2>
         <input
           value={workspaceName}
           onChange={(event) => setWorkspaceName(event.target.value)}
           placeholder="Workspace name"
-          style={{ marginRight: "0.5rem", padding: "0.4rem" }}
+          style={{ marginRight: "0.5rem", padding: "0.4rem", width: "18rem" }}
         />
         <button onClick={onCreateWorkspace}>Create</button>
       </section>
 
-      <section style={{ marginTop: "1.5rem" }}>
+      <section style={panelStyle}>
         <h2>Upload Source</h2>
         <input
           type="file"
@@ -151,7 +215,7 @@ function App() {
         </button>
       </section>
 
-      <section style={{ marginTop: "1.5rem" }}>
+      <section style={panelStyle}>
         <h2>Sheet Override</h2>
         <div style={{ display: "grid", gap: "0.5rem", maxWidth: "400px" }}>
           <input
@@ -173,9 +237,11 @@ function App() {
         </div>
       </section>
 
-      <section style={{ marginTop: "1.5rem" }}>
-        <h2>State</h2>
-        <p><strong>Workspace:</strong> {workspaceId || "(none)"}</p>
+      <section style={panelStyle}>
+        <h2>Profiles and Roles</h2>
+        <p>
+          <strong>Workspace:</strong> {workspaceId || "(none)"}
+        </p>
         <button onClick={onLoadProfile} style={{ marginBottom: "0.75rem" }}>
           Load profile
         </button>
@@ -211,14 +277,36 @@ function App() {
             <button onClick={onLoadReadiness}>Load readiness</button>
           </div>
         </div>
-        <pre style={{ background: "#f4f4f4", padding: "0.75rem", overflowX: "auto" }}>
+      </section>
+
+      <section style={panelStyle}>
+        <h2>Manifest</h2>
+        <div style={{ display: "flex", gap: "0.75rem", marginBottom: "0.75rem", flexWrap: "wrap" }}>
+          <button onClick={onExportManifest}>Export manifest</button>
+          <button onClick={onImportManifest}>Import manifest</button>
+        </div>
+        <textarea
+          value={manifestText}
+          onChange={(event) => setManifestText(event.target.value)}
+          placeholder="Exported manifest JSON appears here, or paste one to import."
+          rows={14}
+          style={{ width: "100%", padding: "0.75rem", fontFamily: "monospace" }}
+        />
+      </section>
+
+      <section style={panelStyle}>
+        <h2>State</h2>
+        <pre style={{ ...preStyle, background: "#f4f4f4" }}>
           {JSON.stringify(uploadResult, null, 2)}
         </pre>
-        <pre style={{ background: "#eef7ff", padding: "0.75rem", overflowX: "auto" }}>
+        <pre style={{ ...preStyle, background: "#eef7ff" }}>
           {JSON.stringify(profile, null, 2)}
         </pre>
-        <pre style={{ background: "#ecfff3", padding: "0.75rem", overflowX: "auto" }}>
+        <pre style={{ ...preStyle, background: "#ecfff3" }}>
           {JSON.stringify(readiness, null, 2)}
+        </pre>
+        <pre style={{ ...preStyle, background: "#fff4df" }}>
+          {JSON.stringify(manifestPreview, null, 2)}
         </pre>
         <p>{message}</p>
       </section>
