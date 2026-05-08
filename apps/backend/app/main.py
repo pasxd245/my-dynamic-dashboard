@@ -12,6 +12,7 @@ from app.core.metadata_db import get_connection, init_metadata_db
 from app.schemas import (
     ApiErrorModel,
     ColumnSchema,
+    ColumnProfileResponse,
     ErrorResponse,
     SheetOverrideRequest,
     SheetResponse,
@@ -19,8 +20,10 @@ from app.schemas import (
     TableSummary,
     UploadTableResponse,
     WorkspaceCreateRequest,
+    WorkspaceProfileResponse,
     WorkspaceResponse,
 )
+from app.services.profile_service import compute_column_profile, compute_profiles
 from app.services.manifest_service import compute_source_hash
 from app.services.upload_service import (
     build_upload_result,
@@ -157,6 +160,7 @@ async def upload_source_for_workspace(
     sheet_id = str(uuid.uuid4())
     data_range = detect_data_range(df)
     profiles = compute_column_profiles(df)
+    profile_df, sampled, sample_size, sample_seed = compute_profiles(df)
     warnings: list[str] = []
 
     with get_connection(DB_PATH) as conn:
@@ -199,6 +203,7 @@ async def upload_source_for_workspace(
         )
 
         for index, profile in enumerate(profiles):
+            column_id = str(uuid.uuid4())
             conn.execute(
                 """
                 INSERT INTO columns (
@@ -208,13 +213,43 @@ async def upload_source_for_workspace(
                 ) VALUES (?, ?, ?, ?, ?, ?, NULL, ?)
                 """,
                 (
-                    str(uuid.uuid4()),
+                    column_id,
                     sheet_id,
                     profile.name,
                     index,
                     normalize_effective_type(profile.data_type),
                     normalize_effective_type(profile.data_type),
                     int(df.get_column(profile.name).null_count() == df.height),
+                ),
+            )
+
+            computed = compute_column_profile(
+                profile_df.get_column(profile.name),
+                sampled=sampled,
+                sample_size=sample_size,
+                sample_seed=sample_seed,
+            )
+            conn.execute(
+                """
+                INSERT INTO column_profiles (
+                    id, column_id, null_ratio, distinct_count, uniqueness_ratio,
+                    duplicate_signature, numeric_min, numeric_max, date_min, date_max,
+                    top_k_values_json, warnings_json, sampled, sample_size, sample_seed, computed_at
+                ) VALUES (?, ?, ?, ?, ?, ?, NULL, NULL, NULL, NULL, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    str(uuid.uuid4()),
+                    column_id,
+                    computed.null_ratio,
+                    computed.distinct_count,
+                    computed.uniqueness_ratio,
+                    computed.duplicate_signature,
+                    computed.top_k_values_json,
+                    computed.warnings_json,
+                    int(computed.sampled),
+                    computed.sample_size,
+                    computed.sample_seed,
+                    now,
                 ),
             )
 
@@ -310,6 +345,44 @@ def override_sheet_range(
             header_row_effective=new_header,
             data_range_effective=new_range,
         )
+
+@app.get("/api/v1/workspaces/{workspace_id}/profile")
+def get_workspace_profile(workspace_id: str) -> WorkspaceProfileResponse:
+    _get_workspace(workspace_id)
+
+    with get_connection(DB_PATH) as conn:
+        rows = conn.execute(
+            """
+            SELECT c.id AS column_id, c.name AS column_name, c.effective_type,
+                   cp.null_ratio, cp.distinct_count, cp.uniqueness_ratio,
+                   cp.warnings_json, cp.sampled, cp.sample_size, cp.sample_seed
+            FROM columns c
+            JOIN sheets s ON s.id = c.sheet_id
+            JOIN source_files sf ON sf.id = s.source_file_id
+            JOIN column_profiles cp ON cp.column_id = c.id
+            WHERE sf.workspace_id = ?
+            ORDER BY c.ordinal ASC
+            """,
+            (workspace_id,),
+        ).fetchall()
+
+    profiles = [
+        ColumnProfileResponse(
+            column_id=str(row["column_id"]),
+            column_name=str(row["column_name"]),
+            effective_type=str(row["effective_type"]),
+            null_ratio=float(row["null_ratio"]),
+            distinct_count=int(row["distinct_count"]),
+            uniqueness_ratio=float(row["uniqueness_ratio"]),
+            warnings=json.loads(str(row["warnings_json"])),
+            sampled=bool(row["sampled"]),
+            sample_size=None if row["sample_size"] is None else int(row["sample_size"]),
+            sample_seed=None if row["sample_seed"] is None else int(row["sample_seed"]),
+        )
+        for row in rows
+    ]
+
+    return WorkspaceProfileResponse(columns=profiles)
 
 
 @app.post(

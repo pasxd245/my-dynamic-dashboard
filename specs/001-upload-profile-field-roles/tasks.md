@@ -65,17 +65,17 @@ Independent Test: Use mixed-type and duplicate-heavy columns; verify warnings, n
 
 ### Tests for User Story 2
 
-- [ ] T020 [P] [US2] Add contract test for GET /api/v1/workspaces/{workspaceId}/profile in apps/backend/tests/contract/test_profile_contract.py
-- [ ] T021 [P] [US2] Add integration test for mixed-type, sentinel, and date-window warnings in apps/backend/tests/integration/test_profile_warnings.py
-- [ ] T022 [P] [US2] Add integration test for sampled profiling metadata (sampleSize/sampleSeed) in apps/backend/tests/integration/test_profile_sampling.py
+- [x] T020 [P] [US2] Add contract test for GET /api/v1/workspaces/{workspaceId}/profile in apps/backend/tests/contract/test_profile_contract.py
+- [x] T021 [P] [US2] Add integration test for mixed-type, sentinel, and date-window warnings in apps/backend/tests/integration/test_profile_warnings.py
+- [x] T022 [P] [US2] Add integration test for sampled profiling metadata (sampleSize/sampleSeed) in apps/backend/tests/integration/test_profile_sampling.py
 
 ### Implementation for User Story 2
 
-- [ ] T023 [US2] Implement profile computation (null/distinct/uniqueness/range/top-K/warnings) in apps/backend/app/services/profile_service.py
-- [ ] T024 [US2] Implement sampled profiling thresholds and deterministic sample seed persistence in apps/backend/app/services/profile_service.py
-- [ ] T025 [US2] Implement profile persistence/retrieval in apps/backend/app/core/metadata_db.py
-- [ ] T026 [US2] Implement profile endpoint GET /api/v1/workspaces/{workspaceId}/profile in apps/backend/app/main.py
-- [ ] T027 [US2] Implement builder profile panel for quality metrics and warnings in apps/builder/src/App.jsx
+- [x] T023 [US2] Implement profile computation (null/distinct/uniqueness/range/top-K/warnings) in apps/backend/app/services/profile_service.py
+- [x] T024 [US2] Implement sampled profiling thresholds and deterministic sample seed persistence in apps/backend/app/services/profile_service.py
+- [x] T025 [US2] Implement profile persistence/retrieval in apps/backend/app/core/metadata_db.py
+- [x] T026 [US2] Implement profile endpoint GET /api/v1/workspaces/{workspaceId}/profile in apps/backend/app/main.py
+- [x] T027 [US2] Implement builder profile panel for quality metrics and warnings in apps/builder/src/App.jsx
 
 Checkpoint: US2 is independently functional.
 

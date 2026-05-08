@@ -45,3 +45,13 @@ export async function overrideSheet(workspaceId, sheetId, payload) {
 
   return response.json();
 }
+
+export async function getWorkspaceProfile(workspaceId) {
+  const response = await fetch(`/api/v1/workspaces/${workspaceId}/profile`);
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch workspace profile");
+  }
+
+  return response.json();
+}

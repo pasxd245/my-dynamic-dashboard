@@ -1,6 +1,11 @@
 import { useMemo, useState } from "react";
 
-import { createWorkspace, overrideSheet, uploadSource } from "./api/workspaceApi";
+import {
+  createWorkspace,
+  getWorkspaceProfile,
+  overrideSheet,
+  uploadSource,
+} from "./api/workspaceApi";
 
 function App() {
   const [workspaceName, setWorkspaceName] = useState("MVP1 Workspace");
@@ -10,6 +15,7 @@ function App() {
   const [headerRow, setHeaderRow] = useState("1");
   const [dataRange, setDataRange] = useState("");
   const [reason, setReason] = useState("");
+  const [profile, setProfile] = useState(null);
   const [message, setMessage] = useState("");
 
   const currentSheet = useMemo(() => uploadResult?.sheets?.[0] ?? null, [uploadResult]);
@@ -58,6 +64,21 @@ function App() {
         sheets: [payload],
       }));
       setMessage("Override applied.");
+    } catch (error) {
+      setMessage(error.message);
+    }
+  };
+
+  const onLoadProfile = async () => {
+    if (!workspaceId) {
+      setMessage("Create workspace first.");
+      return;
+    }
+
+    try {
+      const payload = await getWorkspaceProfile(workspaceId);
+      setProfile(payload);
+      setMessage("Profile loaded.");
     } catch (error) {
       setMessage(error.message);
     }
@@ -116,8 +137,14 @@ function App() {
       <section style={{ marginTop: "1.5rem" }}>
         <h2>State</h2>
         <p><strong>Workspace:</strong> {workspaceId || "(none)"}</p>
+        <button onClick={onLoadProfile} style={{ marginBottom: "0.75rem" }}>
+          Load profile
+        </button>
         <pre style={{ background: "#f4f4f4", padding: "0.75rem", overflowX: "auto" }}>
           {JSON.stringify(uploadResult, null, 2)}
+        </pre>
+        <pre style={{ background: "#eef7ff", padding: "0.75rem", overflowX: "auto" }}>
+          {JSON.stringify(profile, null, 2)}
         </pre>
         <p>{message}</p>
       </section>
