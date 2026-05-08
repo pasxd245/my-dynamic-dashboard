@@ -120,7 +120,7 @@ def _warn_out_of_range_dates(series: pl.Series) -> list[str]:
 
 
 def _to_top_k_json(series: pl.Series, limit: int = 5) -> str:
-    top = series.drop_nulls().value_counts().sort("count", descending=True).head(limit)
+    top = series.drop_nulls().cast(pl.String).value_counts().sort("count", descending=True).head(limit)
     rows = top.to_dicts()
     normalized = [
         {"value": row.get(series.name), "count": int(row.get("count", 0))} for row in rows
