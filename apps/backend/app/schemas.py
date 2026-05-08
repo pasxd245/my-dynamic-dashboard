@@ -85,6 +85,64 @@ class RelationshipResponse(BaseModel):
     created_at: str
 
 
+class CreateRelationshipRuleRequest(BaseModel):
+    from_column_id: str
+    to_column_id: str
+    join_type: str
+    rel_type: str
+    low_overlap_acknowledged: bool = False
+
+
+class ReviewRelationshipRuleRequest(BaseModel):
+    action: str
+    reason: str | None = None
+    override_reason: str | None = None
+
+
+class UpdateRelationshipRuleRequest(BaseModel):
+    from_column_id: str
+    to_column_id: str
+    join_type: str
+    rel_type: str
+
+
+class RelationshipAuditEvent(BaseModel):
+    id: str
+    relationship_id: str
+    action: str
+    old_status: str | None
+    new_status: str
+    reason: str | None
+    actor: str | None
+    timestamp: str
+
+
+class RelationshipRuleResponse(BaseModel):
+    id: str
+    workspace_id: str
+    from_column_id: str
+    to_column_id: str
+    join_type: str
+    rel_type: str
+    status: str
+    overlap_pct: float | None
+    cardinality: str | None
+    low_overlap_acknowledged: bool
+    override_reason: str | None
+    actor: str | None
+    broken: bool
+    created_at: str
+    updated_at: str
+
+
+class RelationshipRuleDetailResponse(RelationshipRuleResponse):
+    audit: list[RelationshipAuditEvent]
+
+
+class RelationshipRuleListResponse(BaseModel):
+    items: list[RelationshipRuleResponse]
+
+
 class SheetOverrideRequest(BaseModel):
     header_row: int | None = None
     data_range: str | None = None

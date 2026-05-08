@@ -170,18 +170,43 @@ def init_metadata_db(db_path: Path) -> None:
         )
         conn.execute(
             """
-            CREATE TABLE IF NOT EXISTS relationships (
+            CREATE TABLE IF NOT EXISTS relationship_rules (
                 id TEXT PRIMARY KEY,
-                from_table_id TEXT NOT NULL,
-                from_column TEXT NOT NULL,
-                to_table_id TEXT NOT NULL,
-                to_column TEXT NOT NULL,
+                workspace_id TEXT NOT NULL,
+                from_column_id TEXT NOT NULL,
+                to_column_id TEXT NOT NULL,
                 join_type TEXT NOT NULL,
-                is_broken INTEGER NOT NULL DEFAULT 0,
-                created_at TEXT NOT NULL
+                rel_type TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'suggested',
+                overlap_pct REAL,
+                cardinality TEXT,
+                low_overlap_acknowledged INTEGER NOT NULL DEFAULT 0,
+                override_reason TEXT,
+                actor TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                FOREIGN KEY(workspace_id) REFERENCES workspaces(id),
+                FOREIGN KEY(from_column_id) REFERENCES columns(id),
+                FOREIGN KEY(to_column_id) REFERENCES columns(id)
             )
             """
         )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS relationship_audit (
+                id TEXT PRIMARY KEY,
+                relationship_id TEXT NOT NULL,
+                action TEXT NOT NULL,
+                old_status TEXT,
+                new_status TEXT NOT NULL,
+                reason TEXT,
+                actor TEXT,
+                timestamp TEXT NOT NULL,
+                FOREIGN KEY(relationship_id) REFERENCES relationship_rules(id)
+            )
+            """
+        )
+        conn.execute("DROP TABLE IF EXISTS relationships")
         conn.execute(
             """
             CREATE INDEX IF NOT EXISTS idx_files_filename_version
@@ -196,8 +221,26 @@ def init_metadata_db(db_path: Path) -> None:
         )
         conn.execute(
             """
-            CREATE INDEX IF NOT EXISTS idx_relationships_tables
-            ON relationships(from_table_id, to_table_id)
+            CREATE INDEX IF NOT EXISTS idx_relationship_rules_workspace
+            ON relationship_rules(workspace_id)
+            """
+        )
+        conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_relationship_rules_status
+            ON relationship_rules(workspace_id, status)
+            """
+        )
+        conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_relationship_rules_columns
+            ON relationship_rules(from_column_id, to_column_id)
+            """
+        )
+        conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_relationship_audit_timeline
+            ON relationship_audit(relationship_id, timestamp)
             """
         )
         conn.execute(
