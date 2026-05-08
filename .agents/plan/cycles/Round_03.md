@@ -33,9 +33,9 @@ _Progress log — update as work proceeds._
 
 ## Act
 
-**Learnings**:
--
+## **Learnings**
 
 **Promotions**:
+
 - [ ] → context/ :
-- [ ] → skills/  :
+- [ ] → skills/ :

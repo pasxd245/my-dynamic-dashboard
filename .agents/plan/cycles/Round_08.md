@@ -35,7 +35,6 @@ _Progress log — update as work proceeds._
 
 ## Act
 
-**Learnings**:
--
+## **Learnings**
 
 **Decision**: Proceed to MVP 2 / Iterate more on MVP 1

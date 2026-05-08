@@ -6,8 +6,8 @@ A lightweight analytics platform that replaces a broken Excel workflow.
 The CRM lacks reporting features, Excel crashes on 100k+ rows, and the
 dev team cannot help. This project bridges that gap.
 
-**Name rationale**: *my* (personal/team problem) + *dynamic* (adapts to
-changing schemas) + *dashboard* (end goal is insights).
+**Name rationale**: _my_ (personal/team problem) + _dynamic_ (adapts to
+changing schemas) + _dashboard_ (end goal is insights).
 
 ---
 
@@ -32,11 +32,11 @@ Streamlit Dash ──┘
 
 Three layers, each doing what it does best:
 
-| Layer | Technology | Responsibility |
-|-------|-----------|----------------|
-| **Backend** | FastAPI + Polars + DuckDB + SQLite | Data processing, schema management, query execution, API |
-| **Builder** | React + TanStack + React Flow | File upload, visual relationship builder, query builder |
-| **Dashboard** | Streamlit + Pandas + Plotly | Report viewing, charts, Excel export |
+| Layer         | Technology                         | Responsibility                                           |
+| ------------- | ---------------------------------- | -------------------------------------------------------- |
+| **Backend**   | FastAPI + Polars + DuckDB + SQLite | Data processing, schema management, query execution, API |
+| **Builder**   | React + TanStack + React Flow      | File upload, visual relationship builder, query builder  |
+| **Dashboard** | Streamlit + Pandas + Plotly        | Report viewing, charts, Excel export                     |
 
 The backend is the single source of truth. Both frontends consume its REST API.
 
@@ -47,12 +47,12 @@ For tech stack rationale and comparisons:
 
 ## Data Layer: Three Tools, Clear Roles
 
-| Tool | Role | Handles |
-|------|------|---------|
-| **Polars** | ETL | Read Excel/CSV, clean data, detect schemas, write Parquet |
-| **DuckDB** | Query engine | Execute SQL joins/aggregations over Parquet files |
-| **SQLite** | Metadata | Track files, schemas, versions, relationships, saved configs |
-| **Parquet** | Storage | Versioned data files; DuckDB queries them directly |
+| Tool        | Role         | Handles                                                      |
+| ----------- | ------------ | ------------------------------------------------------------ |
+| **Polars**  | ETL          | Read Excel/CSV, clean data, detect schemas, write Parquet    |
+| **DuckDB**  | Query engine | Execute SQL joins/aggregations over Parquet files            |
+| **SQLite**  | Metadata     | Track files, schemas, versions, relationships, saved configs |
+| **Parquet** | Storage      | Versioned data files; DuckDB queries them directly           |
 
 Schema evolution is handled by versioned Parquet files. Each upload
 creates a new version; DuckDB unions them with `union_by_name=true`.
@@ -159,7 +159,7 @@ These are documented but explicitly deferred:
 
 ```
 my-dynamic-dashboard/
-├── packages/
+├── apps/
 │   ├── backend/          # FastAPI + Polars + DuckDB + SQLite
 │   ├── builder/          # React + TanStack + React Flow
 │   └── dashboard/        # Streamlit + Pandas (MVP 2)
@@ -176,18 +176,18 @@ my-dynamic-dashboard/
 
 ## Analysis Document Index
 
-| Doc | Topic |
-|-----|-------|
-| [00-problem.md](../../docs/analysis/00-problem.md) | Problem decomposition, constraints, two product directions |
-| [01-requirements.md](../../docs/analysis/01-requirements.md) | Functional/non-functional requirements, risks, MVP acceptance |
-| [02-architecture-options.md](../../docs/analysis/02-architecture-options.md) | Three architecture options compared, recommended sequence |
-| [03-roadmap.md](../../docs/analysis/03-roadmap.md) | Four-phase delivery roadmap |
-| [04-tech-stack.md](../../docs/analysis/04-tech-stack.md) | FastAPI + React + Streamlit decision, stack details |
-| [05-data-layer.md](../../docs/analysis/05-data-layer.md) | DuckDB + SQLite + Parquet, schema evolution strategy |
-| [06-ai-workflow-engine.md](../../docs/analysis/06-ai-workflow-engine.md) | AI-generated YAML workflows, execution engine |
-| [07-collaboration-model.md](../../docs/analysis/07-collaboration-model.md) | Business-tech bridge, roles, request workflow |
-| [08-evolutionary-approach.md](../../docs/analysis/08-evolutionary-approach.md) | Just-in-time features, Polars/DuckDB/Pandas roles |
-| [09-mvp-plan.md](../../docs/analysis/09-mvp-plan.md) | Two-MVP plan, week-by-week breakdown, deployment |
+| Doc                                                                            | Topic                                                         |
+| ------------------------------------------------------------------------------ | ------------------------------------------------------------- |
+| [00-problem.md](../../docs/analysis/00-problem.md)                             | Problem decomposition, constraints, two product directions    |
+| [01-requirements.md](../../docs/analysis/01-requirements.md)                   | Functional/non-functional requirements, risks, MVP acceptance |
+| [02-architecture-options.md](../../docs/analysis/02-architecture-options.md)   | Three architecture options compared, recommended sequence     |
+| [03-roadmap.md](../../docs/analysis/03-roadmap.md)                             | Four-phase delivery roadmap                                   |
+| [04-tech-stack.md](../../docs/analysis/04-tech-stack.md)                       | FastAPI + React + Streamlit decision, stack details           |
+| [05-data-layer.md](../../docs/analysis/05-data-layer.md)                       | DuckDB + SQLite + Parquet, schema evolution strategy          |
+| [06-ai-workflow-engine.md](../../docs/analysis/06-ai-workflow-engine.md)       | AI-generated YAML workflows, execution engine                 |
+| [07-collaboration-model.md](../../docs/analysis/07-collaboration-model.md)     | Business-tech bridge, roles, request workflow                 |
+| [08-evolutionary-approach.md](../../docs/analysis/08-evolutionary-approach.md) | Just-in-time features, Polars/DuckDB/Pandas roles             |
+| [09-mvp-plan.md](../../docs/analysis/09-mvp-plan.md)                           | Two-MVP plan, week-by-week breakdown, deployment              |
 
 ---
 

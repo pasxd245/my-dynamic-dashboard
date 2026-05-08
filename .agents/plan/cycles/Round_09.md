@@ -17,7 +17,7 @@ the builder.
 - [ ] Add `query_configs` table to SQLite (name, description, config JSON, timestamps)
 - [ ] Create CRUD endpoints: `POST/GET/PUT/DELETE /api/v1/configs`
 - [ ] Add "Save Query" button to builder query page → name/describe modal → save
-- [ ] Create `packages/dashboard` with Streamlit entry point
+- [ ] Create `apps/dashboard` with Streamlit entry point
 - [ ] Dashboard fetches saved queries from backend API
 - [ ] User selects a query, clicks run, sees results table
 - [ ] Excel/CSV export buttons in dashboard
@@ -37,9 +37,9 @@ _Progress log — update as work proceeds._
 
 ## Act
 
-**Learnings**:
--
+## **Learnings**
 
 **Promotions**:
+
 - [ ] → context/ :
-- [ ] → skills/  :
+- [ ] → skills/ :

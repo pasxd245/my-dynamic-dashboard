@@ -2,16 +2,27 @@
   "name": "my-dynamic-dashboard",
   "version": "0.0.1",
   "description": "",
-  "main": "index.js",
+  "private": true,
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "prepare": "husky",
+    "commitlint": "commitlint --edit",
+    "md:lint": "markdownlint-cli2",
+    "md:fix": "markdownlint-cli2 --fix",
+    "format": "prettier --write \"**/*.md\"",
+    "format:check": "prettier --check \"**/*.md\""
   },
   "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "author": "pasxd245",
+  "license": "MIT",
   "packageManager": "pnpm@10.22.0",
-  "dependencies": {
-    "@nci-gis/js-tmpl": "0.0.1-beta.2",
-    "a2scaffold": "^0.0.2"
+  "devDependencies": {
+    "@commitlint/cli": "^20.5.3",
+    "@commitlint/config-conventional": "^20.5.3",
+    "@nci-gis/js-tmpl": "^0.1.0",
+    "a2scaffold": "^0.1.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.0.2",
+    "markdownlint-cli2": "^0.22.1",
+    "prettier": "^3.8.3"
   }
 }

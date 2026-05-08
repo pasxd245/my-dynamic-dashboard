@@ -35,10 +35,10 @@ _Progress log — update as work proceeds._
 
 ## Act
 
-**Learnings**:
--
+## **Learnings**
 
 **Decision**: Post-MVP priorities:
+
 1.
 2.
 3.

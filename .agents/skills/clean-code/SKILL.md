@@ -91,6 +91,7 @@ readability over cleverness and consistency over personal preference.
 ### Transformations
 
 - Chain operations instead of intermediate variables:
+
   ```python
   # good
   result = (
@@ -105,6 +106,7 @@ readability over cleverness and consistency over personal preference.
   grouped = filtered.group_by(...)
   result = grouped.agg(...)
   ```
+
 - Use `.alias()` to name derived columns explicitly.
 - Prefer Polars expressions over Python loops on DataFrames.
 
@@ -177,12 +179,14 @@ readability over cleverness and consistency over personal preference.
 - One component per file. Filename matches component name: `FileUploader.tsx`.
 - Use functional components only. No class components.
 - Props interface named `{Component}Props`:
+
   ```tsx
   interface FileUploaderProps {
-    onUpload: (file: File) => void
-    disabled?: boolean
+    onUpload: (file: File) => void;
+    disabled?: boolean;
   }
   ```
+
 - Colocate hooks, types, and helpers with their component when single-use.
 - Extract to `hooks/` or `utils/` when shared by 2+ components.
 
@@ -223,9 +227,11 @@ readability over cleverness and consistency over personal preference.
 - Use utility classes directly. Avoid `@apply` except in base layer resets.
 - Extract repeated class strings into components, not CSS files.
 - Use `clsx` or `cn()` helper for conditional classes:
+
   ```tsx
   className={clsx("px-4 py-2 rounded", isActive && "bg-blue-600 text-white")}
   ```
+
 - Stick to the default Tailwind palette. Extend in `tailwind.config.js` only for brand colours.
 - Responsive: mobile-first (`md:`, `lg:` prefixes for larger screens).
 
@@ -263,11 +269,11 @@ readability over cleverness and consistency over personal preference.
 
 ### Naming consistency across stacks
 
-| Concept | Python | TypeScript | SQL | API route |
-|---------|--------|-----------|-----|-----------|
-| Uploaded file | `file_id` | `fileId` | `file_id` | `/tables/{file_id}` |
-| Table link | `relationship` | `relationship` | `relationships` | `/relationships` |
-| Saved report | `query_config` | `queryConfig` | `query_configs` | `/configs` |
+| Concept       | Python         | TypeScript     | SQL             | API route           |
+| ------------- | -------------- | -------------- | --------------- | ------------------- |
+| Uploaded file | `file_id`      | `fileId`       | `file_id`       | `/tables/{file_id}` |
+| Table link    | `relationship` | `relationship` | `relationships` | `/relationships`    |
+| Saved report  | `query_config` | `queryConfig`  | `query_configs` | `/configs`          |
 
 Use snake_case in Python/SQL, camelCase in TypeScript, kebab-case in URLs.
 
@@ -280,19 +286,19 @@ Use snake_case in Python/SQL, camelCase in TypeScript, kebab-case in URLs.
 ### File organisation
 
 ```
-packages/backend/app/
+apps/backend/app/
   api/          → one file per resource (thin: validation + delegation)
   core/         → business logic (testable, no FastAPI imports)
   models/       → Pydantic models and dataclasses
 
-packages/builder/src/
+apps/builder/src/
   routes/       → one file per page (TanStack Router)
   components/   → reusable UI pieces
   hooks/        → custom hooks (TanStack Query wrappers)
   api/          → HTTP client and endpoint functions
   types/        → shared TypeScript interfaces
 
-packages/dashboard/
+apps/dashboard/
   app.py        → entry point
   pages/        → Streamlit multi-page app
   components/   → chart builders, export helpers

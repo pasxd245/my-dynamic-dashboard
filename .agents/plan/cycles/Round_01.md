@@ -13,7 +13,7 @@ single command. This is the foundation everything else builds on.
 
 ## Plan
 
-- [ ] Initialise pnpm workspace with `packages/backend` and `packages/builder`
+- [ ] Initialise pnpm workspace with `apps/backend` and `apps/builder`
 - [ ] Create FastAPI skeleton with `/health` endpoint and CORS middleware
 - [ ] Create React + Vite + TanStack Router skeleton rendering a hello page
 - [ ] Configure Vite proxy so `/api` routes hit `localhost:8000`
@@ -35,9 +35,9 @@ _Progress log — update as work proceeds._
 
 ## Act
 
-**Learnings**:
--
+## **Learnings**
 
 **Promotions**:
+
 - [ ] → context/ :
-- [ ] → skills/  :
+- [ ] → skills/ :

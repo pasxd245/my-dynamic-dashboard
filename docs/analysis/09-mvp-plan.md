@@ -37,23 +37,26 @@ flowchart LR
 ### Week-by-week breakdown
 
 **Week 1: Backend Foundation**
+
 - Days 1-2: Environment setup, file upload API, Polars processing, schema detection, Parquet storage, SQLite metadata
 - Days 3-4: Relationship model, CRUD endpoints, SQL translator, DuckDB integration
 - Days 5-7: Query builder endpoint, preview (LIMIT 100), execute, export to Excel/CSV
 
 **Week 2: Frontend Builder**
+
 - Days 8-10: React + TanStack setup, upload page with drag-drop, tables list, schema viewer
 - Days 11-13: React Flow graph, drag to connect nodes, save relationships, visual feedback
 - Day 14: Loading states, error messages, toasts, basic Tailwind styling
 
 **Week 3: Query Builder and Export**
+
 - Days 15-17: Query builder UI (base table, columns, filters, group by, aggregations), SQL preview, results preview
 - Days 18-19: Execute button, download Excel/CSV, progress indicator
 - Days 20-21: Test with real data, fix bugs, write README, record demo
 
 ### Tech stack (locked in)
 
-```
+```text
 Backend:  FastAPI + Polars (ETL) + DuckDB (SQL) + SQLite (metadata) + Parquet (storage)
 Frontend: React 18 + TanStack (Router, Query, Table) + React Flow + Tailwind + Vite
 Infra:    pnpm monorepo on WSL2; Docker CE used for deployment and optional hybrid dev
@@ -61,9 +64,9 @@ Infra:    pnpm monorepo on WSL2; Docker CE used for deployment and optional hybr
 
 ### Monorepo structure for MVP 1
 
-```
+```text
 my-dynamic-dashboard/
-├── packages/
+├── apps/
 │   ├── backend/
 │   │   ├── app/
 │   │   │   ├── main.py
@@ -114,16 +117,19 @@ After MVP 1, collect feedback before proceeding:
 
 ### Week-by-week breakdown
 
-**Week 4: Dashboard Foundation**
+#### Week 4: Dashboard Foundation
+
 - Days 26-27: Saved queries backend (CRUD endpoints, SQLite storage)
 - Days 28-29: Streamlit app setup, connect to backend API, display results
 - Days 30-32: Auto-generated charts (Plotly), dashboard layout (metrics, charts, table, export)
 
-**Week 5: Polish and Features**
+#### Week 5: Polish and Features
+
 - Days 33-35: Advanced filters, save query from builder, query templates
 - Days 36-38: Error handling, loading states, notifications, performance optimization
 
-**Week 6: Deployment**
+#### Week 6: Deployment
+
 - Days 39-40: Production Dockerfiles, docker-compose.prod.yml, logging, environment variables
 - Days 41-42: Deploy to target, verify all services, setup backup
 - Days 43-44: User documentation, tutorial video, team training
@@ -139,14 +145,14 @@ The draft recommends:
 
 ## Risk Management
 
-| Risk | Mitigation |
-|------|-----------|
+| Risk                    | Mitigation                                                                 |
+| ----------------------- | -------------------------------------------------------------------------- |
 | WSL2 performance issues | Test early, keep project in WSL filesystem (/home/), not Windows (/mnt/c/) |
-| DuckDB limitations | Document workarounds, consider alternatives for specific edge cases |
-| Low user adoption | Invest in UX, documentation, training |
-| Data loss | Daily backups, test restore process |
-| Scope creep | Strict MVP boundaries, defer features to later phases |
-| Burnout | Clear milestones, celebrate wins at each checkpoint |
+| DuckDB limitations      | Document workarounds, consider alternatives for specific edge cases        |
+| Low user adoption       | Invest in UX, documentation, training                                      |
+| Data loss               | Daily backups, test restore process                                        |
+| Scope creep             | Strict MVP boundaries, defer features to later phases                      |
+| Burnout                 | Clear milestones, celebrate wins at each checkpoint                        |
 
 ## Post-MVP Roadmap
 

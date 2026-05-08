@@ -143,6 +143,17 @@ vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
 
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# App data
+data/
+
 # others
 tmp/
 temp/
+# Added by code-review-graph
+.code-review-graph/

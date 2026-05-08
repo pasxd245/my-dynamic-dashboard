@@ -36,12 +36,14 @@ Evidence: `Synthesis`
 ### Business User (e.g., Sales Manager)
 
 Can do with the system:
+
 - Run pre-built workflows
 - Adjust parameters (date range, team filter, thresholds)
 - Download results to Excel
 - Submit requests for new reports via a form
 
 Cannot do without help:
+
 - Create new workflows from scratch
 - Debug failed workflows
 - Understand or modify SQL/Python code
@@ -50,6 +52,7 @@ Cannot do without help:
 ### Technical User (e.g., PM/Dev)
 
 Can do with the system:
+
 - Review AI-generated workflows
 - Fix SQL, add edge case handling, optimize queries
 - Define and manage data relationships
@@ -57,6 +60,7 @@ Can do with the system:
 - Create workflows manually when needed
 
 Does not need to:
+
 - Define business metrics (that is the business user's domain)
 - Run reports manually (the system does that)
 - Rebuild reports from scratch (AI generates the first draft)
@@ -64,12 +68,14 @@ Does not need to:
 ### AI Agent
 
 Can do:
+
 - Read metadata and business requirements
 - Generate SQL queries, Python transforms, and visualization configs
 - Adapt existing workflows to new parameters
 - Explain what it generated
 
 Cannot do:
+
 - Make final approval decisions
 - Understand implicit business rules not in the metadata
 - Guarantee correctness (human review required)
@@ -102,12 +108,12 @@ flowchart TD
 
 Evidence: `Direct draft conclusion`
 
-| Step                     | Before (manual) | After (with system) |
-|--------------------------|----------------|---------------------|
-| Business defines need    | Email thread   | Structured form     |
-| Technical builds report  | 8 hours        | 1 hour review       |
-| Report available to run  | One-off Excel  | Reusable workflow   |
-| Re-run with fresh data   | Repeat process | Click a button      |
+| Step                    | Before (manual) | After (with system) |
+| ----------------------- | --------------- | ------------------- |
+| Business defines need   | Email thread    | Structured form     |
+| Technical builds report | 8 hours         | 1 hour review       |
+| Report available to run | One-off Excel   | Reusable workflow   |
+| Re-run with fresh data  | Repeat process  | Click a button      |
 
 ## The Hybrid Format
 

@@ -47,8 +47,8 @@ At the start of every session, an agent MUST:
 
 ### Authority Rules
 
-| Directory  | Authority                   | Agent Permissions                    |
-| ---------- | --------------------------- | ------------------------------------ |
+| Directory  | Authority                   | Agent Permissions                     |
+| ---------- | --------------------------- | ------------------------------------- |
 | `context/` | Human-maintained, canonical | ❌ READ-ONLY (No edits, no deletions) |
 | `prompts/` | Human-curated prompts       | ❌ READ-ONLY (No edits, no deletions) |
 | `skills/`  | Human-approved procedures   | ❌ READ-ONLY (No edits, no deletions) |
@@ -88,26 +88,32 @@ At the start of every session, an agent MUST:
 
 ```markdown
 # [Short Descriptive Title]
+
 **Date**: YYYY-MM-DD
 **Agent**: [tool name]
 **Confidence**: High | Medium | Low
 **Status**: New | Needs Review | Promoted | Archived
 
 ## Problem
+
 Brief description of issue or question
 
 ## Finding
+
 What you discovered (concise)
 
 ## Evidence
+
 - Files: `src/path/to/file.py`
 - Commits, tests, or links
 
 ## Recommendation
+
 **Do**: Bullet list of actionable patterns
 **Don't**: Bullet list of anti-patterns
 
 ## Promotion Candidate?
+
 [ ] context/ – Stable pattern, broadly applicable
 [ ] skills/ – Reusable procedure/checklist
 [ ] Not yet – Needs more validation
@@ -160,9 +166,11 @@ description: What this skill does and when to use it.
 ---
 
 ## Trigger
+
 This skill activates whenever...
 
 ## Procedure
+
 1. Step one
 2. Step two
 ```
@@ -173,6 +181,7 @@ The `name` field must match the directory name (kebab-case, lowercase).
 
 ```markdown
 ## YYYY-MM-DD: [Topic] → [Destination]
+
 **Source**: memory/[filename]
 **Rationale**: [1-2 sentences]
 **Promoted by**: [Human name]
@@ -187,6 +196,8 @@ The `name` field must match the directory name (kebab-case, lowercase).
 **Before coding**: Load context/ → Load relevant skills/
 **During work**: If you learn something useful → Write to memory/
 **After session**: Suggest promotion if high confidence
+
+**Repo tools**: See [context/tools.md](context/tools.md) for `./scripts/crg` (code-review-graph CLI + MCP) and when to use it for cross-repo investigation alongside SDD.
 
 **For humans**: Review memory/ weekly → Promote valid learnings → Log in plan/
 
@@ -211,6 +222,50 @@ This ensures intentional updates are allowed while preventing accidental governa
 
 ---
 
+### External Knowledge Base (`docs/agents/`)
+
+The `docs/agents/` directory is a **shared KB between humans and AI agents**
+for durable, reference-grade documentation that lives alongside the code.
+
+Unlike `.agents/` (which is agent-operational — context, memory, skills,
+plans), `docs/agents/` is **human-facing reading material that agents also
+consume** when context is needed beyond `.agents/`.
+
+```text
+docs/agents/
+  workflows/                       # End-to-end workflows this repo supports
+  plan/                            # Co-planning docs (human + AI brainstorm)
+```
+
+**Planning docs — two locations, different roles:**
+
+| Location               | Role                                                | Lifecycle                       |
+| ---------------------- | --------------------------------------------------- | ------------------------------- |
+| `docs/agents/plan/`    | Co-planning (brainstorm, strategy, open questions)  | Long-lived; revised in place    |
+| `.agents/plan/cycles/` | Per-phase implementation verification (PDCA rounds) | Append-only; one file per round |
+
+When a plan in `docs/agents/plan/` kicks off work, each executed phase
+records a verification cycle in `.agents/plan/cycles/Round_XX.md`.
+
+**Load policy:**
+
+- Agents SHOULD read files in `docs/agents/` that are relevant to the task
+  (e.g. read `docs/agents/workflows/skill.workflow.md` before modifying
+  skill-related code).
+- Not auto-loaded — consult on demand.
+- Authority order: `.agents/context/` > `docs/agents/` > `.agents/memory/`.
+  If a conflict arises, canonical context wins; flag the mismatch in
+  `.agents/memory/`.
+
+**Write policy:**
+
+- Humans own `docs/agents/`. Agents MAY propose new files or edits, but
+  must confirm with the human before writing (same rule as `.agents/context/`).
+- Workflow files describe _what the repo supports_, not internal agent
+  guidance — keep prose readable for human contributors.
+
+---
+
 ## 1. Role & Mindset
 
 You are a **pair programmer**, not a solo developer. Your human partner knows
@@ -225,5 +280,47 @@ the project intent better than you do. Follow these principles:
 - **Preserve what works.** This library has zero dependencies and a stable
   API. Never introduce external packages or break existing contracts.
 - **Ensure AI Transparency** section (`## Transparency`) in `README.md` always be at the end of file (if present).
+
+---
+
+<!-- code-review-graph MCP tools -->
+
+## MCP Tools: code-review-graph
+
+**IMPORTANT: This project has a knowledge graph. ALWAYS use the
+code-review-graph MCP tools BEFORE using Grep/Glob/Read to explore
+the codebase.** The graph is faster, cheaper (fewer tokens), and gives
+you structural context (callers, dependents, test coverage) that file
+scanning cannot.
+
+### When to use graph tools FIRST
+
+- **Exploring code**: `semantic_search_nodes` or `query_graph` instead of Grep
+- **Understanding impact**: `get_impact_radius` instead of manually tracing imports
+- **Code review**: `detect_changes` + `get_review_context` instead of reading entire files
+- **Finding relationships**: `query_graph` with callers_of/callees_of/imports_of/tests_for
+- **Architecture questions**: `get_architecture_overview` + `list_communities`
+
+Fall back to Grep/Glob/Read **only** when the graph doesn't cover what you need.
+
+### Key Tools
+
+| Tool                        | Use when                                               |
+| --------------------------- | ------------------------------------------------------ |
+| `detect_changes`            | Reviewing code changes — gives risk-scored analysis    |
+| `get_review_context`        | Need source snippets for review — token-efficient      |
+| `get_impact_radius`         | Understanding blast radius of a change                 |
+| `get_affected_flows`        | Finding which execution paths are impacted             |
+| `query_graph`               | Tracing callers, callees, imports, tests, dependencies |
+| `semantic_search_nodes`     | Finding functions/classes by name or keyword           |
+| `get_architecture_overview` | Understanding high-level codebase structure            |
+| `refactor_tool`             | Planning renames, finding dead code                    |
+
+### Workflow
+
+1. The graph auto-updates on file changes (via hooks).
+2. Use `detect_changes` for code review.
+3. Use `get_affected_flows` to understand impact.
+4. Use `query_graph` pattern="tests_for" to check coverage.
 
 ---

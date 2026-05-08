@@ -1,0 +1,28 @@
+{
+  "config": {
+    "default": true,
+    "MD013": false,
+    "MD041": false,
+    "MD033": false,
+    "MD001": false,
+    "MD003": false,
+    "MD036": false,
+    "MD040": false,
+    "MD060": false,
+    "MD024": { "siblings_only": true }
+  },
+  "globs": ["**/*.md"],
+  "ignores": [
+    "node_modules/**",
+    ".venv/**",
+    "venv/**",
+    ".git/**",
+    ".code-review-graph/**",
+    "dist/**",
+    "out/**",
+    ".husky/_/**",
+    "tmp/**",
+    "temp/**",
+    "LICENSE"
+  ]
+}
