@@ -11,6 +11,7 @@ import {
   uploadSource,
 } from "./api/workspaceApi";
 import type { UploadResponse, ProfileResponse, ReadinessResponse, ManifestResponse } from "./api/types";
+import QueryBuilderPanel from "./components/query-builder/QueryBuilderPanel";
 
 const panelStyle: React.CSSProperties = {
   marginTop: "1.5rem",
@@ -282,6 +283,10 @@ export default function App(): React.ReactElement {
             <button onClick={onLoadReadiness}>Load readiness</button>
           </div>
         </div>
+      </section>
+
+      <section style={panelStyle}>
+        <QueryBuilderPanel />
       </section>
 
       <section style={panelStyle}>
