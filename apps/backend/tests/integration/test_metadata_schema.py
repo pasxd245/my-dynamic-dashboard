@@ -1,0 +1,32 @@
+import sqlite3
+
+from app.core.config import metadata_db_path
+from app.core.metadata_db import init_metadata_db
+
+
+REQUIRED_TABLES = {
+    "workspaces",
+    "source_files",
+    "sheets",
+    "columns",
+    "column_profiles",
+    "role_assignments",
+    "override_logs",
+    "manifest_snapshots",
+    "files",
+    "file_schemas",
+    "relationships",
+}
+
+
+def test_metadata_schema_contains_required_tables() -> None:
+    db_path = metadata_db_path()
+    init_metadata_db(db_path)
+
+    with sqlite3.connect(db_path) as conn:
+        rows = conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'"
+        ).fetchall()
+
+    table_names = {row[0] for row in rows}
+    assert REQUIRED_TABLES.issubset(table_names)

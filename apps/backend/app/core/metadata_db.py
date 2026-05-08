@@ -12,6 +12,133 @@ def init_metadata_db(db_path: Path) -> None:
     with sqlite3.connect(db_path) as conn:
         conn.execute(
             """
+            CREATE TABLE IF NOT EXISTS workspaces (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'draft',
+                manifest_version INTEGER NOT NULL DEFAULT 1,
+                content_hash TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS source_files (
+                id TEXT PRIMARY KEY,
+                workspace_id TEXT NOT NULL,
+                filename_original TEXT NOT NULL,
+                extension TEXT NOT NULL,
+                content_hash TEXT NOT NULL,
+                encoding_detected TEXT,
+                parse_status TEXT NOT NULL,
+                reject_reason TEXT,
+                uploaded_at TEXT NOT NULL,
+                FOREIGN KEY(workspace_id) REFERENCES workspaces(id)
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS sheets (
+                id TEXT PRIMARY KEY,
+                source_file_id TEXT NOT NULL,
+                sheet_name TEXT NOT NULL,
+                header_row_detected INTEGER NOT NULL,
+                header_row_effective INTEGER NOT NULL,
+                data_range_detected TEXT NOT NULL,
+                data_range_effective TEXT NOT NULL,
+                multi_range_warning INTEGER NOT NULL DEFAULT 0,
+                committed_at TEXT NOT NULL,
+                FOREIGN KEY(source_file_id) REFERENCES source_files(id)
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS columns (
+                id TEXT PRIMARY KEY,
+                sheet_id TEXT NOT NULL,
+                name TEXT NOT NULL,
+                ordinal INTEGER NOT NULL,
+                inferred_type TEXT NOT NULL,
+                effective_type TEXT NOT NULL,
+                type_override_reason TEXT,
+                is_all_null INTEGER NOT NULL DEFAULT 0,
+                FOREIGN KEY(sheet_id) REFERENCES sheets(id)
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS column_profiles (
+                id TEXT PRIMARY KEY,
+                column_id TEXT NOT NULL,
+                null_ratio REAL NOT NULL,
+                distinct_count INTEGER NOT NULL,
+                uniqueness_ratio REAL NOT NULL,
+                duplicate_signature TEXT,
+                numeric_min REAL,
+                numeric_max REAL,
+                date_min TEXT,
+                date_max TEXT,
+                top_k_values_json TEXT NOT NULL,
+                warnings_json TEXT NOT NULL,
+                sampled INTEGER NOT NULL DEFAULT 0,
+                sample_size INTEGER,
+                sample_seed INTEGER,
+                computed_at TEXT NOT NULL,
+                FOREIGN KEY(column_id) REFERENCES columns(id)
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS role_assignments (
+                id TEXT PRIMARY KEY,
+                column_id TEXT NOT NULL,
+                role TEXT NOT NULL,
+                accepted INTEGER NOT NULL,
+                override_used INTEGER NOT NULL,
+                override_reason TEXT,
+                assigned_by TEXT,
+                assigned_at TEXT NOT NULL,
+                FOREIGN KEY(column_id) REFERENCES columns(id)
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS override_logs (
+                id TEXT PRIMARY KEY,
+                workspace_id TEXT NOT NULL,
+                target_kind TEXT NOT NULL,
+                target_id TEXT NOT NULL,
+                old_value_json TEXT NOT NULL,
+                new_value_json TEXT NOT NULL,
+                reason TEXT NOT NULL,
+                actor TEXT,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY(workspace_id) REFERENCES workspaces(id)
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS manifest_snapshots (
+                id TEXT PRIMARY KEY,
+                workspace_id TEXT NOT NULL,
+                manifest_version INTEGER NOT NULL,
+                manifest_json TEXT NOT NULL,
+                manifest_hash TEXT NOT NULL,
+                exported_at TEXT NOT NULL,
+                FOREIGN KEY(workspace_id) REFERENCES workspaces(id)
+            )
+            """
+        )
+        conn.execute(
+            """
             CREATE TABLE IF NOT EXISTS files (
                 id TEXT PRIMARY KEY,
                 table_id TEXT NOT NULL,
@@ -41,6 +168,20 @@ def init_metadata_db(db_path: Path) -> None:
         )
         conn.execute(
             """
+            CREATE TABLE IF NOT EXISTS relationships (
+                id TEXT PRIMARY KEY,
+                from_table_id TEXT NOT NULL,
+                from_column TEXT NOT NULL,
+                to_table_id TEXT NOT NULL,
+                to_column TEXT NOT NULL,
+                join_type TEXT NOT NULL,
+                is_broken INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL
+            )
+            """
+        )
+        conn.execute(
+            """
             CREATE INDEX IF NOT EXISTS idx_files_filename_version
             ON files(filename, version)
             """
@@ -49,6 +190,42 @@ def init_metadata_db(db_path: Path) -> None:
             """
             CREATE INDEX IF NOT EXISTS idx_file_schemas_file_id
             ON file_schemas(file_id)
+            """
+        )
+        conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_relationships_tables
+            ON relationships(from_table_id, to_table_id)
+            """
+        )
+        conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_source_files_workspace
+            ON source_files(workspace_id)
+            """
+        )
+        conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_sheets_source
+            ON sheets(source_file_id)
+            """
+        )
+        conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_columns_sheet
+            ON columns(sheet_id)
+            """
+        )
+        conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_profiles_column
+            ON column_profiles(column_id)
+            """
+        )
+        conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_roles_column
+            ON role_assignments(column_id)
             """
         )
 

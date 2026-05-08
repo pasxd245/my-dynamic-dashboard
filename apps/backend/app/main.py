@@ -4,10 +4,19 @@ import uuid
 from typing import Annotated
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi.responses import JSONResponse
 
 from app.core.config import metadata_db_path, parquet_root_dir
 from app.core.metadata_db import get_connection, init_metadata_db
-from app.schemas import ColumnSchema, TableSummary, UploadTableResponse
+from app.schemas import (
+    ApiErrorModel,
+    ColumnSchema,
+    ErrorResponse,
+    TableSummary,
+    UploadTableResponse,
+    WorkspaceCreateRequest,
+    WorkspaceResponse,
+)
 from app.services.upload_service import (
     build_upload_result,
     read_dataframe,
@@ -22,9 +31,30 @@ DB_PATH = metadata_db_path()
 PARQUET_ROOT = parquet_root_dir()
 
 
+class ApiError(Exception):
+    def __init__(self, status_code: int, code: str, message: str) -> None:
+        self.status_code = status_code
+        self.code = code
+        self.message = message
+        super().__init__(message)
+
+
 @app.on_event("startup")
 def startup_event() -> None:
     init_metadata_db(DB_PATH)
+
+
+@app.exception_handler(ApiError)
+def handle_api_error(_: object, exc: ApiError) -> JSONResponse:
+    payload = ErrorResponse(error=ApiErrorModel(code=exc.code, message=exc.message))
+    return JSONResponse(status_code=exc.status_code, content=payload.model_dump())
+
+
+@app.exception_handler(HTTPException)
+def handle_http_error(_: object, exc: HTTPException) -> JSONResponse:
+    message = str(exc.detail)
+    payload = ErrorResponse(error=ApiErrorModel(code="http_error", message=message))
+    return JSONResponse(status_code=exc.status_code, content=payload.model_dump())
 
 
 @app.get("/health")
@@ -37,6 +67,28 @@ def api_health() -> dict[str, str]:
     return {"status": "ok"}
 
 
+@app.post("/api/v1/workspaces")
+def create_workspace(request: WorkspaceCreateRequest) -> WorkspaceResponse:
+    workspace_id = str(uuid.uuid4())
+    now = utc_now_iso()
+
+    with get_connection(DB_PATH) as conn:
+        conn.execute(
+            """
+            INSERT INTO workspaces (id, name, status, manifest_version, content_hash, created_at, updated_at)
+            VALUES (?, ?, 'draft', 1, NULL, ?, ?)
+            """,
+            (workspace_id, request.name, now, now),
+        )
+
+    return WorkspaceResponse(
+        id=workspace_id,
+        name=request.name,
+        status="draft",
+        manifest_version=1,
+    )
+
+
 @app.post(
     "/api/v1/tables/upload",
     responses={400: {"description": "Unsupported or malformed upload file."}},
@@ -46,9 +98,10 @@ async def upload_table(file: Annotated[UploadFile, File(...)]) -> UploadTableRes
     lower_name = filename.lower()
 
     if not (lower_name.endswith(".csv") or lower_name.endswith(".xlsx")):
-        raise HTTPException(
+        raise ApiError(
             status_code=400,
-            detail="Unsupported file type. Only .csv and .xlsx are allowed.",
+            code="unsupported_file",
+            message="Unsupported file type. Only .csv and .xlsx are allowed.",
         )
 
     file_bytes = await file.read()
@@ -56,7 +109,11 @@ async def upload_table(file: Annotated[UploadFile, File(...)]) -> UploadTableRes
     try:
         df = read_dataframe(filename=filename, file_bytes=file_bytes)
     except Exception as exc:
-        raise HTTPException(status_code=400, detail=f"Unable to parse file: {exc}") from exc
+        raise ApiError(
+            status_code=400,
+            code="parse_failed",
+            message=f"Unable to parse file: {exc}",
+        ) from exc
 
     with get_connection(DB_PATH) as conn:
         latest_row = conn.execute(
