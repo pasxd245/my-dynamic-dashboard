@@ -41,6 +41,9 @@ from app.schemas import (
     QueryPreviewResponse,
     QueryExecutionResponse,
     LineageMetadata,
+    SavedQueryRequest,
+    SavedQueryResponse,
+    SavedQueryListResponse,
     WorkspaceCreateRequest,
     WorkspaceProfileResponse,
     WorkspaceResponse,
@@ -269,11 +272,23 @@ def export_query(workspace_id: str, request: QueryConfig, format: str = "excel")
 
 
 @app.post("/api/v1/workspaces/{workspace_id}/saved-queries", status_code=201)
-def save_query(workspace_id: str, request: dict[str, Any]) -> dict[str, Any]:
+def save_query(workspace_id: str, request: SavedQueryRequest) -> SavedQueryResponse:
     """Save a query configuration for later reuse."""
     _get_workspace(workspace_id)
+    now = utc_now_iso()
+    query_id = str(uuid.uuid4())
     # For now, return a placeholder response
-    return {"query_id": str(uuid.uuid4()), "name": request.get("name", "untitled"), "created_at": utc_now_iso()}
+    return SavedQueryResponse(
+        query_id=query_id,
+        workspace_id=workspace_id,
+        name=request.name,
+        description=request.description,
+        config_hash="mock_hash",
+        config=request.config,
+        created_at=now,
+        updated_at=now,
+        last_executed_at=None,
+    )
 
 
 @app.get("/api/v1/workspaces/{workspace_id}/saved-queries")
@@ -281,35 +296,57 @@ def list_saved_queries(workspace_id: str) -> dict[str, Any]:
     """List all saved queries in a workspace."""
     _get_workspace(workspace_id)
     # For now, return empty list
-    return {"queries": []}
+    return {"queries": [], "total": 0}
 
 
 @app.get("/api/v1/workspaces/{workspace_id}/saved-queries/{query_id}")
-def get_saved_query(workspace_id: str, query_id: str) -> dict[str, Any]:
+def get_saved_query(workspace_id: str, query_id: str) -> SavedQueryResponse:
     """Get a specific saved query."""
     _get_workspace(workspace_id)
-    return {"query_id": query_id, "config": {}, "created_at": utc_now_iso()}
+    now = utc_now_iso()
+    return SavedQueryResponse(
+        query_id=query_id,
+        workspace_id=workspace_id,
+        name="Saved Query",
+        description="",
+        config_hash="mock_hash",
+        config=QueryConfig(base_table_id="default", selected_columns=[], filters=[], aggregations=[], group_by_columns=[], joins=[]),
+        created_at=now,
+        updated_at=now,
+        last_executed_at=None,
+    )
 
 
 @app.put("/api/v1/workspaces/{workspace_id}/saved-queries/{query_id}")
-def update_saved_query(workspace_id: str, query_id: str, request: dict[str, Any]) -> dict[str, Any]:
+def update_saved_query(workspace_id: str, query_id: str, request: SavedQueryRequest) -> SavedQueryResponse:
     """Update a saved query."""
     _get_workspace(workspace_id)
-    return {"query_id": query_id, "updated_at": utc_now_iso(), **request}
+    now = utc_now_iso()
+    return SavedQueryResponse(
+        query_id=query_id,
+        workspace_id=workspace_id,
+        name=request.name,
+        description=request.description,
+        config_hash="mock_hash",
+        config=request.config,
+        created_at=now,
+        updated_at=now,
+        last_executed_at=None,
+    )
 
 
 @app.delete("/api/v1/workspaces/{workspace_id}/saved-queries/{query_id}")
 def delete_saved_query(workspace_id: str, query_id: str) -> dict[str, str]:
     """Delete a saved query."""
     _get_workspace(workspace_id)
-    return {"status": "deleted"}
+    return {"status": "deleted", "query_id": query_id}
 
 
 @app.get("/api/v1/workspaces/{workspace_id}/saved-queries/{query_id}/executions")
 def get_query_execution_history(workspace_id: str, query_id: str) -> dict[str, Any]:
     """Get execution history for a saved query."""
     _get_workspace(workspace_id)
-    return {"query_id": query_id, "executions": []}
+    return {"query_id": query_id, "executions": [], "total": 0}
 
 
 @app.post(
