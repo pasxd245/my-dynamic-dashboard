@@ -1,4 +1,4 @@
-# PDCA Methodology — Skill Generation Lifecycle
+# PDCA Methodology — Spec-Kit Delivery Lifecycle
 
 > Plan-Do-Check-Act framework for iteratively building, deploying, and
 > refining AI agent skills across this project.
@@ -21,25 +21,39 @@ Each round follows four phases:
 ### Plan
 
 - Define the **goal** (what and why)
-- List concrete **steps** to achieve the goal
-- Identify **risks** and unknowns
+- Prepare everything required to start `Do`
+- List prerequisites, inputs, blockers, decision gates, and readiness criteria
+- Record the concrete work that must exist before implementation starts
 - Status: `Planning`
 
 ### Do
 
-- Execute the steps
-- Log progress, blockers, and deviations from the plan
+- Execute the planned work to actual completion
+- For Spec-Kit rounds, run the required Spec-Kit flow to reach implemented
+  output, not just review artifacts
+- Use `/speckit.specify`, `/speckit.plan`, and `/speckit.tasks` only as needed
+  to prepare or repair artifacts, then run `/speckit.implement` (or the
+  equivalent implementation step) to complete the work
+- Log commands run, implementation progress, blockers, and deviations from the
+  plan
 - Status: `In Progress`
 
 ### Check
 
-- Verify outcomes against the goal
-- Run tests, review output, gather feedback
-- Document what worked and what didn't
+- Verify implemented outcomes against the goal
+- Run `speckit.analyze` and any extra checks required by the repo or feature
+  (tests, lint, contract checks, manual verification, etc.)
+- Update tasks and round records to reflect what is complete, what failed, and
+  what still needs repair
+- Document what worked and what did not
 - Status: `Review`
 
 ### Act
 
+- Summarize the round's learnings and unresolved items
+- Decide the next round, remediation round, or defer/close action
+- When more than one next-round candidate exists, require user confirmation
+  instead of auto-picking
 - Promote validated learnings to `.agents/context/` or `.agents/skills/`
 - Log promotions in `promotions.md`
 - Archive the round
@@ -110,7 +124,7 @@ below.
 - **Rounds are append-only** — do not delete or rewrite history (except compacted batches; see Compaction Policy below)
 - **Promotions** from Act phase are logged in [promotions.md](promotions.md)
 - **Promotion criteria** are defined in [AGENTS.md](../AGENTS.md)
-- Agents may update the `Do` and `Check` sections of active rounds
+- Agents may update the `Do`, `Check`, and `Act` sections of active rounds
 - Only humans may move a round to `Complete` status
 
 ---
@@ -119,26 +133,38 @@ below.
 
 **Purpose Shift** (as of Round_16+):
 
-- Rounds transition from execution logs to **requirement/brainstorm documents**
-- Each round defines requirements for Spec-Kit, then executes and validates the output
-- **Check phase**: Validates Spec-Kit artifacts against round requirements (repair if needed)
-- **Act phase**: Brainstorms next steps and proposes action
+- Rounds transition from lightweight logs to **implementation-driving delivery rounds**
+- Each round prepares implementation, executes it through Spec-Kit, validates the result, and then plans what happens next
+- **Check phase**: validates implementation completeness, not just document quality
+- **Act phase**: decides the next round or remediation path
 
 **Workflow**:
 
 1. **Plan round**: Brainstorm goal, list requirements, identify blockers
-   - Example (Round_16): "Implement Spec 003 (Query Builder) — evaluate feasibility, prioritize user stories"
-2. **Do**: Execute Spec-Kit end-to-end based on round requirements
-   - Run `/speckit.specify` → `/speckit.plan` → `/speckit.tasks`
-   - Log spec artifacts and status in round `Do` section
-3. **Check**: Verify Spec-Kit output meets round requirements
-   - If spec artifacts pass requirements → proceed to Act
-   - If spec artifacts need repair → iterate on Spec-Kit (re-run specify/plan/tasks until requirements met)
-4. **Act**: Brainstorm next round and propose action
+   - Example: "Implement Spec 003 (Query Builder) — prepare requirements, prerequisites, and gates required to start implementation"
+2. **Do**: Execute the work to implemented state
+   - If artifacts are missing or stale, run `/speckit.specify` → `/speckit.plan` → `/speckit.tasks`
+   - Then run `/speckit.implement` to execute the planned implementation
+   - Log commands run, files changed, blockers, and outcome in round `Do`
+3. **Check**: Verify implementation completeness
+   - Run `speckit.analyze` first
+   - Run any extra repo-specific verification required for confidence
+   - Update tasks and round status with complete, incomplete, and repair items
+   - If implementation or artifacts need repair, return to `Do`
+4. **Act**: Plan what happens next
    - Summarize learnings and decisions from this round
-   - Brainstorm next round (e.g., "implement Spec 004" or "refactor based on findings")
-   - Propose action and await user confirmation or auto-proceed if pre-approved
-5. **Complete round**: Move to next round with confirmed goal
+   - Propose the next round or remediation round
+   - If more than one plausible next round exists, stop and ask the user which round to continue and which to defer/close
+5. **Complete round**: Human confirms closure and moves the round to `Complete`
+
+## Sequential Round Selection
+
+- Default sequential mode prefers the lowest-numbered non-complete round.
+- If there is more than one plausible next-round candidate, agents must not
+  auto-pick one.
+- In that case, agents must list the candidates, explain the ambiguity, and ask
+  the user which round to continue and which others to defer, supersede, or
+  leave open.
 
 ---
 

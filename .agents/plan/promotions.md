@@ -50,3 +50,9 @@
 **Source**: human-authored request (implemented by agent)
 **Rationale**: Add a reusable PDCA next-action helper that reads plan governance artifacts and returns one concrete next step, including compaction checkpoint awareness.
 **Promoted by**: human curated
+
+## 2026-05-09: PDCA governance clarification → .agents/skills/ + .agents/plan/
+
+**Source**: user-reported workflow correction (implemented by agent)
+**Rationale**: Clarify that multiple open round candidates require explicit user confirmation, and align Plan/Do/Check/Act with prepare -> implement -> analyze/verify -> plan-next behavior for Spec-Kit rounds.
+**Promoted by**: agent at explicit user request
