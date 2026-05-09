@@ -12,11 +12,11 @@ Deliver Spec 007 for builder experience hardening and workflow-shell redesign so
 
 ## Plan
 
-- [ ] Confirm Round 21 scope and Spec 007 slug (for specs/007-<slug>/)
-- [ ] Run Spec-Kit bootstrap as needed (`/speckit.specify` -> `/speckit.plan` -> `/speckit.tasks`)
-- [ ] Validate Round 20 carry-over constraints are represented in Spec 007:
+- [x] Confirm Round 21 scope and Spec 007 slug (for specs/007-<slug>/)
+- [x] Run Spec-Kit bootstrap as needed (`/speckit.specify` -> `/speckit.plan` -> `/speckit.tasks`)
+- [x] Validate Round 20 carry-over constraints are represented in Spec 007:
       connectivity preflight, error UX, workflow shell IA, E2E smoke, no hidden workspace fallbacks
-- [ ] Create a durable handoff note before compaction that captures:
+- [x] Create a durable handoff note before compaction that captures:
       Round 22 candidate scope, deferred ideas, and explicit acceptance intent from Round 20
 - [ ] Curate compaction decision at trigger point (Round 21 start):
       choose whether to compact now or defer until deferred/superseded rounds are resolved
@@ -31,11 +31,24 @@ Deliver Spec 007 for builder experience hardening and workflow-shell redesign so
 - Gate C (idea continuity): Do not compact rounds 01-20 until Round 20 next-round ideas are copied into
   a durable Round 21/22 handoff artifact and linked from this round.
 
+**Plan evidence**:
+
+- Spec slug confirmed: `007-builder-experience-hardening-workflow-shell`.
+- Bootstrap artifacts created under `specs/007-builder-experience-hardening-workflow-shell/`:
+  `spec.md`, `plan.md`, `tasks.md`, `research.md`, `data-model.md`, `quickstart.md`, and `contracts/`.
+- Continuity handoff created: `docs/agents/plan/round-20-to-22-handoff.md`.
+
 ## Do
 
 Pending Plan completion.
 
 Handoff artifact for idea continuity: `docs/agents/plan/round-20-to-22-handoff.md`.
+
+Plan-phase execution log:
+
+- 2026-05-09: ran `/speckit.specify` for Spec 007.
+- 2026-05-09: ran `/speckit.plan` for Spec 007.
+- 2026-05-09: ran `/speckit.tasks` for Spec 007.
 
 ## Check
 

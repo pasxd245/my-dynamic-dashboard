@@ -1,0 +1,399 @@
+openapi: 3.0.3
+info:
+  title: Builder Experience Hardening API
+  version: 1.0.0
+  description: >-
+    Contract for connectivity preflight, explicit active context, actionable
+    errors, workflow-shell session state, and docker smoke reporting.
+servers:
+  - url: http://localhost:8000
+    description: Local development server
+
+tags:
+  - name: Preflight
+  - name: SessionState
+  - name: WorkspaceContext
+  - name: Query
+  - name: SavedQueries
+  - name: Smoke
+
+paths:
+  /api/v1/builder/preflight:
+    get:
+      tags: [Preflight]
+      summary: Get current connectivity status for builder workflow
+      operationId: getBuilderPreflight
+      responses:
+        '200':
+          description: Preflight evaluated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConnectionStatus'
+
+  /api/v1/builder/session-state:
+    get:
+      tags: [SessionState]
+      summary: Get workflow shell session state
+      operationId: getBuilderSessionState
+      responses:
+        '200':
+          description: Current shell state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BuilderSessionState'
+
+  /api/v1/workspaces/active-context:
+    put:
+      tags: [WorkspaceContext]
+      summary: Set explicit active workspace and source for builder session
+      operationId: setActiveWorkspaceSource
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetActiveContextRequest'
+      responses:
+        '200':
+          description: Active context set and resolved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActiveContextResponse'
+        '400':
+          description: Invalid context selection
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActionableError'
+        '404':
+          description: Workspace/source not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActionableError'
+
+  /api/v1/query/validate:
+    post:
+      tags: [Query]
+      summary: Validate query for explicitly selected active context
+      operationId: validateQuery
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ValidateQueryRequest'
+      responses:
+        '200':
+          description: Query validation result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidateQueryResponse'
+        '409':
+          description: Active context unresolved or stale
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActionableError'
+
+  /api/v1/saved-queries:
+    get:
+      tags: [SavedQueries]
+      summary: List saved queries for explicit active workspace/source context
+      operationId: listSavedQueries
+      parameters:
+        - name: workspace_id
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: source_id
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Saved query list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SavedQuerySummary'
+        '409':
+          description: Active context unresolved or stale
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActionableError'
+
+  /api/v1/ops/smoke/builder-workflow:
+    post:
+      tags: [Smoke]
+      summary: Run stage-based smoke for builder core journey
+      operationId: runBuilderSmoke
+      responses:
+        '202':
+          description: Smoke started
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmokeRunAccepted'
+
+  /api/v1/ops/smoke/builder-workflow/{run_id}:
+    get:
+      tags: [Smoke]
+      summary: Get stage-by-stage smoke result
+      operationId: getBuilderSmokeResult
+      parameters:
+        - name: run_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Smoke result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmokeFlowResult'
+        '404':
+          description: Run not found
+
+components:
+  schemas:
+    DependencyStatus:
+      type: object
+      required: [name, status]
+      properties:
+        name:
+          type: string
+        status:
+          type: string
+          enum: [ok, degraded, failed]
+        detail:
+          type: string
+
+    ConnectionStatus:
+      type: object
+      required: [status, last_checked_at_utc, summary, guidance, dependencies]
+      properties:
+        status:
+          type: string
+          enum: [ready, degraded, unavailable]
+        last_checked_at_utc:
+          type: string
+          format: date-time
+        summary:
+          type: string
+        guidance:
+          type: string
+        dependencies:
+          type: array
+          items:
+            $ref: '#/components/schemas/DependencyStatus'
+        degraded_capabilities:
+          type: array
+          items:
+            type: string
+        correlation_id:
+          type: string
+
+    ActiveWorkspaceContext:
+      type: object
+      required: [state]
+      properties:
+        workspace_id:
+          type: string
+        workspace_name:
+          type: string
+        state:
+          type: string
+          enum: [resolved, unresolved, stale]
+
+    ActiveSourceContext:
+      type: object
+      required: [state]
+      properties:
+        source_id:
+          type: string
+        source_name:
+          type: string
+        workspace_id:
+          type: string
+        state:
+          type: string
+          enum: [resolved, unresolved, stale]
+
+    WorkflowStage:
+      type: object
+      required: [stage_key, title, order_index, status, prerequisites]
+      properties:
+        stage_key:
+          type: string
+          enum: [upload_source, schema_sheet, query, results_saved]
+        title:
+          type: string
+        order_index:
+          type: integer
+        status:
+          type: string
+          enum: [locked, ready, in_progress, completed]
+        prerequisites:
+          type: array
+          items:
+            type: string
+        missing_prerequisites:
+          type: array
+          items:
+            type: string
+
+    BuilderSessionState:
+      type: object
+      required: [connection_status, active_workspace, active_source, current_stage, stages]
+      properties:
+        connection_status:
+          $ref: '#/components/schemas/ConnectionStatus'
+        active_workspace:
+          $ref: '#/components/schemas/ActiveWorkspaceContext'
+        active_source:
+          $ref: '#/components/schemas/ActiveSourceContext'
+        current_stage:
+          type: string
+          enum: [upload_source, schema_sheet, query, results_saved]
+        stages:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkflowStage'
+
+    ActionableError:
+      type: object
+      required: [error_code, stage, user_message, next_steps, correlation_id, occurred_at_utc]
+      properties:
+        error_code:
+          type: string
+          example: ACTIVE_CONTEXT_UNRESOLVED
+        stage:
+          type: string
+          enum: [upload_source, schema_sheet, query, results_saved, global]
+        user_message:
+          type: string
+        next_steps:
+          type: array
+          items:
+            type: string
+        technical_details:
+          type: object
+          additionalProperties: true
+        correlation_id:
+          type: string
+        occurred_at_utc:
+          type: string
+          format: date-time
+
+    SetActiveContextRequest:
+      type: object
+      required: [workspace_id, source_id]
+      properties:
+        workspace_id:
+          type: string
+        source_id:
+          type: string
+
+    ActiveContextResponse:
+      type: object
+      required: [workspace, source]
+      properties:
+        workspace:
+          $ref: '#/components/schemas/ActiveWorkspaceContext'
+        source:
+          $ref: '#/components/schemas/ActiveSourceContext'
+
+    ValidateQueryRequest:
+      type: object
+      required: [workspace_id, source_id, query_config]
+      properties:
+        workspace_id:
+          type: string
+        source_id:
+          type: string
+        query_config:
+          type: object
+          additionalProperties: true
+
+    ValidateQueryResponse:
+      type: object
+      required: [is_valid]
+      properties:
+        is_valid:
+          type: boolean
+        warnings:
+          type: array
+          items:
+            type: string
+
+    SavedQuerySummary:
+      type: object
+      required: [saved_query_id, name, updated_at_utc]
+      properties:
+        saved_query_id:
+          type: string
+        name:
+          type: string
+        updated_at_utc:
+          type: string
+          format: date-time
+
+    SmokeStageResult:
+      type: object
+      required: [stage_key, status, duration_ms]
+      properties:
+        stage_key:
+          type: string
+          enum: [create_workspace, upload_data, validate_query, list_saved_queries]
+        status:
+          type: string
+          enum: [passed, failed, skipped]
+        duration_ms:
+          type: integer
+        diagnostic:
+          type: string
+
+    SmokeFlowResult:
+      type: object
+      required: [run_id, started_at_utc, overall_status, stages]
+      properties:
+        run_id:
+          type: string
+        started_at_utc:
+          type: string
+          format: date-time
+        finished_at_utc:
+          type: string
+          format: date-time
+        overall_status:
+          type: string
+          enum: [passed, failed]
+        first_failed_stage:
+          type: string
+          enum: [create_workspace, upload_data, validate_query, list_saved_queries]
+        stages:
+          type: array
+          items:
+            $ref: '#/components/schemas/SmokeStageResult'
+
+    SmokeRunAccepted:
+      type: object
+      required: [run_id, status]
+      properties:
+        run_id:
+          type: string
+        status:
+          type: string
+          enum: [started]

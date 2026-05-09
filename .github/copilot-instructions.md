@@ -16,6 +16,6 @@
 
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan:
-specs/003-query-builder-execution/plan.md
+specs/007-builder-experience-hardening-workflow-shell/plan.md
 
 <!-- SPECKIT END -->
