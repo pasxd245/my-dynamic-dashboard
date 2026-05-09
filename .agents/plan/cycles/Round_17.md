@@ -65,6 +65,15 @@ Implement **Spec 004: Saved Queries** — enable users to persist, version, and 
   - restored upload endpoint that had been removed during endpoint refactor
 - Added DB additive migrations for Spec 004 tables/columns/indexes in `metadata_db.py`.
 - Added new service implementation in `app/services/query_service.py`.
+- Completed documentation tasks (T105-T109): SC verification protocols in quickstart.md; README Spec 004 feature section.
+- Completed frontend routing and integration (T004-T005, T023-T102):
+  - Installed react-router-dom; BrowserRouter in `main.tsx`
+  - App.tsx: Routes for `/`, `/saved-queries`, `/saved-queries/:queryId`; nav links
+  - QueryBuilderPanel: `onSaveRequest` + `initialSnapshot` props; Save Query button
+  - Load in Builder flow: `SavedQueryDetail` → hydrate builder state → navigate to `/`
+  - Fixed 5 incorrect relative import paths across frontend components
+  - Build passes: `pnpm --filter builder build` (321 kB, 75 modules)
+- **Tasks complete: 109/109**
 
 ## Check
 
@@ -73,7 +82,8 @@ Implement **Spec 004: Saved Queries** — enable users to persist, version, and 
 - [x] `speckit.analyze` executed for `spec.md` / `plan.md` / `tasks.md`
 - [x] Spec 004 backend integration tests pass: `26 passed`
 - [x] Full backend test suite pass: `90 passed`
-- [x] Builder production build pass: `pnpm build` successful (with non-blocking Node version warning)
+- [x] Builder production build pass: `pnpm build` successful (321 kB, 75 modules)
+- [x] All 109/109 tasks marked complete in `tasks.md`
 
 **Analyze findings summary**:
 
