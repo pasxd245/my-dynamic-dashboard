@@ -25,6 +25,13 @@ SPEC_004_TABLES = {
     "saved_query_events",
     "saved_query_executions",
 }
+SPEC_005_TABLES = {
+    "dashboards",
+    "dashboard_panels",
+    "dashboard_runs",
+    "dashboard_run_panels",
+    "dashboard_run_events",
+}
 
 
 def test_metadata_schema_contains_required_tables() -> None:
@@ -38,3 +45,5 @@ def test_metadata_schema_contains_required_tables() -> None:
 
     table_names = {row[0] for row in rows}
     assert REQUIRED_TABLES.issubset(table_names)
+    assert SPEC_004_TABLES.issubset(table_names)
+    assert SPEC_005_TABLES.issubset(table_names)

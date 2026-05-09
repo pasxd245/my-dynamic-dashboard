@@ -10,13 +10,13 @@ Organization: Tasks are grouped by user story so each story is independently imp
 
 Purpose: Prepare backend and Streamlit scaffolding for dashboard delivery.
 
-- [ ] T001 Create dashboard service module scaffold in apps/backend/app/services/dashboard_service.py
-- [ ] T002 [P] Create panel executor service module scaffold in apps/backend/app/services/panel_executor_service.py
-- [ ] T003 [P] Create chart suggestion service module scaffold in apps/backend/app/services/chart_suggestion_service.py
-- [ ] T004 [P] Create dashboard contract test scaffold in apps/backend/tests/contract/test_dashboard_contract.py
+- [x] T001 Create dashboard service module scaffold in apps/backend/app/services/dashboard_service.py
+- [x] T002 [P] Create panel executor service module scaffold in apps/backend/app/services/panel_executor_service.py
+- [x] T003 [P] Create chart suggestion service module scaffold in apps/backend/app/services/chart_suggestion_service.py
+- [x] T004 [P] Create dashboard contract test scaffold in apps/backend/tests/contract/test_dashboard_contract.py
 - [ ] T005 [P] Create dashboard integration test scaffolds in apps/backend/tests/integration/test_dashboard_lifecycle.py, apps/backend/tests/integration/test_dashboard_run.py, and apps/backend/tests/integration/test_chart_suggestion.py
-- [ ] T006 Create Streamlit dashboard app skeleton and entrypoint in apps/dashboard/streamlit_app.py
-- [ ] T007 [P] Create Streamlit dashboard API client scaffold in apps/dashboard/src/api/dashboard_api.py
+- [x] T006 Create Streamlit dashboard app skeleton and entrypoint in apps/dashboard/streamlit_app.py
+- [x] T007 [P] Create Streamlit dashboard API client scaffold in apps/dashboard/src/api/dashboard_api.py
 - [ ] T008 [P] Create Streamlit component scaffolds in apps/dashboard/src/components/dashboard_header.py, apps/dashboard/src/components/parameter_panel.py, apps/dashboard/src/components/query_panel.py, apps/dashboard/src/components/chart_viewer.py, and apps/dashboard/src/components/export_controls.py
 
 ---
@@ -27,18 +27,18 @@ Purpose: Implement shared schema, DTOs, orchestration primitives, and app wiring
 
 CRITICAL: Complete this phase before user story implementation.
 
-- [ ] T009 Add dashboard metadata tables (dashboards, dashboard_panels, dashboard_runs, dashboard_run_panels, dashboard_run_events) in apps/backend/app/core/metadata_db.py
-- [ ] T010 [P] Add metadata DB indexes for dashboard list, panel order, run history, and active refresh lookups in apps/backend/app/core/metadata_db.py
-- [ ] T011 [P] Add shared dashboard enums and base DTOs (cadence, run status, panel status, chart type, error type) in apps/backend/app/schemas.py
-- [ ] T012 [P] Add dashboard request/response DTOs matching contract schemas in apps/backend/app/schemas.py
-- [ ] T013 [P] Add dashboard repository helpers for CRUD and ordered panel persistence in apps/backend/app/services/dashboard_service.py
+- [x] T009 Add dashboard metadata tables (dashboards, dashboard_panels, dashboard_runs, dashboard_run_panels, dashboard_run_events) in apps/backend/app/core/metadata_db.py
+- [x] T010 [P] Add metadata DB indexes for dashboard list, panel order, run history, and active refresh lookups in apps/backend/app/core/metadata_db.py
+- [x] T011 [P] Add shared dashboard enums and base DTOs (cadence, run status, panel status, chart type, error type) in apps/backend/app/schemas.py
+- [x] T012 [P] Add dashboard request/response DTOs matching contract schemas in apps/backend/app/schemas.py
+- [x] T013 [P] Add dashboard repository helpers for CRUD and ordered panel persistence in apps/backend/app/services/dashboard_service.py
 - [ ] T014 [P] Add run state transition helpers and overlapping-run guard utilities in apps/backend/app/services/dashboard_service.py
 - [ ] T015 [P] Add shared parameter schema merge/validation utilities in apps/backend/app/services/panel_executor_service.py
 - [ ] T016 [P] Add shared panel result projection and pagination helpers in apps/backend/app/services/panel_executor_service.py
 - [ ] T017 Implement shared dashboard error mapping (400/404/409/422/503) and response envelopes in apps/backend/app/main.py
-- [ ] T018 [P] Wire Streamlit app package dependencies and runtime requirements in apps/dashboard/requirements.txt
+- [x] T018 [P] Wire Streamlit app package dependencies and runtime requirements in apps/dashboard/requirements.txt
 - [ ] T019 [P] Wire dashboard service base URL, retries, and timeout defaults in apps/dashboard/src/api/dashboard_api.py
-- [ ] T020 [P] Add foundational metadata schema verification for dashboard tables in apps/backend/tests/integration/test_metadata_schema.py
+- [x] T020 [P] Add foundational metadata schema verification for dashboard tables in apps/backend/tests/integration/test_metadata_schema.py
 
 Checkpoint: Foundation complete; user stories can proceed.
 
@@ -51,14 +51,14 @@ Independent Test: Open a dashboard with multiple panels and verify header + pane
 
 ### Tests for User Story 1
 
-- [ ] T021 [P] [US1] Add contract tests for dashboard list/get endpoints in apps/backend/tests/contract/test_dashboard_contract.py
+- [x] T021 [P] [US1] Add contract tests for dashboard list/get endpoints in apps/backend/tests/contract/test_dashboard_contract.py
 - [ ] T022 [P] [US1] Add contract tests for panel run detail and panel data endpoints in apps/backend/tests/contract/test_dashboard_contract.py
 - [ ] T023 [P] [US1] Add integration test for dashboard page load with header, panel metadata, lineage, and table preview in apps/backend/tests/integration/test_dashboard_lifecycle.py
 
 ### Implementation for User Story 1
 
-- [ ] T024 [US1] Implement list/create/get/update/delete dashboard endpoints in apps/backend/app/main.py
-- [ ] T025 [US1] Implement dashboard lifecycle service methods (create, get, list, update, soft-delete) in apps/backend/app/services/dashboard_service.py
+- [x] T024 [US1] Implement list/create/get/update/delete dashboard endpoints in apps/backend/app/main.py
+- [x] T025 [US1] Implement dashboard lifecycle service methods (create, get, list, update, soft-delete) in apps/backend/app/services/dashboard_service.py
 - [ ] T026 [US1] Implement panel data retrieval endpoint with limit/offset pagination in apps/backend/app/main.py
 - [ ] T027 [US1] Implement panel data retrieval service with row_count/has_more response mapping in apps/backend/app/services/panel_executor_service.py
 - [ ] T028 [US1] Implement Streamlit page loader and dashboard route state in apps/dashboard/streamlit_app.py
@@ -79,16 +79,16 @@ Independent Test: Build a 3-panel dashboard, reorder/remove one panel, apply par
 
 ### Tests for User Story 2
 
-- [ ] T034 [P] [US2] Add contract tests for add/update/delete panel endpoints and payload validation in apps/backend/tests/contract/test_dashboard_contract.py
+- [x] T034 [P] [US2] Add contract tests for add/update/delete panel endpoints and payload validation in apps/backend/tests/contract/test_dashboard_contract.py
 - [ ] T035 [P] [US2] Add contract tests for run request parameter validation errors in apps/backend/tests/contract/test_dashboard_contract.py
-- [ ] T036 [P] [US2] Add integration test for add/remove/reorder persistence and parameter override persistence in apps/backend/tests/integration/test_dashboard_lifecycle.py
+- [x] T036 [P] [US2] Add integration test for add/remove/reorder persistence and parameter override persistence in apps/backend/tests/integration/test_dashboard_lifecycle.py
 
 ### Implementation for User Story 2
 
-- [ ] T037 [US2] Implement add panel endpoint and saved-query ownership/workspace validation in apps/backend/app/main.py
-- [ ] T038 [US2] Implement patch panel endpoint for order/visibility/name/chart/parameter updates in apps/backend/app/main.py
-- [ ] T039 [US2] Implement delete panel endpoint and order compaction logic in apps/backend/app/main.py
-- [ ] T040 [US2] Implement panel CRUD and reorder transaction logic in apps/backend/app/services/dashboard_service.py
+- [x] T037 [US2] Implement add panel endpoint and saved-query ownership/workspace validation in apps/backend/app/main.py
+- [x] T038 [US2] Implement patch panel endpoint for order/visibility/name/chart/parameter updates in apps/backend/app/main.py
+- [x] T039 [US2] Implement delete panel endpoint and order compaction logic in apps/backend/app/main.py
+- [x] T040 [US2] Implement panel CRUD and reorder transaction logic in apps/backend/app/services/dashboard_service.py
 - [ ] T041 [US2] Implement saved-query parameter schema fetch and strict declared-parameter validation in apps/backend/app/services/panel_executor_service.py
 - [ ] T042 [US2] Implement run request parameter merge (dashboard-level + panel overrides) in apps/backend/app/services/panel_executor_service.py
 - [ ] T043 [P] [US2] Implement dashboard controls row (add/remove/reorder interactions) in apps/dashboard/src/components/query_panel.py

@@ -467,3 +467,149 @@ class ExecutionHistoryResponse(BaseModel):
     total: int
     limit: int
     offset: int
+
+
+# ── Spec 005: Dashboards & Visualizations ─────────────────────────────────────
+
+DashboardCadence = Literal["manual", "15min", "60min"]
+DashboardRunStatus = Literal["pending", "running", "completed", "failed"]
+PanelRunStatus = Literal["pending", "running", "completed", "failed", "timeout"]
+ChartType = Literal["line", "bar", "scatter", "pie", "heatmap", "table_only"]
+DashboardErrorType = Literal["validation", "schema_drift", "broken_relationship", "timeout", "unexpected"]
+
+
+class DashboardPanel(BaseModel):
+    panel_id: str
+    dashboard_id: str
+    saved_query_id: str
+    panel_name: str | None = None
+    panel_order: int
+    is_visible: bool
+    chart_config_json: dict[str, Any] | None = None
+    parameter_overrides_json: dict[str, Any] | None = None
+    created_at: str
+    updated_at: str
+
+
+class Dashboard(BaseModel):
+    dashboard_id: str
+    workspace_id: str
+    owner_user_id: str
+    dashboard_name: str
+    description: str | None = None
+    refresh_cadence: DashboardCadence
+    last_refreshed_at: str | None = None
+    current_run_id: str | None = None
+    created_at: str
+    updated_at: str
+
+
+class DashboardDetail(Dashboard):
+    panels: list[DashboardPanel] = Field(default_factory=list)
+
+
+class DashboardRun(BaseModel):
+    run_id: str
+    dashboard_id: str
+    run_number: int
+    triggered_by: str
+    status: DashboardRunStatus
+    parameters_json: dict[str, Any] = Field(default_factory=dict)
+    created_at: str
+    started_at: str | None = None
+    completed_at: str | None = None
+    total_duration_ms: int | None = None
+
+
+class DashboardRunSummary(BaseModel):
+    run_id: str
+    run_number: int
+    status: DashboardRunStatus
+    triggered_by: str
+    created_at: str
+    completed_at: str | None = None
+    total_duration_ms: int | None = None
+
+
+class DashboardRunPanel(BaseModel):
+    run_panel_id: str
+    panel_id: str
+    status: PanelRunStatus
+    started_at: str | None = None
+    completed_at: str | None = None
+    duration_ms: int | None = None
+    row_count: int | None = None
+    is_aggregated: bool = False
+    error_type: DashboardErrorType | None = None
+    error_message: str | None = None
+    chart_suggestion_type: ChartType | None = None
+    chart_suggestion_reason: str | None = None
+    kpi_value: float | None = None
+    kpi_label: str | None = None
+
+
+class DashboardRunDetail(DashboardRun):
+    panels: list[DashboardRunPanel] = Field(default_factory=list)
+
+
+class PanelDataColumn(BaseModel):
+    name: str
+    dataType: str
+
+
+class PanelDataResponse(BaseModel):
+    panel_id: str
+    row_count: int
+    is_aggregated: bool
+    columns: list[PanelDataColumn] = Field(default_factory=list)
+    rows: list[list[Any]] = Field(default_factory=list)
+    has_more: bool
+
+
+class ChartSuggestion(BaseModel):
+    chart_type: ChartType
+    reason: str
+    axes: dict[str, str] | None = None
+
+
+class CreateDashboardRequest(BaseModel):
+    dashboard_name: str
+    description: str | None = None
+    refresh_cadence: DashboardCadence = "manual"
+
+
+class UpdateDashboardRequest(BaseModel):
+    dashboard_name: str | None = None
+    description: str | None = None
+    refresh_cadence: DashboardCadence | None = None
+
+
+class AddPanelRequest(BaseModel):
+    saved_query_id: str
+    panel_name: str | None = None
+    chart_config_json: dict[str, Any] | None = None
+    parameter_overrides_json: dict[str, Any] | None = None
+
+
+class UpdatePanelRequest(BaseModel):
+    panel_order: int | None = None
+    panel_name: str | None = None
+    is_visible: bool | None = None
+    chart_config_json: dict[str, Any] | None = None
+    parameter_overrides_json: dict[str, Any] | None = None
+
+
+class RunDashboardRequest(BaseModel):
+    parameters: dict[str, Any] = Field(default_factory=dict)
+
+
+class SetRefreshCadenceRequest(BaseModel):
+    refresh_cadence: DashboardCadence
+
+
+class ExportDashboardRequest(BaseModel):
+    format: Literal["png", "pdf"]
+
+
+class ExportPanelRequest(BaseModel):
+    format: Literal["xlsx", "csv"]

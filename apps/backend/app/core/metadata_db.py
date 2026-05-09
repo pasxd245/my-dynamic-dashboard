@@ -251,6 +251,98 @@ def init_metadata_db(db_path: Path) -> None:
             )
             """
         )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS dashboards (
+                dashboard_id TEXT PRIMARY KEY,
+                workspace_id TEXT NOT NULL,
+                owner_user_id TEXT NOT NULL,
+                dashboard_name TEXT NOT NULL,
+                description TEXT,
+                refresh_cadence TEXT NOT NULL DEFAULT 'manual',
+                current_run_id TEXT,
+                last_refreshed_at TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                deleted_at TEXT,
+                FOREIGN KEY(workspace_id) REFERENCES workspaces(id),
+                UNIQUE(workspace_id, owner_user_id, dashboard_name),
+                CHECK (refresh_cadence IN ('manual', '15min', '60min'))
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS dashboard_panels (
+                panel_id TEXT PRIMARY KEY,
+                dashboard_id TEXT NOT NULL,
+                saved_query_id TEXT NOT NULL,
+                panel_name TEXT,
+                panel_order INTEGER NOT NULL,
+                is_visible INTEGER NOT NULL DEFAULT 1,
+                chart_config_json TEXT,
+                parameter_overrides_json TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                FOREIGN KEY(dashboard_id) REFERENCES dashboards(dashboard_id),
+                FOREIGN KEY(saved_query_id) REFERENCES saved_queries(query_id)
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS dashboard_runs (
+                run_id TEXT PRIMARY KEY,
+                dashboard_id TEXT NOT NULL,
+                run_number INTEGER NOT NULL,
+                triggered_by TEXT NOT NULL,
+                status TEXT NOT NULL,
+                parameters_json TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                started_at TEXT,
+                completed_at TEXT,
+                total_duration_ms INTEGER,
+                FOREIGN KEY(dashboard_id) REFERENCES dashboards(dashboard_id)
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS dashboard_run_panels (
+                run_panel_id TEXT PRIMARY KEY,
+                run_id TEXT NOT NULL,
+                panel_id TEXT NOT NULL,
+                status TEXT NOT NULL,
+                started_at TEXT,
+                completed_at TEXT,
+                duration_ms INTEGER,
+                row_count INTEGER,
+                is_aggregated INTEGER NOT NULL DEFAULT 0,
+                error_type TEXT,
+                error_message TEXT,
+                chart_suggestion_type TEXT,
+                chart_suggestion_reason TEXT,
+                kpi_value REAL,
+                kpi_label TEXT,
+                result_columns_json TEXT,
+                result_rows_json TEXT,
+                FOREIGN KEY(run_id) REFERENCES dashboard_runs(run_id),
+                FOREIGN KEY(panel_id) REFERENCES dashboard_panels(panel_id)
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS dashboard_run_events (
+                event_id TEXT PRIMARY KEY,
+                run_id TEXT NOT NULL,
+                event_type TEXT NOT NULL,
+                event_details_json TEXT,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY(run_id) REFERENCES dashboard_runs(run_id)
+            )
+            """
+        )
         conn.execute("DROP TABLE IF EXISTS relationships")
         conn.execute(
             """
@@ -426,6 +518,42 @@ def init_metadata_db(db_path: Path) -> None:
             """
             CREATE INDEX IF NOT EXISTS idx_query_execution_timeline
             ON query_execution_log(executed_at DESC)
+            """
+        )
+        conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_dashboards_list
+            ON dashboards(workspace_id, owner_user_id, deleted_at, updated_at DESC)
+            """
+        )
+        conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_dashboard_panels_order
+            ON dashboard_panels(dashboard_id, panel_order)
+            """
+        )
+        conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_dashboard_runs_history
+            ON dashboard_runs(dashboard_id, created_at DESC)
+            """
+        )
+        conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_dashboard_runs_active
+            ON dashboard_runs(dashboard_id, status)
+            """
+        )
+        conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_dashboard_run_panels_run
+            ON dashboard_run_panels(run_id)
+            """
+        )
+        conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_dashboard_run_events_run
+            ON dashboard_run_events(run_id, created_at)
             """
         )
 
