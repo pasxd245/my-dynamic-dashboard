@@ -7,6 +7,36 @@
 
 This quickstart provides a step-by-step walkthrough for verifying User Stories 1-4 and Acceptance Criteria AC-001 through AC-011. It assumes you have completed specs 001 (upload), 002 (relationship rules), 003 (query builder), and 004 (saved queries).
 
+## Completion Verification Snapshot (2026-05-09)
+
+Use these commands to verify implemented behavior before running the full scenario walkthrough below:
+
+1. Backend dashboard verification:
+
+```bash
+PYTHONPATH=apps/backend pytest \
+   apps/backend/tests/contract/test_dashboard_contract.py \
+   apps/backend/tests/integration/test_dashboard_lifecycle.py \
+   apps/backend/tests/integration/test_dashboard_run.py \
+   apps/backend/tests/integration/test_chart_suggestion.py
+```
+
+Expected result: all tests pass for dashboard CRUD, lifecycle, run flows, chart suggestion heuristics, and failure-isolation scenarios.
+
+1. Dashboard compile/smoke verification:
+
+```bash
+python -m py_compile \
+   apps/dashboard/streamlit_app.py \
+   apps/dashboard/src/api/dashboard_api.py \
+   apps/dashboard/src/components/chart_viewer.py \
+   apps/dashboard/src/components/dashboard_header.py
+
+DASHBOARD_SMOKE=1 streamlit run apps/dashboard/streamlit_app.py --server.headless true
+```
+
+Expected result: no syntax errors; Streamlit app boots and emits successful smoke checks.
+
 ---
 
 ## Prerequisites

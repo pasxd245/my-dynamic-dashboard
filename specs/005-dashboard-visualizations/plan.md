@@ -8,6 +8,13 @@
 
 Implement a Streamlit-based dashboard surface for MVPs 2+ that analysts can compose from saved queries (spec 004), execute with parameters, render with auto-suggested charts, and export for distribution. The technical approach extends the FastAPI backend with dashboard lifecycle management, parameter validation, and panel execution orchestration; introduces a Streamlit app to replace the React builder for dashboard-specific UI (separate from the query builder); adds chart suggestion logic and KPI computation; and implements full traceability and reproducibility at the dashboard and panel level. The outcome enables recurring weekly reporting workflows where managers open a URL, see up-to-date results with clear refresh metadata, and export artifacts for downstream audit and distribution without manual Excel assembly.
 
+## Delivery Notes (2026-05-09)
+
+- Implementation now includes dashboard lifecycle CRUD, panel curation/reordering, run orchestration, chart suggestion + override persistence, panel-level failure isolation, run history, and export endpoints.
+- Streamlit delivery includes dashboard header/health states, parameter input flow, panel rendering, chart viewer, export controls, and run-history drilldown.
+- Verification coverage includes contract + integration tests for lifecycle, run flows, chart suggestion behavior, and safety/performance guards.
+- Remaining work after this feature pass is operational closure in PDCA records (human confirmation for round closure), not additional unchecked tasks in `tasks.md`.
+
 ## Technical Context
 
 **Language/Version**: Python 3.12 (backend + Streamlit), JavaScript ES2022 (React 18 + Vite for query builder, retained)

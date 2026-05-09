@@ -28,6 +28,19 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/Dashboard'
+              examples:
+                sample:
+                  value:
+                    - dashboard_id: "dsh_001"
+                      workspace_id: "ws_001"
+                      owner_user_id: "system"
+                      dashboard_name: "Weekly Sales Report"
+                      description: "Overview dashboard"
+                      refresh_cadence: "manual"
+                      last_refreshed_at: null
+                      current_run_id: null
+                      created_at: "2026-05-09T10:00:00Z"
+                      updated_at: "2026-05-09T10:00:00Z"
         '404':
           description: Workspace not found
     
@@ -261,18 +274,46 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/DashboardRun'
+              examples:
+                accepted:
+                  value:
+                    run_id: "run_001"
+                    dashboard_id: "dsh_001"
+                    run_number: 7
+                    triggered_by: "manual"
+                    status: "pending"
+                    parameters_json:
+                      start_date: "2026-05-01"
+                      end_date: "2026-05-08"
+                    created_at: "2026-05-09T10:15:00Z"
         '400':
           description: Invalid parameters or missing required parameters
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                invalid_parameter:
+                  value:
+                    error_type: "validation"
+                    message: "Parameter 'start_date' must be a valid date"
+                    details:
+                      field: "start_date"
+                      expected_format: "YYYY-MM-DD"
         '409':
           description: Dashboard run already in progress
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                overlap:
+                  value:
+                    error_type: "conflict"
+                    message: "Dashboard run already in progress"
+                    details:
+                      dashboard_id: "dsh_001"
+                      active_run_id: "run_001"
 
   /workspaces/{workspace_id}/dashboards/{dashboard_id}/refresh-cadence:
     patch:
@@ -366,6 +407,27 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/DashboardRunDetail'
+              examples:
+                complete_run:
+                  value:
+                    run_id: "run_001"
+                    dashboard_id: "dsh_001"
+                    run_number: 7
+                    triggered_by: "manual"
+                    status: "completed"
+                    parameters_json:
+                      start_date: "2026-05-01"
+                      end_date: "2026-05-08"
+                    created_at: "2026-05-09T10:15:00Z"
+                    started_at: "2026-05-09T10:15:01Z"
+                    completed_at: "2026-05-09T10:15:04Z"
+                    total_duration_ms: 3000
+                    panels:
+                      - run_panel_id: "rp_001"
+                        panel_id: "pnl_001"
+                        status: "completed"
+                        is_aggregated: false
+                        row_count: 42
 
   /workspaces/{workspace_id}/dashboards/{dashboard_id}/runs/{run_id}/panels/{panel_id}/data:
     get:
@@ -926,3 +988,22 @@ components:
       required:
         - error_type
         - message
+      examples:
+        validation:
+          value:
+            error_type: "validation"
+            message: "Undeclared parameters provided: region"
+            details:
+              parameter: "region"
+        not_found:
+          value:
+            error_type: "not_found"
+            message: "Dashboard not found"
+            details:
+              dashboard_id: "dsh_missing"
+        service_unavailable:
+          value:
+            error_type: "service_unavailable"
+            message: "Dashboard backend is temporarily unavailable"
+            details:
+              retry_after_seconds: 10

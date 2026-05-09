@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import uuid
+from datetime import datetime, timezone
 from typing import Annotated, Any
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
@@ -377,9 +378,16 @@ def _handle_dashboard_errors(exc: Exception) -> None:
         raise ApiError(status_code=409, code="dashboard_conflict", message=str(exc))
     if isinstance(exc, DashboardRunConflictError):
         raise ApiError(status_code=409, code="dashboard_run_conflict", message=str(exc))
-    if isinstance(exc, (DashboardValidationError, PanelValidationError)):
+    if isinstance(exc, PanelValidationError):
+        raise ApiError(status_code=400, code="panel_validation_error", message=str(exc))
+    if isinstance(exc, DashboardValidationError):
         raise ApiError(status_code=422, code="dashboard_validation_error", message=str(exc))
-    raise exc
+    raise ApiError(
+        status_code=503,
+        code="dashboard_service_unavailable",
+        message="Dashboard service temporarily unavailable. Please retry.",
+        details={"cause": str(exc)},
+    )
 
 
 _DASHBOARD_HANDLED_ERRORS = (
@@ -752,6 +760,35 @@ def get_dashboard_run(workspace_id: str, dashboard_id: str, run_id: str) -> Dash
     raise AssertionError("unreachable")
 
 
+@app.get("/api/v1/workspaces/{workspace_id}/dashboards/{dashboard_id}/service-health")
+def get_dashboard_service_health(workspace_id: str, dashboard_id: str, stale_after_minutes: int = 90) -> dict[str, Any]:
+    _get_workspace(workspace_id)
+    try:
+        dashboard = _dashboard_service().get_dashboard_detail(
+            workspace_id=workspace_id,
+            dashboard_id=dashboard_id,
+        )
+    except Exception as exc:
+        _handle_dashboard_errors(exc)
+    last_refreshed_at = dashboard.last_refreshed_at
+    if not last_refreshed_at:
+        return {"status": "stale", "reason": "Dashboard has never been refreshed."}
+
+    try:
+        refreshed_at = datetime.fromisoformat(last_refreshed_at.replace("Z", "+00:00"))
+    except ValueError:
+        return {"status": "degraded", "reason": "Unable to parse refresh timestamp."}
+
+    age_seconds = (datetime.now(tz=timezone.utc) - refreshed_at).total_seconds()
+    if age_seconds > stale_after_minutes * 60:
+        return {
+            "status": "stale",
+            "reason": "Dashboard data is older than the stale threshold.",
+            "stale_after_minutes": stale_after_minutes,
+        }
+    return {"status": "healthy", "stale_after_minutes": stale_after_minutes}
+
+
 @app.get("/api/v1/workspaces/{workspace_id}/dashboards/{dashboard_id}/runs/{run_id}/panels/{panel_id}/data")
 def get_dashboard_panel_data(
     workspace_id: str,
@@ -823,8 +860,9 @@ def export_dashboard_panel_data(
     request: ExportPanelRequest,
 ) -> Response:
     _get_workspace(workspace_id)
+    service = _dashboard_service()
     try:
-        _ = _dashboard_service().get_panel_data(
+        _ = service.get_panel_data(
             workspace_id=workspace_id,
             dashboard_id=dashboard_id,
             run_id=run_id,
@@ -832,6 +870,15 @@ def export_dashboard_panel_data(
             limit=1000,
             offset=0,
         )
+        run_detail = service.get_run_detail(
+            workspace_id=workspace_id,
+            dashboard_id=dashboard_id,
+            run_id=run_id,
+        )
+        panel = next((item for item in run_detail.panels if item.panel_id == panel_id), None)
+        if panel is None:
+            raise PanelValidationError(f"Panel '{panel_id}' not found in run.")
+        service.panel_executor.ensure_export_eligible(panel_status=panel.status)
     except Exception as exc:
         _handle_dashboard_errors(exc)
 

@@ -14,6 +14,22 @@ class ChartSuggestionService:
         if not columns:
             return ChartSuggestion(chart_type="table_only", reason="No columns available for charting.")
 
+        if rows:
+            total_cells = max(1, len(rows) * max(1, len(columns)))
+            null_cells = sum(1 for row in rows for value in row if value is None)
+            if (null_cells / total_cells) > 0.6:
+                return ChartSuggestion(
+                    chart_type="table_only",
+                    reason="Fallback to table: dataset is null-heavy and unsafe for charting.",
+                )
+
+            categorical_samples = [str(row[0]) for row in rows if row and row[0] is not None]
+            if categorical_samples and len(set(categorical_samples)) > 100:
+                return ChartSuggestion(
+                    chart_type="table_only",
+                    reason="Fallback to table: high-cardinality category dimension detected.",
+                )
+
         numeric_indexes: list[int] = []
         temporal_indexes: list[int] = []
         categorical_indexes: list[int] = []

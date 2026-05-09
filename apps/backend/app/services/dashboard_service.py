@@ -4,6 +4,7 @@ import json
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
+import time
 from pathlib import Path
 from typing import Any
 
@@ -401,6 +402,46 @@ class DashboardService:
         if active is not None:
             raise DashboardRunConflictError("Dashboard run already in progress.")
 
+    def _record_run_event(
+        self,
+        conn: Any,
+        *,
+        run_id: str,
+        event_type: str,
+        event_details: dict[str, Any] | None = None,
+    ) -> None:
+        conn.execute(
+            """
+            INSERT INTO dashboard_run_events (event_id, run_id, event_type, event_details_json, created_at)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (
+                str(uuid.uuid4()),
+                run_id,
+                event_type,
+                json.dumps(event_details or {}),
+                _utc_now_iso(),
+            ),
+        )
+
+    def _transition_run_status(
+        self,
+        conn: Any,
+        *,
+        run_id: str,
+        status: str,
+        completed_at: str | None = None,
+        total_duration_ms: int | None = None,
+    ) -> None:
+        conn.execute(
+            """
+            UPDATE dashboard_runs
+            SET status = ?, completed_at = ?, total_duration_ms = ?
+            WHERE run_id = ?
+            """,
+            (status, completed_at, total_duration_ms, run_id),
+        )
+
     def run_dashboard(
         self,
         *,
@@ -409,6 +450,7 @@ class DashboardService:
         request: RunDashboardRequest,
     ) -> DashboardRun:
         now = _utc_now_iso()
+        started_monotonic = time.monotonic()
         run_id = str(uuid.uuid4())
         with get_connection(self.db_path) as conn:
             _ = self._get_dashboard_row(conn, workspace_id=workspace_id, dashboard_id=dashboard_id)
@@ -429,6 +471,7 @@ class DashboardService:
                 """,
                 (run_id, dashboard_id, run_number, json.dumps(request.parameters), now, now),
             )
+            self._record_run_event(conn, run_id=run_id, event_type="run_started")
 
             panel_rows = conn.execute(
                 "SELECT * FROM dashboard_panels WHERE dashboard_id = ? ORDER BY panel_order ASC",
@@ -458,11 +501,11 @@ class DashboardService:
                         if panel["parameter_overrides_json"]
                         else {}
                     )
-                    merged = self.panel_executor.merge_parameters(
+                    merged = self.panel_executor.merge_run_parameters(
                         dashboard_parameters=request.parameters,
                         panel_overrides=panel_overrides,
+                        snapshot=sq["snapshot"],
                     )
-                    self.panel_executor.validate_declared_parameters(snapshot=sq["snapshot"], provided=merged)
                     columns = self.panel_executor.default_columns_from_snapshot(sq["snapshot"])
                     suggestion = self.panel_executor.chart_service.suggest(columns=columns, rows=rows)
                     chart_type = suggestion.chart_type
@@ -472,6 +515,10 @@ class DashboardService:
                     panel_status = "failed"
                     error_type = "validation"
                     error_message = str(exc)
+                except TimeoutError as exc:
+                    panel_status = "timeout"
+                    error_type = "timeout"
+                    error_message = str(exc) or "Panel execution timed out."
                 except Exception as exc:  # pragma: no cover - defensive safety net
                     panel_status = "failed"
                     error_type = "unexpected"
@@ -503,16 +550,27 @@ class DashboardService:
                         json.dumps(rows),
                     ),
                 )
+                self._record_run_event(
+                    conn,
+                    run_id=run_id,
+                    event_type="panel_completed" if panel_status == "completed" else "panel_failed",
+                    event_details={
+                        "panel_id": str(panel["panel_id"]),
+                        "status": panel_status,
+                        "error_type": error_type,
+                    },
+                )
 
             completed_at = _utc_now_iso()
-            conn.execute(
-                """
-                UPDATE dashboard_runs
-                SET status = 'completed', completed_at = ?, total_duration_ms = 0
-                WHERE run_id = ?
-                """,
-                (completed_at, run_id),
+            total_duration_ms = int((time.monotonic() - started_monotonic) * 1000)
+            self._transition_run_status(
+                conn,
+                run_id=run_id,
+                status="completed",
+                completed_at=completed_at,
+                total_duration_ms=total_duration_ms,
             )
+            self._record_run_event(conn, run_id=run_id, event_type="run_completed")
             conn.execute(
                 """
                 UPDATE dashboards

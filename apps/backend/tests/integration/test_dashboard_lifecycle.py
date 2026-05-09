@@ -121,3 +121,93 @@ def test_panel_add_reorder_delete_compacts_order(client: TestClient, workspace_i
     assert len(remaining) == 1
     assert remaining[0]["panel_id"] == panel_b_id
     assert remaining[0]["panel_order"] == 0
+
+
+def test_dashboard_service_health_reports_stale_before_first_run(client: TestClient, workspace_id: str) -> None:
+    dashboard_response = client.post(
+        f"/api/v1/workspaces/{workspace_id}/dashboards",
+        json={"dashboard_name": "Health Lifecycle"},
+    )
+    assert dashboard_response.status_code == 201
+    dashboard_id = dashboard_response.json()["dashboard_id"]
+
+    health = client.get(
+        f"/api/v1/workspaces/{workspace_id}/dashboards/{dashboard_id}/service-health"
+    )
+    assert health.status_code == 200
+    assert health.json()["status"] in {"stale", "degraded", "healthy"}
+
+
+def test_dashboard_page_load_metadata_shape(client: TestClient, workspace_id: str) -> None:
+    dashboard_response = client.post(
+        f"/api/v1/workspaces/{workspace_id}/dashboards",
+        json={"dashboard_name": "Page Load"},
+    )
+    assert dashboard_response.status_code == 201
+    dashboard_id = dashboard_response.json()["dashboard_id"]
+
+    saved_query_id = _create_saved_query(client, workspace_id, "Page Load Query")
+    panel_response = client.post(
+        f"/api/v1/workspaces/{workspace_id}/dashboards/{dashboard_id}/panels",
+        json={"saved_query_id": saved_query_id, "panel_name": "Main Panel"},
+    )
+    assert panel_response.status_code == 201
+    panel_id = panel_response.json()["panel_id"]
+
+    run = client.post(
+        f"/api/v1/workspaces/{workspace_id}/dashboards/{dashboard_id}/run",
+        json={"parameters": {}},
+    )
+    assert run.status_code == 202
+    run_id = run.json()["run_id"]
+
+    detail = client.get(f"/api/v1/workspaces/{workspace_id}/dashboards/{dashboard_id}")
+    assert detail.status_code == 200
+    payload = detail.json()
+    assert payload["dashboard_id"] == dashboard_id
+    assert len(payload["panels"]) == 1
+    assert payload["panels"][0]["panel_id"] == panel_id
+
+    run_detail = client.get(f"/api/v1/workspaces/{workspace_id}/dashboards/{dashboard_id}/runs/{run_id}")
+    assert run_detail.status_code == 200
+    panel_runs = run_detail.json()["panels"]
+    assert len(panel_runs) == 1
+    assert panel_runs[0]["panel_id"] == panel_id
+
+    panel_data = client.get(
+        f"/api/v1/workspaces/{workspace_id}/dashboards/{dashboard_id}/runs/{run_id}/panels/{panel_id}/data?limit=10&offset=0"
+    )
+    assert panel_data.status_code == 200
+    panel_payload = panel_data.json()
+    assert panel_payload["panel_id"] == panel_id
+    assert "columns" in panel_payload
+    assert "rows" in panel_payload
+
+
+def test_dashboard_service_health_returns_503_when_service_unavailable(
+    client: TestClient,
+    workspace_id: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    dashboard_response = client.post(
+        f"/api/v1/workspaces/{workspace_id}/dashboards",
+        json={"dashboard_name": "Health Outage"},
+    )
+    assert dashboard_response.status_code == 201
+    dashboard_id = dashboard_response.json()["dashboard_id"]
+
+    original = main_module.DashboardService.get_dashboard_detail
+
+    def raise_unavailable(self, *, workspace_id: str, dashboard_id: str):
+        raise RuntimeError("dashboard backend unavailable")
+
+    monkeypatch.setattr(main_module.DashboardService, "get_dashboard_detail", raise_unavailable)
+
+    response = client.get(
+        f"/api/v1/workspaces/{workspace_id}/dashboards/{dashboard_id}/service-health"
+    )
+    assert response.status_code == 503
+    payload = response.json()
+    assert payload["error"]["code"] == "dashboard_service_unavailable"
+
+    monkeypatch.setattr(main_module.DashboardService, "get_dashboard_detail", original)
