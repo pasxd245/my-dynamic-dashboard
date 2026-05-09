@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import os
 import streamlit as st
+from urllib.parse import urlparse
+
+from app_logging import configure_dashboard_logging
 
 from src.api.dashboard_api import DashboardApiClient, DashboardApiError
 from src.components.dashboard_header import (
@@ -15,6 +18,23 @@ from src.components.query_panel import render_query_panel
 
 
 st.set_page_config(page_title="Dynamic Dashboard", layout="wide")
+LOGGER = configure_dashboard_logging()
+
+
+def validate_dashboard_environment() -> None:
+    strict_validation = os.getenv("APP_ENV", "development").lower() == "production" or os.getenv(
+        "DEPLOYMENT_STRICT_VALIDATION", "0"
+    ) in {"1", "true", "yes", "on"}
+    if not strict_validation:
+        return
+
+    base_url = os.getenv("DASHBOARD_API_BASE_URL", "").strip()
+    if not base_url:
+        raise RuntimeError("DASHBOARD_API_BASE_URL is required in production mode")
+
+    parsed = urlparse(base_url)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        raise RuntimeError("DASHBOARD_API_BASE_URL must be a valid http(s) URL")
 
 
 def run_smoke_startup_checks(query_params: dict[str, str] | None = None) -> dict[str, bool]:
@@ -33,6 +53,15 @@ def run_smoke_startup_checks(query_params: dict[str, str] | None = None) -> dict
 
 
 def main() -> None:
+    validate_dashboard_environment()
+    LOGGER.info("dashboard startup validation completed", extra={"event_type": "startup_validation"})
+
+    # Dedicated lightweight response path for container health probing.
+    healthcheck_flag = str(st.query_params.get("healthcheck", "")).lower()
+    if healthcheck_flag in {"1", "true", "yes"}:
+        st.write("ok")
+        return
+
     st.title("Dynamic Dashboard MVP")
     st.caption("Spec 005 dashboard visualizations")
 
@@ -61,8 +90,13 @@ def main() -> None:
             try:
                 payload = client.health()
                 st.success(f"API status: {payload.get('status', 'unknown')}")
+                LOGGER.info("dashboard health check succeeded", extra={"event_type": "dashboard_health_check"})
             except DashboardApiError as exc:
                 st.error(str(exc))
+                LOGGER.error(
+                    "dashboard health check failed",
+                    extra={"event_type": "backend_connectivity_error"},
+                )
 
     with col_right:
         st.subheader("Dashboards")
@@ -70,8 +104,16 @@ def main() -> None:
             try:
                 dashboards = client.list_dashboards(workspace_id=workspace_id)
                 st.session_state["dashboards"] = dashboards
+                LOGGER.info(
+                    "dashboard list loaded",
+                    extra={"event_type": "dashboard_refresh_success"},
+                )
             except DashboardApiError as exc:
                 st.error(str(exc))
+                LOGGER.error(
+                    "dashboard list failed",
+                    extra={"event_type": "backend_connectivity_error"},
+                )
 
         dashboards = st.session_state.get("dashboards", [])
         if dashboards:
@@ -137,6 +179,10 @@ def main() -> None:
                     parameters=parameters,
                 )
                 st.success(f"Run started: {run_response.get('run_id')}")
+                LOGGER.info(
+                    "dashboard refresh run started",
+                    extra={"event_type": "dashboard_refresh_started", "run_id": str(run_response.get("run_id", ""))},
+                )
                 runs = client.list_runs(workspace_id=workspace_id, dashboard_id=dashboard_id)
                 latest_run = runs[0] if runs else None
                 run_detail = (
@@ -248,6 +294,10 @@ def main() -> None:
                     st.success(f"Panel exported as {action['panel_export_format']}")
         except DashboardApiError as exc:
             st.error(str(exc))
+            LOGGER.error(
+                "dashboard operation failed",
+                extra={"event_type": "backend_connectivity_error"},
+            )
 
 
 if __name__ == "__main__":

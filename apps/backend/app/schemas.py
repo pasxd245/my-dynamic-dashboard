@@ -613,3 +613,76 @@ class ExportDashboardRequest(BaseModel):
 
 class ExportPanelRequest(BaseModel):
     format: Literal["xlsx", "csv"]
+
+
+# -- Spec 006: Production Deployment -------------------------------------------
+
+HealthStatus = Literal["healthy", "degraded", "not_ready"]
+BackupStatus = Literal["created", "validated", "failed", "retained", "pruned"]
+RestoreStatus = Literal["validating", "restoring", "completed", "failed"]
+DeploymentStatus = Literal["draft", "validated", "deployed", "rolled_back", "superseded"]
+
+
+class HealthDependency(BaseModel):
+    name: str
+    status: Literal["ok", "degraded", "failed"]
+    detail: str | None = None
+
+
+class HealthSnapshot(BaseModel):
+    service: str
+    version: str
+    status: HealthStatus
+    timestamp_utc: str
+    dependencies: list[HealthDependency] = Field(default_factory=list)
+
+
+class DeploymentBundleDto(BaseModel):
+    bundle_id: str
+    release_version: str
+    backend_image: str
+    builder_image: str
+    dashboard_image: str
+    compose_revision: str
+    env_contract_version: str
+    status: DeploymentStatus
+    created_at_utc: str
+    backup_set_reference: str | None = None
+
+
+class DeploymentEventRequest(BaseModel):
+    bundle_id: str
+    event_type: Literal["deployment_started", "deployment_finished", "rollback_started", "rollback_finished"]
+    operator_id: str
+    message: str | None = None
+
+
+class AuditEvent(BaseModel):
+    event_id: str
+    event_type: str
+    service: str
+    severity: Literal["DEBUG", "INFO", "WARN", "ERROR"]
+    message: str | None = None
+    timestamp_utc: str
+    correlation_id: str | None = None
+
+
+class BackupArtifactDto(BaseModel):
+    backup_id: str
+    artifact_name: str
+    artifact_path: str | None = None
+    created_at_utc: str
+    sqlite_integrity_ok: bool
+    checksum: str | None = None
+    size_bytes: int | None = None
+    status: BackupStatus
+    is_latest_valid: bool = False
+
+
+class RestoreRunDto(BaseModel):
+    restore_run_id: str
+    backup_id: str
+    status: RestoreStatus
+    validation_result: Literal["passed", "failed"] | None = None
+    started_at_utc: str
+    finished_at_utc: str | None = None

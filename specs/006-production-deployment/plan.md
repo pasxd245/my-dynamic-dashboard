@@ -1,6 +1,6 @@
 # Implementation Plan: Production Deployment (MVP 2)
 
-**Branch**: `002-relationship-rules` | **Date**: 2026-05-08 | **Spec**: `/specs/006-production-deployment/spec.md`
+**Branch**: `006-production-deployment` | **Date**: 2026-05-08 | **Spec**: `/specs/006-production-deployment/spec.md`
 **Input**: Feature specification from `/specs/006-production-deployment/spec.md`
 
 ## Summary
@@ -76,10 +76,10 @@ apps/
     └── streamlit_app.py
 
 docker-compose.yml
-docker-compose.prod.yml                 # planned
+docker-compose.prod.yml
 
 docs/
-└── operations/                         # planned runbooks
+└── operations/
     ├── deployment-guide.md
     ├── rollback-runbook.md
     ├── troubleshooting-runbook.md
@@ -199,3 +199,18 @@ Resolved in `research.md`:
 | Violation | Why Needed | Simpler Alternative Rejected Because |
 | --------- | ---------- | ------------------------------------ |
 | None      | N/A        | N/A                                  |
+
+## FR-001..FR-030 Traceability Validation
+
+Validated on 2026-05-09 against `tasks.md` implementation mapping.
+
+- FR-001..FR-004: T022, T023, T024 (service image hardening)
+- FR-005..FR-006: T025, T026 (compose topology, restart, resources)
+- FR-007..FR-009: T008, T009, T015 (env contract + fail-fast startup)
+- FR-010..FR-013: T018, T027, T028, T029, T032 (health/readiness probes)
+- FR-014..FR-017: T013, T014, T031, T033, T036, T037, T038 (structured logs + audit)
+- FR-018..FR-021: T040..T050 (backup, retention, restore, orchestration)
+- FR-022: T057 (deployment guide)
+- FR-023..FR-024: T008, T015 (runtime config and startup validation)
+- FR-025..FR-026: T026, T032 (service limits and restart/health behavior)
+- FR-027: T060, T063 (operational checks and evidence checklist)

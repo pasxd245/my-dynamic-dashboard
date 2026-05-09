@@ -252,6 +252,46 @@ python -m pytest tests/ -v
 
 ---
 
+## Production Ops Commands
+
+1. Validate production artifacts:
+
+- `scripts/ops/validate-production-config.sh`
+
+1. Start production stack:
+
+- `docker compose -f docker-compose.prod.yml up -d --build`
+
+1. Trigger on-demand backup:
+
+- `curl -X POST http://localhost:8000/api/v1/ops/backups/run`
+
+1. List backups:
+
+- `curl http://localhost:8000/api/v1/ops/backups`
+
+1. Restore backup:
+
+- `curl -X POST http://localhost:8000/api/v1/ops/restore -H 'Content-Type: application/json' -d '{"backup_id":"<id>","operator_id":"ops"}'`
+
+1. Deploy release:
+
+- `RELEASE_BUNDLE_ID=<id> BACKEND_IMAGE=<image:tag> BUILDER_IMAGE=<image:tag> DASHBOARD_IMAGE=<image:tag> scripts/ops/deploy-release.sh`
+
+1. Roll back release:
+
+- `ROLLBACK_TARGET_BUNDLE=<id> scripts/ops/rollback-release.sh`
+
+## Incident Evidence Checklist
+
+1. Timestamped health responses (`/health`, builder, dashboard probes).
+2. Correlation IDs from failing API requests.
+3. Service state snapshot: `docker compose -f docker-compose.prod.yml ps`.
+4. Relevant log excerpts and severity/event_type context.
+5. Backup artifact ID, restore run ID, and outcome timestamps.
+
+---
+
 ## Specification-Driven Development
 
 This project uses **Spec-Kit** for feature specification and implementation:

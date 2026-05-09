@@ -156,3 +156,20 @@ The feature is task-ready when all five gates are defined with:
 2. pass/fail criteria,
 3. responsible owner (infra/backend/dashboard/ops),
 4. linked requirements and acceptance criteria.
+
+## Validation Evidence (2026-05-09)
+
+1. Phase A: PASS
+   - `docker compose -f docker-compose.prod.yml config` validated.
+   - Env contract and startup validation helpers implemented.
+2. Phase B: PASS
+   - Backend `/health` returns readiness payload with dependency details.
+   - Structured backend logging formatter enabled.
+3. Phase C: PASS
+   - Builder probe: `/health` via nginx.
+   - Dashboard probe: `/?healthcheck=1` mode.
+4. Phase D: PASS
+   - Backup API creates UTC-named artifacts with checksum metadata.
+   - Restore API validates artifact state and records duration outcome.
+5. Phase E: PASS
+   - Deploy/rollback/DR scripts and runbooks are present and validated by integration checks.

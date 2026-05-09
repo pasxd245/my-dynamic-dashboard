@@ -5,16 +5,18 @@ import uuid
 from datetime import datetime, timezone
 from typing import Annotated, Any
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.responses import JSONResponse, Response
 
 from app.core.config import metadata_db_path, parquet_root_dir
+from app.core.logging import configure_backend_logging, correlation_id_ctx
 from app.core.metadata_db import (
     get_connection,
     init_metadata_db,
     persist_manifest_snapshot,
     persist_role_assignment,
 )
+from app.core.startup_validation import StartupValidationError, validate_startup_environment
 from app.schemas import (
     AddPanelRequest,
     ApiErrorModel,
@@ -57,6 +59,11 @@ from app.schemas import (
     SavedQueryRequest,
     SavedQueryResponse,
     SavedQueryListResponse,
+    AuditEvent,
+    DeploymentBundleDto,
+    DeploymentEventRequest,
+    HealthDependency,
+    HealthSnapshot,
     RunDashboardRequest,
     SetRefreshCadenceRequest,
     UpdateDashboardRequest,
@@ -113,6 +120,9 @@ from app.services.relationship_service import (
     update_rule,
 )
 from app.services.query_builder_service import JoinGraphValidator, QueryConfigValidator, SqlTranslator
+from app.services.audit_service import AuditService
+from app.services.backup_service import BackupService
+from app.services.deployment_service import DeploymentService
 from app.services.upload_service import (
     build_upload_result,
     compute_column_profiles,
@@ -128,6 +138,7 @@ app = FastAPI(title="My Dynamic Dashboard Backend")
 
 DB_PATH = metadata_db_path()
 PARQUET_ROOT = parquet_root_dir()
+APP_LOGGER = configure_backend_logging()
 
 
 class ApiError(Exception):
@@ -162,9 +173,51 @@ def raise_query_error(
     raise ApiError(status_code=status_code, code=code, message=message, details=details)
 
 
+def raise_bad_request(message: str, *, code: str = "bad_request") -> None:
+    raise ApiError(status_code=400, code=code, message=message)
+
+
+def raise_not_found(message: str, *, code: str = "not_found") -> None:
+    raise ApiError(status_code=404, code=code, message=message)
+
+
+def raise_conflict(message: str, *, code: str = "conflict") -> None:
+    raise ApiError(status_code=409, code=code, message=message)
+
+
+def raise_service_unavailable(message: str, *, code: str = "service_unavailable") -> None:
+    raise ApiError(status_code=503, code=code, message=message)
+
+
 @app.on_event("startup")
 def startup_event() -> None:
-    init_metadata_db(DB_PATH)
+    try:
+        env = validate_startup_environment()
+        APP_LOGGER.setLevel(env.backend_log_level)
+        APP_LOGGER.info(
+            "backend startup validation completed",
+            extra={"event_type": "startup_validation", "service": "backend"},
+        )
+        init_metadata_db(DB_PATH)
+    except StartupValidationError as exc:
+        APP_LOGGER.error(
+            "backend startup validation failed",
+            extra={"event_type": "startup_validation", "service": "backend", "details": "; ".join(exc.errors)},
+        )
+        raise
+
+
+@app.middleware("http")
+async def attach_correlation_id(request: Request, call_next):
+    incoming = request.headers.get("x-correlation-id")
+    correlation_id = incoming.strip() if incoming else str(uuid.uuid4())
+    token = correlation_id_ctx.set(correlation_id)
+    try:
+        response = await call_next(request)
+    finally:
+        correlation_id_ctx.reset(token)
+    response.headers["x-correlation-id"] = correlation_id
+    return response
 
 
 @app.exception_handler(ApiError)
@@ -183,13 +236,81 @@ def handle_http_error(_: object, exc: HTTPException) -> JSONResponse:
 
 
 @app.get("/health")
-def health() -> dict[str, str]:
-    return {"status": "ok"}
+def health() -> JSONResponse:
+    metadata_ready = DB_PATH.exists()
+    dependency = HealthDependency(
+        name="metadata_db",
+        status="ok" if metadata_ready else "failed",
+        detail=str(DB_PATH),
+    )
+    snapshot = HealthSnapshot(
+        service="backend",
+        version="dev",
+        status="healthy" if metadata_ready else "not_ready",
+        timestamp_utc=datetime.now(timezone.utc).isoformat(),
+        dependencies=[dependency],
+    )
+    status_code = 200 if metadata_ready else 503
+    return JSONResponse(status_code=status_code, content=snapshot.model_dump())
 
 
 @app.get("/api/health")
 def api_health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.get("/api/v1/ops/deployments/current", response_model=DeploymentBundleDto)
+def get_current_deployment() -> DeploymentBundleDto:
+    deployment = _deployment_service().get_current_deployment()
+    if deployment is None:
+        raise_not_found("No deployment bundle recorded", code="deployment_not_found")
+    return deployment
+
+
+@app.post("/api/v1/ops/deployments", response_model=AuditEvent, status_code=201)
+def record_deployment_event(request: DeploymentEventRequest) -> AuditEvent:
+    _deployment_service().record_deployment_event(
+        bundle_id=request.bundle_id,
+        event_type=request.event_type,
+        operator_id=request.operator_id,
+        message=request.message,
+    )
+    return _audit_service().emit(
+        event_type=request.event_type,
+        message=request.message or "deployment event recorded",
+        service="backend",
+        severity="INFO",
+        correlation_id=correlation_id_ctx.get(),
+        bundle_id=request.bundle_id,
+        operator_id=request.operator_id,
+    )
+
+
+@app.get("/api/v1/ops/backups")
+def list_backups(limit: int = 30):
+    return _backup_service().list_backups(limit=limit)
+
+
+@app.post("/api/v1/ops/backups/run", status_code=202)
+def run_backup() -> dict[str, str]:
+    return _backup_service().run_backup()
+
+
+@app.post("/api/v1/ops/restore", status_code=202)
+def run_restore(payload: dict[str, str]):
+    backup_id = str(payload.get("backup_id", "")).strip()
+    operator_id = str(payload.get("operator_id", "system")).strip() or "system"
+    if not backup_id:
+        raise_bad_request("backup_id is required", code="backup_id_required")
+    try:
+        return _backup_service().run_restore(backup_id=backup_id, operator_id=operator_id)
+    except ValueError as exc:
+        message = str(exc)
+        if message == "backup_not_found":
+            raise_not_found("Backup artifact not found", code="backup_not_found")
+        if message == "backup_invalid":
+            raise_bad_request("Backup artifact failed integrity checks", code="backup_invalid")
+        raise_bad_request("Restore request is invalid", code="restore_invalid")
 
 
 @app.post("/api/v1/workspaces")
@@ -344,6 +465,18 @@ def export_query(workspace_id: str, request: QueryConfig, format: str = "excel")
 
 def _sq_service() -> SavedQueryService:
     return SavedQueryService(db_path=DB_PATH)
+
+
+def _deployment_service() -> DeploymentService:
+    return DeploymentService(db_path=DB_PATH)
+
+
+def _backup_service() -> BackupService:
+    return BackupService(db_path=DB_PATH)
+
+
+def _audit_service() -> AuditService:
+    return AuditService(db_path=DB_PATH)
 
 
 def _dashboard_service() -> DashboardService:

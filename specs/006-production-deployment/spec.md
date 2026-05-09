@@ -198,8 +198,8 @@ the prior version resumes service using the published runbook only.
   for single-server deployment that includes service dependencies, restart
   policies, persistent volumes, health checks, and explicit resource limits.
 - **FR-006**: The production compose stack MUST support backend, builder,
-  dashboard, backup, and any required reverse-proxy or support services needed
-  for single-host runtime operation.
+  dashboard, and backup services. Reverse proxy is optional for MVP 2 and,
+  when used, is limited to HTTP routing/TLS termination only.
 - **FR-007**: System MUST read all production configuration from environment
   variables or mounted files; secrets and credentials MUST NOT be hardcoded in
   images, compose manifests, or source-controlled runtime defaults.
@@ -251,7 +251,8 @@ the prior version resumes service using the published runbook only.
   implicit defaults.
 - **FR-025**: The dashboard deployment MUST define memory and CPU limits that
   protect the host from one service exhausting all resources during a heavy
-  report run.
+  report run; baseline limits are CPU <= 1.0 core and memory <= 1024 MiB per
+  dashboard container for single-host MVP 2.
 - **FR-026**: The production stack MUST persist all data required for service
   continuity across container restarts, including metadata, local logs when
   configured for file retention, and backup artifacts.
@@ -293,7 +294,9 @@ the prior version resumes service using the published runbook only.
   configuration version, and most recent successful backup from local runtime
   evidence.
 - **AC-011**: Resource limits prevent one service from consuming the entire
-  host during normal or degraded operation.
+  host during normal or degraded operation, verified by compose limits for
+  backend/builder/dashboard/backup and a load-check that keeps host free memory
+  above 25% during sustained dashboard refresh.
 - **AC-012**: The deployment guide, rollback runbook, troubleshooting runbook,
   and on-call playbook are sufficient for another operator to deploy, inspect,
   recover, and roll back the system.

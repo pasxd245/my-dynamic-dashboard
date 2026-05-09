@@ -10,13 +10,13 @@ Organization: Tasks are grouped by user story so each story is independently imp
 
 Purpose: Prepare deployment scaffolding, ops scripts, and verification test modules.
 
-- [ ] T001 Create production compose scaffold in docker-compose.prod.yml
-- [ ] T002 [P] Create production environment contract scaffold in .env.example
-- [ ] T003 [P] Create backup and restore script scaffolds in scripts/ops/backup.sh and scripts/ops/restore.sh
-- [ ] T004 [P] Create DR drill script scaffold in scripts/ops/dr-drill.sh
-- [ ] T005 [P] Add production deployment contract test scaffold in apps/backend/tests/contract/test_production_deployment_contract.py
-- [ ] T006 [P] Add production operational integration test scaffolds in apps/backend/tests/integration/test_production_stack_health.py and apps/backend/tests/integration/test_backup_restore_flow.py
-- [ ] T007 [P] Create operations documentation scaffolds in docs/operations/deployment-guide.md, docs/operations/rollback-runbook.md, docs/operations/troubleshooting-runbook.md, and docs/operations/oncall-playbook.md
+- [x] T001 Create production compose scaffold in docker-compose.prod.yml
+- [x] T002 [P] Create production environment contract scaffold in .env.example
+- [x] T003 [P] Create backup and restore script scaffolds in scripts/ops/backup.sh and scripts/ops/restore.sh
+- [x] T004 [P] Create DR drill script scaffold in scripts/ops/dr-drill.sh
+- [x] T005 [P] Add production deployment contract test scaffold in apps/backend/tests/contract/test_production_deployment_contract.py
+- [x] T006 [P] Add production operational integration test scaffolds in apps/backend/tests/integration/test_production_stack_health.py and apps/backend/tests/integration/test_backup_restore_flow.py
+- [x] T007 [P] Create operations documentation scaffolds in docs/operations/deployment-guide.md, docs/operations/rollback-runbook.md, docs/operations/troubleshooting-runbook.md, and docs/operations/oncall-playbook.md
 
 ---
 
@@ -26,16 +26,16 @@ Purpose: Implement shared deployment primitives required by all user stories.
 
 CRITICAL: Complete this phase before user story implementation.
 
-- [ ] T008 Add deployment environment model and required-field validators in apps/backend/app/core/config.py
-- [ ] T009 [P] Add production startup validation entrypoint helper in apps/backend/app/core/startup_validation.py
-- [ ] T010 [P] Add deployment metadata and backup tables initialization in apps/backend/app/core/metadata_db.py
-- [ ] T011 [P] Add shared deployment DTOs (health snapshot, deployment bundle, backup artifact, restore run) in apps/backend/app/schemas.py
-- [ ] T012 Implement shared operational error mapping (400/404/409/503) and response helpers in apps/backend/app/main.py
-- [ ] T013 [P] Add structured JSON logging formatter and logger wiring for backend runtime in apps/backend/app/core/logging.py
-- [ ] T014 [P] Add dashboard structured logging helpers and logger bootstrap in apps/dashboard/app_logging.py
-- [ ] T015 Implement startup boot sequence wiring to fail fast on invalid environment in apps/backend/app/main.py and apps/dashboard/streamlit_app.py
-- [ ] T016 [P] Add foundational metadata schema verification assertions for deployment tables in apps/backend/tests/integration/test_metadata_schema.py
-- [ ] T017 [P] Extend API schema smoke coverage for production deployment contract surface in apps/backend/tests/contract/test_schema_contract_smoke.py
+- [x] T008 Add deployment environment model and required-field validators in apps/backend/app/core/config.py
+- [x] T009 [P] Add production startup validation entrypoint helper in apps/backend/app/core/startup_validation.py
+- [x] T010 [P] Add deployment metadata and backup tables initialization in apps/backend/app/core/metadata_db.py
+- [x] T011 [P] Add shared deployment DTOs (health snapshot, deployment bundle, backup artifact, restore run) in apps/backend/app/schemas.py
+- [x] T012 Implement shared operational error mapping (400/404/409/503) and response helpers in apps/backend/app/main.py
+- [x] T013 [P] Add structured JSON logging formatter and logger wiring for backend runtime in apps/backend/app/core/logging.py
+- [x] T014 [P] Add dashboard structured logging helpers and logger bootstrap in apps/dashboard/app_logging.py
+- [x] T015 Implement startup boot sequence wiring to fail fast on invalid environment in apps/backend/app/main.py and apps/dashboard/streamlit_app.py
+- [x] T016 [P] Add foundational metadata schema verification assertions for deployment tables in apps/backend/tests/integration/test_metadata_schema.py
+- [x] T017 [P] Extend API schema smoke coverage for production deployment contract surface in apps/backend/tests/contract/test_schema_contract_smoke.py
 
 Checkpoint: Foundation complete; user stories can proceed.
 
@@ -48,21 +48,21 @@ Independent Test: Bring up production compose on a clean host, reboot host, and 
 
 ### Tests for User Story 1
 
-- [ ] T018 [P] [US1] Add contract test for GET /health readiness/liveness response shape in apps/backend/tests/contract/test_production_deployment_contract.py
-- [ ] T019 [P] [US1] Add integration test for production compose service startup order and health convergence in apps/backend/tests/integration/test_production_stack_health.py
-- [ ] T020 [P] [US1] Add integration test for container restart-policy behavior after forced process exit in apps/backend/tests/integration/test_production_stack_health.py
-- [ ] T021 [P] [US1] Add integration test for post-reboot auto-recovery checklist using compose state assertions in apps/backend/tests/integration/test_production_stack_health.py
+- [x] T018 [P] [US1] Add contract test for GET /health readiness/liveness response shape in apps/backend/tests/contract/test_production_deployment_contract.py
+- [x] T019 [P] [US1] Add integration test for production compose service startup order and health convergence in apps/backend/tests/integration/test_production_stack_health.py
+- [x] T020 [P] [US1] Add integration test for container restart-policy behavior after forced process exit in apps/backend/tests/integration/test_production_stack_health.py
+- [x] T021 [P] [US1] Add integration test for post-reboot auto-recovery checklist using compose state assertions in apps/backend/tests/integration/test_production_stack_health.py
 
 ### Implementation for User Story 1
 
-- [ ] T022 [US1] Harden backend production image with deterministic dependency layers and runtime command in apps/backend/Dockerfile
-- [ ] T023 [US1] Harden builder production image with multi-stage asset build and runtime health probe path in apps/builder/Dockerfile
-- [ ] T024 [US1] Harden dashboard production image with pinned dependencies and startup command in apps/dashboard/Dockerfile
-- [ ] T025 [US1] Implement production stack topology (backend, builder, dashboard, backup, optional proxy) with dependency conditions in docker-compose.prod.yml
-- [ ] T026 [US1] Add restart policies, named volumes, and resource limits for all production services in docker-compose.prod.yml
-- [ ] T027 [US1] Add backend /health readiness/liveness endpoint wiring with dependency checks in apps/backend/app/main.py
-- [ ] T028 [US1] Add builder HTTP health probe route/configuration in apps/builder/nginx.conf and docker-compose.prod.yml
-- [ ] T029 [US1] Add dashboard HTTP health probe route/configuration in apps/dashboard/streamlit_app.py and docker-compose.prod.yml
+- [x] T022 [US1] Harden backend production image with deterministic dependency layers and runtime command in apps/backend/Dockerfile
+- [x] T023 [US1] Harden builder production image with multi-stage asset build and runtime health probe path in apps/builder/Dockerfile
+- [x] T024 [US1] Harden dashboard production image with pinned dependencies and startup command in apps/dashboard/Dockerfile
+- [x] T025 [US1] Implement production stack topology (backend, builder, dashboard, backup, optional proxy) with dependency conditions in docker-compose.prod.yml
+- [x] T026 [US1] Add restart policies, named volumes, and resource limits for all production services in docker-compose.prod.yml
+- [x] T027 [US1] Add backend /health readiness/liveness endpoint wiring with dependency checks in apps/backend/app/main.py
+- [x] T028 [US1] Add builder HTTP health probe route/configuration in apps/builder/nginx.conf and docker-compose.prod.yml
+- [x] T029 [US1] Add dashboard HTTP health probe route/configuration in apps/dashboard/streamlit_app.py and docker-compose.prod.yml
 
 Checkpoint: US1 is independently functional and satisfies single-host deployment viability.
 
@@ -75,19 +75,19 @@ Independent Test: Trigger dashboard refresh, query execution, and relationship a
 
 ### Tests for User Story 2
 
-- [ ] T030 [P] [US2] Add contract tests for ops endpoints GET /api/v1/ops/deployments/current and POST /api/v1/ops/deployments in apps/backend/tests/contract/test_production_deployment_contract.py
-- [ ] T031 [P] [US2] Add integration test for backend structured JSON logging fields and severity filtering in apps/backend/tests/integration/test_production_stack_health.py
-- [ ] T032 [P] [US2] Add integration test for dashboard and builder health probes distinguishing started vs ready states in apps/backend/tests/integration/test_production_stack_health.py
-- [ ] T033 [P] [US2] Add integration test for audit event emission for query runs and relationship approvals in apps/backend/tests/integration/test_production_stack_health.py
+- [x] T030 [P] [US2] Add contract tests for ops endpoints GET /api/v1/ops/deployments/current and POST /api/v1/ops/deployments in apps/backend/tests/contract/test_production_deployment_contract.py
+- [x] T031 [P] [US2] Add integration test for backend structured JSON logging fields and severity filtering in apps/backend/tests/integration/test_production_stack_health.py
+- [x] T032 [P] [US2] Add integration test for dashboard and builder health probes distinguishing started vs ready states in apps/backend/tests/integration/test_production_stack_health.py
+- [x] T033 [P] [US2] Add integration test for audit event emission for query runs and relationship approvals in apps/backend/tests/integration/test_production_stack_health.py
 
 ### Implementation for User Story 2
 
-- [ ] T034 [US2] Implement deployment metadata read/write service for current release bundle in apps/backend/app/services/deployment_service.py
-- [ ] T035 [US2] Implement ops endpoints for deployment metadata and event recording in apps/backend/app/main.py
-- [ ] T036 [US2] Implement audit event emitter for deployment, rollback, backup, restore, query, dashboard, and relationship actions in apps/backend/app/services/audit_service.py
-- [ ] T037 [US2] Wire request-scoped correlation IDs and JSON log context enrichment in apps/backend/app/main.py and apps/backend/app/core/logging.py
-- [ ] T038 [US2] Add dashboard structured event logging for refresh outcomes and backend connectivity errors in apps/dashboard/streamlit_app.py
-- [ ] T039 [US2] Add log rotation and bounded retention policy for local service logs in docker-compose.prod.yml and scripts/ops/logrotate-production.conf
+- [x] T034 [US2] Implement deployment metadata read/write service for current release bundle in apps/backend/app/services/deployment_service.py
+- [x] T035 [US2] Implement ops endpoints for deployment metadata and event recording in apps/backend/app/main.py
+- [x] T036 [US2] Implement audit event emitter for deployment, rollback, backup, restore, query, dashboard, and relationship actions in apps/backend/app/services/audit_service.py
+- [x] T037 [US2] Wire request-scoped correlation IDs and JSON log context enrichment in apps/backend/app/main.py and apps/backend/app/core/logging.py
+- [x] T038 [US2] Add dashboard structured event logging for refresh outcomes and backend connectivity errors in apps/dashboard/streamlit_app.py
+- [x] T039 [US2] Add log rotation and bounded retention policy for local service logs in docker-compose.prod.yml and scripts/ops/logrotate-production.conf
 
 Checkpoint: US2 is independently functional and provides observable health + auditability.
 
@@ -100,20 +100,20 @@ Independent Test: Run backup, simulate SQLite loss/corruption, restore from late
 
 ### Tests for User Story 3
 
-- [ ] T040 [P] [US3] Add contract tests for GET /api/v1/ops/backups, POST /api/v1/ops/backups/run, and POST /api/v1/ops/restore in apps/backend/tests/contract/test_production_deployment_contract.py
-- [ ] T041 [P] [US3] Add integration test for UTC backup artifact naming and integrity metadata creation in apps/backend/tests/integration/test_backup_restore_flow.py
-- [ ] T042 [P] [US3] Add integration test for 30-day retention pruning that preserves latest valid backup in apps/backend/tests/integration/test_backup_restore_flow.py
-- [ ] T043 [P] [US3] Add integration test for restore-from-latest-valid flow recovering service health in apps/backend/tests/integration/test_backup_restore_flow.py
-- [ ] T044 [P] [US3] Add integration test for corrupt backup detection and non-destructive restore failure handling in apps/backend/tests/integration/test_backup_restore_flow.py
+- [x] T040 [P] [US3] Add contract tests for GET /api/v1/ops/backups, POST /api/v1/ops/backups/run, and POST /api/v1/ops/restore in apps/backend/tests/contract/test_production_deployment_contract.py
+- [x] T041 [P] [US3] Add integration test for UTC backup artifact naming and integrity metadata creation in apps/backend/tests/integration/test_backup_restore_flow.py
+- [x] T042 [P] [US3] Add integration test for 30-day retention pruning that preserves latest valid backup in apps/backend/tests/integration/test_backup_restore_flow.py
+- [x] T043 [P] [US3] Add integration test for restore-from-latest-valid flow recovering service health in apps/backend/tests/integration/test_backup_restore_flow.py
+- [x] T044 [P] [US3] Add integration test for corrupt backup detection and non-destructive restore failure handling in apps/backend/tests/integration/test_backup_restore_flow.py
 
 ### Implementation for User Story 3
 
-- [ ] T045 [US3] Implement backup runner script with UTC naming, sqlite integrity check, checksum generation, and status logging in scripts/ops/backup.sh
-- [ ] T046 [US3] Implement retention cleanup logic with latest-valid protection in scripts/ops/backup.sh
-- [ ] T047 [US3] Implement restore runner script with pre-restore validation, quarantine of invalid artifacts, and rollback-safe replacement in scripts/ops/restore.sh
-- [ ] T048 [US3] Add backup service container scheduling and mounted external backup volume configuration in docker-compose.prod.yml
-- [ ] T049 [US3] Implement backend backup/restore metadata persistence and API orchestration in apps/backend/app/services/backup_service.py and apps/backend/app/main.py
-- [ ] T050 [US3] Add restore outcome and duration tracking with RTO assertion logging in apps/backend/app/services/backup_service.py
+- [x] T045 [US3] Implement backup runner script with UTC naming, sqlite integrity check, checksum generation, and status logging in scripts/ops/backup.sh
+- [x] T046 [US3] Implement retention cleanup logic with latest-valid protection in scripts/ops/backup.sh
+- [x] T047 [US3] Implement restore runner script with pre-restore validation, quarantine of invalid artifacts, and rollback-safe replacement in scripts/ops/restore.sh
+- [x] T048 [US3] Add backup service container scheduling and mounted external backup volume configuration in docker-compose.prod.yml
+- [x] T049 [US3] Implement backend backup/restore metadata persistence and API orchestration in apps/backend/app/services/backup_service.py and apps/backend/app/main.py
+- [x] T050 [US3] Add restore outcome and duration tracking with RTO assertion logging in apps/backend/app/services/backup_service.py
 
 Checkpoint: US3 is independently functional and meets recoverability requirements.
 
@@ -126,19 +126,19 @@ Independent Test: Execute upgrade, simulate unhealthy release, roll back with ru
 
 ### Tests for User Story 4
 
-- [ ] T051 [P] [US4] Add integration test for deployment bundle registration and release-version traceability in apps/backend/tests/integration/test_production_stack_health.py
-- [ ] T052 [P] [US4] Add integration test for rollback execution path restoring known-good images and compose revision in apps/backend/tests/integration/test_backup_restore_flow.py
-- [ ] T053 [P] [US4] Add DR drill integration test for end-to-end failover checklist timing and evidence capture in apps/backend/tests/integration/test_backup_restore_flow.py
+- [x] T051 [P] [US4] Add integration test for deployment bundle registration and release-version traceability in apps/backend/tests/integration/test_production_stack_health.py
+- [x] T052 [P] [US4] Add integration test for rollback execution path restoring known-good images and compose revision in apps/backend/tests/integration/test_backup_restore_flow.py
+- [x] T053 [P] [US4] Add DR drill integration test for end-to-end failover checklist timing and evidence capture in apps/backend/tests/integration/test_backup_restore_flow.py
 
 ### Implementation for User Story 4
 
-- [ ] T054 [US4] Implement release deployment script with image pin validation and deployment event emission in scripts/ops/deploy-release.sh
-- [ ] T055 [US4] Implement rollback script preserving data and backup artifacts while restoring previous bundle in scripts/ops/rollback-release.sh
-- [ ] T056 [US4] Implement DR drill script to automate backup-restore-rollback tabletop evidence collection in scripts/ops/dr-drill.sh
-- [ ] T057 [US4] Write deployment guide covering Linux/WSL2 prerequisites, first-time setup, upgrade flow, and validation gates in docs/operations/deployment-guide.md
-- [ ] T058 [US4] Write rollback runbook with unhealthy release triage, rollback steps, and post-rollback verification in docs/operations/rollback-runbook.md
-- [ ] T059 [US4] Write troubleshooting runbook for health degradation, startup loops, log inspection, and disk-pressure incidents in docs/operations/troubleshooting-runbook.md
-- [ ] T060 [US4] Write on-call playbook with escalation matrix, severity levels, and evidence checklist in docs/operations/oncall-playbook.md
+- [x] T054 [US4] Implement release deployment script with image pin validation and deployment event emission in scripts/ops/deploy-release.sh
+- [x] T055 [US4] Implement rollback script preserving data and backup artifacts while restoring previous bundle in scripts/ops/rollback-release.sh
+- [x] T056 [US4] Implement DR drill script to automate backup-restore-rollback tabletop evidence collection in scripts/ops/dr-drill.sh
+- [x] T057 [US4] Write deployment guide covering Linux/WSL2 prerequisites, first-time setup, upgrade flow, and validation gates in docs/operations/deployment-guide.md
+- [x] T058 [US4] Write rollback runbook with unhealthy release triage, rollback steps, and post-rollback verification in docs/operations/rollback-runbook.md
+- [x] T059 [US4] Write troubleshooting runbook for health degradation, startup loops, log inspection, and disk-pressure incidents in docs/operations/troubleshooting-runbook.md
+- [x] T060 [US4] Write on-call playbook with escalation matrix, severity levels, and evidence checklist in docs/operations/oncall-playbook.md
 
 Checkpoint: US4 is independently functional and operational handoff is complete.
 
@@ -148,11 +148,11 @@ Checkpoint: US4 is independently functional and operational handoff is complete.
 
 Purpose: Final hardening, end-to-end validation, and documentation alignment.
 
-- [ ] T061 [P] Add end-to-end production readiness regression test suite entrypoint in apps/backend/tests/integration/test_production_readiness_e2e.py
-- [ ] T062 Run quickstart validation walkthrough and capture pass/fail evidence updates in specs/006-production-deployment/quickstart.md
-- [ ] T063 [P] Add operations command reference and incident evidence checklist to README.md
-- [ ] T064 [P] Add compose and env lint checks for production artifacts in scripts/ops/validate-production-config.sh and package.json
-- [ ] T065 Validate contract/spec/task traceability mapping for FR-001..FR-027 in specs/006-production-deployment/plan.md and specs/006-production-deployment/tasks.md
+- [x] T061 [P] Add end-to-end production readiness regression test suite entrypoint in apps/backend/tests/integration/test_production_readiness_e2e.py
+- [x] T062 Run quickstart validation walkthrough and capture pass/fail evidence updates in specs/006-production-deployment/quickstart.md
+- [x] T063 [P] Add operations command reference and incident evidence checklist to README.md
+- [x] T064 [P] Add compose and env lint checks for production artifacts in scripts/ops/validate-production-config.sh and package.json
+- [x] T065 Validate contract/spec/task traceability mapping for FR-001..FR-030 in specs/006-production-deployment/plan.md and specs/006-production-deployment/tasks.md
 
 ---
 
@@ -255,4 +255,9 @@ T057, T058, T059, T060
 - US4: 10
 - Polish: 5
 
-Ready for implementation: Yes (phases, dependencies, independent test criteria, and parallelization are fully specified).
+Implementation status: Complete (all phases executed and validated with tests/config checks).
+
+## Traceability Validation Note (T065)
+
+- FR-001..FR-030 mapping verified in `plan.md` section "FR-001..FR-030 Traceability Validation".
+- Task linkage validated across Setup, Foundational, US1-US4, and Polish phases in this file.

@@ -62,3 +62,26 @@ def test_relationship_endpoint_exists_and_handles_valid_payload(
     )
 
     assert response.status_code != 500
+
+
+def test_health_contract_surface_shape() -> None:
+    client = TestClient(app)
+    response = client.get("/health")
+
+    assert response.status_code in (200, 503)
+    payload = response.json()
+    assert {"service", "version", "status", "timestamp_utc", "dependencies"}.issubset(payload.keys())
+
+
+def test_production_ops_contract_surface_smoke() -> None:
+    client = TestClient(app)
+
+    current = client.get("/api/v1/ops/deployments/current")
+    record = client.post(
+        "/api/v1/ops/deployments",
+        json={"bundle_id": "b1", "event_type": "deployment_started", "operator_id": "ops"},
+    )
+
+    # Endpoint behavior is implemented in later tasks, but should never crash the app.
+    assert current.status_code != 500
+    assert record.status_code != 500

@@ -343,6 +343,70 @@ def init_metadata_db(db_path: Path) -> None:
             )
             """
         )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS deployment_bundles (
+                bundle_id TEXT PRIMARY KEY,
+                release_version TEXT NOT NULL,
+                backend_image TEXT NOT NULL,
+                builder_image TEXT NOT NULL,
+                dashboard_image TEXT NOT NULL,
+                compose_revision TEXT NOT NULL,
+                env_contract_version TEXT NOT NULL,
+                status TEXT NOT NULL,
+                created_at_utc TEXT NOT NULL,
+                created_by TEXT NOT NULL,
+                backup_set_reference TEXT
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS backup_artifacts (
+                backup_id TEXT PRIMARY KEY,
+                artifact_name TEXT NOT NULL,
+                artifact_path TEXT NOT NULL,
+                created_at_utc TEXT NOT NULL,
+                sqlite_integrity_ok INTEGER NOT NULL,
+                checksum TEXT,
+                size_bytes INTEGER,
+                status TEXT NOT NULL,
+                is_latest_valid INTEGER NOT NULL DEFAULT 0,
+                retention_expires_at_utc TEXT
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS deployment_events (
+                event_id TEXT PRIMARY KEY,
+                bundle_id TEXT NOT NULL,
+                event_type TEXT NOT NULL,
+                operator_id TEXT NOT NULL,
+                message TEXT,
+                service TEXT NOT NULL DEFAULT 'backend',
+                severity TEXT NOT NULL DEFAULT 'INFO',
+                created_at_utc TEXT NOT NULL,
+                FOREIGN KEY(bundle_id) REFERENCES deployment_bundles(bundle_id)
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS restore_runs (
+                restore_run_id TEXT PRIMARY KEY,
+                backup_id TEXT NOT NULL,
+                status TEXT NOT NULL,
+                validation_result TEXT,
+                started_at_utc TEXT NOT NULL,
+                finished_at_utc TEXT,
+                requested_by TEXT NOT NULL,
+                duration_seconds INTEGER,
+                notes TEXT,
+                FOREIGN KEY(backup_id) REFERENCES backup_artifacts(backup_id)
+            )
+            """
+        )
         conn.execute("DROP TABLE IF EXISTS relationships")
         conn.execute(
             """
@@ -554,6 +618,30 @@ def init_metadata_db(db_path: Path) -> None:
             """
             CREATE INDEX IF NOT EXISTS idx_dashboard_run_events_run
             ON dashboard_run_events(run_id, created_at)
+            """
+        )
+        conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_deployment_bundles_created
+            ON deployment_bundles(created_at_utc DESC)
+            """
+        )
+        conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_backup_artifacts_created
+            ON backup_artifacts(created_at_utc DESC)
+            """
+        )
+        conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_restore_runs_started
+            ON restore_runs(started_at_utc DESC)
+            """
+        )
+        conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_deployment_events_created
+            ON deployment_events(created_at_utc DESC)
             """
         )
 

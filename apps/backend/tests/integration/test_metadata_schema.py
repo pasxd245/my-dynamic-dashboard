@@ -32,6 +32,12 @@ SPEC_005_TABLES = {
     "dashboard_run_panels",
     "dashboard_run_events",
 }
+SPEC_006_TABLES = {
+    "deployment_bundles",
+    "backup_artifacts",
+    "deployment_events",
+    "restore_runs",
+}
 
 
 def test_metadata_schema_contains_required_tables() -> None:
@@ -47,3 +53,4 @@ def test_metadata_schema_contains_required_tables() -> None:
     assert REQUIRED_TABLES.issubset(table_names)
     assert SPEC_004_TABLES.issubset(table_names)
     assert SPEC_005_TABLES.issubset(table_names)
+    assert SPEC_006_TABLES.issubset(table_names)
