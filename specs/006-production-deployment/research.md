@@ -32,7 +32,7 @@ Use per-service production Dockerfiles with deterministic layering and pinned ba
 
 ### Decision
 
-Use `docker-compose.prod.yml` as the canonical single-host stack with services:
+Use `devops/compose.prod.yml` as the canonical single-host stack with services:
 
 - `backend` (FastAPI)
 - `builder` (compiled static UI service)

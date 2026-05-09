@@ -12,7 +12,7 @@
 1. Validate compose and env files:
    - `scripts/ops/validate-production-config.sh`
 2. Start production stack:
-   - `docker compose -f docker-compose.prod.yml up -d --build`
+   - `docker compose -f devops/compose.prod.yml up -d --build`
 3. Validate baseline health:
    - `curl -s http://localhost:8000/health`
    - `curl -s http://localhost:3000/health`

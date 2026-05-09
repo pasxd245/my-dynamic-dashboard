@@ -47,13 +47,13 @@ This means the system can evolve each piece independently. In the later draft, t
 
 The draft evaluated four frontend options for the relationship builder and reporting needs:
 
-| Criteria               | Streamlit     | Dash          | React + FastAPI | Svelte        |
-|------------------------|---------------|---------------|-----------------|---------------|
-| Time to MVP            | 1-2 weeks     | 2-3 weeks     | 4-6 weeks       | 4-6 weeks     |
-| Visual relationship UI | Form only     | Possible      | Full drag-drop  | Full drag-drop|
-| Python-only            | Yes           | Yes           | No              | No            |
-| Production readiness   | OK            | Good          | Excellent       | Excellent     |
-| Customization          | Limited       | Better        | Full control    | Full control  |
+| Criteria               | Streamlit | Dash      | React + FastAPI | Svelte         |
+| ---------------------- | --------- | --------- | --------------- | -------------- |
+| Time to MVP            | 1-2 weeks | 2-3 weeks | 4-6 weeks       | 4-6 weeks      |
+| Visual relationship UI | Form only | Possible  | Full drag-drop  | Full drag-drop |
+| Python-only            | Yes       | Yes       | No              | No             |
+| Production readiness   | OK        | Good      | Excellent       | Excellent      |
+| Customization          | Limited   | Better    | Full control    | Full control   |
 
 ### Why not Streamlit alone
 
@@ -135,11 +135,11 @@ The backend exposes a versioned REST API consumed by both frontends:
 ## Deployment
 
 ```yaml
-# docker-compose.yml structure
+# devops/compose.yaml structure
 services:
-  backend:    # FastAPI on port 8000
-  frontend:   # React on port 3000
-  dashboard:  # Streamlit on port 8501
+  backend: # FastAPI on port 8000
+  frontend: # React on port 3000
+  dashboard: # Streamlit on port 8501
 ```
 
 All three services share the same data volume. The backend manages all data access. The frontend and dashboard only communicate through the API.

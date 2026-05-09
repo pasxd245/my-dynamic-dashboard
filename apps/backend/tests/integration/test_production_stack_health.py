@@ -17,7 +17,7 @@ def _repo_root() -> Path:
 
 
 def _compose_text() -> str:
-    return (_repo_root() / "docker-compose.prod.yml").read_text(encoding="utf-8")
+    return (_repo_root() / "devops/compose.prod.yml").read_text(encoding="utf-8")
 
 
 def test_production_compose_startup_order_and_health_convergence() -> None:

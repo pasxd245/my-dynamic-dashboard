@@ -10,7 +10,7 @@ Organization: Tasks are grouped by user story so each story is independently imp
 
 Purpose: Prepare deployment scaffolding, ops scripts, and verification test modules.
 
-- [x] T001 Create production compose scaffold in docker-compose.prod.yml
+- [x] T001 Create production compose scaffold in devops/compose.prod.yml
 - [x] T002 [P] Create production environment contract scaffold in .env.example
 - [x] T003 [P] Create backup and restore script scaffolds in scripts/ops/backup.sh and scripts/ops/restore.sh
 - [x] T004 [P] Create DR drill script scaffold in scripts/ops/dr-drill.sh
@@ -58,11 +58,11 @@ Independent Test: Bring up production compose on a clean host, reboot host, and 
 - [x] T022 [US1] Harden backend production image with deterministic dependency layers and runtime command in apps/backend/Dockerfile
 - [x] T023 [US1] Harden builder production image with multi-stage asset build and runtime health probe path in apps/builder/Dockerfile
 - [x] T024 [US1] Harden dashboard production image with pinned dependencies and startup command in apps/dashboard/Dockerfile
-- [x] T025 [US1] Implement production stack topology (backend, builder, dashboard, backup, optional proxy) with dependency conditions in docker-compose.prod.yml
-- [x] T026 [US1] Add restart policies, named volumes, and resource limits for all production services in docker-compose.prod.yml
+- [x] T025 [US1] Implement production stack topology (backend, builder, dashboard, backup, optional proxy) with dependency conditions in devops/compose.prod.yml
+- [x] T026 [US1] Add restart policies, named volumes, and resource limits for all production services in devops/compose.prod.yml
 - [x] T027 [US1] Add backend /health readiness/liveness endpoint wiring with dependency checks in apps/backend/app/main.py
-- [x] T028 [US1] Add builder HTTP health probe route/configuration in apps/builder/nginx.conf and docker-compose.prod.yml
-- [x] T029 [US1] Add dashboard HTTP health probe route/configuration in apps/dashboard/streamlit_app.py and docker-compose.prod.yml
+- [x] T028 [US1] Add builder HTTP health probe route/configuration in apps/builder/nginx.conf and devops/compose.prod.yml
+- [x] T029 [US1] Add dashboard HTTP health probe route/configuration in apps/dashboard/streamlit_app.py and devops/compose.prod.yml
 
 Checkpoint: US1 is independently functional and satisfies single-host deployment viability.
 
@@ -87,7 +87,7 @@ Independent Test: Trigger dashboard refresh, query execution, and relationship a
 - [x] T036 [US2] Implement audit event emitter for deployment, rollback, backup, restore, query, dashboard, and relationship actions in apps/backend/app/services/audit_service.py
 - [x] T037 [US2] Wire request-scoped correlation IDs and JSON log context enrichment in apps/backend/app/main.py and apps/backend/app/core/logging.py
 - [x] T038 [US2] Add dashboard structured event logging for refresh outcomes and backend connectivity errors in apps/dashboard/streamlit_app.py
-- [x] T039 [US2] Add log rotation and bounded retention policy for local service logs in docker-compose.prod.yml and scripts/ops/logrotate-production.conf
+- [x] T039 [US2] Add log rotation and bounded retention policy for local service logs in devops/compose.prod.yml and scripts/ops/logrotate-production.conf
 
 Checkpoint: US2 is independently functional and provides observable health + auditability.
 
@@ -111,7 +111,7 @@ Independent Test: Run backup, simulate SQLite loss/corruption, restore from late
 - [x] T045 [US3] Implement backup runner script with UTC naming, sqlite integrity check, checksum generation, and status logging in scripts/ops/backup.sh
 - [x] T046 [US3] Implement retention cleanup logic with latest-valid protection in scripts/ops/backup.sh
 - [x] T047 [US3] Implement restore runner script with pre-restore validation, quarantine of invalid artifacts, and rollback-safe replacement in scripts/ops/restore.sh
-- [x] T048 [US3] Add backup service container scheduling and mounted external backup volume configuration in docker-compose.prod.yml
+- [x] T048 [US3] Add backup service container scheduling and mounted external backup volume configuration in devops/compose.prod.yml
 - [x] T049 [US3] Implement backend backup/restore metadata persistence and API orchestration in apps/backend/app/services/backup_service.py and apps/backend/app/main.py
 - [x] T050 [US3] Add restore outcome and duration tracking with RTO assertion logging in apps/backend/app/services/backup_service.py
 

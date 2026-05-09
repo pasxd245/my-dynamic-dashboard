@@ -10,8 +10,8 @@ Implement saved-query persistence so analysts can preserve, version, search, and
 
 ## Technical Context
 
-**Language/Version**: Python 3.12 (backend), JavaScript ES2022 (React 18 + Vite builder)
-**Primary Dependencies**: FastAPI, Pydantic, SQLite (`sqlite3`), Polars, DuckDB, React 18, TanStack Query
+**Language/Version**: Python 3.12 (backend), JavaScript ES2022 (React 19 + Vite builder)
+**Primary Dependencies**: FastAPI, Pydantic, SQLite (`sqlite3`), Polars, DuckDB, React 19, TanStack Query
 **Storage**: SQLite metadata DB for saved-query library, versions, executions, and audit events; inherited parquet-backed data frames from spec 003
 **Testing**: `pytest` backend contract + integration suites for save/list/load/delete/restore; builder smoke via Vite build and manual library/detail flows
 **Target Platform**: Linux local/dev container with browser-based builder UI

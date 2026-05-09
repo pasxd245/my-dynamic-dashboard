@@ -17,7 +17,7 @@ Implement a Streamlit-based dashboard surface for MVPs 2+ that analysts can comp
 
 ## Technical Context
 
-**Language/Version**: Python 3.12 (backend + Streamlit), JavaScript ES2022 (React 18 + Vite for query builder, retained)
+**Language/Version**: Python 3.12 (backend + Streamlit), JavaScript ES2022 (React 19 + Vite for query builder, retained)
 
 **Primary Dependencies**:
 
@@ -318,7 +318,7 @@ Phase 1 output: data-model.md, contracts/dashboard-visualizations.openapi.yaml, 
    - Instructions for parameterized refresh, chart override, export
    - Validation checklist (stories 1-4 pass, AC-001..AC-011 verified)
 
-2. **Docker update**: Add `apps/dashboard/Dockerfile` to existing docker-compose.yml
+2. **Docker update**: Add `apps/dashboard/Dockerfile` to existing devops/compose.dev.yml
 
 3. **Deployment runbook**: Versioning, rollback, monitoring
 

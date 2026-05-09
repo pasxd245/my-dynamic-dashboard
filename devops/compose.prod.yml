@@ -1,10 +1,10 @@
 services:
   backend:
     build:
-      context: ./apps/backend
+      context: ../apps/backend
       dockerfile: Dockerfile
     env_file:
-      - .env
+      - ../.env
     environment:
       APP_ENV: production
       DEPLOYMENT_STRICT_VALIDATION: "1"
@@ -16,7 +16,7 @@ services:
       - metadata_data:/app/data
       - backups_data:/var/lib/dynamic-dashboard/backups
       - backend_logs:/var/log/dynamic-dashboard
-      - ./scripts/ops/logrotate-production.conf:/etc/logrotate.d/dynamic-dashboard:ro
+      - ../scripts/ops/logrotate-production.conf:/etc/logrotate.d/dynamic-dashboard:ro
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
       interval: 30s
@@ -29,7 +29,7 @@ services:
 
   builder:
     build:
-      context: .
+      context: ..
       dockerfile: apps/builder/Dockerfile
     ports:
       - "3000:80"
@@ -48,10 +48,10 @@ services:
 
   dashboard:
     build:
-      context: .
+      context: ..
       dockerfile: apps/dashboard/Dockerfile
     env_file:
-      - .env
+      - ../.env
     environment:
       APP_ENV: production
       DEPLOYMENT_STRICT_VALIDATION: "1"
@@ -74,7 +74,7 @@ services:
   backup:
     image: bash:5.2
     env_file:
-      - .env
+      - ../.env
     command: ["/bin/sh", "-c", "while true; do /ops/backup.sh || true; sleep 86400; done"]
     depends_on:
       backend:
@@ -82,8 +82,8 @@ services:
     volumes:
       - metadata_data:/app/data
       - backups_data:/backups
-      - ${BACKUP_EXTERNAL_DIR:-./data/backups}:/external-backups
-      - ./scripts/ops:/ops:ro
+      - ${BACKUP_EXTERNAL_DIR:-../data/backups}:/external-backups
+      - ../scripts/ops:/ops:ro
     restart: unless-stopped
     mem_limit: 256m
     cpus: 0.25

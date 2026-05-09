@@ -3,9 +3,9 @@
 ## Health Degradation
 
 1. Check backend health payload: `curl -s http://localhost:8000/health`.
-2. Inspect service status: `docker compose -f docker-compose.prod.yml ps`.
+2. Inspect service status: `docker compose -f devops/compose.prod.yml ps`.
 3. Review last 200 log lines per service:
-   - `docker compose -f docker-compose.prod.yml logs --tail=200 backend`
+   - `docker compose -f devops/compose.prod.yml logs --tail=200 backend`
 
 ## Startup Loop
 

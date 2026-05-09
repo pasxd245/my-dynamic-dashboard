@@ -18,7 +18,7 @@ Implement MVP 1 upload workspace capabilities so an analyst can ingest Excel/CSV
 -->
 
 **Language/Version**: Python 3.x (backend), JavaScript ES2022 (builder React app)  
-**Primary Dependencies**: FastAPI, Polars, openpyxl, python-multipart, SQLite (`sqlite3`), React 18, Vite 7  
+**Primary Dependencies**: FastAPI, Polars, openpyxl, python-multipart, SQLite (`sqlite3`), React 19, Vite 7  
 **Storage**: SQLite metadata DB + Parquet files + versioned manifest JSON export/import  
 **Testing**: Backend pytest + FastAPI TestClient API tests (to add), builder smoke via `pnpm --filter builder build`, focused manual upload/profile/manifest E2E checks  
 **Target Platform**: Linux container/local dev (Docker + VS Code terminal), browser-based builder UI  

@@ -9,8 +9,8 @@ Implement governed relationship rules between workspace columns with lifecycle r
 
 ## Technical Context
 
-**Language/Version**: Python 3.12 (backend), JavaScript ES2022 (React 18 + Vite builder)
-**Primary Dependencies**: FastAPI, Pydantic, Polars, DuckDB, SQLite (`sqlite3`), React 18
+**Language/Version**: Python 3.12 (backend), JavaScript ES2022 (React 19 + Vite builder)
+**Primary Dependencies**: FastAPI, Pydantic, Polars, DuckDB, SQLite (`sqlite3`), React 19
 **Storage**: SQLite metadata DB for rules/audit; parquet-backed data frames for overlap checks
 **Testing**: `pytest` backend contract + integration suites; builder smoke via Vite build and manual flow checks
 **Target Platform**: Linux local/dev container with browser-based builder UI

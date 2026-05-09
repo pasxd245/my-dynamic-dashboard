@@ -23,8 +23,10 @@ def test_production_readiness_e2e_entrypoint() -> None:
 
 
 def test_production_artifacts_exist_for_readiness_suite() -> None:
+    repo_root = Path(__file__).resolve().parents[4]
     required_files = [
-        "docker-compose.prod.yml",
+        "devops/compose.prod.yml",
+        "devops/compose.yaml",
         "scripts/ops/backup.sh",
         "scripts/ops/restore.sh",
         "scripts/ops/deploy-release.sh",
@@ -32,4 +34,4 @@ def test_production_artifacts_exist_for_readiness_suite() -> None:
         "docs/operations/deployment-guide.md",
     ]
     for path in required_files:
-        assert Path(path).exists(), f"missing required artifact: {path}"
+        assert (repo_root / path).exists(), f"missing required artifact: {path}"

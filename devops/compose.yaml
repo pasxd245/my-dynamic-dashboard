@@ -1,0 +1,27 @@
+services:
+  backend:
+    build:
+      context: ../apps/backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+
+  builder:
+    build:
+      context: ..
+      dockerfile: apps/builder/Dockerfile
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+
+  dashboard:
+    build:
+      context: ..
+      dockerfile: apps/dashboard/Dockerfile
+    environment:
+      DASHBOARD_API_BASE_URL: http://backend:8000
+    ports:
+      - "8501:8501"
+    depends_on:
+      - backend

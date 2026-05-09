@@ -17,7 +17,7 @@ Represents a versioned release package used for deployment and rollback.
 - `backend_image` (string, required): pinned backend image tag/digest
 - `builder_image` (string, required): pinned builder image tag/digest
 - `dashboard_image` (string, required): pinned dashboard image tag/digest
-- `compose_revision` (string, required): revision hash/version for `docker-compose.prod.yml`
+- `compose_revision` (string, required): revision hash/version for `devops/compose.prod.yml`
 - `env_contract_version` (string, required): version identifier for `.env.example` schema
 - `created_at_utc` (timestamp, required)
 - `created_by` (string, required): operator ID

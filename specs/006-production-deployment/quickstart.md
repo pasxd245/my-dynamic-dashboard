@@ -30,7 +30,7 @@ Validate host, compose bundle, environment contract, and persistent storage befo
 
 ### Pass Criteria
 
-- `docker-compose.prod.yml` validates with no unresolved variables.
+- `devops/compose.prod.yml` validates with no unresolved variables.
 - Startup validators report no contract violations.
 - Required volumes writable by service users.
 - Bundle traceability record created.
@@ -160,7 +160,7 @@ The feature is task-ready when all five gates are defined with:
 ## Validation Evidence (2026-05-09)
 
 1. Phase A: PASS
-   - `docker compose -f docker-compose.prod.yml config` validated.
+   - `docker compose -f devops/compose.prod.yml config` validated.
    - Env contract and startup validation helpers implemented.
 2. Phase B: PASS
    - Backend `/health` returns readiness payload with dependency details.

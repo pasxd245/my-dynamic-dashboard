@@ -194,7 +194,7 @@ the prior version resumes service using the published runbook only.
 - **FR-004**: Docker images MUST be structured so that dependency layers are
   separated from application source layers to support reproducible rebuilds and
   efficient release updates.
-- **FR-005**: System MUST provide a `docker-compose.prod.yml` stack definition
+- **FR-005**: System MUST provide a `devops/compose.prod.yml` stack definition
   for single-server deployment that includes service dependencies, restart
   policies, persistent volumes, health checks, and explicit resource limits.
 - **FR-006**: The production compose stack MUST support backend, builder,
@@ -379,7 +379,7 @@ does not assume cluster orchestration.
 
 ### Production Compose Expectations
 
-- The compose file for production is `docker-compose.prod.yml`.
+- The compose file for production is `devops/compose.prod.yml`.
 - Services must declare dependency ordering so UI services do not present as
   healthy before backend readiness is established.
 - Every long-running service must define restart policy, resource limits,
@@ -617,7 +617,7 @@ Before go-live, the operator checklist must confirm all of the following:
 2. The production environment file is present outside version control.
 3. Required external volumes for data and backups are mounted and writable.
 4. Production image tags are pinned and documented for the release.
-5. `docker-compose.prod.yml` validates successfully.
+5. `devops/compose.prod.yml` validates successfully.
 6. Backend, builder, and dashboard services pass startup and liveness probes.
 7. Structured JSON logs are visible for each service.
 8. Audit-critical events can be located in runtime evidence.

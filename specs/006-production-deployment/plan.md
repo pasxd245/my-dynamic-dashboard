@@ -75,8 +75,8 @@ apps/
     ├── Dockerfile
     └── streamlit_app.py
 
-docker-compose.yml
-docker-compose.prod.yml
+devops/compose.dev.yml
+devops/compose.prod.yml
 
 docs/
 └── operations/
@@ -92,7 +92,7 @@ specs/004-saved-queries/
 specs/005-dashboard-visualizations/
 ```
 
-**Structure Decision**: Keep the existing monorepo service boundaries and add production deployment artifacts at the repo root (`docker-compose.prod.yml`, env contract), service-level runtime updates inside `apps/backend`, `apps/builder`, and `apps/dashboard`, plus operator documentation under `docs/operations/`.
+**Structure Decision**: Keep the existing monorepo service boundaries and keep deployment artifacts under `devops/` (`devops/compose.prod.yml`, env contract), service-level runtime updates inside `apps/backend`, `apps/builder`, and `apps/dashboard`, plus operator documentation under `docs/operations/`.
 
 ## Phase 0: Research (Completed)
 
@@ -119,7 +119,7 @@ Resolved in `research.md`:
 ### Track 1: Infra And Image Hardening
 
 1. Create/adjust production Dockerfiles for backend, builder, dashboard to satisfy FR-001 through FR-004.
-2. Add `docker-compose.prod.yml` with service topology, persistent volumes, health checks, restart policies, limits (FR-005, FR-006, FR-025, FR-026).
+2. Add `devops/compose.prod.yml` with service topology, persistent volumes, health checks, restart policies, limits (FR-005, FR-006, FR-025, FR-026).
 3. Add traceable deployment metadata process (bundle ID, compose revision, image tags, env version) (FR-029).
 
 **Gate A (Infra Ready)**

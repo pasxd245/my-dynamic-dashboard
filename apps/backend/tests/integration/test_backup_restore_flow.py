@@ -72,7 +72,8 @@ def _repo_root() -> Path:
 def test_rollback_execution_path_restores_known_good_bundle_and_revision() -> None:
     script = (_repo_root() / "scripts/ops/rollback-release.sh").read_text(encoding="utf-8")
     assert "ROLLBACK_TARGET_BUNDLE" in script
-    assert "docker compose -f docker-compose.prod.yml" in script
+    assert "COMPOSE_PROD_FILE" in script
+    assert 'docker compose -f "$COMPOSE_PROD_FILE"' in script
     assert "rollback_finished" in script
 
 
