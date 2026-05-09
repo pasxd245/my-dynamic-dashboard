@@ -47,6 +47,7 @@ export default function App(): React.ReactElement {
   const [manifestText, setManifestText] = useState<string>("");
   const [manifestPreview, setManifestPreview] = useState<ManifestResponse | null>(null);
   const [message, setMessage] = useState<string>("");
+  const [isUploading, setIsUploading] = useState<boolean>(false);
 
   // Saved Queries state
   const [showSaveDialog, setShowSaveDialog] = useState<boolean>(false);
@@ -73,6 +74,8 @@ export default function App(): React.ReactElement {
     }
 
     try {
+      setIsUploading(true);
+      setMessage(`Uploading ${selectedFile.name}...`);
       const payload = await uploadSource(workspaceId, selectedFile);
       setUploadResult(payload);
       setDataRange(payload.sheets?.[0]?.data_range_effective ?? "");
@@ -80,6 +83,8 @@ export default function App(): React.ReactElement {
       setMessage("Upload complete.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Unknown error");
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -238,14 +243,26 @@ export default function App(): React.ReactElement {
 
               <section style={panelStyle}>
                 <h2>Upload Source</h2>
+                <p style={{ marginTop: "0", marginBottom: "0.5rem", color: "#444" }}>
+                  Workspace: <strong>{workspaceId || "(create one first)"}</strong>
+                </p>
                 <input
                   type="file"
-                  accept=".csv,.xlsx"
+                  accept=".csv,.xlsx,.xlsm,.xlsb,.xls"
                   onChange={(event) => setSelectedFile(event.currentTarget.files?.[0] ?? null)}
                 />
-                <button onClick={onUpload} style={{ marginLeft: "0.5rem" }}>
-                  Upload
+                <button
+                  onClick={onUpload}
+                  disabled={!workspaceId || !selectedFile || isUploading}
+                  style={{ marginLeft: "0.5rem" }}
+                >
+                  {isUploading ? "Uploading..." : "Upload"}
                 </button>
+                <p style={{ marginTop: "0.5rem", marginBottom: "0", color: "#555" }}>
+                  {selectedFile
+                    ? `Selected file: ${selectedFile.name}`
+                    : "Select a CSV/Excel file to upload."}
+                </p>
               </section>
 
               <section style={panelStyle}>
@@ -314,6 +331,7 @@ export default function App(): React.ReactElement {
 
               <section style={panelStyle}>
                 <QueryBuilderPanel
+                  workspaceId={workspaceId || undefined}
                   initialSnapshot={loadedSnapshot}
                   onSaveRequest={(snapshot) => {
                     setBuilderSnapshot(snapshot);

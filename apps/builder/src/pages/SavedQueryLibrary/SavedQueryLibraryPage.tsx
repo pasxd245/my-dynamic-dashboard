@@ -9,7 +9,7 @@
  * - Actions per query (view, delete, restore)
  */
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   listSavedQueries,
@@ -97,9 +97,21 @@ export default function SavedQueryLibraryPage({
     }
   }, [filters, limit, offset, workspaceId]);
 
-  const handleSearch = (newFilters: SearchFilters): void => {
-    setFilters(newFilters);
-  };
+  const handleSearch = useCallback((newFilters: SearchFilters): void => {
+    setFilters((prev) => {
+      const sameQuery = prev.query === newFilters.query;
+      const sameState = prev.state === newFilters.state;
+      const sameTags =
+        prev.tags.length === newFilters.tags.length &&
+        prev.tags.every((tag, idx) => tag === newFilters.tags[idx]);
+
+      if (sameQuery && sameState && sameTags) {
+        return prev;
+      }
+
+      return newFilters;
+    });
+  }, []);
 
   const handleViewDetails = (queryId: string): void => {
     navigate(`/saved-queries/${queryId}`);

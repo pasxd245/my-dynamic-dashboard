@@ -30,14 +30,18 @@ interface QueryBuilderState {
 }
 
 export interface QueryBuilderPanelProps {
+  workspaceId?: string;
   initialSnapshot?: Record<string, unknown> | null;
   onSaveRequest?: (snapshot: Record<string, unknown>) => void;
 }
 
 export default function QueryBuilderPanel({
+  workspaceId,
   initialSnapshot,
   onSaveRequest,
 }: QueryBuilderPanelProps = {}): ReactElement {
+  const hasWorkspace = Boolean(workspaceId);
+
   const [state, setState] = useState<QueryBuilderState>({
     baseTableId: "users",
     selectedColumns: [],
@@ -114,9 +118,22 @@ export default function QueryBuilderPanel({
   };
 
   const handleValidate = async () => {
+    if (!hasWorkspace) {
+      setState((prev) => ({
+        ...prev,
+        validationIssues: [
+          {
+            code: "WORKSPACE_REQUIRED",
+            message: "Create a workspace first before validating queries.",
+            severity: "error" as const,
+          },
+        ],
+      }));
+      return;
+    }
+
     setState(prev => ({ ...prev, isValidating: true }));
     try {
-      const workspaceId = "default";
       const config: QueryConfig = {
         base_table_id: state.baseTableId,
         selected_columns: state.selectedColumns,
@@ -147,6 +164,13 @@ export default function QueryBuilderPanel({
 
   const errors = state.validationIssues.filter(i => i.severity === "error");
   const warnings = state.validationIssues.filter(i => i.severity === "warning");
+  let validateButtonLabel = "Create Workspace First";
+  if (hasWorkspace) {
+    validateButtonLabel = "Validate Query";
+  }
+  if (state.isValidating) {
+    validateButtonLabel = "Validating...";
+  }
 
   return (
     <section className="space-y-6 p-4 bg-white rounded-lg border border-gray-200">
@@ -287,10 +311,10 @@ export default function QueryBuilderPanel({
         <div className="flex gap-3 mt-4">
           <button
             onClick={handleValidate}
-            disabled={state.isValidating}
+            disabled={state.isValidating || !hasWorkspace}
             className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 disabled:bg-gray-400"
           >
-            {state.isValidating ? "Validating..." : "Validate Query"}
+            {validateButtonLabel}
           </button>
           {onSaveRequest && (
             <button

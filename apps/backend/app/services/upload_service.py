@@ -44,10 +44,20 @@ def read_dataframe(filename: str, file_bytes: bytes) -> pl.DataFrame:
     if lower_name.endswith(".csv"):
         return pl.read_csv(BytesIO(file_bytes))
 
-    if lower_name.endswith(".xlsx"):
-        return pl.read_excel(BytesIO(file_bytes), engine="openpyxl")
+    if lower_name.endswith((".xlsx", ".xlsm", ".xlsb", ".xls")):
+        # Prefer openpyxl first; fall back to calamine for workbooks that include
+        # unsupported extensions/features in openpyxl.
+        try:
+            return pl.read_excel(BytesIO(file_bytes), engine="openpyxl", raise_if_empty=False)
+        except Exception as openpyxl_exc:
+            try:
+                return pl.read_excel(BytesIO(file_bytes), engine="calamine", raise_if_empty=False)
+            except Exception as calamine_exc:
+                raise ValueError(
+                    f"openpyxl failed: {openpyxl_exc}; calamine failed: {calamine_exc}"
+                ) from calamine_exc
 
-    raise ValueError("Unsupported file type. Only .csv and .xlsx are allowed.")
+    raise ValueError("Unsupported file type. Only .csv, .xlsx, .xlsm, .xlsb, and .xls are allowed.")
 
 
 def compute_column_profiles(df: pl.DataFrame) -> list[ColumnProfile]:

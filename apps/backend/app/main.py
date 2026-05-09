@@ -1034,11 +1034,11 @@ async def upload_source_for_workspace(
 
     filename = file.filename or ""
     lower_name = filename.lower()
-    if not (lower_name.endswith(".csv") or lower_name.endswith(".xlsx")):
+    if not lower_name.endswith((".csv", ".xlsx", ".xlsm", ".xlsb", ".xls")):
         raise ApiError(
             status_code=400,
             code="unsupported_file",
-            message="Unsupported file type. Only .csv and .xlsx are allowed.",
+            message="Unsupported file type. Only .csv, .xlsx, .xlsm, .xlsb, and .xls are allowed.",
         )
 
     file_bytes = await file.read()
@@ -1058,6 +1058,13 @@ async def upload_source_for_workspace(
             code="parse_failed",
             message=f"Unable to parse file: {exc}",
         ) from exc
+
+    if df.width == 0:
+        raise ApiError(
+            status_code=400,
+            code="empty_sheet",
+            message="Uploaded file has no columns or rows. Please provide a sheet with tabular data.",
+        )
 
     now = utc_now_iso()
     source_id = str(uuid.uuid4())

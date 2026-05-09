@@ -6,7 +6,23 @@ from dataclasses import dataclass
 
 
 def repo_root() -> Path:
-    return Path(__file__).resolve().parents[4]
+    env_root = os.getenv("REPO_ROOT")
+    if env_root:
+        return Path(env_root).resolve()
+
+    resolved = Path(__file__).resolve()
+
+    # Prefer the first ancestor that looks like the repo root.
+    for parent in resolved.parents:
+        if (parent / "apps").exists() and (parent / "devops").exists():
+            return parent
+
+    # Container fallback for /app/app/core/config.py layout.
+    if len(resolved.parents) >= 3 and (resolved.parents[2] / "app").exists():
+        return resolved.parents[2]
+
+    # Last resort: current working directory.
+    return Path.cwd().resolve()
 
 
 def data_dir() -> Path:
