@@ -44,54 +44,44 @@ Implement **Spec 005: Dashboard & Visualizations** — the user-facing analytics
 
 **Execute Spec-Kit workflow based on Plan requirements**:
 
-- [ ] Run `/speckit.specify` to refine spec requirements from Plan section
-- [ ] Run `/speckit.plan` to generate implementation phases and technical context
-- [ ] Run `/speckit.tasks` to decompose phases into granular, parallelizable tasks
-- [ ] Verify spec artifacts (spec.md, plan.md, data-model.md, contracts/\*, tasks.md) are committed
-- [ ] Log completion status and artifacts location in this section
+- [ ] If artifacts are stale, run `/speckit.specify` to repair requirement clarity
+- [ ] If planning artifacts are stale, run `/speckit.plan`
+- [ ] If task decomposition is stale, run `/speckit.tasks`
+- [ ] Run `/speckit.implement` (or equivalent implementation execution) to produce working code
+- [ ] Log commands run, files changed, blockers, deviations, and implementation outcomes
 
 ---
 
 ## Check
 
-**Validate Spec-Kit output against Plan requirements**:
+**Validate implementation completeness**:
 
-**If artifacts meet requirements**:
-
-- [ ] Spec 005 artifact set is complete (spec.md, plan.md, data-model.md, quickstart.md, contracts/, tasks.md)
-- [ ] Spec is constitutional (all 7 principles verified)
-- [ ] Phase 1-2 tasks are granular and parallelizable
-- [ ] Chart auto-suggestion and lazy-loading are clearly specified
-- [ ] Integration with Spec 003/004 APIs is unambiguous
-- → Proceed to Act
-
-**If artifacts do NOT meet requirements**:
-
-- [ ] Identify gaps or misalignments (e.g., chart types unclear, caching strategy undefined)
-- [ ] Iterate: Re-run `/speckit.specify` or `/speckit.plan` to repair
-- [ ] Re-verify until requirements met
-- [ ] Then proceed to Act
+- [ ] Run `speckit.analyze` first against spec/plan/tasks consistency
+- [ ] Run repo-required verification (tests, lint, contract checks, manual validation)
+- [ ] Update tasks and round notes with complete, incomplete, and repair-needed items
+- [ ] If implementation or artifacts need repair, return to `Do`
+- [ ] If verification passes, transition status to `Review` and proceed to `Act`
 
 ---
 
 ## Act
 
-**Learnings** (from this round's Spec-Kit execution):
+**Learnings** (post-Check):
 
 - [ ] How well does chart auto-suggestion handle edge cases (sparse data, high cardinality)?
 - [ ] Were lazy-loading and state management patterns fully specified?
 - [ ] Any integration gaps with query execution or saved queries?
 
-**Brainstorm Next Round**:
+**Next-round decision**:
 
 - Round_19 goal: Implement **Spec 006: Production Deployment** (operationalizes Specs 001-005)
 - Rationale: Production deployment is prerequisite for beta testing; enables ops/SRE handoff
 - Alternative: Defer Spec 006 and focus on MVP refinement/iteration first
 
-**Proposed Action**:
+**Proposed Action (requires explicit human confirmation if ambiguous)**:
 
-- [ ] Proceed with Round_19 → Spec 006 planning (auto-proceed, since user pre-approved specs 003-006)
-- [ ] OR wait for user confirmation before Round_19
+- [ ] Confirm whether to proceed to Round_19 now
+- [ ] Confirm whether any alternative candidate rounds should be deferred/superseded/left open
 
 ---
 
