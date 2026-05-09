@@ -1,34 +1,21 @@
 # Round 05: Builder UI — Upload & Schema
 
-**Status**: Planning
-**Date started**:
-**Date completed**:
+**Status**: Deferred
+**Linked Tasks**: T5.1–T5.7 (see specs/001-upload-profile-field-roles/tasks.md)
+**Date started**: —
+**Date completed**: —
 **MVP**: 1
-**DoD tasks**: 5.1–5.7
 
 ## Goal
 
-The React builder has a working upload page with drag-drop, a tables
-list, and a schema viewer. TanStack Query handles all API state.
+Builder has working upload page (drag-drop), tables list, schema viewer. TanStack Query manages state.
 
-## Plan
+## Implementation Narrative
 
-- [ ] Set up TanStack Router with root layout + 4 routes (upload, schema, relationships, queries)
-- [ ] Build `FileUploader` component (drag-drop zone, file picker, progress)
-- [ ] Wire upload mutation via TanStack Query → `POST /api/v1/tables/upload`
-- [ ] Build tables list using TanStack Table (file name, rows, version, actions)
-- [ ] Invalidate `['tables']` query on successful upload
-- [ ] Build schema viewer page (select table → show columns, types, nullability)
-- [ ] Add toast notifications for success/error (react-hot-toast or similar)
-- [ ] Basic Tailwind layout and navigation
+**Not yet started**. Scheduled after US4 manifest. Will establish builder UI shell: TanStack Router + 4 routes (upload → schema → relationships → queries).
 
-## Do
+**Backend ready**: Polars upload, schema detection, profile service all complete and tested.
 
-_Progress log — update as work proceeds._
-
-## Check
-
-- [ ] Can drag-drop or click to select a file
 - [ ] Upload progress shown, success toast on completion
 - [ ] Tables list refreshes automatically after upload
 - [ ] Schema viewer shows correct column info
@@ -37,6 +24,8 @@ _Progress log — update as work proceeds._
 ## Act
 
 ## **Learnings**
+
+**Foundation**: Core builder UI shell. Establishes routing, state management (TanStack Query), and component library baseline (Tailwind).
 
 **Promotions**:
 

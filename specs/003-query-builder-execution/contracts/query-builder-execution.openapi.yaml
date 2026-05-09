@@ -1,0 +1,881 @@
+openapi: 3.0.3
+info:
+  title: Query Builder & Execution API
+  description: |
+    API for building, previewing, executing, and exporting queries over workspace data.
+    Part of spec 003 (Query Builder & Execution, MVP 1).
+    All queries are parameterized to prevent SQL injection. Approved relationship rules from spec 002
+    are the only valid join paths; unapproved joins are rejected with 409 Conflict.
+  version: 1.0.0
+  contact:
+    name: my-dynamic-dashboard
+    url: https://github.com/example/my-dynamic-dashboard
+
+servers:
+  - url: http://localhost:8000
+    description: Local development server
+  - url: https://api.example.com
+    description: Production server (placeholder)
+
+paths:
+  /api/v1/workspaces/{workspaceId}/queries/validate:
+    post:
+      summary: Validate query configuration without executing
+      description: |
+        Validate query DSL for correctness: orphaned columns, non-approved joins, circular references, 
+        GROUP BY consistency. No query execution; useful for early feedback in UI.
+      operationId: validateQuery
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "workspace-123"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QueryConfig'
+      responses:
+        '200':
+          description: Query is valid
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  valid:
+                    type: boolean
+                    example: true
+                  warnings:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        code:
+                          type: string
+                          example: "GROUP_BY_WITHOUT_AGG"
+                        message:
+                          type: string
+                          example: "GROUP BY specified without aggregations; may fail at execution"
+                    example: []
+        '400':
+          description: Query is invalid (validation error)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                orphaned_column:
+                  value:
+                    error: "VALIDATION_ERROR"
+                    message: "Column 'fake_column' not found in base table or joined tables"
+                    details:
+                      field: "filters[0].column_id"
+                      reason: "column does not exist"
+                unapproved_join:
+                  value:
+                    error: "UNAPPROVED_RELATIONSHIP"
+                    message: "Relationship rule r1 is not approved; only approved rules can be used in joins"
+                    details:
+                      rule_id: "r1"
+                      status: "suggested"
+        '404':
+          description: Workspace not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/workspaces/{workspaceId}/queries/preview:
+    post:
+      summary: Preview query results (LIMIT 100)
+      description: |
+        Execute query with LIMIT 100 to preview results safely. 
+        Timeout is hard 5 seconds; exceeding this returns 408 Request Timeout.
+        Response includes estimated total row count (from cardinality stats), 
+        actual preview rows (max 100), and full lineage metadata.
+      operationId: previewQuery
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "workspace-123"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QueryConfig'
+      responses:
+        '200':
+          description: Preview results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PreviewResultsResponse'
+        '400':
+          description: Query validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '408':
+          description: Preview execution timeout (exceeded 5 seconds)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                timeout:
+                  value:
+                    error: "TIMEOUT"
+                    message: "Query preview exceeded 5-second timeout; likely the full query will also be slow. Consider adding filters or aggregations."
+        '409':
+          description: Relationship rule no longer approved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '413':
+          description: Memory estimation failed (result set too large)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                memory_exceeded:
+                  value:
+                    error: "MEMORY_ERROR"
+                    message: "Estimated result set (5GB) exceeds memory threshold (1GB). Add filters or aggregations to reduce result set size."
+        '404':
+          description: Workspace not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/workspaces/{workspaceId}/queries/execute:
+    post:
+      summary: Execute full query (no limit)
+      description: |
+        Execute query without LIMIT; return all result rows (up to memory limit).
+        Timeout is hard 5 seconds; exceeding this returns 408 Request Timeout.
+        Large result sets are streamed to avoid browser hang; pagination handled client-side.
+      operationId: executeQuery
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "workspace-123"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QueryConfig'
+      responses:
+        '200':
+          description: Execution successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExecutionResultsResponse'
+        '400':
+          description: Query validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '408':
+          description: Query execution timeout (exceeded 5 seconds)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Relationship rule no longer approved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '413':
+          description: Memory estimation failed (result set too large)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Workspace not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/workspaces/{workspaceId}/queries/export:
+    post:
+      summary: Execute query and export to Excel or CSV
+      description: |
+        Execute query and generate downloadable export file (Excel .xlsx or CSV .csv).
+        Excel export includes two sheets: "Results" (data) and "Lineage" (metadata).
+        CSV export includes data rows plus lineage as comment lines.
+        Export is streamed to avoid memory issues on large result sets.
+      operationId: exportQuery
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "workspace-123"
+        - name: format
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [excel, csv]
+            example: excel
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QueryConfig'
+      responses:
+        '200':
+          description: Export successful; file attached
+          content:
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+            text/csv:
+              schema:
+                type: string
+                format: binary
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+                example: 'attachment; filename="query-export-2026-05-08.xlsx"'
+        '400':
+          description: Query validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '408':
+          description: Query execution timeout
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Relationship rule no longer approved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '413':
+          description: Memory estimation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Workspace not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/workspaces/{workspaceId}/saved-queries:
+    post:
+      summary: Save a new query
+      description: |
+        Save query configuration with a name and description. Query config is hashed for 
+        reproducibility tracking.
+      operationId: createSavedQuery
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "workspace-123"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SavedQueryRequest'
+      responses:
+        '201':
+          description: Query saved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SavedQueryResponse'
+        '400':
+          description: Invalid request or query config
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Workspace not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    get:
+      summary: List saved queries in workspace
+      description: |
+        Retrieve all saved queries for the workspace, sorted by created_at descending.
+      operationId: listSavedQueries
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "workspace-123"
+      responses:
+        '200':
+          description: List of saved queries
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  queries:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SavedQueryResponse'
+        '404':
+          description: Workspace not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/workspaces/{workspaceId}/saved-queries/{queryId}:
+    get:
+      summary: Retrieve saved query
+      description: |
+        Retrieve a specific saved query by ID, including full config.
+      operationId: getSavedQuery
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "workspace-123"
+        - name: queryId
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "query-456"
+      responses:
+        '200':
+          description: Saved query
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SavedQueryResponse'
+        '404':
+          description: Query or workspace not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    put:
+      summary: Update saved query
+      description: |
+        Update query name, description, or config. Config hash is recomputed.
+      operationId: updateSavedQuery
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "workspace-123"
+        - name: queryId
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "query-456"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SavedQueryRequest'
+      responses:
+        '200':
+          description: Query updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SavedQueryResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Query or workspace not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      summary: Delete saved query
+      description: |
+        Delete a saved query. Execution history is retained for audit.
+      operationId: deleteSavedQuery
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "workspace-123"
+        - name: queryId
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "query-456"
+      responses:
+        '204':
+          description: Query deleted successfully
+        '404':
+          description: Query or workspace not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/workspaces/{workspaceId}/saved-queries/{queryId}/executions:
+    get:
+      summary: List execution history for a saved query
+      description: |
+        Retrieve execution log for a saved query (latest 50 by default).
+      operationId: listQueryExecutions
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "workspace-123"
+        - name: queryId
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "query-456"
+      responses:
+        '200':
+          description: Execution history
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  executions:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ExecutionLogEntry'
+        '404':
+          description: Query or workspace not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    QueryConfig:
+      type: object
+      description: |
+        Executable query configuration. All filter values are parameterized (never raw SQL strings).
+        Only approved relationship rules (from spec 002) are valid for joins.
+      required:
+        - base_table_id
+        - selected_columns
+      properties:
+        query_id:
+          type: string
+          description: Optional; UUID if query is saved
+          example: "query-456"
+        workspace_id:
+          type: string
+          example: "workspace-123"
+        base_table_id:
+          type: string
+          description: Table ID for base table (must exist in workspace)
+          example: "t1"
+        selected_columns:
+          type: array
+          description: Columns to include in result set
+          items:
+            type: object
+            required:
+              - table_id
+              - column_name
+            properties:
+              table_id:
+                type: string
+                example: "t1"
+              column_name:
+                type: string
+                example: "amount"
+              alias:
+                type: string
+                description: Optional alias for column in results
+                example: "sale_amount"
+        filters:
+          type: array
+          description: WHERE clause filters
+          items:
+            type: object
+            required:
+              - column_id
+              - operator
+              - value
+            properties:
+              column_id:
+                type: string
+                example: "c1"
+              operator:
+                type: string
+                enum: [=, !=, <, >, <=, >=, IN, LIKE, IS NULL, IS NOT NULL]
+                example: ">"
+              value:
+                description: Parameterized value (string, number, array for IN operator)
+                oneOf:
+                  - type: string
+                  - type: number
+                  - type: array
+                example: 1000
+        aggregations:
+          type: array
+          description: Aggregation functions (requires GROUP BY if specified)
+          items:
+            type: object
+            required:
+              - column_id
+              - function
+              - alias
+            properties:
+              column_id:
+                type: string
+                example: "c2"
+              function:
+                type: string
+                enum: [SUM, COUNT, AVG, MAX, MIN]
+                example: "SUM"
+              alias:
+                type: string
+                example: "total_amount"
+        group_by_columns:
+          type: array
+          description: GROUP BY dimensions (all non-aggregated SELECT columns must be here)
+          items:
+            type: string
+          example: ["region"]
+        joins:
+          type: array
+          description: Joins via approved relationship rules (spec 002)
+          items:
+            type: object
+            required:
+              - relationship_rule_id
+              - join_type
+            properties:
+              relationship_rule_id:
+                type: string
+                description: Must reference an approved relationship (spec 002)
+                example: "r1"
+              join_type:
+                type: string
+                enum: [INNER, LEFT, RIGHT, FULL]
+                example: "INNER"
+        execution_timeout_seconds:
+          type: integer
+          description: Timeout for query execution (immutable in MVP 1; default 5)
+          default: 5
+          example: 5
+        result_limit:
+          type: integer
+          description: Optional LIMIT clause (None = no limit)
+          nullable: true
+          example: null
+
+    PreviewResultsResponse:
+      type: object
+      description: Results from preview query (LIMIT 100)
+      properties:
+        execution_id:
+          type: string
+          example: "exec-789"
+        state:
+          type: string
+          enum: [COMPLETED, TIMEOUT]
+          example: "COMPLETED"
+        result_rows:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+          description: Query result rows (max 100)
+        result_row_count:
+          type: integer
+          description: Number of rows in this result set (≤ 100)
+          example: 100
+        estimated_total_row_count:
+          type: integer
+          description: Estimated total row count (from cardinality stats)
+          example: 50000
+        result_columns:
+          type: array
+          items:
+            type: string
+          description: Column names in result set
+          example: ["date", "region", "total_amount", "customer_name"]
+        lineage:
+          $ref: '#/components/schemas/LineageMetadata'
+        execution_time_ms:
+          type: integer
+          example: 234
+
+    ExecutionResultsResponse:
+      type: object
+      description: Results from full query execution (all rows)
+      properties:
+        execution_id:
+          type: string
+          example: "exec-789"
+        state:
+          type: string
+          enum: [COMPLETED, TIMEOUT, FAILED]
+          example: "COMPLETED"
+        result_rows:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+          description: All query result rows
+        result_row_count:
+          type: integer
+          description: Total number of rows returned
+          example: 1234
+        result_columns:
+          type: array
+          items:
+            type: string
+          example: ["date", "region", "total_amount", "customer_name"]
+        lineage:
+          $ref: '#/components/schemas/LineageMetadata'
+        execution_time_ms:
+          type: integer
+          example: 1500
+
+    LineageMetadata:
+      type: object
+      description: Immutable lineage snapshot captured at execution time
+      properties:
+        source_tables:
+          type: array
+          items:
+            type: object
+            properties:
+              table_id:
+                type: string
+              table_name:
+                type: string
+              row_count_at_execution:
+                type: integer
+        relationship_rules_used:
+          type: array
+          items:
+            type: object
+            properties:
+              rule_id:
+                type: string
+              rule_name:
+                type: string
+              rule_type:
+                type: string
+              approval_status:
+                type: string
+                enum: [approved, suggested, reviewed, rejected]
+              approval_date:
+                type: string
+                format: date-time
+                nullable: true
+        filters_applied:
+          type: array
+          items:
+            type: object
+            properties:
+              column_name:
+                type: string
+              operator:
+                type: string
+              value_summary:
+                type: string
+                description: Human-readable representation of filter value
+        aggregations_applied:
+          type: array
+          items:
+            type: object
+            properties:
+              column_name:
+                type: string
+              function:
+                type: string
+              alias:
+                type: string
+        group_by_columns:
+          type: array
+          items:
+            type: string
+        query_config_hash:
+          type: string
+          description: SHA256 of query config at execution time (for reproducibility tracking)
+          example: "sha256:abc123..."
+        execution_timestamp:
+          type: string
+          format: date-time
+          example: "2026-05-08T14:30:00Z"
+        execution_time_ms:
+          type: integer
+
+    SavedQueryRequest:
+      type: object
+      required:
+        - name
+        - query_config
+      properties:
+        name:
+          type: string
+          maxLength: 256
+          example: "Sales by Region > $1k"
+        description:
+          type: string
+          maxLength: 1000
+          nullable: true
+          example: "Total sales by customer region for orders over $1000"
+        query_config:
+          $ref: '#/components/schemas/QueryConfig'
+
+    SavedQueryResponse:
+      allOf:
+        - $ref: '#/components/schemas/SavedQueryRequest'
+        - type: object
+          properties:
+            query_id:
+              type: string
+              example: "query-456"
+            config_hash:
+              type: string
+              description: SHA256 hash of query_config (immutable)
+              example: "sha256:def456..."
+            created_at:
+              type: string
+              format: date-time
+              example: "2026-05-08T10:00:00Z"
+            updated_at:
+              type: string
+              format: date-time
+              example: "2026-05-08T10:00:00Z"
+            last_executed_at:
+              type: string
+              format: date-time
+              nullable: true
+              example: "2026-05-08T14:30:00Z"
+
+    ExecutionLogEntry:
+      type: object
+      properties:
+        execution_id:
+          type: string
+          example: "exec-789"
+        state:
+          type: string
+          enum: [COMPLETED, TIMEOUT, FAILED]
+        result_row_count:
+          type: integer
+        execution_time_ms:
+          type: integer
+        is_preview:
+          type: boolean
+        executed_at:
+          type: string
+          format: date-time
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Machine-readable error code
+          example: "VALIDATION_ERROR"
+        message:
+          type: string
+          description: User-friendly error message (no stack traces)
+          example: "Column 'fake_column' not found in base table or joined tables"
+        details:
+          type: object
+          description: Optional error details for debugging
+          additionalProperties: true
+          nullable: true
+
+  responses:
+    400BadRequest:
+      description: Bad request / validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    404NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    408Timeout:
+      description: Request timeout
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    409Conflict:
+      description: Relationship rule conflict (no longer approved)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    413PayloadTooLarge:
+      description: Memory estimation failure (result set too large)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'

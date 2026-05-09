@@ -31,12 +31,12 @@ Agents may mark `auto` and `demo` items. Only the user may mark `user` items.
 
 | #   | Task                                                                  | Verify | Status | Round |
 | --- | --------------------------------------------------------------------- | ------ | ------ | ----- |
-| 1.1 | pnpm monorepo with `apps/backend` and `apps/builder`                  | auto   | [ ]    | 01    |
-| 1.2 | FastAPI skeleton returns `{"status":"ok"}` on `/health`               | demo   | [ ]    | 01    |
-| 1.3 | React builder renders hello world on `localhost:3000`                 | demo   | [ ]    | 01    |
-| 1.4 | Vite proxies `/api` to backend at `localhost:8000`                    | demo   | [ ]    | 01    |
-| 1.5 | `docker-compose.yml` starts both services                             | demo   | [ ]    | 01    |
-| 1.6 | `.gitignore` covers `data/`, `node_modules/`, `venv/`, `__pycache__/` | auto   | [ ]    | 01    |
+| 1.1 | pnpm monorepo with `apps/backend` and `apps/builder`                  | auto   | [x]    | 01    |
+| 1.2 | FastAPI skeleton returns `{"status":"ok"}` on `/health`               | demo   | [x]    | 01    |
+| 1.3 | React builder renders hello world on `localhost:3000`                 | demo   | [x]    | 01    |
+| 1.4 | Vite proxies `/api` to backend at `localhost:8000`                    | demo   | [x]    | 01    |
+| 1.5 | `docker-compose.yml` starts both services                             | demo   | [!]    | 01    |
+| 1.6 | `.gitignore` covers `data/`, `node_modules/`, `venv/`, `__pycache__/` | auto   | [x]    | 01    |
 | 1.7 | User confirms project boots cleanly                                   | user   | [ ]    | 01    |
 
 ---
@@ -45,12 +45,12 @@ Agents may mark `auto` and `demo` items. Only the user may mark `user` items.
 
 | #   | Task                                                              | Verify | Status | Round |
 | --- | ----------------------------------------------------------------- | ------ | ------ | ----- |
-| 2.1 | `POST /api/v1/tables/upload` accepts Excel and CSV                | auto   | [ ]    | 02    |
-| 2.2 | Polars reads file and detects column names, types, nullability    | auto   | [ ]    | 02    |
-| 2.3 | Data saved as versioned Parquet (`data/parquet/{id}/v1.parquet`)  | auto   | [ ]    | 02    |
-| 2.4 | Schema metadata stored in SQLite (`files`, `file_schemas` tables) | auto   | [ ]    | 02    |
-| 2.5 | `GET /api/v1/tables` returns uploaded files with schema summary   | auto   | [ ]    | 02    |
-| 2.6 | Re-upload same filename creates v2, detects schema changes        | auto   | [ ]    | 02    |
+| 2.1 | `POST /api/v1/tables/upload` accepts Excel and CSV                | auto   | [x]    | 02    |
+| 2.2 | Polars reads file and detects column names, types, nullability    | auto   | [x]    | 02    |
+| 2.3 | Data saved as versioned Parquet (`data/parquet/{id}/v1.parquet`)  | auto   | [x]    | 02    |
+| 2.4 | Schema metadata stored in SQLite (`files`, `file_schemas` tables) | auto   | [x]    | 02    |
+| 2.5 | `GET /api/v1/tables` returns uploaded files with schema summary   | auto   | [x]    | 02    |
+| 2.6 | Re-upload same filename creates v2, detects schema changes        | auto   | [x]    | 02    |
 | 2.7 | Upload 100k-row file completes in < 30 seconds                    | demo   | [ ]    | 02    |
 | 2.8 | User uploads their real Sales.xlsx successfully                   | user   | [ ]    | 02    |
 

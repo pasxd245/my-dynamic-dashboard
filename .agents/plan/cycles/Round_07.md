@@ -1,35 +1,21 @@
 # Round 07: Builder UI — Query Builder & Export
 
-**Status**: Planning
-**Date started**:
-**Date completed**:
+**Status**: Deferred
+**Linked Tasks**: T7.1–T7.8 (see specs/001-upload-profile-field-roles/tasks.md)
+**Date started**: —
+**Date completed**: —
 **MVP**: 1
-**DoD tasks**: 7.1–7.8
 
 ## Goal
 
-Users select a base table, pick columns from related tables, add filters
-and aggregations, preview results, and download Excel/CSV — all from the
-builder UI.
+Users select base table, pick columns, add filters/aggregations, preview, download Excel/CSV from UI.
 
-## Plan
+## Implementation Narrative
 
-- [ ] Base table selector dropdown
-- [ ] Column multi-select that includes columns from related tables
-- [ ] Filter builder: add/remove rows with column, operator, value pickers
-- [ ] Group-by selector and aggregation builder (column + function)
-- [ ] SQL preview panel that updates as selections change
-- [ ] Preview button → TanStack Query mutation → display 100 rows in TanStack Table
-- [ ] Execute button → full query → trigger file download (Excel, CSV)
-- [ ] Show row count and execution time after run
+**Not yet started**. Final MVP1 UI layer. Depends on Rounds 04-06 (SQL translator, relationships, query execution).
 
-## Do
+**Sequencing**: Start after all query engine components complete.
 
-_Progress log — update as work proceeds._
-
-## Check
-
-- [ ] All selectors render and update query config
 - [ ] SQL preview shows correct generated SQL
 - [ ] Preview shows first 100 rows
 - [ ] Excel download contains expected data
@@ -39,6 +25,8 @@ _Progress log — update as work proceeds._
 ## Act
 
 ## **Learnings**
+
+**MVP1 Closure**: Final UI layer. Completes the end-to-end workflow (upload → schema → relationships → query → export). Ready for Round 08 user validation.
 
 **Promotions**:
 

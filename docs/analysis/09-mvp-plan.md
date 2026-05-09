@@ -58,7 +58,7 @@ flowchart LR
 
 ```text
 Backend:  FastAPI + Polars (ETL) + DuckDB (SQL) + SQLite (metadata) + Parquet (storage)
-Frontend: React 18 + TanStack (Router, Query, Table) + React Flow + Tailwind + Vite
+Frontend: React 19 + TanStack (Router, Query, Table) + React Flow + Tailwind + Vite
 Infra:    pnpm monorepo on WSL2; Docker CE used for deployment and optional hybrid dev
 ```
 
@@ -82,7 +82,7 @@ my-dynamic-dashboard/
 │       └── package.json
 ├── data/                    (gitignored: parquet/, metadata.db)
 ├── scripts/                 (dev.sh, stop.sh, clean.sh)
-├── docker-compose.yml
+├── devops/compose.yaml
 ├── pnpm-workspace.yaml
 └── package.json
 ```
@@ -130,7 +130,7 @@ After MVP 1, collect feedback before proceeding:
 
 #### Week 6: Deployment
 
-- Days 39-40: Production Dockerfiles, docker-compose.prod.yml, logging, environment variables
+- Days 39-40: Production Dockerfiles, devops/compose.prod.yml, logging, environment variables
 - Days 41-42: Deploy to target, verify all services, setup backup
 - Days 43-44: User documentation, tutorial video, team training
 - Day 45: Soft launch with 3-5 users, monitor, quick fixes

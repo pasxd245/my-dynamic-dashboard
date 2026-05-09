@@ -1,33 +1,21 @@
 # Round 06: Builder UI — Visual Relationship Builder
 
-**Status**: Planning
-**Date started**:
-**Date completed**:
+**Status**: Deferred
+**Linked Tasks**: T6.1–T6.7 (see specs/001-upload-profile-field-roles/tasks.md)
+**Date started**: —
+**Date completed**: —
 **MVP**: 1
-**DoD tasks**: 6.1–6.7
 
 ## Goal
 
-Users visually connect tables by dragging edges between nodes in a React
-Flow graph. Relationships save to the backend and persist across sessions.
+Users visually connect tables via React Flow. Relationships save to backend, persist.
 
-## Plan
+## Implementation Narrative
 
-- [ ] Install reactflow; create custom `TableNode` component showing columns
-- [ ] Fetch tables from API and render as nodes
-- [ ] On edge connection → open modal to select from-column, to-column, join type
-- [ ] Save relationship via `POST /api/v1/relationships`; show edge on graph
-- [ ] Load existing relationships as edges on page mount
-- [ ] Sidebar list of current relationships with delete button
-- [ ] Persist node positions (localStorage or backend) so layout survives reload
+**Not yet started**. Depends on: Round 05 (builder shell), Round 03 (relationship CRUD), Round 04 (SQL translator).
 
-## Do
+**Sequencing**: Start after Round 05 UI shell + Round 04 SQL translator to ensure join logic aligns with visual builder.
 
-_Progress log — update as work proceeds._
-
-## Check
-
-- [ ] Tables appear as draggable nodes with column lists
 - [ ] Dragging edge opens connection modal
 - [ ] Relationship saves and edge renders
 - [ ] Page reload shows saved relationships
@@ -37,6 +25,8 @@ _Progress log — update as work proceeds._
 ## Act
 
 ## **Learnings**
+
+**Dependencies**: Requires Round 04 SQL translator and Round 05 builder shell. Relationship endpoints (POST/GET/DELETE /api/v1/relationships) must be implemented on backend to persist JOIN metadata.
 
 **Promotions**:
 

@@ -1,32 +1,19 @@
 # Round 13: MVP 2 Launch & Feedback
 
-**Status**: Planning
-**Date started**:
-**Date completed**:
+**Status**: Deferred
+**Linked Tasks**: T13.1–T13.6 (see specs/001-upload-profile-field-roles/tasks.md)
+**Date started**: —
+**Date completed**: —
 **MVP**: 2
-**DoD tasks**: 13.1–13.6
 
 ## Goal
 
-Ship MVP 2 to real users, collect feedback, and create the backlog for
-post-MVP work (AI features, scheduling, auth).
+Ship MVP 2 to real users. Collect feedback. Create Phase 3 backlog.
 
-## Plan
+## Implementation Narrative
 
-- [ ] Write/update README.md and USER_GUIDE.md with screenshots
-- [ ] Demo to 3-5 users (including non-technical stakeholders)
-- [ ] Distribute feedback survey (usefulness, confusion, missing features, rating)
-- [ ] Fix critical issues found in first week of production
-- [ ] Compile ratings and feature requests
-- [ ] Create prioritised backlog for Phase 3+ (AI, scheduling, multi-user)
+**Not yet started**. MVP2 final launch gate, follows deployment (Round 12). Real user validation → Phase 3 prioritization (AI, scheduling, multi-user).
 
-## Do
-
-_Progress log — update as work proceeds._
-
-## Check
-
-- [ ] Documentation complete with screenshots
 - [ ] At least 3 users have tried the full system
 - [ ] Feedback collected and documented
 - [ ] Critical issues resolved

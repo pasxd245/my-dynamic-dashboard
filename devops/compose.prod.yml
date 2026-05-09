@@ -1,0 +1,98 @@
+services:
+  backend:
+    build:
+      context: ../apps/backend
+      dockerfile: Dockerfile
+    env_file:
+      - ../.env
+    environment:
+      APP_ENV: production
+      DEPLOYMENT_STRICT_VALIDATION: "1"
+      BACKEND_PORT: "8000"
+      BACKUP_DIR: /var/lib/dynamic-dashboard/backups
+    ports:
+      - "8000:8000"
+    volumes:
+      - metadata_data:/app/data
+      - backups_data:/var/lib/dynamic-dashboard/backups
+      - backend_logs:/var/log/dynamic-dashboard
+      - ../scripts/ops/logrotate-production.conf:/etc/logrotate.d/dynamic-dashboard:ro
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+    mem_limit: 1024m
+    cpus: 1.0
+
+  builder:
+    build:
+      context: ..
+      dockerfile: apps/builder/Dockerfile
+    ports:
+      - "3000:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+    mem_limit: 512m
+    cpus: 0.75
+
+  dashboard:
+    build:
+      context: ..
+      dockerfile: apps/dashboard/Dockerfile
+    env_file:
+      - ../.env
+    environment:
+      APP_ENV: production
+      DEPLOYMENT_STRICT_VALIDATION: "1"
+      DASHBOARD_API_BASE_URL: http://backend:8000
+    ports:
+      - "8501:8501"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8501/?healthcheck=1', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 25s
+    restart: unless-stopped
+    mem_limit: 1024m
+    cpus: 1.0
+
+  backup:
+    image: bash:5.2
+    env_file:
+      - ../.env
+    command: ["/bin/sh", "-c", "while true; do /ops/backup.sh || true; sleep 86400; done"]
+    depends_on:
+      backend:
+        condition: service_healthy
+    volumes:
+      - metadata_data:/app/data
+      - backups_data:/backups
+      - ${BACKUP_EXTERNAL_DIR:-../data/backups}:/external-backups
+      - ../scripts/ops:/ops:ro
+    restart: unless-stopped
+    mem_limit: 256m
+    cpus: 0.25
+
+volumes:
+  metadata_data:
+  backups_data:
+  backend_logs:
+
+networks:
+  default:
+    name: dynamic-dashboard-prod

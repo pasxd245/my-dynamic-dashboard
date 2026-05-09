@@ -1,0 +1,934 @@
+openapi: 3.0.3
+info:
+  title: Saved Queries API
+  description: |-
+    API for saving, versioning, loading, searching, and managing saved queries
+    within a workspace. Saved queries enable analysts to preserve, reuse, and
+    audit recurring business questions built in the spec 003 query builder.
+    
+    **Scope**: Single-workspace, single-user queries. No cross-user sharing in MVP 2.
+    **Dependency**: Spec 003 Query Builder & Execution
+  version: 1.0.0
+servers:
+  - url: http://localhost:8000/api
+    description: Local development server
+  - url: /api
+    description: Deployment-agnostic (path only)
+
+tags:
+  - name: SavedQuery
+    description: Save, load, and manage saved query library entries and versions
+  - name: SavedQuerySearch
+    description: Search and filter saved queries
+  - name: SavedQueryExecution
+    description: Execution history and run metadata
+
+paths:
+  /saved-queries:
+    post:
+      summary: Create a new saved query
+      description: |-
+        Save the current builder configuration as a new saved query with initial
+        version 1. If a query with the same name already exists for this user in
+        this workspace, returns 409 Conflict.
+      operationId: createSavedQuery
+      tags:
+        - SavedQuery
+      requestBody:
+        description: Saved query creation payload
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SaveQueryRequest'
+      responses:
+        '201':
+          description: Query saved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SaveQueryResponse'
+        '400':
+          description: Invalid request (validation failure)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Conflict (duplicate name)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Unprocessable entity (broken snapshot)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    get:
+      summary: List saved queries
+      description: |-
+        Retrieve paginated list of saved queries in the current workspace and user
+        scope. Filters by state (active or deleted) and optional tags.
+      operationId: listSavedQueries
+      tags:
+        - SavedQuery
+      parameters:
+        - name: state
+          in: query
+          description: Filter by query state
+          schema:
+            type: string
+            enum: [active, deleted]
+            default: active
+        - name: tag
+          in: query
+          description: Filter by tag (exact match after normalization); can be repeated
+          schema:
+            type: string
+        - name: limit
+          in: query
+          description: Maximum number of results (default 20, max 100)
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: offset
+          in: query
+          description: Pagination offset (default 0)
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        '200':
+          description: List retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SavedQueryListResponse'
+        '400':
+          description: Invalid query parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /saved-queries/search:
+    get:
+      summary: Search saved queries
+      description: |-
+        Perform basic keyword search across name, description, and tags.
+        Returns paginated results ordered by relevance (name match first, then description).
+      operationId: searchSavedQueries
+      tags:
+        - SavedQuerySearch
+      parameters:
+        - name: q
+          in: query
+          description: Search keyword
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 100
+        - name: state
+          in: query
+          description: Filter by state
+          schema:
+            type: string
+            enum: [active, deleted]
+            default: active
+        - name: tag
+          in: query
+          description: Additional tag filter
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        '200':
+          description: Search results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SavedQueryListResponse'
+        '400':
+          description: Invalid search parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /saved-queries/{queryId}:
+    get:
+      summary: Get saved query detail
+      description: |-
+        Retrieve full metadata, latest version, version history summary,
+        and execution summary for a saved query.
+      operationId: getSavedQuery
+      tags:
+        - SavedQuery
+      parameters:
+        - name: queryId
+          in: path
+          description: Saved query ID
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Query detail retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SavedQueryDetailResponse'
+        '404':
+          description: Query not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      summary: Soft-delete a saved query
+      description: |-
+        Soft-delete a saved query, removing it from the active library.
+        Query remains recoverable for 24 hours via POST /restore.
+      operationId: deleteSavedQuery
+      tags:
+        - SavedQuery
+      parameters:
+        - name: queryId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Query deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deletedAt:
+                    type: string
+                    format: date-time
+                  recoverableUntil:
+                    type: string
+                    format: date-time
+        '404':
+          description: Query not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /saved-queries/{queryId}/versions:
+    post:
+      summary: Create a new version
+      description: |-
+        Create a new immutable version of an existing saved query.
+        Previous versions remain unchanged. Latest version is automatically updated.
+      operationId: createNewVersion
+      tags:
+        - SavedQuery
+      parameters:
+        - name: queryId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateVersionRequest'
+      responses:
+        '201':
+          description: New version created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateVersionResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Query not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /saved-queries/{queryId}/versions/{versionId}:
+    get:
+      summary: Get specific version
+      description: |-
+        Retrieve an immutable version snapshot including builder configuration,
+        SQL, and validation state.
+      operationId: getVersion
+      tags:
+        - SavedQuery
+      parameters:
+        - name: queryId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: versionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Version retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SavedQueryVersion'
+        '404':
+          description: Query or version not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /saved-queries/{queryId}/load:
+    post:
+      summary: Load a version into the builder
+      description: |-
+        Load a saved query version into the spec 003 builder. Revalidates the
+        snapshot against current table/column/relationship definitions and returns
+        warnings if schema has drifted. Returns 410 if query is soft-deleted and
+        outside recovery window.
+      operationId: loadSavedQuery
+      tags:
+        - SavedQuery
+      parameters:
+        - name: queryId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                versionId:
+                  type: string
+                  description: Optional; if omitted, loads latest version
+      responses:
+        '200':
+          description: Query loaded successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoadQueryResponse'
+        '404':
+          description: Query or version not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '410':
+          description: Query deleted and outside recovery window
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /saved-queries/{queryId}/duplicate:
+    post:
+      summary: Duplicate a saved query
+      description: |-
+        Create a new saved query entry by duplicating an existing version.
+        The new query is a completely separate library entry.
+      operationId: duplicateSavedQuery
+      tags:
+        - SavedQuery
+      parameters:
+        - name: queryId
+          in: path
+          description: Source query ID
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                sourceVersionId:
+                  type: string
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 255
+                description:
+                  type: string
+                  maxLength: 2000
+                tags:
+                  type: array
+                  items:
+                    type: string
+              required: [sourceVersionId, name]
+      responses:
+        '201':
+          description: Query duplicated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  queryId:
+                    type: string
+                  versionId:
+                    type: string
+                  versionNumber:
+                    type: integer
+        '404':
+          description: Source query or version not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Duplicate name conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /saved-queries/{queryId}/variants:
+    post:
+      summary: Create a variant
+      description: |-
+        Fork an existing saved query into a new library entry while preserving
+        lineage back to the source query.
+      operationId: createVariant
+      tags:
+        - SavedQuery
+      parameters:
+        - name: queryId
+          in: path
+          description: Source query ID
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                sourceVersionId:
+                  type: string
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 255
+                description:
+                  type: string
+                  maxLength: 2000
+                tags:
+                  type: array
+                  items:
+                    type: string
+              required: [sourceVersionId, name]
+      responses:
+        '201':
+          description: Variant created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  queryId:
+                    type: string
+                  versionId:
+                    type: string
+                  sourceQueryId:
+                    type: string
+        '404':
+          description: Source query or version not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Name conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /saved-queries/{queryId}/restore:
+    post:
+      summary: Restore a soft-deleted query
+      description: |-
+        Restore a soft-deleted saved query to the active library if within the
+        24-hour recovery window. Returns 409 if recovery window has expired.
+      operationId: restoreSavedQuery
+      tags:
+        - SavedQuery
+      parameters:
+        - name: queryId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Query restored successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  restored:
+                    type: boolean
+                  restoredAt:
+                    type: string
+                    format: date-time
+        '404':
+          description: Query not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Recovery window expired
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /saved-queries/{queryId}/executions:
+    get:
+      summary: Get execution history
+      description: |-
+        Retrieve paginated execution history for a saved query, newest first.
+        Includes all versions and all execution outcomes.
+      operationId: getExecutionHistory
+      tags:
+        - SavedQueryExecution
+      parameters:
+        - name: queryId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: versionId
+          in: query
+          description: Optional; filter by specific version
+          schema:
+            type: string
+        - name: status
+          in: query
+          description: Optional; filter by execution status
+          schema:
+            type: string
+            enum: [success, timeout, error, cancelled]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        '200':
+          description: Execution history retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ExecutionHistoryItem'
+                  total:
+                    type: integer
+                  nextOffset:
+                    type: integer
+                    nullable: true
+        '404':
+          description: Query not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    SaveQueryRequest:
+      type: object
+      description: Payload for creating a new saved query (POST /saved-queries)
+      properties:
+        name:
+          type: string
+          description: Query name (1..255 chars, must be unique per workspace/user)
+          minLength: 1
+          maxLength: 255
+        description:
+          type: string
+          description: Optional description (max 2000 chars)
+          maxLength: 2000
+          nullable: true
+        tags:
+          type: array
+          description: Optional tags (0..20 tags, each 1..50 chars, alphanumeric+hyphen/underscore, lowercase)
+          items:
+            type: string
+            pattern: '^[a-z0-9\-_]+$'
+            minLength: 1
+            maxLength: 50
+          maxItems: 20
+        builderSnapshot:
+          type: object
+          description: Complete builder DSL state (must be valid builder configuration)
+          properties:
+            baseTable:
+              type: object
+              properties:
+                tableId:
+                  type: string
+                tableName:
+                  type: string
+            selectedColumns:
+              type: array
+              items:
+                type: object
+                properties:
+                  columnId:
+                    type: string
+                  columnName:
+                    type: string
+                  dataType:
+                    type: string
+            filters:
+              type: array
+              items:
+                type: object
+            aggregations:
+              type: array
+              items:
+                type: object
+            groupBy:
+              type: array
+              items:
+                type: object
+            joins:
+              type: array
+              items:
+                type: object
+          required: [baseTable, selectedColumns]
+        sqlSnapshot:
+          type: string
+          description: SQL generated from builder (non-empty)
+          minLength: 1
+      required: [name, builderSnapshot, sqlSnapshot]
+
+    SaveQueryResponse:
+      type: object
+      description: Response after successful save
+      properties:
+        queryId:
+          type: string
+          description: New saved query ID (UUID v4)
+        versionId:
+          type: string
+          description: Initial version ID
+        versionNumber:
+          type: integer
+          description: Version number (always 1 for new queries)
+        createdAt:
+          type: string
+          format: date-time
+          description: Query creation timestamp
+
+    SavedQueryListResponse:
+      type: object
+      description: Paginated list of saved queries
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/SavedQuerySummary'
+        total:
+          type: integer
+          description: Total count of matching queries
+        nextOffset:
+          type: integer
+          nullable: true
+          description: Offset for next page (null if no more results)
+
+    SavedQuerySummary:
+      type: object
+      description: Summary of a saved query in list view
+      properties:
+        queryId:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        tags:
+          type: array
+          items:
+            type: string
+        author:
+          type: string
+          description: User ID who created query
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        latestVersionNumber:
+          type: integer
+        executionCount:
+          type: integer
+          description: Total executions across all versions
+        lastExecutedAt:
+          type: string
+          format: date-time
+          nullable: true
+        isDeleted:
+          type: boolean
+        recoverableUntil:
+          type: string
+          format: date-time
+          nullable: true
+
+    SavedQueryDetailResponse:
+      type: object
+      description: Full detail view of a saved query
+      properties:
+        query:
+          $ref: '#/components/schemas/SavedQuerySummary'
+        latestVersion:
+          $ref: '#/components/schemas/SavedQueryVersion'
+        versions:
+          type: array
+          items:
+            type: object
+            properties:
+              versionId:
+                type: string
+              versionNumber:
+                type: integer
+              createdAt:
+                type: string
+                format: date-time
+              createdBy:
+                type: string
+              changeSummary:
+                type: string
+                nullable: true
+        executionSummary:
+          type: object
+          properties:
+            totalExecutions:
+              type: integer
+            successCount:
+              type: integer
+            errorCount:
+              type: integer
+            timeoutCount:
+              type: integer
+            lastExecutedAt:
+              type: string
+              format: date-time
+              nullable: true
+
+    SavedQueryVersion:
+      type: object
+      description: Immutable version snapshot
+      properties:
+        versionId:
+          type: string
+        queryId:
+          type: string
+        versionNumber:
+          type: integer
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        tags:
+          type: array
+          items:
+            type: string
+        createdAt:
+          type: string
+          format: date-time
+        createdBy:
+          type: string
+        changeSummary:
+          type: string
+          nullable: true
+        sqlSnapshot:
+          type: string
+        builderSnapshot:
+          type: object
+        validationState:
+          type: string
+          enum: [valid, invalid_schema_drift, invalid_relationship_downgrade, unknown]
+
+    CreateVersionRequest:
+      type: object
+      description: Payload for creating a new version
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        description:
+          type: string
+          maxLength: 2000
+          nullable: true
+        tags:
+          type: array
+          items:
+            type: string
+          maxItems: 20
+        builderSnapshot:
+          type: object
+        sqlSnapshot:
+          type: string
+          minLength: 1
+        changeSummary:
+          type: string
+          description: Reason for this version (optional)
+          maxLength: 500
+          nullable: true
+      required: [name, builderSnapshot, sqlSnapshot]
+
+    CreateVersionResponse:
+      type: object
+      properties:
+        queryId:
+          type: string
+        versionId:
+          type: string
+        versionNumber:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+
+    LoadQueryResponse:
+      type: object
+      description: Response when loading a query into builder
+      properties:
+        builderSnapshot:
+          type: object
+          description: Complete builder state to hydrate UI
+        sqlSnapshot:
+          type: string
+        validationState:
+          type: string
+          enum: [valid, invalid_schema_drift, invalid_relationship_downgrade]
+        warnings:
+          type: array
+          description: Non-blocking warnings about schema drift or relationship changes
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+                enum: [column_deleted, column_type_drift, relationship_downgraded]
+              fieldId:
+                type: string
+              message:
+                type: string
+
+    ExecutionHistoryItem:
+      type: object
+      description: Single execution record
+      properties:
+        executionId:
+          type: string
+        versionId:
+          type: string
+        versionNumber:
+          type: integer
+        executedAt:
+          type: string
+          format: date-time
+        executedBy:
+          type: string
+        status:
+          type: string
+          enum: [success, timeout, error, cancelled]
+        rowCount:
+          type: integer
+          nullable: true
+          description: Result set size (null if not success)
+        executionMs:
+          type: integer
+          nullable: true
+          description: Wall-clock duration in ms (null if not success)
+        errorMessage:
+          type: string
+          nullable: true
+
+    ErrorResponse:
+      type: object
+      description: Standard error response
+      properties:
+        error:
+          type: string
+          description: Human-readable error message
+        code:
+          type: string
+          description: Machine-readable error code for UI localization
+          enum:
+            - VALIDATION_ERROR
+            - NOT_FOUND
+            - DUPLICATE_NAME
+            - UNPROCESSABLE_ENTITY
+            - RECOVERY_EXPIRED
+            - QUERY_DELETED
+        details:
+          type: object
+          description: Optional additional error context
+          nullable: true

@@ -1,0 +1,368 @@
+openapi: 3.1.0
+info:
+  title: Relationship Rules API
+  version: 0.1.0
+  description: |
+    Contract for governed relationship rule lifecycle in workspace scope.
+servers:
+  - url: http://localhost:8000
+paths:
+  /api/v1/workspaces/{workspaceId}/relationships:
+    post:
+      summary: Create relationship rule
+      operationId: createRelationshipRule
+      tags: [RelationshipRules]
+      parameters:
+        - $ref: '#/components/parameters/WorkspaceId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRelationshipRuleRequest'
+      responses:
+        '201':
+          description: Relationship rule created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RelationshipRule'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+    get:
+      summary: List relationship rules in workspace
+      operationId: listRelationshipRules
+      tags: [RelationshipRules]
+      parameters:
+        - $ref: '#/components/parameters/WorkspaceId'
+      responses:
+        '200':
+          description: Relationship rules list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/RelationshipRule'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/workspaces/{workspaceId}/relationships/{relationshipId}:
+    get:
+      summary: Get single relationship rule
+      operationId: getRelationshipRule
+      tags: [RelationshipRules]
+      parameters:
+        - $ref: '#/components/parameters/WorkspaceId'
+        - $ref: '#/components/parameters/RelationshipId'
+      responses:
+        '200':
+          description: Relationship rule
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RelationshipRuleDetail'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      summary: Edit relationship rule
+      operationId: updateRelationshipRule
+      tags: [RelationshipRules]
+      parameters:
+        - $ref: '#/components/parameters/WorkspaceId'
+        - $ref: '#/components/parameters/RelationshipId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateRelationshipRuleRequest'
+      responses:
+        '200':
+          description: Relationship rule updated and reset for review
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RelationshipRule'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+    delete:
+      summary: Delete relationship rule
+      operationId: deleteRelationshipRule
+      tags: [RelationshipRules]
+      parameters:
+        - $ref: '#/components/parameters/WorkspaceId'
+        - $ref: '#/components/parameters/RelationshipId'
+      responses:
+        '204':
+          description: Deleted
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/workspaces/{workspaceId}/relationships/{relationshipId}/review:
+    patch:
+      summary: Update relationship review status
+      operationId: reviewRelationshipRule
+      tags: [RelationshipRules]
+      parameters:
+        - $ref: '#/components/parameters/WorkspaceId'
+        - $ref: '#/components/parameters/RelationshipId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewRelationshipRuleRequest'
+      responses:
+        '200':
+          description: Review action applied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RelationshipRule'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+components:
+  parameters:
+    WorkspaceId:
+      name: workspaceId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Workspace identifier
+    RelationshipId:
+      name: relationshipId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Relationship rule identifier
+
+  responses:
+    BadRequest:
+      description: Validation or lifecycle rule error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: Workspace or relationship not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Conflict:
+      description: Governance conflict, including low-overlap approval without override
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    JoinType:
+      type: string
+      enum: [inner, left, right, full]
+
+    RelationshipType:
+      type: string
+      enum: [exact_key, normalized_key, date_window]
+
+    RelationshipStatus:
+      type: string
+      enum: [suggested, reviewed, approved, rejected]
+
+    Cardinality:
+      type: string
+      enum: ['1:1', '1:N', 'N:1', 'N:N']
+
+    ReviewAction:
+      type: string
+      enum: [reviewed, approved, rejected]
+
+    CreateRelationshipRuleRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - from_column_id
+        - to_column_id
+        - join_type
+        - rel_type
+        - low_overlap_acknowledged
+      properties:
+        from_column_id:
+          type: string
+        to_column_id:
+          type: string
+        join_type:
+          $ref: '#/components/schemas/JoinType'
+        rel_type:
+          $ref: '#/components/schemas/RelationshipType'
+        low_overlap_acknowledged:
+          type: boolean
+
+    UpdateRelationshipRuleRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - from_column_id
+        - to_column_id
+        - join_type
+        - rel_type
+      properties:
+        from_column_id:
+          type: string
+        to_column_id:
+          type: string
+        join_type:
+          $ref: '#/components/schemas/JoinType'
+        rel_type:
+          $ref: '#/components/schemas/RelationshipType'
+
+    ReviewRelationshipRuleRequest:
+      type: object
+      additionalProperties: false
+      required: [action]
+      properties:
+        action:
+          $ref: '#/components/schemas/ReviewAction'
+        reason:
+          type: string
+          minLength: 1
+        override_reason:
+          type: string
+          minLength: 1
+
+    RelationshipRule:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - workspace_id
+        - from_column_id
+        - to_column_id
+        - join_type
+        - rel_type
+        - status
+        - low_overlap_acknowledged
+        - broken
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+        workspace_id:
+          type: string
+        from_column_id:
+          type: string
+        to_column_id:
+          type: string
+        join_type:
+          $ref: '#/components/schemas/JoinType'
+        rel_type:
+          $ref: '#/components/schemas/RelationshipType'
+        status:
+          $ref: '#/components/schemas/RelationshipStatus'
+        overlap_pct:
+          type: number
+          minimum: 0
+          maximum: 1
+          nullable: true
+        cardinality:
+          allOf:
+            - $ref: '#/components/schemas/Cardinality'
+          nullable: true
+        low_overlap_acknowledged:
+          type: boolean
+        override_reason:
+          type: string
+          nullable: true
+        actor:
+          type: string
+          nullable: true
+        broken:
+          type: boolean
+          description: True when referenced columns are missing or schema compatibility is invalid.
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    RelationshipAuditEvent:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - relationship_id
+        - action
+        - new_status
+        - timestamp
+      properties:
+        id:
+          type: string
+        relationship_id:
+          type: string
+        action:
+          type: string
+          enum: [created, reviewed, approved, rejected, edited, deleted]
+        old_status:
+          $ref: '#/components/schemas/RelationshipStatus'
+          nullable: true
+        new_status:
+          $ref: '#/components/schemas/RelationshipStatus'
+        reason:
+          type: string
+          nullable: true
+        actor:
+          type: string
+          nullable: true
+        timestamp:
+          type: string
+          format: date-time
+
+    RelationshipRuleDetail:
+      allOf:
+        - $ref: '#/components/schemas/RelationshipRule'
+        - type: object
+          required: [audit]
+          properties:
+            audit:
+              type: array
+              items:
+                $ref: '#/components/schemas/RelationshipAuditEvent'
+
+    ErrorResponse:
+      type: object
+      additionalProperties: false
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          examples:
+            - bad_request
+            - not_found
+            - overlap_conflict
+        message:
+          type: string
+        details:
+          type: object
+          additionalProperties: true

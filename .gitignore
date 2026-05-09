@@ -145,6 +145,8 @@ vite.config.ts.timestamp-*
 
 # Python
 venv/
+.venv/
+**/.venv/
 __pycache__/
 *.pyc
 *.pyo
@@ -155,5 +157,10 @@ data/
 # others
 tmp/
 temp/
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
 # Added by code-review-graph
 .code-review-graph/
