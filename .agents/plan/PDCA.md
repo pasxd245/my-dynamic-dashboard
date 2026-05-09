@@ -20,44 +20,59 @@ Each round follows four phases:
 
 ### Plan
 
-- Define the **goal** (what and why)
-- Prepare everything required to start `Do`
-- List prerequisites, inputs, blockers, decision gates, and readiness criteria
-- Record the concrete work that must exist before implementation starts
-- Status: `Planning`
+- Define the **goal** (what and why) — single, unambiguous goal per round.
+- **Spec bootstrap** (Spec-Kit rounds): if the round references `Spec NNN`,
+  verify `specs/NNN-<slug>/{spec.md,plan.md,tasks.md}` all exist. For each
+  missing artifact, run the corresponding command before entering Do:
+  - missing `spec.md` → `/speckit.specify`
+  - missing `plan.md` → `/speckit.plan`
+  - missing `tasks.md` → `/speckit.tasks`
+- List prerequisites, inputs, blockers, decision gates, and readiness criteria.
+- Tick every `- [ ]` in the Plan checklist before transitioning. A blocked
+  item is a human gate, not a checkbox to skip.
+- Status: `Planning` → flip to `In Progress` when all Plan items checked
+  and all spec artifacts exist.
 
 ### Do
 
-- Execute the planned work to actual completion
-- For Spec-Kit rounds, run the required Spec-Kit flow to reach implemented
-  output, not just review artifacts
-- Use `/speckit.specify`, `/speckit.plan`, and `/speckit.tasks` only as needed
-  to prepare or repair artifacts, then run `/speckit.implement` (or the
-  equivalent implementation step) to complete the work
-- Log commands run, implementation progress, blockers, and deviations from the
-  plan
+- Execute the planned work to actual completion. Real code, not artifacts.
+- For Spec-Kit rounds: run `/speckit.implement` against the spec's tasks.
+- **Task reconciliation (mandatory)**: `/speckit.implement` does NOT
+  reliably tick boxes in `specs/NNN-<slug>/tasks.md`. After each implement
+  run, the agent MUST:
+  1. Re-read `tasks.md`.
+  2. For every `- [ ]`, verify the acceptance evidence (file/test/function)
+     exists in the codebase.
+  3. Edit the line to `- [x]` when evidence is present.
+  4. Leave unchecked when evidence is absent.
+- Loop `/speckit.implement` + reconcile until `tasks.md` is 100% checked,
+  or progress stalls (same unchecked task set across two consecutive
+  iterations) — stalls are a human gate.
+- Log commands run, files changed, blockers, and deviations.
 - Status: `In Progress`
 
 ### Check
 
-- Verify implemented outcomes against the goal
-- Run `speckit.analyze` and any extra checks required by the repo or feature
-  (tests, lint, contract checks, manual verification, etc.)
-- Update tasks and round records to reflect what is complete, what failed, and
-  what still needs repair
-- Document what worked and what did not
-- Status: `Review`
+- Run `speckit.analyze` first. CRITICAL findings are a human gate.
+- Verify `tasks.md` is 100% checked. If not → return to **Do**.
+- Run repo-required verification (tests, lint, contract checks, manual
+  validation). Any failure → return to **Do**.
+- The Do↔Check loop is bounded: after 3 round-trips inside one `/pdca`
+  invocation without convergence, surface a gate.
+- Update round records with what is complete, what failed, what remains.
+- Status: `Review` (only after analyze + tests + 100% tasks all pass).
 
 ### Act
 
-- Summarize the round's learnings and unresolved items
-- Decide the next round, remediation round, or defer/close action
-- When more than one next-round candidate exists, require user confirmation
-  instead of auto-picking
-- Promote validated learnings to `.agents/context/` or `.agents/skills/`
-- Log promotions in `promotions.md`
-- Archive the round
-- Status: `Complete`
+- Write the round's learnings and unresolved items into `## Act` based on
+  observed Do/Check evidence (not speculation).
+- Evaluate compaction (see Compaction Policy below).
+- Decide the next round, remediation round, or defer/close action.
+- When more than one next-round candidate exists, **require user
+  confirmation** — never auto-pick.
+- Promote validated learnings to `.agents/context/` or `.agents/skills/`.
+- Log promotions in `promotions.md`.
+- Status: `Complete` (stamp `**Date completed**`).
 
 ---
 
@@ -121,50 +136,50 @@ below.
 
 ## Governance
 
-- **Rounds are append-only** — do not delete or rewrite history (except compacted batches; see Compaction Policy below)
+- **Rounds are append-only** — do not delete or rewrite history without explicit human confirmation (including compaction; see Compaction Policy below)
 - **Promotions** from Act phase are logged in [promotions.md](promotions.md)
 - **Promotion criteria** are defined in [AGENTS.md](../AGENTS.md)
 - Agents may update the `Do`, `Check`, and `Act` sections of active rounds
-- Only humans may move a round to `Complete` status
+- `pdca-next` may move a round to `Complete` only after Check passes and Act notes are written; otherwise only humans may complete or close rounds
 
 ---
 
-## Spec-Kit Integration (New Governance Model)
+## Spec-Kit Integration
 
-**Purpose Shift** (as of Round_16+):
+Rounds are **implementation-driving delivery rounds** — each one prepares,
+executes, validates, and plans next. The `pdca-next` skill is the executor:
+it drives the active round to its next human gate per the phase contract
+above. See `.agents/skills/pdca-next/SKILL.md` for the deterministic state
+machine (round selection, spec bootstrap, Do↔Check loop, task reconciliation,
+gate definitions).
 
-- Rounds transition from lightweight logs to **implementation-driving delivery rounds**
-- Each round prepares implementation, executes it through Spec-Kit, validates the result, and then plans what happens next
-- **Check phase**: validates implementation completeness, not just document quality
-- **Act phase**: decides the next round or remediation path
+## Sequential Round Selection (Deterministic)
 
-**Workflow**:
+The active round is selected by this exact algorithm — no heuristics:
 
-1. **Plan round**: Brainstorm goal, list requirements, identify blockers
-   - Example: "Implement Spec 003 (Query Builder) — prepare requirements, prerequisites, and gates required to start implementation"
-2. **Do**: Execute the work to implemented state
-   - If artifacts are missing or stale, run `/speckit.specify` → `/speckit.plan` → `/speckit.tasks`
-   - Then run `/speckit.implement` to execute the planned implementation
-   - Log commands run, files changed, blockers, and outcome in round `Do`
-3. **Check**: Verify implementation completeness
-   - Run `speckit.analyze` first
-   - Run any extra repo-specific verification required for confidence
-   - Update tasks and round status with complete, incomplete, and repair items
-   - If implementation or artifacts need repair, return to `Do`
-4. **Act**: Plan what happens next
-   - Summarize learnings and decisions from this round
-   - Propose the next round or remediation round
-   - If more than one plausible next round exists, stop and ask the user which round to continue and which to defer/close
-5. **Complete round**: Human confirms closure and moves the round to `Complete`
+1. Glob `.agents/plan/cycles/Round_*.md`.
+2. Parse the integer round number from each filename via regex
+   `Round_(\d+)\.md`. Sort **numerically ascending** (not lexicographically —
+   `Round_9` precedes `Round_10`).
+3. Read each file's `**Status**:` line. Lowercase and trim.
+4. Classify by a leading whole-status match, because existing files may
+   include markers like `Complete ✅`:
+   - matches `^\s*(complete|completed)\b` → terminal complete
+   - matches `^\s*deferred\b` → inactive deferred
+   - matches `^\s*superseded\b` → inactive superseded
+   - matches `^\s*rejected\b` → inactive rejected
+   - otherwise → actionable open
+5. `open_rounds` = actionable open rounds only.
+6. Selection:
+   - 0 open → ask user to brainstorm `Round_<max+1>`.
+   - 1 open → that's the active round.
+   - 2+ open → **stop**. List all open rounds with status; ask user which to
+     continue and which to defer / supersede / leave open. Never auto-pick.
 
-## Sequential Round Selection
-
-- Default sequential mode prefers the lowest-numbered non-complete round.
-- If there is more than one plausible next-round candidate, agents must not
-  auto-pick one.
-- In that case, agents must list the candidates, explain the ambiguity, and ask
-  the user which round to continue and which others to defer, supersede, or
-  leave open.
+`Deferred`, `Superseded`, and `Rejected` rounds are inactive by default and do
+not block the next actionable round. If the user explicitly targets one, ask
+whether to reopen/resume it, supersede it, or create the next round before
+doing implementation work.
 
 ---
 
@@ -184,14 +199,14 @@ below.
 2. When checking (during Plan or Act):
    - Is `X > (last_compaction_point + 20)`?
    - Are ALL rounds from `(last_compaction_point + 1)` through `(X - 1)` marked `Status: Complete`?
-3. If both yes → auto-compact and increment compaction point
+3. If both yes → recommend compaction and ask for explicit human confirmation
 4. If batch size met but rounds incomplete → **human curation required**: finish incomplete rounds first, or proceed with compaction?
 
 **Example**:
 
 - Default: Last compaction point = Round_00 (initial)
 - In Round_21 Plan phase: Check if all Rounds_01-20 are Complete
-  - If yes: Auto-compact Rounds_01-20 → `Rounds_01_20.compacted.md`, delete individuals, set last_compaction_point = 20
+  - If yes: Recommend compacting Rounds_01-20 → `Rounds_01_20.compacted.md`; only delete individuals and set last_compaction_point = 20 after explicit confirmation
   - If no (e.g., Round_15 still In Progress): Pause compaction, ask user: finish Round_15 first, or compact anyway?
 - Manual compaction: User triggers `compact-docs` on Rounds_01-05, but only if all are Complete
   - Sets last_compaction_point = 05
@@ -200,11 +215,11 @@ below.
 **Process** (during Plan or Act phase):
 
 1. Check status of all rounds from `(last_compaction_point + 1)` through `(X - 1)`
-2. If all Complete → proceed with auto-compaction:
-   - Auto-run `compact-docs` skill
+2. If all Complete → surface a compaction gate:
+   - Ask the user to confirm running `compact-docs`
    - Output: `Rounds_XX_YY.compacted.md` (condensed summary + key decisions)
-   - Delete individual round files that were compacted
-   - Update `COMPACTION_LOG.md` with new compaction point
+   - Delete individual round files only after explicit confirmation
+   - Update `COMPACTION_LOG.md` with new compaction point only after confirmed compaction
 3. If any incomplete → pause and require human curation:
    - List incomplete rounds (status, title)
    - Propose: finish them first, or defer compaction until they're complete?
