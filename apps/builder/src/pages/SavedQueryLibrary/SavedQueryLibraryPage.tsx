@@ -18,8 +18,8 @@ import {
   restoreSavedQuery,
   type SavedQuerySummary,
 } from "../../api/queryApi";
-import SavedQuerySearch from "./SavedQuerySearch";
-import type { SearchFilters } from "./SavedQuerySearch";
+import SavedQuerySearch from "../../components/SavedQuery/SavedQuerySearch";
+import type { SearchFilters } from "../../components/SavedQuery/SavedQuerySearch";
 
 export interface SavedQueryLibraryPageProps {
   workspaceId: string;

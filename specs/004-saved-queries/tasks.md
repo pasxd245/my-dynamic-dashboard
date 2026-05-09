@@ -27,8 +27,8 @@ Purpose: Prepare repository scaffolding and test harness for saved-queries deliv
 - [x] T001 Add saved query service module scaffold in apps/backend/app/services/query_service.py (SavedQueryService class)
 - [x] T002 Add saved query contract test module scaffold in apps/backend/tests/contract/test_saved_queries_contract.py
 - [x] T003 [P] Add saved query integration test module scaffolds in apps/backend/tests/integration/test_saved_query_lifecycle.py, test_saved_query_search.py, and test_saved_query_recovery.py
-- [ ] T004 [P] Add saved query API client scaffold functions in apps/builder/src/api/queryApi.js (createSavedQuery, listSavedQueries, getSavedQuery, etc.)
-- [ ] T005 [P] Add builder saved query UI component scaffolds: SavedQueryLibraryPage.tsx, SavedQueryDetail.tsx, SaveQueryDialog.tsx, VersionTimeline.tsx, ExecutionHistoryTable.tsx in apps/builder/src/pages/SavedQueryLibrary/ and apps/builder/src/components/SavedQuery/
+- [x] T004 [P] Add saved query API client scaffold functions in apps/builder/src/api/queryApi.js (createSavedQuery, listSavedQueries, getSavedQuery, etc.)
+- [x] T005 [P] Add builder saved query UI component scaffolds: SavedQueryLibraryPage.tsx, SavedQueryDetail.tsx, SaveQueryDialog.tsx, VersionTimeline.tsx, ExecutionHistoryTable.tsx in apps/builder/src/pages/SavedQueryLibrary/ and apps/builder/src/components/SavedQuery/
 
 ---
 
@@ -46,9 +46,9 @@ CRITICAL: Complete this phase before user story implementation.
 - [x] T011 [P] Add saved query error mapping (400/404/409/422) and response helpers in apps/backend/app/main.py
 - [x] T012 [P] Add foundational metadata schema verification assertions for new saved query tables in apps/backend/tests/integration/test_metadata_schema.py
 - [x] T013 [P] Extend API schema smoke coverage for saved-queries contract surface in apps/backend/tests/contract/test_schema_contract_smoke.py
-- [ ] T107 Define timed verification protocol for SC-001 save flow (<60s): dataset/setup, 5-run sample, median and p95 reporting in specs/004-saved-queries/quickstart.md
-- [ ] T108 Define timed verification protocol for SC-002 find+load flow (<2m): search+open+load scenario, 5-run sample, median and p95 reporting in specs/004-saved-queries/quickstart.md
-- [ ] T109 Define SC-003 outcome measurement plan (baseline vs post-adoption prep-time sample, weekly cadence, owner, acceptance threshold) in specs/004-saved-queries/quickstart.md
+- [x] T107 Define timed verification protocol for SC-001 save flow (<60s): dataset/setup, 5-run sample, median and p95 reporting in specs/004-saved-queries/quickstart.md
+- [x] T108 Define timed verification protocol for SC-002 find+load flow (<2m): search+open+load scenario, 5-run sample, median and p95 reporting in specs/004-saved-queries/quickstart.md
+- [x] T109 Define SC-003 outcome measurement plan (baseline vs post-adoption prep-time sample, weekly cadence, owner, acceptance threshold) in specs/004-saved-queries/quickstart.md
 
 Checkpoint: Foundation complete; user stories can proceed.
 
@@ -73,10 +73,10 @@ Independent Test: Build query in spec 003 builder, save with name and descriptio
 - [x] T020 [US1] Implement builder snapshot JSON validation (required fields: baseTable, selectedColumns, filters, aggregations, groupBy, joins) in apps/backend/app/services/query_service.py
 - [x] T021 [US1] Add SaveQueryRequest and SaveQueryResponse DTOs to apps/backend/app/schemas.py (include versionId, versionNumber, createdAt in response)
 - [x] T022 [US1] Add POST /api/saved-queries endpoint wiring in apps/backend/app/main.py (call SavedQueryService.create_query, handle errors)
-- [ ] T023 [P] [US1] Build SaveQueryDialog React component with name input, description textarea, tags input (multi-value, lowercase) in apps/builder/src/components/SavedQuery/SaveQueryDialog.tsx
-- [ ] T024 [P] [US1] Implement tag input UI with autocomplete suggestions from existing tags in apps/builder/src/components/SavedQuery/SaveQueryDialog.tsx
-- [ ] T025 [US1] Implement saveQuery() client function in apps/builder/src/api/queryApi.js
-- [ ] T026 [US1] Connect "Save Query" button in QueryBuilder to SaveQueryDialog and handle success/error responses in apps/builder/src/components/QueryBuilder.tsx
+- [x] T023 [P] [US1] Build SaveQueryDialog React component with name input, description textarea, tags input (multi-value, lowercase) in apps/builder/src/components/SavedQuery/SaveQueryDialog.tsx
+- [x] T024 [P] [US1] Implement tag input UI with autocomplete suggestions from existing tags in apps/builder/src/components/SavedQuery/SaveQueryDialog.tsx
+- [x] T025 [US1] Implement saveQuery() client function in apps/builder/src/api/queryApi.js
+- [x] T026 [US1] Connect "Save Query" button in QueryBuilder to SaveQueryDialog and handle success/error responses in apps/builder/src/components/QueryBuilder.tsx
 
 Checkpoint: US1 is independently functional; analysts can save queries and they persist across page reloads.
 
@@ -103,11 +103,11 @@ Independent Test: Save 3 queries with different names/tags, search for keyword, 
 - [x] T035 [US2] Add SavedQueryListResponse DTO and SavedQuerySummary item DTO to apps/backend/app/schemas.py
 - [x] T036 [US2] Add GET /api/saved-queries (list) endpoint in apps/backend/app/main.py with state/tag/limit/offset parameters
 - [x] T037 [US2] Add GET /api/saved-queries/search endpoint in apps/backend/app/main.py with q parameter and optional state/tag filters
-- [ ] T038 [P] [US2] Build SavedQueryLibraryPage React component with query table (name, description, tags, author, created, updated, version, executions) in apps/builder/src/pages/SavedQueryLibrary/SavedQueryLibraryPage.tsx
-- [ ] T039 [P] [US2] Build SavedQuerySearch React component with keyword input and tag filter UI in apps/builder/src/pages/SavedQueryLibrary/SavedQuerySearch.tsx
-- [ ] T040 [P] [US2] Implement pagination controls (limit, offset, next/prev buttons) in SavedQueryLibraryPage in apps/builder/src/pages/SavedQueryLibrary/SavedQueryLibraryPage.tsx
-- [ ] T041 [US2] Implement listSavedQueries() and searchSavedQueries() client functions in apps/builder/src/api/queryApi.js
-- [ ] T042 [US2] Integrate SavedQuerySearch and SavedQueryLibraryPage into App routing in apps/builder/src/App.tsx
+- [x] T038 [P] [US2] Build SavedQueryLibraryPage React component with query table (name, description, tags, author, created, updated, version, executions) in apps/builder/src/pages/SavedQueryLibrary/SavedQueryLibraryPage.tsx
+- [x] T039 [P] [US2] Build SavedQuerySearch React component with keyword input and tag filter UI in apps/builder/src/pages/SavedQueryLibrary/SavedQuerySearch.tsx
+- [x] T040 [P] [US2] Implement pagination controls (limit, offset, next/prev buttons) in SavedQueryLibraryPage in apps/builder/src/pages/SavedQueryLibrary/SavedQueryLibraryPage.tsx
+- [x] T041 [US2] Implement listSavedQueries() and searchSavedQueries() client functions in apps/builder/src/api/queryApi.js
+- [x] T042 [US2] Integrate SavedQuerySearch and SavedQueryLibraryPage into App routing in apps/builder/src/App.tsx
 
 Checkpoint: US2 is independently functional; analysts can browse and search saved queries with tag/keyword filtering.
 
@@ -134,12 +134,12 @@ Independent Test: Save query, simulate schema change (delete a referenced column
 - [x] T051 [US3] Add ValidationIssue DTO with type enum (column_deleted, column_type_drift, relationship_downgraded, base_table_missing) in apps/backend/app/schemas.py
 - [x] T052 [US3] Add GET /api/saved-queries/{queryId} endpoint in apps/backend/app/main.py
 - [x] T053 [US3] Add POST /api/saved-queries/{queryId}/load endpoint in apps/backend/app/main.py (returns builder snapshot + warnings)
-- [ ] T054 [P] [US3] Build SavedQueryDetail React component with metadata display (name, description, tags, author, dates, version, executions) in apps/builder/src/pages/SavedQueryLibrary/SavedQueryDetail.tsx
-- [ ] T055 [P] [US3] Build VersionTimeline React component showing list of versions with numbers, dates, authors, change summaries in apps/builder/src/components/SavedQuery/VersionTimeline.tsx
-- [ ] T056 [P] [US3] Build ExecutionHistoryTable React component showing execution runs (timestamp, status, row count, duration) in apps/builder/src/components/SavedQuery/ExecutionHistoryTable.tsx
-- [ ] T057 [P] [US3] Implement validation warnings modal in SavedQueryDetail (show issues, allow proceed or load prior version) in apps/builder/src/pages/SavedQueryLibrary/SavedQueryDetail.tsx
-- [ ] T058 [US3] Implement getSavedQuery() and loadSavedQuery() client functions in apps/builder/src/api/queryApi.js
-- [ ] T059 [US3] Connect "Load in Builder" action to POST /api/saved-queries/{queryId}/load, hydrate builder state, show warnings if any in apps/builder/src/pages/SavedQueryLibrary/SavedQueryDetail.tsx
+- [x] T054 [P] [US3] Build SavedQueryDetail React component with metadata display (name, description, tags, author, dates, version, executions) in apps/builder/src/pages/SavedQueryLibrary/SavedQueryDetail.tsx
+- [x] T055 [P] [US3] Build VersionTimeline React component showing list of versions with numbers, dates, authors, change summaries in apps/builder/src/components/SavedQuery/VersionTimeline.tsx
+- [x] T056 [P] [US3] Build ExecutionHistoryTable React component showing execution runs (timestamp, status, row count, duration) in apps/builder/src/components/SavedQuery/ExecutionHistoryTable.tsx
+- [x] T057 [P] [US3] Implement validation warnings modal in SavedQueryDetail (show issues, allow proceed or load prior version) in apps/builder/src/pages/SavedQueryLibrary/SavedQueryDetail.tsx
+- [x] T058 [US3] Implement getSavedQuery() and loadSavedQuery() client functions in apps/builder/src/api/queryApi.js
+- [x] T059 [US3] Connect "Load in Builder" action to POST /api/saved-queries/{queryId}/load, hydrate builder state, show warnings if any in apps/builder/src/pages/SavedQueryLibrary/SavedQueryDetail.tsx
 
 Checkpoint: US3 is independently functional; analysts can inspect saved queries, see warnings about schema drift, and load into builder for reuse.
 
@@ -165,11 +165,11 @@ Independent Test: Save query, duplicate to new entry, modify original and save c
 - [x] T067 [US4] Add UpdateSavedQueryRequest and VersionMetadata DTOs to apps/backend/app/schemas.py
 - [x] T068 [US4] Add POST /api/saved-queries/{queryId}/duplicate endpoint in apps/backend/app/main.py
 - [x] T069 [US4] Add PATCH /api/saved-queries/{queryId} endpoint in apps/backend/app/main.py (update metadata and/or builder snapshot)
-- [ ] T070 [P] [US4] Build UpdateQueryDialog React component for editing saved query (name, description, tags, new builder config) in apps/builder/src/components/SavedQuery/UpdateQueryDialog.tsx
-- [ ] T071 [P] [US4] Implement duplicate action button in SavedQueryDetail in apps/builder/src/pages/SavedQueryLibrary/SavedQueryDetail.tsx
-- [ ] T072 [P] [US4] Display version history in VersionTimeline with clickable version rows (load prior version) in apps/builder/src/components/SavedQuery/VersionTimeline.tsx
-- [ ] T073 [US4] Implement duplicateSavedQuery() and updateSavedQuery() client functions in apps/builder/src/api/queryApi.js
-- [ ] T074 [US4] Connect duplicate/update actions in SavedQueryDetail to backend endpoints and refresh library/detail views in apps/builder/src/pages/SavedQueryLibrary/SavedQueryDetail.tsx
+- [x] T070 [P] [US4] Build UpdateQueryDialog React component for editing saved query (name, description, tags, new builder config) in apps/builder/src/components/SavedQuery/UpdateQueryDialog.tsx
+- [x] T071 [P] [US4] Implement duplicate action button in SavedQueryDetail in apps/builder/src/pages/SavedQueryLibrary/SavedQueryDetail.tsx
+- [x] T072 [P] [US4] Display version history in VersionTimeline with clickable version rows (load prior version) in apps/builder/src/components/SavedQuery/VersionTimeline.tsx
+- [x] T073 [US4] Implement duplicateSavedQuery() and updateSavedQuery() client functions in apps/builder/src/api/queryApi.js
+- [x] T074 [US4] Connect duplicate/update actions in SavedQueryDetail to backend endpoints and refresh library/detail views in apps/builder/src/pages/SavedQueryLibrary/SavedQueryDetail.tsx
 
 Checkpoint: US4 is independently functional; analysts can create variants and manage version history without destroying prior snapshots.
 
@@ -196,11 +196,11 @@ Independent Test: Soft-delete query, verify excluded from active list, restore w
 - [x] T083 [US5] Add RecoveryWindowResponse DTO (isDeleted, deletedAt, recoverableUntil, expiresInSeconds) to apps/backend/app/schemas.py
 - [x] T084 [US5] Add DELETE /api/saved-queries/{queryId} endpoint in apps/backend/app/main.py (soft-delete, return recovery window info)
 - [x] T085 [US5] Add POST /api/saved-queries/{queryId}/restore endpoint in apps/backend/app/main.py (check grace window, restore or return 409)
-- [ ] T086 [P] [US5] Build delete confirmation dialog in SavedQueryDetail with warning about 24-hour recovery window in apps/builder/src/pages/SavedQueryLibrary/SavedQueryDetail.tsx
-- [ ] T087 [P] [US5] Display recovery countdown in SavedQueryLibraryPage for deleted queries (show "Recoverable for X hours" badge) in apps/builder/src/pages/SavedQueryLibrary/SavedQueryLibraryPage.tsx
-- [ ] T088 [P] [US5] Implement restore button in SavedQueryLibraryPage (show only if within recovery window) in apps/builder/src/pages/SavedQueryLibrary/SavedQueryLibraryPage.tsx
-- [ ] T089 [US5] Implement deleteSavedQuery() and restoreSavedQuery() client functions in apps/builder/src/api/queryApi.js
-- [ ] T090 [US5] Connect delete/restore actions to backend endpoints, update library view on success, show expiry/success messages in apps/builder/src/pages/SavedQueryLibrary/SavedQueryLibraryPage.tsx and SavedQueryDetail.tsx
+- [x] T086 [P] [US5] Build delete confirmation dialog in SavedQueryDetail with warning about 24-hour recovery window in apps/builder/src/pages/SavedQueryLibrary/SavedQueryDetail.tsx
+- [x] T087 [P] [US5] Display recovery countdown in SavedQueryLibraryPage for deleted queries (show "Recoverable for X hours" badge) in apps/builder/src/pages/SavedQueryLibrary/SavedQueryLibraryPage.tsx
+- [x] T088 [P] [US5] Implement restore button in SavedQueryLibraryPage (show only if within recovery window) in apps/builder/src/pages/SavedQueryLibrary/SavedQueryLibraryPage.tsx
+- [x] T089 [US5] Implement deleteSavedQuery() and restoreSavedQuery() client functions in apps/builder/src/api/queryApi.js
+- [x] T090 [US5] Connect delete/restore actions to backend endpoints, update library view on success, show expiry/success messages in apps/builder/src/pages/SavedQueryLibrary/SavedQueryLibraryPage.tsx and SavedQueryDetail.tsx
 
 Checkpoint: US5 is independently functional; analysts can safely delete queries and recover within 24 hours without permanent loss.
 
@@ -215,8 +215,8 @@ Purpose: Record execution metadata when saved query versions are executed, enabl
 - [x] T093 [US1-US5] Call record_execution() from spec 003 query executor when saved query context is provided (after successful or failed execution) in apps/backend/app/services/query_service.py
 - [x] T094 Add ExecutionHistoryResponse DTO (executionId, versionNumber, executedAt, executedBy, status, rowCount, executionMs) to apps/backend/app/schemas.py
 - [x] T095 Add GET /api/saved-queries/{queryId}/executions endpoint in apps/backend/app/main.py (returns paginated execution history)
-- [ ] T096 [P] Connect ExecutionHistoryTable to backend executions endpoint and display in SavedQueryDetail in apps/builder/src/pages/SavedQueryLibrary/SavedQueryDetail.tsx
-- [ ] T097 [P] Add execution count indicator and "Last Executed" timestamp in SavedQueryLibraryPage and SavedQuerySummary in apps/builder/src/pages/SavedQueryLibrary/SavedQueryLibraryPage.tsx
+- [x] T096 [P] Connect ExecutionHistoryTable to backend executions endpoint and display in SavedQueryDetail in apps/builder/src/pages/SavedQueryLibrary/SavedQueryDetail.tsx
+- [x] T097 [P] Add execution count indicator and "Last Executed" timestamp in SavedQueryLibraryPage and SavedQuerySummary in apps/builder/src/pages/SavedQueryLibrary/SavedQueryLibraryPage.tsx
 
 Checkpoint: Execution history is tracked; analysts can audit past runs and reproducibility context.
 
@@ -226,11 +226,11 @@ Checkpoint: Execution history is tracked; analysts can audit past runs and repro
 
 Purpose: Integrate all components, validate workflows, update documentation.
 
-- [ ] T098 [P] Integrate all saved query API functions in apps/builder/src/api/queryApi.js (create, list, search, get, load, update, duplicate, delete, restore, executions)
-- [ ] T099 Implement complete SavedQueryLibraryPage layout with tabs for active/deleted queries, search, table, pagination in apps/builder/src/pages/SavedQueryLibrary/SavedQueryLibraryPage.tsx
-- [ ] T100 [P] Add router integration: /saved-queries (library page) and /saved-queries/{queryId} (detail page) in apps/builder/src/App.tsx
-- [ ] T101 [P] Link "Saved Queries Library" from main query builder navigation menu in apps/builder/src/App.tsx
-- [ ] T102 [P] Update QueryBuilder to expose "Save Query" button for triggered SaveQueryDialog flow in apps/builder/src/components/QueryBuilder.tsx
+- [x] T098 [P] Integrate all saved query API functions in apps/builder/src/api/queryApi.js (create, list, search, get, load, update, duplicate, delete, restore, executions)
+- [x] T099 Implement complete SavedQueryLibraryPage layout with tabs for active/deleted queries, search, table, pagination in apps/builder/src/pages/SavedQueryLibrary/SavedQueryLibraryPage.tsx
+- [x] T100 [P] Add router integration: /saved-queries (library page) and /saved-queries/{queryId} (detail page) in apps/builder/src/App.tsx
+- [x] T101 [P] Link "Saved Queries Library" from main query builder navigation menu in apps/builder/src/App.tsx
+- [x] T102 [P] Update QueryBuilder to expose "Save Query" button for triggered SaveQueryDialog flow in apps/builder/src/components/QueryBuilder.tsx
 - [x] T103 [P] Add end-to-end regression scenarios: save query → search → load → execute; duplicate → edit → version 2; soft-delete → restore in apps/backend/tests/integration/test_saved_query_lifecycle.py
 - [x] T104 [P] Add builder smoke test: pnpm --filter builder build completes without errors; manual flow for save/load/duplicate/delete in apps/builder/
 - [x] T105 Update execution and verification steps in specs/004-saved-queries/quickstart.md for complete flows
@@ -342,7 +342,7 @@ T001, T002, T003, T004, T005 → simultaneous scaffolding
 ## Summary
 
 **Total Tasks**: 109
-**Completion (Round 17 + Documentation)**: 72 complete, 37 open
+**Completion**: 109/109 — All tasks complete ✅
 
 **By Phase**:
 

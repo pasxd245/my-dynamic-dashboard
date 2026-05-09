@@ -22,8 +22,8 @@ import {
   type ExecutionHistoryItem,
   type SavedQueryValidationIssue,
 } from "../../api/queryApi";
-import VersionTimeline from "./VersionTimeline";
-import ExecutionHistoryTable from "./ExecutionHistoryTable";
+import VersionTimeline from "../../components/SavedQuery/VersionTimeline";
+import ExecutionHistoryTable from "../../components/SavedQuery/ExecutionHistoryTable";
 
 export interface SavedQueryDetailProps {
   workspaceId: string;

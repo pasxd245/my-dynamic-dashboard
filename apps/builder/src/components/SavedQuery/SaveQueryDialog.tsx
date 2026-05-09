@@ -12,8 +12,8 @@
  */
 
 import { useState } from "react";
-import { createSavedQuery } from "../api/queryApi";
-import type { SaveQueryRequest, SaveQueryResponse } from "../api/queryApi";
+import { createSavedQuery } from "../../api/queryApi";
+import type { SaveQueryRequest, SaveQueryResponse } from "../../api/queryApi";
 
 export interface SaveQueryDialogProps {
   isOpen: boolean;

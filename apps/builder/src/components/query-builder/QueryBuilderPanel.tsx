@@ -29,7 +29,15 @@ interface QueryBuilderState {
   isValidating: boolean;
 }
 
-export default function QueryBuilderPanel(): ReactElement {
+export interface QueryBuilderPanelProps {
+  initialSnapshot?: Record<string, unknown> | null;
+  onSaveRequest?: (snapshot: Record<string, unknown>) => void;
+}
+
+export default function QueryBuilderPanel({
+  initialSnapshot,
+  onSaveRequest,
+}: QueryBuilderPanelProps = {}): ReactElement {
   const [state, setState] = useState<QueryBuilderState>({
     baseTableId: "users",
     selectedColumns: [],
@@ -41,6 +49,21 @@ export default function QueryBuilderPanel(): ReactElement {
     sqlPreview: "",
     isValidating: false,
   });
+
+  // Hydrate builder state from a loaded snapshot
+  useEffect(() => {
+    if (!initialSnapshot) return;
+
+    setState((prev) => ({
+      ...prev,
+      baseTableId: (initialSnapshot.base_table_id as string | undefined) ?? prev.baseTableId,
+      selectedColumns: (initialSnapshot.selected_columns as SelectedColumn[] | undefined) ?? prev.selectedColumns,
+      filters: (initialSnapshot.filters as FilterSpec[] | undefined) ?? prev.filters,
+      aggregations: (initialSnapshot.aggregations as AggregationSpec[] | undefined) ?? prev.aggregations,
+      groupByColumns: (initialSnapshot.group_by_columns as string[] | undefined) ?? prev.groupByColumns,
+      joins: (initialSnapshot.joins as any[] | undefined) ?? prev.joins,
+    }));
+  }, [initialSnapshot]);
 
   const baseTable = SAMPLE_TABLES.find(t => t.id === state.baseTableId);
 
@@ -260,14 +283,34 @@ export default function QueryBuilderPanel(): ReactElement {
           </div>
         )}
 
-        {/* Validate Button */}
-        <button
-          onClick={handleValidate}
-          disabled={state.isValidating}
-          className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 disabled:bg-gray-400"
-        >
-          {state.isValidating ? "Validating..." : "Validate Query"}
-        </button>
+        {/* Action Buttons */}
+        <div className="flex gap-3 mt-4">
+          <button
+            onClick={handleValidate}
+            disabled={state.isValidating}
+            className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 disabled:bg-gray-400"
+          >
+            {state.isValidating ? "Validating..." : "Validate Query"}
+          </button>
+          {onSaveRequest && (
+            <button
+              onClick={() => {
+                const snapshot: Record<string, unknown> = {
+                  base_table_id: state.baseTableId,
+                  selected_columns: state.selectedColumns,
+                  filters: state.filters,
+                  aggregations: state.aggregations,
+                  group_by_columns: state.groupByColumns,
+                  joins: state.joins,
+                };
+                onSaveRequest(snapshot);
+              }}
+              className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+            >
+              Save Query
+            </button>
+          )}
+        </div>
       </div>
     </section>
   );

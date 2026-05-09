@@ -12,8 +12,8 @@
  */
 
 import { useState } from "react";
-import { updateSavedQuery } from "../api/queryApi";
-import type { SavedQueryDetailResponse } from "../api/queryApi";
+import { updateSavedQuery } from "../../api/queryApi";
+import type { SavedQueryDetailResponse } from "../../api/queryApi";
 
 export interface UpdateQueryDialogProps {
   isOpen: boolean;
