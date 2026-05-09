@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 from app.core.metadata_db import init_metadata_db
 from app.main import app
 import app.main as main_module
+from tests.conftest import seed_source_activate
 
 
 @pytest.fixture()
@@ -24,7 +25,9 @@ def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
 @pytest.fixture()
 def workspace_id(client: TestClient) -> str:
     r = client.post("/api/v1/workspaces", json={"name": "lifecycle-ws"})
-    return r.json()["id"]
+    wid = r.json()["id"]
+    seed_source_activate(client, wid)
+    return wid
 
 
 def _snapshot(base: str = "table1") -> dict:

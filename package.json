@@ -14,6 +14,9 @@
     "dev:local:down": "bash scripts/dev/stack.sh local-down",
     "dev:docker:up": "bash scripts/dev/stack.sh docker-up",
     "dev:docker:down": "bash scripts/dev/stack.sh docker-down",
+    "dev:builder:smoke": "bash scripts/dev/builder-workflow-smoke.sh",
+    "dev:builder:smoke:stub": "BUILDER_SMOKE_MODE=stub bash scripts/dev/builder-workflow-smoke.sh",
+    "dev:builder:smoke:docker": "BUILDER_SMOKE_API_BASE=http://localhost:8000 bash scripts/dev/builder-workflow-smoke.sh",
     "dev:stop": "bash scripts/dev/stack.sh stop-all",
     "dev:status": "bash scripts/dev/stack.sh status",
     "prod:validate": "bash scripts/ops/validate-production-config.sh"

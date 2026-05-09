@@ -10,7 +10,15 @@
  * - Retrieve execution history
  */
 
-import type { QueryConfig } from "./queryBuilderTypes";
+import { throwApiRequestError } from "./httpErrors";
+
+function requireWorkspaceId(workspaceId: string): string {
+  const trimmed = workspaceId.trim();
+  if (!trimmed || trimmed === "default") {
+    throw new Error("Active workspace is required before saved-query actions.");
+  }
+  return trimmed;
+}
 
 // ─────────────────────────────────────────────────────────────────────
 // Types
@@ -152,27 +160,6 @@ export interface ExecutionHistoryResponse {
   next_offset?: number | null;
 }
 
-export interface ApiErrorResponse {
-  error: {
-    message: string;
-    code?: string;
-    details?: Record<string, unknown>;
-  };
-}
-
-// ─────────────────────────────────────────────────────────────────────
-// Error Handling
-// ─────────────────────────────────────────────────────────────────────
-
-async function readApiError(response: Response, fallbackMessage: string): Promise<string> {
-  try {
-    const payload = (await response.json()) as ApiErrorResponse;
-    return payload?.error?.message ?? fallbackMessage;
-  } catch {
-    return fallbackMessage;
-  }
-}
-
 // ─────────────────────────────────────────────────────────────────────
 // Query API Functions
 // ─────────────────────────────────────────────────────────────────────
@@ -181,8 +168,9 @@ export async function createSavedQuery(
   workspaceId: string,
   request: SaveQueryRequest,
 ): Promise<SaveQueryResponse> {
+  const resolvedWorkspaceId = requireWorkspaceId(workspaceId);
   const response = await fetch(
-    `/api/v1/workspaces/${workspaceId}/saved-queries`,
+    `/api/v1/workspaces/${resolvedWorkspaceId}/saved-queries`,
     {
       method: "POST",
       headers: {
@@ -193,7 +181,7 @@ export async function createSavedQuery(
   );
 
   if (!response.ok) {
-    throw new Error(await readApiError(response, "Failed to save query"));
+    await throwApiRequestError(response, "Failed to save query");
   }
 
   return response.json() as Promise<SaveQueryResponse>;
@@ -206,6 +194,7 @@ export async function listSavedQueries(
   limit: number = 50,
   offset: number = 0,
 ): Promise<SavedQueryLibraryResponse> {
+  const resolvedWorkspaceId = requireWorkspaceId(workspaceId);
   const params = new URLSearchParams();
   params.set("state", state);
   params.set("limit", limit.toString());
@@ -216,11 +205,11 @@ export async function listSavedQueries(
   }
 
   const response = await fetch(
-    `/api/v1/workspaces/${workspaceId}/saved-queries?${params.toString()}`,
+    `/api/v1/workspaces/${resolvedWorkspaceId}/saved-queries?${params.toString()}`,
   );
 
   if (!response.ok) {
-    throw new Error(await readApiError(response, "Failed to list saved queries"));
+    await throwApiRequestError(response, "Failed to list saved queries");
   }
 
   return response.json() as Promise<SavedQueryLibraryResponse>;
@@ -234,6 +223,7 @@ export async function searchSavedQueries(
   limit: number = 50,
   offset: number = 0,
 ): Promise<SavedQueryLibraryResponse> {
+  const resolvedWorkspaceId = requireWorkspaceId(workspaceId);
   const params = new URLSearchParams();
   params.set("q", query);
   params.set("state", state);
@@ -245,11 +235,11 @@ export async function searchSavedQueries(
   }
 
   const response = await fetch(
-    `/api/v1/workspaces/${workspaceId}/saved-queries/search?${params.toString()}`,
+    `/api/v1/workspaces/${resolvedWorkspaceId}/saved-queries/search?${params.toString()}`,
   );
 
   if (!response.ok) {
-    throw new Error(await readApiError(response, "Failed to search saved queries"));
+    await throwApiRequestError(response, "Failed to search saved queries");
   }
 
   return response.json() as Promise<SavedQueryLibraryResponse>;
@@ -259,12 +249,13 @@ export async function getSavedQuery(
   workspaceId: string,
   queryId: string,
 ): Promise<SavedQueryDetailResponse> {
+  const resolvedWorkspaceId = requireWorkspaceId(workspaceId);
   const response = await fetch(
-    `/api/v1/workspaces/${workspaceId}/saved-queries/${queryId}`,
+    `/api/v1/workspaces/${resolvedWorkspaceId}/saved-queries/${queryId}`,
   );
 
   if (!response.ok) {
-    throw new Error(await readApiError(response, "Failed to get saved query"));
+    await throwApiRequestError(response, "Failed to get saved query");
   }
 
   return response.json() as Promise<SavedQueryDetailResponse>;
@@ -275,13 +266,14 @@ export async function loadSavedQuery(
   queryId: string,
   versionId?: string,
 ): Promise<LoadSavedQueryResponse> {
+  const resolvedWorkspaceId = requireWorkspaceId(workspaceId);
   const params = new URLSearchParams();
   if (versionId) {
     params.set("version_id", versionId);
   }
 
   const response = await fetch(
-    `/api/v1/workspaces/${workspaceId}/saved-queries/${queryId}/load?${params.toString()}`,
+    `/api/v1/workspaces/${resolvedWorkspaceId}/saved-queries/${queryId}/load?${params.toString()}`,
     {
       method: "POST",
       headers: {
@@ -291,7 +283,7 @@ export async function loadSavedQuery(
   );
 
   if (!response.ok) {
-    throw new Error(await readApiError(response, "Failed to load saved query"));
+    await throwApiRequestError(response, "Failed to load saved query");
   }
 
   return response.json() as Promise<LoadSavedQueryResponse>;
@@ -302,8 +294,9 @@ export async function updateSavedQuery(
   queryId: string,
   request: UpdateSavedQueryRequest,
 ): Promise<SavedQueryDetailResponse> {
+  const resolvedWorkspaceId = requireWorkspaceId(workspaceId);
   const response = await fetch(
-    `/api/v1/workspaces/${workspaceId}/saved-queries/${queryId}`,
+    `/api/v1/workspaces/${resolvedWorkspaceId}/saved-queries/${queryId}`,
     {
       method: "PATCH",
       headers: {
@@ -314,7 +307,7 @@ export async function updateSavedQuery(
   );
 
   if (!response.ok) {
-    throw new Error(await readApiError(response, "Failed to update saved query"));
+    await throwApiRequestError(response, "Failed to update saved query");
   }
 
   return response.json() as Promise<SavedQueryDetailResponse>;
@@ -325,8 +318,9 @@ export async function duplicateSavedQuery(
   queryId: string,
   request: DuplicateSavedQueryRequest,
 ): Promise<SaveQueryResponse> {
+  const resolvedWorkspaceId = requireWorkspaceId(workspaceId);
   const response = await fetch(
-    `/api/v1/workspaces/${workspaceId}/saved-queries/${queryId}/duplicate`,
+    `/api/v1/workspaces/${resolvedWorkspaceId}/saved-queries/${queryId}/duplicate`,
     {
       method: "POST",
       headers: {
@@ -337,7 +331,7 @@ export async function duplicateSavedQuery(
   );
 
   if (!response.ok) {
-    throw new Error(await readApiError(response, "Failed to duplicate saved query"));
+    await throwApiRequestError(response, "Failed to duplicate saved query");
   }
 
   return response.json() as Promise<SaveQueryResponse>;
@@ -347,15 +341,16 @@ export async function deleteSavedQuery(
   workspaceId: string,
   queryId: string,
 ): Promise<RecoveryWindowResponse> {
+  const resolvedWorkspaceId = requireWorkspaceId(workspaceId);
   const response = await fetch(
-    `/api/v1/workspaces/${workspaceId}/saved-queries/${queryId}`,
+    `/api/v1/workspaces/${resolvedWorkspaceId}/saved-queries/${queryId}`,
     {
       method: "DELETE",
     },
   );
 
   if (!response.ok) {
-    throw new Error(await readApiError(response, "Failed to delete saved query"));
+    await throwApiRequestError(response, "Failed to delete saved query");
   }
 
   return response.json() as Promise<RecoveryWindowResponse>;
@@ -365,8 +360,9 @@ export async function restoreSavedQuery(
   workspaceId: string,
   queryId: string,
 ): Promise<SavedQueryDetailResponse> {
+  const resolvedWorkspaceId = requireWorkspaceId(workspaceId);
   const response = await fetch(
-    `/api/v1/workspaces/${workspaceId}/saved-queries/${queryId}/restore`,
+    `/api/v1/workspaces/${resolvedWorkspaceId}/saved-queries/${queryId}/restore`,
     {
       method: "POST",
       headers: {
@@ -376,7 +372,7 @@ export async function restoreSavedQuery(
   );
 
   if (!response.ok) {
-    throw new Error(await readApiError(response, "Failed to restore saved query"));
+    await throwApiRequestError(response, "Failed to restore saved query");
   }
 
   return response.json() as Promise<SavedQueryDetailResponse>;
@@ -388,16 +384,17 @@ export async function getExecutionHistory(
   limit: number = 50,
   offset: number = 0,
 ): Promise<ExecutionHistoryResponse> {
+  const resolvedWorkspaceId = requireWorkspaceId(workspaceId);
   const params = new URLSearchParams();
   params.set("limit", limit.toString());
   params.set("offset", offset.toString());
 
   const response = await fetch(
-    `/api/v1/workspaces/${workspaceId}/saved-queries/${queryId}/executions?${params.toString()}`,
+    `/api/v1/workspaces/${resolvedWorkspaceId}/saved-queries/${queryId}/executions?${params.toString()}`,
   );
 
   if (!response.ok) {
-    throw new Error(await readApiError(response, "Failed to get execution history"));
+    await throwApiRequestError(response, "Failed to get execution history");
   }
 
   return response.json() as Promise<ExecutionHistoryResponse>;

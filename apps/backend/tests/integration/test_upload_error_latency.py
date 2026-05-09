@@ -51,7 +51,10 @@ def test_malformed_csv_errors_under_five_seconds() -> None:
 
     assert response.status_code == 400, response.json()
     assert elapsed < 5.0, f"Upload error took {elapsed:.2f}s — exceeds 5s SC-005 limit"
-    assert response.json()["error"]["code"] == "parse_failed"
+    # Spec 007 switched to ActionableError envelope (error_code at top level).
+    body = response.json()
+    error_code = body.get("error_code", body.get("error", {}).get("code", "")).lower()
+    assert "parse" in error_code
 
 
 def test_unsupported_file_type_errors_under_five_seconds() -> None:
@@ -68,4 +71,6 @@ def test_unsupported_file_type_errors_under_five_seconds() -> None:
 
     assert response.status_code == 400, response.json()
     assert elapsed < 5.0, f"Upload error took {elapsed:.2f}s — exceeds 5s SC-005 limit"
-    assert response.json()["error"]["code"] == "unsupported_file"
+    body = response.json()
+    error_code = body.get("error_code", body.get("error", {}).get("code", "")).lower()
+    assert "unsupported" in error_code

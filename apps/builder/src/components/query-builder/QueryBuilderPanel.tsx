@@ -1,7 +1,10 @@
 import { useState, useEffect } from "react";
 import type { ReactElement } from "react";
 import { validateQuery } from "../../api/queryBuilderApi";
+import type { ActionableError } from "../../api/types";
+import { getActionableError } from "../../api/httpErrors";
 import type { QueryConfig, SelectedColumn, FilterSpec, AggregationSpec, ValidationIssue } from "../../api/queryBuilderTypes";
+import ActionableErrorPanel from "../errors/ActionableErrorPanel";
 
 const SAMPLE_TABLES = [
   { id: "users", name: "Users", columns: [
@@ -53,6 +56,7 @@ export default function QueryBuilderPanel({
     sqlPreview: "",
     isValidating: false,
   });
+  const [actionableError, setActionableError] = useState<ActionableError | null>(null);
 
   // Hydrate builder state from a loaded snapshot
   useEffect(() => {
@@ -119,6 +123,7 @@ export default function QueryBuilderPanel({
 
   const handleValidate = async () => {
     if (!hasWorkspace) {
+      setActionableError(null);
       setState((prev) => ({
         ...prev,
         validationIssues: [
@@ -132,6 +137,10 @@ export default function QueryBuilderPanel({
       return;
     }
 
+    const resolvedWorkspaceId = workspaceId;
+    if (!resolvedWorkspaceId) {
+      return;
+    }
     setState(prev => ({ ...prev, isValidating: true }));
     try {
       const config: QueryConfig = {
@@ -142,13 +151,15 @@ export default function QueryBuilderPanel({
         group_by_columns: state.groupByColumns,
         joins: state.joins,
       };
-      const result = await validateQuery(workspaceId, config);
+      const result = await validateQuery(resolvedWorkspaceId, config);
+      setActionableError(null);
       setState(prev => ({
         ...prev,
         validationIssues: result.issues || [],
         sqlPreview: result.sql_preview || "",
       }));
     } catch (error) {
+      setActionableError(getActionableError(error));
       setState(prev => ({
         ...prev,
         validationIssues: [{
@@ -263,7 +274,7 @@ export default function QueryBuilderPanel({
                 </select>
                 <input
                   type="text"
-                  value={filter.value || ""}
+                  value={typeof filter.value === "string" || typeof filter.value === "number" ? String(filter.value) : ""}
                   onChange={(e) => handleUpdateFilter(idx, "value", e.target.value)}
                   placeholder="Value"
                   className="flex-1 px-2 py-1 text-sm border border-gray-300 rounded"
@@ -292,6 +303,11 @@ export default function QueryBuilderPanel({
         )}
 
         {/* Validation Issues */}
+        {actionableError && (
+          <div className="mb-4">
+            <ActionableErrorPanel error={actionableError} />
+          </div>
+        )}
         {(errors.length > 0 || warnings.length > 0) && (
           <div className="mb-4 space-y-2">
             {errors.map((issue, idx) => (

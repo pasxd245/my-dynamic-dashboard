@@ -22,3 +22,9 @@ Direct compose commands are still supported when needed:
 cd devops && docker compose up -d --build              # dev (uses compose.yaml)
 docker compose -f devops/compose.prod.yml config       # prod
 ```
+
+Builder workflow smoke placeholder command:
+
+```bash
+pnpm dev:builder:smoke
+```

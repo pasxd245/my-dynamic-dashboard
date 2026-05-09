@@ -10,13 +10,13 @@ Organization: Tasks are grouped by user story so each story is independently imp
 
 Purpose: Prepare scaffolding for feature-specific contracts, UI shell modules, and smoke tooling.
 
-- [ ] T001 Create feature contract test module scaffold in apps/backend/tests/contract/test_builder_experience_contract.py
-- [ ] T002 [P] Create active-context integration test scaffold in apps/backend/tests/integration/test_builder_active_context_flow.py
-- [ ] T003 [P] Create connectivity and actionable-error integration test scaffold in apps/backend/tests/integration/test_builder_connectivity_errors.py
-- [ ] T004 [P] Create workflow shell UI module scaffolds in apps/builder/src/components/workflow-shell/WorkflowShell.tsx and apps/builder/src/pages/BuilderWorkflowPage.tsx
-- [ ] T005 [P] Create builder session API/state scaffolds in apps/builder/src/api/builderSessionApi.ts and apps/builder/src/state/builderSessionStore.ts
-- [ ] T006 [P] Create builder workflow smoke script scaffold in scripts/dev/builder-workflow-smoke.sh
-- [ ] T007 [P] Add smoke command placeholder wiring in package.json and devops/README.md
+- [x] T001 Create feature contract test module scaffold in apps/backend/tests/contract/test_builder_experience_contract.py
+- [x] T002 [P] Create active-context integration test scaffold in apps/backend/tests/integration/test_builder_active_context_flow.py
+- [x] T003 [P] Create connectivity and actionable-error integration test scaffold in apps/backend/tests/integration/test_builder_connectivity_errors.py
+- [x] T004 [P] Create workflow shell UI module scaffolds in apps/builder/src/components/workflow-shell/WorkflowShell.tsx and apps/builder/src/pages/BuilderWorkflowPage.tsx
+- [x] T005 [P] Create builder session API/state scaffolds in apps/builder/src/api/builderSessionApi.ts and apps/builder/src/state/builderSessionStore.ts
+- [x] T006 [P] Create builder workflow smoke script scaffold in scripts/dev/builder-workflow-smoke.sh
+- [x] T007 [P] Add smoke command placeholder wiring in package.json and devops/README.md
 
 ---
 
@@ -26,16 +26,16 @@ Purpose: Implement shared backend/frontend primitives required by all user stori
 
 CRITICAL: Complete this phase before user story implementation.
 
-- [ ] T008 Add BuilderSessionState, workflow stage, connection status, and actionable error DTOs in apps/backend/app/schemas.py
-- [ ] T009 [P] Add builder session-state and active-context service foundation in apps/backend/app/services/builder_session_service.py
-- [ ] T010 [P] Add connection preflight service foundation with dependency checks in apps/backend/app/services/preflight_service.py
-- [ ] T011 [P] Add actionable error envelope mapper and helper functions in apps/backend/app/services/actionable_error_service.py
-- [ ] T012 Wire shared error/helper services and correlation propagation into API handlers in apps/backend/app/main.py
-- [ ] T013 [P] Extend builder API types for session state, preflight, active context, and actionable errors in apps/builder/src/api/types.ts
-- [ ] T014 [P] Implement builder session/preflight API client methods in apps/builder/src/api/builderSessionApi.ts
-- [ ] T015 Implement global builder session store with refresh and guard selectors in apps/builder/src/state/builderSessionStore.ts
-- [ ] T016 [P] Add shared ActionableErrorPanel component and rendering utilities in apps/builder/src/components/errors/ActionableErrorPanel.tsx
-- [ ] T017 Add foundational contract assertions for preflight/session-state/error schemas in apps/backend/tests/contract/test_builder_experience_contract.py
+- [x] T008 Add BuilderSessionState, workflow stage, connection status, and actionable error DTOs in apps/backend/app/schemas.py
+- [x] T009 [P] Add builder session-state and active-context service foundation in apps/backend/app/services/builder_session_service.py
+- [x] T010 [P] Add connection preflight service foundation with dependency checks in apps/backend/app/services/preflight_service.py
+- [x] T011 [P] Add actionable error envelope mapper and helper functions in apps/backend/app/services/actionable_error_service.py
+- [x] T012 Wire shared error/helper services and correlation propagation into API handlers in apps/backend/app/main.py
+- [x] T013 [P] Extend builder API types for session state, preflight, active context, and actionable errors in apps/builder/src/api/types.ts
+- [x] T014 [P] Implement builder session/preflight API client methods in apps/builder/src/api/builderSessionApi.ts
+- [x] T015 Implement global builder session store with refresh and guard selectors in apps/builder/src/state/builderSessionStore.ts
+- [x] T016 [P] Add shared ActionableErrorPanel component and rendering utilities in apps/builder/src/components/errors/ActionableErrorPanel.tsx
+- [x] T017 Add foundational contract assertions for preflight/session-state/error schemas in apps/backend/tests/contract/test_builder_experience_contract.py
 
 Checkpoint: Foundation complete; user stories can proceed.
 
@@ -48,20 +48,20 @@ Independent Test: Start with unresolved context, confirm query/saved actions are
 
 ### Tests for User Story 1
 
-- [ ] T018 [P] [US1] Add contract test for PUT /api/v1/workspaces/active-context success and unresolved/stale error responses in apps/backend/tests/contract/test_builder_experience_contract.py
-- [ ] T019 [P] [US1] Add contract test for guarded /api/v1/query/validate and /api/v1/saved-queries 409 behavior in apps/backend/tests/contract/test_builder_experience_contract.py
-- [ ] T020 [P] [US1] Add integration test for explicit context requirement before query validate and saved-query list in apps/backend/tests/integration/test_builder_active_context_flow.py
-- [ ] T021 [P] [US1] Add integration test for stale context detection and reselection recovery in apps/backend/tests/integration/test_builder_active_context_flow.py
+- [x] T018 [P] [US1] Add contract test for PUT /api/v1/workspaces/active-context success and unresolved/stale error responses in apps/backend/tests/contract/test_builder_experience_contract.py
+- [x] T019 [P] [US1] Add contract test for guarded /api/v1/query/validate and /api/v1/saved-queries 409 behavior in apps/backend/tests/contract/test_builder_experience_contract.py
+- [x] T020 [P] [US1] Add integration test for explicit context requirement before query validate and saved-query list in apps/backend/tests/integration/test_builder_active_context_flow.py
+- [x] T021 [P] [US1] Add integration test for stale context detection and reselection recovery in apps/backend/tests/integration/test_builder_active_context_flow.py
 
 ### Implementation for User Story 1
 
-- [ ] T022 [US1] Implement active workspace/source set and resolve flow for PUT /api/v1/workspaces/active-context in apps/backend/app/main.py and apps/backend/app/services/builder_session_service.py
-- [ ] T023 [US1] Enforce explicit active context guards for query validate/execute handlers in apps/backend/app/main.py
-- [ ] T024 [US1] Enforce explicit active context guards for saved-query list/search/load handlers in apps/backend/app/main.py
-- [ ] T025 [US1] Remove implicit workspace/source fallback behavior from query API calls in apps/builder/src/api/queryBuilderApi.ts and apps/builder/src/components/query-builder/QueryBuilderPanel.tsx
-- [ ] T026 [US1] Remove default workspace fallback from saved-query routing and API calls in apps/builder/src/App.tsx, apps/builder/src/api/queryApi.ts, and apps/builder/src/pages/SavedQueryLibrary/SavedQueryLibraryPage.tsx
-- [ ] T027 [US1] Render persistent active workspace/source state with unresolved and stale badges in apps/builder/src/components/workflow-shell/ActiveContextBar.tsx and apps/builder/src/components/workflow-shell/WorkflowShell.tsx
-- [ ] T028 [US1] Block query and saved-query stage actions until context is resolved and provide reselection CTA in apps/builder/src/pages/BuilderWorkflowPage.tsx and apps/builder/src/components/workflow-shell/WorkflowShell.tsx
+- [x] T022 [US1] Implement active workspace/source set and resolve flow for PUT /api/v1/workspaces/active-context in apps/backend/app/main.py and apps/backend/app/services/builder_session_service.py
+- [x] T023 [US1] Enforce explicit active context guards for query validate/execute handlers in apps/backend/app/main.py
+- [x] T024 [US1] Enforce explicit active context guards for saved-query list/search/load handlers in apps/backend/app/main.py
+- [x] T025 [US1] Remove implicit workspace/source fallback behavior from query API calls in apps/builder/src/api/queryBuilderApi.ts and apps/builder/src/components/query-builder/QueryBuilderPanel.tsx
+- [x] T026 [US1] Remove default workspace fallback from saved-query routing and API calls in apps/builder/src/App.tsx, apps/builder/src/api/queryApi.ts, and apps/builder/src/pages/SavedQueryLibrary/SavedQueryLibraryPage.tsx
+- [x] T027 [US1] Render persistent active workspace/source state with unresolved and stale badges in apps/builder/src/components/workflow-shell/ActiveContextBar.tsx and apps/builder/src/components/workflow-shell/WorkflowShell.tsx
+- [x] T028 [US1] Block query and saved-query stage actions until context is resolved and provide reselection CTA in apps/builder/src/pages/BuilderWorkflowPage.tsx and apps/builder/src/components/workflow-shell/WorkflowShell.tsx
 
 Checkpoint: US1 is independently functional and all scoped actions are explicit-context-only.
 
@@ -74,19 +74,19 @@ Independent Test: Simulate unavailable/degraded dependencies and route failures;
 
 ### Tests for User Story 2
 
-- [ ] T029 [P] [US2] Add contract test for GET /api/v1/builder/preflight status taxonomy and dependency payload in apps/backend/tests/contract/test_builder_experience_contract.py
-- [ ] T030 [P] [US2] Add contract test for GET /api/v1/builder/session-state including connection status and stage prerequisites in apps/backend/tests/contract/test_builder_experience_contract.py
-- [ ] T031 [P] [US2] Add integration test for preflight unavailable/degraded/ready transitions and refresh recovery in apps/backend/tests/integration/test_builder_connectivity_errors.py
-- [ ] T032 [P] [US2] Add integration test for standardized actionable errors across upload/profile/query/saved actions in apps/backend/tests/integration/test_builder_connectivity_errors.py
+- [x] T029 [P] [US2] Add contract test for GET /api/v1/builder/preflight status taxonomy and dependency payload in apps/backend/tests/contract/test_builder_experience_contract.py
+- [x] T030 [P] [US2] Add contract test for GET /api/v1/builder/session-state including connection status and stage prerequisites in apps/backend/tests/contract/test_builder_experience_contract.py
+- [x] T031 [P] [US2] Add integration test for preflight unavailable/degraded/ready transitions and refresh recovery in apps/backend/tests/integration/test_builder_connectivity_errors.py
+- [x] T032 [P] [US2] Add integration test for standardized actionable errors across upload/profile/query/saved actions in apps/backend/tests/integration/test_builder_connectivity_errors.py
 
 ### Implementation for User Story 2
 
-- [ ] T033 [US2] Implement GET /api/v1/builder/preflight endpoint and readiness aggregation in apps/backend/app/main.py and apps/backend/app/services/preflight_service.py
-- [ ] T034 [US2] Implement GET /api/v1/builder/session-state endpoint including stage prerequisites and degraded capability projection in apps/backend/app/main.py and apps/backend/app/services/builder_session_service.py
-- [ ] T035 [US2] Standardize backend error envelope to guidance-first ActionableError for upload/profile/query/saved routes in apps/backend/app/main.py and apps/backend/app/services/actionable_error_service.py
-- [ ] T036 [US2] Add builder persistent connection status surface with manual refresh and last-checked timestamp in apps/builder/src/components/workflow-shell/ConnectionStatusBanner.tsx and apps/builder/src/components/workflow-shell/WorkflowShell.tsx
-- [ ] T037 [US2] Integrate ActionableErrorPanel across upload/profile/query/saved UI action surfaces in apps/builder/src/App.tsx, apps/builder/src/components/query-builder/QueryBuilderPanel.tsx, and apps/builder/src/pages/SavedQueryLibrary/SavedQueryLibraryPage.tsx
-- [ ] T038 [US2] Add optional technical-detail expand/collapse while preserving guidance-first copy in apps/builder/src/components/errors/ActionableErrorPanel.tsx
+- [x] T033 [US2] Implement GET /api/v1/builder/preflight endpoint and readiness aggregation in apps/backend/app/main.py and apps/backend/app/services/preflight_service.py
+- [x] T034 [US2] Implement GET /api/v1/builder/session-state endpoint including stage prerequisites and degraded capability projection in apps/backend/app/main.py and apps/backend/app/services/builder_session_service.py
+- [x] T035 [US2] Standardize backend error envelope to guidance-first ActionableError for upload/profile/query/saved routes in apps/backend/app/main.py and apps/backend/app/services/actionable_error_service.py
+- [x] T036 [US2] Add builder persistent connection status surface with manual refresh and last-checked timestamp in apps/builder/src/components/workflow-shell/ConnectionStatusBanner.tsx and apps/builder/src/components/workflow-shell/WorkflowShell.tsx
+- [x] T037 [US2] Integrate ActionableErrorPanel across upload/profile/query/saved UI action surfaces in apps/builder/src/App.tsx, apps/builder/src/components/query-builder/QueryBuilderPanel.tsx, and apps/builder/src/pages/SavedQueryLibrary/SavedQueryLibraryPage.tsx
+- [x] T038 [US2] Add optional technical-detail expand/collapse while preserving guidance-first copy in apps/builder/src/components/errors/ActionableErrorPanel.tsx
 
 Checkpoint: US2 is independently functional and users can recover from connectivity and request failures without guesswork.
 
@@ -99,16 +99,16 @@ Independent Test: Complete the staged workflow as a first-time user and verify m
 
 ### Tests for User Story 3
 
-- [ ] T039 [P] [US3] Add integration test for shell stage ordering and prerequisite lock/unlock transitions in apps/backend/tests/integration/test_builder_active_context_flow.py
-- [ ] T040 [P] [US3] Add UI integration test for stage navigation preserving active context and connection indicators in apps/builder/src/pages/**tests**/BuilderWorkflowPage.test.tsx
+- [x] T039 [P] [US3] Add integration test for shell stage ordering and prerequisite lock/unlock transitions in apps/backend/tests/integration/test_builder_active_context_flow.py
+- [x] T040 [P] [US3] Add UI integration test for stage navigation preserving active context and connection indicators in apps/builder/src/pages/**tests**/BuilderWorkflowPage.test.tsx
 
 ### Implementation for User Story 3
 
-- [ ] T041 [US3] Implement workflow shell stage model (upload_source, schema_sheet, query, results_saved) with prerequisite metadata in apps/builder/src/components/workflow-shell/WorkflowShell.tsx
-- [ ] T042 [US3] Implement BuilderWorkflowPage composition and stage-level route structure in apps/builder/src/pages/BuilderWorkflowPage.tsx and apps/builder/src/App.tsx
-- [ ] T043 [US3] Add prerequisite callouts and route-back actions for blocked downstream stages in apps/builder/src/components/workflow-shell/WorkflowShell.tsx
-- [ ] T044 [US3] Move existing upload/profile/query/saved panels into staged shell containers without losing existing behavior in apps/builder/src/App.tsx and apps/builder/src/pages/SavedQueryLibrary/SavedQueryLibraryPage.tsx
-- [ ] T045 [US3] Persist stage navigation state and preserve active context/status visibility on backward and forward movement in apps/builder/src/state/builderSessionStore.ts and apps/builder/src/pages/BuilderWorkflowPage.tsx
+- [x] T041 [US3] Implement workflow shell stage model (upload_source, schema_sheet, query, results_saved) with prerequisite metadata in apps/builder/src/components/workflow-shell/WorkflowShell.tsx
+- [x] T042 [US3] Implement BuilderWorkflowPage composition and stage-level route structure in apps/builder/src/pages/BuilderWorkflowPage.tsx and apps/builder/src/App.tsx
+- [x] T043 [US3] Add prerequisite callouts and route-back actions for blocked downstream stages in apps/builder/src/components/workflow-shell/WorkflowShell.tsx
+- [x] T044 [US3] Move existing upload/profile/query/saved panels into staged shell containers without losing existing behavior in apps/builder/src/App.tsx and apps/builder/src/pages/SavedQueryLibrary/SavedQueryLibraryPage.tsx
+- [x] T045 [US3] Persist stage navigation state and preserve active context/status visibility on backward and forward movement in apps/builder/src/state/builderSessionStore.ts and apps/builder/src/pages/BuilderWorkflowPage.tsx
 
 Checkpoint: US3 is independently functional and the builder is workflow-guided rather than page-fragmented.
 
@@ -121,17 +121,17 @@ Independent Test: Run smoke in docker; verify full pass, then force a stage fail
 
 ### Tests for User Story 4
 
-- [ ] T046 [P] [US4] Add contract test for POST/GET smoke endpoints and SmokeFlowResult schema in apps/backend/tests/contract/test_builder_experience_contract.py
-- [ ] T047 [P] [US4] Add integration test for smoke stage ordering and first-failure attribution in apps/backend/tests/integration/test_builder_workflow_smoke.py
-- [ ] T048 [P] [US4] Add integration test for docker smoke command exit behavior on success vs failure in apps/backend/tests/integration/test_builder_workflow_smoke.py
+- [x] T046 [P] [US4] Add contract test for POST/GET smoke endpoints and SmokeFlowResult schema in apps/backend/tests/contract/test_builder_experience_contract.py
+- [x] T047 [P] [US4] Add integration test for smoke stage ordering and first-failure attribution in apps/backend/tests/integration/test_builder_workflow_smoke.py
+- [x] T048 [P] [US4] Add integration test for docker smoke command exit behavior on success vs failure in apps/backend/tests/integration/test_builder_workflow_smoke.py
 
 ### Implementation for User Story 4
 
-- [ ] T049 [US4] Implement smoke run orchestrator and stage result persistence in apps/backend/app/services/builder_smoke_service.py
-- [ ] T050 [US4] Implement POST /api/v1/ops/smoke/builder-workflow and GET /api/v1/ops/smoke/builder-workflow/{run_id} handlers in apps/backend/app/main.py
-- [ ] T051 [US4] Implement docker-compatible smoke runner command sequence in scripts/dev/builder-workflow-smoke.sh
-- [ ] T052 [US4] Wire smoke command into local and compose workflows in package.json and devops/compose.yaml
-- [ ] T053 [US4] Emit stage-by-stage smoke diagnostics with first-failed-stage summary in scripts/dev/builder-workflow-smoke.sh and apps/backend/app/services/builder_smoke_service.py
+- [x] T049 [US4] Implement smoke run orchestrator and stage result persistence in apps/backend/app/services/builder_smoke_service.py
+- [x] T050 [US4] Implement POST /api/v1/ops/smoke/builder-workflow and GET /api/v1/ops/smoke/builder-workflow/{run_id} handlers in apps/backend/app/main.py
+- [x] T051 [US4] Implement docker-compatible smoke runner command sequence in scripts/dev/builder-workflow-smoke.sh
+- [x] T052 [US4] Wire smoke command into local and compose workflows in package.json and devops/compose.yaml
+- [x] T053 [US4] Emit stage-by-stage smoke diagnostics with first-failed-stage summary in scripts/dev/builder-workflow-smoke.sh and apps/backend/app/services/builder_smoke_service.py
 
 Checkpoint: US4 is independently functional and provides deterministic release evidence for the MVP journey.
 
@@ -141,9 +141,19 @@ Checkpoint: US4 is independently functional and provides deterministic release e
 
 Purpose: Final hardening, traceability checks, and quickstart evidence refresh.
 
-- [ ] T054 [P] Run full feature quickstart validation gates and record pass/fail notes in specs/007-builder-experience-hardening-workflow-shell/quickstart.md
-- [ ] T055 [P] Add builder workflow shell and active-context UX usage notes in docs/development/setup.md
-- [ ] T056 Validate FR-001 to FR-013 traceability against implemented tasks and update specs/007-builder-experience-hardening-workflow-shell/tasks.md
+- [x] T054 [P] Run full feature quickstart validation gates and record pass/fail notes in specs/007-builder-experience-hardening-workflow-shell/quickstart.md
+- [x] T055 [P] Add builder workflow shell and active-context UX usage notes in docs/development/setup.md
+- [x] T056 Validate FR-001 to FR-013 traceability against implemented tasks and update specs/007-builder-experience-hardening-workflow-shell/tasks.md
+
+### FR-001 to FR-013 Traceability Validation (2026-05-09)
+
+- FR-001, FR-002: T029, T031, T033, T036
+- FR-003, FR-004, FR-005: T032, T035, T037, T038
+- FR-006: T041, T042, T043 (T044 still open for full panel migration)
+- FR-007: T027, T045
+- FR-008, FR-009, FR-010: T018-T026, T028
+- FR-011, FR-012: T046-T053
+- FR-013: T045
 
 ---
 

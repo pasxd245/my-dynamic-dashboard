@@ -11,10 +11,19 @@ import {
   overrideSheet,
   uploadSource,
 } from "./api/workspaceApi";
-import type { UploadResponse, ProfileResponse, ReadinessResponse, ManifestResponse } from "./api/types";
+import type {
+  ActionableError,
+  ManifestResponse,
+  ProfileResponse,
+  ReadinessResponse,
+  UploadResponse,
+} from "./api/types";
+import { getActionableError } from "./api/httpErrors";
+import ActionableErrorPanel from "./components/errors/ActionableErrorPanel";
 import QueryBuilderPanel from "./components/query-builder/QueryBuilderPanel";
 import { SaveQueryDialog } from "./components/SavedQuery";
 import type { SaveQueryResponse } from "./api/queryApi";
+import BuilderWorkflowPage from "./pages/BuilderWorkflowPage";
 import { SavedQueryLibraryPage, SavedQueryDetail } from "./pages/SavedQueryLibrary";
 
 const panelStyle: React.CSSProperties = {
@@ -48,6 +57,8 @@ export default function App(): React.ReactElement {
   const [manifestPreview, setManifestPreview] = useState<ManifestResponse | null>(null);
   const [message, setMessage] = useState<string>("");
   const [isUploading, setIsUploading] = useState<boolean>(false);
+  const [uploadActionableError, setUploadActionableError] = useState<ActionableError | null>(null);
+  const [profileActionableError, setProfileActionableError] = useState<ActionableError | null>(null);
 
   // Saved Queries state
   const [showSaveDialog, setShowSaveDialog] = useState<boolean>(false);
@@ -61,6 +72,8 @@ export default function App(): React.ReactElement {
     try {
       const payload = await createWorkspace(workspaceName);
       setWorkspaceId(payload.id);
+      setUploadActionableError(null);
+      setProfileActionableError(null);
       setMessage(`Workspace created: ${payload.id}`);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Unknown error");
@@ -75,6 +88,7 @@ export default function App(): React.ReactElement {
 
     try {
       setIsUploading(true);
+      setUploadActionableError(null);
       setMessage(`Uploading ${selectedFile.name}...`);
       const payload = await uploadSource(workspaceId, selectedFile);
       setUploadResult(payload);
@@ -82,6 +96,7 @@ export default function App(): React.ReactElement {
       setHeaderRow(String(payload.sheets?.[0]?.header_row_effective ?? 1));
       setMessage("Upload complete.");
     } catch (error) {
+      setUploadActionableError(getActionableError(error));
       setMessage(error instanceof Error ? error.message : "Unknown error");
     } finally {
       setIsUploading(false);
@@ -95,6 +110,7 @@ export default function App(): React.ReactElement {
     }
 
     try {
+      setProfileActionableError(null);
       const payload = await overrideSheet(workspaceId, currentSheet.id, {
         header_row: Number(headerRow),
         data_range: dataRange,
@@ -110,6 +126,7 @@ export default function App(): React.ReactElement {
       );
       setMessage("Override applied.");
     } catch (error) {
+      setProfileActionableError(getActionableError(error));
       setMessage(error instanceof Error ? error.message : "Unknown error");
     }
   };
@@ -121,11 +138,13 @@ export default function App(): React.ReactElement {
     }
 
     try {
+      setProfileActionableError(null);
       const payload = await getWorkspaceProfile(workspaceId);
       setProfile(payload);
       setSelectedColumnId(payload.columns?.[0]?.column_id ?? "");
       setMessage("Profile loaded.");
     } catch (error) {
+      setProfileActionableError(getActionableError(error));
       setMessage(error instanceof Error ? error.message : "Unknown error");
     }
   };
@@ -137,12 +156,14 @@ export default function App(): React.ReactElement {
     }
 
     try {
+      setProfileActionableError(null);
       await assignColumnRoles(workspaceId, selectedColumnId, {
         roles: [selectedRole],
         override_reason: overrideReason || null,
       });
       setMessage(`Role ${selectedRole} assigned.`);
     } catch (error) {
+      setProfileActionableError(getActionableError(error));
       setMessage(error instanceof Error ? error.message : "Unknown error");
     }
   };
@@ -154,10 +175,12 @@ export default function App(): React.ReactElement {
     }
 
     try {
+      setProfileActionableError(null);
       const payload = await getReadiness(workspaceId);
       setReadiness(payload);
       setMessage("Readiness loaded.");
     } catch (error) {
+      setProfileActionableError(getActionableError(error));
       setMessage(error instanceof Error ? error.message : "Unknown error");
     }
   };
@@ -198,6 +221,109 @@ export default function App(): React.ReactElement {
     }
   };
 
+  const workflowUploadSourcePanel = (
+    <>
+      <section style={panelStyle}>
+        <h2>Create Workspace</h2>
+        <input
+          value={workspaceName}
+          onChange={(event) => setWorkspaceName(event.target.value)}
+          placeholder="Workspace name"
+          style={{ marginRight: "0.5rem", padding: "0.4rem", width: "18rem" }}
+        />
+        <button onClick={onCreateWorkspace}>Create</button>
+      </section>
+
+      <section style={panelStyle}>
+        <h2>Upload Source</h2>
+        <p style={{ marginTop: "0", marginBottom: "0.5rem", color: "#444" }}>
+          Workspace: <strong>{workspaceId || "(create one first)"}</strong>
+        </p>
+        {uploadActionableError && <ActionableErrorPanel error={uploadActionableError} />}
+        <input
+          type="file"
+          accept=".csv,.xlsx,.xlsm,.xlsb,.xls"
+          onChange={(event) => setSelectedFile(event.currentTarget.files?.[0] ?? null)}
+        />
+        <button
+          onClick={onUpload}
+          disabled={!workspaceId || !selectedFile || isUploading}
+          style={{ marginLeft: "0.5rem" }}
+        >
+          {isUploading ? "Uploading..." : "Upload"}
+        </button>
+      </section>
+    </>
+  );
+
+  const workflowSchemaSheetPanel = (
+    <>
+      <section style={panelStyle}>
+        <h2>Sheet Override</h2>
+        {profileActionableError && profileActionableError.stage !== "upload_source" ? (
+          <ActionableErrorPanel error={profileActionableError} />
+        ) : null}
+        <div style={{ display: "grid", gap: "0.5rem", maxWidth: "400px" }}>
+          <input
+            value={headerRow}
+            onChange={(event) => setHeaderRow(event.target.value)}
+            placeholder="Header row"
+          />
+          <input
+            value={dataRange}
+            onChange={(event) => setDataRange(event.target.value)}
+            placeholder="Data range (e.g. A1:C100)"
+          />
+          <input
+            value={reason}
+            onChange={(event) => setReason(event.target.value)}
+            placeholder="Override reason"
+          />
+          <button onClick={onOverride}>Apply override</button>
+        </div>
+      </section>
+
+      <section style={panelStyle}>
+        <h2>Profiles and Roles</h2>
+        <button onClick={onLoadProfile} style={{ marginBottom: "0.75rem" }}>
+          Load profile
+        </button>
+        <div style={{ display: "grid", gap: "0.5rem", maxWidth: "520px", marginBottom: "1rem" }}>
+          <select
+            value={selectedColumnId}
+            onChange={(event) => setSelectedColumnId(event.target.value)}
+          >
+            <option value="">Select column</option>
+            {(profile?.columns ?? []).map((column) => (
+              <option key={column.column_id} value={column.column_id}>
+                {column.column_name} ({column.column_id})
+              </option>
+            ))}
+          </select>
+          <select value={selectedRole} onChange={(event) => setSelectedRole(event.target.value)}>
+            <option value="identity_key">identity_key</option>
+            <option value="time_anchor">time_anchor</option>
+            <option value="measure">measure</option>
+            <option value="dimension">dimension</option>
+            <option value="status">status</option>
+            <option value="source_of_truth_outcome">source_of_truth_outcome</option>
+          </select>
+          <input
+            value={overrideReason}
+            onChange={(event) => setOverrideReason(event.target.value)}
+            placeholder="Override reason (optional)"
+          />
+          <div>
+            <button onClick={onAssignRole} style={{ marginRight: "0.5rem" }}>
+              Assign role
+            </button>
+            <button onClick={onLoadReadiness}>Load readiness</button>
+          </div>
+        </div>
+      </section>
+    </>
+  );
+
   return (
     <main
       style={{
@@ -219,6 +345,9 @@ export default function App(): React.ReactElement {
         </Link>
         <Link to="/saved-queries" style={{ color: "#1b1b1b", textDecoration: "underline" }}>
           Saved Queries Library
+        </Link>
+        <Link to="/workflow/upload-source" style={{ color: "#1b1b1b", textDecoration: "underline" }}>
+          Workflow Shell
         </Link>
       </nav>
 
@@ -246,6 +375,7 @@ export default function App(): React.ReactElement {
                 <p style={{ marginTop: "0", marginBottom: "0.5rem", color: "#444" }}>
                   Workspace: <strong>{workspaceId || "(create one first)"}</strong>
                 </p>
+                {uploadActionableError && <ActionableErrorPanel error={uploadActionableError} />}
                 <input
                   type="file"
                   accept=".csv,.xlsx,.xlsm,.xlsb,.xls"
@@ -267,6 +397,9 @@ export default function App(): React.ReactElement {
 
               <section style={panelStyle}>
                 <h2>Sheet Override</h2>
+                {profileActionableError && profileActionableError.stage !== "upload_source" ? (
+                  <ActionableErrorPanel error={profileActionableError} />
+                ) : null}
                 <div style={{ display: "grid", gap: "0.5rem", maxWidth: "400px" }}>
                   <input
                     value={headerRow}
@@ -289,6 +422,11 @@ export default function App(): React.ReactElement {
 
               <section style={panelStyle}>
                 <h2>Profiles and Roles</h2>
+                {profileActionableError && profileActionableError.stage !== "upload_source" ? (
+                  <div style={{ marginBottom: "0.75rem" }}>
+                    <ActionableErrorPanel error={profileActionableError} />
+                  </div>
+                ) : null}
                 <p>
                   <strong>Workspace:</strong> {workspaceId || "(none)"}
                 </p>
@@ -391,6 +529,25 @@ export default function App(): React.ReactElement {
                 setLoadedSnapshot(snapshot);
                 navigate("/");
               }}
+            />
+          }
+        />
+
+        {/* Workflow shell */}
+        <Route
+          path="/workflow/*"
+          element={
+            <BuilderWorkflowPage
+              uploadSourcePanel={workflowUploadSourcePanel}
+              schemaSheetPanel={workflowSchemaSheetPanel}
+              queryPanel={<QueryBuilderPanel workspaceId={workspaceId || undefined} initialSnapshot={loadedSnapshot} />}
+              resultsSavedPanel={
+                workspaceId ? (
+                  <SavedQueryLibraryPage workspaceId={workspaceId} />
+                ) : (
+                  <p className="text-sm text-slate-700">Create/select a workspace to view saved queries.</p>
+                )
+              }
             />
           }
         />

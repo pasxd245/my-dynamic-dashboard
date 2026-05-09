@@ -18,7 +18,12 @@ from app.core.metadata_db import (
 )
 from app.core.startup_validation import StartupValidationError, validate_startup_environment
 from app.schemas import (
+    ActiveContextResponse,
     AddPanelRequest,
+    BuilderSessionState,
+    ConnectionStatus,
+    SmokeFlowResult,
+    SmokeRunRequest,
     ApiErrorModel,
     ChartSuggestion,
     ColumnSchema,
@@ -68,6 +73,7 @@ from app.schemas import (
     SetRefreshCadenceRequest,
     UpdateDashboardRequest,
     UpdatePanelRequest,
+    SetActiveContextRequest,
     WorkspaceCreateRequest,
     WorkspaceProfileResponse,
     WorkspaceResponse,
@@ -123,6 +129,14 @@ from app.services.query_builder_service import JoinGraphValidator, QueryConfigVa
 from app.services.audit_service import AuditService
 from app.services.backup_service import BackupService
 from app.services.deployment_service import DeploymentService
+from app.services.actionable_error_service import (
+    build_actionable_error,
+    build_actionable_error_from_api_error,
+    with_correlation_details,
+)
+from app.services.builder_session_service import BuilderSessionService
+from app.services.builder_smoke_service import BuilderSmokeService
+from app.services.preflight_service import PreflightService
 from app.services.upload_service import (
     build_upload_result,
     compute_column_profiles,
@@ -139,6 +153,9 @@ app = FastAPI(title="My Dynamic Dashboard Backend")
 DB_PATH = metadata_db_path()
 PARQUET_ROOT = parquet_root_dir()
 APP_LOGGER = configure_backend_logging()
+BUILDER_SESSION_SERVICE = BuilderSessionService()
+PREFLIGHT_SERVICE: PreflightService | None = None
+BUILDER_SMOKE_SERVICE = BuilderSmokeService()
 
 
 class ApiError(Exception):
@@ -170,23 +187,48 @@ def raise_query_error(
     details: dict[str, object] | None = None,
 ) -> None:
     status_code = QUERY_ERROR_STATUS_BY_CODE.get(code, 400)
-    raise ApiError(status_code=status_code, code=code, message=message, details=details)
+    raise ApiError(
+        status_code=status_code,
+        code=code,
+        message=message,
+        details=with_correlation_details(details),
+    )
 
 
 def raise_bad_request(message: str, *, code: str = "bad_request") -> None:
-    raise ApiError(status_code=400, code=code, message=message)
+    raise ApiError(
+        status_code=400,
+        code=code,
+        message=message,
+        details=with_correlation_details(),
+    )
 
 
 def raise_not_found(message: str, *, code: str = "not_found") -> None:
-    raise ApiError(status_code=404, code=code, message=message)
+    raise ApiError(
+        status_code=404,
+        code=code,
+        message=message,
+        details=with_correlation_details(),
+    )
 
 
 def raise_conflict(message: str, *, code: str = "conflict") -> None:
-    raise ApiError(status_code=409, code=code, message=message)
+    raise ApiError(
+        status_code=409,
+        code=code,
+        message=message,
+        details=with_correlation_details(),
+    )
 
 
 def raise_service_unavailable(message: str, *, code: str = "service_unavailable") -> None:
-    raise ApiError(status_code=503, code=code, message=message)
+    raise ApiError(
+        status_code=503,
+        code=code,
+        message=message,
+        details=with_correlation_details(),
+    )
 
 
 @app.on_event("startup")
@@ -221,17 +263,43 @@ async def attach_correlation_id(request: Request, call_next):
 
 
 @app.exception_handler(ApiError)
-def handle_api_error(_: object, exc: ApiError) -> JSONResponse:
+def handle_api_error(request: Request, exc: ApiError) -> JSONResponse:
+    details = with_correlation_details(exc.details)
+    actionable = build_actionable_error_from_api_error(
+        path=request.url.path,
+        error_code=exc.code,
+        user_message=exc.message,
+        technical_details=details,
+    )
+    if actionable is not None:
+        return JSONResponse(status_code=exc.status_code, content=actionable.model_dump())
+
     payload = ErrorResponse(
-        error=ApiErrorModel(code=exc.code, message=exc.message, details=exc.details)
+        error=ApiErrorModel(code=exc.code, message=exc.message, details=details)
     )
     return JSONResponse(status_code=exc.status_code, content=payload.model_dump())
 
 
 @app.exception_handler(HTTPException)
-def handle_http_error(_: object, exc: HTTPException) -> JSONResponse:
+def handle_http_error(request: Request, exc: HTTPException) -> JSONResponse:
     message = str(exc.detail)
-    payload = ErrorResponse(error=ApiErrorModel(code="http_error", message=message))
+    details = with_correlation_details()
+    actionable = build_actionable_error_from_api_error(
+        path=request.url.path,
+        error_code="http_error",
+        user_message=message,
+        technical_details=details,
+    )
+    if actionable is not None:
+        return JSONResponse(status_code=exc.status_code, content=actionable.model_dump())
+
+    payload = ErrorResponse(
+        error=ApiErrorModel(
+            code="http_error",
+            message=message,
+            details=details,
+        )
+    )
     return JSONResponse(status_code=exc.status_code, content=payload.model_dump())
 
 
@@ -353,9 +421,267 @@ def _get_workspace(workspace_id: str) -> dict:
     }
 
 
+def _preflight_service() -> PreflightService:
+    global PREFLIGHT_SERVICE
+    if PREFLIGHT_SERVICE is None or PREFLIGHT_SERVICE.metadata_db_path != DB_PATH:
+        PREFLIGHT_SERVICE = PreflightService(metadata_db_path=DB_PATH)
+    return PREFLIGHT_SERVICE
+
+
+def _builder_session_service() -> BuilderSessionService:
+    return BUILDER_SESSION_SERVICE
+
+
+def _builder_smoke_service() -> BuilderSmokeService:
+    return BUILDER_SMOKE_SERVICE
+
+
+def _source_workspace(source_id: str) -> str | None:
+    with get_connection(DB_PATH) as conn:
+        row = conn.execute(
+            "SELECT workspace_id FROM source_files WHERE id = ?",
+            (source_id,),
+        ).fetchone()
+    if row is None:
+        return None
+    return str(row["workspace_id"])
+
+
+def _active_context_error_response(
+    *,
+    status_code: int,
+    stage: str,
+    error_code: str,
+    user_message: str,
+    next_steps: list[str],
+    technical_details: dict[str, Any] | None = None,
+) -> JSONResponse:
+    payload = build_actionable_error(
+        error_code=error_code,
+        stage=stage,
+        user_message=user_message,
+        next_steps=next_steps,
+        technical_details=technical_details,
+    )
+    return JSONResponse(status_code=status_code, content=payload.model_dump())
+
+
+def _require_active_context_for_workspace(*, workspace_id: str, stage: str) -> JSONResponse | None:
+    active_context = _builder_session_service().get_active_context()
+    if active_context is None:
+        return _active_context_error_response(
+            status_code=409,
+            stage=stage,
+            error_code="ACTIVE_CONTEXT_UNRESOLVED",
+            user_message="Select an active workspace and source before continuing.",
+            next_steps=[
+                "Open context selector",
+                "Choose workspace and source",
+                "Retry this action",
+            ],
+        )
+
+    workspace_state = active_context.workspace.state
+    source_state = active_context.source.state
+    active_workspace_id = active_context.workspace.workspace_id
+    active_source_workspace_id = active_context.source.workspace_id
+
+    if workspace_state != "resolved" or source_state != "resolved":
+        return _active_context_error_response(
+            status_code=409,
+            stage=stage,
+            error_code="ACTIVE_CONTEXT_UNRESOLVED",
+            user_message="Active context is unresolved and cannot be used for this action.",
+            next_steps=[
+                "Re-open context selector",
+                "Resolve workspace and source",
+                "Retry this action",
+            ],
+        )
+
+    if active_workspace_id != workspace_id or active_source_workspace_id != workspace_id:
+        return _active_context_error_response(
+            status_code=409,
+            stage=stage,
+            error_code="ACTIVE_CONTEXT_STALE",
+            user_message="Active context does not match the selected workspace.",
+            next_steps=[
+                "Re-select workspace and source",
+                "Confirm the context matches the target workspace",
+                "Retry this action",
+            ],
+            technical_details={
+                "requested_workspace_id": workspace_id,
+                "active_workspace_id": active_workspace_id,
+            },
+        )
+
+    return None
+
+
+@app.get("/api/v1/builder/preflight")
+def get_builder_preflight() -> ConnectionStatus:
+    return _preflight_service().evaluate()
+
+
+@app.get("/api/v1/builder/session-state")
+def get_builder_session_state(current_stage: str | None = None) -> BuilderSessionState:
+    requested_stage: str | None = None
+    if current_stage:
+        candidate = current_stage.strip()
+        if candidate in {"upload_source", "schema_sheet", "query", "results_saved"}:
+            requested_stage = candidate
+    return _builder_session_service().build_default_state(
+        connection_status=_preflight_service().evaluate(),
+        current_stage=requested_stage,
+    )
+
+
+@app.put("/api/v1/workspaces/active-context")
+def set_active_context(request: SetActiveContextRequest):
+    workspace_id = request.workspace_id.strip()
+    source_id = request.source_id.strip()
+    if not workspace_id or not source_id:
+        return _active_context_error_response(
+            status_code=400,
+            stage="global",
+            error_code="ACTIVE_CONTEXT_UNRESOLVED",
+            user_message="Workspace and source selection are both required.",
+            next_steps=["Choose a workspace", "Choose a source", "Retry this action"],
+        )
+
+    workspace = _get_workspace(workspace_id)
+    source_workspace_id = _source_workspace(source_id)
+    if source_workspace_id is None:
+        return _active_context_error_response(
+            status_code=404,
+            stage="global",
+            error_code="ACTIVE_CONTEXT_UNRESOLVED",
+            user_message="Selected source was not found.",
+            next_steps=[
+                "Upload or select an existing source",
+                "Choose the source again",
+                "Retry this action",
+            ],
+        )
+
+    if source_workspace_id != workspace_id:
+        return _active_context_error_response(
+            status_code=409,
+            stage="global",
+            error_code="ACTIVE_CONTEXT_STALE",
+            user_message="Selected source belongs to a different workspace.",
+            next_steps=[
+                "Select a source from the current workspace",
+                "Reconfirm active context",
+                "Retry this action",
+            ],
+            technical_details={
+                "workspace_id": workspace_id,
+                "source_workspace_id": source_workspace_id,
+            },
+        )
+
+    return _builder_session_service().resolve_active_context(
+        workspace_id=workspace_id,
+        workspace_name=workspace["name"],
+        source_id=source_id,
+        source_name=source_id,
+    )
+
+
+@app.post("/api/v1/ops/smoke/builder-workflow")
+def run_builder_workflow_smoke(request: SmokeRunRequest | None = None) -> SmokeFlowResult:
+    payload = request or SmokeRunRequest()
+    return _builder_smoke_service().run_workflow_smoke(payload)
+
+
+@app.get("/api/v1/ops/smoke/builder-workflow/{run_id}")
+def get_builder_workflow_smoke(run_id: str) -> SmokeFlowResult:
+    result = _builder_smoke_service().get_run(run_id)
+    if result is None:
+        raise_not_found("Smoke run not found", code="smoke_run_not_found")
+    return result
+
+
+@app.post("/api/v1/query/validate")
+def validate_query_for_active_context(request: dict[str, Any]):
+    workspace_id = str(request.get("workspace_id") or "").strip()
+    source_id = str(request.get("source_id") or "").strip()
+    if not workspace_id or not source_id:
+        return _active_context_error_response(
+            status_code=400,
+            stage="query",
+            error_code="ACTIVE_CONTEXT_UNRESOLVED",
+            user_message="workspace_id and source_id are required.",
+            next_steps=["Set active context", "Retry query validation"],
+        )
+
+    guard_error = _require_active_context_for_workspace(workspace_id=workspace_id, stage="query")
+    if guard_error is not None:
+        return guard_error
+
+    query_config = request.get("query_config")
+    if not isinstance(query_config, dict):
+        return _active_context_error_response(
+            status_code=400,
+            stage="query",
+            error_code="QUERY_CONFIG_INVALID",
+            user_message="query_config payload is required for validation.",
+            next_steps=["Provide query_config", "Retry query validation"],
+        )
+
+    return validate_query(workspace_id, QueryConfig.model_validate(query_config))
+
+
+@app.get("/api/v1/saved-queries")
+def list_saved_queries_for_active_context(
+    workspace_id: str,
+    source_id: str,
+    state: str = "active",
+    tag: str | None = None,
+    limit: int = 50,
+    offset: int = 0,
+):
+    if not workspace_id or not source_id:
+        return _active_context_error_response(
+            status_code=400,
+            stage="results_saved",
+            error_code="ACTIVE_CONTEXT_UNRESOLVED",
+            user_message="workspace_id and source_id are required.",
+            next_steps=["Set active context", "Retry saved query listing"],
+        )
+
+    guard_error = _require_active_context_for_workspace(workspace_id=workspace_id, stage="results_saved")
+    if guard_error is not None:
+        return guard_error
+
+    result = _sq_service().list_queries(
+        workspace_id=workspace_id,
+        state=state,
+        tag=tag,
+        limit=limit,
+        offset=offset,
+    )
+    return [item.model_dump() for item in result.items]
+
+
 @app.post("/api/v1/workspaces/{workspace_id}/queries/validate")
 def validate_query(workspace_id: str, request: QueryConfig) -> ValidateQueryResponse:
     _get_workspace(workspace_id)
+    guard_error = _require_active_context_for_workspace(workspace_id=workspace_id, stage="query")
+    if guard_error is not None:
+        raise ApiError(
+            status_code=409,
+            code="active_context_unresolved",
+            message="Active context is unresolved for query validation.",
+            details=with_correlation_details(
+                {
+                    "error_code": "ACTIVE_CONTEXT_UNRESOLVED",
+                    "stage": "query",
+                }
+            ),
+        )
 
     validator = QueryConfigValidator()
     join_validator = JoinGraphValidator()
@@ -369,6 +695,7 @@ def validate_query(workspace_id: str, request: QueryConfig) -> ValidateQueryResp
         return ValidateQueryResponse(valid=False, issues=issues)
 
     sql, _ = translator.translate(request)
+    _builder_session_service().mark_query_validated(workspace_id)
     return ValidateQueryResponse(valid=True, issues=issues, sql_preview=sql)
 
 
@@ -398,6 +725,19 @@ def preview_query(workspace_id: str, request: QueryConfig) -> QueryPreviewRespon
 def execute_query(workspace_id: str, request: QueryConfig) -> QueryExecutionResponse:
     """Execute full query and return all results."""
     _get_workspace(workspace_id)
+    guard_error = _require_active_context_for_workspace(workspace_id=workspace_id, stage="query")
+    if guard_error is not None:
+        raise ApiError(
+            status_code=409,
+            code="active_context_unresolved",
+            message="Active context is unresolved for query execution.",
+            details=with_correlation_details(
+                {
+                    "error_code": "ACTIVE_CONTEXT_UNRESOLVED",
+                    "stage": "query",
+                }
+            ),
+        )
 
     validator = QueryConfigValidator()
     issues = validator.validate(request)
@@ -568,6 +908,19 @@ def search_saved_queries(
 ) -> SavedQueryLibraryResponse:
     """Search saved queries by keyword."""
     _get_workspace(workspace_id)
+    guard_error = _require_active_context_for_workspace(workspace_id=workspace_id, stage="results_saved")
+    if guard_error is not None:
+        raise ApiError(
+            status_code=409,
+            code="active_context_unresolved",
+            message="Active context is unresolved for saved query search.",
+            details=with_correlation_details(
+                {
+                    "error_code": "ACTIVE_CONTEXT_UNRESOLVED",
+                    "stage": "results_saved",
+                }
+            ),
+        )
     return _sq_service().search_queries(
         workspace_id=workspace_id, q=q, state=state, tag=tag, limit=limit, offset=offset
     )
@@ -583,6 +936,19 @@ def list_saved_queries(
 ) -> dict[str, Any]:
     """List saved queries in a workspace."""
     _get_workspace(workspace_id)
+    guard_error = _require_active_context_for_workspace(workspace_id=workspace_id, stage="results_saved")
+    if guard_error is not None:
+        raise ApiError(
+            status_code=409,
+            code="active_context_unresolved",
+            message="Active context is unresolved for listing saved queries.",
+            details=with_correlation_details(
+                {
+                    "error_code": "ACTIVE_CONTEXT_UNRESOLVED",
+                    "stage": "results_saved",
+                }
+            ),
+        )
     result = _sq_service().list_queries(
         workspace_id=workspace_id, state=state, tag=tag, limit=limit, offset=offset
     )
@@ -606,6 +972,19 @@ def get_saved_query(workspace_id: str, query_id: str) -> SavedQueryDetailRespons
 def load_saved_query(workspace_id: str, query_id: str, version_id: str | None = None) -> LoadSavedQueryResponse:
     """Load a saved query snapshot, returning revalidation warnings."""
     _get_workspace(workspace_id)
+    guard_error = _require_active_context_for_workspace(workspace_id=workspace_id, stage="results_saved")
+    if guard_error is not None:
+        raise ApiError(
+            status_code=409,
+            code="active_context_unresolved",
+            message="Active context is unresolved for loading saved queries.",
+            details=with_correlation_details(
+                {
+                    "error_code": "ACTIVE_CONTEXT_UNRESOLVED",
+                    "stage": "results_saved",
+                }
+            ),
+        )
     try:
         return _sq_service().load_query(workspace_id=workspace_id, query_id=query_id, version_id=version_id)
     except (QueryNotFoundError, DuplicateQueryNameError, RestoreWindowExpiredError) as exc:

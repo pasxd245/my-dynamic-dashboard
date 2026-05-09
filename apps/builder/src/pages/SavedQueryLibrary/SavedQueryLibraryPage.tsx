@@ -18,6 +18,9 @@ import {
   restoreSavedQuery,
   type SavedQuerySummary,
 } from "../../api/queryApi";
+import { getActionableError } from "../../api/httpErrors";
+import type { ActionableError } from "../../api/types";
+import ActionableErrorPanel from "../../components/errors/ActionableErrorPanel";
 import SavedQuerySearch from "../../components/SavedQuery/SavedQuerySearch";
 import type { SearchFilters } from "../../components/SavedQuery/SavedQuerySearch";
 
@@ -32,6 +35,7 @@ export default function SavedQueryLibraryPage({
   const [queries, setQueries] = useState<SavedQuerySummary[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>("");
+  const [actionableError, setActionableError] = useState<ActionableError | null>(null);
   const [total, setTotal] = useState<number>(0);
   const [limit] = useState<number>(50);
   const [offset, setOffset] = useState<number>(0);
@@ -56,6 +60,7 @@ export default function SavedQueryLibraryPage({
     const fetchQueries = async (): Promise<void> => {
       setIsLoading(true);
       setError("");
+      setActionableError(null);
 
       try {
         let response;
@@ -82,6 +87,7 @@ export default function SavedQueryLibraryPage({
         setQueries(response.items);
         setTotal(response.total);
       } catch (err) {
+        setActionableError(getActionableError(err));
         const errorMsg = err instanceof Error ? err.message : "Failed to load saved queries";
         setError(errorMsg);
       } finally {
@@ -130,9 +136,11 @@ export default function SavedQueryLibraryPage({
 
     setActionInProgress(queryId);
     try {
+      setActionableError(null);
       await deleteSavedQuery(workspaceId, queryId);
       setQueries(queries.filter((q) => q.query_id !== queryId));
     } catch (err) {
+      setActionableError(getActionableError(err));
       const errorMsg = err instanceof Error ? err.message : "Failed to delete query";
       setError(errorMsg);
     } finally {
@@ -145,6 +153,7 @@ export default function SavedQueryLibraryPage({
 
     setActionInProgress(queryId);
     try {
+      setActionableError(null);
       const restored = await restoreSavedQuery(workspaceId, queryId);
       setQueries(
         queries.map((q) =>
@@ -158,6 +167,7 @@ export default function SavedQueryLibraryPage({
         ),
       );
     } catch (err) {
+      setActionableError(getActionableError(err));
       const errorMsg = err instanceof Error ? err.message : "Failed to restore query";
       setError(errorMsg);
     } finally {
@@ -171,19 +181,6 @@ export default function SavedQueryLibraryPage({
         month: "short",
         day: "numeric",
         year: "numeric",
-      });
-    } catch {
-      return dateStr;
-    }
-  };
-
-  const formatTime = (dateStr: string | undefined): string => {
-    if (!dateStr) return "Never";
-    try {
-      return new Date(dateStr).toLocaleTimeString("en-US", {
-        hour: "numeric",
-        minute: "2-digit",
-        hour12: true,
       });
     } catch {
       return dateStr;
@@ -212,6 +209,12 @@ export default function SavedQueryLibraryPage({
             isLoading={isLoading}
           />
         </div>
+
+        {actionableError && (
+          <div className="mb-4">
+            <ActionableErrorPanel error={actionableError} />
+          </div>
+        )}
 
         {/* Error Message */}
         {error && (

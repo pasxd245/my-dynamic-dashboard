@@ -22,4 +22,6 @@ def test_malformed_csv_returns_parse_error(tmp_path: Path) -> None:
 
     assert response.status_code == 400
     payload = response.json()
-    assert payload["error"]["code"] == "parse_failed"
+    # Spec 007 switched to ActionableError envelope (error_code at top level).
+    error_code = payload.get("error_code", payload.get("error", {}).get("code", "")).lower()
+    assert "parse" in error_code

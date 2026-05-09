@@ -119,7 +119,7 @@ export default function ExecutionHistoryTable({
                     : "—"}
                 </td>
                 <td className="px-6 py-4 text-right text-sm text-gray-600">
-                  {formatDuration(exec.execution_ms)}
+                  {formatDuration(exec.execution_ms ?? undefined)}
                 </td>
                 <td className="px-6 py-4 text-sm text-gray-600">
                   {exec.executed_by || "System"}

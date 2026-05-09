@@ -4,13 +4,21 @@ import type {
   QueryPreviewResponse,
   ValidateQueryResponse,
 } from "./queryBuilderTypes";
+import { throwApiRequestError } from "./httpErrors";
 
 const API_BASE = "/api/v1";
 
+function requireWorkspaceId(workspaceId: string): string {
+  const trimmed = workspaceId.trim();
+  if (!trimmed || trimmed === "default") {
+    throw new Error("Active workspace is required before query actions.");
+  }
+  return trimmed;
+}
+
 async function parseJson<T>(response: Response): Promise<T> {
   if (!response.ok) {
-    const text = await response.text();
-    throw new Error(text || `Request failed with status ${response.status}`);
+    await throwApiRequestError(response, `Request failed with status ${response.status}`);
   }
   return (await response.json()) as T;
 }
@@ -19,7 +27,8 @@ export async function validateQuery(
   workspaceId: string,
   config: QueryConfig,
 ): Promise<ValidateQueryResponse> {
-  const response = await fetch(`${API_BASE}/workspaces/${workspaceId}/queries/validate`, {
+  const resolvedWorkspaceId = requireWorkspaceId(workspaceId);
+  const response = await fetch(`${API_BASE}/workspaces/${resolvedWorkspaceId}/queries/validate`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(config),
@@ -31,7 +40,8 @@ export async function previewQuery(
   workspaceId: string,
   config: QueryConfig,
 ): Promise<QueryPreviewResponse> {
-  const response = await fetch(`${API_BASE}/workspaces/${workspaceId}/queries/preview`, {
+  const resolvedWorkspaceId = requireWorkspaceId(workspaceId);
+  const response = await fetch(`${API_BASE}/workspaces/${resolvedWorkspaceId}/queries/preview`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(config),
@@ -43,7 +53,8 @@ export async function executeQuery(
   workspaceId: string,
   config: QueryConfig,
 ): Promise<QueryExecutionResponse> {
-  const response = await fetch(`${API_BASE}/workspaces/${workspaceId}/queries/execute`, {
+  const resolvedWorkspaceId = requireWorkspaceId(workspaceId);
+  const response = await fetch(`${API_BASE}/workspaces/${resolvedWorkspaceId}/queries/execute`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(config),
@@ -56,8 +67,9 @@ export async function exportQuery(
   config: QueryConfig,
   format: "excel" | "csv",
 ): Promise<Blob> {
+  const resolvedWorkspaceId = requireWorkspaceId(workspaceId);
   const response = await fetch(
-    `${API_BASE}/workspaces/${workspaceId}/queries/export?format=${encodeURIComponent(format)}`,
+    `${API_BASE}/workspaces/${resolvedWorkspaceId}/queries/export?format=${encodeURIComponent(format)}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -66,8 +78,7 @@ export async function exportQuery(
   );
 
   if (!response.ok) {
-    const text = await response.text();
-    throw new Error(text || `Request failed with status ${response.status}`);
+    await throwApiRequestError(response, `Request failed with status ${response.status}`);
   }
   return response.blob();
 }

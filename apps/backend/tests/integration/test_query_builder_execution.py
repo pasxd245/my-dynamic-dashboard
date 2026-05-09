@@ -7,12 +7,25 @@ from app.core.metadata_db import init_metadata_db
 from app.main import app
 from app.services.query_builder_service import SqlTranslator
 from app.schemas import AggregationSpec, FilterSpec, QueryConfig, SelectedColumn, JoinSpec
+from tests.conftest import seed_source_activate
 
 
 def _bootstrap_workspace(client: TestClient) -> str:
     response = client.post("/api/v1/workspaces", json={"name": "query-integration"})
     assert response.status_code == 200
     return response.json()["id"]
+
+
+def _setup_context(client: TestClient, tmp_path: Path, monkeypatch) -> str:
+    """Bootstrap workspace+DB and set active context; returns workspace_id."""
+    db_path = tmp_path / "metadata.db"
+    parquet_root = tmp_path / "parquet"
+    monkeypatch.setattr(main_module, "DB_PATH", db_path)
+    monkeypatch.setattr(main_module, "PARQUET_ROOT", parquet_root)
+    init_metadata_db(db_path)
+    workspace_id = _bootstrap_workspace(client)
+    seed_source_activate(client, workspace_id)
+    return workspace_id
 
 
 def test_sql_translator_preserves_filter_parameter_order() -> None:
@@ -34,14 +47,8 @@ def test_sql_translator_preserves_filter_parameter_order() -> None:
 
 
 def test_validate_endpoint_reports_group_by_without_aggregation(tmp_path: Path, monkeypatch) -> None:
-    db_path = tmp_path / "metadata.db"
-    parquet_root = tmp_path / "parquet"
-    monkeypatch.setattr(main_module, "DB_PATH", db_path)
-    monkeypatch.setattr(main_module, "PARQUET_ROOT", parquet_root)
-    init_metadata_db(db_path)
-
     client = TestClient(app)
-    workspace_id = _bootstrap_workspace(client)
+    workspace_id = _setup_context(client, tmp_path, monkeypatch)
     payload = {
         "base_table_id": "sales",
         "selected_columns": [{"table_id": "sales", "column_name": "region", "alias": None}],
@@ -89,14 +96,8 @@ def test_sql_translator_with_inner_join() -> None:
 
 def test_validate_rejects_circular_joins(tmp_path: Path, monkeypatch) -> None:
     """US2 T029: Test acyclic join graph validation."""
-    db_path = tmp_path / "metadata.db"
-    parquet_root = tmp_path / "parquet"
-    monkeypatch.setattr(main_module, "DB_PATH", db_path)
-    monkeypatch.setattr(main_module, "PARQUET_ROOT", parquet_root)
-    init_metadata_db(db_path)
-
     client = TestClient(app)
-    workspace_id = _bootstrap_workspace(client)
+    workspace_id = _setup_context(client, tmp_path, monkeypatch)
     payload = {
         "base_table_id": "orders",
         "selected_columns": [{"table_id": "orders", "column_name": "order_id", "alias": None}],
@@ -175,14 +176,8 @@ def test_preview_timeout_returns_408(tmp_path: Path, monkeypatch) -> None:
 # US4: Execute
 def test_execute_endpoint_returns_full_results(tmp_path: Path, monkeypatch) -> None:
     """US4 T045: Test full execution returns all results with metadata."""
-    db_path = tmp_path / "metadata.db"
-    parquet_root = tmp_path / "parquet"
-    monkeypatch.setattr(main_module, "DB_PATH", db_path)
-    monkeypatch.setattr(main_module, "PARQUET_ROOT", parquet_root)
-    init_metadata_db(db_path)
-
     client = TestClient(app)
-    workspace_id = _bootstrap_workspace(client)
+    workspace_id = _setup_context(client, tmp_path, monkeypatch)
     payload = {
         "base_table_id": "sales",
         "selected_columns": [{"table_id": "sales", "column_name": "region", "alias": None}],
@@ -229,14 +224,8 @@ def test_export_endpoint_with_excel_format(tmp_path: Path, monkeypatch) -> None:
 # E2E Test: Build → Preview → Execute → Export (T079)
 def test_e2e_build_preview_execute_export(tmp_path: Path, monkeypatch) -> None:
     """T079: End-to-end workflow: build query -> preview -> execute -> export."""
-    db_path = tmp_path / "metadata.db"
-    parquet_root = tmp_path / "parquet"
-    monkeypatch.setattr(main_module, "DB_PATH", db_path)
-    monkeypatch.setattr(main_module, "PARQUET_ROOT", parquet_root)
-    init_metadata_db(db_path)
-
     client = TestClient(app)
-    workspace_id = _bootstrap_workspace(client)
+    workspace_id = _setup_context(client, tmp_path, monkeypatch)
 
     # Step 1: Build query
     build_payload = {
@@ -290,14 +279,8 @@ def test_e2e_build_preview_execute_export(tmp_path: Path, monkeypatch) -> None:
 # E2E Test: Build → Preview → Execute → Export with Joins (T079)
 def test_e2e_with_joins_and_approved_relationships(tmp_path: Path, monkeypatch) -> None:
     """T079: E2E workflow with approved relationship joins."""
-    db_path = tmp_path / "metadata.db"
-    parquet_root = tmp_path / "parquet"
-    monkeypatch.setattr(main_module, "DB_PATH", db_path)
-    monkeypatch.setattr(main_module, "PARQUET_ROOT", parquet_root)
-    init_metadata_db(db_path)
-
     client = TestClient(app)
-    workspace_id = _bootstrap_workspace(client)
+    workspace_id = _setup_context(client, tmp_path, monkeypatch)
 
     # Build query with join
     build_payload = {
@@ -341,14 +324,8 @@ def test_e2e_with_joins_and_approved_relationships(tmp_path: Path, monkeypatch) 
 # E2E Test: Save → Reload → Execute → History (T080)
 def test_e2e_save_reload_execute_history(tmp_path: Path, monkeypatch) -> None:
     """T080: End-to-end saved query workflow: save -> reload -> execute -> history."""
-    db_path = tmp_path / "metadata.db"
-    parquet_root = tmp_path / "parquet"
-    monkeypatch.setattr(main_module, "DB_PATH", db_path)
-    monkeypatch.setattr(main_module, "PARQUET_ROOT", parquet_root)
-    init_metadata_db(db_path)
-
     client = TestClient(app)
-    workspace_id = _bootstrap_workspace(client)
+    workspace_id = _setup_context(client, tmp_path, monkeypatch)
 
     query_config = {
         "base_table_id": "sales",
@@ -405,14 +382,8 @@ def test_e2e_save_reload_execute_history(tmp_path: Path, monkeypatch) -> None:
 # E2E Test: Saved queries CRUD and list operations (T080)
 def test_e2e_saved_queries_full_lifecycle(tmp_path: Path, monkeypatch) -> None:
     """T080: Full saved query lifecycle with CRUD operations."""
-    db_path = tmp_path / "metadata.db"
-    parquet_root = tmp_path / "parquet"
-    monkeypatch.setattr(main_module, "DB_PATH", db_path)
-    monkeypatch.setattr(main_module, "PARQUET_ROOT", parquet_root)
-    init_metadata_db(db_path)
-
     client = TestClient(app)
-    workspace_id = _bootstrap_workspace(client)
+    workspace_id = _setup_context(client, tmp_path, monkeypatch)
 
     query_config = {
         "base_table_id": "sales",

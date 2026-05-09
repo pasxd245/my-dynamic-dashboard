@@ -1,5 +1,4 @@
 import type {
-  ApiError,
   WorkspaceCreateRequest,
   WorkspaceResponse,
   UploadResponse,
@@ -10,22 +9,7 @@ import type {
   ManifestResponse,
   ImportManifestPayload,
 } from "./types";
-
-async function readApiError(response: Response, fallbackMessage: string): Promise<string> {
-  try {
-    const payload = (await response.json()) as ApiError;
-    const detailMessage = payload?.error?.message;
-    const mismatchDetails = payload?.error?.details?.mismatches;
-
-    if (Array.isArray(mismatchDetails) && mismatchDetails.length > 0) {
-      return `${detailMessage ?? fallbackMessage}: ${JSON.stringify(mismatchDetails)}`;
-    }
-
-    return detailMessage ?? fallbackMessage;
-  } catch {
-    return fallbackMessage;
-  }
-}
+import { throwApiRequestError } from "./httpErrors";
 
 export async function createWorkspace(name: string): Promise<WorkspaceResponse> {
   const response = await fetch("/api/v1/workspaces", {
@@ -37,7 +21,7 @@ export async function createWorkspace(name: string): Promise<WorkspaceResponse> 
   });
 
   if (!response.ok) {
-    throw new Error(await readApiError(response, "Failed to create workspace"));
+    await throwApiRequestError(response, "Failed to create workspace");
   }
 
   return response.json() as Promise<WorkspaceResponse>;
@@ -56,7 +40,7 @@ export async function uploadSource(
   });
 
   if (!response.ok) {
-    throw new Error(await readApiError(response, "Failed to upload source"));
+    await throwApiRequestError(response, "Failed to upload source");
   }
 
   return response.json() as Promise<UploadResponse>;
@@ -76,7 +60,7 @@ export async function overrideSheet(
   });
 
   if (!response.ok) {
-    throw new Error(await readApiError(response, "Failed to override sheet settings"));
+    await throwApiRequestError(response, "Failed to override sheet settings");
   }
 
   return response.json();
@@ -86,7 +70,7 @@ export async function getWorkspaceProfile(workspaceId: string): Promise<ProfileR
   const response = await fetch(`/api/v1/workspaces/${workspaceId}/profile`);
 
   if (!response.ok) {
-    throw new Error(await readApiError(response, "Failed to fetch workspace profile"));
+    await throwApiRequestError(response, "Failed to fetch workspace profile");
   }
 
   return response.json() as Promise<ProfileResponse>;
@@ -106,7 +90,7 @@ export async function assignColumnRoles(
   });
 
   if (!response.ok) {
-    throw new Error(await readApiError(response, "Failed to assign column role"));
+    await throwApiRequestError(response, "Failed to assign column role");
   }
 }
 
@@ -114,7 +98,7 @@ export async function getReadiness(workspaceId: string): Promise<ReadinessRespon
   const response = await fetch(`/api/v1/workspaces/${workspaceId}/readiness`);
 
   if (!response.ok) {
-    throw new Error(await readApiError(response, "Failed to fetch readiness"));
+    await throwApiRequestError(response, "Failed to fetch readiness");
   }
 
   return response.json() as Promise<ReadinessResponse>;
@@ -126,7 +110,7 @@ export async function exportManifest(workspaceId: string): Promise<ManifestRespo
   });
 
   if (!response.ok) {
-    throw new Error(await readApiError(response, "Failed to export manifest"));
+    await throwApiRequestError(response, "Failed to export manifest");
   }
 
   return response.json() as Promise<ManifestResponse>;
@@ -142,7 +126,7 @@ export async function importManifest(manifest: ManifestResponse): Promise<Worksp
   });
 
   if (!response.ok) {
-    throw new Error(await readApiError(response, "Failed to import manifest"));
+    await throwApiRequestError(response, "Failed to import manifest");
   }
 
   return response.json() as Promise<WorkspaceResponse>;

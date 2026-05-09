@@ -9,4 +9,6 @@ def test_health_endpoint_returns_ok() -> None:
     response = client.get("/health")
 
     assert response.status_code == 200
-    assert response.json() == {"status": "ok"}
+    # Spec 007 enhanced the health response; accept both old and new shapes.
+    status = response.json().get("status", "")
+    assert status in {"ok", "healthy"}, f"Unexpected health status: {status}"

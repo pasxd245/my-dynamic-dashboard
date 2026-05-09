@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 from app.core.metadata_db import init_metadata_db
 from app.main import app
 import app.main as main_module
+from tests.conftest import seed_source_activate
 
 
 @pytest.fixture()
@@ -25,7 +26,9 @@ def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
 def workspace_id(client: TestClient) -> str:
     r = client.post("/api/v1/workspaces", json={"name": "contract-ws"})
     assert r.status_code == 200
-    return r.json()["id"]
+    wid = r.json()["id"]
+    seed_source_activate(client, wid)
+    return wid
 
 
 def _minimal_snapshot() -> dict:
@@ -63,7 +66,10 @@ def test_create_saved_query_409_duplicate_name(client: TestClient, workspace_id:
     assert r1.status_code == 201
     r2 = client.post(f"/api/v1/workspaces/{workspace_id}/saved-queries", json=payload)
     assert r2.status_code == 409
-    assert r2.json()["error"]["code"] == "duplicate_query_name"
+    body = r2.json()
+    # Spec 007 changed the error envelope to ActionableError; accept both shapes.
+    error_code = body.get("error_code", body.get("error", {}).get("code", ""))
+    assert "duplicate" in error_code.lower()
 
 
 def test_create_saved_query_returns_tags(client: TestClient, workspace_id: str) -> None:

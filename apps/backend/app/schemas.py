@@ -621,6 +621,12 @@ HealthStatus = Literal["healthy", "degraded", "not_ready"]
 BackupStatus = Literal["created", "validated", "failed", "retained", "pruned"]
 RestoreStatus = Literal["validating", "restoring", "completed", "failed"]
 DeploymentStatus = Literal["draft", "validated", "deployed", "rolled_back", "superseded"]
+ConnectionReadinessStatus = Literal["ready", "degraded", "unavailable"]
+DependencyReadinessStatus = Literal["ok", "degraded", "failed"]
+ActiveContextState = Literal["resolved", "unresolved", "stale"]
+WorkflowStageKey = Literal["upload_source", "schema_sheet", "query", "results_saved"]
+WorkflowStageStatus = Literal["locked", "ready", "in_progress", "completed"]
+ActionableErrorStage = Literal["upload_source", "schema_sheet", "query", "results_saved", "global"]
 
 
 class HealthDependency(BaseModel):
@@ -686,3 +692,104 @@ class RestoreRunDto(BaseModel):
     validation_result: Literal["passed", "failed"] | None = None
     started_at_utc: str
     finished_at_utc: str | None = None
+
+
+# -- Spec 007: Builder Experience Hardening -----------------------------------
+
+
+class DependencyStatus(BaseModel):
+    name: str
+    status: DependencyReadinessStatus
+    detail: str | None = None
+
+
+class ConnectionStatus(BaseModel):
+    status: ConnectionReadinessStatus
+    last_checked_at_utc: str
+    summary: str
+    guidance: str
+    dependencies: list[DependencyStatus] = Field(default_factory=list)
+    degraded_capabilities: list[str] = Field(default_factory=list)
+    correlation_id: str | None = None
+
+
+class ActiveWorkspaceContext(BaseModel):
+    state: ActiveContextState
+    workspace_id: str | None = None
+    workspace_name: str | None = None
+    selected_at_utc: str | None = None
+    resolved_at_utc: str | None = None
+
+
+class ActiveSourceContext(BaseModel):
+    state: ActiveContextState
+    source_id: str | None = None
+    source_name: str | None = None
+    workspace_id: str | None = None
+    selected_at_utc: str | None = None
+    resolved_at_utc: str | None = None
+
+
+class WorkflowStage(BaseModel):
+    stage_key: WorkflowStageKey
+    title: str
+    order_index: int
+    status: WorkflowStageStatus
+    prerequisites: list[str] = Field(default_factory=list)
+    missing_prerequisites: list[str] = Field(default_factory=list)
+    next_stage_key: WorkflowStageKey | None = None
+    previous_stage_key: WorkflowStageKey | None = None
+
+
+class BuilderSessionState(BaseModel):
+    connection_status: ConnectionStatus
+    active_workspace: ActiveWorkspaceContext
+    active_source: ActiveSourceContext
+    current_stage: WorkflowStageKey
+    stages: list[WorkflowStage] = Field(default_factory=list)
+
+
+class ActionableError(BaseModel):
+    error_code: str
+    stage: ActionableErrorStage
+    user_message: str
+    next_steps: list[str] = Field(default_factory=list)
+    technical_details: dict[str, Any] | None = None
+    show_technical_by_default: bool = False
+    correlation_id: str
+    occurred_at_utc: str
+
+
+class SetActiveContextRequest(BaseModel):
+    workspace_id: str
+    source_id: str
+
+
+class ActiveContextResponse(BaseModel):
+    workspace: ActiveWorkspaceContext
+    source: ActiveSourceContext
+
+
+SmokeStageKey = Literal["create_workspace", "upload_source", "validate_query", "list_saved_queries"]
+SmokeStageStatus = Literal["passed", "failed", "skipped"]
+SmokeRunStatus = Literal["passed", "failed"]
+
+
+class SmokeStageResult(BaseModel):
+    stage: SmokeStageKey
+    status: SmokeStageStatus
+    message: str
+    diagnostics: dict[str, Any] = Field(default_factory=dict)
+
+
+class SmokeRunRequest(BaseModel):
+    simulate_failure_stage: SmokeStageKey | None = None
+
+
+class SmokeFlowResult(BaseModel):
+    run_id: str
+    status: SmokeRunStatus
+    started_at_utc: str
+    completed_at_utc: str
+    first_failed_stage: SmokeStageKey | None = None
+    stages: list[SmokeStageResult] = Field(default_factory=list)

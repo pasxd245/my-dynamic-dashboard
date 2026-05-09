@@ -151,3 +151,42 @@ Feature 007 is task-ready when all five gates include:
 2. measurable pass/fail evidence,
 3. requirement traceability,
 4. explicit no-fallback enforcement checks.
+
+## Validation Notes (2026-05-09)
+
+### Executed Checks
+
+1. Backend smoke/contract integration tests:
+
+```bash
+PYTHONPATH=apps/backend pytest \
+  apps/backend/tests/contract/test_builder_experience_contract.py \
+  apps/backend/tests/integration/test_builder_workflow_smoke.py -q
+```
+
+Result: `12 passed`.
+
+1. Smoke runner script (stub mode success):
+
+```bash
+BUILDER_SMOKE_MODE=stub bash scripts/dev/builder-workflow-smoke.sh
+```
+
+Result: all four stages reported `status=passed`.
+
+1. Smoke runner script (stub mode forced failure):
+
+```bash
+BUILDER_SMOKE_MODE=stub BUILDER_SMOKE_FAIL_STAGE=upload_source \
+  bash scripts/dev/builder-workflow-smoke.sh
+```
+
+Result: `first_failed_stage=upload_source` with downstream stages marked `skipped`.
+
+### Gate Snapshot
+
+- Phase A (Connectivity Preflight): PASS (ready/degraded/unavailable path covered by integration tests).
+- Phase B (Explicit State): PASS (active-context guarded behavior covered by contract/integration tests).
+- Phase C (Actionable Errors): PASS (guidance-first envelope asserted across upload/profile/query/saved).
+- Phase D (Workflow Shell IA): PARTIAL (stage model/routing/persistence implemented; full UI integration test still pending).
+- Phase E (Smoke Flow): PASS (endpoint + script diagnostics validated, including first-failed-stage behavior).

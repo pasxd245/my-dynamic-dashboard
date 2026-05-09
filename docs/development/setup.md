@@ -59,3 +59,23 @@ python -m pytest tests/ -v
 ```
 
 Coverage includes contract tests (API shape), integration tests (SQL generation, validation), and E2E workflows (build → preview → execute → export; save → reload → execute → history; saved-query CRUD lifecycle).
+
+## Builder Workflow Shell (Spec 007)
+
+- Open `http://localhost:3000/workflow/upload-source` for the stage-oriented shell.
+- Stage navigation persists in session storage and stays lock-aware to prerequisites.
+- Active workspace/source context and connection status are shown persistently in the shell header.
+- Query and Results/Saved stages remain blocked until active context is resolved.
+
+Smoke commands:
+
+```bash
+# Local/stub smoke (deterministic diagnostics)
+pnpm dev:builder:smoke:stub
+
+# Local backend smoke endpoint execution
+pnpm dev:builder:smoke:docker
+
+# Compose profile smoke runner (requires backend service up)
+docker compose -f devops/compose.yaml --profile smoke run --rm builder-smoke
+```

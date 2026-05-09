@@ -3,7 +3,7 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 import app.main as main_module
-from app.core.metadata_db import init_metadata_db
+from app.core.metadata_db import get_connection, init_metadata_db
 from app.main import app
 
 
@@ -13,15 +13,44 @@ def _bootstrap_workspace(client: TestClient) -> str:
     return response.json()["id"]
 
 
+def _seed_source_for_workspace(workspace_id: str, source_id: str) -> None:
+    with get_connection(main_module.DB_PATH) as conn:
+        conn.execute(
+            """
+            INSERT INTO source_files (
+                id, workspace_id, filename_original, extension, content_hash,
+                encoding_detected, parse_status, reject_reason, uploaded_at
+            ) VALUES (?, ?, ?, ?, ?, ?, 'parsed', NULL, ?)
+            """,
+            (
+                source_id,
+                workspace_id,
+                "query-contract.csv",
+                "csv",
+                "abc123",
+                "utf-8",
+                "2026-01-01T00:00:00Z",
+            ),
+        )
+
+
 def test_query_validate_contract_shape(tmp_path: Path, monkeypatch) -> None:
     db_path = tmp_path / "metadata.db"
     parquet_root = tmp_path / "parquet"
     monkeypatch.setattr(main_module, "DB_PATH", db_path)
     monkeypatch.setattr(main_module, "PARQUET_ROOT", parquet_root)
+    main_module.BUILDER_SESSION_SERVICE.reset_active_context()
     init_metadata_db(db_path)
 
     client = TestClient(app)
     workspace_id = _bootstrap_workspace(client)
+    source_id = "src-qbc-1"
+    _seed_source_for_workspace(workspace_id, source_id)
+    ctx_resp = client.put(
+        "/api/v1/workspaces/active-context",
+        json={"workspace_id": workspace_id, "source_id": source_id},
+    )
+    assert ctx_resp.status_code == 200
     payload = {
         "base_table_id": "sales",
         "selected_columns": [{"table_id": "sales", "column_name": "region", "alias": None}],
@@ -71,10 +100,18 @@ def test_query_validate_missing_filter_value_returns_issue(tmp_path: Path, monke
     parquet_root = tmp_path / "parquet"
     monkeypatch.setattr(main_module, "DB_PATH", db_path)
     monkeypatch.setattr(main_module, "PARQUET_ROOT", parquet_root)
+    main_module.BUILDER_SESSION_SERVICE.reset_active_context()
     init_metadata_db(db_path)
 
     client = TestClient(app)
     workspace_id = _bootstrap_workspace(client)
+    source_id = "src-qbc-2"
+    _seed_source_for_workspace(workspace_id, source_id)
+    ctx_resp = client.put(
+        "/api/v1/workspaces/active-context",
+        json={"workspace_id": workspace_id, "source_id": source_id},
+    )
+    assert ctx_resp.status_code == 200
     payload = {
         "base_table_id": "sales",
         "selected_columns": [{"table_id": "sales", "column_name": "region", "alias": None}],
