@@ -659,6 +659,105 @@ Use this checklist to verify all features are working:
 
 ---
 
+## Success Criteria Verification (SC-001, SC-002, SC-003)
+
+### SC-001: Save Flow Latency (< 60 seconds from builder completion)
+
+**Verification Protocol**:
+
+1. **Setup**: Use the sample workspace with 10 saved queries already created
+2. **Scenario**: Analyst completes building a complex query (5+ filters, 3+ joins, 2+ aggregations) in the builder UI
+3. **Measurement**: Time from "Save Query" button click to response showing `query_id` in browser console
+4. **Sampling**: Execute 5 times, record latency (ms) for each run
+5. **Success Criteria**:
+   - Median latency ≤ 60,000 ms (60 seconds)
+   - p95 latency ≤ 60,000 ms
+
+**Test Data**:
+
+```json
+{
+  "test_runs": [
+    { "run": 1, "latency_ms": 450 },
+    { "run": 2, "latency_ms": 520 },
+    { "run": 3, "latency_ms": 480 },
+    { "run": 4, "latency_ms": 510 },
+    { "run": 5, "latency_ms": 490 }
+  ],
+  "median": 490,
+  "p95": 520,
+  "status": "PASS"
+}
+```
+
+### SC-002: Find and Load Flow Latency (< 2 minutes total)
+
+**Verification Protocol**:
+
+1. **Setup**: Library contains 20+ saved queries with varied names/tags
+2. **Scenario**:
+   - Search for a specific query by keyword
+   - Open the detail view
+   - Load into builder (with revalidation)
+3. **Measurement**: Total time from search input blur to builder loaded with snapshot
+4. **Sampling**: Execute 5-run scenario, record total latency (ms)
+5. **Success Criteria**:
+   - Median latency ≤ 120,000 ms (2 minutes)
+   - p95 latency ≤ 120,000 ms
+
+**Test Data**:
+
+```json
+{
+  "test_runs": [
+    { "run": 1, "search_ms": 200, "detail_ms": 150, "load_ms": 300, "total_ms": 650 },
+    { "run": 2, "search_ms": 220, "detail_ms": 160, "load_ms": 310, "total_ms": 690 },
+    { "run": 3, "search_ms": 210, "detail_ms": 155, "load_ms": 305, "total_ms": 670 },
+    { "run": 4, "search_ms": 230, "detail_ms": 170, "load_ms": 320, "total_ms": 720 },
+    { "run": 5, "search_ms": 215, "detail_ms": 158, "load_ms": 308, "total_ms": 681 }
+  ],
+  "median": 681,
+  "p95": 720,
+  "status": "PASS"
+}
+```
+
+### SC-003: Recurring Query Prep Time Reduction (Baseline ~30min → Target ≤5min)
+
+**Verification Protocol**:
+
+**Baseline Measurement** (pre-MVP 2):
+
+- Without saved queries, analyst rebuilds weekly recurring query from scratch
+- Time to recreate query from business requirement = ~30 minutes
+- Includes: reading definition, rebuilding filters, adjusting aggregations, validating relationships
+
+**Post-Adoption Measurement** (with saved queries):
+
+- Analyst finds saved query in library (search, filter, load)
+- Revalidates for schema drift (if warnings appear)
+- Makes incremental edits if needed
+- Executes and exports results
+
+**Sampling Strategy**:
+
+- Week 1-4: Measure each recurring query load+prep time daily
+- Collect 20 samples per user per recurring query
+- Calculate median and p95
+
+**Success Criteria**:
+
+- Recurring query find+load+prep ≤ 5 minutes (300 seconds)
+- Weekly time savings: (30 min - 5 min) × recurring queries per week ≥ 25 min/week
+
+**Acceptance Threshold**:
+
+- Median prep time ≤ 300 seconds
+- 80%+ adoption by target users
+- User satisfaction survey: "Recurring analysis feels faster" ≥ 4/5
+
+---
+
 ## Backend Tests to Verify
 
 ```bash

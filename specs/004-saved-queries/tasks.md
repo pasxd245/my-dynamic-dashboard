@@ -233,8 +233,8 @@ Purpose: Integrate all components, validate workflows, update documentation.
 - [ ] T102 [P] Update QueryBuilder to expose "Save Query" button for triggered SaveQueryDialog flow in apps/builder/src/components/QueryBuilder.tsx
 - [x] T103 [P] Add end-to-end regression scenarios: save query → search → load → execute; duplicate → edit → version 2; soft-delete → restore in apps/backend/tests/integration/test_saved_query_lifecycle.py
 - [x] T104 [P] Add builder smoke test: pnpm --filter builder build completes without errors; manual flow for save/load/duplicate/delete in apps/builder/
-- [ ] T105 Update execution and verification steps in specs/004-saved-queries/quickstart.md for complete flows
-- [ ] T106 [P] Extend repository documentation: README.md add saved queries usage section with screenshots/examples
+- [x] T105 Update execution and verification steps in specs/004-saved-queries/quickstart.md for complete flows
+- [x] T106 [P] Extend repository documentation: README.md add saved queries usage section with screenshots/examples
 
 ---
 
@@ -342,7 +342,7 @@ T001, T002, T003, T004, T005 → simultaneous scaffolding
 ## Summary
 
 **Total Tasks**: 109
-**Completion (Round 17 reconciliation)**: 70 complete, 39 open
+**Completion (Round 17 + Documentation)**: 72 complete, 37 open
 
 **By Phase**:
 

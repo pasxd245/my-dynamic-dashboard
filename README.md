@@ -82,6 +82,57 @@ Build queries visually with full feature set:
 - Config hash generation for reproducibility
 - Query duplication and version management
 
+### ✅ Spec 004: Saved Queries (Complete)
+
+Enable analysts to persist, version, search, and reuse ad-hoc queries with full audit trail and soft-delete recovery.
+
+#### **US1: Save a Query** ✅
+
+- Save query from builder with name, description, and tags
+- Automatic tag normalization (lowercase, deduplicate)
+- Builder snapshot and SQL snapshot capture (immutable)
+- Duplicate name detection within workspace
+- Version 1 auto-creation with event logging
+
+#### **US2: Browse and Search Library** ✅
+
+- List all saved queries with pagination (50 per page)
+- Keyword search across name, description, tags (case-insensitive)
+- Tag-based filtering with autocomplete suggestions
+- Exclude soft-deleted queries from active list
+- Execution count and version count summaries
+
+#### **US3: Load and Inspect** ✅
+
+- Retrieve query detail with full version history
+- Revalidation on load (column existence, relationship status, base table)
+- Validation warnings for schema drift (non-blocking)
+- Load specific version by version_id
+- Builder snapshot return for UI reload
+
+#### **US4: Duplicate and Create Versions** ✅
+
+- Duplicate saved query to new independent entry with lineage (`source_query_id`)
+- Update query metadata (name, description, tags)
+- Create new immutable version on builder snapshot change
+- Auto-increment version numbers with parent-version-id chain
+- Change summary capture per version update
+
+#### **US5: Soft Delete and Recovery** ✅
+
+- Soft-delete saved queries with 24-hour recovery window
+- Exclude deleted queries from active library (state=active)
+- Restore deleted queries within grace period
+- Reject restore after expiry (409 Conflict)
+- Preserve execution history and event trail across delete
+
+#### **Supporting Features**
+
+- Execution history tracking: query_id, version_id, status, row_count, duration, executed_by
+- Event logging: create, update, delete, restore, duplicate events with timestamps
+- Workspace-scoped CRUD: All operations scoped by workspace_id
+- Structured error handling: 404 (not found), 409 (conflict/expired), 400 (validation)
+
 ---
 
 ## Architecture
@@ -95,29 +146,51 @@ Build queries visually with full feature set:
   - `JoinGraphValidator`: Approved-only and acyclic join validation
   - `QueryExecutionService`: Timeout enforcement, memory checks, result handling
   - `QueryExportService`: Excel/CSV export with lineage metadata
-  - `QueryPersistenceService`: Saved query CRUD and history tracking
+  - `SavedQueryService`: Immutable versioning, search, revalidation, soft-delete recovery (Spec 004)
 
-- **Endpoints** (50 tests covering contract + integration + E2E):
-  - `POST /api/v1/workspaces/{id}/queries/validate` — Validate query with SQL preview
-  - `POST /api/v1/workspaces/{id}/queries/preview` — LIMIT 100 preview with metadata
-  - `POST /api/v1/workspaces/{id}/queries/execute` — Full execution with state tracking
-  - `POST /api/v1/workspaces/{id}/queries/export` — Excel/CSV export
-  - `POST/GET/PUT/DELETE /api/v1/workspaces/{id}/saved-queries` — CRUD operations
-  - `GET /api/v1/workspaces/{id}/saved-queries/{id}/executions` — Execution history
+- **Database Tables**:
+  - `saved_queries`: Query metadata with version/execution counters, soft-delete columns
+  - `saved_query_versions`: Immutable versioned snapshots with parent-version lineage
+  - `saved_query_events`: Audit trail (create, update, delete, restore, duplicate)
+  - `saved_query_executions`: Execution history with status, row count, duration per version
+
+- **Endpoints** (90 tests covering contract + integration + E2E):
+  - **Query Execution** (Spec 003):
+    - `POST /api/v1/workspaces/{id}/queries/validate` — Validate query with SQL preview
+    - `POST /api/v1/workspaces/{id}/queries/preview` — LIMIT 100 preview with metadata
+    - `POST /api/v1/workspaces/{id}/queries/execute` — Full execution with state tracking
+    - `POST /api/v1/workspaces/{id}/queries/export` — Excel/CSV export
+  - **Saved Queries** (Spec 004):
+    - `POST /api/v1/workspaces/{id}/saved-queries` — Save new query (201)
+    - `GET /api/v1/workspaces/{id}/saved-queries` — List with pagination/filtering
+    - `GET /api/v1/workspaces/{id}/saved-queries/search` — Keyword + tag search
+    - `GET /api/v1/workspaces/{id}/saved-queries/{queryId}` — Detail with version history
+    - `POST /api/v1/workspaces/{id}/saved-queries/{queryId}/load` — Load with revalidation
+    - `PATCH /api/v1/workspaces/{id}/saved-queries/{queryId}` — Update (creates new version)
+    - `POST /api/v1/workspaces/{id}/saved-queries/{queryId}/duplicate` — Duplicate as new entry
+    - `DELETE /api/v1/workspaces/{id}/saved-queries/{queryId}` — Soft-delete (24h recovery)
+    - `POST /api/v1/workspaces/{id}/saved-queries/{queryId}/restore` — Restore from deletion
+    - `GET /api/v1/workspaces/{id}/saved-queries/{queryId}/executions` — Execution history
 
 ### Frontend (React 18 + TypeScript + Vite)
 
 - **Components**:
   - `QueryBuilderPanel`: Main UI with base table, columns, filters, aggregations, SQL preview
-  - `JoinPanel`: Join relationship builder (scaffolded for integration)
-  - `PreviewPanel`: LIMIT 100 results display (scaffolded)
-  - `ExecutionPanel`: Full execution results (scaffolded)
-  - `ExportPanel`: Excel/CSV download (scaffolded)
-  - `SavedQueriesPanel`: Query library and CRUD (scaffolded)
+  - `JoinPanel`: Join relationship builder
+  - `PreviewPanel`: LIMIT 100 results display
+  - `ExecutionPanel`: Full execution results
+  - `ExportPanel`: Excel/CSV download
+  - **Saved Queries** (Spec 004):
+    - `SaveQueryDialog`: Save form with name, description, tag input
+    - `SavedQueryLibraryPage`: Library browser with search/filter/pagination
+    - `SavedQueryDetail`: Detail view with metadata, version timeline, execution history
+    - `VersionTimeline`: Immutable version history with clickable load actions
+    - `ExecutionHistoryTable`: Execution runs with timestamps, status, row counts, duration
+    - `UpdateQueryDialog`: Update metadata or create new version
 
-- **API Client** (`src/api/queryBuilderApi.ts`):
-  - Async functions: `validateQuery()`, `previewQuery()`, `executeQuery()`, `exportQuery()`
-  - Saved query CRUD: `saveQuery()`, `listQueries()`, `getQuery()`, `updateQuery()`, `deleteQuery()`
+- **API Client** (`src/api/queryApi.ts`):
+  - Query execution: `validateQuery()`, `previewQuery()`, `executeQuery()`, `exportQuery()`
+  - Saved queries: `createSavedQuery()`, `listSavedQueries()`, `searchSavedQueries()`, `getSavedQuery()`, `loadSavedQuery()`, `updateSavedQuery()`, `duplicateSavedQuery()`, `deleteSavedQuery()`, `restoreSavedQuery()`, `getExecutionHistory()`
   - History: `getQueryHistory()`
 
 ---
