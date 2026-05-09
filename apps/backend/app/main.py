@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import uuid
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import JSONResponse, Response
@@ -47,6 +47,23 @@ from app.schemas import (
     WorkspaceCreateRequest,
     WorkspaceProfileResponse,
     WorkspaceResponse,
+)
+from app.schemas import (
+    DuplicateSavedQueryRequest,
+    ExecutionHistoryResponse,
+    LoadSavedQueryResponse,
+    RecoveryWindowResponse,
+    SaveQueryRequest,
+    SaveQueryResponse,
+    SavedQueryDetailResponse,
+    SavedQueryLibraryResponse,
+    UpdateSavedQueryRequest,
+)
+from app.services.query_service import (
+    DuplicateQueryNameError,
+    QueryNotFoundError,
+    RestoreWindowExpiredError,
+    SavedQueryService,
 )
 from app.services.profile_service import compute_column_profile, compute_profiles
 from app.services.profile_service import validate_role_compatibility
@@ -240,15 +257,40 @@ def execute_query(workspace_id: str, request: QueryConfig) -> QueryExecutionResp
     if has_errors:
         raise_query_error("VALIDATION_ERROR", "Query validation failed", {"issues": [i.model_dump() for i in issues]})
 
-    # For now, return empty results with lineage metadata
-    # In production, this would execute against DuckDB
-    return QueryExecutionResponse(
-        rows=[],
-        total_rows=0,
-        execution_time_ms=0,
-        state="COMPLETED",
-        lineage=LineageMetadata(),
-    )
+    try:
+        # For now, return empty results with lineage metadata
+        # In production, this would execute against DuckDB
+        response = QueryExecutionResponse(
+            rows=[],
+            total_rows=0,
+            execution_time_ms=0,
+            state="COMPLETED",
+            lineage=LineageMetadata(),
+        )
+
+        if request.saved_query_id:
+            _sq_service().record_execution(
+                query_id=request.saved_query_id,
+                version_id=request.saved_query_version_id,
+                executed_by="system",
+                status="completed",
+                row_count=response.total_rows,
+                execution_ms=response.execution_time_ms,
+            )
+
+        return response
+    except Exception as exc:
+        if request.saved_query_id:
+            _sq_service().record_execution(
+                query_id=request.saved_query_id,
+                version_id=request.saved_query_version_id,
+                executed_by="system",
+                status="failed",
+                row_count=0,
+                execution_ms=0,
+                error_message=str(exc),
+            )
+        raise
 
 
 @app.post("/api/v1/workspaces/{workspace_id}/queries/export")
@@ -271,83 +313,206 @@ def export_query(workspace_id: str, request: QueryConfig, format: str = "excel")
         return Response(content=b"", media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", headers={"Content-Disposition": "attachment; filename=export.xlsx"})
 
 
-@app.post("/api/v1/workspaces/{workspace_id}/saved-queries", status_code=201)
-def save_query(workspace_id: str, request: SavedQueryRequest) -> SavedQueryResponse:
-    """Save a query configuration for later reuse."""
-    _get_workspace(workspace_id)
-    now = utc_now_iso()
-    query_id = str(uuid.uuid4())
-    # For now, return a placeholder response
-    return SavedQueryResponse(
-        query_id=query_id,
-        workspace_id=workspace_id,
+
+def _sq_service() -> SavedQueryService:
+    return SavedQueryService(db_path=DB_PATH)
+
+
+def _handle_sq_errors(exc: Exception) -> None:
+    if isinstance(exc, QueryNotFoundError):
+        raise ApiError(status_code=404, code="query_not_found", message=str(exc))
+    if isinstance(exc, DuplicateQueryNameError):
+        raise ApiError(status_code=409, code="duplicate_query_name", message=str(exc))
+    if isinstance(exc, RestoreWindowExpiredError):
+        raise ApiError(
+            status_code=409,
+            code="restore_window_expired",
+            message=str(exc),
+            details={"recoverable_until": exc.recoverable_until},
+        )
+    raise exc
+
+
+def _to_save_query_request(request: SaveQueryRequest | SavedQueryRequest) -> SaveQueryRequest:
+    if isinstance(request, SaveQueryRequest):
+        return request
+    config_payload = request.config.model_dump() if hasattr(request.config, "model_dump") else request.config
+    return SaveQueryRequest(
         name=request.name,
         description=request.description,
-        config_hash="mock_hash",
-        config=request.config,
-        created_at=now,
-        updated_at=now,
-        last_executed_at=None,
+        builder_snapshot=config_payload,
+        tags=[],
+    )
+
+
+@app.post("/api/v1/workspaces/{workspace_id}/saved-queries", status_code=201)
+def save_query(workspace_id: str, request: SaveQueryRequest | SavedQueryRequest) -> SaveQueryResponse:
+    """Save a query configuration for later reuse."""
+    _get_workspace(workspace_id)
+    try:
+        return _sq_service().create_query(workspace_id=workspace_id, request=_to_save_query_request(request))
+    except (QueryNotFoundError, DuplicateQueryNameError, RestoreWindowExpiredError) as exc:
+        _handle_sq_errors(exc)
+    raise AssertionError("unreachable")
+
+
+@app.get("/api/v1/workspaces/{workspace_id}/saved-queries/search")
+def search_saved_queries(
+    workspace_id: str,
+    q: str = "",
+    state: str = "active",
+    tag: str | None = None,
+    limit: int = 50,
+    offset: int = 0,
+) -> SavedQueryLibraryResponse:
+    """Search saved queries by keyword."""
+    _get_workspace(workspace_id)
+    return _sq_service().search_queries(
+        workspace_id=workspace_id, q=q, state=state, tag=tag, limit=limit, offset=offset
     )
 
 
 @app.get("/api/v1/workspaces/{workspace_id}/saved-queries")
-def list_saved_queries(workspace_id: str) -> dict[str, Any]:
-    """List all saved queries in a workspace."""
+def list_saved_queries(
+    workspace_id: str,
+    state: str = "active",
+    tag: str | None = None,
+    limit: int = 50,
+    offset: int = 0,
+) -> dict[str, Any]:
+    """List saved queries in a workspace."""
     _get_workspace(workspace_id)
-    # For now, return empty list
-    return {"queries": [], "total": 0}
+    result = _sq_service().list_queries(
+        workspace_id=workspace_id, state=state, tag=tag, limit=limit, offset=offset
+    )
+    payload = result.model_dump()
+    payload["queries"] = payload["items"]
+    return payload
 
 
 @app.get("/api/v1/workspaces/{workspace_id}/saved-queries/{query_id}")
-def get_saved_query(workspace_id: str, query_id: str) -> SavedQueryResponse:
-    """Get a specific saved query."""
+def get_saved_query(workspace_id: str, query_id: str) -> SavedQueryDetailResponse:
+    """Get a specific saved query with version history."""
     _get_workspace(workspace_id)
-    now = utc_now_iso()
-    return SavedQueryResponse(
-        query_id=query_id,
-        workspace_id=workspace_id,
-        name="Saved Query",
-        description="",
-        config_hash="mock_hash",
-        config=QueryConfig(base_table_id="default", selected_columns=[], filters=[], aggregations=[], group_by_columns=[], joins=[]),
-        created_at=now,
-        updated_at=now,
-        last_executed_at=None,
-    )
+    try:
+        return _sq_service().get_query_detail(workspace_id=workspace_id, query_id=query_id)
+    except (QueryNotFoundError, DuplicateQueryNameError, RestoreWindowExpiredError) as exc:
+        _handle_sq_errors(exc)
+    raise AssertionError("unreachable")
+
+
+@app.post("/api/v1/workspaces/{workspace_id}/saved-queries/{query_id}/load")
+def load_saved_query(workspace_id: str, query_id: str, version_id: str | None = None) -> LoadSavedQueryResponse:
+    """Load a saved query snapshot, returning revalidation warnings."""
+    _get_workspace(workspace_id)
+    try:
+        return _sq_service().load_query(workspace_id=workspace_id, query_id=query_id, version_id=version_id)
+    except (QueryNotFoundError, DuplicateQueryNameError, RestoreWindowExpiredError) as exc:
+        _handle_sq_errors(exc)
+    raise AssertionError("unreachable")
+
+
+@app.patch("/api/v1/workspaces/{workspace_id}/saved-queries/{query_id}")
+def patch_saved_query(workspace_id: str, query_id: str, request: UpdateSavedQueryRequest) -> SavedQueryDetailResponse:
+    """Update saved query metadata or create a new version."""
+    _get_workspace(workspace_id)
+    try:
+        return _sq_service().update_query(
+            workspace_id=workspace_id,
+            query_id=query_id,
+            name=request.name,
+            description=request.description,
+            tags=request.tags,
+            builder_snapshot=request.builder_snapshot,
+            change_summary=request.change_summary,
+            updated_by=request.updated_by,
+        )
+    except (QueryNotFoundError, DuplicateQueryNameError, RestoreWindowExpiredError) as exc:
+        _handle_sq_errors(exc)
+    raise AssertionError("unreachable")
 
 
 @app.put("/api/v1/workspaces/{workspace_id}/saved-queries/{query_id}")
-def update_saved_query(workspace_id: str, query_id: str, request: SavedQueryRequest) -> SavedQueryResponse:
-    """Update a saved query."""
+def update_saved_query_legacy(
+    workspace_id: str, query_id: str, request: SavedQueryRequest
+) -> SavedQueryDetailResponse:
+    """Backward-compatible update endpoint using legacy payload shape."""
     _get_workspace(workspace_id)
-    now = utc_now_iso()
-    return SavedQueryResponse(
-        query_id=query_id,
-        workspace_id=workspace_id,
-        name=request.name,
-        description=request.description,
-        config_hash="mock_hash",
-        config=request.config,
-        created_at=now,
-        updated_at=now,
-        last_executed_at=None,
-    )
+    try:
+        config_payload = request.config.model_dump() if hasattr(request.config, "model_dump") else request.config
+        return _sq_service().update_query(
+            workspace_id=workspace_id,
+            query_id=query_id,
+            name=request.name,
+            description=request.description,
+            builder_snapshot=config_payload,
+        )
+    except (QueryNotFoundError, DuplicateQueryNameError, RestoreWindowExpiredError) as exc:
+        _handle_sq_errors(exc)
+    raise AssertionError("unreachable")
+
+
+@app.post("/api/v1/workspaces/{workspace_id}/saved-queries/{query_id}/duplicate", status_code=201)
+def duplicate_saved_query(
+    workspace_id: str, query_id: str, request: DuplicateSavedQueryRequest
+) -> SaveQueryResponse:
+    """Duplicate a saved query as a new library entry."""
+    _get_workspace(workspace_id)
+    try:
+        return _sq_service().duplicate_query(
+            workspace_id=workspace_id,
+            query_id=query_id,
+            name=request.name,
+            description=request.description,
+            tags=request.tags,
+            created_by=request.created_by,
+        )
+    except (QueryNotFoundError, DuplicateQueryNameError, RestoreWindowExpiredError) as exc:
+        _handle_sq_errors(exc)
+    raise AssertionError("unreachable")
 
 
 @app.delete("/api/v1/workspaces/{workspace_id}/saved-queries/{query_id}")
-def delete_saved_query(workspace_id: str, query_id: str) -> dict[str, str]:
-    """Delete a saved query."""
+def delete_saved_query(workspace_id: str, query_id: str) -> RecoveryWindowResponse:
+    """Soft-delete a saved query (recoverable within 24 hours)."""
     _get_workspace(workspace_id)
-    return {"status": "deleted", "query_id": query_id}
+    try:
+        return _sq_service().delete_query(workspace_id=workspace_id, query_id=query_id)
+    except (QueryNotFoundError, DuplicateQueryNameError, RestoreWindowExpiredError) as exc:
+        _handle_sq_errors(exc)
+    raise AssertionError("unreachable")
+
+
+@app.post("/api/v1/workspaces/{workspace_id}/saved-queries/{query_id}/restore")
+def restore_saved_query(workspace_id: str, query_id: str) -> SavedQueryDetailResponse:
+    """Restore a soft-deleted saved query within the grace window."""
+    _get_workspace(workspace_id)
+    try:
+        return _sq_service().restore_query(workspace_id=workspace_id, query_id=query_id)
+    except (QueryNotFoundError, DuplicateQueryNameError, RestoreWindowExpiredError) as exc:
+        _handle_sq_errors(exc)
+    raise AssertionError("unreachable")
 
 
 @app.get("/api/v1/workspaces/{workspace_id}/saved-queries/{query_id}/executions")
-def get_query_execution_history(workspace_id: str, query_id: str) -> dict[str, Any]:
+def get_query_execution_history(
+    workspace_id: str,
+    query_id: str,
+    limit: int = 50,
+    offset: int = 0,
+) -> dict[str, Any]:
     """Get execution history for a saved query."""
     _get_workspace(workspace_id)
-    return {"query_id": query_id, "executions": [], "total": 0}
-
+    try:
+        result = _sq_service().get_execution_history(
+            workspace_id=workspace_id, query_id=query_id, limit=limit, offset=offset
+        )
+        payload = result.model_dump()
+        payload["executions"] = payload["items"]
+        return payload
+    except (QueryNotFoundError, DuplicateQueryNameError, RestoreWindowExpiredError) as exc:
+        _handle_sq_errors(exc)
+    raise AssertionError("unreachable")
 
 @app.post(
     "/api/v1/workspaces/{workspace_id}/sources/upload",

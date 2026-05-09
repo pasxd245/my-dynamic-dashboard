@@ -12,6 +12,9 @@ import {
 } from "./api/workspaceApi";
 import type { UploadResponse, ProfileResponse, ReadinessResponse, ManifestResponse } from "./api/types";
 import QueryBuilderPanel from "./components/query-builder/QueryBuilderPanel";
+import { SaveQueryDialog } from "./components/SavedQuery";
+import type { SaveQueryResponse } from "./api/queryApi";
+import { SavedQueryLibraryPage, SavedQueryDetail } from "./pages/SavedQueryLibrary";
 
 const panelStyle: React.CSSProperties = {
   marginTop: "1.5rem",
@@ -43,6 +46,12 @@ export default function App(): React.ReactElement {
   const [manifestText, setManifestText] = useState<string>("");
   const [manifestPreview, setManifestPreview] = useState<ManifestResponse | null>(null);
   const [message, setMessage] = useState<string>("");
+
+  // Saved Queries state
+  const [currentPage, setCurrentPage] = useState<"builder" | "library" | "query-detail">("builder");
+  const [selectedQueryId, setSelectedQueryId] = useState<string>("");
+  const [showSaveDialog, setShowSaveDialog] = useState<boolean>(false);
+  const [builderSnapshot, setBuilderSnapshot] = useState<Record<string, unknown> | null>(null);
 
   const currentSheet = useMemo(() => uploadResult?.sheets?.[0] ?? null, [uploadResult]);
 

@@ -16,7 +16,7 @@ Implement saved-query persistence so analysts can preserve, version, search, and
 **Testing**: `pytest` backend contract + integration suites for save/list/load/delete/restore; builder smoke via Vite build and manual library/detail flows
 **Target Platform**: Linux local/dev container with browser-based builder UI
 **Project Type**: Web application (backend API + frontend builder)
-**Performance Goals**: SC-001 library list/search under 2 seconds; SC-002 save new query under 1 second; SC-003 load and revalidate under 2 seconds; SC-004 soft-delete / restore under 500ms
+**Performance Goals**: SC-001 save flow completion under 60 seconds from builder completion; SC-002 find+load recurring query under 2 minutes; SC-003 recurring prep-time reduction to <=5 minutes from ~30 minutes baseline; SC-004 100% saved versions expose required traceability context
 **Constraints**: Single-user workspace scope (no cross-user sharing in MVP 2); soft-delete recovery window is 24 hours; query name uniqueness per workspace per user; only valid builder snapshots can be saved; all versions are immutable after creation
 **Scale/Scope**: Single-workspace, single-user saved-query management; up to 1,000s of saved queries per user; version history unbounded (retention policy deferred to MVP 3); execution history retained until manual cleanup
 
@@ -78,19 +78,19 @@ apps/backend/
 
 apps/builder/
 └── src/
-    ├── App.jsx
+   ├── App.tsx
     ├── pages/
     │   └── SavedQueryLibrary/       # New
-    │       ├── SavedQueryLibraryPage.jsx
-    │       ├── SavedQuerySearch.jsx
-    │       ├── SavedQueryList.jsx
-    │       └── SavedQueryDetail.jsx
+   │       ├── SavedQueryLibraryPage.tsx
+   │       ├── SavedQuerySearch.tsx
+   │       ├── SavedQueryList.tsx
+   │       └── SavedQueryDetail.tsx
     ├── components/
     │   └── SavedQuery/              # New
-    │       ├── SaveQueryDialog.jsx
-    │       ├── UpdateQueryDialog.jsx
-    │       ├── VersionTimeline.jsx
-    │       └── ExecutionHistoryTable.jsx
+   │       ├── SaveQueryDialog.tsx
+   │       ├── UpdateQueryDialog.tsx
+   │       ├── VersionTimeline.tsx
+   │       └── ExecutionHistoryTable.tsx
     └── api/
         └── queryApi.js              # New
 ```
@@ -157,9 +157,8 @@ Phase 1 output: data-model.md, contracts/saved-queries.openapi.yaml, quickstart.
    - `search_saved_queries(workspace_id, user_id, keyword, state='active')`
    - `get_saved_query(workspace_id, query_id)`
    - `get_saved_query_version(workspace_id, query_id, version_id)`
-   - `create_new_version(workspace_id, query_id, name, description, tags, builder_snapshot, sql_snapshot, change_summary)`
+   - `update_saved_query(workspace_id, query_id, name, description, tags, builder_snapshot, change_summary)`
    - `duplicate_saved_query(workspace_id, query_id, source_version_id, new_name, new_description, new_tags)`
-   - `create_variant(workspace_id, query_id, source_version_id, new_name, new_description, new_tags)`
    - `soft_delete_saved_query(workspace_id, query_id, recoverable_until)`
    - `restore_saved_query(workspace_id, query_id)`
    - `record_execution(workspace_id, query_id, version_id, status, row_count, execution_ms, executed_by)`
@@ -180,10 +179,8 @@ Phase 1 output: data-model.md, contracts/saved-queries.openapi.yaml, quickstart.
    - `GET /api/saved-queries` → list (with state, tag, pagination)
    - `GET /api/saved-queries/search` → keyword search
    - `GET /api/saved-queries/{queryId}` → detail
-   - `GET /api/saved-queries/{queryId}/versions/{versionId}` → specific version
-   - `POST /api/saved-queries/{queryId}/versions` → new version
+   - `PATCH /api/saved-queries/{queryId}` → create new immutable latest version from updates
    - `POST /api/saved-queries/{queryId}/duplicate` → duplicate
-   - `POST /api/saved-queries/{queryId}/variants` → variant
    - `POST /api/saved-queries/{queryId}/load` → load with revalidation
    - `DELETE /api/saved-queries/{queryId}` → soft delete
    - `POST /api/saved-queries/{queryId}/restore` → restore
@@ -219,7 +216,7 @@ Phase 1 output: data-model.md, contracts/saved-queries.openapi.yaml, quickstart.
    - Add "Saved Queries" nav item to library page
    - Add "Load in Builder" action to detail view
    - Add revalidation warnings modal when loading version with broken dependencies
-   - Add "Update Query" / "Save as Variant" buttons to builder after loading
+   - Add "Update Query" / "Duplicate Query" actions to builder after loading
 
 #### Phase 2.4: Verification & Testing
 
@@ -241,30 +238,30 @@ Phase 1 output: data-model.md, contracts/saved-queries.openapi.yaml, quickstart.
 
 ## Requirement Traceability (Plan-Level)
 
-| Requirement                     | Phase | Component                                   | Notes                                      |
-| ------------------------------- | ----- | ------------------------------------------- | ------------------------------------------ |
-| FR-001 (save query)             | 2.2   | POST /api/saved-queries                     | Accept builder snapshot, create version 1  |
-| FR-002 (store builder snapshot) | 2.1   | saved_query_versions.builder_snapshot_json  | Immutable per version                      |
-| FR-003 (store SQL snapshot)     | 2.1   | saved_query_versions.sql_snapshot           | Immutable per version                      |
-| FR-004 (workspace-scoped)       | 2.2   | All endpoints                               | Enforce workspace_id, user_id scope        |
-| FR-005 (library listing)        | 2.2   | GET /api/saved-queries                      | Include all metadata fields                |
-| FR-006 (keyword search)         | 2.2   | GET /api/saved-queries/search               | Basic substring/token matching             |
-| FR-007 (tag filter)             | 2.2   | GET /api/saved-queries query param          | Filter by tags_json                        |
-| FR-008 (detail view)            | 2.2   | GET /api/saved-queries/{queryId}            | Return versions + executions               |
-| FR-009 (load into builder)      | 2.2   | POST /api/saved-queries/{queryId}/load      | Return builder_snapshot + warnings         |
-| FR-010 (revalidate)             | 2.2   | POST /api/saved-queries/{queryId}/load      | Check relationship/column validity         |
-| FR-011 (duplicate)              | 2.2   | POST /api/saved-queries/{queryId}/duplicate | Create new entry from snapshot             |
-| FR-012 (new version on edit)    | 2.2   | POST /api/saved-queries/{queryId}/versions  | Immutable prior versions                   |
-| FR-013 (save as variant)        | 2.2   | POST /api/saved-queries/{queryId}/variants  | Preserve source_query_id                   |
-| FR-014 (metadata update)        | 2.2   | POST /api/saved-queries/{queryId}/versions  | New version per update                     |
-| FR-015 (soft delete)            | 2.2   | DELETE /api/saved-queries/{queryId}         | Set deleted_at, recoverable_until          |
-| FR-016 (recovery window)        | 2.2   | POST /api/saved-queries/{queryId}/restore   | Check recoverable_until timestamp          |
-| FR-017 (exclude deleted)        | 2.2   | GET /api/saved-queries                      | Filter by deleted_at when state=active     |
-| FR-018 (author + timestamps)    | 2.1   | saved_queries, saved_query_versions         | owner_user_id, created_at, updated_at      |
-| FR-019 (execution history)      | 2.2   | GET /api/saved-queries/{queryId}/executions | Record per version + status                |
-| FR-020 (user-friendly errors)   | 2.2   | All endpoints                               | Structured error payloads, no stack traces |
-| FR-021 (preserve after delete)  | 2.1   | saved_query_events                          | Append-only audit trail                    |
-| FR-022 (traceability)           | 2.1   | saved_query_versions                        | Capture relationship context               |
+| Requirement | Data Layer                                          | Metric Contract | Relationship Rule                   | Surface Role            | Gate                       | Test Coverage        | Implementation Anchor                       |
+| ----------- | --------------------------------------------------- | --------------- | ----------------------------------- | ----------------------- | -------------------------- | -------------------- | ------------------------------------------- |
+| FR-001      | saved_queries + saved_query_versions                | N/A             | N/A                                 | analyst                 | save-validation            | contract+integration | POST /api/saved-queries                     |
+| FR-002      | saved_query_versions.builder_snapshot               | N/A             | captures join context               | analyst                 | immutability               | integration          | create_query/version insert                 |
+| FR-003      | saved_query_versions.sql_snapshot                   | N/A             | N/A                                 | analyst                 | immutability               | integration          | create_query/version insert                 |
+| FR-004      | workspace_id-scoped rows                            | N/A             | N/A                                 | analyst                 | authorization scope        | contract             | all workspace endpoints                     |
+| FR-005      | saved_queries list projection                       | N/A             | N/A                                 | analyst, business-owner | list metadata completeness | contract+integration | GET /api/saved-queries                      |
+| FR-006      | name/description/tags search fields                 | N/A             | N/A                                 | analyst                 | retrieval usability        | integration          | GET /api/saved-queries/search               |
+| FR-007      | tags_json + deleted_at filters                      | N/A             | N/A                                 | analyst                 | state-filter correctness   | integration          | GET /api/saved-queries                      |
+| FR-008      | saved_query_versions + executions joins             | N/A             | visible in detail                   | analyst, business-owner | inspectability             | contract+integration | GET /api/saved-queries/{queryId}            |
+| FR-009      | load snapshot retrieval                             | N/A             | validated on load                   | analyst                 | load safety                | contract+integration | POST /api/saved-queries/{queryId}/load      |
+| FR-010      | validation issue derivation                         | N/A             | approved-only checks                | analyst                 | schema/relationship guard  | integration          | SchemaValidator + load endpoint             |
+| FR-011      | source_query_id lineage                             | N/A             | inherited context                   | analyst                 | fork lineage               | contract+integration | POST /api/saved-queries/{queryId}/duplicate |
+| FR-012      | version_number + parent_version_id                  | N/A             | inherited context                   | analyst                 | immutable history          | integration          | PATCH /api/saved-queries/{queryId}          |
+| FR-013      | source_query_id on duplicate flow                   | N/A             | inherited context                   | analyst                 | variant lineage            | integration          | duplicate_query service                     |
+| FR-014      | immutable version creation on update                | N/A             | inherited context                   | analyst                 | no silent overwrite        | integration          | PATCH /api/saved-queries/{queryId}          |
+| FR-015      | deleted_at + recoverable_until                      | N/A             | N/A                                 | analyst                 | reversible delete          | contract+integration | DELETE /api/saved-queries/{queryId}         |
+| FR-016      | restore window check                                | N/A             | N/A                                 | analyst                 | time-window guard          | integration          | POST /api/saved-queries/{queryId}/restore   |
+| FR-017      | state=active excludes deleted_at rows               | N/A             | N/A                                 | analyst                 | default safety             | integration          | list/search filters                         |
+| FR-018      | author/timestamps/execution counters                | N/A             | contextual                          | analyst, business-owner | traceability completeness  | integration          | query summary/detail DTOs                   |
+| FR-019      | saved_query_executions                              | N/A             | version-linked context              | analyst, business-owner | audit completeness         | integration          | GET /api/saved-queries/{queryId}/executions |
+| FR-020      | structured error payloads                           | N/A             | N/A                                 | analyst                 | user-facing errors         | contract             | endpoint error mapping                      |
+| FR-021      | event/execution retention across delete             | N/A             | lineage retained                    | analyst, business-owner | audit continuity           | integration          | saved_query_events + executions             |
+| FR-022      | builder snapshot + relationship context inspectable | N/A             | approved relationship context trace | analyst, business-owner | reproducibility            | integration          | detail/load responses + lineage fields      |
 
 ## Complexity Tracking
 

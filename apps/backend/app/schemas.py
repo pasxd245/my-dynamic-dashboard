@@ -246,6 +246,8 @@ class QueryConfig(BaseModel):
     joins: list[JoinSpec] = Field(default_factory=list)
     result_limit: int | None = None
     execution_timeout_seconds: int = 5
+    saved_query_id: str | None = None
+    saved_query_version_id: str | None = None
 
 
 class ValidationIssue(BaseModel):
@@ -320,3 +322,148 @@ class SavedQueryResponse(BaseModel):
 
 class SavedQueryListResponse(BaseModel):
     items: list[SavedQueryResponse]
+
+
+# ── Spec 004: Saved Queries ────────────────────────────────────────────────────
+
+class ValidationIssueType(str):
+    column_deleted = "column_deleted"
+    column_type_drift = "column_type_drift"
+    relationship_downgraded = "relationship_downgraded"
+    base_table_missing = "base_table_missing"
+
+
+class SavedQueryValidationIssue(BaseModel):
+    type: str
+    field_id: str | None = None
+    message: str
+
+
+class SavedQueryVersionResponse(BaseModel):
+    version_id: str
+    query_id: str
+    version_number: int
+    parent_version_id: str | None = None
+    builder_snapshot: dict[str, Any]
+    sql_snapshot: str | None = None
+    validation_state: str
+    created_at: str
+    created_by: str | None = None
+    change_summary: str | None = None
+
+
+class SaveQueryRequest(BaseModel):
+    name: str
+    description: str | None = None
+    builder_snapshot: dict[str, Any]
+    tags: list[str] = Field(default_factory=list)
+    created_by: str | None = None
+    change_summary: str | None = None
+
+
+class SaveQueryResponse(BaseModel):
+    query_id: str
+    workspace_id: str
+    name: str
+    description: str | None = None
+    tags: list[str] = Field(default_factory=list)
+    version_id: str
+    version_number: int
+    created_at: str
+    updated_at: str
+    created_by: str | None = None
+
+
+class SavedQuerySummary(BaseModel):
+    query_id: str
+    workspace_id: str
+    name: str
+    description: str | None = None
+    tags: list[str] = Field(default_factory=list)
+    version_count: int
+    execution_count: int
+    created_at: str
+    updated_at: str
+    last_executed_at: str | None = None
+    created_by: str | None = None
+    deleted_at: str | None = None
+    recoverable_until: str | None = None
+
+
+class SavedQueryLibraryResponse(BaseModel):
+    items: list[SavedQuerySummary]
+    total: int
+    limit: int
+    offset: int
+    next_offset: int | None = None
+
+
+class SavedQueryDetailResponse(BaseModel):
+    query_id: str
+    workspace_id: str
+    name: str
+    description: str | None = None
+    tags: list[str] = Field(default_factory=list)
+    version_count: int
+    execution_count: int
+    created_at: str
+    updated_at: str
+    last_executed_at: str | None = None
+    created_by: str | None = None
+    deleted_at: str | None = None
+    recoverable_until: str | None = None
+    latest_version: SavedQueryVersionResponse | None = None
+    versions: list[SavedQueryVersionResponse] = Field(default_factory=list)
+
+
+class LoadSavedQueryResponse(BaseModel):
+    query_id: str
+    version_id: str
+    version_number: int
+    builder_snapshot: dict[str, Any]
+    validation_issues: list[SavedQueryValidationIssue] = Field(default_factory=list)
+    can_load: bool = True
+
+
+class UpdateSavedQueryRequest(BaseModel):
+    name: str | None = None
+    description: str | None = None
+    tags: list[str] | None = None
+    builder_snapshot: dict[str, Any] | None = None
+    change_summary: str | None = None
+    updated_by: str | None = None
+
+
+class DuplicateSavedQueryRequest(BaseModel):
+    name: str
+    description: str | None = None
+    tags: list[str] | None = None
+    created_by: str | None = None
+
+
+class RecoveryWindowResponse(BaseModel):
+    query_id: str
+    is_deleted: bool
+    deleted_at: str | None = None
+    recoverable_until: str | None = None
+    expires_in_seconds: int | None = None
+
+
+class ExecutionHistoryItem(BaseModel):
+    execution_id: str
+    query_id: str
+    version_id: str | None = None
+    version_number: int | None = None
+    executed_at: str
+    executed_by: str | None = None
+    status: str
+    row_count: int | None = None
+    execution_ms: int | None = None
+    error_message: str | None = None
+
+
+class ExecutionHistoryResponse(BaseModel):
+    items: list[ExecutionHistoryItem]
+    total: int
+    limit: int
+    offset: int

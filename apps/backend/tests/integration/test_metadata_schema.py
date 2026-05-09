@@ -20,6 +20,11 @@ REQUIRED_TABLES = {
     "saved_queries",
     "query_execution_log",
 }
+SPEC_004_TABLES = {
+    "saved_query_versions",
+    "saved_query_events",
+    "saved_query_executions",
+}
 
 
 def test_metadata_schema_contains_required_tables() -> None:

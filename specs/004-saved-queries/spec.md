@@ -2,7 +2,7 @@
 
 **Feature Branch**: `004-saved-queries`
 **Created**: 2026-05-08
-**Status**: Draft
+**Status**: Review
 **Input**: MVP 1 -> MVP 2 transition requirement from `docs/analysis/09-mvp-plan.md` and user description above.
 
 ## Business Question _(mandatory for this project)_
@@ -237,11 +237,12 @@ history intact.
   saved query entry without modifying the source query.
 - **FR-012**: System MUST treat edits to a saved query as creation of a new
   immutable version; prior versions MUST remain readable and reloadable.
-- **FR-013**: System MUST support "Save as New Variant" to fork an existing
-  saved query into a separate library entry with lineage back to its source.
-- **FR-014**: System MUST allow updates to descriptive metadata (name,
-  description, tags) only by creating a new latest version or clearly recording
-  metadata-only revision history; no silent overwrite is permitted.
+- **FR-013**: System MUST support variant-style forking by duplicating an
+  existing saved query into a separate library entry with lineage back to its
+  source (`source_query_id`).
+- **FR-014**: System MUST allow analysts to submit metadata updates (name,
+  description, tags) through the update flow, with those updates reflected in
+  version history and never silently overwritten.
 - **FR-015**: System MUST soft-delete saved queries rather than hard-delete them
   immediately.
 - **FR-016**: System MUST assign a 24-hour recovery window to deleted queries and
@@ -441,16 +442,12 @@ current user workspace.
   - Output: `{ query, latestVersion, versions, executionSummary, deletionState }`
   - Returns library metadata, latest version, version history summary, and delete state.
 
-- **GET /api/saved-queries/{queryId}/versions/{versionId}**
-  - Output: `{ version, sqlSnapshot, builderSnapshot, validationState }`
-  - Returns a specific immutable version snapshot.
-
 #### Update / New Version
 
-- **POST /api/saved-queries/{queryId}/versions**
-  - Input: `{ name, description, tags, builderSnapshot, sqlSnapshot, changeSummary }`
-  - Output: `{ queryId, versionId, versionNumber, createdAt }`
-  - Creates a new version for an existing saved query.
+- **PATCH /api/saved-queries/{queryId}**
+  - Input: `{ name?, description?, tags?, builderSnapshot?, changeSummary? }`
+  - Output: `{ query, latestVersion, versions, executionSummary, deletionState }`
+  - Applies updates by creating a new immutable latest version when changes are present.
 
 #### Duplicate / Variant
 
@@ -459,10 +456,8 @@ current user workspace.
   - Output: `{ queryId, versionId, versionNumber }`
   - Creates a new saved-query entry from an existing snapshot.
 
-- **POST /api/saved-queries/{queryId}/variants**
-  - Input: `{ sourceVersionId, name, description, tags }`
-  - Output: `{ queryId, versionId, sourceQueryId }`
-  - Creates a new variant entry while preserving lineage to the source query.
+Variant behavior is implemented through duplicate with lineage (`sourceQueryId`);
+no separate `/variants` endpoint is required in MVP 2.
 
 #### List / Search
 
@@ -630,3 +625,18 @@ version-aware detail flows.
 - Saved query detail panel — displays version lineage, SQL snapshot, execution history, and deletion state.
 - Load-in-builder flow — shows current validation warnings when historical snapshots no longer match current schema or relationship state.
 - Restore and delete events — preserve auditable lifecycle context during the 24-hour recovery window.
+
+## Governance Compliance Matrix _(constitution-required fields)_
+
+- **Metric contracts**: N/A for this feature slice. Spec 004 persists reusable
+  query definitions and lineage; authoritative metric contracts remain defined
+  in downstream visualization/decision specs.
+- **Reconciliation posture**: N/A direct recommendation engine behavior.
+  Reconciliation is represented here as saved-version traceability and explicit
+  revalidation warnings before load/reuse.
+- **Challenge/sensitivity variants**: N/A for MVP 2 decision readiness.
+  Variant support in this feature means query-version forking for analyst
+  workflow, not decision challenge/sensitivity modeling.
+- **Decision-readiness gates**: This feature is a governance-enabling data
+  layer prerequisite. Decision-ready output remains gated in downstream specs;
+  this spec enforces prerequisites via immutable versioning and lineage.

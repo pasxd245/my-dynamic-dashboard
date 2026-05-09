@@ -8,6 +8,13 @@ from typing import Iterator
 import uuid
 
 
+def _add_column_if_missing(conn: sqlite3.Connection, table: str, column: str, col_type: str) -> None:
+    rows = conn.execute(f"PRAGMA table_info({table})").fetchall()
+    existing = {row[1] for row in rows}
+    if column not in existing:
+        conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {col_type}")
+
+
 def init_metadata_db(db_path: Path) -> None:
     db_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -321,6 +328,86 @@ def init_metadata_db(db_path: Path) -> None:
             """
             CREATE INDEX IF NOT EXISTS idx_saved_queries_created_at
             ON saved_queries(created_at DESC)
+            """
+        )
+
+        # Spec 004: extend saved_queries with new columns (additive, safe for existing DBs)
+        _add_column_if_missing(conn, "saved_queries", "tags_json", "TEXT")
+        _add_column_if_missing(conn, "saved_queries", "deleted_at", "TEXT")
+        _add_column_if_missing(conn, "saved_queries", "recoverable_until", "TEXT")
+        _add_column_if_missing(conn, "saved_queries", "version_count", "INTEGER DEFAULT 1")
+        _add_column_if_missing(conn, "saved_queries", "execution_count", "INTEGER DEFAULT 0")
+        _add_column_if_missing(conn, "saved_queries", "source_query_id", "TEXT")
+
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS saved_query_versions (
+                version_id TEXT PRIMARY KEY,
+                query_id TEXT NOT NULL,
+                version_number INTEGER NOT NULL,
+                parent_version_id TEXT,
+                builder_snapshot TEXT NOT NULL,
+                sql_snapshot TEXT,
+                validation_state TEXT NOT NULL DEFAULT 'valid',
+                created_at TEXT NOT NULL,
+                created_by TEXT,
+                change_summary TEXT,
+                FOREIGN KEY(query_id) REFERENCES saved_queries(query_id)
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS saved_query_events (
+                event_id TEXT PRIMARY KEY,
+                query_id TEXT NOT NULL,
+                version_id TEXT,
+                event_type TEXT NOT NULL,
+                occurred_at TEXT NOT NULL,
+                performed_by TEXT,
+                metadata_json TEXT,
+                FOREIGN KEY(query_id) REFERENCES saved_queries(query_id)
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS saved_query_executions (
+                execution_id TEXT PRIMARY KEY,
+                query_id TEXT NOT NULL,
+                version_id TEXT,
+                executed_by TEXT,
+                status TEXT NOT NULL DEFAULT 'completed',
+                row_count INTEGER,
+                execution_ms INTEGER,
+                executed_at TEXT NOT NULL,
+                error_message TEXT,
+                FOREIGN KEY(query_id) REFERENCES saved_queries(query_id)
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_sq_versions_query_id
+            ON saved_query_versions(query_id, version_number)
+            """
+        )
+        conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_sq_events_query_id
+            ON saved_query_events(query_id, occurred_at)
+            """
+        )
+        conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_sq_executions_query_id
+            ON saved_query_executions(query_id, executed_at DESC)
+            """
+        )
+        conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_saved_queries_deleted_at
+            ON saved_queries(workspace_id, deleted_at)
             """
         )
         conn.execute(
