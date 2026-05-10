@@ -1,0 +1,77 @@
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project]
+name = "my-dynamic-dashboard-dashboard"
+dynamic = ["version"]
+description = "Streamlit dashboard for my-dynamic-dashboard"
+requires-python = ">=3.12"
+dependencies = [
+    "streamlit>=1.40.0",
+    "requests>=2.32.0",
+    "plotly>=5.24.0",
+    "pandas>=2.2.0",
+    "python-dateutil>=2.9.0",
+    "packaging>=24.1",
+    "PyYAML>=6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.8.1",
+    "build>=1.3.0",
+    "hatch>=1.14.2",
+    "commitizen>=4.10.0",
+]
+test = [
+    "pytest>=8.3.5",
+    "coverage>=7.2.7",
+]
+
+[tool.hatch.version]
+source = "vcs"
+tag-pattern = "apps/dashboard/v(?P<version>.*)"
+raw-options.root = "../.."
+fallback-version = "0.0.0"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/dashboard"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+markers = [
+    "unit: dashboard unit-layer tests",
+    "integration: dashboard integration-layer tests",
+]
+
+[tool.coverage.run]
+branch = true
+
+[tool.coverage.report]
+ignore_errors = false
+show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "B", "SIM", "I"]
+
+[tool.commitizen]
+name = "cz_conventional_commits"
+version_provider = "scm"
+tag_format = "apps/dashboard/v$version"
+update_changelog_on_bump = true
+changelog_file = "CHANGELOG.md"

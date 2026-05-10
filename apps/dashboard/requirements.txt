@@ -1,3 +1,5 @@
+# Legacy fallback only: primary install path is now `pip install -e .` via `pyproject.toml`.
+# Keep this file for temporary operational compatibility where editable installs are unavailable.
 streamlit>=1.40.0
 requests>=2.32.0
 plotly>=5.24.0

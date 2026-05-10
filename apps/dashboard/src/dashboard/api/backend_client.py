@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass
 from typing import Any
 
@@ -8,9 +7,8 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
-
-class DashboardApiError(RuntimeError):
-    pass
+from dashboard.core.errors import DashboardApiError
+from dashboard.shared import DashboardAppConfig, get_app_config
 
 
 @dataclass
@@ -32,11 +30,16 @@ class DashboardApiClient:
         self._session.mount("https://", adapter)
 
     @classmethod
+    def from_config(cls, config: DashboardAppConfig) -> "DashboardApiClient":
+        return cls(
+            base_url=config.api_base_url.rstrip("/"),
+            timeout_seconds=config.api_timeout_seconds,
+            retries=config.api_retries,
+        )
+
+    @classmethod
     def from_env(cls) -> "DashboardApiClient":
-        base_url = os.getenv("DASHBOARD_API_BASE_URL", "http://localhost:8000")
-        timeout_seconds = float(os.getenv("DASHBOARD_API_TIMEOUT_SECONDS", "10"))
-        retries = int(os.getenv("DASHBOARD_API_RETRIES", "2"))
-        return cls(base_url=base_url.rstrip("/"), timeout_seconds=timeout_seconds, retries=retries)
+        return cls.from_config(get_app_config())
 
     def map_error_message(self, status_code: int, message: str) -> str:
         lowered = message.lower()

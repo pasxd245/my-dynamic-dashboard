@@ -6,6 +6,8 @@ import sys
 from datetime import datetime, timezone
 from typing import Any
 
+from dashboard.shared import get_app_config
+
 
 class DashboardJsonFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
@@ -23,11 +25,10 @@ class DashboardJsonFormatter(logging.Formatter):
         return json.dumps(payload, separators=(",", ":"), sort_keys=True)
 
 
-def configure_dashboard_logging() -> logging.Logger:
+def configure_dashboard_logger() -> logging.Logger:
+    config = get_app_config()
     logger = logging.getLogger("dashboard")
-    # Deprecated entrypoint: runtime env reads are centralized in dashboard config.
-    level_name = "INFO"
-    logger.setLevel(getattr(logging, level_name, logging.INFO))
+    logger.setLevel(getattr(logging, config.log_level, logging.INFO))
 
     handler = logging.StreamHandler(sys.stdout)
     handler.setFormatter(DashboardJsonFormatter())

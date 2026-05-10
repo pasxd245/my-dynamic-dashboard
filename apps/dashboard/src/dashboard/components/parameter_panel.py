@@ -4,12 +4,15 @@ from typing import Any
 
 import streamlit as st
 
+from dashboard.shared import get_app_config
+
 
 def render_parameter_panel(
     *,
     parameter_schema: list[dict[str, Any]],
     initial_values: dict[str, Any] | None,
 ) -> tuple[dict[str, Any], list[str]]:
+    _ = get_app_config()
     values: dict[str, Any] = {}
     errors: list[str] = []
     initial_values = initial_values or {}

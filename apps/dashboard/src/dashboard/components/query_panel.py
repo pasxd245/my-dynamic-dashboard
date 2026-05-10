@@ -4,8 +4,9 @@ from typing import Any
 
 import streamlit as st
 
-from src.components.chart_viewer import render_chart, render_chart_config_editor
-from src.components.export_controls import render_panel_export_controls
+from dashboard.components.chart_viewer import render_chart, render_chart_config_editor
+from dashboard.components.export_controls import render_panel_export_controls
+from dashboard.shared import get_app_config
 
 
 def render_panel_controls(panel: dict[str, Any]) -> tuple[bool, bool, bool]:
@@ -24,6 +25,7 @@ def render_query_panel(
     panel_data: dict[str, Any] | None,
     chart_suggestion: dict[str, Any] | None,
 ) -> dict[str, Any]:
+    _ = get_app_config()
     panel_id = str(panel.get("panel_id", ""))
     panel_name = panel.get("panel_name") or panel.get("saved_query_id", "Panel")
 

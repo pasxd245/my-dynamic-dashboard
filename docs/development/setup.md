@@ -74,6 +74,25 @@ PYTHONPATH=/home/ubuntu/pf/my-dynamic-dashboard/apps/backend pytest tests/contra
 PYTHONPATH=/home/ubuntu/pf/my-dynamic-dashboard/apps/backend pytest -m perf tests/perf -q
 ```
 
+Dashboard command matrix:
+
+```bash
+cd apps/dashboard
+
+# editable install via pyproject
+pip install -e .[dev,test]
+
+# layer-specific tests
+PYTHONPATH=/home/ubuntu/pf/my-dynamic-dashboard/apps/dashboard pytest tests/unit -q
+PYTHONPATH=/home/ubuntu/pf/my-dynamic-dashboard/apps/dashboard pytest tests/integration -q
+
+# governance scan: only env helper should read environment directly
+rg -n "os\.getenv|os\.environ" apps/dashboard
+
+# app runtime smoke
+streamlit run streamlit_app.py
+```
+
 Coverage includes contract tests (API shape), integration tests (SQL generation, validation), and E2E workflows (build -> preview -> execute -> export; save -> reload -> execute -> history; saved-query CRUD lifecycle).
 
 ## Backend Release Tooling (Spec 011)

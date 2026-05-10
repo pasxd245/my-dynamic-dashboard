@@ -1,34 +1,39 @@
 from __future__ import annotations
 
-import os
-import streamlit as st
+import sys
+from pathlib import Path
 from urllib.parse import urlparse
 
-from app_logging import configure_dashboard_logging
+import streamlit as st
 
-from src.api.dashboard_api import DashboardApiClient, DashboardApiError
-from src.components.dashboard_header import (
+ROOT = Path(__file__).resolve().parent
+SRC = ROOT / "src"
+if str(SRC) not in sys.path:
+    sys.path.insert(0, str(SRC))
+
+from dashboard.api import DashboardApiClient, DashboardApiError
+from dashboard.components.dashboard_header import (
     render_dashboard_header,
     render_run_history,
     render_service_health_banner,
 )
-from src.components.export_controls import render_dashboard_export_controls
-from src.components.parameter_panel import render_parameter_panel
-from src.components.query_panel import render_query_panel
+from dashboard.components.export_controls import render_dashboard_export_controls
+from dashboard.components.parameter_panel import render_parameter_panel
+from dashboard.components.query_panel import render_query_panel
+from dashboard.shared import get_app_config
+from dashboard.utils.logger import configure_dashboard_logger
 
 
 st.set_page_config(page_title="Dynamic Dashboard", layout="wide")
-LOGGER = configure_dashboard_logging()
+LOGGER = configure_dashboard_logger()
 
 
 def validate_dashboard_environment() -> None:
-    strict_validation = os.getenv("APP_ENV", "development").lower() == "production" or os.getenv(
-        "DEPLOYMENT_STRICT_VALIDATION", "0"
-    ) in {"1", "true", "yes", "on"}
-    if not strict_validation:
+    config = get_app_config()
+    if not config.strict_validation_enabled:
         return
 
-    base_url = os.getenv("DASHBOARD_API_BASE_URL", "").strip()
+    base_url = config.api_base_url.strip()
     if not base_url:
         raise RuntimeError("DASHBOARD_API_BASE_URL is required in production mode")
 
@@ -53,6 +58,7 @@ def run_smoke_startup_checks(query_params: dict[str, str] | None = None) -> dict
 
 
 def main() -> None:
+    config = get_app_config()
     validate_dashboard_environment()
     LOGGER.info("dashboard startup validation completed", extra={"event_type": "startup_validation"})
 
@@ -65,14 +71,14 @@ def main() -> None:
     st.title("Dynamic Dashboard MVP")
     st.caption("Spec 005 dashboard visualizations")
 
-    if os.getenv("DASHBOARD_SMOKE", "0") == "1":
+    if config.smoke_mode_enabled:
         smoke = run_smoke_startup_checks()
         if all(smoke.values()):
             st.success("Smoke checks passed")
         else:
             st.error(f"Smoke checks failed: {smoke}")
 
-    client = DashboardApiClient.from_env()
+    client = DashboardApiClient.from_config(config)
     query_params = st.query_params
     initial_workspace = str(query_params.get("workspace_id", ""))
     initial_dashboard = str(query_params.get("dashboard_id", ""))
