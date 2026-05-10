@@ -33,30 +33,30 @@ post-Round-23 backend API. **Zero new visualization features.**
       app (or until pain demands it). One clean reason to extract
       beats two speculative ones.
 - [ ] Decide target dashboard layout. Provisional:
-      ` apps/dashboard/
-      streamlit_app.py         # entry (existing — keep at top level)
-      Dockerfile               # existing
-      pyproject.toml           # add (parallel to apps/backend/ in R25)
-      src/dashboard/
-        __init__.py
-        shared.py              # AppConfig + load_config (copy from backend)
-        resources/
-          default.yaml
-        api/                   # HTTP clients (existing — restructure)
-          backend_client.py    # was dashboard_api.py
-        pages/                 # if multi-page support added
-        components/            # existing — review
-          dashboard_header.py
-          export_controls.py
-          parameter_panel.py
-          query_panel.py
-        core/                  # framework primitives
-          base.py              # PanelBase, ChartBase
-          errors.py
-        utils/
-          env_helper.py        # copy from backend
-          logger.py            # was app_logging.py
-    `
+      `apps/dashboard/
+    streamlit_app.py         # entry (existing — keep at top level)
+    Dockerfile               # existing
+    pyproject.toml           # add (parallel to apps/backend/ in R25)
+    src/dashboard/
+      __init__.py
+      shared.py              # AppConfig + load_config (copy from backend)
+      resources/
+        default.yaml
+      api/                   # HTTP clients (existing — restructure)
+        backend_client.py    # was dashboard_api.py
+      pages/                 # if multi-page support added
+      components/            # existing — review
+        dashboard_header.py
+        export_controls.py
+        parameter_panel.py
+        query_panel.py
+      core/                  # framework primitives
+        base.py              # PanelBase, ChartBase
+        errors.py
+      utils/
+        env_helper.py        # copy from backend
+        logger.py            # was app_logging.py
+ `
 
 **Decision Gates**:
 
@@ -152,7 +152,7 @@ Scope OUT:
 
 **Learnings**:
 
-- **Promotions**:
+**Promotions**:
 
 - [ ] -> context/ : "dashboard config + structure parity with backend"
       — when the third Python app appears, this triggers shared-py

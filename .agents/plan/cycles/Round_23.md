@@ -169,7 +169,7 @@ Provisional task outline:
 
 **Learnings**:
 
-- **Promotions**:
+**Promotions**:
 
 - [ ] -> context/ :
 - [ ] -> skills/ :

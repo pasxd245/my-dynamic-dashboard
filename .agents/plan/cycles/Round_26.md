@@ -31,7 +31,7 @@ without crash). Zero behavior change in production code.
       dep; simple `make_workspace(...)`, `make_source(...)` helpers.
 - [ ] Decide perf-harness home. Locked: `apps/backend/tests/perf/`
       with `pytest-benchmark` (added to `[project.optional-dependencies]
-    test` in Round 25's pyproject.toml).
+  test` in Round 25's pyproject.toml).
 
 **Decision Gates**:
 
@@ -103,7 +103,7 @@ Provisional task outline:
 
 **Learnings**:
 
-- **Promotions**:
+**Promotions**:
 
 - [ ] -> context/ : "test-layer vocabulary + factory pattern" if it
       generalizes (likely yes — re-usable across `apps/dashboard/`)

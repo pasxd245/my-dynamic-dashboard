@@ -130,7 +130,7 @@ Scope OUT (deferred):
 
 **Learnings**:
 
-- **Promotions**:
+**Promotions**:
 
 - [ ] -> context/ :
 - [ ] -> skills/ :

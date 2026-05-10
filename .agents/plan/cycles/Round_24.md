@@ -20,7 +20,7 @@ the feature, not the breadth.
 
 - [ ] Wait for Round 23 Complete
 - [ ] Read `hg_code/src/com/{provider.py, providers/pvi.py,
-    providers/gic.py}` and `hg_code/config/default.yaml`. Capture shape:
+  providers/gic.py}` and `hg_code/config/default.yaml`. Capture shape:
       what `ProviderConfig` carries; how `Provider.exec` composes with
       `ExcelProvider.exec_flows`; what `ProviderManager` registers and how
 - [ ] Map `hg_code` shape onto current
@@ -98,7 +98,7 @@ Provisional task outline:
 
 **Learnings**:
 
-- **Promotions**:
+**Promotions**:
 
 - [ ] -> context/ : pattern note "Source/Provider abstraction in
       FastAPI + SQLModel" if it generalizes

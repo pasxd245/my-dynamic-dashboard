@@ -101,7 +101,7 @@ commitizen]`, `test = [pytest, coverage]`.
 
 **Learnings**:
 
-- **Promotions**:
+**Promotions**:
 
 - [ ] -> context/ : "pyproject.toml + hatch-vcs + ruff + commitizen
       template lifted from i18n-tool" if it generalizes to other

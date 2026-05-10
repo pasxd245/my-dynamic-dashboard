@@ -25,27 +25,27 @@ This is the FE mirror of Round 23 — the user's stated value layer.
       `apps/builder/src/` to surface coupling hot-spots and ad-hoc
       directory collisions
 - [ ] Decide target FE layout. Provisional (mirrors backend Round 23):
-      ` apps/builder/src/
-      main.tsx             # entry
-      App.tsx              # router shell
-      config/
-        appConfig.ts       # AppConfig analogue (typed env + runtime cfg)
-        fields.ts          # dotted-key constants (Fields equivalent)
-        const.ts           # Const equivalent
-      api/                 # HTTP clients (existing — review naming)
-      components/          # presentational + feature components
-        query-builder/
-        workflow-shell/
-        SavedQuery/
-        errors/
-        shared/            # reusable UI primitives
-      pages/               # route-level components (existing)
-      state/               # zustand/jotai stores (existing — consolidate)
-      hooks/               # cross-cutting hooks
-      i18n/                # locales + config (existing — review)
-      utils/               # cross-cutting helpers, no domain logic
-      types/               # shared TS types (consolidate scattered defs)
-    `
+      `apps/builder/src/
+    main.tsx             # entry
+    App.tsx              # router shell
+    config/
+      appConfig.ts       # AppConfig analogue (typed env + runtime cfg)
+      fields.ts          # dotted-key constants (Fields equivalent)
+      const.ts           # Const equivalent
+    api/                 # HTTP clients (existing — review naming)
+    components/          # presentational + feature components
+      query-builder/
+      workflow-shell/
+      SavedQuery/
+      errors/
+      shared/            # reusable UI primitives
+    pages/               # route-level components (existing)
+    state/               # zustand/jotai stores (existing — consolidate)
+    hooks/               # cross-cutting hooks
+    i18n/                # locales + config (existing — review)
+    utils/               # cross-cutting helpers, no domain logic
+    types/               # shared TS types (consolidate scattered defs)
+ `
 - [ ] Decide config layering for FE. Locked:
       `import.meta.env` (Vite build-time)
       < `/api/v1/config` (runtime fetch on boot)
@@ -147,7 +147,7 @@ Scope OUT:
 
 **Learnings**:
 
-- **Promotions**:
+**Promotions**:
 
 - [ ] -> context/ : "FE AppConfig precedence pattern" — reusable
       in any Vite + React app
