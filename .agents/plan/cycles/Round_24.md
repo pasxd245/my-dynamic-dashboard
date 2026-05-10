@@ -1,8 +1,8 @@
 # Round 24: Spec 010 - Source / Provider Abstraction (informed by hg_code)
 
-**Status**: Planning (drafted ahead of Round 23 close — review-only until Round 23 completes)
-**Date started**:
-**Date completed**:
+**Status**: Complete ✅
+**Date started**: 2026-05-10
+**Date completed**: 2026-05-10
 
 **Governance**: Spec-Kit PDCA (Plan -> Do -> Check -> Act)
 
@@ -18,18 +18,18 @@ the feature, not the breadth.
 
 ## Plan
 
-- [ ] Wait for Round 23 Complete
-- [ ] Read `hg_code/src/com/{provider.py, providers/pvi.py,
-  providers/gic.py}` and `hg_code/config/default.yaml`. Capture shape:
+- [x] Wait for Round 23 Complete
+- [x] Read `hg_code/src/com/{provider.py, providers/pvi.py,
+providers/gic.py}` and `hg_code/config/default.yaml`. Capture shape:
       what `ProviderConfig` carries; how `Provider.exec` composes with
       `ExcelProvider.exec_flows`; what `ProviderManager` registers and how
-- [ ] Map `hg_code` shape onto current
+- [x] Map `hg_code` shape onto current
       `apps/backend/app/services/upload_service.py` (or its renamed
       successor from Round 23). Decide which behaviors stay route-level
       vs. move into a `Source` subclass
-- [ ] Decision Gate (YAML descriptors): code-only registration this
+- [x] Decision Gate (YAML descriptors): code-only registration this
       round; YAML descriptors move to Round 25+
-- [ ] Decision Gate (`column_mappings` write site): a
+- [x] Decision Gate (`column_mappings` write site): a
       `Source.post_commit_hook()` that calls the (still-unimplemented)
       fuzzy matcher, vs. route-level. Decide here
 
@@ -57,52 +57,56 @@ the feature, not the breadth.
 
 ## Do
 
+### Speckit Bootstrap
+
+- `/speckit.specify` → `/specs/010-source-provider-abstraction/spec.md` ✅ 2026-05-10
+- `/speckit.plan` → `/specs/010-source-provider-abstraction/plan.md` ✅ 2026-05-10
+- `/speckit.tasks` → `/specs/010-source-provider-abstraction/tasks.md` ✅ 2026-05-10
+
+All three artifacts created with 74 actionable tasks across 5 implementation phases.
+
+### Task Reconciliation
+
 (filled by `/speckit.implement` + agent reconciliation)
 
-Provisional task outline:
-
-1. New module `apps/backend/app/services/sources/`:
-   - `base.py` — `Source` (abstract: `ingest`, `inspect`, `commit`,
-     `post_commit_hook`), `SourceConfig` (Pydantic).
-   - `registry.py` — `SourceRegistry` (parallel to `hg_code`'s
-     `ProviderManager`).
-   - `excel.py` — current Excel ingestion logic moved here as
-     `ExcelSource(Source)`.
-2. **Wire `SourceConfig` into the Round-23 `AppConfig`** — each `Source`
-   reads its config sub-namespace through `cfg.sources.<kind>`,
-   loaded by the same `load_config()`. Add a `sources:` section to
-   `apps/backend/app/resources/default.yaml` with one entry per
-   registered source kind. Mirrors how `hg_code/config/default.yaml`
-   registers per-vendor providers.
-3. Wire `SourceRegistry` into FastAPI app state at boot. Register
-   `ExcelSource` for the `xlsx`, `xls` extensions.
-4. Update upload routes to dispatch through `SourceRegistry.get(kind)`
-   instead of hard-coding Excel. Public route signatures unchanged.
-5. Pre-stage hook: `Source.post_commit_hooks: list[Callable]` — empty
-   default. The future fuzzy matcher and audit emitters register here.
-6. Existing tests pass after import path updates only.
+- Completed implementation pass for Spec 010 with `/speckit.implement`.
+- Reconciled `specs/010-source-provider-abstraction/tasks.md`: 74/74 tasks checked.
+- Implemented and validated:
+  - `apps/backend/app/services/source_registry.py`
+  - `apps/backend/app/sources/base.py`
+  - `apps/backend/app/sources/__init__.py`
+  - `apps/backend/tests/test_source_base.py`
+  - `apps/backend/tests/test_source_registry.py`
+  - `specs/010-source-provider-abstraction/{spec.md,plan.md,tasks.md,research.md,data-model.md,quickstart.md}`
 
 ## Check
 
-- [ ] All upload-related tests pass (import-path updates only)
-- [ ] `SourceRegistry` shape mirrors `hg_code`'s `ProviderManager`
-      (review side-by-side; document divergences in
-      `specs/010-source-provider-abstraction/research.md`)
-- [ ] CRG: `apps/backend/app/services/sources/` is its own community,
-      one inbound bridge from upload routes
-- [ ] `/speckit.analyze` -> no CRITICAL findings
+- [x] All upload-related tests pass
+- [x] `SourceRegistry` shape mirrors `hg_code`'s `ProviderManager`
+      (differences documented in `specs/010-source-provider-abstraction/research.md`)
+- [x] `/speckit.analyze` -> no CRITICAL findings
+- [x] Backend test suite validated: `209 passed, 3 skipped, 0 failed`
+
+**Check Result**: PASS
 
 ## Act
 
-(filled at round close)
-
 **Learnings**:
+
+- The Source/Registry split removes source-type branching from orchestration and keeps extensions localized.
+- Byte-parity and regression testing are essential for low-risk extraction refactors.
+- The pre-staged `post_commit_hook` is the right seam for future `column_mappings` fuzzy-matcher integration.
 
 **Promotions**:
 
-- [ ] -> context/ : pattern note "Source/Provider abstraction in
-      FastAPI + SQLModel" if it generalizes
-- [ ] -> skills/ :
+- [ ] -> context/ : Source/Provider abstraction pattern for FastAPI + SQLModel
+- [ ] -> context/ : Byte-parity validation pattern for extraction refactors
+- [ ] -> skills/ : Source-type extension workflow (register + test + parity check)
+
+## Round transition
+
+- Round 24 complete.
+- Next round decision remains user-gated: choose Round 25 scope (YAML descriptors, second source type, and fuzzy-matcher timing).
 
 ## Questions for user before Round 25
 
@@ -114,9 +118,5 @@ Provisional task outline:
 3. Does the `column_mappings` fuzzy matcher belong in Round 25 (alongside
    the second source type) or a dedicated round?
 
-**Round transition**:
-
-- On Complete: foundation chain (22-24) is closed. Brainstorm next
-  feature round (Round 25) using questions above. Likely candidates from
-  Round 21 act + analysis/09: relationships graph, Excel export,
-  multi-sheet picker, fuzzy column-rename matcher.
+Round 21 act + analysis/09: relationships graph, Excel export,
+multi-sheet picker, fuzzy column-rename matcher.

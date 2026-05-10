@@ -16,6 +16,6 @@
 
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan:
-specs/009-structural-audit-and-realignment/plan.md
+specs/010-source-provider-abstraction/plan.md
 
 <!-- SPECKIT END -->
