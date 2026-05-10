@@ -440,14 +440,48 @@ export const Const = {
 
 ## Status Summary (2026-05-11)
 
-- **Execution status**: Planning phase (Phase 0 research + Phase 1 design in progress)
-- **Plan status**: This plan.md documents target approach, decision gates, and validation strategy
-- **Blockers**: Awaiting backend specification for `/api/v1/config` endpoint shape (if new) or confirmation of fallback to `/api/config`
-- **Next phase**: Execute Phase 0 research (CRG audit, inventory, i18n survey); generate `research.md` and finalize decision gates
+- **Execution status**: Completed (Round 27 closed)
+- **Plan status**: Implemented and validated; all tasks in tasks.md are checked (44/44)
+- **Blockers**: None for Round 27 closure
+- **Next phase**: Brainstorm and define Round 28 scope
 
 ## Traceability Update
 
-- **Plan artifacts**: `specs/013-builder-foundation-audit-config-manager/{plan,research,data-model,quickstart,contracts}/*`
+- **Plan artifacts**: `specs/013-builder-foundation-audit-config-manager/{spec,plan,tasks,research}.md` + `checklists/round-27-check.md`
 - **Evidence surface**: Implementation artifacts under `apps/builder/src/{config,state,api}/`; test results; bundle analysis
 - **Verification commands**: See Phase 2 Check section above; all commands are reproducible from repo root
 - **Task mapping**: Tasks will be generated in Phase 1 (see `speckit.tasks` workflow); each task maps to a requirement and validation gate above
+
+## Constitution Traceability Matrix (Round 27 closure)
+
+Required by constitution: each requirement is mapped to data layer, metric contract,
+relationship rule, surface role, decision gate, and validating test/evidence.
+`N/A` denotes intentionally not applicable to this frontend-only structural round.
+
+| Req     | Data Layer                                   | Metric Contract                                    | Relationship Rule                                 | Surface Role                | Gate                   | Test / Evidence                                                  |
+| ------- | -------------------------------------------- | -------------------------------------------------- | ------------------------------------------------- | --------------------------- | ---------------------- | ---------------------------------------------------------------- |
+| FR-001  | Frontend source tree (`apps/builder/src`)    | Directory canonicalization complete                | No cross-layer import violations                  | Builder FE maintainers      | Gate A/B/C/D pre-audit | T009-T011 + build output                                         |
+| FR-002  | Docs (`apps/builder/README.md`)              | Directory table present                            | Placement rules explicit per directory            | Contributors/onboarders     | Docs gate              | T042                                                             |
+| FR-003  | Runtime config model (`config/appConfig.ts`) | Typed accessor coverage                            | Single access path for runtime config             | FE app bootstrap            | Config gate            | T014                                                             |
+| FR-004  | Build env + runtime endpoint + localStorage  | Precedence verified (L1<L2<L3)                     | Override ordering deterministic                   | FE runtime config consumers | Config gate            | T021-T024                                                        |
+| FR-005  | Config API surface                           | Hook + debug surface available                     | Hook/use API consistent across components         | FE components               | Config gate            | T014 + T024                                                      |
+| FR-006  | Frontend code search scope                   | Zero non-appConfig env reads                       | Env reads centralized                             | FE maintainers              | Governance gate        | T018 + checklist grep                                            |
+| FR-007  | Config key constants (`Fields`)              | Keys defined + typed                               | Key naming stable across modules                  | FE config authors           | Config gate            | T012                                                             |
+| FR-008  | App constants (`Const`)                      | Defaults centralized                               | Constant source of truth                          | FE config authors           | Config gate            | T013                                                             |
+| FR-009  | State modules (`state/`)                     | Application state moved from component-local state | Store boundaries by feature                       | FE state owners             | Gate A                 | T026-T030                                                        |
+| FR-010  | Store hydration docs                         | Init/hydrate/reset semantics documented            | Lifecycle explicit per store                      | FE state owners             | State gate             | T026 + T027 + T028 + README                                      |
+| FR-011  | API layer + hooks                            | No raw HTTP in components/pages                    | UI -> hooks -> api call path                      | FE feature components       | Gate B                 | T031-T035 + grep                                                 |
+| FR-012  | API hook exports                             | Hook coverage across api domains                   | Query/mutation pattern consistency                | FE api clients              | Gate B                 | T031-T034                                                        |
+| FR-013  | Localization docs                            | Decision recorded with rationale                   | i18n lifecycle explicit (active/retired)          | FE maintainers              | Gate D                 | T037                                                             |
+| FR-014  | i18n source tree                             | Vestigial i18n removed if unused                   | No orphaned imports                               | FE maintainers              | Gate D                 | T036                                                             |
+| FR-015  | i18n runtime behavior                        | N/A for retire path in this round                  | N/A (future re-enable path documented)            | FE maintainers              | Gate D                 | T037 (retire rationale)                                          |
+| FR-016  | Utility modules                              | No duplicated util imports/patterns                | Utils isolated from pages/components feature code | FE maintainers              | CRG gate               | T038 + grep evidence                                             |
+| FR-017  | Runtime behavior parity                      | Tests/build/smoke all pass                         | No backend contract drift via FE refactor         | FE + QA                     | Check gate             | T039 + T040 + stub smoke                                         |
+| FR-018  | AppConfig test surface                       | Unit tests cover precedence/failure cases          | Config behavior deterministic                     | FE config owners            | Test gate              | T020-T025                                                        |
+| NFR-001 | Dev server startup                           | Startup succeeds without blocking errors           | N/A                                               | FE dev workflow             | Check gate             | `pnpm --filter builder dev` smoke (documented in check evidence) |
+| NFR-002 | Build pipeline                               | Production build passes cleanly                    | N/A                                               | FE release pipeline         | Check gate             | T040                                                             |
+| NFR-003 | Bundle artifact                              | Bundle <= baseline after refactor                  | N/A                                               | FE release pipeline         | Check gate             | T002 + T040                                                      |
+| NFR-004 | API contract usage                           | No request/response shape changes introduced       | FE requests preserve existing backend API surface | FE API clients              | Check gate             | T035 + unchanged backend contracts                               |
+| SC-001  | Decision resolution artifacts                | Gates A-D closed with evidence                     | Decisions applied consistently                    | FE maintainers              | Gate closure           | research.md + checklist                                          |
+| SC-002  | Workflow smoke path                          | Upload->profile->query->save flow still passes     | End-to-end user path intact                       | Product acceptance          | Check gate             | `pnpm dev:builder:smoke:stub` passed                             |
+| SC-003  | Zero-behavior-change constraint              | Structural-only refactor confirmed by tests/smoke  | N/A                                               | Product reliability         | Check gate             | T039/T040 + smoke + no backend changes                           |

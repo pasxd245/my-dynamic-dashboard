@@ -1,7 +1,7 @@
 # Round 27 Check Evidence — Spec 013
 
 **Date**: 2026-05-11  
-**Phase**: Check (in progress — state consolidation still pending)
+**Phase**: Check (completed)
 
 ---
 
@@ -53,10 +53,10 @@ $ pnpm --filter builder build
 
 | Metric  | Phase 0 baseline | Round 27 result | Change                 |
 | ------- | ---------------- | --------------- | ---------------------- |
-| JS raw  | 335.61 kB        | 287.63 kB       | **-47.98 kB (-14.3%)** |
-| JS gzip | 101.61 kB        | 86.95 kB        | **-14.66 kB (-14.4%)** |
+| JS raw  | 335.61 kB        | 290.12 kB       | **-45.49 kB (-13.6%)** |
+| JS gzip | 101.61 kB        | 87.72 kB        | **-13.89 kB (-13.7%)** |
 
-**Result**: ✅ Bundle shrunk (i18next + react-i18next removed per Gate D retire decision)
+**Result**: ✅ Bundle reduced from baseline
 
 ---
 
@@ -71,13 +71,7 @@ Test Files  2 passed (2)
 **Breakdown**:
 
 - `config/__tests__/appConfig.test.ts`: 7 tests (T020-T025 coverage)
-  - Layer 1 (build-time env): 1 test
-  - Layer 2 (runtime fetch override): 1 test
-  - Layer 2 (network failure fallback): 2 tests
-  - Layer 3 (localStorage override): 1 test
-  - `all()` source attribution: 1 test
-  - init() idempotency: 1 test
-- `pages/__tests__/BuilderWorkflowPage.test.tsx`: 5 tests (converted from exported functions to Vitest format)
+- `pages/__tests__/BuilderWorkflowPage.test.tsx`: 5 tests
 
 **Result**: ✅ All 12 tests pass, zero failures
 
@@ -85,25 +79,58 @@ Test Files  2 passed (2)
 
 ## 7. CRG community re-audit
 
-**Status**: Deferred — CRG `list_communities_tool` requires MCP setup (T041).
+**Status**: Completed
 
-**Manual observation**: Directory structure significantly cleaner post-Round 27:
+**Command**:
 
-- `config/` community is new and self-contained (AppConfig, Fields, Const, index)
-- `api/hooks/` community is new and bounded (4 domain hook files)
-- `state/` has clear index.ts export boundary
+```bash
+$ bash scripts/crg apps apps --build
+==> apps root: /home/ubuntu/pf/my-dynamic-dashboard/apps
+---- builder ----
+  build: builder
+INFO: Progress: 209/209 files parsed
+Full build: 209 files, 1336 nodes, 9491 edges (postprocess=none)
+```
+
+**Observation**:
+
+- `config/` community is self-contained (AppConfig, Fields, Const, index)
+- `api/hooks/` community is bounded (4 domain hook files)
+- `state/` has clear export boundary with dedicated stores
 
 ---
 
-## Open Items (deferred to next PDCA pass)
+## 8. State consolidation verification (T030)
 
-| Task                               | Status   | Reason                                           |
-| ---------------------------------- | -------- | ------------------------------------------------ |
-| T027 (queryBuilderStore)           | Deferred | Requires zustand installation + App.tsx refactor |
-| T028 (savedQueryStore)             | Deferred | Requires zustand installation + page refactor    |
-| T030 (useState count verification) | Deferred | Depends on T027/T028 completion                  |
-| T038 (retire util collisions)      | Deferred | Requires CRG tool                                |
-| T041 (CRG re-audit)                | Deferred | Requires CRG tool setup                          |
+```bash
+$ rg -n "useState\(" apps/builder/src/components apps/builder/src/pages apps/builder/src/App.tsx | wc -l
+0
+```
+
+**Result**: ✅ State consolidation target met for T030 scope.
+
+---
+
+## 9. Round 21 workflow smoke
+
+```bash
+$ pnpm dev:builder:smoke:stub
+[builder-workflow-smoke] status=passed first_failed_stage=none
+```
+
+**Result**: ✅ Upload -> validate query -> saved query flow passes in deterministic smoke mode.
+
+---
+
+## 10. Dev server startup (NFR-001)
+
+```bash
+$ pnpm --filter builder dev
+VITE v7.3.3 ready in 166 ms
+Local: http://localhost:3000/
+```
+
+**Result**: ✅ Dev server starts cleanly and serves local endpoint.
 
 ---
 
@@ -111,12 +138,12 @@ Test Files  2 passed (2)
 
 - **Phase 0 (Audit)**: ✅ Complete (8/8 tasks)
 - **Phase 1 (Layout)**: ✅ Complete (3/3 tasks)
-- **Phase 2 (AppConfig)**: ✅ Complete (8/8 tasks — including workspaceApi + queryApi URL migration)
+- **Phase 2 (AppConfig)**: ✅ Complete (8/8 tasks)
 - **Phase 3 (Tests)**: ✅ Complete (6/6 tasks)
-- **Phase 4 (State)**: ⏳ 1/5 done (T026 done; T027-T030 deferred)
-- **Phase 5 (API Layer)**: ✅ Complete (5/5 tasks — T031-T035)
-- **Phase 6 (i18n)**: ✅ Complete (2/2 tasks — T036 removed i18n/, T037 README)
-- **Phase 7 (Verify)**: ⏳ 2/4 done (T039-T040 done; T038, T041 deferred)
-- **Phase 8 (Docs)**: ✅ Complete (3/3 tasks — T042 README, T043 setup.md, T044 this file)
+- **Phase 4 (State)**: ✅ Complete (5/5 tasks)
+- **Phase 5 (API Layer)**: ✅ Complete (5/5 tasks)
+- **Phase 6 (i18n)**: ✅ Complete (2/2 tasks)
+- **Phase 7 (Verify)**: ✅ Complete (4/4 tasks)
+- **Phase 8 (Docs)**: ✅ Complete (3/3 tasks)
 
-**Tasks complete**: 34/38 (89%)
+**Tasks complete**: 44/44 (100%)

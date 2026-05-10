@@ -2,11 +2,11 @@
  * state/ — application state stores (Spec 013)
  *
  * Current stores:
- *   builderSessionStore  — workflow stage + session state (hand-rolled, no zustand)
- *
- * Planned (Phase 4 / T027-T028 — requires zustand installation):
- *   queryBuilderStore    — builder snapshot + column state
- *   savedQueryStore      — saved query list + pagination state
+ *   builderSessionStore  — workflow stage + session state
+ *   queryBuilderStore    — workspace and builder application state
+ *   savedQueryStore      — saved query list, filters, and pagination state
  */
 
 export * from "./builderSessionStore";
+export * from "./queryBuilderStore";
+export * from "./savedQueryStore";

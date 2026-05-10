@@ -9,20 +9,19 @@
  * - Actions per query (view, delete, restore)
  */
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useEffect, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   listSavedQueries,
   searchSavedQueries,
   deleteSavedQuery,
   restoreSavedQuery,
-  type SavedQuerySummary,
 } from "../../api/queryApi";
 import { getActionableError } from "../../api/httpErrors";
-import type { ActionableError } from "../../api/types";
 import ActionableErrorPanel from "../../components/errors/ActionableErrorPanel";
 import SavedQuerySearch from "../../components/SavedQuery/SavedQuerySearch";
 import type { SearchFilters } from "../../components/SavedQuery/SavedQuerySearch";
+import { useSavedQueryStore } from "../../state";
 
 export interface SavedQueryLibraryPageProps {
   workspaceId: string;
@@ -32,19 +31,31 @@ export default function SavedQueryLibraryPage({
   workspaceId,
 }: SavedQueryLibraryPageProps): React.ReactElement {
   const navigate = useNavigate();
-  const [queries, setQueries] = useState<SavedQuerySummary[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [error, setError] = useState<string>("");
-  const [actionableError, setActionableError] = useState<ActionableError | null>(null);
-  const [total, setTotal] = useState<number>(0);
-  const [limit] = useState<number>(50);
-  const [offset, setOffset] = useState<number>(0);
-  const [filters, setFilters] = useState<SearchFilters>({
-    query: "",
-    tags: [],
-    state: "active",
-  });
-  const [actionInProgress, setActionInProgress] = useState<string | null>(null);
+  const {
+    queries,
+    isLoading,
+    error,
+    actionableError,
+    total,
+    limit,
+    offset,
+    filters,
+    actionInProgress,
+    init,
+    setQueries,
+    updateQueries,
+    setIsLoading,
+    setError,
+    setActionableError,
+    setTotal,
+    setOffset,
+    setFilters,
+    setActionInProgress,
+  } = useSavedQueryStore();
+
+  useEffect(() => {
+    init();
+  }, [init]);
 
   // Get all unique tags for filter suggestions
   const allTags = useMemo(() => {
@@ -104,20 +115,18 @@ export default function SavedQueryLibraryPage({
   }, [filters, limit, offset, workspaceId]);
 
   const handleSearch = useCallback((newFilters: SearchFilters): void => {
-    setFilters((prev) => {
-      const sameQuery = prev.query === newFilters.query;
-      const sameState = prev.state === newFilters.state;
-      const sameTags =
-        prev.tags.length === newFilters.tags.length &&
-        prev.tags.every((tag, idx) => tag === newFilters.tags[idx]);
+    const sameQuery = filters.query === newFilters.query;
+    const sameState = filters.state === newFilters.state;
+    const sameTags =
+      filters.tags.length === newFilters.tags.length &&
+      filters.tags.every((tag, idx) => tag === newFilters.tags[idx]);
 
-      if (sameQuery && sameState && sameTags) {
-        return prev;
-      }
+    if (sameQuery && sameState && sameTags) {
+      return;
+    }
 
-      return newFilters;
-    });
-  }, []);
+    setFilters(newFilters);
+  }, [filters, setFilters]);
 
   const handleViewDetails = (queryId: string): void => {
     navigate(`/saved-queries/${queryId}`);
@@ -138,7 +147,7 @@ export default function SavedQueryLibraryPage({
     try {
       setActionableError(null);
       await deleteSavedQuery(workspaceId, queryId);
-      setQueries(queries.filter((q) => q.query_id !== queryId));
+      updateQueries((previous) => previous.filter((q) => q.query_id !== queryId));
     } catch (err) {
       setActionableError(getActionableError(err));
       const errorMsg = err instanceof Error ? err.message : "Failed to delete query";
@@ -155,8 +164,8 @@ export default function SavedQueryLibraryPage({
     try {
       setActionableError(null);
       const restored = await restoreSavedQuery(workspaceId, queryId);
-      setQueries(
-        queries.map((q) =>
+      updateQueries((previous) =>
+        previous.map((q) =>
           q.query_id === queryId
             ? {
                 ...q,

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Routes, Route, Link, useNavigate } from "react-router-dom";
 
 import {
@@ -25,6 +25,7 @@ import { SaveQueryDialog } from "./components/SavedQuery";
 import type { SaveQueryResponse } from "./api/queryApi";
 import BuilderWorkflowPage from "./pages/BuilderWorkflowPage";
 import { SavedQueryLibraryPage, SavedQueryDetail } from "./pages/SavedQueryLibrary";
+import { useQueryBuilderStore } from "./state";
 
 const panelStyle: React.CSSProperties = {
   marginTop: "1.5rem",
@@ -41,20 +42,14 @@ const preStyle: React.CSSProperties = {
 };
 
 export default function App(): React.ReactElement {
-  const [workspaceName, setWorkspaceName] = useState<string>("MVP1 Workspace");
-  const [workspaceId, setWorkspaceId] = useState<string>("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [uploadResult, setUploadResult] = useState<UploadResponse | null>(null);
   const [headerRow, setHeaderRow] = useState<string>("1");
   const [dataRange, setDataRange] = useState<string>("");
   const [reason, setReason] = useState<string>("");
-  const [profile, setProfile] = useState<ProfileResponse | null>(null);
   const [selectedColumnId, setSelectedColumnId] = useState<string>("");
   const [selectedRole, setSelectedRole] = useState<string>("identity_key");
   const [overrideReason, setOverrideReason] = useState<string>("");
-  const [readiness, setReadiness] = useState<ReadinessResponse | null>(null);
   const [manifestText, setManifestText] = useState<string>("");
-  const [manifestPreview, setManifestPreview] = useState<ManifestResponse | null>(null);
   const [message, setMessage] = useState<string>("");
   const [isUploading, setIsUploading] = useState<boolean>(false);
   const [uploadActionableError, setUploadActionableError] = useState<ActionableError | null>(null);
@@ -62,9 +57,32 @@ export default function App(): React.ReactElement {
 
   // Saved Queries state
   const [showSaveDialog, setShowSaveDialog] = useState<boolean>(false);
-  const [builderSnapshot, setBuilderSnapshot] = useState<Record<string, unknown> | null>(null);
-  const [loadedSnapshot, setLoadedSnapshot] = useState<Record<string, unknown> | null>(null);
+
+  const {
+    workspaceName,
+    workspaceId,
+    uploadResult,
+    profile,
+    readiness,
+    manifestPreview,
+    builderSnapshot,
+    loadedSnapshot,
+    init: initQueryBuilderStore,
+    setWorkspaceName,
+    setWorkspaceId,
+    setUploadResult,
+    setProfile,
+    setReadiness,
+    setManifestPreview,
+    setBuilderSnapshot,
+    setLoadedSnapshot,
+  } = useQueryBuilderStore();
+
   const navigate = useNavigate();
+
+  useEffect(() => {
+    initQueryBuilderStore();
+  }, [initQueryBuilderStore]);
 
   const currentSheet = useMemo(() => uploadResult?.sheets?.[0] ?? null, [uploadResult]);
 

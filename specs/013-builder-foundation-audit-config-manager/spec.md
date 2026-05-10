@@ -2,7 +2,7 @@
 
 **Feature Branch**: `013-builder-foundation-audit-config-manager`  
 **Created**: 2026-05-11  
-**Status**: Specifying  
+**Status**: Completed (Round 27)  
 **Input**: User description: "Bring `apps/builder/src/` into a clean, layered structure that mirrors the backend's Round 23 split (`core/` + `apps/` + `utils/` adapted to React/TypeScript idioms). Introduce a **frontend `AppConfig` analogue** so all `import.meta.env.*` reads are routed through one typed module with explicit precedence (build-time defaults < runtime `/api/config` endpoint < user-overridden via localStorage). Consolidate state management (`builderSessionStore` + scattered hooks), retire ad-hoc `utils` collisions, and align the i18n setup. **Zero new features.** This is the FE mirror of Round 23 — the user's stated value layer."
 
 ## Business Question _(mandatory for this project)_
@@ -111,7 +111,7 @@ As a frontend maintainer, I need the i18n setup to be documented and intentional
 
 ### Functional Requirements
 
-- **FR-001**: The React builder source MUST be reorganized into the canonical layout with clear directory roles: `config/`, `api/`, `components/`, `pages/`, `state/`, `hooks/`, `i18n/`, `utils/`, and `types/`.
+- **FR-001**: The React builder source MUST be reorganized into the canonical layout with clear directory roles: `config/`, `api/`, `components/`, `pages/`, `state/`, `hooks/`, `utils/`, and `types/` (with `i18n/` present only when Gate D outcome is active-i18n).
 - **FR-002**: Each directory under `apps/builder/src/` MUST have a documented purpose and boundary in `apps/builder/README.md` so new contributors can make placement decisions without ambiguity.
 - **FR-003**: A centralized `AppConfig` module MUST exist at `apps/builder/src/config/appConfig.ts` that exposes typed accessors for all runtime configuration (API base URL, feature flags, log level, i18n locale, etc.).
 - **FR-004**: AppConfig MUST implement three-layer precedence: build-time `import.meta.env.VITE_*` (lowest) < runtime `/api/v1/config` endpoint (middle) < localStorage overrides (highest).
@@ -127,7 +127,7 @@ As a frontend maintainer, I need the i18n setup to be documented and intentional
 - **FR-014**: If i18n is deemed vestigial, the `i18n/` directory MUST be removed and all imports retired.
 - **FR-015**: If i18n is deemed active, translation files MUST be complete and locale switching MUST be tested before accept.
 - **FR-016**: No duplicate utilities or helpers MUST exist across `utils/` modules; CRG audit MUST surface and retire collisions.
-- **FR-017**: All builder tests (Vitest) MUST pass without modification to production code; this feature does not change runtime behavior.
+- **FR-017**: All builder tests (Vitest) MUST pass with no runtime behavior change and no backend API contract change.
 - **FR-018**: AppConfig MUST be tested with unit tests covering all three precedence layers and error cases (missing env, failed `/api/config` fetch, corrupt localStorage).
 
 ### Non-Functional Requirements
