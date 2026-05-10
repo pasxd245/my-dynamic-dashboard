@@ -31,10 +31,7 @@ class UploadApp:
                 self._preflight_service = main_value
 
         metadata_db_path = self.metadata_db_path()
-        if (
-            self._preflight_service is None
-            or self._preflight_service.metadata_db_path != metadata_db_path
-        ):
+        if self._preflight_service is None or self._preflight_service.metadata_db_path != metadata_db_path:
             self._preflight_service = PreflightService(metadata_db_path=metadata_db_path)
 
         if main_module is not None:

@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 import json
+from dataclasses import dataclass
 
 import polars as pl
-
 
 SAMPLING_THRESHOLD_ROWS = 10000
 SAMPLING_SIZE = 5000
@@ -122,9 +121,7 @@ def _warn_out_of_range_dates(series: pl.Series) -> list[str]:
 def _to_top_k_json(series: pl.Series, limit: int = 5) -> str:
     top = series.drop_nulls().cast(pl.String).value_counts().sort("count", descending=True).head(limit)
     rows = top.to_dicts()
-    normalized = [
-        {"value": row.get(series.name), "count": int(row.get("count", 0))} for row in rows
-    ]
+    normalized = [{"value": row.get(series.name), "count": int(row.get("count", 0))} for row in rows]
     return json.dumps(normalized, separators=(",", ":"), sort_keys=True)
 
 
@@ -142,7 +139,9 @@ def compute_profiles(df: pl.DataFrame) -> tuple[pl.DataFrame, bool, int | None, 
     return profile_df, sampled, sample_size, sample_seed
 
 
-def compute_column_profile(series: pl.Series, sampled: bool, sample_size: int | None, sample_seed: int | None) -> ComputedProfile:
+def compute_column_profile(
+    series: pl.Series, sampled: bool, sample_size: int | None, sample_seed: int | None
+) -> ComputedProfile:
     row_count = max(series.len(), 1)
     null_ratio = float(series.null_count() / row_count)
     distinct_count = int(series.n_unique())

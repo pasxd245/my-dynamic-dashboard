@@ -50,18 +50,29 @@ def run_startup_migrations(db_path: Path, logger=None) -> MigrationOutcome:
 
     state = detect_state(db_path)
     if logger is not None:
-        logger.info("metadata migration detect_state", extra={"step": "detect_state", "db_exists": state.db_exists, "has_alembic_version_table": state.has_alembic_version_table})
+        logger.info(
+            "metadata migration detect_state",
+            extra={
+                "step": "detect_state",
+                "db_exists": state.db_exists,
+                "has_alembic_version_table": state.has_alembic_version_table,
+            },
+        )
 
     if state.db_exists and not state.has_alembic_version_table:
         if logger is not None:
-            logger.info("metadata migration stamp_head", extra={"step": "stamp_head", "target_revision": target_revision})
+            logger.info(
+                "metadata migration stamp_head", extra={"step": "stamp_head", "target_revision": target_revision}
+            )
         command.stamp(config, "head")
         action = "stamp_then_upgrade"
     else:
         action = "upgrade_only"
 
     if logger is not None:
-        logger.info("metadata migration upgrade_head", extra={"step": "upgrade_head", "target_revision": target_revision})
+        logger.info(
+            "metadata migration upgrade_head", extra={"step": "upgrade_head", "target_revision": target_revision}
+        )
     command.upgrade(config, "head")
 
     return MigrationOutcome(action=action, target_revision=target_revision)

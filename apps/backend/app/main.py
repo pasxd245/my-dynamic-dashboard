@@ -14,18 +14,23 @@ from app.api.saved_queries import router as saved_queries_router
 from app.api.upload import (
     BUILDER_SMOKE_SERVICE,
     PREFLIGHT_SERVICE,
+)
+from app.api.upload import (
     router as upload_router,
 )
-from app.api.workspaces import BUILDER_SESSION_SERVICE, router as workspaces_router
+from app.api.workspaces import BUILDER_SESSION_SERVICE
+from app.api.workspaces import router as workspaces_router
 from app.core.logging import configure_backend_logging, correlation_id_ctx
 from app.core.metadata_migrations import run_startup_migrations
 from app.core.startup_validation import StartupValidationError, validate_startup_environment
 from app.schemas import ApiErrorModel, ErrorResponse
-from app.services.dashboard_service import DashboardService  # noqa: F401  (re-exported for test monkeypatching)
-from app.services.panel_executor_service import PanelExecutorService  # noqa: F401  (re-exported for test monkeypatching)
 from app.services.actionable_error_service import (
     build_actionable_error_from_api_error,
     with_correlation_details,
+)
+from app.services.dashboard_service import DashboardService  # noqa: F401  (re-exported for test monkeypatching)
+from app.services.panel_executor_service import (
+    PanelExecutorService,  # noqa: F401  (re-exported for test monkeypatching)
 )
 from app.shared import APP_LOGGER, DB_PATH, PARQUET_ROOT  # noqa: F401  (re-exported for test monkeypatching)
 
@@ -70,9 +75,7 @@ def _handle_api_error(request: Request, exc: ApiError) -> JSONResponse:
     if actionable is not None:
         return JSONResponse(status_code=exc.status_code, content=actionable.model_dump())
 
-    payload = ErrorResponse(
-        error=ApiErrorModel(code=exc.code, message=exc.message, details=details)
-    )
+    payload = ErrorResponse(error=ApiErrorModel(code=exc.code, message=exc.message, details=details))
     return JSONResponse(status_code=exc.status_code, content=payload.model_dump())
 
 

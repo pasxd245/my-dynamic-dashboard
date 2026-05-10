@@ -6,7 +6,6 @@ import sys
 from contextvars import ContextVar
 from datetime import datetime, timezone
 
-
 correlation_id_ctx: ContextVar[str | None] = ContextVar("correlation_id", default=None)
 
 

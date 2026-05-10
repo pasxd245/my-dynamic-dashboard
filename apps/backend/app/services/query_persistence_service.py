@@ -16,7 +16,9 @@ class QueryPersistenceService:
         serialized = json.dumps(config.model_dump(), sort_keys=True, separators=(",", ":"))
         return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
 
-    def save_query(self, *, workspace_id: str, name: str, description: str | None, config: QueryConfig) -> dict[str, Any]:
+    def save_query(
+        self, *, workspace_id: str, name: str, description: str | None, config: QueryConfig
+    ) -> dict[str, Any]:
         _ = (workspace_id, name, description, config)
         return {}
 

@@ -1,4 +1,5 @@
 """Relationship rule service: compute overlap/cardinality, lifecycle, audit."""
+
 from __future__ import annotations
 
 import json
@@ -7,7 +8,6 @@ import uuid
 from typing import Any
 
 import duckdb
-
 
 VALID_JOIN_TYPES = {"inner", "left", "right", "full"}
 VALID_REL_TYPES = {"exact_key", "normalized_key", "date_window"}
@@ -36,9 +36,7 @@ def compute_overlap_pct(
     if not from_row or not to_row:
         return 0.0
 
-    from_values = [
-        item["value"] for item in json.loads(from_row[0]) if item["value"] is not None
-    ]
+    from_values = [item["value"] for item in json.loads(from_row[0]) if item["value"] is not None]
     to_values = [item["value"] for item in json.loads(to_row[0]) if item["value"] is not None]
 
     if not from_values:
@@ -96,12 +94,8 @@ def compute_cardinality(
 
 def is_broken(conn: sqlite3.Connection, rule: sqlite3.Row) -> bool:
     """Check if a relationship rule references missing or incompatible columns."""
-    from_col = conn.execute(
-        "SELECT effective_type FROM columns WHERE id = ?", (rule["from_column_id"],)
-    ).fetchone()
-    to_col = conn.execute(
-        "SELECT effective_type FROM columns WHERE id = ?", (rule["to_column_id"],)
-    ).fetchone()
+    from_col = conn.execute("SELECT effective_type FROM columns WHERE id = ?", (rule["from_column_id"],)).fetchone()
+    to_col = conn.execute("SELECT effective_type FROM columns WHERE id = ?", (rule["to_column_id"],)).fetchone()
 
     if from_col is None or to_col is None:
         return True

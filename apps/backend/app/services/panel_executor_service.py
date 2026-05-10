@@ -105,9 +105,7 @@ class PanelExecutorService:
         declared_names = {self._extract_declared_parameter_name(spec) for spec in declared_specs}
         unknown = sorted(set(provided.keys()) - declared_names)
         if unknown:
-            raise PanelValidationError(
-                f"Undeclared parameters provided: {', '.join(unknown)}"
-            )
+            raise PanelValidationError(f"Undeclared parameters provided: {', '.join(unknown)}")
 
         for spec in declared_specs:
             name = self._extract_declared_parameter_name(spec)
@@ -146,8 +144,7 @@ class PanelExecutorService:
     ) -> PanelDataResponse:
         paged_rows, has_more = self.build_projection(rows=rows, limit=limit, offset=offset)
         response_columns = [
-            PanelDataColumn(name=str(col.get("name", "")), dataType=str(col.get("dataType", "text")))
-            for col in columns
+            PanelDataColumn(name=str(col.get("name", "")), dataType=str(col.get("dataType", "text"))) for col in columns
         ]
         return PanelDataResponse(
             panel_id=panel_id,
@@ -164,9 +161,7 @@ class PanelExecutorService:
             return
         if allow_partial and normalized_status in {"failed", "timeout"}:
             return
-        raise PanelValidationError(
-            "Panel export is blocked until the panel run is completed."
-        )
+        raise PanelValidationError("Panel export is blocked until the panel run is completed.")
 
     def default_columns_from_snapshot(self, snapshot: dict[str, Any]) -> list[dict[str, Any]]:
         selected = snapshot.get("selected_columns")

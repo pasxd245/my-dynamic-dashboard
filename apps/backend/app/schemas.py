@@ -326,6 +326,7 @@ class SavedQueryListResponse(BaseModel):
 
 # ── Spec 004: Saved Queries ────────────────────────────────────────────────────
 
+
 class ValidationIssueType(str):
     column_deleted = "column_deleted"
     column_type_drift = "column_type_drift"

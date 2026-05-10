@@ -8,16 +8,16 @@ from app.apps.upload_app import UPLOAD_APP, UploadApp
 from app.apps.workspace_app import WORKSPACE_APP, WorkspaceApp
 
 __all__ = [
-	"DASHBOARD_APP",
-	"DEPLOYMENT_APP",
-	"QUERY_APP",
-	"RELATIONSHIP_APP",
-	"UPLOAD_APP",
-	"WORKSPACE_APP",
-	"DashboardApp",
-	"DeploymentApp",
-	"QueryApp",
-	"RelationshipApp",
-	"UploadApp",
-	"WorkspaceApp",
+    "DASHBOARD_APP",
+    "DEPLOYMENT_APP",
+    "QUERY_APP",
+    "RELATIONSHIP_APP",
+    "UPLOAD_APP",
+    "WORKSPACE_APP",
+    "DashboardApp",
+    "DeploymentApp",
+    "QueryApp",
+    "RelationshipApp",
+    "UploadApp",
+    "WorkspaceApp",
 ]

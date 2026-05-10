@@ -13,15 +13,14 @@ from app.schemas import (
     ExecutionHistoryResponse,
     LoadSavedQueryResponse,
     RecoveryWindowResponse,
-    SaveQueryRequest,
-    SaveQueryResponse,
     SavedQueryDetailResponse,
     SavedQueryLibraryResponse,
     SavedQuerySummary,
     SavedQueryValidationIssue,
     SavedQueryVersionResponse,
+    SaveQueryRequest,
+    SaveQueryResponse,
 )
-
 
 GRACE_PERIOD_HOURS = 24
 
@@ -109,9 +108,7 @@ class SchemaValidator:
         self._conn = conn
 
     def validate_base_table(self, base_table_id: str) -> SavedQueryValidationIssue | None:
-        row = self._conn.execute(
-            "SELECT id FROM files WHERE id = ?", (base_table_id,)
-        ).fetchone()
+        row = self._conn.execute("SELECT id FROM files WHERE id = ?", (base_table_id,)).fetchone()
         if row is None:
             return SavedQueryValidationIssue(
                 type="base_table_missing",
@@ -138,11 +135,13 @@ class SchemaValidator:
                 (table_id, col_name),
             ).fetchone()
             if row is None:
-                issues.append(SavedQueryValidationIssue(
-                    type="column_deleted",
-                    field_id=f"{table_id}.{col_name}",
-                    message=f"Column '{col_name}' in table '{table_id}' no longer exists.",
-                ))
+                issues.append(
+                    SavedQueryValidationIssue(
+                        type="column_deleted",
+                        field_id=f"{table_id}.{col_name}",
+                        message=f"Column '{col_name}' in table '{table_id}' no longer exists.",
+                    )
+                )
         return issues
 
     def validate_relationships(self, joins: list[dict[str, Any]]) -> list[SavedQueryValidationIssue]:
@@ -151,21 +150,23 @@ class SchemaValidator:
             rule_id = j.get("relationship_rule_id", "")
             if not rule_id:
                 continue
-            row = self._conn.execute(
-                "SELECT status FROM relationship_rules WHERE id = ?", (rule_id,)
-            ).fetchone()
+            row = self._conn.execute("SELECT status FROM relationship_rules WHERE id = ?", (rule_id,)).fetchone()
             if row is None:
-                issues.append(SavedQueryValidationIssue(
-                    type="relationship_downgraded",
-                    field_id=rule_id,
-                    message=f"Relationship rule '{rule_id}' no longer exists.",
-                ))
+                issues.append(
+                    SavedQueryValidationIssue(
+                        type="relationship_downgraded",
+                        field_id=rule_id,
+                        message=f"Relationship rule '{rule_id}' no longer exists.",
+                    )
+                )
             elif row["status"] not in ("approved",):
-                issues.append(SavedQueryValidationIssue(
-                    type="relationship_downgraded",
-                    field_id=rule_id,
-                    message=f"Relationship rule '{rule_id}' status changed to '{row['status']}'.",
-                ))
+                issues.append(
+                    SavedQueryValidationIssue(
+                        type="relationship_downgraded",
+                        field_id=rule_id,
+                        message=f"Relationship rule '{rule_id}' status changed to '{row['status']}'.",
+                    )
+                )
         return issues
 
 
@@ -175,7 +176,9 @@ class SavedQueryService:
 
     def _get_conn(self) -> Any:
         import sqlite3
+
         from app.core.metadata_db import get_connection
+
         return get_connection(self.db_path)
 
     def create_query(
@@ -185,6 +188,7 @@ class SavedQueryService:
         request: SaveQueryRequest,
     ) -> SaveQueryResponse:
         from app.core.metadata_db import get_connection
+
         now = _utc_now_iso()
         query_id = str(uuid.uuid4())
         version_id = str(uuid.uuid4())
@@ -210,8 +214,18 @@ class SavedQueryService:
                     tags_json, deleted_at, recoverable_until, version_count, execution_count, source_query_id
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, NULL, NULL, 1, 0, NULL)
                 """,
-                (query_id, workspace_id, request.name, request.description,
-                 snapshot_json, config_hash, now, now, request.created_by, tags_json),
+                (
+                    query_id,
+                    workspace_id,
+                    request.name,
+                    request.description,
+                    snapshot_json,
+                    config_hash,
+                    now,
+                    now,
+                    request.created_by,
+                    tags_json,
+                ),
             )
             conn.execute(
                 """
@@ -271,9 +285,7 @@ class SavedQueryService:
         where_sql = " AND ".join(where_clauses)
 
         with get_connection(self.db_path) as conn:
-            total_row = conn.execute(
-                f"SELECT COUNT(*) FROM saved_queries WHERE {where_sql}", params
-            ).fetchone()
+            total_row = conn.execute(f"SELECT COUNT(*) FROM saved_queries WHERE {where_sql}", params).fetchone()
             total = int(total_row[0])
 
             rows = conn.execute(
@@ -287,9 +299,7 @@ class SavedQueryService:
 
         items = [_query_row_to_summary(r) for r in rows]
         next_offset = offset + limit if offset + limit < total else None
-        return SavedQueryLibraryResponse(
-            items=items, total=total, limit=limit, offset=offset, next_offset=next_offset
-        )
+        return SavedQueryLibraryResponse(items=items, total=total, limit=limit, offset=offset, next_offset=next_offset)
 
     def search_queries(
         self,
@@ -323,9 +333,7 @@ class SavedQueryService:
         where_sql = " AND ".join(where_clauses)
 
         with get_connection(self.db_path) as conn:
-            total_row = conn.execute(
-                f"SELECT COUNT(*) FROM saved_queries WHERE {where_sql}", params
-            ).fetchone()
+            total_row = conn.execute(f"SELECT COUNT(*) FROM saved_queries WHERE {where_sql}", params).fetchone()
             total = int(total_row[0])
 
             rows = conn.execute(
@@ -339,9 +347,7 @@ class SavedQueryService:
 
         items = [_query_row_to_summary(r) for r in rows]
         next_offset = offset + limit if offset + limit < total else None
-        return SavedQueryLibraryResponse(
-            items=items, total=total, limit=limit, offset=offset, next_offset=next_offset
-        )
+        return SavedQueryLibraryResponse(items=items, total=total, limit=limit, offset=offset, next_offset=next_offset)
 
     def get_query_detail(self, *, workspace_id: str, query_id: str) -> SavedQueryDetailResponse:
         from app.core.metadata_db import get_connection
@@ -381,9 +387,7 @@ class SavedQueryService:
             versions=versions,
         )
 
-    def load_query(
-        self, *, workspace_id: str, query_id: str, version_id: str | None = None
-    ) -> LoadSavedQueryResponse:
+    def load_query(self, *, workspace_id: str, query_id: str, version_id: str | None = None) -> LoadSavedQueryResponse:
         from app.core.metadata_db import get_connection
 
         with get_connection(self.db_path) as conn:
@@ -497,9 +501,19 @@ class SavedQueryService:
                     tags_json, deleted_at, recoverable_until, version_count, execution_count, source_query_id
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, NULL, NULL, 1, 0, ?)
                 """,
-                (new_query_id, workspace_id, name, description or src["description"],
-                 snapshot_json, _snapshot_hash(json.loads(snapshot_json) if isinstance(snapshot_json, str) else snapshot_json),
-                 now, now, created_by, tags_json, query_id),
+                (
+                    new_query_id,
+                    workspace_id,
+                    name,
+                    description or src["description"],
+                    snapshot_json,
+                    _snapshot_hash(json.loads(snapshot_json) if isinstance(snapshot_json, str) else snapshot_json),
+                    now,
+                    now,
+                    created_by,
+                    tags_json,
+                    query_id,
+                ),
             )
             conn.execute(
                 """
@@ -515,8 +529,14 @@ class SavedQueryService:
                 INSERT INTO saved_query_events (event_id, query_id, version_id, event_type, occurred_at, performed_by, metadata_json)
                 VALUES (?, ?, ?, 'duplicated', ?, ?, ?)
                 """,
-                (str(uuid.uuid4()), new_query_id, new_version_id, now, created_by,
-                 json.dumps({"source_query_id": query_id})),
+                (
+                    str(uuid.uuid4()),
+                    new_query_id,
+                    new_version_id,
+                    now,
+                    created_by,
+                    json.dumps({"source_query_id": query_id}),
+                ),
             )
 
         return SaveQueryResponse(
@@ -591,8 +611,16 @@ class SavedQueryService:
                         builder_snapshot, sql_snapshot, validation_state, created_at, created_by, change_summary
                     ) VALUES (?, ?, ?, ?, ?, NULL, 'valid', ?, ?, ?)
                     """,
-                    (new_version_id, query_id, new_version_number, parent_version_id,
-                     snapshot_json, now, updated_by, change_summary),
+                    (
+                        new_version_id,
+                        query_id,
+                        new_version_number,
+                        parent_version_id,
+                        snapshot_json,
+                        now,
+                        updated_by,
+                        change_summary,
+                    ),
                 )
                 updates.append("query_config = ?")
                 update_params.append(snapshot_json)
@@ -615,7 +643,9 @@ class SavedQueryService:
 
         return self.get_query_detail(workspace_id=workspace_id, query_id=query_id)
 
-    def delete_query(self, *, workspace_id: str, query_id: str, deleted_by: str | None = None) -> RecoveryWindowResponse:
+    def delete_query(
+        self, *, workspace_id: str, query_id: str, deleted_by: str | None = None
+    ) -> RecoveryWindowResponse:
         from app.core.metadata_db import get_connection
 
         now = _utc_now()
@@ -639,8 +669,13 @@ class SavedQueryService:
                 INSERT INTO saved_query_events (event_id, query_id, version_id, event_type, occurred_at, performed_by, metadata_json)
                 VALUES (?, ?, NULL, 'deleted', ?, ?, ?)
                 """,
-                (str(uuid.uuid4()), query_id, now_iso, deleted_by,
-                 json.dumps({"recoverable_until": recoverable_until})),
+                (
+                    str(uuid.uuid4()),
+                    query_id,
+                    now_iso,
+                    deleted_by,
+                    json.dumps({"recoverable_until": recoverable_until}),
+                ),
             )
 
         expires_in = int(timedelta(hours=GRACE_PERIOD_HOURS).total_seconds())
@@ -652,7 +687,9 @@ class SavedQueryService:
             expires_in_seconds=expires_in,
         )
 
-    def restore_query(self, *, workspace_id: str, query_id: str, restored_by: str | None = None) -> SavedQueryDetailResponse:
+    def restore_query(
+        self, *, workspace_id: str, query_id: str, restored_by: str | None = None
+    ) -> SavedQueryDetailResponse:
         from app.core.metadata_db import get_connection
 
         now = _utc_now()

@@ -53,9 +53,7 @@ def read_dataframe(filename: str, file_bytes: bytes) -> pl.DataFrame:
             try:
                 return pl.read_excel(BytesIO(file_bytes), engine="calamine", raise_if_empty=False)
             except Exception as calamine_exc:
-                raise ValueError(
-                    f"openpyxl failed: {openpyxl_exc}; calamine failed: {calamine_exc}"
-                ) from calamine_exc
+                raise ValueError(f"openpyxl failed: {openpyxl_exc}; calamine failed: {calamine_exc}") from calamine_exc
 
     raise ValueError("Unsupported file type. Only .csv, .xlsx, .xlsm, .xlsb, and .xls are allowed.")
 
@@ -116,8 +114,7 @@ def build_upload_result(
         row_count=df.height,
         parquet_path=str(parquet_path),
         schema_hash=current_schema_hash,
-        schema_changed=previous_schema_hash is not None
-        and previous_schema_hash != current_schema_hash,
+        schema_changed=previous_schema_hash is not None and previous_schema_hash != current_schema_hash,
         columns=columns,
     )
 

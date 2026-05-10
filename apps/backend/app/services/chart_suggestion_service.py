@@ -77,4 +77,6 @@ class ChartSuggestionService:
         if rows and len(columns) == 2 and numeric_indexes:
             return ChartSuggestion(chart_type="pie", reason="Two-column output can be summarized as composition.")
 
-        return ChartSuggestion(chart_type="table_only", reason="No safe chart heuristic matched; table fallback applied.")
+        return ChartSuggestion(
+            chart_type="table_only", reason="No safe chart heuristic matched; table fallback applied."
+        )

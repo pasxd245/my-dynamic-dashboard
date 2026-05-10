@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import os
-from pathlib import Path
 from dataclasses import dataclass
+from pathlib import Path
 
 from app.utils.env_helper import METADATA_DB_PATH, read_path_env
 
@@ -93,6 +93,4 @@ class DeploymentEnvironment:
     def strict_validation_enabled(self) -> bool:
         from app.shared import CONFIG, Fields  # noqa: PLC0415
 
-        return self.app_env == "production" or _as_bool(
-            CONFIG.get_str(Fields.DEPLOYMENT_STRICT_VALIDATION, "0")
-        )
+        return self.app_env == "production" or _as_bool(CONFIG.get_str(Fields.DEPLOYMENT_STRICT_VALIDATION, "0"))

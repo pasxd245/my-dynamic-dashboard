@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import json
 import sqlite3
+import uuid
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Iterator
-import uuid
 
 from app.core.config import metadata_db_path
 

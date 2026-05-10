@@ -8,7 +8,6 @@ from typing import Any
 
 import yaml
 
-
 DEFAULT_CONFIG_PATH = Path(__file__).resolve().parent / "resources" / "default.yaml"
 
 # Env-var name for an optional operator-supplied override file.
@@ -137,6 +136,7 @@ def load_config(*, config_path: Path | None = None) -> AppConfig:
 # Imported by main.py and other modules that need the shared resolved paths.
 # ---------------------------------------------------------------------------
 
+
 def _resolve_bootstrap_paths(cfg: AppConfig) -> tuple[Path, Path]:
     """Resolve DB_PATH and PARQUET_ROOT from AppConfig + repo-root context."""
     # Lazy imports avoid circular dependencies at module load time.
@@ -179,5 +179,6 @@ def current_parquet_root() -> Path:
     from app import main as main_module  # noqa: PLC0415
 
     return getattr(main_module, "PARQUET_ROOT", PARQUET_ROOT)
+
 
 APP_LOGGER: logging.Logger = logging.getLogger(Const.APP_NAME)

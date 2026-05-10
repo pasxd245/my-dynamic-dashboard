@@ -3,8 +3,8 @@ from __future__ import annotations
 import hashlib
 import json
 import sqlite3
-from typing import Any
 import uuid
+from typing import Any
 
 
 def canonical_json(payload: Any) -> str:
@@ -412,9 +412,7 @@ def import_workspace_manifest(
         target_kind = str(override["target_kind"])
         target_ref = override["target_ref"]
         if target_kind == "sheet_range":
-            target_id = sheet_ids[
-                (str(target_ref["filename_original"]), str(target_ref["sheet_name"]))
-            ]
+            target_id = sheet_ids[(str(target_ref["filename_original"]), str(target_ref["sheet_name"]))]
         elif target_kind == "role_assignment":
             target_id = column_ids[
                 (

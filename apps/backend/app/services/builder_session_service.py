@@ -123,9 +123,7 @@ class BuilderSessionService:
             active_source = self._active_context.source
 
         upload_complete = active_source.state == "resolved"
-        active_context_resolved = (
-            active_workspace.state == "resolved" and active_source.state == "resolved"
-        )
+        active_context_resolved = active_workspace.state == "resolved" and active_source.state == "resolved"
         query_validated = (
             active_context_resolved
             and active_workspace.workspace_id is not None

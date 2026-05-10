@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import json
+import time
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
-import time
 from pathlib import Path
 from typing import Any
 
@@ -497,9 +497,7 @@ class DashboardService:
                         saved_query_id=str(panel["saved_query_id"]),
                     )
                     panel_overrides = (
-                        json.loads(panel["parameter_overrides_json"])
-                        if panel["parameter_overrides_json"]
-                        else {}
+                        json.loads(panel["parameter_overrides_json"]) if panel["parameter_overrides_json"] else {}
                     )
                     merged = self.panel_executor.merge_run_parameters(
                         dashboard_parameters=request.parameters,
