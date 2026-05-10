@@ -5,10 +5,9 @@ WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
-COPY requirements.txt /tmp/requirements.txt
-RUN pip install --no-cache-dir -r /tmp/requirements.txt
-
-COPY app ./app
+COPY pyproject.toml /app/pyproject.toml
+COPY app /app/app
+RUN pip install --no-cache-dir /app
 
 RUN useradd --create-home --shell /bin/bash appuser
 RUN mkdir -p /app/data && chown -R appuser:appuser /app

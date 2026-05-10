@@ -15,7 +15,7 @@ Run services directly during development:
 cd apps/backend
 python -m venv venv
 source venv/bin/activate
-pip install -r requirements.txt
+pip install -e .[dev,test]
 python -m uvicorn app.main:app --reload
 
 # Frontend (separate terminal)
@@ -59,6 +59,28 @@ python -m pytest tests/ -v
 ```
 
 Coverage includes contract tests (API shape), integration tests (SQL generation, validation), and E2E workflows (build → preview → execute → export; save → reload → execute → history; saved-query CRUD lifecycle).
+
+## Backend Release Tooling (Spec 011)
+
+Backend packaging and release workflows are now driven by `apps/backend/pyproject.toml`.
+
+```bash
+cd apps/backend
+
+# Resolve package version from backend-scoped tags via hatch-vcs metadata
+python - <<'PY'
+import importlib.metadata as m
+print(m.version('my-dynamic-dashboard-backend'))
+PY
+
+# Run backend lint policy (Ruff: E,F,B,SIM,I; line length 120)
+ruff check app
+
+# Simulate next conventional-commit release bump/changelog entry
+cz bump --dry-run
+```
+
+Tag format for backend releases is `apps/backend/v$version`.
 
 ## Metadata persistence foundation
 

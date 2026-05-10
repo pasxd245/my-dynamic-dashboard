@@ -10,7 +10,7 @@ A data discovery and analytics platform: upload data, profile it, govern multi-t
 # Backend
 cd apps/backend
 python -m venv venv && source venv/bin/activate
-pip install -r requirements.txt
+pip install -e .[dev,test]
 python -m uvicorn app.main:app --reload
 
 # Frontend (separate terminal)
