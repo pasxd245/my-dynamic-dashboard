@@ -8,6 +8,11 @@ Provides:
 """
 from __future__ import annotations
 
+import sqlite3
+from pathlib import Path
+
+from alembic import command
+from alembic.config import Config
 import pytest
 from fastapi.testclient import TestClient
 
@@ -41,3 +46,29 @@ def seed_source_activate(client: TestClient, workspace_id: str, source_id: str =
         json={"workspace_id": workspace_id, "source_id": source_id},
     )
     assert r.status_code == 200, f"set_active_context failed: {r.json()}"
+
+
+@pytest.fixture
+def metadata_db_path_tmp(tmp_path: Path) -> Path:
+    return tmp_path / "metadata.db"
+
+
+@pytest.fixture
+def alembic_config_for_db(metadata_db_path_tmp: Path) -> Config:
+    backend_root = Path(__file__).resolve().parents[1]
+    cfg = Config(str(backend_root / "alembic.ini"))
+    cfg.set_main_option("script_location", str(backend_root / "alembic"))
+    cfg.set_main_option("sqlalchemy.url", f"sqlite:///{metadata_db_path_tmp}")
+    return cfg
+
+
+@pytest.fixture
+def migrated_metadata_db(metadata_db_path_tmp: Path, alembic_config_for_db: Config) -> Path:
+    command.upgrade(alembic_config_for_db, "head")
+    return metadata_db_path_tmp
+
+
+def fetch_table_columns(db_path: Path, table: str) -> set[str]:
+    with sqlite3.connect(db_path) as conn:
+        rows = conn.execute(f"PRAGMA table_info({table})").fetchall()
+    return {row[1] for row in rows}

@@ -60,6 +60,60 @@ python -m pytest tests/ -v
 
 Coverage includes contract tests (API shape), integration tests (SQL generation, validation), and E2E workflows (build → preview → execute → export; save → reload → execute → history; saved-query CRUD lifecycle).
 
+## Metadata persistence foundation
+
+Feature 008 moves metadata schema ownership to SQLModel models plus Alembic migrations, but it does not change the backend service-layer data access contract.
+
+- Startup now converges the metadata database through Alembic bootstrap steps instead of treating `init_metadata_db()` as the primary schema owner.
+- Existing backend services still use raw `sqlite3` access patterns in this round.
+- ORM session wiring is foundation-only for future work and is intentionally not required by current handlers.
+- Migration strategy stays locked to explicit baseline table creation plus auto-stamp for legacy databases that do not yet have `alembic_version`.
+
+### METADATA_DB_PATH
+
+Use `METADATA_DB_PATH` to point the backend at a different metadata SQLite file for local development, test isolation, or operator workflows.
+
+- Runtime default resolves to the repo data directory: `data/metadata.db`.
+- Relative override values resolve from that same data directory.
+- Existing services still talk to SQLite through raw `sqlite3`; this variable changes the file location, not the service contract.
+
+Local shell example:
+
+```bash
+cd apps/backend
+METADATA_DB_PATH=/tmp/metadata.dev.db python -m uvicorn app.main:app --reload
+```
+
+Local migration example:
+
+```bash
+cd apps/backend
+METADATA_DB_PATH=/tmp/metadata.dev.db alembic upgrade head
+```
+
+Container one-off example:
+
+```bash
+cd devops
+docker compose run --rm -e METADATA_DB_PATH=/app/data/metadata.dev.db backend alembic upgrade head
+```
+
+For long-running compose environments, add `METADATA_DB_PATH` through a compose override or service environment block. The checked-in compose file does not currently inject this variable by default.
+
+### Resetting metadata state
+
+For a fresh local metadata database, remove the target SQLite file and rerun either the backend startup or `alembic upgrade head` with the same `METADATA_DB_PATH` value.
+
+For an existing pre-migration database, do not run ad hoc schema SQL. Keep the file in place and let the normal startup bootstrap perform the locked auto-stamp-then-upgrade flow.
+
+Local reset example:
+
+```bash
+cd apps/backend
+rm -f ../../data/metadata.dev.db
+METADATA_DB_PATH=metadata.dev.db alembic upgrade head
+```
+
 ## Builder Workflow Shell (Spec 007)
 
 - Open `http://localhost:3000/workflow/upload-source` for the stage-oriented shell.

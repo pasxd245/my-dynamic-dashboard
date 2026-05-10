@@ -4,6 +4,8 @@ import os
 from pathlib import Path
 from dataclasses import dataclass
 
+from app.utils.env_helper import METADATA_DB_PATH, read_path_env
+
 
 def repo_root() -> Path:
     env_root = os.getenv("REPO_ROOT")
@@ -32,7 +34,7 @@ def data_dir() -> Path:
 
 
 def metadata_db_path() -> Path:
-    return data_dir() / "metadata.db"
+    return read_path_env(METADATA_DB_PATH, data_dir() / "metadata.db")
 
 
 def parquet_root_dir() -> Path:
@@ -58,18 +60,17 @@ class DeploymentEnvironment:
 
     @classmethod
     def from_env(cls) -> "DeploymentEnvironment":
-        backend_port = int(os.getenv("BACKEND_PORT", "8000"))
-        backend_workers = int(os.getenv("BACKEND_WORKERS", "1"))
-        backup_retention_days = int(os.getenv("BACKUP_RETENTION_DAYS", "30"))
+        from app.shared import CONFIG, Fields  # noqa: PLC0415
+
         return cls(
-            app_env=os.getenv("APP_ENV", "development").strip().lower(),
-            backend_host=os.getenv("BACKEND_HOST", "0.0.0.0").strip(),
-            backend_port=backend_port,
-            backend_workers=backend_workers,
-            backend_log_level=os.getenv("BACKEND_LOG_LEVEL", "INFO").strip().upper(),
-            dashboard_api_base_url=os.getenv("DASHBOARD_API_BASE_URL", "http://localhost:8000").strip(),
-            backup_retention_days=backup_retention_days,
-            backups_dir=Path(os.getenv("BACKUP_DIR", str(data_dir() / "backups"))),
+            app_env=CONFIG.get_str(Fields.APP_ENV, "development").lower(),
+            backend_host=CONFIG.backend_host(),
+            backend_port=CONFIG.backend_port(),
+            backend_workers=CONFIG.get_int(Fields.BACKEND_WORKERS, 1),
+            backend_log_level=CONFIG.get_str(Fields.BACKEND_LOG_LEVEL, "INFO").upper(),
+            dashboard_api_base_url=CONFIG.get_str(Fields.DASHBOARD_API_BASE_URL, "http://localhost:8000"),
+            backup_retention_days=CONFIG.get_int(Fields.BACKUP_RETENTION_DAYS, 30),
+            backups_dir=Path(CONFIG.get_str(Fields.BACKUP_DIR, str(data_dir() / "backups"))),
         )
 
     def validate(self) -> list[str]:
@@ -90,4 +91,8 @@ class DeploymentEnvironment:
 
     @property
     def strict_validation_enabled(self) -> bool:
-        return self.app_env == "production" or _as_bool(os.getenv("DEPLOYMENT_STRICT_VALIDATION", "0"))
+        from app.shared import CONFIG, Fields  # noqa: PLC0415
+
+        return self.app_env == "production" or _as_bool(
+            CONFIG.get_str(Fields.DEPLOYMENT_STRICT_VALIDATION, "0")
+        )

@@ -1,0 +1,10 @@
+metadata_db_path: data/metadata.db
+parquet_root_dir: data/parquet
+app_env: development
+backend_host: 0.0.0.0
+backend_port: 8000
+backend_workers: 1
+backend_log_level: INFO
+dashboard_api_base_url: http://localhost:8000
+backup_retention_days: 30
+backup_dir: data/backups

@@ -7,6 +7,8 @@ from pathlib import Path
 from typing import Iterator
 import uuid
 
+from app.core.config import metadata_db_path
+
 
 def _add_column_if_missing(conn: sqlite3.Connection, table: str, column: str, col_type: str) -> None:
     rows = conn.execute(f"PRAGMA table_info({table})").fetchall()
@@ -15,7 +17,14 @@ def _add_column_if_missing(conn: sqlite3.Connection, table: str, column: str, co
         conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {col_type}")
 
 
+def resolve_metadata_db_path(explicit_path: Path | None = None) -> Path:
+    if explicit_path is not None:
+        return explicit_path
+    return metadata_db_path()
+
+
 def init_metadata_db(db_path: Path) -> None:
+    # Legacy initializer retained for rollback/emergency usage. Startup now uses Alembic migrations.
     db_path.parent.mkdir(parents=True, exist_ok=True)
 
     with sqlite3.connect(db_path) as conn:
@@ -647,8 +656,9 @@ def init_metadata_db(db_path: Path) -> None:
 
 
 @contextmanager
-def get_connection(db_path: Path) -> Iterator[sqlite3.Connection]:
-    conn = sqlite3.connect(db_path)
+def get_connection(db_path: Path | None = None) -> Iterator[sqlite3.Connection]:
+    resolved = resolve_metadata_db_path(db_path)
+    conn = sqlite3.connect(resolved)
     conn.row_factory = sqlite3.Row
     try:
         yield conn
