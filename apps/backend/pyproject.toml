@@ -51,6 +51,12 @@ packages = ["app"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
+markers = [
+    "unit: unit-layer tests",
+    "integration: integration-layer tests",
+    "contract: contract-layer tests",
+    "perf: opt-in performance harness tests",
+]
 
 [tool.coverage.run]
 branch = true

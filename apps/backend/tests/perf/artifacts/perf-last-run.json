@@ -1,0 +1,28 @@
+{
+  "run_timestamp": "2026-05-10T17:04:36.295194+00:00",
+  "environment_context": {
+    "python_version": "3.12.10",
+    "platform": "Linux-6.6.114.1-microsoft-standard-WSL2-x86_64-with-glibc2.35"
+  },
+  "scenario_results": [
+    {
+      "scenario_id": "export",
+      "elapsed_seconds": 0.03420282099978067,
+      "threshold_seconds": 30.0,
+      "passed": true
+    },
+    {
+      "scenario_id": "preview",
+      "elapsed_seconds": 0.0032484869989275467,
+      "threshold_seconds": 5.0,
+      "passed": true
+    },
+    {
+      "scenario_id": "upload_100k",
+      "elapsed_seconds": 0.02140023800166091,
+      "threshold_seconds": 30.0,
+      "passed": true
+    }
+  ],
+  "overall_status": "PASS"
+}

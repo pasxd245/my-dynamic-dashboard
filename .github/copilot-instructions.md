@@ -16,6 +16,6 @@
 
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan:
-specs/011-backend-packaging-tooling-adoption/plan.md
+specs/012-test-scaffolding-and-mvp1-performance-harness/plan.md
 
 <!-- SPECKIT END -->

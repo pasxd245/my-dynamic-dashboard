@@ -55,10 +55,26 @@ cd devops && docker compose up -d --build
 
 ```bash
 cd apps/backend
-python -m pytest tests/ -v
+PYTHONPATH=/home/ubuntu/pf/my-dynamic-dashboard/apps/backend pytest tests/ -q
 ```
 
-Coverage includes contract tests (API shape), integration tests (SQL generation, validation), and E2E workflows (build → preview → execute → export; save → reload → execute → history; saved-query CRUD lifecycle).
+Backend test command matrix:
+
+```bash
+cd apps/backend
+# default regression
+PYTHONPATH=/home/ubuntu/pf/my-dynamic-dashboard/apps/backend pytest tests/ -q
+
+# layer-specific triage
+PYTHONPATH=/home/ubuntu/pf/my-dynamic-dashboard/apps/backend pytest tests/unit -q
+PYTHONPATH=/home/ubuntu/pf/my-dynamic-dashboard/apps/backend pytest tests/integration -q
+PYTHONPATH=/home/ubuntu/pf/my-dynamic-dashboard/apps/backend pytest tests/contract -q
+
+# opt-in perf harness
+PYTHONPATH=/home/ubuntu/pf/my-dynamic-dashboard/apps/backend pytest -m perf tests/perf -q
+```
+
+Coverage includes contract tests (API shape), integration tests (SQL generation, validation), and E2E workflows (build -> preview -> execute -> export; save -> reload -> execute -> history; saved-query CRUD lifecycle).
 
 ## Backend Release Tooling (Spec 011)
 

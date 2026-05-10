@@ -18,6 +18,7 @@ from fastapi.testclient import TestClient
 
 import app.main as main_module
 from app.core.metadata_db import get_connection
+from tests.factories import make_query_payload, make_source_file, make_workspace
 
 
 @pytest.fixture(autouse=True)
@@ -72,3 +73,18 @@ def fetch_table_columns(db_path: Path, table: str) -> set[str]:
     with sqlite3.connect(db_path) as conn:
         rows = conn.execute(f"PRAGMA table_info({table})").fetchall()
     return {row[1] for row in rows}
+
+
+@pytest.fixture
+def factory_workspace() -> dict[str, str]:
+    return make_workspace()
+
+
+@pytest.fixture
+def factory_source(factory_workspace: dict[str, str]) -> dict[str, str]:
+    return make_source_file(workspace_id=factory_workspace["id"])
+
+
+@pytest.fixture
+def factory_query_payload() -> dict[str, object]:
+    return make_query_payload()
