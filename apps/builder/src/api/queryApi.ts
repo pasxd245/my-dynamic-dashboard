@@ -11,6 +11,7 @@
  */
 
 import { throwApiRequestError } from "./httpErrors";
+import { appConfig } from "../config";
 
 function requireWorkspaceId(workspaceId: string): string {
   const trimmed = workspaceId.trim();
@@ -170,7 +171,7 @@ export async function createSavedQuery(
 ): Promise<SaveQueryResponse> {
   const resolvedWorkspaceId = requireWorkspaceId(workspaceId);
   const response = await fetch(
-    `/api/v1/workspaces/${resolvedWorkspaceId}/saved-queries`,
+    `${appConfig.apiBaseUrl()}/workspaces/${resolvedWorkspaceId}/saved-queries`,
     {
       method: "POST",
       headers: {
@@ -205,7 +206,7 @@ export async function listSavedQueries(
   }
 
   const response = await fetch(
-    `/api/v1/workspaces/${resolvedWorkspaceId}/saved-queries?${params.toString()}`,
+    `${appConfig.apiBaseUrl()}/workspaces/${resolvedWorkspaceId}/saved-queries?${params.toString()}`,
   );
 
   if (!response.ok) {
@@ -235,7 +236,7 @@ export async function searchSavedQueries(
   }
 
   const response = await fetch(
-    `/api/v1/workspaces/${resolvedWorkspaceId}/saved-queries/search?${params.toString()}`,
+    `${appConfig.apiBaseUrl()}/workspaces/${resolvedWorkspaceId}/saved-queries/search?${params.toString()}`,
   );
 
   if (!response.ok) {
@@ -251,7 +252,7 @@ export async function getSavedQuery(
 ): Promise<SavedQueryDetailResponse> {
   const resolvedWorkspaceId = requireWorkspaceId(workspaceId);
   const response = await fetch(
-    `/api/v1/workspaces/${resolvedWorkspaceId}/saved-queries/${queryId}`,
+    `${appConfig.apiBaseUrl()}/workspaces/${resolvedWorkspaceId}/saved-queries/${queryId}`,
   );
 
   if (!response.ok) {
@@ -273,7 +274,7 @@ export async function loadSavedQuery(
   }
 
   const response = await fetch(
-    `/api/v1/workspaces/${resolvedWorkspaceId}/saved-queries/${queryId}/load?${params.toString()}`,
+    `${appConfig.apiBaseUrl()}/workspaces/${resolvedWorkspaceId}/saved-queries/${queryId}/load?${params.toString()}`,
     {
       method: "POST",
       headers: {
@@ -296,7 +297,7 @@ export async function updateSavedQuery(
 ): Promise<SavedQueryDetailResponse> {
   const resolvedWorkspaceId = requireWorkspaceId(workspaceId);
   const response = await fetch(
-    `/api/v1/workspaces/${resolvedWorkspaceId}/saved-queries/${queryId}`,
+    `${appConfig.apiBaseUrl()}/workspaces/${resolvedWorkspaceId}/saved-queries/${queryId}`,
     {
       method: "PATCH",
       headers: {
@@ -320,7 +321,7 @@ export async function duplicateSavedQuery(
 ): Promise<SaveQueryResponse> {
   const resolvedWorkspaceId = requireWorkspaceId(workspaceId);
   const response = await fetch(
-    `/api/v1/workspaces/${resolvedWorkspaceId}/saved-queries/${queryId}/duplicate`,
+    `${appConfig.apiBaseUrl()}/workspaces/${resolvedWorkspaceId}/saved-queries/${queryId}/duplicate`,
     {
       method: "POST",
       headers: {
@@ -343,7 +344,7 @@ export async function deleteSavedQuery(
 ): Promise<RecoveryWindowResponse> {
   const resolvedWorkspaceId = requireWorkspaceId(workspaceId);
   const response = await fetch(
-    `/api/v1/workspaces/${resolvedWorkspaceId}/saved-queries/${queryId}`,
+    `${appConfig.apiBaseUrl()}/workspaces/${resolvedWorkspaceId}/saved-queries/${queryId}`,
     {
       method: "DELETE",
     },
@@ -362,7 +363,7 @@ export async function restoreSavedQuery(
 ): Promise<SavedQueryDetailResponse> {
   const resolvedWorkspaceId = requireWorkspaceId(workspaceId);
   const response = await fetch(
-    `/api/v1/workspaces/${resolvedWorkspaceId}/saved-queries/${queryId}/restore`,
+    `${appConfig.apiBaseUrl()}/workspaces/${resolvedWorkspaceId}/saved-queries/${queryId}/restore`,
     {
       method: "POST",
       headers: {
@@ -390,7 +391,7 @@ export async function getExecutionHistory(
   params.set("offset", offset.toString());
 
   const response = await fetch(
-    `/api/v1/workspaces/${resolvedWorkspaceId}/saved-queries/${queryId}/executions?${params.toString()}`,
+    `${appConfig.apiBaseUrl()}/workspaces/${resolvedWorkspaceId}/saved-queries/${queryId}/executions?${params.toString()}`,
   );
 
   if (!response.ok) {

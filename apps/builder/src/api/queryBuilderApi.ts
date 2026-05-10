@@ -5,8 +5,7 @@ import type {
   ValidateQueryResponse,
 } from "./queryBuilderTypes";
 import { throwApiRequestError } from "./httpErrors";
-
-const API_BASE = "/api/v1";
+import { appConfig } from "../config";
 
 function requireWorkspaceId(workspaceId: string): string {
   const trimmed = workspaceId.trim();
@@ -28,7 +27,7 @@ export async function validateQuery(
   config: QueryConfig,
 ): Promise<ValidateQueryResponse> {
   const resolvedWorkspaceId = requireWorkspaceId(workspaceId);
-  const response = await fetch(`${API_BASE}/workspaces/${resolvedWorkspaceId}/queries/validate`, {
+  const response = await fetch(`${appConfig.apiBaseUrl()}/workspaces/${resolvedWorkspaceId}/queries/validate`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(config),
@@ -41,7 +40,7 @@ export async function previewQuery(
   config: QueryConfig,
 ): Promise<QueryPreviewResponse> {
   const resolvedWorkspaceId = requireWorkspaceId(workspaceId);
-  const response = await fetch(`${API_BASE}/workspaces/${resolvedWorkspaceId}/queries/preview`, {
+  const response = await fetch(`${appConfig.apiBaseUrl()}/workspaces/${resolvedWorkspaceId}/queries/preview`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(config),
@@ -54,7 +53,7 @@ export async function executeQuery(
   config: QueryConfig,
 ): Promise<QueryExecutionResponse> {
   const resolvedWorkspaceId = requireWorkspaceId(workspaceId);
-  const response = await fetch(`${API_BASE}/workspaces/${resolvedWorkspaceId}/queries/execute`, {
+  const response = await fetch(`${appConfig.apiBaseUrl()}/workspaces/${resolvedWorkspaceId}/queries/execute`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(config),
@@ -69,7 +68,7 @@ export async function exportQuery(
 ): Promise<Blob> {
   const resolvedWorkspaceId = requireWorkspaceId(workspaceId);
   const response = await fetch(
-    `${API_BASE}/workspaces/${resolvedWorkspaceId}/queries/export?format=${encodeURIComponent(format)}`,
+    `${appConfig.apiBaseUrl()}/workspaces/${resolvedWorkspaceId}/queries/export?format=${encodeURIComponent(format)}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },

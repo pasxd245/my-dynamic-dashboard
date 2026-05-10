@@ -1,3 +1,14 @@
+/**
+ * builderSessionStore — workflow stage state (Spec 013, T026)
+ *
+ * Manages the builder workflow session: active stage, session state,
+ * and the isRefreshing indicator.
+ *
+ * Hydration: active stage is persisted to `sessionStorage` under the key
+ * `builder.workflow.active_stage` (see STORAGE_KEY). On boot the stored
+ * stage is read back; if absent or invalid, falls back to DEFAULT_STAGE.
+ * This module is a hand-rolled functional store — no zustand dependency.
+ */
 import type { BuilderSessionState, WorkflowStageKey } from "../api/types";
 import { getBuilderSessionState } from "../api/builderSessionApi";
 

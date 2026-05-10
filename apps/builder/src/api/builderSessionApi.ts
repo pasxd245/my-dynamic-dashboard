@@ -6,7 +6,7 @@ import type {
   WorkflowStageKey,
 } from "./types";
 
-const API_BASE = "/api/v1";
+import { appConfig } from "../config";
 
 async function parseJson<T>(response: Response): Promise<T> {
   if (!response.ok) {
@@ -27,7 +27,7 @@ export interface ActiveContextResponse {
 }
 
 export async function getBuilderPreflight(): Promise<ConnectionStatus> {
-  const response = await fetch(`${API_BASE}/builder/preflight`);
+  const response = await fetch(`${appConfig.apiBaseUrl()}/builder/preflight`);
   return parseJson<ConnectionStatus>(response);
 }
 
@@ -37,14 +37,14 @@ export async function getBuilderSessionState(
   const query = currentStage
     ? `?current_stage=${encodeURIComponent(currentStage)}`
     : "";
-  const response = await fetch(`${API_BASE}/builder/session-state${query}`);
+  const response = await fetch(`${appConfig.apiBaseUrl()}/builder/session-state${query}`);
   return parseJson<BuilderSessionState>(response);
 }
 
 export async function setActiveContext(
   payload: SetActiveContextRequest,
 ): Promise<ActiveContextResponse> {
-  const response = await fetch(`${API_BASE}/workspaces/active-context`, {
+  const response = await fetch(`${appConfig.apiBaseUrl()}/workspaces/active-context`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),

@@ -171,3 +171,48 @@ pnpm dev:builder:smoke:docker
 # Compose profile smoke runner (requires backend service up)
 docker compose -f devops/compose.yaml --profile smoke run --rm builder-smoke
 ```
+
+## Builder Frontend Configuration (Spec 013)
+
+### Setting `VITE_*` environment variables for local dev
+
+Create `apps/builder/.env.local` (git-ignored) to override defaults:
+
+```bash
+# apps/builder/.env.local
+VITE_API_BASE_URL=http://localhost:8000/api/v1
+VITE_LOG_LEVEL=debug
+```
+
+All `import.meta.env.*` reads are routed through `src/config/appConfig.ts`.
+Add new variables there (not inline in components).
+
+### Using localStorage overrides for debugging
+
+Open the browser console and set a key with the `cfg:` prefix:
+
+```javascript
+localStorage.setItem('cfg:api.baseUrl', 'http://localhost:9999');
+location.reload(); // reload to pick up the override
+
+// Inspect all config values with source attribution:
+appConfig.all();
+
+// Clear override:
+localStorage.removeItem('cfg:api.baseUrl');
+```
+
+### Running builder tests
+
+```bash
+pnpm --filter builder test           # Run once (CI mode)
+pnpm --filter builder test:watch     # Watch mode (development)
+```
+
+### Builder command reference
+
+```bash
+pnpm --filter builder dev          # Dev server (port 3000, hot reload)
+pnpm --filter builder build        # Production build
+pnpm --filter builder type-check   # TypeScript type check
+```

@@ -10,9 +10,10 @@ import type {
   ImportManifestPayload,
 } from "./types";
 import { throwApiRequestError } from "./httpErrors";
+import { appConfig } from "../config";
 
 export async function createWorkspace(name: string): Promise<WorkspaceResponse> {
-  const response = await fetch("/api/v1/workspaces", {
+  const response = await fetch(`${appConfig.apiBaseUrl()}/workspaces`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -34,7 +35,7 @@ export async function uploadSource(
   const formData = new FormData();
   formData.append("file", file);
 
-  const response = await fetch(`/api/v1/workspaces/${workspaceId}/sources/upload`, {
+  const response = await fetch(`${appConfig.apiBaseUrl()}/workspaces/${workspaceId}/sources/upload`, {
     method: "POST",
     body: formData,
   });
@@ -51,7 +52,7 @@ export async function overrideSheet(
   sheetId: string,
   payload: OverridePayload,
 ): Promise<UploadResponse["sheets"][0]> {
-  const response = await fetch(`/api/v1/workspaces/${workspaceId}/sheets/${sheetId}/override`, {
+  const response = await fetch(`${appConfig.apiBaseUrl()}/workspaces/${workspaceId}/sheets/${sheetId}/override`, {
     method: "PATCH",
     headers: {
       "Content-Type": "application/json",
@@ -67,7 +68,7 @@ export async function overrideSheet(
 }
 
 export async function getWorkspaceProfile(workspaceId: string): Promise<ProfileResponse> {
-  const response = await fetch(`/api/v1/workspaces/${workspaceId}/profile`);
+  const response = await fetch(`${appConfig.apiBaseUrl()}/workspaces/${workspaceId}/profile`);
 
   if (!response.ok) {
     await throwApiRequestError(response, "Failed to fetch workspace profile");
@@ -81,7 +82,7 @@ export async function assignColumnRoles(
   columnId: string,
   payload: AssignRolePayload,
 ): Promise<void> {
-  const response = await fetch(`/api/v1/workspaces/${workspaceId}/columns/${columnId}/roles`, {
+  const response = await fetch(`${appConfig.apiBaseUrl()}/workspaces/${workspaceId}/columns/${columnId}/roles`, {
     method: "PUT",
     headers: {
       "Content-Type": "application/json",
@@ -95,7 +96,7 @@ export async function assignColumnRoles(
 }
 
 export async function getReadiness(workspaceId: string): Promise<ReadinessResponse> {
-  const response = await fetch(`/api/v1/workspaces/${workspaceId}/readiness`);
+  const response = await fetch(`${appConfig.apiBaseUrl()}/workspaces/${workspaceId}/readiness`);
 
   if (!response.ok) {
     await throwApiRequestError(response, "Failed to fetch readiness");
@@ -105,7 +106,7 @@ export async function getReadiness(workspaceId: string): Promise<ReadinessRespon
 }
 
 export async function exportManifest(workspaceId: string): Promise<ManifestResponse> {
-  const response = await fetch(`/api/v1/workspaces/${workspaceId}/manifest/export`, {
+  const response = await fetch(`${appConfig.apiBaseUrl()}/workspaces/${workspaceId}/manifest/export`, {
     method: "POST",
   });
 
@@ -117,7 +118,7 @@ export async function exportManifest(workspaceId: string): Promise<ManifestRespo
 }
 
 export async function importManifest(manifest: ManifestResponse): Promise<WorkspaceResponse> {
-  const response = await fetch("/api/v1/workspaces/manifest/import", {
+  const response = await fetch(`${appConfig.apiBaseUrl()}/workspaces/manifest/import`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
