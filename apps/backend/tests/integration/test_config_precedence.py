@@ -29,6 +29,7 @@ def _load_config_fresh(monkeypatch, *, env: dict[str, str] | None = None, config
 
     from app.shared import load_config  # noqa: PLC0415
 
+    load_config.cache_clear()
     return load_config()
 
 
@@ -36,11 +37,11 @@ def test_config_defaults_only(monkeypatch) -> None:
     """Layer 1: default.yaml values resolve when no env or CONFIG_FILE is set."""
     cfg = _load_config_fresh(monkeypatch)
 
-    assert cfg.get_str("app_env") == "development"
-    assert cfg.get_int("backend_port") == 8000
-    assert cfg.get_int("backend_workers") == 1
-    assert cfg.get_str("backend_log_level") == "INFO"
-    assert cfg.get_int("backup_retention_days") == 30
+    assert cfg.get_or_else("app.env") == "development"
+    assert cfg.get_or_else("backend.port") == 8000
+    assert cfg.get_or_else("backend.workers") == 1
+    assert cfg.get_or_else("backend.log_level") == "INFO"
+    assert cfg.get_or_else("backup.retention_days") == 30
 
 
 def test_config_env_override_wins(monkeypatch) -> None:
@@ -54,30 +55,30 @@ def test_config_env_override_wins(monkeypatch) -> None:
         },
     )
 
-    assert cfg.get_str("app_env") == "staging"
-    assert cfg.get_int("backend_port") == 9090
-    assert cfg.get_int("backend_workers") == 4
+    assert cfg.get_or_else("app.env") == "staging"
+    assert cfg.get_or_else("backend.port") == "9090"
+    assert cfg.get_or_else("backend.workers") == "4"
     # Un-overridden fields still come from defaults.
-    assert cfg.get_str("backend_log_level") == "INFO"
+    assert cfg.get_or_else("backend.log_level") == "INFO"
 
 
 def test_config_config_file_override(monkeypatch, tmp_path) -> None:
     """Layer 2: CONFIG_FILE values override default.yaml."""
     override_file = tmp_path / "override.yaml"
-    override_file.write_text(yaml.dump({"backend_log_level": "DEBUG", "backup_retention_days": 7}))
+    override_file.write_text(yaml.dump({"backend": {"log_level": "DEBUG"}, "backup": {"retention_days": 7}}))
 
     cfg = _load_config_fresh(monkeypatch, config_file=override_file)
 
-    assert cfg.get_str("backend_log_level") == "DEBUG"
-    assert cfg.get_int("backup_retention_days") == 7
+    assert cfg.get_or_else("backend.log_level") == "DEBUG"
+    assert cfg.get_or_else("backup.retention_days") == 7
     # Default not in override still comes from defaults.
-    assert cfg.get_str("app_env") == "development"
+    assert cfg.get_or_else("app.env") == "development"
 
 
 def test_config_env_beats_config_file(monkeypatch, tmp_path) -> None:
     """Layer 3 wins over Layer 2: env var overrides CONFIG_FILE value."""
     override_file = tmp_path / "override.yaml"
-    override_file.write_text(yaml.dump({"backend_log_level": "WARNING"}))
+    override_file.write_text(yaml.dump({"backend": {"log_level": "WARNING"}}))
 
     cfg = _load_config_fresh(
         monkeypatch,
@@ -85,7 +86,7 @@ def test_config_env_beats_config_file(monkeypatch, tmp_path) -> None:
         config_file=override_file,
     )
 
-    assert cfg.get_str("backend_log_level") == "ERROR"
+    assert cfg.get_or_else("backend.log_level") == "ERROR"
 
 
 def test_config_missing_config_file_is_ignored(monkeypatch, tmp_path) -> None:
@@ -93,7 +94,7 @@ def test_config_missing_config_file_is_ignored(monkeypatch, tmp_path) -> None:
     missing = tmp_path / "does_not_exist.yaml"
     cfg = _load_config_fresh(monkeypatch, config_file=missing)
 
-    assert cfg.get_str("app_env") == "development"
+    assert cfg.get_or_else("app.env") == "development"
 
 
 # ---------------------------------------------------------------------------

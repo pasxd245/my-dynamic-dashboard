@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import logging
 import os
-from dataclasses import dataclass, field
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
+from recursivenamespace import RecursiveNamespace, rns
 import yaml
 
 DEFAULT_CONFIG_PATH = Path(__file__).resolve().parent / "resources" / "default.yaml"
@@ -13,19 +14,19 @@ DEFAULT_CONFIG_PATH = Path(__file__).resolve().parent / "resources" / "default.y
 # Env-var name for an optional operator-supplied override file.
 _CONFIG_FILE_ENV = "CONFIG_FILE"
 
-# Mapping from field name → env-var override name.
+# Mapping from dotted config key → env-var override name.
 _ENV_OVERRIDES: dict[str, str] = {
-    "metadata_db_path": "METADATA_DB_PATH",
-    "parquet_root_dir": "PARQUET_ROOT_DIR",
-    "app_env": "APP_ENV",
-    "backend_host": "BACKEND_HOST",
-    "backend_port": "BACKEND_PORT",
-    "backend_workers": "BACKEND_WORKERS",
-    "backend_log_level": "BACKEND_LOG_LEVEL",
-    "dashboard_api_base_url": "DASHBOARD_API_BASE_URL",
-    "backup_retention_days": "BACKUP_RETENTION_DAYS",
-    "backup_dir": "BACKUP_DIR",
-    "deployment_strict_validation": "DEPLOYMENT_STRICT_VALIDATION",
+    "metadata.db_path": "METADATA_DB_PATH",
+    "parquet.root_dir": "PARQUET_ROOT_DIR",
+    "app.env": "APP_ENV",
+    "backend.host": "BACKEND_HOST",
+    "backend.port": "BACKEND_PORT",
+    "backend.workers": "BACKEND_WORKERS",
+    "backend.log_level": "BACKEND_LOG_LEVEL",
+    "dashboard.api_base_url": "DASHBOARD_API_BASE_URL",
+    "backup.retention_days": "BACKUP_RETENTION_DAYS",
+    "backup.dir": "BACKUP_DIR",
+    "deployment.strict_validation": "DEPLOYMENT_STRICT_VALIDATION",
 }
 
 
@@ -34,39 +35,40 @@ class Const:
 
 
 class Fields:
-    METADATA_DB_PATH = "metadata_db_path"
-    PARQUET_ROOT_DIR = "parquet_root_dir"
-    APP_ENV = "app_env"
-    BACKEND_HOST = "backend_host"
-    BACKEND_PORT = "backend_port"
-    BACKEND_WORKERS = "backend_workers"
-    BACKEND_LOG_LEVEL = "backend_log_level"
-    DASHBOARD_API_BASE_URL = "dashboard_api_base_url"
-    BACKUP_RETENTION_DAYS = "backup_retention_days"
-    BACKUP_DIR = "backup_dir"
-    DEPLOYMENT_STRICT_VALIDATION = "deployment_strict_validation"
+    METADATA_DB_PATH = "metadata.db_path"
+    PARQUET_ROOT_DIR = "parquet.root_dir"
+    APP_ENV = "app.env"
+    BACKEND_HOST = "backend.host"
+    BACKEND_PORT = "backend.port"
+    BACKEND_WORKERS = "backend.workers"
+    BACKEND_LOG_LEVEL = "backend.log_level"
+    DASHBOARD_API_BASE_URL = "dashboard.api_base_url"
+    BACKUP_RETENTION_DAYS = "backup.retention_days"
+    BACKUP_DIR = "backup.dir"
+    DEPLOYMENT_STRICT_VALIDATION = "deployment.strict_validation"
 
 
-@dataclass(frozen=True)
 class AppConfig:
-    """Resolved configuration values after layered precedence application.
+    """Resolved configuration values after layered precedence application."""
 
-    Precedence (low → high): packaged default.yaml < CONFIG_FILE yaml < env vars.
-    """
+    def __init__(self, config_path: Path | None = None):
+        self.cfg: RecursiveNamespace = self._load_namespace(config_path)
 
-    values: dict[str, Any] = field(default_factory=dict)
+    @staticmethod
+    def _load_namespace(config_path: Path | None = None) -> RecursiveNamespace:
+        return load_config(_resolve_config_path(config_path))
 
-    def get(self, key: str, default: Any = None) -> Any:
-        return self.values.get(key, default)
+    def get(self, key: str, default: Any = None, show_log: bool = False) -> Any:
+        return self.cfg.get_or_else(key, or_else=default, show_log=show_log)
 
     def get_path(self, key: str, default: Path | None = None) -> Path | None:
-        raw = self.values.get(key)
+        raw = self.get(key)
         if raw is None:
             return default
         return Path(str(raw))
 
     def get_int(self, key: str, default: int = 0) -> int:
-        raw = self.values.get(key)
+        raw = self.get(key)
         if raw is None:
             return default
         try:
@@ -75,7 +77,7 @@ class AppConfig:
             return default
 
     def get_str(self, key: str, default: str = "") -> str:
-        raw = self.values.get(key)
+        raw = self.get(key)
         if raw is None:
             return default
         return str(raw).strip()
@@ -103,32 +105,65 @@ def _load_yaml(path: Path) -> dict[str, Any]:
         return {}
 
 
-def load_config(*, config_path: Path | None = None) -> AppConfig:
-    """Build AppConfig using layered precedence.
+def _deep_merge(target: dict[str, Any], source: dict[str, Any]) -> dict[str, Any]:
+    for key, value in source.items():
+        if isinstance(value, dict) and isinstance(target.get(key), dict):
+            _deep_merge(target[key], value)
+            continue
+        target[key] = value
+    return target
+
+
+def _set_dotted_value(target: dict[str, Any], dotted_key: str, value: Any) -> None:
+    current = target
+    parts = dotted_key.split(".")
+    for part in parts[:-1]:
+        existing = current.get(part)
+        if not isinstance(existing, dict):
+            existing = {}
+            current[part] = existing
+        current = existing
+    current[parts[-1]] = value
+
+
+def _resolve_config_path(config_path: Path | None = None) -> Path | None:
+    if config_path is not None:
+        return config_path
+
+    raw_cf = os.getenv(_CONFIG_FILE_ENV, "").strip()
+    if not raw_cf:
+        return None
+    return Path(raw_cf)
+
+
+@lru_cache
+@rns.rns()
+def load_config(config_path: Path | None = None) -> dict[str, Any]:
+    """Build a RecursiveNamespace-backed config using layered precedence.
 
     Layers (low → high):
       1. Packaged ``resources/default.yaml``
       2. Operator ``CONFIG_FILE`` yaml (if env var is set)
       3. Individual environment variable overrides
     """
+    config_path = _resolve_config_path(config_path)
+
+    values: dict[str, Any] = {}
+
     # Layer 1: packaged defaults
-    values: dict[str, Any] = _load_yaml(DEFAULT_CONFIG_PATH)
+    _deep_merge(values, _load_yaml(DEFAULT_CONFIG_PATH))
 
     # Layer 2: operator config file
-    if config_path is None:
-        raw_cf = os.getenv(_CONFIG_FILE_ENV, "").strip()
-        if raw_cf:
-            config_path = Path(raw_cf)
     if config_path is not None:
-        values.update(_load_yaml(config_path))
+        _deep_merge(values, _load_yaml(config_path))
 
     # Layer 3: environment variable overrides
-    for field_name, env_name in _ENV_OVERRIDES.items():
+    for dotted_key, env_name in _ENV_OVERRIDES.items():
         raw = os.getenv(env_name, "").strip()
         if raw:
-            values[field_name] = raw
+            _set_dotted_value(values, dotted_key, raw)
 
-    return AppConfig(values=values)
+    return values
 
 
 # ---------------------------------------------------------------------------
@@ -161,7 +196,7 @@ def _resolve_bootstrap_paths(cfg: AppConfig) -> tuple[Path, Path]:
 
 
 # Module-level config singleton resolved at import time.
-CONFIG: AppConfig = load_config()
+CONFIG = AppConfig()
 
 _db_path, _parquet_root = _resolve_bootstrap_paths(CONFIG)
 

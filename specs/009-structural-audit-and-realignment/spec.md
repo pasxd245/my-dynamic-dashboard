@@ -149,7 +149,7 @@ As a backend maintainer, I need unused metadata initialization shims removed so 
 - **FR-004**: The backend MUST adopt an `AppConfig` singleton configuration manager with parity to the referenced i18n-tool pattern, including lazy access to resolved settings needed by current backend workflows.
 - **FR-005**: Backend configuration loading MUST use layered precedence of `.env < app/resources/default.yaml < CONFIG_FILE`.
 - **FR-006**: The backend MUST adopt an in-package default configuration file at `apps/backend/app/resources/default.yaml` as the shipped default configuration source.
-- **FR-007**: The backend MUST use the published `RecursiveNamespaceV2` library for configuration object behavior rather than a custom wrapper.
+- **FR-007**: The backend MUST wrap the published `RecursiveNamespaceV2` library directly for configuration object behavior, with `AppConfig` delegating config reads to the library rather than reimplementing namespace behavior in a custom dict wrapper.
 - **FR-008**: The backend MUST define and use `Const` and `Fields` constant sets sufficient to replace scattered magic strings for configuration access in this round.
 - **FR-009**: All bare `os.getenv` and `os.environ` reads in `apps/backend/app/` MUST be replaced by `AppConfig` accessors or `EnvVar` helpers by the end of the round.
 - **FR-010**: Service-layer rewrite is in scope for this round, and backend service internals MAY migrate from raw `sqlite3` access to SQLModel `Session` usage one file at a time while preserving public function signatures and behavior.

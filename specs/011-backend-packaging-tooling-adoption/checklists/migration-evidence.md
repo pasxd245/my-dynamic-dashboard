@@ -89,6 +89,11 @@
   - `.gitignore` now includes `apps/backend/app/_version.py`
   - `apps/backend/CHANGELOG.md` created for commitizen changelog target
 
+## Post-migration follow-up evidence (Round 30)
+
+- `apps/backend/app/shared.py` now imports `RecursiveNamespace` from `recursivenamespace` and delegates `AppConfig.get(...)` to `cfg.get_or_else(...)`.
+- `apps/dashboard/src/dashboard/shared.py` now mirrors that wrap-the-library pattern and ships the same dependency in `apps/dashboard/pyproject.toml`.
+
 ## T014-T036 - Migration execution evidence
 
 ### T014 - Editable install validation (`pip install -e .[dev,test]`)

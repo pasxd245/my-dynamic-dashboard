@@ -3,21 +3,29 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from recursivenamespace import RecursiveNamespace
 
-from dashboard.shared import DashboardAppConfig
+from dashboard.shared import DashboardAppConfig, Fields
 
 
 def test_dashboard_app_config_uses_default_resource_values(tmp_path: Path) -> None:
     config_file = tmp_path / "default.yaml"
     config_file.write_text(
         """
-api_base_url: http://localhost:8000
-api_timeout_seconds: 11
-api_retries: 4
-log_level: warning
-smoke_mode_enabled: false
-strict_validation_enabled: false
-refresh_cadence_default: daily
+app:
+    env: development
+api:
+    base_url: http://localhost:8000
+    timeout_seconds: 11
+    retries: 4
+log:
+    level: warning
+dashboard:
+    smoke_mode_enabled: false
+    refresh_cadence:
+        default: daily
+deployment:
+    strict_validation: false
 """.strip()
         + "\n",
         encoding="utf-8",
@@ -31,19 +39,29 @@ refresh_cadence_default: daily
     assert cfg.smoke_mode_enabled is False
     assert cfg.strict_validation_enabled is False
     assert cfg.refresh_cadence_default == "daily"
+    assert isinstance(cfg.cfg, RecursiveNamespace)
+    assert cfg.cfg.api.base_url == "http://localhost:8000"
+    assert cfg.get(Fields.REFRESH_CADENCE_DEFAULT) == "daily"
 
 
 def test_dashboard_app_config_env_overrides_defaults(tmp_path: Path) -> None:
     config_file = tmp_path / "default.yaml"
     config_file.write_text(
         """
-api_base_url: http://localhost:8000
-api_timeout_seconds: 10
-api_retries: 2
-log_level: INFO
-smoke_mode_enabled: false
-strict_validation_enabled: false
-refresh_cadence_default: manual
+app:
+    env: development
+api:
+    base_url: http://localhost:8000
+    timeout_seconds: 10
+    retries: 2
+log:
+    level: INFO
+dashboard:
+    smoke_mode_enabled: false
+    refresh_cadence:
+        default: manual
+deployment:
+    strict_validation: false
 """.strip()
         + "\n",
         encoding="utf-8",
@@ -67,3 +85,32 @@ refresh_cadence_default: manual
     assert cfg.smoke_mode_enabled is True
     assert cfg.strict_validation_enabled is True
     assert cfg.refresh_cadence_default == "hourly"
+    assert cfg.cfg.api.base_url == "https://api.example.com"
+
+
+def test_dashboard_app_config_treats_app_env_as_strict_validation_signal(tmp_path: Path) -> None:
+    config_file = tmp_path / "default.yaml"
+    config_file.write_text(
+        """
+app:
+    env: development
+api:
+    base_url: http://localhost:8000
+    timeout_seconds: 10
+    retries: 2
+log:
+    level: INFO
+dashboard:
+    smoke_mode_enabled: false
+    refresh_cadence:
+        default: manual
+deployment:
+    strict_validation: false
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
+
+    cfg = DashboardAppConfig.from_sources(default_path=config_file, env={"APP_ENV": "production"})
+
+    assert cfg.strict_validation_enabled is True

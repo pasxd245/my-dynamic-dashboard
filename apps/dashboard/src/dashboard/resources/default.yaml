@@ -1,7 +1,14 @@
-api_base_url: http://localhost:8000
-api_timeout_seconds: 10
-api_retries: 2
-log_level: INFO
-smoke_mode_enabled: false
-strict_validation_enabled: false
-refresh_cadence_default: manual
+app:
+  env: development
+api:
+  base_url: http://localhost:8000
+  timeout_seconds: 10
+  retries: 2
+log:
+  level: INFO
+dashboard:
+  smoke_mode_enabled: false
+  refresh_cadence:
+    default: manual
+deployment:
+  strict_validation: false
