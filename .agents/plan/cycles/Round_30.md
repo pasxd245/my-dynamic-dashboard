@@ -192,12 +192,15 @@ RecursiveNamespace` is the underlying type and that precedence
 
 1. Did the dotted-key restructure feel right, or do we want a
    different schema (e.g. only nest one level deep)?
+   **Answer (2026-05-11)**: It's good. No change required.
 2. Did the shared-py extraction pain hit hard enough to bump
    `packages/shared-py/` to Round 31, or stay deferred until
    pain demands it?
+   **Answer (2026-05-11)**: Stay deferred. No change.
 3. Should the `CONFIG_FILE` env var be renamed to something
    prefixed (e.g. `MDD_CONFIG_FILE`) to avoid collisions with
    other tools' env-var conventions?
+   **Answer (2026-05-11)**: Yes — rename to `MDD_CONFIG_FILE`. Implemented in Round 31 Plan.
 
 **Round transition**:
 

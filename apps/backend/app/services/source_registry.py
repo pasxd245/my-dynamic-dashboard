@@ -41,6 +41,16 @@ class SourceRegistry:
     _metadata_cache: dict[str, SourceMetadata] = {}
 
     @staticmethod
+    def register_builtin_sources() -> None:
+        """Ensure first-party file sources are available for upload dispatch."""
+        from app.sources import CSVSource, ExcelSource
+
+        for source_class in (ExcelSource, CSVSource):
+            source_type = source_class.get_metadata().source_type
+            if not SourceRegistry.is_registered(source_type):
+                SourceRegistry.register(source_class)
+
+    @staticmethod
     def register(source_class: type[Source]) -> None:
         """
         Register a new Source subclass at app startup.
@@ -61,11 +71,6 @@ class SourceRegistry:
             SourceRegistry.register(ExcelSource)
             SourceRegistry.register(CSVSource)
         """
-        # Get source type from the class
-        # Convention: source classes should have a _source_type class attribute or metadata() method
-        # For now, we'll instantiate to check, or we can use a class method
-        source_instance = source_class()
-
         # Try to get metadata (if available as class method)
         if hasattr(source_class, "get_metadata"):
             metadata = source_class.get_metadata()
@@ -85,6 +90,10 @@ class SourceRegistry:
 
         SourceRegistry._registry[source_type] = source_class
         SourceRegistry._metadata_cache[source_type] = metadata
+
+    @staticmethod
+    def is_registered(source_type: str) -> bool:
+        return source_type in SourceRegistry._registry
 
     @staticmethod
     def for_type(source_type: str) -> Source:

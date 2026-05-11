@@ -4,12 +4,17 @@ import hashlib
 import json
 import re
 import uuid
+import warnings
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from io import BytesIO
 from pathlib import Path
 
 import polars as pl
+
+from app.services.source_registry import SourceRegistry
+
+UNSUPPORTED_FILE_TYPE_ERROR = "Unsupported file type. Only .csv, .xlsx, .xlsm, .xlsb, and .xls are allowed."
 
 
 @dataclass
@@ -39,6 +44,13 @@ def slugify_filename(filename: str) -> str:
 
 
 def read_dataframe(filename: str, file_bytes: bytes) -> pl.DataFrame:
+    """Legacy parser retained for parity tests; production uploads use SourceRegistry."""
+    warnings.warn(
+        "read_dataframe() is deprecated; use parse_dataframe_via_source_registry() instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+
     lower_name = filename.lower()
 
     if lower_name.endswith(".csv"):
@@ -55,7 +67,28 @@ def read_dataframe(filename: str, file_bytes: bytes) -> pl.DataFrame:
             except Exception as calamine_exc:
                 raise ValueError(f"openpyxl failed: {openpyxl_exc}; calamine failed: {calamine_exc}") from calamine_exc
 
-    raise ValueError("Unsupported file type. Only .csv, .xlsx, .xlsm, .xlsb, and .xls are allowed.")
+    raise ValueError(UNSUPPORTED_FILE_TYPE_ERROR)
+
+
+def parse_dataframe_via_source_registry(filename: str, file_bytes: bytes) -> tuple[str, object, pl.DataFrame]:
+    from app.sources.csv_source import CSVSourceConfig
+    from app.sources.excel_source import ExcelSourceConfig
+
+    SourceRegistry.register_builtin_sources()
+
+    source_type = SourceRegistry.detect_source_type(filename)
+    if source_type is None:
+        raise ValueError(UNSUPPORTED_FILE_TYPE_ERROR)
+
+    source = SourceRegistry.for_type(source_type)
+    if source_type == "excel":
+        config = ExcelSourceConfig(filename=filename, file_bytes=file_bytes)
+    elif source_type == "csv":
+        config = CSVSourceConfig(filename=filename, file_bytes=file_bytes)
+    else:
+        raise ValueError(UNSUPPORTED_FILE_TYPE_ERROR)
+
+    return source_type, source, source.parse(config)
 
 
 def compute_column_profiles(df: pl.DataFrame) -> list[ColumnProfile]:

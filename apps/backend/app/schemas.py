@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ApiErrorModel(BaseModel):
@@ -46,6 +46,8 @@ class ColumnSchema(BaseModel):
 
 
 class UploadTableResponse(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
     file_id: str
     table_id: str
     filename: str
@@ -53,17 +55,19 @@ class UploadTableResponse(BaseModel):
     row_count: int
     parquet_path: str
     schema_changed: bool
-    schema: list[ColumnSchema]
+    schema_: list[ColumnSchema] = Field(alias="schema")
 
 
 class TableSummary(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
     file_id: str
     table_id: str
     filename: str
     version: int
     row_count: int
     schema_changed: bool
-    schema: list[ColumnSchema]
+    schema_: list[ColumnSchema] = Field(alias="schema")
 
 
 class RelationshipCreateRequest(BaseModel):

@@ -135,10 +135,7 @@ A developer, operator, or admin can call SourceRegistry.list_sources() to see al
 
 - **FR-008**: After a successful Source.parse() and profile computation, orchestration code MUST call Source.post_commit_hook(workspace_id, source_file_id, columns) to enable future fuzzy-matcher registration. This round's hook implementation is a no-op.
 
-- **FR-009**: The `Source` base class MUST be located in `apps/backend/app/core/sources.py` or `apps/backend/app/services/source_registry.py` (decision per round implementation plan). SourceRegistry MUST be importable from a single canonical location (e.g., `from apps.backend.app.core.source_registry import SourceRegistry`).
 - **FR-009**: The `Source` base class MUST be located in `apps/backend/app/sources/base.py`. SourceRegistry MUST be importable from a single canonical location: `from app.services.source_registry import SourceRegistry`. All Source subclasses and SourceConfig variants MUST be importable from `app.sources/`.
-- **FR-008**: After a successful Source.parse() and profile computation, orchestration code MUST call Source.post_commit_hook(workspace_id, source_file_id, columns) to enable future fuzzy-matcher registration. This round's hook implementation is a no-op.
-  **Status**: Implemented (Round 24 complete ✅ 2026-05-10)
 
 - **FR-010**: `SourceConfig` subclasses MUST be Pydantic models or frozen dataclasses to enable serialization for eventual YAML descriptor support (Gate A deferred). Base SourceConfig MUST support a `source_type: str` field.
 
@@ -540,7 +537,7 @@ Adaptation to FastAPI + SQLModel:
 
 ### i18n-tool Configuration Precedence (Parallel, Not Direct)
 
-Spec 009 establishes configuration precedence: `.env < default.yaml < CONFIG_FILE`. SourceConfig and YAML descriptors (future) will follow the same precedence model for extensibility.
+Spec 009 establishes configuration precedence: `.env < default.yaml < MDD_CONFIG_FILE`. SourceConfig and YAML descriptors (future) will follow the same precedence model for extensibility.
 
 ### Column Mappings Pre-Staging (Spec 008)
 

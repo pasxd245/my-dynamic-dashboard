@@ -3,13 +3,12 @@
 **Specification**: [spec.md](spec.md) | **Implementation Plan**: [plan.md](plan.md)  
 **Feature**: Spec 010 — Source/Provider Abstraction  
 **Scope**: Extract ingestion source handling into a pluggable abstraction layer to enable extensible data source integration without scattering edits across multiple files.  
-**Status**: Ready for `/speckit.implement`
+**Status**: Complete
 
 ---
 
 ## Overview
 
-This document decomposes Spec 010's implementation plan into **60+ sequentially-ordered, independently-verifiable tasks** organized by phase. Each task includes:
 This document decomposes Spec 010's implementation plan into **74 sequentially-ordered, independently-verifiable tasks** organized by phase. Each task includes:
 
 - **Task ID** (T-001, T-002, ...) for progress tracking
@@ -18,7 +17,7 @@ This document decomposes Spec 010's implementation plan into **74 sequentially-o
 - **Acceptance criteria** (verifiable evidence: file created, test passes, import succeeds, etc.)
 - **Dependencies** (implicit ordering within phase; explicit cross-phase dependencies noted)
 
-**Total Task Count**: 62 tasks across 5 phases  
+**Total Task Count**: 74 tasks across 5 phases  
 **Estimated Duration**: 10-16 days with concurrent work streams  
 **Critical Path**: Phase 1 → Phase 2 → Phase 3 → Phase 4 → Phase 5 (mostly sequential; within-phase tasks can parallelize)
 
@@ -356,7 +355,7 @@ This document decomposes Spec 010's implementation plan into **74 sequentially-o
 
 - [x] T-070: Phase 5 — Remove or deprecate old `read_dataframe()` function from upload_service.py
   - **Requirement**: FR-007, FR-011
-  - **Acceptance**: (a) Search for uses of `read_dataframe()` in production code (upload_app.py, endpoints), (b) verify all uses are replaced with SourceRegistry dispatch, (c) remove `read_dataframe()` function definition, (d) verify orchestration code no longer imports or references it, (e) backend tests still pass after removal (tests should not be modified; they should work with new code)
+  - **Acceptance**: (a) Search for uses of `read_dataframe()` in production code (`app/api/upload.py`, endpoints), (b) verify all production uses are replaced with SourceRegistry dispatch, (c) remove or deprecate the helper in `upload_service.py`, (d) verify orchestration code no longer references it directly, (e) backend tests still pass after cleanup
 
 - [x] T-071: Phase 5 — Update any internal documentation or developer notes referencing old upload flow
   - **Requirement**: SC-008
@@ -506,4 +505,4 @@ For each task marked complete, verify the corresponding evidence:
 
 ---
 
-**Ready for `/speckit.implement`**: All tasks are actionable and independently verifiable. Proceed with Phase 1 (Foundation).
+**Implementation complete**: All tasks are reconciled against concrete code, tests, and documentation evidence.

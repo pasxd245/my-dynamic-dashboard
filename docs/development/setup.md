@@ -43,6 +43,7 @@ cd devops && docker compose up -d --build
 
 - **Database**: SQLite for metadata (schemas, roles, relationships, saved queries); DuckDB for query execution.
 - **Services**: `QueryConfigValidator`, `SqlTranslator`, `JoinGraphValidator`, `QueryExecutionService`, `QueryExportService`, `SavedQueryService`.
+- **Upload dispatch**: file ingestion now routes through `SourceRegistry` via `app/services/upload_service.py` and `app/api/upload.py`; adding a new source type should not require endpoint edits.
 - See per-feature docs under [`docs/features/`](../features/) for endpoint and service details.
 
 ### Frontend (React 19 + TypeScript + Vite)

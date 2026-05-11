@@ -58,7 +58,7 @@ interfaces:
       order:
         - .env
         - app/resources/default.yaml
-        - CONFIG_FILE
+        - MDD_CONFIG_FILE
     invariants:
       - no_bare_env_reads_in_apps_backend_app
       - packaged_defaults_ship_inside_backend_package

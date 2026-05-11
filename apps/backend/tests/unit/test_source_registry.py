@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import polars as pl
 import pytest
+from pydantic import Field
 
 from app.services.source_registry import SourceRegistry
 from app.services.upload_service import ColumnProfile
@@ -292,3 +293,55 @@ class TestSourceRegistrySingleton:
         
         SourceRegistry.register(TestCSVSource)
         assert len(SourceRegistry.list_sources()) == 2
+
+
+class TestSourceRegistryBuiltins:
+    """Tests for built-in source registration and extensibility."""
+
+    def setup_method(self):
+        SourceRegistry._registry.clear()
+        SourceRegistry._metadata_cache.clear()
+
+    def test_register_builtin_sources_adds_excel_and_csv_metadata(self):
+        SourceRegistry.register_builtin_sources()
+
+        sources = SourceRegistry.list_sources()
+        by_type = {source.source_type: source for source in sources}
+
+        assert set(by_type) == {"excel", "csv"}
+        assert ".xlsx" in by_type["excel"].supported_extensions
+        assert ".csv" in by_type["csv"].supported_extensions
+
+    def test_stub_database_source_registers_without_orchestration_changes(self):
+        class DatabaseSourceConfig(SourceConfig):
+            source_type: str = Field(default="database", frozen=True)
+            connection_string: str
+            query: str
+
+        class DatabaseSource(Source):
+            def parse(self, config: SourceConfig) -> pl.DataFrame:
+                assert isinstance(config, DatabaseSourceConfig)
+                return pl.DataFrame({"id": [1], "name": ["demo"]})
+
+            def compute_profiles(self, df: pl.DataFrame) -> list[ColumnProfile]:
+                return [
+                    ColumnProfile(name="id", data_type="Int64", is_nullable=False),
+                    ColumnProfile(name="name", data_type="String", is_nullable=False),
+                ]
+
+            @classmethod
+            def get_metadata(cls) -> SourceMetadata:
+                return SourceMetadata(
+                    source_type="database",
+                    display_name="Database",
+                    description="Stub database source for extensibility proof.",
+                    supported_extensions=[],
+                    requires_config={"connection_string": "str", "query": "str"},
+                )
+
+        SourceRegistry.register_builtin_sources()
+        SourceRegistry.register(DatabaseSource)
+
+        resolved = SourceRegistry.for_type("database")
+        assert isinstance(resolved, DatabaseSource)
+        assert len(SourceRegistry.list_sources()) == 3

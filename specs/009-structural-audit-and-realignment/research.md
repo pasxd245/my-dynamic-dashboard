@@ -64,7 +64,7 @@ Converge to the target layout by introducing the missing structure and re-homing
 
 ### Decision
 
-Adopt a single configuration path centered on `AppConfig`, `Const`, `Fields`, and `EnvVar`, with layered precedence `.env < app/resources/default.yaml < CONFIG_FILE`, and ship the defaults inside `apps/backend/app/resources/default.yaml`.
+Adopt a single configuration path centered on `AppConfig`, `Const`, `Fields`, and `EnvVar`, with layered precedence `.env < app/resources/default.yaml < MDD_CONFIG_FILE`, and ship the defaults inside `apps/backend/app/resources/default.yaml`.
 
 ### Rationale
 

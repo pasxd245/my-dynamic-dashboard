@@ -55,7 +55,7 @@ from app.services.upload_service import (
     compute_column_profiles,
     detect_data_range,
     normalize_effective_type,
-    read_dataframe,
+    parse_dataframe_via_source_registry,
     save_parquet,
     slugify_filename,
     utc_now_iso,
@@ -130,7 +130,7 @@ async def upload_source_for_workspace(
     file_bytes = await file.read()
 
     try:
-        df = read_dataframe(filename=filename, file_bytes=file_bytes)
+        source_type, source, df = parse_dataframe_via_source_registry(filename=filename, file_bytes=file_bytes)
     except Exception as exc:
         lowered = str(exc).lower()
         if "password" in lowered or "encrypted" in lowered:
@@ -174,7 +174,7 @@ async def upload_source_for_workspace(
                 filename,
                 filename.rsplit(".", 1)[-1].lower(),
                 compute_source_hash(file_bytes),
-                "utf-8" if lower_name.endswith(".csv") else None,
+                "utf-8" if source_type == "csv" else None,
                 now,
             ),
         )
@@ -249,6 +249,15 @@ async def upload_source_for_workspace(
                     now,
                 ),
             )
+
+    try:
+        source.post_commit_hook(
+            workspace_id=workspace_id,
+            source_file_id=source_id,
+            columns=profiles,
+        )
+    except Exception:
+        pass
 
     return SourceUploadResponse(
         source_id=source_id,
@@ -586,7 +595,7 @@ async def upload_table(file: Annotated[UploadFile, File(...)]) -> UploadTableRes
     file_bytes = await file.read()
 
     try:
-        df = read_dataframe(filename=filename, file_bytes=file_bytes)
+        _, _, df = parse_dataframe_via_source_registry(filename=filename, file_bytes=file_bytes)
     except Exception as exc:
         raise ApiError(
             status_code=400,
@@ -666,7 +675,7 @@ async def upload_table(file: Annotated[UploadFile, File(...)]) -> UploadTableRes
         row_count=result.row_count,
         parquet_path=result.parquet_path,
         schema_changed=result.schema_changed,
-        schema=[
+        schema_=[
             ColumnSchema(
                 name=column.name,
                 data_type=column.data_type,
@@ -716,7 +725,7 @@ def list_tables() -> list[TableSummary]:
                     version=int(file_row["version"]),
                     row_count=int(file_row["row_count"]),
                     schema_changed=bool(file_row["schema_changed"]),
-                    schema=[
+                    schema_=[
                         ColumnSchema(
                             name=str(column_row["column_name"]),
                             data_type=str(column_row["data_type"]),

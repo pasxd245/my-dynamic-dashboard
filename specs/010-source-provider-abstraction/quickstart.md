@@ -14,7 +14,7 @@ This document provides a step-by-step walkthrough for adding a new data source t
 2. Implement a new Source subclass
 3. Register it at startup
 
-No changes to `upload_app.py` or endpoint code needed.
+No changes to `app/api/upload.py` or endpoint code needed.
 
 ---
 
@@ -88,8 +88,8 @@ class DatabaseSource(Source):
         from app.services.upload_service import compute_column_profiles
         return compute_column_profiles(df)
 
-    @staticmethod
-    def metadata() -> SourceMetadata:
+    @classmethod
+    def get_metadata(cls) -> SourceMetadata:
         """Return metadata for this source type."""
         return SourceMetadata(
             source_type="database",
@@ -114,8 +114,7 @@ from app.sources.database_source import DatabaseSource  # NEW
 from app.services.source_registry import SourceRegistry
 
 # In app startup (FastAPI lifespan or @app.on_event):
-SourceRegistry.register(ExcelSource)
-SourceRegistry.register(CSVSource)
+SourceRegistry.register_builtin_sources()
 SourceRegistry.register(DatabaseSource)  # NEW
 ```
 
@@ -153,9 +152,9 @@ df = db_source.parse(config)
 
 3. **Error Handling**: Follow existing patterns (e.g., ExcelSource fallback logic). Preserve error messages for consistency.
 
-4. **Registration**: Add a one-line `SourceRegistry.register(YourSource)` in app startup.
+4. **Registration**: Add a one-line `SourceRegistry.register(YourSource)` near startup/bootstrap, alongside `register_builtin_sources()`.
 
-5. **No Orchestration Changes**: upload_app.py, endpoints, and upload flows continue unchanged. The registry handles dispatch.
+5. **No Orchestration Changes**: `app/api/upload.py`, endpoints, and upload flows continue unchanged. The registry handles dispatch.
 
 ---
 
@@ -173,21 +172,19 @@ def create_app() -> FastAPI:
     from app.sources import ExcelSource, CSVSource
     from app.services.source_registry import SourceRegistry
 
-    SourceRegistry.register(ExcelSource)
-    SourceRegistry.register(CSVSource)
+    SourceRegistry.register_builtin_sources()
 
     return app
 ```
 
-**Option B**: In `apps/backend/app/apps/upload_app.py` (near UploadApp initialization)
+**Option B**: In a dispatch helper close to `app/services/upload_service.py`
 
 ```python
-class UploadApp:
-    def __init__(self):
-        # Register sources once at class initialization
-        SourceRegistry.register(ExcelSource)
-        SourceRegistry.register(CSVSource)
-        ...
+def parse_dataframe_via_source_registry(filename: str, file_bytes: bytes):
+    SourceRegistry.register_builtin_sources()
+    source_type = SourceRegistry.detect_source_type(filename)
+    source = SourceRegistry.for_type(source_type)
+    ...
 ```
 
 ---
@@ -201,8 +198,7 @@ sequenceDiagram
     participant Source Types
     participant Upload Endpoint
 
-    FastAPI App Startup->>SourceRegistry: register(ExcelSource)
-    FastAPI App Startup->>SourceRegistry: register(CSVSource)
+    FastAPI App Startup->>SourceRegistry: register_builtin_sources()
     FastAPI App Startup->>SourceRegistry: register(DatabaseSource)
     SourceRegistry-->>FastAPI App Startup: OK
 
@@ -229,7 +225,7 @@ Adding a new source type required changes across multiple files:
 ```
 1. Define parser function in upload_service.py
 2. Update read_dataframe() to branch on file type
-3. Update orchestration logic in upload_app.py to call new parser
+3. Update orchestration logic in app/api/upload.py to call new parser
 4. Update endpoint request validation to accept new file type
 5. Update tests to include new file type
 ```
@@ -246,7 +242,7 @@ Adding a new source type requires changes in only ONE new file:
    - Implement Source subclass
    - Register in startup
 
-2. No changes to upload_app.py ✓
+2. No changes to app/api/upload.py ✓
 3. No changes to endpoints ✓
 4. No changes to existing tests ✓
 ```
@@ -307,7 +303,7 @@ def test_database_source_profiles():
 
 ### "Source type 'database' not registered"
 
-**Cause**: You created and implemented DatabaseSource but forgot to call `SourceRegistry.register(DatabaseSource)` at startup.
+**Cause**: You created and implemented DatabaseSource but forgot to call `SourceRegistry.register(DatabaseSource)` in your bootstrap path.
 
 **Fix**: Add the registration call in your app startup code (Step 3 above).
 

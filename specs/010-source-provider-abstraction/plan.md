@@ -117,7 +117,7 @@ apps/backend/tests/
 
 ### Design Decision D: Source Base Class Location and Naming
 
-**Status**: DECISION REQUIRED (Phase 0 research)  
+**Status**: LOCKED  
 **Options**:
 
 1. **Option A** (Preferred): `apps/backend/app/sources/base.py` (Source base class) + `apps/backend/app/services/source_registry.py` (SourceRegistry).  
@@ -129,13 +129,13 @@ apps/backend/tests/
 3. **Option C**: `apps/backend/app/services/sources/` (subdirectory: base.py, registry.py, excel.py, csv.py).  
    _Rationale_: Services own all data-access logic; sources are a special service.
 
-**Recommended**: Option A—follows Round 23 conventions and enables future growth (more sources, plugins) without flattening the module hierarchy.
+**Chosen**: Option A—`app/sources/base.py` for domain objects and `app/services/source_registry.py` for registry/factory responsibilities.
 
 ### Design Decision E: SourceRegistry Singleton Pattern
 
 **Status**: LOCKED  
 **Requirement (FR-006)**: SourceRegistry MUST be a singleton or thread-safe factory accessible from upload_service.py and endpoints.  
-**Design Impact**: SourceRegistry is initialized at app startup (in `main.py` or `upload_app.py`) and exposed as a module-level singleton (similar to `AppConfig` in `shared.py`). Upload orchestration imports `from app.services.source_registry import SourceRegistry` and calls `SourceRegistry.for_type(type_str)` to fetch a Source instance.  
+**Design Impact**: SourceRegistry is initialized at app startup (`main.py`) and also safeguarded by `register_builtin_sources()` in the upload dispatch path for runtime/test robustness. Upload orchestration imports `from app.services.source_registry import SourceRegistry` and calls `SourceRegistry.for_type(type_str)` to fetch a Source instance.  
 **Verification**: At Phase 4, verify that SourceRegistry singleton is importable and that multiple calls to `SourceRegistry.for_type("excel")` return Source instances (not necessarily the same instance, but consistent behavior).
 
 ### Design Decision F: Backward-Compatibility Validation Strategy
@@ -146,9 +146,9 @@ apps/backend/tests/
 
 - Extract `read_dataframe()` logic into ExcelSource and CSVSource without modification (move, don't refactor).
 - Create snapshot tests: for each test file (single-sheet, multi-sheet, mixed types), compute parquet hash pre-refactor and post-refactor; verify identity.
-- Keep the original `read_dataframe()` in place during Phase 2-3 for side-by-side testing; remove it in Phase 4 after validation.
+- Keep the original `read_dataframe()` in place during validation as a deprecated parity helper for tests; production uploads must route through SourceRegistry.
 
-**Verification**: At Phase 3 (CSVSource), run side-by-side comparison of `read_dataframe()` output vs `CSVSource.parse()` output for all CSV test files. At Phase 4, verify that existing upload tests pass unchanged without being rewritten.
+**Verification**: At Phase 3 (CSVSource), run side-by-side comparison of `read_dataframe()` output vs `CSVSource.parse()` output for all CSV test files. At Phase 5, verify that existing upload tests pass unchanged and that the legacy helper is deprecated rather than used by production flows.
 
 ### Design Decision G: Error Handling Preservation
 

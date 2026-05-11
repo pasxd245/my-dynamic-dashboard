@@ -50,12 +50,12 @@ Prove configuration loading is unified and precedence is deterministic.
 3. Validate precedence in three scenarios:
    - packaged defaults only
    - `.env` plus packaged defaults
-   - `.env` plus packaged defaults plus `CONFIG_FILE`
+   - `.env` plus packaged defaults plus `MDD_CONFIG_FILE`
 4. Verify entry points read configuration through the unified path.
 
 ### Pass Criteria
 
-- Effective precedence is `.env < default.yaml < CONFIG_FILE`.
+- Effective precedence is `.env < default.yaml < MDD_CONFIG_FILE`.
 - `rg "os\.getenv|os\.environ" apps/backend/app` returns zero hits.
 
 ### Configuration Precedence Examples
@@ -63,7 +63,7 @@ Prove configuration loading is unified and precedence is deterministic.
 **Scenario 1: Defaults Only**
 
 ```python
-# No .env, no CONFIG_FILE → shipped defaults apply
+# No .env, no MDD_CONFIG_FILE → shipped defaults apply
 config = load_config()
 config.backend_port()  # Returns 8000 (from resources/default.yaml)
 ```
@@ -76,11 +76,11 @@ config = load_config()
 config.backend_port()  # Returns 9000 (overrides default)
 ```
 
-**Scenario 3: CONFIG_FILE Overrides Both**
+**Scenario 3: MDD_CONFIG_FILE Overrides Both**
 
 ```bash
 # .env: BACKEND_PORT=9000
-# CONFIG_FILE: app.backend_port: 7000
+# MDD_CONFIG_FILE: app.backend_port: 7000
 config = load_config(config_path=Path("config.yaml"))
 config.backend_port()  # Returns 7000 (highest precedence)
 ```

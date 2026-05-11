@@ -284,12 +284,13 @@ SourceMetadata(
 
 **Key Methods**:
 
-| Method               | Signature                              | Returns          | Throws       | Purpose                                                                |
-| -------------------- | -------------------------------------- | ---------------- | ------------ | ---------------------------------------------------------------------- |
-| `register`           | `(source_class: type[Source]) -> None` | None             | `ValueError` | Register a new Source subclass at app startup.                         |
-| `for_type`           | `(source_type: str) -> Source`         | Source instance  | `KeyError`   | Retrieve a Source instance for the given type.                         |
-| `detect_source_type` | `(filename: str) -> str \| None`       | String or None   | N/A          | Inspect filename and return detected source_type (or None if unknown). |
-| `list_sources`       | `() -> list[SourceMetadata]`           | List of metadata | N/A          | Return all registered sources (for UI, introspection, docs).           |
+| Method                     | Signature                              | Returns          | Throws       | Purpose                                                                              |
+| -------------------------- | -------------------------------------- | ---------------- | ------------ | ------------------------------------------------------------------------------------ |
+| `register`                 | `(source_class: type[Source]) -> None` | None             | `ValueError` | Register a new Source subclass at app startup.                                       |
+| `register_builtin_sources` | `() -> None`                           | None             | N/A          | Register first-party `ExcelSource` and `CSVSource` when runtime dispatch needs them. |
+| `for_type`                 | `(source_type: str) -> Source`         | Source instance  | `KeyError`   | Retrieve a Source instance for the given type.                                       |
+| `detect_source_type`       | `(filename: str) -> str \| None`       | String or None   | N/A          | Inspect filename and return detected source_type (or None if unknown).               |
+| `list_sources`             | `() -> list[SourceMetadata]`           | List of metadata | N/A          | Return all registered sources (for UI, introspection, docs).                         |
 
 **Thread-Safety**: Class methods with module-level dict (Python GIL guarantees thread-safe dict operations for simple get/set).
 
@@ -299,8 +300,7 @@ SourceMetadata(
 from app.sources import ExcelSource, CSVSource
 from app.services.source_registry import SourceRegistry
 
-SourceRegistry.register(ExcelSource)
-SourceRegistry.register(CSVSource)
+SourceRegistry.register_builtin_sources()
 ```
 
 ---
@@ -341,7 +341,7 @@ SourceConfig (abstract)
 
 ### Composition
 
-- **SourceRegistry** contains a mapping of `source_type: str` → `Source instance`
+- **SourceRegistry** contains a mapping of `source_type: str` → `Source class`
 - **SourceRegistry.list_sources()** returns list of `SourceMetadata`
 - **Source.compute_profiles()** returns list of `ColumnProfile`
 
@@ -353,6 +353,9 @@ sequenceDiagram
     participant SourceRegistry
     participant Source (Excel/CSV)
     participant Polars
+
+    Upload Endpoint->>SourceRegistry: register_builtin_sources()
+    SourceRegistry-->>Upload Endpoint: built-ins ensured
 
     Upload Endpoint->>SourceRegistry: detect_source_type(filename)
     SourceRegistry-->>Upload Endpoint: source_type (e.g., "excel")

@@ -12,7 +12,7 @@ import yaml
 DEFAULT_CONFIG_PATH = Path(__file__).resolve().parent / "resources" / "default.yaml"
 
 # Env-var name for an optional operator-supplied override file.
-_CONFIG_FILE_ENV = "CONFIG_FILE"
+_CONFIG_FILE_ENV = "MDD_CONFIG_FILE"
 
 # Mapping from dotted config key → env-var override name.
 _ENV_OVERRIDES: dict[str, str] = {
@@ -143,7 +143,7 @@ def load_config(config_path: Path | None = None) -> dict[str, Any]:
 
     Layers (low → high):
       1. Packaged ``resources/default.yaml``
-      2. Operator ``CONFIG_FILE`` yaml (if env var is set)
+      2. Operator ``MDD_CONFIG_FILE`` yaml (if env var is set)
       3. Individual environment variable overrides
     """
     config_path = _resolve_config_path(config_path)

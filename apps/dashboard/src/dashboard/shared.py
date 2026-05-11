@@ -12,7 +12,7 @@ from dashboard.utils.env_helper import validate_http_url
 
 
 DEFAULT_CONFIG_PATH = Path(__file__).resolve().parent / "resources" / "default.yaml"
-_CONFIG_FILE_ENV = "CONFIG_FILE"
+_CONFIG_FILE_ENV = "MDD_CONFIG_FILE"
 
 _ENV_OVERRIDES: dict[str, str] = {
     "app.env": "APP_ENV",

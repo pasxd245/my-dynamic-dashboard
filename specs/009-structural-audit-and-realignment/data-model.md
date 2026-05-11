@@ -112,7 +112,7 @@ Unified configuration surface for the backend.
 
 ### Validation Rules
 
-- `precedence_order` must equal `.env`, `default.yaml`, `CONFIG_FILE` in ascending precedence.
+- `precedence_order` must equal `.env`, `default.yaml`, `MDD_CONFIG_FILE` in ascending precedence.
 - Accessor list must cover currently required backend runtime paths and settings.
 - Bare `os.getenv` and `os.environ` reads are disallowed in `apps/backend/app/` after migration.
 

@@ -31,7 +31,7 @@ This round is primarily an internal structural and operational alignment change.
 ## Required Reconciliation
 
 - Reconcile the current backend layout against the target `core/` + `apps/` + `utils/` layout patterned after `i18n-tool/core/src/i18n_tools/`.
-- Reconcile existing scattered environment and default-setting behavior into a single configuration path with precedence `.env < app/resources/default.yaml < CONFIG_FILE`.
+- Reconcile existing scattered environment and default-setting behavior into a single configuration path with precedence `.env < app/resources/default.yaml < MDD_CONFIG_FILE`.
 - Reconcile raw `sqlite3` and SQLModel-session service internals one file at a time while preserving public function contracts and API responses.
 - Reconcile existing response DTOs and `schemas.py` usage into a consolidated schema surface without API contract regressions.
 - Reconcile legacy metadata initialization ownership so deleted metadata shims are no longer imported anywhere in `apps/backend/app/`.
@@ -40,7 +40,7 @@ This round is primarily an internal structural and operational alignment change.
 
 - Structural audit driven by CRG or equivalent community and bridge-node analysis before file moves are finalized.
 - Backend startup and runtime behavior challenged before and after directory moves to confirm imports and app entry points remain stable.
-- Configuration precedence challenged with `.env` only, packaged defaults only, and `.env` plus `CONFIG_FILE` override.
+- Configuration precedence challenged with `.env` only, packaged defaults only, and `.env` plus `MDD_CONFIG_FILE` override.
 - Service files challenged incrementally as internals move from raw `sqlite3` access to SQLModel `Session` usage while external behavior stays fixed.
 - Schema consolidation challenged against current API request and response contracts to confirm no regression in serialized outputs.
 
@@ -92,12 +92,12 @@ As a backend maintainer, I need all backend configuration to resolve through one
 
 **Why this priority**: Config sprawl and scattered environment reads are a direct source of drift and inconsistent runtime behavior.
 
-**Independent Test**: Run the backend with packaged defaults only, with `.env` overrides, and with a custom `CONFIG_FILE`, then confirm resolved values follow the required precedence and no direct bare env reads remain in `apps/backend/app/`.
+**Independent Test**: Run the backend with packaged defaults only, with `.env` overrides, and with a custom `MDD_CONFIG_FILE`, then confirm resolved values follow the required precedence and no direct bare env reads remain in `apps/backend/app/`.
 
 **Acceptance Scenarios**:
 
 1. **Given** no custom config file, **When** the backend resolves configuration, **Then** values are loaded from `.env` and `app/resources/default.yaml` with packaged defaults available in the application package.
-2. **Given** `.env`, packaged defaults, and a `CONFIG_FILE` override are all present, **When** configuration is loaded, **Then** precedence resolves as `.env < default.yaml < CONFIG_FILE`.
+2. **Given** `.env`, packaged defaults, and a `MDD_CONFIG_FILE` override are all present, **When** configuration is loaded, **Then** precedence resolves as `.env < default.yaml < MDD_CONFIG_FILE`.
 3. **Given** backend code under `apps/backend/app/`, **When** the round is complete, **Then** direct `os.getenv` and `os.environ` reads are absent and configuration is accessed through `AppConfig` accessors or `EnvVar` helpers.
 
 ---
@@ -135,7 +135,7 @@ As a backend maintainer, I need unused metadata initialization shims removed so 
 - CRG or equivalent structural analysis identifies a move that conflicts with preserving existing import stability.
 - A service file can migrate its internals to SQLModel `Session` usage only partially in this round and must coexist with adjacent services that still use prior access patterns.
 - Consolidating `schemas.py` reveals duplicate DTO names or overlapping responsibilities while public response shapes must stay unchanged.
-- Packaged defaults exist but `.env` or `CONFIG_FILE` is missing, malformed, or only partially populated.
+- Packaged defaults exist but `.env` or `MDD_CONFIG_FILE` is missing, malformed, or only partially populated.
 - A moved module still has stale imports from deleted metadata shims or stale references to old package paths.
 - A bare environment read is hidden behind a helper or indirect import and must still be eliminated by end-of-round verification.
 
@@ -147,7 +147,7 @@ As a backend maintainer, I need unused metadata initialization shims removed so 
 - **FR-002**: The backend app layout MUST converge on a target structure containing `__main__.py`, `main.py`, `shared.py`, `resources/default.yaml`, `api/`, `apps/`, `core/`, `models/`, `services/`, and `utils/` under `apps/backend/app/`.
 - **FR-003**: The round MUST keep builder and other frontend layout changes out of scope.
 - **FR-004**: The backend MUST adopt an `AppConfig` singleton configuration manager with parity to the referenced i18n-tool pattern, including lazy access to resolved settings needed by current backend workflows.
-- **FR-005**: Backend configuration loading MUST use layered precedence of `.env < app/resources/default.yaml < CONFIG_FILE`.
+- **FR-005**: Backend configuration loading MUST use layered precedence of `.env < app/resources/default.yaml < MDD_CONFIG_FILE`.
 - **FR-006**: The backend MUST adopt an in-package default configuration file at `apps/backend/app/resources/default.yaml` as the shipped default configuration source.
 - **FR-007**: The backend MUST wrap the published `RecursiveNamespaceV2` library directly for configuration object behavior, with `AppConfig` delegating config reads to the library rather than reimplementing namespace behavior in a custom dict wrapper.
 - **FR-008**: The backend MUST define and use `Const` and `Fields` constant sets sufficient to replace scattered magic strings for configuration access in this round.
@@ -178,7 +178,7 @@ As a backend maintainer, I need unused metadata initialization shims removed so 
 
 - **SC-001**: The structural audit produces an approved move plan covering all backend modules affected by Round 23 before directory realignment begins.
 - **SC-002**: The backend app tree matches the target layout at round completion, with all required top-level files and directories present under `apps/backend/app/`.
-- **SC-003**: Configuration precedence behaves consistently across three scenarios: packaged defaults only, `.env` plus defaults, and `.env` plus defaults plus `CONFIG_FILE`, with the highest-precedence source winning in each case.
+- **SC-003**: Configuration precedence behaves consistently across three scenarios: packaged defaults only, `.env` plus defaults, and `.env` plus defaults plus `MDD_CONFIG_FILE`, with the highest-precedence source winning in each case.
 - **SC-004**: End-of-round verification finds zero remaining bare `os.getenv` or `os.environ` reads in `apps/backend/app/`.
 - **SC-005**: End-of-round verification finds zero remaining imports or references to deleted metadata shims in `apps/backend/app/`.
 - **SC-006**: Existing backend automated tests pass after the realignment with no intended public behavior regressions.

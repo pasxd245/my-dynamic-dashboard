@@ -32,11 +32,15 @@ from app.services.dashboard_service import DashboardService  # noqa: F401  (re-e
 from app.services.panel_executor_service import (
     PanelExecutorService,  # noqa: F401  (re-exported for test monkeypatching)
 )
+from app.services.source_registry import SourceRegistry
+from app.sources import CSVSource, ExcelSource
 from app.shared import APP_LOGGER, DB_PATH, PARQUET_ROOT  # noqa: F401  (re-exported for test monkeypatching)
 
 
 def _startup_event() -> None:
     try:
+        SourceRegistry.register_builtin_sources()
+
         env = validate_startup_environment()
         APP_LOGGER.setLevel(env.backend_log_level)
         APP_LOGGER.info(

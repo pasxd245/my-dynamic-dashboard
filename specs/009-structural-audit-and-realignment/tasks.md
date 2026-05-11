@@ -60,13 +60,13 @@
 
 ## Phase 4: User Story 2 - Unify Backend Configuration Access (Priority: P1)
 
-**Goal**: Route backend configuration through one config manager with `.env < default.yaml < CONFIG_FILE` precedence and eliminate bare env reads.
+**Goal**: Route backend configuration through one config manager with `.env < default.yaml < MDD_CONFIG_FILE` precedence and eliminate bare env reads.
 
-**Independent Test**: Run configuration resolution against packaged defaults only, `.env` plus defaults, and `.env` plus defaults plus `CONFIG_FILE`, then verify resolved values and grep out direct env reads.
+**Independent Test**: Run configuration resolution against packaged defaults only, `.env` plus defaults, and `.env` plus defaults plus `MDD_CONFIG_FILE`, then verify resolved values and grep out direct env reads.
 
 ### Tests for User Story 2
 
-- [x] T019 [P] [US2] Add configuration precedence coverage for defaults, `.env`, and `CONFIG_FILE` in `apps/backend/tests/integration/test_config_precedence.py`
+- [x] T019 [P] [US2] Add configuration precedence coverage for defaults, `.env`, and `MDD_CONFIG_FILE` in `apps/backend/tests/integration/test_config_precedence.py`
 - [x] T020 [P] [US2] Add a guard test that fails on bare `os.getenv` and `os.environ` reads under `apps/backend/app/` in `apps/backend/tests/integration/test_config_precedence.py`
 
 ### Implementation for User Story 2
@@ -283,7 +283,7 @@
 ### Verification Gates
 
 - ✓ Layout converged to target `core/ + apps/ + utils/` structure
-- ✓ Configuration unified via AppConfig with `.env < default.yaml < CONFIG_FILE` precedence
+- ✓ Configuration unified via AppConfig with `.env < default.yaml < MDD_CONFIG_FILE` precedence
 - ✓ Orchestrators own domain wiring (WORKSPACE_APP, UPLOAD_APP, QUERY_APP, RELATIONSHIP_APP, DASHBOARD_APP, DEPLOYMENT_APP)
 - ✓ All routers migrated to use orchestrators
 - ✓ Bare env reads isolated (4 intentional; 0 scattered)

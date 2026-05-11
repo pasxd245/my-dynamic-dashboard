@@ -58,8 +58,7 @@ SourceRegistry is a **module-level singleton** implemented via class methods and
 from app.services.source_registry import SourceRegistry
 
 # Register at startup
-SourceRegistry.register(ExcelSource)
-SourceRegistry.register(CSVSource)
+SourceRegistry.register_builtin_sources()
 
 # Use at request time
 source = SourceRegistry.for_type("excel")
@@ -148,7 +147,7 @@ The monorepo includes `hg_code/src/com/provider.py`, which implements a similar 
 
 1. **Config hierarchy**: `ProviderConfig` base class with subclasses per provider type.
 2. **Factory pattern**: `ProviderManager.get_provider(type: str)` returns instances.
-3. **Metadata**: Each provider exposes a `.metadata()` class method.
+3. **Metadata**: Each provider exposes a `get_metadata()` class method.
 
 ### Adaptations for Source/Provider Abstraction
 
@@ -157,7 +156,7 @@ The monorepo includes `hg_code/src/com/provider.py`, which implements a similar 
 | `Provider`                      | `Source`                   | Same concept; different naming to avoid collision with existing `Provider` classes in repo |
 | `ProviderConfig`                | `SourceConfig`             | Same pattern; clearer semantic connection to sources                                       |
 | `ProviderManager`               | `SourceRegistry`           | Same factory role; "Registry" emphasizes list/discovery capabilities                       |
-| `.metadata()` method            | `SourceMetadata` dataclass | Easier to serialize/introspect than class methods                                          |
+| `get_metadata()` method         | `SourceMetadata` dataclass | Easier to serialize/introspect than class methods                                          |
 | Error types (custom exceptions) | `ValueError`, `KeyError`   | Stay with built-in types; simpler and sufficient                                           |
 | YAML auto-discovery             | **OUT OF SCOPE**           | Spec 010 requires explicit registration (Decision Gate A)                                  |
 
@@ -167,6 +166,7 @@ The monorepo includes `hg_code/src/com/provider.py`, which implements a similar 
 2. **Singleton factory with `get_provider()`**: Adapted as `for_type()` in SourceRegistry
 3. **Error handling**: Clear error messages on missing provider or unsupported type
 4. **No state mutation in instances**: Providers/Sources are stateless; state lives in SourceRegistry
+5. **Built-in bootstrap helper**: `register_builtin_sources()` keeps explicit code registration while making runtime paths robust in tests and scripts.
 
 ### Key Differences
 
