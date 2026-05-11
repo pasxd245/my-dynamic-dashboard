@@ -14,6 +14,61 @@ are captured and reviewable.
 
 ---
 
+## Trajectory
+
+Every round runs inside a trajectory — the four guardrails below frame
+what may change, what must not, and how to read incoming feedback. The
+trajectory is set during Plan and reaffirmed at the start of each Do
+iteration. Drift between trajectory and execution is a gate, not a
+silent decision.
+
+### 1. Immutable Intent
+
+The round's goal cannot be changed unilaterally. Once Plan is locked
+and the round flips to `In Progress`, the goal stated in `## Goal` is
+treated as a contract. Reframing the goal mid-round requires explicit
+human approval and a new round (or a documented amendment), not a
+quiet rewrite of `## Goal`.
+
+### 2. Current Architecture State
+
+The round is executed against the architecture the system is running
+on **now**, not an aspirational future state. Before starting Do, the
+operator confirms the relevant code paths, libraries, and contracts as
+they exist on the current branch. Decisions are anchored to that state
+so that "what changed" is measurable against a known baseline.
+
+### 3. Feedback Scope
+
+When new feedback or a course-correction arrives mid-round, classify
+it first:
+
+- **Local fix** — fits inside the current round's intent and allowed
+  change boundary. Apply, log under Do, continue.
+- **Global redesign** — alters the architecture state, the round
+  intent, or contracts beyond this round. Stop and surface a gate.
+  Do not absorb a global redesign into an in-flight round.
+
+Mixing the two is the most common source of scope creep and broken
+rounds. If unclear, default to treating it as global and ask.
+
+### 4. Allowed Change Boundary
+
+Each round declares — explicitly, in Plan — which files / modules are
+in-scope and which must not be touched. The boundary is read by the
+operator before every Do step:
+
+- Files inside the boundary may be created, edited, or removed under
+  the round's intent.
+- Files outside the boundary may be **read** for context but not
+  modified. A change request that requires editing outside-boundary
+  files is itself a gate (see Feedback Scope above).
+
+When the boundary is implicit, write it down before the next Do step.
+"I assumed it was fine to touch X" is not a recoverable position.
+
+---
+
 ## Cycle Template
 
 Each round follows four phases:
@@ -53,14 +108,52 @@ Each round follows four phases:
 
 ### Check
 
+Check is split into two complementary classes. **Both** must pass before
+the round can move to `Review`. A round that satisfies Check-result but
+fails Check-trajectory is not Done — it has drifted, and the drift is a
+gate, not a pass.
+
+#### Check-result — "Does the code run correctly?"
+
+Verifies the implementation produces the intended _output_:
+
 - Run `speckit.analyze` first. CRITICAL findings are a human gate.
 - Verify `tasks.md` is 100% checked. If not → return to **Do**.
-- Run repo-required verification (tests, lint, contract checks, manual
-  validation). Any failure → return to **Do**.
+- Run repo-required verification (tests, lint, type-check, contract
+  checks, manual validation). Any failure → return to **Do**.
 - The Do↔Check loop is bounded: after 3 round-trips inside one `/pdca`
   invocation without convergence, surface a gate.
-- Update round records with what is complete, what failed, what remains.
-- Status: `Review` (only after analyze + tests + 100% tasks all pass).
+
+#### Check-trajectory — "Is the code still on the original trajectory?"
+
+Verifies the implementation still respects the trajectory set at Plan
+(see [Trajectory](#trajectory) above). Even when tests pass, the round
+can have silently drifted off course:
+
+- **Immutable Intent** — does the delivered work still serve the goal
+  stated in `## Goal`? Re-read it. If the implementation answers a
+  different question, that is drift.
+- **Current Architecture State** — is the delivered code consistent
+  with the architecture state recorded at Plan? Unannounced framework
+  swaps, new global dependencies, or contract changes are drift.
+- **Feedback Scope** — did any mid-round feedback get absorbed without
+  classification? Look for changes that smell like a global redesign
+  but were treated as local fixes.
+- **Allowed Change Boundary** — did Do touch any file outside the
+  declared boundary? A `git diff --stat` against the round-start
+  baseline answers this directly.
+
+Any trajectory drift → surface a gate, do not auto-fix. Drift is
+either ratified (the round's trajectory is amended with human
+approval) or reverted (the out-of-boundary changes are rolled back).
+Never quietly rewrite the goal to match what was built.
+
+#### Common closure
+
+- Update round records with what is complete, what failed, what
+  remains, and any trajectory observations.
+- Status: `Review` (only after Check-result passes **and**
+  Check-trajectory reports no unresolved drift).
 
 ### Act
 

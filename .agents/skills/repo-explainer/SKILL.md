@@ -40,6 +40,14 @@ Ask (or infer from the question):
 - **Output location:** inline chat reply, or a file under
   `docs/`?
 
+Default file target rule:
+
+- If the user asks to create/save a workflow doc and does not provide a
+  location, save it under `docs/agents/workflows/` using the filename
+  `<name>.workflow.md`.
+- If the user provides an explicit location, follow the user-provided
+  location.
+
 If you cannot answer these from context, ask one clarifying question
 before drawing.
 
@@ -134,9 +142,12 @@ was diagrammed before:
 | Request shape                | Where to put the output                                       |
 | ---------------------------- | ------------------------------------------------------------- |
 | Conversational "explain X"   | Reply inline in chat                                          |
-| "Add a docs page for X"      | `docs/diagrams/<name>.md`                                     |
+| "Add a docs page for X"      | `docs/agents/workflows/<name>.workflow.md` (default)          |
 | "Update the README overview" | Edit the relevant README section                              |
 | "Update agent workflow docs" | Propose patch under `docs/agents/` and confirm before writing |
+
+If writing under `docs/agents/`, keep the existing confirmation rule:
+propose the patch and confirm with the human before writing.
 
 ## Anti-patterns
 
