@@ -4,6 +4,7 @@ import { Routes, Route, Link, useNavigate } from "react-router-dom";
 import {
   assignColumnRoles,
   createWorkspace,
+  discoverExcelSheets,
   exportManifest,
   getWorkspaceProfile,
   getReadiness,
@@ -14,18 +15,24 @@ import {
 import type {
   ActionableError,
   ManifestResponse,
-  ProfileResponse,
-  ReadinessResponse,
-  UploadResponse,
 } from "./api/types";
 import { getActionableError } from "./api/httpErrors";
+import { setActiveContext } from "./api/builderSessionApi";
 import ActionableErrorPanel from "./components/errors/ActionableErrorPanel";
+import ExcelSheetPicker from "./components/upload-flow/ExcelSheetPicker";
+import UploadProgressPanel from "./components/upload-flow/UploadProgressPanel";
+import SourceTypeSelector from "./components/upload-flow/SourceTypeSelector";
+import UploadValidationNotice from "./components/upload-flow/UploadValidationNotice";
+import {
+  getSourceTypeMismatchMessage,
+  isSourceTypeCompatibleWithFilename,
+} from "./components/upload-flow/sourceTypeRules";
 import QueryBuilderPanel from "./components/query-builder/QueryBuilderPanel";
 import { SaveQueryDialog } from "./components/SavedQuery";
 import type { SaveQueryResponse } from "./api/queryApi";
 import BuilderWorkflowPage from "./pages/BuilderWorkflowPage";
 import { SavedQueryLibraryPage, SavedQueryDetail } from "./pages/SavedQueryLibrary";
-import { useQueryBuilderStore } from "./state";
+import { useQueryBuilderStore, useUploadFlowStore } from "./state";
 
 const panelStyle: React.CSSProperties = {
   marginTop: "1.5rem",
@@ -51,7 +58,6 @@ export default function App(): React.ReactElement {
   const [overrideReason, setOverrideReason] = useState<string>("");
   const [manifestText, setManifestText] = useState<string>("");
   const [message, setMessage] = useState<string>("");
-  const [isUploading, setIsUploading] = useState<boolean>(false);
   const [uploadActionableError, setUploadActionableError] = useState<ActionableError | null>(null);
   const [profileActionableError, setProfileActionableError] = useState<ActionableError | null>(null);
 
@@ -79,12 +85,52 @@ export default function App(): React.ReactElement {
   } = useQueryBuilderStore();
 
   const navigate = useNavigate();
+  const {
+    selectedSourceType,
+    selectedSheetName,
+    sheetOptions,
+    progressState,
+    isUploading,
+    errorMessage: uploadFlowErrorMessage,
+    setSelectedSourceType,
+    setSelectedSheetName,
+    setSheetOptions,
+    setProgressState,
+    setIsUploading,
+    setErrorMessage,
+    setLastUpload,
+  } = useUploadFlowStore();
 
   useEffect(() => {
     initQueryBuilderStore();
   }, [initQueryBuilderStore]);
 
   const currentSheet = useMemo(() => uploadResult?.sheets?.[0] ?? null, [uploadResult]);
+  const sourceValidationMessage = useMemo(() => {
+    if (!selectedFile) {
+      return null;
+    }
+    if (!selectedSourceType) {
+      return "Select a source type before uploading.";
+    }
+    return getSourceTypeMismatchMessage(selectedSourceType, selectedFile.name);
+  }, [selectedFile, selectedSourceType]);
+  const requiresSheetSelection = useMemo(
+    () => selectedSourceType === "excel" && sheetOptions.length > 1,
+    [selectedSourceType, sheetOptions],
+  );
+  const canUploadSelection = useMemo(() => {
+    if (!workspaceId || !selectedFile || !selectedSourceType || isUploading) {
+      return false;
+    }
+    if (!isSourceTypeCompatibleWithFilename(selectedSourceType, selectedFile.name)) {
+      return false;
+    }
+    if (requiresSheetSelection && !selectedSheetName) {
+      return false;
+    }
+    return true;
+  }, [workspaceId, selectedFile, selectedSourceType, isUploading, requiresSheetSelection, selectedSheetName]);
 
   const onCreateWorkspace = async (): Promise<void> => {
     try {
@@ -92,6 +138,8 @@ export default function App(): React.ReactElement {
       setWorkspaceId(payload.id);
       setUploadActionableError(null);
       setProfileActionableError(null);
+      setProgressState("idle");
+      setErrorMessage(null);
       setMessage(`Workspace created: ${payload.id}`);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Unknown error");
@@ -99,26 +147,85 @@ export default function App(): React.ReactElement {
   };
 
   const onUpload = async (): Promise<void> => {
-    if (!workspaceId || !selectedFile) {
-      setMessage("Create workspace and select a file first.");
+    if (!workspaceId || !selectedFile || !selectedSourceType) {
+      setMessage("Create workspace, choose source type, and select a file first.");
+      return;
+    }
+
+    if (!isSourceTypeCompatibleWithFilename(selectedSourceType, selectedFile.name)) {
+      setMessage(getSourceTypeMismatchMessage(selectedSourceType, selectedFile.name) ?? "Invalid source/file combination.");
       return;
     }
 
     try {
-      setIsUploading(true);
+      setProgressState("validating");
       setUploadActionableError(null);
+      setErrorMessage(null);
       setMessage(`Uploading ${selectedFile.name}...`);
-      const payload = await uploadSource(workspaceId, selectedFile);
+      let resolvedSheetName = selectedSheetName;
+
+      if (selectedSourceType === "excel" && !resolvedSheetName) {
+        setProgressState("discovering_sheets");
+        const discovery = await discoverExcelSheets(workspaceId, selectedFile);
+        setSheetOptions(discovery.options);
+
+        if (discovery.requires_sheet_selection) {
+          setMessage("Choose an Excel sheet before uploading.");
+          setProgressState("idle");
+          return;
+        }
+
+        resolvedSheetName = discovery.options[0]?.name ?? null;
+        setSelectedSheetName(resolvedSheetName);
+      }
+
+      const payload = await uploadSource(workspaceId, selectedFile, {
+        sourceType: selectedSourceType,
+        sheetName: resolvedSheetName ?? undefined,
+        lifecycle: {
+          onStart: () => {
+            setIsUploading(true);
+            setProgressState("uploading");
+          },
+          onSuccess: (response) => {
+            setLastUpload(response);
+            setProgressState("success");
+          },
+          onError: (error) => {
+            setProgressState("error");
+            setErrorMessage(error instanceof Error ? error.message : "Upload failed.");
+          },
+          onSettled: () => {
+            setIsUploading(false);
+          },
+        },
+      });
       setUploadResult(payload);
+      setLastUpload(payload);
       setDataRange(payload.sheets?.[0]?.data_range_effective ?? "");
       setHeaderRow(String(payload.sheets?.[0]?.header_row_effective ?? 1));
-      setMessage("Upload complete.");
+      await setActiveContext({
+        workspace_id: workspaceId,
+        source_id: payload.source_id,
+      });
+      setMessage("Upload complete. Workflow context is ready.");
+      navigate("/workflow/schema-sheet");
     } catch (error) {
       setUploadActionableError(getActionableError(error));
+      setProgressState("error");
+      setErrorMessage(error instanceof Error ? error.message : "Unknown error");
       setMessage(error instanceof Error ? error.message : "Unknown error");
     } finally {
       setIsUploading(false);
     }
+  };
+
+  const onSelectedFileChange = (file: File | null): void => {
+    setSelectedFile(file);
+    setSelectedSheetName(null);
+    setSheetOptions([]);
+    setProgressState("idle");
+    setErrorMessage(null);
   };
 
   const onOverride = async (): Promise<void> => {
@@ -134,10 +241,10 @@ export default function App(): React.ReactElement {
         data_range: dataRange,
         reason,
       });
-      setUploadResult((previous) =>
-        previous
+      setUploadResult(
+        uploadResult
           ? {
-              ...previous,
+              ...uploadResult,
               sheets: [payload],
             }
           : null,
@@ -261,15 +368,26 @@ export default function App(): React.ReactElement {
         <input
           type="file"
           accept=".csv,.xlsx,.xlsm,.xlsb,.xls"
-          onChange={(event) => setSelectedFile(event.currentTarget.files?.[0] ?? null)}
+          onChange={(event) => onSelectedFileChange(event.currentTarget.files?.[0] ?? null)}
+        />
+        <SourceTypeSelector value={selectedSourceType} onChange={setSelectedSourceType} disabled={!workspaceId} />
+        <ExcelSheetPicker
+          options={sheetOptions}
+          value={selectedSheetName}
+          onChange={setSelectedSheetName}
+          disabled={isUploading}
         />
         <button
           onClick={onUpload}
-          disabled={!workspaceId || !selectedFile || isUploading}
+          disabled={!canUploadSelection}
           style={{ marginLeft: "0.5rem" }}
         >
           {isUploading ? "Uploading..." : "Upload"}
         </button>
+        <UploadValidationNotice message={sourceValidationMessage} />
+        {progressState !== "idle" || uploadFlowErrorMessage ? (
+          <UploadProgressPanel state={progressState} message={uploadFlowErrorMessage ?? message} />
+        ) : null}
       </section>
     </>
   );
@@ -397,15 +515,30 @@ export default function App(): React.ReactElement {
                 <input
                   type="file"
                   accept=".csv,.xlsx,.xlsm,.xlsb,.xls"
-                  onChange={(event) => setSelectedFile(event.currentTarget.files?.[0] ?? null)}
+                  onChange={(event) => onSelectedFileChange(event.currentTarget.files?.[0] ?? null)}
+                />
+                <SourceTypeSelector
+                  value={selectedSourceType}
+                  onChange={setSelectedSourceType}
+                  disabled={!workspaceId}
+                />
+                <ExcelSheetPicker
+                  options={sheetOptions}
+                  value={selectedSheetName}
+                  onChange={setSelectedSheetName}
+                  disabled={isUploading}
                 />
                 <button
                   onClick={onUpload}
-                  disabled={!workspaceId || !selectedFile || isUploading}
+                  disabled={!canUploadSelection}
                   style={{ marginLeft: "0.5rem" }}
                 >
                   {isUploading ? "Uploading..." : "Upload"}
                 </button>
+                <UploadValidationNotice message={sourceValidationMessage} />
+                {progressState !== "idle" || uploadFlowErrorMessage ? (
+                  <UploadProgressPanel state={progressState} message={uploadFlowErrorMessage ?? message} />
+                ) : null}
                 <p style={{ marginTop: "0.5rem", marginBottom: "0", color: "#555" }}>
                   {selectedFile
                     ? `Selected file: ${selectedFile.name}`

@@ -2,6 +2,8 @@ import type {
   WorkspaceCreateRequest,
   WorkspaceResponse,
   UploadResponse,
+  UploadSheetDiscoveryResponse,
+  UploadSourceOptions,
   OverridePayload,
   ProfileResponse,
   AssignRolePayload,
@@ -31,20 +33,66 @@ export async function createWorkspace(name: string): Promise<WorkspaceResponse> 
 export async function uploadSource(
   workspaceId: string,
   file: File,
+  options: UploadSourceOptions = {},
 ): Promise<UploadResponse> {
+  const { sourceType, sheetName, lifecycle } = options;
   const formData = new FormData();
   formData.append("file", file);
+  if (sourceType) {
+    formData.append("source_type", sourceType);
+  }
+  if (sheetName) {
+    formData.append("sheet_name", sheetName);
+  }
 
-  const response = await fetch(`${appConfig.apiBaseUrl()}/workspaces/${workspaceId}/sources/upload`, {
+  lifecycle?.onStart?.();
+
+  let response: Response;
+  try {
+    response = await fetch(`${appConfig.apiBaseUrl()}/workspaces/${workspaceId}/sources/upload`, {
+      method: "POST",
+      body: formData,
+    });
+  } catch (error) {
+    lifecycle?.onError?.(error);
+    lifecycle?.onSettled?.();
+    throw error;
+  }
+
+  if (!response.ok) {
+    try {
+      await throwApiRequestError(response, "Failed to upload source");
+    } catch (error) {
+      lifecycle?.onError?.(error);
+      lifecycle?.onSettled?.();
+      throw error;
+    }
+  }
+
+  const payload = (await response.json()) as UploadResponse;
+  lifecycle?.onSuccess?.(payload);
+  lifecycle?.onSettled?.();
+  return payload;
+}
+
+export async function discoverExcelSheets(
+  workspaceId: string,
+  file: File,
+): Promise<UploadSheetDiscoveryResponse> {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("source_type", "excel");
+
+  const response = await fetch(`${appConfig.apiBaseUrl()}/workspaces/${workspaceId}/sources/discover-sheets`, {
     method: "POST",
     body: formData,
   });
 
   if (!response.ok) {
-    await throwApiRequestError(response, "Failed to upload source");
+    await throwApiRequestError(response, "Failed to discover Excel sheets");
   }
 
-  return response.json() as Promise<UploadResponse>;
+  return response.json() as Promise<UploadSheetDiscoveryResponse>;
 }
 
 export async function overrideSheet(

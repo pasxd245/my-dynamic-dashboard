@@ -1,6 +1,7 @@
 import { useState } from "react";
 
 import type { ActionableError } from "../../api/types";
+import { humanizeActionableStage } from "../../api/httpErrors";
 
 export interface ActionableErrorPanelProps {
   error: ActionableError;
@@ -14,6 +15,9 @@ export default function ActionableErrorPanel({ error }: ActionableErrorPanelProp
   return (
     <section aria-live="polite" data-testid="actionable-error-panel">
       <h3>{error.user_message}</h3>
+      <p>
+        <strong>Stage:</strong> {humanizeActionableStage(error.stage)}
+      </p>
       <ul>
         {error.next_steps.map((step) => (
           <li key={step}>{step}</li>

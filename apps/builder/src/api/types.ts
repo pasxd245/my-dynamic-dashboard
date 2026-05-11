@@ -18,11 +18,54 @@ export interface WorkspaceResponse {
 }
 
 export interface UploadResponse {
+  source_id: string;
+  warnings: string[];
   sheets: Array<{
     id: string;
+    name: string;
     data_range_effective: string;
     header_row_effective: number;
   }>;
+}
+
+export type UploadSourceType = "excel" | "csv";
+
+export type UploadProgressState =
+  | "idle"
+  | "validating"
+  | "discovering_sheets"
+  | "uploading"
+  | "success"
+  | "error";
+
+export interface UploadSheetOption {
+  name: string;
+  index: number;
+}
+
+export interface UploadSheetDiscoveryResponse {
+  source_type: UploadSourceType;
+  requires_sheet_selection: boolean;
+  options: UploadSheetOption[];
+  warnings: string[];
+}
+
+export interface UploadSourceRequestPayload {
+  source_type?: UploadSourceType;
+  sheet_name?: string;
+}
+
+export interface UploadLifecycleCallbacks {
+  onStart?: () => void;
+  onSuccess?: (response: UploadResponse) => void;
+  onError?: (error: unknown) => void;
+  onSettled?: () => void;
+}
+
+export interface UploadSourceOptions {
+  sourceType?: UploadSourceType;
+  sheetName?: string;
+  lifecycle?: UploadLifecycleCallbacks;
 }
 
 export interface OverridePayload {

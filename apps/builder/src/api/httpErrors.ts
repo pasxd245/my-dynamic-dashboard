@@ -61,3 +61,18 @@ export function getActionableError(error: unknown): ActionableError | null {
   }
   return null;
 }
+
+export function humanizeActionableStage(stage: ActionableError["stage"]): string {
+  switch (stage) {
+    case "upload_source":
+      return "Upload + Source";
+    case "schema_sheet":
+      return "Schema + Sheet";
+    case "results_saved":
+      return "Results + Saved";
+    case "query":
+      return "Query";
+    default:
+      return "Global";
+  }
+}

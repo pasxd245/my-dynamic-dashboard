@@ -39,6 +39,31 @@ class SourceUploadResponse(BaseModel):
     sheets: list[SheetResponse]
 
 
+UploadSourceType = Literal["excel", "csv"]
+
+
+class UploadSourceSelectionRequest(BaseModel):
+    source_type: UploadSourceType
+    filename: str
+
+
+class UploadSheetDiscoveryRequest(BaseModel):
+    source_type: UploadSourceType = "excel"
+    filename: str
+
+
+class UploadSheetOption(BaseModel):
+    name: str
+    index: int
+
+
+class UploadSheetDiscoveryResponse(BaseModel):
+    source_type: UploadSourceType
+    requires_sheet_selection: bool
+    options: list[UploadSheetOption]
+    warnings: list[str] = Field(default_factory=list)
+
+
 class ColumnSchema(BaseModel):
     name: str
     data_type: str

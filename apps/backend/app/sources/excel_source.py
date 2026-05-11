@@ -16,6 +16,7 @@ class ExcelSourceConfig(SourceConfig):
     source_type: str = Field(default="excel", frozen=True)
     filename: str
     file_bytes: bytes
+    sheet_name: str | None = None
 
 
 class ExcelSource(Source):
@@ -35,10 +36,20 @@ class ExcelSource(Source):
 
         # Keep parser behavior byte-compatible with legacy read_dataframe().
         try:
-            return pl.read_excel(BytesIO(config.file_bytes), engine="openpyxl", raise_if_empty=False)
+            return pl.read_excel(
+                BytesIO(config.file_bytes),
+                engine="openpyxl",
+                raise_if_empty=False,
+                sheet_name=config.sheet_name,
+            )
         except Exception as openpyxl_exc:
             try:
-                return pl.read_excel(BytesIO(config.file_bytes), engine="calamine", raise_if_empty=False)
+                return pl.read_excel(
+                    BytesIO(config.file_bytes),
+                    engine="calamine",
+                    raise_if_empty=False,
+                    sheet_name=config.sheet_name,
+                )
             except Exception as calamine_exc:
                 raise ValueError(f"openpyxl failed: {openpyxl_exc}; calamine failed: {calamine_exc}") from calamine_exc
 
@@ -46,3 +57,12 @@ class ExcelSource(Source):
         from app.services.upload_service import compute_column_profiles
 
         return compute_column_profiles(df)
+
+
+def discover_excel_sheet_options(file_bytes: bytes) -> list[dict[str, int | str]]:
+    openpyxl = __import__("openpyxl")
+    workbook = openpyxl.load_workbook(BytesIO(file_bytes), read_only=True)
+    try:
+        return [{"name": name, "index": index} for index, name in enumerate(workbook.sheetnames)]
+    finally:
+        workbook.close()

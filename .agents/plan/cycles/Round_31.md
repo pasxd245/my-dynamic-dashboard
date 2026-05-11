@@ -122,3 +122,8 @@ Check evidence collected 2026-05-11:
 - Or: continue with Spec 014 (Dashboard Foundation Audit) if backend
   source dispatch is the final dependency needed before dashboard work
   can begin.
+
+**Selection (2026-05-11)**:
+
+- User selected the first option above. Proceed with Round 32 focused on
+  UI-visible source abstraction flow.

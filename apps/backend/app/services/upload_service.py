@@ -70,19 +70,24 @@ def read_dataframe(filename: str, file_bytes: bytes) -> pl.DataFrame:
     raise ValueError(UNSUPPORTED_FILE_TYPE_ERROR)
 
 
-def parse_dataframe_via_source_registry(filename: str, file_bytes: bytes) -> tuple[str, object, pl.DataFrame]:
+def parse_dataframe_via_source_registry(
+    filename: str,
+    file_bytes: bytes,
+    requested_source_type: str | None = None,
+    sheet_name: str | None = None,
+) -> tuple[str, object, pl.DataFrame]:
     from app.sources.csv_source import CSVSourceConfig
     from app.sources.excel_source import ExcelSourceConfig
 
     SourceRegistry.register_builtin_sources()
 
-    source_type = SourceRegistry.detect_source_type(filename)
+    source_type = requested_source_type or SourceRegistry.detect_source_type(filename)
     if source_type is None:
         raise ValueError(UNSUPPORTED_FILE_TYPE_ERROR)
 
     source = SourceRegistry.for_type(source_type)
     if source_type == "excel":
-        config = ExcelSourceConfig(filename=filename, file_bytes=file_bytes)
+        config = ExcelSourceConfig(filename=filename, file_bytes=file_bytes, sheet_name=sheet_name)
     elif source_type == "csv":
         config = CSVSourceConfig(filename=filename, file_bytes=file_bytes)
     else:

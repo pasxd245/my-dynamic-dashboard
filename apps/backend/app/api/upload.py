@@ -4,7 +4,7 @@ import json
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, File, UploadFile
+from fastapi import APIRouter, File, Form, UploadFile
 
 from app.api import ApiError, _get_workspace
 from app.apps.upload_app import UPLOAD_APP
@@ -29,6 +29,8 @@ from app.schemas import (
     SheetResponse,
     SmokeFlowResult,
     SmokeRunRequest,
+    UploadSheetDiscoveryResponse,
+    UploadSheetOption,
     SourceUploadResponse,
     TableSummary,
     UploadTableResponse,
@@ -60,8 +62,96 @@ from app.services.upload_service import (
     slugify_filename,
     utc_now_iso,
 )
+from app.services.source_registry import SourceRegistry
+from app.sources.excel_source import discover_excel_sheet_options
 
 router = APIRouter(tags=["upload"])
+
+
+_SUPPORTED_SOURCE_TYPES = {"excel", "csv"}
+
+
+def _normalize_requested_source_type(source_type: str | None) -> str | None:
+    if source_type is None:
+        return None
+    normalized = source_type.strip().lower()
+    return normalized or None
+
+
+def _resolve_upload_source_type(filename: str, requested_source_type: str | None) -> str:
+    normalized_requested = _normalize_requested_source_type(requested_source_type)
+    if normalized_requested is not None and normalized_requested not in _SUPPORTED_SOURCE_TYPES:
+        raise ApiError(
+            status_code=400,
+            code="invalid_source_type",
+            message="Invalid source_type. Supported values are 'excel' and 'csv'.",
+        )
+
+    detected = SourceRegistry.detect_source_type(filename)
+    if detected is None:
+        raise ApiError(
+            status_code=400,
+            code="unsupported_file",
+            message="Unsupported file type. Only .csv, .xlsx, .xlsm, .xlsb, and .xls are allowed.",
+        )
+
+    if normalized_requested is None:
+        return detected
+
+    if normalized_requested != detected:
+        raise ApiError(
+            status_code=400,
+            code="source_type_mismatch",
+            message=f"Selected source type '{normalized_requested}' does not match file '{filename}'.",
+            details={"detected_source_type": detected},
+        )
+
+    return normalized_requested
+
+
+def _normalize_sheet_name(sheet_name: str | None) -> str | None:
+    if sheet_name is None:
+        return None
+    normalized = sheet_name.strip()
+    return normalized or None
+
+
+@router.post(
+    "/api/v1/workspaces/{workspace_id}/sources/discover-sheets",
+    responses={400: {"description": "Invalid or unreadable Excel workbook."}},
+)
+async def discover_sheets_for_upload(
+    workspace_id: str,
+    file: Annotated[UploadFile, File(...)],
+    source_type: Annotated[str | None, Form()] = None,
+) -> UploadSheetDiscoveryResponse:
+    _get_workspace(workspace_id)
+
+    filename = file.filename or ""
+    resolved_source_type = _resolve_upload_source_type(filename, source_type or "excel")
+    if resolved_source_type != "excel":
+        raise ApiError(
+            status_code=400,
+            code="sheet_discovery_not_supported",
+            message="Sheet discovery is only supported for Excel uploads.",
+        )
+
+    file_bytes = await file.read()
+    try:
+        options = [UploadSheetOption(**item) for item in discover_excel_sheet_options(file_bytes)]
+    except Exception as exc:
+        raise ApiError(
+            status_code=400,
+            code="sheet_discovery_failed",
+            message=f"Unable to discover workbook sheets: {exc}",
+        ) from exc
+
+    return UploadSheetDiscoveryResponse(
+        source_type="excel",
+        requires_sheet_selection=len(options) > 1,
+        options=options,
+        warnings=[],
+    )
 
 
 PREFLIGHT_SERVICE: PreflightService | None = None
@@ -115,22 +205,30 @@ def get_builder_workflow_smoke(run_id: str) -> SmokeFlowResult:
 async def upload_source_for_workspace(
     workspace_id: str,
     file: Annotated[UploadFile, File(...)],
+    source_type: Annotated[str | None, Form()] = None,
+    sheet_name: Annotated[str | None, Form()] = None,
 ) -> SourceUploadResponse:
     _get_workspace(workspace_id)
 
     filename = file.filename or ""
-    lower_name = filename.lower()
-    if not lower_name.endswith((".csv", ".xlsx", ".xlsm", ".xlsb", ".xls")):
+    resolved_source_type = _resolve_upload_source_type(filename, source_type)
+    normalized_sheet_name = _normalize_sheet_name(sheet_name)
+    if normalized_sheet_name is not None and resolved_source_type != "excel":
         raise ApiError(
             status_code=400,
-            code="unsupported_file",
-            message="Unsupported file type. Only .csv, .xlsx, .xlsm, .xlsb, and .xls are allowed.",
+            code="sheet_selection_not_supported",
+            message="sheet_name is only supported for Excel uploads.",
         )
 
     file_bytes = await file.read()
 
     try:
-        source_type, source, df = parse_dataframe_via_source_registry(filename=filename, file_bytes=file_bytes)
+        source_type, source, df = parse_dataframe_via_source_registry(
+            filename=filename,
+            file_bytes=file_bytes,
+            requested_source_type=resolved_source_type,
+            sheet_name=normalized_sheet_name,
+        )
     except Exception as exc:
         lowered = str(exc).lower()
         if "password" in lowered or "encrypted" in lowered:
