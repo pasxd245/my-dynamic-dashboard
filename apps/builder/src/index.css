@@ -1,3 +1,134 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@import url("https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&family=Poppins:wght@400;500;600;700&display=swap");
+
+:root {
+	/* Theme color */
+	--color-blue: #4f45b6;
+	--color-yellow: #f8c140;
+	--color-black: #252525;
+	--color-green: #86f552;
+	--color-red: #f84040;
+	--color-orange: #f58869;
+	--color-cyan: #64c4f7;
+	--color-dark-blue: #2d3845;
+
+	/* Neutrals */
+	--color-white: #ffffff;
+	--color-off-white: #fcfcfc;
+	--color-gray-1: #f5effc;
+	--color-gray-2: #eceefb;
+	--color-gray-3: #d1d1d1;
+	--color-gray-4: #a098ae;
+
+	/* Dark surfaces */
+	--color-dark-bg: #261e35;
+	--color-dark-1: #2e293e;
+	--color-dark-2: #1e192a;
+
+	/* Aliases (legacy compatibility) */
+	--upload-ink: var(--color-dark-blue);
+	--upload-accent: var(--color-blue);
+	--upload-accent-soft: var(--color-gray-1);
+	--upload-warm: #f5f4f8;
+	--surface-card: var(--color-white);
+	--surface-line: #e4deef;
+
+	/* Radius scale (per Styles.css) */
+	--radius-sm: 5px;
+	--radius-md: 10px;
+	--radius-lg: 15px;
+	--radius-xl: 20px;
+
+	/* Shadow */
+	--shadow-card: 0px 20px 50px rgba(191, 21, 108, 0.05);
+}
+
+body {
+	color: var(--color-dark-blue);
+	background: var(--upload-warm);
+	font-family: "Cairo", "Nunito Sans", "Segoe UI", sans-serif;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+	font-family: "Cairo", "Poppins", sans-serif;
+	font-weight: 700;
+	color: var(--color-black);
+}
+
+/* Element-level defaults use plain tag selectors (specificity 0,0,1) so they
+   beat Tailwind preflight's universal resets. Tailwind utility classes
+   (specificity 0,1,0) still win over these on properties they declare. */
+button,
+input,
+select,
+textarea {
+	border-radius: var(--radius-md);
+	border: 1px solid var(--surface-line);
+	font: inherit;
+}
+
+input,
+select,
+textarea {
+	background: var(--color-white);
+	padding: 0.52rem 0.62rem;
+	color: var(--color-dark-blue);
+}
+
+button {
+	background: var(--color-blue);
+	color: var(--color-off-white);
+	font-family: "Cairo", "Poppins", sans-serif;
+	font-weight: 600;
+	padding: 0.6rem 1rem;
+	border: 1px solid var(--color-blue);
+	border-radius: var(--radius-xl);
+	box-shadow: var(--shadow-card);
+	cursor: pointer;
+}
+
+button:hover {
+	filter: brightness(1.05);
+}
+
+button:disabled {
+	opacity: 0.65;
+	cursor: not-allowed;
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+	outline: 3px solid rgba(79, 69, 182, 0.28);
+	outline-offset: 2px;
+}
+
+/* Step sidebar buttons opt out of global primary-button styling */
+.upload-step-button,
+.upload-step-button:hover {
+	filter: none;
+	box-shadow: none;
+}
+
+.upload-step-button:hover:not(:disabled) {
+	background: var(--color-gray-2) !important;
+	border-color: #b6bcef !important;
+}
+
+.upload-step-button[aria-current="step"]:hover:not(:disabled) {
+	background: var(--color-white) !important;
+	border-color: #6269d8 !important;
+}
+
+.upload-step-button * {
+	color: inherit;
+}

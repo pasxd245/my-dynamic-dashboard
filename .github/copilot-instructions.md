@@ -16,6 +16,6 @@
 
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan:
-specs/015-builder-upload-flow/plan.md
+specs/016-builder-upload-ux/plan.md
 
 <!-- SPECKIT END -->

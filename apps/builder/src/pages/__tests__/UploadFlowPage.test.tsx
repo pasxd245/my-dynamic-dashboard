@@ -1,7 +1,12 @@
-import { describe, expect, it } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
 
 import ExcelSheetPicker from "../../components/upload-flow/ExcelSheetPicker";
+import UploadStageSidebar from "../../components/upload-flow/UploadStageSidebar";
+import {
+  buildUploadStepNavItems,
+  deriveUploadStep,
+} from "../../components/upload-flow";
 import {
   detectSourceTypeFromFilename,
   getSourceTypeMismatchMessage,
@@ -10,6 +15,52 @@ import {
 import { useUploadFlowStore } from "../../state/uploadFlowStore";
 
 describe("Upload flow source-type compatibility (US1)", () => {
+  it("renders upload sidebar steps and marks the active step", () => {
+    render(
+      <UploadStageSidebar
+        items={buildUploadStepNavItems({
+          workspaceId: "ws-1",
+          hasSelectedFile: false,
+          selectedSourceType: null,
+          requiresSheetSelection: false,
+          selectedSheetName: null,
+        })}
+        activeStep="source"
+        onSelectStep={() => {}}
+      />,
+    );
+
+    expect(screen.getByTestId("upload-step-workspace")).toBeTruthy();
+    expect(screen.getByTestId("upload-step-source").getAttribute("aria-current")).toBe("step");
+    expect(screen.getByTestId("upload-step-submit")).toBeTruthy();
+  });
+
+  it("shows blocked-stage guidance when a downstream step is selected too early", () => {
+    const onBlockedSelect = vi.fn();
+
+    render(
+      <UploadStageSidebar
+        items={buildUploadStepNavItems({
+          workspaceId: null,
+          hasSelectedFile: false,
+          selectedSourceType: null,
+          requiresSheetSelection: false,
+          selectedSheetName: null,
+        })}
+        activeStep="workspace"
+        onSelectStep={() => {}}
+        onBlockedSelect={onBlockedSelect}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId("upload-step-source"));
+
+    expect(onBlockedSelect).toHaveBeenCalledWith(
+      "source",
+      "Create a workspace before moving to the next upload stage.",
+    );
+  });
+
   it("detects supported source types by file extension", () => {
     expect(detectSourceTypeFromFilename("orders.csv")).toBe("csv");
     expect(detectSourceTypeFromFilename("book.xlsx")).toBe("excel");
@@ -30,6 +81,38 @@ describe("Upload flow source-type compatibility (US1)", () => {
 });
 
 describe("Upload flow sheet-picker behavior (US2)", () => {
+  it("derives the next guided step from current upload prerequisites", () => {
+    expect(
+      deriveUploadStep({
+        workspaceId: null,
+        hasSelectedFile: false,
+        selectedSourceType: null,
+        requiresSheetSelection: false,
+        selectedSheetName: null,
+      }),
+    ).toBe("workspace");
+
+    expect(
+      deriveUploadStep({
+        workspaceId: "ws-1",
+        hasSelectedFile: true,
+        selectedSourceType: "excel",
+        requiresSheetSelection: true,
+        selectedSheetName: null,
+      }),
+    ).toBe("sheet");
+
+    expect(
+      deriveUploadStep({
+        workspaceId: "ws-1",
+        hasSelectedFile: true,
+        selectedSourceType: "csv",
+        requiresSheetSelection: false,
+        selectedSheetName: null,
+      }),
+    ).toBe("submit");
+  });
+
   it("renders explicit sheet choices when multiple workbook sheets are available", () => {
     render(
       <ExcelSheetPicker
@@ -68,6 +151,26 @@ describe("Upload flow sheet-picker behavior (US2)", () => {
 });
 
 describe("Upload flow progress behavior (US3)", () => {
+  it("blocks sidebar navigation while upload work is in progress", () => {
+    render(
+      <UploadStageSidebar
+        items={buildUploadStepNavItems({
+          workspaceId: "ws-1",
+          hasSelectedFile: true,
+          selectedSourceType: "csv",
+          requiresSheetSelection: false,
+          selectedSheetName: null,
+        })}
+        activeStep="submit"
+        onSelectStep={() => {}}
+        blockNavigation
+      />,
+    );
+
+    expect(screen.getByTestId("upload-step-workspace").getAttribute("disabled")).not.toBeNull();
+    expect(screen.getByTestId("upload-step-submit").getAttribute("disabled")).not.toBeNull();
+  });
+
   it("stores upload progress lifecycle states", () => {
     useUploadFlowStore.getState().setProgressState("uploading");
     expect(useUploadFlowStore.getState().progressState).toBe("uploading");

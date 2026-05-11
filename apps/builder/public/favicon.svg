@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="MDD">
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0%" stop-color="#f4f6ff"/>
+      <stop offset="100%" stop-color="#d5defd"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0%" stop-color="#6f7fe9"/>
+      <stop offset="100%" stop-color="#4f63cb"/>
+    </linearGradient>
+  </defs>
+  <rect x="4" y="4" width="56" height="56" rx="14" fill="url(#bg)" stroke="#becaf7"/>
+  <path d="M17 44V20h6l9 13 9-13h6v24h-6V30l-9 12-9-12v14z" fill="url(#accent)"/>
+</svg>

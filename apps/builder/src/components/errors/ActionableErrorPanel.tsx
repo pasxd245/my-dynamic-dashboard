@@ -7,10 +7,19 @@ export interface ActionableErrorPanelProps {
   error: ActionableError;
 }
 
-export default function ActionableErrorPanel({ error }: ActionableErrorPanelProps): React.ReactElement {
+const stageRecoveryCopy: Partial<Record<ActionableError["stage"], string>> = {
+  upload_source: "Review the selected file, source type, and sheet choices before retrying this stage.",
+  schema_sheet: "Resolve the upload-stage issue first, then return to schema and sheet adjustments.",
+  query: "Keep the active context stable before retrying downstream query actions.",
+  results_saved: "Retry after the upstream query and context stages are healthy again.",
+  global: "Retry after the current builder context is stable.",
+};
+
+export default function ActionableErrorPanel({ error }: Readonly<ActionableErrorPanelProps>): React.ReactElement {
   const [showTechnical, setShowTechnical] = useState<boolean>(
     Boolean(error.show_technical_by_default),
   );
+  const recoveryCopy = stageRecoveryCopy[error.stage];
 
   return (
     <section aria-live="polite" data-testid="actionable-error-panel">
@@ -18,6 +27,7 @@ export default function ActionableErrorPanel({ error }: ActionableErrorPanelProp
       <p>
         <strong>Stage:</strong> {humanizeActionableStage(error.stage)}
       </p>
+      {recoveryCopy ? <p>{recoveryCopy}</p> : null}
       <ul>
         {error.next_steps.map((step) => (
           <li key={step}>{step}</li>

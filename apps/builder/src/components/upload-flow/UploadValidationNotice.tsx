@@ -1,15 +1,22 @@
 interface UploadValidationNoticeProps {
-  message: string | null;
+  readonly message: string | null;
+  readonly title?: string;
+  readonly nextSteps?: string[];
 }
 
-export default function UploadValidationNotice({ message }: UploadValidationNoticeProps): React.ReactElement | null {
+export default function UploadValidationNotice({
+  message,
+  title = "Action needed",
+  nextSteps = [],
+}: Readonly<UploadValidationNoticeProps>): React.ReactElement | null {
   if (!message) {
     return null;
   }
 
   return (
-    <p
+    <section
       role="alert"
+      data-testid="upload-validation-notice"
       style={{
         marginTop: "0.6rem",
         marginBottom: 0,
@@ -20,7 +27,15 @@ export default function UploadValidationNotice({ message }: UploadValidationNoti
         color: "#8d2b1f",
       }}
     >
-      {message}
-    </p>
+      <strong style={{ display: "block", marginBottom: "0.2rem" }}>{title}</strong>
+      <p style={{ marginTop: 0, marginBottom: nextSteps.length ? "0.35rem" : 0 }}>{message}</p>
+      {nextSteps.length ? (
+        <ul style={{ margin: 0, paddingLeft: "1rem" }}>
+          {nextSteps.map((step) => (
+            <li key={step}>{step}</li>
+          ))}
+        </ul>
+      ) : null}
+    </section>
   );
 }

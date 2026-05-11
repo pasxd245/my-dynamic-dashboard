@@ -14,6 +14,19 @@ import type {
 import { throwApiRequestError } from "./httpErrors";
 import { appConfig } from "../config";
 
+function buildUploadSourceFormData(file: File, options: UploadSourceOptions): FormData {
+  const { sourceType, sheetName } = options;
+  const formData = new FormData();
+  formData.append("file", file);
+  if (sourceType) {
+    formData.append("source_type", sourceType);
+  }
+  if (sheetName) {
+    formData.append("sheet_name", sheetName);
+  }
+  return formData;
+}
+
 export async function createWorkspace(name: string): Promise<WorkspaceResponse> {
   const response = await fetch(`${appConfig.apiBaseUrl()}/workspaces`, {
     method: "POST",
@@ -35,15 +48,8 @@ export async function uploadSource(
   file: File,
   options: UploadSourceOptions = {},
 ): Promise<UploadResponse> {
-  const { sourceType, sheetName, lifecycle } = options;
-  const formData = new FormData();
-  formData.append("file", file);
-  if (sourceType) {
-    formData.append("source_type", sourceType);
-  }
-  if (sheetName) {
-    formData.append("sheet_name", sheetName);
-  }
+  const { lifecycle } = options;
+  const formData = buildUploadSourceFormData(file, options);
 
   lifecycle?.onStart?.();
 

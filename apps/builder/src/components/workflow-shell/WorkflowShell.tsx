@@ -73,9 +73,13 @@ export default function WorkflowShell({
           }
         }}
         disabled={isLocked}
-        className={`rounded-md border px-3 py-2 text-left text-sm transition ${
-          isActive ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 bg-white text-slate-800"
-        } ${isLocked ? "cursor-not-allowed opacity-60" : "hover:border-slate-300 hover:bg-slate-50"}`}
+        className={`rounded-md border px-3 py-2 text-left text-sm shadow-none transition ${
+          isActive
+            ? "border-slate-900 bg-slate-900 text-white hover:bg-slate-800"
+            : "border-slate-200 bg-white text-slate-800"
+        } ${isLocked || isActive ? "" : "hover:border-slate-300 hover:bg-slate-50"} ${
+          isLocked ? "cursor-not-allowed opacity-60" : ""
+        }`}
       >
         <div className="flex items-center gap-2">
           <span className="font-semibold">{stage.title}</span>
@@ -109,7 +113,7 @@ export default function WorkflowShell({
             <button
               type="button"
               onClick={() => onSelectStage?.(previousStageKey)}
-              className="rounded bg-slate-800 px-3 py-1.5 font-medium text-white hover:bg-slate-900"
+              className="rounded border-0 bg-slate-800 px-3 py-1.5 font-medium text-white shadow-none hover:bg-slate-900"
             >
               Go to previous stage
             </button>
@@ -118,7 +122,7 @@ export default function WorkflowShell({
             <button
               type="button"
               onClick={onReselectContext}
-              className="rounded border border-amber-500 px-3 py-1.5 font-medium text-amber-800 hover:bg-amber-100"
+              className="rounded border border-amber-500 bg-amber-500 px-3 py-1.5 font-medium text-white shadow-none hover:brightness-110"
             >
               Resolve active context
             </button>
@@ -162,7 +166,7 @@ export default function WorkflowShell({
                 <button
                   type="button"
                   onClick={onReselectContext}
-                  className="rounded bg-amber-600 px-3 py-1.5 font-medium text-white hover:bg-amber-700"
+                  className="rounded border-0 bg-amber-600 px-3 py-1.5 font-medium text-white shadow-none hover:bg-amber-700"
                 >
                   Reselect Context
                 </button>

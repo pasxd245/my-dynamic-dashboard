@@ -200,15 +200,8 @@ export default function SavedQueryLibraryPage({
   const canPaginatePrev = offset > 0;
 
   return (
-    <div className="min-h-screen bg-white p-6">
-      <div className="mx-auto max-w-6xl">
-        {/* Header */}
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">Saved Queries Library</h1>
-          <p className="mt-1 text-sm text-gray-600">
-            Browse, search, and manage your saved queries
-          </p>
-        </div>
+    <div className="w-full">
+      <div className="w-full">
 
         {/* Search and Filters */}
         <div className="mb-6">
@@ -342,7 +335,7 @@ export default function SavedQueryLibraryPage({
                             <button
                               onClick={(e) => handleRestore(query.query_id, e)}
                               disabled={actionInProgress === query.query_id}
-                              className="text-xs font-medium text-green-600 hover:text-green-700 disabled:opacity-50"
+                              className="border-0 bg-transparent p-0 text-xs font-medium text-green-600 shadow-none hover:text-green-700 disabled:opacity-50"
                             >
                               Restore
                             </button>
@@ -350,7 +343,7 @@ export default function SavedQueryLibraryPage({
                             <button
                               onClick={(e) => handleDelete(query.query_id, e)}
                               disabled={actionInProgress === query.query_id}
-                              className="text-xs font-medium text-red-600 hover:text-red-700 disabled:opacity-50"
+                              className="border-0 bg-transparent p-0 text-xs font-medium text-red-600 shadow-none hover:text-red-700 disabled:opacity-50"
                             >
                               Delete
                             </button>
@@ -372,14 +365,14 @@ export default function SavedQueryLibraryPage({
                 <button
                   onClick={() => setOffset(Math.max(0, offset - limit))}
                   disabled={!canPaginatePrev || isLoading}
-                  className="rounded border border-gray-300 px-3 py-1 text-sm disabled:opacity-50"
+                  className="rounded border border-gray-300 bg-white px-3 py-1 text-sm font-medium text-gray-700 shadow-none hover:bg-gray-50 disabled:opacity-50"
                 >
                   ← Previous
                 </button>
                 <button
                   onClick={() => setOffset(offset + limit)}
                   disabled={!canPaginateNext || isLoading}
-                  className="rounded border border-gray-300 px-3 py-1 text-sm disabled:opacity-50"
+                  className="rounded border border-gray-300 bg-white px-3 py-1 text-sm font-medium text-gray-700 shadow-none hover:bg-gray-50 disabled:opacity-50"
                 >
                   Next →
                 </button>

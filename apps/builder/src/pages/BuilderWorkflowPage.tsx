@@ -56,6 +56,13 @@ export default function BuilderWorkflowPage({
   }, []);
 
   useEffect(() => {
+    const pathStage = workflowStageFromPath(location.pathname.split("/").pop());
+    if (pathStage && pathStage !== storeState.activeStage) {
+      setStoreState((previous) => ({ ...previous, activeStage: pathStage }));
+    }
+  }, [location.pathname, storeState.activeStage]);
+
+  useEffect(() => {
     persistWorkflowStage(storeState.activeStage);
   }, [storeState.activeStage]);
 
@@ -77,7 +84,7 @@ export default function BuilderWorkflowPage({
           <button
             type="button"
             onClick={() => navigate("/")}
-            className="rounded bg-slate-800 px-3 py-1.5 font-medium text-white hover:bg-slate-900"
+            className="rounded border-0 bg-slate-800 px-3 py-1.5 font-medium text-white shadow-none hover:bg-slate-900"
           >
             Open upload controls
           </button>
@@ -90,7 +97,7 @@ export default function BuilderWorkflowPage({
           <button
             type="button"
             onClick={() => navigate("/")}
-            className="rounded bg-slate-800 px-3 py-1.5 font-medium text-white hover:bg-slate-900"
+            className="rounded border-0 bg-slate-800 px-3 py-1.5 font-medium text-white shadow-none hover:bg-slate-900"
           >
             Open schema controls
           </button>

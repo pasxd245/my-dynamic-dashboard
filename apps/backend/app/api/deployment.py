@@ -54,6 +54,16 @@ def api_health() -> dict[str, str]:
     return {"status": "ok"}
 
 
+@router.get("/api/v1/config")
+def runtime_config() -> dict[str, str]:
+    """Expose lightweight runtime config consumed by the builder shell."""
+    return {
+        "apiBaseUrl": "/api/v1",
+        "logLevel": "info",
+        "i18nLocale": "en-US",
+    }
+
+
 @router.get("/api/v1/ops/deployments/current")
 def get_current_deployment() -> DeploymentBundleDto:
     deployment = _deployment_service().get_current_deployment()

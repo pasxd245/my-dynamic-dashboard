@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { BuilderSessionState } from "../../api/types";
+import { getUploadStepBlockedReason } from "../../components/upload-flow";
 import {
   canRunContextGuardedActions,
   canUseConnectionDependentActions,
@@ -79,5 +80,29 @@ describe("Stage navigation preserves context and connection indicators", () => {
     const resultsState: BuilderSessionStoreState = { ...queryState, activeStage: "results_saved" };
     expect(canRunContextGuardedActions(resultsState)).toBe(true);
     expect(canUseConnectionDependentActions(resultsState)).toBe(true);
+  });
+
+  it("returns guard guidance when a submit step is selected before prerequisites are met", () => {
+    expect(
+      getUploadStepBlockedReason("submit", {
+        workspaceId: "ws-1",
+        hasSelectedFile: true,
+        selectedSourceType: "excel",
+        requiresSheetSelection: true,
+        selectedSheetName: null,
+      }),
+    ).toBe("Choose an Excel sheet before continuing to submit.");
+  });
+
+  it("returns no guard guidance when prerequisites are satisfied", () => {
+    expect(
+      getUploadStepBlockedReason("submit", {
+        workspaceId: "ws-1",
+        hasSelectedFile: true,
+        selectedSourceType: "csv",
+        requiresSheetSelection: false,
+        selectedSheetName: null,
+      }),
+    ).toBeNull();
   });
 });
