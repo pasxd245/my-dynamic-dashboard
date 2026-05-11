@@ -1,17 +1,24 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
+import { ConfigProvider } from "antd";
+import { StyleProvider } from "@ant-design/cssinjs";
 import App from "./App";
 import "./index.css";
 import { AppConfig } from "./config";
+import { antdTheme } from "./theme/antdTheme";
 
 async function bootstrap() {
   await AppConfig.init();
   ReactDOM.createRoot(document.getElementById("root")!).render(
     <React.StrictMode>
-      <BrowserRouter>
-        <App />
-      </BrowserRouter>
+      <StyleProvider layer hashPriority="high">
+        <ConfigProvider theme={antdTheme}>
+          <BrowserRouter>
+            <App />
+          </BrowserRouter>
+        </ConfigProvider>
+      </StyleProvider>
     </React.StrictMode>,
   );
 }

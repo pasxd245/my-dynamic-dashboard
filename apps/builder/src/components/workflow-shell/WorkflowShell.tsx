@@ -136,7 +136,7 @@ export default function WorkflowShell({
     <section
       aria-label="builder-workflow-shell"
       data-testid="builder-workflow-shell"
-      className="space-y-4 rounded-lg border border-slate-200 bg-white p-4"
+      className="page-card stack-4"
     >
       <header className="space-y-3">
         <h1 className="text-xl font-bold text-slate-900">{title}</h1>

@@ -7,8 +7,8 @@
 **Governance**: Spec-Kit PDCA (Plan -> Do -> Check -> Act)
 
 > **Round type**: UX hardening and interaction-flow refinement, based on
-> moodboard references `docs/design/Sample.png` + `docs/design/Styles.png`
-> (tokens in `docs/design/Styles.css`) and live usability feedback.
+> moodboard references `docs/agents/design/Sample.png` + `docs/agents/design/Styles.png`
+> (tokens in `docs/agents/design/Styles.css`) and live usability feedback.
 
 ## Goal
 
@@ -22,8 +22,8 @@ Round 32 functional behavior and API contracts.
 
 - [x] Confirm Round 32 is Complete and implementation artifacts are committed
 - [x] Define Round 33 scope boundaries vs out-of-scope visual churn
-- [x] Map moodboard `docs/design/Sample.png` + tokens in
-      `docs/design/Styles.css` to concrete component surfaces in
+- [x] Map moodboard `docs/agents/design/Sample.png` + tokens in
+      `docs/agents/design/Styles.css` to concrete component surfaces in
       `apps/builder/src/**`
 - [x] Produce/update Spec-Kit artifacts for Round 33 UX scope if required
       (spec/plan/tasks) before Do starts
@@ -34,7 +34,7 @@ Round 32 functional behavior and API contracts.
 
 ## Do
 
-- 2026-05-11 Plan bootstrap complete for Round 33 UX scope: - Created new feature spec set at `specs/016-builder-upload-ux/`. - Generated and validated: - `specs/016-builder-upload-ux/spec.md` - `specs/016-builder-upload-ux/plan.md` - `specs/016-builder-upload-ux/tasks.md` - Generated supporting artifacts: - `specs/016-builder-upload-ux/research.md` - `specs/016-builder-upload-ux/data-model.md` - `specs/016-builder-upload-ux/contracts/builder-upload-ux-contract.md` - `specs/016-builder-upload-ux/quickstart.md` - `specs/016-builder-upload-ux/checklists/requirements.md` - Decision gates resolved: - Styling direction: follow `docs/design/Layout_A.png` with a guided two-panel layout. - Toast implementation: local app-level ephemeral toast state (no new external dependency). - Responsive behavior target: maintain usability from mobile width upward using existing builder shell constraints.
+- 2026-05-11 Plan bootstrap complete for Round 33 UX scope: - Created new feature spec set at `specs/016-builder-upload-ux/`. - Generated and validated: - `specs/016-builder-upload-ux/spec.md` - `specs/016-builder-upload-ux/plan.md` - `specs/016-builder-upload-ux/tasks.md` - Generated supporting artifacts: - `specs/016-builder-upload-ux/research.md` - `specs/016-builder-upload-ux/data-model.md` - `specs/016-builder-upload-ux/contracts/builder-upload-ux-contract.md` - `specs/016-builder-upload-ux/quickstart.md` - `specs/016-builder-upload-ux/checklists/requirements.md` - Decision gates resolved: - Styling direction: follow `docs/agents/design/Layout_A.png` with a guided two-panel layout. - Toast implementation: local app-level ephemeral toast state (no new external dependency). - Responsive behavior target: maintain usability from mobile width upward using existing builder shell constraints.
 - Next Do action: execute `specs/016-builder-upload-ux/tasks.md` in order,
   starting with US1+US2 implementation in `apps/builder/src/App.tsx` and
   focused tests/evidence reconciliation.
@@ -67,7 +67,7 @@ Check evidence collected 2026-05-11:
 **Learnings**:
 
 - Design intake matters: replacing the missing `Layout_A.png` reference with
-  the actual `docs/design/Sample.png` + `Styles.png` + `Styles.css` artifacts
+  the actual `docs/agents/design/Sample.png` + `Styles.png` + `Styles.css` artifacts
   unblocked accurate token adoption (color palette, radii, shadow) in
   `apps/builder/src/index.css`.
 - Global element defaults must out-specify Tailwind preflight: `:where(button)`

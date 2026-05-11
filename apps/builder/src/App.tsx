@@ -28,6 +28,7 @@ import type {
 import { getActionableError } from "./api/httpErrors";
 import { setActiveContext } from "./api/builderSessionApi";
 import ActionableErrorPanel from "./components/errors/ActionableErrorPanel";
+import { PageCard } from "./components/layout";
 import ExcelSheetPicker from "./components/upload-flow/ExcelSheetPicker";
 import UploadProgressPanel from "./components/upload-flow/UploadProgressPanel";
 import SourceTypeSelector from "./components/upload-flow/SourceTypeSelector";
@@ -58,14 +59,6 @@ const panelStyle: React.CSSProperties = {
   borderRadius: "1rem",
   background: "#ffffff",
   boxShadow: "0 6px 18px rgba(54, 51, 89, 0.06)",
-};
-
-const pageCardStyle: React.CSSProperties = {
-  border: "1px solid #e8e2f5",
-  borderRadius: "var(--radius-xl)",
-  background: "var(--color-white)",
-  padding: "1rem 1.1rem 1.25rem",
-  boxShadow: "0 6px 16px rgba(55, 49, 95, 0.06)",
 };
 
 const preStyle: React.CSSProperties = {
@@ -1109,7 +1102,7 @@ export default function App(): React.ReactElement {
         <Route
           path="/"
           element={
-            <section style={pageCardStyle}>
+            <PageCard>
               <p>Upload, profile, role assignment, readiness, and manifest reproducibility flow.</p>
 
               {workflowUploadSourcePanel}
@@ -1228,7 +1221,7 @@ export default function App(): React.ReactElement {
                 </pre>
                 <p>{message}</p>
               </section>
-            </section>
+            </PageCard>
           }
         />
 
@@ -1236,9 +1229,9 @@ export default function App(): React.ReactElement {
         <Route
           path="/saved-queries"
           element={
-            <section style={pageCardStyle}>
+            <PageCard>
               <SavedQueryLibraryPage workspaceId={workspaceId || "default"} />
-            </section>
+            </PageCard>
           }
         />
 
@@ -1246,7 +1239,7 @@ export default function App(): React.ReactElement {
         <Route
           path="/saved-queries/:queryId"
           element={
-            <section style={pageCardStyle}>
+            <PageCard>
               <SavedQueryDetail
                 workspaceId={workspaceId || "default"}
                 onLoadInBuilder={(snapshot) => {
@@ -1254,7 +1247,7 @@ export default function App(): React.ReactElement {
                   navigate("/");
                 }}
               />
-            </section>
+            </PageCard>
           }
         />
 

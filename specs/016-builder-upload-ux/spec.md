@@ -3,7 +3,7 @@
 **Feature Branch**: `[016-builder-upload-ux]`  
 **Created**: 2026-05-11  
 **Status**: Draft  
-**Input**: User description: "Fix poor builder UI/UX for upload flow using moodboard reference docs/design/Layout_A.png, deliver sidebar + guided multi-step upload + loading mask + inline/toast messaging, preserve backend/upload semantics, and keep scope on builder surfaces only."
+**Input**: User description: "Fix poor builder UI/UX for upload flow using moodboard reference docs/agents/design/Layout_A.png, deliver sidebar + guided multi-step upload + loading mask + inline/toast messaging, preserve backend/upload semantics, and keep scope on builder surfaces only."
 
 ## Goal Narrative
 
@@ -96,7 +96,7 @@ As a builder user, I can receive immediate inline guidance and toast notificatio
 - **FR-009**: The system MUST provide inline error messaging at the affected stage when validation or operation failures occur.
 - **FR-010**: The system MUST preserve existing backend upload semantics and request/response contract behavior for current supported upload paths.
 - **FR-011**: The system MUST keep this feature scope constrained to builder upload flow surfaces and related UX states only.
-- **FR-012**: The system MUST follow the visual direction from `docs/design/Layout_A.png` for information hierarchy and stage orientation while remaining functionally consistent with existing upload behavior.
+- **FR-012**: The system MUST follow the visual direction from `docs/agents/design/Layout_A.png` for information hierarchy and stage orientation while remaining functionally consistent with existing upload behavior.
 
 ### Non-Functional Requirements
 
@@ -144,5 +144,5 @@ As a builder user, I can receive immediate inline guidance and toast notificatio
 
 - The existing upload endpoint behavior and supported upload paths are functionally correct and should be preserved.
 - Users require a clear staged flow and feedback model more than additional upload capabilities in this increment.
-- The moodboard artifact `docs/design/Layout_A.png` is an approved visual direction reference for this feature.
+- The moodboard artifact `docs/agents/design/Layout_A.png` is an approved visual direction reference for this feature.
 - Standard product accessibility expectations apply for keyboard use, readable feedback, and assistive technology announcements.

@@ -92,7 +92,7 @@ Check evidence collected 2026-05-11:
 **Next-round decision**:
 
 - Round 33 is approved to focus on builder UI/UX overhaul using
-  `docs/design/Layout_A.png` as moodboard direction: - sidebar navigation - explicit multi-step upload form UX - loading mask for async operations - inline and toast-style actionable error messaging
+  `docs/agents/design/Layout_A.png` as moodboard direction: - sidebar navigation - explicit multi-step upload form UX - loading mask for async operations - inline and toast-style actionable error messaging
 
 Round-close note (2026-05-11):
 

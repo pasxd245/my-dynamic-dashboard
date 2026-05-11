@@ -129,31 +129,31 @@ Outputs:
 
 ## Requirement Mapping Matrix
 
-| Requirement | Implementation Surface                                                           | Gate    | Verification                                                           |
-| ----------- | -------------------------------------------------------------------------------- | ------- | ---------------------------------------------------------------------- |
-| FR-001      | Sidebar stage model + current/completion/blocked rendering                       | A       | Builder UI tests for stage states and active highlight                 |
-| FR-002      | Stage guard logic for blocked downstream navigation                              | A       | Interaction tests that enforce prerequisite completion                 |
-| FR-003      | Guided multi-step form containers and scoped stage inputs                        | B       | Step-by-step progression tests                                         |
-| FR-004      | Stage-level required validation + inline corrective messages                     | B, D    | Validation tests asserting inline guidance location/content            |
-| FR-005      | Dependent-state reset/revalidation on upstream change                            | B       | State reset tests for changed source/file/step inputs                  |
-| FR-006      | Blocking loading mask during discovery/upload async operations                   | C       | Async operation tests asserting mask visibility and blocked actions    |
-| FR-007      | Loading mask removal and next-state restoration on completion                    | C       | Success/failure completion tests for mask teardown and control restore |
-| FR-008      | Toast emission for upload/discovery success and failure                          | D       | Toast behavior tests for message type and timing                       |
-| FR-009      | Inline operation-error messaging at affected step                                | D       | Failure path tests asserting step-local recovery guidance              |
-| FR-010      | Preserve backend upload semantics and API contract behavior                      | E       | Backend regression tests + unchanged request/response shape checks     |
-| FR-011      | Scope constrained to builder upload UX surfaces                                  | F       | Changed-file audit against planned paths                               |
-| FR-012      | Layout direction alignment with `docs/design/Layout_A.png` hierarchy/orientation | A, F    | Manual UX review checklist linked to visual hierarchy points           |
-| NFR-001     | Mobile + desktop step navigation and control accessibility                       | A       | Responsive manual runbook + focused component tests                    |
-| NFR-002     | Keyboard/assistive usability for stages, mask, and feedback                      | D       | Keyboard flow and ARIA announcement checks                             |
-| NFR-003     | Concise, actionable, unambiguous status/error copy                               | D       | Message copy assertions in UI tests/manual checklist                   |
-| NFR-004     | Avoid unrelated refactors                                                        | F       | Git scope diff audit                                                   |
-| SC-001      | >=90% first-attempt completion in acceptance                                     | A, B, D | Structured acceptance run logs                                         |
-| SC-002      | >=95% valid uploads complete without confusion-driven resubmit                   | B, D    | Observed acceptance runs                                               |
-| SC-003      | 100% async discovery/upload paths show/remove mask correctly                     | C       | Automated async state tests                                            |
-| SC-004      | 100% validation failures show inline corrective guidance                         | D       | Validation failure matrix                                              |
-| SC-005      | 100% success/failure outcomes emit correct toast type                            | D       | Toast outcome matrix                                                   |
-| SC-006      | 100% regression scenarios preserve backend upload contracts                      | E       | Backend upload regression suite                                        |
-| SC-007      | Acceptance gates A-F pass before completion                                      | A-F     | Plan + quickstart verification checklist                               |
+| Requirement | Implementation Surface                                                                  | Gate    | Verification                                                           |
+| ----------- | --------------------------------------------------------------------------------------- | ------- | ---------------------------------------------------------------------- |
+| FR-001      | Sidebar stage model + current/completion/blocked rendering                              | A       | Builder UI tests for stage states and active highlight                 |
+| FR-002      | Stage guard logic for blocked downstream navigation                                     | A       | Interaction tests that enforce prerequisite completion                 |
+| FR-003      | Guided multi-step form containers and scoped stage inputs                               | B       | Step-by-step progression tests                                         |
+| FR-004      | Stage-level required validation + inline corrective messages                            | B, D    | Validation tests asserting inline guidance location/content            |
+| FR-005      | Dependent-state reset/revalidation on upstream change                                   | B       | State reset tests for changed source/file/step inputs                  |
+| FR-006      | Blocking loading mask during discovery/upload async operations                          | C       | Async operation tests asserting mask visibility and blocked actions    |
+| FR-007      | Loading mask removal and next-state restoration on completion                           | C       | Success/failure completion tests for mask teardown and control restore |
+| FR-008      | Toast emission for upload/discovery success and failure                                 | D       | Toast behavior tests for message type and timing                       |
+| FR-009      | Inline operation-error messaging at affected step                                       | D       | Failure path tests asserting step-local recovery guidance              |
+| FR-010      | Preserve backend upload semantics and API contract behavior                             | E       | Backend regression tests + unchanged request/response shape checks     |
+| FR-011      | Scope constrained to builder upload UX surfaces                                         | F       | Changed-file audit against planned paths                               |
+| FR-012      | Layout direction alignment with `docs/agents/design/Layout_A.png` hierarchy/orientation | A, F    | Manual UX review checklist linked to visual hierarchy points           |
+| NFR-001     | Mobile + desktop step navigation and control accessibility                              | A       | Responsive manual runbook + focused component tests                    |
+| NFR-002     | Keyboard/assistive usability for stages, mask, and feedback                             | D       | Keyboard flow and ARIA announcement checks                             |
+| NFR-003     | Concise, actionable, unambiguous status/error copy                                      | D       | Message copy assertions in UI tests/manual checklist                   |
+| NFR-004     | Avoid unrelated refactors                                                               | F       | Git scope diff audit                                                   |
+| SC-001      | >=90% first-attempt completion in acceptance                                            | A, B, D | Structured acceptance run logs                                         |
+| SC-002      | >=95% valid uploads complete without confusion-driven resubmit                          | B, D    | Observed acceptance runs                                               |
+| SC-003      | 100% async discovery/upload paths show/remove mask correctly                            | C       | Automated async state tests                                            |
+| SC-004      | 100% validation failures show inline corrective guidance                                | D       | Validation failure matrix                                              |
+| SC-005      | 100% success/failure outcomes emit correct toast type                                   | D       | Toast outcome matrix                                                   |
+| SC-006      | 100% regression scenarios preserve backend upload contracts                             | E       | Backend upload regression suite                                        |
+| SC-007      | Acceptance gates A-F pass before completion                                             | A-F     | Plan + quickstart verification checklist                               |
 
 ## Verification Approach
 

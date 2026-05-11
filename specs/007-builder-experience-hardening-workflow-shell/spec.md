@@ -117,4 +117,4 @@ As a release owner, I need a lightweight smoke flow that verifies the core user 
 - Existing upload, profiling, query, and saved-query capabilities remain available and are hardened through clearer state handling and feedback.
 - Round 22 will address deeper orchestration capabilities (multi-sheet controls, source registry depth, partial-failure workflows) beyond this scope.
 - Release confidence for this feature is based on a lightweight smoke flow rather than exhaustive end-to-end test coverage.
-- Layout direction can follow the moodboard intent from `docs/design/Layout_A.png` while prioritizing workflow clarity over visual parity.
+- Layout direction can follow the moodboard intent from `docs/agents/design/Layout_A.png` while prioritizing workflow clarity over visual parity.

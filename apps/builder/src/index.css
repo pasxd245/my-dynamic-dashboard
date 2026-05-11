@@ -1,8 +1,8 @@
+@import url("https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&family=Poppins:wght@400;500;600;700&display=swap");
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-@import url("https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&family=Poppins:wght@400;500;600;700&display=swap");
 
 :root {
 	/* Theme color */
@@ -65,49 +65,62 @@ h6 {
 
 /* Element-level defaults use plain tag selectors (specificity 0,0,1) so they
    beat Tailwind preflight's universal resets. Tailwind utility classes
-   (specificity 0,1,0) still win over these on properties they declare. */
-button,
-input,
-select,
-textarea {
+   (specificity 0,1,0) still win over these on properties they declare.
+   AntD components carry .ant-* classes and their own per-component styling
+   (specificity 0,1,0) so they win over these defaults too. Scoping with
+   :not([class*="ant-"]) further guarantees AntD primitives like .ant-btn,
+   .ant-input, .ant-select are never affected by the legacy resets. */
+/* Unified control sizing — keep parity with AntD theme tokens
+   (controlHeight 40, controlHeightSM 32, controlHeightLG 48). */
+button:not([class*="ant-"]),
+input:not([class*="ant-"]),
+select:not([class*="ant-"]),
+textarea:not([class*="ant-"]) {
 	border-radius: var(--radius-md);
 	border: 1px solid var(--surface-line);
 	font: inherit;
+	box-sizing: border-box;
 }
 
-input,
-select,
-textarea {
+input:not([class*="ant-"]),
+select:not([class*="ant-"]),
+textarea:not([class*="ant-"]) {
 	background: var(--color-white);
-	padding: 0.52rem 0.62rem;
+	padding: 0.5rem 0.75rem;
 	color: var(--color-dark-blue);
+	min-height: 2.5rem;
 }
 
-button {
+textarea:not([class*="ant-"]) {
+	min-height: 4rem;
+}
+
+button:not([class*="ant-"]) {
 	background: var(--color-blue);
 	color: var(--color-off-white);
 	font-family: "Cairo", "Poppins", sans-serif;
 	font-weight: 600;
-	padding: 0.6rem 1rem;
+	padding: 0 1rem;
+	height: 2.5rem;
 	border: 1px solid var(--color-blue);
 	border-radius: var(--radius-xl);
-	box-shadow: var(--shadow-card);
+	box-shadow: none;
 	cursor: pointer;
 }
 
-button:hover {
+button:not([class*="ant-"]):hover {
 	filter: brightness(1.05);
 }
 
-button:disabled {
+button:not([class*="ant-"]):disabled {
 	opacity: 0.65;
 	cursor: not-allowed;
 }
 
-button:focus-visible,
-input:focus-visible,
-select:focus-visible,
-textarea:focus-visible {
+button:not([class*="ant-"]):focus-visible,
+input:not([class*="ant-"]):focus-visible,
+select:not([class*="ant-"]):focus-visible,
+textarea:not([class*="ant-"]):focus-visible {
 	outline: 3px solid rgba(79, 69, 182, 0.28);
 	outline-offset: 2px;
 }
@@ -132,3 +145,121 @@ textarea:focus-visible {
 .upload-step-button * {
 	color: inherit;
 }
+
+/* TanStack-rendered tables use these classes for consistent visual chrome
+   without depending on AntD Table. Tokens are inherited via CSS vars. */
+.dt-table-wrapper {
+	border-radius: var(--radius-lg);
+	border: 1px solid var(--color-gray-2);
+	background: var(--color-white);
+	overflow: hidden;
+}
+
+.dt-table {
+	width: 100%;
+	border-collapse: collapse;
+	font-family: "Cairo", "Poppins", sans-serif;
+}
+
+.dt-table thead th {
+	text-align: left;
+	font-weight: 700;
+	color: var(--color-dark-blue);
+	background: var(--color-gray-1);
+	padding: 0.75rem 1rem;
+	border-bottom: 1px solid var(--color-gray-2);
+	font-size: 0.875rem;
+	user-select: none;
+}
+
+.dt-table .dt-th-sortable {
+	cursor: pointer;
+}
+
+.dt-table .dt-th-sortable:hover {
+	background: var(--color-gray-2);
+}
+
+.dt-sort-indicator {
+	display: inline-block;
+	margin-left: 0.25rem;
+	color: var(--color-blue);
+	font-size: 0.75rem;
+}
+
+.dt-table tbody td {
+	padding: 0.75rem 1rem;
+	border-bottom: 1px solid var(--color-gray-2);
+	color: var(--color-dark-blue);
+	font-size: 0.875rem;
+}
+
+.dt-table tbody tr:last-child td {
+	border-bottom: 0;
+}
+
+.dt-row {
+	cursor: pointer;
+	transition: background 120ms ease;
+}
+
+.dt-row:hover {
+	background: var(--color-gray-1);
+}
+
+.dt-row-deleted {
+	background: #fff5f5;
+}
+
+.dt-row-deleted:hover {
+	background: #ffe9e9;
+}
+
+/* ----------------------------------------------------------------------
+   MASTER STYLES — applied by default; only deviate when documented.
+   See docs/agents/design/design-guidelines.md.
+   ---------------------------------------------------------------------- */
+
+/* Page card — canonical wrapper for every routed page surface.
+   Used by `<PageCard>` (apps/builder/src/components/layout/PageCard.tsx)
+   and by `WorkflowShell` for parity. */
+.page-card {
+	border: 1px solid var(--surface-line);
+	border-radius: var(--radius-xl);
+	background: var(--color-white);
+	box-shadow: 0 6px 16px rgba(55, 49, 95, 0.06);
+	padding: 1rem 1.1rem 1.25rem;
+}
+
+.page-card--flush {
+	padding: 0;
+	overflow: hidden;
+}
+
+/* Page section — interior region inside a page card.
+   Use when a card holds multiple sibling regions. */
+.page-section {
+	border: 1px solid var(--surface-line);
+	border-radius: var(--radius-lg);
+	background: var(--color-white);
+	padding: 1rem;
+}
+
+.page-section + .page-section {
+	margin-top: 1rem;
+}
+
+.page-section__title {
+	margin: 0 0 0.75rem 0;
+	font-size: 1rem;
+	font-weight: 700;
+	color: var(--color-dark-blue);
+	font-family: "Cairo", "Poppins", sans-serif;
+}
+
+/* Stack utility — vertical rhythm aligned to the 8px grid. */
+.stack-2 > * + * { margin-top: 0.5rem; }
+.stack-3 > * + * { margin-top: 0.75rem; }
+.stack-4 > * + * { margin-top: 1rem; }
+.stack-6 > * + * { margin-top: 1.5rem; }
+.stack-8 > * + * { margin-top: 2rem; }
