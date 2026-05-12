@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import type { ReactElement } from "react";
+import { Alert, Button, Checkbox, Input, Select } from "antd";
 import { validateQuery } from "../../api/queryBuilderApi";
 import type { ActionableError } from "../../api/types";
 import { getActionableError } from "../../api/httpErrors";
@@ -193,15 +194,12 @@ export default function QueryBuilderPanel({
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Base Table
           </label>
-          <select
+          <Select
             value={state.baseTableId}
-            onChange={(e) => setState(prev => ({ ...prev, baseTableId: e.target.value }))}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md"
-          >
-            {SAMPLE_TABLES.map(t => (
-              <option key={t.id} value={t.id}>{t.name}</option>
-            ))}
-          </select>
+            onChange={(value) => setState(prev => ({ ...prev, baseTableId: value }))}
+            className="w-full"
+            options={SAMPLE_TABLES.map((table) => ({ label: table.name, value: table.id }))}
+          />
         </div>
 
         {/* Column Selection */}
@@ -212,9 +210,7 @@ export default function QueryBuilderPanel({
           <div className="border border-gray-300 rounded-md p-3 max-h-40 overflow-y-auto">
             {baseTable?.columns.map(col => (
               <div key={col.name} className="flex items-center mb-2">
-                <input
-                  type="checkbox"
-                  id={col.name}
+                <Checkbox
                   checked={state.selectedColumns.some(c => c.column_name === col.name)}
                   onChange={(e) => {
                     if (e.target.checked) {
@@ -225,7 +221,7 @@ export default function QueryBuilderPanel({
                   }}
                   className="mr-2"
                 />
-                <label htmlFor={col.name} className="text-sm">
+                <label className="text-sm">
                   {col.name} ({col.type})
                 </label>
               </div>
@@ -237,54 +233,56 @@ export default function QueryBuilderPanel({
         <div className="mb-4">
           <div className="flex justify-between items-center mb-2">
             <label className="text-sm font-medium text-gray-700">Filters</label>
-            <button
+            <Button
               onClick={handleAddFilter}
-              className="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600"
+              size="small"
+              type="primary"
             >
               Add Filter
-            </button>
+            </Button>
           </div>
           <div className="space-y-2">
             {state.filters.map((filter, idx) => (
               <div key={idx} className="flex gap-2 items-center">
-                <select
+                <Select
                   value={filter.column_id}
-                  onChange={(e) => handleUpdateFilter(idx, "column_id", e.target.value)}
-                  className="flex-1 px-2 py-1 text-sm border border-gray-300 rounded"
-                >
-                  {baseTable?.columns.map(c => (
-                    <option key={c.name} value={c.name}>{c.name}</option>
-                  ))}
-                </select>
-                <select
+                  onChange={(value) => handleUpdateFilter(idx, "column_id", value)}
+                  className="flex-1"
+                  options={baseTable?.columns.map((column) => ({
+                    label: column.name,
+                    value: column.name,
+                  }))}
+                />
+                <Select
                   value={filter.operator}
-                  onChange={(e) => handleUpdateFilter(idx, "operator", e.target.value)}
-                  className="px-2 py-1 text-sm border border-gray-300 rounded"
-                >
-                  <option value="=">=</option>
-                  <option value="!=">!=</option>
-                  <option value="<">&lt;</option>
-                  <option value=">">&gt;</option>
-                  <option value="<=">&lt;=</option>
-                  <option value=">=">&gt;=</option>
-                  <option value="IN">IN</option>
-                  <option value="LIKE">LIKE</option>
-                  <option value="IS NULL">IS NULL</option>
-                  <option value="IS NOT NULL">IS NOT NULL</option>
-                </select>
-                <input
-                  type="text"
+                  onChange={(value) => handleUpdateFilter(idx, "operator", value)}
+                  options={[
+                    { label: "=", value: "=" },
+                    { label: "!=", value: "!=" },
+                    { label: "<", value: "<" },
+                    { label: ">", value: ">" },
+                    { label: "<=", value: "<=" },
+                    { label: ">=", value: ">=" },
+                    { label: "IN", value: "IN" },
+                    { label: "LIKE", value: "LIKE" },
+                    { label: "IS NULL", value: "IS NULL" },
+                    { label: "IS NOT NULL", value: "IS NOT NULL" },
+                  ]}
+                  className="w-36"
+                />
+                <Input
                   value={typeof filter.value === "string" || typeof filter.value === "number" ? String(filter.value) : ""}
                   onChange={(e) => handleUpdateFilter(idx, "value", e.target.value)}
                   placeholder="Value"
-                  className="flex-1 px-2 py-1 text-sm border border-gray-300 rounded"
+                  className="flex-1"
                 />
-                <button
+                <Button
                   onClick={() => handleRemoveFilter(idx)}
-                  className="px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600"
+                  danger
+                  size="small"
                 >
                   Remove
-                </button>
+                </Button>
               </div>
             ))}
           </div>
@@ -311,29 +309,35 @@ export default function QueryBuilderPanel({
         {(errors.length > 0 || warnings.length > 0) && (
           <div className="mb-4 space-y-2">
             {errors.map((issue, idx) => (
-              <div key={idx} className="p-2 bg-red-50 border border-red-200 rounded text-sm text-red-800">
-                {issue.code}: {issue.message}
-              </div>
+              <Alert
+                key={idx}
+                type="error"
+                showIcon
+                message={`${issue.code}: ${issue.message}`}
+              />
             ))}
             {warnings.map((issue, idx) => (
-              <div key={idx} className="p-2 bg-yellow-50 border border-yellow-200 rounded text-sm text-yellow-800">
-                {issue.code}: {issue.message}
-              </div>
+              <Alert
+                key={idx}
+                type="warning"
+                showIcon
+                message={`${issue.code}: ${issue.message}`}
+              />
             ))}
           </div>
         )}
 
         {/* Action Buttons */}
         <div className="flex gap-3 mt-4">
-          <button
+          <Button
             onClick={handleValidate}
             disabled={state.isValidating || !hasWorkspace}
-            className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 disabled:bg-gray-400"
+            type="primary"
           >
             {validateButtonLabel}
-          </button>
+          </Button>
           {onSaveRequest && (
-            <button
+            <Button
               onClick={() => {
                 const snapshot: Record<string, unknown> = {
                   base_table_id: state.baseTableId,
@@ -345,10 +349,10 @@ export default function QueryBuilderPanel({
                 };
                 onSaveRequest(snapshot);
               }}
-              className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+              type="default"
             >
               Save Query
-            </button>
+            </Button>
           )}
         </div>
       </div>

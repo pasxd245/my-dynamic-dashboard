@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { Button } from "antd";
 import WorkflowShell from "../components/workflow-shell/WorkflowShell";
 import QueryBuilderPanel from "../components/query-builder/QueryBuilderPanel";
 import { SavedQueryLibraryPage } from "./SavedQueryLibrary";
@@ -81,26 +82,26 @@ export default function BuilderWorkflowPage({
       uploadSourcePanel ?? (
         <div className="space-y-2 text-sm text-slate-700">
           <p>Use the main builder page to create workspace and upload your source.</p>
-          <button
-            type="button"
+          <Button
             onClick={() => navigate("/")}
-            className="rounded border-0 bg-slate-800 px-3 py-1.5 font-medium text-white shadow-none hover:bg-slate-900"
+            type="primary"
+            className="!bg-slate-800"
           >
             Open upload controls
-          </button>
+          </Button>
         </div>
       ),
     schema_sheet:
       schemaSheetPanel ?? (
         <div className="space-y-2 text-sm text-slate-700">
           <p>Schema and profile actions are available from the main builder controls.</p>
-          <button
-            type="button"
+          <Button
             onClick={() => navigate("/")}
-            className="rounded border-0 bg-slate-800 px-3 py-1.5 font-medium text-white shadow-none hover:bg-slate-900"
+            type="primary"
+            className="!bg-slate-800"
           >
             Open schema controls
-          </button>
+          </Button>
         </div>
       ),
     query: queryPanel ?? <QueryBuilderPanel workspaceId={sessionState?.active_workspace.workspace_id} />,

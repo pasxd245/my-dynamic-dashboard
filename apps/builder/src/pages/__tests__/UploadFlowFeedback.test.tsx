@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
+import { App as AntApp } from "antd";
 
 const mocks = vi.hoisted(() => ({
   navigate: vi.fn(),
@@ -52,26 +53,34 @@ import { useQueryBuilderStore, useUploadFlowStore } from "../../state";
 
 function renderApp(): void {
   render(
-    <MemoryRouter initialEntries={["/"]}>
-      <App />
-    </MemoryRouter>,
+    <AntApp>
+      <MemoryRouter initialEntries={["/"]}>
+        <App />
+      </MemoryRouter>
+    </AntApp>,
   );
 }
 
 async function createWorkspaceAndReachSubmit(): Promise<void> {
-  fireEvent.change(screen.getByLabelText("Workspace name"), { target: { value: "Workspace 1" } });
   await act(async () => {
-    fireEvent.click(screen.getByRole("button", { name: "Create workspace" }));
+    useQueryBuilderStore.getState().setWorkspaceId("ws-1");
+    useQueryBuilderStore.getState().setWorkspaceName("Workspace 1");
   });
-  await screen.findByText("Workspace ws-1 is ready.");
+
+  await act(async () => {
+    useUploadFlowStore.getState().setFocusedStep("source");
+  });
 
   const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
   fireEvent.change(fileInput, {
     target: { files: [new File(["a,b\n1,2"], "orders.csv", { type: "text/csv" })] },
   });
+
   await act(async () => {
-    fireEvent.change(await screen.findByLabelText("Source type"), { target: { value: "csv" } });
+    fireEvent.mouseDown(screen.getByRole("combobox", { name: "Source type" }));
+    fireEvent.click(await screen.findByText("CSV"));
   });
+
   await screen.findByRole("button", { name: "Upload and continue" });
 }
 

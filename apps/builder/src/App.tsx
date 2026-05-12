@@ -1,18 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
-import { Routes, Route, NavLink, useLocation, useNavigate } from "react-router-dom";
-import {
-  Menu,
-  FilePlus2,
-  Library,
-  Workflow,
-  ListChecks,
-  ChevronDown,
-  ChevronRight,
-} from "lucide-react";
+import { App as AntApp, Avatar, Badge, Button, Dropdown, Input, Space } from "antd";
+import { BellOutlined } from "@ant-design/icons";
+import { Routes, Route, useLocation, useNavigate } from "react-router-dom";
+import { FilePlus2, Library, Workflow, ListChecks } from "lucide-react";
+import { AppShell, PageHeader } from "./components/ui";
+import type { AppShellNavGroup } from "./components/ui";
 
 import {
   assignColumnRoles,
-  createWorkspace,
   discoverExcelSheets,
   exportManifest,
   getWorkspaceProfile,
@@ -29,6 +24,7 @@ import { getActionableError } from "./api/httpErrors";
 import { setActiveContext } from "./api/builderSessionApi";
 import ActionableErrorPanel from "./components/errors/ActionableErrorPanel";
 import { PageCard } from "./components/layout";
+import { ProfilePanel } from "./components/profile";
 import ExcelSheetPicker from "./components/upload-flow/ExcelSheetPicker";
 import UploadProgressPanel from "./components/upload-flow/UploadProgressPanel";
 import SourceTypeSelector from "./components/upload-flow/SourceTypeSelector";
@@ -36,17 +32,16 @@ import UploadValidationNotice from "./components/upload-flow/UploadValidationNot
 import {
   UploadLoadingMask,
   UploadStageSidebar,
-  UploadToastStack,
   buildUploadStepNavItems,
   deriveUploadStep,
 } from "./components/upload-flow";
-import type { AppToast } from "./components/feedback";
 import {
   getSourceTypeMismatchMessage,
   isSourceTypeCompatibleWithFilename,
 } from "./components/upload-flow/sourceTypeRules";
 import QueryBuilderPanel from "./components/query-builder/QueryBuilderPanel";
 import { SaveQueryDialog } from "./components/SavedQuery";
+import { WorkspacePicker } from "./components/workspace";
 import type { SaveQueryResponse } from "./api/queryApi";
 import BuilderWorkflowPage from "./pages/BuilderWorkflowPage";
 import { SavedQueryLibraryPage, SavedQueryDetail } from "./pages/SavedQueryLibrary";
@@ -68,75 +63,24 @@ const preStyle: React.CSSProperties = {
   border: "1px solid #ece8f7",
 };
 
-const sidebarSectionTitleStyle: React.CSSProperties = {
-  margin: 0,
-  fontSize: "0.72rem",
-  letterSpacing: "0.08em",
-  textTransform: "uppercase",
-  fontWeight: 700,
-  color: "#8d86a7",
-  fontFamily: "'Cairo', 'Poppins', sans-serif",
-};
-
-const sidebarNavListStyle: React.CSSProperties = {
-  display: "grid",
-  gap: "0.45rem",
-  marginBottom: "1rem",
-};
-
-const sidebarLinkBaseStyle: React.CSSProperties = {
-  borderRadius: "0.75rem",
-  padding: "0.54rem 0.64rem",
-  textDecoration: "none",
-  fontWeight: 600,
-  fontSize: "0.9rem",
-  display: "flex",
-  alignItems: "center",
-  gap: "0.45rem",
-  transition: "all 150ms ease",
-};
-
-const menuIconStyle: React.CSSProperties = {
-  minWidth: "2rem",
-  width: "2rem",
-  height: "2rem",
-  borderRadius: "0.55rem",
-  background: "#f1eefb",
-  color: "#4f45b6",
-  display: "grid",
-  placeItems: "center",
-  border: "1px solid #e2dcf2",
-};
-
-const sidebarSectionToggleStyle: React.CSSProperties = {
-  width: "100%",
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  border: 0,
-  background: "transparent",
-  color: "#8d86a7",
-  padding: "0.4rem 0.45rem",
-  marginBottom: "0.35rem",
-  borderRadius: "0.6rem",
-  cursor: "pointer",
-  boxShadow: "none",
-  fontWeight: 700,
-};
-
-const hamburgerButtonStyle: React.CSSProperties = {
-  width: "2.4rem",
-  height: "2.4rem",
-  padding: 0,
-  borderRadius: "0.65rem",
-  border: "1px solid #e3ddf3",
-  background: "#ffffff",
-  color: "#4f45b6",
-  display: "grid",
-  placeItems: "center",
-  cursor: "pointer",
-  boxShadow: "none",
-};
+const NAV_GROUPS: AppShellNavGroup[] = [
+  {
+    key: "data-management",
+    title: "Data Management",
+    items: [
+      { key: "data-upload", to: "/", label: "Data Upload", icon: <FilePlus2 size={16} /> },
+      { key: "saved-queries", to: "/saved-queries", label: "Saved Queries", icon: <Library size={16} /> },
+    ],
+  },
+  {
+    key: "workflow-management",
+    title: "Workflow Management",
+    items: [
+      { key: "workflow-builder", to: "/workflow/upload-source", label: "Workflow Builder", icon: <Workflow size={16} /> },
+      { key: "workflow-query", to: "/workflow/query", label: "Workflow Query Stage", icon: <ListChecks size={16} /> },
+    ],
+  },
+];
 
 export default function App(): React.ReactElement {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -150,11 +94,10 @@ export default function App(): React.ReactElement {
   const [message, setMessage] = useState<string>("");
   const [uploadActionableError, setUploadActionableError] = useState<ActionableError | null>(null);
   const [profileActionableError, setProfileActionableError] = useState<ActionableError | null>(null);
-  const [toasts, setToasts] = useState<AppToast[]>([]);
   const [stageGuidanceMessage, setStageGuidanceMessage] = useState<string | null>(null);
-  const [isSidebarOpen, setSidebarOpen] = useState<boolean>(true);
-  const [isQueryMenuExpanded, setQueryMenuExpanded] = useState<boolean>(true);
-  const [isWorkflowMenuExpanded, setWorkflowMenuExpanded] = useState<boolean>(true);
+  const [isWorkspacePickerOpen, setWorkspacePickerOpen] = useState<boolean>(false);
+
+  const { message: messageApi } = AntApp.useApp();
 
   // Saved Queries state
   const [showSaveDialog, setShowSaveDialog] = useState<boolean>(false);
@@ -202,16 +145,6 @@ export default function App(): React.ReactElement {
   useEffect(() => {
     initQueryBuilderStore();
   }, [initQueryBuilderStore]);
-
-  useEffect(() => {
-    if (!toasts.length) {
-      return;
-    }
-    const timer = globalThis.window.setTimeout(() => {
-      setToasts([]);
-    }, 3200);
-    return () => globalThis.window.clearTimeout(timer);
-  }, [toasts]);
 
   const currentSheet = useMemo(() => uploadResult?.sheets?.[0] ?? null, [uploadResult]);
   const sourceValidationMessage = useMemo(() => {
@@ -265,14 +198,8 @@ export default function App(): React.ReactElement {
 
   const stepNavItems = useMemo(() => buildUploadStepNavItems(uploadStepContext), [uploadStepContext]);
 
-  const pushToast = (tone: AppToast["tone"], text: string): void => {
-    setToasts([
-      {
-        id: `${Date.now()}`,
-        tone,
-        text,
-      },
-    ]);
+  const pushToast = (tone: "success" | "info" | "error", text: string): void => {
+    messageApi?.[tone]?.(text);
   };
 
   const loadingMaskCopyByState: Partial<Record<typeof progressState, string>> = {
@@ -301,55 +228,29 @@ export default function App(): React.ReactElement {
     }
     if (path.startsWith("/saved-queries")) {
       return {
-        section: "Query Management",
-        title: "Queries Management",
+        section: "Data Management",
+        title: "Saved Queries",
         subtitle: "Browse, review, and reuse saved queries.",
       };
     }
     return {
-      section: "Query Management",
-      title: "Create Query",
-      subtitle: "Create and validate a query from the builder workspace.",
+      section: "Data Management",
+      title: "Data Upload",
+      subtitle: "Select workspace context and prepare data sources for workflow stages.",
     };
   }, [location.pathname]);
 
-  const sidebarNavLinkStyle = ({ isActive }: { isActive: boolean }): React.CSSProperties => ({
-    ...sidebarLinkBaseStyle,
-    color: isActive ? "#352f74" : "#7f7999",
-    background: isActive ? "#ffffff" : "transparent",
-    border: isActive ? "1px solid #e1dbf0" : "1px solid transparent",
-    boxShadow: isActive ? "0 4px 14px rgba(58, 51, 102, 0.08)" : "none",
-  });
-
-  const collapsedRailLinkStyle = ({ isActive }: { isActive: boolean }): React.CSSProperties => ({
-    width: "2.2rem",
-    height: "2.2rem",
-    borderRadius: "0.6rem",
-    display: "grid",
-    placeItems: "center",
-    color: isActive ? "#ffffff" : "#5a5297",
-    background: isActive ? "#4f45b6" : "transparent",
-    border: isActive ? "1px solid #4f45b6" : "1px solid transparent",
-    textDecoration: "none",
-    transition: "all 150ms ease",
-  });
-
-  const onCreateWorkspace = async (): Promise<void> => {
-    try {
-      const payload = await createWorkspace(workspaceName);
-      setWorkspaceId(payload.id);
-      setUploadActionableError(null);
-      setProfileActionableError(null);
-      setProgressState("idle");
-      setErrorMessage(null);
-      setStageGuidanceMessage(null);
-      setMessage(`Workspace created: ${payload.id}`);
-      pushToast("success", `Workspace ${payload.id} is ready.`);
-    } catch (error) {
-      const nextMessage = error instanceof Error ? error.message : "Unknown error";
-      setMessage(nextMessage);
-      pushToast("error", nextMessage);
-    }
+  const onWorkspaceSelected = (workspace: { id: string; name: string }): void => {
+    setWorkspaceId(workspace.id);
+    setWorkspaceName(workspace.name);
+    setUploadActionableError(null);
+    setProfileActionableError(null);
+    setProgressState("idle");
+    setErrorMessage(null);
+    setStageGuidanceMessage(null);
+    setWorkspacePickerOpen(false);
+    setMessage(`Active workspace: ${workspace.name}`);
+    pushToast("success", `Workspace ${workspace.name} is active.`);
   };
 
   const onUpload = async (): Promise<void> => {
@@ -577,7 +478,6 @@ export default function App(): React.ReactElement {
       }}
     >
       <UploadLoadingMask visible={shouldShowLoadingMask} message={loadingMaskMessage} />
-      <UploadToastStack toasts={toasts} />
 
       <div
         data-testid="guided-upload-layout"
@@ -623,32 +523,34 @@ export default function App(): React.ReactElement {
 
           {focusedUploadStep === "workspace" ? (
             <section style={{ display: "grid", gap: "0.65rem", maxWidth: "30rem" }}>
-              <label htmlFor="workspace-name" style={{ fontWeight: 600, color: "#252d5a" }}>
-                Workspace name
-              </label>
-              <input
-                id="workspace-name"
-                value={workspaceName}
-                onChange={(event) => setWorkspaceName(event.target.value)}
-                placeholder="Workspace name"
-                style={{ padding: "0.55rem", borderRadius: "0.5rem", border: "1px solid #cbd2f9" }}
-              />
+              <p style={{ margin: 0, color: "#49548f" }}>
+                {workspaceId
+                  ? `Active workspace: ${workspaceName || workspaceId}`
+                  : "Select an existing workspace or create a new one before continuing."}
+              </p>
               <div style={{ display: "flex", gap: "0.6rem", flexWrap: "wrap" }}>
-                <button onClick={onCreateWorkspace}>Create workspace</button>
-                <button
-                  type="button"
+                <Button type="primary" onClick={() => setWorkspacePickerOpen(true)}>
+                  Select or create workspace
+                </Button>
+                <Button
                   onClick={() => setFocusedStep("source")}
                   disabled={!canAccessSourceStep}
                 >
                   Next: source
-                </button>
+                </Button>
               </div>
+              <WorkspacePicker
+                visible={isWorkspacePickerOpen}
+                onWorkspaceSelected={onWorkspaceSelected}
+                onClose={() => setWorkspacePickerOpen(false)}
+              />
             </section>
           ) : null}
 
           {focusedUploadStep === "source" ? (
             <section style={{ display: "grid", gap: "0.7rem", maxWidth: "34rem" }}>
               <input
+                className="upload-file-input"
                 type="file"
                 accept=".csv,.xlsx,.xlsm,.xlsb,.xls"
                 onChange={(event) => onSelectedFileChange(event.currentTarget.files?.[0] ?? null)}
@@ -658,15 +560,17 @@ export default function App(): React.ReactElement {
               <p style={{ margin: 0, color: "#49548f" }}>
                 {selectedFile ? `Selected file: ${selectedFile.name}` : "Select a CSV/Excel file to continue."}
               </p>
+              <p className="upload-control-help">
+                Excel handling is single-sheet per upload: selected sheet is loaded, other sheets are ignored.
+              </p>
               <div style={{ display: "flex", gap: "0.6rem", flexWrap: "wrap" }}>
-                <button type="button" onClick={() => setFocusedStep("workspace")}>Back</button>
-                <button
-                  type="button"
+                <Button onClick={() => setFocusedStep("workspace")}>Back</Button>
+                <Button
                   onClick={() => setFocusedStep(requiresSheetSelection ? "sheet" : "submit")}
                   disabled={!canAccessSubmitStep}
                 >
                   Next
-                </button>
+                </Button>
               </div>
             </section>
           ) : null}
@@ -684,31 +588,33 @@ export default function App(): React.ReactElement {
                   This file does not require sheet selection. Continue to submit.
                 </p>
               )}
+              <p className="upload-control-help">
+                For workbooks with multiple sheets, choose one sheet to ingest in this run.
+              </p>
               <div style={{ display: "flex", gap: "0.6rem", flexWrap: "wrap" }}>
-                <button type="button" onClick={() => setFocusedStep("source")}>Back</button>
-                <button
-                  type="button"
+                <Button onClick={() => setFocusedStep("source")}>Back</Button>
+                <Button
                   onClick={() => setFocusedStep("submit")}
                   disabled={requiresSheetSelection && !selectedSheetName}
                 >
                   Next: submit
-                </button>
+                </Button>
               </div>
             </section>
           ) : null}
 
           {focusedUploadStep === "submit" ? (
             <section style={{ display: "grid", gap: "0.7rem", maxWidth: "34rem" }}>
-              <button onClick={onUpload} disabled={!canUploadSelection} style={{ justifySelf: "start" }}>
+              <Button type="primary" onClick={onUpload} disabled={!canUploadSelection} style={{ justifySelf: "start" }}>
                 {isUploading ? "Uploading..." : "Upload and continue"}
-              </button>
+              </Button>
               {(progressState !== "idle" || uploadFlowErrorMessage) ? (
                 <UploadProgressPanel state={progressState} message={uploadFlowErrorMessage ?? message} />
               ) : null}
               <div style={{ display: "flex", gap: "0.6rem", flexWrap: "wrap" }}>
-                <button type="button" onClick={() => setFocusedStep(requiresSheetSelection ? "sheet" : "source")}>
+                <Button onClick={() => setFocusedStep(requiresSheetSelection ? "sheet" : "source")}>
                   Back
-                </button>
+                </Button>
               </div>
             </section>
           ) : null}
@@ -718,386 +624,69 @@ export default function App(): React.ReactElement {
   );
 
   const workflowSchemaSheetPanel = (
-    <>
-      <section style={panelStyle}>
-        <h2>Sheet Override</h2>
-        {profileActionableError && profileActionableError.stage !== "upload_source" ? (
-          <ActionableErrorPanel error={profileActionableError} />
-        ) : null}
-        <div style={{ display: "grid", gap: "0.5rem", maxWidth: "400px" }}>
-          <input
-            value={headerRow}
-            onChange={(event) => setHeaderRow(event.target.value)}
-            placeholder="Header row"
-          />
-          <input
-            value={dataRange}
-            onChange={(event) => setDataRange(event.target.value)}
-            placeholder="Data range (e.g. A1:C100)"
-          />
-          <input
-            value={reason}
-            onChange={(event) => setReason(event.target.value)}
-            placeholder="Override reason"
-          />
-          <button onClick={onOverride}>Apply override</button>
-        </div>
-      </section>
-
-      <section style={panelStyle}>
-        <h2>Profiles and Roles</h2>
-        <button onClick={onLoadProfile} style={{ marginBottom: "0.75rem" }}>
-          Load profile
-        </button>
-        <div style={{ display: "grid", gap: "0.5rem", maxWidth: "520px", marginBottom: "1rem" }}>
-          <select
-            value={selectedColumnId}
-            onChange={(event) => setSelectedColumnId(event.target.value)}
-          >
-            <option value="">Select column</option>
-            {(profile?.columns ?? []).map((column) => (
-              <option key={column.column_id} value={column.column_id}>
-                {column.column_name} ({column.column_id})
-              </option>
-            ))}
-          </select>
-          <select value={selectedRole} onChange={(event) => setSelectedRole(event.target.value)}>
-            <option value="identity_key">identity_key</option>
-            <option value="time_anchor">time_anchor</option>
-            <option value="measure">measure</option>
-            <option value="dimension">dimension</option>
-            <option value="status">status</option>
-            <option value="source_of_truth_outcome">source_of_truth_outcome</option>
-          </select>
-          <input
-            value={overrideReason}
-            onChange={(event) => setOverrideReason(event.target.value)}
-            placeholder="Override reason (optional)"
-          />
-          <div>
-            <button onClick={onAssignRole} style={{ marginRight: "0.5rem" }}>
-              Assign role
-            </button>
-            <button onClick={onLoadReadiness}>Load readiness</button>
-          </div>
-        </div>
-      </section>
-    </>
+    <ProfilePanel
+      profile={profile}
+      profileError={profileActionableError}
+      headerRow={headerRow}
+      dataRange={dataRange}
+      reason={reason}
+      onHeaderRowChange={setHeaderRow}
+      onDataRangeChange={setDataRange}
+      onReasonChange={setReason}
+      onApplyOverride={onOverride}
+      onLoadProfile={onLoadProfile}
+      selectedColumnId={selectedColumnId}
+      onSelectColumn={setSelectedColumnId}
+      selectedRole={selectedRole}
+      onSelectRole={setSelectedRole}
+      overrideReason={overrideReason}
+      onOverrideReasonChange={setOverrideReason}
+      onAssignRole={onAssignRole}
+      onLoadReadiness={onLoadReadiness}
+    />
   );
 
   return (
-    <main
-      style={{
-        fontFamily: "'Cairo', 'Nunito Sans', 'Segoe UI', sans-serif",
-        padding: "0",
-        margin: 0,
-        color: "#2f2d36",
-        background: "#f5f4f8",
-        minHeight: "100vh",
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          alignItems: "stretch",
-          minHeight: "100vh",
-        }}
-      >
-        <aside
-          style={{
-            flex: isSidebarOpen ? "0 0 16rem" : "0 0 3.2rem",
-            borderRight: "1px solid #e7e2f0",
-            background: "#f0eef5",
-            padding: isSidebarOpen ? "1rem 0.75rem" : "0.75rem 0.35rem",
-            position: "sticky",
-            top: "0",
-            height: "100vh",
-            transition: "all 180ms ease",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1rem" }}>
-            {isSidebarOpen ? (
-              <div style={{ display: "flex", alignItems: "center", gap: "0.65rem" }}>
-                <span
-                  style={{
-                    width: "2rem",
-                    height: "2rem",
-                    borderRadius: "0.65rem",
-                    background: "#4f45b6",
-                    color: "#fcfcfc",
-                    fontWeight: 700,
-                    display: "grid",
-                    placeItems: "center",
-                  }}
-                >
-                  M
-                </span>
-                <h1 style={{ margin: 0, fontSize: "1rem", color: "#4a4472" }}>Builder</h1>
-              </div>
-            ) : null}
-            <button
-              type="button"
-              aria-label={isSidebarOpen ? "Hide sidebar menu" : "Show sidebar menu"}
-              onClick={() => setSidebarOpen((current) => !current)}
-              style={hamburgerButtonStyle}
-            >
-              <Menu size={18} strokeWidth={2.2} />
-            </button>
-          </div>
-
-          {isSidebarOpen ? (
-            <>
-              <div style={{ marginBottom: "1rem" }}>
-                <button
-                  type="button"
-                  onClick={() => setQueryMenuExpanded((current) => !current)}
-                  aria-expanded={isQueryMenuExpanded}
-                  style={sidebarSectionToggleStyle}
-                >
-                  <h2 style={sidebarSectionTitleStyle}>Query Management</h2>
-                  <span style={{ color: "#8f89ad", display: "grid", placeItems: "center" }}>
-                    {isQueryMenuExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                  </span>
-                </button>
-                {isQueryMenuExpanded ? (
-                  <nav style={{ ...sidebarNavListStyle, marginBottom: 0 }} aria-label="query-management">
-                    <NavLink to="/" end style={sidebarNavLinkStyle}>
-                      <span style={menuIconStyle}>
-                        <FilePlus2 size={16} strokeWidth={2} />
-                      </span>
-                      <span>Create Query</span>
-                    </NavLink>
-                    <NavLink to="/saved-queries" style={sidebarNavLinkStyle}>
-                      <span style={menuIconStyle}>
-                        <Library size={16} strokeWidth={2} />
-                      </span>
-                      <span>Queries Management</span>
-                    </NavLink>
-                  </nav>
-                ) : null}
-              </div>
-
-              <div>
-                <button
-                  type="button"
-                  onClick={() => setWorkflowMenuExpanded((current) => !current)}
-                  aria-expanded={isWorkflowMenuExpanded}
-                  style={sidebarSectionToggleStyle}
-                >
-                  <h2 style={sidebarSectionTitleStyle}>Workflow Management</h2>
-                  <span style={{ color: "#8f89ad", display: "grid", placeItems: "center" }}>
-                    {isWorkflowMenuExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                  </span>
-                </button>
-                {isWorkflowMenuExpanded ? (
-                  <nav style={{ ...sidebarNavListStyle, marginBottom: 0 }} aria-label="workflow-management">
-                    <NavLink to="/workflow/upload-source" style={sidebarNavLinkStyle}>
-                      <span style={menuIconStyle}>
-                        <Workflow size={16} strokeWidth={2} />
-                      </span>
-                      <span>Workflow Builder</span>
-                    </NavLink>
-                    <NavLink to="/workflow/query" style={sidebarNavLinkStyle}>
-                      <span style={menuIconStyle}>
-                        <ListChecks size={16} strokeWidth={2} />
-                      </span>
-                      <span>Workflow Query Stage</span>
-                    </NavLink>
-                  </nav>
-                ) : null}
-              </div>
-            </>
-          ) : (
-            <nav
-              aria-label="Sidebar rail"
-              style={{ display: "grid", gap: "0.5rem", justifyItems: "center", marginTop: "0.25rem" }}
-            >
-              <NavLink to="/" end title="Create Query" style={collapsedRailLinkStyle}>
-                <FilePlus2 size={18} strokeWidth={2} />
-              </NavLink>
-              <NavLink to="/saved-queries" title="Queries Management" style={collapsedRailLinkStyle}>
-                <Library size={18} strokeWidth={2} />
-              </NavLink>
-              <span style={{ height: 1, width: "70%", background: "#e2dcf2", margin: "0.25rem 0" }} />
-              <NavLink to="/workflow/upload-source" title="Workflow Builder" style={collapsedRailLinkStyle}>
-                <Workflow size={18} strokeWidth={2} />
-              </NavLink>
-              <NavLink to="/workflow/query" title="Workflow Query Stage" style={collapsedRailLinkStyle}>
-                <ListChecks size={18} strokeWidth={2} />
-              </NavLink>
-            </nav>
-          )}
-        </aside>
-
-        <section style={{ flex: "1 1 0", minWidth: 0, maxWidth: "none", padding: "1rem 1.1rem 1.5rem 1.1rem" }}>
-          <div
-            style={{
-              borderRadius: "var(--radius-xl)",
-              background: "var(--color-white)",
-              minHeight: "4.6rem",
-              padding: "0.75rem 1rem",
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              gap: "0.85rem",
-              boxShadow: "0 6px 16px rgba(55, 49, 95, 0.04)",
-            }}
-          >
-            <div
-              style={{
-                position: "relative",
-                flex: "1 1 22rem",
-                maxWidth: "26rem",
-                display: "flex",
-                alignItems: "center",
-                background: "var(--color-gray-1)",
-                borderRadius: "var(--radius-xl)",
-                padding: "0.15rem 1rem 0.15rem 0.85rem",
+    <AppShell
+      navGroups={NAV_GROUPS}
+      header={
+        <>
+          <Input.Search
+            placeholder="Search here..."
+            allowClear
+            style={{ flex: "1 1 280px", maxWidth: 360 }}
+          />
+          <Space size={12}>
+            <Dropdown
+              menu={{
+                items: [
+                  { key: "en", label: "English" },
+                  { key: "vi", label: "Tiếng Việt" },
+                ],
               }}
             >
-              <svg
-                aria-hidden="true"
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                style={{ color: "var(--color-blue)", flex: "none" }}
-              >
-                <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2" />
-                <path d="m20 20-3.5-3.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-              </svg>
-              <input
-                type="text"
-                aria-label="Search"
-                placeholder="Search here..."
-                style={{
-                  width: "100%",
-                  padding: "0.65rem 0.5rem 0.65rem 0.65rem",
-                  border: 0,
-                  background: "transparent",
-                  color: "var(--color-dark-blue)",
-                  fontFamily: "'Cairo', sans-serif",
-                  fontSize: "0.95rem",
-                  outline: "none",
-                }}
-              />
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", flexWrap: "wrap", justifyContent: "flex-end" }}>
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "0.5rem",
-                  padding: "0.45rem 0.85rem",
-                  border: "2px solid var(--color-gray-1)",
-                  borderRadius: "var(--radius-xl)",
-                  background: "var(--color-white)",
-                }}
-              >
-                <svg aria-hidden="true" width="22" height="16" viewBox="0 0 22 16">
-                  <rect width="22" height="16" rx="2" fill="#b22234" />
-                  <g fill="#ffffff">
-                    <rect y="2" width="22" height="1.3" />
-                    <rect y="4.6" width="22" height="1.3" />
-                    <rect y="7.2" width="22" height="1.3" />
-                    <rect y="9.8" width="22" height="1.3" />
-                    <rect y="12.4" width="22" height="1.3" />
-                  </g>
-                  <rect width="9" height="7" fill="#3c3b6e" />
-                </svg>
-                <span style={{ fontFamily: "'Cairo', sans-serif", fontWeight: 700, fontSize: "0.95rem", color: "var(--color-black)" }}>
-                  English
-                </span>
-                <span style={{ color: "var(--color-gray-3)", fontSize: "0.7rem" }}>▾</span>
+              <Button>English</Button>
+            </Dropdown>
+            <Badge count={0} showZero={false}>
+              <Button shape="circle" icon={<BellOutlined />} aria-label="Notifications" />
+            </Badge>
+            <Space size={8}>
+              <Avatar style={{ background: "var(--color-gray-4)" }}>AD</Avatar>
+              <div style={{ display: "grid", lineHeight: 1.2 }}>
+                <span style={{ fontWeight: 700 }}>Hello There!</span>
+                <span style={{ fontSize: 12, color: "var(--color-gray-4)" }}>Admin</span>
               </div>
-              <button
-                type="button"
-                aria-label="Notifications"
-                style={{
-                  position: "relative",
-                  width: "2.6rem",
-                  height: "2.6rem",
-                  padding: 0,
-                  background: "var(--color-gray-2)",
-                  border: "none",
-                  borderRadius: "var(--radius-sm)",
-                  color: "var(--color-blue)",
-                  display: "grid",
-                  placeItems: "center",
-                  boxShadow: "none",
-                }}
-              >
-                <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none">
-                  <path
-                    d="M12 3a6 6 0 0 0-6 6v3.4l-1.4 2.1A1 1 0 0 0 5.4 16h13.2a1 1 0 0 0 .8-1.5L18 12.4V9a6 6 0 0 0-6-6Z"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                    strokeLinejoin="round"
-                  />
-                  <path d="M10 19a2 2 0 0 0 4 0" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-                </svg>
-                <span
-                  style={{
-                    position: "absolute",
-                    top: "-0.3rem",
-                    right: "-0.3rem",
-                    minWidth: "1.25rem",
-                    height: "1.25rem",
-                    padding: "0 0.3rem",
-                    background: "var(--color-blue)",
-                    color: "var(--color-white)",
-                    borderRadius: "var(--radius-sm)",
-                    fontSize: "0.72rem",
-                    fontWeight: 700,
-                    display: "grid",
-                    placeItems: "center",
-                  }}
-                >
-                  0
-                </span>
-              </button>
-              <div style={{ display: "flex", alignItems: "center", gap: "0.55rem", paddingLeft: "0.4rem" }}>
-                <span
-                  style={{
-                    width: "2.6rem",
-                    height: "2.6rem",
-                    borderRadius: "var(--radius-md)",
-                    background: "var(--color-gray-4)",
-                    display: "grid",
-                    placeItems: "center",
-                    color: "var(--color-white)",
-                    fontWeight: 700,
-                  }}
-                >
-                  AD
-                </span>
-                <div style={{ display: "grid", lineHeight: 1.2 }}>
-                  <span style={{ fontFamily: "'Cairo', sans-serif", fontWeight: 700, fontSize: "0.95rem", color: "var(--color-black)" }}>
-                    Hello There!
-                  </span>
-                  <span style={{ fontSize: "0.82rem", color: "var(--color-gray-4)" }}>Admin</span>
-                </div>
-              </div>
-            </div>
-          </div>
-          <header
-            style={{
-              border: "1px solid #e8e2f5",
-              borderRadius: "1rem",
-              padding: "0.9rem 1rem",
-              background: "#ffffff",
-              marginBottom: "0.9rem",
-              marginTop: "0.85rem",
-              boxShadow: "0 6px 16px rgba(55, 49, 95, 0.06)",
-            }}
-          >
-            <p style={{ margin: 0, fontSize: "0.82rem", color: "#8f88ab", fontWeight: 600 }}>
-              Builder / {routeMeta.section} / {routeMeta.title}
-            </p>
-            <h1 style={{ margin: "0.25rem 0 0.2rem 0", fontSize: "1.55rem", color: "#2f2b3a" }}>{routeMeta.title}</h1>
-            <p style={{ margin: 0, color: "#77718f" }}>{routeMeta.subtitle}</p>
-          </header>
-          <Routes>
+            </Space>
+          </Space>
+        </>
+      }
+    >
+      <PageHeader
+        section={routeMeta.section}
+        title={routeMeta.title}
+        subtitle={routeMeta.subtitle}
+      />
+      <Routes>
         {/* Main builder page */}
         <Route
           path="/"
@@ -1107,77 +696,7 @@ export default function App(): React.ReactElement {
 
               {workflowUploadSourcePanel}
 
-              <section style={panelStyle}>
-                <h2>Sheet Override</h2>
-                {profileActionableError && profileActionableError.stage !== "upload_source" ? (
-                  <ActionableErrorPanel error={profileActionableError} />
-                ) : null}
-                <div style={{ display: "grid", gap: "0.5rem", maxWidth: "400px" }}>
-                  <input
-                    value={headerRow}
-                    onChange={(event) => setHeaderRow(event.target.value)}
-                    placeholder="Header row"
-                  />
-                  <input
-                    value={dataRange}
-                    onChange={(event) => setDataRange(event.target.value)}
-                    placeholder="Data range (e.g. A1:C100)"
-                  />
-                  <input
-                    value={reason}
-                    onChange={(event) => setReason(event.target.value)}
-                    placeholder="Override reason"
-                  />
-                  <button onClick={onOverride}>Apply override</button>
-                </div>
-              </section>
-
-              <section style={panelStyle}>
-                <h2>Profiles and Roles</h2>
-                {profileActionableError && profileActionableError.stage !== "upload_source" ? (
-                  <div style={{ marginBottom: "0.75rem" }}>
-                    <ActionableErrorPanel error={profileActionableError} />
-                  </div>
-                ) : null}
-                <p>
-                  <strong>Workspace:</strong> {workspaceId || "(none)"}
-                </p>
-                <button onClick={onLoadProfile} style={{ marginBottom: "0.75rem" }}>
-                  Load profile
-                </button>
-                <div style={{ display: "grid", gap: "0.5rem", maxWidth: "520px", marginBottom: "1rem" }}>
-                  <select
-                    value={selectedColumnId}
-                    onChange={(event) => setSelectedColumnId(event.target.value)}
-                  >
-                    <option value="">Select column</option>
-                    {(profile?.columns ?? []).map((column) => (
-                      <option key={column.column_id} value={column.column_id}>
-                        {column.column_name} ({column.column_id})
-                      </option>
-                    ))}
-                  </select>
-                  <select value={selectedRole} onChange={(event) => setSelectedRole(event.target.value)}>
-                    <option value="identity_key">identity_key</option>
-                    <option value="time_anchor">time_anchor</option>
-                    <option value="measure">measure</option>
-                    <option value="dimension">dimension</option>
-                    <option value="status">status</option>
-                    <option value="source_of_truth_outcome">source_of_truth_outcome</option>
-                  </select>
-                  <input
-                    value={overrideReason}
-                    onChange={(event) => setOverrideReason(event.target.value)}
-                    placeholder="Override reason (optional)"
-                  />
-                  <div>
-                    <button onClick={onAssignRole} style={{ marginRight: "0.5rem" }}>
-                      Assign role
-                    </button>
-                    <button onClick={onLoadReadiness}>Load readiness</button>
-                  </div>
-                </div>
-              </section>
+              {workflowSchemaSheetPanel}
 
               <section style={panelStyle}>
                 <QueryBuilderPanel
@@ -1193,10 +712,10 @@ export default function App(): React.ReactElement {
               <section style={panelStyle}>
                 <h2>Manifest</h2>
                 <div style={{ display: "flex", gap: "0.75rem", marginBottom: "0.75rem", flexWrap: "wrap" }}>
-                  <button onClick={onExportManifest}>Export manifest</button>
-                  <button onClick={onImportManifest}>Import manifest</button>
+                  <Button onClick={onExportManifest}>Export manifest</Button>
+                  <Button onClick={onImportManifest}>Import manifest</Button>
                 </div>
-                <textarea
+                <Input.TextArea
                   value={manifestText}
                   onChange={(event) => setManifestText(event.target.value)}
                   placeholder="Exported manifest JSON appears here, or paste one to import."
@@ -1270,8 +789,6 @@ export default function App(): React.ReactElement {
           }
         />
       </Routes>
-        </section>
-      </div>
 
       {/* Save Query Dialog — rendered at app level so it can receive builder snapshot */}
       {showSaveDialog && builderSnapshot && (
@@ -1289,6 +806,6 @@ export default function App(): React.ReactElement {
           }}
         />
       )}
-    </main>
+    </AppShell>
   );
 }

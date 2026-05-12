@@ -1,33 +1,50 @@
+import { Flex, Tag, Typography } from "antd";
 import type { ActiveContextState } from "../../api/types";
 
+const { Text } = Typography;
+
+const STATE_COLOR: Record<ActiveContextState, string> = {
+  resolved: "success",
+  stale: "warning",
+  unresolved: "default",
+};
+
 interface ContextBadgeProps {
-  label: string;
-  value: string;
-  state: ActiveContextState;
+  readonly label: string;
+  readonly value: string;
+  readonly state: ActiveContextState;
 }
 
 function ContextBadge({ label, value, state }: ContextBadgeProps): React.ReactElement {
-  const badgeClass =
-    state === "resolved"
-      ? "bg-emerald-100 text-emerald-900"
-      : state === "stale"
-      ? "bg-amber-100 text-amber-900"
-      : "bg-slate-100 text-slate-700";
-
   return (
-    <div className="flex items-center gap-2 rounded-md border border-slate-200 px-3 py-2">
-      <span className="text-xs uppercase tracking-wide text-slate-500">{label}</span>
-      <span className="text-sm font-medium text-slate-900">{value}</span>
-      <span className={`rounded px-2 py-0.5 text-xs font-semibold ${badgeClass}`}>{state}</span>
-    </div>
+    <Flex
+      align="center"
+      gap={8}
+      style={{
+        border: "1px solid var(--surface-line)",
+        borderRadius: "var(--radius-sm)",
+        padding: "8px 12px",
+        background: "var(--color-white)",
+      }}
+    >
+      <Text type="secondary" style={{ fontSize: 12, textTransform: "uppercase", letterSpacing: 0.4 }}>
+        {label}
+      </Text>
+      <Text strong style={{ fontSize: 14 }}>
+        {value}
+      </Text>
+      <Tag color={STATE_COLOR[state]} style={{ marginInlineEnd: 0 }}>
+        {state}
+      </Tag>
+    </Flex>
   );
 }
 
 export interface ActiveContextBarProps {
-  workspaceName?: string;
-  sourceName?: string;
-  workspaceState: ActiveContextState;
-  sourceState: ActiveContextState;
+  readonly workspaceName?: string;
+  readonly sourceName?: string;
+  readonly workspaceState: ActiveContextState;
+  readonly sourceState: ActiveContextState;
 }
 
 export default function ActiveContextBar({
@@ -37,13 +54,13 @@ export default function ActiveContextBar({
   sourceState,
 }: ActiveContextBarProps): React.ReactElement {
   return (
-    <div className="grid gap-2 sm:grid-cols-2">
+    <Flex gap={8} wrap="wrap">
       <ContextBadge
         label="Workspace"
         value={workspaceName || "Not selected"}
         state={workspaceState}
       />
       <ContextBadge label="Source" value={sourceName || "Not selected"} state={sourceState} />
-    </div>
+    </Flex>
   );
 }

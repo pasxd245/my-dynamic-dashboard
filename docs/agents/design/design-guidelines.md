@@ -32,6 +32,30 @@ The token tables (CSS var ↔ AntD seed token ↔ hex) live in
 **Rule**: in new code, use a token. Never hard-code hex values; never
 duplicate radii / shadows / font-family literally.
 
+### 1.0 CSS cascade-layer order (load-bearing)
+
+[`apps/builder/src/index.css`](../../../apps/builder/src/index.css) declares
+layer order at the top of the file:
+
+```css
+@layer tailwind-base, tailwind-components, tailwind-utilities, antd;
+```
+
+Rightmost = highest priority. AntD's runtime styles (emitted by
+`<StyleProvider layer>` in [`main.tsx`](../../../apps/builder/src/main.tsx))
+land in `@layer antd` and therefore win over Tailwind's preflight resets
+that would otherwise strip `<button>` / `<input>` chrome. Without this
+explicit ordering, layer priority depends on runtime declaration order and
+Tailwind preflight wins — `Input` / `InputNumber` / `Button` render naked
+(Round 35 iteration 11 defect).
+
+**Rule**: any new `@tailwind`-style directive or external stylesheet must
+be wrapped in one of these layers (or pre-declared higher). Never emit
+unlayered CSS that targets AntD primitives — unlayered always beats
+layered, which would silently break the design system. If Tailwind is
+removed in a future round, drop the layer declaration along with the
+`@tailwind` directives.
+
 ### 1.1 Primary tokens at a glance
 
 | Need                                    | AntD token                                                  | CSS var                         |
@@ -130,12 +154,36 @@ rhythm without the bordered look.
 `margin-top` between siblings (0.5 / 0.75 / 1 / 1.5 / 2 rem). Aligns
 with the 8 px grid and replaces ad-hoc Tailwind `space-y-*`.
 
-### 3.5 App shell
+### 3.5 App shell — `<AppShell>` + `<PageHeader>`
 
-The sidebar + top bar + breadcrumb header are owned by
-[`App.tsx`](../../../apps/builder/src/App.tsx). New nav items go into
-the existing "Query Management" / "Workflow Management" groups; the
-collapsed icon rail mirrors the expanded nav — keep both in sync.
+The sidebar + top bar + breadcrumb header are owned by two primitives in
+[`apps/builder/src/components/ui/`](../../../apps/builder/src/components/ui):
+
+- [`AppShell.tsx`](../../../apps/builder/src/components/ui/AppShell.tsx) —
+  AntD `Layout` + collapsible `Sider` + `Header` + `Content`. Renders the
+  brand mark, the grouped sidebar `Menu`, and a `header` slot for the top
+  bar content (search / locale / notifications / profile). Owns its own
+  collapsed/expanded state.
+- [`PageHeader.tsx`](../../../apps/builder/src/components/ui/PageHeader.tsx) —
+  per-route breadcrumb + title + subtitle. Rendered once at the top of
+  the routed content area; consumes the same `routeMeta` shape that
+  `App.tsx` already computes from `useLocation`.
+
+New nav items go into the `NAV_GROUPS` constant in
+[`App.tsx`](../../../apps/builder/src/App.tsx). The `AppShellNavGroup` /
+`AppShellNavItem` types are exported from `components/ui`. Routes get
+their breadcrumb / title / subtitle from the `routeMeta` `useMemo` —
+extend that switch when you add a new route.
+
+**Rule of one shell**: do not introduce another sidebar/header
+component. Extend `AppShell` (e.g. add a `footer` slot) or open a
+guideline change rather than forking.
+
+> The Round 33/34 hand-rolled sidebar + inline-style top bar were
+> retired in Round 35 (see
+> [`.agents/plan/cycles/Round_35.md`](../../../.agents/plan/cycles/Round_35.md)).
+> If you find inline `style={}` rules emulating the shell, replace with
+> `AppShell` rather than re-introducing parallel layout code.
 
 ---
 

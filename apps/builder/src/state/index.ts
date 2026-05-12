@@ -5,9 +5,11 @@
  *   builderSessionStore  — workflow stage + session state
  *   queryBuilderStore    — workspace and builder application state
  *   savedQueryStore      — saved query list, filters, and pagination state
+ *   workspaceStore       — workspace selection and creation state
  */
 
 export * from "./builderSessionStore";
 export * from "./queryBuilderStore";
 export * from "./savedQueryStore";
 export * from "./uploadFlowStore";
+export * from "./workspaceStore";

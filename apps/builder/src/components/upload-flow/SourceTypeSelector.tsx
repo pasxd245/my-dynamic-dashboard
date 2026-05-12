@@ -1,4 +1,5 @@
 import type { UploadSourceType } from "../../api/types";
+import { Select } from "antd";
 
 interface SourceTypeSelectorProps {
   value: UploadSourceType | null;
@@ -12,23 +13,27 @@ export default function SourceTypeSelector({
   disabled = false,
 }: SourceTypeSelectorProps): React.ReactElement {
   return (
-    <div style={{ display: "grid", gap: "0.4rem", marginTop: "0.5rem", maxWidth: "22rem" }}>
-      <label htmlFor="source-type-select" style={{ fontWeight: 600 }}>
+    <div className="upload-control-group upload-control-group--spaced">
+      <label htmlFor="source-type-select" className="upload-control-label">
         Source type
       </label>
-      <select
-        id="source-type-select"
-        value={value ?? ""}
-        onChange={(event) => onChange(event.target.value as UploadSourceType)}
-        disabled={disabled}
-      >
-        <option value="" disabled>
-          Select source type
-        </option>
-        <option value="csv">CSV</option>
-        <option value="excel">Excel</option>
-      </select>
-      <small style={{ color: "#555" }}>
+      <div className={`upload-control-shell${disabled ? " is-disabled" : ""}`}>
+        <Select
+          id="source-type-select"
+          className="source-type-select"
+          variant="borderless"
+          value={value ?? undefined}
+          onChange={(next) => onChange(next as UploadSourceType)}
+          disabled={disabled}
+          placeholder="Select source type"
+          options={[
+            { label: "CSV", value: "csv" },
+            { label: "Excel", value: "excel" },
+          ]}
+          style={{ width: "100%" }}
+        />
+      </div>
+      <small className="upload-control-help">
         Choose the source type before upload so file compatibility can be validated.
       </small>
     </div>

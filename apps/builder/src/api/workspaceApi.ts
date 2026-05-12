@@ -43,6 +43,18 @@ export async function createWorkspace(name: string): Promise<WorkspaceResponse> 
   return response.json() as Promise<WorkspaceResponse>;
 }
 
+export async function listWorkspaces(): Promise<WorkspaceResponse[]> {
+  const response = await fetch(`${appConfig.apiBaseUrl()}/workspaces`, {
+    method: "GET",
+  });
+
+  if (!response.ok) {
+    await throwApiRequestError(response, "Failed to load workspaces");
+  }
+
+  return response.json() as Promise<WorkspaceResponse[]>;
+}
+
 export async function uploadSource(
   workspaceId: string,
   file: File,
@@ -186,3 +198,4 @@ export async function importManifest(manifest: ManifestResponse): Promise<Worksp
 
   return response.json() as Promise<WorkspaceResponse>;
 }
+

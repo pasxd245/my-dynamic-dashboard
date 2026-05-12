@@ -1,4 +1,8 @@
+import { Steps, Typography } from "antd";
+import type { StepsProps } from "antd";
 import type { UploadStepKey, UploadStepNavItem } from "./uploadStageModel";
+
+const { Title } = Typography;
 
 interface UploadStageSidebarProps {
   readonly items: UploadStepNavItem[];
@@ -8,6 +12,17 @@ interface UploadStageSidebarProps {
   readonly onBlockedSelect?: (step: UploadStepKey, reason: string) => void;
 }
 
+function deriveStatus(
+  step: UploadStepNavItem,
+  activeStep: UploadStepKey,
+  index: number,
+  activeIndex: number,
+): NonNullable<NonNullable<StepsProps["items"]>[number]["status"]> {
+  if (step.key === activeStep) return "process";
+  if (step.blockedReason) return "wait";
+  return index < activeIndex ? "finish" : "wait";
+}
+
 export default function UploadStageSidebar({
   items,
   activeStep,
@@ -15,68 +30,46 @@ export default function UploadStageSidebar({
   blockNavigation = false,
   onBlockedSelect,
 }: UploadStageSidebarProps): React.ReactElement {
+  const activeIndex = items.findIndex((s) => s.key === activeStep);
+
+  const stepsItems: StepsProps["items"] = items.map((step, index) => ({
+    title: step.title,
+    content: step.subtitle,
+    status: deriveStatus(step, activeStep, index, activeIndex),
+    disabled: blockNavigation,
+  }));
+
+  const handleChange = (index: number): void => {
+    if (blockNavigation) return;
+    const step = items[index];
+    if (!step) return;
+    if (step.blockedReason) {
+      onBlockedSelect?.(step.key, step.blockedReason);
+      return;
+    }
+    onSelectStep(step.key);
+  };
+
   return (
     <aside
+      data-testid="upload-stage-sidebar"
+      aria-label="Upload steps"
       style={{
         flex: "0 0 14rem",
-        borderRight: "1px solid var(--color-gray-2)",
-        background: "linear-gradient(180deg, var(--color-gray-1) 0%, var(--color-gray-2) 100%)",
-        padding: "1rem",
+        borderRight: "1px solid var(--surface-line)",
+        background: "var(--color-gray-1)",
+        padding: 16,
       }}
     >
-      <h3 style={{ marginTop: 0, marginBottom: "0.9rem", color: "var(--color-dark-blue)" }}>Upload Steps</h3>
-      <div style={{ display: "grid", gap: "0.5rem" }}>
-        {items.map((step, index) => {
-          const isActive = activeStep === step.key;
-          const isDisabled = blockNavigation;
-          let background = "var(--color-off-white)";
-          if (step.blockedReason) {
-            background = "var(--color-gray-1)";
-          }
-          if (isActive) {
-            background = "var(--color-white)";
-          }
-
-          let opacity = 1;
-          if (step.blockedReason) {
-            opacity = 0.78;
-          }
-          if (isDisabled) {
-            opacity = 0.55;
-          }
-          return (
-            <button
-              key={step.key}
-              type="button"
-              className="upload-step-button"
-              disabled={isDisabled}
-              aria-current={isActive ? "step" : undefined}
-              data-testid={`upload-step-${step.key}`}
-              onClick={() => {
-                if (step.blockedReason) {
-                  onBlockedSelect?.(step.key, step.blockedReason);
-                  return;
-                }
-                onSelectStep(step.key);
-              }}
-              style={{
-                textAlign: "left",
-                borderRadius: "var(--radius-md)",
-                border: isActive ? "1px solid var(--color-blue)" : "1px solid var(--color-gray-2)",
-                background,
-                color: isActive ? "var(--color-blue)" : "var(--color-dark-blue)",
-                padding: "0.55rem 0.6rem",
-                cursor: isDisabled ? "not-allowed" : "pointer",
-                opacity,
-                transition: "background 120ms ease, border-color 120ms ease",
-              }}
-            >
-              <strong style={{ display: "block", fontSize: "0.9rem" }}>{`${index + 1}. ${step.title}`}</strong>
-              <small>{step.subtitle}</small>
-            </button>
-          );
-        })}
-      </div>
+      <Title level={5} style={{ marginTop: 0, marginBottom: 12 }}>
+        Upload Steps
+      </Title>
+      <Steps
+        orientation="vertical"
+        current={Math.max(activeIndex, 0)}
+        items={stepsItems}
+        onChange={handleChange}
+      />
     </aside>
   );
 }

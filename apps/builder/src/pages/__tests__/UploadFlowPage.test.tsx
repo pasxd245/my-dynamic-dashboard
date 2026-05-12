@@ -14,6 +14,12 @@ import {
 } from "../../components/upload-flow/sourceTypeRules";
 import { useUploadFlowStore } from "../../state/uploadFlowStore";
 
+function stepItem(title: string): HTMLElement {
+  const el = screen.getByText(title).closest(".ant-steps-item");
+  if (!el) throw new Error(`Step item for ${title} not found`);
+  return el as HTMLElement;
+}
+
 describe("Upload flow source-type compatibility (US1)", () => {
   it("renders upload sidebar steps and marks the active step", () => {
     render(
@@ -30,9 +36,9 @@ describe("Upload flow source-type compatibility (US1)", () => {
       />,
     );
 
-    expect(screen.getByTestId("upload-step-workspace")).toBeTruthy();
-    expect(screen.getByTestId("upload-step-source").getAttribute("aria-current")).toBe("step");
-    expect(screen.getByTestId("upload-step-submit")).toBeTruthy();
+    expect(screen.getByText("Workspace")).toBeTruthy();
+    expect(stepItem("Source").className).toContain("ant-steps-item-process");
+    expect(screen.getByText("Submit")).toBeTruthy();
   });
 
   it("shows blocked-stage guidance when a downstream step is selected too early", () => {
@@ -53,7 +59,7 @@ describe("Upload flow source-type compatibility (US1)", () => {
       />,
     );
 
-    fireEvent.click(screen.getByTestId("upload-step-source"));
+    fireEvent.click(stepItem("Source"));
 
     expect(onBlockedSelect).toHaveBeenCalledWith(
       "source",
@@ -126,6 +132,7 @@ describe("Upload flow sheet-picker behavior (US2)", () => {
     );
 
     expect(screen.getByLabelText("Excel sheet")).toBeTruthy();
+    fireEvent.mouseDown(screen.getByRole("combobox"));
     expect(screen.getByRole("option", { name: "Summary" })).toBeTruthy();
     expect(screen.getByRole("option", { name: "Revenue" })).toBeTruthy();
   });
@@ -167,8 +174,8 @@ describe("Upload flow progress behavior (US3)", () => {
       />,
     );
 
-    expect(screen.getByTestId("upload-step-workspace").getAttribute("disabled")).not.toBeNull();
-    expect(screen.getByTestId("upload-step-submit").getAttribute("disabled")).not.toBeNull();
+    expect(stepItem("Workspace").className).toContain("ant-steps-item-disabled");
+    expect(stepItem("Submit").className).toContain("ant-steps-item-disabled");
   });
 
   it("stores upload progress lifecycle states", () => {

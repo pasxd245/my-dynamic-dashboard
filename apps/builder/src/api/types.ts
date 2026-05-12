@@ -17,6 +17,10 @@ export interface WorkspaceResponse {
   name: string;
 }
 
+export interface WorkspaceListResponse {
+  workspaces: WorkspaceResponse[];
+}
+
 export interface UploadResponse {
   source_id: string;
   warnings: string[];

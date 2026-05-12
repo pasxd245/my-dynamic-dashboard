@@ -1,9 +1,18 @@
+import { Alert, Button, Flex, Tag, Typography } from "antd";
 import type { ConnectionStatus } from "../../api/types";
 
+const { Text, Paragraph } = Typography;
+
+const STATUS_COLOR: Record<ConnectionStatus["status"], string> = {
+  ready: "success",
+  degraded: "warning",
+  unavailable: "error",
+};
+
 export interface ConnectionStatusBannerProps {
-  connectionStatus?: ConnectionStatus;
-  isRefreshing?: boolean;
-  onRefresh?: () => void;
+  readonly connectionStatus?: ConnectionStatus;
+  readonly isRefreshing?: boolean;
+  readonly onRefresh?: () => void;
 }
 
 function formatLastChecked(timestamp?: string): string {
@@ -17,57 +26,49 @@ function formatLastChecked(timestamp?: string): string {
   return parsed.toLocaleString();
 }
 
-function badgeClasses(status: ConnectionStatus["status"]): string {
-  if (status === "ready") {
-    return "bg-emerald-100 text-emerald-800";
-  }
-  if (status === "degraded") {
-    return "bg-amber-100 text-amber-800";
-  }
-  return "bg-rose-100 text-rose-800";
-}
-
 export default function ConnectionStatusBanner({
   connectionStatus,
   isRefreshing = false,
   onRefresh,
 }: ConnectionStatusBannerProps): React.ReactElement {
   if (!connectionStatus) {
-    return (
-      <div className="rounded-md border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
-        Connection status is loading.
-      </div>
-    );
+    return <Alert type="info" showIcon description="Connection status is loading." />;
   }
 
   return (
-    <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <span
-              className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${badgeClasses(connectionStatus.status)}`}
-            >
-              {connectionStatus.status.toUpperCase()}
-            </span>
-            <span className="text-xs text-slate-600">
-              Last checked: {formatLastChecked(connectionStatus.last_checked_at_utc)}
-            </span>
-          </div>
-          <p className="text-sm font-medium text-slate-800">{connectionStatus.summary}</p>
-          <p className="text-sm text-slate-700">{connectionStatus.guidance}</p>
-        </div>
-        {onRefresh && (
-          <button
-            type="button"
-            onClick={onRefresh}
-            disabled={isRefreshing}
-            className="rounded border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-800 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {isRefreshing ? "Refreshing..." : "Refresh"}
-          </button>
-        )}
+    <Flex
+      align="flex-start"
+      justify="space-between"
+      gap={12}
+      wrap="wrap"
+      style={{
+        border: "1px solid var(--surface-line)",
+        borderRadius: "var(--radius-sm)",
+        background: "var(--color-white)",
+        padding: 12,
+      }}
+    >
+      <div style={{ minWidth: 0, flex: "1 1 240px" }}>
+        <Flex align="center" gap={8} wrap="wrap">
+          <Tag color={STATUS_COLOR[connectionStatus.status]} style={{ marginInlineEnd: 0 }}>
+            {connectionStatus.status.toUpperCase()}
+          </Tag>
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            Last checked: {formatLastChecked(connectionStatus.last_checked_at_utc)}
+          </Text>
+        </Flex>
+        <Paragraph strong style={{ marginTop: 8, marginBottom: 4 }}>
+          {connectionStatus.summary}
+        </Paragraph>
+        <Paragraph style={{ margin: 0, color: "var(--color-gray-4)" }}>
+          {connectionStatus.guidance}
+        </Paragraph>
       </div>
-    </div>
+      {onRefresh ? (
+        <Button onClick={onRefresh} disabled={isRefreshing} loading={isRefreshing}>
+          {isRefreshing ? "Refreshing..." : "Refresh"}
+        </Button>
+      ) : null}
+    </Flex>
   );
 }

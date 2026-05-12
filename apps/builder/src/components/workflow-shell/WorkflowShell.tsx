@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { Alert, Button, Col, Flex, Row, Tag, Typography } from "antd";
 import ActiveContextBar from "./ActiveContextBar";
 import ConnectionStatusBanner from "./ConnectionStatusBanner";
 import type {
@@ -7,6 +8,15 @@ import type {
   WorkflowStage,
   WorkflowStageKey,
 } from "../../api/types";
+
+const { Title } = Typography;
+
+const STATUS_COLOR: Record<WorkflowStage["status"], string> = {
+  completed: "success",
+  in_progress: "processing",
+  ready: "default",
+  locked: "error",
+};
 
 export interface WorkflowShellProps {
   readonly title?: string;
@@ -24,19 +34,6 @@ export interface WorkflowShellProps {
   readonly onRefreshConnectionStatus?: () => void;
   readonly blockContextGuardedStages?: boolean;
   readonly onReselectContext?: () => void;
-}
-
-function badgeToneForStatus(status: WorkflowStage["status"]): string {
-  if (status === "completed") {
-    return "bg-emerald-100 text-emerald-800";
-  }
-  if (status === "in_progress") {
-    return "bg-blue-100 text-blue-800";
-  }
-  if (status === "ready") {
-    return "bg-slate-100 text-slate-700";
-  }
-  return "bg-rose-100 text-rose-700";
 }
 
 export default function WorkflowShell({
@@ -61,33 +58,32 @@ export default function WorkflowShell({
   const renderStageButton = (stage: WorkflowStage): React.ReactElement => {
     const isActive = stage.stage_key === activeStage;
     const isLocked = stage.status === "locked";
-    const statusTone = badgeToneForStatus(stage.status);
 
     return (
-      <button
+      <Button
         key={stage.stage_key}
-        type="button"
         onClick={() => {
           if (!isLocked) {
             onSelectStage?.(stage.stage_key);
           }
         }}
         disabled={isLocked}
-        className={`rounded-md border px-3 py-2 text-left text-sm shadow-none transition ${
-          isActive
-            ? "border-slate-900 bg-slate-900 text-white hover:bg-slate-800"
-            : "border-slate-200 bg-white text-slate-800"
-        } ${isLocked || isActive ? "" : "hover:border-slate-300 hover:bg-slate-50"} ${
-          isLocked ? "cursor-not-allowed opacity-60" : ""
-        }`}
+        type={isActive ? "primary" : "default"}
+        block
+        style={{
+          height: "auto",
+          padding: "10px 12px",
+          textAlign: "left",
+          whiteSpace: "normal",
+        }}
       >
-        <div className="flex items-center gap-2">
-          <span className="font-semibold">{stage.title}</span>
-          <span className={`rounded px-2 py-0.5 text-xs font-semibold ${statusTone}`}>
+        <Flex align="center" gap={8} justify="space-between">
+          <span style={{ fontWeight: 600 }}>{stage.title}</span>
+          <Tag color={STATUS_COLOR[stage.status]} style={{ marginInlineEnd: 0 }}>
             {stage.status}
-          </span>
-        </div>
-      </button>
+          </Tag>
+        </Flex>
+      </Button>
     );
   };
 
@@ -98,89 +94,90 @@ export default function WorkflowShell({
 
     const missing = activeStageInfo.missing_prerequisites ?? activeStageInfo.prerequisites;
     const previousStageKey = activeStageInfo.previous_stage_key;
-    return (
-      <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
-        <p className="font-semibold">This stage is blocked by prerequisites.</p>
+    const description = (
+      <Flex vertical gap={8}>
+        <strong>This stage is blocked by prerequisites.</strong>
         {missing.length > 0 ? (
-          <ul className="mt-2 list-disc pl-5">
+          <ul style={{ margin: 0, paddingInlineStart: 20 }}>
             {missing.map((item) => (
               <li key={item}>{item}</li>
             ))}
           </ul>
         ) : null}
-        <div className="mt-3 flex flex-wrap gap-2">
+        <Flex gap={8} wrap="wrap">
           {previousStageKey ? (
-            <button
-              type="button"
-              onClick={() => onSelectStage?.(previousStageKey)}
-              className="rounded border-0 bg-slate-800 px-3 py-1.5 font-medium text-white shadow-none hover:bg-slate-900"
-            >
+            <Button type="primary" onClick={() => onSelectStage?.(previousStageKey)}>
               Go to previous stage
-            </button>
+            </Button>
           ) : null}
-          {onReselectContext && activeStageInfo.prerequisites.includes("active_context_resolved") ? (
-            <button
-              type="button"
-              onClick={onReselectContext}
-              className="rounded border border-amber-500 bg-amber-500 px-3 py-1.5 font-medium text-white shadow-none hover:brightness-110"
-            >
+          {onReselectContext &&
+          activeStageInfo.prerequisites.includes("active_context_resolved") ? (
+            <Button danger type="primary" onClick={onReselectContext}>
               Resolve active context
-            </button>
+            </Button>
           ) : null}
-        </div>
-      </div>
+        </Flex>
+      </Flex>
     );
+
+    return <Alert type="warning" showIcon description={description} />;
   };
 
   return (
     <section
       aria-label="builder-workflow-shell"
       data-testid="builder-workflow-shell"
-      className="page-card stack-4"
+      className="page-card"
     >
-      <header className="space-y-3">
-        <h1 className="text-xl font-bold text-slate-900">{title}</h1>
-        <ActiveContextBar
-          workspaceName={workspaceName}
-          sourceName={sourceName}
-          workspaceState={workspaceState}
-          sourceState={sourceState}
-        />
-        <ConnectionStatusBanner
-          connectionStatus={connectionStatus}
-          isRefreshing={isRefreshingConnectionStatus}
-          onRefresh={onRefreshConnectionStatus}
-        />
+      <Flex vertical gap={16}>
+        <Flex vertical gap={12}>
+          <Title level={3} style={{ margin: 0 }}>
+            {title}
+          </Title>
+          <ActiveContextBar
+            workspaceName={workspaceName}
+            sourceName={sourceName}
+            workspaceState={workspaceState}
+            sourceState={sourceState}
+          />
+          <ConnectionStatusBanner
+            connectionStatus={connectionStatus}
+            isRefreshing={isRefreshingConnectionStatus}
+            onRefresh={onRefreshConnectionStatus}
+          />
 
-        {stages.length > 0 ? (
-          <nav aria-label="workflow-stages" className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-            {stages.map((stage) => renderStageButton(stage))}
-          </nav>
-        ) : null}
+          {stages.length > 0 ? (
+            <Row gutter={[8, 8]} aria-label="workflow-stages" role="navigation">
+              {stages.map((stage) => (
+                <Col key={stage.stage_key} xs={24} sm={12} lg={6}>
+                  {renderStageButton(stage)}
+                </Col>
+              ))}
+            </Row>
+          ) : null}
 
-        {blockContextGuardedStages && (
-          <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
-            Query and saved-query stages are locked until workspace/source context is resolved.
-            {onReselectContext && (
-              <div className="mt-2">
-                <button
-                  type="button"
-                  onClick={onReselectContext}
-                  className="rounded border-0 bg-amber-600 px-3 py-1.5 font-medium text-white shadow-none hover:bg-amber-700"
-                >
-                  Reselect Context
-                </button>
-              </div>
-            )}
-          </div>
-        )}
+          {blockContextGuardedStages ? (
+            <Alert
+              type="warning"
+              showIcon
+              description="Query and saved-query stages are locked until workspace/source context is resolved."
+              action={
+                onReselectContext ? (
+                  <Button danger type="primary" onClick={onReselectContext}>
+                    Reselect Context
+                  </Button>
+                ) : null
+              }
+            />
+          ) : null}
 
-        {renderPrerequisiteCallout()}
-      </header>
-      <div>
-        {stageContent && activeStage ? stageContent[activeStage] : null}
-        {children}
-      </div>
+          {renderPrerequisiteCallout()}
+        </Flex>
+        <div>
+          {stageContent && activeStage ? stageContent[activeStage] : null}
+          {children}
+        </div>
+      </Flex>
     </section>
   );
 }

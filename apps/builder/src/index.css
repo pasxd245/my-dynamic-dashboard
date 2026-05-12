@@ -1,8 +1,21 @@
 @import url("https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&family=Poppins:wght@400;500;600;700&display=swap");
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* Cascade-layer order: declarations on the right WIN over declarations on
+   the left. `antd` is rightmost, so AntD's runtime-injected styles (via
+   `<StyleProvider layer>` in main.tsx) always win over Tailwind's
+   preflight resets that strip `<button>` / `<input>` chrome. Required
+   per https://ant.design/docs/react/compatible-style#tailwindcss-3.x. */
+@layer tailwind-base, tailwind-components, tailwind-utilities, antd;
+
+@layer tailwind-base {
+	@tailwind base;
+}
+@layer tailwind-components {
+	@tailwind components;
+}
+@layer tailwind-utilities {
+	@tailwind utilities;
+}
 
 :root {
 	/* Theme color */
@@ -144,6 +157,162 @@ textarea:not([class*="ant-"]):focus-visible {
 
 .upload-step-button * {
 	color: inherit;
+}
+
+/* ----------------------------------------------------------------------
+   Guided Upload master control styles
+   ---------------------------------------------------------------------- */
+
+.upload-control-group {
+	display: grid;
+	gap: 0.4rem;
+	max-width: 22rem;
+}
+
+.upload-control-group--spaced {
+	margin-top: 0.5rem;
+}
+
+.upload-control-label {
+	font-weight: 600;
+	color: var(--color-dark-blue);
+}
+
+.upload-control-help {
+	margin: 0;
+	color: #596286;
+	font-size: 0.95rem;
+	line-height: 1.35;
+}
+
+.upload-control-shell {
+	min-height: 2.5rem;
+	display: flex;
+	align-items: center;
+	border: 1px solid #cfd4eb;
+	border-radius: var(--radius-md);
+	background: var(--color-white);
+	padding: 0 0.2rem;
+	transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.upload-control-shell:hover {
+	border-color: #8a93c8;
+}
+
+.upload-control-shell:focus-within {
+	border-color: var(--color-blue);
+	box-shadow: 0 0 0 2px rgba(79, 69, 182, 0.16);
+}
+
+.upload-control-shell.is-disabled {
+	border-color: #c6cce7;
+	background: #f6f7ff;
+}
+
+/* Guided upload native file input keeps browser behavior, but themed chrome. */
+.upload-file-input {
+	width: 100%;
+	max-width: 34rem;
+	min-height: 2.5rem;
+	padding: 0.35rem 0.45rem;
+	border: 1px solid var(--surface-line);
+	border-radius: var(--radius-md);
+	background: var(--color-white);
+	color: var(--color-dark-blue);
+	font: inherit;
+}
+
+.upload-file-input::file-selector-button {
+	height: 2rem;
+	margin-right: 0.6rem;
+	padding: 0 0.85rem;
+	border-radius: var(--radius-sm);
+	border: 1px solid #cfd4eb;
+	background: #f7f8ff;
+	color: #3f4a70;
+	font: inherit;
+	font-weight: 600;
+	cursor: pointer;
+}
+
+.upload-file-input::file-selector-button:hover {
+	background: #eef1ff;
+}
+
+/* Source type select variant styles on top of upload-control primitives. */
+
+.source-type-select .ant-select-selector {
+	background: transparent !important;
+	border: none !important;
+	box-shadow: none !important;
+	min-height: 2.2rem !important;
+	padding-inline: 0.45rem !important;
+}
+
+.source-type-select .ant-select-selection-item {
+	color: var(--color-dark-blue) !important;
+	font-weight: 600;
+	font-size: 1rem;
+}
+
+.source-type-select .ant-select-selection-placeholder {
+	color: #596286 !important;
+	opacity: 1 !important;
+	font-size: 1rem;
+	font-weight: 500;
+}
+
+.source-type-select .ant-select-arrow {
+	color: #5f688d !important;
+}
+
+.source-type-select.ant-select:not(.ant-select-disabled):hover .ant-select-selector {
+	border-color: transparent !important;
+}
+
+.source-type-select.ant-select-focused .ant-select-selector {
+	border-color: transparent !important;
+	box-shadow: none !important;
+}
+
+.source-type-select.ant-select-open .ant-select-selector {
+	border-color: transparent !important;
+	box-shadow: none !important;
+}
+
+.source-type-select.ant-select-disabled .ant-select-selector {
+	border-color: transparent !important;
+	background: transparent !important;
+}
+
+.upload-sheet-select {
+	width: 100%;
+}
+
+.upload-sheet-select .ant-select-selector {
+	background: transparent !important;
+	border: none !important;
+	box-shadow: none !important;
+	min-height: 2.2rem !important;
+	padding-inline: 0.45rem !important;
+}
+
+.upload-sheet-select .ant-select-selection-item {
+	color: var(--color-dark-blue) !important;
+	font-size: 1rem;
+	font-weight: 600;
+}
+
+.upload-sheet-select .ant-select-selection-placeholder {
+	color: #596286 !important;
+	opacity: 1 !important;
+	font-size: 1rem;
+	font-weight: 500;
+}
+
+.upload-sheet-select .ant-select-arrow {
+	color: #5f688d !important;
 }
 
 /* TanStack-rendered tables use these classes for consistent visual chrome

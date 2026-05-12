@@ -8,6 +8,8 @@ from app.services.builder_session_service import BuilderSessionService
 from app.services.upload_service import utc_now_iso
 from app.shared import current_db_path
 
+ListWorkspacesResponse = list[WorkspaceResponse]
+
 
 class WorkspaceApp:
     def __init__(
@@ -49,6 +51,22 @@ class WorkspaceApp:
             status="draft",
             manifest_version=1,
         )
+
+    def list_workspaces(self) -> ListWorkspacesResponse:
+        with get_connection(current_db_path()) as conn:
+            rows = conn.execute(
+                "SELECT id, name, status, manifest_version FROM workspaces ORDER BY updated_at DESC"
+            ).fetchall()
+
+        return [
+            WorkspaceResponse(
+                id=str(row["id"]),
+                name=str(row["name"]),
+                status=str(row["status"]),
+                manifest_version=int(row["manifest_version"]),
+            )
+            for row in rows
+        ]
 
 
 WORKSPACE_APP = WorkspaceApp()

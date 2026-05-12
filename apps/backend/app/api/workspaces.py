@@ -26,6 +26,11 @@ def create_workspace(request: WorkspaceCreateRequest) -> WorkspaceResponse:
     return WORKSPACE_APP.create_workspace(request)
 
 
+@router.get("/api/v1/workspaces")
+def list_workspaces() -> list[WorkspaceResponse]:
+    return WORKSPACE_APP.list_workspaces()
+
+
 @router.put("/api/v1/workspaces/active-context")
 def set_active_context(request: SetActiveContextRequest):
     workspace_id = request.workspace_id.strip()

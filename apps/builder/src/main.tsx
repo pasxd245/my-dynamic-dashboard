@@ -1,7 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
-import { ConfigProvider } from "antd";
+import { App as AntApp, ConfigProvider } from "antd";
 import { StyleProvider } from "@ant-design/cssinjs";
 import App from "./App";
 import "./index.css";
@@ -14,9 +14,11 @@ async function bootstrap() {
     <React.StrictMode>
       <StyleProvider layer hashPriority="high">
         <ConfigProvider theme={antdTheme}>
-          <BrowserRouter>
-            <App />
-          </BrowserRouter>
+          <AntApp>
+            <BrowserRouter>
+              <App />
+            </BrowserRouter>
+          </AntApp>
         </ConfigProvider>
       </StyleProvider>
     </React.StrictMode>,

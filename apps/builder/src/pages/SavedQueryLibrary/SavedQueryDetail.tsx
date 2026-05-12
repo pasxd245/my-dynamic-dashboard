@@ -11,6 +11,7 @@
 
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { Button } from "antd";
 import {
   getSavedQuery,
   loadSavedQuery,
@@ -250,12 +251,13 @@ export default function SavedQueryDetail({
               </div>
             )}
           </div>
-          <button
+          <Button
             onClick={() => navigate("/saved-queries")}
-            className="text-gray-500 hover:text-gray-700"
+            type="text"
+            className="!text-gray-500 hover:!text-gray-700"
           >
             ✕
-          </button>
+          </Button>
         </div>
 
         {/* Error */}
@@ -279,14 +281,15 @@ export default function SavedQueryDetail({
               ))}
             </ul>
             <div className="mt-4 flex gap-2">
-              <button
+              <Button
                 onClick={() => setLoadState(null)}
-                className="rounded border border-yellow-600 px-3 py-1 text-sm font-medium text-yellow-600 hover:bg-yellow-100"
+                type="default"
+                className="!border-yellow-600 !text-yellow-700"
               >
                 Cancel
-              </button>
+              </Button>
               {loadState.canLoad && (
-                <button
+                <Button
                   onClick={() => {
                     if (loadState && query.latest_version) {
                       if (onLoadInBuilder) {
@@ -295,10 +298,11 @@ export default function SavedQueryDetail({
                       navigate("/query-builder");
                     }
                   }}
-                  className="rounded bg-yellow-600 px-3 py-1 text-sm font-medium text-white hover:bg-yellow-700"
+                  type="primary"
+                  className="!bg-yellow-600"
                 >
                   Load Anyway
-                </button>
+                </Button>
               )}
             </div>
           </div>
@@ -357,36 +361,39 @@ export default function SavedQueryDetail({
 
         {/* Actions */}
         <div className="flex gap-2">
-          <button
+          <Button
             onClick={handleLoadInBuilder}
             disabled={actionInProgress !== null || query.deleted_at !== null}
-            className="rounded bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+            type="primary"
           >
             {actionInProgress === "load" ? "Loading..." : "Load in Builder"}
-          </button>
-          <button
+          </Button>
+          <Button
             onClick={handleDuplicate}
             disabled={actionInProgress !== null || query.deleted_at !== null}
-            className="rounded border border-blue-600 px-4 py-2 font-medium text-blue-600 hover:bg-blue-50 disabled:opacity-50"
+            type="default"
+            className="!border-blue-600 !text-blue-600"
           >
             Duplicate
-          </button>
+          </Button>
           {!query.deleted_at ? (
-            <button
+            <Button
               onClick={handleDelete}
               disabled={actionInProgress !== null}
-              className="rounded border border-red-600 px-4 py-2 font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
+              danger
+              type="default"
             >
               {actionInProgress === "delete" ? "Deleting..." : "Delete"}
-            </button>
+            </Button>
           ) : (
-            <button
+            <Button
               onClick={handleRestore}
               disabled={actionInProgress !== null}
-              className="rounded bg-green-600 px-4 py-2 font-medium text-white hover:bg-green-700 disabled:opacity-50"
+              type="primary"
+              className="!bg-green-600"
             >
               {actionInProgress === "restore" ? "Restoring..." : "Restore"}
-            </button>
+            </Button>
           )}
         </div>
 

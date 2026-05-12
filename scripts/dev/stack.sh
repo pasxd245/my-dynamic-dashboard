@@ -69,6 +69,7 @@ stop_local() {
 
   pkill -f "uvicorn app.main:app" || true
   pkill -f "vite --host 0.0.0.0 --port 3000" || true
+  pkill -f "node .*vite\.js.*--host 0\.0\.0\.0.*--port 3000" || true
   pkill -f "streamlit run streamlit_app.py" || true
 }
 

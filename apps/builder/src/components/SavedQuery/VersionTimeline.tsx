@@ -10,6 +10,7 @@
  */
 
 import { SavedQueryVersionResponse } from "../../api/queryApi";
+import { Button } from "antd";
 
 export interface VersionTimelineProps {
   versions: SavedQueryVersionResponse[];
@@ -85,13 +86,14 @@ export default function VersionTimeline({
               </div>
 
               {index > 0 && onLoadVersion && (
-                <button
+                <Button
                   onClick={() => onLoadVersion(version.version_id, version.version_number)}
                   disabled={isLoading}
-                  className="ml-4 rounded bg-blue-100 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-200 disabled:opacity-50"
+                  type="default"
+                  className="ml-4 !border-blue-200 !bg-blue-100 !text-blue-700"
                 >
                   Load v{version.version_number}
-                </button>
+                </Button>
               )}
             </div>
           </div>

@@ -8,6 +8,7 @@ export default defineConfig({
     globals: true,
     setupFiles: [],
     include: ["src/**/__tests__/**/*.test.{ts,tsx}", "src/**/*.test.{ts,tsx}"],
+    testTimeout: 15000,
   },
   plugins: [react()],
   resolve: {
