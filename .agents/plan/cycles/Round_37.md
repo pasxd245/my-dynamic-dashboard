@@ -1,8 +1,8 @@
 # Round 37: AntD chain step 3 — Feedback layer migration
 
-**Status**: In Progress
+**Status**: Complete ✅
 **Date started**: 2026-05-12
-**Date completed**:
+**Date completed**: 2026-05-12
 
 **Governance**: Spec-Kit PDCA (Plan -> Do -> Check -> Act)
 
@@ -52,40 +52,32 @@ and are deleted (no other consumers per grep).
   `App as AntApp` from antd) under the existing `<ConfigProvider>` so
   `App.useApp()` returns real `message` / `notification` / `modal`
   instances. Component order: `StyleProvider > ConfigProvider > AntApp
-    > BrowserRouter > App`. -`apps/builder/src/components/upload-flow/UploadLoadingMask.tsx`:
-  rebuilt with AntD`<Spin size="large">` + `Typography.Text` for the
-  title/message lines, kept the absolute-positioned overlay shell so
-  `scope="container"` semantics hold. Removed dependency on the
-  hand-rolled `feedback/LoadingMask.tsx`. -`apps/builder/src/components/upload-flow/UploadStageSidebar.tsx`:
-  rebuilt with AntD`<Steps orientation="vertical">` (v6: `direction`
-  deprecated → `orientation`); per-step`status` derived from
-  active/blocked/finished state via `deriveStatus` helper;
-  `items.content`carries the subtitle (`description` is deprecated in
-  v6); `onChange` routes through `onBlockedSelect` when the step is
-  blocked, else `onSelectStep`. Whole-component disable via
-  `items[].disabled = blockNavigation`. Removed all inline
-  `style={{ background, border, opacity }}` per-state hacks. - `apps/builder/src/App.tsx`: - Removed`toasts` state, `setToasts`, the 3.2 s clear-timer
-  useEffect, and the`AppToast` type import. - Added `const { message: messageApi } = AntApp.useApp();`
-  (renamed to avoid the existing local `message` state variable). - `pushToast(tone, text)` reduced to `messageApi?.[tone]?.(text)`;
-  optional chaining hardens the call against unwrapped contexts
-  (e.g. test renders that don't include`<AntApp>`). - Removed`<UploadToastStack toasts={toasts} />` from the upload
-  source panel. - Deletions (no other importers per grep): - `apps/builder/src/components/feedback/` (whole directory:
-  `LoadingMask.tsx`,`ToastStack.tsx`,`index.ts`). -`apps/builder/src/components/upload-flow/UploadToastStack.tsx`. -`apps/builder/src/components/**tests**/UploadToastStack.test.tsx`
-  (tests a deleted component). - `apps/builder/src/components/upload-flow/index.ts`: dropped the
-  `UploadToastStack` + `UploadToast` / `UploadToastTone` exports. - Test updates: - `apps/builder/src/pages/**tests**/UploadFlowPage.test.tsx`:
-  replaced`data-testid="upload-step-*"` lookups with a
-  `stepItem(title)` helper that resolves `.ant-steps-item` via
-  the step's visible title. Active-step assertion now checks
-  for class `ant-steps-item-process`; blocked nav assertion
-  checks for`ant-steps-item-disabled`. -`apps/builder/src/pages/**tests**/UploadFlowFeedback.test.tsx`:
-  `renderApp()` now wraps `<App />` in `<AntApp>` so the
-  `useApp()` context is populated. - `apps/builder/vite.config.ts`: bumped`testTimeout` from the
-  5 s default to 15 s. The AntApp + Steps + ConfigProvider
-  rendering chain pushes the end-to-end App-rendering tests
-  from ~3 s to ~7 s per test; 15 s caps with comfortable margin. - Verification: - `pnpm exec tsc --noEmit` → no new errors in migrated dirs. - `pnpm exec vitest run` → 10 files / 49 tests passing (was
-  11/51 — −2 from the deleted `UploadToastStack` test file). - `pnpm exec vite build` → 1004 kB raw / 319 kB gzip (was 305 kB
-  after Round 36; +14 kB for AntD Steps + Spin + App message
-  portal). CSS bundle unchanged at 4.71 kB gzip.
+  > BrowserRouter > App`. -`apps/builder/src/components/upload-flow/UploadLoadingMask.tsx`:
+rebuilt with AntD`<Spin size="large">`+`Typography.Text`for the
+title/message lines, kept the absolute-positioned overlay shell so`scope="container"`semantics hold. Removed dependency on the
+hand-rolled`feedback/LoadingMask.tsx`. -`apps/builder/src/components/upload-flow/UploadStageSidebar.tsx`:
+rebuilt with AntD`<Steps orientation="vertical">`(v6:`direction`deprecated →`orientation`); per-step`status`derived from
+active/blocked/finished state via`deriveStatus`helper;`items.content`carries the subtitle (`description`is deprecated in
+v6);`onChange`routes through`onBlockedSelect`when the step is
+blocked, else`onSelectStep`. Whole-component disable via
+`items[].disabled = blockNavigation`. Removed all inline
+`style={{ background, border, opacity }}`per-state hacks. -`apps/builder/src/App.tsx`: - Removed`toasts`state,`setToasts`, the 3.2 s clear-timer
+useEffect, and the`AppToast`type import. - Added`const { message: messageApi } = AntApp.useApp();`(renamed to avoid the existing local`message`state variable). -`pushToast(tone, text)`reduced to`messageApi?.[tone]?.(text)`;
+optional chaining hardens the call against unwrapped contexts
+(e.g. test renders that don't include`<AntApp>`). - Removed`<UploadToastStack toasts={toasts} />`from the upload
+source panel. - Deletions (no other importers per grep): -`apps/builder/src/components/feedback/`(whole directory:`LoadingMask.tsx`,`ToastStack.tsx`,`index.ts`). -`apps/builder/src/components/upload-flow/UploadToastStack.tsx`. -`apps/builder/src/components/**tests**/UploadToastStack.test.tsx`(tests a deleted component). -`apps/builder/src/components/upload-flow/index.ts`: dropped the
+`UploadToastStack`+`UploadToast`/`UploadToastTone`exports. - Test updates: -`apps/builder/src/pages/**tests**/UploadFlowPage.test.tsx`:
+replaced`data-testid="upload-step-\*"`lookups with a`stepItem(title)`helper that resolves`.ant-steps-item`via
+the step's visible title. Active-step assertion now checks
+for class`ant-steps-item-process`; blocked nav assertion
+checks for`ant-steps-item-disabled`. -`apps/builder/src/pages/**tests**/UploadFlowFeedback.test.tsx`:
+`renderApp()`now wraps`<App />`in`<AntApp>`so the`useApp()`context is populated. -`apps/builder/vite.config.ts`: bumped`testTimeout`from the
+5 s default to 15 s. The AntApp + Steps + ConfigProvider
+rendering chain pushes the end-to-end App-rendering tests
+from ~3 s to ~7 s per test; 15 s caps with comfortable margin. - Verification: -`pnpm exec tsc --noEmit`→ no new errors in migrated dirs. -`pnpm exec vitest run`→ 10 files / 49 tests passing (was
+11/51 — −2 from the deleted`UploadToastStack`test file). -`pnpm exec vite build` → 1004 kB raw / 319 kB gzip (was 305 kB
+  > after Round 36; +14 kB for AntD Steps + Spin + App message
+  > portal). CSS bundle unchanged at 4.71 kB gzip.
 
 ## Check
 
@@ -94,13 +86,21 @@ and are deleted (no other consumers per grep).
 - [x] `pnpm exec tsc --noEmit` → no new errors in migrated dirs
 - [x] `feedback/` directory removed; `UploadToastStack.tsx` removed; barrel
       exports updated; `UploadToastStack.test.tsx` removed
-- [ ] UI bring-up: upload step sidebar renders as vertical AntD Steps;
-      clicking a step works; clicking a blocked step routes through
-      `onBlockedSelect`
-- [ ] UI bring-up: loading mask appears with AntD spinner indicator during
-      validate/upload/discover-sheets phases
-- [ ] UI bring-up: success/info/error toasts appear top-right via AntD
-      `message` and auto-dismiss
+- [~] UI bring-up: upload step sidebar renders as vertical AntD Steps;
+  clicking a step works; clicking a blocked step routes through
+  `onBlockedSelect` — deferred visual QA
+- [~] UI bring-up: loading mask appears with AntD spinner indicator during
+  validate/upload/discover-sheets phases — deferred visual QA
+- [~] UI bring-up: success/info/error toasts appear top-right via AntD
+  `message` and auto-dismiss — deferred visual QA
+
+### Check log (2026-05-12)
+
+- `pnpm exec vitest run` → 12 files / 70 tests passing (post-chain state; Round 37 base was 10 files / 49 tests; +2 files / +21 tests added in Rounds 38-39 with no regression)
+- `pnpm exec vite build` → clean build; Round 37 delta was 319 kB gzip (+14 kB for Steps + Spin + AntApp)
+- `pnpm exec tsc --noEmit` → no new errors in migrated dirs
+- `feedback/` directory deleted; `UploadToastStack.tsx` deleted; barrel exports updated; test file for deleted component removed
+- UI bring-up: deferred manual QA (no dev server in current environment); automated check gate passes
 
 ## Act
 
@@ -130,10 +130,10 @@ and are deleted (no other consumers per grep).
 
 **Promotions**:
 
-- [ ] → context/ — `App.useApp()` testing pattern: when tests render the
+- [x] → context/ — `App.useApp()` testing pattern: when tests render the
       full App component, wrap with `<AntApp>` so `messageApi` is real;
       otherwise guard call sites with optional chaining for resilience.
-- [ ] → skills/ — none in this round.
+- [x] → skills/ — none in this round.
 
 **Next-round decision**:
 
