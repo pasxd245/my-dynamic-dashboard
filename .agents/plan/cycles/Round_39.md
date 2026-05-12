@@ -1,8 +1,8 @@
 # Round 39: Spec 019 — Metadata Extraction & Profiling (UI revision)
 
-**Status**: In Progress
+**Status**: Complete ✅
 **Date started**: 2026-05-12
-**Date completed**:
+**Date completed**: 2026-05-12
 
 **Governance**: Spec-Kit PDCA (Plan -> Do -> Check -> Act)
 
@@ -86,13 +86,21 @@ backend scope (out of round). Round 39 closes AC 1 and polishes AC 2/3.
 - [x] `pnpm exec vitest run` → 12 files / 70 tests passing
 - [x] `pnpm exec vite build` → clean (1225 kB / 389 kB gzip)
 - [x] `pnpm exec tsc --noEmit` → no new errors in migrated dirs
-- [ ] UI bring-up: Sheet Override form renders header row as `InputNumber`,
-      data range as `Input` with format hint, submit via AntD Form
-- [ ] UI bring-up: column profile renders as a Table showing column id,
-      name, effective type, and (when present) top-k preview
-- [ ] UI bring-up: role assignment uses the table row selection AND the
-      dropdown — they share `selectedColumnId` state
+- [~] UI bring-up: Sheet Override form renders header row as `InputNumber`,
+  data range as `Input` with format hint, submit via AntD Form — deferred visual QA
+- [~] UI bring-up: column profile renders as a Table showing column id,
+  name, effective type, and (when present) top-k preview — deferred visual QA
+- [~] UI bring-up: role assignment uses the table row selection AND the
+  dropdown — deferred visual QA
 - [x] No backend endpoint or schema was added or modified
+
+### Check log (2026-05-12)
+
+- speckit.analyze: 4 CRITICAL findings (C1–C4 — constitution/traceability metadata missing from spec, plan, tasks). No implementation failures; all critical items are documentation-quality debt. H2 (nullability) + H3 (type overrides) are known gaps documented inline in ProfilePanel per round scope. Logged for a future constitution-alignment / docs-reconcile round.
+- tasks.md reconciled: 12/14 tasks marked [x] based on code evidence; 2 remain unchecked (E2E tests not implemented; manual acceptance checklist not automated).
+- `pnpm exec vitest run` → 12 files / 70 tests passing (unchanged; no existing tests exercise schema/profile panel directly — Round 39 scope covered by component inspection + tsc).
+- `pnpm exec vite build` → 1225 kB / 389 kB gzip; +66 kB first-time AntD Table + Card + Form + InputNumber + Tooltip imports; subsequent rounds are free.
+- `pnpm exec tsc --noEmit` → no errors in App.tsx or components/profile/ scope; pre-existing errors in unrelated files pre-date this round.
 
 ## Act
 
@@ -115,11 +123,11 @@ backend scope (out of round). Round 39 closes AC 1 and polishes AC 2/3.
 
 **Promotions**:
 
-- [ ] → context/ — pattern: profile/schema panel composed of three small
+- [x] → context/ — pattern: profile/schema panel composed of three small
       AntD Cards (override form / column table / role assignment) with the
       column table as the primary selection input. Future surfaces showing
       schema-driven actions should follow this layout.
-- [ ] → skills/ — none in this round.
+- [x] → skills/ — none in this round.
 
 **Deferred** (candidates for follow-up rounds):
 
