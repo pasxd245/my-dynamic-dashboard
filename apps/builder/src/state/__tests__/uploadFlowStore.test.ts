@@ -7,13 +7,13 @@ afterEach(() => {
 });
 
 describe("uploadFlowStore guided step behavior", () => {
-  it("starts on the workspace step", () => {
-    expect(useUploadFlowStore.getState().focusedStep).toBe("workspace");
+  it("starts on the source step", () => {
+    expect(useUploadFlowStore.getState().focusedStep).toBe("source");
   });
 
   it("resets dependent sheet state when source type changes", () => {
     useUploadFlowStore.setState({
-      focusedStep: "sheet",
+      focusedStep: "extract",
       selectedSourceType: "excel",
       selectedSheetName: "Revenue",
       sheetOptions: [{ name: "Revenue", index: 0 }],
@@ -31,18 +31,18 @@ describe("uploadFlowStore guided step behavior", () => {
     expect(nextState.sheetOptions).toEqual([]);
   });
 
-  it("moves to the sheet step when multiple workbook options are loaded", () => {
+  it("moves to the extract step when multiple workbook options are loaded", () => {
     useUploadFlowStore.getState().setSheetOptions([
       { name: "Summary", index: 0 },
       { name: "Revenue", index: 1 },
     ]);
 
-    expect(useUploadFlowStore.getState().focusedStep).toBe("sheet");
+    expect(useUploadFlowStore.getState().focusedStep).toBe("extract");
   });
 
-  it("moves to submit after a sheet is selected", () => {
+  it("moves to define after a sheet is selected", () => {
     useUploadFlowStore.getState().setSelectedSheetName("Revenue");
 
-    expect(useUploadFlowStore.getState().focusedStep).toBe("submit");
+    expect(useUploadFlowStore.getState().focusedStep).toBe("define");
   });
 });

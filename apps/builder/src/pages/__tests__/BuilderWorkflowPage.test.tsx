@@ -82,21 +82,21 @@ describe("Stage navigation preserves context and connection indicators", () => {
     expect(canUseConnectionDependentActions(resultsState)).toBe(true);
   });
 
-  it("returns guard guidance when a submit step is selected before prerequisites are met", () => {
+  it("returns guard guidance when a define step is selected before prerequisites are met", () => {
     expect(
-      getUploadStepBlockedReason("submit", {
+      getUploadStepBlockedReason("define", {
         workspaceId: "ws-1",
         hasSelectedFile: true,
         selectedSourceType: "excel",
         requiresSheetSelection: true,
         selectedSheetName: null,
       }),
-    ).toBe("Choose an Excel sheet before continuing to submit.");
+    ).toBe("Choose an Excel sheet before continuing.");
   });
 
   it("returns no guard guidance when prerequisites are satisfied", () => {
     expect(
-      getUploadStepBlockedReason("submit", {
+      getUploadStepBlockedReason("define", {
         workspaceId: "ws-1",
         hasSelectedFile: true,
         selectedSourceType: "csv",

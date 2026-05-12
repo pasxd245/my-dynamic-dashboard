@@ -36,9 +36,11 @@ describe("Upload flow source-type compatibility (US1)", () => {
       />,
     );
 
-    expect(screen.getByText("Workspace")).toBeTruthy();
+    expect(screen.getByText("Source")).toBeTruthy();
     expect(stepItem("Source").className).toContain("ant-steps-item-process");
-    expect(screen.getByText("Submit")).toBeTruthy();
+    expect(screen.getByText("Extract")).toBeTruthy();
+    expect(screen.getByText("Define")).toBeTruthy();
+    expect(screen.getByText("Publish")).toBeTruthy();
   });
 
   it("shows blocked-stage guidance when a downstream step is selected too early", () => {
@@ -53,17 +55,17 @@ describe("Upload flow source-type compatibility (US1)", () => {
           requiresSheetSelection: false,
           selectedSheetName: null,
         })}
-        activeStep="workspace"
+        activeStep="source"
         onSelectStep={() => {}}
         onBlockedSelect={onBlockedSelect}
       />,
     );
 
-    fireEvent.click(stepItem("Source"));
+    fireEvent.click(stepItem("Extract"));
 
     expect(onBlockedSelect).toHaveBeenCalledWith(
-      "source",
-      "Create a workspace before moving to the next upload stage.",
+      "extract",
+      "Select or create a workspace before continuing.",
     );
   });
 
@@ -96,7 +98,7 @@ describe("Upload flow sheet-picker behavior (US2)", () => {
         requiresSheetSelection: false,
         selectedSheetName: null,
       }),
-    ).toBe("workspace");
+    ).toBe("source");
 
     expect(
       deriveUploadStep({
@@ -106,7 +108,7 @@ describe("Upload flow sheet-picker behavior (US2)", () => {
         requiresSheetSelection: true,
         selectedSheetName: null,
       }),
-    ).toBe("sheet");
+    ).toBe("extract");
 
     expect(
       deriveUploadStep({
@@ -116,7 +118,7 @@ describe("Upload flow sheet-picker behavior (US2)", () => {
         requiresSheetSelection: false,
         selectedSheetName: null,
       }),
-    ).toBe("submit");
+    ).toBe("define");
   });
 
   it("renders explicit sheet choices when multiple workbook sheets are available", () => {
@@ -168,14 +170,14 @@ describe("Upload flow progress behavior (US3)", () => {
           requiresSheetSelection: false,
           selectedSheetName: null,
         })}
-        activeStep="submit"
+        activeStep="define"
         onSelectStep={() => {}}
         blockNavigation
       />,
     );
 
-    expect(stepItem("Workspace").className).toContain("ant-steps-item-disabled");
-    expect(stepItem("Submit").className).toContain("ant-steps-item-disabled");
+    expect(stepItem("Source").className).toContain("ant-steps-item-disabled");
+    expect(stepItem("Define").className).toContain("ant-steps-item-disabled");
   });
 
   it("stores upload progress lifecycle states", () => {

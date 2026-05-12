@@ -29,7 +29,7 @@ export interface UploadFlowStoreState {
 }
 
 const defaultState = {
-  focusedStep: "workspace" as UploadStepKey,
+  focusedStep: "source" as UploadStepKey,
   selectedSourceType: null,
   selectedSheetName: null,
   sheetOptions: [] as UploadSheetOption[],
@@ -47,22 +47,21 @@ export const useUploadFlowStore = create<UploadFlowStoreState>((set) => ({
     set({
       focusedStep: "source",
       selectedSourceType,
-      // Source changes invalidate sheet selection decisions from a prior source type.
       selectedSheetName: null,
       sheetOptions: [],
     }),
   setSelectedSheetName: (selectedSheetName) =>
     set((state) => ({
-      focusedStep: selectedSheetName ? "submit" : state.focusedStep,
+      focusedStep: selectedSheetName ? "define" : state.focusedStep,
       selectedSheetName,
     })),
   setSheetOptions: (sheetOptions) =>
     set((state) => {
       let nextFocusedStep = state.focusedStep;
       if (sheetOptions.length > 1) {
-        nextFocusedStep = "sheet";
+        nextFocusedStep = "extract";
       } else if (sheetOptions.length === 1) {
-        nextFocusedStep = "submit";
+        nextFocusedStep = "define";
       }
       return {
         focusedStep: nextFocusedStep,

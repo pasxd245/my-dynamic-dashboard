@@ -1,6 +1,6 @@
 import type { UploadSourceType } from "../../api/types";
 
-export type UploadStepKey = "workspace" | "source" | "sheet" | "submit";
+export type UploadStepKey = "source" | "extract" | "define" | "publish";
 
 export interface UploadStepNavItem {
   readonly key: UploadStepKey;
@@ -18,19 +18,27 @@ export interface UploadStepContext {
 }
 
 const uploadStepLabels: Record<UploadStepKey, { title: string; subtitle: string }> = {
-  workspace: { title: "Workspace", subtitle: "Create or pick workspace" },
-  source: { title: "Source", subtitle: "File + source type" },
-  sheet: { title: "Sheet", subtitle: "Excel sheet selection" },
-  submit: { title: "Submit", subtitle: "Upload and continue" },
+  source: { title: "Source", subtitle: "Pick source kind + raw input" },
+  extract: { title: "Extract", subtitle: "Source-specific reading params" },
+  define: { title: "Define", subtitle: "Upload and define schema" },
+  publish: { title: "Publish", subtitle: "Commit as a revision (coming soon)" },
 };
 
-export function getUploadStepBlockedReason(step: UploadStepKey, context: UploadStepContext): string | null {
-  if (step === "workspace") {
-    return null;
-  }
+const WORKSPACE_REQUIRED_REASON =
+  "Select or create a workspace before continuing.";
+const SOURCE_REQUIRED_REASON =
+  "Choose a file and source type before opening downstream stages.";
+const SHEET_REQUIRED_REASON =
+  "Choose an Excel sheet before continuing.";
+const PUBLISH_NOT_READY_REASON =
+  "Publish lands in a later round — continue via Define.";
 
+export function getUploadStepBlockedReason(
+  step: UploadStepKey,
+  context: UploadStepContext,
+): string | null {
   if (!context.workspaceId) {
-    return "Create a workspace before moving to the next upload stage.";
+    return WORKSPACE_REQUIRED_REASON;
   }
 
   if (step === "source") {
@@ -38,38 +46,40 @@ export function getUploadStepBlockedReason(step: UploadStepKey, context: UploadS
   }
 
   if (!context.hasSelectedFile || !context.selectedSourceType) {
-    return "Choose a file and source type before opening downstream stages.";
+    return SOURCE_REQUIRED_REASON;
   }
 
-  if (step === "sheet") {
-    if (context.selectedSourceType !== "excel") {
-      return "Sheet selection is only available for Excel uploads.";
-    }
+  if (step === "extract") {
     return null;
   }
 
   if (context.requiresSheetSelection && !context.selectedSheetName) {
-    return "Choose an Excel sheet before continuing to submit.";
+    return SHEET_REQUIRED_REASON;
   }
 
-  return null;
+  if (step === "define") {
+    return null;
+  }
+
+  // step === "publish"
+  return PUBLISH_NOT_READY_REASON;
 }
 
 export function deriveUploadStep(context: UploadStepContext): UploadStepKey {
   if (!context.workspaceId) {
-    return "workspace";
+    return "source";
   }
   if (!context.hasSelectedFile || !context.selectedSourceType) {
     return "source";
   }
   if (context.requiresSheetSelection && !context.selectedSheetName) {
-    return "sheet";
+    return "extract";
   }
-  return "submit";
+  return "define";
 }
 
 export function buildUploadStepNavItems(context: UploadStepContext): UploadStepNavItem[] {
-  return (["workspace", "source", "sheet", "submit"] as UploadStepKey[]).map((step) => ({
+  return (["source", "extract", "define", "publish"] as UploadStepKey[]).map((step) => ({
     key: step,
     title: uploadStepLabels[step].title,
     subtitle: uploadStepLabels[step].subtitle,

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { App as AntApp, Avatar, Badge, Button, Dropdown, Input, Space } from "antd";
+import { Alert, App as AntApp, Avatar, Badge, Button, Card, Dropdown, Input, Space, Typography } from "antd";
 import { BellOutlined } from "@ant-design/icons";
 import { Routes, Route, useLocation, useNavigate } from "react-router-dom";
 import { FilePlus2, Library, Workflow, ListChecks } from "lucide-react";
@@ -173,8 +173,8 @@ export default function App(): React.ReactElement {
     return true;
   }, [workspaceId, selectedFile, selectedSourceType, isUploading, requiresSheetSelection, selectedSheetName]);
 
-  const canAccessSourceStep = Boolean(workspaceId);
-  const canAccessSubmitStep = canAccessSourceStep && Boolean(selectedFile) && Boolean(selectedSourceType);
+  const canAccessExtractStep =
+    Boolean(workspaceId) && Boolean(selectedFile) && Boolean(selectedSourceType);
   const shouldShowLoadingMask =
     isUploading || progressState === "validating" || progressState === "discovering_sheets";
 
@@ -283,7 +283,7 @@ export default function App(): React.ReactElement {
         if (discovery.requires_sheet_selection) {
           setMessage("Choose an Excel sheet before uploading.");
           setProgressState("idle");
-          setFocusedStep("sheet");
+          setFocusedStep("extract");
           pushToast("info", "Select an Excel sheet to continue.");
           return;
         }
@@ -511,41 +511,35 @@ export default function App(): React.ReactElement {
             background: "#fcfcff",
           }}
         >
-          <header>
-            <h2 style={{ marginBottom: "0.3rem" }}>Guided Upload</h2>
-            <p style={{ margin: 0, color: "#566099" }}>
-              Workspace: <strong>{workspaceId || "(create one first)"}</strong>
-            </p>
+          <header style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
+            <div>
+              <h2 style={{ marginBottom: "0.3rem" }}>Guided Upload</h2>
+              <p style={{ margin: 0, color: "#566099" }}>
+                Workspace: <strong>{workspaceName || workspaceId || "(none selected)"}</strong>
+              </p>
+            </div>
+            <Button onClick={() => setWorkspacePickerOpen(true)}>
+              {workspaceId ? "Change workspace" : "Select or create workspace"}
+            </Button>
           </header>
+
+          {!workspaceId ? (
+            <Alert
+              type="warning"
+              showIcon
+              message="Workspace required"
+              description="Select or create a workspace before starting the upload."
+            />
+          ) : null}
+
+          <WorkspacePicker
+            visible={isWorkspacePickerOpen}
+            onWorkspaceSelected={onWorkspaceSelected}
+            onClose={() => setWorkspacePickerOpen(false)}
+          />
 
           {uploadActionableError ? <ActionableErrorPanel error={uploadActionableError} /> : null}
           <UploadValidationNotice message={stageGuidanceMessage} />
-
-          {focusedUploadStep === "workspace" ? (
-            <section style={{ display: "grid", gap: "0.65rem", maxWidth: "30rem" }}>
-              <p style={{ margin: 0, color: "#49548f" }}>
-                {workspaceId
-                  ? `Active workspace: ${workspaceName || workspaceId}`
-                  : "Select an existing workspace or create a new one before continuing."}
-              </p>
-              <div style={{ display: "flex", gap: "0.6rem", flexWrap: "wrap" }}>
-                <Button type="primary" onClick={() => setWorkspacePickerOpen(true)}>
-                  Select or create workspace
-                </Button>
-                <Button
-                  onClick={() => setFocusedStep("source")}
-                  disabled={!canAccessSourceStep}
-                >
-                  Next: source
-                </Button>
-              </div>
-              <WorkspacePicker
-                visible={isWorkspacePickerOpen}
-                onWorkspaceSelected={onWorkspaceSelected}
-                onClose={() => setWorkspacePickerOpen(false)}
-              />
-            </section>
-          ) : null}
 
           {focusedUploadStep === "source" ? (
             <section style={{ display: "grid", gap: "0.7rem", maxWidth: "34rem" }}>
@@ -554,6 +548,7 @@ export default function App(): React.ReactElement {
                 type="file"
                 accept=".csv,.xlsx,.xlsm,.xlsb,.xls"
                 onChange={(event) => onSelectedFileChange(event.currentTarget.files?.[0] ?? null)}
+                disabled={!workspaceId}
               />
               <SourceTypeSelector value={selectedSourceType} onChange={setSelectedSourceType} disabled={!workspaceId} />
               <UploadValidationNotice message={sourceValidationMessage} />
@@ -564,47 +559,61 @@ export default function App(): React.ReactElement {
                 Excel handling is single-sheet per upload: selected sheet is loaded, other sheets are ignored.
               </p>
               <div style={{ display: "flex", gap: "0.6rem", flexWrap: "wrap" }}>
-                <Button onClick={() => setFocusedStep("workspace")}>Back</Button>
                 <Button
-                  onClick={() => setFocusedStep(requiresSheetSelection ? "sheet" : "submit")}
-                  disabled={!canAccessSubmitStep}
+                  type="primary"
+                  onClick={() => setFocusedStep("extract")}
+                  disabled={!canAccessExtractStep}
                 >
-                  Next
+                  Next: extract
                 </Button>
               </div>
             </section>
           ) : null}
 
-          {focusedUploadStep === "sheet" ? (
+          {focusedUploadStep === "extract" ? (
             <section style={{ display: "grid", gap: "0.7rem", maxWidth: "34rem" }}>
-              <ExcelSheetPicker
-                options={sheetOptions}
-                value={selectedSheetName}
-                onChange={setSelectedSheetName}
-                disabled={isUploading}
-              />
-              {requiresSheetSelection ? null : (
-                <p style={{ margin: 0, color: "#49548f" }}>
-                  This file does not require sheet selection. Continue to submit.
-                </p>
+              {selectedSourceType === "excel" ? (
+                <>
+                  <ExcelSheetPicker
+                    options={sheetOptions}
+                    value={selectedSheetName}
+                    onChange={setSelectedSheetName}
+                    disabled={isUploading}
+                  />
+                  <p className="upload-control-help">
+                    For workbooks with multiple sheets, choose one sheet to ingest in this run.
+                  </p>
+                </>
+              ) : (
+                <Card size="small" title="Auto-detected">
+                  <Typography.Paragraph style={{ marginBottom: 0 }}>
+                    CSV does not require additional extraction params in this round.
+                    Encoding / delimiter knobs land in a later round; continue to Define.
+                  </Typography.Paragraph>
+                </Card>
               )}
-              <p className="upload-control-help">
-                For workbooks with multiple sheets, choose one sheet to ingest in this run.
-              </p>
               <div style={{ display: "flex", gap: "0.6rem", flexWrap: "wrap" }}>
                 <Button onClick={() => setFocusedStep("source")}>Back</Button>
                 <Button
-                  onClick={() => setFocusedStep("submit")}
+                  type="primary"
+                  onClick={() => setFocusedStep("define")}
                   disabled={requiresSheetSelection && !selectedSheetName}
                 >
-                  Next: submit
+                  Next: define
                 </Button>
               </div>
             </section>
           ) : null}
 
-          {focusedUploadStep === "submit" ? (
+          {focusedUploadStep === "define" ? (
             <section style={{ display: "grid", gap: "0.7rem", maxWidth: "34rem" }}>
+              <Card size="small" title="Define schema (transitional)">
+                <Typography.Paragraph style={{ marginBottom: 0 }}>
+                  Upload now to parse the source and continue defining the table
+                  in the schema-sheet stage. Type-correction and role-assignment
+                  UI move into this step in a later round.
+                </Typography.Paragraph>
+              </Card>
               <Button type="primary" onClick={onUpload} disabled={!canUploadSelection} style={{ justifySelf: "start" }}>
                 {isUploading ? "Uploading..." : "Upload and continue"}
               </Button>
@@ -612,9 +621,24 @@ export default function App(): React.ReactElement {
                 <UploadProgressPanel state={progressState} message={uploadFlowErrorMessage ?? message} />
               ) : null}
               <div style={{ display: "flex", gap: "0.6rem", flexWrap: "wrap" }}>
-                <Button onClick={() => setFocusedStep(requiresSheetSelection ? "sheet" : "source")}>
+                <Button onClick={() => setFocusedStep("extract")}>
                   Back
                 </Button>
+              </div>
+            </section>
+          ) : null}
+
+          {focusedUploadStep === "publish" ? (
+            <section style={{ display: "grid", gap: "0.7rem", maxWidth: "34rem" }}>
+              <Card size="small" title="Publish revision (coming soon)">
+                <Typography.Paragraph style={{ marginBottom: 0 }}>
+                  Publishing as a revision (parquet artifact + manifest entry +
+                  lineage) lands in a later round. For now, continue via Define;
+                  downstream defining/profiling happens in the schema-sheet stage.
+                </Typography.Paragraph>
+              </Card>
+              <div style={{ display: "flex", gap: "0.6rem", flexWrap: "wrap" }}>
+                <Button onClick={() => setFocusedStep("define")}>Back</Button>
               </div>
             </section>
           ) : null}
