@@ -1,0 +1,12 @@
+dist/
+dist-test/
+runs/
+*.tsbuildinfo
+node_modules/
+
+# Defensive — if any future test ever forgets to redirect repoRoot /
+# workspaceRoot to a tempdir, these are the patterns the leaks took.
+# We want them off main rather than committed by accident.
+/.agents/
+/2026-*-*-*
+

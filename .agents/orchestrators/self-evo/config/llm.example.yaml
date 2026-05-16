@@ -1,0 +1,36 @@
+# @self/orchestrator — per-node LLM routing.
+# Path: --llm <path> | $SELFEVO_LLM_CONFIG | this file (copy to llm.yaml).
+#
+# Effective precedence (highest wins):
+#   SELFEVO_LLM_<NODE>_<FIELD> env  →
+#   nodes.<name>.<field>             →
+#   default.<field>                  →
+#   built-in DEFAULT_LLM_CONFIG.
+
+default:
+  mode: subprocess          # subprocess | api
+  command: claude
+  args: ["-p"]
+  # For mode: api ----------
+  # mode: api
+  # model: claude-sonnet-4-6
+  # apiKey: $ANTHROPIC_API_KEY    # picked up from env if omitted
+  # maxTokens: 4096
+
+nodes:
+  repo-scanner:
+    skills: [research, repo-explainer]
+  boundary-scoper:
+    skills: [master-plan]
+  change-classifier:
+    skills: []
+  plan-writer:
+    skills: [master-plan, pdca-next]
+  patch-author:
+    skills: [bug-fix, clean-code]
+  verifier:
+    skills: []
+  judge:
+    skills: [pdca-next]
+  round-writer:
+    skills: [pdca-next]

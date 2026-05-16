@@ -1,0 +1,358 @@
+# `self-evo` — Rollout Plan & Handoff
+
+This file is the source of truth for how the orchestrator is being
+built out, what's already landed, and what the next session should
+pick up. It lives next to the package so it travels with the code.
+
+## Locked decisions
+
+- **Package**: `@self/orchestrator` at [.agents/orchestrators/self-evo/](.).
+  Auto-discovered by [pnpm-workspace.yaml](../../../pnpm-workspace.yaml)
+  via the `.agents/orchestrators/*` glob.
+- **Orchestration runtime**: LangGraph.js 1.x (`@langchain/langgraph`)
+  with `SqliteSaver` checkpointer (one `checkpoint.sqlite` per run).
+- **Cross-round memory**: Mem0 (`mem0ai`), in-memory backend in v1
+  (zero-setup). Wired in R-D.
+- **LLM transport default**: subprocess `claude -p`, no API key.
+  Anthropic SDK adapter is in [src/llm/anthropic.ts](src/llm/anthropic.ts)
+  for the `mode: api` path. Per-node routing via
+  [config/llm.example.yaml](config/llm.example.yaml).
+- **HITL**: LangGraph's `interrupt(value)` + `Command({ resume })`.
+  Detection via `isInterrupted(result)` after `invoke()` — NOT
+  try/catch on `GraphInterrupt`. LangGraph 1.x doesn't throw with a
+  checkpointer attached; it returns state with `__interrupt__` marker.
+- **HITL node name**: `hitl-gate` (NOT `hitl` — collides with the
+  `hitl` state field; LangGraph rejects same-name node+channel).
+- **Judge**: included from R-A as a stub (returns `approve` so the
+  conditional edge wires through). Real holistic judge in R-G.
+- **Patch author**: dry-run only through R-G. Real `--apply` mode is
+  R-I, post-MVP.
+
+## Status — what's landed
+
+### R-A (DONE) — Skeleton + LangGraph wiring (25 files)
+
+- Package scaffolding: [package.json](package.json), [tsconfig.json](tsconfig.json),
+  [tsconfig.test.json](tsconfig.test.json), [.gitignore](.gitignore),
+  [README.md](README.md).
+- State: [src/state.ts](src/state.ts) — `SelfEvoState` Annotation.Root
+  with overwrite reducers; types in [src/types.ts](src/types.ts).
+- Persistence: [src/persistence/workspace.ts](src/persistence/workspace.ts)
+  (runId, layout, state.json), [src/persistence/checkpointer.ts](src/persistence/checkpointer.ts)
+  (SqliteSaver factory).
+- Nodes: stub bodies for the 10-node pipeline at [src/nodes/](src/nodes/)
+  plus [src/nodes/\_reset.ts](src/nodes/_reset.ts) (topological reset
+  table).
+- Graph: [src/graph.ts](src/graph.ts) — `buildGraph()` / `compileGraph()`
+  with `withResetGuard()` wrapper around revertable nodes, conditional
+  edges from `judge` and `hitl-gate`.
+- CLI: [src/cli.ts](src/cli.ts) — `round <topic>` / `resume <runId>`.
+- Config: [src/config.ts](src/config.ts) + [config/self-evo.ini](config/self-evo.ini).
+- Dispatcher: [scripts/self-evo.sh](scripts/self-evo.sh).
+- Tests: [test/skeleton.test.ts](test/skeleton.test.ts) — interrupt
+  detection, approve→END, revise→reset.
+
+### R-B (DONE) — LLM transport + skills compose
+
+- LLM kernel: [src/llm/client.ts](src/llm/client.ts) (interface),
+  [src/llm/subprocess.ts](src/llm/subprocess.ts) (spawns `claude -p`,
+  EPIPE-tolerant), [src/llm/anthropic.ts](src/llm/anthropic.ts)
+  (SDK adapter), [src/llm/resolver.ts](src/llm/resolver.ts) (per-node
+  routing, env overrides via `SELFEVO_LLM_<NODE>_<FIELD>`).
+- Skills: [src/skills/loader.ts](src/skills/loader.ts) (reads
+  `.agents/skills/<name>/SKILL.md`, sha256 fingerprint, strict name
+  regex), [src/skills/compose.ts](src/skills/compose.ts) (versioned
+  delimiter wrap).
+- Config: [config/llm.example.yaml](config/llm.example.yaml) — copy
+  to `llm.yaml` to activate.
+- Tests: [test/llm-skills.test.ts](test/llm-skills.test.ts) — uses
+  `cat` and `false` as canned subprocesses to avoid needing the real
+  `claude` binary.
+
+### R-C (DONE) — Real read-only nodes
+
+- Service injection: [src/agent-services.ts](src/agent-services.ts)
+  (`AgentServices` shape — resolver, skillsRoot, repoRoot). Factory
+  pattern: every node exports `makeXxxNode(services)`.
+- Parsers: [src/parsers.ts](src/parsers.ts) — `stripCodeFence`,
+  `parseJsonResponse` (tolerates ```json fences, free text wrapping).
+- Tools: [src/tools/ripgrep.ts](src/tools/ripgrep.ts) — JSON-mode
+  wrapper, exits gracefully when `rg` isn't installed.
+- Real impls:
+  [intake](src/nodes/intake.ts) (normalises requirements),
+  [repo-scanner](src/nodes/repo-scanner.ts) (ripgrep + LLM consolidate),
+  [boundary-scoper](src/nodes/boundary-scoper.ts) (LLM produces scope
+  and `allowedFiles` globs),
+  [change-classifier](src/nodes/change-classifier.ts) (bug-fix /
+  feature / refactor / doc / spike; falls back to `spike` on bad
+  label),
+  [plan-writer](src/nodes/plan-writer.ts) (emits `PlanStep[]`).
+- Tests: [test/read-only-nodes.test.ts](test/read-only-nodes.test.ts)
+  — uses a `FakeLLM` keyed off `req.tag` so each node's contract is
+  exercised without spawning a real model.
+
+### R-D (DONE) — Mem0 read-side
+
+- Memory interface + backends:
+  [src/memory/types.ts](src/memory/types.ts) (`Mem0ClientLike`,
+  `MemoryRecord`, `MemoryType`, `SELF_EVO_USER_ID`),
+  [src/memory/scoring.ts](src/memory/scoring.ts) (token-overlap
+  ranking — hyphens split, stopwords + short/numeric tokens dropped),
+  [src/memory/in-memory.ts](src/memory/in-memory.ts) (RAM-only,
+  test-friendly), [src/memory/file.ts](src/memory/file.ts) (JSONL,
+  cross-process persistence), [src/memory/factory.ts](src/memory/factory.ts)
+  (`mode = memory | file | cloud | disabled`; `cloud` throws until a
+  later round wires `mem0ai`).
+- Service wiring:
+  [src/agent-services.ts](src/agent-services.ts) gains `memory?: Mem0ClientLike`;
+  cli builds it from `[mem0]` config when mode ≠ disabled.
+- Intake reads memory: [src/nodes/intake.ts](src/nodes/intake.ts)
+  calls `memory.search(query, {user_id: "self-evo", limit: 5})` with
+  `query = topic + reqs.map(text).join(" ")` when the client is
+  present. Maps hits → `PriorMemory[]` on state.
+- CLI surface:
+  [src/cli.ts](src/cli.ts) gains `self-evo memories list [--type] [--limit]`
+  and `self-evo memories search <query> [--type] [--limit]`.
+- Config:
+  [config/self-evo.ini](config/self-evo.ini) gains a `[mem0]` block;
+  [src/config.ts](src/config.ts) loads it.
+- Tests: [test/memory.test.ts](test/memory.test.ts) — 9 cases covering
+  tokenizer, scoring, both backends, factory, intake-with-memory,
+  intake-without-memory.
+
+### R-E (DONE) — Patch author (dry-run)
+
+- Patch tools: [src/tools/patch.ts](src/tools/patch.ts) —
+  `extractPathFromDiff(diff)` (reads `+++ b/<path>`),
+  `withinBoundary(path, globs)` (minimatch, fail-closed on empty),
+  `gitApplyCheck(diff, cwd)` (read-only, returns
+  `{ok, error?}` with up to 300 chars of stderr).
+- Node rewrite: [src/nodes/patch-author.ts](src/nodes/patch-author.ts)
+  — LLM produces `{"diffs":[{path, explanation, diff}]}`, each
+  candidate runs through `validateCandidate()` (shape →
+  boundary → `git apply --check`), accepted diffs land both in
+  `state.patches[]` (`applied: false`) and as
+  `runs/<runId>/patches/<NN>-<basename>.patch`. Rejected diffs print
+  to stderr but never throw.
+- Services: [src/agent-services.ts](src/agent-services.ts) gains
+  `workspaceRoot: string`; cli passes `config.run.workspaceDir`.
+- Deps: added `minimatch@10`.
+- TS target bumped to `ES2023` (uses `toSorted`).
+- Tests: [test/patch-author.test.ts](test/patch-author.test.ts) — 4
+  cases: header extraction, boundary glob, real `git apply --check`
+  against a temp `git init` repo, end-to-end (3-diff fixture where
+  only the in-boundary applies-cleanly diff lands).
+
+### R-F (DONE) — Verifier (shell allowlist)
+
+- Generalised `Verification` type: [src/types.ts](src/types.ts) now has
+  `checks: CheckResult[]` (each with `name`, `status`, `durationMs`,
+  optional `excerpt`) plus a flattened `failureExcerpts` convenience
+  copy. Fixed lint/typecheck/tests/smoke fields are gone.
+- Shell runner: [src/tools/shell.ts](src/tools/shell.ts) — `runChecks()`
+  walks a channel list, spawns each command as `{bin, args}` (NO shell
+  string), streams stdout+stderr through a TailBuffer (last 40 lines),
+  appends every line to `runs/<runId>/verification.log` prefixed with
+  the channel name, and per-channel short-circuits on first non-zero
+  exit. Built-in `VERIFY_COMMANDS` map: `lint → pnpm md:lint`,
+  `typecheck → pnpm -r typecheck`, `tests → pnpm -r test`,
+  `smoke → pnpm dev:builder:smoke:stub`.
+- Verifier node: [src/nodes/verifier.ts](src/nodes/verifier.ts) — takes
+  channel routing from `config.verify.byChangeType[state.changeType]`
+  (fallback `defaultChannels`), runs them, populates
+  `state.verification`. Never throws — even spawn errors land as
+  `status: "fail"`.
+- Config: [src/config.ts](src/config.ts) parses `[verify.default]` and
+  per-changeType `[verify.bug-fix]` / `[verify.feature]` / etc.
+  Defaults in code so empty INI still works.
+- Graph wiring: [src/graph.ts](src/graph.ts) gains `GraphConfig` with
+  `verifier: VerifierConfig`; tests can inject a custom commands map.
+- Tests: [test/verifier.test.ts](test/verifier.test.ts) — 6 cases:
+  empty channels, pass + noisy fail with tail excerpt, unknown channel
+  → skip, command short-circuit on first failure, end-to-end through
+  the graph with changeType routing, failure excerpt visible at HITL.
+  Uses `true` / `false` / `node -e` as canned commands.
+
+### R-G (DONE) — Round-writer + judge + Mem0 write-side — **MVP COMPLETE**
+
+- Real holistic judge: [src/nodes/judge.ts](src/nodes/judge.ts) —
+  five-dimension scorecard (`repo-scanner`, `boundary-scoper`,
+  `change-classifier`, `plan-writer`, `verifier`). Score = mean of
+  passing dimensions. `score >= approveThreshold` → approve. Below →
+  refine with `revertTo` set to first failed dim in pipeline order.
+  Reflection cap: `state.judgeIterations` counts entries; once it
+  reaches `maxIterations`, the judge force-approves with a notes
+  entry so HITL always gets a turn.
+- State: [src/state.ts](src/state.ts) gains `judgeIterations: number`.
+  [src/nodes/\_reset.ts](src/nodes/_reset.ts) clears it on revise so a
+  manual revision restarts the reflection budget.
+- Round template: [src/renderers/round-template.ts](src/renderers/round-template.ts)
+  renders the full PDCA `Round_NN.md` from state — Status=Review,
+  Date started=today, Goal=topic, Plan (checkboxes), Do (findings +
+  boundary + change type + patches), Check (verification with fenced
+  failure excerpts), Act (verdict + Learnings / Promotions
+  placeholders).
+- Promotions: [src/renderers/promotions.ts](src/renderers/promotions.ts)
+  appends an entry under the existing
+  [.agents/plan/promotions.md](../../plan/promotions.md) format —
+  never rewrites existing content.
+- Round-writer: [src/nodes/round-writer.ts](src/nodes/round-writer.ts)
+  — mints the next round number from `.agents/plan/cycles/Round_NN.md`,
+  writes the rendered Round file, appends to `promotions.md`, and
+  pushes derived memory candidates (decision/topic, convention/each
+  assumption, pitfall/each failed channel) into
+  `services.memory.add(...)` with `metadata.draft = true` so future
+  rounds can promote/demote.
+- Config: [src/config.ts](src/config.ts) + INI gain `[reflection]`
+  (enabled / maxIterations / approveThreshold). When `enabled = false`,
+  cli passes `{maxIterations: 1, approveThreshold: 0}` so the judge
+  always approves on first pass.
+- Graph: [src/graph.ts](src/graph.ts) `GraphConfig` extended with
+  optional `judge` and `roundWriter` configs.
+- Tests: [test/r-g.test.ts](test/r-g.test.ts) — 7 cases: judge approve,
+  judge refine + revertTo, reflection cap force-approve, template
+  rendering (full PDCA shape + failure excerpts), round-writer mints
+  next number, round-writer persists derived memories, end-to-end
+  round-to-approval with Round_NN.md written.
+
+### What works end-to-end today (MVP)
+
+```sh
+pnpm --filter @self/orchestrator build
+scripts/self-evo.sh round "your topic" --req "..." --req "..."
+# → intake (Mem0 search) → repo-scanner → boundary-scoper
+#   → change-classifier → plan-writer → patch-author (dry-run diffs
+#   under runs/<id>/patches/) → verifier (channels from
+#   [verify.<changeType>] into runs/<id>/verification.log)
+#   → judge (holistic scorecard; refine up to maxIterations)
+#   → pauses at hitl-gate
+
+echo "approve" | scripts/self-evo.sh resume <runId>
+# → round-writer writes .agents/plan/cycles/Round_NN.md, appends to
+#   .agents/plan/promotions.md, persists derived memories into Mem0.
+
+scripts/self-evo.sh memories list
+scripts/self-evo.sh memories search "upload flow"
+```
+
+`state.json` after a closed run holds: topic, requirements,
+priorMemories, findings, scope, changeType, plan, patches, verification,
+verdict, hitl, **round** (`{ number, path }`), judgeIterations.
+
+Tests: `pnpm --filter @self/orchestrator test` → **43/43 passing**.
+
+## What's NEXT — post-MVP optionals
+
+R-A → R-G are done. The orchestrator can close its own PDCA rounds
+end-to-end. Anything below this line is optional polish; pick what
+matters next.
+
+### R-G — Round-writer + judge + Mem0 write-side (DONE — see above)
+
+**Goal**: On approve, the orchestrator (a) renders `Round_NN.md`
+following the [.agents/plan/PDCA.md](../../plan/PDCA.md) template,
+(b) appends a row to [.agents/plan/promotions.md](../../plan/promotions.md),
+(c) persists approved memories into Mem0 via the **already-wired**
+`services.memory.add(...)` call (the read side from R-D). Also turns
+on the real holistic `judge` (replaces the R-A stub).
+
+**Files**:
+
+- `src/renderers/round-template.ts` — fills the PDCA round template
+  from state.
+- `src/renderers/promotions.ts` — append-only writer.
+- Rewrite `src/nodes/round-writer.ts`:
+  - Mint the next round number by reading
+    `.agents/plan/cycles/Round_*.md` and bumping.
+  - Render Round_NN.md, write it.
+  - For each "promotion candidate" in state (collected at HITL via
+    follow-up prompts), call `services.memory.add(...)` with
+    `metadata: { round, type, stage, ts }`.
+- Rewrite `src/nodes/judge.ts` — port the holistic scorecard from
+  `multi-agents-planner/apps/planner/src/agents/judge.ts` (lines
+  1–80), adapted for `SelfEvoState`: score completeness of findings,
+  scope, plan, patches, verification (use the new `checks[]` shape
+  — a failed `lint`/`tests`/`smoke` check is a strong negative
+  signal). Score >= threshold → approve. Otherwise → revertTo the
+  weakest stage.
+- Add `[reflection] enabled / maxIterations / approveThreshold` to
+  the INI; wire into a conditional edge cap (count iterations on a
+  state field `state.judgeIterations`).
+- Tests: `test/round-writer.test.ts` + `test/judge.test.ts`.
+
+**Acceptance**: `self-evo round "Port reference orchestrator"` →
+HITL approve → `.agents/plan/cycles/Round_NN.md` exists and matches
+the PDCA template; one Mem0 record retrievable.
+
+### After R-G (post-MVP, deferred)
+
+- **R-H**: `Send`-based fan-out for parallel research / per-finding
+  classification (optional; the planner has R-19 plumbing).
+- **R-I**: `--apply` flag — clean temp worktree, `git apply` accepted
+  diffs there, verifier re-runs against the applied tree.
+- **R-J**: Graph driver parity tests (this orchestrator is already on
+  the graph driver; this round just adds determinism tests).
+- **R-K**: LangSmith tracing (`LANGCHAIN_TRACING_V2=true`).
+
+## Known gotchas / things future-you should know
+
+1. **`isInterrupted(result)` is the right detection signal in
+   LangGraph 1.x.** Do NOT try/catch `GraphInterrupt` — with a
+   checkpointer attached, the exception is caught internally.
+2. **Node names must not collide with state field names.** That's
+   why the HITL node is `hitl-gate`, not `hitl`. If you add new
+   state fields in R-D+, double-check the node names.
+3. **`better-sqlite3` requires native build.** pnpm 10 blocks
+   install scripts; run `npm run install` inside the
+   `node_modules/.pnpm/better-sqlite3@*/.../better-sqlite3/` dir
+   if the binding is missing. The repo's pnpm config doesn't
+   pre-approve it.
+4. **Tests use a separate tsconfig** ([tsconfig.test.json](tsconfig.test.json))
+   so `.ts` test files compile under `dist-test/test/`. Run
+   `pnpm test` — not `node --test test/` directly.
+5. **`withResetGuard`** in [src/graph.ts](src/graph.ts) is the only
+   place that knows about the revise→reset semantics. New revertable
+   stages must be added to both `REVERT_NODES` and `_reset.ts`'s
+   `ORDER` array.
+6. **LLM subprocess driver concatenates** `system`, a `\n\n---\n\n`
+   separator, and `user` because `claude -p` has one stdin channel. The Anthropic
+   adapter sends them as separate fields. Don't assume drivers are
+   structurally identical at the wire.
+7. **The verifier in R-F should never assume tests are green at
+   HEAD.** Capture a baseline pass/fail per channel before judging
+   the round's diff.
+
+## Test surface today
+
+```text
+test/skeleton.test.ts            # 3 tests — graph wiring, HITL, revise
+test/llm-skills.test.ts          # 8 tests — skills loader/compose,
+                                 #            subprocess client, resolver
+test/read-only-nodes.test.ts     # 4 tests — fake LLM walks repo-scanner,
+                                 #            boundary-scoper, classifier,
+                                 #            plan-writer; JSON parsing
+                                 #            edge cases
+test/memory.test.ts              # 9 tests — tokenizer/scoring, InMemory,
+                                 #            File, factory, intake with
+                                 #            and without memory
+test/patch-author.test.ts        # 5 tests — header extraction, boundary,
+                                 #            real git apply --check,
+                                 #            3-diff fixture filter,
+                                 #            empty-allowedFiles skip
+test/verifier.test.ts            # 6 tests — runChecks empty/pass/fail,
+                                 #            unknown channel → skip,
+                                 #            command short-circuit,
+                                 #            end-to-end through graph,
+                                 #            failure excerpt at HITL
+test/r-g.test.ts                 # 7 tests — judge approve / refine /
+                                 #            reflection-cap force-approve,
+                                 #            round-template render,
+                                 #            failure excerpts in render,
+                                 #            round-writer mints number,
+                                 #            round-writer Mem0 add,
+                                 #            end-to-end round → approve
+                                 #            → Round_NN.md lands
+```
+
+43/43 passing, ~4.7 s suite duration (verifier + round-writer e2e
+tests spawn subprocesses + write files).
