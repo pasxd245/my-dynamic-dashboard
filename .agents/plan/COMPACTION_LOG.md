@@ -2,14 +2,13 @@
 
 Tracks compaction history and the current compaction point for auto-trigger calculation.
 
-| Compaction | Rounds      | Output File               | Date       | Last Compaction Point |
-| ---------- | ----------- | ------------------------- | ---------- | --------------------- |
-| (initial)  | —           | —                         | —          | 0                     |
-| Manual     | Round_01-20 | Rounds_01_20.compacted.md | 2026-05-09 | 20                    |
+| Compaction | Rounds | Output File | Date | Last Compaction Point |
+| ---------- | ------ | ----------- | ---- | --------------------- |
+| (initial)  | —      | —           | —    | 0                     |
 
-**Current Last Compaction Point**: 20
+**Current Last Compaction Point**: 0
 
-**Next Auto-Compact Trigger**: When creating Round_41 (since `41 > (20 + 20)`)
+**Next Auto-Compact Trigger**: When creating Round_21 (since `21 > (0 + 20)`)
 
 ---
 

@@ -28,6 +28,12 @@ export interface UploadFlowStoreState {
   reset: () => void;
 }
 
+/**
+ * UploadFlowState — public view of upload flow state for use in handlers and UI components.
+ * Combines read-only state fields with setter functions needed for Define section handlers.
+ */
+export type UploadFlowState = Pick<UploadFlowStoreState, 'selectedSourceType' | 'selectedSheetName' | 'sheetOptions' | 'isUploading'> & Pick<UploadFlowStoreState, 'setSelectedSheetName'>;
+
 const defaultState = {
   focusedStep: "source" as UploadStepKey,
   selectedSourceType: null,

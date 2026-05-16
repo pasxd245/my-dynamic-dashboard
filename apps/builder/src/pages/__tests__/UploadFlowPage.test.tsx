@@ -118,7 +118,7 @@ describe("Upload flow sheet-picker behavior (US2)", () => {
         requiresSheetSelection: false,
         selectedSheetName: null,
       }),
-    ).toBe("define");
+    ).toBe("extract");
   });
 
   it("renders explicit sheet choices when multiple workbook sheets are available", () => {

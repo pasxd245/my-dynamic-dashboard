@@ -30,3 +30,13 @@ export function getSourceTypeMismatchMessage(sourceType: UploadSourceType, filen
   }
   return null;
 }
+
+/**
+ * sourceTypeNeedsFile — determines if a source type requires a file upload.
+ * CSV and Excel need files in R41. URL, API, and text source types
+ * (queued for R45+) do not require files.
+ */
+export function sourceTypeNeedsFile(sourceType: UploadSourceType | null): boolean {
+  if (!sourceType) return false;
+  return sourceType === "csv" || sourceType === "excel";
+}

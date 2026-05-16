@@ -72,10 +72,7 @@ export function deriveUploadStep(context: UploadStepContext): UploadStepKey {
   if (!context.hasSelectedFile || !context.selectedSourceType) {
     return "source";
   }
-  if (context.requiresSheetSelection && !context.selectedSheetName) {
-    return "extract";
-  }
-  return "define";
+  return "extract";
 }
 
 export function buildUploadStepNavItems(context: UploadStepContext): UploadStepNavItem[] {

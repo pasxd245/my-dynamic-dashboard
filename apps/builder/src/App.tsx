@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Alert, App as AntApp, Avatar, Badge, Button, Card, Dropdown, Input, Space, Typography } from "antd";
+import { Alert, App as AntApp, Avatar, Badge, Button, Card, Dropdown, Input, Space, Tag, Typography } from "antd";
 import { BellOutlined } from "@ant-design/icons";
 import { Routes, Route, useLocation, useNavigate } from "react-router-dom";
 import { FilePlus2, Library, Workflow, ListChecks } from "lucide-react";
@@ -25,6 +25,7 @@ import { setActiveContext } from "./api/builderSessionApi";
 import ActionableErrorPanel from "./components/errors/ActionableErrorPanel";
 import { PageCard } from "./components/layout";
 import { ProfilePanel } from "./components/profile";
+import { getDefineHandler } from "./components/upload-flow/defineHandlers";
 import ExcelSheetPicker from "./components/upload-flow/ExcelSheetPicker";
 import UploadProgressPanel from "./components/upload-flow/UploadProgressPanel";
 import SourceTypeSelector from "./components/upload-flow/SourceTypeSelector";
@@ -38,6 +39,7 @@ import {
 import {
   getSourceTypeMismatchMessage,
   isSourceTypeCompatibleWithFilename,
+  sourceTypeNeedsFile,
 } from "./components/upload-flow/sourceTypeRules";
 import QueryBuilderPanel from "./components/query-builder/QueryBuilderPanel";
 import { SaveQueryDialog } from "./components/SavedQuery";
@@ -321,9 +323,9 @@ export default function App(): React.ReactElement {
         workspace_id: workspaceId,
         source_id: payload.source_id,
       });
-      setMessage("Upload complete. Workflow context is ready.");
-      pushToast("success", "Upload complete. Opening workflow stage.");
-      navigate("/workflow/schema-sheet");
+      setMessage("Upload complete. Defining source schema.");
+      pushToast("success", "Upload complete. Schema preview ready.");
+      setFocusedStep("define");
     } catch (error) {
       setUploadActionableError(getActionableError(error));
       setProgressState("error");
@@ -543,14 +545,42 @@ export default function App(): React.ReactElement {
 
           {focusedUploadStep === "source" ? (
             <section style={{ display: "grid", gap: "0.7rem", maxWidth: "34rem" }}>
-              <input
-                className="upload-file-input"
-                type="file"
-                accept=".csv,.xlsx,.xlsm,.xlsb,.xls"
-                onChange={(event) => onSelectedFileChange(event.currentTarget.files?.[0] ?? null)}
-                disabled={!workspaceId}
-              />
-              <SourceTypeSelector value={selectedSourceType} onChange={setSelectedSourceType} disabled={!workspaceId} />
+              <div>
+                <span style={{ color: "#ff4d4f", marginRight: 4, fontSize: "0.875rem" }} aria-hidden>*</span>
+                <SourceTypeSelector
+                  value={selectedSourceType}
+                  onChange={setSelectedSourceType}
+                  disabled={!workspaceId}
+                />
+                {!selectedSourceType ? (
+                  <p style={{ color: "#ff4d4f", fontSize: "0.8125rem", margin: "0.25rem 0 0" }}>
+                    Please select a source type.
+                  </p>
+                ) : null}
+              </div>
+
+              {sourceTypeNeedsFile(selectedSourceType) ? (
+                <div>
+                  <label htmlFor="source-file-input" style={{ fontSize: "0.875rem", fontWeight: 500, display: "block", marginBottom: "0.25rem" }}>
+                    <span style={{ color: "#ff4d4f", marginRight: 4 }} aria-hidden>*</span>
+                    File
+                  </label>
+                  <input
+                    id="source-file-input"
+                    className="upload-file-input"
+                    type="file"
+                    accept=".csv,.xlsx,.xlsm,.xlsb,.xls"
+                    onChange={(event) => onSelectedFileChange(event.currentTarget.files?.[0] ?? null)}
+                    disabled={!workspaceId}
+                  />
+                  {!selectedFile ? (
+                    <p style={{ color: "#ff4d4f", fontSize: "0.8125rem", margin: "0.25rem 0 0" }}>
+                      Please select a file.
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
+
               <UploadValidationNotice message={sourceValidationMessage} />
               <p style={{ margin: 0, color: "#49548f" }}>
                 {selectedFile ? `Selected file: ${selectedFile.name}` : "Select a CSV/Excel file to continue."}
@@ -592,14 +622,21 @@ export default function App(): React.ReactElement {
                   </Typography.Paragraph>
                 </Card>
               )}
+              <Button type="primary" onClick={onUpload} disabled={!canUploadSelection} style={{ justifySelf: "start" }}>
+                {isUploading ? "Uploading..." : "Upload"}
+              </Button>
+              {(progressState !== "idle" || uploadFlowErrorMessage) ? (
+                <UploadProgressPanel state={progressState} message={uploadFlowErrorMessage ?? message} />
+              ) : null}
               <div style={{ display: "flex", gap: "0.6rem", flexWrap: "wrap" }}>
                 <Button onClick={() => setFocusedStep("source")}>Back</Button>
                 <Button
                   type="primary"
                   onClick={() => setFocusedStep("define")}
                   disabled={requiresSheetSelection && !selectedSheetName}
+                  style={{ display: progressState === "idle" ? "inline-flex" : "none" }}
                 >
-                  Next: define
+                  Skip to Define
                 </Button>
               </div>
             </section>
@@ -607,19 +644,112 @@ export default function App(): React.ReactElement {
 
           {focusedUploadStep === "define" ? (
             <section style={{ display: "grid", gap: "0.7rem", maxWidth: "34rem" }}>
-              <Card size="small" title="Define schema (transitional)">
-                <Typography.Paragraph style={{ marginBottom: 0 }}>
-                  Upload now to parse the source and continue defining the table
-                  in the schema-sheet stage. Type-correction and role-assignment
-                  UI move into this step in a later round.
-                </Typography.Paragraph>
+              {/* Entity Identity Card */}
+              <Card size="small" title="Entity Identity">
+                <div style={{ display: "grid", gap: "0.5rem" }}>
+                  <div>
+                    <label htmlFor="entity-name-input" style={{ fontSize: "0.875rem", fontWeight: 500 }}>
+                      Entity Name
+                    </label>
+                    <Input
+                      id="entity-name-input"
+                      placeholder="(from source)"
+                      value={uploadResult?.source_id ?? ""}
+                      readOnly
+                      style={{ marginTop: "0.25rem" }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: "0.875rem", fontWeight: 500 }}>Revision</label>
+                    <div style={{ marginTop: "0.25rem", color: "#49548f" }}>
+                      {uploadResult?.source_id ? (
+                        <Tag color="blue">{new Date().toISOString().split("T")[0]}</Tag>
+                      ) : (
+                        <span className="text-gray-500">Upload to create revision</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </Card>
-              <Button type="primary" onClick={onUpload} disabled={!canUploadSelection} style={{ justifySelf: "start" }}>
-                {isUploading ? "Uploading..." : "Upload and continue"}
-              </Button>
-              {(progressState !== "idle" || uploadFlowErrorMessage) ? (
-                <UploadProgressPanel state={progressState} message={uploadFlowErrorMessage ?? message} />
+
+              {/* Source Layout Card (handler-provided) */}
+              {selectedSourceType && uploadResult ? (() => {
+                const handler = getDefineHandler(selectedSourceType as any);
+                return handler.layoutCard
+                  ? handler.layoutCard({
+                      selectedSourceType,
+                      selectedSheetName,
+                      sheetOptions,
+                      isUploading,
+                      setSelectedSheetName,
+                    } as any)
+                  : null;
+              })() : null}
+
+              {/* Schema Preview Card */}
+              {profile ? (
+                <Card size="small" title="Schema Preview">
+                  <div style={{ display: "grid", gap: "0.5rem", maxHeight: "20rem", overflowY: "auto" }}>
+                    {profile.columns && profile.columns.length > 0 ? (
+                      profile.columns.map((col) => (
+                        <div key={col.column_id} style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                          <span style={{ fontFamily: "monospace", flex: 1 }}>{col.column_name}</span>
+                          <Tag>{col.effective_type || "unknown"}</Tag>
+                        </div>
+                      ))
+                    ) : (
+                      <Typography.Paragraph style={{ marginBottom: 0, color: "#49548f" }}>
+                        No columns detected. Load profile to continue.
+                      </Typography.Paragraph>
+                    )}
+                  </div>
+                </Card>
               ) : null}
+
+              {/* Readiness Card */}
+              {uploadResult ? (() => {
+                const handler = getDefineHandler(selectedSourceType as any);
+                const { ok, reasons } = handler.validate({
+                  selectedSourceType,
+                  selectedSheetName,
+                  sheetOptions,
+                  isUploading,
+                  setSelectedSheetName,
+                } as any);
+                return (
+                  <Card size="small" title="Readiness">
+                    <div style={{ display: "grid", gap: "0.5rem" }}>
+                      {ok ? (
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                          <Tag color="green">Ready</Tag>
+                          <span style={{ color: "#49548f" }}>All requirements met</span>
+                        </div>
+                      ) : (
+                        <>
+                          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                            <Tag color="orange">Review needed</Tag>
+                            <span style={{ color: "#49548f" }}>Address issues to continue</span>
+                          </div>
+                          <ul style={{ marginBottom: 0, paddingLeft: "1.5rem", color: "#49548f" }}>
+                            {reasons.map((reason, idx) => (
+                              <li key={idx}>{reason}</li>
+                            ))}
+                          </ul>
+                        </>
+                      )}
+                      <Button
+                        type="primary"
+                        onClick={() => navigate("/workflow/schema-sheet")}
+                        disabled={!ok}
+                        style={{ marginTop: "0.5rem" }}
+                      >
+                        Continue to Publish
+                      </Button>
+                    </div>
+                  </Card>
+                );
+              })() : null}
+
               <div style={{ display: "flex", gap: "0.6rem", flexWrap: "wrap" }}>
                 <Button onClick={() => setFocusedStep("extract")}>
                   Back
@@ -721,17 +851,6 @@ export default function App(): React.ReactElement {
               {workflowUploadSourcePanel}
 
               {workflowSchemaSheetPanel}
-
-              <section style={panelStyle}>
-                <QueryBuilderPanel
-                  workspaceId={workspaceId || undefined}
-                  initialSnapshot={loadedSnapshot}
-                  onSaveRequest={(snapshot) => {
-                    setBuilderSnapshot(snapshot);
-                    setShowSaveDialog(true);
-                  }}
-                />
-              </section>
 
               <section style={panelStyle}>
                 <h2>Manifest</h2>

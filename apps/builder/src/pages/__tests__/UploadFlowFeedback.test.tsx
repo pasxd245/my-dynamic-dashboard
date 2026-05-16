@@ -71,17 +71,23 @@ async function createWorkspaceAndReachSubmit(): Promise<void> {
     useUploadFlowStore.getState().setFocusedStep("source");
   });
 
-  const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
-  fireEvent.change(fileInput, {
-    target: { files: [new File(["a,b\n1,2"], "orders.csv", { type: "text/csv" })] },
-  });
-
+  // Pick CSV source type via the combobox (matches user flow + updates the store)
   await act(async () => {
     fireEvent.mouseDown(screen.getByRole("combobox", { name: "Source type" }));
     fireEvent.click(await screen.findByText("CSV"));
   });
 
-  await screen.findByRole("button", { name: "Upload and continue" });
+  // Set the file via the file input (only renders once source type is set)
+  const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+  await act(async () => {
+    fireEvent.change(fileInput, {
+      target: { files: [new File(["a,b\n1,2"], "orders.csv", { type: "text/csv" })] },
+    });
+  });
+
+  // deriveUploadStep auto-advances focus to "extract" once source type + file
+  // are set, so the Upload button should be reachable directly.
+  await screen.findByRole("button", { name: /^upload$/i });
 }
 
 beforeEach(() => {
@@ -117,12 +123,13 @@ describe("Upload flow feedback wiring", () => {
     await createWorkspaceAndReachSubmit();
 
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Upload and continue" }));
+      fireEvent.click(screen.getByRole("button", { name: /^upload$/i }));
     });
 
-    await screen.findByText("Upload complete. Opening workflow stage.");
+    await screen.findByText("Upload complete. Defining source schema.");
     await waitFor(() => expect(mocks.uploadSource).toHaveBeenCalledTimes(1));
-    expect(mocks.navigate).toHaveBeenCalledWith("/workflow/schema-sheet");
+    // After upload, focused step should advance to "define", not navigate away
+    expect(mocks.navigate).not.toHaveBeenCalled();
   });
 
   it("shows error toast after a failed upload outcome", async () => {
@@ -132,7 +139,7 @@ describe("Upload flow feedback wiring", () => {
     await createWorkspaceAndReachSubmit();
 
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Upload and continue" }));
+      fireEvent.click(screen.getByRole("button", { name: /^upload$/i }));
     });
 
     await screen.findAllByText("Upload exploded");

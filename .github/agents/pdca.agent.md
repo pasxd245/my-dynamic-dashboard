@@ -1,5 +1,6 @@
 ---
 description: Drive the active PDCA round to its next human-decision gate via the pdca-next skill.
+argument-hint: Optional scope note, such as "Round_19 only" or "dry-run"
 ---
 
 # /pdca
@@ -28,8 +29,6 @@ of action without editing files.
      `Rejected` as inactive unless explicitly targeted by the user.
    - Advance Plan -> Do -> Check -> Act, looping Do <-> Check until all spec
      tasks are checked and verification passes.
-   - Reconcile `specs/NNN-*/tasks.md` itself after each `/speckit.implement`
-     run. Do not trust speckit to tick boxes.
    - Stop at human gates only: ambiguous selection, missing spec slug,
      persistent task failure, critical analyze finding, or round completion.
 

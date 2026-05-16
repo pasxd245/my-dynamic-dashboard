@@ -56,15 +56,3 @@
 **Source**: user-reported workflow correction (implemented by agent)
 **Rationale**: Clarify that multiple open round candidates require explicit user confirmation, and align Plan/Do/Check/Act with prepare -> implement -> analyze/verify -> plan-next behavior for Spec-Kit rounds.
 **Promoted by**: agent at explicit user request
-
-## 2026-05-09: pdca-next v2.0 (executor mode) → .agents/skills/ + .agents/plan/ + .agents/prompts/
-
-**Source**: user-reported instability with pdca + speckit (implemented by agent)
-**Rationale**: Rewrote `pdca-next` from advisor to executor with deterministic numeric round selection (fixes "picks highest" bug), leading whole-status normalization for decorated completion markers (`Complete ✅`) plus inactive `Deferred`/`Superseded`/`Rejected` rounds, explicit spec-bootstrap step in Plan, mandatory tasks.md reconciliation after every `/speckit.implement` (fixes statuses-not-updating bug), bounded Do↔Check loop until tasks 100% checked, and explicit human gates (ambiguous selection, missing spec, persistent task failure, critical analyze finding, round completion). Updated `PDCA.md` and `pdca.prompt.md` to match the new contract. To be validated by running Round 19.
-**Promoted by**: agent at explicit user request
-
-## 2026-05-11: repo-explainer default workflow output path → .agents/skills/
-
-**Source**: explicit user request to improve workflow-doc generation defaults
-**Rationale**: Updated repo-explainer to default saved workflow docs to `docs/agents/workflows/<name>.workflow.md` when no explicit output path is provided.
-**Promoted by**: agent at explicit user request
