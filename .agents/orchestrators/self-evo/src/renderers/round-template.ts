@@ -70,21 +70,24 @@ function statusBox(check: CheckResult): string {
   return " ";
 }
 
-function renderCheck(state: SelfEvoStateT): string {
+function renderCheckBlock(
+  title: string,
+  v: SelfEvoStateT["verification"],
+): string {
   const lines: string[] = [];
-  if (!state.verification) {
-    lines.push("- [ ] (verifier did not run)");
+  lines.push(`### ${title}`);
+  if (!v) {
+    lines.push("- [ ] (did not run)");
     return lines.join("\n");
   }
-  const { checks, failureExcerpts } = state.verification;
-  for (const c of checks) {
+  for (const c of v.checks) {
     const ms = c.durationMs ? ` _(${c.durationMs}ms)_` : "";
     lines.push(`- [${statusBox(c)}] **${c.name}** — ${c.status}${ms}`);
   }
-  if (failureExcerpts.length) {
+  if (v.failureExcerpts.length) {
     lines.push("");
     lines.push("**Failure excerpts** (first 40 lines per failing channel):");
-    for (const ex of failureExcerpts) {
+    for (const ex of v.failureExcerpts) {
       lines.push("");
       lines.push("```text");
       lines.push(ex);
@@ -92,6 +95,21 @@ function renderCheck(state: SelfEvoStateT): string {
     }
   }
   return lines.join("\n");
+}
+
+function renderCheck(state: SelfEvoStateT): string {
+  const blocks: string[] = [renderCheckBlock("Pre-patch (current HEAD)", state.verification)];
+  if (state.appliedVerification) {
+    blocks.push("");
+    blocks.push(
+      renderCheckBlock("Post-patch (worktree, after `apply`)", state.appliedVerification),
+    );
+    if (state.appliedWorktree) {
+      blocks.push("");
+      blocks.push(`_Worktree preserved at_: \`${state.appliedWorktree}\``);
+    }
+  }
+  return blocks.join("\n");
 }
 
 function renderAct(state: SelfEvoStateT): string {

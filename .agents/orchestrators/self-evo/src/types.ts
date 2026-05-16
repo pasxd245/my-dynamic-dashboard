@@ -64,7 +64,7 @@ export interface Verdict {
   notes: string[];
 }
 
-export type HitlKind = "approve" | "revise" | "quit";
+export type HitlKind = "approve" | "revise" | "apply" | "quit";
 
 export interface HitlDecision {
   kind: HitlKind;

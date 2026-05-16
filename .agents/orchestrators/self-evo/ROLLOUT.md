@@ -239,13 +239,66 @@ scripts/self-evo.sh memories search "upload flow"
 priorMemories, findings, scope, changeType, plan, patches, verification,
 verdict, hitl, **round** (`{ number, path }`), judgeIterations.
 
-Tests: `pnpm --filter @self/orchestrator test` → **43/43 passing**.
+Tests: `pnpm --filter @self/orchestrator test` → **50/50 passing**.
+
+### R-I (DONE) — `apply` mode + verifier delta
+
+- HitlKind extended: `apply` joins `approve | revise | quit`. CLI
+  parser + prompt updated.
+- State: [src/state.ts](src/state.ts) gains `appliedVerification` and
+  `appliedWorktree` — verifier results from the worktree plus the
+  worktree path so the human can `git diff` it before final approve.
+- Worktree tool: [src/tools/worktree.ts](src/tools/worktree.ts) —
+  `createWorktree({repoRoot, basePath, symlinks})` does
+  `git worktree add --detach` at HEAD and symlinks requested
+  top-level entries (default `node_modules`) so pnpm scripts resolve
+  their deps. `applyPatch(worktree, diff)` pipes the diff into
+  `git apply -`. `removeWorktree(repoRoot, worktree)` is
+  idempotent and falls back to `fs.rm` if metadata is already pruned.
+- Apply-verifier node: [src/nodes/apply-verifier.ts](src/nodes/apply-verifier.ts)
+  — creates worktree, applies each `state.patches[]` (marks
+  `applied: true/false` per outcome), re-runs the verifier with
+  `cwd = worktree`, writes a separate
+  `runs/<id>/applied-verification.log`, and stamps state with the
+  results. `preserveWorktree` flag (default true) keeps the dir on
+  disk for human review.
+- Graph edge: [src/graph.ts](src/graph.ts) — `hitl-gate` router routes
+  `apply` → `apply-verifier`; an unconditional edge wires
+  `apply-verifier` → `hitl-gate` so the user gets a fresh HITL pause
+  with the delta visible in state.
+- Round template: [src/renderers/round-template.ts](src/renderers/round-template.ts)
+  Check section now shows _Pre-patch_ + _Post-patch_ blocks side by
+  side, plus the worktree path when preserved.
+- Tests: [test/r-i.test.ts](test/r-i.test.ts) — 5 cases: worktree
+  isolation (main untouched after apply), applyPatch failure surface,
+  apply-verifier delta against a real git repo with `true`-only
+  channels, per-patch apply-failure recording without throwing,
+  end-to-end `round → apply → re-pause → approve → Round_NN.md`
+  with the post-patch verification block rendered.
+
+### R-K (DONE) — LangSmith tracing hook
+
+- [src/tracing.ts](src/tracing.ts) — `traceableInvokeConfig(runId)`
+  returns the `{configurable, runName, tags, metadata}` shape every
+  invoke passes to LangGraph. Each invoke is tagged `self-evo` +
+  `run:<runId>` and named `self-evo:<runId>`. Helper
+  `tracingEnabled()` reflects `LANGCHAIN_TRACING_V2` for callers that
+  want to gate logging.
+- LangChain core auto-forwards spans to LangSmith when the standard
+  env vars (`LANGCHAIN_TRACING_V2`, `LANGCHAIN_API_KEY`, optional
+  `LANGCHAIN_PROJECT` / `LANGCHAIN_ENDPOINT`) are set; we don't read
+  any of them ourselves. README documents the toggle.
+- CLI: both `round` and `resume` now use `traceableInvokeConfig`
+  instead of the bare `{configurable: {thread_id}}`.
+- Tests: [test/tracing.test.ts](test/tracing.test.ts) — 2 cases:
+  shape of the invoke config + env-var sensing.
 
 ## What's NEXT — post-MVP optionals
 
-R-A → R-G are done. The orchestrator can close its own PDCA rounds
-end-to-end. Anything below this line is optional polish; pick what
-matters next.
+R-A → R-K are done. The orchestrator can close its own PDCA rounds
+end-to-end, including applying its own diffs to a temp worktree and
+reporting the verifier delta. LangSmith traces are one env-var flip
+away. Anything below this line is optional polish.
 
 ### R-G — Round-writer + judge + Mem0 write-side (DONE — see above)
 
@@ -352,7 +405,14 @@ test/r-g.test.ts                 # 7 tests — judge approve / refine /
                                  #            round-writer Mem0 add,
                                  #            end-to-end round → approve
                                  #            → Round_NN.md lands
+test/r-i.test.ts                 # 5 tests — worktree isolation,
+                                 #            applyPatch error path,
+                                 #            apply-verifier delta,
+                                 #            per-patch apply failures,
+                                 #            end-to-end round → apply
+                                 #            → re-pause → approve
+test/tracing.test.ts             # 2 tests — invoke-config shape,
+                                 #            env-var sensing
 ```
 
-43/43 passing, ~4.7 s suite duration (verifier + round-writer e2e
-tests spawn subprocesses + write files).
+50/50 passing, ~3.4 s suite duration.

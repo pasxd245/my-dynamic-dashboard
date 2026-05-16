@@ -57,6 +57,18 @@ export const SelfEvoState = Annotation.Root({
     ...overwrite<Verification | undefined>(),
     default: () => undefined,
   }),
+  // R-I: verifier results from a temp git worktree after `apply` —
+  // lets the judge and the human compare before/after patches without
+  // touching the main checkout. Undefined until the user chooses
+  // `apply` at HITL.
+  appliedVerification: Annotation<Verification | undefined>({
+    ...overwrite<Verification | undefined>(),
+    default: () => undefined,
+  }),
+  appliedWorktree: Annotation<string | undefined>({
+    ...overwrite<string | undefined>(),
+    default: () => undefined,
+  }),
   verdict: Annotation<Verdict | undefined>({
     ...overwrite<Verdict | undefined>(),
     default: () => undefined,

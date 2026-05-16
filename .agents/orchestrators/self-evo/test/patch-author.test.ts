@@ -121,6 +121,8 @@ function stateFor(allowedFiles: string[]): SelfEvoStateT {
     plan: [{ id: "P1", text: "change hello to world", done: false }],
     patches: [],
     verification: undefined,
+    appliedVerification: undefined,
+    appliedWorktree: undefined,
     verdict: undefined,
     hitl: undefined,
     round: undefined,

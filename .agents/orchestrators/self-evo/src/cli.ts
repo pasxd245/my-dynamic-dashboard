@@ -5,6 +5,7 @@ import minimist from "minimist";
 import { resolve } from "node:path";
 import { Command, isInterrupted } from "@langchain/langgraph";
 import { compileGraph } from "./graph.js";
+import { traceableInvokeConfig } from "./tracing.js";
 import { loadConfig, type Config } from "./config.js";
 import { LLMResolver, loadLlmConfig } from "./llm/resolver.js";
 import type { AgentServices } from "./agent-services.js";
@@ -69,6 +70,7 @@ function parseDecision(line: string): HitlDecision {
   const parts = trimmed.split(/\s+/);
   const head = parts[0]?.toLowerCase();
   if (head === "approve") return { kind: "approve" };
+  if (head === "apply") return { kind: "apply" };
   if (head === "quit" || head === "exit") return { kind: "quit" };
   if (head === "revise") {
     const stage = parts[1] as RevertTarget | undefined;
@@ -127,7 +129,7 @@ async function runRound(argv: minimist.ParsedArgs): Promise<void> {
           maxIterations: 1,
         },
   });
-  const threadConfig = { configurable: { thread_id: runId } };
+  const threadConfig = traceableInvokeConfig(runId);
 
   const input = {
     runId,
@@ -145,7 +147,7 @@ async function runRound(argv: minimist.ParsedArgs): Promise<void> {
     console.log(`runId: ${runId}`);
     console.log(`state: ${layout.statePath}`);
     console.log(`patches: ${layout.patchesDir}`);
-    console.log(`HITL: approve | revise <stage> [note] | quit`);
+    console.log(`HITL: approve | apply | revise <stage> [note] | quit`);
     console.log(`resume with: self-evo resume ${runId}`);
     return;
   }
@@ -203,7 +205,7 @@ async function runResume(argv: minimist.ParsedArgs): Promise<void> {
           maxIterations: 1,
         },
   });
-  const threadConfig = { configurable: { thread_id: runId } };
+  const threadConfig = traceableInvokeConfig(runId);
 
   const out = await graph.invoke(new Command({ resume: decision }), threadConfig);
   const snap = await graph.getState(threadConfig);
@@ -211,7 +213,7 @@ async function runResume(argv: minimist.ParsedArgs): Promise<void> {
   if (isInterrupted(out)) {
     console.log(`runId: ${runId}`);
     console.log(`state: ${layout.statePath}`);
-    console.log(`HITL: approve | revise <stage> [note] | quit`);
+    console.log(`HITL: approve | apply | revise <stage> [note] | quit`);
     return;
   }
   console.log(`runId: ${runId}`);

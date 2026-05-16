@@ -9,6 +9,10 @@ import { makeChangeClassifierNode } from "./nodes/change-classifier.js";
 import { makePlanWriterNode } from "./nodes/plan-writer.js";
 import { makePatchAuthorNode } from "./nodes/patch-author.js";
 import { makeVerifierNode, type VerifierConfig } from "./nodes/verifier.js";
+import {
+  makeApplyVerifierNode,
+  type ApplyVerifierConfig,
+} from "./nodes/apply-verifier.js";
 import { makeJudgeNode, type JudgeConfig } from "./nodes/judge.js";
 import { makeHitlNode } from "./nodes/hitl.js";
 import {
@@ -47,6 +51,11 @@ function withResetGuard(
 
 export interface GraphConfig {
   verifier: VerifierConfig;
+  /**
+   * R-I: config for the `apply-verifier` node. When omitted, the node
+   * mirrors `verifier` config and uses default worktree placement.
+   */
+  applyVerifier?: ApplyVerifierConfig;
   judge?: JudgeConfig;
   roundWriter?: RoundWriterConfig;
 }
@@ -80,6 +89,10 @@ export function buildGraph(services: AgentServices, cfg: GraphConfig) {
     )
     .addNode("judge", makeJudgeNode(services, cfg.judge))
     .addNode("hitl-gate", makeHitlNode(services))
+    .addNode(
+      "apply-verifier",
+      makeApplyVerifierNode(services, cfg.applyVerifier ?? cfg.verifier),
+    )
     .addNode("round-writer", makeRoundWriterNode(services, cfg.roundWriter))
     .addEdge(START, "intake")
     .addEdge("intake", "repo-scanner")
@@ -104,11 +117,13 @@ export function buildGraph(services: AgentServices, cfg: GraphConfig) {
       (s: SelfEvoStateT) => {
         if (!s.hitl) return END;
         if (s.hitl.kind === "approve") return "round-writer";
+        if (s.hitl.kind === "apply") return "apply-verifier";
         if (s.hitl.kind === "revise") return s.hitl.stage ?? "plan-writer";
         return END;
       },
-      [...REVERT_NODES, "round-writer", END],
+      [...REVERT_NODES, "round-writer", "apply-verifier", END],
     )
+    .addEdge("apply-verifier", "hitl-gate")
     .addEdge("round-writer", END);
   return g;
 }

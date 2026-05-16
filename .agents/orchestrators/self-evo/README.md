@@ -6,7 +6,9 @@ Each run takes a topic + requirements, walks a fixed pipeline of agents:
 - scan → scope → classify → plan → patch → verify → judge → HITL → round-writer
 - and pauses at a human-in-the-loop gate for approve / revise / quit.
 
-Built on **LangGraph.js** (`StateGraph` + `interrupt()` + `SqliteSaver`) for orchestration and (from R-D onwards) **Mem0** for cross-round memory.
+Built on **LangGraph.js** (`StateGraph` + `interrupt()` + `SqliteSaver`)
+for orchestration and (from R-D onwards) **Mem0** for cross-round
+memory.
 
 ## Status
 
@@ -25,14 +27,15 @@ scripts/self-evo.sh round "smoke test" --req "stub"
 echo "approve" | scripts/self-evo.sh resume <runId>
 ```
 
-## Pipeline (R-A: all stubs)
+## Pipeline
 
-```
+```text
 START → intake → repo-scanner → boundary-scoper → change-classifier
       → plan-writer → patch-author → verifier
       → judge ──refine──▶ revertTo
                └─approve──▶ HITL interrupt
 HITL: approve → round-writer → END
+      apply   → apply-verifier → HITL (re-pause with delta)
       revise  → reset(stage) → re-enter
       quit    → END
 ```
@@ -52,6 +55,23 @@ config/self-evo.ini
 scripts/self-evo.sh
 runs/              # gitignored; one folder per run
 ```
+
+## LangSmith tracing (opt-in)
+
+Self-evo auto-exports spans to LangSmith when the standard LangChain
+env vars are set — no flag in `self-evo.ini` needed. Each invoke is
+tagged `self-evo` + `run:<runId>` and named `self-evo:<runId>` so
+threads are easy to find.
+
+```sh
+export LANGCHAIN_TRACING_V2=true
+export LANGCHAIN_API_KEY=<your-key>
+export LANGCHAIN_PROJECT=self-evo        # optional
+# LANGCHAIN_ENDPOINT=https://your-self-hosted-langsmith  # optional
+scripts/self-evo.sh round "your topic"
+```
+
+Leave the env vars unset and zero network calls happen.
 
 ## See also
 

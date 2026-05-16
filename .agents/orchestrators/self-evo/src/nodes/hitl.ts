@@ -11,7 +11,7 @@ export interface HitlPayload {
   prompt: string;
 }
 
-const PROMPT = "approve | revise <stage> [note] | quit";
+const PROMPT = "approve | apply | revise <stage> [note] | quit";
 
 // The HITL node throws GraphInterrupt the first time it runs and
 // returns the resumed HitlDecision the second time. The CLI loop

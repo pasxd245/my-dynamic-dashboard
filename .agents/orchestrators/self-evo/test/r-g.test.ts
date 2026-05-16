@@ -56,6 +56,8 @@ function completeState(overrides: Partial<SelfEvoStateT> = {}): SelfEvoStateT {
       checks: [{ name: "lint", status: "pass", durationMs: 5 }],
       failureExcerpts: [],
     },
+    appliedVerification: undefined,
+    appliedWorktree: undefined,
     verdict: undefined,
     hitl: undefined,
     round: undefined,
