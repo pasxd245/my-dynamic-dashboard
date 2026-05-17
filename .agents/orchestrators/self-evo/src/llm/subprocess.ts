@@ -98,7 +98,7 @@ export function makeSubprocessClient(
       if (exitCode !== 0) {
         const stderr = Buffer.concat(stderrChunks).toString("utf8");
         throw new Error(
-          `Subprocess LLM exited ${exitCode} (command=${command}): ${stderr.slice(0, 500)}`,
+          `Subprocess LLM exited ${exitCode} (command=${command}): stderr=${stderr.slice(0, 500)} stdout=${Buffer.concat(stdoutChunks).toString("utf8").slice(0, 500)}`,
         );
       }
       const text = Buffer.concat(stdoutChunks).toString("utf8").trim();
