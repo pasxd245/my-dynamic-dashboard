@@ -120,12 +120,53 @@ function normaliseFindings(raw: FindingsResponse): Finding[] {
 export interface RepoScannerConfig {
   /** Skip the lint/file-read probes (used by tests). */
   disableProbes?: boolean;
+  /**
+   * Cap on the rendered user-prompt size (chars). When the prompt
+   * exceeds this, the probes + hits sections are truncated from the
+   * tail until it fits. Default 18000 — chosen to leave headroom
+   * under `claude -p`'s practical input limit while keeping the
+   * findings grounded.
+   *
+   * Surfaced by autoagent Round 06: a broad topic ("Add OpenAI Codex
+   * CLI adapter") matched many vendored files via ripgrep, the
+   * file-read probe slurped 4 of them at 2000 chars each, plus
+   * ripgrep hits, plus skills — total prompt blew the `claude -p`
+   * input budget and the subprocess died with "Prompt is too long".
+   */
+  maxUserPromptChars?: number;
 }
+
+const DEFAULT_MAX_USER_PROMPT_CHARS = 18_000;
+
+// Apply the cap to a rendered user prompt by trimming the
+// hits + probes sections (the largest, most replaceable content)
+// from the tail. The topic, requirements, and the "Produce findings"
+// trailer always survive.
+export function truncateUserPrompt(prompt: string, max: number): string {
+  if (prompt.length <= max) return prompt;
+  const marker = "\n\n[truncated by repo-scanner: prompt over " +
+    String(max) + " chars]\n";
+  const trailer = "Produce findings as described in the system prompt.";
+  const trailerIdx = prompt.lastIndexOf(trailer);
+  // Keep the head (topic + reqs + start of hits/probes) and the
+  // trailing instruction; drop the middle.
+  const keepTail = trailer.length + 8;
+  const keepHead = max - keepTail - marker.length;
+  if (keepHead <= 0) return prompt.slice(0, max - marker.length) + marker;
+  const head = prompt.slice(0, keepHead);
+  const tail = trailerIdx >= 0
+    ? prompt.slice(trailerIdx)
+    : prompt.slice(prompt.length - keepTail);
+  return head + marker + tail;
+}
+
+const defaultRepoScannerConfig: RepoScannerConfig = {};
 
 export function makeRepoScannerNode(
   services: AgentServices,
-  cfg: RepoScannerConfig = {},
+  cfg: RepoScannerConfig = defaultRepoScannerConfig,
 ) {
+  const maxPromptChars = cfg.maxUserPromptChars ?? DEFAULT_MAX_USER_PROMPT_CHARS;
   return async function repoScannerNode(state: SelfEvoStateT): Promise<SelfEvoUpdate> {
     const hits: RipgrepHit[] = [];
     if (await ripgrepAvailable()) {
@@ -170,7 +211,13 @@ export function makeRepoScannerNode(
       ignoreMissing: true,
     });
     const system = composeSystemPrompt(SYSTEM_BASE, skills);
-    const user = renderUserPrompt(state, hits, probes);
+    const rawUser = renderUserPrompt(state, hits, probes);
+    const user = truncateUserPrompt(rawUser, maxPromptChars);
+    if (user.length < rawUser.length) {
+      console.error(
+        `[repo-scanner] user prompt truncated ${rawUser.length} → ${user.length} chars (cap ${maxPromptChars})`,
+      );
+    }
     const res = await llm.complete({ system, user, tag: "repo-scanner" });
     const parsed = parseJsonResponse<FindingsResponse>(res.text);
     return { findings: normaliseFindings(parsed) };
