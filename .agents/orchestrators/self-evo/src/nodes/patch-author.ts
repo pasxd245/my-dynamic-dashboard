@@ -208,29 +208,60 @@ export function makePatchAuthorNode(services: AgentServices) {
       }
     }
 
-    // R-M follow-up (found by round a): when N plan steps target the
-    // same new file, each step's LLM call independently emits a
-    // "create from /dev/null" diff. Only the first one can apply —
-    // the rest fail with "file already exists." Collapse duplicates
-    // by path, keeping the largest diff (proxy for "most complete").
-    const deduped = dedupByPath(accepted);
-    if (deduped.length < accepted.length) {
+    // R-M follow-up #2 (found by round c): the original dedup was
+    // too aggressive — it collapsed any same-path diffs to "the
+    // largest one." That works for round a's case (N plan steps each
+    // emit a `--- /dev/null` creation diff of a new file), but fails
+    // for round c's case (N legitimate non-overlapping edits to
+    // different regions of an existing file). Fix: only collapse
+    // when ALL same-path diffs are creation diffs. For existing
+    // files, keep all diffs; apply-verifier (R-I) is the right place
+    // to surface sequential apply conflicts.
+    const collapsed = collapseCreationDiffs(accepted);
+    if (collapsed.length < accepted.length) {
       console.error(
-        `[patch-author] collapsed ${accepted.length - deduped.length} duplicate-path diff(s); ` +
-          "kept the largest per path",
+        `[patch-author] collapsed ${accepted.length - collapsed.length} duplicate creation-diff(s); ` +
+          "kept the largest per new file",
       );
     }
-    return { patches: deduped };
+    return { patches: collapsed };
   };
 }
 
-function dedupByPath(patches: Patch[]): Patch[] {
-  const best = new Map<string, Patch>();
+function isCreationDiff(diff: string): boolean {
+  // Unified diffs that create a new file start with `--- /dev/null`.
+  return /^---\s+\/dev\/null\b/m.test(diff);
+}
+
+function collapseCreationDiffs(patches: Patch[]): Patch[] {
+  // Group by path. If every diff for a path is a creation diff, keep
+  // only the largest. Otherwise (mix of edits, or all edits): pass
+  // through unchanged.
+  const byPath = new Map<string, Patch[]>();
   for (const p of patches) {
-    const cur = best.get(p.path);
-    if (!cur || p.diff.length > cur.diff.length) {
-      best.set(p.path, p);
-    }
+    const arr = byPath.get(p.path) ?? [];
+    arr.push(p);
+    byPath.set(p.path, arr);
   }
-  return [...best.values()];
+  const out: Patch[] = [];
+  for (const p of patches) {
+    const group = byPath.get(p.path)!;
+    if (group.length === 1) {
+      out.push(p);
+      continue;
+    }
+    if (group.every((g) => isCreationDiff(g.diff))) {
+      // Same-path creation-diff group: emit only when we hit the
+      // largest member, in original order so the patches[] ordering
+      // is stable.
+      const largest = group.reduce((a, b) =>
+        a.diff.length >= b.diff.length ? a : b,
+      );
+      if (p === largest) out.push(p);
+      continue;
+    }
+    // Mixed or all-edit group: pass through unchanged.
+    out.push(p);
+  }
+  return out;
 }

@@ -320,6 +320,135 @@ test("patch-author records a rejection when the LLM call throws", async () => {
   }
 });
 
+test("patch-author keeps non-overlapping edits to the same EXISTING file", async () => {
+  // Round-c regression test: 3 plan steps each producing a real edit
+  // diff (not a creation diff) to different regions of the SAME
+  // existing file. The original dedupByPath would have kept only one;
+  // the corrected collapseCreationDiffs leaves all three intact.
+  const repo = await makeGitRepo();
+  const wsRoot = await mkdtemp(join(tmpdir(), "selfevo-ws-"));
+  try {
+    // Seed the repo with a small bash-y file so each edit can target
+    // a distinct line range.
+    await mkdir(join(repo, "apps/builder/src"), { recursive: true });
+    await writeFile(
+      join(repo, "apps/builder/src/hello.txt"),
+      "alpha\nbravo\ncharlie\ndelta\necho\nfoxtrot\n",
+      "utf8",
+    );
+    await exec("git", ["add", "."], { cwd: repo });
+    await exec("git", ["commit", "-q", "-m", "seed"], {
+      cwd: repo,
+      env: {
+        GIT_AUTHOR_NAME: "self-evo",
+        GIT_AUTHOR_EMAIL: "self-evo@test.local",
+        GIT_COMMITTER_NAME: "self-evo",
+        GIT_COMMITTER_EMAIL: "self-evo@test.local",
+      },
+    });
+
+    const editAlpha = `--- a/apps/builder/src/hello.txt
++++ b/apps/builder/src/hello.txt
+@@ -1,2 +1,2 @@
+-alpha
++ALPHA
+ bravo
+`;
+    const editDelta = `--- a/apps/builder/src/hello.txt
++++ b/apps/builder/src/hello.txt
+@@ -3,3 +3,3 @@
+ charlie
+-delta
++DELTA
+ echo
+`;
+    const editFoxtrot = `--- a/apps/builder/src/hello.txt
++++ b/apps/builder/src/hello.txt
+@@ -5,2 +5,2 @@
+ echo
+-foxtrot
++FOXTROT
+`;
+
+    const canned = {
+      "patch-author:P1": stepResp(editAlpha, "apps/builder/src/hello.txt"),
+      "patch-author:P2": stepResp(editDelta, "apps/builder/src/hello.txt"),
+      "patch-author:P3": stepResp(editFoxtrot, "apps/builder/src/hello.txt"),
+    };
+    const { services } = servicesFor(repo, wsRoot, canned);
+
+    const runId = "test-run";
+    const layout = layoutFor(runId, wsRoot);
+    await ensureWorkspace(layout);
+
+    const node = makePatchAuthorNode(services);
+    const out = await node(
+      stateFor(["apps/builder/src/**"], [
+        { id: "P1", text: "edit alpha" },
+        { id: "P2", text: "edit delta" },
+        { id: "P3", text: "edit foxtrot" },
+      ]),
+    );
+
+    assert.equal(
+      out.patches!.length,
+      3,
+      "all three non-overlapping edit-diffs survive the collapse step",
+    );
+  } finally {
+    await rm(repo, { recursive: true, force: true });
+    await rm(wsRoot, { recursive: true, force: true });
+  }
+});
+
+test("patch-author collapses creation diffs to the SAME new file (round-a regression test)", async () => {
+  const repo = await makeGitRepo();
+  const wsRoot = await mkdtemp(join(tmpdir(), "selfevo-ws-"));
+  try {
+    const createSmall = `--- /dev/null
++++ b/apps/builder/src/new.txt
+@@ -0,0 +1 @@
++small
+`;
+    const createLarger = `--- /dev/null
++++ b/apps/builder/src/new.txt
+@@ -0,0 +1,3 @@
++larger
++with
++more lines
+`;
+    const canned = {
+      "patch-author:P1": stepResp(createSmall, "apps/builder/src/new.txt"),
+      "patch-author:P2": stepResp(createLarger, "apps/builder/src/new.txt"),
+    };
+    const { services } = servicesFor(repo, wsRoot, canned);
+
+    const runId = "test-run";
+    const layout = layoutFor(runId, wsRoot);
+    await ensureWorkspace(layout);
+
+    // Suppress the stderr collapse log.
+    const origError = console.error;
+    console.error = () => undefined;
+    try {
+      const node = makePatchAuthorNode(services);
+      const out = await node(
+        stateFor(["apps/builder/src/**"], [
+          { id: "P1", text: "create small" },
+          { id: "P2", text: "create larger" },
+        ]),
+      );
+      assert.equal(out.patches!.length, 1, "creation-diff dupes collapse to one");
+      assert.match(out.patches![0]!.diff, /larger/, "largest creation diff wins");
+    } finally {
+      console.error = origError;
+    }
+  } finally {
+    await rm(repo, { recursive: true, force: true });
+    await rm(wsRoot, { recursive: true, force: true });
+  }
+});
+
 test("patch-author skips entirely when state.plan is empty", async () => {
   const repo = await makeGitRepo();
   const wsRoot = await mkdtemp(join(tmpdir(), "selfevo-ws-"));
