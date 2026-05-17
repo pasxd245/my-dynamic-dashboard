@@ -329,12 +329,40 @@ Tests: `pnpm --filter @self/orchestrator test` → **50/50 passing**.
 - Tests: [test/tracing.test.ts](test/tracing.test.ts) — 2 cases:
   shape of the invoke config + env-var sensing.
 
-## What's NEXT — post-MVP optionals
+## What's NEXT — locked sequence
 
-R-A → R-K are done. The orchestrator can close its own PDCA rounds
-end-to-end, including applying its own diffs to a temp worktree and
-reporting the verifier delta. LangSmith traces are one env-var flip
-away. Anything below this line is optional polish.
+R-A → R-M are done. The orchestrator can close its own PDCA rounds
+end-to-end and now has chunked patch-author + tool-grounded
+repo-scanner (both fixes landed in R-M + R-L after the first real
+round surfaced their issues).
+
+The next stretch is a locked chain — each step's design is informed
+by what the previous step taught:
+
+1. **Round a (manual smoke)** — Add a `/self-evo` Claude Code slash
+   command stub. Tiny scope (single new file under
+   `.claude/commands/`), exercises plan-writer + chunked patch-author
+   on a doc-flavoured topic.
+2. **Round b (manual smoke)** — Promote `bug-fix` SKILL.md
+   frontmatter to current Agent-Skills spec. Single SKILL.md edit;
+   R-L's lint probe should run.
+3. **Round c (manual smoke)** — Tighten error messages in
+   `scripts/dev/builder-workflow-smoke.sh`. Code-flavoured; R-L's
+   file-read probe runs, verifier hits `pnpm dev:builder:smoke:stub`.
+4. **R-N (infrastructure)** — `/autoagent` overnight loop. I
+   implement; spec includes self-lock on `src/llm/**`,
+   `.claude/commands/autoagent.md`, and `.agents/skills/autoagent/**`;
+   plus tier-1/tier-2 authority gates and per-round branch chaining.
+   Format ported from the planner's
+   [.claude/commands/autoagent.md](../../../tmp/apps/multi-agents-planner/.claude/commands/autoagent.md).
+5. **R-O (first autoagent-driven feature)** — multi-provider LLM
+   transport: GitHub Copilot, OpenAI Codex, Google Gemini adapters
+   alongside the existing Claude API + subprocess. Self-evo edits its
+   own `src/llm/` to add them, watched by autoagent. This is the
+   recursive moment — orchestrator changing its own transport layer.
+
+After R-O is closed: revisit R-H (Send fan-out) and R-J (graph
+determinism tests) only if there's a measurable symptom.
 
 ### R-G — Round-writer + judge + Mem0 write-side (DONE — see above)
 
