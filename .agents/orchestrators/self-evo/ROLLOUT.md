@@ -372,6 +372,30 @@ Net effect after the hardening commit: the orchestrator can produce
 a clean, lint-passing `Round_NN.md` and apply a single-file new-file
 patch end-to-end without the noise round a introduced.
 
+## Learnings — round b (`Promote bug-fix SKILL.md frontmatter`)
+
+Second round, surprising outcome: **the orchestrator correctly chose
+"no work needed"**. R-L's grounding rule did its job — instead of
+fabricating changes to justify the round's existence, the LLM cited
+tool:file-read evidence from 4 reference skills and declared:
+
+> The bug-fix SKILL.md frontmatter is already conformant with the
+> current spec shape; no fields are missing or misnamed compared to
+> the reference skills pdca-next, skill-creator, and research.
+
+`Round_02.md` ships with 0 patches but 6 grounded findings — a
+legitimate "we audited this and confirmed it's fine" entry. Worth
+keeping as proof the loop doesn't hallucinate to look busy.
+
+One new bug surfaced (fixed in this commit):
+
+1. **`subSection` helper double-blanked when body was empty.** The
+   `### Change type: \`doc\``sub-section has no body (its info lives
+in the heading), but the helper always emitted`[heading, "",
+   ...body, ""]`. With empty body that's`[heading, "", ""]`, and
+the next section's heading produced two consecutive blanks →
+MD012. Fixed: empty body collapses to`[heading, ""]`.
+
 ## What's NEXT — locked sequence
 
 R-A → R-M are done. The orchestrator can close its own PDCA rounds

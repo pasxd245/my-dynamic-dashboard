@@ -26,8 +26,14 @@ function renderPlan(plan: PlanStep[]): string {
 // emits the same shape — heading, blank, body lines, trailing blank —
 // so markdownlint MD022/MD032 stay happy without the caller having to
 // remember the pattern. Found by round a: the Findings/Boundary/Patches
-// sections all butted heading-to-list and failed lint.
+// sections all butted heading-to-list and failed lint. Found by round
+// b: when `body` is empty (e.g. the "Change type" line which carries
+// its info in the heading itself), the standard shape would double-
+// blank against the next section's heading and fail MD012. The
+// empty-body branch collapses to `[heading, ""]` to keep adjacent
+// sections clean.
 function subSection(heading: string, body: readonly string[]): string[] {
+  if (body.length === 0) return [heading, ""];
   return [heading, "", ...body, ""];
 }
 
