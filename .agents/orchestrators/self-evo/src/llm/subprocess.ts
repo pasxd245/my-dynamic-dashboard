@@ -19,7 +19,11 @@ export interface SubprocessClientOptions {
   env?: NodeJS.ProcessEnv;
 }
 
-const DEFAULT_TIMEOUT = 120_000;
+// 5 min default — patch-author and reflective judges can take 2–3 min
+// of real LLM time per call when wrapping `claude -p`. Override per
+// node via `nodes.<name>.timeoutMs` in llm.yaml or
+// SELFEVO_LLM_<NODE>_TIMEOUT_MS.
+const DEFAULT_TIMEOUT = 300_000;
 
 // Spawns `claude -p "<system+user>"` (or a configured equivalent) and
 // reads stdout as the model's response. The system + user prompts are

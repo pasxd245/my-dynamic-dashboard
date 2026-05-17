@@ -11,6 +11,14 @@ ensure_built() {
   if [[ ! -f "$CLI_ENTRY" ]]; then
     echo "[self-evo] dist/cli.js missing — running pnpm build" >&2
     (cd "$PKG_DIR" && pnpm run build >/dev/null)
+    return
+  fi
+  # Stale-build detection: if any .ts under src/ is newer than the
+  # compiled entrypoint, rebuild. Cheap (one find call) and avoids the
+  # silent "old graph runs" failure we hit on the first real round.
+  if [[ -n "$(find "$PKG_DIR/src" -name '*.ts' -newer "$CLI_ENTRY" -print -quit 2>/dev/null)" ]]; then
+    echo "[self-evo] src/ newer than dist/cli.js — rebuilding" >&2
+    (cd "$PKG_DIR" && pnpm run build >/dev/null)
   fi
 }
 

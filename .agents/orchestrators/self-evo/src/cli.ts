@@ -140,9 +140,19 @@ async function runRound(argv: minimist.ParsedArgs): Promise<void> {
     })),
   };
 
-  const out = await graph.invoke(input, threadConfig);
-  const snap = await graph.getState(threadConfig);
-  await writeStateSnapshot(layout, snap.values ?? out);
+  let out;
+  try {
+    out = await graph.invoke(input, threadConfig);
+  } finally {
+    // Snapshot best-effort even if invoke threw, so the human / a
+    // resume run can see how far the graph got.
+    try {
+      const snap = await graph.getState(threadConfig);
+      await writeStateSnapshot(layout, snap.values ?? input);
+    } catch {
+      // checkpointer not yet written — fine, nothing to snapshot
+    }
+  }
   if (isInterrupted(out)) {
     console.log(`runId: ${runId}`);
     console.log(`state: ${layout.statePath}`);
@@ -207,9 +217,17 @@ async function runResume(argv: minimist.ParsedArgs): Promise<void> {
   });
   const threadConfig = traceableInvokeConfig(runId);
 
-  const out = await graph.invoke(new Command({ resume: decision }), threadConfig);
-  const snap = await graph.getState(threadConfig);
-  await writeStateSnapshot(layout, snap.values ?? out);
+  let out;
+  try {
+    out = await graph.invoke(new Command({ resume: decision }), threadConfig);
+  } finally {
+    try {
+      const snap = await graph.getState(threadConfig);
+      await writeStateSnapshot(layout, snap.values ?? {});
+    } catch {
+      // ignore — nothing to snapshot
+    }
+  }
   if (isInterrupted(out)) {
     console.log(`runId: ${runId}`);
     console.log(`state: ${layout.statePath}`);

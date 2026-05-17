@@ -347,6 +347,40 @@ the PDCA template; one Mem0 record retrievable.
   the graph driver; this round just adds determinism tests).
 - **R-K**: LangSmith tracing (`LANGCHAIN_TRACING_V2=true`).
 
+## First real-round learnings (2026-05-17)
+
+Drove the first end-to-end round with topic `"Tighten ROLLOUT.md
+formatting"` against this repo (run `2026-05-17-01-46-...`). The
+pipeline ran intake → repo-scanner → boundary-scoper →
+change-classifier → plan-writer cleanly — produced a coherent 8-step
+plan with correct boundary (`.agents/orchestrators/self-evo/ROLLOUT.md`
+only) and classification (`doc`). Three concrete findings worth a
+follow-up round each:
+
+1. **`repo-scanner` doesn't ground findings in tool output.** It
+   produced 7 lint "findings" that turned out to be speculative —
+   `markdownlint-cli2 ROLLOUT.md` reports zero errors. The scanner
+   uses ripgrep + LLM inference; for doc / lint topics it should
+   _run the lint channel during scanning_ and feed the actual report
+   into the prompt. Fix scope: extend `repo-scanner` to call a
+   read-only `verifier` pass when changeType hints at doc/lint
+   work.
+2. **`patch-author` over `claude -p` subprocess can't fit the
+   time budget.** Subprocess startup is ~30–60s, and producing a
+   JSON document of multi-KB unified diffs is another 2–4 min of
+   thinking. Even with `timeoutMs = 300_000` it timed out. Fix
+   scope: switch `patch-author` to Anthropic SDK direct
+   (`mode: api`), OR break diff generation into per-plan-step calls
+   so each one stays small.
+3. **Hardening shipped from this round** (already in tree):
+   - `subprocess.ts` default `timeoutMs` bumped 120s → 300s; per-node
+     override via `SELFEVO_LLM_<NODE>_TIMEOUT_MS`.
+   - `cli.ts` snapshots `state.json` in a `finally` block so a
+     thrown invoke still leaves an inspectable state on disk.
+   - `scripts/self-evo.sh` `ensure_built` now detects stale builds
+     (any `src/**.ts` newer than `dist/cli.js` triggers a rebuild) —
+     caught a "running yesterday's graph" bug on the first run.
+
 ## Known gotchas / things future-you should know
 
 1. **`isInterrupted(result)` is the right detection signal in

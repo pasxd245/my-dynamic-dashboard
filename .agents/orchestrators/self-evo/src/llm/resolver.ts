@@ -55,6 +55,10 @@ function envOverride(node: string): Partial<LLMNodeConfig> {
   if (maxTokens && Number.isFinite(Number(maxTokens))) {
     out.maxTokens = Number(maxTokens);
   }
+  const timeoutMs = pick("TIMEOUT_MS");
+  if (timeoutMs && Number.isFinite(Number(timeoutMs))) {
+    out.timeoutMs = Number(timeoutMs);
+  }
   return out;
 }
 
