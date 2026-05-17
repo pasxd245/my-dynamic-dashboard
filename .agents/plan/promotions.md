@@ -74,3 +74,9 @@
 **Source**: .agents/plan/cycles/Round_03.md
 **Rationale**: auto-emitted by `self-evo` round-writer; human curates before promotion
 **Promoted by**: self-evo (auto)
+
+## 2026-05-17: Add a one-line cross-link to /autoagent at the top of the self-evo README
+
+**Source**: .agents/plan/cycles/Round_04.md
+**Rationale**: auto-emitted by `self-evo` round-writer; human curates before promotion
+**Promoted by**: self-evo (auto)
