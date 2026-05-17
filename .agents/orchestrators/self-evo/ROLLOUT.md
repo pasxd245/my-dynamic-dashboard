@@ -396,6 +396,50 @@ in the heading), but the helper always emitted`[heading, "",
 the next section's heading produced two consecutive blanks →
 MD012. Fixed: empty body collapses to`[heading, ""]`.
 
+## Learnings — round c (`Tighten error messages in builder-workflow-smoke.sh`)
+
+Code-flavoured round, ran twice. First attempt was killed by a
+regression in the round-a dedup logic (collapsed legitimate
+non-overlapping edits to the same existing file). Per the policy,
+that was fixed in a separate commit and the round was retried from
+scratch. Second attempt closed cleanly: 3 of 4 patches accepted (one
+rejected for "corrupt patch" — LLM produced a malformed hunk; caught
+by validation), 2 of 3 applied in the worktree (the 3rd hit a
+sequential conflict at apply time, correctly surfaced by
+apply-verifier). Manual run of `pnpm dev:builder:smoke:stub` against
+the worktree confirmed the enriched stage-summary messages work in
+both pass and fail modes.
+
+Three bugs surfaced (all fixed in the same hardening commits):
+
+1. **Dedup-by-path was too aggressive.** Round a's `dedupByPath` only
+   handled the creation-diff case; it threw away legitimate
+   non-overlapping edits to the same existing file. Fix:
+   `collapseCreationDiffs` only collapses when every diff in a path's
+   group is a `--- /dev/null` creation diff. Mixed/all-edit groups
+   pass through; apply-verifier is the right layer to surface
+   sequential conflicts on edit diffs. +2 tests cover both cases.
+2. **Title truncation tripped MD026.** `titleFromTopic` was appending
+   `"..."` for over-cap topics. Fix: raised the cap to 72 chars and
+   switched to the single-character ellipsis `…`.
+3. **markdownlint counted run artifacts.** `runs/<id>/.../*.md` and
+   `.agents/tmp/**` were being globbed. Fix: added the matching
+   ignore patterns to `.markdownlint-cli2.jsonc` (191 files → 129).
+
+Two findings deferred (require a real fix in a follow-up):
+
+1. **Verifier channel routing doesn't read the requirements.** The
+    requirement for round c explicitly said "must pass
+    `pnpm dev:builder:smoke:stub`", but `refactor` changeType maps to
+    `[lint, typecheck, tests]` — `smoke` isn't included. A future
+    round could scan requirement text for command references and add
+    matching channels to the verifier's run set.
+2. **The `pnpm -r typecheck`/`tests` failures in the worktree are
+    still the wrong signal.** Confirmed for the second time in round
+    c. The nested-node_modules fix (round a's deferred bug #4) is
+    still needed — either `pnpm install --frozen-lockfile` in the
+    worktree, or stop using `-r` in the verifier command table.
+
 ## What's NEXT — locked sequence
 
 R-A → R-M are done. The orchestrator can close its own PDCA rounds

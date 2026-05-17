@@ -24,18 +24,18 @@ run_stub_mode() {
 
 		if [[ -n "$FAIL_STAGE" && "$FAIL_STAGE" == "$stage" ]]; then
 			first_failed="$stage"
-			print_stage_summary "failed" "$stage" "Simulated stage failure"
+			print_stage_summary "failed" "$stage" "Simulated stage failure (mode=${MODE}; set BUILDER_SMOKE_FAIL_STAGE to override)"
 		else
-			print_stage_summary "passed" "$stage" "Stage completed"
+			print_stage_summary "passed" "$stage" "Stage completed (mode=${MODE})"
 		fi
 	done
 
 	if [[ -n "$first_failed" ]]; then
-		echo "[builder-workflow-smoke] status=failed first_failed_stage=${first_failed}"
+		echo "[builder-workflow-smoke] status=failed first_failed_stage=${first_failed} mode=${MODE}"
 		return 1
 	fi
 
-	echo "[builder-workflow-smoke] status=passed first_failed_stage=none"
+	echo "[builder-workflow-smoke] status=passed first_failed_stage=none mode=${MODE}"
 	return 0
 }
 

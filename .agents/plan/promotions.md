@@ -68,3 +68,9 @@
 **Source**: .agents/plan/cycles/Round_02.md
 **Rationale**: auto-emitted by `self-evo` round-writer; human curates before promotion
 **Promoted by**: self-evo (auto)
+
+## 2026-05-17: Tighten error messages in scripts/dev/builder-workflow-smoke.sh
+
+**Source**: .agents/plan/cycles/Round_03.md
+**Rationale**: auto-emitted by `self-evo` round-writer; human curates before promotion
+**Promoted by**: self-evo (auto)

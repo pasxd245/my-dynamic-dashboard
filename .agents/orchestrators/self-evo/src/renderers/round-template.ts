@@ -12,9 +12,15 @@ function today(): string {
 }
 
 function titleFromTopic(topic: string): string {
+  // Round c found that the old "..." truncation tripped MD026
+  // (trailing punctuation in heading). Use U+2026 (a single
+  // ellipsis character) which most markdownlint rulesets accept as
+  // non-punctuation; relax the cap a little since real titles
+  // usually fit comfortably on one line.
   const t = topic.trim().replace(/\s+/g, " ");
-  if (t.length <= 60) return t || "(no topic)";
-  return t.slice(0, 57) + "...";
+  if (t.length === 0) return "(no topic)";
+  if (t.length <= 72) return t;
+  return t.slice(0, 69) + "…";
 }
 
 function renderPlan(plan: PlanStep[]): string {

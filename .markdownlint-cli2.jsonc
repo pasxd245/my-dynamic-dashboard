@@ -24,6 +24,8 @@
     ".husky/_/**",
     "tmp/**",
     "temp/**",
-    "LICENSE"
+    "LICENSE",
+    ".agents/orchestrators/*/runs/**",
+    ".agents/tmp/**"
   ]
 }
