@@ -96,7 +96,12 @@ export function makeApplyVerifierNode(
       timeoutMs: cfg.timeoutMs,
     });
 
-    if (!cfg.preserveWorktree) {
+    // R-I default flip: undefined → preserve (the docstring promise);
+    // only an explicit `preserveWorktree: false` triggers cleanup.
+    // Found by round a: leaving the worktree around is essential for
+    // the HITL reviewer to `git diff` the proposed change.
+    const shouldRemove = cfg.preserveWorktree === false;
+    if (shouldRemove) {
       try {
         await removeWorktree(services.repoRoot, handle.path);
       } catch {
@@ -106,7 +111,7 @@ export function makeApplyVerifierNode(
 
     return {
       patches: updatedPatches,
-      appliedWorktree: cfg.preserveWorktree === false ? undefined : handle.path,
+      appliedWorktree: shouldRemove ? undefined : handle.path,
       appliedVerification: {
         checks: result.checks,
         failureExcerpts: [...applyFailures, ...result.failureExcerpts],

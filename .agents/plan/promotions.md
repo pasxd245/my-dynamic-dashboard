@@ -56,3 +56,9 @@
 **Source**: user-reported workflow correction (implemented by agent)
 **Rationale**: Clarify that multiple open round candidates require explicit user confirmation, and align Plan/Do/Check/Act with prepare -> implement -> analyze/verify -> plan-next behavior for Spec-Kit rounds.
 **Promoted by**: agent at explicit user request
+
+## 2026-05-17: Add a /self-evo Claude Code slash command stub
+
+**Source**: .agents/plan/cycles/Round_01.md
+**Rationale**: auto-emitted by `self-evo` round-writer; human curates before promotion
+**Promoted by**: self-evo (auto)

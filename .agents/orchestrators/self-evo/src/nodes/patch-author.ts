@@ -208,6 +208,29 @@ export function makePatchAuthorNode(services: AgentServices) {
       }
     }
 
-    return { patches: accepted };
+    // R-M follow-up (found by round a): when N plan steps target the
+    // same new file, each step's LLM call independently emits a
+    // "create from /dev/null" diff. Only the first one can apply —
+    // the rest fail with "file already exists." Collapse duplicates
+    // by path, keeping the largest diff (proxy for "most complete").
+    const deduped = dedupByPath(accepted);
+    if (deduped.length < accepted.length) {
+      console.error(
+        `[patch-author] collapsed ${accepted.length - deduped.length} duplicate-path diff(s); ` +
+          "kept the largest per path",
+      );
+    }
+    return { patches: deduped };
   };
+}
+
+function dedupByPath(patches: Patch[]): Patch[] {
+  const best = new Map<string, Patch>();
+  for (const p of patches) {
+    const cur = best.get(p.path);
+    if (!cur || p.diff.length > cur.diff.length) {
+      best.set(p.path, p);
+    }
+  }
+  return [...best.values()];
 }

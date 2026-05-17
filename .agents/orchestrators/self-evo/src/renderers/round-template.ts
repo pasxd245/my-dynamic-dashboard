@@ -22,46 +22,56 @@ function renderPlan(plan: PlanStep[]): string {
   return plan.map((p) => `- [${p.done ? "x" : " "}] **${p.id}** — ${p.text}`).join("\n");
 }
 
+// Markdown sub-section with a heading + body. Every sub-section
+// emits the same shape — heading, blank, body lines, trailing blank —
+// so markdownlint MD022/MD032 stay happy without the caller having to
+// remember the pattern. Found by round a: the Findings/Boundary/Patches
+// sections all butted heading-to-list and failed lint.
+function subSection(heading: string, body: readonly string[]): string[] {
+  return [heading, "", ...body, ""];
+}
+
 function renderDoBlock(state: SelfEvoStateT): string {
-  const lines: string[] = [];
-  lines.push(`### Findings (${state.findings.length})`);
-  if (state.findings.length === 0) {
-    lines.push("(none)");
-  } else {
-    for (const f of state.findings) {
-      lines.push(`- **${f.source}** — ${f.claim}${f.evidence ? ` _(${f.evidence})_` : ""}`);
-    }
-  }
-  lines.push("");
+  const out: string[] = [];
+
+  const findings = state.findings.length === 0
+    ? ["(none)"]
+    : state.findings.map((f) => {
+        const evidence = f.evidence ? ` _(${f.evidence})_` : "";
+        return `- **${f.source}** — ${f.claim}${evidence}`;
+      });
+  out.push(...subSection(`### Findings (${state.findings.length})`, findings));
 
   if (state.scope) {
-    lines.push("### Boundary");
-    lines.push(`- **In scope**: ${state.scope.inScope.join(", ") || "(none)"}`);
+    const body: string[] = [];
+    body.push(`- **In scope**: ${state.scope.inScope.join(", ") || "(none)"}`);
     if (state.scope.outScope.length) {
-      lines.push(`- **Out of scope**: ${state.scope.outScope.join(", ")}`);
+      body.push(`- **Out of scope**: ${state.scope.outScope.join(", ")}`);
     }
     if (state.scope.allowedFiles.length) {
-      lines.push(`- **Allowed file globs**: \`${state.scope.allowedFiles.join("`, `")}\``);
+      body.push(`- **Allowed file globs**: \`${state.scope.allowedFiles.join("`, `")}\``);
     }
     if (state.scope.assumptions.length) {
-      lines.push("- **Assumptions**:");
-      for (const a of state.scope.assumptions) lines.push(`  - ${a}`);
+      body.push("- **Assumptions**:");
+      for (const a of state.scope.assumptions) body.push(`  - ${a}`);
     }
-    lines.push("");
+    out.push(...subSection("### Boundary", body));
   }
 
-  lines.push(`### Change type: \`${state.changeType ?? "(unset)"}\``);
-  lines.push("");
+  out.push(...subSection(
+    `### Change type: \`${state.changeType ?? "(unset)"}\``,
+    [],
+  ));
 
-  lines.push(`### Patches (dry-run, ${state.patches.length})`);
-  if (state.patches.length === 0) {
-    lines.push("(none)");
-  } else {
-    for (const p of state.patches) {
-      lines.push(`- \`${p.path}\` — applied: ${p.applied}`);
-    }
-  }
-  return lines.join("\n");
+  const patches = state.patches.length === 0
+    ? ["(none)"]
+    : state.patches.map((p) => `- \`${p.path}\` — applied: ${p.applied}`);
+  out.push(...subSection(`### Patches (dry-run, ${state.patches.length})`, patches));
+
+  // Strip the final trailing blank so the rendered block ends cleanly
+  // — the outer template controls the next section's spacing.
+  while (out.length > 0 && out.at(-1) === "") out.pop();
+  return out.join("\n");
 }
 
 function statusBox(check: CheckResult): string {
@@ -74,8 +84,14 @@ function renderCheckBlock(
   title: string,
   v: SelfEvoStateT["verification"],
 ): string {
+  // markdownlint wants MD022 (blank around headings) + MD032 (blank
+  // around lists). The first round we wrote (Round_01.md after round a)
+  // failed lint because the heading + list pair butted up against each
+  // other. Inserting a blank line after the heading and before any
+  // subsequent block keeps the rendered round file self-clean.
   const lines: string[] = [];
   lines.push(`### ${title}`);
+  lines.push("");
   if (!v) {
     lines.push("- [ ] (did not run)");
     return lines.join("\n");

@@ -329,6 +329,49 @@ Tests: `pnpm --filter @self/orchestrator test` → **50/50 passing**.
 - Tests: [test/tracing.test.ts](test/tracing.test.ts) — 2 cases:
   shape of the invoke config + env-var sensing.
 
+## Learnings — round a (`Add a /self-evo Claude Code slash command stub`)
+
+First real round to close end-to-end via the orchestrator. Closed
+clean with a real `Round_01.md` written and the slash command applied
+to `.claude/commands/self-evo.md` (now visible in Claude Code's
+slash-command list).
+
+Bugs surfaced (all fixed in the follow-up hardening commit):
+
+1. **Chunked patch-author + new file → N "create from /dev/null"
+   diffs.** Each plan step's LLM call is independent, so when steps
+   all target the same not-yet-existing file, every step emits a
+   "create" diff. Only the first applies; the rest fail with "file
+   already exists." Mitigation: `dedupByPath()` after the loop, keep
+   the largest diff per path. Future round may add inter-step
+   awareness (each step sees the running file state).
+2. **`cfg.preserveWorktree` default was inverted.** Undefined falsy
+   meant "remove"; the docstring said "preserve." Fixed: only
+   `preserveWorktree: false` triggers cleanup.
+3. **Round-template renderer produced files that fail markdownlint.**
+   The dual Pre/Post check blocks butted headings against lists
+   without blank lines (MD022/MD032). Fixed in
+   `renderCheckBlock` to insert blanks around the heading.
+4. **Worktree node_modules symlink covers only the top level.** In a
+   pnpm monorepo each package has its own `node_modules/` symlinked
+   into `.pnpm/`; those aren't recreated in the worktree, so any
+   verifier channel that runs `pnpm -r typecheck`/`pnpm -r test`
+   fails for missing-module reasons unrelated to the patch. Deferred
+   — the smoke channel still passes, and the failure mode is loud
+   and easy to recognise. Fix planned: either run `pnpm install
+--frozen-lockfile` in the worktree, or stop using `-r` in the
+   verifier command table and target the affected package only.
+5. **The pre-apply verifier's "all green" verdict is over-confident**:
+   it ran against current HEAD, not against the patched tree, so it
+   tells the judge nothing about whether the patch is good. The
+   apply-verifier delta is what actually matters. Open question:
+   should the judge weight `appliedVerification` more heavily than
+   `verification`?
+
+Net effect after the hardening commit: the orchestrator can produce
+a clean, lint-passing `Round_NN.md` and apply a single-file new-file
+patch end-to-end without the noise round a introduced.
+
 ## What's NEXT — locked sequence
 
 R-A → R-M are done. The orchestrator can close its own PDCA rounds
