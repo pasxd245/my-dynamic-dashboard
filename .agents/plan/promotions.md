@@ -80,3 +80,9 @@
 **Source**: .agents/plan/cycles/Round_04.md
 **Rationale**: auto-emitted by `self-evo` round-writer; human curates before promotion
 **Promoted by**: self-evo (auto)
+
+## 2026-05-17: Refactor LLMResolver to support pluggable provider adapters (no behaviour change)
+
+**Source**: .agents/plan/cycles/Round_05.md
+**Rationale**: auto-emitted by `self-evo` round-writer; human curates before promotion
+**Promoted by**: self-evo (auto)

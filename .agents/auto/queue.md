@@ -28,7 +28,7 @@ Autoagent picks the first un-checked `### Topic:` heading.
 - req: (consumed) Preserve all existing sections and headings; only insert a brief reference, do not restructure
 - req: (consumed) File must still pass markdownlint
 
-### Topic: Refactor LLMResolver to support pluggable provider adapters (no behaviour change)
+### [x] Topic: Refactor LLMResolver to support pluggable provider adapters (no behaviour change) — done 2026-05-17, Round_05, autoagent/20260517/Round_05
 
 - req: Boundary: only .agents/orchestrators/self-evo/src/llm/resolver.ts may be modified
 - req: Introduce a `ProviderAdapter` interface that current subprocess + anthropic clients both satisfy; resolver picks adapter by `mode` string

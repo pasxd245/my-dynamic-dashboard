@@ -20,6 +20,12 @@ export interface LLMNodeConfig {
   skills?: string[];
 }
 
+/**
+ * A factory that builds an LLMClient from resolved node configuration.
+ * Both the subprocess and anthropic-api code paths satisfy this contract.
+ */
+export type ProviderAdapter = (config: LLMNodeConfig) => LLMClient;
+
 export interface LLMConfig {
   default: LLMNodeConfig;
   nodes: Record<string, LLMNodeConfig>;
