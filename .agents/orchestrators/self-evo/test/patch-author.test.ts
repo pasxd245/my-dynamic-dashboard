@@ -82,29 +82,52 @@ const NONAPPLY_DIFF = `--- a/apps/builder/src/hello.txt
 +world
 `;
 
+// FakeLLM keyed by request `tag`. R-M's chunked patch-author calls
+// `llm.complete({ tag: "patch-author:<stepId>" })` once per plan step,
+// so tests register one canned response per step. A throwable per-tag
+// entry lets us exercise the LLM-failure rejection path.
 class FakeLLM implements LLMClient {
   readonly mode = "subprocess" as const;
   readonly capabilities = { supportsParallel: false, maxConcurrency: 1 };
-  constructor(private readonly canned: string) {}
-  async complete(_req: LLMRequest) {
-    return { text: this.canned };
+  public calls: LLMRequest[] = [];
+  constructor(
+    private readonly canned: Record<string, string | { throws: string }>,
+  ) {}
+  async complete(req: LLMRequest) {
+    this.calls.push(req);
+    const entry = this.canned[req.tag ?? ""];
+    if (entry === undefined) {
+      throw new Error(`FakeLLM: no canned for tag=${req.tag}`);
+    }
+    if (typeof entry === "object" && "throws" in entry) {
+      throw new Error(entry.throws);
+    }
+    return { text: entry };
   }
 }
 
-function servicesFor(repoRoot: string, workspaceRoot: string, llmText: string): AgentServices {
+function servicesFor(
+  repoRoot: string,
+  workspaceRoot: string,
+  canned: Record<string, string | { throws: string }>,
+): { services: AgentServices; fake: FakeLLM } {
   const resolver = new LLMResolver(DEFAULT_LLM_CONFIG);
-  const llm = new FakeLLM(llmText);
-  resolver.for = () => llm;
+  const fake = new FakeLLM(canned);
+  resolver.for = () => fake;
   resolver.skillsFor = () => [];
-  return {
+  const services: AgentServices = {
     resolver,
     skillsRoot: "/nonexistent",
     repoRoot,
     workspaceRoot,
   };
+  return { services, fake };
 }
 
-function stateFor(allowedFiles: string[]): SelfEvoStateT {
+function stateFor(
+  allowedFiles: string[],
+  plan: { id: string; text: string }[] = [{ id: "P1", text: "change hello to world" }],
+): SelfEvoStateT {
   return {
     runId: "test-run",
     topic: "edit hello.txt",
@@ -118,7 +141,7 @@ function stateFor(allowedFiles: string[]): SelfEvoStateT {
       allowedFiles,
     },
     changeType: "feature",
-    plan: [{ id: "P1", text: "change hello to world", done: false }],
+    plan: plan.map((p) => ({ id: p.id, text: p.text, done: false })),
     patches: [],
     verification: undefined,
     appliedVerification: undefined,
@@ -129,6 +152,17 @@ function stateFor(allowedFiles: string[]): SelfEvoStateT {
     judgeIterations: 0,
   };
 }
+
+function stepResp(diff: string | null, path?: string): string {
+  return JSON.stringify({
+    diff,
+    path: path ?? null,
+    explanation: diff ? "candidate" : "non-code step",
+  });
+}
+
+// R-M tests live below the legacy tests so they share `stateFor` /
+// fixtures with the original suite.
 
 test("extractPathFromDiff reads the +++ b/<path> header", () => {
   assert.equal(extractPathFromDiff(VALID_DIFF), "apps/builder/src/hello.txt");
@@ -169,14 +203,14 @@ test("patch-author lands the in-boundary diff, drops the other two", async () =>
   const repo = await makeGitRepo();
   const wsRoot = await mkdtemp(join(tmpdir(), "selfevo-ws-"));
   try {
-    const llmJson = JSON.stringify({
-      diffs: [
-        { path: "apps/builder/src/hello.txt", explanation: "valid", diff: VALID_DIFF },
-        { path: "apps/dashboard.txt", explanation: "out of scope", diff: OUT_OF_SCOPE_DIFF },
-        { path: "apps/builder/src/hello.txt", explanation: "wrong base", diff: NONAPPLY_DIFF },
-      ],
-    });
-    const services = servicesFor(repo, wsRoot, llmJson);
+    // R-M: one LLM call per plan step. 3 steps × 3 diff candidates;
+    // only the in-boundary, applies-cleanly one survives the filter.
+    const canned = {
+      "patch-author:P1": stepResp(VALID_DIFF, "apps/builder/src/hello.txt"),
+      "patch-author:P2": stepResp(OUT_OF_SCOPE_DIFF, "apps/dashboard.txt"),
+      "patch-author:P3": stepResp(NONAPPLY_DIFF, "apps/builder/src/hello.txt"),
+    };
+    const { services, fake } = servicesFor(repo, wsRoot, canned);
 
     const runId = "test-run";
     const layout = layoutFor(runId, wsRoot);
@@ -184,7 +218,18 @@ test("patch-author lands the in-boundary diff, drops the other two", async () =>
 
     const node = makePatchAuthorNode(services);
     const out = await node(
-      stateFor(["apps/builder/src/**", "apps/builder/**/*.txt"]),
+      stateFor(["apps/builder/src/**", "apps/builder/**/*.txt"], [
+        { id: "P1", text: "change hello to world (valid)" },
+        { id: "P2", text: "edit out-of-scope file" },
+        { id: "P3", text: "non-applying diff" },
+      ]),
+    );
+
+    assert.equal(fake.calls.length, 3, "one LLM call per plan step");
+    const cmp = (a: string, b: string) => a.localeCompare(b);
+    assert.deepEqual(
+      fake.calls.map((c) => c.tag ?? "").sort(cmp),
+      ["patch-author:P1", "patch-author:P2", "patch-author:P3"],
     );
 
     assert.ok(out.patches, "patches present");
@@ -196,10 +241,103 @@ test("patch-author lands the in-boundary diff, drops the other two", async () =>
     assert.equal(files.length, 1, "exactly one patch on disk");
     const onDisk = await readFile(join(layout.patchesDir, files[0]!), "utf8");
     assert.match(onDisk, /apps\/builder\/src\/hello.txt/);
+    // R-M: per-step filename should embed the stepId so a glance at
+    // runs/<id>/patches/ tells you which plan step produced it.
+    assert.match(files[0]!, /-P1-/);
 
     // Sanity: repo is unchanged (dry-run).
     const helloAfter = await readFile(join(repo, "apps/builder/src/hello.txt"), "utf8");
     assert.equal(helloAfter, "hello\n");
+  } finally {
+    await rm(repo, { recursive: true, force: true });
+    await rm(wsRoot, { recursive: true, force: true });
+  }
+});
+
+test("patch-author treats `diff: null` as a non-code step (no rejection)", async () => {
+  const repo = await makeGitRepo();
+  const wsRoot = await mkdtemp(join(tmpdir(), "selfevo-ws-"));
+  try {
+    const canned = {
+      "patch-author:P1": stepResp(VALID_DIFF, "apps/builder/src/hello.txt"),
+      "patch-author:P2": stepResp(null),
+    };
+    const { services, fake } = servicesFor(repo, wsRoot, canned);
+
+    const runId = "test-run";
+    const layout = layoutFor(runId, wsRoot);
+    await ensureWorkspace(layout);
+
+    const node = makePatchAuthorNode(services);
+    const out = await node(
+      stateFor(["apps/builder/src/**"], [
+        { id: "P1", text: "code change" },
+        { id: "P2", text: "verification reminder, no code" },
+      ]),
+    );
+
+    assert.equal(fake.calls.length, 2);
+    assert.equal(out.patches!.length, 1, "only the coding step produced a diff");
+    assert.equal(out.patches![0]!.path, "apps/builder/src/hello.txt");
+  } finally {
+    await rm(repo, { recursive: true, force: true });
+    await rm(wsRoot, { recursive: true, force: true });
+  }
+});
+
+test("patch-author records a rejection when the LLM call throws", async () => {
+  const repo = await makeGitRepo();
+  const wsRoot = await mkdtemp(join(tmpdir(), "selfevo-ws-"));
+  try {
+    const canned = {
+      "patch-author:P1": stepResp(VALID_DIFF, "apps/builder/src/hello.txt"),
+      "patch-author:P2": { throws: "fake transport timeout" },
+    };
+    const { services } = servicesFor(repo, wsRoot, canned);
+
+    const runId = "test-run";
+    const layout = layoutFor(runId, wsRoot);
+    await ensureWorkspace(layout);
+
+    // Suppress the stderr noise the node emits when it logs rejections.
+    const origError = console.error;
+    console.error = () => undefined;
+    try {
+      const node = makePatchAuthorNode(services);
+      const out = await node(
+        stateFor(["apps/builder/src/**"], [
+          { id: "P1", text: "ok step" },
+          { id: "P2", text: "step that errors" },
+        ]),
+      );
+      assert.equal(out.patches!.length, 1, "the successful step still lands");
+    } finally {
+      console.error = origError;
+    }
+  } finally {
+    await rm(repo, { recursive: true, force: true });
+    await rm(wsRoot, { recursive: true, force: true });
+  }
+});
+
+test("patch-author skips entirely when state.plan is empty", async () => {
+  const repo = await makeGitRepo();
+  const wsRoot = await mkdtemp(join(tmpdir(), "selfevo-ws-"));
+  try {
+    const { services, fake } = servicesFor(repo, wsRoot, {});
+    const runId = "test-run";
+    const layout = layoutFor(runId, wsRoot);
+    await ensureWorkspace(layout);
+    const origError = console.error;
+    console.error = () => undefined;
+    try {
+      const node = makePatchAuthorNode(services);
+      const out = await node(stateFor(["apps/builder/src/**"], []));
+      assert.equal(out.patches!.length, 0);
+      assert.equal(fake.calls.length, 0, "no LLM call for empty plan");
+    } finally {
+      console.error = origError;
+    }
   } finally {
     await rm(repo, { recursive: true, force: true });
     await rm(wsRoot, { recursive: true, force: true });

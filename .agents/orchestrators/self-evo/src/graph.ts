@@ -3,7 +3,10 @@ import type { BaseCheckpointSaver } from "@langchain/langgraph";
 import { SelfEvoState, type SelfEvoStateT } from "./state.js";
 import type { AgentServices } from "./agent-services.js";
 import { makeIntakeNode } from "./nodes/intake.js";
-import { makeRepoScannerNode } from "./nodes/repo-scanner.js";
+import {
+  makeRepoScannerNode,
+  type RepoScannerConfig,
+} from "./nodes/repo-scanner.js";
 import { makeBoundaryScoperNode } from "./nodes/boundary-scoper.js";
 import { makeChangeClassifierNode } from "./nodes/change-classifier.js";
 import { makePlanWriterNode } from "./nodes/plan-writer.js";
@@ -58,6 +61,8 @@ export interface GraphConfig {
   applyVerifier?: ApplyVerifierConfig;
   judge?: JudgeConfig;
   roundWriter?: RoundWriterConfig;
+  /** R-L: knobs for the repo-scanner's tool-grounded probes. */
+  repoScanner?: RepoScannerConfig;
 }
 
 export function buildGraph(services: AgentServices, cfg: GraphConfig) {
@@ -65,7 +70,10 @@ export function buildGraph(services: AgentServices, cfg: GraphConfig) {
     .addNode("intake", withResetGuard("intake", makeIntakeNode(services)))
     .addNode(
       "repo-scanner",
-      withResetGuard("repo-scanner", makeRepoScannerNode(services)),
+      withResetGuard(
+        "repo-scanner",
+        makeRepoScannerNode(services, cfg.repoScanner),
+      ),
     )
     .addNode(
       "boundary-scoper",

@@ -5,19 +5,35 @@ import { loadSkills } from "../skills/loader.js";
 import { composeSystemPrompt } from "../skills/compose.js";
 import { parseJsonResponse } from "../parsers.js";
 import { ripgrep, ripgrepAvailable, type RipgrepHit } from "../tools/ripgrep.js";
+import {
+  detectDocTopic,
+  probeFileRead,
+  probeLint,
+  renderProbes,
+  type ProbeResult,
+} from "../tools/probe.js";
 
 const SYSTEM_BASE = [
   "You are the `repo-scanner` agent in a self-evolution orchestrator.",
-  "Given a topic, a set of requirements, and (optionally) a list of",
-  "ripgrep hits from this repository, produce a JSON object listing",
-  "findings the downstream planner can act on. Each finding maps to",
-  "evidence in the codebase or a clear inference from the topic.",
+  "Given a topic, a set of requirements, ripgrep hits, and one or more",
+  "tool probes (linter output, file reads), produce findings the",
+  "downstream planner can act on.",
+  "",
+  "GROUNDING RULE: every finding's `evidence` must quote or directly",
+  "reference a specific ripgrep hit or tool probe. Do NOT invent",
+  "issues the probes did not show. If the linter exited 0, say so —",
+  "don't claim formatting problems exist anyway. If file-read shows",
+  "the code is fine for the topic, surface that as a finding (the",
+  "downstream planner needs to know nothing's broken).",
   "",
   "Return ONLY a JSON object of the shape:",
   '{"findings":[{"source":string,"claim":string,"evidence":string}]}',
   "",
-  "`source` is a file path or `inference`. `claim` is one sentence.",
-  "`evidence` is at most one sentence. Aim for 3–8 findings.",
+  "`source` is either a file path, `tool:lint`, `tool:file-read`,",
+  "or `inference` (use `inference` ONLY for cross-cutting observations",
+  "the probes hint at but don't directly state). `claim` is one",
+  "sentence. `evidence` is at most one sentence and quotes the probe",
+  "or hit it draws on. Aim for 2–6 findings.",
 ].join("\n");
 
 interface FindingsResponse {
@@ -49,7 +65,11 @@ function renderHits(hits: RipgrepHit[]): string {
     .join("\n");
 }
 
-function renderUserPrompt(state: SelfEvoStateT, hits: RipgrepHit[]): string {
+function renderUserPrompt(
+  state: SelfEvoStateT,
+  hits: RipgrepHit[],
+  probes: ProbeResult[],
+): string {
   const reqs = state.requirements.length
     ? state.requirements.map((r) => `- ${r.id}: ${r.text}`).join("\n")
     : "(none specified — infer from topic)";
@@ -62,8 +82,26 @@ function renderUserPrompt(state: SelfEvoStateT, hits: RipgrepHit[]): string {
     "Ripgrep hits (codebase anchors):",
     renderHits(hits),
     "",
+    "Tool probes (authoritative evidence — findings MUST be grounded here):",
+    renderProbes(probes),
+    "",
     "Produce findings as described in the system prompt.",
   ].join("\n");
+}
+
+// Extract candidate paths from ripgrep hits, biased toward the top
+// of the hit list. Used to seed the lint and file-read probes so we
+// only probe files the scanner already has reason to think matter.
+function candidatePaths(hits: RipgrepHit[], limit = 4): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const h of hits) {
+    if (seen.has(h.path)) continue;
+    seen.add(h.path);
+    out.push(h.path);
+    if (out.length >= limit) break;
+  }
+  return out;
 }
 
 function normaliseFindings(raw: FindingsResponse): Finding[] {
@@ -79,9 +117,17 @@ function normaliseFindings(raw: FindingsResponse): Finding[] {
   return out;
 }
 
-export function makeRepoScannerNode(services: AgentServices) {
+export interface RepoScannerConfig {
+  /** Skip the lint/file-read probes (used by tests). */
+  disableProbes?: boolean;
+}
+
+export function makeRepoScannerNode(
+  services: AgentServices,
+  cfg: RepoScannerConfig = {},
+) {
   return async function repoScannerNode(state: SelfEvoStateT): Promise<SelfEvoUpdate> {
-    let hits: RipgrepHit[] = [];
+    const hits: RipgrepHit[] = [];
     if (await ripgrepAvailable()) {
       const patterns = extractRipgrepPatterns(state);
       for (const p of patterns) {
@@ -95,6 +141,28 @@ export function makeRepoScannerNode(services: AgentServices) {
       }
     }
 
+    // R-L: pull tool-grounded evidence so findings can cite real
+    // probe output instead of plausible-sounding inferences.
+    const probes: ProbeResult[] = [];
+    if (!cfg.disableProbes) {
+      const paths = candidatePaths(hits);
+      const isDoc = detectDocTopic(state.topic, state.requirements.map((r) => r.text));
+      if (isDoc) {
+        try {
+          const lintProbe = await probeLint(paths, services.repoRoot);
+          if (lintProbe) probes.push(lintProbe);
+        } catch {
+          // Probe failures aren't fatal — the scanner just runs with
+          // less grounding.
+        }
+      }
+      try {
+        probes.push(...(await probeFileRead(paths, services.repoRoot)));
+      } catch {
+        // ditto
+      }
+    }
+
     const llm = services.resolver.for("repo-scanner");
     const skillNames = services.resolver.skillsFor("repo-scanner");
     const skills = await loadSkills(skillNames, {
@@ -102,7 +170,7 @@ export function makeRepoScannerNode(services: AgentServices) {
       ignoreMissing: true,
     });
     const system = composeSystemPrompt(SYSTEM_BASE, skills);
-    const user = renderUserPrompt(state, hits);
+    const user = renderUserPrompt(state, hits, probes);
     const res = await llm.complete({ system, user, tag: "repo-scanner" });
     const parsed = parseJsonResponse<FindingsResponse>(res.text);
     return { findings: normaliseFindings(parsed) };

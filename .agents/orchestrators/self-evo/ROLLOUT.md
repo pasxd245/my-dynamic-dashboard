@@ -276,6 +276,42 @@ Tests: `pnpm --filter @self/orchestrator test` → **50/50 passing**.
   end-to-end `round → apply → re-pause → approve → Round_NN.md`
   with the post-patch verification block rendered.
 
+### R-M (DONE) — Chunked patch-author + recommended LLM routing
+
+- [src/nodes/patch-author.ts](src/nodes/patch-author.ts) rewritten to
+  loop one LLM call per plan step (tag `patch-author:<stepId>`) instead
+  of one giant call for the whole plan. Per-step shape is
+  `{diff, path, explanation}`; `diff: null` means "non-code step,
+  skip" (not a rejection). Each step's failure mode is isolated — one
+  parse error or timeout no longer kills the stage.
+- Per-step patch filenames embed the stepId
+  (`runs/<id>/patches/01-P1-foo.patch`) so a glance at the directory
+  shows which plan step produced which diff.
+- [config/llm.example.yaml](config/llm.example.yaml) now demonstrates
+  the recommended routing: everything on `subprocess`, `patch-author`
+  on `mode: api` with `maxTokens: 16384` and `timeoutMs: 120000`. Copy
+  to `llm.yaml` + set `ANTHROPIC_API_KEY` to activate.
+- README has a "Recommended LLM setup" section explaining the toggle.
+
+### R-L (DONE) — Tool-grounded repo-scanner
+
+- [src/tools/probe.ts](src/tools/probe.ts) — `probeLint(paths)` runs
+  `pnpm exec markdownlint-cli2` and returns the real output (including
+  "exit 0 — no issues" on success); `probeFileRead(paths)` returns up
+  to `maxChars` per existing file; `detectDocTopic(topic, reqs)` picks
+  doc-flavoured topics by keyword.
+- [src/nodes/repo-scanner.ts](src/nodes/repo-scanner.ts) now seeds
+  candidate paths from ripgrep hits, runs lint probe for doc topics
+  and file-read probe for everything, and renders the probe outputs
+  into the user prompt under a delimited section. The system prompt
+  carries a hard GROUNDING RULE: every finding's `evidence` must
+  reference a specific probe or hit; if the linter exited 0, the
+  finding has to say so. Fixes the first-real-round failure mode
+  where the scanner invented six lint complaints on a clean file.
+- Per-test toggle: `RepoScannerConfig.disableProbes = true` skips
+  probe execution so the existing read-only-nodes / r-i tests stay
+  hermetic.
+
 ### R-K (DONE) — LangSmith tracing hook
 
 - [src/tracing.ts](src/tracing.ts) — `traceableInvokeConfig(runId)`
@@ -449,4 +485,15 @@ test/tracing.test.ts             # 2 tests — invoke-config shape,
                                  #            env-var sensing
 ```
 
-50/50 passing, ~3.4 s suite duration.
+60/60 passing.
+
+```text
+test/r-l.test.ts                 # 7 tests — detectDocTopic,
+                                 #            probeFileRead truncation,
+                                 #            probeLint output shape,
+                                 #            probeLint with no .md,
+                                 #            renderProbes formatting,
+                                 #            repo-scanner injects
+                                 #            probes into prompt,
+                                 #            disableProbes toggle
+```

@@ -234,8 +234,13 @@ test("end-to-end: round → apply → re-pause at HITL → approve → Round_NN.
   try {
     await mkdir(join(repo, ".agents/plan/cycles"), { recursive: true });
 
-    const llmJson = JSON.stringify({
-      diffs: [{ path: "src/hello.txt", explanation: "ok", diff: VALID_DIFF }],
+    // R-M: chunked patch-author calls `patch-author:<stepId>` per
+    // plan step. The plan-writer below emits a single P1 step, so
+    // we register one per-step response of the new shape.
+    const perStepDiff = JSON.stringify({
+      diff: VALID_DIFF,
+      path: "src/hello.txt",
+      explanation: "ok",
     });
     const fake = new FakeLLM({
       "repo-scanner": JSON.stringify({
@@ -251,7 +256,7 @@ test("end-to-end: round → apply → re-pause at HITL → approve → Round_NN.
       "plan-writer": JSON.stringify({
         plan: [{ id: "P1", text: "change hello to world" }],
       }),
-      "patch-author": llmJson,
+      "patch-author:P1": perStepDiff,
     });
     const resolver = new LLMResolver(DEFAULT_LLM_CONFIG);
     resolver.for = () => fake;

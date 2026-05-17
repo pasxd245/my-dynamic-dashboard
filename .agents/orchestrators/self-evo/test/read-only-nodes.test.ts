@@ -26,11 +26,17 @@ class FakeLLM implements LLMClient {
   constructor(private readonly responses: Record<string, string>) {}
   async complete(req: LLMRequest) {
     this.calls.push(req);
-    const text = this.responses[req.tag ?? ""];
-    if (text === undefined) {
-      throw new Error(`FakeLLM: no canned response for tag=${req.tag}`);
+    const exact = this.responses[req.tag ?? ""];
+    if (exact !== undefined) return { text: exact };
+    // R-M: patch-author now uses `patch-author:<stepId>` tags. Fall
+    // back to a prefix lookup so tests that don't care about specific
+    // steps can register a single `patch-author` entry covering them all.
+    for (const key of Object.keys(this.responses)) {
+      if (req.tag && req.tag.startsWith(key + ":")) {
+        return { text: this.responses[key]! };
+      }
     }
-    return { text };
+    throw new Error(`FakeLLM: no canned response for tag=${req.tag}`);
   }
 }
 
@@ -137,11 +143,23 @@ test("read-only nodes walk end-to-end with a fake LLM and pause at HITL", async 
     assert.equal(first.id, "P1");
     assert.equal(first.done, false);
 
-    // Verify each real node hit the fake LLM exactly once.
+    // Verify each real node hit the fake LLM. patch-author now loops
+    // once per plan step (R-M), so we collapse `patch-author:*` tags
+    // back to a single bucket for the contract assertion and confirm
+    // the per-step call count separately.
     const cmp = (a: string, b: string) => a.localeCompare(b);
-    const tags = fake.calls
-      .map((c) => c.tag ?? "")
-      .toSorted(cmp);
+    const buckets = new Set<string>();
+    let patchAuthorCalls = 0;
+    for (const c of fake.calls) {
+      const tag = c.tag ?? "";
+      if (tag.startsWith("patch-author:")) {
+        patchAuthorCalls++;
+        buckets.add("patch-author");
+      } else {
+        buckets.add(tag);
+      }
+    }
+    const tags = [...buckets].toSorted(cmp);
     const expected = [
       "boundary-scoper",
       "change-classifier",
@@ -150,6 +168,7 @@ test("read-only nodes walk end-to-end with a fake LLM and pause at HITL", async 
       "repo-scanner",
     ].toSorted(cmp);
     assert.deepEqual(tags, expected);
+    assert.equal(patchAuthorCalls, values.plan.length);
   });
 });
 

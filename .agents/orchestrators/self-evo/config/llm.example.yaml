@@ -11,11 +11,16 @@ default:
   mode: subprocess          # subprocess | api
   command: claude
   args: ["-p"]
-  # For mode: api ----------
-  # mode: api
-  # model: claude-sonnet-4-6
-  # apiKey: $ANTHROPIC_API_KEY    # picked up from env if omitted
-  # maxTokens: 4096
+  timeoutMs: 180000         # 3 min — subprocess startup eats ~30s
+
+# RECOMMENDED PATTERN:
+# Route every node to `subprocess` (zero setup, uses your Claude Code
+# auth) EXCEPT `patch-author`. Patch generation produces lots of output
+# and benefits hugely from the SDK's lower per-call overhead — set
+# ANTHROPIC_API_KEY in the env and patch-author moves to direct API
+# calls. Other nodes stay cheap via subprocess.
+#
+# To use this layout: copy this file to `llm.yaml` in the same dir.
 
 nodes:
   repo-scanner:
@@ -27,6 +32,10 @@ nodes:
   plan-writer:
     skills: [master-plan, pdca-next]
   patch-author:
+    mode: api
+    model: claude-sonnet-4-6
+    maxTokens: 16384        # diffs can be long; don't get truncated
+    timeoutMs: 120000
     skills: [bug-fix, clean-code]
   verifier:
     skills: []

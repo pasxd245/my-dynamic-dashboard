@@ -2,7 +2,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 import type { SelfEvoStateT, SelfEvoUpdate } from "../state.js";
 import type { AgentServices } from "../agent-services.js";
-import type { Patch } from "../types.js";
+import type { Patch, PlanStep } from "../types.js";
 import { loadSkills } from "../skills/loader.js";
 import { composeSystemPrompt } from "../skills/compose.js";
 import { parseJsonResponse } from "../parsers.js";
@@ -13,33 +13,35 @@ import {
   withinBoundary,
 } from "../tools/patch.js";
 
-const SYSTEM_BASE = [
+const SYSTEM_BASE_STEP = [
   "You are the `patch-author` agent in a self-evolution orchestrator.",
-  "Given a plan, a scope, and findings, produce a JSON object of",
-  "unified diffs that, taken together, advance the plan.",
+  "Given a single plan step, a scope, and findings, produce ONE unified",
+  "diff that implements that step — or return an empty diff list if the",
+  "step is non-code (documentation note, verification reminder, etc.).",
   "",
   "Return ONLY a JSON object of the shape:",
-  '{"diffs":[{"path":string,"explanation":string,"diff":string}]}',
+  '{"diff":string|null,"path":string|null,"explanation":string}',
   "",
-  "Each `diff` MUST:",
+  "When `diff` is a string it MUST:",
   "- be a single-file unified diff with `--- a/<path>` and `+++ b/<path>`",
   "  headers,",
   "- target a `path` that matches one of `scope.allowedFiles` (glob),",
   "- apply cleanly to the current HEAD of the repository,",
   "- include accurate hunk headers (`@@ -L,N +L,N @@`).",
   "",
-  "Do NOT include deletions (`+++ /dev/null`). Keep diffs small and",
-  "self-contained — one hunk per file is preferred. Aim for 1–4",
-  "diffs total. If you cannot produce a clean diff for a step, omit",
-  "it rather than guessing line numbers.",
+  "If you cannot produce a clean diff for this step, return",
+  '`{"diff":null,"path":null,"explanation":"<one-line reason>"}` —',
+  "never invent line numbers.",
 ].join("\n");
 
-interface DiffsResponse {
-  diffs?: Array<{ path?: unknown; explanation?: unknown; diff?: unknown }>;
+interface StepDiffResponse {
+  diff?: unknown;
+  path?: unknown;
+  explanation?: unknown;
 }
 
 interface RejectedDiff {
-  index: number;
+  stepId: string;
   path?: string;
   reason: string;
 }
@@ -74,10 +76,13 @@ async function validateCandidate(
   return { ok: true, path, diff };
 }
 
-function renderUserPrompt(state: SelfEvoStateT): string {
+function renderStepPrompt(state: SelfEvoStateT, step: PlanStep): string {
   return [
     `Topic: ${state.topic}`,
     `ChangeType: ${state.changeType ?? "(unset)"}`,
+    "",
+    `Plan step ${step.id}:`,
+    step.text,
     "",
     "Scope.inScope:",
     state.scope?.inScope.join("\n") || "(none)",
@@ -85,11 +90,10 @@ function renderUserPrompt(state: SelfEvoStateT): string {
     "Scope.allowedFiles (you may ONLY modify paths matching these globs):",
     state.scope?.allowedFiles.join("\n") || "(none)",
     "",
-    "Plan:",
-    state.plan.map((p) => `- [${p.id}] ${p.text}`).join("\n") || "(none)",
-    "",
-    "Findings (first 5):",
+    "Findings (for context — only relevant ones):",
     state.findings.slice(0, 5).map((f) => `- ${f.claim}`).join("\n") || "(none)",
+    "",
+    "Produce ONE diff (or null) for this single step.",
   ].join("\n");
 }
 
@@ -98,13 +102,18 @@ function safeBasename(path: string): string {
   return b.replace(/[^a-zA-Z0-9._-]+/g, "_") || "patch";
 }
 
-// Rewritten in R-E. Calls the LLM for unified diffs, then runs each
-// through (a) shape validation, (b) `scope.allowedFiles` boundary
-// check, (c) `git apply --check`. Accepted diffs land in
-// `state.patches[]` with `applied: false`, and the raw text is also
-// written under `runs/<runId>/patches/`. Rejected diffs are logged via
-// stderr but never make the orchestrator throw — patch-author always
-// finishes the stage so HITL can see what the model tried.
+// R-M: chunked patch-author. Instead of one giant LLM call asking for
+// a JSON array of diffs across the whole plan (which timed out on the
+// first real round), the node now loops over `state.plan` and makes
+// one focused call per step. Each call's output is small enough to
+// land within a sane per-call timeout on either transport, and the
+// stage's failure mode is "this step couldn't produce a diff" rather
+// than "the whole stage hung."
+//
+// Recommended transport: route `patch-author` to `mode: api` via
+// `config/llm.example.yaml` so we get the SDK's lower per-call
+// overhead. Subprocess `claude -p` still works but pays the startup
+// cost N times — fine for short plans, painful past ~4 steps.
 export function makePatchAuthorNode(services: AgentServices) {
   return async function patchAuthorNode(state: SelfEvoStateT): Promise<SelfEvoUpdate> {
     const layout = layoutFor(state.runId, services.workspaceRoot);
@@ -112,10 +121,14 @@ export function makePatchAuthorNode(services: AgentServices) {
 
     const allowedFiles = state.scope?.allowedFiles ?? [];
     if (allowedFiles.length === 0) {
-      // No boundary defined — refuse to write anything. The HITL gate
-      // sees an empty `patches` array and a stderr warning.
       console.error(
         "[patch-author] scope.allowedFiles is empty; skipping diff generation",
+      );
+      return { patches: [] };
+    }
+    if (state.plan.length === 0) {
+      console.error(
+        "[patch-author] state.plan is empty; nothing to author against",
       );
       return { patches: [] };
     }
@@ -126,27 +139,59 @@ export function makePatchAuthorNode(services: AgentServices) {
       dir: services.skillsRoot,
       ignoreMissing: true,
     });
-    const system = composeSystemPrompt(SYSTEM_BASE, skills);
-    const user = renderUserPrompt(state);
-    const res = await llm.complete({ system, user, tag: "patch-author" });
-    const parsed = parseJsonResponse<DiffsResponse>(res.text);
-    const candidates = Array.isArray(parsed?.diffs) ? parsed.diffs : [];
+    const system = composeSystemPrompt(SYSTEM_BASE_STEP, skills);
 
     const accepted: Patch[] = [];
     const rejected: RejectedDiff[] = [];
 
-    for (let i = 0; i < candidates.length; i++) {
+    for (const step of state.plan) {
+      const user = renderStepPrompt(state, step);
+      let res;
+      try {
+        res = await llm.complete({
+          system,
+          user,
+          tag: `patch-author:${step.id}`,
+        });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        rejected.push({ stepId: step.id, reason: `llm call failed: ${msg}` });
+        continue;
+      }
+
+      let parsed: StepDiffResponse;
+      try {
+        parsed = parseJsonResponse<StepDiffResponse>(res.text);
+      } catch (err) {
+        rejected.push({
+          stepId: step.id,
+          reason: `JSON parse failed: ${err instanceof Error ? err.message : String(err)}`,
+        });
+        continue;
+      }
+
+      if (parsed.diff === null || parsed.diff === undefined) {
+        // Model explicitly declined a diff for this step — not a
+        // rejection in the validation sense; just a non-code step.
+        continue;
+      }
+
       const result = await validateCandidate(
-        candidates[i] ?? {},
+        { diff: parsed.diff, path: parsed.path },
         allowedFiles,
         services.repoRoot,
       );
       if (!result.ok) {
-        rejected.push({ index: i, path: result.path, reason: result.reason });
+        rejected.push({
+          stepId: step.id,
+          path: result.path,
+          reason: result.reason,
+        });
         continue;
       }
+
       const seq = String(accepted.length + 1).padStart(2, "0");
-      const filename = `${seq}-${safeBasename(result.path)}.patch`;
+      const filename = `${seq}-${step.id}-${safeBasename(result.path)}.patch`;
       const filePath = join(layout.patchesDir, filename);
       const content = result.diff.endsWith("\n") ? result.diff : result.diff + "\n";
       await writeFile(filePath, content, "utf8");
@@ -155,11 +200,11 @@ export function makePatchAuthorNode(services: AgentServices) {
 
     if (rejected.length) {
       console.error(
-        `[patch-author] rejected ${rejected.length}/${candidates.length} diff(s):`,
+        `[patch-author] rejected ${rejected.length}/${state.plan.length} step(s):`,
       );
       for (const r of rejected) {
         const pathLabel = r.path ? " " + r.path : "";
-        console.error(`  [${r.index}]${pathLabel} — ${r.reason}`);
+        console.error(`  [${r.stepId}]${pathLabel} — ${r.reason}`);
       }
     }
 

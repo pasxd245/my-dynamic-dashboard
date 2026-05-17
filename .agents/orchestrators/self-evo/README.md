@@ -56,6 +56,26 @@ scripts/self-evo.sh
 runs/              # gitignored; one folder per run
 ```
 
+## Recommended LLM setup
+
+Out of the box, every node calls `claude -p` as a subprocess. Zero
+setup, uses your Claude Code auth — but startup overhead is ~30 s
+per call. For most nodes that's fine; for `patch-author` (which loops
+once per plan step and emits unified diffs) it adds up fast.
+
+Recommended setup:
+
+1. Copy `config/llm.example.yaml` → `config/llm.yaml`.
+2. Set `ANTHROPIC_API_KEY` in the environment.
+3. Patch-author now runs against the Anthropic SDK directly with
+   `maxTokens: 16384`. Everything else stays on subprocess.
+
+The `[llm] configPath` line in `config/self-evo.ini` auto-discovers
+`config/llm.yaml` next to it — no other change needed.
+
+If you don't have an API key handy, leave the layout as-is; rounds
+still close, just slower at the patch-author stage.
+
 ## LangSmith tracing (opt-in)
 
 Self-evo auto-exports spans to LangSmith when the standard LangChain
