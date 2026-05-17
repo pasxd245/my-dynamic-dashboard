@@ -429,16 +429,48 @@ Three bugs surfaced (all fixed in the same hardening commits):
 Two findings deferred (require a real fix in a follow-up):
 
 1. **Verifier channel routing doesn't read the requirements.** The
-    requirement for round c explicitly said "must pass
-    `pnpm dev:builder:smoke:stub`", but `refactor` changeType maps to
-    `[lint, typecheck, tests]` — `smoke` isn't included. A future
-    round could scan requirement text for command references and add
-    matching channels to the verifier's run set.
+   requirement for round c explicitly said "must pass
+   `pnpm dev:builder:smoke:stub`", but `refactor` changeType maps to
+   `[lint, typecheck, tests]` — `smoke` isn't included. A future
+   round could scan requirement text for command references and add
+   matching channels to the verifier's run set.
 2. **The `pnpm -r typecheck`/`tests` failures in the worktree are
-    still the wrong signal.** Confirmed for the second time in round
-    c. The nested-node_modules fix (round a's deferred bug #4) is
-    still needed — either `pnpm install --frozen-lockfile` in the
-    worktree, or stop using `-r` in the verifier command table.
+   still the wrong signal.** Confirmed for the second time in round
+   c. The nested-node_modules fix (round a's deferred bug #4) is
+   still needed — either `pnpm install --frozen-lockfile` in the
+   worktree, or stop using `-r` in the verifier command table.
+
+## R-N (DONE) — `/autoagent` overnight loop
+
+Manually implemented (option A) at
+[.claude/commands/autoagent.md](../../../.claude/commands/autoagent.md).
+Scaffolding directory at [.agents/auto/](../../auto/) with `README.md`
+and `queue.md` tracked; `state.json`, `blockers.md`, `STOP`, and
+`reports/` gitignored.
+
+Key design calls shaped by rounds a–c:
+
+- **Sub-agent dispatch is one path** — `scripts/self-evo.sh round`.
+  The orchestrator already drives its own per-node LLM calls, so
+  autoagent's loop is simpler than the planner's (no Agent-tool /
+  scripts-run branching).
+- **Self-lock split into hard + soft.** Hard locks the orchestrator's
+  brain (`graph.ts`, `state.ts`, `cli.ts`, `persistence/**`,
+  `scripts/self-evo.sh`, this file). Soft locks `src/llm/**` and
+  `src/nodes/**` — only unlocked by an explicit `--allow-llm-edit`
+  flag the user passes for R-O.
+- **Known-noise allowlist.** The pnpm-`-r` worktree failures (round
+  a's deferred bug #4) and apply-time sequential conflicts on
+  `applied: false` patches (round c) are documented as expected
+  signals, NOT tier-2 escalations. Saves the morning review from a
+  pile of false alarms.
+- **No-op rounds are tier-1.** Round b proved this — zero patches
+  with grounded findings is a legitimate "audited and confirmed
+  fine" outcome.
+
+Before driving R-O via autoagent, run `/autoagent --once --dry-run`
+on a queue entry to smoke-test the 13-step state machine. Real
+overnight comes after the dry-run is clean.
 
 ## What's NEXT — locked sequence
 
