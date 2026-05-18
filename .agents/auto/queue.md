@@ -35,7 +35,7 @@ Autoagent picks the first un-checked `### Topic:` heading.
 - req: Keep mode = "subprocess" | "api" working with no behavioural change; tests stay green
 - req: No new provider implementations in this round — only the refactor that makes the next three additive
 
-### Topic: Clean dist-test/ before recompile in @self/orchestrator's build:test
+### [x] Topic: Clean dist-test/ before recompile in @self/orchestrator's build:test — done 2026-05-18, Round_06, autoagent/20260518/Round_06
 
 - req: Boundary: only `.agents/orchestrators/self-evo/package.json` may be modified
 - req: The `build:test` npm script currently runs `tsc -p tsconfig.test.json` (or equivalent) which leaves stale compiled `.js` files in `dist-test/` when source `.ts` files are renamed, moved, or deleted. Today's Round 06 exposed this: yesterday's reverted Round 06b left `dist-test/test/codex.test.js` + `dist-test/src/llm/codex.js` even though no `.ts` source exists, and the verifier picked them up as fake test failures.
