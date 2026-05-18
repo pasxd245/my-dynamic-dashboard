@@ -53,39 +53,34 @@ Autoagent picks the first un-checked `### Topic:` heading.
 - req: Do NOT introduce any positional-argv code path. Do NOT add `stdio: ["ignore", ...]`. Do NOT bypass `child.stdin`. If tempted to deviate from subprocess.ts's shape: don't.
 - req: Existing tests (12 files) must still pass — `makeCodexClient` is unused dead code at this point, which is fine.
 
-### Topic: Add codex.test.ts — exercises the stdin→stdout transport via `cat`
+### Topic: Self-evo writes Round_NN.md after apply-verifier clean — close the lesson-learn loop's input gap
 
-- req: Boundary: only `.agents/orchestrators/self-evo/test/codex.test.ts` (new) may be modified. NO src/ changes. NO resolver wiring.
-- req: Use Node's built-in `test` + `assert` modules: `import { test } from "node:test"; import assert from "node:assert/strict";`. Match the import style of `test/skeleton.test.ts` or `test/r-g.test.ts`.
-- req: Construct the client with `command: "cat"`, `args: []` (cat echoes stdin → stdout regardless of args). Call `await client.complete({ user: "hello from codex test" })`. Assert `result.text.includes("hello from codex test")`. ONE test case is enough — don't add timeout / multi-prompt / non-zero-exit tests in this round (those tripped up the last attempt).
-- req: Plan-writer MUST emit exactly 1 plan step. This is one ~15-line test file.
-- req: After the patch, `pnpm --filter @self/orchestrator test` must report 13 test files (12 existing + 1 new), all passing.
+- req: Boundary: only `.agents/orchestrators/self-evo/src/nodes/apply-verifier.ts` may be modified. Soft-locked; requires `/autoagent --allow-llm-edit`.
+- req: Problem statement (grounded in code, verified 2026-05-18): the graph routes `apply-verifier → hitl-gate` (`src/graph.ts:134`). The round-writer node — which is the ONLY caller of `renderRoundMarkdown` + `writeFile` to `.agents/plan/cycles/Round_NN.md` — is reachable only via `hitl.kind === "approve"` (`src/graph.ts:127`). Result: a round closed via `apply` (today's autoagent default per `.claude/commands/autoagent.md` step 7) produces NO `Round_NN.md` PDCA artifact. Today's rounds 06 and 07 demonstrated this empirically — patches landed in main, but `.agents/plan/cycles/` got no new files. The lesson-learn loop documented in [docs/agents/workflows/agent-architecture.workflow.md](../../docs/agents/workflows/agent-architecture.workflow.md) has no input without these artifacts.
+- req: Fix: extend `apply-verifier.ts` so that when `appliedVerification.checks` are all pass (or all known-noise — match the existing classification logic in the file if any), the node ALSO writes a `Round_NN.md` artifact to `<repoRoot>/.agents/plan/cycles/`. Mint the next round number by reading existing entries and matching `/^Round_(\d+)\.md$/i` (mirroring the regex at `src/nodes/round-writer.ts:27`). Render the file via `renderRoundMarkdown` from `src/renderers/round-template.js` (already used by round-writer.ts:11).
+- req: Best-effort write: if the artifact write throws (permissions, disk full, etc.), catch and log via `console.error("[apply-verifier] cycles artifact write failed: …")` and continue. Do NOT fail the round on artifact-write failure.
+- req: Do NOT duplicate the promotions-log append, the memory.add candidate emission, or any other side-effects of round-writer.ts. Those remain in the `approve` path. This round addresses ONLY the missing `Round_NN.md`.
+- req: Update `apply-verifier.ts`'s leading comment block to describe the new behaviour: "When checks pass cleanly, also emit a `Round_NN.md` artifact so apply-closed rounds contribute to the lesson-learn loop, not just approve-closed rounds."
+- req: Plan-writer MUST emit exactly 1 plan step. One file, one feature.
+- req: After the patch, `pnpm --filter @self/orchestrator test` must still pass (65/65 today). Add no new test in this round — the apply-verifier test (`test/r-i.test.ts` or wherever its tests live) may need an update if the test mocks `appliedVerification.checks`; that's an in-scope adjustment to the existing test file IF strictly required to keep tests green, NOT a new test file.
+- req: Justification under [[purpose-hierarchy]]: without persistent `Round_NN.md` artifacts, the lesson-learn loop has no input → every product round re-discovers the same mistakes → product velocity decays over time. Acceptable meta-cost (one round) for a permanent feedback-loop capability.
 
-### Topic: Wire codex adapter into resolver.ts
+### [x] Topic: Add codex.test.ts — exercises the stdin→stdout transport via `cat` — SUPERSEDED 2026-05-18 per [[llm-mode-taxonomy]]
 
-- req: Boundary: only `.agents/orchestrators/self-evo/src/llm/resolver.ts` may be modified.
-- req: Two small edits: (1) widen the `LLMMode` type alias to include `"codex"`; (2) add a `case "codex": return makeCodexClient(opts)` (or equivalent map entry) to the existing `ProviderAdapter` dispatch landed in Round 05. Import `makeCodexClient` from `./codex.js`.
-- req: Plan-writer MUST emit exactly 1 plan step. This is two related edits to one file.
-- req: After the patch, `pnpm --filter @self/orchestrator test` must still pass cleanly (the new codex.test.ts continues to pass via the `cat`-as-binary trick; no resolver-level test is required in this round).
+- req: (superseded) Wrong-taxonomy: codex.test.ts depends on codex.ts existing as a separate adapter. The locked taxonomy decision is `LLMMode = "local" | "subprocess" | "api"`; provider is config, not type. codex.test.ts should be a subprocess-mode preset test, not its own adapter test. Do not enqueue until R-O re-scope happens.
 
-### Topic: Add Google Gemini CLI transport adapter to self-evo
+### [x] Topic: Wire codex adapter into resolver.ts — SUPERSEDED 2026-05-18 per [[llm-mode-taxonomy]]
 
-- req: Boundary: only `.agents/orchestrators/self-evo/src/llm/gemini.ts` (new) and `.agents/orchestrators/self-evo/src/llm/resolver.ts` may be modified, plus a new test at `.agents/orchestrators/self-evo/test/gemini.test.ts`
-- req: gemini.ts MUST mirror src/llm/subprocess.ts (and the freshly-landed codex.ts) structurally — stdin-pipe transport, same `LLMClient` shape, same timeout pattern
-- req: Exported factory is `makeGeminiClient(opts: GeminiClientOptions = {})`. Defaults: `command = "gemini"`, `args = ["-p", ""]` (verified: `gemini -p <prompt>` is the documented non-interactive mode, and the help text states the prompt arg is "Appended to input on stdin (if any)" — so an empty `-p` value plus stdin works). `mode: "gemini"` in the returned client.
-- req: resolver.ts adapter map gains `gemini` → `makeGeminiClient(opts)`. Tests-via-cat pattern identical to codex.test.ts.
-- req: Same anti-patterns barred as codex: no positional-argv prompt, no `stdio: ["ignore"]`, no bypassing stdin.
+- req: (superseded) Adds `case "codex"` to a dispatch that shouldn't key on provider.
 
-### Topic: Add GitHub Copilot CLI transport adapter to self-evo
+### [x] Topic: Add Google Gemini CLI transport adapter to self-evo — SUPERSEDED 2026-05-18 per [[llm-mode-taxonomy]]
 
-- req: Boundary: only `.agents/orchestrators/self-evo/src/llm/copilot.ts` (new) and `.agents/orchestrators/self-evo/src/llm/resolver.ts` may be modified, plus a new test at `.agents/orchestrators/self-evo/test/copilot.test.ts`
-- req: copilot.ts MUST mirror subprocess.ts/codex.ts/gemini.ts structurally — same stdin-pipe transport
-- req: Exported factory is `makeCopilotClient(opts: CopilotClientOptions = {})`. Defaults: `command = "copilot"` (NOT `gh copilot` — verified: a top-level `copilot` binary is on PATH, the modern GitHub Copilot CLI), `args = ["-p", "", "--allow-all-tools", "-s"]` (verified from `copilot --help`: `-p <text>` is non-interactive mode, `--allow-all-tools` is required for non-interactive, `-s/--silent` strips stats for clean stdout). `mode: "copilot"` in the returned client.
-- req: resolver.ts adapter map gains `copilot` → `makeCopilotClient(opts)`. Tests use `command: "cat"`, `args: []`, same `"hello" in stdout` assertion.
-- req: Same anti-patterns barred. NOTE: copilot's real CLI may not read stdin — that's a runtime concern for the user, NOT a reason to deviate from the stdin transport contract in this round. The test only exercises the transport via `cat`.
+- req: (superseded) Would create gemini.ts as yet another mode variant.
 
-### Topic: Document multi-provider routing in llm.example.yaml and the self-evo README
+### [x] Topic: Add GitHub Copilot CLI transport adapter to self-evo — SUPERSEDED 2026-05-18 per [[llm-mode-taxonomy]]
 
-- req: Boundary: only .agents/orchestrators/self-evo/config/llm.example.yaml and .agents/orchestrators/self-evo/README.md may be modified
-- req: Show one example node routed to each new provider (codex, gemini, copilot) with brief notes on when to use each
-- req: README's "Recommended LLM setup" section gains a "Other providers" subsection
+- req: (superseded) Same architectural error.
+
+### [x] Topic: Document multi-provider routing in llm.example.yaml and the self-evo README — SUPERSEDED 2026-05-18 per [[llm-mode-taxonomy]]
+
+- req: (superseded) Documents the wrong design.
