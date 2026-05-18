@@ -53,7 +53,7 @@ Autoagent picks the first un-checked `### Topic:` heading.
 - req: Do NOT introduce any positional-argv code path. Do NOT add `stdio: ["ignore", ...]`. Do NOT bypass `child.stdin`. If tempted to deviate from subprocess.ts's shape: don't.
 - req: Existing tests (12 files) must still pass — `makeCodexClient` is unused dead code at this point, which is fine.
 
-### Topic: Self-evo writes Round_NN.md after apply-verifier clean — close the lesson-learn loop's input gap
+### [x] Topic: Self-evo writes Round_NN.md after apply-verifier clean — close the lesson-learn loop's input gap — done 2026-05-18 (manual Round_08, see .agents/plan/cycles/Round_08.md)
 
 - req: Boundary: only `.agents/orchestrators/self-evo/src/nodes/apply-verifier.ts` may be modified. Soft-locked; requires `/autoagent --allow-llm-edit`.
 - req: Problem statement (grounded in code, verified 2026-05-18): the graph routes `apply-verifier → hitl-gate` (`src/graph.ts:134`). The round-writer node — which is the ONLY caller of `renderRoundMarkdown` + `writeFile` to `.agents/plan/cycles/Round_NN.md` — is reachable only via `hitl.kind === "approve"` (`src/graph.ts:127`). Result: a round closed via `apply` (today's autoagent default per `.claude/commands/autoagent.md` step 7) produces NO `Round_NN.md` PDCA artifact. Today's rounds 06 and 07 demonstrated this empirically — patches landed in main, but `.agents/plan/cycles/` got no new files. The lesson-learn loop documented in [docs/agents/workflows/agent-architecture.workflow.md](../../docs/agents/workflows/agent-architecture.workflow.md) has no input without these artifacts.

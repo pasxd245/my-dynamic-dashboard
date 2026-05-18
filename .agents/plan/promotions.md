@@ -86,3 +86,9 @@
 **Source**: .agents/plan/cycles/Round_05.md
 **Rationale**: auto-emitted by `self-evo` round-writer; human curates before promotion
 **Promoted by**: self-evo (auto)
+
+## 2026-05-18: Self-evo writes Round_NN.md after apply-verifier clean — close the lesson-learn loop's input gap
+
+**Source**: .agents/plan/cycles/Round_08.md
+**Rationale**: manual round (autoagent blocked on plan-writer over-decomposition); promoting for downstream lesson-learn-loop wiring
+**Promoted by**: human curated (Round_08 manual)

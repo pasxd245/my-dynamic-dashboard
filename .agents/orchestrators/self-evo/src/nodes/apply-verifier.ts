@@ -1,7 +1,9 @@
-import { join } from "node:path";
+import { existsSync } from "node:fs";
+import { mkdir, readdir, writeFile } from "node:fs/promises";
+import { join, resolve } from "node:path";
 import type { SelfEvoStateT, SelfEvoUpdate } from "../state.js";
 import type { AgentServices } from "../agent-services.js";
-import type { Patch } from "../types.js";
+import type { CheckResult, Patch } from "../types.js";
 import { runChecks } from "../tools/shell.js";
 import {
   applyPatch,
@@ -10,6 +12,10 @@ import {
 } from "../tools/worktree.js";
 import type { VerifierConfig } from "./verifier.js";
 import { layoutFor } from "../persistence/workspace.js";
+import {
+  renderRoundMarkdown,
+  roundFilename,
+} from "../renderers/round-template.js";
 
 export interface ApplyVerifierConfig extends VerifierConfig {
   /**
@@ -37,6 +43,55 @@ export interface ApplyVerifierConfig extends VerifierConfig {
 // The worktree is left on disk by default — the human reviews the
 // diff there before final approve. Round-writer (R-G) doesn't yet
 // clean it up; that's an opt-in for a future round.
+//
+// Round 08 (manual, 2026-05-18): when checks pass cleanly we ALSO
+// emit a `Round_NN.md` artifact to `<repoRoot>/.agents/plan/cycles/`
+// so apply-closed rounds contribute to the lesson-learn loop, not
+// just approve-closed rounds (which alone reach the round-writer
+// node). The write is best-effort; failures are logged and ignored
+// so they cannot break the round.
+
+const ROUND_RE = /^Round_(\d+)\.md$/i;
+
+async function nextRoundNumber(cyclesDir: string): Promise<number> {
+  if (!existsSync(cyclesDir)) return 1;
+  const entries = await readdir(cyclesDir);
+  let max = 0;
+  for (const name of entries) {
+    const m = ROUND_RE.exec(name);
+    if (!m) continue;
+    const n = Number(m[1]);
+    if (Number.isFinite(n) && n > max) max = n;
+  }
+  return max + 1;
+}
+
+function checksAllClean(checks: readonly CheckResult[]): boolean {
+  if (checks.length === 0) return false;
+  return checks.every((c) => c.status === "pass" || c.status === "skip");
+}
+
+async function writeCyclesArtifact(
+  state: SelfEvoStateT,
+  repoRoot: string,
+  appliedVerification: { checks: CheckResult[]; failureExcerpts: string[] },
+): Promise<void> {
+  try {
+    const cyclesDir = resolve(repoRoot, ".agents/plan/cycles");
+    await mkdir(cyclesDir, { recursive: true });
+    const number = await nextRoundNumber(cyclesDir);
+    const startedAt = new Date().toISOString().slice(0, 10);
+    const markdown = renderRoundMarkdown(
+      { ...state, appliedVerification },
+      { number, startedAt },
+    );
+    await writeFile(join(cyclesDir, roundFilename(number)), markdown, "utf8");
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(`[apply-verifier] cycles artifact write failed: ${msg}`);
+  }
+}
+
 export function makeApplyVerifierNode(
   services: AgentServices,
   cfg: ApplyVerifierConfig,
@@ -109,13 +164,23 @@ export function makeApplyVerifierNode(
       }
     }
 
+    const appliedVerification = {
+      checks: result.checks,
+      failureExcerpts: [...applyFailures, ...result.failureExcerpts],
+    };
+
+    if (checksAllClean(appliedVerification.checks)) {
+      await writeCyclesArtifact(
+        { ...state, patches: updatedPatches },
+        services.repoRoot,
+        appliedVerification,
+      );
+    }
+
     return {
       patches: updatedPatches,
       appliedWorktree: shouldRemove ? undefined : handle.path,
-      appliedVerification: {
-        checks: result.checks,
-        failureExcerpts: [...applyFailures, ...result.failureExcerpts],
-      },
+      appliedVerification,
     };
   };
 }
