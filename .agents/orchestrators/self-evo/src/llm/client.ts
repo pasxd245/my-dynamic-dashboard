@@ -25,7 +25,7 @@ export interface LLMCapabilities {
 }
 
 export interface LLMClient {
-  readonly mode: "subprocess" | "api";
+  readonly mode: "subprocess" | "api" | "codex";
   readonly capabilities: LLMCapabilities;
   complete(req: LLMRequest): Promise<LLMResponse>;
 }

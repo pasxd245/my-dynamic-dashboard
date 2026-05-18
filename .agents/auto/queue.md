@@ -43,7 +43,7 @@ Autoagent picks the first un-checked `### Topic:` heading.
 - req: After the change, `pnpm --filter @self/orchestrator test` must still pass cleanly on the current `test/` directory contents (12 test files, no codex/gemini/copilot tests yet).
 - req: Do NOT add new dependencies. Do NOT touch tsconfig.test.json. Do NOT modify any test file.
 
-### Topic: Add OpenAI Codex CLI adapter — file only (codex.ts + LLMClient union widen)
+### [x] Topic: Add OpenAI Codex CLI adapter — file only (codex.ts + LLMClient union widen) — done 2026-05-18, Round_07, autoagent/20260518/Round_07
 
 - req: Boundary: only `.agents/orchestrators/self-evo/src/llm/codex.ts` (new) and `.agents/orchestrators/self-evo/src/llm/client.ts` (one-line edit) may be modified. NO resolver.ts changes. NO test file in this round.
 - req: client.ts edit: widen the `LLMClient.mode` union from `"subprocess" | "api"` to `"subprocess" | "api" | "codex"`. That's it — one line.
