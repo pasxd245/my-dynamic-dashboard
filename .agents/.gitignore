@@ -1,1 +1,5 @@
 tmp/
+auto/state.json
+auto/blockers.md
+auto/STOP
+auto/reports/
