@@ -1,35 +1,48 @@
 ---
-description: Drive self-evo through autonomous PDCA rounds — per-round branches, commits, reports, stop at deadline.
-argument-hint: '[--once] [--budget N] [--until HH:MM] [--dry-run]'
+description: Drive autonomous PDCA execution — master-agent reads context, picks one action per iteration, stops at deadline.
+argument-hint: '[--once] [--budget N] [--until HH:MM] [--dry-run] [--allow-llm-edit]'
 ---
 
 # /autoagent
 
-Turn the current Claude Code chat into the master-agent for autonomous
-PDCA execution against this repo. The actual round work is done by
-`scripts/self-evo.sh round`, which spawns its own LLM-driven sub-stages
-(repo-scanner → ... → patch-author → ... → judge → HITL). This master
-loop drives that CLI: pick a topic from the queue, run the round,
-handle the HITL gate by policy, commit on a per-round branch, write a
-report, sleep until the next slot, stop cleanly at the deadline.
+`/autoagent` is **time-expansion + init params** for a master-agent
+loop. It does not itself decide what to do — each iteration the
+master-agent (this chat) reads current project context, picks one
+action by priority, picks an executor for that action (self-evo, a
+skill like `/master-plan` or `/research`, or a direct edit), commits
+on a per-iteration branch, writes a report, then either continues or
+stops. `/autoagent` provides the budget, the deadline, the self-lock,
+and the critical-security envelope.
 
-The orchestrator's design notes live in
-[.agents/orchestrators/self-evo/ROLLOUT.md](../../.agents/orchestrators/self-evo/ROLLOUT.md).
-Manually-driven rounds a–c (Round_01–Round_03) are the reference for
-"what a normal round looks like" and shaped the policy below.
+The five action types, in priority order:
+
+1. **Continue or close an active round** (Planning/Doing Round_NN.md).
+2. **Make the next round from an active master-plan** — open the next
+   plan step as a new Round_NN.md.
+3. **Make a meta round** from open meta items (`.agents/plan/cycles/meta/`,
+   `state.json.openObservations`) — orchestrator/workflow improvements.
+4. **Brainstorm a meta round** from memory or lesson-learn signals —
+   targets observations not yet codified as meta items.
+5. **Brainstorm new work** — invoke `/master-plan` to draft a plan
+   plus workflow plus first Round_NN.md, or `/research` to write a
+   research note that seeds future work.
+
+If none of the five is actionable, the loop stops. Priority 0 is a
+**human override** via `.agents/auto/queue.md`: any un-checked
+`### Topic:` entry wins over the priority tree.
 
 ## Inviolable rule — self-lock
 
-While running under this command, you MUST NOT edit, stage, or commit
-changes to any of the following. This rule cannot be lifted by any
-auto-approve authority, validation success, or report justification.
-If a round requires editing any of these, **stop**, write the reason
-to `.agents/auto/blockers.md`, and exit cleanly. Humans editing these
-files outside `/autoagent` execution are not bound — that is the
-expected maintenance path.
+The master-agent MUST NOT edit, stage, or commit changes to any of
+the following — regardless of executor (self-evo, `/pdca`,
+`/master-plan`, `/research`, direct edit). This rule cannot be lifted
+by any auto-approve authority, validation success, or report
+justification. If an action requires editing any of these, **stop**,
+write the reason to `.agents/auto/blockers.md`, exit cleanly. Humans
+editing these files outside `/autoagent` are not bound.
 
 **Hard-locked** (the orchestrator's brain — touching these mid-loop
-means autoagent could break its own ability to drive the next round):
+means autoagent could break its own ability to drive the next iteration):
 
 - `.claude/commands/autoagent.md` (this file)
 - `.agents/orchestrators/self-evo/src/graph.ts`
@@ -38,14 +51,39 @@ means autoagent could break its own ability to drive the next round):
 - `.agents/orchestrators/self-evo/src/persistence/**`
 - `.agents/orchestrators/self-evo/scripts/self-evo.sh`
 
-**Soft-locked** (require an explicit `--allow-llm-edit` flag from the
-user; otherwise hard-stop):
+**Soft-locked** (require `--allow-llm-edit`; otherwise hard-stop):
 
 - `.agents/orchestrators/self-evo/src/llm/**`
 - `.agents/orchestrators/self-evo/src/nodes/**`
 
-The `--allow-llm-edit` flag exists for R-O (multi-provider transport),
+The `--allow-llm-edit` flag exists for R-O (multi-provider transport)
 which deliberately rewrites `src/llm/`. Don't grant it casually.
+
+## Critical-security paths
+
+For any action that produces a code patch, **any** of the following
+is a tier-2 hard-stop — regardless of executor or the rest of the
+patch's quality. A human must approve by hand.
+
+**Path globs**:
+
+- `**/auth/**`, `**/auth.*`
+- `**/.env*`, `**/secrets/**`, `**/credentials/**`
+- `**/crypto/**`, `**/keys/**`, `**/keystore/**`
+- `**/permissions/**`, `**/middleware/auth*`, `**/policy/**`
+- `.github/workflows/**`
+
+**Diff-content rules** (apply on the textual patch, not just paths):
+
+- A line adding a package name under `"dependencies"` or
+  `"devDependencies"` in any `package.json`.
+- A new top-level `import` / `require` of `child_process`,
+  `node:child_process`, or `vm`.
+- Any new use of `eval(` not present pre-patch.
+
+On hit: write `blockers.md` citing the rule + patch path, do not
+commit, exit clean. Widening this list is cheap (add a glob);
+narrowing it requires reviewing past blocker events.
 
 ## Usage
 
@@ -53,228 +91,282 @@ which deliberately rewrites `src/llm/`. Don't grant it casually.
 /autoagent [--once] [--budget N] [--until HH:MM] [--dry-run] [--allow-llm-edit]
 ```
 
-| Flag               | Meaning                                                                                                | Default |
-| ------------------ | ------------------------------------------------------------------------------------------------------ | ------- |
-| `--once`           | Execute one round and exit. Smoke-test the loop body.                                                  | off     |
-| `--budget N`       | Cap at N rounds.                                                                                       | 6       |
-| `--until HH:MM`    | Machine-local stop time. Finish the in-flight round, do not propose another after this point.          | 06:00   |
-| `--dry-run`        | Run rounds, write reports, BUT do not create branches or commit. Useful for the first overnight smoke. | off     |
-| `--allow-llm-edit` | Unlock the soft-lock on `src/llm/**` + `src/nodes/**`. Required for R-O.                               | off     |
+| Flag               | Meaning                                                                                   | Default |
+| ------------------ | ----------------------------------------------------------------------------------------- | ------- |
+| `--once`           | Execute one iteration (one action from the priority tree) and exit. Smoke-test.           | off     |
+| `--budget N`       | Cap at N iterations.                                                                      | 6       |
+| `--until HH:MM`    | Machine-local stop time. Finish the in-flight iteration; do not start another after this. | 06:00   |
+| `--dry-run`        | Run iterations and write reports, BUT do not create branches or commit.                   | off     |
+| `--allow-llm-edit` | Unlock the soft-lock on `src/llm/**` + `src/nodes/**`. Required for R-O.                  | off     |
 
 Examples:
 
 ```text
-/autoagent --once --dry-run         # one round, no commits — first thing to try
-/autoagent --budget 3 --until 02:00 # short overnight
-/autoagent                          # full overnight, 6 rounds, stop 06:00
-/autoagent --once --allow-llm-edit  # R-O dispatch
+/autoagent --once --dry-run             # one action, no commits — first thing to try
+/autoagent --budget 3 --until 02:00     # short overnight
+/autoagent                              # full overnight, 6 iterations, stop 06:00
+/autoagent --once --allow-llm-edit      # R-O dispatch
 ```
 
 ## State machine — per iteration
 
-You are the master-agent. You do NOT do the round work yourself — you
-orchestrate `scripts/self-evo.sh`. Each iteration:
+The master-agent drives each iteration. `/autoagent` is just the
+envelope around the loop.
 
 1. **Load state** (read-only):
-   - `.agents/auto/state.json` (last round number, mode, started-at, budget consumed).
-   - `.agents/auto/blockers.md` (if exists → mode is BLOCKED → exit clean).
-   - `.agents/auto/STOP` (if exists → exit clean).
-   - `.agents/auto/queue.md` (next topic to pop).
-   - Latest `.agents/plan/cycles/Round_NN.md` and its status.
-2. **Check stop conditions** (see Stop conditions below) **before** doing any work.
-3. **Pop next topic** from `.agents/auto/queue.md`:
-   - Parse the first un-checked `### Topic: <text>` block.
-   - Collect its `- req: <text>` bullets into `--req` flags.
-   - Mark the topic in-progress in `queue.md`.
-4. **Create the round branch** (skipped when `--dry-run`):
-   - Determine `NN` = max existing `Round_*.md` number + 1.
-   - Determine base branch: previous round's branch if in the same `<yyyymmdd>` chain, else current `HEAD`.
-   - `git switch -c autoagent/<yyyymmdd>/Round_<NN> <base>`.
-5. **Run the round** via `Bash`:
+   - `.agents/auto/state.json` — last iteration, mode, budget consumed.
+   - `.agents/auto/blockers.md` — exists ⇒ exit clean.
+   - `.agents/auto/STOP` — exists ⇒ exit clean.
+   - `.agents/auto/queue.md` — un-checked `### Topic:` entries (human override).
+2. **Check stop conditions** before doing any work.
+3. **Read context** in priority order; the first source with actionable
+   state determines the action:
+
+   | Priority | Source                                                                                                   | Action                                                                                                       |
+   | -------- | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+   | 0        | `.agents/auto/queue.md` first un-checked `### Topic:` (human override)                                   | Pop topic; treat as the kind declared by `- kind:`                                                           |
+   | 1        | Latest `.agents/plan/cycles/Round_NN.md` with status `Planning` / `Doing`                                | Continue/close the active round → `Round_NN` branch                                                          |
+   | 2        | Active master-plan (`docs/agents/plan/*.plan.md`) with steps that have no corresponding `Round_*.md` yet | Make next `Round_<new>.md` from the plan                                                                     |
+   | 3        | Open meta items in `.agents/plan/cycles/meta/` or `state.json.openObservations`                          | Make a meta round → `Meta_NN` branch                                                                         |
+   | 4        | Open observations in `~/.claude/projects/.../memory/feedback_*.md` / `project_*.md` or lesson-learn doc  | Brainstorm a meta round addressing them                                                                      |
+   | 5        | None of the above                                                                                        | Brainstorm-plan (`/master-plan`) OR research (`/research`) on a frontier area; either way → `Meta_NN` branch |
+   | 6        | Priorities 1–5 all produced nothing actionable                                                           | Stop (tier-1 normal exit, not a tier-2 blocker)                                                              |
+
+4. **Pick the executor** for the chosen action:
+   - Code round (priorities 0–2 with `kind: round`) ⇒ default is
+     `scripts/self-evo.sh round "<topic>" --req ...`. For trivially
+     small changes (one-line edits, single-file refactors) the
+     master-agent MAY edit directly + validate + commit, but must
+     justify in the report.
+   - Meta round (priorities 0 with `kind: meta`, 3, 4) ⇒ same default
+     (self-evo), or direct edit with justification. Self-lock still
+     applies regardless.
+   - Brainstorm-plan (priority 5) ⇒ `/master-plan` skill. Emits
+     `docs/agents/plan/<name>.plan.md` + `<name>.workflow.md` + the
+     first `.agents/plan/cycles/Round_<new>.md` per the v2.0 contract.
+   - Research (priority 5 alternative) ⇒ `/research` skill, output
+     `docs/agents/research/<slug>.md`.
+
+5. **Create the branch** (skipped when `--dry-run`):
+   - Kind = `Round` for code-round iterations, `Meta` for everything
+     else.
+   - `NN` per kind = max existing `autoagent/*/<Kind>_*.md` artifact
+     number + 1. Round and Meta have independent counters.
+   - Base = the most-recent `autoagent/<yyyymmdd>/*` branch (any
+     kind) if one exists for today; else current `HEAD`.
+   - `git switch -c autoagent/<yyyymmdd>/<Kind>_<NN> <base>`.
+   - **Chain semantic**: each branch bases on the previous in the
+     same date. If branch N fails, branches N+1, N+2, … in the same
+     chain are tainted by inheritance. Recovery is a human task
+     (rebase / cherry-pick). Do not break this rule.
+
+6. **Execute the action** via the chosen executor. For self-evo, the
+   round CLI exits at the first HITL pause; inspect `state.json` and
+   resolve per Authority. For skill-based executors, the skill drives
+   its own HITL.
+
+7. **Critical-security check** on the proposed patch fileset (path
+   globs + diff-content rules above). Hit ⇒ tier-2; write blockers,
+   exit.
+
+8. **Apply / validate**:
+   - Patches that landed cleanly + `pnpm md:lint` + `pnpm --filter
+@self/orchestrator test` green ⇒ commit (tier 1).
+   - Non-code artifacts (research notes, draft plans) commit directly,
+     no execution validation needed.
+   - Any tier-2 trigger ⇒ write `blockers.md`, exit.
+
+9. **Commit** (skipped when `--dry-run`):
 
    ```sh
-   scripts/self-evo.sh round "<topic>" --req "..." --req "..."
+   git add -A . && git commit -m "feat(autoagent): close <kind> <NN> — <topic>"
    ```
 
-   Capture the runId from stdout. The CLI exits at the first HITL pause; `state.json` is on disk at the printed path.
+10. **Write the report** at
+    `.agents/auto/reports/<yyyymmdd>/<kind>_<NN>.report.md`.
 
-6. **Inspect state.json** (read-only):
-   - `verdict.verdict === "approve"` and at least one `patches[]` entry with `applied: false` ⇒ proceed to apply.
-   - `verdict.verdict === "approve"` and `patches[].length === 0` ⇒ no-op round (legitimate, see round b). Skip apply, go straight to approve.
-   - `verdict.verdict === "refine"` ⇒ stop, write tier-2 blocker (the judge wanted another loop the orchestrator already capped).
-7. **Decide tier** (see Authority below) and act:
-   - Tier 1, has patches ⇒ `echo "apply" | scripts/self-evo.sh resume <runId>`. Inspect `appliedVerification`. If clean delta or expected noise, proceed. If real regression, tier-2.
-   - Tier 1, no-op ⇒ `echo "approve" | scripts/self-evo.sh resume <runId>`.
-   - Tier 2 ⇒ write `.agents/auto/blockers.md` with reason + runId, exit clean.
-8. **Apply the accepted patches to the main checkout** (skipped when `--dry-run`):
+11. **Update state.json**: bump iteration counter, record kind +
+    action source + executor, set `mode: idle`.
 
-   ```sh
-   for p in .agents/tmp/workspace/runs/<runId>/patches/*.patch; do
-     git apply --check "$p" && git apply "$p"
-   done
-   ```
+12. **Append audit line** to `.agents/auto/queue.md` under the
+    `## Audit log` section (see Queue role).
 
-   Skip any patch whose `applied: false` in state.json (apply-verifier already rejected it as a sequential conflict — that's not a regression).
-
-9. **Self-validate** via `Bash` (skipped when `--dry-run`):
-
-   ```sh
-   pnpm md:lint && pnpm --filter @self/orchestrator test
-   ```
-
-   Pre-existing failures elsewhere (e.g. `pnpm -r typecheck`) are NOT autoagent's concern. Only validate what this round was supposed to touch. Green ⇒ commit. Red, and the round touched related files ⇒ tier-2.
-
-10. **Commit** (skipped when `--dry-run`):
-
-    ```sh
-    git add -A . && git commit -m "feat(self-evo): close round <NN> — <topic>"
-    ```
-
-11. **Write the report** at `.agents/auto/reports/<yyyymmdd>/round_<NN>.report.md` (see format below).
-12. **Update state.json**: bump `lastRound`, `completed`, set `mode: idle`.
 13. **Decide next**:
     - Stop conditions met ⇒ exit clean.
     - More work + within deadline ⇒ next iteration immediately.
-    - Long gap before next slot ⇒ `ScheduleWakeup` 30 minutes, then re-check.
+    - Long gap before next slot ⇒ `ScheduleWakeup` 30 min, then re-check.
 
 ## Authority — two tiers
 
-**Tier 1 — auto-approve + log** (commit, surface in the round report
-as "authoritative" so morning review is one-glance):
+**Tier 1 — auto-approve + log** (commit; surface in the report as
+"authoritative" for one-glance morning review):
 
-- Round patches that land cleanly via `apply` + pass self-validation.
+- Code/meta round patches that apply cleanly, pass self-validation,
+  and pass the critical-security check.
 - No-op rounds (zero patches, judge approved with grounded findings).
-- Auto-emitted entries in `.agents/plan/promotions.md` from `round-writer`.
-- Round_NN.md file written by the orchestrator (cannot be skipped).
+- Non-code artifacts (research notes, draft plans, Round_NN.md /
+  Meta_NN.md files themselves) committed directly.
+- Auto-emitted entries in `.agents/plan/promotions.md` from
+  `round-writer` when self-evo is the executor.
 
 **Tier 2 — hard-stop** (do NOT commit; write `blockers.md`; exit):
 
 - Any soft-locked or hard-locked file in the diff (see Self-lock).
-- Judge returns `refine` after the reflection cap — the orchestrator
-  already burned its budget, autoagent should not override.
-- Self-validation regression: `pnpm md:lint` or `pnpm --filter @self/orchestrator test`
-  goes from green to red and the diff touches related files.
+- Critical-security path or diff-content rule hit.
+- Self-evo judge returns `refine` after the reflection cap.
+- Self-validation regression: lint or orchestrator tests go from
+  green to red and the diff touches related files.
 - `apply-verifier` shows a real pre→post regression in lint or smoke
-  channels (not the worktree-pnpm-r noise — that's expected, see
-  Known noise below).
-- Topic queue empty AND `--once` not set AND no master-plan to drain.
+  channels (not the worktree-pnpm-r noise — see Known noise).
+- Priority tree all dry AND `--once` not set AND budget remaining
+  (degenerate idle state; stop so a human can audit why).
 
-## Known noise (do NOT escalate to tier-2)
+Note: the priority tree, including brainstorm and research, is a
+work-**selection** tree, not an error-recovery tree. Tier-2 triggers
+are NOT auto-resolved by selecting a different priority — they always
+hard-stop.
 
-Documented in [ROLLOUT.md](../../.agents/orchestrators/self-evo/ROLLOUT.md)
-under "Learnings — round a" / "Learnings — round c":
+## Branch model — inherited chain
 
-- **`pnpm -r typecheck` / `pnpm -r test` fails in the worktree** because
-  nested package node_modules aren't symlinked. The verifier's
-  `appliedVerification` will show those as fail, but they're unrelated
-  to the patch. Ignore unless the round actually touched TS/test files
-  in a package whose typecheck failed.
-- **Sequential apply conflicts on `applied: false` patches.** Round c's
-  third patch hit this when its target region had already been touched
-  by an earlier accepted patch. Apply-verifier correctly reports
-  `applied: false` for those; they're skipped at step 8, not escalated.
-- **Round b's "no-op" outcome**. Zero patches with a judge approval IS
-  a valid round (round b proved this). Treat as tier-1.
+```text
+autoagent/<yyyymmdd>/Round_09   (base: dev)               ← first iteration today, kind=round
+autoagent/<yyyymmdd>/Meta_02    (base: …/Round_09)        ← next iteration, kind=meta
+autoagent/<yyyymmdd>/Round_10   (base: …/Meta_02)         ← chained
+autoagent/<yyyymmdd>/Meta_03    (base: …/Round_10)        ← chained
+```
 
-## Topic queue
+Counters are **per kind**, persistent across autoagent runs. Read max
+existing `Round_*.md` / `Meta_*.md` + 1. Round files live at
+`.agents/plan/cycles/Round_NN.md`; Meta files at
+`.agents/plan/cycles/meta/Meta_NN.md`.
 
-`.agents/auto/queue.md` — markdown with one `### Topic:` heading per
-job. Lines starting with `- req:` map to `--req` flags. Use a leading
-`[x]` on the heading to mark it consumed.
+A brainstorm-plan iteration runs on a `Meta_NN` branch and commits
+`docs/agents/plan/<name>.plan.md` + `<name>.workflow.md` +
+`Round_<new>.md` — the seed `Round_<new>.md` is consumed by a later
+iteration on its own `Round_<new>` branch.
+
+**Chain breaks at first failure.** If iteration N produces a tier-2
+stop, iterations N+1+ in the same date's chain inherit a bad base.
+Recovery is a human task. Do not auto-rebase or auto-cherry-pick.
+
+## Topic queue — override + audit
+
+`.agents/auto/queue.md` has two roles:
+
+1. **Human override.** Humans pin a specific topic with an un-checked
+   `### Topic:` entry. The master-agent pops the first un-checked
+   entry **before** consulting the priority tree (priority 0). Use
+   `- kind: round | meta` to declare the kind; defaults to `round`.
+2. **Audit log.** After each iteration the master-agent appends a
+   one-line entry under `## Audit log` recording the action taken:
+   `- [<ISO8601>] <Kind>_<NN> via <executor> — <topic> (source: <priority-key>)`.
 
 ```markdown
 ### Topic: Tighten error messages in scripts/dev/cleanup.sh
 
+- kind: round
 - req: Boundary: only scripts/dev/cleanup.sh may be modified
-- req: Make stage-failure messages include the failing command and exit code
-- req: Script must still pass shellcheck
+- req: Stage-failure messages must include the failing command and exit code
 
 ### [x] Topic: (consumed earlier)
+
+## Audit log
+
+- [2026-05-18T22:14Z] Round_09 via self-evo — close Round 08 link (source: round-state)
+- [2026-05-18T22:47Z] Meta_02 via direct-edit — autoagent reframe (source: queue)
 ```
 
-The master picks the first un-checked topic, marks it in-progress, then
-on round close either flips it to `[x]` (success) or removes the
-in-progress marker (failure ⇒ retry next time).
+Optional fields on `### Topic:`:
 
-## Per-round branch & report
+- `- kind: round | meta` — defaults to `round`.
+- `- req: <text>` — repeated; each becomes a `--req` flag when the
+  executor is self-evo.
 
-```text
-autoagent/<yyyymmdd>/Round_01   (base: dev)               ← first round of the run
-autoagent/<yyyymmdd>/Round_02   (base: …/Round_01)       ← chained
-autoagent/<yyyymmdd>/Round_03   (base: …/Round_02)       ← chained
-```
+## Report format
 
-The number `NN` is the **PDCA round number** (from
-`.agents/plan/cycles/Round_NN.md`), persistent across autoagent runs.
-Not a fresh-each-night counter.
-
-Report at `.agents/auto/reports/<yyyymmdd>/round_<NN>.report.md`:
+`.agents/auto/reports/<yyyymmdd>/<kind>_<NN>.report.md`:
 
 ```markdown
-# Round <NN> Report — <yyyy-mm-dd>
+# <Kind> <NN> Report — <yyyy-mm-dd>
 
-**Branch**: autoagent/<yyyymmdd>/Round\_<NN>
-**Topic**: <verbatim from queue>
+**Branch**: autoagent/<yyyymmdd>/<Kind>\_<NN>
+**Kind**: round | meta
+**Topic**: <verbatim>
+**Action source**: queue | round-state | master-plan | meta-state | memory | brainstorm
+**Executor**: self-evo | /pdca | /master-plan | /research | direct-edit
+**Run id**: <self-evo runId, if applicable; else "—">
 **Status**: Done | Blocked | No-op
-**Run id**: <self-evo runId>
 **Self-validation**: lint ✅ tests ✅
+**Critical-security check**: ✅ (no path hits) | ❌ blocked on <rule>
 
-## Round outcome
+## Outcome
 
-- patches_proposed: <N>
+- patches_proposed: <N> (— for non-patch actions)
 - patches_applied: <N>
-- judge_score: <0..1>
+- judge_score: <0..1> (— for non-self-evo executors)
 - judge_iterations: <N>
 
 ## ⚠️ Authoritative changes (tier 1)
 
 - <sha> — touched: <files>
-- Why: <one-sentence rationale grounded in the round's findings>
+- Why: <one-sentence rationale grounded in the iteration's findings>
 
-(Or: "No authoritative changes." for dry-run or no-op rounds.)
+(Or: "No authoritative changes." for dry-run or no-op iterations.)
 
-## Notable from the run
+## Notable
 
-- <one-paragraph summary lifted from state.json verdict.notes + findings>
+- <one-paragraph summary>
 
 ## Commits
 
-<git log --oneline output for this round's branch, oldest first>
+<git log --oneline output for this iteration's branch, oldest first>
 ```
 
-`.agents/auto/reports/` is gitignored — these are morning-review
-artifacts, not history.
+`.agents/auto/reports/` is gitignored — morning-review artifacts.
 
-## Rate-limit + transport handling
+## Rate-limit + transport (self-evo executor only)
 
-Per round, `scripts/self-evo.sh round` will spawn ~6–8 LLM
-subprocesses (one per node, plus chunked patch-author per plan step).
-The defaults: subprocess `claude -p` with a 5-min timeout, no API key.
-Watch for:
+When self-evo is the executor:
 
-- **Anthropic rate-limit error** bubbling up from a node: `ScheduleWakeup`
-  30 minutes, re-check `--until` deadline, retry the round from the
-  start (state.json from the failed run stays on disk for forensics).
-- **Subprocess timeout** on a single node: the orchestrator already
-  surfaces this. If patch-author times out on > 50% of plan steps for
-  a round, write tier-2 blocker — the transport budget needs raising
-  (recommend setting `ANTHROPIC_API_KEY` + `config/llm.yaml` per
-  ROLLOUT.md's recommended setup).
+- **Anthropic rate-limit error**: `ScheduleWakeup` 30 min, re-check
+  `--until` deadline, retry the action from the start (state.json
+  from the failed run stays for forensics).
+- **Subprocess timeout** on > 50% of plan steps: tier-2 blocker —
+  raise transport budget per ROLLOUT.md.
 - **`claude -p` hard failure** (not on PATH, auth expired): tier-2.
+
+For skill-based executors (`/master-plan`, `/research`, `/pdca`) the
+skill handles its own transport.
+
+## Known noise (do NOT escalate to tier-2)
+
+Documented in [ROLLOUT.md](../../.agents/orchestrators/self-evo/ROLLOUT.md):
+
+- **`pnpm -r typecheck` / `pnpm -r test` fails in the self-evo
+  worktree** because nested package node_modules aren't symlinked.
+  Ignore unless the round touched TS/test files in a package whose
+  typecheck failed.
+- **Sequential apply conflicts on `applied: false` patches.**
+  Apply-verifier correctly reports these; skipped at apply time, not
+  escalated.
+- **Round b's "no-op" outcome.** Zero patches with judge approval is
+  valid; treat as tier-1.
 
 ## Stop conditions
 
 Exit cleanly when any of:
 
-- Wall clock ≥ `--until` (default 06:00). Finish in-flight round, then stop.
-- `--budget N` rounds completed.
+- Wall clock ≥ `--until` (default 06:00). Finish in-flight iteration.
+- `--budget N` iterations completed.
 - `.agents/auto/STOP` file present.
 - `.agents/auto/blockers.md` written this run.
-- Topic queue empty AND `--once` set (or no master-plan to drain).
+- Priority tree all dry (queue empty, no active round, no plan with
+  outstanding steps, no meta items, no memory/lesson-learn signals,
+  brainstorm/research declined or stalled).
 - A tier-2 escalation.
 
-On exit, write a final entry to `state.json` (`mode: stopped`, reason,
-timestamp) and post a brief end-of-run note to the chat with the
+On exit, write a final entry to `state.json` (`mode: stopped`,
+reason, timestamp) and post a brief end-of-run note to chat with the
 report directory + branch list.
 
 ## Operating directory
@@ -283,42 +375,52 @@ report directory + branch list.
 .agents/auto/
   README.md                              # this directory's purpose
   state.json                             # supervisor state
-  queue.md                               # topic queue (committed; edit to enqueue)
+  queue.md                               # override + audit log (committed)
   blockers.md                            # written on tier-2 stop; cleared by humans
   STOP                                   # touch to stop cleanly mid-run
-  reports/<yyyymmdd>/round_NN.report.md  # gitignored, morning-review only
+  reports/<yyyymmdd>/<kind>_NN.report.md # gitignored, morning-review only
 ```
 
-`.agents/auto/state.json`, `.agents/auto/reports/`, `.agents/auto/STOP`,
-and `.agents/auto/blockers.md` are gitignored. `queue.md` and
-`README.md` are tracked — the queue is the durable input.
+`state.json`, `reports/`, `STOP`, and `blockers.md` are gitignored.
+`queue.md` and `README.md` are tracked.
 
 ## Output
 
-After each iteration, post a one-line status line to the chat:
+After each iteration, post to chat:
 
 ```text
-[autoagent] Round <NN> (<topic>) → done | blocked | no-op | dry-run
+[autoagent] <Kind>_<NN> (<topic>) → done | blocked | no-op | dry-run
+```
+
+When the master-agent derives an action (priority > 0), also post
+the derivation reasoning in one line:
+
+```text
+[autoagent] derived: priority <N> (<source>) → <one-line action>
 ```
 
 On final exit:
 
 ```text
-[autoagent] stopped: <reason>. <N> rounds closed, <M> blocked.
+[autoagent] stopped: <reason>. <N> iterations closed, <M> blocked.
 Reports: .agents/auto/reports/<yyyymmdd>/
-Branches: autoagent/<yyyymmdd>/Round_<first>..Round_<last>
+Branches: autoagent/<yyyymmdd>/<first>..<last>
 ```
 
 ## Notes
 
-- **Don't bundle.** Each PDCA round is one feature, bug fix, or
-  refactor. If you discover unrelated breakage mid-round (a dev-server
-  flake, an upstream test regression), **do not** absorb it. Open a
-  new round for the fix and chain it on top.
-- **Trust the orchestrator's judge.** When it returns `approve` with
-  grounded findings (round b style), don't second-guess by re-running.
-  When it returns `refine` past the reflection cap, that's an
-  orchestrator-level signal that the round can't close cleanly today.
-- **Dry-run first.** Before a real overnight run, do
-  `/autoagent --once --dry-run` against the first queue entry. The
-  state machine should walk all 13 steps without committing.
+- **One action per iteration.** A round, a meta, a plan-draft, or a
+  research note — exactly one. If you discover unrelated breakage
+  mid-iteration, do not absorb it; open a new iteration.
+- **Trust the judge.** Self-evo's `approve` with grounded findings is
+  authoritative; don't re-run. `refine` past cap is a real signal —
+  don't override.
+- **The priority tree is for work selection, not error recovery.**
+  Tier-2 always hard-stops. Selecting a different priority is not a
+  way around a regression or a critical-security hit.
+- **Chain breaks at first failure.** If iteration N tier-2's,
+  iterations N+1+ in the same chain inherit a bad base — a human
+  must rebase / cherry-pick / restart the chain.
+- **Dry-run first.** Before relying on autopilot overnight, do
+  `/autoagent --once --dry-run`. Confirm the priority-tree read and
+  chosen action match expectation before trusting unattended.
