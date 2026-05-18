@@ -1,4 +1,5 @@
 tmp/
+temp/
 auto/state.json
 auto/blockers.md
 auto/STOP
