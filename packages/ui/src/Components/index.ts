@@ -24,3 +24,6 @@ export type { ButtonProps } from './Button/index.tsx';
 
 export { default as Modal } from './Modal/index.tsx';
 export type { ModalProps } from './Modal/index.tsx';
+
+export { default as FormField } from './FormField/index.tsx';
+export type { FormFieldProps } from './FormField/index.tsx';

@@ -1,8 +1,8 @@
 # Round 09: Land `@mdd/ui/Components/FormField` (zod-aware)
 
-**Status**: Planning
+**Status**: Complete
 **Date started**: 2026-05-19
-**Date completed**: —
+**Date completed**: 2026-05-19
 
 **Master plan**: [docs/agents/plan/packages-ui.plan.md](../../../docs/agents/plan/packages-ui.plan.md) (§ FormField + zod)
 **Workflow**: [docs/agents/workflows/packages-ui.workflow.md](../../../docs/agents/workflows/packages-ui.workflow.md)
@@ -194,20 +194,43 @@ export type { FormFieldProps } from './FormField/index.tsx';
 
 ## Do
 
-- _(filled by executor in iteration 6)_
+- 2026-05-19 — Iter 6 of `/autoagent --budget 10 --warm`. Executor: direct-edit on `autoagent/20260519/Round_09` branch.
+- Phase 1 — added `zod: ^3.23.0` to `packages/ui/package.json` peerDependencies + devDependencies. Ran `pnpm install` at repo root; +1 package installed (zod@3.25.76, within the `^3.23.0` range). Root `pnpm-lock.yaml` gained 8 lines (one importer entry under `packages/ui` + one resolution block). Pre-existing peer warning for `@tanstack/react-form` v0.9.0 (unmet React 17/18 vs the repo's React 19) was already present before this round and is unrelated.
+- Phase 2 — created `packages/ui/src/Components/FormField/index.tsx` with the signature locked in the plan. Render shape: `<div.mdd-ui-form-field>` → `<label.mdd-ui-form-field__label>` (with `<span aria-hidden="true">` for the `*` required marker) → consumer's child → `<p.mdd-ui-form-field__error role="alert">` when a matching issue is found → `<p.mdd-ui-form-field__help>` when no error but help text supplied. Appended `FormField` re-exports to `packages/ui/src/Components/index.ts`.
+- Phase 3 — created `packages/ui/src/Components/FormField/__tests__/FormField.test.tsx` with 5 happy-dom cases:
+  1. No issues → label + child render; help text shows.
+  2. Matching issue → `role="alert"` carries the message; help is hidden.
+  3. Non-matching issue → no alert; help falls back.
+  4. Nested path (`name="user.email"`, issue path `["user", "email"]`) → alert matches.
+  5. `required` flag → label contains the `*` marker.
+
+  **Discovered cross-file DOM leakage**: happy-dom's `document.body` persists across test files in vitest, so antd portal residue from earlier Modal tests was leaking into `queryByRole('alert')` lookups (one test failed with "expected `<p>` to be null", another with "Found multiple elements with the role alert"). Switched to a local `alertIn(container)` helper using `container.querySelector('[role="alert"]')` to scope assertions to the test's own render container. All 23 tests pass under this pattern.
+
+- Phase 4 — extended [packages/ui/README.md](../../README.md) Subpath imports to include `FormField`. Added a `## FormField (R09)` section with the prop shape, a paired plain-`useState` + `zod.safeParse` example (simpler than the `@tanstack/react-form` example originally planned, since builder doesn't yet have a FormField consumer to point at), and a note on the four BEM-style class names consumers can style.
 
 ## Check
 
-- [ ] `pnpm --filter @mdd/ui type-check`.
-- [ ] `pnpm --filter @mdd/ui test` — FormField cases green.
-- [ ] `pnpm --filter builder type-check` — unchanged.
-- [ ] `pnpm md:lint`.
-- [ ] Critical-security: ✅.
-- [ ] `git diff --stat pnpm-lock.yaml` shows zod added under `packages/ui` importer only.
+- [x] `pnpm --filter @mdd/ui type-check` — green.
+- [x] `pnpm --filter @mdd/ui test` — 8 files, 23 tests pass (5 new FormField + 18 existing). Duration 6.93s.
+- [x] `pnpm --filter builder type-check` — unchanged baseline (pre-existing errors in `useSavedQueries.ts` / `useWorkspace.ts` / `appConfig.ts` / test files persist).
+- [x] `pnpm md:lint` — 0 errors.
+- [x] Critical-security: no path-glob hit (only `packages/ui/**` + root `pnpm-lock.yaml` + this round file); no new entry under `"dependencies"` (zod added to peer + dev only); no `child_process`/`eval`/`vm` imports.
+- [x] `git diff --stat pnpm-lock.yaml` — 8 insertions, importer block is `packages/ui` only.
 
 ## Act
 
-- _(filled at close)_
+**Learnings**:
+
+- **Cross-file DOM leakage in happy-dom** is real. Vitest does not reset `document.body` between test files when using `--vitest-environment happy-dom`. Antd portal content from earlier `Modal` tests was leaking into `FormField` tests, causing `queryByRole('alert')` (which searches `document.body` by default) to return stale matches. Adopted a `container.querySelector('[role="alert"]')` pattern that scopes to the test's own render container. **This is a portable pattern** that future R10 tests (and any future component test that uses role-based queries) should follow. Captured in the test file as a comment block.
+- **zod runtime not exercised** — tests synthesize `ZodIssue` shapes via a small `makeIssue` helper (`as ZodIssue`) so the wrapper's contract is tested independently of zod's runtime parse. The IDE flagged the `as ZodIssue` cast as "unnecessary" (typescript:S4325) but the cast IS load-bearing because zod-3's `ZodIssue` is a discriminated union with required fields per `code` value. tsc itself accepts the file; the warning is a Sonar heuristic that misreads the structural check.
+- **Plan called for `@tanstack/react-form` README example**; substituted a plain-`useState` example because the builder app doesn't yet have a FormField consumer to mirror. The plain example is shorter and more obviously demonstrates the issues-prop contract.
+- **Lockfile ripple was minimal** (8 lines, single importer). The autoagent.md "Known noise" carve-out for workspace-add lockfile churn extends cleanly to peerDep/devDep adds in an existing workspace package — worth surfacing as a candidate framework refinement.
+
+**Follow-ups (not absorbed)**:
+
+- **Round_10 = NotFound page** (final chain link). Lives under `@mdd/ui/Pages/NotFound`, which is currently empty. Net-new file + barrel + test + README.
+- **Builder consumer adoption of FormField** is a future round (not part of this chain).
+- **Test isolation regression candidate**: revisit whether a per-file `afterEach(() => document.body.innerHTML = '')` hook would be useful to prevent cross-file DOM leakage at the source. Out of scope for R09 — covered by the per-test container-scoped pattern.
 
 ## Questions for user before next round
 
