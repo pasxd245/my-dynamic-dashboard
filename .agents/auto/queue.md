@@ -54,3 +54,4 @@ path globs.
 
 - [2026-05-18T22:50Z] Round_01 via self-evo (dry-run, skipped executor) — continue/close Round_01 @mdd/ui package ship (source: round-state)
 - [2026-05-19T10:00Z] Round_01 via direct-edit (self-evo dispatched, quit at HITL — partial-patch escape) — close Round 01 @mdd/ui package ship (source: round-state)
+- [2026-05-19T10:30Z] Round_02 (draft phase; initially created as `Meta_01`, renamed post-Option-A framework edit) via direct-edit — draft Round_02.md (split master-plan R02 into R02/R03/R04 chain) (source: master-plan)
