@@ -22,15 +22,86 @@ Then `pnpm install` at the repo root.
 
 ```ts
 import { MddUIProvider } from '@mdd/ui/Providers';
-import { MasterLayout, Sidebar, SidebarMenu, PageCard, PageHeader } from '@mdd/ui/Components';
+import {
+  MasterLayout,
+  Sidebar,
+  SidebarMenu,
+  PageCard,
+  PageHeader,
+  Button,
+  Modal,
+  FormField,
+} from '@mdd/ui/Components';
 import { useNavigationContext, NavigationProvider } from '@mdd/ui/Contexts';
 import { themeTokens } from '@mdd/ui/themeTokens';
 import { cn } from '@mdd/ui/Utils';
 import { STATUS_COLORS, FORMAT_DATE_TYPE } from '@mdd/ui/constants';
 import type { NavigationItem, IconProps } from '@mdd/ui/types';
 import type { IconProps as IconPropsRe } from '@mdd/ui/Icons';
-// import { } from '@mdd/ui/Pages';   // empty in R01, populated in R03
+import { NotFound } from '@mdd/ui/Pages';
 ```
+
+`Button` (R07) and `Modal` (R08) are no-op wrappers around the
+matching antd components; brand defaults flow through `MddUIProvider`'s
+`ConfigProvider`. The wrappers are exposed so consumers don't reach
+into `antd` directly. `Modal`'s static methods (`Modal.confirm`,
+`Modal.info`, ...) and the `useModal` hook are **not** re-exported —
+use them via `antd` directly until a consumer needs them through this
+package.
+
+## FormField (R09)
+
+`FormField` is a form-state-agnostic labeled-input wrapper. It accepts
+`issues?: ReadonlyArray<ZodIssue>` and surfaces the first issue whose
+`path.join('.') === name` as an error message under the input. Pair it
+with any form-state library — the consumer wires the input child.
+
+```tsx
+import { z } from 'zod';
+import { useState } from 'react';
+import { FormField } from '@mdd/ui/Components';
+
+const schema = z.object({ email: z.string().email() });
+
+export function SignupForm() {
+  const [email, setEmail] = useState('');
+  const result = schema.safeParse({ email });
+  const issues = result.success ? undefined : result.error.issues;
+
+  return (
+    <FormField name="email" label="Email" issues={issues} required help="we will not spam you">
+      <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+    </FormField>
+  );
+}
+```
+
+`zod ^3` is a `peerDependency` of `@mdd/ui` from R09 onward; consumer
+apps install it alongside `@mdd/ui` in their `package.json`. The
+wrapper ships no CSS — style `.mdd-ui-form-field`,
+`.mdd-ui-form-field__label`, `.mdd-ui-form-field__error`, and
+`.mdd-ui-form-field__help` from the consumer's stylesheet.
+
+## NotFound (R10)
+
+`NotFound` is a default 404 page with four overridable string props
+(`title`, `message`, `homeHref`, `homeLabel`) and a
+`react-router-dom`-aware home link. Drop it under your wildcard route:
+
+```tsx
+import { Routes, Route } from 'react-router-dom';
+import { NotFound } from '@mdd/ui/Pages';
+
+<Routes>
+  {/* …app routes… */}
+  <Route path="*" element={<NotFound homeHref="/dashboard" />} />
+</Routes>;
+```
+
+Like the other components, the page ships no CSS — style
+`.mdd-ui-not-found`, `.mdd-ui-not-found__title`,
+`.mdd-ui-not-found__message`, and `.mdd-ui-not-found__home` from the
+consumer's stylesheet.
 
 ## Minimal example
 

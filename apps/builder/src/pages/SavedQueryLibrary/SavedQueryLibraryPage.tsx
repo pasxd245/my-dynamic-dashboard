@@ -84,18 +84,19 @@ export default function SavedQueryLibraryPage({
       setActionableError(null);
 
       try {
+        const apiState = filters.state === "all" ? undefined : filters.state;
         const response = filters.query.trim()
           ? await searchSavedQueries(
               workspaceId,
               filters.query,
-              filters.state,
+              apiState,
               filters.tags.length > 0 ? filters.tags : undefined,
               limit,
               offset,
             )
           : await listSavedQueries(
               workspaceId,
-              filters.state,
+              apiState,
               filters.tags.length > 0 ? filters.tags : undefined,
               limit,
               offset,
