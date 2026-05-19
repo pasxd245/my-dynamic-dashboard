@@ -13,7 +13,7 @@ Two coordinated edits to close the gap between [docs/agents/workflows/agent-arch
    - `--autopilot` → turns on smart-autopilot policy as defined in workflow.md § Smart-autopilot. Previously implicit on every `/autoagent` invocation; promoting it to an explicit flag makes the attended-vs-unattended distinction first-class.
    - `--cold` → master-agent discipline: read disk state aggressively, dump decisions to disk eagerly, treat conversation context as scratchpad only. The discipline that makes the workflow doc's lesson-learn loop honest about restart.
 
-## Justification (per workflow.md purpose hierarchy)
+## Product-velocity justification
 
 Meta rounds must shorten or de-risk ≥3 product rounds to justify themselves. This one does:
 

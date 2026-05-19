@@ -19,7 +19,7 @@ The five action types, in priority order:
 1. **Continue or close an active round** (Planning/Doing Round_NN.md).
 2. **Make the next round from an active master-plan** — open the next
    plan step as a new Round_NN.md.
-3. **Make a meta round** from open meta items (`.agents/plan/cycles/meta/`,
+3. **Make a meta round** from open meta items (`.agents/plan/meta/`,
    `state.json.openObservations`) — orchestrator/workflow improvements.
 4. **Brainstorm a meta round** from memory or lesson-learn signals —
    targets observations not yet codified as meta items.
@@ -163,7 +163,7 @@ envelope around the loop.
    | 0        | `.agents/auto/queue.md` first un-checked `### Topic:` (human override)                                  | Pop topic; treat as the kind declared by `- kind:`                                                           |
    | 1        | Latest `.agents/plan/cycles/Round_NN.md` with status `Planning` / `Doing`                               | Continue/close the active round → `Round_NN` branch                                                          |
    | 2        | Active master-plan with steps that have no corresponding `Round_*.md` yet                               | Branch `Round_<new>`; draft `Round_<new>.md` only (iteration ends — next iter picks it up under priority 1)  |
-   | 3        | Open meta items in `.agents/plan/cycles/meta/` or `state.json.openObservations`                         | Make a meta round → `Meta_NN` branch                                                                         |
+   | 3        | Open meta items in `.agents/plan/meta/` or `state.json.openObservations`                                | Make a meta round → `Meta_NN` branch                                                                         |
    | 4        | Open observations in `~/.claude/projects/.../memory/feedback_*.md` / `project_*.md` or lesson-learn doc | Brainstorm a meta round addressing them                                                                      |
    | 5        | None of the above                                                                                       | Brainstorm-plan (`/master-plan`) OR research (`/research`) on a frontier area; either way → `Meta_NN` branch |
    | 6        | Priorities 1–5 all produced nothing actionable                                                          | Stop (tier-1 normal exit, not a tier-2 blocker)                                                              |
@@ -204,14 +204,14 @@ envelope around the loop.
 5. **Create or switch to the branch** (skipped when `--dry-run`):
    - Kind = `Round` for any iteration whose artifact is `Round_NN.md`
      (drafting **or** executing). Kind = `Meta` for orchestrator /
-     workflow work landing under `.agents/plan/cycles/meta/Meta_NN.md`.
+     workflow work landing under `.agents/plan/meta/Meta_NN.md`.
    - `NN` per case:
      - Round-draft (priority 2): max existing
        `.agents/plan/cycles/Round_*.md` artifact number + 1.
      - Round-execute (priority 1 / priority 0 with `kind: round`):
        matches the active `Round_NN.md` being closed.
      - Meta round: max existing
-       `.agents/plan/cycles/meta/Meta_*.md` artifact number + 1.
+       `.agents/plan/meta/Meta_*.md` artifact number + 1.
    - Base = the most-recent `autoagent/<yyyymmdd>/*` branch (any
      kind) if one exists for today; else current `HEAD`.
    - If `autoagent/<yyyymmdd>/<Kind>_<NN>` **already exists** (e.g. a
@@ -308,7 +308,7 @@ A `Round_NN` branch can span **two iterations on the same ref**
 Counters are **per kind**, persistent across autoagent runs. Read max
 existing `Round_*.md` / `Meta_*.md` + 1. Round files live at
 `.agents/plan/cycles/Round_NN.md`; Meta files at
-`.agents/plan/cycles/meta/Meta_NN.md`.
+`.agents/plan/meta/Meta_NN.md`.
 
 A brainstorm-plan iteration runs on a `Meta_NN` branch and commits
 `docs/agents/plan/<name>.plan.md` + `<name>.workflow.md` +

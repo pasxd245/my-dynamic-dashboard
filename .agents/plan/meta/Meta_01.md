@@ -10,6 +10,10 @@ Close [openObservation `selfEvoJudgeFalsePositiveOnUnappliedPatches`](../../auto
 
 Concrete symptom from 2026-05-19 R01: self-evo emitted 5 patches with `applied: false`; `verifier` ran lint+typecheck+tests against the pre-patch tree (which had no `packages/ui` source at all); checks trivially passed; judge approved score 1. The patches were missing 15+ required files and would have produced a broken build if applied.
 
+## Product-velocity justification
+
+Closes a false-positive that would mask broken patches in **every** future self-evo dispatch. Without this fix, the framework's specialist executor is structurally unreliable — every subsequent self-evo round would carry the same risk of judge-approved partial patches. The fix re-opens self-evo as a trusted opt-in executor for the round-writer convention introduced in Meta_03; the next ≥3 product rounds that opt into self-evo (e.g., orchestrator-style PDCA work) get real post-apply signal instead of a free pass. Without this fix, the prudent course would be to never use self-evo again.
+
 ## Approach
 
 Three options were considered:

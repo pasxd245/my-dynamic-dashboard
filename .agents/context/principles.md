@@ -71,7 +71,7 @@ Workspace-add rounds may necessarily modify root `pnpm-lock.yaml`; round-writer 
 
 ## P8 — Meta justifies via product velocity
 
-Repeating P1 because it's the principle most easily violated mid-session: a meta-round (`Meta_NN.md` under `cycles/meta/`) is justified only if it shortens or de-risks the next ≥3 product rounds. Master-agent challenges every proposed meta scope against this test before the round begins.
+Repeating P1 because it's the principle most easily violated mid-session: a meta-round (`Meta_NN.md` under [`.agents/plan/meta/`](../plan/meta/)) is justified only if it shortens or de-risks the next ≥3 product rounds. Master-agent challenges every proposed meta scope against this test before the round begins.
 
 Idle is fine. When the dashboard is blocked on human-only decisions, the agents idle. They do **not** use that gap to keep working on themselves.
 

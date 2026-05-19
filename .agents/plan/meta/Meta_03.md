@@ -12,7 +12,7 @@ Two coordinated edits to [.claude/commands/autoagent.md](../../../../.claude/com
 
 2. **Lockfile-noise bullet** added to the "Known noise" section: root `pnpm-lock.yaml` updates from `pnpm install` during workspace-add rounds are tier-1, not boundary violations. Closes the classifier-blocked edit from earlier today; cleaner round-writer prompts can now pre-declare lockfile as a permitted artifact.
 
-## Justification (per workflow.md purpose hierarchy + principle P1)
+## Product-velocity justification
 
 This is meta work; it must justify itself in product-velocity terms (P8). The case:
 
