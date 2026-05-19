@@ -75,8 +75,12 @@ patch's quality. A human must approve by hand.
 
 **Diff-content rules** (apply on the textual patch, not just paths):
 
-- A line adding a package name under `"dependencies"` or
-  `"devDependencies"` in any `package.json`.
+- A line adding a package name under `"dependencies"` (runtime
+  deps) in any `package.json`. New `"devDependencies"` are
+  **allowed** without tier-2 — that's the 2026-05-18 precedent
+  (Round_01's resolution dropped `clsx` from runtime deps; the
+  vitest / typing devDeps stayed). New runtime deps still warrant
+  the tier-2 review because they leak into the consumer bundle.
 - A new top-level `import` / `require` of `child_process`,
   `node:child_process`, or `vm`.
 - Any new use of `eval(` not present pre-patch.
