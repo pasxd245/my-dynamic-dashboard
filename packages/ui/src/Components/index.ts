@@ -18,3 +18,6 @@ export type { PageCardProps } from './PageCard/index.tsx';
 
 export { default as PageHeader } from './PageHeader/index.tsx';
 export type { PageHeaderProps } from './PageHeader/index.tsx';
+
+export { default as Button } from './Button/index.tsx';
+export type { ButtonProps } from './Button/index.tsx';

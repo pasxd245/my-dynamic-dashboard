@@ -1,8 +1,8 @@
 # Round 07: Land `@mdd/ui/Components/Button` (brand-defaults wrapper)
 
-**Status**: Planning
+**Status**: Complete
 **Date started**: 2026-05-19
-**Date completed**: —
+**Date completed**: 2026-05-19
 
 **Master plan**: [docs/agents/plan/packages-ui.plan.md](../../../docs/agents/plan/packages-ui.plan.md)
 **Workflow**: [docs/agents/workflows/packages-ui.workflow.md](../../../docs/agents/workflows/packages-ui.workflow.md)
@@ -120,19 +120,36 @@ export type { ButtonProps } from './Button/index.tsx';
 
 ## Do
 
-- _(filled by executor in iteration 2)_
+- 2026-05-19 — Iter 2 of `/autoagent --budget 10 --warm`. Executor: direct-edit on `autoagent/20260519/Round_07` branch.
+- Phase 1 — created [packages/ui/src/Components/Button/index.tsx](../../../packages/ui/src/Components/Button/index.tsx): no-op wrapper, re-exports `ButtonProps = AntButtonProps`, `default export Button` + `export { Button }`. Appended `Button` re-exports to [packages/ui/src/Components/index.ts](../../../packages/ui/src/Components/index.ts) (single `default as Button` form — matched the PageCard/PageHeader precedent rather than the plan's overkill `ButtonNamed` alias).
+- Phase 2 — created the Button test file at `packages/ui/src/Components/Button/__tests__/Button.test.tsx` with 3 happy-dom cases:
+  1. Default render: `<Button>Click</Button>` produces `<button>` with text "Click".
+  2. Prop pass-through: `type="primary"` → `ant-btn-primary` class; `disabled` attribute set; `onClick` spy NOT called on mount.
+  3. **Click → onClick fires** (replaced the originally-planned ref-forwarding case — see `Act` below).
+- Phase 3 — appended Button to [packages/ui/README.md](../../README.md) Subpath imports line + one-sentence note that the wrapper is a no-op and brand defaults flow through `MddUIProvider`'s `ConfigProvider`.
 
 ## Check
 
-- [ ] `pnpm --filter @mdd/ui type-check`.
-- [ ] `pnpm --filter @mdd/ui test` — Button suite all green; existing R04 suites unchanged.
-- [ ] `pnpm --filter builder type-check` — no new errors vs Round_06 baseline.
-- [ ] `pnpm md:lint`.
-- [ ] Critical-security: no path-glob hit; no new runtime dep; no new `child_process`/`eval`/`vm`.
+- [x] `pnpm --filter @mdd/ui type-check` — green.
+- [x] `pnpm --filter @mdd/ui test` — 6 files, 15 tests pass (3 new Button cases + 12 existing). Duration 7.64s.
+- [x] `pnpm --filter builder type-check` — unchanged vs Round_06 baseline. Pre-existing errors in `useSavedQueries.ts`, `useWorkspace.ts`, `appConfig.ts`, test files persist as documented under `state.json.openObservations.builderTypecheckPreExistingRegression` follow-ups. `SavedQueryLibraryPage.tsx` (the file Round_06 fixed) is **not** in the error list — Round_06 hold confirmed.
+- [x] `pnpm md:lint` — 0 errors across 164 files.
+- [x] Critical-security: no path-glob hit (only `packages/ui/**` + this round file touched); no new entry under `"dependencies"` in any `package.json` (antd was already peer/dev); no new `child_process`/`eval`/`vm` imports.
 
 ## Act
 
-- _(filled at close)_
+**Learnings**:
+
+- **Ref-forwarding case dropped, as flagged in the round's Phase 2.** `tsc` reported `Property 'ref' does not exist on type 'IntrinsicAttributes & ButtonProps'` — antd v6's `ButtonProps` doesn't surface `ref` through its public type, even though the rendered DOM does receive a `<button>` element. Replaced the case with a click-fires-onClick assertion, which proves prop pass-through equally well without depending on antd's ref typing. Capturing antd's ref through this wrapper is a future-round candidate if a consumer actually needs it; the `Components` package surface hasn't required ref access from any existing call-site (R01–R04).
+- **No-op wrapper is the right call when brand styling lives in `ConfigProvider`.** The wrapper exists for the named-export surface (consumers stop reaching into `antd` directly), not for behavioral override. Doubling brand defaults at the wrapper layer would (a) duplicate the `themeTokens.ts` contract and (b) defeat legitimate per-call overrides like `type="primary"`. R08 (Modal) should follow the same pattern unless brand wants a stricter contract.
+- **Barrel pattern simplified vs the draft.** The draft proposed `default as Button, Button as ButtonNamed` to mirror R01's `MasterLayout` barrel; in practice the R04 precedent (`default as PageCard`, single line) is cleaner and consumers don't need the `Named` alias. Matched R04.
+
+**Follow-ups (not absorbed)**:
+
+- **Round_08 = Modal** (next in chain). Same no-op wrapper shape unless user feedback on Round_07's question #1 redirects.
+- **Round_09 = FormField (zod-aware)**. Adds zod as `peerDependency: ^3` to `packages/ui/package.json` — flag for critical-security review (peer adds are tier-1 but worth surfacing).
+- **Round_10 = NotFound page** under `@mdd/ui/Pages/NotFound`.
+- **Ref forwarding for Button**: deferred. Open as a Round_07-follow-up if a future consumer requires it.
 
 ## Questions for user before next round
 

@@ -22,7 +22,14 @@ Then `pnpm install` at the repo root.
 
 ```ts
 import { MddUIProvider } from '@mdd/ui/Providers';
-import { MasterLayout, Sidebar, SidebarMenu, PageCard, PageHeader } from '@mdd/ui/Components';
+import {
+  MasterLayout,
+  Sidebar,
+  SidebarMenu,
+  PageCard,
+  PageHeader,
+  Button,
+} from '@mdd/ui/Components';
 import { useNavigationContext, NavigationProvider } from '@mdd/ui/Contexts';
 import { themeTokens } from '@mdd/ui/themeTokens';
 import { cn } from '@mdd/ui/Utils';
@@ -31,6 +38,10 @@ import type { NavigationItem, IconProps } from '@mdd/ui/types';
 import type { IconProps as IconPropsRe } from '@mdd/ui/Icons';
 // import { } from '@mdd/ui/Pages';   // empty in R01, populated in R03
 ```
+
+`Button` (R07) is a no-op wrapper around antd's `Button`; brand
+defaults flow through `MddUIProvider`'s `ConfigProvider`. The wrapper
+is exposed so consumers don't reach into `antd` directly.
 
 ## Minimal example
 
