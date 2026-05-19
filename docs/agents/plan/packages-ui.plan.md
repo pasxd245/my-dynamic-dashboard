@@ -60,14 +60,17 @@ The export _shape_ is frozen on day one (R01 publishes all 10 subpaths, with `Co
 
 ### Per-round surface delivery
 
-| Subpath / item                                                | R01 | R02 | R03 |
-| ------------------------------------------------------------- | --- | --- | --- |
-| `themeTokens`, `types`, `constants`, `Utils`, `Icons` (types) | ✅  | —   | —   |
-| `Providers/MddUIProvider` + `Contexts/NavigationContext`      | ✅  | —   | —   |
-| `Components/MasterLayout` + `Sidebar` + `SidebarMenu`         | ✅  | —   | —   |
-| `Components/PageCard` + `PageHeader`                          | —   | ✅  | —   |
-| `Components/Button` + `Modal` + `FormField`                   | —   | —   | ✅  |
-| `Pages/NotFound`                                              | —   | —   | ✅  |
+| Subpath / item                                                       | R01 | R02 | R03 | R04 | R05 | R06 |
+| -------------------------------------------------------------------- | --- | --- | --- | --- | --- | --- |
+| `themeTokens`, `types`, `constants`, `Utils`, `Icons` (types)        | ✅  | —   | —   | —   | —   | —   |
+| `Providers/MddUIProvider` + `Contexts/NavigationContext`             | ✅  | —   | —   | —   | —   | —   |
+| `Components/MasterLayout` + `Sidebar` + `SidebarMenu`                | ✅  | —   | —   | —   | —   | —   |
+| Builder consumes `@mdd/ui/themeTokens` (R02 collapse)                | —   | ✅  | —   | —   | —   | —   |
+| `Components/MasterLayout` API extension (header / brand / navGroups) | —   | —   | ✅  | —   | —   | —   |
+| `Components/PageCard` + `PageHeader`                                 | —   | —   | —   | ✅  | —   | —   |
+| Builder `AppShell` → `MasterLayout` swap                             | —   | —   | —   | —   | ✅  | —   |
+| `Components/Button` + `Modal` + `FormField`                          | —   | —   | —   | —   | —   | ✅  |
+| `Pages/NotFound`                                                     | —   | —   | —   | —   | —   | ✅  |
 
 ## FormField + zod (R03)
 
@@ -87,13 +90,18 @@ Alternative considered: marrying `FormField` to `@tanstack/react-form` directly.
 
 ## Round chain
 
-| Round                           | Goal                                                                                                                                                                                                                                                                                                                                                                                                                                  | Touches                                                           | Status                                                                |
-| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- | --------------------------------------------------------------------- |
-| **R01**                         | Ship `@mdd/ui` package: `MasterLayout` + `Sidebar` + `SidebarMenu` + `MddUIProvider` + `NavigationContext` + theme/types/utils.                                                                                                                                                                                                                                                                                                       | `packages/ui/**` only. `apps/builder` untouched & byte-identical. | **Planned** — [Round_01.md](../../../.agents/plan/cycles/Round_01.md) |
-| **R02**                         | Migrate [apps/builder](../../../apps/builder/) onto `@mdd/ui`. Swap local `AppShell` → `MasterLayout`; collapse [theme/antdTheme.ts](../../../apps/builder/src/theme/antdTheme.ts) to a re-export of `@mdd/ui/themeTokens`. Promote local [PageCard](../../../apps/builder/src/components/layout/PageCard.tsx) + [PageHeader](../../../apps/builder/src/components/ui/PageHeader.tsx) into `packages/ui` and delete the in-app dupes. | `apps/builder/**` + `packages/ui/**` (additive).                  | Queued                                                                |
-| **R03** _(optional, on demand)_ | Add the remaining components a builder route actually needs: `NotFound`, `FormField` (zod-aware), `Modal`, `Button`. Don't pre-build.                                                                                                                                                                                                                                                                                                 | `packages/ui/**` (additive).                                      | Optional                                                              |
+The originally-drafted "R02 = migrate builder" was **split into a chain (R02 → R05)** on 2026-05-19 after drafting Round_02 surfaced that `MasterLayout`'s R01 API doesn't cover `apps/builder`'s `AppShell` shape (no `header?` slot, no `brand?` ReactNode, no 2-level `navGroups`). Per memory `feedback_round_cadence`, each row below is single-feature and reviewable in isolation.
 
-Each round is single-feature (per project convention) and reviewable in isolation. R01's gate is "`apps/builder` byte-identical" so the new package can't silently regress the live app.
+| Round                           | Goal                                                                                                                                                                                                                                        | Touches                                                              | Status                                                                                                              |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| **R01**                         | Ship `@mdd/ui` package: `MasterLayout` + `Sidebar` + `SidebarMenu` + `MddUIProvider` + `NavigationContext` + theme/types/utils.                                                                                                             | `packages/ui/**` only. `apps/builder` untouched & byte-identical.    | ✅ **Shipped** 2026-05-19 — [Round_01.md](../../../.agents/plan/cycles/Round_01.md) (merge commit `07f76b3` on dev) |
+| **R02**                         | Collapse [apps/builder/src/theme/antdTheme.ts](../../../apps/builder/src/theme/antdTheme.ts) to a re-export of `@mdd/ui/themeTokens`. Single source of truth for brand tokens.                                                              | `apps/builder/src/theme/antdTheme.ts` + `apps/builder/package.json`. | ✅ **Shipped** 2026-05-19 — [Round_02.md](../../../.agents/plan/cycles/Round_02.md) (merge commit `6b8d91b` on dev) |
+| **R03**                         | Extend `@mdd/ui/MasterLayout` API additively: optional `header?: ReactNode`, `brand?: ReactNode`, and `navGroups?: NavigationGroup[]` props. No R01 API break (existing props still work as-is). Decision made 2026-05-19 — see Decision 5. | `packages/ui/**` (additive).                                         | Queued                                                                                                              |
+| **R04**                         | Promote [apps/builder PageCard](../../../apps/builder/src/components/layout/PageCard.tsx) + [PageHeader](../../../apps/builder/src/components/ui/PageHeader.tsx) into `@mdd/ui/Components`. Redirect in-app barrels; delete the dupes.      | `packages/ui/**` + `apps/builder/src/components/**`.                 | Queued                                                                                                              |
+| **R05**                         | Swap [apps/builder AppShell](../../../apps/builder/src/components/ui/AppShell.tsx) → `@mdd/ui/MasterLayout` using R03's extended API. Delete the local `AppShell.tsx`.                                                                      | `apps/builder/**`.                                                   | Queued — blocked on R03                                                                                             |
+| **R06** _(optional, on demand)_ | Add the remaining components a builder route actually needs: `NotFound`, `FormField` (zod-aware), `Modal`, `Button`. Don't pre-build.                                                                                                       | `packages/ui/**` (additive).                                         | Optional                                                                                                            |
+
+R01's gate was "`apps/builder` byte-identical" so the package couldn't silently regress the live app. R02 satisfied invariant #2 (one source of truth for brand tokens). R03–R05 progressively migrate builder onto the package without losing AppShell's current shape.
 
 ## Invariants (apply to every round)
 
@@ -103,12 +111,19 @@ Each round is single-feature (per project convention) and reviewable in isolatio
 4. **`apps/dashboard` & `apps/backend` are untouched** — they're Python.
 5. **Allowed change boundary is declared in each round** and enforced by `git diff --name-only`.
 
-## Decisions (signed off 2026-05-18)
+## Decisions
+
+### Signed off 2026-05-18
 
 1. ✅ **Package name `@mdd/ui`**.
 2. ✅ **Defer `PageCard` / `PageHeader` to R02**, but list them in the **full-feature target** (above) so the master plan reflects the end state.
 3. ✅ **No bundled logo, ever** — `MasterLayout` takes a `Logo?: FC<IconProps>` prop; consumers provide their mark. `Icons/` only re-exports the `IconProps` type.
-4. ✅ **`FormField` is zod-aware in R03** — `issues?: ReadonlyArray<ZodIssue>`, schema-driven error surfacing, form-state lib-agnostic (see § FormField).
+4. ✅ **`FormField` is zod-aware** — `issues?: ReadonlyArray<ZodIssue>`, schema-driven error surfacing, form-state lib-agnostic (see § FormField). (Originally scheduled for R03; reassigned to R06 by the 2026-05-19 chain split.)
+
+### Signed off 2026-05-19
+
+1. ✅ **R04 direction: extend `MasterLayout` additively.** `apps/builder`'s `AppShell` uses three features the R01 `MasterLayout` API doesn't expose: 2-level `navGroups`, full-`ReactNode` header slot, and brand-as-`ReactNode`. Rather than make builder adopt a simpler shape, R03 adds optional `header?: ReactNode`, `brand?: ReactNode`, and `navGroups?: NavigationGroup[]` props to `MasterLayout`. No R01 API break (all new props optional; existing `navigation`, `title`, `Logo` keep working). Rationale: preserves builder's current UX; only modestly grows the package API; future React apps consuming `@mdd/ui` get a richer shell out of the box.
+2. ✅ **R02 split into a chain (R02 → R05).** Originally R02 grouped theme collapse + Page primitives + AppShell swap into one row; this violated `feedback_round_cadence` (single feature per round). Split: R02 = theme only (shipped); R03 = MasterLayout API extension; R04 = PageCard + PageHeader promotion; R05 = AppShell swap. R06 (former R03) keeps the optional component-set work.
 
 ## Out of scope (do NOT pull in mid-round)
 
