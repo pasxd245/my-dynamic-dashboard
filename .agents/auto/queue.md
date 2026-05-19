@@ -61,3 +61,5 @@ path globs.
 - [2026-05-19T11:50Z] Round_04 (draft phase) via direct-edit — promote PageCard + PageHeader to @mdd/ui (source: master-plan)
 - [2026-05-19T12:00Z] Round_04 (execute phase, same branch) via direct-edit — promote PageCard + PageHeader (source: round-state)
 - [2026-05-19T12:10Z] Round_05 (draft phase) via direct-edit — swap apps/builder AppShell → @mdd/ui/MasterLayout (source: master-plan); execute phase deferred (budget 5/5 reached)
+- [2026-05-19T15:30Z] Meta_04 via direct-edit — promote Write-tool-Read-first discipline to workflow rule (source: meta-state)
+- [2026-05-19T15:45Z] Meta_05 via direct-edit — relocate Write-tool rule from workflow-doc table cell into [[write-tool-discipline]] memory file (source: user-feedback)

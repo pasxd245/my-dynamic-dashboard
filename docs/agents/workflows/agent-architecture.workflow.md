@@ -306,6 +306,16 @@ Each routed to its durable home so it isn't re-discovered next time.
 
 ---
 
+## Lessons learned — 2026-05-19 session
+
+Each routed to its durable home so it isn't re-discovered next time.
+
+| Lesson                                                                                 | Destination | Memory file               |
+| -------------------------------------------------------------------------------------- | ----------- | ------------------------- |
+| `Write` after same-iteration `git rm` of a sibling file produces stale-snapshot writes | memory      | [[write-tool-discipline]] |
+
+---
+
 ## When to bypass
 
 These roles and the smart-autopilot policy are the default. **Explicitly
