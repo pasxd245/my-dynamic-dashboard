@@ -1,8 +1,8 @@
 # Round 10: Land `@mdd/ui/Pages/NotFound`
 
-**Status**: Planning
+**Status**: Complete
 **Date started**: 2026-05-19
-**Date completed**: —
+**Date completed**: 2026-05-19
 
 **Master plan**: [docs/agents/plan/packages-ui.plan.md](../../../docs/agents/plan/packages-ui.plan.md)
 **Workflow**: [docs/agents/workflows/packages-ui.workflow.md](../../../docs/agents/workflows/packages-ui.workflow.md)
@@ -145,19 +145,39 @@ export type { NotFoundProps } from './NotFound/index.tsx';
 
 ## Do
 
-- _(filled by executor in iteration 8)_
+- 2026-05-19 — Iter 8 of `/autoagent --budget 10 --warm`. Executor: direct-edit on `autoagent/20260519/Round_10` branch.
+- Phase 1 — created `packages/ui/src/Pages/NotFound/index.tsx` with the signature locked in the plan: four overridable string props (`title`, `message`, `homeHref`, `homeLabel`) and a `<Link to={homeHref}>` back home. BEM class names match R09 FormField precedent. Replaced `packages/ui/src/Pages/index.ts`'s `export {};` placeholder with the `NotFound` re-export pair.
+- Phase 2 — created `packages/ui/src/Pages/NotFound/__tests__/NotFound.test.tsx` with 3 happy-dom cases:
+  1. Defaults: title + message + link text + link href resolve.
+  2. Override every prop: title="404", message="Nope", homeHref="/dashboard", homeLabel="Dashboard" — all render.
+  3. Smoke: typeof NotFound === 'function'.
+
+  Tests wrap renders in `<MemoryRouter>` (required for `<Link>` resolution) and use the container-scoped `linkIn(container)` helper inherited from Round_09's pattern to avoid happy-dom's cross-file `document.body` leakage.
+
+- Phase 3 — replaced the `// import { } from '@mdd/ui/Pages';   // empty in R01, populated in R03` placeholder in [packages/ui/README.md](../../README.md) with a real `import { NotFound } from '@mdd/ui/Pages';` line. Added a `## NotFound (R10)` section with the prop list, a `<Route path="*">` example, and the four BEM-style class names consumers can style.
 
 ## Check
 
-- [ ] `pnpm --filter @mdd/ui type-check`.
-- [ ] `pnpm --filter @mdd/ui test`.
-- [ ] `pnpm --filter builder type-check` — unchanged.
-- [ ] `pnpm md:lint`.
-- [ ] Critical-security: ✅.
+- [x] `pnpm --filter @mdd/ui type-check` — green.
+- [x] `pnpm --filter @mdd/ui test` — 9 files, 26 tests pass (3 new NotFound + 23 existing). Duration 6.94s.
+- [x] `pnpm --filter builder type-check` — unchanged baseline (pre-existing errors in `useSavedQueries.ts` / `useWorkspace.ts` / `appConfig.ts` / test files persist).
+- [x] `pnpm md:lint` — 0 errors.
+- [x] Critical-security: only `packages/ui/**` + this round file touched. No new entry under `"dependencies"`. No `child_process`/`eval`/`vm` imports.
 
 ## Act
 
-- _(filled at close)_
+**Learnings**:
+
+- **Container-scoped query pattern carried cleanly from R09.** The `linkIn(container)` helper is a thin equivalent of FormField's `alertIn(container)`. Whenever a future test needs to find an element by role or by selector, scope it to the test's render container, not `document.body`. Documenting this twice across two round files (R09 + R10) suggests it should be promoted — a meta round candidate (e.g. ship a small `packages/ui/src/test-utils/index.ts` that exports `inContainer(role)` / a shared vitest setup file that resets `document.body` between tests).
+- **`<MemoryRouter>` wrap is required** because `<Link>` throws outside a router context. The test file's first comment block flags this so the next author drops in `BrowserRouter` only if they actually want URL-history side effects.
+- **R10 closes the packages-ui master plan.** The full-feature surface (themeTokens, types, constants, Utils, Icons, Contexts, Providers, Pages/NotFound, Components/MasterLayout|Sidebar|SidebarMenu|PageCard|PageHeader|Button|Modal|FormField) is now present. Plan's per-round delivery table: ✅ R01–R10 all populated (R06 redirected to bugfix; the originally-planned R06 row was split into R07–R10).
+- **Write-tool guard caught a stale-Read attempt** when re-writing `Pages/index.ts`. Honored the [[write-tool-discipline]] memory: read first, then Edit. Captured as a successful guard hit.
+
+**Follow-ups (not absorbed)**:
+
+- **Builder consumer adoption of the package surface** is the natural next round chain — Button/Modal/FormField/NotFound migrations in `apps/builder`. Each can be a single-feature round per [[round-cadence]].
+- **Three remaining apps/builder typecheck regressions** (`useSavedQueries`, `useWorkspace`, `appConfig`, test files) — open bugfix candidates per `state.json.openObservations.builderTypecheckPreExistingRegression` follow-ups.
+- **Test-infra refactor candidate**: extract the container-scoped query helpers to a shared place; consider an `afterEach` hook to reset `document.body` between tests so `queryByRole` works as advertised. Meta-round candidate, not pressing.
 
 ## Questions for user before next round
 

@@ -38,7 +38,7 @@ import { cn } from '@mdd/ui/Utils';
 import { STATUS_COLORS, FORMAT_DATE_TYPE } from '@mdd/ui/constants';
 import type { NavigationItem, IconProps } from '@mdd/ui/types';
 import type { IconProps as IconPropsRe } from '@mdd/ui/Icons';
-// import { } from '@mdd/ui/Pages';   // empty in R01, populated in R03
+import { NotFound } from '@mdd/ui/Pages';
 ```
 
 `Button` (R07) and `Modal` (R08) are no-op wrappers around the
@@ -81,6 +81,27 @@ apps install it alongside `@mdd/ui` in their `package.json`. The
 wrapper ships no CSS — style `.mdd-ui-form-field`,
 `.mdd-ui-form-field__label`, `.mdd-ui-form-field__error`, and
 `.mdd-ui-form-field__help` from the consumer's stylesheet.
+
+## NotFound (R10)
+
+`NotFound` is a default 404 page with four overridable string props
+(`title`, `message`, `homeHref`, `homeLabel`) and a
+`react-router-dom`-aware home link. Drop it under your wildcard route:
+
+```tsx
+import { Routes, Route } from 'react-router-dom';
+import { NotFound } from '@mdd/ui/Pages';
+
+<Routes>
+  {/* …app routes… */}
+  <Route path="*" element={<NotFound homeHref="/dashboard" />} />
+</Routes>;
+```
+
+Like the other components, the page ships no CSS — style
+`.mdd-ui-not-found`, `.mdd-ui-not-found__title`,
+`.mdd-ui-not-found__message`, and `.mdd-ui-not-found__home` from the
+consumer's stylesheet.
 
 ## Minimal example
 
