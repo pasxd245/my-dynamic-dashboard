@@ -310,9 +310,9 @@ Each routed to its durable home so it isn't re-discovered next time.
 
 Each routed to its durable home so it isn't re-discovered next time.
 
-| Lesson                                                                                                                                     | Destination                                                 | Memory file |
-| ------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------- | ----------- |
-| `Write` after `git rm` in the same iteration can produce stale snapshots — split into two iterations, or `git rm` only after Write commits | workflow doc (this row) — master-agent execution discipline | —           |
+| Lesson                                                                                 | Destination | Memory file               |
+| -------------------------------------------------------------------------------------- | ----------- | ------------------------- |
+| `Write` after same-iteration `git rm` of a sibling file produces stale-snapshot writes | memory      | [[write-tool-discipline]] |
 
 ---
 
