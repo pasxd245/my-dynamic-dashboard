@@ -122,23 +122,30 @@ envelope around the loop.
 3. **Read context** in priority order; the first source with actionable
    state determines the action:
 
-   | Priority | Source                                                                                                   | Action                                                                                                       |
-   | -------- | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-   | 0        | `.agents/auto/queue.md` first un-checked `### Topic:` (human override)                                   | Pop topic; treat as the kind declared by `- kind:`                                                           |
-   | 1        | Latest `.agents/plan/cycles/Round_NN.md` with status `Planning` / `Doing`                                | Continue/close the active round → `Round_NN` branch                                                          |
-   | 2        | Active master-plan (`docs/agents/plan/*.plan.md`) with steps that have no corresponding `Round_*.md` yet | Make next `Round_<new>.md` from the plan                                                                     |
-   | 3        | Open meta items in `.agents/plan/cycles/meta/` or `state.json.openObservations`                          | Make a meta round → `Meta_NN` branch                                                                         |
-   | 4        | Open observations in `~/.claude/projects/.../memory/feedback_*.md` / `project_*.md` or lesson-learn doc  | Brainstorm a meta round addressing them                                                                      |
-   | 5        | None of the above                                                                                        | Brainstorm-plan (`/master-plan`) OR research (`/research`) on a frontier area; either way → `Meta_NN` branch |
-   | 6        | Priorities 1–5 all produced nothing actionable                                                           | Stop (tier-1 normal exit, not a tier-2 blocker)                                                              |
+   | Priority | Source                                                                                                  | Action                                                                                                       |
+   | -------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+   | 0        | `.agents/auto/queue.md` first un-checked `### Topic:` (human override)                                  | Pop topic; treat as the kind declared by `- kind:`                                                           |
+   | 1        | Latest `.agents/plan/cycles/Round_NN.md` with status `Planning` / `Doing`                               | Continue/close the active round → `Round_NN` branch                                                          |
+   | 2        | Active master-plan with steps that have no corresponding `Round_*.md` yet                               | Branch `Round_<new>`; draft `Round_<new>.md` only (iteration ends — next iter picks it up under priority 1)  |
+   | 3        | Open meta items in `.agents/plan/cycles/meta/` or `state.json.openObservations`                         | Make a meta round → `Meta_NN` branch                                                                         |
+   | 4        | Open observations in `~/.claude/projects/.../memory/feedback_*.md` / `project_*.md` or lesson-learn doc | Brainstorm a meta round addressing them                                                                      |
+   | 5        | None of the above                                                                                       | Brainstorm-plan (`/master-plan`) OR research (`/research`) on a frontier area; either way → `Meta_NN` branch |
+   | 6        | Priorities 1–5 all produced nothing actionable                                                          | Stop (tier-1 normal exit, not a tier-2 blocker)                                                              |
 
 4. **Pick the executor** for the chosen action:
-   - Code round (priorities 0–2 with `kind: round`) ⇒ default is
+   - Code round (priorities 0–1) ⇒ default is
      `scripts/self-evo.sh round "<topic>" --req ...`. For trivially
      small changes (one-line edits, single-file refactors) the
      master-agent MAY edit directly + validate + commit, but must
      justify in the report.
-   - Meta round (priorities 0 with `kind: meta`, 3, 4) ⇒ same default
+   - Round-draft (priority 2 — `Round_<new>.md` doesn't exist yet) ⇒
+     default is **direct-edit** by the master-agent (read the plan
+     step + relevant repo files; write the Round file). Self-evo's
+     `round` CLI is the wrong fit — it executes a round end-to-end,
+     not drafts one. Output is `Round_<new>.md` only; the iteration
+     ends after the draft. The next iteration picks it up under
+     priority 1 on the **same** `Round_<new>` branch.
+   - Meta round (priorities 0 with `kind: meta`, 3, 4) ⇒ same defaults
      (self-evo), or direct edit with justification. Self-lock still
      applies regardless.
    - Brainstorm-plan (priority 5) ⇒ `/master-plan` skill. Emits
@@ -147,18 +154,30 @@ envelope around the loop.
    - Research (priority 5 alternative) ⇒ `/research` skill, output
      `docs/agents/research/<slug>.md`.
 
-5. **Create the branch** (skipped when `--dry-run`):
-   - Kind = `Round` for code-round iterations, `Meta` for everything
-     else.
-   - `NN` per kind = max existing `autoagent/*/<Kind>_*.md` artifact
-     number + 1. Round and Meta have independent counters.
+5. **Create or switch to the branch** (skipped when `--dry-run`):
+   - Kind = `Round` for any iteration whose artifact is `Round_NN.md`
+     (drafting **or** executing). Kind = `Meta` for orchestrator /
+     workflow work landing under `.agents/plan/cycles/meta/Meta_NN.md`.
+   - `NN` per case:
+     - Round-draft (priority 2): max existing
+       `.agents/plan/cycles/Round_*.md` artifact number + 1.
+     - Round-execute (priority 1 / priority 0 with `kind: round`):
+       matches the active `Round_NN.md` being closed.
+     - Meta round: max existing
+       `.agents/plan/cycles/meta/Meta_*.md` artifact number + 1.
    - Base = the most-recent `autoagent/<yyyymmdd>/*` branch (any
      kind) if one exists for today; else current `HEAD`.
-   - `git switch -c autoagent/<yyyymmdd>/<Kind>_<NN> <base>`.
+   - If `autoagent/<yyyymmdd>/<Kind>_<NN>` **already exists** (e.g. a
+     Round draft created it earlier in this run and a later iteration
+     is now executing it), use `git switch autoagent/<yyyymmdd>/<Kind>_<NN>`
+     — do NOT re-create the branch. Otherwise:
+     `git switch -c autoagent/<yyyymmdd>/<Kind>_<NN> <base>`.
    - **Chain semantic**: each branch bases on the previous in the
-     same date. If branch N fails, branches N+1, N+2, … in the same
-     chain are tainted by inheritance. Recovery is a human task
-     (rebase / cherry-pick). Do not break this rule.
+     same date. A `Round_NN` branch may span two iterations (draft +
+     execute) and accumulate commits across both. If branch N fails,
+     branches N+1, N+2, … in the same chain are tainted by
+     inheritance. Recovery is a human task (rebase / cherry-pick).
+     Do not break this rule.
 
 6. **Execute the action** via the chosen executor. For self-evo, the
    round CLI exits at the first HITL pause; inspect `state.json` and
@@ -229,11 +248,15 @@ hard-stop.
 ## Branch model — inherited chain
 
 ```text
-autoagent/<yyyymmdd>/Round_09   (base: dev)               ← first iteration today, kind=round
-autoagent/<yyyymmdd>/Meta_02    (base: …/Round_09)        ← next iteration, kind=meta
-autoagent/<yyyymmdd>/Round_10   (base: …/Meta_02)         ← chained
-autoagent/<yyyymmdd>/Meta_03    (base: …/Round_10)        ← chained
+autoagent/<yyyymmdd>/Round_09   (base: dev)               ← close active Round_09 (priority 1)
+autoagent/<yyyymmdd>/Round_10   (base: …/Round_09)        ← draft Round_10.md from plan (priority 2; iter ends after the draft)
+autoagent/<yyyymmdd>/Round_10   (same branch, +commits)   ← next iteration executes Round_10 (priority 1; appends commits)
+autoagent/<yyyymmdd>/Meta_02    (base: …/Round_10)        ← orchestrator/workflow meta (priorities 3/4)
 ```
+
+A `Round_NN` branch can span **two iterations on the same ref**
+(draft then execute). The second iteration uses `git switch`, not
+`git switch -c`. `Meta_NN` branches are single-iteration.
 
 Counters are **per kind**, persistent across autoagent runs. Read max
 existing `Round_*.md` / `Meta_*.md` + 1. Round files live at
@@ -243,7 +266,9 @@ existing `Round_*.md` / `Meta_*.md` + 1. Round files live at
 A brainstorm-plan iteration runs on a `Meta_NN` branch and commits
 `docs/agents/plan/<name>.plan.md` + `<name>.workflow.md` +
 `Round_<new>.md` — the seed `Round_<new>.md` is consumed by a later
-iteration on its own `Round_<new>` branch.
+iteration on its own `Round_<new>` branch. (Aligning brainstorm-plan
+with the priority-2 same-branch convention is a future refinement —
+out of scope here.)
 
 **Chain breaks at first failure.** If iteration N produces a tier-2
 stop, iterations N+1+ in the same date's chain inherit a bad base.
