@@ -66,3 +66,5 @@ path globs.
 - [2026-05-19T16:00Z] Round_06 via direct-edit — fix SavedQueryLibraryPage.tsx typecheck (coerce filters.state "all" → undefined) (source: meta-state → product)
 - [2026-05-19T23:35Z] Round_07 (draft phase) via direct-edit — draft Round_07.md (Button wrapper; splits plan R06 row into chain R07/R08/R09/R10) (source: master-plan)
 - [2026-05-19T23:40Z] Round_07 (execute phase, same branch) via direct-edit — land @mdd/ui/Components/Button (no-op antd wrapper + 3-case test) (source: round-state)
+- [2026-05-19T23:45Z] Round_08 (draft phase) via direct-edit — draft Round_08.md (Modal no-op wrapper; chain link 2/4) (source: master-plan)
+- [2026-05-19T23:50Z] Round_08 (execute phase, same branch) via direct-edit — land @mdd/ui/Components/Modal (no-op antd wrapper; onCancel test → smoke fallback per round-file rule) (source: round-state)

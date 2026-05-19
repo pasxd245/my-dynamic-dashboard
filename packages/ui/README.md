@@ -29,6 +29,7 @@ import {
   PageCard,
   PageHeader,
   Button,
+  Modal,
 } from '@mdd/ui/Components';
 import { useNavigationContext, NavigationProvider } from '@mdd/ui/Contexts';
 import { themeTokens } from '@mdd/ui/themeTokens';
@@ -39,9 +40,13 @@ import type { IconProps as IconPropsRe } from '@mdd/ui/Icons';
 // import { } from '@mdd/ui/Pages';   // empty in R01, populated in R03
 ```
 
-`Button` (R07) is a no-op wrapper around antd's `Button`; brand
-defaults flow through `MddUIProvider`'s `ConfigProvider`. The wrapper
-is exposed so consumers don't reach into `antd` directly.
+`Button` (R07) and `Modal` (R08) are no-op wrappers around the
+matching antd components; brand defaults flow through `MddUIProvider`'s
+`ConfigProvider`. The wrappers are exposed so consumers don't reach
+into `antd` directly. `Modal`'s static methods (`Modal.confirm`,
+`Modal.info`, ...) and the `useModal` hook are **not** re-exported —
+use them via `antd` directly until a consumer needs them through this
+package.
 
 ## Minimal example
 

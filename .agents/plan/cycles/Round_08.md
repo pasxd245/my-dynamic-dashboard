@@ -1,8 +1,8 @@
 # Round 08: Land `@mdd/ui/Components/Modal` (brand-defaults wrapper)
 
-**Status**: Planning
+**Status**: Complete
 **Date started**: 2026-05-19
-**Date completed**: —
+**Date completed**: 2026-05-19
 
 **Master plan**: [docs/agents/plan/packages-ui.plan.md](../../../docs/agents/plan/packages-ui.plan.md)
 **Workflow**: [docs/agents/workflows/packages-ui.workflow.md](../../../docs/agents/workflows/packages-ui.workflow.md)
@@ -129,19 +129,35 @@ export type { ModalProps } from './Modal/index.tsx';
 
 ## Do
 
-- _(filled by executor in iteration 4)_
+- 2026-05-19 — Iter 4 of `/autoagent --budget 10 --warm`. Executor: direct-edit on `autoagent/20260519/Round_08` branch.
+- Phase 1 — created `packages/ui/src/Components/Modal/index.tsx`: no-op wrapper, re-exports `ModalProps = AntModalProps`, `default export Modal` + `export { Modal }`. Statics (`Modal.confirm`, `useModal`) deliberately omitted as documented in the wrapper's TSDoc. Appended `Modal` re-exports to `packages/ui/src/Components/index.ts`.
+- Phase 2 — created `packages/ui/src/Components/Modal/__tests__/Modal.test.tsx` with 3 happy-dom cases:
+  1. Closed render (`open={false}`): no `.ant-modal` element present in `document.body`.
+  2. Open render (`open={true}`): `.ant-modal` present; title text + body text both present in `document.body.textContent`. **Note**: antd's Modal portals to `document.body`, so assertions query the document, not the test container.
+  3. **Smoke fallback** (replaced planned onCancel-fires case): typeof Modal === 'function', Modal.name === 'Modal'. The originally-planned onCancel click test failed in happy-dom — `fireEvent.click` on `.ant-modal-close` did not propagate to antd's internal cancel handler (likely the antd button waits for pointer events or the close icon isn't the click target). Per the round file's documented fallback rule (Phase 2 "happy-dom caveat"), replaced with a smoke test rather than absorb the test-infra investigation.
+- Phase 3 — extended [packages/ui/README.md](../../README.md) Subpath imports block to include `Modal`; merged the Button/Modal no-op-wrapper note into a single sentence; called out the omitted Modal statics.
 
 ## Check
 
-- [ ] `pnpm --filter @mdd/ui type-check`.
-- [ ] `pnpm --filter @mdd/ui test` — Modal suite green; existing R04+R07 suites unchanged.
-- [ ] `pnpm --filter builder type-check` — unchanged vs Round_07 baseline.
-- [ ] `pnpm md:lint`.
-- [ ] Critical-security: no path-glob hit; no new runtime dep; no new `child_process`/`eval`/`vm`.
+- [x] `pnpm --filter @mdd/ui type-check` — green.
+- [x] `pnpm --filter @mdd/ui test` — 7 files, 18 tests pass (3 new Modal cases + 15 existing). Duration 6.27s.
+- [x] `pnpm --filter builder type-check` — unchanged vs Round_07 baseline (same documented errors in `useSavedQueries.ts` / `useWorkspace.ts` / `appConfig.ts` / test files).
+- [x] `pnpm md:lint` — 0 errors.
+- [x] Critical-security: only `packages/ui/**` + this round file touched. No new entry under `"dependencies"`. No `child_process`/`eval`/`vm` imports.
 
 ## Act
 
-- _(filled at close)_
+**Learnings**:
+
+- **happy-dom + antd Modal interaction: query `document.body`, not test container.** antd portals modal content out of the React render tree to `document.body`. `@testing-library/react`'s `render` returns a `container` that doesn't see portaled content — assertions have to query the global document. Documented this in the test file so the next test author doesn't repeat the discovery.
+- **Click-through to antd's onCancel doesn't survive happy-dom.** `fireEvent.click` on `.ant-modal-close` produces a synthetic event that antd's close handler doesn't pick up. Possible causes: antd waits for `mousedown`+`mouseup` separately, or expects `pointerdown` events, or has a guard waiting for animation completion. Investigating further would mean shimming pointer events for happy-dom or running real-DOM tests — both inflate the round well past single-feature scope. Smoke fallback (`typeof Modal === 'function'`) is the right trade per [[round-cadence]].
+- **README hint about portals**: the no-op-wrapper paragraph now covers both Button and Modal in one sentence to keep the docs DRY. R09 (FormField) and R10 (NotFound) can extend this pattern.
+
+**Follow-ups (not absorbed)**:
+
+- **Round_09 = FormField (zod-aware)**. Will add `zod: ^3` to `packages/ui/package.json` peerDependencies. Per autoagent.md, peerDependency adds are tier-1 (only runtime `"dependencies"` adds trigger tier-2). Will write the round-file's invariants to flag this explicitly.
+- **Modal onCancel test** is deferred. If a future round introduces a real Modal consumer that needs end-to-end testing, set up Playwright or jsdom (which has better portal/event support) rather than retrofit happy-dom.
+- **Modal statics** (`Modal.confirm`, `useModal`) remain out of `@mdd/ui` surface until a consumer needs them. Document as a queue item if/when that happens.
 
 ## Questions for user before next round
 

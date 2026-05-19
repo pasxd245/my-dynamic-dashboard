@@ -21,3 +21,6 @@ export type { PageHeaderProps } from './PageHeader/index.tsx';
 
 export { default as Button } from './Button/index.tsx';
 export type { ButtonProps } from './Button/index.tsx';
+
+export { default as Modal } from './Modal/index.tsx';
+export type { ModalProps } from './Modal/index.tsx';
