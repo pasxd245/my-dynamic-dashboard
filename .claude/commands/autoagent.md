@@ -1,6 +1,6 @@
 ---
 description: Drive autonomous PDCA execution — master-agent reads context, picks one action per iteration, stops at deadline.
-argument-hint: '[--once] [--budget N] [--until HH:MM] [--dry-run] [--allow-llm-edit]'
+argument-hint: '[--once] [--budget N] [--until HH:MM] [--dry-run] [--autopilot] [--cold] [--allow-llm-edit]'
 ---
 
 # /autoagent
