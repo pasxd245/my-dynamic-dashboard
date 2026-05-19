@@ -92,25 +92,57 @@ narrowing it requires reviewing past blocker events.
 ## Usage
 
 ```text
-/autoagent [--once] [--budget N] [--until HH:MM] [--dry-run] [--allow-llm-edit]
+/autoagent [--once] [--budget N] [--until HH:MM] [--dry-run]
+           [--autopilot] [--cold] [--allow-llm-edit]
 ```
 
-| Flag               | Meaning                                                                                   | Default |
-| ------------------ | ----------------------------------------------------------------------------------------- | ------- |
-| `--once`           | Execute one iteration (one action from the priority tree) and exit. Smoke-test.           | off     |
-| `--budget N`       | Cap at N iterations.                                                                      | 6       |
-| `--until HH:MM`    | Machine-local stop time. Finish the in-flight iteration; do not start another after this. | 06:00   |
-| `--dry-run`        | Run iterations and write reports, BUT do not create branches or commit.                   | off     |
-| `--allow-llm-edit` | Unlock the soft-lock on `src/llm/**` + `src/nodes/**`. Required for R-O.                  | off     |
+| Flag               | Meaning                                                                                                                                                                                                                                             | Default                                             |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| `--once`           | Execute one iteration (one action from the priority tree) and exit. Smoke-test.                                                                                                                                                                     | off                                                 |
+| `--budget N`       | Cap at N iterations.                                                                                                                                                                                                                                | 6                                                   |
+| `--until HH:MM`    | Machine-local stop time. Finish the in-flight iteration; do not start another after this.                                                                                                                                                           | 06:00                                               |
+| `--dry-run`        | Run iterations and write reports, BUT do not create branches or commit.                                                                                                                                                                             | off                                                 |
+| `--autopilot`      | Turn on smart-autopilot policy — master-agent decides per the table in [agent-architecture.workflow.md § Smart-autopilot](../../docs/agents/workflows/agent-architecture.workflow.md) instead of asking the user. See "Smart-autopilot mode" below. | off (attended) / on (cron / `STOP` is `unattended`) |
+| `--cold`           | Force cold-start discipline — master-agent reads disk state aggressively, dumps every decision to disk before iter end, never relies on conversation context. See "Cold-start mode" below + principle P5.                                           | off (warm)                                          |
+| `--allow-llm-edit` | Unlock the soft-lock on `src/llm/**` + `src/nodes/**`. Required for R-O. Hard-locks are NEVER lifted (see principle P3).                                                                                                                            | off                                                 |
 
 Examples:
 
 ```text
-/autoagent --once --dry-run             # one action, no commits — first thing to try
-/autoagent --budget 3 --until 02:00     # short overnight
-/autoagent                              # full overnight, 6 iterations, stop 06:00
-/autoagent --once --allow-llm-edit      # R-O dispatch
+/autoagent --once --dry-run                # one action, no commits — first thing to try
+/autoagent --once --cold                   # cold-session smoke test (does the framework survive restart?)
+/autoagent --budget 3 --until 02:00        # short overnight, attended-style (master-agent asks on ambiguity)
+/autoagent --autopilot --budget 6          # daytime "trust your judgment" run — smart-autopilot decides
+/autoagent --autopilot --cold --until 06:00 # the real overnight pattern — fresh-disk + autonomous decisions
+/autoagent --once --allow-llm-edit         # R-O dispatch (LLM-transport rewrite)
 ```
+
+### Smart-autopilot mode (`--autopilot`)
+
+Smart-autopilot is **not** a separate tier or a way to escape the safety envelope. It's master-agent's policy for **what to decide on its own** when the user isn't around to confirm. The full decision table — what gets auto-approved, what escalates to tier-2 — lives in [docs/agents/workflows/agent-architecture.workflow.md § Smart-autopilot](../../docs/agents/workflows/agent-architecture.workflow.md). Tier-2 (critical-security, hard-locks, judge `refine` past cap, related-channel regressions) still hard-stops regardless of mode.
+
+When to set `--autopilot`:
+
+- Daytime run where you're around but want master-agent to decide instead of pinging you.
+- Cron / scheduled remote agent (auto-enables by convention; explicit flag is the safe default).
+- Anytime you'd rather see a tier-2 `blockers.md` in the morning than be paged on every ambiguity.
+
+When **not** to set it:
+
+- First runs of a new flag combination — you want to babysit and see what gets escalated.
+- After a tier-2 — you're debugging the framework, not running it.
+
+### Cold-start mode (`--cold`)
+
+Master-agent discipline (per principle P5 in [.agents/context/principles.md](../../.agents/context/principles.md)): every decision must be derivable from disk state. In `--cold` mode master-agent commits to this in real time:
+
+- **At iter start**: read [state.json](../../.agents/auto/state.json), [memory/](../../.agents/memory/), the latest round files at [cycles/](../../.agents/plan/cycles/), [queue.md](../../.agents/auto/queue.md), and recent reports under [reports/](../../.agents/auto/reports/) before deriving the next action. Don't rely on conversation history even if it exists.
+- **Per decision**: if a fact informing the call isn't on disk, dump it first (memory entry, state.json observation, or queue topic) before acting on it.
+- **At iter end**: the report's `Notable` section must list which disk-sourced facts informed the iteration.
+
+`--cold` is testable: at session end, the audit should show every load-bearing fact has a disk source. If master-agent finds itself making decisions on conversation-only facts, that's a regression on P5.
+
+Why bother: the framework's whole premise — extending master-agent's working window past the human — relies on cold-start working. Tonight's session (2026-05-19) shipped 7 rounds but never validated this; `--cold` is how to find out.
 
 ## State machine — per iteration
 
