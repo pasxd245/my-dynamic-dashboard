@@ -61,7 +61,80 @@ export function App() {
 }
 ```
 
+## Two ways to feed nav (R03+)
+
+Flat (R01):
+
+```tsx
+import type { NavigationItem } from '@mdd/ui/types';
+
+const nav: NavigationItem[] = [
+  { id: 'home', path: '/', title: 'Home', sidebar: true },
+  { id: 'reports', path: '/reports', title: 'Reports', sidebar: true },
+];
+
+<MasterLayout navigation={nav} title="My App">
+  …
+</MasterLayout>;
+```
+
+Grouped (R03):
+
+```tsx
+import type { NavigationGroup } from '@mdd/ui/types';
+
+const groups: NavigationGroup[] = [
+  {
+    id: 'data',
+    title: 'Data Management',
+    items: [
+      { id: 'upload', path: '/', title: 'Upload', sidebar: true },
+      { id: 'queries', path: '/queries', title: 'Saved Queries', sidebar: true },
+    ],
+  },
+  {
+    id: 'workflow',
+    title: 'Workflow',
+    items: [{ id: 'builder', path: '/workflow', title: 'Builder', sidebar: true }],
+  },
+];
+
+<MasterLayout navGroups={groups} title="My App">
+  …
+</MasterLayout>;
+```
+
+`navigation` and `navGroups` are mutually exclusive — supply exactly one (enforced via discriminated union at compile time).
+
+## Custom header / brand slots (R03+)
+
+`title?: ReactNode` is fine for a plain heading. Pass `header?: ReactNode` for a fully-custom top bar (search, locale switcher, notifications, avatar — whatever). When both are supplied, `header` wins (with a dev-mode `console.warn`).
+
+```tsx
+<MasterLayout
+  navGroups={groups}
+  header={
+    <>
+      <Input.Search style={{ flex: 1, maxWidth: 360 }} />
+      <Space>
+        <Button>EN</Button>
+        <Badge count={0} showZero={false}>
+          <Button shape="circle" icon={<BellOutlined />} />
+        </Badge>
+        <Avatar>AD</Avatar>
+      </Space>
+    </>
+  }
+  brand={<MyBrandMark />} // alternative to Logo: FC<IconProps>
+>
+  <Routes>…</Routes>
+</MasterLayout>
+```
+
+`Logo` (R01) and `brand` (R03) are the two ways to fill the sidebar's brand slot. When both are supplied, `brand` wins (with a dev-mode `console.warn`).
+
 ## Deferred
 
-- **R02** — `Components/PageCard`, `Components/PageHeader` (promoted from `apps/builder`).
-- **R03** — `Components/Button`, `Components/Modal`, `Components/FormField` (zod-aware), `Pages/NotFound`.
+- **R04** — `Components/PageCard`, `Components/PageHeader` (promoted from `apps/builder`).
+- **R05** — `apps/builder` `AppShell` → `MasterLayout` swap (consumes R03's extended API).
+- **R06** — `Components/Button`, `Components/Modal`, `Components/FormField` (zod-aware), `Pages/NotFound`.

@@ -1,12 +1,11 @@
 import { createElement, useMemo, type FC } from 'react';
 import { Menu } from 'antd';
 import { useLocation, useNavigate } from 'react-router-dom';
-import type { NavigationItem } from '../../types/index.ts';
+import type { NavigationGroup, NavigationItem } from '../../types/index.ts';
 
-export type SidebarMenuProps = {
-  items: NavigationItem[];
-  expanded?: boolean;
-};
+type FlatProps = { items: NavigationItem[]; groups?: never; expanded?: boolean };
+type GroupedProps = { items?: never; groups: NavigationGroup[]; expanded?: boolean };
+export type SidebarMenuProps = FlatProps | GroupedProps;
 
 function pathPrefix(pathname: string): string {
   const segs = pathname.split('/').filter(Boolean);
@@ -20,24 +19,41 @@ function isActive(itemPath: string, currentPrefix: string): boolean {
   return itemPath === currentPrefix || itemPath.startsWith(`${currentPrefix}/`);
 }
 
-export const SidebarMenu: FC<SidebarMenuProps> = ({ items, expanded = true }) => {
+function leafItem(item: NavigationItem) {
+  return {
+    key: item.path,
+    icon: item.icon ? createElement(item.icon) : undefined,
+    label: item.title,
+    disabled: item.disabled,
+  };
+}
+
+export const SidebarMenu: FC<SidebarMenuProps> = (props) => {
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const currentPrefix = pathPrefix(pathname);
-  const visibleItems = items.filter((i) => i.sidebar !== false);
+  const expanded = props.expanded ?? true;
 
-  const antdItems = useMemo(
-    () =>
-      visibleItems.map((item) => ({
-        key: item.path,
-        icon: item.icon ? createElement(item.icon) : undefined,
-        label: item.title,
-        disabled: item.disabled,
-      })),
-    [visibleItems],
-  );
+  const flatItems: NavigationItem[] = useMemo(() => {
+    if ('groups' in props && props.groups) {
+      return props.groups.flatMap((g) => g.items.filter((i) => i.sidebar !== false));
+    }
+    return (props.items ?? []).filter((i) => i.sidebar !== false);
+  }, [props]);
 
-  const selectedKey = visibleItems.find((i) => isActive(i.path, currentPrefix))?.path;
+  const antdItems = useMemo(() => {
+    if ('groups' in props && props.groups) {
+      return props.groups.map((g) => ({
+        key: g.id,
+        type: 'group' as const,
+        label: expanded ? g.title : null,
+        children: g.items.filter((i) => i.sidebar !== false).map(leafItem),
+      }));
+    }
+    return flatItems.map(leafItem);
+  }, [props, flatItems, expanded]);
+
+  const selectedKey = flatItems.find((i) => isActive(i.path, currentPrefix))?.path;
 
   return (
     <Menu

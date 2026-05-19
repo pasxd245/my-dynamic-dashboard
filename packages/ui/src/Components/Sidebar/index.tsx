@@ -1,18 +1,47 @@
-import { createElement, type FC } from 'react';
+import { createElement, type FC, type ReactNode } from 'react';
 import { Layout } from 'antd';
-import type { IconProps, NavigationItem } from '../../types/index.ts';
+import type { IconProps, NavigationGroup, NavigationItem } from '../../types/index.ts';
 import { useNavigationContext } from '../../Contexts/NavigationContext/index.tsx';
 import { SidebarMenu } from '../SidebarMenu/index.tsx';
 
 export type SidebarProps = {
-  navigation: NavigationItem[];
+  navigation?: NavigationItem[];
+  navGroups?: NavigationGroup[];
   Logo?: FC<IconProps>;
+  brand?: ReactNode;
   buildVersion?: string;
 };
 
-export const Sidebar: FC<SidebarProps> = ({ navigation, Logo, buildVersion }) => {
+function renderBrand(
+  brand: ReactNode | undefined,
+  Logo: FC<IconProps> | undefined,
+  expanded: boolean,
+): ReactNode {
+  if (brand !== undefined) return brand;
+  if (Logo) {
+    return createElement(
+      Logo,
+      expanded ? { width: 94, height: 24 } : { width: 36, height: 20 },
+    );
+  }
+  return null;
+}
+
+export const Sidebar: FC<SidebarProps> = ({
+  navigation,
+  navGroups,
+  Logo,
+  brand,
+  buildVersion,
+}) => {
   const { data, updateData } = useNavigationContext();
   const expanded = data.sidebarOpen;
+
+  const menu = navGroups
+    ? <SidebarMenu groups={navGroups} expanded={expanded} />
+    : navigation
+    ? <SidebarMenu items={navigation} expanded={expanded} />
+    : null;
 
   return (
     <Layout.Sider
@@ -34,16 +63,9 @@ export const Sidebar: FC<SidebarProps> = ({ navigation, Logo, buildVersion }) =>
           minHeight: 56,
         }}
       >
-        {Logo
-          ? createElement(
-              Logo,
-              expanded
-                ? { width: 94, height: 24 }
-                : { width: 36, height: 20 },
-            )
-          : null}
+        {renderBrand(brand, Logo, expanded)}
       </div>
-      <SidebarMenu items={navigation} expanded={expanded} />
+      {menu}
       {expanded && buildVersion ? (
         <div
           style={{
