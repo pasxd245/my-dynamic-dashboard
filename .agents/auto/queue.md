@@ -64,3 +64,4 @@ path globs.
 - [2026-05-19T15:30Z] Meta_04 via direct-edit — promote Write-tool-Read-first discipline to workflow rule (source: meta-state)
 - [2026-05-19T15:45Z] Meta_05 via direct-edit — relocate Write-tool rule from workflow-doc table cell into [[write-tool-discipline]] memory file (source: user-feedback)
 - [2026-05-19T16:00Z] Round_06 via direct-edit — fix SavedQueryLibraryPage.tsx typecheck (coerce filters.state "all" → undefined) (source: meta-state → product)
+- [2026-05-19T23:35Z] Round_07 (draft phase) via direct-edit — draft Round_07.md (Button wrapper; splits plan R06 row into chain R07/R08/R09/R10) (source: master-plan)
