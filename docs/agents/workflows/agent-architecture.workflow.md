@@ -306,6 +306,16 @@ Each routed to its durable home so it isn't re-discovered next time.
 
 ---
 
+## Lessons learned — 2026-05-19 session
+
+Each routed to its durable home so it isn't re-discovered next time.
+
+| Lesson                                                                                                                                     | Destination                                                 | Memory file |
+| ------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------- | ----------- |
+| `Write` after `git rm` in the same iteration can produce stale snapshots — split into two iterations, or `git rm` only after Write commits | workflow doc (this row) — master-agent execution discipline | —           |
+
+---
+
 ## When to bypass
 
 These roles and the smart-autopilot policy are the default. **Explicitly
