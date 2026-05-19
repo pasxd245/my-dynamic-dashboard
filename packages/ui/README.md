@@ -22,7 +22,7 @@ Then `pnpm install` at the repo root.
 
 ```ts
 import { MddUIProvider } from '@mdd/ui/Providers';
-import { MasterLayout, Sidebar, SidebarMenu } from '@mdd/ui/Components';
+import { MasterLayout, Sidebar, SidebarMenu, PageCard, PageHeader } from '@mdd/ui/Components';
 import { useNavigationContext, NavigationProvider } from '@mdd/ui/Contexts';
 import { themeTokens } from '@mdd/ui/themeTokens';
 import { cn } from '@mdd/ui/Utils';
@@ -133,8 +133,16 @@ const groups: NavigationGroup[] = [
 
 `Logo` (R01) and `brand` (R03) are the two ways to fill the sidebar's brand slot. When both are supplied, `brand` wins (with a dev-mode `console.warn`).
 
+## PageCard / PageHeader CSS contract (carried from R04)
+
+`PageCard` and `PageHeader` were promoted from `apps/builder` verbatim in R04, including their CSS dependencies. They rely on the consumer providing:
+
+- The `.page-card` (+ `.page-card--flush`) classes — `PageCard` is just a `<section>` carrying these.
+- CSS custom properties on `:root`: `--color-white`, `--surface-line`, `--radius-xl`, `--shadow-card`, `--color-gray-4`.
+
+Tightening this to `theme.useToken()` (so consumers don't need to ship matching CSS) is a planned future refactor round.
+
 ## Deferred
 
-- **R04** — `Components/PageCard`, `Components/PageHeader` (promoted from `apps/builder`).
 - **R05** — `apps/builder` `AppShell` → `MasterLayout` swap (consumes R03's extended API).
 - **R06** — `Components/Button`, `Components/Modal`, `Components/FormField` (zod-aware), `Pages/NotFound`.

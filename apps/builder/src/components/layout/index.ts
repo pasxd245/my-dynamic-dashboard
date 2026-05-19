@@ -1,2 +1,2 @@
-export { default as PageCard } from "./PageCard";
-export type { PageCardProps } from "./PageCard";
+export { PageCard } from "@mdd/ui/Components";
+export type { PageCardProps } from "@mdd/ui/Components";

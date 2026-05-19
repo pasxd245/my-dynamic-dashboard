@@ -1,8 +1,8 @@
 # Round 04: Promote `PageCard` + `PageHeader` to `@mdd/ui/Components`
 
-**Status**: Planning
+**Status**: Complete
 **Date started**: 2026-05-19
-**Date completed**: —
+**Date completed**: 2026-05-19
 
 **Master plan**: [docs/agents/plan/packages-ui.plan.md](../../../docs/agents/plan/packages-ui.plan.md)
 **Workflow**: [docs/agents/workflows/packages-ui.workflow.md](../../../docs/agents/workflows/packages-ui.workflow.md)
@@ -115,25 +115,33 @@ export type { PageHeaderProps } from './PageHeader/index.tsx';
 
 ## Do
 
-_(progress log — updated as each phase lands)_
+- 2026-05-19 — Iter 4 of `/autoagent --budget 5`. Executor: direct-edit on `autoagent/20260519/Round_04` branch.
+- Phase 1 — `cp apps/builder/src/components/layout/PageCard.tsx → packages/ui/src/Components/PageCard/index.tsx` (verbatim). Appended `PageCard` re-exports to [packages/ui/src/Components/index.ts](../../../packages/ui/src/Components/index.ts).
+- Phase 2 — `cp apps/builder/src/components/ui/PageHeader.tsx → packages/ui/src/Components/PageHeader/index.tsx` (verbatim, CSS-var refs preserved). Appended `PageHeader` re-exports. Added [PageCard.test.tsx](../../../packages/ui/src/Components/PageCard/__tests__/PageCard.test.tsx) (3 cases: default class, flush variant, className composition) and [PageHeader.test.tsx](../../../packages/ui/src/Components/PageHeader/__tests__/PageHeader.test.tsx) (2 cases: breadcrumb + title + subtitle render; subtitle-omitted render).
+- Phase 3 — redirected [apps/builder/src/components/layout/index.ts](../../../apps/builder/src/components/layout/index.ts) and the `PageHeader` slice of [apps/builder/src/components/ui/index.ts](../../../apps/builder/src/components/ui/index.ts) to re-export from `@mdd/ui/Components`. AppShell export untouched (R05).
+- Phase 4 — `git rm apps/builder/src/components/layout/PageCard.tsx apps/builder/src/components/ui/PageHeader.tsx`. **Mid-iteration snag**: the redirected-barrel `Write` calls failed the first time (didn't `Read` first per the Write-tool invariant), so the two builder test files temporarily broke on missing imports. Re-ran `Read` + `Write` to land the redirected content; builder tests re-greened. Logged as a Learning below.
+- Phase 5 — README "Subpath imports" updated to include `PageCard` and `PageHeader`; new "PageCard / PageHeader CSS contract (carried from R04)" section documents the soft coupling; "Deferred" list trimmed to R05/R06.
+- Validation — `pnpm --filter @mdd/ui type-check`: green. `pnpm --filter @mdd/ui test`: **12/12 pass** (3 R01 + 1 new MasterLayout + 3 SidebarMenu + 3 PageCard + 2 PageHeader). `pnpm --filter builder test`: **70/70 stays green** (the R02 baseline).
 
 ## Check
 
-- [ ] Phase 1 gate — `PageCard` lives at `packages/ui/src/Components/PageCard/index.tsx`; `Components/index.ts` re-exports it.
-- [ ] Phase 2 gate — `PageHeader` lives at `packages/ui/src/Components/PageHeader/index.tsx`; vitests for both components pass.
-- [ ] Phase 3 gate — builder's `components/layout/index.ts` and `components/ui/index.ts` redirect to `@mdd/ui/Components`; `App.tsx` resolves; builder test suite stays 70/70.
-- [ ] Phase 4 gate — the two in-app source files are deleted; tests still 70/70 green (proves runtime resolution).
-- [ ] Phase 5 gate — README mentions both components + the known CSS-contract caveat; lint clean.
-- [ ] No outside-boundary edits — diff stays inside `packages/ui/**`, `apps/builder/src/components/layout/**`, `apps/builder/src/components/ui/**`, plus this round file.
+- [x] Phase 1 gate — `PageCard` at `packages/ui/src/Components/PageCard/index.tsx`; `Components/index.ts` re-exports `PageCard` + `PageCardProps`.
+- [x] Phase 2 gate — `PageHeader` at `packages/ui/src/Components/PageHeader/index.tsx`; both components' vitests green; CSS-var contract preserved verbatim.
+- [x] Phase 3 gate — builder barrels redirect to `@mdd/ui/Components`; AppShell export still in `ui/index.ts` (untouched until R05); App.tsx resolves through redirected barrels.
+- [x] Phase 4 gate — `apps/builder/src/components/layout/PageCard.tsx` and `apps/builder/src/components/ui/PageHeader.tsx` deleted; `pnpm --filter builder test` is 70/70 green (proves the redirect works at runtime, not just at types).
+- [x] Phase 5 gate — README updated; lint clean via lint-staged on commit; all suites green.
+- [x] No outside-boundary edits — diff is confined to `packages/ui/**` + `apps/builder/src/components/{layout,ui}/**` + this round file. (Note: `apps/builder/src/App.tsx` is untouched — the consumer continues importing from the same paths.)
 
 ## Act
 
-**Learnings**: —
+**Learnings**:
+
+- The `Write` tool requires a prior `Read` on the target file even for full overwrites. The Phase 3 builder-barrel rewrite failed silently on the first attempt because I tried to `Write` without `Read`-ing — and because Phase 4 was already in the same Bash batch, the in-app source files got deleted while the barrels still pointed at them. Caught by `pnpm --filter builder test` (2 test files failed on missing imports). Re-ordering (`Read` → `Write` then run gates) or batching across single-purpose commits would prevent the transient broken state. Worth surfacing as an autoagent-rule: **for multi-file redirect-and-delete sequences, do the redirect first AND verify it lands before issuing the delete**.
+- The single-consumer pattern (each in-app component had exactly one importer, both in `App.tsx`) made the redirect cheap. If future similar promotions have widespread consumers, doing the barrel redirect in a separate commit (and running tests between commits) would be safer.
 
 **Promotions**:
 
-- [ ] → context/ : —
-- [ ] → skills/ : —
+- [x] → meta-state (`openObservations`) : `writeToolNeedsReadFirstForOverwrite` — direct-edit workflow gotcha: the `Write` tool's invariant ("must Read before Write") can produce silent stale state when paired with `git rm` in the same iteration. Tier-1 lesson, not blocking, but worth a one-liner in the autoagent workflow doc.
 
 ## Round chain (for context, not part of this round's scope)
 

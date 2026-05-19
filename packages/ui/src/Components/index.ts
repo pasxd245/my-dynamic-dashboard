@@ -12,3 +12,9 @@ export {
   default as SidebarMenuItemDefault,
 } from './SidebarMenu/SidebarMenuItem.tsx';
 export type { SidebarMenuItemProps } from './SidebarMenu/SidebarMenuItem.tsx';
+
+export { default as PageCard } from './PageCard/index.tsx';
+export type { PageCardProps } from './PageCard/index.tsx';
+
+export { default as PageHeader } from './PageHeader/index.tsx';
+export type { PageHeaderProps } from './PageHeader/index.tsx';
