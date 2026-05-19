@@ -1,6 +1,6 @@
 ---
 description: Drive autonomous PDCA execution — master-agent reads context, picks one action per iteration, stops at deadline.
-argument-hint: '[--once] [--budget N] [--until HH:MM] [--dry-run] [--allow-llm-edit]'
+argument-hint: '[--once] [--budget N] [--until HH:MM] [--dry-run] [--autopilot] [--cold] [--allow-llm-edit]'
 ---
 
 # /autoagent
@@ -19,7 +19,7 @@ The five action types, in priority order:
 1. **Continue or close an active round** (Planning/Doing Round_NN.md).
 2. **Make the next round from an active master-plan** — open the next
    plan step as a new Round_NN.md.
-3. **Make a meta round** from open meta items (`.agents/plan/cycles/meta/`,
+3. **Make a meta round** from open meta items (`.agents/plan/meta/`,
    `state.json.openObservations`) — orchestrator/workflow improvements.
 4. **Brainstorm a meta round** from memory or lesson-learn signals —
    targets observations not yet codified as meta items.
@@ -92,25 +92,57 @@ narrowing it requires reviewing past blocker events.
 ## Usage
 
 ```text
-/autoagent [--once] [--budget N] [--until HH:MM] [--dry-run] [--allow-llm-edit]
+/autoagent [--once] [--budget N] [--until HH:MM] [--dry-run]
+           [--autopilot] [--cold] [--allow-llm-edit]
 ```
 
-| Flag               | Meaning                                                                                   | Default |
-| ------------------ | ----------------------------------------------------------------------------------------- | ------- |
-| `--once`           | Execute one iteration (one action from the priority tree) and exit. Smoke-test.           | off     |
-| `--budget N`       | Cap at N iterations.                                                                      | 6       |
-| `--until HH:MM`    | Machine-local stop time. Finish the in-flight iteration; do not start another after this. | 06:00   |
-| `--dry-run`        | Run iterations and write reports, BUT do not create branches or commit.                   | off     |
-| `--allow-llm-edit` | Unlock the soft-lock on `src/llm/**` + `src/nodes/**`. Required for R-O.                  | off     |
+| Flag               | Meaning                                                                                                                                                                                                                                             | Default                                |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| `--once`           | Execute one iteration (one action from the priority tree) and exit. Smoke-test.                                                                                                                                                                     | off                                    |
+| `--budget N`       | Cap at N iterations.                                                                                                                                                                                                                                | 6                                      |
+| `--until HH:MM`    | Machine-local stop time. Finish the in-flight iteration; do not start another after this.                                                                                                                                                           | 06:00                                  |
+| `--dry-run`        | Run iterations and write reports, BUT do not create branches or commit.                                                                                                                                                                             | off                                    |
+| `--autopilot`      | Turn on smart-autopilot policy — master-agent decides per the table in [agent-architecture.workflow.md § Smart-autopilot](../../docs/agents/workflows/agent-architecture.workflow.md) instead of asking the user. See "Smart-autopilot mode" below. | off (attended) / on (cron, unattended) |
+| `--cold`           | Force cold-start discipline — master-agent reads disk state aggressively, dumps every decision to disk before iter end, never relies on conversation context. See "Cold-start mode" below + principle P5.                                           | off (warm)                             |
+| `--allow-llm-edit` | Unlock the soft-lock on `src/llm/**` + `src/nodes/**`. Required for R-O. Hard-locks are NEVER lifted (see principle P3).                                                                                                                            | off                                    |
 
 Examples:
 
 ```text
-/autoagent --once --dry-run             # one action, no commits — first thing to try
-/autoagent --budget 3 --until 02:00     # short overnight
-/autoagent                              # full overnight, 6 iterations, stop 06:00
-/autoagent --once --allow-llm-edit      # R-O dispatch
+/autoagent --once --dry-run                # one action, no commits — first thing to try
+/autoagent --once --cold                   # cold-session smoke test (does the framework survive restart?)
+/autoagent --budget 3 --until 02:00        # short overnight, attended-style (master-agent asks on ambiguity)
+/autoagent --autopilot --budget 6          # daytime "trust your judgment" run — smart-autopilot decides
+/autoagent --autopilot --cold --until 06:00 # the real overnight pattern — fresh-disk + autonomous decisions
+/autoagent --once --allow-llm-edit         # R-O dispatch (LLM-transport rewrite)
 ```
+
+### Smart-autopilot mode (`--autopilot`)
+
+Smart-autopilot is **not** a separate tier or a way to escape the safety envelope. It's master-agent's policy for **what to decide on its own** when the user isn't around to confirm. The full decision table — what gets auto-approved, what escalates to tier-2 — lives in [docs/agents/workflows/agent-architecture.workflow.md § Smart-autopilot](../../docs/agents/workflows/agent-architecture.workflow.md). Tier-2 (critical-security, hard-locks, judge `refine` past cap, related-channel regressions) still hard-stops regardless of mode.
+
+When to set `--autopilot`:
+
+- Daytime run where you're around but want master-agent to decide instead of pinging you.
+- Cron / scheduled remote agent (auto-enables by convention; explicit flag is the safe default).
+- Anytime you'd rather see a tier-2 `blockers.md` in the morning than be paged on every ambiguity.
+
+When **not** to set it:
+
+- First runs of a new flag combination — you want to babysit and see what gets escalated.
+- After a tier-2 — you're debugging the framework, not running it.
+
+### Cold-start mode (`--cold`)
+
+Master-agent discipline (per principle P5 in [.agents/context/principles.md](../../.agents/context/principles.md)): every decision must be derivable from disk state. In `--cold` mode master-agent commits to this in real time:
+
+- **At iter start**: read [state.json](../../.agents/auto/state.json), [memory/](../../.agents/memory/), the latest round files at [cycles/](../../.agents/plan/cycles/), [queue.md](../../.agents/auto/queue.md), and recent reports under [reports/](../../.agents/auto/reports/) before deriving the next action. Don't rely on conversation history even if it exists.
+- **Per decision**: if a fact informing the call isn't on disk, dump it first (memory entry, state.json observation, or queue topic) before acting on it.
+- **At iter end**: the report's `Notable` section must list which disk-sourced facts informed the iteration.
+
+`--cold` is testable: at session end, the audit should show every load-bearing fact has a disk source. If master-agent finds itself making decisions on conversation-only facts, that's a regression on P5.
+
+Why bother: the framework's whole premise — extending master-agent's working window past the human — relies on cold-start working. Tonight's session (2026-05-19) shipped 7 rounds but never validated this; `--cold` is how to find out.
 
 ## State machine — per iteration
 
@@ -131,44 +163,55 @@ envelope around the loop.
    | 0        | `.agents/auto/queue.md` first un-checked `### Topic:` (human override)                                  | Pop topic; treat as the kind declared by `- kind:`                                                           |
    | 1        | Latest `.agents/plan/cycles/Round_NN.md` with status `Planning` / `Doing`                               | Continue/close the active round → `Round_NN` branch                                                          |
    | 2        | Active master-plan with steps that have no corresponding `Round_*.md` yet                               | Branch `Round_<new>`; draft `Round_<new>.md` only (iteration ends — next iter picks it up under priority 1)  |
-   | 3        | Open meta items in `.agents/plan/cycles/meta/` or `state.json.openObservations`                         | Make a meta round → `Meta_NN` branch                                                                         |
+   | 3        | Open meta items in `.agents/plan/meta/` or `state.json.openObservations`                                | Make a meta round → `Meta_NN` branch                                                                         |
    | 4        | Open observations in `~/.claude/projects/.../memory/feedback_*.md` / `project_*.md` or lesson-learn doc | Brainstorm a meta round addressing them                                                                      |
    | 5        | None of the above                                                                                       | Brainstorm-plan (`/master-plan`) OR research (`/research`) on a frontier area; either way → `Meta_NN` branch |
    | 6        | Priorities 1–5 all produced nothing actionable                                                          | Stop (tier-1 normal exit, not a tier-2 blocker)                                                              |
 
-4. **Pick the executor** for the chosen action:
-   - Code round (priorities 0–1) ⇒ default is
-     `scripts/self-evo.sh round "<topic>" --req ...`. For trivially
-     small changes (one-line edits, single-file refactors) the
-     master-agent MAY edit directly + validate + commit, but must
-     justify in the report.
+4. **Pick the executor** for the chosen action. **Default is direct-edit by master-agent** (per [agent-architecture.workflow.md § The three roles](../../docs/agents/workflows/agent-architecture.workflow.md) and principle P2 in [.agents/context/principles.md](../../.agents/context/principles.md) — master-agent does the coding; self-evo provides support, not delegation). Self-evo dispatches only when explicitly opted into.
+   - Code round (priorities 0–1) ⇒ **direct-edit by master-agent** unless the round file declares `**Executor**: self-evo` near the top (see "Round-writer `executor:` convention" below) OR master-agent explicitly judges the work fits self-evo's specialist profile. Justify the choice in the report either way.
    - Round-draft (priority 2 — `Round_<new>.md` doesn't exist yet) ⇒
-     default is **direct-edit** by the master-agent (read the plan
-     step + relevant repo files; write the Round file). Self-evo's
-     `round` CLI is the wrong fit — it executes a round end-to-end,
-     not drafts one. Output is `Round_<new>.md` only; the iteration
-     ends after the draft. The next iteration picks it up under
-     priority 1 on the **same** `Round_<new>` branch.
-   - Meta round (priorities 0 with `kind: meta`, 3, 4) ⇒ same defaults
-     (self-evo), or direct edit with justification. Self-lock still
-     applies regardless.
+     **direct-edit** by the master-agent (read the plan step +
+     relevant repo files; write the Round file). Self-evo's `round`
+     CLI is the wrong fit — it executes a round end-to-end, not
+     drafts one. Output is `Round_<new>.md` only; the iteration ends
+     after the draft. The next iteration picks it up under priority
+     1 on the **same** `Round_<new>` branch.
+   - Meta round (priorities 0 with `kind: meta`, 3, 4) ⇒ **direct-edit**
+     unless the meta round file declares `**Executor**: self-evo`
+     (rare — typically when self-evo is editing its own non-locked
+     files via the worktree). Self-lock + soft-lock + critical-security
+     envelope still apply regardless.
    - Brainstorm-plan (priority 5) ⇒ `/master-plan` skill. Emits
      `docs/agents/plan/<name>.plan.md` + `<name>.workflow.md` + the
      first `.agents/plan/cycles/Round_<new>.md` per the v2.0 contract.
    - Research (priority 5 alternative) ⇒ `/research` skill, output
      `docs/agents/research/<slug>.md`.
 
+   **Round-writer `executor:` convention**: a round or meta file MAY
+   include a `**Executor**: self-evo` line near the top to request the
+   specialist harness. Without that line, master-agent direct-edits.
+   Adding `executor:` is a round-writer choice, not a default; it's
+   appropriate when (a) the round has crisp, declared boundaries that
+   fit a worktree, (b) the work is repetitive PDCA-style (apply
+   patches → verify → judge), and (c) master-agent would otherwise
+   burn its context window on it. Today's session (2026-05-19) ran
+   8 code rounds — 1 via self-evo (failed: planner over-decomposed,
+   judge false-positive) and 7 via direct-edit (all succeeded);
+   making direct-edit the default codifies the observed reliability
+   ratio.
+
 5. **Create or switch to the branch** (skipped when `--dry-run`):
    - Kind = `Round` for any iteration whose artifact is `Round_NN.md`
      (drafting **or** executing). Kind = `Meta` for orchestrator /
-     workflow work landing under `.agents/plan/cycles/meta/Meta_NN.md`.
+     workflow work landing under `.agents/plan/meta/Meta_NN.md`.
    - `NN` per case:
      - Round-draft (priority 2): max existing
        `.agents/plan/cycles/Round_*.md` artifact number + 1.
      - Round-execute (priority 1 / priority 0 with `kind: round`):
        matches the active `Round_NN.md` being closed.
      - Meta round: max existing
-       `.agents/plan/cycles/meta/Meta_*.md` artifact number + 1.
+       `.agents/plan/meta/Meta_*.md` artifact number + 1.
    - Base = the most-recent `autoagent/<yyyymmdd>/*` branch (any
      kind) if one exists for today; else current `HEAD`.
    - If `autoagent/<yyyymmdd>/<Kind>_<NN>` **already exists** (e.g. a
@@ -265,7 +308,7 @@ A `Round_NN` branch can span **two iterations on the same ref**
 Counters are **per kind**, persistent across autoagent runs. Read max
 existing `Round_*.md` / `Meta_*.md` + 1. Round files live at
 `.agents/plan/cycles/Round_NN.md`; Meta files at
-`.agents/plan/cycles/meta/Meta_NN.md`.
+`.agents/plan/meta/Meta_NN.md`.
 
 A brainstorm-plan iteration runs on a `Meta_NN` branch and commits
 `docs/agents/plan/<name>.plan.md` + `<name>.workflow.md` +
@@ -380,6 +423,16 @@ Documented in [ROLLOUT.md](../../.agents/orchestrators/self-evo/ROLLOUT.md):
   escalated.
 - **Round b's "no-op" outcome.** Zero patches with judge approval is
   valid; treat as tier-1.
+- **Root `pnpm-lock.yaml` updates from `pnpm install`** when a round
+  adds a new workspace package. Registering a new `packages/*` (or
+  any new workspace member) writes a new importer entry to the root
+  `pnpm-lock.yaml`. This update is tier-1, **not** a boundary
+  violation, even when the round's declared boundary is the new
+  package's directory only. Round-writer prompts SHOULD pre-declare
+  root `pnpm-lock.yaml` as a permitted artifact for workspace-add
+  rounds so the boundary check doesn't trip on it. Precedent: R01
+  (2026-05-19) added `packages/ui/` and the lockfile diff was
+  accepted as tier-1.
 
 ## Stop conditions
 

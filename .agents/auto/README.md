@@ -47,7 +47,7 @@ The master-agent picks ONE action per iteration. First match wins:
 0. Human override — un-checked `### Topic:` in `queue.md`.
 1. Active round (Round_NN.md in Planning / Doing) — continue/close.
 2. Active master-plan with outstanding steps — make next Round_NN.
-3. Open meta items (`.agents/plan/cycles/meta/`, `state.json.openObservations`) — meta round.
+3. Open meta items (`.agents/plan/meta/`, `state.json.openObservations`) — meta round.
 4. Memory / lesson-learn signals — brainstorm a meta round.
 5. Nothing else — brainstorm a master-plan or topic research.
 6. Priorities 1–5 all dry — stop (normal exit).
