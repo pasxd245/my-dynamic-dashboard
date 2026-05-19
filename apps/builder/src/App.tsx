@@ -3,8 +3,10 @@ import { Alert, App as AntApp, Avatar, Badge, Button, Card, Dropdown, Input, Spa
 import { BellOutlined } from "@ant-design/icons";
 import { Routes, Route, useLocation, useNavigate } from "react-router-dom";
 import { FilePlus2, Library, Workflow, ListChecks } from "lucide-react";
-import { AppShell, PageHeader } from "./components/ui";
-import type { AppShellNavGroup } from "./components/ui";
+import { PageHeader } from "./components/ui";
+import { MasterLayout } from "@mdd/ui/Components";
+import { MddUIProvider } from "@mdd/ui/Providers";
+import type { NavigationGroup } from "@mdd/ui/types";
 
 import {
   assignColumnRoles,
@@ -65,24 +67,48 @@ const preStyle: React.CSSProperties = {
   border: "1px solid #ece8f7",
 };
 
-const NAV_GROUPS: AppShellNavGroup[] = [
+const NAV_GROUPS: NavigationGroup[] = [
   {
-    key: "data-management",
+    id: "data-management",
     title: "Data Management",
     items: [
-      { key: "data-upload", to: "/", label: "Data Upload", icon: <FilePlus2 size={16} /> },
-      { key: "saved-queries", to: "/saved-queries", label: "Saved Queries", icon: <Library size={16} /> },
+      { id: "data-upload", path: "/", title: "Data Upload", sidebar: true, icon: () => <FilePlus2 size={16} /> },
+      { id: "saved-queries", path: "/saved-queries", title: "Saved Queries", sidebar: true, icon: () => <Library size={16} /> },
     ],
   },
   {
-    key: "workflow-management",
+    id: "workflow-management",
     title: "Workflow Management",
     items: [
-      { key: "workflow-builder", to: "/workflow/upload-source", label: "Workflow Builder", icon: <Workflow size={16} /> },
-      { key: "workflow-query", to: "/workflow/query", label: "Workflow Query Stage", icon: <ListChecks size={16} /> },
+      { id: "workflow-builder", path: "/workflow/upload-source", title: "Workflow Builder", sidebar: true, icon: () => <Workflow size={16} /> },
+      { id: "workflow-query", path: "/workflow/query", title: "Workflow Query Stage", sidebar: true, icon: () => <ListChecks size={16} /> },
     ],
   },
 ];
+
+function BuilderBrand() {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+      <span
+        style={{
+          width: 32,
+          height: 32,
+          borderRadius: 10,
+          background: "var(--color-blue)",
+          color: "#ffffff",
+          fontWeight: 700,
+          display: "grid",
+          placeItems: "center",
+        }}
+      >
+        M
+      </span>
+      <span style={{ fontSize: 16, fontWeight: 700, color: "var(--color-dark-blue)" }}>
+        Builder
+      </span>
+    </div>
+  );
+}
 
 export default function App(): React.ReactElement {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -801,8 +827,10 @@ export default function App(): React.ReactElement {
   );
 
   return (
-    <AppShell
+    <MddUIProvider>
+    <MasterLayout
       navGroups={NAV_GROUPS}
+      brand={<BuilderBrand />}
       header={
         <>
           <Input.Search
@@ -949,6 +977,7 @@ export default function App(): React.ReactElement {
           }}
         />
       )}
-    </AppShell>
+    </MasterLayout>
+    </MddUIProvider>
   );
 }

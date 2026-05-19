@@ -22,6 +22,12 @@ export type NavigationItem = {
   sidebar?: boolean;
 };
 
+export type NavigationGroup = {
+  id: string;
+  title: string;
+  items: NavigationItem[];
+};
+
 export type Tab = { id: string; path: string; title: string };
 
 export type AppError = {
