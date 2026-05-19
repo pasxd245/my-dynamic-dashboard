@@ -1,8 +1,8 @@
 # Round 01: Ship `@mdd/ui` reusable master-layout package
 
-**Status**: Planning
+**Status**: Complete
 **Date started**: 2026-05-18
-**Date completed**: —
+**Date completed**: 2026-05-19
 
 **Master plan**: [docs/agents/plan/packages-ui.plan.md](../../../docs/agents/plan/packages-ui.plan.md)
 **Workflow**: [docs/agents/workflows/packages-ui.workflow.md](../../../docs/agents/workflows/packages-ui.workflow.md)
@@ -87,7 +87,6 @@ Stand up `packages/ui/` as the `@mdd/ui` workspace package — a reusable **Mast
     "react-router-dom": "^7",
     "@tanstack/react-query": "^5",
   },
-  "dependencies": { "clsx": "^2.1.1" },
   "devDependencies": {
     "@testing-library/react": "^16",
     "@types/react": "^19",
@@ -104,6 +103,8 @@ Stand up `packages/ui/` as the `@mdd/ui` workspace package — a reusable **Mast
 ```
 
 (Dev-deps versions track `apps/builder/package.json` exactly so resolutions don't fork.)
+
+No runtime `dependencies` field — `@mdd/ui` carries zero direct runtime deps. The class-name helper is inlined in `src/Utils/classNames.ts` (see below) rather than importing `clsx`, so autoagent's diff-content critical-security rule does not fire on first commit. Adding any future runtime dep is a tier-2 decision.
 
 **`tsconfig.json` shape**:
 
@@ -221,16 +222,19 @@ export const QUICK_DAY_OPTIONS = [
 ] as const;
 ```
 
-**`src/Utils/classNames.ts` content**:
+**`src/Utils/classNames.ts` content** (zero-dep inline — no `clsx`):
 
 ```ts
-import clsx, { type ClassValue } from 'clsx';
-export type { ClassValue };
+export type ClassValue = string | number | null | undefined | false;
+
 export function cn(...inputs: ClassValue[]): string {
-  return clsx(inputs);
+  return inputs.filter((v): v is string | number => Boolean(v)).join(' ');
 }
+
 export default cn;
 ```
+
+Sufficient for the call sites planned in this round — only string-or-falsy inputs (see `SidebarMenuItem` spec in Phase 3). If a future round needs nested arrays / object keys, swap the body for `clsx` and re-evaluate the dep introduction then.
 
 **`src/Utils/index.ts`**: `export { cn } from './classNames.ts';`.
 
@@ -547,25 +551,38 @@ export type { SidebarMenuItemProps } from './SidebarMenu/SidebarMenuItem.tsx';
 
 ## Do
 
-_(progress log — updated as each phase lands)_
+- 2026-05-19 — autoagent iter 1 dispatched self-evo (runId `2026-05-19-09-26-25-f06c`); self-evo's planner over-decomposed and produced only 5 of 20+ required patches, also placing `themeTokens.ts` under `src/theme/` instead of `src/`. Per project memory `project_plan_writer_overdecomposes`, switched to direct edit on the round branch.
+- Phase 1 — scaffolded `packages/ui/` (package.json, tsconfig.json, src/index.ts, src/types/, src/constants/, src/Utils/{classNames,index}, src/Icons/, src/Pages/, src/themeTokens.ts as verbatim copy of `apps/builder/src/theme/antdTheme.ts` with the `antdTheme` → `themeTokens` rename + default export). Deleted `packages/ui/.gitkeep`.
+- Phase 2 — `Contexts/NavigationContext/index.tsx` + `Contexts/index.ts`; `Providers/MddUIProvider/index.tsx` + `Providers/index.ts`.
+- Phase 3 — `Components/MasterLayout/index.tsx`, `Components/Sidebar/index.tsx`, `Components/SidebarMenu/{index,SidebarMenuItem}.tsx`, `Components/index.ts`. Added vitest specs at `Contexts/NavigationContext/__tests__/NavigationContext.test.tsx` and `Components/MasterLayout/__tests__/MasterLayout.test.tsx`.
+- Phase 4 — `packages/ui/README.md` (~60 lines: install snippet, 10 subpath imports, minimal `<MddUIProvider>` + `<MasterLayout>` example for `react-router-dom@7`, deferred list for R02/R03).
+- `pnpm install` at repo root: succeeded (0 new packages added; one workspace importer entry added to `pnpm-lock.yaml`).
+- `pnpm --filter @mdd/ui type-check`: PASS.
+- `pnpm --filter @mdd/ui test`: PASS (2 files / 3 tests).
 
 ## Check
 
-- [ ] Phase 1 gate
-- [ ] Phase 2 gate
-- [ ] Phase 3 gate
-- [ ] Phase 4 gate
-- [ ] No outside-boundary edits (`git diff --name-only main...HEAD` stays inside `packages/ui/**` plus this round file)
-- [ ] `apps/builder` is byte-identical pre/post Round 01
+- [x] Phase 1 gate — `pnpm install` resolves `@mdd/ui`; type-check green; no `@tanstack/react-router` refs; themeTokens.ts hex count (16) equals antdTheme.ts hex count (16).
+- [x] Phase 2 gate — type-check green; `NavigationContext.test.tsx` passes (probe under `<MddUIProvider>` reads `INITIAL_DATA`, `updateData('sidebarOpen', false)` re-renders to `sidebarOpen: false`).
+- [x] Phase 3 gate — type-check green; `MasterLayout.test.tsx` smoke renders Sider/Header/Content, selects `/a` menu item, and the header collapse button toggles the Sider; no `@tanstack/react-router` or new hex literals introduced.
+- [x] Phase 4 gate — README ships the 10 subpath imports + a copy-pasteable example + the R02/R03 deferred list.
+- [~] No outside-boundary edits — `git diff --name-only` shows all new files under `packages/ui/**` plus `.agents/plan/cycles/Round_01.md`. **Exception**: `pnpm-lock.yaml` (root) updated by the `pnpm install` gate itself — a necessary artifact of adding a new workspace package. The round spec's "boundary = packages/ui/\*\*" + "pnpm install succeeds" requirements are contradictory at the artifact level; lockfile update accepted as part of the gate.
+- [x] `apps/builder` is byte-identical pre/post — `git diff apps/builder/` is empty.
 
 ## Act
 
-**Learnings**: —
+**Learnings**:
+
+- The self-evo orchestrator's planner did not honor the "follow Phase 1-4 verbatim" requirement when the source spec was already detailed and prescriptive — it invented its own plan (`AppShell` / `TopBar` / `ContentArea` instead of `MasterLayout` / `Sidebar` / `SidebarMenu`), omitted Phase 2 entirely (Provider + NavigationContext), and placed `themeTokens.ts` under `src/theme/`. Despite all this, the judge approved with score 1 — the verification ran on the pre-patch tree (`applied: false` for all 5 patches), so typecheck/tests passed trivially. This is a real meta signal: judge needs to verify patches actually satisfy the topic + spec, not just that an un-patched tree builds clean.
+- The autoagent critical-security diff-content rule ("a line adding a package name under `dependencies` or `devDependencies`") fires literally on every new `package.json` — even when only devDeps are added. Yesterday's human resolution interpreted the rule as runtime-only (dropped `clsx`, kept devDeps). The current `.claude/commands/autoagent.md` rule text doesn't reflect that distinction. Worth codifying.
+- Round_01's "boundary = packages/ui/\*\*" + "pnpm install succeeds" are mutually inconsistent (lockfile lives at root). Future rounds adding a workspace package should pre-declare lockfile as a permitted out-of-boundary artifact.
 
 **Promotions**:
 
-- [ ] → context/ : (none expected; this is a product package, not governed agent infra)
-- [ ] → skills/ : —
+- [ ] → context/ : (none — this is a product package, not governed agent infra)
+- [x] → meta-state (`openObservations`) : `selfEvoJudgeFalsePositiveOnUnappliedPatches` — judge approved a partial 5-of-20-patches plan because verification ran on the pre-patch tree. Needs a node that verifies post-application or a planner-completeness check.
+- [x] → meta-state (`openObservations`) : `critSecRuleDevDepsAmbiguous` — diff-content rule literally bans new lines under `devDependencies` too; yesterday's resolution scoped it to runtime only, but the rule text in autoagent.md still reads both. Either narrow the rule text or update the resolution memory.
+- [x] → meta-state (`openObservations`) : `boundaryVsLockfileContradiction` — `boundary = packages/ui/**` + `pnpm install succeeds` produces an unavoidable root-lockfile diff. Future master-plan + round-writer prompts should explicitly enumerate root-lockfile as a permitted artifact when a new workspace package is added.
 
 ## Round chain (for context, not part of this round's scope)
 
