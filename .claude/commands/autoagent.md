@@ -168,27 +168,38 @@ envelope around the loop.
    | 5        | None of the above                                                                                       | Brainstorm-plan (`/master-plan`) OR research (`/research`) on a frontier area; either way → `Meta_NN` branch |
    | 6        | Priorities 1–5 all produced nothing actionable                                                          | Stop (tier-1 normal exit, not a tier-2 blocker)                                                              |
 
-4. **Pick the executor** for the chosen action:
-   - Code round (priorities 0–1) ⇒ default is
-     `scripts/self-evo.sh round "<topic>" --req ...`. For trivially
-     small changes (one-line edits, single-file refactors) the
-     master-agent MAY edit directly + validate + commit, but must
-     justify in the report.
+4. **Pick the executor** for the chosen action. **Default is direct-edit by master-agent** (per [agent-architecture.workflow.md § The three roles](../../docs/agents/workflows/agent-architecture.workflow.md) and principle P2 in [.agents/context/principles.md](../../.agents/context/principles.md) — master-agent does the coding; self-evo provides support, not delegation). Self-evo dispatches only when explicitly opted into.
+   - Code round (priorities 0–1) ⇒ **direct-edit by master-agent** unless the round file declares `**Executor**: self-evo` near the top (see "Round-writer `executor:` convention" below) OR master-agent explicitly judges the work fits self-evo's specialist profile. Justify the choice in the report either way.
    - Round-draft (priority 2 — `Round_<new>.md` doesn't exist yet) ⇒
-     default is **direct-edit** by the master-agent (read the plan
-     step + relevant repo files; write the Round file). Self-evo's
-     `round` CLI is the wrong fit — it executes a round end-to-end,
-     not drafts one. Output is `Round_<new>.md` only; the iteration
-     ends after the draft. The next iteration picks it up under
-     priority 1 on the **same** `Round_<new>` branch.
-   - Meta round (priorities 0 with `kind: meta`, 3, 4) ⇒ same defaults
-     (self-evo), or direct edit with justification. Self-lock still
-     applies regardless.
+     **direct-edit** by the master-agent (read the plan step +
+     relevant repo files; write the Round file). Self-evo's `round`
+     CLI is the wrong fit — it executes a round end-to-end, not
+     drafts one. Output is `Round_<new>.md` only; the iteration ends
+     after the draft. The next iteration picks it up under priority
+     1 on the **same** `Round_<new>` branch.
+   - Meta round (priorities 0 with `kind: meta`, 3, 4) ⇒ **direct-edit**
+     unless the meta round file declares `**Executor**: self-evo`
+     (rare — typically when self-evo is editing its own non-locked
+     files via the worktree). Self-lock + soft-lock + critical-security
+     envelope still apply regardless.
    - Brainstorm-plan (priority 5) ⇒ `/master-plan` skill. Emits
      `docs/agents/plan/<name>.plan.md` + `<name>.workflow.md` + the
      first `.agents/plan/cycles/Round_<new>.md` per the v2.0 contract.
    - Research (priority 5 alternative) ⇒ `/research` skill, output
      `docs/agents/research/<slug>.md`.
+
+   **Round-writer `executor:` convention**: a round or meta file MAY
+   include a `**Executor**: self-evo` line near the top to request the
+   specialist harness. Without that line, master-agent direct-edits.
+   Adding `executor:` is a round-writer choice, not a default; it's
+   appropriate when (a) the round has crisp, declared boundaries that
+   fit a worktree, (b) the work is repetitive PDCA-style (apply
+   patches → verify → judge), and (c) master-agent would otherwise
+   burn its context window on it. Today's session (2026-05-19) ran
+   8 code rounds — 1 via self-evo (failed: planner over-decomposed,
+   judge false-positive) and 7 via direct-edit (all succeeded);
+   making direct-edit the default codifies the observed reliability
+   ratio.
 
 5. **Create or switch to the branch** (skipped when `--dry-run`):
    - Kind = `Round` for any iteration whose artifact is `Round_NN.md`
@@ -412,6 +423,16 @@ Documented in [ROLLOUT.md](../../.agents/orchestrators/self-evo/ROLLOUT.md):
   escalated.
 - **Round b's "no-op" outcome.** Zero patches with judge approval is
   valid; treat as tier-1.
+- **Root `pnpm-lock.yaml` updates from `pnpm install`** when a round
+  adds a new workspace package. Registering a new `packages/*` (or
+  any new workspace member) writes a new importer entry to the root
+  `pnpm-lock.yaml`. This update is tier-1, **not** a boundary
+  violation, even when the round's declared boundary is the new
+  package's directory only. Round-writer prompts SHOULD pre-declare
+  root `pnpm-lock.yaml` as a permitted artifact for workspace-add
+  rounds so the boundary check doesn't trip on it. Precedent: R01
+  (2026-05-19) added `packages/ui/` and the lockfile diff was
+  accepted as tier-1.
 
 ## Stop conditions
 
