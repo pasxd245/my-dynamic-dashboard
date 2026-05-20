@@ -1,6 +1,7 @@
 dist/
 dist-test/
 runs/
+data/
 *.tsbuildinfo
 node_modules/
 

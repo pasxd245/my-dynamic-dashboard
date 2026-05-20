@@ -15,6 +15,10 @@ export interface RipgrepOptions {
   limit?: number;
   /** Path to the ripgrep binary. Default `rg`. */
   binary?: string;
+  /** Pass --hidden so dot-dirs (e.g. `.agents/`) are searched. */
+  includeHidden?: boolean;
+  /** Per-file max-count (default 5). */
+  maxCount?: number;
 }
 
 const DEFAULT_GLOBS = [
@@ -37,7 +41,9 @@ export async function ripgrep(
   const cwd = opts.cwd ?? process.cwd();
   const limit = opts.limit ?? 80;
   const globs = opts.globs ?? DEFAULT_GLOBS;
-  const args = ["--json", "--max-count", "5", "--no-messages"];
+  const maxCount = opts.maxCount ?? 5;
+  const args = ["--json", "--max-count", String(maxCount), "--no-messages"];
+  if (opts.includeHidden) args.push("--hidden");
   for (const g of globs) args.push("--glob", g);
   args.push(pattern);
 

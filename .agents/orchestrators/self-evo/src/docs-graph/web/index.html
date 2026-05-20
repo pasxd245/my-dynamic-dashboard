@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>docs-graph</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <header id="topbar">
+      <div class="brand">docs-graph</div>
+      <div id="scan-meta" class="meta"></div>
+      <div class="controls">
+        <label>view:
+          <select id="filter-view">
+            <option value="structural">structural</option>
+            <option value="semantic">semantic (entities)</option>
+          </select>
+        </label>
+        <label>track:
+          <select id="filter-track">
+            <option value="">all</option>
+            <option value="product">product</option>
+            <option value="agent-method">agent-method</option>
+            <option value="self-evo">self-evo</option>
+            <option value="unknown">unknown</option>
+          </select>
+        </label>
+        <label>kind:
+          <select id="filter-kind">
+            <option value="">all</option>
+            <option value="readme">readme</option>
+            <option value="spec">spec</option>
+            <option value="round">round</option>
+            <option value="meta">meta</option>
+            <option value="report">report</option>
+            <option value="memory">memory</option>
+            <option value="skill">skill</option>
+            <option value="runbook">runbook</option>
+            <option value="other">other</option>
+          </select>
+        </label>
+        <button id="btn-relayout">re-layout</button>
+        <button id="btn-rescan">re-scan</button>
+        <button id="btn-fit">fit</button>
+      </div>
+    </header>
+    <main>
+      <section id="cy-wrap">
+        <div id="cy"></div>
+        <div id="legend">
+          <div><span class="dot track-product"></span>product</div>
+          <div><span class="dot track-agent-method"></span>agent-method</div>
+          <div><span class="dot track-self-evo"></span>self-evo</div>
+          <div><span class="dot track-unknown"></span>unknown</div>
+          <div><span class="dot drift-error"></span>has errors</div>
+          <div><span class="dot drift-warn"></span>has warnings</div>
+        </div>
+      </section>
+      <aside id="panel">
+        <div id="panel-empty">Click a node to inspect.</div>
+        <div id="panel-body" hidden>
+          <h2 id="np-path"></h2>
+          <div class="kv">
+            <span>track</span><strong id="np-track"></strong>
+            <span>kind</span><strong id="np-kind"></strong>
+            <span>words</span><strong id="np-words"></strong>
+            <span>outbound</span><strong id="np-out"></strong>
+            <span>inbound</span><strong id="np-in"></strong>
+            <span>modified</span><strong id="np-mtime"></strong>
+          </div>
+          <h3>findings <span id="np-finding-count" class="counter">0</span></h3>
+          <ul id="np-findings"></ul>
+          <h3>outbound</h3>
+          <ul id="np-outbound"></ul>
+          <h3>inbound</h3>
+          <ul id="np-inbound"></ul>
+          <h3>annotations <span id="np-anno-count" class="counter">0</span></h3>
+          <ul id="np-annotations"></ul>
+          <form id="anno-form">
+            <input id="anno-author" placeholder="author" required />
+            <textarea id="anno-body" placeholder="note…" required></textarea>
+            <input id="anno-tags" placeholder="tags (comma sep)" />
+            <button type="submit">add annotation</button>
+          </form>
+        </div>
+      </aside>
+    </main>
+    <footer id="findings-bar">
+      <h3>findings <span id="all-finding-count" class="counter">0</span></h3>
+      <ul id="all-findings"></ul>
+    </footer>
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

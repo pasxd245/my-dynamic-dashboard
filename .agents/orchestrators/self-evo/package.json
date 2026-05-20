@@ -5,11 +5,13 @@
   "type": "module",
   "main": "./dist/cli.js",
   "bin": {
-    "self-evo": "./dist/cli.js"
+    "self-evo": "./dist/cli.js",
+    "docs-graph": "./dist/docs-graph/cli.js"
   },
   "scripts": {
-    "build": "tsc -p .",
-    "build:test": "rm -rf dist-test && tsc -p tsconfig.test.json",
+    "build": "tsc -p . && pnpm run build:web",
+    "build:web": "mkdir -p dist/docs-graph/web && cp src/docs-graph/web/*.html src/docs-graph/web/*.js src/docs-graph/web/*.css dist/docs-graph/web/",
+    "build:test": "rm -rf dist-test && tsc -p tsconfig.test.json && pnpm run build:web",
     "typecheck": "tsc --noEmit",
     "test": "pnpm run build:test && node --test dist-test/test/"
   },

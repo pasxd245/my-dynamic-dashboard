@@ -1,0 +1,136 @@
+# Curated entity dictionary used by docs-graph's structural drift detector.
+#
+# Entries:
+#   id          canonical id (kebab-case, no spaces)
+#   display     human-readable label shown in the UI / tool output
+#   kind        tool | spec | symbol | file | concept
+#   aliases     surface strings that should match (word-boundary, case-sensitive
+#               unless `caseInsensitive: true`); the canonical display is auto-added
+#   codeHints   substrings to grep for inside apps/, packages/, devops/,
+#               .agents/orchestrators/ to count as a "code usage"; if empty the
+#               entity is documentation-only (no code-drift check)
+#
+# The dict is repo-specific. Add entries when you see a concept claimed in docs
+# that's worth verifying against code.
+
+entities:
+  - id: duckdb
+    display: DuckDB
+    kind: tool
+    aliases: ["DuckDB", "duckdb"]
+    codeHints: ["import duckdb", "duckdb.connect"]
+  - id: polars
+    display: Polars
+    kind: tool
+    aliases: ["Polars", "polars"]
+    codeHints: ["import polars", "pl.DataFrame", "pl.read_csv", "pl.read_excel"]
+  - id: fastapi
+    display: FastAPI
+    kind: tool
+    aliases: ["FastAPI", "fastapi"]
+    codeHints: ["from fastapi", "import fastapi"]
+  - id: sqlalchemy
+    display: SQLAlchemy
+    kind: tool
+    aliases: ["SQLAlchemy", "sqlalchemy"]
+    codeHints: ["import sqlalchemy", "from sqlalchemy"]
+  - id: alembic
+    display: Alembic
+    kind: tool
+    aliases: ["Alembic", "alembic"]
+    codeHints: ["import alembic", "from alembic"]
+  - id: streamlit
+    display: Streamlit
+    kind: tool
+    aliases: ["Streamlit", "streamlit"]
+    codeHints: ["import streamlit", "st.write", "st.dataframe"]
+  - id: react-flow
+    display: React Flow
+    kind: tool
+    aliases: ["React Flow", "ReactFlow", "react-flow"]
+    codeHints: ["from 'reactflow'", "from \"reactflow\"", "@xyflow/react"]
+  - id: tanstack-query
+    display: TanStack Query
+    kind: tool
+    aliases: ["TanStack Query", "TanStack", "react-query"]
+    codeHints: ["@tanstack/react-query", "useQuery", "useMutation"]
+  - id: ant-design
+    display: Ant Design
+    kind: tool
+    aliases: ["Ant Design", "antd", "AntD"]
+    codeHints: ["from 'antd'", "from \"antd\"", "import { ConfigProvider"]
+  - id: zustand
+    display: Zustand
+    kind: tool
+    aliases: ["Zustand", "zustand"]
+    codeHints: ["from 'zustand'", "from \"zustand\"", "create<"]
+  - id: parquet
+    display: Parquet
+    kind: tool
+    aliases: ["Parquet", "parquet"]
+    codeHints: [".parquet", "write_parquet", "read_parquet"]
+  - id: spec-001-profiling
+    display: Spec 001 (Data Upload & Profiling)
+    kind: spec
+    aliases: ["Spec 001", "spec-001", "spec-001-profiling"]
+    codeHints: []
+  - id: spec-002-relationships
+    display: Spec 002 (Relationship Rules)
+    kind: spec
+    aliases: ["Spec 002", "spec-002", "spec-002-relationships"]
+    codeHints: []
+  - id: spec-003-query-builder
+    display: Spec 003 (Query Builder & Execution)
+    kind: spec
+    aliases: ["Spec 003", "spec-003", "spec-003-query-builder"]
+    codeHints: []
+  - id: spec-004-saved-queries
+    display: Spec 004 (Saved Queries)
+    kind: spec
+    aliases: ["Spec 004", "spec-004", "spec-004-saved-queries"]
+    codeHints: []
+  - id: spec-005-dashboard
+    display: Spec 005 (Dashboard & Visualizations)
+    kind: spec
+    aliases: ["Spec 005", "spec-005", "spec-005-dashboard"]
+    codeHints: []
+  - id: spec-006-production
+    display: Spec 006 (Production Deployment)
+    kind: spec
+    aliases: ["Spec 006", "spec-006", "spec-006-production"]
+    codeHints: []
+  - id: mdd-ui
+    display: "@mdd/ui"
+    kind: symbol
+    aliases: ["@mdd/ui"]
+    codeHints: ["@mdd/ui"]
+  - id: master-layout
+    display: MasterLayout
+    kind: symbol
+    aliases: ["MasterLayout"]
+    codeHints: ["MasterLayout"]
+  - id: builder-workflow-page
+    display: BuilderWorkflowPage
+    kind: symbol
+    aliases: ["BuilderWorkflowPage"]
+    codeHints: ["BuilderWorkflowPage"]
+  - id: app-tsx
+    display: App.tsx
+    kind: file
+    aliases: ["apps/builder/src/App.tsx", "App.tsx"]
+    codeHints: ["apps/builder/src/App.tsx"]
+  - id: pdca
+    display: PDCA
+    kind: concept
+    aliases: ["PDCA"]
+    codeHints: []
+  - id: autoagent
+    display: autoagent
+    kind: concept
+    aliases: ["autoagent"]
+    codeHints: ["autoagent"]
+  - id: self-evo
+    display: self-evo
+    kind: concept
+    aliases: ["self-evo"]
+    codeHints: ["self-evo"]
