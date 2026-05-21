@@ -1,0 +1,343 @@
+#!/usr/bin/env bash
+# ghx - Git Helper eXtended
+# Run bulk git commands or copy/link .git dirs across multiple repos.
+
+set -euo pipefail
+
+show_usage() {
+    cat <<'EOF'
+Usage:
+    ghx -h|--help
+    ghx bulk [-r|--repo <name>] <src_parent_dir> -- <git_args...>
+    ghx gh   [-r|--repo <name>] <src_parent_dir> -- <gh_args...>
+    ghx copy [-l|--link] [-r|--repo <name>] <src_parent_dir> <dst_parent_dir>
+
+Sub-commands:
+    bulk
+        Run a git command across each repo under <src_parent_dir>/*.
+        Logs results to ./git.log in the current directory.
+
+    gh
+        Run a GitHub CLI (`gh`) command across each repo under
+        <src_parent_dir>/*. Logs results to ./gh.log.
+
+    copy
+        Copy each <src>/<repo>/.git into <dst>/<repo>/.git,
+        or with -l|--link create a symlink <dst>/<repo> -> <src>/<repo>.
+
+Options:
+    -r|--repo <name>
+        Restrict the operation to a single repo under <src_parent_dir>.
+
+All sub-commands honor a `.ignore_repos` file in the current directory:
+one repo name per line, '#' for comments.
+
+Examples:
+    ghx bulk ./repos -- status
+    ghx bulk ./repos -- pull --rebase
+    ghx gh   ./repos -- pr list --state open
+    ghx gh   ./repos -- pr status
+    ghx copy ./repos ./mirror
+    ghx copy --link ./repos ./mirror
+    ghx copy --repo myrepo ./repos ./mirror
+    ghx bulk --repo myrepo ./repos -- status
+EOF
+}
+
+fail_usage() {
+    local message="${1:-Invalid command.}"
+    echo "ERROR: $message" >&2
+    echo >&2
+    show_usage >&2
+    exit 2
+}
+
+# Load `.ignore_repos` from cwd into associative array IGNORED_REPOS.
+# Echoes a one-line status to stdout.
+load_ignore_list() {
+    local ignore_file ignored_count
+    
+    ignore_file="$(pwd)/.ignore_repos"
+    ignored_count=0
+    
+    if [ -f "$ignore_file" ]; then
+        while IFS= read -r line || [ -n "$line" ]; do
+            line=$(echo "$line" | xargs)
+            if [ -n "$line" ] && [[ ! "$line" =~ ^# ]]; then
+                IGNORED_REPOS["$line"]=1
+                ignored_count=$((ignored_count + 1))
+            fi
+        done < "$ignore_file"
+        echo "Ignore file: $ignore_file ($ignored_count repos)"
+    else
+        echo "Ignore file: not found (processing all repos)"
+    fi
+}
+
+# Run <bin> with given args inside each repo under <src>/*.
+# Args: <subcmd> <bin> <log_file> <src> <only_repo> <bin_args...>
+# <only_repo> may be empty to process all repos.
+run_in_each_repo() {
+    local subcmd="$1"; shift
+    local bin="$1"; shift
+    local log_file="$1"; shift
+    local SRC="$1"; shift
+    local ONLY_REPO="$1"; shift
+    local BIN_ARGS=("$@")
+
+    [ -d "$SRC" ] || fail_usage "Source directory '$SRC' does not exist"
+
+    command -v "$bin" >/dev/null 2>&1 || fail_usage "'$bin' is not on PATH"
+
+    SRC=$(cd "$SRC" && pwd)
+
+    if [ -n "$ONLY_REPO" ] && [ ! -d "$SRC/$ONLY_REPO" ]; then
+        fail_usage "Repo '$ONLY_REPO' not found under $SRC"
+    fi
+
+    : > "$log_file"
+
+    declare -A IGNORED_REPOS
+    load_ignore_list
+
+    echo "Processing repositories in: $SRC"
+    [ -n "$ONLY_REPO" ] && echo "Filter: only '$ONLY_REPO'"
+    echo "Command: $bin ${BIN_ARGS[*]}"
+    echo "Log file: $log_file"
+    echo ""
+
+    local processed=0 success=0 failed=0 ignored=0 skipped=0
+
+    for dir in "$SRC"/*; do
+        [ -d "$dir" ] || continue
+        local dirname
+        dirname=$(basename "$dir")
+
+        if [ -n "$ONLY_REPO" ] && [ "$dirname" != "$ONLY_REPO" ]; then
+            continue
+        fi
+        
+        if [ ! -d "$dir/.git" ]; then
+            echo "⏭️  Skipping '$dirname' (no .git directory)"
+            skipped=$((skipped + 1))
+            continue
+        fi
+        
+        if [ "${IGNORED_REPOS[$dirname]+_}" ]; then
+            echo "🚫 Ignoring '$dirname' (listed in .ignore_repos)"
+            ignored=$((ignored + 1))
+            echo ""
+            continue
+        fi
+        
+        processed=$((processed + 1))
+        echo "🔄 Processing: $dirname"
+        
+        cd "$dir"
+        local output
+        if output=$("$bin" "${BIN_ARGS[@]}" 2>&1); then
+            echo "  ✅ OK"
+            [ -n "$output" ] && echo "${output//$'\n'/$'\n'  }"
+            echo "$dirname: [$bin ${BIN_ARGS[*]}] OK" >> "$log_file"
+            success=$((success + 1))
+        else
+            echo "  ❌ Failed"
+            [ -n "$output" ] && echo "${output//$'\n'/$'\n'  }"
+            echo "$dirname: [$bin ${BIN_ARGS[*]}] FAILED" >> "$log_file"
+            failed=$((failed + 1))
+        fi
+        cd - > /dev/null
+        echo ""
+    done
+    
+    echo "Summary:"
+    echo "  Processed: $processed repositories"
+    echo "  Success: $success"
+    echo "  Failed: $failed"
+    echo "  Skipped: $skipped"
+    echo "  Ignored: $ignored"
+    echo ""
+    echo "Results saved to: $log_file"
+}
+
+# Parse `<src> -- <args...>` then dispatch to run_in_each_repo.
+parse_and_run() {
+    local subcmd="$1"; shift
+    local bin="$1"; shift
+    local log_name="$1"; shift
+    
+    local SRC=""
+    local ONLY_REPO=""
+    local BIN_ARGS=()
+
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --)
+                shift
+                BIN_ARGS=("$@")
+                break
+            ;;
+            -r|--repo)
+                [ $# -ge 2 ] || fail_usage "$1 requires a value"
+                ONLY_REPO="$2"
+                shift 2
+            ;;
+            -*)
+                fail_usage "Unknown $subcmd option: $1"
+            ;;
+            *)
+                if [ -z "$SRC" ]; then
+                    SRC="$1"
+                else
+                    fail_usage "Unexpected argument '$1'. Use '--' before $bin command."
+                fi
+                shift
+            ;;
+        esac
+    done
+
+    [ -n "$SRC" ] || fail_usage "$subcmd requires <src_parent_dir>"
+    [ ${#BIN_ARGS[@]} -gt 0 ] || fail_usage "$subcmd requires $bin args after '--'"
+
+    run_in_each_repo "$subcmd" "$bin" "$(pwd)/$log_name" "$SRC" "$ONLY_REPO" "${BIN_ARGS[@]}"
+}
+
+run_bulk() {
+    parse_and_run bulk git git.log "$@"
+}
+
+run_gh() {
+    parse_and_run gh gh gh.log "$@"
+}
+
+run_copy() {
+    local LINK_MODE=false
+    local SRC=""
+    local DST=""
+    local ONLY_REPO=""
+
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            -l|--link)
+                LINK_MODE=true
+                shift
+            ;;
+            -r|--repo)
+                [ $# -ge 2 ] || fail_usage "$1 requires a value"
+                ONLY_REPO="$2"
+                shift 2
+            ;;
+            -*)
+                fail_usage "Unknown copy option: $1"
+            ;;
+            *)
+                if [ -z "$SRC" ]; then
+                    SRC="$1"
+                    elif [ -z "$DST" ]; then
+                    DST="$1"
+                else
+                    fail_usage "Unexpected argument: $1"
+                fi
+                shift
+            ;;
+        esac
+    done
+    
+    if [ -z "$SRC" ] || [ -z "$DST" ]; then
+        fail_usage "copy requires <src_parent_dir> <dst_parent_dir>"
+    fi
+    [ -d "$SRC" ] || fail_usage "Source directory '$SRC' does not exist"
+    
+    if [ ! -d "$DST" ]; then
+        echo "Creating destination directory: $DST"
+        mkdir -p "$DST"
+    fi
+    
+    SRC=$(cd "$SRC" && pwd)
+    DST=$(cd "$DST" && pwd)
+
+    if [ -n "$ONLY_REPO" ] && [ ! -d "$SRC/$ONLY_REPO" ]; then
+        fail_usage "Repo '$ONLY_REPO' not found under $SRC"
+    fi
+
+    echo "Source: $SRC"
+    echo "Destination: $DST"
+    [ -n "$ONLY_REPO" ] && echo "Filter: only '$ONLY_REPO'"
+    if [ "$LINK_MODE" = true ]; then
+        echo "Mode: symlink"
+    else
+        echo "Mode: copy"
+    fi
+    
+    declare -A IGNORED_REPOS
+    load_ignore_list
+    echo ""
+    
+    local found=0 skipped=0 copied=0 ignored=0
+    
+    for dir in "$SRC"/*; do
+        [ -d "$dir" ] || continue
+        local dirname
+        dirname=$(basename "$dir")
+        [ -d "$dir/.git" ] || continue
+
+        if [ -n "$ONLY_REPO" ] && [ "$dirname" != "$ONLY_REPO" ]; then
+            continue
+        fi
+
+        found=$((found + 1))
+        
+        if [ "${IGNORED_REPOS[$dirname]+_}" ]; then
+            echo "🚫 Ignoring '$dirname' (listed in .ignore_repos)"
+            ignored=$((ignored + 1))
+            elif [ -e "$DST/$dirname" ] || [ -L "$DST/$dirname" ]; then
+            echo "⏭️  Skipping '$dirname' (already exists)"
+            skipped=$((skipped + 1))
+        else
+            if [ "$LINK_MODE" = true ]; then
+                echo "🔗 Linking '$dirname' → $dir"
+                ln -s "$dir" "$DST/$dirname"
+            else
+                echo "📁 Creating '$DST/$dirname'"
+                mkdir -p "$DST/$dirname"
+                echo "📋 Copying '$dirname/.git'"
+                cp -r "$dir/.git" "$DST/$dirname/.git"
+            fi
+            copied=$((copied + 1))
+        fi
+    done
+    
+    echo ""
+    echo "Summary:"
+    echo "  Found: $found directories with .git"
+    if [ "$LINK_MODE" = true ]; then
+        echo "  Linked: $copied"
+    else
+        echo "  Copied: $copied"
+    fi
+    echo "  Skipped: $skipped"
+    echo "  Ignored: $ignored"
+}
+
+[ $# -gt 0 ] || fail_usage "Missing command"
+
+case "$1" in
+    -h|--help)
+        show_usage
+    ;;
+    bulk)
+        shift
+        run_bulk "$@"
+    ;;
+    gh)
+        shift
+        run_gh "$@"
+    ;;
+    copy)
+        shift
+        run_copy "$@"
+    ;;
+    *)
+        fail_usage "Unknown command: $1"
+    ;;
+esac

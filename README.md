@@ -1,2 +1,1 @@
-# my-dynamic-dashboard
-My Dynamic Dashboard
+# My Dynamic Dashboard

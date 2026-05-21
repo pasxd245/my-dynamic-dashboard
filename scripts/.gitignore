@@ -1,0 +1,7 @@
+# ghx
+# crg
+
+# others
+# .gitignore
+.code-review-graph/
+__pycache__/
