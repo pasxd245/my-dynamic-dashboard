@@ -1,4 +1,3 @@
 packages:
-  - ".agents/orchestrators/*"
-  - "apps/*"
-  - "packages/*"
+  - "workspace/apps/*"
+  - "workspace/packages/*"

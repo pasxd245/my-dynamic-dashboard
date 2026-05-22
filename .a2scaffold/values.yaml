@@ -1,0 +1,4 @@
+# overrides
+agents:
+  gemini: true
+  codex: true
