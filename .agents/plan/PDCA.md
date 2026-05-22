@@ -12,6 +12,10 @@ evolving this project. Each initiative (feature, refactor, investigation)
 is tracked as a **round** so that decisions, outcomes, and learnings
 are captured and reviewable.
 
+> **All rules in this file are project policy, not constitutional law.**
+> They can be revised through the same PDCA process they describe — see
+> [Governance](#governance) for the current revisability stance.
+
 ---
 
 ## Cycle Template
@@ -42,8 +46,59 @@ Each round follows four phases:
 
 - Promote validated learnings to `.agents/context/` or `.agents/skills/`
 - Log promotions in `promotions.md`
+- Capture **`Feeds into → Round_NN+1`** — what this round hands
+  forward (artifacts, conventions, unblocked work). The next round's
+  Goal cites the same handoff via `Inherits from ← Round_NN`. Pair
+  the two to make the PDCA cycle explicit.
+- Run the [post-round audit](#post-round-audit) before flipping
+  status to `Complete`
 - Archive the round
-- Status: `Complete`
+- Status: `Review` (work done, awaiting human approval) →
+  `Complete` (human-approved; only humans flip this)
+
+---
+
+## Status lifecycle
+
+A round's `Status` field moves through these values exactly once,
+in order:
+
+```text
+Planning → In Progress → Review → Complete
+```
+
+- `Planning` — Plan section is being drafted; no code/doc changes
+  yet.
+- `In Progress` — Do phase is active; agent is executing steps.
+- `Review` — Do + Check finished; agent has filled Act draft;
+  awaiting human sign-off + commit. Agents may flip from
+  `In Progress` to `Review`.
+- `Complete` — human-approved; commit landed. **Only humans flip
+  to `Complete`** (per [governance.md](../context/governance.md)).
+
+---
+
+## Post-round audit
+
+Before flipping a round from `Review` to `Complete`, verify:
+
+- [ ] All Plan checkboxes flipped `[ ] → [x]` (or strike-through
+      with note if the step was decided against mid-round).
+- [ ] All Check items flipped `[x]` and the round's verification
+      evidence (logs, screenshots, test counts) is summarized in Do.
+- [ ] **Promotion items** reformatted: if a promotion *happened*,
+      mark `[x]`; if it was *decided not to promote this round*,
+      remove the checkbox entirely and write the decision as plain
+      text — leaving `[ ]` reads as an unfinished TODO.
+- [ ] `Status` field updated to `Complete` and `Date completed`
+      filled.
+- [ ] **Cross-links present**: Goal cites `Inherits from ← Round_NN`
+      (if any); Act ends with `Feeds into → Round_NN+1` (or "(TBD)"
+      if not yet drafted).
+- [ ] Any new project knowledge captured in
+      [.agents/memory/](../memory/) per
+      [memory-placement.md](../context/memory-placement.md).
+- [ ] `npx markdownlint-cli2` repo-wide returns 0 errors.
 
 ---
 
@@ -74,13 +129,25 @@ below.
 
 ## Goal
 
+**Inherits from ← [Round_NN](Round_NN.md)** — [what this round
+takes as input from the previous round: artifacts, conventions,
+deferred decisions. Omit if this is Round_01 or the round has no
+predecessor.]
+
 [1-2 sentences: what we're building/fixing and why]
+
+*Track: 1 | 2 | 3. Pulled by: [round id | memory file | named
+product gap] — per [Evolution Rule](../../AGENTS.md).*
 
 ## Plan
 
 - [ ] Step 1
 - [ ] Step 2
 - [ ] ...
+
+## Risks / unknowns
+
+- [Risk or open question]
 
 ## Do
 
@@ -94,19 +161,60 @@ below.
 ## Act
 
 **Learnings**:
-- ...
 
-**Promotions**:
-- [ ] → context/ : [topic]
-- [ ] → skills/  : [topic]
+- [What worked, what surprised, what's now true that wasn't]
+
+**Promotions** *(if none: write as plain text, not checkboxes)*:
+
+- [ ] → `context/` : [topic — if promoting]
+- [ ] → `skills/` : [topic — if promoting]
+
+**Follow-ups (not promotions, just notes):**
+
+- [Anything queued for a future round]
+
+## Feeds into → Round_NN+1 (TBD)
+
+[What this round hands forward: artifacts to consume, conventions
+to inherit, unblocked work. The next round's Goal will cite this
+via "Inherits from ←".]
 ```
 
 ---
 
 ## Governance
 
-- **Rounds are append-only** — do not delete or rewrite history
-- **Promotions** from Act phase are logged in [promotions.md](promotions.md)
-- **Promotion criteria** are defined in [AGENTS.md](../AGENTS.md)
-- Agents may update the `Do` and `Check` sections of active rounds
-- Only humans may move a round to `Complete` status
+- **`Complete` rounds are append-only.** Once a round flips to
+  `Complete`, its history is locked — do not delete, rewrite, or
+  re-frame what happened. Append new content at the end of the file as follows:
+
+  ```markdown
+  <current content>
+
+  ## Appending to Complete rounds
+  <new content>
+  ```
+
+- **Active rounds are editable.** Rounds in `Planning`,
+  `In Progress`, or `Review` may have any section updated as work
+  proceeds — that is what those phases are for. This includes
+  amending Plan or Risks mid-round when scope shifts, refining Do
+  logs as steps complete, and revising Act drafts before human
+  review.
+- **Promotions** from Act are logged in
+  [promotions.md](promotions.md). Promotion criteria are defined
+  in [AGENTS.md](../AGENTS.md).
+- **Status flips by actor**:
+  - Agents may flip `Planning → In Progress → Review` on their
+    own as work moves through the phases.
+  - Flipping to `Complete` requires human approval **under the
+    current policy**.
+- **Revisability of these rules.** Everything above is current
+  project policy, not a fixed constitution. Future rounds can
+  amend any of it via the same PDCA process — including the
+  human-only `Complete`-flip rule, which an autopilot/autoagent
+  round may later relax (e.g., conditional auto-flip when Check
+  is all green and no `.agents/context/` or `.agents/plan/`
+  modifications were made). Such a change is in scope for a
+  future round when the pull is real; for now the human gate
+  remains the primary safety against bad rounds shipping.
