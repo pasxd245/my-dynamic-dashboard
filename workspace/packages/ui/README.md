@@ -13,15 +13,35 @@ for the lesson behind that choice.
 - Theme tokens ([src/themeTokens.ts](src/themeTokens.ts)): colors,
   spacing, radii, typography.
 - Provider wrappers ([src/Providers/](src/Providers/)): the antd
-  `ConfigProvider` wired to our tokens; future error boundaries.
+  `ConfigProvider` wired to our tokens, plus `<ThemeStyle />` which
+  injects a global `body { font-family: ... }` rule derived from
+  `themeTokens.token.fontFamily`. `<AntdConfig>` renders
+  `<ThemeStyle />` internally, so wrapping once gives consumers
+  consistent typography across **both** antd components and raw
+  HTML. Future error boundaries land here too.
 - Generic look-and-feel primitives (when pulled by a real consumer):
   buttons, layouts, empty states — components with **zero domain
   knowledge**.
 - Icons that are part of the visual system, not feature-specific.
 
-**Example of what's in scope:** `<AntdConfig>` wraps the app tree and
-applies our theme to every antd component. Pure look-and-feel, no
+**Example of what's in scope:** `<AntdConfig>` wraps the app tree
+and applies our theme to every antd component (and a global body
+font via the bundled `<ThemeStyle />`). Pure look-and-feel, no
 product knowledge.
+
+**Standalone `<ThemeStyle />`** is exported separately for cases
+where you want the global font without `ConfigProvider` (e.g., an
+isolated component test):
+
+```tsx
+import { ThemeStyle } from "@mdd/ui/Providers";
+render(
+  <>
+    <ThemeStyle />
+    <SomeHeading />
+  </>,
+);
+```
 
 ## What does NOT belong here (BIZ duty)
 
@@ -51,5 +71,5 @@ pnpm --filter @mdd/ui test            # vitest run
 - Source-only exports (`./src/*.ts(x)`); no build step. Consumers
   (Vite-based for now) transpile on demand.
 - Peer deps: `react`, `react-dom`, `antd`, `@ant-design/icons` only.
-- Tests: vitest snapshot of `themeTokens` shape — exercises the import
-  graph without rendering.
+- Tests: vitest with `happy-dom` + `@testing-library/react` —
+  themeTokens shape snapshot plus `<ThemeStyle />` render test.

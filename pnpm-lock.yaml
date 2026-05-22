@@ -84,15 +84,27 @@ importers:
       '@ant-design/icons':
         specifier: ^6.0.0
         version: 6.2.3(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      '@testing-library/jest-dom':
+        specifier: ^6.0.0
+        version: 6.9.1
+      '@testing-library/react':
+        specifier: ^16.0.0
+        version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@19.2.3(@types/react@19.2.15))(@types/react@19.2.15)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
       '@types/react':
         specifier: ^19.0.0
         version: 19.2.15
       '@types/react-dom':
         specifier: ^19.0.0
         version: 19.2.3(@types/react@19.2.15)
+      '@vitejs/plugin-react':
+        specifier: ^5.0.0
+        version: 5.2.0(vite@6.4.2(@types/node@25.9.1)(jiti@2.6.1)(yaml@2.9.0))
       antd:
         specifier: ^6.0.0
         version: 6.4.3(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      happy-dom:
+        specifier: ^15.0.0
+        version: 15.11.7
       react:
         specifier: ^19.0.0
         version: 19.2.6
@@ -2976,6 +2988,18 @@ snapshots:
       '@types/babel__core': 7.20.5
       react-refresh: 0.18.0
       vite: 6.4.2(@types/node@22.19.19)(jiti@2.6.1)(yaml@2.9.0)
+    transitivePeerDependencies:
+      - supports-color
+
+  '@vitejs/plugin-react@5.2.0(vite@6.4.2(@types/node@25.9.1)(jiti@2.6.1)(yaml@2.9.0))':
+    dependencies:
+      '@babel/core': 7.29.0
+      '@babel/plugin-transform-react-jsx-self': 7.27.1(@babel/core@7.29.0)
+      '@babel/plugin-transform-react-jsx-source': 7.27.1(@babel/core@7.29.0)
+      '@rolldown/pluginutils': 1.0.0-rc.3
+      '@types/babel__core': 7.20.5
+      react-refresh: 0.18.0
+      vite: 6.4.2(@types/node@25.9.1)(jiti@2.6.1)(yaml@2.9.0)
     transitivePeerDependencies:
       - supports-color
 
