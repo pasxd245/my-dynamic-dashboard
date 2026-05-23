@@ -32,13 +32,13 @@ came in too late."_
 
 ## Evidence
 
-- Drifted: `tmp/ref-apps/my-dynamic-dashboard-drifted/packages/ui/src/`
-  (8 dirs: Components/Pages/Providers/Contexts/Icons/Utils/constants/
-  types — BIZ-coupled by extraction time)
-- Drifted peer deps including BIZ libs:
-  `tmp/ref-apps/my-dynamic-dashboard-drifted/packages/ui/package.json`
-  (had `react-router-dom`, `@tanstack/react-query`, `zod` as peers —
-  the BIZ leak)
+- Drifted UI package evidence is indexed through
+  [drifted-iteration.md](../context/drifted-iteration.md): the old
+  package had 8 dirs (`Components`, `Pages`, `Providers`, `Contexts`,
+  `Icons`, `Utils`, `constants`, `types`) and was BIZ-coupled by
+  extraction time.
+- Drifted peer deps included BIZ libs (`react-router-dom`,
+  `@tanstack/react-query`, `zod`) — the BIZ leak.
 - Round_02 plan: [.agents/plan/cycles/Round_02.md](../plan/cycles/Round_02.md)
 - Companion deferral memory: [2026-05-22-round-roadmap-deferrals.md](2026-05-22-round-roadmap-deferrals.md)
 

@@ -98,6 +98,12 @@ Before flipping a round from `Review` to `Complete`, verify:
 - [ ] Any new project knowledge captured in
       [.agents/memory/](../memory/) per
       [memory-placement.md](../context/memory-placement.md).
+- [ ] **Context-rot check**: if the round added or extended any
+      [`.agents/context/`](../context/) file, re-read the file once
+      and cut what doesn't earn its place. `context/` is loaded every
+      session — bullet bloat, repeated framing, and over-procedural
+      lists belong in `memory/` or a skill, not here. Aim for the
+      leanest expression that still teaches the rule.
 - [ ] `npx markdownlint-cli2` repo-wide returns 0 errors.
 
 ---

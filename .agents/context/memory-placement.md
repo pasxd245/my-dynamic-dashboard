@@ -80,6 +80,25 @@ If a fact appears in both locations and they disagree:
 - If the disagreement reveals a genuinely changed decision, treat
   it as an open question — surface it to the human before acting.
 
+## Extraction rule (auto-memory → `.agents/memory/`)
+
+**If an auto-memory entry becomes project-load-bearing — another
+agent/contributor needs it, a `.agents/` file would benefit from
+citing it, or losing it on machine change would hurt — it MUST be
+extracted to `.agents/memory/`.** Active rule, not aspirational.
+
+Procedure: re-frame the entry using
+[\_TEMPLATE.md](../memory/_TEMPLATE.md) (don't just copy) and cite
+the extraction round in its Status; **delete the original** or
+stub it to a one-line pointer (stale duplicates are the failure
+mode); update `MEMORY.md` so the auto-memory side knows. Three
+historical extractions are linked in Cross-references below as
+worked examples.
+
+Automation of this is deferred to a future self-evo round —
+trigger: ≥ 3 rounds of recurring misplacement friction. Until then,
+manual discipline.
+
 ## Promotion pathway
 
 Memories may **promote** out of `.agents/memory/` into
@@ -89,7 +108,8 @@ Memories may **promote** out of `.agents/memory/` into
 [../plan/promotions.md](../plan/promotions.md) and reduce the
 memory's Status to `Promoted` (or `Archived` if superseded). The
 auto-memory side has no promotion pathway — entries either stay
-local or get migrated to `.agents/memory/` first.
+local or get extracted to `.agents/memory/` first (see Extraction
+rule above), and only then become promotion candidates.
 
 ## Cross-references
 

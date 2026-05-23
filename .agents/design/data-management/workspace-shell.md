@@ -11,14 +11,39 @@ promotion time) when a second domain consumes the shell. See
 
 ---
 
+## Surfaces — layer / reuse / purity declaration
+
+Per the canonical-doc template (see
+[../README.md](../README.md) §"Canonical: `<concept>.md`"). This
+declaration is how this concept re-states the UI/BIZ boundary rule
+from
+[memory/2026-05-22-ui-boundary-build-first.md](../../memory/2026-05-22-ui-boundary-build-first.md).
+Surface marked `(target)` are aspirational and tracked in
+[workspace-shell.target.md](./workspace-shell.target.md), not built
+yet.
+
+| Surface                          | Layer               | Reusability         | Purity              | Allowed peer deps                         |
+| -------------------------------- | ------------------- | ------------------- | ------------------- | ----------------------------------------- |
+| `WorkspaceShell` component       | `@mdd/ui`           | shared cross-domain | plain-UI            | react, react-dom, antd, @ant-design/icons |
+| `NAV_ITEMS` data constant        | `apps/builder/src/` | builder-only        | data constant       | none                                      |
+| `AppLayout` host                 | `apps/builder/src/` | builder-only        | glue (router-aware) | react, react-router-dom                   |
+| `DataManagementPage` placeholder | `apps/builder/src/` | feature (DM domain) | feature             | react, antd                               |
+
+**Boundary check**: `WorkspaceShell` is the only `@mdd/ui` row. Its
+peer-dep list matches the package's permanent allow-list (no
+`react-router-dom`, no `@tanstack/*`, no `zod`). Verified against
+[workspace/packages/ui/package.json](../../../workspace/packages/ui/package.json)
+at R09 close.
+
+---
+
 ## Reference materials (read-only)
 
-| Source                                                                                                   | What we look at it for                                                                                                   | Adopted?                                                                                                                                                 |
-| -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `tmp/ref-apps/my-dynamic-dashboard-drifted/docs/agents/design/Sample.png`                                | Sidebar + content layout proportions; left-rail icon nav; right-rail rhythm                                              | **Layout**: yes, partially. **Brand palette / typography**: no, deferred                                                                                 |
-| `tmp/ref-apps/my-dynamic-dashboard-drifted/docs/agents/design/Styles.css`                                | Brand colours (Blue `#4F45B6`, Dark Blue `#2D3845`, accent palette, `Cairo` / `Poppins` fonts, `border-radius: 15-20px`) | **No** this round. Cited for a future brand-refresh round; current shell uses [themeTokens.ts](../../../workspace/packages/ui/src/themeTokens.ts) as-is. |
-| `tmp/ref-apps/my-dynamic-dashboard-drifted/apps/builder/src/components/workflow-shell/WorkflowShell.tsx` | Drifted shell composition; what BIZ-coupling crept in                                                                    | Used as cautionary example for the component contract — not a code template                                                                              |
-| [memory/2026-05-22-ui-boundary-build-first.md](../../memory/2026-05-22-ui-boundary-build-first.md)       | UI/BIZ boundary rule                                                                                                     | **Yes**: the shell primitive in `@mdd/ui` stays router-agnostic, no BIZ peer deps                                                                        |
+| Source                                                                                                   | What we look at it for                                                                                                  | Adopted?                                                                          |
+| -------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| [context/drifted-iteration.md](../../context/drifted-iteration.md)                                       | Durable summary of what drifted, what to preserve, and how to avoid depending on local ignored reference files          | **Yes**: governs how this doc treats old shell/design material                    |
+| [memory/2026-05-23-drifted-shell-distillation.md](../../memory/2026-05-23-drifted-shell-distillation.md) | Sidebar/content lessons, brand deferrals, shell composition principles, and BIZ-coupling rejects distilled from drifted | **Layout**: yes, partially. **Brand palette / typography**: no, deferred          |
+| [memory/2026-05-22-ui-boundary-build-first.md](../../memory/2026-05-22-ui-boundary-build-first.md)       | UI/BIZ boundary rule                                                                                                    | **Yes**: the shell primitive in `@mdd/ui` stays router-agnostic, no BIZ peer deps |
 
 The drifted brand-palette decision is deliberately deferred. R04
 established AntD-default tokens (`colorPrimary: #1677ff`,

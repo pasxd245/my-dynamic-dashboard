@@ -38,13 +38,11 @@ Three deferrals are in effect as of 2026-05-22:
 
 ## Evidence
 
-- Drifted Streamlit app: `tmp/ref-apps/my-dynamic-dashboard-drifted/apps/dashboard/`
-- Drifted `@mdd/ui` BIZ-coupled peers:
-  `tmp/ref-apps/my-dynamic-dashboard-drifted/packages/ui/package.json`
-- Drifted docs-graph artifact:
-  `tmp/ref-apps/my-dynamic-dashboard-drifted/docs/agents/docs-graph.md`
-  (cited as origin of the new constitution in
-  [.agents/context/purpose.md](../context/purpose.md))
+- Drifted Streamlit/dashboard split, BIZ-coupled `@mdd/ui` peers, and
+  docs-graph artifact are summarized through
+  [drifted-iteration.md](../context/drifted-iteration.md); this memory
+  keeps the durable decisions rather than depending on local ignored
+  paths.
 - Companion lesson: [2026-05-22-ui-boundary-build-first.md](2026-05-22-ui-boundary-build-first.md)
 
 ## Recommendation

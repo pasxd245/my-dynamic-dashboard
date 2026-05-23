@@ -30,7 +30,8 @@ commitable `uv.lock`. End-to-end verified in Round_01:
 - Files: [workspace/apps/backend/pyproject.toml](../../workspace/apps/backend/pyproject.toml),
   [workspace/apps/backend/uv.lock](../../workspace/apps/backend/uv.lock)
 - Round: [.agents/plan/cycles/Round_01.md](../plan/cycles/Round_01.md)
-- Drifted reference: `tmp/ref-apps/my-dynamic-dashboard-drifted/apps/backend/pyproject.toml`
+- Drifted reference: prior backend `pyproject.toml`, reached through
+  [drifted-iteration.md](../context/drifted-iteration.md) governance
   (same build-system, no lockfile)
 
 ## Recommendation

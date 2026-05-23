@@ -82,8 +82,9 @@ the project intent better than you do.
 - **Small steps, frequent checks.** Prefer incremental edits with
   verification over large rewrites. One feature per round.
 - **Preserve what works.** Do not re-import capabilities from prior
-  iterations (e.g. `tmp/ref-apps/`) unless a current round actually pulls
-  them in. Default = don't add.
+  iterations unless a current round actually pulls them in. Route any
+  lesson from the prior drifted iteration through
+  [context/drifted-iteration.md](context/drifted-iteration.md). **Default = don't add**.
 - **Stay in track.** If a task starts blurring tracks, pause and split it.
 - **AI Transparency.** If a `## Transparency` section exists in a README,
   keep it at the end of file.

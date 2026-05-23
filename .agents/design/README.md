@@ -8,8 +8,8 @@
 _Track: 2 (agent-method, dev discipline). Pulled by: conversation
 2026-05-23 (workspace-shell brainstorm); companion to
 [memory/2026-05-22-ui-boundary-build-first.md](../memory/2026-05-22-ui-boundary-build-first.md);
-drifted-iteration evidence at
-`tmp/ref-apps/my-dynamic-dashboard-drifted/docs/agents/design/`._
+drifted-iteration handling governed by
+[context/drifted-iteration.md](../context/drifted-iteration.md)._
 
 ---
 
@@ -17,7 +17,9 @@ drifted-iteration evidence at
 
 The drifted iteration had a rich design directory at
 `docs/agents/design/` — but it arrived at Round 34's "finalization
-pass," after code had already entangled. The **path was right; the
+pass," after code had already entangled. See
+[context/drifted-iteration.md](../context/drifted-iteration.md) for
+the durable summary. The **path was right; the
 timing was wrong**. We do the opposite here: a concept's design
 artifact is authored **before** the round that implements it, and is
 what the round implements against.
@@ -78,8 +80,28 @@ Always present. Markdown is the contract. Contains:
 
 - **Status header**: concept name, round that introduced it,
   status (draft / accepted / superseded).
-- **Reference materials**: links to drifted artifacts, external
-  inspiration, or sibling design docs. Marked clearly as
+- **Surface declaration** (mandatory): a table at the top of the
+  doc, before Reference materials, listing every surface the concept
+  introduces. Columns: **Surface · Layer · Reusability · Purity ·
+  Allowed peer deps**. This declaration is how each concept doc
+  re-states how it specifically honors the UI/BIZ boundary rule per
+  [memory/2026-05-22-ui-boundary-build-first.md](../memory/2026-05-22-ui-boundary-build-first.md).
+  A reader of one design doc must be able to tell which surface
+  belongs in `@mdd/ui` vs `apps/builder/src/features/<domain>/`
+  without leaving the doc.
+  - **Layer** values: `@mdd/ui`, `apps/builder/src/`, or a specific
+    deeper path (`apps/builder/src/features/<domain>/`).
+  - **Reusability** values: shared cross-domain, domain-only,
+    builder-only, one-off.
+  - **Purity** values: plain-UI (no router, no query, no zod), glue
+    (router-aware or wires BIZ libs to UI), data constant, feature
+    (full BIZ).
+  - **Allowed peer deps**: explicit list. For `@mdd/ui` surfaces,
+    must stay within `react`, `react-dom`, `antd`,
+    `@ant-design/icons` (the permanent allow-list). Anything else
+    is a BIZ leak.
+- **Reference materials**: links to extracted drifted lessons,
+  external inspiration, or sibling design docs. Marked clearly as
   _reference_, not authority.
 - **ASCII layout**: unicode box-drawing for spatial structure.
   Mermaid is for flows/states, not for layout — be explicit.
@@ -133,6 +155,43 @@ Format requirements:
 - **Honest framing in-page**: a small banner near the top of the
   rendered page stating "Brainstorming preview — not production."
 
+### Optional: `<concept>.target.md`
+
+Present only when a concept will iterate across **three or more
+rounds** before reaching its destination shape, and a horizon doc
+helps each round walk toward (not away from) that destination. The
+trigger to author a target doc is observed Brownian motion: each
+round lands a single decision without a system-level target visible,
+risking the drifted-iteration failure mode where R33's hand-rolled
+sidebar was retired in R35.
+
+A target doc is **strictly for the destination**, never amended to
+track current state. The canonical `<concept>.md` is amended in
+place as rounds land; the target stays fixed (or is superseded with
+a redirect stub) so future-self can see the original horizon.
+
+Format requirements:
+
+- **TARGET-NOT-CURRENT banner** near the top of the file (visible at
+  first scroll), so the doc can't be mistaken for the canonical
+  contract.
+- **Surface declaration table** with rows for future surfaces marked
+  `(future)`. Layer / Reusability / Purity / Allowed peer deps are
+  declared up-front so future rounds implement against the schema.
+- **ASCII target layout** for the destination state.
+- **Component contracts (target signatures)** for primitives that
+  do not yet exist — TypeScript-shaped prop signatures, marked as
+  "future shape" or "not yet implemented".
+- **Named pulls table** sketching the rounds that will land each
+  surface, citing the corresponding distillation memo entry (when
+  the target draws from a memo). Order is suggestive, not binding.
+- **Lifecycle clause**: when the last named pull lands, fold
+  relevant material into the canonical doc and delete the target.
+
+First instance: see
+[data-management/workspace-shell.target.md](data-management/workspace-shell.target.md)
+(Round 10).
+
 ### Honest caveats
 
 - **Tailwind Play CDN needs internet** — each open fetches the CDN.
@@ -147,7 +206,9 @@ Format requirements:
   If they disagree, fix the markdown to match the visual or vice
   versa, then say which is authoritative for the disputed point.
 
-## Lifecycle: when previews come and go
+## Lifecycle: when previews and targets come and go
+
+### Previews
 
 - **Created** in the round that introduces a new visual pattern.
   Lives through that round's Plan / Do / Check / Act and the
@@ -156,6 +217,22 @@ Format requirements:
 - **Retained or removed** by an explicit per-round decision in a
   later round's Plan. There is no automatic sweep — trust the round
   artifact to call it.
+
+### Target docs
+
+- **Created** in the round that decides a concept will iterate
+  across 3+ rounds and needs a visible destination.
+- **Never amended to track current state.** The target stays fixed
+  for the lifetime of the iteration; current-state changes belong in
+  the canonical `<concept>.md`. If the destination itself changes,
+  the target is **superseded with a redirect stub** (same discipline
+  as a canonical doc that splits or moves), not amended.
+- **Retired** when the last named pull from the target lands.
+  Relevant material folds into the canonical doc and the target is
+  deleted in the same round. There is no automatic sweep.
+
+### Canonical specs
+
 - **Markdown specs are durable.** They survive concept evolution;
   amend in place when the concept matures, or supersede with a
   redirect stub when it splits or moves.
@@ -171,21 +248,28 @@ docs are updated as part of that round (or the round is rejected
 during review). Token drift between this directory and the
 authoritative source is a bug, not a style.
 
-External token references (e.g., the drifted iteration's
-`Styles.css`) are read-only reference material. They live outside
-this directory (under `tmp/ref-apps/...`) and are cited by link.
-Adopting any value from them is a decision in a round, not an
+External token references (e.g., the drifted iteration's old
+`Styles.css`) are read-only reference material. Current design docs
+cite [context/drifted-iteration.md](../context/drifted-iteration.md)
+or an extracted memory instead of linking to local-only ignored
+paths. Adopting any value from them is a decision in a round, not an
 implicit copy.
 
 ## Adding a new design artifact
 
 1. Decide the domain (matches `apps/builder/src/features/<domain>/`).
 2. Create `.agents/design/<domain>/<concept>.md` from the format above.
-3. Decide whether a `.preview.html` is needed (new visual pattern?
+3. Fill the **Surface declaration** table at the top of the doc —
+   one row per surface the concept introduces. A concept doc without
+   this table is incomplete; do not skip it.
+4. Decide whether a `.preview.html` is needed (new visual pattern?
    yes; reuses established pattern? no).
-4. Reference the design artifact from the round that authored it
+5. Decide whether a `<concept>.target.md` is needed (concept will
+   iterate across 3+ rounds and needs a visible destination? yes;
+   one-or-two-round concept? no).
+6. Reference the design artifact from the round that authored it
    (`Round_NN.md` → Plan section cites the design doc).
-5. Implement against the design; reconcile any divergence by
+7. Implement against the design; reconcile any divergence by
    amending the design doc in the same round.
 
 ## When to add structure (deferred decisions)

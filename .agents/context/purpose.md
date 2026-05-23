@@ -86,5 +86,7 @@ For every round, the useful question is not "is the repo good or bad?" It is:
 
 ---
 
-_Origin_: Distilled from `tmp/ref-apps/my-dynamic-dashboard-drifted/docs/agents/docs-graph.md`
-(2026-05-20 deep-scan, prior iteration).
+_Origin_: Distilled from the prior drifted iteration's docs-graph
+analysis during the 2026-05-20 deep scan. See
+[drifted-iteration.md](drifted-iteration.md) for how this repo uses
+and retires that local-only reference.

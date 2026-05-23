@@ -79,3 +79,13 @@ all post-Complete entries. Final-edit shape is the user's own —
 preserves intent of minimum viable rule.
 **Promoted by**: pasxd245 (Round_05 mid-Review amendment, human-
 authored edit).
+
+## 2026-05-23: Drifted iteration reference hub → `context/drifted-iteration.md`
+
+**Source**: Round_10 HIxAI review and the extracted drifted-iteration
+lessons in `.agents/memory/`.
+**Rationale**: The old drifted checkout is local-only and gitignored,
+so direct links to it create context rot. Promoting a hub gives future
+rounds a durable summary, lesson index, citation discipline, and
+retirement procedure.
+**Promoted by**: pasxd245 (Round_10, explicit human authorization).
