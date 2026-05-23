@@ -110,6 +110,31 @@ introduce ad-hoc hex values.
 
 ---
 
+## Icons
+
+Each nav-item carries an icon from
+[`@ant-design/icons@^6.0.0`](https://ant.design/components/icon) (a
+peer dependency of `@mdd/ui`). The icon is the entire visual content
+when the sidebar is in any future collapsed mode, so the choice
+should be recognisable at small size.
+
+**Authority**: AntD icon names below resolve to the exported React
+components in `@ant-design/icons`. The SVG path data lives in
+[`@ant-design/icons-svg`](https://www.npmjs.com/package/@ant-design/icons-svg)
+(transitive dep). Versions are pinned via `pnpm-lock.yaml`.
+
+| Nav-item key      | AntD icon          | Rationale                                                                                                                                  | Round added |
+| ----------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ | ----------- |
+| `data-management` | `DatabaseOutlined` | Represents the underlying DuckDB store; signals "data work, not chrome." Outlined weight matches AntD's default nav-item icon idiom (1em). | R08         |
+
+When a future round adds a nav-item, it adds a row here in the same
+round, citing the round id in the last column. The `.preview.html`
+freezes the rendered SVG markup for the chosen icon — see
+[../README.md §"When to add structure"](../README.md) for the
+preview drift caveat.
+
+---
+
 ## Behaviour — nav-item states
 
 ```mermaid

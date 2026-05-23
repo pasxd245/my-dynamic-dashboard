@@ -11,6 +11,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@ant-design/icons": "^6.0.0",
     "@mdd/ui": "workspace:*",
     "antd": "^6.0.0",
     "react": "^19.0.0",

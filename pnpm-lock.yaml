@@ -35,6 +35,9 @@ importers:
 
   workspace/apps/builder:
     dependencies:
+      '@ant-design/icons':
+        specifier: ^6.0.0
+        version: 6.2.3(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
       '@mdd/ui':
         specifier: workspace:*
         version: link:../../packages/ui

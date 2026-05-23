@@ -1,9 +1,10 @@
+import { DatabaseOutlined } from "@ant-design/icons";
 import { WorkspaceShell, type NavItem } from "@mdd/ui";
 import type { ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 const NAV_ITEMS: ReadonlyArray<NavItem> = [
-  { key: "data-management", label: "Data", icon: "▣" },
+  { key: "data-management", label: "Data", icon: <DatabaseOutlined /> },
 ];
 
 function activeKeyFor(pathname: string): string {
