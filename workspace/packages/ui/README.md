@@ -34,7 +34,7 @@ where you want the global font without `ConfigProvider` (e.g., an
 isolated component test):
 
 ```tsx
-import { ThemeStyle } from "@mdd/ui/Providers";
+import { ThemeStyle } from '@mdd/ui/Providers';
 render(
   <>
     <ThemeStyle />

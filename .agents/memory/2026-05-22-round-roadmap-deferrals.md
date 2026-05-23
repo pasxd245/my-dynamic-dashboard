@@ -7,10 +7,10 @@
 
 ## Problem
 
-Some round-level decisions are *deferrals* ("not yet doing X, here's
-why") rather than *commitments* ("doing X this round"). Without
+Some round-level decisions are _deferrals_ ("not yet doing X, here's
+why") rather than _commitments_ ("doing X this round"). Without
 explicit capture, deferrals get re-litigated every session or quietly
-violated. Round-by-round *status* belongs in
+violated. Round-by-round _status_ belongs in
 [plan/cycles/Round_XX.md](../plan/cycles/) — this memory captures only
 the deferral rationales, which are not derivable from cycle files.
 
@@ -27,7 +27,7 @@ Three deferrals are in effect as of 2026-05-22:
    resolved before its round starts.** docs-graph (repo-semantic
    graph + drift indicators) is a known forward pull. Open question:
    track-1 if end-user-facing, track-2/3 if agent-internal. Current
-   lean: track-2/3 — it's how *we* keep the repo from drifting again,
+   lean: track-2/3 — it's how _we_ keep the repo from drifting again,
    not what CRM end-users pay for. Don't draft a docs-graph round
    without first answering the track question in writing.
 3. **`@mdd/ui` BIZ-adjacent exports: permanently excluded.** Pages,

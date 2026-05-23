@@ -21,9 +21,9 @@ pnpm --filter builder build        # vite build → dist/
 the tree once:
 
 ```tsx
-import { AntdConfig } from "@mdd/ui";
+import { AntdConfig } from '@mdd/ui';
 
-createRoot(document.getElementById("root")!).render(
+createRoot(document.getElementById('root')!).render(
   <AntdConfig>
     <App />
   </AntdConfig>,

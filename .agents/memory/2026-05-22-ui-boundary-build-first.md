@@ -11,14 +11,14 @@ Generic React advice ("rule of three", extract shared components after
 multiple consumers exist) was the path the drifted iteration of this
 repo took. Result: `packages/ui/` was extracted from already-entangled
 BIZ code, the boundary inherited the entanglement, the UI became hard
-to modify, and the end-user experience became *"good idea, hard to
-use."*
+to modify, and the end-user experience became _"good idea, hard to
+use."_
 
 ## Finding
 
 For **this** codebase specifically, the UI/BIZ boundary must be **built
 first** — `@mdd/ui` scaffolded as an empty look-and-feel-only package
-*before* any feature code in the builder. The boundary is enforced by
+_before_ any feature code in the builder. The boundary is enforced by
 import path at component creation, not by later refactor.
 
 The named track-1 pull is product architecture: separating "UI duty"
@@ -27,8 +27,8 @@ The named track-1 pull is product architecture: separating "UI duty"
 independently — UI redesign goes to `@mdd/ui`, feature work goes to
 `apps/builder/src/features/`.
 
-User's diagnosis verbatim (2026-05-22): *"it drifted because @mdd/ui
-came in too late."*
+User's diagnosis verbatim (2026-05-22): _"it drifted because @mdd/ui
+came in too late."_
 
 ## Evidence
 
@@ -53,7 +53,7 @@ came in too late."*
 - Add a one-paragraph governance rule in `packages/ui/README.md`:
   what belongs here, what belongs in `apps/builder/src/features/`,
   one positive + one negative example
-- Generalize the principle: for *any* boundary abstraction where the
+- Generalize the principle: for _any_ boundary abstraction where the
   late-extraction failure mode has been observed, prefer build-first
 
 **Don't**:

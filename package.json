@@ -4,6 +4,13 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "dev": "pnpm run dev:local:up",
+    "dev:local:up": "bash scripts/dev/local-up.sh",
+    "dev:local:down": "bash scripts/dev/local-down.sh",
+    "dev:local:status": "bash scripts/dev/local-status.sh",
+    "md:lint": "markdownlint-cli2",
+    "format": "prettier --write \"**/*.md\"",
+    "format:check": "prettier --check \"**/*.md\"",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
