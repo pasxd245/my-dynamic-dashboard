@@ -14,16 +14,3 @@ LICENSE
 **/.pytest_cache
 # Build/dev temp area (PIDs, logs)
 tmp
-# PDCA round artifacts have their own discipline (markdownlint + Round Template)
-# and are append-only once Complete. Prettier is not the right authority.
-.agents/plan/cycles/Round_*.md
-# Governance-protected authoritative knowledge — per .agents/context/governance.md,
-# modifications require explicit human authorization. Keep Prettier out so a stray
-# `pnpm format` run doesn't silently rewrite these files. Memory (.agents/memory/)
-# stays Prettier-eligible — it's explicitly agent-writable.
-.agents/AGENTS.md
-.agents/context/
-.agents/plan/PDCA.md
-.agents/plan/promotions.md
-.agents/prompts/
-.agents/skills/

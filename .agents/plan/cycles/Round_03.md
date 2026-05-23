@@ -26,10 +26,10 @@ This is the **first real consumer** of `@mdd/ui`. Round 03 is what
 validates whether R02's API shape is actually right — if anything in
 `themeTokens` / `AntdConfig` doesn't fit, R03 surfaces it.
 
-*Track: 1 (product). Pulled by: the builder is the product itself —
+_Track: 1 (product). Pulled by: the builder is the product itself —
 nothing else can be built until this exists. Plus R02's package needs
 a real consumer to validate its shape (deliberate sequencing per
-[[feedback-ui-boundary-build-first]]).*
+[[feedback-ui-boundary-build-first]])._
 
 ## What is IN scope
 
@@ -57,7 +57,7 @@ a real consumer to validate its shape (deliberate sequencing per
 - **No icons** (`@ant-design/icons`) in this round — text-only
   page; defer until a feature pulls one.
 - **No layout primitives in `@mdd/ui`** — if R03 needs a PageShell,
-  build it inline first; if the same shape appears twice, *then*
+  build it inline first; if the same shape appears twice, _then_
   promote to `@mdd/ui` in a follow-up round.
 
 ## Plan
@@ -75,28 +75,28 @@ a real consumer to validate its shape (deliberate sequencing per
     (`vite preview`), `type-check` (`tsc --noEmit`),
     `test` (`vitest run`).
 - [x] Create `workspace/apps/builder/tsconfig.json` (app config:
-  strict, `jsx: react-jsx`, `moduleResolution: bundler`).
+      strict, `jsx: react-jsx`, `moduleResolution: bundler`).
 - [x] Create `workspace/apps/builder/tsconfig.node.json` (for
-  `vite.config.ts` itself — node-targeted).
+      `vite.config.ts` itself — node-targeted).
 - [x] Create `workspace/apps/builder/vite.config.ts` with React
-  plugin, dev port 3000.
+      plugin, dev port 3000.
 - [x] Create `workspace/apps/builder/index.html` (Vite entry).
 - [x] Create `workspace/apps/builder/src/main.tsx` — mounts
-  `<App />` wrapped in `<AntdConfig>` from `@mdd/ui`.
+      `<App />` wrapped in `<AntdConfig>` from `@mdd/ui`.
 - [x] Create `workspace/apps/builder/src/App.tsx` — single page,
-  title + antd `<Button>` for theme proof.
+      title + antd `<Button>` for theme proof.
 - [x] Create `workspace/apps/builder/vitest.config.ts` with
-  `happy-dom` environment + jsdom-style setup file.
+      `happy-dom` environment + jsdom-style setup file.
 - [x] Create `workspace/apps/builder/tests/setup.ts` —
-  `@testing-library/jest-dom` matchers.
+      `@testing-library/jest-dom` matchers.
 - [x] Create `workspace/apps/builder/tests/App.test.tsx` — render
-  `<App />` (wrapped in `<AntdConfig>`), assert button is in the
-  document with antd-themed class.
+      `<App />` (wrapped in `<AntdConfig>`), assert button is in the
+      document with antd-themed class.
 - [x] Create `workspace/apps/builder/README.md` with dev/build/test
-  commands and the consumption pattern (`AntdConfig` from `@mdd/ui`).
+      commands and the consumption pattern (`AntdConfig` from `@mdd/ui`).
 - [x] Create `workspace/apps/builder/.gitignore` (dist/, node_modules).
 - [x] Run `pnpm install` from root to register the new workspace
-  package and resolve `@mdd/ui` link.
+      package and resolve `@mdd/ui` link.
 - [x] Verify (Check): type-check + test + `vite build` all green.
 
 ## Risks / unknowns
@@ -105,7 +105,7 @@ a real consumer to validate its shape (deliberate sequencing per
   running process; I can boot it in background and curl `localhost:3000`
   to confirm 200, but can't visually verify the antd theme rendered.
   The vitest render test partly compensates (it asserts DOM under
-  `<AntdConfig>`), but the *visual* check is a manual step the user
+  `<AntdConfig>`), but the _visual_ check is a manual step the user
   takes if they care. Acceptable for a skeleton round.
 - **`vite build` may warn about chunk size.** First-time React 19 +
   antd builds tend to produce sizeable bundles. Round 03 doesn't
@@ -202,7 +202,7 @@ to Complete.
 are derivable from this round file and the existing memories on
 tooling/boundary discipline.
 
-**Promotions** *(decision: none this round)*:
+**Promotions** _(decision: none this round)_:
 
 - → `context/` : not yet — per-package script convention is close
   to promotable but waits for one more use case (next backend or

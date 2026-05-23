@@ -8,10 +8,10 @@
 This repo uses two distinct memory systems. They are **not
 interchangeable**.
 
-| Location | Scope | Persists across | Who sees it |
-| -------- | ----- | --------------- | ----------- |
-| `.agents/memory/` (in this repo) | Project knowledge | git, machines, agents, contributors | Everyone working on the repo — Claude, Codex, Gemini, humans |
-| Auto-memory at `~/.claude/projects/<repo-slug>/memory/` (per-Claude-install, off-repo) | User and tool habits local to one machine | Claude Code sessions on this machine only | Just the one Claude Code install on the user's machine |
+| Location                                                                               | Scope                                     | Persists across                           | Who sees it                                                  |
+| -------------------------------------------------------------------------------------- | ----------------------------------------- | ----------------------------------------- | ------------------------------------------------------------ |
+| `.agents/memory/` (in this repo)                                                       | Project knowledge                         | git, machines, agents, contributors       | Everyone working on the repo — Claude, Codex, Gemini, humans |
+| Auto-memory at `~/.claude/projects/<repo-slug>/memory/` (per-Claude-install, off-repo) | User and tool habits local to one machine | Claude Code sessions on this machine only | Just the one Claude Code install on the user's machine       |
 
 ## What belongs where
 
@@ -50,8 +50,8 @@ from seeing it, it does **not** belong in auto-memory.
 
 Before saving a memory, ask:
 
-> *Would Codex, Gemini, or a human contributor working on this repo
-> next month benefit from seeing this?*
+> _Would Codex, Gemini, or a human contributor working on this repo
+> next month benefit from seeing this?_
 
 - **Yes** → write to `.agents/memory/` using the project template.
 - **No, this is about how I personally work with Claude Code** →
@@ -106,6 +106,6 @@ local or get migrated to `.agents/memory/` first.
 
 ---
 
-*Origin: distilled from the conversation that produced Round_01-04
+_Origin: distilled from the conversation that produced Round_01-04
 on 2026-05-22, after three project memories were misplaced and
-migrated. Codified in Round_05.*
+migrated. Codified in Round_05._

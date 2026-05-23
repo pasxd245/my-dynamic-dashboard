@@ -86,5 +86,5 @@ For every round, the useful question is not "is the repo good or bad?" It is:
 
 ---
 
-*Origin*: Distilled from `tmp/ref-apps/my-dynamic-dashboard-drifted/docs/agents/docs-graph.md`
+_Origin_: Distilled from `tmp/ref-apps/my-dynamic-dashboard-drifted/docs/agents/docs-graph.md`
 (2026-05-20 deep-scan, prior iteration).

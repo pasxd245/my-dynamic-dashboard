@@ -28,10 +28,10 @@ ad-hoc-each-round into the canonical operating manual:
    links present. Hand-fixed in every round; should be a written
    checklist.
 
-*Track: 2 (agent-method). Pulled by: 4 rounds of validated patterns
+_Track: 2 (agent-method). Pulled by: 4 rounds of validated patterns
 named explicitly in R01-R04 Act → Follow-ups sections. Per
 [Evolution Rule](../../../AGENTS.md), track-2 additions require a
-documented track-1 pull — that condition is met.*
+documented track-1 pull — that condition is met._
 
 ## What is IN scope
 
@@ -43,7 +43,7 @@ documented track-1 pull — that condition is met.*
     description listing the checklist items.
   - Add a **Status lifecycle** note clarifying:
     `Planning → In Progress → Review (work done, awaiting human) →
-    Complete (human-approved)`.
+Complete (human-approved)`.
 - Create [.agents/context/memory-placement.md](../../context/memory-placement.md)
   with the two-location rule + decision criteria + cross-references
   to existing memories.
@@ -59,7 +59,7 @@ documented track-1 pull — that condition is met.*
   tooling/code-adjacent and warrant their own R06. Single-feature
   discipline holds.
 - **No new skills** — none of the three patterns are reusable
-  *procedures*; they're conventions and rules.
+  _procedures_; they're conventions and rules.
 - **No `.agents/skills/` writes.**
 - **No code changes** anywhere in `workspace/`.
 
@@ -105,18 +105,18 @@ Per the **Explicit Human Instructions** clause of
   - Cross-references to the existing memories that established
     the rule.
 - [x] Append 3 promotion log entries to `.agents/plan/promotions.md`
-  (one per item — cycle linking, memory placement, audit checklist).
+      (one per item — cycle linking, memory placement, audit checklist).
 - [x] Verify by **dry-running the new template mentally against R04**:
-  the section headers and checklist items should all already exist
-  in R04. If anything in the template is *not* present in R04,
-  that's a sign the template is over-specifying — reduce.
+      the section headers and checklist items should all already exist
+      in R04. If anything in the template is _not_ present in R04,
+      that's a sign the template is over-specifying — reduce.
 
 ## Risks / unknowns
 
 - **Over-specification.** It's tempting to add every nicety we
   invented (e.g., the `[ ]` → plain-decision reformat for "decided
   not to promote"). Some are stylistic and don't need to be in the
-  template. Discipline: only put in PDCA.md what each round *must*
+  template. Discipline: only put in PDCA.md what each round _must_
   do; leave style suggestions as Audit hints, not template
   requirements.
 - **Drift between template and live rounds.** Once codified,
@@ -125,7 +125,7 @@ Per the **Explicit Human Instructions** clause of
   another R-level cycle, not silent template edits.
 - **Memory-placement rule is project-specific.** Other repos may
   have different mem layouts. The context file should be clear that
-  it documents *this repo's* convention, not a universal rule.
+  it documents _this repo's_ convention, not a universal rule.
 - **No code, no automated test.** Verification is a manual reading-
   check: does the new template, when applied, reproduce the shape
   R01-R04 used? Acceptable for a documentation round.
@@ -149,7 +149,7 @@ Per the **Explicit Human Instructions** clause of
     `## Feeds into → Round_NN+1 (TBD)` final section.
 - Created [.agents/context/memory-placement.md](../../context/memory-placement.md):
   the two-location rule (project `.agents/memory/` vs auto-memory),
-  the *"would another agent/contributor benefit from seeing this?"*
+  the _"would another agent/contributor benefit from seeing this?"_
   decision rule, conflict-handling note, promotion pathway, and
   cross-references to the three R01-R02-era memories that
   established it.
@@ -165,10 +165,10 @@ Per the **Explicit Human Instructions** clause of
   aspirational. Good signal.
 - **Mid-Review amendment #1 (2026-05-23, while R05 was in `Review`):**
   human review surfaced two ambiguities in the Governance block:
-  (a) "rounds are append-only" didn't say *Complete* rounds — it
+  (a) "rounds are append-only" didn't say _Complete_ rounds — it
   could be read as forbidding the live-edit pattern this session
   used throughout R01-R05; (b) "only humans flip `Complete`" didn't
-  name itself as *current policy* leaving room for future
+  name itself as _current policy_ leaving room for future
   autopilot/autoagent modes. Both were amended in place (R05 was
   still in `Review`, so editing is allowed — by the very rule we
   were clarifying). Also added a one-liner at the top of PDCA.md
@@ -176,7 +176,7 @@ Per the **Explicit Human Instructions** clause of
   entry to `promotions.md` logging the amendment.
 - **Mid-Review amendment #2 (2026-05-23):** human review of the
   previous amendment noted that "do not delete or rewrite" left the
-  *how to add post-Complete information* question open (e.g.
+  _how to add post-Complete information_ question open (e.g.
   resolving stale `Feeds into → (TBD)`, recording supersedes,
   maturing outcomes). After two iterations of proposal + counter,
   the human-authored final shape is a single rule under the
@@ -216,8 +216,8 @@ round to Complete.
 
 - **The dry-run-against-R04 check was the key discipline.** Every
   section we added to the Round Template already appears in R04
-  organically. That means the template is *descriptive of practice*,
-  not *aspirational future state*. Codification works best when the
+  organically. That means the template is _descriptive of practice_,
+  not _aspirational future state_. Codification works best when the
   pattern has already settled — over-specifying ahead of practice
   is exactly the speculative-scaffolding failure mode the
   constitution warns against, just at the process level.
@@ -248,7 +248,7 @@ round to Complete.
   artifact ships as the team intends.
 
 **Memories captured**: no new project memories this round — the
-content *is* the codification (PDCA.md + memory-placement.md). The
+content _is_ the codification (PDCA.md + memory-placement.md). The
 existing R01-R04 memories cross-link from `memory-placement.md`.
 
 **Promotions**:

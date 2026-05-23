@@ -58,7 +58,7 @@ edited, and the "only humans flip Complete" line did not name itself
 as policy-not-constitution.
 **Rationale**: This session edited active rounds throughout (R1-R5)
 — the rule needed to say so explicitly. Naming the human-only flip
-as *current policy revisable via a future round* also leaves a clean
+as _current policy revisable via a future round_ also leaves a clean
 path for autopilot/autoagent modes to relax it via PDCA later, rather
 than forcing a constitutional break.
 **Promoted by**: pasxd245 (Round_05 mid-Review amendment).
@@ -67,8 +67,8 @@ than forcing a constitutional break.
 
 **Source**: human-edited directly into PDCA.md Governance during
 Round_05 Review — surfaced by reviewing the previous amendment and
-recognizing that "do not delete or rewrite" left the *how to add
-post-Complete information* question open (TBD-resolution, supersede
+recognizing that "do not delete or rewrite" left the _how to add
+post-Complete information_ question open (TBD-resolution, supersede
 notes, outcome maturation).
 **Rationale**: Defines exactly one place for post-Complete additions
 (`## Appending to Complete rounds` section at end of file) using a

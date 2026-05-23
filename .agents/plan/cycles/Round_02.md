@@ -20,11 +20,11 @@ The goal is to make the UI-vs-BIZ split a physical, import-path-enforced
 rule **before any builder code exists**, so every component built in
 Round_03+ has to choose a side at creation time.
 
-*Track: 1 (product). Pulled by: drifted-iteration lesson — `@mdd/ui`
+_Track: 1 (product). Pulled by: drifted-iteration lesson — `@mdd/ui`
 came in too late, after UI and BIZ were already entangled, and the
 product became "good idea, hard to use." See
 [.agents/memory/2026-05-22-ui-boundary-build-first.md](../../memory/2026-05-22-ui-boundary-build-first.md)
-for the full diagnosis.*
+for the full diagnosis._
 
 ## What is IN scope (the three ✅ items)
 
@@ -54,7 +54,7 @@ for the full diagnosis.*
 
 - [x] Create `workspace/packages/ui/package.json`:
   - `name: "@mdd/ui"`, `private: true`, `version: "0.0.0"`, `type:
-    "module"`.
+"module"`.
   - Source-only `exports` map: `.`, `./Components`, `./Icons`,
     `./Utils`, `./Providers`, `./themeTokens` → all pointing at
     `./src/*.ts(x)`.
@@ -65,29 +65,29 @@ for the full diagnosis.*
     type-check and the vitest snapshot test).
   - Scripts: `type-check` (`tsc --noEmit`), `test` (`vitest run`).
 - [x] Create `workspace/packages/ui/tsconfig.json`
-  (strict, `moduleResolution: "bundler"`, `jsx: "react-jsx"`,
-  `target: "ES2022"`, no `outDir` — source-only).
+      (strict, `moduleResolution: "bundler"`, `jsx: "react-jsx"`,
+      `target: "ES2022"`, no `outDir` — source-only).
 - [x] Create `src/themeTokens.ts` — minimal but concrete antd
-  `ThemeConfig` object (token + algorithm).
+      `ThemeConfig` object (token + algorithm).
 - [x] Create `src/Providers/AntdConfig.tsx` — `ConfigProvider`
-  consuming `themeTokens` + an `AntdConfig` named export accepting
-  `children`.
+      consuming `themeTokens` + an `AntdConfig` named export accepting
+      `children`.
 - [x] Create `src/Providers/index.ts` re-exporting `AntdConfig`.
 - [x] Create `src/Components/index.ts`, `src/Icons/index.ts`,
-  `src/Utils/index.ts` — each containing only `export {}` with a
-  one-line comment explaining the shell intent.
+      `src/Utils/index.ts` — each containing only `export {}` with a
+      one-line comment explaining the shell intent.
 - [x] Create `src/index.ts` — barrel re-exporting `themeTokens` +
-  `AntdConfig`.
+      `AntdConfig`.
 - [x] Create `tests/themeTokens.test.ts` — vitest snapshot of the
-  `themeTokens` object to prove the import resolves and the shape is
-  stable.
+      `themeTokens` object to prove the import resolves and the shape is
+      stable.
 - [x] Create `workspace/packages/ui/README.md` with the
-  one-paragraph **UI/BIZ governance rule** (what belongs here, what
-  doesn't, one example of each).
+      one-paragraph **UI/BIZ governance rule** (what belongs here, what
+      doesn't, one example of each).
 - [x] Run `pnpm install` from root so pnpm picks up the new workspace
-  package and links peer/dev deps.
+      package and links peer/dev deps.
 - [x] Verify: `pnpm --filter @mdd/ui type-check` clean; `pnpm --filter
-  @mdd/ui test` passes (1 snapshot).
+@mdd/ui test` passes (1 snapshot).
 
 ## Risks / unknowns
 
@@ -100,7 +100,7 @@ for the full diagnosis.*
   will be the real consumer test.
 - **No runtime exercise without a consumer.** Round_02 Check is
   type-check + snapshot, not a rendered UI. That's intentional per
-  the scope discussion — the *consumer* test is Round_03's job.
+  the scope discussion — the _consumer_ test is Round_03's job.
 
 ## Do
 
@@ -169,7 +169,7 @@ itself, and the build-first lesson was already captured in
 [2026-05-22-ui-boundary-build-first.md](../../memory/2026-05-22-ui-boundary-build-first.md)
 during Round_01.
 
-**Promotions** *(decision: none this round)*:
+**Promotions** _(decision: none this round)_:
 
 - → `context/` : not yet — the UI-vs-BIZ boundary rule should prove
   itself under Round_03's real builder use before promoting. Revisit

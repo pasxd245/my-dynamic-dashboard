@@ -45,7 +45,7 @@ Agents MUST NOT:
 - Write to `context/` or `skills/` without explicit human instruction.
 - Generate speculative rules without concrete evidence.
 
-Memory format: see [.agents/memory/_TEMPLATE.md](../memory/_TEMPLATE.md).
+Memory format: see [.agents/memory/\_TEMPLATE.md](../memory/_TEMPLATE.md).
 Promotion log format: see [plan/promotions.md](../plan/promotions.md).
 
 Principle: Stability > Speed. Promotion requires validation.

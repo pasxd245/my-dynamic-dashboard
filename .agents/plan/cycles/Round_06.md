@@ -22,10 +22,10 @@ that start, stop, and report status of the local dev stack
 plus a few static-check scripts (`md:lint`, `format`,
 `format:check`) wired to existing dev-deps.
 
-*Track: 2 (agent-method / dev experience). Pulled by: R01 follow-up
+_Track: 2 (agent-method / dev experience). Pulled by: R01 follow-up
 (md:lint wiring), R03 follow-up (concurrent dev startup). Per
 [Evolution Rule](../../../AGENTS.md), both pulls are documented in
-predecessor rounds.*
+predecessor rounds._
 
 ## What is IN scope
 
@@ -77,15 +77,15 @@ predecessor rounds.*
 ## Plan
 
 - [x] Create `scripts/dev/_lib.sh` with: `repo_root()`,
-  `pid_dir()`, `log_dir()`, `mkdirs()`, `wait_for_url($url, $timeout_s)`,
-  `say()` (colored echo), `is_running($pid_file)`.
+      `pid_dir()`, `log_dir()`, `mkdirs()`, `wait_for_url($url, $timeout_s)`,
+      `say()` (colored echo), `is_running($pid_file)`.
 - [x] Create `scripts/dev/local-up.sh`:
   - Source `_lib.sh`.
   - Start backend in background: `uv run uvicorn app.main:app
-    --host 127.0.0.1 --port 8000 > <log>/backend.log 2>&1 &`,
+--host 127.0.0.1 --port 8000 > <log>/backend.log 2>&1 &`,
     write PID to `<pid>/backend.pid`.
   - Start builder in background: `pnpm --filter builder dev >
-    <log>/builder.log 2>&1 &`, write PID to `<pid>/builder.pid`.
+<log>/builder.log 2>&1 &`, write PID to `<pid>/builder.pid`.
   - `wait_for_url http://127.0.0.1:8000/health 30`
   - `wait_for_url http://127.0.0.1:3000 30`
   - Print final status table (URLs, log paths, stop command).
@@ -101,16 +101,16 @@ predecessor rounds.*
     the last few log lines.
 - [x] Set executable bit on all `scripts/dev/*.sh` files.
 - [x] Update root `package.json` with the 7 new scripts listed
-  above.
+      above.
 - [x] Update root `README.md` (currently a placeholder) with a
-  Quickstart section.
+      Quickstart section.
 - [x] Run `pnpm install` if any dep changes occurred (none
-  expected — `markdownlint-cli2` and `prettier` already in
-  root devDeps).
+      expected — `markdownlint-cli2` and `prettier` already in
+      root devDeps).
 - [x] Verify: each script executes correctly; root `pnpm dev`
-  boots both apps; `pnpm dev:local:status` reports both up;
-  `pnpm dev:local:down` cleanly stops both;
-  `pnpm md:lint` / `format:check` work.
+      boots both apps; `pnpm dev:local:status` reports both up;
+      `pnpm dev:local:down` cleanly stops both;
+      `pnpm md:lint` / `format:check` work.
 
 ## Risks / unknowns
 
@@ -144,7 +144,7 @@ predecessor rounds.*
 
 ## Do
 
-- Created [scripts/dev/_lib.sh](../../../scripts/dev/_lib.sh):
+- Created [scripts/dev/\_lib.sh](../../../scripts/dev/_lib.sh):
   shared helpers — `repo_root`, `PID_DIR`, `LOG_DIR`, `say`/`ok`/
   `warn`/`err` color helpers (no-op when stdout isn't a tty),
   `mkdirs`, `is_running`, `wait_for_url(url, timeout_s)`,
@@ -282,7 +282,7 @@ round to Complete.
   pattern targeting pnpm-spawned binaries.
 - **Prettier's scope is bigger than expected.** `**/*.md` reaches
   into vendored Python wheels (`workspace/apps/backend/.venv/.../
-  LICENSE.md`) and `.pytest_cache/README.md`. The `.prettierignore`
+LICENSE.md`) and `.pytest_cache/README.md`. The `.prettierignore`
   needs explicit exclusions for `**/.venv` and `**/.pytest_cache`.
   Without them, format:check fails on files nobody owns.
 - **Append-only meets Prettier: one-time normalization was OK.**
@@ -315,7 +315,7 @@ the gotchas above are useful but each is small enough that the
 Round artifact and commit log can carry them. Re-evaluate if any
 recurs.
 
-**Promotions** *(decision: none this round)*:
+**Promotions** _(decision: none this round)_:
 
 - → `context/` : not yet — the script architecture
   (`scripts/dev/local-*` + reserved docker slots) is the candidate

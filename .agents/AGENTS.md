@@ -28,7 +28,7 @@ Speculative scaffolding is what caused the previous drift.
 
 When proposing an addition, include a one-line justification of the form:
 
-> *Track: {1|2|3}. Pulled by: {round id | memory file | product gap}.*
+> _Track: {1|2|3}. Pulled by: {round id | memory file | product gap}._
 
 ---
 
@@ -45,7 +45,7 @@ When proposing an addition, include a one-line justification of the form:
 declared track, leave the repo more truthful than it was found, and avoid
 adding process that was not pulled by real need.
 
-> *Track: agent-method. Pulled by: lean-constitution refactor of this file.*
+> _Track: agent-method. Pulled by: lean-constitution refactor of this file._
 
 ---
 

@@ -72,14 +72,14 @@ You just made changes to this repository. Before committing, check whether any
 
 ## Decision Rule
 
-| Change type                          | Action                                                             |
-| ------------------------------------ | ------------------------------------------------------------------ |
-| Path, directory, or structure        | Propose update to relevant `.agents/context/*.md` + `AGENTS.md`    |
-| Source paths referenced in docs      | Propose update to `.agents/AGENTS.md` or relevant context file     |
-| Stack / toolchain                    | Propose update to relevant `.agents/context/*.md`                  |
-| Evaluation logic                     | Propose update to relevant `.agents/context/*.md`                  |
-| New pattern / learning               | Write to `memory/` with promotion candidate                        |
-| No `.agents/` impact                 | No action needed — state this explicitly                           |
+| Change type                     | Action                                                          |
+| ------------------------------- | --------------------------------------------------------------- |
+| Path, directory, or structure   | Propose update to relevant `.agents/context/*.md` + `AGENTS.md` |
+| Source paths referenced in docs | Propose update to `.agents/AGENTS.md` or relevant context file  |
+| Stack / toolchain               | Propose update to relevant `.agents/context/*.md`               |
+| Evaluation logic                | Propose update to relevant `.agents/context/*.md`               |
+| New pattern / learning          | Write to `memory/` with promotion candidate                     |
+| No `.agents/` impact            | No action needed — state this explicitly                        |
 
 ---
 

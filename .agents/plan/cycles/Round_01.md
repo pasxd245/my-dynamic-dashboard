@@ -12,8 +12,8 @@ DuckDB connection and returns `{ "status": "ok", "duckdb": "<version>" }`.
 This is the smallest verifiable foundation that everything else in the
 product (ingest, profiler, query, UI) will hang off.
 
-*Track: 1 (product). Pulled by: empty `workspace/` after the three-track
-restructure; product cannot start without a backend boot.*
+_Track: 1 (product). Pulled by: empty `workspace/` after the three-track
+restructure; product cannot start without a backend boot._
 
 ## Plan
 
@@ -76,7 +76,7 @@ restructure; product cannot start without a backend boot.*
 - [x] `uv run pytest` passes (1/1).
 - [x] Repo-wide markdownlint passes
       (`npx markdownlint-cli2` clean: 25 files, 0 errors).
-      *Note:* root `package.json` does not yet wire a `md:lint` script
+      _Note:_ root `package.json` does not yet wire a `md:lint` script
       (drifted repo did). Adding it is a small track-2 follow-up — defer
       until pulled by a CI round.
 
@@ -93,13 +93,13 @@ to Complete.
   venv in one step. Going forward, all Python apps in `workspace/apps/`
   should default to uv unless a reason emerges otherwise.
 - Root `package.json` is currently bare (only a placeholder `test`).
-  The drifted repo's `md:lint`, `format`, `dev:*` scripts are *not*
+  The drifted repo's `md:lint`, `format`, `dev:*` scripts are _not_
   inherited — they need explicit pull-in by a future round.
 - `hatch-vcs` `raw-options.root` for a nested workspace package is
   `"../../.."` (three levels up from `workspace/apps/backend/` to repo
   root). Worth remembering for the next Python app.
 
-**Promotions** *(decision: none this round)*:
+**Promotions** _(decision: none this round)_:
 
 - → `context/` : none — product code, no broadly-applicable rule
   validated yet. The uv-tooling memory may promote after a second

@@ -14,12 +14,12 @@ this and explicitly deferred to R04 per single-feature discipline.
 
 Add a `<ThemeStyle />` component to `@mdd/ui` that injects a minimal
 global style derived from `themeTokens.token.fontFamily`, so consumers
-get consistent typography across HTML *and* antd components by
+get consistent typography across HTML _and_ antd components by
 wrapping their app once in `<AntdConfig>`.
 
-*Track: 1 (product). Pulled by: R03's visual verification — direct
+_Track: 1 (product). Pulled by: R03's visual verification — direct
 observation, not speculation. Keeps look-and-feel ownership in
-`@mdd/ui` per [[feedback-ui-boundary-build-first]].*
+`@mdd/ui` per [[feedback-ui-boundary-build-first]]._
 
 ## What is IN scope
 
@@ -55,35 +55,35 @@ observation, not speculation. Keeps look-and-feel ownership in
   Inline `<style>` tag is enough and zero new deps.
 - **No builder-side changes to `main.tsx` or `App.tsx`.** Because
   `<AntdConfig>` will internally include `<ThemeStyle />`, the
-  builder needs *zero* code changes — only the visual outcome
+  builder needs _zero_ code changes — only the visual outcome
   changes. That confirms R02's API was the right consumer-facing
   surface.
 
 ## Plan
 
 - [x] Create `workspace/packages/ui/src/Providers/ThemeStyle.tsx` —
-  React functional component returning
-  `<style>{`body { font-family: ${...} }`}</style>`, with the font
-  value pulled from `themeTokens.token.fontFamily` (typed via
-  optional chain since `ThemeConfig.token` is optional).
+      React functional component returning
+      `<style>{`body { font-family: ${...} }`}</style>`, with the font
+      value pulled from `themeTokens.token.fontFamily` (typed via
+      optional chain since `ThemeConfig.token` is optional).
 - [x] Modify `workspace/packages/ui/src/Providers/AntdConfig.tsx`
-  to render `<ThemeStyle />` next to `<ConfigProvider>` as siblings
-  inside a fragment (no DOM wrapper added).
+      to render `<ThemeStyle />` next to `<ConfigProvider>` as siblings
+      inside a fragment (no DOM wrapper added).
 - [x] Add `export { ThemeStyle } from "./ThemeStyle";` to
-  `workspace/packages/ui/src/Providers/index.ts`.
+      `workspace/packages/ui/src/Providers/index.ts`.
 - [x] Add `export { ThemeStyle } from "./Providers/ThemeStyle";` to
-  `workspace/packages/ui/src/index.ts` barrel.
+      `workspace/packages/ui/src/index.ts` barrel.
 - [x] Create `workspace/packages/ui/tests/ThemeStyle.test.tsx` —
-  uses `@testing-library/react` + a happy-dom-flavored vitest config
-  (add `vitest.config.ts` and a setup file to the `@mdd/ui` package
-  if not present; otherwise reuse).
+      uses `@testing-library/react` + a happy-dom-flavored vitest config
+      (add `vitest.config.ts` and a setup file to the `@mdd/ui` package
+      if not present; otherwise reuse).
 - [x] Update `workspace/packages/ui/README.md` —
-  one short paragraph under the "What belongs here (UI duty)"
-  bullet list, plus a snippet showing standalone `<ThemeStyle />`
-  usage.
+      one short paragraph under the "What belongs here (UI duty)"
+      bullet list, plus a snippet showing standalone `<ThemeStyle />`
+      usage.
 - [x] Verify: type-check + tests for both `@mdd/ui` AND `builder`,
-  plus a fresh visual check on `localhost:3000` confirming h1/p
-  now use the sans-serif token.
+      plus a fresh visual check on `localhost:3000` confirming h1/p
+      now use the sans-serif token.
 
 ## Risks / unknowns
 
@@ -91,11 +91,11 @@ observation, not speculation. Keeps look-and-feel ownership in
   existing test is a plain-object snapshot of `themeTokens`. Adding
   a `<ThemeStyle />` render test requires `@testing-library/react` +
   `happy-dom` + a vitest config in `@mdd/ui`. That's
-  *minor scope creep* (~3 new dev deps + ~10 lines of config).
+  _minor scope creep_ (~3 new dev deps + ~10 lines of config).
   Justified because the test is the actual proof.
 - **CSS specificity.** Browser default body styles and any future
   consumer-side stylesheet could override our font rule. Acceptable
-  for now — we only need to beat the *absence* of a font rule
+  for now — we only need to beat the _absence_ of a font rule
   (current state). If a consumer needs to override, normal CSS
   cascade handles it.
 - **Multiple `<AntdConfig>` instances would inject duplicate
@@ -182,7 +182,7 @@ observation, not speculation. Keeps look-and-feel ownership in
       (+1 from `ThemeStyle.tsx`), 330.96 kB / 110.26 kB gzipped.
 - [x] `pnpm --filter builder dev` → `localhost:3000` h1 + p now
       rendered in sans-serif (the `-apple-system, BlinkMacSystemFont,
-      "Segoe UI", Roboto, sans-serif` chain from `themeTokens`).
+    "Segoe UI", Roboto, sans-serif` chain from `themeTokens`).
       Human-confirmed 2026-05-22.
 - [x] `npx markdownlint-cli2` repo-wide → 33 files, 0 errors.
 
@@ -226,7 +226,7 @@ sans-serif token chain matching the antd button).
 - [2026-05-22-markdownlint-plus-prefix-gotcha.md](../../memory/2026-05-22-markdownlint-plus-prefix-gotcha.md)
   — wrapped prose lines must not start with a `+` + space + text.
 
-**Promotions** *(decision: none this round)*:
+**Promotions** _(decision: none this round)_:
 
 - → `context/` : not yet — the "extend existing export internally,
   export new piece for testing" pattern has now appeared once
@@ -249,7 +249,7 @@ sans-serif token chain matching the antd button).
      worked out mid-session.
   5. Post-round audit habit (Plan/Check checkbox flip, Promotion
      reformat) — hand-fixed in every round.
-- Track-2 *capability* candidates (separate from codification):
+- Track-2 _capability_ candidates (separate from codification):
   - Wire `md:lint` / `format` / `lint-staged` into root
     `package.json` (R01 follow-up still open).
   - `concurrently` root `dev` script (R03 follow-up still open).

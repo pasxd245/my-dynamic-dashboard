@@ -86,8 +86,8 @@ Before flipping a round from `Review` to `Complete`, verify:
       with note if the step was decided against mid-round).
 - [ ] All Check items flipped `[x]` and the round's verification
       evidence (logs, screenshots, test counts) is summarized in Do.
-- [ ] **Promotion items** reformatted: if a promotion *happened*,
-      mark `[x]`; if it was *decided not to promote this round*,
+- [ ] **Promotion items** reformatted: if a promotion _happened_,
+      mark `[x]`; if it was _decided not to promote this round_,
       remove the checkbox entirely and write the decision as plain
       text — leaving `[ ]` reads as an unfinished TODO.
 - [ ] `Status` field updated to `Complete` and `Date completed`
@@ -136,8 +136,8 @@ predecessor.]
 
 [1-2 sentences: what we're building/fixing and why]
 
-*Track: 1 | 2 | 3. Pulled by: [round id | memory file | named
-product gap] — per [Evolution Rule](../../AGENTS.md).*
+_Track: 1 | 2 | 3. Pulled by: [round id | memory file | named
+product gap] — per [Evolution Rule](../../AGENTS.md)._
 
 ## Plan
 
@@ -164,7 +164,7 @@ product gap] — per [Evolution Rule](../../AGENTS.md).*
 
 - [What worked, what surprised, what's now true that wasn't]
 
-**Promotions** *(if none: write as plain text, not checkboxes)*:
+**Promotions** _(if none: write as plain text, not checkboxes)_:
 
 - [ ] → `context/` : [topic — if promoting]
 - [ ] → `skills/` : [topic — if promoting]
@@ -192,6 +192,7 @@ via "Inherits from ←".]
   <current content>
 
   ## Appending to Complete rounds
+
   <new content>
   ```
 
