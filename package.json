@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "dev": "pnpm run dev:local:up",
+    "dev:builder": "pnpm --filter builder dev",
     "dev:local:up": "bash scripts/dev/local-up.sh",
     "dev:local:down": "bash scripts/dev/local-down.sh",
     "dev:local:status": "bash scripts/dev/local-status.sh",

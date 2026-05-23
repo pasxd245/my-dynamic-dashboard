@@ -1,8 +1,8 @@
 # Round 08: Real menu icons in the workspace shell
 
-**Status**: Review
+**Status**: Complete
 **Date started**: 2026-05-23
-**Date completed**:
+**Date completed**: 2026-05-23
 
 ## Goal
 
@@ -56,6 +56,12 @@ the first piece); R07 Follow-ups (R08 candidate chain). Per
   isn't asserted; `data-key` selectors are stable); dev server
   boots; visual diff vs the updated preview is ~95% (closer than
   R07's ~90% because the preview now mirrors the real icon).
+- **DX alias** in root
+  [package.json](../../../package.json): add a `dev:builder`
+  script (`pnpm --filter builder dev`) so a UI-only round (this
+  one and future shell/icon work) can boot the builder alone
+  without the backend + PID orchestration. Surfaced
+  mid-Review when the visual verification flow was exercised.
 
 ## What is OUT of scope (explicit deferrals)
 
@@ -106,6 +112,7 @@ the first piece); R07 Follow-ups (R08 candidate chain). Per
 - [x] `pnpm --filter @mdd/ui test` — 7 tests pass; `pnpm --filter builder test` — 3 tests pass. Icon swap doesn't affect tests (selectors are `data-key`-based, not name-or-icon-based).
 - [x] `pnpm dev:local:up` boots clean. Vite re-optimised dependencies once (expected after `@ant-design/icons` was added to the lockfile). No errors in the builder log. SVG renders client-side (verified by absence of import/runtime errors).
 - [x] `pnpm md:lint` clean (41 files, 0 errors). `pnpm format:check` clean for all R08 new/changed files; pre-existing warnings on R02/R04/`promotions.md` remain governance-deferred.
+- [x] Added `dev:builder` script to root [package.json](../../../package.json) (`pnpm --filter builder dev`) for UI-only verification flow. Mid-Review scope amendment surfaced when the icon swap was being visually checked.
 - [x] Post-round audit per [PDCA.md](../PDCA.md): Plan
       checkboxes flipped; Check items filled below; Promotions
       reformatted as plain text (none this round); markdownlint
@@ -172,6 +179,15 @@ module '@ant-design/icons'` on first type-check. The
 - **Tests untouched**: existing 7 + 3 tests pass without
   modification. The `data-key` selector pattern established in
   R07 paid off — icon swap was invisible to the test suite.
+- **DX alias added mid-Review**: while exercising the visual
+  verification of the icon swap, the friction of running the
+  full orchestrated stack (`pnpm dev:local:up` + backend) for a
+  UI-only check became obvious. Added `dev:builder` to root
+  [package.json](../../../package.json) as a one-line script
+  (`pnpm --filter builder dev`). Foreground vite, no PIDs, no
+  backend, Ctrl+C to stop. The orchestrated `pnpm dev` stays
+  the default for full-stack work; `pnpm dev:builder` is the
+  UI-only shortcut. No new files, no new dependencies.
 
 ## Check
 
@@ -191,6 +207,7 @@ module '@ant-design/icons'` on first type-check. The
 - [x] `pnpm md:lint` clean (41 files, 0 errors);
       `pnpm format:check` clean for R08 files (pre-existing
       warnings on R02/R04/`promotions.md` are governance-deferred).
+- [x] Root [package.json](../../../package.json) has the `dev:builder` script wiring `pnpm --filter builder dev`.
 - [x] Cross-links present: `Inherits from ← Round_07` in Goal;
       `Feeds into → Round_09` in Act.
 
