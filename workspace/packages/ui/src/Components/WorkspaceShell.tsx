@@ -1,4 +1,5 @@
-import { Layout, theme } from "antd";
+import { MenuOutlined } from "@ant-design/icons";
+import { Layout, Tooltip, theme } from "antd";
 import type { CSSProperties, ReactNode } from "react";
 
 export type NavItem = {
@@ -12,6 +13,18 @@ export type WorkspaceShellProps = {
   activeKey: string;
   onSelect: (key: string) => void;
   children: ReactNode;
+  /**
+   * R09: when true, sidebar collapses to icon-only at 56px.
+   * Defaults to false (expanded, 88px).
+   */
+  collapsed?: boolean;
+  /**
+   * R09: invoked when the user clicks the hamburger toggle.
+   * Omit to render the toggle as a no-op (consumer may also hide
+   * the toggle by wrapping it; currently the toggle always
+   * renders when this prop is provided).
+   */
+  onToggleCollapse?: () => void;
 };
 
 const BRAND_MARK: ReadonlyArray<{ id: string; char: string }> = [
@@ -20,11 +33,16 @@ const BRAND_MARK: ReadonlyArray<{ id: string; char: string }> = [
   { id: "d-2", char: "D" },
 ];
 
+const EXPANDED_WIDTH = 88;
+const COLLAPSED_WIDTH = 56;
+
 export function WorkspaceShell({
   items,
   activeKey,
   onSelect,
   children,
+  collapsed = false,
+  onToggleCollapse,
 }: Readonly<WorkspaceShellProps>) {
   const { token } = theme.useToken();
 
@@ -36,12 +54,31 @@ export function WorkspaceShell({
     flexDirection: "column",
     alignItems: "center",
     gap: 8,
+    overflow: "hidden",
+    transition: "width 200ms ease, flex 200ms ease, max-width 200ms ease",
+  };
+
+  const toggleStyle: CSSProperties = {
+    width: 40,
+    height: 32,
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    background: "transparent",
+    border: "none",
+    cursor: "pointer",
+    borderRadius: token.borderRadius,
+    color: token.colorTextSecondary,
+    marginBottom: 8,
+    fontSize: 18,
+    lineHeight: 1,
+    transition: "background 120ms ease, color 120ms ease",
   };
 
   const brandStyle: CSSProperties = {
     width: 56,
     height: 56,
-    display: "flex",
+    display: collapsed ? "none" : "flex",
     flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
@@ -53,9 +90,28 @@ export function WorkspaceShell({
     marginBottom: 16,
   };
 
+  const sidebarWidth = collapsed ? COLLAPSED_WIDTH : EXPANDED_WIDTH;
+
   return (
     <Layout style={{ minHeight: "100vh" }}>
-      <Layout.Sider width={88} theme="light" style={sidebarStyle}>
+      <Layout.Sider
+        width={sidebarWidth}
+        collapsedWidth={COLLAPSED_WIDTH}
+        theme="light"
+        style={sidebarStyle}
+      >
+        {onToggleCollapse && (
+          <button
+            type="button"
+            data-testid="workspace-shell-toggle"
+            aria-label="Toggle sidebar"
+            aria-expanded={!collapsed}
+            onClick={onToggleCollapse}
+            style={toggleStyle}
+          >
+            <MenuOutlined />
+          </button>
+        )}
         <div style={brandStyle} aria-hidden="true">
           {BRAND_MARK.map((entry) => (
             <span key={entry.id}>{entry.char}</span>
@@ -65,8 +121,8 @@ export function WorkspaceShell({
           {items.map((item) => {
             const isActive = item.key === activeKey;
             const buttonStyle: CSSProperties = {
-              width: 72,
-              padding: "10px 4px",
+              width: collapsed ? 40 : 72,
+              padding: collapsed ? "8px 4px" : "10px 4px",
               margin: "0 auto",
               display: "flex",
               flexDirection: "column",
@@ -78,14 +134,13 @@ export function WorkspaceShell({
               border: "none",
               fontFamily: "inherit",
               fontSize: 12,
-              background: isActive
-                ? token.colorPrimaryBg
-                : "transparent",
+              background: isActive ? token.colorPrimaryBg : "transparent",
               color: isActive ? token.colorPrimary : token.colorTextSecondary,
-              transition: "background 120ms ease, color 120ms ease",
+              transition:
+                "background 120ms ease, color 120ms ease, width 200ms ease, padding 200ms ease",
             };
 
-            return (
+            const button = (
               <button
                 key={item.key}
                 type="button"
@@ -103,8 +158,22 @@ export function WorkspaceShell({
                     {item.icon}
                   </span>
                 )}
-                <span>{item.label}</span>
+                <span style={{ display: collapsed ? "none" : "inline" }}>
+                  {item.label}
+                </span>
               </button>
+            );
+
+            return collapsed ? (
+              <Tooltip
+                key={item.key}
+                title={item.label}
+                placement="right"
+              >
+                {button}
+              </Tooltip>
+            ) : (
+              button
             );
           })}
         </nav>

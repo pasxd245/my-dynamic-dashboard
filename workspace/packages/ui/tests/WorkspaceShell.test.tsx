@@ -18,6 +18,8 @@ function renderShell(
         items={items}
         activeKey={props?.activeKey ?? "data-management"}
         onSelect={onSelect}
+        collapsed={props?.collapsed}
+        onToggleCollapse={props?.onToggleCollapse}
       >
         {props?.children ?? <p data-testid="content">page content</p>}
       </WorkspaceShell>
@@ -55,5 +57,57 @@ describe("WorkspaceShell", () => {
     fireEvent.click(navButton(container, "other"));
     expect(onSelect).toHaveBeenCalledTimes(1);
     expect(onSelect).toHaveBeenCalledWith("other");
+  });
+
+  describe("collapse state", () => {
+    it("renders hamburger toggle button when onToggleCollapse is provided", () => {
+      const { container } = renderShell({ onToggleCollapse: vi.fn() });
+      const toggle = container.querySelector(
+        '[data-testid="workspace-shell-toggle"]',
+      );
+      expect(toggle).not.toBeNull();
+      expect(toggle).toHaveAttribute("aria-expanded", "true");
+    });
+
+    it("omits the hamburger toggle when onToggleCollapse is absent", () => {
+      const { container } = renderShell();
+      const toggle = container.querySelector(
+        '[data-testid="workspace-shell-toggle"]',
+      );
+      expect(toggle).toBeNull();
+    });
+
+    it("invokes onToggleCollapse when the hamburger is clicked", () => {
+      const onToggleCollapse = vi.fn();
+      const { container } = renderShell({ onToggleCollapse });
+      const toggle = container.querySelector<HTMLButtonElement>(
+        '[data-testid="workspace-shell-toggle"]',
+      );
+      if (!toggle) throw new Error("toggle missing");
+      fireEvent.click(toggle);
+      expect(onToggleCollapse).toHaveBeenCalledTimes(1);
+    });
+
+    it("hides nav labels and marks toggle aria-expanded=false when collapsed", () => {
+      const { container } = renderShell({
+        collapsed: true,
+        onToggleCollapse: vi.fn(),
+      });
+      const dataBtn = navButton(container, "data-management");
+      const labelSpan = dataBtn.querySelector("span:last-child");
+      expect(labelSpan).not.toBeNull();
+      expect(labelSpan).toHaveStyle({ display: "none" });
+      const toggle = container.querySelector(
+        '[data-testid="workspace-shell-toggle"]',
+      );
+      expect(toggle).toHaveAttribute("aria-expanded", "false");
+    });
+
+    it("keeps labels visible when not collapsed (default)", () => {
+      const { container } = renderShell();
+      const dataBtn = navButton(container, "data-management");
+      const labelSpan = dataBtn.querySelector("span:last-child");
+      expect(labelSpan).toHaveStyle({ display: "inline" });
+    });
   });
 });

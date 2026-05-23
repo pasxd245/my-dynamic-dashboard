@@ -123,15 +123,97 @@ components in `@ant-design/icons`. The SVG path data lives in
 [`@ant-design/icons-svg`](https://www.npmjs.com/package/@ant-design/icons-svg)
 (transitive dep). Versions are pinned via `pnpm-lock.yaml`.
 
-| Nav-item key      | AntD icon          | Rationale                                                                                                                                  | Round added |
-| ----------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ | ----------- |
-| `data-management` | `DatabaseOutlined` | Represents the underlying DuckDB store; signals "data work, not chrome." Outlined weight matches AntD's default nav-item icon idiom (1em). | R08         |
+| Key               | AntD icon          | Rationale                                                                                                                                                                       | Round added |
+| ----------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| `data-management` | `DatabaseOutlined` | Represents the underlying DuckDB store; signals "data work, not chrome." Outlined weight matches AntD's default nav-item icon idiom (1em).                                      | R08         |
+| `__shell.toggle`  | `MenuOutlined`     | Sidebar collapse/expand hamburger. Single neutral glyph rather than paired `MenuFold` / `MenuUnfold` — user reads collapse state from the sidebar's actual width, not the icon. | R09         |
 
-When a future round adds a nav-item, it adds a row here in the same
+The `__shell.*` namespace is reserved for shell-internal controls
+(toggles, brand mark, etc.) — not real navigation entries. When a
+future round adds a nav-item, it adds a row here in the same
 round, citing the round id in the last column. The `.preview.html`
 freezes the rendered SVG markup for the chosen icon — see
 [../README.md §"When to add structure"](../README.md) for the
 preview drift caveat.
+
+---
+
+## Collapse states
+
+The sidebar has two width states, toggled by a hamburger button
+at the top of the sidebar. Default state is **expanded**;
+collapse is opt-in per session (persistence is deferred — see
+the scope boundary below).
+
+```mermaid
+stateDiagram-v2
+    [*] --> Expanded
+    Expanded --> Collapsed: hamburger click
+    Collapsed --> Expanded: hamburger click
+    note right of Expanded
+        88px width.
+        Icon + label stacked.
+        Brand mark visible.
+    end note
+    note right of Collapsed
+        56px width.
+        Icon only; labels hidden.
+        Brand mark hidden.
+        Hover icon → tooltip
+        with label.
+    end note
+```
+
+### Width and content table
+
+| State     | Sidebar width | Brand mark | Nav-item label  | Tooltip on hover |
+| --------- | ------------- | ---------- | --------------- | ---------------- |
+| Expanded  | 88px          | Visible    | Visible (below) | Suppressed       |
+| Collapsed | 56px          | Hidden     | Hidden          | Shows label      |
+
+The width changes via a **200ms CSS transition** for visual
+polish. Label visibility flips via `display: none` (instant; the
+column re-flows to icon-only at 56px). Brand mark visibility
+also flips instantly — at 56px there's no room for the 56px-square
+MDD block. The hamburger button stays in the same screen position
+(top of sidebar) in both states.
+
+### Collapsed wireframe
+
+```text
+┌─────┬──────────────────────────────────────────────────────────┐
+│  ☰  │  Data Management                                          │
+│     │  ───────────────────────────────────────────────────────  │
+│     │                                                            │
+│ ┌─┐ │  (Placeholder content — same as expanded state)            │
+│ │▣│ │                                                            │
+│ └─┘ │                                                            │
+│     │                                                            │
+└─────┴──────────────────────────────────────────────────────────┘
+  ↑ 56px
+  Sidebar (no brand, icon-only nav,
+           tooltip on hover shows "Data")
+
+Hamburger ─┘
+(at top of sidebar in both states; click toggles back to 88px expanded)
+```
+
+### Interaction rules
+
+- The shell is **stateless about collapse**: the parent owns the
+  state via `collapsed` prop and `onToggleCollapse` callback.
+  This keeps the shell consistent with R07's stateless-about-
+  routing rule and lets the consumer choose where to persist
+  preference (future round).
+- **No persistence in R09**: state resets on each page load.
+- **Tooltip rendering**: AntD `<Tooltip>` wraps each nav-item.
+  In expanded state, the tooltip's `title` is empty so AntD
+  short-circuits and renders no tooltip element. In collapsed
+  state, `title={item.label}` so hover/focus reveals the label.
+  Keeps the DOM clean in the common (expanded) case.
+- **Hamburger button** is itself a `<button>` (not a nav-item)
+  styled to match the sidebar's visual rhythm. It is not part
+  of `NavItem[]`; it lives in the shell's chrome.
 
 ---
 
@@ -192,6 +274,9 @@ type WorkspaceShellProps = {
   activeKey: string;
   onSelect: (key: string) => void;
   children: ReactNode;
+  // R09 additions — collapse state machine
+  collapsed?: boolean; // default false (expanded)
+  onToggleCollapse?: () => void; // no-op when absent
 };
 
 export function WorkspaceShell(props: WorkspaceShellProps): JSX.Element;
