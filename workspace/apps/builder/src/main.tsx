@@ -1,6 +1,7 @@
 import { AntdConfig } from "@mdd/ui";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+import "./index.css";
 import {
   BrowserRouter,
   Navigate,
@@ -8,7 +9,7 @@ import {
   Routes,
 } from "react-router-dom";
 import { AppLayout } from "./components/AppLayout";
-import { DataManagementPage } from "./features/data-management/DataManagementPage";
+import { WorkspacesPage } from "./features/data-management/WorkspacesPage";
 
 const rootElement = document.getElementById("root");
 if (!rootElement) {
@@ -23,9 +24,23 @@ createRoot(rootElement).render(
           <Routes>
             <Route
               path="/"
-              element={<Navigate to="/data-management" replace />}
+              element={<Navigate to="/data-management/workspaces" replace />}
             />
-            <Route path="/data-management" element={<DataManagementPage />} />
+            {/*
+              Data Management is a sidebar group, not a destination.
+              Redirect direct visits (typed URL, bookmark) to the
+              default leaf so users don't hit a 404. Default leaf
+              decision will need updating if Workspaces stops being
+              the first child of the group.
+            */}
+            <Route
+              path="/data-management"
+              element={<Navigate to="/data-management/workspaces" replace />}
+            />
+            <Route
+              path="/data-management/workspaces"
+              element={<WorkspacesPage />}
+            />
           </Routes>
         </AppLayout>
       </BrowserRouter>

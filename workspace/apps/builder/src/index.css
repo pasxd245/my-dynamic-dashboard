@@ -1,0 +1,10 @@
+/* Minimal body reset so the master-layout's height: 100vh fills the
+   viewport exactly without spawning a page scrollbar. AntD handles
+   the rest via Layout / Sider / Content. */
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
