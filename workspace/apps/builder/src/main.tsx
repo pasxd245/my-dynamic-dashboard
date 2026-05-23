@@ -1,7 +1,14 @@
 import { AntdConfig } from "@mdd/ui";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { App } from "./App";
+import {
+  BrowserRouter,
+  Navigate,
+  Route,
+  Routes,
+} from "react-router-dom";
+import { AppLayout } from "./components/AppLayout";
+import { DataManagementPage } from "./features/data-management/DataManagementPage";
 
 const rootElement = document.getElementById("root");
 if (!rootElement) {
@@ -11,7 +18,17 @@ if (!rootElement) {
 createRoot(rootElement).render(
   <StrictMode>
     <AntdConfig>
-      <App />
+      <BrowserRouter>
+        <AppLayout>
+          <Routes>
+            <Route
+              path="/"
+              element={<Navigate to="/data-management" replace />}
+            />
+            <Route path="/data-management" element={<DataManagementPage />} />
+          </Routes>
+        </AppLayout>
+      </BrowserRouter>
     </AntdConfig>
   </StrictMode>,
 );

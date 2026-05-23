@@ -1,0 +1,274 @@
+<!doctype html>
+<!--
+  HIxAI brainstorming aid for Round_07 — workspace-shell.
+  Visual reference only. ~90% fidelity to the intended UI.
+  Production truth is the running builder (apps/builder via `pnpm dev`),
+  not this file.
+
+  Token parity with `@mdd/ui` is best-effort: the CSS custom properties
+  in the <style> block are derived from
+  workspace/packages/ui/src/themeTokens.ts and the AntD seed-token
+  defaults. If they drift, themeTokens.ts is authoritative.
+
+  Canonical intent for this concept: ./workspace-shell.md.
+  May be removed in a later round once the pattern is established.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Workspace Shell — brainstorming preview</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      /*
+        Token mirror of workspace/packages/ui/src/themeTokens.ts +
+        AntD seed-token defaults under defaultAlgorithm.
+        Source of truth: themeTokens.ts. Keep this in sync only
+        as far as the brainstorm needs.
+      */
+      :root {
+        --mdd-color-primary: #1677ff;
+        --mdd-color-primary-bg: #e6f4ff;
+        --mdd-color-primary-hover: #4096ff;
+        --mdd-color-bg-base: #ffffff;
+        --mdd-color-bg-container: #ffffff;
+        --mdd-color-bg-layout: #f5f5f5;
+        --mdd-color-bg-elevated: #ffffff;
+        --mdd-color-fill-tertiary: rgba(0, 0, 0, 0.04);
+        --mdd-color-text-base: #000000;
+        --mdd-color-text: rgba(0, 0, 0, 0.88);
+        --mdd-color-text-secondary: rgba(0, 0, 0, 0.65);
+        --mdd-color-text-tertiary: rgba(0, 0, 0, 0.45);
+        --mdd-color-border-secondary: #f0f0f0;
+        --mdd-radius: 6px;
+        --mdd-font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        --mdd-font-size: 14px;
+      }
+      html,
+      body {
+        margin: 0;
+        background: var(--mdd-color-bg-layout);
+        color: var(--mdd-color-text);
+        font-family: var(--mdd-font-family);
+        font-size: var(--mdd-font-size);
+      }
+      .mdd-shell {
+        display: grid;
+        grid-template-columns: 88px 1fr;
+        min-height: 100vh;
+      }
+      .mdd-sidebar {
+        background: var(--mdd-color-bg-container);
+        border-right: 1px solid var(--mdd-color-border-secondary);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 16px 8px;
+        gap: 8px;
+      }
+      .mdd-brand {
+        width: 56px;
+        height: 56px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        color: var(--mdd-color-text);
+        font-size: 16px;
+        line-height: 1.1;
+        text-align: center;
+        margin-bottom: 16px;
+      }
+      .mdd-nav-item {
+        width: 72px;
+        padding: 10px 4px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+        border-radius: var(--mdd-radius);
+        cursor: pointer;
+        color: var(--mdd-color-text-secondary);
+        background: transparent;
+        border: none;
+        font-family: inherit;
+        font-size: 12px;
+        transition: background 120ms ease, color 120ms ease;
+      }
+      .mdd-nav-item:hover {
+        background: var(--mdd-color-fill-tertiary);
+        color: var(--mdd-color-text);
+      }
+      .mdd-nav-item.is-active {
+        background: var(--mdd-color-primary-bg);
+        color: var(--mdd-color-primary);
+      }
+      .mdd-nav-item:focus-visible {
+        outline: 2px solid var(--mdd-color-primary);
+        outline-offset: 2px;
+      }
+      .mdd-nav-icon {
+        font-size: 20px;
+        line-height: 1;
+      }
+      .mdd-content {
+        background: var(--mdd-color-bg-layout);
+        padding: 32px 40px;
+        overflow: auto;
+      }
+      .mdd-page-title {
+        font-size: 24px;
+        font-weight: 600;
+        color: var(--mdd-color-text);
+        margin: 0 0 8px;
+      }
+      .mdd-page-subtitle {
+        color: var(--mdd-color-text-secondary);
+        margin: 0 0 24px;
+        max-width: 64ch;
+      }
+      .mdd-card {
+        background: var(--mdd-color-bg-container);
+        border: 1px solid var(--mdd-color-border-secondary);
+        border-radius: var(--mdd-radius);
+        padding: 32px;
+        max-width: 960px;
+      }
+      .mdd-banner {
+        background: #fffbe6;
+        color: #614700;
+        border: 1px solid #ffe58f;
+        border-radius: var(--mdd-radius);
+        padding: 8px 12px;
+        font-size: 12px;
+        margin-bottom: 16px;
+      }
+      [hidden] {
+        display: none !important;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="mdd-shell">
+      <aside class="mdd-sidebar" aria-label="Primary navigation">
+        <div class="mdd-brand" aria-hidden="true">
+          M<br />D<br />D
+        </div>
+        <button
+          type="button"
+          class="mdd-nav-item is-active"
+          data-screen="data-management"
+          aria-current="page"
+        >
+          <span class="mdd-nav-icon" aria-hidden="true">▣</span>
+          <span>Data</span>
+        </button>
+        <!--
+          Only one nav item in R07. Below is a visual hint that the
+          structure can grow — rendered as a disabled, ghosted slot,
+          NOT a real future item.
+        -->
+        <button
+          type="button"
+          class="mdd-nav-item"
+          disabled
+          title="Reserved slot — future feature; not interactive."
+          style="opacity: 0.35; cursor: not-allowed;"
+        >
+          <span class="mdd-nav-icon" aria-hidden="true">＋</span>
+          <span>later</span>
+        </button>
+      </aside>
+      <main class="mdd-content" aria-live="polite">
+        <div class="mdd-banner">
+          Brainstorming preview — not production. Production truth is
+          <code>apps/builder</code> on <code>pnpm dev</code>. See
+          <code>./workspace-shell.md</code> for the canonical spec.
+        </div>
+
+        <section id="screen-welcome" hidden>
+          <h1 class="mdd-page-title">Welcome</h1>
+          <p class="mdd-page-subtitle">
+            Root route <code>/</code> redirects to
+            <code>/data-management</code> in R07. This screen exists
+            only as a click-through demonstration.
+          </p>
+          <div class="mdd-card">
+            <p>
+              Click <strong>Data</strong> in the sidebar to navigate to
+              Data Management.
+            </p>
+          </div>
+        </section>
+
+        <section id="screen-data-management">
+          <h1 class="mdd-page-title">Data Management</h1>
+          <p class="mdd-page-subtitle">
+            R07 ships this page as a placeholder. Later rounds will
+            land the real features here.
+          </p>
+          <div class="mdd-card">
+            <h2 style="margin-top: 0; font-size: 18px; font-weight: 600;">
+              What will live here
+            </h2>
+            <p>
+              CSV upload for CRM exports, a dataset list pulled from
+              DuckDB, and basic schema inspection. Each is its own
+              future round with its own design document under
+              <code>.agents/design/data-management/</code>.
+            </p>
+            <p style="color: var(--mdd-color-text-tertiary); margin-bottom: 0;">
+              No backend wiring this round; the page is intentionally
+              static.
+            </p>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script>
+      // Click-through: vanilla JS, no framework. The shell does not
+      // navigate; it just toggles which screen is visible — mirroring
+      // the React contract where the consumer wires onSelect to its
+      // router.
+      (function () {
+        const screens = {
+          "data-management": document.getElementById(
+            "screen-data-management"
+          ),
+          welcome: document.getElementById("screen-welcome"),
+        };
+        const navButtons = document.querySelectorAll(
+          ".mdd-nav-item[data-screen]"
+        );
+
+        function show(key) {
+          Object.entries(screens).forEach(([k, el]) => {
+            if (!el) return;
+            el.hidden = k !== key;
+          });
+          navButtons.forEach((btn) => {
+            const isActive = btn.dataset.screen === key;
+            btn.classList.toggle("is-active", isActive);
+            if (isActive) {
+              btn.setAttribute("aria-current", "page");
+            } else {
+              btn.removeAttribute("aria-current");
+            }
+          });
+        }
+
+        navButtons.forEach((btn) => {
+          btn.addEventListener("click", () => show(btn.dataset.screen));
+        });
+
+        // Initial state: Data Management active (matches R07's
+        // root-redirect behaviour).
+        show("data-management");
+      })();
+    </script>
+  </body>
+</html>
