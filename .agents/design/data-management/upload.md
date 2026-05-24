@@ -22,6 +22,10 @@ filesystem tree for parsed parquet.
 **Frontend**: [Round_17](../../plan/cycles/Round_17.md) — full-page
 wizard at `/data-management/datasets/new`; reducer-driven state;
 CSV 3-step / Excel 4-step paths.
+**Frontend**: [Round_21](../../plan/cycles/Round_21.md) — parse-options
+disclosure (range / skip_rows / has_header), Excel `[Re-parse this
+sheet]`, three preview-failed action buttons, override-reset on
+re-parse and on parse-options edit (R19 Q2, Q4).
 **Sibling docs**:
 [datasets.md](datasets.md) (the noun this wizard creates),
 [workspaces.md](workspaces.md) (the container an upload targets),

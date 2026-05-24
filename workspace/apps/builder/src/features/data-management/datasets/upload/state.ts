@@ -2,6 +2,7 @@ import type {
   Column,
   ColumnOverride,
   CsvParsePreview,
+  ParseOptions,
   ParseSheetFailed,
   ParseSheetOk,
   SheetSummary,
@@ -31,9 +32,22 @@ export type SheetState = {
   columnOverrides: Record<string, ColumnOverride>;
   /** Column names the user has chosen to drop. */
   excludedColumns: string[];
+  /** Per-sheet parse options (range / skip_rows / has_header). */
+  parseOptions: ParseOptions;
   /** Dataset name input. Defaults to `<file-stem>_<sheet>` for Excel. */
   name: string;
 };
+
+/** True when at least one ParseOptions field is set. Used to omit the
+ *  field from the wire when nothing was customized. */
+export function hasParseOptionsSet(opts: ParseOptions | undefined): boolean {
+  if (!opts) return false;
+  return (
+    opts.range !== undefined ||
+    opts.skip_rows !== undefined ||
+    opts.has_header !== undefined
+  );
+}
 
 export type WizardState = {
   step: WizardStep;
@@ -86,6 +100,7 @@ export type WizardAction =
       override: ColumnOverride | null;
     }
   | { type: "TOGGLE_EXCLUDED_COLUMN"; sheet: string; column: string }
+  | { type: "SET_PARSE_OPTIONS"; sheet: string; options: ParseOptions }
   | { type: "SET_DATASET_NAME"; sheet: string; name: string }
   | { type: "GOTO_STEP"; step: WizardStep }
   | { type: "RESET" };
@@ -102,6 +117,7 @@ function setSheet(
     sampleRows: [],
     columnOverrides: {},
     excludedColumns: [],
+    parseOptions: {},
     name: defaultName(state.file, key || undefined),
   };
   const next: SheetState = { ...base, ...patch };
@@ -174,12 +190,17 @@ export function wizardReducer(
     case "PARSE_SHEET_START":
       return setSheet(state, action.sheet, { status: "parsing" });
     case "PARSE_SHEET_SUCCESS":
+      // R19 Q2: a successful (re-)parse resets column overrides and
+      // excluded columns for the sheet. Idempotent on first parse;
+      // bites on Excel re-parse after the user adjusted options.
       return setSheet(state, action.sheet, {
         status: "ok",
         columns: action.result.columns,
         rowCount: action.result.rowCount,
         sampleRows: action.result.sampleRows,
         parseError: undefined,
+        columnOverrides: {},
+        excludedColumns: [],
       });
     case "PARSE_SHEET_FAILED":
       return setSheet(state, action.sheet, {
@@ -206,6 +227,14 @@ export function wizardReducer(
         : [...sheet.excludedColumns, action.column];
       return setSheet(state, action.sheet, { excludedColumns });
     }
+    case "SET_PARSE_OPTIONS":
+      // R19 Q4: editing parse options invalidates per-column choices,
+      // so reset overrides + exclusions symmetrically with Q2's re-parse.
+      return setSheet(state, action.sheet, {
+        parseOptions: action.options,
+        columnOverrides: {},
+        excludedColumns: [],
+      });
     case "SET_DATASET_NAME":
       return setSheet(state, action.sheet, { name: action.name });
     case "GOTO_STEP":

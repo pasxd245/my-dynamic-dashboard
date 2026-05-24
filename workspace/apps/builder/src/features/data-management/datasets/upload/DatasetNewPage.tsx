@@ -10,6 +10,7 @@ import {
 import type { CommitBatchItem } from "../types";
 import {
   CSV_SHEET_KEY,
+  hasParseOptionsSet,
   INITIAL_WIZARD_STATE,
   stepIndex,
   type WizardStep,
@@ -70,7 +71,14 @@ export function DatasetNewPage() {
       try {
         const res = await parseMutation.mutateAsync({
           tempId: state.tempId,
-          body: { items: state.selectedSheets.map((sheet) => ({ sheet })) },
+          body: {
+            items: state.selectedSheets.map((sheet) => {
+              const opts = state.sheets[sheet]?.parseOptions;
+              return hasParseOptionsSet(opts)
+                ? { sheet, parse_options: opts }
+                : { sheet };
+            }),
+          },
         });
         for (const result of res.results) {
           if (result.status === "ok") {
@@ -98,6 +106,44 @@ export function DatasetNewPage() {
     dispatch({ type: "GOTO_STEP", step: next });
   };
 
+  // Re-parse a single Excel sheet with its current parseOptions (R19 Q1=C
+  // means no CSV re-parse; CSV's options ride to commit instead).
+  const reparseSheet = async (sheet: string) => {
+    if (!state.tempId) return;
+    const opts = state.sheets[sheet]?.parseOptions;
+    dispatch({ type: "PARSE_SHEET_START", sheet });
+    try {
+      const res = await parseMutation.mutateAsync({
+        tempId: state.tempId,
+        body: {
+          items: [
+            hasParseOptionsSet(opts)
+              ? { sheet, parse_options: opts }
+              : { sheet },
+          ],
+        },
+      });
+      const result = res.results.find((r) => r.sheet === sheet);
+      if (!result) return;
+      if (result.status === "ok") {
+        dispatch({ type: "PARSE_SHEET_SUCCESS", sheet, result });
+      } else {
+        dispatch({ type: "PARSE_SHEET_FAILED", sheet, result });
+      }
+    } catch (err) {
+      dispatch({
+        type: "PARSE_SHEET_FAILED",
+        sheet,
+        result: {
+          sheet,
+          status: "failed",
+          error: "request_failed",
+          detail: err instanceof Error ? err.message : "Unknown error",
+        },
+      });
+    }
+  };
+
   const commit = async () => {
     if (!state.tempId || !state.workspaceId) return;
     const isCsv = state.sourceFormat === "csv";
@@ -106,6 +152,9 @@ export function DatasetNewPage() {
       const s = state.sheets[key];
       const item: CommitBatchItem = { name: s.name };
       if (!isCsv) item.sheet = key;
+      if (hasParseOptionsSet(s.parseOptions)) {
+        item.parse_options = s.parseOptions;
+      }
       if (Object.keys(s.columnOverrides).length > 0) {
         item.column_overrides = s.columnOverrides;
       }
@@ -166,7 +215,13 @@ export function DatasetNewPage() {
       body = <UploadSheetStep state={state} dispatch={dispatch} />;
       break;
     case "metadata":
-      body = <UploadMetadataStep state={state} dispatch={dispatch} />;
+      body = (
+        <UploadMetadataStep
+          state={state}
+          dispatch={dispatch}
+          onReparseSheet={reparseSheet}
+        />
+      );
       break;
     case "preview":
       body = <UploadPreviewStep state={state} dispatch={dispatch} />;

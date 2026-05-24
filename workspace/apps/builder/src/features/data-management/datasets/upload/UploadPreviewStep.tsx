@@ -1,4 +1,4 @@
-import { Alert, Table, Tabs, Typography } from "antd";
+import { Alert, Button, Space, Table, Tabs, Typography } from "antd";
 import type { Dispatch } from "react";
 import type { Dtype } from "../types";
 import { CSV_SHEET_KEY, type WizardAction, type WizardState } from "./state";
@@ -8,7 +8,7 @@ type Props = Readonly<{
   dispatch: Dispatch<WizardAction>;
 }>;
 
-export function UploadPreviewStep({ state }: Props) {
+export function UploadPreviewStep({ state, dispatch }: Props) {
   const isCsv = state.sourceFormat === "csv";
   const sheetKeys = isCsv ? [CSV_SHEET_KEY] : state.selectedSheets;
 
@@ -26,7 +26,11 @@ export function UploadPreviewStep({ state }: Props) {
   if (isCsv) {
     return (
       <div data-component="UploadPreviewStep">
-        <SheetPreview sheetKey={CSV_SHEET_KEY} state={state} />
+        <SheetPreview
+          sheetKey={CSV_SHEET_KEY}
+          state={state}
+          dispatch={dispatch}
+        />
       </div>
     );
   }
@@ -37,7 +41,9 @@ export function UploadPreviewStep({ state }: Props) {
         items={sheetKeys.map((key) => ({
           key,
           label: tabLabel(key, state),
-          children: <SheetPreview sheetKey={key} state={state} />,
+          children: (
+            <SheetPreview sheetKey={key} state={state} dispatch={dispatch} />
+          ),
         }))}
       />
     </div>
@@ -47,6 +53,7 @@ export function UploadPreviewStep({ state }: Props) {
 type SheetPreviewProps = Readonly<{
   sheetKey: string;
   state: WizardState;
+  dispatch: Dispatch<WizardAction>;
 }>;
 
 function tabLabel(key: string, state: WizardState): string {
@@ -57,8 +64,9 @@ function tabLabel(key: string, state: WizardState): string {
   return key;
 }
 
-function SheetPreview({ sheetKey, state }: SheetPreviewProps) {
+function SheetPreview({ sheetKey, state, dispatch }: SheetPreviewProps) {
   const sheet = state.sheets[sheetKey];
+  const isCsv = state.sourceFormat === "csv";
 
   if (!sheet) {
     return <Alert type="info" message="Not parsed yet" />;
@@ -66,13 +74,40 @@ function SheetPreview({ sheetKey, state }: SheetPreviewProps) {
 
   if (sheet.status === "failed") {
     return (
-      <Alert
-        type="error"
-        showIcon
-        message={`Parse failed: ${sheet.parseError?.error ?? "unknown"}`}
-        description={sheet.parseError?.detail}
-        data-component="SheetParseFailed"
-      />
+      <div>
+        <Alert
+          type="error"
+          showIcon
+          message={`Parse failed: ${sheet.parseError?.error ?? "unknown"}`}
+          description={sheet.parseError?.detail}
+          data-component="SheetParseFailed"
+        />
+        <Space style={{ marginTop: 12 }} data-component="SheetParseFailedActions">
+          <Button
+            onClick={() => dispatch({ type: "GOTO_STEP", step: "source" })}
+            data-component="SheetParseFailedRepickFile"
+          >
+            Re-pick file
+          </Button>
+          {isCsv ? null : (
+            <Button
+              onClick={() =>
+                dispatch({ type: "TOGGLE_SELECTED_SHEET", sheet: sheetKey })
+              }
+              data-component="SheetParseFailedDeselect"
+            >
+              Deselect this sheet
+            </Button>
+          )}
+          <Button
+            type="primary"
+            onClick={() => dispatch({ type: "GOTO_STEP", step: "metadata" })}
+            data-component="SheetParseFailedAdjustOptions"
+          >
+            Adjust parse options
+          </Button>
+        </Space>
+      </div>
     );
   }
 
@@ -83,7 +118,6 @@ function SheetPreview({ sheetKey, state }: SheetPreviewProps) {
   const resolvedDtype = (name: string, inferred: Dtype): Dtype =>
     sheet.columnOverrides[name]?.dtype ?? inferred;
 
-  const isCsv = state.sourceFormat === "csv";
   const fileName = state.file?.name ?? (isCsv ? "file.csv" : "workbook");
   const sheetLabel = isCsv ? "" : sheetKey;
 

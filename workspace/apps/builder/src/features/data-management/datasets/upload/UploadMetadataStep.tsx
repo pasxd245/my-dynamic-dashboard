@@ -2,17 +2,31 @@ import {
   Alert,
   Button,
   Checkbox,
+  Collapse,
   Input,
+  InputNumber,
   Select,
   Space,
   Spin,
+  Switch,
   Table,
   Tabs,
   Typography,
 } from "antd";
 import type { Dispatch } from "react";
-import type { Column, ColumnOverride, Dtype } from "../types";
-import { CSV_SHEET_KEY, type WizardAction, type WizardState } from "./state";
+import type {
+  Column,
+  ColumnOverride,
+  Dtype,
+  ParseOptions,
+  SheetSummary,
+} from "../types";
+import {
+  CSV_SHEET_KEY,
+  type SheetState,
+  type WizardAction,
+  type WizardState,
+} from "./state";
 
 const DTYPES: Dtype[] = [
   "string",
@@ -26,9 +40,16 @@ const DTYPES: Dtype[] = [
 type Props = Readonly<{
   state: WizardState;
   dispatch: Dispatch<WizardAction>;
+  /** Excel-only: re-parse a single sheet using its current parseOptions.
+   *  CSV passes `undefined` since R19 Q1=C has no CSV re-parse. */
+  onReparseSheet?: (sheet: string) => void;
 }>;
 
-export function UploadMetadataStep({ state, dispatch }: Props) {
+export function UploadMetadataStep({
+  state,
+  dispatch,
+  onReparseSheet,
+}: Props) {
   const isCsv = state.sourceFormat === "csv";
   const sheetKeys = isCsv ? [CSV_SHEET_KEY] : state.selectedSheets;
 
@@ -46,7 +67,12 @@ export function UploadMetadataStep({ state, dispatch }: Props) {
   if (isCsv) {
     return (
       <div data-component="UploadMetadataStep">
-        <SheetPane sheetKey={CSV_SHEET_KEY} state={state} dispatch={dispatch} />
+        <SheetPane
+          sheetKey={CSV_SHEET_KEY}
+          state={state}
+          dispatch={dispatch}
+          onReparse={undefined}
+        />
       </div>
     );
   }
@@ -58,7 +84,12 @@ export function UploadMetadataStep({ state, dispatch }: Props) {
           key,
           label: tabLabel(key, state),
           children: (
-            <SheetPane sheetKey={key} state={state} dispatch={dispatch} />
+            <SheetPane
+              sheetKey={key}
+              state={state}
+              dispatch={dispatch}
+              onReparse={onReparseSheet}
+            />
           ),
         }))}
       />
@@ -106,10 +137,13 @@ type PaneProps = Readonly<{
   sheetKey: string;
   state: WizardState;
   dispatch: Dispatch<WizardAction>;
+  /** Excel-only re-parse callback; undefined for CSV (R19 Q1=C). */
+  onReparse: ((sheet: string) => void) | undefined;
 }>;
 
-function SheetPane({ sheetKey, state, dispatch }: PaneProps) {
+function SheetPane({ sheetKey, state, dispatch, onReparse }: PaneProps) {
   const sheet = state.sheets[sheetKey];
+  const isCsv = state.sourceFormat === "csv";
 
   if (!sheet) {
     return <Alert type="info" message="Not parsed yet" />;
@@ -123,19 +157,39 @@ function SheetPane({ sheetKey, state, dispatch }: PaneProps) {
     );
   }
 
+  // The parse-options disclosure is always available (auto-expands on
+  // failed so the user lands on the obvious next action).
+  const optionsDisclosure = (
+    <ParseOptionsDisclosure
+      sheetKey={sheetKey}
+      sheet={sheet}
+      isCsv={isCsv}
+      availableSheets={state.availableSheets}
+      dispatch={dispatch}
+      onReparse={onReparse}
+    />
+  );
+
   if (sheet.status === "failed") {
     return (
-      <Alert
-        type="error"
-        showIcon
-        message={`Parse failed: ${sheet.parseError?.error ?? "unknown"}`}
-        description={sheet.parseError?.detail}
-        data-component="SheetParseFailed"
-      />
+      <div>
+        {optionsDisclosure}
+        <Alert
+          type="error"
+          showIcon
+          message={`Parse failed: ${sheet.parseError?.error ?? "unknown"}`}
+          description={sheet.parseError?.detail}
+          data-component="SheetParseFailed"
+        />
+        <ParseFailedActions
+          sheetKey={sheetKey}
+          isCsv={isCsv}
+          dispatch={dispatch}
+        />
+      </div>
     );
   }
 
-  const isCsv = state.sourceFormat === "csv";
   const sheetLabel = isCsv ? "" : sheetKey;
   const total = sheet.columns.length;
   const kept = total - sheet.excludedColumns.length;
@@ -221,6 +275,7 @@ function SheetPane({ sheetKey, state, dispatch }: PaneProps) {
 
   return (
     <div>
+      {optionsDisclosure}
       <Typography.Paragraph type="secondary" style={{ marginTop: 0 }}>
         Detected schema {sheetLabel ? <>for <strong>{sheetLabel}</strong> </> : null}
         ({sheet.rowCount.toLocaleString()} rows · {total} columns). Override
@@ -329,4 +384,163 @@ function sampleFor(
     .slice(0, 3);
   if (values.length === 0) return "—";
   return values.join(", ");
+}
+
+type DisclosureProps = Readonly<{
+  sheetKey: string;
+  sheet: SheetState;
+  isCsv: boolean;
+  availableSheets: SheetSummary[];
+  dispatch: Dispatch<WizardAction>;
+  onReparse: ((sheet: string) => void) | undefined;
+}>;
+
+function ParseOptionsDisclosure({
+  sheetKey,
+  sheet,
+  isCsv,
+  availableSheets,
+  dispatch,
+  onReparse,
+}: DisclosureProps) {
+  const opts = sheet.parseOptions;
+  const update = (patch: Partial<ParseOptions>) => {
+    const next: ParseOptions = { ...opts, ...patch };
+    // Strip undefined values so an empty input clears the field.
+    for (const k of Object.keys(next) as (keyof ParseOptions)[]) {
+      if (next[k] === undefined) delete next[k];
+    }
+    dispatch({ type: "SET_PARSE_OPTIONS", sheet: sheetKey, options: next });
+  };
+
+  const usedRange = isCsv
+    ? undefined
+    : availableSheets.find((s) => s.sheet === sheetKey)?.usedRange;
+
+  const body = (
+    <Space direction="vertical" size={12} style={{ width: "100%" }}>
+      {isCsv ? (
+        <div data-component="ParseOptionCsvSkipRows">
+          <Typography.Text>Skip rows: </Typography.Text>
+          <InputNumber
+            min={0}
+            value={opts.skip_rows ?? null}
+            onChange={(v) =>
+              update({ skip_rows: typeof v === "number" ? v : undefined })
+            }
+            placeholder="0"
+            data-component="ParseOptionSkipRowsInput"
+          />
+          <Typography.Text type="secondary" style={{ marginLeft: 8 }}>
+            Leading rows to drop before the header.
+          </Typography.Text>
+        </div>
+      ) : (
+        <div data-component="ParseOptionExcelRange">
+          <Typography.Text>Range: </Typography.Text>
+          <Input
+            value={opts.range ?? ""}
+            onChange={(e) =>
+              update({ range: e.target.value === "" ? undefined : e.target.value })
+            }
+            placeholder={usedRange ?? "A1:C20"}
+            style={{ width: 160 }}
+            data-component="ParseOptionRangeInput"
+          />
+          <Typography.Text type="secondary" style={{ marginLeft: 8 }}>
+            Cell range like <code>A1:C20</code>. Default is the sheet's
+            used range.
+          </Typography.Text>
+        </div>
+      )}
+      <div data-component="ParseOptionHasHeader">
+        <Typography.Text style={{ marginRight: 8 }}>
+          First row is a header:
+        </Typography.Text>
+        <Switch
+          checked={opts.has_header ?? true}
+          onChange={(v) => update({ has_header: v })}
+          data-component="ParseOptionHasHeaderSwitch"
+        />
+        <Typography.Text type="secondary" style={{ marginLeft: 8 }}>
+          When off, columns are named <code>column1, column2, …</code>.
+        </Typography.Text>
+      </div>
+      {!isCsv && onReparse ? (
+        <Button
+          onClick={() => onReparse(sheetKey)}
+          disabled={sheet.status === "parsing"}
+          loading={sheet.status === "parsing"}
+          data-component="ParseOptionReparseButton"
+        >
+          Re-parse this sheet
+        </Button>
+      ) : null}
+      <Alert
+        type="info"
+        showIcon
+        message={
+          isCsv
+            ? "Editing parse options resets your column dtype overrides and exclusions for this file."
+            : "Re-parsing or editing the range resets your column overrides and exclusions for this sheet."
+        }
+        data-component="ParseOptionResetWarning"
+      />
+    </Space>
+  );
+
+  // Auto-expand on failed so the user lands on the obvious next action.
+  const defaultOpen = sheet.status === "failed";
+
+  return (
+    <Collapse
+      size="small"
+      style={{ marginBottom: 12 }}
+      defaultActiveKey={defaultOpen ? ["parse-options"] : []}
+      items={[
+        {
+          key: "parse-options",
+          label: "Parse options",
+          children: body,
+        },
+      ]}
+      data-component="ParseOptionsDisclosure"
+    />
+  );
+}
+
+type ParseFailedActionsProps = Readonly<{
+  sheetKey: string;
+  isCsv: boolean;
+  dispatch: Dispatch<WizardAction>;
+}>;
+
+function ParseFailedActions({
+  sheetKey,
+  isCsv,
+  dispatch,
+}: ParseFailedActionsProps) {
+  return (
+    <Space style={{ marginTop: 12 }} data-component="SheetParseFailedActions">
+      <Button
+        onClick={() => dispatch({ type: "GOTO_STEP", step: "source" })}
+        data-component="SheetParseFailedRepickFile"
+      >
+        Re-pick file
+      </Button>
+      {isCsv ? null : (
+        <Button
+          onClick={() =>
+            dispatch({ type: "TOGGLE_SELECTED_SHEET", sheet: sheetKey })
+          }
+          data-component="SheetParseFailedDeselect"
+        >
+          Deselect this sheet
+        </Button>
+      )}
+      <Typography.Text type="secondary" style={{ marginLeft: 4 }}>
+        Or adjust parse options above and re-parse.
+      </Typography.Text>
+    </Space>
+  );
 }
