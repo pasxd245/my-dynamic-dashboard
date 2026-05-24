@@ -4,7 +4,9 @@
 **Agent**: claude-opus-4-7
 **Confidence**: Medium-high (third instance of the 4-round
 methodology; mirrors R16's BE-side pattern)
-**Status**: New
+**Status**: Promoted
+**Promoted to**: [`context/contract-driven-feature.md`](../context/contract-driven-feature.md)
+([Round_18](../plan/cycles/Round_18.md), 2026-05-24)
 
 ## Problem
 
@@ -185,14 +187,13 @@ separate track-2 round when the FE demands an offline demo path.
 
 ## Promotion Candidate?
 
-- [ ] `context/` — strong candidate now. Three instances; the
-      pattern is consistent across Design / Contract / BE / FE
-      with the same vocabulary (locked YAML, hand-aligned types,
-      conformance helper, fetch-mock tests). Decision lives in
-      Round_17.md's Act.
-- [ ] `skills/` — possibly, once `context/` settles and the
-      pattern proves itself on a non-toy second feature
+- [x] `context/` — promoted in [Round_18](../plan/cycles/Round_18.md)
+      to [`context/contract-driven-feature.md`](../context/contract-driven-feature.md)
+      after R17 supplied the third instance. Bundled with the
+      contract-round and BE-round memos under the single DCBF
+      rule.
+- [ ] `skills/` — still possibly, once `context/` settles and
+      the pattern proves itself on a non-toy second feature
       (analytics queries, dashboards). Several rounds out.
-- [x] Not yet — pending R17's Act decision.
 
 See also: [[2026-05-24-contract-round-methodology]] · [[2026-05-24-be-round-conformance-pattern]].

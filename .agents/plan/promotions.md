@@ -89,3 +89,26 @@ so direct links to it create context rot. Promoting a hub gives future
 rounds a durable summary, lesson index, citation discipline, and
 retirement procedure.
 **Promoted by**: pasxd245 (Round_10, explicit human authorization).
+
+## 2026-05-24: DCBF feature methodology + conformance discipline → `context/contract-driven-feature.md`
+
+**Source**: three memory files capturing the methodology and its
+per-layer conformance discipline as they were built up across the
+first complete DCBF cycle —
+[contract-round-methodology](../memory/2026-05-24-contract-round-methodology.md)
+(R15),
+[be-round-conformance-pattern](../memory/2026-05-24-be-round-conformance-pattern.md)
+(R16),
+[fe-round-typecheck-pattern](../memory/2026-05-24-fe-round-typecheck-pattern.md)
+(R17).
+**Rationale**: Three concrete instances across Design → Contract → BE
+→ FE, with consistent vocabulary (locked YAML, hand-aligned types,
+per-endpoint conformance, fetch-mock tests) and zero shape mismatches
+escaping the conformance net. Meets the `context/` bar in
+[governance.md](../context/governance.md) ("stable pattern, validated
+3+ times, broadly applicable"). The context file captures principles,
+when/why, and the "default = don't add" guards; the source memos stay
+in `.agents/memory/` (Status: Promoted) as the operational how-to.
+**Promoted by**: pasxd245 (Round_18, explicit human authorization
+via "go with R18 (consider this will a heavy round), the lesson-learn
+is important").

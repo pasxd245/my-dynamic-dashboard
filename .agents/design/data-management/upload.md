@@ -863,3 +863,34 @@ This doc:
 | Multi-sheet UX for Metadata + Preview? | Tabs within step (one per selected sheet); overrides preserved per tab            | R14 HIxAI Q17a (lean accepted)               |
 | Multi-sheet ships in which round?      | R15 — multi-sheet from day one                                                    | R14 HIxAI Q17b (lean accepted)               |
 | Future source types?                   | None pre-baked in R14; wizard IA generalizes for R∞ additions                     | R14 HIxAI Q15 (user-directed)                |
+
+## R18 design reflection — Metadata-vs-Preview ordering (still open)
+
+R17 silently folded Preview into Metadata as a scroll-down. R18
+caught the divergence during user verification and restored the
+designed order (Metadata → Preview, separate steps). **But** the
+accidental combined view surfaced a real reframe candidate the user
+raised in the R18 Q&A:
+
+> "The current implement gave me an idea: I should _see/preview_ data
+> before I can decide the dtype?"
+
+In other words: maybe the right order is **Preview → Metadata**, not
+Metadata → Preview. The argument:
+
+- For a CRM export the user often does not know the shape coming in.
+- Inferred dtypes shown on the Metadata column-table are a guess; a
+  user who has not seen the rows yet has to trust them.
+- "Look at the data, then decide what to fix" is a more natural
+  mental model than "configure the data, then check what you did."
+
+**Decision (R18)**: ship A (Metadata → Preview) per the original
+design. Do **not** flip to B on a hunch. The lean is to use A on the
+next real CRM export and decide afterwards whether the friction
+shows up. If it does, R∞ flips the order (cheap — one `stepsByFormat`
+edit plus the design doc).
+
+**Trigger to flip**: one real instance of "I changed a dtype, then
+saw the preview, then went Back and re-changed it because the
+preview surprised me." That signal is the pull. Until then, A is
+the order.

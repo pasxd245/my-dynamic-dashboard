@@ -1,3 +1,4 @@
+import { ArrowLeftOutlined, ArrowRightOutlined } from "@ant-design/icons";
 import { PageCard, PageHeader } from "@mdd/ui";
 import { Button, Space, Steps } from "antd";
 import { useEffect, useReducer } from "react";
@@ -16,6 +17,7 @@ import {
 } from "./state";
 import { UploadConfirmStep } from "./UploadConfirmStep";
 import { UploadMetadataStep } from "./UploadMetadataStep";
+import { UploadPreviewStep } from "./UploadPreviewStep";
 import { UploadSheetStep } from "./UploadSheetStep";
 import { UploadSourceStep } from "./UploadSourceStep";
 
@@ -42,8 +44,8 @@ export function DatasetNewPage() {
   }, [workspaceQs, state.workspaceId]);
 
   const stepsByFormat: Record<typeof state.sourceFormat, WizardStep[]> = {
-    csv: ["source", "metadata", "confirm"],
-    excel: ["source", "sheet", "metadata", "confirm"],
+    csv: ["source", "metadata", "preview", "confirm"],
+    excel: ["source", "sheet", "metadata", "preview", "confirm"],
   };
   const steps = stepsByFormat[state.sourceFormat];
   const currentIdx = stepIndex(state) - 1;
@@ -134,6 +136,8 @@ export function DatasetNewPage() {
         const keys = isCsv ? [CSV_SHEET_KEY] : state.selectedSheets;
         return keys.every((k) => state.sheets[k]?.status === "ok");
       }
+      case "preview":
+        return true;
       case "confirm":
         return false; // handled separately by Commit button
     }
@@ -164,6 +168,9 @@ export function DatasetNewPage() {
     case "metadata":
       body = <UploadMetadataStep state={state} dispatch={dispatch} />;
       break;
+    case "preview":
+      body = <UploadPreviewStep state={state} dispatch={dispatch} />;
+      break;
     case "confirm":
       body = (
         <UploadConfirmStep
@@ -176,24 +183,56 @@ export function DatasetNewPage() {
   }
 
   return (
-    <>
+    <div
+      data-component="DatasetNewPage"
+      style={{
+        // Fill the available Layout.Content area = 100vh − Layout.Header
+        // (56) − Layout.Content padding (16 × 2 = 32) = 100vh − 88px.
+        // Both constants are owned by WorkspaceShell; the wizard borrows
+        // them. PageCard (variant="fill") grows to fill the rest; body
+        // scrolls inside the card.
+        height: "calc(100vh - 88px)",
+        display: "flex",
+        flexDirection: "column",
+        gap: 16,
+      }}
+    >
       {header}
-      <PageCard>
+      <PageCard variant="fill">
         <Steps
           current={currentIdx}
           size="small"
-          style={{ marginBottom: 24 }}
+          style={{ marginBottom: 16, flex: "0 0 auto" }}
           items={steps.map((s) => ({ title: titleCase(s) }))}
         />
-        {body}
         <div
+          data-component="WizardBodyScroll"
           style={{
-            marginTop: 24,
-            display: "flex",
-            justifyContent: "space-between",
+            flex: "1 1 auto",
+            minHeight: 0,
+            overflowY: "auto",
+            overflowX: "hidden",
+            paddingRight: 4,
           }}
         >
-          <Button onClick={goBack} data-component="WizardBackButton">
+          {body}
+        </div>
+        <div
+          data-component="WizardNav"
+          style={{
+            flex: "0 0 auto",
+            marginTop: 16,
+            paddingTop: 16,
+            display: "flex",
+            justifyContent: "space-between",
+            borderTop: "1px solid var(--ant-color-border-secondary, #f0f0f0)",
+          }}
+        >
+          <Button
+            onClick={goBack}
+            icon={<ArrowLeftOutlined />}
+            data-component="WizardBackButton"
+          >
             Back
           </Button>
           <Space>
@@ -205,7 +244,7 @@ export function DatasetNewPage() {
                 disabled={!state.workspaceId}
                 data-component="WizardCommitButton"
               >
-                Commit
+                Create datasets
               </Button>
             ) : (
               <Button
@@ -215,13 +254,13 @@ export function DatasetNewPage() {
                 loading={parseMutation.isPending && state.step === "sheet"}
                 data-component="WizardNextButton"
               >
-                Next
+                Next <ArrowRightOutlined />
               </Button>
             )}
           </Space>
         </div>
       </PageCard>
-    </>
+    </div>
   );
 }
 

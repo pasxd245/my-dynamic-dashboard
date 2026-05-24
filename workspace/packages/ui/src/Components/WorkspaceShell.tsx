@@ -261,7 +261,7 @@ export function WorkspaceShell(props: Readonly<WorkspaceShellProps>) {
         <Layout.Content
           style={{
             background: token.colorBgLayout,
-            padding: "24px",
+            padding: "16px",
             overflow: "auto",
           }}
         >

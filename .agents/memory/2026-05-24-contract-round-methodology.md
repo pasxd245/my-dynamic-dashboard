@@ -3,7 +3,9 @@
 **Date**: 2026-05-24
 **Agent**: claude-opus-4-7
 **Confidence**: Medium (one instance; track-2/3 research)
-**Status**: New
+**Status**: Promoted
+**Promoted to**: [`context/contract-driven-feature.md`](../context/contract-driven-feature.md)
+([Round_18](../plan/cycles/Round_18.md), 2026-05-24)
 
 ## Problem
 
@@ -148,12 +150,11 @@ hidden cost of late integration bugs.
 
 ## Promotion Candidate?
 
-- [ ] `context/` — possibly, once R16 (BE round) + R17 (FE
-      round) confirm the methodology under their layers. Two
-      more instances needed before promotion criterion is met.
-- [ ] `skills/` — possibly, once the pattern is stable enough
-      to be a reusable skill (`feature-contract-driven` or
-      similar) future agents follow automatically. Several
-      rounds out.
-- [x] Not yet — single instance (R15 contract round). Re-evaluate
-      after R17's FE round completes.
+- [x] `context/` — promoted in [Round_18](../plan/cycles/Round_18.md)
+      to [`context/contract-driven-feature.md`](../context/contract-driven-feature.md)
+      after R15 + R16 + R17 supplied three concrete instances.
+- [ ] `skills/` — still possibly, once the pattern is stable
+      enough to be a reusable skill (`feature-contract-driven` or
+      similar) future agents follow automatically. Trigger: a
+      non-toy second feature (analytics, dashboards) validating
+      the methodology under different shape.

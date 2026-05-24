@@ -9,7 +9,12 @@ import type {
   TempUploadResponse,
 } from "../types";
 
-export type WizardStep = "source" | "sheet" | "metadata" | "confirm";
+export type WizardStep =
+  | "source"
+  | "sheet"
+  | "metadata"
+  | "preview"
+  | "confirm";
 
 /** Key used to store CSV state in the sheets map. */
 export const CSV_SHEET_KEY = "";
@@ -212,7 +217,7 @@ export function wizardReducer(
 
 /** Total step count for the stepper, by source format. */
 export function stepCount(format: SourceFormat): number {
-  return format === "csv" ? 3 : 4;
+  return format === "csv" ? 4 : 5;
 }
 
 /** Numeric step index (1-based) for the active step, by source format. */
@@ -223,8 +228,10 @@ export function stepIndex(state: WizardState): number {
         return 1;
       case "metadata":
         return 2;
-      case "confirm":
+      case "preview":
         return 3;
+      case "confirm":
+        return 4;
       default:
         return 1;
     }
@@ -236,7 +243,9 @@ export function stepIndex(state: WizardState): number {
       return 2;
     case "metadata":
       return 3;
-    case "confirm":
+    case "preview":
       return 4;
+    case "confirm":
+      return 5;
   }
 }

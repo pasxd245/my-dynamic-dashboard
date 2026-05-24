@@ -150,7 +150,26 @@ describe("DatasetsPage", () => {
       return jsonResponse([]);
     });
     renderApp("/data-management/datasets");
-    expect(await screen.findByText(/No datasets yet/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/Upload your first file to get started/),
+    ).toBeInTheDocument();
+  });
+
+  it("filters by name when the search input is used", async () => {
+    renderApp("/data-management/datasets");
+    expect(await screen.findByText("leads_q1")).toBeInTheDocument();
+    expect(screen.getByText("pipeline_Deals")).toBeInTheDocument();
+
+    const search = screen.getByPlaceholderText("Search datasets…");
+    fireEvent.change(search, { target: { value: "leads" } });
+
+    await waitFor(() => {
+      expect(screen.queryByText("pipeline_Deals")).not.toBeInTheDocument();
+    });
+    expect(screen.getByText("leads_q1")).toBeInTheDocument();
+
+    fireEvent.change(search, { target: { value: "zzz_no_match" } });
+    expect(await screen.findByText(/No datasets match/)).toBeInTheDocument();
   });
 });
 
@@ -235,19 +254,27 @@ describe("Upload wizard — CSV happy path", () => {
     });
     fireEvent.change(fileInput!, { target: { files: [file] } });
 
-    // Wait for the upload to land us in the Metadata step.
+    // Wait for the upload to land us in the Metadata step (override table).
     await waitFor(() => {
       expect(
-        container.querySelector('[data-component="SheetPreviewTable"]'),
+        container.querySelector('[data-component="UploadMetadataStep"]'),
+      ).not.toBeNull();
+    });
+
+    // Advance to Preview.
+    fireEvent.click(screen.getByRole("button", { name: /Next/ }));
+    await waitFor(() => {
+      expect(
+        container.querySelector('[data-component="UploadPreviewStep"]'),
       ).not.toBeNull();
     });
 
     // Advance to Confirm.
-    fireEvent.click(screen.getByRole("button", { name: "Next" }));
-    await screen.findByRole("button", { name: "Commit" });
+    fireEvent.click(screen.getByRole("button", { name: /Next/ }));
+    await screen.findByRole("button", { name: /Create datasets/ });
 
     // Commit.
-    fireEvent.click(screen.getByRole("button", { name: "Commit" }));
+    fireEvent.click(screen.getByRole("button", { name: /Create datasets/ }));
 
     // We navigate back to the datasets page, which lists the new dataset.
     await waitFor(() => {
@@ -342,7 +369,7 @@ describe("Upload wizard — Excel sheet step parses on Next", () => {
     fireEvent.click(checkboxes[1]);
 
     // Click Next to fire parse.
-    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    fireEvent.click(screen.getByRole("button", { name: /Next/ }));
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(

@@ -4,7 +4,9 @@
 **Agent**: claude-opus-4-7
 **Confidence**: Medium (one BE round; pairs with the contract-round
 methodology memo from R15)
-**Status**: New
+**Status**: Promoted
+**Promoted to**: [`context/contract-driven-feature.md`](../context/contract-driven-feature.md)
+([Round_18](../plan/cycles/Round_18.md), 2026-05-24)
 
 ## Problem
 
@@ -165,15 +167,13 @@ discipline mirrors the contract.
 
 ## Promotion Candidate?
 
-- [ ] `context/` — possibly, once R17's FE round confirms the
-      mirror-pattern on the TS side. Two instances (BE + FE) +
-      the R15 contract-round memo would meet the 3-instance bar
-      for promoting the 4-round methodology + its conformance
-      discipline as a single `context/` rule.
-- [ ] `skills/` — possibly, once the pattern is reusable across
-      multi-language stacks (Node BE + Python FE, etc.). Several
-      rounds out.
-- [x] Not yet — single BE instance. Re-evaluate after R17.
+- [x] `context/` — promoted in [Round_18](../plan/cycles/Round_18.md)
+      to [`context/contract-driven-feature.md`](../context/contract-driven-feature.md),
+      bundled with the contract-round and FE-round memos under
+      the single DCBF rule.
+- [ ] `skills/` — still possibly, once the pattern is reusable
+      across multi-language stacks (Node BE + Python FE, etc.).
+      Several rounds out.
 
 See also: [[2026-05-24-contract-round-methodology]] — the R15 memo
 this pattern extends.

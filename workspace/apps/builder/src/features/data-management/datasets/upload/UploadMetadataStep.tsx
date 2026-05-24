@@ -1,6 +1,17 @@
-import { Alert, Checkbox, Select, Spin, Table, Tabs, Typography } from "antd";
+import {
+  Alert,
+  Button,
+  Checkbox,
+  Input,
+  Select,
+  Space,
+  Spin,
+  Table,
+  Tabs,
+  Typography,
+} from "antd";
 import type { Dispatch } from "react";
-import type { ColumnOverride, Dtype } from "../types";
+import type { Column, ColumnOverride, Dtype } from "../types";
 import { CSV_SHEET_KEY, type WizardAction, type WizardState } from "./state";
 
 const DTYPES: Dtype[] = [
@@ -32,26 +43,62 @@ export function UploadMetadataStep({ state, dispatch }: Props) {
     );
   }
 
+  if (isCsv) {
+    return (
+      <div data-component="UploadMetadataStep">
+        <SheetPane sheetKey={CSV_SHEET_KEY} state={state} dispatch={dispatch} />
+      </div>
+    );
+  }
+
   return (
     <div data-component="UploadMetadataStep">
       <Tabs
         items={sheetKeys.map((key) => ({
-          key: key || "csv",
+          key,
           label: tabLabel(key, state),
-          children: <SheetPane sheetKey={key} state={state} dispatch={dispatch} />,
+          children: (
+            <SheetPane sheetKey={key} state={state} dispatch={dispatch} />
+          ),
         }))}
       />
     </div>
   );
 }
 
-function tabLabel(key: string, state: WizardState): string {
+function tabLabel(key: string, state: WizardState): React.ReactNode {
   const name = key || "CSV";
   const sheet = state.sheets[key];
   if (!sheet) return name;
   if (sheet.status === "parsing") return `${name} ⏳`;
   if (sheet.status === "failed") return `${name} ✗`;
-  if (sheet.status === "ok") return `${name} ✓`;
+  if (sheet.status === "ok") {
+    const hasOverrides =
+      Object.keys(sheet.columnOverrides).length > 0 ||
+      sheet.excludedColumns.length > 0;
+    if (hasOverrides) {
+      return (
+        <span data-component="SheetTabLabel" data-overridden="true">
+          {name}{" "}
+          <span
+            style={{ color: "#d48806", fontWeight: 600 }}
+            aria-label="has overrides"
+            title="This sheet has user overrides"
+          >
+            ✎
+          </span>
+        </span>
+      );
+    }
+    return (
+      <span data-component="SheetTabLabel" data-overridden="false">
+        {name}{" "}
+        <span style={{ color: "#52c41a" }} aria-label="parsed">
+          ✓
+        </span>
+      </span>
+    );
+  }
   return name;
 }
 
@@ -88,12 +135,31 @@ function SheetPane({ sheetKey, state, dispatch }: PaneProps) {
     );
   }
 
-  const columns = [
+  const isCsv = state.sourceFormat === "csv";
+  const sheetLabel = isCsv ? "" : sheetKey;
+  const total = sheet.columns.length;
+  const kept = total - sheet.excludedColumns.length;
+
+  const resetAll = () => {
+    for (const col of sheet.columns) {
+      if (sheet.columnOverrides[col.name]) {
+        dispatch({
+          type: "SET_COLUMN_OVERRIDE",
+          sheet: sheetKey,
+          column: col.name,
+          override: null,
+        });
+      }
+    }
+  };
+  const hasAnyOverride = Object.keys(sheet.columnOverrides).length > 0;
+
+  const tableColumns = [
     {
       title: "Include",
       key: "include",
       width: 80,
-      render: (_: unknown, row: { name: string }) => (
+      render: (_: unknown, row: Column) => (
         <Checkbox
           checked={!sheet.excludedColumns.includes(row.name)}
           onChange={() =>
@@ -108,85 +174,159 @@ function SheetPane({ sheetKey, state, dispatch }: PaneProps) {
         />
       ),
     },
-    { title: "Column", dataIndex: "name", key: "name" },
     {
-      title: "Dtype",
-      key: "dtype",
-      render: (_: unknown, row: { name: string; dtype: Dtype }) => {
-        const override = sheet.columnOverrides[row.name];
-        return (
-          <Select
-            size="small"
-            style={{ width: 140 }}
-            value={override?.dtype ?? row.dtype}
-            options={DTYPES.map((d) => ({ value: d, label: d }))}
-            onChange={(value) => {
-              const same = value === row.dtype;
-              if (same) {
-                dispatch({
-                  type: "SET_COLUMN_OVERRIDE",
-                  sheet: sheetKey,
-                  column: row.name,
-                  override: null,
-                });
-                return;
-              }
-              const next: ColumnOverride = { dtype: value };
-              if (value === "date" || value === "datetime") {
-                next.format =
-                  override?.format ??
-                  (value === "date" ? "yyyy-MM-dd" : "yyyy-MM-dd HH:mm:ss");
-              }
-              dispatch({
-                type: "SET_COLUMN_OVERRIDE",
-                sheet: sheetKey,
-                column: row.name,
-                override: next,
-              });
-            }}
-            data-component="ColumnDtypeSelect"
-            data-column={row.name}
-          />
-        );
-      },
+      title: "Column",
+      dataIndex: "name",
+      key: "name",
+      render: (name: string) => (
+        <span style={{ fontWeight: 500 }}>{name}</span>
+      ),
+    },
+    {
+      title: "Detected",
+      dataIndex: "dtype",
+      key: "detected",
+      render: (d: Dtype) => (
+        <Typography.Text type="secondary">{d}</Typography.Text>
+      ),
+    },
+    {
+      title: "Override",
+      key: "override",
+      render: (_: unknown, row: Column) => (
+        <OverrideCell
+          row={row}
+          override={sheet.columnOverrides[row.name]}
+          onChange={(override) =>
+            dispatch({
+              type: "SET_COLUMN_OVERRIDE",
+              sheet: sheetKey,
+              column: row.name,
+              override,
+            })
+          }
+        />
+      ),
+    },
+    {
+      title: "Sample values",
+      key: "sample",
+      render: (_: unknown, row: Column) => (
+        <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+          {sampleFor(sheet.sampleRows, sheet.columns, row.name)}
+        </Typography.Text>
+      ),
     },
   ];
 
   return (
     <div>
-      <Typography.Title level={5} style={{ marginTop: 0 }}>
-        Columns ({sheet.columns.length - sheet.excludedColumns.length} of {sheet.columns.length} kept)
-      </Typography.Title>
+      <Typography.Paragraph type="secondary" style={{ marginTop: 0 }}>
+        Detected schema {sheetLabel ? <>for <strong>{sheetLabel}</strong> </> : null}
+        ({sheet.rowCount.toLocaleString()} rows · {total} columns). Override
+        any column's dtype before previewing.
+      </Typography.Paragraph>
       <Table
         size="small"
         pagination={false}
         rowKey="name"
         dataSource={sheet.columns.map((c) => ({ ...c, key: c.name }))}
-        columns={columns}
+        columns={tableColumns}
       />
-      <Typography.Title level={5} style={{ marginTop: 24 }}>
-        Preview ({sheet.sampleRows.length} of {sheet.rowCount} rows)
-      </Typography.Title>
-      <Table
-        size="small"
-        pagination={false}
-        rowKey="__idx"
-        dataSource={sheet.sampleRows.map((row, idx) => {
-          const obj: Record<string, string | null> = { __idx: String(idx) };
-          sheet.columns.forEach((col, i) => {
-            obj[col.name] = row[i] ?? null;
-          });
-          return obj;
-        })}
-        columns={sheet.columns.map((col) => ({
-          title: col.name,
-          dataIndex: col.name,
-          key: col.name,
-          render: (v: string | null) => v ?? <em style={{ opacity: 0.4 }}>null</em>,
-        }))}
-        scroll={{ x: true }}
-        data-component="SheetPreviewTable"
-      />
+      <div
+        style={{
+          marginTop: 12,
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+        }}
+      >
+        <Button
+          type="link"
+          size="small"
+          onClick={resetAll}
+          disabled={!hasAnyOverride}
+          data-component="ResetOverrides"
+        >
+          Reset all to detected
+        </Button>
+        <Typography.Text
+          type="secondary"
+          data-component="MetadataIncludedCount"
+        >
+          {sheetLabel ? `${sheetLabel} · ` : ""}
+          {kept} of {total} columns included
+        </Typography.Text>
+      </div>
     </div>
   );
+}
+
+type OverrideProps = Readonly<{
+  row: Column;
+  override: ColumnOverride | undefined;
+  onChange: (override: ColumnOverride | null) => void;
+}>;
+
+function OverrideCell({ row, override, onChange }: OverrideProps) {
+  const dtype = override?.dtype ?? row.dtype;
+  const showFormat = dtype === "date" || dtype === "datetime";
+  const isOverridden = override !== undefined;
+  return (
+    <Space direction="vertical" size={4} style={{ width: "100%" }}>
+      <Select
+        size="small"
+        status={isOverridden ? "warning" : undefined}
+        style={{
+          width: 140,
+          background: isOverridden ? "#fffbe6" : undefined,
+        }}
+        value={dtype}
+        options={DTYPES.map((d) => ({ value: d, label: d }))}
+        onChange={(value) => {
+          const same = value === row.dtype;
+          if (same) {
+            onChange(null);
+            return;
+          }
+          const next: ColumnOverride = { dtype: value };
+          if (value === "date" || value === "datetime") {
+            next.format =
+              override?.format ??
+              (value === "date" ? "yyyy-MM-dd" : "yyyy-MM-dd HH:mm:ss");
+          }
+          onChange(next);
+        }}
+        data-component="ColumnDtypeSelect"
+        data-column={row.name}
+        data-overridden={isOverridden}
+      />
+      {showFormat ? (
+        <Input
+          size="small"
+          value={override?.format ?? ""}
+          placeholder={dtype === "date" ? "yyyy-MM-dd" : "yyyy-MM-dd HH:mm:ss"}
+          onChange={(e) => onChange({ dtype, format: e.target.value })}
+          data-component="ColumnFormatInput"
+          data-column={row.name}
+          style={{ width: 180 }}
+        />
+      ) : null}
+    </Space>
+  );
+}
+
+function sampleFor(
+  rows: (string | null)[][],
+  cols: Column[],
+  name: string,
+): string {
+  const idx = cols.findIndex((c) => c.name === name);
+  if (idx < 0) return "—";
+  const values = rows
+    .map((r) => r[idx])
+    .filter((v): v is string => v != null && v !== "")
+    .slice(0, 3);
+  if (values.length === 0) return "—";
+  return values.join(", ");
 }

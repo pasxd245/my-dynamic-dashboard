@@ -130,13 +130,17 @@ describe("wizardReducer", () => {
     expect(stepIndex({ ...base, sourceFormat: "csv", step: "metadata" })).toBe(
       2,
     );
-    expect(stepIndex({ ...base, sourceFormat: "csv", step: "confirm" })).toBe(3);
+    expect(stepIndex({ ...base, sourceFormat: "csv", step: "preview" })).toBe(3);
+    expect(stepIndex({ ...base, sourceFormat: "csv", step: "confirm" })).toBe(4);
     expect(stepIndex({ ...base, sourceFormat: "excel", step: "sheet" })).toBe(2);
     expect(stepIndex({ ...base, sourceFormat: "excel", step: "metadata" })).toBe(
       3,
     );
-    expect(stepIndex({ ...base, sourceFormat: "excel", step: "confirm" })).toBe(
+    expect(stepIndex({ ...base, sourceFormat: "excel", step: "preview" })).toBe(
       4,
+    );
+    expect(stepIndex({ ...base, sourceFormat: "excel", step: "confirm" })).toBe(
+      5,
     );
   });
 });

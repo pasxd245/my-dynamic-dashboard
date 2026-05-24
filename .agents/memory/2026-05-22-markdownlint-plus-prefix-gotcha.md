@@ -26,6 +26,23 @@ This bit Round_02 (`+ snapshot test` continuation), Round_03 (`+ provider
 stack` continuation), and Round_04 (`+ [tests/setup.ts]` continuation)
 across the session of 2026-05-22.
 
+**[2026-05-24, Round_18]**: the gotcha re-emerged **five times in
+one round** despite explicit recall of the rule from the first
+sentence. Hit 1: Goal-paragraph wrap before "the paired conformance
+discipline". Hit 2: promotions.md rationale wrapping at `+ the
+"default = don't add" guards`. Hit 3: Do-log line narrating the
+previous two with "initial author + one post-edit fix-up" wrapping
+at `+ one post-edit`. Hit 4: this memo's own update narrating hits
+1–3 wrapped at `+ the "default = don't add" guards` again. Hit 5:
+Round_18.md Feeds-into bullet listing "four-phase shape + conformance
+discipline" wrapped at `+ conformance discipline`. **Five hits, one
+session, with the rule already documented and consciously in mind.**
+The rule "remember the gotcha" is insufficient — knowledge does not
+prevent the bug. The operational rule is: **run `pnpm md:lint` after
+every meaningful MD edit, not in batches**. The IDE's MD004 diagnostic
+fires within a second; treat it like a TypeScript error, not a
+post-hoc lint pass.
+
 ## Finding
 
 The fix is purely a writing convention, not a config change. Don't

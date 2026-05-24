@@ -1,5 +1,9 @@
-import { FileExcelOutlined, FileTextOutlined, InboxOutlined } from "@ant-design/icons";
-import { Alert, Card, Col, Form, Row, Select, Typography, Upload } from "antd";
+import {
+  FileExcelOutlined,
+  FileTextOutlined,
+  InboxOutlined,
+} from "@ant-design/icons";
+import { Alert, Card, Col, Form, Row, Select, Tag, Typography, Upload } from "antd";
 import type { Dispatch } from "react";
 import { useWorkspacesQuery } from "../../workspaces/hooks";
 import type { SourceFormat } from "../types";
@@ -9,6 +13,11 @@ import type { WizardAction, WizardState } from "./state";
 const ACCEPT: Record<SourceFormat, string> = {
   csv: ".csv",
   excel: ".xlsx,.xls",
+};
+
+const DROP_HINT: Record<SourceFormat, string> = {
+  csv: ".csv · Up to 100 MB",
+  excel: ".xlsx · Up to 100 MB",
 };
 
 type Props = Readonly<{
@@ -35,14 +44,15 @@ export function UploadSourceStep({ state, dispatch }: Props) {
   return (
     <div data-component="UploadSourceStep">
       <Typography.Title level={5} style={{ marginTop: 0 }}>
-        Data source
+        Data source <RequiredMark />
       </Typography.Title>
       <Row gutter={[12, 12]} style={{ marginBottom: 24 }}>
         <Col xs={24} sm={12}>
           <SourceCard
             label="Excel"
-            hint=".xlsx, .xls"
-            icon={<FileExcelOutlined />}
+            meta=".xlsx, .xls · multi-sheet workbooks"
+            icon={<FileExcelOutlined style={{ color: "#117a3a" }} />}
+            primary
             selected={state.sourceFormat === "excel"}
             onClick={() =>
               dispatch({ type: "SET_SOURCE_FORMAT", sourceFormat: "excel" })
@@ -52,8 +62,9 @@ export function UploadSourceStep({ state, dispatch }: Props) {
         <Col xs={24} sm={12}>
           <SourceCard
             label="CSV"
-            hint=".csv"
-            icon={<FileTextOutlined />}
+            meta=".csv · single-sheet, delimited text"
+            icon={<FileTextOutlined style={{ color: "#1677ff" }} />}
+            primary={false}
             selected={state.sourceFormat === "csv"}
             onClick={() =>
               dispatch({ type: "SET_SOURCE_FORMAT", sourceFormat: "csv" })
@@ -63,10 +74,14 @@ export function UploadSourceStep({ state, dispatch }: Props) {
       </Row>
 
       <Form layout="vertical">
-        <Form.Item label="Workspace" required>
+        <Form.Item
+          label="Workspace"
+          required
+          help="The dataset will live in this workspace."
+        >
           <div data-component="WorkspaceSelect">
             <Select
-              placeholder="Select a workspace"
+              placeholder="Select a workspace…"
               value={state.workspaceId ?? undefined}
               options={(workspaces.data ?? []).map((w) => ({
                 value: w.id,
@@ -94,13 +109,19 @@ export function UploadSourceStep({ state, dispatch }: Props) {
             data-component="UploadDragger"
           >
             <p className="ant-upload-drag-icon">
-              <InboxOutlined />
+              <InboxOutlined style={{ fontSize: 32, opacity: 0.55 }} />
             </p>
-            <p className="ant-upload-text">
+            <p
+              className="ant-upload-text"
+              style={{ fontSize: 14, fontWeight: 500 }}
+            >
               Drop a file here, or click to browse
             </p>
-            <p className="ant-upload-hint">
-              {ACCEPT[state.sourceFormat]} · Up to 100 MB
+            <p
+              className="ant-upload-hint"
+              style={{ fontSize: 12, opacity: 0.7 }}
+            >
+              {DROP_HINT[state.sourceFormat]}
             </p>
           </Upload.Dragger>
         </Form.Item>
@@ -120,30 +141,61 @@ export function UploadSourceStep({ state, dispatch }: Props) {
   );
 }
 
+function RequiredMark() {
+  return (
+    <Typography.Text type="danger" style={{ marginLeft: 4 }}>
+      *
+    </Typography.Text>
+  );
+}
+
 type SourceCardProps = Readonly<{
   label: string;
-  hint: string;
+  meta: string;
   icon: React.ReactNode;
+  primary: boolean;
   selected: boolean;
   onClick: () => void;
 }>;
 
-function SourceCard({ label, hint, icon, selected, onClick }: SourceCardProps) {
+function SourceCard({
+  label,
+  meta,
+  icon,
+  primary,
+  selected,
+  onClick,
+}: SourceCardProps) {
   return (
     <Card
       hoverable
       onClick={onClick}
       data-component="SourceCard"
       data-selected={selected}
+      data-format={label.toLowerCase()}
+      styles={{ body: { padding: 16 } }}
       style={{
         borderColor: selected ? "var(--ant-color-primary)" : undefined,
         borderWidth: selected ? 2 : 1,
+        background: selected ? "var(--ant-color-primary-bg, #e6f4ff)" : undefined,
       }}
     >
-      <Typography.Title level={5} style={{ margin: 0 }}>
-        {icon} {label}
-      </Typography.Title>
-      <Typography.Text type="secondary">{hint}</Typography.Text>
+      <div style={{ fontSize: 28, lineHeight: 1, marginBottom: 8 }}>
+        {icon}
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <Typography.Title level={5} style={{ margin: 0 }}>
+          {label}
+        </Typography.Title>
+        {primary ? (
+          <Tag color="blue" style={{ marginInlineEnd: 0 }}>
+            Primary
+          </Tag>
+        ) : null}
+      </div>
+      <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+        {meta}
+      </Typography.Text>
     </Card>
   );
 }
