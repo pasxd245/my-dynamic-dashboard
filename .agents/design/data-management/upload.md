@@ -864,6 +864,40 @@ This doc:
 | Multi-sheet ships in which round?      | R15 — multi-sheet from day one                                                    | R14 HIxAI Q17b (lean accepted)               |
 | Future source types?                   | None pre-baked in R14; wizard IA generalizes for R∞ additions                     | R14 HIxAI Q15 (user-directed)                |
 
+## Open questions answered in R19 (parse-options chain D-step)
+
+| Q                                             | Decision                                                                                                                                                                                                                                                                                                                                                                                              | Source                                                                                                           |
+| --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| CSV re-parse endpoint?                        | **No CSV re-parse**. CSV parse-options collected on Metadata, applied at commit time; preview shows sniffer's parse. `/parse` stays Excel-only                                                                                                                                                                                                                                                        | R19 HIxAI Q1 (user-directed against the lean)                                                                    |
+| Override-reset on re-parse?                   | Reconfirm R14: reset all column overrides + excluded-columns for the re-parsed sheet on a successful re-parse                                                                                                                                                                                                                                                                                         | R19 HIxAI Q2 (lean accepted)                                                                                     |
+| Preview-failed action buttons scope?          | All three (`Re-pick file`, `Deselect this sheet`, `Adjust parse options`) ship in the F-step of this chain                                                                                                                                                                                                                                                                                            | R19 HIxAI Q3 (lean accepted; closes R18's W2 defer)                                                              |
+| CSV parse-options edit vs existing overrides? | Reset overrides + excluded-columns for that file when CSV parse-options change; mirror Excel's behavior with an inline warning before the edit                                                                                                                                                                                                                                                        | R19 HIxAI Q4 (lean accepted; symmetric with Q2)                                                                  |
+| Chain shape for the parse-options feature?    | **D + B + F** (corrected mid-R19-Review). C is genuinely collapsed (R15's `ParseOptions` schema already covers all three fields). B is a real round: `parse_csv()` ignores all options, and the CSV branch of the commit handler at `routers/datasets.py:170` calls it with no `parse_options`. Q1=C's promise that "CSV options apply at commit" is not actually implemented today. R20 = B; R21 = F | R19 finding (methodology evidence; user-probed correction caught shape-vs-behavior conformance drift R16 missed) |
+
+> **Methodology notes for `context/contract-driven-feature.md`
+> evaluation** (two findings from R19 — both deferred to R∞
+> until R21 (F) closes and two instances exist):
+>
+> 1. **D-step can output "no C needed" findings.** R19 confirmed
+>    the contract surface is complete (`ParseOptions` already
+>    covers `range`, `skip_rows`, `has_header`). The "Single-
+>    layer changes — no contract surface, no chain" clause
+>    already covered this case in principle; R19 is the first
+>    deliberate output of that finding.
+> 2. **Shape-conformance is not behavior-conformance.** R19
+>    initially claimed the chain compressed to D+F because
+>    R16's BE accepts `parse_options` on CSV commits. User
+>    probing forced a re-check: the BE **silently ignores** the
+>    field — `parse_csv()` accepts no options. R16's conformance
+>    tests verified response shape against the YAML but didn't
+>    assert that accepted request fields produced an observable
+>    effect. The methodology refinement candidate: every request
+>    field whose contract semantics imply behavior change must
+>    have at least one BE test asserting the change is
+>    observable in the response. R16's gap is the worked anti-
+>    example; the [BE round conformance memo](../../memory/2026-05-24-be-round-conformance-pattern.md)
+>    deserves this rule as an amendment.
+
 ## R18 design reflection — Metadata-vs-Preview ordering (still open)
 
 R17 silently folded Preview into Metadata as a scroll-down. R18
