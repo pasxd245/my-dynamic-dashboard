@@ -235,7 +235,7 @@ refetchOnWindowFocus: false } }`.
   `@tanstack/react-query@^5` to `apps/builder/package.json`; `pnpm install`
   resolved cleanly. Wrapped `main.tsx` with `QueryClientProvider`
   outside `AntdConfig`, defaults `{ staleTime: 60_000,
-  refetchOnWindowFocus: false }`. New files:
+refetchOnWindowFocus: false }`. New files:
   - `src/api/workspacesApi.ts` — `fetch` client with
     `VITE_API_BASE_URL` fallback to `http://localhost:8000`.
   - `src/features/data-management/workspaces/types.ts` — shared
@@ -289,7 +289,7 @@ refetchOnWindowFocus: false } }`.
 - **Visual smoke via `pnpm dev:local:up`.** Backend on :8000,
   builder on :3000. `curl /workspaces` returned `[]`; `POST` with
   `{"name":"Marketing"}` returned `{id:"ws_…", name:"Marketing",
-  createdAt:"2026-05-23T16:23:49Z"}`; subsequent `GET` returned the
+createdAt:"2026-05-23T16:23:49Z"}`; subsequent `GET` returned the
   one workspace. `curl -i -H 'Origin: http://localhost:3000' /workspaces`
   returned `access-control-allow-origin: http://localhost:3000`.
   `POST` with empty name returned `422`. Builder served the index

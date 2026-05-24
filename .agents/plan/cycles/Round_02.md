@@ -98,9 +98,9 @@ for the full diagnosis._
 - **`react ^19` is the target.** Drifted used React 19. If any
   dev-dep refuses 19 peers, fall back to ^18 with a note. Round_03
   will be the real consumer test.
-- **No runtime exercise without a consumer.** Round_02 Check is
+- **No runtime exercise without a consumer.** Round*02 Check is
   type-check + snapshot, not a rendered UI. That's intentional per
-  the scope discussion — the _consumer_ test is Round_03's job.
+  the scope discussion — the \_consumer* test is Round_03's job.
 
 ## Do
 
