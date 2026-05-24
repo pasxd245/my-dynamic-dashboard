@@ -1,0 +1,109 @@
+openapi: 3.1.0
+info:
+  title: my-dynamic-dashboard — POST /uploads/{temp_id}/parse
+  version: 0.1.0
+  description: |
+    Phase 2 (Excel-only) of the two-phase upload flow. Parses one
+    or more sheets of a previously-uploaded Excel workbook with
+    optional per-sheet `ParseOptions` (range, skip_rows, has_header),
+    returning per-sheet schema + sample rows. Used by the wizard's
+    Sheet → Metadata transition (Excel path only — CSV's parse
+    already happened on `POST /uploads`).
+
+paths:
+  /uploads/{temp_id}/parse:
+    post:
+      operationId: parseTempUploadSheets
+      summary: Parse one or more Excel sheets from a temp upload
+      parameters:
+        - name: temp_id
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^tmp_[0-9a-f]{16}$"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [items]
+              additionalProperties: false
+              properties:
+                items:
+                  type: array
+                  minItems: 1
+                  items:
+                    type: object
+                    required: [sheet]
+                    additionalProperties: false
+                    properties:
+                      sheet:
+                        type: string
+                        minLength: 1
+                        description: |
+                          Sheet name from the `sheets[]` array returned by
+                          `POST /uploads`. Must match exactly (no case
+                          normalization).
+                      parse_options:
+                        $ref: "../_shared/parse-options.yaml#/components/schemas/ParseOptions"
+      responses:
+        "200":
+          description: |
+            Per-sheet parse results. Each item is either a success
+            (with columns + rowCount + sampleRows) or a failure
+            (with error + detail). Individual sheet failures are
+            body-carried, **not** HTTP failures — partial-success is
+            normal because the wizard wants to render `✗` on the
+            failing tab while keeping the others navigable.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [results]
+                properties:
+                  results:
+                    type: array
+                    minItems: 1
+                    items:
+                      type: object
+                      required: [sheet, status]
+                      properties:
+                        sheet:
+                          type: string
+                          minLength: 1
+                        status:
+                          type: string
+                          enum: [ok, failed]
+                        # When status = ok:
+                        columns:
+                          type: array
+                          minItems: 1
+                          items:
+                            $ref: "../_shared/column.yaml#/components/schemas/Column"
+                        rowCount:
+                          type: integer
+                          minimum: 0
+                        sampleRows:
+                          type: array
+                          items:
+                            type: array
+                            items:
+                              type: ["string", "null"]
+                        # When status = failed:
+                        error:
+                          type: string
+                          description: Short machine code (e.g., `range_invalid`, `parse_failed`).
+                        detail:
+                          type: string
+                          description: Human-readable explanation.
+        "404":
+          description: |
+            `temp_id` is unknown — either it was never created, the
+            upload was for a CSV (not Excel), or the 24h TTL elapsed
+            and the temp directory has been swept.
+        "422":
+          description: |
+            Request-level validation failure (malformed body, `items`
+            empty, a `sheet` name not present in the workbook).

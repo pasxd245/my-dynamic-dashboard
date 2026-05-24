@@ -1,0 +1,122 @@
+openapi: 3.1.0
+info:
+  title: my-dynamic-dashboard — POST /workspaces/{id}/datasets/batch
+  version: 0.1.0
+  description: |
+    Atomic batch commit. Promotes one or more parsed sheets from a
+    temp upload into permanent Dataset rows under the named
+    workspace. All items succeed together or none do — there is no
+    partial-success state. CSV uploads send a length-1 batch;
+    Excel uploads send a length-N batch where N is the number of
+    sheets the user selected in the wizard's Sheet step.
+
+paths:
+  /workspaces/{id}/datasets/batch:
+    post:
+      operationId: commitDatasetsBatch
+      summary: Atomic batch-commit datasets from a temp upload
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^ws_[0-9a-f]{8}$"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [temp_id, items]
+              additionalProperties: false
+              properties:
+                temp_id:
+                  type: string
+                  pattern: "^tmp_[0-9a-f]{16}$"
+                items:
+                  type: array
+                  minItems: 1
+                  items:
+                    type: object
+                    required: [name]
+                    additionalProperties: false
+                    properties:
+                      sheet:
+                        type: string
+                        minLength: 1
+                        description: |
+                          Excel only — the sheet to promote. Omitted on
+                          CSV commits (where the temp upload contains a
+                          single implicit table).
+                      name:
+                        type: string
+                        minLength: 1
+                        maxLength: 120
+                        description: Dataset display name (user-supplied).
+                      parse_options:
+                        $ref: "../_shared/parse-options.yaml#/components/schemas/ParseOptions"
+                      column_overrides:
+                        type: object
+                        description: |
+                          Per-column dtype + optional format-string overrides
+                          from the wizard's Metadata step. Keys are column
+                          names; values are `ColumnOverride` objects.
+                        additionalProperties:
+                          $ref: "../_shared/column-override.yaml#/components/schemas/ColumnOverride"
+                      excluded_columns:
+                        type: array
+                        items:
+                          type: string
+                        description: |
+                          Column names to drop at commit time. At least one
+                          column must remain after exclusion.
+                      target_dataset_id:
+                        type: string
+                        pattern: "^ds_[0-9a-f]{8}$"
+                        description: |
+                          Reserved for append-mode (R∞). When set, `name` is
+                          ignored and the item appends to the named dataset
+                          instead of creating a new one. R16+ does not
+                          implement this; the field is parsed but rejected
+                          with 422 until append-mode lands.
+      responses:
+        "201":
+          description: |
+            All items committed atomically. Returns the created Dataset
+            rows in the same order as the request `items` array.
+          content:
+            application/json:
+              schema:
+                type: array
+                minItems: 1
+                items:
+                  $ref: "../_shared/dataset.yaml#/components/schemas/Dataset"
+        "404":
+          description: |
+            Workspace `id` does not exist, OR `temp_id` is unknown / expired.
+            The response body does not distinguish (deliberately — clients
+            should not branch on which of the two is missing).
+        "409":
+          description: |
+            Commit-time conflict. Examples: `parse_options` in an item don't
+            match what the temp directory was last parsed with (re-parse
+            required); `excluded_columns` references a column that doesn't
+            exist; `column_overrides` references a column that doesn't exist.
+            Body includes a short machine code + human detail.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [error]
+                properties:
+                  error:
+                    type: string
+                  detail:
+                    type: string
+        "422":
+          description: |
+            Request-level validation failure. Examples: empty `items` array;
+            `target_dataset_id` set (not yet implemented); empty
+            `excluded_columns` would leave zero columns; `column_overrides`
+            value has `dtype: date|datetime` without a `format` field.

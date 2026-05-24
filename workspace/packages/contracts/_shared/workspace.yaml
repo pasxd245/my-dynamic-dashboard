@@ -1,0 +1,30 @@
+# Shared schema: Workspace
+# Used by: workspaces/get, workspaces/post, datasets/batch-post (path param)
+# Matches the R13 Pydantic model at apps/backend/app/routers/workspaces.py.
+components:
+  schemas:
+    Workspace:
+      type: object
+      required: [id, name, createdAt]
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          pattern: "^ws_[0-9a-f]{8}$"
+          description: |
+            Server-generated. Stable across the lifetime of the workspace.
+            Format `ws_<8 lowercase hex chars>`.
+          examples: ["ws_3f8a2c91"]
+        name:
+          type: string
+          minLength: 1
+          maxLength: 80
+          description: User-supplied human label. Not unique.
+          examples: ["Marketing"]
+        createdAt:
+          type: string
+          description: |
+            ISO-8601 UTC, second-precision, `Z`-suffixed. Server-stamped at
+            create time. Sortable as a plain string.
+          pattern: "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+          examples: ["2026-05-24T11:23:45Z"]

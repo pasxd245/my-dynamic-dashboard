@@ -1,0 +1,21 @@
+# Shared schema: ColumnOverride
+# Used by: datasets/batch-post (request — per-item `column_overrides` map)
+# Carried per-column from the wizard's Metadata step to the commit endpoint.
+# Format string is required only for date / datetime dtype overrides.
+components:
+  schemas:
+    ColumnOverride:
+      type: object
+      required: [dtype]
+      additionalProperties: false
+      properties:
+        dtype:
+          $ref: "../_shared/column.yaml#/components/schemas/Dtype"
+        format:
+          type: string
+          description: |
+            Date / datetime format string in Java `DateTimeFormatter` syntax
+            (also understood by pandas + DuckDB). Required iff dtype is
+            `date` or `datetime`; ignored for other dtypes. Default = the
+            wizard's auto-detected format from sample rows.
+          examples: ["yyyy-MM-dd", "yyyy-MM-dd HH:mm:ss", "MM/dd/yyyy"]

@@ -1,0 +1,80 @@
+openapi: 3.1.0
+info:
+  title: my-dynamic-dashboard — POST /uploads
+  version: 0.1.0
+  description: |
+    Phase 1 of the two-phase upload flow. Accepts a multipart file
+    upload, writes it to a temp directory under a server-generated
+    `temp_id`, and returns light metadata. CSV is parsed inline
+    (returns columns + sample rows). Excel is enumerated only
+    (returns sheet list + per-sheet counts); per-sheet parse is
+    deferred to `POST /uploads/{temp_id}/parse`. No Dataset row
+    is created at this step — that happens at commit time.
+
+paths:
+  /uploads:
+    post:
+      operationId: createTempUpload
+      summary: Upload a file (temp); return parse metadata
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file, sourceFormat]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: |
+                    The uploaded file. CSV files use `.csv`; Excel files
+                    use `.xlsx` or `.xls`. Max size is 100 MB (server-
+                    enforced — see error 413).
+                sourceFormat:
+                  type: string
+                  enum: [csv, excel]
+                  description: |
+                    Client-declared. The backend cross-validates against
+                    the file's content; mismatch returns 415.
+      responses:
+        "200":
+          description: |
+            Temp upload accepted. Response shape depends on
+            `sourceFormat`; the discriminator is the `sourceFormat` field
+            in the response body.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "../_shared/temp-upload.yaml#/components/schemas/TempUploadCsv"
+                  - $ref: "../_shared/temp-upload.yaml#/components/schemas/TempUploadExcel"
+                discriminator:
+                  propertyName: sourceFormat
+                  mapping:
+                    csv: "../_shared/temp-upload.yaml#/components/schemas/TempUploadCsv"
+                    excel: "../_shared/temp-upload.yaml#/components/schemas/TempUploadExcel"
+        "413":
+          description: File exceeds 100 MB limit.
+        "415":
+          description: |
+            Source-format / file-content mismatch. Examples: `sourceFormat=csv`
+            but the upload is `.xlsx`; `sourceFormat=excel` but the upload is
+            a text file; uploaded `.xlsx` is encrypted or password-protected.
+        "422":
+          description: |
+            CSV-only: the uploaded file is unparseable (malformed, wrong
+            encoding, etc.). Response body includes a short human-readable
+            reason. No `temp_id` is returned and no temp file is retained.
+            (Excel parse failures land later, on `POST /uploads/{temp_id}/parse`
+            per-sheet — Step 1 only enumerates sheet metadata.)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [error]
+                properties:
+                  error:
+                    type: string
+                  detail:
+                    type: string

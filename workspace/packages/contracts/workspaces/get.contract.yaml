@@ -1,0 +1,35 @@
+openapi: 3.1.0
+info:
+  title: my-dynamic-dashboard — GET /workspaces
+  version: 0.1.0
+  description: |
+    List all workspaces, most-recent first. Retroactive contract for
+    R13's existing endpoint — locked here as part of R15's contract round.
+
+paths:
+  /workspaces:
+    get:
+      operationId: listWorkspaces
+      summary: List workspaces (most-recent first)
+      responses:
+        "200":
+          description: Array of workspaces, sorted by `createdAt` descending.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "../_shared/workspace.yaml#/components/schemas/Workspace"
+              examples:
+                empty:
+                  summary: No workspaces created yet
+                  value: []
+                two:
+                  summary: Two workspaces
+                  value:
+                    - id: "ws_3f8a2c91"
+                      name: "Marketing"
+                      createdAt: "2026-05-24T11:23:45Z"
+                    - id: "ws_1a4d8f02"
+                      name: "Sales Ops"
+                      createdAt: "2026-05-23T09:12:30Z"

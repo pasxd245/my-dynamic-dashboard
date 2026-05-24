@@ -1,0 +1,72 @@
+openapi: 3.1.0
+info:
+  title: my-dynamic-dashboard — GET /datasets
+  version: 0.1.0
+  description: |
+    List datasets, most-recent first. Optionally filtered to a
+    single workspace via the `workspace_id` query parameter.
+    Every returned dataset is committed-and-ready by definition
+    (failed parses never become Datasets — see datasets.md).
+
+paths:
+  /datasets:
+    get:
+      operationId: listDatasets
+      summary: List datasets (optionally scoped to a workspace)
+      parameters:
+        - name: workspace_id
+          in: query
+          required: false
+          schema:
+            type: string
+            pattern: "^ws_[0-9a-f]{8}$"
+          description: |
+            When provided, returns only datasets whose `workspaceId`
+            matches. When omitted, returns datasets across all
+            workspaces (the "All" filter on the Datasets page).
+      responses:
+        "200":
+          description: |
+            Array of datasets, sorted by `createdAt` descending. Empty
+            array when no datasets exist (or none match the filter).
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "../_shared/dataset.yaml#/components/schemas/Dataset"
+              examples:
+                empty:
+                  summary: Filter matched zero datasets
+                  value: []
+                two_excel:
+                  summary: Two Excel datasets from one workbook
+                  value:
+                    - id: "ds_82b5f3e1"
+                      workspaceId: "ws_3f8a2c91"
+                      name: "q1_pipeline_Contacts"
+                      sizeBytes: 253408
+                      rowCount: 14902
+                      columnCount: 7
+                      columns:
+                        [
+                          { name: "contact_id", dtype: "string" },
+                          { name: "email", dtype: "string" },
+                        ]
+                      sourceFormat: "excel"
+                      sheetName: "Contacts"
+                      createdAt: "2026-05-24T11:30:01Z"
+                    - id: "ds_71a4e2f0"
+                      workspaceId: "ws_3f8a2c91"
+                      name: "q1_pipeline_Deals"
+                      sizeBytes: 253408
+                      rowCount: 2481
+                      columnCount: 12
+                      columns:
+                        [
+                          { name: "deal_id", dtype: "string" },
+                          { name: "amount", dtype: "float" },
+                        ]
+                      sourceFormat: "excel"
+                      sheetName: "Deals"
+                      createdAt: "2026-05-24T11:30:01Z"

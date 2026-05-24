@@ -1,0 +1,58 @@
+openapi: 3.1.0
+info:
+  title: my-dynamic-dashboard — POST /workspaces
+  version: 0.1.0
+  description: |
+    Create a workspace. Retroactive contract for R13's existing
+    endpoint — locked here as part of R15's contract round.
+
+paths:
+  /workspaces:
+    post:
+      operationId: createWorkspace
+      summary: Create a workspace
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              additionalProperties: false
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 80
+                  description: Human label; not unique.
+            examples:
+              marketing:
+                summary: A typical create
+                value: { "name": "Marketing" }
+      responses:
+        "201":
+          description: Workspace created.
+          content:
+            application/json:
+              schema:
+                $ref: "../_shared/workspace.yaml#/components/schemas/Workspace"
+              examples:
+                created:
+                  value:
+                    id: "ws_3f8a2c91"
+                    name: "Marketing"
+                    createdAt: "2026-05-24T11:23:45Z"
+        "422":
+          description: |
+            Validation error. Returned when `name` is missing, empty,
+            longer than 80 characters, or the wrong type. Body shape is
+            FastAPI's default validation-error envelope.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: array
+                    items:
+                      type: object

@@ -1,0 +1,74 @@
+# Shared schema: Dataset
+# Used by: datasets/batch-post (response), datasets/get (response items)
+# Matches the data model in .agents/design/data-management/datasets.md.
+components:
+  schemas:
+    SourceFormat:
+      type: string
+      enum: [excel, csv]
+      description: |
+        Wizard path that produced this dataset. Closed enum for R15+;
+        future sources (api, sql, website) require a contract change.
+
+    Dataset:
+      type: object
+      required:
+        [
+          id,
+          workspaceId,
+          name,
+          sizeBytes,
+          rowCount,
+          columnCount,
+          columns,
+          sourceFormat,
+          createdAt,
+        ]
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          pattern: "^ds_[0-9a-f]{8}$"
+          description: Server-generated. Format `ds_<8 lowercase hex>`.
+          examples: ["ds_71a4e2f0"]
+        workspaceId:
+          type: string
+          pattern: "^ws_[0-9a-f]{8}$"
+          description: Foreign key to the containing workspace.
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+          description: |
+            User-supplied in the wizard's Confirm step. Defaults to the
+            filename stem; for Excel multi-sheet uploads, `<stem>_<sheet>`.
+          examples: ["q1_pipeline_Deals"]
+        sizeBytes:
+          type: integer
+          minimum: 0
+          description: Size of the originally uploaded file in bytes.
+        rowCount:
+          type: integer
+          minimum: 0
+          description: Non-null at commit; the parser populated this.
+        columnCount:
+          type: integer
+          minimum: 1
+          description: Always ≥ 1 (a dataset with no columns cannot commit).
+        columns:
+          type: array
+          minItems: 1
+          items:
+            $ref: "../_shared/column.yaml#/components/schemas/Column"
+        sourceFormat:
+          $ref: "#/components/schemas/SourceFormat"
+        sheetName:
+          type: string
+          description: |
+            Present iff `sourceFormat === 'excel'`. The original sheet name
+            from the uploaded workbook.
+          examples: ["Deals", "Contacts"]
+        createdAt:
+          type: string
+          pattern: "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+          description: ISO-8601 UTC, `Z`-suffixed. Set at commit time.

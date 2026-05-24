@@ -1,0 +1,27 @@
+# Shared schema: Column
+# Used by: uploads/parse, datasets/batch-post, datasets/get, _shared/dataset
+# A single column in a parsed dataset's schema.
+components:
+  schemas:
+    Dtype:
+      type: string
+      enum: [string, integer, float, boolean, date, datetime]
+      description: |
+        Dataset column data type. Set of values is closed for R15+;
+        adding a new dtype is a contract change.
+
+    Column:
+      type: object
+      required: [name, dtype]
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+          minLength: 1
+          description: |
+            Column header. For files with a header row this is the original
+            cell value (trimmed). For files parsed with `has_header: false`
+            this is auto-generated as `column1, column2, …`.
+          examples: ["deal_id", "amount", "closed_at"]
+        dtype:
+          $ref: "#/components/schemas/Dtype"

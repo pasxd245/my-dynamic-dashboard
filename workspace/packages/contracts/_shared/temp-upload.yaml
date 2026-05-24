@@ -1,0 +1,99 @@
+# Shared schema: temp-upload response shapes
+# Used by: uploads/post (response), uploads/parse (per-item result inside response)
+# Two parallel branches by sourceFormat: CSV inline-parses; Excel only
+# enumerates sheets (parse is deferred to the per-sheet `parse` endpoint).
+components:
+  schemas:
+    SheetSummary:
+      type: object
+      required: [sheet, rowCount, columnCount]
+      additionalProperties: false
+      properties:
+        sheet:
+          type: string
+          minLength: 1
+          description: Original sheet name in the workbook.
+          examples: ["Deals", "Contacts"]
+        rowCount:
+          type: integer
+          minimum: 0
+        columnCount:
+          type: integer
+          minimum: 0
+        usedRange:
+          type: string
+          pattern: "^[A-Z]+[0-9]+:[A-Z]+[0-9]+$"
+          description: Sniffer-detected default range, used to seed Step 3.
+
+    CsvParsePreview:
+      type: object
+      required: [columns, rowCount, sampleRows]
+      additionalProperties: false
+      properties:
+        columns:
+          type: array
+          minItems: 1
+          items:
+            $ref: "../_shared/column.yaml#/components/schemas/Column"
+        rowCount:
+          type: integer
+          minimum: 0
+        sampleRows:
+          type: array
+          description: |
+            First N rows (N = 10 in R16) as arrays-of-strings. The wizard's
+            Preview step renders this directly. Length never exceeds the
+            row count.
+          items:
+            type: array
+            items:
+              type: ["string", "null"]
+
+    TempUploadCsv:
+      description: Response shape for `POST /uploads` when sourceFormat = csv.
+      type: object
+      required: [temp_id, sourceFormat, sizeBytes, csvPreview]
+      additionalProperties: false
+      properties:
+        temp_id:
+          type: string
+          pattern: "^tmp_[0-9a-f]{16}$"
+          description: |
+            Server-generated temp-upload identifier. Used as the key on
+            `POST /uploads/{temp_id}/parse` (Excel) and as the commit-time
+            handle on `POST /workspaces/{id}/datasets/batch`. 24h TTL on
+            the temp file (sweep lands in a later round).
+          examples: ["tmp_4f8a91c0b3d7e251"]
+        sourceFormat:
+          type: string
+          enum: [csv]
+        sizeBytes:
+          type: integer
+          minimum: 0
+        csvPreview:
+          $ref: "#/components/schemas/CsvParsePreview"
+
+    TempUploadExcel:
+      description: |
+        Response shape for `POST /uploads` when sourceFormat = excel.
+        Sheets are enumerated cheaply; per-sheet parse is deferred to
+        `POST /uploads/{temp_id}/parse` to keep the initial wait short on
+        multi-sheet workbooks.
+      type: object
+      required: [temp_id, sourceFormat, sizeBytes, sheets]
+      additionalProperties: false
+      properties:
+        temp_id:
+          type: string
+          pattern: "^tmp_[0-9a-f]{16}$"
+        sourceFormat:
+          type: string
+          enum: [excel]
+        sizeBytes:
+          type: integer
+          minimum: 0
+        sheets:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/SheetSummary"

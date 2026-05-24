@@ -1,0 +1,31 @@
+# Shared schema: ParseOptions
+# Used by: uploads/parse (request per-sheet), datasets/batch-post (request items)
+# Per-sheet (Excel) or whole-file (CSV) parser options. All fields optional;
+# omitted values use the backend's sniffer-inferred defaults.
+components:
+  schemas:
+    ParseOptions:
+      type: object
+      additionalProperties: false
+      properties:
+        range:
+          type: string
+          pattern: "^[A-Z]+[0-9]+:[A-Z]+[0-9]+$"
+          description: |
+            Excel only. Cell range like `A1:C20` for sub-table extraction.
+            Ignored when the source is CSV. Default = the sheet's full used
+            range (from the sniffer).
+          examples: ["A1:C20", "B2:F100"]
+        skip_rows:
+          type: integer
+          minimum: 0
+          description: |
+            CSV only. Leading rows to drop before reading. The CSV
+            equivalent of `range`. Ignored when the source is Excel.
+            Default = 0.
+        has_header:
+          type: boolean
+          description: |
+            Whether the first row (after range/skip-rows) is a header row.
+            When `false`, the parser auto-generates `column1, column2, …`
+            (locked by R14 HIxAI Q14c). Default = `true`.
