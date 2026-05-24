@@ -1,4 +1,8 @@
-import { AppstoreOutlined, DatabaseOutlined } from "@ant-design/icons";
+import {
+  AppstoreOutlined,
+  DatabaseOutlined,
+  TableOutlined,
+} from "@ant-design/icons";
 import { WorkspaceShell, type NavGroup } from "@mdd/ui";
 import { useState, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -16,6 +20,11 @@ const NAV_GROUPS: ReadonlyArray<NavGroup> = [
         label: "Workspaces",
         icon: <AppstoreOutlined />,
       },
+      {
+        key: "datasets",
+        label: "Datasets",
+        icon: <TableOutlined />,
+      },
     ],
   },
 ];
@@ -23,6 +32,7 @@ const NAV_GROUPS: ReadonlyArray<NavGroup> = [
 // Map from leaf nav-item key to its route.
 const ROUTE_FOR_KEY: Record<string, string> = {
   workspaces: "/data-management/workspaces",
+  datasets: "/data-management/datasets",
 };
 
 function activeKeyFor(pathname: string): string {
@@ -31,6 +41,12 @@ function activeKeyFor(pathname: string): string {
     pathname.startsWith("/data-management/workspaces/")
   ) {
     return "workspaces";
+  }
+  if (
+    pathname === "/data-management/datasets" ||
+    pathname.startsWith("/data-management/datasets/")
+  ) {
+    return "datasets";
   }
   // /data-management with no sub-segment is the placeholder route;
   // no leaf is "active" then (the group header just stays expanded).

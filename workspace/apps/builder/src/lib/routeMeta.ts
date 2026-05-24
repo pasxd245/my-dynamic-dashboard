@@ -38,6 +38,34 @@ export function useRouteMeta(): RouteMeta {
     };
   }
 
+  if (pathname === "/data-management/datasets/new") {
+    return {
+      breadcrumb: [
+        { label: "Home", route: "/" },
+        { label: "Data Management" },
+        { label: "Datasets", route: "/data-management/datasets" },
+        { label: "New" },
+      ],
+      title: "New dataset",
+      subtitle: "Upload a file and turn it into a queryable dataset.",
+    };
+  }
+
+  if (
+    pathname === "/data-management/datasets" ||
+    pathname.startsWith("/data-management/datasets/")
+  ) {
+    return {
+      breadcrumb: [
+        { label: "Home", route: "/" },
+        { label: "Data Management" },
+        { label: "Datasets" },
+      ],
+      title: "Datasets",
+      subtitle: "All tables across your workspaces.",
+    };
+  }
+
   return {
     breadcrumb: [{ label: "Home" }],
     title: "Home",

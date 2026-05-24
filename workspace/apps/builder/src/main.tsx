@@ -10,6 +10,8 @@ import {
   Routes,
 } from "react-router-dom";
 import { AppLayout } from "./components/AppLayout";
+import { DatasetsPage } from "./features/data-management/datasets/DatasetsPage";
+import { DatasetNewPage } from "./features/data-management/datasets/upload/DatasetNewPage";
 import { WorkspacesPage } from "./features/data-management/workspaces/WorkspacesPage";
 
 const rootElement = document.getElementById("root");
@@ -51,6 +53,14 @@ createRoot(rootElement).render(
               <Route
                 path="/data-management/workspaces"
                 element={<WorkspacesPage />}
+              />
+              <Route
+                path="/data-management/datasets"
+                element={<DatasetsPage />}
+              />
+              <Route
+                path="/data-management/datasets/new"
+                element={<DatasetNewPage />}
               />
             </Routes>
           </AppLayout>

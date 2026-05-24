@@ -41,7 +41,8 @@ const BREADCRUMB = [
 
 function WorkspaceCard({
   workspace,
-}: Readonly<{ workspace: Workspace }>) {
+  onOpen,
+}: Readonly<{ workspace: Workspace; onOpen: (id: string) => void }>) {
   const { token } = theme.useToken();
   const badgeStyle = {
     width: 32,
@@ -58,7 +59,12 @@ function WorkspaceCard({
   const initial = workspace.name.charAt(0).toUpperCase();
   const createdDate = workspace.createdAt.slice(0, 10);
   return (
-    <Card hoverable data-component="WorkspaceCard" data-workspace-id={workspace.id}>
+    <Card
+      hoverable
+      onClick={() => onOpen(workspace.id)}
+      data-component="WorkspaceCard"
+      data-workspace-id={workspace.id}
+    >
       <div style={badgeStyle} aria-hidden="true">
         {initial}
       </div>
@@ -215,7 +221,14 @@ export function WorkspacesPage() {
       <Row gutter={[16, 16]}>
         {workspaces.map((ws) => (
           <Col key={ws.id} xs={24} md={12} xl={8}>
-            <WorkspaceCard workspace={ws} />
+            <WorkspaceCard
+              workspace={ws}
+              onOpen={(id) =>
+                navigate(
+                  `/data-management/datasets?workspace=${encodeURIComponent(id)}`,
+                )
+              }
+            />
           </Col>
         ))}
       </Row>

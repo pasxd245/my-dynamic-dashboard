@@ -19,6 +19,9 @@ implementation chain begins R15.
 upload + per-sheet parse + atomic batch-commit endpoints land
 against the locked R15 contracts; persistence is SQLite metadata +
 filesystem tree for parsed parquet.
+**Frontend**: [Round_17](../../plan/cycles/Round_17.md) — full-page
+wizard at `/data-management/datasets/new`; reducer-driven state;
+CSV 3-step / Excel 4-step paths.
 **Sibling docs**:
 [datasets.md](datasets.md) (the noun this wizard creates),
 [workspaces.md](workspaces.md) (the container an upload targets),
