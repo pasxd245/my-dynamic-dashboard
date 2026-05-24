@@ -168,7 +168,11 @@ def commit_datasets_batch(id: str, body: _BatchRequest) -> list[Dataset]:  # noq
     for item in body.items:
         opts = item.parse_options or ParseOptions()
         if source_format == "csv":
-            parsed = parse_csv(original_path)
+            parsed = parse_csv(
+                original_path,
+                skip_rows=0 if opts.skip_rows is None else opts.skip_rows,
+                has_header=True if opts.has_header is None else opts.has_header,
+            )
         else:
             parsed = parse_sheet(
                 original_path,

@@ -15,12 +15,12 @@ def _make_workspace(client: TestClient, name: str = "Marketing") -> str:
     return client.post("/workspaces", json={"name": name}).json()["id"]
 
 
-def _csv_upload(client: TestClient) -> str:
-    csv_path = _FIXTURES / "sample.csv"
+def _csv_upload(client: TestClient, fixture: str = "sample.csv") -> str:
+    csv_path = _FIXTURES / fixture
     resp = client.post(
         "/uploads",
         data={"sourceFormat": "csv"},
-        files={"file": ("sample.csv", csv_path.read_bytes(), "text/csv")},
+        files={"file": (fixture, csv_path.read_bytes(), "text/csv")},
     )
     return resp.json()["temp_id"]
 
@@ -131,6 +131,89 @@ def test_excluded_columns_empty_leaves_zero_columns_returns_422() -> None:
             },
         )
     assert resp.status_code == 422
+
+
+@pytest.mark.unit
+def test_csv_commit_with_skip_rows_drops_leading_lines() -> None:
+    # Fixture has 2 noise lines, 1 header, 3 data rows. skip_rows=2 must
+    # land the header on row 3 → real column names + 3 data rows. R20
+    # behavior-conformance: R16 accepts the field, R20 makes it bite.
+    with TestClient(app) as client:
+        ws = _make_workspace(client)
+        temp = _csv_upload(client, "sample_with_noise.csv")
+        resp = client.post(
+            f"/workspaces/{ws}/datasets/batch",
+            json={
+                "temp_id": temp,
+                "items": [{"name": "leads", "parse_options": {"skip_rows": 2}}],
+            },
+        )
+    assert resp.status_code == 201, resp.text
+    body = resp.json()
+    ds = body[0]
+    assert ds["rowCount"] == 3
+    assert [c["name"] for c in ds["columns"]] == ["id", "name", "amount", "signed_up"]
+    validate_response("datasets/batch-post.contract.yaml", 201, body)
+
+
+@pytest.mark.unit
+def test_csv_commit_with_has_header_false_auto_names_columns() -> None:
+    # sample.csv has 1 header + 3 data rows. has_header=false reads all
+    # 4 lines as data and auto-names columns `column1, column2, …`
+    # (one-indexed, matching the Excel parser convention).
+    with TestClient(app) as client:
+        ws = _make_workspace(client)
+        temp = _csv_upload(client)
+        resp = client.post(
+            f"/workspaces/{ws}/datasets/batch",
+            json={
+                "temp_id": temp,
+                "items": [{"name": "raw", "parse_options": {"has_header": False}}],
+            },
+        )
+    assert resp.status_code == 201, resp.text
+    body = resp.json()
+    ds = body[0]
+    assert ds["rowCount"] == 4
+    assert [c["name"] for c in ds["columns"]] == [
+        "column1",
+        "column2",
+        "column3",
+        "column4",
+    ]
+    validate_response("datasets/batch-post.contract.yaml", 201, body)
+
+
+@pytest.mark.unit
+def test_csv_commit_with_skip_rows_and_has_header_false_combine() -> None:
+    # skip first, then auto-name. Drop the 2 noise lines and treat the
+    # remaining 4 lines (would-be-header + 3 data) as headerless data.
+    with TestClient(app) as client:
+        ws = _make_workspace(client)
+        temp = _csv_upload(client, "sample_with_noise.csv")
+        resp = client.post(
+            f"/workspaces/{ws}/datasets/batch",
+            json={
+                "temp_id": temp,
+                "items": [
+                    {
+                        "name": "raw_skip",
+                        "parse_options": {"skip_rows": 2, "has_header": False},
+                    }
+                ],
+            },
+        )
+    assert resp.status_code == 201, resp.text
+    body = resp.json()
+    ds = body[0]
+    assert ds["rowCount"] == 4
+    assert [c["name"] for c in ds["columns"]] == [
+        "column1",
+        "column2",
+        "column3",
+        "column4",
+    ]
+    validate_response("datasets/batch-post.contract.yaml", 201, body)
 
 
 @pytest.mark.unit
