@@ -1,8 +1,8 @@
 # Round 20: Backend — CSV parse-options (B-step)
 
-**Status**: Review
+**Status**: Complete
 **Date started**: 2026-05-25
-**Date completed**: —
+**Date completed**: 2026-05-25
 
 ## Goal
 
@@ -243,7 +243,7 @@ candidate:
 
 ## Act
 
-**Status**: Review (awaiting human approval).
+**Status**: Complete.
 
 **Learnings**:
 
