@@ -13,6 +13,9 @@ applied.
 implementation chain begins R15. Datasets is the **first
 implementation** of R11's sample "Datasets" sub-menu item — it
 promotes from sample to real scope in R14.
+**Backend**: [Round_16](../../plan/cycles/Round_16.md) — SQLite-
+backed `datasets` table; `POST /workspaces/{id}/datasets/batch` and
+`GET /datasets` land against the locked R15 contracts.
 **Sibling docs**:
 [workspaces.md](workspaces.md) (the container datasets live inside),
 [upload.md](upload.md) (the action that creates a dataset — verb to

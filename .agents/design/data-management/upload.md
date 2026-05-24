@@ -15,6 +15,10 @@ commit succeeds — failed parses never become persisted Datasets.
 reframes).
 **Round introduced**: [Round_14](../../plan/cycles/Round_14.md);
 implementation chain begins R15.
+**Backend**: [Round_16](../../plan/cycles/Round_16.md) — temp
+upload + per-sheet parse + atomic batch-commit endpoints land
+against the locked R15 contracts; persistence is SQLite metadata +
+filesystem tree for parsed parquet.
 **Sibling docs**:
 [datasets.md](datasets.md) (the noun this wizard creates),
 [workspaces.md](workspaces.md) (the container an upload targets),
