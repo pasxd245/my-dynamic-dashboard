@@ -1,0 +1,317 @@
+<!doctype html>
+<!--
+  HIxAI design previews — landing page.
+
+  Manually-maintained index for the .agents/design/<domain>/<concept>.preview.html
+  files. Per .agents/design/README.md, this page exists when 3+ previews live
+  in the directory; R14 pulled it in early at N=2 because the IA decision
+  needed a hub.
+
+  R14 enrichment: index now uses the shared master-layout chrome (sidebar +
+  topbar + page-card) via ../_css/preview-shell.css. The sidebar groups
+  previews by domain; sub-items link directly to the preview files. The
+  right-side page-card carries the descriptive cards with round badges so
+  the index doubles as a meta-view of the product chrome itself.
+
+  Add a new preview: drop a sub-item in the sidebar + a card on the right,
+  both pointed at the new preview file. No build, no generation tooling —
+  keep it manual.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MDD — Design previews</title>
+    <link rel="stylesheet" href="_css/tokens.css" />
+    <link rel="stylesheet" href="_css/preview-shell.css" />
+    <style>
+      /* Index-specific styles — the descriptive preview cards inside the
+         shared chrome's page-card. */
+      .domain-section {
+        margin-bottom: 32px;
+      }
+      .domain-section:last-child {
+        margin-bottom: 0;
+      }
+      .domain-section h2 {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--color-text-tertiary);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        margin: 0 0 12px 0;
+      }
+      .preview-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        display: grid;
+        gap: 12px;
+      }
+      .preview-list li {
+        margin: 0;
+      }
+      .preview-card {
+        display: block;
+        background: var(--color-bg-base);
+        border: 1px solid var(--color-border-secondary);
+        border-radius: var(--radius-md);
+        padding: 16px 20px;
+        text-decoration: none;
+        color: inherit;
+        transition:
+          border-color 160ms ease,
+          box-shadow 160ms ease;
+      }
+      .preview-card:hover {
+        border-color: var(--color-primary-bg-hover);
+        box-shadow: var(--shadow-card);
+      }
+      .preview-card .title-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 4px;
+      }
+      .preview-card .title {
+        font-size: 15px;
+        font-weight: 600;
+        color: var(--color-text-base);
+        margin: 0;
+      }
+      .preview-card .meta {
+        font-size: 11px;
+        color: var(--color-text-tertiary);
+        margin: 0 0 8px 0;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      }
+      .preview-card .desc {
+        font-size: 13px;
+        color: var(--color-text-secondary);
+        margin: 0;
+        line-height: 1.5;
+      }
+      .badge {
+        display: inline-block;
+        font-size: 10px;
+        font-weight: 500;
+        padding: 1px 8px;
+        border-radius: 10px;
+        background: var(--color-primary-bg);
+        color: var(--color-primary);
+        vertical-align: middle;
+      }
+      .badge.role {
+        background: var(--color-fill-quaternary);
+        color: var(--color-text-tertiary);
+      }
+      .footer-note {
+        margin-top: 32px;
+        padding-top: 16px;
+        border-top: 1px solid var(--color-border-secondary);
+        font-size: 12px;
+        color: var(--color-text-tertiary);
+        line-height: 1.6;
+      }
+      .footer-note code {
+        background: var(--color-fill-quaternary);
+        padding: 1px 6px;
+        border-radius: 4px;
+        font-size: 11px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="honest-banner">
+      Design-preview index — not production. Each entry below is a self-contained brainstorming preview at ~90%
+      fidelity to the intended UI. Production truth is the running builder, per
+      <a href="README.md">design/README.md</a>.
+    </div>
+
+    <div class="mdd-shell" id="shell">
+      <aside class="mdd-sidebar">
+        <div class="mdd-sidebar-header">
+          <div class="mdd-brand">
+            <div class="mdd-brand-mark">M</div>
+            <span>MDD previews</span>
+          </div>
+        </div>
+
+        <nav class="mdd-nav">
+          <div class="mdd-nav-group is-expanded" id="grp-data">
+            <button class="mdd-nav-group-header" onclick="toggleGroup('grp-data')" title="Data Management">
+              <!-- DatabaseOutlined -->
+              <svg
+                class="nav-icon"
+                viewBox="64 64 896 896"
+                width="16"
+                height="16"
+                fill="currentColor"
+                aria-hidden="true"
+              >
+                <path
+                  d="M832 64H192c-17.7 0-32 14.3-32 32v832c0 17.7 14.3 32 32 32h640c17.7 0 32-14.3 32-32V96c0-17.7-14.3-32-32-32zm-260 72h188v131H572V136zm-118 0h44v131h-44V136zm-162 0h44v131h-44V136zm132 752H236V332h188v556zm162 0h-44V332h44v556zm206 0H614V332h178v556z"
+                />
+              </svg>
+              <span class="label">Data Management</span>
+              <svg
+                class="chevron"
+                viewBox="64 64 896 896"
+                width="10"
+                height="10"
+                fill="currentColor"
+                aria-hidden="true"
+              >
+                <path
+                  d="M765.7 486.8L314.9 134.7A7.97 7.97 0 00302 141v77.3c0 4.9 2.3 9.6 6.1 12.6l360 281.1-360 281.1c-3.9 3-6.1 7.7-6.1 12.6V883c0 6.7 7.7 10.4 12.9 6.3l450.8-352.1a31.96 31.96 0 000-50.4z"
+                />
+              </svg>
+            </button>
+            <div class="mdd-nav-items" data-group-label="Data Management">
+              <a href="data-management/workspace-shell.preview.html" class="mdd-nav-item" title="Workspaces">
+                <!-- AppstoreOutlined -->
+                <svg
+                  class="nav-item-icon"
+                  viewBox="64 64 896 896"
+                  width="14"
+                  height="14"
+                  fill="currentColor"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M464 144H160c-8.8 0-16 7.2-16 16v304c0 8.8 7.2 16 16 16h304c8.8 0 16-7.2 16-16V160c0-8.8-7.2-16-16-16zm-52 268H212V212h200v200zm452-268H560c-8.8 0-16 7.2-16 16v304c0 8.8 7.2 16 16 16h304c8.8 0 16-7.2 16-16V160c0-8.8-7.2-16-16-16zm-52 268H612V212h200v200zM464 544H160c-8.8 0-16 7.2-16 16v304c0 8.8 7.2 16 16 16h304c8.8 0 16-7.2 16-16V560c0-8.8-7.2-16-16-16zm-52 268H212V612h200v200zm452-268H560c-8.8 0-16 7.2-16 16v304c0 8.8 7.2 16 16 16h304c8.8 0 16-7.2 16-16V560c0-8.8-7.2-16-16-16zm-52 268H612V612h200v200z"
+                  />
+                </svg>
+                <span>Workspaces</span>
+              </a>
+              <a href="data-management/datasets.preview.html" class="mdd-nav-item" title="Datasets">
+                <!-- DatabaseOutlined reused -->
+                <svg
+                  class="nav-item-icon"
+                  viewBox="64 64 896 896"
+                  width="14"
+                  height="14"
+                  fill="currentColor"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M832 64H192c-17.7 0-32 14.3-32 32v832c0 17.7 14.3 32 32 32h640c17.7 0 32-14.3 32-32V96c0-17.7-14.3-32-32-32zm-260 72h188v131H572V136zm-118 0h44v131h-44V136zm-162 0h44v131h-44V136zm132 752H236V332h188v556zm162 0h-44V332h44v556zm206 0H614V332h178v556z"
+                  />
+                </svg>
+                <span>Datasets</span>
+              </a>
+              <a href="data-management/upload.preview.html" class="mdd-nav-item" title="Upload wizard (sub-flow)">
+                <!-- CloudUploadOutlined-ish: use 📥 in fallback via emoji-only-rendered span -->
+                <svg
+                  class="nav-item-icon"
+                  viewBox="64 64 896 896"
+                  width="14"
+                  height="14"
+                  fill="currentColor"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M518.3 459a8 8 0 00-12.6 0l-112 141.7a7.98 7.98 0 006.3 12.9h73.9V856c0 4.4 3.6 8 8 8h60c4.4 0 8-3.6 8-8V613.7h74c6.7 0 10.4-7.7 6.3-12.9L518.3 459zM811.4 366.7C765.6 245.9 648.9 160 512.2 160S258.8 245.8 213 366.6C127.3 389.1 64 467.2 64 560c0 110.5 89.5 200 199.9 200H304c4.4 0 8-3.6 8-8v-60c0-4.4-3.6-8-8-8h-40.1c-33.7 0-65.4-13.4-89-37.7-23.5-24.2-36-56.8-34.9-90.6.9-26.4 9.9-51.2 26.2-72.1 16.7-21.3 40.1-36.8 66.1-43.7l37.9-9.9 13.9-36.6c8.6-22.8 20.6-44.1 35.7-63.4a245.6 245.6 0 0152.4-49.9c41.1-28.9 89.5-44.2 140-44.2s98.9 15.3 140 44.2c19.9 14 37.5 30.8 52.4 49.9 15.1 19.3 27.1 40.7 35.7 63.4l13.8 36.5 37.8 9.9c54.3 14.5 92.1 63.8 92.1 120 0 33.4-13 64.9-36.6 88.6-23.5 23.7-55 36.8-88.5 36.9H720c-4.4 0-8 3.6-8 8v60c0 4.4 3.6 8 8 8h40.1C870.5 760 960 670.5 960 560c0-92.7-63.1-170.7-148.6-193.3z"
+                  />
+                </svg>
+                <span>Upload</span>
+              </a>
+            </div>
+          </div>
+        </nav>
+
+        <div class="mdd-sidebar-footer">
+          <span class="build-label">design previews</span>
+        </div>
+      </aside>
+
+      <div class="mdd-content-area">
+        <header class="mdd-topbar">
+          <div class="mdd-topbar-title">Design previews</div>
+          <div class="mdd-topbar-spacer"></div>
+          <div class="mdd-topbar-actions">
+            <span class="mdd-topbar-placeholder">N = 3 previews</span>
+          </div>
+        </header>
+
+        <main class="mdd-content">
+          <div class="page-header">
+            <div class="page-header-main">
+              <div class="breadcrumb">Home ▸ Design previews</div>
+              <h1 class="page-title">MDD — design previews</h1>
+              <p class="page-subtitle">
+                Brainstorming aids for the product UI, grouped by domain. Click any preview to open it in this tab;
+                each preview has a <code style="font-size: 11px">← Preview index</code> button bottom-left to return.
+              </p>
+            </div>
+          </div>
+
+          <div class="page-card">
+            <section class="domain-section">
+              <h2>Data management</h2>
+              <ul class="preview-list">
+                <li>
+                  <a class="preview-card" href="data-management/workspace-shell.preview.html">
+                    <div class="title-row">
+                      <h3 class="title">Workspaces</h3>
+                      <span class="badge">R11</span>
+                      <span class="badge role">shell + grid</span>
+                    </div>
+                    <p class="meta">data-management/workspace-shell.preview.html</p>
+                    <p class="desc">
+                      Master-layout chrome (sidebar, top-bar, breadcrumb, page header, page card) with the Workspaces
+                      card grid as content. Sidebar fold/unfold + sub-menu flyout interactions live here. Click any
+                      workspace card to drill into the Datasets preview.
+                    </p>
+                  </a>
+                </li>
+                <li>
+                  <a class="preview-card" href="data-management/datasets.preview.html">
+                    <div class="title-row">
+                      <h3 class="title">Datasets</h3>
+                      <span class="badge">R14</span>
+                      <span class="badge role">table list</span>
+                    </div>
+                    <p class="meta">data-management/datasets.preview.html</p>
+                    <p class="desc">
+                      Datasets page (sub-menu peer of Workspaces, R14 reframe) — sortable table of committed datasets
+                      across workspaces, with filter dropdown and search. <code>+ Upload</code> navigates to the
+                      upload wizard. State toggle flips empty / populated.
+                    </p>
+                  </a>
+                </li>
+                <li>
+                  <a class="preview-card" href="data-management/upload.preview.html">
+                    <div class="title-row">
+                      <h3 class="title">Upload wizard</h3>
+                      <span class="badge">R14</span>
+                      <span class="badge role">3-step page · sub-route of Datasets</span>
+                    </div>
+                    <p class="meta">data-management/upload.preview.html</p>
+                    <p class="desc">
+                      Full-page wizard at <code>/data-management/datasets/new</code> — Source (workspace + file) →
+                      Preview (parsed schema + sample rows) → Confirm (name + create). State toggle includes a
+                      parse-failed variant of step 2.
+                    </p>
+                  </a>
+                </li>
+              </ul>
+            </section>
+
+            <p class="footer-note">
+              <strong>Navigation between previews:</strong> click a workspace card on the Workspaces preview to open
+              Datasets filtered to that workspace; click <code>+ Upload</code> on Datasets to enter the Upload wizard;
+              click "Workspaces" or "Datasets" in any sidebar to navigate. Each preview also has a
+              <code>← Preview index</code> button bottom-left that brings you back here. Sidebar sub-items above are
+              the same destinations — pick whichever navigation feels right.
+            </p>
+          </div>
+        </main>
+      </div>
+    </div>
+
+    <!-- Shared chrome interactions (toggleGroup; toggleCollapse is unused here
+         because the index has no topbar fold button — the script no-ops). -->
+    <script src="_js/preview-shell.js"></script>
+  </body>
+</html>

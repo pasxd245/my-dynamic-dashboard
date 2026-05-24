@@ -1,0 +1,583 @@
+<!doctype html>
+<!--
+  HIxAI brainstorming aid for Round_14 — Datasets feature (table list + upload modal).
+  Replaces the earlier upload.preview.html (which framed upload as a noun on a
+  workspace detail page; R14's mid-round HIxAI review reframed upload as a verb
+  against the Dataset noun, with Datasets as a sub-menu peer to Workspaces).
+
+  Renders the Datasets page inside the master-layout chrome with a togglable
+  upload modal overlay. Sidebar matches workspace-shell.preview.html for chrome
+  parity; the active sub-item is "Datasets" (the new real surface). Clicking
+  "Workspaces" in the sidebar returns to workspace-shell.preview.html.
+
+  Visual reference only. ~90% fidelity to the intended UI.
+  Production truth is the running builder, not this file.
+  May be removed in a later round (likely the first dataset-impl round's Act)
+  once the running builder visually matches.
+
+  Token vars + chrome shared via ../_css/{tokens.css, preview-shell.css}.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MDD — Datasets (R14 preview)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="../_css/tokens.css" />
+    <link rel="stylesheet" href="../_css/preview-shell.css" />
+    <style>
+      /* Datasets preview — page-specific styles only. Shared chrome + tokens
+         live in ../_css/. */
+
+      /* ─── Filter bar above the table ─────────────────────────────────── */
+      .filter-bar {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        margin-bottom: 16px;
+      }
+      .filter-control {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .filter-label {
+        font-size: 12px;
+        color: var(--color-text-tertiary);
+      }
+      .filter-select,
+      .filter-search {
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-md);
+        padding: 6px 12px;
+        font-size: 13px;
+        background: var(--color-bg-base);
+        color: var(--color-text-base);
+        min-width: 180px;
+      }
+      .filter-search {
+        flex: 1;
+        max-width: 320px;
+      }
+      .filter-clear {
+        background: transparent;
+        border: none;
+        color: var(--color-text-tertiary);
+        cursor: pointer;
+        font-size: 14px;
+        padding: 2px 6px;
+      }
+      .filter-clear:hover {
+        color: var(--color-primary);
+      }
+
+      /* ─── Dataset table ──────────────────────────────────────────────── */
+      .dataset-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+      }
+      .dataset-table thead th {
+        text-align: left;
+        font-weight: 600;
+        color: var(--color-text-tertiary);
+        text-transform: uppercase;
+        font-size: 11px;
+        letter-spacing: 0.04em;
+        padding: 8px 12px;
+        border-bottom: 1px solid var(--color-border-secondary);
+        white-space: nowrap;
+      }
+      .dataset-table thead th.num {
+        text-align: right;
+      }
+      .dataset-table thead th.sort::after {
+        content: ' ↑↓';
+        color: var(--color-text-tertiary);
+        opacity: 0.5;
+      }
+      .dataset-table thead th.sort-asc::after {
+        content: ' ↑';
+        color: var(--color-primary);
+        opacity: 1;
+      }
+      .dataset-table thead th.sort-desc::after {
+        content: ' ↓';
+        color: var(--color-primary);
+        opacity: 1;
+      }
+      .dataset-table tbody td {
+        padding: 12px;
+        border-bottom: 1px solid var(--color-border-secondary);
+        color: var(--color-text-base);
+        vertical-align: middle;
+      }
+      .dataset-table tbody tr:last-child td {
+        border-bottom: none;
+      }
+      .dataset-table tbody tr:hover td {
+        background: var(--color-fill-quaternary);
+        cursor: pointer;
+      }
+      .dataset-table td.num {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+        color: var(--color-text-secondary);
+      }
+      .dataset-table td.name {
+        font-weight: 500;
+      }
+      .source-icon {
+        display: inline-block;
+        font-size: 14px;
+        margin-right: 6px;
+        opacity: 0.9;
+        vertical-align: middle;
+      }
+      .dataset-table td.workspace {
+        color: var(--color-text-secondary);
+      }
+      .dataset-table td.workspace a {
+        color: var(--color-primary);
+        text-decoration: none;
+      }
+      .dataset-table td.uploaded {
+        color: var(--color-text-tertiary);
+        white-space: nowrap;
+      }
+      .dataset-table td.status {
+        text-align: center;
+      }
+      .dataset-table tr.row-failed td {
+        background: rgba(255, 77, 79, 0.04);
+      }
+      .dataset-table tr.row-busy td {
+        background: rgba(22, 119, 255, 0.03);
+      }
+
+      /* ─── Status badges (matches datasets.md) ────────────────────────── */
+      .status-dot {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        vertical-align: middle;
+      }
+      .status-dot.ready {
+        background: var(--color-success);
+      }
+      .status-dot.busy {
+        background: var(--color-primary);
+        animation: pulse 1.6s ease-in-out infinite;
+      }
+      .status-dot.failed {
+        background: var(--color-error);
+      }
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 0.5;
+        }
+        50% {
+          opacity: 1;
+        }
+      }
+      .status-label {
+        font-size: 11px;
+        color: var(--color-text-secondary);
+        margin-left: 6px;
+        vertical-align: middle;
+      }
+      .row-actions {
+        margin-top: 6px;
+        display: flex;
+        gap: 8px;
+      }
+      .row-action {
+        background: transparent;
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-md);
+        padding: 2px 12px;
+        font-size: 12px;
+        color: var(--color-text-secondary);
+        cursor: pointer;
+      }
+      .row-action:hover {
+        border-color: var(--color-primary);
+        color: var(--color-primary);
+      }
+      .row-error {
+        font-size: 12px;
+        color: var(--color-error);
+        margin-top: 4px;
+      }
+
+      /* ─── Empty-state drop zone (zero datasets) ──────────────────────── */
+      .empty-drop-zone {
+        border: 2px dashed var(--color-border);
+        border-radius: var(--radius-md);
+        background: var(--color-fill-quaternary);
+        min-height: 220px;
+        padding: 32px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        text-align: center;
+        text-decoration: none;
+        color: inherit;
+        transition:
+          border-color 160ms ease,
+          background 160ms ease;
+      }
+      .empty-drop-zone:hover {
+        border-color: var(--color-primary);
+        background: var(--color-primary-bg);
+      }
+      .empty-drop-zone .icon {
+        font-size: 36px;
+        color: var(--color-text-tertiary);
+        margin-bottom: 12px;
+      }
+      .empty-drop-zone .primary {
+        font-size: 15px;
+        font-weight: 500;
+        color: var(--color-text-base);
+      }
+      .empty-drop-zone .secondary {
+        font-size: 12px;
+        color: var(--color-text-tertiary);
+        margin-top: 4px;
+      }
+
+
+      /* ─── State-visibility helpers ──────────────────────────────────── */
+      [data-show-when] {
+        display: none;
+      }
+      body.state-populated [data-show-when~='populated'],
+      body.state-empty [data-show-when~='empty'] {
+        display: revert;
+      }
+      /* The PageHeader actions slot always shows the [+ Upload] button
+         regardless of state. */
+      .page-header-actions {
+        display: flex !important;
+      }
+    </style>
+  </head>
+  <body class="state-populated">
+    <div class="honest-banner">
+      Brainstorming preview — not production truth. ~90% fidelity to the Datasets target. Datasets is the new sub-menu
+      peer of Workspaces (R14 reframe). Use the bottom-right toggle to flip between
+      empty / populated / with-failed-row, and the corner button to open the upload modal.
+    </div>
+
+    <div class="mdd-shell" id="shell">
+      <aside class="mdd-sidebar">
+        <div class="mdd-sidebar-header">
+          <a class="mdd-brand" href="../index.html" title="Preview index">
+            <div class="mdd-brand-mark">M</div>
+            <span>MDD</span>
+          </a>
+        </div>
+
+        <nav class="mdd-nav">
+          <div class="mdd-nav-group is-expanded" id="grp-data">
+            <button class="mdd-nav-group-header" onclick="toggleGroup('grp-data')" title="Data Management">
+              <svg
+                class="nav-icon"
+                viewBox="64 64 896 896"
+                width="16"
+                height="16"
+                fill="currentColor"
+                aria-hidden="true"
+              >
+                <path
+                  d="M832 64H192c-17.7 0-32 14.3-32 32v832c0 17.7 14.3 32 32 32h640c17.7 0 32-14.3 32-32V96c0-17.7-14.3-32-32-32zm-260 72h188v131H572V136zm-118 0h44v131h-44V136zm-162 0h44v131h-44V136zm132 752H236V332h188v556zm162 0h-44V332h44v556zm206 0H614V332h178v556z"
+                />
+              </svg>
+              <span class="label">Data Management</span>
+              <svg
+                class="chevron"
+                viewBox="64 64 896 896"
+                width="10"
+                height="10"
+                fill="currentColor"
+                aria-hidden="true"
+              >
+                <path
+                  d="M765.7 486.8L314.9 134.7A7.97 7.97 0 00302 141v77.3c0 4.9 2.3 9.6 6.1 12.6l360 281.1-360 281.1c-3.9 3-6.1 7.7-6.1 12.6V883c0 6.7 7.7 10.4 12.9 6.3l450.8-352.1a31.96 31.96 0 000-50.4z"
+                />
+              </svg>
+            </button>
+            <div class="mdd-nav-items" data-group-label="Data Management">
+              <!-- Cross-link: clicking Workspaces returns to the grid. -->
+              <a href="workspace-shell.preview.html" class="mdd-nav-item" title="Workspaces">
+                <svg
+                  class="nav-item-icon"
+                  viewBox="64 64 896 896"
+                  width="14"
+                  height="14"
+                  fill="currentColor"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M464 144H160c-8.8 0-16 7.2-16 16v304c0 8.8 7.2 16 16 16h304c8.8 0 16-7.2 16-16V160c0-8.8-7.2-16-16-16zm-52 268H212V212h200v200zm452-268H560c-8.8 0-16 7.2-16 16v304c0 8.8 7.2 16 16 16h304c8.8 0 16-7.2 16-16V160c0-8.8-7.2-16-16-16zm-52 268H612V212h200v200zM464 544H160c-8.8 0-16 7.2-16 16v304c0 8.8 7.2 16 16 16h304c8.8 0 16-7.2 16-16V560c0-8.8-7.2-16-16-16zm-52 268H212V612h200v200zm452-268H560c-8.8 0-16 7.2-16 16v304c0 8.8 7.2 16 16 16h304c8.8 0 16-7.2 16-16V560c0-8.8-7.2-16-16-16zm-52 268H612V612h200v200z"
+                  />
+                </svg>
+                <span>Workspaces</span>
+              </a>
+              <!-- Active sub-item: this is the Datasets page. -->
+              <a href="datasets.preview.html" class="mdd-nav-item is-active" title="Datasets">
+                <!-- DatabaseOutlined reused as the Datasets icon -->
+                <svg
+                  class="nav-item-icon"
+                  viewBox="64 64 896 896"
+                  width="14"
+                  height="14"
+                  fill="currentColor"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M832 64H192c-17.7 0-32 14.3-32 32v832c0 17.7 14.3 32 32 32h640c17.7 0 32-14.3 32-32V96c0-17.7-14.3-32-32-32zm-260 72h188v131H572V136zm-118 0h44v131h-44V136zm-162 0h44v131h-44V136zm132 752H236V332h188v556zm162 0h-44V332h44v556zm206 0H614V332h178v556z"
+                  />
+                </svg>
+                <span>Datasets</span>
+              </a>
+              <a href="#" class="mdd-nav-item" title="Schemas (sample)">
+                <svg
+                  class="nav-item-icon"
+                  viewBox="64 64 896 896"
+                  width="14"
+                  height="14"
+                  fill="currentColor"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M928 160H96c-17.7 0-32 14.3-32 32v640c0 17.7 14.3 32 32 32h832c17.7 0 32-14.3 32-32V192c0-17.7-14.3-32-32-32zm-40 208H676V232h212v136zm0 224H676V432h212v160zM412 432h200v160H412V432zm200-64H412V232h200v136zm-476 64h212v160H136V432zm0-200h212v136H136V232zm0 424h212v136H136V656zm276 0h200v136H412V656zm476 136H676V656h212v136z"
+                  />
+                </svg>
+                <span>Schemas <em class="sample-tag">(sample)</em></span>
+              </a>
+            </div>
+          </div>
+
+          <div class="mdd-nav-group" id="grp-reports">
+            <button class="mdd-nav-group-header" onclick="toggleGroup('grp-reports')" title="Reports (sample)">
+              <svg
+                class="nav-icon"
+                viewBox="64 64 896 896"
+                width="16"
+                height="16"
+                fill="currentColor"
+                aria-hidden="true"
+              >
+                <path
+                  d="M88 792h840v40H88zm168-80h112V520H256v192zm192 0h112V336H448v376zm192 0h112V408H640v304zm192 0h112V232H832v480z"
+                />
+              </svg>
+              <span class="label">Reports <em class="sample-tag">(sample)</em></span>
+              <svg
+                class="chevron"
+                viewBox="64 64 896 896"
+                width="10"
+                height="10"
+                fill="currentColor"
+                aria-hidden="true"
+              >
+                <path
+                  d="M765.7 486.8L314.9 134.7A7.97 7.97 0 00302 141v77.3c0 4.9 2.3 9.6 6.1 12.6l360 281.1-360 281.1c-3.9 3-6.1 7.7-6.1 12.6V883c0 6.7 7.7 10.4 12.9 6.3l450.8-352.1a31.96 31.96 0 000-50.4z"
+                />
+              </svg>
+            </button>
+            <div class="mdd-nav-items" data-group-label="Reports (sample)">
+              <a href="#" class="mdd-nav-item" title="Saved Queries (sample)">
+                <svg
+                  class="nav-item-icon"
+                  viewBox="64 64 896 896"
+                  width="14"
+                  height="14"
+                  fill="currentColor"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M854.6 288.7c6 6 9.4 14.1 9.4 22.6V928c0 17.7-14.3 32-32 32H192c-17.7 0-32-14.3-32-32V96c0-17.7 14.3-32 32-32h424.7c8.5 0 16.7 3.4 22.7 9.4l215.2 215.3zM790.2 326L602 137.8V326h188.2z"
+                  />
+                </svg>
+                <span>Saved Queries <em class="sample-tag">(sample)</em></span>
+              </a>
+              <a href="#" class="mdd-nav-item" title="Dashboards (sample)">
+                <svg
+                  class="nav-item-icon"
+                  viewBox="64 64 896 896"
+                  width="14"
+                  height="14"
+                  fill="currentColor"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M924.8 385.6a446.7 446.7 0 00-96-142.4 446.7 446.7 0 00-142.4-96C631.1 123.8 572.5 112 512 112s-119.1 11.8-174.4 35.2A446.7 446.7 0 00195.2 243.2 446.7 446.7 0 0099.2 385.6C75.8 440.9 64 499.5 64 560c0 132.7 58.3 257.7 159.9 343.1l1.7 1.4c5.8 4.8 13.1 7.5 20.6 7.5h531.7c7.5 0 14.8-2.7 20.6-7.5l1.7-1.4C901.7 817.7 960 692.7 960 560c0-60.5-11.9-119.1-35.2-174.4z"
+                  />
+                </svg>
+                <span>Dashboards <em class="sample-tag">(sample)</em></span>
+              </a>
+            </div>
+          </div>
+
+          <a href="#" class="mdd-nav-flat-item" title="Settings (sample)">
+            <svg class="nav-icon" viewBox="64 64 896 896" width="16" height="16" fill="currentColor" aria-hidden="true">
+              <path
+                d="M924.8 625.7l-65.5-56c3.1-19 4.7-38.4 4.7-57.8s-1.6-38.8-4.7-57.8l65.5-56a32.03 32.03 0 009.3-35.2l-.9-2.6a443.74 443.74 0 00-79.7-137.9l-1.8-2.1a32.12 32.12 0 00-35.1-9.5l-81.3 28.9c-30-24.6-63.5-44-99.7-57.6l-15.7-85a32.05 32.05 0 00-25.8-25.7l-2.7-.5a449.4 449.4 0 00-159 0l-2.7.5a32.05 32.05 0 00-25.8 25.7l-15.8 85.4a351.86 351.86 0 00-99 57.4l-81.9-29.1a32 32 0 00-35.1 9.5l-1.8 2.1a446.02 446.02 0 00-79.7 137.9l-.9 2.6c-4.5 12.5-.8 26.5 9.3 35.2l66.3 56.6c-3.1 18.8-4.6 38-4.6 57.1 0 19.2 1.5 38.4 4.6 57.1L99 625.5a32.03 32.03 0 00-9.3 35.2l.9 2.6c18.1 50.4 44.9 96.9 79.7 137.9l1.8 2.1a32.12 32.12 0 0035.1 9.5l81.9-29.1c29.8 24.5 63.1 43.9 99 57.4l15.8 85.4a32.05 32.05 0 0025.8 25.7l2.7.5a449.4 449.4 0 00159 0l2.7-.5a32.05 32.05 0 0025.8-25.7l15.7-85a350 350 0 0099.7-57.6l81.3 28.9a32 32 0 0035.1-9.5l1.8-2.1c34.8-41.1 61.6-87.5 79.7-137.9l.9-2.6c4.5-12.3.8-26.3-9.3-35zM512 326c-97.2 0-176 78.8-176 176s78.8 176 176 176 176-78.8 176-176-78.8-176-176-176z"
+              />
+            </svg>
+            <span class="label">Settings <em class="sample-tag">(sample)</em></span>
+          </a>
+        </nav>
+
+        <div class="mdd-sidebar-footer">
+          <span class="build-label">R14 preview · </span>
+          <span>datasets</span>
+        </div>
+      </aside>
+
+      <div class="mdd-content-area">
+        <header class="mdd-topbar">
+          <button class="mdd-toggle" onclick="toggleCollapse()" aria-label="Toggle sidebar" title="Fold / Unfold sidebar">
+            <svg id="toggle-icon" viewBox="64 64 896 896" width="18" height="18" fill="currentColor" aria-hidden="true">
+              <path
+                id="toggle-icon-path"
+                d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM142.4 642.1L298.7 519a8.84 8.84 0 000-13.9L142.4 381.9c-5.8-4.6-14.4-.5-14.4 6.9v246.3a8.9 8.9 0 0014.4 7z"
+              />
+            </svg>
+          </button>
+          <div class="mdd-topbar-title">Datasets</div>
+          <div class="mdd-topbar-spacer"></div>
+          <div class="mdd-topbar-actions">
+            <span class="mdd-topbar-placeholder">search (future)</span>
+            <span class="mdd-topbar-placeholder">user (future)</span>
+            <span class="mdd-topbar-placeholder">🔔</span>
+          </div>
+        </header>
+
+        <main class="mdd-content">
+          <div class="page-header">
+            <div class="page-header-main">
+              <div class="breadcrumb"><a href="#">Home</a> ▸ <a href="#">Data Management</a> ▸ Datasets</div>
+              <h1 class="page-title">Datasets</h1>
+              <p class="page-subtitle">All tables across your workspaces. Click a row to inspect, sort by any column.</p>
+            </div>
+            <div class="page-header-actions">
+              <a class="btn-primary" href="upload.preview.html">+ Upload</a>
+            </div>
+          </div>
+
+          <div class="page-card">
+            <!-- Empty state: drop zone is the empty state; clicking enters the wizard. -->
+            <div data-show-when="empty">
+              <a class="empty-drop-zone" href="upload.preview.html">
+                <div class="icon">📥</div>
+                <div class="primary">Upload your first file to get started</div>
+                <div class="secondary">Drag and drop here, or click to browse · Excel or CSV · Up to 100 MB</div>
+              </a>
+            </div>
+
+            <!-- Populated state: table + filter bar. No status column — every Dataset is committed-ready. -->
+            <div data-show-when="populated">
+              <div class="filter-bar">
+                <div class="filter-control">
+                  <span class="filter-label">Workspace</span>
+                  <select class="filter-select">
+                    <option>All workspaces</option>
+                    <option>Marketing</option>
+                    <option>Sales Ops</option>
+                    <option>Finance</option>
+                  </select>
+                </div>
+                <input class="filter-search" type="search" placeholder="Search datasets…" />
+              </div>
+
+              <table class="dataset-table">
+                <thead>
+                  <tr>
+                    <th class="sort sort-desc">Uploaded</th>
+                    <th class="sort">Name</th>
+                    <th class="sort">Workspace</th>
+                    <th class="sort num">Rows</th>
+                    <th class="num">Cols</th>
+                    <th class="num">Size</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="uploaded">14:02 today</td>
+                    <td class="name"><span class="source-icon" title="Excel">📊</span>q1_pipeline_2026_Deals</td>
+                    <td class="workspace"><a href="#">Marketing</a></td>
+                    <td class="num">2,481</td>
+                    <td class="num">12</td>
+                    <td class="num">84 KB</td>
+                  </tr>
+                  <tr>
+                    <td class="uploaded">Yesterday</td>
+                    <td class="name"><span class="source-icon" title="Excel">📊</span>contacts_2026</td>
+                    <td class="workspace"><a href="#">Marketing</a></td>
+                    <td class="num">14,902</td>
+                    <td class="num">7</td>
+                    <td class="num">612 KB</td>
+                  </tr>
+                  <tr>
+                    <td class="uploaded">3 days ago</td>
+                    <td class="name"><span class="source-icon" title="CSV">📄</span>leads_2025</td>
+                    <td class="workspace"><a href="#">Marketing</a></td>
+                    <td class="num">431</td>
+                    <td class="num">9</td>
+                    <td class="num">22 KB</td>
+                  </tr>
+                  <tr>
+                    <td class="uploaded">5 days ago</td>
+                    <td class="name"><span class="source-icon" title="Excel">📊</span>deals_q4_Pipeline</td>
+                    <td class="workspace"><a href="#">Sales Ops</a></td>
+                    <td class="num">1,204</td>
+                    <td class="num">18</td>
+                    <td class="num">142 KB</td>
+                  </tr>
+                  <tr>
+                    <td class="uploaded">1 week ago</td>
+                    <td class="name"><span class="source-icon" title="CSV">📄</span>commission_calc</td>
+                    <td class="workspace"><a href="#">Finance</a></td>
+                    <td class="num">58</td>
+                    <td class="num">6</td>
+                    <td class="num">4 KB</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </main>
+      </div>
+    </div>
+
+    <a class="preview-index-link" href="../index.html">← Preview index</a>
+
+    <div class="state-toggle">
+      <button type="button" data-state="empty">Empty</button>
+      <button type="button" data-state="populated" class="is-active">Populated</button>
+    </div>
+
+    <!-- Shared chrome interactions (toggleGroup, toggleCollapse + SVG paths). -->
+    <script src="../_js/preview-shell.js"></script>
+    <script>
+      const body = document.body;
+      const stateButtons = document.querySelectorAll('.state-toggle button');
+      stateButtons.forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const next = btn.dataset.state;
+          body.classList.remove('state-empty', 'state-populated');
+          body.classList.add(`state-${next}`);
+          stateButtons.forEach((b) => b.classList.toggle('is-active', b === btn));
+        });
+      });
+    </script>
+  </body>
+</html>
