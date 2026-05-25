@@ -205,6 +205,11 @@ all of them at once._
 - [x] Post-round audit per [PDCA.md § Post-round audit](../PDCA.md).
 - [x] Grep this file for unticked `- [ ]` before flipping to
       Review.
+- [x] **Add-on (post-Review rollback)**: ship
+      `tests/test_env_policy.py` — adopts drifted's policy-scan
+      idea, skips the redundant typed-env-getter helper since
+      pydantic-settings already provides typed env reading. Test
+      currently passes; allowlist is `_config/settings.py` only.
 
 ## Risks / unknowns
 
@@ -301,6 +306,27 @@ committed to the repo. Added an explicit
 `!workspace/config/**/data/**` un-ignore so templates ship; the
 rendered output stays gitignored because it lives under
 `workspace/apps/backend/data/...`, a different tree.
+
+**Env-access policy scan (second R30 add-on, post-Review
+rollback).** Inspecting drifted's `env_helper.py` for the
+data_dir work surfaced a second pattern worth adopting: drifted
+ships a CI test (`test_no_bare_env_reads_outside_allowed_modules`)
+that fails if any `app/` module calls `os.getenv` /
+`os.environ` outside a tiny bootstrap allowlist. The typed
+env-getters part of drifted's helper is **redundant for us**
+(pydantic-settings provides `env_str`/`env_int`/`env_bool`
+equivalents via field annotations + the `MDD_BACKEND__*` chain
+from R28), but the policy-scan part adds real value — it
+prevents future drift where a feature module reaches for
+`os.environ` ad-hoc instead of going through `CONFIG`.
+
+Shipped
+[`tests/test_env_policy.py`](../../../workspace/apps/backend/tests/test_env_policy.py)
+— ~50 lines, scans `app/**/*.py`, fails if anything outside
+`{_config/settings.py}` does a bare env read. Single allowlisted
+site is the Layer-2 bootstrap (`MDD_CONFIG_FILE`) which can't
+self-reference. Test currently passes (78/78); will catch any
+future regressions in CI.
 
 Full BE suite 77/77 after the refactor — existing
 `storage.set_data_root(tmp_path/'data')` test fixtures still
@@ -438,6 +464,10 @@ and the cancellation path in lifespan works.
       OK; clean shutdown.
 - [x] All Plan + Check checkboxes flipped before Status flips
       to Review.
+- [x] **Env-policy scan** test passes; one allowlisted site
+      (`_config/settings.py` for `MDD_CONFIG_FILE` bootstrap).
+      Adopted from drifted; typed-env-getters portion skipped
+      as redundant with pydantic-settings.
 
 ## Act
 
