@@ -1,8 +1,8 @@
 # Round 22: Methodology evaluation — two-chain DCBF readout
 
-**Status**: Review
+**Status**: Complete
 **Date started**: 2026-05-25
-**Date completed**:
+**Date completed**: 2026-05-25
 
 ## Goal
 
@@ -278,9 +278,14 @@ Logged as a follow-up at the bottom of Act.
 
 ## Act
 
-**Status**: Review (work done; awaiting human approval of the
-`context/` write and the `skills/`-defer decision per
-[governance.md](../../context/governance.md)).
+**Status**: Complete (human-approved 2026-05-25).
+
+User confirmed the defer-skills decision and the track-2/3 freeze:
+_"keep the current state of track2&3"_ — pivot focus to track-1
+(POC/MVP completion) until workspaces + datasets is demo-ready,
+then resume track-2/3 work. Validates R22's sharpened unblocker:
+the next DCBF chain will be a product feature, not another
+methodology round.
 
 **Learnings**:
 
