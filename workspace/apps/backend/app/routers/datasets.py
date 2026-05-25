@@ -20,9 +20,8 @@ import shutil
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Literal
 
-import pandas as pd
 from fastapi import APIRouter, HTTPException, Query, status
 from fastapi import Path as FastApiPath
 from fastapi.responses import JSONResponse, Response
@@ -32,6 +31,8 @@ from app._generated.constants import ID_PATTERNS, NAME_LENGTHS
 from app.db import get_conn
 from app.ingest.csv_parser import parse_csv
 from app.ingest.excel_parser import parse_sheet
+from app.ingest.parquet_writer import write_csv_to_parquet, write_excel_to_parquet
+from app.ingest.rows_reader import query_dataset_rows
 from app.models.common import (
     ApiErrorNameTaken,
     ApiErrorNotFound,
@@ -184,7 +185,9 @@ def commit_datasets_batch(id: str, body: _BatchRequest) -> list[Dataset] | JSONR
             pass
 
     # Parse + validate each item. Build the dataset rows in memory first.
-    staged: list[tuple[Dataset, pd.DataFrame]] = []
+    # Staged carries (Dataset, ParseOptions, kept_column_names) — enough for
+    # the parquet writer to re-read the source and persist the full table.
+    staged: list[tuple[Dataset, ParseOptions, list[str]]] = []
     for item in body.items:
         opts = item.parse_options or ParseOptions()
         if source_format == "csv":
@@ -219,24 +222,37 @@ def commit_datasets_batch(id: str, body: _BatchRequest) -> list[Dataset] | JSONR
             createdAt=created_at,
         )
 
-        # Build a dataframe of the kept columns for parquet write.
-        df = pd.DataFrame(
-            parsed.sample_rows, columns=[c["name"] for c in parsed.columns]
-        )
         kept_names = [c["name"] for c in cols]
-        df = df[[n for n in kept_names if n in df.columns]]
-
-        staged.append((ds, df))
+        staged.append((ds, opts, kept_names))
 
     # Write filesystem trees, then commit DB. Roll back files on DB failure.
     created_dirs: list[Path] = []
     try:
-        for ds, df in staged:
+        for ds, opts, kept_names in staged:
             target = dataset_dir(ds.workspaceId, ds.id)
             target.mkdir(parents=True, exist_ok=True)
             created_dirs.append(target)
             shutil.copy2(original_path, target / f"original{meta['ext']}")
-            df.to_parquet(target / "parsed.parquet", index=False)
+            # R35: write the FULL table (not the wizard's 10-row sample)
+            # so GET /datasets/{id}/rows can serve real data.
+            parquet_target = target / "parsed.parquet"
+            if source_format == "csv":
+                write_csv_to_parquet(
+                    original_path,
+                    parquet_target,
+                    skip_rows=0 if opts.skip_rows is None else opts.skip_rows,
+                    has_header=True if opts.has_header is None else opts.has_header,
+                    kept_columns=kept_names,
+                )
+            else:
+                write_excel_to_parquet(
+                    original_path,
+                    parquet_target,
+                    sheet=ds.sheetName or "",
+                    range_=opts.range,
+                    has_header=True if opts.has_header is None else opts.has_header,
+                    kept_columns=kept_names,
+                )
             (target / "source.json").write_text(
                 json.dumps(
                     {
@@ -251,7 +267,7 @@ def commit_datasets_batch(id: str, body: _BatchRequest) -> list[Dataset] | JSONR
 
         with get_conn() as con:
             con.execute("BEGIN")
-            for ds, _df in staged:
+            for ds, _opts, _kept in staged:
                 con.execute(
                     """INSERT INTO datasets (
                         id, workspace_id, name, size_bytes, row_count,
@@ -289,7 +305,7 @@ def commit_datasets_batch(id: str, body: _BatchRequest) -> list[Dataset] | JSONR
             shutil.rmtree(d, ignore_errors=True)
         raise
 
-    return [ds for ds, _df in staged]
+    return [ds for ds, _opts, _kept in staged]
 
 
 @router.patch("/datasets/{id}")
@@ -382,6 +398,101 @@ def delete_dataset(id: DsIdPath) -> Response:  # noqa: A002
         shutil.rmtree(target, ignore_errors=True)
 
     return Response(status_code=204)
+
+
+def _dataset_from_row(row) -> Dataset:  # type: ignore[no-untyped-def]
+    """Hydrate a Dataset from a SQLite row — used by list + detail GETs."""
+    return Dataset(
+        id=row["id"],
+        workspaceId=row["workspace_id"],
+        name=row["name"],
+        sizeBytes=row["size_bytes"],
+        rowCount=row["row_count"],
+        columnCount=row["column_count"],
+        columns=[Column(**c) for c in json.loads(row["columns_json"])],
+        sourceFormat=row["source_format"],
+        sheetName=row["sheet_name"],
+        createdAt=row["created_at"],
+    )
+
+
+@router.get("/datasets/{id}", response_model_exclude_none=True)
+def get_dataset(id: DsIdPath) -> JSONResponse:  # noqa: A002
+    """Return a single dataset by id. R33 design / R34 contract / R35 impl."""
+    with get_conn() as con:
+        row = con.execute(
+            "SELECT * FROM datasets WHERE id = ?", (id,)
+        ).fetchone()
+    if row is None:
+        return JSONResponse(
+            status_code=404, content=ApiErrorNotFound().model_dump()
+        )
+    ds = _dataset_from_row(row)
+    return JSONResponse(status_code=200, content=ds.model_dump(exclude_none=True))
+
+
+_PAGE_SIZE_ALLOWED = (25, 50, 100)
+
+
+class RowsPage(BaseModel):
+    """Response shape for GET /datasets/{id}/rows. Mirrors the inline
+    RowsPage schema in workspace/packages/contracts/datasets/rows-get.contract.yaml.
+    `additionalProperties: false` per the R16 conformance pattern."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    rows: list[list[str | None]]
+    page: int
+    pageSize: Literal[25, 50, 100]
+    total: int
+
+
+@router.get("/datasets/{id}/rows")
+def get_dataset_rows(  # noqa: A002
+    id: DsIdPath,
+    page: Annotated[int, Query(ge=1)] = 1,
+    page_size: Annotated[int, Query()] = 50,
+    q: Annotated[str | None, Query(min_length=1, max_length=200)] = None,
+) -> JSONResponse:
+    """Paged row reader. R33 design / R34 contract / R35 impl.
+
+    Out-of-range `page > ceil(total / page_size)` returns 200 with an
+    empty `rows` array (matches the list-GET precedent — see
+    rows-get.contract.md § Behavior). 422 only for malformed inputs.
+    """
+    # FastAPI doesn't coerce query strings to Literal[int, ...], so we
+    # enforce the page_size enum manually. Off-enum returns 422 to match
+    # the contract.
+    if page_size not in _PAGE_SIZE_ALLOWED:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"page_size must be one of {_PAGE_SIZE_ALLOWED}; got {page_size}"
+            ),
+        )
+
+    with get_conn() as con:
+        row = con.execute(
+            "SELECT * FROM datasets WHERE id = ?", (id,)
+        ).fetchone()
+    if row is None:
+        return JSONResponse(
+            status_code=404, content=ApiErrorNotFound().model_dump()
+        )
+
+    parquet_path = dataset_dir(row["workspace_id"], row["id"]) / "parsed.parquet"
+    columns = [c["name"] for c in json.loads(row["columns_json"])]
+
+    rows, total = query_dataset_rows(
+        parquet_path,
+        columns,
+        page=page,
+        page_size=page_size,
+        q=q,
+    )
+
+    body = RowsPage(rows=rows, page=page, pageSize=page_size, total=total)
+    return JSONResponse(status_code=200, content=body.model_dump())
 
 
 @router.get("/datasets", response_model=list[Dataset], response_model_exclude_none=True)
