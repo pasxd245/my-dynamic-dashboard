@@ -1,8 +1,8 @@
 # Round 27: Readiness chain start — js-tmpl integration + FE config PoC
 
-**Status**: Review
+**Status**: Complete
 **Date started**: 2026-05-25
-**Date completed**:
+**Date completed**: 2026-05-25
 
 ## Goal
 
@@ -440,8 +440,14 @@ audit replaces the inline regex strings).
 
 ## Act
 
-**Status**: Review (work done; awaiting human approval per
-[governance.md](../../context/governance.md)).
+**Status**: Complete (human-approved 2026-05-25).
+
+R27 opens the readiness chain (R27→R31, R32 = i18n). Layout
+pivot mid-Review (workspace-root siblings → all under
+`workspace/config/`) for a cleaner top-level read. Pre-commit
+hook validated live during R27's own commit. Dogfooding caught
+a real upstream bug in `@nci-gis/js-tmpl` (isDirectRun under
+pnpm) — workaround shipped, upstream follow-up logged.
 
 **Learnings**:
 
