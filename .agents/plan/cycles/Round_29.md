@@ -1,8 +1,8 @@
 # Round 29: Cross-language constants audit + replacement (focused scope)
 
-**Status**: Review
+**Status**: Complete
 **Date started**: 2026-05-25
-**Date completed**:
+**Date completed**: 2026-05-25
 
 ## Goal
 
@@ -299,8 +299,12 @@ R29 is migration, not new shape.
 
 ## Act
 
-**Status**: Review (work done; awaiting human approval per
-[governance.md](../../context/governance.md)).
+**Status**: Complete (human-approved 2026-05-25).
+
+R29 closes the constants half of the readiness chain — 15
+call-site refactors across BE + FE, two `_generated/` modules
+live, four new BE smoke tests. Pre-commit hook validated live on
+both R29 commits.
 
 **Learnings**:
 
