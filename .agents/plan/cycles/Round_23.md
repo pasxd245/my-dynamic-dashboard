@@ -1,8 +1,8 @@
 # Round 23: D-round — CRUD hygiene (workspaces + datasets)
 
-**Status**: Review
+**Status**: Complete
 **Date started**: 2026-05-25
-**Date completed**:
+**Date completed**: 2026-05-25
 
 ## Goal
 
@@ -491,9 +491,7 @@ job.
 
 ## Act
 
-**Status**: Review (work done; awaiting human approval of the
-design doc + preview, the chain declaration, and the Status
-flip per [governance.md](../../context/governance.md)).
+**Status**: Complete (human-approved 2026-05-25).
 
 **Learnings**:
 
