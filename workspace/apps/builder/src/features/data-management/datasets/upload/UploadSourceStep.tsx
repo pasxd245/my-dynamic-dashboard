@@ -109,7 +109,7 @@ export function UploadSourceStep({ state, dispatch }: Props) {
             data-component="UploadDragger"
           >
             <p className="ant-upload-drag-icon">
-              <InboxOutlined style={{ fontSize: 32, opacity: 0.55 }} />
+              <InboxOutlined style={{ fontSize: 32, opacity: 1 }} />
             </p>
             <p
               className="ant-upload-text"

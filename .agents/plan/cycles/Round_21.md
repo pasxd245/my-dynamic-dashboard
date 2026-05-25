@@ -1,8 +1,8 @@
 # Round 21: Frontend — parse-options FE (F-step, chain close)
 
-**Status**: Review
+**Status**: Complete
 **Date started**: 2026-05-25
-**Date completed**: —
+**Date completed**: 2026-05-25
 
 ## Goal
 
@@ -391,7 +391,7 @@ Two findings now have two-instance evidence:
 
 ## Act
 
-**Status**: Review (awaiting human approval).
+**Status**: Complete (human-approved 2026-05-25).
 
 **Learnings**:
 
