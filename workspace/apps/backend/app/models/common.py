@@ -105,3 +105,38 @@ class TempUploadExcel(BaseModel):
     sourceFormat: Literal["excel"]  # noqa: N815
     sizeBytes: Annotated[int, Field(ge=0)]  # noqa: N815
     sheets: Annotated[list[SheetSummary], Field(min_length=1)]
+
+
+# R23 CRUD hygiene chain — added in R25. Matches the YAMLs at
+# packages/contracts/_shared/api-error.yaml and the per-endpoint
+# patch.contract.yaml request bodies.
+
+
+class RenameBody(BaseModel):
+    """Shared request body for PATCH /workspaces/{id} and
+    PATCH /datasets/{id}. The route-level handler enforces the
+    per-resource max-length (80 vs 120) via its own Annotated
+    wrapper; this base model only enforces the lower bound."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: Annotated[str, Field(min_length=1)]
+
+
+class ApiErrorNotFound(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    code: Literal["not_found"] = "not_found"
+
+
+class ApiErrorNameTaken(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    code: Literal["name_taken"] = "name_taken"
+
+
+class ApiErrorNonEmpty(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    code: Literal["non_empty"] = "non_empty"
+    datasetCount: Annotated[int, Field(ge=1)]  # noqa: N815

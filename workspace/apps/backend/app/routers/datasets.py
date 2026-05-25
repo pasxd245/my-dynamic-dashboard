@@ -17,28 +17,45 @@ from __future__ import annotations
 import json
 import secrets
 import shutil
+import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Annotated
 
 import pandas as pd
 from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import Path as FastApiPath
+from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.db import get_conn
 from app.ingest.csv_parser import parse_csv
 from app.ingest.excel_parser import parse_sheet
 from app.models.common import (
+    ApiErrorNameTaken,
+    ApiErrorNotFound,
     Column,
     ColumnOverride,
     Dataset,
     ParseOptions,
 )
 from app.routers.uploads import _load_meta
+from app.routers.workspaces import _is_unique_violation
 from app.storage import dataset_dir, temp_upload_dir
 
 
 router = APIRouter(tags=["datasets"])
+
+
+class RenameDatasetBody(BaseModel):
+    """PATCH /datasets/{id} body — dataset `name` is 1-120 chars."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: Annotated[str, Field(min_length=1, max_length=120)]
+
+
+DsIdPath = Annotated[str, FastApiPath(pattern=r"^ds_[0-9a-f]{8}$")]
 
 
 def _now_iso() -> str:
@@ -128,7 +145,7 @@ def _apply_exclusions(
     response_model=list[Dataset],
     response_model_exclude_none=True,
 )
-def commit_datasets_batch(id: str, body: _BatchRequest) -> list[Dataset]:  # noqa: A002
+def commit_datasets_batch(id: str, body: _BatchRequest) -> list[Dataset] | JSONResponse:  # noqa: A002
     with get_conn() as con:
         ws_row = con.execute(
             "SELECT id FROM workspaces WHERE id = ?", (id,)
@@ -252,12 +269,116 @@ def commit_datasets_batch(id: str, body: _BatchRequest) -> list[Dataset]:  # noq
                     ),
                 )
             con.commit()
+    except sqlite3.IntegrityError as err:
+        for d in created_dirs:
+            shutil.rmtree(d, ignore_errors=True)
+        # R25 tightening: the new unique index on (workspace_id, name)
+        # rejects duplicate dataset names within the same workspace.
+        # Map the violation to the contract's `name_taken` envelope.
+        if _is_unique_violation(err, "datasets.name") or "idx_datasets_name_unique" in str(err):
+            return JSONResponse(
+                status_code=409,
+                content=ApiErrorNameTaken().model_dump(),
+            )
+        raise
     except Exception:
         for d in created_dirs:
             shutil.rmtree(d, ignore_errors=True)
         raise
 
     return [ds for ds, _df in staged]
+
+
+@router.patch("/datasets/{id}")
+def rename_dataset(  # noqa: A002 — match contract path param name
+    id: DsIdPath,
+    body: RenameDatasetBody,
+) -> JSONResponse:
+    """Rename a committed dataset.
+
+    R23 design + R24 contract. Per-workspace uniqueness on `name`.
+    Pre-checks existence (404); UPDATE may violate the unique index
+    (409 `name_taken`).
+    """
+    with get_conn() as con:
+        row = con.execute(
+            "SELECT * FROM datasets WHERE id = ?", (id,)
+        ).fetchone()
+        if row is None:
+            return JSONResponse(
+                status_code=404, content=ApiErrorNotFound().model_dump()
+            )
+        try:
+            con.execute(
+                "UPDATE datasets SET name = ? WHERE id = ?",
+                (body.name, id),
+            )
+            con.commit()
+        except sqlite3.IntegrityError as err:
+            if _is_unique_violation(err, "datasets.name") or "idx_datasets_name_unique" in str(err):
+                return JSONResponse(
+                    status_code=409,
+                    content=ApiErrorNameTaken().model_dump(),
+                )
+            raise
+
+        # Re-read for the response (name field changed; everything else
+        # stays). Simpler than synthesizing the dict from the prior row.
+        updated = con.execute(
+            "SELECT * FROM datasets WHERE id = ?", (id,)
+        ).fetchone()
+
+    ds = Dataset(
+        id=updated["id"],
+        workspaceId=updated["workspace_id"],
+        name=updated["name"],
+        sizeBytes=updated["size_bytes"],
+        rowCount=updated["row_count"],
+        columnCount=updated["column_count"],
+        columns=[Column(**c) for c in json.loads(updated["columns_json"])],
+        sourceFormat=updated["source_format"],
+        sheetName=updated["sheet_name"],
+        createdAt=updated["created_at"],
+    )
+    return JSONResponse(
+        status_code=200,
+        content=ds.model_dump(exclude_none=True),
+    )
+
+
+@router.delete("/datasets/{id}")
+def delete_dataset(id: DsIdPath) -> Response:  # noqa: A002
+    """Delete a committed dataset.
+
+    Atomic with parquet cleanup: validate exists → delete DB row →
+    rmtree the dataset directory. If the rmtree fails after the DB
+    commit, the row is gone but the directory leaks — acceptable for
+    POC (the directory is unreferenced; a future GC round can sweep).
+    R23 design has no 409 path because datasets have no dependents.
+
+    404 on already-absent (lets the FE distinguish "you did this"
+    from "someone else did").
+    """
+    with get_conn() as con:
+        row = con.execute(
+            "SELECT id, workspace_id FROM datasets WHERE id = ?", (id,)
+        ).fetchone()
+        if row is None:
+            return JSONResponse(
+                status_code=404, content=ApiErrorNotFound().model_dump()
+            )
+        workspace_id = row["workspace_id"]
+        con.execute("DELETE FROM datasets WHERE id = ?", (id,))
+        con.commit()
+
+    # Filesystem cleanup AFTER the DB commit. A failure here leaks a
+    # directory but the DB is consistent; the FE refreshes and sees
+    # the dataset is gone.
+    target = dataset_dir(workspace_id, id)
+    if target.exists():
+        shutil.rmtree(target, ignore_errors=True)
+
+    return Response(status_code=204)
 
 
 @router.get("/datasets", response_model=list[Dataset], response_model_exclude_none=True)

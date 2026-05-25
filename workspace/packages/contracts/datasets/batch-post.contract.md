@@ -66,15 +66,25 @@ out, not this endpoint.
 - **`404 Not Found`**: workspace missing _or_ temp upload missing
   (deliberately ambiguous; clients should treat as "either is
   gone").
-- **`409 Conflict`**:
-  - `parse_options_stale` — `parse_options` in an item don't
-    match the last parse. Client must call `parse` again.
-  - `column_not_in_schema` — `excluded_columns` or
-    `column_overrides` references a column name not present in
-    the parsed schema.
-  - `cast_failed` — a `column_overrides` cast (e.g., `"abc"` to
-    integer) failed at commit time. Body includes the row index
-    and column.
+- **`409 Conflict`** — two body shapes (see YAML's `oneOf`):
+  - **Legacy `{ error, detail }` shape**, used for:
+    - `parse_options_stale` — `parse_options` in an item don't
+      match the last parse. Client must call `parse` again.
+    - `column_not_in_schema` — `excluded_columns` or
+      `column_overrides` references a column name not present
+      in the parsed schema.
+    - `cast_failed` — a `column_overrides` cast (e.g., `"abc"`
+      to integer) failed at commit time. Body includes the row
+      index and column.
+  - **Code-first `{ code: "name_taken" }` envelope** _(R25
+    tightening)_ — at least one item's `name` collides with an
+    existing dataset in the same workspace, per the new unique
+    index `idx_datasets_name_unique`. The FE handles this with
+    the same inline-error treatment as standalone
+    [`PATCH /datasets/{id}` § 409](patch.contract.md). The two
+    shapes are kept distinct because the legacy 409s carry
+    per-row context (`parse_options_stale` etc.) that the
+    code-first envelope does not.
 - **`422 Unprocessable Entity`**: request-level validation
   (per the field-level rules in the YAML), plus the R16+
   rejection of `target_dataset_id`, plus the

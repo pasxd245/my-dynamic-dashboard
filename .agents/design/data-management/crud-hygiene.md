@@ -16,6 +16,11 @@ declaration at the end of R23.
 datasets) plus the new shared
 [`_shared/api-error.yaml`](../../../workspace/packages/contracts/_shared/api-error.yaml)
 envelope. All 11 contracts in the package validate.
+**Backend**: [Round_25](../../plan/cycles/Round_25.md) — four
+route handlers, four `ApiError*` Pydantic models, schema
+migration (two unique indexes) with a startup-time duplicate-
+name back-fill, plus the `POST /workspaces` and batch-commit
+tightening to 409 on `name_taken`. 54/54 backend tests pass.
 **Sibling docs**:
 [workspaces.md](workspaces.md) (the noun this verb-set operates
 on — defines the Workspace data model),

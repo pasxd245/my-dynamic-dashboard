@@ -21,7 +21,14 @@ _FIXTURES = Path(__file__).parent / "fixtures"
 
 
 @pytest.mark.contract
-def test_all_six_endpoints_conform_to_locked_contracts() -> None:
+def test_all_endpoints_conform_to_locked_contracts() -> None:
+    """Six original endpoints + four new R23/R25 CRUD endpoints.
+
+    Each endpoint contributes at least one happy-path canonical
+    response validated against its locked YAML. New R25 endpoints
+    also exercise one representative error response per the R22
+    behavior-conformance sub-rule.
+    """
     with TestClient(app) as client:
         # 1. GET /workspaces — empty.
         resp = client.get("/workspaces")
@@ -65,3 +72,26 @@ def test_all_six_endpoints_conform_to_locked_contracts() -> None:
         # 6. GET /datasets.
         listed = client.get("/datasets").json()
         validate_response("datasets/get.contract.yaml", 200, listed)
+
+        # 7. PATCH /workspaces/{id} — rename.
+        renamed_ws = client.patch(
+            f"/workspaces/{ws['id']}",
+            json={"name": "Conformance Renamed"},
+        ).json()
+        validate_response("workspaces/patch.contract.yaml", 200, renamed_ws)
+
+        # 8. PATCH /datasets/{id} — rename.
+        ds_id = committed[0]["id"]
+        renamed_ds = client.patch(
+            f"/datasets/{ds_id}",
+            json={"name": "q1_deals_renamed"},
+        ).json()
+        validate_response("datasets/patch.contract.yaml", 200, renamed_ds)
+
+        # 9. DELETE /datasets/{id} — clears the path for the workspace delete.
+        deleted_ds = client.delete(f"/datasets/{ds_id}")
+        assert deleted_ds.status_code == 204
+
+        # 10. DELETE /workspaces/{id} — empty workspace.
+        deleted_ws = client.delete(f"/workspaces/{ws['id']}")
+        assert deleted_ws.status_code == 204

@@ -12,11 +12,19 @@ follow-up `GET`.
 
 ## Behavior
 
-- **Not idempotent.** Two identical POSTs create two workspaces;
-  the same `name` is permitted on multiple rows (workspaces have
-  no uniqueness constraint beyond `id`). Clients that want
-  "create-if-not-exists" semantics implement that themselves
-  with a list-then-create check; R15 contracts no such helper.
+- **Not idempotent.** Two identical POSTs create two workspaces.
+- **Globally unique `name`.** _(R25 tightening.)_ Workspace
+  names must be unique across all workspaces; a collision
+  returns 409 `name_taken`. The R13 contract originally
+  allowed duplicates (silent dup-allow); R25 added the unique
+  index `idx_workspaces_name_unique` and tightened the create
+  path to surface the conflict. Any pre-existing duplicates
+  are auto-resolved at startup via the back-fill in
+  [`app/db.py`](../../../apps/backend/app/db.py) (older row
+  keeps the name; newer rows get `<name> (2)`, `<name> (3)`
+  suffixes; rename logged to stdout). Clients should treat
+  the 409 the same way they treat
+  [`PATCH /workspaces/{id}` § 409](../workspaces/patch.contract.md).
 - **`id` format**: `ws_<8 lowercase hex>` (24 bits of entropy).
   Single-user product; collision probability is acceptable.
 - **`createdAt`**: server-stamped at insert time, second-

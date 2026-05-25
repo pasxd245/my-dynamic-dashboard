@@ -28,21 +28,34 @@ paths:
             examples:
               marketing:
                 summary: A typical create
-                value: { "name": "Marketing" }
+                value: { 'name': 'Marketing' }
       responses:
-        "201":
+        '201':
           description: Workspace created.
           content:
             application/json:
               schema:
-                $ref: "../_shared/workspace.yaml#/components/schemas/Workspace"
+                $ref: '../_shared/workspace.yaml#/components/schemas/Workspace'
               examples:
                 created:
                   value:
-                    id: "ws_3f8a2c91"
-                    name: "Marketing"
-                    createdAt: "2026-05-24T11:23:45Z"
-        "422":
+                    id: 'ws_3f8a2c91'
+                    name: 'Marketing'
+                    createdAt: '2026-05-24T11:23:45Z'
+        '409':
+          description: |
+            Another workspace already has the requested `name`. R25
+            tightened the create endpoint to enforce global uniqueness
+            on `name` (was: silent dup-allow in R13). Body uses the
+            code-first envelope introduced in R24.
+          content:
+            application/json:
+              schema:
+                $ref: '../_shared/api-error.yaml#/components/schemas/ApiErrorNameTaken'
+              examples:
+                collision:
+                  value: { 'code': 'name_taken' }
+        '422':
           description: |
             Validation error. Returned when `name` is missing, empty,
             longer than 80 characters, or the wrong type. Body shape is

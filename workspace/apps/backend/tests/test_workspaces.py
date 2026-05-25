@@ -65,3 +65,17 @@ def test_workspaces_survive_reconnect() -> None:
         listed = client.get("/workspaces").json()
 
     assert any(w["id"] == created["id"] for w in listed)
+
+
+# R25: workspace name uniqueness tightening on POST.
+
+
+@pytest.mark.unit
+def test_post_duplicate_name_returns_409_name_taken() -> None:
+    with TestClient(app) as client:
+        client.post("/workspaces", json={"name": "Marketing"})
+        dup = client.post("/workspaces", json={"name": "Marketing"})
+
+    assert dup.status_code == 409
+    assert dup.json() == {"code": "name_taken"}
+    validate_response("workspaces/post.contract.yaml", 409, dup.json())

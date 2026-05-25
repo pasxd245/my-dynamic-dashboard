@@ -21,7 +21,7 @@ paths:
           required: true
           schema:
             type: string
-            pattern: "^ws_[0-9a-f]{8}$"
+            pattern: '^ws_[0-9a-f]{8}$'
       requestBody:
         required: true
         content:
@@ -33,7 +33,7 @@ paths:
               properties:
                 temp_id:
                   type: string
-                  pattern: "^tmp_[0-9a-f]{16}$"
+                  pattern: '^tmp_[0-9a-f]{16}$'
                 items:
                   type: array
                   minItems: 1
@@ -55,7 +55,7 @@ paths:
                         maxLength: 120
                         description: Dataset display name (user-supplied).
                       parse_options:
-                        $ref: "../_shared/parse-options.yaml#/components/schemas/ParseOptions"
+                        $ref: '../_shared/parse-options.yaml#/components/schemas/ParseOptions'
                       column_overrides:
                         type: object
                         description: |
@@ -63,7 +63,7 @@ paths:
                           from the wizard's Metadata step. Keys are column
                           names; values are `ColumnOverride` objects.
                         additionalProperties:
-                          $ref: "../_shared/column-override.yaml#/components/schemas/ColumnOverride"
+                          $ref: '../_shared/column-override.yaml#/components/schemas/ColumnOverride'
                       excluded_columns:
                         type: array
                         items:
@@ -73,7 +73,7 @@ paths:
                           column must remain after exclusion.
                       target_dataset_id:
                         type: string
-                        pattern: "^ds_[0-9a-f]{8}$"
+                        pattern: '^ds_[0-9a-f]{8}$'
                         description: |
                           Reserved for append-mode (R∞). When set, `name` is
                           ignored and the item appends to the named dataset
@@ -81,7 +81,7 @@ paths:
                           implement this; the field is parsed but rejected
                           with 422 until append-mode lands.
       responses:
-        "201":
+        '201':
           description: |
             All items committed atomically. Returns the created Dataset
             rows in the same order as the request `items` array.
@@ -91,30 +91,40 @@ paths:
                 type: array
                 minItems: 1
                 items:
-                  $ref: "../_shared/dataset.yaml#/components/schemas/Dataset"
-        "404":
+                  $ref: '../_shared/dataset.yaml#/components/schemas/Dataset'
+        '404':
           description: |
             Workspace `id` does not exist, OR `temp_id` is unknown / expired.
             The response body does not distinguish (deliberately — clients
             should not branch on which of the two is missing).
-        "409":
+        '409':
           description: |
-            Commit-time conflict. Examples: `parse_options` in an item don't
-            match what the temp directory was last parsed with (re-parse
-            required); `excluded_columns` references a column that doesn't
-            exist; `column_overrides` references a column that doesn't exist.
-            Body includes a short machine code + human detail.
+            Commit-time conflict. Two body shapes are possible:
+
+            1. The legacy `{ error, detail }` shape — covers
+               parse_options mismatches, unknown columns referenced
+               by `excluded_columns` / `column_overrides`, etc.
+            2. The R25 code-first envelope `{ code: "name_taken" }`
+               — returned when any item's `name` collides with an
+               existing dataset in the same workspace (the new
+               unique index on `datasets(workspace_id, name)`).
+
+            The FE branches on whether a `code` field is present:
+            if yes, narrow to the new envelope; otherwise treat as
+            the legacy shape. Future round may unify if drift bites.
           content:
             application/json:
               schema:
-                type: object
-                required: [error]
-                properties:
-                  error:
-                    type: string
-                  detail:
-                    type: string
-        "422":
+                oneOf:
+                  - type: object
+                    required: [error]
+                    properties:
+                      error:
+                        type: string
+                      detail:
+                        type: string
+                  - $ref: '../_shared/api-error.yaml#/components/schemas/ApiErrorNameTaken'
+        '422':
           description: |
             Request-level validation failure. Examples: empty `items` array;
             `target_dataset_id` set (not yet implemented); empty
