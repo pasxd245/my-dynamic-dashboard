@@ -150,7 +150,9 @@ async def create_temp_upload(
 class _ParseItem(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    sheet: Annotated[str, Field(min_length=1)]
+    # Required for Excel, must be omitted for CSV. The router validates
+    # the combination against the temp upload's sourceFormat.
+    sheet: Annotated[str | None, Field(min_length=1)] = None
     parse_options: ParseOptions | None = None
 
 
@@ -161,18 +163,38 @@ class _ParseRequest(BaseModel):
 
 
 @router.post("/{temp_id}/parse")
-def parse_temp_upload_sheets(temp_id: str, body: _ParseRequest):
+def parse_temp_upload(temp_id: str, body: _ParseRequest):
+    """Parse sheets (Excel) or re-parse the file (CSV).
+
+    R26: extended from Excel-only to also support CSV temp uploads,
+    closing R19 Q1=C's "no CSV re-parse" gap surfaced during R26's
+    visual verification.
+    """
     meta = _load_meta(temp_id)
-    if meta is None or meta.get("sourceFormat") != "excel":
-        raise HTTPException(status_code=404, detail="temp_id unknown or not excel")
+    if meta is None:
+        raise HTTPException(status_code=404, detail="temp_id unknown")
 
     file_path = temp_upload_dir(temp_id) / f"original{meta['ext']}"
     if not file_path.exists():
         raise HTTPException(status_code=404, detail="temp file missing")
 
-    # Validate every requested sheet exists in the workbook.
+    source_format = meta.get("sourceFormat")
+    if source_format == "csv":
+        return {"results": _parse_csv_items(file_path, body.items)}
+    if source_format == "excel":
+        return {"results": _parse_excel_items(file_path, body.items)}
+    raise HTTPException(status_code=404, detail="temp_id has unknown sourceFormat")
+
+
+def _parse_excel_items(file_path: Path, items: list[_ParseItem]) -> list[dict]:
+    missing = [i for i, item in enumerate(items) if item.sheet is None]
+    if missing:
+        raise HTTPException(
+            status_code=422,
+            detail=f"item(s) at index {missing} missing `sheet` (required for excel)",
+        )
     sheet_names = {s.sheet for s in enumerate_sheets(file_path)}
-    unknown = [item.sheet for item in body.items if item.sheet not in sheet_names]
+    unknown = [item.sheet for item in items if item.sheet not in sheet_names]
     if unknown:
         raise HTTPException(
             status_code=422,
@@ -180,8 +202,9 @@ def parse_temp_upload_sheets(temp_id: str, body: _ParseRequest):
         )
 
     results: list[dict] = []
-    for item in body.items:
+    for item in items:
         opts = item.parse_options or ParseOptions()
+        assert item.sheet is not None  # noqa: S101 — narrowed above
         try:
             r = parse_sheet(
                 file_path,
@@ -210,8 +233,40 @@ def parse_temp_upload_sheets(temp_id: str, body: _ParseRequest):
                 "sampleRows": r.sample_rows,
             }
         )
+    return results
 
-    return {"results": results}
+
+def _parse_csv_items(file_path: Path, items: list[_ParseItem]) -> list[dict]:
+    if len(items) != 1:
+        raise HTTPException(
+            status_code=422,
+            detail="CSV uploads accept exactly one item",
+        )
+    item = items[0]
+    if item.sheet is not None:
+        raise HTTPException(
+            status_code=422,
+            detail="CSV items must not carry `sheet`",
+        )
+    opts = item.parse_options or ParseOptions()
+    try:
+        r = parse_csv(
+            file_path,
+            skip_rows=0 if opts.skip_rows is None else opts.skip_rows,
+            has_header=True if opts.has_header is None else opts.has_header,
+        )
+    except CsvParseError as exc:
+        msg = str(exc)
+        code = msg.split(":", 1)[0] if ":" in msg else "parse_failed"
+        return [{"status": "failed", "error": code, "detail": msg}]
+    return [
+        {
+            "status": "ok",
+            "columns": r.columns,
+            "rowCount": r.row_count,
+            "sampleRows": r.sample_rows,
+        }
+    ]
 
 
 def reset_storage_for_tests() -> None:

@@ -3,25 +3,38 @@ info:
   title: my-dynamic-dashboard — POST /uploads/{temp_id}/parse
   version: 0.1.0
   description: |
-    Phase 2 (Excel-only) of the two-phase upload flow. Parses one
-    or more sheets of a previously-uploaded Excel workbook with
-    optional per-sheet `ParseOptions` (range, skip_rows, has_header),
-    returning per-sheet schema + sample rows. Used by the wizard's
-    Sheet → Metadata transition (Excel path only — CSV's parse
-    already happened on `POST /uploads`).
+    Phase 2 of the two-phase upload flow.
+
+    **Excel path** (R15 original): parses one or more sheets of a
+    previously-uploaded workbook with optional per-sheet
+    `ParseOptions` (range, has_header), returning per-sheet schema
+    + sample rows. Used by the wizard's Sheet → Metadata transition.
+
+    **CSV path** (R26 extension — closes R19 Q1=C design gap):
+    re-parses an already-uploaded CSV temp file with new
+    `ParseOptions` (skip_rows, has_header). Used by the wizard's
+    Metadata-step "Re-parse this file" affordance, giving CSV
+    re-parse parity with Excel. R19's "no CSV re-parse" decision
+    held until visual verification in R26 surfaced that the user
+    couldn't preview parse_options changes before commit.
+
+    Item shape: `sheet` is required for Excel temp uploads and
+    must be omitted for CSV temp uploads (the temp upload's
+    `sourceFormat` is the source of truth; the BE rejects the
+    wrong shape with 422).
 
 paths:
   /uploads/{temp_id}/parse:
     post:
-      operationId: parseTempUploadSheets
-      summary: Parse one or more Excel sheets from a temp upload
+      operationId: parseTempUpload
+      summary: Parse sheets (Excel) or re-parse the file (CSV) from a temp upload
       parameters:
         - name: temp_id
           in: path
           required: true
           schema:
             type: string
-            pattern: "^tmp_[0-9a-f]{16}$"
+            pattern: '^tmp_[0-9a-f]{16}$'
       requestBody:
         required: true
         content:
@@ -36,20 +49,20 @@ paths:
                   minItems: 1
                   items:
                     type: object
-                    required: [sheet]
                     additionalProperties: false
                     properties:
                       sheet:
                         type: string
                         minLength: 1
                         description: |
-                          Sheet name from the `sheets[]` array returned by
-                          `POST /uploads`. Must match exactly (no case
-                          normalization).
+                          Excel only — sheet name from the `sheets[]` array
+                          returned by `POST /uploads`. Must match exactly
+                          (no case normalization). Omit for CSV; the BE
+                          rejects sheet+CSV combos with 422.
                       parse_options:
-                        $ref: "../_shared/parse-options.yaml#/components/schemas/ParseOptions"
+                        $ref: '../_shared/parse-options.yaml#/components/schemas/ParseOptions'
       responses:
-        "200":
+        '200':
           description: |
             Per-sheet parse results. Each item is either a success
             (with columns + rowCount + sampleRows) or a failure
@@ -68,11 +81,16 @@ paths:
                     minItems: 1
                     items:
                       type: object
-                      required: [sheet, status]
+                      required: [status]
                       properties:
                         sheet:
                           type: string
                           minLength: 1
+                          description: |
+                            Echoed back for Excel items; omitted for the
+                            CSV item. Lets the FE match results to request
+                            items by sheet name (Excel) or by position
+                            (CSV's single item).
                         status:
                           type: string
                           enum: [ok, failed]
@@ -81,7 +99,7 @@ paths:
                           type: array
                           minItems: 1
                           items:
-                            $ref: "../_shared/column.yaml#/components/schemas/Column"
+                            $ref: '../_shared/column.yaml#/components/schemas/Column'
                         rowCount:
                           type: integer
                           minimum: 0
@@ -90,7 +108,7 @@ paths:
                           items:
                             type: array
                             items:
-                              type: ["string", "null"]
+                              type: ['string', 'null']
                         # When status = failed:
                         error:
                           type: string
@@ -98,12 +116,15 @@ paths:
                         detail:
                           type: string
                           description: Human-readable explanation.
-        "404":
+        '404':
           description: |
-            `temp_id` is unknown — either it was never created, the
-            upload was for a CSV (not Excel), or the 24h TTL elapsed
-            and the temp directory has been swept.
-        "422":
+            `temp_id` is unknown — either it was never created, or
+            the 24h TTL elapsed and the temp directory has been
+            swept.
+        '422':
           description: |
-            Request-level validation failure (malformed body, `items`
-            empty, a `sheet` name not present in the workbook).
+            Request-level validation failure: malformed body,
+            `items` empty, an Excel item missing `sheet`, a CSV
+            item carrying `sheet`, a `sheet` name not present in
+            the workbook, or CSV `items` length > 1 (CSV is a
+            single implicit table).

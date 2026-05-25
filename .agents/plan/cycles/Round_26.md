@@ -393,6 +393,36 @@ R26 did NOT add new vitest tests. Rationale:
   and build prove the wiring; the running app is the next
   test. An integration test for the rename + 409 + re-edit
   flow would be useful but is well-scoped as a follow-up.
+- **CSV re-parse parity (R19 Q1=C design gap surfaced in
+  visual verification).** R19 explicitly chose "no CSV
+  re-parse" (Q1=C): CSV parses inline at `POST /uploads`,
+  and changes to `parse_options` were intended to apply
+  only at commit time. Visual verification in R26 surfaced
+  the actual UX consequence: the user edits `skip_rows`,
+  goes to Preview, sees the OLD columns + sample rows, and
+  has no way to confirm the change will work before
+  committing. The "verify with the running app" discipline
+  is exactly what caught this — type-check + vitest +
+  build all passed without surfacing the gap.
+
+  **Fix shape**: per the user's methodology call
+  (respect historical record; do not edit R19 retroactively),
+  the fix lands as an R26 bug fix with the trace attributed
+  back. Extend `POST /uploads/{temp_id}/parse` to accept CSV
+  temp uploads — small contract amendment (sheet becomes
+  optional, response sheet field optional), small BE
+  addition (a `_parse_csv_items` branch), small FE wire
+  (drop the `!isCsv` gate on the Re-parse button, label
+  becomes "Re-parse this file"). R19 Q1=C stays as the
+  decision-of-record in its round file; R26's Act + the
+  amended contract carry the "we tried that, then verified
+  it was wrong" story. **Lesson**: methodology designed in
+  Q&A without a running-app pass can miss UX-critical
+  gaps; the D-round "see before do" philosophy (R23) is
+  the structural fix, but rounds before R23 didn't have it
+  yet. The CSV gap is one of the artifacts of that
+  pre-philosophy era.
+
 - **CORS preflight bug found in Review (post-merge fix).**
   R25 added the PATCH and DELETE handlers but did not update
   `CORSMiddleware(allow_methods=…)` in `app/main.py`, which

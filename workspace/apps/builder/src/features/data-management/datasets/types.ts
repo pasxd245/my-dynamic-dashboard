@@ -3,15 +3,9 @@
 // the YAML; codegen lands when 3+ contracts drift (per the
 // Evolution Rule).
 
-export type Dtype =
-  | "string"
-  | "integer"
-  | "float"
-  | "boolean"
-  | "date"
-  | "datetime";
+export type Dtype = 'string' | 'integer' | 'float' | 'boolean' | 'date' | 'datetime';
 
-export type SourceFormat = "excel" | "csv";
+export type SourceFormat = 'excel' | 'csv';
 
 export type Column = {
   name: string;
@@ -63,14 +57,14 @@ export type CsvParsePreview = {
 
 export type TempUploadCsv = {
   temp_id: string;
-  sourceFormat: "csv";
+  sourceFormat: 'csv';
   sizeBytes: number;
   csvPreview: CsvParsePreview;
 };
 
 export type TempUploadExcel = {
   temp_id: string;
-  sourceFormat: "excel";
+  sourceFormat: 'excel';
   sizeBytes: number;
   sheets: SheetSummary[];
 };
@@ -78,16 +72,18 @@ export type TempUploadExcel = {
 export type TempUploadResponse = TempUploadCsv | TempUploadExcel;
 
 export type ParseSheetOk = {
-  sheet: string;
-  status: "ok";
+  /** Echoed for Excel; omitted for CSV (single implicit table). */
+  sheet?: string;
+  status: 'ok';
   columns: Column[];
   rowCount: number;
   sampleRows: (string | null)[][];
 };
 
 export type ParseSheetFailed = {
-  sheet: string;
-  status: "failed";
+  /** Echoed for Excel; omitted for CSV. */
+  sheet?: string;
+  status: 'failed';
   error: string;
   detail: string;
 };
@@ -95,7 +91,8 @@ export type ParseSheetFailed = {
 export type ParseSheetResult = ParseSheetOk | ParseSheetFailed;
 
 export type ParseSheetsRequestItem = {
-  sheet: string;
+  /** Required for Excel; must be omitted for CSV. R26 extension. */
+  sheet?: string;
   parse_options?: ParseOptions;
 };
 

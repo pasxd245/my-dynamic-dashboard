@@ -1,13 +1,10 @@
-import { ArrowLeftOutlined, ArrowRightOutlined } from "@ant-design/icons";
-import { PageCard, PageHeader } from "@mdd/ui";
-import { Button, Space, Steps } from "antd";
-import { useEffect, useReducer } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
-import {
-  useDatasetsCommitMutation,
-  useUploadParseMutation,
-} from "../hooks";
-import type { CommitBatchItem } from "../types";
+import { ArrowLeftOutlined, ArrowRightOutlined } from '@ant-design/icons';
+import { PageCard, PageHeader } from '@mdd/ui';
+import { Button, Space, Steps } from 'antd';
+import { useEffect, useReducer } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useDatasetsCommitMutation, useUploadParseMutation } from '../hooks';
+import type { CommitBatchItem } from '../types';
 import {
   CSV_SHEET_KEY,
   hasParseOptionsSet,
@@ -15,18 +12,18 @@ import {
   stepIndex,
   type WizardStep,
   wizardReducer,
-} from "./state";
-import { UploadConfirmStep } from "./UploadConfirmStep";
-import { UploadMetadataStep } from "./UploadMetadataStep";
-import { UploadPreviewStep } from "./UploadPreviewStep";
-import { UploadSheetStep } from "./UploadSheetStep";
-import { UploadSourceStep } from "./UploadSourceStep";
+} from './state';
+import { UploadConfirmStep } from './UploadConfirmStep';
+import { UploadMetadataStep } from './UploadMetadataStep';
+import { UploadPreviewStep } from './UploadPreviewStep';
+import { UploadSheetStep } from './UploadSheetStep';
+import { UploadSourceStep } from './UploadSourceStep';
 
 const BREADCRUMB = [
-  { label: "Home", route: "/" },
-  { label: "Data Management" },
-  { label: "Datasets", route: "/data-management/datasets" },
-  { label: "New" },
+  { label: 'Home', route: '/' },
+  { label: 'Data Management' },
+  { label: 'Datasets', route: '/data-management/datasets' },
+  { label: 'New' },
 ];
 
 export function DatasetNewPage() {
@@ -37,36 +34,36 @@ export function DatasetNewPage() {
   const commitMutation = useDatasetsCommitMutation();
 
   // Pre-fill the workspace from `?workspace=<ws_id>` if present.
-  const workspaceQs = searchParams.get("workspace");
+  const workspaceQs = searchParams.get('workspace');
   useEffect(() => {
     if (workspaceQs && !state.workspaceId) {
-      dispatch({ type: "SET_WORKSPACE", workspaceId: workspaceQs });
+      dispatch({ type: 'SET_WORKSPACE', workspaceId: workspaceQs });
     }
   }, [workspaceQs, state.workspaceId]);
 
   const stepsByFormat: Record<typeof state.sourceFormat, WizardStep[]> = {
-    csv: ["source", "metadata", "preview", "confirm"],
-    excel: ["source", "sheet", "metadata", "preview", "confirm"],
+    csv: ['source', 'metadata', 'preview', 'confirm'],
+    excel: ['source', 'sheet', 'metadata', 'preview', 'confirm'],
   };
   const steps = stepsByFormat[state.sourceFormat];
   const currentIdx = stepIndex(state) - 1;
 
   const goBack = () => {
     if (currentIdx === 0) {
-      navigate("/data-management/datasets");
+      navigate('/data-management/datasets');
       return;
     }
-    dispatch({ type: "GOTO_STEP", step: steps[currentIdx - 1] });
+    dispatch({ type: 'GOTO_STEP', step: steps[currentIdx - 1] });
   };
 
   const goNext = async () => {
     const next = steps[currentIdx + 1];
     if (!next) return;
     // Excel: when leaving the Sheet step, kick off parses for selected sheets.
-    if (state.step === "sheet" && next === "metadata") {
+    if (state.step === 'sheet' && next === 'metadata') {
       if (state.selectedSheets.length === 0 || !state.tempId) return;
       for (const sheet of state.selectedSheets) {
-        dispatch({ type: "PARSE_SHEET_START", sheet });
+        dispatch({ type: 'PARSE_SHEET_START', sheet });
       }
       try {
         const res = await parseMutation.mutateAsync({
@@ -74,71 +71,90 @@ export function DatasetNewPage() {
           body: {
             items: state.selectedSheets.map((sheet) => {
               const opts = state.sheets[sheet]?.parseOptions;
-              return hasParseOptionsSet(opts)
-                ? { sheet, parse_options: opts }
-                : { sheet };
+              return hasParseOptionsSet(opts) ? { sheet, parse_options: opts } : { sheet };
             }),
           },
         });
         for (const result of res.results) {
-          if (result.status === "ok") {
-            dispatch({ type: "PARSE_SHEET_SUCCESS", sheet: result.sheet, result });
+          // Excel batch — server always echoes `sheet`. R26 widened the
+          // response type for CSV support; this Excel path narrows back.
+          const sheet = result.sheet ?? '';
+          if (result.status === 'ok') {
+            dispatch({
+              type: 'PARSE_SHEET_SUCCESS',
+              sheet,
+              result: { ...result, sheet },
+            });
           } else {
-            dispatch({ type: "PARSE_SHEET_FAILED", sheet: result.sheet, result });
+            dispatch({
+              type: 'PARSE_SHEET_FAILED',
+              sheet,
+              result: { ...result, sheet },
+            });
           }
         }
       } catch (err) {
         // Mark all selected as failed with a generic error.
         for (const sheet of state.selectedSheets) {
           dispatch({
-            type: "PARSE_SHEET_FAILED",
+            type: 'PARSE_SHEET_FAILED',
             sheet,
             result: {
               sheet,
-              status: "failed",
-              error: "request_failed",
-              detail: err instanceof Error ? err.message : "Unknown error",
+              status: 'failed',
+              error: 'request_failed',
+              detail: err instanceof Error ? err.message : 'Unknown error',
             },
           });
         }
       }
     }
-    dispatch({ type: "GOTO_STEP", step: next });
+    dispatch({ type: 'GOTO_STEP', step: next });
   };
 
-  // Re-parse a single Excel sheet with its current parseOptions (R19 Q1=C
-  // means no CSV re-parse; CSV's options ride to commit instead).
+  // Re-parse a single sheet (Excel) or the whole file (CSV) with the
+  // current parseOptions. R26 extended this from Excel-only to also
+  // handle CSV via the same /uploads/{temp_id}/parse endpoint (closes
+  // R19 Q1=C). For CSV the `sheet` arg is the CSV_SHEET_KEY sentinel
+  // ("") and the wire item omits `sheet`.
   const reparseSheet = async (sheet: string) => {
     if (!state.tempId) return;
+    const isCsv = state.sourceFormat === 'csv';
     const opts = state.sheets[sheet]?.parseOptions;
-    dispatch({ type: "PARSE_SHEET_START", sheet });
+    dispatch({ type: 'PARSE_SHEET_START', sheet });
     try {
+      const item: { sheet?: string; parse_options?: typeof opts } = {};
+      if (!isCsv) item.sheet = sheet;
+      if (hasParseOptionsSet(opts)) item.parse_options = opts;
       const res = await parseMutation.mutateAsync({
         tempId: state.tempId,
-        body: {
-          items: [
-            hasParseOptionsSet(opts)
-              ? { sheet, parse_options: opts }
-              : { sheet },
-          ],
-        },
+        body: { items: [item] },
       });
-      const result = res.results.find((r) => r.sheet === sheet);
+      // Excel response items carry `sheet`; CSV's single item omits it.
+      const result = isCsv ? res.results[0] : res.results.find((r) => r.sheet === sheet);
       if (!result) return;
-      if (result.status === "ok") {
-        dispatch({ type: "PARSE_SHEET_SUCCESS", sheet, result });
+      if (result.status === 'ok') {
+        dispatch({
+          type: 'PARSE_SHEET_SUCCESS',
+          sheet,
+          result: { ...result, sheet },
+        });
       } else {
-        dispatch({ type: "PARSE_SHEET_FAILED", sheet, result });
+        dispatch({
+          type: 'PARSE_SHEET_FAILED',
+          sheet,
+          result: { ...result, sheet },
+        });
       }
     } catch (err) {
       dispatch({
-        type: "PARSE_SHEET_FAILED",
+        type: 'PARSE_SHEET_FAILED',
         sheet,
         result: {
           sheet,
-          status: "failed",
-          error: "request_failed",
-          detail: err instanceof Error ? err.message : "Unknown error",
+          status: 'failed',
+          error: 'request_failed',
+          detail: err instanceof Error ? err.message : 'Unknown error',
         },
       });
     }
@@ -146,7 +162,7 @@ export function DatasetNewPage() {
 
   const commit = async () => {
     if (!state.tempId || !state.workspaceId) return;
-    const isCsv = state.sourceFormat === "csv";
+    const isCsv = state.sourceFormat === 'csv';
     const sheetKeys = isCsv ? [CSV_SHEET_KEY] : state.selectedSheets;
     const items: CommitBatchItem[] = sheetKeys.map((key) => {
       const s = state.sheets[key];
@@ -168,7 +184,7 @@ export function DatasetNewPage() {
         workspaceId: state.workspaceId,
         body: { temp_id: state.tempId, items },
       });
-      navigate("/data-management/datasets");
+      navigate('/data-management/datasets');
     } catch {
       // Error surfaces via mutation.isError; nothing to do here.
     }
@@ -176,18 +192,18 @@ export function DatasetNewPage() {
 
   const canAdvance = (() => {
     switch (state.step) {
-      case "source":
+      case 'source':
         return state.tempId !== null && state.workspaceId !== null;
-      case "sheet":
+      case 'sheet':
         return state.selectedSheets.length > 0;
-      case "metadata": {
-        const isCsv = state.sourceFormat === "csv";
+      case 'metadata': {
+        const isCsv = state.sourceFormat === 'csv';
         const keys = isCsv ? [CSV_SHEET_KEY] : state.selectedSheets;
-        return keys.every((k) => state.sheets[k]?.status === "ok");
+        return keys.every((k) => state.sheets[k]?.status === 'ok');
       }
-      case "preview":
+      case 'preview':
         return true;
-      case "confirm":
+      case 'confirm':
         return false; // handled separately by Commit button
     }
   })();
@@ -198,35 +214,25 @@ export function DatasetNewPage() {
       title="New dataset"
       subtitle="Upload a file and turn it into a queryable dataset."
       onNavigate={(route) => navigate(route)}
-      actions={
-        <Button onClick={() => navigate("/data-management/datasets")}>
-          Cancel
-        </Button>
-      }
+      actions={<Button onClick={() => navigate('/data-management/datasets')}>Cancel</Button>}
     />
   );
 
   let body: React.ReactNode;
   switch (state.step) {
-    case "source":
+    case 'source':
       body = <UploadSourceStep state={state} dispatch={dispatch} />;
       break;
-    case "sheet":
+    case 'sheet':
       body = <UploadSheetStep state={state} dispatch={dispatch} />;
       break;
-    case "metadata":
-      body = (
-        <UploadMetadataStep
-          state={state}
-          dispatch={dispatch}
-          onReparseSheet={reparseSheet}
-        />
-      );
+    case 'metadata':
+      body = <UploadMetadataStep state={state} dispatch={dispatch} onReparseSheet={reparseSheet} />;
       break;
-    case "preview":
+    case 'preview':
       body = <UploadPreviewStep state={state} dispatch={dispatch} />;
       break;
-    case "confirm":
+    case 'confirm':
       body = (
         <UploadConfirmStep
           state={state}
@@ -246,9 +252,9 @@ export function DatasetNewPage() {
         // Both constants are owned by WorkspaceShell; the wizard borrows
         // them. PageCard (variant="fill") grows to fill the rest; body
         // scrolls inside the card.
-        height: "calc(100vh - 88px)",
-        display: "flex",
-        flexDirection: "column",
+        height: 'calc(100vh - 88px)',
+        display: 'flex',
+        flexDirection: 'column',
         gap: 16,
       }}
     >
@@ -257,16 +263,16 @@ export function DatasetNewPage() {
         <Steps
           current={currentIdx}
           size="small"
-          style={{ marginBottom: 16, flex: "0 0 auto" }}
+          style={{ marginBottom: 16, flex: '0 0 auto' }}
           items={steps.map((s) => ({ title: titleCase(s) }))}
         />
         <div
           data-component="WizardBodyScroll"
           style={{
-            flex: "1 1 auto",
+            flex: '1 1 auto',
             minHeight: 0,
-            overflowY: "auto",
-            overflowX: "hidden",
+            overflowY: 'auto',
+            overflowX: 'hidden',
             paddingRight: 4,
           }}
         >
@@ -275,23 +281,19 @@ export function DatasetNewPage() {
         <div
           data-component="WizardNav"
           style={{
-            flex: "0 0 auto",
+            flex: '0 0 auto',
             marginTop: 16,
             paddingTop: 16,
-            display: "flex",
-            justifyContent: "space-between",
-            borderTop: "1px solid var(--ant-color-border-secondary, #f0f0f0)",
+            display: 'flex',
+            justifyContent: 'space-between',
+            borderTop: '1px solid var(--ant-color-border-secondary, #f0f0f0)',
           }}
         >
-          <Button
-            onClick={goBack}
-            icon={<ArrowLeftOutlined />}
-            data-component="WizardBackButton"
-          >
+          <Button onClick={goBack} icon={<ArrowLeftOutlined />} data-component="WizardBackButton">
             Back
           </Button>
           <Space>
-            {state.step === "confirm" ? (
+            {state.step === 'confirm' ? (
               <Button
                 type="primary"
                 onClick={commit}
@@ -306,7 +308,7 @@ export function DatasetNewPage() {
                 type="primary"
                 onClick={goNext}
                 disabled={!canAdvance}
-                loading={parseMutation.isPending && state.step === "sheet"}
+                loading={parseMutation.isPending && state.step === 'sheet'}
                 data-component="WizardNextButton"
               >
                 Next <ArrowRightOutlined />
