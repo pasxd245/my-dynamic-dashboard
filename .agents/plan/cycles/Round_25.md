@@ -1,8 +1,8 @@
 # Round 25: Backend — CRUD hygiene handlers (DCBF B-step)
 
-**Status**: Review
+**Status**: Complete
 **Date started**: 2026-05-25
-**Date completed**:
+**Date completed**: 2026-05-25
 
 ## Goal
 
@@ -374,8 +374,7 @@ both handlers branch on the same shape.
 
 ## Act
 
-**Status**: Review (work done; awaiting human approval per
-[governance.md](../../context/governance.md)).
+**Status**: Complete (human-approved 2026-05-25).
 
 **Learnings**:
 
