@@ -1,8 +1,8 @@
 # Round 31: FE UX-infra + DX cleanup — toast config, skeletons, AntD deprecations, `@/` alias
 
-**Status**: Review
+**Status**: Complete
 **Date started**: 2026-05-25
-**Date completed**:
+**Date completed**: 2026-05-25
 
 ## Goal
 
