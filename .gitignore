@@ -69,6 +69,7 @@ web_modules/
 .env
 .env.*
 !.env.example
+!*.env.hbs
 
 # parcel-bundler cache (https://parceljs.org/)
 .cache
@@ -171,3 +172,8 @@ workspace/apps/backend/app/_version.py
 
 # R16: backend runtime data — SQLite metadata + uploaded file trees
 workspace/apps/backend/data/
+
+# R27: js-tmpl-generated config artifacts (rendered from workspace/values.yaml
+# + workspace/config/*.hbs). Run `pnpm config:render` to regenerate.
+# (workspace/apps/builder/.env is already covered by the .env line above.)
+workspace/apps/builder/src/_generated/

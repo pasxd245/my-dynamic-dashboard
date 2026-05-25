@@ -4,6 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "config:render": "node scripts/config-render.mjs",
+    "predev": "pnpm run config:render",
     "dev": "pnpm run dev:local:up",
     "dev:builder": "pnpm --filter builder dev",
     "dev:local:up": "bash scripts/dev/local-up.sh",
@@ -12,7 +14,8 @@
     "md:lint": "markdownlint-cli2",
     "format": "prettier --write \"**/*.md\"",
     "format:check": "prettier --check \"**/*.md\"",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "prepare": "husky"
   },
   "keywords": [],
   "author": "pasxd245",

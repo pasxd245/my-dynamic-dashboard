@@ -1,0 +1,23 @@
+# js-tmpl render config (R27).
+#
+# All paths relative to workspace/config/ (CWD when invoking
+# `pnpm config:render`). The repo-root render script changes CWD into
+# workspace/config/ so js-tmpl's auto-discovery picks this file up.
+#
+# Layout decision: values.yaml + js-tmpl.config.yaml live alongside the
+# template subdirs inside workspace/config/ for a single-directory home
+# for all config-related concerns (cleaner than splitting between
+# workspace/ root and workspace/config/).
+#
+# Behavior:
+#   - templateDir = `.` scans workspace/config/ BFS for *.hbs files
+#     (non-.hbs files like values.yaml + this config file are skipped)
+#   - each <name>.<ext>.hbs becomes <name>.<ext> under outDir, preserving
+#     the directory structure underneath templateDir
+#   - valuesFile is loaded into the top-level view object that templates
+#     reference as `{{backend.port}}`, `{{constants.id_patterns.workspace}}`, etc.
+
+templateDir: .
+outDir: ../apps
+valuesFile: values.yaml
+extname: .hbs

@@ -1,0 +1,7 @@
+#!/usr/bin/env sh
+
+# R27: ensure js-tmpl-generated config artifacts are fresh before each
+# commit. If values.yaml or any .hbs template changed without a render,
+# the generated files would drift; running config:render fixes that.
+# A render failure (template syntax, missing key) fails the commit.
+pnpm run config:render

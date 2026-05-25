@@ -4,7 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "predev": "node ../../../scripts/config-render.mjs",
     "dev": "vite",
+    "prebuild": "node ../../../scripts/config-render.mjs",
     "build": "vite build",
     "preview": "vite preview",
     "type-check": "tsc --noEmit",

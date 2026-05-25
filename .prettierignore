@@ -14,3 +14,7 @@ LICENSE
 **/.pytest_cache
 # Build/dev temp area (PIDs, logs)
 tmp
+# js-tmpl Handlebars templates — prettier doesn't understand `{{...}}` in
+# context-specific files (.env.hbs, .ts.hbs); leave formatting to the
+# template author (R27).
+**/*.hbs
