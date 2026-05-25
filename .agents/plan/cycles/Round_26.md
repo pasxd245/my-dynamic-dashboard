@@ -1,8 +1,8 @@
 # Round 26: Frontend — CRUD hygiene UI (DCBF F-step)
 
-**Status**: Review
+**Status**: Complete
 **Date started**: 2026-05-25
-**Date completed**:
+**Date completed**: 2026-05-25
 
 ## Goal
 
@@ -360,8 +360,19 @@ R26 did NOT add new vitest tests. Rationale:
 
 ## Act
 
-**Status**: Review (work done; awaiting human approval per
-[governance.md](../../context/governance.md)).
+**Status**: Complete (human-approved 2026-05-25).
+
+Visual verification during Review caught five browser-only bugs
+that the unit / type / build pipelines all missed: CORS preflight
+(R25's missed allow_methods), AntD `<App>` provider (missing
+wrapper for `message.*`), RenameModal pre-fill race
+(`useEffect` + `setFieldsValue` vs `destroyOnHidden`), Excel
+range case sensitivity (lowercase rejected by contract regex),
+and CSV re-parse parity (R19 Q1=C design gap exposed by running
+the app). All five committed during Review with the historical
+trace preserved (R19's record stays untouched per the user's
+methodology call). Strong evidence for the visual-verification
+discipline gate captured in Follow-ups.
 
 **Learnings**:
 
