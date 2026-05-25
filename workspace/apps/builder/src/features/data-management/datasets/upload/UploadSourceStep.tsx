@@ -5,6 +5,7 @@ import {
 } from "@ant-design/icons";
 import { Alert, Card, Col, Form, Row, Select, Tag, Typography, Upload } from "antd";
 import type { Dispatch } from "react";
+import { useTranslation } from "react-i18next";
 import { useWorkspacesQuery } from '@/features/data-management/workspaces/hooks';
 import type { SourceFormat } from "../types";
 import { useUploadInitMutation } from "../hooks";
@@ -15,17 +16,13 @@ const ACCEPT: Record<SourceFormat, string> = {
   excel: ".xlsx,.xls",
 };
 
-const DROP_HINT: Record<SourceFormat, string> = {
-  csv: ".csv · Up to 100 MB",
-  excel: ".xlsx · Up to 100 MB",
-};
-
 type Props = Readonly<{
   state: WizardState;
   dispatch: Dispatch<WizardAction>;
 }>;
 
 export function UploadSourceStep({ state, dispatch }: Props) {
+  const { t } = useTranslation();
   const workspaces = useWorkspacesQuery();
   const initMutation = useUploadInitMutation();
 
@@ -41,16 +38,20 @@ export function UploadSourceStep({ state, dispatch }: Props) {
     );
   };
 
+  const dropHint =
+    state.sourceFormat === 'csv' ? t('upload.source.dropHintCsv') : t('upload.source.dropHintExcel');
+
   return (
     <div data-component="UploadSourceStep">
       <Typography.Title level={5} style={{ marginTop: 0 }}>
-        Data source <RequiredMark />
+        {t('upload.source.heading')} <RequiredMark />
       </Typography.Title>
       <Row gutter={[12, 12]} style={{ marginBottom: 24 }}>
         <Col xs={24} sm={12}>
           <SourceCard
             label="Excel"
-            meta=".xlsx, .xls · multi-sheet workbooks"
+            meta={t('upload.source.excelMeta')}
+            primaryLabel={t('upload.source.primary')}
             icon={<FileExcelOutlined style={{ color: "#117a3a" }} />}
             primary
             selected={state.sourceFormat === "excel"}
@@ -62,7 +63,8 @@ export function UploadSourceStep({ state, dispatch }: Props) {
         <Col xs={24} sm={12}>
           <SourceCard
             label="CSV"
-            meta=".csv · single-sheet, delimited text"
+            meta={t('upload.source.csvMeta')}
+            primaryLabel={t('upload.source.primary')}
             icon={<FileTextOutlined style={{ color: "#1677ff" }} />}
             primary={false}
             selected={state.sourceFormat === "csv"}
@@ -75,13 +77,13 @@ export function UploadSourceStep({ state, dispatch }: Props) {
 
       <Form layout="vertical">
         <Form.Item
-          label="Workspace"
+          label={t('upload.source.workspaceLabel')}
           required
-          help="The dataset will live in this workspace."
+          help={t('upload.source.workspaceHelp')}
         >
           <div data-component="WorkspaceSelect">
             <Select
-              placeholder="Select a workspace…"
+              placeholder={t('upload.source.workspacePlaceholder')}
               value={state.workspaceId ?? undefined}
               options={(workspaces.data ?? []).map((w) => ({
                 value: w.id,
@@ -96,7 +98,7 @@ export function UploadSourceStep({ state, dispatch }: Props) {
           </div>
         </Form.Item>
 
-        <Form.Item label="File" required>
+        <Form.Item label={t('upload.source.fileLabel')} required>
           <Upload.Dragger
             multiple={false}
             accept={ACCEPT[state.sourceFormat]}
@@ -115,13 +117,13 @@ export function UploadSourceStep({ state, dispatch }: Props) {
               className="ant-upload-text"
               style={{ fontSize: 14, fontWeight: 500 }}
             >
-              Drop a file here, or click to browse
+              {t('upload.source.dropHere')}
             </p>
             <p
               className="ant-upload-hint"
               style={{ fontSize: 12, opacity: 0.7 }}
             >
-              {DROP_HINT[state.sourceFormat]}
+              {dropHint}
             </p>
           </Upload.Dragger>
         </Form.Item>
@@ -131,7 +133,7 @@ export function UploadSourceStep({ state, dispatch }: Props) {
         <Alert
           type="error"
           showIcon
-          title="Couldn't process the file"
+          title={t('upload.source.errorTitle')}
           description={initMutation.error?.message}
           style={{ marginTop: 12 }}
           data-component="UploadInitError"
@@ -152,6 +154,7 @@ function RequiredMark() {
 type SourceCardProps = Readonly<{
   label: string;
   meta: string;
+  primaryLabel: string;
   icon: React.ReactNode;
   primary: boolean;
   selected: boolean;
@@ -161,6 +164,7 @@ type SourceCardProps = Readonly<{
 function SourceCard({
   label,
   meta,
+  primaryLabel,
   icon,
   primary,
   selected,
@@ -189,7 +193,7 @@ function SourceCard({
         </Typography.Title>
         {primary ? (
           <Tag color="blue" style={{ marginInlineEnd: 0 }}>
-            Primary
+            {primaryLabel}
           </Tag>
         ) : null}
       </div>

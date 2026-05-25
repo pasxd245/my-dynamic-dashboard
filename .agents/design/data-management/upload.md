@@ -939,3 +939,20 @@ edit plus the design doc).
 saw the preview, then went Back and re-changed it because the
 preview surprised me." That signal is the pull. Until then, A is
 the order.
+
+---
+
+## R32 stamp — i18n keying for the upload wizard
+
+All 5 wizard step components (`UploadSourceStep`,
+`UploadSheetStep`, `UploadMetadataStep`, `UploadPreviewStep`,
+`UploadConfirmStep`) plus the `DatasetNewPage` shell have their
+user-facing strings keyed under `upload.*` namespaces in
+[`src/i18n/locales/{en,vi}.json`](../../../workspace/apps/builder/src/i18n/locales/).
+Sub-namespaces match the step names (`upload.source.*`,
+`upload.sheet.*`, etc.) so a translator can work one step at a
+time. Inline markup (`<code>A1:C20</code>`, the `<strong>`-wrapped
+file name in the confirm footer) uses
+`<Trans components={{ code: <code />, strong: <strong /> }}>`.
+Pluralization uses i18next's `_one`/`_other` suffix convention
+(e.g. `upload.sheet.fileSummary_one`/`_other`).

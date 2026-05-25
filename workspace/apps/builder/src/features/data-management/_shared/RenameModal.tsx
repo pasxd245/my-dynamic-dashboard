@@ -1,4 +1,5 @@
 import { Alert, Form, Input, Modal } from "antd";
+import { useTranslation } from "react-i18next";
 import { ERROR_CODES } from '@/_generated/constants';
 import { ApiErrorThrown } from "./types";
 
@@ -37,6 +38,7 @@ export function RenameModal({
   onSubmit,
   onClose,
 }: RenameModalProps) {
+  const { t } = useTranslation();
   const [form] = Form.useForm<{ name: string }>();
 
   const handleOk = async () => {
@@ -55,14 +57,15 @@ export function RenameModal({
     error instanceof Error && !(error instanceof ApiErrorThrown)
       ? error.message
       : null;
+  const resource = t(`resources.${resourceLabel}`);
 
   return (
     <Modal
-      title={`Rename ${resourceLabel}`}
+      title={t('rename.title', { resource })}
       open={open}
       onOk={handleOk}
       onCancel={handleCancel}
-      okText="Save"
+      okText={t('rename.ok')}
       okButtonProps={{ loading: isPending }}
       cancelButtonProps={{ disabled: isPending }}
       destroyOnHidden
@@ -77,27 +80,27 @@ export function RenameModal({
         initialValues={{ name: currentName }}
       >
         <Form.Item
-          label="Name"
+          label={t('common.nameLabel')}
           name="name"
           rules={[
-            { required: true, message: "Name is required" },
+            { required: true, message: t('common.nameRequired') },
             {
               max: maxLength,
-              message: `Name must be ${maxLength} characters or fewer`,
+              message: t('common.nameMaxLength', { max: maxLength }),
             },
           ]}
         >
           <Input
             autoFocus
             disabled={isPending}
-            placeholder={`New ${resourceLabel} name`}
+            placeholder={t('common.newResourceName', { resource })}
           />
         </Form.Item>
         {nameTaken ? (
           <Alert
             type="error"
             showIcon
-            title={`Another ${resourceLabel} already has that name.`}
+            title={t('rename.duplicate', { resource })}
             data-component="RenameNameTaken"
           />
         ) : null}
@@ -105,7 +108,7 @@ export function RenameModal({
           <Alert
             type="error"
             showIcon
-            title="Couldn't rename"
+            title={t('rename.couldnt')}
             description={genericError}
             data-component="RenameGenericError"
           />

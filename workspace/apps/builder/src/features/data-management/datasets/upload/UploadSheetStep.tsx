@@ -1,5 +1,6 @@
 import { Button, Checkbox, Empty, Space, Table, Typography } from "antd";
 import type { Dispatch } from "react";
+import { useTranslation } from "react-i18next";
 import type { WizardAction, WizardState } from "./state";
 
 type Props = Readonly<{
@@ -8,10 +9,12 @@ type Props = Readonly<{
 }>;
 
 export function UploadSheetStep({ state, dispatch }: Props) {
+  const { t } = useTranslation();
+
   if (state.availableSheets.length === 0) {
     return (
       <Empty
-        description="No sheets found in the workbook"
+        description={t('upload.sheet.noWorkbookSheets')}
         data-component="UploadSheetStepEmpty"
       />
     );
@@ -51,16 +54,16 @@ export function UploadSheetStep({ state, dispatch }: Props) {
         />
       ),
     },
-    { title: "Sheet", dataIndex: "sheet", key: "sheet" },
+    { title: t('upload.sheet.tableSheet'), dataIndex: "sheet", key: "sheet" },
     {
-      title: "Rows",
+      title: t('upload.sheet.tableRows'),
       dataIndex: "rowCount",
       key: "rowCount",
       align: "right" as const,
       render: (n: number) => n.toLocaleString(),
     },
     {
-      title: "Cols",
+      title: t('upload.sheet.tableCols'),
       dataIndex: "columnCount",
       key: "columnCount",
       align: "right" as const,
@@ -71,12 +74,9 @@ export function UploadSheetStep({ state, dispatch }: Props) {
     <div data-component="UploadSheetStep">
       <Typography.Paragraph style={{ marginBottom: 4 }}>
         <strong>{fileName}</strong>
-        {fileSize ? ` · ${fileSize}` : ""} · {total}{" "}
-        {total === 1 ? "sheet" : "sheets"}
+        {fileSize ? ` · ${fileSize}` : ""} · {t('upload.sheet.fileSummary', { count: total })}
       </Typography.Paragraph>
-      <Typography.Paragraph type="secondary">
-        Select sheets to import. One dataset is created per selected sheet.
-      </Typography.Paragraph>
+      <Typography.Paragraph type="secondary">{t('upload.sheet.selectionHint')}</Typography.Paragraph>
       <Table
         rowKey="sheet"
         size="small"
@@ -100,7 +100,7 @@ export function UploadSheetStep({ state, dispatch }: Props) {
             disabled={selectedCount === total}
             data-component="SheetSelectAll"
           >
-            Select all
+            {t('upload.sheet.selectAll')}
           </Button>
           <Button
             type="link"
@@ -109,11 +109,11 @@ export function UploadSheetStep({ state, dispatch }: Props) {
             disabled={selectedCount === 0}
             data-component="SheetClear"
           >
-            Clear
+            {t('upload.sheet.clear')}
           </Button>
         </Space>
         <Typography.Text type="secondary" data-component="SheetSelectedCount">
-          {selectedCount} of {total} selected
+          {t('upload.sheet.selectedOfTotal', { selected: selectedCount, total })}
         </Typography.Text>
       </div>
     </div>

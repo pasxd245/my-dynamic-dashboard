@@ -540,3 +540,18 @@ inside the AntD providers, so render-phase errors now show a themed
 continue to surface through the existing AntD `<App>` message
 channel. No change to the CRUD wire shape — purely a defensive
 runtime wrapper.
+
+---
+
+## R32 stamp — i18n keying
+
+All CRUD user-facing strings (modal titles, button labels,
+toast messages, error alerts, breadcrumb labels) are now keyed
+under `workspaces.*`, `datasets.*`, `rename.*`, `deleteConfirm.*`,
+and `common.*` namespaces in [`src/i18n/locales/{en,vi}.json`](../../../workspace/apps/builder/src/i18n/locales/).
+Resource label (`"workspace"` / `"dataset"`) lives in
+`resources.{workspace,dataset}` so messages like "Rename
+workspace" and "Delete dataset" inflect correctly per locale.
+Modal copy uses `<Trans components={{ strong: <strong /> }}>`
+for inline emphasis. AntD's built-in Modal OK/Cancel + Empty
+"No data" strings localize via `<ConfigProvider locale={...}>`.

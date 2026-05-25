@@ -12,6 +12,7 @@ import {
 import { PageCard, PageHeader } from '@mdd/ui';
 import { Alert, App, Button, Dropdown, Input, Select, Skeleton, Table, Typography } from 'antd';
 import { useState } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { NAME_LENGTHS } from '@/_generated/constants';
 import { DeleteConfirmModal } from '../_shared/DeleteConfirmModal';
@@ -22,15 +23,19 @@ import type { Dataset } from './types';
 
 type ModalState = { kind: 'idle' } | { kind: 'rename'; target: Dataset } | { kind: 'delete'; target: Dataset };
 
-const BREADCRUMB = [{ label: 'Home', route: '/' }, { label: 'Data Management' }, { label: 'Datasets' }];
-
 const ALL_VALUE = '__all__';
 
 export function DatasetsPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const workspaceParam = searchParams.get('workspace') ?? undefined;
   const { message } = App.useApp();
+  const BREADCRUMB = [
+    { label: t('nav.home'), route: '/' },
+    { label: t('nav.dataManagement') },
+    { label: t('nav.datasets') },
+  ];
 
   const datasets = useDatasetsQuery(workspaceParam);
   const workspaces = useWorkspacesQuery();
@@ -62,7 +67,7 @@ export function DatasetsPage() {
       { id: target.id, name: newName },
       {
         onSuccess: () => {
-          message.success(`Dataset renamed to ${newName}.`);
+          message.success(t('datasets.renameSuccess', { name: newName }));
           setModalState({ kind: 'idle' });
         },
       },
@@ -73,7 +78,7 @@ export function DatasetsPage() {
     const target = modalState.target;
     deleteMutation.mutate(target.id, {
       onSuccess: () => {
-        message.success(`Dataset ${target.name} deleted.`);
+        message.success(t('datasets.deleteSuccess', { name: target.name }));
         setModalState({ kind: 'idle' });
       },
     });
@@ -101,12 +106,12 @@ export function DatasetsPage() {
   const header = (
     <PageHeader
       breadcrumb={BREADCRUMB}
-      title="Datasets"
-      subtitle="All tables across your workspaces. Click a row to inspect, sort by any column."
+      title={t('datasets.title')}
+      subtitle={t('datasets.subtitle')}
       onNavigate={(route) => navigate(route)}
       actions={
         <Button type="primary" icon={<PlusOutlined />} onClick={goNew}>
-          Upload
+          {t('datasets.upload')}
         </Button>
       }
     />
@@ -123,8 +128,8 @@ export function DatasetsPage() {
       <Alert
         type="error"
         showIcon
-        title="Couldn't load datasets"
-        description={datasets.error?.message ?? 'Unknown error'}
+        title={t('datasets.loadCouldnt')}
+        description={datasets.error?.message ?? t('common.unknownError')}
         data-component="DatasetsError"
       />
     );
@@ -134,10 +139,13 @@ export function DatasetsPage() {
     body = (
       <div data-component="DatasetsNoMatch" style={{ padding: '32px 0', textAlign: 'center' }}>
         <Typography.Title level={5} style={{ marginTop: 0, marginBottom: 4 }}>
-          No datasets match “{query.trim()}”
+          {t('datasets.noMatch', { query: query.trim() })}
         </Typography.Title>
         <Typography.Text type="secondary">
-          Try a shorter query, or <Typography.Link onClick={() => setQuery('')}>clear the search</Typography.Link>.
+          <Trans
+            i18nKey="datasets.noMatchHint"
+            components={{ link: <Typography.Link onClick={() => setQuery('')} /> }}
+          />
         </Typography.Text>
       </div>
     );
@@ -169,7 +177,7 @@ export function DatasetsPage() {
         >
           <div>
             <Typography.Text strong style={{ marginRight: 8 }}>
-              Workspace:
+              {t('datasets.workspaceLabel')}
             </Typography.Text>
             <Select
               value={workspaceParam ?? ALL_VALUE}
@@ -177,7 +185,7 @@ export function DatasetsPage() {
               style={{ minWidth: 220 }}
               data-component="WorkspaceFilter"
               options={[
-                { value: ALL_VALUE, label: 'All workspaces' },
+                { value: ALL_VALUE, label: t('datasets.allWorkspaces') },
                 ...(workspaces.data ?? []).map((w) => ({
                   value: w.id,
                   label: w.name,
@@ -188,7 +196,7 @@ export function DatasetsPage() {
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search datasets…"
+            placeholder={t('datasets.searchPlaceholder')}
             prefix={<SearchOutlined style={{ opacity: 0.45 }} />}
             allowClear
             style={{ maxWidth: 280, flex: '1 1 240px' }}
@@ -225,6 +233,7 @@ type EmptyProps = Readonly<{
 }>;
 
 function EmptyDropZone({ onClick, hasWorkspaceFilter }: EmptyProps) {
+  const { t } = useTranslation();
   return (
     <button
       type="button"
@@ -252,11 +261,9 @@ function EmptyDropZone({ onClick, hasWorkspaceFilter }: EmptyProps) {
         <InboxOutlined style={{ fontSize: 48, opacity: 0.45 }} />
       )}
       <Typography.Title level={5} style={{ margin: 0 }}>
-        {hasWorkspaceFilter ? 'No datasets in this workspace' : 'Upload your first file to get started'}
+        {hasWorkspaceFilter ? t('datasets.emptyTitleFiltered') : t('datasets.emptyTitle')}
       </Typography.Title>
-      <Typography.Text type="secondary">
-        Drag and drop here, or click to browse · Excel or CSV · Up to 100 MB
-      </Typography.Text>
+      <Typography.Text type="secondary">{t('datasets.emptyHint')}</Typography.Text>
     </button>
   );
 }
@@ -270,6 +277,7 @@ type TableProps = Readonly<{
 }>;
 
 function DatasetTable({ rows, workspaceById, onWorkspaceClick, onRename, onDelete }: TableProps) {
+  const { t } = useTranslation();
   const data = rows.map((r) => ({ ...r, key: r.id }));
   return (
     <Table
@@ -280,15 +288,15 @@ function DatasetTable({ rows, workspaceById, onWorkspaceClick, onRename, onDelet
       data-component="DatasetTable"
       columns={[
         {
-          title: 'Uploaded',
+          title: t('datasets.table.uploaded'),
           dataIndex: 'createdAt',
           key: 'createdAt',
-          render: (iso: string) => relativeTime(iso),
+          render: (iso: string) => relativeTime(iso, t),
           sorter: (a, b) => a.createdAt.localeCompare(b.createdAt),
           defaultSortOrder: 'descend',
         },
         {
-          title: 'Name',
+          title: t('datasets.table.name'),
           dataIndex: 'name',
           key: 'name',
           sorter: (a, b) => a.name.localeCompare(b.name),
@@ -309,7 +317,7 @@ function DatasetTable({ rows, workspaceById, onWorkspaceClick, onRename, onDelet
           ),
         },
         {
-          title: 'Workspace',
+          title: t('datasets.table.workspace'),
           dataIndex: 'workspaceId',
           key: 'workspaceId',
           render: (id: string) => {
@@ -328,7 +336,7 @@ function DatasetTable({ rows, workspaceById, onWorkspaceClick, onRename, onDelet
           },
         },
         {
-          title: 'Rows',
+          title: t('datasets.table.rows'),
           dataIndex: 'rowCount',
           key: 'rowCount',
           align: 'right',
@@ -336,13 +344,13 @@ function DatasetTable({ rows, workspaceById, onWorkspaceClick, onRename, onDelet
           render: (n: number) => n.toLocaleString(),
         },
         {
-          title: 'Cols',
+          title: t('datasets.table.cols'),
           dataIndex: 'columnCount',
           key: 'columnCount',
           align: 'right',
         },
         {
-          title: 'Size',
+          title: t('datasets.table.size'),
           dataIndex: 'sizeBytes',
           key: 'sizeBytes',
           align: 'right',
@@ -361,7 +369,7 @@ function DatasetTable({ rows, workspaceById, onWorkspaceClick, onRename, onDelet
                   {
                     key: 'rename',
                     icon: <EditOutlined />,
-                    label: 'Rename',
+                    label: t('common.rename'),
                     onClick: ({ domEvent }) => {
                       domEvent.stopPropagation();
                       onRename(row);
@@ -370,7 +378,7 @@ function DatasetTable({ rows, workspaceById, onWorkspaceClick, onRename, onDelet
                   {
                     key: 'delete',
                     icon: <DeleteOutlined />,
-                    label: 'Delete',
+                    label: t('common.delete'),
                     danger: true,
                     onClick: ({ domEvent }) => {
                       domEvent.stopPropagation();
@@ -386,7 +394,10 @@ function DatasetTable({ rows, workspaceById, onWorkspaceClick, onRename, onDelet
                 size="small"
                 icon={<MoreOutlined />}
                 onClick={(e) => e.stopPropagation()}
-                aria-label={`Actions for dataset ${row.name}`}
+                aria-label={t('common.actionsForResource', {
+                  resource: t('resources.dataset'),
+                  name: row.name,
+                })}
                 data-component="DatasetRowMoreButton"
               />
             </Dropdown>
@@ -431,14 +442,16 @@ function formatBytes(n: number): string {
   return `${(n / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function relativeTime(iso: string): string {
+type TFunc = (key: string, opts?: Record<string, unknown>) => string;
+
+function relativeTime(iso: string, t: TFunc): string {
   const then = new Date(iso).getTime();
   if (Number.isNaN(then)) return iso.slice(0, 10);
   const now = Date.now();
   const diffSec = Math.max(0, Math.floor((now - then) / 1000));
-  if (diffSec < 60) return 'Just now';
+  if (diffSec < 60) return t('datasets.relativeTime.justNow');
   const diffMin = Math.floor(diffSec / 60);
-  if (diffMin < 60) return `${diffMin}m ago`;
+  if (diffMin < 60) return t('datasets.relativeTime.minutesAgo', { count: diffMin });
   const diffHr = Math.floor(diffMin / 60);
   const startOfToday = new Date();
   startOfToday.setHours(0, 0, 0, 0);
@@ -449,10 +462,10 @@ function relativeTime(iso: string): string {
     });
   }
   const startOfYesterday = startOfToday.getTime() - 24 * 60 * 60 * 1000;
-  if (then >= startOfYesterday) return 'Yesterday';
+  if (then >= startOfYesterday) return t('datasets.relativeTime.yesterday');
   const diffDay = Math.floor(diffHr / 24);
-  if (diffDay < 7) return `${diffDay} days ago`;
+  if (diffDay < 7) return t('datasets.relativeTime.daysAgo', { count: diffDay });
   const diffWk = Math.floor(diffDay / 7);
-  if (diffWk < 5) return `${diffWk} week${diffWk === 1 ? '' : 's'} ago`;
+  if (diffWk < 5) return t('datasets.relativeTime.weekAgo', { count: diffWk });
   return iso.slice(0, 10);
 }

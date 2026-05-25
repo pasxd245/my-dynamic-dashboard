@@ -1,4 +1,5 @@
 import { Modal, Typography } from 'antd';
+import { Trans, useTranslation } from 'react-i18next';
 
 export type DeleteConfirmModalProps = Readonly<{
   resourceLabel: 'workspace' | 'dataset';
@@ -21,18 +22,21 @@ export function DeleteConfirmModal({
   onConfirm,
   onClose,
 }: DeleteConfirmModalProps) {
+  const { t } = useTranslation();
   const handleCancel = () => {
     if (isPending) return;
     onClose();
   };
 
+  const resource = t(`resources.${resourceLabel}`);
+
   return (
     <Modal
-      title={`Delete ${resourceLabel}`}
+      title={t('deleteConfirm.title', { resource })}
       open={open}
       onOk={onConfirm}
       onCancel={handleCancel}
-      okText="Delete"
+      okText={t('deleteConfirm.ok')}
       okType="danger"
       okButtonProps={{ loading: isPending, danger: true, type: 'primary' }}
       cancelButtonProps={{ disabled: isPending }}
@@ -41,9 +45,13 @@ export function DeleteConfirmModal({
       data-resource={resourceLabel}
     >
       <Typography.Paragraph style={{ marginBottom: 4 }}>
-        Delete {resourceLabel} <strong>{resourceName}</strong>?
+        <Trans
+          i18nKey="deleteConfirm.body"
+          values={{ resource, name: resourceName }}
+          components={{ strong: <strong /> }}
+        />
       </Typography.Paragraph>
-      <Typography.Text type="secondary">This action cannot be undone.</Typography.Text>
+      <Typography.Text type="secondary">{t('deleteConfirm.warning')}</Typography.Text>
     </Modal>
   );
 }

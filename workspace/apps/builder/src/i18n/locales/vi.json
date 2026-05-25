@@ -1,0 +1,230 @@
+{
+  "nav": {
+    "home": "Trang chủ",
+    "dataManagement": "Quản lý dữ liệu",
+    "workspaces": "Không gian làm việc",
+    "datasets": "Bộ dữ liệu",
+    "new": "Mới"
+  },
+  "common": {
+    "create": "Tạo",
+    "cancel": "Hủy",
+    "delete": "Xóa",
+    "rename": "Đổi tên",
+    "ok": "OK",
+    "close": "Đóng",
+    "open": "Mở",
+    "next": "Tiếp",
+    "back": "Quay lại",
+    "save": "Lưu",
+    "reload": "Tải lại",
+    "loading": "Đang tải…",
+    "unknownError": "Lỗi không xác định",
+    "actionsForResource": "Tác vụ cho {{resource}} {{name}}",
+    "nameLabel": "Tên",
+    "nameRequired": "Tên là bắt buộc",
+    "nameMaxLength": "Tên không được quá {{max}} ký tự",
+    "newResourceName": "Tên {{resource}} mới"
+  },
+  "resources": {
+    "workspace": "không gian làm việc",
+    "dataset": "bộ dữ liệu"
+  },
+  "app": {
+    "errorBoundary": {
+      "title": "Đã có lỗi xảy ra",
+      "subtitleDefault": "Đã xảy ra một lỗi không mong muốn."
+    }
+  },
+  "workspaces": {
+    "title": "Không gian làm việc",
+    "subtitle": "Quản lý các vùng chứa logic cho dữ liệu và báo cáo.",
+    "createdAt": "Tạo lúc {{date}}",
+    "create": "Tạo không gian làm việc",
+    "createFirst": "Tạo không gian làm việc đầu tiên",
+    "createModalTitle": "Tạo không gian làm việc",
+    "createOkText": "Tạo",
+    "namePlaceholder": "vd. Phân tích marketing",
+    "nameLabel": "Tên không gian làm việc",
+    "nameRequired": "Vui lòng nhập tên không gian làm việc.",
+    "nameTaken": "Đã có không gian làm việc khác mang tên này.",
+    "createCouldnt": "Không thể tạo không gian làm việc",
+    "loadCouldnt": "Không thể tải danh sách không gian làm việc",
+    "empty": {
+      "title": "Chưa có không gian làm việc nào",
+      "description": "Tạo không gian làm việc đầu tiên để bắt đầu."
+    },
+    "renameSuccess": "Đã đổi tên không gian làm việc thành {{name}}.",
+    "deleteSuccess": "Đã xóa không gian làm việc {{name}}.",
+    "blockedDeleteTitle": "Không gian làm việc chưa trống",
+    "blockedDeleteGotIt": "Đã hiểu",
+    "blockedDeleteBody_other": "<strong>{{name}}</strong> có {{count}} bộ dữ liệu.",
+    "blockedDeleteHint": "Hãy xóa hoặc chuyển chúng sang không gian khác trước."
+  },
+  "datasets": {
+    "title": "Bộ dữ liệu",
+    "subtitle": "Tất cả bảng dữ liệu trong các không gian làm việc. Nhấp vào dòng để xem, sắp xếp theo cột.",
+    "upload": "Tải lên",
+    "workspaceLabel": "Không gian:",
+    "allWorkspaces": "Tất cả không gian",
+    "searchPlaceholder": "Tìm kiếm bộ dữ liệu…",
+    "emptyTitle": "Tải tệp đầu tiên để bắt đầu",
+    "emptyTitleFiltered": "Chưa có bộ dữ liệu nào trong không gian này",
+    "emptyHint": "Kéo và thả tại đây, hoặc nhấp để chọn · Excel hoặc CSV · Tối đa 100 MB",
+    "relativeTime": {
+      "justNow": "Vừa xong",
+      "minutesAgo": "{{count}} phút trước",
+      "yesterday": "Hôm qua",
+      "daysAgo": "{{count}} ngày trước",
+      "weekAgo_other": "{{count}} tuần trước"
+    },
+    "table": {
+      "uploaded": "Đã tải",
+      "name": "Tên",
+      "workspace": "Không gian",
+      "rows": "Dòng",
+      "cols": "Cột",
+      "size": "Kích thước"
+    },
+    "newDataset": "Bộ dữ liệu mới",
+    "uploadFirst": "Tải lên bộ dữ liệu đầu tiên",
+    "search": "Tìm kiếm bộ dữ liệu…",
+    "filterWorkspace": "Tất cả không gian làm việc",
+    "loadCouldnt": "Không thể tải danh sách bộ dữ liệu",
+    "noMatch": "Không có bộ dữ liệu nào khớp với “{{query}}”",
+    "noMatchHint": "Thử cụm tìm kiếm ngắn hơn, hoặc <link>xóa tìm kiếm</link>.",
+    "renameSuccess": "Đã đổi tên bộ dữ liệu thành {{name}}.",
+    "deleteSuccess": "Đã xóa bộ dữ liệu {{name}}.",
+    "empty": {
+      "title": "Chưa có bộ dữ liệu nào",
+      "description": "Tải lên một tệp CSV hoặc Excel để bắt đầu.",
+      "descriptionFiltered": "Chưa có bộ dữ liệu nào trong không gian này."
+    },
+    "columns": {
+      "name": "Tên",
+      "workspace": "Không gian",
+      "rows": "Số dòng",
+      "columns": "Số cột",
+      "size": "Kích thước",
+      "format": "Định dạng",
+      "createdAt": "Đã tạo"
+    }
+  },
+  "upload": {
+    "title": "Bộ dữ liệu mới",
+    "subtitle": "Tải lên tệp và biến nó thành bộ dữ liệu truy vấn được.",
+    "createDatasets": "Tạo bộ dữ liệu",
+    "steps": {
+      "source": "Nguồn",
+      "sheet": "Trang",
+      "metadata": "Thông tin",
+      "preview": "Xem trước",
+      "confirm": "Xác nhận"
+    },
+    "source": {
+      "heading": "Nguồn dữ liệu",
+      "excelMeta": ".xlsx, .xls · sổ làm việc nhiều trang",
+      "csvMeta": ".csv · trang đơn, văn bản phân tách",
+      "primary": "Chính",
+      "workspaceLabel": "Không gian làm việc",
+      "workspaceHelp": "Bộ dữ liệu sẽ nằm trong không gian này.",
+      "workspacePlaceholder": "Chọn một không gian làm việc…",
+      "fileLabel": "Tệp",
+      "dropHere": "Thả tệp vào đây, hoặc nhấp để chọn",
+      "dropHintCsv": ".csv · Tối đa 100 MB",
+      "dropHintExcel": ".xlsx · Tối đa 100 MB",
+      "errorTitle": "Không thể xử lý tệp"
+    },
+    "sheet": {
+      "title": "Chọn trang",
+      "subtitle": "Chọn một hoặc nhiều trang để nhập.",
+      "noWorkbookSheets": "Không tìm thấy trang nào trong sổ làm việc",
+      "selectionHint": "Chọn các trang để nhập. Mỗi trang sẽ tạo một bộ dữ liệu.",
+      "fileSummary_other": "{{count}} trang",
+      "selectAll": "Chọn tất cả",
+      "clear": "Bỏ chọn",
+      "selectedOfTotal": "Đã chọn {{selected}}/{{total}}",
+      "tableSheet": "Trang",
+      "tableRows": "Dòng",
+      "tableCols": "Cột",
+      "noSheetsSelected": "Chưa chọn trang nào"
+    },
+    "metadata": {
+      "notParsedYet": "Chưa phân tích",
+      "noSheetsSelected": "Chưa chọn trang nào",
+      "noSheetsHint": "Quay lại bước Trang và chọn ít nhất một trang.",
+      "parsing": "Đang phân tích…",
+      "parseFailed": "Phân tích thất bại: {{error}}",
+      "parseFailedAdjustHint": "Hoặc điều chỉnh tùy chọn phân tích ở trên rồi phân tích lại.",
+      "repickFile": "Chọn lại tệp",
+      "deselectSheet": "Bỏ chọn trang này",
+      "tableInclude": "Bao gồm",
+      "tableColumn": "Cột",
+      "tableDetected": "Phát hiện",
+      "tableOverride": "Ghi đè",
+      "tableSample": "Giá trị mẫu",
+      "detectedSchemaNoLabel": "Phát hiện schema ({{rows}} dòng · {{total}} cột). Ghi đè kiểu của bất kỳ cột nào trước khi xem trước.",
+      "detectedSchemaWithLabel": "Phát hiện schema cho <strong>{{sheet}}</strong> ({{rows}} dòng · {{total}} cột). Ghi đè kiểu của bất kỳ cột nào trước khi xem trước.",
+      "resetAll": "Khôi phục về phát hiện",
+      "includedCount": "Đã bao gồm {{kept}}/{{total}} cột",
+      "includedCountWithSheet": "{{sheet}} · Đã bao gồm {{kept}}/{{total}} cột",
+      "parseOptions": "Tùy chọn phân tích",
+      "skipRows": "Bỏ qua dòng:",
+      "skipRowsHelp": "Số dòng đầu cần bỏ trước khi đến dòng tiêu đề.",
+      "range": "Vùng:",
+      "rangeHelp": "Vùng ô như <code>A1:C20</code>. Mặc định là vùng đã dùng của trang.",
+      "hasHeader": "Dòng đầu là tiêu đề:",
+      "hasHeaderHelp": "Khi tắt, các cột sẽ được đặt tên <code>column1, column2, …</code>.",
+      "reparseSheet": "Phân tích lại trang này",
+      "reparseFile": "Phân tích lại tệp này",
+      "resetWarningCsv": "Chỉnh sửa tùy chọn phân tích sẽ đặt lại các ghi đè kiểu và loại trừ cột cho tệp này.",
+      "resetWarningExcel": "Phân tích lại hoặc thay đổi vùng sẽ đặt lại các ghi đè cột và loại trừ cho trang này.",
+      "hasOverridesAria": "có ghi đè",
+      "hasOverridesTitle": "Trang này có ghi đè của người dùng",
+      "parsedAria": "đã phân tích"
+    },
+    "confirm": {
+      "workspaceLabel": "Không gian:",
+      "sourceLabel": "Nguồn:",
+      "tableSheet": "Trang",
+      "tableDatasetName": "Tên bộ dữ liệu",
+      "tableRows": "Dòng",
+      "tableCols": "Cột",
+      "tableOverrides": "Ghi đè",
+      "datasetNamePlaceholder": "Tên bộ dữ liệu",
+      "overrideCount_other": "{{count}} cột",
+      "noOverrides": "không có",
+      "footer_other": "Tạo <strong>{{count}}</strong> bộ dữ liệu trong <strong>{{workspace}}</strong>.",
+      "errorNameTakenTitle": "Đã có bộ dữ liệu cùng tên trong không gian này",
+      "errorNameTakenDescription": "Đổi tên một trong các mục ở bảng trên (bước Xác nhận của trình hướng dẫn) để mỗi bộ dữ liệu có tên duy nhất trong không gian này, rồi thử lại.",
+      "errorGenericTitle": "Không thể tạo bộ dữ liệu",
+      "errorServerCode": "Máy chủ trả về mã {{code}}."
+    },
+    "preview": {
+      "title": "Xem trước",
+      "notParsedYet": "Chưa phân tích",
+      "noSheetsSelected": "Chưa chọn trang nào",
+      "noSheetsHint": "Quay lại bước Trang và chọn ít nhất một trang.",
+      "parseFailed": "Phân tích thất bại: {{error}}",
+      "repickFile": "Chọn lại tệp",
+      "deselectSheet": "Bỏ chọn trang này",
+      "adjustOptions": "Điều chỉnh tùy chọn phân tích",
+      "summary_other": "{{count}} dòng · {{shown}}/{{total}} cột",
+      "dtypeHint": "Kiểu dữ liệu phản ánh ghi đè từ bước Thông tin. Nhấn Quay lại để chỉnh.",
+      "showing_other": "Hiển thị {{shown}}/{{total}} dòng · {{cols}} cột (cuộn ngang để xem thêm)"
+    }
+  },
+  "rename": {
+    "title": "Đổi tên {{resource}}",
+    "label": "Tên mới",
+    "ok": "Đổi tên",
+    "duplicate": "Đã có {{resource}} khác mang tên này.",
+    "couldnt": "Không thể đổi tên"
+  },
+  "deleteConfirm": {
+    "title": "Xóa {{resource}}",
+    "body": "Xóa {{resource}} <strong>{{name}}</strong>?",
+    "warning": "Hành động này không thể hoàn tác.",
+    "ok": "Xóa"
+  }
+}

@@ -17,6 +17,7 @@ import {
   theme,
 } from 'antd';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { ERROR_CODES, NAME_LENGTHS } from '@/_generated/constants';
@@ -42,13 +43,6 @@ import type { Workspace } from './types';
  * `.agents/design/data-management/crud-hygiene.md`.
  */
 
-const BREADCRUMB = [
-  { label: 'Home', route: '/' },
-  // Data Management is a sidebar section, not a destination — no route.
-  { label: 'Data Management' },
-  { label: 'Workspaces' },
-];
-
 type ModalState =
   | { kind: 'idle' }
   | { kind: 'rename'; target: Workspace }
@@ -66,6 +60,7 @@ function WorkspaceCard({
   onRename: (ws: Workspace) => void;
   onDelete: (ws: Workspace) => void;
 }>) {
+  const { t } = useTranslation();
   const { token } = theme.useToken();
   const badgeStyle = {
     width: 32,
@@ -101,7 +96,7 @@ function WorkspaceCard({
               {
                 key: 'rename',
                 icon: <EditOutlined />,
-                label: 'Rename',
+                label: t('common.rename'),
                 onClick: ({ domEvent }) => {
                   domEvent.stopPropagation();
                   onRename(workspace);
@@ -110,7 +105,7 @@ function WorkspaceCard({
               {
                 key: 'delete',
                 icon: <DeleteOutlined />,
-                label: 'Delete',
+                label: t('common.delete'),
                 danger: true,
                 onClick: ({ domEvent }) => {
                   domEvent.stopPropagation();
@@ -125,7 +120,10 @@ function WorkspaceCard({
             type="text"
             icon={<MoreOutlined />}
             onClick={stop}
-            aria-label={`Actions for workspace ${workspace.name}`}
+            aria-label={t('common.actionsForResource', {
+              resource: t('resources.workspace'),
+              name: workspace.name,
+            })}
             data-component="WorkspaceCardMoreButton"
             size="small"
           />
@@ -138,7 +136,7 @@ function WorkspaceCard({
         {workspace.name}
       </Typography.Title>
       <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-        Created {createdDate}
+        {t('workspaces.createdAt', { date: createdDate })}
       </Typography.Text>
     </Card>
   );
@@ -150,6 +148,7 @@ type CreateModalProps = {
 };
 
 function CreateWorkspaceModal({ open, onClose }: Readonly<CreateModalProps>) {
+  const { t } = useTranslation();
   const [form] = Form.useForm<{ name: string }>();
   const mutation = useCreateWorkspaceMutation();
 
@@ -175,11 +174,11 @@ function CreateWorkspaceModal({ open, onClose }: Readonly<CreateModalProps>) {
 
   return (
     <Modal
-      title="Create workspace"
+      title={t('workspaces.createModalTitle')}
       open={open}
       onOk={handleOk}
       onCancel={handleCancel}
-      okText="Create"
+      okText={t('workspaces.createOkText')}
       okButtonProps={{ loading: mutation.isPending }}
       cancelButtonProps={{ disabled: mutation.isPending }}
       destroyOnHidden
@@ -187,25 +186,28 @@ function CreateWorkspaceModal({ open, onClose }: Readonly<CreateModalProps>) {
     >
       <Form form={form} layout="vertical" preserve={false}>
         <Form.Item
-          label="Name"
+          label={t('common.nameLabel')}
           name="name"
           rules={[
-            { required: true, message: 'Name is required' },
-            { max: NAME_LENGTHS.WORKSPACE_MAX, message: `Name must be ${NAME_LENGTHS.WORKSPACE_MAX} characters or fewer` },
+            { required: true, message: t('common.nameRequired') },
+            {
+              max: NAME_LENGTHS.WORKSPACE_MAX,
+              message: t('common.nameMaxLength', { max: NAME_LENGTHS.WORKSPACE_MAX }),
+            },
           ]}
         >
-          <Input placeholder="e.g. Marketing" autoFocus />
+          <Input placeholder={t('workspaces.namePlaceholder')} autoFocus />
         </Form.Item>
         {nameTaken ? (
           <Alert
             type="error"
             showIcon
-            title="Another workspace already has that name."
+            title={t('workspaces.nameTaken')}
             data-component="CreateNameTaken"
           />
         ) : null}
         {genericError ? (
-          <Alert type="error" showIcon title="Couldn't create the workspace" description={genericError} />
+          <Alert type="error" showIcon title={t('workspaces.createCouldnt')} description={genericError} />
         ) : null}
       </Form>
     </Modal>
@@ -213,10 +215,17 @@ function CreateWorkspaceModal({ open, onClose }: Readonly<CreateModalProps>) {
 }
 
 export function WorkspacesPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const query = useWorkspacesQuery();
   const queryClient = useQueryClient();
   const { message } = App.useApp();
+  const BREADCRUMB = [
+    { label: t('nav.home'), route: '/' },
+    // Data Management is a sidebar section, not a destination — no route.
+    { label: t('nav.dataManagement') },
+    { label: t('nav.workspaces') },
+  ];
   const [createOpen, setCreateOpen] = useState(false);
   const [modalState, setModalState] = useState<ModalState>({ kind: 'idle' });
 
@@ -264,7 +273,7 @@ export function WorkspacesPage() {
       { id: target.id, name: newName },
       {
         onSuccess: () => {
-          message.success(`Workspace renamed to ${newName}.`);
+          message.success(t('workspaces.renameSuccess', { name: newName }));
           setModalState({ kind: 'idle' });
         },
       },
@@ -276,7 +285,7 @@ export function WorkspacesPage() {
     const target = modalState.target;
     deleteMutation.mutate(target.id, {
       onSuccess: () => {
-        message.success(`Workspace ${target.name} deleted.`);
+        message.success(t('workspaces.deleteSuccess', { name: target.name }));
         setModalState({ kind: 'idle' });
       },
       onError: (err) => {
@@ -300,13 +309,13 @@ export function WorkspacesPage() {
   const header = (
     <PageHeader
       breadcrumb={BREADCRUMB}
-      title="Workspaces"
-      subtitle="Manage logical containers for your data and reports."
+      title={t('workspaces.title')}
+      subtitle={t('workspaces.subtitle')}
       onNavigate={(route) => navigate(route)}
       actions={
         showActions ? (
           <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-            Create
+            {t('common.create')}
           </Button>
         ) : undefined
       }
@@ -334,8 +343,8 @@ export function WorkspacesPage() {
       <Alert
         type="error"
         showIcon
-        title="Couldn't load workspaces"
-        description={query.error?.message ?? 'Unknown error'}
+        title={t('workspaces.loadCouldnt')}
+        description={query.error?.message ?? t('common.unknownError')}
         data-component="WorkspacesError"
       />
     );
@@ -354,15 +363,15 @@ export function WorkspacesPage() {
         description={
           <>
             <Typography.Title level={5} style={{ marginTop: 0, marginBottom: 4 }}>
-              No workspaces yet
+              {t('workspaces.empty.title')}
             </Typography.Title>
-            <Typography.Text type="secondary">Create your first workspace to get started.</Typography.Text>
+            <Typography.Text type="secondary">{t('workspaces.empty.description')}</Typography.Text>
           </>
         }
         style={{ padding: '48px 0' }}
       >
         <Button type="primary" icon={<PlusOutlined />} size="large" onClick={openCreate}>
-          Create your first workspace
+          {t('workspaces.createFirst')}
         </Button>
       </Empty>
     );

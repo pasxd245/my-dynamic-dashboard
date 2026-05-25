@@ -1,5 +1,6 @@
 import { Button, Result } from 'antd';
 import { Component, type ErrorInfo, type ReactNode } from 'react';
+import { i18n } from '@/i18n';
 
 interface AppErrorBoundaryProps {
   children: ReactNode;
@@ -40,11 +41,11 @@ export class AppErrorBoundary extends Component<AppErrorBoundaryProps, AppErrorB
     return (
       <Result
         status="error"
-        title="Something went wrong"
-        subTitle={error.message || 'An unexpected error occurred.'}
+        title={i18n.t('app.errorBoundary.title')}
+        subTitle={error.message || i18n.t('app.errorBoundary.subtitleDefault')}
         extra={
           <Button type="primary" onClick={this.handleReload}>
-            Reload
+            {i18n.t('common.reload')}
           </Button>
         }
       />

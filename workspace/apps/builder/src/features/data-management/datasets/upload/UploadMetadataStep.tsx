@@ -14,6 +14,8 @@ import {
   Typography,
 } from 'antd';
 import type { Dispatch } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import type { Column, ColumnOverride, Dtype, ParseOptions, SheetSummary } from '../types';
 import { CSV_SHEET_KEY, type SheetState, type WizardAction, type WizardState } from './state';
 
@@ -29,6 +31,7 @@ type Props = Readonly<{
 }>;
 
 export function UploadMetadataStep({ state, dispatch, onReparseSheet }: Props) {
+  const { t } = useTranslation();
   const isCsv = state.sourceFormat === 'csv';
   const sheetKeys = isCsv ? [CSV_SHEET_KEY] : state.selectedSheets;
 
@@ -37,8 +40,8 @@ export function UploadMetadataStep({ state, dispatch, onReparseSheet }: Props) {
       <Alert
         type="info"
         showIcon
-        title="No sheets selected"
-        description="Go back to the Sheet step and pick at least one."
+        title={t('upload.metadata.noSheetsSelected')}
+        description={t('upload.metadata.noSheetsHint')}
       />
     );
   }
@@ -56,7 +59,7 @@ export function UploadMetadataStep({ state, dispatch, onReparseSheet }: Props) {
       <Tabs
         items={sheetKeys.map((key) => ({
           key,
-          label: tabLabel(key, state),
+          label: tabLabel(key, state, t),
           children: <SheetPane sheetKey={key} state={state} dispatch={dispatch} onReparse={onReparseSheet} />,
         }))}
       />
@@ -64,7 +67,7 @@ export function UploadMetadataStep({ state, dispatch, onReparseSheet }: Props) {
   );
 }
 
-function tabLabel(key: string, state: WizardState): React.ReactNode {
+function tabLabel(key: string, state: WizardState, t: TFunction): React.ReactNode {
   const name = key || 'CSV';
   const sheet = state.sheets[key];
   if (!sheet) return name;
@@ -78,8 +81,8 @@ function tabLabel(key: string, state: WizardState): React.ReactNode {
           {name}{' '}
           <span
             style={{ color: '#d48806', fontWeight: 600 }}
-            aria-label="has overrides"
-            title="This sheet has user overrides"
+            aria-label={t('upload.metadata.hasOverridesAria')}
+            title={t('upload.metadata.hasOverridesTitle')}
           >
             ✎
           </span>
@@ -89,7 +92,7 @@ function tabLabel(key: string, state: WizardState): React.ReactNode {
     return (
       <span data-component="SheetTabLabel" data-overridden="false">
         {name}{' '}
-        <span style={{ color: '#52c41a' }} aria-label="parsed">
+        <span style={{ color: '#52c41a' }} aria-label={t('upload.metadata.parsedAria')}>
           ✓
         </span>
       </span>
@@ -108,17 +111,18 @@ type PaneProps = Readonly<{
 }>;
 
 function SheetPane({ sheetKey, state, dispatch, onReparse }: PaneProps) {
+  const { t } = useTranslation();
   const sheet = state.sheets[sheetKey];
   const isCsv = state.sourceFormat === 'csv';
 
   if (!sheet) {
-    return <Alert type="info" title="Not parsed yet" />;
+    return <Alert type="info" title={t('upload.metadata.notParsedYet')} />;
   }
 
   if (sheet.status === 'parsing') {
     return (
       <div style={{ padding: 24, textAlign: 'center' }}>
-        <Spin /> Parsing…
+        <Spin /> {t('upload.metadata.parsing')}
       </div>
     );
   }
@@ -143,7 +147,7 @@ function SheetPane({ sheetKey, state, dispatch, onReparse }: PaneProps) {
         <Alert
           type="error"
           showIcon
-          title={`Parse failed: ${sheet.parseError?.error ?? 'unknown'}`}
+          title={t('upload.metadata.parseFailed', { error: sheet.parseError?.error ?? 'unknown' })}
           description={sheet.parseError?.detail}
           data-component="SheetParseFailed"
         />
@@ -172,7 +176,7 @@ function SheetPane({ sheetKey, state, dispatch, onReparse }: PaneProps) {
 
   const tableColumns = [
     {
-      title: 'Include',
+      title: t('upload.metadata.tableInclude'),
       key: 'include',
       width: 80,
       render: (_: unknown, row: Column) => (
@@ -191,19 +195,19 @@ function SheetPane({ sheetKey, state, dispatch, onReparse }: PaneProps) {
       ),
     },
     {
-      title: 'Column',
+      title: t('upload.metadata.tableColumn'),
       dataIndex: 'name',
       key: 'name',
       render: (name: string) => <span style={{ fontWeight: 500 }}>{name}</span>,
     },
     {
-      title: 'Detected',
+      title: t('upload.metadata.tableDetected'),
       dataIndex: 'dtype',
       key: 'detected',
       render: (d: Dtype) => <Typography.Text type="secondary">{d}</Typography.Text>,
     },
     {
-      title: 'Override',
+      title: t('upload.metadata.tableOverride'),
       key: 'override',
       render: (_: unknown, row: Column) => (
         <OverrideCell
@@ -221,7 +225,7 @@ function SheetPane({ sheetKey, state, dispatch, onReparse }: PaneProps) {
       ),
     },
     {
-      title: 'Sample values',
+      title: t('upload.metadata.tableSample'),
       key: 'sample',
       render: (_: unknown, row: Column) => (
         <Typography.Text type="secondary" style={{ fontSize: 12 }}>
@@ -235,13 +239,18 @@ function SheetPane({ sheetKey, state, dispatch, onReparse }: PaneProps) {
     <div>
       {optionsDisclosure}
       <Typography.Paragraph type="secondary" style={{ marginTop: 0 }}>
-        Detected schema{' '}
         {sheetLabel ? (
-          <>
-            for <strong>{sheetLabel}</strong>{' '}
-          </>
-        ) : null}
-        ({sheet.rowCount.toLocaleString()} rows · {total} columns). Override any column's dtype before previewing.
+          <Trans
+            i18nKey="upload.metadata.detectedSchemaWithLabel"
+            values={{ sheet: sheetLabel, rows: sheet.rowCount.toLocaleString(), total }}
+            components={{ strong: <strong /> }}
+          />
+        ) : (
+          t('upload.metadata.detectedSchemaNoLabel', {
+            rows: sheet.rowCount.toLocaleString(),
+            total,
+          })
+        )}
       </Typography.Paragraph>
       <Table
         size="small"
@@ -259,11 +268,12 @@ function SheetPane({ sheetKey, state, dispatch, onReparse }: PaneProps) {
         }}
       >
         <Button type="link" size="small" onClick={resetAll} disabled={!hasAnyOverride} data-component="ResetOverrides">
-          Reset all to detected
+          {t('upload.metadata.resetAll')}
         </Button>
         <Typography.Text type="secondary" data-component="MetadataIncludedCount">
-          {sheetLabel ? `${sheetLabel} · ` : ''}
-          {kept} of {total} columns included
+          {sheetLabel
+            ? t('upload.metadata.includedCountWithSheet', { sheet: sheetLabel, kept, total })
+            : t('upload.metadata.includedCount', { kept, total })}
         </Typography.Text>
       </div>
     </div>
@@ -343,6 +353,7 @@ type DisclosureProps = Readonly<{
 }>;
 
 function ParseOptionsDisclosure({ sheetKey, sheet, isCsv, availableSheets, dispatch, onReparse }: DisclosureProps) {
+  const { t } = useTranslation();
   const opts = sheet.parseOptions;
   const update = (patch: Partial<ParseOptions>) => {
     const next: ParseOptions = { ...opts, ...patch };
@@ -359,7 +370,7 @@ function ParseOptionsDisclosure({ sheetKey, sheet, isCsv, availableSheets, dispa
     <Space orientation="vertical" size={12} style={{ width: '100%' }}>
       {isCsv ? (
         <div data-component="ParseOptionCsvSkipRows">
-          <Typography.Text>Skip rows: </Typography.Text>
+          <Typography.Text>{t('upload.metadata.skipRows')} </Typography.Text>
           <InputNumber
             min={0}
             value={opts.skip_rows ?? null}
@@ -368,12 +379,12 @@ function ParseOptionsDisclosure({ sheetKey, sheet, isCsv, availableSheets, dispa
             data-component="ParseOptionSkipRowsInput"
           />
           <Typography.Text type="secondary" style={{ marginLeft: 8 }}>
-            Leading rows to drop before the header.
+            {t('upload.metadata.skipRowsHelp')}
           </Typography.Text>
         </div>
       ) : (
         <div data-component="ParseOptionExcelRange">
-          <Typography.Text>Range: </Typography.Text>
+          <Typography.Text>{t('upload.metadata.range')} </Typography.Text>
           <Input
             value={opts.range ?? ''}
             onChange={(e) => {
@@ -389,19 +400,19 @@ function ParseOptionsDisclosure({ sheetKey, sheet, isCsv, availableSheets, dispa
             data-component="ParseOptionRangeInput"
           />
           <Typography.Text type="secondary" style={{ marginLeft: 8 }}>
-            Cell range like <code>A1:C20</code>. Default is the sheet's used range.
+            <Trans i18nKey="upload.metadata.rangeHelp" components={{ code: <code /> }} />
           </Typography.Text>
         </div>
       )}
       <div data-component="ParseOptionHasHeader">
-        <Typography.Text style={{ marginRight: 8 }}>First row is a header:</Typography.Text>
+        <Typography.Text style={{ marginRight: 8 }}>{t('upload.metadata.hasHeader')}</Typography.Text>
         <Switch
           checked={opts.has_header ?? true}
           onChange={(v) => update({ has_header: v })}
           data-component="ParseOptionHasHeaderSwitch"
         />
         <Typography.Text type="secondary" style={{ marginLeft: 8 }}>
-          When off, columns are named <code>column1, column2, …</code>.
+          <Trans i18nKey="upload.metadata.hasHeaderHelp" components={{ code: <code /> }} />
         </Typography.Text>
       </div>
       {onReparse ? (
@@ -411,16 +422,14 @@ function ParseOptionsDisclosure({ sheetKey, sheet, isCsv, availableSheets, dispa
           loading={sheet.status === 'parsing'}
           data-component="ParseOptionReparseButton"
         >
-          {isCsv ? 'Re-parse this file' : 'Re-parse this sheet'}
+          {isCsv ? t('upload.metadata.reparseFile') : t('upload.metadata.reparseSheet')}
         </Button>
       ) : null}
       <Alert
         type="info"
         showIcon
         title={
-          isCsv
-            ? 'Editing parse options resets your column dtype overrides and exclusions for this file.'
-            : 'Re-parsing or editing the range resets your column overrides and exclusions for this sheet.'
+          isCsv ? t('upload.metadata.resetWarningCsv') : t('upload.metadata.resetWarningExcel')
         }
         data-component="ParseOptionResetWarning"
       />
@@ -438,7 +447,7 @@ function ParseOptionsDisclosure({ sheetKey, sheet, isCsv, availableSheets, dispa
       items={[
         {
           key: 'parse-options',
-          label: 'Parse options',
+          label: t('upload.metadata.parseOptions'),
           children: body,
         },
       ]}
@@ -454,24 +463,25 @@ type ParseFailedActionsProps = Readonly<{
 }>;
 
 function ParseFailedActions({ sheetKey, isCsv, dispatch }: ParseFailedActionsProps) {
+  const { t } = useTranslation();
   return (
     <Space style={{ marginTop: 12 }} data-component="SheetParseFailedActions">
       <Button
         onClick={() => dispatch({ type: 'GOTO_STEP', step: 'source' })}
         data-component="SheetParseFailedRepickFile"
       >
-        Re-pick file
+        {t('upload.metadata.repickFile')}
       </Button>
       {isCsv ? null : (
         <Button
           onClick={() => dispatch({ type: 'TOGGLE_SELECTED_SHEET', sheet: sheetKey })}
           data-component="SheetParseFailedDeselect"
         >
-          Deselect this sheet
+          {t('upload.metadata.deselectSheet')}
         </Button>
       )}
       <Typography.Text type="secondary" style={{ marginLeft: 4 }}>
-        Or adjust parse options above and re-parse.
+        {t('upload.metadata.parseFailedAdjustHint')}
       </Typography.Text>
     </Space>
   );

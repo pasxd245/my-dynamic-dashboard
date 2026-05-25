@@ -1,10 +1,15 @@
 import { AntdConfig } from '@mdd/ui';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { App as AntdApp } from 'antd';
+import enUS from 'antd/locale/en_US';
+import viVN from 'antd/locale/vi_VN';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import './index.css';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+// R32: i18n init must run before any component mounts so the
+// initial render sees a populated locale.
+import { i18n } from '@/i18n';
 import { AppErrorBoundary } from '@/components/AppErrorBoundary';
 import { AppLayout } from '@/components/AppLayout';
 import { DatasetsPage } from '@/features/data-management/datasets/DatasetsPage';
@@ -17,6 +22,15 @@ import { WorkspacesPage } from '@/features/data-management/workspaces/Workspaces
 // content padding + breathing room) and caps the queue so a
 // burst of errors doesn't fill the viewport.
 const MESSAGE_CONFIG = { top: 64, duration: 3, maxCount: 3 } as const;
+
+// R32: pick the AntD locale pack matching i18next's active language.
+// Static map keeps the bundle tree-shake-friendly (only the resolved
+// pack ends up live in the bundle's reachable graph).
+const ANTD_LOCALES = { en: enUS, vi: viVN } as const;
+type SupportedLocale = keyof typeof ANTD_LOCALES;
+const activeLocale: SupportedLocale =
+  i18n.language in ANTD_LOCALES ? (i18n.language as SupportedLocale) : 'en';
+const antdLocale = ANTD_LOCALES[activeLocale];
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -35,7 +49,7 @@ const queryClient = new QueryClient({
 createRoot(rootElement).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <AntdConfig>
+      <AntdConfig locale={antdLocale}>
         <AntdApp message={MESSAGE_CONFIG}>
           {/*
             R30: AppErrorBoundary wraps the router so an uncaught render

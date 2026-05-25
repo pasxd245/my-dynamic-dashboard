@@ -1,26 +1,28 @@
 import { Alert, Input, Table, Tag, Typography } from 'antd';
+import type { TFunction } from 'i18next';
 import type { Dispatch } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import { ERROR_CODES, NAME_LENGTHS } from '@/_generated/constants';
 import { BatchApiErrorThrown } from '@/features/data-management/_shared/types';
 import { useWorkspacesQuery } from '@/features/data-management/workspaces/hooks';
 import { CSV_SHEET_KEY, type WizardAction, type WizardState } from './state';
 
-function commitErrorTitle(err: Error): string {
+function commitErrorTitle(err: Error, t: TFunction): string {
   if (err instanceof BatchApiErrorThrown && 'code' in err.body) {
     if (err.body.code === ERROR_CODES.NAME_TAKEN) {
-      return 'A dataset with that name already exists in this workspace';
+      return t('upload.confirm.errorNameTakenTitle');
     }
   }
-  return "Couldn't commit datasets";
+  return t('upload.confirm.errorGenericTitle');
 }
 
-function commitErrorDescription(err: Error): string {
+function commitErrorDescription(err: Error, t: TFunction): string {
   if (err instanceof BatchApiErrorThrown) {
     if ('code' in err.body) {
       if (err.body.code === ERROR_CODES.NAME_TAKEN) {
-        return "Rename one of the items in the table above (the wizard's Confirm step) so each dataset name is unique within this workspace, then try again.";
+        return t('upload.confirm.errorNameTakenDescription');
       }
-      return `Server returned code ${err.body.code}.`;
+      return t('upload.confirm.errorServerCode', { code: err.body.code });
     }
     return err.body.detail ?? err.body.error;
   }
@@ -45,6 +47,7 @@ type RowData = {
 };
 
 export function UploadConfirmStep({ state, dispatch, commitError }: Props) {
+  const { t } = useTranslation();
   const isCsv = state.sourceFormat === 'csv';
   const sheetKeys = isCsv ? [CSV_SHEET_KEY] : state.selectedSheets;
   const workspaces = useWorkspacesQuery();
@@ -78,7 +81,7 @@ export function UploadConfirmStep({ state, dispatch, commitError }: Props) {
       ? []
       : ([
           {
-            title: 'Sheet',
+            title: t('upload.confirm.tableSheet'),
             dataIndex: 'sheetLabel',
             key: 'sheetLabel',
             render: (label: string) => <span style={{ fontWeight: 500 }}>{label}</span>,
@@ -87,7 +90,7 @@ export function UploadConfirmStep({ state, dispatch, commitError }: Props) {
     {
       title: (
         <>
-          Dataset name{' '}
+          {t('upload.confirm.tableDatasetName')}{' '}
           <Typography.Text type="danger" style={{ marginLeft: 2 }}>
             *
           </Typography.Text>
@@ -105,7 +108,7 @@ export function UploadConfirmStep({ state, dispatch, commitError }: Props) {
               name: e.target.value,
             })
           }
-          placeholder="Dataset name"
+          placeholder={t('upload.confirm.datasetNamePlaceholder')}
           maxLength={NAME_LENGTHS.DATASET_MAX}
           size="small"
           data-component="DatasetNameInput"
@@ -114,33 +117,29 @@ export function UploadConfirmStep({ state, dispatch, commitError }: Props) {
       ),
     },
     {
-      title: 'Rows',
+      title: t('upload.confirm.tableRows'),
       dataIndex: 'rowCount',
       key: 'rowCount',
       align: 'right' as const,
       render: (n: number) => n.toLocaleString(),
     },
     {
-      title: 'Cols',
+      title: t('upload.confirm.tableCols'),
       key: 'cols',
       align: 'right' as const,
       render: (_: unknown, row: RowData) => `${row.kept} / ${row.total}`,
     },
     {
-      title: 'Overrides',
+      title: t('upload.confirm.tableOverrides'),
       key: 'overrides',
       render: (_: unknown, row: RowData) =>
         row.overrideCount > 0 ? (
-          <Tag color="blue">
-            {row.overrideCount} column{row.overrideCount === 1 ? '' : 's'}
-          </Tag>
+          <Tag color="blue">{t('upload.confirm.overrideCount', { count: row.overrideCount })}</Tag>
         ) : (
-          <Typography.Text type="secondary">none</Typography.Text>
+          <Typography.Text type="secondary">{t('upload.confirm.noOverrides')}</Typography.Text>
         ),
     },
   ];
-
-  const verb = rows.length === 1 ? 'dataset' : 'datasets';
 
   return (
     <div data-component="UploadConfirmStep">
@@ -154,10 +153,11 @@ export function UploadConfirmStep({ state, dispatch, commitError }: Props) {
         data-component="ConfirmSummary"
       >
         <span>
-          <Typography.Text type="secondary">Workspace:</Typography.Text> <strong>{workspaceName}</strong>
+          <Typography.Text type="secondary">{t('upload.confirm.workspaceLabel')}</Typography.Text>{' '}
+          <strong>{workspaceName}</strong>
         </span>
         <span>
-          <Typography.Text type="secondary">Source:</Typography.Text> {sourceLabel} · {fileName}
+          <Typography.Text type="secondary">{t('upload.confirm.sourceLabel')}</Typography.Text> {sourceLabel} · {fileName}
           {fileSize ? ` (${fileSize})` : ''}
         </span>
       </div>
@@ -170,15 +170,20 @@ export function UploadConfirmStep({ state, dispatch, commitError }: Props) {
         data-component="ConfirmTable"
       />
       <Typography.Paragraph type="secondary" style={{ marginTop: 12 }} data-component="ConfirmFooter">
-        Creating <strong>{rows.length}</strong> {verb} in <strong>{workspaceName}</strong>.
+        <Trans
+          i18nKey="upload.confirm.footer"
+          count={rows.length}
+          values={{ count: rows.length, workspace: workspaceName }}
+          components={{ strong: <strong /> }}
+        />
       </Typography.Paragraph>
 
       {commitError ? (
         <Alert
           type="error"
           showIcon
-          title={commitErrorTitle(commitError)}
-          description={commitErrorDescription(commitError)}
+          title={commitErrorTitle(commitError, t)}
+          description={commitErrorDescription(commitError, t)}
           style={{ marginTop: 12 }}
           data-component="CommitError"
         />

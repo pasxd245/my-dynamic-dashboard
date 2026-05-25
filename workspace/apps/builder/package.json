@@ -17,8 +17,10 @@
     "@mdd/ui": "workspace:*",
     "@tanstack/react-query": "^5.0.0",
     "antd": "^6.0.0",
+    "i18next": "^26.2.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "react-i18next": "^17.0.8",
     "react-router-dom": "^7.0.0"
   },
   "devDependencies": {

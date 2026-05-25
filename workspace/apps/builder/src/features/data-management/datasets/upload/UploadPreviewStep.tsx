@@ -1,5 +1,6 @@
 import { Alert, Button, Space, Table, Tabs, Typography } from "antd";
 import type { Dispatch } from "react";
+import { useTranslation } from "react-i18next";
 import type { Dtype } from "../types";
 import { CSV_SHEET_KEY, type WizardAction, type WizardState } from "./state";
 
@@ -9,6 +10,7 @@ type Props = Readonly<{
 }>;
 
 export function UploadPreviewStep({ state, dispatch }: Props) {
+  const { t } = useTranslation();
   const isCsv = state.sourceFormat === "csv";
   const sheetKeys = isCsv ? [CSV_SHEET_KEY] : state.selectedSheets;
 
@@ -17,8 +19,8 @@ export function UploadPreviewStep({ state, dispatch }: Props) {
       <Alert
         type="info"
         showIcon
-        title="No sheets selected"
-        description="Go back to the Sheet step and pick at least one."
+        title={t('upload.preview.noSheetsSelected')}
+        description={t('upload.preview.noSheetsHint')}
       />
     );
   }
@@ -65,11 +67,12 @@ function tabLabel(key: string, state: WizardState): string {
 }
 
 function SheetPreview({ sheetKey, state, dispatch }: SheetPreviewProps) {
+  const { t } = useTranslation();
   const sheet = state.sheets[sheetKey];
   const isCsv = state.sourceFormat === "csv";
 
   if (!sheet) {
-    return <Alert type="info" title="Not parsed yet" />;
+    return <Alert type="info" title={t('upload.preview.notParsedYet')} />;
   }
 
   if (sheet.status === "failed") {
@@ -78,7 +81,7 @@ function SheetPreview({ sheetKey, state, dispatch }: SheetPreviewProps) {
         <Alert
           type="error"
           showIcon
-          title={`Parse failed: ${sheet.parseError?.error ?? "unknown"}`}
+          title={t('upload.preview.parseFailed', { error: sheet.parseError?.error ?? 'unknown' })}
           description={sheet.parseError?.detail}
           data-component="SheetParseFailed"
         />
@@ -87,7 +90,7 @@ function SheetPreview({ sheetKey, state, dispatch }: SheetPreviewProps) {
             onClick={() => dispatch({ type: "GOTO_STEP", step: "source" })}
             data-component="SheetParseFailedRepickFile"
           >
-            Re-pick file
+            {t('upload.preview.repickFile')}
           </Button>
           {isCsv ? null : (
             <Button
@@ -96,7 +99,7 @@ function SheetPreview({ sheetKey, state, dispatch }: SheetPreviewProps) {
               }
               data-component="SheetParseFailedDeselect"
             >
-              Deselect this sheet
+              {t('upload.preview.deselectSheet')}
             </Button>
           )}
           <Button
@@ -104,7 +107,7 @@ function SheetPreview({ sheetKey, state, dispatch }: SheetPreviewProps) {
             onClick={() => dispatch({ type: "GOTO_STEP", step: "metadata" })}
             data-component="SheetParseFailedAdjustOptions"
           >
-            Adjust parse options
+            {t('upload.preview.adjustOptions')}
           </Button>
         </Space>
       </div>
@@ -131,12 +134,15 @@ function SheetPreview({ sheetKey, state, dispatch }: SheetPreviewProps) {
         ) : (
           <strong>{fileName}</strong>
         )}{" "}
-        · {sheet.rowCount.toLocaleString()} rows · {includedColumns.length} of{" "}
-        {sheet.columns.length} columns
+        ·{" "}
+        {t('upload.preview.summary', {
+          count: sheet.rowCount,
+          shown: includedColumns.length,
+          total: sheet.columns.length,
+        })}
       </Typography.Paragraph>
       <Typography.Paragraph type="secondary" style={{ marginBottom: 8 }}>
-        Dtypes reflect your overrides from the Metadata step. Use Back to
-        revise.
+        {t('upload.preview.dtypeHint')}
       </Typography.Paragraph>
       <Table
         size="small"
@@ -170,9 +176,12 @@ function SheetPreview({ sheetKey, state, dispatch }: SheetPreviewProps) {
         type="secondary"
         style={{ marginTop: 8, fontSize: 12 }}
       >
-        Showing {sheet.sampleRows.length} of{" "}
-        {sheet.rowCount.toLocaleString()} rows · {includedColumns.length}{" "}
-        columns (scroll horizontally for more)
+        {t('upload.preview.showing', {
+          count: sheet.rowCount,
+          shown: sheet.sampleRows.length,
+          total: sheet.rowCount,
+          cols: includedColumns.length,
+        })}
       </Typography.Paragraph>
     </div>
   );

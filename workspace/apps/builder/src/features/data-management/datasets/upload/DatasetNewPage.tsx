@@ -2,6 +2,7 @@ import { ArrowLeftOutlined, ArrowRightOutlined } from '@ant-design/icons';
 import { PageCard, PageHeader } from '@mdd/ui';
 import { Button, Space, Steps } from 'antd';
 import { useEffect, useReducer } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useDatasetsCommitMutation, useUploadParseMutation } from '../hooks';
 import type { CommitBatchItem } from '../types';
@@ -19,16 +20,16 @@ import { UploadPreviewStep } from './UploadPreviewStep';
 import { UploadSheetStep } from './UploadSheetStep';
 import { UploadSourceStep } from './UploadSourceStep';
 
-const BREADCRUMB = [
-  { label: 'Home', route: '/' },
-  { label: 'Data Management' },
-  { label: 'Datasets', route: '/data-management/datasets' },
-  { label: 'New' },
-];
-
 export function DatasetNewPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const BREADCRUMB = [
+    { label: t('nav.home'), route: '/' },
+    { label: t('nav.dataManagement') },
+    { label: t('nav.datasets'), route: '/data-management/datasets' },
+    { label: t('nav.new') },
+  ];
   const [state, dispatch] = useReducer(wizardReducer, INITIAL_WIZARD_STATE);
   const parseMutation = useUploadParseMutation();
   const commitMutation = useDatasetsCommitMutation();
@@ -211,10 +212,12 @@ export function DatasetNewPage() {
   const header = (
     <PageHeader
       breadcrumb={BREADCRUMB}
-      title="New dataset"
-      subtitle="Upload a file and turn it into a queryable dataset."
+      title={t('upload.title')}
+      subtitle={t('upload.subtitle')}
       onNavigate={(route) => navigate(route)}
-      actions={<Button onClick={() => navigate('/data-management/datasets')}>Cancel</Button>}
+      actions={
+        <Button onClick={() => navigate('/data-management/datasets')}>{t('common.cancel')}</Button>
+      }
     />
   );
 
@@ -264,7 +267,7 @@ export function DatasetNewPage() {
           current={currentIdx}
           size="small"
           style={{ marginBottom: 16, flex: '0 0 auto' }}
-          items={steps.map((s) => ({ title: titleCase(s) }))}
+          items={steps.map((s) => ({ title: t(`upload.steps.${s}`) }))}
         />
         <div
           data-component="WizardBodyScroll"
@@ -290,7 +293,7 @@ export function DatasetNewPage() {
           }}
         >
           <Button onClick={goBack} icon={<ArrowLeftOutlined />} data-component="WizardBackButton">
-            Back
+            {t('common.back')}
           </Button>
           <Space>
             {state.step === 'confirm' ? (
@@ -301,7 +304,7 @@ export function DatasetNewPage() {
                 disabled={!state.workspaceId}
                 data-component="WizardCommitButton"
               >
-                Create datasets
+                {t('upload.createDatasets')}
               </Button>
             ) : (
               <Button
@@ -311,7 +314,7 @@ export function DatasetNewPage() {
                 loading={parseMutation.isPending && state.step === 'sheet'}
                 data-component="WizardNextButton"
               >
-                Next <ArrowRightOutlined />
+                {t('common.next')} <ArrowRightOutlined />
               </Button>
             )}
           </Space>
@@ -319,8 +322,4 @@ export function DatasetNewPage() {
       </PageCard>
     </div>
   );
-}
-
-function titleCase(step: WizardStep): string {
-  return step.charAt(0).toUpperCase() + step.slice(1);
 }
