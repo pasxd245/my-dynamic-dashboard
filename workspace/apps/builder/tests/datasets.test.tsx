@@ -3,12 +3,12 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { AppLayout } from "../src/components/AppLayout";
-import { DatasetsPage } from "../src/features/data-management/datasets/DatasetsPage";
-import { DatasetNewPage } from "../src/features/data-management/datasets/upload/DatasetNewPage";
-import { WorkspacesPage } from "../src/features/data-management/workspaces/WorkspacesPage";
-import type { Dataset } from "../src/features/data-management/datasets/types";
-import type { Workspace } from "../src/features/data-management/workspaces/types";
+import { AppLayout } from "@/components/AppLayout";
+import { DatasetsPage } from "@/features/data-management/datasets/DatasetsPage";
+import { DatasetNewPage } from "@/features/data-management/datasets/upload/DatasetNewPage";
+import { WorkspacesPage } from "@/features/data-management/workspaces/WorkspacesPage";
+import type { Dataset } from "@/features/data-management/datasets/types";
+import type { Workspace } from "@/features/data-management/workspaces/types";
 
 const WS_A: Workspace = {
   id: "ws_aaaaaaa1",

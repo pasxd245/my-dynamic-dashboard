@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { datasetsApi } from '../../../api/datasetsApi';
-import { uploadsApi } from '../../../api/uploadsApi';
+import { datasetsApi } from '@/api/datasetsApi';
+import { uploadsApi } from '@/api/uploadsApi';
 import type {
   CommitBatchRequest,
   CommitBatchResponse,

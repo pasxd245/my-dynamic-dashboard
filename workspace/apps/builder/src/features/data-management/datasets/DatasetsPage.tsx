@@ -13,10 +13,10 @@ import { PageCard, PageHeader } from '@mdd/ui';
 import { Alert, App, Button, Dropdown, Input, Select, Skeleton, Table, Typography } from 'antd';
 import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { NAME_LENGTHS } from '../../../_generated/constants';
+import { NAME_LENGTHS } from '@/_generated/constants';
 import { DeleteConfirmModal } from '../_shared/DeleteConfirmModal';
 import { RenameModal } from '../_shared/RenameModal';
-import { useWorkspacesQuery } from '../workspaces/hooks';
+import { useWorkspacesQuery } from '@/features/data-management/workspaces/hooks';
 import { useDatasetsQuery, useDeleteDatasetMutation, useRenameDatasetMutation } from './hooks';
 import type { Dataset } from './types';
 
@@ -114,13 +114,16 @@ export function DatasetsPage() {
 
   let body: React.ReactNode;
   if (datasets.isLoading || workspaces.isLoading) {
-    body = <Skeleton active paragraph={{ rows: 4 }} data-component="DatasetsLoading" />;
+    // R31: 8-row skeleton pre-allocates roughly the height of a
+    // typical loaded table (header + ~8 rows above the fold) so
+    // the layout doesn't jump when data arrives.
+    body = <Skeleton active paragraph={{ rows: 8 }} data-component="DatasetsLoading" />;
   } else if (datasets.isError) {
     body = (
       <Alert
         type="error"
         showIcon
-        message="Couldn't load datasets"
+        title="Couldn't load datasets"
         description={datasets.error?.message ?? 'Unknown error'}
         data-component="DatasetsError"
       />

@@ -5,7 +5,7 @@ import {
 } from "@ant-design/icons";
 import { Alert, Card, Col, Form, Row, Select, Tag, Typography, Upload } from "antd";
 import type { Dispatch } from "react";
-import { useWorkspacesQuery } from "../../workspaces/hooks";
+import { useWorkspacesQuery } from '@/features/data-management/workspaces/hooks';
 import type { SourceFormat } from "../types";
 import { useUploadInitMutation } from "../hooks";
 import type { WizardAction, WizardState } from "./state";
@@ -131,7 +131,7 @@ export function UploadSourceStep({ state, dispatch }: Props) {
         <Alert
           type="error"
           showIcon
-          message="Couldn't process the file"
+          title="Couldn't process the file"
           description={initMutation.error?.message}
           style={{ marginTop: 12 }}
           data-component="UploadInitError"

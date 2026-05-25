@@ -16,9 +16,9 @@ import {
   vi,
 } from "vitest";
 import { MemoryRouter, Navigate, Route, Routes } from "react-router-dom";
-import { AppLayout } from "../src/components/AppLayout";
-import { WorkspacesPage } from "../src/features/data-management/workspaces/WorkspacesPage";
-import type { Workspace } from "../src/features/data-management/workspaces/types";
+import { AppLayout } from "@/components/AppLayout";
+import { WorkspacesPage } from "@/features/data-management/workspaces/WorkspacesPage";
+import type { Workspace } from "@/features/data-management/workspaces/types";
 
 const SAMPLE_WORKSPACES: Workspace[] = [
   { id: "ws_marketing", name: "Marketing", createdAt: "2026-05-21T10:00:00Z" },

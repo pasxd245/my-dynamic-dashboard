@@ -1,8 +1,8 @@
 import { Alert, Input, Table, Tag, Typography } from 'antd';
 import type { Dispatch } from 'react';
-import { ERROR_CODES, NAME_LENGTHS } from '../../../../_generated/constants';
-import { BatchApiErrorThrown } from '../../_shared/types';
-import { useWorkspacesQuery } from '../../workspaces/hooks';
+import { ERROR_CODES, NAME_LENGTHS } from '@/_generated/constants';
+import { BatchApiErrorThrown } from '@/features/data-management/_shared/types';
+import { useWorkspacesQuery } from '@/features/data-management/workspaces/hooks';
 import { CSV_SHEET_KEY, type WizardAction, type WizardState } from './state';
 
 function commitErrorTitle(err: Error): string {
@@ -177,7 +177,7 @@ export function UploadConfirmStep({ state, dispatch, commitError }: Props) {
         <Alert
           type="error"
           showIcon
-          message={commitErrorTitle(commitError)}
+          title={commitErrorTitle(commitError)}
           description={commitErrorDescription(commitError)}
           style={{ marginTop: 12 }}
           data-component="CommitError"

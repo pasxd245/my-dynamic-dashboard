@@ -5,11 +5,18 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import './index.css';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
-import { AppErrorBoundary } from './components/AppErrorBoundary';
-import { AppLayout } from './components/AppLayout';
-import { DatasetsPage } from './features/data-management/datasets/DatasetsPage';
-import { DatasetNewPage } from './features/data-management/datasets/upload/DatasetNewPage';
-import { WorkspacesPage } from './features/data-management/workspaces/WorkspacesPage';
+import { AppErrorBoundary } from '@/components/AppErrorBoundary';
+import { AppLayout } from '@/components/AppLayout';
+import { DatasetsPage } from '@/features/data-management/datasets/DatasetsPage';
+import { DatasetNewPage } from '@/features/data-management/datasets/upload/DatasetNewPage';
+import { WorkspacesPage } from '@/features/data-management/workspaces/WorkspacesPage';
+
+// R31: global AntD message defaults — every page that calls
+// `App.useApp().message.success(...)` inherits these. Lifts the
+// toast position consistently above AppLayout's header (~56px
+// content padding + breathing room) and caps the queue so a
+// burst of errors doesn't fill the viewport.
+const MESSAGE_CONFIG = { top: 64, duration: 3, maxCount: 3 } as const;
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -29,7 +36,7 @@ createRoot(rootElement).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <AntdConfig>
-        <AntdApp>
+        <AntdApp message={MESSAGE_CONFIG}>
           {/*
             R30: AppErrorBoundary wraps the router so an uncaught render
             error in any feature shows a friendly Result page with a Reload

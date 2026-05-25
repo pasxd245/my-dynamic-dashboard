@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { AppErrorBoundary } from '../src/components/AppErrorBoundary';
+import { AppErrorBoundary } from '@/components/AppErrorBoundary';
 
 function Boom(): never {
   throw new Error('kaboom');

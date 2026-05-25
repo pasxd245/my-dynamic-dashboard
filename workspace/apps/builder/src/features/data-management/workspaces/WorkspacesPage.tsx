@@ -19,12 +19,12 @@ import {
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { ERROR_CODES, NAME_LENGTHS } from '../../../_generated/constants';
+import { ERROR_CODES, NAME_LENGTHS } from '@/_generated/constants';
 import { BlockedDeleteModal } from '../_shared/BlockedDeleteModal';
 import { DeleteConfirmModal } from '../_shared/DeleteConfirmModal';
 import { RenameModal } from '../_shared/RenameModal';
 import { ApiErrorThrown } from '../_shared/types';
-import type { Dataset } from '../datasets/types';
+import type { Dataset } from '@/features/data-management/datasets/types';
 import {
   useCreateWorkspaceMutation,
   useDeleteWorkspaceMutation,
@@ -200,12 +200,12 @@ function CreateWorkspaceModal({ open, onClose }: Readonly<CreateModalProps>) {
           <Alert
             type="error"
             showIcon
-            message="Another workspace already has that name."
+            title="Another workspace already has that name."
             data-component="CreateNameTaken"
           />
         ) : null}
         {genericError ? (
-          <Alert type="error" showIcon message="Couldn't create the workspace" description={genericError} />
+          <Alert type="error" showIcon title="Couldn't create the workspace" description={genericError} />
         ) : null}
       </Form>
     </Modal>
@@ -315,13 +315,26 @@ export function WorkspacesPage() {
 
   let body: React.ReactNode;
   if (query.isLoading) {
-    body = <Skeleton active paragraph={{ rows: 4 }} data-component="WorkspacesLoading" />;
+    // R31: card-grid skeleton matches the post-load layout
+    // (xs={24} md={12} xl={8}) so the grid doesn't jump when
+    // real data lands. 6 cards = 2 rows on xl, 3 rows on md.
+    body = (
+      <Row gutter={[16, 16]} data-component="WorkspacesLoading">
+        {['s1', 's2', 's3', 's4', 's5', 's6'].map((k) => (
+          <Col key={k} xs={24} md={12} xl={8}>
+            <Card>
+              <Skeleton active title paragraph={{ rows: 2 }} />
+            </Card>
+          </Col>
+        ))}
+      </Row>
+    );
   } else if (query.isError) {
     body = (
       <Alert
         type="error"
         showIcon
-        message="Couldn't load workspaces"
+        title="Couldn't load workspaces"
         description={query.error?.message ?? 'Unknown error'}
         data-component="WorkspacesError"
       />

@@ -37,7 +37,7 @@ export function UploadMetadataStep({ state, dispatch, onReparseSheet }: Props) {
       <Alert
         type="info"
         showIcon
-        message="No sheets selected"
+        title="No sheets selected"
         description="Go back to the Sheet step and pick at least one."
       />
     );
@@ -112,7 +112,7 @@ function SheetPane({ sheetKey, state, dispatch, onReparse }: PaneProps) {
   const isCsv = state.sourceFormat === 'csv';
 
   if (!sheet) {
-    return <Alert type="info" message="Not parsed yet" />;
+    return <Alert type="info" title="Not parsed yet" />;
   }
 
   if (sheet.status === 'parsing') {
@@ -143,7 +143,7 @@ function SheetPane({ sheetKey, state, dispatch, onReparse }: PaneProps) {
         <Alert
           type="error"
           showIcon
-          message={`Parse failed: ${sheet.parseError?.error ?? 'unknown'}`}
+          title={`Parse failed: ${sheet.parseError?.error ?? 'unknown'}`}
           description={sheet.parseError?.detail}
           data-component="SheetParseFailed"
         />
@@ -281,7 +281,7 @@ function OverrideCell({ row, override, onChange }: OverrideProps) {
   const showFormat = dtype === 'date' || dtype === 'datetime';
   const isOverridden = override !== undefined;
   return (
-    <Space direction="vertical" size={4} style={{ width: '100%' }}>
+    <Space orientation="vertical" size={4} style={{ width: '100%' }}>
       <Select
         size="small"
         status={isOverridden ? 'warning' : undefined}
@@ -356,7 +356,7 @@ function ParseOptionsDisclosure({ sheetKey, sheet, isCsv, availableSheets, dispa
   const usedRange = isCsv ? undefined : availableSheets.find((s) => s.sheet === sheetKey)?.usedRange;
 
   const body = (
-    <Space direction="vertical" size={12} style={{ width: '100%' }}>
+    <Space orientation="vertical" size={12} style={{ width: '100%' }}>
       {isCsv ? (
         <div data-component="ParseOptionCsvSkipRows">
           <Typography.Text>Skip rows: </Typography.Text>
@@ -417,7 +417,7 @@ function ParseOptionsDisclosure({ sheetKey, sheet, isCsv, availableSheets, dispa
       <Alert
         type="info"
         showIcon
-        message={
+        title={
           isCsv
             ? 'Editing parse options resets your column dtype overrides and exclusions for this file.'
             : 'Re-parsing or editing the range resets your column overrides and exclusions for this sheet.'

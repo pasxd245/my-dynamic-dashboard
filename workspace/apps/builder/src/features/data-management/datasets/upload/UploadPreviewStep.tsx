@@ -17,7 +17,7 @@ export function UploadPreviewStep({ state, dispatch }: Props) {
       <Alert
         type="info"
         showIcon
-        message="No sheets selected"
+        title="No sheets selected"
         description="Go back to the Sheet step and pick at least one."
       />
     );
@@ -69,7 +69,7 @@ function SheetPreview({ sheetKey, state, dispatch }: SheetPreviewProps) {
   const isCsv = state.sourceFormat === "csv";
 
   if (!sheet) {
-    return <Alert type="info" message="Not parsed yet" />;
+    return <Alert type="info" title="Not parsed yet" />;
   }
 
   if (sheet.status === "failed") {
@@ -78,7 +78,7 @@ function SheetPreview({ sheetKey, state, dispatch }: SheetPreviewProps) {
         <Alert
           type="error"
           showIcon
-          message={`Parse failed: ${sheet.parseError?.error ?? "unknown"}`}
+          title={`Parse failed: ${sheet.parseError?.error ?? "unknown"}`}
           description={sheet.parseError?.detail}
           data-component="SheetParseFailed"
         />

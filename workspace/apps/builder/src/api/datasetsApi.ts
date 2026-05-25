@@ -1,6 +1,6 @@
 import { appConfig } from '../config';
-import { ApiErrorThrown, BatchApiErrorThrown, isApiError } from '../features/data-management/_shared/types';
-import type { CommitBatchRequest, CommitBatchResponse, Dataset } from '../features/data-management/datasets/types';
+import { ApiErrorThrown, BatchApiErrorThrown, isApiError } from '@/features/data-management/_shared/types';
+import type { CommitBatchRequest, CommitBatchResponse, Dataset } from '@/features/data-management/datasets/types';
 
 // R28: was hardcoded `import.meta.env.VITE_API_BASE_URL ?? "..."`.
 const API_BASE_URL = appConfig.apiBaseUrl();

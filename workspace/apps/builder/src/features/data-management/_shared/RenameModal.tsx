@@ -1,5 +1,5 @@
 import { Alert, Form, Input, Modal } from "antd";
-import { ERROR_CODES } from "../../../_generated/constants";
+import { ERROR_CODES } from '@/_generated/constants';
 import { ApiErrorThrown } from "./types";
 
 export type RenameModalProps = Readonly<{
@@ -97,7 +97,7 @@ export function RenameModal({
           <Alert
             type="error"
             showIcon
-            message={`Another ${resourceLabel} already has that name.`}
+            title={`Another ${resourceLabel} already has that name.`}
             data-component="RenameNameTaken"
           />
         ) : null}
@@ -105,7 +105,7 @@ export function RenameModal({
           <Alert
             type="error"
             showIcon
-            message="Couldn't rename"
+            title="Couldn't rename"
             description={genericError}
             data-component="RenameGenericError"
           />

@@ -4,7 +4,7 @@ import {
   INITIAL_WIZARD_STATE,
   stepIndex,
   wizardReducer,
-} from "../src/features/data-management/datasets/upload/state";
+} from "@/features/data-management/datasets/upload/state";
 
 describe("wizardReducer", () => {
   it("seeds CSV sheet state and advances to metadata on UPLOAD_INIT_SUCCESS", () => {
@@ -252,7 +252,7 @@ describe("wizardReducer", () => {
 
   it("hasParseOptionsSet detects empty vs populated options", async () => {
     const { hasParseOptionsSet } = await import(
-      "../src/features/data-management/datasets/upload/state"
+      "@/features/data-management/datasets/upload/state"
     );
     expect(hasParseOptionsSet(undefined)).toBe(false);
     expect(hasParseOptionsSet({})).toBe(false);

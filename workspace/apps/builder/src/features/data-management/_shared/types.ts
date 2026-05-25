@@ -18,7 +18,7 @@ export type LegacyApiError = {
 
 export type ApiErrorFromBatch = ApiError | LegacyApiError;
 
-import { ERROR_CODES } from '../../../_generated/constants';
+import { ERROR_CODES } from '@/_generated/constants';
 
 export function isApiError(body: unknown): body is ApiError {
   if (typeof body !== 'object' || body === null) return false;

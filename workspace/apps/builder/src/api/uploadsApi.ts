@@ -3,7 +3,7 @@ import type {
   ParseSheetsRequest,
   ParseSheetsResponse,
   TempUploadResponse,
-} from "../features/data-management/datasets/types";
+} from '@/features/data-management/datasets/types';
 
 // R28: was hardcoded `import.meta.env.VITE_API_BASE_URL ?? "..."`.
 const API_BASE_URL = appConfig.apiBaseUrl();
