@@ -1,8 +1,8 @@
 # Round 28: BE AppConfig + Settings (Path C implementation)
 
-**Status**: Review
+**Status**: Complete
 **Date started**: 2026-05-25
-**Date completed**:
+**Date completed**: 2026-05-25
 
 ## Goal
 
@@ -340,8 +340,15 @@ point.
 
 ## Act
 
-**Status**: Review (work done; awaiting human approval per
-[governance.md](../../context/governance.md)).
+**Status**: Complete (human-approved 2026-05-25).
+
+R28 closes the config half of the readiness chain. Path C fully
+realized — drifted-config-pattern-research memo Status now
+"Adopted". BE config layer + 4 hardcode replacements + 13 new
+tests; FE appConfig + 3 call-site refactor. Test-infra bug
+surfaced and fixed (pytest needed `uv sync --extra test` to land
+in .venv). Pre-commit hook validated live during R28's own
+commit.
 
 **Learnings**:
 
