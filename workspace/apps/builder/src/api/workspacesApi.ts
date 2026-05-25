@@ -1,9 +1,12 @@
+import { appConfig } from '../config';
 import { ApiErrorThrown, isApiError } from '../features/data-management/_shared/types';
 import type { CreateWorkspaceInput, Workspace } from '../features/data-management/workspaces/types';
 
-// R13 ships with a TypeScript constant + import.meta.env fallback.
-// A .env-driven base URL waits until staging/prod URLs exist.
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000';
+// R28: single config source — appConfig reads from the rendered
+// VITE_API_BASE_URL with a Const fallback. Was triplicated across the
+// three api files; now one call per file (and the same call returns
+// the same value, so file-local constants are still fine).
+const API_BASE_URL = appConfig.apiBaseUrl();
 
 async function readJson<T>(resp: Response): Promise<T> {
   if (!resp.ok) {

@@ -5,11 +5,13 @@
 **Confidence**: High (read every relevant file in drifted; cross-checked
 with tests + devops/compose; pattern is mature and well-documented in
 drifted's own code)
-**Status**: Partially Adopted — Path C locked 2026-05-25; R27
-shipped the FE half (`.env` render + cross-language constants
-PoC + FE config dir skeleton + render harness + husky pre-commit
-hook). BE half (AppConfig facade over Pydantic, drifted's three-
-layer precedence) ships in R28.
+**Status**: Adopted — Path C fully realized. R27 shipped the FE
+half (js-tmpl render pipeline + `.env` + cross-language constants
+PoC + FE config skeleton + husky pre-commit hook). R28 shipped
+the BE half (Pydantic `Settings` model + `AppConfig` facade +
+drifted's three-layer precedence + ported precedence tests) and
+the FE call-site refactor (three triplicated `API_BASE_URL` reads
+replaced with one `appConfig.apiBaseUrl()` call per file).
 
 ## Problem
 

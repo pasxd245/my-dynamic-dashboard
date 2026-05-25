@@ -1,11 +1,12 @@
+import { appConfig } from "../config";
 import type {
   ParseSheetsRequest,
   ParseSheetsResponse,
   TempUploadResponse,
 } from "../features/data-management/datasets/types";
 
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
+// R28: was hardcoded `import.meta.env.VITE_API_BASE_URL ?? "..."`.
+const API_BASE_URL = appConfig.apiBaseUrl();
 
 async function readJson<T>(resp: Response): Promise<T> {
   if (!resp.ok) {

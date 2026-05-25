@@ -21,6 +21,7 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel, ConfigDict, Field
 
+from app._config import CONFIG
 from app.ingest.csv_parser import CsvParseError, parse_csv
 from app.ingest.excel_parser import ExcelParseError, enumerate_sheets, parse_sheet
 from app.models.common import (
@@ -37,7 +38,10 @@ from app.storage import temp_upload_dir, temp_uploads_dir
 router = APIRouter(prefix="/uploads", tags=["uploads"])
 
 
-MAX_UPLOAD_BYTES = 100 * 1024 * 1024  # 100 MB — matches contract `413` clause.
+# R28: was hardcoded `100 * 1024 * 1024`; now sourced from
+# workspace/config/values.yaml `backend.upload_max_bytes`. Matches
+# contract `413` clause.
+MAX_UPLOAD_BYTES = CONFIG.settings.backend.upload_max_bytes
 
 _CSV_EXTS = {".csv"}
 _EXCEL_EXTS = {".xlsx", ".xls"}

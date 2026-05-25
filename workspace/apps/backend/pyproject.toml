@@ -18,6 +18,7 @@ dependencies = [
     "pyyaml==6.0.2",
     "jsonschema==4.23.0",
     "referencing==0.35.1",
+    "pydantic-settings==2.7.0",
 ]
 
 [project.optional-dependencies]
