@@ -1,0 +1,84 @@
+# Shared schema: ApiError
+# Used by: workspaces/patch, workspaces/delete, datasets/patch, datasets/delete
+#
+# Code-first error envelope introduced by R24 (CRUD hygiene chain). The FE
+# branches on `code` without parsing free-text messages. Distinct from the
+# FastAPI `{ detail: [...] }` 422 envelope used by existing endpoints
+# (uploads, datasets/batch-post, datasets/get) — those keep their shapes; only
+# new R23+ endpoints adopt this envelope. A future round may unify if drift
+# bites.
+#
+# Three variants, discriminated by `code`:
+#   - not_found        — resource id resolves to nothing (404)
+#   - name_taken       — rename collides with an existing name (409)
+#   - non_empty        — workspace delete blocked by N datasets (409)
+#
+# Each variant uses `additionalProperties: false` to mirror the BE's
+# `extra='forbid'` Pydantic discipline (per the R16 conformance pattern).
+
+components:
+  schemas:
+    ApiErrorCode:
+      type: string
+      enum: [not_found, name_taken, non_empty]
+      description: |
+        Closed enum. Any new error class lands as a new code in a future
+        round + contract update — never as a free-text message.
+
+    ApiErrorNotFound:
+      type: object
+      required: [code]
+      additionalProperties: false
+      properties:
+        code:
+          type: string
+          enum: [not_found]
+          description: The requested resource id resolves to nothing.
+
+    ApiErrorNameTaken:
+      type: object
+      required: [code]
+      additionalProperties: false
+      properties:
+        code:
+          type: string
+          enum: [name_taken]
+          description: |
+            Rename collision. For workspaces, uniqueness is global; for
+            datasets, uniqueness is scoped to the parent workspace.
+
+    ApiErrorNonEmpty:
+      type: object
+      required: [code, datasetCount]
+      additionalProperties: false
+      properties:
+        code:
+          type: string
+          enum: [non_empty]
+          description: |
+            Workspace deletion is blocked because it still contains
+            datasets. The cascade rule (R23) requires the FE to delete or
+            move datasets first; no `?cascade=` opt-in in this round.
+        datasetCount:
+          type: integer
+          minimum: 1
+          description: |
+            How many datasets reference the workspace. The FE renders this
+            in the "Workspace not empty" modal copy (e.g., "Marketing has
+            4 datasets").
+          examples: [4]
+
+    ApiError:
+      description: |
+        Discriminated union over `code`. Use `oneOf` + `discriminator` so
+        FE TypeScript can narrow to one variant per branch.
+      oneOf:
+        - $ref: '#/components/schemas/ApiErrorNotFound'
+        - $ref: '#/components/schemas/ApiErrorNameTaken'
+        - $ref: '#/components/schemas/ApiErrorNonEmpty'
+      discriminator:
+        propertyName: code
+        mapping:
+          not_found: '#/components/schemas/ApiErrorNotFound'
+          name_taken: '#/components/schemas/ApiErrorNameTaken'
+          non_empty: '#/components/schemas/ApiErrorNonEmpty'

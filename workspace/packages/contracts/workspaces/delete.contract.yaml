@@ -1,0 +1,62 @@
+openapi: 3.1.0
+info:
+  title: my-dynamic-dashboard — DELETE /workspaces/{id}
+  version: 0.1.0
+  description: |
+    Delete a workspace. R23 designed; R24 contract round.
+
+    Block-on-non-empty (HTTP 409 `non_empty`) cascade rule —
+    workspaces with datasets cannot be deleted directly; the FE
+    must surface the dataset count and require the user to delete
+    or move datasets first. No `?cascade=true` opt-in in this
+    round (deferred per crud-hygiene.md § Out of scope).
+
+paths:
+  /workspaces/{id}:
+    delete:
+      operationId: deleteWorkspace
+      summary: Delete a workspace
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^ws_[0-9a-f]{8}$'
+          description: Workspace id.
+          examples:
+            empty_workspace:
+              value: 'ws_3f8a2c91'
+      responses:
+        '204':
+          description: |
+            Workspace deleted. No response body. Idempotent only in the
+            FE's eyes — repeated calls return 404 (see below).
+        '404':
+          description: |
+            No workspace with the given `id` exists (or it was already
+            deleted by another tab / user). Returns the shared `ApiError`
+            envelope with `code: "not_found"`. The FE treats 404 as
+            effective success for its own state, but the response code
+            distinguishes "you did this" from "someone else did this."
+          content:
+            application/json:
+              schema:
+                $ref: '../_shared/api-error.yaml#/components/schemas/ApiErrorNotFound'
+              examples:
+                missing:
+                  value: { 'code': 'not_found' }
+        '409':
+          description: |
+            Workspace has datasets. Returns the shared `ApiError`
+            envelope with `code: "non_empty"` and the dataset count for
+            the FE's modal copy (modal state 6 of the R23 preview:
+            "Marketing has 4 datasets — delete or move them to another
+            workspace first").
+          content:
+            application/json:
+              schema:
+                $ref: '../_shared/api-error.yaml#/components/schemas/ApiErrorNonEmpty'
+              examples:
+                blocked:
+                  value: { 'code': 'non_empty', 'datasetCount': 4 }

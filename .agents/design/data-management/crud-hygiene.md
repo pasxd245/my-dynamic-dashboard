@@ -11,6 +11,11 @@ the datasets table become write-once garbage.
 **Round introduced**: [Round_23](../../plan/cycles/Round_23.md);
 implementation chain begins R24 (Contract phase) per the chain
 declaration at the end of R23.
+**Contract**: [Round_24](../../plan/cycles/Round_24.md) — four
+`*.contract.{yaml,md}` pairs (PATCH/DELETE on workspaces and
+datasets) plus the new shared
+[`_shared/api-error.yaml`](../../../workspace/packages/contracts/_shared/api-error.yaml)
+envelope. All 11 contracts in the package validate.
 **Sibling docs**:
 [workspaces.md](workspaces.md) (the noun this verb-set operates
 on — defines the Workspace data model),

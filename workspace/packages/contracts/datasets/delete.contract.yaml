@@ -1,0 +1,47 @@
+openapi: 3.1.0
+info:
+  title: my-dynamic-dashboard — DELETE /datasets/{id}
+  version: 0.1.0
+  description: |
+    Delete a dataset. R23 designed; R24 contract round.
+
+    Datasets have no dependent resources in R23 — no 409 case.
+    The underlying parquet file is deleted in the same DB
+    transaction (atomic; reuses the R16 atomic-commit pattern
+    in reverse).
+
+paths:
+  /datasets/{id}:
+    delete:
+      operationId: deleteDataset
+      summary: Delete a dataset
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^ds_[0-9a-f]{8}$'
+          description: Dataset id.
+          examples:
+            commission:
+              value: 'ds_71a4e2f0'
+      responses:
+        '204':
+          description: |
+            Dataset deleted. No response body. The underlying parquet
+            file is unlinked from storage in the same transaction —
+            no half-deleted state visible to subsequent GETs.
+        '404':
+          description: |
+            No dataset with the given `id` exists (or it was already
+            deleted by another tab / user). The FE treats 404 as
+            effective success for its own state; the response code
+            carries the provenance.
+          content:
+            application/json:
+              schema:
+                $ref: '../_shared/api-error.yaml#/components/schemas/ApiErrorNotFound'
+              examples:
+                missing:
+                  value: { 'code': 'not_found' }

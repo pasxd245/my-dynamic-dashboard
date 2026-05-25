@@ -1,0 +1,98 @@
+openapi: 3.1.0
+info:
+  title: my-dynamic-dashboard — PATCH /workspaces/{id}
+  version: 0.1.0
+  description: |
+    Rename a workspace. R23 designed; R24 contract round.
+
+    Only the `name` field is mutable in this round. Other fields
+    (`createdAt`, `id`) are immutable; description / metadata are
+    deferred (see crud-hygiene.md § Out of scope). Workspace names
+    are unique globally — rename collision returns 409 `name_taken`.
+
+paths:
+  /workspaces/{id}:
+    patch:
+      operationId: renameWorkspace
+      summary: Rename a workspace
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^ws_[0-9a-f]{8}$'
+          description: Workspace id (server-generated; see _shared/workspace.yaml).
+          examples:
+            marketing:
+              value: 'ws_3f8a2c91'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              additionalProperties: false
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 80
+                  description: |
+                    New name. Must be unique across all workspaces. Length
+                    bounds match the existing `_shared/workspace.yaml`
+                    `Workspace.name` field (1-80).
+            examples:
+              rename:
+                summary: A typical rename
+                value: { 'name': 'Marketing 2026' }
+      responses:
+        '200':
+          description: Workspace renamed. Returns the updated workspace.
+          content:
+            application/json:
+              schema:
+                $ref: '../_shared/workspace.yaml#/components/schemas/Workspace'
+              examples:
+                renamed:
+                  value:
+                    id: 'ws_3f8a2c91'
+                    name: 'Marketing 2026'
+                    createdAt: '2026-05-21T09:12:00Z'
+        '404':
+          description: |
+            No workspace with the given `id` exists. Returns the shared
+            `ApiError` envelope with `code: "not_found"`.
+          content:
+            application/json:
+              schema:
+                $ref: '../_shared/api-error.yaml#/components/schemas/ApiErrorNotFound'
+              examples:
+                missing:
+                  value: { 'code': 'not_found' }
+        '409':
+          description: |
+            Another workspace already has the requested `name`. The
+            workspace itself is untouched.
+          content:
+            application/json:
+              schema:
+                $ref: '../_shared/api-error.yaml#/components/schemas/ApiErrorNameTaken'
+              examples:
+                collision:
+                  value: { 'code': 'name_taken' }
+        '422':
+          description: |
+            FastAPI's pydantic-validation envelope. Returned when `name`
+            is missing, empty, exceeds 80 characters, the wrong type, or
+            the body contains unexpected keys (`extra='forbid'`).
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: array
+                    items:
+                      type: object

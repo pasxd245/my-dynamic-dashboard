@@ -1,0 +1,110 @@
+openapi: 3.1.0
+info:
+  title: my-dynamic-dashboard — PATCH /datasets/{id}
+  version: 0.1.0
+  description: |
+    Rename a dataset. R23 designed; R24 contract round.
+
+    Only `name` is mutable in this round. Dataset names are unique
+    *within their workspace* — the same name in two different
+    workspaces is allowed (matches the upload wizard's existing
+    behavior). Length bounds match the existing
+    `_shared/dataset.yaml` `Dataset.name` field (1-120).
+
+paths:
+  /datasets/{id}:
+    patch:
+      operationId: renameDataset
+      summary: Rename a dataset
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^ds_[0-9a-f]{8}$'
+          description: Dataset id (server-generated; see _shared/dataset.yaml).
+          examples:
+            commission:
+              value: 'ds_71a4e2f0'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              additionalProperties: false
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 120
+                  description: |
+                    New name. Must be unique within the dataset's parent
+                    workspace. Length bounds (1-120) match the existing
+                    Dataset.name spec — wider than the workspace limit
+                    (80) because dataset names often inherit filename
+                    stems plus sheet names.
+            examples:
+              rename:
+                summary: A typical rename
+                value: { 'name': 'commission_calc_2026' }
+      responses:
+        '200':
+          description: Dataset renamed. Returns the updated dataset.
+          content:
+            application/json:
+              schema:
+                $ref: '../_shared/dataset.yaml#/components/schemas/Dataset'
+              examples:
+                renamed:
+                  value:
+                    id: 'ds_71a4e2f0'
+                    workspaceId: 'ws_a31002bb'
+                    name: 'commission_calc_2026'
+                    sizeBytes: 4096
+                    rowCount: 58
+                    columnCount: 6
+                    columns:
+                      - { name: 'month', dtype: 'string' }
+                      - { name: 'rep', dtype: 'string' }
+                      - { name: 'amount', dtype: 'float' }
+                      - { name: 'paid', dtype: 'boolean' }
+                      - { name: 'paid_on', dtype: 'date' }
+                      - { name: 'notes', dtype: 'string' }
+                    sourceFormat: 'csv'
+                    createdAt: '2026-05-18T14:22:00Z'
+        '404':
+          description: No dataset with the given `id` exists.
+          content:
+            application/json:
+              schema:
+                $ref: '../_shared/api-error.yaml#/components/schemas/ApiErrorNotFound'
+              examples:
+                missing:
+                  value: { 'code': 'not_found' }
+        '409':
+          description: |
+            Another dataset in the same parent workspace already owns
+            the requested `name`.
+          content:
+            application/json:
+              schema:
+                $ref: '../_shared/api-error.yaml#/components/schemas/ApiErrorNameTaken'
+              examples:
+                collision:
+                  value: { 'code': 'name_taken' }
+        '422':
+          description: |
+            FastAPI validation envelope (missing `name`, empty, > 120
+            chars, wrong type, extra keys).
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: array
+                    items:
+                      type: object
