@@ -26,6 +26,11 @@ backend:
     - 'http://localhost:3000'
   upload_max_bytes: 104857600 # 100 MiB
 
+  # R30: runtime data root (hosts uploads_tmp/, datasets/, app.sqlite).
+  # null → falls back to <BACKEND_ROOT>/data via app/_config/paths.py.
+  # Override via MDD_BACKEND__DATA_DIR=/var/lib/mdd for production deploys.
+  data_dir: null
+
   # R30: tmp-upload sweep job — runtime safety net. Lifespan-spawned
   # asyncio task that hard-deletes uploads_tmp/<temp_id>/ dirs older
   # than the TTL. Disabled in tests via MDD_BACKEND__TMP_SWEEP__ENABLED=false.

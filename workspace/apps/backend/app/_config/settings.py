@@ -34,12 +34,9 @@ from pydantic_settings import (
     SettingsConfigDict,
 )
 
+from .paths import DEFAULT_CONFIG_PATH
 
-# Resolved at import time; used as the Layer-1 source path.
-_BACKEND_ROOT = Path(__file__).resolve().parent.parent.parent
-DEFAULT_CONFIG_PATH: Path = (
-    _BACKEND_ROOT / "data" / "config" / "default.yaml"
-)
+
 _CONFIG_FILE_ENV = "MDD_CONFIG_FILE"
 
 
@@ -70,6 +67,11 @@ class BackendSettings(BaseModel):
     cors_allow_origins: list[str] = Field(default_factory=lambda: ["http://localhost:3000"])
     upload_max_bytes: int = Field(default=100 * 1024 * 1024, ge=0)
     tmp_sweep: TmpSweepSettings = Field(default_factory=TmpSweepSettings)
+    # `data_dir` controls the runtime data root that hosts
+    # `uploads_tmp/`, `datasets/`, and `app.sqlite`. None falls back
+    # to `paths.DEFAULT_DATA_DIR` (`<BACKEND_ROOT>/data`). Set via
+    # values.yaml or `MDD_BACKEND__DATA_DIR=/var/lib/mdd`.
+    data_dir: str | None = None
 
 
 class _YamlConfigSource(PydanticBaseSettingsSource):

@@ -155,6 +155,12 @@ __pycache__/
 
 # App data
 data/
+# R30: `data/` above catches js-tmpl templates that live under
+# `workspace/config/backend/data/...` (template dir mirrors the
+# rendered tree). Un-ignore the template path explicitly so the
+# .hbs files ship with the repo.
+!workspace/config/**/data/
+!workspace/config/**/data/**
 
 # others
 tmp/

@@ -5,24 +5,27 @@ list) and `datasets` (R16). Schema is created `IF NOT EXISTS` at
 app startup via the FastAPI lifespan. No migrations framework yet;
 revisit when a schema-change round arrives.
 
-Tests override the DB location by setting the `MDD_DB_PATH`
-environment variable before importing the app, OR by calling
-`set_db_path(...)` before instantiating the `TestClient`.
+The DB file lives at ``<data_root>/app.sqlite`` where ``data_root``
+follows ``backend.data_dir`` config (R30) — same resolution as
+``storage.get_data_root()``. Tests override via ``set_db_path(...)``
+for hermetic isolation.
 """
 
 from __future__ import annotations
 
-import os
 import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Iterator
 
+from app.storage import get_data_root
 
-_BACKEND_ROOT = Path(__file__).resolve().parent.parent
-_DEFAULT_DB_PATH = _BACKEND_ROOT / "data" / "app.sqlite"
 
-_db_path: Path = Path(os.environ.get("MDD_DB_PATH", _DEFAULT_DB_PATH))
+_db_path: Path | None = None
+
+
+def _default_db_path() -> Path:
+    return get_data_root() / "app.sqlite"
 
 
 def set_db_path(path: Path | str) -> None:
@@ -31,7 +34,10 @@ def set_db_path(path: Path | str) -> None:
 
 
 def get_db_path() -> Path:
-    return _db_path
+    # Resolve lazily so changes to the data root (via test fixtures or
+    # late `MDD_BACKEND__DATA_DIR` overrides) propagate without a
+    # module re-import.
+    return _db_path if _db_path is not None else _default_db_path()
 
 
 _SCHEMA = """

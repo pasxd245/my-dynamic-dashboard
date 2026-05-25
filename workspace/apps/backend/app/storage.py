@@ -4,26 +4,41 @@ Two trees live under the backend data root:
 
 - ``uploads_tmp/<temp_id>/`` — server-generated temp uploads.
   Holds ``original.<ext>`` and a small ``meta.json``. 24h TTL is
-  documented in the contract; the sweep job lands in R30
-  (``app.jobs.tmp_sweep``), spawned by the FastAPI lifespan.
+  swept by ``app.jobs.tmp_sweep`` (R30), spawned by the FastAPI
+  lifespan.
 - ``datasets/<workspace_id>/<dataset_id>/`` — committed datasets.
   Holds ``original.<ext>`` (the source file copy), ``parsed.parquet``
   (the parsed table), and ``source.json`` (audit metadata).
 
-Tests override the data root via ``MDD_DATA_DIR`` or
-``set_data_root(...)``.
+The data root resolves from ``backend.data_dir`` in config (set via
+values.yaml or ``MDD_BACKEND__DATA_DIR=...``); ``None`` falls back
+to ``paths.DEFAULT_DATA_DIR``. Tests override via
+``set_data_root(...)`` for hermetic isolation.
 """
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
+from app._config import CONFIG
+from app._config.paths import BACKEND_ROOT, DEFAULT_DATA_DIR
 
-_BACKEND_ROOT = Path(__file__).resolve().parent.parent
-_DEFAULT_DATA_ROOT = _BACKEND_ROOT / "data"
 
-_data_root: Path = Path(os.environ.get("MDD_DATA_DIR", _DEFAULT_DATA_ROOT))
+def _resolve_data_root() -> Path:
+    """Return the configured data root, falling back to the default.
+
+    Relative paths in ``backend.data_dir`` are anchored at
+    ``BACKEND_ROOT`` so the config can use short forms like
+    ``data-prod/``.
+    """
+    configured = CONFIG.settings.backend.data_dir
+    if configured is None:
+        return DEFAULT_DATA_DIR
+    p = Path(configured)
+    return p if p.is_absolute() else BACKEND_ROOT / p
+
+
+_data_root: Path = _resolve_data_root()
 
 
 def set_data_root(path: Path | str) -> None:

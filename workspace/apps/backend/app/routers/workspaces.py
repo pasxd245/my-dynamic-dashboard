@@ -2,10 +2,11 @@
 
 Wire shape unchanged from R13. Persistence migrated from a
 module-level list to the SQLite `workspaces` table at
-`apps/backend/data/app.sqlite` (configurable via `MDD_DB_PATH`).
-The R13 in-memory list was explicitly deferred persistence; R16's
-contract round locks the shape, so this round swaps the store
-without changing the surface.
+`<data_root>/app.sqlite` (data root configurable via
+`backend.data_dir` config / `MDD_BACKEND__DATA_DIR` env var as
+of R30). The R13 in-memory list was explicitly deferred
+persistence; R16's contract round locks the shape, so this
+round swaps the store without changing the surface.
 """
 
 from __future__ import annotations

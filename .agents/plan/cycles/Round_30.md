@@ -253,6 +253,60 @@ all of them at once._
 
 ## Do
 
+**Backend paths consolidation (R30 add-on).**
+
+Mid-Review the user asked for two related cleanups:
+
+1. Drive the data root from config (`backend.data_dir`) instead of
+   the bespoke `MDD_DATA_DIR` env var.
+2. Reduce the `Path(__file__).resolve().parent.parent[.parent]`
+   chains scattered across `_config/settings.py`, `storage.py`,
+   and `db.py`.
+
+Shipped as part of R30 (Review is still open + the change is
+small + theme-coherent — it's another "runtime safety net"):
+
+- New
+  [`app/_config/paths.py`](../../../workspace/apps/backend/app/_config/paths.py)
+  — single home for `BACKEND_ROOT` (one `parents[2]` resolution),
+  `DEFAULT_DATA_DIR`, and `DEFAULT_CONFIG_PATH`.
+- `BackendSettings` gained `data_dir: str | None = None` — picks
+  up `MDD_BACKEND__DATA_DIR=/...` automatically via the R28
+  env-var precedence chain. `None` falls back to
+  `DEFAULT_DATA_DIR`. Relative paths anchor at `BACKEND_ROOT`.
+- [`storage.py`](../../../workspace/apps/backend/app/storage.py)
+  and [`db.py`](../../../workspace/apps/backend/app/db.py) now
+  import `BACKEND_ROOT` / `DEFAULT_DATA_DIR` from `paths.py`.
+  Both consult `CONFIG.settings.backend.data_dir` instead of the
+  old `os.environ.get("MDD_DATA_DIR"/"MDD_DB_PATH", ...)` reads.
+  `db.get_db_path()` resolves lazily so test fixtures swapping
+  the data root still work without re-import.
+- Stale `MDD_DB_PATH` reference in
+  [`routers/workspaces.py`](../../../workspace/apps/backend/app/routers/workspaces.py)
+  docstring updated to point at the new
+  `MDD_BACKEND__DATA_DIR` chain.
+- `grep -rn 'parent\.parent' workspace/apps/backend --include='*.py'`
+  → 0 hits. Single source-of-truth achieved.
+
+Smoke-tested both paths: default resolves to
+`<BACKEND_ROOT>/data`; `MDD_BACKEND__DATA_DIR=/tmp/mdd-smoketest`
+correctly drives both `get_data_root()` and `get_db_path()`.
+
+**Bonus catch.** `git check-ignore` on the BE Layer-1 template
+revealed that
+`workspace/config/backend/data/config/default.yaml.hbs` was
+shadow-ignored by the blanket `data/` rule in `.gitignore` since
+R28 — the template has been working locally but never actually
+committed to the repo. Added an explicit
+`!workspace/config/**/data/**` un-ignore so templates ship; the
+rendered output stays gitignored because it lives under
+`workspace/apps/backend/data/...`, a different tree.
+
+Full BE suite 77/77 after the refactor — existing
+`storage.set_data_root(tmp_path/'data')` test fixtures still
+isolate correctly because they override the module-level cache,
+not the config layer.
+
 **Tmp sweep (BE).**
 
 - `values.yaml` gained `backend.tmp_sweep.{enabled,
