@@ -393,6 +393,22 @@ R26 did NOT add new vitest tests. Rationale:
   and build prove the wiring; the running app is the next
   test. An integration test for the rename + 409 + re-edit
   flow would be useful but is well-scoped as a follow-up.
+- **CORS preflight bug found in Review (post-merge fix).**
+  R25 added the PATCH and DELETE handlers but did not update
+  `CORSMiddleware(allow_methods=…)` in `app/main.py`, which
+  was still `["GET", "POST"]` from R13. The BE `TestClient`
+  bypasses CORS, so the unit suite missed it; R26's vitest
+  uses fetch mocks, so the FE suite missed it too. The bug
+  only surfaced when the user opened the running app and
+  the browser preflight blocked the new requests. Fixed in
+  the same R26 commit cluster:
+  `allow_methods=["GET", "POST", "PATCH", "DELETE"]`. The
+  inline comment in `main.py` cites R26 as the round that
+  caught it. **Lesson**: any round that introduces a new
+  HTTP method on the BE must update the CORS allow_methods,
+  or the FE round will block in the browser. Worth a small
+  durable note in the BE-round conformance memo for
+  R-A/R-B/R-C (autopilot-readiness) consideration.
 
 **Promotions** _(none this round)_: F-rounds rarely promote.
 The behavior-conformance sub-rule third instance (R20 BE,
