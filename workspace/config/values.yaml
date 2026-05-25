@@ -50,3 +50,19 @@ constants:
     workspace: '^ws_[0-9a-f]{8}$'
     dataset: '^ds_[0-9a-f]{8}$'
     temp: '^tmp_[0-9a-f]{16}$'
+
+  # R29: code-first error envelope keys (matches contracts/_shared/api-error.yaml).
+  # The Pydantic Literal annotations on BE side and the discriminated TS union
+  # on FE side stay hand-authored — these constants centralize the runtime
+  # branch + default-value sites.
+  error_codes:
+    not_found: 'not_found'
+    name_taken: 'name_taken'
+    non_empty: 'non_empty'
+
+  # R29: name-length bounds enforced by Pydantic on BE + AntD Form rules on
+  # FE. Workspace names globally unique, max 80; dataset names per-workspace
+  # unique, max 120 (wider because Excel sheet-suffix names).
+  name_lengths:
+    workspace_max: 80
+    dataset_max: 120

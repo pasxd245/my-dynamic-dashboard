@@ -28,6 +28,7 @@ from fastapi import Path as FastApiPath
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, ConfigDict, Field
 
+from app._generated.constants import ID_PATTERNS, NAME_LENGTHS
 from app.db import get_conn
 from app.ingest.csv_parser import parse_csv
 from app.ingest.excel_parser import parse_sheet
@@ -48,14 +49,16 @@ router = APIRouter(tags=["datasets"])
 
 
 class RenameDatasetBody(BaseModel):
-    """PATCH /datasets/{id} body — dataset `name` is 1-120 chars."""
+    """PATCH /datasets/{id} body — dataset `name` bound from
+    NAME_LENGTHS (R29 — was hardcoded 1-120)."""
 
     model_config = ConfigDict(extra="forbid")
 
-    name: Annotated[str, Field(min_length=1, max_length=120)]
+    name: Annotated[str, Field(min_length=1, max_length=NAME_LENGTHS["dataset_max"])]
 
 
-DsIdPath = Annotated[str, FastApiPath(pattern=r"^ds_[0-9a-f]{8}$")]
+# R29: pattern sourced from ID_PATTERNS (was hardcoded `^ds_[0-9a-f]{8}$`).
+DsIdPath = Annotated[str, FastApiPath(pattern=ID_PATTERNS["dataset"])]
 
 
 def _now_iso() -> str:
@@ -383,7 +386,7 @@ def delete_dataset(id: DsIdPath) -> Response:  # noqa: A002
 
 @router.get("/datasets", response_model=list[Dataset], response_model_exclude_none=True)
 def list_datasets(
-    workspace_id: Annotated[str | None, Query(pattern=r"^ws_[0-9a-f]{8}$")] = None,
+    workspace_id: Annotated[str | None, Query(pattern=ID_PATTERNS["workspace"])] = None,
 ) -> list[Dataset]:
     with get_conn() as con:
         if workspace_id is None:

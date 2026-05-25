@@ -18,10 +18,12 @@ export type LegacyApiError = {
 
 export type ApiErrorFromBatch = ApiError | LegacyApiError;
 
+import { ERROR_CODES } from '../../../_generated/constants';
+
 export function isApiError(body: unknown): body is ApiError {
   if (typeof body !== 'object' || body === null) return false;
   const code = (body as { code?: unknown }).code;
-  return code === 'not_found' || code === 'name_taken' || code === 'non_empty';
+  return code === ERROR_CODES.NOT_FOUND || code === ERROR_CODES.NAME_TAKEN || code === ERROR_CODES.NON_EMPTY;
 }
 
 /** Thrown by the API clients when a 4xx response carries a structured

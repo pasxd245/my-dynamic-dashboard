@@ -11,14 +11,20 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app._generated.constants import ERROR_CODES, ID_PATTERNS, NAME_LENGTHS
+
 
 Dtype = Literal["string", "integer", "float", "boolean", "date", "datetime"]
 SourceFormat = Literal["excel", "csv"]
 
 
-WsId = Annotated[str, Field(pattern=r"^ws_[0-9a-f]{8}$")]
-DsId = Annotated[str, Field(pattern=r"^ds_[0-9a-f]{8}$")]
-TempId = Annotated[str, Field(pattern=r"^tmp_[0-9a-f]{16}$")]
+# R29: pattern strings sourced from app/_generated/constants.py (rendered from
+# workspace/config/values.yaml). Pydantic Field(pattern=...) accepts strings;
+# the compiled regex is created at field-creation time. Same behavior, one
+# source of truth.
+WsId = Annotated[str, Field(pattern=ID_PATTERNS["workspace"])]
+DsId = Annotated[str, Field(pattern=ID_PATTERNS["dataset"])]
+TempId = Annotated[str, Field(pattern=ID_PATTERNS["temp"])]
 IsoUtc = Annotated[
     str,
     Field(pattern=r"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"),
@@ -36,7 +42,7 @@ class Workspace(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     id: WsId
-    name: Annotated[str, Field(min_length=1, max_length=80)]
+    name: Annotated[str, Field(min_length=1, max_length=NAME_LENGTHS["workspace_max"])]
     createdAt: IsoUtc  # noqa: N815 — wire shape
 
 
@@ -45,7 +51,7 @@ class Dataset(BaseModel):
 
     id: DsId
     workspaceId: WsId  # noqa: N815
-    name: Annotated[str, Field(min_length=1, max_length=120)]
+    name: Annotated[str, Field(min_length=1, max_length=NAME_LENGTHS["dataset_max"])]
     sizeBytes: Annotated[int, Field(ge=0)]  # noqa: N815
     rowCount: Annotated[int, Field(ge=0)]  # noqa: N815
     columnCount: Annotated[int, Field(ge=1)]  # noqa: N815
@@ -123,20 +129,27 @@ class RenameBody(BaseModel):
     name: Annotated[str, Field(min_length=1)]
 
 
+# R29: Literal[...] type annotations stay hand-authored — Pydantic needs
+# the literal-string at parse time for discriminated-union narrowing.
+# The default values reference ERROR_CODES so the runtime string has one
+# source of truth (any future rename in values.yaml propagates to the
+# defaults; the Literal annotations would need a paired update).
+
+
 class ApiErrorNotFound(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    code: Literal["not_found"] = "not_found"
+    code: Literal["not_found"] = ERROR_CODES["not_found"]  # type: ignore[assignment]
 
 
 class ApiErrorNameTaken(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    code: Literal["name_taken"] = "name_taken"
+    code: Literal["name_taken"] = ERROR_CODES["name_taken"]  # type: ignore[assignment]
 
 
 class ApiErrorNonEmpty(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    code: Literal["non_empty"] = "non_empty"
+    code: Literal["non_empty"] = ERROR_CODES["non_empty"]  # type: ignore[assignment]
     datasetCount: Annotated[int, Field(ge=1)]  # noqa: N815

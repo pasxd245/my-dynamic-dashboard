@@ -19,6 +19,7 @@ import {
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
+import { ERROR_CODES, NAME_LENGTHS } from '../../../_generated/constants';
 import { BlockedDeleteModal } from '../_shared/BlockedDeleteModal';
 import { DeleteConfirmModal } from '../_shared/DeleteConfirmModal';
 import { RenameModal } from '../_shared/RenameModal';
@@ -169,7 +170,7 @@ function CreateWorkspaceModal({ open, onClose }: Readonly<CreateModalProps>) {
     onClose();
   };
 
-  const nameTaken = mutation.error instanceof ApiErrorThrown && mutation.error.body.code === 'name_taken';
+  const nameTaken = mutation.error instanceof ApiErrorThrown && mutation.error.body.code === ERROR_CODES.NAME_TAKEN;
   const genericError = mutation.error && !(mutation.error instanceof ApiErrorThrown) ? mutation.error.message : null;
 
   return (
@@ -190,7 +191,7 @@ function CreateWorkspaceModal({ open, onClose }: Readonly<CreateModalProps>) {
           name="name"
           rules={[
             { required: true, message: 'Name is required' },
-            { max: 80, message: 'Name must be 80 characters or fewer' },
+            { max: NAME_LENGTHS.WORKSPACE_MAX, message: `Name must be ${NAME_LENGTHS.WORKSPACE_MAX} characters or fewer` },
           ]}
         >
           <Input placeholder="e.g. Marketing" autoFocus />
@@ -281,7 +282,7 @@ export function WorkspacesPage() {
       onError: (err) => {
         // Race-conditioned authoritative path: cached count said 0 but
         // BE returned 409 non_empty. Swap confirm → blocked in place.
-        if (err instanceof ApiErrorThrown && err.body.code === 'non_empty') {
+        if (err instanceof ApiErrorThrown && err.body.code === ERROR_CODES.NON_EMPTY) {
           setModalState({
             kind: 'blocked',
             target,
@@ -376,7 +377,7 @@ export function WorkspacesPage() {
       <CreateWorkspaceModal open={createOpen} onClose={closeCreate} />
       <RenameModal
         resourceLabel="workspace"
-        maxLength={80}
+        maxLength={NAME_LENGTHS.WORKSPACE_MAX}
         currentName={modalState.kind === 'rename' ? modalState.target.name : ''}
         open={modalState.kind === 'rename'}
         isPending={renameMutation.isPending}

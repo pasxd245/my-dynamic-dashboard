@@ -3,11 +3,12 @@
  *
  * Edit workspace/config/values.yaml and run `pnpm config:render`.
  *
- * R27 (readiness chain) — ID-pattern constants only. R29 fills out the
- * remaining cross-language constants (error codes, name lengths, format
- * enums, etc.). Existing inline regex strings in feature code are NOT
- * yet replaced; that's R29's audit. This file just proves the
- * render pipeline works end-to-end.
+ * R27 seeded with ID_PATTERNS as the PoC. R29 added ERROR_CODES +
+ * NAME_LENGTHS and replaced call sites across BE + FE.
+ *
+ * The discriminated-union types (`type ApiError = { code: 'name_taken' } | ...`)
+ * stay hand-authored in `features/data-management/_shared/types.ts`; this
+ * module centralizes the RUNTIME branch + default-value sites.
  */
 
 /** Workspace IDs: `ws_<8 lowercase hex chars>`. */
@@ -18,3 +19,21 @@ export const DATASET_ID_PATTERN = /{{constants.id_patterns.dataset}}/;
 
 /** Temp upload IDs: `tmp_<16 lowercase hex chars>`. */
 export const TEMP_ID_PATTERN = /{{constants.id_patterns.temp}}/;
+
+/** R29: error-envelope code values. Used at FE branch sites
+ *  (`err.body.code === ERROR_CODES.NAME_TAKEN`). */
+export const ERROR_CODES = {
+  NOT_FOUND: "{{constants.error_codes.not_found}}",
+  NAME_TAKEN: "{{constants.error_codes.name_taken}}",
+  NON_EMPTY: "{{constants.error_codes.non_empty}}",
+} as const;
+
+export type ErrorCode = (typeof ERROR_CODES)[keyof typeof ERROR_CODES];
+
+/** R29: name-length bounds for workspace + dataset resources.
+ *  Used at FE Form rules (`{ max: NAME_LENGTHS.WORKSPACE_MAX, ... }`)
+ *  and AntD Input `maxLength` props. */
+export const NAME_LENGTHS = {
+  WORKSPACE_MAX: {{constants.name_lengths.workspace_max}},
+  DATASET_MAX: {{constants.name_lengths.dataset_max}},
+} as const;

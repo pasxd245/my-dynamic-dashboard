@@ -1,4 +1,5 @@
 import { Alert, Form, Input, Modal } from "antd";
+import { ERROR_CODES } from "../../../_generated/constants";
 import { ApiErrorThrown } from "./types";
 
 export type RenameModalProps = Readonly<{
@@ -49,7 +50,7 @@ export function RenameModal({
   };
 
   const nameTaken =
-    error instanceof ApiErrorThrown && error.body.code === "name_taken";
+    error instanceof ApiErrorThrown && error.body.code === ERROR_CODES.NAME_TAKEN;
   const genericError =
     error instanceof Error && !(error instanceof ApiErrorThrown)
       ? error.message

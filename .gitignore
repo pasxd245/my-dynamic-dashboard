@@ -177,3 +177,9 @@ workspace/apps/backend/data/
 # + workspace/config/*.hbs). Run `pnpm config:render` to regenerate.
 # (workspace/apps/builder/.env is already covered by the .env line above.)
 workspace/apps/builder/src/_generated/
+
+# R28: rendered BE config yaml (Layer 1 packaged defaults).
+workspace/apps/backend/data/config/
+
+# R29: BE generated constants module.
+workspace/apps/backend/app/_generated/

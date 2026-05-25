@@ -13,6 +13,7 @@ import { PageCard, PageHeader } from '@mdd/ui';
 import { Alert, App, Button, Dropdown, Input, Select, Skeleton, Table, Typography } from 'antd';
 import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { NAME_LENGTHS } from '../../../_generated/constants';
 import { DeleteConfirmModal } from '../_shared/DeleteConfirmModal';
 import { RenameModal } from '../_shared/RenameModal';
 import { useWorkspacesQuery } from '../workspaces/hooks';
@@ -195,7 +196,7 @@ export function DatasetsPage() {
       </PageCard>
       <RenameModal
         resourceLabel="dataset"
-        maxLength={120}
+        maxLength={NAME_LENGTHS.DATASET_MAX}
         currentName={modalState.kind === 'rename' ? modalState.target.name : ''}
         open={modalState.kind === 'rename'}
         isPending={renameMutation.isPending}

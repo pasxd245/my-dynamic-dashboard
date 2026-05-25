@@ -19,6 +19,7 @@ from fastapi import APIRouter, Path, status
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, ConfigDict, Field
 
+from app._generated.constants import ID_PATTERNS, NAME_LENGTHS
 from app.db import get_conn
 from app.models.common import (
     ApiErrorNameTaken,
@@ -33,20 +34,21 @@ router = APIRouter(prefix="/workspaces", tags=["workspaces"])
 class CreateWorkspace(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    name: Annotated[str, Field(min_length=1, max_length=80)]
+    name: Annotated[str, Field(min_length=1, max_length=NAME_LENGTHS["workspace_max"])]
 
 
 class RenameWorkspaceBody(BaseModel):
-    """PATCH /workspaces/{id} body — workspace `name` is 1-80 chars."""
+    """PATCH /workspaces/{id} body — workspace `name` bound from
+    NAME_LENGTHS (R29 — was hardcoded 1-80)."""
 
     model_config = ConfigDict(extra="forbid")
 
-    name: Annotated[str, Field(min_length=1, max_length=80)]
+    name: Annotated[str, Field(min_length=1, max_length=NAME_LENGTHS["workspace_max"])]
 
 
-# Path parameter type — matches the `^ws_[0-9a-f]{8}$` pattern from
-# the OpenAPI YAMLs.
-WsIdPath = Annotated[str, Path(pattern=r"^ws_[0-9a-f]{8}$")]
+# Path parameter type — pattern sourced from ID_PATTERNS (R29 — was
+# hardcoded `^ws_[0-9a-f]{8}$`).
+WsIdPath = Annotated[str, Path(pattern=ID_PATTERNS["workspace"])]
 
 
 def _now_iso() -> str:

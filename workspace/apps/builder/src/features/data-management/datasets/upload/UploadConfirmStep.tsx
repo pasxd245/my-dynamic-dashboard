@@ -1,12 +1,13 @@
 import { Alert, Input, Table, Tag, Typography } from 'antd';
 import type { Dispatch } from 'react';
+import { ERROR_CODES, NAME_LENGTHS } from '../../../../_generated/constants';
 import { BatchApiErrorThrown } from '../../_shared/types';
 import { useWorkspacesQuery } from '../../workspaces/hooks';
 import { CSV_SHEET_KEY, type WizardAction, type WizardState } from './state';
 
 function commitErrorTitle(err: Error): string {
   if (err instanceof BatchApiErrorThrown && 'code' in err.body) {
-    if (err.body.code === 'name_taken') {
+    if (err.body.code === ERROR_CODES.NAME_TAKEN) {
       return 'A dataset with that name already exists in this workspace';
     }
   }
@@ -16,7 +17,7 @@ function commitErrorTitle(err: Error): string {
 function commitErrorDescription(err: Error): string {
   if (err instanceof BatchApiErrorThrown) {
     if ('code' in err.body) {
-      if (err.body.code === 'name_taken') {
+      if (err.body.code === ERROR_CODES.NAME_TAKEN) {
         return "Rename one of the items in the table above (the wizard's Confirm step) so each dataset name is unique within this workspace, then try again.";
       }
       return `Server returned code ${err.body.code}.`;
@@ -105,7 +106,7 @@ export function UploadConfirmStep({ state, dispatch, commitError }: Props) {
             })
           }
           placeholder="Dataset name"
-          maxLength={120}
+          maxLength={NAME_LENGTHS.DATASET_MAX}
           size="small"
           data-component="DatasetNameInput"
           data-sheet={row.sheetKey}
