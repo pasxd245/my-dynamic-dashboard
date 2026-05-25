@@ -1,3 +1,5 @@
+import asyncio
+import logging
 from contextlib import asynccontextmanager
 from typing import AsyncIterator
 
@@ -7,13 +9,46 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app._config import CONFIG
 from app.db import bootstrap_schema
+from app.jobs.tmp_sweep import sweep_loop
 from app.routers import datasets, uploads, workspaces
+from app.storage import get_data_root
+
+
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     bootstrap_schema()
-    yield
+
+    # R30: spawn the tmp-upload sweep as a lifespan-managed asyncio task.
+    # Disabled in tests via MDD_BACKEND__TMP_SWEEP__ENABLED=false.
+    sweep_cfg = CONFIG.settings.backend.tmp_sweep
+    sweep_task: asyncio.Task[None] | None = None
+    if sweep_cfg.enabled:
+        sweep_task = asyncio.create_task(
+            sweep_loop(
+                data_root=get_data_root(),
+                interval_seconds=sweep_cfg.interval_seconds,
+                ttl_seconds=sweep_cfg.ttl_seconds,
+            ),
+            name="tmp_sweep_loop",
+        )
+        app.state.tmp_sweep_task = sweep_task
+
+    try:
+        yield
+    finally:
+        if sweep_task is not None:
+            sweep_task.cancel()
+            try:
+                await sweep_task
+            except asyncio.CancelledError:
+                # We cancelled it ourselves at shutdown — swallowing is
+                # intentional; don't re-raise into the lifespan.
+                pass  # noqa: S7497
+            except Exception:  # noqa: BLE001
+                logger.exception("tmp_sweep_loop crashed during shutdown")
 
 
 app = FastAPI(title="my-dynamic-dashboard backend", lifespan=lifespan)

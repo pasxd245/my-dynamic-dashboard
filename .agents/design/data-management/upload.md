@@ -559,9 +559,14 @@ last, copies `original.<ext>` and `parsed.<sheetkey>.parquet` →
 writes a `source.json` summarising the source format + sheet
 name, inserts the Dataset row, deletes the temp directory.
 
-**TTL on temp uploads**: 24 hours, swept on backend startup
-(simple cron-equivalent for R15). R∞ adds a real scheduled
-sweep.
+**TTL on temp uploads**: 24 hours, swept by a lifespan-spawned
+asyncio task (`app.jobs.tmp_sweep.sweep_loop`) that re-runs on the
+configured interval. Disabled in tests via
+`MDD_BACKEND__TMP_SWEEP__ENABLED=false`. Configured under
+`backend.tmp_sweep.{enabled, interval_seconds, ttl_seconds}` in
+`workspace/config/values.yaml` (R30). Original R15 framing
+("swept on backend startup") was a one-shot; R30 replaced it with
+a real periodic sweep.
 
 **File-size cap**: 100 MB per upload, same for both formats.
 Larger files defer to a future chunked-upload round.
@@ -792,7 +797,9 @@ Datasets reference `workspace_id` via a foreign key.
 - `parse_csv()` + `parse_excel()` ingestion helpers.
 - Pytest coverage for all three endpoints (success + parse-
   failure + validation paths, both source types).
-- 24h temp-upload sweep (on-startup task).
+- 24h temp-upload sweep — R15 shipped the one-shot bootstrap;
+  R30 replaced it with a lifespan-spawned periodic loop
+  (`app.jobs.tmp_sweep`).
 
 **Deferred**:
 

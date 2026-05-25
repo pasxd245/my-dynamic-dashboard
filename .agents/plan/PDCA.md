@@ -39,6 +39,14 @@ Each round follows four phases:
 
 - Verify outcomes against the goal
 - Run tests, review output, gather feedback
+- **Visual verification gate (UI-bearing rounds): before flipping to
+  `Review`, run the app and exercise the changed flow in a browser.**
+  Five browser-only bugs surfaced in R26 that no test/type/build
+  pipeline caught (CORS preflight, AntD `<App>` provider, modal
+  pre-fill race, lowercase-range validation, CSV reparse parity).
+  Softer than R23-Q1's "Preview required" so autoagent stays
+  unblocked — but skipping it on a UI round is a known-defect risk.
+  Log the verification (or its explicit skip + reason) in Do.
 - Document what worked and what didn't
 - Status: `Review`
 

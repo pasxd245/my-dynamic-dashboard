@@ -4,7 +4,8 @@ Two trees live under the backend data root:
 
 - ``uploads_tmp/<temp_id>/`` — server-generated temp uploads.
   Holds ``original.<ext>`` and a small ``meta.json``. 24h TTL is
-  documented in the contract; the sweep job lands in a later round.
+  documented in the contract; the sweep job lands in R30
+  (``app.jobs.tmp_sweep``), spawned by the FastAPI lifespan.
 - ``datasets/<workspace_id>/<dataset_id>/`` — committed datasets.
   Holds ``original.<ext>`` (the source file copy), ``parsed.parquet``
   (the parsed table), and ``source.json`` (audit metadata).

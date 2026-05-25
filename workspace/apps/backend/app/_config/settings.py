@@ -43,6 +43,21 @@ DEFAULT_CONFIG_PATH: Path = (
 _CONFIG_FILE_ENV = "MDD_CONFIG_FILE"
 
 
+class TmpSweepSettings(BaseModel):
+    """R30: tmp-upload sweep job — runtime safety net.
+
+    The sweep is a lifespan-spawned asyncio task that hard-deletes
+    `data/uploads_tmp/<temp_id>/` directories older than the TTL.
+    Disabled in tests via `MDD_BACKEND__TMP_SWEEP__ENABLED=false`.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool = True
+    interval_seconds: int = Field(default=3600, ge=60)
+    ttl_seconds: int = Field(default=86400, ge=60)
+
+
 class BackendSettings(BaseModel):
     """Inner settings for the backend service."""
 
@@ -54,6 +69,7 @@ class BackendSettings(BaseModel):
     log_level: str = "INFO"
     cors_allow_origins: list[str] = Field(default_factory=lambda: ["http://localhost:3000"])
     upload_max_bytes: int = Field(default=100 * 1024 * 1024, ge=0)
+    tmp_sweep: TmpSweepSettings = Field(default_factory=TmpSweepSettings)
 
 
 class _YamlConfigSource(PydanticBaseSettingsSource):

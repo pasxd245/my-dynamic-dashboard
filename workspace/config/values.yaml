@@ -26,6 +26,14 @@ backend:
     - 'http://localhost:3000'
   upload_max_bytes: 104857600 # 100 MiB
 
+  # R30: tmp-upload sweep job — runtime safety net. Lifespan-spawned
+  # asyncio task that hard-deletes uploads_tmp/<temp_id>/ dirs older
+  # than the TTL. Disabled in tests via MDD_BACKEND__TMP_SWEEP__ENABLED=false.
+  tmp_sweep:
+    enabled: true
+    interval_seconds: 3600 # 1 hour
+    ttl_seconds: 86400 # 24 hours — matches the contract's documented TTL
+
 # ---------------------------------------------------------------------------
 # Builder (FE) config — feeds VITE_* env vars via .env.hbs template.
 # ---------------------------------------------------------------------------

@@ -527,3 +527,16 @@ This doc:
 | Error code surface shape?                         | `{ code: string, ... }` body with FE branching on `code`                               | R23 design — single-branch FE handler                |
 | Same modal component for both resources?          | Yes — `RenameModal` and `DeleteConfirmModal` parameterized by resource label           | R23 design — one feature, two consumers              |
 | Delete dataset cleanup of parquet file?           | Same DB transaction (atomic), reuses R16 atomic-commit pattern in reverse              | R23 design — leans on R16/R20 pattern                |
+
+---
+
+## R30 stamp — top-level error boundary
+
+R26 visual verification surfaced cases where an uncaught render error
+in any CRUD page would unmount the whole app and leave a blank white
+screen. R30 wrapped the router in [`AppErrorBoundary`](../../../workspace/apps/builder/src/components/AppErrorBoundary.tsx)
+inside the AntD providers, so render-phase errors now show a themed
+`<Result>` page with a Reload button instead. Event-handler errors
+continue to surface through the existing AntD `<App>` message
+channel. No change to the CRUD wire shape — purely a defensive
+runtime wrapper.

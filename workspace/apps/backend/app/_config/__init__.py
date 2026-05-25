@@ -7,7 +7,7 @@ R28 readiness chain. Drifted-pattern reference:
 from .app_config import CONFIG, AppConfig
 from .const import Const
 from .fields import Fields
-from .settings import BackendSettings, Settings, build_settings
+from .settings import BackendSettings, Settings, TmpSweepSettings, build_settings
 
 __all__ = [
     "CONFIG",
@@ -16,5 +16,6 @@ __all__ = [
     "Const",
     "Fields",
     "Settings",
+    "TmpSweepSettings",
     "build_settings",
 ]
