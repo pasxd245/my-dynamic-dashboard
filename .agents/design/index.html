@@ -216,6 +216,22 @@
                 </svg>
                 <span>Upload</span>
               </a>
+              <a href="data-management/dataset-detail.preview.html" class="mdd-nav-item" title="Dataset detail (paged row inspector)">
+                <!-- TableOutlined-ish: reuse the database icon family at a different visual weight via the same SVG. -->
+                <svg
+                  class="nav-item-icon"
+                  viewBox="64 64 896 896"
+                  width="14"
+                  height="14"
+                  fill="currentColor"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M928 160H96c-17.7 0-32 14.3-32 32v640c0 17.7 14.3 32 32 32h832c17.7 0 32-14.3 32-32V192c0-17.7-14.3-32-32-32zm-40 208H676V232h212v136zm0 224H676V432h212v160zM412 432h200v160H412V432zm200-64H412V232h200v136zm-476 64h212v160H136V432zm0-200h212v136H136V232zm0 424h212v136H136V656zm276 0h200v136H412V656zm476 136H676V656h212v136z"
+                  />
+                </svg>
+                <span>Dataset detail</span>
+              </a>
               <a href="data-management/crud-hygiene.preview.html" class="mdd-nav-item" title="CRUD hygiene (rename + delete)">
                 <!-- EditOutlined -->
                 <svg
@@ -246,7 +262,7 @@
           <div class="mdd-topbar-title">Design previews</div>
           <div class="mdd-topbar-spacer"></div>
           <div class="mdd-topbar-actions">
-            <span class="mdd-topbar-placeholder">N = 4 previews</span>
+            <span class="mdd-topbar-placeholder">N = 5 previews</span>
           </div>
         </header>
 
@@ -308,6 +324,23 @@
                       Full-page wizard at <code>/data-management/datasets/new</code> — Source (workspace + file) →
                       Preview (parsed schema + sample rows) → Confirm (name + create). State toggle includes a
                       parse-failed variant of step 2.
+                    </p>
+                  </a>
+                </li>
+                <li>
+                  <a class="preview-card" href="data-management/dataset-detail.preview.html">
+                    <div class="title-row">
+                      <h3 class="title">Dataset detail</h3>
+                      <span class="badge">R33</span>
+                      <span class="badge role">paged row inspector · sub-page of Datasets</span>
+                    </div>
+                    <p class="meta">data-management/dataset-detail.preview.html</p>
+                    <p class="desc">
+                      Per-dataset page at <code>/data-management/datasets/:id</code> — header with format chip + Actions
+                      (Rename / Delete), metadata strip, debounced row-substring search bar, paged data table with
+                      dtype-badged column headers and dtype-aware cell rendering. State toggle flips populated /
+                      loading / 404-deleted / zero-rows / no-match. The R34→R36 implementation chain builds against
+                      this design.
                     </p>
                   </a>
                 </li>

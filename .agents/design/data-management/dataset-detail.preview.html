@@ -1,0 +1,878 @@
+<!doctype html>
+<!--
+  HIxAI brainstorming aid for Round_33 — Dataset detail page (paged row inspector).
+
+  Single dataset's metadata strip + paged data table at /datasets/:id.
+  Bottom-right state toggle flips between populated / loading / 404-deleted /
+  zero-rows. The header [Actions ▾] menu is mocked open via inline JS to show
+  the Rename + Delete copy (the modals themselves live in crud-hygiene.preview.html).
+
+  Visual reference only. ~90% fidelity to the intended UI.
+  Production truth is the running builder, not this file.
+  May be removed in a later round (likely R36's Act) once the running builder
+  visually matches.
+
+  Token vars + chrome shared via ../_css/{tokens.css, preview-shell.css}.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MDD — Dataset detail (R33 preview)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="../_css/tokens.css" />
+    <link rel="stylesheet" href="../_css/preview-shell.css" />
+    <style>
+      /* Dataset-detail preview — page-specific styles only.
+         Shared chrome + tokens live in ../_css/. */
+
+      /* ─── Page header (title + format chip + actions) ────────────────── */
+      .page-header .page-title {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .source-icon {
+        font-size: 18px;
+        line-height: 1;
+      }
+      .format-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 2px 8px;
+        border-radius: var(--radius-md);
+        background: var(--color-fill-quaternary);
+        border: 1px solid var(--color-border-secondary);
+        font-size: 12px;
+        font-weight: 500;
+        color: var(--color-text-secondary);
+      }
+
+      /* ─── Actions dropdown (Rename / Delete) ─────────────────────────── */
+      .actions-wrap {
+        position: relative;
+      }
+      .actions-trigger {
+        background: var(--color-bg-base);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-md);
+        padding: 4px 12px;
+        font-size: 13px;
+        color: var(--color-text-secondary);
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .actions-trigger:hover {
+        border-color: var(--color-primary);
+        color: var(--color-primary);
+      }
+      .actions-menu {
+        display: none;
+        position: absolute;
+        right: 0;
+        top: calc(100% + 4px);
+        background: var(--color-bg-base);
+        border: 1px solid var(--color-border-secondary);
+        border-radius: var(--radius-md);
+        box-shadow: var(--shadow-card);
+        min-width: 160px;
+        z-index: 5;
+        padding: 4px;
+      }
+      .actions-wrap.is-open .actions-menu {
+        display: block;
+      }
+      .actions-item {
+        display: block;
+        width: 100%;
+        text-align: left;
+        background: transparent;
+        border: none;
+        padding: 6px 10px;
+        font-size: 13px;
+        color: var(--color-text-base);
+        cursor: pointer;
+        border-radius: var(--radius-md);
+      }
+      .actions-item:hover {
+        background: var(--color-fill-quaternary);
+      }
+      .actions-item.is-danger {
+        color: var(--color-error);
+      }
+
+      /* ─── Metadata strip ─────────────────────────────────────────────── */
+      .meta-strip {
+        background: var(--color-fill-quaternary);
+        border: 1px solid var(--color-border-secondary);
+        border-radius: var(--radius-md);
+        padding: 12px 16px;
+        display: grid;
+        grid-template-columns: repeat(6, 1fr);
+        gap: 12px;
+        margin-bottom: 16px;
+      }
+      @media (max-width: 1100px) {
+        .meta-strip {
+          grid-template-columns: repeat(3, 1fr);
+        }
+      }
+      .meta-cell .label {
+        display: block;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--color-text-tertiary);
+        margin-bottom: 2px;
+      }
+      .meta-cell .value {
+        font-size: 14px;
+        color: var(--color-text-base);
+        font-weight: 500;
+      }
+
+      /* ─── Search bar (above the data table) ──────────────────────────── */
+      .search-bar {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 12px;
+      }
+      .search-input-wrap {
+        position: relative;
+        flex: 1;
+        max-width: 360px;
+      }
+      .search-input-wrap .search-icon {
+        position: absolute;
+        left: 10px;
+        top: 50%;
+        transform: translateY(-50%);
+        font-size: 13px;
+        color: var(--color-text-tertiary);
+        pointer-events: none;
+      }
+      .search-input {
+        width: 100%;
+        padding: 6px 28px 6px 30px;
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-md);
+        background: var(--color-bg-base);
+        font-size: 13px;
+        color: var(--color-text-base);
+      }
+      .search-input:focus {
+        outline: none;
+        border-color: var(--color-primary);
+      }
+      .search-input-wrap .clear-x {
+        position: absolute;
+        right: 8px;
+        top: 50%;
+        transform: translateY(-50%);
+        background: transparent;
+        border: none;
+        font-size: 14px;
+        color: var(--color-text-tertiary);
+        cursor: pointer;
+        padding: 0 4px;
+      }
+      .search-input-wrap .clear-x:hover {
+        color: var(--color-text-secondary);
+      }
+      .search-counter {
+        font-size: 12px;
+        color: var(--color-text-tertiary);
+      }
+      .search-clear-link {
+        font-size: 12px;
+        color: var(--color-primary);
+        text-decoration: none;
+        cursor: pointer;
+      }
+      .search-clear-link:hover {
+        text-decoration: underline;
+      }
+
+      /* ─── Data table ─────────────────────────────────────────────────── */
+      .data-table-wrap {
+        border: 1px solid var(--color-border-secondary);
+        border-radius: var(--radius-md);
+        overflow: auto;
+      }
+      .data-table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+        font-size: 13px;
+      }
+      .data-table thead th {
+        background: var(--color-fill-quaternary);
+        color: var(--color-text-secondary);
+        font-weight: 600;
+        text-align: left;
+        padding: 10px 12px;
+        border-bottom: 1px solid var(--color-border-secondary);
+        position: sticky;
+        top: 0;
+        white-space: nowrap;
+      }
+      .data-table tbody td {
+        padding: 8px 12px;
+        border-bottom: 1px solid var(--color-border-secondary);
+        color: var(--color-text-base);
+        max-width: 240px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .data-table tbody tr:last-child td {
+        border-bottom: none;
+      }
+      .data-table tbody tr:hover td {
+        background: var(--color-primary-bg);
+      }
+      .data-table td.num {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
+      .data-table td.null {
+        color: var(--color-text-tertiary);
+        text-align: center;
+      }
+      .data-table td.long-string {
+        font-style: normal;
+      }
+      .dtype-badge {
+        display: inline-block;
+        margin-left: 6px;
+        padding: 1px 6px;
+        font-size: 10px;
+        font-weight: 500;
+        color: var(--color-text-tertiary);
+        background: var(--color-bg-base);
+        border: 1px solid var(--color-border-secondary);
+        border-radius: var(--radius-md);
+        letter-spacing: 0.02em;
+      }
+
+      /* ─── Pagination bar ─────────────────────────────────────────────── */
+      .pagination-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-top: 16px;
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+      .pagination-pages {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+      .page-num,
+      .page-arrow {
+        min-width: 28px;
+        height: 28px;
+        padding: 0 6px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--color-bg-base);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-md);
+        font-size: 13px;
+        color: var(--color-text-secondary);
+        cursor: pointer;
+      }
+      .page-num.is-active {
+        color: var(--color-primary);
+        border-color: var(--color-primary);
+      }
+      .page-num:hover,
+      .page-arrow:hover {
+        color: var(--color-primary);
+        border-color: var(--color-primary);
+      }
+      .pagination-controls {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-size: 13px;
+        color: var(--color-text-secondary);
+      }
+      .pagination-controls select,
+      .pagination-controls input {
+        border: 1px solid var(--color-border);
+        background: var(--color-bg-base);
+        padding: 4px 8px;
+        border-radius: var(--radius-md);
+        font-size: 13px;
+        color: var(--color-text-base);
+      }
+      .pagination-controls input {
+        width: 54px;
+      }
+
+      /* ─── Skeleton (loading state) ───────────────────────────────────── */
+      .skeleton-row {
+        display: grid;
+        grid-template-columns: repeat(6, 1fr);
+        gap: 12px;
+        padding: 12px;
+        border-bottom: 1px solid var(--color-border-secondary);
+      }
+      .skeleton-row:last-child {
+        border-bottom: none;
+      }
+      .skeleton-cell {
+        height: 12px;
+        border-radius: var(--radius-md);
+        background: linear-gradient(
+          90deg,
+          var(--color-fill-quaternary) 0%,
+          var(--color-border-secondary) 50%,
+          var(--color-fill-quaternary) 100%
+        );
+        background-size: 200% 100%;
+        animation: skeleton-pulse 1.4s ease infinite;
+      }
+      @keyframes skeleton-pulse {
+        0% {
+          background-position: 200% 0;
+        }
+        100% {
+          background-position: -200% 0;
+        }
+      }
+
+      /* ─── 404 / deleted state ────────────────────────────────────────── */
+      .deleted-block {
+        border: 1px dashed var(--color-border);
+        border-radius: var(--radius-md);
+        padding: 48px 24px;
+        text-align: center;
+        background: var(--color-fill-quaternary);
+      }
+      .deleted-block .icon {
+        font-size: 36px;
+        color: var(--color-text-tertiary);
+        margin-bottom: 12px;
+      }
+      .deleted-block .primary {
+        font-size: 15px;
+        font-weight: 500;
+        color: var(--color-text-base);
+      }
+      .deleted-block .secondary {
+        font-size: 13px;
+        color: var(--color-text-tertiary);
+        margin-top: 4px;
+      }
+      .deleted-block .back-button {
+        margin-top: 20px;
+      }
+
+      /* ─── Zero-rows state ────────────────────────────────────────────── */
+      .zero-rows {
+        text-align: center;
+        padding: 48px 24px;
+        color: var(--color-text-tertiary);
+      }
+      .zero-rows .icon {
+        font-size: 32px;
+        margin-bottom: 8px;
+      }
+      .zero-rows .primary {
+        color: var(--color-text-secondary);
+        font-size: 14px;
+        font-weight: 500;
+      }
+      .zero-rows .secondary {
+        font-size: 12px;
+        margin-top: 4px;
+      }
+
+      /* ─── State-visibility helpers ───────────────────────────────────── */
+      [data-show-when] {
+        display: none;
+      }
+      body.state-populated [data-show-when~='populated'],
+      body.state-loading [data-show-when~='loading'],
+      body.state-notfound [data-show-when~='notfound'],
+      body.state-empty [data-show-when~='empty'],
+      body.state-nomatch [data-show-when~='nomatch'] {
+        display: revert;
+      }
+      /* Header subtitle changes between states; force its show rule per state. */
+      body.state-notfound .breadcrumb-tail,
+      body.state-notfound .page-header-actions,
+      body.state-notfound .page-subtitle {
+        visibility: hidden;
+      }
+    </style>
+  </head>
+  <body class="state-populated">
+    <div class="honest-banner">
+      Brainstorming preview — not production truth. ~90% fidelity to the Dataset-detail target (R33 D-round).
+      Bottom-right toggle flips populated / loading / 404 / zero-rows.
+      Click the [Actions ▾] button in the header to see the Rename + Delete menu.
+    </div>
+
+    <div class="mdd-shell" id="shell">
+      <aside class="mdd-sidebar">
+        <div class="mdd-sidebar-header">
+          <a class="mdd-brand" href="../index.html" title="Preview index">
+            <div class="mdd-brand-mark">M</div>
+            <span>MDD</span>
+          </a>
+        </div>
+
+        <nav class="mdd-nav">
+          <div class="mdd-nav-group is-expanded" id="grp-data">
+            <button class="mdd-nav-group-header" onclick="toggleGroup('grp-data')" title="Data Management">
+              <svg
+                class="nav-icon"
+                viewBox="64 64 896 896"
+                width="16"
+                height="16"
+                fill="currentColor"
+                aria-hidden="true"
+              >
+                <path
+                  d="M832 64H192c-17.7 0-32 14.3-32 32v832c0 17.7 14.3 32 32 32h640c17.7 0 32-14.3 32-32V96c0-17.7-14.3-32-32-32zm-260 72h188v131H572V136zm-118 0h44v131h-44V136zm-162 0h44v131h-44V136zm132 752H236V332h188v556zm162 0h-44V332h44v556zm206 0H614V332h178v556z"
+                />
+              </svg>
+              <span class="label">Data Management</span>
+              <svg
+                class="chevron"
+                viewBox="64 64 896 896"
+                width="10"
+                height="10"
+                fill="currentColor"
+                aria-hidden="true"
+              >
+                <path
+                  d="M765.7 486.8L314.9 134.7A7.97 7.97 0 00302 141v77.3c0 4.9 2.3 9.6 6.1 12.6l360 281.1-360 281.1c-3.9 3-6.1 7.7-6.1 12.6V883c0 6.7 7.7 10.4 12.9 6.3l450.8-352.1a31.96 31.96 0 000-50.4z"
+                />
+              </svg>
+            </button>
+            <div class="mdd-nav-items" data-group-label="Data Management">
+              <a href="workspace-shell.preview.html" class="mdd-nav-item" title="Workspaces">
+                <svg
+                  class="nav-item-icon"
+                  viewBox="64 64 896 896"
+                  width="14"
+                  height="14"
+                  fill="currentColor"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M464 144H160c-8.8 0-16 7.2-16 16v304c0 8.8 7.2 16 16 16h304c8.8 0 16-7.2 16-16V160c0-8.8-7.2-16-16-16zm-52 268H212V212h200v200zm452-268H560c-8.8 0-16 7.2-16 16v304c0 8.8 7.2 16 16 16h304c8.8 0 16-7.2 16-16V160c0-8.8-7.2-16-16-16zm-52 268H612V212h200v200zM464 544H160c-8.8 0-16 7.2-16 16v304c0 8.8 7.2 16 16 16h304c8.8 0 16-7.2 16-16V560c0-8.8-7.2-16-16-16zm-52 268H212V612h200v200zm452-268H560c-8.8 0-16 7.2-16 16v304c0 8.8 7.2 16 16 16h304c8.8 0 16-7.2 16-16V560c0-8.8-7.2-16-16-16zm-52 268H612V612h200v200z"
+                  />
+                </svg>
+                <span>Workspaces</span>
+              </a>
+              <!-- Datasets stays active for the detail page (sub-page of Datasets). -->
+              <a href="datasets.preview.html" class="mdd-nav-item is-active" title="Datasets">
+                <svg
+                  class="nav-item-icon"
+                  viewBox="64 64 896 896"
+                  width="14"
+                  height="14"
+                  fill="currentColor"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M832 64H192c-17.7 0-32 14.3-32 32v832c0 17.7 14.3 32 32 32h640c17.7 0 32-14.3 32-32V96c0-17.7-14.3-32-32-32zm-260 72h188v131H572V136zm-118 0h44v131h-44V136zm-162 0h44v131h-44V136zm132 752H236V332h188v556zm162 0h-44V332h44v556zm206 0H614V332h178v556z"
+                  />
+                </svg>
+                <span>Datasets</span>
+              </a>
+            </div>
+          </div>
+        </nav>
+
+        <div class="mdd-sidebar-footer">
+          <span class="build-label">R33 preview · </span>
+          <span>dataset-detail</span>
+        </div>
+      </aside>
+
+      <div class="mdd-content-area">
+        <header class="mdd-topbar">
+          <button class="mdd-toggle" onclick="toggleCollapse()" aria-label="Toggle sidebar" title="Fold / Unfold sidebar">
+            <svg id="toggle-icon" viewBox="64 64 896 896" width="18" height="18" fill="currentColor" aria-hidden="true">
+              <path
+                id="toggle-icon-path"
+                d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM142.4 642.1L298.7 519a8.84 8.84 0 000-13.9L142.4 381.9c-5.8-4.6-14.4-.5-14.4 6.9v246.3a8.9 8.9 0 0014.4 7z"
+              />
+            </svg>
+          </button>
+          <div class="mdd-topbar-title">Dataset detail</div>
+          <div class="mdd-topbar-spacer"></div>
+          <div class="mdd-topbar-actions">
+            <span class="mdd-topbar-placeholder">search (future)</span>
+            <span class="mdd-topbar-placeholder">user (future)</span>
+            <span class="mdd-topbar-placeholder">🔔</span>
+          </div>
+        </header>
+
+        <main class="mdd-content">
+          <div class="page-header">
+            <div class="page-header-main">
+              <div class="breadcrumb">
+                <a href="#">Home</a> ▸
+                <a href="#">Data Management</a> ▸
+                <a href="datasets.preview.html">Datasets</a>
+                <span class="breadcrumb-tail">▸ q1_pipeline_Deals</span>
+              </div>
+              <h1 class="page-title">
+                <span class="source-icon" title="Excel" data-show-when="populated loading empty nomatch">📊</span>
+                <span data-show-when="populated loading empty nomatch">q1_pipeline_Deals</span>
+                <span data-show-when="notfound">Dataset not found</span>
+                <span class="format-chip" data-show-when="populated loading empty nomatch">Excel · Sheet1</span>
+              </h1>
+              <p class="page-subtitle">2,481 rows · 12 columns · 84 KB · Uploaded 14:02 today</p>
+            </div>
+            <div class="page-header-actions">
+              <div class="actions-wrap" id="actions-wrap">
+                <button type="button" class="actions-trigger" onclick="toggleActions()">
+                  Actions ▾
+                </button>
+                <div class="actions-menu">
+                  <button type="button" class="actions-item">Rename…</button>
+                  <button type="button" class="actions-item is-danger">Delete…</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="page-card">
+            <!-- Populated state — metadata strip + search bar + paged data table. -->
+            <div data-show-when="populated">
+              <div class="meta-strip">
+                <div class="meta-cell">
+                  <span class="label">Workspace</span>
+                  <span class="value"><a href="datasets.preview.html">Marketing</a></span>
+                </div>
+                <div class="meta-cell">
+                  <span class="label">Rows</span>
+                  <span class="value">2,481</span>
+                </div>
+                <div class="meta-cell">
+                  <span class="label">Cols</span>
+                  <span class="value">12</span>
+                </div>
+                <div class="meta-cell">
+                  <span class="label">Size</span>
+                  <span class="value">84 KB</span>
+                </div>
+                <div class="meta-cell">
+                  <span class="label">Uploaded</span>
+                  <span class="value">14:02 today</span>
+                </div>
+                <div class="meta-cell">
+                  <span class="label">Format</span>
+                  <span class="value">Excel · Sheet1</span>
+                </div>
+              </div>
+
+              <div class="search-bar">
+                <div class="search-input-wrap">
+                  <span class="search-icon">🔍</span>
+                  <input class="search-input" type="search" placeholder="Search rows…" aria-label="Search rows" />
+                </div>
+                <span class="search-counter">Matched 2,481 / 2,481</span>
+              </div>
+
+              <div class="data-table-wrap">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>deal_id<span class="dtype-badge">str</span></th>
+                      <th>amount<span class="dtype-badge">int</span></th>
+                      <th>won_at<span class="dtype-badge">date</span></th>
+                      <th>stage<span class="dtype-badge">str</span></th>
+                      <th>probability<span class="dtype-badge">float</span></th>
+                      <th>is_priority<span class="dtype-badge">bool</span></th>
+                      <th>created_at<span class="dtype-badge">datetime</span></th>
+                      <th>memo<span class="dtype-badge">str</span></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>D-0001</td>
+                      <td class="num">12,400</td>
+                      <td>2026-03-01</td>
+                      <td>won</td>
+                      <td class="num">0.95</td>
+                      <td>true</td>
+                      <td>2026-02-28 14:02:00</td>
+                      <td>quick close, no contention</td>
+                    </tr>
+                    <tr>
+                      <td>D-0002</td>
+                      <td class="null">—</td>
+                      <td class="null">—</td>
+                      <td>open</td>
+                      <td class="num">0.45</td>
+                      <td>false</td>
+                      <td>2026-03-15 09:18:00</td>
+                      <td class="null">—</td>
+                    </tr>
+                    <tr>
+                      <td>D-0003</td>
+                      <td class="num">102,000</td>
+                      <td>2026-04-12</td>
+                      <td>negotiating</td>
+                      <td class="num">0.72</td>
+                      <td>true</td>
+                      <td>2026-04-01 11:30:00</td>
+                      <td>budget approved by exec; awaiting legal sign-off</td>
+                    </tr>
+                    <tr>
+                      <td>D-0004</td>
+                      <td class="num">7,800</td>
+                      <td>2026-04-18</td>
+                      <td>open</td>
+                      <td class="num">0.30</td>
+                      <td>false</td>
+                      <td>2026-04-10 16:50:00</td>
+                      <td class="long-string" title="a very long memo that exceeds the column width and gets truncated with native browser tooltip on hover for low-cost rendering">a very long memo that exceeds the column width and gets truncated with native browser tooltip on hover for low-cost rendering</td>
+                    </tr>
+                    <tr>
+                      <td>D-0005</td>
+                      <td class="num">24,500</td>
+                      <td>2026-05-02</td>
+                      <td>won</td>
+                      <td class="num">1.00</td>
+                      <td>true</td>
+                      <td>2026-04-22 08:11:00</td>
+                      <td>renewal — multi-year</td>
+                    </tr>
+                    <tr>
+                      <td>D-0006</td>
+                      <td class="num">3,200</td>
+                      <td class="null">—</td>
+                      <td>lost</td>
+                      <td class="num">0.00</td>
+                      <td>false</td>
+                      <td>2026-05-05 13:45:00</td>
+                      <td>chose competitor; price-driven</td>
+                    </tr>
+                    <tr>
+                      <td>D-0007</td>
+                      <td class="num">58,750</td>
+                      <td>2026-05-10</td>
+                      <td>won</td>
+                      <td class="num">0.88</td>
+                      <td>true</td>
+                      <td>2026-04-29 10:00:00</td>
+                      <td>cross-sell from existing account</td>
+                    </tr>
+                    <tr>
+                      <td>D-0008</td>
+                      <td class="num">9,250</td>
+                      <td>2026-05-14</td>
+                      <td>open</td>
+                      <td class="num">0.55</td>
+                      <td>false</td>
+                      <td>2026-05-08 15:22:00</td>
+                      <td>follow-up scheduled</td>
+                    </tr>
+                    <tr>
+                      <td>D-0009</td>
+                      <td class="num">410,000</td>
+                      <td class="null">—</td>
+                      <td>negotiating</td>
+                      <td class="num">0.65</td>
+                      <td>true</td>
+                      <td>2026-05-12 12:05:00</td>
+                      <td>enterprise tier; legal in review</td>
+                    </tr>
+                    <tr>
+                      <td>D-0010</td>
+                      <td class="num">1,150</td>
+                      <td>2026-05-18</td>
+                      <td>won</td>
+                      <td class="num">1.00</td>
+                      <td>false</td>
+                      <td>2026-05-15 09:40:00</td>
+                      <td>tiny SMB deal</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <div class="pagination-bar">
+                <div class="pagination-pages">
+                  <span class="page-arrow" aria-disabled="true">◀</span>
+                  <span class="page-num is-active">1</span>
+                  <span class="page-num">2</span>
+                  <span class="page-num">3</span>
+                  <span class="page-num">4</span>
+                  <span class="page-num">5</span>
+                  <span class="page-num">…</span>
+                  <span class="page-num">50</span>
+                  <span class="page-arrow">▶</span>
+                </div>
+                <div class="pagination-controls">
+                  <label>
+                    Page size:
+                    <select>
+                      <option>25</option>
+                      <option selected>50</option>
+                      <option>100</option>
+                    </select>
+                  </label>
+                  <label>
+                    Go to:
+                    <input type="number" min="1" max="50" value="1" />
+                  </label>
+                  <span>of 50</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Loading state — skeleton rows. -->
+            <div data-show-when="loading">
+              <div class="meta-strip">
+                <div class="meta-cell"><span class="label">Workspace</span><span class="value">Marketing</span></div>
+                <div class="meta-cell"><span class="label">Rows</span><span class="value">2,481</span></div>
+                <div class="meta-cell"><span class="label">Cols</span><span class="value">12</span></div>
+                <div class="meta-cell"><span class="label">Size</span><span class="value">84 KB</span></div>
+                <div class="meta-cell"><span class="label">Uploaded</span><span class="value">14:02 today</span></div>
+                <div class="meta-cell"><span class="label">Format</span><span class="value">Excel · Sheet1</span></div>
+              </div>
+              <div class="data-table-wrap">
+                <div class="skeleton-row"><span class="skeleton-cell"></span><span class="skeleton-cell"></span><span class="skeleton-cell"></span><span class="skeleton-cell"></span><span class="skeleton-cell"></span><span class="skeleton-cell"></span></div>
+                <div class="skeleton-row"><span class="skeleton-cell"></span><span class="skeleton-cell"></span><span class="skeleton-cell"></span><span class="skeleton-cell"></span><span class="skeleton-cell"></span><span class="skeleton-cell"></span></div>
+                <div class="skeleton-row"><span class="skeleton-cell"></span><span class="skeleton-cell"></span><span class="skeleton-cell"></span><span class="skeleton-cell"></span><span class="skeleton-cell"></span><span class="skeleton-cell"></span></div>
+                <div class="skeleton-row"><span class="skeleton-cell"></span><span class="skeleton-cell"></span><span class="skeleton-cell"></span><span class="skeleton-cell"></span><span class="skeleton-cell"></span><span class="skeleton-cell"></span></div>
+                <div class="skeleton-row"><span class="skeleton-cell"></span><span class="skeleton-cell"></span><span class="skeleton-cell"></span><span class="skeleton-cell"></span><span class="skeleton-cell"></span><span class="skeleton-cell"></span></div>
+                <div class="skeleton-row"><span class="skeleton-cell"></span><span class="skeleton-cell"></span><span class="skeleton-cell"></span><span class="skeleton-cell"></span><span class="skeleton-cell"></span><span class="skeleton-cell"></span></div>
+                <div class="skeleton-row"><span class="skeleton-cell"></span><span class="skeleton-cell"></span><span class="skeleton-cell"></span><span class="skeleton-cell"></span><span class="skeleton-cell"></span><span class="skeleton-cell"></span></div>
+                <div class="skeleton-row"><span class="skeleton-cell"></span><span class="skeleton-cell"></span><span class="skeleton-cell"></span><span class="skeleton-cell"></span><span class="skeleton-cell"></span><span class="skeleton-cell"></span></div>
+              </div>
+            </div>
+
+            <!-- 404 / deleted state. -->
+            <div data-show-when="notfound">
+              <div class="deleted-block">
+                <div class="icon">🗑</div>
+                <div class="primary">This dataset no longer exists</div>
+                <div class="secondary">It may have been deleted from another tab.</div>
+                <a class="btn-primary back-button" href="datasets.preview.html">← Back to Datasets</a>
+              </div>
+            </div>
+
+            <!-- Zero-rows state. -->
+            <div data-show-when="empty">
+              <div class="meta-strip">
+                <div class="meta-cell"><span class="label">Workspace</span><span class="value">Finance</span></div>
+                <div class="meta-cell"><span class="label">Rows</span><span class="value">0</span></div>
+                <div class="meta-cell"><span class="label">Cols</span><span class="value">6</span></div>
+                <div class="meta-cell"><span class="label">Size</span><span class="value">4 KB</span></div>
+                <div class="meta-cell"><span class="label">Uploaded</span><span class="value">1 week ago</span></div>
+                <div class="meta-cell"><span class="label">Format</span><span class="value">CSV</span></div>
+              </div>
+              <div class="data-table-wrap">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>amount<span class="dtype-badge">int</span></th>
+                      <th>memo<span class="dtype-badge">str</span></th>
+                      <th>paid_at<span class="dtype-badge">date</span></th>
+                    </tr>
+                  </thead>
+                </table>
+                <div class="zero-rows">
+                  <div class="icon">📭</div>
+                  <div class="primary">No rows in this dataset</div>
+                  <div class="secondary">Re-upload the file to replace the data.</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- No-match state — search returned 0 rows. -->
+            <div data-show-when="nomatch">
+              <div class="meta-strip">
+                <div class="meta-cell"><span class="label">Workspace</span><span class="value">Marketing</span></div>
+                <div class="meta-cell"><span class="label">Rows</span><span class="value">2,481</span></div>
+                <div class="meta-cell"><span class="label">Cols</span><span class="value">12</span></div>
+                <div class="meta-cell"><span class="label">Size</span><span class="value">84 KB</span></div>
+                <div class="meta-cell"><span class="label">Uploaded</span><span class="value">14:02 today</span></div>
+                <div class="meta-cell"><span class="label">Format</span><span class="value">Excel · Sheet1</span></div>
+              </div>
+              <div class="search-bar">
+                <div class="search-input-wrap">
+                  <span class="search-icon">🔍</span>
+                  <input class="search-input" type="search" value="ZZZZZ" aria-label="Search rows" />
+                </div>
+                <span class="search-counter">Matched 0 / 2,481</span>
+                <a class="search-clear-link">Clear</a>
+              </div>
+              <div class="data-table-wrap">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>deal_id<span class="dtype-badge">str</span></th>
+                      <th>amount<span class="dtype-badge">int</span></th>
+                      <th>won_at<span class="dtype-badge">date</span></th>
+                      <th>stage<span class="dtype-badge">str</span></th>
+                      <th>probability<span class="dtype-badge">float</span></th>
+                      <th>is_priority<span class="dtype-badge">bool</span></th>
+                    </tr>
+                  </thead>
+                </table>
+                <div class="zero-rows">
+                  <div class="icon">🔎</div>
+                  <div class="primary">No rows match &quot;ZZZZZ&quot;</div>
+                  <div class="secondary">Try a shorter substring or clear the search.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+    </div>
+
+    <a class="preview-index-link" href="../index.html">← Preview index</a>
+
+    <div class="state-toggle">
+      <button type="button" data-state="populated" class="is-active">Populated</button>
+      <button type="button" data-state="loading">Loading</button>
+      <button type="button" data-state="notfound">404</button>
+      <button type="button" data-state="empty">Zero rows</button>
+      <button type="button" data-state="nomatch">No match</button>
+    </div>
+
+    <script src="../_js/preview-shell.js"></script>
+    <script>
+      const body = document.body;
+      const stateButtons = document.querySelectorAll('.state-toggle button');
+      stateButtons.forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const next = btn.dataset.state;
+          body.classList.remove('state-populated', 'state-loading', 'state-notfound', 'state-empty', 'state-nomatch');
+          body.classList.add(`state-${next}`);
+          stateButtons.forEach((b) => b.classList.toggle('is-active', b === btn));
+        });
+      });
+
+      function toggleActions() {
+        document.getElementById('actions-wrap').classList.toggle('is-open');
+      }
+      document.addEventListener('click', (e) => {
+        const wrap = document.getElementById('actions-wrap');
+        if (!wrap.contains(e.target)) {
+          wrap.classList.remove('is-open');
+        }
+      });
+    </script>
+  </body>
+</html>

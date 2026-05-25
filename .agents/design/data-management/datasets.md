@@ -24,6 +24,9 @@ table page with workspace filter; workspace-card click handoff.
 this doc's noun),
 [crud-hygiene.md](crud-hygiene.md) (rename + delete affordances on
 the Dataset row — R23 closes the R∞-deferred CRUD gap below),
+[dataset-detail.md](dataset-detail.md) (R33 design for the
+per-dataset inspector page; resolves this doc's R∞-deferred row-
+click affordance below),
 [workspace-shell.target.md](workspace-shell.target.md) (the chrome
 the Datasets page renders inside), and
 [datasets.preview.html](datasets.preview.html) (visual preview of
@@ -271,8 +274,11 @@ or operational concern needs it.
 
 **Deferred** (not in R15+'s implementation chain):
 
-- **Dataset detail view** (clicking a row). R∞ until a downstream
-  surface (query, dashboard) needs a per-dataset URL.
+- ~~**Dataset detail view** (clicking a row). R∞ until a downstream
+  surface (query, dashboard) needs a per-dataset URL.~~ **Resolved
+  by R33** ([dataset-detail.md](dataset-detail.md)) — per-dataset
+  inspector page at `/datasets/:id` with paged row table. R34
+  (contract), R35 (BE), R36 (FE) implement against R33's design.
 - **Rename dataset / delete dataset**. R∞ until a user has a
   mis-named or stale dataset blocking work.
 - **Re-parse** (re-run parser without re-uploading). R∞.

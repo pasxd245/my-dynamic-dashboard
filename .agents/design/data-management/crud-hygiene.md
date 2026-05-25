@@ -555,3 +555,17 @@ workspace" and "Delete dataset" inflect correctly per locale.
 Modal copy uses `<Trans components={{ strong: <strong /> }}>`
 for inline emphasis. AntD's built-in Modal OK/Cancel + Empty
 "No data" strings localize via `<ConfigProvider locale={...}>`.
+
+---
+
+## R33 stamp — extended to dataset detail page
+
+R33 ([dataset-detail.md](dataset-detail.md)) extends the dataset
+rename + delete affordances to a third placement: the
+`/datasets/:id` page header's `actions` slot. No behavior change
+— same `<RenameModal>` + `<DeleteConfirmModal>` and the same
+`useRenameDatasetMutation()` + `useDeleteDatasetMutation()` hooks
+from R26 are reused unchanged. Delete-success navigates back to
+the Datasets list (`replace=true` so the deleted detail page is
+not in browser history). The workspace surfaces are unaffected;
+workspace CRUD remains on the Workspaces grid only.
