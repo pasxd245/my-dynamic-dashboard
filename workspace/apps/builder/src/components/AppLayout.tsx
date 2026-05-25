@@ -6,6 +6,7 @@ import {
 import { WorkspaceShell, type NavGroup } from "@mdd/ui";
 import { useState, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { LocaleSwitcher } from "@/i18n/LocaleSwitcher";
 import { useRouteMeta } from "../lib/routeMeta";
 
 const NAV_GROUPS: ReadonlyArray<NavGroup> = [
@@ -73,6 +74,7 @@ export function AppLayout({ children }: Readonly<{ children: ReactNode }>) {
       collapsed={collapsed}
       onToggleCollapse={() => setCollapsed((c) => !c)}
       title={routeMeta.title}
+      headerExtra={<LocaleSwitcher />}
       buildVersion="0.0.1"
     >
       {children}

@@ -3,13 +3,14 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { App as AntdApp } from 'antd';
 import enUS from 'antd/locale/en_US';
 import viVN from 'antd/locale/vi_VN';
-import { StrictMode } from 'react';
+import { StrictMode, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import './index.css';
+import { useTranslation } from 'react-i18next';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 // R32: i18n init must run before any component mounts so the
 // initial render sees a populated locale.
-import { i18n } from '@/i18n';
+import '@/i18n';
 import { AppErrorBoundary } from '@/components/AppErrorBoundary';
 import { AppLayout } from '@/components/AppLayout';
 import { DatasetsPage } from '@/features/data-management/datasets/DatasetsPage';
@@ -27,10 +28,25 @@ const MESSAGE_CONFIG = { top: 64, duration: 3, maxCount: 3 } as const;
 // Static map keeps the bundle tree-shake-friendly (only the resolved
 // pack ends up live in the bundle's reachable graph).
 const ANTD_LOCALES = { en: enUS, vi: viVN } as const;
-type SupportedLocale = keyof typeof ANTD_LOCALES;
-const activeLocale: SupportedLocale =
-  i18n.language in ANTD_LOCALES ? (i18n.language as SupportedLocale) : 'en';
-const antdLocale = ANTD_LOCALES[activeLocale];
+type AntdLocaleKey = keyof typeof ANTD_LOCALES;
+
+/**
+ * R32 add-on: subscribe AntD's `<ConfigProvider locale>` to i18next's
+ * language. Without this, AntD's built-in strings (DatePicker, Pagination,
+ * Empty) would stay frozen at boot-time locale even after the user flips
+ * languages via `LocaleSwitcher`. `useTranslation()` re-renders whenever
+ * `i18n.language` changes — that's the subscription mechanism.
+ */
+function LocaleAwareAntd({ children }: { readonly children: ReactNode }) {
+  const { i18n } = useTranslation();
+  const key: AntdLocaleKey =
+    i18n.language in ANTD_LOCALES ? (i18n.language as AntdLocaleKey) : 'en';
+  return (
+    <AntdConfig locale={ANTD_LOCALES[key]}>
+      <AntdApp message={MESSAGE_CONFIG}>{children}</AntdApp>
+    </AntdConfig>
+  );
+}
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -49,36 +65,34 @@ const queryClient = new QueryClient({
 createRoot(rootElement).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <AntdConfig locale={antdLocale}>
-        <AntdApp message={MESSAGE_CONFIG}>
-          {/*
-            R30: AppErrorBoundary wraps the router so an uncaught render
-            error in any feature shows a friendly Result page with a Reload
-            button instead of a blank white screen. Placed *inside* the
-            AntD providers so the boundary's <Result> picks up theme tokens.
-          */}
-          <AppErrorBoundary>
-            <BrowserRouter>
-              <AppLayout>
-                <Routes>
-                  <Route path="/" element={<Navigate to="/data-management/workspaces" replace />} />
-                  {/*
+      <LocaleAwareAntd>
+        {/*
+          R30: AppErrorBoundary wraps the router so an uncaught render
+          error in any feature shows a friendly Result page with a Reload
+          button instead of a blank white screen. Placed *inside* the
+          AntD providers so the boundary's <Result> picks up theme tokens.
+        */}
+        <AppErrorBoundary>
+          <BrowserRouter>
+            <AppLayout>
+              <Routes>
+                <Route path="/" element={<Navigate to="/data-management/workspaces" replace />} />
+                {/*
                 Data Management is a sidebar group, not a destination.
                 Redirect direct visits (typed URL, bookmark) to the
                 default leaf so users don't hit a 404. Default leaf
                 decision will need updating if Workspaces stops being
                 the first child of the group.
               */}
-                  <Route path="/data-management" element={<Navigate to="/data-management/workspaces" replace />} />
-                  <Route path="/data-management/workspaces" element={<WorkspacesPage />} />
-                  <Route path="/data-management/datasets" element={<DatasetsPage />} />
-                  <Route path="/data-management/datasets/new" element={<DatasetNewPage />} />
-                </Routes>
-              </AppLayout>
-            </BrowserRouter>
-          </AppErrorBoundary>
-        </AntdApp>
-      </AntdConfig>
+                <Route path="/data-management" element={<Navigate to="/data-management/workspaces" replace />} />
+                <Route path="/data-management/workspaces" element={<WorkspacesPage />} />
+                <Route path="/data-management/datasets" element={<DatasetsPage />} />
+                <Route path="/data-management/datasets/new" element={<DatasetNewPage />} />
+              </Routes>
+            </AppLayout>
+          </BrowserRouter>
+        </AppErrorBoundary>
+      </LocaleAwareAntd>
     </QueryClientProvider>
   </StrictMode>,
 );

@@ -348,6 +348,51 @@ that could drift. Wired through:
   config:render` flips both BE enforcement and FE display in
   one step.
 
+**Runtime locale switcher (post-Review add-on).** Original R32
+plan listed runtime switcher as OUT-of-scope ("locale flips via
+build-time env-var only"). In practice that meant the only way
+to see Vietnamese was a server restart, which made the i18n
+plumbing feel half-finished. User asked for the switcher; added
+as another R32 add-on:
+
+- `@mdd/ui`'s `WorkspaceShell` gained an optional
+  [`headerExtra?: ReactNode`](../../../workspace/packages/ui/src/Components/WorkspaceShell.tsx)
+  slot — sits right of the flex-1 header content so it hugs
+  the top-bar right edge. Generic enough that future
+  profile/notifications drop into the same slot.
+- New
+  [`src/i18n/LocaleSwitcher.tsx`](../../../workspace/apps/builder/src/i18n/LocaleSwitcher.tsx)
+  — `<Dropdown>` button styled compact (`<GlobalOutlined>` +
+  "EN"/"VI" pill). Labels in their own language ("English",
+  "Tiếng Việt") so users recognize their own tongue from
+  inside any UI locale.
+- `i18n/index.ts` init now reads `localStorage[mdd.locale]`
+  first, falling back to `appConfig.i18nLocale()` (env), then
+  to `'en'`. Exported `SUPPORTED_LOCALES` + `SupportedLocale`
+  type so the switcher stays in sync.
+- `main.tsx` extracted `LocaleAwareAntd` — calls
+  `useTranslation()` and re-renders `<AntdConfig
+  locale={ANTD_LOCALES[i18n.language]}>` whenever
+  `i18n.changeLanguage(...)` fires. Without this, AntD's
+  built-in strings (DatePicker, Pagination, Empty) would stay
+  frozen at boot-time locale.
+- 3 new vitest cases in
+  [`tests/locale-switcher.test.tsx`](../../../workspace/apps/builder/tests/locale-switcher.test.tsx)
+  cover: current-language pill renders, click-to-switch
+  flips `i18n.language` + persists to localStorage,
+  re-selecting current language is a no-op (doesn't write).
+  FE suite 33/33 (was 30 — 3 new switcher cases).
+- Visual proof via Vite-served bundle: `LocaleSwitcher.tsx`
+  loads with the labels; `main.tsx` shows `LocaleAwareAntd`
+  subscribed via `useTranslation()`.
+
+**Drifted note.** While building this, I checked drifted —
+they have `i18next` + `react-i18next` in package.json but
+**no actual i18n usage in source**, only an `I18N_LOCALE`
+field placeholder. So drifted didn't have a switcher to
+adopt; this is the first real implementation across both
+codebases.
+
 **Bundle-size note.** R31 baseline was 1.29 MB / 409 KB gzip;
 R32 lands at 1.38 MB / 438 KB. Delta is i18next runtime
 (~25 KB gzipped) + ~5 KB per locale json. Code-splitting + lazy

@@ -37,6 +37,12 @@ type WorkspaceShellBaseProps = {
   /** R12: shorthand for `header` when no custom content is needed. */
   title?: ReactNode;
   /**
+   * R32: right-aligned slot in the top bar — locale switcher, future
+   * profile/notifications drop into this slot. Sits after the
+   * `flex: 1` header content so it hugs the right edge.
+   */
+  headerExtra?: ReactNode;
+  /**
    * R12: brand mark override. If omitted, renders the default MDD
    * badge. Hidden in collapsed mode regardless.
    */
@@ -93,6 +99,7 @@ export function WorkspaceShell(props: Readonly<WorkspaceShellProps>) {
     onToggleCollapse,
     header,
     title,
+    headerExtra,
     brand,
     buildVersion,
   } = props;
@@ -257,6 +264,14 @@ export function WorkspaceShell(props: Readonly<WorkspaceShellProps>) {
               <span style={{ fontSize: 16, fontWeight: 600 }}>{title}</span>
             )}
           </div>
+          {headerExtra ? (
+            <div
+              style={{ display: "flex", alignItems: "center", gap: 8 }}
+              data-component="WorkspaceShellHeaderExtra"
+            >
+              {headerExtra}
+            </div>
+          ) : null}
         </Layout.Header>
         <Layout.Content
           style={{
