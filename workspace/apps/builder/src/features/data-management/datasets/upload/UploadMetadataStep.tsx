@@ -440,11 +440,16 @@ function ParseOptionsDisclosure({
           <Typography.Text>Range: </Typography.Text>
           <Input
             value={opts.range ?? ""}
-            onChange={(e) =>
-              update({ range: e.target.value === "" ? undefined : e.target.value })
-            }
+            onChange={(e) => {
+              // Auto-uppercase: the contract pattern requires
+              // `^[A-Z]+[0-9]+:[A-Z]+[0-9]+$`, so coerce as the user
+              // types to keep the input forgiving.
+              const raw = e.target.value;
+              const next = raw === "" ? undefined : raw.toUpperCase();
+              update({ range: next });
+            }}
             placeholder={usedRange ?? "A1:C20"}
-            style={{ width: 160 }}
+            style={{ width: 160, textTransform: "uppercase" }}
             data-component="ParseOptionRangeInput"
           />
           <Typography.Text type="secondary" style={{ marginLeft: 8 }}>
