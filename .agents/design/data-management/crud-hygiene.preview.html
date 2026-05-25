@@ -1,0 +1,974 @@
+<!doctype html>
+<!--
+  HIxAI brainstorming aid for Round_23 — CRUD hygiene feature.
+
+  Two affordance surfaces (workspace card overflow menu; datasets-table Actions
+  column) and six modal states (rename, rename loading, rename 409 error,
+  delete-dataset confirm, delete-workspace confirm, delete-workspace blocked).
+
+  Toggle the surface at the bottom-left, toggle the modal state at the
+  bottom-right. The active surface determines which page chrome shows under
+  the modal. The "no modal" state shows the affordance baseline.
+
+  Visual reference only. ~90% fidelity to the intended UI.
+  Production truth is the running builder, not this file.
+  May be removed in a later round once the running builder visually matches.
+
+  Token vars + chrome shared via ../_css/{tokens.css, preview-shell.css}.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MDD — CRUD hygiene (R23 preview)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="../_css/tokens.css" />
+    <link rel="stylesheet" href="../_css/preview-shell.css" />
+    <style>
+      /* CRUD hygiene preview — page-specific styles only. Shared chrome +
+         tokens live in ../_css/. */
+
+      /* ─── Surface toggle (which page we're viewing) ──────────────────── */
+      body.surface-workspaces .surface-datasets,
+      body.surface-datasets .surface-workspaces {
+        display: none;
+      }
+
+      /* ─── Workspace cards (extends workspace-shell.preview.html shape) ─ */
+      .workspaces-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 16px;
+      }
+      @media (max-width: 1280px) {
+        .workspaces-grid {
+          grid-template-columns: repeat(2, 1fr);
+        }
+      }
+      @media (max-width: 768px) {
+        .workspaces-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+      .workspace-card {
+        background: var(--color-bg-base);
+        border: 1px solid var(--color-border-secondary);
+        border-radius: var(--radius-md);
+        padding: 20px;
+        cursor: pointer;
+        text-decoration: none;
+        color: inherit;
+        display: block;
+        transition:
+          box-shadow 180ms ease,
+          border-color 180ms ease;
+        position: relative;
+      }
+      .workspace-card:hover {
+        box-shadow: var(--shadow-card);
+        border-color: var(--color-primary-bg-hover);
+      }
+      .workspace-card-icon {
+        width: 32px;
+        height: 32px;
+        background: var(--color-primary-bg);
+        color: var(--color-primary);
+        border-radius: var(--radius-md);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        margin-bottom: 12px;
+      }
+      .workspace-card-name {
+        font-size: 16px;
+        font-weight: 600;
+        margin: 0 0 8px 0;
+      }
+      .workspace-card-meta {
+        font-size: 12px;
+        color: var(--color-text-tertiary);
+        margin: 0;
+      }
+
+      /* The new ⋮ overflow trigger on each card. Always visible (not hover-
+         only) so the affordance is discoverable. */
+      .card-overflow-trigger {
+        position: absolute;
+        top: 12px;
+        right: 12px;
+        width: 28px;
+        height: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: transparent;
+        border: none;
+        border-radius: var(--radius-md);
+        color: var(--color-text-tertiary);
+        cursor: pointer;
+        font-size: 18px;
+        line-height: 1;
+      }
+      .card-overflow-trigger:hover {
+        background: var(--color-fill-quaternary);
+        color: var(--color-text-base);
+      }
+
+      /* The Dropdown menu that opens from the overflow trigger. One is shown
+         "open" in the preview for visibility; in the real UI only one is
+         open at a time. */
+      .overflow-menu {
+        position: absolute;
+        top: 44px;
+        right: 12px;
+        background: var(--color-bg-base);
+        border: 1px solid var(--color-border-secondary);
+        border-radius: var(--radius-md);
+        box-shadow: var(--shadow-card);
+        min-width: 144px;
+        padding: 4px;
+        z-index: 10;
+      }
+      .overflow-menu-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 10px;
+        font-size: 13px;
+        color: var(--color-text-base);
+        cursor: pointer;
+        border-radius: var(--radius-sm);
+        text-decoration: none;
+      }
+      .overflow-menu-item:hover {
+        background: var(--color-fill-quaternary);
+      }
+      .overflow-menu-item.is-danger {
+        color: #cf1322;
+      }
+      .overflow-menu-item.is-danger:hover {
+        background: #fff1f0;
+      }
+      .overflow-menu-divider {
+        height: 1px;
+        background: var(--color-border-secondary);
+        margin: 4px 0;
+      }
+
+      /* ─── Datasets table (reuses datasets.preview.html shape + adds the
+            new Actions column at the end) ─────────────────────────────── */
+      .filter-bar {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        margin-bottom: 16px;
+      }
+      .filter-control {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .filter-label {
+        font-size: 12px;
+        color: var(--color-text-tertiary);
+      }
+      .filter-select,
+      .filter-search {
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-md);
+        padding: 6px 12px;
+        font-size: 13px;
+        background: var(--color-bg-base);
+        color: var(--color-text-base);
+        min-width: 180px;
+      }
+      .filter-search {
+        flex: 1;
+        max-width: 320px;
+      }
+      .dataset-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+      }
+      .dataset-table thead th {
+        text-align: left;
+        font-weight: 600;
+        color: var(--color-text-tertiary);
+        text-transform: uppercase;
+        font-size: 11px;
+        letter-spacing: 0.04em;
+        padding: 8px 12px;
+        border-bottom: 1px solid var(--color-border-secondary);
+        white-space: nowrap;
+      }
+      .dataset-table thead th.num {
+        text-align: right;
+      }
+      .dataset-table thead th.actions {
+        width: 48px;
+        text-align: center;
+      }
+      .dataset-table tbody td {
+        padding: 12px;
+        border-bottom: 1px solid var(--color-border-secondary);
+        color: var(--color-text-base);
+        vertical-align: middle;
+      }
+      .dataset-table tbody tr:last-child td {
+        border-bottom: none;
+      }
+      .dataset-table tbody tr:hover td {
+        background: var(--color-fill-quaternary);
+        cursor: default;
+      }
+      .dataset-table .num {
+        text-align: right;
+      }
+      .dataset-table .actions-cell {
+        text-align: center;
+        position: relative;
+      }
+      .actions-trigger {
+        width: 28px;
+        height: 28px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: transparent;
+        border: none;
+        border-radius: var(--radius-md);
+        color: var(--color-text-tertiary);
+        cursor: pointer;
+        font-size: 18px;
+        line-height: 1;
+      }
+      .actions-trigger:hover {
+        background: var(--color-fill);
+        color: var(--color-text-base);
+      }
+      .row-menu {
+        position: absolute;
+        top: 38px;
+        right: 12px;
+      }
+      .source-icon {
+        margin-right: 6px;
+      }
+
+      /* ─── Modal overlay (one of 6 states; default = none shown) ─────── */
+      .crud-modal-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.45);
+        display: none;
+        align-items: flex-start;
+        justify-content: center;
+        z-index: 200;
+        padding-top: 96px;
+      }
+      body.modal-rename .crud-modal-overlay.modal-rename,
+      body.modal-rename-loading .crud-modal-overlay.modal-rename-loading,
+      body.modal-rename-error .crud-modal-overlay.modal-rename-error,
+      body.modal-delete-dataset .crud-modal-overlay.modal-delete-dataset,
+      body.modal-delete-workspace .crud-modal-overlay.modal-delete-workspace,
+      body.modal-delete-blocked .crud-modal-overlay.modal-delete-blocked {
+        display: flex;
+      }
+      .crud-modal-dialog {
+        background: var(--color-bg-base);
+        border-radius: var(--radius-lg);
+        box-shadow:
+          0 12px 24px rgba(0, 0, 0, 0.15),
+          0 4px 8px rgba(0, 0, 0, 0.08);
+        width: min(440px, 90vw);
+        padding: 24px;
+      }
+      .crud-modal-title {
+        font-size: 16px;
+        font-weight: 600;
+        margin: 0 0 16px 0;
+      }
+      .crud-modal-body {
+        font-size: 14px;
+        color: var(--color-text-base);
+        margin-bottom: 24px;
+      }
+      .crud-modal-body p {
+        margin: 0 0 8px 0;
+      }
+      .crud-modal-body .hint {
+        font-size: 12px;
+        color: var(--color-text-tertiary);
+        margin-top: 4px;
+      }
+      .crud-modal-body input.name-input {
+        width: 100%;
+        padding: 6px 12px;
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-md);
+        font-size: 14px;
+        margin-top: 4px;
+      }
+      .crud-modal-body input.name-input:focus {
+        outline: none;
+        border-color: var(--color-primary);
+        box-shadow: 0 0 0 2px var(--color-primary-bg-hover);
+      }
+      .crud-modal-body .field-label {
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--color-text-base);
+        display: block;
+      }
+      .crud-modal-body .field-error {
+        display: flex;
+        align-items: flex-start;
+        gap: 6px;
+        margin-top: 8px;
+        padding: 8px 12px;
+        background: #fff1f0;
+        border: 1px solid #ffa39e;
+        border-radius: var(--radius-sm);
+        color: #cf1322;
+        font-size: 12px;
+      }
+      .crud-modal-body .blocked-warning {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 12px;
+        background: #fffbe6;
+        border: 1px solid #ffe58f;
+        border-radius: var(--radius-sm);
+      }
+      .crud-modal-body .blocked-warning .icon {
+        font-size: 18px;
+        line-height: 1;
+        flex-shrink: 0;
+      }
+      .crud-modal-body .blocked-warning .text strong {
+        display: block;
+        margin-bottom: 4px;
+      }
+      .crud-modal-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+      }
+      .crud-modal-actions button {
+        padding: 6px 16px;
+        border-radius: var(--radius-md);
+        font-size: 13px;
+        cursor: pointer;
+        border: 1px solid var(--color-border);
+        background: var(--color-bg-base);
+        color: var(--color-text-base);
+      }
+      .crud-modal-actions button.is-primary {
+        background: var(--color-primary);
+        color: #fff;
+        border-color: var(--color-primary);
+      }
+      .crud-modal-actions button.is-danger {
+        background: #ff4d4f;
+        color: #fff;
+        border-color: #ff4d4f;
+      }
+      .crud-modal-actions button.is-loading {
+        background: var(--color-primary);
+        color: #fff;
+        border-color: var(--color-primary);
+        opacity: 0.7;
+        cursor: progress;
+      }
+      .spinner {
+        display: inline-block;
+        width: 12px;
+        height: 12px;
+        border: 2px solid #fff;
+        border-top-color: transparent;
+        border-radius: 50%;
+        animation: spin 700ms linear infinite;
+        margin-right: 6px;
+        vertical-align: -2px;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      /* ─── Preview controls (bottom-corner toggle bars) ─────────────── */
+      .preview-controls {
+        position: fixed;
+        bottom: 16px;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        gap: 12px;
+        z-index: 300;
+      }
+      .toggle-group {
+        display: flex;
+        background: rgba(255, 255, 255, 0.96);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-md);
+        box-shadow: var(--shadow-card);
+        padding: 4px;
+        gap: 2px;
+      }
+      .toggle-group .toggle-label {
+        font-size: 11px;
+        color: var(--color-text-tertiary);
+        padding: 6px 8px 6px 10px;
+        align-self: center;
+      }
+      .toggle-group button {
+        background: transparent;
+        border: none;
+        padding: 6px 10px;
+        font-size: 12px;
+        border-radius: var(--radius-sm);
+        cursor: pointer;
+        color: var(--color-text-base);
+      }
+      .toggle-group button:hover {
+        background: var(--color-fill-quaternary);
+      }
+      .toggle-group button.is-active {
+        background: var(--color-primary-bg);
+        color: var(--color-primary);
+        font-weight: 500;
+      }
+    </style>
+  </head>
+  <body class="surface-workspaces modal-none">
+    <div class="honest-banner">
+      R23 preview · CRUD hygiene — toggle surface (workspace / dataset) + modal state at the bottom. ~90% fidelity;
+      production truth is the running builder.
+    </div>
+
+    <div class="mdd-shell">
+      <aside class="mdd-sidebar">
+        <div class="mdd-sidebar-header">
+          <a href="../index.html" class="mdd-brand">
+            <span class="mdd-brand-mark">M</span>
+            <span>MDD</span>
+          </a>
+        </div>
+        <nav class="mdd-nav">
+          <div class="mdd-nav-group is-expanded" id="grp-data-management">
+            <button class="mdd-nav-group-header" onclick="toggleGroup('grp-data-management')" title="Data Management">
+              <svg
+                class="nav-icon"
+                viewBox="64 64 896 896"
+                width="16"
+                height="16"
+                fill="currentColor"
+                aria-hidden="true"
+              >
+                <path
+                  d="M832 64H192c-17.7 0-32 14.3-32 32v832c0 17.7 14.3 32 32 32h640c17.7 0 32-14.3 32-32V96c0-17.7-14.3-32-32-32zm-260 72h188v131H572V136zm-118 0h44v131h-44V136zm-162 0h44v131h-44V136zm132 752H236V332h188v556zm162 0h-44V332h44v556zm206 0H614V332h178v556z"
+                />
+              </svg>
+              <span class="label">Data Management</span>
+              <svg
+                class="chevron"
+                viewBox="64 64 896 896"
+                width="10"
+                height="10"
+                fill="currentColor"
+                aria-hidden="true"
+              >
+                <path
+                  d="M765.7 486.8L314.9 134.7A7.97 7.97 0 00302 141v77.3c0 4.9 2.3 9.6 6.1 12.6l360 281.1-360 281.1c-3.9 3-6.1 7.7-6.1 12.6V883c0 6.7 7.7 10.4 12.9 6.3l450.8-352.1a31.96 31.96 0 000-50.4z"
+                />
+              </svg>
+            </button>
+            <div class="mdd-nav-items" data-group-label="Data Management">
+              <a
+                href="workspace-shell.preview.html"
+                class="mdd-nav-item"
+                data-nav="workspaces"
+                title="Workspaces"
+                onclick="
+                  setSurface('workspaces');
+                  return false;
+                "
+              >
+                <svg
+                  class="nav-item-icon"
+                  viewBox="64 64 896 896"
+                  width="14"
+                  height="14"
+                  fill="currentColor"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M464 144H160c-8.8 0-16 7.2-16 16v304c0 8.8 7.2 16 16 16h304c8.8 0 16-7.2 16-16V160c0-8.8-7.2-16-16-16zm-52 268H212V212h200v200zm452-268H560c-8.8 0-16 7.2-16 16v304c0 8.8 7.2 16 16 16h304c8.8 0 16-7.2 16-16V160c0-8.8-7.2-16-16-16zm-52 268H612V212h200v200zM464 544H160c-8.8 0-16 7.2-16 16v304c0 8.8 7.2 16 16 16h304c8.8 0 16-7.2 16-16V560c0-8.8-7.2-16-16-16zm-52 268H212V612h200v200zm452-268H560c-8.8 0-16 7.2-16 16v304c0 8.8 7.2 16 16 16h304c8.8 0 16-7.2 16-16V560c0-8.8-7.2-16-16-16zm-52 268H612V612h200v200z"
+                  />
+                </svg>
+                <span>Workspaces</span>
+              </a>
+              <a
+                href="datasets.preview.html"
+                class="mdd-nav-item"
+                data-nav="datasets"
+                title="Datasets"
+                onclick="
+                  setSurface('datasets');
+                  return false;
+                "
+              >
+                <svg
+                  class="nav-item-icon"
+                  viewBox="64 64 896 896"
+                  width="14"
+                  height="14"
+                  fill="currentColor"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M832 64H192c-17.7 0-32 14.3-32 32v832c0 17.7 14.3 32 32 32h640c17.7 0 32-14.3 32-32V96c0-17.7-14.3-32-32-32zm-260 72h188v131H572V136zm-118 0h44v131h-44V136zm-162 0h44v131h-44V136zm132 752H236V332h188v556zm162 0h-44V332h44v556zm206 0H614V332h178v556z"
+                  />
+                </svg>
+                <span>Datasets</span>
+              </a>
+            </div>
+          </div>
+        </nav>
+
+        <div class="mdd-sidebar-footer">
+          <span class="build-label">R23 preview · </span>
+          <span>CRUD hygiene</span>
+        </div>
+      </aside>
+
+      <div class="mdd-content-area">
+        <header class="mdd-topbar">
+          <button
+            class="mdd-toggle"
+            onclick="toggleCollapse()"
+            aria-label="Toggle sidebar"
+            title="Fold / Unfold sidebar"
+          >
+            <svg id="toggle-icon" viewBox="64 64 896 896" width="18" height="18" fill="currentColor" aria-hidden="true">
+              <path
+                id="toggle-icon-path"
+                d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM142.4 642.1L298.7 519a8.84 8.84 0 000-13.9L142.4 381.9c-5.8-4.6-14.4-.5-14.4 6.9v246.3a8.9 8.9 0 0014.4 7z"
+              />
+            </svg>
+          </button>
+          <div class="mdd-topbar-title" id="topbar-title">Workspaces</div>
+          <div class="mdd-topbar-spacer"></div>
+          <div class="mdd-topbar-actions">
+            <span class="mdd-topbar-placeholder">search (future)</span>
+            <span class="mdd-topbar-placeholder">user (future)</span>
+            <span class="mdd-topbar-placeholder">🔔</span>
+          </div>
+        </header>
+
+        <main class="mdd-content">
+          <!-- ───────────── Surface 1: Workspaces page ────────────────── -->
+          <div class="surface-workspaces">
+            <div class="page-header">
+              <div class="page-header-main">
+                <div class="breadcrumb"><a href="#">Home</a> ▸ <a href="#">Data Management</a> ▸ Workspaces</div>
+                <h1 class="page-title">Workspaces</h1>
+                <p class="page-subtitle">Manage logical containers for your data and reports.</p>
+              </div>
+              <div class="page-header-actions">
+                <button type="button" class="btn-primary">+ Create</button>
+              </div>
+            </div>
+
+            <div class="page-card">
+              <div class="workspaces-grid">
+                <!-- Card 1: shows the overflow menu OPEN so the affordance is
+                     visible. In the real UI, only one menu is open at a time. -->
+                <div class="workspace-card">
+                  <button
+                    class="card-overflow-trigger"
+                    title="Workspace actions"
+                    aria-label="Workspace actions for Marketing"
+                  >
+                    ⋮
+                  </button>
+                  <div class="workspace-card-icon">M</div>
+                  <h3 class="workspace-card-name">Marketing</h3>
+                  <p class="workspace-card-meta">Created 2026-05-21</p>
+
+                  <div class="overflow-menu" role="menu">
+                    <a
+                      class="overflow-menu-item"
+                      href="#"
+                      onclick="
+                        openModal('rename');
+                        return false;
+                      "
+                    >
+                      <span>✎</span><span>Rename</span>
+                    </a>
+                    <div class="overflow-menu-divider"></div>
+                    <a
+                      class="overflow-menu-item is-danger"
+                      href="#"
+                      onclick="
+                        openModal('delete-blocked');
+                        return false;
+                      "
+                      title="Marketing has datasets — opens the blocked-delete modal"
+                    >
+                      <span>🗑</span><span>Delete</span>
+                    </a>
+                  </div>
+                </div>
+
+                <div class="workspace-card">
+                  <button class="card-overflow-trigger" title="Workspace actions">⋮</button>
+                  <div class="workspace-card-icon">S</div>
+                  <h3 class="workspace-card-name">Sales Ops</h3>
+                  <p class="workspace-card-meta">Created 2026-05-18</p>
+                </div>
+
+                <div class="workspace-card">
+                  <button class="card-overflow-trigger" title="Workspace actions">⋮</button>
+                  <div class="workspace-card-icon">F</div>
+                  <h3 class="workspace-card-name">Finance</h3>
+                  <p class="workspace-card-meta">Created 2026-05-10</p>
+                </div>
+
+                <!-- R&D is an empty workspace — its delete uses the regular
+                     confirm modal, not the blocked one. -->
+                <div class="workspace-card">
+                  <button class="card-overflow-trigger" title="Workspace actions">⋮</button>
+                  <div class="workspace-card-icon">R</div>
+                  <h3 class="workspace-card-name">R&amp;D</h3>
+                  <p class="workspace-card-meta">Created 2026-04-30</p>
+                </div>
+
+                <div class="workspace-card">
+                  <button class="card-overflow-trigger" title="Workspace actions">⋮</button>
+                  <div class="workspace-card-icon">C</div>
+                  <h3 class="workspace-card-name">Customer Success</h3>
+                  <p class="workspace-card-meta">Created 2026-04-22</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ───────────── Surface 2: Datasets page ──────────────────── -->
+          <div class="surface-datasets">
+            <div class="page-header">
+              <div class="page-header-main">
+                <div class="breadcrumb"><a href="#">Home</a> ▸ <a href="#">Data Management</a> ▸ Datasets</div>
+                <h1 class="page-title">Datasets</h1>
+                <p class="page-subtitle">All tables across your workspaces.</p>
+              </div>
+              <div class="page-header-actions">
+                <button type="button" class="btn-primary">+ Upload</button>
+              </div>
+            </div>
+
+            <div class="page-card">
+              <div class="filter-bar">
+                <div class="filter-control">
+                  <span class="filter-label">Workspace</span>
+                  <select class="filter-select">
+                    <option>All workspaces</option>
+                    <option>Marketing</option>
+                    <option>Sales Ops</option>
+                    <option>Finance</option>
+                  </select>
+                </div>
+                <input class="filter-search" type="search" placeholder="Search datasets…" />
+              </div>
+
+              <table class="dataset-table">
+                <thead>
+                  <tr>
+                    <th>Uploaded</th>
+                    <th>Name</th>
+                    <th>Workspace</th>
+                    <th class="num">Rows</th>
+                    <th class="num">Cols</th>
+                    <th class="num">Size</th>
+                    <th class="actions">&nbsp;</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <!-- First row shows the action menu OPEN for visibility.
+                       In the real UI only one is open at a time. -->
+                  <tr>
+                    <td>14:02 today</td>
+                    <td><span class="source-icon" title="Excel">📊</span>q1_pipeline_Deals</td>
+                    <td><a href="#">Marketing</a></td>
+                    <td class="num">2,481</td>
+                    <td class="num">12</td>
+                    <td class="num">84 KB</td>
+                    <td class="actions-cell">
+                      <button
+                        class="actions-trigger"
+                        title="Dataset actions"
+                        aria-label="Actions for q1_pipeline_Deals"
+                      >
+                        ⋮
+                      </button>
+                      <div class="overflow-menu row-menu" role="menu">
+                        <a
+                          class="overflow-menu-item"
+                          href="#"
+                          onclick="
+                            openModal('rename');
+                            return false;
+                          "
+                        >
+                          <span>✎</span><span>Rename</span>
+                        </a>
+                        <div class="overflow-menu-divider"></div>
+                        <a
+                          class="overflow-menu-item is-danger"
+                          href="#"
+                          onclick="
+                            openModal('delete-dataset');
+                            return false;
+                          "
+                        >
+                          <span>🗑</span><span>Delete</span>
+                        </a>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td>Yesterday</td>
+                    <td><span class="source-icon" title="Excel">📊</span>contacts_2026</td>
+                    <td><a href="#">Marketing</a></td>
+                    <td class="num">14,902</td>
+                    <td class="num">7</td>
+                    <td class="num">612 KB</td>
+                    <td class="actions-cell">
+                      <button class="actions-trigger" title="Dataset actions">⋮</button>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td>3 days ago</td>
+                    <td><span class="source-icon" title="CSV">📄</span>leads_2025</td>
+                    <td><a href="#">Marketing</a></td>
+                    <td class="num">431</td>
+                    <td class="num">9</td>
+                    <td class="num">22 KB</td>
+                    <td class="actions-cell">
+                      <button class="actions-trigger" title="Dataset actions">⋮</button>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td>5 days ago</td>
+                    <td><span class="source-icon" title="Excel">📊</span>deals_q4_Pipeline</td>
+                    <td><a href="#">Sales Ops</a></td>
+                    <td class="num">1,204</td>
+                    <td class="num">18</td>
+                    <td class="num">142 KB</td>
+                    <td class="actions-cell">
+                      <button class="actions-trigger" title="Dataset actions">⋮</button>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td>1 week ago</td>
+                    <td><span class="source-icon" title="CSV">📄</span>commission_calc</td>
+                    <td><a href="#">Finance</a></td>
+                    <td class="num">58</td>
+                    <td class="num">6</td>
+                    <td class="num">4 KB</td>
+                    <td class="actions-cell">
+                      <button class="actions-trigger" title="Dataset actions">⋮</button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </main>
+      </div>
+    </div>
+
+    <!-- ───────────── Modal state 1: Rename ────────────────────────────── -->
+    <div class="crud-modal-overlay modal-rename">
+      <div class="crud-modal-dialog" role="dialog" aria-labelledby="rename-title">
+        <h2 class="crud-modal-title" id="rename-title">Rename workspace</h2>
+        <div class="crud-modal-body">
+          <label class="field-label" for="rename-input">Name</label>
+          <input id="rename-input" class="name-input" type="text" value="Marketing" />
+          <div class="hint">1-80 characters. Must be unique.</div>
+        </div>
+        <div class="crud-modal-actions">
+          <button type="button" onclick="closeModal()">Cancel</button>
+          <button type="button" class="is-primary" onclick="openModal('rename-loading')">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ───────────── Modal state 2: Rename loading ───────────────────── -->
+    <div class="crud-modal-overlay modal-rename-loading">
+      <div class="crud-modal-dialog" role="dialog" aria-labelledby="rename-loading-title">
+        <h2 class="crud-modal-title" id="rename-loading-title">Rename workspace</h2>
+        <div class="crud-modal-body">
+          <label class="field-label">Name</label>
+          <input class="name-input" type="text" value="Marketing 2026" disabled />
+          <div class="hint">1-80 characters. Must be unique.</div>
+        </div>
+        <div class="crud-modal-actions">
+          <button type="button" disabled>Cancel</button>
+          <button type="button" class="is-loading" disabled><span class="spinner"></span>Saving…</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ───────────── Modal state 3: Rename 409 (name_taken) ──────────── -->
+    <div class="crud-modal-overlay modal-rename-error">
+      <div class="crud-modal-dialog" role="dialog" aria-labelledby="rename-error-title">
+        <h2 class="crud-modal-title" id="rename-error-title">Rename dataset</h2>
+        <div class="crud-modal-body">
+          <label class="field-label" for="rename-error-input">Name</label>
+          <input id="rename-error-input" class="name-input" type="text" value="commission_calc" />
+          <div class="hint">1-80 characters. Must be unique within the workspace.</div>
+          <div class="field-error">
+            <span>✕</span>
+            <span
+              >A dataset named <strong>commission_calc</strong> already exists in workspace
+              <strong>Finance</strong>.</span
+            >
+          </div>
+        </div>
+        <div class="crud-modal-actions">
+          <button type="button" onclick="closeModal()">Cancel</button>
+          <button type="button" class="is-primary" onclick="openModal('rename-loading')">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ───────────── Modal state 4: Delete dataset confirm ───────────── -->
+    <div class="crud-modal-overlay modal-delete-dataset">
+      <div class="crud-modal-dialog" role="dialog" aria-labelledby="delete-dataset-title">
+        <h2 class="crud-modal-title" id="delete-dataset-title">Delete dataset</h2>
+        <div class="crud-modal-body">
+          <p>Delete dataset <strong>q1_pipeline_Deals</strong>?</p>
+          <p class="hint">This action cannot be undone.</p>
+        </div>
+        <div class="crud-modal-actions">
+          <button type="button" onclick="closeModal()">Cancel</button>
+          <button type="button" class="is-danger" onclick="closeModal()">Delete</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ───────────── Modal state 5: Delete workspace confirm (empty) ── -->
+    <div class="crud-modal-overlay modal-delete-workspace">
+      <div class="crud-modal-dialog" role="dialog" aria-labelledby="delete-workspace-title">
+        <h2 class="crud-modal-title" id="delete-workspace-title">Delete workspace</h2>
+        <div class="crud-modal-body">
+          <p>Delete workspace <strong>R&amp;D</strong>?</p>
+          <p class="hint">This action cannot be undone.</p>
+        </div>
+        <div class="crud-modal-actions">
+          <button type="button" onclick="closeModal()">Cancel</button>
+          <button type="button" class="is-danger" onclick="closeModal()">Delete</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ───────────── Modal state 6: Delete workspace blocked (409) ──── -->
+    <div class="crud-modal-overlay modal-delete-blocked">
+      <div class="crud-modal-dialog" role="dialog" aria-labelledby="delete-blocked-title">
+        <h2 class="crud-modal-title" id="delete-blocked-title">Workspace not empty</h2>
+        <div class="crud-modal-body">
+          <div class="blocked-warning">
+            <span class="icon">⚠</span>
+            <div class="text">
+              <strong>Marketing has 4 datasets.</strong>
+              <span>Delete or move them to another workspace first.</span>
+            </div>
+          </div>
+        </div>
+        <div class="crud-modal-actions">
+          <button type="button" class="is-primary" onclick="closeModal()">Got it</button>
+        </div>
+      </div>
+    </div>
+
+    <a class="preview-index-link" href="../index.html">← Preview index</a>
+
+    <div class="preview-controls">
+      <div class="toggle-group" role="group" aria-label="Surface toggle">
+        <span class="toggle-label">Surface</span>
+        <button type="button" data-surface="workspaces" class="is-active">Workspaces</button>
+        <button type="button" data-surface="datasets">Datasets</button>
+      </div>
+      <div class="toggle-group" role="group" aria-label="Modal state toggle">
+        <span class="toggle-label">Modal</span>
+        <button type="button" data-modal="none" class="is-active">None</button>
+        <button type="button" data-modal="rename">Rename</button>
+        <button type="button" data-modal="rename-loading">Loading</button>
+        <button type="button" data-modal="rename-error">Error 409</button>
+        <button type="button" data-modal="delete-dataset">Del dataset</button>
+        <button type="button" data-modal="delete-workspace">Del ws</button>
+        <button type="button" data-modal="delete-blocked">Blocked</button>
+      </div>
+    </div>
+
+    <!-- Shared chrome interactions (toggleGroup, toggleCollapse + SVG paths). -->
+    <script src="../_js/preview-shell.js"></script>
+    <script>
+      const body = document.body;
+
+      function setSurface(next) {
+        body.classList.remove('surface-workspaces', 'surface-datasets');
+        body.classList.add('surface-' + next);
+        document.getElementById('topbar-title').textContent = next === 'workspaces' ? 'Workspaces' : 'Datasets';
+        // Update bottom toggle buttons.
+        document.querySelectorAll('.toggle-group [data-surface]').forEach((b) => {
+          b.classList.toggle('is-active', b.dataset.surface === next);
+        });
+        // Mirror to sidebar nav active state.
+        document.querySelectorAll('.mdd-nav-item[data-nav]').forEach((a) => {
+          a.classList.toggle('is-active', a.dataset.nav === next);
+        });
+      }
+
+      const MODAL_STATES = [
+        'rename',
+        'rename-loading',
+        'rename-error',
+        'delete-dataset',
+        'delete-workspace',
+        'delete-blocked',
+      ];
+
+      function openModal(state) {
+        MODAL_STATES.forEach((s) => body.classList.remove('modal-' + s));
+        if (state && state !== 'none') {
+          body.classList.add('modal-' + state);
+        }
+        document.querySelectorAll('.toggle-group [data-modal]').forEach((b) => {
+          b.classList.toggle('is-active', b.dataset.modal === (state || 'none'));
+        });
+      }
+
+      function closeModal() {
+        openModal('none');
+      }
+
+      // Wire bottom-toggle buttons.
+      document.querySelectorAll('.toggle-group [data-surface]').forEach((b) => {
+        b.addEventListener('click', () => setSurface(b.dataset.surface));
+      });
+      document.querySelectorAll('.toggle-group [data-modal]').forEach((b) => {
+        b.addEventListener('click', () => openModal(b.dataset.modal));
+      });
+
+      // Initial sidebar-active mirror.
+      setSurface('workspaces');
+    </script>
+  </body>
+</html>

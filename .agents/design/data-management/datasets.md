@@ -22,6 +22,8 @@ table page with workspace filter; workspace-card click handoff.
 [workspaces.md](workspaces.md) (the container datasets live inside),
 [upload.md](upload.md) (the action that creates a dataset — verb to
 this doc's noun),
+[crud-hygiene.md](crud-hygiene.md) (rename + delete affordances on
+the Dataset row — R23 closes the R∞-deferred CRUD gap below),
 [workspace-shell.target.md](workspace-shell.target.md) (the chrome
 the Datasets page renders inside), and
 [datasets.preview.html](datasets.preview.html) (visual preview of

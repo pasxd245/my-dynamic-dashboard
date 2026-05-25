@@ -10,9 +10,11 @@ implemented in R13 per the
 [shell target's named-pulls table](workspace-shell.target.md).
 **Sibling docs**:
 [workspace-shell.target.md](workspace-shell.target.md) (the chrome
-this feature lives inside) and
-[workspace-shell.preview.html](workspace-shell.preview.html) (visual
-preview that renders this feature as content).
+this feature lives inside),
+[crud-hygiene.md](crud-hygiene.md) (rename + delete affordances on
+the Workspace card — R23 closes the R∞-deferred CRUD gap below)
+and [workspace-shell.preview.html](workspace-shell.preview.html)
+(visual preview that renders this feature as content).
 
 ---
 
