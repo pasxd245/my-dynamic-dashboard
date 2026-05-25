@@ -112,3 +112,43 @@ in `.agents/memory/` (Status: Promoted) as the operational how-to.
 **Promoted by**: pasxd245 (Round_18, explicit human authorization
 via "go with R18 (consider this will a heavy round), the lesson-learn
 is important").
+
+## 2026-05-25: D-step-picks-the-chain framing → `context/contract-driven-feature.md`
+
+**Source**: two-instance evidence from the upload chain
+([Round_14](cycles/Round_14.md) → [Round_17](cycles/Round_17.md), all
+four phases) and the parse-options chain
+([Round_19](cycles/Round_19.md) → [Round_21](cycles/Round_21.md),
+D + B + F only — C collapsed because R15 had already landed the
+schema). The "D-step picks the chain" framing was named in R19's
+mid-round self-correction and confirmed when R20 + R21 shipped on
+that partial chain.
+**Rationale**: The original `context/` doc had a "When not to use
+DCBF" negative-framing section but no affirmative complement.
+Future rounds that read the doc would learn when to refuse the
+chain entirely, but not how to scope the chain to fewer than four
+phases when one phase is genuinely unnecessary. The amendment adds
+"What the D-step decides" between the don't-add guards and the
+when-not-to-use section, citing both instances by name. Additive,
+~22 lines, principles 1–5 unchanged.
+**Promoted by**: pasxd245 (Round_22, "let's go with R22" — read as
+authorization under the [governance.md § Explicit Human
+Instructions](../context/governance.md) precedent set by R18).
+
+## 2026-05-25: Behavior-conformance sub-rule amendment → `memory/2026-05-24-be-round-conformance-pattern.md`
+
+**Source**: R20's three BE behavior tests (CSV `parse_options`
+end-to-end — the gap R16's shape conformance missed) and R21's
+four FE reducer behavior tests (dispatch-then-assert-next-state,
+not just dispatch-was-accepted). Two instances; same sub-rule;
+both sides of the wire.
+**Rationale**: Memo-level amendment, not `context/` promotion.
+Two instances meets the threshold for capturing the pattern in
+the memo (where future agents will find it next to the rest of
+the conformance discipline) but is one instance short of the
+Evolution Rule's 3-instance `context/` bar. A third instance in a
+different feature would justify lifting the sub-rule into the
+`context/` doc's principle 5. Memo `Status: Promoted` unchanged —
+the amendment extends what's already in `context/`, doesn't
+replace it.
+**Promoted by**: pasxd245 (Round_22, same authorization basis).

@@ -67,6 +67,22 @@ closed on the Python side too. Without `extra='forbid'`, a typo'd
 client field silently gets ignored. The closed-by-default
 discipline mirrors the contract.
 
+**Shape conformance ≠ behavior conformance.** _(Amended R22 from
+two-instance evidence.)_ A field accepted by the contract and
+parsed into the request model can still be ignored end-to-end.
+The original R16 conformance net asserted wire shape was honored
+— it did not catch that CSV `parse_options` were parsed and then
+discarded inside the CSV commit path. R20 closed that gap with
+behavior tests (dispatch the input → assert the observable result
+changes accordingly), and R21 mirrored the pattern on the FE
+reducer (dispatch the action → assert the next-state reflects the
+effect, not just that the action was accepted). Sub-rule: **every
+field the contract accepts gets one behavior test**, in addition
+to its shape coverage. The two instances (BE in
+[Round_20](../plan/cycles/Round_20.md); FE reducer in
+[Round_21](../plan/cycles/Round_21.md)) prove the rule transfers
+across the wire boundary.
+
 ## Evidence
 
 - **R16 round file**:
@@ -118,6 +134,15 @@ discipline mirrors the contract.
   written, or writing files keyed to DB rows that may never get
   inserted. Tests on the rollback path confirm the no-dangling
   invariant.
+- **Every accepted field gets one behavior test.** _(Amended R22.)_
+  Shape conformance accepts the field; the behavior test asserts
+  the field actually moves the system. Without it, silent-ignore
+  bugs slip through (the R16 carry-over R20 closed). Applies on
+  both sides of the wire: BE accepts `parse_options` → assert the
+  parsed payload reflects them; FE dispatches an action → assert
+  the next state shows the effect. One test per field is the
+  density — exhaustive matrices are not the goal; observable
+  effect is.
 
 **Don't**:
 

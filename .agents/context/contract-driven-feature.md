@@ -92,6 +92,32 @@ are explicit non-goals until a real drift bites — per the
 If a future round wants to lift any of these, the trigger is a
 **concrete drift incident**, not an aesthetic argument.
 
+## What the D-step decides
+
+The Design round doesn't merely produce a design doc — it picks
+the chain. Not every feature takes all four phases. The D-step
+enumerates which downstream phases the feature actually needs,
+and the chain reflects that enumeration. Two instances bear this
+out:
+
+- **Upload feature** ([Round_14](../plan/cycles/Round_14.md) →
+  [Round_17](../plan/cycles/Round_17.md)): took all four phases
+  (D + C + B + F). New endpoints, new payload shapes, new wizard
+  UI — the full chain.
+- **Parse-options feature** ([Round_19](../plan/cycles/Round_19.md)
+  → [Round_21](../plan/cycles/Round_21.md)): took D + B + F. The
+  C-step collapsed because
+  [Round_15](../plan/cycles/Round_15.md) had already landed
+  `ParseOptions` on the relevant contracts — R19's D-step found
+  the contract was complete and declared "no C needed."
+
+The D-step's job, then, is to **scope the chain to the
+downstream rounds the feature actually moves through.** A chain
+that's "D + B + F" or "D + F" or even just "D" is honest if the
+D round's design genuinely lands without contract or BE work.
+Refuse to spawn rounds for phases the feature doesn't need —
+the chain is a tool, not a quota.
+
 ## When _not_ to use DCBF
 
 - **Single-layer changes** (BE-only fix, FE-only refactor) — no
