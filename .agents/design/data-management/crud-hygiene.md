@@ -21,6 +21,14 @@ route handlers, four `ApiError*` Pydantic models, schema
 migration (two unique indexes) with a startup-time duplicate-
 name back-fill, plus the `POST /workspaces` and batch-commit
 tightening to 409 on `name_taken`. 54/54 backend tests pass.
+**Frontend**: [Round_26](../../plan/cycles/Round_26.md) — four
+mutation hooks, three shared modals
+(`features/data-management/_shared/`), overflow-menu wiring on
+the WorkspaceCard and the DatasetTable, the
+`ApiErrorThrown` / `BatchApiErrorThrown` typed error path, and
+inline 409 handling on the existing `CreateWorkspaceModal` and
+the upload wizard's Confirm step. 24/24 vitest tests still pass;
+type-check + build green.
 **Sibling docs**:
 [workspaces.md](workspaces.md) (the noun this verb-set operates
 on — defines the Workspace data model),

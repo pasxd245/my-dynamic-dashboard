@@ -1,7 +1,30 @@
-import { Alert, Input, Table, Tag, Typography } from "antd";
-import type { Dispatch } from "react";
-import { useWorkspacesQuery } from "../../workspaces/hooks";
-import { CSV_SHEET_KEY, type WizardAction, type WizardState } from "./state";
+import { Alert, Input, Table, Tag, Typography } from 'antd';
+import type { Dispatch } from 'react';
+import { BatchApiErrorThrown } from '../../_shared/types';
+import { useWorkspacesQuery } from '../../workspaces/hooks';
+import { CSV_SHEET_KEY, type WizardAction, type WizardState } from './state';
+
+function commitErrorTitle(err: Error): string {
+  if (err instanceof BatchApiErrorThrown && 'code' in err.body) {
+    if (err.body.code === 'name_taken') {
+      return 'A dataset with that name already exists in this workspace';
+    }
+  }
+  return "Couldn't commit datasets";
+}
+
+function commitErrorDescription(err: Error): string {
+  if (err instanceof BatchApiErrorThrown) {
+    if ('code' in err.body) {
+      if (err.body.code === 'name_taken') {
+        return "Rename one of the items in the table above (the wizard's Confirm step) so each dataset name is unique within this workspace, then try again.";
+      }
+      return `Server returned code ${err.body.code}.`;
+    }
+    return err.body.detail ?? err.body.error;
+  }
+  return err.message;
+}
 
 type Props = Readonly<{
   state: WizardState;
@@ -21,17 +44,14 @@ type RowData = {
 };
 
 export function UploadConfirmStep({ state, dispatch, commitError }: Props) {
-  const isCsv = state.sourceFormat === "csv";
+  const isCsv = state.sourceFormat === 'csv';
   const sheetKeys = isCsv ? [CSV_SHEET_KEY] : state.selectedSheets;
   const workspaces = useWorkspacesQuery();
-  const workspaceName =
-    workspaces.data?.find((w) => w.id === state.workspaceId)?.name ??
-    state.workspaceId ??
-    "—";
+  const workspaceName = workspaces.data?.find((w) => w.id === state.workspaceId)?.name ?? state.workspaceId ?? '—';
 
-  const fileName = state.file?.name ?? (isCsv ? "file.csv" : "workbook");
+  const fileName = state.file?.name ?? (isCsv ? 'file.csv' : 'workbook');
   const fileSize = state.file ? formatBytes(state.file.size) : null;
-  const sourceLabel = isCsv ? "CSV" : "Excel";
+  const sourceLabel = isCsv ? 'CSV' : 'Excel';
 
   const rows: RowData[] = sheetKeys
     .map((key) => {
@@ -40,9 +60,9 @@ export function UploadConfirmStep({ state, dispatch, commitError }: Props) {
       const total = sheet.columns.length;
       const kept = total - sheet.excludedColumns.length;
       return {
-        key: key || "csv",
+        key: key || 'csv',
         sheetKey: key,
-        sheetLabel: isCsv ? "—" : key,
+        sheetLabel: isCsv ? '—' : key,
         name: sheet.name,
         rowCount: sheet.rowCount,
         kept,
@@ -57,31 +77,29 @@ export function UploadConfirmStep({ state, dispatch, commitError }: Props) {
       ? []
       : ([
           {
-            title: "Sheet",
-            dataIndex: "sheetLabel",
-            key: "sheetLabel",
-            render: (label: string) => (
-              <span style={{ fontWeight: 500 }}>{label}</span>
-            ),
+            title: 'Sheet',
+            dataIndex: 'sheetLabel',
+            key: 'sheetLabel',
+            render: (label: string) => <span style={{ fontWeight: 500 }}>{label}</span>,
           },
         ] as const)),
     {
       title: (
         <>
-          Dataset name{" "}
+          Dataset name{' '}
           <Typography.Text type="danger" style={{ marginLeft: 2 }}>
             *
           </Typography.Text>
         </>
       ),
-      dataIndex: "name",
-      key: "name",
+      dataIndex: 'name',
+      key: 'name',
       render: (name: string, row: RowData) => (
         <Input
           value={name}
           onChange={(e) =>
             dispatch({
-              type: "SET_DATASET_NAME",
+              type: 'SET_DATASET_NAME',
               sheet: row.sheetKey,
               name: e.target.value,
             })
@@ -95,25 +113,25 @@ export function UploadConfirmStep({ state, dispatch, commitError }: Props) {
       ),
     },
     {
-      title: "Rows",
-      dataIndex: "rowCount",
-      key: "rowCount",
-      align: "right" as const,
+      title: 'Rows',
+      dataIndex: 'rowCount',
+      key: 'rowCount',
+      align: 'right' as const,
       render: (n: number) => n.toLocaleString(),
     },
     {
-      title: "Cols",
-      key: "cols",
-      align: "right" as const,
+      title: 'Cols',
+      key: 'cols',
+      align: 'right' as const,
       render: (_: unknown, row: RowData) => `${row.kept} / ${row.total}`,
     },
     {
-      title: "Overrides",
-      key: "overrides",
+      title: 'Overrides',
+      key: 'overrides',
       render: (_: unknown, row: RowData) =>
         row.overrideCount > 0 ? (
           <Tag color="blue">
-            {row.overrideCount} column{row.overrideCount === 1 ? "" : "s"}
+            {row.overrideCount} column{row.overrideCount === 1 ? '' : 's'}
           </Tag>
         ) : (
           <Typography.Text type="secondary">none</Typography.Text>
@@ -121,27 +139,25 @@ export function UploadConfirmStep({ state, dispatch, commitError }: Props) {
     },
   ];
 
-  const verb = rows.length === 1 ? "dataset" : "datasets";
+  const verb = rows.length === 1 ? 'dataset' : 'datasets';
 
   return (
     <div data-component="UploadConfirmStep">
       <div
         style={{
           marginBottom: 12,
-          display: "flex",
+          display: 'flex',
           gap: 24,
-          flexWrap: "wrap",
+          flexWrap: 'wrap',
         }}
         data-component="ConfirmSummary"
       >
         <span>
-          <Typography.Text type="secondary">Workspace:</Typography.Text>{" "}
-          <strong>{workspaceName}</strong>
+          <Typography.Text type="secondary">Workspace:</Typography.Text> <strong>{workspaceName}</strong>
         </span>
         <span>
-          <Typography.Text type="secondary">Source:</Typography.Text>{" "}
-          {sourceLabel} · {fileName}
-          {fileSize ? ` (${fileSize})` : ""}
+          <Typography.Text type="secondary">Source:</Typography.Text> {sourceLabel} · {fileName}
+          {fileSize ? ` (${fileSize})` : ''}
         </span>
       </div>
       <Table
@@ -152,21 +168,16 @@ export function UploadConfirmStep({ state, dispatch, commitError }: Props) {
         columns={tableColumns}
         data-component="ConfirmTable"
       />
-      <Typography.Paragraph
-        type="secondary"
-        style={{ marginTop: 12 }}
-        data-component="ConfirmFooter"
-      >
-        Creating <strong>{rows.length}</strong> {verb} in{" "}
-        <strong>{workspaceName}</strong>.
+      <Typography.Paragraph type="secondary" style={{ marginTop: 12 }} data-component="ConfirmFooter">
+        Creating <strong>{rows.length}</strong> {verb} in <strong>{workspaceName}</strong>.
       </Typography.Paragraph>
 
       {commitError ? (
         <Alert
           type="error"
           showIcon
-          message="Couldn't commit datasets"
-          description={commitError.message}
+          message={commitErrorTitle(commitError)}
+          description={commitErrorDescription(commitError)}
           style={{ marginTop: 12 }}
           data-component="CommitError"
         />
