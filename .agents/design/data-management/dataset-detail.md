@@ -435,7 +435,16 @@ button.
 
 ---
 
-## Data contract (target shape for R34)
+## Data contract
+
+> **R34 update**: the OpenAPI 3.1 YAML files are now
+> authoritative. The prose YAML below stays as a reading aid,
+> but if the two ever drift, the YAML wins.
+>
+> - [`detail-get.contract.yaml`](../../../workspace/packages/contracts/datasets/detail-get.contract.yaml)
+>   ([rationale](../../../workspace/packages/contracts/datasets/detail-get.contract.md))
+> - [`rows-get.contract.yaml`](../../../workspace/packages/contracts/datasets/rows-get.contract.yaml)
+>   ([rationale](../../../workspace/packages/contracts/datasets/rows-get.contract.md))
 
 ### `GET /datasets/{id}`
 
@@ -595,6 +604,9 @@ export type RowsPage = {
 
 **R34+ implements** (this design's full scope):
 
+- ✅ **R34** — OpenAPI 3.1 contracts for both routes, sibling
+  rationale docs, contract-validity tests green (see
+  [Round_34.md](../../plan/cycles/Round_34.md)).
 - `GET /datasets/{id}` BE route (R35).
 - `GET /datasets/{id}/rows?page=&page_size=&q=` BE route (R35,
   reads paged slice from the dataset's Parquet file; applies

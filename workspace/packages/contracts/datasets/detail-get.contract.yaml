@@ -1,0 +1,93 @@
+openapi: 3.1.0
+info:
+  title: my-dynamic-dashboard — GET /datasets/{id}
+  version: 0.1.0
+  description: |
+    Get a single dataset by id. R33 designed; R34 contract round.
+
+    Powers the dataset detail page at
+    `/data-management/datasets/:id`. Returns the same `Dataset`
+    shape as the list-GET — no new fields, no detail-only
+    expansion. Per-row data lives on the sibling endpoint
+    `GET /datasets/{id}/rows`.
+
+paths:
+  /datasets/{id}:
+    get:
+      operationId: getDataset
+      summary: Get a single dataset by id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^ds_[0-9a-f]{8}$"
+          description: Dataset id.
+          examples:
+            deals:
+              value: "ds_71a4e2f0"
+      responses:
+        "200":
+          description: |
+            Dataset with its committed schema and metadata. The
+            response shape matches the list-GET items exactly so
+            the FE can hydrate its TanStack cache without
+            re-shaping.
+          content:
+            application/json:
+              schema:
+                $ref: "../_shared/dataset.yaml#/components/schemas/Dataset"
+              examples:
+                excel_deals:
+                  summary: Excel dataset (one sheet of a workbook)
+                  value:
+                    id: "ds_71a4e2f0"
+                    workspaceId: "ws_3f8a2c91"
+                    name: "q1_pipeline_Deals"
+                    sizeBytes: 86016
+                    rowCount: 2481
+                    columnCount: 12
+                    columns:
+                      [
+                        { name: "deal_id", dtype: "string" },
+                        { name: "amount", dtype: "integer" },
+                        { name: "won_at", dtype: "date" },
+                        { name: "stage", dtype: "string" },
+                        { name: "probability", dtype: "float" },
+                        { name: "is_priority", dtype: "boolean" },
+                        { name: "created_at", dtype: "datetime" },
+                      ]
+                    sourceFormat: "excel"
+                    sheetName: "Deals"
+                    createdAt: "2026-05-26T14:02:00Z"
+                csv_commission:
+                  summary: CSV dataset (no sheetName)
+                  value:
+                    id: "ds_a91c8e23"
+                    workspaceId: "ws_5ea71402"
+                    name: "commission_calc"
+                    sizeBytes: 4096
+                    rowCount: 58
+                    columnCount: 6
+                    columns:
+                      [
+                        { name: "amount", dtype: "integer" },
+                        { name: "memo", dtype: "string" },
+                        { name: "paid_at", dtype: "date" },
+                      ]
+                    sourceFormat: "csv"
+                    createdAt: "2026-05-19T09:30:00Z"
+        "404":
+          description: |
+            No dataset with the given `id` exists (or it was
+            deleted from another tab between the user clicking the
+            row and this request landing). FE renders the "this
+            dataset no longer exists" empty state.
+          content:
+            application/json:
+              schema:
+                $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorNotFound"
+              examples:
+                missing:
+                  value: { "code": "not_found" }
