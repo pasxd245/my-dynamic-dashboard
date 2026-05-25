@@ -317,6 +317,37 @@ logically.
   fires).
 - md:lint: 0 errors.
 
+**Upload-size config (post-Review add-on).** User caught a
+hardcoded "100 MB" string in `datasets.emptyHint` (and the same
+literal in `upload.source.dropHintCsv`/`dropHintExcel`). The BE
+already enforces `backend.upload_max_bytes: 104857600` in
+values.yaml; the FE was displaying a parallel hardcoded copy
+that could drift. Wired through:
+
+- [`.env.hbs`](../../../workspace/config/builder/.env.hbs)
+  gained `VITE_UPLOAD_MAX_BYTES={{backend.upload_max_bytes}}` —
+  references BE's value directly. Single source of truth.
+- `Fields.UPLOAD_MAX_BYTES`, `Const.UPLOAD_MAX_BYTES_FALLBACK`,
+  `appConfig.uploadMaxBytes(): number` follow R28's existing
+  pattern. Fallback is the same 100 MiB the BE defaults to.
+- Locale strings now interpolate `{{maxSize}}` instead of
+  hardcoding "100 MB" / "Tối đa 100 MB". Three keys:
+  `datasets.emptyHint`, `upload.source.dropHintCsv`,
+  `upload.source.dropHintExcel`.
+- New shared
+  [`src/lib/formatBytes.ts`](../../../workspace/apps/builder/src/lib/formatBytes.ts):
+  `formatBytes()` (precise, "12.3 MB") consolidated from three
+  duplicated definitions (UploadConfirmStep, UploadSheetStep,
+  DatasetsPage); `formatBytesCoarse()` (rounded, "100 MB") used
+  for the hint text. Drift was already present — the three
+  duplicates were byte-for-byte identical but easy to diverge.
+- Visual proof:
+  `grep VITE_UPLOAD_MAX_BYTES workspace/apps/builder/.env` →
+  `VITE_UPLOAD_MAX_BYTES=104857600`. Editing
+  `backend.upload_max_bytes` in values.yaml + `pnpm
+  config:render` flips both BE enforcement and FE display in
+  one step.
+
 **Bundle-size note.** R31 baseline was 1.29 MB / 409 KB gzip;
 R32 lands at 1.38 MB / 438 KB. Delta is i18next runtime
 (~25 KB gzipped) + ~5 KB per locale json. Code-splitting + lazy

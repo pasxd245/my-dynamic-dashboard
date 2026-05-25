@@ -71,7 +71,7 @@
     "searchPlaceholder": "Search datasets…",
     "emptyTitle": "Upload your first file to get started",
     "emptyTitleFiltered": "No datasets in this workspace",
-    "emptyHint": "Drag and drop here, or click to browse · Excel or CSV · Up to 100 MB",
+    "emptyHint": "Drag and drop here, or click to browse · Excel or CSV · Up to {{maxSize}}",
     "relativeTime": {
       "justNow": "Just now",
       "minutesAgo": "{{count}}m ago",
@@ -133,8 +133,8 @@
       "workspacePlaceholder": "Select a workspace…",
       "fileLabel": "File",
       "dropHere": "Drop a file here, or click to browse",
-      "dropHintCsv": ".csv · Up to 100 MB",
-      "dropHintExcel": ".xlsx · Up to 100 MB",
+      "dropHintCsv": ".csv · Up to {{maxSize}}",
+      "dropHintExcel": ".xlsx · Up to {{maxSize}}",
       "errorTitle": "Couldn't process the file"
     },
     "sheet": {

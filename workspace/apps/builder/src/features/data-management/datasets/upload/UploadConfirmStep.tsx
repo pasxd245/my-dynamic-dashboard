@@ -3,6 +3,7 @@ import type { TFunction } from 'i18next';
 import type { Dispatch } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import { ERROR_CODES, NAME_LENGTHS } from '@/_generated/constants';
+import { formatBytes } from '@/lib/formatBytes';
 import { BatchApiErrorThrown } from '@/features/data-management/_shared/types';
 import { useWorkspacesQuery } from '@/features/data-management/workspaces/hooks';
 import { CSV_SHEET_KEY, type WizardAction, type WizardState } from './state';
@@ -192,8 +193,3 @@ export function UploadConfirmStep({ state, dispatch, commitError }: Props) {
   );
 }
 
-function formatBytes(n: number): string {
-  if (n < 1024) return `${n} B`;
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
-  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
-}

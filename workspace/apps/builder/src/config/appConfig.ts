@@ -27,6 +27,7 @@ function readBuildTimeEnv(): EnvMap {
     [Fields.API_BASE_URL]: metaEnv.VITE_API_BASE_URL,
     [Fields.LOG_LEVEL]: metaEnv.VITE_LOG_LEVEL,
     [Fields.I18N_LOCALE]: metaEnv.VITE_I18N_LOCALE,
+    [Fields.UPLOAD_MAX_BYTES]: metaEnv.VITE_UPLOAD_MAX_BYTES,
   };
 }
 
@@ -48,10 +49,22 @@ class AppConfig {
     return this._resolve(Fields.LOG_LEVEL, Const.LOG_LEVEL);
   }
 
-  /** Typed accessor: i18n locale — R32 will consume this. R27 seeded
-   *  the placeholder so R32 has no retrofit cost. */
+  /** Typed accessor: i18n locale — R32 consumes this via
+   *  `src/i18n/index.ts` `init({ lng })`. */
   i18nLocale(): string {
     return this._resolve(Fields.I18N_LOCALE, Const.DEFAULT_LOCALE);
+  }
+
+  /** Typed accessor: upload byte limit. Rendered from
+   *  `backend.upload_max_bytes` so the FE display tracks whatever the
+   *  BE enforces. Number parsed once; the underlying env value is a
+   *  numeric string. */
+  uploadMaxBytes(): number {
+    const raw = this._resolve(Fields.UPLOAD_MAX_BYTES, "");
+    const parsed = Number.parseInt(raw, 10);
+    return Number.isFinite(parsed) && parsed > 0
+      ? parsed
+      : Const.UPLOAD_MAX_BYTES_FALLBACK;
   }
 
   /** Generic dotted-key access — drifted-style API. */

@@ -1,6 +1,7 @@
 import { Button, Checkbox, Empty, Space, Table, Typography } from "antd";
 import type { Dispatch } from "react";
 import { useTranslation } from "react-i18next";
+import { formatBytes } from "@/lib/formatBytes";
 import type { WizardAction, WizardState } from "./state";
 
 type Props = Readonly<{
@@ -120,8 +121,3 @@ export function UploadSheetStep({ state, dispatch }: Props) {
   );
 }
 
-function formatBytes(n: number): string {
-  if (n < 1024) return `${n} B`;
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
-  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
-}

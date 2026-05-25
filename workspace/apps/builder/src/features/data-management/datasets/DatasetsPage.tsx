@@ -15,6 +15,8 @@ import { useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { NAME_LENGTHS } from '@/_generated/constants';
+import { appConfig } from '@/config';
+import { formatBytes, formatBytesCoarse } from '@/lib/formatBytes';
 import { DeleteConfirmModal } from '../_shared/DeleteConfirmModal';
 import { RenameModal } from '../_shared/RenameModal';
 import { useWorkspacesQuery } from '@/features/data-management/workspaces/hooks';
@@ -263,7 +265,9 @@ function EmptyDropZone({ onClick, hasWorkspaceFilter }: EmptyProps) {
       <Typography.Title level={5} style={{ margin: 0 }}>
         {hasWorkspaceFilter ? t('datasets.emptyTitleFiltered') : t('datasets.emptyTitle')}
       </Typography.Title>
-      <Typography.Text type="secondary">{t('datasets.emptyHint')}</Typography.Text>
+      <Typography.Text type="secondary">
+        {t('datasets.emptyHint', { maxSize: formatBytesCoarse(appConfig.uploadMaxBytes()) })}
+      </Typography.Text>
     </button>
   );
 }
@@ -436,11 +440,6 @@ function SourceIcon({ format, sheetName, style }: SourceIconProps) {
   );
 }
 
-function formatBytes(n: number): string {
-  if (n < 1024) return `${n} B`;
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
-  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
-}
 
 type TFunc = (key: string, opts?: Record<string, unknown>) => string;
 

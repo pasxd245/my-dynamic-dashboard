@@ -2,6 +2,8 @@ import { render, screen, act } from "@testing-library/react";
 import { afterAll, describe, expect, it } from "vitest";
 import { useTranslation } from "react-i18next";
 import { i18n } from "@/i18n";
+import en from "@/i18n/locales/en.json";
+import vi from "@/i18n/locales/vi.json";
 
 function ProbeButton() {
   const { t } = useTranslation();
@@ -11,6 +13,14 @@ function ProbeButton() {
 function ProbeMissingKey() {
   const { t } = useTranslation();
   return <span>{t("nope.does_not_exist", "fallback-default")}</span>;
+}
+
+function flattenKeys(value: unknown, prefix = ""): string[] {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return [prefix.slice(0, -1)];
+  }
+
+  return Object.entries(value).flatMap(([key, child]) => flattenKeys(child, `${prefix}${key}.`));
 }
 
 describe("i18n", () => {
@@ -42,5 +52,10 @@ describe("i18n", () => {
     });
     render(<ProbeMissingKey />);
     expect(screen.getByText("fallback-default")).toBeInTheDocument();
+  });
+
+  it("keeps Vietnamese locale keys aligned with English", () => {
+    const viKeys = new Set(flattenKeys(vi));
+    expect(flattenKeys(en).filter((key) => !viKeys.has(key))).toEqual([]);
   });
 });

@@ -15,6 +15,10 @@ export const Fields = {
   API_BASE_URL: "builder.apiBaseUrl",
   LOG_LEVEL: "builder.logLevel",
   I18N_LOCALE: "i18n.locale",
+  // R32 add-on: BE-owned value, surfaced to FE so the upload empty-state
+  // and drop-zone hints display the same byte limit the BE enforces.
+  // Single source of truth: `backend.upload_max_bytes` in values.yaml.
+  UPLOAD_MAX_BYTES: "backend.uploadMaxBytes",
 } as const;
 
 export type FieldKey = (typeof Fields)[keyof typeof Fields];

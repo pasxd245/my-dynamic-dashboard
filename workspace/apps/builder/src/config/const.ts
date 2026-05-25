@@ -15,4 +15,9 @@ export const Const = {
 
   /** Default log level when no override is present. */
   LOG_LEVEL: "info",
+
+  /** Fallback upload byte limit if `VITE_UPLOAD_MAX_BYTES` is missing.
+   *  Matches the BE default (100 MiB). The rendered env should always
+   *  populate this; the constant is a safety net for misconfigured boots. */
+  UPLOAD_MAX_BYTES_FALLBACK: 100 * 1024 * 1024,
 } as const;

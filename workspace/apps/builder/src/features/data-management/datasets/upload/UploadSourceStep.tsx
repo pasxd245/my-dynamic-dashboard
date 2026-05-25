@@ -6,6 +6,8 @@ import {
 import { Alert, Card, Col, Form, Row, Select, Tag, Typography, Upload } from "antd";
 import type { Dispatch } from "react";
 import { useTranslation } from "react-i18next";
+import { appConfig } from "@/config";
+import { formatBytesCoarse } from "@/lib/formatBytes";
 import { useWorkspacesQuery } from '@/features/data-management/workspaces/hooks';
 import type { SourceFormat } from "../types";
 import { useUploadInitMutation } from "../hooks";
@@ -38,8 +40,11 @@ export function UploadSourceStep({ state, dispatch }: Props) {
     );
   };
 
+  const maxSize = formatBytesCoarse(appConfig.uploadMaxBytes());
   const dropHint =
-    state.sourceFormat === 'csv' ? t('upload.source.dropHintCsv') : t('upload.source.dropHintExcel');
+    state.sourceFormat === 'csv'
+      ? t('upload.source.dropHintCsv', { maxSize })
+      : t('upload.source.dropHintExcel', { maxSize });
 
   return (
     <div data-component="UploadSourceStep">
