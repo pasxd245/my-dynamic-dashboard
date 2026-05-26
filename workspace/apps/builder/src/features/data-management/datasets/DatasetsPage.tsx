@@ -159,6 +159,7 @@ export function DatasetsPage() {
         onWorkspaceClick={(id) => setSearchParams({ workspace: id })}
         onRename={onRename}
         onDelete={onDelete}
+        onRowClick={(ds) => navigate(`/data-management/datasets/${ds.id}`)}
       />
     );
   }
@@ -278,9 +279,11 @@ type TableProps = Readonly<{
   onWorkspaceClick: (id: string) => void;
   onRename: (ds: Dataset) => void;
   onDelete: (ds: Dataset) => void;
+  /** R36: row click opens the dataset detail page. */
+  onRowClick: (ds: Dataset) => void;
 }>;
 
-function DatasetTable({ rows, workspaceById, onWorkspaceClick, onRename, onDelete }: TableProps) {
+function DatasetTable({ rows, workspaceById, onWorkspaceClick, onRename, onDelete, onRowClick }: TableProps) {
   const { t } = useTranslation();
   const data = rows.map((r) => ({ ...r, key: r.id }));
   return (
@@ -288,6 +291,10 @@ function DatasetTable({ rows, workspaceById, onWorkspaceClick, onRename, onDelet
       size="middle"
       pagination={{ pageSize: 20, hideOnSinglePage: true }}
       dataSource={data}
+      onRow={(record) => ({
+        onClick: () => onRowClick(record),
+        style: { cursor: 'pointer' },
+      })}
       rowKey="id"
       data-component="DatasetTable"
       columns={[

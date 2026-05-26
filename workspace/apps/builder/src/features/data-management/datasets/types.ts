@@ -119,3 +119,16 @@ export type CommitBatchRequest = {
 };
 
 export type CommitBatchResponse = Dataset[];
+
+/** R36: response shape for GET /datasets/{id}/rows.
+ *  Mirrors `workspace/packages/contracts/datasets/rows-get.contract.yaml`.
+ *  Cells are stringified BE-side via DuckDB `CAST(... AS VARCHAR)`; the FE
+ *  re-applies dtype-aware display formatting via `formatCell()` using the
+ *  parent `Dataset.columns[].dtype`. */
+export type RowsPage = {
+  rows: (string | null)[][];
+  page: number;
+  pageSize: number;
+  /** Matched-row count when `q` is set; full `Dataset.rowCount` otherwise. */
+  total: number;
+};

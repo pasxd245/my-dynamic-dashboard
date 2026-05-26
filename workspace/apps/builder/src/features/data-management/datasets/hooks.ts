@@ -7,6 +7,7 @@ import type {
   Dataset,
   ParseSheetsRequest,
   ParseSheetsResponse,
+  RowsPage,
   TempUploadResponse,
 } from './types';
 
@@ -20,6 +21,38 @@ export function useDatasetsQuery(workspaceId?: string) {
   return useQuery<Dataset[]>({
     queryKey: datasetsKey(workspaceId),
     queryFn: () => datasetsApi.list(workspaceId),
+  });
+}
+
+/** R36: GET /datasets/{id} — single dataset detail. Cache key
+ *  `['datasets', { id }]` matches the list-cache prefix so
+ *  R26's existing list-level invalidation also bumps detail. */
+export function useDatasetQuery(id: string | undefined) {
+  return useQuery<Dataset>({
+    queryKey: [...DATASETS_QUERY_KEY, { id }] as const,
+    queryFn: () => datasetsApi.get(id as string),
+    enabled: typeof id === 'string',
+  });
+}
+
+/** R36: GET /datasets/{id}/rows — paged rows with optional substring filter.
+ *  `q` is part of the cache key so the same page across different searches
+ *  caches independently. The undefined-vs-empty distinction is preserved:
+ *  `q: undefined` is the unfiltered cache; `q: 'foo'` is the filtered cache. */
+export function useDatasetRowsQuery(
+  id: string | undefined,
+  page: number,
+  pageSize: number,
+  q: string | undefined,
+) {
+  return useQuery<RowsPage>({
+    queryKey: [...DATASETS_QUERY_KEY, { id }, 'rows', { page, pageSize, q }] as const,
+    queryFn: () => datasetsApi.getRows(id as string, page, pageSize, q),
+    enabled: typeof id === 'string',
+    // Keep the previous page visible while a new query loads (AntD
+    // `<Table loading>` overlay handles the visual; this just prevents
+    // the page from going blank during page/page_size/q transitions).
+    placeholderData: (prev) => prev,
   });
 }
 

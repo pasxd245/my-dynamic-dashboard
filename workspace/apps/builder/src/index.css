@@ -8,3 +8,20 @@ body,
   padding: 0;
   height: 100%;
 }
+
+/* Dataset detail — row hover affordance for the hand-rolled
+   data table. Matches the token-map in dataset-detail.md. */
+.dataset-rows-body-row:hover {
+  background: var(--ant-color-primary-bg, #e6f4ff);
+}
+
+/* Dataset detail — pagination split layout: page numbers on the
+   left, size-changer + quick-jumper on the right. Matches the
+   .pagination-bar in dataset-detail.preview.html. */
+.dataset-rows-pagination-bar .ant-pagination {
+  display: flex;
+  align-items: center;
+}
+.dataset-rows-pagination-bar .ant-pagination .ant-pagination-options {
+  margin-left: auto;
+}

@@ -110,6 +110,40 @@
       "size": "Size",
       "format": "Format",
       "createdAt": "Created"
+    },
+    "detail": {
+      "loadingTitle": "Loading dataset…",
+      "actions": "Actions",
+      "subtitle": "{{rows}} rows · {{cols}} columns · {{size}} · Uploaded {{uploaded}}",
+      "formatCsv": "CSV",
+      "formatExcelSheet": "Excel · {{sheet}}",
+      "searchPlaceholder": "Search rows…",
+      "matchedOfTotal": "Matched {{matched}} / {{total}}",
+      "clear": "Clear",
+      "loadRowsCouldnt": "Couldn't load rows",
+      "notFoundTitle": "This dataset no longer exists",
+      "notFoundHint": "It may have been deleted from another tab.",
+      "backToDatasets": "Back to Datasets",
+      "zeroRowsTitle": "No rows in this dataset",
+      "zeroRowsHint": "Re-upload the file to replace the data.",
+      "noMatchTitle": "No rows match “{{query}}”",
+      "noMatchHint": "Try a shorter substring or clear the search.",
+      "meta": {
+        "workspace": "Workspace",
+        "rows": "Rows",
+        "cols": "Cols",
+        "size": "Size",
+        "uploaded": "Uploaded",
+        "format": "Format"
+      },
+      "dtype": {
+        "string": "str",
+        "integer": "int",
+        "float": "float",
+        "boolean": "bool",
+        "date": "date",
+        "datetime": "datetime"
+      }
     }
   },
   "upload": {

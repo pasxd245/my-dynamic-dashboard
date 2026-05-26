@@ -283,6 +283,33 @@ Excel · Sheet1 — 2,481 rows · 12 columns · 84 KB · Uploaded 14:02 today
 
 ---
 
+## Layout shell
+
+This page is one of the codebase's **fixed-viewport-height** pages —
+the pagination bar pins to the card's bottom edge and the table body
+owns the vertical scroll (so the sticky `<th>` has a real scroll
+container to stick within). Use the `PageCard variant="fill"` recipe,
+exactly as `DatasetNewPage` (R17 wizard) does:
+
+- Outer page `<div>`: `height: calc(100vh - 88px)` (WorkspaceShell
+  chrome math = Layout.Header 56 + Content padding 16×2), flex column.
+- `<PageCard variant="fill">` — fills the rest as a flex column.
+- Metadata strip + search bar + (optional) error alert — each `flex: 0
+  0 auto`, stack at the top.
+- Table scroll container — `flex: 1 1 auto; minHeight: 0; overflow:
+  auto`. The sticky `<th>` sticks here.
+- Pagination bar — `flex: 0 0 auto` with a top border, pinned at the
+  bottom.
+
+Anti-patterns documented in
+[2026-05-26-pagecard-fill-pattern-for-fixed-controls.md](../../memory/2026-05-26-pagecard-fill-pattern-for-fixed-controls.md):
+do **not** cap the table with `maxHeight: Xvh`, do **not** use
+`position: sticky` without a bounding scroll container, and do **not**
+paint the sticky header with `var(--ant-color-fill-quaternary)` (it
+resolves to `rgba(0,0,0,0.02)` — rows bleed through).
+
+---
+
 ## Token map
 
 | Surface | Token | Source |

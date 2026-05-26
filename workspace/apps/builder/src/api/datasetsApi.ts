@@ -1,6 +1,11 @@
 import { appConfig } from '../config';
 import { ApiErrorThrown, BatchApiErrorThrown, isApiError } from '@/features/data-management/_shared/types';
-import type { CommitBatchRequest, CommitBatchResponse, Dataset } from '@/features/data-management/datasets/types';
+import type {
+  CommitBatchRequest,
+  CommitBatchResponse,
+  Dataset,
+  RowsPage,
+} from '@/features/data-management/datasets/types';
 
 // R28: was hardcoded `import.meta.env.VITE_API_BASE_URL ?? "..."`.
 const API_BASE_URL = appConfig.apiBaseUrl();
@@ -57,6 +62,33 @@ export const datasetsApi = {
       : `${API_BASE_URL}/datasets`;
     const resp = await fetch(url);
     return readJson<Dataset[]>(resp);
+  },
+
+  /** R36: GET /datasets/{id} — single dataset by id. 404 throws ApiErrorThrown. */
+  async get(id: string): Promise<Dataset> {
+    const resp = await fetch(`${API_BASE_URL}/datasets/${id}`);
+    return readJson<Dataset>(resp);
+  },
+
+  /** R36: GET /datasets/{id}/rows — paged rows with optional substring filter.
+   *  Mirrors workspace/packages/contracts/datasets/rows-get.contract.yaml.
+   *  `q` is omitted from the URL when empty/undefined so the BE branch is
+   *  the unfiltered paged read. */
+  async getRows(
+    id: string,
+    page: number,
+    pageSize: number,
+    q?: string,
+  ): Promise<RowsPage> {
+    const params = new URLSearchParams({
+      page: String(page),
+      page_size: String(pageSize),
+    });
+    if (q) {
+      params.set('q', q);
+    }
+    const resp = await fetch(`${API_BASE_URL}/datasets/${id}/rows?${params.toString()}`);
+    return readJson<RowsPage>(resp);
   },
 
   async commitBatch(workspaceId: string, body: CommitBatchRequest): Promise<CommitBatchResponse> {

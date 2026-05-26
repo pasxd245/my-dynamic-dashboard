@@ -11,12 +11,39 @@ export type PageCardProps = {
    * page draws to the card edge).
    *
    * `fill` (R18) — the card becomes a flex column that fills the
-   * remaining height of its parent. Used by routes whose parent
-   * is a flex column with a fixed height (typically `calc(100vh
-   * - chrome)`), so the card fits the viewport without a
-   * hardcoded body max-height. Children render in the natural
-   * flex flow: any direct child with `flex: 1 1 auto; min-height:
-   * 0; overflow-y: auto` will scroll inside the bounded card.
+   * remaining height of its parent. **Reach for this variant
+   * whenever the page needs ANY of:** (a) a control bar pinned
+   * to the bottom (wizard nav, pagination footer, save bar);
+   * (b) a sticky table/list header that should pin while the
+   * body scrolls; (c) a scrollable middle section bounded by
+   * fixed-height top and bottom sections. Without this variant,
+   * `position: sticky` has no scroll container and bottom bars
+   * float wherever content ends.
+   *
+   * Required parent shape (mirror exactly):
+   * ```tsx
+   * <div style={{
+   *   height: 'calc(100vh - 88px)', // WorkspaceShell chrome
+   *   display: 'flex', flexDirection: 'column', gap: 16,
+   * }}>
+   *   <PageHeader ... />
+   *   <PageCard variant="fill">
+   *     <div style={{ flex: '0 0 auto' }}>... top sections ...</div>
+   *     <div style={{ flex: '1 1 auto', minHeight: 0, overflow: 'auto' }}>
+   *       ... scrollable body (sticky headers stick HERE) ...
+   *     </div>
+   *     <div style={{ flex: '0 0 auto', borderTop: '1px solid ...' }}>
+   *       ... bottom control bar ...
+   *     </div>
+   *   </PageCard>
+   * </div>
+   * ```
+   *
+   * Consumers: `DatasetNewPage` (R17, wizard nav footer),
+   * `DatasetDetailPage` (R36, pagination footer + sticky table
+   * header). See
+   * `.agents/memory/2026-05-26-pagecard-fill-pattern-for-fixed-controls.md`
+   * for the failure modes when this pattern is skipped.
    */
   variant?: "default" | "flush" | "fill";
 };

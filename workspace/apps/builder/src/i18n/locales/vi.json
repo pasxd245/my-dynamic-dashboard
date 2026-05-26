@@ -110,6 +110,40 @@
       "size": "Kích thước",
       "format": "Định dạng",
       "createdAt": "Đã tạo"
+    },
+    "detail": {
+      "loadingTitle": "Đang tải bộ dữ liệu…",
+      "actions": "Thao tác",
+      "subtitle": "{{rows}} dòng · {{cols}} cột · {{size}} · Tải lên {{uploaded}}",
+      "formatCsv": "CSV",
+      "formatExcelSheet": "Excel · {{sheet}}",
+      "searchPlaceholder": "Tìm trong các dòng…",
+      "matchedOfTotal": "Khớp {{matched}} / {{total}}",
+      "clear": "Xoá",
+      "loadRowsCouldnt": "Không tải được các dòng",
+      "notFoundTitle": "Bộ dữ liệu này không còn tồn tại",
+      "notFoundHint": "Có thể nó đã bị xoá ở một tab khác.",
+      "backToDatasets": "Quay lại danh sách",
+      "zeroRowsTitle": "Bộ dữ liệu này không có dòng nào",
+      "zeroRowsHint": "Tải lại tệp để thay thế dữ liệu.",
+      "noMatchTitle": "Không có dòng nào khớp với “{{query}}”",
+      "noMatchHint": "Thử chuỗi ngắn hơn hoặc xoá ô tìm kiếm.",
+      "meta": {
+        "workspace": "Không gian",
+        "rows": "Số dòng",
+        "cols": "Số cột",
+        "size": "Kích thước",
+        "uploaded": "Đã tải lên",
+        "format": "Định dạng"
+      },
+      "dtype": {
+        "string": "chuỗi",
+        "integer": "số nguyên",
+        "float": "số thực",
+        "boolean": "luận lý",
+        "date": "ngày",
+        "datetime": "thời gian"
+      }
     }
   },
   "upload": {

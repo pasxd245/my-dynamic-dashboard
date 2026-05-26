@@ -13,6 +13,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import '@/i18n';
 import { AppErrorBoundary } from '@/components/AppErrorBoundary';
 import { AppLayout } from '@/components/AppLayout';
+import { DatasetDetailPage } from '@/features/data-management/datasets/DatasetDetailPage';
 import { DatasetsPage } from '@/features/data-management/datasets/DatasetsPage';
 import { DatasetNewPage } from '@/features/data-management/datasets/upload/DatasetNewPage';
 import { WorkspacesPage } from '@/features/data-management/workspaces/WorkspacesPage';
@@ -88,6 +89,7 @@ createRoot(rootElement).render(
                 <Route path="/data-management/workspaces" element={<WorkspacesPage />} />
                 <Route path="/data-management/datasets" element={<DatasetsPage />} />
                 <Route path="/data-management/datasets/new" element={<DatasetNewPage />} />
+                <Route path="/data-management/datasets/:id" element={<DatasetDetailPage />} />
               </Routes>
             </AppLayout>
           </BrowserRouter>
