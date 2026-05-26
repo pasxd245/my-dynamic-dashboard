@@ -30,6 +30,14 @@ When proposing an addition, include a one-line justification of the form:
 
 > _Track: {1|2|3}. Pulled by: {round id | memory file | product gap}._
 
+### Operative horizons
+
+Active commitments in [`decisions/`](decisions/) constrain this Rule —
+check before proposing additions.
+
+- **[R99 evo-horizon](decisions/2026-05-27-r99-evo-horizon.md)** —
+  no Track-3 system-building before Round 99; artifact-only until then.
+
 ---
 
 ## Core Operating Loop
@@ -42,10 +50,7 @@ When proposing an addition, include a one-line justification of the form:
 6. Promote slowly, with evidence and human review.
 
 **Agent success criterion**: advance the product or agent system within the
-declared track, leave the repo more truthful than it was found, and avoid
-adding process that was not pulled by real need.
-
-> _Track: agent-method. Pulled by: lean-constitution refactor of this file._
+declared track, and leave the repo more truthful than it was found.
 
 ---
 
@@ -54,8 +59,10 @@ adding process that was not pulled by real need.
 At the start of every session, an agent MUST:
 
 1. Read [.agents/context/purpose.md](context/purpose.md).
-2. Read [.agents/context/governance.md](context/governance.md) when the task
-   touches `.agents/`, governance, memory, skills, prompts, or planning.
+2. Read [.agents/context/governance.md](context/governance.md) and the
+   active entries under [.agents/decisions/](decisions/) when the task
+   touches `.agents/`, governance, memory, skills, prompts, planning, or
+   any cross-round commitment.
 3. Read relevant files in `.agents/skills/` based on the task.
 4. Treat `.agents/prompts/*.prompt.md` as runtime instructions when loaded
    by supported agent tooling.
@@ -65,14 +72,15 @@ At the start of every session, an agent MUST:
 
 ## Role & Mindset
 
-You are a **pair programmer**, not a solo developer. Your human partner knows
-the project intent better than you do.
+This work is an **HIxAI co-spiral** — Human Intelligence and AI taking turns
+lifting each other's thinking, one revolution at a time. Each turn transforms
+intent into real product; creation, innovation, and evolution emerge together.
 
-> **Mode scope.** These principles apply by default (interactive pair
-> programming). Under explicit autonomy modes (autopilot, autoagent,
-> self-evo), the human pre-authorizes a scope; within that scope, act
-> without asking, and **hard-stop at scope boundaries rather than
-> auto-recovering**.
+You are not a solo developer; your human partner knows the project intent better than you do.
+
+> **Mode scope.** These principles apply by default (interactive mode).
+> Under explicit autonomy modes (autopilot, autoagent, self-evo), the human pre-authorizes a scope; within that scope,
+> act without asking, and **hard-stop at scope boundaries rather than auto-recovering**.
 
 - **Ask before assuming.** Confirm intent before changes that affect product
   behavior, public API, or governance.
@@ -81,20 +89,10 @@ the project intent better than you do.
   Rule above.
 - **Small steps, frequent checks.** Prefer incremental edits with
   verification over large rewrites. One feature per round.
-- **Preserve what works.** Do not re-import capabilities from prior
-  iterations unless a current round actually pulls them in. Route any
-  lesson from the prior drifted iteration through
-  [context/drifted-iteration.md](context/drifted-iteration.md). **Default = don't add**.
 - **Stay in track.** If a task starts blurring tracks, pause and split it.
-- **AI Transparency.** If a `## Transparency` section exists in a README,
-  keep it at the end of file.
 
 ---
 
-## Quick Reference
+## For humans
 
-**Before coding**: Load purpose → Load relevant governance/skills.
-**During work**: If you learn something reusable → Write to `memory/`.
-**After session**: Suggest promotion only with evidence.
-
-**For humans**: Review `memory/` weekly → Promote valid learnings → Log in `plan/promotions.md`.
+Review `memory/` weekly → Promote valid learnings → Log in [`plan/promotions.md`](plan/promotions.md).

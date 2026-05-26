@@ -66,6 +66,12 @@ Promotion criteria:
 - To `context/`: stable pattern, validated 3+ times, broadly applicable.
 - To `skills/`: reusable procedure with clear triggers and steps.
 
+## Prior-iteration lessons
+
+Lessons mined from the drifted iteration route through
+[drifted-iteration.md](drifted-iteration.md) — no re-import without
+a current round pulling it in. Retires when drifted/ itself retires.
+
 ## Skills Format
 
 Skills follow the [Agent Skills spec](https://agentskills.io/specification).
