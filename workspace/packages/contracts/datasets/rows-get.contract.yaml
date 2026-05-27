@@ -4,7 +4,8 @@ info:
   version: 0.1.0
   description: |
     Get a paged slice of a dataset's rows. R33 designed; R34
-    contract round (with R33-amend `?q=` substring filter).
+    contract round (with R33-amend `?q=` substring filter); R38
+    extended with per-column typed filters (`f<N>_*` params).
 
     Powers the data table on the dataset detail page. Cells are
     transported as `string | null`; the FE re-applies dtype-aware
@@ -20,6 +21,18 @@ info:
     present, `total` reflects the matched-row count (not the
     full dataset row count) — the FE uses `Dataset.rowCount` for
     the "X / Y" match counter UI.
+
+    The optional `f<N>_*` query params apply per-column typed
+    filters (R38), where `<N>` is the 0-based index into
+    `Dataset.columns[]`. Each column contributes at most one
+    predicate; multiple predicates compose with implicit AND.
+    Filters AND-compose with `?q=` (filters evaluate first,
+    then the `?q=` substring runs over the filtered result).
+    When ≥ 1 filter is active, `total` reflects the AND-composed
+    matched-row count. See
+    [dataset-filters.md § Predicate vocabulary table](../../../../.agents/design/data-management/dataset-filters.md#predicate-vocabulary-table)
+    for the authoritative per-dtype operator set and value-shape
+    spec.
 
 paths:
   /datasets/{id}/rows:
@@ -80,16 +93,108 @@ paths:
             paged read. `q < 1` char is treated as absent
             (FE strips empty input before sending); `q > 200`
             chars returns 422.
+        # ─── Per-column filter params (R38) ──────────────────
+        # The four `f0_*` entries below illustrate the shape;
+        # the actual parameter set is `f<N>_op`, `f<N>_val`,
+        # `f<N>_min`, `f<N>_max` for any 0-based column index
+        # N < Dataset.columnCount. OpenAPI 3.1 has no native way
+        # to declare a key parameterized by N; the prose
+        # description on `f0_op` carries the convention.
+        - name: f0_op
+          in: query
+          required: false
+          schema:
+            type: string
+          description: |
+            Filter operator for column 0. The four `f<N>_*`
+            params (`op`, `val`, `min`, `max`) define a
+            per-column typed predicate where `<N>` is the
+            0-based index into `Dataset.columns[]`. Multiple
+            columns compose with implicit AND; per-column there
+            is at most one predicate. AND-composes with `?q=`.
+
+            Allowed operator values depend on `Dataset.columns[N].dtype`:
+
+            - `string`: `contains`, `equals`, `starts_with`,
+              `ends_with`, `is_empty`, `is_not_empty`, `is_null`,
+              `is_not_null`.
+            - `integer`, `float`: `equals`, `ne`, `gt`, `lt`,
+              `gte`, `lte`, `between`, `is_null`, `is_not_null`.
+            - `date`, `datetime`: `equals`, `ne`, `before`,
+              `after`, `between`, `is_null`, `is_not_null`.
+            - `boolean`: `is_true`, `is_false`, `is_null`,
+              `is_not_null`.
+
+            See the authoritative cross-stack spec in
+            [dataset-filters.md](../../../../.agents/design/data-management/dataset-filters.md#predicate-vocabulary-table).
+            Operator validity is dtype-dependent and not
+            expressible as a static `schema.enum` (a single
+            enum would either reject valid ops or accept
+            invalid ones depending on the column). The BE
+            performs the per-dtype check and returns 422 with
+            a descriptive `detail[].msg` on mismatch.
+        - name: f0_val
+          in: query
+          required: false
+          schema:
+            type: string
+          description: |
+            Single-operand value for the column-0 predicate.
+            Required when the operator takes one value
+            (`contains`, `equals`, `ne`, `gt`, `lt`, `gte`,
+            `lte`, `starts_with`, `ends_with`, `before`,
+            `after`). Omitted for no-operand ops (`is_empty`,
+            `is_not_empty`, `is_null`, `is_not_null`,
+            `is_true`, `is_false`) and for `between` (use
+            `f<N>_min` / `f<N>_max` instead).
+
+            The wire format is `string` (lexical envelope); the
+            BE parses per `Dataset.columns[N].dtype`:
+
+            - `integer` → signed int64.
+            - `float` → IEEE-754 double.
+            - `date` → ISO `YYYY-MM-DD`.
+            - `datetime` → ISO `YYYY-MM-DDTHH:MM:SS`
+              (timezone-naive; local-time-of-day per the R36
+              cell-format convention).
+            - `boolean` → not applicable (booleans use
+              `is_true` / `is_false` ops with no value).
+            - `string` → utf-8 verbatim.
+
+            Parse failure (e.g. `f0_op=equals&f0_val=foo` on an
+            `integer` column) returns 422.
+        - name: f0_min
+          in: query
+          required: false
+          schema:
+            type: string
+          description: |
+            Lower bound for the column-0 `between` predicate
+            (inclusive). Required when `f0_op=between`; ignored
+            otherwise. Same per-dtype parse rule as `f0_val`.
+            `f0_min > f0_max` returns 422.
+        - name: f0_max
+          in: query
+          required: false
+          schema:
+            type: string
+          description: |
+            Upper bound for the column-0 `between` predicate
+            (inclusive). Required when `f0_op=between`; ignored
+            otherwise. Same per-dtype parse rule as `f0_val`.
       responses:
         "200":
           description: |
             Paged row slice. `rows.length` is at most
             `page_size`; the final page may be shorter. `total`
-            is the dataset's full row count and matches the
-            parent `Dataset.rowCount`. The trio of
-            `page` / `pageSize` / `total` is enough for the
-            FE `<Pagination>` to render without a second round
-            trip.
+            reflects the matched-row count under the active
+            predicate set: equal to `Dataset.rowCount` when no
+            `?q=` and no `f<N>_*` filters are active; the
+            substring-matched count when only `?q=` is set; the
+            AND-composed matched count when filters and/or
+            `?q=` are active. The trio of `page` / `pageSize` /
+            `total` is enough for the FE `<Pagination>` to
+            render without a second round trip.
           content:
             application/json:
               schema:
@@ -125,11 +230,16 @@ paths:
                     type: integer
                     minimum: 0
                     description: |
-                      Full row count of the dataset. Named
-                      `total` (not `rowCount`) to leave room for
-                      a future `?filter=` query that would scope
-                      the count to the filter; today it equals
-                      `Dataset.rowCount`.
+                      Matched-row count under the active
+                      predicate set. Equals `Dataset.rowCount`
+                      when no `?q=` and no `f<N>_*` filters are
+                      active; equals the substring-matched count
+                      when only `?q=` is set; equals the
+                      AND-composed matched count when filters
+                      and/or `?q=` are active. The FE pairs this
+                      with `Dataset.rowCount` to render the
+                      "Matched X / Y" counter regardless of
+                      which predicate(s) are active.
               examples:
                 full_first_page:
                   summary: First page of a 2,481-row dataset (50 rows of 50)
@@ -186,6 +296,44 @@ paths:
                     page: 1
                     pageSize: 50
                     total: 0
+                filtered_per_column_string_equals:
+                  summary: |
+                    ?f3_op=equals&f3_val=won — column 3 (`stage`) equals "won";
+                    1,204 rows match
+                  value:
+                    rows:
+                      [
+                        ["D-0001", "12400", "2026-03-01", "won", "0.95", "true", "2026-02-28T14:02:00Z", "quick close, no contention"],
+                        ["D-0005", "24500", "2026-05-02", "won", "1.00", "true", "2026-04-22T08:11:00Z", "renewal — multi-year"],
+                      ]
+                    page: 1
+                    pageSize: 50
+                    total: 1204
+                filtered_per_column_numeric_between:
+                  summary: |
+                    ?f1_op=between&f1_min=10000&f1_max=50000 — column 1 (`amount`)
+                    inclusive range; 412 rows match
+                  value:
+                    rows:
+                      [
+                        ["D-0001", "12400", "2026-03-01", "won", "0.95", "true", "2026-02-28T14:02:00Z", "quick close, no contention"],
+                        ["D-0017", "48200", "2026-04-08", "won", "0.92", "true", "2026-04-01T10:20:00Z", null],
+                      ]
+                    page: 1
+                    pageSize: 50
+                    total: 412
+                filtered_compose_q_and_filter:
+                  summary: |
+                    ?q=renewal&f3_op=equals&f3_val=won — AND-composes the
+                    substring search with the per-column filter; 47 rows match
+                  value:
+                    rows:
+                      [
+                        ["D-0005", "24500", "2026-05-02", "won", "1.00", "true", "2026-04-22T08:11:00Z", "renewal — multi-year"],
+                      ]
+                    page: 1
+                    pageSize: 50
+                    total: 47
         "404":
           description: |
             No dataset with the given `id` exists. Same envelope
@@ -199,10 +347,35 @@ paths:
                   value: { "code": "not_found" }
         "422":
           description: |
-            Malformed request — `page < 1`, `page_size` not in
-            `{25, 50, 100}`, or `id` not matching `^ds_[0-9a-f]{8}$`.
-            FastAPI's default request-validation envelope; the
-            shape is documented upstream and not duplicated here.
+            Malformed request. FastAPI's default request-
+            validation envelope; the shape is documented upstream
+            and not duplicated here. Triggers:
+
+            - `page < 1` or non-integer.
+            - `page_size` not in `{25, 50, 100}`.
+            - `id` not matching `^ds_[0-9a-f]{8}$`.
+            - `q` longer than 200 chars.
+            - **Filter-related (R38)**:
+              - `f<N>_op` is not a valid operator for
+                `Dataset.columns[N].dtype`
+                (e.g. `f1_op=contains` on an integer column).
+                `detail[].msg` =
+                `filter_op_dtype_mismatch: op '<op>' is not valid for dtype '<dtype>'`.
+              - `f<N>_val` (or `_min` / `_max`) fails the
+                per-dtype parse rule
+                (e.g. `f1_op=equals&f1_val=foo` on integer).
+                `detail[].msg` =
+                `filter_value_unparseable: column <N> (<dtype>) cannot parse '<val>'`.
+              - `f<N>_*` for `N >= Dataset.columnCount`.
+                `detail[].msg` =
+                `filter_col_out_of_range: column <N> does not exist (columnCount = <C>)`.
+              - `f<N>_op=between` without both `f<N>_min` and
+                `f<N>_max`, or `f<N>_min > f<N>_max`,
+                or operand-shape mismatch (`val` supplied with
+                `between`, `min`/`max` supplied with a
+                single-operand op).
+                `detail[].msg` =
+                `filter_operand_shape: column <N> op '<op>' expects <expected-fields>`.
           content:
             application/json:
               schema:
@@ -214,3 +387,13 @@ paths:
                     type: array
                     items:
                       type: object
+              examples:
+                filter_dtype_mismatch:
+                  summary: |
+                    f1_op=contains on an `integer` column —
+                    `contains` is only valid for `string` dtype
+                  value:
+                    detail:
+                      - loc: [query, f1_op]
+                        msg: "filter_op_dtype_mismatch: op 'contains' is not valid for dtype 'integer'"
+                        type: value_error

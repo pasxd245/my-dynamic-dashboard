@@ -36,8 +36,9 @@ information); this endpoint returns the cells (the table body).
   Dataset.rowCount`.
 - **Page resets on `q` change.** The FE re-issues with `page=1`
   whenever `q` changes — same UX rule as `page_size` change.
-  The BE does not enforce this; it accepts whatever `page`
-  arrives.
+  Filter changes (any `f<N>_*` add / change / remove) reset
+  `page` for the same reason. The BE does not enforce this;
+  it accepts whatever `page` arrives.
 - **Out-of-range page returns 200 with empty rows, not 422.**
   When `page > ceil(total / page_size)`, the response is
   `{ rows: [], page: <echo>, pageSize: <echo>, total: <full> }`.
@@ -55,6 +56,75 @@ information); this endpoint returns the cells (the table body).
   param, kept so the response is self-describing and the FE can
   pass it verbatim to AntD `<Pagination>` without re-reading the
   URL.
+
+## Per-column filters via `f<N>_*` params (R38)
+
+The four query params `f<N>_op`, `f<N>_val`, `f<N>_min`,
+`f<N>_max` define a per-column typed predicate, where `<N>` is
+the 0-based index into `Dataset.columns[]`. Each column
+contributes at most one predicate; multiple columns compose
+with implicit AND. The contract YAML declares the shape via
+illustrative `f0_*` parameter entries; the convention extends
+to all `N < Dataset.columnCount`.
+
+- **Why column index, not column name.** Names can contain
+  spaces, slashes, unicode — URL-escaping is brittle and
+  unreadable. Indices are stable (the dataset schema is fixed
+  post-commit per R14 Read/write boundary) and match the
+  `col_N` convention R36 already uses for AntD `dataIndex`
+  collision avoidance.
+- **Why no `schema.enum` on `f<N>_op`.** Operator validity is
+  dtype-dependent: `contains` is valid for `string` columns
+  and invalid for `integer`; `between` is valid for numerics
+  and dates and invalid for booleans. A single static `enum`
+  would either reject valid ops (if narrowed to one dtype) or
+  accept invalid ones (if union'd across all dtypes). The
+  prose description on `f0_op` carries the full vocabulary;
+  the BE does the per-dtype check at request time and returns
+  422 with a descriptive `detail[].msg` on mismatch. See
+  [dataset-filters.md § Predicate vocabulary table](../../../../.agents/design/data-management/dataset-filters.md#predicate-vocabulary-table)
+  for the authoritative cross-stack spec.
+- **Why `f<N>_val` is `schema.type: string`.** A more typed
+  declaration would use `oneOf` with per-dtype schemas, but
+  again the dtype is unknown without first looking up
+  `Dataset.columns[N]`. `string` is a lexical envelope; the BE
+  parses per dtype (integer → int64, float → IEEE-754 double,
+  date → ISO `YYYY-MM-DD`, datetime → ISO `YYYY-MM-DDTHH:MM:SS`,
+  boolean → not applicable, string → utf-8 verbatim). Parse
+  failure returns 422 with `filter_value_unparseable`.
+- **AND-compose with `?q=`.** Filters evaluate first (push-down
+  into the DuckDB `WHERE` clause), then the `?q=` substring
+  search runs over the filtered intermediate. The order is
+  observationally equivalent to `WHERE (...filter predicates...)
+  AND (?q=... substring across all cells)`; `total` reflects
+  the AND-composed matched count. The FE's "Matched X / Y"
+  counter uses `total` for `X` and `Dataset.rowCount` for `Y`
+  regardless of which predicates are active.
+- **Operator vs operand shape.** Each operator implies a fixed
+  operand shape:
+
+  | Operator family | Fields used |
+  | --- | --- |
+  | Single-operand (`equals`, `ne`, `gt`, `lt`, `gte`, `lte`, `contains`, `starts_with`, `ends_with`, `before`, `after`) | `f<N>_op`, `f<N>_val` |
+  | Range (`between`) | `f<N>_op`, `f<N>_min`, `f<N>_max` |
+  | No-operand (`is_null`, `is_not_null`, `is_empty`, `is_not_empty`, `is_true`, `is_false`) | `f<N>_op` only |
+
+  Mismatch (e.g. `between` with `val` instead of `min`/`max`,
+  or `equals` with `min` and no `val`) returns 422 with
+  `filter_operand_shape`.
+
+- **Why no JSON-body `POST :search` parallel.** R37 named
+  encoded params as primary and `POST :search` as a parked
+  fallback for promotion if URL bloat becomes routine
+  (≥ 8 active filters typical). Today the encoded-params
+  shape stays the only access path; the rows endpoint
+  remains a pure GET.
+- **Why no `_shared/filter-predicate.yaml`.** Single consumer
+  (this endpoint). Per the
+  [Evolution Rule](../../../../.agents/AGENTS.md):
+  _default = don't add._ A `_shared/` schema lands when a
+  second filter-accepting endpoint actually arrives (e.g.
+  saved-query results, cross-dataset catalog filtering).
 
 ## Cell stringification
 
@@ -106,6 +176,26 @@ they may not be.
   / page_size)`) is **not** 422 — see Behavior above. A `q=`
   that matches zero rows is also **not** 422; it returns 200
   with `rows: []` and `total: 0` (same shape as out-of-range).
+
+### Filter-related 422 cases (R38)
+
+The BE enforces the per-column filter semantics and surfaces
+each violation via a descriptive `detail[].msg` string. The
+envelope shape is unchanged (FastAPI's request-validation
+shape); new error codes are communicated in `msg`, not in a
+new schema. The four codes:
+
+| `msg` prefix | Trigger |
+| --- | --- |
+| `filter_op_dtype_mismatch` | `f<N>_op` is not a valid operator for `Dataset.columns[N].dtype` (e.g. `f1_op=contains` on an integer column). |
+| `filter_value_unparseable` | `f<N>_val` (or `_min` / `_max`) fails the per-dtype parse rule (e.g. `f1_val=foo` on an integer column; `f2_val=not-a-date` on a date column). |
+| `filter_col_out_of_range` | `f<N>_*` for `N >= Dataset.columnCount` (no such column). |
+| `filter_operand_shape` | Operator and operand shape disagree: `between` without both `_min` and `_max`, or `_min > _max`; a single-operand op with `_min`/`_max` and no `_val`; or a no-operand op with any `_val` / `_min` / `_max`. |
+
+A request that matches the filter set but returns zero rows
+is **not** 422; it returns 200 with `rows: []` and `total: 0`
+(same shape as a `?q=` no-match). 422 is reserved for
+_malformed_ requests, not _empty-result_ requests.
 
 ## Examples
 
@@ -191,9 +281,96 @@ Content-Type: application/json
 { "rows": [], "page": 1, "pageSize": 50, "total": 0 }
 ```
 
+Per-column filter (column 3 = `stage`, equals "won"):
+
+```http
+GET /datasets/ds_71a4e2f0/rows?f3_op=equals&f3_val=won HTTP/1.1
+```
+
+```http
+HTTP/1.1 200 OK
+Content-Type: application/json
+
+{
+  "rows": [
+    ["D-0001", "12400", "2026-03-01", "won", "0.95", "true", "2026-02-28T14:02:00Z", "quick close, no contention"],
+    ["D-0005", "24500", "2026-05-02", "won", "1.00", "true", "2026-04-22T08:11:00Z", "renewal — multi-year"]
+  ],
+  "page": 1,
+  "pageSize": 50,
+  "total": 1204
+}
+```
+
+Per-column filter — AND-compose with `?q=`:
+
+```http
+GET /datasets/ds_71a4e2f0/rows?q=renewal&f3_op=equals&f3_val=won HTTP/1.1
+```
+
+```http
+HTTP/1.1 200 OK
+Content-Type: application/json
+
+{
+  "rows": [
+    ["D-0005", "24500", "2026-05-02", "won", "1.00", "true", "2026-04-22T08:11:00Z", "renewal — multi-year"]
+  ],
+  "page": 1,
+  "pageSize": 50,
+  "total": 47
+}
+```
+
+Per-column filter — dtype mismatch (422):
+
+```http
+GET /datasets/ds_71a4e2f0/rows?f1_op=contains&f1_val=foo HTTP/1.1
+```
+
+(`f1` = column 1 = `amount`, dtype `integer`; `contains` is
+only valid for `string` columns.)
+
+```http
+HTTP/1.1 422 Unprocessable Entity
+Content-Type: application/json
+
+{
+  "detail": [
+    {
+      "loc": ["query", "f1_op"],
+      "msg": "filter_op_dtype_mismatch: op 'contains' is not valid for dtype 'integer'",
+      "type": "value_error"
+    }
+  ]
+}
+```
+
+Per-column filter — numeric range:
+
+```http
+GET /datasets/ds_71a4e2f0/rows?f1_op=between&f1_min=10000&f1_max=50000 HTTP/1.1
+```
+
+```http
+HTTP/1.1 200 OK
+Content-Type: application/json
+
+{
+  "rows": [
+    ["D-0001", "12400", "2026-03-01", "won", "0.95", "true", "2026-02-28T14:02:00Z", "quick close, no contention"],
+    ["D-0017", "48200", "2026-04-08", "won", "0.92", "true", "2026-04-01T10:20:00Z", null]
+  ],
+  "page": 1,
+  "pageSize": 50,
+  "total": 412
+}
+```
+
 ## Cross-links
 
 - [detail-get.contract.yaml](detail-get.contract.yaml) — schema + column metadata companion
 - [`../_shared/dataset.yaml`](../_shared/dataset.yaml) — column dtype list the FE uses for cell rendering
 - [`../_shared/api-error.yaml`](../_shared/api-error.yaml) — ApiErrorNotFound envelope
 - [dataset-detail.md](../../../.agents/design/data-management/dataset-detail.md) — R33 design doc (cell rendering rules + state transitions)
+- [dataset-filters.md](../../../.agents/design/data-management/dataset-filters.md) — R37 design doc (per-column filter UX + predicate vocabulary table — authoritative cross-stack spec for `f<N>_*` params)

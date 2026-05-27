@@ -500,11 +500,24 @@ that point.
 
 ## Data contract
 
-### Target shape for R38
+> **R38 update**: the OpenAPI 3.1 YAML extension is now
+> authoritative for the wire shape. The prose YAML and
+> predicate-vocabulary table below stay as reading aids, but
+> if the two ever drift, the YAML wins.
+>
+> - [`rows-get.contract.yaml`](../../../workspace/packages/contracts/datasets/rows-get.contract.yaml)
+>   — `f<N>_op` / `f<N>_val` / `f<N>_min` / `f<N>_max`
+>   query-param extension.
+> - [`rows-get.contract.md`](../../../workspace/packages/contracts/datasets/rows-get.contract.md)
+>   — rationale (per-column filter section + filter-related
+>   422 cases).
 
-The rows-GET extends with filter query params. Two
-representations are sketched; the primary is **encoded
-params**:
+### Committed shape (R38): encoded params
+
+R37 named encoded params as primary; R38 committed. The
+fallback `POST :search` JSON body stays parked here for future
+promotion if URL bloat becomes routine (≥ 8 active filters
+typical):
 
 #### Primary: encoded params
 
@@ -568,9 +581,12 @@ paths:
 ```
 
 OpenAPI 3.1 does not natively express "this query-param key is
-parameterized by N." R38 mechanizes either as a *parameter
-explode* convention with a sample key and prose note (`f0_op`,
-`f1_op`, …), or as a single `filters` JSON param. R38 picks.
+parameterized by N." R38 mechanized via four illustrative
+`f0_*` parameter entries (concrete `name: f0_op`,
+`name: f0_val`, `name: f0_min`, `name: f0_max`) with detailed
+`description` blocks naming the N-parameterization convention.
+The YAML acts as a reading aid; the BE enforces the per-dtype
+operator and value-shape constraints at request time.
 
 #### Fallback: JSON body via `POST /datasets/{id}/rows:search`
 
