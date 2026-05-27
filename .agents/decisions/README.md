@@ -97,3 +97,6 @@ sub-section before being archived.
 - [2026-05-27 — MSW contract-anchor](2026-05-27-msw-contract-anchor.md) —
   FE MSW handlers schema-validate against contract YAML; YAML
   `examples:` blocks are the canonical fixture reference.
+- [2026-05-27 — Categorization proposal test](2026-05-27-categorization-proposal-test.md) —
+  Before adding a new field/enum/taxonomy, show which existing
+  field's job it replaces and why that field is insufficient.
