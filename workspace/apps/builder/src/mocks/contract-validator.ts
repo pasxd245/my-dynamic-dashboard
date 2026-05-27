@@ -34,7 +34,15 @@ const __dirname = dirname(__filename);
 // src/mocks → builder → apps → workspace → packages/contracts
 const CONTRACTS_ROOT = resolve(__dirname, "../../../../packages/contracts");
 
-const IS_NODE = typeof window === "undefined"; // NOSONAR
+// R43 fix: detect Node by `process.versions.node`, not `!window`.
+// Vitest uses happy-dom which shims `window` globally — under the
+// previous check, IS_NODE was always false in tests and `loadSchemas`
+// short-circuited to an empty map, so the validator silently no-op'd
+// since R42 landed. Real browser builds have neither `process` nor a
+// readable filesystem; `node:fs` imports are stubbed by Vite for the
+// browser bundle.
+const IS_NODE =
+  typeof process !== "undefined" && typeof process.versions?.node === "string";
 
 type OpenApiDoc = {
   paths?: Record<

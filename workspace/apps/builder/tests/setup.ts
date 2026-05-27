@@ -12,8 +12,22 @@ import "@/i18n";
 // MSW-using tests. Per-test overrides via `server.use(...)`.
 import { server } from "@/mocks/server";
 
+// R43: MSW v2 catches resolver exceptions (including R42's
+// ContractDriftError) and emits them via `unhandledException`
+// rather than rejecting the awaited `fetch()`. Without this buffer,
+// a buggy mock handler would fire silently and the test would pass.
+// We collect exceptions per-test and re-throw them in `afterEach`
+// so drift becomes a loud failure as R42's design intended. Tests
+// that intentionally provoke handler throws drain `mswUnhandledExceptions`
+// themselves before the afterEach guard runs (see
+// `contract-validator.test.ts`).
+export const mswUnhandledExceptions: Error[] = [];
+
 beforeAll(() => {
   server.listen({ onUnhandledRequest: "bypass" });
+  server.events.on("unhandledException", ({ error }) => {
+    mswUnhandledExceptions.push(error as Error);
+  });
 });
 
 afterEach(() => {
@@ -24,6 +38,10 @@ afterEach(() => {
   // Reset MSW handler overrides so each test starts from the default
   // handler set.
   server.resetHandlers();
+  const errs = mswUnhandledExceptions.splice(0);
+  if (errs.length === 1) throw errs[0];
+  if (errs.length > 1)
+    throw new AggregateError(errs, "MSW handler threw unhandled exception(s)");
 });
 
 afterAll(() => {
