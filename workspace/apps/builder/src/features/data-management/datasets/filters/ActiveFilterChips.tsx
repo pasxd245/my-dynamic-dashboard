@@ -76,28 +76,43 @@ export function ActiveFilterChips({
       >
         {t('datasets.filters.chipsLabel')}
       </Typography.Text>
-      {filters.map((p) => (
-        <Tag
-          key={p.col}
-          color="processing"
-          closable
-          onClose={(e) => {
-            e.preventDefault();
-            onRemove(p.col);
-          }}
-          data-component="ActiveFilterChip"
-          data-column-index={p.col}
-          style={{
-            margin: 0,
-            maxWidth: 220,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          {formatChipText(p, columns, locale, t)}
-        </Tag>
-      ))}
+      {filters.map((p) => {
+        const text = formatChipText(p, columns, locale, t);
+        return (
+          <Tag
+            key={p.col}
+            color="processing"
+            closable
+            onClose={(e) => {
+              e.preventDefault();
+              onRemove(p.col);
+            }}
+            data-component="ActiveFilterChip"
+            data-column-index={p.col}
+            // inline-flex keeps the close icon as a sibling outside the
+            // truncating span — overflow: hidden on the Tag would clip it.
+            style={{
+              margin: 0,
+              maxWidth: 220,
+              display: 'inline-flex',
+              alignItems: 'center',
+            }}
+          >
+            <span
+              title={text}
+              style={{
+                // min-width: 0 lets the flex item shrink for text-overflow.
+                minWidth: 0,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {text}
+            </span>
+          </Tag>
+        );
+      })}
       <Typography.Link
         onClick={onClearAll}
         style={{ marginInlineStart: 'auto', fontSize: 12 }}

@@ -183,6 +183,46 @@ describe("DatasetDetailPage", () => {
     });
   });
 
+  // Guards the chip text/close-icon structure: text in a title-bearing
+  // span, close icon as a flex sibling. Regression source: overflow:
+  // hidden on the Tag itself clipped AntD's close icon when value long.
+  it("wraps chip text in a span with title=full-text and keeps the close icon a sibling", async () => {
+    renderApp(`/data-management/datasets/${DS_ID}?f3_op=equals&f3_val=won`);
+    await screen.findAllByText(MOCK_DATASET.name);
+    const chipContent = await screen.findByText(/stage equals won/);
+    // The text lives in an inner span with title=, not directly in the Tag.
+    expect(chipContent.tagName).toBe("SPAN");
+    expect(chipContent.getAttribute("title")).toContain("stage equals won");
+    // The close icon is a SIBLING of that span (so overflow: hidden on
+    // the text span can't clip the close icon).
+    const chip = chipContent.closest('[data-component="ActiveFilterChip"]');
+    expect(chip).not.toBeNull();
+    if (!chip) return;
+    const closeIcon = chip.querySelector(".ant-tag-close-icon");
+    expect(closeIcon).not.toBeNull();
+    if (!closeIcon) return;
+    expect(closeIcon.parentElement).toBe(chip);
+  });
+
+  // Guards the popover-open click path — URL-state-only tests can't
+  // catch a trigger that swallows AntD's injected onClick.
+  it("clicking the FilterTrigger chevron opens the popover", async () => {
+    renderApp(`/data-management/datasets/${DS_ID}`);
+    await screen.findAllByText(MOCK_DATASET.name);
+    const triggers = document.querySelectorAll('[data-component="FilterTrigger"]');
+    expect(triggers.length).toBe(MOCK_DATASET.columns.length);
+    // Second column = `name` (string). Click → popover should mount.
+    fireEvent.click(triggers[1]);
+    await waitFor(() => {
+      expect(
+        document.querySelector('[data-component="FilterPopoverContent"]'),
+      ).not.toBeNull();
+    });
+    expect(
+      document.querySelector('[data-component="FilterOperatorSelect"]'),
+    ).not.toBeNull();
+  });
+
   it("OPS_BY_DTYPE matches the R37/R39 vocabulary table verbatim", async () => {
     const { OPS_BY_DTYPE } = await import(
       "@/features/data-management/datasets/filters/types"

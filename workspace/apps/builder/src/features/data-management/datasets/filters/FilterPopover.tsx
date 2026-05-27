@@ -10,8 +10,8 @@
 // `between` renders two editors side-by-side. `is_null` and friends
 // render no value editor.
 
-import { DownOutlined } from '@ant-design/icons';
-import { Button, Input, InputNumber, Popover, Select, Space, Typography } from 'antd';
+import { FunnelIcon } from '@phosphor-icons/react';
+import { Button, type ButtonProps, Input, InputNumber, Popover, Select, Typography } from 'antd';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -253,12 +253,14 @@ function ValueEditor({
   }
 
   if (shape === 'range') {
+    // Stacked layout — side-by-side at ~130px per input left dates
+    // cramped, and per-input labels are clearer for screen readers.
     return (
-      <div>
-        <Typography.Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 4 }}>
-          {t('datasets.filters.rangeFromLabel')} — {t('datasets.filters.rangeToLabel')}
-        </Typography.Text>
-        <Space.Compact style={{ width: '100%' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div>
+          <Typography.Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 4 }}>
+            {t('datasets.filters.rangeFromLabel')}
+          </Typography.Text>
           <SingleInput
             column={column}
             value={draft.min}
@@ -266,6 +268,11 @@ function ValueEditor({
             placeholder={t('datasets.filters.rangeFromLabel')}
             dataField="min"
           />
+        </div>
+        <div>
+          <Typography.Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 4 }}>
+            {t('datasets.filters.rangeToLabel')}
+          </Typography.Text>
           <SingleInput
             column={column}
             value={draft.max}
@@ -273,7 +280,7 @@ function ValueEditor({
             placeholder={t('datasets.filters.rangeToLabel')}
             dataField="max"
           />
-        </Space.Compact>
+        </div>
       </div>
     );
   }
@@ -320,35 +327,23 @@ function SingleInput({
       />
     );
   }
-  if (column.dtype === 'date') {
+  // Native date/datetime inputs need `box-sizing: border-box` (so
+  // width: 100% includes padding+border) and `flex: 1` + `min-width: 0`
+  // (so the range-case pair can shrink below their intrinsic width in
+  // a flex parent). AntD's <Input>/<InputNumber> set these internally.
+  if (column.dtype === 'date' || column.dtype === 'datetime') {
+    const inputType = column.dtype === 'date' ? 'date' : 'datetime-local';
     return (
       <input
-        type="date"
+        type={inputType}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         style={{
           width: '100%',
-          padding: '4px 11px',
-          border: '1px solid var(--ant-color-border, #d9d9d9)',
-          borderRadius: 6,
-          fontSize: 14,
-          lineHeight: 1.5715,
-        }}
-        data-component="FilterValueInput"
-        data-field={dataField}
-      />
-    );
-  }
-  if (column.dtype === 'datetime') {
-    return (
-      <input
-        type="datetime-local"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        style={{
-          width: '100%',
+          flex: 1,
+          minWidth: 0,
+          boxSizing: 'border-box',
           padding: '4px 11px',
           border: '1px solid var(--ant-color-border, #d9d9d9)',
           borderRadius: 6,
@@ -372,13 +367,19 @@ function SingleInput({
   );
 }
 
-function FilterTrigger({
-  column,
-  active,
-}: Readonly<{ column: Column; active: boolean }>) {
+// `...rest` is load-bearing — AntD `<Popover trigger="click">` injects
+// onClick via cloneElement onto the direct child; not forwarding it
+// kills the popover.
+type FilterTriggerProps = Readonly<{
+  column: Column;
+  active: boolean;
+}> & Omit<ButtonProps, 'icon' | 'type' | 'size' | 'style' | 'children'>;
+
+function FilterTrigger({ column, active, ...rest }: FilterTriggerProps) {
   const { t } = useTranslation();
   return (
     <Button
+      {...rest}
       type="text"
       size="small"
       style={{
@@ -386,27 +387,11 @@ function FilterTrigger({
         padding: '0 4px',
         height: 22,
         color: active ? 'var(--ant-color-primary, #1677ff)' : 'var(--ant-color-text-tertiary, #8c8c8c)',
-        position: 'relative',
       }}
-      icon={<DownOutlined style={{ fontSize: 11 }} />}
+      icon={<FunnelIcon size={18} weight={active ? 'fill' : 'regular'} />}
       aria-label={t('datasets.filters.triggerAria', { column: column.name })}
       data-component="FilterTrigger"
       data-active={active || undefined}
-    >
-      {active ? (
-        <span
-          style={{
-            position: 'absolute',
-            top: 0,
-            right: 0,
-            width: 6,
-            height: 6,
-            borderRadius: '50%',
-            background: 'var(--ant-color-primary, #1677ff)',
-          }}
-          aria-hidden
-        />
-      ) : null}
-    </Button>
+    />
   );
 }
