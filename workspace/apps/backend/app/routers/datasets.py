@@ -22,7 +22,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, HTTPException, Query, Request, status
 from fastapi import Path as FastApiPath
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, ConfigDict, Field
@@ -31,6 +31,7 @@ from app._generated.constants import ID_PATTERNS, NAME_LENGTHS
 from app.db import get_conn
 from app.ingest.csv_parser import parse_csv
 from app.ingest.excel_parser import parse_sheet
+from app.ingest.filters import parse_filters_from_query
 from app.ingest.parquet_writer import write_csv_to_parquet, write_excel_to_parquet
 from app.ingest.rows_reader import query_dataset_rows
 from app.models.common import (
@@ -449,16 +450,19 @@ class RowsPage(BaseModel):
 
 @router.get("/datasets/{id}/rows")
 def get_dataset_rows(  # noqa: A002
+    request: Request,
     id: DsIdPath,
     page: Annotated[int, Query(ge=1)] = 1,
     page_size: Annotated[int, Query()] = 50,
     q: Annotated[str | None, Query(min_length=1, max_length=200)] = None,
 ) -> JSONResponse:
-    """Paged row reader. R33 design / R34 contract / R35 impl.
+    """Paged row reader. R33 design / R34 contract / R35 impl
+    (R38 contract + R39 BE adds per-column `f<N>_*` filters).
 
     Out-of-range `page > ceil(total / page_size)` returns 200 with an
     empty `rows` array (matches the list-GET precedent — see
-    rows-get.contract.md § Behavior). 422 only for malformed inputs.
+    rows-get.contract.md § Behavior). 422 only for malformed inputs
+    (including the four filter-related codes per R38).
     """
     # FastAPI doesn't coerce query strings to Literal[int, ...], so we
     # enforce the page_size enum manually. Off-enum returns 422 to match
@@ -481,14 +485,20 @@ def get_dataset_rows(  # noqa: A002
         )
 
     parquet_path = dataset_dir(row["workspace_id"], row["id"]) / "parsed.parquet"
-    columns = [c["name"] for c in json.loads(row["columns_json"])]
+    columns_meta = json.loads(row["columns_json"])  # full {name, dtype} list
+    column_names = [c["name"] for c in columns_meta]
+
+    # Parse + validate per-column filters from the raw query params.
+    # Raises 422 with the FastAPI-shape detail envelope per R38 contract.
+    filters = parse_filters_from_query(request.query_params, columns_meta)
 
     rows, total = query_dataset_rows(
         parquet_path,
-        columns,
+        column_names,
         page=page,
         page_size=page_size,
         q=q,
+        filters=filters,
     )
 
     body = RowsPage(rows=rows, page=page, pageSize=page_size, total=total)
