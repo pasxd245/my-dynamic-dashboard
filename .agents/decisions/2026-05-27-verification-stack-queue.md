@@ -29,9 +29,16 @@ is designed to prevent.
 
 ## Queue (ordered)
 
-1. **MSW** — next available Track-2 round (likely R38).
+1. **MSW** — ✅ **Landed (R41)**.
    *Pulled by*: R34 → R35 → R36 sequencing cost. Unlocks
-   contracts → (FE ∥ BE).
+   contracts → (FE ∥ BE). [Round_41.md](../plan/cycles/Round_41.md)
+   added `msw` as a builder devDependency, authored
+   `src/mocks/{fixtures,handlers,server,browser,start}.ts`,
+   wired MSW into `tests/setup.ts` (Node server with
+   `onUnhandledRequest: 'bypass'` so legacy `vi.stubGlobal(
+   'fetch')` tests coexist), wired a `VITE_MOCKS=1` dev-mode
+   opt-in in `main.tsx`, and migrated
+   `tests/dataset-detail.test.tsx` as the proof of pattern.
 
 2. **Pattern-import paragraph in design skill** — to land via a future
    skill edit, not as part of this decision.

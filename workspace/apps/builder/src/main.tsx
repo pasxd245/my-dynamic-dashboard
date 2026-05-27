@@ -63,7 +63,25 @@ const queryClient = new QueryClient({
   },
 });
 
-createRoot(rootElement).render(
+// R41: dev-mode MSW opt-in. `VITE_MOCKS=1 pnpm dev` starts the browser
+// worker so the FE round-trips against in-memory fixtures without
+// requiring a running BE. Dynamic import keeps MSW out of the
+// production bundle (Vite tree-shakes the unreached branch). The
+// async startup runs as a fire-and-forget Promise wrapped around
+// `renderApp` — avoids top-level await (not available in the
+// configured ES target).
+function renderApp(): void {
+  // eslint-disable-next-line @typescript-eslint/no-use-before-define
+  createRoot(rootElement!).render(appTree);
+}
+
+if (import.meta.env.DEV && import.meta.env.VITE_MOCKS === '1') {
+  import('@/mocks/start').then(({ startMockWorker }) => startMockWorker().then(renderApp));
+} else {
+  renderApp();
+}
+
+const appTree = (
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <LocaleAwareAntd>
@@ -96,5 +114,5 @@ createRoot(rootElement).render(
         </AppErrorBoundary>
       </LocaleAwareAntd>
     </QueryClientProvider>
-  </StrictMode>,
+  </StrictMode>
 );
