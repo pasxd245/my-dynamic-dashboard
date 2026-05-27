@@ -34,7 +34,7 @@ const __dirname = dirname(__filename);
 // src/mocks → builder → apps → workspace → packages/contracts
 const CONTRACTS_ROOT = resolve(__dirname, "../../../../packages/contracts");
 
-const IS_NODE = typeof window === "undefined";
+const IS_NODE = typeof window === "undefined"; // NOSONAR
 
 type OpenApiDoc = {
   paths?: Record<
