@@ -1,4 +1,4 @@
-// R41: dev-mode opt-in helper. Called from `main.tsx` when
+// R41 base + R42 debug listeners. Called from `main.tsx` when
 // `VITE_MOCKS=1`. Dynamic import via the call site keeps MSW out of
 // the production bundle.
 
@@ -13,6 +13,21 @@ export async function startMockWorker(): Promise<void> {
     // request during local iteration.
     onUnhandledRequest: 'bypass',
   });
-  // eslint-disable-next-line no-console
-  console.log('[MSW] browser worker started — VITE_MOCKS=1');
+
+  // R42: debug event listeners. Pattern borrowed from ref1/ref2
+  // (nextjs-mock-with-msw). Cost ~10 LOC; answers the "did my mock
+  // match?" question that comes up the moment you add the second
+  // handler. Use `console.debug` so dev tools can filter the noise
+  // off when not needed.
+  worker.events.on('request:start', ({ request }) => {
+    console.debug('[MSW] →', request.method, request.url);
+  });
+  worker.events.on('request:match', ({ request }) => {
+    console.debug('[MSW] ✓', request.method, request.url);
+  });
+  worker.events.on('request:unhandled', ({ request }) => {
+    console.debug('[MSW] ?', request.method, request.url, '(no handler — bypass)');
+  });
+
+  console.info('[MSW] browser worker started — VITE_MOCKS=1');
 }

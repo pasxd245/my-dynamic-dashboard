@@ -16,6 +16,7 @@ import { http, HttpResponse } from 'msw';
 
 import { OPS_BY_DTYPE, type Operator } from '@/features/data-management/datasets/filters/types';
 import type { Column } from '@/features/data-management/datasets/types';
+import { withContractValidation } from './contract-validator';
 import { MOCK_DATASET, MOCK_ROWS, MOCK_WORKSPACE } from './fixtures';
 
 // Match either the configured API base (production / dev) or any
@@ -193,8 +194,12 @@ export const handlers = [
     return HttpResponse.json(MOCK_DATASET);
   }),
 
-  // Datasets rows — filter + q + pagination AND-compose
-  http.get(api('/datasets/:id/rows'), ({ params, request }) => {
+  // Datasets rows — filter + q + pagination AND-compose.
+  // R42: wrapped with `withContractValidation` so the 200 response
+  // body is schema-checked against the rows-get contract YAML.
+  // Drift between this handler and the contract throws a
+  // ContractDriftError in tests (loud) and warns in dev (visible).
+  withContractValidation('get', api('/datasets/:id/rows'), 'getDatasetRows', ({ params, request }) => {
     if (params.id !== MOCK_DATASET.id) {
       return HttpResponse.json({ code: 'not_found' }, { status: 404 });
     }

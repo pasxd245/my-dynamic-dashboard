@@ -1,11 +1,20 @@
-// R41: shared MSW fixtures. Frozen — handlers read from these; per-test
-// overrides via `server.use(...)` supply alternate handlers, not
-// alternate fixture data.
+// R41: shared MSW fixtures. R42 extends with the YAML-examples-as-
+// fixture-source discipline.
+//
+// Frozen — handlers read from these; per-test overrides via
+// `server.use(...)` supply alternate handlers, not alternate fixture
+// data.
 //
 // One workspace, one CSV dataset mirroring the R34
 // `rows-get.contract.yaml` example shape. The rows cover all six
 // dtypes so the filter handler exercises the per-dtype CAST
 // semantics (integer, string, float, date, datetime, boolean).
+//
+// R42 convention: when adding NEW fixtures whose shape mirrors a
+// contract example, derive them from the YAML via
+// `loadYamlExampleRows()` below. The R41 in-line MOCK_ROWS stay as
+// they are (test-stable), but the convention applies forward —
+// "YAML examples are the canonical reference; fixtures conform."
 
 import type { Dataset, RowsPage } from '@/features/data-management/datasets/types';
 import type { Workspace } from '@/features/data-management/workspaces/types';
@@ -55,3 +64,59 @@ export const MOCK_ROWS_FULL: RowsPage = {
   pageSize: 50,
   total: MOCK_ROWS.length,
 };
+
+// ─── YAML-example loader (R42) ────────────────────────────────────
+//
+// `loadYamlExampleRows(yamlPath, exampleName)` reads a contract YAML
+// at the given path (relative to workspace/packages/contracts/) and
+// returns the rows from the named example block. Useful when a new
+// fixture should mirror a contract example verbatim — e.g.:
+//
+//   const rows = loadYamlExampleRows(
+//     'datasets/rows-get.contract.yaml',
+//     'filtered_per_column_string_equals',
+//   );
+//
+// Node-only (uses `fs`). Returns `[]` in the browser dev bundle —
+// dev mode fixtures stay in-line. Same Node-only scope as
+// `contract-validator.ts` for the same reason.
+
+export function loadYamlExampleRows(
+  yamlPath: string,
+  exampleName: string,
+): (string | null)[][] {
+  if (globalThis.window !== undefined) return [];
+  // Lazy-require so the browser bundle doesn't see fs/path/js-yaml.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const fs = require('node:fs');
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const path = require('node:path');
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { fileURLToPath } = require('node:url');
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const yaml = require('js-yaml');
+
+  // src/mocks → builder → apps → workspace → packages/contracts
+  const root = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '../../../../packages/contracts',
+  );
+  const fullPath = path.resolve(root, yamlPath);
+  if (!fs.existsSync(fullPath)) return [];
+
+  const doc = yaml.load(fs.readFileSync(fullPath, 'utf8')) as Record<string, unknown>;
+  // Walk paths → method → responses → 200 → content → application/json → examples
+  // and pick the named example's `.value.rows`. Defensive on each step.
+  const paths = (doc as { paths?: Record<string, unknown> }).paths ?? {};
+  for (const methods of Object.values(paths)) {
+    for (const op of Object.values(methods as Record<string, unknown>)) {
+      const examples = (
+        (op as { responses?: Record<string, { content?: Record<string, { examples?: Record<string, { value?: { rows?: (string | null)[][] } }> }> }> })
+          .responses?.['200']?.content?.['application/json']?.examples
+      );
+      const candidate = examples?.[exampleName]?.value?.rows;
+      if (candidate) return candidate;
+    }
+  }
+  return [];
+}

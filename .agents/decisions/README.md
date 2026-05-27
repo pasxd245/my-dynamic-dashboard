@@ -94,3 +94,6 @@ sub-section before being archived.
 - [2026-05-27 — Verification stack queue](2026-05-27-verification-stack-queue.md) —
   Ordered queue of verification investments (MSW first; Playwright,
   preview-HTML, retriever parked with named triggers).
+- [2026-05-27 — MSW contract-anchor](2026-05-27-msw-contract-anchor.md) —
+  FE MSW handlers schema-validate against contract YAML; YAML
+  `examples:` blocks are the canonical fixture reference.
