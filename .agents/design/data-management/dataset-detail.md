@@ -18,6 +18,8 @@ implementation chain begins R34 (contract), R35 (BE), R36 (FE).
 [upload.md](upload.md) (the verb that produced the rows),
 [crud-hygiene.md](crud-hygiene.md) (rename + delete affordances
 reused here),
+[dataset-filters.md](dataset-filters.md) (per-column typed
+filters layered on this page; R37 design, R38→R40 impl chain),
 [workspace-shell.target.md](workspace-shell.target.md) (the chrome
 this page renders inside), and
 [dataset-detail.preview.html](dataset-detail.preview.html) (visual
@@ -658,11 +660,14 @@ export type RowsPage = {
   arbitrary-column still requires full-file read. Promote when
   a query/dashboard surface needs it or when row counts make
   unsorted browsing impractical.
-- **Per-column search / typed-filter language** (e.g. `stage:won
-  AND amount>10000`). The R33 `?q=` is plain substring across
-  all cells — useful for "find a specific id or memo" but not
-  for analytical slicing. Per-column filters are the natural
-  next step alongside the future query surface.
+- **Per-column filters** — R37 design, R38→R40 impl chain.
+  Typed per-column predicates (`stage = won`, `amount between
+  10,000 and 50,000`, `won_at after 2026-04-01`) layered on top
+  of `?q=`. Spec lives in
+  [dataset-filters.md](dataset-filters.md). Advanced query
+  language (`stage:won AND amount>10000` parsed syntax with
+  OR/grouping) remains deferred as the *next* feature beyond
+  filters.
 - **Matched-substring highlighting** in cell text. Cheap UX
   win but adds a per-cell render pass; defer until users
   actually complain they can't find their match on the page.

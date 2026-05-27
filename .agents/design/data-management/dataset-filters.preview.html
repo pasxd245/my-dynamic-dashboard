@@ -1,0 +1,845 @@
+<!doctype html>
+<!--
+  HIxAI brainstorming aid for Round_37 — Dataset filters (per-column typed filters).
+
+  Layers the filter UI onto the R33 dataset-detail page: column-header ▾
+  triggers, an "Active filters" chip row above the table, and a per-dtype
+  popover (string / numeric / date / boolean) anchored to the trigger.
+  Bottom-right state toggle flips between filters-applied / filters-empty /
+  popover-open-string / popover-open-numeric / popover-open-date /
+  popover-open-boolean / no-match.
+
+  Visual reference only. ~90% fidelity to the intended UI.
+  Production truth is the running builder, not this file.
+  May be removed in a later round (likely R40's Act) once the running builder
+  visually matches.
+
+  Token vars + chrome shared via ../_css/{tokens.css, preview-shell.css}.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MDD — Dataset filters (R37 preview)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="../_css/tokens.css" />
+    <link rel="stylesheet" href="../_css/preview-shell.css" />
+    <style>
+      /* Dataset-filters preview — page-specific styles only.
+         Shared chrome + tokens live in ../_css/. Most of the page chrome
+         (meta strip, search bar, data table, pagination) is reused from
+         the dataset-detail preview; this file repeats the relevant
+         styles so it stays self-contained per design/README.md. */
+
+      /* ─── Page header — format chip ────────────────────────────────── */
+      .page-header .page-title {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .source-icon {
+        font-size: 18px;
+        line-height: 1;
+      }
+      .format-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 2px 8px;
+        border-radius: var(--radius-md);
+        background: var(--color-fill-quaternary);
+        border: 1px solid var(--color-border-secondary);
+        font-size: 12px;
+        font-weight: 500;
+        color: var(--color-text-secondary);
+      }
+
+      /* ─── Metadata strip ───────────────────────────────────────────── */
+      .meta-strip {
+        background: var(--color-fill-quaternary);
+        border: 1px solid var(--color-border-secondary);
+        border-radius: var(--radius-md);
+        padding: 12px 16px;
+        display: grid;
+        grid-template-columns: repeat(6, 1fr);
+        gap: 12px;
+        margin-bottom: 16px;
+      }
+      @media (max-width: 1100px) {
+        .meta-strip {
+          grid-template-columns: repeat(3, 1fr);
+        }
+      }
+      .meta-cell .label {
+        display: block;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--color-text-tertiary);
+        margin-bottom: 2px;
+      }
+      .meta-cell .value {
+        font-size: 14px;
+        color: var(--color-text-base);
+        font-weight: 500;
+      }
+
+      /* ─── Search bar ───────────────────────────────────────────────── */
+      .search-bar {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 12px;
+      }
+      .search-input-wrap {
+        position: relative;
+        flex: 1;
+        max-width: 360px;
+      }
+      .search-input-wrap .search-icon {
+        position: absolute;
+        left: 10px;
+        top: 50%;
+        transform: translateY(-50%);
+        font-size: 13px;
+        color: var(--color-text-tertiary);
+        pointer-events: none;
+      }
+      .search-input {
+        width: 100%;
+        padding: 6px 28px 6px 30px;
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-md);
+        background: var(--color-bg-base);
+        font-size: 13px;
+        color: var(--color-text-base);
+      }
+      .search-input:focus {
+        outline: none;
+        border-color: var(--color-primary);
+      }
+      .search-counter {
+        font-size: 12px;
+        color: var(--color-text-tertiary);
+      }
+
+      /* ─── Active filters chip row ──────────────────────────────────── */
+      .filter-chips-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+        background: var(--color-fill-quaternary);
+        border: 1px solid var(--color-border-secondary);
+        border-radius: var(--radius-md);
+        padding: 8px 12px;
+        margin-bottom: 12px;
+      }
+      .filter-chips-row .chips-label {
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--color-text-tertiary);
+        margin-right: 4px;
+      }
+      .filter-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 2px 4px 2px 10px;
+        background: var(--color-primary-bg);
+        border: 1px solid var(--color-primary);
+        color: var(--color-primary);
+        border-radius: var(--radius-md);
+        font-size: 12px;
+        max-width: 220px;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+      .filter-chip .chip-close {
+        background: transparent;
+        border: none;
+        color: var(--color-primary);
+        cursor: pointer;
+        font-size: 14px;
+        line-height: 1;
+        padding: 0 4px;
+      }
+      .filter-chip .chip-close:hover {
+        color: var(--color-primary-hover, var(--color-primary));
+      }
+      .clear-all-link {
+        margin-left: auto;
+        font-size: 12px;
+        color: var(--color-primary);
+        text-decoration: none;
+        cursor: pointer;
+      }
+      .clear-all-link:hover {
+        text-decoration: underline;
+      }
+
+      /* ─── Column-header filter trigger ─────────────────────────────── */
+      .dtype-badge {
+        display: inline-block;
+        margin-left: 6px;
+        padding: 1px 6px;
+        font-size: 10px;
+        font-weight: 500;
+        color: var(--color-text-tertiary);
+        background: var(--color-bg-base);
+        border: 1px solid var(--color-border-secondary);
+        border-radius: var(--radius-md);
+        letter-spacing: 0.02em;
+      }
+      .filter-trigger {
+        margin-left: 6px;
+        background: transparent;
+        border: none;
+        color: var(--color-text-tertiary);
+        cursor: pointer;
+        font-size: 11px;
+        padding: 2px 4px;
+        border-radius: var(--radius-md);
+        position: relative;
+      }
+      .filter-trigger:hover {
+        color: var(--color-text-secondary);
+        background: var(--color-fill-quaternary);
+      }
+      .filter-trigger.is-active {
+        color: var(--color-primary);
+      }
+      .filter-trigger.is-active::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        right: 0;
+        width: 6px;
+        height: 6px;
+        background: var(--color-primary);
+        border-radius: 50%;
+      }
+
+      /* ─── Filter popover ───────────────────────────────────────────────
+         Each popover is a child of its column-header <th>; the th already
+         has position: sticky which is also a positioning context, so the
+         popover anchors to top: 100% and sits directly below the column
+         header. Matches what AntD <Popover> does in the running app. */
+      .filter-popover {
+        position: absolute;
+        top: calc(100% + 4px);
+        left: 0;
+        background: var(--color-bg-base);
+        border: 1px solid var(--color-border-secondary);
+        border-radius: var(--radius-md);
+        box-shadow: var(--shadow-card);
+        padding: 16px;
+        width: 320px;
+        z-index: 50;
+        /* Re-establish normal text styling — table cells force bold +
+           secondary text color on their children. */
+        font-weight: normal;
+        color: var(--color-text-base);
+        white-space: normal;
+      }
+      .filter-popover .popover-title {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--color-text-base);
+        margin: 0 0 12px 0;
+      }
+      .filter-popover .popover-label {
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--color-text-tertiary);
+        margin-bottom: 4px;
+      }
+      .filter-popover .popover-row {
+        margin-bottom: 12px;
+      }
+      .filter-popover select,
+      .filter-popover input[type='text'],
+      .filter-popover input[type='number'],
+      .filter-popover input[type='date'] {
+        width: 100%;
+        padding: 6px 10px;
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-md);
+        background: var(--color-bg-base);
+        font-size: 13px;
+        color: var(--color-text-base);
+      }
+      .filter-popover .range-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+      }
+      .filter-popover input[type='number'] {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
+      .filter-popover .popover-divider {
+        height: 1px;
+        background: var(--color-border-secondary);
+        margin: 12px 0;
+      }
+      .filter-popover .popover-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .filter-popover .clear-link {
+        font-size: 12px;
+        color: var(--color-error);
+        text-decoration: none;
+        cursor: pointer;
+        margin-right: auto;
+      }
+      .filter-popover .clear-link:hover {
+        text-decoration: underline;
+      }
+      .filter-popover .btn {
+        padding: 4px 14px;
+        font-size: 13px;
+        border-radius: var(--radius-md);
+        cursor: pointer;
+        border: 1px solid var(--color-border);
+        background: var(--color-bg-base);
+        color: var(--color-text-base);
+      }
+      .filter-popover .btn.is-primary {
+        background: var(--color-primary);
+        border-color: var(--color-primary);
+        color: #fff;
+      }
+      .filter-popover .empty-hint {
+        font-size: 12px;
+        color: var(--color-text-tertiary);
+        font-style: italic;
+      }
+
+      /* Rightmost-column popover anchors to the right edge instead of
+         left so it doesn't push off the table edge. */
+      .filter-popover.anchor-right {
+        left: auto;
+        right: 0;
+      }
+
+      /* ─── Data table ───────────────────────────────────────────────── */
+      .data-table-wrap {
+        border: 1px solid var(--color-border-secondary);
+        border-radius: var(--radius-md);
+        /* `visible` (not `auto`) so the absolute-positioned popover can
+           extend below the wrap. The preview only renders ~5 rows so we
+           don't need a scroll container; the running app uses AntD
+           <Popover> which portals to body and sidesteps this entirely. */
+        overflow: visible;
+      }
+      .data-table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+        font-size: 13px;
+      }
+      .data-table thead th {
+        background: var(--color-fill-quaternary);
+        color: var(--color-text-secondary);
+        font-weight: 600;
+        text-align: left;
+        padding: 10px 12px;
+        border-bottom: 1px solid var(--color-border-secondary);
+        position: relative;
+        white-space: nowrap;
+      }
+      .data-table tbody td {
+        padding: 8px 12px;
+        border-bottom: 1px solid var(--color-border-secondary);
+        color: var(--color-text-base);
+        max-width: 240px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .data-table tbody tr:last-child td {
+        border-bottom: none;
+      }
+      .data-table tbody tr:hover td {
+        background: var(--color-primary-bg);
+      }
+      .data-table td.num {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
+      .data-table td.null {
+        color: var(--color-text-tertiary);
+        text-align: center;
+      }
+
+      /* ─── No-match state ───────────────────────────────────────────── */
+      .no-match {
+        text-align: center;
+        padding: 48px 24px;
+        color: var(--color-text-tertiary);
+      }
+      .no-match .icon {
+        font-size: 32px;
+        margin-bottom: 8px;
+      }
+      .no-match .primary {
+        color: var(--color-text-secondary);
+        font-size: 14px;
+        font-weight: 500;
+      }
+      .no-match .secondary {
+        font-size: 12px;
+        margin-top: 4px;
+      }
+
+      /* ─── State-visibility helpers ─────────────────────────────────── */
+      [data-show-when] {
+        display: none;
+      }
+      body.state-applied [data-show-when~='applied'],
+      body.state-empty [data-show-when~='empty'],
+      body.state-popover-string [data-show-when~='applied'],
+      body.state-popover-string [data-show-when~='popover-string'],
+      body.state-popover-numeric [data-show-when~='applied'],
+      body.state-popover-numeric [data-show-when~='popover-numeric'],
+      body.state-popover-date [data-show-when~='applied'],
+      body.state-popover-date [data-show-when~='popover-date'],
+      body.state-popover-bool [data-show-when~='applied'],
+      body.state-popover-bool [data-show-when~='popover-bool'],
+      body.state-nomatch [data-show-when~='nomatch'] {
+        display: revert;
+      }
+    </style>
+  </head>
+  <body class="state-applied">
+    <div class="honest-banner">
+      Brainstorming preview — not production truth. ~90% fidelity to the Dataset-filters target (R37 D-round).
+      Bottom-right toggle flips between filters-applied / filters-empty / 4 popover-open variants / no-match.
+      The popover is shown as a positioned div for visual shape; production uses AntD <code>&lt;Popover&gt;</code>.
+    </div>
+
+    <div class="mdd-shell" id="shell">
+      <aside class="mdd-sidebar">
+        <div class="mdd-sidebar-header">
+          <a class="mdd-brand" href="../index.html" title="Preview index">
+            <div class="mdd-brand-mark">M</div>
+            <span>MDD</span>
+          </a>
+        </div>
+
+        <nav class="mdd-nav">
+          <div class="mdd-nav-group is-expanded" id="grp-data">
+            <button class="mdd-nav-group-header" onclick="toggleGroup('grp-data')" title="Data Management">
+              <svg
+                class="nav-icon"
+                viewBox="64 64 896 896"
+                width="16"
+                height="16"
+                fill="currentColor"
+                aria-hidden="true"
+              >
+                <path
+                  d="M832 64H192c-17.7 0-32 14.3-32 32v832c0 17.7 14.3 32 32 32h640c17.7 0 32-14.3 32-32V96c0-17.7-14.3-32-32-32zm-260 72h188v131H572V136zm-118 0h44v131h-44V136zm-162 0h44v131h-44V136zm132 752H236V332h188v556zm162 0h-44V332h44v556zm206 0H614V332h178v556z"
+                />
+              </svg>
+              <span class="label">Data Management</span>
+              <svg
+                class="chevron"
+                viewBox="64 64 896 896"
+                width="10"
+                height="10"
+                fill="currentColor"
+                aria-hidden="true"
+              >
+                <path
+                  d="M765.7 486.8L314.9 134.7A7.97 7.97 0 00302 141v77.3c0 4.9 2.3 9.6 6.1 12.6l360 281.1-360 281.1c-3.9 3-6.1 7.7-6.1 12.6V883c0 6.7 7.7 10.4 12.9 6.3l450.8-352.1a31.96 31.96 0 000-50.4z"
+                />
+              </svg>
+            </button>
+            <div class="mdd-nav-items" data-group-label="Data Management">
+              <a href="workspace-shell.preview.html" class="mdd-nav-item" title="Workspaces">
+                <svg class="nav-item-icon" viewBox="64 64 896 896" width="14" height="14" fill="currentColor" aria-hidden="true">
+                  <path d="M464 144H160c-8.8 0-16 7.2-16 16v304c0 8.8 7.2 16 16 16h304c8.8 0 16-7.2 16-16V160c0-8.8-7.2-16-16-16zm-52 268H212V212h200v200zm452-268H560c-8.8 0-16 7.2-16 16v304c0 8.8 7.2 16 16 16h304c8.8 0 16-7.2 16-16V160c0-8.8-7.2-16-16-16zm-52 268H612V212h200v200zM464 544H160c-8.8 0-16 7.2-16 16v304c0 8.8 7.2 16 16 16h304c8.8 0 16-7.2 16-16V560c0-8.8-7.2-16-16-16zm-52 268H212V612h200v200zm452-268H560c-8.8 0-16 7.2-16 16v304c0 8.8 7.2 16 16 16h304c8.8 0 16-7.2 16-16V560c0-8.8-7.2-16-16-16zm-52 268H612V612h200v200z" />
+                </svg>
+                <span>Workspaces</span>
+              </a>
+              <a href="datasets.preview.html" class="mdd-nav-item" title="Datasets">
+                <svg class="nav-item-icon" viewBox="64 64 896 896" width="14" height="14" fill="currentColor" aria-hidden="true">
+                  <path d="M832 64H192c-17.7 0-32 14.3-32 32v832c0 17.7 14.3 32 32 32h640c17.7 0 32-14.3 32-32V96c0-17.7-14.3-32-32-32zm-260 72h188v131H572V136zm-118 0h44v131h-44V136zm-162 0h44v131h-44V136zm132 752H236V332h188v556zm162 0h-44V332h44v556zm206 0H614V332h178v556z" />
+                </svg>
+                <span>Datasets</span>
+              </a>
+              <!-- Dataset detail stays active for the filters page (sub-page of the detail page). -->
+              <a href="dataset-detail.preview.html" class="mdd-nav-item is-active" title="Dataset detail">
+                <svg class="nav-item-icon" viewBox="64 64 896 896" width="14" height="14" fill="currentColor" aria-hidden="true">
+                  <path d="M928 160H96c-17.7 0-32 14.3-32 32v640c0 17.7 14.3 32 32 32h832c17.7 0 32-14.3 32-32V192c0-17.7-14.3-32-32-32zm-40 208H676V232h212v136zm0 224H676V432h212v160zM412 432h200v160H412V432zm200-64H412V232h200v136zm-476 64h212v160H136V432zm0-200h212v136H136V232zm0 424h212v136H136V656zm276 0h200v136H412V656zm476 136H676V656h212v136z" />
+                </svg>
+                <span>Dataset detail</span>
+              </a>
+            </div>
+          </div>
+        </nav>
+
+        <div class="mdd-sidebar-footer">
+          <span class="build-label">R37 preview · </span>
+          <span>dataset-filters</span>
+        </div>
+      </aside>
+
+      <div class="mdd-content-area">
+        <header class="mdd-topbar">
+          <button class="mdd-toggle" onclick="toggleCollapse()" aria-label="Toggle sidebar" title="Fold / Unfold sidebar">
+            <svg id="toggle-icon" viewBox="64 64 896 896" width="18" height="18" fill="currentColor" aria-hidden="true">
+              <path
+                id="toggle-icon-path"
+                d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM142.4 642.1L298.7 519a8.84 8.84 0 000-13.9L142.4 381.9c-5.8-4.6-14.4-.5-14.4 6.9v246.3a8.9 8.9 0 0014.4 7z"
+              />
+            </svg>
+          </button>
+          <div class="mdd-topbar-title">Dataset filters</div>
+          <div class="mdd-topbar-spacer"></div>
+          <div class="mdd-topbar-actions">
+            <span class="mdd-topbar-placeholder">search (future)</span>
+            <span class="mdd-topbar-placeholder">user (future)</span>
+            <span class="mdd-topbar-placeholder">🔔</span>
+          </div>
+        </header>
+
+        <main class="mdd-content">
+          <div class="page-header">
+            <div class="page-header-main">
+              <div class="breadcrumb">
+                <a href="#">Home</a> ▸
+                <a href="#">Data Management</a> ▸
+                <a href="datasets.preview.html">Datasets</a> ▸
+                <a href="dataset-detail.preview.html">q1_pipeline_Deals</a>
+              </div>
+              <h1 class="page-title">
+                <span class="source-icon" title="Excel">📊</span>
+                <span>q1_pipeline_Deals</span>
+                <span class="format-chip">Excel · Sheet1</span>
+              </h1>
+              <p class="page-subtitle">2,481 rows · 12 columns · 84 KB · Uploaded 14:02 today</p>
+            </div>
+          </div>
+
+          <div class="page-card">
+            <!-- Metadata strip (same across applied / popover variants / nomatch). -->
+            <div class="meta-strip">
+              <div class="meta-cell"><span class="label">Workspace</span><span class="value">Marketing</span></div>
+              <div class="meta-cell"><span class="label">Rows</span><span class="value">2,481</span></div>
+              <div class="meta-cell"><span class="label">Cols</span><span class="value">12</span></div>
+              <div class="meta-cell"><span class="label">Size</span><span class="value">84 KB</span></div>
+              <div class="meta-cell"><span class="label">Uploaded</span><span class="value">14:02 today</span></div>
+              <div class="meta-cell"><span class="label">Format</span><span class="value">Excel · Sheet1</span></div>
+            </div>
+
+            <!-- Search bar (counter changes per state). -->
+            <div class="search-bar">
+              <div class="search-input-wrap">
+                <span class="search-icon">🔍</span>
+                <input class="search-input" type="search" placeholder="Search rows…" aria-label="Search rows" />
+              </div>
+              <span class="search-counter" data-show-when="applied popover-string popover-numeric popover-date popover-bool">Matched 47 / 2,481</span>
+              <span class="search-counter" data-show-when="empty">Matched 2,481 / 2,481</span>
+              <span class="search-counter" data-show-when="nomatch">Matched 0 / 2,481</span>
+            </div>
+
+            <!-- Active filters chip row (visible when ≥1 filter active). -->
+            <div class="filter-chips-row" data-show-when="applied popover-string popover-numeric popover-date popover-bool nomatch">
+              <span class="chips-label">Active filters</span>
+              <span class="filter-chip" title="stage = won">
+                stage = won
+                <button class="chip-close" aria-label="Remove filter">×</button>
+              </span>
+              <span class="filter-chip" title="amount between 10,000 and 50,000">
+                amount between 10,000 and 50,000
+                <button class="chip-close" aria-label="Remove filter">×</button>
+              </span>
+              <span class="filter-chip" data-show-when="nomatch" title="won_at after 2026-12-01">
+                won_at after 2026-12-01
+                <button class="chip-close" aria-label="Remove filter">×</button>
+              </span>
+              <a class="clear-all-link">Clear all</a>
+            </div>
+
+            <!-- Data table with column-header filter triggers. -->
+            <div class="data-table-wrap">
+              <table class="data-table" data-show-when="applied empty popover-string popover-numeric popover-date popover-bool">
+                <thead>
+                  <tr>
+                    <th>
+                      deal_id<span class="dtype-badge">str</span>
+                      <button class="filter-trigger" aria-label="Filter deal_id" title="Filter deal_id">▾</button>
+                    </th>
+                    <th>
+                      amount<span class="dtype-badge">int</span>
+                      <button class="filter-trigger is-active" aria-label="Filter amount (active)" title="Filter amount (active)">▾</button>
+                      <!-- Numeric popover anchored to this <th>. -->
+                      <div class="filter-popover" data-show-when="popover-numeric">
+                        <h3 class="popover-title">Filter "amount"</h3>
+                        <div class="popover-row">
+                          <div class="popover-label">Operator</div>
+                          <select>
+                            <option>equals</option>
+                            <option>≠</option>
+                            <option>&gt;</option>
+                            <option>&lt;</option>
+                            <option>≥</option>
+                            <option>≤</option>
+                            <option selected>between</option>
+                            <option>is null</option>
+                            <option>is not null</option>
+                          </select>
+                        </div>
+                        <div class="popover-row">
+                          <div class="popover-label">From — To (inclusive)</div>
+                          <div class="range-row">
+                            <input type="number" value="10000" />
+                            <input type="number" value="50000" />
+                          </div>
+                        </div>
+                        <div class="popover-divider"></div>
+                        <div class="popover-actions">
+                          <a class="clear-link">Clear filter</a>
+                          <button class="btn">Cancel</button>
+                          <button class="btn is-primary">Apply</button>
+                        </div>
+                      </div>
+                    </th>
+                    <th>
+                      won_at<span class="dtype-badge">date</span>
+                      <button class="filter-trigger" aria-label="Filter won_at" title="Filter won_at">▾</button>
+                      <!-- Date popover anchored to this <th>. -->
+                      <div class="filter-popover" data-show-when="popover-date">
+                        <h3 class="popover-title">Filter "won_at"</h3>
+                        <div class="popover-row">
+                          <div class="popover-label">Operator</div>
+                          <select>
+                            <option>equals</option>
+                            <option>≠</option>
+                            <option>before</option>
+                            <option>after</option>
+                            <option selected>between</option>
+                            <option>is null</option>
+                            <option>is not null</option>
+                          </select>
+                        </div>
+                        <div class="popover-row">
+                          <div class="popover-label">From — To (inclusive)</div>
+                          <div class="range-row">
+                            <input type="date" value="2026-04-01" />
+                            <input type="date" value="2026-04-30" />
+                          </div>
+                        </div>
+                        <div class="popover-divider"></div>
+                        <div class="popover-actions">
+                          <a class="clear-link">Clear filter</a>
+                          <button class="btn">Cancel</button>
+                          <button class="btn is-primary">Apply</button>
+                        </div>
+                      </div>
+                    </th>
+                    <th>
+                      stage<span class="dtype-badge">str</span>
+                      <button class="filter-trigger is-active" aria-label="Filter stage (active)" title="Filter stage (active)">▾</button>
+                      <!-- String popover anchored to this <th>. -->
+                      <div class="filter-popover" data-show-when="popover-string">
+                        <h3 class="popover-title">Filter "stage"</h3>
+                        <div class="popover-row">
+                          <div class="popover-label">Operator</div>
+                          <select>
+                            <option>contains</option>
+                            <option selected>equals</option>
+                            <option>starts with</option>
+                            <option>ends with</option>
+                            <option>is empty</option>
+                            <option>is not empty</option>
+                            <option>is null</option>
+                            <option>is not null</option>
+                          </select>
+                        </div>
+                        <div class="popover-row">
+                          <div class="popover-label">Value</div>
+                          <input type="text" value="won" />
+                        </div>
+                        <div class="popover-divider"></div>
+                        <div class="popover-actions">
+                          <a class="clear-link">Clear filter</a>
+                          <button class="btn">Cancel</button>
+                          <button class="btn is-primary">Apply</button>
+                        </div>
+                      </div>
+                    </th>
+                    <th>
+                      probability<span class="dtype-badge">float</span>
+                      <button class="filter-trigger" aria-label="Filter probability" title="Filter probability">▾</button>
+                    </th>
+                    <th>
+                      is_priority<span class="dtype-badge">bool</span>
+                      <button class="filter-trigger" aria-label="Filter is_priority" title="Filter is_priority">▾</button>
+                      <!-- Boolean popover anchored to this <th>; anchor-right so it doesn't push off the table edge. -->
+                      <div class="filter-popover anchor-right" data-show-when="popover-bool">
+                        <h3 class="popover-title">Filter "is_priority"</h3>
+                        <div class="popover-row">
+                          <div class="popover-label">Operator</div>
+                          <select>
+                            <option selected>is true</option>
+                            <option>is false</option>
+                            <option>is null</option>
+                            <option>is not null</option>
+                          </select>
+                        </div>
+                        <div class="popover-row">
+                          <div class="empty-hint">No value needed for this operator.</div>
+                        </div>
+                        <div class="popover-divider"></div>
+                        <div class="popover-actions">
+                          <a class="clear-link">Clear filter</a>
+                          <button class="btn">Cancel</button>
+                          <button class="btn is-primary">Apply</button>
+                        </div>
+                      </div>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody data-show-when="applied popover-string popover-numeric popover-date popover-bool">
+                  <tr>
+                    <td>D-0001</td>
+                    <td class="num">12,400</td>
+                    <td>2026-03-01</td>
+                    <td>won</td>
+                    <td class="num">0.95</td>
+                    <td>true</td>
+                  </tr>
+                  <tr>
+                    <td>D-0017</td>
+                    <td class="num">48,200</td>
+                    <td>2026-04-08</td>
+                    <td>won</td>
+                    <td class="num">0.92</td>
+                    <td>true</td>
+                  </tr>
+                  <tr>
+                    <td>D-0023</td>
+                    <td class="num">31,950</td>
+                    <td>2026-04-19</td>
+                    <td>won</td>
+                    <td class="num">0.99</td>
+                    <td>false</td>
+                  </tr>
+                  <tr>
+                    <td>D-0042</td>
+                    <td class="num">19,800</td>
+                    <td>2026-04-25</td>
+                    <td>won</td>
+                    <td class="num">0.87</td>
+                    <td>true</td>
+                  </tr>
+                  <tr>
+                    <td>D-0058</td>
+                    <td class="num">44,500</td>
+                    <td>2026-05-02</td>
+                    <td>won</td>
+                    <td class="num">1.00</td>
+                    <td>true</td>
+                  </tr>
+                </tbody>
+                <tbody data-show-when="empty">
+                  <tr>
+                    <td>D-0001</td>
+                    <td class="num">12,400</td>
+                    <td>2026-03-01</td>
+                    <td>won</td>
+                    <td class="num">0.95</td>
+                    <td>true</td>
+                  </tr>
+                  <tr>
+                    <td>D-0002</td>
+                    <td class="null">—</td>
+                    <td class="null">—</td>
+                    <td>open</td>
+                    <td class="num">0.45</td>
+                    <td>false</td>
+                  </tr>
+                  <tr>
+                    <td>D-0003</td>
+                    <td class="num">102,000</td>
+                    <td>2026-04-12</td>
+                    <td>negotiating</td>
+                    <td class="num">0.72</td>
+                    <td>true</td>
+                  </tr>
+                  <tr>
+                    <td>D-0006</td>
+                    <td class="num">3,200</td>
+                    <td class="null">—</td>
+                    <td>lost</td>
+                    <td class="num">0.00</td>
+                    <td>false</td>
+                  </tr>
+                  <tr>
+                    <td>D-0008</td>
+                    <td class="num">9,250</td>
+                    <td>2026-05-14</td>
+                    <td>open</td>
+                    <td class="num">0.55</td>
+                    <td>false</td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <!-- No-match placeholder (filters produce zero rows). -->
+              <div class="no-match" data-show-when="nomatch">
+                <div class="icon">🔎</div>
+                <div class="primary">No rows match these filters</div>
+                <div class="secondary">Adjust or clear a filter to see more results.</div>
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+    </div>
+
+    <a class="preview-index-link" href="../index.html">← Preview index</a>
+
+    <div class="state-toggle">
+      <button type="button" data-state="applied" class="is-active">Applied</button>
+      <button type="button" data-state="empty">Empty</button>
+      <button type="button" data-state="popover-string">Popover · string</button>
+      <button type="button" data-state="popover-numeric">Popover · numeric</button>
+      <button type="button" data-state="popover-date">Popover · date</button>
+      <button type="button" data-state="popover-bool">Popover · bool</button>
+      <button type="button" data-state="nomatch">No match</button>
+    </div>
+
+    <script src="../_js/preview-shell.js"></script>
+    <script>
+      const body = document.body;
+      const stateButtons = document.querySelectorAll('.state-toggle button');
+      const allStates = [
+        'state-applied',
+        'state-empty',
+        'state-popover-string',
+        'state-popover-numeric',
+        'state-popover-date',
+        'state-popover-bool',
+        'state-nomatch',
+      ];
+      stateButtons.forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const next = btn.dataset.state;
+          body.classList.remove(...allStates);
+          body.classList.add(`state-${next}`);
+          stateButtons.forEach((b) => b.classList.toggle('is-active', b === btn));
+        });
+      });
+    </script>
+  </body>
+</html>
