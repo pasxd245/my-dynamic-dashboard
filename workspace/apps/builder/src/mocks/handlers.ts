@@ -155,11 +155,21 @@ function validateFiltersOr422(
 }
 
 // ─── Handlers ────────────────────────────────────────────────────────
+//
+// R45: every JSON-2xx handler is wrapped with `withContractValidation`
+// so response bodies are schema-checked against the contract YAMLs at
+// the handler boundary. R42 wrapped only `getDatasetRows` (the only
+// ref-less contract); R45 extended the validator with cross-file
+// `$ref` resolution so the rest of the production endpoints can
+// participate. DELETE handlers stay unwrapped — they return 204 and
+// bypass the validator by the content-type guard.
 
 export const handlers = [
   // Workspaces
-  http.get(api('/workspaces'), () => HttpResponse.json([MOCK_WORKSPACE])),
-  http.post(api('/workspaces'), async ({ request }) => {
+  withContractValidation('get', api('/workspaces'), 'listWorkspaces', () =>
+    HttpResponse.json([MOCK_WORKSPACE]),
+  ),
+  withContractValidation('post', api('/workspaces'), 'createWorkspace', async ({ request }) => {
     const body = (await request.json()) as { name?: string };
     return HttpResponse.json(
       {
@@ -170,7 +180,7 @@ export const handlers = [
       { status: 201 },
     );
   }),
-  http.patch(api('/workspaces/:id'), async ({ params, request }) => {
+  withContractValidation('patch', api('/workspaces/:id'), 'renameWorkspace', async ({ params, request }) => {
     const body = (await request.json()) as { name?: string };
     return HttpResponse.json({
       ...MOCK_WORKSPACE,
@@ -181,13 +191,13 @@ export const handlers = [
   http.delete(api('/workspaces/:id'), () => new HttpResponse(null, { status: 204 })),
 
   // Datasets list / detail
-  http.get(api('/datasets'), ({ request }) => {
+  withContractValidation('get', api('/datasets'), 'listDatasets', ({ request }) => {
     const url = new URL(request.url);
     const ws = url.searchParams.get('workspace_id');
     if (ws && ws !== MOCK_WORKSPACE.id) return HttpResponse.json([]);
     return HttpResponse.json([MOCK_DATASET]);
   }),
-  http.get(api('/datasets/:id'), ({ params }) => {
+  withContractValidation('get', api('/datasets/:id'), 'getDataset', ({ params }) => {
     if (params.id !== MOCK_DATASET.id) {
       return HttpResponse.json({ code: 'not_found' }, { status: 404 });
     }
@@ -230,7 +240,7 @@ export const handlers = [
   }),
 
   // Datasets PATCH / DELETE / batch
-  http.patch(api('/datasets/:id'), async ({ params, request }) => {
+  withContractValidation('patch', api('/datasets/:id'), 'renameDataset', async ({ params, request }) => {
     const body = (await request.json()) as { name?: string };
     return HttpResponse.json({
       ...MOCK_DATASET,
@@ -239,7 +249,7 @@ export const handlers = [
     });
   }),
   http.delete(api('/datasets/:id'), () => new HttpResponse(null, { status: 204 })),
-  http.post(api('/workspaces/:id/datasets/batch'), async ({ request }) => {
+  withContractValidation('post', api('/workspaces/:id/datasets/batch'), 'commitDatasetsBatch', async ({ request }) => {
     const body = (await request.json()) as { items?: Array<{ name?: string }> };
     const items = body.items ?? [];
     return HttpResponse.json(
@@ -254,7 +264,7 @@ export const handlers = [
 
   // Uploads — minimal happy-path mock so the wizard can render in dev
   // mode without a BE. Returns a CSV temp upload by default.
-  http.post(api('/uploads'), () =>
+  withContractValidation('post', api('/uploads'), 'createTempUpload', () =>
     HttpResponse.json(
       {
         temp_id: 'tmp_aaaaaaaa',
@@ -269,7 +279,7 @@ export const handlers = [
       { status: 201 },
     ),
   ),
-  http.post(api('/uploads/:tempId/parse'), () =>
+  withContractValidation('post', api('/uploads/:tempId/parse'), 'parseTempUpload', () =>
     HttpResponse.json({
       results: [
         {

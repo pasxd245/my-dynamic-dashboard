@@ -63,46 +63,18 @@ const queryClient = new QueryClient({
   },
 });
 
-// R41: dev-mode MSW opt-in. `VITE_MOCKS=1 pnpm dev` starts the browser
-// worker so the FE round-trips against in-memory fixtures without
-// requiring a running BE. Dynamic import keeps MSW out of the
-// production bundle (Vite tree-shakes the unreached branch). The
-// async startup runs as a fire-and-forget Promise wrapped around
-// `renderApp` — avoids top-level await (not available in the
-// configured ES target).
-function renderApp(): void {
-  // eslint-disable-next-line @typescript-eslint/no-use-before-define
-  createRoot(rootElement!).render(appTree);
-}
-
-if (import.meta.env.DEV && import.meta.env.VITE_MOCKS === '1') {
-  import('@/mocks/start').then(({ startMockWorker }) => startMockWorker().then(renderApp));
-} else {
-  renderApp();
-}
-
+// R30: AppErrorBoundary inside the AntD providers so its <Result>
+// inherits theme tokens. R32: i18n + AntD locale subscription.
 const appTree = (
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <LocaleAwareAntd>
-        {/*
-          R30: AppErrorBoundary wraps the router so an uncaught render
-          error in any feature shows a friendly Result page with a Reload
-          button instead of a blank white screen. Placed *inside* the
-          AntD providers so the boundary's <Result> picks up theme tokens.
-        */}
         <AppErrorBoundary>
           <BrowserRouter>
             <AppLayout>
               <Routes>
                 <Route path="/" element={<Navigate to="/data-management/workspaces" replace />} />
-                {/*
-                Data Management is a sidebar group, not a destination.
-                Redirect direct visits (typed URL, bookmark) to the
-                default leaf so users don't hit a 404. Default leaf
-                decision will need updating if Workspaces stops being
-                the first child of the group.
-              */}
+                {/* /data-management is a sidebar group, not a leaf — redirect to default child. */}
                 <Route path="/data-management" element={<Navigate to="/data-management/workspaces" replace />} />
                 <Route path="/data-management/workspaces" element={<WorkspacesPage />} />
                 <Route path="/data-management/datasets" element={<DatasetsPage />} />
@@ -116,3 +88,26 @@ const appTree = (
     </QueryClientProvider>
   </StrictMode>
 );
+
+function renderApp(): void {
+  createRoot(rootElement!).render(appTree);
+}
+
+// R41/R45: dev-mode MSW opt-in. `builder.enable_mock: true` in
+// workspace/config/values.yaml renders VITE_MOCKS=1 into .env;
+// import.meta.env.DEV is false in `pnpm build`, so the dynamic
+// import branch is statically unreachable in prod (tree-shaken).
+// `appTree` MUST be initialized before this block — the `await`
+// pauses module eval, and `renderApp` reads `appTree`.
+if (import.meta.env.DEV && import.meta.env.VITE_MOCKS === '1') {
+  try {
+    const { startMockWorker } = await import('@/mocks/start');
+    await startMockWorker();
+  } catch (error) {
+    console.error('Failed to enable mocking:', error);
+  } finally {
+    renderApp();
+  }
+} else {
+  renderApp();
+}

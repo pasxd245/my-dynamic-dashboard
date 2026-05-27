@@ -19,6 +19,8 @@
 import type { Dataset, RowsPage } from '@/features/data-management/datasets/types';
 import type { Workspace } from '@/features/data-management/workspaces/types';
 
+import { CONTRACTS_ROOT } from './contracts-root';
+
 export const MOCK_WORKSPACE: Workspace = {
   id: 'ws_aaaaaaa1',
   name: 'Marketing',
@@ -65,22 +67,10 @@ export const MOCK_ROWS_FULL: RowsPage = {
   total: MOCK_ROWS.length,
 };
 
-// ─── YAML-example loader (R42) ────────────────────────────────────
-//
-// `loadYamlExampleRows(yamlPath, exampleName)` reads a contract YAML
-// at the given path (relative to workspace/packages/contracts/) and
-// returns the rows from the named example block. Useful when a new
-// fixture should mirror a contract example verbatim — e.g.:
-//
-//   const rows = loadYamlExampleRows(
-//     'datasets/rows-get.contract.yaml',
-//     'filtered_per_column_string_equals',
-//   );
-//
-// Node-only (uses `fs`). Returns `[]` in the browser dev bundle —
-// dev mode fixtures stay in-line. Same Node-only scope as
-// `contract-validator.ts` for the same reason.
-
+// R42 YAML-example loader: read `paths.<*>.<*>.responses["200"]
+// .content["application/json"].examples[exampleName].value.rows`
+// from a contract YAML so a fixture mirrors the spec verbatim.
+// Node-only; returns [] in browser.
 export function loadYamlExampleRows(
   yamlPath: string,
   exampleName: string,
@@ -92,21 +82,12 @@ export function loadYamlExampleRows(
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const path = require('node:path');
   // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { fileURLToPath } = require('node:url');
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const yaml = require('js-yaml');
 
-  // src/mocks → builder → apps → workspace → packages/contracts
-  const root = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '../../../../packages/contracts',
-  );
-  const fullPath = path.resolve(root, yamlPath);
+  const fullPath = path.resolve(CONTRACTS_ROOT, yamlPath);
   if (!fs.existsSync(fullPath)) return [];
 
   const doc = yaml.load(fs.readFileSync(fullPath, 'utf8')) as Record<string, unknown>;
-  // Walk paths → method → responses → 200 → content → application/json → examples
-  // and pick the named example's `.value.rows`. Defensive on each step.
   const paths = (doc as { paths?: Record<string, unknown> }).paths ?? {};
   for (const methods of Object.values(paths)) {
     for (const op of Object.values(methods as Record<string, unknown>)) {

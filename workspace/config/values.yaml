@@ -46,6 +46,14 @@ builder:
   api_base_url: 'http://localhost:8000'
   log_level: 'info'
 
+  # R45: opt-in MSW mock layer. When true, the dev server (`pnpm dev`)
+  # routes contract endpoints through workspace/apps/builder/src/mocks/
+  # instead of hitting the real BE. Always-false default — devs flip
+  # locally when they want offline work; committing `true` would
+  # surprise teammates. Renders as `VITE_MOCKS=1` in .env when on,
+  # absent when off (main.tsx checks `=== '1'`).
+  enable_mock: false
+
 # ---------------------------------------------------------------------------
 # i18n placeholder — R32 will consume; R27 includes for free so R32 doesn't
 # need a retrofit. Drifted shipped this exact shape.

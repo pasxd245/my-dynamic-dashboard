@@ -21,12 +21,32 @@ import { describe, expect, it } from "vitest";
 
 import {
   ContractDriftError,
+  validateResponse,
   withContractValidation,
 } from "@/mocks/contract-validator";
 import { MOCK_DATASET } from "@/mocks/fixtures";
 import { server } from "@/mocks/server";
 
 import { mswUnhandledExceptions } from "./setup";
+
+// R45: every JSON-2xx handler in src/mocks/handlers.ts is wrapped
+// with `withContractValidation` using one of these operationIds.
+// The coverage smoke test below asserts the validator has a loaded
+// schema for each — proving (a) the contract YAML compiled, (b)
+// AJV rejects an obviously-wrong body. If a new handler is wrapped
+// in handlers.ts, add its operationId here.
+const WRAPPED_OPS = [
+  "listWorkspaces",
+  "createWorkspace",
+  "renameWorkspace",
+  "listDatasets",
+  "getDataset",
+  "renameDataset",
+  "getDatasetRows",
+  "commitDatasetsBatch",
+  "createTempUpload",
+  "parseTempUpload",
+] as const;
 
 const ROWS_PATH = "*/datasets/:id/rows";
 const OP_ID = "getDatasetRows";
@@ -171,4 +191,21 @@ describe("MSW contract validator — passthrough regression (R42 guards)", () =>
     expect(await res.text()).toBe("not-json-body");
     expect(mswUnhandledExceptions).toHaveLength(0);
   });
+});
+
+describe("MSW contract validator — coverage smoke (R45)", () => {
+  // Direct probe of `validateResponse`: bypass MSW. For every wrapped
+  // operationId, prove (a) the schema loaded from the contract YAML,
+  // (b) AJV rejects an obviously-wrong body. The single negative
+  // assertion combines both — `ok: true` would mean either the
+  // schema didn't load (no validator → no-op true) or AJV thought
+  // `{ obviously: 'wrong' }` was acceptable (catastrophic). Either
+  // failure mode fails the test.
+  it.each(WRAPPED_OPS)(
+    "%s has a loaded schema that rejects obviously-wrong bodies",
+    (opId) => {
+      const result = validateResponse(opId, { obviously: "wrong" });
+      expect(result.ok).toBe(false);
+    },
+  );
 });
