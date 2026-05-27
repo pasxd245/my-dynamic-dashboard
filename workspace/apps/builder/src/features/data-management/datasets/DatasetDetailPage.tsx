@@ -27,6 +27,9 @@ import {
   useDeleteDatasetMutation,
   useRenameDatasetMutation,
 } from './hooks';
+import { ActiveFilterChips } from './filters/ActiveFilterChips';
+import { FilterPopover } from './filters/FilterPopover';
+import { useFiltersState } from './filters/useFiltersState';
 import type { Column, Dataset } from './types';
 
 const DEFAULT_PAGE_SIZE = 50;
@@ -142,11 +145,17 @@ export function DatasetDetailPage() {
   };
 
   const datasetQuery = useDatasetQuery(id);
+  const datasetColumns = useMemo<Column[]>(
+    () => datasetQuery.data?.columns ?? [],
+    [datasetQuery.data?.columns],
+  );
+  const { filters, applyFilter, removeFilter, clearAll } = useFiltersState(datasetColumns);
   const rowsQuery = useDatasetRowsQuery(
     id,
     page,
     pageSize,
     qParam.length > 0 ? qParam : undefined,
+    filters,
   );
   const workspacesQuery = useWorkspacesQuery();
 
@@ -373,6 +382,15 @@ export function DatasetDetailPage() {
           ) : null}
         </div>
 
+        <div style={{ flex: '0 0 auto' }}>
+          <ActiveFilterChips
+            filters={filters}
+            columns={dataset.columns}
+            onRemove={removeFilter}
+            onClearAll={clearAll}
+          />
+        </div>
+
         {rowsQuery.isError && !queryNotFound ? (
           <Alert
             type="error"
@@ -390,7 +408,11 @@ export function DatasetDetailPage() {
           loading={rowsQuery.isFetching}
           hasQuery={hasQuery}
           query={qParam}
+          filters={filters}
           onClearSearch={onClearSearch}
+          onClearAllFilters={clearAll}
+          onApplyFilter={applyFilter}
+          onClearFilter={removeFilter}
         />
 
         {total > 0 ? (
@@ -529,10 +551,25 @@ type DataTableBodyProps = Readonly<{
   loading: boolean;
   hasQuery: boolean;
   query: string;
+  filters: import('./filters/types').FilterSet;
   onClearSearch: () => void;
+  onClearAllFilters: () => void;
+  onApplyFilter: (predicate: import('./filters/types').FilterPredicate) => void;
+  onClearFilter: (colIndex: number) => void;
 }>;
 
-function DataTableBody({ dataset, rowsPage, loading, hasQuery, query, onClearSearch }: DataTableBodyProps) {
+function DataTableBody({
+  dataset,
+  rowsPage,
+  loading,
+  hasQuery,
+  query,
+  filters,
+  onClearSearch,
+  onClearAllFilters,
+  onApplyFilter,
+  onClearFilter,
+}: DataTableBodyProps) {
   const { t } = useTranslation();
   const locale = i18n.language;
 
@@ -545,7 +582,59 @@ function DataTableBody({ dataset, rowsPage, loading, hasQuery, query, onClearSea
   }
 
   const total = rowsPage?.total ?? 0;
+  const hasFilters = filters.length > 0;
   if (total === 0) {
+    if (hasQuery && hasFilters) {
+      return (
+        <div
+          data-component="DatasetRowsNoMatchBoth"
+          style={{
+            flex: '1 1 auto',
+            minHeight: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '48px 24px',
+            textAlign: 'center',
+          }}
+        >
+          <Typography.Title level={5} style={{ marginTop: 0 }}>
+            {t('datasets.filters.noMatchBothTitle', { query })}
+          </Typography.Title>
+          <Typography.Text type="secondary">{t('datasets.filters.noMatchBothHint')}</Typography.Text>
+          <div style={{ marginTop: 16, display: 'flex', gap: 8 }}>
+            <Button onClick={onClearSearch}>{t('datasets.detail.clear')}</Button>
+            <Button onClick={onClearAllFilters}>{t('datasets.filters.clearAll')}</Button>
+          </div>
+        </div>
+      );
+    }
+    if (hasFilters) {
+      return (
+        <div
+          data-component="DatasetRowsNoMatchFilters"
+          style={{
+            flex: '1 1 auto',
+            minHeight: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '48px 24px',
+            textAlign: 'center',
+          }}
+        >
+          <Typography.Title level={5} style={{ marginTop: 0 }}>
+            {t('datasets.filters.noMatchFiltersTitle')}
+          </Typography.Title>
+          <Typography.Text type="secondary">{t('datasets.filters.noMatchFiltersHint')}</Typography.Text>
+          <div style={{ marginTop: 16 }}>
+            <Button onClick={onClearAllFilters}>{t('datasets.filters.clearAll')}</Button>
+          </div>
+        </div>
+      );
+    }
     if (hasQuery) {
       return (
         <div
@@ -609,31 +698,41 @@ function DataTableBody({ dataset, rowsPage, loading, hasQuery, query, onClearSea
       >
         <thead>
           <tr>
-            {dataset.columns.map((col) => (
-              <th
-                key={col.name}
-                style={{
-                  textAlign: 'left',
-                  padding: '10px 12px',
-                  // Solid #fafafa, not var(--ant-color-fill-quaternary)
-                  // — AntD's fill-* tokens are rgba(0,0,0,0.02) and would
-                  // let scrolled rows show through the sticky header.
-                  background: '#fafafa',
-                  boxShadow: 'inset 0 -1px 0 var(--ant-color-border-secondary, #f0f0f0)',
-                  whiteSpace: 'nowrap',
-                  color: 'var(--ant-color-text-secondary, #595959)',
-                  fontWeight: 600,
-                  position: 'sticky',
-                  top: 0,
-                  zIndex: 2,
-                }}
-                data-component="DatasetRowsHeaderCell"
-                data-column={col.name}
-              >
-                {col.name}
-                <DtypeBadge dtype={col.dtype} />
-              </th>
-            ))}
+            {dataset.columns.map((col, ci) => {
+              const existing = filters.find((p) => p.col === ci);
+              return (
+                <th
+                  key={col.name}
+                  style={{
+                    textAlign: 'left',
+                    padding: '10px 12px',
+                    // Solid #fafafa, not var(--ant-color-fill-quaternary)
+                    // — AntD's fill-* tokens are rgba(0,0,0,0.02) and would
+                    // let scrolled rows show through the sticky header.
+                    background: '#fafafa',
+                    boxShadow: 'inset 0 -1px 0 var(--ant-color-border-secondary, #f0f0f0)',
+                    whiteSpace: 'nowrap',
+                    color: 'var(--ant-color-text-secondary, #595959)',
+                    fontWeight: 600,
+                    position: 'sticky',
+                    top: 0,
+                    zIndex: 2,
+                  }}
+                  data-component="DatasetRowsHeaderCell"
+                  data-column={col.name}
+                >
+                  {col.name}
+                  <DtypeBadge dtype={col.dtype} />
+                  <FilterPopover
+                    column={col}
+                    colIndex={ci}
+                    existing={existing}
+                    onApply={onApplyFilter}
+                    onClear={() => onClearFilter(ci)}
+                  />
+                </th>
+              );
+            })}
           </tr>
         </thead>
         <tbody>

@@ -1,10 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { datasetsApi } from '@/api/datasetsApi';
 import { uploadsApi } from '@/api/uploadsApi';
+import { cacheKeyForFilters } from './filters/serialize';
 import type {
   CommitBatchRequest,
   CommitBatchResponse,
   Dataset,
+  FilterSet,
   ParseSheetsRequest,
   ParseSheetsResponse,
   RowsPage,
@@ -38,16 +40,25 @@ export function useDatasetQuery(id: string | undefined) {
 /** R36: GET /datasets/{id}/rows — paged rows with optional substring filter.
  *  `q` is part of the cache key so the same page across different searches
  *  caches independently. The undefined-vs-empty distinction is preserved:
- *  `q: undefined` is the unfiltered cache; `q: 'foo'` is the filtered cache. */
+ *  `q: undefined` is the unfiltered cache; `q: 'foo'` is the filtered cache.
+ *  R40 extension: `filters` is also part of the cache key (serialized via
+ *  `cacheKeyForFilters` for stable string equality). */
 export function useDatasetRowsQuery(
   id: string | undefined,
   page: number,
   pageSize: number,
   q: string | undefined,
+  filters?: FilterSet,
 ) {
+  const filtersKey = cacheKeyForFilters(filters);
   return useQuery<RowsPage>({
-    queryKey: [...DATASETS_QUERY_KEY, { id }, 'rows', { page, pageSize, q }] as const,
-    queryFn: () => datasetsApi.getRows(id as string, page, pageSize, q),
+    queryKey: [
+      ...DATASETS_QUERY_KEY,
+      { id },
+      'rows',
+      { page, pageSize, q, filters: filtersKey },
+    ] as const,
+    queryFn: () => datasetsApi.getRows(id as string, page, pageSize, q, filters),
     enabled: typeof id === 'string',
     // Keep the previous page visible while a new query loads (AntD
     // `<Table loading>` overlay handles the visual; this just prevents

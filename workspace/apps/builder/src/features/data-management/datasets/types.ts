@@ -124,11 +124,18 @@ export type CommitBatchResponse = Dataset[];
  *  Mirrors `workspace/packages/contracts/datasets/rows-get.contract.yaml`.
  *  Cells are stringified BE-side via DuckDB `CAST(... AS VARCHAR)`; the FE
  *  re-applies dtype-aware display formatting via `formatCell()` using the
- *  parent `Dataset.columns[].dtype`. */
+ *  parent `Dataset.columns[].dtype`. R40 extended: `total` reflects the
+ *  AND-composed matched count under (optional) `?q=` and (optional)
+ *  `f<N>_*` per-column filters. */
 export type RowsPage = {
   rows: (string | null)[][];
   page: number;
   pageSize: number;
-  /** Matched-row count when `q` is set; full `Dataset.rowCount` otherwise. */
+  /** Matched-row count under the active predicate set; equals
+   *  `Dataset.rowCount` when no predicates are active. */
   total: number;
 };
+
+// Re-export per-column filter types so callers can import from the
+// datasets feature root without reaching into the filters/ subdir.
+export type { FilterPredicate, FilterSet, Operator } from './filters/types';

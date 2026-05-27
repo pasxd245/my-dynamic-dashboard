@@ -144,6 +144,44 @@
         "date": "date",
         "datetime": "datetime"
       }
+    },
+    "filters": {
+      "triggerAria": "Filter {{column}}",
+      "popoverTitle": "Filter \"{{column}}\"",
+      "operatorLabel": "Operator",
+      "valueLabel": "Value",
+      "rangeFromLabel": "From",
+      "rangeToLabel": "To",
+      "apply": "Apply",
+      "cancel": "Cancel",
+      "clearFilter": "Clear filter",
+      "chipsLabel": "Active filters",
+      "clearAll": "Clear all",
+      "boolValueHint": "No value needed for this operator",
+      "noMatchFiltersTitle": "No rows match these filters",
+      "noMatchFiltersHint": "Adjust or clear a filter to see more results.",
+      "noMatchBothTitle": "No rows match “{{query}}” with these filters",
+      "noMatchBothHint": "Adjust the search or a filter to see more results.",
+      "op": {
+        "contains": "contains",
+        "equals": "equals",
+        "ne": "≠",
+        "gt": ">",
+        "lt": "<",
+        "gte": "≥",
+        "lte": "≤",
+        "between": "between",
+        "starts_with": "starts with",
+        "ends_with": "ends with",
+        "before": "before",
+        "after": "after",
+        "is_empty": "is empty",
+        "is_not_empty": "is not empty",
+        "is_null": "is null",
+        "is_not_null": "is not null",
+        "is_true": "is true",
+        "is_false": "is false"
+      }
     }
   },
   "upload": {

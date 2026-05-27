@@ -4,8 +4,10 @@ import type {
   CommitBatchRequest,
   CommitBatchResponse,
   Dataset,
+  FilterSet,
   RowsPage,
 } from '@/features/data-management/datasets/types';
+import { serializeFiltersToSearchParams } from '@/features/data-management/datasets/filters/serialize';
 
 // R28: was hardcoded `import.meta.env.VITE_API_BASE_URL ?? "..."`.
 const API_BASE_URL = appConfig.apiBaseUrl();
@@ -70,15 +72,17 @@ export const datasetsApi = {
     return readJson<Dataset>(resp);
   },
 
-  /** R36: GET /datasets/{id}/rows — paged rows with optional substring filter.
-   *  Mirrors workspace/packages/contracts/datasets/rows-get.contract.yaml.
-   *  `q` is omitted from the URL when empty/undefined so the BE branch is
-   *  the unfiltered paged read. */
+  /** R36: GET /datasets/{id}/rows — paged rows with optional substring
+   *  filter + R40 per-column `f<N>_*` filters. Mirrors
+   *  workspace/packages/contracts/datasets/rows-get.contract.yaml.
+   *  `q` is omitted when empty/undefined; `filters` is omitted when
+   *  empty so the BE branch is the unfiltered paged read. */
   async getRows(
     id: string,
     page: number,
     pageSize: number,
     q?: string,
+    filters?: FilterSet,
   ): Promise<RowsPage> {
     const params = new URLSearchParams({
       page: String(page),
@@ -86,6 +90,9 @@ export const datasetsApi = {
     });
     if (q) {
       params.set('q', q);
+    }
+    if (filters && filters.length > 0) {
+      serializeFiltersToSearchParams(params, filters);
     }
     const resp = await fetch(`${API_BASE_URL}/datasets/${id}/rows?${params.toString()}`);
     return readJson<RowsPage>(resp);

@@ -204,4 +204,183 @@ describe("DatasetDetailPage", () => {
     expect(matches.length).toBeGreaterThan(0);
     expect(screen.getByText("Back to Datasets")).toBeInTheDocument();
   });
+
+  // ─── R40: per-column f<N>_* filters ─────────────────────────────────
+
+  it("parses f<N>_* URL params and sends them to the BE on initial render", async () => {
+    const fetchMock = installFetch(async (input) => {
+      const url = typeof input === "string" ? input : input.toString();
+      if (url.endsWith("/workspaces")) return jsonResponse([WS]);
+      if (url.endsWith(`/datasets/${DS.id}`)) return jsonResponse(DS);
+      if (url.includes(`/rows`)) return jsonResponse(ALICE_PAGE);
+      return new Response("not found", { status: 404 });
+    });
+    // Column 0 is `id` (integer). Pre-set `f0_op=equals&f0_val=1`.
+    renderApp(`/data-management/datasets/${DS.id}?f0_op=equals&f0_val=1`);
+    await screen.findAllByText("leads_q1");
+    await waitFor(() => {
+      const calls = fetchMock.mock.calls.map((c) => String(c[0]));
+      expect(
+        calls.some((u) => u.includes(`/datasets/${DS.id}/rows`) && u.includes("f0_op=equals") && u.includes("f0_val=1")),
+      ).toBe(true);
+    });
+  });
+
+  it("renders the active filter chip with formatted value", async () => {
+    installFetch(async (input) => {
+      const url = typeof input === "string" ? input : input.toString();
+      if (url.endsWith("/workspaces")) return jsonResponse([WS]);
+      if (url.endsWith(`/datasets/${DS.id}`)) return jsonResponse(DS);
+      if (url.includes(`/rows`)) return jsonResponse(ALICE_PAGE);
+      return new Response("not found", { status: 404 });
+    });
+    renderApp(
+      `/data-management/datasets/${DS.id}?f1_op=equals&f1_val=alice%40example.com`,
+    );
+    await screen.findAllByText("leads_q1");
+    // Chip text format: "<col> <op> <value>"
+    await waitFor(() => {
+      expect(screen.getByText(/email equals alice@example.com/)).toBeInTheDocument();
+    });
+    // The chip row also shows the "Active filters" label and Clear all link.
+    expect(screen.getByText("Active filters")).toBeInTheDocument();
+    expect(screen.getByText("Clear all")).toBeInTheDocument();
+  });
+
+  it("AND-composes ?q= and f<N>_* in the rows-GET URL", async () => {
+    const fetchMock = installFetch(async (input) => {
+      const url = typeof input === "string" ? input : input.toString();
+      if (url.endsWith("/workspaces")) return jsonResponse([WS]);
+      if (url.endsWith(`/datasets/${DS.id}`)) return jsonResponse(DS);
+      if (url.includes(`/rows`)) return jsonResponse(ALICE_PAGE);
+      return new Response("not found", { status: 404 });
+    });
+    renderApp(
+      `/data-management/datasets/${DS.id}?q=alice&f0_op=gt&f0_val=0`,
+    );
+    await screen.findAllByText("leads_q1");
+    await waitFor(() => {
+      const calls = fetchMock.mock.calls.map((c) => String(c[0]));
+      expect(
+        calls.some(
+          (u) =>
+            u.includes(`/datasets/${DS.id}/rows`) &&
+            u.includes("q=alice") &&
+            u.includes("f0_op=gt") &&
+            u.includes("f0_val=0"),
+        ),
+      ).toBe(true);
+    });
+  });
+
+  it("renders the filter-only no-match state with a Clear all button", async () => {
+    installFetch(async (input) => {
+      const url = typeof input === "string" ? input : input.toString();
+      if (url.endsWith("/workspaces")) return jsonResponse([WS]);
+      if (url.endsWith(`/datasets/${DS.id}`)) return jsonResponse(DS);
+      if (url.includes(`/rows`)) return jsonResponse(NO_MATCH_PAGE);
+      return new Response("not found", { status: 404 });
+    });
+    renderApp(`/data-management/datasets/${DS.id}?f0_op=equals&f0_val=999`);
+    await screen.findAllByText("leads_q1");
+    expect(await screen.findByText("No rows match these filters")).toBeInTheDocument();
+    // The in-state Clear all + the chip-row Clear all — both render.
+    expect(screen.getAllByText("Clear all").length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("renders the combined ?q= + filters no-match state with both Clear affordances", async () => {
+    installFetch(async (input) => {
+      const url = typeof input === "string" ? input : input.toString();
+      if (url.endsWith("/workspaces")) return jsonResponse([WS]);
+      if (url.endsWith(`/datasets/${DS.id}`)) return jsonResponse(DS);
+      if (url.includes(`/rows`)) return jsonResponse(NO_MATCH_PAGE);
+      return new Response("not found", { status: 404 });
+    });
+    renderApp(
+      `/data-management/datasets/${DS.id}?q=ZZZ&f0_op=equals&f0_val=999`,
+    );
+    await screen.findAllByText("leads_q1");
+    expect(
+      await screen.findByText(/No rows match.*with these filters/),
+    ).toBeInTheDocument();
+    // In-state "Clear" (for ?q=) + "Clear all" (for filters) + the chip-row "Clear all".
+    expect(screen.getAllByText("Clear").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("Clear all").length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("removing a chip strips the f<N>_* params from the URL and re-fetches unfiltered", async () => {
+    const fetchMock = installFetch(async (input) => {
+      const url = typeof input === "string" ? input : input.toString();
+      if (url.endsWith("/workspaces")) return jsonResponse([WS]);
+      if (url.endsWith(`/datasets/${DS.id}`)) return jsonResponse(DS);
+      if (url.includes("f0_op=")) return jsonResponse(ALICE_PAGE);
+      if (url.includes(`/rows`)) return jsonResponse(FULL_PAGE);
+      return new Response("not found", { status: 404 });
+    });
+    renderApp(`/data-management/datasets/${DS.id}?f0_op=equals&f0_val=1`);
+    await screen.findAllByText("leads_q1");
+    // The chip renders.
+    const chip = await screen.findByText(/id equals 1/);
+    expect(chip).toBeInTheDocument();
+    // AntD <Tag closable> renders a close icon as `.ant-tag-close-icon`.
+    const chipContainer = chip.closest('[data-component="ActiveFilterChip"]');
+    expect(chipContainer).not.toBeNull();
+    const closeBtn = chipContainer!.querySelector('.ant-tag-close-icon');
+    expect(closeBtn).not.toBeNull();
+    fireEvent.click(closeBtn!);
+    await waitFor(() => {
+      const calls = fetchMock.mock.calls.map((c) => String(c[0]));
+      // After removal: a rows-GET should fire without any f0_* params.
+      const lastRowsCall = [...calls].reverse().find((u) => u.includes(`/rows`));
+      expect(lastRowsCall).toBeDefined();
+      expect(lastRowsCall!.includes("f0_op=")).toBe(false);
+    });
+  });
+
+  it("OPS_BY_DTYPE matches the R37/R39 vocabulary table verbatim", async () => {
+    // Defensive: any amendment to the R37 vocabulary must update both
+    // the FE OPS_BY_DTYPE and the BE OPS_BY_DTYPE together. The BE-side
+    // R39 test asserts the BE half; this asserts the FE half.
+    const { OPS_BY_DTYPE } = await import(
+      "@/features/data-management/datasets/filters/types"
+    );
+    expect(OPS_BY_DTYPE.string).toEqual([
+      "contains",
+      "equals",
+      "starts_with",
+      "ends_with",
+      "is_empty",
+      "is_not_empty",
+      "is_null",
+      "is_not_null",
+    ]);
+    expect(OPS_BY_DTYPE.integer).toEqual([
+      "equals",
+      "ne",
+      "gt",
+      "lt",
+      "gte",
+      "lte",
+      "between",
+      "is_null",
+      "is_not_null",
+    ]);
+    expect(OPS_BY_DTYPE.float).toEqual(OPS_BY_DTYPE.integer);
+    expect(OPS_BY_DTYPE.date).toEqual([
+      "equals",
+      "ne",
+      "before",
+      "after",
+      "between",
+      "is_null",
+      "is_not_null",
+    ]);
+    expect(OPS_BY_DTYPE.datetime).toEqual(OPS_BY_DTYPE.date);
+    expect(OPS_BY_DTYPE.boolean).toEqual([
+      "is_true",
+      "is_false",
+      "is_null",
+      "is_not_null",
+    ]);
+  });
 });

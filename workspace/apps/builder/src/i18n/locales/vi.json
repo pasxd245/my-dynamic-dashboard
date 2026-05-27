@@ -144,6 +144,44 @@
         "date": "ngày",
         "datetime": "thời gian"
       }
+    },
+    "filters": {
+      "triggerAria": "Lọc {{column}}",
+      "popoverTitle": "Lọc \"{{column}}\"",
+      "operatorLabel": "Phép so sánh",
+      "valueLabel": "Giá trị",
+      "rangeFromLabel": "Từ",
+      "rangeToLabel": "Đến",
+      "apply": "Áp dụng",
+      "cancel": "Huỷ",
+      "clearFilter": "Xoá bộ lọc",
+      "chipsLabel": "Bộ lọc đang áp dụng",
+      "clearAll": "Xoá tất cả",
+      "boolValueHint": "Phép so sánh này không cần giá trị",
+      "noMatchFiltersTitle": "Không có dòng nào khớp với các bộ lọc này",
+      "noMatchFiltersHint": "Điều chỉnh hoặc xoá một bộ lọc để xem thêm kết quả.",
+      "noMatchBothTitle": "Không có dòng nào khớp với “{{query}}” và các bộ lọc này",
+      "noMatchBothHint": "Điều chỉnh từ khoá hoặc một bộ lọc để xem thêm kết quả.",
+      "op": {
+        "contains": "chứa",
+        "equals": "bằng",
+        "ne": "≠",
+        "gt": ">",
+        "lt": "<",
+        "gte": "≥",
+        "lte": "≤",
+        "between": "trong khoảng",
+        "starts_with": "bắt đầu bằng",
+        "ends_with": "kết thúc bằng",
+        "before": "trước",
+        "after": "sau",
+        "is_empty": "rỗng",
+        "is_not_empty": "không rỗng",
+        "is_null": "là null",
+        "is_not_null": "không phải null",
+        "is_true": "là đúng",
+        "is_false": "là sai"
+      }
     }
   },
   "upload": {
