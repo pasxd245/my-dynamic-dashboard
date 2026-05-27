@@ -1,8 +1,19 @@
 ---
+# ─── Identity ─────────────────────────────────────────────────────
 decided: YYYY-MM-DD
-status: active
-revisit-when: <named trigger — round id, event, or measurable condition>
-tracks: <1 | 2 | 3 | combinations like "2,3">
+source-round: <RNN | "conv:YYYY-MM-DD" | memory file>
+
+# ─── Classification ───────────────────────────────────────────────
+track: <1 | 2 | 3>
+status: <proposed | active | landed | parked | superseded>
+
+# ─── Substance ────────────────────────────────────────────────────
+applies-when: <one-line scope — WHERE / WHEN this constrains>
+failure-mode: <one-line — WHAT bad outcome this guards against>
+
+# ─── Lifecycle ────────────────────────────────────────────────────
+revisit-trigger: <named condition — round, event, or measurable threshold>
+promoted-to: <path | null>
 ---
 
 # Decision: <one-line title>
@@ -12,7 +23,8 @@ tracks: <1 | 2 | 3 | combinations like "2,3">
 ## Why
 
 <The pull that produced this decision. Cite the conversation date, round
-id, memory file, or product gap. State the failure mode this prevents.>
+id, memory file, or product gap. State the failure mode this prevents
+(also captured in `failure-mode:` for retrieval).>
 
 ## What this allows
 
@@ -27,4 +39,4 @@ id, memory file, or product gap. State the failure mode this prevents.>
 <What we are giving up by binding ourselves this way, and why the
 alternative is worse.>
 
-_Track: {1|2|3}. Pulled by: <round id | memory file | conversation date | product gap>._
+*Track: {1|2|3}. Pulled by: <round id | memory file | conversation date | product gap>.*

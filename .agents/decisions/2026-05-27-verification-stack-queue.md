@@ -1,8 +1,19 @@
 ---
+# Identity
 decided: 2026-05-27
+source-round: conv:2026-05-27
+
+# Classification
+track: 2
 status: active
-revisit-when: each queued item's named trigger fires, or a new failure mode pulls a reorder
-tracks: 2
+
+# Substance
+applies-when: any Track-2 verification investment is proposed (MSW, Playwright, decisions register, preview-HTML, retriever, etc.)
+failure-mode: bundling multiple verification angles into one round re-creates the very drift this queue prevents
+
+# Lifecycle
+revisit-trigger: each queued item's named trigger fires, or a new failure mode pulls a reorder
+promoted-to: null
 ---
 
 # Decision: Verification stack — ordered queue with named triggers

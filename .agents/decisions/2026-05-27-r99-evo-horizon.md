@@ -1,8 +1,19 @@
 ---
+# Identity
 decided: 2026-05-27
+source-round: conv:2026-05-27
+
+# Classification
+track: 3
 status: active
-revisit-when: Round 99 reached, OR a named-failure event invalidates the horizon
-tracks: 3
+
+# Substance
+applies-when: any Track-3 work is proposed before Round 99 (system-building beyond artifacts)
+failure-mode: drifted iteration — Track-2/3 scaffolding outruns Track-1 pull, repo accretes unused complexity (R5→R40 of the previous iteration)
+
+# Lifecycle
+revisit-trigger: Round 99 reached, OR a named-failure event invalidates the horizon
+promoted-to: null
 ---
 
 # Decision: No Track-3 system-building before R99
