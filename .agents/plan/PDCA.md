@@ -132,6 +132,36 @@ below.
 
 ---
 
+## Brainstorm lifecycle (optional)
+
+When a decision needs more exploration than fits inline in the
+decision file's `## Why`, the pre-decision analysis lives in a
+brainstorm chain:
+
+```text
+plan/brainstorms/<YYYY-MM-DD>-<slug>/
+  README.md                    — chain order + one-line role per doc
+  <docs that produced the decision>
+```
+
+Flow: **brainstorm chain → decision artifact → applying round**. The
+brainstorm captures exploration; the decision (in `.agents/decisions/`)
+is the committed paraphrase; the round (in `cycles/`) is the work that
+writes the decision and any artifact edits.
+
+The convention is **optional** — most rounds skip brainstorms and put
+their full rationale inline in `## Why`. Use a chain only when the
+analysis is multi-doc, multi-step, or genuinely worth preserving as
+historical record. Brainstorm docs are not edited after the decision
+lands.
+
+Worked example:
+[`plan/brainstorms/2026-05-28-hybrid-flow/`](brainstorms/2026-05-28-hybrid-flow/)
+→ [`Round_47.md`](cycles/Round_47.md) →
+`.agents/decisions/2026-05-28-hybrid-flow-governance.md` (R47 output).
+
+---
+
 ## Round Template
 
 ```markdown

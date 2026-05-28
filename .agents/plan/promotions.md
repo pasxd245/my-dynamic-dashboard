@@ -152,3 +152,25 @@ different feature would justify lifting the sub-rule into the
 the amendment extends what's already in `context/`, doesn't
 replace it.
 **Promoted by**: pasxd245 (Round_22, same authorization basis).
+
+## 2026-05-28: Brainstorm-housing convention → `plan/PDCA.md` + `plan/brainstorms/`
+
+**Source**: [Round_46](cycles/Round_46.md) (brainstorm-housing
+convention). Added a new doc area at
+`.agents/plan/brainstorms/<YYYY-MM-DD>-<slug>/` and a
+`## Brainstorm lifecycle (optional)` section to `PDCA.md` between
+Naming Convention and Round Template, naming the
+brainstorm → decision → round flow. First instance:
+[`brainstorms/2026-05-28-hybrid-flow/`](brainstorms/2026-05-28-hybrid-flow/)
+(4 docs + README), consumed by R47.
+**Rationale**: Multi-doc pre-decision brainstorm chains need a
+durable home with a discoverable convention. The pattern is
+**optional**, not mandatory: most rounds keep rationale inline in
+`## Why`; the chain shape exists for the cases where pre-decision
+analysis is multi-doc and worth preserving as historical record.
+Track-1 anchor (per Evolution Rule): DCBF chain experiment
+(R14→R21) yielded fair-only results for over-effort, D-phase
+overwhelmed as design-corpus scope grew — pulled the DCFBI/DFCFBI
+pivot that R47 codifies, which pulled R46 as enabling plumbing.
+**Promoted by**: pasxd245 (Round_46, explicit AskUserQuestion
+approval 2026-05-28: "Yes — short section in PDCA.md").
