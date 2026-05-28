@@ -7,7 +7,7 @@
 > agents/sessions. Use vertical-slice rounds only when bench pressure
 > is high and learning isn't the round's primary product.
 
-_Track: agent-method. Pulled by: three concrete instances
+_Track: 2 (agent-method). Pulled by: three concrete instances
 ([Round 15](../plan/cycles/Round_15.md) contract,
 [Round 16](../plan/cycles/Round_16.md) BE,
 [Round 17](../plan/cycles/Round_17.md) FE) under
