@@ -113,6 +113,19 @@ Before flipping a round from `Review` to `Complete`, verify:
       lists belong in `memory/` or a skill, not here. Aim for the
       leanest expression that still teaches the rule.
 - [ ] `npx markdownlint-cli2` repo-wide returns 0 errors.
+- [ ] **Optional**: `python3 .agents/skills/markdown-check-link/scripts/check_links.py --changed`
+      to verify the round didn't introduce link rot. The
+      `--changed` flag scopes to git-changed `.md` files only
+      (unstaged + staged + untracked) — the right scope for
+      post-round verification. Skip if the round didn't touch
+      any `.md`. See
+      [`.agents/skills/markdown-check-link/SKILL.md`](../skills/markdown-check-link/SKILL.md)
+      for the procedure (default-mode report at
+      `.agents/tmp/markdown-check-link/broken.md`,
+      ambiguous candidates in `conflicts.json`; opt-in `--fix`
+      is round-author gated). A full-corpus sweep
+      (without `--changed`) is a separate cleanup activity, not
+      part of routine audit.
 
 ---
 

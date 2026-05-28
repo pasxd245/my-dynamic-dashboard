@@ -242,3 +242,54 @@ Track-1 anchor: same DCBF→DCFBI break-point that pulled R46→R48.
 
 **Promoted by**: pasxd245 (Round_49, explicit authorization
 2026-05-28: "proceed" after planning review).
+
+## 2026-05-29: `markdown-check-link` skill → `.agents/skills/markdown-check-link/` + PDCA bullet
+
+**Source**: [Round_50](cycles/Round_50.md) (pre-trial link
+integrity tooling). Authored a new **dependent** skill at
+[`.agents/skills/markdown-check-link/SKILL.md`](../skills/markdown-check-link/SKILL.md)
+with a bundled stdlib-only Python script
+[`scripts/check_links.py`](../skills/markdown-check-link/scripts/check_links.py)
+that verifies markdown links resolve to existing files +
+headings. Default scope reads
+[`.markdownlint-cli2.jsonc`](../../.markdownlint-cli2.jsonc)
+`globs` + `ignores` as the single source of truth for "what
+markdown the repo cares about"; falls back to
+`.agents/**/*.md` if the config is missing; raises an error
+if the config is present but unparseable (don't silently
+shadow a broken source of truth). Every run writes
+`links.json` (full inventory) + `broken.md` (grouped
+human-readable report) under
+`.agents/tmp/markdown-check-link/` (gitignored). Opt-in
+auto-correct via `--fix` / `--dry-run` applies only three
+conservative candidates (case-only path, case-only
+fragment, single unambiguous basename); anything else
+stays as a suggestion in the report. Skill indexed in
+[`.agents/skills/README.md`](../skills/README.md) under
+`## Dependent skills`. One new **optional** bullet in
+[`PDCA.md § Post-round audit`](PDCA.md) names the skill
+as a companion to `markdownlint-cli2` — not mandatory, to
+avoid gate-theater per the Hybrid Flow doctrine.
+
+**Rationale**: R49 Risks named the load-bearing failure
+mode (AGENTS.md horizons bullet pointing at a non-existent
+README → every session-load hits a broken link); R48's
+archive operation surfaced the same drift shape across the
+corpus. The DCFBI/DFCFBI chain (R47) expands cross-link
+surface dramatically — round files cite decisions,
+decisions cite design, gate-walker output cites round
+files. R50 ships the structural fix before R51's first
+trial reaches the surface. Skill is intentionally
+*dependent* (generic, no round-file coupling) — peer to
+`research`, callable from any task. Track-1 anchor: same
+DCBF→DCFBI break-point that pulled R46→R49; R50 closes the
+pre-trial tooling gap.
+
+**Follow-up gated at Review**: 192 broken links surfaced
+on R50's own self-test run, mostly R48-archive trail +
+contract-file `../` depth bug. The decision whether to
+invoke `--fix` (and against which subset) is user-gated
+at Review per R50 plan direction.
+
+**Promoted by**: pasxd245 (Round_50, explicit authorization
+2026-05-28: "go ahead" after iterative planning review).

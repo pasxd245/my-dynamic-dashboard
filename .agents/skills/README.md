@@ -2,11 +2,10 @@
 
 Skills extend Claude's capabilities with named, reusable procedures.
 This directory is the **durable, version-controlled home** for skills
-this repo ships. Each skill has a sibling **`skill-ref` pointer**
-under [`../../.claude/skills/`](../../.claude/skills/) so Claude
-Code's runtime discovers it at session load.
+this repo ships. Each skill can have a sibling **`skill-ref` pointer**,
+ex: under [`../../.claude/skills/`](../../.claude/skills/) so Claude Code's runtime discovers it at session load.
 
-Skills follow the Claude Code Agent Skills schema
+Skills follow the Claude Code Agent Skills schema:
 ([code.claude.com/docs/en/skills](https://code.claude.com/docs/en/skills)).
 
 ## Layout
@@ -72,6 +71,21 @@ Bundles
 [`references/crawl4ai.md`](research/references/crawl4ai.md) +
 [`scripts/crawl4ai_recursive.py`](research/scripts/crawl4ai_recursive.py)
 for browser-backed multi-page crawling when web research needs it.
+
+### [`markdown-check-link`](markdown-check-link/SKILL.md)
+
+Verify markdown links resolve to existing files and headings.
+Default scope reads
+[`.markdownlint-cli2.jsonc`](../../.markdownlint-cli2.jsonc)
+`globs` + `ignores` (single source of truth for "what markdown
+the repo cares about"); falls back to `.agents/**/*.md` if the
+config is missing. Emits `links.json` + `broken.md` under
+`.agents/tmp/markdown-check-link/` on every run. Opt-in
+auto-correct (`--fix` / `--dry-run`) applies only the three
+conservative candidates (case-only path, case-only fragment,
+single unambiguous basename); anything else stays as a
+suggestion in the report. Invoke as an optional companion to
+`npx markdownlint-cli2` in the post-round audit.
 
 ## Adding a skill
 
