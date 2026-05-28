@@ -5,7 +5,7 @@
 > lessons from drifted route through this file instead of
 > redocumenting the context.
 
-_Track: agent-method. Pulled by: [Round 10](../plan/cycles/Round_10.md)
+_Track: 2 (agent-method). Pulled by: [Round 10](../plan/cycles/Round_10.md)
 HIxAI review (citation-rot risk needed a structural answer).
 Promoted in the same review pass that closed Round 10._
 
