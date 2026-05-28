@@ -22,7 +22,7 @@ reused here),
 filters layered on this page; R37 design, R38→R40 impl chain),
 [workspace-shell.target.md](workspace-shell.target.md) (the chrome
 this page renders inside), and
-[dataset-detail.preview.html](dataset-detail.preview.html) (visual
+[dataset-detail.preview.html](_archive/dataset-detail.preview.html) (visual
 preview of the populated / loading / 404 / zero-rows / no-match
 states).
 

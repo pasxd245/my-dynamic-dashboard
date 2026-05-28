@@ -5,7 +5,7 @@
 ## Purpose
 
 Phase 1 of the **two-phase upload** flow described in
-[upload.md](../../../.agents/design/data-management/upload.md).
+[upload.md](../../../../.agents/design/data-management/upload.md).
 A single multipart POST:
 
 1. Receives a CSV or Excel file from the wizard's Source step.
@@ -28,7 +28,7 @@ only at commit time via
 
 - **Two-phase rationale.** Splitting upload-and-parse from commit
   serves two purposes: failed parses never leak Dataset rows
-  (Q12 in [upload.md](../../../.agents/design/data-management/upload.md)),
+  (Q12 in [upload.md](../../../../.agents/design/data-management/upload.md)),
   and the user can revise the parse (range, has_header, dtypes)
   before committing. Excel's per-sheet split additionally keeps
   the initial wait short on workbooks with 10+ sheets when the
@@ -150,5 +150,5 @@ Content-Type: application/json
 - [parse.contract.yaml](parse.contract.yaml) — Phase 2 (Excel-only
   per-sheet parse)
 - [`../datasets/batch-post.contract.md`](../datasets/batch-post.contract.md) — commit step
-- [upload.md](../../../.agents/design/data-management/upload.md) — design doc + wizard ASCII
+- [upload.md](../../../../.agents/design/data-management/upload.md) — design doc + wizard ASCII
 - [`../_shared/temp-upload.yaml`](../_shared/temp-upload.yaml) — response shapes

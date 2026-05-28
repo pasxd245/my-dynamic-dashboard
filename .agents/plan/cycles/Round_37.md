@@ -346,7 +346,7 @@ Self-contained Tailwind-CDN HTML preview following
 - **Token map** cites 18 tokens against
   [themeTokens.ts](../../../workspace/packages/ui/src/themeTokens.ts)
   (via the
-  [`tokens.css`](../../design/_css/tokens.css) mirror). No new
+  [`tokens.css`](../../design/_archive/_css/tokens.css) mirror). No new
   token values introduced.
 - **Behavior** section uses Mermaid `stateDiagram-v2` for the
   popover lifecycle (Idle → PopoverOpen → PopoverEditing →
@@ -371,7 +371,7 @@ Self-contained Tailwind-CDN HTML preview following
 
 **Preview HTML.**
 
-- [`dataset-filters.preview.html`](../../design/data-management/dataset-filters.preview.html)
+- [`dataset-filters.preview.html`](../../design/data-management/_archive/dataset-filters.preview.html)
   authored. Self-contained Tailwind-CDN preview, reuses the
   master-layout chrome via `../_css/{tokens.css,
   preview-shell.css}`.

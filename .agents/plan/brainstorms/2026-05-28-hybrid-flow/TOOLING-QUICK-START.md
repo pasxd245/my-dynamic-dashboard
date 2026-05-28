@@ -124,5 +124,5 @@ Escalate Phase 1 tasks to next available agent or session. All 4 tasks are indep
 
 - Full analysis: [TOOLING-ANALYSIS-2026-05-28.md](TOOLING-ANALYSIS-2026-05-28.md)
 - Design methodology: [README.md](README.md)
-- DCBF context: [../../../context/contract-driven-feature.md](../../../context/contract-driven-feature.md)
+- DCBF context: [../../../context/contract-driven-feature.md](../../../context/_archive/contract-driven-feature.md)
 - Design-first lesson: [../../../memory/2026-05-24-design-first-reframe-absorption.md](../../../memory/2026-05-24-design-first-reframe-absorption.md)

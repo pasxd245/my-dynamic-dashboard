@@ -40,7 +40,7 @@ the first piece); R07 Follow-ups (R08 candidate chain). Per
   `DatabaseOutlined`); future rounds extend the table when they
   add nav-items.
 - **Preview update** to
-  [.agents/design/data-management/workspace-shell.preview.html](../../design/data-management/workspace-shell.preview.html):
+  [.agents/design/data-management/workspace-shell.preview.html](../../design/data-management/_archive/workspace-shell.preview.html):
   replace the `▣` text glyph with an inline SVG copied from the
   actual rendered AntD icon (single copy, frozen) — this keeps
   the preview's "~90% fidelity" promise honest now that production
@@ -94,7 +94,7 @@ the first piece); R07 Follow-ups (R08 candidate chain). Per
       → "Represents the underlying DuckDB store; signals 'data
       work, not chrome.'" R08 in the round-added column.
 - [x] Updated
-      [workspace-shell.preview.html](../../design/data-management/workspace-shell.preview.html):
+      [workspace-shell.preview.html](../../design/data-management/_archive/workspace-shell.preview.html):
       `▣` text glyph replaced with the actual SVG markup from
       `@ant-design/icons-svg@4.4.2`'s `DatabaseOutlined.js`
       (path data copied verbatim). Added `.mdd-nav-icon svg`

@@ -17,7 +17,7 @@ implementation chain begins R38 (contract), R39 (BE), R40 (FE).
 [datasets.md](datasets.md) (where the `Dataset.columns[].dtype`
 field is defined),
 [upload.md](upload.md) (the upstream dtype inference),
-[dataset-filters.preview.html](dataset-filters.preview.html) (visual
+[dataset-filters.preview.html](_archive/dataset-filters.preview.html) (visual
 preview of the chip row + per-dtype popover variants).
 
 ---

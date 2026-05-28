@@ -8,7 +8,7 @@
 
 **Inherits from ← [Round_18](Round_18.md)** — DCBF methodology
 promoted to
-[`context/contract-driven-feature.md`](../../context/contract-driven-feature.md);
+[`context/contract-driven-feature.md`](../../context/_archive/contract-driven-feature.md);
 R18's Feeds-into named "parse-options + re-parse — DCBF chain" as
 candidate #1; user explicitly pulled it after R18 Complete with
 the framing _"let try 1 more time the DCBF to have more evidence
@@ -25,7 +25,7 @@ implementation chain needs to consume.
 Methodology stake: this is the **second instance** of the full
 DCBF chain. After R22 closes, the methodology will have two
 concrete feature-shape examples (upload + parse-options); that's
-when [the `skills/` promotion bar](../../context/contract-driven-feature.md)
+when [the `skills/` promotion bar](../../context/_archive/contract-driven-feature.md)
 becomes evaluable (R17's Act deferred this pending "a non-toy
 second feature").
 
@@ -33,7 +33,7 @@ _Track: 2 (agent-method — methodology evidence) + 1 (product —
 closing the parse-options gap R18 surfaced). Pulled by:
 [Round 18](Round_18.md) Feeds-into § "R19 candidates" #1 + user
 explicit pick after R18 Complete. Per
-[contract-driven-feature.md](../../context/contract-driven-feature.md)
+[contract-driven-feature.md](../../context/_archive/contract-driven-feature.md)
 the D-step output is the locked design + open-questions table; no
 code changes._
 
@@ -93,7 +93,7 @@ shape + ParseOptions schema tighten)`.
 - [x] Author Round_19.md (this file) and flip to `In Progress`.
 - [x] Re-read the parse-options sections in
       [upload.md](../../design/data-management/upload.md) and
-      [upload.preview.html](../../design/data-management/upload.preview.html).
+      [upload.preview.html](../../design/data-management/_archive/upload.preview.html).
 - [x] Re-read the locked parse-related contract surface
       ([\_shared/parse-options.yaml](../../../workspace/packages/contracts/_shared/parse-options.yaml),
       [parse.contract.yaml](../../../workspace/packages/contracts/uploads/parse.contract.yaml))
@@ -269,7 +269,7 @@ the correction):
    so the chain compresses").
 
 R∞ candidate refinements of
-[`context/contract-driven-feature.md`](../../context/contract-driven-feature.md)
+[`context/contract-driven-feature.md`](../../context/_archive/contract-driven-feature.md)
 (hold the edit until R21 (F) closes — that's when two
 instances exist):
 
@@ -389,7 +389,7 @@ waits for R20 (F) close + a re-evaluation.
   async surfaces. **Not a methodology promotion candidate** —
   just a product UX backlog item.
 - After R20 (F) ships, re-read
-  [`context/contract-driven-feature.md`](../../context/contract-driven-feature.md)
+  [`context/contract-driven-feature.md`](../../context/_archive/contract-driven-feature.md)
   and consider adding a one-liner under "When _not_ to use
   DCBF" pointing at R19 as the worked example of "D-step
   discovers no chain needed."

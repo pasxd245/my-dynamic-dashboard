@@ -179,7 +179,7 @@ approval 2026-05-28: "Yes — short section in PDCA.md").
 
 **Source**: [Round_47](cycles/Round_47.md) (DCFBI/DFCFBI governance
 codification). Written a new decision artifact at
-[`decisions/2026-05-28-hybrid-flow-governance.md`](decisions/2026-05-28-hybrid-flow-governance.md)
+[`decisions/2026-05-28-hybrid-flow-governance.md`](../decisions/2026-05-28-hybrid-flow-governance.md)
 binding **DCFBI default**, **DFCFBI conditional** (2-of-5 flow
 selector), **O-rule cross-cutting invariant** (three truths: UX /
 data behavior / execution), and **F1 timebox** (≤2 working days,
@@ -193,7 +193,7 @@ effort-for-fair-results surfaced via R47's brainstorm chain (see
 the 2026-05-28 entry below). Decision artifact makes the
 operating-model pivot binding from R48 onward; AGENTS.md horizons
 bullet makes it loadable. Track-1 anchor: DCBF chain experience
-(R14→R21, [context/contract-driven-feature.md](../context/contract-driven-feature.md)).
+(R14→R21, [context/contract-driven-feature.md](../context/_archive/contract-driven-feature.md)).
 **Promoted by**: pasxd245 (Round_47, explicit authorization
 2026-05-28: "go with R47").
 

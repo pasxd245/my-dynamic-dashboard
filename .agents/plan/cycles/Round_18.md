@@ -125,7 +125,7 @@ promotion bar in [governance.md](../../context/governance.md)
       `cd workspace/apps/backend && uv run pytest`,
       `pnpm md:lint`, `pnpm format:check`. All green before touching
       the context tree.
-- [x] Draft [`.agents/context/contract-driven-feature.md`](../../context/contract-driven-feature.md)
+- [x] Draft [`.agents/context/contract-driven-feature.md`](../../context/_archive/contract-driven-feature.md)
       capturing: the four-phase shape, per-endpoint contract
       granularity, YAML-is-authoritative + MD-is-annotation,
       hand-aligned types across three layers, BE conformance
@@ -140,7 +140,7 @@ Promoted` on
       [be-round-conformance-pattern](../../memory/2026-05-24-be-round-conformance-pattern.md),
       [fe-round-typecheck-pattern](../../memory/2026-05-24-fe-round-typecheck-pattern.md).
       Add a "**Promoted to**:
-      [`context/contract-driven-feature.md`](../context/contract-driven-feature.md)
+      [`context/contract-driven-feature.md`](../../context/_archive/contract-driven-feature.md)
       (Round_18, YYYY-MM-DD)" line near the top of each.
 - [x] Append promotion log entry to
       [promotions.md](../promotions.md) covering all three memos
@@ -181,7 +181,7 @@ Promoted` on
 ## Risks / unknowns
 
 - **Context-rot risk on the new file.**
-  [`contract-driven-feature.md`](../../context/contract-driven-feature.md)
+  [`contract-driven-feature.md`](../../context/_archive/contract-driven-feature.md)
   loads on every session — bloat is expensive. Mitigation: write
   lean from the start; the three source memos hold the detailed
   how-to and stay reachable via `[[…]]` links. PDCA post-round
@@ -239,7 +239,7 @@ Promoted` on
 ### Promotion landed
 
 - Authored
-  [`.agents/context/contract-driven-feature.md`](../../context/contract-driven-feature.md)
+  [`.agents/context/contract-driven-feature.md`](../../context/_archive/contract-driven-feature.md)
   — five principles, the four phases, the "default = don't
   add" guards, and the "when _not_ to use DCBF" frame. Lean
   expression per PDCA context-rot check; ~130 lines after
@@ -629,7 +629,7 @@ R18 pre-change baseline. The bug-fix didn't change the test count.**
 
 ## Check
 
-- [x] [`.agents/context/contract-driven-feature.md`](../../context/contract-driven-feature.md)
+- [x] [`.agents/context/contract-driven-feature.md`](../../context/_archive/contract-driven-feature.md)
       exists, reads lean, cross-links to the three source memos,
       and re-states the "default = don't add" guards.
 - [x] All three R15/R16/R17 methodology memos show `Status:
@@ -709,8 +709,8 @@ R18 pre-change baseline. The bug-fix didn't change the test count.**
 - **Design previews are load-bearing artifacts, not decoration.**
   Once the user opened the cross-check ("could you do
   cross-check?"), the design previews
-  ([datasets.preview.html](../../design/data-management/datasets.preview.html),
-  [upload.preview.html](../../design/data-management/upload.preview.html))
+  ([datasets.preview.html](../../design/data-management/_archive/datasets.preview.html),
+  [upload.preview.html](../../design/data-management/_archive/upload.preview.html))
   became the spec the FE was failing against. The previews
   encoded ~30 polish decisions that the design markdown didn't
   enumerate (icon-prefix on Name, source-card layout, footnote
@@ -745,7 +745,7 @@ R18 pre-change baseline. The bug-fix didn't change the test count.**
 
 - **Promoted**: the DCBF feature methodology + paired
   conformance discipline to
-  [`context/contract-driven-feature.md`](../../context/contract-driven-feature.md).
+  [`context/contract-driven-feature.md`](../../context/_archive/contract-driven-feature.md).
   Source memos
   [contract-round-methodology](../../memory/2026-05-24-contract-round-methodology.md)
   (R15),
@@ -808,7 +808,7 @@ What R18 hands forward:
 
 - **A promoted, canonical DCBF methodology** loaded into every
   session via
-  [`context/contract-driven-feature.md`](../../context/contract-driven-feature.md).
+  [`context/contract-driven-feature.md`](../../context/_archive/contract-driven-feature.md).
   R19+ multi-layer feature rounds inherit the four-phase shape
   and conformance discipline by default.
 - **A user-verified upload feature** matching the R14 design
@@ -831,7 +831,7 @@ What R18 hands forward:
    contract + BE endpoint for re-parse. Run as a proper DCBF
    chain to keep the methodology honest: Design (already in
    [upload.md](../../design/data-management/upload.md) +
-   [upload.preview.html](../../design/data-management/upload.preview.html)
+   [upload.preview.html](../../design/data-management/_archive/upload.preview.html)
    — likely a small refresh round confirming the spec is still
    right) → Contract (add the CSV re-parse endpoint + tighten
    `ParseOptions` examples) → BE (CSV re-parse handler + tests)

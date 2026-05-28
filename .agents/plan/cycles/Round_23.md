@@ -87,7 +87,7 @@ Operating consequences:
 This philosophy is currently scoped to R23 as a working agreement.
 A future evaluation round (post-POC/MVP, per the user's track-2/3
 freeze) can decide whether to promote it into
-[context/contract-driven-feature.md](../../context/contract-driven-feature.md)
+[context/contract-driven-feature.md](../../context/_archive/contract-driven-feature.md)
 as a sixth principle, or amend the
 [design-first-reframe-absorption memo](../../memory/2026-05-24-design-first-reframe-absorption.md)
 with the viz-first sub-rule. Captured in Follow-ups so the
@@ -153,7 +153,7 @@ choices but is not this round's deliverable._
      Query usage but not the wire.
 - **Chain declaration** at round-end with one-line per-phase
   justification, citing
-  [contract-driven-feature.md § What the D-step decides](../../context/contract-driven-feature.md).
+  [contract-driven-feature.md § What the D-step decides](../../context/_archive/contract-driven-feature.md).
 - **Chain declaration** at the end of the round — explicit
   statement of which downstream rounds (if any) inherit from
   R23, and what each is on the hook for. Cites R22's "What the
@@ -208,7 +208,7 @@ choices but is not this round's deliverable._
       sibling rows (additive R23 stamps; no rewrites).
 - [x] **Chain declaration**: full DCBF — R24 (C), R25 (B),
       R26 (F). Recorded under Act § Feeds into. Cites
-      [contract-driven-feature.md § What the D-step decides](../../context/contract-driven-feature.md).
+      [contract-driven-feature.md § What the D-step decides](../../context/_archive/contract-driven-feature.md).
 - [x] `pnpm md:lint` (repo-wide) and `pnpm format:check` for
       R23-touched MDs.
 - [x] Post-round audit per [PDCA.md § Post-round audit](../PDCA.md).
@@ -327,7 +327,7 @@ into the design doc and preview HTML in lockstep._
   layer table, ASCII layouts for both affordance surfaces and all
   six modal states, wire shape, state-management, BE endpoint
   shape, lifecycle, out-of-scope deferrals, HIxAI Q&A table.
-- [crud-hygiene.preview.html](../../design/data-management/crud-hygiene.preview.html)
+- [crud-hygiene.preview.html](../../design/data-management/_archive/crud-hygiene.preview.html)
   drafted. Two-surface toggle (Workspaces page / Datasets page)
   alongside six modal-state toggle (rename, rename loading,
   rename 409 error, delete-dataset confirm, delete-workspace
@@ -473,7 +473,7 @@ job.
       body — both as inline prose and as the bottom "Open
       questions answered in R23" table.
 - [x] Preview HTML
-      [crud-hygiene.preview.html](../../design/data-management/crud-hygiene.preview.html)
+      [crud-hygiene.preview.html](../../design/data-management/_archive/crud-hygiene.preview.html)
       built; two-surface toggle + six modal states; reuses
       shared shell CSS.
 - [x] Chain declaration in Act § Feeds into names R24 (C),
@@ -553,7 +553,7 @@ round has the thread.
   fit the shape: one cohesive feature spread across multiple
   resource consumers, sharing endpoint shapes and FE components.
   Worth a sentence in
-  [context/contract-driven-feature.md](../../context/contract-driven-feature.md)
+  [context/contract-driven-feature.md](../../context/_archive/contract-driven-feature.md)
   or a memo amendment after the chain closes. Held for the
   post-POC/MVP track-2/3 evaluation round.
 - **Methodology candidate: D-round philosophy formal
@@ -645,7 +645,7 @@ forward" north star follows shortly after.
 **Chain declaration**: full DCBF — R24 (C), R25 (B), R26 (F).
 
 Per the
-[D-step-picks-the-chain rule](../../context/contract-driven-feature.md),
+[D-step-picks-the-chain rule](../../context/_archive/contract-driven-feature.md),
 R23 considered chain truncation and rejected it:
 
 - **C-step survives because the contracts don't exist yet.**

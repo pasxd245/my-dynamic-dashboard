@@ -27,7 +27,7 @@ The **FE running against MSW** (the F or F1 output) is the single source of trut
 
 ## Why
 
-The DCBF chain ([context/contract-driven-feature.md](../context/contract-driven-feature.md), validated R14→R21) shipped clean features but yielded **fair-only results for over-effort**, and the **D-phase became overwhelmed**
+The DCBF chain ([context/contract-driven-feature.md](../context/_archive/contract-driven-feature.md), validated R14→R21) shipped clean features but yielded **fair-only results for over-effort**, and the **D-phase became overwhelmed**
 as design-corpus scope grew (6 issues, 2 critical, flagged in the
 2026-05-28 MEMO-FINDINGS scan of [.agents/design/](../design/)).
 The 2026-05-28 brainstorm chain at [`plan/brainstorms/2026-05-28-hybrid-flow/`](../plan/brainstorms/2026-05-28-hybrid-flow/)
@@ -219,7 +219,7 @@ empirical evidence diverges.
 *Track: 2. Pulled by: 2026-05-28 brainstorm chain at
 [`plan/brainstorms/2026-05-28-hybrid-flow/`](../plan/brainstorms/2026-05-28-hybrid-flow/),
 which itself was pulled by DCBF chain experience (R14→R21,
-[context/contract-driven-feature.md](../context/contract-driven-feature.md)):
+[context/contract-driven-feature.md](../context/_archive/contract-driven-feature.md)):
 over-effort for fair-only results + D-phase overwhelm as
 design-corpus scope grew. Codified by
 [Round_47](../plan/cycles/Round_47.md).*

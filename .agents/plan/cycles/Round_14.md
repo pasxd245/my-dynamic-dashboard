@@ -65,14 +65,14 @@ surface before code lands.**
   - **Lifecycle** — when this design doc amends (each impl round
     closes) vs supersedes (uploads-v2 if the model grows beyond
     CSV).
-- **Author [.agents/design/data-management/upload.preview.html](../../design/data-management/upload.preview.html)**
+- **Author [.agents/design/data-management/upload.preview.html](../../design/data-management/_archive/upload.preview.html)**
   (new preview file — N=2 for `data-management/`, but each preview
   is still N=1 per concept; this is the upload concept's first
   preview, not a zoomed-in workspaces variant):
   - Tailwind via CDN, self-contained, opens directly in browser.
   - Renders inside the master-layout chrome (sidebar, breadcrumb,
     PageHeader, PageCard) — visually consistent with
-    [workspace-shell.preview.html](../../design/data-management/workspace-shell.preview.html).
+    [workspace-shell.preview.html](../../design/data-management/_archive/workspace-shell.preview.html).
     Sidebar: "Data Management" expanded → "Workspaces" active →
     breadcrumb shows `Home ▸ Data Management ▸ Workspaces ▸ Marketing`.
   - Content area shows the workspace detail page: page header
@@ -139,7 +139,7 @@ surface before code lands.**
       model, file-storage decision, parse-time decision, read/
       write boundary, workspace-persistence dependency, lifecycle.
 - [x] Author the high-fidelity preview at
-      [.agents/design/data-management/upload.preview.html](../../design/data-management/upload.preview.html).
+      [.agents/design/data-management/upload.preview.html](../../design/data-management/_archive/upload.preview.html).
       Tailwind CDN; renders inside the master-layout chrome with
       the workspace detail page as content; state toggle for
       zero/uploading/populated/failed; honest framing banner;
@@ -291,7 +291,7 @@ uploads` as a sub-route? **Lean: single page, no tabs** —
   query-key shape `['workspaces', workspaceId, 'uploads']`;
   lifecycle; deferrals list with 13 named triggers.
 - **upload.preview.html authored**
-  ([upload.preview.html](../../design/data-management/upload.preview.html))
+  ([upload.preview.html](../../design/data-management/_archive/upload.preview.html))
   — workspace detail page rendered inside a static-expanded
   master-layout chrome. State toggle (bottom-right) flips between
   the four documented states. CSS token vars mirror
@@ -437,7 +437,7 @@ uploads` as a sub-route? **Lean: single page, no tabs** —
     pre-reframe, three from the reframe).
 - **Preview replaced.** Old `upload.preview.html` (workspace-
   detail-page-centric) removed; new
-  [datasets.preview.html](../../design/data-management/datasets.preview.html)
+  [datasets.preview.html](../../design/data-management/_archive/datasets.preview.html)
   authored — Datasets page (table list with sortable columns,
   workspace filter, status badges, six sample rows including one
   failed) with togglable upload modal overlay. State toggle for
@@ -537,7 +537,7 @@ uploads` as a sub-route? **Lean: single page, no tabs** —
     reframe).
 - **Preview rebuild.**
   - New
-    [upload.preview.html](../../design/data-management/upload.preview.html)
+    [upload.preview.html](../../design/data-management/_archive/upload.preview.html)
     — full-page wizard with the master-layout chrome. Stepper
     at the top of the page-card with active / done / pending
     states. State toggle bottom-right has four buttons:
@@ -547,7 +547,7 @@ uploads` as a sub-route? **Lean: single page, no tabs** —
     in JS to match. `Next / Back` buttons in the wizard nav
     cycle through the steps in code, mirroring the eventual
     production behavior.
-  - [datasets.preview.html](../../design/data-management/datasets.preview.html)
+  - [datasets.preview.html](../../design/data-management/_archive/datasets.preview.html)
     updated in place: modal CSS + markup deleted (~115 lines of
     CSS, ~33 lines of markup, ~17 lines of JS). The `+ Upload`
     button is now `<a href="upload.preview.html">`; the empty-
@@ -557,7 +557,7 @@ uploads` as a sub-route? **Lean: single page, no tabs** —
     removed.
 - **Shared button styles promoted.** `.btn-primary` already
   lived in
-  [`_css/preview-shell.css`](../../design/_css/preview-shell.css);
+  [`_css/preview-shell.css`](../../design/_archive/_css/preview-shell.css);
   `.btn-secondary` joined it in the same file (it's used by
   both Datasets and Upload previews now, and as links in some
   places). Inline copies in both preview files removed.
@@ -656,7 +656,7 @@ uploads` as a sub-route? **Lean: single page, no tabs** —
     names use the Excel `<filename>_<sheet>` pattern where
     appropriate.
 - **Preview rebuild.**
-  - [upload.preview.html](../../design/data-management/upload.preview.html)
+  - [upload.preview.html](../../design/data-management/_archive/upload.preview.html)
     rewritten. Step 1 now has the source-type selector (two
     cards — Excel default, CSV alternative) above the
     workspace picker. New Step 2 shows the Excel sheet picker
@@ -670,7 +670,7 @@ uploads` as a sub-route? **Lean: single page, no tabs** —
     source flow array (`STEPS_EXCEL = 4`, `STEPS_CSV = 3`) so
     Next from Source goes to Sheet (Excel) or directly to
     Preview (CSV).
-  - [datasets.preview.html](../../design/data-management/datasets.preview.html):
+  - [datasets.preview.html](../../design/data-management/_archive/datasets.preview.html):
     Name cells now have the source-format icon prefix (4 of 5
     sample rows are Excel — matching the "Excel primary"
     direction). Empty-state copy generalised from "your first
@@ -752,7 +752,7 @@ uploads` as a sub-route? **Lean: single page, no tabs** —
     Dataset model itself — the per-sheet semantics live in the
     upload wizard, not in the Dataset row.
 - **Preview rebuild (third pass).**
-  - [upload.preview.html](../../design/data-management/upload.preview.html)
+  - [upload.preview.html](../../design/data-management/_archive/upload.preview.html)
     rewritten end-to-end. New Metadata step body with the
     override table (one row per column: Name · Detected · Override
     dropdown · Sample values; the `amount` row's dropdown is
@@ -889,7 +889,7 @@ format?: string }>`.
     The active tab gets a `✗` marker (Excel multi-sheet — one
     bad sheet, other tabs still navigable). `[Deselect this
 sheet]` shows only on Excel.
-  - **Datasets table** ([datasets.preview.html](../../design/data-management/datasets.preview.html)):
+  - **Datasets table** ([datasets.preview.html](../../design/data-management/_archive/datasets.preview.html)):
     rows now show source icons. Four Excel + one CSV in the
     sample data; empty state copy generalised. `+ Upload`
     navigates to the wizard.
@@ -937,7 +937,7 @@ sheet]` shows only on Excel.
       with parallel CSV/Excel arms, `ParseOptions` +
       `ColumnOverride` + `excluded_columns` types, lifecycle,
       named-pull R16+ append-mode deferral.
-- [x] [upload.preview.html](../../design/data-management/upload.preview.html)
+- [x] [upload.preview.html](../../design/data-management/_archive/upload.preview.html)
       exists — rebuilt 3 times across the round. Final state:
       source-selector cards (Excel default · CSV) + workspace
       picker + drop zone in Source; checkbox sheet list in
@@ -947,13 +947,13 @@ sheet]` shows only on Excel.
       multi-row commit table in Confirm. Three-row state
       toggle bottom-right (Source · Step · Tab) with sheet/tab
       hiding on CSV.
-- [x] [datasets.preview.html](../../design/data-management/datasets.preview.html)
+- [x] [datasets.preview.html](../../design/data-management/_archive/datasets.preview.html)
       exists — Datasets table list with workspace filter +
       source-format icon prefix on Name; `+ Upload` navigates
       to the wizard; empty-state drop zone navigates to the
       wizard. Modal-based markup removed when the wizard
       reframe landed.
-- [x] [workspace-shell.preview.html](../../design/data-management/workspace-shell.preview.html)
+- [x] [workspace-shell.preview.html](../../design/data-management/_archive/workspace-shell.preview.html)
       updated — Datasets sub-item promoted from `(sample)` to
       real; workspace cards `<a href>` to
       `datasets.preview.html`; brand mark wrapped as `<a href>`
@@ -961,9 +961,9 @@ sheet]` shows only on Excel.
       buttons (both PageHeader and empty-state) wired to a
       simulated AntD-style create-workspace modal mirroring
       R13 production.
-- [x] [.agents/design/\_css/tokens.css](../../design/_css/tokens.css)
+- [x] [.agents/design/\_css/tokens.css](../../design/_archive/_css/tokens.css)
       and
-      [.agents/design/\_css/preview-shell.css](../../design/_css/preview-shell.css)
+      [.agents/design/\_css/preview-shell.css](../../design/_archive/_css/preview-shell.css)
       authored — N=2 preview-infrastructure trigger fired on
       schedule per the design README. `.btn-primary` +
       `.btn-secondary` promoted to shared mid-round.
@@ -1212,7 +1212,7 @@ time.
 **Landed**:
 
 - New
-  [.agents/design/\_js/preview-shell.js](../../design/_js/preview-shell.js)
+  [.agents/design/\_js/preview-shell.js](../../design/_archive/_js/preview-shell.js)
   carrying `toggleGroup` + `toggleCollapse` + `FOLD_PATH` +
   `UNFOLD_PATH`. Loaded as a classic `<script src>` (not
   `type="module"`) so it works directly from `file://` — same
@@ -1220,9 +1220,9 @@ time.
   Functions are global on purpose; preview-specific inline JS
   calls them by name.
 - Four preview files updated:
-  [workspace-shell.preview.html](../../design/data-management/workspace-shell.preview.html),
-  [datasets.preview.html](../../design/data-management/datasets.preview.html),
-  [upload.preview.html](../../design/data-management/upload.preview.html),
+  [workspace-shell.preview.html](../../design/data-management/_archive/workspace-shell.preview.html),
+  [datasets.preview.html](../../design/data-management/_archive/datasets.preview.html),
+  [upload.preview.html](../../design/data-management/_archive/upload.preview.html),
   and [index.html](../../design/index.html). Each now does
   `<script src="../_js/preview-shell.js"></script>` (or
   `_js/preview-shell.js` from the index) and dropped the inline

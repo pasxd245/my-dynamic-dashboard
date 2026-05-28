@@ -6,7 +6,7 @@
 
 Returns a paged slice of a dataset's rows for the data table on
 the
-[dataset detail page](../../../.agents/design/data-management/dataset-detail.md).
+[dataset detail page](../../../../.agents/design/data-management/dataset-detail.md).
 The FE pairs this with
 [`detail-get.contract.yaml`](detail-get.contract.yaml) — that
 endpoint returns the schema + column dtypes (the table header
@@ -147,7 +147,7 @@ has. The FE never round-trips a parsed-then-reformatted value.
 ## Why no `_shared/rows-page.yaml`
 
 Single consumer (this endpoint). Per the
-[Evolution Rule](../../../.agents/AGENTS.md): _default = don't
+[Evolution Rule](../../../../.agents/AGENTS.md): _default = don't
 add._ A `_shared/` schema lands when a second paged-rows
 endpoint actually arrives (e.g. saved-query results, audit-log
 slices). Keeping `RowsPage` inline today makes the shape
@@ -372,5 +372,5 @@ Content-Type: application/json
 - [detail-get.contract.yaml](detail-get.contract.yaml) — schema + column metadata companion
 - [`../_shared/dataset.yaml`](../_shared/dataset.yaml) — column dtype list the FE uses for cell rendering
 - [`../_shared/api-error.yaml`](../_shared/api-error.yaml) — ApiErrorNotFound envelope
-- [dataset-detail.md](../../../.agents/design/data-management/dataset-detail.md) — R33 design doc (cell rendering rules + state transitions)
-- [dataset-filters.md](../../../.agents/design/data-management/dataset-filters.md) — R37 design doc (per-column filter UX + predicate vocabulary table — authoritative cross-stack spec for `f<N>_*` params)
+- [dataset-detail.md](../../../../.agents/design/data-management/dataset-detail.md) — R33 design doc (cell rendering rules + state transitions)
+- [dataset-filters.md](../../../../.agents/design/data-management/dataset-filters.md) — R37 design doc (per-column filter UX + predicate vocabulary table — authoritative cross-stack spec for `f<N>_*` params)

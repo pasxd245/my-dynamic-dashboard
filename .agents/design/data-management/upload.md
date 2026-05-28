@@ -31,7 +31,7 @@ re-parse and on parse-options edit (R19 Q2, Q4).
 [workspaces.md](workspaces.md) (the container an upload targets),
 [workspace-shell.target.md](workspace-shell.target.md) (the chrome
 the wizard renders inside), and
-[upload.preview.html](upload.preview.html) (visual preview of the
+[upload.preview.html](_archive/upload.preview.html) (visual preview of the
 wizard with state toggles across both source-type paths).
 
 ---

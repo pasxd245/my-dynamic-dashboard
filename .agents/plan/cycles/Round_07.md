@@ -43,7 +43,7 @@ from drifted),
     [themeTokens.ts](../../../workspace/packages/ui/src/themeTokens.ts)),
     behaviour, `<WorkspaceShell>` component contract, scope
     boundary, open questions for HIxAI review.
-  - [.agents/design/data-management/workspace-shell.preview.html](../../design/data-management/workspace-shell.preview.html)
+  - [.agents/design/data-management/workspace-shell.preview.html](../../design/data-management/_archive/workspace-shell.preview.html)
     — Tailwind Play CDN visual aid with click-through; ~90% fidelity;
     header marks it as Round 07 brainstorming, lifecycle-aware.
 - **`@mdd/ui` primitive**: `<WorkspaceShell>` per the contract in the
@@ -101,7 +101,7 @@ from drifted),
       (directory contract).
 - [x] Author [.agents/design/data-management/workspace-shell.md](../../design/data-management/workspace-shell.md)
       (canonical intent).
-- [x] Author [.agents/design/data-management/workspace-shell.preview.html](../../design/data-management/workspace-shell.preview.html)
+- [x] Author [.agents/design/data-management/workspace-shell.preview.html](../../design/data-management/_archive/workspace-shell.preview.html)
       (brainstorming aid).
 - [x] HIxAI review of the three design artifacts. Accepted with
       stated defaults: sidebar 88px, pill active-state, "MDD" text
@@ -215,7 +215,7 @@ from drifted),
   mermaid nav-state diagram, component contract, scope boundary,
   four open questions for HIxAI review).
 - Authored
-  [.agents/design/data-management/workspace-shell.preview.html](../../design/data-management/workspace-shell.preview.html)
+  [.agents/design/data-management/workspace-shell.preview.html](../../design/data-management/_archive/workspace-shell.preview.html)
   (Tailwind Play CDN brainstorming aid; vanilla-JS click-through
   demonstrating prop-driven `activeKey` / `onSelect` contract).
 - Mid-Plan README amendments after HIxAI feedback:

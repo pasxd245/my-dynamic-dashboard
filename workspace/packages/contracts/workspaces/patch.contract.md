@@ -5,12 +5,12 @@
 ## Purpose
 
 Renames a workspace. Introduced by R23's CRUD hygiene chain
-([crud-hygiene.md](../../../.agents/design/data-management/crud-hygiene.md))
+([crud-hygiene.md](../../../../.agents/design/data-management/crud-hygiene.md))
 to close the rename gap deferred since R13. The mutation is
 narrow by design — only `name` is mutable this round; other
 fields (`createdAt`, `id`) are server-owned, and description /
 metadata mutability are out of scope per
-[crud-hygiene.md § Out of scope](../../../.agents/design/data-management/crud-hygiene.md).
+[crud-hygiene.md § Out of scope](../../../../.agents/design/data-management/crud-hygiene.md).
 
 ## Behavior
 
@@ -114,7 +114,7 @@ Content-Type: application/json
   rule).
 - [datasets/patch.contract.yaml](../datasets/patch.contract.yaml)
   — parallel rename on the dataset resource.
-- [crud-hygiene.md](../../../.agents/design/data-management/crud-hygiene.md)
+- [crud-hygiene.md](../../../../.agents/design/data-management/crud-hygiene.md)
   — feature design.
-- [Round_23](../../../.agents/plan/cycles/Round_23.md) — D-round.
-- [Round_24](../../../.agents/plan/cycles/Round_24.md) — C-round (this contract).
+- [Round_23](../../../../.agents/plan/cycles/Round_23.md) — D-round.
+- [Round_24](../../../../.agents/plan/cycles/Round_24.md) — C-round (this contract).

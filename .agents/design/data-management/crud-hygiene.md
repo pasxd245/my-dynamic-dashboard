@@ -36,7 +36,7 @@ on — defines the Workspace data model),
 data model and table list),
 [upload.md](upload.md) (the existing verb against datasets;
 CRUD hygiene rounds out the set),
-[crud-hygiene.preview.html](crud-hygiene.preview.html) (visual
+[crud-hygiene.preview.html](_archive/crud-hygiene.preview.html) (visual
 preview of both affordance surfaces + the four modal states the
 HIxAI loop revolved around).
 

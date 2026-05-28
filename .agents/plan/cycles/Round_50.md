@@ -856,6 +856,122 @@ shape makes future additions (e.g., a `summary.md`) cheap.
   optional bullet appended to PDCA post-round audit.
   Logged in [promotions.md](../promotions.md) 2026-05-29.
 
+**Skill verification run (post-commit).** After committing
+R50, ran `--fix` against the full corpus to validate the
+end-to-end loop:
+
+- Pre-fix: 192 broken links across 30 candidate files.
+- `--fix`: 101 line changes across 30 files; idempotent
+  (re-running `--fix` is a no-op on the same tree).
+- Post-fix re-check: **93 broken** (99 fixed; 2 ambiguous
+  candidates surfaced in `conflicts.json`).
+- The 93 remaining are cases the safe-candidate rules
+  cannot fix: `.preview.html` references whose targets
+  R48 archived entirely (no candidate exists in scope),
+  obsolete Round_NN references, and a few HTTP-skipped
+  links.
+
+The verification confirmed:
+
+1. Scope resolution (config-as-SoT) walks the right files.
+2. Inline-code masking eliminates the parser false
+   positives.
+3. The three conservative auto-correct rules apply
+   uniformly across 30 disparate files.
+4. Bottom-up iteration in `_apply_fixes` produces stable
+   line-by-line edits.
+5. `conflicts.json` correctly captures the ambiguous
+   `AGENTS.md` cases (target exists at both repo root and
+   `.agents/AGENTS.md`).
+6. Idempotence holds across the full corpus.
+
+User accepted the fix output as-is rather than reverting
+the archive/Complete-round edits (see follow-ups).
+
+**Bug found and fixed during verification re-run.** Re-running
+`--fix` for an idempotence check produced *more* file changes
+— not idempotent. Root cause: `_apply_fixes` used a naive
+`line.replace(old_target, new_target, 1)`, which hits the
+**first substring match**. When a link's display text inside
+`[...]` happens to contain the URL substring (e.g.,
+`` [`decisions/x.md`](decisions/x.md) `` — code-formatted
+path-as-display-text), the replace edited the display text
+instead of the URL.
+
+Two files in the original `--fix` commit were corrupted this
+way: `promotions.md` (gained spurious `../` in the display
+text) and `TOOLING-QUICK-START.md` (display text got the
+`/_archive/` segment inserted while URL stayed wrong).
+
+Fix: extracted `_replace_url_in_link(line, rec)` that
+targets the URL syntax explicitly —
+
+- inline / image: replace `](OLD)` → `](NEW)` (the `](`
+  prefix is unique to URL boundary; display text never
+  contains `](` literally).
+- ref-def: replace `]:[ws]<?OLD>?` → `]:[ws]<?NEW>?` via
+  regex, first match.
+
+Reverted the two corrupted files to pre-fix state, re-ran
+`--fix` with the corrected script: produced clean URL-only
+edits, fully idempotent on second run. Verification
+fix-commit (b96ca77) amended with both the script fix and
+the corrected file outputs.
+
+**Review-phase amendment: candidate pool widened beyond
+`.md`.** User asked "why can't the rest be fixed?" after the
+89-broken floor. Root cause: `_resolve_files` filtered the
+basename-match candidate pool to `*.md` only, while
+markdown links legitimately target HTML, CSS, JS, images,
+etc. The 77 archive references (`*.preview.html`,
+`design/_css/*.css`, `design/_js/*.js`) couldn't find
+candidates even though the targets existed in
+`.agents/design/_archive/`.
+
+Fix: separated "files to verify" from "candidate pool":
+
+- **Files to verify** (parsed for links): still bound to
+  the config's `globs` (`*.md` only) — markdownlint's
+  surface is what we audit.
+- **Candidate pool** (suggested as fixes): new
+  `_candidate_pool()` walks the entire repo with any
+  extension, only applying `ignores`. Skips symlinks
+  pointing outside REPO_ROOT (caught a `node_modules/.bin/`
+  symlink-to-system-Python pollution case during testing).
+
+Threaded through `_scan_and_verify` → `_verify_one` →
+`_verify_local` → `_suggest_path` so candidate matching
+sees the broader pool.
+
+Stderr now reports both numbers:
+`scanning N file(s) (scope: ...); candidate pool: M files`.
+
+Impact: 89 → 29 broken after the second `--fix` round.
+Breakdown of the new 29 remaining:
+
+- **14 conflicts** (multi-candidate): productively surfaced
+  in `conflicts.json` for human disambiguation. Not a
+  failure — the right outcome for ambiguous cases.
+- **4 fragment-to-missing-heading**: human-only fix.
+- **4 no-candidate**: targets genuinely don't exist anywhere
+  in scope; human-only fix.
+- **3 outside-repo auto-memory paths** (under
+  `~/.claude/projects/.../memory/`): can never resolve from
+  the repo; either remove the link or accept as a
+  personal-environment reference.
+- **2 line-range filename suffixes** (e.g.,
+  `contract-validator.ts:140-144`): non-standard markdown
+  syntax; needs prose rewrite.
+- **2 directory links**: the script doesn't check
+  directory targets. Could be added in a follow-up.
+
+Net: only **15 of 192** original broken links genuinely
+require human-only fixes. Of the 177 that were
+script-addressable, 162 auto-fixed and 14 surface as
+conflicts for human disambiguation (1 auto-fix candidate
+became a conflict after the pool widened — `AGENTS.md`
+matching).
+
 **Follow-ups (not promotions, just notes):**
 
 - **Apply `--fix` at Review (user-gated).** The 192
@@ -899,6 +1015,28 @@ shape makes future additions (e.g., a `summary.md`) cheap.
   concern with its own design questions. R51's trial will
   exercise the audit path; hook integration follows from
   there.
+- **R48 / PDCA doctrine amendment needed.** R50's `--fix`
+  verification edited files in two governance-protected
+  classes:
+  - `.agents/context/_archive/contract-driven-feature.md`
+    — R48 codified "no content edits to archived files."
+  - Complete-status rounds (R18 → R24, R46 → R48) —
+    PDCA says "Complete rounds are append-only. Once a
+    round flips to Complete, its history is locked — do
+    not delete, rewrite, or re-frame what happened."
+
+  User authorized keeping the edits, but the formal
+  doctrine still reads as a prohibition. R51+ should
+  amend one or both:
+  1. Carve out a "broken-link rewrite" exception (link
+     repointing isn't re-framing what happened; it
+     restores navigability).
+  2. Or note "archived files do not get their links
+     auto-fixed" by adding `_archive/**` to the
+     markdownlint config's `ignores`.
+
+  Until amended, this is a deliberate doctrine deviation
+  authorized by the human, not a pattern.
 - **Slug algorithm has known limits.** The bundled
   kebab-caser handles common cases (lowercase, spaces →
   hyphens, strip punctuation) but not GitHub's full

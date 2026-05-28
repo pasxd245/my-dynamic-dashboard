@@ -7,7 +7,7 @@
 Lists committed datasets across all workspaces, or scoped to a
 single workspace via the `workspace_id` query parameter. Powers
 the
-[Datasets page](../../../.agents/design/data-management/datasets.md)
+[Datasets page](../../../../.agents/design/data-management/datasets.md)
 table.
 
 ## Behavior
@@ -32,7 +32,7 @@ table.
   datasets.
 - **Source-format icons**: the `sourceFormat` field is exposed
   precisely so the
-  [Datasets page](../../../.agents/design/data-management/datasets.md)
+  [Datasets page](../../../../.agents/design/data-management/datasets.md)
   can render `📊` (excel) / `📄` (csv) prefixes on the name
   column. The contract does not encode icon characters.
 
@@ -98,4 +98,4 @@ Content-Type: application/json
 
 - [batch-post.contract.yaml](batch-post.contract.yaml) — creation companion (commit endpoint)
 - [`../_shared/dataset.yaml`](../_shared/dataset.yaml) — Dataset shape
-- [datasets.md](../../../.agents/design/data-management/datasets.md) — design doc
+- [datasets.md](../../../../.agents/design/data-management/datasets.md) — design doc

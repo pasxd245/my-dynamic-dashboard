@@ -8,11 +8,11 @@
 > is high and learning isn't the round's primary product.
 
 _Track: 2 (agent-method). Pulled by: three concrete instances
-([Round 15](../plan/cycles/Round_15.md) contract,
-[Round 16](../plan/cycles/Round_16.md) BE,
-[Round 17](../plan/cycles/Round_17.md) FE) under
-[Round 14](../plan/cycles/Round_14.md)'s design.
-Promoted in [Round 18](../plan/cycles/Round_18.md)._
+([Round 15](../../plan/cycles/Round_15.md) contract,
+[Round 16](../../plan/cycles/Round_16.md) BE,
+[Round 17](../../plan/cycles/Round_17.md) FE) under
+[Round 14](../../plan/cycles/Round_14.md)'s design.
+Promoted in [Round 18](../../plan/cycles/Round_18.md)._
 
 ## The four phases
 
@@ -69,7 +69,7 @@ shape is about phase separation, not file count.
 
 The conformance discipline only stays cheap because the following
 are explicit non-goals until a real drift bites — per the
-[Evolution Rule](../AGENTS.md):
+[Evolution Rule](../../AGENTS.md):
 
 - **No codegen.** Hand-write Pydantic + TS types per contract.
   Promote to codegen when 3+ contracts exist _and_ one observed
@@ -100,14 +100,14 @@ enumerates which downstream phases the feature actually needs,
 and the chain reflects that enumeration. Two instances bear this
 out:
 
-- **Upload feature** ([Round_14](../plan/cycles/Round_14.md) →
-  [Round_17](../plan/cycles/Round_17.md)): took all four phases
+- **Upload feature** ([Round_14](../../plan/cycles/Round_14.md) →
+  [Round_17](../../plan/cycles/Round_17.md)): took all four phases
   (D + C + B + F). New endpoints, new payload shapes, new wizard
   UI — the full chain.
-- **Parse-options feature** ([Round_19](../plan/cycles/Round_19.md)
-  → [Round_21](../plan/cycles/Round_21.md)): took D + B + F. The
+- **Parse-options feature** ([Round_19](../../plan/cycles/Round_19.md)
+  → [Round_21](../../plan/cycles/Round_21.md)): took D + B + F. The
   C-step collapsed because
-  [Round_15](../plan/cycles/Round_15.md) had already landed
+  [Round_15](../../plan/cycles/Round_15.md) had already landed
   `ParseOptions` on the relevant contracts — R19's D-step found
   the contract was complete and declared "no C needed."
 
@@ -132,7 +132,7 @@ the chain is a tool, not a quota.
 ## Operating artifacts (not duplicated here)
 
 - **Round template + post-round audit** —
-  [plan/PDCA.md](../plan/PDCA.md).
+  [plan/PDCA.md](../../plan/PDCA.md).
 - **Detailed how-to per phase** — three source memos that pre-date
   this promotion:
   - [[2026-05-24-contract-round-methodology]] — the C-step pattern

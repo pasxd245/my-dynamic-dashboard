@@ -17,7 +17,7 @@ infrastructure). The conventions R46 *does* build on:
   audit-before-Complete; tool-quirk learnings written to
   `.agents/memory/` per the placement rule).
 - DCBF methodology at
-  [context/contract-driven-feature.md](../../context/contract-driven-feature.md)
+  [context/contract-driven-feature.md](../../context/_archive/contract-driven-feature.md)
   (promoted from the R14→R21 chain) — R46's Track-1 anchor (below)
   cites it: the DCBF chain's lived experience is what pulled the
   DCFBI/DFCFBI pivot R47 codifies, and R46 is R47's enabling
@@ -41,7 +41,7 @@ shape *for the rounds that need it*.
 transitively through R47's Track-1 anchor (DCBF experiment yielded
 fair-only results for over-effort + D-phase overwhelm as design-
 corpus scope grew → DCFBI/DFCFBI pivot, per
-[context/contract-driven-feature.md](../../context/contract-driven-feature.md)
+[context/contract-driven-feature.md](../../context/_archive/contract-driven-feature.md)
 and the 2026-05-28 brainstorm chain). The inflection itself is
 captured as an S-curve break-point in
 [memory/2026-05-28-dcbf-to-dcfbi-pivot.md](../../memory/2026-05-28-dcbf-to-dcfbi-pivot.md).
@@ -331,7 +331,7 @@ proceeds."*).
 
 - **Track-1 anchor strengthened.** Both R46 and R47 `Pulled by:`
   lines were rewritten to cite the DCBF experiment (R14→R21, per
-  [context/contract-driven-feature.md](../../context/contract-driven-feature.md))
+  [context/contract-driven-feature.md](../../context/_archive/contract-driven-feature.md))
   plus D-phase overwhelm as design-corpus scope grew → DCFBI/DFCFBI
   pivot. R47 carries the direct Track-1 anchor; R46 chains through
   it transitively as enabling plumbing. This closes the
@@ -427,7 +427,7 @@ R46 holds at `Status: Review` pending user "ship it" approval.
 - [x] **Post-Review:** Track-1 anchor cited in R46 + R47 Pulled-by
       lines (DCBF experiment + D-phase overwhelm → DCFBI/DFCFBI
       pivot, per
-      [context/contract-driven-feature.md](../../context/contract-driven-feature.md)).
+      [context/contract-driven-feature.md](../../context/_archive/contract-driven-feature.md)).
 - [x] **Post-Review:** Memory file
       [`memory/2026-05-28-mv-and-markdownlint-fix-quirks.md`](../../memory/2026-05-28-mv-and-markdownlint-fix-quirks.md)
       written per `_TEMPLATE.md` shape; captures the two tool

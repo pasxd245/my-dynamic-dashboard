@@ -23,7 +23,7 @@ YAML is authoritative shape; the MD captures the why
 
 _Track: 1 (product — POC/MVP CRUD chain). Pulled by
 [Round_23](Round_23.md)'s chain declaration. Per
-[contract-driven-feature.md](../../context/contract-driven-feature.md):
+[contract-driven-feature.md](../../context/_archive/contract-driven-feature.md):
 "The contract is the unit of agent coordination" — once R24
 locks the YAML, R25 (BE) and R26 (FE) can be implemented
 independently against the same locked spec._
@@ -272,7 +272,7 @@ for the BE round.
   structure) in
   [crud-hygiene.md § Wire shape](../../design/data-management/crud-hygiene.md)
   and the
-  [`crud-hygiene.preview.html`](../../design/data-management/crud-hygiene.preview.html)
+  [`crud-hygiene.preview.html`](../../design/data-management/_archive/crud-hygiene.preview.html)
   modal-state toggle had already validated the 409 cascade
   flow visually. R24 only surfaced two new decisions: the
   name-length consistency call (kept existing schemas) and

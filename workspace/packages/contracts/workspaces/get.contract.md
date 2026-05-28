@@ -8,7 +8,7 @@
 
 Returns every workspace the user has created. Powers the
 [Workspaces page](../../../apps/builder/src/features/data-management/workspaces/WorkspacesPage.tsx)
-grid and the [Datasets page](../../../.agents/design/data-management/datasets.md)
+grid and the [Datasets page](../../../../.agents/design/data-management/datasets.md)
 workspace-filter dropdown.
 
 ## Behavior
@@ -62,7 +62,7 @@ Content-Type: application/json
 ## Cross-links
 
 - [post.contract.yaml](post.contract.yaml) — creation companion
-- [workspaces.md](../../../.agents/design/data-management/workspaces.md) — design doc
-- [Round_13](../../../.agents/plan/cycles/Round_13.md) — the round
+- [workspaces.md](../../../../.agents/design/data-management/workspaces.md) — design doc
+- [Round_13](../../../../.agents/plan/cycles/Round_13.md) — the round
   that first introduced this endpoint (without a contract);
   this contract is retroactive.

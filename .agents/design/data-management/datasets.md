@@ -29,9 +29,9 @@ per-dataset inspector page; resolves this doc's R∞-deferred row-
 click affordance below),
 [workspace-shell.target.md](workspace-shell.target.md) (the chrome
 the Datasets page renders inside), and
-[datasets.preview.html](datasets.preview.html) (visual preview of
+[datasets.preview.html](_archive/datasets.preview.html) (visual preview of
 the Datasets table list — `+ Upload` navigates to the wizard
-preview at [upload.preview.html](upload.preview.html)).
+preview at [upload.preview.html](_archive/upload.preview.html)).
 
 ---
 

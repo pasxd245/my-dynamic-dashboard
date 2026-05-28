@@ -81,7 +81,7 @@ chrome with the workspaces card grid as its content.
   - **Lifecycle** — when this design doc gets amended (R13 close)
     vs superseded (workspaces-v2 future round if model grows)
 - **High-fidelity preview** at
-  [.agents/design/data-management/workspace-shell.preview.html](../../design/data-management/workspace-shell.preview.html)
+  [.agents/design/data-management/workspace-shell.preview.html](../../design/data-management/_archive/workspace-shell.preview.html)
   (supersedes R07's preview at the same path, which was past its
   "immediate next round" lifecycle per the design README):
   - Tailwind via CDN, self-contained, opens directly in browser.
@@ -144,7 +144,7 @@ chrome with the workspaces card grid as its content.
       read/write boundary, state-management decision, endpoint
       shape, lifecycle.
 - [x] **Author the high-fidelity preview** at
-      [.agents/design/data-management/workspace-shell.preview.html](../../design/data-management/workspace-shell.preview.html)
+      [.agents/design/data-management/workspace-shell.preview.html](../../design/data-management/_archive/workspace-shell.preview.html)
       (supersedes R07's preview in-place). Tailwind CDN; full
       master-layout target with workspaces card grid as content;
       click-through for sub-menu and Fold/Unfold; honest framing
@@ -253,7 +253,7 @@ chrome with the workspaces card grid as its content.
   amendment needed. R10's mandatory header table is doing its
   job.
 - **High-fidelity preview authored**
-  ([workspace-shell.preview.html](../../design/data-management/workspace-shell.preview.html))
+  ([workspace-shell.preview.html](../../design/data-management/_archive/workspace-shell.preview.html))
   — supersedes R07's preview in-place. Full master-layout chrome
   rendered with workspaces card grid as content. Honest framing
   banner at top. Click-through working from `file://`:

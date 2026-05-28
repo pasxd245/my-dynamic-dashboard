@@ -22,7 +22,7 @@ _Track: 1 (product — closes the parse-options chain) + 2 (agent-
 method — second DCBF instance unlocks the `skills/` promotion bar).
 Pulled by: [Round 20](Round_20.md) Feeds-into § "R21 (F) scope
 preview" + user explicit pick ("next r21"). Per
-[contract-driven-feature.md](../../context/contract-driven-feature.md)
+[contract-driven-feature.md](../../context/_archive/contract-driven-feature.md)
 the F-step ships the consumer side against the locked design +
 contract + BE._
 
@@ -87,7 +87,7 @@ contract + BE._
 - **No BE changes** — R20 closed those gaps.
 - **No CSV re-parse endpoint or button** — R19 Q1=C.
 - **No methodology promotions to
-  [context/contract-driven-feature.md](../../context/contract-driven-feature.md)
+  [context/contract-driven-feature.md](../../context/_archive/contract-driven-feature.md)
   or
   [be-round-conformance-pattern memo](../../memory/2026-05-24-be-round-conformance-pattern.md)**.
   R19/R20 deferred both to a dedicated post-R21 evaluation
@@ -327,7 +327,7 @@ Two findings now have two-instance evidence:
    options took D + B + F. The D-step's job is not to spawn
    four rounds, but to enumerate which downstream rounds the
    feature actually needs. Worth promoting to
-   [context/contract-driven-feature.md](../../context/contract-driven-feature.md)
+   [context/contract-driven-feature.md](../../context/_archive/contract-driven-feature.md)
    as the affirmative framing of the existing "When _not_ to
    use DCBF" section. Held for the post-R21 evaluation round.
 2. **"Shape ≠ behavior conformance"** — R16's tests verified
@@ -458,7 +458,7 @@ independently of the round that produced it.
   Per R17/R18/R19/R20 carry-overs, a dedicated post-R21
   evaluation round should:
   - Re-read
-    [contract-driven-feature.md](../../context/contract-driven-feature.md)
+    [contract-driven-feature.md](../../context/_archive/contract-driven-feature.md)
     and consider promoting the "D-step picks the chain"
     framing.
   - Amend the

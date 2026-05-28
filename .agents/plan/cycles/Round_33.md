@@ -283,7 +283,7 @@ in [.agents/design/README.md § previews](../../design/README.md).
 - **Token map** cites 22 tokens against
   [themeTokens.ts](../../../workspace/packages/ui/src/themeTokens.ts)
   (via the
-  [`tokens.css`](../../design/_css/tokens.css) mirror). No new
+  [`tokens.css`](../../design/_archive/_css/tokens.css) mirror). No new
   token values are introduced; if R36 finds one missing, it
   promotes the value in `themeTokens.ts` as a prerequisite step.
 - **Behavior** section uses Mermaid `stateDiagram-v2` for the
@@ -303,7 +303,7 @@ in [.agents/design/README.md § previews](../../design/README.md).
 
 **Preview HTML.**
 
-- [`dataset-detail.preview.html`](../../design/data-management/dataset-detail.preview.html)
+- [`dataset-detail.preview.html`](../../design/data-management/_archive/dataset-detail.preview.html)
   self-contained, opens directly from `file://`. Tailwind CDN
   pulled for layout utilities; chrome via shared
   [`../_css/{tokens,preview-shell}.css`](../../design/_css/).
@@ -509,7 +509,7 @@ self-consistent for R34→R36 to implement against:
   R34+ scope to include `?q=`, removed "Cell-content search"
   from Deferred (kept "per-column / typed filters" deferred).
   Data contract section gained the `q` query param on rows-GET.
-- [`dataset-detail.preview.html`](../../design/data-management/dataset-detail.preview.html)
+- [`dataset-detail.preview.html`](../../design/data-management/_archive/dataset-detail.preview.html)
   — added `<input type="search">` + match counter above the
   table in populated state; new no-match state with "Matched
   0 / 2,481" counter, `[Clear]` link, and "No rows match

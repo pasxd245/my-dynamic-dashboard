@@ -22,7 +22,7 @@ must take effect at commit time or never at all).
 _Track: 1 (product — closes the R16 shape-vs-behavior gap that R19's
 HIxAI Q&A surfaced). Pulled by: [Round 19](Round_19.md) Feeds-into §
 "R20 (B) scope preview". Per
-[contract-driven-feature.md](../../context/contract-driven-feature.md)
+[contract-driven-feature.md](../../context/_archive/contract-driven-feature.md)
 the B-step implements the BE side against an already-locked contract;
 no contract changes this round._
 
@@ -74,7 +74,7 @@ no contract changes this round._
   touches CSV.
 - **No FE work** — R21 (F-step).
 - **No methodology updates to
-  [context/contract-driven-feature.md](../../context/contract-driven-feature.md)
+  [context/contract-driven-feature.md](../../context/_archive/contract-driven-feature.md)
   or
   [be-round-conformance-pattern memo](../../memory/2026-05-24-be-round-conformance-pattern.md)**.
   R19 deferred both to post-R21. R20's job is to provide the
@@ -302,7 +302,7 @@ per R19's plan to evaluate post-chain with two instances in hand
   instances of the DCBF chain exist (upload R14→R17;
   parse-options R19→R21). Re-evaluate the `skills/` promotion
   bar in
-  [contract-driven-feature.md](../../context/contract-driven-feature.md)
+  [contract-driven-feature.md](../../context/_archive/contract-driven-feature.md)
   and consider promoting the "D-step picks the chain" framing +
   the shape-vs-behavior conformance amendment in the same
   evaluation round.

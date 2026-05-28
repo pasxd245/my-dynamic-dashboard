@@ -95,7 +95,7 @@ preview SoT consolidation R47 binds. Per
 
 - **No content edits.** Not in archived files, not in surviving
   files. Rewriting `design/README.md`, `*.md` spec files, or
-  [`context/contract-driven-feature.md`](../../context/contract-driven-feature.md)
+  [`context/contract-driven-feature.md`](../../context/_archive/contract-driven-feature.md)
   is deferred to later rounds that have concrete DCFBI experience
   to draw on. R48 is segregation only.
 - **No rename during move.** Archive preserves filenames so git
@@ -217,16 +217,16 @@ live tree, the index has nothing to index. **Fully superseded.**
 
 | Path | Classification | Justification (R47 clause cited) |
 |---|---|---|
-| [`design/data-management/crud-hygiene.preview.html`](../../design/data-management/crud-hygiene.preview.html) | **Fully superseded** | R47 § "What this allows" — no separate HTML preview artifact carries SoT under DCFBI; FE-running-against-MSW is the canonical UX preview. |
-| [`design/data-management/dataset-detail.preview.html`](../../design/data-management/dataset-detail.preview.html) | **Fully superseded** | Same R47 clause. |
-| [`design/data-management/dataset-filters.preview.html`](../../design/data-management/dataset-filters.preview.html) | **Fully superseded** | Same R47 clause. |
-| [`design/data-management/datasets.preview.html`](../../design/data-management/datasets.preview.html) | **Fully superseded** | Same R47 clause. |
-| [`design/data-management/upload.preview.html`](../../design/data-management/upload.preview.html) | **Fully superseded** | Same R47 clause. |
-| [`design/data-management/workspace-shell.preview.html`](../../design/data-management/workspace-shell.preview.html) | **Fully superseded** | Same R47 clause. |
+| [`design/data-management/crud-hygiene.preview.html`](../../design/data-management/_archive/crud-hygiene.preview.html) | **Fully superseded** | R47 § "What this allows" — no separate HTML preview artifact carries SoT under DCFBI; FE-running-against-MSW is the canonical UX preview. |
+| [`design/data-management/dataset-detail.preview.html`](../../design/data-management/_archive/dataset-detail.preview.html) | **Fully superseded** | Same R47 clause. |
+| [`design/data-management/dataset-filters.preview.html`](../../design/data-management/_archive/dataset-filters.preview.html) | **Fully superseded** | Same R47 clause. |
+| [`design/data-management/datasets.preview.html`](../../design/data-management/_archive/datasets.preview.html) | **Fully superseded** | Same R47 clause. |
+| [`design/data-management/upload.preview.html`](../../design/data-management/_archive/upload.preview.html) | **Fully superseded** | Same R47 clause. |
+| [`design/data-management/workspace-shell.preview.html`](../../design/data-management/_archive/workspace-shell.preview.html) | **Fully superseded** | Same R47 clause. |
 | [`design/index.html`](../../design/index.html) | **Fully superseded** | Auxiliary to the preview corpus; sole purpose is indexing the 6 preview HTMLs. No purpose once they archive. |
-| [`design/_css/tokens.css`](../../design/_css/tokens.css) | **Fully superseded** | Preview-shell auxiliary. Consumer-check: zero live workspace consumers; R14 documents it as a *mirror* of `themeTokens.ts` (live source lives in `workspace/`). |
-| [`design/_css/preview-shell.css`](../../design/_css/preview-shell.css) | **Fully superseded** | Preview-shell auxiliary. Consumer-check: zero live workspace consumers. |
-| [`design/_js/preview-shell.js`](../../design/_js/preview-shell.js) | **Fully superseded** | Preview-shell auxiliary. Consumer-check: zero live workspace consumers. |
+| [`design/_css/tokens.css`](../../design/_archive/_css/tokens.css) | **Fully superseded** | Preview-shell auxiliary. Consumer-check: zero live workspace consumers; R14 documents it as a *mirror* of `themeTokens.ts` (live source lives in `workspace/`). |
+| [`design/_css/preview-shell.css`](../../design/_archive/_css/preview-shell.css) | **Fully superseded** | Preview-shell auxiliary. Consumer-check: zero live workspace consumers. |
+| [`design/_js/preview-shell.js`](../../design/_archive/_js/preview-shell.js) | **Fully superseded** | Preview-shell auxiliary. Consumer-check: zero live workspace consumers. |
 | [`design/README.md`](../../design/README.md) | **Partially superseded** | Preview-orchestration framing (chrome wiring, "add a preview" instructions) displaced; "design markdown is intent-before-code" content holds under DCFBI's spec role for design markdown. Leave; rewrite deferred. |
 | [`design/data-management/crud-hygiene.md`](../../design/data-management/crud-hygiene.md) | **Partially superseded** | DCBF-era "Draft (Round X design-only)" framing displaced; journeys + state notes + acceptance criteria content holds as the FE's implementation spec. |
 | [`design/data-management/dataset-detail.md`](../../design/data-management/dataset-detail.md) | **Partially superseded** | Same rationale. |
@@ -496,7 +496,7 @@ archive** (post-Review amendment):
 - **Pre-existing index modifications can ride along through
   selective `git add`.** Two
   [`.agents/context/`](../../context/) files
-  ([`contract-driven-feature.md`](../../context/contract-driven-feature.md),
+  ([`contract-driven-feature.md`](../../context/_archive/contract-driven-feature.md),
   [`drifted-iteration.md`](../../context/drifted-iteration.md))
   had small cosmetic `_Track:` normalizations sitting **staged
   against HEAD** since before this session began (likely a
@@ -530,7 +530,7 @@ pattern to promote.
   round must reframe (or remove) these passages when README is
   next edited. Recorded in Do § Cross-link rot inventory.
 - **Pre-existing index staging of context files** —
-  [`context/contract-driven-feature.md`](../../context/contract-driven-feature.md)
+  [`context/contract-driven-feature.md`](../../context/_archive/contract-driven-feature.md)
   and [`context/drifted-iteration.md`](../../context/drifted-iteration.md)
   carry cosmetic `_Track:` normalizations that have been staged
   against HEAD since before this session. Unstaged this round

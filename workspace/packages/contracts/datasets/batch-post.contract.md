@@ -176,5 +176,5 @@ Content-Type: application/json
 - [`../uploads/parse.contract.md`](../uploads/parse.contract.md) — Phase 2 (Excel)
 - [get.contract.yaml](get.contract.yaml) — list companion
 - [`../_shared/dataset.yaml`](../_shared/dataset.yaml) — Dataset shape
-- [datasets.md](../../../.agents/design/data-management/datasets.md) — design doc
-- [upload.md](../../../.agents/design/data-management/upload.md) — wizard design
+- [datasets.md](../../../../.agents/design/data-management/datasets.md) — design doc
+- [upload.md](../../../../.agents/design/data-management/upload.md) — wizard design

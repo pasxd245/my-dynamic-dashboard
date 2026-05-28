@@ -19,7 +19,7 @@ import subprocess
 import sys
 import urllib.error
 import urllib.request
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Iterable, Optional
 from urllib.parse import urlparse, unquote
@@ -225,6 +225,28 @@ def _resolve_explicit(explicit_paths: list[str]) -> list[Path]:
             if hit.is_file() and hit.suffix == ".md":
                 files.append(hit.resolve())
     return sorted(set(files))
+
+
+def _candidate_pool(ignores: list[str]) -> list[Path]:
+    """Walk the entire repo (within ignores) for fix-candidate basename
+    matches. Any extension — markdown links target HTML/CSS/JS/images
+    etc., so the candidate pool must not be markdown-only even though
+    the verified file set is.
+
+    Skips symlinks pointing outside the repo (e.g., node_modules/.bin
+    entries that point into the system Python install).
+    """
+    candidates: set[Path] = set()
+    for hit in REPO_ROOT.rglob("*"):
+        if not hit.is_file():
+            continue
+        try:
+            resolved = hit.resolve()
+            resolved.relative_to(REPO_ROOT)
+        except (ValueError, OSError):
+            continue  # symlink outside repo, or unreadable
+        candidates.add(resolved)
+    return sorted(_filter_excludes(candidates, ignores))
 
 
 def _resolve_files(
@@ -516,6 +538,30 @@ def _verify_http(rec: LinkRecord) -> None:
 # --------------------------------------------------------------- fix
 
 
+def _replace_url_in_link(line: str, rec: LinkRecord) -> str:
+    """Replace the URL portion of a markdown link, not its display text.
+
+    A naive `line.replace(old, new, 1)` is wrong when the display text
+    inside `[...]` contains the same substring as the URL (common with
+    code-spanned paths like `` `[\\`decisions/x.md\\`](decisions/x.md)` ``).
+    This function targets the URL syntax explicitly:
+      - inline / image: replace `](OLD)` → `](NEW)`
+      - ref-def: replace `]:[ws]<?OLD>?` → `]:[ws]<?NEW>?` (first match)
+    """
+    old, new = rec.target, rec.fix_candidate
+    if not old or not new:
+        return line
+    if rec.kind == "ref-def":
+        pattern = re.compile(r"(\]:[ \t]+<?)" + re.escape(old) + r"(>?)")
+        return pattern.sub(lambda m: m.group(1) + new + m.group(2), line, count=1)
+    # inline / image: `](old)` is uniquely the URL boundary; the
+    # display text inside `[...]` never contains `](` literally.
+    needle = f"]({old})"
+    if needle in line:
+        return line.replace(needle, f"]({new})", 1)
+    return line
+
+
 def _apply_fixes(records: list[LinkRecord], dry_run: bool) -> list[str]:
     """Apply / preview safe-candidate fixes. Returns diff-like lines."""
     by_file: dict[str, list[LinkRecord]] = {}
@@ -538,18 +584,14 @@ def _apply_fixes(records: list[LinkRecord], dry_run: bool) -> list[str]:
 
         # Iterate bottom-up so any future fix shape that adds or
         # removes lines doesn't invalidate the line numbers of
-        # earlier records. Today's in-place replacement doesn't
-        # need this, but it's cheap insurance.
+        # earlier records.
         for lineno in sorted(recs_by_line.keys(), reverse=True):
             idx = lineno - 1
             if idx >= len(lines):
                 continue
             new_line = lines[idx]
             for r in recs_by_line[lineno]:
-                # Replace first occurrence inside () or after ]: ; safe
-                # because we keyed on (file, line) and the target is the
-                # exact text we found.
-                new_line = new_line.replace(r.target, r.fix_candidate, 1)
+                new_line = _replace_url_in_link(new_line, r)
             lines[idx] = new_line
 
         if lines != original:
@@ -719,12 +761,19 @@ def main(argv: list[str] | None = None) -> int:
         print(msg, file=sys.stderr)
         _write_artifacts([])
         return 0
+
+    # Candidate pool for fix-suggestion: every file in scope (any
+    # extension), not just markdown. Markdown links target HTML, CSS,
+    # JS, images, etc.; restricting candidates to .md would miss them.
+    _, ignores, _ = _load_config() if CONFIG_PATH.exists() else (None, [], None)
+    pool = _candidate_pool(ignores + args.exclude)
     print(
-        f"scanning {len(files)} file(s) (scope: {source})",
+        f"scanning {len(files)} file(s) (scope: {source}); "
+        f"candidate pool: {len(pool)} files",
         file=sys.stderr,
     )
 
-    all_records = _scan_and_verify(files, check_http=args.check_http)
+    all_records = _scan_and_verify(files, pool, check_http=args.check_http)
 
     if args.fix or args.dry_run:
         _run_fix_mode(all_records, dry_run=args.dry_run)
@@ -733,20 +782,24 @@ def main(argv: list[str] | None = None) -> int:
     return _print_report(all_records)
 
 
-def _scan_and_verify(files: list[Path], check_http: bool) -> list[LinkRecord]:
+def _scan_and_verify(
+    files: list[Path],
+    candidate_pool: list[Path],
+    check_http: bool,
+) -> list[LinkRecord]:
     headings_cache: dict[Path, dict[str, list[int]]] = {}
     records: list[LinkRecord] = []
     for f in files:
         records.extend(_parse_links(f))
 
     for rec in records:
-        _verify_one(rec, files, headings_cache, check_http)
+        _verify_one(rec, candidate_pool, headings_cache, check_http)
     return records
 
 
 def _verify_one(
     rec: LinkRecord,
-    files: list[Path],
+    candidate_pool: list[Path],
     headings_cache: dict[Path, dict[str, list[int]]],
     check_http: bool,
 ) -> None:
@@ -760,7 +813,7 @@ def _verify_one(
             rec.reason = "http skipped (no --check-http)"
         return
     source_path = REPO_ROOT / rec.file
-    _verify_local(rec, source_path, files, headings_cache)
+    _verify_local(rec, source_path, candidate_pool, headings_cache)
 
 
 def _run_fix_mode(records: list[LinkRecord], dry_run: bool) -> None:

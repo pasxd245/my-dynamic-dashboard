@@ -8,7 +8,7 @@ Renames an already-committed dataset. Introduced by R23's CRUD
 hygiene chain. Note that dataset names were always user-editable
 **during** the upload wizard's Confirm step — this PATCH adds
 the post-commit affordance that
-[datasets.md](../../../.agents/design/data-management/datasets.md)
+[datasets.md](../../../../.agents/design/data-management/datasets.md)
 deferred to R∞ in R14. The upload wizard's pre-commit name flow
 is unchanged.
 
@@ -18,7 +18,7 @@ is unchanged.
   fields (`workspaceId`, `sourceFormat`, `sheetName`, schema
   inference) are immutable from the API surface in R23.
   Moving a dataset between workspaces is a deferred verb (see
-  [crud-hygiene.md § Out of scope](../../../.agents/design/data-management/crud-hygiene.md)).
+  [crud-hygiene.md § Out of scope](../../../../.agents/design/data-management/crud-hygiene.md)).
 - **Returns the updated `Dataset`** so the FE can replace
   cached state for both `['datasets']` and any workspace-
   filtered variants without a follow-up `GET`.
@@ -106,7 +106,7 @@ Content-Type: application/json
   — parallel rename on the workspace resource.
 - [batch-post.contract.yaml](batch-post.contract.yaml) — the
   creation path (upload wizard's commit step).
-- [crud-hygiene.md](../../../.agents/design/data-management/crud-hygiene.md)
+- [crud-hygiene.md](../../../../.agents/design/data-management/crud-hygiene.md)
   — feature design.
-- [Round_23](../../../.agents/plan/cycles/Round_23.md) — D-round.
-- [Round_24](../../../.agents/plan/cycles/Round_24.md) — C-round.
+- [Round_23](../../../../.agents/plan/cycles/Round_23.md) — D-round.
+- [Round_24](../../../../.agents/plan/cycles/Round_24.md) — C-round.
