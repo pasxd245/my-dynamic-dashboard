@@ -37,6 +37,9 @@ check before proposing additions.
 
 - **[R99 evo-horizon](decisions/2026-05-27-r99-evo-horizon.md)** —
   no Track-3 system-building before Round 99; artifact-only until then.
+- **[Hybrid flow governance](decisions/2026-05-28-hybrid-flow-governance.md)** —
+  DCFBI default, DFCFBI conditional (2-of-5 selector), O-rule
+  cross-cutting; F1 timebox ≤2 working days.
 
 ---
 

@@ -174,3 +174,25 @@ overwhelmed as design-corpus scope grew — pulled the DCFBI/DFCFBI
 pivot that R47 codifies, which pulled R46 as enabling plumbing.
 **Promoted by**: pasxd245 (Round_46, explicit AskUserQuestion
 approval 2026-05-28: "Yes — short section in PDCA.md").
+
+## 2026-05-28: Hybrid flow governance → `decisions/2026-05-28-hybrid-flow-governance.md` + `AGENTS.md` horizons
+
+**Source**: [Round_47](cycles/Round_47.md) (DCFBI/DFCFBI governance
+codification). Written a new decision artifact at
+[`decisions/2026-05-28-hybrid-flow-governance.md`](decisions/2026-05-28-hybrid-flow-governance.md)
+binding **DCFBI default**, **DFCFBI conditional** (2-of-5 flow
+selector), **O-rule cross-cutting invariant** (three truths: UX /
+data behavior / execution), and **F1 timebox** (≤2 working days,
+1 FE, no contract-shape changes, no silent overrun). One new
+bullet appended to [`AGENTS.md § Operative horizons`](../AGENTS.md)
+making the decision discoverable at session load.
+**Rationale**: Process governance was previously implicit in
+PDCA.md + the DCBF context promotion. As design-corpus scope grew,
+implicit governance stopped scaling — D-phase overwhelm + over-
+effort-for-fair-results surfaced via R47's brainstorm chain (see
+the 2026-05-28 entry below). Decision artifact makes the
+operating-model pivot binding from R48 onward; AGENTS.md horizons
+bullet makes it loadable. Track-1 anchor: DCBF chain experience
+(R14→R21, [context/contract-driven-feature.md](../context/contract-driven-feature.md)).
+**Promoted by**: pasxd245 (Round_47, explicit authorization
+2026-05-28: "go with R47").
