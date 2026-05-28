@@ -44,9 +44,7 @@ def _dir_age_seconds(d: Path, now: float) -> float:
                 # strptime ignores the literal 'Z' and yields a naive
                 # datetime; attach UTC explicitly so .timestamp() doesn't
                 # silently apply the host's local offset.
-                dt = datetime.strptime(
-                    created_at, "%Y-%m-%dT%H:%M:%SZ"
-                ).replace(tzinfo=timezone.utc)
+                dt = datetime.strptime(created_at, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
                 return now - dt.timestamp()
         except (ValueError, json.JSONDecodeError, OSError) as exc:
             logger.warning(

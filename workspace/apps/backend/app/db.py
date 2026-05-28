@@ -87,46 +87,31 @@ def _backfill_duplicate_names(con: sqlite3.Connection) -> None:
     Idempotent: a fresh DB has no duplicates, so this is a no-op.
     """
     # Workspaces: global uniqueness on `name`.
-    dups = con.execute(
-        "SELECT name FROM workspaces GROUP BY name HAVING COUNT(*) > 1"
-    ).fetchall()
+    dups = con.execute("SELECT name FROM workspaces GROUP BY name HAVING COUNT(*) > 1").fetchall()
     for (name,) in dups:
         rows = con.execute(
-            "SELECT id FROM workspaces WHERE name = ? "
-            "ORDER BY created_at ASC, id ASC",
+            "SELECT id FROM workspaces WHERE name = ? ORDER BY created_at ASC, id ASC",
             (name,),
         ).fetchall()
         # Skip the first (oldest); rename the rest.
         for idx, (ws_id,) in enumerate(rows[1:], start=2):
             new_name = f"{name} ({idx})"
-            con.execute(
-                "UPDATE workspaces SET name = ? WHERE id = ?", (new_name, ws_id)
-            )
-            print(
-                f"[db.backfill] renamed workspace {ws_id}: "
-                f"{name!r} -> {new_name!r}"
-            )
+            con.execute("UPDATE workspaces SET name = ? WHERE id = ?", (new_name, ws_id))
+            print(f"[db.backfill] renamed workspace {ws_id}: {name!r} -> {new_name!r}")
 
     # Datasets: per-workspace uniqueness on `(workspace_id, name)`.
     dups = con.execute(
-        "SELECT workspace_id, name FROM datasets "
-        "GROUP BY workspace_id, name HAVING COUNT(*) > 1"
+        "SELECT workspace_id, name FROM datasets GROUP BY workspace_id, name HAVING COUNT(*) > 1"
     ).fetchall()
     for ws_id, name in dups:
         rows = con.execute(
-            "SELECT id FROM datasets WHERE workspace_id = ? AND name = ? "
-            "ORDER BY created_at ASC, id ASC",
+            "SELECT id FROM datasets WHERE workspace_id = ? AND name = ? ORDER BY created_at ASC, id ASC",
             (ws_id, name),
         ).fetchall()
         for idx, (ds_id,) in enumerate(rows[1:], start=2):
             new_name = f"{name} ({idx})"
-            con.execute(
-                "UPDATE datasets SET name = ? WHERE id = ?", (new_name, ds_id)
-            )
-            print(
-                f"[db.backfill] renamed dataset {ds_id} in {ws_id}: "
-                f"{name!r} -> {new_name!r}"
-            )
+            con.execute("UPDATE datasets SET name = ? WHERE id = ?", (new_name, ds_id))
+            print(f"[db.backfill] renamed dataset {ds_id} in {ws_id}: {name!r} -> {new_name!r}")
 
 
 def bootstrap_schema() -> None:

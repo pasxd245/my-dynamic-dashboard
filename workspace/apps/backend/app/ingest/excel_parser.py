@@ -130,13 +130,9 @@ def parse_sheet(
     else:
         df.columns = [str(c).strip() for c in df.columns]
 
-    columns = [
-        {"name": str(name), "dtype": _dtype_from_series(df[name])} for name in df.columns
-    ]
+    columns = [{"name": str(name), "dtype": _dtype_from_series(df[name])} for name in df.columns]
     sample = df.head(SAMPLE_LIMIT)
     sample_rows: list[list[str | None]] = []
     for _, row in sample.iterrows():
-        sample_rows.append(
-            [None if pd.isna(v) else str(v) for v in row.tolist()]
-        )
+        sample_rows.append([None if pd.isna(v) else str(v) for v in row.tolist()])
     return ParseResult(columns=columns, row_count=int(len(df)), sample_rows=sample_rows)

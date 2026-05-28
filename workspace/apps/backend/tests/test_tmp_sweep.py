@@ -32,9 +32,7 @@ def _make_tmp(
     if write_meta:
         meta = {
             "tempId": temp_id,
-            "createdAt": (created_at or datetime.now(timezone.utc)).strftime(
-                "%Y-%m-%dT%H:%M:%SZ"
-            ),
+            "createdAt": (created_at or datetime.now(timezone.utc)).strftime("%Y-%m-%dT%H:%M:%SZ"),
         }
         (d / "meta.json").write_text(json.dumps(meta), encoding="utf-8")
     if mtime_age_seconds is not None:

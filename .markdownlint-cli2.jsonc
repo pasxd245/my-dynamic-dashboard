@@ -28,6 +28,7 @@
     "temp/**",
     "LICENSE",
     ".agents/orchestrators/*/runs/**",
-    ".agents/tmp/**"
+    ".agents/tmp/**",
+    ".agents/temp/**"
   ]
 }

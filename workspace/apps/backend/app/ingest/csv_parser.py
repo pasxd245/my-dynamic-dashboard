@@ -79,31 +79,20 @@ def parse_csv(
     try:
         with duckdb.connect(":memory:") as con:
             con.execute(
-                "CREATE TABLE tmp AS SELECT * FROM read_csv_auto"
-                "(?, skip = ?, header = ?)",
+                "CREATE TABLE tmp AS SELECT * FROM read_csv_auto(?, skip = ?, header = ?)",
                 [str(path), int(skip_rows), bool(has_header)],
             )
             schema_rows = con.execute("DESCRIBE tmp").fetchall()
-            raw_columns = [
-                {"name": name, "dtype": _to_dtype(dtype)}
-                for (name, dtype, *_rest) in schema_rows
-            ]
+            raw_columns = [{"name": name, "dtype": _to_dtype(dtype)} for (name, dtype, *_rest) in schema_rows]
             (row_count,) = con.execute("SELECT COUNT(*) FROM tmp").fetchone()
-            sample = con.execute(
-                f"SELECT * FROM tmp LIMIT {SAMPLE_LIMIT}"
-            ).fetchall()
+            sample = con.execute(f"SELECT * FROM tmp LIMIT {SAMPLE_LIMIT}").fetchall()
     except duckdb.Error as exc:
         raise CsvParseError(str(exc)) from exc
 
     if has_header:
         columns = raw_columns
     else:
-        columns = [
-            {"name": f"column{i + 1}", "dtype": col["dtype"]}
-            for i, col in enumerate(raw_columns)
-        ]
+        columns = [{"name": f"column{i + 1}", "dtype": col["dtype"]} for i, col in enumerate(raw_columns)]
 
-    sample_rows = [
-        [None if cell is None else str(cell) for cell in row] for row in sample
-    ]
+    sample_rows = [[None if cell is None else str(cell) for cell in row] for row in sample]
     return ParseResult(columns=columns, row_count=int(row_count), sample_rows=sample_rows)

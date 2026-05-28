@@ -33,7 +33,12 @@ def _fresh_app_config(monkeypatch, *, env: dict[str, str] | None = None, config_
     """
     # Clear all MDD_-prefixed env we care about.
     monkeypatch.delenv(_CONFIG_FILE_ENV, raising=False)
-    for env_name in ("MDD_BACKEND__HOST", "MDD_BACKEND__PORT", "MDD_BACKEND__WORKERS", "MDD_BACKEND__LOG_LEVEL"):
+    for env_name in (
+        "MDD_BACKEND__HOST",
+        "MDD_BACKEND__PORT",
+        "MDD_BACKEND__WORKERS",
+        "MDD_BACKEND__LOG_LEVEL",
+    ):
         monkeypatch.delenv(env_name, raising=False)
 
     if env:

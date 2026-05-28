@@ -69,8 +69,7 @@ def write_csv_to_parquet(
     """
     with duckdb.connect(":memory:") as con:
         con.execute(
-            "CREATE TABLE tmp AS SELECT * FROM read_csv_auto"
-            "(?, skip = ?, header = ?)",
+            "CREATE TABLE tmp AS SELECT * FROM read_csv_auto(?, skip = ?, header = ?)",
             [str(src), int(skip_rows), bool(has_header)],
         )
         schema_rows = con.execute("DESCRIBE tmp").fetchall()
@@ -89,15 +88,10 @@ def write_csv_to_parquet(
         # canonical kept_columns order, so the parquet schema matches
         # the dataset's committed columns_json one-for-one.
         reverse = {v: k for k, v in name_map.items()}
-        select_items = [
-            f"{_quote_ident(reverse[c])} AS {_quote_ident(c)}" for c in kept_columns
-        ]
+        select_items = [f"{_quote_ident(reverse[c])} AS {_quote_ident(c)}" for c in kept_columns]
         select_list = ", ".join(select_items)
         dst_literal = _quote_string_literal(str(dst))
-        con.execute(
-            f"COPY (SELECT {select_list} FROM tmp) "
-            f"TO {dst_literal} (FORMAT 'parquet')"
-        )
+        con.execute(f"COPY (SELECT {select_list} FROM tmp) TO {dst_literal} (FORMAT 'parquet')")
 
 
 def write_excel_to_parquet(

@@ -41,10 +41,7 @@ class PageResult:
 def deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
     result = dict(base)
     for key, value in override.items():
-        if (
-            isinstance(value, dict)
-            and isinstance(result.get(key), dict)
-        ):
+        if isinstance(value, dict) and isinstance(result.get(key), dict):
             result[key] = deep_merge(result[key], value)
         else:
             result[key] = value
@@ -175,7 +172,9 @@ def url_allowed(
     parsed = urlparse(url)
     if same_domain and parsed.netloc != start_host:
         return False
-    if include_patterns and not any(pattern.search(url) for pattern in include_patterns):
+    if include_patterns and not any(
+        pattern.search(url) for pattern in include_patterns
+    ):
         return False
     return not any(pattern.search(url) for pattern in exclude_patterns)
 
@@ -242,7 +241,11 @@ async def crawl(args: argparse.Namespace, config: dict[str, Any], cwd: Path) -> 
     if not start_url:
         raise SystemExit(f"Unsupported URL: {args.url}")
 
-    out_dir = Path(args.out).expanduser() if args.out else default_out_dir(config, start_url, cwd)
+    out_dir = (
+        Path(args.out).expanduser()
+        if args.out
+        else default_out_dir(config, start_url, cwd)
+    )
     if not out_dir.is_absolute():
         out_dir = cwd / out_dir
     pages_dir = out_dir / "pages"

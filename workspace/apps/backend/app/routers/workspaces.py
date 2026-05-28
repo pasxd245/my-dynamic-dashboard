@@ -69,13 +69,8 @@ def _is_unique_violation(err: sqlite3.IntegrityError, table_index_substr: str) -
 @router.get("", response_model=list[Workspace])
 def list_workspaces() -> list[Workspace]:
     with get_conn() as con:
-        rows = con.execute(
-            "SELECT id, name, created_at FROM workspaces "
-            "ORDER BY created_at DESC, id DESC"
-        ).fetchall()
-    return [
-        Workspace(id=r["id"], name=r["name"], createdAt=r["created_at"]) for r in rows
-    ]
+        rows = con.execute("SELECT id, name, created_at FROM workspaces ORDER BY created_at DESC, id DESC").fetchall()
+    return [Workspace(id=r["id"], name=r["name"], createdAt=r["created_at"]) for r in rows]
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
@@ -120,13 +115,9 @@ def rename_workspace(  # noqa: A002 — match contract path param name
     UPDATE may still violate the unique-name index (409 `name_taken`).
     """
     with get_conn() as con:
-        row = con.execute(
-            "SELECT id, name, created_at FROM workspaces WHERE id = ?", (id,)
-        ).fetchone()
+        row = con.execute("SELECT id, name, created_at FROM workspaces WHERE id = ?", (id,)).fetchone()
         if row is None:
-            return JSONResponse(
-                status_code=404, content=ApiErrorNotFound().model_dump()
-            )
+            return JSONResponse(status_code=404, content=ApiErrorNotFound().model_dump())
         try:
             con.execute(
                 "UPDATE workspaces SET name = ? WHERE id = ?",
@@ -160,17 +151,11 @@ def delete_workspace(id: WsIdPath) -> Response:  # noqa: A002
     "someone else did").
     """
     with get_conn() as con:
-        ws_row = con.execute(
-            "SELECT id FROM workspaces WHERE id = ?", (id,)
-        ).fetchone()
+        ws_row = con.execute("SELECT id FROM workspaces WHERE id = ?", (id,)).fetchone()
         if ws_row is None:
-            return JSONResponse(
-                status_code=404, content=ApiErrorNotFound().model_dump()
-            )
+            return JSONResponse(status_code=404, content=ApiErrorNotFound().model_dump())
 
-        (count,) = con.execute(
-            "SELECT COUNT(*) FROM datasets WHERE workspace_id = ?", (id,)
-        ).fetchone()
+        (count,) = con.execute("SELECT COUNT(*) FROM datasets WHERE workspace_id = ?", (id,)).fetchone()
         if count > 0:
             return JSONResponse(
                 status_code=409,

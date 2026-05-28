@@ -268,9 +268,7 @@ def test_rows_filter_float_between_inclusive() -> None:
     """Between is inclusive on both ends — Alice (42.5) matches [20, 60]."""
     with TestClient(app) as client:
         _ws, ds_id = _commit_csv(client)
-        resp = client.get(
-            f"/datasets/{ds_id}/rows?f2_op=between&f2_min=20&f2_max=60"
-        )
+        resp = client.get(f"/datasets/{ds_id}/rows?f2_op=between&f2_min=20&f2_max=60")
 
     assert resp.status_code == 200
     body = resp.json()
@@ -294,9 +292,7 @@ def test_rows_filter_float_gt() -> None:
 def test_rows_filter_date_after() -> None:
     with TestClient(app) as client:
         _ws, ds_id = _commit_csv(client)
-        resp = client.get(
-            f"/datasets/{ds_id}/rows?f3_op=after&f3_val=2024-02-01"
-        )
+        resp = client.get(f"/datasets/{ds_id}/rows?f3_op=after&f3_val=2024-02-01")
 
     assert resp.status_code == 200
     body = resp.json()
@@ -309,10 +305,7 @@ def test_rows_filter_date_after() -> None:
 def test_rows_filter_date_between() -> None:
     with TestClient(app) as client:
         _ws, ds_id = _commit_csv(client)
-        resp = client.get(
-            f"/datasets/{ds_id}/rows?f3_op=between"
-            f"&f3_min=2024-02-01&f3_max=2024-03-01"
-        )
+        resp = client.get(f"/datasets/{ds_id}/rows?f3_op=between&f3_min=2024-02-01&f3_max=2024-03-01")
 
     assert resp.status_code == 200
     body = resp.json()
@@ -349,9 +342,7 @@ def test_rows_filter_compose_with_q() -> None:
     """`?q=ali` AND `?f0_op=gt&f0_val=0` → 1 row (Alice)."""
     with TestClient(app) as client:
         _ws, ds_id = _commit_csv(client)
-        resp = client.get(
-            f"/datasets/{ds_id}/rows?q=ali&f0_op=gt&f0_val=0"
-        )
+        resp = client.get(f"/datasets/{ds_id}/rows?q=ali&f0_op=gt&f0_val=0")
 
     assert resp.status_code == 200
     body = resp.json()
@@ -364,9 +355,7 @@ def test_rows_filter_compose_with_q_zero_match() -> None:
     """Combined predicate that matches nothing → 200 empty, not 422."""
     with TestClient(app) as client:
         _ws, ds_id = _commit_csv(client)
-        resp = client.get(
-            f"/datasets/{ds_id}/rows?q=ZZZ&f0_op=gt&f0_val=0"
-        )
+        resp = client.get(f"/datasets/{ds_id}/rows?q=ZZZ&f0_op=gt&f0_val=0")
 
     assert resp.status_code == 200
     body = resp.json()
@@ -379,9 +368,7 @@ def test_rows_filter_zero_match_returns_200_not_422() -> None:
     """A filter that matches no rows is 200, not 422."""
     with TestClient(app) as client:
         _ws, ds_id = _commit_csv(client)
-        resp = client.get(
-            f"/datasets/{ds_id}/rows?f1_op=equals&f1_val=Dave"
-        )
+        resp = client.get(f"/datasets/{ds_id}/rows?f1_op=equals&f1_val=Dave")
 
     assert resp.status_code == 200
     body = resp.json()
@@ -410,9 +397,7 @@ def test_rows_filter_value_unparseable_int_returns_422() -> None:
     """`f0_val=foo` on an integer column."""
     with TestClient(app) as client:
         _ws, ds_id = _commit_csv(client)
-        resp = client.get(
-            f"/datasets/{ds_id}/rows?f0_op=equals&f0_val=foo"
-        )
+        resp = client.get(f"/datasets/{ds_id}/rows?f0_op=equals&f0_val=foo")
 
     assert resp.status_code == 422
     detail = resp.json()["detail"]
@@ -424,9 +409,7 @@ def test_rows_filter_value_unparseable_date_returns_422() -> None:
     """`f3_val=not-a-date` on a date column."""
     with TestClient(app) as client:
         _ws, ds_id = _commit_csv(client)
-        resp = client.get(
-            f"/datasets/{ds_id}/rows?f3_op=equals&f3_val=not-a-date"
-        )
+        resp = client.get(f"/datasets/{ds_id}/rows?f3_op=equals&f3_val=not-a-date")
 
     assert resp.status_code == 422
     detail = resp.json()["detail"]
@@ -438,9 +421,7 @@ def test_rows_filter_col_out_of_range_returns_422() -> None:
     """sample.csv has 4 columns; column 9 doesn't exist."""
     with TestClient(app) as client:
         _ws, ds_id = _commit_csv(client)
-        resp = client.get(
-            f"/datasets/{ds_id}/rows?f9_op=equals&f9_val=anything"
-        )
+        resp = client.get(f"/datasets/{ds_id}/rows?f9_op=equals&f9_val=anything")
 
     assert resp.status_code == 422
     detail = resp.json()["detail"]
@@ -463,9 +444,7 @@ def test_rows_filter_operand_shape_between_with_val_returns_422() -> None:
 def test_rows_filter_operand_shape_between_min_greater_than_max_returns_422() -> None:
     with TestClient(app) as client:
         _ws, ds_id = _commit_csv(client)
-        resp = client.get(
-            f"/datasets/{ds_id}/rows?f0_op=between&f0_min=10&f0_max=5"
-        )
+        resp = client.get(f"/datasets/{ds_id}/rows?f0_op=between&f0_min=10&f0_max=5")
 
     assert resp.status_code == 422
     detail = resp.json()["detail"]
@@ -544,9 +523,7 @@ def test_filters_ops_by_dtype_matches_r37_vocabulary() -> None:
         }
     )
     assert OPS_BY_DTYPE["datetime"] == OPS_BY_DTYPE["date"]
-    assert OPS_BY_DTYPE["boolean"] == frozenset(
-        {"is_true", "is_false", "is_null", "is_not_null"}
-    )
+    assert OPS_BY_DTYPE["boolean"] == frozenset({"is_true", "is_false", "is_null", "is_not_null"})
 
 
 @pytest.mark.unit
@@ -556,16 +533,12 @@ def test_filters_sql_builder_boolean_ops_unit() -> None:
     exercised even without integration data."""
     from app.ingest.filters import FilterPredicate, build_filter_sql
 
-    p = FilterPredicate(
-        col_index=0, col_name="flag", dtype="boolean", op="is_true"
-    )
+    p = FilterPredicate(col_index=0, col_name="flag", dtype="boolean", op="is_true")
     sql, params = build_filter_sql([p])
     assert sql == '"flag" = TRUE'
     assert params == []
 
-    p2 = FilterPredicate(
-        col_index=0, col_name="flag", dtype="boolean", op="is_false"
-    )
+    p2 = FilterPredicate(col_index=0, col_name="flag", dtype="boolean", op="is_false")
     sql2, _ = build_filter_sql([p2])
     assert sql2 == '"flag" = FALSE'
 

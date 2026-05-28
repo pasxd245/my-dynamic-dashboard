@@ -98,8 +98,11 @@ async def create_temp_upload(
     ext = _ext_for_format(file.filename or "", sourceFormat)
     temp_id = _new_temp_id()
     file_path = _write_temp(
-        temp_id, ext, payload,
-        source_format=sourceFormat, original_name=file.filename or "",
+        temp_id,
+        ext,
+        payload,
+        source_format=sourceFormat,
+        original_name=file.filename or "",
     )
 
     if sourceFormat == "csv":
@@ -108,6 +111,7 @@ async def create_temp_upload(
         except CsvParseError as exc:
             # Rollback the temp dir — contract says no temp is retained.
             import shutil
+
             shutil.rmtree(file_path.parent, ignore_errors=True)
             raise HTTPException(status_code=422, detail=str(exc)) from exc
 
@@ -127,11 +131,13 @@ async def create_temp_upload(
         sheets = enumerate_sheets(file_path)
     except Exception as exc:
         import shutil
+
         shutil.rmtree(file_path.parent, ignore_errors=True)
         raise HTTPException(status_code=415, detail=f"excel read failed: {exc}") from exc
 
     if not sheets:
         import shutil
+
         shutil.rmtree(file_path.parent, ignore_errors=True)
         raise HTTPException(status_code=415, detail="excel workbook has no sheets")
 

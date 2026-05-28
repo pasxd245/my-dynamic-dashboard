@@ -120,9 +120,7 @@ def _apply_overrides(
     return out
 
 
-def _apply_exclusions(
-    columns: list[dict[str, str]], excluded: list[str] | None
-) -> list[dict[str, str]]:
+def _apply_exclusions(columns: list[dict[str, str]], excluded: list[str] | None) -> list[dict[str, str]]:
     if not excluded:
         return columns
     by_name = {c["name"]: c for c in columns}
@@ -152,9 +150,7 @@ def _apply_exclusions(
 )
 def commit_datasets_batch(id: str, body: _BatchRequest) -> list[Dataset] | JSONResponse:  # noqa: A002
     with get_conn() as con:
-        ws_row = con.execute(
-            "SELECT id FROM workspaces WHERE id = ?", (id,)
-        ).fetchone()
+        ws_row = con.execute("SELECT id FROM workspaces WHERE id = ?", (id,)).fetchone()
     if ws_row is None:
         raise HTTPException(status_code=404, detail="workspace or temp_id not found")
 
@@ -321,13 +317,9 @@ def rename_dataset(  # noqa: A002 — match contract path param name
     (409 `name_taken`).
     """
     with get_conn() as con:
-        row = con.execute(
-            "SELECT * FROM datasets WHERE id = ?", (id,)
-        ).fetchone()
+        row = con.execute("SELECT * FROM datasets WHERE id = ?", (id,)).fetchone()
         if row is None:
-            return JSONResponse(
-                status_code=404, content=ApiErrorNotFound().model_dump()
-            )
+            return JSONResponse(status_code=404, content=ApiErrorNotFound().model_dump())
         try:
             con.execute(
                 "UPDATE datasets SET name = ? WHERE id = ?",
@@ -344,9 +336,7 @@ def rename_dataset(  # noqa: A002 — match contract path param name
 
         # Re-read for the response (name field changed; everything else
         # stays). Simpler than synthesizing the dict from the prior row.
-        updated = con.execute(
-            "SELECT * FROM datasets WHERE id = ?", (id,)
-        ).fetchone()
+        updated = con.execute("SELECT * FROM datasets WHERE id = ?", (id,)).fetchone()
 
     ds = Dataset(
         id=updated["id"],
@@ -380,13 +370,9 @@ def delete_dataset(id: DsIdPath) -> Response:  # noqa: A002
     from "someone else did").
     """
     with get_conn() as con:
-        row = con.execute(
-            "SELECT id, workspace_id FROM datasets WHERE id = ?", (id,)
-        ).fetchone()
+        row = con.execute("SELECT id, workspace_id FROM datasets WHERE id = ?", (id,)).fetchone()
         if row is None:
-            return JSONResponse(
-                status_code=404, content=ApiErrorNotFound().model_dump()
-            )
+            return JSONResponse(status_code=404, content=ApiErrorNotFound().model_dump())
         workspace_id = row["workspace_id"]
         con.execute("DELETE FROM datasets WHERE id = ?", (id,))
         con.commit()
@@ -421,13 +407,9 @@ def _dataset_from_row(row) -> Dataset:  # type: ignore[no-untyped-def]
 def get_dataset(id: DsIdPath) -> JSONResponse:  # noqa: A002
     """Return a single dataset by id. R33 design / R34 contract / R35 impl."""
     with get_conn() as con:
-        row = con.execute(
-            "SELECT * FROM datasets WHERE id = ?", (id,)
-        ).fetchone()
+        row = con.execute("SELECT * FROM datasets WHERE id = ?", (id,)).fetchone()
     if row is None:
-        return JSONResponse(
-            status_code=404, content=ApiErrorNotFound().model_dump()
-        )
+        return JSONResponse(status_code=404, content=ApiErrorNotFound().model_dump())
     ds = _dataset_from_row(row)
     return JSONResponse(status_code=200, content=ds.model_dump(exclude_none=True))
 
@@ -470,19 +452,13 @@ def get_dataset_rows(  # noqa: A002
     if page_size not in _PAGE_SIZE_ALLOWED:
         raise HTTPException(
             status_code=422,
-            detail=(
-                f"page_size must be one of {_PAGE_SIZE_ALLOWED}; got {page_size}"
-            ),
+            detail=(f"page_size must be one of {_PAGE_SIZE_ALLOWED}; got {page_size}"),
         )
 
     with get_conn() as con:
-        row = con.execute(
-            "SELECT * FROM datasets WHERE id = ?", (id,)
-        ).fetchone()
+        row = con.execute("SELECT * FROM datasets WHERE id = ?", (id,)).fetchone()
     if row is None:
-        return JSONResponse(
-            status_code=404, content=ApiErrorNotFound().model_dump()
-        )
+        return JSONResponse(status_code=404, content=ApiErrorNotFound().model_dump())
 
     parquet_path = dataset_dir(row["workspace_id"], row["id"]) / "parsed.parquet"
     columns_meta = json.loads(row["columns_json"])  # full {name, dtype} list
@@ -511,13 +487,10 @@ def list_datasets(
 ) -> list[Dataset]:
     with get_conn() as con:
         if workspace_id is None:
-            rows = con.execute(
-                "SELECT * FROM datasets ORDER BY created_at DESC, id DESC"
-            ).fetchall()
+            rows = con.execute("SELECT * FROM datasets ORDER BY created_at DESC, id DESC").fetchall()
         else:
             rows = con.execute(
-                "SELECT * FROM datasets WHERE workspace_id = ? "
-                "ORDER BY created_at DESC, id DESC",
+                "SELECT * FROM datasets WHERE workspace_id = ? ORDER BY created_at DESC, id DESC",
                 (workspace_id,),
             ).fetchall()
 

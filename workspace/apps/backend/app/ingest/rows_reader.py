@@ -66,9 +66,7 @@ def query_dataset_rows(
     q_params: list[Any]
     if q:
         like = f"%{q.lower()}%"
-        q_sql = " OR ".join(
-            f"lower(CAST({c} AS VARCHAR)) LIKE ?" for c in quoted_cols
-        )
+        q_sql = " OR ".join(f"lower(CAST({c} AS VARCHAR)) LIKE ?" for c in quoted_cols)
         q_params = [like] * len(quoted_cols)
         # Wrap in parens — the OR-chain composes safely under outer AND.
         q_sql = "(" + q_sql + ")"
@@ -87,10 +85,7 @@ def query_dataset_rows(
     offset = (page - 1) * page_size
 
     with duckdb.connect(":memory:") as con:
-        rows_sql = (
-            f"SELECT {select_list} FROM read_parquet(?) {where_clause} "
-            f"LIMIT ? OFFSET ?"
-        )
+        rows_sql = f"SELECT {select_list} FROM read_parquet(?) {where_clause} LIMIT ? OFFSET ?"
         rows_params: list[Any] = [
             str(parquet_path),
             *where_params,

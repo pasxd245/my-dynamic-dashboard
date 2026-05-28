@@ -18,9 +18,7 @@ import yaml
 from jsonschema import Draft202012Validator
 
 
-_CONTRACTS_ROOT = (
-    Path(__file__).resolve().parents[3] / "packages" / "contracts"
-)
+_CONTRACTS_ROOT = Path(__file__).resolve().parents[3] / "packages" / "contracts"
 
 
 def contract_path(relative: str) -> Path:
@@ -58,9 +56,7 @@ def _inline(node: Any, base_dir: Path, doc: dict[str, Any]) -> Any:
                 file_part, pointer = ref, ""
             target_path = (base_dir / file_part).resolve()
             target_doc = _load_yaml(target_path)
-            target_node = (
-                _resolve_pointer(target_doc, pointer) if pointer else target_doc
-            )
+            target_node = _resolve_pointer(target_doc, pointer) if pointer else target_doc
             return _inline(target_node, target_path.parent, target_doc)
         return {k: _inline(v, base_dir, doc) for k, v in node.items()}
     if isinstance(node, list):
@@ -76,8 +72,8 @@ def load_response_schema(
     inlined = _inline(doc, path.parent, doc)
     paths = inlined["paths"]
     # OpenAPI: each `paths.<route>.<method>.responses["NNN"].content.<ct>.schema`
-    (_route, route_obj), = paths.items()
-    (_method, method_obj), = (
+    ((_route, route_obj),) = paths.items()
+    ((_method, method_obj),) = (
         (m, mo) for m, mo in route_obj.items() if m in {"get", "post", "put", "delete", "patch"}
     )
     response = method_obj["responses"][str(status_code)]

@@ -1,0 +1,10 @@
+{
+    "sonarlint.rules": {
+        "python:S3776": {
+            "level": "on",
+            "parameters": {
+                "threshold": 16
+            }
+        }
+    }
+}

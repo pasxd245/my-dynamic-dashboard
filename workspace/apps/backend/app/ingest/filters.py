@@ -61,18 +61,10 @@ OPS_BY_DTYPE: dict[str, frozenset[str]] = {
             "is_not_null",
         }
     ),
-    "integer": frozenset(
-        {"equals", "ne", "gt", "lt", "gte", "lte", "between", "is_null", "is_not_null"}
-    ),
-    "float": frozenset(
-        {"equals", "ne", "gt", "lt", "gte", "lte", "between", "is_null", "is_not_null"}
-    ),
-    "date": frozenset(
-        {"equals", "ne", "before", "after", "between", "is_null", "is_not_null"}
-    ),
-    "datetime": frozenset(
-        {"equals", "ne", "before", "after", "between", "is_null", "is_not_null"}
-    ),
+    "integer": frozenset({"equals", "ne", "gt", "lt", "gte", "lte", "between", "is_null", "is_not_null"}),
+    "float": frozenset({"equals", "ne", "gt", "lt", "gte", "lte", "between", "is_null", "is_not_null"}),
+    "date": frozenset({"equals", "ne", "before", "after", "between", "is_null", "is_not_null"}),
+    "datetime": frozenset({"equals", "ne", "before", "after", "between", "is_null", "is_not_null"}),
     "boolean": frozenset({"is_true", "is_false", "is_null", "is_not_null"}),
 }
 
@@ -98,9 +90,7 @@ _SINGLE_VALUE_OPS: frozenset[str] = frozenset(
 _RANGE_OPS: frozenset[str] = frozenset({"between"})
 
 # Operators that take zero operands.
-_NO_VALUE_OPS: frozenset[str] = frozenset(
-    {"is_empty", "is_not_empty", "is_null", "is_not_null", "is_true", "is_false"}
-)
+_NO_VALUE_OPS: frozenset[str] = frozenset({"is_empty", "is_not_empty", "is_null", "is_not_null", "is_true", "is_false"})
 
 
 # ─── Predicate model ────────────────────────────────────────────────
@@ -140,9 +130,7 @@ def _normalize_datetime(raw: str) -> str:
     return raw.replace("T", " ", 1) if "T" in raw else raw
 
 
-def _parse_value(
-    raw: str, dtype: str, col_index: int, field_name: str
-) -> int | float | str:
+def _parse_value(raw: str, dtype: str, col_index: int, field_name: str) -> int | float | str:
     """Parse a raw query-string value into the native type for `dtype`.
 
     Raises 422 with `filter_value_unparseable` on failure.
@@ -166,10 +154,7 @@ def _parse_value(
     except (ValueError, TypeError) as exc:
         raise _http_422(
             loc=["query", f"f{col_index}_{field_name}"],
-            msg=(
-                f"filter_value_unparseable: column {col_index} ({dtype}) "
-                f"cannot parse {raw!r}"
-            ),
+            msg=(f"filter_value_unparseable: column {col_index} ({dtype}) cannot parse {raw!r}"),
         ) from exc
 
 
@@ -203,10 +188,7 @@ def _validate_operand_shape(
         if not has_val:
             raise _http_422(
                 loc=["query", f"f{col_index}_val"],
-                msg=(
-                    f"filter_operand_shape: column {col_index} op {op!r} "
-                    f"expects f{col_index}_val"
-                ),
+                msg=(f"filter_operand_shape: column {col_index} op {op!r} expects f{col_index}_val"),
             )
         if has_min or has_max:
             raise _http_422(
@@ -222,8 +204,7 @@ def _validate_operand_shape(
             raise _http_422(
                 loc=["query", f"f{col_index}_op"],
                 msg=(
-                    f"filter_operand_shape: column {col_index} op {op!r} "
-                    f"expects f{col_index}_min and f{col_index}_max"
+                    f"filter_operand_shape: column {col_index} op {op!r} expects f{col_index}_min and f{col_index}_max"
                 ),
             )
         if has_val:
@@ -242,9 +223,7 @@ def _validate_operand_shape(
     )
 
 
-def parse_filters_from_query(
-    query_params: QueryParams, columns: list[dict[str, str]]
-) -> list[FilterPredicate]:
+def parse_filters_from_query(query_params: QueryParams, columns: list[dict[str, str]]) -> list[FilterPredicate]:
     """Extract `f<N>_*` predicates from query params.
 
     `columns` is the dataset's committed `columns_json` —
@@ -276,10 +255,7 @@ def parse_filters_from_query(
         if n >= column_count:
             raise _http_422(
                 loc=["query", f"f{n}_op"],
-                msg=(
-                    f"filter_col_out_of_range: column {n} does not exist "
-                    f"(columnCount = {column_count})"
-                ),
+                msg=(f"filter_col_out_of_range: column {n} does not exist (columnCount = {column_count})"),
             )
 
         op = fields.get("op")
@@ -287,10 +263,7 @@ def parse_filters_from_query(
             # A `f<N>_val` / `_min` / `_max` without `f<N>_op` is malformed.
             raise _http_422(
                 loc=["query", f"f{n}_op"],
-                msg=(
-                    f"filter_operand_shape: column {n} has operand field(s) "
-                    f"without f{n}_op"
-                ),
+                msg=(f"filter_operand_shape: column {n} has operand field(s) without f{n}_op"),
             )
 
         col = columns[n]
@@ -298,9 +271,7 @@ def parse_filters_from_query(
         col_name = col["name"]
 
         _validate_op_for_dtype(op, dtype, n)
-        _validate_operand_shape(
-            op, fields.get("val"), fields.get("min"), fields.get("max"), n
-        )
+        _validate_operand_shape(op, fields.get("val"), fields.get("min"), fields.get("max"), n)
 
         # Parse operand values per dtype.
         val_native: Any = None
@@ -316,10 +287,7 @@ def parse_filters_from_query(
             if min_native > max_native:  # type: ignore[operator]
                 raise _http_422(
                     loc=["query", f"f{n}_min"],
-                    msg=(
-                        f"filter_operand_shape: column {n} op 'between' "
-                        f"requires f{n}_min <= f{n}_max"
-                    ),
+                    msg=(f"filter_operand_shape: column {n} op 'between' requires f{n}_min <= f{n}_max"),
                 )
 
         out.append(

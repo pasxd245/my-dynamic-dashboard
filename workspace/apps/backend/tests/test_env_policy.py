@@ -59,6 +59,5 @@ def test_no_bare_env_reads_outside_allowed_modules() -> None:
     assert not violations, (
         "Bare env reads outside the allowlist — route through "
         "`CONFIG.settings.*` (pydantic-settings handles MDD_BACKEND__*) "
-        "or justify a new allowlist entry in this test:\n  "
-        + "\n  ".join(violations)
+        "or justify a new allowlist entry in this test:\n  " + "\n  ".join(violations)
     )

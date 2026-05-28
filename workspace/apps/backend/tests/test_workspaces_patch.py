@@ -99,8 +99,6 @@ def test_patch_name_too_long_returns_422() -> None:
 def test_patch_extra_field_returns_422() -> None:
     with TestClient(app) as client:
         ws_id = _create(client)
-        resp = client.patch(
-            f"/workspaces/{ws_id}", json={"name": "ok", "rogue": "x"}
-        )
+        resp = client.patch(f"/workspaces/{ws_id}", json={"name": "ok", "rogue": "x"})
 
     assert resp.status_code == 422
