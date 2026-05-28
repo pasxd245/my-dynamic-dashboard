@@ -1,0 +1,94 @@
+# `.agents/skills/` — Project skills index
+
+Skills extend Claude's capabilities with named, reusable procedures.
+This directory is the **durable, version-controlled home** for skills
+this repo ships. Each skill has a sibling **`skill-ref` pointer**
+under [`../../.claude/skills/`](../../.claude/skills/) so Claude
+Code's runtime discovers it at session load.
+
+Skills follow the Claude Code Agent Skills schema
+([code.claude.com/docs/en/skills](https://code.claude.com/docs/en/skills)).
+
+## Layout
+
+```text
+.agents/skills/
+  <skill-name>/
+    SKILL.md             ← canonical content (required)
+    references/*.md      ← optional supporting docs
+    scripts/*            ← optional helper scripts
+
+.claude/skills/
+  <skill-name>/
+    SKILL.md             ← skill-ref pointer stub (a2scaffold convention)
+```
+
+The pointer stub carries only `name` + `description` so Claude Code's
+auto-trigger surface works at session load. The full procedure body
+lives in the canonical `.agents/skills/<name>/SKILL.md`.
+
+## Categories
+
+Skills under this directory belong to one of two classes — encoded by
+README structure, not frontmatter (Claude Code's schema does not
+recognize arbitrary metadata keys):
+
+- **Primary skills** — workflow-specific, operate on round files in
+  [`.agents/plan/cycles/`](../plan/cycles/), carry doctrine
+  enforcement for R47's DCFBI/DFCFBI hybrid flow.
+- **Dependent skills** — generic utility, domain-agnostic, callable
+  by any primary skill or task that needs the capability.
+
+## Primary skills
+
+### [`flow-selector`](flow-selector/SKILL.md)
+
+Run R47's 2-of-5 flow selector at Design exit. Records `Flow: DCFBI`
+or `Flow: DFCFBI (triggers N,M)` in the round file's Do log so the
+choice is mechanical and auditable, not re-derived ad-hoc each
+round. Cited clause:
+[R47 § Flow selector (2-of-5)](../decisions/2026-05-28-hybrid-flow-governance.md).
+
+### [`gate-walker`](gate-walker/SKILL.md)
+
+Verify a named Hard Gate's exit criterion is documented as met
+before phase advance. Blocks with a remediation pointer if open.
+DCFBI/DFCFBI branching reads the round's recorded `Flow:` line to
+decide whether F1/F2 gates apply. Cited clause:
+[R47 § Hard gates (non-negotiable)](../decisions/2026-05-28-hybrid-flow-governance.md).
+
+## Dependent skills
+
+### [`research`](research/SKILL.md)
+
+Frame question → choose sources → collect evidence → evaluate →
+synthesize → report. Invoke from any primary skill or task that
+needs extra information beyond the round file — e.g.
+`flow-selector` condition #2 (prior-art check for "new
+interaction pattern") delegates here when the round author is not
+sure whether a pattern is genuinely new.
+
+Bundles
+[`references/crawl4ai.md`](research/references/crawl4ai.md) +
+[`scripts/crawl4ai_recursive.py`](research/scripts/crawl4ai_recursive.py)
+for browser-backed multi-page crawling when web research needs it.
+
+## Adding a skill
+
+1. **Pick category.** Primary if the skill enforces DCFBI/DFCFBI
+   doctrine on a round file; dependent if it's domain-agnostic
+   utility.
+2. **Author canonical content** at
+   `.agents/skills/<skill-name>/SKILL.md`. Frontmatter: `name`,
+   `description`, optionally `when_to_use`, `arguments`,
+   `allowed-tools`, etc. (See
+   [code.claude.com/docs/en/skills](https://code.claude.com/docs/en/skills)
+   for the full schema.)
+3. **Write skill-ref pointer stub** at
+   `.claude/skills/<skill-name>/SKILL.md` carrying
+   `metadata.type: skill-ref` and
+   `metadata.skillPath: ../../../.agents/skills/<skill-name>`.
+4. **Index here** under the right category section. One link, one
+   role-line, plus the R47 (or other) clause it enforces if any.
+5. **Lint** with `npx markdownlint-cli2` and commit alongside the
+   round that introduces it.

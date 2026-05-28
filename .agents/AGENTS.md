@@ -40,6 +40,9 @@ check before proposing additions.
 - **[Hybrid flow governance](decisions/2026-05-28-hybrid-flow-governance.md)** —
   DCFBI default, DFCFBI conditional (2-of-5 selector), O-rule
   cross-cutting; F1 timebox ≤2 working days.
+- **[Skills index](skills/README.md)** — project skills under
+  [`.agents/skills/`](skills/) operationalize R47's flow:
+  `flow-selector` + `gate-walker` (primary), `research` (dependent).
 
 ---
 

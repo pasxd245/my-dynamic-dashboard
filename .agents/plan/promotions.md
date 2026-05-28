@@ -196,3 +196,49 @@ bullet makes it loadable. Track-1 anchor: DCBF chain experience
 (R14→R21, [context/contract-driven-feature.md](../context/contract-driven-feature.md)).
 **Promoted by**: pasxd245 (Round_47, explicit authorization
 2026-05-28: "go with R47").
+
+## 2026-05-28: Skills bootstrap → `.agents/skills/` + `.claude/skills/` + AGENTS.md horizons
+
+**Source**: [Round_49](cycles/Round_49.md) (DCFBI/DFCFBI skill set
+bootstrap). Established `.agents/skills/` as the durable home for
+project skills (alongside `.agents/context/` and `.agents/memory/`)
+and `.claude/skills/` as the runtime-discovery location via thin
+`skill-ref` pointer stubs (the `a2scaffold` convention staged with
+the `research` skill). Three skills landed:
+
+- **`flow-selector`** (primary) — runs R47's 2-of-5 selector at
+  Design exit; records `Flow: DCFBI` or `Flow: DFCFBI (triggers N,M)`
+  in the round's Do log.
+- **`gate-walker`** (primary) — verifies a named Hard Gate's exit
+  criterion is documented as met before phase advance; blocks
+  with remediation pointer if open. DCFBI/DFCFBI branching reads
+  the round's `Flow:` line.
+- **`research`** (dependent) — generic research procedure (frame
+  question → choose sources → collect evidence → evaluate →
+  synthesize → report). Authored externally by `a2scaffold`;
+  R49 enhanced its frontmatter (`when_to_use`, `allowed-tools`)
+  and indexed it under the dependent-skill class. Bundles
+  `crawl4ai.md` reference + Python recursive-crawler script.
+
+[`AGENTS.md § Operative horizons`](../AGENTS.md) gained one new
+bullet pointing at [`.agents/skills/README.md`](../skills/README.md)
+so the skills index is discoverable at session load.
+
+**Rationale**: R48's archive of `context/contract-driven-feature.md`
+proved that doctrine without operational tooling leaks back as
+contradictory state. R47 codified DCFBI/DFCFBI as prose; R49
+builds the minimum executable tooling so the first DCFBI/DFCFBI
+trial (R50) runs against mechanism, not just memory. Primary
+skills enforce the doctrine on round files; the dependent
+`research` skill is shipped now as the first non-workflow utility
+because flow-selector condition #2 (prior-art check for "new
+interaction pattern") needs it. Four other DCFBI skills sketched
+(`f1-timeboxer`, `o-rule-checker`, `round-scaffolder`,
+`contract-v2-router`) are deferred until R50+'s trial surfaces
+which one earns the next slot — per the "narrow until reversible"
+discipline R48 codified in
+[`memory/2026-05-28-dcbf-to-dcfbi-pivot.md`](../memory/2026-05-28-dcbf-to-dcfbi-pivot.md).
+Track-1 anchor: same DCBF→DCFBI break-point that pulled R46→R48.
+
+**Promoted by**: pasxd245 (Round_49, explicit authorization
+2026-05-28: "proceed" after planning review).
