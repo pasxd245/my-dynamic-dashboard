@@ -182,6 +182,26 @@
         "is_true": "is true",
         "is_false": "is false"
       }
+    },
+    "advancedQuery": {
+      "placeholder": "e.g. stage:won AND amount:>10000",
+      "hint": "Type key:value predicates joined by AND / OR.",
+      "ariaLabel": "Advanced query",
+      "errorAt": "Position {{position}}:",
+      "summary": "✓ {{groups}} group(s) · {{predicates}} predicate(s)",
+      "error": {
+        "missing_colon": "Expected a \"key:value\" predicate, found \"{{value}}\"",
+        "missing_column_name": "Missing a column name before \":\"",
+        "unknown_column": "Unknown column \"{{column}}\"",
+        "empty_value": "Expected a value for column \"{{column}}\"",
+        "unsupported_operator": "Operator \"{{prefix}}\" is not supported for {{dtype}} column \"{{column}}\"",
+        "unparseable_value": "\"{{value}}\" is not a valid {{dtype}} value for column \"{{column}}\"",
+        "invalid_boolean": "Column \"{{column}}\" expects true or false, found \"{{value}}\"",
+        "expected_predicate": "Expected a predicate (key:value), found AND/OR",
+        "expected_operator": "Expected AND or OR between predicates",
+        "dangling_operator": "Query ends with AND/OR — expected another predicate",
+        "unterminated_quote": "Unterminated quoted value"
+      }
     }
   },
   "upload": {

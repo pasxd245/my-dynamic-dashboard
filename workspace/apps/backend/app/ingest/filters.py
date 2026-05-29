@@ -15,6 +15,7 @@ Wire contract:
 
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass
 from datetime import date, datetime
@@ -130,8 +131,12 @@ def _normalize_datetime(raw: str) -> str:
     return raw.replace("T", " ", 1) if "T" in raw else raw
 
 
-def _parse_value(raw: str, dtype: str, col_index: int, field_name: str) -> int | float | str:
+def _parse_value(raw: str, dtype: str, col_index: int, loc: list[str]) -> int | float | str:
     """Parse a raw query-string value into the native type for `dtype`.
+
+    `loc` is the 422 `detail[].loc` to report on failure — `f<N>_*`
+    callers pass `["query", "f<N>_val"]`; the `aq` caller passes
+    `["query", "aq"]`. `col_index` stays in the message for both.
 
     Raises 422 with `filter_value_unparseable` on failure.
     """
@@ -153,7 +158,7 @@ def _parse_value(raw: str, dtype: str, col_index: int, field_name: str) -> int |
         return raw
     except (ValueError, TypeError) as exc:
         raise _http_422(
-            loc=["query", f"f{col_index}_{field_name}"],
+            loc=loc,
             msg=(f"filter_value_unparseable: column {col_index} ({dtype}) cannot parse {raw!r}"),
         ) from exc
 
@@ -278,10 +283,10 @@ def parse_filters_from_query(query_params: QueryParams, columns: list[dict[str, 
         min_native: Any = None
         max_native: Any = None
         if op in _SINGLE_VALUE_OPS:
-            val_native = _parse_value(fields["val"], dtype, n, "val")
+            val_native = _parse_value(fields["val"], dtype, n, ["query", f"f{n}_val"])
         elif op in _RANGE_OPS:
-            min_native = _parse_value(fields["min"], dtype, n, "min")
-            max_native = _parse_value(fields["max"], dtype, n, "max")
+            min_native = _parse_value(fields["min"], dtype, n, ["query", f"f{n}_min"])
+            max_native = _parse_value(fields["max"], dtype, n, ["query", f"f{n}_max"])
             # Inclusive range — min > max is an empty interval; surface
             # 422 rather than silently returning zero rows.
             if min_native > max_native:  # type: ignore[operator]
@@ -408,3 +413,117 @@ def build_filter_sql(
     if len(fragments) == 1:
         return fragments[0], params
     return "(" + " AND ".join(fragments) + ")", params
+
+
+# ─── Advanced query (R51) ───────────────────────────────────────────
+#
+# The `aq` param carries an advanced query in disjunctive normal form
+# (DNF): an OR of AND-groups, URL-encoded JSON. Each atom is the same
+# object shape `f<N>_*` produces. Parsing reuses the per-dtype
+# vocabulary + value parse; the only new logic is the OR-of-AND SQL
+# composition. The BE never sees query text — only validated
+# predicate JSON.
+#
+# Wire contract: rows-get.contract.yaml § `aq` param.
+
+_AQ_LOC = ["query", "aq"]
+
+
+def _aq_malformed(reason: str) -> HTTPException:
+    return _http_422(loc=_AQ_LOC, msg=f"advanced_query_malformed: {reason}")
+
+
+def _build_aq_atom(atom: object, columns: list[dict[str, str]]) -> FilterPredicate:
+    """Validate + build one `aq` atom into a FilterPredicate. Reuses
+    the f<N>_* vocabulary checks; all errors report `loc=["query","aq"]`."""
+    if not isinstance(atom, dict):
+        raise _aq_malformed("each aq atom must be an object")
+    col = atom.get("col")
+    op = atom.get("op")
+    if not isinstance(col, int) or isinstance(col, bool) or not isinstance(op, str):
+        raise _aq_malformed("atom needs an integer col and a string op")
+
+    if col < 0 or col >= len(columns):
+        raise _http_422(
+            loc=_AQ_LOC,
+            msg=f"filter_col_out_of_range: column {col} does not exist (columnCount = {len(columns)})",
+        )
+    dtype = columns[col]["dtype"]
+    col_name = columns[col]["name"]
+
+    if op not in OPS_BY_DTYPE.get(dtype, frozenset()):
+        raise _http_422(loc=_AQ_LOC, msg=f"filter_op_dtype_mismatch: op {op!r} is not valid for dtype {dtype!r}")
+
+    val_native: Any = None
+    min_native: Any = None
+    max_native: Any = None
+    if op in _SINGLE_VALUE_OPS:
+        if atom.get("val") is None:
+            raise _http_422(loc=_AQ_LOC, msg=f"filter_operand_shape: column {col} op {op!r} expects val")
+        val_native = _parse_value(str(atom["val"]), dtype, col, _AQ_LOC)
+    elif op in _RANGE_OPS:
+        if atom.get("min") is None or atom.get("max") is None:
+            raise _http_422(loc=_AQ_LOC, msg=f"filter_operand_shape: column {col} op {op!r} expects min and max")
+        min_native = _parse_value(str(atom["min"]), dtype, col, _AQ_LOC)
+        max_native = _parse_value(str(atom["max"]), dtype, col, _AQ_LOC)
+        if min_native > max_native:
+            raise _http_422(loc=_AQ_LOC, msg=f"filter_operand_shape: column {col} op 'between' requires min <= max")
+
+    return FilterPredicate(
+        col_index=col,
+        col_name=col_name,
+        dtype=dtype,
+        op=op,
+        val=val_native,
+        min_val=min_native,
+        max_val=max_native,
+    )
+
+
+def parse_advanced_from_query(query_params: QueryParams, columns: list[dict[str, str]]) -> list[list[FilterPredicate]]:
+    """Parse the `aq` JSON param into DNF predicate groups.
+
+    Returns `[]` when `aq` is absent/empty. Raises `HTTPException(422)`
+    with `advanced_query_malformed` on bad JSON / structure, or the
+    existing `filter_*` codes (with `loc=["query","aq"]`) on a bad
+    atom — mirroring the FE parser + MSW handler.
+    """
+    raw = query_params.get("aq")
+    if not raw:
+        return []
+    try:
+        decoded = json.loads(raw)
+    except ValueError as exc:  # JSONDecodeError subclasses ValueError
+        raise _aq_malformed("aq is not valid JSON") from exc
+    if not isinstance(decoded, list):
+        raise _aq_malformed("aq must be an array of groups")
+
+    groups: list[list[FilterPredicate]] = []
+    for group in decoded:
+        if not isinstance(group, list):
+            raise _aq_malformed("each aq group must be an array")
+        atoms = [_build_aq_atom(atom, columns) for atom in group]
+        if atoms:
+            groups.append(atoms)
+    return groups
+
+
+def build_advanced_sql(groups: Iterable[Iterable[FilterPredicate]]) -> tuple[str, list[Any]]:
+    """Build the OR-of-AND WHERE fragment + params for the advanced
+    query. `(g1 AND …) OR (g2 AND …) OR …`. Returns `("", [])` for an
+    empty query. Each group reuses `build_filter_sql` (AND-compose);
+    the groups OR together. Caller AND-composes with chips + `?q=`."""
+    group_sqls: list[str] = []
+    params: list[Any] = []
+    for group in groups:
+        frag, frag_params = build_filter_sql(group)
+        if not frag:
+            continue
+        group_sqls.append(frag)
+        params.extend(frag_params)
+
+    if not group_sqls:
+        return "", []
+    if len(group_sqls) == 1:
+        return group_sqls[0], params
+    return "(" + " OR ".join(group_sqls) + ")", params

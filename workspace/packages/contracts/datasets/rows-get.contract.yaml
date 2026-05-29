@@ -34,6 +34,21 @@ info:
     for the authoritative per-dtype operator set and value-shape
     spec.
 
+    The optional `aq` query param (R51) carries an **advanced
+    query** in disjunctive normal form (DNF) — an OR of AND-groups
+    — that the flat `f<N>_*` shape cannot express (it is keyed by
+    column index, one predicate per column, AND-only). `aq` is a
+    URL-encoded JSON array-of-arrays of the **same** predicate
+    atoms `f<N>_*` produces; the outer array ORs its groups, each
+    inner array ANDs its atoms. `aq` AND-composes with both
+    `f<N>_*` and `?q=`. The query grammar is a pure frontend
+    concern (the BE receives validated predicate JSON, never query
+    text). See
+    [advanced-query.md](../../../../.agents/design/data-management/advanced-query.md)
+    for the grammar and
+    [advanced-query.md § Data contract](../../../../.agents/design/data-management/advanced-query.md#data-contract-target-for-the-contract-phase)
+    for the transport rationale.
+
 paths:
   /datasets/{id}/rows:
     get:
@@ -182,6 +197,49 @@ paths:
             Upper bound for the column-0 `between` predicate
             (inclusive). Required when `f0_op=between`; ignored
             otherwise. Same per-dtype parse rule as `f0_val`.
+        # ─── Advanced query param (R51) ──────────────────────
+        - name: aq
+          in: query
+          required: false
+          schema:
+            type: string
+          description: |
+            Advanced query in disjunctive normal form (DNF),
+            URL-encoded JSON: an array of AND-groups, OR'd
+            together. The outer array is the OR; each inner array
+            is an AND-group of predicate atoms. An atom is the
+            **same** object shape as a `f<N>_*` predicate:
+
+            ```json
+            [
+              [ {"col":3,"dtype":"string","op":"equals","val":"won"},
+                {"col":1,"dtype":"integer","op":"gt","val":10000} ],
+              [ {"col":3,"dtype":"string","op":"equals","val":"lost"} ]
+            ]
+            ```
+
+            decodes to `(stage=won AND amount>10000) OR
+            (stage=lost)`. `col` is the 0-based index into
+            `Dataset.columns[]`; `dtype` must equal that column's
+            dtype; `op` + operand fields (`val` / `min` / `max`)
+            follow the same per-dtype vocabulary and operand-shape
+            rules as `f<N>_*` (see
+            [dataset-filters.md § Predicate vocabulary table](../../../../.agents/design/data-management/dataset-filters.md#predicate-vocabulary-table)).
+
+            `aq` AND-composes with `f<N>_*` and `?q=`: the final
+            match set is
+            `chip-filters(AND) ∧ aq(OR-of-AND) ∧ q(substring)`.
+            When `aq` is active, `total` reflects the fully
+            composed matched count.
+
+            The query **grammar / syntax** (e.g.
+            `stage:won AND amount:>10000`) is a pure frontend
+            concern; the BE receives only this validated predicate
+            JSON, never the raw query text. Malformed JSON (or a
+            structure that is not an array-of-arrays-of-objects)
+            returns 422 `advanced_query_malformed`; a structurally
+            valid atom that fails a per-atom check returns the
+            existing `filter_*` code with `loc = ["query", "aq"]`.
       responses:
         "200":
           description: |
@@ -334,6 +392,31 @@ paths:
                     page: 1
                     pageSize: 50
                     total: 47
+                filtered_advanced_or:
+                  summary: |
+                    ?aq=[[{stage=won}],[{stage=lost}]] — advanced query with
+                    OR across the same column; union of both groups, 1,533 rows
+                  value:
+                    rows:
+                      [
+                        ["D-0001", "12400", "2026-03-01", "won", "0.95", "true", "2026-02-28T14:02:00Z", "quick close, no contention"],
+                        ["D-0006", "3200", null, "lost", "0.00", "false", "2026-05-05T13:45:00Z", null],
+                      ]
+                    page: 1
+                    pageSize: 50
+                    total: 1533
+                filtered_advanced_compose_all:
+                  summary: |
+                    ?q=renewal&f1_op=gt&f1_val=10000&aq=[[{stage=won}],[{stage=lost}]]
+                    — chip ∧ advanced(OR) ∧ q, three-way AND-compose; 1 row
+                  value:
+                    rows:
+                      [
+                        ["D-0005", "24500", "2026-05-02", "won", "1.00", "true", "2026-04-22T08:11:00Z", "renewal — multi-year"],
+                      ]
+                    page: 1
+                    pageSize: 50
+                    total: 1
         "404":
           description: |
             No dataset with the given `id` exists. Same envelope
@@ -376,6 +459,17 @@ paths:
                 single-operand op).
                 `detail[].msg` =
                 `filter_operand_shape: column <N> op '<op>' expects <expected-fields>`.
+            - **Advanced-query-related (R51)**:
+              - `aq` is not valid JSON, or not an
+                array-of-arrays-of-objects.
+                `detail[].msg` =
+                `advanced_query_malformed: <reason>`,
+                `loc = ["query", "aq"]`.
+              - an atom inside `aq` fails a per-atom check
+                (bad column index, op invalid for the column's
+                dtype, unparseable value, operand-shape mismatch)
+                → the same `filter_*` code as the equivalent
+                `f<N>_*` failure, with `loc = ["query", "aq"]`.
           content:
             application/json:
               schema:

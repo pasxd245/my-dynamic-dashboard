@@ -126,6 +126,94 @@ to all `N < Dataset.columnCount`.
   second filter-accepting endpoint actually arrives (e.g.
   saved-query results, cross-dataset catalog filtering).
 
+## Advanced query via `aq` param (R51)
+
+The `aq` query param carries an **advanced query** — boolean
+composition (`AND` / `OR`) over the same predicate vocabulary the
+`f<N>_*` params use. It is the transport for
+[advanced-query.md](../../../../.agents/design/data-management/advanced-query.md).
+
+- **Why `f<N>_*` could not carry it.** The chip param shape is
+  keyed by 0-based column index, at most one predicate per column,
+  AND-only. There is no key for "a second predicate on the same
+  column" nor for "OR between predicates." OR is structurally
+  inexpressible. So `aq` is an **additive** transport, not an
+  extension of `f<N>_*` — every existing `f<N>_*` / `q` / `page`
+  request is byte-for-byte unchanged and stays green.
+- **Why a single JSON param, not `aq_g<G>_<N>_*` structured keys.**
+  A DNF needs two nesting levels (OR of AND). Flat structured keys
+  for two levels (`aq_g0_0_op`, `aq_g0_1_op`, `aq_g1_0_op`, …)
+  balloon fast and are unreadable. One URL-encoded JSON value is
+  compact at MVP scale (single-level DNF, a handful of atoms) and
+  reuses the exact atom shape `f<N>_*` already serializes.
+- **Why GET, not the parked `POST :search`.** A GET keeps the
+  endpoint shareable (URL is the durability surface for `aq`, same
+  as `?q=` and `f<N>_*`) and TanStack-cacheable with the predicate
+  set in the key. The
+  [parked `POST :search` JSON-body fallback](../../../../.agents/design/data-management/dataset-filters.md#fallback-json-body-via-post-datasetsidrowssearch)
+  stays parked; promote it only if `aq` URLs balloon in practice.
+- **Atom shape = `FilterPredicate`.** Each `aq` atom is the same
+  object the chip row serializes: `{ col, dtype, op, val | min,max }`.
+  The BE validates each atom with the **same** per-dtype rules as
+  `f<N>_*` (`OPS_BY_DTYPE`, value parse, operand shape) and reuses
+  the same single-predicate SQL builder; the only new BE logic is
+  the OR-of-AND **composition wrapper**:
+  `(g1_atom AND …) OR (g2_atom AND …) OR …`.
+- **Composition.** `aq` AND-composes with `f<N>_*` and `?q=`. The
+  final WHERE is `chipSQL AND aqSQL AND qSQL`, any subset of which
+  may be empty. `total` reflects the fully-composed matched count.
+- **Grammar is FE-only.** The BE never receives query text. The
+  precedence rule (`AND` binds tighter than `OR`), tokenization,
+  and positional parse errors live entirely in the FE parser; the
+  wire carries validated predicate JSON only. A future second
+  grammar (or a different client) reuses the same `aq` transport.
+- **Errors.** Malformed `aq` (not valid JSON, or not an
+  array-of-arrays-of-objects) → 422 `advanced_query_malformed`,
+  `loc = ["query", "aq"]`. A structurally valid atom that fails a
+  per-atom check → the existing `filter_op_dtype_mismatch` /
+  `filter_value_unparseable` / `filter_col_out_of_range` /
+  `filter_operand_shape` code, with `loc = ["query", "aq"]` rather
+  than `["query", "f<N>_op"]`.
+
+### Advanced-query examples
+
+OR across the same column (the capability `f<N>_*` cannot express):
+
+```http
+GET /datasets/ds_71a4e2f0/rows?aq=%5B%5B%7B%22col%22%3A3%2C%22dtype%22%3A%22string%22%2C%22op%22%3A%22equals%22%2C%22val%22%3A%22won%22%7D%5D%2C%5B%7B%22col%22%3A3%2C%22dtype%22%3A%22string%22%2C%22op%22%3A%22equals%22%2C%22val%22%3A%22lost%22%7D%5D%5D HTTP/1.1
+```
+
+(decoded `aq` = `[[{col:3,…equals "won"}],[{col:3,…equals "lost"}]]`
+→ `stage=won OR stage=lost`.)
+
+```http
+HTTP/1.1 200 OK
+Content-Type: application/json
+
+{ "rows": [ /* won + lost rows */ ], "page": 1, "pageSize": 50, "total": 1533 }
+```
+
+Malformed `aq` (422):
+
+```http
+GET /datasets/ds_71a4e2f0/rows?aq=not-json HTTP/1.1
+```
+
+```http
+HTTP/1.1 422 Unprocessable Entity
+Content-Type: application/json
+
+{
+  "detail": [
+    {
+      "loc": ["query", "aq"],
+      "msg": "advanced_query_malformed: aq is not valid JSON",
+      "type": "value_error"
+    }
+  ]
+}
+```
+
 ## Cell stringification
 
 Cells are transported as `string | null`. The BE renders each
@@ -374,3 +462,4 @@ Content-Type: application/json
 - [`../_shared/api-error.yaml`](../_shared/api-error.yaml) — ApiErrorNotFound envelope
 - [dataset-detail.md](../../../../.agents/design/data-management/dataset-detail.md) — R33 design doc (cell rendering rules + state transitions)
 - [dataset-filters.md](../../../../.agents/design/data-management/dataset-filters.md) — R37 design doc (per-column filter UX + predicate vocabulary table — authoritative cross-stack spec for `f<N>_*` params)
+- [advanced-query.md](../../../../.agents/design/data-management/advanced-query.md) — R51 design doc (advanced-query grammar + the `aq` transport rationale)

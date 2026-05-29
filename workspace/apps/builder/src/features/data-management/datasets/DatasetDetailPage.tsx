@@ -30,6 +30,8 @@ import {
 import { ActiveFilterChips } from './filters/ActiveFilterChips';
 import { FilterPopover } from './filters/FilterPopover';
 import { useFiltersState } from './filters/useFiltersState';
+import { AdvancedQueryInput } from './advanced-query/AdvancedQueryInput';
+import { useAdvancedQueryState } from './advanced-query/useAdvancedQueryState';
 import type { Column, Dataset } from './types';
 
 const DEFAULT_PAGE_SIZE = 50;
@@ -150,12 +152,19 @@ export function DatasetDetailPage() {
     [datasetQuery.data?.columns],
   );
   const { filters, applyFilter, removeFilter, clearAll } = useFiltersState(datasetColumns);
+  const {
+    groups: advancedGroups,
+    text: advancedText,
+    applyAdvanced,
+    clearAdvanced,
+  } = useAdvancedQueryState(datasetColumns);
   const rowsQuery = useDatasetRowsQuery(
     id,
     page,
     pageSize,
     qParam.length > 0 ? qParam : undefined,
     filters,
+    advancedGroups,
   );
   const workspacesQuery = useWorkspacesQuery();
 
@@ -380,6 +389,15 @@ export function DatasetDetailPage() {
               {t('datasets.detail.clear')}
             </Typography.Link>
           ) : null}
+        </div>
+
+        <div style={{ flex: '0 0 auto' }}>
+          <AdvancedQueryInput
+            columns={dataset.columns}
+            value={advancedText}
+            onApply={applyAdvanced}
+            onClear={clearAdvanced}
+          />
         </div>
 
         <div style={{ flex: '0 0 auto' }}>

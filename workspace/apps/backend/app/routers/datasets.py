@@ -31,7 +31,7 @@ from app._generated.constants import ID_PATTERNS, NAME_LENGTHS
 from app.db import get_conn
 from app.ingest.csv_parser import parse_csv
 from app.ingest.excel_parser import parse_sheet
-from app.ingest.filters import parse_filters_from_query
+from app.ingest.filters import parse_advanced_from_query, parse_filters_from_query
 from app.ingest.parquet_writer import write_csv_to_parquet, write_excel_to_parquet
 from app.ingest.rows_reader import query_dataset_rows
 from app.models.common import (
@@ -439,7 +439,8 @@ def get_dataset_rows(  # noqa: A002
     q: Annotated[str | None, Query(min_length=1, max_length=200)] = None,
 ) -> JSONResponse:
     """Paged row reader. R33 design / R34 contract / R35 impl
-    (R38 contract + R39 BE adds per-column `f<N>_*` filters).
+    (R38 contract + R39 BE adds per-column `f<N>_*` filters; R51
+    adds the advanced-query `aq` DNF param, AND-composed with both).
 
     Out-of-range `page > ceil(total / page_size)` returns 200 with an
     empty `rows` array (matches the list-GET precedent — see
@@ -467,6 +468,8 @@ def get_dataset_rows(  # noqa: A002
     # Parse + validate per-column filters from the raw query params.
     # Raises 422 with the FastAPI-shape detail envelope per R38 contract.
     filters = parse_filters_from_query(request.query_params, columns_meta)
+    # Parse + validate the advanced query (`aq` DNF param, R51).
+    advanced = parse_advanced_from_query(request.query_params, columns_meta)
 
     rows, total = query_dataset_rows(
         parquet_path,
@@ -475,6 +478,7 @@ def get_dataset_rows(  # noqa: A002
         page_size=page_size,
         q=q,
         filters=filters,
+        advanced=advanced,
     )
 
     body = RowsPage(rows=rows, page=page, pageSize=page_size, total=total)

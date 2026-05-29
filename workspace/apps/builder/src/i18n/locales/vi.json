@@ -182,6 +182,26 @@
         "is_true": "là đúng",
         "is_false": "là sai"
       }
+    },
+    "advancedQuery": {
+      "placeholder": "ví dụ: stage:won AND amount:>10000",
+      "hint": "Nhập các điều kiện key:value nối bằng AND / OR.",
+      "ariaLabel": "Truy vấn nâng cao",
+      "errorAt": "Vị trí {{position}}:",
+      "summary": "✓ {{groups}} nhóm · {{predicates}} điều kiện",
+      "error": {
+        "missing_colon": "Cần một điều kiện \"key:value\", gặp \"{{value}}\"",
+        "missing_column_name": "Thiếu tên cột trước dấu \":\"",
+        "unknown_column": "Không tìm thấy cột \"{{column}}\"",
+        "empty_value": "Cần một giá trị cho cột \"{{column}}\"",
+        "unsupported_operator": "Toán tử \"{{prefix}}\" không hỗ trợ cho cột {{dtype}} \"{{column}}\"",
+        "unparseable_value": "\"{{value}}\" không phải giá trị {{dtype}} hợp lệ cho cột \"{{column}}\"",
+        "invalid_boolean": "Cột \"{{column}}\" cần true hoặc false, gặp \"{{value}}\"",
+        "expected_predicate": "Cần một điều kiện (key:value), gặp AND/OR",
+        "expected_operator": "Cần AND hoặc OR giữa các điều kiện",
+        "dangling_operator": "Truy vấn kết thúc bằng AND/OR — cần thêm một điều kiện",
+        "unterminated_quote": "Dấu nháy kép chưa đóng"
+      }
     }
   },
   "upload": {

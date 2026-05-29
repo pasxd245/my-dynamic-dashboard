@@ -2,6 +2,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { datasetsApi } from '@/api/datasetsApi';
 import { uploadsApi } from '@/api/uploadsApi';
 import { cacheKeyForFilters } from './filters/serialize';
+import { groupsToParam } from './advanced-query/serialize';
+import type { PredicateGroups } from './advanced-query/types';
 import type {
   CommitBatchRequest,
   CommitBatchResponse,
@@ -49,16 +51,18 @@ export function useDatasetRowsQuery(
   pageSize: number,
   q: string | undefined,
   filters?: FilterSet,
+  advanced?: PredicateGroups,
 ) {
   const filtersKey = cacheKeyForFilters(filters);
+  const aqKey = groupsToParam(advanced);
   return useQuery<RowsPage>({
     queryKey: [
       ...DATASETS_QUERY_KEY,
       { id },
       'rows',
-      { page, pageSize, q, filters: filtersKey },
+      { page, pageSize, q, filters: filtersKey, aq: aqKey },
     ] as const,
-    queryFn: () => datasetsApi.getRows(id as string, page, pageSize, q, filters),
+    queryFn: () => datasetsApi.getRows(id as string, page, pageSize, q, filters, advanced),
     enabled: typeof id === 'string',
     // Keep the previous page visible while a new query loads (AntD
     // `<Table loading>` overlay handles the visual; this just prevents

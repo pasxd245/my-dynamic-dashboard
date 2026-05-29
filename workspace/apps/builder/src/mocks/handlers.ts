@@ -105,21 +105,42 @@ function cellMatches(cell: string | null, p: Pred, dtype: string): boolean {
   return false;
 }
 
+/** A row matches the advanced query iff ANY group matches (OR),
+ *  where a group matches iff ALL its atoms match (AND). Empty
+ *  groups → no advanced query active → always matches. */
+function rowMatchesAq(
+  row: readonly (string | null)[],
+  columns: readonly Column[],
+  groups: readonly (readonly Pred[])[],
+): boolean {
+  if (groups.length === 0) return true;
+  return groups.some((group) =>
+    group.every((p) => {
+      const col = columns[p.col];
+      if (!col) return false;
+      return cellMatches(row[p.col] ?? null, p, col.dtype);
+    }),
+  );
+}
+
 function applyFiltersAndQ(
   rows: readonly (readonly (string | null)[])[],
   columns: readonly Column[],
   preds: readonly Pred[],
   q: string | null,
+  aqGroups: readonly (readonly Pred[])[],
 ): (string | null)[][] {
   const ql = q ? q.toLowerCase() : '';
   return rows
     .filter((row) => {
-      // AND across all per-column predicates.
+      // AND across all per-column chip predicates.
       for (const p of preds) {
         const col = columns[p.col];
         if (!col) return false;
         if (!cellMatches(row[p.col] ?? null, p, col.dtype)) return false;
       }
+      // AND the advanced query (itself an OR-of-AND).
+      if (!rowMatchesAq(row, columns, aqGroups)) return false;
       // q substring across any cell.
       if (q) {
         const any = row.some((c) => c !== null && c.toLowerCase().includes(ql));
@@ -128,6 +149,66 @@ function applyFiltersAndQ(
       return true;
     })
     .map((r) => [...r]);
+}
+
+type AqParseResult =
+  | { ok: true; groups: Pred[][] }
+  | { ok: false; loc: string[]; msg: string };
+
+/** Parse + validate the `aq` JSON param. Mirrors the BE: malformed
+ *  JSON / structure → `advanced_query_malformed`; a bad atom → the
+ *  existing `filter_*` code with `loc = ["query", "aq"]`. */
+function parseAq(searchParams: URLSearchParams, columns: readonly Column[]): AqParseResult {
+  const raw = searchParams.get('aq');
+  if (!raw) return { ok: true, groups: [] };
+  const malformed = (reason: string): AqParseResult => ({
+    ok: false,
+    loc: ['query', 'aq'],
+    msg: `advanced_query_malformed: ${reason}`,
+  });
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return malformed('aq is not valid JSON');
+  }
+  if (!Array.isArray(parsed)) return malformed('aq must be an array of groups');
+  const groups: Pred[][] = [];
+  for (const group of parsed) {
+    if (!Array.isArray(group)) return malformed('each aq group must be an array');
+    const atoms: Pred[] = [];
+    for (const atom of group) {
+      if (typeof atom !== 'object' || atom === null) return malformed('each aq atom must be an object');
+      const o = atom as Record<string, unknown>;
+      const col = o.col;
+      const op = o.op;
+      if (typeof col !== 'number' || typeof op !== 'string') return malformed('atom needs numeric col + string op');
+      if (col < 0 || col >= columns.length) {
+        return {
+          ok: false,
+          loc: ['query', 'aq'],
+          msg: `filter_col_out_of_range: column ${col} does not exist (columnCount = ${columns.length})`,
+        };
+      }
+      const c = columns[col];
+      if (!OPS_BY_DTYPE[c.dtype].includes(op as Operator)) {
+        return {
+          ok: false,
+          loc: ['query', 'aq'],
+          msg: `filter_op_dtype_mismatch: op '${op}' is not valid for dtype '${c.dtype}'`,
+        };
+      }
+      atoms.push({
+        col,
+        op: op as Operator,
+        val: o.val != null ? String(o.val) : undefined,
+        min: o.min != null ? String(o.min) : undefined,
+        max: o.max != null ? String(o.max) : undefined,
+      });
+    }
+    if (atoms.length > 0) groups.push(atoms);
+  }
+  return { ok: true, groups };
 }
 
 function validateFiltersOr422(
@@ -227,7 +308,15 @@ export const handlers = [
       );
     }
 
-    const matched = applyFiltersAndQ(MOCK_ROWS, MOCK_DATASET.columns, preds, q);
+    const aq = parseAq(url.searchParams, MOCK_DATASET.columns);
+    if (!aq.ok) {
+      return HttpResponse.json(
+        { detail: [{ loc: aq.loc, msg: aq.msg, type: 'value_error' }] },
+        { status: 422 },
+      );
+    }
+
+    const matched = applyFiltersAndQ(MOCK_ROWS, MOCK_DATASET.columns, preds, q, aq.groups);
     const offset = (page - 1) * pageSize;
     const slice = matched.slice(offset, offset + pageSize);
 

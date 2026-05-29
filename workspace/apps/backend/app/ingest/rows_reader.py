@@ -29,7 +29,11 @@ from typing import Any
 
 import duckdb
 
-from app.ingest.filters import FilterPredicate, build_filter_sql
+from app.ingest.filters import (
+    FilterPredicate,
+    build_advanced_sql,
+    build_filter_sql,
+)
 
 
 def _quote_ident(name: str) -> str:
@@ -44,6 +48,7 @@ def query_dataset_rows(
     page_size: int,
     q: str | None,
     filters: list[FilterPredicate] | None = None,
+    advanced: list[list[FilterPredicate]] | None = None,
 ) -> tuple[list[list[str | None]], int]:
     """Return ``(rows, total)`` for the requested page.
 
@@ -61,6 +66,9 @@ def query_dataset_rows(
     # Build the optional per-column filter fragment.
     filter_sql, filter_params = build_filter_sql(filters or [])
 
+    # Build the optional advanced-query fragment (OR-of-AND, R51).
+    advanced_sql, advanced_params = build_advanced_sql(advanced or [])
+
     # Build the optional `?q=` substring fragment.
     q_sql: str
     q_params: list[Any]
@@ -74,13 +82,14 @@ def query_dataset_rows(
         q_sql = ""
         q_params = []
 
-    # Compose the two fragments with AND.
-    where_terms = [t for t in (filter_sql, q_sql) if t]
+    # Compose the fragments with AND: chips ∧ advanced(OR-of-AND) ∧ q.
+    # Param order must match the fragment order in the WHERE clause.
+    where_terms = [t for t in (filter_sql, advanced_sql, q_sql) if t]
     if where_terms:
         where_clause = "WHERE " + " AND ".join(where_terms)
     else:
         where_clause = ""
-    where_params: list[Any] = [*filter_params, *q_params]
+    where_params: list[Any] = [*filter_params, *advanced_params, *q_params]
 
     offset = (page - 1) * page_size
 

@@ -8,6 +8,8 @@ import type {
   RowsPage,
 } from '@/features/data-management/datasets/types';
 import { serializeFiltersToSearchParams } from '@/features/data-management/datasets/filters/serialize';
+import { groupsToParam } from '@/features/data-management/datasets/advanced-query/serialize';
+import type { PredicateGroups } from '@/features/data-management/datasets/advanced-query/types';
 
 // R28: was hardcoded `import.meta.env.VITE_API_BASE_URL ?? "..."`.
 const API_BASE_URL = appConfig.apiBaseUrl();
@@ -83,6 +85,7 @@ export const datasetsApi = {
     pageSize: number,
     q?: string,
     filters?: FilterSet,
+    advanced?: PredicateGroups,
   ): Promise<RowsPage> {
     const params = new URLSearchParams({
       page: String(page),
@@ -93,6 +96,12 @@ export const datasetsApi = {
     }
     if (filters && filters.length > 0) {
       serializeFiltersToSearchParams(params, filters);
+    }
+    // R51: advanced query → `aq` JSON param (DNF). Omitted when empty
+    // so the BE branch stays the unfiltered / chip-only read.
+    const aq = groupsToParam(advanced);
+    if (aq) {
+      params.set('aq', aq);
     }
     const resp = await fetch(`${API_BASE_URL}/datasets/${id}/rows?${params.toString()}`);
     return readJson<RowsPage>(resp);

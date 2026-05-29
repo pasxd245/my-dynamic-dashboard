@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -559,3 +560,189 @@ def test_filters_sql_builder_datetime_t_normalized() -> None:
     sql, params = build_filter_sql([p])
     assert sql == '"ts" = CAST(? AS TIMESTAMP)'
     assert params == ["2024-01-15 14:02:00"]
+
+
+# ─── Advanced query (`aq` DNF param) — R51 ──────────────────────────
+#
+# sample.csv: 0→id(int), 1→name(str), 2→amount(float), 3→signed_up(date)
+#   (1, Alice, 42.5, 2024-01-15), (2, Bob, 17.0, 2024-02-03),
+#   (3, Carol, 99.9, 2024-03-22)
+
+
+def _aq(client: TestClient, ds_id: str, groups: list, **extra: str):
+    params = {"aq": json.dumps(groups), **extra}
+    return client.get(f"/datasets/{ds_id}/rows", params=params)
+
+
+@pytest.mark.unit
+def test_aq_single_group_matches_equivalent_chip_filter() -> None:
+    """C12: a single-group aq returns the same rows as the equivalent
+    `f<N>_*` chip filter (AND-only parity)."""
+    with TestClient(app) as client:
+        _ws, ds_id = _commit_csv(client)
+        chip = client.get(f"/datasets/{ds_id}/rows?f1_op=equals&f1_val=Alice").json()
+        aq = _aq(client, ds_id, [[{"col": 1, "dtype": "string", "op": "equals", "val": "Alice"}]]).json()
+
+    assert chip["total"] == 1
+    assert aq["total"] == chip["total"]
+    assert aq["rows"] == chip["rows"]
+
+
+@pytest.mark.unit
+def test_aq_and_within_group() -> None:
+    """`id>0 AND name=Alice` → 1 row (Alice)."""
+    with TestClient(app) as client:
+        _ws, ds_id = _commit_csv(client)
+        resp = _aq(
+            client,
+            ds_id,
+            [[
+                {"col": 0, "dtype": "integer", "op": "gt", "val": 0},
+                {"col": 1, "dtype": "string", "op": "equals", "val": "Alice"},
+            ]],
+        )
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["total"] == 1
+    assert body["rows"][0][1] == "Alice"
+    validate_response("datasets/rows-get.contract.yaml", 200, body)
+
+
+@pytest.mark.unit
+def test_aq_or_across_groups_returns_union() -> None:
+    """C13: `name=Alice OR name=Carol` → union (2 rows); total reflects
+    the OR-composed count. This is the capability `f<N>_*` cannot express."""
+    with TestClient(app) as client:
+        _ws, ds_id = _commit_csv(client)
+        resp = _aq(
+            client,
+            ds_id,
+            [
+                [{"col": 1, "dtype": "string", "op": "equals", "val": "Alice"}],
+                [{"col": 1, "dtype": "string", "op": "equals", "val": "Carol"}],
+            ],
+        )
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["total"] == 2
+    names = sorted(r[1] for r in body["rows"])
+    assert names == ["Alice", "Carol"]
+
+
+@pytest.mark.unit
+def test_aq_composes_with_chip_and_q_three_way() -> None:
+    """C14: chip(amount>50) ∧ aq(Alice OR Carol) ∧ q(carol) → Carol only."""
+    with TestClient(app) as client:
+        _ws, ds_id = _commit_csv(client)
+        resp = _aq(
+            client,
+            ds_id,
+            [
+                [{"col": 1, "dtype": "string", "op": "equals", "val": "Alice"}],
+                [{"col": 1, "dtype": "string", "op": "equals", "val": "Carol"}],
+            ],
+            f2_op="gt",
+            f2_val="50",
+            q="carol",
+        )
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["total"] == 1
+    assert body["rows"][0][1] == "Carol"
+
+
+@pytest.mark.unit
+def test_aq_empty_array_is_noop() -> None:
+    """`aq=[]` matches everything (no advanced query active)."""
+    with TestClient(app) as client:
+        _ws, ds_id = _commit_csv(client)
+        resp = _aq(client, ds_id, [])
+
+    assert resp.status_code == 200
+    assert resp.json()["total"] == 3
+
+
+@pytest.mark.unit
+def test_aq_malformed_json_returns_422() -> None:
+    """C15: non-JSON aq → 422 advanced_query_malformed, loc=['query','aq']."""
+    with TestClient(app) as client:
+        _ws, ds_id = _commit_csv(client)
+        resp = client.get(f"/datasets/{ds_id}/rows", params={"aq": "not-json"})
+
+    assert resp.status_code == 422
+    detail = resp.json()["detail"][0]
+    assert detail["loc"] == ["query", "aq"]
+    assert detail["msg"].startswith("advanced_query_malformed")
+
+
+@pytest.mark.unit
+def test_aq_not_array_returns_422() -> None:
+    with TestClient(app) as client:
+        _ws, ds_id = _commit_csv(client)
+        resp = client.get(f"/datasets/{ds_id}/rows", params={"aq": json.dumps({"col": 1})})
+
+    assert resp.status_code == 422
+    assert resp.json()["detail"][0]["msg"].startswith("advanced_query_malformed")
+
+
+@pytest.mark.unit
+def test_aq_bad_atom_op_dtype_mismatch_reuses_filter_code() -> None:
+    """C15: a structurally valid atom with an op invalid for the dtype →
+    the existing filter_op_dtype_mismatch code, but loc=['query','aq']."""
+    with TestClient(app) as client:
+        _ws, ds_id = _commit_csv(client)
+        resp = _aq(client, ds_id, [[{"col": 0, "dtype": "integer", "op": "contains", "val": "x"}]])
+
+    assert resp.status_code == 422
+    detail = resp.json()["detail"][0]
+    assert detail["loc"] == ["query", "aq"]
+    assert detail["msg"].startswith("filter_op_dtype_mismatch")
+
+
+@pytest.mark.unit
+def test_aq_atom_col_out_of_range_returns_422() -> None:
+    with TestClient(app) as client:
+        _ws, ds_id = _commit_csv(client)
+        resp = _aq(client, ds_id, [[{"col": 9, "dtype": "string", "op": "equals", "val": "x"}]])
+
+    assert resp.status_code == 422
+    detail = resp.json()["detail"][0]
+    assert detail["loc"] == ["query", "aq"]
+    assert detail["msg"].startswith("filter_col_out_of_range")
+
+
+@pytest.mark.unit
+def test_aq_atom_unparseable_value_returns_422() -> None:
+    with TestClient(app) as client:
+        _ws, ds_id = _commit_csv(client)
+        resp = _aq(client, ds_id, [[{"col": 0, "dtype": "integer", "op": "equals", "val": "abc"}]])
+
+    assert resp.status_code == 422
+    detail = resp.json()["detail"][0]
+    assert detail["loc"] == ["query", "aq"]
+    assert detail["msg"].startswith("filter_value_unparseable")
+
+
+@pytest.mark.unit
+def test_build_advanced_sql_or_of_and() -> None:
+    """Unit: OR-of-AND SQL composition shape."""
+    from app.ingest.filters import FilterPredicate, build_advanced_sql
+
+    g1 = [
+        FilterPredicate(col_index=3, col_name="stage", dtype="string", op="equals", val="won"),
+        FilterPredicate(col_index=1, col_name="amount", dtype="integer", op="gt", val=10000),
+    ]
+    g2 = [FilterPredicate(col_index=3, col_name="stage", dtype="string", op="equals", val="lost")]
+    sql, params = build_advanced_sql([g1, g2])
+    assert sql == '((lower("stage") = lower(?) AND "amount" > CAST(? AS BIGINT)) OR lower("stage") = lower(?))'
+    assert params == ["won", 10000, "lost"]
+
+
+@pytest.mark.unit
+def test_build_advanced_sql_empty_is_noop() -> None:
+    from app.ingest.filters import build_advanced_sql
+
+    assert build_advanced_sql([]) == ("", [])
