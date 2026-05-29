@@ -158,10 +158,50 @@ describe('R53 ui-design fix — label + explicit Clear', () => {
     await waitFor(() => expect(screen.queryByText('D-0002')).not.toBeInTheDocument());
     const clear = container.querySelector('[data-component="AdvancedQueryClear"]') as HTMLElement;
     expect(clear).not.toBeNull();
-    expect(clear).toHaveTextContent('Clear');
+    // R54: clear is now an always-visible in-field × icon (aria-label), not a text link.
+    expect(clear).toHaveAttribute('aria-label', 'Clear');
     fireEvent.click(clear);
     // aq removed → all rows restored.
     expect(await screen.findByText('D-0002')).toBeInTheDocument();
+    expect(screen.getByText(/Matched 8 \/ 8/)).toBeInTheDocument();
+  });
+});
+
+describe('R54 discoverability + low-effort clear', () => {
+  it('C18 + C19: the ? help popover opens and lists operators + this dataset columns', async () => {
+    renderApp(`/data-management/datasets/${DS_ID}`);
+    await screen.findByText('D-0001');
+    // Query the trigger by data-component, not aria-label: the label
+    // ("Help") is generic enough to collide, and it doubles as the
+    // hover-tooltip text.
+    const helpTrigger = document.querySelector('[data-component="AdvancedQueryHelpTrigger"]');
+    if (!helpTrigger) throw new Error('AdvancedQueryHelpTrigger not found');
+    fireEvent.click(helpTrigger);
+    await screen.findByText('Columns'); // help section label (portaled popover)
+    const popover = document.querySelector('[data-component="AdvancedQueryHelpContent"]') as HTMLElement;
+    expect(popover).not.toBeNull();
+    // Columns of THIS dataset, rendered from Dataset.columns.
+    const cols = popover.querySelector('[data-component="AdvancedQueryHelpColumns"]') as HTMLElement;
+    expect(cols.textContent).toContain('deal_id');
+    expect(cols.textContent).toContain('stage');
+    // Operator labels, rendered from the live vocabulary.
+    expect(popover.textContent).toContain('contains'); // string ~
+  });
+
+  it('C20: an always-visible in-field × is shown whenever a query is active', async () => {
+    const { container } = renderApp(aqPath(WON));
+    await screen.findByText('D-0001');
+    const clear = container.querySelector('[data-component="AdvancedQueryClear"]');
+    expect(clear).not.toBeNull();
+    expect(clear).toHaveAttribute('aria-label', 'Clear');
+  });
+
+  it('C21: Esc clears the query when the field is focused', async () => {
+    renderApp(aqPath(WON));
+    expect(await screen.findByText('D-0001')).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByText('D-0002')).not.toBeInTheDocument());
+    fireEvent.keyDown(advancedInput(), { key: 'Escape' });
+    expect(await screen.findByText('D-0002')).toBeInTheDocument(); // all rows restored
     expect(screen.getByText(/Matched 8 \/ 8/)).toBeInTheDocument();
   });
 });

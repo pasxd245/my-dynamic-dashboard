@@ -186,6 +186,19 @@
     "advancedQuery": {
       "label": "Truy vấn nâng cao",
       "clear": "Xóa",
+      "help": {
+        "title": "Cú pháp truy vấn nâng cao",
+        "syntax": "Các điều kiện key:value, nối bằng AND / OR. AND ưu tiên hơn OR.",
+        "operators": "Toán tử",
+        "columns": "Cột",
+        "ariaLabel": "Hướng dẫn",
+        "family": {
+          "string": "Văn bản",
+          "numeric": "Số",
+          "date": "Ngày",
+          "boolean": "Đúng/Sai"
+        }
+      },
       "placeholder": "ví dụ: stage:won AND amount:>10000",
       "hint": "Nhập các điều kiện key:value nối bằng AND / OR.",
       "ariaLabel": "Truy vấn nâng cao",

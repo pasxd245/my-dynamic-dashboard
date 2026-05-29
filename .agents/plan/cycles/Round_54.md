@@ -1,8 +1,8 @@
 # Round 54: Advanced-query discoverability — operator/column help + Findability-facet sharpening
 
-**Status**: Planning
+**Status**: Complete
 **Date started**: 2026-05-29
-**Date completed**:
+**Date completed**: 2026-05-30
 
 ## Goal
 
@@ -110,19 +110,24 @@ decides.
 
 ## Plan
 
-- [ ] **Sharpen two facets** — `ui-design/SKILL.md`: Findability →
+- [x] **Sharpen two facets** — `ui-design/SKILL.md`: Findability →
       learnability, and Usability → efficiency/effort (Fitts +
       accelerators + don't-degrade-primary). Update README
       role-line + `.claude` ref-stub if affected.
-- [ ] **Design** — amend `advanced-query.md` § Discoverability
+- [x] **Design** — amend `advanced-query.md` § Discoverability
       (popover content + placement + states); run `flow-selector`
       (record Flow) + `ui-design` design-spec mode (old design →
       learnability gap; amended design → pass).
-- [ ] **Build** — `?` trigger + `Popover`; content rendered from
+      **→ Flow: DCFBI; design-spec PASS; gate closed.**
+- [x] **Build** — `?` trigger + `Popover`; content rendered from
       the live operator vocabulary + `Dataset.columns`; i18n en+vi.
-- [ ] **Test** — trigger renders + opens; popover lists operators + columns; FE suite green; `tsc` clean.
-- [ ] **Verify + audit** — `ui-design` fidelity → pass;
+      **→ reference.ts + AdvancedQueryHelp + in-field ×/Esc/focus.**
+- [x] **Test** — trigger renders + opens; popover lists operators +
+      columns; FE suite green; `tsc` clean. **→ 15 advanced-query
+      (+3 R54); FE 110; tsc clean.**
+- [x] **Verify + audit** — `ui-design` fidelity → pass;
       `markdownlint` + `markdown-check-link` clean.
+      **→ fidelity PASS 6/6; lint + links clean.**
 
 ## Risks / unknowns
 
@@ -144,17 +149,193 @@ decides.
 
 ## Do
 
-_Filled during execution._
+### Facets sharpened (prerequisite)
+
+[`ui-design/SKILL.md`](../../skills/ui-design/SKILL.md): **Findability**
+now also asks "is the control **learnable** — for a non-obvious
+syntax, is there a discoverable help affordance, not just a
+placeholder?"; **Usability** now also asks "is the clear/reset
+**low-effort** — Fitts (close/sized/keyboard), and don't degrade
+the primary affordance to optimize a secondary action." These are
+the two gaps R51/R53 exposed.
+
+### Design (D)
+
+Amended
+[`advanced-query.md` § Discoverability + low-effort clear](../../design/data-management/advanced-query.md#discoverability-low-effort-clear-r54)
+— the `?` help popover (operator prefixes→meanings per dtype +
+this dataset's columns, rendered from the live vocabulary), the
+low-effort clear (always-visible in-field ×, `Esc`, roomy field,
+post-clear focus), the holistic row arrangement, the state-model
+additions, and acceptance criteria **C18–C22**.
+
+**Flow selector run** (per [R47](../../decisions/2026-05-28-hybrid-flow-governance.md)):
+
+| Condition | Fired? | Justification |
+|---|---|---|
+| 1. >3 independent states/branches | no | Adds only a help-popover open/close + an in-field × visible/hidden on top of R51's existing states — not >3 new branches. |
+| 2. New interaction pattern | no | A `?`-help `<Popover>` is a stock AntD pattern already used in the product (the chip `FilterPopover`). |
+| 3. High user-error risk | no | Read-only help + a clear; no destructive/irreversible action. |
+| 4. Contract depends on unresolved UI | no | FE-only — no contract / BE change; the popover renders from existing vocabulary + `Dataset.columns`. |
+| 5. UX confidence below threshold | no | Stock help-popover + in-field-×/Esc clear; the design resolved the row arrangement deliberately. |
+
+Result: **Flow: DCFBI** (0 fired). No F1; Contract + Backend are
+no-ops (no wire change).
+
+**`ui-design` design-spec mode** (now learnability + efficiency
+aware) on the amended design:
+
+| Facet | Verdict | Evidence |
+|---|---|---|
+| Findability | pass | declares a label + `?` help popover (learnability affordance), distinct from `?q=` |
+| Usability | pass | declares always-visible in-field × + `Esc` + roomy field + post-clear focus (low-effort + discoverable) |
+| Accessibility | pass | `Esc` + focus retention specced; build adds aria on `?`/× |
+| Credibility | pass | state-model additions table (popover open/closed, × visible/hidden) |
+| Utility | pass | acceptance criteria C18–C22 |
+| Desirability | pass | reuses AntD `<Popover>` + existing tokens; no new token values |
+
+Result: **PASS** — the design is affordance-complete (the sharpened
+facets confirm the learnability + efficiency gaps are now closed in
+the spec). **Design gate closed.**
+
+### Build (F) — DCFBI; Contract + Backend no-op (FE-only)
+
+- [`advanced-query/reference.ts`](../../../workspace/apps/builder/src/features/data-management/datasets/advanced-query/reference.ts)
+  — `SYNTAX_REFERENCE` derived from the parser's exported prefix
+  maps (`NUMERIC/STRING/DATE_OP_BY_PREFIX`) + `familiesForColumns`.
+  Renders from the **live vocabulary** — R55's new operators appear
+  for free.
+- [`advanced-query/AdvancedQueryHelp.tsx`](../../../workspace/apps/builder/src/features/data-management/datasets/advanced-query/AdvancedQueryHelp.tsx)
+  — a `?` `<button>` (aria-labelled) → AntD `<Popover>` listing the
+  operator prefixes→meanings (per dtype family present) + **this
+  dataset's columns** (`name [dtype]`).
+- [`AdvancedQueryInput.tsx`](../../../workspace/apps/builder/src/features/data-management/datasets/advanced-query/AdvancedQueryInput.tsx)
+  — `?` help in the label row; the R53 far Clear link replaced by
+  an **always-visible in-field × suffix** (`CloseCircleFilled`,
+  shown when non-empty) + **`Esc`-to-clear** (`onKeyDown`) +
+  **post-clear focus** (`inputRef.focus()`); field width unchanged.
+- i18n `datasets.advancedQuery.help.*` (en + vi); parser prefix
+  maps exported.
+
+### Test + Verify
+
+- [`tests/advanced-query.test.tsx`](../../../workspace/apps/builder/tests/advanced-query.test.tsx)
+  +3 (C18+C19 popover opens + lists operators/columns; C20
+  always-visible ×; C21 `Esc` clears) and updated the R53 Clear
+  assertion (now an icon w/ aria-label). **advanced-query 15 pass.**
+- **Full FE suite 110 pass** (107 + 3); `tsc --noEmit` clean;
+  markdownlint 0 errors; `markdown-check-link` clean. (One
+  full-suite run hit a pre-existing timing flake on the slow
+  upload-wizard test — `datasets.test.tsx` passes 7/7 in isolation;
+  not an R54 regression.)
+- **`ui-design` fidelity re-run** on the built surfaces → **PASS
+  (6/6)**, diff none: Findability (learnability) + Usability
+  (efficiency) now satisfied by the `?` popover + in-field-×/`Esc`
+  clear; the four other facets still pass.
+
+### Bug fixes folded in (user-reported during Review)
+
+**1. Quoted keys.** A user UI review surfaced that columns whose names have **spaces or
+unicode** (`customer number`, `SỐ ĐIỆN THOẠI`) **could not be
+queried** — the bare-token-only key in R51's grammar ended the
+token at the space. Fixed in the parser:
+[`splitKeyValue`](../../../workspace/apps/builder/src/features/data-management/datasets/advanced-query/parser.ts)
+now accepts a **quoted key** (`"customer number":>100`) — the colon
+follows the closing quote; match stays case-insensitive
+(unicode-aware). [`serialize.ts`](../../../workspace/apps/builder/src/features/data-management/datasets/advanced-query/serialize.ts)
+quotes keys with whitespace so the URL round-trips, and the help
+popover shows spaced names quoted. Grammar updated in
+[`advanced-query.md` § Grammar](../../design/data-management/advanced-query.md#production-rules).
+**+6 parser tests** (quoted/unicode/case-insensitive/compose/
+round-trip/unquoted-spaced→error).
+
+**2. Unicode operator aliases.** The help shows each operator's math
+glyph (`≠` `≥` `≤`, the shared `filters.op.*` labels), but the
+parser only knew the ASCII prefixes (`!=` `>=` `<=`) — a user who
+copied `id:≠1` from the help got `"≠1" is not a valid integer`.
+Fixed: `splitPrefix` accepts `≠`/`≥`/`≤` as aliases for
+`!=`/`>=`/`<=`, so the displayed glyph is directly typeable. Grammar
+note added; **+1 parser test**. Also removed a now-unused
+`PredicateGroups` import (lint).
+
+**3. Icon library.** R54's new components used `@ant-design/icons`
+(`QuestionCircleOutlined`, `CloseCircleFilled`), but the app is
+migrating to `@phosphor-icons/react` (the user flagged it). Switched
+to `QuestionIcon` + `<XCircleIcon weight="fill" />` (size/weight
+props, per the `FunnelIcon` precedent in `FilterPopover`). The
+convention + the incomplete-migration caveat are captured in
+[`.agents/memory/2026-05-30-fe-icons-phosphor-not-antd.md`](../../memory/2026-05-30-fe-icons-phosphor-not-antd.md).
+
+### Consistency tweaks (review feedback)
+
+- **Search-box clear → in-field ×.** The `?q=` search now uses an
+  in-field `×` (the same `XCircleIcon`) instead of the external
+  "Clear" text link — consistent with the advanced-query field.
+  (Custom suffix, not AntD `allowClear`, to avoid the Esc-null
+  path.) +1 dataset-detail test.
+- **Hover affordance.** The `×` clear and `?` help icons get a
+  shared `.aq-icon-btn` hover highlight (tertiary → secondary), so
+  they read as interactive like other controls.
+- **Help `?` blue accent.** The help trigger additionally gets
+  `.aq-help-btn` — the AntD primary blue (same hue as the sidebar
+  nav icons) — so the learnability cue is easy to recognise,
+  visually distinct from the muted `×` clear.
+- **Help `?` tooltip.** Hover now shows a "Help" tooltip (the
+  `help.ariaLabel` string, so the visible hint == the accessible
+  name) before the click opens the full syntax popover.
 
 ## Check
 
-_Verification: facet sharpened; design amended + design-spec
-re-run distinguishes old-gap from new-pass; help popover built +
-renders operators/columns; FE green; fidelity pass; audit clean._
+- [x] Two `ui-design` facets sharpened (Findability→learnability,
+      Usability→efficiency/Fitts) in SKILL.md.
+- [x] Design amended (§ Discoverability + C18–C22); flow-selector
+      → DCFBI; `ui-design` design-spec → PASS; Design gate closed.
+- [x] Help popover renders operators (from the live vocabulary) +
+      this dataset's columns; low-effort clear (always-visible
+      in-field × + `Esc` + roomy field + post-clear focus).
+- [x] Quoted-key bug fixed (spaced / unicode column names
+      queryable) + grammar doc updated.
+- [x] FE suite **119 green** (107 + 3 R54 + 6 quoted-key + 1
+      unicode-alias + 2 search-Esc guards); `tsc` clean;
+      markdownlint 0 errors; `markdown-check-link` clean.
+- [x] Search-box `Esc`-clear bug **root-caused + fixed**: AntD v6
+      `Input.Search` `allowClear` ran its own Escape handler that
+      emitted a stray "null" (repro'd by the user on an *empty*
+      box). Fix: drop `allowClear`, own Escape with
+      preventDefault + stopPropagation; explicit "Clear" link
+      stays. Guards: Esc-with-query clears; Esc-on-empty inserts
+      nothing. (Corrected an earlier wrong "stale build"
+      diagnosis.)
+- [x] `ui-design` fidelity re-run → **PASS 6/6** (the round's own
+      design-side gate, both modes used: design-spec at D, fidelity
+      at F).
 
 ## Act
 
-_Carry-forwards + end-of-round Q&A._
+**Learnings**:
+
+- **The sharpened facets earned their keep immediately**: the
+  learnability + efficiency checks (added this round) are exactly
+  what flagged R51/R53's gaps; running design-spec at D then
+  fidelity at F closed them with the skill verifying its own work.
+- **Render-from-vocabulary pays forward**: the help popover reads
+  the parser's prefix maps + `Dataset.columns`, so R55's new
+  operators appear with zero discoverability work.
+- **Fitts beats geometry tricks**: the low-effort clear is solved
+  by an accelerator (`Esc`) + an in-field ×, not by shrinking the
+  field — the primary write-a-query task stays roomy.
+
+**Follow-ups (not promotions)**:
+
+- **R55** — close MVP query gaps (`on_or_after` / `on_or_before` +
+  string `ne`); the popover surfaces them automatically.
+- `ui-design` v2 (screenshot/app-render mode; broader surface
+  sweep) stays queued.
+- `round-scaffolder` soft signal carries forward (R51–R54 were all
+  hand-authored round docs).
+
+**End-of-round Q&A**: R55 (query gaps) is the queued next round.
+Confirm at handoff.
 
 ## Feeds into → Round_55 — close MVP query gaps
 

@@ -7,6 +7,7 @@ import {
   FileExcelOutlined,
   FileTextOutlined,
 } from '@ant-design/icons';
+import { XCircleIcon } from '@phosphor-icons/react';
 import { PageCard, PageHeader } from '@mdd/ui';
 import { Alert, App, Button, Dropdown, Input, Pagination, Skeleton, Tag, Typography } from 'antd';
 import i18n from 'i18next';
@@ -369,23 +370,44 @@ export function DatasetDetailPage() {
         >
           <Input.Search
             value={searchInput}
-            // Coerce: AntD v6's allowClear/Escape path can emit a non-string
-            // (null) value — `?? ''` keeps the controlled input a string so it
-            // never renders a literal "null".
+            // Coerce to a string defensively (a controlled input must never
+            // render a literal "null").
             onChange={(e) => onSearchChange(e.target.value ?? '')}
-            // Own Escape deterministically (Esc-to-clear accelerator): clear via
-            // our handler rather than AntD's quirky native/internal clear.
+            // Own Escape deterministically and BLOCK AntD's own Escape/clear
+            // path (allowClear's Escape handling emitted a stray "null" value
+            // on real browsers — repro'd on an empty box). stopPropagation
+            // prevents AntD's bubbling handler from running after ours; we
+            // dropped `allowClear` so the only clear paths are this Esc and
+            // the explicit "Clear" link below.
             onKeyDown={(e) => {
               if (e.key === 'Escape') {
                 e.preventDefault();
+                e.stopPropagation();
                 onClearSearch();
               }
             }}
             placeholder={t('datasets.detail.searchPlaceholder')}
-            allowClear
-            onClear={() => onSearchChange('')}
             style={{ maxWidth: 360, flex: '1 1 240px' }}
             data-component="DatasetRowSearch"
+            // In-field × clear (consistent with the advanced-query field),
+            // replacing the old "Clear" text link. Custom suffix — NOT AntD
+            // `allowClear` (whose Escape path emitted "null").
+            suffix={
+              searchInput.length > 0 ? (
+                <XCircleIcon
+                  size={16}
+                  weight="fill"
+                  role="button"
+                  aria-label={t('datasets.detail.clear')}
+                  data-component="DatasetRowSearchClear"
+                  className="aq-icon-btn"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={onClearSearch}
+                />
+              ) : (
+                <span />
+              )
+            }
           />
           {showMatchedCounter ? (
             <Typography.Text type="secondary" style={{ fontSize: 12 }}>
@@ -394,11 +416,6 @@ export function DatasetDetailPage() {
                 total: fullRowCount.toLocaleString(i18n.language),
               })}
             </Typography.Text>
-          ) : null}
-          {hasQuery ? (
-            <Typography.Link onClick={onClearSearch} data-component="DatasetRowSearchClear">
-              {t('datasets.detail.clear')}
-            </Typography.Link>
           ) : null}
         </div>
 

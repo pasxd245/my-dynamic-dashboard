@@ -91,6 +91,33 @@ describe("DatasetDetailPage", () => {
     }
   });
 
+  it("pressing Escape in the search box clears ?q= (no stale/null value)", async () => {
+    renderApp(`/data-management/datasets/${DS_ID}?q=won`);
+    const search = await screen.findByDisplayValue("won");
+    fireEvent.keyDown(search, { key: "Escape" });
+    // Esc → onClearSearch → q removed → input clears (no stale value).
+    await waitFor(() => expect(screen.queryByDisplayValue("won")).toBeNull());
+    expect(screen.getByPlaceholderText("Search rows…")).toBeInTheDocument();
+  });
+
+  it("pressing Escape in an EMPTY search box inserts no stray value", async () => {
+    renderApp(`/data-management/datasets/${DS_ID}`);
+    const search = (await screen.findByPlaceholderText("Search rows…")) as HTMLInputElement;
+    fireEvent.keyDown(search, { key: "Escape" });
+    expect(search.value).toBe("");
+    expect(screen.queryByDisplayValue("null")).toBeNull();
+  });
+
+  it("the in-field × clears the search box (consistent with advanced query)", async () => {
+    const { container } = renderApp(`/data-management/datasets/${DS_ID}?q=won`);
+    await screen.findByDisplayValue("won");
+    const clear = container.querySelector('[data-component="DatasetRowSearchClear"]') as HTMLElement;
+    expect(clear).not.toBeNull();
+    expect(clear).toHaveAttribute("aria-label", "Clear");
+    fireEvent.click(clear);
+    await waitFor(() => expect(screen.queryByDisplayValue("won")).toBeNull());
+  });
+
   it("renders the no-match state with a Clear affordance when total is 0 and q is set", async () => {
     renderApp(`/data-management/datasets/${DS_ID}?q=ZZZZZ`);
     await screen.findAllByText(MOCK_DATASET.name);

@@ -111,11 +111,24 @@ for the MVP.
 query   := group ( OR group )*
 group   := atom ( AND atom )*
 atom    := key ':' value
-key     := column-name            (case-insensitive match on Dataset.columns[].name)
+key     := bare-key | '"' quoted-key '"'   (case-insensitive match on Dataset.columns[].name)
 value   := op-prefix? operand
 operand := bare-token | quoted-string
 ```
 
+- **Quoted keys** — a column whose name has spaces, unicode, or
+  other delimiters (e.g. `customer number`, `SỐ ĐIỆN THOẠI`) is
+  queryable by **quoting the key**: `"customer number":>100`,
+  `"SỐ ĐIỆN THOẠI":~090`. The colon must follow the closing quote;
+  the match is case-insensitive (unicode-aware). A bare (unquoted)
+  key with a space is a parse error — the space ends the token.
+  (Bug fix in [Round_54](../../plan/cycles/Round_54.md): the bare-
+  token-only key rejected such columns.)
+- **Unicode operator aliases** — the `?` help shows each operator's
+  math glyph (the shared `datasets.filters.op.*` label: `≠` `≥`
+  `≤`), so those glyphs are accepted as typeable aliases for `!=`
+  `>=` `<=` — `id:≠1` works exactly like `id:!=1`. (R54 bug fix: a
+  user who copies the displayed symbol must get a working query.)
 - `AND` / `OR` are **case-insensitive** keywords (`and`, `And`,
   `OR`, `or` all accepted). They must be whitespace-delimited
   tokens — `stage:android` is one atom whose value is `android`,
@@ -406,6 +419,97 @@ Inherits unchanged from
 [dataset-detail.md § Concurrent delete](dataset-detail.md#concurrent-delete-404-race).
 An `aq`-bearing rows-GET that 404s transitions the page to the
 deleted-dataset state; the query in the URL is irrelevant then.
+
+---
+
+## Discoverability + low-effort clear (R54)
+
+R51's MVP shipped the input with only a placeholder + one-line
+hint — a user could not **discover the operators** (`:` equals,
+`~` contains, `>` / `<` greater/less / after/before, `!=` not-equal,
+`AND` / `OR`, AND-binds-tighter precedence) or **which columns**
+exist. And R53's Clear was a far top-right link — discoverable but
+high-effort (Fitts). R54 closes both as a **holistic redesign of
+the label row**, decided here at the Design gate.
+
+### Help affordance — the `?` reference popover
+
+A small `?` trigger sits **immediately after the "Advanced query"
+label** (left of the row). Clicking it opens an AntD `<Popover>`
+whose content is **rendered from the live vocabulary** (never
+hardcoded), so it always reflects the current operator set + this
+dataset's schema:
+
+- **Syntax line**: `key:value`, joined by `AND` / `OR`; AND binds
+  tighter than OR.
+- **Operator reference** — a prefix → meaning table derived from
+  the parser's prefix maps + `OPS_BY_DTYPE`, grouped by dtype:
+  `:` equals · `~` contains (string) · `>` `<` `>=` `<=` (numeric)
+  · `>` after / `<` before (date) · `!=` not-equal. Operator
+  display labels reuse the existing `datasets.filters.op.*` i18n.
+- **Columns of this dataset** — `Dataset.columns[]` rendered as
+  `name [dtype]` so the user knows the valid keys. (This is why
+  the popover is per-dataset, not static.)
+
+Rendering from the vocabulary means **R55's new operators
+(`on_or_after` etc.) appear in the popover automatically** with no
+extra work.
+
+### Low-effort clear (Fitts + accelerators)
+
+The R53 top-right Clear link is replaced by a clear that is **both
+discoverable and low-effort**:
+
+- **Always-visible in-field × suffix** — shown whenever the input
+  is non-empty (not the hover-only AntD `allowClear`, whose
+  hover-gated visibility was the original discoverability gap).
+  In-field = short pointer distance from the user's focus.
+- **`Esc`-to-clear** when the field is focused — zero mouse travel
+  (the keyboard accelerator), matching the deterministic `Esc`
+  handler now on the `?q=` search field.
+- **Roomy field preserved** — the input keeps its full width;
+  efficiency for the *secondary* clear action must not degrade the
+  *primary* write-a-long-query action (don't shrink the field).
+- **Focus retained after clear** — the field keeps focus so the
+  user can retype immediately (no autofocus-on-load, which would
+  steal focus from the page).
+
+### Row arrangement (decided holistically)
+
+```text
+Advanced query  ⓘ                                              (label row)
+[ stage:won AND amount:>10000                              × ] (input + in-field clear)
+✓ 1 group · 1 predicate                                        (readback / hint / error)
+```
+
+- Label + `?` help on the left (Findability + learnability); the
+  clear lives **in-field** (Usability/efficiency), not as a far
+  header link. The `?q=` search box above keeps its own
+  affordances; the chip row below is unchanged.
+
+### State model (additions)
+
+| State | `?` popover | In-field × | Esc |
+| --- | --- | --- | --- |
+| Empty | available | hidden (no value) | no-op |
+| Typing / Parsed / Errored | available | visible | clears → Empty, focus retained |
+
+### Acceptance criteria (R54)
+
+Continuing the C1–C17 numbering from § Acceptance criteria
+(bulleted to keep a separate list lint-clean):
+
+- **C18** — the `?` trigger renders by the "Advanced query" label
+  and opens a popover.
+- **C19** — the popover lists the operator prefixes → meanings
+  (per dtype) and **this dataset's column names** — both derived
+  from the live vocabulary / `Dataset.columns`, not hardcoded.
+- **C20** — an **always-visible** in-field × appears whenever the
+  input is non-empty (not hover-gated) and clears the query.
+- **C21** — `Esc` clears the query when the field is focused;
+  focus is retained afterward.
+- **C22** — the input field width is unchanged (primary task not
+  degraded).
 
 ---
 

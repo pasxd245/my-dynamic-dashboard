@@ -92,6 +92,15 @@ describe('parseAdvancedQuery — happy paths (criteria 1–5)', () => {
     ]);
   });
 
+  it('C4b: unicode operator glyphs (≠ ≥ ≤) are accepted as aliases (copied from help)', () => {
+    expect(ok('amount:≠0')).toEqual([[{ col: 1, dtype: 'integer', op: 'ne', val: 0 }]]);
+    expect(ok('amount:≥10000')).toEqual([[{ col: 1, dtype: 'integer', op: 'gte', val: 10000 }]]);
+    expect(ok('amount:≤50')).toEqual([[{ col: 1, dtype: 'integer', op: 'lte', val: 50 }]]);
+    expect(ok('won_at:≠2026-01-01')).toEqual([
+      [{ col: 2, dtype: 'date', op: 'ne', val: '2026-01-01' }],
+    ]);
+  });
+
   it('C5: quoted operand with spaces', () => {
     expect(ok('stage:"closed won"')).toEqual([
       [{ col: 3, dtype: 'string', op: 'equals', val: 'closed won' }],
@@ -214,5 +223,63 @@ describe('serialize — round-trip (param + text)', () => {
     const param = groupsToParam(groups);
     const back = groupsFromParam(param, COLUMNS);
     expect(groupsToText(back, COLUMNS)).toBe(original);
+  });
+});
+
+describe('quoted keys — columns with spaces / unicode (R54 bug fix)', () => {
+  // Real-world column names the bare-token grammar could not express.
+  const COLS = [
+    { name: 'customer number', dtype: 'integer' },
+    { name: 'SỐ ĐIỆN THOẠI', dtype: 'string' },
+    { name: 'stage', dtype: 'string' },
+  ] as const;
+
+  function okC(text: string) {
+    const r = parseAdvancedQuery(text, COLS as unknown as Column[]);
+    if (!r.ok) throw new Error(`expected ok, got ${r.code} @ ${r.position}`);
+    return r.groups;
+  }
+  function failC(text: string) {
+    const r = parseAdvancedQuery(text, COLS as unknown as Column[]);
+    if (r.ok) throw new Error(`expected error, got ${JSON.stringify(r.groups)}`);
+    return r;
+  }
+
+  it('quoted key with a space resolves the column', () => {
+    expect(okC('"customer number":>100')).toEqual([
+      [{ col: 0, dtype: 'integer', op: 'gt', val: 100 }],
+    ]);
+  });
+
+  it('quoted key with unicode + spaces resolves the column', () => {
+    expect(okC('"SỐ ĐIỆN THOẠI":~090')).toEqual([
+      [{ col: 1, dtype: 'string', op: 'contains', val: '090' }],
+    ]);
+  });
+
+  it('quoted key match is case-insensitive (unicode-aware)', () => {
+    expect(okC('"số điện thoại":x')).toEqual([
+      [{ col: 1, dtype: 'string', op: 'equals', val: 'x' }],
+    ]);
+  });
+
+  it('quoted key composes with AND/OR and other atoms', () => {
+    expect(okC('"customer number":>100 AND stage:won')).toEqual([
+      [
+        { col: 0, dtype: 'integer', op: 'gt', val: 100 },
+        { col: 2, dtype: 'string', op: 'equals', val: 'won' },
+      ],
+    ]);
+  });
+
+  it('an UNquoted spaced key is a parse error (must quote)', () => {
+    // "customer number:x" tokenizes as "customer" (no colon) + "number:x".
+    expect(failC('customer number:x').code).toBe('missing_colon');
+  });
+
+  it('serialize round-trips a spaced column with a quoted key', () => {
+    const groups = okC('"customer number":>100');
+    const back = groupsFromParam(groupsToParam(groups), COLS as unknown as Column[]);
+    expect(groupsToText(back, COLS as unknown as Column[])).toBe('"customer number":>100');
   });
 });

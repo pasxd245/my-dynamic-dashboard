@@ -87,18 +87,30 @@ whole (design-spec mode), evaluate every facet and record
 **spec** (design-spec mode) or the **build** (fidelity mode); do
 not infer from intent.
 
-1. **Findability** — is the control **labeled** and
-   **distinguishable** from siblings? _Spec:_ does the design
-   declare a visible label / distinct affordance? _Build:_ is a
-   real label rendered (a placeholder is **not** a label — it
-   vanishes on input), and is the control not visually identical to
-   an adjacent different-purpose control? _AntD:_ label above =
+1. **Findability** — is the control **labeled**,
+   **distinguishable** from siblings, and **learnable**? _Spec:_
+   does the design declare a visible label / distinct affordance
+   **and a way to discover how to use the control** (its
+   syntax/options)? _Build:_ is a real label rendered (a
+   placeholder is **not** a label — it vanishes on input); is the
+   control not visually identical to an adjacent different-purpose
+   control; and for a control with a **non-obvious syntax**
+   (a query language, a format mask), is there a discoverable
+   **learnability affordance** (a help popover, an examples panel,
+   autocomplete) — not just a placeholder? _AntD:_ label above =
    fast-fill/high-readability; left = compact.
 2. **Usability** — are **primary + clear/reset/undo** actions
-   declared/present and **discoverable** (not hover-only /
-   keyboard-only)? Are errors recoverable without destroying input?
-   _Build grep:_ `allowClear` (hover-only ×) vs an explicit
-   clear/reset control; the error-render branch.
+   declared/present, **discoverable** (not hover-only /
+   keyboard-only), **and low-effort**? Are errors recoverable
+   without destroying input? **Efficiency (Fitts's Law +
+   accelerators):** is a frequent/clear action close to the user's
+   focus, adequately sized, or keyboard-accessible — not a far,
+   small target requiring a long mouse trip? And **don't degrade
+   the primary affordance to optimize a secondary action** (e.g.
+   don't shrink a roomy input just to bring a clear button closer —
+   add a keyboard accelerator instead). _Build grep:_ `allowClear`
+   (hover-only ×) vs an always-visible in-field × / an `Esc`
+   accelerator; the error-render branch.
 3. **Accessibility** — visible label _and_ accessible name
    (`aria-label` / role), keyboard-reachable, not colour-only,
    contrast meets the token spec.

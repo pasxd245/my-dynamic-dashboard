@@ -19,7 +19,7 @@
 
 import type { Column, Dtype } from '../types';
 import type { FilterPredicate } from '../filters/types';
-import type { ParseErrorCode, ParseErrorContext, ParseResult, PredicateGroups } from './types';
+import type { ParseErrorCode, ParseErrorContext, ParseResult } from './types';
 
 /** The error variant of ParseResult (so `parseAtom` has a clean
  *  two-arm discriminated union with the success `{ ok, pred }`). */
@@ -98,14 +98,17 @@ function tokenize(text: string): TokenizeResult {
 // different behavior). See advanced-query.md § Operator-prefix
 // mapping for the documented gaps (date `>=`/`<=`, string `!=`).
 
-const PREFIXES = ['>=', '<=', '!=', '>', '<', '~'] as const;
-type Prefix = (typeof PREFIXES)[number] | '';
+export const PREFIXES = ['>=', '<=', '!=', '>', '<', '~'] as const;
+export type Prefix = (typeof PREFIXES)[number] | '';
 
 type NumericOp = 'equals' | 'ne' | 'gt' | 'lt' | 'gte' | 'lte';
 type StringOp = 'equals' | 'contains';
 type DateOp = 'equals' | 'ne' | 'before' | 'after';
 
-const NUMERIC_OP_BY_PREFIX: Readonly<Record<Prefix, NumericOp | undefined>> = {
+// Exported so the `?` help popover (AdvancedQueryHelp) renders the
+// operator reference from the SAME live maps the parser uses — a
+// later round that extends these maps surfaces in the help for free.
+export const NUMERIC_OP_BY_PREFIX: Readonly<Record<Prefix, NumericOp | undefined>> = {
   '': 'equals',
   '!=': 'ne',
   '>': 'gt',
@@ -115,7 +118,7 @@ const NUMERIC_OP_BY_PREFIX: Readonly<Record<Prefix, NumericOp | undefined>> = {
   '~': undefined,
 };
 
-const STRING_OP_BY_PREFIX: Readonly<Record<Prefix, StringOp | undefined>> = {
+export const STRING_OP_BY_PREFIX: Readonly<Record<Prefix, StringOp | undefined>> = {
   '': 'equals',
   '~': 'contains',
   '!=': undefined,
@@ -125,7 +128,7 @@ const STRING_OP_BY_PREFIX: Readonly<Record<Prefix, StringOp | undefined>> = {
   '<=': undefined,
 };
 
-const DATE_OP_BY_PREFIX: Readonly<Record<Prefix, DateOp | undefined>> = {
+export const DATE_OP_BY_PREFIX: Readonly<Record<Prefix, DateOp | undefined>> = {
   '': 'equals',
   '!=': 'ne',
   '>': 'after',
@@ -186,13 +189,47 @@ function stripQuotes(s: string): string {
   return s;
 }
 
+// Unicode operator aliases. The `?` help popover shows the math
+// glyphs (≠ ≥ ≤ — the shared `datasets.filters.op.*` labels), so
+// accept them as typeable aliases for their ASCII prefixes; a user
+// who copies the displayed symbol gets a working query.
+const PREFIX_ALIASES: Readonly<Record<string, Prefix>> = {
+  '≠': '!=',
+  '≥': '>=',
+  '≤': '<=',
+};
+
 function splitPrefix(operandRaw: string): { prefix: Prefix; rest: string } {
+  const alias = PREFIX_ALIASES[operandRaw[0] ?? ''];
+  if (alias) {
+    return { prefix: alias, rest: operandRaw.slice(1) };
+  }
   for (const p of PREFIXES) {
     if (operandRaw.startsWith(p)) {
       return { prefix: p, rest: operandRaw.slice(p.length) };
     }
   }
   return { prefix: '', rest: operandRaw };
+}
+
+/** Split an atom token into key + value. A **quoted key**
+ *  (`"customer number":won`, `"SỐ ĐIỆN THOẠI":x`) makes columns
+ *  whose names contain spaces / delimiters / unicode queryable —
+ *  the colon must follow the closing quote. Unquoted keys split on
+ *  the first colon. `valueOffset` is the value's 0-based index in
+ *  `raw` (for 1-based error positions). Returns null if there is no
+ *  `key:` form. */
+function splitKeyValue(
+  raw: string,
+): { key: string; valueRaw: string; valueOffset: number } | null {
+  if (raw.startsWith('"')) {
+    const close = raw.indexOf('"', 1);
+    if (close === -1 || raw[close + 1] !== ':') return null;
+    return { key: raw.slice(1, close), valueRaw: raw.slice(close + 2), valueOffset: close + 2 };
+  }
+  const colon = raw.indexOf(':');
+  if (colon === -1) return null;
+  return { key: raw.slice(0, colon), valueRaw: raw.slice(colon + 1), valueOffset: colon + 1 };
 }
 
 type AtomResult = { ok: true; pred: FilterPredicate } | ParseError;
@@ -251,18 +288,17 @@ function parseAtom(
   tokenStart: number,
   columns: readonly Column[],
 ): AtomResult {
-  const colonIdx = raw.indexOf(':');
-  if (colonIdx === -1) {
+  const split = splitKeyValue(raw);
+  if (!split) {
     return err('missing_colon', tokenStart + 1, { value: raw });
   }
-  const key = raw.slice(0, colonIdx);
-  const valueRaw = raw.slice(colonIdx + 1);
+  const { key, valueRaw, valueOffset } = split;
 
   if (key.length === 0) {
     return err('missing_column_name', tokenStart + 1, {});
   }
 
-  // Resolve column by case-insensitive name match.
+  // Resolve column by case-insensitive name match (unicode-aware).
   const keyLower = key.toLowerCase();
   const colIndex = columns.findIndex((c) => c.name.toLowerCase() === keyLower);
   if (colIndex === -1) {
@@ -272,7 +308,7 @@ function parseAtom(
   const dtype: Dtype = columns[colIndex].dtype;
 
   // Position of the value part (after `key:`), 1-based.
-  const valuePos = tokenStart + colonIdx + 2;
+  const valuePos = tokenStart + valueOffset + 1;
 
   const { prefix, rest } = splitPrefix(valueRaw);
   const operand = stripQuotes(rest);

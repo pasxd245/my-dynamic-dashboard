@@ -25,3 +25,27 @@ body,
 .dataset-rows-pagination-bar .ant-pagination .ant-pagination-options {
   margin-left: auto;
 }
+
+/* Advanced-query / search icon buttons (help "?", clear "×") —
+   muted by default, highlight on hover so they read as interactive
+   (consistent with AntD's own clear/icon affordances). Phosphor
+   icons fill with currentColor, so setting `color` drives them. */
+.aq-icon-btn {
+  color: var(--ant-color-text-tertiary, #8c8c8c);
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+.aq-icon-btn:hover {
+  color: var(--ant-color-text-secondary, #595959);
+}
+
+/* Help "?" accent — blue (the AntD primary, same hue as the sidebar
+   nav icons) so the learnability cue is easy to spot, distinct from
+   the muted destructive "×" clear. Placed after .aq-icon-btn so its
+   color wins on equal specificity. */
+.aq-help-btn {
+  color: var(--ant-color-primary, #1677ff);
+}
+.aq-help-btn:hover {
+  color: var(--ant-color-primary-hover, #4096ff);
+}

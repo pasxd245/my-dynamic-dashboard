@@ -186,6 +186,19 @@
     "advancedQuery": {
       "label": "Advanced query",
       "clear": "Clear",
+      "help": {
+        "title": "Advanced query syntax",
+        "syntax": "key:value predicates, joined by AND / OR. AND binds tighter than OR.",
+        "operators": "Operators",
+        "columns": "Columns",
+        "ariaLabel": "Help",
+        "family": {
+          "string": "Text",
+          "numeric": "Number",
+          "date": "Date",
+          "boolean": "True/False"
+        }
+      },
       "placeholder": "e.g. stage:won AND amount:>10000",
       "hint": "Type key:value predicates joined by AND / OR.",
       "ariaLabel": "Advanced query",

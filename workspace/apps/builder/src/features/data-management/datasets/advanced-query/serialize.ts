@@ -102,13 +102,16 @@ function quoteIfNeeded(s: string): string {
 }
 
 function atomToText(p: FilterPredicate, columns: readonly Column[]): string {
-  const name = columns[p.col]?.name ?? `col${p.col}`;
+  // Quote the key if the column name has whitespace, so the
+  // canonical text round-trips back through the parser (which reads
+  // quoted keys for spaced/unicode column names).
+  const key = quoteIfNeeded(columns[p.col]?.name ?? `col${p.col}`);
   if (p.dtype === 'boolean') {
-    return `${name}:${p.op === 'is_true' ? 'true' : 'false'}`;
+    return `${key}:${p.op === 'is_true' ? 'true' : 'false'}`;
   }
   const prefix = prefixForOp(p.op);
   const val = 'val' in p ? String(p.val) : '';
-  return `${name}:${prefix}${quoteIfNeeded(val)}`;
+  return `${key}:${prefix}${quoteIfNeeded(val)}`;
 }
 
 /** DNF → canonical query text. Groups joined by ` OR `, atoms by
