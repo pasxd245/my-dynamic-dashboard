@@ -86,7 +86,7 @@ passing + FE tests green**.
   dropped — one discoverable clear, not two.
 - **i18n** — `datasets.advancedQuery.label` + `.clear`, en + vi.
 - **Design-spec sync** —
-  [`advanced-query.md` § Layout](../../design/data-management/advanced-query.md#layout--ascii-intent)
+  [`advanced-query.md` § Layout](../../design/data-management/advanced-query.md#layout-ascii-intent)
   gains an R53 note: the label is a header row + Clear link (the
   ASCII boxes are illustrative, not a literal border), so design
   and build agree.
@@ -155,3 +155,24 @@ date/datetime bounds (`on_or_after` / `on_or_before`) + string `ne`
 — to the **shared** predicate vocabulary, and is the first
 _feature_ round designed with `ui-design` applied at its **Design
 gate** (design-spec mode) before any build.
+
+## Appending to Complete rounds
+
+**Roadmap update (2026-05-29, post-close) — R54 reslotted**, per
+[PDCA § Governance](../PDCA.md) (Complete rounds are append-only).
+R53's UI review surfaced two **design (UX)** questions — users
+can't discover the query operators (a learnability gap), and the
+Clear action is high-effort (far top-right link). Both are "what
+should the experience be," not implementation, so they earn a
+Design gate, not an ad-hoc patch.
+
+- **R54 → advanced-query discoverability** — an operator/column
+  help affordance, a low-effort clear (Esc + always-visible
+  in-field ×), and sharpening **two `ui-design` facets** the v1
+  skill under-probed: Findability → _learnability_ and Usability →
+  _efficiency/effort_ (Fitts's Law + accelerators).
+  _Pulled by: R53 visual-review finding._
+- **Close MVP query gaps → R55** (was R54).
+
+The `Feeds into` pointer above is superseded; the authoritative
+plan is [`Round_54.md`](Round_54.md).
