@@ -9,7 +9,17 @@
     "MD036": false,
     "MD040": false,
     "MD060": false,
-    "MD024": { "siblings_only": true }
+    "MD024": { "siblings_only": true },
+    // Emphasis/strong STYLE is owned solely by prettier (which
+    // .lintstagedrc.json runs first, and whose markdown style is not
+    // configurable: `_italic_` + `**strong**`). Disable markdownlint's
+    // competing style rules so the two fixers can't fight — the
+    // default "consistent" setting flip-flopped against prettier on
+    // every commit / on-save and churned the .md files. (Also avoids
+    // markdownlint --fix mangling underscore identifiers like
+    // `IS_NODE` when forced to rewrite emphasis out of order.)
+    "MD049": false,
+    "MD050": false
   },
   "globs": ["**/*.md"],
   "ignores": [
