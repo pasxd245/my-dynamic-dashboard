@@ -369,7 +369,18 @@ export function DatasetDetailPage() {
         >
           <Input.Search
             value={searchInput}
-            onChange={(e) => onSearchChange(e.target.value)}
+            // Coerce: AntD v6's allowClear/Escape path can emit a non-string
+            // (null) value — `?? ''` keeps the controlled input a string so it
+            // never renders a literal "null".
+            onChange={(e) => onSearchChange(e.target.value ?? '')}
+            // Own Escape deterministically (Esc-to-clear accelerator): clear via
+            // our handler rather than AntD's quirky native/internal clear.
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') {
+                e.preventDefault();
+                onClearSearch();
+              }
+            }}
             placeholder={t('datasets.detail.searchPlaceholder')}
             allowClear
             onClear={() => onSearchChange('')}
