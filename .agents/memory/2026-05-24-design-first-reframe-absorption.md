@@ -55,7 +55,7 @@ stress-tested it under heavy reframe pressure and the thesis held.
     17-row open-questions table at the bottom
   - [.agents/design/data-management/datasets.md](../design/data-management/datasets.md) —
     the noun-side split
-  - [.agents/design/index.html](../design/index.html) — the hub
+  - [.agents/design/index.html](../design/_archive/index.html) — the hub
     that made cross-linked navigation possible
 - Companion lessons:
   - [2026-05-22-ui-boundary-build-first.md](2026-05-22-ui-boundary-build-first.md) —

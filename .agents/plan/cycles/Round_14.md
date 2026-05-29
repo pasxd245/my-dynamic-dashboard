@@ -466,7 +466,7 @@ uploads` as a sub-route? **Lean: single page, no tabs** —
   previews — sidebar with grouped sub-items pointing at the
   previews, topbar, breadcrumb, page-card containing the
   descriptive preview cards. Re-authored
-  [index.html](../../design/index.html) against
+  [index.html](../../design/_archive/index.html) against
   `../_css/preview-shell.css` (same shared chrome as the two
   previews). The index now reads as a small "design-previews
   hub" app in its own right, which is the natural meta-view of
@@ -870,7 +870,7 @@ format?: string }>`.
     `5 of 6 columns included`.
 - **Awaiting HIxAI screenshot review of the Metadata-step
   with Include checkboxes + parse-options + multi-sheet.**
-  Refresh [index.html](../../design/index.html), open the
+  Refresh [index.html](../../design/_archive/index.html), open the
   Upload wizard preview, and walk:
   - **Excel path (5 steps)**: default state. Step 1 Source
     (Excel card selected) → Next → Step 2 Sheet (checkboxes —
@@ -967,7 +967,7 @@ sheet]` shows only on Excel.
       authored — N=2 preview-infrastructure trigger fired on
       schedule per the design README. `.btn-primary` +
       `.btn-secondary` promoted to shared mid-round.
-- [x] [.agents/design/index.html](../../design/index.html)
+- [x] [.agents/design/index.html](../../design/_archive/index.html)
       authored — chrome-shell layout (sidebar + topbar +
       page-card), three preview entries (Workspaces · Datasets ·
       Upload wizard), each clickable via sidebar sub-item OR
@@ -1130,7 +1130,7 @@ What R14 hands forward:
   table. Surface declarations (9 + 18 rows) name every
   component, hook, and endpoint R15+ will build.
 - **One running design preview** at
-  [.agents/design/index.html](../../design/index.html) — three
+  [.agents/design/index.html](../../design/_archive/index.html) — three
   cross-linked HTML files HIxAI can walk to verify the running
   builder against. The preview is the "what should this end up
   looking like" anchor for the impl chain.
@@ -1223,7 +1223,7 @@ time.
   [workspace-shell.preview.html](../../design/data-management/_archive/workspace-shell.preview.html),
   [datasets.preview.html](../../design/data-management/_archive/datasets.preview.html),
   [upload.preview.html](../../design/data-management/_archive/upload.preview.html),
-  and [index.html](../../design/index.html). Each now does
+  and [index.html](../../design/_archive/index.html). Each now does
   `<script src="../_js/preview-shell.js"></script>` (or
   `_js/preview-shell.js` from the index) and dropped the inline
   duplicates.

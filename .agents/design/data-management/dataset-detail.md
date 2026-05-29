@@ -397,7 +397,7 @@ stateDiagram-v2
   list-state-preservation lever — if the user clicked a row from
   a filtered list, browser back returns to the filtered list.
 - No explicit `referrer` param this round — flagged as a risk
-  ([Round_33.md § Risks](../../plan/cycles/Round_33.md#risks--unknowns));
+  (`../../plan/cycles/Round_33.md#risks--unknowns`);
   promote to a `?from=` query param if `history.back()` proves
   flaky in R36 verification.
 

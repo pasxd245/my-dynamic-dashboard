@@ -160,7 +160,7 @@ in [.agents/design/README.md § previews](../../design/README.md).
   with a one-line note that R33 extends the rename/delete
   affordances to the dataset detail page header (no behavior
   change — same modals, same hooks).
-- Update [`../../design/index.html`](../../design/index.html) —
+- Update [`../../design/index.html`](../../design/_archive/index.html) —
   add `dataset-detail.preview.html` as a sub-item in the
   Data-Management sidebar group + a card on the right.
 
@@ -306,7 +306,7 @@ in [.agents/design/README.md § previews](../../design/README.md).
 - [`dataset-detail.preview.html`](../../design/data-management/_archive/dataset-detail.preview.html)
   self-contained, opens directly from `file://`. Tailwind CDN
   pulled for layout utilities; chrome via shared
-  [`../_css/{tokens,preview-shell}.css`](../../design/_css/).
+  [`../_css/{tokens,preview-shell}.css`](../../design/_archive/_css).
 - Master-layout chrome matches the other previews — Datasets
   sub-item stays active in the sidebar (the detail page is a
   sub-page of Datasets, not its own sub-menu). Sidebar cross-
@@ -343,7 +343,7 @@ in [.agents/design/README.md § previews](../../design/README.md).
 
 **Design index.**
 
-- [`.agents/design/index.html`](../../design/index.html): added
+- [`.agents/design/index.html`](../../design/_archive/index.html): added
   a new sidebar sub-item "Dataset detail" between Upload and
   CRUD hygiene in the Data Management group, and a matching
   preview card with R33 badge + "paged row inspector · sub-
@@ -396,7 +396,7 @@ in [.agents/design/README.md § previews](../../design/README.md).
 
 - **D-rounds stay small when the contract shape is already
   obvious.** I considered adding a `target.md` per
-  [README.md § target docs](../../design/README.md#optional-conceptmtarget) —
+  [README.md § target docs](../../design/README.md) —
   the rule triggers at 3+ rounds of iteration. R33→R34→R35→R36
   qualifies _only if_ the destination shape is unstable across
   those rounds; here the contract + visual target are locked at
@@ -514,7 +514,7 @@ self-consistent for R34→R36 to implement against:
   table in populated state; new no-match state with "Matched
   0 / 2,481" counter, `[Clear]` link, and "No rows match
   '<query>'" placeholder; new toggle button at the bottom-right.
-- [`../../design/index.html`](../../design/index.html) — card
+- [`../../design/index.html`](../../design/_archive/index.html) — card
   description updated to mention the search bar and no-match
   state.
 

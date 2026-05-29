@@ -198,7 +198,7 @@ Self-contained Tailwind-CDN HTML preview following
   language" deferral row to "Per-column filters — R37 design,
   R38→R40 impl chain" with a sibling link to `dataset-filters.md`.
   Add `dataset-filters.md` to the sibling-docs list at the top.
-- Update [`../../design/index.html`](../../design/index.html) —
+- Update [`../../design/index.html`](../../design/_archive/index.html) —
   add `dataset-filters.preview.html` as a sub-item in the
   Data-Management sidebar group + a card on the right with the
   R37 badge.
@@ -410,7 +410,7 @@ Self-contained Tailwind-CDN HTML preview following
 
 **Design index.**
 
-- [`.agents/design/index.html`](../../design/index.html)
+- [`.agents/design/index.html`](../../design/_archive/index.html)
   gained a sub-item under the Data-Management sidebar group
   (FilterOutlined SVG icon) and a right-side preview card with
   the R37 badge + the "per-column typed filters · sub-page of

@@ -551,7 +551,7 @@ builder test` 8 passed; backend pytest 28 passed. **69 total
 
 R17 implements the **frontend** wizard + datasets table against
 R15's locked contracts + R16's running backend. Per the
-[round-cadence rule](../../memory/feedback_round_cadence.md),
+`../../memory/feedback_round_cadence.md`,
 single-feature scope; per the 4-round methodology, R17 implements
 contracts only — no design churn, no BE changes.
 

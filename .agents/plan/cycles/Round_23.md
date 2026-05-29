@@ -231,7 +231,7 @@ choices but is not this round's deliverable._
 - **Contract already in place?** Per the R19 precedent, the
   C-step can collapse if a relevant contract already exists.
   Worth checking the existing
-  [contracts/](../../../contracts/) directory during the D-round
+  `../../../contracts/` directory during the D-round
   for any endpoint shape that already covers the picked feature.
 - **Preview-build cost.** Previews paid back on upload +
   parse-options at roughly half a round's effort. Per the
@@ -342,7 +342,7 @@ into the design doc and preview HTML in lockstep._
   sibling rows. Both rows name R23 as the round that closes
   the R∞-deferred CRUD gap each existing doc had under "Out of
   scope."
-- **Preview index updated** ([.agents/design/index.html](../../design/index.html)):
+- **Preview index updated** ([.agents/design/index.html](../../design/_archive/index.html)):
   added the CRUD hygiene entry to both the sidebar nav-items
   block and the preview-card list, and bumped the topbar count
   from `N = 3 previews` to `N = 4`. Per the index's own
@@ -480,7 +480,7 @@ job.
       R25 (B), R26 (F) with one-line per-phase justifications.
 - [x] Sibling design docs cross-link the new doc in their
       "Sibling docs" rows.
-- [x] Preview index ([design/index.html](../../design/index.html))
+- [x] Preview index ([design/index.html](../../design/_archive/index.html))
       updated with the CRUD hygiene sidebar item, preview-card
       entry, and `N = 4` count bump.
 - [x] `pnpm md:lint` 0 errors repo-wide.

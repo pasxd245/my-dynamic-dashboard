@@ -8,7 +8,7 @@
 
 **Inherits from ← [Round_33](Round_33.md)** — R33 locked the
 dataset-detail page design and prose-shaped two new GET routes in
-[`dataset-detail.md` § Data contract](../../design/data-management/dataset-detail.md#data-contract-target-shape-for-r34).
+`../../design/data-management/dataset-detail.md#data-contract-target-shape-for-r34`.
 R34 mechanizes that prose into OpenAPI 3.1 YAML files under
 [`workspace/packages/contracts/datasets/`](../../../workspace/packages/contracts/datasets/),
 sibling `.contract.md` rationale files, and gets the new files

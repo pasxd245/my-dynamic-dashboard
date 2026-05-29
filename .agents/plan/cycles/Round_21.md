@@ -272,7 +272,7 @@ sheet`. The third R19-Q3 affordance (`Adjust parse options`)
 ### Design-doc stamp
 
 Added a second `**Frontend**: [Round_21]` row beneath R17's row
-in [upload.md](../../design/data-management/upload.md:25) so the
+in `../../design/data-management/upload.md:25` so the
 chain's close is visible from the design page's stamps block.
 Single-paragraph stamp; no section rewrites (per OUT-of-scope).
 

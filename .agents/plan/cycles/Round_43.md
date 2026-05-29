@@ -82,7 +82,7 @@ end-of-round Q&A:**
    and an injected `text/plain` 200 all bypass the
    validator. Cheap insurance against the content-type /
    status-code guards in
-   [`contract-validator.ts`](../../../workspace/apps/builder/src/mocks/contract-validator.ts:140-144)
+   `../../../workspace/apps/builder/src/mocks/contract-validator.ts:140-144`
    silently breaking.
 8. **If a scenario doesn't fire, fix the validator in this
    round.** The test surfaces the gap; the gap gets closed
@@ -136,7 +136,7 @@ end-of-round Q&A:**
 - Post-round audit per [PDCA.md § Post-round audit](../PDCA.md).
 - Grep this file for unticked `- [ ]` before flipping
   Status — per
-  [feedback_round_doc_flip_checkboxes](../../../../.claude/projects/-home-ubuntu-pf-my-dynamic-dashboard/memory/feedback_round_doc_flip_checkboxes.md).
+  `../../memory/feedback_round_doc_flip_checkboxes.md`.
 
 ## What is OUT of scope
 

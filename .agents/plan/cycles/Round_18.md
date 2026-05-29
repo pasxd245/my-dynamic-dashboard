@@ -265,7 +265,7 @@ Promoted` on
   sentence so the continuation line started with `+`,
   anchoring `MD004/ul-style` to plus across the whole file (29
   diagnostics on `-` bullets). The
-  [auto-memory note on this exact failure mode](../../../../.claude/projects/-home-ubuntu-pf-my-dynamic-dashboard/memory/feedback_round_cadence.md)
+  `../../memory/feedback_round_cadence.md`
   flagged the pattern in advance; I missed it in authoring and
   caught it on first `pnpm md:lint`. Fixed by reword
   (`+ the paired…` → `plus the paired…`). Same gotcha bit a
@@ -589,7 +589,7 @@ These need a new DCBF chain or are debatable design calls:
   (one feature per chain; don't ship the asymmetric half), the
   user pulled this fully to R19+ as the parse-options DCBF
   chain. Recorded in
-  [Feeds-into → Round_19](#feeds-into--round_19-tbd--users-next-pull).
+  `#feeds-into--round_19-tbd--users-next-pull`.
 - **P3 — "Adjust parse options" link** on Preview. Depends on
   M1; rides the same chain.
 - **W2 — Preview-failed extra buttons** (Re-pick file / Deselect

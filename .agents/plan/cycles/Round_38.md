@@ -483,7 +483,7 @@ R38 closes the contract phase for the per-column-filter
 feature. Implementation chain continues:
 
 - **R39** (B): extend the BE rows handler at
-  [`apps/backend/`](../../../apps/backend/) to parse
+  `../../../apps/backend/` to parse
   `f<N>_*` params, validate per-column dtype via
   `Dataset.columns[]`, build the DuckDB WHERE clause
   (push-down before pagination), and surface the four 422

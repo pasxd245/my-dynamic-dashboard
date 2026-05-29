@@ -149,7 +149,7 @@ preview SoT consolidation R47 binds. Per
   before bulk moves; any untracked match means investigate
   first.
 - **Write-discipline gotcha.** Per
-  [auto-memory `feedback_write_tool_discipline`](../../../../.claude/projects/-home-ubuntu-pf-my-dynamic-dashboard/memory/feedback_write_tool_discipline.md):
+  `../../memory/feedback_write_tool_discipline.md`:
   the Read-before-Write guard can stale across same-iteration
   `git rm`. R48 does no Writes (pure moves) — but if a moved file
   needs a follow-up Write (e.g. an `_archive/README.md` index),
@@ -223,7 +223,7 @@ live tree, the index has nothing to index. **Fully superseded.**
 | [`design/data-management/datasets.preview.html`](../../design/data-management/_archive/datasets.preview.html) | **Fully superseded** | Same R47 clause. |
 | [`design/data-management/upload.preview.html`](../../design/data-management/_archive/upload.preview.html) | **Fully superseded** | Same R47 clause. |
 | [`design/data-management/workspace-shell.preview.html`](../../design/data-management/_archive/workspace-shell.preview.html) | **Fully superseded** | Same R47 clause. |
-| [`design/index.html`](../../design/index.html) | **Fully superseded** | Auxiliary to the preview corpus; sole purpose is indexing the 6 preview HTMLs. No purpose once they archive. |
+| [`design/index.html`](../../design/_archive/index.html) | **Fully superseded** | Auxiliary to the preview corpus; sole purpose is indexing the 6 preview HTMLs. No purpose once they archive. |
 | [`design/_css/tokens.css`](../../design/_archive/_css/tokens.css) | **Fully superseded** | Preview-shell auxiliary. Consumer-check: zero live workspace consumers; R14 documents it as a *mirror* of `themeTokens.ts` (live source lives in `workspace/`). |
 | [`design/_css/preview-shell.css`](../../design/_archive/_css/preview-shell.css) | **Fully superseded** | Preview-shell auxiliary. Consumer-check: zero live workspace consumers. |
 | [`design/_js/preview-shell.js`](../../design/_archive/_js/preview-shell.js) | **Fully superseded** | Preview-shell auxiliary. Consumer-check: zero live workspace consumers. |

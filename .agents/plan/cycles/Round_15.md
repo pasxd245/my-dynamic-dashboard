@@ -447,7 +447,7 @@ format? }`
 ## Questions for user before next round — RESOLVED (2026-05-24)
 
 R16 implements the **backend** against R15's locked contracts.
-Per the [round-cadence rule](../../memory/feedback_round_cadence.md),
+Per the `../../memory/feedback_round_cadence.md`,
 single-feature scope; per the 4-round-methodology, R16 implements
 contracts only — no UI work, no design churn.
 

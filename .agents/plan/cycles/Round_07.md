@@ -128,7 +128,7 @@ from drifted),
       [workspace/apps/builder/src/components/AppLayout.tsx](../../../workspace/apps/builder/src/components/AppLayout.tsx)
       wiring `<WorkspaceShell>` to `useNavigate` / `useLocation`.
 - [x] Implemented placeholder page at
-      [workspace/apps/builder/src/features/data-management/DataManagementPage.tsx](../../../workspace/apps/builder/src/features/data-management/DataManagementPage.tsx)
+      `../../../workspace/apps/builder/src/features/data-management/DataManagementPage.tsx`
       (heading + intent paragraph matching the preview, using AntD
       `Typography` for theme-token wiring).
 - [x] Wired routes in
@@ -137,7 +137,7 @@ from drifted),
       → `<Routes>` with `/` redirect to `/data-management` (using
       `<Navigate replace>`) and `/data-management` → page.
 - [x] Removed
-      [workspace/apps/builder/src/App.tsx](../../../workspace/apps/builder/src/App.tsx)
+      `../../../workspace/apps/builder/src/App.tsx`
       and its obsolete test
       `workspace/apps/builder/tests/App.test.tsx` (both were R03
       scaffolding). Replaced with
