@@ -1,8 +1,8 @@
 # Round 50: `markdown-check-link` skill — link-integrity checker for `.agents/`
 
-**Status**: Review
+**Status**: Complete
 **Date started**: 2026-05-28
-**Date completed**:
+**Date completed**: 2026-05-29
 
 ## Goal
 
