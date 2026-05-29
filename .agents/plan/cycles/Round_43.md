@@ -8,7 +8,7 @@
 
 **Inherits from ← [Round_42](Round_42.md)** — R42 landed
 `withContractValidation` and wrapped the rows-GET handler, but
-the validator is *dormant*: today's handler conforms, so
+the validator is _dormant_: today's handler conforms, so
 `ContractDriftError` has never actually fired. R42 declared the
 drift-detector surface "ready" without exercising it. Before we
 trust it (R42 follow-up #1 extends coverage to more endpoints;
@@ -28,13 +28,13 @@ R43 is **Track-2** (agent-method, validator-correctness). No
 product feature; no FE/BE behavior change. The only runtime
 output is one new test file (~50 → ~55 tests).
 
-*Track: 2 (agent-method). Pulled by: R42 closed the
+_Track: 2 (agent-method). Pulled by: R42 closed the
 contract-anchor design gap but left the validator
 unexercised; the end-of-R42 conversation 2026-05-27 named
 "prove it fires" as the natural precondition for the
 [`withContractValidation`](../../decisions/2026-05-27-msw-contract-anchor.md)
 discipline to be load-bearing — per
-[Evolution Rule](../../AGENTS.md).*
+[Evolution Rule](../../AGENTS.md)._
 
 **Reasonable defaults under [auto mode]; user redirects via
 end-of-round Q&A:**
@@ -64,7 +64,7 @@ end-of-round Q&A:**
    plus a follow-up assertion on `err.operationId === 'getDatasetRows'`
    and `err.errors[0].instancePath` pointing at the bad
    field. The `instancePath` assertion is what proves the diff
-   is *useful*, not just present.
+   is _useful_, not just present.
 5. **Use the real MSW server** from
    [`src/mocks/server.ts`](../../../workspace/apps/builder/src/mocks/server.ts),
    not a separate test-only one. The whole point is to
@@ -72,7 +72,7 @@ end-of-round Q&A:**
    server would test a parallel codepath.
 6. **Reuse `withContractValidation` directly** in the
    override builders — `server.use(withContractValidation('get',
-   '*/datasets/:id/rows', 'getDatasetRows', (info) => …drift…))`.
+'*/datasets/:id/rows', 'getDatasetRows', (info) => …drift…))`.
    This mirrors how a future buggy handler in `handlers.ts`
    would look, so the test stays faithful to the real
    failure mode.
@@ -96,7 +96,7 @@ end-of-round Q&A:**
    exercises what's there.
 10. **No decision file.** R42's
     [contract-anchor decision](../../decisions/2026-05-27-msw-contract-anchor.md)
-    already pins the convention; R43 is a *verification*
+    already pins the convention; R43 is a _verification_
     round on top, not a new commitment. If the validator
     needs design changes (unlikely), update the existing
     decision's `## What this allows` section in place — but
@@ -108,7 +108,7 @@ end-of-round Q&A:**
 
 - ~5 drift scenarios + 3 passthrough scenarios + 1 positive
   control = ~9 `it(...)` blocks under one `describe('MSW
-  contract validator', …)`.
+contract validator', …)`.
 - Imports `withContractValidation`, `ContractDriftError`
   from `@/mocks/contract-validator`; imports `server` from
   `@/mocks/server`.
@@ -117,7 +117,7 @@ end-of-round Q&A:**
 
 ### 2. Validator fixes (only if a scenario surfaces a gap)
 
-- Edit `src/mocks/contract-validator.ts` *in place* if any
+- Edit `src/mocks/contract-validator.ts` _in place_ if any
   drift scenario fails to throw, throws the wrong error
   type, or produces an unreadable diff.
 - Anticipated touch-points: AJV options (`strict: false`,
@@ -143,7 +143,7 @@ end-of-round Q&A:**
 - **No extending validation to more endpoints.** R42
   follow-up #1 (`getDataset`, list, batch, uploads via
   `@apidevtools/swagger-parser`) stays deferred until
-  *after* the validator is proven correct on the one
+  _after_ the validator is proven correct on the one
   endpoint it covers today.
 - **No `$ref` dereferencing.** Same reason.
 - **No browser-side validation.** R42 follow-up #2 stays
@@ -162,7 +162,7 @@ end-of-round Q&A:**
 - [x] Author `tests/contract-validator.test.ts` with the
       five drift scenarios + positive control.
 - [x] Run `pnpm --filter builder test --run
-      tests/contract-validator.test.ts`; iterate until each
+tests/contract-validator.test.ts`; iterate until each
       drift scenario throws `ContractDriftError` with a
       useful `instancePath`.
 - [x] Add the three passthrough scenarios (204, 4xx,
@@ -196,7 +196,7 @@ end-of-round Q&A:**
   the constraint isn't there, either add it to the
   contract (Track-1 amendment, out of R43 scope — drop that
   scenario instead and document why) or test a deeper-level
-  `additionalProperties` violation that *is* enforced.
+  `additionalProperties` violation that _is_ enforced.
 - **`server.use(...)` override ordering.** The
   base handler from `handlers.ts` also matches the rows-GET
   path; if MSW matches the base before the override,
@@ -204,9 +204,9 @@ end-of-round Q&A:**
   documented behavior is LIFO (overrides win), but the
   `*/datasets/:id/rows` wildcard may interact unexpectedly.
   Mitigation: a one-line sanity test asserts the override
-  is reached *before* asserting drift behavior.
+  is reached _before_ asserting drift behavior.
 - **`ContractDriftError` thrown inside an MSW handler may
-  surface as a *handler error*, not a rejected fetch
+  surface as a _handler error_, not a rejected fetch
   promise.** MSW v2 typically catches handler exceptions
   and returns a 500. If that's what happens, the test's
   `.rejects.toThrow(ContractDriftError)` assertion fails
@@ -215,7 +215,7 @@ end-of-round Q&A:**
   be on `console.error` content or on a 500 response with
   the error name in its body. May need to add a vitest
   `setup.ts` listener (`server.events.on('unhandledException',
-  …)`) that re-surfaces the error. Likely the largest
+…)`) that re-surfaces the error. Likely the largest
   unknown going in.
 - **Vitest's parallel test runner** could let one scenario's
   override leak into a sibling test if `server.resetHandlers`
@@ -224,8 +224,8 @@ end-of-round Q&A:**
   it should be; verify before authoring.
 - **Diff-readability is subjective.** "Useful" `instancePath`
   may mean `/total`, `/rows/0`, or `/rows/0/2` depending on
-  scenario. The test asserts on *the right path for each
-  scenario*, not on a generic "is non-empty" predicate.
+  scenario. The test asserts on _the right path for each
+  scenario_, not on a generic "is non-empty" predicate.
 
 ## Do
 
@@ -238,12 +238,12 @@ that R43 was designed to flush out.
 R42's `contract-validator.ts:37` defined:
 
 ```ts
-const IS_NODE = typeof window === "undefined";
+const IS_NODE = typeof window === 'undefined';
 ```
 
 Intent: skip validation in browser builds. Reality: vitest uses
 `happy-dom` which shims `window` globally, so `IS_NODE` was
-`false` *in tests*. `loadSchemas()` short-circuited to an empty
+`false` _in tests_. `loadSchemas()` short-circuited to an empty
 map; `validateResponse()` returned `{ ok: true }` for every body.
 The validator has been silently no-op'd since R42 landed.
 
@@ -258,8 +258,7 @@ Fix: switch to a `process`-based Node detector that happy-dom
 doesn't shim:
 
 ```ts
-const IS_NODE =
-  typeof process !== "undefined" && typeof process.versions?.node === "string";
+const IS_NODE = typeof process !== 'undefined' && typeof process.versions?.node === 'string';
 ```
 
 Browser builds still skip (Vite stubs `node:fs` imports for the
@@ -269,9 +268,9 @@ schemas load from disk, validation runs.
 
 **Bug 2: MSW v2 swallows resolver throws — `.rejects.toThrow` doesn't work.**
 
-R42 documented the failure mode as *"throws ContractDriftError
-with the diff. Loud."* (decision file § "Mode detection") and the
-plan's failure-mode line read *"throws in test"*. In MSW v2.14.6
+R42 documented the failure mode as _"throws ContractDriftError
+with the diff. Loud."_ (decision file § "Mode detection") and the
+plan's failure-mode line read _"throws in test"_. In MSW v2.14.6
 that's only half-true: the resolver does throw, but MSW catches
 the exception and emits it via the `unhandledException` event.
 The awaited `fetch()` resolves cleanly (with a 500-style response),
@@ -297,12 +296,12 @@ silently ignored.
 [`tests/contract-validator.test.ts`](../../../workspace/apps/builder/tests/contract-validator.test.ts) —
 8 tests under two `describe` blocks:
 
-- *Drift scenarios fire ContractDriftError* (5 tests):
+- _Drift scenarios fire ContractDriftError_ (5 tests):
   positive control + missing-required + wrong-type +
   additional-property + wrong-nested-shape. Each drift test
   asserts on `err.operationId`, `err.errors[0].keyword`, and
   the precise `instancePath` / `params.missingProperty`.
-- *Passthrough regression (R42 guards)* (3 tests): 204
+- _Passthrough regression (R42 guards)_ (3 tests): 204
   no-content + 4xx envelope + non-JSON 200 — all bypass the
   validator unwrapped, exercising the content-type and
   status-code guards in `contract-validator.ts`.
@@ -357,7 +356,7 @@ silently ignored.
   exposes.** R43 was sold as "stress-test a working
   validator." It turned into "fix the validator that was
   silently broken since R42." The round delivered more
-  value than the plan promised — because the *premise* of
+  value than the plan promised — because the _premise_ of
   the plan ("validator works, prove it") was wrong. The
   forcing-function value of writing the test is exactly
   this: an attempt to assert correctness surfaces the
@@ -373,28 +372,28 @@ silently ignored.
   `unhandledException` event → awaited `fetch()` resolves
   with a synthetic 500. Tests using
   `.rejects.toThrow(SomeError)` against MSW handlers will
-  *silently pass* unless `unhandledException` is wired to
+  _silently pass_ unless `unhandledException` is wired to
   fail tests. R43 added the wiring in `tests/setup.ts`.
 - **Two bugs found is not a coincidence; it's the
-  signature of dormant code.** R42's design *seemed*
+  signature of dormant code.** R42's design _seemed_
   fully wired (typed handler decorator, typed error class,
   JSON-schema validation against a parsed YAML), and the
   build/test pipeline passed. But neither failure path was
   ever exercised. The lesson: if a code path can only
-  *fail loudly*, it must be *exercised loudly* at least
+  _fail loudly_, it must be _exercised loudly_ at least
   once to know the loudness works. Apply forward to other
   defensive code (the R39 BE conformance helper deserves
   the same check at some point).
 - **The R42 decision file stands as written.** The
   validator's `applies-when` / `failure-mode` /
   `revisit-trigger` are unchanged — what changed is that
-  the validator now *actually* enforces them. No decision-
+  the validator now _actually_ enforces them. No decision-
   file amendment needed.
 
-**Promotions** *(none this round — Track-2 verification work;
+**Promotions** _(none this round — Track-2 verification work;
 the test file stays under `tests/` until a second mocks
 domain or `packages/mocks` extraction pulls it out, same as
-R42's validator)*:
+R42's validator)_:
 
 **Follow-ups (not promotions, just notes):**
 
@@ -420,9 +419,9 @@ R42's validator)*:
   R42-style bugs. Not pulled today; flag for later.
 - **The R42 decision file's `failure-mode:` value is sharper
   in retrospect.** R43 demonstrated the failure mode it
-  named was *also* the failure mode of the validator itself
-  (silent drift between *intended* loud-failure semantics
-  and *actual* silent no-op semantics). The discipline
+  named was _also_ the failure mode of the validator itself
+  (silent drift between _intended_ loud-failure semantics
+  and _actual_ silent no-op semantics). The discipline
   worked; the bug was deeper than the convention's scope.
 
 ## Feeds into → Round_44 (TBD)

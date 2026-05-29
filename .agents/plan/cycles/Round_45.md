@@ -30,12 +30,12 @@ schema-coverage smoke test that proves each wrapped
 `operationId` has a loaded schema that rejects clearly-wrong
 bodies.
 
-*Track: 2 (agent-method). Pulled by: R42 follow-up #1
+_Track: 2 (agent-method). Pulled by: R42 follow-up #1
 (extend coverage); R43 Act § Follow-ups ("Extend coverage to
 $ref-using endpoints. Now that the validator actually runs,
 [the named follow-up] pays off — drift on those endpoints
 would be loud, not silent."); R44 Feeds-into. Per
-[Evolution Rule](../../AGENTS.md).*
+[Evolution Rule](../../AGENTS.md)._
 
 **Reasonable defaults under [auto mode]; user redirects via
 end-of-round Q&A:**
@@ -69,13 +69,13 @@ end-of-round Q&A:**
    and bypass the validator by the content-type guard.
 5. **Test shape = one parameterized smoke**, not per-endpoint
    drift tests. `it.each(WRAPPED_OPS)('validator has a
-   schema that rejects bad bodies for %s', …)` exercises
+schema that rejects bad bodies for %s', …)` exercises
    `validateResponse(opId, { obviously: 'wrong' })` directly
    (no MSW round-trip). Proves: (a) the schema for each opId
    loaded, (b) AJV rejects clearly-wrong bodies. The 5
    detailed drift scenarios from R43 stay as-is — they
-   exercise the *MSW integration*; this new test exercises
-   the *coverage*.
+   exercise the _MSW integration_; this new test exercises
+   the _coverage_.
 6. **Existing test suite is the integration coverage.**
    `datasets.test.tsx`, `dataset-detail.test.tsx`,
    `routing.test.tsx` already drive most of the wrapped
@@ -91,7 +91,7 @@ end-of-round Q&A:**
    bugs in 1 round; R45 wraps 9 handlers, so by base rate
    we should expect 0-2 fixes). Each fix lands inline with
    a one-line comment naming the AJV error keyword + path
-   so the diff explains *why*.
+   so the diff explains _why_.
 8. **`onUnhandledRequest: 'bypass'` stays.** Legacy tests
    that still use `vi.stubGlobal('fetch', …)` continue to
    work alongside the now-fuller MSW handler set.
@@ -134,17 +134,17 @@ end-of-round Q&A:**
 
 - Wrap each of the 9 JSON-200 handlers:
 
-  | Method | Path | OperationId |
-  |---|---|---|
-  | GET | `/workspaces` | `listWorkspaces` |
-  | POST | `/workspaces` | `createWorkspace` |
-  | PATCH | `/workspaces/:id` | `renameWorkspace` |
-  | GET | `/datasets` | `listDatasets` |
-  | GET | `/datasets/:id` | `getDataset` |
-  | PATCH | `/datasets/:id` | `renameDataset` |
-  | POST | `/workspaces/:id/datasets/batch` | `commitDatasetsBatch` |
-  | POST | `/uploads` | `createTempUpload` |
-  | POST | `/uploads/:tempId/parse` | `parseTempUpload` |
+  | Method | Path                             | OperationId           |
+  | ------ | -------------------------------- | --------------------- |
+  | GET    | `/workspaces`                    | `listWorkspaces`      |
+  | POST   | `/workspaces`                    | `createWorkspace`     |
+  | PATCH  | `/workspaces/:id`                | `renameWorkspace`     |
+  | GET    | `/datasets`                      | `listDatasets`        |
+  | GET    | `/datasets/:id`                  | `getDataset`          |
+  | PATCH  | `/datasets/:id`                  | `renameDataset`       |
+  | POST   | `/workspaces/:id/datasets/batch` | `commitDatasetsBatch` |
+  | POST   | `/uploads`                       | `createTempUpload`    |
+  | POST   | `/uploads/:tempId/parse`         | `parseTempUpload`     |
 
 - DELETE handlers stay unwrapped (204, bypass by content-
   type).
@@ -152,7 +152,7 @@ end-of-round Q&A:**
 ### 4. Coverage smoke test
 
 - Add a parameterized `it.each(WRAPPED_OPS)('validator has a
-  loaded schema for %s', …)` to
+loaded schema for %s', …)` to
   [`tests/contract-validator.test.ts`](../../../workspace/apps/builder/tests/contract-validator.test.ts)
   that calls `validateResponse(opId, { obviously: 'wrong' })`
   and asserts `result.ok === false`. Proves both "schema
@@ -164,12 +164,12 @@ end-of-round Q&A:**
 
 - Run full suite; if existing tests now fail because a
   default handler's shape doesn't match its contract YAML,
-  fix the *handler* (the YAML is the spec). Each fix lands
+  fix the _handler_ (the YAML is the spec). Each fix lands
   inline in `handlers.ts` with a one-line `// R45: AJV
-  <keyword> at <path>` comment.
+<keyword> at <path>` comment.
 - If a fix is non-trivial (requires shape redesign), leave
   the handler unwrapped with a `// TODO(R46): drift —
-  <description>` comment and document in this round's Do
+<description>` comment and document in this round's Do
   section. Don't bloat the round.
 
 ### 6. Pipeline
@@ -193,7 +193,7 @@ end-of-round Q&A:**
 - **No per-endpoint detailed drift tests.** R43 already
   proved drift detection works end-to-end; R45 trusts that
   proof and adds only the coverage-smoke loop. If a future
-  bug surfaces on a specific endpoint, *that* incident
+  bug surfaces on a specific endpoint, _that_ incident
   pulls a detailed test for it.
 - **No browser-side validation.** R42's follow-up #2 stays
   deferred.
@@ -210,12 +210,9 @@ end-of-round Q&A:**
 
 - [x] Confirm scope at planning review.
 - [x] `pnpm --filter builder add -D @apidevtools/swagger-parser`.
-- [x] Refactor `loadSchemas()` to:
-      - walk `**/*.contract.yaml` via `findContractFiles`,
-      - `await SwaggerParser.dereference(fileUrl, parserOpts)`
-        per file with custom file resolver,
-      - extract `operationId → first-2xx JSON schema` map via
-        `registerDocSchemas` + `pickSuccessSchema` helpers.
+- [x] Refactor `loadSchemas()` to: - walk `**/*.contract.yaml` via `findContractFiles`, - `await SwaggerParser.dereference(fileUrl, parserOpts)`
+      per file with custom file resolver, - extract `operationId → first-2xx JSON schema` map via
+      `registerDocSchemas` + `pickSuccessSchema` helpers.
 - [x] Convert module to top-level await so call sites stay
       sync.
 - [x] Wrap the 9 JSON-2xx handlers with
@@ -251,8 +248,8 @@ end-of-round Q&A:**
       `import { createRequire } from "node:module"` and
       `import { dirname } from "node:path"` both fire Vite's
       browser-externalization throw-on-access at module-load
-      time, regardless of IS_NODE gating at the call site. Fix:
-      *all* node-only deps in `contracts-root.ts` and
+      time, regardless of IS*NODE gating at the call site. Fix:
+      \_all* node-only deps in `contracts-root.ts` and
       `contract-validator.ts` move to `await import(...)` inside
       the IS_NODE-gated functions. IS_NODE itself switches from
       `typeof process.versions.node` (lies in Vite's browser
@@ -266,7 +263,7 @@ end-of-round Q&A:**
       temporal-dead-zone bug surfaced once MSW actually loaded:
       a recent local change had swapped the original
       `.then(renderApp)` pattern for `await import + finally`,
-      but `const appTree` was still declared *after* the
+      but `const appTree` was still declared _after_ the
       if/else block. With TLA, module eval pauses at the
       await — `appTree` is in TDZ when `renderApp` runs.
       Moved `appTree` declaration above the `renderApp`
@@ -283,7 +280,7 @@ end-of-round Q&A:**
 ## Risks / unknowns
 
 - **Top-level await + Vite tree-shaking interaction.**
-  TLA in a module that *also* needs to be safely
+  TLA in a module that _also_ needs to be safely
   tree-shaken for the browser bundle is a known sharp edge.
   Mitigation: keep `IS_NODE` as the first thing the TLA
   block checks; if false, resolve immediately to an empty
@@ -319,7 +316,7 @@ end-of-round Q&A:**
   laxer than the YAML intent suggests. Mitigation: not
   this round's problem — the YAML is the spec; if the
   spec is lax, the validator is correctly lax. Could
-  surface as a *future* spec tightening round if drift
+  surface as a _future_ spec tightening round if drift
   goes undetected.
 - **Vitest worker initialization cost.** Top-level await
   at module load means every vitest worker pays the
@@ -408,10 +405,10 @@ end-of-round Q&A:**
   added a `describe("MSW contract validator — coverage smoke (R45)")`
   block with a single parameterized
   `it.each(WRAPPED_OPS)('%s has a loaded schema that rejects
-  obviously-wrong bodies', …)`. Probes `validateResponse(opId,
-  { obviously: 'wrong' })` directly (bypasses MSW) and
+obviously-wrong bodies', …)`. Probes `validateResponse(opId,
+{ obviously: 'wrong' })` directly (bypasses MSW) and
   asserts `result.ok === false`. One assertion proves both
-  *schema loaded* and *AJV rejects bad bodies*; a green test
+  _schema loaded_ and _AJV rejects bad bodies_; a green test
   here is strong evidence the coverage is wired.
 - `WRAPPED_OPS` is a `const` array of the 10 operationIds —
   authoritative list; if a new handler gets wrapped in
@@ -445,11 +442,11 @@ end-of-round Q&A:**
   package.json lookup in a new
   [`src/mocks/contracts-root.ts`](../../../workspace/apps/builder/src/mocks/contracts-root.ts).
   The shared module uses `createRequire(import.meta.url).resolve(
-  "@mdd/contracts/package.json")` then `dirname()`; gated by
+"@mdd/contracts/package.json")` then `dirname()`; gated by
   `IS_NODE` so the browser bundle gets an empty string (consumers
   already no-op via their own gates).
 - Both call sites now `import { CONTRACTS_ROOT } from
-  "./contracts-root"`. `contract-validator.ts` loses its
+"./contracts-root"`. `contract-validator.ts` loses its
   `__filename`/`__dirname` boilerplate and the `dirname` import;
   `fixtures.ts` drops the `node:url` require and the manual
   `fileURLToPath`+`path.resolve` chain.
@@ -474,7 +471,7 @@ end-of-round Q&A:**
   teammates). Update
   [`workspace/config/builder/.env.hbs`](../../../workspace/config/builder/.env.hbs)
   with `{{#if builder.enable_mock}}VITE_MOCKS=1{{/if}}` — the
-  variable is *absent* when the flag is false, not set to `'0'`.
+  variable is _absent_ when the flag is false, not set to `'0'`.
   This matches [`main.tsx:78`](../../../workspace/apps/builder/src/main.tsx#L78)'s
   existing `=== '1'` guard without touching FE code.
 - Verified both branches: with `enable_mock: true`, the rendered
@@ -492,14 +489,14 @@ MSW actually loads.**
 
 - Toggled `enable_mock: true`, opened the browser, got
   `Uncaught Error: Module "node:module" has been externalized
-  for browser compatibility. Cannot access "node:module.createRequire"
-  in client code` from `contracts-root.ts`. Then, after a partial
+for browser compatibility. Cannot access "node:module.createRequire"
+in client code` from `contracts-root.ts`. Then, after a partial
   fix, the same error against `node:path.dirname`. Root cause:
   Vite externalizes every `node:*` builtin as a throw-on-access
   stub for the browser bundle, and a static
   `import { createRequire } from "node:module"` (or any other
   `node:*` named import) fires the stub's getter at module-load
-  time — *before* any runtime IS_NODE check can short-circuit.
+  time — _before_ any runtime IS_NODE check can short-circuit.
 - Fix is mechanical: zero static `node:*` or `swagger-parser`
   imports in the modules MSW reaches in browser dev. Every
   Node-only dep moves into `await import(...)` inside the
@@ -529,10 +526,10 @@ actually loads.**
 
 - Once tidy C let MSW load in browser, the next error was a
   fresh `Uncaught ReferenceError: Cannot access 'appTree' before
-  initialization` from `main.tsx`. A recent local change to
+initialization` from `main.tsx`. A recent local change to
   `main.tsx` had swapped the original `.then(renderApp)` pattern
   for `try { await import("@/mocks/start"); ... } finally { renderApp(); }`,
-  but `const appTree = (...)` was still declared *after* the
+  but `const appTree = (...)` was still declared _after_ the
   if/else block. With TLA, module evaluation pauses at the
   `await` — `appTree` is in TDZ when `renderApp` runs from the
   `finally`. The same bug was latent in the `else` (mock-off)
@@ -550,7 +547,7 @@ actually loads.**
 - TL;DR pass over the touched files
   (`contracts-root.ts`, `contract-validator.ts`,
   `fixtures.ts`, `main.tsx`). Lots of verbose `// X is because Y
-  is because Z` blocks collapsed to one-or-two-line WHYs. The
+is because Z` blocks collapsed to one-or-two-line WHYs. The
   R42/R43/R45 history index at the top of `contract-validator.ts`
   shrank from 26 lines to ~16. Cross-references between files
   (`see contracts-root.ts`) carry the longer explanation in one
@@ -619,7 +616,7 @@ actually loads.**
 **Learnings**:
 
 - **Happy-dom's `window.location` shim bites a second
-  time.** R43 surfaced the IS_NODE-is-`!window` trap; R45
+  time.** R43 surfaced the IS*NODE-is-`!window` trap; R45
   surfaced its sibling: SwaggerParser/json-schema-ref-parser
   use `window.location.href` to decide whether a path is
   local or remote. Under happy-dom that origin is
@@ -630,7 +627,7 @@ actually loads.**
   [IS_NODE memory](../../memory/2026-05-27-is-node-detection-under-dom-emulation.md)
   R44 captured both flag DOM-emulators as a class of trap;
   this is a third instance. The general rule worth
-  internalizing: *if a Node library decides browser-vs-Node
+  internalizing: \_if a Node library decides browser-vs-Node
   by sniffing globals, it will misfire under DOM-emulators.*
   Worth a small extension to the IS_NODE memory if a fourth
   instance lands.
@@ -641,8 +638,8 @@ actually loads.**
   wrapped handlers — is informative: it confirms the mock
   handlers in handlers.ts have been authored faithfully to
   the contract YAMLs from the start. The validator's job
-  going forward is *guarding the floor* (no future
-  regression), not *catching existing drift*. That changes
+  going forward is _guarding the floor_ (no future
+  regression), not _catching existing drift_. That changes
   the cost-benefit calculus for further extensions (browser
   validation, codegen) — they're insurance, not bug-fixes.
 - **Top-level await + module-scoped const = clean
@@ -658,7 +655,7 @@ actually loads.**
   make the code clearer.** SonarJS flagged `loadSchemas` at
   CC=26 after the 2xx-status iteration landed. Extracting
   `pickSuccessSchema` + `registerDocSchemas` reduced CC
-  *and* made each function's job nameable in one line. Not
+  _and_ made each function's job nameable in one line. Not
   always the case — sometimes the linter wants splits that
   hurt readability. Here the extraction was clearly the
   better shape; the linter's nudge was sound. Worth holding
@@ -677,14 +674,14 @@ actually loads.**
 - **Vite externalizes `node:*` as throw-on-access stubs; static
   named-imports fire the getter at module-load even when the
   call site is gated.** R45's contracts-root.ts assumed the
-  IS_NODE-gated ternary would short-circuit
+  IS*NODE-gated ternary would short-circuit
   `createRequire(...)` away in the browser. It does — but the
-  *import binding* is read regardless, and Vite's stub throws
+  \_import binding* is read regardless, and Vite's stub throws
   on property access. Static `import { dirname } from "node:path"`
   has the same problem. The rule: in any module the MSW chain
-  loads in browser dev, *zero static `node:*` imports*. Every
-  Node-only dep goes through `await import(...)` inside an
-  IS_NODE-gated function. Parallel via `Promise.all` to keep
+  loads in browser dev,_zero static `node:_`imports*. Every
+Node-only dep goes through`await import(...)`inside an
+IS_NODE-gated function. Parallel via`Promise.all` to keep
   module-init latency low (the serial first draft pushed
   upload-wizard tests past vitest's 5s ceiling).
 - **`typeof process.versions.node === "string"` is not a
@@ -705,7 +702,7 @@ actually loads.**
   finishes — `appTree` is initialized by then. A local change
   swapped it for `try/await/finally`, but kept `const appTree`
   after the if/else block. The fix is mechanical (move the
-  const above), but the *general* lesson is: when adding TLA
+  const above), but the _general_ lesson is: when adding TLA
   to a module that already declares `const`s, those `const`s
   need to live above the first await, otherwise any function
   called from the post-await arm sees TDZ. Worth checking any
@@ -717,17 +714,17 @@ actually loads.**
   guide-comment explaining the segment count (itself a tell
   that the path is unreadable on its own). pnpm already knows
   where `@mdd/contracts` lives; `createRequire(import.meta.url)
-  .resolve("@mdd/contracts/package.json")` → `dirname()`
+.resolve("@mdd/contracts/package.json")` → `dirname()`
   collapses the question to a one-liner and the anchor becomes
   a name, not a count. Bundle size proved the indirection
   still tree-shakes. Worth applying the same shape to any
   future workspace-package path lookups.
 
-**Promotions** *(none — Track-2 verification round; the
+**Promotions** _(none — Track-2 verification round; the
 validator + decorator + smoke loop stay under
 `apps/builder/src/mocks/` until a second mocks-using domain
 or `packages/mocks` extraction pulls them out, same as R42
-and R43)*:
+and R43)_:
 
 **Follow-ups (not promotions, just notes):**
 

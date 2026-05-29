@@ -34,6 +34,7 @@
 
 ```markdown
 # Fidelity Checklist
+
 - [ ] Spacing: padding/margin from tokens.css
 - [ ] Typography: font sizes accurate
 - [ ] Colors: using production tokens
@@ -41,19 +42,19 @@
 - [ ] Responsive: desktop + mobile tested
 - [ ] WCAG AA contrast verified
 
-Designer sign-off: _______ Date: _______
+Designer sign-off: **\_\_\_** Date: **\_\_\_**
 ```
 
 ---
 
 ## Other Issues (Monitor, Escalate Later)
 
-| Issue | Risk | Next step |
-|-------|------|-----------|
-| CDN overhead (90 KB unused) | 🟡 MED | Escalate R31+ if 15+ previews |
-| CSS duplication | 🟡 MED | Document patterns now, extract R31+ |
+| Issue                           | Risk       | Next step                                 |
+| ------------------------------- | ---------- | ----------------------------------------- |
+| CDN overhead (90 KB unused)     | 🟡 MED     | Escalate R31+ if 15+ previews             |
+| CSS duplication                 | 🟡 MED     | Document patterns now, extract R31+       |
 | State management (toggles only) | 🟠 LOW-MED | Add Alpine.js only if 3+ complex features |
-| Manual index maintenance | 🟡 MED | Auto-discovery script if 20+ previews |
+| Manual index maintenance        | 🟡 MED     | Auto-discovery script if 20+ previews     |
 
 ---
 
@@ -101,12 +102,12 @@ Designer sign-off: _______ Date: _______
 
 ## Why This Path?
 
-| Approach | Cost | Time to value | Fits now? |
-|----------|------|---|---|
-| Status quo (do nothing) | 0 | Now | ❌ Token drift will bite |
-| Phase 1 (fix + docs) | ~6h | Next session | ✅ **Unblocks 5 more rounds** |
-| Option C (local build) | ~12h | 2 weeks | ❌ Premature at 7 previews |
-| Option D (component lib) | ~50h | 4 weeks | ❌ Over-engineered |
+| Approach                 | Cost | Time to value | Fits now?                     |
+| ------------------------ | ---- | ------------- | ----------------------------- |
+| Status quo (do nothing)  | 0    | Now           | ❌ Token drift will bite      |
+| Phase 1 (fix + docs)     | ~6h  | Next session  | ✅ **Unblocks 5 more rounds** |
+| Option C (local build)   | ~12h | 2 weeks       | ❌ Premature at 7 previews    |
+| Option D (component lib) | ~50h | 4 weeks       | ❌ Over-engineered            |
 
 ---
 

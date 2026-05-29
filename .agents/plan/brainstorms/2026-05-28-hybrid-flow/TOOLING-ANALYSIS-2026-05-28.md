@@ -45,15 +45,15 @@ The current hand-rolled approach (Tailwind CDN + custom CSS in each `.preview.ht
 
 ### Current stack choices
 
-| Layer | Choice | Source |
-|-------|--------|--------|
-| **Host** | Static HTML files | Opens directly from `file://` (no server) |
-| **CSS framework** | Tailwind CDN + custom CSS | `<script src="https://cdn.tailwindcss.com"></script>` |
-| **Tokens** | Manual CSS variables mirror | tokens.css (hand-mirrored from themeTokens.ts) |
-| **Shared chrome** | Extracted CSS + vanilla JS | R14 extraction (now at N=7-8 previews) |
-| **Interactions** | Vanilla JavaScript | toggleGroup(), toggleCollapse() functions |
-| **State mgmt** | CSS class toggling on body | `.state-populated`, `.state-empty`, etc. |
-| **Build** | None | No PostCSS, no purge, no bundling |
+| Layer             | Choice                      | Source                                                |
+| ----------------- | --------------------------- | ----------------------------------------------------- |
+| **Host**          | Static HTML files           | Opens directly from `file://` (no server)             |
+| **CSS framework** | Tailwind CDN + custom CSS   | `<script src="https://cdn.tailwindcss.com"></script>` |
+| **Tokens**        | Manual CSS variables mirror | tokens.css (hand-mirrored from themeTokens.ts)        |
+| **Shared chrome** | Extracted CSS + vanilla JS  | R14 extraction (now at N=7-8 previews)                |
+| **Interactions**  | Vanilla JavaScript          | toggleGroup(), toggleCollapse() functions             |
+| **State mgmt**    | CSS class toggling on body  | `.state-populated`, `.state-empty`, etc.              |
+| **Build**         | None                        | No PostCSS, no purge, no bundling                     |
 
 ---
 
@@ -165,10 +165,18 @@ Each preview re-implements shared patterns. If upload wizard defines a form fiel
 **From datasets.preview.html**:
 
 ```css
-.dataset-table { /* 30 lines */ }
-.filter-control { /* 10 lines */ }
-.filter-select { /* 8 lines */ }
-.status-dot { /* 10 lines */ }
+.dataset-table {
+  /* 30 lines */
+}
+.filter-control {
+  /* 10 lines */
+}
+.filter-select {
+  /* 8 lines */
+}
+.status-dot {
+  /* 10 lines */
+}
 ```
 
 **From upload.preview.html** (presumed, not fully verified):
@@ -250,9 +258,7 @@ All previews claim **"~90% fidelity"** but there's no objective measure, checkli
 **From index.html**:
 
 ```html
-<div class="honest-banner">
-  ... Each entry below is a self-contained brainstorming preview at ~90% fidelity ...
-</div>
+<div class="honest-banner">... Each entry below is a self-contained brainstorming preview at ~90% fidelity ...</div>
 ```
 
 **From .agents/design/README.md**:
@@ -501,7 +507,7 @@ Create `.agents/design/_templates/fidelity-checklist.md`:
 ```markdown
 # D-round Sign-off: Fidelity Checklist
 
-Preview: _______________
+Preview: **\*\***\_\_\_**\*\***
 
 - [ ] Spacing: All padding/margin values match tokens.css
 - [ ] Typography: Font sizes, weights, line heights accurate
@@ -514,7 +520,7 @@ Preview: _______________
 - [ ] Responsive: Desktop + mobile breakpoints tested
 - [ ] Contrast: WCAG AA color contrast verified
 
-Designer sign-off: ____________  Date: _______
+Designer sign-off: \***\*\_\_\_\_\*\*** Date: **\_\_\_**
 ```
 
 - Add to design concept templates
@@ -532,12 +538,14 @@ Create `.agents/design/_css/PATTERNS.md`:
 # Preview Component Patterns
 
 ## Buttons
+
 **Used in**: datasets.preview.html, upload.preview.html
 **CSS class**: `.row-action`, `.filter-clear`
 **Pattern**: Borderless secondary buttons with primary on hover
 **When to use**: Non-destructive actions in tables, filters
 
 ## Tables
+
 **Used in**: datasets.preview.html
 **CSS class**: `.dataset-table`
 **Pattern**: Fixed-width headers, tabular-nums for numbers
@@ -568,20 +576,19 @@ Update `.agents/design/README.md`:
 
 **Decision criteria** (measure after 3-5 more D-rounds):
 
-| Metric | Threshold | Escalate to |
-|--------|-----------|-------------|
-| Duplication in new previews | > 30% of authoring | Option C (local build) |
-| Time per new pattern | > 20 min | Option C (local build) |
-| State branching complexity | > 3 independent states per preview | Option D (component lib) or Alpine.js |
-| Total previews | > 15 | Consider Option C |
-| Designer frustration with manual index | Blocking new previews | Add auto-discovery script |
+| Metric                                 | Threshold                          | Escalate to                           |
+| -------------------------------------- | ---------------------------------- | ------------------------------------- |
+| Duplication in new previews            | > 30% of authoring                 | Option C (local build)                |
+| Time per new pattern                   | > 20 min                           | Option C (local build)                |
+| State branching complexity             | > 3 independent states per preview | Option D (component lib) or Alpine.js |
+| Total previews                         | > 15                               | Consider Option C                     |
+| Designer frustration with manual index | Blocking new previews              | Add auto-discovery script             |
 
 **What to escalate to**:
 
 - **If duplication + complexity grow**: Option C (Tailwind + local build)
   - Cost: ~12-16 hours to set up build pipeline, token sync, purging
   - Benefit: CDN removed, tokens auto-synced, component extraction possible
-  
 - **If state management becomes bottleneck**: Add Alpine.js or htmx to previews
   - Cost: ~4-6 hours to add library + document patterns
   - Benefit: State machine, reactivity without full framework
@@ -594,14 +601,14 @@ Update `.agents/design/README.md`:
 
 ## Summary: Issues → Mitigations
 
-| Issue | Severity | Current pain | Option E cost | Residual after Phase 1 |
-|-------|----------|--------------|---------------|------------------------|
-| #1: Token drift | 🔴 HIGH | Per UI change | ~2h (fixes) | ✅ Eliminated |
-| #2: CDN overhead | 🟡 MED | Per preview | No fix | Minor (90 KB unused) |
-| #3: Duplication | 🟡 MED | Per pattern | ~1h (doc) | Mitigated (awareness) |
-| #4: State mgmt | 🟠 LOW-MED | Complex interactions | No fix | Manageable for R28-32 |
-| #5: Fidelity feedback | 🔴 HIGH | Handoff friction | ~1h (fixes) | ✅ Eliminated |
-| #6: Index maintenance | 🟡 MED | Per preview | No fix | Mitigated if documented |
+| Issue                 | Severity   | Current pain         | Option E cost | Residual after Phase 1  |
+| --------------------- | ---------- | -------------------- | ------------- | ----------------------- |
+| #1: Token drift       | 🔴 HIGH    | Per UI change        | ~2h (fixes)   | ✅ Eliminated           |
+| #2: CDN overhead      | 🟡 MED     | Per preview          | No fix        | Minor (90 KB unused)    |
+| #3: Duplication       | 🟡 MED     | Per pattern          | ~1h (doc)     | Mitigated (awareness)   |
+| #4: State mgmt        | 🟠 LOW-MED | Complex interactions | No fix        | Manageable for R28-32   |
+| #5: Fidelity feedback | 🔴 HIGH    | Handoff friction     | ~1h (fixes)   | ✅ Eliminated           |
+| #6: Index maintenance | 🟡 MED     | Per preview          | No fix        | Mitigated if documented |
 
 ---
 

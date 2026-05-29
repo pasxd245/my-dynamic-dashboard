@@ -33,7 +33,7 @@ information); this endpoint returns the cells (the table body).
   count. The FE pairs it with `Dataset.rowCount` (from the
   parallel `GET /datasets/{id}`) to render an "X of Y" match
   counter above the table. When `q` is absent, `total ===
-  Dataset.rowCount`.
+Dataset.rowCount`.
 - **Page resets on `q` change.** The FE re-issues with `page=1`
   whenever `q` changes — same UX rule as `page_size` change.
   Filter changes (any `f<N>_*` add / change / remove) reset
@@ -96,18 +96,18 @@ to all `N < Dataset.columnCount`.
   into the DuckDB `WHERE` clause), then the `?q=` substring
   search runs over the filtered intermediate. The order is
   observationally equivalent to `WHERE (...filter predicates...)
-  AND (?q=... substring across all cells)`; `total` reflects
+AND (?q=... substring across all cells)`; `total` reflects
   the AND-composed matched count. The FE's "Matched X / Y"
   counter uses `total` for `X` and `Dataset.rowCount` for `Y`
   regardless of which predicates are active.
 - **Operator vs operand shape.** Each operator implies a fixed
   operand shape:
 
-  | Operator family | Fields used |
-  | --- | --- |
-  | Single-operand (`equals`, `ne`, `gt`, `lt`, `gte`, `lte`, `contains`, `starts_with`, `ends_with`, `before`, `after`) | `f<N>_op`, `f<N>_val` |
-  | Range (`between`) | `f<N>_op`, `f<N>_min`, `f<N>_max` |
-  | No-operand (`is_null`, `is_not_null`, `is_empty`, `is_not_empty`, `is_true`, `is_false`) | `f<N>_op` only |
+  | Operator family                                                                                                      | Fields used                       |
+  | -------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
+  | Single-operand (`equals`, `ne`, `gt`, `lt`, `gte`, `lte`, `contains`, `starts_with`, `ends_with`, `before`, `after`) | `f<N>_op`, `f<N>_val`             |
+  | Range (`between`)                                                                                                    | `f<N>_op`, `f<N>_min`, `f<N>_max` |
+  | No-operand (`is_null`, `is_not_null`, `is_empty`, `is_not_empty`, `is_true`, `is_false`)                             | `f<N>_op` only                    |
 
   Mismatch (e.g. `between` with `val` instead of `min`/`max`,
   or `equals` with `min` and no `val`) returns 422 with
@@ -261,7 +261,7 @@ they may not be.
   Triggered by `page < 1`, `page_size` outside `{25, 50, 100}`,
   an `id` that doesn't match `^ds_[0-9a-f]{8}$`, or `q` longer
   than 200 chars. Out-of-range `page` (i.e., `page > ceil(total
-  / page_size)`) is **not** 422 — see Behavior above. A `q=`
+/ page_size)`) is **not** 422 — see Behavior above. A `q=`
   that matches zero rows is also **not** 422; it returns 200
   with `rows: []` and `total: 0` (same shape as out-of-range).
 
@@ -273,12 +273,12 @@ envelope shape is unchanged (FastAPI's request-validation
 shape); new error codes are communicated in `msg`, not in a
 new schema. The four codes:
 
-| `msg` prefix | Trigger |
-| --- | --- |
-| `filter_op_dtype_mismatch` | `f<N>_op` is not a valid operator for `Dataset.columns[N].dtype` (e.g. `f1_op=contains` on an integer column). |
-| `filter_value_unparseable` | `f<N>_val` (or `_min` / `_max`) fails the per-dtype parse rule (e.g. `f1_val=foo` on an integer column; `f2_val=not-a-date` on a date column). |
-| `filter_col_out_of_range` | `f<N>_*` for `N >= Dataset.columnCount` (no such column). |
-| `filter_operand_shape` | Operator and operand shape disagree: `between` without both `_min` and `_max`, or `_min > _max`; a single-operand op with `_min`/`_max` and no `_val`; or a no-operand op with any `_val` / `_min` / `_max`. |
+| `msg` prefix               | Trigger                                                                                                                                                                                                      |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `filter_op_dtype_mismatch` | `f<N>_op` is not a valid operator for `Dataset.columns[N].dtype` (e.g. `f1_op=contains` on an integer column).                                                                                               |
+| `filter_value_unparseable` | `f<N>_val` (or `_min` / `_max`) fails the per-dtype parse rule (e.g. `f1_val=foo` on an integer column; `f2_val=not-a-date` on a date column).                                                               |
+| `filter_col_out_of_range`  | `f<N>_*` for `N >= Dataset.columnCount` (no such column).                                                                                                                                                    |
+| `filter_operand_shape`     | Operator and operand shape disagree: `between` without both `_min` and `_max`, or `_min > _max`; a single-operand op with `_min`/`_max` and no `_val`; or a no-operand op with any `_val` / `_min` / `_max`. |
 
 A request that matches the filter set but returns zero rows
 is **not** 422; it returns 200 with `rows: []` and `total: 0`

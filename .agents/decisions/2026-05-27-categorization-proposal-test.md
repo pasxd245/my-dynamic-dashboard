@@ -19,9 +19,9 @@ promoted-to: null
 # Decision: Test new categorization proposals against existing fields before adding
 
 **Commitment**: When proposing a new field, enum, taxonomy, or
-categorization scheme for agent-method artifacts (Round_NN.md
+categorization scheme for agent-method artifacts (Round*NN.md
 headers, decision frontmatter, etc.), first explicitly demonstrate
-*which existing field's job the new one is supposed to do, and
+\_which existing field's job the new one is supposed to do, and
 why that existing field is insufficient*. If the work is already
 covered by Goal / Track / Pulled-by / prose, the proposal does
 not meet the [Evolution Rule](../AGENTS.md)'s pull bar — reject
@@ -29,9 +29,9 @@ or defer.
 
 ## Why
 
-The Evolution Rule sets the floor: *"Default = don't add. ...
+The Evolution Rule sets the floor: _"Default = don't add. ...
 only when a track-1 round (or a documented lesson from one)
-actually pulls them in."* This decision sharpens the test with
+actually pulls them in."_ This decision sharpens the test with
 a concrete failure case.
 
 A 2026-05-27 conversation thread proposed adding a
@@ -68,7 +68,7 @@ rounds, an enum closing over a fuzzy domain) without producing
 a new discipline that the existing fields didn't already enforce.
 Rejecting it left the methodology smaller and more honest.
 
-The lesson worth keeping is the *test itself*: before adding
+The lesson worth keeping is the _test itself_: before adding
 categorization, show which existing field's job the new one
 takes over, and why that field can't do the job. If you can't
 name an existing field that fails, you don't have a pull — you
@@ -77,7 +77,7 @@ have an aesthetic preference.
 ## What this allows
 
 - Adding a new categorization scheme when an existing field
-  *demonstrably* fails — the failure case is reproducible in
+  _demonstrably_ fails — the failure case is reproducible in
   current artifacts, not hypothetical. The proof goes in the
   decision file's `failure-mode:`.
 - Intentional redundancy for ergonomic reasons (e.g., a
@@ -97,7 +97,7 @@ have an aesthetic preference.
   the back-catalog).
 - Aggregating many small speculative pulls into one "big"
   pull. Each pull must stand on its own present-tense evidence.
-- Citing asymmetric option value as the *primary* justification.
+- Citing asymmetric option value as the _primary_ justification.
   It can appear as a secondary benefit, never as the load-bearing
   argument.
 
@@ -117,9 +117,9 @@ have an aesthetic preference.
   Paying that cost once, with real requirements in hand, beats
   paying a continuous maintenance cost on a speculative scheme.
 
-*Track: 2. Pulled by: 2026-05-27 conversation thread proposing
+_Track: 2. Pulled by: 2026-05-27 conversation thread proposing
 `**Type**:` field on Round_NN.md — three candidate pulls
 (commit-scope ambiguity, planning-time discipline, docs-graph
 option value) all dissolved under the test "does an existing
 field already do this job?" The lesson is the test itself; the
-rejection of the Type proposal is the proof the test works.*
+rejection of the Type proposal is the proof the test works._

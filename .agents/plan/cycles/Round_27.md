@@ -195,7 +195,7 @@ project — bugs/gaps found here feed forward._
       `pnpm run config:render`. Fails the commit if the render
       fails (template syntax error, missing key). Husky was
       already in devDependencies but uninitialized — `npx husky
-  init` initialized + added `prepare` script.
+init` initialized + added `prepare` script.
 - [x] Create `apps/builder/src/config/{fields.ts,const.ts,index.ts}`
       following drifted's shape. No `AppConfig` class yet
       (R28's scope).

@@ -189,15 +189,14 @@ all of them at once._
       semantics).
 - [x] Stamp `crud-hygiene.md` and `upload.md` with a brief R30
       note.
-- [x] Run `uv run pytest` (BE), `pnpm type-check` + `pnpm test`
-      + `pnpm build` (FE), `pnpm md:lint`, `pnpm --filter
-      @mdd/contracts test`.
+- [x] Run `uv run pytest` (BE), `pnpm type-check` + `pnpm test` + `pnpm build` (FE), `pnpm md:lint`, `pnpm --filter
+@mdd/contracts test`.
 - [x] **Visual verification (live use of the new gate)**: BE
       booted with `MDD_BACKEND__TMP_SWEEP__INTERVAL_SECONDS=60
-      MDD_BACKEND__TMP_SWEEP__TTL_SECONDS=60` — the five stale
+MDD_BACKEND__TMP_SWEEP__TTL_SECONDS=60` — the five stale
       `uploads_tmp/tmp_*` directories from R26-era testing were
       swept on the first pass (verified via `ls
-      data/uploads_tmp/` → empty). `/health` responded 200.
+data/uploads_tmp/` → empty). `/health` responded 200.
       Shutdown clean (no hung tasks). Error boundary fallback
       verified at unit level via thrown-child vitest (the
       production wiring path is identical to the test render
@@ -336,7 +335,7 @@ not the config layer.
 **Tmp sweep (BE).**
 
 - `values.yaml` gained `backend.tmp_sweep.{enabled,
-  interval_seconds, ttl_seconds}` (86400s TTL, 3600s interval,
+interval_seconds, ttl_seconds}` (86400s TTL, 3600s interval,
   enabled true). Template at
   [`workspace/config/backend/data/config/default.yaml.hbs`](../../../workspace/config/backend/data/config/default.yaml.hbs)
   picked it up; `pnpm config:render` re-emitted the BE default
@@ -441,8 +440,7 @@ and the cancellation path in lifespan works.
 
 - [x] `BackendSettings` has the nested `tmp_sweep` block with
       defaults; `default.yaml` renders the new fields.
-- [x] `app/jobs/tmp_sweep.py` has `sweep_once` + `sweep_loop`
-      + `_main` CLI entry; importable.
+- [x] `app/jobs/tmp_sweep.py` has `sweep_once` + `sweep_loop` + `_main` CLI entry; importable.
 - [x] FastAPI lifespan spawns the sweep task when
       `tmp_sweep.enabled` is True; cancels cleanly on shutdown.
 - [x] 6 sweep tests pass (expired removed, fresh kept, missing
@@ -510,7 +508,7 @@ track-2/3 freeze on `context/` edits):_
 **Follow-ups (not promotions, just notes):**
 
 - AntD v5 deprecation warnings (`<Alert message=>`, `<Space
-  direction=>`) still trip vitest stderr — R31 cleanup.
+direction=>`) still trip vitest stderr — R31 cleanup.
 - Pre-existing prettier warnings in `workspace/packages/ui/**`
   and `workspace/packages/contracts/**` are out-of-scope for
   R30 (not introduced by this round). R31 or a dedicated

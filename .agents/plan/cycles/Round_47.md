@@ -29,12 +29,12 @@ references, and adds nothing else. **No design files are touched** —
 that work is the R48 chain (audit → normalize → refresh) which only
 makes sense once R47's gates exist as the ruler to measure against.
 
-*R45 (validator coverage) is the most recent Track-2 milestone but
+_R45 (validator coverage) is the most recent Track-2 milestone but
 not an artifact-dependency for R47; R47's Track-1 pull comes from
 the DCBF experiment + design-corpus pain, surfaced via the
-2026-05-28 brainstorm chain and routed through R46.*
+2026-05-28 brainstorm chain and routed through R46._
 
-*Track: 2 (agent-method, process discipline). Pulled by Track-1
+_Track: 2 (agent-method, process discipline). Pulled by Track-1
 experience with the DCBF chain
 ([context/contract-driven-feature.md](../../context/_archive/contract-driven-feature.md),
 validated R14→R21): the cycle delivered fair-only results for
@@ -45,7 +45,7 @@ chain at
 (MEMO-FINDINGS scan flagged 6 D-side issues, 2 critical). R47
 codifies the operating-model pivot the brainstorm chain
 synthesized: DCFBI default + DFCFBI conditional, replacing the
-flat DCBF chain. Per [Evolution Rule](../../AGENTS.md).*
+flat DCBF chain. Per [Evolution Rule](../../AGENTS.md)._
 
 **Reasonable defaults under [auto mode]; user redirects via
 end-of-round Q&A:**
@@ -66,8 +66,8 @@ end-of-round Q&A:**
    open-ended exploration. The "no contract-shape requests" clause is
    the teeth — it forces F1 output to be UX-only, not API-fishing. The
    number is committed in the decision but flagged `revisit-trigger:
-   after first DFCFBI run (R48 audit may discover the corpus has
-   features that needed F1 — those become retrospective trial data)`.
+after first DFCFBI run (R48 audit may discover the corpus has
+features that needed F1 — those become retrospective trial data)`.
 4. **Reference wiring goes in `AGENTS.md § Operative horizons`**, not
    `context/governance.md`. Operative-horizons is the existing index of
    active commitments that constrain the Evolution Rule
@@ -75,14 +75,14 @@ end-of-round Q&A:**
    is already there); R47's decision belongs in the same list. The
    pattern is established — one new bullet, no structural change.
 5. **No `.agents/context/` promotion.** Decisions live in
-   `decisions/`; context-promotion is reserved for *validated*
+   `decisions/`; context-promotion is reserved for _validated_
    patterns (per [PDCA.md § Promotions](../PDCA.md#act)). R47 commits
    a hypothesis to be measured against by R48 chain. Promotion is
    premature.
 6. **No `.agents/memory/` note this round.** Memory captures
-   *learnings* from completed work; R47 is the work itself. If R48
+   _learnings_ from completed work; R47 is the work itself. If R48
    audit surfaces gate ambiguities or F1-timebox-too-tight evidence,
-   *that* round writes the memory.
+   _that_ round writes the memory.
 7. **Brainstorm source-of-truth lives at
    [`.agents/plan/brainstorms/2026-05-28-hybrid-flow/`](../brainstorms/2026-05-28-hybrid-flow/)**
    (post-R46). The decision file paraphrases and tightens FINAL-
@@ -90,7 +90,7 @@ end-of-round Q&A:**
    stays as the durable analysis trail; the decision is the
    authoritative committed form. The decision cites
    `FINAL-RECOMMENDATION-2026-05-28.md` (and optionally its
-   siblings) once in `## Why`. R47 *does not* edit the brainstorm
+   siblings) once in `## Why`. R47 _does not_ edit the brainstorm
    docs — they are historical record after R46 moved them.
 8. **`AGENTS.md` edit is one bullet**: under `### Operative horizons`,
    append one item matching the existing format. No new section, no
@@ -112,24 +112,24 @@ end-of-round Q&A:**
   - `status: active` (the commitment binds immediately — R47 will
     operate under it from day one)
   - `applies-when: a design-and-delivery cycle starts for any product
-    feature in this repo`
+feature in this repo`
   - `failure-mode: contract locks bad UX assumptions early (pure
-    contract-first), OR late API churn from open-ended frontend
-    discovery (pure frontend-first), OR "one source of truth"
-    rhetoric without traceability`
+contract-first), OR late API churn from open-ended frontend
+discovery (pure frontend-first), OR "one source of truth"
+rhetoric without traceability`
   - `revisit-trigger: after first complete DFCFBI run (selector
-    triggered, F1 timebox tested); OR R48 audit surfaces ≥3
-    design files that can't pass the Design exit gate without gate
-    revision; OR an F1 round overruns the ≤2-day timebox by >50%`
+triggered, F1 timebox tested); OR R48 audit surfaces ≥3
+design files that can't pass the Design exit gate without gate
+revision; OR an F1 round overruns the ≤2-day timebox by >50%`
   - `promoted-to: null`
 - Body sections, in this order:
   1. **Commitment** — one paragraph naming DCFBI default + DFCFBI
      conditional + O-rule cross-cutting + F1 timebox.
   2. **Why** — cite FINAL-RECOMMENDATION's three-point analysis
      (process worked but had blockers; pure flows trade off; MSW
-      maturity now supports two-stage FE). One link to the durable
-      brainstorm source under
-      `plan/brainstorms/2026-05-28-hybrid-flow/`.
+     maturity now supports two-stage FE). One link to the durable
+     brainstorm source under
+     `plan/brainstorms/2026-05-28-hybrid-flow/`.
   3. **What this allows** — the carve-outs: DCFBI for low-uncertainty
      features (no F1 ceremony), per-test handler overrides at gates
      (with logged exit), contract v2 process when F2 surfaces real
@@ -154,14 +154,14 @@ form:
   the design markdown, not button variants).
 - `## Hard gates (non-negotiable)` — table form:
 
-  | Gate | Exit criterion | Who closes it |
-  |---|---|---|
-  | Design | Journeys + testable acceptance criteria documented | round author |
-  | F1 (if triggered) | Interaction decisions frozen; open Qs resolved-or-deferred-explicitly | round author |
-  | Contract | Request/response/error shapes frozen; MSW aligned | round author |
-  | F2 (if F1 ran) | Confirmation pass complete; contract v2 process invoked for shape changes | round author |
-  | Backend | Contract conformance tests pass | round author |
-  | Integration | FE-vs-BE verified; conformance tests pass on both | round author |
+  | Gate              | Exit criterion                                                            | Who closes it |
+  | ----------------- | ------------------------------------------------------------------------- | ------------- |
+  | Design            | Journeys + testable acceptance criteria documented                        | round author  |
+  | F1 (if triggered) | Interaction decisions frozen; open Qs resolved-or-deferred-explicitly     | round author  |
+  | Contract          | Request/response/error shapes frozen; MSW aligned                         | round author  |
+  | F2 (if F1 ran)    | Confirmation pass complete; contract v2 process invoked for shape changes | round author  |
+  | Backend           | Contract conformance tests pass                                           | round author  |
+  | Integration       | FE-vs-BE verified; conformance tests pass on both                         | round author  |
 
 - `## The O-rule (three truths, cross-cutting)` — name the three
   truths (UX truth = design artifact; data-behavior truth = contract
@@ -218,7 +218,7 @@ sub-section), commit the number:
 - **No `.agents/context/` promotion.** Promotion needs validation;
   R47 commits a hypothesis.
 - **No new memory file.** Memory captures learnings from work; R47
-  *is* the work. If R48 surfaces gate ambiguity, that's where the
+  _is_ the work. If R48 surfaces gate ambiguity, that's where the
   memory note lands.
 - **No edits to the brainstorm chain at
   [`.agents/plan/brainstorms/2026-05-28-hybrid-flow/`](../brainstorms/2026-05-28-hybrid-flow/).**
@@ -234,7 +234,7 @@ sub-section), commit the number:
   not justified yet. The selector is short enough to read inline.
 - **No retroactive application.** R47 binds R48 onward. Existing
   rounds (R01-R45) are not re-classified or re-audited against the
-  gates. The R48 design-corpus audit *will* be the first
+  gates. The R48 design-corpus audit _will_ be the first
   cross-application of the gates.
 
 ## Plan
@@ -269,7 +269,7 @@ sub-section), commit the number:
   decisions
   ([MSW contract-anchor](../../decisions/2026-05-27-msw-contract-anchor.md),
   [R99 evo-horizon](../../decisions/2026-05-27-r99-evo-horizon.md))
-  constrain code or roadmap. This one constrains *process*. The
+  constrain code or roadmap. This one constrains _process_. The
   template fits; the placement under `decisions/` is the right
   shape; but it's a slight broadening of what `decisions/` carries.
   Acceptable — `governance.md` already covers process governance at
@@ -283,7 +283,7 @@ sub-section), commit the number:
 - **R48 narrowed further to archive-only** (post-Review amendment
   5 — see Do log). Earlier amendments swept R48 from "audit" to
   "corpus reconciliation"; this latest narrowing pulls it back to
-  *supersession analysis + archive move* only. Rewrites of
+  _supersession analysis + archive move_ only. Rewrites of
   surviving docs (design `.md` framing, README narratives, context
   files) are deferred to a later round that benefits from concrete
   DCFBI experience. Reason: at an S-curve break-point, archive is
@@ -378,7 +378,7 @@ explicit.**
 User surfaced the central conceptual mismatch in the first draft:
 the DCBF→DCFBI pivot is not just "add an F1 phase when uncertainty
 is high" — its core shift is that **the F phase (or F1 in DFCFBI)
-running against MSW *is* the canonical UX preview**, eliminating
+running against MSW _is_ the canonical UX preview**, eliminating
 the DCBF-era split between HTML mockups in
 [`.agents/design/`](../../design/) and FE code in
 [`workspace/apps/builder/`](../../../workspace/apps/builder/). That
@@ -396,7 +396,7 @@ Three edits applied:
   central conceptual shift (not just a side-effect).
 - **O-rule** § UX truth reframed from "the design artifact" to
   "the FE running against MSW"; design markdown is reclassified
-  as the *spec* the FE implements, not a parallel truth.
+  as the _spec_ the FE implements, not a parallel truth.
 - **What this allows** item on Design artifacts demotes HTML
   previews from "optional" to "not SoT; historical scratch from
   DCBF rounds; R48 decides their fate."
@@ -410,7 +410,7 @@ User followed the FE-as-preview clarification with a sharper
 sequencing question: "we need to remove all preview.html, update
 design docs. Why? this must be done before first 'trial' of
 DCFBI?" The answer is yes — and the implication is that R48
-was misframed as "audit" when its actual work is *reconciliation*
+was misframed as "audit" when its actual work is _reconciliation_
 of the corpus to the new SoT shape.
 
 Four failure modes if a DCFBI trial runs before cleanup:
@@ -455,12 +455,12 @@ R48 scope widened to all DCBF-anchored docs.**
 User followed the R48 reframe with a deeper methodological
 observation: this moment is a **break-point / growth-point in
 S-curve development theory** — methodology shifts that change the
-*conceptual shape* of the work, not just its steps. They proposed
+_conceptual shape_ of the work, not just its steps. They proposed
 two complementary actions:
 
 1. Capture the break-point in memory so the evolution is visible
    on the timeline (which already exists as dated memory files).
-2. Widen R48 scope: beyond `.preview.html`, *any* "official"
+2. Widen R48 scope: beyond `.preview.html`, _any_ "official"
    doc that operationalized DCBF can be reconciled.
 
 Both applied:
@@ -512,22 +512,22 @@ append-only rule):
   format.
 
 The remaining `R48.A`/`R48.B`/`R48.C` mentions in R47.md are
-intentional — they exist only as *explanations* of why we dropped
+intentional — they exist only as _explanations_ of why we dropped
 the notation, or as references to R46's locked-history speculation.
 
 This is the **fourth** post-Review amendment, again surfaced by
 user observation rather than self-audit. The Act learning about
 "governance audits catch procedural drift; conceptual audits need
 fresh framing" applies here too — premature naming is a
-*procedural* drift my audit could have caught but didn't.
+_procedural_ drift my audit could have caught but didn't.
 
 **Post-Review amendment 5: R48 scope narrowed to archive-only;
 "work carefully at the break-point" disposition codified.**
 
 User pulled R48's scope tighter still — from "corpus reconciliation
 across DCBF-anchored docs" (amendment 3 framing) to **supersession
-analysis + archive move only**. Their reasoning: *"we are at the
-break-point of S-curve. Thus, have to work carefully."*
+analysis + archive move only**. Their reasoning: _"we are at the
+break-point of S-curve. Thus, have to work carefully."_
 
 Earlier amendment 3 had implicitly bundled two distinct concerns:
 (a) removing contradictory artifacts from the live tree (necessary
@@ -537,7 +537,7 @@ trial). R48 now does only (a).
 
 The disposition: at an S-curve break-point, archive is reversible
 (file moves preserve history); content rewrites are not. Letting
-the first DCFBI trial run against an *uncontaminated* workspace is
+the first DCFBI trial run against an _uncontaminated_ workspace is
 the immediate goal. Rewriting surviving docs benefits from
 concrete DCFBI experience and belongs in a later round, not
 pre-trial speculation.
@@ -547,8 +547,8 @@ Updates applied:
 - **R47 Feeds-into** rewritten: two-step shape (analyse →
   archive), explicit out-of-scope list naming the deferred rewrite
   work, candidate scan reframed as supersession-triage with three
-  statuses (*fully superseded* → archive; *partially* → leave
-  in place; *not* → leave).
+  statuses (_fully superseded_ → archive; _partially_ → leave
+  in place; _not_ → leave).
 - **R47 Risks** R48 entry updated to name amendment-5 narrowing.
 - **R47 OUT-of-scope** R48 line updated: contamination risk now
   framed as polluting supersession analysis, not double-handled
@@ -560,9 +560,9 @@ Updates applied:
   from "R48 design-corpus chain decides their fate" to "R48
   archive round decides their archive status."
 - **Pivot memory "Affected corpus" section** retitled
-  *"Supersession triage candidates"* with the three-way
-  classification reframed; archive applied only to *fully
-  superseded*.
+  _"Supersession triage candidates"_ with the three-way
+  classification reframed; archive applied only to _fully
+  superseded_.
 - **Pivot memory "Don't" entry** on methodology shifts updated to
   name archive-segregation (not reconciliation) as the
   operational transition R48 carries.
@@ -570,7 +570,7 @@ Updates applied:
 This is the **fifth** post-Review amendment, again surfaced by
 user observation. The pattern noted at amendment 4 (conceptual
 audits need fresh framing) deepens: each amendment has been a
-narrowing toward what is *operationally minimal* for the
+narrowing toward what is _operationally minimal_ for the
 break-point to land safely. Lifted as an Act learning below.
 
 ## Check
@@ -611,8 +611,8 @@ break-point to land safely. Lifted as an Act learning below.
   ([MSW contract-anchor](../../decisions/2026-05-27-msw-contract-anchor.md))
   or roadmap
   ([R99 evo-horizon](../../decisions/2026-05-27-r99-evo-horizon.md)).
-  This decision constrains *the shape of every future feature
-  round*. The template fits — frontmatter + Commitment + Why +
+  This decision constrains _the shape of every future feature
+  round_. The template fits — frontmatter + Commitment + Why +
   What this allows + What this forbids + Trade-off accepted — but
   the body needed three structured sub-sections (Flow selector,
   Hard gates table, O-rule) because they're prescriptive lists,
@@ -620,7 +620,7 @@ break-point to land safely. Lifted as an Act learning below.
   decisions.
 - **Hard gates without enforcement are aspirational.** R47's gates
   are documented exit criteria for round authors to follow.
-  Nothing in the repo *enforces* that a round can't flip to
+  Nothing in the repo _enforces_ that a round can't flip to
   `Review` with an unclosed gate. Acceptable for now (the round
   author + human reviewer pair is the enforcement), but if drift
   appears in R48+, a lightweight Bash check (grep round file for
@@ -651,7 +651,7 @@ break-point to land safely. Lifted as an Act learning below.
   shifts (DCBF → DCFBI here) often go unmarked — only the
   outcome lands as a new decision, while the transition itself
   fades. The dated memory tree is already a timeline; adding a
-  break-point entry turns it into an *evolution trace*. Pattern
+  break-point entry turns it into an _evolution trace_. Pattern
   to repeat: when a decision supersedes a prior decision/context,
   write a memory entry naming the inflection. See
   [memory/2026-05-28-dcbf-to-dcfbi-pivot.md](../../memory/2026-05-28-dcbf-to-dcfbi-pivot.md)
@@ -661,12 +661,12 @@ break-point to land safely. Lifted as an Act learning below.
   when uncertainty is high," with the FE-as-preview SoT
   consolidation tucked into a parenthetical "MSW maturity now
   supports two-stage frontend role." User surfaced this as a real
-  mismatch — the FE-as-preview shift is the *reason* DCFBI is
+  mismatch — the FE-as-preview shift is the _reason_ DCFBI is
   better than DCBF, not a side-effect. Worth holding future
   decision drafts to: **lead with the conceptual shift, not the
   procedural change.** Procedural changes (add phase X, run check
-  Y) are mechanism; the conceptual shift is the *why anyone
-  should care*. If the conceptual shift would survive a one-line
+  Y) are mechanism; the conceptual shift is the _why anyone
+  should care_. If the conceptual shift would survive a one-line
   paraphrase test ("we changed X to Y because Z"), it belongs in
   Commitment + leading paragraph of Why, not as a buried citation.
 - **At S-curve break-points, narrow until reversible.** R48's
@@ -676,9 +676,9 @@ break-point to land safely. Lifted as an Act learning below.
   (archive-only) is reversible work; the rejected scopes
   (rewriting surviving docs) were not. Pattern: when the
   conceptual shape of work changes, the first round operating
-  under the new shape should do *only* what is reversible. Eager
+  under the new shape should do _only_ what is reversible. Eager
   absorption of the new curve's work backlog is a curve-anxiety
-  reflex, not a sound default. Save it for the round *after* the
+  reflex, not a sound default. Save it for the round _after_ the
   first trial under the new curve runs cleanly. Captured here as
   the first instance; recurrence should lift it to memory.
 - **The `+ at column 3` gotcha bit a third time.** R46 hit it in
@@ -693,9 +693,9 @@ break-point to land safely. Lifted as an Act learning below.
 **Promotions**:
 
 - [x] → `decisions/`: Hybrid flow governance — DCFBI / DFCFBI /
-  O-rule / F1 timebox. Logged in
-  [promotions.md](../promotions.md) 2026-05-28 (paired with
-  the AGENTS.md horizons bullet).
+      O-rule / F1 timebox. Logged in
+      [promotions.md](../promotions.md) 2026-05-28 (paired with
+      the AGENTS.md horizons bullet).
 
 **Follow-ups (not promotions, just notes):**
 
@@ -738,7 +738,7 @@ for the S-curve framing).
 
    Output is a triage list, no edits.
 
-2. **Archive**: move *fully superseded* artifacts under an
+2. **Archive**: move _fully superseded_ artifacts under an
    `_archive/` subdir local to their parent (`design/_archive/`,
    etc.), preserving them as historical record. **Move only — no
    rename, no content edit, no in-place doctoring.**
@@ -747,9 +747,9 @@ for the S-curve framing).
 
 **Why narrowed to archive-only.** At an S-curve break-point
 (DCBF → DCFBI; see pivot memory) the safest operation is
-*segregation*, not *rewrite*. Archive is reversible (file moves
+_segregation_, not _rewrite_. Archive is reversible (file moves
 preserve history); content rewrites are not. The immediate goal
-is to let the first DCFBI trial run against an *uncontaminated*
+is to let the first DCFBI trial run against an _uncontaminated_
 workspace; rewriting surviving docs is a later-round concern that
 benefits from concrete DCFBI experience rather than pre-trial
 speculation.
@@ -769,7 +769,7 @@ speculation.
 **Candidate scan** (starting set; R48's triage is authoritative):
 
 - `.agents/design/**/*.preview.html` files (6, all under
-  `data-management/`) — likely *fully superseded* (FE-as-preview
+  `data-management/`) — likely _fully superseded_ (FE-as-preview
   means no separate HTML preview carries SoT). Archive.
 - **Preview-shell infrastructure** —
   `.agents/design/index.html`, `.agents/design/_js/preview-shell.js`,
@@ -778,17 +778,17 @@ speculation.
   (e.g.
   [`design/data-management/workspace-shell.target.md`](../../design/data-management/workspace-shell.target.md))
   — auxiliary to the `.preview.html` artifacts. R48 triage decides
-  their classification alongside the previews; likely *fully
-  superseded* if they serve no consumer beyond the archived
+  their classification alongside the previews; likely _fully
+  superseded_ if they serve no consumer beyond the archived
   previews, but check before archiving (`tokens.css` in particular
   may be cited by surviving spec markdown or live FE code).
 - `.agents/design/*.md` spec files,
   [`.agents/design/README.md`](../../design/README.md) — likely
-  *partially superseded* (preview-as-artifact framing displaced;
+  _partially superseded_ (preview-as-artifact framing displaced;
   journeys + state notes + criteria still valid). Leave in place;
   rewrite deferred.
 - [`.agents/context/contract-driven-feature.md`](../../context/_archive/contract-driven-feature.md)
-  — likely *partially superseded* (contract-discipline content
+  — likely _partially superseded_ (contract-discipline content
   holds under DCFBI's unchanged C phase; chain-shape framing
   displaced). Leave in place; rewrite deferred.
 - DCBF-era memory files
@@ -796,7 +796,7 @@ speculation.
   [2026-05-24-be-round-conformance-pattern.md](../../memory/2026-05-24-be-round-conformance-pattern.md),
   [2026-05-24-fe-round-typecheck-pattern.md](../../memory/2026-05-24-fe-round-typecheck-pattern.md),
   [2026-05-24-design-first-reframe-absorption.md](../../memory/2026-05-24-design-first-reframe-absorption.md))
-  — likely *not superseded* (Contract / BE / FE conformance
+  — likely _not superseded_ (Contract / BE / FE conformance
   lessons still hold). R48 records classification; no Status
   edits.
 
@@ -805,7 +805,7 @@ Complete before any feature round runs under the new flow.
 Archive segregation removes the contradictory-state risk
 (decision says no parallel UX artifact; corpus shows 6+
 `.preview.html`). Content-level reconciliation of survivors is
-*not* on the precondition path — survivors keep their DCBF-era
+_not_ on the precondition path — survivors keep their DCBF-era
 framing until a later round rewrites them, and that's acceptable
 because the first DCFBI trial reads doctrine from
 [`decisions/2026-05-28-hybrid-flow-governance.md`](../../decisions/2026-05-28-hybrid-flow-governance.md)

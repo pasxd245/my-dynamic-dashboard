@@ -15,18 +15,18 @@ fails** when the test runtime uses a DOM-emulator like
 Both emulators shim `window` (and `document`, `navigator`, etc.)
 onto `globalThis` to make React Testing Library work. So:
 
-| environment | `typeof window` | intended outcome | what the idiom returns |
-|---|---|---|---|
-| real Node CLI | `"undefined"` | Node-branch | ✅ Node-branch |
-| real browser | `"object"` | browser-branch | ✅ browser-branch |
-| **vitest + happy-dom** | **`"object"`** | Node-branch | ❌ browser-branch |
-| **vitest + jsdom** | **`"object"`** | Node-branch | ❌ browser-branch |
+| environment            | `typeof window` | intended outcome | what the idiom returns |
+| ---------------------- | --------------- | ---------------- | ---------------------- |
+| real Node CLI          | `"undefined"`   | Node-branch      | ✅ Node-branch         |
+| real browser           | `"object"`      | browser-branch   | ✅ browser-branch      |
+| **vitest + happy-dom** | **`"object"`**  | Node-branch      | ❌ browser-branch      |
+| **vitest + jsdom**     | **`"object"`**  | Node-branch      | ❌ browser-branch      |
 
 The trap: a `IS_NODE` guard that was meant to enable filesystem
 access in tests evaluates to `false`, the Node-only code path is
 skipped, and the test passes anyway because no assertion ever
-exercises the missing behaviour. The bug is *silently dormant*
-until something tries to *prove* the Node-only path runs.
+exercises the missing behaviour. The bug is _silently dormant_
+until something tries to _prove_ the Node-only path runs.
 
 This bit R42's contract validator
 ([`src/mocks/contract-validator.ts`](../../workspace/apps/builder/src/mocks/contract-validator.ts))
@@ -37,15 +37,14 @@ returned an empty map and `validateResponse()` returned
 `{ ok: true }` for every body. R42's tests passed (45/45) because
 no test ever provoked drift — the validator looked correct and
 the build looked correct. R43's stress-test surfaced the bug only
-by *asserting that drift fires*.
+by _asserting that drift fires_.
 
 ## Finding
 
 The correct Node detector under DOM-emulating test runtimes is:
 
 ```ts
-const IS_NODE =
-  typeof process !== "undefined" && typeof process.versions?.node === "string";
+const IS_NODE = typeof process !== 'undefined' && typeof process.versions?.node === 'string';
 ```
 
 `process.versions.node` is a Node-runtime property that
@@ -54,7 +53,7 @@ expose `process` either. This check is:
 
 - ✅ `true` under bare Node CLI
 - ✅ `true` under vitest + happy-dom / vitest + jsdom (because
-  vitest *itself* runs in Node; happy-dom only shims the *DOM*
+  vitest _itself_ runs in Node; happy-dom only shims the _DOM_
   globals, not `process`)
 - ✅ `false` in real browsers
 - ✅ `false` when the file is statically bundled for a browser
@@ -92,14 +91,13 @@ restructuring the module or splitting `.node.ts` /
   runtimes inside test-touching code, use:
 
   ```ts
-  const IS_NODE =
-    typeof process !== "undefined" && typeof process.versions?.node === "string";
+  const IS_NODE = typeof process !== 'undefined' && typeof process.versions?.node === 'string';
   ```
 
-- Treat happy-dom and jsdom as Node runtimes with a *partial*
+- Treat happy-dom and jsdom as Node runtimes with a _partial_
   DOM shim, not as browser runtimes. Anything that needs `fs`,
   `path`, `url`, etc. should still run; anything that needs
-  *real* browser APIs (Service Worker registration, real
+  _real_ browser APIs (Service Worker registration, real
   `XMLHttpRequest`, layout) should not.
 - When writing a module guarded by `IS_NODE`, **author at least
   one test that proves the Node branch actually runs**. R42's

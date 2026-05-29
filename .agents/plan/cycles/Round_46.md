@@ -9,7 +9,7 @@
 **Inherits from ← (no direct artifact handoff from R45)** — R45
 (MSW validator coverage) is the immediate predecessor but not
 artifact-dependent; R46 opens a new Track-2 thread (planning
-infrastructure). The conventions R46 *does* build on:
+infrastructure). The conventions R46 _does_ build on:
 
 - [Round_05](Round_05.md) — PDCA template, status lifecycle,
   post-round audit checklist, and the memory-placement rule. R46
@@ -22,7 +22,7 @@ infrastructure). The conventions R46 *does* build on:
   cites it: the DCBF chain's lived experience is what pulled the
   DCFBI/DFCFBI pivot R47 codifies, and R46 is R47's enabling
   plumbing.
-- [memory/_TEMPLATE.md](../../memory/_TEMPLATE.md) — R46's
+- [memory/\_TEMPLATE.md](../../memory/_TEMPLATE.md) — R46's
   tool-quirk memory file follows this template shape.
 
 R46 establishes `.agents/plan/brainstorms/` as the durable home for
@@ -35,9 +35,9 @@ The pattern this round establishes is **optional**, not mandatory: a
 round only writes a brainstorm chain when its decision needs more
 exploration than fits inline in the decision file's `## Why`. Most
 rounds will skip brainstorms entirely; this round documents the
-shape *for the rounds that need it*.
+shape _for the rounds that need it_.
 
-*Track: 2 (agent-method, planning infrastructure). Pulled
+_Track: 2 (agent-method, planning infrastructure). Pulled
 transitively through R47's Track-1 anchor (DCBF experiment yielded
 fair-only results for over-effort + D-phase overwhelm as design-
 corpus scope grew → DCFBI/DFCFBI pivot, per
@@ -46,7 +46,7 @@ and the 2026-05-28 brainstorm chain). The inflection itself is
 captured as an S-curve break-point in
 [memory/2026-05-28-dcbf-to-dcfbi-pivot.md](../../memory/2026-05-28-dcbf-to-dcfbi-pivot.md).
 R46 is the enabling plumbing R47 needs. Per
-[Evolution Rule](../../AGENTS.md).*
+[Evolution Rule](../../AGENTS.md)._
 
 **Reasonable defaults under [auto mode]; user redirects via
 end-of-round Q&A:**
@@ -75,21 +75,21 @@ end-of-round Q&A:**
    brainstorm→decision→round flow, and the "optional, only when
    inline `## Why` is insufficient" qualifier. Cites this round's
    2026-05-28-hybrid-flow chain as the worked example. No prose
-   bloat — readers should leave knowing *that* the pattern exists
-   and *where to find an example*.
+   bloat — readers should leave knowing _that_ the pattern exists
+   and _where to find an example_.
 6. **No `.agents/.gitignore` change.** `.agents/.gitignore` already
    excludes `tmp/` — that's fine; `plan/brainstorms/` is not under
    `tmp/`, so it's tracked by default. Sanity check this in Check
    phase.
 7. **Only the 4 hybrid-flow docs move.** `tmp/` also contains
    `dev/` and `ref-apps/` subdirectories — explicitly out of scope.
-   The convention applies to *brainstorm chains that produced or
-   will produce a decision*; other `tmp/` content (in-flight work,
+   The convention applies to _brainstorm chains that produced or
+   will produce a decision_; other `tmp/` content (in-flight work,
    scratch files, reference imports) stays where it is.
 8. **No edits to the 4 docs.** Move as-is. Any tightening or
    re-framing belongs in the eventual decision file (R47's work),
-   not the brainstorm record. The brainstorm captures *what the
-   thinking looked like at the time*; rewriting it falsifies the
+   not the brainstorm record. The brainstorm captures _what the
+   thinking looked like at the time_; rewriting it falsifies the
    audit trail.
 
 ## What is IN scope
@@ -105,12 +105,12 @@ end-of-round Q&A:**
 
 From → To (file content unchanged):
 
-| From (`tmp/`) | To (`.agents/plan/brainstorms/2026-05-28-hybrid-flow/`) |
-|---|---|
-| `MEMO-FINDINGS-2026-05-28.md` | `MEMO-FINDINGS-2026-05-28.md` |
-| `TOOLING-ANALYSIS-2026-05-28.md` | `TOOLING-ANALYSIS-2026-05-28.md` |
-| `TOOLING-QUICK-START.md` | `TOOLING-QUICK-START.md` |
-| `FINAL-RECOMMENDATION-2026-05-28.md` | `FINAL-RECOMMENDATION-2026-05-28.md` |
+| From (`tmp/`)                        | To (`.agents/plan/brainstorms/2026-05-28-hybrid-flow/`) |
+| ------------------------------------ | ------------------------------------------------------- |
+| `MEMO-FINDINGS-2026-05-28.md`        | `MEMO-FINDINGS-2026-05-28.md`                           |
+| `TOOLING-ANALYSIS-2026-05-28.md`     | `TOOLING-ANALYSIS-2026-05-28.md`                        |
+| `TOOLING-QUICK-START.md`             | `TOOLING-QUICK-START.md`                                |
+| `FINAL-RECOMMENDATION-2026-05-28.md` | `FINAL-RECOMMENDATION-2026-05-28.md`                    |
 
 - `tmp/dev/` and `tmp/ref-apps/` stay put — not part of this chain.
 - Method: `mv` (source is untracked; `git mv` would fail).
@@ -179,7 +179,7 @@ From → To (file content unchanged):
   pointing at the decision file. R46 doesn't add a top-level
   horizon because "brainstorms exist" is plumbing, not a
   commitment that constrains future agent behavior.
-- **No new memory file.** Memory captures learnings; R46 *is*
+- **No new memory file.** Memory captures learnings; R46 _is_
   plumbing work.
 - **No `.agents/.gitignore` change.** Sanity-check only — `tmp/`
   exclusion is unchanged; `plan/brainstorms/` is tracked by
@@ -199,21 +199,21 @@ From → To (file content unchanged):
 - [x] `mkdir -p .agents/plan/brainstorms/2026-05-28-hybrid-flow/`.
 - [x] Move 4 docs:
       `mv tmp/MEMO-FINDINGS-2026-05-28.md
-          tmp/TOOLING-ANALYSIS-2026-05-28.md
-          tmp/TOOLING-QUICK-START.md
-          tmp/FINAL-RECOMMENDATION-2026-05-28.md
-          .agents/plan/brainstorms/2026-05-28-hybrid-flow/`.
+    tmp/TOOLING-ANALYSIS-2026-05-28.md
+    tmp/TOOLING-QUICK-START.md
+    tmp/FINAL-RECOMMENDATION-2026-05-28.md
+    .agents/plan/brainstorms/2026-05-28-hybrid-flow/`.
 - [x] Write
       `.agents/plan/brainstorms/2026-05-28-hybrid-flow/README.md`
       with chain order + one-line role per doc + forward pointers
       to R47 and the decision file.
 - [x] Edit [`PDCA.md`](../PDCA.md): add `## Brainstorm lifecycle
-      (optional)` section between Naming Convention and Round
+(optional)` section between Naming Convention and Round
       Template.
 - [x] Run `npx markdownlint-cli2` — fix any errors. Expect issues
       from the moved docs (never linted under `.agents/` before).
 - [x] `git status` confirms: 4 new files present + new README + new
-  PDCA section; 4 source deletions from `tmp/` on disk (deletions don't appear
+      PDCA section; 4 source deletions from `tmp/` on disk (deletions don't appear
       because `tmp/` is gitignored — those just vanish from disk).
 - [x] Post-round audit per [PDCA.md § Post-round audit](../PDCA.md).
 - [x] Grep this file for unticked `- [ ]` before flipping Status.
@@ -314,7 +314,7 @@ end of planning review. Proceeded under [auto mode].
 - `wc -l -w` on each moved doc — line counts grew slightly from
   blank-line insertions (expected); content intact.
 - `git status` confirms: 4 new docs under `brainstorms/2026-05-28-
-  hybrid-flow/`, 1 new `README.md`, modified `PDCA.md`, plus the
+hybrid-flow/`, 1 new `README.md`, modified `PDCA.md`, plus the
   two round files (R46 self + R47). No deletions tracked (tmp/
   sources were untracked).
 - `tmp/` no longer contains any of the 4 brainstorm docs; only
@@ -325,9 +325,9 @@ end of planning review. Proceeded under [auto mode].
 User requested a deep audit of R46 against existing
 workflow/rules/conventions. Audit surfaced four concerns; all four
 were addressed without re-opening Status (PDCA permits in-Review
-edits — *"Active rounds are editable. Rounds in Planning,
+edits — _"Active rounds are editable. Rounds in Planning,
 In Progress, or Review may have any section updated as work
-proceeds."*).
+proceeds."_).
 
 - **Track-1 anchor strengthened.** Both R46 and R47 `Pulled by:`
   lines were rewritten to cite the DCBF experiment (R14→R21, per
@@ -362,8 +362,8 @@ proceeds."*).
 
 R46 was briefly flipped to `Complete` (commit `33b6a53`, unpushed)
 during R47 execution but soft-reset before push, per user request:
-*"round 46 have not push, let soft reset, flip R46 to review and
-update. Till I'm okay to 'ship it'..."*. Rationale: R47's
+_"round 46 have not push, let soft reset, flip R46 to review and
+update. Till I'm okay to 'ship it'..."_. Rationale: R47's
 post-Review work produced several artifacts that R46's narrative
 benefits from cross-linking — most notably the S-curve
 break-point memory
@@ -384,7 +384,7 @@ Updates applied during reversal:
   lifecycle diagram updated:
   `first measurement → Round_48.A (design-corpus audit)` →
   `corpus reconciliation → Round_48 (precondition for first DCFBI
-  trial)`. Reflects R47's R48 audit→reconciliation reframe and
+trial)`. Reflects R47's R48 audit→reconciliation reframe and
   the dropped presumptive-sub-round naming.
 - R46.md self-references unchanged otherwise — the round's body
   (Goal, Plan, IN/OUT scope, Risks, Do, Check, Act) accurately
@@ -402,8 +402,8 @@ R46 holds at `Status: Review` pending user "ship it" approval.
       and forward pointers to R47 + the decision file (which
       doesn't exist yet — that's a forward link to R47's output).
 - [x] [`PDCA.md`](../PDCA.md) has a new `## Brainstorm lifecycle
-      (optional)` section between Naming Convention and Round
-  Template; cites this round's chain as the worked
+(optional)` section between Naming Convention and Round
+      Template; cites this round's chain as the worked
       example.
 - [x] No edits to the 4 moved docs' substantive content (verify
       with `diff` against the original `tmp/` paths if needed
@@ -412,7 +412,7 @@ R46 holds at `Status: Review` pending user "ship it" approval.
       untouched).
 - [x] No AGENTS.md, no `.agents/decisions/`, no `.agents/context/`
       changes. One `.agents/memory/` file added (`2026-05-28-mv-
-      and-markdownlint-fix-quirks.md`) during post-Review amendment
+and-markdownlint-fix-quirks.md`) during post-Review amendment
       — see Do § Post-Review amendments. Original plan said "no
       new memory file"; deep-check audit reversed that on
       memory-placement-rule grounds.
@@ -422,8 +422,8 @@ R46 holds at `Status: Review` pending user "ship it" approval.
       `plan/brainstorms/2026-05-28-hybrid-flow/` + new `README.md` +
       edited `PDCA.md` + the two round files (R46, R47).
 - [x] Post-round audit per [PDCA.md § Post-round audit](../PDCA.md)
-  run for agent-owned checks; human-only `Complete` checks
-  (status/date flip) remain pending.
+      run for agent-owned checks; human-only `Complete` checks
+      (status/date flip) remain pending.
 - [x] **Post-Review:** Track-1 anchor cited in R46 + R47 Pulled-by
       lines (DCBF experiment + D-phase overwhelm → DCFBI/DFCFBI
       pivot, per
@@ -447,9 +447,9 @@ R46 holds at `Status: Review` pending user "ship it" approval.
 **Learnings**:
 
 - **`git mv` requires source tracking.** Attempted `git mv
-  Round_46.md Round_47.md` during the round-renumbering step
+Round_46.md Round_47.md` during the round-renumbering step
   earlier in this session and got `fatal: not under version
-  control, source=...` — the file was created in-session and
+control, source=...` — the file was created in-session and
   never committed. Same shape would have bitten the 4-doc move
   from `tmp/`. Rule: for untracked sources, plain `mv` is the
   right tool; git picks up the destination as a new path on the
@@ -469,16 +469,16 @@ R46 holds at `Status: Review` pending user "ship it" approval.
   pattern for future PDCA.md edits.
 - **Plumbing rounds are small in steps, large in unblock value.**
   R46 was 5 file-system operations + 1 markdown section + 1
-  README + 1 lint pass. The *work* is small; the *value* is that
+  README + 1 lint pass. The _work_ is small; the _value_ is that
   R47's references no longer rot. Worth treating future plumbing
   rounds the same way — minimal Plan, sharp Check, the unblock
   is the point.
 
-**Promotions** *(none — convention plumbing, not a validated pattern.
+**Promotions** _(none — convention plumbing, not a validated pattern.
 The first non-trivial use of the convention will be its own
 validation signal; promotion to `.agents/context/` would be premature
 until at least 2 brainstorm chains have landed and produced
-decisions.)*:
+decisions.)_:
 
 **Follow-ups (not promotions, just notes):**
 

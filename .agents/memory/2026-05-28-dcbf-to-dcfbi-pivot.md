@@ -10,11 +10,11 @@
 Project methodology evolves through discrete inflection points
 ("break-points" in S-curve development theory: slow start → rapid
 growth → plateau → break to next curve). These shifts often go
-unmarked in memory — only the *outcome* lands as a new decision
-or context file, while the *transition itself* becomes invisible
+unmarked in memory — only the _outcome_ lands as a new decision
+or context file, while the _transition itself_ becomes invisible
 in retrospect. Without a captured break-point, future agents see
 "DCBF was operational, then suddenly DCFBI was operational" with
-no traceable pull explaining *why* the shift happened — which
+no traceable pull explaining _why_ the shift happened — which
 makes the next break-point harder to recognize when it arrives.
 
 ## Finding
@@ -38,8 +38,8 @@ is superseded by the **DCFBI/DFCFBI hybrid flow** codified in
 **New S-curve (DCFBI/DFCFBI)**:
 
 - **Conceptual shift**: F (in DCFBI) or F1 (in DFCFBI) running
-  against MSW *is* the canonical UX preview. Design markdown is
-  the *spec*, not a parallel artifact. The two UX SoTs of the old
+  against MSW _is_ the canonical UX preview. Design markdown is
+  the _spec_, not a parallel artifact. The two UX SoTs of the old
   curve collapse to one.
 - **Procedural shift**: 2-of-5 flow selector picks default DCFBI
   vs. conditional DFCFBI; hard gates per phase; O-rule as
@@ -69,7 +69,7 @@ is superseded by the **DCFBI/DFCFBI hybrid flow** codified in
   decision/methodology supersedes an old one, write a dated
   memory entry tagging the inflection. The memory tree already
   has a timeline shape (dated filenames); break-point entries
-  let future readers reconstruct the *evolution*, not just the
+  let future readers reconstruct the _evolution_, not just the
   current state.
 - **Identify the corpus that operationalized the old curve.**
   When a methodology break happens, audit all "official" docs
@@ -81,11 +81,11 @@ is superseded by the **DCFBI/DFCFBI hybrid flow** codified in
 - **Use S-curve framing for retrospective context.** Not every
   methodology change is a break-point; some are extensions or
   refinements of the same curve. Break-points specifically:
-  *the conceptual shape of the work changes* (here: 2 UX SoTs
+  _the conceptual shape of the work changes_ (here: 2 UX SoTs
   → 1 UX SoT), not just the steps.
 - **Cite the break-point memory from rounds that operate post-
   shift.** R48 onward should cite this entry in their `Pulled
-  by:` lines to make the lineage visible at-a-glance.
+by:` lines to make the lineage visible at-a-glance.
 
 **Don't**:
 
@@ -100,8 +100,8 @@ is superseded by the **DCFBI/DFCFBI hybrid flow** codified in
 - **Don't bury the conceptual shift inside procedural changes.**
   First-draft R47 framed DCFBI primarily as "add F1 when
   uncertainty is high" — true but mechanism-only. The conceptual
-  shift (FE = preview = 1 SoT) is the *why*; the procedural
-  change is the *how*. User surfaced this mismatch during R47
+  shift (FE = preview = 1 SoT) is the _why_; the procedural
+  change is the _how_. User surfaced this mismatch during R47
   Review; captured in R47 Act learning.
 - **Don't extend a plateau-stage curve indefinitely.** DCBF's
   fair-only-for-over-effort result was the plateau signal. The
@@ -122,21 +122,21 @@ each artifact, R48 classifies:
 Candidate set:
 
 - `design/**/*.preview.html` files (6, all under
-  `data-management/`) — likely *fully superseded* (FE-as-preview
+  `data-management/`) — likely _fully superseded_ (FE-as-preview
   means no separate HTML preview carries SoT). Archive.
 - Preview-shell infrastructure (`design/index.html`,
   `design/_js/preview-shell.js`, `design/_css/preview-shell.css`,
   `design/_css/tokens.css`, any `*.target.md`) — auxiliary to the
-  previews; R48 triage classifies alongside them. Likely *fully
-  superseded* unless cited by surviving specs or live FE.
+  previews; R48 triage classifies alongside them. Likely _fully
+  superseded_ unless cited by surviving specs or live FE.
 - [`design/README.md`](../design/README.md),
-  `design/*.md` spec files — likely *partially superseded*
+  `design/*.md` spec files — likely _partially superseded_
   (preview-as-artifact framing displaced; journeys, state notes,
   and acceptance criteria still valid). Leave in place; rewrite
   deferred.
 - [`context/contract-driven-feature.md`](../context/_archive/contract-driven-feature.md)
-  — DCBF context file (promoted from R14→R21). Likely *partially
-  superseded* (contract-discipline content holds under DCFBI's
+  — DCBF context file (promoted from R14→R21). Likely _partially
+  superseded_ (contract-discipline content holds under DCFBI's
   unchanged C phase; chain-shape framing displaced). Leave in
   place; rewrite deferred.
 - DCBF-era memory files (classification only, no Status edits):
@@ -144,7 +144,7 @@ Candidate set:
   [2026-05-24-be-round-conformance-pattern.md](2026-05-24-be-round-conformance-pattern.md),
   [2026-05-24-fe-round-typecheck-pattern.md](2026-05-24-fe-round-typecheck-pattern.md),
   [2026-05-24-design-first-reframe-absorption.md](2026-05-24-design-first-reframe-absorption.md).
-  Most are likely *not superseded* (Contract / BE / FE
+  Most are likely _not superseded_ (Contract / BE / FE
   conformance lessons hold within DCFBI's unchanged phases).
 
 ## Promotion Candidate?
@@ -162,7 +162,7 @@ Candidate set:
 > post-Review (third amendment, following the FE-as-preview
 > clarification and the R48 audit→reconciliation reframe; further
 > narrowed to archive-only in amendment 5).
-> Pulled by: 2026-05-28 user observation — *"this is a break-point
+> Pulled by: 2026-05-28 user observation — _"this is a break-point
 > / growth-point (S-curve development theory). Thus, in the memory
 > we have to capture this 'point' (as timeline already there) to
-> see the evolution (pulls in)."*
+> see the evolution (pulls in)."_

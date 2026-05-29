@@ -19,7 +19,6 @@ doing similar in-round file ops will hit.
    `git mv` on an untracked file fails with
    `fatal: not under version control, source=...`. This bit two
    in-session moves:
-
    - The round-renumbering step (`git mv Round_46.md Round_47.md`
      when `Round_46.md` was created in-session and never committed).
    - Would have bitten the 4-doc move from `tmp/` if attempted —
@@ -32,7 +31,6 @@ doing similar in-round file ops will hit.
    for content rules.** R46 ran `--fix` on the 4 moved docs and
    resolved **59 errors in one pass** with **zero content drift**.
    All 59 were whitespace rules:
-
    - MD007 (ul-indent)
    - MD009 (trailing-spaces)
    - MD022 (blanks-around-headings)
@@ -77,8 +75,8 @@ doing similar in-round file ops will hit.
 - [ ] `context/` – Stable pattern, broadly applicable
 - [ ] `skills/` – Reusable procedure/checklist
 - [x] Not yet – Needs more validation (one-instance evidence per
-  quirk; promotion bar is 3+ instances per
-  [governance.md](../context/governance.md))
+      quirk; promotion bar is 3+ instances per
+      [governance.md](../context/governance.md))
 
 ---
 

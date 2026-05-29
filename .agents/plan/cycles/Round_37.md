@@ -166,11 +166,11 @@ Self-contained Tailwind-CDN HTML preview following
   `Dataset detail` (this is an extension of that page, not its
   own sub-menu).
 - Breadcrumb: `Home ▸ Data Management ▸ Datasets ▸
-  q1_pipeline_Deals` — same as the dataset-detail preview.
+q1_pipeline_Deals` — same as the dataset-detail preview.
 - Metadata strip + search bar identical to the R33 preview.
 - **New: Active filters chip row** above the table — two chips
   populated (`stage = won`, `amount between 10,000 and
-  50,000`), each with a removable `×`; a `Clear all` text link
+50,000`), each with a removable `×`; a `Clear all` text link
   on the right.
 - Data table with column-header `▾` filter trigger next to
   each dtype badge; one trigger highlighted (`stage` and
@@ -374,7 +374,7 @@ Self-contained Tailwind-CDN HTML preview following
 - [`dataset-filters.preview.html`](../../design/data-management/_archive/dataset-filters.preview.html)
   authored. Self-contained Tailwind-CDN preview, reuses the
   master-layout chrome via `../_css/{tokens.css,
-  preview-shell.css}`.
+preview-shell.css}`.
 - Active sub-item in the sidebar = `Dataset detail` (the
   filter page is a sub-page of the detail page, not its own
   sub-menu).

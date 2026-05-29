@@ -62,7 +62,7 @@ Sweep all hardcoded English strings in `src/` and replace with
 - `features/data-management/datasets/upload/*.tsx` — 4 wizard
   steps, error/success messages
 - `features/data-management/_shared/{RenameModal,
-  DeleteConfirmModal, BlockedDeleteModal}.tsx` — modal copy
+DeleteConfirmModal, BlockedDeleteModal}.tsx` — modal copy
 - `components/{AppLayout, AppErrorBoundary}.tsx` — header,
   fallback UI
 - Toast messages from `App.useApp().message.X()` calls
@@ -86,7 +86,7 @@ logically.
   [`packages/ui/src/Providers/AntdConfig.tsx`](../../../workspace/packages/ui/src/Providers/AntdConfig.tsx)
   to read the active locale from i18next and pass the matching
   AntD locale pack (`en_US` / `vi_VN`) to `<ConfigProvider
-  locale={...}>`.
+locale={...}>`.
 - AntD ships locale packs at `antd/locale/en_US` and
   `antd/locale/vi_VN`. Lazy-import or static-import; static is
   simpler given we only have two locales.
@@ -155,8 +155,7 @@ logically.
       by user Q&A: react-i18next + en/vi).
 - [x] Install `i18next` + `react-i18next` in builder
       package.json. Run `pnpm install`.
-- [x] Create `src/i18n/index.ts` + `src/i18n/locales/en.json`
-      + `src/i18n/locales/vi.json`.
+- [x] Create `src/i18n/index.ts` + `src/i18n/locales/en.json` + `src/i18n/locales/vi.json`.
 - [x] Import the i18n init in `main.tsx` so it runs before
       mounting.
 - [x] Update `packages/ui/AntdConfig.tsx` to accept an optional
@@ -252,14 +251,14 @@ logically.
 
 **Bulk extraction (12 files).**
 
-| File | Approach |
-|------|----------|
-| `AppErrorBoundary` | Class component — uses `i18n.t()` directly since hooks require functional components. |
-| `RenameModal`, `DeleteConfirmModal`, `BlockedDeleteModal` | `useTranslation()` hook + `<Trans components={{ strong: <strong /> }}>` for inline markup. Resource label looked up via `t(\`resources.${resourceLabel}\`)` so "workspace"/"dataset" translate. |
-| `WorkspacesPage` | Inner `WorkspaceCard` + `CreateWorkspaceModal` each get their own `useTranslation()` hook (separate components). Module-level BREADCRUMB moved inside the component body for hook access. |
-| `DatasetsPage` | Same pattern. `relativeTime()` helper takes `t` as a parameter (pure function, no hook). Inline `<Typography.Link>` inside translated text uses `<Trans components={{ link: <Typography.Link onClick={...} /> }}>`. |
-| `DatasetNewPage` | Hook + `t(\`upload.steps.${s}\`)` for the AntD `<Steps>` titles. Removed the now-unused `titleCase` helper. |
-| 4 upload wizard steps | `UploadSourceStep` (file picker), `UploadSheetStep` (table headers + select-all/clear, plural file summary), `UploadMetadataStep` (parse options + dtype table — biggest file, used `<Trans components={{ code: <code /> }}>` for `<code>A1:C20</code>` style inline markup), `UploadPreviewStep` + `UploadConfirmStep` (commit error mapping via `commitErrorTitle(err, t)`). |
+| File                                                      | Approach                                                                                                                                                                                                                                                                                                                                                                       |
+| --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `AppErrorBoundary`                                        | Class component — uses `i18n.t()` directly since hooks require functional components.                                                                                                                                                                                                                                                                                          |
+| `RenameModal`, `DeleteConfirmModal`, `BlockedDeleteModal` | `useTranslation()` hook + `<Trans components={{ strong: <strong /> }}>` for inline markup. Resource label looked up via `t(\`resources.${resourceLabel}\`)` so "workspace"/"dataset" translate.                                                                                                                                                                                |
+| `WorkspacesPage`                                          | Inner `WorkspaceCard` + `CreateWorkspaceModal` each get their own `useTranslation()` hook (separate components). Module-level BREADCRUMB moved inside the component body for hook access.                                                                                                                                                                                      |
+| `DatasetsPage`                                            | Same pattern. `relativeTime()` helper takes `t` as a parameter (pure function, no hook). Inline `<Typography.Link>` inside translated text uses `<Trans components={{ link: <Typography.Link onClick={...} /> }}>`.                                                                                                                                                            |
+| `DatasetNewPage`                                          | Hook + `t(\`upload.steps.${s}\`)`for the AntD`<Steps>`titles. Removed the now-unused`titleCase` helper.                                                                                                                                                                                                                                                                        |
+| 4 upload wizard steps                                     | `UploadSourceStep` (file picker), `UploadSheetStep` (table headers + select-all/clear, plural file summary), `UploadMetadataStep` (parse options + dtype table — biggest file, used `<Trans components={{ code: <code /> }}>` for `<code>A1:C20</code>` style inline markup), `UploadPreviewStep` + `UploadConfirmStep` (commit error mapping via `commitErrorTitle(err, t)`). |
 
 **Drift caught during extraction.**
 
@@ -295,7 +294,7 @@ logically.
   Vite-served module — proves the env-var → appConfig →
   i18next.init chain works end-to-end.
 - `curl /src/main.tsx` confirmed `activeLocale = i18n.language
-  in ANTD_LOCALES ? i18n.language : "en"` resolves at module
+in ANTD_LOCALES ? i18n.language : "en"` resolves at module
   evaluation; `<AntdConfig locale={antdLocale}>` receives the
   matching pack.
 - BE `/health` → 200; CORS still intact from R28.
@@ -345,7 +344,7 @@ that could drift. Wired through:
   `grep VITE_UPLOAD_MAX_BYTES workspace/apps/builder/.env` →
   `VITE_UPLOAD_MAX_BYTES=104857600`. Editing
   `backend.upload_max_bytes` in values.yaml + `pnpm
-  config:render` flips both BE enforcement and FE display in
+config:render` flips both BE enforcement and FE display in
   one step.
 
 **Runtime locale switcher (post-Review add-on).** Original R32
@@ -372,7 +371,7 @@ as another R32 add-on:
   type so the switcher stays in sync.
 - `main.tsx` extracted `LocaleAwareAntd` — calls
   `useTranslation()` and re-renders `<AntdConfig
-  locale={ANTD_LOCALES[i18n.language]}>` whenever
+locale={ANTD_LOCALES[i18n.language]}>` whenever
   `i18n.changeLanguage(...)` fires. Without this, AntD's
   built-in strings (DatePicker, Pagination, Empty) would stay
   frozen at boot-time locale.

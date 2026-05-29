@@ -86,13 +86,13 @@ under a new sub-heading `**Flow selector run**`:
 ```markdown
 **Flow selector run** (per [R47](../../decisions/2026-05-28-hybrid-flow-governance.md)):
 
-| Condition | Fired? | Justification |
-|---|---|---|
-| 1. >3 independent states/branches | yes/no | <one sentence> |
-| 2. New interaction pattern | yes/no | <one sentence> |
-| 3. High user-error risk | yes/no | <one sentence> |
+| Condition                            | Fired? | Justification  |
+| ------------------------------------ | ------ | -------------- |
+| 1. >3 independent states/branches    | yes/no | <one sentence> |
+| 2. New interaction pattern           | yes/no | <one sentence> |
+| 3. High user-error risk              | yes/no | <one sentence> |
 | 4. Contract depends on unresolved UI | yes/no | <one sentence> |
-| 5. UX confidence below threshold | yes/no | <one sentence> |
+| 5. UX confidence below threshold     | yes/no | <one sentence> |
 
 Result: **Flow: DCFBI** (or **Flow: DFCFBI (triggers N, M)**)
 ```

@@ -36,7 +36,7 @@ before the new rows-GET can serve real data.
 2. **Write full data at commit time via DuckDB `COPY` (CSV) or
    pandas → parquet (Excel).** CSV files take the DuckDB path
    end-to-end (`read_csv_auto` → `COPY … TO 'parsed.parquet'
-   (FORMAT 'parquet')`). Excel takes pandas (`read_excel(full)`
+(FORMAT 'parquet')`). Excel takes pandas (`read_excel(full)`
    → `df.to_parquet(...)`) because openpyxl is the proven Excel
    reader and DuckDB doesn't natively read xlsx.
 3. **Cell stringification = SQL `CAST("col" AS VARCHAR)` per
@@ -47,7 +47,7 @@ before the new rows-GET can serve real data.
    dtype-aware display formatting using
    `Dataset.columns[].dtype`.
 4. **Substring filter = SQL `WHERE lower(CAST(col AS VARCHAR))
-   LIKE '%q%'` OR-joined across all columns.** Naive
+LIKE '%q%'` OR-joined across all columns.** Naive
    O(rows × cols) scan is fine at POC scale (max 100 MB per
    dataset); promote to a DuckDB FTS index once 100k+ rows ×
    high q-frequency makes it visible.
@@ -64,10 +64,10 @@ before the new rows-GET can serve real data.
   [`app/ingest/parquet_writer.py`](../../../workspace/apps/backend/app/ingest/parquet_writer.py)
   (new file):
   - `write_csv_to_parquet(src, dst, skip_rows, has_header,
-    kept_columns)` — uses DuckDB `COPY (SELECT … FROM
-    read_csv_auto(…)) TO ? (FORMAT 'parquet')`.
+kept_columns)` — uses DuckDB `COPY (SELECT … FROM
+read_csv_auto(…)) TO ? (FORMAT 'parquet')`.
   - `write_excel_to_parquet(src, dst, sheet, range_,
-    has_header, kept_columns)` — uses pandas `read_excel`
+has_header, kept_columns)` — uses pandas `read_excel`
     (full, not sample) + `df.to_parquet(...)`.
 - Replace the sample-based write in
   [`datasets.py` § commit_datasets_batch](../../../workspace/apps/backend/app/routers/datasets.py#L222-L239)
@@ -83,7 +83,7 @@ before the new rows-GET can serve real data.
 - New route in
   [`datasets.py`](../../../workspace/apps/backend/app/routers/datasets.py):
   `@router.get("/datasets/{id}", response_model=Dataset,
-  response_model_exclude_none=True)`.
+response_model_exclude_none=True)`.
 - Reads from SQLite via the same shape `list_datasets()`
   hydrates per row. 404 returns `ApiErrorNotFound()` envelope.
 
@@ -101,7 +101,7 @@ before the new rows-GET can serve real data.
 - Loads the dataset's row metadata (columns list) + parquet
   path. 404 if no DB row.
 - Calls `_query_dataset_rows(parquet_path, column_names,
-  page, page_size, q)` → returns `(rows, total)`.
+page, page_size, q)` → returns `(rows, total)`.
 - Returns a Pydantic `RowsPage` (new model in
   [`models/common.py`](../../../workspace/apps/backend/app/models/common.py)
   or a route-local class). `additionalProperties: false` enforced
@@ -114,7 +114,7 @@ before the new rows-GET can serve real data.
   (sibling to the existing `csv_parser.py` / `excel_parser.py`).
 - Signature:
   `query_dataset_rows(parquet_path: Path, columns: list[str],
-  page: int, page_size: int, q: str | None) -> tuple[list[list[str | None]], int]`.
+page: int, page_size: int, q: str | None) -> tuple[list[list[str | None]], int]`.
 - Opens an ephemeral `duckdb.connect(":memory:")`. Builds the
   SELECT list with `CAST("col" AS VARCHAR)` per column (column
   names quoted to handle spaces / special chars). Builds the
@@ -216,7 +216,7 @@ before the new rows-GET can serve real data.
 - [x] Author
       `workspace/apps/backend/app/ingest/rows_reader.py` with
       `query_dataset_rows(parquet_path, columns, page,
-      page_size, q)`.
+page_size, q)`.
 - [x] Update `datasets.py` `commit_datasets_batch` to call the
       new parquet writer instead of the sample-based path.
 - [x] Add `GET /datasets/{id}` handler in `datasets.py`,
@@ -225,8 +225,7 @@ before the new rows-GET can serve real data.
 - [x] Add `GET /datasets/{id}/rows` handler in `datasets.py`
       with a `RowsPage` Pydantic model
       (`additionalProperties: false`).
-- [x] Author `tests/test_datasets_detail_get.py` (3 cases — 200
-      + 404 + 422-malformed-id).
+- [x] Author `tests/test_datasets_detail_get.py` (3 cases — 200 + 404 + 422-malformed-id).
 - [x] Author `tests/test_datasets_rows_get.py` (13 cases —
       default page, page_size override, out-of-range, 404,
       page_size 422, id 422, q-too-long 422, q-substring,
@@ -259,8 +258,8 @@ before the new rows-GET can serve real data.
   the duplication exceeds ~10 lines; otherwise inline (one-time
   cost beats premature abstraction).
 - **DuckDB DATE/TIMESTAMP CAST format.** `CAST(DATE
-  '2024-01-15' AS VARCHAR)` → `'2024-01-15'`. `CAST(TIMESTAMP
-  '2024-01-15 14:02:00' AS VARCHAR)` → `'2024-01-15 14:02:00'`.
+'2024-01-15' AS VARCHAR)` → `'2024-01-15'`. `CAST(TIMESTAMP
+'2024-01-15 14:02:00' AS VARCHAR)` → `'2024-01-15 14:02:00'`.
   The FE's `Intl.DateTimeFormat` accepts both via `new Date()`.
   If the wire format causes ambiguity (e.g. timezone interpretation
   drift), R36 will surface it in verification; document the format
@@ -272,7 +271,7 @@ before the new rows-GET can serve real data.
   (`name.replace('"', '""')`); document the rule. Unlikely in
   practice but cheap to defend.
 - **Window function over zero matches.** Rejected — `COUNT(*)
-  OVER ()` returns zero rows when LIMIT 0, leaving the FE
+OVER ()` returns zero rows when LIMIT 0, leaving the FE
   unable to read `total`. Two-query approach (rows + COUNT)
   works in all cases.
 - **Parser sample-row format vs parquet dtype.** Today's
@@ -292,15 +291,15 @@ before the new rows-GET can serve real data.
   [`app/ingest/parquet_writer.py`](../../../workspace/apps/backend/app/ingest/parquet_writer.py)
   with two helpers:
   - `write_csv_to_parquet(src, dst, *, skip_rows, has_header,
-    kept_columns)` — DuckDB `read_csv_auto(...)` into a temp
+kept_columns)` — DuckDB `read_csv_auto(...)` into a temp
     table, then `COPY (SELECT ... ) TO '<dst>' (FORMAT
-    'parquet')`. The SELECT uses aliases (`"raw" AS
-    "committed"`) instead of `ALTER TABLE RENAME COLUMN` —
+'parquet')`. The SELECT uses aliases (`"raw" AS
+"committed"`) instead of `ALTER TABLE RENAME COLUMN` —
     needed because DuckDB's `header=false` defaults
     (`column0`, `column1`, …) collide with our 1-indexed
     `column1`, `column2`, … targets.
   - `write_excel_to_parquet(src, dst, *, sheet, range_,
-    has_header, kept_columns)` — mirrors `parse_sheet`'s read
+has_header, kept_columns)` — mirrors `parse_sheet`'s read
     shape (engine, range parsing, header normalization)
     without `SAMPLE_LIMIT`, then `df.to_parquet(...)`.
 - Two SQL-grammar gotchas:
@@ -328,9 +327,9 @@ before the new rows-GET can serve real data.
   [`app/ingest/rows_reader.py`](../../../workspace/apps/backend/app/ingest/rows_reader.py)
   with
   `query_dataset_rows(parquet_path, columns, *, page,
-  page_size, q) → (rows, total)`.
+page_size, q) → (rows, total)`.
 - Two SQL queries per request: one `SELECT CAST(...) FROM
-  read_parquet(?) WHERE ... LIMIT ? OFFSET ?` for page rows,
+read_parquet(?) WHERE ... LIMIT ? OFFSET ?` for page rows,
   one `SELECT COUNT(*) FROM read_parquet(?) WHERE ...` for
   total. Two queries beat `COUNT(*) OVER ()` window which
   breaks when LIMIT 0 returns zero rows (FE can't read
@@ -380,7 +379,7 @@ to `Literal[int,...]`.**
   documents the FastAPI-default shape for 422; tests only
   assert `status_code == 422`.
 - The route's response model still types `pageSize:
-  Literal[25, 50, 100]` because the value is server-set and
+Literal[25, 50, 100]` because the value is server-set and
   validated; Pydantic is happy with the int.
 
 **Test pipeline.**
@@ -418,8 +417,7 @@ to `Literal[int,...]`.**
 
 ## Check
 
-- [x] `parquet_writer.py` exists with `write_csv_to_parquet()`
-      + `write_excel_to_parquet()`; commit handler uses them
+- [x] `parquet_writer.py` exists with `write_csv_to_parquet()` + `write_excel_to_parquet()`; commit handler uses them
       in place of the sample-based path.
 - [x] `rows_reader.py` exists with `query_dataset_rows()`.
 - [x] `GET /datasets/{id}` returns the Dataset shape; 404 on
@@ -516,8 +514,7 @@ and is self-evident from the code going forward)_:
   (FastAPI default for `HTTPException(detail=str)`). The
   contract documents the array-of-entries shape FastAPI uses
   for request-validation. The difference is harmless in
-  practice (FE branches on status_code, not body shape for
-  422) but worth flagging if a future round tightens 422
+  practice (FE branches on status_code, not body shape for 422) but worth flagging if a future round tightens 422
   shape conformance.
 
 ## Feeds into → Round_36 (FE: DatasetDetailPage)

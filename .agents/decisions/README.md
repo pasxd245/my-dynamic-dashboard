@@ -8,7 +8,7 @@ round doc.
 
 - **Multi-round commitments** ("no X before round N")
 - **Track-2/3 deferrals with named triggers** — what we are explicitly
-  *not* building, and the condition that would revisit it
+  _not_ building, and the condition that would revisit it
 - **Conversation-derived governance** that constrains the
   [Evolution Rule](../AGENTS.md#evolution-rule-governance-against-drift)
   without amending it
@@ -31,16 +31,16 @@ One file per decision: `YYYY-MM-DD-kebab-slug.md`. Use
 Every decision file carries structured frontmatter so both humans and
 future agents can query the register without re-reading prose:
 
-| Field | Required | Purpose |
-| --- | --- | --- |
-| `decided` | yes | Date the decision was bound. `YYYY-MM-DD`. |
-| `source-round` | yes | Where this came from. `RNN` for a numbered round, `conv:YYYY-MM-DD` for a conversation-derived decision, or a memory-file path. |
-| `track` | yes | `1` (product) \| `2` (agent-method) \| `3` (self-evo). Comma-separated for cross-cutting. |
-| `status` | yes | Closed vocabulary — see Lifecycle below. |
-| `applies-when` | yes | One-line scope statement. WHERE / WHEN this constrains future work. |
-| `failure-mode` | yes | One-line. WHAT bad outcome this guards against. Forces honesty: a hand-wavy `failure-mode` is a smell the proposal isn't ready. |
-| `revisit-trigger` | yes | Named condition (round id, event, measurable threshold) that re-opens the decision. Not "TBD" or "later". |
-| `promoted-to` | yes | Path the decision matured into, or `null`. Filled when an `applies-when` scope is fully absorbed by code or a sibling decision. |
+| Field             | Required | Purpose                                                                                                                         |
+| ----------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `decided`         | yes      | Date the decision was bound. `YYYY-MM-DD`.                                                                                      |
+| `source-round`    | yes      | Where this came from. `RNN` for a numbered round, `conv:YYYY-MM-DD` for a conversation-derived decision, or a memory-file path. |
+| `track`           | yes      | `1` (product) \| `2` (agent-method) \| `3` (self-evo). Comma-separated for cross-cutting.                                       |
+| `status`          | yes      | Closed vocabulary — see Lifecycle below.                                                                                        |
+| `applies-when`    | yes      | One-line scope statement. WHERE / WHEN this constrains future work.                                                             |
+| `failure-mode`    | yes      | One-line. WHAT bad outcome this guards against. Forces honesty: a hand-wavy `failure-mode` is a smell the proposal isn't ready. |
+| `revisit-trigger` | yes      | Named condition (round id, event, measurable threshold) that re-opens the decision. Not "TBD" or "later".                       |
+| `promoted-to`     | yes      | Path the decision matured into, or `null`. Filled when an `applies-when` scope is fully absorbed by code or a sibling decision. |
 
 The schema deliberately mirrors `applies-when:` from the
 [R99 evo-horizon](2026-05-27-r99-evo-horizon.md) carve-out — that

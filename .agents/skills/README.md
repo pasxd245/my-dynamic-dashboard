@@ -93,11 +93,11 @@ Review a UI surface against **the six essential components of a
 design** (UX-honeycomb facets — Findability, Usability,
 Accessibility, Credibility, Utility, Desirability), grounded in
 [Ant Design's Data Entry guidance](https://ant.design/docs/spec/data-entry/).
-Two modes: **design-spec** (does the design doc *declare* the
-affordances — run at the **Design gate**, *primary/preventive*,
+Two modes: **design-spec** (does the design doc _declare_ the
+affordances — run at the **Design gate**, _primary/preventive_,
 because under DCFBI the F phase only confirms and the design is
-where UX is decided) and **fidelity** (does the *build* carry them
-— run at **F1/F2**, *backstop/corrective*, catching drift like
+where UX is decided) and **fidelity** (does the _build_ carry them
+— run at **F1/F2**, _backstop/corrective_, catching drift like
 R51's dropped label + `[Clear]`). Emits a per-facet `pass`/`gap`
 report; **verifies, does not auto-fix** (same discipline as
 `gate-walker`). Filed dependent (not primary): operates on design

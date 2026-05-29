@@ -182,7 +182,7 @@ observation, not speculation. Keeps look-and-feel ownership in
       (+1 from `ThemeStyle.tsx`), 330.96 kB / 110.26 kB gzipped.
 - [x] `pnpm --filter builder dev` → `localhost:3000` h1 + p now
       rendered in sans-serif (the `-apple-system, BlinkMacSystemFont,
-  "Segoe UI", Roboto, sans-serif` chain from `themeTokens`).
+"Segoe UI", Roboto, sans-serif` chain from `themeTokens`).
       Human-confirmed 2026-05-22.
 - [x] `npx markdownlint-cli2` repo-wide → 33 files, 0 errors.
 

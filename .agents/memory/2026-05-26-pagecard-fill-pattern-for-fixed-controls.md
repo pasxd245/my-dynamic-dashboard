@@ -25,7 +25,7 @@ false-start fixes could have been one.
 
 ## Finding
 
-For **this codebase**, any feature page that needs *any* of the
+For **this codebase**, any feature page that needs _any_ of the
 following must use the **fixed-viewport-height + `PageCard
 variant="fill"`** pattern, **not** ad-hoc `maxHeight` / `sticky`
 tricks:
@@ -98,7 +98,7 @@ stick within, and bottom bars float wherever the content ends.
   `overflow: auto` on intermediate divs.
 - For solid backgrounds inside a sticky header (or anywhere over a
   scroll body), use a **literal hex** (`#fafafa`, `#fff`) — not
-  `var(--ant-color-fill-*)`. AntD's fill-* tokens are all
+  `var(--ant-color-fill-*)`. AntD's fill-\* tokens are all
   `rgba(0,0,0,0.0X)` and bleed through.
 - When a design preview shows a fixed footer or sticky header, treat
   it as a signal to reach for this pattern, not as CSS to retrofit

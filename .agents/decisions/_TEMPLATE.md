@@ -39,4 +39,4 @@ id, memory file, or product gap. State the failure mode this prevents
 <What we are giving up by binding ourselves this way, and why the
 alternative is worse.>
 
-*Track: {1|2|3}. Pulled by: <round id | memory file | conversation date | product gap>.*
+_Track: {1|2|3}. Pulled by: <round id | memory file | conversation date | product gap>._

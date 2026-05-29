@@ -31,14 +31,14 @@ Other four (duplication, state complexity, CDN overhead, index maintenance) are 
 
 ### The 6 Issues (Ranked by Impact)
 
-| # | Issue | Severity | When it hurts | Today's workaround |
-|---|-------|----------|---------------|-------------------|
-| 1 | **Token drift** | 🔴 HIGH | Per UI token change | Manual sync, hope you don't forget |
-| 5 | **Fidelity feedback** | 🔴 HIGH | D-round sign-off | Guess "~90% ready" |
-| 2 | **CDN + CSS overlap** | 🟡 MED | Per new preview | Decide Tailwind vs CSS case-by-case |
-| 3 | **No component library** | 🟡 MED | Per new pattern | Copy-paste + hope it stays consistent |
-| 6 | **Manual index** | 🟡 MED | Per new preview | Edit index.html, pray links don't rot |
-| 4 | **State mgmt limited** | 🟠 LOW-MED | Complex features | Pre-render all states in hidden HTML |
+| #   | Issue                    | Severity   | When it hurts       | Today's workaround                    |
+| --- | ------------------------ | ---------- | ------------------- | ------------------------------------- |
+| 1   | **Token drift**          | 🔴 HIGH    | Per UI token change | Manual sync, hope you don't forget    |
+| 5   | **Fidelity feedback**    | 🔴 HIGH    | D-round sign-off    | Guess "~90% ready"                    |
+| 2   | **CDN + CSS overlap**    | 🟡 MED     | Per new preview     | Decide Tailwind vs CSS case-by-case   |
+| 3   | **No component library** | 🟡 MED     | Per new pattern     | Copy-paste + hope it stays consistent |
+| 6   | **Manual index**         | 🟡 MED     | Per new preview     | Edit index.html, pray links don't rot |
+| 4   | **State mgmt limited**   | 🟠 LOW-MED | Complex features    | Pre-render all states in hidden HTML  |
 
 ---
 
@@ -138,12 +138,12 @@ Other four (duplication, state complexity, CDN overhead, index maintenance) are 
 
 ## Risks & Mitigations
 
-| Risk | Likelihood | Mitigation |
-|------|------------|-----------|
-| Token sync script breaks | LOW | Add to test suite; validate before commit |
-| Checklists unused | LOW | Add to design round template (PDCA.md); require sign-off |
-| Designer still forgets tokens | LOW | Hook auto-sync into pre-commit; can't forget |
-| Escalation needed sooner than R31 | MED | Measure duplication + state complexity after R29-30 |
+| Risk                              | Likelihood | Mitigation                                               |
+| --------------------------------- | ---------- | -------------------------------------------------------- |
+| Token sync script breaks          | LOW        | Add to test suite; validate before commit                |
+| Checklists unused                 | LOW        | Add to design round template (PDCA.md); require sign-off |
+| Designer still forgets tokens     | LOW        | Hook auto-sync into pre-commit; can't forget             |
+| Escalation needed sooner than R31 | MED        | Measure duplication + state complexity after R29-30      |
 
 ---
 

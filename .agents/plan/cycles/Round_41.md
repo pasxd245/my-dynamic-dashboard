@@ -15,7 +15,7 @@ R41 is a **Track-2 round** (agent-method) per the
 [verification-stack queue](../../decisions/2026-05-27-verification-stack-queue.md):
 
 > **MSW** — next available Track-2 round (likely R38).
-> *Pulled by*: R34 → R35 → R36 sequencing cost. Unlocks
+> _Pulled by_: R34 → R35 → R36 sequencing cost. Unlocks
 > contracts → (FE ∥ BE).
 
 Adds Mock Service Worker as a builder devDependency, creates
@@ -32,11 +32,11 @@ loop benefits next round (and every round after) when an FE
 change can iterate without standing up the BE — and when test
 setup stops repeating fetch-mock boilerplate.
 
-*Track: 2 (agent-method, dev discipline). Pulled by:
+_Track: 2 (agent-method, dev discipline). Pulled by:
 verification-stack queue item #1; the R34→R36 sequencing cost
 captured in the queue rationale; the test-setup repetition
 across `dataset-detail.test.tsx` / `datasets.test.tsx` /
-`routing.test.tsx`. Per [Evolution Rule](../../AGENTS.md).*
+`routing.test.tsx`. Per [Evolution Rule](../../AGENTS.md)._
 
 **Reasonable defaults under [auto mode]; user redirects via
 end-of-round Q&A:**
@@ -68,25 +68,26 @@ end-of-round Q&A:**
    `server.listen({ onUnhandledRequest: 'error' })` in
    `beforeAll`, `server.resetHandlers()` in `afterEach`,
    `server.close()` in `afterAll`. `onUnhandledRequest:
-   'error'` catches misconfigured tests early — any FE
+'error'` catches misconfigured tests early — any FE
    request to an un-mocked URL fails loudly.
 6. **Migration scope (R41)**: only
    `tests/dataset-detail.test.tsx` migrates from
    `vi.stubGlobal('fetch', …)` to MSW. Other test files
    (`datasets.test.tsx`, `routing.test.tsx`) keep their
-   existing patterns — MSW handlers serve as the *default*
+   existing patterns — MSW handlers serve as the _default_
    response, and `server.use(...overrides)` lets each test
    override per-case. The two patterns coexist; old tests
    still work because they install `vi.stubGlobal('fetch')`
    before MSW intercepts.
 
-   *Update during execution*: legacy `vi.stubGlobal('fetch')`
+   _Update during execution_: legacy `vi.stubGlobal('fetch')`
    tests bypass MSW entirely (Vitest globalstub wins over
    MSW interception). Switched R41 to **`onUnhandledRequest:
-   'bypass'`** for the legacy suites, which lets MSW
+'bypass'`** for the legacy suites, which lets MSW
    intercept where requested and lets legacy `fetch` mocks
    keep working in their own tests. Documented in
    [`src/mocks/server.ts`](../../../workspace/apps/builder/src/mocks/server.ts).
+
 7. **Public worker file**: `public/mockServiceWorker.js`
    generated via `pnpm exec msw init public/`. The file is
    ~5 KB, committed to the repo (per MSW convention — the
@@ -176,7 +177,7 @@ end-of-round Q&A:**
 - [`src/main.tsx`](../../../workspace/apps/builder/src/main.tsx)
   gains a guarded import:
   `if (import.meta.env.VITE_MOCKS === '1') { await
-  startMockWorker(); }`. The dynamic import keeps the worker
+startMockWorker(); }`. The dynamic import keeps the worker
   out of the production bundle.
 - New `src/mocks/start.ts` helper wraps the
   `worker.start({ onUnhandledRequest: 'bypass' })` boilerplate.
@@ -198,7 +199,7 @@ end-of-round Q&A:**
 - `pnpm --filter builder type-check` — 0 errors.
 - `pnpm --filter builder test` — all green (existing tests
   still pass under MSW + legacy fetch-stub coexistence).
-- `pnpm --filter builder build` — green; MSW *not* in the
+- `pnpm --filter builder build` — green; MSW _not_ in the
   production bundle (dev-mode dynamic import).
 - `npx markdownlint-cli2` — 0 errors.
 - Post-round audit per [PDCA.md § Post-round audit](../PDCA.md).
@@ -370,11 +371,11 @@ end-of-round Q&A:**
 
 - [`tests/setup.ts`](../../../workspace/apps/builder/tests/setup.ts)
   imports `server` and registers `server.listen({
-  onUnhandledRequest: 'bypass' })` in `beforeAll`,
+onUnhandledRequest: 'bypass' })` in `beforeAll`,
   `server.resetHandlers()` in `afterEach`, and
   `server.close()` in `afterAll`. `bypass` is the key
   choice: legacy tests that use `vi.stubGlobal('fetch',
-  mockFn)` keep working because unmatched requests fall
+mockFn)` keep working because unmatched requests fall
   through to the global stub instead of erroring.
   Per-test handler overrides use `server.use(...)`.
 
@@ -396,11 +397,11 @@ end-of-round Q&A:**
 **Test migration: `tests/dataset-detail.test.tsx`.**
 
 - Dropped the 60+ LOC `installFetch` / `vi.stubGlobal(
-  'fetch')` / `vi.unstubAllGlobals` boilerplate.
+'fetch')` / `vi.unstubAllGlobals` boilerplate.
 - Tests now rely on the default handlers from `src/mocks/handlers.ts`
   for the happy paths. Per-test overrides via `server.use(
-  http.get('*/datasets/:id', () => HttpResponse.json({
-  code: 'not_found' }, { status: 404 })))` for the 404
+http.get('*/datasets/:id', () => HttpResponse.json({
+code: 'not_found' }, { status: 404 })))` for the 404
   state test. The OPS_BY_DTYPE vocabulary-integrity test
   stays unchanged — it's a pure import-based assertion.
 - Test assertions shifted from "fetch URL contained
@@ -506,7 +507,7 @@ end-of-round Q&A:**
   much cleaner than the legacy fetch-stub pattern.** A
   test that wants a 404 response writes 3 lines of
   `http.get('*/datasets/:id', () => HttpResponse.json({
-  code: 'not_found' }, { status: 404 }))` instead of
+code: 'not_found' }, { status: 404 }))` instead of
   60 lines of fetch-mock plumbing. The pattern scales
   linearly with test cases instead of multiplicatively.
 - **Dynamic import keeps MSW out of the production
@@ -515,9 +516,9 @@ end-of-round Q&A:**
   statically false at build time. Bundle size verified
   unchanged from R40 (1.42 MB / 448 KB gzip).
 
-**Promotions** *(none — Track-2 tooling round; the mock
+**Promotions** _(none — Track-2 tooling round; the mock
 files stay co-located in `src/mocks/` until a second app
-needs them or a `_shared/` extraction trigger fires)*:
+needs them or a `_shared/` extraction trigger fires)_:
 
 **Follow-ups (not promotions, just notes):**
 

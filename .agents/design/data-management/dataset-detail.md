@@ -41,8 +41,8 @@ detail, the upload wizard's preview-step is the only place the
 user ever views their rows — and that view disappears the moment
 they commit. The detail page is the durable readout.
 
-This split keeps datasets.md focused on the noun's *catalog*
-behavior and lets this doc focus on the noun's *single-instance*
+This split keeps datasets.md focused on the noun's _catalog_
+behavior and lets this doc focus on the noun's _single-instance_
 behavior. The two cross-reference; clicking a row in the list
 navigates here.
 
@@ -50,18 +50,18 @@ navigates here.
 
 ## Surfaces — layer / reuse / purity declaration
 
-| Surface | Layer | Reusability | Purity | Allowed peer deps |
-| --- | --- | --- | --- | --- |
-| `DatasetDetailPage` route component | `apps/builder/src/features/data-management/datasets` | feature | feature | react, antd, @tanstack/react-query, react-router-dom, react-i18next |
-| `DatasetMetadataStrip` component | `apps/builder/src/features/data-management/datasets` | feature | plain-UI | react, antd, react-i18next |
-| `DataTable` (paged) component | `apps/builder/src/features/data-management/datasets` | feature | plain-UI | react, antd, react-i18next |
-| `useDatasetQuery(id)` hook | `apps/builder/src/features/data-management/datasets` | feature | glue (server-data) | @tanstack/react-query |
-| `useDatasetRowsQuery(id, page, pageSize, q?)` hook | `apps/builder/src/features/data-management/datasets` | feature | glue (server-data) | @tanstack/react-query |
-| `RowSearchBar` component (Input.Search + match counter + clear) | `apps/builder/src/features/data-management/datasets` | feature | plain-UI | react, antd, react-i18next |
-| `datasetsApi.get(id)` + `datasetsApi.getRows(id, page, pageSize, q?)` | `apps/builder/src/api/` | builder-only | glue | (fetch — no extra peer dep) |
-| `GET /datasets/{id}` backend route | `apps/backend/` | backend | feature | (FastAPI — backend native) |
-| `GET /datasets/{id}/rows` backend route | `apps/backend/` | backend | feature | (FastAPI — backend native, pyarrow for paged Parquet read) |
-| `DatasetDetail` + `RowsPage` types (FE) | `apps/builder/src/features/data-management/datasets/types.ts` | feature | data type | none |
+| Surface                                                               | Layer                                                         | Reusability  | Purity             | Allowed peer deps                                                   |
+| --------------------------------------------------------------------- | ------------------------------------------------------------- | ------------ | ------------------ | ------------------------------------------------------------------- |
+| `DatasetDetailPage` route component                                   | `apps/builder/src/features/data-management/datasets`          | feature      | feature            | react, antd, @tanstack/react-query, react-router-dom, react-i18next |
+| `DatasetMetadataStrip` component                                      | `apps/builder/src/features/data-management/datasets`          | feature      | plain-UI           | react, antd, react-i18next                                          |
+| `DataTable` (paged) component                                         | `apps/builder/src/features/data-management/datasets`          | feature      | plain-UI           | react, antd, react-i18next                                          |
+| `useDatasetQuery(id)` hook                                            | `apps/builder/src/features/data-management/datasets`          | feature      | glue (server-data) | @tanstack/react-query                                               |
+| `useDatasetRowsQuery(id, page, pageSize, q?)` hook                    | `apps/builder/src/features/data-management/datasets`          | feature      | glue (server-data) | @tanstack/react-query                                               |
+| `RowSearchBar` component (Input.Search + match counter + clear)       | `apps/builder/src/features/data-management/datasets`          | feature      | plain-UI           | react, antd, react-i18next                                          |
+| `datasetsApi.get(id)` + `datasetsApi.getRows(id, page, pageSize, q?)` | `apps/builder/src/api/`                                       | builder-only | glue               | (fetch — no extra peer dep)                                         |
+| `GET /datasets/{id}` backend route                                    | `apps/backend/`                                               | backend      | feature            | (FastAPI — backend native)                                          |
+| `GET /datasets/{id}/rows` backend route                               | `apps/backend/`                                               | backend      | feature            | (FastAPI — backend native, pyarrow for paged Parquet read)          |
+| `DatasetDetail` + `RowsPage` types (FE)                               | `apps/builder/src/features/data-management/datasets/types.ts` | feature      | data type          | none                                                                |
 
 **Boundary check**: no dataset-detail surface lives in `@mdd/ui`.
 The metadata strip and paged data-table stay feature-local. If a
@@ -83,7 +83,7 @@ The hooks + page above them carry the glue.
 - [datasets.md § Read/write boundary](datasets.md#readwrite-boundary-r15-scope)
   — the deferral row this page resolves.
 - [crud-hygiene.md](crud-hygiene.md) — rename + delete modals
-  reused unchanged. R33 only adds a new *placement* (page header
+  reused unchanged. R33 only adds a new _placement_ (page header
   actions) for the same affordances.
 - [workspace-shell.target.md](workspace-shell.target.md) — the
   master-layout chrome (sidebar + topbar + page-card) this page
@@ -140,7 +140,7 @@ Excel · Sheet1 — 2,481 rows · 12 columns · 84 KB · Uploaded 14:02 today  �
   count · column count · size · uploaded (relative time).
 - **Metadata strip**: same fields restated as a table-style row
   for scannable reading. Mirrors the list-row columns so the
-  user sees the *same* numbers they clicked on, only larger.
+  user sees the _same_ numbers they clicked on, only larger.
 - **Column headers**: column name + dtype badge (small pill,
   muted color). Dtype badge tooltip on hover: full dtype name
   ("integer", "datetime", etc.).
@@ -297,9 +297,9 @@ exactly as `DatasetNewPage` (R17 wizard) does:
   chrome math = Layout.Header 56 + Content padding 16×2), flex column.
 - `<PageCard variant="fill">` — fills the rest as a flex column.
 - Metadata strip + search bar + (optional) error alert — each `flex: 0
-  0 auto`, stack at the top.
+0 auto`, stack at the top.
 - Table scroll container — `flex: 1 1 auto; minHeight: 0; overflow:
-  auto`. The sticky `<th>` sticks here.
+auto`. The sticky `<th>` sticks here.
 - Pagination bar — `flex: 0 0 auto` with a top border, pinned at the
   bottom.
 
@@ -314,33 +314,33 @@ resolves to `rgba(0,0,0,0.02)` — rows bleed through).
 
 ## Token map
 
-| Surface | Token | Source |
-| --- | --- | --- |
-| Page background | `--color-bg-layout` (`#f5f5f5`) | tokens.css mirror of themeTokens.ts |
-| Page card background | `--color-bg-base` (`#ffffff`) | tokens.css |
-| Page card border / shadow | `--shadow-card`, `1px solid --color-border-secondary` | tokens.css |
-| Header title text | `--color-text-base` | tokens.css |
-| Header subtitle text | `--color-text-secondary` | tokens.css |
-| Breadcrumb text | `--color-text-tertiary`; active segment `--color-text-secondary` | tokens.css |
-| Metadata strip background | `--color-fill-quaternary` (`#fafafa`) | tokens.css |
-| Metadata strip label | `--color-text-tertiary` | tokens.css |
-| Metadata strip value | `--color-text-base` | tokens.css |
-| Table header background | `--color-fill-quaternary` | tokens.css |
-| Table header text | `--color-text-secondary` | tokens.css |
-| Table row border | `--color-border-secondary` | tokens.css |
-| Table row hover | `--color-primary-bg` (`#e6f4ff`) | tokens.css |
-| Cell text | `--color-text-base` | tokens.css |
-| Null cell glyph | `--color-text-tertiary` | tokens.css |
-| Dtype badge background | `--color-fill-quaternary` | tokens.css |
-| Dtype badge text | `--color-text-tertiary` | tokens.css |
-| Dtype badge border | `1px solid --color-border-secondary` | tokens.css |
-| Pagination active page | `--color-primary` (`#1677ff`) | tokens.css |
-| Search input border | `--color-border` | tokens.css |
-| Search input focus border | `--color-primary` | tokens.css |
-| Search match counter text | `--color-text-tertiary` | tokens.css |
-| Search "Clear" link text | `--color-primary` | tokens.css |
-| Border radius (cards, badges) | `--radius-md` (6px) | tokens.css |
-| Font family | `--font-family` | tokens.css |
+| Surface                       | Token                                                            | Source                              |
+| ----------------------------- | ---------------------------------------------------------------- | ----------------------------------- |
+| Page background               | `--color-bg-layout` (`#f5f5f5`)                                  | tokens.css mirror of themeTokens.ts |
+| Page card background          | `--color-bg-base` (`#ffffff`)                                    | tokens.css                          |
+| Page card border / shadow     | `--shadow-card`, `1px solid --color-border-secondary`            | tokens.css                          |
+| Header title text             | `--color-text-base`                                              | tokens.css                          |
+| Header subtitle text          | `--color-text-secondary`                                         | tokens.css                          |
+| Breadcrumb text               | `--color-text-tertiary`; active segment `--color-text-secondary` | tokens.css                          |
+| Metadata strip background     | `--color-fill-quaternary` (`#fafafa`)                            | tokens.css                          |
+| Metadata strip label          | `--color-text-tertiary`                                          | tokens.css                          |
+| Metadata strip value          | `--color-text-base`                                              | tokens.css                          |
+| Table header background       | `--color-fill-quaternary`                                        | tokens.css                          |
+| Table header text             | `--color-text-secondary`                                         | tokens.css                          |
+| Table row border              | `--color-border-secondary`                                       | tokens.css                          |
+| Table row hover               | `--color-primary-bg` (`#e6f4ff`)                                 | tokens.css                          |
+| Cell text                     | `--color-text-base`                                              | tokens.css                          |
+| Null cell glyph               | `--color-text-tertiary`                                          | tokens.css                          |
+| Dtype badge background        | `--color-fill-quaternary`                                        | tokens.css                          |
+| Dtype badge text              | `--color-text-tertiary`                                          | tokens.css                          |
+| Dtype badge border            | `1px solid --color-border-secondary`                             | tokens.css                          |
+| Pagination active page        | `--color-primary` (`#1677ff`)                                    | tokens.css                          |
+| Search input border           | `--color-border`                                                 | tokens.css                          |
+| Search input focus border     | `--color-primary`                                                | tokens.css                          |
+| Search match counter text     | `--color-text-tertiary`                                          | tokens.css                          |
+| Search "Clear" link text      | `--color-primary`                                                | tokens.css                          |
+| Border radius (cards, badges) | `--radius-md` (6px)                                              | tokens.css                          |
+| Font family                   | `--font-family`                                                  | tokens.css                          |
 
 No new token values are introduced. If any value below is missing
 from the authoritative `themeTokens.ts`, R36 promotes it as a
@@ -458,7 +458,7 @@ mutation/refetch surfaces a 404. The page transitions to the 404
 state and the one-shot toast fires. No optimistic rollback (we're
 already on the dataset; just re-render the empty state).
 
-If the dataset is deleted *before* the initial GET, the page
+If the dataset is deleted _before_ the initial GET, the page
 opens directly in the 404 state. Same toast wording, same back
 button.
 
@@ -662,18 +662,18 @@ export type RowsPage = {
   unsorted browsing impractical.
 - **Per-column filters** — R37 design, R38→R40 impl chain.
   Typed per-column predicates (`stage = won`, `amount between
-  10,000 and 50,000`, `won_at after 2026-04-01`) layered on top
+10,000 and 50,000`, `won_at after 2026-04-01`) layered on top
   of `?q=`. Spec lives in
   [dataset-filters.md](dataset-filters.md). Advanced query
   language (`stage:won AND amount>10000` parsed syntax with
-  OR/grouping) remains deferred as the *next* feature beyond
+  OR/grouping) remains deferred as the _next_ feature beyond
   filters.
 - **Matched-substring highlighting** in cell text. Cheap UX
   win but adds a per-cell render pass; defer until users
   actually complain they can't find their match on the page.
 - **Virtualized scroll**. Offset pagination is sufficient
   through ~100k rows × 50 page-size. Promote when 100k+ row
-  datasets become routine *and* page-size-100 feels slow.
+  datasets become routine _and_ page-size-100 feels slow.
 - **Column hide / freeze / reorder**. Cosmetic; promote when a
   user is actually blocked.
 - **Row-level CRUD** (edit / delete / insert). Datasets are
@@ -706,7 +706,7 @@ This concept explicitly does NOT cover:
 - The Datasets list page (lives in [datasets.md](datasets.md)).
 - The upload wizard (lives in [upload.md](upload.md)).
 - Rename/delete modal internals (live in
-  [crud-hygiene.md](crud-hygiene.md)). This page is a *placement*
+  [crud-hygiene.md](crud-hygiene.md)). This page is a _placement_
   of those modals; the modals themselves are unchanged.
 - Future query / dashboard surfaces that will read the same
   dataset; those get their own design docs when they land.

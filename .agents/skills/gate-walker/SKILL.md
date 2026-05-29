@@ -59,14 +59,14 @@ Two branches:
 Each gate's exit criterion is documented in
 [R47's Hard Gates table](../../decisions/2026-05-28-hybrid-flow-governance.md):
 
-| Gate | Exit criterion |
-|---|---|
-| **Design** | User journeys + testable acceptance criteria documented in the design artifact |
-| **F1** *(DFCFBI only)* | Interaction decisions frozen for this round; open UX questions resolved or explicitly deferred |
-| **Contract** | Request / response / error shapes frozen; MSW handlers aligned; YAML committed |
-| **F2** *(DFCFBI only)* | Confirmation pass complete against contract-derived MSW; any shape change re-routed as contract v2 |
-| **Backend** | Contract conformance tests pass; per-endpoint behavior tests pass |
-| **Integration** | FE-vs-BE verified end-to-end; shared conformance tests pass against both MSW and real backend |
+| Gate                   | Exit criterion                                                                                     |
+| ---------------------- | -------------------------------------------------------------------------------------------------- |
+| **Design**             | User journeys + testable acceptance criteria documented in the design artifact                     |
+| **F1** _(DFCFBI only)_ | Interaction decisions frozen for this round; open UX questions resolved or explicitly deferred     |
+| **Contract**           | Request / response / error shapes frozen; MSW handlers aligned; YAML committed                     |
+| **F2** _(DFCFBI only)_ | Confirmation pass complete against contract-derived MSW; any shape change re-routed as contract v2 |
+| **Backend**            | Contract conformance tests pass; per-endpoint behavior tests pass                                  |
+| **Integration**        | FE-vs-BE verified end-to-end; shared conformance tests pass against both MSW and real backend      |
 
 Look in the round file for evidence that the criterion is met.
 Acceptable evidence forms:
@@ -79,8 +79,8 @@ Acceptable evidence forms:
 - A passing CI run / test count documented in `## Do` for
   Contract / Backend / Integration gates.
 
-The skill is a **structural** check — it verifies *evidence is
-cited*, not that the evidence is *truthful*. Truthfulness is the
+The skill is a **structural** check — it verifies _evidence is
+cited_, not that the evidence is _truthful_. Truthfulness is the
 round author's responsibility.
 
 ### 4. Return Gate-closed or Gate-open

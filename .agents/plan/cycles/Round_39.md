@@ -66,24 +66,24 @@ end-of-round Q&A:**
    substitution — no string interpolation of user-supplied
    values, no SQL injection risk. Per-dtype SQL fragments:
 
-   | Operator | SQL fragment (per-dtype hints in parens) |
-   | --- | --- |
-   | `string.contains` | `lower(<col>) LIKE lower(?)` with `%v%` wrapping in the param |
-   | `string.equals` | `lower(<col>) = lower(?)` |
-   | `string.starts_with` | `lower(<col>) LIKE lower(?)` (`v%`) |
-   | `string.ends_with` | `lower(<col>) LIKE lower(?)` (`%v`) |
-   | `string.is_empty` | `(<col> IS NULL OR <col> = '')` |
-   | `string.is_not_empty` | `(<col> IS NOT NULL AND <col> != '')` |
-   | `int.equals` / `float.equals` | `<col> = CAST(? AS <DOUBLE \| BIGINT>)` |
-   | `int.ne` / `float.ne` | `<col> != CAST(? AS …)` |
-   | `int.gt/lt/gte/lte` | `<col> {>,<,>=,<=} CAST(? AS …)` |
-   | `int.between` / `float.between` | `<col> BETWEEN CAST(? AS …) AND CAST(? AS …)` |
-   | `date.equals` | `<col> = CAST(? AS DATE)` |
-   | `date.ne` / `before` / `after` | `<col> {!=,<,>} CAST(? AS DATE)` |
-   | `date.between` | `<col> BETWEEN CAST(? AS DATE) AND CAST(? AS DATE)` |
-   | `datetime.*` | same as `date.*` with `CAST(? AS TIMESTAMP)`; ISO-T normalized to space before binding |
-   | `bool.is_true` / `is_false` | `<col> = TRUE` / `<col> = FALSE` (no parameter) |
-   | All dtypes: `is_null` / `is_not_null` | `<col> IS NULL` / `<col> IS NOT NULL` (no parameter) |
+   | Operator                              | SQL fragment (per-dtype hints in parens)                                               |
+   | ------------------------------------- | -------------------------------------------------------------------------------------- |
+   | `string.contains`                     | `lower(<col>) LIKE lower(?)` with `%v%` wrapping in the param                          |
+   | `string.equals`                       | `lower(<col>) = lower(?)`                                                              |
+   | `string.starts_with`                  | `lower(<col>) LIKE lower(?)` (`v%`)                                                    |
+   | `string.ends_with`                    | `lower(<col>) LIKE lower(?)` (`%v`)                                                    |
+   | `string.is_empty`                     | `(<col> IS NULL OR <col> = '')`                                                        |
+   | `string.is_not_empty`                 | `(<col> IS NOT NULL AND <col> != '')`                                                  |
+   | `int.equals` / `float.equals`         | `<col> = CAST(? AS <DOUBLE \| BIGINT>)`                                                |
+   | `int.ne` / `float.ne`                 | `<col> != CAST(? AS …)`                                                                |
+   | `int.gt/lt/gte/lte`                   | `<col> {>,<,>=,<=} CAST(? AS …)`                                                       |
+   | `int.between` / `float.between`       | `<col> BETWEEN CAST(? AS …) AND CAST(? AS …)`                                          |
+   | `date.equals`                         | `<col> = CAST(? AS DATE)`                                                              |
+   | `date.ne` / `before` / `after`        | `<col> {!=,<,>} CAST(? AS DATE)`                                                       |
+   | `date.between`                        | `<col> BETWEEN CAST(? AS DATE) AND CAST(? AS DATE)`                                    |
+   | `datetime.*`                          | same as `date.*` with `CAST(? AS TIMESTAMP)`; ISO-T normalized to space before binding |
+   | `bool.is_true` / `is_false`           | `<col> = TRUE` / `<col> = FALSE` (no parameter)                                        |
+   | All dtypes: `is_null` / `is_not_null` | `<col> IS NULL` / `<col> IS NOT NULL` (no parameter)                                   |
 
 5. **`is_empty` / `is_not_empty` apply to string only** (R37
    vocabulary table). For other dtypes the empty-string
@@ -95,7 +95,7 @@ end-of-round Q&A:**
 7. **AND-composition order in SQL**: filters first, then
    `?q=` substring. The reader builds the combined WHERE
    clause as `WHERE (filter1 AND filter2 AND …) AND (q
-   substring across all cols)`. This is observationally
+substring across all cols)`. This is observationally
    equivalent to AND-composing in either order — DuckDB's
    query planner picks the actual evaluation order. The
    filter-first ordering in the SQL string matches the
@@ -103,19 +103,19 @@ end-of-round Q&A:**
    narrows further.
 8. **422 detail envelope**. Each error uses the FastAPI-
    shape `detail: [{"loc": [...], "msg": "...", "type":
-   "value_error"}]` (list of dicts), matching the R38
+"value_error"}]` (list of dicts), matching the R38
    contract's example. The four `msg` prefixes follow R38:
    - `filter_op_dtype_mismatch: op '<op>' is not valid for
-     dtype '<dtype>'`
+dtype '<dtype>'`
    - `filter_value_unparseable: column <N> (<dtype>) cannot
-     parse '<val>'`
+parse '<val>'`
    - `filter_col_out_of_range: column <N> does not exist
-     (columnCount = <C>)`
+(columnCount = <C>)`
    - `filter_operand_shape: column <N> op '<op>' expects
-     <expected-fields>`
-   The existing `page_size` 422 stays as a string-detail
-   (no R39 retrofit; that's a separate small consistency
-   round if pulled later).
+<expected-fields>`
+     The existing `page_size` 422 stays as a string-detail
+     (no R39 retrofit; that's a separate small consistency
+     round if pulled later).
 9. **Parser entry point**: the router calls
    `parse_filters_from_query(request.query_params, columns) -> list[FilterPredicate]`
    after fetching the dataset's `columns_json`. Empty-result
@@ -123,7 +123,7 @@ end-of-round Q&A:**
    it straight through to the reader, same path as
    `?q=None`).
 10. **Reader signature**: `query_dataset_rows(parquet_path,
-    column_names, *, page, page_size, q, filters)` where
+column_names, *, page, page_size, q, filters)` where
     `filters: list[FilterPredicate] | None = None` keeps the
     R35 default behavior backward-compatible.
 
@@ -402,7 +402,7 @@ Extend the existing R35 test file (don't fork). New tests cover:
   where `columns_meta` is the full `[{name, dtype}, ...]`
   list (not just names — needed for per-dtype validation).
   Result passes through to `query_dataset_rows(...,
-  filters=...)`. 422 raised by the parser propagates as the
+filters=...)`. 422 raised by the parser propagates as the
   FastAPI request-validation envelope per the R38 contract.
 
 **Tests.**

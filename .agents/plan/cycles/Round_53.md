@@ -18,10 +18,10 @@ apply the fix R51's design already specified — a visible "Advanced
 query" label + an explicit, discoverable `[Clear]` — then re-run
 `ui-design` fidelity mode to confirm the two gaps close.
 
-*Track: 1 (product). Pulled by: R52 `ui-design` fidelity-mode gap
+_Track: 1 (product). Pulled by: R52 `ui-design` fidelity-mode gap
 report on `AdvancedQueryInput`; R51 end-of-round brainstorm
 (user-identified affordance gap). Per
-[Evolution Rule](../../AGENTS.md).*
+[Evolution Rule](../../AGENTS.md)._
 
 **Not a feature round** — no new design, no flow-selector: the
 design (`advanced-query.md`) already decided the affordances; R53
@@ -102,11 +102,11 @@ passing + FE tests green**.
 - **Visual check (user screenshot of the running app)** — the
   label + Clear render correctly, but the rendered readback showed
   `✓ 1 group(s) · 1 predicate(s)` — a literal `(s)` pluralization
-  defect the *structural* `ui-design` pass could not catch (only
+  defect the _structural_ `ui-design` pass could not catch (only
   rendered pixels show it). **Fixed**: proper i18next pluralization
   (`summaryGroup`/`summaryPredicate` `_one`/`_other`, composed into
   `summary`) → `✓ 1 group · 1 predicate` / `✓ 2 groups · 3
-  predicates`. Locked by 2 regression tests (no `(s)`; plural
+predicates`. Locked by 2 regression tests (no `(s)`; plural
   form). FE suite **107** (105 + 2).
 
 ## Check
@@ -123,7 +123,7 @@ passing + FE tests green**.
 **Learnings**:
 
 - **The skill closed its own loop**: R52 detected the gap
-  (fidelity GAP 2), R53 remediated, and the *same skill* re-run
+  (fidelity GAP 2), R53 remediated, and the _same skill_ re-run
   confirmed PASS 6/6. Detect → fix → re-verify with one tool — the
   `gate-walker`-style discipline applied to UX.
 - **Build can clarify the spec**: the design's ASCII "box" was
@@ -153,5 +153,5 @@ the first to exercise `ui-design` at D. Confirm at handoff.
 R54 adds the operators R51 documented as MVP gaps — inclusive
 date/datetime bounds (`on_or_after` / `on_or_before`) + string `ne`
 — to the **shared** predicate vocabulary, and is the first
-*feature* round designed with `ui-design` applied at its **Design
+_feature_ round designed with `ui-design` applied at its **Design
 gate** (design-spec mode) before any build.

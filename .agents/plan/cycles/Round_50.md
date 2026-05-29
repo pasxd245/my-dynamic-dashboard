@@ -15,9 +15,9 @@ in between. R50 is that round: ship a **dependent** skill named
 inside the `.agents/` corpus (and optionally repo-wide).
 
 The skill exists because R49's own Risks section flagged the
-load-bearing failure mode — *"AGENTS.md horizons section is
+load-bearing failure mode — _"AGENTS.md horizons section is
 load-bearing. Adding a bullet that points at a non-existent
-README means every session-load hits a broken link"* — and R49
+README means every session-load hits a broken link"_ — and R49
 mitigated it once by hand-sequencing the file creation. The
 DCFBI/DFCFBI chain expands cross-link surface dramatically:
 round files cite decisions, decisions cite design markdown,
@@ -32,10 +32,10 @@ under `## Dependent skills`. Post-round audit (per
 [PDCA.md](../PDCA.md)) gains one optional line: invoke
 `markdown-check-link` alongside `npx markdownlint-cli2`.
 
-*Track: 2 (agent-method, tooling). Pulled by: R49 Risks entry
+_Track: 2 (agent-method, tooling). Pulled by: R49 Risks entry
 on load-bearing AGENTS.md horizons link; concrete pull from
 R51's expanding cross-link surface in the upcoming DCFBI trial.
-Per [Evolution Rule](../../AGENTS.md).*
+Per [Evolution Rule](../../AGENTS.md)._
 
 **Reasonable defaults under [auto mode]; user redirects via
 end-of-round Q&A:**
@@ -94,7 +94,7 @@ end-of-round Q&A:**
    - `links.json` — full inventory of every link the parser
      found, one record per link:
      `{file, line, text, target, kind, resolved_path, status,
-     reason?}`. Always written, even on clean runs. Enables
+reason?}`. Always written, even on clean runs. Enables
      diffing between runs and grounds auto-correct (next
      point) in a structured artifact rather than ad-hoc grep.
    - `broken.md` — human-readable summary of only the broken
@@ -105,6 +105,7 @@ end-of-round Q&A:**
    `path:line: broken-link → target (reason)` form for
    grep-friendliness. Exit code `0` for clean, `1` for any
    broken links found (CI integration).
+
 9. **Auto-correct capability ships, but is opt-in.** Default
    invocation reports only (writes the artifacts above, exits
    0/1). A `--fix` flag applies corrections; `--dry-run`
@@ -124,6 +125,7 @@ end-of-round Q&A:**
    The round author at Review time decides whether `--fix`
    runs against R50's own corpus (per the user's "at review
    I will decide" — gated decision, not automatic).
+
 10. **No edits to R49 skills.** The new skill stands alone;
     `flow-selector` and `gate-walker` don't gain link-check
     calls in their procedures this round. If R51's trial
@@ -135,7 +137,7 @@ end-of-round Q&A:**
     other context promotion (validate through use across
     multiple rounds first).
 12. **No new memory file unless R50 execution surfaces a
-    learning.** Memory captures learnings *from* completed
+    learning.** Memory captures learnings _from_ completed
     work; R50 is the work.
 
 ## What is IN scope
@@ -161,8 +163,8 @@ end-of-round Q&A:**
     session-load link click 404s. Default scope reads
     .markdownlint-cli2.jsonc globs + ignores; falls back to
     .agents/**/*.md if config missing.
-  argument-hint: "[path-or-glob ...] [--check-http] [--fix |
-    --dry-run]"
+  argument-hint: '[path-or-glob ...] [--check-http] [--fix |
+    --dry-run]'
   allowed-tools: Read, Grep, Glob, Bash(python3 *)
   metadata:
     author: hand-authored-r50
@@ -231,13 +233,11 @@ end-of-round Q&A:**
     not as broken.
   - **Emit artifacts** under
     `.agents/tmp/markdown-check-link/` (always, on every
-    run):
-    - `links.json` — every link with
-      `{file, line, kind, text, target, resolved_path,
-      status, reason?, fix_candidate?}`.
-    - `broken.md` — human-readable, grouped by source file.
-      Includes the `fix_candidate` (if any) under each
-      broken link so the human reviewer can decide.
+    run): - `links.json` — every link with
+    `{file, line, kind, text, target, resolved_path,
+status, reason?, fix_candidate?}`. - `broken.md` — human-readable, grouped by source file.
+    Includes the `fix_candidate` (if any) under each
+    broken link so the human reviewer can decide.
   - **Auto-correct** (opt-in via `--fix` / `--dry-run`):
     - For each broken link, compute the conservative
       candidate per Defaults #9 (case-only mismatch, heading
@@ -273,7 +273,7 @@ end-of-round Q&A:**
 - One bullet appended to
   [`plan/PDCA.md § Post-round audit`](../PDCA.md), under or
   after the existing `markdownlint-cli2` bullet. Phrased as
-  *optional* (round authors can skip if they didn't touch
+  _optional_ (round authors can skip if they didn't touch
   cross-links), not mandatory — to avoid the gate-theater
   failure mode the Hybrid Flow doctrine warned about.
 
@@ -457,8 +457,8 @@ end-of-round Q&A:**
   opposite direction. Mitigation: after applying `--fix`,
   re-run default mode and confirm exit 0 before stopping.
 - **Skill-ref pointer resolution still unverified.** R49's
-  open question — *does Claude Code's runtime follow the
-  pointer to fetch the canonical body, or only see the stub?*
+  open question — _does Claude Code's runtime follow the
+  pointer to fetch the canonical body, or only see the stub?_
   — remains open. R50 follows the same convention
   (canonical record plus pointer stub). If R51's first skill
   invocation reveals the
@@ -507,9 +507,9 @@ end-of-round Q&A:**
 **Pointer-resolution data point (R49 open question).** When
 the new SKILL.md was authored, the session-load reminder
 listed `markdown-check-link` as an available skill — the
-runtime *did* see the new skill at session-load via the
+runtime _did_ see the new skill at session-load via the
 pointer. Open: whether the runtime also fetches the canonical
-body when the skill is *invoked* (vs only at session-load).
+body when the skill is _invoked_ (vs only at session-load).
 R51's first skill invocation is still the measurement.
 
 **Checker script bundled.**
@@ -634,7 +634,7 @@ Implementation:
 - New helper `_git_changed_md()` unions
   `git diff --name-only --diff-filter=ACMR` (unstaged) +
   `--cached` (staged) + `git ls-files --others
-  --exclude-standard` (untracked). Errors cleanly if git is
+--exclude-standard` (untracked). Errors cleanly if git is
   unavailable or the cwd isn't a repo.
 - `_resolve_files` precedence:
   explicit paths > `--changed` > config defaults > fallback.
@@ -758,7 +758,7 @@ shape makes future additions (e.g., a `summary.md`) cheap.
       with canonical frontmatter (`name`, `description`,
       `when_to_use`, `argument-hint`, `allowed-tools`) and
       body sections (`## Trigger`, `## Procedure`, `## Quality
-      Bar`).
+Bar`).
 - [x] `.agents/skills/markdown-check-link/scripts/check_links.py`
       exists, stdlib-only, runs end-to-end with `--help`,
       `--check-http`, `--fix`, `--dry-run`, `--exclude`, and
@@ -767,11 +767,10 @@ shape makes future additions (e.g., a `summary.md`) cheap.
       `globs` + `ignores`; missing-config path warns and
       falls back to `.agents/**/*.md`.
 - [x] `.claude/skills/markdown-check-link/SKILL.md` skill-ref
-      pointer stub exists with matching `name` + `description`
-      + skillPath pointing at the canonical record.
+      pointer stub exists with matching `name` + `description` + skillPath pointing at the canonical record.
 - [x] [`.agents/skills/README.md`](../../skills/README.md)
       has a `markdown-check-link` entry under `## Dependent
-      skills` with file link, role line, and default-scope
+skills` with file link, role line, and default-scope
       note.
 - [x] [`plan/PDCA.md § Post-round audit`](../PDCA.md) has
       one new bullet noting `markdown-check-link` as an
@@ -843,18 +842,18 @@ shape makes future additions (e.g., a `summary.md`) cheap.
   only see the stub?) got partial evidence: at
   session-load, the new skill's name+description showed
   up immediately after authoring — confirming pointer
-  *registration* works. The harder question — whether
+  _registration_ works. The harder question — whether
   the canonical body is read on invocation — still needs
   R51's first invocation as the measurement.
 
 **Promotions**:
 
 - [x] → `skills/` : `markdown-check-link` (dependent).
-  Bootstrapped into `.agents/skills/` with the
-  `skill-ref` pointer at `.claude/skills/`. Indexed in
-  the skills README under `## Dependent skills`;
-  optional bullet appended to PDCA post-round audit.
-  Logged in [promotions.md](../promotions.md) 2026-05-29.
+      Bootstrapped into `.agents/skills/` with the
+      `skill-ref` pointer at `.claude/skills/`. Indexed in
+      the skills README under `## Dependent skills`;
+      optional bullet appended to PDCA post-round audit.
+      Logged in [promotions.md](../promotions.md) 2026-05-29.
 
 **Skill verification run (post-commit).** After committing
 R50, ran `--fix` against the full corpus to validate the
@@ -889,12 +888,12 @@ User accepted the fix output as-is rather than reverting
 the archive/Complete-round edits (see follow-ups).
 
 **Bug found and fixed during verification re-run.** Re-running
-`--fix` for an idempotence check produced *more* file changes
+`--fix` for an idempotence check produced _more_ file changes
 — not idempotent. Root cause: `_apply_fixes` used a naive
 `line.replace(old_target, new_target, 1)`, which hits the
 **first substring match**. When a link's display text inside
 `[...]` happens to contain the URL substring (e.g.,
-`` [`decisions/x.md`](decisions/x.md) `` — code-formatted
+``[`decisions/x.md`](decisions/x.md)`` — code-formatted
 path-as-display-text), the replace edited the display text
 instead of the URL.
 
@@ -1037,6 +1036,7 @@ matching).
 
   Until amended, this is a deliberate doctrine deviation
   authorized by the human, not a pattern.
+
 - **Slug algorithm has known limits.** The bundled
   kebab-caser handles common cases (lowercase, spaces →
   hyphens, strip punctuation) but not GitHub's full

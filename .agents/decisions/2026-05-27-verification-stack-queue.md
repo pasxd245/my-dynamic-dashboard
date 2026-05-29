@@ -41,37 +41,37 @@ is designed to prevent.
 ## Queue (ordered)
 
 1. **MSW** — ✅ **Landed (R41)**.
-   *Pulled by*: R34 → R35 → R36 sequencing cost. Unlocks
+   _Pulled by_: R34 → R35 → R36 sequencing cost. Unlocks
    contracts → (FE ∥ BE). [Round_41.md](../plan/cycles/Round_41.md)
    added `msw` as a builder devDependency, authored
    `src/mocks/{fixtures,handlers,server,browser,start}.ts`,
    wired MSW into `tests/setup.ts` (Node server with
    `onUnhandledRequest: 'bypass'` so legacy `vi.stubGlobal(
-   'fetch')` tests coexist), wired a `VITE_MOCKS=1` dev-mode
+'fetch')` tests coexist), wired a `VITE_MOCKS=1` dev-mode
    opt-in in `main.tsx`, and migrated
    `tests/dataset-detail.test.tsx` as the proof of pattern.
 
 2. **Pattern-import paragraph in design skill** — to land via a future
    skill edit, not as part of this decision.
-   *Pulled by*: minimal-UI cost-of-rederivation (this conversation).
+   _Pulled by_: minimal-UI cost-of-rederivation (this conversation).
 
 3. **`.agents/decisions/` register + AGENTS.md link** — this commit lands it.
-   *Pulled by*: drift-via-contradiction failure mode.
+   _Pulled by_: drift-via-contradiction failure mode.
 
 4. **Preview-HTML in design rounds** — process change in the design skill.
-   *Trigger*: next design round (post-R37) catches a layout surprise
+   _Trigger_: next design round (post-R37) catches a layout surprise
    ASCII would not have caught.
 
 5. **Playwright baseline** — parked.
-   *Trigger*: R30 visual-verification gate slips again on a future FE
+   _Trigger_: R30 visual-verification gate slips again on a future FE
    round, OR a regression escapes vitest+RTL.
 
 6. **Memory retriever** — parked.
-   *Trigger*: N_memory_files > 50, OR 3+ incidents of relevant memory
+   _Trigger_: N_memory_files > 50, OR 3+ incidents of relevant memory
    not surfaced when it should have been.
 
 7. **Decisions-consistency sub-agent** — parked.
-   *Trigger*: a contradiction-drift event recurs *and* we have the
+   _Trigger_: a contradiction-drift event recurs _and_ we have the
    receipts (file diffs / conversation excerpts) to train against.
 
 ## What this forbids
@@ -94,5 +94,5 @@ may not fire until R45+). We accept this because the cost of premature
 tooling investment (re-derived for the wrong scale) is higher than the
 cost of catching a regression by human-eye one more time.
 
-*Track: 2. Pulled by: 2026-05-27 conversation; R36 Do log
-"browser-eye walk skipped (headless this turn)".*
+_Track: 2. Pulled by: 2026-05-27 conversation; R36 Do log
+"browser-eye walk skipped (headless this turn)"._

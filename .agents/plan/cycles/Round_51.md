@@ -23,7 +23,7 @@ new advanced input handles boolean composition (`AND` / `OR`) and
 direct key:value entry without clicking through popovers. R37's
 own design doc explicitly pre-declared this as the next step:
 
-> "The next step *after* filters is a typed query language
+> "The next step _after_ filters is a typed query language
 > (`stage:won AND amount>10000`) — that's a separate concept
 > with its own [DCBF] chain."
 
@@ -34,12 +34,12 @@ predicate vocabulary already exists — R51 adds the parser, the
 input UI, and the wiring; the BE evaluator stays unchanged if the
 parser emits the same predicate shapes.
 
-*Track: 1 (product feature). Pulled by: R37 dataset-filters
+_Track: 1 (product feature). Pulled by: R37 dataset-filters
 design doc's explicit "next step" deferral; R45 end-of-round Q&A
 listing Track-1 return-to-product candidates (advanced query
 named); user selection in R50 end-of-round Q&A as the strongest
 DCFBI-vs-DFCFBI trial candidate (genuine flow-selector ambiguity).
-Per [Evolution Rule](../../AGENTS.md).*
+Per [Evolution Rule](../../AGENTS.md)._
 
 **Why this feature for the first trial:**
 
@@ -56,7 +56,7 @@ Per [Evolution Rule](../../AGENTS.md).*
   the rot surface `markdown-check-link` was built for.
 - **Gates have teeth.** Contract gate must verify the new
   parser's predicate output matches the existing BE evaluator
-  *exactly* (no shape drift). Backend gate must verify zero
+  _exactly_ (no shape drift). Backend gate must verify zero
   regression in chip-filter tests. Integration gate must verify
   chip + advanced compose correctly when both are active.
 
@@ -174,8 +174,7 @@ adjusted ordering in the Do log before proceeding.
       across the round's touched docs. Triage any findings;
       apply safe candidates via `--fix` (gated at Review per
       R50 quality bar).
-      **→ markdownlint clean (new docs); markdown-check-link caught
-      + fixed one broken anchor; all links resolve.**
+      **→ markdownlint clean (new docs); markdown-check-link caught + fixed one broken anchor; all links resolve.**
 
 ## Risks / unknowns
 
@@ -254,13 +253,13 @@ documented in
 
 **Flow selector run** (per [R47](../../decisions/2026-05-28-hybrid-flow-governance.md)):
 
-| Condition | Fired? | Justification |
-|---|---|---|
-| 1. >3 independent states/branches | yes | The input state model has 4 states (Empty, Typing, Parsed, Errored); the Mermaid lifecycle shows Typing branching to both Parsed and Errored — 4 > 3. |
-| 2. New interaction pattern | yes | No existing product surface parses a typed expression grammar with operator precedence and emits token-positional parse errors; the R36 `?q=` input is a flat substring search with zero parsing. |
-| 3. High user-error risk | no | Read-only row filtering — no destructive or irreversible action; an unparseable query surfaces an inline error and leaves the last-applied query governing the table. |
-| 4. Contract depends on unresolved UI | no | The design decouples grammar (pure FE concern) from transport (DNF of the existing `FilterPredicate` JSON); the `aq` schema is fully writable now and does not move with input-UX decisions. |
-| 5. UX confidence below threshold | no | The design resolved the load-bearing UX questions (error model, three-box composition, commit-on-valid-only) with stock-pattern grounding (GitHub/JQL/Gmail) and reasonable defaults. |
+| Condition                            | Fired? | Justification                                                                                                                                                                                     |
+| ------------------------------------ | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1. >3 independent states/branches    | yes    | The input state model has 4 states (Empty, Typing, Parsed, Errored); the Mermaid lifecycle shows Typing branching to both Parsed and Errored — 4 > 3.                                             |
+| 2. New interaction pattern           | yes    | No existing product surface parses a typed expression grammar with operator precedence and emits token-positional parse errors; the R36 `?q=` input is a flat substring search with zero parsing. |
+| 3. High user-error risk              | no     | Read-only row filtering — no destructive or irreversible action; an unparseable query surfaces an inline error and leaves the last-applied query governing the table.                             |
+| 4. Contract depends on unresolved UI | no     | The design decouples grammar (pure FE concern) from transport (DNF of the existing `FilterPredicate` JSON); the `aq` schema is fully writable now and does not move with input-UX decisions.      |
+| 5. UX confidence below threshold     | no     | The design resolved the load-bearing UX questions (error model, three-box composition, commit-on-valid-only) with stock-pattern grounding (GitHub/JQL/Gmail) and reasonable defaults.             |
 
 Result: **Flow: DFCFBI (triggers 1, 2)**
 
@@ -301,7 +300,7 @@ Built the load-bearing surfaces against the mock dataset
   writes `?aq=`, errored parse leaves the last-applied query and
   the table untouched (never blank results mid-edit).
 - Empty input clears `?aq=`. Success readback shows `N groups · M
-  predicates` so the user can confirm precedence parsed as
+predicates` so the user can confirm precedence parsed as
   intended.
 - Operator surface = the existing R37 predicate vocabulary only.
 
@@ -442,7 +441,7 @@ on **both** sides of the contract:
 - **BE end-to-end**:
   [`test_aq_composes_with_chip_and_q_three_way`](../../../workspace/apps/backend/tests/test_datasets_rows_get.py)
   exercises the same composition server-side (`f2>50 ∧ aq(Alice OR
-  Carol) ∧ q=carol → Carol`).
+Carol) ∧ q=carol → Carol`).
 - **Shared conformance**: both sides validate against the **same**
   [`rows-get.contract.yaml`](../../../workspace/packages/contracts/datasets/rows-get.contract.yaml)
   — MSW via `withContractValidation`, BE via `validate_response`.
@@ -500,7 +499,7 @@ End-of-round verification:
   was UX de-risking, not contract de-risking.
 - **gate-walker** verified all six gates with **zero spurious
   blocks** (Risks § 5 cleared). One refinement learned: the
-  Design gate must close *before* flow-selector runs, but
+  Design gate must close _before_ flow-selector runs, but
   gate-walker's step-2 requires a `Flow:` line — so the **Design**
   gate is the one gate verified by author-attestation + design-doc
   evidence prior to the Flow line existing. The sequence
@@ -515,11 +514,11 @@ End-of-round verification:
 
 ### Skill-pull trigger assessment (R49 deferred list)
 
-- **`f1-timeboxer`** — F1 *fired* (DFCFBI) but did **not** overrun
+- **`f1-timeboxer`** — F1 _fired_ (DFCFBI) but did **not** overrun
   (one session, well under the ≤2-day cap). Trigger is "F1 fires
   **+** overruns" → **not pulled**. First clean F1 data point;
   pull only when a real overrun appears.
-- **`o-rule-checker`** — gates passed *and* the feature did **not**
+- **`o-rule-checker`** — gates passed _and_ the feature did **not**
   break at integration (three-way composition green) → **not
   pulled**.
 - **`round-scaffolder`** — **soft pull signal observed**: real
@@ -529,7 +528,7 @@ End-of-round verification:
   the strongest Track-2 candidate if the next 1–2 rounds repeat
   the pattern.
 - **`contract-v2-router`** — the flat `f<N>_*` shape genuinely
-  *could not* carry OR, but this was resolved with a **planned
+  _could not_ carry OR, but this was resolved with a **planned
   additive `aq` param**, not a contract-v2 re-route (no locked
   contract was amended; the new transport was designed up front).
   → **not pulled**; the "shape can't carry cleanly" language was
@@ -542,7 +541,7 @@ End-of-round verification:
   string `!=` (`ne` for strings). These are the documented MVP
   gaps; closing them is cross-cutting (FE types, BE `OPS_BY_DTYPE`,
   MSW, the chip date editor, dataset-filters.md) so it is
-  deliberately *not* folded into R51. Pulled by: this round's
+  deliberately _not_ folded into R51. Pulled by: this round's
   operator-prefix mapping notes ² and ³.
 - **Grammar v2** (own round, would supersede the MVP doc per its
   Lifecycle): parentheses + negation. Pull when the flat single-
@@ -554,16 +553,16 @@ End-of-round verification:
 
 A two-step decision came out of the close:
 
-1. **First Q&A pick** (next *feature*): **close the MVP query
+1. **First Q&A pick** (next _feature_): **close the MVP query
    gaps** (Track-1, predicate-vocabulary expansion).
-2. **Brainstorm re-prioritization**: reviewing R51's *shipped* UI
+2. **Brainstorm re-prioritization**: reviewing R51's _shipped_ UI
    surfaced an affordance gap — the advanced-query field renders
    indistinguishable from the `?q=` search box (no visible
    "Advanced query" label) and the clear action is hidden
    (`allowClear` × / backspace), **drifting from R51's own design
    doc**, which specified a labeled box + an explicit `[Clear]`
-   button. F2's gate checked *behavior against MSW*, not
-   *affordance against the design spec* — so nothing caught it.
+   button. F2's gate checked _behavior against MSW_, not
+   _affordance against the design spec_ — so nothing caught it.
    That pulled a **`ui-design` tooling skill** ahead of the
    feature work (same shape as R49/R50: a tooling round pulled by
    a feature-round lesson, landed before more feature rounds so it
@@ -571,10 +570,10 @@ A two-step decision came out of the close:
 
 **Resulting order**:
 
-- **R52 → `ui-design` skill** (Track-2). *Pulled by: R51's
+- **R52 → `ui-design` skill** (Track-2). _Pulled by: R51's
   advanced-query field shipping label-less + hidden-clear and
   drifting from its design doc; F2 verified behavior, not
-  affordance.* Its first run fixes the R51 field (label +
+  affordance._ Its first run fixes the R51 field (label +
   `[Clear]`) as a worked example. See
   [`Round_52.md`](Round_52.md).
 - **R53 → close MVP query gaps** (Track-1): add the operators R51
@@ -592,7 +591,7 @@ A two-step decision came out of the close:
   scope. The advanced-query parser's `DATE_OP_BY_PREFIX` /
   string-prefix maps then light up the deferred prefixes
   automatically, and R53 is the first feature round reviewed
-  *through* the R52 `ui-design` skill.
+  _through_ the R52 `ui-design` skill.
 
 Other candidates (grammar v2 parens/negation, dashboard kickoff)
 stay queued; the `round-scaffolder` soft signal carries forward to
@@ -642,7 +641,7 @@ rather than rewritten, per [PDCA § Governance](../PDCA.md)
   explicit `[Clear]`). Rationale: R52 ships the `ui-design` skill
   (tool); applying it to the R51 field is its own use-the-tool
   round, separating build from use (R49/R50 → R51 pattern).
-- **Close MVP query gaps → R54** (was R53), now the first *feature*
+- **Close MVP query gaps → R54** (was R53), now the first _feature_
   round designed with `ui-design` applied at its Design gate.
 - The authoritative forward roadmap lives in
   [`Round_52.md` § Feeds into](Round_52.md#feeds-into-round_53-apply-ui-design-the-r51-ui-fix).

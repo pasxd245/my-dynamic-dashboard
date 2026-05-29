@@ -18,14 +18,14 @@ the FE-on-MSW source of truth — it has **no mandate to revise or
 revamp the UX**. So if the design doc under-specifies an affordance
 (no label, no clear action, a missing state), DCFBI faithfully
 ships that gap with no later phase to catch it. DFCFBI's **F1** is
-the *exception*, enabled only when the flow-selector's 2-of-5 fires
-because the design *couldn't* be made straightforward.
+the _exception_, enabled only when the flow-selector's 2-of-5 fires
+because the design _couldn't_ be made straightforward.
 
 That makes the **Design gate the main event** for this skill, and
 the F gate a safety net:
 
 - **Design gate — design-spec mode (PRIMARY, preventive).** Run on
-  the **design doc** before the spec freezes. Verify it *declares*
+  the **design doc** before the spec freezes. Verify it _declares_
   each facet's affordance, so "F confirms" is trustworthy and the
   round can stay in the cheap DCFBI lane. The better the D-review,
   the rarer (and more justified) an F1 escape becomes.
@@ -48,20 +48,20 @@ Do not run this skill when:
 ## Basis
 
 The checklist is **the six essential components of a design** (the
-UX-honeycomb facets), made *structural* and grounded in
+UX-honeycomb facets), made _structural_ and grounded in
 [Ant Design's Data Entry spec](https://ant.design/docs/spec/data-entry/)
 and [Form guidance](https://ant.design/components/form/) for the
-concrete "how" in this stack. The honeycomb gives *what to
-evaluate*; AntD gives *how it should look here*. See also
+concrete "how" in this stack. The honeycomb gives _what to
+evaluate_; AntD gives _how it should look here_. See also
 [Figma's UI design principles](https://www.figma.com/resource-library/ui-design-principles/).
 
 ## Modes
 
-| Mode | Inputs | Gate | Question |
-| --- | --- | --- | --- |
-| **design-spec** *(primary)* | design doc only | Design | Does the **spec declare** each facet's affordance? |
-| **fidelity** *(backstop)* | design doc + component | F1 / F2 | Does the **build carry** what the design declared (+ no drift)? |
-| **build-only** *(ad hoc)* | component only | — | Standalone affordance check; fidelity diff skipped. |
+| Mode                        | Inputs                 | Gate    | Question                                                        |
+| --------------------------- | ---------------------- | ------- | --------------------------------------------------------------- |
+| **design-spec** _(primary)_ | design doc only        | Design  | Does the **spec declare** each facet's affordance?              |
+| **fidelity** _(backstop)_   | design doc + component | F1 / F2 | Does the **build carry** what the design declared (+ no drift)? |
+| **build-only** _(ad hoc)_   | component only         | —       | Standalone affordance check; fidelity diff skipped.             |
 
 ## Procedure
 
@@ -88,18 +88,18 @@ whole (design-spec mode), evaluate every facet and record
 not infer from intent.
 
 1. **Findability** — is the control **labeled** and
-   **distinguishable** from siblings? *Spec:* does the design
-   declare a visible label / distinct affordance? *Build:* is a
+   **distinguishable** from siblings? _Spec:_ does the design
+   declare a visible label / distinct affordance? _Build:_ is a
    real label rendered (a placeholder is **not** a label — it
    vanishes on input), and is the control not visually identical to
-   an adjacent different-purpose control? *AntD:* label above =
+   an adjacent different-purpose control? _AntD:_ label above =
    fast-fill/high-readability; left = compact.
 2. **Usability** — are **primary + clear/reset/undo** actions
    declared/present and **discoverable** (not hover-only /
    keyboard-only)? Are errors recoverable without destroying input?
-   *Build grep:* `allowClear` (hover-only ×) vs an explicit
+   _Build grep:_ `allowClear` (hover-only ×) vs an explicit
    clear/reset control; the error-render branch.
-3. **Accessibility** — visible label *and* accessible name
+3. **Accessibility** — visible label _and_ accessible name
    (`aria-label` / role), keyboard-reachable, not colour-only,
    contrast meets the token spec.
 4. **Credibility** — is **every design-declared state** specced /
@@ -151,8 +151,8 @@ discipline `gate-walker` keeps.
 
 ## Quality Bar
 
-- **Structural only.** Verify a *declared* affordance is *present
-  and design-doc-faithful* — never "is it beautiful." Every gap
+- **Structural only.** Verify a _declared_ affordance is _present
+  and design-doc-faithful_ — never "is it beautiful." Every gap
   must be a checkable assertion (spec doesn't declare a label;
   build's clear is hover-only; a declared state unrendered;
   hardcoded value vs token).

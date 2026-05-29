@@ -29,15 +29,15 @@ by name and reads its dtype).
 [dataset-filters.md](dataset-filters.md) explicitly pre-declared
 this as the next concept and deferred it to its own chain:
 
-> "The next step *after* filters is a typed query language
+> "The next step _after_ filters is a typed query language
 > (`stage:won AND amount>10000`) — that's a separate concept with
 > its own [DCBF] chain."
 
 — [dataset-filters.md § Why this exists separately](dataset-filters.md#why-this-exists-separately-from-dataset-detailmd)
 
-The chip row resolved the *discoverable* predicate entry point: a
+The chip row resolved the _discoverable_ predicate entry point: a
 user reaches "won deals over $10k" by clicking column headers.
-Advanced query resolves the *expressive* entry point: a user types
+Advanced query resolves the _expressive_ entry point: a user types
 `stage:won AND amount:>10000` directly, and — the genuinely new
 capability — composes alternatives with `OR`
 (`stage:won OR stage:lost`), which the chip row structurally cannot
@@ -54,14 +54,14 @@ chip row deferred.
 
 ## Surfaces — layer / reuse / purity declaration
 
-| Surface | Layer | Reusability | Purity | Allowed peer deps |
-| --- | --- | --- | --- | --- |
-| `parseAdvancedQuery(text, columns)` parser module | `apps/builder/src/features/data-management/datasets/advanced-query/` | feature | pure (no react, no router, no fetch) | none |
-| `AdvancedQueryInput` component (input + inline error) | `apps/builder/src/features/data-management/datasets/advanced-query/` | feature | plain-UI | react, antd, react-i18next |
-| `useAdvancedQueryState` hook (URL `aq` ↔ predicate-DNF) | `apps/builder/src/features/data-management/datasets/advanced-query/` | feature | glue (router-aware) | react, react-router-dom |
-| `datasetsApi.getRows(... , advanced?)` extension | `apps/builder/src/api/` | builder-only | glue | (fetch + URLSearchParams — no extra peer dep) |
-| `GET /datasets/{id}/rows` `aq` param extension | `apps/backend/` | backend | feature | (FastAPI native, DuckDB for the OR-of-AND WHERE clause) |
-| `PredicateGroups` (DNF) type alias | `apps/builder/src/features/data-management/datasets/advanced-query/types.ts` | feature | data type | none |
+| Surface                                                 | Layer                                                                        | Reusability  | Purity                               | Allowed peer deps                                       |
+| ------------------------------------------------------- | ---------------------------------------------------------------------------- | ------------ | ------------------------------------ | ------------------------------------------------------- |
+| `parseAdvancedQuery(text, columns)` parser module       | `apps/builder/src/features/data-management/datasets/advanced-query/`         | feature      | pure (no react, no router, no fetch) | none                                                    |
+| `AdvancedQueryInput` component (input + inline error)   | `apps/builder/src/features/data-management/datasets/advanced-query/`         | feature      | plain-UI                             | react, antd, react-i18next                              |
+| `useAdvancedQueryState` hook (URL `aq` ↔ predicate-DNF) | `apps/builder/src/features/data-management/datasets/advanced-query/`         | feature      | glue (router-aware)                  | react, react-router-dom                                 |
+| `datasetsApi.getRows(... , advanced?)` extension        | `apps/builder/src/api/`                                                      | builder-only | glue                                 | (fetch + URLSearchParams — no extra peer dep)           |
+| `GET /datasets/{id}/rows` `aq` param extension          | `apps/backend/`                                                              | backend      | feature                              | (FastAPI native, DuckDB for the OR-of-AND WHERE clause) |
+| `PredicateGroups` (DNF) type alias                      | `apps/builder/src/features/data-management/datasets/advanced-query/types.ts` | feature      | data type                            | none                                                    |
 
 **Boundary check**: no advanced-query surface lives in `@mdd/ui`.
 Same discipline as the chip filters
@@ -77,8 +77,8 @@ array of AND-groups, OR'd together. It imports
 [`FilterPredicate`](../../../workspace/apps/builder/src/features/data-management/datasets/filters/types.ts)
 from the chip-filter module; no new predicate variant is
 introduced, so the per-dtype operator surface and the BE evaluator
-stay unchanged. The single new capability lives in the *transport
-and composition*, not in the predicate shape.
+stay unchanged. The single new capability lives in the _transport
+and composition_, not in the predicate shape.
 
 ---
 
@@ -126,7 +126,7 @@ operand := bare-token | quoted-string
   no parentheses and single-level precedence, **every well-formed
   query is in disjunctive normal form (DNF)** — an `OR` of
   `AND`-groups. `a AND b OR c AND d` parses as `(a AND b) OR
-  (c AND d)`. The parser emits this DNF directly as
+(c AND d)`. The parser emits this DNF directly as
   `FilterPredicate[][]`.
 - **`bare-token`**: a run of non-whitespace characters terminated
   by whitespace, used for values without spaces (`won`, `10000`,
@@ -144,15 +144,15 @@ the atom maps to. The mapping is dtype-aware; a `(prefix, dtype)`
 combination with no existing predicate is a **semantic error**
 (see § Error states), never a silently-different behavior.
 
-| Prefix | Intent | `string` | `integer` / `float` | `date` / `datetime` | `boolean` |
-| --- | --- | --- | --- | --- | --- |
-| *(none)* | equals | `equals` | `equals` | `equals` | `is_true` / `is_false` ¹ |
-| `~` | contains | `contains` | — error | — error | — error |
-| `>` | greater / after | — error | `gt` | `after` | — error |
-| `<` | less / before | — error | `lt` | `before` | — error |
-| `>=` | at least | — error | `gte` | — error ² | — error |
-| `<=` | at most | — error | `lte` | — error ² | — error |
-| `!=` | not equal | — error ³ | `ne` | `ne` | — error |
+| Prefix   | Intent          | `string`   | `integer` / `float` | `date` / `datetime` | `boolean`                |
+| -------- | --------------- | ---------- | ------------------- | ------------------- | ------------------------ |
+| _(none)_ | equals          | `equals`   | `equals`            | `equals`            | `is_true` / `is_false` ¹ |
+| `~`      | contains        | `contains` | — error             | — error             | — error                  |
+| `>`      | greater / after | — error    | `gt`                | `after`             | — error                  |
+| `<`      | less / before   | — error    | `lt`                | `before`            | — error                  |
+| `>=`     | at least        | — error    | `gte`               | — error ²           | — error                  |
+| `<=`     | at most         | — error    | `lte`               | — error ²           | — error                  |
+| `!=`     | not equal       | — error ³  | `ne`                | `ne`                | — error                  |
 
 ¹ A boolean atom's operand must be `true` or `false`
 (case-insensitive) → `is_true` / `is_false`. Any other operand on
@@ -165,7 +165,7 @@ offer only `before` / `after` / `equals` / `ne` / `between`. So
 example) has **no existing operator to map to**. The MVP rejects
 it with a clear message pointing at `>`/`<`, and `won_at:>2025-12-31`
 expresses the same intent. Closing the gap means adding
-`on_or_after` / `on_or_before` to the *shared* predicate
+`on_or_after` / `on_or_before` to the _shared_ predicate
 vocabulary (FE types, BE `OPS_BY_DTYPE`, MSW, the chip date
 editor, and dataset-filters.md) — a cross-cutting vocabulary
 expansion that belongs to its own round, not this one. Recorded as
@@ -186,15 +186,15 @@ documented follow-up, not MVP.
 
 ### Worked examples
 
-| Query text | Parsed DNF (`FilterPredicate[][]`) |
-| --- | --- |
-| `stage:won` | `[[{col:3, dtype:'string', op:'equals', val:'won'}]]` |
-| `amount:>10000` | `[[{col:1, dtype:'integer', op:'gt', val:10000}]]` |
-| `stage:won AND amount:>10000` | `[[{col:3,…equals 'won'}, {col:1,…gt 10000}]]` |
-| `stage:won OR stage:lost` | `[[{col:3,…equals 'won'}], [{col:3,…equals 'lost'}]]` |
-| `stage:won AND amount:>10000 OR stage:lost` | `[[{col:3,…'won'},{col:1,…gt 10000}], [{col:3,…'lost'}]]` |
-| `is_priority:true` | `[[{col:5, dtype:'boolean', op:'is_true'}]]` |
-| `stage:"closed won"` | `[[{col:3, dtype:'string', op:'equals', val:'closed won'}]]` |
+| Query text                                  | Parsed DNF (`FilterPredicate[][]`)                           |
+| ------------------------------------------- | ------------------------------------------------------------ |
+| `stage:won`                                 | `[[{col:3, dtype:'string', op:'equals', val:'won'}]]`        |
+| `amount:>10000`                             | `[[{col:1, dtype:'integer', op:'gt', val:10000}]]`           |
+| `stage:won AND amount:>10000`               | `[[{col:3,…equals 'won'}, {col:1,…gt 10000}]]`               |
+| `stage:won OR stage:lost`                   | `[[{col:3,…equals 'won'}], [{col:3,…equals 'lost'}]]`        |
+| `stage:won AND amount:>10000 OR stage:lost` | `[[{col:3,…'won'},{col:1,…gt 10000}], [{col:3,…'lost'}]]`    |
+| `is_priority:true`                          | `[[{col:5, dtype:'boolean', op:'is_true'}]]`                 |
+| `stage:"closed won"`                        | `[[{col:3, dtype:'string', op:'equals', val:'closed won'}]]` |
 
 Note the third row: two predicates on **different** columns inside
 one AND-group is expressible by the chip row too. The fourth row —
@@ -215,8 +215,8 @@ AND-compose (§ Composition).
 > **R53 implementation note.** The "Advanced query" label is
 > realized as a **header row** above the input (AntD label-above
 > for readability) with `[Clear]` as a text link on its right —
-> the `┌─ Advanced query ─┐` boxes below are *illustrative of the
-> labeled region*, not a literal drawn border. The affordances the
+> the `┌─ Advanced query ─┐` boxes below are _illustrative of the
+> labeled region_, not a literal drawn border. The affordances the
 > spec requires (a visible label distinguishing the field from the
 > `?q=` box; a discoverable clear) are what bind; the exact chrome
 > is the build's call. Verified by `ui-design` fidelity mode in
@@ -309,7 +309,7 @@ AND-compose (§ Composition).
 - All three surfaces stay visible and independent. The result is
   `q("renewal") AND (chip: amount>10000) AND (aq: stage:won OR stage:lost)`.
 - The **AND join across surfaces is implicit and not re-stated in
-  the UI** — but it is *visually legible* because each surface is
+  the UI** — but it is _visually legible_ because each surface is
   its own labeled box stacked top-to-bottom. The advanced query
   never silently "wins" over the chips: both boxes render, both
   contribute. This is the explicit answer to the round's
@@ -338,12 +338,12 @@ stateDiagram-v2
 
 ### Input lifecycle — state model table
 
-| State | Input text | Parse result | URL `aq` (applied) | Table reflects | UI affordance |
-| --- | --- | --- | --- | --- | --- |
-| **Empty** | `""` | n/a | absent | `?q=` + chips only | placeholder + grammar hint; no `[Clear]` |
-| **Typing** | non-empty, mid-edit | not yet committed | **last applied** (unchanged) | last-applied result | neutral border; `[Clear]` visible |
-| **Parsed** | non-empty | success | = parsed DNF (JSON) | composed result | success helper (`N groups · M preds`); `[Clear]` visible |
-| **Errored** | non-empty | failure | **last applied** (unchanged) | last-applied result | error border + positional message; `[Clear]` visible |
+| State       | Input text          | Parse result      | URL `aq` (applied)           | Table reflects      | UI affordance                                            |
+| ----------- | ------------------- | ----------------- | ---------------------------- | ------------------- | -------------------------------------------------------- |
+| **Empty**   | `""`                | n/a               | absent                       | `?q=` + chips only  | placeholder + grammar hint; no `[Clear]`                 |
+| **Typing**  | non-empty, mid-edit | not yet committed | **last applied** (unchanged) | last-applied result | neutral border; `[Clear]` visible                        |
+| **Parsed**  | non-empty           | success           | = parsed DNF (JSON)          | composed result     | success helper (`N groups · M preds`); `[Clear]` visible |
+| **Errored** | non-empty           | failure           | **last applied** (unchanged) | last-applied result | error border + positional message; `[Clear]` visible     |
 
 - **Commit trigger**: parse runs on a **300 ms debounce** after the
   last keystroke (matching the `?q=` debounce in
@@ -429,7 +429,7 @@ extend `f<N>_*`.
 
 **Design intent**: a single additive query param **`aq`** carrying
 the URL-encoded JSON of the DNF — `FilterPredicate[][]` — i.e. the
-*same* predicate atoms the chip row already serializes, wrapped in
+_same_ predicate atoms the chip row already serializes, wrapped in
 two array levels (outer = OR groups, inner = AND atoms). Chosen
 because:
 
@@ -470,7 +470,7 @@ codes**. Two `aq`-specific failure shapes are added:
   / `filter_col_out_of_range` code, with the `loc` pointing at
   `["query", "aq"]`.
 
-**Parser is FE-only**: the BE **never** receives query *text*. The
+**Parser is FE-only**: the BE **never** receives query _text_. The
 grammar, precedence, tokenization, and error positions are a pure
 FE concern; the BE receives validated predicate JSON. This keeps
 the BE free of grammar-coupling and means a future second grammar
@@ -488,7 +488,7 @@ round):
   contract validator stays green.
 - **Frontend**:
   - `parseAdvancedQuery(text, columns)` pure parser → `{ ok: true,
-    groups } | { ok: false, message, position }`.
+groups } | { ok: false, message, position }`.
   - `useAdvancedQueryState` URL `aq` ↔ DNF hook.
   - `AdvancedQueryInput` component (input + clear + inline error +
     success readback).
@@ -513,7 +513,7 @@ round):
   Promote when the flat AND/OR surfaces real ambiguity users hit.
 - **Negation** (`NOT` / leading `-`).
 - **Inclusive date bounds** (`>=` / `<=` on date/datetime) and
-  **string `!=`** — require expanding the *shared* predicate
+  **string `!=`** — require expanding the _shared_ predicate
   vocabulary (§ Operator-prefix mapping notes ² and ³); own round.
 - **Operand-less ops in the grammar** (`is_null`, `is_empty`, …)
   and **`between` surface syntax** — available via the chip row;
@@ -556,7 +556,7 @@ This concept explicitly does NOT cover:
 - The predicate vocabulary itself — operators, value shapes, and
   SQL mapping stay authoritative in
   [dataset-filters.md § Predicate vocabulary table](dataset-filters.md#predicate-vocabulary-table);
-  this doc only *consumes* them.
+  this doc only _consumes_ them.
 - Filtering on the datasets list page (cross-dataset catalog) —
   unchanged.
 
@@ -570,7 +570,7 @@ least one automated test in the F / B / I phases.
 Numbered continuously (1–17) and referenced as `C1`–`C17` in the
 test suites. Grouped by phase via bold lead-ins.
 
-1. **Parser** *(pure FE unit)* — `parseAdvancedQuery("stage:won", columns)`
+1. **Parser** _(pure FE unit)_ — `parseAdvancedQuery("stage:won", columns)`
    → `{ ok: true, groups: [[{col:3, dtype:'string', op:'equals', val:'won'}]] }`.
 2. `AND` joins atoms within one group; `OR` starts a new group;
    `a AND b OR c` parses to `[[a,b],[c]]` (AND binds tighter).
@@ -592,7 +592,7 @@ test suites. Grouped by phase via bold lead-ins.
    - dangling `AND`/`OR` (`stage:won AND`).
 7. Empty / whitespace-only input → `{ ok: true, groups: [] }`
    (treated as "no advanced query", not an error).
-8. **Input component** *(FE component)* — empty state shows
+8. **Input component** _(FE component)_ — empty state shows
    placeholder + grammar hint, no `[Clear]`.
 9. Typing a valid query and committing writes `?aq=` and shows the
    `N groups · M predicates` readback.
@@ -600,7 +600,7 @@ test suites. Grouped by phase via bold lead-ins.
     message and does **not** change `?aq=` or the rendered rows.
 11. `[Clear]` removes `?aq=` and resets to the unfiltered (by-aq)
     view; chips and `?q=` are untouched.
-12. **Backend** *(pytest)* — a single-group `aq` returns the same
+12. **Backend** _(pytest)_ — a single-group `aq` returns the same
     rows as the equivalent chip filter set (AND-only parity).
 13. A two-group `aq` (`stage:won OR stage:lost`) returns the union
     of both groups' matches; `total` reflects the OR-composed

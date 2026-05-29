@@ -36,11 +36,11 @@ R41 landed MSW as dev/test convenience but left the contract surface
 open: three parallel implementations (YAML / Python BE / TS mock),
 any of which could drift. The R41 end-of-round critical-but-fair
 discussion (see [Round_41.md § Feeds into](../plan/cycles/Round_41.md))
-identified that MSW *could* be load-bearing as a drift detector — at
+identified that MSW _could_ be load-bearing as a drift detector — at
 the cost of a small validator decorator (~150 LOC total) — without
 extracting `packages/mocks` or adopting MockBuilder.
 
-R42 closes the gap. The discipline is *cheaper* than a `packages/mocks`
+R42 closes the gap. The discipline is _cheaper_ than a `packages/mocks`
 extraction (no new package, no TS↔Python bridge, no MockBuilder
 ceremony at N=1 domain) but delivers the contract-verification value
 the earlier critical-but-fair discussion identified as the actual
@@ -62,7 +62,7 @@ unmet pull.
 ## What this forbids
 
 - Adding a mock handler for an endpoint with a contract YAML
-  *without* `withContractValidation(...)`. If the contract exists,
+  _without_ `withContractValidation(...)`. If the contract exists,
   the mock conforms.
 - Hand-editing the YAML schemas to match a divergent mock. The
   YAML is the spec; the mock is the consumer.
@@ -88,7 +88,7 @@ unmet pull.
   `validate_response()` helper. Two independent verifiers; same
   YAML; no cross-language bridge.
 
-*Track: 2. Pulled by: end-of-R41 critical-but-fair conversation
+_Track: 2. Pulled by: end-of-R41 critical-but-fair conversation
 2026-05-27; the three small wins explicitly chosen over the bigger
 `packages/mocks` gambit; the verification-stack-queue's correctness
-gap (queue framed parallelization, not verification).*
+gap (queue framed parallelization, not verification)._

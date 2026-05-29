@@ -158,13 +158,13 @@ mechanical sweeps in a row._
 - [x] Run `pnpm type-check`, `pnpm test`, `pnpm build`,
       `pnpm md:lint`.
 - [x] **Visual verification (R30 gate)**: BE + FE booted; `curl
-      http://localhost:3000/src/main.tsx` confirms Vite resolves
+http://localhost:3000/src/main.tsx` confirms Vite resolves
       `@/components/AppErrorBoundary` → `/src/components/...`;
       `MESSAGE_CONFIG = { top: 64, duration: 3, maxCount: 3 }`
       passes through to `<AntdApp>`. `curl
-      /src/api/uploadsApi.ts` confirms `@/config` and
+/src/api/uploadsApi.ts` confirms `@/config` and
       `@/features/...` resolve in deep modules. `curl
-      /workspaces` returns 200 with seeded data. Both dev
+/workspaces` returns 200 with seeded data. Both dev
       servers shut down clean. No browser-eye walk this turn
       since I'm running headless; type-check + tests +
       module-resolution curl together cover the alias and toast
@@ -259,7 +259,7 @@ WorkspacesPage}}.tsx|ts`, `main.tsx`. Tests:
 
 - [`main.tsx`](../../../workspace/apps/builder/src/main.tsx)
   gained `const MESSAGE_CONFIG = { top: 64, duration: 3,
-  maxCount: 3 } as const;` passed to `<AntdApp message={...}>`.
+maxCount: 3 } as const;` passed to `<AntdApp message={...}>`.
 - Every page that calls `App.useApp().message.success(...)`
   now inherits these defaults — previously each invocation
   inherited AntD's hard defaults (top 24, duration 3, no cap).
@@ -283,7 +283,7 @@ WorkspacesPage}}.tsx|ts`, `main.tsx`. Tests:
 **Visual verification (R30 gate).**
 
 - Booted BE (`MDD_BACKEND__TMP_SWEEP__ENABLED=false uvicorn
-  app.main:app`) + FE (`pnpm --filter builder dev`).
+app.main:app`) + FE (`pnpm --filter builder dev`).
 - `curl /src/main.tsx` from Vite dev → confirms `@/components/X`
   resolves to `/src/components/X.tsx` in the served module
   graph. `MESSAGE_CONFIG` literal serialized into the bundle.

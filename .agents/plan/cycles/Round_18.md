@@ -389,7 +389,7 @@ rather than split. Items shipped:
 - `Name` column gains a source-format icon prefix (FileExcel /
   FileText) with sheet-name suffix for Excel rows.
 - Column order changed to `Uploaded · Name · Workspace · Rows ·
-  Cols · Size`; separate `Source` column removed (encoded as the
+Cols · Size`; separate `Source` column removed (encoded as the
   Name icon).
 - `Created` → `Uploaded`; render is relative time
   ("Just now / Xm ago / Yesterday / N days ago") with a fallback
@@ -422,7 +422,7 @@ rather than split. Items shipped:
 - Source cards rebuilt with the design's three-line layout: large
   icon above (28px), title row with `Primary` Tag on Excel,
   descriptive meta line beneath (`.xlsx, .xls · multi-sheet
-  workbooks` / `.csv · single-sheet, delimited text`).
+workbooks` / `.csv · single-sheet, delimited text`).
 - Workspace field gains the design's help text "The dataset will
   live in this workspace."
 - "Data source" title gains the required-mark `*` (CSS-light
@@ -448,7 +448,7 @@ rather than split. Items shipped:
 - Intro paragraph: "Detected schema for **`<sheet>`** (N rows · M
   columns). Override any column's dtype before previewing."
 - Override table now ships **five** columns: `Include · Column ·
-  Detected · Override · Sample values` (was three). Detected is
+Detected · Override · Sample values` (was three). Detected is
   read-only inferred dtype; Override is the editable Select.
 - Format-string `Input` surfaces under the Override Select when
   dtype is `date` or `datetime` — bound to
@@ -478,7 +478,7 @@ rather than split. Items shipped:
   (`columnOverrides` keys OR `excludedColumns` length), and the
   existing `⏳` / `✗` for parsing / failed. The tab label is
   now a `<span data-component="SheetTabLabel"
-  data-overridden="…">` ReactNode (was a string) — AntD `Tabs`
+data-overridden="…">` ReactNode (was a string) — AntD `Tabs`
   accepts ReactNode for `items[].label`. User can scan all
   sheets at a glance and tell which have been touched.
 
@@ -505,7 +505,7 @@ rather than split. Items shipped:
 - Next button gains a trailing `ArrowRightOutlined`.
 - Confirm-step primary button: `Commit` → `Create datasets`
   (matches design `<button class="btn-primary">Create
-  datasets</button>`).
+datasets</button>`).
 - **Always-visible Back/Next nav (user-pulled UX fix).** User
   flagged: "when data too long, user have to scroll down to click
   on Next/Back." The design's `.wizard-nav` is just a normal
@@ -541,7 +541,7 @@ rather than split. Items shipped:
     over-generous globally, not just on the wizard). The
     wizard's flex calc updated from `100vh - 104px` to `100vh
     - 88px` (56 header + 16 × 2 padding). @mdd/ui tests 26/26
-    still green (no test asserts the padding value).
+      still green (no test asserts the padding value).
   - **Final fix (flex auto-fit, no magic number)**: extended
     [PageCard](../../../workspace/packages/ui/src/Components/PageCard.tsx)
     with a new `variant="fill"` that makes the card a flex
@@ -552,7 +552,7 @@ rather than split. Items shipped:
     chrome from `WorkspaceShell`). PageHeader takes its natural
     height; PageCard fills the rest. Inside the card, Steps and
     WizardNav are `flex: 0 0 auto`; the body is `flex: 1 1
-    auto; min-height: 0; overflow-y: auto`. The body grows
+auto; min-height: 0; overflow-y: auto`. The body grows
     exactly to fill remaining space inside the card. **No
     hardcoded body chrome estimate.** Only `100vh - 104px`
     remains, and those two numbers are tied to durable
@@ -633,7 +633,7 @@ R18 pre-change baseline. The bug-fix didn't change the test count.**
       exists, reads lean, cross-links to the three source memos,
       and re-states the "default = don't add" guards.
 - [x] All three R15/R16/R17 methodology memos show `Status:
-      Promoted` with the cross-link line.
+Promoted` with the cross-link line.
 - [x] [promotions.md](../promotions.md) has the new entry in
       the established format.
 - [x] `pnpm --filter builder test` passes — **19/19**, same as

@@ -32,7 +32,7 @@ filtering to R∞ "Per-column search / typed-filter language."
 R37 promotes that deferral because filters are the natural
 discoverable predicate entry point: a user who wants to see only
 won deals over $10k can reach that view through clicking column
-headers, without learning a query syntax. The next step *after*
+headers, without learning a query syntax. The next step _after_
 filters is a typed query language (`stage:won AND
 amount>10000`) — that's a separate concept with its own DCBF
 chain.
@@ -40,7 +40,7 @@ chain.
 This split keeps dataset-detail.md focused on the inspector
 chrome and lets this doc focus on the predicate vocabulary,
 URL serialization, and per-dtype widgets. The two cross-
-reference; the filter UI is *placed* on the detail page but the
+reference; the filter UI is _placed_ on the detail page but the
 predicate spec is portable to future surfaces (advanced query,
 dashboards) that also evaluate against the same dataset rows.
 
@@ -48,16 +48,16 @@ dashboards) that also evaluate against the same dataset rows.
 
 ## Surfaces — layer / reuse / purity declaration
 
-| Surface | Layer | Reusability | Purity | Allowed peer deps |
-| --- | --- | --- | --- | --- |
-| `FilterTrigger` column-header button (`▾` icon, active-state) | `apps/builder/src/features/data-management/datasets` | feature | plain-UI | react, antd, @ant-design/icons |
-| `FilterPopover` per-dtype widget container | `apps/builder/src/features/data-management/datasets` | feature | glue (AntD Popover + draft state) | react, antd, react-i18next |
-| `StringFilterEditor` / `NumericFilterEditor` / `DateFilterEditor` / `BooleanFilterEditor` | `apps/builder/src/features/data-management/datasets/_filter-editors/` | feature | plain-UI | react, antd, react-i18next |
-| `ActiveFilterChips` row component | `apps/builder/src/features/data-management/datasets` | feature | plain-UI | react, antd, react-i18next |
-| `useFiltersState` hook (URL ↔ predicate set) | `apps/builder/src/features/data-management/datasets` | feature | glue (router-aware) | react, react-router-dom |
-| `datasetsApi.getRows(id, page, pageSize, q?, filters?)` | `apps/builder/src/api/` | builder-only | glue | (fetch + URLSearchParams — no extra peer dep) |
-| `GET /datasets/{id}/rows` filter params extension | `apps/backend/` | backend | feature | (FastAPI native, DuckDB for WHERE-clause push-down) |
-| `FilterPredicate` discriminated-union type (+ helpers) | `apps/builder/src/features/data-management/datasets/types.ts` | feature | data type | none |
+| Surface                                                                                   | Layer                                                                 | Reusability  | Purity                            | Allowed peer deps                                   |
+| ----------------------------------------------------------------------------------------- | --------------------------------------------------------------------- | ------------ | --------------------------------- | --------------------------------------------------- |
+| `FilterTrigger` column-header button (`▾` icon, active-state)                             | `apps/builder/src/features/data-management/datasets`                  | feature      | plain-UI                          | react, antd, @ant-design/icons                      |
+| `FilterPopover` per-dtype widget container                                                | `apps/builder/src/features/data-management/datasets`                  | feature      | glue (AntD Popover + draft state) | react, antd, react-i18next                          |
+| `StringFilterEditor` / `NumericFilterEditor` / `DateFilterEditor` / `BooleanFilterEditor` | `apps/builder/src/features/data-management/datasets/_filter-editors/` | feature      | plain-UI                          | react, antd, react-i18next                          |
+| `ActiveFilterChips` row component                                                         | `apps/builder/src/features/data-management/datasets`                  | feature      | plain-UI                          | react, antd, react-i18next                          |
+| `useFiltersState` hook (URL ↔ predicate set)                                              | `apps/builder/src/features/data-management/datasets`                  | feature      | glue (router-aware)               | react, react-router-dom                             |
+| `datasetsApi.getRows(id, page, pageSize, q?, filters?)`                                   | `apps/builder/src/api/`                                               | builder-only | glue                              | (fetch + URLSearchParams — no extra peer dep)       |
+| `GET /datasets/{id}/rows` filter params extension                                         | `apps/backend/`                                                       | backend      | feature                           | (FastAPI native, DuckDB for WHERE-clause push-down) |
+| `FilterPredicate` discriminated-union type (+ helpers)                                    | `apps/builder/src/features/data-management/datasets/types.ts`         | feature      | data type                         | none                                                |
 
 **Boundary check**: no filter surface lives in `@mdd/ui`. Per
 [memory/2026-05-22-ui-boundary-build-first.md](../../memory/2026-05-22-ui-boundary-build-first.md)
@@ -199,7 +199,7 @@ Excel · Sheet1 — 2,481 rows · 12 columns · 84 KB · Uploaded 14:02 today  �
 
 - Operator dropdown options for `integer` / `float` dtypes:
   `equals`, `≠`, `>`, `<`, `≥`, `≤`, `between`, `is null`, `is
-  not null`.
+not null`.
 - `between` shows two number inputs (From / To); the value-shape
   comment below the inputs reminds the user the range is
   inclusive on both ends.
@@ -250,7 +250,7 @@ Excel · Sheet1 — 2,481 rows · 12 columns · 84 KB · Uploaded 14:02 today  �
 ```
 
 - Operator dropdown for `boolean`: `is true`, `is false`, `is
-  null`, `is not null`. All four are operand-less.
+null`, `is not null`. All four are operand-less.
 
 ### No-match state — filters return zero rows
 
@@ -301,7 +301,7 @@ deal_id [str] ▾
 
 - Visual: a single `▾` chevron icon (`@ant-design/icons`
   `<DownOutlined />`), 12px font-size, muted (`--color-text-
-  tertiary`).
+tertiary`).
 - Hover state: bumps to `--color-text-secondary` + faint
   rounded-rectangle background (`--color-fill-quaternary`).
 - Active-filter state (column has a non-null filter set):
@@ -309,7 +309,7 @@ deal_id [str] ▾
   dot is added top-right as a redundant signal (the chevron
   alone is too subtle in dense column rows).
 - Aria: `aria-label={t('datasets.filters.triggerAria',
-  { column: name })}`; opens the popover on click; closes on
+{ column: name })}`; opens the popover on click; closes on
   Escape, click outside, or Apply.
 
 ---
@@ -348,7 +348,7 @@ renders between the search bar and the table:
 This concept does not change the
 [fixed-viewport-height shell](dataset-detail.md#layout-shell)
 established in R33. The new elements (chip row + column-header
-triggers + AntD popovers) all live *inside* the existing
+triggers + AntD popovers) all live _inside_ the existing
 PageCard, with one extra `flex: 0 0 auto` row inserted between
 the search bar and the table scroll container.
 
@@ -365,28 +365,28 @@ PageCard's `overflow` is irrelevant.
 
 ## Token map
 
-| Surface | Token | Source |
-| --- | --- | --- |
-| Filter trigger (default) | `--color-text-tertiary` | tokens.css |
-| Filter trigger (hover) | `--color-text-secondary` on `--color-fill-quaternary` | tokens.css |
-| Filter trigger (active) | `--color-primary` | tokens.css |
-| Filter trigger active-dot | `--color-primary` background, 4px circle | tokens.css |
-| Chip background | `--color-primary-bg` (`#e6f4ff`) | tokens.css |
-| Chip text + border | `--color-primary` | tokens.css |
-| Chip close icon | `--color-primary` (hover: `--color-primary-hover`) | tokens.css |
-| Chip row background | `--color-fill-quaternary` | tokens.css |
-| Chip row border | `1px solid --color-border-secondary`, `--radius-md` | tokens.css |
-| Chip row "Clear all" link | `--color-primary` | tokens.css |
-| Popover background | `--color-bg-base` | tokens.css |
-| Popover border / shadow | `--shadow-card`, `1px solid --color-border-secondary` | tokens.css |
-| Popover title text | `--color-text-base` | tokens.css |
-| Popover label text | `--color-text-secondary` | tokens.css |
-| Popover divider | `--color-border-secondary` | tokens.css |
-| Popover "Clear filter" link | `--color-error` (muted) | tokens.css |
-| Popover Apply button | AntD primary (`<Button type="primary">`) | AntD seed |
-| Popover Cancel button | AntD default | AntD seed |
-| Numeric input alignment | right-align, `font-variant-numeric: tabular-nums` | local style |
-| Border radius (chip, popover, trigger hover) | `--radius-md` (6px) | tokens.css |
+| Surface                                      | Token                                                 | Source      |
+| -------------------------------------------- | ----------------------------------------------------- | ----------- |
+| Filter trigger (default)                     | `--color-text-tertiary`                               | tokens.css  |
+| Filter trigger (hover)                       | `--color-text-secondary` on `--color-fill-quaternary` | tokens.css  |
+| Filter trigger (active)                      | `--color-primary`                                     | tokens.css  |
+| Filter trigger active-dot                    | `--color-primary` background, 4px circle              | tokens.css  |
+| Chip background                              | `--color-primary-bg` (`#e6f4ff`)                      | tokens.css  |
+| Chip text + border                           | `--color-primary`                                     | tokens.css  |
+| Chip close icon                              | `--color-primary` (hover: `--color-primary-hover`)    | tokens.css  |
+| Chip row background                          | `--color-fill-quaternary`                             | tokens.css  |
+| Chip row border                              | `1px solid --color-border-secondary`, `--radius-md`   | tokens.css  |
+| Chip row "Clear all" link                    | `--color-primary`                                     | tokens.css  |
+| Popover background                           | `--color-bg-base`                                     | tokens.css  |
+| Popover border / shadow                      | `--shadow-card`, `1px solid --color-border-secondary` | tokens.css  |
+| Popover title text                           | `--color-text-base`                                   | tokens.css  |
+| Popover label text                           | `--color-text-secondary`                              | tokens.css  |
+| Popover divider                              | `--color-border-secondary`                            | tokens.css  |
+| Popover "Clear filter" link                  | `--color-error` (muted)                               | tokens.css  |
+| Popover Apply button                         | AntD primary (`<Button type="primary">`)              | AntD seed   |
+| Popover Cancel button                        | AntD default                                          | AntD seed   |
+| Numeric input alignment                      | right-align, `font-variant-numeric: tabular-nums`     | local style |
+| Border radius (chip, popover, trigger hover) | `--radius-md` (6px)                                   | tokens.css  |
 
 No new token values are introduced. If R40 finds one missing
 from `themeTokens.ts`, R40 promotes the value as a prerequisite
@@ -421,15 +421,15 @@ stateDiagram-v2
   AntD `<Table>` dataIndex collision avoidance).
 - Param shapes:
 
-  | Operator | Params |
-  | --- | --- |
-  | `string.contains` / `equals` / `starts_with` / `ends_with` | `f<N>_op=<op>`, `f<N>_val=<string>` |
-  | `string.is_empty` / `is_not_empty` | `f<N>_op=<op>` |
-  | `int.equals` / `ne` / `gt` / `lt` / `gte` / `lte` | `f<N>_op=<op>`, `f<N>_val=<number>` |
+  | Operator                                                              | Params                                                    |
+  | --------------------------------------------------------------------- | --------------------------------------------------------- |
+  | `string.contains` / `equals` / `starts_with` / `ends_with`            | `f<N>_op=<op>`, `f<N>_val=<string>`                       |
+  | `string.is_empty` / `is_not_empty`                                    | `f<N>_op=<op>`                                            |
+  | `int.equals` / `ne` / `gt` / `lt` / `gte` / `lte`                     | `f<N>_op=<op>`, `f<N>_val=<number>`                       |
   | `int.between` / `float.between` / `date.between` / `datetime.between` | `f<N>_op=between`, `f<N>_min=<value>`, `f<N>_max=<value>` |
-  | `int.is_null` / `is_not_null` (and all dtypes) | `f<N>_op=is_null` / `f<N>_op=is_not_null` |
-  | `date.equals` / `ne` / `before` / `after` | `f<N>_op=<op>`, `f<N>_val=<iso-date>` |
-  | `bool.is_true` / `is_false` / `is_null` / `is_not_null` | `f<N>_op=<op>` |
+  | `int.is_null` / `is_not_null` (and all dtypes)                        | `f<N>_op=is_null` / `f<N>_op=is_not_null`                 |
+  | `date.equals` / `ne` / `before` / `after`                             | `f<N>_op=<op>`, `f<N>_val=<iso-date>`                     |
+  | `bool.is_true` / `is_false` / `is_null` / `is_not_null`               | `f<N>_op=<op>`                                            |
 
 - Filter changes (apply, chip ×, clear all) reset `?page=` to 1
   (same trigger as `?q=` change and page-size change). Page is
@@ -485,7 +485,7 @@ that point.
 ### Caching (TanStack query keys)
 
 - Query key: `['datasets', { id }, 'rows', { page, pageSize, q,
-  filters }]`.
+filters }]`.
 - `filters` is the **serialized filter set** (an array sorted
   by column index, each entry `{ col, op, val | min, max }`).
   Sorting by index gives stable equality across different
@@ -607,36 +607,36 @@ operator-set spec below.
 
 ### Predicate vocabulary table
 
-| Dtype | Operator name (UI) | Operator key (URL / contract) | Value shape | DuckDB / SQL equivalent |
-| --- | --- | --- | --- | --- |
-| string | contains | `contains` | string | `WHERE col ILIKE '%val%'` |
-| string | equals | `equals` | string | `WHERE col = 'val'` (case-insensitive collation) |
-| string | starts with | `starts_with` | string | `WHERE col ILIKE 'val%'` |
-| string | ends with | `ends_with` | string | `WHERE col ILIKE '%val'` |
-| string | is empty | `is_empty` | — | `WHERE col = '' OR col IS NULL` |
-| string | is not empty | `is_not_empty` | — | `WHERE col <> '' AND col IS NOT NULL` |
-| string | is null | `is_null` | — | `WHERE col IS NULL` |
-| string | is not null | `is_not_null` | — | `WHERE col IS NOT NULL` |
-| integer / float | equals | `equals` | number | `WHERE col = val` |
-| integer / float | ≠ | `ne` | number | `WHERE col <> val` |
-| integer / float | > | `gt` | number | `WHERE col > val` |
-| integer / float | < | `lt` | number | `WHERE col < val` |
-| integer / float | ≥ | `gte` | number | `WHERE col >= val` |
-| integer / float | ≤ | `lte` | number | `WHERE col <= val` |
-| integer / float | between | `between` | min, max (number) | `WHERE col BETWEEN min AND max` |
-| integer / float | is null | `is_null` | — | `WHERE col IS NULL` |
-| integer / float | is not null | `is_not_null` | — | `WHERE col IS NOT NULL` |
-| date / datetime | equals | `equals` | ISO date / datetime | `WHERE col = 'val'::DATE` (or TIMESTAMP) |
-| date / datetime | ≠ | `ne` | ISO date / datetime | `WHERE col <> 'val'::DATE` |
-| date / datetime | before | `before` | ISO date / datetime | `WHERE col < 'val'::DATE` |
-| date / datetime | after | `after` | ISO date / datetime | `WHERE col > 'val'::DATE` |
-| date / datetime | between | `between` | min, max (ISO) | `WHERE col BETWEEN 'min' AND 'max'` |
-| date / datetime | is null | `is_null` | — | `WHERE col IS NULL` |
-| date / datetime | is not null | `is_not_null` | — | `WHERE col IS NOT NULL` |
-| boolean | is true | `is_true` | — | `WHERE col = TRUE` |
-| boolean | is false | `is_false` | — | `WHERE col = FALSE` |
-| boolean | is null | `is_null` | — | `WHERE col IS NULL` |
-| boolean | is not null | `is_not_null` | — | `WHERE col IS NOT NULL` |
+| Dtype           | Operator name (UI) | Operator key (URL / contract) | Value shape         | DuckDB / SQL equivalent                          |
+| --------------- | ------------------ | ----------------------------- | ------------------- | ------------------------------------------------ |
+| string          | contains           | `contains`                    | string              | `WHERE col ILIKE '%val%'`                        |
+| string          | equals             | `equals`                      | string              | `WHERE col = 'val'` (case-insensitive collation) |
+| string          | starts with        | `starts_with`                 | string              | `WHERE col ILIKE 'val%'`                         |
+| string          | ends with          | `ends_with`                   | string              | `WHERE col ILIKE '%val'`                         |
+| string          | is empty           | `is_empty`                    | —                   | `WHERE col = '' OR col IS NULL`                  |
+| string          | is not empty       | `is_not_empty`                | —                   | `WHERE col <> '' AND col IS NOT NULL`            |
+| string          | is null            | `is_null`                     | —                   | `WHERE col IS NULL`                              |
+| string          | is not null        | `is_not_null`                 | —                   | `WHERE col IS NOT NULL`                          |
+| integer / float | equals             | `equals`                      | number              | `WHERE col = val`                                |
+| integer / float | ≠                  | `ne`                          | number              | `WHERE col <> val`                               |
+| integer / float | >                  | `gt`                          | number              | `WHERE col > val`                                |
+| integer / float | <                  | `lt`                          | number              | `WHERE col < val`                                |
+| integer / float | ≥                  | `gte`                         | number              | `WHERE col >= val`                               |
+| integer / float | ≤                  | `lte`                         | number              | `WHERE col <= val`                               |
+| integer / float | between            | `between`                     | min, max (number)   | `WHERE col BETWEEN min AND max`                  |
+| integer / float | is null            | `is_null`                     | —                   | `WHERE col IS NULL`                              |
+| integer / float | is not null        | `is_not_null`                 | —                   | `WHERE col IS NOT NULL`                          |
+| date / datetime | equals             | `equals`                      | ISO date / datetime | `WHERE col = 'val'::DATE` (or TIMESTAMP)         |
+| date / datetime | ≠                  | `ne`                          | ISO date / datetime | `WHERE col <> 'val'::DATE`                       |
+| date / datetime | before             | `before`                      | ISO date / datetime | `WHERE col < 'val'::DATE`                        |
+| date / datetime | after              | `after`                       | ISO date / datetime | `WHERE col > 'val'::DATE`                        |
+| date / datetime | between            | `between`                     | min, max (ISO)      | `WHERE col BETWEEN 'min' AND 'max'`              |
+| date / datetime | is null            | `is_null`                     | —                   | `WHERE col IS NULL`                              |
+| date / datetime | is not null        | `is_not_null`                 | —                   | `WHERE col IS NOT NULL`                          |
+| boolean         | is true            | `is_true`                     | —                   | `WHERE col = TRUE`                               |
+| boolean         | is false           | `is_false`                    | —                   | `WHERE col = FALSE`                              |
+| boolean         | is null            | `is_null`                     | —                   | `WHERE col IS NULL`                              |
+| boolean         | is not null        | `is_not_null`                 | —                   | `WHERE col IS NOT NULL`                          |
 
 **Note on `string.equals`**: case-insensitive by default to
 match R36's `?q=` semantics (LIKE LOWER). Promote
@@ -674,7 +674,7 @@ export type FilterSet = readonly FilterPredicate[];
 - The `dtype` discriminator carries through so the type-checker
   catches operator/dtype mismatches at compile time.
 - `useFiltersState` returns `[filters, setFilter, removeFilter,
-  clearFilters]`; the URL is the source of truth, the in-memory
+clearFilters]`; the URL is the source of truth, the in-memory
   set is derived.
 
 ---

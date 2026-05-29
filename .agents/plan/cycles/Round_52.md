@@ -13,30 +13,30 @@ advanced-query input renders **indistinguishable from the `?q=`
 search box** (no visible "Advanced query" label) and its clear
 action is **hidden** (`allowClear` × on hover) — both **drifting
 from R51's own design doc**, which specified a labeled box + an
-explicit `[Clear]` button. R51's F2 gate verified *behavior against
-MSW* but never *affordance against the design*, so nothing caught
+explicit `[Clear]` button. R51's F2 gate verified _behavior against
+MSW_ but never _affordance against the design_, so nothing caught
 it.
 
 **The deeper lesson — why the Design gate is the main event.**
 Under the mature **DCFBI** default, the **F phase only confirms**
 the design into the FE-on-MSW source of truth; it has **no mandate
 to revise or revamp the UX**. So the design markdown is where UX
-quality is *decided* — if it under-specifies an affordance, DCFBI
+quality is _decided_ — if it under-specifies an affordance, DCFBI
 faithfully ships the gap with no later phase to catch it. DFCFBI's
-**F1** is the *exception*, enabled only when the flow-selector
+**F1** is the _exception_, enabled only when the flow-selector
 fires because the design couldn't be made straightforward. That
-makes a UX review at the **Design gate** the primary, *preventive*
-control; the F-gate review is the *corrective* backstop (needed
+makes a UX review at the **Design gate** the primary, _preventive_
+control; the F-gate review is the _corrective_ backstop (needed
 because a build can drift even from a complete design — exactly
-R51, whose design *was* complete).
+R51, whose design _was_ complete).
 
 R52 ships a **`ui-design` skill** with two modes:
 
-- **design-spec mode** *(PRIMARY, run at the Design gate)* — does
+- **design-spec mode** _(PRIMARY, run at the Design gate)_ — does
   the **design doc declare** each facet's affordance, so "F
   confirms" is trustworthy and the round can stay in the cheap
   DCFBI lane?
-- **fidelity mode** *(BACKSTOP, run at F1/F2)* — does the **build
+- **fidelity mode** _(BACKSTOP, run at F1/F2)_ — does the **build
   carry** what the design declared (no drift)?
 
 It is **review, not generation** — it never proposes layouts (that
@@ -46,12 +46,12 @@ it checks affordance-completeness / fidelity and cites gaps, as
 `gate-walker` checks citations without judging truth.
 
 **Basis**: **the six essential components of a design** (the
-UX-honeycomb facets — *Findability, Usability, Accessibility,
-Credibility, Utility, Desirability*), made *structural* and paired
+UX-honeycomb facets — _Findability, Usability, Accessibility,
+Credibility, Utility, Desirability_), made _structural_ and paired
 with **Ant Design's Data Entry / Form guidance**
 (label-over-placeholder, label placement, "don't make users
-guess"). The honeycomb gives the *what to evaluate*; AntD gives the
-*how, in this stack*. References:
+guess"). The honeycomb gives the _what to evaluate_; AntD gives the
+_how, in this stack_. References:
 [AntD Data Entry](https://ant.design/docs/spec/data-entry/),
 [AntD Form](https://ant.design/components/form/),
 [Figma UI design principles](https://www.figma.com/resource-library/ui-design-principles/).
@@ -66,13 +66,13 @@ Findability + Usability). That localizes R51's failure to the
 remediation. Splitting build-the-tool (R52) from use-the-tool (R53)
 mirrors R49/R50 → R51.
 
-*Track: 2 (agent-method, tooling). Pulled by: R51 end-of-round
+_Track: 2 (agent-method, tooling). Pulled by: R51 end-of-round
 brainstorm — the advanced-query field shipped label-less with a
 hidden clear action, drifting from its design doc; F2's gate
 checked behavior, not affordance. Same shape as R49/R50: a tooling
 round pulled by a feature-round lesson, landed before more feature
 rounds so it can be applied going forward. Per
-[Evolution Rule](../../AGENTS.md).*
+[Evolution Rule](../../AGENTS.md)._
 
 **Reasonable defaults under [auto mode]; user redirects via
 end-of-round Q&A.**
@@ -81,7 +81,7 @@ end-of-round Q&A.**
 
 - **A new dependent skill**
   `.agents/skills/ui-design/SKILL.md` — the design-side counterpart
-  to `gate-walker`, filed *dependent* (operates on design docs +
+  to `gate-walker`, filed _dependent_ (operates on design docs +
   components, not round files; callable by any round/task — see the
   classification note in Risks). Covers:
   - **Trigger / modes** — design-spec mode at the **Design gate**
@@ -92,16 +92,16 @@ end-of-round Q&A.**
     design-spec; `design + component` → fidelity; `component only`
     → build-only). For each surface / the design as a whole,
     evaluate **the six essential components of a design** as
-    *structural* checks, reading evidence from the **spec**
+    _structural_ checks, reading evidence from the **spec**
     (design-spec mode) or the **build** (fidelity mode), citing
     `pass` / `gap` / `n/a` + a one-line pointer per facet:
     1. **Findability** — labeled + distinguishable from siblings
-       (a placeholder is *not* a label; not visually identical to
+       (a placeholder is _not_ a label; not visually identical to
        an adjacent different-purpose control).
     2. **Usability** — primary + clear/reset/undo actions
        discoverable (not hover-only / keyboard-only); errors
        recoverable without destroying input.
-    3. **Accessibility** — visible label *and* accessible name
+    3. **Accessibility** — visible label _and_ accessible name
        (`aria-label` / role), keyboard-reachable, not colour-only,
        contrast meets the token spec.
     4. **Credibility** — every declared state present
@@ -135,8 +135,8 @@ end-of-round Q&A.**
   - **fidelity mode** on
     [`AdvancedQueryInput`](../../../workspace/apps/builder/src/features/data-management/datasets/advanced-query/AdvancedQueryInput.tsx)
     vs the design → expected **gap** (Findability, Usability).
-  No code change this round — the reports localize the failure to
-  the build and hand the gap to R53.
+    No code change this round — the reports localize the failure to
+    the build and hand the gap to R53.
 - **Self-audit** — `markdownlint-cli2` + `markdown-check-link` on
   the round's touched docs (per the R50 quality bar).
 
@@ -147,7 +147,7 @@ end-of-round Q&A.**
   `[Clear]` remediation and its tests. (Separating build-tool from
   use-tool, per the R49/R50 → R51 pattern.)
 - **Generative / agentic UI design** — proposing layouts, copy, or
-  components. The skill *reviews*; it does not *design*. Generation
+  components. The skill _reviews_; it does not _design_. Generation
   is Track-3 system-building, gated by R99.
 - **Automated visual / pixel regression** — screenshot diffing,
   design-token audits, driving the live app to render. v1 is a
@@ -192,8 +192,8 @@ verified by lints / the skill's own report, not Hard Gates.
 
 - **Subjectivity creep.** "Good UX" is taste; a skill that judges
   taste collapses into noise. Mitigate as `gate-walker` does: each
-  facet is verified **structurally** — a *declared* affordance is
-  *present and cited* (or drifted) — never "is it beautiful." The
+  facet is verified **structurally** — a _declared_ affordance is
+  _present and cited_ (or drifted) — never "is it beautiful." The
   two taste-prone facets are bounded hard: **Desirability** =
   "declares / uses the token system + matches the visual spec";
   **Credibility** = "all declared states present, no misleading
@@ -213,11 +213,11 @@ verified by lints / the skill's own report, not Hard Gates.
   (the design was complete) — together localizing the failure to
   the build.
 - **Primary-vs-dependent classification.** Resolved to
-  **dependent**: by the README's definition, *primary* skills
+  **dependent**: by the README's definition, _primary_ skills
   operate on round files and enforce the DCFBI/DFCFBI flow
   mechanics, whereas `ui-design` operates on design docs +
   components and is callable by any round/task (like
-  `markdown-check-link` / `research`). The design-side *counterpart*
+  `markdown-check-link` / `research`). The design-side _counterpart_
   to `gate-walker` in role, not primary in taxonomy.
 
 ## Do
@@ -255,28 +255,28 @@ remediation is R53.
 
 **Mode 1 — design-spec (PRIMARY)** on `advanced-query.md`:
 
-| Facet | Verdict | Evidence |
-|---|---|---|
-| Findability | pass | § Layout declares a labeled "Advanced query" box, distinct from the search bar |
-| Usability | pass | § Layout declares explicit `[Clear]`; § Behavior apply-on-valid / error-no-apply |
-| Accessibility | pass | declares visible label + Enter/keyboard commit; error is text, not colour-only |
-| Credibility | pass | § Behavior state model: empty/typing/parsed/errored + composition |
-| Utility | pass | 17 acceptance criteria |
-| Desirability | pass | declares "no new tokens" (inherits the dataset-detail token map) |
+| Facet         | Verdict | Evidence                                                                         |
+| ------------- | ------- | -------------------------------------------------------------------------------- |
+| Findability   | pass    | § Layout declares a labeled "Advanced query" box, distinct from the search bar   |
+| Usability     | pass    | § Layout declares explicit `[Clear]`; § Behavior apply-on-valid / error-no-apply |
+| Accessibility | pass    | declares visible label + Enter/keyboard commit; error is text, not colour-only   |
+| Credibility   | pass    | § Behavior state model: empty/typing/parsed/errored + composition                |
+| Utility       | pass    | 17 acceptance criteria                                                           |
+| Desirability  | pass    | declares "no new tokens" (inherits the dataset-detail token map)                 |
 
 Result: **PASS (6/6)** — the spec was affordance-complete.
 
 **Mode 2 — fidelity (BACKSTOP)** on `AdvancedQueryInput.tsx` vs
 the design:
 
-| Facet | Verdict | Evidence / gap |
-|---|---|---|
-| Findability | **gap** | no visible label (placeholder-only); field identical to the sibling `?q=` `Input.Search` |
-| Usability | **gap** | clear is hover-only `allowClear` × + backspace; design declares explicit `[Clear]` |
-| Accessibility | pass | `aria-label="Advanced query"` + `aria-invalid`; keyboard-reachable (`onPressEnter`) |
-| Credibility | pass | empty/parsed/errored states all rendered |
-| Utility | pass | implements acceptance criteria 8–11 (F2 tests) |
-| Desirability | pass | token-based (`var(--font-family-mono…)`, Typography token colours) |
+| Facet         | Verdict | Evidence / gap                                                                           |
+| ------------- | ------- | ---------------------------------------------------------------------------------------- |
+| Findability   | **gap** | no visible label (placeholder-only); field identical to the sibling `?q=` `Input.Search` |
+| Usability     | **gap** | clear is hover-only `allowClear` × + backspace; design declares explicit `[Clear]`       |
+| Accessibility | pass    | `aria-label="Advanced query"` + `aria-invalid`; keyboard-reachable (`onPressEnter`)      |
+| Credibility   | pass    | empty/parsed/errored states all rendered                                                 |
+| Utility       | pass    | implements acceptance criteria 8–11 (F2 tests)                                           |
+| Desirability  | pass    | token-based (`var(--font-family-mono…)`, Typography token colours)                       |
 
 Fidelity diff: 2 drifts — labeled box + explicit `[Clear]` dropped.
 Result: **GAP (2 facets — Findability, Usability)**.
@@ -313,10 +313,10 @@ for remediation.
 **Learnings**:
 
 - **The Design gate is where UX is decided.** Under DCFBI the F
-  phase only *confirms* — no mandate to revamp UX — so an
+  phase only _confirms_ — no mandate to revamp UX — so an
   affordance gap in the design ships faithfully. `ui-design` at D
-  (design-spec mode) is the *preventive* control; F1/F2 fidelity is
-  the *corrective* backstop. R51 proved both are needed: its spec
+  (design-spec mode) is the _preventive_ control; F1/F2 fidelity is
+  the _corrective_ backstop. R51 proved both are needed: its spec
   was complete (design-spec pass) yet the build drifted (fidelity
   gap). This doctrine is captured in the skill + PDCA — no separate
   memory file (it would duplicate the repo's own record).
@@ -358,7 +358,7 @@ pass.
 
 **R54 → close MVP query gaps** (was R53): inclusive date/datetime
 bounds (`on_or_after` / `on_or_before`) + string `ne`, added to the
-shared predicate vocabulary; the first *feature* round designed
+shared predicate vocabulary; the first _feature_ round designed
 with `ui-design` applied at its Design gate.
 
 If R52/R53 authoring drags (manual round-doc boilerplate across

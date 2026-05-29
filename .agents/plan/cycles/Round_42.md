@@ -14,7 +14,7 @@ the handlers are a third parallel implementation of the
 contract that can silently drift from both the YAML spec and
 the BE Python implementation.
 
-R42 closes that gap with the *cheapest* discipline: schema-
+R42 closes that gap with the _cheapest_ discipline: schema-
 validate every MSW handler response against the contract YAML
 at the handler boundary, source fixtures from the YAML's
 `examples:` blocks, and add debug event listeners so handler
@@ -26,18 +26,18 @@ interventions that turn MSW from "convenience" into
 R42 is **Track-2** (agent-method, dev discipline). No
 product feature; no FE/BE behavior change. The runtime
 behavior of `pnpm dev` / `pnpm test` / `pnpm build` is
-identical; what changes is *what happens when an MSW handler
-returns a shape that doesn't match the contract* (it throws
+identical; what changes is _what happens when an MSW handler
+returns a shape that doesn't match the contract_ (it throws
 loudly in tests, warns in dev, instead of silently
 delivering wrong data).
 
-*Track: 2 (agent-method). Pulled by: end-of-R41
+_Track: 2 (agent-method). Pulled by: end-of-R41
 critical-but-fair conversation 2026-05-27 — the three small
 wins the user picked over the bigger
 `packages/mocks` gambit. Verification-stack-queue rationale
 (MSW item) addressed the sequencing pull; this round
 addresses the correctness pull that the queue rationale
-deliberately deferred. Per [Evolution Rule](../../AGENTS.md).*
+deliberately deferred. Per [Evolution Rule](../../AGENTS.md)._
 
 **Reasonable defaults under [auto mode]; user redirects via
 end-of-round Q&A:**
@@ -53,7 +53,7 @@ end-of-round Q&A:**
    Mechanism: a `validateResponse(...)` helper imported only
    from `src/mocks/` (which is itself dev/test-only).
 3. **Validator decorator = `withContractValidation(http.get,
-   schemaRef, handler)`** wrapping each handler. Reads the
+schemaRef, handler)`** wrapping each handler. Reads the
    response body, asserts against the contract's 200/4xx
    schema, throws in test mode (loud) or warns in dev mode
    (yellow console). Failure surfaces immediately at the
@@ -68,8 +68,8 @@ end-of-round Q&A:**
    (cached) and exposes typed accessors. Hand-rolled
    `MOCK_ROWS` retires.
 5. **The rows handler still computes filter + q +
-   pagination in JS** (matching R41). Only the *base
-   dataset* comes from the YAML examples. Generated rows
+   pagination in JS** (matching R41). Only the _base
+   dataset_ comes from the YAML examples. Generated rows
    beyond the YAML's 8-row sample (if a test wants 100
    rows) still hand-rolled.
 6. **Debug listeners go in `src/mocks/start.ts` for the
@@ -87,7 +87,7 @@ end-of-round Q&A:**
    retrieval.
 8. **No 422 schema validation.** The contract YAML defines
    the 200 success schema strictly (`additionalProperties:
-   false`); the 422 envelope is FastAPI's loose
+false`); the 422 envelope is FastAPI's loose
    request-validation shape. Validating 422 responses
    would either flag every 422 as wrong (because the
    contract's 422 schema is intentionally vague) or
@@ -176,7 +176,7 @@ end-of-round Q&A:**
   modified", failure-mode = "FE mocks drift silently from
   YAML contract; FE tests pass against a wrong-shaped
   mock", revisit-trigger = "contract codegen lands (then
-  the handlers come *from* YAML) OR a separate
+  the handlers come _from_ YAML) OR a separate
   packages/mocks extraction fires".
 
 ### 7. Pipeline
@@ -276,7 +276,7 @@ end-of-round Q&A:**
 - **`withContractValidation` for handlers that take
   query params (rows-GET with `?q=&f<N>_*`).** The schema
   describes the 200 response; the request params are
-  separate. Validation runs on the *response body* only.
+  separate. Validation runs on the _response body_ only.
   Request validation is the BE's job per R39.
 - **Backward compatibility with the R41 test migration.**
   The migrated `dataset-detail.test.tsx` reads from
@@ -309,7 +309,7 @@ end-of-round Q&A:**
     validation failure; carries the operationId + AJV
     errors so vitest output points at the precise field.
   - `withContractValidation(method, path, operationId,
-    resolver)` — wraps an MSW `http.<method>(path, …)`
+resolver)` — wraps an MSW `http.<method>(path, …)`
     call, intercepts the 2xx JSON response, validates,
     and either throws (Node/test) or no-ops (browser).
 - Node-only by guard (`typeof globalThis.window !== 'undefined'`
@@ -329,7 +329,7 @@ end-of-round Q&A:**
   a Node-only helper that pulls a named example's
   `value.rows` from a contract YAML. R41 hand-rolled
   fixtures stay test-stable; the helper is the canonical
-  path for *new* fixtures. Convention is documented in
+  path for _new_ fixtures. Convention is documented in
   the file header and codified in the R42
   decision file.
 
@@ -368,7 +368,7 @@ end-of-round Q&A:**
 - `npx markdownlint-cli2` — 0 errors over 101 files.
 - One mid-round markdownlint nit: this file's MD049
   consistency rule wanted asterisk-emphasis (the first
-  emphasis in the file is asterisk via the *Track* line),
+  emphasis in the file is asterisk via the _Track_ line),
   so the placeholder underscores got fixed.
 
 ## Check
@@ -382,7 +382,7 @@ end-of-round Q&A:**
       4xx / non-JSON pass through.
 - [x] Rows-GET handler wrapped with
       `withContractValidation('get', path,
-      'getDatasetRows', …)`; failure path produces
+'getDatasetRows', …)`; failure path produces
       `ContractDriftError` with AJV errors attached.
 - [x] `loadYamlExampleRows()` exported from
       `fixtures.ts`; Node-only guard; documented as the
@@ -432,10 +432,10 @@ end-of-round Q&A:**
   rationale would have been alone. The discipline
   pays for itself at the first usage.
 
-**Promotions** *(none — Track-2 tooling round; the
+**Promotions** _(none — Track-2 tooling round; the
 validator + loader stay in `src/mocks/` until a second
 domain or a `packages/mocks` extraction pulls them
-out)*:
+out)_:
 
 **Follow-ups (not promotions, just notes):**
 
@@ -452,7 +452,7 @@ out)*:
   bundle AJV into the dev bundle (~30 KB gzipped),
   guarded by `import.meta.env.DEV`. Not pulled yet.
 - **Codegen retires the decorator**: when contract
-  codegen lands (handlers come *from* YAML), the
+  codegen lands (handlers come _from_ YAML), the
   `withContractValidation` decorator becomes
   redundant — the generated handler shape already
   conforms by construction. Named as the

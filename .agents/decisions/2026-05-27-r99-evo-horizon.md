@@ -18,7 +18,7 @@ promoted-to: null
 
 # Decision: No Track-3 system-building before R99
 
-**Commitment**: No Track-3 *system-building* lands before Round 99.
+**Commitment**: No Track-3 _system-building_ lands before Round 99.
 Until then, Track-3 work is **artifact-only** — capture maturity as
 documents and metrics, never as code that consumes them.
 
@@ -32,7 +32,7 @@ Evolution Rule worked.
 
 At R36 we have a real demoable POC (ingest → list → upload → inspect)
 and 11 captured lessons in [memory/](../memory/). The temptation to
-build the "self-evo" system *now*, while it feels earned, is exactly
+build the "self-evo" system _now_, while it feels earned, is exactly
 the trap. A meaningful Track-3 system needs:
 
 1. Memory retrieval at scale — deferred per the verification queue.
@@ -72,5 +72,5 @@ empirically far higher than the cost of delayed Track-3 (none observed
 yet). If the horizon proves too distant, the `revisit-when` trigger is
 named-failure events, not impatience.
 
-*Track: 3. Pulled by: 2026-05-27 conversation reflecting on the R5→R36
-recovery; [drifted-iteration](../context/drifted-iteration.md) precedent.*
+_Track: 3. Pulled by: 2026-05-27 conversation reflecting on the R5→R36
+recovery; [drifted-iteration](../context/drifted-iteration.md) precedent._

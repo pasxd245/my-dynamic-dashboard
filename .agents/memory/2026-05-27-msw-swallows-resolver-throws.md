@@ -14,10 +14,10 @@ server's `unhandledException` event, and resolves the request
 with a synthetic 500-style response. The natural vitest pattern:
 
 ```ts
-await expect(fetch(URL)).rejects.toThrow(SomeError);   // ❌ never fires
+await expect(fetch(URL)).rejects.toThrow(SomeError); // ❌ never fires
 ```
 
-…silently passes. The resolver *did* throw, the error *did*
+…silently passes. The resolver _did_ throw, the error _did_
 exist — it just never reached the awaited promise. So any test
 that asserts "the handler throws X on bad input" using
 `.rejects.toThrow` will look green while the failure path is
@@ -34,8 +34,8 @@ Tools / code that relied on this:
 - **R42's `withContractValidation` decorator** — wraps an MSW
   handler, throws `ContractDriftError` on schema-validation
   failure. R42's decision file documented this as "throws in
-  test mode (loud)." It was loud in *intent* but not in
-  *effect*: the throw vanished into the `unhandledException`
+  test mode (loud)." It was loud in _intent_ but not in
+  _effect_: the throw vanished into the `unhandledException`
   event, the awaited fetch resolved cleanly, and no test caught
   the drift. R43's stress-test surfaced this.
 - Generally: any test that wraps an MSW handler and wants to
@@ -52,13 +52,13 @@ Reference implementation (R43,
 [`workspace/apps/builder/tests/setup.ts`](../../workspace/apps/builder/tests/setup.ts)):
 
 ```ts
-import { server } from "@/mocks/server";
+import { server } from '@/mocks/server';
 
 export const mswUnhandledExceptions: Error[] = [];
 
 beforeAll(() => {
-  server.listen({ onUnhandledRequest: "bypass" });
-  server.events.on("unhandledException", ({ error }) => {
+  server.listen({ onUnhandledRequest: 'bypass' });
+  server.events.on('unhandledException', ({ error }) => {
     mswUnhandledExceptions.push(error as Error);
   });
 });
@@ -68,8 +68,7 @@ afterEach(() => {
   server.resetHandlers();
   const errs = mswUnhandledExceptions.splice(0);
   if (errs.length === 1) throw errs[0];
-  if (errs.length > 1)
-    throw new AggregateError(errs, "MSW handler threw unhandled exception(s)");
+  if (errs.length > 1) throw new AggregateError(errs, 'MSW handler threw unhandled exception(s)');
 });
 
 afterAll(() => {
@@ -77,17 +76,17 @@ afterAll(() => {
 });
 ```
 
-Tests that *intentionally* provoke a resolver throw and want to
+Tests that _intentionally_ provoke a resolver throw and want to
 assert on the captured error (rather than fail) drain the buffer
 themselves before the `afterEach` guard runs:
 
 ```ts
-import { mswUnhandledExceptions } from "./setup";
+import { mswUnhandledExceptions } from './setup';
 
-it("drift fires ContractDriftError", async () => {
+it('drift fires ContractDriftError', async () => {
   server.use(/* override that throws */);
   await fetch(URL);
-  const errs = mswUnhandledExceptions.splice(0);   // drain
+  const errs = mswUnhandledExceptions.splice(0); // drain
   expect(errs).toHaveLength(1);
   expect(errs[0]).toBeInstanceOf(ContractDriftError);
 });
@@ -109,12 +108,12 @@ suite by default; tests that need to inspect the throw opt in.
   "GET …/datasets/ds_…/rows". Please see the original error above.
   ```
 
-- `try/catch` around `await fetch(URL)` *never* fires for a
+- `try/catch` around `await fetch(URL)` _never_ fires for a
   resolver throw — confirmed by R43's first failing test run
   before the buffer pattern was added.
 - The `request:unhandled` event documented in `start.ts`'s
   browser-side listeners is a different event (no matching
-  *handler* for the request); `unhandledException` is the
+  _handler_ for the request); `unhandledException` is the
   right channel for handler-thrown errors.
 
 ## Recommendation
@@ -138,7 +137,7 @@ suite by default; tests that need to inspect the throw opt in.
   against MSW handlers. It silently passes — the assertion is
   decorative.
 - Convert the resolver throw into a `HttpResponse.json({...},
-  { status: 500 })` to make `fetch` reject — that loses the
+{ status: 500 })` to make `fetch` reject — that loses the
   typed `Error` subclass at the test boundary and doesn't
   surface in `unhandledException` either. Throwing is the
   right shape; the test infrastructure has to catch up.

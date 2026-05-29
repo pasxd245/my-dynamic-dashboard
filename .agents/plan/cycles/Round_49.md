@@ -68,12 +68,12 @@ discipline R48 codified (see
 — their pull will be concrete after the first trial round surfaces
 which one earns the next slot.
 
-*Track: 2 (agent-method, tooling). Pulled by: R48's experience —
+_Track: 2 (agent-method, tooling). Pulled by: R48's experience —
 archiving `context/contract-driven-feature.md` proved that doctrine
 alone leaks back as live-tree contradiction; preventing the same
 shape for DCFBI/DFCFBI is the immediate next move. Concrete pull
 on R47's Act: "Hard gates without enforcement are aspirational."
-Per [Evolution Rule](../../AGENTS.md).*
+Per [Evolution Rule](../../AGENTS.md)._
 
 **Reasonable defaults under [auto mode]; user redirects via
 end-of-round Q&A:**
@@ -93,8 +93,8 @@ end-of-round Q&A:**
 2. **Skill-creator invocation**: there is **no automated
    skill-creator tool** in Claude Code — skills are
    hand-authored by writing SKILL.md directly. The user's
-   reference to "skill-creator" means *Claude Code's authoring
-   approach* (hand-write per the schema), not a CLI/tool
+   reference to "skill-creator" means _Claude Code's authoring
+   approach_ (hand-write per the schema), not a CLI/tool
    invocation. R49 hand-authors `flow-selector` and `gate-walker`
    per the canonical schema linked above.
 3. **Canonical location + skill-ref pointer pattern**: Claude
@@ -117,17 +117,17 @@ end-of-round Q&A:**
      Code's runtime auto-trigger works at session-load; the
      full procedure body lives only in the canonical
      `.agents/skills/` file.
-   R49 follows this convention for the new primary skills:
-   author full content at `.agents/skills/<name>/SKILL.md`, and
-   write a matching `skill-ref` stub at
-   `.claude/skills/<name>/SKILL.md`. **Open question** (R49
-   execution will resolve): does Claude Code's native runtime
-   actually *follow* the `skill-ref` to fetch full body content,
-   or does it only see the stub? If only the stub, the runtime
-   never gets the procedure — and the convention needs revisiting
-   (either inline full content in both locations, or symlink, or
-   add a pre-skill-resolution step). The `research` skill's
-   real-world invocation in R50+ is the first measurement.
+     R49 follows this convention for the new primary skills:
+     author full content at `.agents/skills/<name>/SKILL.md`, and
+     write a matching `skill-ref` stub at
+     `.claude/skills/<name>/SKILL.md`. **Open question** (R49
+     execution will resolve): does Claude Code's native runtime
+     actually _follow_ the `skill-ref` to fetch full body content,
+     or does it only see the stub? If only the stub, the runtime
+     never gets the procedure — and the convention needs revisiting
+     (either inline full content in both locations, or symlink, or
+     add a pre-skill-resolution step). The `research` skill's
+     real-world invocation in R50+ is the first measurement.
 4. **Directory layout**: **nested**
    (`<scope>/skills/flow-selector/SKILL.md`,
    `<scope>/skills/gate-walker/SKILL.md`) — matches the canonical
@@ -149,7 +149,7 @@ end-of-round Q&A:**
    primary-vs-dependent taxonomy lives in:
    - The **skills README** (`.agents/skills/README.md`), under two
      top-level sub-headings (`## Primary skills`, `## Dependent
-     skills`). This is the canonical project record.
+skills`). This is the canonical project record.
    - Each skill's own `description` / `when_to_use` field naming
      its category naturally (e.g., "Use when a round needs to
      pick its phase chain at Design exit" implicitly marks
@@ -160,6 +160,7 @@ end-of-round Q&A:**
    non-standard `metadata.category` field (prior plan revision did
    — superseded by this lookup). The README structure carries the
    convention.
+
 6. **Primary skill I/O scope**: each primary skill operates on a
    **round file in `.agents/plan/cycles/`** as its primary
    surface — reads the round's Goal / Plan / Do sections, writes
@@ -179,7 +180,7 @@ end-of-round Q&A:**
    skills as shipped) to be measured against by R50's trial;
    promotion path is the same as any context promotion.
 9. **No new memory file unless R49 execution surfaces a learning.**
-   Memory captures learnings *from* completed work; R49 is the
+   Memory captures learnings _from_ completed work; R49 is the
    work. Tool-quirk gotchas (e.g., a new pattern for invoking
    skills, an unexpected schema constraint) earn a memory note
    if encountered.
@@ -297,7 +298,7 @@ end-of-round Q&A:**
     revision proposed it, but the canonical schema doesn't
     recognize it. Taxonomy lives in the README only.
   - **Kept the existing `metadata: {author: a2scaffold,
-    version: '1.0'}`** — non-canonical but harmless (the
+version: '1.0'}`** — non-canonical but harmless (the
     runtime ignores unknown frontmatter keys); preserves
     authorship trail.
 - **Did not edit the `.claude/skills/research/SKILL.md`
@@ -324,7 +325,7 @@ end-of-round Q&A:**
     `<name>/SKILL.md` layout with frontmatter (`name`,
     `description`, `metadata.{author, version, category}`) and
     body sections (`## Trigger`, `## Procedure`, `## Quality
-    Bar`). `metadata.category` is one of `primary` or `dependent`.
+Bar`). `metadata.category` is one of `primary` or `dependent`.
   - `## Primary skills` — sub-sections for `flow-selector` and
     `gate-walker`, each ~5 lines (file link, role, R47-clause
     cited).
@@ -443,14 +444,14 @@ end-of-round Q&A:**
   "Documented as met in the round file" is fuzzy — it relies on
   the round author writing the right kind of evidence. The skill
   can lint for structure (presence of an "evidence" line under the
-  phase) but cannot verify the evidence is *truthful*. Acceptable
+  phase) but cannot verify the evidence is _truthful_. Acceptable
   for R49 (the first measurable failure surfaces in the trial);
   R50+ can sharpen the check shape if needed.
 - **AGENTS.md horizons section is load-bearing.** Every agent
   reads it at session start (per Load Order). Adding a bullet
   that points at a non-existent README means every session-load
   hits a broken link. Mitigation: the explicit checkbox sequence
-  in Plan creates the README *before* the AGENTS.md edit.
+  in Plan creates the README _before_ the AGENTS.md edit.
 - **Two-primary-skill set may be wrong about what's essential.**
   I'm assuming flow-selector + gate-walker are the minimum; could
   be that `o-rule-checker` is actually essential and the other two
@@ -463,7 +464,7 @@ end-of-round Q&A:**
   documented fields (`name`, `description`, `when_to_use`,
   `arguments`, etc.) are accepted. Taxonomy lives in the README
   only. The staged `research/SKILL.md`'s `metadata: {author,
-  version}` is itself non-canonical (`a2scaffold`'s shape); the
+version}` is itself non-canonical (`a2scaffold`'s shape); the
   Claude Code runtime may ignore unrecognized fields silently or
   emit a warning. Acceptable for R49 since `research` was shipped
   externally; if it breaks at runtime, surface as follow-up.
@@ -563,7 +564,7 @@ SKILL.md and (for primary skills) the R47 clause each enforces.
 
 - [`.agents/skills/gate-walker/SKILL.md`](../../skills/gate-walker/SKILL.md)
   — canonical content. Frontmatter includes `arguments: gate
-  round` (two positional args), `allowed-tools` Read + Grep +
+round` (two positional args), `allowed-tools` Read + Grep +
   `Bash(grep *)`. Procedure validates gate name (Design / F1 /
   Contract / F2 / Backend / Integration), reads the round's
   `Flow:` line, branches DCFBI vs DFCFBI (F1/F2 skipped on
@@ -670,8 +671,8 @@ SKILL.md and (for primary skills) the R47 clause each enforces.
   claimed "no skill-creator tool exists" and "the canonical
   schema is strict / does not accept arbitrary metadata fields."
   Both turned out partially wrong: a `/skill-creator` plugin
-  *does* exist (per the user-provided plugins page), and the
-  schema is *defined* but not *strict-rejecting* (unknown keys
+  _does_ exist (per the user-provided plugins page), and the
+  schema is _defined_ but not _strict-rejecting_ (unknown keys
   like `metadata: {author, version}` are silently tolerated).
   Direct doc fetch (WebFetch on
   `code.claude.com/docs/en/skills`) resolved both ambiguities.
@@ -684,8 +685,8 @@ SKILL.md and (for primary skills) the R47 clause each enforces.
   But Claude Code's documented schema does NOT mention
   `metadata.type: skill-ref` or `metadata.skillPath` — they're
   `a2scaffold`'s convention. Whether the native runtime
-  *follows* the pointer (loads the canonical body when the
-  skill is invoked) or *only sees the stub* is the open
+  _follows_ the pointer (loads the canonical body when the
+  skill is invoked) or _only sees the stub_ is the open
   question. R50's first invocation of any R49 skill is the
   measurement. If the pointer is not followed, three fallbacks
   exist (byte-byte dual-write, symlink, pre-commit copy script)
@@ -714,9 +715,9 @@ SKILL.md and (for primary skills) the R47 clause each enforces.
 **Promotions**:
 
 - [x] → `.agents/skills/`: bootstrap as the project skills
-  directory; three skills (flow-selector, gate-walker, research)
-  plus README and AGENTS.md horizons bullet. Logged in
-  [promotions.md](../promotions.md) 2026-05-28.
+      directory; three skills (flow-selector, gate-walker, research)
+      plus README and AGENTS.md horizons bullet. Logged in
+      [promotions.md](../promotions.md) 2026-05-28.
 
 **Follow-ups (not promotions, just notes):**
 
@@ -762,10 +763,10 @@ feature trial** (which moves to R51+). The inserted skill is
 
 **Why insert this before the trial:**
 
-- R49's own Risks named the failure mode: *"AGENTS.md horizons
+- R49's own Risks named the failure mode: _"AGENTS.md horizons
   section is load-bearing. Adding a bullet that points at a
   non-existent README means every session-load hits a broken
-  link."* R49 mitigated it once by hand-sequencing the README
+  link."_ R49 mitigated it once by hand-sequencing the README
   before the AGENTS.md edit, but the failure mode is structural,
   not one-off.
 - The DCFBI/DFCFBI chain itself adds new cross-link surface
@@ -773,9 +774,9 @@ feature trial** (which moves to R51+). The inserted skill is
   `.agents/design/`; gate-walker output cites round files; the
   O-rule cites contract artifacts). The trial round will create
   many of these links in flight — a checker that runs in the
-  trial's pipeline catches rot *during* the round, not after.
-- Per R49 Act *"two frontmatter additions to `research` were
-  essentially free wins"* pattern: small linting tooling that
+  trial's pipeline catches rot _during_ the round, not after.
+- Per R49 Act _"two frontmatter additions to `research` were
+  essentially free wins"_ pattern: small linting tooling that
   runs alongside `markdownlint-cli2` is low-cost, high-leverage,
   and earns its slot well before the trial needs it.
 - Category: **dependent skill** (generic utility, callable by

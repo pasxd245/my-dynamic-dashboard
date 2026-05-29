@@ -280,7 +280,7 @@ surface dramatically — round files cite decisions,
 decisions cite design, gate-walker output cites round
 files. R50 ships the structural fix before R51's first
 trial reaches the surface. Skill is intentionally
-*dependent* (generic, no round-file coupling) — peer to
+_dependent_ (generic, no round-file coupling) — peer to
 `research`, callable from any task. Track-1 anchor: same
 DCBF→DCFBI break-point that pulled R46→R49; R50 closes the
 pre-trial tooling gap.

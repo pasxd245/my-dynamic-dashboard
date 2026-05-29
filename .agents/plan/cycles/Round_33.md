@@ -110,7 +110,7 @@ following the R10/R14 canonical template:
 - **Data contract (target shape for R34)** — `DatasetDetail`
   extends `Dataset` (no extra fields needed yet); `RowsPage` is
   `{ rows: (string | null)[][]; page: number; pageSize: number;
-  total: number }`. Rows are stringified BE-side (cells already
+total: number }`. Rows are stringified BE-side (cells already
   are values for SQLite/Parquet; FE re-typecasts via `dtype` from
   the column metadata on the parent dataset).
 - **Read/write boundary** — what R35/R36 implement vs what stays
@@ -293,7 +293,7 @@ in [.agents/design/README.md § previews](../../design/README.md).
   and the concurrent-delete 404 race.
 - **Data contract** prose-shapes the two new GET routes as
   YAML-ish blocks; R34 will mechanize. Cell stringification (`string |
-  null`) rationale documented: BE renders cells, FE re-applies
+null`) rationale documented: BE renders cells, FE re-applies
   dtype-aware display formatting from `Dataset.columns[].dtype`
   on the parent. This keeps the rows payload schema-free.
 - **Read/write boundary** explicitly lists R34→R36 scope and
@@ -469,7 +469,7 @@ R33 hands forward to R34:
   `?page_size=` (25 / 50 / 100 enum, default 50) — R34 encodes
   the validation rules + 422 surface.
 - **Locked error envelope.** 404 reuses R25's `{ code:
-  "not_found" }` envelope (same as existing dataset routes).
+"not_found" }` envelope (same as existing dataset routes).
 - **Locked field set.** No new fields on `Dataset`; detail GET
   returns the existing shape. Row cells are stringified
   `(string | null)[][]`.

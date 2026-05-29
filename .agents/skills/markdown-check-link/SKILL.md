@@ -2,7 +2,7 @@
 name: markdown-check-link
 description: Verify markdown links resolve to existing files and headings. Emits full link inventory + broken-link report under .agents/tmp/markdown-check-link/. Supports opt-in auto-correct (--fix / --dry-run) driven by ranked, confidence-scored suggestions (git-rename, case-mismatch, unique-basename, fragment-case).
 when_to_use: Invoke in the post-round audit (alongside markdownlint-cli2), after large doc edits, or when a session-load link click 404s. Default scope reads .markdownlint-cli2.jsonc globs + ignores; falls back to .agents/**/*.md if config missing. Trigger phrases include "check links", "broken markdown links", "link rot", "verify .agents links".
-argument-hint: "[path-or-glob ...] [--changed] [--check-http] [--fix | --dry-run] [--min-confidence FLOAT] [--exclude PATTERN]"
+argument-hint: '[path-or-glob ...] [--changed] [--check-http] [--fix | --dry-run] [--min-confidence FLOAT] [--exclude PATTERN]'
 allowed-tools: Read, Grep, Glob, Bash(python3 *)
 metadata:
   author: hand-authored-r50
@@ -73,7 +73,7 @@ The script always writes three artifacts under
   `{root_path, files: {<rel/path>: {items: [<record>, ...]}}}`.
   Items per file are sorted ascending by line. Each record
   carries `{file, line, kind, text, target, resolved_path,
-  status, reason?, suggestions: [{path, score, reason}, ...]}`.
+status, reason?, suggestions: [{path, score, reason}, ...]}`.
 - `suggestions.json` — same schema as `links.json`, filtered
   to broken records that need human review: no high-confidence
   fix, or two candidates both at the auto-apply threshold (a tie
@@ -116,14 +116,14 @@ Auto-correct picks the top-ranked suggestion **only when**
 it scores ≥ `--min-confidence` (default `0.9`) **and** no
 runner-up is tied at that score. Scoring tiers:
 
-| Score | Tier                 | Trigger                                                      |
-| ----- | -------------------- | ------------------------------------------------------------ |
+| Score | Tier                 | Trigger                                                                    |
+| ----- | -------------------- | -------------------------------------------------------------------------- |
 | 1.00  | `git-rename`         | Git history shows the broken target was renamed; destination still exists. |
-| 0.95  | `case-mismatch`      | Same parent directory; basename differs only by case.        |
-| 0.95  | `fragment-case`      | Heading fragment matches exactly one heading case-insensitively. |
-| 0.90  | `unique-basename`    | Exactly one file in scope has the broken target's basename. |
-| 0.50  | `ambiguous-basename` | Multiple basename candidates — surfaced ranked, not applied. |
-| 0.50  | `ambiguous-fragment` | Multiple case-insensitive fragment matches — surfaced, not applied. |
+| 0.95  | `case-mismatch`      | Same parent directory; basename differs only by case.                      |
+| 0.95  | `fragment-case`      | Heading fragment matches exactly one heading case-insensitively.           |
+| 0.90  | `unique-basename`    | Exactly one file in scope has the broken target's basename.                |
+| 0.50  | `ambiguous-basename` | Multiple basename candidates — surfaced ranked, not applied.               |
+| 0.50  | `ambiguous-fragment` | Multiple case-insensitive fragment matches — surfaced, not applied.        |
 
 To pull in lower-confidence repairs, pass
 `--min-confidence 0.5` (or any float). Anything below the
@@ -186,17 +186,17 @@ When `resolution` is set, it takes precedence over `suggestions[]`
 — you either repoint or demote, not both. Syntax is `<kind>` or
 `<kind>:<value>`. Known kinds:
 
-| Value                  | When applied        | Effect                                                                |
-| ---------------------- | ------------------- | --------------------------------------------------------------------- |
-| `null`                 | —                   | Default. Fall through to `suggestions[]`.                             |
-| `"as-is"`              | **every run**       | Mark the link correct; flip status `broken` → `ok`. Use when the checker is wrong (e.g. `path.md:25` line-suffix convention). |
-| `"as-is:<note>"`       | every run           | Same, with an audit note (free text after the colon). Surfaces in `links.json`. |
-| `"unlink"`             | `--fix` / `--dry-run` | Rewrite `[text](target)` as `` `target` `` (broken URL becomes code-span). |
-| `"unlink:<text>"`      | `--fix` / `--dry-run` | Rewrite as `` `<text>` `` — substitute any code-span content.         |
-| `"link"`               | `--fix` / `--dry-run` | Repoint to `#` (TODO marker for later).                               |
-| `"link:<target>"`      | `--fix` / `--dry-run` | Repoint to `<target>` (one-line shortcut for filling in `suggestions`). |
+| Value             | When applied          | Effect                                                                                                                        |
+| ----------------- | --------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `null`            | —                     | Default. Fall through to `suggestions[]`.                                                                                     |
+| `"as-is"`         | **every run**         | Mark the link correct; flip status `broken` → `ok`. Use when the checker is wrong (e.g. `path.md:25` line-suffix convention). |
+| `"as-is:<note>"`  | every run             | Same, with an audit note (free text after the colon). Surfaces in `links.json`.                                               |
+| `"unlink"`        | `--fix` / `--dry-run` | Rewrite `[text](target)` as `` `target` `` (broken URL becomes code-span).                                                    |
+| `"unlink:<text>"` | `--fix` / `--dry-run` | Rewrite as `` `<text>` `` — substitute any code-span content.                                                                 |
+| `"link"`          | `--fix` / `--dry-run` | Repoint to `#` (TODO marker for later).                                                                                       |
+| `"link:<target>"` | `--fix` / `--dry-run` | Repoint to `<target>` (one-line shortcut for filling in `suggestions`).                                                       |
 
-`as-is` is the only resolution that takes effect outside fix mode — it's a *verifier-time* decision ("this isn't broken"), so it needs to suppress the report and the nonzero exit code on every run. The others are *fixer-time* decisions and only matter when you're actually rewriting markdown.
+`as-is` is the only resolution that takes effect outside fix mode — it's a _verifier-time_ decision ("this isn't broken"), so it needs to suppress the report and the nonzero exit code on every run. The others are _fixer-time_ decisions and only matter when you're actually rewriting markdown.
 
 Examples:
 

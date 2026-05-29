@@ -102,7 +102,7 @@ the reusability signature memory exists to preserve. Per
 - **Possible over-specification**: the IS_NODE gotcha could
   apply to environments beyond happy-dom/jsdom (Deno test
   shims, browser-like test runners). Mitigation: name
-  happy-dom and jsdom explicitly as the *observed* shims and
+  happy-dom and jsdom explicitly as the _observed_ shims and
   state the general rule (any DOM-emulation runtime that
   shims `window` will trigger the same trap).
 
@@ -124,9 +124,9 @@ Recommendation / Promotion sections). The file:
   `assertion that drift fires` pattern.
 - States the operational fix as a code snippet
   (`process.versions.node` check), not just prose.
-- Names happy-dom and jsdom as the *observed* shims; states
+- Names happy-dom and jsdom as the _observed_ shims; states
   the general rule for any DOM-emulator that shims `window`.
-- Calls out *why* `process.env.NODE_ENV === "test"` is a worse
+- Calls out _why_ `process.env.NODE_ENV === "test"` is a worse
   proxy (narrow to vitest, doesn't generalize to dev-SSR).
 
 **Memory file 2: MSW v2 swallows resolver throws.**
@@ -146,7 +146,7 @@ in the same shape. The file:
   as a code snippet — the reusable shape future MSW-using
   suites can lift verbatim.
 - Notes the per-test drain pattern for tests that
-  *intentionally* assert on the captured throw (the R43
+  _intentionally_ assert on the captured throw (the R43
   stress-test pattern).
 - Includes the MSW stderr signature
   (`[MSW] Encountered an unhandled exception …`) so future
@@ -177,20 +177,20 @@ in the same shape. The file:
 
 **Learnings**:
 
-- **Memory entries pay for themselves when the *why* is on
+- **Memory entries pay for themselves when the _why_ is on
   the page.** Both files lead with the surprising behaviour
   (a table for IS_NODE, a misleading-design-intent narrative
   for MSW), not the fix. The fix is a one-line code snippet
   near the bottom. This shape mirrors what made the
   [markdownlint MD004 gotcha](../../memory/2026-05-22-markdownlint-plus-prefix-gotcha.md)
-  load-bearing: the *example* of the bug is what makes a
+  load-bearing: the _example_ of the bug is what makes a
   future reader recognize the symptom in their own work.
   Memory without a concrete recognition-anchor is just a
   rule; with one, it's a debugging shortcut.
 - **The two gotchas are deeper than the round that surfaced
-  them.** IS_NODE-under-DOM-emulation will apply to *any*
+  them.** IS_NODE-under-DOM-emulation will apply to _any_
   module that needs Node access in vitest — not just the
-  R42 validator. MSW-swallows-throws will apply to *any*
+  R42 validator. MSW-swallows-throws will apply to _any_
   resolver-decorator pattern, not just `withContractValidation`.
   R44's memory files are therefore reusable beyond the MSW
   thread of work. The promotion-candidate sections both
@@ -206,21 +206,21 @@ in the same shape. The file:
   same lesson-fixation window, same prose-quality concerns.
   R44 is "capture the R43 gotchas," not "capture
   gotcha A in one round and gotcha B in another." This is
-  consistent with the cadence memory's *"one feature per
-  round"* rule: the *feature* here is "memory capture of R43
+  consistent with the cadence memory's _"one feature per
+  round"_ rule: the _feature_ here is "memory capture of R43
   findings," not "memory file authoring in the abstract."
 
-**Promotions** *(none — both memory files are first-author,
+**Promotions** _(none — both memory files are first-author,
 single-incident. Promotion to `context/` or `skills/` requires
 a second incident or a documented pull. Current
-promotion-candidate flag on both: "Not yet.")*:
+promotion-candidate flag on both: "Not yet.")_:
 
 **Follow-ups (not promotions, just notes):**
 
 - **Audit other defensive code paths for the same dormant-
   failure trap.** R43 Act listed this as a follow-up; R44
   doesn't address it directly but the new IS_NODE memory
-  file makes the audit *cheaper* (the symptom-recognition
+  file makes the audit _cheaper_ (the symptom-recognition
   anchor is captured). Candidates per R43's note: the R39 BE
   `validate_response()` helper, the R34 contract-validity
   tests. Not pulled today.

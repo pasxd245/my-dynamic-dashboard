@@ -46,15 +46,15 @@ analysed three tensions:
 Beyond those three tensions, the operating-model shift carries a
 **single-source-of-truth consolidation for UX**: under DCBF, the
 design phase produced HTML previews in
-[`.agents/design/*.preview.html`](../design/) — a *parallel*
+[`.agents/design/*.preview.html`](../design/) — a _parallel_
 implementation of "what the UI looks like," separate from the
 actual FE code in
 [`workspace/apps/builder/`](../../workspace/apps/builder/). Two
 parallel UX implementations is exactly the shape MEMO-FINDINGS
 flagged as token drift (#1 critical issue). **DCFBI eliminates the
 split**: the F phase (in DCFBI) or F1 (in DFCFBI) running against
-MSW *is* the canonical UX preview. Design markdown remains the
-*spec* (journeys, state notes, acceptance criteria); the FE code
+MSW _is_ the canonical UX preview. Design markdown remains the
+_spec_ (journeys, state notes, acceptance criteria); the FE code
 is the single source of truth for what the UI actually does. This
 is the central conceptual shift from DCBF, not just "add a
 discovery phase."
@@ -75,7 +75,7 @@ discovery phase."
   acceptance criteria). The FE running against MSW (F or F1
   output) is the canonical UX preview — **no separate HTML
   preview artifact carries SoT** under this flow. Quick HTML
-  sketches *informing* the F1 author remain allowable as
+  sketches _informing_ the F1 author remain allowable as
   pre-round exploration but are not authoritative outputs of any
   phase. Existing
   [`.agents/design/**/*.preview.html`](../design/) files (and the
@@ -154,14 +154,14 @@ to the next phase until the gate's exit criterion is documented as
 met in the round file. Gates apply uniformly to both DCFBI and
 DFCFBI; F1 / F2 gates are skipped on the DCFBI path.
 
-| Gate                 | Exit criterion                                                                                    | Who closes it |
-| -------------------- | ------------------------------------------------------------------------------------------------- | ------------- |
-| **Design**           | User journeys + testable acceptance criteria documented in the design artifact                    | Round author  |
-| **F1** *(DFCFBI only)* | Interaction decisions frozen for this round; open UX questions resolved or explicitly deferred  | Round author  |
-| **Contract**         | Request / response / error shapes frozen; MSW handlers aligned; YAML committed                    | Round author  |
-| **F2** *(DFCFBI only)* | Confirmation pass complete against contract-derived MSW; any shape change re-routed as contract v2 | Round author  |
-| **Backend**          | Contract conformance tests pass; per-endpoint behavior tests pass                                 | Round author  |
-| **Integration**      | FE-vs-BE verified end-to-end; shared conformance tests pass against both MSW and real backend     | Round author  |
+| Gate                   | Exit criterion                                                                                     | Who closes it |
+| ---------------------- | -------------------------------------------------------------------------------------------------- | ------------- |
+| **Design**             | User journeys + testable acceptance criteria documented in the design artifact                     | Round author  |
+| **F1** _(DFCFBI only)_ | Interaction decisions frozen for this round; open UX questions resolved or explicitly deferred     | Round author  |
+| **Contract**           | Request / response / error shapes frozen; MSW handlers aligned; YAML committed                     | Round author  |
+| **F2** _(DFCFBI only)_ | Confirmation pass complete against contract-derived MSW; any shape change re-routed as contract v2 | Round author  |
+| **Backend**            | Contract conformance tests pass; per-endpoint behavior tests pass                                  | Round author  |
+| **Integration**        | FE-vs-BE verified end-to-end; shared conformance tests pass against both MSW and real backend      | Round author  |
 
 ## The O-rule (three truths, cross-cutting)
 
@@ -174,7 +174,7 @@ explicit traceability between them:
    [`workspace/apps/builder/`](../../workspace/apps/builder/),
    exercised by the MSW handler set established in
    [MSW contract-anchor](2026-05-27-msw-contract-anchor.md). The
-   design markdown in [.agents/design/](../design/) is the *spec*
+   design markdown in [.agents/design/](../design/) is the _spec_
    that the FE implements (journeys, state notes, acceptance
    criteria) — **the FE itself is the lived SoT**. No separate
    HTML preview artifact competes for this role under DCFBI/DFCFBI.
@@ -216,10 +216,10 @@ The number (2 working days) is best-estimate from R26/R29
 prototype patterns and is reviewed by the `revisit-trigger` if
 empirical evidence diverges.
 
-*Track: 2. Pulled by: 2026-05-28 brainstorm chain at
+_Track: 2. Pulled by: 2026-05-28 brainstorm chain at
 [`plan/brainstorms/2026-05-28-hybrid-flow/`](../plan/brainstorms/2026-05-28-hybrid-flow/),
 which itself was pulled by DCBF chain experience (R14→R21,
 [context/contract-driven-feature.md](../context/_archive/contract-driven-feature.md)):
 over-effort for fair-only results + D-phase overwhelm as
 design-corpus scope grew. Codified by
-[Round_47](../plan/cycles/Round_47.md).*
+[Round_47](../plan/cycles/Round_47.md)._

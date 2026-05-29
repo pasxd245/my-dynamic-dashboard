@@ -66,8 +66,7 @@ end-of-round Q&A:**
    ones (if union'd). Prose + the R37 vocabulary table is the
    honest contract; BE returns 422 for dtype-mismatch.
 5. **422 dtype-mismatch reuses the FastAPI envelope.** Same
-   shape as the existing `page < 1` / `page_size off-enum`
-   422. New error codes (`filter_op_dtype_mismatch`,
+   shape as the existing `page < 1` / `page_size off-enum` 422. New error codes (`filter_op_dtype_mismatch`,
    `filter_value_unparseable`, `filter_col_out_of_range`) are
    communicated via `detail[].msg` strings, not a new error-
    envelope schema. Matches the discipline of the existing
@@ -240,7 +239,7 @@ end-of-round Q&A:**
 - **OpenAPI's lack of "param key parameterized by N" support
   is a real cliff.** The contract declares the shape via 4
   illustrative `f0_*` params + prose. Generators (`openapi-
-  typescript`, etc.) downstream may not generate the right
+typescript`, etc.) downstream may not generate the right
   types for arbitrary N. Mitigation: the FE doesn't read
   generated types for query params today (it builds the
   query string manually via `URLSearchParams`); when codegen
@@ -326,7 +325,7 @@ end-of-round Q&A:**
   section between the existing `?q=` behavior and the cell-
   stringification section. Covers: why column index (not
   name), why no `schema.enum` on `op`, why `schema.type:
-  string` on `val` / `min` / `max`, AND-compose with `?q=`,
+string` on `val` / `min` / `max`, AND-compose with `?q=`,
   operator vs operand shape (with table), why no JSON-body
   parallel, why no `_shared/filter-predicate.yaml` extraction.
 - Existing "Page resets on `q` change" bullet updated to
@@ -493,7 +492,7 @@ feature. Implementation chain continues:
   this contract names. BE unit tests cover each operator,
   AND-compose with `?q=`, and each 422 path.
 - **R40** (F): `datasetsApi.getRows(id, page, pageSize,
-  q?, filters?)`, `useFiltersState` URL ↔ predicate-set
+q?, filters?)`, `useFiltersState` URL ↔ predicate-set
   hook, `FilterTrigger` / `FilterPopover` / per-dtype
   editors / `ActiveFilterChips` per the R37 design,
   TanStack cache-key extension, i18n keys, vitest cases

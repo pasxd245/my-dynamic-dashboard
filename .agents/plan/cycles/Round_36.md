@@ -46,7 +46,7 @@ end-of-round Q&A:**
    render cost). Match counter "X / Y" above the table is
    sufficient.
 5. **List-page row click**: `<Table onRow={(record) => ({
-   onClick: () => navigate(...) })}>`. The existing inline
+onClick: () => navigate(...) })}>`. The existing inline
    `<Typography.Link onClick={stopPropagation}>` workspace
    link and the actions dropdown's `domEvent.stopPropagation()`
    already handle the don't-trigger-row-nav case.
@@ -67,7 +67,7 @@ end-of-round Q&A:**
 - Extend
   [`types.ts`](../../../workspace/apps/builder/src/features/data-management/datasets/types.ts)
   with `RowsPage = { rows: (string | null)[][]; page: number;
-  pageSize: number; total: number }`.
+pageSize: number; total: number }`.
 - Extend
   [`datasetsApi.ts`](../../../workspace/apps/builder/src/api/datasetsApi.ts):
   - `get(id: string): Promise<Dataset>` — 404 → `ApiErrorThrown`.
@@ -82,7 +82,7 @@ end-of-round Q&A:**
   - `useDatasetQuery(id)` — `queryKey: ['datasets', { id }]`.
   - `useDatasetRowsQuery(id, page, pageSize, q?)` —
     `queryKey: ['datasets', { id }, 'rows', { page, pageSize,
-    q }]`. `q` is part of the key so the same page across
+q }]`. `q` is part of the key so the same page across
     different searches caches independently.
 
 ### 3. `DatasetDetailPage` component
@@ -94,7 +94,7 @@ end-of-round Q&A:**
     defaults to `page=1`, `page_size=50`, `q=undefined`.
   - Calls `useDatasetQuery(id)` + `useDatasetRowsQuery(...)`.
   - **Header**: breadcrumb (`Home ▸ Data Management ▸
-    Datasets ▸ <dataset name>`); title with source-format icon,
+Datasets ▸ <dataset name>`); title with source-format icon,
     dataset name, and format chip (`Excel · Sheet1` or `CSV`);
     subtitle with row count, column count, size, and uploaded.
   - **Actions**: `<Button>` Rename + `<Button>` Delete in the
@@ -104,7 +104,7 @@ end-of-round Q&A:**
   - **Metadata strip**: row of label / value pairs in a card
     chrome at the top of the PageCard.
   - **Search bar**: AntD `<Input.Search allowClear
-    placeholder="Search rows…">`, debounced 300ms, updating
+placeholder="Search rows…">`, debounced 300ms, updating
     `?q` via `setSearchParams({ ..., q })`. To the right: a
     muted "Matched X / Y" counter, where `Y` comes from
     `Dataset.rowCount` (always full) and `X` from
@@ -119,7 +119,7 @@ end-of-round Q&A:**
   - **Pagination**: AntD `<Pagination>` with
     `pageSizeOptions={['25','50','100']}`, `showSizeChanger`,
     `showQuickJumper`. On change, `setSearchParams({ page,
-    page_size })`; page-size change resets `page` to 1.
+page_size })`; page-size change resets `page` to 1.
   - **States**:
     - Loading (first paint of dataset): full-page `<Skeleton>`.
     - 404 (either GET): centered "deleted" block per R33
@@ -147,7 +147,7 @@ end-of-round Q&A:**
 - One-line update to
   [`DatasetsPage.tsx`](../../../workspace/apps/builder/src/features/data-management/datasets/DatasetsPage.tsx)'s
   `<Table>`: add `onRow={(record) => ({ onClick: () =>
-  navigate('/data-management/datasets/${record.id}') })}` and
+navigate('/data-management/datasets/${record.id}') })}` and
   `style={{ cursor: 'pointer' }}` via `rowClassName` or
   inline. Workspace-link `onClick={stopPropagation}` and
   actions dropdown `domEvent.stopPropagation()` already
@@ -158,7 +158,7 @@ end-of-round Q&A:**
 - Update
   [`main.tsx`](../../../workspace/apps/builder/src/main.tsx)
   with a new `<Route path="/data-management/datasets/:id"
-  element={<DatasetDetailPage />} />` line, placed after the
+element={<DatasetDetailPage />} />` line, placed after the
   `/datasets/new` route so the `:id` regex doesn't shadow
   `new`.
 
@@ -258,8 +258,7 @@ end-of-round Q&A:**
       populated render, null-cell rendering, debounced ?q=
       flow, no-match state with Clear, 404 deleted state).
 - [x] Run `pnpm --filter builder type-check` — 0 errors.
-- [x] Run `pnpm --filter builder test` — 38/38 (33 existing
-      + 5 new).
+- [x] Run `pnpm --filter builder test` — 38/38 (33 existing + 5 new).
 - [x] Run `pnpm --filter builder build` — green (1.40 MB /
       444 KB gzip; +6 KB from R32 baseline).
 - [x] Run `npx markdownlint-cli2` — 0 errors over 88 files.
@@ -291,7 +290,7 @@ end-of-round Q&A:**
   stringified dates come as `'YYYY-MM-DD'` and timestamps as
   `'YYYY-MM-DD HH:MM:SS'`. `new Date('2024-01-15')` is
   UTC-midnight in some browsers; `new Date('2024-01-15
-  14:02:00')` is local time. We render via
+14:02:00')` is local time. We render via
   `Intl.DateTimeFormat` but the parse step is the risk.
   Mitigation: explicit ISO normalization
   (`replace(' ', 'T') + 'Z'` for timestamps) before passing
@@ -327,7 +326,7 @@ end-of-round Q&A:**
   the unfiltered path.
 - [`hooks.ts`](../../../workspace/apps/builder/src/features/data-management/datasets/hooks.ts)
   gained `useDatasetQuery(id)` + `useDatasetRowsQuery(id,
-  page, pageSize, q?)`. The rows hook uses
+page, pageSize, q?)`. The rows hook uses
   `placeholderData: (prev) => prev` so the previous page
   stays visible during page / page_size / q transitions —
   pairs with AntD's native `loading` overlay for a smooth
@@ -335,7 +334,7 @@ end-of-round Q&A:**
 - Query keys: `['datasets', { id }]` for detail (matches the
   existing `['datasets']` list-cache prefix so R26's
   invalidations cascade), `['datasets', { id }, 'rows',
-  { page, pageSize, q }]` for rows (q in the key so search
+{ page, pageSize, q }]` for rows (q in the key so search
   variants cache independently).
 
 **`formatCell` helper.**
@@ -343,7 +342,7 @@ end-of-round Q&A:**
 - [`lib/formatCell.ts`](../../../workspace/apps/builder/src/lib/formatCell.ts)
   centralizes dtype-aware cell rendering. Returns
   `{ text, isNull, isNumeric }`; callers map `isNull → muted
-  em-dash` and `isNumeric → right-align + tabular-nums`.
+em-dash` and `isNumeric → right-align + tabular-nums`.
 - Numerics use `Intl.NumberFormat(locale)` with
   `maximumFractionDigits` driven by dtype (0 for integer, 6
   for float).
@@ -363,7 +362,7 @@ end-of-round Q&A:**
   Search-input local state is buffered for typing; a
   `useRef`-tracked debounce timer (300 ms) writes the
   trimmed value to `?q` via `setSearchParams(..., { replace:
-  true })` so the URL history isn't cluttered by one entry
+true })` so the URL history isn't cluttered by one entry
   per keystroke. q-change strips `?page` to reset to 1.
 - Header: source-format icon (`📄` CSV / `📊` Excel) +
   dataset name + format chip (`Excel · <sheet>` or `CSV`);
@@ -404,7 +403,7 @@ end-of-round Q&A:**
   `<Table onRow={(record) => ({ onClick, style })}>` pattern
   adds `cursor: pointer` to every row. The existing workspace
   link uses `onClick={(e) => { e.stopPropagation();
-  onWorkspaceClick(id); }}` and the actions dropdown's button
+onWorkspaceClick(id); }}` and the actions dropdown's button
   has `onClick={(e) => e.stopPropagation()}` — both prevent
   the row-click from firing.
 
@@ -461,7 +460,7 @@ end-of-round Q&A:**
     R34's planning Q&A: 200-empty, not 422).
 - Booted FE on :3000. `curl /` returned the standard Vite-
   served `index.html`. `curl
-  /src/features/data-management/datasets/DatasetDetailPage.tsx`
+/src/features/data-management/datasets/DatasetDetailPage.tsx`
   returned the hot-reloaded module — confirms the new page
   is reachable via the FE dev server.
 - Browser-eye walk skipped (headless this turn); the 5

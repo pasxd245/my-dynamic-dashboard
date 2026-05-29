@@ -46,7 +46,7 @@ end-of-round Q&A if any miss:**
    domain-leading prefixes to match the R33 "dataset detail"
    noun (`dataset-detail.md` and `dataset-detail.preview.html`).
 2. **422 vs 200 for out-of-range page.** When `page > ceil(total /
-   page_size)`, return **200 with `rows: []`** — matches the
+page_size)`, return **200 with `rows: []`** — matches the
    existing
    [`get.contract.md` precedent](../../../workspace/packages/contracts/datasets/get.contract.md)
    ("the filter expression is well-formed even if it matches
@@ -77,14 +77,14 @@ end-of-round Q&A if any miss:**
 - New file
   [`workspace/packages/contracts/datasets/detail-get.contract.yaml`](../../../workspace/packages/contracts/datasets/detail-get.contract.yaml).
 - OpenAPI 3.1; `operationId: getDataset`; `summary: Get a single
-  dataset by id`.
+dataset by id`.
 - Path param `id` with pattern `^ds_[0-9a-f]{8}$` (matches
   `_shared/dataset.yaml`).
 - 200 response → `$ref:
-  '../_shared/dataset.yaml#/components/schemas/Dataset'`. Same
+'../_shared/dataset.yaml#/components/schemas/Dataset'`. Same
   shape as the list-GET; no new fields.
 - 404 response → `$ref:
-  '../_shared/api-error.yaml#/components/schemas/ApiErrorNotFound'`.
+'../_shared/api-error.yaml#/components/schemas/ApiErrorNotFound'`.
 - One or two response `examples` (an Excel dataset + a CSV
   dataset) — matches the existing `get.contract.yaml` style.
 - New file `detail-get.contract.md` (rationale): purpose,
@@ -97,7 +97,7 @@ end-of-round Q&A if any miss:**
 - New file
   [`workspace/packages/contracts/datasets/rows-get.contract.yaml`](../../../workspace/packages/contracts/datasets/rows-get.contract.yaml).
 - OpenAPI 3.1; `operationId: getDatasetRows`; `summary: Get a
-  paged slice of a dataset's rows`.
+paged slice of a dataset's rows`.
 - Path param `id` with pattern `^ds_[0-9a-f]{8}$`.
 - Query params:
   - `page`: `integer`, `minimum: 1`, `default: 1`. 1-indexed.
@@ -106,7 +106,7 @@ end-of-round Q&A if any miss:**
   arrays of `[string, 'null']`), `page` (integer ≥ 1),
   `pageSize` (integer ∈ enum), `total` (integer ≥ 0).
 - 404 response → `$ref:
-  '../_shared/api-error.yaml#/components/schemas/ApiErrorNotFound'`.
+'../_shared/api-error.yaml#/components/schemas/ApiErrorNotFound'`.
 - 422 response → existing FastAPI `{ detail: [...] }` shape
   (consistent with R15 contracts which use FastAPI's default
   envelope for request-level validation). Used only for

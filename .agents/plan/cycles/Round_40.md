@@ -132,7 +132,7 @@ end-of-round Q&A:**
 - [`filters/useFiltersState.ts`](../../../workspace/apps/builder/src/features/data-management/datasets/filters/useFiltersState.ts):
   - `useFiltersState(columns)` reads / writes URL via
     `useSearchParams`; returns `{ filters, applyFilter,
-    removeFilter, clearAll }`.
+removeFilter, clearAll }`.
   - `applyFilter(predicate, { replace })` writes the
     URL (resets `?page=`).
   - `removeFilter(colIndex)` deletes one column's `f<N>_*`
@@ -141,7 +141,7 @@ end-of-round Q&A:**
     (`replace: true`).
 - [`filters/FilterPopover.tsx`](../../../workspace/apps/builder/src/features/data-management/datasets/filters/FilterPopover.tsx):
   - `<FilterPopover column={...} colIndex={...}
-    existingPredicate={...} onApply={...} onClear={...}>`
+existingPredicate={...} onApply={...} onClear={...}>`
     — renders an AntD `<Popover>` anchored to its
     children (the `<FilterTrigger>` button).
   - Internal draft state for operator + value(s) (local
@@ -163,11 +163,11 @@ end-of-round Q&A:**
     its own file).
 - [`filters/ActiveFilterChips.tsx`](../../../workspace/apps/builder/src/features/data-management/datasets/filters/ActiveFilterChips.tsx):
   - `<ActiveFilterChips filters={...} columns={...}
-    onRemove={...} onClearAll={...}>` renders a row of
+onRemove={...} onClearAll={...}>` renders a row of
     AntD `<Tag closable>` chips + "Clear all" link.
   - Hidden (`return null`) when `filters.length === 0`.
   - Chip text via `formatChipText(predicate, columns,
-    locale, t)` helper exported from this file (uses
+locale, t)` helper exported from this file (uses
     `formatCell` for value display).
 
 ### 2. Extend `types.ts`
@@ -186,7 +186,7 @@ end-of-round Q&A:**
 
 - Signature gains `filters: FilterSet | undefined`.
 - Cache key extends to `['datasets', { id }, 'rows',
-  { page, pageSize, q, filters: cacheKeyForFilters(filters) }]`.
+{ page, pageSize, q, filters: cacheKeyForFilters(filters) }]`.
   Stable string serialization so the key equality is robust
   across object identity.
 
@@ -314,8 +314,7 @@ end-of-round Q&A:**
       no-match copy for the four predicate combinations
       (q-only, filters-only, both, neither).
 - [x] Add `datasets.filters.*` keys to en.json + vi.json
-      (18 operator labels + popover/chip-row chrome
-      + four no-match copy variants).
+      (18 operator labels + popover/chip-row chrome + four no-match copy variants).
 - [x] Add 7 new tests to
       `tests/dataset-detail.test.tsx` (initial-render
       URL parse, chip rendering, q+filter URL compose,
@@ -358,7 +357,7 @@ end-of-round Q&A:**
   re-render cost matters.
 - **TypeScript discriminated-union narrowing in the
   editor.** The popover gets a `predicate: FilterPredicate
-  | undefined` from props; `dtype` narrows the union via
+| undefined` from props; `dtype` narrows the union via
   the column metadata; the editor renders the appropriate
   value input. Compile-time exhaustiveness via a `never`
   case ensures every operator branch is covered.
@@ -409,9 +408,9 @@ end-of-round Q&A:**
   - `between` → two `<SingleInput>` side-by-side in
     `<Space.Compact>`
   - no-operand ops → "No value needed" hint
-  Apply disabled when the operator requires a value and
-  any value input is empty. `Clear filter` link shown
-  only when an `existing` predicate is present.
+    Apply disabled when the operator requires a value and
+    any value input is empty. `Clear filter` link shown
+    only when an `existing` predicate is present.
 - [`filters/ActiveFilterChips.tsx`](../../../workspace/apps/builder/src/features/data-management/datasets/filters/ActiveFilterChips.tsx)
   renders `<Tag color="processing" closable>` per active
   filter + "Clear all" link. Chip text via
@@ -430,7 +429,7 @@ end-of-round Q&A:**
 - [`useDatasetRowsQuery`](../../../workspace/apps/builder/src/features/data-management/datasets/hooks.ts)
   signature gained `filters?: FilterSet`. Cache key extends
   to `['datasets', { id }, 'rows', { page, pageSize, q,
-  filters: cacheKeyForFilters(filters) }]` — stable string
+filters: cacheKeyForFilters(filters) }]` — stable string
   serialization so distinct filter sets cache
   independently and identity-only changes don't invalidate.
 - `types.ts` re-exports `FilterPredicate` / `FilterSet` /
@@ -441,16 +440,16 @@ end-of-round Q&A:**
 
 - Imports `useFiltersState`, `ActiveFilterChips`,
   `FilterPopover`. Calls `useFiltersState(dataset?.columns
-  ?? [])` unconditionally (Rules of Hooks) — the empty
+?? [])` unconditionally (Rules of Hooks) — the empty
   columns case parses to `[]`, then re-parses when the
   dataset query resolves.
 - `useDatasetRowsQuery` now receives the `filters` set;
   TanStack re-fetches when filters change.
 - Chip row inserted between the search bar and the table
   via `<ActiveFilterChips filters columns onRemove
-  onClearAll>`.
+onClearAll>`.
 - Each column header gets a `<FilterPopover column
-  colIndex existing onApply onClear>` after the dtype
+colIndex existing onApply onClear>` after the dtype
   badge. AntD `<Popover>` portals to body so the
   hand-rolled `<table>`'s `overflow: auto` doesn't clip.
 - `<DataTableBody>` gains four no-match branches:
