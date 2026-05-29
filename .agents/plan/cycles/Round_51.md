@@ -629,3 +629,20 @@ If R51 ships clean with no skill-pull triggers, R52 is the next
 queued product feature (candidates: dashboard kickoff, workspace-
 shell target collapse, sort DCBF chain) — selected at R51's
 end-of-round Q&A.
+
+## Appending to Complete rounds
+
+**Roadmap update (2026-05-29, during R52 planning)** — the
+forward slots above were refined after R51 closed; recorded here
+rather than rewritten, per [PDCA § Governance](../PDCA.md)
+(Complete rounds are append-only):
+
+- **R53 reslotted** from "close MVP query gaps" to **apply
+  `ui-design` — the R51 UI-fix** (visible "Advanced query" label +
+  explicit `[Clear]`). Rationale: R52 ships the `ui-design` skill
+  (tool); applying it to the R51 field is its own use-the-tool
+  round, separating build from use (R49/R50 → R51 pattern).
+- **Close MVP query gaps → R54** (was R53), now the first *feature*
+  round designed with `ui-design` applied at its Design gate.
+- The authoritative forward roadmap lives in
+  [`Round_52.md` § Feeds into](Round_52.md#feeds-into-round_53-apply-ui-design-the-r51-ui-fix).

@@ -47,6 +47,18 @@ Each round follows four phases:
   Softer than R23-Q1's "Preview required" so autoagent stays
   unblocked — but skipping it on a UI round is a known-defect risk.
   Log the verification (or its explicit skip + reason) in Do.
+- **Affordance check (UI-bearing rounds): run
+  [`ui-design`](../skills/ui-design/SKILL.md)** against the six
+  essential components of a design (Findability, Usability,
+  Accessibility, Credibility, Utility, Desirability), structurally.
+  **Primary use is at the Design gate** (design-spec mode, on the
+  design doc) — under DCFBI the F phase only _confirms_, so the
+  design is where UX is decided; catch affordance gaps in the spec
+  before they're faithfully built. **Backstop use is at F1/F2**
+  (fidelity mode, build vs design) — catches drift like R51's
+  unlabeled advanced-query field, where the spec was complete but
+  the build dropped the label + `[Clear]`. Log the per-facet report
+  (or its explicit skip + reason) in Do.
 - Document what worked and what didn't
 - Status: `Review`
 

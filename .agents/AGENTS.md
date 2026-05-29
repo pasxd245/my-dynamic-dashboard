@@ -42,7 +42,8 @@ check before proposing additions.
   cross-cutting; F1 timebox ≤2 working days.
 - **[Skills index](skills/README.md)** — project skills under
   [`.agents/skills/`](skills/) operationalize R47's flow:
-  `flow-selector` + `gate-walker` (primary), `research` (dependent).
+  `flow-selector` + `gate-walker` (primary); `research`,
+  `markdown-check-link`, `ui-design` (dependent).
 
 ---
 

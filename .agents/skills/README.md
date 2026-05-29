@@ -87,6 +87,25 @@ single unambiguous basename); anything else stays as a
 suggestion in the report. Invoke as an optional companion to
 `npx markdownlint-cli2` in the post-round audit.
 
+### [`ui-design`](ui-design/SKILL.md)
+
+Review a UI surface against **the six essential components of a
+design** (UX-honeycomb facets — Findability, Usability,
+Accessibility, Credibility, Utility, Desirability), grounded in
+[Ant Design's Data Entry guidance](https://ant.design/docs/spec/data-entry/).
+Two modes: **design-spec** (does the design doc *declare* the
+affordances — run at the **Design gate**, *primary/preventive*,
+because under DCFBI the F phase only confirms and the design is
+where UX is decided) and **fidelity** (does the *build* carry them
+— run at **F1/F2**, *backstop/corrective*, catching drift like
+R51's dropped label + `[Clear]`). Emits a per-facet `pass`/`gap`
+report; **verifies, does not auto-fix** (same discipline as
+`gate-walker`). Filed dependent (not primary): operates on design
+docs + components, not round files, callable by any round or task.
+Introduced by [Round_52](../plan/cycles/Round_52.md), pulled by
+R51's advanced-query field shipping unlabeled with a hidden clear
+action.
+
 ## Adding a skill
 
 1. **Pick category.** Primary if the skill enforces DCFBI/DFCFBI
