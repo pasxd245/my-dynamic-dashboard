@@ -114,16 +114,45 @@ export function AdvancedQueryInput({ columns, value, onApply, onClear }: Props) 
     onClear();
   };
 
+  const hasText = text.trim().length > 0;
+
   return (
     <div data-component="AdvancedQueryInput" style={{ marginBottom: 12 }}>
+      {/* R53 ui-design fix: a visible label makes the field
+          distinguishable from the ?q= search box (Findability), and
+          an explicit Clear is discoverable (Usability) — replacing
+          the hover-only allowClear ×. */}
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: 4,
+        }}
+      >
+        <Typography.Text
+          type="secondary"
+          style={{ fontSize: 12, fontWeight: 600 }}
+          data-component="AdvancedQueryLabel"
+        >
+          {t('datasets.advancedQuery.label')}
+        </Typography.Text>
+        {hasText ? (
+          <Typography.Link
+            onClick={onClearClick}
+            style={{ fontSize: 12 }}
+            data-component="AdvancedQueryClear"
+          >
+            {t('datasets.advancedQuery.clear')}
+          </Typography.Link>
+        ) : null}
+      </div>
       <Input
         value={text}
         onChange={(e) => onChange(e.target.value)}
         onPressEnter={onEnter}
         placeholder={t('datasets.advancedQuery.placeholder')}
         status={display.kind === 'error' ? 'error' : undefined}
-        allowClear
-        onClear={onClearClick}
         aria-label={t('datasets.advancedQuery.ariaLabel')}
         aria-invalid={display.kind === 'error' ? true : undefined}
         data-component="AdvancedQueryField"
@@ -138,8 +167,8 @@ export function AdvancedQueryInput({ columns, value, onApply, onClear }: Props) 
         ) : display.kind === 'summary' ? (
           <Typography.Text type="secondary" style={{ fontSize: 12 }} data-component="AdvancedQuerySummary">
             {t('datasets.advancedQuery.summary', {
-              groups: display.groups,
-              predicates: display.predicates,
+              groups: t('datasets.advancedQuery.summaryGroup', { count: display.groups }),
+              predicates: t('datasets.advancedQuery.summaryPredicate', { count: display.predicates }),
             })}
           </Typography.Text>
         ) : (

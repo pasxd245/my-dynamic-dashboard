@@ -212,6 +212,16 @@ in increasing specificity: free-text find (`?q=`) → typed query
 (`aq`) → discoverable per-column chips (`f<N>_*`). All three
 AND-compose (§ Composition).
 
+> **R53 implementation note.** The "Advanced query" label is
+> realized as a **header row** above the input (AntD label-above
+> for readability) with `[Clear]` as a text link on its right —
+> the `┌─ Advanced query ─┐` boxes below are *illustrative of the
+> labeled region*, not a literal drawn border. The affordances the
+> spec requires (a visible label distinguishing the field from the
+> `?q=` box; a discoverable clear) are what bind; the exact chrome
+> is the build's call. Verified by `ui-design` fidelity mode in
+> [Round_53](../../plan/cycles/Round_53.md).
+
 ### Idle / empty state
 
 ```text

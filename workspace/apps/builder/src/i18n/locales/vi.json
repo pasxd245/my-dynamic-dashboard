@@ -184,11 +184,17 @@
       }
     },
     "advancedQuery": {
+      "label": "Truy vấn nâng cao",
+      "clear": "Xóa",
       "placeholder": "ví dụ: stage:won AND amount:>10000",
       "hint": "Nhập các điều kiện key:value nối bằng AND / OR.",
       "ariaLabel": "Truy vấn nâng cao",
       "errorAt": "Vị trí {{position}}:",
-      "summary": "✓ {{groups}} nhóm · {{predicates}} điều kiện",
+      "summaryGroup_one": "{{count}} nhóm",
+      "summaryGroup_other": "{{count}} nhóm",
+      "summaryPredicate_one": "{{count}} điều kiện",
+      "summaryPredicate_other": "{{count}} điều kiện",
+      "summary": "✓ {{groups}} · {{predicates}}",
       "error": {
         "missing_colon": "Cần một điều kiện \"key:value\", gặp \"{{value}}\"",
         "missing_column_name": "Thiếu tên cột trước dấu \":\"",

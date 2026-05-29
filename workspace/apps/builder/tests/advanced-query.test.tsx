@@ -121,6 +121,51 @@ describe('AdvancedQueryInput — states (criteria 8–11)', () => {
   });
 });
 
+describe('R53 ui-design fix — label + explicit Clear', () => {
+  it('renders a visible "Advanced query" label distinguishing it from the search box', async () => {
+    const { container } = renderApp(`/data-management/datasets/${DS_ID}`);
+    await screen.findByText('D-0001');
+    // Visible label (not just the input's aria-label).
+    expect(container.querySelector('[data-component="AdvancedQueryLabel"]')).toHaveTextContent(
+      'Advanced query',
+    );
+  });
+
+  it('hides the explicit Clear until a query is active', async () => {
+    const { container } = renderApp(`/data-management/datasets/${DS_ID}`);
+    await screen.findByText('D-0001');
+    expect(container.querySelector('[data-component="AdvancedQueryClear"]')).toBeNull();
+  });
+
+  it('readback uses correct singular/plural — no literal "(s)"', async () => {
+    const { container } = renderApp(aqPath(WON)); // 1 group, 1 predicate
+    await screen.findByText('D-0001');
+    const summary = container.querySelector('[data-component="AdvancedQuerySummary"]');
+    expect(summary).toHaveTextContent('1 group · 1 predicate');
+    expect(summary?.textContent).not.toContain('(s)');
+  });
+
+  it('readback pluralizes for multiple groups/predicates', async () => {
+    const { container } = renderApp(aqPath(WON_OR_LOST)); // 2 groups, 2 predicates
+    await screen.findByText('D-0001');
+    const summary = container.querySelector('[data-component="AdvancedQuerySummary"]');
+    expect(summary).toHaveTextContent('2 groups · 2 predicates');
+  });
+
+  it('the explicit Clear control is discoverable and removes ?aq=', async () => {
+    const { container } = renderApp(aqPath(WON));
+    expect(await screen.findByText('D-0001')).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByText('D-0002')).not.toBeInTheDocument());
+    const clear = container.querySelector('[data-component="AdvancedQueryClear"]') as HTMLElement;
+    expect(clear).not.toBeNull();
+    expect(clear).toHaveTextContent('Clear');
+    fireEvent.click(clear);
+    // aq removed → all rows restored.
+    expect(await screen.findByText('D-0002')).toBeInTheDocument();
+    expect(screen.getByText(/Matched 8 \/ 8/)).toBeInTheDocument();
+  });
+});
+
 describe('Integration — chip + advanced + ?q= three-way composition (criterion 17)', () => {
   it('all three surfaces active simultaneously intersect to the right rows, no thrash', async () => {
     // chip: amount > 10000 → {D-0001, D-0003, D-0005, D-0007}

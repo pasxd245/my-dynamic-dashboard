@@ -184,11 +184,17 @@
       }
     },
     "advancedQuery": {
+      "label": "Advanced query",
+      "clear": "Clear",
       "placeholder": "e.g. stage:won AND amount:>10000",
       "hint": "Type key:value predicates joined by AND / OR.",
       "ariaLabel": "Advanced query",
       "errorAt": "Position {{position}}:",
-      "summary": "✓ {{groups}} group(s) · {{predicates}} predicate(s)",
+      "summaryGroup_one": "{{count}} group",
+      "summaryGroup_other": "{{count}} groups",
+      "summaryPredicate_one": "{{count}} predicate",
+      "summaryPredicate_other": "{{count}} predicates",
+      "summary": "✓ {{groups}} · {{predicates}}",
       "error": {
         "missing_colon": "Expected a \"key:value\" predicate, found \"{{value}}\"",
         "missing_column_name": "Missing a column name before \":\"",

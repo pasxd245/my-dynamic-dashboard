@@ -596,10 +596,12 @@ def test_aq_and_within_group() -> None:
         resp = _aq(
             client,
             ds_id,
-            [[
-                {"col": 0, "dtype": "integer", "op": "gt", "val": 0},
-                {"col": 1, "dtype": "string", "op": "equals", "val": "Alice"},
-            ]],
+            [
+                [
+                    {"col": 0, "dtype": "integer", "op": "gt", "val": 0},
+                    {"col": 1, "dtype": "string", "op": "equals", "val": "Alice"},
+                ]
+            ],
         )
 
     assert resp.status_code == 200
