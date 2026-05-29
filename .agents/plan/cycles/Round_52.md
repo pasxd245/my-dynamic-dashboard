@@ -36,10 +36,25 @@ system-building, gated by the
 it checks fidelity and cites gaps, exactly as `gate-walker` checks
 citations without judging truth.
 
+**Basis**: the checklist is grounded in **the six essential
+components of a design** (the UX-honeycomb facets — *Usability,
+Utility, Desirability, Accessibility, Credibility, Findability*),
+made *structural* and paired with **Ant Design's concrete Data
+Entry / Form guidance** (label-over-placeholder, label placement,
+helper-text/tooltip, "don't make users guess"). The honeycomb
+gives the *what to evaluate*; AntD gives the *how, in this stack*.
+References: [AntD Data Entry spec](https://ant.design/docs/spec/data-entry/),
+[AntD Form](https://ant.design/components/form/),
+[Figma UI design principles](https://www.figma.com/resource-library/ui-design-principles/).
+
 Its **first run** fixes the surface that pulled it: R51's
 `AdvancedQueryInput` gains the label + explicit `[Clear]` its
 design doc already specified — a worked example proving the skill
-catches a real gap, not theater.
+catches a real gap, not theater. Against the six facets, that
+field fails **Findability** (no visible label; indistinguishable
+from the `?q=` box) and **Usability** (clear action hover-only),
+while its `aria-label` already passes the accessible-name half of
+**Accessibility**.
 
 *Track: 2 (agent-method, tooling). Pulled by: R51 end-of-round
 brainstorm — the advanced-query field shipped label-less with a
@@ -62,22 +77,33 @@ end-of-round Q&A.**
     non-UI rounds and when the surface has no design doc to check
     against.
   - **Procedure** — read the round's design artifact + the built
-    component(s); for each interactive surface, evaluate a fixed
-    **structural affordance checklist** and cite, per item,
-    `pass` / `gap` + a one-line pointer (design-doc line or
-    component line):
-    1. **Visible label / accessible name** — not placeholder-only
-       (placeholders vanish on input).
-    2. **Distinguishable from siblings** — a control isn't
-       visually identical to an adjacent different-purpose control.
-    3. **Discoverable clear / destructive action** — not
-       hover-only or keyboard-only; matches what the design doc
-       declared.
-    4. **All design-declared states rendered** —
-       empty/typing/parsed/errored/loading per the doc's state
-       model.
-    5. **Keyboard-reachable + labeled for a11y** —
-       `aria-label`/role present.
+    component(s); for each interactive surface, evaluate the
+    **six essential components of a design** (UX-honeycomb facets)
+    as *structural* checks grounded in AntD's Data Entry guidance,
+    citing `pass` / `gap` + a one-line pointer (design-doc line or
+    component line) per facet:
+    1. **Findability** — the control is labeled and
+       distinguishable from sibling controls (not placeholder-only
+       — placeholders vanish on input; not visually identical to
+       an adjacent different-purpose control). *AntD: provide a
+       real label, not just a placeholder.*
+    2. **Usability** — primary + clear/reset/undo actions are
+       discoverable (not hover-only / keyboard-only); errors are
+       recoverable and don't destroy the user's input.
+    3. **Accessibility** — visible label *and* accessible name
+       (`aria-label` / role), keyboard-reachable, not signalled by
+       colour alone, contrast meets the token spec.
+    4. **Credibility** — every design-declared state is rendered
+       (empty / loading / error / …); no dead ends or misleading
+       affordances; consistent with sibling components.
+    5. **Utility** — the surface implements the design doc's
+       stated journey / acceptance criteria (the job it exists to
+       do); overlaps `gate-walker`'s Design gate by design.
+    6. **Desirability** — uses the design-token system (no inline
+       ad-hoc values) and matches the doc's token / visual spec.
+    Each facet is checked **structurally** — a *declared*
+    affordance is present and design-doc-faithful — never as a
+    taste call.
   - **Design-fidelity diff** — explicitly flag where the built
     component *drifts from* the design doc's declared affordances
     (R51's missing label + `[Clear]` is the canonical example).
@@ -139,12 +165,14 @@ clause). Each step verified by tests / lints, not Hard Gates.
 
 - [ ] **Author the skill** — write
       `.agents/skills/ui-design/SKILL.md` with the trigger,
-      procedure, the 5-item structural affordance checklist, the
-      design-fidelity-diff step, the inline report format, and the
-      structural-only quality bar. Mirror the
-      `gate-walker` / `markdown-check-link` SKILL conventions
-      (frontmatter, `allowed-tools: Read, Grep, Bash(grep *)`,
-      when-not-to-run, quality bar).
+      procedure, the **six-facet structural checklist**
+      (UX-honeycomb × AntD Data Entry), the design-fidelity-diff
+      step, the inline report format, and the structural-only
+      quality bar. Mirror the `gate-walker` / `markdown-check-link`
+      SKILL conventions (frontmatter,
+      `allowed-tools: Read, Grep, Bash(grep *)`, when-not-to-run,
+      quality bar). Cite the AntD + Figma references in the skill
+      body so the basis is auditable.
 - [ ] **Wire into the flow** — `skills/README.md` primary-skill
       entry; `AGENTS.md` skills horizon line; `PDCA.md` F1/F2-gate
       audit line. Keep the load-bearing AGENTS.md horizons link
@@ -169,10 +197,16 @@ clause). Each step verified by tests / lints, not Hard Gates.
 
 - **Subjectivity creep.** "Good UX" is taste; a skill that judges
   taste collapses into noise. Mitigate exactly as `gate-walker`
-  does: the checklist is **structural** — it verifies a *declared*
-  affordance is *present and cited* (or drifted from the design
-  doc), never "is it beautiful." A gap must be objective (no
-  label; clear action hover-only; a declared state not rendered).
+  does: each of the six facets is verified **structurally** — a
+  *declared* affordance is *present and cited* (or drifted from
+  the design doc), never "is it beautiful." A gap must be
+  objective (no label; clear action hover-only; a declared state
+  not rendered). The two taste-prone facets are bounded hard:
+  **Desirability** = "uses the token system + matches the doc's
+  visual spec" (not aesthetic judgment); **Credibility** = "all
+  declared states present, no misleading affordance" (not
+  brand-feel). If a facet can't be reduced to a checkable
+  assertion for a given surface, it is marked `n/a`, not guessed.
 - **Over-mechanization temptation.** The pull might tempt a static
   analyzer or a screenshot harness. v1 stays a **procedure skill**
   (Read/Grep, inline report) — no script, no new dependency, no
