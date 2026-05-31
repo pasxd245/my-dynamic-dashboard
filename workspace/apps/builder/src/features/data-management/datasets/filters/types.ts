@@ -43,11 +43,11 @@ export type Operator =
  * BE evaluates `IS NULL` for all dtypes).
  */
 export type FilterPredicate =
-  | { col: number; dtype: 'string'; op: 'contains' | 'equals' | 'starts_with' | 'ends_with'; val: string }
+  | { col: number; dtype: 'string'; op: 'contains' | 'equals' | 'ne' | 'starts_with' | 'ends_with'; val: string }
   | { col: number; dtype: 'string'; op: 'is_empty' | 'is_not_empty' }
   | { col: number; dtype: 'integer' | 'float'; op: 'equals' | 'ne' | 'gt' | 'lt' | 'gte' | 'lte'; val: number }
   | { col: number; dtype: 'integer' | 'float'; op: 'between'; min: number; max: number }
-  | { col: number; dtype: 'date' | 'datetime'; op: 'equals' | 'ne' | 'before' | 'after'; val: string }
+  | { col: number; dtype: 'date' | 'datetime'; op: 'equals' | 'ne' | 'before' | 'after' | 'gte' | 'lte'; val: string }
   | { col: number; dtype: 'date' | 'datetime'; op: 'between'; min: string; max: string }
   | { col: number; dtype: 'boolean'; op: 'is_true' | 'is_false' }
   | { col: number; dtype: Dtype; op: 'is_null' | 'is_not_null' };
@@ -61,6 +61,7 @@ export const OPS_BY_DTYPE: Readonly<Record<Dtype, readonly Operator[]>> = {
   string: [
     'contains',
     'equals',
+    'ne',
     'starts_with',
     'ends_with',
     'is_empty',
@@ -70,8 +71,8 @@ export const OPS_BY_DTYPE: Readonly<Record<Dtype, readonly Operator[]>> = {
   ],
   integer: ['equals', 'ne', 'gt', 'lt', 'gte', 'lte', 'between', 'is_null', 'is_not_null'],
   float: ['equals', 'ne', 'gt', 'lt', 'gte', 'lte', 'between', 'is_null', 'is_not_null'],
-  date: ['equals', 'ne', 'before', 'after', 'between', 'is_null', 'is_not_null'],
-  datetime: ['equals', 'ne', 'before', 'after', 'between', 'is_null', 'is_not_null'],
+  date: ['equals', 'ne', 'before', 'after', 'gte', 'lte', 'between', 'is_null', 'is_not_null'],
+  datetime: ['equals', 'ne', 'before', 'after', 'gte', 'lte', 'between', 'is_null', 'is_not_null'],
   boolean: ['is_true', 'is_false', 'is_null', 'is_not_null'],
 };
 

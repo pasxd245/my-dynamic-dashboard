@@ -257,6 +257,7 @@ describe("DatasetDetailPage", () => {
     expect(OPS_BY_DTYPE.string).toEqual([
       "contains",
       "equals",
+      "ne", // R55
       "starts_with",
       "ends_with",
       "is_empty",
@@ -281,6 +282,8 @@ describe("DatasetDetailPage", () => {
       "ne",
       "before",
       "after",
+      "gte", // R55: inclusive date bounds
+      "lte", // R55
       "between",
       "is_null",
       "is_not_null",

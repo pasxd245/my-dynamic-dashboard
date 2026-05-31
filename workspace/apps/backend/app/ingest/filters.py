@@ -54,6 +54,7 @@ OPS_BY_DTYPE: dict[str, frozenset[str]] = {
         {
             "contains",
             "equals",
+            "ne",  # R55: string not-equals
             "starts_with",
             "ends_with",
             "is_empty",
@@ -64,8 +65,9 @@ OPS_BY_DTYPE: dict[str, frozenset[str]] = {
     ),
     "integer": frozenset({"equals", "ne", "gt", "lt", "gte", "lte", "between", "is_null", "is_not_null"}),
     "float": frozenset({"equals", "ne", "gt", "lt", "gte", "lte", "between", "is_null", "is_not_null"}),
-    "date": frozenset({"equals", "ne", "before", "after", "between", "is_null", "is_not_null"}),
-    "datetime": frozenset({"equals", "ne", "before", "after", "between", "is_null", "is_not_null"}),
+    # R55: gte/lte are inclusive date bounds, reusing the numeric ops.
+    "date": frozenset({"equals", "ne", "before", "after", "gte", "lte", "between", "is_null", "is_not_null"}),
+    "datetime": frozenset({"equals", "ne", "before", "after", "gte", "lte", "between", "is_null", "is_not_null"}),
     "boolean": frozenset({"is_true", "is_false", "is_null", "is_not_null"}),
 }
 
@@ -357,6 +359,8 @@ def _predicate_sql(p: FilterPredicate) -> tuple[str, list[Any]]:
             return f"lower({col}) LIKE lower(?)", [f"%{p.val}%"]
         if op == "equals":
             return f"lower({col}) = lower(?)", [p.val]
+        if op == "ne":  # R55: case-insensitive, mirrors string `equals`
+            return f"lower({col}) != lower(?)", [p.val]
         if op == "starts_with":
             return f"lower({col}) LIKE lower(?)", [f"{p.val}%"]
         if op == "ends_with":

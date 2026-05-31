@@ -314,6 +314,49 @@ def test_rows_filter_date_between() -> None:
     assert body["rows"][0][1] == "Bob"
 
 
+# ─── R55: string `ne` + inclusive date bounds (gte/lte) ─────────────
+
+
+@pytest.mark.unit
+def test_rows_filter_string_ne_case_insensitive() -> None:
+    """R55: `name != alice` excludes Alice (case-insensitively) → Bob, Carol."""
+    with TestClient(app) as client:
+        _ws, ds_id = _commit_csv(client)
+        resp = client.get(f"/datasets/{ds_id}/rows?f1_op=ne&f1_val=alice")
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["total"] == 2
+    assert sorted(r[1] for r in body["rows"]) == ["Bob", "Carol"]
+
+
+@pytest.mark.unit
+def test_rows_filter_date_gte_is_inclusive() -> None:
+    """R55: `signed_up >= 2024-02-03` includes Bob (the boundary) + Carol —
+    unlike `after`, which would exclude Bob."""
+    with TestClient(app) as client:
+        _ws, ds_id = _commit_csv(client)
+        resp = client.get(f"/datasets/{ds_id}/rows?f3_op=gte&f3_val=2024-02-03")
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["total"] == 2
+    assert sorted(r[1] for r in body["rows"]) == ["Bob", "Carol"]
+
+
+@pytest.mark.unit
+def test_rows_filter_date_lte_is_inclusive() -> None:
+    """R55: `signed_up <= 2024-02-03` includes Alice + Bob (the boundary)."""
+    with TestClient(app) as client:
+        _ws, ds_id = _commit_csv(client)
+        resp = client.get(f"/datasets/{ds_id}/rows?f3_op=lte&f3_val=2024-02-03")
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["total"] == 2
+    assert sorted(r[1] for r in body["rows"]) == ["Alice", "Bob"]
+
+
 @pytest.mark.unit
 def test_rows_filter_string_is_not_null() -> None:
     """All 3 sample rows have non-null name."""
@@ -490,6 +533,7 @@ def test_filters_ops_by_dtype_matches_r37_vocabulary() -> None:
         {
             "contains",
             "equals",
+            "ne",  # R55
             "starts_with",
             "ends_with",
             "is_empty",
@@ -518,6 +562,8 @@ def test_filters_ops_by_dtype_matches_r37_vocabulary() -> None:
             "ne",
             "before",
             "after",
+            "gte",  # R55: inclusive date bounds
+            "lte",  # R55
             "between",
             "is_null",
             "is_not_null",
@@ -654,6 +700,32 @@ def test_aq_composes_with_chip_and_q_three_way() -> None:
     body = resp.json()
     assert body["total"] == 1
     assert body["rows"][0][1] == "Carol"
+
+
+@pytest.mark.unit
+def test_aq_r55_string_ne_and_inclusive_date_bound() -> None:
+    """R55 integration: `name != Alice AND signed_up >= 2024-02-03` →
+    Bob + Carol. Exercises the new string-`ne` SQL branch and the
+    reused date `gte` op through the `aq` transport, validated against
+    the rows-get contract."""
+    with TestClient(app) as client:
+        _ws, ds_id = _commit_csv(client)
+        resp = _aq(
+            client,
+            ds_id,
+            [
+                [
+                    {"col": 1, "dtype": "string", "op": "ne", "val": "Alice"},
+                    {"col": 3, "dtype": "date", "op": "gte", "val": "2024-02-03"},
+                ]
+            ],
+        )
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["total"] == 2
+    assert sorted(r[1] for r in body["rows"]) == ["Bob", "Carol"]
+    validate_response("datasets/rows-get.contract.yaml", 200, body)
 
 
 @pytest.mark.unit

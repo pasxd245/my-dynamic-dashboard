@@ -165,7 +165,7 @@
       "op": {
         "contains": "contains",
         "equals": "equals",
-        "ne": "≠",
+        "ne": "not equals",
         "gt": ">",
         "lt": "<",
         "gte": "≥",

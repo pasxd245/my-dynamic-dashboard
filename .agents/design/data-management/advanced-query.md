@@ -163,31 +163,31 @@ combination with no existing predicate is a **semantic error**
 | `~`      | contains        | `contains` | — error             | — error             | — error                  |
 | `>`      | greater / after | — error    | `gt`                | `after`             | — error                  |
 | `<`      | less / before   | — error    | `lt`                | `before`            | — error                  |
-| `>=`     | at least        | — error    | `gte`               | — error ²           | — error                  |
-| `<=`     | at most         | — error    | `lte`               | — error ²           | — error                  |
-| `!=`     | not equal       | — error ³  | `ne`                | `ne`                | — error                  |
+| `>=`     | at least        | — error    | `gte`               | `gte` ²             | — error                  |
+| `<=`     | at most         | — error    | `lte`               | `lte` ²             | — error                  |
+| `!=`     | not equal       | `ne` ³     | `ne`                | `ne`                | — error                  |
 
 ¹ A boolean atom's operand must be `true` or `false`
 (case-insensitive) → `is_true` / `is_false`. Any other operand on
 a boolean column is a value error.
 
-² **Known gap (documented, not a bug)**: the R37 predicate
-vocabulary has no inclusive date bound — `date`/`datetime` columns
-offer only `before` / `after` / `equals` / `ne` / `between`. So
-`won_at:>=2026-01-01` (which the round's framing names as an
-example) has **no existing operator to map to**. The MVP rejects
-it with a clear message pointing at `>`/`<`, and `won_at:>2025-12-31`
-expresses the same intent. Closing the gap means adding
-`on_or_after` / `on_or_before` to the _shared_ predicate
-vocabulary (FE types, BE `OPS_BY_DTYPE`, MSW, the chip date
-editor, and dataset-filters.md) — a cross-cutting vocabulary
-expansion that belongs to its own round, not this one. Recorded as
-a follow-up pull in [Round_51 § Act](../../plan/cycles/Round_51.md).
+² **Closed in [Round_55](../../plan/cycles/Round_55.md)** (was a
+documented MVP gap). Inclusive date bounds now map onto the
+**existing** `gte` / `lte` operators — `date`/`datetime` reuse the
+same predicate the numeric branch uses, rather than minting
+`on_or_after` / `on_or_before`. The BE `_predicate_sql` already
+emits `>=` / `<=` for `gte`/`lte` via the shared CAST branch, so
+the change was a one-line `OPS_BY_DTYPE` addition each side (FE +
+BE) plus the parser prefix map. `won_at:>=2026-01-01` is now valid;
+`won_at:>2025-12-31` remains an equivalent way to express it.
 
-³ The R37 vocabulary has no `ne` for `string` (string ops are
-`contains` / `equals` / `starts_with` / `ends_with` + empty/null).
-`stage:!=won` is therefore a semantic error in the MVP; the same
-gap-closing note as ² applies if demand surfaces.
+³ **Closed in [Round_55](../../plan/cycles/Round_55.md)** (was a
+documented MVP gap). `ne` is now in the `string` vocabulary, so
+`stage:!=won` is valid; the BE adds a case-insensitive
+`lower(col) != lower(?)` branch (matching the `equals`/`contains`
+string semantics). R55 also re-words the `ne` **label** from the
+glyph `≠` to "not equals" / "khác" (vi), restoring symmetry with
+`equals` ("equals" / "bằng") across every dtype that offers it.
 
 **Operand-less operators** (`is_null`, `is_not_null`, `is_empty`,
 `is_not_empty`) and the **range operator** (`between`) are **out of
@@ -616,9 +616,11 @@ groups } | { ok: false, message, position }`.
 - **Parentheses / nested grouping** — single-level DNF only.
   Promote when the flat AND/OR surfaces real ambiguity users hit.
 - **Negation** (`NOT` / leading `-`).
-- **Inclusive date bounds** (`>=` / `<=` on date/datetime) and
-  **string `!=`** — require expanding the _shared_ predicate
-  vocabulary (§ Operator-prefix mapping notes ² and ³); own round.
+- ~~**Inclusive date bounds** (`>=` / `<=` on date/datetime) and
+  **string `!=`**~~ — **shipped in
+  [Round_55](../../plan/cycles/Round_55.md)** by reusing `gte` /
+  `lte` for dates and adding `ne` to the string vocabulary (see
+  § Operator-prefix mapping notes ² and ³).
 - **Operand-less ops in the grammar** (`is_null`, `is_empty`, …)
   and **`between` surface syntax** — available via the chip row;
   no `key:value` form in the MVP.

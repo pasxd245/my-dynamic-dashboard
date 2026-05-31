@@ -165,7 +165,7 @@
       "op": {
         "contains": "chứa",
         "equals": "bằng",
-        "ne": "≠",
+        "ne": "khác",
         "gt": ">",
         "lt": "<",
         "gte": "≥",

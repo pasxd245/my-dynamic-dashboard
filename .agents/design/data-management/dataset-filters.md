@@ -170,8 +170,8 @@ Excel · Sheet1 — 2,481 rows · 12 columns · 84 KB · Uploaded 14:02 today  �
 ```
 
 - Operator dropdown options for `string` dtype: `contains`
-  (default), `equals`, `starts with`, `ends with`, `is empty`,
-  `is not empty`.
+  (default), `equals`, `not equals` (R55), `starts with`,
+  `ends with`, `is empty`, `is not empty`.
 - `is empty` / `is not empty` hide the value input.
 - `Clear filter` removes the filter for this column entirely
   (writes the URL without the `f<N>_*` params, closes the
@@ -198,8 +198,8 @@ Excel · Sheet1 — 2,481 rows · 12 columns · 84 KB · Uploaded 14:02 today  �
 ```
 
 - Operator dropdown options for `integer` / `float` dtypes:
-  `equals`, `≠`, `>`, `<`, `≥`, `≤`, `between`, `is null`, `is
-not null`.
+  `equals`, `not equals`, `>`, `<`, `≥`, `≤`, `between`, `is
+null`, `is not null`.
 - `between` shows two number inputs (From / To); the value-shape
   comment below the inputs reminds the user the range is
   inclusive on both ends.
@@ -224,7 +224,8 @@ not null`.
 ```
 
 - Operator dropdown for `date` / `datetime` dtypes: `equals`,
-  `≠`, `before`, `after`, `between`, `is null`, `is not null`.
+  `not equals`, `before`, `after`, `≥`, `≤` (R55, inclusive),
+  `between`, `is null`, `is not null`.
 - Inputs use AntD `<DatePicker>` (already in the bundle from the
   R17 wizard parse-options panel). For `datetime` columns the
   picker includes a time component; for `date` columns it's
@@ -611,6 +612,7 @@ operator-set spec below.
 | --------------- | ------------------ | ----------------------------- | ------------------- | ------------------------------------------------ |
 | string          | contains           | `contains`                    | string              | `WHERE col ILIKE '%val%'`                        |
 | string          | equals             | `equals`                      | string              | `WHERE col = 'val'` (case-insensitive collation) |
+| string          | not equals         | `ne`                          | string              | `WHERE lower(col) <> lower('val')` (R55)         |
 | string          | starts with        | `starts_with`                 | string              | `WHERE col ILIKE 'val%'`                         |
 | string          | ends with          | `ends_with`                   | string              | `WHERE col ILIKE '%val'`                         |
 | string          | is empty           | `is_empty`                    | —                   | `WHERE col = '' OR col IS NULL`                  |
@@ -618,7 +620,7 @@ operator-set spec below.
 | string          | is null            | `is_null`                     | —                   | `WHERE col IS NULL`                              |
 | string          | is not null        | `is_not_null`                 | —                   | `WHERE col IS NOT NULL`                          |
 | integer / float | equals             | `equals`                      | number              | `WHERE col = val`                                |
-| integer / float | ≠                  | `ne`                          | number              | `WHERE col <> val`                               |
+| integer / float | not equals         | `ne`                          | number              | `WHERE col <> val`                               |
 | integer / float | >                  | `gt`                          | number              | `WHERE col > val`                                |
 | integer / float | <                  | `lt`                          | number              | `WHERE col < val`                                |
 | integer / float | ≥                  | `gte`                         | number              | `WHERE col >= val`                               |
@@ -627,9 +629,11 @@ operator-set spec below.
 | integer / float | is null            | `is_null`                     | —                   | `WHERE col IS NULL`                              |
 | integer / float | is not null        | `is_not_null`                 | —                   | `WHERE col IS NOT NULL`                          |
 | date / datetime | equals             | `equals`                      | ISO date / datetime | `WHERE col = 'val'::DATE` (or TIMESTAMP)         |
-| date / datetime | ≠                  | `ne`                          | ISO date / datetime | `WHERE col <> 'val'::DATE`                       |
+| date / datetime | not equals         | `ne`                          | ISO date / datetime | `WHERE col <> 'val'::DATE`                       |
 | date / datetime | before             | `before`                      | ISO date / datetime | `WHERE col < 'val'::DATE`                        |
 | date / datetime | after              | `after`                       | ISO date / datetime | `WHERE col > 'val'::DATE`                        |
+| date / datetime | ≥                  | `gte`                         | ISO date / datetime | `WHERE col >= 'val'::DATE` (R55, inclusive)      |
+| date / datetime | ≤                  | `lte`                         | ISO date / datetime | `WHERE col <= 'val'::DATE` (R55, inclusive)      |
 | date / datetime | between            | `between`                     | min, max (ISO)      | `WHERE col BETWEEN 'min' AND 'max'`              |
 | date / datetime | is null            | `is_null`                     | —                   | `WHERE col IS NULL`                              |
 | date / datetime | is not null        | `is_not_null`                 | —                   | `WHERE col IS NOT NULL`                          |

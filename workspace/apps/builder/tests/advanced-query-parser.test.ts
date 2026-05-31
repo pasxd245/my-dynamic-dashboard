@@ -101,6 +101,28 @@ describe('parseAdvancedQuery — happy paths (criteria 1–5)', () => {
     ]);
   });
 
+  it('R55: string != → ne (case-insensitive on the BE)', () => {
+    expect(ok('stage:!=won')).toEqual([[{ col: 3, dtype: 'string', op: 'ne', val: 'won' }]]);
+    // unicode ≠ alias works for strings too
+    expect(ok('stage:≠won')).toEqual([[{ col: 3, dtype: 'string', op: 'ne', val: 'won' }]]);
+  });
+
+  it('R55: inclusive date bounds >= / <= → gte / lte (reuse numeric ops)', () => {
+    expect(ok('won_at:>=2026-01-01')).toEqual([
+      [{ col: 2, dtype: 'date', op: 'gte', val: '2026-01-01' }],
+    ]);
+    expect(ok('won_at:<=2026-12-31')).toEqual([
+      [{ col: 2, dtype: 'date', op: 'lte', val: '2026-12-31' }],
+    ]);
+    // unicode ≥ / ≤ aliases work for dates now that the op exists
+    expect(ok('won_at:≥2026-01-01')).toEqual([
+      [{ col: 2, dtype: 'date', op: 'gte', val: '2026-01-01' }],
+    ]);
+    expect(ok('won_at:≤2026-12-31')).toEqual([
+      [{ col: 2, dtype: 'date', op: 'lte', val: '2026-12-31' }],
+    ]);
+  });
+
   it('C5: quoted operand with spaces', () => {
     expect(ok('stage:"closed won"')).toEqual([
       [{ col: 3, dtype: 'string', op: 'equals', val: 'closed won' }],
@@ -132,12 +154,10 @@ describe('parseAdvancedQuery — error paths (criterion 6)', () => {
     expect(fail('stage:>1').code).toBe('unsupported_operator');
   });
 
-  it('unsupported (prefix, dtype): date >= (documented gap)', () => {
-    expect(fail('won_at:>=2026-01-01').code).toBe('unsupported_operator');
-  });
-
-  it('unsupported (prefix, dtype): string != (documented gap)', () => {
-    expect(fail('stage:!=won').code).toBe('unsupported_operator');
+  it('unsupported (prefix, dtype): string ~ on a date column', () => {
+    // ~ (contains) remains string-only — a still-valid unsupported case
+    // now that R55 has closed the string-!= and date->=/<= gaps.
+    expect(fail('won_at:~2026').code).toBe('unsupported_operator');
   });
 
   it('non-numeric value on numeric column', () => {

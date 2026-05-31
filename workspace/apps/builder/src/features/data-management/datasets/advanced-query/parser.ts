@@ -102,8 +102,8 @@ export const PREFIXES = ['>=', '<=', '!=', '>', '<', '~'] as const;
 export type Prefix = (typeof PREFIXES)[number] | '';
 
 type NumericOp = 'equals' | 'ne' | 'gt' | 'lt' | 'gte' | 'lte';
-type StringOp = 'equals' | 'contains';
-type DateOp = 'equals' | 'ne' | 'before' | 'after';
+type StringOp = 'equals' | 'contains' | 'ne';
+type DateOp = 'equals' | 'ne' | 'before' | 'after' | 'gte' | 'lte';
 
 // Exported so the `?` help popover (AdvancedQueryHelp) renders the
 // operator reference from the SAME live maps the parser uses — a
@@ -121,7 +121,7 @@ export const NUMERIC_OP_BY_PREFIX: Readonly<Record<Prefix, NumericOp | undefined
 export const STRING_OP_BY_PREFIX: Readonly<Record<Prefix, StringOp | undefined>> = {
   '': 'equals',
   '~': 'contains',
-  '!=': undefined,
+  '!=': 'ne', // R55: string not-equals (case-insensitive on the BE)
   '>': undefined,
   '<': undefined,
   '>=': undefined,
@@ -134,8 +134,8 @@ export const DATE_OP_BY_PREFIX: Readonly<Record<Prefix, DateOp | undefined>> = {
   '>': 'after',
   '<': 'before',
   '~': undefined,
-  '>=': undefined, // documented gap — no inclusive date bound in the vocabulary
-  '<=': undefined,
+  '>=': 'gte', // R55: inclusive date bound, reuses the numeric `gte`/`lte`
+  '<=': 'lte',
 };
 
 // ─── Value validation per dtype ─────────────────────────────────────

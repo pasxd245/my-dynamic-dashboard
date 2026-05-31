@@ -77,7 +77,7 @@ function buildPredicate(
     const raw = draft.val;
     if (raw.length === 0) return undefined;
     if (column.dtype === 'string') {
-      if (op === 'contains' || op === 'equals' || op === 'starts_with' || op === 'ends_with') {
+      if (op === 'contains' || op === 'equals' || op === 'ne' || op === 'starts_with' || op === 'ends_with') {
         return { col: colIndex, dtype: 'string', op, val: raw };
       }
       return undefined;
@@ -91,7 +91,7 @@ function buildPredicate(
       return undefined;
     }
     if (column.dtype === 'date' || column.dtype === 'datetime') {
-      if (op === 'equals' || op === 'ne' || op === 'before' || op === 'after') {
+      if (op === 'equals' || op === 'ne' || op === 'before' || op === 'after' || op === 'gte' || op === 'lte') {
         return { col: colIndex, dtype: column.dtype, op, val: raw };
       }
       return undefined;
