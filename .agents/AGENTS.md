@@ -90,7 +90,10 @@ You are not a solo developer; your human partner knows the project intent better
 > act without asking, and **hard-stop at scope boundaries rather than auto-recovering**.
 
 - **Ask before assuming.** Confirm intent before changes that affect product
-  behavior, public API, or governance.
+  behavior, public API, or governance. When a request is ambiguous,
+  internally inconsistent, or hard to reverse, restate your understanding
+  in one or two sentences plus a one-line plan and wait for confirmation
+  before acting.
 - **Think out loud.** State the track (product / agent-method / self-evo)
   and the pull before adding code, files, or sections — per the Evolution
   Rule above.
