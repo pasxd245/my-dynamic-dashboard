@@ -100,3 +100,6 @@ sub-section before being archived.
 - [2026-05-27 — Categorization proposal test](2026-05-27-categorization-proposal-test.md) —
   Before adding a new field/enum/taxonomy, show which existing
   field's job it replaces and why that field is insufficient.
+- [2026-06-01 — Memory-consolidation deferral](2026-06-01-memory-consolidation-deferral.md) —
+  No automated memory-consolidation ("Dreaming") pipeline before R99;
+  per-write dedup + weekly manual review suffice until they don't.
