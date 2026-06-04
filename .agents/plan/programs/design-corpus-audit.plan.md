@@ -1,7 +1,8 @@
 # Program plan: Design-corpus conformance audit
 
-**Status**: Active (all 7 surfaces audited — R56–[R62](../cycles/Round_62.md); `crud-hygiene` was the last → **program close** is the next step, triage agenda drafted in [R62 Act](../cycles/Round_62.md#act))
+**Status**: **Closed** (2026-06-04, [R63](../cycles/Round_63.md)) — all 7 surfaces audited (R56–[R62](../cycles/Round_62.md)); close-triage executed, backlog promoted to **R64** (template+lint, resolves D-1/D-2) → **R65** (conformance backfill) ; **R66** (parity linter) ; feature backlog deferred. See [Lifecycle](#lifecycle).
 **Opened**: 2026-05-31
+**Closed**: 2026-06-04
 
 Sweep the flow doctrine
 ([hybrid-flow-governance](../../decisions/2026-05-28-hybrid-flow-governance.md))
@@ -161,6 +162,35 @@ _(Append one row per audit finding; bump "Seen in" when a gap recurs.)_
 
 ## Lifecycle
 
-Active until all 7 surfaces are audited. At program close, the gap-log's
-recurring entries are promoted to their own Track-2 rounds / a doctrine
-revision; this file folds into a closing note or a decision artifact.
+~~Active until all 7 surfaces are audited.~~ **Closed 2026-06-04 ([R63](../cycles/Round_63.md)).**
+All 7 surfaces audited (R56–R62); the close-triage promoted the gap-log's
+recurring entries to the Track-2 backlog below.
+
+### Closing note (what the audit proved)
+
+1. **The A-cluster is systematic, and the variable is format-convention
+   adherence — not content upkeep.** A6 7/7, A2 7/7, A1 7/7; A3 6/7 absent
+   (+ `workspace-shell.md` the lone model); A5 inconsistent (5/7).
+   Heavily-maintained docs still fail format → per-doc hand-maintenance won't
+   fix it; only a template + lint will.
+2. **Doc↔source-of-truth drift appears exactly where no parity test guards —
+   4 instances** (R56 FE-type, R57 contract-prose, R59 id-format, R62
+   name-length). R58's dtype mirror did not drift *because* a test asserts it.
+3. **The rubric assumes a new-build, canonical-doc artifact type** (gap #1;
+   R60's target-doc instance) → it needs artifact-type-aware variants.
+4. **Firewall held R56–R63** — only doc-conformance fixes in-round; UX/product
+   gaps logged, never redesigned. Correctness drifts all fixed in-round; the
+   **format cluster** is the sole deferred doc work (→ R65, by 2026-06-04
+   user decision: fixed once via the template pass, not hand-patched).
+
+### Promotions (close-triage → Track-2 backlog)
+
+| Gap-log theme | Axis | Promoted to | Deps |
+| ------------- | ---- | ----------- | ---- |
+| A-cluster (status vocab, token map, scope section, Surface-table vocab, acceptance section) → doc-template + lint; resolves **D-1** (README-vs-docs vocab) + **D-2** (rubric artifact-type variants, A3⇄B6 residual) | A1/A2/A3/A5/A6 | **R64** (template+lint) | none (first) |
+| Apply template; backfill A3 token maps (`workspace-shell.md` model); add 2 missing A5 sections; coverage stragglers (`PageCard` `fill`, `WorkspaceCard` name verify, stale DuckDB stub in `workspaces.md`) | A1–A5 + coverage | **R65** (conformance backfill) | R64 |
+| Doc↔source-of-truth parity linter (fenced snippets vs live constant/contract) — the 4-instance method-gap | method | **R66** (parity linter) | none (parallel-OK) |
+| Firewalled UX/a11y: B3 cluster (icon-only triggers, color-only danger, chip/SR names), 422 FE surface, list-page loading/fetch-error | B-axis | **feature backlog** (product track) | each its own feature round |
+
+The `advanced-query` exemplar-status flip is **conditional** — carried to R64,
+applied only if a doctrine revision lands there. **Next pull → R64.**
