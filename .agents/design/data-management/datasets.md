@@ -8,7 +8,7 @@ Datasets page at `/data-management/datasets` shows all datasets
 across all workspaces as a sortable / filterable **table list**; a
 workspace card click navigates here with the workspace filter
 applied.
-**Status**: Draft (Round 14 design-only).
+**Status**: Accepted (R14 design; shipped R15–R17; extended R23, R33).
 **Round introduced**: [Round_14](../../plan/cycles/Round_14.md);
 implementation chain begins R15. Datasets is the **first
 implementation** of R11's sample "Datasets" sub-menu item — it
