@@ -10,7 +10,7 @@ R14 [datasets.md](datasets.md) R∞-deferred affordance, now
 pulled in). Carries the rename + delete affordances inherited
 from [crud-hygiene.md](crud-hygiene.md), placed in the page
 header's `actions` slot.
-**Status**: Draft (Round 33 design-only).
+**Status**: Accepted (R33 design; shipped R34–R36).
 **Round introduced**: [Round_33](../../plan/cycles/Round_33.md);
 implementation chain begins R34 (contract), R35 (BE), R36 (FE).
 **Sibling docs**:
@@ -586,9 +586,10 @@ paths:
                 $ref: '../_shared/api-error.yaml#/components/schemas/ApiErrorNotFound'
         '422':
           description: |
-            Page beyond `ceil(total / pageSize)`, or `page_size`
-            outside the enum. Body is the request-level validation
-            shape; specifics decided in R34.
+            `page_size` outside the enum. A page beyond
+            `ceil(total / pageSize)` is NOT a 422 — it returns 200
+            with an empty `rows` array (see `rows-get.contract.yaml`).
+            Body is the request-level validation shape (R34).
 ```
 
 **Cell stringification rationale**: cells come over the wire as

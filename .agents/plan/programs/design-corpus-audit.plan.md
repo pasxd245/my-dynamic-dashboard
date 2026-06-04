@@ -1,6 +1,6 @@
 # Program plan: Design-corpus conformance audit
 
-**Status**: Active (pilot in flight — [Round_56](../cycles/Round_56.md))
+**Status**: Active (surfaces 1–2 audited — [R56](../cycles/Round_56.md), [R57](../cycles/Round_57.md); surface 3 `datasets` queued)
 **Opened**: 2026-05-31
 
 Sweep the flow doctrine
@@ -51,7 +51,7 @@ That the doctrine is written for new-build, not audit, is **gap #1**
   Design criterion).
 - **A3 Token map** present; every token cites
   [themeTokens.ts](../../../workspace/packages/ui/src/themeTokens.ts) (no
-  inline values).
+  inline values). _Token-conformance owner — B6 defers here (R56 calibration)._
 - **A4 ASCII layout + behavior** (state transitions) present where the
   surface warrants.
 - **A5 Scope boundary**: covered / deferred / out — explicit.
@@ -61,7 +61,10 @@ That the doctrine is written for new-build, not audit, is **gap #1**
 
 - **B1–B6** — does the doc **declare** affordances for Findability,
   Usability, Accessibility, Credibility, Utility, Desirability? Record
-  the per-facet pass/gap.
+  the per-facet pass/gap. _B6 (Desirability) checks only that a token
+  map is **declared**; the inline-value / source-citation detail is
+  **A3's** — B6 does not re-score it (R56 calibration: avoids
+  double-counting the same token gap on two axes)._
 
 ### C. Horizontal — is it in-sync with siblings?
 
@@ -98,16 +101,18 @@ re-audited; every other surface is scored against it.
 | # | Surface | Status | Round |
 | - | ------- | ------ | ----- |
 | — | `advanced-query` | exemplar (reference) | R51/54/55 |
-| 1 | `dataset-filters` | **pilot — auditing** | [R56](../cycles/Round_56.md) |
-| 2 | `dataset-detail` | queued | — |
+| 1 | `dataset-filters` | audited ✓ | [R56](../cycles/Round_56.md) |
+| 2 | `dataset-detail` | audited ✓ | [R57](../cycles/Round_57.md) |
 | 3 | `datasets` | queued | — |
 | 4 | `workspaces` | queued | — |
 | 5 | `workspace-shell` (+ `.target`) | queued | — |
 | 6 | `upload` | queued | — |
 | 7 | `crud-hygiene` | queued | — |
 
-Round 1 (`dataset-filters`) is also the **rubric calibration** — its
-review pass hardens the rubric above before surface 2 begins.
+Round 1 (`dataset-filters`) was also the **rubric calibration** — R56
+hardened the rubric above (A3⇄B6 token-check dedupe) before surface 2.
+The method-gap it surfaced (design-doc code/table mirrors are unguarded
+by parity tests) is logged below for frequency-tracking.
 
 ## Rolling gap-log
 
@@ -122,14 +127,18 @@ Seeded from R51→R55 (pre-audit):
 | Test selectors not contracted (`data-component` improvised) | C-gate | R55 | open — Track-2 candidate (C-gate enrichment) |
 | `_predicate_sql` cognitive complexity (flat if-chain) | (code, R55 seed) | R55 | open — Track-2 candidate (refactor / lint-debt) |
 | `FilterPopover` hardcoded narrowing allow-lists | (code, R55 seed) | R55 | open — Track-2 candidate (derive from shared maps) |
-| Status header stale — shipped doc still read "Draft / design-only" | A6 | R56 | **fixed in-round** (R56) |
+| Status header stale — shipped doc still read "Draft / design-only" | A6 | R56, R57 | **fixed in-round** (R56 + R57). **2 surfaces = systematic** — every pre-audit shipped doc is stale; doctrine/template candidate |
 | Embedded FE-types snippet drifted from vocab table + live type (missing R55 `ne`/`gte`/`lte`) | A2 / §D | R56 | **fixed in-round** (R56). Method-gap: design-doc code snippets are unguarded mirrors (parity tests cover code↔code, not doc↔code) — Track-2 candidate |
 | Surface-table Layer paths predate the `filters/` subdir reorg | C4 | R56 | open — systematic; in-round fix deferred (per-row verify needed) |
-| Token map cites `tokens.css` (not authoritative `themeTokens.ts`) + inline `#e6f4ff`/px values | A3 / B6 / C2 | R56 | open — likely corpus-wide; triage at program level |
-| Reusability column vocab (`feature`/`backend`) outside README's enumerated set | A1 / C4 | R56 | open — README-vs-corpus vocab drift; decide which is canonical |
+| Token map cites `tokens.css` (not authoritative `themeTokens.ts`) + inline hex/px values | A3 | R56, R57 | open — **2 surfaces = corpus-wide pattern**; Track-2 candidate (token-citation convention). _B6 no longer double-flags (R56 dedupe)._ |
+| Reusability column vocab (`feature`/`backend`) outside README's enumerated set | A1 | R56, R57 | open — **2 surfaces = systematic**; decide canonical (fix docs, or update README vocab) |
 | Chip `×` / "Clear all" accessible name not declared | B3 | R56 | logged UX/a11y — deferred to a feature round (firewall) |
 | 422 filter-validation error has no declared FE surface | B4 | R56 | logged UX — deferred to a feature round (firewall) |
 | Inactive filter entry-point (muted chevron) discoverability weak | B1 (UX) | R56 | logged UX/product — deferred to a feature round (firewall) |
+| Design-gate exit (A2): docs lack an explicit user-journeys / testable-acceptance-criteria section (criteria implied via impl/test bullets) | A2 | R56, R57 | open — **systematic**; rubric/doc-template addition candidate |
+| Doc 422 description contradicts shipped contract (page-beyond → 200 empty, not 422) | §D / contract | R57 | **fixed in-round** (R57). Clarifies R56's B4 — the doc-declared 422 is unreachable from the UI |
+| Doc mirrors of a source-of-truth are unguarded by parity tests (R56: doc-snippet ↔ FE type; R57: doc-prose contract ↔ YAML) | method | R56, R57 | **Track-2 candidate** — 2 instances = pattern; extend parity discipline (or a doc-mirror check) to design docs |
+| Dtype-badge full name is hover-only (no keyboard / SR path) | B3 | R57 | logged UX/a11y — deferred to a feature round (firewall) |
 
 _(Append one row per audit finding; bump "Seen in" when a gap recurs.)_
 
