@@ -337,7 +337,7 @@ Track-2 round; a one-off → an in-round fix).
   [2026-05-30-design-corpus-audit](../brainstorms/2026-05-30-design-corpus-audit/README.md)
   (pilot `dataset-filters` · doc-conformance + spot-verify · single
   program doc).
-- Program doc: [design-corpus-audit.plan.md](../design-corpus-audit.plan.md).
+- Program doc: [design-corpus-audit.plan.md](../programs/design-corpus-audit.plan.md).
 - Pilot: [Round_56](Round_56.md) — audit `dataset-filters`, paused at the
   Design gate for review.
 

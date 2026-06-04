@@ -187,6 +187,52 @@ Worked example:
 
 ---
 
+## Program plans (optional)
+
+A **program** is a multi-round effort that governs a *series* of rounds —
+bigger than a single `Round_NN.md`, smaller than this methodology. It
+defines the rules once (the repeatable unit each round applies) so the
+round docs can be seeded from it. Program plans live in:
+
+```text
+plan/programs/
+  _TEMPLATE.md                 — the skeleton (copy to start a program)
+  <name>.plan.md               — a plan-only program (the common case)
+  <name>/                      — a program that has graduated (see below)
+    <name>.plan.md
+    <name>.workflow.md
+```
+
+Three conventions:
+
+1. **Stable, undated name.** Unlike brainstorms (point-in-time → dated)
+   and rounds (ordered series → numbered), a program is a **durable named
+   entity**. The filename is `<name>.plan.md` with **no date prefix**;
+   `Opened`/`Closed` dates live in the file's header (git owns the rest of
+   the timeline). This matches `PDCA.md` / `promotions.md` — named, undated.
+2. **The plan+workflow pair is optional.** Most programs are a single
+   `<name>.plan.md`. Add a sibling `<name>.workflow.md` **only when the
+   control-flow can't be read off the plan in prose** — non-linear
+   sequencing, branching, parallel rounds, or a chain that diverges from
+   the standard DCFBI gates. A linear "one-X-per-round sweep" does not
+   need one. (Refine the "complex" bar as cases accrue.)
+3. **Flat, with lazy graduation.** A program starts as a single file at
+   `programs/` root. The moment it gains a 2nd artifact (a workflow, a
+   spun-out log), it **graduates** to its own folder `programs/<name>/`
+   holding both files — fix inbound links with `markdown-check-link --fix`.
+   Single-file programs never pay the folder tax; only expanding ones do.
+
+Flow: **brainstorm chain → program `.plan.md` → per-round `Round_NN.md`
+(seeded from the program) → rolling log → program close**. At close, the
+rolling log's recurring entries promote to their own rounds / a decision
+artifact, and the plan folds into a closing note.
+
+Worked example:
+[`plan/programs/design-corpus-audit.plan.md`](programs/design-corpus-audit.plan.md)
+→ [`Round_56.md`](cycles/Round_56.md) (pilot, seeds from the program's rubric).
+
+---
+
 ## Round Template
 
 ```markdown

@@ -31,7 +31,7 @@ breathing room._
 ```text
 brainstorm chain (this directory)            ✓ decided 2026-05-31
     ↓  3 decisions settled (suggested answers accepted)
-program doc                                  → ../../design-corpus-audit.plan.md
+program doc                                  → ../../programs/design-corpus-audit.plan.md
     ↓
 pilot audit round (calibrates the rubric)    → ../../cycles/Round_56.md (dataset-filters)
     ↓
@@ -44,7 +44,7 @@ per-surface audit rounds + rolling gap-log   → one surface each, pause-to-fix
 [PROPOSAL-2026-05-30.md](PROPOSAL-2026-05-30.md) are settled with the
 suggested answers (pilot `dataset-filters` · doc-conformance +
 spot-verify · single program doc). Realized as the program doc
-[design-corpus-audit.plan.md](../../design-corpus-audit.plan.md) and
+[design-corpus-audit.plan.md](../../programs/design-corpus-audit.plan.md) and
 pilot [Round_56](../../cycles/Round_56.md). Per
 [PDCA.md § Brainstorm lifecycle](../../PDCA.md), this directory is now
 historical record — not edited after the decision lands.
