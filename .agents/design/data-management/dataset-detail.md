@@ -403,13 +403,13 @@ stateDiagram-v2
 
 ### Rename / delete (inherited from crud-hygiene.md)
 
-- Rename: opens existing `<RenameModal>` with `resource="dataset"`
+- Rename: opens existing `<RenameModal>` with `resourceLabel="dataset"`
   and the current name pre-filled. Mutation hook: existing
   `useRenameDatasetMutation()` from R26. Success → toast "Dataset
   renamed" + the header title updates from the
   re-cached dataset (TanStack Query invalidation already wired).
 - Delete: opens existing `<DeleteConfirmModal>` with
-  `resource="dataset"` and the current name in the body. Mutation
+  `resourceLabel="dataset"` and the current name in the body. Mutation
   hook: existing `useDeleteDatasetMutation()` from R26. Success
   → toast "Dataset deleted" + `navigate('/data-management/datasets')`
   (replace=true so back-button doesn't re-enter the deleted

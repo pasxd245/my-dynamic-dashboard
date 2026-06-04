@@ -7,7 +7,7 @@ workspace's datasets when the workspace itself is deleted. The
 demo needs this before users can do anything beyond
 create-via-upload — without rename/delete, the workspace grid and
 the datasets table become write-once garbage.
-**Status**: Draft (Round 23 design-only).
+**Status**: Accepted (R23 design; shipped R24–R26; extended R30/R32/R33).
 **Round introduced**: [Round_23](../../plan/cycles/Round_23.md);
 implementation chain begins R24 (Contract phase) per the chain
 declaration at the end of R23.
@@ -442,12 +442,23 @@ def delete_dataset(dataset_id: str) -> None:
     # No 409 path — dataset has no dependent resources in R23.
 ```
 
-Shared `RenameBody` Pydantic model:
+`RenameBody` Pydantic model — **per-resource max length**
+(corrected R62 audit; R23 declared a single shared `max_length=80`
+for both, but dataset names have allowed **120** since R15's
+[`_shared/dataset.yaml`](../../../workspace/packages/contracts/_shared/dataset.yaml)
+`Dataset.name` (filename stems + sheet names run long). R29's
+cross-language `NAME_LENGTHS` constant
+([`_generated/constants.ts`](../../../workspace/apps/builder/src/_generated/constants.ts))
+is the single source of truth — `WORKSPACE_MAX = 80`,
+`DATASET_MAX = 120` — cited identically by the contracts, FE Form
+rules, and BE bodies):
 
 ```python
+# RenameWorkspaceBody — max_length = NAME_LENGTHS["workspace_max"] (80)
+# RenameDatasetBody   — max_length = NAME_LENGTHS["dataset_max"]   (120)
 class RenameBody(BaseModel):
     model_config = ConfigDict(extra='forbid')
-    name: str = Field(min_length=1, max_length=80)
+    name: str = Field(min_length=1, max_length=...)  # per-resource, from NAME_LENGTHS
 ```
 
 **Atomicity** (delete dataset): the same atomic-commit pattern
