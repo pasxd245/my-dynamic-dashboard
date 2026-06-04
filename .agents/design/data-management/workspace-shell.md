@@ -2,7 +2,7 @@
 
 **Concept**: top-level application shell that hosts every feature
 domain. Round 07's deliverable; this is the first occupant's view.
-**Status**: Draft (Round 07 Plan-phase input).
+**Status**: Accepted (R07 design; shipped R07–R09).
 **Round introduced**: [Round_07](../../plan/cycles/Round_07.md).
 **Domain folder**: `data-management/` — placed here because Data
 Management is the first puller. Promote to `_platform/` (or named at

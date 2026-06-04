@@ -1,6 +1,6 @@
 # Program plan: Design-corpus conformance audit
 
-**Status**: Active (surfaces 1–4 audited — R56/R57/R58/[R59](../cycles/Round_59.md); surface 5 `workspace-shell` queued)
+**Status**: Active (surfaces 1–5 audited — R56–[R60](../cycles/Round_60.md); surface 6 `upload` queued)
 **Opened**: 2026-05-31
 
 Sweep the flow doctrine
@@ -105,7 +105,7 @@ re-audited; every other surface is scored against it.
 | 2 | `dataset-detail` | audited ✓ | [R57](../cycles/Round_57.md) |
 | 3 | `datasets` | audited ✓ | [R58](../cycles/Round_58.md) |
 | 4 | `workspaces` | audited ✓ | [R59](../cycles/Round_59.md) |
-| 5 | `workspace-shell` (+ `.target`) | queued | — |
+| 5 | `workspace-shell` (+ `.target`) | audited ✓ | [R60](../cycles/Round_60.md) |
 | 6 | `upload` | queued | — |
 | 7 | `crud-hygiene` | queued | — |
 
@@ -122,20 +122,20 @@ Seeded from R51→R55 (pre-audit):
 
 | Gap | Axis | Seen in | Disposition |
 | --- | ---- | ------- | ----------- |
-| Doctrine assumes new-build, not audit (gap #1) | D-gate / doctrine | — | open — may revise hybrid-flow doctrine |
+| Doctrine assumes new-build, not audit (gap #1) | D-gate / doctrine | —, R60 | open — may revise hybrid-flow doctrine. _R60 gave a concrete instance: the rubric also assumes the **canonical-doc artifact type** — see target-doc row below._ |
 | Vocabulary drift via hand-mirrored copies (`OPS_BY_DTYPE` ×4) | C1 | R55, R56 | **mitigated** — FE+BE parity tests enforce; `advanced-query` imports the FE map (no copy). Residual: the doc-table is an unguarded mirror → see R56 snippet-drift row |
 | Test selectors not contracted (`data-component` improvised) | C-gate | R55 | open — Track-2 candidate (C-gate enrichment) |
 | `_predicate_sql` cognitive complexity (flat if-chain) | (code, R55 seed) | R55 | open — Track-2 candidate (refactor / lint-debt) |
 | `FilterPopover` hardcoded narrowing allow-lists | (code, R55 seed) | R55 | open — Track-2 candidate (derive from shared maps) |
-| Status header stale — shipped doc still read "Draft / design-only" | A6 | R56, R57, R58, R59 | **fixed in-round** (R56–R59). **4 surfaces = systematic** — every pre-audit shipped doc is stale; doctrine/template candidate |
+| Status header stale — shipped doc still read "Draft / design-only" | A6 | R56–R60 | **fixed in-round** (R56–R60, canonical docs). **5 surfaces = systematic** — every shipped canonical doc is stale; doctrine/template candidate. (Target docs exempt: `workspace-shell.target.md` status "Target horizon" is correct.) |
 | Embedded FE-types snippet drifted from vocab table + live type (missing R55 `ne`/`gte`/`lte`) | A2 / §D | R56 | **fixed in-round** (R56). Method-gap: design-doc code snippets are unguarded mirrors (parity tests cover code↔code, not doc↔code) — Track-2 candidate |
 | Surface-table Layer paths predate the `filters/` subdir reorg | C4 | R56 | open — systematic; in-round fix deferred (per-row verify needed) |
-| Token map: cites `tokens.css` + inline hex (R56/R57), or **absent entirely** on older docs (R58 `datasets.md`, R59 `workspaces.md`) | A3 | R56, R57, R58, R59 | open — **4 surfaces = corpus-wide pattern**; Track-2 candidate (token-citation convention + backfill older docs) |
-| Reusability column vocab (`feature`/`backend`) outside README's enumerated set | A1 | R56, R57, R58, R59 | open — **4 surfaces = systematic**; decide canonical. _R59 `workspaces.md` uses `shared cross-domain` (README-valid) **alongside** `feature`/`backend` → docs **extend** the enum, not ignore it; likely the README is the stale party._ |
+| Token map non-conformant: cites `tokens.css` + inline hex (R56/R57), or **absent** (R58/R59) | A3 | R56, R57, R58, R59 | open — 4 of 5 surfaces gap, **but the canonical pattern already exists**: R60 `workspace-shell.md` **PASSES** (cites `themeTokens.ts` + AntD seed, values marked informational). → decide-canonical **resolved**: that is the model; backfill the 4 to it. |
+| Reusability column vocab (`feature`/`backend`) outside README's enumerated set | A1 | R56–R60 | open — **5 surfaces**; decide canonical. _Docs mix README-valid (`shared cross-domain`, `builder-only`) with off-README (`feature`/`backend`); R60 also shows correct Purity `data constant` (vs the cluster's `data type`) → vocab usage is **inconsistent**, README likely the stale party. `workspace-shell.target.md`'s A1 is fully README-valid._ |
 | Chip `×` / "Clear all" accessible name not declared | B3 | R56 | logged UX/a11y — deferred to a feature round (firewall) |
 | 422 filter-validation error has no declared FE surface | B4 | R56 | logged UX — deferred to a feature round (firewall) |
 | Inactive filter entry-point (muted chevron) discoverability weak | B1 (UX) | R56 | logged UX/product — deferred to a feature round (firewall) |
-| Design-gate exit (A2): docs lack an explicit user-journeys / testable-acceptance-criteria section (criteria implied via impl/test bullets) | A2 | R56, R57, R58, R59 | open — **4 surfaces = systematic**; rubric/doc-template addition candidate |
+| Design-gate exit (A2): docs lack an explicit user-journeys / testable-acceptance-criteria section (criteria implied via impl/test bullets) | A2 | R56–R60 | open — **5 surfaces = systematic** (canonical docs); rubric/doc-template addition candidate. _n-a for target docs (see target-doc rubric row)._ |
 | Doc 422 description contradicts shipped contract (page-beyond → 200 empty, not 422) | §D / contract | R57 | **fixed in-round** (R57). Clarifies R56's B4 — the doc-declared 422 is unreachable from the UI |
 | Doc mirrors of a source-of-truth are unguarded by parity tests (R56 doc-snippet↔FE-type; R57 doc-prose-contract↔YAML; R59 doc `Workspace.id` format↔`workspace.yaml`+BE) | method | R56, R57, R59 | **Track-2 candidate — 3 instances**; extend parity coverage to doc-declared contract/identifier claims. _Mechanism confirmed: drift appears exactly where no parity test guards — R58's dtype mirror did NOT drift **because** `dataset-detail.test.tsx` asserts it._ |
 | Dtype-badge full name is hover-only (no keyboard / SR path) | B3 | R57 | logged UX/a11y — deferred to a feature round (firewall) |
@@ -147,6 +147,9 @@ Seeded from R51→R55 (pre-audit):
 | Clickable `WorkspaceCard` declares no keyboard / role / accessible-name path | B3 | R59 | logged UX/a11y — deferred to a feature round (firewall) |
 | `WorkspaceCard` `@mdd/ui` naming open-question left unresolved in-doc ("R13 commits the name") | C4 / A1 | R59 | open — verify at close: doc may name a primitive that shipped renamed (e.g. `ListCard`) |
 | Backend-stub illustration stale (shows in-memory `_WORKSPACES`; live BE is DuckDB-backed) | (doc, R59) | R59 | logged — separate from the id-format fix; backfill at close |
+| Rubric mis-fits the **target-doc artifact type**: A2 (acceptance criteria) + A3 (token map) are **n-a** for a horizon doc; applying the canonical rubric verbatim would falsely flag them. `workspace-shell.target.md` is conformant *for its type* (TARGET-NOT-CURRENT banner, `(future)` rows, named-pulls, retire clause) | method / doctrine | R60 | **the round's anticipated finding** — concrete instance of gap #1 + the original `revisit-trigger`. Rubric needs an artifact-type-aware variant (canonical / target / preview). Log; refine at close |
+| **"Conformance tracks doc age" (R58/R59) is REFUTED** | meta | R58, R59, R60 | R60: `workspace-shell.md` is the **oldest** audited (R07) yet the **most** conformant (A3 gold-standard, §B clean). Real variable is **maintenance/author-care**, not age — R58/R59's laggards were merely un-maintained *and* old. Close-triage by conformance, not date |
+| `PageCard` has no canonical doc — design lives only in the **frozen** `workspace-shell.target.md` (`default`/`flush`), which under-documents the live primitive (`default`/`flush`/**`fill`**, used correctly by `dataset-detail`) | C / coverage | R60 | log — not drift (target frozen by design); ensure `fill` is captured when the target folds into a canonical record |
 
 _(Append one row per audit finding; bump "Seen in" when a gap recurs.)_
 
