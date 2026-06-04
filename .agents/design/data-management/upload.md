@@ -11,8 +11,7 @@ a Metadata step; previews the first ten rows of parsed data; names
 each dataset; and commits. Dataset rows appear in the
 [Datasets table](datasets.md) only after the Confirm step's atomic
 commit succeeds — failed parses never become persisted Datasets.
-**Status**: Draft (Round 14 design-only, post wizard + multi-source
-reframes).
+**Status**: Accepted (R14 design; shipped R15–R17; extended R19/R21/R30/R32).
 **Round introduced**: [Round_14](../../plan/cycles/Round_14.md);
 implementation chain begins R15.
 **Backend**: [Round_16](../../plan/cycles/Round_16.md) — temp
@@ -552,7 +551,7 @@ For CSV `<sheetkey>` is `default`. For Excel it's the sanitized
 sheet name. This lets a user pick a different sheet in Step 2 and
 get a fresh parse without re-uploading the file.
 
-**Commit (Step 3/4 → POST /workspaces/<id>/datasets)**: the
+**Commit (Step 3/4 → POST /workspaces/<id>/datasets/batch)**: the
 backend reads `metadata.json` to know which sheet was chosen
 last, copies `original.<ext>` and `parsed.<sheetkey>.parquet` →
 `datasets/<workspace_id>/<dataset_id>/{original.ext, parsed.parquet}`,
@@ -791,7 +790,7 @@ Datasets reference `workspace_id` via a foreign key.
 - `UploadStepper`, all four step components, three mutation
   hooks, the uploads client.
 - `POST /uploads`, `POST /uploads/<temp_id>/parse`,
-  `POST /workspaces/<id>/datasets` backend routes.
+  `POST /workspaces/<id>/datasets/batch` backend routes.
 - File storage layout (`uploads_tmp/` and `datasets/`) with the
   parsed-Parquet companions keyed by sheet name.
 - `parse_csv()` + `parse_excel()` ingestion helpers.

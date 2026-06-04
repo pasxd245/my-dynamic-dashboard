@@ -1,6 +1,6 @@
 # Program plan: Design-corpus conformance audit
 
-**Status**: Active (surfaces 1–5 audited — R56–[R60](../cycles/Round_60.md); surface 6 `upload` queued)
+**Status**: Active (surfaces 1–6 audited — R56–[R61](../cycles/Round_61.md); surface 7 `crud-hygiene` queued → program close after)
 **Opened**: 2026-05-31
 
 Sweep the flow doctrine
@@ -106,7 +106,7 @@ re-audited; every other surface is scored against it.
 | 3 | `datasets` | audited ✓ | [R58](../cycles/Round_58.md) |
 | 4 | `workspaces` | audited ✓ | [R59](../cycles/Round_59.md) |
 | 5 | `workspace-shell` (+ `.target`) | audited ✓ | [R60](../cycles/Round_60.md) |
-| 6 | `upload` | queued | — |
+| 6 | `upload` | audited ✓ | [R61](../cycles/Round_61.md) |
 | 7 | `crud-hygiene` | queued | — |
 
 Round 1 (`dataset-filters`) was also the **rubric calibration** — R56
@@ -127,19 +127,19 @@ Seeded from R51→R55 (pre-audit):
 | Test selectors not contracted (`data-component` improvised) | C-gate | R55 | open — Track-2 candidate (C-gate enrichment) |
 | `_predicate_sql` cognitive complexity (flat if-chain) | (code, R55 seed) | R55 | open — Track-2 candidate (refactor / lint-debt) |
 | `FilterPopover` hardcoded narrowing allow-lists | (code, R55 seed) | R55 | open — Track-2 candidate (derive from shared maps) |
-| Status header stale — shipped doc still read "Draft / design-only" | A6 | R56–R60 | **fixed in-round** (R56–R60, canonical docs). **5 surfaces = systematic** — every shipped canonical doc is stale; doctrine/template candidate. (Target docs exempt: `workspace-shell.target.md` status "Target horizon" is correct.) |
+| Status header stale — shipped doc still read "Draft / design-only" | A6 | R56–R61 | **fixed in-round** (R56–R61, canonical docs). **6 surfaces = systematic** — every shipped canonical doc is stale; doctrine/template candidate. (Target docs exempt: `workspace-shell.target.md` status "Target horizon" is correct.) |
 | Embedded FE-types snippet drifted from vocab table + live type (missing R55 `ne`/`gte`/`lte`) | A2 / §D | R56 | **fixed in-round** (R56). Method-gap: design-doc code snippets are unguarded mirrors (parity tests cover code↔code, not doc↔code) — Track-2 candidate |
 | Surface-table Layer paths predate the `filters/` subdir reorg | C4 | R56 | open — systematic; in-round fix deferred (per-row verify needed) |
-| Token map non-conformant: cites `tokens.css` + inline hex (R56/R57), or **absent** (R58/R59) | A3 | R56, R57, R58, R59 | open — 4 of 5 surfaces gap, **but the canonical pattern already exists**: R60 `workspace-shell.md` **PASSES** (cites `themeTokens.ts` + AntD seed, values marked informational). → decide-canonical **resolved**: that is the model; backfill the 4 to it. |
-| Reusability column vocab (`feature`/`backend`) outside README's enumerated set | A1 | R56–R60 | open — **5 surfaces**; decide canonical. _Docs mix README-valid (`shared cross-domain`, `builder-only`) with off-README (`feature`/`backend`); R60 also shows correct Purity `data constant` (vs the cluster's `data type`) → vocab usage is **inconsistent**, README likely the stale party. `workspace-shell.target.md`'s A1 is fully README-valid._ |
+| Token map non-conformant: cites `tokens.css` + inline hex (R56/R57), or **absent** (R58/R59/R61) | A3 | R56–R59, R61 | open — **5 of 6 surfaces gap**, **but the canonical pattern already exists**: R60 `workspace-shell.md` **PASSES** (cites `themeTokens.ts` + AntD seed, values informational). → decide-canonical **resolved**: that is the model; backfill the 5. _R61 `upload.md` lacks a map despite heavy content-maintenance → format-convention adherence, not upkeep._ |
+| Reusability column vocab (`feature`/`backend`) outside README's enumerated set | A1 | R56–R61 | open — **6 surfaces**; decide canonical. _Docs mix README-valid (`shared cross-domain`, `builder-only`) with off-README (`feature`/`backend`); Purity also varies — correct `data constant` (R60) vs off-README `data type`/`pure (data)` (R61) → vocab usage is **inconsistent**, README likely the stale party. `workspace-shell.target.md`'s A1 is fully README-valid._ |
 | Chip `×` / "Clear all" accessible name not declared | B3 | R56 | logged UX/a11y — deferred to a feature round (firewall) |
 | 422 filter-validation error has no declared FE surface | B4 | R56 | logged UX — deferred to a feature round (firewall) |
 | Inactive filter entry-point (muted chevron) discoverability weak | B1 (UX) | R56 | logged UX/product — deferred to a feature round (firewall) |
-| Design-gate exit (A2): docs lack an explicit user-journeys / testable-acceptance-criteria section (criteria implied via impl/test bullets) | A2 | R56–R60 | open — **5 surfaces = systematic** (canonical docs); rubric/doc-template addition candidate. _n-a for target docs (see target-doc rubric row)._ |
+| Design-gate exit (A2): docs lack an explicit user-journeys / testable-acceptance-criteria section (criteria implied via impl/test bullets) | A2 | R56–R61 | open — **6 surfaces = systematic** (canonical docs); rubric/doc-template addition candidate. _n-a for target docs (see target-doc rubric row)._ |
 | Doc 422 description contradicts shipped contract (page-beyond → 200 empty, not 422) | §D / contract | R57 | **fixed in-round** (R57). Clarifies R56's B4 — the doc-declared 422 is unreachable from the UI |
 | Doc mirrors of a source-of-truth are unguarded by parity tests (R56 doc-snippet↔FE-type; R57 doc-prose-contract↔YAML; R59 doc `Workspace.id` format↔`workspace.yaml`+BE) | method | R56, R57, R59 | **Track-2 candidate — 3 instances**; extend parity coverage to doc-declared contract/identifier claims. _Mechanism confirmed: drift appears exactly where no parity test guards — R58's dtype mirror did NOT drift **because** `dataset-detail.test.tsx` asserts it._ |
 | Dtype-badge full name is hover-only (no keyboard / SR path) | B3 | R57 | logged UX/a11y — deferred to a feature round (firewall) |
-| Scope boundary (A5): no explicit "does NOT cover" section (`datasets.md` — covered/deferred present, explicit *out* absent) | A5 | R58 | open — **doc-specific, NOT systematic**: R59 `workspaces.md` HAS an explicit Out-of-scope section, so this is a `datasets.md`-only gap |
+| Scope boundary (A5): no explicit "does NOT cover" section (covered/deferred present, explicit *out* absent) | A5 | R58, R61 | open — **inconsistent** (not systematic, not one-off): `datasets.md` + `upload.md` lack it; filters/detail/`workspaces.md`/`workspace-shell.md` HAVE it (4 of 6). _Corrects R59's "datasets-only" call._ |
 | Credibility: list page declares no loading / fetch-error state | B4 / Cred | R58, R59 | logged UX — older-doc gap (`datasets.md`, `workspaces.md`); defer |
 | Source-format conveyed icon-only in the list (no text / aria) | B3 | R58 | logged UX/a11y — deferred to a feature round (firewall) |
 | Rubric calibration residual: A3⇄B6 dedupe doesn't cover the **absent-map** case — with no token map, A3 and B6 both fire (`datasets.md`, `workspaces.md`) | calibration | R58, R59 | note — refine at close: B6 defers *all* token concern to A3 (presence included), not just the citation detail |
@@ -148,8 +148,11 @@ Seeded from R51→R55 (pre-audit):
 | `WorkspaceCard` `@mdd/ui` naming open-question left unresolved in-doc ("R13 commits the name") | C4 / A1 | R59 | open — verify at close: doc may name a primitive that shipped renamed (e.g. `ListCard`) |
 | Backend-stub illustration stale (shows in-memory `_WORKSPACES`; live BE is DuckDB-backed) | (doc, R59) | R59 | logged — separate from the id-format fix; backfill at close |
 | Rubric mis-fits the **target-doc artifact type**: A2 (acceptance criteria) + A3 (token map) are **n-a** for a horizon doc; applying the canonical rubric verbatim would falsely flag them. `workspace-shell.target.md` is conformant *for its type* (TARGET-NOT-CURRENT banner, `(future)` rows, named-pulls, retire clause) | method / doctrine | R60 | **the round's anticipated finding** — concrete instance of gap #1 + the original `revisit-trigger`. Rubric needs an artifact-type-aware variant (canonical / target / preview). Log; refine at close |
-| **"Conformance tracks doc age" (R58/R59) is REFUTED** | meta | R58, R59, R60 | R60: `workspace-shell.md` is the **oldest** audited (R07) yet the **most** conformant (A3 gold-standard, §B clean). Real variable is **maintenance/author-care**, not age — R58/R59's laggards were merely un-maintained *and* old. Close-triage by conformance, not date |
+| **"Conformance tracks doc age" (R58/R59) REFUTED; refined R61** | meta | R58–R61 | R60: `workspace-shell.md` (oldest, R07) is the **most** conformant → not age. R61 refines: `upload.md` is **heavily content-maintained** (R19/R21/R30/R32) yet **format-non-conformant** (A1/A2/A3/A5/A6) → the real variable is **doc-format-convention adherence**, independent of content upkeep. → close: a doc-template + lint enforces it; content-maintenance won't |
 | `PageCard` has no canonical doc — design lives only in the **frozen** `workspace-shell.target.md` (`default`/`flush`), which under-documents the live primitive (`default`/`flush`/**`fill`**, used correctly by `dataset-detail`) | C / coverage | R60 | log — not drift (target frozen by design); ensure `fill` is captured when the target folds into a canonical record |
+| `upload.md` in-doc endpoint inconsistency: 2 refs dropped `/batch` (`POST .../datasets` vs the contract's `.../datasets/batch`, `commitDatasetsBatch`) | §D / C1 | R61 | **fixed in-round** (R61). Doc↔contract for the batch *shape* is in sync (path/operationId/items/ParseOptions/ColumnOverride) — this was intra-doc, not mirror drift |
+| Upload source-type cards declare no keyboard / role / accessible-name path | B3 | R61 | logged UX/a11y — deferred to a feature round (firewall) |
+| Credibility: loading/pending UI during init/parse/commit mutations not explicitly declared (failure states ARE richly specced — best in corpus) | B4 / Cred | R61 | logged UX — minor; defer |
 
 _(Append one row per audit finding; bump "Seen in" when a gap recurs.)_
 
