@@ -9,7 +9,7 @@ the existing `?q=` substring search; the BE evaluates the full
 predicate set server-side so `total` reflects matched-row count
 and pagination stays correct. The natural discoverable entry
 point that precedes a real query language.
-**Status**: Draft (Round 37 design-only).
+**Status**: Accepted (R37 design; shipped R38–R40; amended R55).
 **Round introduced**: [Round_37](../../plan/cycles/Round_37.md);
 implementation chain begins R38 (contract), R39 (BE), R40 (FE).
 **Sibling docs**:
@@ -661,11 +661,11 @@ rows deliberately.
  * `col` field is the 0-based index into Dataset.columns[].
  */
 export type FilterPredicate =
-  | { col: number; dtype: 'string'; op: 'contains' | 'equals' | 'starts_with' | 'ends_with'; val: string }
+  | { col: number; dtype: 'string'; op: 'contains' | 'equals' | 'ne' | 'starts_with' | 'ends_with'; val: string }
   | { col: number; dtype: 'string'; op: 'is_empty' | 'is_not_empty' }
   | { col: number; dtype: 'integer' | 'float'; op: 'equals' | 'ne' | 'gt' | 'lt' | 'gte' | 'lte'; val: number }
   | { col: number; dtype: 'integer' | 'float'; op: 'between'; min: number; max: number }
-  | { col: number; dtype: 'date' | 'datetime'; op: 'equals' | 'ne' | 'before' | 'after'; val: string }
+  | { col: number; dtype: 'date' | 'datetime'; op: 'equals' | 'ne' | 'before' | 'after' | 'gte' | 'lte'; val: string }
   | { col: number; dtype: 'date' | 'datetime'; op: 'between'; min: string; max: string }
   | { col: number; dtype: 'boolean'; op: 'is_true' | 'is_false' }
   | { col: number; dtype: AnyDtype; op: 'is_null' | 'is_not_null' };
