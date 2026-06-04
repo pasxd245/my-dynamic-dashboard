@@ -4,7 +4,7 @@
 (CSV imports, schemas, saved queries, dashboards). The Workspaces
 page at `/data-management/workspaces` lists all workspaces the user
 has created as a card grid; R13 ships read-only + create-stub.
-**Status**: Draft (Round 11 Plan-phase input).
+**Status**: Accepted (R11 design; shipped R13; extended R23).
 **Round introduced**: [Round_11](../../plan/cycles/Round_11.md);
 implemented in R13 per the
 [shell target's named-pulls table](workspace-shell.target.md).
@@ -126,7 +126,7 @@ R13 ships:
 
 ```ts
 type Workspace = {
-  id: string; // ULID or UUID — backend generates
+  id: string; // `ws_<8 lowercase hex>` — backend-generated (pattern ^ws_[0-9a-f]{8}$; see workspace.yaml)
   name: string; // user-supplied, required, 1-80 chars
   createdAt: string; // ISO-8601 UTC timestamp from backend
 };
@@ -205,7 +205,7 @@ def list_workspaces() -> list[Workspace]:
 
 @router.post("/workspaces", status_code=201)
 def create_workspace(body: CreateWorkspace) -> Workspace:
-    ws = Workspace(id=str(ulid.new()), name=body.name, createdAt=now_utc())
+    ws = Workspace(id=f"ws_{secrets.token_hex(4)}", name=body.name, createdAt=now_utc())
     _WORKSPACES.append(ws)
     return ws
 ```

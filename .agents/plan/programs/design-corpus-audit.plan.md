@@ -1,6 +1,6 @@
 # Program plan: Design-corpus conformance audit
 
-**Status**: Active (surfaces 1–3 audited — [R56](../cycles/Round_56.md)/[R57](../cycles/Round_57.md)/[R58](../cycles/Round_58.md); surface 4 `workspaces` queued)
+**Status**: Active (surfaces 1–4 audited — R56/R57/R58/[R59](../cycles/Round_59.md); surface 5 `workspace-shell` queued)
 **Opened**: 2026-05-31
 
 Sweep the flow doctrine
@@ -104,7 +104,7 @@ re-audited; every other surface is scored against it.
 | 1 | `dataset-filters` | audited ✓ | [R56](../cycles/Round_56.md) |
 | 2 | `dataset-detail` | audited ✓ | [R57](../cycles/Round_57.md) |
 | 3 | `datasets` | audited ✓ | [R58](../cycles/Round_58.md) |
-| 4 | `workspaces` | queued | — |
+| 4 | `workspaces` | audited ✓ | [R59](../cycles/Round_59.md) |
 | 5 | `workspace-shell` (+ `.target`) | queued | — |
 | 6 | `upload` | queued | — |
 | 7 | `crud-hygiene` | queued | — |
@@ -127,22 +127,26 @@ Seeded from R51→R55 (pre-audit):
 | Test selectors not contracted (`data-component` improvised) | C-gate | R55 | open — Track-2 candidate (C-gate enrichment) |
 | `_predicate_sql` cognitive complexity (flat if-chain) | (code, R55 seed) | R55 | open — Track-2 candidate (refactor / lint-debt) |
 | `FilterPopover` hardcoded narrowing allow-lists | (code, R55 seed) | R55 | open — Track-2 candidate (derive from shared maps) |
-| Status header stale — shipped doc still read "Draft / design-only" | A6 | R56, R57, R58 | **fixed in-round** (R56–R58). **3 surfaces = systematic** — every pre-audit shipped doc is stale; doctrine/template candidate |
+| Status header stale — shipped doc still read "Draft / design-only" | A6 | R56, R57, R58, R59 | **fixed in-round** (R56–R59). **4 surfaces = systematic** — every pre-audit shipped doc is stale; doctrine/template candidate |
 | Embedded FE-types snippet drifted from vocab table + live type (missing R55 `ne`/`gte`/`lte`) | A2 / §D | R56 | **fixed in-round** (R56). Method-gap: design-doc code snippets are unguarded mirrors (parity tests cover code↔code, not doc↔code) — Track-2 candidate |
 | Surface-table Layer paths predate the `filters/` subdir reorg | C4 | R56 | open — systematic; in-round fix deferred (per-row verify needed) |
-| Token map: cites `tokens.css` + inline hex (R56/R57), or **absent entirely** (R58 `datasets.md` — predates the convention) | A3 | R56, R57, R58 | open — **3 surfaces = corpus-wide pattern**; Track-2 candidate (token-citation convention + backfill older docs) |
-| Reusability column vocab (`feature`/`backend`) outside README's enumerated set | A1 | R56, R57, R58 | open — **3 surfaces = systematic**; decide canonical (fix docs, or update README vocab) |
+| Token map: cites `tokens.css` + inline hex (R56/R57), or **absent entirely** on older docs (R58 `datasets.md`, R59 `workspaces.md`) | A3 | R56, R57, R58, R59 | open — **4 surfaces = corpus-wide pattern**; Track-2 candidate (token-citation convention + backfill older docs) |
+| Reusability column vocab (`feature`/`backend`) outside README's enumerated set | A1 | R56, R57, R58, R59 | open — **4 surfaces = systematic**; decide canonical. _R59 `workspaces.md` uses `shared cross-domain` (README-valid) **alongside** `feature`/`backend` → docs **extend** the enum, not ignore it; likely the README is the stale party._ |
 | Chip `×` / "Clear all" accessible name not declared | B3 | R56 | logged UX/a11y — deferred to a feature round (firewall) |
 | 422 filter-validation error has no declared FE surface | B4 | R56 | logged UX — deferred to a feature round (firewall) |
 | Inactive filter entry-point (muted chevron) discoverability weak | B1 (UX) | R56 | logged UX/product — deferred to a feature round (firewall) |
-| Design-gate exit (A2): docs lack an explicit user-journeys / testable-acceptance-criteria section (criteria implied via impl/test bullets) | A2 | R56, R57, R58 | open — **3 surfaces = systematic**; rubric/doc-template addition candidate |
+| Design-gate exit (A2): docs lack an explicit user-journeys / testable-acceptance-criteria section (criteria implied via impl/test bullets) | A2 | R56, R57, R58, R59 | open — **4 surfaces = systematic**; rubric/doc-template addition candidate |
 | Doc 422 description contradicts shipped contract (page-beyond → 200 empty, not 422) | §D / contract | R57 | **fixed in-round** (R57). Clarifies R56's B4 — the doc-declared 422 is unreachable from the UI |
-| Doc mirrors of a source-of-truth are unguarded by parity tests (R56: doc-snippet ↔ FE type; R57: doc-prose contract ↔ YAML) | method | R56, R57 | **Track-2 candidate** — 2 instances = pattern; extend parity discipline to design docs. _R58 did NOT recur: the data-model mirror (dtype enum, `Dataset` shape) IS contract-guarded (`column.yaml`/`dataset.yaml` + `additionalProperties: false`) — drift lives in prose, not data-model._ |
+| Doc mirrors of a source-of-truth are unguarded by parity tests (R56 doc-snippet↔FE-type; R57 doc-prose-contract↔YAML; R59 doc `Workspace.id` format↔`workspace.yaml`+BE) | method | R56, R57, R59 | **Track-2 candidate — 3 instances**; extend parity coverage to doc-declared contract/identifier claims. _Mechanism confirmed: drift appears exactly where no parity test guards — R58's dtype mirror did NOT drift **because** `dataset-detail.test.tsx` asserts it._ |
 | Dtype-badge full name is hover-only (no keyboard / SR path) | B3 | R57 | logged UX/a11y — deferred to a feature round (firewall) |
-| Scope boundary (A5): no explicit "does NOT cover" section (`datasets.md` — covered/deferred present, explicit *out* absent) | A5 | R58 | open — older-doc gap (predates the scope-boundary-section convention) |
-| Credibility: list page declares no loading / fetch-error state (`datasets.md`) | B4 / Cred | R58 | logged UX — older-doc gap; defer |
+| Scope boundary (A5): no explicit "does NOT cover" section (`datasets.md` — covered/deferred present, explicit *out* absent) | A5 | R58 | open — **doc-specific, NOT systematic**: R59 `workspaces.md` HAS an explicit Out-of-scope section, so this is a `datasets.md`-only gap |
+| Credibility: list page declares no loading / fetch-error state | B4 / Cred | R58, R59 | logged UX — older-doc gap (`datasets.md`, `workspaces.md`); defer |
 | Source-format conveyed icon-only in the list (no text / aria) | B3 | R58 | logged UX/a11y — deferred to a feature round (firewall) |
-| Rubric calibration residual: A3⇄B6 dedupe doesn't cover the **absent-map** case — with no token map, A3 and B6 both fire (`datasets.md`) | calibration | R58 | note — refine at close: B6 defers *all* token concern to A3 (presence included), not just the citation detail |
+| Rubric calibration residual: A3⇄B6 dedupe doesn't cover the **absent-map** case — with no token map, A3 and B6 both fire (`datasets.md`, `workspaces.md`) | calibration | R58, R59 | note — refine at close: B6 defers *all* token concern to A3 (presence included), not just the citation detail |
+| Doc `Workspace.id` declared "ULID or UUID" (+ stub `ulid.new()`) but contract/BE use `ws_<8 hex>` (`secrets.token_hex(4)`); dataset FK agrees | §D / C1 / contract | R59 | **fixed in-round** (R59 — type comment + stub id line) |
+| Clickable `WorkspaceCard` declares no keyboard / role / accessible-name path | B3 | R59 | logged UX/a11y — deferred to a feature round (firewall) |
+| `WorkspaceCard` `@mdd/ui` naming open-question left unresolved in-doc ("R13 commits the name") | C4 / A1 | R59 | open — verify at close: doc may name a primitive that shipped renamed (e.g. `ListCard`) |
+| Backend-stub illustration stale (shows in-memory `_WORKSPACES`; live BE is DuckDB-backed) | (doc, R59) | R59 | logged — separate from the id-format fix; backfill at close |
 
 _(Append one row per audit finding; bump "Seen in" when a gap recurs.)_
 
