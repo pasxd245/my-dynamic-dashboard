@@ -125,6 +125,15 @@ Before flipping a round from `Review` to `Complete`, verify:
       lists belong in `memory/` or a skill, not here. Aim for the
       leanest expression that still teaches the rule.
 - [ ] `npx markdownlint-cli2` repo-wide returns 0 errors.
+- [ ] **If the round touched any `.agents/design/**/*.md`**:
+      `pnpm design:lint` (or `node scripts/design-doc-lint.mjs`) returns 0.
+      Enforces the five design-doc format conventions the corpus audit
+      proved systematic (status vocab · Surface-table Reusability/Purity
+      vocab · token map · scope boundary · acceptance criteria). Known
+      pre-R64 failures are **grandfathered** (warn, not block) via
+      [`scripts/design-doc-lint.baseline.json`](../../scripts/design-doc-lint.baseline.json)
+      pending R65 backfill; any **new** doc or **new** violation errors.
+      Authored in [Round_64](cycles/Round_64.md).
 - [ ] **Optional**: `python3 .agents/skills/markdown-check-link/scripts/check_links.py --changed`
       to verify the round didn't introduce link rot. The
       `--changed` flag scopes to git-changed `.md` files only

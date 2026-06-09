@@ -91,11 +91,22 @@ Always present. Markdown is the contract. Contains:
   without leaving the doc.
   - **Layer** values: `@mdd/ui`, `apps/builder/src/`, or a specific
     deeper path (`apps/builder/src/features/<domain>/`).
-  - **Reusability** values: shared cross-domain, domain-only,
-    builder-only, one-off.
-  - **Purity** values: plain-UI (no router, no query, no zod), glue
-    (router-aware or wires BIZ libs to UI), data constant, feature
-    (full BIZ).
+  - **Reusability** and **Purity** cells follow a **base token +
+    optional `(qualifier)`** form: the token before any `(…)` must be
+    one of the canonical values below; the parenthetical is freeform
+    annotation (e.g. `glue (server-data)`, `feature (DM domain)`,
+    `pure (no react)`). The lint checks the base token only.
+  - **Reusability** base tokens: `shared cross-domain` (an `@mdd/ui`
+    primitive, reusable across domains), `feature` (domain-feature
+    code), `builder-only` (builder-app glue/api/host), `backend`
+    (backend route/helper), `data type` (a type-alias surface).
+    _(R64: reconciled to the corpus's de-facto usage. The earlier
+    `domain-only` is folded into `feature`; `one-off` was unused and
+    retired.)_
+  - **Purity** base tokens: `plain-UI` (no router, no query, no zod),
+    `glue` (router-aware or wires BIZ libs to UI), `data constant`,
+    `feature` (full BIZ), `data type`, `pure` (a pure function — no
+    react, no router, no fetch).
   - **Allowed peer deps**: explicit list. For `@mdd/ui` surfaces,
     must stay within `react`, `react-dom`, `antd`,
     `@ant-design/icons` (the permanent allow-list). Anything else

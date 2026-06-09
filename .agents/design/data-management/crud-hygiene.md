@@ -66,7 +66,7 @@ feature (rename + delete + 409-on-conflict) across two consumers
 
 | Surface                                  | Layer                                                  | Reusability  | Purity             | Allowed peer deps              |
 | ---------------------------------------- | ------------------------------------------------------ | ------------ | ------------------ | ------------------------------ |
-| `WorkspaceCard` (extended)               | `@mdd/ui`                                              | shared       | plain-UI           | react, antd, @ant-design/icons |
+| `WorkspaceCard` (extended)               | `@mdd/ui`                                              | shared cross-domain | plain-UI    | react, antd, @ant-design/icons |
 | Card overflow `<Dropdown>` menu          | `apps/builder/src/features/data-management/workspaces` | feature      | feature            | react, antd                    |
 | `DatasetActionsCell` (new table column)  | `apps/builder/src/features/data-management/datasets`   | feature      | feature            | react, antd                    |
 | `RenameModal` (shared by both resources) | `apps/builder/src/features/data-management/_shared`    | feature      | feature            | react, antd                    |
