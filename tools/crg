@@ -20,11 +20,11 @@ die() {
 show_usage() {
         cat <<'EOF'
 Usage:
-    ./scripts/crg -h|--help
-    ./scripts/crg -- <pass-through-args>
-    ./scripts/crg setup [options]
-    ./scripts/crg apps [apps_root] [options]
-    ./scripts/crg unregister [options]
+    ./tools/crg -h|--help
+    ./tools/crg -- <pass-through-args>
+    ./tools/crg setup [options]
+    ./tools/crg apps [apps_root] [options]
+    ./tools/crg unregister [options]
 
 Sub-commands:
     setup
@@ -51,19 +51,19 @@ Sub-commands:
             --grep <text>     Filter repos from: code-review-graph repos | grep <text>
 
 Examples:
-    ./scripts/crg setup
-    ./scripts/crg setup -- --no-instructions
-    ./scripts/crg apps --register
-    ./scripts/crg apps --build
-    ./scripts/crg apps --register --build
-    ./scripts/crg apps -- update
-    ./scripts/crg apps --register --build -- update
-    ./scripts/crg apps apps-custom --build
-    ./scripts/crg apps /abs/path/to/apps --register
-    ./scripts/crg unregister myrepo
-    ./scripts/crg unregister --all
-    ./scripts/crg unregister --grep billing
-    ./scripts/crg -- --version
+    ./tools/crg setup
+    ./tools/crg setup -- --no-instructions
+    ./tools/crg apps --register
+    ./tools/crg apps --build
+    ./tools/crg apps --register --build
+    ./tools/crg apps -- update
+    ./tools/crg apps --register --build -- update
+    ./tools/crg apps apps-custom --build
+    ./tools/crg apps /abs/path/to/apps --register
+    ./tools/crg unregister myrepo
+    ./tools/crg unregister --all
+    ./tools/crg unregister --grep billing
+    ./tools/crg -- --version
 EOF
 }
 
@@ -78,7 +78,7 @@ fail_usage() {
 ensure_cli_bin() {
     if [[ ! -x "$CLI_BIN" ]]; then
         echo "ERROR: code-review-graph is not installed at $CLI_BIN" >&2
-        echo "Run ./scripts/crg setup first." >&2
+        echo "Run ./tools/crg setup first." >&2
         exit 1
     fi
 }
@@ -130,7 +130,7 @@ Setup complete.
 Next steps:
   1. Restart Claude Code (or run /mcp inside it) to pick up MCP changes.
   2. Run commands across app repos:
-    ./scripts/crg -- update
+    ./tools/crg -- update
 EOF
 }
 
