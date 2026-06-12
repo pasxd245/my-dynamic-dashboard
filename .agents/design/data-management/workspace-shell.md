@@ -351,6 +351,42 @@ boundary is broken. Reject the change.
 
 ---
 
+## Acceptance criteria (Design gate exit)
+
+Testable criteria the R07–R09 chain satisfies, each mapping to at least
+one automated test. Numbered `C1`–`C6`; they describe the **shipped**
+shell behaviour.
+
+**User journey** — as a user I navigate the app through a persistent
+sidebar shell: I see where I am, switch sections, and collapse the
+sidebar to reclaim room.
+
+1. **Shell render** _(FE component)_ — `<WorkspaceShell items activeKey
+   onSelect>` renders the sidebar nav and the content region; the item
+   matching `activeKey` gets the pill treatment and only one item is
+   active at a time.
+2. **Router-agnostic boundary** _(FE / boundary check)_ — `@mdd/ui`'s
+   `WorkspaceShell` imports nothing from `react-router-dom`,
+   `@tanstack/*`, or `zod`; navigation flows only through the consumer's
+   `onSelect(key)` callback.
+3. **Collapse (R09)** _(FE)_ — a hamburger toggles the sidebar 88px
+   expanded ↔ 56px collapsed via a 200 ms width transition; collapsed
+   hides labels and the brand mark and reveals a tooltip on hover; the
+   state is parent-owned (`collapsed` + `onToggleCollapse`) with no
+   persistence.
+4. **Nav-item states** _(FE)_ — idle / hover / active per the
+   state machine; keyboard Tab moves focus and Enter / Space activates;
+   the active item is driven by the `activeKey` prop, not internal
+   state.
+5. **Routing wiring** _(FE / integration)_ — the builder layout wires
+   `onSelect` to the router; `/` redirects to the Data-Management
+   landing route; the `/data-management` route renders inside the shell.
+6. **Icons** _(FE)_ — each nav-item carries its `@ant-design/icons`
+   glyph (e.g. `DatabaseOutlined`) and the hamburger uses
+   `MenuOutlined`.
+
+---
+
 ## Scope boundary — R07
 
 ### IN scope

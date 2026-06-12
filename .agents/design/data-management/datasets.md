@@ -192,6 +192,37 @@ pre-fills the workspace picker in the modal.
 
 ---
 
+## Token map
+
+The Datasets page is AntD primitives (`<Table>`, `<Select>`,
+`<Input>`, `<Empty>`, `<Button>`) styled by the AntD seed — the
+`tokens.css` mirror of
+[`themeTokens.ts`](../../../workspace/packages/ui/src/themeTokens.ts).
+The source-format prefix (`📊` / `📄`) is an emoji glyph, not a themed
+token. No new token value is introduced.
+
+| Surface                                  | Token                                       | Source                                     |
+| ---------------------------------------- | ------------------------------------------- | ------------------------------------------ |
+| Page background                          | `--color-bg-layout`                         | tokens.css mirror of themeTokens.ts        |
+| Page card background                     | `--color-bg-base`                           | tokens.css                                 |
+| Table header background                  | `--color-fill-quaternary`                   | tokens.css                                 |
+| Table header text                        | `--color-text-secondary`                    | tokens.css                                 |
+| Table row border                         | `--color-border-secondary`                  | tokens.css                                 |
+| Table row hover                          | `--color-primary-bg`                        | tokens.css                                 |
+| Cell text                                | `--color-text-base`                         | tokens.css                                 |
+| Workspace filter / search input border   | `--color-border` (focus `--color-primary`)  | tokens.css                                 |
+| "Clear filter" `×` link                  | `--color-primary`                           | tokens.css                                 |
+| `+ Upload` primary action button         | `--color-primary`                           | AntD seed `colorPrimary` (themeTokens.ts)  |
+| Empty-state drop-zone border             | `--color-border` (dashed)                   | tokens.css                                 |
+| Border radius (card, table, button)      | `--radius-md` (6px)                          | tokens.css                                 |
+| Font family                              | `--font-family`                             | tokens.css                                 |
+
+No new token values are introduced; if a value is missing from
+`themeTokens.ts` it is promoted as a prerequisite step in the owning
+round, never invented inline.
+
+---
+
 ## Dataset data model
 
 R15+ ships:
@@ -352,6 +383,79 @@ editing becomes a real feature.
 **Active state**: when route is `/data-management/datasets`
 (with or without `?workspace=...`), Datasets is highlighted.
 Workspace filter does not change which sidebar item is active.
+
+---
+
+## Acceptance criteria (Design gate exit)
+
+Testable criteria the R15–R17 chain satisfies (extended R23, R33), each
+mapping to at least one automated test across F / B / I. Numbered
+`C1`–`C9`; they describe the **shipped** catalog behaviour.
+
+**User journey** — as a user I open Datasets to see every table across
+my workspaces in one sortable list, filter to a workspace, and find a
+dataset by name.
+
+1. **List** _(FE component)_ — the populated state renders the
+   `DatasetTable` from `useDatasetsQuery(workspaceId?)`, one row per
+   committed dataset with Name / Workspace / Rows / Cols / Size /
+   Uploaded columns; default sort is Uploaded desc. There is **no**
+   status column.
+2. **Source-format icon** _(FE)_ — each Name cell is prefixed `📊` for
+   Excel and `📄` for CSV, driven by `Dataset.sourceFormat`.
+3. **Workspace filter** _(FE)_ — selecting a workspace writes
+   `?workspace=<id>`, scopes the list, and surfaces the workspace name
+   in the breadcrumb; a `×` next to the dropdown clears back to "All"
+   and strips the param.
+4. **Search** _(FE)_ — the search box does a client-side substring
+   match against Name.
+5. **Workspace-card handoff** _(integration)_ — navigating from a
+   Workspaces card lands on this page with that workspace pre-filtered.
+6. **Empty states** _(FE)_ — zero datasets renders the drop-zone empty
+   state; a filtered view with no datasets incorporates the workspace
+   name into the drop-zone copy and the `[+ Upload]` button.
+7. **Backend list** _(pytest)_ — `GET /datasets?workspace_id=<id>`
+   returns datasets ordered `createdAt` desc, scoped when `workspace_id`
+   is given and across all workspaces otherwise; every returned dataset
+   is committed-ready (no transient / failed rows).
+8. **Data model** _(contract)_ — each `Dataset` carries `id`,
+   `workspaceId`, `name`, `sizeBytes`, `rowCount`, `columnCount`,
+   `columns[]`, `sourceFormat`, `sheetName?` (iff Excel), `createdAt`;
+   `rowCount` / `columnCount` / `columns` are never null.
+9. **Row-click handoff (R33)** _(FE)_ — clicking a row navigates to
+   `/data-management/datasets/:id`, resolving the R∞-deferred affordance
+   per [dataset-detail.md](dataset-detail.md).
+
+---
+
+## Scope boundary
+
+This concept covers:
+
+- The Datasets **table-list** page at `/data-management/datasets` — the
+  noun's catalog: the columns + default sort, the workspace filter
+  (URL `?workspace=`), client-side name search, the empty and
+  filtered-empty drop-zone states, the source-format icon, and the
+  workspace-card handoff into the filtered view.
+
+This concept defers:
+
+- All of the "Deferred" bullets in § Read/write boundary above (detail
+  view — resolved by R33; rename / delete — by R23; re-parse,
+  column-level affordances, saved filters, bulk ops, and
+  pagination / virtualization).
+
+This concept explicitly does NOT cover:
+
+- The upload wizard that **creates** datasets — the verb to this noun,
+  in [upload.md](upload.md).
+- The per-dataset inspector page (lives in
+  [dataset-detail.md](dataset-detail.md)).
+- Rename / delete affordances and their modals (live in
+  [crud-hygiene.md](crud-hygiene.md); the table's Actions column is a
+  _placement_ of them, added in R23).
+- The Workspace container model (lives in
+  [workspaces.md](workspaces.md)).
 
 ---
 

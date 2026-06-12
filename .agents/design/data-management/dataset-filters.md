@@ -737,6 +737,50 @@ clearFilters]`; the URL is the source of truth, the in-memory
 
 ---
 
+## Acceptance criteria (Design gate exit)
+
+Testable criteria the R38–R40 chain satisfies (amended R55), each
+mapping to at least one automated test across F / B / I. Numbered
+`C1`–`C9`; they describe the **shipped** per-column-filter behaviour.
+
+**User journey** — as a user I filter a dataset's rows by typed
+per-column predicates from the column headers, see the active filters as
+chips, and combine them with the substring search.
+
+1. **Trigger** _(FE component)_ — each column header renders a `▾`
+   `FilterTrigger`; an active filter renders it in `--color-primary`
+   with a redundant dot.
+2. **Per-dtype popover** _(FE)_ — the popover's operator set matches the
+   column dtype per the predicate-vocabulary table (string / numeric /
+   date / boolean, including R55's `ne` and inclusive `gte` / `lte`);
+   the value editor shape varies (single input / between / date-picker /
+   none); `Apply` is disabled when the operator needs a value and the
+   input is empty.
+3. **URL state** _(FE)_ — Apply writes `f<N>_op` / `f<N>_val` /
+   `f<N>_min` / `f<N>_max` keyed by the 0-based column index and resets
+   `?page=` to 1 (`replace: true`); a chip `×` removal is a history
+   entry; `Clear all` is `replace: true`.
+4. **Chip row** _(FE)_ — `ActiveFilterChips` renders one closable chip
+   per filter with dtype-aware value formatting (`formatCell`) and a
+   `Clear all` link; the row is hidden when no filter is active.
+5. **AND-compose with `?q=`** _(FE + BE)_ — filters push down to the
+   WHERE clause first, then `?q=` runs over the filtered intermediate;
+   "Matched X / Y" reflects the post-AND count.
+6. **No-match** _(FE)_ — zero rows with ≥1 filter shows "No rows match
+   these filters" (or "No rows match `<q>` with these filters" when `q`
+   is set); column headers stay, pagination disappears.
+7. **Backend** _(pytest)_ — the rows handler parses each `f<N>_*`,
+   validates the operator against `Dataset.columns[].dtype` (422 on
+   mismatch or unparseable value), builds the DuckDB WHERE clause, and
+   applies it before pagination.
+8. **Caching** _(FE)_ — the rows query key includes the serialized
+   `filters` set sorted by column index for stable equality.
+9. **Types** _(FE)_ — the `FilterPredicate` discriminated union enforces
+   operator / dtype / value-shape at compile time; `useFiltersState`
+   derives the in-memory set from the URL source of truth.
+
+---
+
 ## Scope boundary
 
 This concept covers:

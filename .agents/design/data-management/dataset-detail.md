@@ -690,6 +690,49 @@ export type RowsPage = {
 
 ---
 
+## Acceptance criteria (Design gate exit)
+
+Testable criteria the R34–R36 chain satisfies, each mapping to at least
+one automated test across F / B / I. Numbered `C1`–`C8`; they describe
+the **shipped** inspector behaviour.
+
+**User journey** — as a user I click a dataset to inspect it: I see its
+metadata, page through its rows, and search for a row by substring.
+
+1. **Metadata strip** _(FE component)_ — the populated state renders
+   workspace / rows / cols / size / uploaded / format from
+   `useDatasetQuery(id)`, plus a header title with the source-format
+   icon and dataset name.
+2. **Paged table** _(FE + BE)_ — `useDatasetRowsQuery(id, page,
+   pageSize)` renders rows from `GET /datasets/{id}/rows?page=&page_size=`
+   with an AntD `<Pagination>` (page sizes 25 / 50 / 100 + jumper);
+   `page` / `page_size` live in the URL and a page-size change resets
+   `page` to 1.
+3. **Cell rendering** _(FE)_ — driven by `Dataset.columns[].dtype`:
+   numeric right-aligned with thousands separators, date / datetime
+   ISO-ish, boolean lowercase, null as a muted `—`, string truncated
+   with a `title` tooltip.
+4. **Row search** _(FE + BE)_ — `<Input.Search>` writes `?q=`,
+   debounced 300 ms; the BE filters before paginating so `total` is the
+   matched count; "Matched X / Y" shows `Y = Dataset.rowCount`; clearing
+   restores `Y / Y`.
+5. **States** _(FE)_ — loading skeleton; 404 / deleted state with the
+   "Dataset deleted" toast and a "Back to Datasets" button; zero-rows
+   state (schema shown, pagination hidden); no-match state ("No rows
+   match `<q>`" + Clear).
+6. **Rename / delete placement** _(FE)_ — the header actions open the
+   [crud-hygiene.md](crud-hygiene.md) modals; delete-success navigates
+   back to the list with `replace=true`.
+7. **Contract** _(pytest / contract)_ — `GET /datasets/{id}` → 200
+   `Dataset` / 404; `GET /datasets/{id}/rows` → `{ rows, page, pageSize,
+   total }`; `page_size` outside the enum → 422; a page beyond the last
+   → 200 with an empty `rows` array.
+8. **Cache keys** _(FE)_ — the rows query is keyed
+   `['datasets', { id }, 'rows', { page, pageSize, q }]`; delete
+   invalidation reaches it via the `['datasets', { id }]` prefix.
+
+---
+
 ## Scope boundary
 
 This concept covers:

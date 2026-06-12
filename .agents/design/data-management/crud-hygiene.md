@@ -288,6 +288,88 @@ below the input field:
 
 ---
 
+## Token map
+
+The CRUD affordances are AntD primitives (`<Dropdown>`, `<Modal>`,
+`<Input>`, `<Alert>`, `<Button>`) styled by the AntD seed — the
+`tokens.css` mirror of
+[`themeTokens.ts`](../../../workspace/packages/ui/src/themeTokens.ts).
+No new token value is introduced.
+
+| Surface                                   | Token                                                    | Source                                     |
+| ----------------------------------------- | -------------------------------------------------------- | ------------------------------------------ |
+| Overflow `⋮` trigger icon                 | `--color-text-tertiary` (hover `--color-text-secondary`) | tokens.css mirror of themeTokens.ts        |
+| Dropdown menu background                  | `--color-bg-base`                                        | tokens.css                                 |
+| `Delete` (danger) menu item text          | `--color-error`                                          | tokens.css                                 |
+| Modal title text                          | `--color-text-base`                                      | tokens.css                                 |
+| Modal body text                           | `--color-text-secondary`                                 | tokens.css                                 |
+| Rename input border (idle / focus)        | `--color-border` / `--color-primary`                     | tokens.css                                 |
+| 409 inline error `<Alert>`                | `--color-error`                                          | tokens.css                                 |
+| Blocked-modal warning icon                | AntD seed `colorWarning`                                 | AntD seed (themeTokens.ts)                 |
+| Primary "Save" button                     | `--color-primary`                                        | AntD seed `colorPrimary` (themeTokens.ts)  |
+| Danger "Delete" button                    | `--color-error`                                          | tokens.css                                 |
+| Border radius (modal, buttons, dropdown)  | `--radius-md` (6px)                                      | tokens.css                                 |
+| Font family                               | `--font-family`                                          | tokens.css                                 |
+
+No new token values are introduced; AntD's danger/warning button and
+alert chrome derive from the seed `colorError` / `colorWarning`.
+
+---
+
+## Acceptance criteria (Design gate exit)
+
+Testable criteria the R24–R26 chain satisfies (extended R30/R32/R33),
+each mapping to at least one automated test across F / B / I. Numbered
+`C1`–`C11` for suite reference; they describe the **shipped** rename +
+delete + cascade-guard behaviour.
+
+**User journey** — as a user I rename or delete a workspace or a
+dataset from its overflow menu, and I am protected from deleting a
+workspace that still holds datasets.
+
+1. **Affordance** _(FE component)_ — each `WorkspaceCard` and each
+   datasets-table row renders an always-visible `⋮` overflow trigger
+   that opens a `Rename` / `Delete` (danger-styled) dropdown; the
+   trigger click stops propagation so it never fires the card / row
+   click.
+2. **Rename** _(FE + BE)_ — Rename opens `<RenameModal>` pre-filled
+   with the current name; submit calls `PATCH /workspaces/{id}` or
+   `PATCH /datasets/{id}` with `{ name }`, shows the pessimistic
+   loading state, and on success invalidates the affected list query.
+3. **Rename conflict** _(FE + BE)_ — a duplicate name returns
+   `409 name_taken`; the modal stays open with an inline error and the
+   user can edit and re-submit.
+4. **Delete dataset** _(FE + BE)_ — Delete opens `<DeleteConfirmModal>`;
+   confirm calls `DELETE /datasets/{id}` (row + parquet in one
+   transaction), toasts, and invalidates `['datasets']`. A 404 race is
+   treated as effective success for the UI.
+5. **Delete empty workspace** _(FE + BE)_ — `DELETE /workspaces/{id}`
+   with zero datasets returns 204 and invalidates both `['workspaces']`
+   and `['datasets']`.
+6. **Delete non-empty workspace blocked** _(FE + BE)_ — the DELETE
+   returns `409 non_empty` with `datasetCount`; the FE shows the
+   informational blocked modal (state 4), reached either by pre-flight
+   or by the authoritative 409. The BE 409 is the source of truth — the
+   FE never trusts its cached count.
+7. **Uniqueness scope** _(pytest)_ — workspace `name` is unique
+   globally; dataset `name` is unique within its workspace (same name
+   in two workspaces is allowed).
+8. **Name length** _(pytest / contract)_ — `RenameWorkspaceBody`
+   enforces max 80, `RenameDatasetBody` max 120, both sourced from the
+   cross-language `NAME_LENGTHS` constant.
+9. **Error-code branching** _(FE)_ — `not_found` / `name_taken` /
+   `non_empty` each map to exactly one FE branch (toast + invalidate /
+   inline error / swap-to-blocked-modal).
+10. **Detail-page placement (R33)** _(FE)_ — the same rename + delete
+    affordances render in the `/datasets/:id` page-header actions slot,
+    reusing the R26 modals + hooks unchanged; delete-success navigates
+    back to the Datasets list with `replace=true`.
+11. **Integration** — renaming a workspace refreshes the Workspace
+    column on the Datasets table (both `['workspaces']` and
+    `['datasets']` invalidated).
+
+---
+
 ## Resource scope of "rename"
 
 PATCH body is **`{ name: string }`** for both resources.

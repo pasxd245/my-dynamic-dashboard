@@ -1,34 +1,4 @@
 {
-  "_comment": "Grandfathered design-doc conformance failures as of R64. Baselined failures WARN; non-baselined violations ERROR. R65 backfills docs and removes entries. Regenerate: node scripts/design-doc-lint.mjs --update-baseline",
-  "_generated": "R64 (data-management doc-template + lint)",
-  "data-management/advanced-query.md": [
-    "L3-token-map"
-  ],
-  "data-management/crud-hygiene.md": [
-    "L3-token-map",
-    "L5-acceptance-criteria"
-  ],
-  "data-management/dataset-detail.md": [
-    "L5-acceptance-criteria"
-  ],
-  "data-management/dataset-filters.md": [
-    "L5-acceptance-criteria"
-  ],
-  "data-management/datasets.md": [
-    "L3-token-map",
-    "L4-scope-boundary",
-    "L5-acceptance-criteria"
-  ],
-  "data-management/upload.md": [
-    "L3-token-map",
-    "L4-scope-boundary",
-    "L5-acceptance-criteria"
-  ],
-  "data-management/workspace-shell.md": [
-    "L5-acceptance-criteria"
-  ],
-  "data-management/workspaces.md": [
-    "L3-token-map",
-    "L5-acceptance-criteria"
-  ]
+  "_comment": "Grandfathered design-doc conformance failures. EMPTIED by R65 — every data-management doc now conforms to all five rules (L1-L5). Non-baselined violations ERROR (exit 1); a new doc carries no entry, so it must conform. Re-grandfather a deliberate exception by adding a \"<rel/path.md>\": [\"<rule-id>\"] entry. Regenerate from current state: node scripts/design-doc-lint.mjs --update-baseline",
+  "_generated": "R65 (data-management doc-format conformance backfill — baseline emptied)"
 }

@@ -333,6 +333,39 @@ AND-compose (§ Composition).
 
 ---
 
+## Token map
+
+The advanced-query input is placed on the
+[dataset detail page](dataset-detail.md) and reuses that page's token
+surface — the `tokens.css` mirror of
+[`themeTokens.ts`](../../../workspace/packages/ui/src/themeTokens.ts) /
+the AntD seed. It is an AntD `<Input>` re-skinned only by state, so it
+introduces **no new token value** (additive J-2 backfill — the C1–C17
+acceptance list and grammar tables above are untouched).
+
+| Surface                            | Token                                                    | Source                              |
+| ---------------------------------- | -------------------------------------------------------- | ----------------------------------- |
+| Input border (idle)                | `--color-border`                                         | tokens.css mirror of themeTokens.ts |
+| Input border (focus)               | `--color-primary`                                        | tokens.css                          |
+| Input border (errored)             | `--color-error`                                          | tokens.css                          |
+| "Advanced query" label text        | `--color-text-secondary`                                 | tokens.css                          |
+| `?` help trigger                   | `--color-text-tertiary` (hover `--color-primary`)        | tokens.css                          |
+| Helper / grammar-hint text         | `--color-text-tertiary`                                  | tokens.css                          |
+| Success readback (`N groups · …`)  | `--color-primary`                                        | tokens.css                          |
+| Error message text                 | `--color-error`                                          | tokens.css                          |
+| In-field clear (`×`) glyph         | `--color-text-tertiary` (hover `--color-text-secondary`) | tokens.css                          |
+| `?` popover background / shadow    | `--color-bg-base`, `--shadow-card`                       | tokens.css / AntD `<Popover>`       |
+| Border radius (input, popover)     | `--radius-md` (6px)                                      | tokens.css                          |
+| Font family                        | `--font-family`                                          | tokens.css                          |
+
+No new token values are introduced; this map shares the
+[dataset-filters.md token map](dataset-filters.md#token-map) surface,
+which the advanced-query input sits alongside on the same page. If R40+
+finds any value missing from `themeTokens.ts`, the owning round promotes
+it as a prerequisite — never an inline hex.
+
+---
+
 ## Behavior
 
 ```mermaid

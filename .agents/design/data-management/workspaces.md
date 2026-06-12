@@ -120,6 +120,69 @@ centred below. CTA copy: "Create your first workspace."
 
 ---
 
+## Token map
+
+The Workspaces page is composed entirely of AntD primitives
+(`<Card>`, `<Row>`/`<Col>`, `<Empty>`, `<Modal>`, `<Button>`) styled
+by the AntD seed — the `tokens.css` mirror of
+[`themeTokens.ts`](../../../workspace/packages/ui/src/themeTokens.ts).
+No new token value is introduced.
+
+| Surface                              | Token                                              | Source                                     |
+| ------------------------------------ | -------------------------------------------------- | ------------------------------------------ |
+| Page background                      | `--color-bg-layout`                                | tokens.css mirror of themeTokens.ts        |
+| Page card background                 | `--color-bg-base`                                  | tokens.css                                 |
+| Card border / divider                | `--color-border-secondary`                         | tokens.css                                 |
+| Card hover background                | `--color-primary-bg`                               | tokens.css                                 |
+| Card title text                      | `--color-text-base`                                | tokens.css                                 |
+| "Created …" subtitle text            | `--color-text-secondary`                           | tokens.css                                 |
+| Empty-state caption text             | `--color-text-tertiary`                            | tokens.css                                 |
+| Create / primary action button       | `--color-primary`                                  | AntD seed `colorPrimary` (themeTokens.ts)  |
+| Border radius (cards, modal, button) | `--radius-md` (6px)                                | tokens.css                                 |
+| Font family                          | `--font-family`                                    | tokens.css                                 |
+
+No new token values are introduced; if a value is missing from
+`themeTokens.ts` it is promoted as a prerequisite step in the owning
+round, never invented inline.
+
+---
+
+## Acceptance criteria (Design gate exit)
+
+Testable criteria the R13 implementation satisfies, each mapping to at
+least one automated test. Numbered `C1`–`C6` for suite reference. These
+describe the **shipped** read + create-stub scope; rename / delete are
+[crud-hygiene.md](crud-hygiene.md)'s criteria, not restated here.
+
+**User journey** — as a user I open Workspaces to see every container I
+have created and to create a new one, so I can organise my datasets.
+
+1. **List** _(FE component)_ — the populated state renders one
+   `WorkspaceCard` per workspace returned by `useWorkspacesQuery()`,
+   each showing the name and the created date.
+2. **Empty state** _(FE component)_ — zero workspaces renders the AntD
+   `<Empty>` with the "No workspaces yet" message and a primary
+   "Create your first workspace" button.
+3. **Create** _(FE + BE)_ — the PageHeader `[+ Create]` action and the
+   empty-state CTA both open a modal with a single name `<Input>`;
+   submitting calls `POST /workspaces`, invalidates `['workspaces']`,
+   and the new card appears without a manual reload.
+4. **Navigation** _(FE)_ — clicking a card navigates to the
+   workspace-filtered datasets view
+   (`/data-management/datasets?workspace=<id>`). _Flag: the R13 layout
+   note above still reads "navigates to `/workspaces/<id>` (route stub)";
+   that line is superseded by [datasets.md](datasets.md)'s R14 Q11
+   decision (no detail route — cards link to the filtered list, shipped
+   R17). Documented, not silently rewritten._
+5. **Grid responsiveness** _(FE)_ — the card grid renders 3 columns at
+   ≥1280px, 2 at ≥768px, and 1 below, via AntD `<Row>`/`<Col>`.
+6. **Backend list** _(pytest / integration)_ — `GET /workspaces`
+   returns the workspace list; each `Workspace` carries
+   `{ id matching ^ws_[0-9a-f]{8}$, name (1–80 chars), createdAt
+   (ISO-8601 UTC) }`.
+
+---
+
 ## Workspace data model
 
 R13 ships:

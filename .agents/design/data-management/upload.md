@@ -521,6 +521,37 @@ inspection of the others.
 
 ---
 
+## Token map
+
+The wizard is composed of AntD primitives (`<Steps>`, `<Card>`,
+`<Upload.Dragger>`, `<Table>`, `<Tabs>`, `<Select>`, `<Alert>`,
+`<Button>`) styled by the AntD seed — the `tokens.css` mirror of
+[`themeTokens.ts`](../../../workspace/packages/ui/src/themeTokens.ts).
+No new token value is introduced.
+
+| Surface                                    | Token                                              | Source                                     |
+| ------------------------------------------ | -------------------------------------------------- | ------------------------------------------ |
+| Page background                            | `--color-bg-layout`                                | tokens.css mirror of themeTokens.ts        |
+| Page card background                       | `--color-bg-base`                                  | tokens.css                                 |
+| Stepper active dot                         | `--color-primary`                                  | AntD seed `colorPrimary` (themeTokens.ts)  |
+| Stepper inactive dot                       | `--color-border-secondary`                         | tokens.css                                 |
+| Source-type card border (selected)        | `--color-primary`                                  | tokens.css                                 |
+| Drop-zone border                           | `--color-border` (dashed; hover `--color-primary`) | tokens.css                                 |
+| Override / preview table header background | `--color-fill-quaternary`                          | tokens.css                                 |
+| Table cell / column text                   | `--color-text-base`                                | tokens.css                                 |
+| Sheet-tab active text                      | `--color-primary`                                  | tokens.css                                 |
+| Parse-failed `✗` marker / error `<Alert>`  | `--color-error`                                    | tokens.css                                 |
+| Helper / hint text                         | `--color-text-tertiary`                            | tokens.css                                 |
+| Primary `Next` / `Create datasets` button  | `--color-primary`                                  | AntD seed `colorPrimary` (themeTokens.ts)  |
+| Border radius (cards, table, buttons)      | `--radius-md` (6px)                                | tokens.css                                 |
+| Font family                                | `--font-family`                                    | tokens.css                                 |
+
+No new token values are introduced; if a value is missing from
+`themeTokens.ts` it is promoted as a prerequisite step in the owning
+round, never invented inline.
+
+---
+
 ## File storage decision
 
 R15+ stores each uploaded file as the **raw source file** plus a
@@ -830,6 +861,101 @@ Datasets reference `workspace_id` via a foreign key.
 - **Additional source types** (API, Website, SQL, …). R∞ — the
   wizard's IA is forward-compatible; each new source adds a
   selector option + its own step variants.
+
+---
+
+## Acceptance criteria (Design gate exit)
+
+Testable criteria the R15–R17 chain satisfies (extended R19/R21/R30/R32),
+each mapping to at least one automated test across F / B / I. Numbered
+`C1`–`C11`; they describe the **shipped** wizard behaviour.
+
+**User journey** — as a user I bring a CSV or Excel file into the
+product through a guided wizard, review and adjust the parsed schema,
+preview the rows, and commit one or more datasets.
+
+1. **Source step** _(FE component)_ — Step 1 offers an Excel (default)
+   and a CSV card, a required workspace picker (pre-filled from
+   `?workspace=<id>`), and a required file drop-zone whose accept-types
+   adapt to the source; `[Next]` is enabled only when all three are set
+   and triggers `POST /uploads`.
+2. **Stepper branching** _(FE)_ — the stepper renders 3 steps for CSV
+   and 4 for Excel; Excel inserts a Sheet step before Metadata.
+3. **Sheet step (Excel)** _(FE + BE)_ — sheets are listed with light
+   metadata (name / row / column counts) from `POST /uploads`;
+   multi-select checkboxes require ≥1; `[Next]` triggers
+   `POST /uploads/{temp_id}/parse` for each selected sheet.
+4. **Metadata step** _(FE)_ — a per-column Include checkbox (all checked
+   by default; ≥1 must remain), a read-only column name, and a dtype
+   override dropdown; a format-string input appears **only** for
+   `date` / `datetime`; `[Reset all to detected]` clears the active
+   tab's overrides; Excel shows per-sheet tabs that preserve overrides
+   per sheet.
+5. **Parse options** _(FE + BE)_ — Excel exposes range + has-header and
+   CSV exposes skip-rows + has-header in the Metadata disclosure;
+   editing them and clicking `[Re-parse]` re-parses and **resets** that
+   sheet's dtype overrides + exclusions with an inline warning
+   (R19 Q2 / Q4). CSV has no re-parse — its options apply at commit
+   (R19 Q1) and the BE honours them observably (R20).
+6. **Preview step** _(FE + BE)_ — shows each column's name + dtype and
+   10 sample rows read from `preview.<sheetkey>.json`; Excel renders
+   per-sheet tabs.
+7. **Preview failure** _(FE)_ — a parse failure surfaces inline: CSV is
+   total (`[Re-pick file]` → Step 1); Excel is per-sheet (a `✗` tab
+   marker + `[Deselect this sheet]`). `[Next]` is disabled while any
+   selected sheet has failed.
+8. **Confirm + atomic commit** _(FE + BE)_ — one editable dataset-name
+   row per selected sheet (exactly one for CSV); duplicate names within
+   the batch are flagged inline; `[Create datasets]` POSTs
+   `/workspaces/{id}/datasets/batch` atomically (all-or-nothing) and on
+   success navigates to the Datasets list with the new rows. _Flag:
+   the Confirm step copy validates names as "1–80 chars"; this is
+   narrower than [crud-hygiene.md](crud-hygiene.md)'s `NAME_LENGTHS`
+   `DATASET_MAX = 120` used by the rename path. Recorded as a cross-doc
+   length inconsistency, not rewritten here — a parity-check candidate
+   for R66._
+9. **Commit validation** _(pytest)_ — an implausible dtype cast (e.g.
+   `"abc"` → integer) raises a `422` with a row-pointing message and the
+   wizard stays on Confirm with an inline `<Alert>`; a commit whose
+   `parse_options` differ from the last `/parse` returns `409`.
+10. **File guards** _(pytest)_ — a 100 MB size cap with `413` / `415`
+    on size / mime violation; temp uploads are swept on a 24 h TTL by
+    the R30 periodic sweep (`app.jobs.tmp_sweep`), disabled in tests.
+11. **i18n (R32)** _(FE)_ — all five step components and the page shell
+    are keyed under `upload.*` namespaces; en + vi resources resolve.
+
+---
+
+## Scope boundary
+
+This concept covers:
+
+- The full-page upload **wizard** at `/data-management/datasets/new` —
+  the verb that turns a file into one or more Datasets: the data-source
+  selector (Excel + CSV), workspace + file selection, Excel multi-sheet
+  selection, the Metadata step (dtype overrides, column include/exclude,
+  date/datetime format string), the parse-options disclosure, the
+  Preview step (success + per-sheet / total failure), and the Confirm
+  step's atomic batch commit — plus the three backend endpoints and the
+  temp / committed file-storage layout.
+
+This concept defers:
+
+- All of the "Deferred" bullets in § Read/write boundary above (extended
+  parse options, column rename, append / update an existing dataset,
+  draft persistence, in-wizard browser back/forward, optimistic dataset
+  rows, background parsing, chunked upload, and additional source types).
+
+This concept explicitly does NOT cover:
+
+- The Dataset **noun** and its table list (lives in
+  [datasets.md](datasets.md)).
+- The per-dataset inspector page (lives in
+  [dataset-detail.md](dataset-detail.md)).
+- Rename / delete of an already-committed dataset (lives in
+  [crud-hygiene.md](crud-hygiene.md)).
+- The Workspace container an upload targets (lives in
+  [workspaces.md](workspaces.md)).
 
 ---
 
