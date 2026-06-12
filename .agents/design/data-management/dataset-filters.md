@@ -366,32 +366,38 @@ PageCard's `overflow` is irrelevant.
 
 ## Token map
 
-| Surface                                      | Token                                                 | Source      |
-| -------------------------------------------- | ----------------------------------------------------- | ----------- |
-| Filter trigger (default)                     | `--color-text-tertiary`                               | tokens.css  |
-| Filter trigger (hover)                       | `--color-text-secondary` on `--color-fill-quaternary` | tokens.css  |
-| Filter trigger (active)                      | `--color-primary`                                     | tokens.css  |
-| Filter trigger active-dot                    | `--color-primary` background, 4px circle              | tokens.css  |
-| Chip background                              | `--color-primary-bg` (`#e6f4ff`)                      | tokens.css  |
-| Chip text + border                           | `--color-primary`                                     | tokens.css  |
-| Chip close icon                              | `--color-primary` (hover: `--color-primary-hover`)    | tokens.css  |
-| Chip row background                          | `--color-fill-quaternary`                             | tokens.css  |
-| Chip row border                              | `1px solid --color-border-secondary`, `--radius-md`   | tokens.css  |
-| Chip row "Clear all" link                    | `--color-primary`                                     | tokens.css  |
-| Popover background                           | `--color-bg-base`                                     | tokens.css  |
-| Popover border / shadow                      | `--shadow-card`, `1px solid --color-border-secondary` | tokens.css  |
-| Popover title text                           | `--color-text-base`                                   | tokens.css  |
-| Popover label text                           | `--color-text-secondary`                              | tokens.css  |
-| Popover divider                              | `--color-border-secondary`                            | tokens.css  |
-| Popover "Clear filter" link                  | `--color-error` (muted)                               | tokens.css  |
-| Popover Apply button                         | AntD primary (`<Button type="primary">`)              | AntD seed   |
-| Popover Cancel button                        | AntD default                                          | AntD seed   |
-| Numeric input alignment                      | right-align, `font-variant-numeric: tabular-nums`     | local style |
-| Border radius (chip, popover, trigger hover) | `--radius-md` (6px)                                   | tokens.css  |
+All cells are AntD `<ConfigProvider>` tokens derived from the six seeds
+in [`themeTokens.ts`](../../../workspace/packages/ui/src/themeTokens.ts)
+(the source of truth — R66; re-cited off the archived CSS-variable
+mirror). Values are informational (resolved via
+`theme.getDesignToken()`, antd 6.x).
 
-No new token values are introduced. If R40 finds one missing
-from `themeTokens.ts`, R40 promotes the value as a prerequisite
-step (don't invent values inline).
+| Surface                                      | AntD token                                | Value (informational) |
+| -------------------------------------------- | ----------------------------------------- | --------------------- |
+| Filter trigger (default)                     | `colorTextTertiary`                       | derived               |
+| Filter trigger (hover)                       | `colorTextSecondary` on `colorFillQuaternary` | derived           |
+| Filter trigger (active)                      | `colorPrimary`                            | `#1677ff`             |
+| Filter trigger active-dot                    | `colorPrimary`                            | `#1677ff`             |
+| Chip background                              | `colorPrimaryBg`                          | `#e6f4ff`             |
+| Chip text + border                           | `colorPrimary`                            | `#1677ff`             |
+| Chip close icon (idle / hover)               | `colorPrimary` → `colorPrimaryHover`      | `#1677ff` / `#4096ff` |
+| Chip row background                          | `colorFillQuaternary`                     | derived               |
+| Chip row border                              | `colorBorderSecondary` + `borderRadius`   | derived               |
+| Chip row "Clear all" link                    | `colorPrimary`                            | `#1677ff`             |
+| Popover background                           | `colorBgBase`                             | derived               |
+| Popover border / shadow                      | `colorBorderSecondary` + `boxShadowTertiary` | derived            |
+| Popover title text                           | `colorText`                               | derived               |
+| Popover label text                           | `colorTextSecondary`                      | derived               |
+| Popover divider                              | `colorBorderSecondary`                    | `#f0f0f0`             |
+| Popover "Clear filter" link                  | `colorError` (muted)                      | `#ff4d4f`             |
+| Popover Apply button                         | `colorPrimary` (AntD primary `<Button>`)  | `#1677ff`             |
+| Popover Cancel button                        | `colorBgContainer` / `colorText` (AntD default) | derived         |
+| Numeric input alignment                      | _(local CSS `tabular-nums` — not a themed token)_ | n-a           |
+| Border radius (chip, popover, trigger hover) | `borderRadius`                            | `6`                   |
+
+No new token is introduced. Identifier parity against the live AntD
+registry is enforced by
+[`design-token-parity.mjs`](../../../scripts/design-token-parity.mjs).
 
 ---
 

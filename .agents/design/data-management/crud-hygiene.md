@@ -291,28 +291,31 @@ below the input field:
 ## Token map
 
 The CRUD affordances are AntD primitives (`<Dropdown>`, `<Modal>`,
-`<Input>`, `<Alert>`, `<Button>`) styled by the AntD seed — the
-`tokens.css` mirror of
-[`themeTokens.ts`](../../../workspace/packages/ui/src/themeTokens.ts).
-No new token value is introduced.
+`<Input>`, `<Alert>`, `<Button>`) styled by the AntD `<ConfigProvider>`
+tokens derived from the six seeds in
+[`themeTokens.ts`](../../../workspace/packages/ui/src/themeTokens.ts)
+(the source of truth — R66). No new token is introduced; values are
+informational (resolved via `theme.getDesignToken()`, antd 6.x).
 
-| Surface                                   | Token                                                    | Source                                     |
-| ----------------------------------------- | -------------------------------------------------------- | ------------------------------------------ |
-| Overflow `⋮` trigger icon                 | `--color-text-tertiary` (hover `--color-text-secondary`) | tokens.css mirror of themeTokens.ts        |
-| Dropdown menu background                  | `--color-bg-base`                                        | tokens.css                                 |
-| `Delete` (danger) menu item text          | `--color-error`                                          | tokens.css                                 |
-| Modal title text                          | `--color-text-base`                                      | tokens.css                                 |
-| Modal body text                           | `--color-text-secondary`                                 | tokens.css                                 |
-| Rename input border (idle / focus)        | `--color-border` / `--color-primary`                     | tokens.css                                 |
-| 409 inline error `<Alert>`                | `--color-error`                                          | tokens.css                                 |
-| Blocked-modal warning icon                | AntD seed `colorWarning`                                 | AntD seed (themeTokens.ts)                 |
-| Primary "Save" button                     | `--color-primary`                                        | AntD seed `colorPrimary` (themeTokens.ts)  |
-| Danger "Delete" button                    | `--color-error`                                          | tokens.css                                 |
-| Border radius (modal, buttons, dropdown)  | `--radius-md` (6px)                                      | tokens.css                                 |
-| Font family                               | `--font-family`                                          | tokens.css                                 |
+| Surface                                   | AntD token                              | Value (informational) |
+| ----------------------------------------- | --------------------------------------- | --------------------- |
+| Overflow `⋮` trigger icon / hover         | `colorTextTertiary` → `colorTextSecondary` | derived            |
+| Dropdown menu background                  | `colorBgBase`                           | derived               |
+| `Delete` (danger) menu item text          | `colorError`                            | `#ff4d4f`             |
+| Modal title text                          | `colorText`                             | derived               |
+| Modal body text                           | `colorTextSecondary`                    | derived               |
+| Rename input border (idle / focus)        | `colorBorder` → `colorPrimary`          | `#d9d9d9` / `#1677ff` |
+| 409 inline error `<Alert>`                | `colorError`                            | `#ff4d4f`             |
+| Blocked-modal warning icon                | `colorWarning`                          | `#faad14`             |
+| Primary "Save" button                     | `colorPrimary`                          | `#1677ff`             |
+| Danger "Delete" button                    | `colorError`                            | `#ff4d4f`             |
+| Border radius (modal, buttons, dropdown)  | `borderRadius`                          | `6`                   |
+| Font family                               | `fontFamily`                            | system stack          |
 
-No new token values are introduced; AntD's danger/warning button and
-alert chrome derive from the seed `colorError` / `colorWarning`.
+No new token is introduced; AntD's danger / warning button and alert
+chrome derive from `colorError` / `colorWarning`. Identifier parity is
+enforced by
+[`design-token-parity.mjs`](../../../scripts/design-token-parity.mjs).
 
 ---
 

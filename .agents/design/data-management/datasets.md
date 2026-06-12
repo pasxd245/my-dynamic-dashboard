@@ -195,31 +195,32 @@ pre-fills the workspace picker in the modal.
 ## Token map
 
 The Datasets page is AntD primitives (`<Table>`, `<Select>`,
-`<Input>`, `<Empty>`, `<Button>`) styled by the AntD seed — the
-`tokens.css` mirror of
-[`themeTokens.ts`](../../../workspace/packages/ui/src/themeTokens.ts).
-The source-format prefix (`📊` / `📄`) is an emoji glyph, not a themed
-token. No new token value is introduced.
+`<Input>`, `<Empty>`, `<Button>`) styled by the AntD `<ConfigProvider>`
+tokens derived from the six seeds in
+[`themeTokens.ts`](../../../workspace/packages/ui/src/themeTokens.ts)
+(the source of truth — R66). The source-format prefix (`📊` / `📄`) is
+an emoji glyph, not a themed token. No new token is introduced; values
+are informational (resolved via `theme.getDesignToken()`, antd 6.x).
 
-| Surface                                  | Token                                       | Source                                     |
-| ---------------------------------------- | ------------------------------------------- | ------------------------------------------ |
-| Page background                          | `--color-bg-layout`                         | tokens.css mirror of themeTokens.ts        |
-| Page card background                     | `--color-bg-base`                           | tokens.css                                 |
-| Table header background                  | `--color-fill-quaternary`                   | tokens.css                                 |
-| Table header text                        | `--color-text-secondary`                    | tokens.css                                 |
-| Table row border                         | `--color-border-secondary`                  | tokens.css                                 |
-| Table row hover                          | `--color-primary-bg`                        | tokens.css                                 |
-| Cell text                                | `--color-text-base`                         | tokens.css                                 |
-| Workspace filter / search input border   | `--color-border` (focus `--color-primary`)  | tokens.css                                 |
-| "Clear filter" `×` link                  | `--color-primary`                           | tokens.css                                 |
-| `+ Upload` primary action button         | `--color-primary`                           | AntD seed `colorPrimary` (themeTokens.ts)  |
-| Empty-state drop-zone border             | `--color-border` (dashed)                   | tokens.css                                 |
-| Border radius (card, table, button)      | `--radius-md` (6px)                          | tokens.css                                 |
-| Font family                              | `--font-family`                             | tokens.css                                 |
+| Surface                                  | AntD token                       | Value (informational) |
+| ---------------------------------------- | -------------------------------- | --------------------- |
+| Page background                          | `colorBgLayout`                  | `#f5f5f5`             |
+| Page card background                     | `colorBgBase`                    | derived               |
+| Table header background                  | `colorFillQuaternary`            | derived               |
+| Table header text                        | `colorTextSecondary`             | derived               |
+| Table row border                         | `colorBorderSecondary`           | `#f0f0f0`             |
+| Table row hover                          | `colorPrimaryBg`                 | `#e6f4ff`             |
+| Cell text                                | `colorText`                      | derived               |
+| Workspace filter / search input border   | `colorBorder` → `colorPrimary`   | `#d9d9d9` / `#1677ff` |
+| "Clear filter" `×` link                  | `colorPrimary`                   | `#1677ff`             |
+| `+ Upload` primary action button         | `colorPrimary`                   | `#1677ff`             |
+| Empty-state drop-zone border             | `colorBorder` (dashed)           | `#d9d9d9`             |
+| Border radius (card, table, button)      | `borderRadius`                   | `6`                   |
+| Font family                              | `fontFamily`                     | system stack          |
 
-No new token values are introduced; if a value is missing from
-`themeTokens.ts` it is promoted as a prerequisite step in the owning
-round, never invented inline.
+No new token is introduced. Identifier parity against the live AntD
+registry is enforced by
+[`design-token-parity.mjs`](../../../scripts/design-token-parity.mjs).
 
 ---
 

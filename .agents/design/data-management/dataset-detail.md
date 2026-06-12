@@ -314,37 +314,43 @@ resolves to `rgba(0,0,0,0.02)` — rows bleed through).
 
 ## Token map
 
-| Surface                       | Token                                                            | Source                              |
-| ----------------------------- | ---------------------------------------------------------------- | ----------------------------------- |
-| Page background               | `--color-bg-layout` (`#f5f5f5`)                                  | tokens.css mirror of themeTokens.ts |
-| Page card background          | `--color-bg-base` (`#ffffff`)                                    | tokens.css                          |
-| Page card border / shadow     | `--shadow-card`, `1px solid --color-border-secondary`            | tokens.css                          |
-| Header title text             | `--color-text-base`                                              | tokens.css                          |
-| Header subtitle text          | `--color-text-secondary`                                         | tokens.css                          |
-| Breadcrumb text               | `--color-text-tertiary`; active segment `--color-text-secondary` | tokens.css                          |
-| Metadata strip background     | `--color-fill-quaternary` (`#fafafa`)                            | tokens.css                          |
-| Metadata strip label          | `--color-text-tertiary`                                          | tokens.css                          |
-| Metadata strip value          | `--color-text-base`                                              | tokens.css                          |
-| Table header background       | `--color-fill-quaternary`                                        | tokens.css                          |
-| Table header text             | `--color-text-secondary`                                         | tokens.css                          |
-| Table row border              | `--color-border-secondary`                                       | tokens.css                          |
-| Table row hover               | `--color-primary-bg` (`#e6f4ff`)                                 | tokens.css                          |
-| Cell text                     | `--color-text-base`                                              | tokens.css                          |
-| Null cell glyph               | `--color-text-tertiary`                                          | tokens.css                          |
-| Dtype badge background        | `--color-fill-quaternary`                                        | tokens.css                          |
-| Dtype badge text              | `--color-text-tertiary`                                          | tokens.css                          |
-| Dtype badge border            | `1px solid --color-border-secondary`                             | tokens.css                          |
-| Pagination active page        | `--color-primary` (`#1677ff`)                                    | tokens.css                          |
-| Search input border           | `--color-border`                                                 | tokens.css                          |
-| Search input focus border     | `--color-primary`                                                | tokens.css                          |
-| Search match counter text     | `--color-text-tertiary`                                          | tokens.css                          |
-| Search "Clear" link text      | `--color-primary`                                                | tokens.css                          |
-| Border radius (cards, badges) | `--radius-md` (6px)                                              | tokens.css                          |
-| Font family                   | `--font-family`                                                  | tokens.css                          |
+All cells are AntD `<ConfigProvider>` tokens derived from the six seeds
+in [`themeTokens.ts`](../../../workspace/packages/ui/src/themeTokens.ts)
+(the source of truth — R66; re-cited off the archived CSS-variable
+mirror). Values are informational (resolved via
+`theme.getDesignToken()`, antd 6.x).
 
-No new token values are introduced. If any value below is missing
-from the authoritative `themeTokens.ts`, R36 promotes it as a
-prerequisite step in that round (don't invent values inline).
+| Surface                       | AntD token                                | Value (informational) |
+| ----------------------------- | ----------------------------------------- | --------------------- |
+| Page background               | `colorBgLayout`                           | `#f5f5f5`             |
+| Page card background          | `colorBgBase`                             | derived               |
+| Page card border / shadow     | `colorBorderSecondary` + `boxShadowTertiary` | derived            |
+| Header title text             | `colorText`                               | derived               |
+| Header subtitle text          | `colorTextSecondary`                      | derived               |
+| Breadcrumb text / active      | `colorTextTertiary` → `colorTextSecondary` | derived              |
+| Metadata strip background     | `colorFillQuaternary`                     | derived               |
+| Metadata strip label          | `colorTextTertiary`                       | derived               |
+| Metadata strip value          | `colorText`                               | derived               |
+| Table header background       | `colorFillQuaternary`                     | derived               |
+| Table header text             | `colorTextSecondary`                      | derived               |
+| Table row border              | `colorBorderSecondary`                    | `#f0f0f0`             |
+| Table row hover               | `colorPrimaryBg`                          | `#e6f4ff`             |
+| Cell text                     | `colorText`                               | derived               |
+| Null cell glyph               | `colorTextTertiary`                       | derived               |
+| Dtype badge background        | `colorFillQuaternary`                     | derived               |
+| Dtype badge text              | `colorTextTertiary`                       | derived               |
+| Dtype badge border            | `colorBorderSecondary`                    | `#f0f0f0`             |
+| Pagination active page        | `colorPrimary`                            | `#1677ff`             |
+| Search input border           | `colorBorder`                             | `#d9d9d9`             |
+| Search input focus border     | `colorPrimary`                            | `#1677ff`             |
+| Search match counter text     | `colorTextTertiary`                       | derived               |
+| Search "Clear" link text      | `colorPrimary`                            | `#1677ff`             |
+| Border radius (cards, badges) | `borderRadius`                            | `6`                   |
+| Font family                   | `fontFamily`                              | system stack          |
+
+No new token is introduced. Identifier parity against the live AntD
+registry is enforced by
+[`design-token-parity.mjs`](../../../scripts/design-token-parity.mjs).
 
 ---
 

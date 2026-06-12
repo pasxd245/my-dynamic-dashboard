@@ -525,30 +525,32 @@ inspection of the others.
 
 The wizard is composed of AntD primitives (`<Steps>`, `<Card>`,
 `<Upload.Dragger>`, `<Table>`, `<Tabs>`, `<Select>`, `<Alert>`,
-`<Button>`) styled by the AntD seed — the `tokens.css` mirror of
-[`themeTokens.ts`](../../../workspace/packages/ui/src/themeTokens.ts).
-No new token value is introduced.
+`<Button>`) styled by the AntD `<ConfigProvider>` tokens derived from
+the six seeds in
+[`themeTokens.ts`](../../../workspace/packages/ui/src/themeTokens.ts)
+(the source of truth — R66). No new token is introduced; values are
+informational (resolved via `theme.getDesignToken()`, antd 6.x).
 
-| Surface                                    | Token                                              | Source                                     |
-| ------------------------------------------ | -------------------------------------------------- | ------------------------------------------ |
-| Page background                            | `--color-bg-layout`                                | tokens.css mirror of themeTokens.ts        |
-| Page card background                       | `--color-bg-base`                                  | tokens.css                                 |
-| Stepper active dot                         | `--color-primary`                                  | AntD seed `colorPrimary` (themeTokens.ts)  |
-| Stepper inactive dot                       | `--color-border-secondary`                         | tokens.css                                 |
-| Source-type card border (selected)        | `--color-primary`                                  | tokens.css                                 |
-| Drop-zone border                           | `--color-border` (dashed; hover `--color-primary`) | tokens.css                                 |
-| Override / preview table header background | `--color-fill-quaternary`                          | tokens.css                                 |
-| Table cell / column text                   | `--color-text-base`                                | tokens.css                                 |
-| Sheet-tab active text                      | `--color-primary`                                  | tokens.css                                 |
-| Parse-failed `✗` marker / error `<Alert>`  | `--color-error`                                    | tokens.css                                 |
-| Helper / hint text                         | `--color-text-tertiary`                            | tokens.css                                 |
-| Primary `Next` / `Create datasets` button  | `--color-primary`                                  | AntD seed `colorPrimary` (themeTokens.ts)  |
-| Border radius (cards, table, buttons)      | `--radius-md` (6px)                                | tokens.css                                 |
-| Font family                                | `--font-family`                                    | tokens.css                                 |
+| Surface                                    | AntD token                       | Value (informational) |
+| ------------------------------------------ | -------------------------------- | --------------------- |
+| Page background                            | `colorBgLayout`                  | `#f5f5f5`             |
+| Page card background                       | `colorBgBase`                    | derived               |
+| Stepper active dot                         | `colorPrimary`                   | `#1677ff`             |
+| Stepper inactive dot                       | `colorBorderSecondary`           | `#f0f0f0`             |
+| Source-type card border (selected)        | `colorPrimary`                   | `#1677ff`             |
+| Drop-zone border (idle / hover)            | `colorBorder` → `colorPrimary`   | `#d9d9d9` / `#1677ff` |
+| Override / preview table header background | `colorFillQuaternary`            | derived               |
+| Table cell / column text                   | `colorText`                      | derived               |
+| Sheet-tab active text                      | `colorPrimary`                   | `#1677ff`             |
+| Parse-failed `✗` marker / error `<Alert>`  | `colorError`                     | `#ff4d4f`             |
+| Helper / hint text                         | `colorTextTertiary`              | derived               |
+| Primary `Next` / `Create datasets` button  | `colorPrimary`                   | `#1677ff`             |
+| Border radius (cards, table, buttons)      | `borderRadius`                   | `6`                   |
+| Font family                                | `fontFamily`                     | system stack          |
 
-No new token values are introduced; if a value is missing from
-`themeTokens.ts` it is promoted as a prerequisite step in the owning
-round, never invented inline.
+No new token is introduced. Identifier parity against the live AntD
+registry is enforced by
+[`design-token-parity.mjs`](../../../scripts/design-token-parity.mjs).
 
 ---
 

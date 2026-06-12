@@ -123,27 +123,28 @@ centred below. CTA copy: "Create your first workspace."
 ## Token map
 
 The Workspaces page is composed entirely of AntD primitives
-(`<Card>`, `<Row>`/`<Col>`, `<Empty>`, `<Modal>`, `<Button>`) styled
-by the AntD seed — the `tokens.css` mirror of
-[`themeTokens.ts`](../../../workspace/packages/ui/src/themeTokens.ts).
-No new token value is introduced.
+(`<Card>`, `<Row>`/`<Col>`, `<Empty>`, `<Modal>`, `<Button>`) styled by
+the AntD `<ConfigProvider>` tokens derived from the six seeds in
+[`themeTokens.ts`](../../../workspace/packages/ui/src/themeTokens.ts)
+(the source of truth — R66). No new token is introduced; values are
+informational (resolved via `theme.getDesignToken()`, antd 6.x).
 
-| Surface                              | Token                                              | Source                                     |
-| ------------------------------------ | -------------------------------------------------- | ------------------------------------------ |
-| Page background                      | `--color-bg-layout`                                | tokens.css mirror of themeTokens.ts        |
-| Page card background                 | `--color-bg-base`                                  | tokens.css                                 |
-| Card border / divider                | `--color-border-secondary`                         | tokens.css                                 |
-| Card hover background                | `--color-primary-bg`                               | tokens.css                                 |
-| Card title text                      | `--color-text-base`                                | tokens.css                                 |
-| "Created …" subtitle text            | `--color-text-secondary`                           | tokens.css                                 |
-| Empty-state caption text             | `--color-text-tertiary`                            | tokens.css                                 |
-| Create / primary action button       | `--color-primary`                                  | AntD seed `colorPrimary` (themeTokens.ts)  |
-| Border radius (cards, modal, button) | `--radius-md` (6px)                                | tokens.css                                 |
-| Font family                          | `--font-family`                                    | tokens.css                                 |
+| Surface                              | AntD token             | Value (informational) |
+| ------------------------------------ | ---------------------- | --------------------- |
+| Page background                      | `colorBgLayout`        | `#f5f5f5`             |
+| Page card background                 | `colorBgBase`          | derived               |
+| Card border / divider                | `colorBorderSecondary` | `#f0f0f0`             |
+| Card hover background                | `colorPrimaryBg`       | `#e6f4ff`             |
+| Card title text                      | `colorText`            | derived               |
+| "Created …" subtitle text            | `colorTextSecondary`   | derived               |
+| Empty-state caption text             | `colorTextTertiary`    | derived               |
+| Create / primary action button       | `colorPrimary`         | `#1677ff`             |
+| Border radius (cards, modal, button) | `borderRadius`         | `6`                   |
+| Font family                          | `fontFamily`           | system stack          |
 
-No new token values are introduced; if a value is missing from
-`themeTokens.ts` it is promoted as a prerequisite step in the owning
-round, never invented inline.
+No new token is introduced. Identifier parity against the live AntD
+registry is enforced by
+[`design-token-parity.mjs`](../../../scripts/design-token-parity.mjs).
 
 ---
 

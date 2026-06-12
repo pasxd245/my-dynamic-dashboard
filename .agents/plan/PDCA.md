@@ -136,6 +136,14 @@ Before flipping a round from `Review` to `Complete`, verify:
       now fully conforms, so **any** violation errors (no warn-only
       grace remains). Authored in [Round_64](cycles/Round_64.md);
       corpus backfilled in [Round_65](cycles/Round_65.md).
+- [ ] **If the round touched any `.agents/design/**/*.md` with a Token
+      map**: `pnpm design:tokens` (or `node scripts/design-token-parity.mjs`)
+      returns 0. Companion to L3 — L3 checks the token map is present and
+      cites the source of truth in *form*; this checks each cited token
+      **identifier actually resolves** in the live AntD registry
+      (`theme.getDesignToken()` over the six `themeTokens.ts` seeds), so a
+      stale `--color-*` / `tokens.css` cite errors. Authored in
+      [Round_66](cycles/Round_66.md).
 - [ ] **Optional**: `python3 .agents/skills/markdown-check-link/scripts/check_links.py --changed`
       to verify the round didn't introduce link rot. The
       `--changed` flag scopes to git-changed `.md` files only
