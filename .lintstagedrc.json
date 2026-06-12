@@ -1,6 +1,12 @@
 {
   "*.md": [
-    "prettier --write",
     "markdownlint-cli2 --fix"
+  ],
+  ".agents/design/**/*.md": [
+    "node scripts/lint/design-doc-lint.mjs",
+    "node scripts/lint/design-token-parity.mjs"
+  ],
+  ".agents/plan/cycles/Round_*.md": [
+    "node scripts/lint/round-lint.mjs"
   ]
 }

@@ -16,6 +16,16 @@ are captured and reviewable.
 > They can be revised through the same PDCA process they describe — see
 > [Governance](#governance) for the current revisability stance.
 
+**Complexity brake → see the anchor.** The Track-2/3 litmus and the
+**accelerate ⇌ brake** equilibrium that governs all capability growth
+live in the canonical anchor:
+[purpose.md § Dynamic equilibrium](../context/purpose.md#dynamic-equilibrium).
+In short — add agent-mechanism (gate, lint, convention, step) only when
+it counters a _named_ LLM failure mode at the least mechanism that works;
+**prune** what no longer earns its place. The
+[Firewall](programs/design-corpus-audit.plan.md) keeps audit rounds from
+leaking redesign; the brake keeps enablement rounds from leaking ceremony.
+
 ---
 
 ## Cycle Template
@@ -70,6 +80,10 @@ Each round follows four phases:
   forward (artifacts, conventions, unblocked work). The next round's
   Goal cites the same handoff via `Inherits from ← Round_NN`. Pair
   the two to make the PDCA cycle explicit.
+- **Prune check** (reflective, not a gate) — the inverse of Feeds-into:
+  name one rule / gate / doc-section that is **no longer earning its
+  place**, or confirm none. Cut ceremony before it compounds; apply the
+  [dynamic-equilibrium brake](../context/purpose.md#dynamic-equilibrium).
 - Run the [post-round audit](#post-round-audit) before flipping
   status to `Complete`
 - Archive the round

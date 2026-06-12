@@ -84,6 +84,31 @@ For every round, the useful question is not "is the repo good or bad?" It is:
 > Given the three-track purpose, what is the smallest next move that reduces
 > drift and increases real value?
 
+### Dynamic equilibrium
+
+**Accelerate ⇌ brake.** That question already names both forces; hold them
+in tension rather than maximising either. Two failure modes bound the path:
+
+- **Accelerate without brake → accident.** Shipping fast with no guard
+  against LLM failure modes — hallucination, **stale grounding** (acting on
+  info that moved or changed), context rot, instruction drift,
+  claiming-done-without-verifying — compounds drift into wreckage.
+- **Brake without accelerate → lose the race.** All process, no delivery:
+  ceremony accretes, velocity dies, the product never lands.
+
+So move in **dynamic equilibrium**, calibrated each round:
+
+- **Accelerate on Track 1 (product value)** — bias to shipping real user
+  value; it is the anchor and the point.
+- **Brake on Track 2/3 (agent mechanism)** — add a gate, lint, or
+  convention only when it counters a _named_ LLM failure mode at the
+  **least mechanism that works**. This is the operational form of
+  "Default = don't add" ([AGENTS.md](../AGENTS.md)); more process is not
+  more leverage. Its inverse is the discipline to **prune** what no longer
+  earns its place.
+
+Maximise neither. No pain, no gain — and no brake, no future.
+
 ---
 
 _Origin_: Distilled from the prior drifted iteration's docs-graph

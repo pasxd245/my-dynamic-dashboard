@@ -5,3 +5,10 @@
 # the generated files would drift; running config:render fixes that.
 # A render failure (template syntax, missing key) fails the commit.
 pnpm run config:render
+
+# R68: run the quality gates on staged files via lint-staged —
+# prettier + markdownlint --fix on *.md (auto-fix, re-staged);
+# design:lint + design:tokens on changed .agents/design docs;
+# plan:lint on changed round files. A real lint violation blocks the
+# commit; `git commit --no-verify` is the deliberate WIP escape.
+pnpm exec lint-staged
