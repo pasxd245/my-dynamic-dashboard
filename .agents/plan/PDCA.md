@@ -112,9 +112,14 @@ Before flipping a round from `Review` to `Complete`, verify:
       text — leaving `[ ]` reads as an unfinished TODO.
 - [ ] `Status` field updated to `Complete` and `Date completed`
       filled.
-- [ ] **Cross-links present**: Goal cites `Inherits from ← Round_NN`
-      (if any); Act ends with `Feeds into → Round_NN+1` (or "(TBD)"
-      if not yet drafted).
+- [ ] **`pnpm plan:lint`** (or `node scripts/lint/round-lint.mjs`) returns 0.
+      Enforces the Round Template mechanically: Status (+lifecycle
+      vocab), Date fields, the five phase headings, an inbound
+      `Inherits from ←` / `Pulled by ←` cross-link (Round_01 exempt),
+      and an outbound `Feeds into →` section. Replaces the former
+      *manual* "Cross-links present" check — which, as the last
+      hand-checked item, slipped twice (R63 / R66 shipped Complete with
+      no `Feeds into →`). Authored in [Round_67](cycles/Round_67.md).
 - [ ] Any new project knowledge captured in
       [.agents/memory/](../memory/) per
       [memory-placement.md](../context/memory-placement.md).
@@ -126,18 +131,18 @@ Before flipping a round from `Review` to `Complete`, verify:
       leanest expression that still teaches the rule.
 - [ ] `npx markdownlint-cli2` repo-wide returns 0 errors.
 - [ ] **If the round touched any `.agents/design/**/*.md`**:
-      `pnpm design:lint` (or `node scripts/design-doc-lint.mjs`) returns 0.
+      `pnpm design:lint` (or `node scripts/lint/design-doc-lint.mjs`) returns 0.
       Enforces the five design-doc format conventions the corpus audit
       proved systematic (status vocab · Surface-table Reusability/Purity
       vocab · token map · scope boundary · acceptance criteria). The
-      [`baseline`](../../scripts/design-doc-lint.baseline.json) of
+      [`baseline`](../../scripts/lint/design-doc-lint.baseline.json) of
       grandfathered failures was **emptied by
       [Round_65](cycles/Round_65.md)** — the `data-management` corpus
       now fully conforms, so **any** violation errors (no warn-only
       grace remains). Authored in [Round_64](cycles/Round_64.md);
       corpus backfilled in [Round_65](cycles/Round_65.md).
 - [ ] **If the round touched any `.agents/design/**/*.md` with a Token
-      map**: `pnpm design:tokens` (or `node scripts/design-token-parity.mjs`)
+      map**: `pnpm design:tokens` (or `node scripts/lint/design-token-parity.mjs`)
       returns 0. Companion to L3 — L3 checks the token map is present and
       cites the source of truth in *form*; this checks each cited token
       **identifier actually resolves** in the live AntD registry

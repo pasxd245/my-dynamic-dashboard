@@ -363,7 +363,7 @@ No new token is introduced; this map shares the
 [dataset-filters.md token map](dataset-filters.md#token-map) surface the
 advanced-query input sits alongside. Identifier parity against the live
 AntD registry is enforced by
-[`design-token-parity.mjs`](../../../scripts/design-token-parity.mjs).
+[`design-token-parity.mjs`](../../../scripts/lint/design-token-parity.mjs).
 
 ---
 

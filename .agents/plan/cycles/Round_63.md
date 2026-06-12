@@ -204,3 +204,19 @@ the R65 template pass — not hand-patched.
 resolves D-1/D-2) → **R65** (conformance backfill) ; **R66** (parity linter,
 independent) ; feature backlog (B3 a11y / 422 / list-loading) deferred to
 product-track rounds. **Next pull → R64.**
+
+---
+
+## Feeds into → Round_64
+
+> **Correction (2026-06-12, appended by [R67](Round_67.md) round-lint
+> backfill).** This Complete round predates `plan:lint` enforcement and
+> shipped without the template's outbound `Feeds into →` section — its
+> successor was named only inline as "Next pull → R64" above. Appended
+> here for conformance; the round history above is unchanged
+> (append-only governance).
+
+R63 hands forward to **[Round_64](Round_64.md)** the design-corpus
+audit's program-close disposition: the doc-format remediation backlog
+(template + lint, resolving D-1/D-2). R64 picks it up via its
+`Pulled by ← R63 program close` cross-link.

@@ -31,9 +31,9 @@
  * (`<Popover>`) carry angle brackets and are ignored.
  *
  * Usage:
- *   node scripts/design-token-parity.mjs            # scan the design corpus
- *   node scripts/design-token-parity.mjs <path...>  # specific file(s)
- *   node scripts/design-token-parity.mjs --json      # machine-readable
+ *   node scripts/lint/design-token-parity.mjs            # scan the design corpus
+ *   node scripts/lint/design-token-parity.mjs <path...>  # specific file(s)
+ *   node scripts/lint/design-token-parity.mjs --json      # machine-readable
  *
  * Wired into the post-round audit — see .agents/plan/PDCA.md.
  */
@@ -45,7 +45,7 @@ import path from 'node:path';
 import process from 'node:process';
 
 const __filename = fileURLToPath(import.meta.url);
-const REPO_ROOT = path.resolve(path.dirname(__filename), '..');
+const REPO_ROOT = path.resolve(path.dirname(__filename), '..', '..');
 const DESIGN_ROOT = path.join(REPO_ROOT, '.agents', 'design');
 const UI_PKG = path.join(REPO_ROOT, 'workspace', 'packages', 'ui', 'package.json');
 const THEME_TOKENS = path.join(REPO_ROOT, 'workspace', 'packages', 'ui', 'src', 'themeTokens.ts');

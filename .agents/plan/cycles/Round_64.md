@@ -62,13 +62,13 @@ A-cluster?) de-risks before the contract freezes.
       the lint; A3⇄B6 absent-map residual folded (token presence is A3's).
 - [x] `data-management` **doc template** authored ([`_TEMPLATE.md`](../../design/data-management/_TEMPLATE.md)),
       passes the lint clean (all 5 rules).
-- [x] **Lint** enforces A1/A2/A3/A5/A6 ([`scripts/design-doc-lint.mjs`](../../../scripts/design-doc-lint.mjs));
+- [x] **Lint** enforces A1/A2/A3/A5/A6 ([`scripts/lint/design-doc-lint.mjs`](../../../scripts/lint/design-doc-lint.mjs));
       **passes** `workspace-shell.md` on its model rule (A3/L3) and **flags** the
       A-cluster (15 raw violations; matches the audit gap-log). _Caveat below:
       `workspace-shell.md` is grandfathered on L5._
 - [x] Lint **wired** into the post-round audit ([PDCA.md](../PDCA.md) +
       `pnpm design:lint`); known failures **grandfathered** (warn, not block) via
-      [`design-doc-lint.baseline.json`](../../../scripts/design-doc-lint.baseline.json)
+      [`design-doc-lint.baseline.json`](../../../scripts/lint/design-doc-lint.baseline.json)
       pending R65. _Actual grandfathered count = 8 docs, not the predicted 6 —
       see Check._
 - [x] Flow recorded (DFCFBI; selector N/A for a tooling round) in the Do log.
@@ -284,8 +284,8 @@ script flags the A-cluster cleanly.
   Reusability/Purity base sets + base-token+qualifier rule (D-1 reconcile).
 - [`_TEMPLATE.md`](../../design/data-management/_TEMPLATE.md) — conforming
   canonical doc-template (5 sections).
-- [`scripts/design-doc-lint.mjs`](../../../scripts/design-doc-lint.mjs) +
-  [`design-doc-lint.baseline.json`](../../../scripts/design-doc-lint.baseline.json)
+- [`scripts/lint/design-doc-lint.mjs`](../../../scripts/lint/design-doc-lint.mjs) +
+  [`design-doc-lint.baseline.json`](../../../scripts/lint/design-doc-lint.baseline.json)
   — artifact-type-aware conformance lint with per-(doc, rule) grandfather baseline.
 - [`crud-hygiene.md`](../../design/data-management/crud-hygiene.md) — `shared`
   → `shared cross-domain` (the one in-scope L2 fix).

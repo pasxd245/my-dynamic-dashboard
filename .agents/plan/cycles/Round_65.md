@@ -8,10 +8,10 @@
 
 **Inherits from ← [R64](Round_64.md)** — the doc-format standard + the
 artifact-type-aware conformance lint
-([`scripts/design-doc-lint.mjs`](../../../scripts/design-doc-lint.mjs)),
+([`scripts/lint/design-doc-lint.mjs`](../../../scripts/lint/design-doc-lint.mjs)),
 the conforming [`_TEMPLATE.md`](../../design/data-management/_TEMPLATE.md),
 and the per-(doc, rule) grandfather
-[baseline](../../../scripts/design-doc-lint.baseline.json) holding **14
+[baseline](../../../scripts/lint/design-doc-lint.baseline.json) holding **14
 warnings across 8 docs** pending this round.
 
 Apply the R64 template to the 8 grandfathered
@@ -126,7 +126,7 @@ already passes — target variant, L3/L5 n-a.)
 - **J-1 — L3 strictness → keep the README allowance.** L3 stays
   lenient: a token map citing `themeTokens.ts` **or** an AntD seed
   token conforms (matches the canonicalized README wording, D-1).
-  No change to [`design-doc-lint.mjs`](../../../scripts/design-doc-lint.mjs);
+  No change to [`design-doc-lint.mjs`](../../../scripts/lint/design-doc-lint.mjs);
   **step 3a is skipped**. `dataset-filters.md` / `dataset-detail.md`
   CSS-mirror + seed cites stay valid as authored. Token-map *value*
   parity vs `themeTokens.ts` is R66's job, not R65's.
@@ -170,7 +170,7 @@ honest.
       against a 493-file candidate pool. All new internal links and
       heading anchors (e.g. `dataset-filters.md#token-map`,
       cross-doc `crud-hygiene.md` / `datasets.md` references) resolve.
-- [x] **Baseline emptied** — `scripts/design-doc-lint.baseline.json`
+- [x] **Baseline emptied** — `scripts/lint/design-doc-lint.baseline.json`
       holds only the `_comment` / `_generated` meta keys (no doc
       entries); a fresh doc now ERRORs on any gap, as intended.
 

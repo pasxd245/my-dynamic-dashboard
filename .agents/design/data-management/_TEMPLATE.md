@@ -4,7 +4,7 @@
   Canonical design-doc template (R64). Copy this file to
   `.agents/design/<domain>/<concept>.md` and fill every section.
   The five `##` sections below map 1:1 to the conformance lint
-  (scripts/design-doc-lint.mjs); a doc missing any of them fails the
+  (scripts/lint/design-doc-lint.mjs); a doc missing any of them fails the
   post-round audit. Delete this comment and the `> Fill:` notes once
   the doc is real. For a horizon doc, use the target variant instead
   (see README.md §"Optional: `<concept>.target.md`") — it is exempt

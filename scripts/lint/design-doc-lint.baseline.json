@@ -1,0 +1,4 @@
+{
+  "_comment": "Grandfathered design-doc conformance failures. EMPTIED by R65 — every data-management doc now conforms to all five rules (L1-L5). Non-baselined violations ERROR (exit 1); a new doc carries no entry, so it must conform. Re-grandfather a deliberate exception by adding a \"<rel/path.md>\": [\"<rule-id>\"] entry. Regenerate from current state: node scripts/lint/design-doc-lint.mjs --update-baseline",
+  "_generated": "R65 (data-management doc-format conformance backfill — baseline emptied)"
+}

@@ -89,7 +89,7 @@ only ever checked presence + form, which still hold.)
 
 1. **Ratify J-1/J-2/J-3** and record in Do.
 2. **Build the parity check** (extends
-   [`scripts/design-doc-lint.mjs`](../../../scripts/design-doc-lint.mjs)
+   [`scripts/lint/design-doc-lint.mjs`](../../../scripts/lint/design-doc-lint.mjs)
    as an `L6-token-parity` rule, or a sibling script) per J-1: parse
    each Token-map table, resolve each cited token against the chosen
    source of truth, and flag non-existent / mismatched cites.
@@ -107,7 +107,7 @@ only ever checked presence + form, which still hold.)
 - [x] **J-1 + J-2 + J-3** ratified and recorded in Do (A /
       identifier-existence / ship-together).
 - [x] A token-map **parity check** exists
-      ([`design-token-parity.mjs`](../../../scripts/design-token-parity.mjs),
+      ([`design-token-parity.mjs`](../../../scripts/lint/design-token-parity.mjs),
       `pnpm design:tokens`) and is wired into the PDCA post-round audit,
       resolving cites against the live AntD registry.
 - [x] The `data-management` token-map corpus **passes** the parity
@@ -193,7 +193,7 @@ Confirmed: all re-cited token names (`colorBgLayout`,
 ### Execution
 
 1. **Built the parity linter** —
-   [`scripts/design-token-parity.mjs`](../../../scripts/design-token-parity.mjs):
+   [`scripts/lint/design-token-parity.mjs`](../../../scripts/lint/design-token-parity.mjs):
    resolves the live AntD registry, extracts backticked camelCase token
    claims from each Token-map section, and emits `P1-stale-cite` (any
    `tokens.css` / `--css-var`) + `P2-unknown-token` (a cited id not in
@@ -267,7 +267,7 @@ present" item) — but the audit item is the only **manual** gate left in
 a checklist whose siblings (`markdownlint`, `design:lint`,
 `design:tokens`) are all scripts. Same lesson as the R56–R64 design
 audit: defined + templated but unlinted ⇒ it recurs. Candidate next
-round: a `scripts/round-lint.mjs` (`pnpm plan:lint`) that mechanically
+round: a `scripts/lint/round-lint.mjs` (`pnpm plan:lint`) that mechanically
 checks each round file for its required sections and replaces the manual
 checkbox.
 
@@ -288,7 +288,7 @@ from here:
 
 > **CLOSED 2026-06-12.** J-1/J-2/J-3 ratified at the Plan gate (A /
 > identifier-existence / ship-together); the parity linter
-> ([`design-token-parity.mjs`](../../../scripts/design-token-parity.mjs))
+> ([`design-token-parity.mjs`](../../../scripts/lint/design-token-parity.mjs))
 > was built and wired into the audit, and all 8 token maps were re-cited
 > off the archived mirror onto live AntD token names. All gates green
 > (see Check). The doc-format thread (presence + form + value parity) is

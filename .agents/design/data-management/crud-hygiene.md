@@ -315,7 +315,7 @@ informational (resolved via `theme.getDesignToken()`, antd 6.x).
 No new token is introduced; AntD's danger / warning button and alert
 chrome derive from `colorError` / `colorWarning`. Identifier parity is
 enforced by
-[`design-token-parity.mjs`](../../../scripts/design-token-parity.mjs).
+[`design-token-parity.mjs`](../../../scripts/lint/design-token-parity.mjs).
 
 ---
 

@@ -550,7 +550,7 @@ informational (resolved via `theme.getDesignToken()`, antd 6.x).
 
 No new token is introduced. Identifier parity against the live AntD
 registry is enforced by
-[`design-token-parity.mjs`](../../../scripts/design-token-parity.mjs).
+[`design-token-parity.mjs`](../../../scripts/lint/design-token-parity.mjs).
 
 ---
 

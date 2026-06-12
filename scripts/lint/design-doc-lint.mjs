@@ -25,17 +25,17 @@
  *                                      token concern, presence included, is A3's).
  *   preview    <concept>.preview.html → out of scope (not markdown).
  *
- * Grandfather baseline: scripts/design-doc-lint.baseline.json maps each
+ * Grandfather baseline: scripts/lint/design-doc-lint.baseline.json maps each
  * known-non-conforming doc to the rule ids it currently fails (as of R64).
  * Baselined failures WARN (do not block); any violation NOT in the baseline
  * ERRORS (exit 1). New docs carry no baseline entry, so they must conform.
  * R65 backfills the docs and deletes their baseline entries.
  *
  * Usage:
- *   node scripts/design-doc-lint.mjs              # scan the design corpus
- *   node scripts/design-doc-lint.mjs <path...>    # lint specific file(s)
- *   node scripts/design-doc-lint.mjs --json       # machine-readable report
- *   node scripts/design-doc-lint.mjs --update-baseline  # rewrite baseline from current state
+ *   node scripts/lint/design-doc-lint.mjs              # scan the design corpus
+ *   node scripts/lint/design-doc-lint.mjs <path...>    # lint specific file(s)
+ *   node scripts/lint/design-doc-lint.mjs --json       # machine-readable report
+ *   node scripts/lint/design-doc-lint.mjs --update-baseline  # rewrite baseline from current state
  *
  * Wired into the post-round audit — see .agents/plan/PDCA.md.
  */
@@ -46,9 +46,9 @@ import path from 'node:path';
 import process from 'node:process';
 
 const __filename = fileURLToPath(import.meta.url);
-const REPO_ROOT = path.resolve(path.dirname(__filename), '..');
+const REPO_ROOT = path.resolve(path.dirname(__filename), '..', '..');
 const DESIGN_ROOT = path.join(REPO_ROOT, '.agents', 'design');
-const BASELINE_PATH = path.join(REPO_ROOT, 'scripts', 'design-doc-lint.baseline.json');
+const BASELINE_PATH = path.join(REPO_ROOT, 'scripts', 'lint', 'design-doc-lint.baseline.json');
 
 // ── Canonical Surface-table vocab (D-1) — base tokens, lowercased for compare ──
 const REUSABILITY = new Set(['shared cross-domain', 'feature', 'builder-only', 'backend', 'data type']);
@@ -268,7 +268,7 @@ for (const file of files) {
 if (updateBaseline) {
   const next = {
     _comment:
-      'Grandfathered design-doc conformance failures as of R64. Baselined failures WARN; non-baselined violations ERROR. R65 backfills docs and removes entries. Regenerate: node scripts/design-doc-lint.mjs --update-baseline',
+      'Grandfathered design-doc conformance failures as of R64. Baselined failures WARN; non-baselined violations ERROR. R65 backfills docs and removes entries. Regenerate: node scripts/lint/design-doc-lint.mjs --update-baseline',
     _generated: 'R64 (data-management doc-template + lint)',
   };
   for (const file of corpusFiles()) {
