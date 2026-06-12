@@ -129,11 +129,13 @@ Before flipping a round from `Review` to `Complete`, verify:
       `pnpm design:lint` (or `node scripts/design-doc-lint.mjs`) returns 0.
       Enforces the five design-doc format conventions the corpus audit
       proved systematic (status vocab · Surface-table Reusability/Purity
-      vocab · token map · scope boundary · acceptance criteria). Known
-      pre-R64 failures are **grandfathered** (warn, not block) via
-      [`scripts/design-doc-lint.baseline.json`](../../scripts/design-doc-lint.baseline.json)
-      pending R65 backfill; any **new** doc or **new** violation errors.
-      Authored in [Round_64](cycles/Round_64.md).
+      vocab · token map · scope boundary · acceptance criteria). The
+      [`baseline`](../../scripts/design-doc-lint.baseline.json) of
+      grandfathered failures was **emptied by
+      [Round_65](cycles/Round_65.md)** — the `data-management` corpus
+      now fully conforms, so **any** violation errors (no warn-only
+      grace remains). Authored in [Round_64](cycles/Round_64.md);
+      corpus backfilled in [Round_65](cycles/Round_65.md).
 - [ ] **Optional**: `python3 .agents/skills/markdown-check-link/scripts/check_links.py --changed`
       to verify the round didn't introduce link rot. The
       `--changed` flag scopes to git-changed `.md` files only
