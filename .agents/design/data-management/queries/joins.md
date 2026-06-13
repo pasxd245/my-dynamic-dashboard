@@ -8,8 +8,11 @@ the existing `QueryDefinition` with an optional **join step** (`{ relationshipId
 type }`); the Query keeps its `qr_` identity, its catalog, its
 `/data-management/queries/:id` detail, and its `/queries/{id}/rows` run route. R71
 ships **join execution only** — producing joined rows from a declared edge; the
-full interactive multi-source construction surface is **R72**
-([Round_71](../../../plan/cycles/Round_71.md) J-1).
+interactive construction surface that makes this join **editable** (and previewable
+before save) is **R72**, specified in
+[query-construction.md](query-construction.md) — where R71's **read-only** join
+summary below becomes the builder's **editable** join editor
+([Round_71](../../../plan/cycles/Round_71.md) J-1 → [Round_72](../../../plan/cycles/Round_72.md)).
 
 **Status**: Accepted (R71 design + **shipped R71** — full DCFBI chain: a Query
 consumes a `Relationship` to produce joined rows). This doc **seals the join
@@ -67,18 +70,18 @@ mechanism #1).
 **Trace** — `Deals.account_id ↔ Accounts.id`, declared `many:many`, to joined
 rows:
 
-| What producing joined rows requires      | Does the R70 edge carry it?                                                                                                                                                              |
-| ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| The two table-sources (left + right)     | **Yes** — `leftDatasetId` / `rightDatasetId` resolve both parquet sources.                                                                                                               |
-| The `ON` key pair                        | **Yes** — `leftColumn` / `rightColumn` are the join keys, already **dtype-compatibility-validated** at declare time (`_compatible`, integer/float numeric).                              |
-| A freshness / drift gate                 | **Yes** — `status: valid\|stale` is recomputed on read against current schemas; R70 **reserved `409 relationship_stale`** for this consumer.                                             |
-| Join direction / multiplication semantics| **Yes (advisory)** — the ordered pair + `cardinality` enum carry direction; for an inner join cardinality is advisory (affects expected row count, not correctness).                     |
-| Join **type** (inner / left / …)         | **No — and correctly so.** This is a **query-time** choice, not a property of the edge. It belongs in the `QueryDefinition` join step, not the governed edge.                            |
-| Result-column **projection / collision** | **No — and correctly so.** Which columns the result carries (and how duplicate names disambiguate) is a query/execution concern, not edge metadata.                                      |
-| Predicate **column qualification**       | **No — and correctly so.** Which side a filtered column lives on is resolved when the join executes, against the combined column space — not stored on the edge.                         |
+| What producing joined rows requires       | Does the R70 edge carry it?                                                                                                                                          |
+| ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The two table-sources (left + right)      | **Yes** — `leftDatasetId` / `rightDatasetId` resolve both parquet sources.                                                                                           |
+| The `ON` key pair                         | **Yes** — `leftColumn` / `rightColumn` are the join keys, already **dtype-compatibility-validated** at declare time (`_compatible`, integer/float numeric).          |
+| A freshness / drift gate                  | **Yes** — `status: valid\|stale` is recomputed on read against current schemas; R70 **reserved `409 relationship_stale`** for this consumer.                         |
+| Join direction / multiplication semantics | **Yes (advisory)** — the ordered pair + `cardinality` enum carry direction; for an inner join cardinality is advisory (affects expected row count, not correctness). |
+| Join **type** (inner / left / …)          | **No — and correctly so.** This is a **query-time** choice, not a property of the edge. It belongs in the `QueryDefinition` join step, not the governed edge.        |
+| Result-column **projection / collision**  | **No — and correctly so.** Which columns the result carries (and how duplicate names disambiguate) is a query/execution concern, not edge metadata.                  |
+| Predicate **column qualification**        | **No — and correctly so.** Which side a filtered column lives on is resolved when the join executes, against the combined column space — not stored on the edge.     |
 
 **Verdict — the edge model is VALIDATED; J-4 does NOT fire.** Everything the edge
-is *responsible for* as a join **input** — the two sources, the validated key
+is _responsible for_ as a join **input** — the two sources, the validated key
 pair, the freshness gate, declared cardinality — it carries. Everything it does
 **not** carry (join type, projection, predicate qualification) is **correctly a
 query-time concern**, exactly the boundary R70 drew ("governance metadata the
@@ -89,11 +92,11 @@ revision.**
 **But the truth-test splits a half-truth** (the
 [specious discipline](../../../memory/2026-06-13-specious-model-lock-in.md): name
 which part is true, test whether the rest only rides on it). The J-2(a) lean
-("extend the Query") silently carried *"…and reuse the run path verbatim."* The
+("extend the Query") silently carried _"…and reuse the run path verbatim."_ The
 trace **refutes that at the execution layer**:
 
 - **The predicate + SQL engine is single-source by construction.** A `FilterAtom`'s
-  `col` is *"the 0-based index into the source Dataset.columns[]"*
+  `col` is _"the 0-based index into the source Dataset.columns[]"_
   ([common.py](../../../../workspace/apps/backend/app/models/common.py)), and
   [`_predicate_sql`](../../../../workspace/apps/backend/app/ingest/filters.py)
   emits an **unqualified** `"col_name"`. Over two joined sources a bare index /
@@ -104,25 +107,25 @@ trace **refutes that at the execution layer**:
 
 So the **honest split** R71 builds on (true reuse vs genuinely new):
 
-| Reused verbatim (the true half)                                                                 | Genuinely NEW (named, not hidden under "reuse")                                                                                                          |
-| ----------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| The Query archetype, catalog, `/queries/{id}` + `/queries/{id}/rows` route, live-re-run discipline | A `QueryDefinition.join` step `{ relationshipId, type }`                                                                                                  |
+| Reused verbatim (the true half)                                                                                                          | Genuinely NEW (named, not hidden under "reuse")                                                                                                                                                |
+| ---------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The Query archetype, catalog, `/queries/{id}` + `/queries/{id}/rows` route, live-re-run discipline                                       | A `QueryDefinition.join` step `{ relationshipId, type }`                                                                                                                                       |
 | The predicate **operator vocabulary** + per-predicate SQL fragment builders (`_predicate_sql`, `build_filter_sql`, `build_advanced_sql`) | A **multi-source execution path** (`query_joined_rows`) building `FROM read_parquet(L) <join> read_parquet(R) ON L.k = R.k`, calling the fragment builders with **side-qualified** identifiers |
-| The `409 *_stale` flag-don't-crash pattern (`query_stale` → now `relationship_stale`)           | An **effective combined column space** (left ++ right) + a **collision rule** (qualify duplicate names by dataset) the atoms index into                   |
-| `RowsPage` response shape (`rows`/`page`/`pageSize`/`total`)                                     | The joined Query exposing its **effective columns** so the FE can render headers it can't get from a single source dataset                                |
+| The `409 *_stale` flag-don't-crash pattern (`query_stale` → now `relationship_stale`)                                                    | An **effective combined column space** (left ++ right) + a **collision rule** (qualify duplicate names by dataset) the atoms index into                                                        |
+| `RowsPage` response shape (`rows`/`page`/`pageSize`/`total`)                                                                             | The joined Query exposing its **effective columns** so the FE can render headers it can't get from a single source dataset                                                                     |
 
 This is **not** a model failure — it is the build-layer reality the design
 declares now instead of papering over. **J-2 → (a) Extend the Query, SEALED**, at
 the IA / archetype / route level; the "reuse the engine verbatim" sub-claim is
 **refuted and replaced** with the explicit engine-extension above (a Design-gate
 refinement, the [build-first](../../../memory/2026-05-22-ui-boundary-build-first.md)
-twin: the altitude — *a join is a virtual dataset, reuse the archetype* — is
-right; the build corrects the *mechanism*).
+twin: the altitude — _a join is a virtual dataset, reuse the archetype_ — is
+right; the build corrects the _mechanism_).
 
-**Discovered-vs-imposed:** *discovered.* The join keys, the freshness gate, the
+**Discovered-vs-imposed:** _discovered._ The join keys, the freshness gate, the
 two sources — a real join genuinely needs each, and the edge already held them
 before R71 existed; nothing here was minted to justify the edge. The one thing
-R71 *adds* (the join step + multi-source engine) is pulled by the actual read
+R71 _adds_ (the join step + multi-source engine) is pulled by the actual read
 path's single-source limit, not by R70's suite.
 
 ---
@@ -175,19 +178,19 @@ alter execution. A row-explosion guard/warning is a future concern (Scope).
 
 ## Surfaces — layer / reuse / purity declaration
 
-> R71 ships the **minimal** surface to *create and run* a joined Query (J-1): one
+> R71 ships the **minimal** surface to _create and run_ a joined Query (J-1): one
 > "join with a related dataset" affordance + the read-only joined result. The
 > rich interactive multi-source builder (multiple joins, visual cross-source
 > predicate construction) is **R72**.
 
-| Surface                                            | Layer                                               | Reusability         | Purity             | Allowed peer deps                  |
-| -------------------------------------------------- | --------------------------------------------------- | ------------------- | ------------------ | ---------------------------------- |
-| `AddJoinAction` (minimal: pick a valid `rel_`)     | `apps/builder/src/features/data-management/queries` | feature             | feature            | react, antd                        |
-| `JoinSummary` (read-only join header on detail)    | `apps/builder/src/features/data-management/queries` | feature             | feature            | react, antd                        |
-| `QueryDetailPage` (extended for the join mode)     | `apps/builder/src/features/data-management/queries` | feature             | feature            | react, antd, @tanstack/react-query |
-| `<PagedRowsView>` (reused, not owned)              | `apps/builder/src/features/data-management/_shared` | shared cross-domain | plain-ui           | react, antd, react-i18next         |
-| `query_joined_rows` (NEW multi-source read path)   | `apps/backend/app/ingest`                           | backend             | feature            | (duckdb — backend native)          |
-| `JoinStep` type (frontend)                         | `.../features/data-management/queries/types.ts`     | feature             | data type          | none                               |
+| Surface                                          | Layer                                               | Reusability         | Purity    | Allowed peer deps                  |
+| ------------------------------------------------ | --------------------------------------------------- | ------------------- | --------- | ---------------------------------- |
+| `AddJoinAction` (minimal: pick a valid `rel_`)   | `apps/builder/src/features/data-management/queries` | feature             | feature   | react, antd                        |
+| `JoinSummary` (read-only join header on detail)  | `apps/builder/src/features/data-management/queries` | feature             | feature   | react, antd                        |
+| `QueryDetailPage` (extended for the join mode)   | `apps/builder/src/features/data-management/queries` | feature             | feature   | react, antd, @tanstack/react-query |
+| `<PagedRowsView>` (reused, not owned)            | `apps/builder/src/features/data-management/_shared` | shared cross-domain | plain-ui  | react, antd, react-i18next         |
+| `query_joined_rows` (NEW multi-source read path) | `apps/backend/app/ingest`                           | backend             | feature   | (duckdb — backend native)          |
+| `JoinStep` type (frontend)                       | `.../features/data-management/queries/types.ts`     | feature             | data type | none                               |
 
 **Boundary check**: the only shared-cross-domain row (`<PagedRowsView>`) is
 **reused, not owned** — its boundary lives in
@@ -210,16 +213,16 @@ source of truth — R66). **No new token is introduced**; the map reuses the
 identifiers already cited by [saved-query.md](saved-query.md) and
 [relationships.md](../workspaces/relationships.md). `Value` is informational.
 
-| Surface                                  | AntD token (themeTokens.ts) | Value (informational) |
-| ---------------------------------------- | --------------------------- | --------------------- |
-| Page background                          | `colorBgLayout`             | `#f5f5f5`             |
-| Page card background                     | `colorBgBase`               | derived               |
-| `[Join with related dataset]` / primary  | `colorPrimary`              | `#1677ff`             |
-| Join-summary / cardinality `<Tag>` text  | `colorTextSecondary`        | derived               |
-| Table row border                         | `colorBorderSecondary`      | `#f0f0f0`             |
-| Stale-edge `⚠` warning (join blocked)    | `colorWarning`              | `#faad14`             |
-| Border radius (card, table, tag)         | `borderRadius`              | `6`                   |
-| Font family                              | `fontFamily`                | system stack          |
+| Surface                                 | AntD token (themeTokens.ts) | Value (informational) |
+| --------------------------------------- | --------------------------- | --------------------- |
+| Page background                         | `colorBgLayout`             | `#f5f5f5`             |
+| Page card background                    | `colorBgBase`               | derived               |
+| `[Join with related dataset]` / primary | `colorPrimary`              | `#1677ff`             |
+| Join-summary / cardinality `<Tag>` text | `colorTextSecondary`        | derived               |
+| Table row border                        | `colorBorderSecondary`      | `#f0f0f0`             |
+| Stale-edge `⚠` warning (join blocked)   | `colorWarning`              | `#faad14`             |
+| Border radius (card, table, tag)        | `borderRadius`              | `6`                   |
+| Font family                             | `fontFamily`                | system stack          |
 
 Identifier parity is enforced by
 [`design-token-parity.mjs`](../../../../scripts/lint/design-token-parity.mjs).
@@ -335,7 +338,7 @@ stateDiagram-v2
   is the only query param (the definition is the source of truth), mirroring the
   single-source run.
 - **Stale gates** are **flag-don't-crash**: a stale edge → `409
-  relationship_stale`; a drifted predicate atom → `409 query_stale`; both render
+relationship_stale`; a drifted predicate atom → `409 query_stale`; both render
   a guided state, never a blank crash ([purpose.md](../../../context/purpose.md) #5).
 - **Delete** reuses `<DeleteConfirmModal>`
   ([crud-hygiene.md](../_shared/crud-hygiene.md)); deleting the consumed
@@ -348,7 +351,7 @@ stateDiagram-v2
 - The **join create `<Select>`** carries a **visible label** ("Join with a
   related dataset", label-above per the AntD Data-Entry guidance), is
   keyboard-reachable, and each option names the edge in **text** (`Deals.account_id
-  ↔ Accounts.id`), not by colour or glyph alone.
+↔ Accounts.id`), not by colour or glyph alone.
 - The **read-only join summary** conveys the join with **icon + text** (`⋈ inner`,
   a labelled cardinality `<Tag>`), never colour-only; the source dataset names are
   text links with accessible names.
@@ -368,11 +371,11 @@ The Contract phase extends `workspace/packages/contracts/queries/` (the join is 
 **field on the existing shapes**, not new routes). This states the **design
 intent**.
 
-| Route                                     | Change for R71                                                                                                                                  |
-| ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `POST /workspaces/{id}/queries`           | body `definition` gains optional `join: { relationshipId, type }`; validate-on-save also checks the edge exists, is in-workspace, and is valid. |
-| `GET /queries/{id}`                       | the returned `Query` exposes its **effective columns** (combined + collision-qualified) when a join is present — the FE can't derive them from one dataset. |
-| `GET /queries/{id}/rows`                  | **same `RowsPage` shape**; adds `409 relationship_stale` (joined, stale edge) beside the existing `409 query_stale`.                            |
+| Route                           | Change for R71                                                                                                                                              |
+| ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /workspaces/{id}/queries` | body `definition` gains optional `join: { relationshipId, type }`; validate-on-save also checks the edge exists, is in-workspace, and is valid.             |
+| `GET /queries/{id}`             | the returned `Query` exposes its **effective columns** (combined + collision-qualified) when a join is present — the FE can't derive them from one dataset. |
+| `GET /queries/{id}/rows`        | **same `RowsPage` shape**; adds `409 relationship_stale` (joined, stale edge) beside the existing `409 query_stale`.                                        |
 
 - **`relationship_stale` is now consumed** — R70 reserved the `409` for exactly
   this. The error envelope reuses the shared

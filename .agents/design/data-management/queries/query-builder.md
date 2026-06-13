@@ -12,8 +12,10 @@ into being and grow. This doc is the **domain anchor**: it frames what lives in
 clear home instead of re-deriving the IA.
 **Status**: Accepted (R70 — domain anchor; graduated `queries/` from
 `datasets/`). **Join execution** is specified in [joins.md](joins.md)
-(**Draft → R71**); the **interactive construction surface** is **deferred → R72**
-(R71 J-1). This anchor seals the domain frame, not those surfaces.
+(**shipped R71**); the **interactive construction surface** is specified in
+[query-construction.md](query-construction.md) (**Draft → R72**, the editable
+single-join builder); the **multi-join canvas** is **deferred → R73** (R72 J-1′).
+This anchor seals the domain frame, not those surfaces.
 **Round introduced**: [Round_70](../../../plan/cycles/Round_70.md) — "the Query
 domain comes of age": the Query-Builder complexity (joins, composition, workflow)
 pulled a first-class domain home, so [saved-query.md](saved-query.md) relocated
@@ -25,6 +27,9 @@ single-source filtered view; the catalog + query-mode detail surfaces),
 [joins.md](joins.md) (the **second construction mode** — a Query consumes a
 [Relationship](../workspaces/relationships.md) to read two datasets as one;
 R71 join execution),
+[query-construction.md](query-construction.md) (the **third construction mode** —
+the interactive builder: edit a Query's join + cross-source predicates and preview
+before save; R72),
 [dataset-detail.md](../datasets/dataset-detail.md) (hosts the **`[+ Save as
 Query]` action** — the verb; the Query is the noun, here),
 [relationships.md](../workspaces/relationships.md) (the workspace-governed
@@ -73,13 +78,14 @@ routes** — never a duplicated surface.
 > ([saved-query.md](saved-query.md)); join execution is [joins.md](joins.md)
 > (R71); the interactive construction surface is R72.
 
-| Surface                                  | Layer                                               | Reusability         | Purity    | Allowed peer deps                  |
-| ---------------------------------------- | --------------------------------------------------- | ------------------- | --------- | ---------------------------------- |
-| `QueriesPage` (catalog; R69 shipped)     | `apps/builder/src/features/data-management/queries` | feature             | feature   | react, antd, @tanstack/react-query |
-| `QueryDetailPage` (query mode; R69)      | `apps/builder/src/features/data-management/queries` | feature             | feature   | react, antd, @tanstack/react-query |
-| `<PagedRowsView>` (reused, not owned)    | `apps/builder/src/features/data-management/_shared` | shared cross-domain | plain-UI  | react, antd, react-i18next         |
-| `Query` type                             | `.../features/data-management/queries/types.ts`     | feature             | data type | none                               |
-| Interactive construction surface (→ R72) | `.../features/data-management/queries` (future)     | feature             | feature   | react, antd                        |
+| Surface                                | Layer                                                                                   | Reusability         | Purity    | Allowed peer deps                  |
+| -------------------------------------- | --------------------------------------------------------------------------------------- | ------------------- | --------- | ---------------------------------- |
+| `QueriesPage` (catalog; R69 shipped)   | `apps/builder/src/features/data-management/queries`                                     | feature             | feature   | react, antd, @tanstack/react-query |
+| `QueryDetailPage` (query mode; R69)    | `apps/builder/src/features/data-management/queries`                                     | feature             | feature   | react, antd, @tanstack/react-query |
+| `<PagedRowsView>` (reused, not owned)  | `apps/builder/src/features/data-management/_shared`                                     | shared cross-domain | plain-UI  | react, antd, react-i18next         |
+| `Query` type                           | `.../features/data-management/queries/types.ts`                                         | feature             | data type | none                               |
+| Interactive construction surface (R72) | `.../features/data-management/queries` ([query-construction.md](query-construction.md)) | feature             | feature   | react, antd                        |
+| Multi-join canvas (→ R73)              | `.../features/data-management/queries` (future)                                         | feature             | feature   | react, antd                        |
 
 **Boundary check**: `<PagedRowsView>` is the only shared-cross-domain row here
 and it is **reused, not owned** (its boundary lives in
@@ -115,12 +121,15 @@ The domain grows by **adding construction modes + inputs**, each a named round,
 each obeying the reuse invariant:
 
 ```text
-R69    single-source save     saved-query.md   (shipped) — filter a dataset, Save as Query
-R70    declared join input    relationships.md (shipped) — govern column↔column edges
-R71    join execution         joins.md         (this round, design) — a Query consumes a
-                                                  relationship → joined rows (inner, single-key)
-R72    construction surface   (future)         — the interactive multi-source query builder
-later  workflow / composition (future)         — YAML + polars; a Query as input to another Query
+R69    single-source save     saved-query.md       (shipped) — filter a dataset, Save as Query
+R70    declared join input    relationships.md     (shipped) — govern column↔column edges
+R71    join execution         joins.md             (shipped) — a Query consumes a relationship
+                                                      → joined rows (inner, single-key)
+R72    construction surface   query-construction.md (this round, design) — the editable single-join
+                                                      builder: edit join + cross-source predicates,
+                                                      preview before save
+R73    multi-join canvas      (future)             — chain 2+ relationships; a multi-hop join engine
+later  workflow / composition (future)             — YAML + polars; a Query as input to another Query
 ```
 
 Each step is **pulled, not pre-built** (the Evolution Rule + the
@@ -166,13 +175,15 @@ later join or compose — because every query surface reuses the same shells.
 
 ### OUT of scope (deferred with named triggers)
 
-- **The interactive query-construction surface** (build predicates/joins
-  visually, multi-source) → **R72**. _Trigger: a Query must be built from more
-  than a minimal join + the saved filter state._
+- **The interactive query-construction surface** (edit a join + build
+  cross-source predicates, preview before save) → **R72**, specified in
+  [query-construction.md](query-construction.md). The **multi-join canvas** (chain
+  2+ relationships) is **R73**. _Trigger: a Query must be built from more than a
+  minimal join + the saved filter state._
 - **Join execution** (a Query consuming a [Relationship](../workspaces/relationships.md)
-  to produce joined rows) → **R71**, specified in [joins.md](joins.md). The
-  unified table-source resolver stays deferred (R71 J-2′).
-- **Workflow / complex query** (YAML + polars) → **R72**.
+  to produce joined rows) → **R71** (shipped), specified in [joins.md](joins.md).
+  The unified table-source resolver stays deferred (R71 J-2′).
+- **Workflow / complex query** (YAML + polars) → **later**.
 - **Query composition** (a Query as input to another Query) → later.
 
 ---
