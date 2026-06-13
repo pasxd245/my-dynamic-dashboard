@@ -1,6 +1,6 @@
 # Round 70: The Query domain comes of age — `queries/` graduation + relationship governance
 
-**Status**: In Progress
+**Status**: Review
 **Date started**: 2026-06-13
 **Date completed**:
 
@@ -49,8 +49,10 @@ _Track: 1 (product feature). Pulled by ← R69 deferral + [purpose.md](../../con
 critical path (data → **relationships** → dashboards) + success criterion
 ("…**govern joins**…"). Scoped by the
 [dynamic-equilibrium brake](../../context/purpose.md#dynamic-equilibrium)
-(design-only this round; **governance only — no join execution**; **no
-interactive query-construction surface** — both are R71's pull)._
+(**governance only — no join execution**; **no interactive query-construction
+surface** — both are R71's pull). Opened as a Plan + Design pass (seal the model
+at D); **on the human's "go ahead" continued through the full DCFBI build chain**
+in the same round, each gate its own commit seam (the R69-redo shape)._
 
 ## The model (judgment calls ratified at the Plan gate — 2026-06-13)
 
@@ -249,12 +251,52 @@ Result: **Flow: DCFBI** (1 condition fired — the default, cheap lane; F1/F2
 skipped on this path). The build chain (C → B → I) is sequenced in later
 sessions on the human's go-ahead.
 
-**Design gate closed — STOP.** Gate commit seams (gate = commit; 2026-06-13
+**Design gate closed.** Gate commit seams (gate = commit; 2026-06-13
 amendment): Plan `7092b7c` → amended Plan `746c411` → Design **Seam A**
 (`queries/` graduation) `3aa0c5d` → Design **Seam B** (relationships.md + this
-round record) — the relationships commit. Each gate is independently revertable.
-Per R70's design-only scope, the round pauses here awaiting the go-ahead to build
-the DCFBI chain (C → B → I).
+round record) `6f3c68a`. Each gate is independently revertable.
+
+### Gate 3–6 — Build chain (DCFBI, on the human's "go ahead")
+
+On the human's go-ahead the design seal was built out through the full DCFBI
+chain (the proven R69-redo shape), each gate its own commit seam:
+
+- **Contract (C)** `ff352af` — `contracts/relationships/{post,get,detail-get,delete}`
+  - `_shared/relationship.yaml`; `relationship_exists` added to the api-error
+    enum; `rel_` id + `relationship_exists` centralized in `values.yaml` → both
+    generated-constants templates; FE `relationships/types.ts` + `ApiError` union;
+    MSW handlers + fixtures (a second dataset to relate + a stale edge).
+    **OpenAPI validity 22/22**; builder type-check clean; suite **127/127**.
+- **Frontend (F)** `408bf31` — `relationshipsApi` + hooks; `DeclareRelationshipModal`
+  (left/right dataset+column selects, cardinality, **live aria-live
+  dtype-compatibility** line gating Declare); `WorkspaceRelationshipsPage`
+  (workspace-scoped view at `/workspaces/:id/relationships`, **reusing** the
+  Page-List layout + `<DeleteConfirmModal>`); workspace-card entry; route; i18n
+  en+vi. Suite **132/132** (5 new cases). _F1/F2 skipped on the DCFBI path._
+- **Backend (B)** `42c8907` — raw-SQLite `relationships` table (FK CASCADE ×3,
+  unique ordered-pair index); `Relationship` / `CreateRelationshipBody` Pydantic
+  models; `routers/relationships.py` (declare/list/get/delete) with
+  dtype-compat validation (integer/float numeric pair), self-join + cross-workspace
+  → 422, duplicate → 409, **computed `valid|stale` status** on read. pytest
+  **159/159** (13 new), each response `validate_response`-checked.
+- **Integration (I)** — dual contract conformance (MSW `withContractValidation`
+  - BE `validate_response` against one `relationships/*` YAML, both green) **plus**
+    a **live cross-process round-trip** against the real backend (uvicorn :8099,
+    isolated data dir): declare (201, `rel_` id, status valid) → list (1, valid)
+    → get (200) → duplicate (**409 relationship_exists**) → incompatible (**422**)
+    → delete (204) → get-after (404). The real BE produces byte-shaped responses
+    identical to the MSW mocks the FE was built against.
+
+**Two build-time refinements** (flagged at their gate commits): (1) `relationship_stale`
+is surfaced as a non-erroring computed `status` for governance reads — the `409`
+variant is deferred to R71 join execution (its first consumer); (2) the
+J-3-planned `relationship_max` name length was dropped — J-5 ratified **no
+user-supplied name** (derived `left.col ↔ right.col` label), so there is nothing
+to bound.
+
+**Build gate commit seams:** Contract `ff352af` · Frontend `408bf31` · Backend
+`42c8907` · Integration (this commit). Seven independently-revertable seams
+across the round (Plan ×2, Design ×2, C, F, B) + this Integration commit.
 
 ## Check
 
@@ -267,6 +309,16 @@ the DCFBI chain (C → B → I).
 - [x] `queries/` graduation: relocated doc + overview + all inbound links resolve
 - [x] `gate-walker` (Design gate) exit criterion + commit seams recorded (verdict in Act)
 - [x] Plan gate + two Design seams committed separately
+- [x] **Contract** — `@mdd/contracts` OpenAPI validity **22/22** (4 relationship
+      routes + `relationship.yaml` + `relationship_exists` envelope)
+- [x] **Frontend** — builder type-check clean; suite **132/132** (5 new
+      relationships cases: list valid+stale, empty, declare round-trip,
+      incompatible gating, delete)
+- [x] **Backend** — pytest **159/159** (13 new, contract-validated, incl.
+      numeric-pair compat, self-join/cross-workspace 422, stale, cascade)
+- [x] **Integration** — dual contract conformance (MSW + real BE) + a live
+      cross-process round-trip (declare→list→get→duplicate→incompatible→delete) green
+- [x] Each gate committed separately (Plan ×2 · Design ×2 · C · F · B · I)
 
 ## Act
 
@@ -301,8 +353,20 @@ in action (a re-frame before any code costs an amended Plan commit, not a discar
 relationship_stale` for R71's join execution (its first real consumer) — recorded
 in `relationships.md § Data contract`.
 
-**`flow-selector`: DCFBI** (1 of 5 fired). The build chain (C → B → I) is
-sequenced for a later session on the human's go-ahead; F1/F2 skipped.
+**`flow-selector`: DCFBI** (1 of 5 fired; F1/F2 skipped).
+
+**Build outcome — the governed-edge model shipped end to end.** On the human's
+go-ahead the design seal built cleanly through C → F → B → I (each its own
+commit): the relationship-governance feature is live — declare a dtype-validated
+edge between two of a workspace's datasets, list it with a computed `valid|stale`
+status, delete it (cascading on dataset/workspace delete). The FE **reuses** the
+Page-List layout + `<DeleteConfirmModal>` (no parallel page — the noun-vs-mode
+invariant held through the build), and the real backend's responses are
+byte-identical to the MSW mocks (one `relationships/*` contract, dual-conformed).
+Two small build-time refinements (stale-as-status not error; no `relationship_max`
+since there's no name) are recorded at their gate commits — the build-first
+discipline ([ui-boundary-build-first](../../memory/2026-05-22-ui-boundary-build-first.md)):
+the design's altitude was right, the build corrected the details.
 
 **Learnings**:
 
@@ -313,13 +377,12 @@ sequenced for a later session on the human's go-ahead; F1/F2 skipped.
   axes. The R69 lesson ("reuse, don't duplicate") is about components, not
   folders. _(Candidate memory — see Promotions.)_
 
-**Promotions** _(if none: write as plain text, not checkboxes)_:
-
-- [ ] → `memory/` : "doc-home vs UI-duplication are independent axes" — a
-      refinement of [specious-model-lock-in](../../memory/2026-06-13-specious-model-lock-in.md)
-      and the build-first home-correction lesson
-      ([ui-boundary-build-first](../../memory/2026-05-22-ui-boundary-build-first.md));
-      promote if a third round re-applies it (defer per the don't-add-until-pulled rule).
+**Promotions**: none this round. The candidate learning — "doc-home vs
+UI-duplication are independent axes" (a refinement of
+[specious-model-lock-in](../../memory/2026-06-13-specious-model-lock-in.md) and
+[ui-boundary-build-first](../../memory/2026-05-22-ui-boundary-build-first.md)) —
+is **deferred**: it has fired once (R70). Promote when a third round re-applies
+it, per the don't-add-until-pulled rule.
 
 **Follow-ups (not promotions, just notes):**
 
@@ -327,7 +390,11 @@ sequenced for a later session on the human's go-ahead; F1/F2 skipped.
   "`queries` table + SQLModel", but R69's build shipped raw-SQLite (the J-3
   build-first correction). Not introduced by R70; reconcile when the queries
   backend doc is next touched (purpose #7 spec-vs-impl truth check).
-- **Build chain (C → B → I)** for relationship governance — on the go-ahead.
+- **Build chain (C → F → B → I)** for relationship governance — **done** this
+  round on the go-ahead (commits `ff352af` · `408bf31` · `42c8907` · Integration).
+- **A11y fidelity backstop** for the declare modal (the design-spec aria-live
+  declaration) — verify in a real browser if pulled; the build carried the
+  `aria-live` + icon-not-colour status, unverified live.
 
 ## Prune check
 
