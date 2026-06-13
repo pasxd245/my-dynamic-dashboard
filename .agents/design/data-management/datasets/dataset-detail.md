@@ -20,7 +20,7 @@ implementation chain begins R34 (contract), R35 (BE), R36 (FE).
 reused here),
 [dataset-filters.md](dataset-filters.md) (per-column typed
 filters layered on this page; R37 design, R38→R40 impl chain),
-[saved-query.md](saved-query.md) (R69 — the **second consumer** of this
+[saved-query.md](../queries/saved-query.md) (R69 — the **second consumer** of this
 page's paged-rows body, which it shares via the extracted `<PagedRowsView>`;
 also the destination of this page's `[+ Save as Query]` action),
 [workspace-shell.target.md](../../_platform/workspace-shell.target.md) (the chrome
@@ -71,7 +71,7 @@ second paged-table consumer arrives (e.g. a query-results page), the
 extraction question gets re-opened with two concrete consumers in hand."_
 
 > **R69 amendment — the trigger fired; the table is extracted.**
-> [saved-query.md](saved-query.md)'s query-mode detail is that second
+> [saved-query.md](../queries/saved-query.md)'s query-mode detail is that second
 > concrete consumer, so the parked extraction is now promoted: the inline
 > `DataTableBody` + row-search + `<Pagination>` + the loading / zero-rows /
 > no-match / 404 states become a shared **`<PagedRowsView>`** — a `plain-UI`
@@ -453,7 +453,7 @@ stateDiagram-v2
   predicate state (built from the live URL/hook state via the shipped
   serializers) as a named, persisted **Query**. This page only **hosts the
   action**; the modal, the persisted entity, the Queries catalog, and the
-  query-mode detail view all live in [saved-query.md](saved-query.md). No
+  query-mode detail view all live in [saved-query.md](../queries/saved-query.md). No
   change to this page's own states or data contract.
 
 ### Row search (`?q=`)
@@ -793,7 +793,7 @@ This concept explicitly does NOT cover:
   of those modals; the modals themselves are unchanged.
 - The Saved Query feature — the modal internals, the persisted
   `Query` entity, the Queries catalog, and the query-mode detail
-  view all live in [saved-query.md](saved-query.md) (R69). This
+  view all live in [saved-query.md](../queries/saved-query.md) (R69). This
   page only _hosts_ the `[+ Save as Query]` action and _shares_ its
   paged-rows body via `<PagedRowsView>`.
 - Future dashboard surfaces that will read the same dataset; those
@@ -810,7 +810,7 @@ This doc:
   exact dtype-badge color, exact skeleton row count).
 - **Amended R69 (this revision)** — declared the `<PagedRowsView>`
   extraction (the parked two-consumer trigger fired via
-  [saved-query.md](saved-query.md)) and the `[+ Save as Query]`
+  [saved-query.md](../queries/saved-query.md)) and the `[+ Save as Query]`
   header action. Both are Design-gate declarations; the code lands
   in the R69 build chain. No change to this page's states or data
   contract.

@@ -7,29 +7,38 @@ Dataset. It is the **same readable-table-source kind** as a Dataset, but a
 **Queries catalog**) and its own URL — yet it **reuses the dataset surfaces'
 layout and components** rather than duplicating them. R69 ships the thinnest
 real slice: take the predicate state a user already builds on the
-[dataset detail page](dataset-detail.md) — chip
-[filters](dataset-filters.md) + the [advanced-query](advanced-query.md) DNF +
+[dataset detail page](../datasets/dataset-detail.md) — chip
+[filters](../datasets/dataset-filters.md) + the [advanced-query](../datasets/advanced-query.md) DNF +
 the `?q=` row search — and let them **"Save as Query"**: name it, list it,
 reopen it, and re-run it against current data. The predicate vocabulary is
 unchanged; R69 adds **persistence + identity + an IA home**, not new query
 semantics.
 
-**Status**: Accepted (R69 design — redo; supersedes the discarded new-noun
-`queries.md`). Design-gate only this round; the C/F/B/I build chain follows.
+**Status**: Accepted (R69 design + shipped R69 — full DCFBI chain;
+**relocated to `queries/` + reframed R70**). Supersedes the discarded new-noun
+`queries.md`.
 **Round introduced**: [Round_69](../../../plan/cycles/Round_69.md) — the redo of
-the discarded first R69, on the corrected "Query is a virtual Dataset / a mode
-of the dataset surfaces" footing.
-**Domain folder**: `data-management/datasets/` (a Query is a *mode of* the
-dataset surfaces, so it is a sibling of `dataset-detail.md`, **not** a new
-`queries/` page family — that was the discarded model's error).
+the discarded first R69, on the corrected "Query is a virtual Dataset" footing.
+**Relocated + reframed**: [Round_70](../../../plan/cycles/Round_70.md) —
+graduated from `datasets/` to the new `queries/` domain once the Query-Builder
+complexity pulled a first-class home; "Save as Query" reframed as an **action**
+on [dataset-detail.md](../datasets/dataset-detail.md). The domain overview is
+[query-builder.md](query-builder.md); this doc is the first **construction
+mode** (save a single-source filtered view).
+**Domain folder**: `data-management/queries/` (the Query domain). The
+anti-duplication invariant still holds — `queries/` surfaces **reuse** the
+dataset components/layouts (`<PagedRowsView>`, the Page-List + standard detail
+layouts), never a parallel page. Doc-home and UI-duplication are **independent
+axes**; only the latter was the discarded model's error, and the graduation
+leaves it untouched.
 **Sibling docs**:
-[dataset-detail.md](dataset-detail.md) (the surface a Query is saved _from_,
+[dataset-detail.md](../datasets/dataset-detail.md) (the surface a Query is saved _from_,
 and whose paged-rows body — the extracted `<PagedRowsView>` — and standard
 detail layout the query-mode view **reuses**),
-[dataset-filters.md](dataset-filters.md) +
-[advanced-query.md](advanced-query.md) (the predicate vocabulary the saved
+[dataset-filters.md](../datasets/dataset-filters.md) +
+[advanced-query.md](../datasets/advanced-query.md) (the predicate vocabulary the saved
 definition round-trips — `FilterPredicate` atoms + the `aq` DNF),
-[datasets.md](datasets.md) (the noun a Query reads from; the catalog +
+[datasets.md](../datasets/datasets.md) (the noun a Query reads from; the catalog +
 workspace-filter conventions the Queries catalog mirrors),
 [workspaces.md](../workspaces/workspaces.md) (the container a Query is scoped
 to),
@@ -60,7 +69,7 @@ chrome all surfaces render inside).
 The dataset detail page is the **ephemeral** verb surface: a user filters,
 searches, and reads rows, and the URL (`f<N>_*`, `aq`, `q`) is the only
 durability — it survives a refresh and a deep-link, nothing more
-([advanced-query.md](advanced-query.md) § Deferred: _"Saved queries / query
+([advanced-query.md](../datasets/advanced-query.md) § Deferred: _"Saved queries / query
 history — persistence concern; URL `?aq=` is the only durability this round"_).
 That deferral is the gap this doc closes.
 
@@ -84,13 +93,13 @@ as a peer table-source input.
 
 The one thing the discarded R69 got wrong, stated as a rule this doc holds to:
 
-| Concern                | Discarded (new noun)                      | This design (mode / archetype)                                                         |
-| ---------------------- | ----------------------------------------- | -------------------------------------------------------------------------------------- |
-| Row table              | re-implemented in `QueryDetailPage`       | **reuses `<PagedRowsView>`** (extracted to `@mdd/ui` — [dataset-detail.md](dataset-detail.md)) |
-| Detail layout          | a parallel page                           | **reuses the standard layout** `PageHeader` + `PageCard` + `<PagedRowsView>`           |
-| Catalog list           | a duplicated table component              | **reuses the Page-List layout** (`PageHeader` + `PageCard` + AntD `<Table>`), own column config |
-| Predicate (de)serialize | re-derived                                | **reuses the shipped serializers/validators** verbatim                                 |
-| Row execution          | new read path                             | **reuses `query_dataset_rows`** end to end (live re-run)                               |
+| Concern                 | Discarded (new noun)                | This design (mode / archetype)                                                                             |
+| ----------------------- | ----------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Row table               | re-implemented in `QueryDetailPage` | **reuses `<PagedRowsView>`** (extracted to `@mdd/ui` — [dataset-detail.md](../datasets/dataset-detail.md)) |
+| Detail layout           | a parallel page                     | **reuses the standard layout** `PageHeader` + `PageCard` + `<PagedRowsView>`                               |
+| Catalog list            | a duplicated table component        | **reuses the Page-List layout** (`PageHeader` + `PageCard` + AntD `<Table>`), own column config            |
+| Predicate (de)serialize | re-derived                          | **reuses the shipped serializers/validators** verbatim                                                     |
+| Row execution           | new read path                       | **reuses `query_dataset_rows`** end to end (live re-run)                                                   |
 
 What is genuinely **new**: persistence (`queries` table + SQLModel), the `qr_`
 identity, the Save-as-Query modal, the Queries catalog + detail **routes**, and
@@ -100,34 +109,34 @@ the read-only predicate-summary section. Everything else is reuse.
 
 ## Judgment calls (resolved at the Plan gate — [Round_69](../../../plan/cycles/Round_69.md))
 
-| #   | Decision                | Resolution                                                                                                                                                          |
-| --- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| J-1 | Reopen model            | **Query-mode detail reusing the standard layout + `<PagedRowsView>`** — not a duplicated page, not a pure URL-state bundle.                                          |
-| J-2 | Catalog home            | An **own Queries catalog** (a `Queries` nav item + `/data-management/queries` list route) rendered through the **shared Page-List layout**.                          |
-| J-3 | Backend data-model base | **SQLModel** as the forward-standard model base (first entity to adopt it); raw-sqlite datasets/workspaces migrate incrementally — **deferred**.                     |
-| J-4 | Detail URL shape        | Top-level **`/data-management/queries/:id`** (`^qr_[0-9a-f]{8}$`), not nested under `datasets/`. A Query is a distinct archetype → own namespace; sets up R71.        |
-| D-4 | Single-dataset only     | One Query reads exactly one Dataset this round. Joins (Query×Dataset, Query×Query) and YAML/polars workflows are **out** (R70+). See § Scope boundary.               |
+| #   | Decision                | Resolution                                                                                                                                                     |
+| --- | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| J-1 | Reopen model            | **Query-mode detail reusing the standard layout + `<PagedRowsView>`** — not a duplicated page, not a pure URL-state bundle.                                    |
+| J-2 | Catalog home            | An **own Queries catalog** (a `Queries` nav item + `/data-management/queries` list route) rendered through the **shared Page-List layout**.                    |
+| J-3 | Backend data-model base | **SQLModel** as the forward-standard model base (first entity to adopt it); raw-sqlite datasets/workspaces migrate incrementally — **deferred**.               |
+| J-4 | Detail URL shape        | Top-level **`/data-management/queries/:id`** (`^qr_[0-9a-f]{8}$`), not nested under `datasets/`. A Query is a distinct archetype → own namespace; sets up R71. |
+| D-4 | Single-dataset only     | One Query reads exactly one Dataset this round. Joins (Query×Dataset, Query×Query) and YAML/polars workflows are **out** (R70+). See § Scope boundary.         |
 
 ---
 
 ## Surfaces — layer / reuse / purity declaration
 
-| Surface                                          | Layer                                                        | Reusability         | Purity             | Allowed peer deps                  |
-| ------------------------------------------------ | ------------------------------------------------------------ | ------------------- | ------------------ | ---------------------------------- |
-| `<PagedRowsView>` (reused; declared in dataset-detail.md) | `workspace/packages/ui/src` (`@mdd/ui`)             | shared cross-domain | plain-UI           | react, antd, react-i18next         |
-| `SaveQueryModal` component                       | `workspace/apps/builder/src/features/data-management/queries` | feature             | feature            | react, antd                        |
-| `QueriesPage` (Queries catalog; reuses Page-List layout) | `workspace/apps/builder/src/features/data-management/queries` | feature       | feature            | react, antd, @tanstack/react-query |
-| `QueryDetailPage` (query mode; reuses standard detail layout) | `workspace/apps/builder/src/features/data-management/queries` | feature  | feature            | react, antd, @tanstack/react-query |
-| `useQueriesQuery` / `useCreateQueryMutation` hooks | `workspace/apps/builder/src/features/data-management/queries` | feature           | glue (server-data) | @tanstack/react-query              |
-| `useQueryQuery` / `useQueryRowsQuery` hooks      | `workspace/apps/builder/src/features/data-management/queries` | feature             | glue (server-data) | @tanstack/react-query              |
-| `queriesApi` client                              | `workspace/apps/builder/src/api`                             | builder-only        | glue               | (fetch — no extra peer dep)        |
-| `POST/GET …/queries` + run routes                | `workspace/apps/backend`                                     | backend             | feature            | (FastAPI — backend native)         |
-| `Query` SQLModel entity                          | `workspace/apps/backend/app/models` (new `query.py`)         | backend             | data type          | sqlmodel, pydantic                 |
-| `Query` type (frontend)                          | `workspace/apps/builder/src/features/data-management/queries/types.ts` | feature   | data type          | none                               |
+| Surface                                                       | Layer                                                                  | Reusability         | Purity             | Allowed peer deps                  |
+| ------------------------------------------------------------- | ---------------------------------------------------------------------- | ------------------- | ------------------ | ---------------------------------- |
+| `<PagedRowsView>` (reused; declared in dataset-detail.md)     | `workspace/packages/ui/src` (`@mdd/ui`)                                | shared cross-domain | plain-UI           | react, antd, react-i18next         |
+| `SaveQueryModal` component                                    | `workspace/apps/builder/src/features/data-management/queries`          | feature             | feature            | react, antd                        |
+| `QueriesPage` (Queries catalog; reuses Page-List layout)      | `workspace/apps/builder/src/features/data-management/queries`          | feature             | feature            | react, antd, @tanstack/react-query |
+| `QueryDetailPage` (query mode; reuses standard detail layout) | `workspace/apps/builder/src/features/data-management/queries`          | feature             | feature            | react, antd, @tanstack/react-query |
+| `useQueriesQuery` / `useCreateQueryMutation` hooks            | `workspace/apps/builder/src/features/data-management/queries`          | feature             | glue (server-data) | @tanstack/react-query              |
+| `useQueryQuery` / `useQueryRowsQuery` hooks                   | `workspace/apps/builder/src/features/data-management/queries`          | feature             | glue (server-data) | @tanstack/react-query              |
+| `queriesApi` client                                           | `workspace/apps/builder/src/api`                                       | builder-only        | glue               | (fetch — no extra peer dep)        |
+| `POST/GET …/queries` + run routes                             | `workspace/apps/backend`                                               | backend             | feature            | (FastAPI — backend native)         |
+| `Query` SQLModel entity                                       | `workspace/apps/backend/app/models` (new `query.py`)                   | backend             | data type          | sqlmodel, pydantic                 |
+| `Query` type (frontend)                                       | `workspace/apps/builder/src/features/data-management/queries/types.ts` | feature             | data type          | none                               |
 
 **Boundary check**: no query surface re-implements a dataset surface. The row
 table is the shared `@mdd/ui` `<PagedRowsView>` (R69 extraction — its boundary
-lives in [dataset-detail.md](dataset-detail.md), not here). The Queries catalog
+lives in [dataset-detail.md](../datasets/dataset-detail.md), not here). The Queries catalog
 and query-mode detail are feature-local pages that **compose** the shared
 layout shells (`PageHeader` / `PageCard` from `@mdd/ui`); they add only their
 own sections (the predicate summary, the queries column config). The read-only
@@ -142,8 +151,8 @@ The Saved-Query surfaces are AntD primitives (`<Table>`, `<Modal>`, `<Input>`,
 AntD `<ConfigProvider>` tokens derived from the six seeds in
 [`themeTokens.ts`](../../../../workspace/packages/ui/src/themeTokens.ts) (the
 source of truth — R66). **No new token is introduced**; the map reuses the
-identifiers already cited by [datasets.md](datasets.md) and
-[dataset-detail.md](dataset-detail.md). `Value` is informational (resolved via
+identifiers already cited by [datasets.md](../datasets/datasets.md) and
+[dataset-detail.md](../datasets/dataset-detail.md). `Value` is informational (resolved via
 `theme.getDesignToken()`, antd 6.x).
 
 | Surface                                    | AntD token                     | Value (informational) |
@@ -177,7 +186,7 @@ All surfaces render inside the master-layout chrome
 ### Save-as-Query — from the dataset detail page
 
 The `[+ Save as Query]` action (placement declared in
-[dataset-detail.md](dataset-detail.md)) is enabled **only when ≥1 predicate is
+[dataset-detail.md](../datasets/dataset-detail.md)) is enabled **only when ≥1 predicate is
 active** (chip filter, advanced query, or `?q=` search). Clicking opens the
 modal.
 
@@ -199,7 +208,7 @@ Home ▸ … ▸ q1_pipeline_Deals          [+ Save as Query]  [Rename]  [Delete
 ### Queries catalog — `/data-management/queries`
 
 Reuses the **standard Page-List layout** (`PageHeader` + `PageCard` + AntD
-`<Table>`) — the same shell as [datasets.md](datasets.md), with a query column
+`<Table>`) — the same shell as [datasets.md](../datasets/datasets.md), with a query column
 config. **Not** a duplicated `DatasetsPage`.
 
 ```text
@@ -413,7 +422,7 @@ stateDiagram-v2
   `<Input maxLength={120} showCount>` (mirrors the `length BETWEEN 1 AND 120`
   CHECK); **Save is disabled until the trimmed name is non-empty**.
 - On submit: `POST /workspaces/{id}/queries` with `{ name, datasetId,
-  definition }`. Success → toast _"Query saved"_ + `navigate('/data-management/queries/:id')`.
+definition }`. Success → toast _"Query saved"_ + `navigate('/data-management/queries/:id')`.
   `409 name_taken` → inline field error (reuses the rename-modal error pattern).
   Captures a **snapshot** of the current predicate state at save time.
 
@@ -473,12 +482,12 @@ shapes rather than re-declaring atoms. The salvaged YAML at
 `tmp/queries/snapshot/workspace/packages/contracts/queries/` is the reference
 draft (sound; not re-applied wholesale).
 
-| Route                                     | Purpose | Notes                                                                                                       |
-| ----------------------------------------- | ------- | ----------------------------------------------------------------------------------------------------------- |
+| Route                                     | Purpose | Notes                                                                                                             |
+| ----------------------------------------- | ------- | ----------------------------------------------------------------------------------------------------------------- |
 | `POST /workspaces/{id}/queries`           | create  | body `{ name, datasetId, definition }`; 201 → `Query`; 409 `name_taken`; 422 on bad definition / unknown dataset. |
-| `GET /workspaces/{id}/queries`            | list    | `Query[]`, `created_at` desc; scoped to the workspace.                                                       |
-| `GET /queries/{id}`                       | get     | one `Query` (definition + metadata); 404 if absent.                                                          |
-| `GET /queries/{id}/rows?page=&page_size=` | run     | the **same `RowsPage` shape** as `GET /datasets/{id}/rows`; 404 / 409 `query_stale`.                         |
+| `GET /workspaces/{id}/queries`            | list    | `Query[]`, `created_at` desc; scoped to the workspace.                                                            |
+| `GET /queries/{id}`                       | get     | one `Query` (definition + metadata); 404 if absent.                                                               |
+| `GET /queries/{id}/rows?page=&page_size=` | run     | the **same `RowsPage` shape** as `GET /datasets/{id}/rows`; 404 / 409 `query_stale`.                              |
 
 - **Open contract question (flag for the Contract gate):** a **separate
   `/queries/:id/rows` route** vs a **unified table-source resolver** that serves
@@ -516,7 +525,7 @@ Design exit — sequenced in later sessions):
   `queries.*` (en + vi); vitest for the modal, the catalog, and the query-mode
   states.
 - **Shared (one extraction)**: `<PagedRowsView>` lifted from `DatasetDetailPage`
-  into `@mdd/ui` ([dataset-detail.md](dataset-detail.md) declares it); the
+  into `@mdd/ui` ([dataset-detail.md](../datasets/dataset-detail.md) declares it); the
   dataset detail page is refactored to consume it (no behavior change).
 - **Integration**: one save → list → reopen → run round-trip (FE through MSW; BE
   through pytest).
@@ -588,7 +597,7 @@ chain):
 
 - Persisting the single-dataset predicate state (chip `filters` + `advanced` DNF
   - `?q=` search) as a named **Query** entity, scoped to a workspace, with a
-  `qr_` identity and a `queries` SQLModel table.
+    `qr_` identity and a `queries` SQLModel table.
 - The four routes (create / list / get / run); run is a **live re-run** via the
   shipped `query_dataset_rows` path.
 - The FE: the gated Save-as-Query modal on the dataset detail page, the Queries
@@ -621,12 +630,12 @@ chain):
 ### This concept explicitly does NOT cover
 
 - The dataset detail page's own states / data contract (live in
-  [dataset-detail.md](dataset-detail.md); this page only adds the
+  [dataset-detail.md](../datasets/dataset-detail.md); this page only adds the
   `[+ Save as Query]` action there).
 - The `<PagedRowsView>` component boundary (lives in
-  [dataset-detail.md](dataset-detail.md), the extracting host).
+  [dataset-detail.md](../datasets/dataset-detail.md), the extracting host).
 - The predicate vocabulary internals (live in
-  [dataset-filters.md](dataset-filters.md) + [advanced-query.md](advanced-query.md)).
+  [dataset-filters.md](../datasets/dataset-filters.md) + [advanced-query.md](../datasets/advanced-query.md)).
 
 ---
 
@@ -638,9 +647,9 @@ chain):
   `query_stale` code, and the `qr_` / `query_max` constants. Pulled in **by
   reference**; the discarded surface model (parallel `QueriesPage` /
   `QueryDetailPage`) is **not** re-applied.
-- [advanced-query.md](advanced-query.md) + [dataset-filters.md](dataset-filters.md)
+- [advanced-query.md](../datasets/advanced-query.md) + [dataset-filters.md](../datasets/dataset-filters.md)
   — the predicate vocabulary the saved `definition` round-trips.
-- [datasets.md](datasets.md) — the catalog + workspace-filter + Page-List
+- [datasets.md](../datasets/datasets.md) — the catalog + workspace-filter + Page-List
   conventions this doc mirrors.
 
 ---

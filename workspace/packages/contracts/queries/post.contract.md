@@ -1,7 +1,7 @@
 # POST /workspaces/{id}/queries — rationale
 
 **Round**: R69 — Saved Query MVP. **Design**:
-[saved-query.md](../../../../.agents/design/data-management/datasets/saved-query.md).
+[saved-query.md](../../../../.agents/design/data-management/queries/saved-query.md).
 
 ## What it is
 

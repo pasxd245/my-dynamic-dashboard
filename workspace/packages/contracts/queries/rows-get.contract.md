@@ -1,7 +1,7 @@
 # GET /queries/{id}/rows — rationale
 
 **Round**: R69 — Saved Query MVP. **Design**:
-[saved-query.md](../../../../.agents/design/data-management/datasets/saved-query.md)
+[saved-query.md](../../../../.agents/design/data-management/queries/saved-query.md)
 § Execution model.
 
 ## What it is
