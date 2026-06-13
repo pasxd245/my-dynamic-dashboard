@@ -1,0 +1,113 @@
+openapi: 3.1.0
+info:
+  title: my-dynamic-dashboard — POST /workspaces/{id}/relationships
+  version: 0.1.0
+  description: |
+    Declare (govern) a Relationship in a workspace. R70 — relationship
+    governance.
+
+    The body names the ordered column pair to join — `leftDatasetId`.`leftColumn`
+    ↔ `rightDatasetId`.`rightColumn` — plus a declared `cardinality`. Both
+    datasets must belong to the workspace; both columns must exist; their dtypes
+    must be join-compatible (equal, with integer/float cross-compatible). A
+    declaration that fails any of these is rejected 422 (you cannot govern an
+    invalid edge). The ordered column-pair is unique per workspace — a duplicate
+    is rejected 409 `relationship_exists`. There is no user-supplied name (the
+    edge is labelled `left.col ↔ right.col`).
+
+paths:
+  /workspaces/{id}/relationships:
+    post:
+      operationId: createRelationship
+      summary: Declare a governed relationship in a workspace
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^ws_[0-9a-f]{8}$"
+          description: Workspace id (the governance scope).
+          examples:
+            marketing:
+              value: "ws_3f8a2c91"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                [leftDatasetId, leftColumn, rightDatasetId, rightColumn, cardinality]
+              additionalProperties: false
+              properties:
+                leftDatasetId:
+                  type: string
+                  pattern: "^ds_[0-9a-f]{8}$"
+                leftColumn:
+                  type: string
+                  minLength: 1
+                rightDatasetId:
+                  type: string
+                  pattern: "^ds_[0-9a-f]{8}$"
+                rightColumn:
+                  type: string
+                  minLength: 1
+                cardinality:
+                  $ref: "../_shared/relationship.yaml#/components/schemas/Cardinality"
+            examples:
+              deals_accounts:
+                summary: Deals.deal_id ↔ Accounts.account_id (one-to-many)
+                value:
+                  leftDatasetId: "ds_71a4e2f0"
+                  leftColumn: "deal_id"
+                  rightDatasetId: "ds_5b9c33a1"
+                  rightColumn: "account_id"
+                  cardinality: "one_to_many"
+      responses:
+        "201":
+          description: Relationship declared. `status` is `valid` at creation.
+          content:
+            application/json:
+              schema:
+                $ref: "../_shared/relationship.yaml#/components/schemas/Relationship"
+              examples:
+                created:
+                  value:
+                    id: "rel_a1b2c3d4"
+                    workspaceId: "ws_3f8a2c91"
+                    leftDatasetId: "ds_71a4e2f0"
+                    leftColumn: "deal_id"
+                    rightDatasetId: "ds_5b9c33a1"
+                    rightColumn: "account_id"
+                    cardinality: "one_to_many"
+                    status: "valid"
+                    createdAt: "2026-06-13T09:00:00Z"
+        "409":
+          description: |
+            A relationship with the same ordered column-pair already exists in
+            this workspace. Code-first envelope (R24).
+          content:
+            application/json:
+              schema:
+                $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorRelationshipExists"
+              examples:
+                duplicate:
+                  value: { "code": "relationship_exists" }
+        "422":
+          description: |
+            Validation error. Returned when a `datasetId` is malformed or
+            references no dataset in this workspace, a column does not exist in
+            its dataset, the two columns' dtypes are not join-compatible, or the
+            declaration is a degenerate self-pair (same dataset + same column).
+            Body is the FastAPI validation-error envelope.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [detail]
+                properties:
+                  detail:
+                    type: array
+                    items:
+                      type: object

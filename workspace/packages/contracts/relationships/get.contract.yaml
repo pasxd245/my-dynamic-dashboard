@@ -1,0 +1,52 @@
+openapi: 3.1.0
+info:
+  title: my-dynamic-dashboard — GET /workspaces/{id}/relationships
+  version: 0.1.0
+  description: |
+    List the governed relationships in a workspace, most-recent first. R70 —
+    relationship governance. Powers the workspace-scoped Relationships view at
+    `/data-management/workspaces/:id/relationships`. Each item's `status`
+    (`valid` / `stale`) is recomputed at read against the current dataset
+    schemas — never stored.
+
+paths:
+  /workspaces/{id}/relationships:
+    get:
+      operationId: listRelationships
+      summary: List a workspace's governed relationships (most-recent first)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^ws_[0-9a-f]{8}$"
+          description: Workspace id (the governance scope).
+          examples:
+            marketing:
+              value: "ws_3f8a2c91"
+      responses:
+        "200":
+          description: Array of relationships, sorted by `createdAt` descending.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "../_shared/relationship.yaml#/components/schemas/Relationship"
+              examples:
+                empty:
+                  summary: No relationships declared in this workspace yet
+                  value: []
+                one:
+                  summary: One valid relationship
+                  value:
+                    - id: "rel_a1b2c3d4"
+                      workspaceId: "ws_3f8a2c91"
+                      leftDatasetId: "ds_71a4e2f0"
+                      leftColumn: "deal_id"
+                      rightDatasetId: "ds_5b9c33a1"
+                      rightColumn: "account_id"
+                      cardinality: "one_to_many"
+                      status: "valid"
+                      createdAt: "2026-06-13T09:00:00Z"

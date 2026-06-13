@@ -22,7 +22,7 @@ components:
   schemas:
     ApiErrorCode:
       type: string
-      enum: [not_found, name_taken, non_empty, query_stale]
+      enum: [not_found, name_taken, non_empty, query_stale, relationship_exists]
       description: |
         Closed enum. Any new error class lands as a new code in a future
         round + contract update — never as a free-text message.
@@ -87,6 +87,21 @@ components:
             drifted. The FE renders the query-mode "needs attention" state
             and points the user at the source dataset to re-save.
 
+    ApiErrorRelationshipExists:
+      type: object
+      required: [code]
+      additionalProperties: false
+      properties:
+        code:
+          type: string
+          enum: [relationship_exists]
+          description: |
+            A relationship with the same ordered column-pair already
+            exists in this workspace (the unique-pair index, R70). Returned
+            by `POST /workspaces/{id}/relationships` (409) instead of
+            creating a duplicate governed edge. There is no user-supplied
+            name, so this — not `name_taken` — is the collision code.
+
     ApiError:
       description: |
         Discriminated union over `code`. Use `oneOf` + `discriminator` so
@@ -96,6 +111,7 @@ components:
         - $ref: '#/components/schemas/ApiErrorNameTaken'
         - $ref: '#/components/schemas/ApiErrorNonEmpty'
         - $ref: '#/components/schemas/ApiErrorQueryStale'
+        - $ref: '#/components/schemas/ApiErrorRelationshipExists'
       discriminator:
         propertyName: code
         mapping:
@@ -103,3 +119,4 @@ components:
           name_taken: '#/components/schemas/ApiErrorNameTaken'
           non_empty: '#/components/schemas/ApiErrorNonEmpty'
           query_stale: '#/components/schemas/ApiErrorQueryStale'
+          relationship_exists: '#/components/schemas/ApiErrorRelationshipExists'

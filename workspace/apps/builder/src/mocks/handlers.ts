@@ -17,11 +17,14 @@ import { http, HttpResponse } from 'msw';
 import { OPS_BY_DTYPE, type FilterPredicate, type Operator } from '@/features/data-management/datasets/filters/types';
 import type { Column } from '@/features/data-management/datasets/types';
 import type { CreateQueryRequest } from '@/features/data-management/queries/types';
+import type { CreateRelationshipRequest } from '@/features/data-management/relationships/types';
 import { withContractValidation } from './contract-validator';
 import {
   MOCK_DATASET,
+  MOCK_DATASET_2,
   MOCK_QUERIES,
   MOCK_QUERY,
+  MOCK_RELATIONSHIPS,
   MOCK_ROWS,
   MOCK_STALE_QUERY_ID,
   MOCK_WORKSPACE,
@@ -299,13 +302,15 @@ export const handlers = [
     const url = new URL(request.url);
     const ws = url.searchParams.get('workspace_id');
     if (ws && ws !== MOCK_WORKSPACE.id) return HttpResponse.json([]);
-    return HttpResponse.json([MOCK_DATASET]);
+    // Two datasets in the workspace (R70) so relationships have two sides.
+    return HttpResponse.json([MOCK_DATASET, MOCK_DATASET_2]);
   }),
   withContractValidation('get', api('/datasets/:id'), 'getDataset', ({ params }) => {
-    if (params.id !== MOCK_DATASET.id) {
+    const ds = [MOCK_DATASET, MOCK_DATASET_2].find((d) => d.id === params.id);
+    if (!ds) {
       return HttpResponse.json({ code: 'not_found' }, { status: 404 });
     }
-    return HttpResponse.json(MOCK_DATASET);
+    return HttpResponse.json(ds);
   }),
 
   // Datasets rows — filter + q + pagination AND-compose.
@@ -424,6 +429,42 @@ export const handlers = [
     });
   }),
   http.delete(api('/queries/:id'), () => new HttpResponse(null, { status: 204 })),
+
+  // Relationships (R70 — governance): declare / list / get / delete.
+  // No /rows route — governance only; join execution is R71. `status` is
+  // returned as the fixture's computed value (valid|stale).
+  withContractValidation(
+    'post',
+    api('/workspaces/:id/relationships'),
+    'createRelationship',
+    async ({ params, request }) => {
+      const body = (await request.json()) as Partial<CreateRelationshipRequest>;
+      return HttpResponse.json(
+        {
+          id: `rel_${Math.random().toString(16).slice(2, 10).padEnd(8, '0')}`,
+          workspaceId: String(params.id),
+          leftDatasetId: body.leftDatasetId ?? MOCK_DATASET.id,
+          leftColumn: body.leftColumn ?? 'deal_id',
+          rightDatasetId: body.rightDatasetId ?? MOCK_DATASET_2.id,
+          rightColumn: body.rightColumn ?? 'account_id',
+          cardinality: body.cardinality ?? 'one_to_many',
+          status: 'valid',
+          createdAt: new Date().toISOString(),
+        },
+        { status: 201 },
+      );
+    },
+  ),
+  withContractValidation('get', api('/workspaces/:id/relationships'), 'listRelationships', ({ params }) => {
+    if (params.id !== MOCK_WORKSPACE.id) return HttpResponse.json([]);
+    return HttpResponse.json(MOCK_RELATIONSHIPS);
+  }),
+  withContractValidation('get', api('/relationships/:id'), 'getRelationship', ({ params }) => {
+    const rel = MOCK_RELATIONSHIPS.find((r) => r.id === params.id);
+    if (!rel) return HttpResponse.json({ code: 'not_found' }, { status: 404 });
+    return HttpResponse.json(rel);
+  }),
+  http.delete(api('/relationships/:id'), () => new HttpResponse(null, { status: 204 })),
 
   // Uploads — minimal happy-path mock so the wizard can render in dev
   // mode without a BE. Returns a CSV temp upload by default.

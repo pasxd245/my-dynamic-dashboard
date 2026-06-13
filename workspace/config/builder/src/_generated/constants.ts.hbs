@@ -23,6 +23,9 @@ export const TEMP_ID_PATTERN = /{{constants.id_patterns.temp}}/;
 /** Query IDs: `qr_<8 lowercase hex chars>` (R69 — Saved Query). */
 export const QUERY_ID_PATTERN = /{{constants.id_patterns.query}}/;
 
+/** Relationship IDs: `rel_<8 lowercase hex chars>` (R70 — governed edge). */
+export const RELATIONSHIP_ID_PATTERN = /{{constants.id_patterns.relationship}}/;
+
 /** R29: error-envelope code values. Used at FE branch sites
  *  (`err.body.code === ERROR_CODES.NAME_TAKEN`). */
 export const ERROR_CODES = {
@@ -30,6 +33,7 @@ export const ERROR_CODES = {
   NAME_TAKEN: "{{constants.error_codes.name_taken}}",
   NON_EMPTY: "{{constants.error_codes.non_empty}}",
   QUERY_STALE: "{{constants.error_codes.query_stale}}",
+  RELATIONSHIP_EXISTS: "{{constants.error_codes.relationship_exists}}",
 } as const;
 
 export type ErrorCode = (typeof ERROR_CODES)[keyof typeof ERROR_CODES];

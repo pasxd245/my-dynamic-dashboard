@@ -1,0 +1,57 @@
+openapi: 3.1.0
+info:
+  title: my-dynamic-dashboard — GET /relationships/{id}
+  version: 0.1.0
+  description: |
+    Get a single governed relationship by id. R70 — relationship governance.
+    `status` is recomputed at read against the current dataset schemas; a
+    `stale` edge is returned annotated (200), never errored — governance reads
+    flag, don't reject (purpose.md #5).
+
+paths:
+  /relationships/{id}:
+    get:
+      operationId: getRelationship
+      summary: Get a single governed relationship by id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^rel_[0-9a-f]{8}$"
+          description: Relationship id.
+          examples:
+            deals_accounts:
+              value: "rel_a1b2c3d4"
+      responses:
+        "200":
+          description: The relationship, with its computed `status`.
+          content:
+            application/json:
+              schema:
+                $ref: "../_shared/relationship.yaml#/components/schemas/Relationship"
+              examples:
+                stale:
+                  summary: A relationship whose left column was dropped
+                  value:
+                    id: "rel_a1b2c3d4"
+                    workspaceId: "ws_3f8a2c91"
+                    leftDatasetId: "ds_71a4e2f0"
+                    leftColumn: "deal_id"
+                    rightDatasetId: "ds_5b9c33a1"
+                    rightColumn: "account_id"
+                    cardinality: "one_to_many"
+                    status: "stale"
+                    createdAt: "2026-06-13T09:00:00Z"
+        "404":
+          description: |
+            No relationship with the given `id` exists (deleted, or a source
+            dataset / the workspace was deleted and cascaded it away).
+          content:
+            application/json:
+              schema:
+                $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorNotFound"
+              examples:
+                missing:
+                  value: { "code": "not_found" }

@@ -10,7 +10,8 @@ export type ApiError =
   | { code: 'not_found' }
   | { code: 'name_taken' }
   | { code: 'non_empty'; datasetCount: number }
-  | { code: 'query_stale' }; // R69 — saved query def stale vs current schema
+  | { code: 'query_stale' } // R69 — saved query def stale vs current schema
+  | { code: 'relationship_exists' }; // R70 — duplicate governed edge (workspace + column pair)
 
 /** The batch-commit endpoint's 409 carries a `oneOf` over the legacy
  *  `{ error, detail }` envelope and the new `ApiError` variants. The FE
@@ -31,7 +32,8 @@ export function isApiError(body: unknown): body is ApiError {
     code === ERROR_CODES.NOT_FOUND ||
     code === ERROR_CODES.NAME_TAKEN ||
     code === ERROR_CODES.NON_EMPTY ||
-    code === ERROR_CODES.QUERY_STALE
+    code === ERROR_CODES.QUERY_STALE ||
+    code === ERROR_CODES.RELATIONSHIP_EXISTS
   );
 }
 

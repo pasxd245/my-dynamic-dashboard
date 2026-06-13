@@ -73,6 +73,7 @@ constants:
     dataset: '^ds_[0-9a-f]{8}$'
     temp: '^tmp_[0-9a-f]{16}$'
     query: '^qr_[0-9a-f]{8}$' # R69 — Saved Query
+    relationship: '^rel_[0-9a-f]{8}$' # R70 — relationship governance (edge)
 
   # R29: code-first error envelope keys (matches contracts/_shared/api-error.yaml).
   # The Pydantic Literal annotations on BE side and the discriminated TS union
@@ -83,6 +84,7 @@ constants:
     name_taken: 'name_taken'
     non_empty: 'non_empty'
     query_stale: 'query_stale' # R69 — saved query def no longer validates vs current schema
+    relationship_exists: 'relationship_exists' # R70 — duplicate governed edge (same workspace + column pair)
 
   # R29: name-length bounds enforced by Pydantic on BE + AntD Form rules on
   # FE. Workspace names globally unique, max 80; dataset names per-workspace

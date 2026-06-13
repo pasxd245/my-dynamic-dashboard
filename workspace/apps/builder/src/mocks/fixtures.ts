@@ -18,6 +18,7 @@
 
 import type { Dataset, RowsPage } from '@/features/data-management/datasets/types';
 import type { Query } from '@/features/data-management/queries/types';
+import type { Relationship } from '@/features/data-management/relationships/types';
 import type { Workspace } from '@/features/data-management/workspaces/types';
 
 import { CONTRACTS_ROOT } from './contracts-root';
@@ -93,6 +94,60 @@ export const MOCK_QUERIES: readonly Query[] = [MOCK_QUERY];
  *  schema drifted). Lets the FE/integration exercise the stale state
  *  deterministically without mutating a dataset. */
 export const MOCK_STALE_QUERY_ID = 'qr_dead0000';
+
+// ─── Relationship fixtures (R70 — governance) ────────────────────────
+//
+// A second dataset in the same workspace so relationships have two sides
+// to connect. The governed edge below joins Deals.deal_id ↔ Accounts.
+// account_id (string ↔ string — dtype-compatible). A second, stale edge
+// references a column that no longer exists on the left, to exercise the
+// computed `status: stale` flag deterministically.
+
+export const MOCK_DATASET_2: Dataset = {
+  id: 'ds_22222222',
+  workspaceId: MOCK_WORKSPACE.id,
+  name: 'accounts',
+  sizeBytes: 20_480,
+  rowCount: 5,
+  columnCount: 3,
+  columns: [
+    { name: 'account_id', dtype: 'string' },
+    { name: 'account_name', dtype: 'string' },
+    { name: 'tier', dtype: 'string' },
+  ],
+  sourceFormat: 'csv',
+  createdAt: '2026-05-23T12:00:00Z',
+};
+
+export const MOCK_RELATIONSHIP: Relationship = {
+  id: 'rel_a1b2c3d4',
+  workspaceId: MOCK_WORKSPACE.id,
+  leftDatasetId: MOCK_DATASET.id,
+  leftColumn: 'deal_id',
+  rightDatasetId: MOCK_DATASET_2.id,
+  rightColumn: 'account_id',
+  cardinality: 'one_to_many',
+  status: 'valid',
+  createdAt: '2026-06-13T09:00:00Z',
+};
+
+/** A governed edge whose left column no longer exists → computed `stale`. */
+export const MOCK_STALE_RELATIONSHIP: Relationship = {
+  id: 'rel_57a1e000',
+  workspaceId: MOCK_WORKSPACE.id,
+  leftDatasetId: MOCK_DATASET.id,
+  leftColumn: 'legacy_code',
+  rightDatasetId: MOCK_DATASET_2.id,
+  rightColumn: 'account_id',
+  cardinality: 'one_to_one',
+  status: 'stale',
+  createdAt: '2026-06-13T08:00:00Z',
+};
+
+export const MOCK_RELATIONSHIPS: readonly Relationship[] = [
+  MOCK_RELATIONSHIP,
+  MOCK_STALE_RELATIONSHIP,
+];
 
 // R42 YAML-example loader: read `paths.<*>.<*>.responses["200"]
 // .content["application/json"].examples[exampleName].value.rows`

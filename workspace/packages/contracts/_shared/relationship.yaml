@@ -1,0 +1,84 @@
+# Shared schema: Relationship (R70 — relationship governance)
+# Used by: relationships/post (response), relationships/get (response items),
+#          relationships/detail-get (response).
+# Matches the data model in
+# .agents/design/data-management/workspaces/relationships.md and the backend
+# Relationship Pydantic entity.
+#
+# A Relationship is a GOVERNED EDGE between two Datasets in the same Workspace:
+# an ordered column pair (left.col ↔ right.col) with a declared cardinality and
+# a join-key dtype-compatibility validated at declare time. It produces no rows
+# — the Query Builder (R71) consumes it to join. `status` is COMPUTED on read
+# (re-validated vs the current dataset schemas), never stored.
+components:
+  schemas:
+    Cardinality:
+      type: string
+      enum: [one_to_one, one_to_many, many_to_many]
+      description: |
+        Declared multiplicity of the edge (MVP — sampling-based inference is
+        deferred). Direction is by side order (left → right).
+
+    RelationshipStatus:
+      type: string
+      enum: [valid, stale]
+      description: |
+        Computed at read, never stored. `valid` — both columns still exist
+        with join-compatible dtypes. `stale` — a referenced column was removed
+        or retyped after declare (purpose.md #5: flag, don't reject). A stale
+        edge is annotated, not auto-deleted; governance reads never error on it.
+
+    Relationship:
+      type: object
+      required:
+        [
+          id,
+          workspaceId,
+          leftDatasetId,
+          leftColumn,
+          rightDatasetId,
+          rightColumn,
+          cardinality,
+          status,
+          createdAt,
+        ]
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          pattern: "^rel_[0-9a-f]{8}$"
+          description: Server-generated. Format `rel_<8 lowercase hex>`.
+          examples: ["rel_a1b2c3d4"]
+        workspaceId:
+          type: string
+          pattern: "^ws_[0-9a-f]{8}$"
+          description: Foreign key to the owning workspace (the governance scope).
+        leftDatasetId:
+          type: string
+          pattern: "^ds_[0-9a-f]{8}$"
+          description: Foreign key to the left dataset. Cascades on its delete.
+        leftColumn:
+          type: string
+          minLength: 1
+          description: A column name in leftDataset.columns[].
+          examples: ["deal_id"]
+        rightDatasetId:
+          type: string
+          pattern: "^ds_[0-9a-f]{8}$"
+          description: |
+            Foreign key to the right dataset (same workspace as the left).
+            Cascades on its delete.
+        rightColumn:
+          type: string
+          minLength: 1
+          description: A column name in rightDataset.columns[].
+          examples: ["account_id"]
+        cardinality:
+          $ref: "#/components/schemas/Cardinality"
+        status:
+          $ref: "#/components/schemas/RelationshipStatus"
+        createdAt:
+          type: string
+          pattern: "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+          description: ISO-8601 UTC, `Z`-suffixed. Server-stamped at declare time.
+          examples: ["2026-06-13T09:00:00Z"]

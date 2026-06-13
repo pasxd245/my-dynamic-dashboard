@@ -1,0 +1,41 @@
+openapi: 3.1.0
+info:
+  title: my-dynamic-dashboard — DELETE /relationships/{id}
+  version: 0.1.0
+  description: |
+    Delete a governed relationship. R70 — relationship governance. A
+    relationship has no dependents this round (no 409 path; join execution that
+    would depend on an edge is R71). Deleting either source dataset or the
+    workspace cascades its relationships away server-side, so this endpoint is
+    for the explicit user-initiated delete from the relationships view.
+
+paths:
+  /relationships/{id}:
+    delete:
+      operationId: deleteRelationship
+      summary: Delete a governed relationship
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^rel_[0-9a-f]{8}$"
+          description: Relationship id.
+          examples:
+            deals_accounts:
+              value: "rel_a1b2c3d4"
+      responses:
+        "204":
+          description: Deleted. No body.
+        "404":
+          description: |
+            No relationship with the given `id` exists (already deleted, or a
+            source dataset / the workspace was deleted and cascaded it away).
+          content:
+            application/json:
+              schema:
+                $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorNotFound"
+              examples:
+                missing:
+                  value: { "code": "not_found" }
