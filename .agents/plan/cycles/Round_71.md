@@ -1,7 +1,7 @@
 # Round 71: Join execution — a Query consumes a Relationship (the truth-test of R70's edge)
 
 **Status**: In Progress (Design gate sealed + committed; building the DCFBI chain
-on the human's go-ahead — Contract done, F/B/I next)
+on the human's go-ahead — Contract + Frontend done, B/I next)
 **Date started**: 2026-06-13
 **Date completed**:
 
@@ -352,7 +352,38 @@ shapes):**
 builder **type-check clean**; builder suite **130/132** (the 2 failures are the
 **pre-existing upload-wizard 5s-timeout flake** documented in
 [Round_69 § Contract](Round_69.md) — **7/7 in isolation** at `--test-timeout=15000`;
-queries **6/6**). Contract seam: this commit.
+queries **6/6**). Contract seam: `9c4bbac`.
+
+### Gate 4 — Frontend (F) — DCFBI: F (built against MSW; F1/F2 skipped)
+
+The join surface **reuses** the shipped query-mode shell — no parallel page (the
+noun-vs-mode invariant held through the build):
+
+- **`QueryDetailPage` extended** — when `definition.join` is present it renders
+  the joined result through the **same** `<PagedRowsView>`, using the
+  server-computed **`resolvedColumns`** for headers (the FE can't derive a joined
+  header set from one source dataset); adds a **read-only join summary** (left ⋈
+  inner ⋈ right, the key pair, a cardinality `<Tag>`, fetched via the R70
+  `useRelationshipQuery`), a joined-aware **"Matched X rows"** counter, and the
+  **`relationship_stale` → "join unavailable"** state (`role="alert"`, points at
+  the workspace Relationships view — flag, don't crash).
+- **`JoinWithRelatedModal` (new, minimal create surface, J-1)** — a `<Select>` of
+  the dataset's **valid** relationships + a name; Save persists a joined Query
+  (`definition.join` referencing the `rel_`, `datasetId` = the edge's left source)
+  and navigates to its detail. The rich multi-source builder stays **R72**.
+- **`[Join with related dataset]` action** on the dataset detail page, beside
+  `[+ Save as Query]` — **disabled with a guiding tooltip when the dataset has no
+  valid relationship** (the Credibility state the design-spec gate caught; no
+  dead-end empty `<Select>`).
+- FE `ApiError` union + `isApiError` widened for `relationship_stale`; i18n
+  `queries.detail.*` + `queries.join.*` (en + vi).
+
+**Frontend gate verification:** builder **type-check clean**; suite **134/136**
+(4 new `queries.test.tsx` join cases: reopen joined → summary + joined rows via
+the reused table; `relationship_stale` → join-unavailable; create round-trip;
+affordance disabled when no valid edge). The 2 failures remain the **pre-existing
+upload-wizard flake** (7/7 in isolation). _F1/F2 skipped on the DCFBI path._
+Frontend seam: this commit.
 
 ## Check
 

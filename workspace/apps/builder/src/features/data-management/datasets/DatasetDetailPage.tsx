@@ -21,6 +21,8 @@ import { formatBytes } from '@/lib/formatBytes';
 import { useWorkspacesQuery } from '@/features/data-management/workspaces/hooks';
 import { useCreateQueryMutation } from '@/features/data-management/queries/hooks';
 import { SaveQueryModal } from '@/features/data-management/queries/SaveQueryModal';
+import { JoinWithRelatedModal } from '@/features/data-management/queries/JoinWithRelatedModal';
+import { useRelationshipsQuery } from '@/features/data-management/relationships/hooks';
 import { ApiErrorThrown } from '../_shared/types';
 import { DeleteConfirmModal } from '../_shared/DeleteConfirmModal';
 import { PagedRowsView } from '../_shared/PagedRowsView';
@@ -172,6 +174,15 @@ export function DatasetDetailPage() {
   const [modalState, setModalState] = useState<ModalState>({ kind: 'idle' });
   const renameMutation = useRenameDatasetMutation();
   const deleteMutation = useDeleteDatasetMutation();
+
+  // ─── Join with related dataset (R71) ──────────────────────────────
+  const [joinOpen, setJoinOpen] = useState(false);
+  const relationshipsQuery = useRelationshipsQuery(dataset?.workspaceId);
+  // The join affordance is enabled iff this dataset has ≥1 VALID relationship
+  // involving it (a stale edge can't be joined). No dead-end empty Select.
+  const joinableRelCount = (relationshipsQuery.data ?? []).filter(
+    (r) => r.status === 'valid' && (r.leftDatasetId === dataset?.id || r.rightDatasetId === dataset?.id),
+  ).length;
 
   // ─── Save as Query (R69) ───────────────────────────────────────────
   const [saveQueryOpen, setSaveQueryOpen] = useState(false);
@@ -413,6 +424,15 @@ export function DatasetDetailPage() {
           {t('queries.save.action')}
         </Button>
       </Tooltip>
+      <Tooltip title={joinableRelCount > 0 ? undefined : t('queries.join.disabledTooltip')}>
+        <Button
+          disabled={joinableRelCount === 0}
+          onClick={() => setJoinOpen(true)}
+          data-component="JoinWithRelatedAction"
+        >
+          {t('queries.join.action')}
+        </Button>
+      </Tooltip>
       <Dropdown
         trigger={['click']}
         menu={{
@@ -608,6 +628,13 @@ export function DatasetDetailPage() {
         error={createQueryMutation.error}
         onSubmit={submitSaveQuery}
         onClose={closeSaveQuery}
+      />
+      <JoinWithRelatedModal
+        open={joinOpen}
+        datasetId={dataset.id}
+        datasetName={dataset.name}
+        workspaceId={dataset.workspaceId}
+        onClose={() => setJoinOpen(false)}
       />
     </div>
   );

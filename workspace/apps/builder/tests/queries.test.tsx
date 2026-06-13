@@ -14,7 +14,7 @@ import { AppLayout } from '@/components/AppLayout';
 import { DatasetDetailPage } from '@/features/data-management/datasets/DatasetDetailPage';
 import { QueriesPage } from '@/features/data-management/queries/QueriesPage';
 import { QueryDetailPage } from '@/features/data-management/queries/QueryDetailPage';
-import { MOCK_DATASET, MOCK_QUERY } from '@/mocks/fixtures';
+import { MOCK_DATASET, MOCK_JOINED_QUERY, MOCK_QUERY } from '@/mocks/fixtures';
 import { server } from '@/mocks/server';
 
 const QR_ID = MOCK_QUERY.id;
@@ -109,5 +109,57 @@ describe('Save as Query (from the dataset detail page)', () => {
     fireEvent.click(okBtn);
     // Lands on the query-mode detail of the saved query.
     expect(await screen.findByText(/Matched 3 \/ 8/)).toBeInTheDocument();
+  });
+});
+
+describe('Join execution (R71)', () => {
+  const JOIN_ID = MOCK_JOINED_QUERY.id;
+
+  it('reopens a joined query: read-only join summary + joined rows via the reused table', async () => {
+    renderApp(`/data-management/queries/${JOIN_ID}`);
+    // Joined run → MOCK_JOINED_ROWS (total 2); the joined-aware counter omits "/ Y".
+    expect(await screen.findByText(/Matched 2 rows/)).toBeInTheDocument();
+    // The read-only join summary renders the governed edge's key pair (the
+    // relationship fetch resolves independently of the rows — poll for it).
+    const keyPair = await screen.findByText(/deal_id ↔ account_id/);
+    expect(keyPair.closest('[data-component="QueryJoinSummary"]')).not.toBeNull();
+    // The reused <PagedRowsView> shows a cell from the RIGHT (joined-in) source.
+    expect(screen.getByText('Acme')).toBeInTheDocument();
+  });
+
+  it('blocks the join on 409 relationship_stale (join-unavailable state, not a crash)', async () => {
+    server.use(
+      http.get('*/queries/:id/rows', () => HttpResponse.json({ code: 'relationship_stale' }, { status: 409 })),
+    );
+    renderApp(`/data-management/queries/${JOIN_ID}`);
+    expect(await screen.findByText('This join is unavailable')).toBeInTheDocument();
+    expect(document.querySelector('[data-component="QueryDetailJoinUnavailable"]')).not.toBeNull();
+  });
+
+  it('creates a joined query from the dataset detail page and lands on its detail', async () => {
+    server.use(
+      http.post('*/workspaces/:id/queries', () => HttpResponse.json(MOCK_JOINED_QUERY, { status: 201 })),
+    );
+    renderApp(`/data-management/datasets/${DS_ID}`);
+    // The affordance is enabled — MOCK_DATASET has a valid relationship.
+    const joinBtn = (await screen.findByText('Join with related dataset')).closest('button') as HTMLButtonElement;
+    await waitFor(() => expect(joinBtn).not.toBeDisabled());
+    fireEvent.click(joinBtn);
+    // Modal opens; the relationship Select is pre-seeded with the first valid edge.
+    expect(await screen.findByText('Join with a related dataset', { selector: '.ant-modal-title' })).toBeInTheDocument();
+    const nameInput = document.querySelector('[data-component="JoinQueryNameInput"]') as HTMLInputElement;
+    fireEvent.change(nameInput, { target: { value: 'Deals × Accounts' } });
+    const okBtn = document.querySelector('.ant-modal-footer .ant-btn-primary') as HTMLButtonElement;
+    await waitFor(() => expect(okBtn).not.toBeDisabled());
+    fireEvent.click(okBtn);
+    // Round-trip: lands on the joined query's detail (joined-aware counter).
+    expect(await screen.findByText(/Matched 2 rows/)).toBeInTheDocument();
+  });
+
+  it('disables the join affordance when the dataset has no valid relationships', async () => {
+    server.use(http.get('*/workspaces/:id/relationships', () => HttpResponse.json([])));
+    renderApp(`/data-management/datasets/${DS_ID}`);
+    const joinBtn = (await screen.findByText('Join with related dataset')).closest('button') as HTMLButtonElement;
+    await waitFor(() => expect(joinBtn).toBeDisabled());
   });
 });

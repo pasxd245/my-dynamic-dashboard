@@ -17,6 +17,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useDatasetQuery } from '@/features/data-management/datasets/hooks';
 import { formatChipText } from '@/features/data-management/datasets/filters/ActiveFilterChips';
 import { groupsToText } from '@/features/data-management/datasets/advanced-query/serialize';
+import { useRelationshipQuery } from '@/features/data-management/relationships/hooks';
 import { ApiErrorThrown } from '../_shared/types';
 import { DeleteConfirmModal } from '../_shared/DeleteConfirmModal';
 import { PagedRowsView } from '../_shared/PagedRowsView';
@@ -38,6 +39,11 @@ function isNotFound(err: unknown): boolean {
 function isStale(err: unknown): boolean {
   return err instanceof ApiErrorThrown && err.body.code === 'query_stale';
 }
+// R71 — a joined query whose consumed edge's key column drifted: the join
+// is blocked (distinct from query_stale, which is a predicate-atom drift).
+function isRelStale(err: unknown): boolean {
+  return err instanceof ApiErrorThrown && err.body.code === 'relationship_stale';
+}
 
 export function QueryDetailPage() {
   const { t } = useTranslation();
@@ -55,11 +61,21 @@ export function QueryDetailPage() {
   const dataset = datasetQuery.data;
   const rowsQuery = useQueryRowsQuery(id, page, pageSize);
 
+  // R71 — a joined query consumes a Relationship; fetch it (+ the right
+  // dataset) to render the read-only join summary. Hooks run unconditionally;
+  // both are `enabled` only when their id resolves.
+  const join = query?.definition.join;
+  const isJoined = Boolean(join);
+  const relQuery = useRelationshipQuery(join?.relationshipId);
+  const relationship = relQuery.data;
+  const rightDatasetQuery = useDatasetQuery(relationship?.rightDatasetId);
+
   const [deleteOpen, setDeleteOpen] = useState(false);
   const deleteMutation = useDeleteQueryMutation();
 
   const notFound = isNotFound(queryQuery.error) || isNotFound(rowsQuery.error);
   const stale = isStale(rowsQuery.error);
+  const relStale = isRelStale(rowsQuery.error);
 
   const BREADCRUMB = [
     { label: t('nav.home'), route: '/' },
@@ -131,12 +147,15 @@ export function QueryDetailPage() {
   }
 
   const sourceName = dataset?.name ?? query.datasetId;
+  const warn = stale || relStale;
+  let badgeKey = 'queries.detail.badgeLive';
+  if (relStale) badgeKey = 'queries.detail.badgeJoinUnavailable';
+  else if (stale) badgeKey = 'queries.detail.badgeStale';
   const title = (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
       <span>{query.name}</span>
-      <Tag color={stale ? 'warning' : 'processing'}>
-        {stale ? t('queries.detail.badgeStale') : t('queries.detail.badgeLive')}
-      </Tag>
+      <Tag color={warn ? 'warning' : 'processing'}>{t(badgeKey)}</Tag>
+      {isJoined ? <Tag color="geekblue">{t('queries.detail.badgeJoin')}</Tag> : null}
     </span>
   );
   const sourceLink = (
@@ -190,11 +209,83 @@ export function QueryDetailPage() {
     );
   }
 
+  // ─── Join unavailable (relationship_stale) — R71 ───────────────────
+  // A joined query whose consumed edge's key column drifted: block the join,
+  // point the user at the workspace Relationships view (flag, don't crash).
+  if (relStale) {
+    const relsRoute = `/data-management/workspaces/${query.workspaceId}/relationships`;
+    return (
+      <>
+        <PageHeader breadcrumb={BREADCRUMB} title={title} actions={actions} onNavigate={(r) => navigate(r)} />
+        <PageCard>
+          <div data-component="QueryDetailJoinUnavailable" role="alert" style={{ padding: '40px 24px', textAlign: 'center' }}>
+            <WarningOutlined style={{ fontSize: 36, color: 'var(--ant-color-warning, #faad14)', marginBottom: 12 }} />
+            <Typography.Title level={5} style={{ marginTop: 0 }}>
+              {t('queries.detail.joinUnavailableTitle')}
+            </Typography.Title>
+            <Typography.Text type="secondary">{t('queries.detail.joinUnavailableHint')}</Typography.Text>
+            <div style={{ marginTop: 20, display: 'flex', gap: 8, justifyContent: 'center' }}>
+              <Button type="primary" onClick={() => navigate(relsRoute)}>
+                {t('queries.detail.openRelationships')}
+              </Button>
+              <Button danger onClick={() => setDeleteOpen(true)}>
+                {t('queries.detail.deleteQuery')}
+              </Button>
+            </div>
+          </div>
+        </PageCard>
+        <DeleteConfirmModal
+          resourceLabel="query"
+          resourceName={query.name}
+          open={deleteOpen}
+          isPending={deleteMutation.isPending}
+          onConfirm={confirmDelete}
+          onClose={() => !deleteMutation.isPending && setDeleteOpen(false)}
+        />
+      </>
+    );
+  }
+
   // ─── Populated ─────────────────────────────────────────────────────
   const total = rowsQuery.data?.total ?? 0;
-  const columns = dataset?.columns ?? [];
+  // R71 — a joined query's columns are its server-computed effective space
+  // (left ++ right, collision-qualified); a single-source query uses its
+  // source dataset's columns (unchanged).
+  const columns = isJoined ? [...(query.resolvedColumns ?? [])] : (dataset?.columns ?? []);
   const locale = i18n.language;
   const def = query.definition;
+
+  // R71 — read-only join summary (above the predicate summary).
+  const joinSummary =
+    isJoined && relationship ? (
+      <div
+        data-component="QueryJoinSummary"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          flexWrap: 'wrap',
+          padding: '8px 12px',
+          background: 'var(--ant-color-fill-quaternary, #fafafa)',
+          border: '1px solid var(--ant-color-border-secondary, #f0f0f0)',
+          borderRadius: 6,
+          marginBottom: 12,
+          flex: '0 0 auto',
+        }}
+      >
+        <Typography.Text type="secondary" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+          {t('queries.detail.joinLabel')}
+        </Typography.Text>
+        <Typography.Text>
+          {dataset?.name ?? relationship.leftDatasetId} ⋈ {t('queries.detail.joinInner')} ⋈{' '}
+          {rightDatasetQuery.data?.name ?? relationship.rightDatasetId}
+        </Typography.Text>
+        <Tag color="default">
+          {relationship.leftColumn} ↔ {relationship.rightColumn}
+        </Tag>
+        <Tag color="default">{t(`relationships.cardinality.${relationship.cardinality}`)}</Tag>
+      </div>
+    ) : null;
 
   const predicateTags = (
     <div
@@ -248,13 +339,16 @@ export function QueryDetailPage() {
             {t('queries.detail.sourceLabel')} {sourceLink}
           </Typography.Text>
         </div>
-        {predicateTags}
+        {joinSummary}
+        {def.q || def.filters.length > 0 || def.advanced.length > 0 ? predicateTags : null}
         <div style={{ flex: '0 0 auto', marginBottom: 12 }}>
           <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-            {t('queries.detail.matchedOfTotal', {
-              matched: total.toLocaleString(locale),
-              total: (dataset?.rowCount ?? 0).toLocaleString(locale),
-            })}
+            {isJoined
+              ? t('queries.detail.matchedRows', { matched: total.toLocaleString(locale) })
+              : t('queries.detail.matchedOfTotal', {
+                  matched: total.toLocaleString(locale),
+                  total: (dataset?.rowCount ?? 0).toLocaleString(locale),
+                })}
           </Typography.Text>
         </div>
         <PagedRowsView
