@@ -1,0 +1,61 @@
+openapi: 3.1.0
+info:
+  title: my-dynamic-dashboard — GET /queries/{id}
+  version: 0.1.0
+  description: |
+    Get a single saved query by id (its definition + metadata). R69 —
+    Saved Query MVP. Powers the query-mode detail page at
+    `/data-management/queries/:id`; the run endpoint
+    (`GET /queries/{id}/rows`) returns the rows.
+
+paths:
+  /queries/{id}:
+    get:
+      operationId: getQuery
+      summary: Get a single saved query by id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^qr_[0-9a-f]{8}$"
+          description: Query id.
+          examples:
+            won_deals:
+              value: "qr_9c2f10ab"
+      responses:
+        "200":
+          description: |
+            The saved query — its definition and metadata. The same
+            shape as the list-GET items, so the FE hydrates its cache
+            without reshaping.
+          content:
+            application/json:
+              schema:
+                $ref: "../_shared/query.yaml#/components/schemas/Query"
+              examples:
+                won_deals:
+                  value:
+                    id: "qr_9c2f10ab"
+                    workspaceId: "ws_3f8a2c91"
+                    datasetId: "ds_71a4e2f0"
+                    name: "Won deals over $1k"
+                    definition:
+                      q: null
+                      filters:
+                        - { col: 3, dtype: string, op: equals, val: "won" }
+                      advanced:
+                        - - { col: 1, dtype: integer, op: gt, val: 1000 }
+                    createdAt: "2026-06-12T14:02:00Z"
+        "404":
+          description: |
+            No query with the given `id` exists (deleted, or its source
+            dataset was deleted and cascaded it away).
+          content:
+            application/json:
+              schema:
+                $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorNotFound"
+              examples:
+                missing:
+                  value: { "code": "not_found" }

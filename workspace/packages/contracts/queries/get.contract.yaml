@@ -1,0 +1,53 @@
+openapi: 3.1.0
+info:
+  title: my-dynamic-dashboard — GET /workspaces/{id}/queries
+  version: 0.1.0
+  description: |
+    List the saved queries in a workspace, most-recent first. R69 —
+    Saved Query MVP. Powers the Queries table-list page at
+    `/data-management/queries` (workspace-scoped, mirroring the
+    datasets list IA).
+
+paths:
+  /workspaces/{id}/queries:
+    get:
+      operationId: listQueries
+      summary: List a workspace's saved queries (most-recent first)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^ws_[0-9a-f]{8}$"
+          description: Workspace id (the IA scope).
+          examples:
+            marketing:
+              value: "ws_3f8a2c91"
+      responses:
+        "200":
+          description: Array of queries, sorted by `createdAt` descending.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "../_shared/query.yaml#/components/schemas/Query"
+              examples:
+                empty:
+                  summary: No queries saved in this workspace yet
+                  value: []
+                one:
+                  summary: One saved query
+                  value:
+                    - id: "qr_9c2f10ab"
+                      workspaceId: "ws_3f8a2c91"
+                      datasetId: "ds_71a4e2f0"
+                      name: "Won deals over $1k"
+                      definition:
+                        q: null
+                        filters:
+                          - { col: 3, dtype: string, op: equals, val: "won" }
+                        advanced:
+                          - - { col: 1, dtype: integer, op: gt, val: 1000 }
+                      createdAt: "2026-06-12T14:02:00Z"

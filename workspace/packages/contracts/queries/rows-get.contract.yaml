@@ -1,0 +1,150 @@
+openapi: 3.1.0
+info:
+  title: my-dynamic-dashboard — GET /queries/{id}/rows
+  version: 0.1.0
+  description: |
+    Run a saved query: re-execute its stored definition against its
+    source dataset's CURRENT data and return a paged row slice. R69 —
+    Saved Query MVP (live re-run, no materialization).
+
+    The endpoint takes NO predicate params of its own — the saved
+    `definition` is the source of truth; only pagination is a query
+    param. The response is the SAME `RowsPage` shape as
+    `GET /datasets/{id}/rows` (the BE delegates to the shipped
+    `query_dataset_rows` path after hydrating the definition).
+
+    Because the run is live, the result always reflects current data:
+    mutating the source dataset between two runs changes the result.
+    If the dataset's schema drifted so a saved atom no longer validates
+    (a referenced column was removed or retyped), the endpoint returns
+    409 `query_stale` instead of executing.
+
+paths:
+  /queries/{id}/rows:
+    get:
+      operationId: runQuery
+      summary: Run a saved query (live re-run) and page its rows
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^qr_[0-9a-f]{8}$"
+          description: Query id.
+          examples:
+            won_deals:
+              value: "qr_9c2f10ab"
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          description: |
+            1-indexed page. Out-of-range (`page > ceil(total /
+            page_size)`) returns 200 with an empty `rows` array, same
+            precedent as the dataset rows-GET. Below 1 returns 422.
+        - name: page_size
+          in: query
+          required: false
+          schema:
+            type: integer
+            enum: [25, 50, 100]
+            default: 50
+          description: Rows per page. Closed enum; other values return 422.
+      responses:
+        "200":
+          description: |
+            Paged row slice of the live-re-run result. Identical shape
+            to `GET /datasets/{id}/rows`. `total` reflects the matched
+            count under the saved definition.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [rows, page, pageSize, total]
+                additionalProperties: false
+                properties:
+                  rows:
+                    type: array
+                    description: |
+                      Row-major. One cell per source-dataset column, in
+                      column order. Cells are stringified BE-side; nulls
+                      preserved.
+                    items:
+                      type: array
+                      items:
+                        type: [string, "null"]
+                  page:
+                    type: integer
+                    minimum: 1
+                    description: Echoed page number.
+                  pageSize:
+                    type: integer
+                    enum: [25, 50, 100]
+                    description: Echoed page size (self-describing for AntD Pagination).
+                  total:
+                    type: integer
+                    minimum: 0
+                    description: |
+                      Matched-row count under the saved definition. The
+                      FE pairs this with the dataset's `rowCount` to
+                      render the "Matched X / Y" counter.
+              examples:
+                first_page:
+                  summary: First page of a query that matched 312 rows
+                  value:
+                    rows:
+                      [
+                        ["D-0001", "12400", "2026-03-01", "won", "0.95", "true", "2026-02-28T14:02:00Z"],
+                        ["D-0005", "24500", "2026-05-02", "won", "1.00", "true", "2026-04-22T08:11:00Z"],
+                      ]
+                    page: 1
+                    pageSize: 50
+                    total: 312
+                empty_match:
+                  summary: The saved definition matched no rows
+                  value:
+                    rows: []
+                    page: 1
+                    pageSize: 50
+                    total: 0
+        "404":
+          description: No query with the given `id` exists.
+          content:
+            application/json:
+              schema:
+                $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorNotFound"
+              examples:
+                missing:
+                  value: { "code": "not_found" }
+        "409":
+          description: |
+            The saved definition no longer validates against the source
+            dataset's current schema (column removed or retyped). The FE
+            renders the "needs attention" state and points the user at
+            the source dataset to repair (re-save).
+          content:
+            application/json:
+              schema:
+                $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorQueryStale"
+              examples:
+                stale:
+                  value: { "code": "query_stale" }
+        "422":
+          description: |
+            Malformed request — `page < 1`, `page_size` not in
+            {25, 50, 100}, or `id` not matching `^qr_[0-9a-f]{8}$`.
+            FastAPI validation-error envelope.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [detail]
+                properties:
+                  detail:
+                    type: array
+                    items:
+                      type: object

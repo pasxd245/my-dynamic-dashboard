@@ -14,10 +14,18 @@
 
 import { http, HttpResponse } from 'msw';
 
-import { OPS_BY_DTYPE, type Operator } from '@/features/data-management/datasets/filters/types';
+import { OPS_BY_DTYPE, type FilterPredicate, type Operator } from '@/features/data-management/datasets/filters/types';
 import type { Column } from '@/features/data-management/datasets/types';
+import type { CreateQueryRequest } from '@/features/data-management/queries/types';
 import { withContractValidation } from './contract-validator';
-import { MOCK_DATASET, MOCK_ROWS, MOCK_WORKSPACE } from './fixtures';
+import {
+  MOCK_DATASET,
+  MOCK_QUERIES,
+  MOCK_QUERY,
+  MOCK_ROWS,
+  MOCK_STALE_QUERY_ID,
+  MOCK_WORKSPACE,
+} from './fixtures';
 
 // Match either the configured API base (production / dev) or any
 // origin (test runs with arbitrary defaults). MSW v2 supports
@@ -235,6 +243,21 @@ function validateFiltersOr422(
   return { ok: true };
 }
 
+// ─── Saved-query helpers (R69) ──────────────────────────────────────
+//
+// A saved Query stores a `definition` (the same FilterPredicate atoms
+// the chip filters + advanced DNF produce). Running it re-uses the
+// dataset rows-GET engine above: convert the stored atoms back into the
+// handler's `Pred` shape and feed `applyFiltersAndQ`.
+
+function predFromAtom(atom: FilterPredicate): Pred {
+  const p: Pred = { col: atom.col, op: atom.op };
+  if ('val' in atom && atom.val != null) p.val = String(atom.val);
+  if ('min' in atom && atom.min != null) p.min = String(atom.min);
+  if ('max' in atom && atom.max != null) p.max = String(atom.max);
+  return p;
+}
+
 // ─── Handlers ────────────────────────────────────────────────────────
 //
 // R45: every JSON-2xx handler is wrapped with `withContractValidation`
@@ -350,6 +373,57 @@ export const handlers = [
       { status: 201 },
     );
   }),
+
+  // Queries (R69 — Saved Query): create / list / get / run / delete.
+  // The run handler re-executes the saved definition over MOCK_ROWS via
+  // the SAME engine as getDatasetRows (live re-run, no materialization).
+  withContractValidation('post', api('/workspaces/:id/queries'), 'createQuery', async ({ params, request }) => {
+    const body = (await request.json()) as Partial<CreateQueryRequest>;
+    return HttpResponse.json(
+      {
+        id: `qr_${Math.random().toString(16).slice(2, 10).padEnd(8, '0')}`,
+        workspaceId: String(params.id),
+        datasetId: body.datasetId ?? MOCK_DATASET.id,
+        name: body.name ?? 'untitled query',
+        definition: body.definition ?? { q: null, filters: [], advanced: [] },
+        createdAt: new Date().toISOString(),
+      },
+      { status: 201 },
+    );
+  }),
+  withContractValidation('get', api('/workspaces/:id/queries'), 'listQueries', ({ params }) => {
+    if (params.id !== MOCK_WORKSPACE.id) return HttpResponse.json([]);
+    return HttpResponse.json(MOCK_QUERIES);
+  }),
+  withContractValidation('get', api('/queries/:id'), 'getQuery', ({ params }) => {
+    if (params.id !== MOCK_QUERY.id) {
+      return HttpResponse.json({ code: 'not_found' }, { status: 404 });
+    }
+    return HttpResponse.json(MOCK_QUERY);
+  }),
+  withContractValidation('get', api('/queries/:id/rows'), 'runQuery', ({ params, request }) => {
+    if (params.id === MOCK_STALE_QUERY_ID) {
+      return HttpResponse.json({ code: 'query_stale' }, { status: 409 });
+    }
+    if (params.id !== MOCK_QUERY.id) {
+      return HttpResponse.json({ code: 'not_found' }, { status: 404 });
+    }
+    const url = new URL(request.url);
+    const page = Math.max(1, Number(url.searchParams.get('page') ?? 1));
+    const pageSize = Math.max(1, Number(url.searchParams.get('page_size') ?? 50));
+    const def = MOCK_QUERY.definition;
+    const preds = def.filters.map(predFromAtom);
+    const aqGroups = def.advanced.map((g) => g.map(predFromAtom));
+    const matched = applyFiltersAndQ(MOCK_ROWS, MOCK_DATASET.columns, preds, def.q ?? null, aqGroups);
+    const offset = (page - 1) * pageSize;
+    return HttpResponse.json({
+      rows: matched.slice(offset, offset + pageSize),
+      page,
+      pageSize,
+      total: matched.length,
+    });
+  }),
+  http.delete(api('/queries/:id'), () => new HttpResponse(null, { status: 204 })),
 
   // Uploads — minimal happy-path mock so the wizard can render in dev
   // mode without a BE. Returns a CSV temp upload by default.

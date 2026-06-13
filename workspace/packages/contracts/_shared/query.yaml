@@ -1,0 +1,117 @@
+# Shared schema: Query (R69 — Saved Query MVP)
+# Used by: queries/post (response), queries/get (response items),
+#          queries/detail-get (response).
+# Matches the data model in .agents/design/data-management/datasets/saved-query.md
+# and the backend Query SQLModel entity.
+#
+# A Query is a named, saved definition that produces a virtual dataset by
+# re-running a set of predicates against ONE source Dataset (D-4). The
+# `definition` reuses the EXACT predicate-atom shape the rows-GET endpoint
+# already transports (`f<N>_*` chip filters + the `aq` DNF) — no new query
+# vocabulary, just persistence.
+components:
+  schemas:
+    FilterAtom:
+      type: object
+      description: |
+        One predicate atom — the same object shape carried by the
+        rows-GET `aq` param (see datasets/rows-get.contract.yaml § aq).
+        `col` is the 0-based index into the source Dataset.columns[];
+        `dtype` must equal that column's dtype; `op` + operand fields
+        (`val` / `min` / `max`) follow the per-dtype vocabulary in
+        .agents/design/data-management/dataset-filters.md.
+      required: [col, dtype, op]
+      additionalProperties: false
+      properties:
+        col:
+          type: integer
+          minimum: 0
+          description: 0-based index into the source Dataset.columns[].
+        dtype:
+          type: string
+          enum: [string, integer, float, boolean, date, datetime]
+          description: Must equal the dtype of Dataset.columns[col].
+        op:
+          type: string
+          description: |
+            Operator key. Validity is dtype-dependent (not a static
+            enum) and re-checked by the BE on save and on run, exactly
+            as the rows-GET `aq` atoms are checked.
+        val:
+          type: [string, number]
+          description: Single-operand value (ops that take one value).
+        min:
+          type: [string, number]
+          description: Lower bound for `between` (inclusive).
+        max:
+          type: [string, number]
+          description: Upper bound for `between` (inclusive).
+
+    QueryDefinition:
+      type: object
+      description: |
+        The saved predicate state — exactly what the dataset detail page
+        serializes from its URL: the chip filters, the advanced-query
+        DNF, and the `?q=` row search. Re-run verbatim on open.
+      required: [filters, advanced]
+      additionalProperties: false
+      properties:
+        q:
+          type: [string, "null"]
+          description: |
+            The `?q=` case-insensitive substring search, if the saved
+            view had one. Null / omitted when no search was active.
+          maxLength: 200
+        filters:
+          type: array
+          description: |
+            Chip filters — implicit AND across atoms (dataset-filters.md).
+            At most one predicate per column, mirroring `f<N>_*`.
+          items:
+            $ref: "#/components/schemas/FilterAtom"
+        advanced:
+          type: array
+          description: |
+            Advanced query in disjunctive normal form — an OR of AND-groups
+            (advanced-query.md). Outer array ORs its groups; each inner
+            array ANDs its atoms. Empty when no advanced query was active.
+          items:
+            type: array
+            items:
+              $ref: "#/components/schemas/FilterAtom"
+
+    Query:
+      type: object
+      required: [id, workspaceId, datasetId, name, definition, createdAt]
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          pattern: "^qr_[0-9a-f]{8}$"
+          description: Server-generated. Format `qr_<8 lowercase hex>`.
+          examples: ["qr_9c2f10ab"]
+        workspaceId:
+          type: string
+          pattern: "^ws_[0-9a-f]{8}$"
+          description: Foreign key to the containing workspace (the IA scope).
+        datasetId:
+          type: string
+          pattern: "^ds_[0-9a-f]{8}$"
+          description: |
+            Foreign key to the single source dataset (D-4). On delete of
+            the dataset, its queries cascade away.
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+          description: |
+            User-supplied at save time. Unique per workspace (mirrors the
+            dataset name-uniqueness rule).
+          examples: ["Won deals over $1k (2026)"]
+        definition:
+          $ref: "#/components/schemas/QueryDefinition"
+        createdAt:
+          type: string
+          pattern: "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+          description: ISO-8601 UTC, `Z`-suffixed. Server-stamped at save time.
+          examples: ["2026-06-12T14:02:00Z"]

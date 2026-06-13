@@ -1,0 +1,113 @@
+openapi: 3.1.0
+info:
+  title: my-dynamic-dashboard — POST /workspaces/{id}/queries
+  version: 0.1.0
+  description: |
+    Create (save) a Query in a workspace. R69 — Saved Query MVP.
+
+    The body carries a user-supplied `name`, the single source
+    `datasetId` (D-4), and the `definition` (the chip filters +
+    advanced-query DNF + `?q=` search the user built on the dataset
+    detail page). The BE validates every atom in the definition against
+    the dataset's CURRENT columns at save time — a definition that does
+    not validate is rejected 422 (you cannot save a broken query).
+    Names are unique per workspace (mirrors the dataset rule).
+
+paths:
+  /workspaces/{id}/queries:
+    post:
+      operationId: createQuery
+      summary: Save a query in a workspace
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^ws_[0-9a-f]{8}$"
+          description: Workspace id (the IA scope).
+          examples:
+            marketing:
+              value: "ws_3f8a2c91"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, datasetId, definition]
+              additionalProperties: false
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 120
+                  description: Human label; unique within the workspace.
+                datasetId:
+                  type: string
+                  pattern: "^ds_[0-9a-f]{8}$"
+                  description: The single source dataset (D-4).
+                definition:
+                  $ref: "../_shared/query.yaml#/components/schemas/QueryDefinition"
+            examples:
+              won_deals:
+                summary: Save "stage = won AND amount > 1000"
+                value:
+                  name: "Won deals over $1k"
+                  datasetId: "ds_71a4e2f0"
+                  definition:
+                    q: null
+                    filters:
+                      - { col: 3, dtype: string, op: equals, val: "won" }
+                    advanced:
+                      - - { col: 1, dtype: integer, op: gt, val: 1000 }
+      responses:
+        "201":
+          description: Query saved.
+          content:
+            application/json:
+              schema:
+                $ref: "../_shared/query.yaml#/components/schemas/Query"
+              examples:
+                created:
+                  value:
+                    id: "qr_9c2f10ab"
+                    workspaceId: "ws_3f8a2c91"
+                    datasetId: "ds_71a4e2f0"
+                    name: "Won deals over $1k"
+                    definition:
+                      q: null
+                      filters:
+                        - { col: 3, dtype: string, op: equals, val: "won" }
+                      advanced:
+                        - - { col: 1, dtype: integer, op: gt, val: 1000 }
+                    createdAt: "2026-06-12T14:02:00Z"
+        "409":
+          description: |
+            Another query in this workspace already has the requested
+            `name`. Code-first envelope (R24).
+          content:
+            application/json:
+              schema:
+                $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorNameTaken"
+              examples:
+                collision:
+                  value: { "code": "name_taken" }
+        "422":
+          description: |
+            Validation error. Returned when `name` is missing / empty /
+            > 120 chars, `datasetId` is malformed or references no
+            dataset, or any atom in `definition` fails the per-atom
+            check against the dataset's current columns (bad column
+            index, op invalid for the column's dtype, unparseable
+            value). Body is the FastAPI validation-error envelope.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [detail]
+                properties:
+                  detail:
+                    type: array
+                    items:
+                      type: object

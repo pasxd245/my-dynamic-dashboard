@@ -17,6 +17,7 @@
 // "YAML examples are the canonical reference; fixtures conform."
 
 import type { Dataset, RowsPage } from '@/features/data-management/datasets/types';
+import type { Query } from '@/features/data-management/queries/types';
 import type { Workspace } from '@/features/data-management/workspaces/types';
 
 import { CONTRACTS_ROOT } from './contracts-root';
@@ -66,6 +67,32 @@ export const MOCK_ROWS_FULL: RowsPage = {
   pageSize: 50,
   total: MOCK_ROWS.length,
 };
+
+// ─── Saved Query fixtures (R69) ──────────────────────────────────────
+//
+// One saved query over MOCK_DATASET: "stage = won AND amount > 1000".
+// Its `definition` col indices reference MOCK_DATASET.columns (col 3 =
+// stage, col 1 = amount). Mirrors the queries/post.contract.yaml example.
+
+export const MOCK_QUERY: Query = {
+  id: 'qr_9c2f10ab',
+  workspaceId: MOCK_WORKSPACE.id,
+  datasetId: MOCK_DATASET.id,
+  name: 'Won deals over $1k',
+  definition: {
+    q: null,
+    filters: [{ col: 3, dtype: 'string', op: 'equals', val: 'won' }],
+    advanced: [[{ col: 1, dtype: 'integer', op: 'gt', val: 1000 }]],
+  },
+  createdAt: '2026-06-12T14:02:00Z',
+};
+
+export const MOCK_QUERIES: readonly Query[] = [MOCK_QUERY];
+
+/** A query id whose run returns 409 query_stale (the source dataset's
+ *  schema drifted). Lets the FE/integration exercise the stale state
+ *  deterministically without mutating a dataset. */
+export const MOCK_STALE_QUERY_ID = 'qr_dead0000';
 
 // R42 YAML-example loader: read `paths.<*>.<*>.responses["200"]
 // .content["application/json"].examples[exampleName].value.rows`

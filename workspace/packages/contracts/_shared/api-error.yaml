@@ -8,10 +8,12 @@
 # new R23+ endpoints adopt this envelope. A future round may unify if drift
 # bites.
 #
-# Three variants, discriminated by `code`:
+# Variants, discriminated by `code`:
 #   - not_found        — resource id resolves to nothing (404)
 #   - name_taken       — rename collides with an existing name (409)
 #   - non_empty        — workspace delete blocked by N datasets (409)
+#   - query_stale      — saved query definition no longer validates against
+#                        the source dataset's current schema (409) — R69
 #
 # Each variant uses `additionalProperties: false` to mirror the BE's
 # `extra='forbid'` Pydantic discipline (per the R16 conformance pattern).
@@ -20,7 +22,7 @@ components:
   schemas:
     ApiErrorCode:
       type: string
-      enum: [not_found, name_taken, non_empty]
+      enum: [not_found, name_taken, non_empty, query_stale]
       description: |
         Closed enum. Any new error class lands as a new code in a future
         round + contract update — never as a free-text message.
@@ -68,6 +70,23 @@ components:
             4 datasets").
           examples: [4]
 
+    ApiErrorQueryStale:
+      type: object
+      required: [code]
+      additionalProperties: false
+      properties:
+        code:
+          type: string
+          enum: [query_stale]
+          description: |
+            A saved query's stored definition no longer validates against
+            its source dataset's current schema (a referenced column was
+            removed or retyped). Returned by `GET /queries/{id}/rows`
+            instead of executing — R69. Distinct from 422 (a malformed
+            *request*): the request is well-formed, the stored definition
+            drifted. The FE renders the query-mode "needs attention" state
+            and points the user at the source dataset to re-save.
+
     ApiError:
       description: |
         Discriminated union over `code`. Use `oneOf` + `discriminator` so
@@ -76,9 +95,11 @@ components:
         - $ref: '#/components/schemas/ApiErrorNotFound'
         - $ref: '#/components/schemas/ApiErrorNameTaken'
         - $ref: '#/components/schemas/ApiErrorNonEmpty'
+        - $ref: '#/components/schemas/ApiErrorQueryStale'
       discriminator:
         propertyName: code
         mapping:
           not_found: '#/components/schemas/ApiErrorNotFound'
           name_taken: '#/components/schemas/ApiErrorNameTaken'
           non_empty: '#/components/schemas/ApiErrorNonEmpty'
+          query_stale: '#/components/schemas/ApiErrorQueryStale'

@@ -1,0 +1,41 @@
+openapi: 3.1.0
+info:
+  title: my-dynamic-dashboard — DELETE /queries/{id}
+  version: 0.1.0
+  description: |
+    Delete a saved query. R69 — Saved Query MVP (acceptance C9). A
+    query has no dependents this round (no 409 path); deleting the
+    source dataset cascades its queries away server-side, so this
+    endpoint is for the explicit user-initiated delete from query mode.
+
+paths:
+  /queries/{id}:
+    delete:
+      operationId: deleteQuery
+      summary: Delete a saved query
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^qr_[0-9a-f]{8}$"
+          description: Query id.
+          examples:
+            won_deals:
+              value: "qr_9c2f10ab"
+      responses:
+        "204":
+          description: Deleted. No body.
+        "404":
+          description: |
+            No query with the given `id` exists (already deleted, or its
+            source dataset was deleted and cascaded it away). Lets the FE
+            distinguish "you did this" from "someone else did".
+          content:
+            application/json:
+              schema:
+                $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorNotFound"
+              examples:
+                missing:
+                  value: { "code": "not_found" }

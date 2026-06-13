@@ -234,6 +234,33 @@ this path.
 check committed together; this is the Design revert seam). Plan gate seam:
 `281657d`.
 
+### Gate 3 — Contract (DCFBI: C)
+
+**Route-vs-resolver decision (the parked open question) → separate
+`/queries/{id}/rows` route**, mirroring `/datasets/{id}/rows`. A **unified
+table-source resolver** (one route serving both `ds_…` and `qr_…`) is the
+truer "Dataset ∪ Query" expression and pre-stages R71, but per
+[specious-model-lock-in](../../memory/2026-06-13-specious-model-lock-in.md)
+("cheap-to-do-later is permission to defer — don't build the abstraction on a
+guess"), the separate route is the smaller, lower-risk step and doesn't
+preclude the resolver. _Trigger to unify: R71 Query-as-join-input genuinely
+needs to resolve a mixed table-source by id._
+
+**Delivered:** the salvaged query contracts ported to the live tree (their
+`/queries/{id}` topology already matched J-4) —
+`workspace/packages/contracts/queries/{post,get,detail-get,rows-get,delete}.contract.{yaml,md}`
+plus `_shared/query.yaml` (Query / QueryDefinition / FilterAtom, reusing the
+rows-GET atom shape); `query_stale` added to `_shared/api-error.yaml`; the FE
+wire types (`features/data-management/queries/types.ts`); MSW handlers + fixtures
+(`MOCK_QUERY` / `MOCK_QUERIES` / `MOCK_STALE_QUERY_ID`; run re-uses the
+`getDatasetRows` engine). Doc refs corrected (`queries.md` → `saved-query.md`);
+stale D-3 judgment labels re-pointed to J-2/J-4.
+
+**Contract gate verification:** `@mdd/contracts` OpenAPI validity **18/18**;
+`builder` type-check clean; `builder` suite **121/121** (two upload-wizard cases
+are pre-existing 5s-timeout flake under parallel load — pass in isolation and
+at `--test-timeout=15000`).
+
 ## Check
 
 - [x] **`design:lint`** — 0 errors across the new + edited docs (saved-query.md,
