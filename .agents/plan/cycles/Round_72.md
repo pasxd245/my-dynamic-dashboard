@@ -544,6 +544,37 @@ builder panel + the join editor; the predicate editors, the relationship
   query's) is out of the definition-only edit; if pulled, it's a `datasetId`
   change (a new contract concern), not part of constructing a definition.
 
+### Post-completion — the F1 human-review gap (2026-06-14)
+
+**What happened.** On the go-ahead I ran the whole **DFCFBI** chain (F1 → C → F2 →
+B → I) without stopping at F1 for the human to exercise the running builder. Every
+automated gate was green — but **F1's exit is "round author closes it," and the
+author was the agent**, so the one checkpoint the DFCFBI lane *exists to create*
+(human eyes on the new interaction) was self-certified away. The human then ran
+the app and found real issues the harness structurally cannot see.
+
+**What the harness missed (all green through every gate):**
+
+- **CORS: `PUT` not in `allow_methods`** → the builder's Save preflight is rejected
+  in the browser; MSW (FE) + TestClient (BE) never exercise CORS. Fixed `a45875d`.
+- **Fidelity drifts vs the sealed design** — preview wasn't debounced (a POST per
+  keystroke) and the explicit `[Preview]` button was absent; I'd run `ui-design`
+  only in **design-spec** mode at Design, never **fidelity** mode at F1/F2 (its
+  stated backstop role). Fixed `208aa79`.
+- **Broken builder layout** — `PagedRowsView`'s `flex:1 1 auto` fragment was
+  wrapped in a non-flex div, so the table overflowed the fill card and the actions
+  floated; rebuilt to the PageCard fill 3-section pattern. **Header clutter** (3
+  competing buttons) → Join folded into `Actions ▾`. **Unclear label** → "Save as
+  Query" → "Save filters as Query". Fixed `400489b`.
+
+**Standing process rule (the fix going forward).** A **DFCFBI** round must
+**hard-stop at the F1 gate for the human to exercise the running FE-on-MSW** before
+Contract — because the 2-of-5 selector only fires DFCFBI when UX is *uncertain*,
+and MSW+pytest cannot judge CORS / browser preflight / layout overflow / feel.
+Self-certifying F1 collapses DFCFBI into "DCFBI with extra commits." Running
+`ui-design` **fidelity** mode at F1/F2 is the mechanical half; human review is the
+other half. _(Captured in the agent's auto-memory: `dfcfbi-f1-needs-human-review`.)_
+
 ## Feeds into → Round_73 (multi-join construction — the builder canvas)
 
 R73 builds the **multi-join canvas** R72 deferred (J-1′): chaining 2+
