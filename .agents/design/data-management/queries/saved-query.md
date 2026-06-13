@@ -95,13 +95,13 @@ The one thing the discarded R69 got wrong, stated as a rule this doc holds to:
 
 | Concern                 | Discarded (new noun)                | This design (mode / archetype)                                                                             |
 | ----------------------- | ----------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| Row table               | re-implemented in `QueryDetailPage` | **reuses `<PagedRowsView>`** (extracted to `@mdd/ui` — [dataset-detail.md](../datasets/dataset-detail.md)) |
+| Row table               | re-implemented in `QueryDetailPage` | **reuses `<PagedRowsView>`** (extracted to `data-management/_shared/` — [dataset-detail.md](../datasets/dataset-detail.md)) |
 | Detail layout           | a parallel page                     | **reuses the standard layout** `PageHeader` + `PageCard` + `<PagedRowsView>`                               |
 | Catalog list            | a duplicated table component        | **reuses the Page-List layout** (`PageHeader` + `PageCard` + AntD `<Table>`), own column config            |
 | Predicate (de)serialize | re-derived                          | **reuses the shipped serializers/validators** verbatim                                                     |
 | Row execution           | new read path                       | **reuses `query_dataset_rows`** end to end (live re-run)                                                   |
 
-What is genuinely **new**: persistence (`queries` table + SQLModel), the `qr_`
+What is genuinely **new**: persistence (`queries` table, raw-SQLite), the `qr_`
 identity, the Save-as-Query modal, the Queries catalog + detail **routes**, and
 the read-only predicate-summary section. Everything else is reuse.
 
@@ -113,7 +113,7 @@ the read-only predicate-summary section. Everything else is reuse.
 | --- | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | J-1 | Reopen model            | **Query-mode detail reusing the standard layout + `<PagedRowsView>`** — not a duplicated page, not a pure URL-state bundle.                                    |
 | J-2 | Catalog home            | An **own Queries catalog** (a `Queries` nav item + `/data-management/queries` list route) rendered through the **shared Page-List layout**.                    |
-| J-3 | Backend data-model base | **SQLModel** as the forward-standard model base (first entity to adopt it); raw-sqlite datasets/workspaces migrate incrementally — **deferred**.               |
+| J-3 | Backend data-model base | _Planned_ **SQLModel**; **build-corrected → raw-SQLite + Pydantic** (the established standard — the backend has zero SQLModel; an ORM for one entity failed the brake). See [Round_69 § Gate 5](../../../plan/cycles/Round_69.md) + § Data model. |
 | J-4 | Detail URL shape        | Top-level **`/data-management/queries/:id`** (`^qr_[0-9a-f]{8}$`), not nested under `datasets/`. A Query is a distinct archetype → own namespace; sets up R71. |
 | D-4 | Single-dataset only     | One Query reads exactly one Dataset this round. Joins (Query×Dataset, Query×Query) and YAML/polars workflows are **out** (R70+). See § Scope boundary.         |
 
@@ -123,7 +123,7 @@ the read-only predicate-summary section. Everything else is reuse.
 
 | Surface                                                       | Layer                                                                  | Reusability         | Purity             | Allowed peer deps                  |
 | ------------------------------------------------------------- | ---------------------------------------------------------------------- | ------------------- | ------------------ | ---------------------------------- |
-| `<PagedRowsView>` (reused; declared in dataset-detail.md)     | `workspace/packages/ui/src` (`@mdd/ui`)                                | shared cross-domain | plain-UI           | react, antd, react-i18next         |
+| `<PagedRowsView>` (reused; declared in dataset-detail.md)     | `apps/builder/src/features/data-management/_shared`                    | shared cross-domain | plain-UI           | react, antd, react-i18next         |
 | `SaveQueryModal` component                                    | `workspace/apps/builder/src/features/data-management/queries`          | feature             | feature            | react, antd                        |
 | `QueriesPage` (Queries catalog; reuses Page-List layout)      | `workspace/apps/builder/src/features/data-management/queries`          | feature             | feature            | react, antd, @tanstack/react-query |
 | `QueryDetailPage` (query mode; reuses standard detail layout) | `workspace/apps/builder/src/features/data-management/queries`          | feature             | feature            | react, antd, @tanstack/react-query |
@@ -131,11 +131,11 @@ the read-only predicate-summary section. Everything else is reuse.
 | `useQueryQuery` / `useQueryRowsQuery` hooks                   | `workspace/apps/builder/src/features/data-management/queries`          | feature             | glue (server-data) | @tanstack/react-query              |
 | `queriesApi` client                                           | `workspace/apps/builder/src/api`                                       | builder-only        | glue               | (fetch — no extra peer dep)        |
 | `POST/GET …/queries` + run routes                             | `workspace/apps/backend`                                               | backend             | feature            | (FastAPI — backend native)         |
-| `Query` SQLModel entity                                       | `workspace/apps/backend/app/models` (new `query.py`)                   | backend             | data type          | sqlmodel, pydantic                 |
+| `Query` Pydantic model                                        | `workspace/apps/backend/app/models/common.py`                          | backend             | data type          | pydantic                           |
 | `Query` type (frontend)                                       | `workspace/apps/builder/src/features/data-management/queries/types.ts` | feature             | data type          | none                               |
 
 **Boundary check**: no query surface re-implements a dataset surface. The row
-table is the shared `@mdd/ui` `<PagedRowsView>` (R69 extraction — its boundary
+table is the shared `data-management/_shared/` `<PagedRowsView>` (R69 extraction — its boundary
 lives in [dataset-detail.md](../datasets/dataset-detail.md), not here). The Queries catalog
 and query-mode detail are feature-local pages that **compose** the shared
 layout shells (`PageHeader` / `PageCard` from `@mdd/ui`); they add only their
@@ -280,12 +280,15 @@ Source: q1_pipeline_Deals ↗
 
 ## Data model
 
-R69 introduces **SQLModel** as the standard backend model base for this one
-entity (J-3). The existing raw-sqlite datasets/workspaces stores stay as-is;
-their migration to SQLModel is incremental and deferred (alembic is adopted
-when a migration is first genuinely needed). The `Query` entity persists to a
-new `queries` table in the same `app.sqlite`
-([db.py](../../../../workspace/apps/backend/app/db.py)).
+The `Query` entity follows the **established raw-SQLite + Pydantic** backend
+standard — persisting to a new `queries` table in the same `app.sqlite`
+([db.py](../../../../workspace/apps/backend/app/db.py)), with a `Query` Pydantic
+model in [common.py](../../../../workspace/apps/backend/app/models/common.py).
+_(Build-first correction of J-3, which planned **SQLModel**: the R69 build found
+the backend is uniformly raw-`sqlite3` + Pydantic and adopting an ORM for one
+entity failed the [dynamic-equilibrium brake](../../../context/purpose.md#dynamic-equilibrium)
+— so the established standard **is** the standard base. See
+[Round_69 § Gate 5](../../../plan/cycles/Round_69.md) + § Judgment calls J-3.)_
 
 ```ts
 // Frontend type — features/data-management/queries/types.ts
@@ -305,8 +308,17 @@ type QueryDefinition = {
   q?: string | null; // the `?q=` row search, if any
   filters: FilterPredicate[]; // chip filters (dataset-filters.md)
   advanced: FilterPredicate[][]; // advanced-query DNF (advanced-query.md)
+  // R71 adds an optional `join` step (a `rel_` reference) — a Query then reads
+  // two related datasets as one. The atom shape above is unchanged; `col`
+  // indexes the effective (combined) column space when a join is present.
+  // See joins.md.
 };
 ```
+
+> **R71 extends this definition.** Join execution adds an optional
+> `join: { relationshipId, type }` to `QueryDefinition` — the **second
+> construction mode** ([joins.md](joins.md)). This single-source doc is
+> unchanged; the join mode is a strict superset.
 
 **Definition fidelity (anti-drift).** The FE builds `QueryDefinition` from the
 live URL/hook state on the detail page and the BE re-runs it verbatim; both
@@ -319,7 +331,7 @@ sides **reuse the shipped serializers/validators** —
 already carries (`{ col, dtype, op, val?, min?, max? }`). No predicate is
 re-derived.
 
-**Persistence (SQLModel table).** Mirrors the `datasets` table conventions
+**Persistence (raw-SQLite table).** Mirrors the `datasets` table conventions
 (per-workspace name uniqueness, cascade on container delete):
 
 ```sql
@@ -513,9 +525,9 @@ draft (sound; not re-applied wholesale).
 **R69 implements** (the DCFBI/DFCFBI chain decided by the flow-selector at
 Design exit — sequenced in later sessions):
 
-- **Backend**: `Query` SQLModel entity + `queries` table bootstrap; the four
-  routes above; run delegates to `query_dataset_rows`. pytest per create / list
-  / get / run / stale / name-taken path.
+- **Backend**: `Query` Pydantic model + `queries` table bootstrap (raw-SQLite);
+  the four routes above; run delegates to `query_dataset_rows`. pytest per create
+  / list / get / run / stale / name-taken path.
 - **Contract**: `workspace/packages/contracts/queries/*.contract.{yaml,md}` for
   the four routes; MSW handlers; contract validator stays green.
 - **Frontend**: `SaveQueryModal` + the gated `[+ Save as Query]` action on the
@@ -525,8 +537,9 @@ Design exit — sequenced in later sessions):
   `queries.*` (en + vi); vitest for the modal, the catalog, and the query-mode
   states.
 - **Shared (one extraction)**: `<PagedRowsView>` lifted from `DatasetDetailPage`
-  into `@mdd/ui` ([dataset-detail.md](../datasets/dataset-detail.md) declares it); the
-  dataset detail page is refactored to consume it (no behavior change).
+  into `data-management/_shared/` ([dataset-detail.md](../datasets/dataset-detail.md)
+  declares it); the dataset detail page is refactored to consume it (no behavior
+  change).
 - **Integration**: one save → list → reopen → run round-trip (FE through MSW; BE
   through pytest).
 
@@ -597,7 +610,7 @@ chain):
 
 - Persisting the single-dataset predicate state (chip `filters` + `advanced` DNF
   - `?q=` search) as a named **Query** entity, scoped to a workspace, with a
-    `qr_` identity and a `queries` SQLModel table.
+    `qr_` identity and a `queries` raw-SQLite table.
 - The four routes (create / list / get / run); run is a **live re-run** via the
   shipped `query_dataset_rows` path.
 - The FE: the gated Save-as-Query modal on the dataset detail page, the Queries
@@ -623,9 +636,10 @@ chain):
 - **Result materialization / pinned snapshots** → when live re-run is too slow
   at real scale, or a dashboard needs a frozen result.
 - **Excel export of a Query result; dashboards** → downstream value-out.
-- **Full data-layer migration to SQLModel + alembic** (datasets, workspaces,
-  uploads) → incremental; pull when schema churn needs it. R69 adds SQLModel for
-  `Query` only; two persistence styles coexist briefly (J-3).
+- **An ORM / migration framework (SQLModel + alembic)** → not adopted. J-3
+  planned SQLModel; the R69 build kept the **established raw-SQLite + Pydantic**
+  standard (one persistence style, no new dependency). Pull an ORM/migrations
+  only when schema churn genuinely needs it.
 
 ### This concept explicitly does NOT cover
 

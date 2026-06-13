@@ -11,8 +11,9 @@ into being and grow. This doc is the **domain anchor**: it frames what lives in
 **trajectory** later rounds extend along — so each future capability inherits a
 clear home instead of re-deriving the IA.
 **Status**: Accepted (R70 — domain anchor; graduated `queries/` from
-`datasets/`). The interactive construction surface and join execution are
-**Draft → R71**; this round seals the domain frame, not that surface.
+`datasets/`). **Join execution** is specified in [joins.md](joins.md)
+(**Draft → R71**); the **interactive construction surface** is **deferred → R72**
+(R71 J-1). This anchor seals the domain frame, not those surfaces.
 **Round introduced**: [Round_70](../../../plan/cycles/Round_70.md) — "the Query
 domain comes of age": the Query-Builder complexity (joins, composition, workflow)
 pulled a first-class domain home, so [saved-query.md](saved-query.md) relocated
@@ -21,6 +22,9 @@ here and this overview was authored to anchor it.
 **Sibling docs**:
 [saved-query.md](saved-query.md) (the **first construction mode** — save a
 single-source filtered view; the catalog + query-mode detail surfaces),
+[joins.md](joins.md) (the **second construction mode** — a Query consumes a
+[Relationship](../workspaces/relationships.md) to read two datasets as one;
+R71 join execution),
 [dataset-detail.md](../datasets/dataset-detail.md) (hosts the **`[+ Save as
 Query]` action** — the verb; the Query is the noun, here),
 [relationships.md](../workspaces/relationships.md) (the workspace-governed
@@ -66,7 +70,8 @@ routes** — never a duplicated surface.
 ## Surfaces — layer / reuse / purity declaration
 
 > Domain-level map. Per-surface specs live in the mode docs
-> ([saved-query.md](saved-query.md)); the construction surface is R71.
+> ([saved-query.md](saved-query.md)); join execution is [joins.md](joins.md)
+> (R71); the interactive construction surface is R72.
 
 | Surface                                  | Layer                                               | Reusability         | Purity    | Allowed peer deps                  |
 | ---------------------------------------- | --------------------------------------------------- | ------------------- | --------- | ---------------------------------- |
@@ -74,7 +79,7 @@ routes** — never a duplicated surface.
 | `QueryDetailPage` (query mode; R69)      | `apps/builder/src/features/data-management/queries` | feature             | feature   | react, antd, @tanstack/react-query |
 | `<PagedRowsView>` (reused, not owned)    | `apps/builder/src/features/data-management/_shared` | shared cross-domain | plain-UI  | react, antd, react-i18next         |
 | `Query` type                             | `.../features/data-management/queries/types.ts`     | feature             | data type | none                               |
-| Interactive construction surface (→ R71) | `.../features/data-management/queries` (future)     | feature             | feature   | react, antd                        |
+| Interactive construction surface (→ R72) | `.../features/data-management/queries` (future)     | feature             | feature   | react, antd                        |
 
 **Boundary check**: `<PagedRowsView>` is the only shared-cross-domain row here
 and it is **reused, not owned** (its boundary lives in
@@ -110,12 +115,12 @@ The domain grows by **adding construction modes + inputs**, each a named round,
 each obeying the reuse invariant:
 
 ```text
-R69  single-source save      saved-query.md   (shipped) — filter a dataset, Save as Query
-R70  declared join input     relationships.md (this round) — govern column↔column edges
-R71  join execution + builder query-builder    — a Query consumes a relationship → joined rows;
-                                                  the interactive construction surface
-R72  workflow / complex      (future)         — YAML + polars, the hg_code pattern
-later  composition           (future)         — a Query as input to another Query
+R69    single-source save     saved-query.md   (shipped) — filter a dataset, Save as Query
+R70    declared join input    relationships.md (shipped) — govern column↔column edges
+R71    join execution         joins.md         (this round, design) — a Query consumes a
+                                                  relationship → joined rows (inner, single-key)
+R72    construction surface   (future)         — the interactive multi-source query builder
+later  workflow / composition (future)         — YAML + polars; a Query as input to another Query
 ```
 
 Each step is **pulled, not pre-built** (the Evolution Rule + the
@@ -144,8 +149,9 @@ later join or compose — because every query surface reuses the same shells.
    table-source edge the Query Builder consumes to join (R71); R70 only declares
    - validates it.
 4. **Trajectory is named, not pre-built** _(structural)_ — each future capability
-   (join execution + construction surface → R71; workflow → R72; composition →
-   later) has a named home + round here; none is scaffolded ahead of its pull.
+   (join execution → R71 [joins.md](joins.md); construction surface → R72;
+   workflow + composition → later) has a named home + round here; none is
+   scaffolded ahead of its pull.
 
 ---
 
@@ -161,10 +167,11 @@ later join or compose — because every query surface reuses the same shells.
 ### OUT of scope (deferred with named triggers)
 
 - **The interactive query-construction surface** (build predicates/joins
-  visually, multi-source) → **R71**. _Trigger: a Query must be built from more
-  than the saved single-source filter state._
+  visually, multi-source) → **R72**. _Trigger: a Query must be built from more
+  than a minimal join + the saved filter state._
 - **Join execution** (a Query consuming a [Relationship](../workspaces/relationships.md)
-  to produce joined rows; the unified table-source resolver) → **R71**.
+  to produce joined rows) → **R71**, specified in [joins.md](joins.md). The
+  unified table-source resolver stays deferred (R71 J-2′).
 - **Workflow / complex query** (YAML + polars) → **R72**.
 - **Query composition** (a Query as input to another Query) → later.
 

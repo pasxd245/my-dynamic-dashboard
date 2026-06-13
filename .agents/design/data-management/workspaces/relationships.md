@@ -12,8 +12,11 @@ R70 ships **governance only** — a user **declares** an edge, the system
 [purpose.md](../../../context/purpose.md) #5). It produces **no joined rows**;
 consuming a Relationship to actually join is the [Query Builder](../queries/query-builder.md)'s
 job in **R71**.
-**Status**: Draft (R70 design — governance only; the C/B/I build chain follows
-on the human's go-ahead, sequenced by `flow-selector` at Design exit).
+**Status**: Accepted (R70 design + shipped R70 — full DCFBI chain: governance
+only). **Truth-tested R71** — the governed edge was confirmed to carry what a
+real join needs as input (the join key pair, two sources, the freshness gate);
+R70 needed **no model revision** (the R70 watch-item kill-condition did **not**
+fire). See [joins.md § Truth-test record](../queries/joins.md#truth-test-record-j-4).
 **Round introduced**: [Round_70](../../../plan/cycles/Round_70.md) — the third
 step of the critical path (`data → relationships → dashboards`) and a stated
 product requirement ([purpose.md](../../../context/purpose.md) #4: _"Relationships
@@ -28,8 +31,9 @@ is reached from the workspace card),
 [datasets.md](../datasets/datasets.md) +
 [dataset-detail.md](../datasets/dataset-detail.md) (the datasets + the column /
 `dtype` metadata the compatibility rule reads),
-[query-builder.md](../queries/query-builder.md) (the **consumer** — R71 joins by
-resolving a declared Relationship),
+[joins.md](../queries/joins.md) (the **consumer** — R71 join execution resolves a
+declared Relationship to produce joined rows) +
+[query-builder.md](../queries/query-builder.md) (the queries domain anchor),
 [crud-hygiene.md](../_shared/crud-hygiene.md) (the delete-confirm modal reused
 here),
 [workspace-shell.target.md](../../_platform/workspace-shell.target.md) (the
@@ -323,7 +327,9 @@ the **design intent** the YAML must satisfy.
   error on stale** (they annotate); a **`409 relationship_stale`** is reserved
   for **R71** join execution, where a stale edge must block the join. _(This
   refines J-4, which named `relationship_stale`: in R70 stale is a non-erroring
-  status; the 409 variant lands with its first consumer.)_
+  status; the 409 variant lands with its first consumer.)_ **R71 consumes it** —
+  a join over a stale edge returns `409 relationship_stale`
+  ([joins.md § Execution model](../queries/joins.md#execution-model-live-re-run-two-sources-no-materialization)).
 - Error envelopes reuse the shared
   [api-error.yaml](../../../../workspace/packages/contracts/_shared/api-error.yaml)
   shape. **Open contract question (flag for the Contract gate):** whether the
