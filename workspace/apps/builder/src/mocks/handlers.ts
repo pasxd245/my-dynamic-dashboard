@@ -462,7 +462,7 @@ export const handlers = [
   // preview), never persisted. Joined → combined columns + resolvedColumns;
   // a stale edge → 409 relationship_stale (the builder's join-unavailable
   // state). Reuses the same applyFiltersAndQ engine as the saved run.
-  http.post(api('/workspaces/:id/queries/preview'), async ({ request }) => {
+  withContractValidation('post', api('/workspaces/:id/queries/preview'), 'previewQuery', async ({ request }) => {
     const body = (await request.json()) as PreviewQueryRequest;
     const def: QueryDefinition = body.definition ?? { q: null, filters: [], advanced: [] };
     const url = new URL(request.url);
@@ -496,7 +496,7 @@ export const handlers = [
 
   // R72 — update: persist an edited DEFINITION (name unchanged). Echoes the
   // Query with the new definition (+ resolvedColumns when joined).
-  http.put(api('/queries/:id'), async ({ params, request }) => {
+  withContractValidation('put', api('/queries/:id'), 'updateQuery', async ({ params, request }) => {
     const body = (await request.json()) as UpdateQueryRequest;
     const base = params.id === MOCK_JOINED_QUERY.id ? MOCK_JOINED_QUERY : MOCK_QUERY;
     const joined = Boolean(body.definition?.join);

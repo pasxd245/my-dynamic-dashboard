@@ -1,0 +1,105 @@
+openapi: 3.1.0
+info:
+  title: my-dynamic-dashboard — PUT /queries/{id}
+  version: 0.1.0
+  description: |
+    Update a saved Query's DEFINITION. R72 — the interactive
+    construction surface (the editable builder).
+
+    The construction surface persists an edited working copy here. R72
+    edits the `definition` ONLY (its join + predicates); the Query's
+    `name` is unchanged this round (rename stays a separate, deferred
+    affordance), so the body carries `{ definition }` and there is no
+    `name_taken` path. The same validate-on-save guards as create apply:
+    the definition is checked against current columns / the edge, and a
+    definition that can't run is rejected 422 (you cannot save a broken
+    query). The response is the updated `Query` (with `resolvedColumns`
+    recomputed when it joins).
+
+paths:
+  /queries/{id}:
+    put:
+      operationId: updateQuery
+      summary: Update a saved query's definition
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^qr_[0-9a-f]{8}$"
+          description: Query id.
+          examples:
+            joined:
+              value: "qr_101a0001"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [definition]
+              additionalProperties: false
+              properties:
+                definition:
+                  $ref: "../_shared/query.yaml#/components/schemas/QueryDefinition"
+            examples:
+              add_cross_source_filter:
+                summary: Save a join with an added cross-source predicate
+                value:
+                  definition:
+                    q: null
+                    filters:
+                      - { col: 8, dtype: string, op: equals, val: "gold" }
+                    advanced: []
+                    join: { relationshipId: "rel_4d7b91ce", type: inner }
+      responses:
+        "200":
+          description: Query updated. The full `Query` with the new definition.
+          content:
+            application/json:
+              schema:
+                $ref: "../_shared/query.yaml#/components/schemas/Query"
+              examples:
+                updated:
+                  value:
+                    id: "qr_101a0001"
+                    workspaceId: "ws_3f8a2c91"
+                    datasetId: "ds_71a4e2f0"
+                    name: "Deals × Accounts"
+                    definition:
+                      q: null
+                      filters:
+                        - { col: 8, dtype: string, op: equals, val: "gold" }
+                      advanced: []
+                      join: { relationshipId: "rel_4d7b91ce", type: inner }
+                    resolvedColumns:
+                      - { name: "deal_id", dtype: string }
+                      - { name: "account_name", dtype: string }
+                    createdAt: "2026-06-13T10:00:00Z"
+        "404":
+          description: No query with the given `id` exists.
+          content:
+            application/json:
+              schema:
+                $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorNotFound"
+              examples:
+                missing:
+                  value: { "code": "not_found" }
+        "422":
+          description: |
+            The new `definition` can't run — an atom fails the per-atom
+            check against current columns (bad index / op / value), or
+            `definition.join` references an unknown, cross-workspace, or
+            stale edge, or a join atom's `col` is out of range of the
+            EFFECTIVE column space. FastAPI validation envelope.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [detail]
+                properties:
+                  detail:
+                    type: array
+                    items:
+                      type: object

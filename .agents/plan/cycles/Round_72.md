@@ -317,6 +317,35 @@ state + Save disabled; cancel restores the read view). The 2 failures are the
 `--test-timeout=15000`. F1 ad-hoc MSW handlers (`preview`/`put`) are unwrapped this
 phase; C formalizes + `withContractValidation`-wraps them. **F1 within timebox.**
 
+### Gate C — Contract (DFCFBI) — (2026-06-14)
+
+F1's frozen interaction → two **new routes** (the join is otherwise a field on
+existing shapes, sealed R71): the join's data-behaviour truth is the contract.
+
+- **`queries/preview.contract.yaml`** (`POST /workspaces/{id}/queries/preview`,
+  `operationId: previewQuery`) — body `{ datasetId, definition }`; `200` = the
+  `RowsPage` shape **plus** `resolvedColumns` (reusing the `Query.resolvedColumns`
+  shape) when joined; `409 oneOf(query_stale, relationship_stale)` for drift;
+  `422` for a structurally unrunnable definition. **Stateless — persists nothing**
+  (J-3). The `QueryDefinition` body `$ref`s `_shared/query.yaml` (no atom re-decl).
+- **`queries/put.contract.yaml`** (`PUT /queries/{id}`, `operationId: updateQuery`)
+  — body `{ definition }` **only** (name unchanged → **no `name_taken`**); `200` =
+  the updated `Query` (`$ref` `_shared/query.yaml`, `resolvedColumns` recomputed);
+  `404`; `422` (same validate-on-save guards as create). PUT, not PATCH — the
+  builder owns the whole working copy (full replace).
+- **No new error codes** — `query_stale` / `relationship_stale` / `not_found`
+  all exist (R69/R70/R71); the builder **consumes** them. So **no `values.yaml` /
+  generated-constants change** this gate (unlike R71, which had to add
+  `relationship_stale`).
+- **MSW aligned:** the F1 ad-hoc `preview` / `put` handlers are now
+  **`withContractValidation`-wrapped** (`previewQuery` / `updateQuery`), so their
+  2xx bodies are schema-checked against the YAML at the handler boundary.
+
+**Contract gate verification:** `@mdd/contracts` OpenAPI validity **24/24** (was
+22/22 — +preview +put); builder **type-check clean**; `queries.test.tsx` **14/14**
+with the wrapped handlers (the preview + put responses conform to the frozen YAML
+— dual SoT anchored). Contract seam: this commit.
+
 ## Check
 
 - [x] **J-1, J-2, J-1′ ratified** with the human (Plan gate); **J-3, J-4 held

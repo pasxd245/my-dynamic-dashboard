@@ -1,0 +1,183 @@
+openapi: 3.1.0
+info:
+  title: my-dynamic-dashboard — POST /workspaces/{id}/queries/preview
+  version: 0.1.0
+  description: |
+    Preview an UNSAVED query definition. R72 — the interactive
+    construction surface (the editable builder).
+
+    The construction surface lets a user edit a Query's `definition`
+    (its join + cross-source predicates) and SEE the resulting rows
+    BEFORE saving. Because the saved-run route (`GET /queries/{id}/rows`)
+    needs a persisted Query, previewing an unsaved working copy needs a
+    stateless endpoint: it takes a `datasetId` + a `definition` (the same
+    shapes `POST .../queries` carries), runs them against CURRENT data via
+    the SAME engines as the saved run (`query_dataset_rows` /
+    `query_joined_rows`), and returns the paged rows — but PERSISTS
+    NOTHING. (J-3, resolved at F1: a stateless preview, not save-then-run.)
+
+    The response is the same `RowsPage` shape as `GET /queries/{id}/rows`,
+    PLUS the server-computed `resolvedColumns` when the definition joins
+    (the builder needs the combined headers to render the preview table).
+
+    Errors mirror the saved run: a drifted join key → 409
+    `relationship_stale`; a drifted predicate atom → 409 `query_stale`; a
+    structurally-bad definition (unknown / cross-workspace dataset or
+    edge, an out-of-range atom) → 422 (it can't be previewed OR saved).
+
+paths:
+  /workspaces/{id}/queries/preview:
+    post:
+      operationId: previewQuery
+      summary: Preview an unsaved query definition (stateless live run)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^ws_[0-9a-f]{8}$"
+          description: Workspace id (the IA scope; the edge must be in it).
+          examples:
+            marketing:
+              value: "ws_3f8a2c91"
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          description: 1-indexed page. Out-of-range → 200 with empty `rows`.
+        - name: page_size
+          in: query
+          required: false
+          schema:
+            type: integer
+            enum: [25, 50, 100]
+            default: 50
+          description: Rows per page. Closed enum; other values → 422.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [datasetId, definition]
+              additionalProperties: false
+              properties:
+                datasetId:
+                  type: string
+                  pattern: "^ds_[0-9a-f]{8}$"
+                  description: |
+                    The source (LEFT/driving) dataset. For a joined
+                    definition this is the edge's left dataset (unchanged
+                    by editing — R72 edits the definition, not the source).
+                definition:
+                  $ref: "../_shared/query.yaml#/components/schemas/QueryDefinition"
+            examples:
+              joined_with_filter:
+                summary: Preview a join with a cross-source filter
+                value:
+                  datasetId: "ds_71a4e2f0"
+                  definition:
+                    q: null
+                    filters:
+                      - { col: 3, dtype: string, op: equals, val: "won" }
+                    advanced: []
+                    join: { relationshipId: "rel_4d7b91ce", type: inner }
+      responses:
+        "200":
+          description: |
+            Paged row slice of the live preview. Same shape as
+            `GET /queries/{id}/rows`, plus `resolvedColumns` when the
+            previewed definition joins (omitted for single-source).
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [rows, page, pageSize, total]
+                additionalProperties: false
+                properties:
+                  rows:
+                    type: array
+                    description: Row-major; one cell per effective column, in order.
+                    items:
+                      type: array
+                      items:
+                        type: [string, "null"]
+                  page:
+                    type: integer
+                    minimum: 1
+                  pageSize:
+                    type: integer
+                    enum: [25, 50, 100]
+                  total:
+                    type: integer
+                    minimum: 0
+                    description: Matched-row count under the previewed definition.
+                  resolvedColumns:
+                    type: array
+                    description: |
+                      The effective (combined, collision-qualified) columns —
+                      present ONLY when `definition.join` is set. Identical
+                      shape to `Query.resolvedColumns`.
+                    items:
+                      type: object
+                      required: [name, dtype]
+                      additionalProperties: false
+                      properties:
+                        name:
+                          type: string
+                          minLength: 1
+                        dtype:
+                          type: string
+                          enum: [string, integer, float, boolean, date, datetime]
+              examples:
+                joined_preview:
+                  value:
+                    rows:
+                      [
+                        ["D-0001", "12400", "2026-03-01", "won", "0.95", "true", "2026-02-28 14:02:00", "D-0001", "Acme", "gold"],
+                      ]
+                    page: 1
+                    pageSize: 25
+                    total: 1
+                    resolvedColumns:
+                      - { name: "deal_id", dtype: string }
+                      - { name: "amount", dtype: integer }
+        "409":
+          description: |
+            The previewed definition can't execute against current data —
+            `query_stale` (a predicate atom drifted) or `relationship_stale`
+            (a joined definition whose edge key drifted). Mirrors the saved
+            run; the builder renders the matching invalid / join-unavailable
+            state and disables Save.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorQueryStale"
+                  - $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorRelationshipStale"
+              examples:
+                predicate_stale:
+                  value: { "code": "query_stale" }
+                join_key_stale:
+                  value: { "code": "relationship_stale" }
+        "422":
+          description: |
+            The definition is structurally unpreviewable — `datasetId`
+            malformed / unknown / not in this workspace; `definition.join`
+            references an unknown, cross-workspace, or stale edge; an atom's
+            `col` is out of range of the effective column space; or
+            `page_size` not in {25, 50, 100}. FastAPI validation envelope.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [detail]
+                properties:
+                  detail:
+                    type: array
+                    items:
+                      type: object
