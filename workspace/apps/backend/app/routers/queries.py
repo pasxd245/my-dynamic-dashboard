@@ -38,8 +38,10 @@ from app.models.common import (
     ApiErrorRelationshipStale,
     Column,
     CreateQueryBody,
+    PreviewQueryBody,
     Query as QueryModel,
     QueryDefinition,
+    UpdateQueryBody,
 )
 from app.routers.datasets import RowsPage
 from app.routers.relationships import _compatible, _dtype_of
@@ -301,6 +303,148 @@ def run_query(  # noqa: A002
 
     body = RowsPage(rows=rows, page=page, pageSize=page_size, total=total)
     return JSONResponse(status_code=200, content=body.model_dump())
+
+
+@router.post("/workspaces/{id}/queries/preview")
+def preview_query(  # noqa: A002
+    id: WsIdPath,
+    body: PreviewQueryBody,
+    page: Annotated[int, Query(ge=1)] = 1,
+    page_size: Annotated[int, Query()] = 50,
+) -> JSONResponse:
+    """R72 — PREVIEW an UNSAVED working-copy definition (the construction
+    surface's live preview), paged. Runs the SAME engines as the saved run
+    against current data, but persists NOTHING. Mirrors the saved run's drift
+    semantics: a drifted join key → 409 relationship_stale; a drifted predicate
+    atom → 409 query_stale. A structurally-bad request (unknown / cross-workspace
+    dataset or edge, bad page_size) → 422. Joined → the result carries the
+    server-computed resolvedColumns (the builder's headers)."""
+    if page_size not in _PAGE_SIZE_ALLOWED:
+        raise HTTPException(
+            status_code=422,
+            detail=f"page_size must be one of {_PAGE_SIZE_ALLOWED}; got {page_size}",
+        )
+
+    definition = body.definition.model_dump()
+    join = definition.get("join")
+    with get_conn() as con:
+        ds = con.execute("SELECT * FROM datasets WHERE id = ?", (body.datasetId,)).fetchone()
+        if ds is None or ds["workspace_id"] != id:
+            raise HTTPException(
+                status_code=422,
+                detail=[
+                    {
+                        "loc": ["body", "datasetId"],
+                        "msg": f"unknown_dataset: {body.datasetId} is not a dataset in workspace {id}",
+                        "type": "value_error",
+                    }
+                ],
+            )
+
+        if join:
+            payload, reason = _resolve_join(con, join, id)
+            if reason == "relationship_stale":
+                return JSONResponse(status_code=409, content=ApiErrorRelationshipStale().model_dump())
+            if reason is not None:
+                # unknown / cross-workspace / dataset-missing edge → structurally
+                # unpreviewable (it could never be saved either).
+                raise HTTPException(
+                    status_code=422,
+                    detail=[{"loc": ["body", "definition", "join"], "msg": reason, "type": "value_error"}],
+                )
+            try:
+                filters, advanced = build_definition_predicates(definition, payload["effective"])
+            except HTTPException as exc:
+                if exc.status_code == 422:
+                    return JSONResponse(status_code=409, content=ApiErrorQueryStale().model_dump())
+                raise
+            plan: tuple = ("join", payload, filters, advanced)
+        else:
+            columns_meta = json.loads(ds["columns_json"])
+            try:
+                filters, advanced = build_definition_predicates(definition, columns_meta)
+            except HTTPException as exc:
+                if exc.status_code == 422:
+                    return JSONResponse(status_code=409, content=ApiErrorQueryStale().model_dump())
+                raise
+            plan = ("single", ds, columns_meta, filters, advanced)
+
+    q = definition.get("q")
+    if plan[0] == "join":
+        _, payload, filters, advanced = plan
+        rel, left_ds, right_ds = payload["rel"], payload["left_ds"], payload["right_ds"]
+        left_pq = dataset_dir(left_ds["workspace_id"], left_ds["id"]) / "parsed.parquet"
+        right_pq = dataset_dir(right_ds["workspace_id"], right_ds["id"]) / "parsed.parquet"
+        rows, total = query_joined_rows(
+            left_pq,
+            right_pq,
+            left_key=rel["left_column"],
+            right_key=rel["right_column"],
+            select_exprs=payload["select_exprs"],
+            effective_columns=[c["name"] for c in payload["effective"]],
+            page=page,
+            page_size=page_size,
+            q=q,
+            filters=filters,
+            advanced=advanced,
+        )
+        resolved = [Column(name=c["name"], dtype=c["dtype"]).model_dump() for c in payload["effective"]]
+        content = {"rows": rows, "page": page, "pageSize": page_size, "total": total, "resolvedColumns": resolved}
+    else:
+        _, ds, columns_meta, filters, advanced = plan
+        parquet_path = dataset_dir(ds["workspace_id"], ds["id"]) / "parsed.parquet"
+        rows, total = query_dataset_rows(
+            parquet_path,
+            [c["name"] for c in columns_meta],
+            page=page,
+            page_size=page_size,
+            q=q,
+            filters=filters,
+            advanced=advanced,
+        )
+        content = {"rows": rows, "page": page, "pageSize": page_size, "total": total}
+
+    return JSONResponse(status_code=200, content=content)
+
+
+@router.put("/queries/{id}")
+def update_query(id: QueryIdPath, body: UpdateQueryBody) -> JSONResponse:  # noqa: A002
+    """R72 — UPDATE a saved query's DEFINITION (the construction surface's Save).
+    The first mutate-existing path. Validate-on-save mirrors create: the new
+    definition is checked against current columns / the edge (a join edge must
+    still exist, be in-workspace, and have valid keys), and a definition that
+    can't run is rejected 422. The Query's name + source are unchanged this
+    round. Returns the updated Query (resolvedColumns recomputed when joined)."""
+    definition = body.definition.model_dump()
+    join = definition.get("join")
+    with get_conn() as con:
+        qrow = con.execute("SELECT * FROM queries WHERE id = ?", (id,)).fetchone()
+        if qrow is None:
+            return JSONResponse(status_code=404, content=ApiErrorNotFound().model_dump())
+        ds = con.execute("SELECT * FROM datasets WHERE id = ?", (qrow["dataset_id"],)).fetchone()
+        if ds is None:
+            return JSONResponse(status_code=404, content=ApiErrorNotFound().model_dump())
+        if join:
+            payload, reason = _resolve_join(con, join, qrow["workspace_id"])
+            if reason is not None:
+                raise HTTPException(
+                    status_code=422,
+                    detail=[{"loc": ["body", "definition", "join"], "msg": reason, "type": "value_error"}],
+                )
+            validation_columns = payload["effective"]
+        else:
+            validation_columns = json.loads(ds["columns_json"])
+
+    # Validate every atom against the relevant column space → 422 on a bad atom
+    # (you cannot save a definition that can't run) — the create-time semantics.
+    build_definition_predicates(definition, validation_columns)
+
+    definition_json = json.dumps(body.definition.model_dump())
+    with get_conn() as con:
+        con.execute("UPDATE queries SET definition_json = ? WHERE id = ?", (definition_json, id))
+        con.commit()
+        updated = _query_from_row(con, con.execute("SELECT * FROM queries WHERE id = ?", (id,)).fetchone())
+    return JSONResponse(status_code=200, content=updated.model_dump(exclude_none=True))
 
 
 @router.delete("/queries/{id}")

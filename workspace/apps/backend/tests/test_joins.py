@@ -213,3 +213,157 @@ def test_save_join_on_stale_edge_is_422() -> None:
         resp = _create_join(client, ws, deals, rel_id)
 
     assert resp.status_code == 422
+
+
+# ─── R72: the construction surface — preview (unsaved) + update (PUT) ────────
+
+
+def _preview(client: TestClient, ws: str, dataset_id: str, definition: dict, *, page_size: int = 50):
+    return client.post(
+        f"/workspaces/{ws}/queries/preview?page_size={page_size}",
+        json={"datasetId": dataset_id, "definition": definition},
+    )
+
+
+def _joined_def(rel_id: str, *, filters=None, q=None) -> dict:
+    return {"q": q, "filters": filters or [], "advanced": [], "join": {"relationshipId": rel_id, "type": "inner"}}
+
+
+@pytest.mark.unit
+def test_preview_joined_definition_runs_unsaved_with_resolved_columns() -> None:
+    # R72 — preview an UNSAVED joined working copy: same engine as the saved
+    # run, but nothing is persisted; the result carries resolvedColumns.
+    with TestClient(app) as client:
+        ws, deals, accounts = _seed(client)
+        rel_id = _declare_id_join(client, ws, deals, accounts)
+        resp = _preview(client, ws, deals, _joined_def(rel_id))
+        # Nothing was created — the workspace still lists zero queries.
+        listed = client.get(f"/workspaces/{ws}/queries").json()
+
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["total"] == 3
+    assert all(len(r) == 8 for r in body["rows"])
+    assert [c["name"] for c in body["resolvedColumns"]][:1] == ["deals.id"]
+    assert listed == []  # stateless — no persistence
+    validate_response("queries/preview.contract.yaml", 200, body)
+
+
+@pytest.mark.unit
+def test_preview_single_source_omits_resolved_columns() -> None:
+    with TestClient(app) as client:
+        ws, deals, _accounts = _seed(client)
+        resp = _preview(client, ws, deals, {"q": None, "filters": [], "advanced": []})
+
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["total"] == 3
+    assert "resolvedColumns" not in body  # single-source → omitted
+    validate_response("queries/preview.contract.yaml", 200, body)
+
+
+@pytest.mark.unit
+def test_preview_applies_predicate_over_effective_space() -> None:
+    # Effective col 2 = deals.amount (float) > 40 → 2 rows, before any save.
+    with TestClient(app) as client:
+        ws, deals, accounts = _seed(client)
+        rel_id = _declare_id_join(client, ws, deals, accounts)
+        resp = _preview(client, ws, deals, _joined_def(rel_id, filters=[{"col": 2, "dtype": "float", "op": "gt", "val": 40}]))
+
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["total"] == 2
+
+
+@pytest.mark.unit
+def test_preview_relationship_stale_blocks_the_join() -> None:
+    with TestClient(app) as client:
+        ws, deals, accounts = _seed(client)
+        rel_id = _declare_id_join(client, ws, deals, accounts)
+        with db.get_conn() as con:
+            row = con.execute("SELECT columns_json FROM datasets WHERE id = ?", (deals,)).fetchone()
+            cols = [c for c in json.loads(row["columns_json"]) if c["name"] != "id"]
+            con.execute("UPDATE datasets SET columns_json = ? WHERE id = ?", (json.dumps(cols), deals))
+            con.commit()
+        resp = _preview(client, ws, deals, _joined_def(rel_id))
+
+    assert resp.status_code == 409
+    assert resp.json() == {"code": "relationship_stale"}
+    validate_response("queries/preview.contract.yaml", 409, resp.json())
+
+
+@pytest.mark.unit
+def test_preview_query_stale_on_a_bad_predicate_atom() -> None:
+    with TestClient(app) as client:
+        ws, deals, accounts = _seed(client)
+        rel_id = _declare_id_join(client, ws, deals, accounts)
+        resp = _preview(client, ws, deals, _joined_def(rel_id, filters=[{"col": 99, "dtype": "string", "op": "equals", "val": "x"}]))
+
+    assert resp.status_code == 409
+    assert resp.json() == {"code": "query_stale"}
+
+
+@pytest.mark.unit
+def test_preview_unknown_dataset_or_edge_is_422() -> None:
+    with TestClient(app) as client:
+        ws, deals, _accounts = _seed(client)
+        bad_ds = _preview(client, ws, "ds_00000000", {"q": None, "filters": [], "advanced": []})
+        bad_edge = _preview(client, ws, deals, _joined_def("rel_00000000"))
+
+    assert bad_ds.status_code == 422
+    assert bad_edge.status_code == 422
+
+
+@pytest.mark.unit
+def test_update_definition_persists_and_reruns_live() -> None:
+    # R72 — the construction surface's Save: PUT a new definition; the saved
+    # query re-runs the NEW definition. Definition-only (name unchanged).
+    with TestClient(app) as client:
+        ws, deals, accounts = _seed(client)
+        rel_id = _declare_id_join(client, ws, deals, accounts)
+        qid = _create_join(client, ws, deals, rel_id).json()["id"]
+        # Add a cross-source predicate (effective col 2 = deals.amount > 40).
+        put = client.put(
+            f"/queries/{qid}",
+            json={"definition": _joined_def(rel_id, filters=[{"col": 2, "dtype": "float", "op": "gt", "val": 40}])},
+        )
+        body = put.json()
+        rerun = client.get(f"/queries/{qid}/rows")
+        fetched = client.get(f"/queries/{qid}").json()
+
+    assert put.status_code == 200, put.text
+    assert body["name"] == "Deals × Accounts"  # name unchanged
+    assert body["definition"]["filters"][0]["col"] == 2
+    assert [c["name"] for c in body["resolvedColumns"]][0] == "deals.id"
+    validate_response("queries/put.contract.yaml", 200, body)
+    # Live: the saved run now reflects the edited definition.
+    assert rerun.json()["total"] == 2
+    assert fetched["definition"]["filters"][0]["col"] == 2
+
+
+@pytest.mark.unit
+def test_update_unknown_query_is_404() -> None:
+    with TestClient(app) as client:
+        resp = client.put(
+            "/queries/qr_00000000",
+            json={"definition": {"q": None, "filters": [], "advanced": []}},
+        )
+    assert resp.status_code == 404
+    assert resp.json() == {"code": "not_found"}
+
+
+@pytest.mark.unit
+def test_update_with_unrunnable_definition_is_422() -> None:
+    with TestClient(app) as client:
+        ws, deals, accounts = _seed(client)
+        rel_id = _declare_id_join(client, ws, deals, accounts)
+        qid = _create_join(client, ws, deals, rel_id).json()["id"]
+        # A bad atom (col out of range) can't be saved — create-time semantics.
+        bad_atom = client.put(
+            f"/queries/{qid}",
+            json={"definition": _joined_def(rel_id, filters=[{"col": 99, "dtype": "string", "op": "equals", "val": "x"}])},
+        )
+        # A join on an unknown edge → unsavable.
+        bad_edge = client.put(f"/queries/{qid}", json={"definition": _joined_def("rel_00000000")})
+
+    assert bad_atom.status_code == 422
+    assert bad_edge.status_code == 422

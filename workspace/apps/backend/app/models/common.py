@@ -225,6 +225,27 @@ class CreateQueryBody(BaseModel):
     definition: QueryDefinition
 
 
+class UpdateQueryBody(BaseModel):
+    """R72 — PUT /queries/{id} request body. Definition-only edit (the
+    construction surface): the join + predicates change; the Query's name /
+    source are unchanged this round (rename deferred)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    definition: QueryDefinition
+
+
+class PreviewQueryBody(BaseModel):
+    """R72 — POST /workspaces/{id}/queries/preview request body. Runs an
+    UNSAVED working-copy definition (the live builder preview); never persisted.
+    Same shapes as create, minus the name (no entity is created)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    datasetId: DsId  # noqa: N815
+    definition: QueryDefinition
+
+
 class ApiErrorQueryStale(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

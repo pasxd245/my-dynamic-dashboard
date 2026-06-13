@@ -166,11 +166,13 @@ paths:
                   value: { "code": "relationship_stale" }
         "422":
           description: |
-            The definition is structurally unpreviewable — `datasetId`
+            The request is structurally unpreviewable — `datasetId`
             malformed / unknown / not in this workspace; `definition.join`
-            references an unknown, cross-workspace, or stale edge; an atom's
-            `col` is out of range of the effective column space; or
-            `page_size` not in {25, 50, 100}. FastAPI validation envelope.
+            references an unknown or cross-workspace edge; or `page_size` not
+            in {25, 50, 100}. A drifted *predicate* atom is `409 query_stale`
+            and a drifted *join key* is `409 relationship_stale` (above) — this
+            endpoint runs, so it mirrors the saved run's drift semantics.
+            FastAPI validation envelope.
           content:
             application/json:
               schema:

@@ -365,7 +365,38 @@ schema-checked — the confirmation is mechanical, not eyeballed).
 
 **F2 gate verification:** builder **type-check clean**; `queries.test.tsx`
 **15/15** (5 R72 cases), all preview/put responses contract-validated. No contract
-v2 needed. F2 seam: this commit.
+v2 needed. F2 seam: `307a90a`.
+
+### Gate B — Backend (DFCFBI) — (2026-06-14)
+
+The two routes the construction surface needs, built **beside** the R71 run path
+and **reusing** its helpers — **no new engine, no model change**:
+
+- **`POST /workspaces/{id}/queries/preview`** (`previewQuery`) — runs an
+  **unsaved** working-copy definition and **persists nothing**, reusing
+  `_resolve_join` + `build_definition_predicates` + `query_joined_rows` /
+  `query_dataset_rows`. Mirrors the saved run's drift semantics (drifted join key
+  → `409 relationship_stale`; drifted predicate atom → `409 query_stale`);
+  structurally-bad request (unknown / cross-workspace dataset or edge, bad
+  `page_size`) → `422`. Joined → the result carries the server-computed
+  `resolvedColumns`.
+- **`PUT /queries/{id}`** (`updateQuery`) — the first **mutate-existing** path
+  (R69 was create + read). **Definition-only** (`UpdateQueryBody = { definition }`;
+  name + source unchanged), validate-on-save **mirroring create** (`422` for a bad
+  atom or an unknown / cross-workspace / **stale** edge; `404` if absent). Returns
+  the updated `Query` with `resolvedColumns` recomputed. New models
+  `UpdateQueryBody` + `PreviewQueryBody` (`extra="forbid"`).
+- **`Relationship` + `QueryDefinition` unrevised** — both routes consume the R71
+  edge + the sealed definition exactly; the build added **no** field and **no**
+  engine, confirming the Design-gate "model not re-opened" claim in running code.
+
+**Backend gate verification:** ruff **clean**; pytest **175/175** (9 new
+`test_joins.py` R72 cases, each `validate_response`-checked against the new
+contracts: preview joined → 3 rows × 8 effective cols + `resolvedColumns`; preview
+single-source omits `resolvedColumns`; **stateless** (workspace lists 0 after
+preview); predicate over the effective space; `409 relationship_stale` /
+`409 query_stale` / `422` preview guards; **PUT** persists + re-runs live;
+`404`; `422` save-guards). Backend seam: this commit.
 
 ## Check
 
