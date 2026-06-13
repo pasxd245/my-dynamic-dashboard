@@ -43,7 +43,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             sweep_task.cancel()
             try:
                 await sweep_task
-            except asyncio.CancelledError:
+            except asyncio.CancelledError: # NOSONAR
                 # We cancelled it ourselves at shutdown — swallowing is
                 # intentional; don't re-raise into the lifespan.
                 pass  # noqa: S7497
@@ -61,10 +61,14 @@ app = FastAPI(title="my-dynamic-dashboard backend", lifespan=lifespan)
 # MDD_CONFIG_FILE override + MDD_BACKEND__CORS_ALLOW_ORIGINS env var)
 # instead of being hardcoded. allow_methods stays inline — it's
 # protocol-level, not deployment-config.
+# R72: added PUT — the query construction surface's Save is
+# `PUT /queries/{id}`; without it the browser preflight is rejected
+# (the MSW/pytest harness doesn't exercise CORS, so this only shows
+# in the real app).
 app.add_middleware(
     CORSMiddleware,
     allow_origins=CONFIG.settings.backend.cors_allow_origins,
-    allow_methods=["GET", "POST", "PATCH", "DELETE"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
     allow_headers=["*"],
 )
 
