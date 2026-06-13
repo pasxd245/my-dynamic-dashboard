@@ -110,3 +110,114 @@ def query_dataset_rows(
     # DuckDB returns tuples; convert each row to a list and preserve
     # None for nullable cells.
     return [list(r) for r in page_rows], int(total)
+
+
+# ─── R71: join execution ─────────────────────────────────────────────
+#
+# The single-source path above is `FROM read_parquet(?)` with unqualified
+# column names — it CANNOT express a two-source join (a bare column name is
+# ambiguous across two parquet sources). Join execution is therefore a NEW
+# read path, not a reuse of query_dataset_rows; what it DOES reuse is the
+# predicate fragment builders (build_filter_sql / build_advanced_sql /
+# _predicate_sql) — by aliasing every joined output column to its EFFECTIVE
+# (collision-qualified) name in an inner CTE, so the same unqualified-name
+# fragments compose correctly over the joined relation.
+
+
+def build_effective_columns(
+    left_cols: list[dict[str, str]],
+    right_cols: list[dict[str, str]],
+    left_ds_name: str,
+    right_ds_name: str,
+) -> tuple[list[dict[str, str]], list[str]]:
+    """Compute a join's EFFECTIVE column space and the CTE select-expressions.
+
+    Returns ``(effective, select_exprs)`` where ``effective`` is the ordered
+    ``left ++ right`` columns (``{name, dtype}``) with names that **collide
+    across the two sides** qualified by dataset name (``Deals.id`` /
+    ``Accounts.id``); names unique across the join stay bare. ``select_exprs``
+    alias each source column (``L."x"`` / ``R."x"``) to its effective output
+    name so predicates can reference the effective name unqualified.
+    """
+    left_names = {c["name"] for c in left_cols}
+    right_names = {c["name"] for c in right_cols}
+    dupes = left_names & right_names
+
+    effective: list[dict[str, str]] = []
+    select_exprs: list[str] = []
+    for side, cols, ds_name in (("L", left_cols, left_ds_name), ("R", right_cols, right_ds_name)):
+        for c in cols:
+            out = f"{ds_name}.{c['name']}" if c["name"] in dupes else c["name"]
+            effective.append({"name": out, "dtype": c["dtype"]})
+            select_exprs.append(f'{side}.{_quote_ident(c["name"])} AS {_quote_ident(out)}')
+    return effective, select_exprs
+
+
+def query_joined_rows(
+    left_parquet: Path,
+    right_parquet: Path,
+    *,
+    left_key: str,
+    right_key: str,
+    select_exprs: list[str],
+    effective_columns: list[str],
+    page: int,
+    page_size: int,
+    q: str | None,
+    filters: list[FilterPredicate] | None = None,
+    advanced: list[list[FilterPredicate]] | None = None,
+) -> tuple[list[list[str | None]], int]:
+    """Return ``(rows, total)`` for one page of an INNER join of two parquet
+    sources on ``left_key = right_key``.
+
+    `effective_columns` is the output column order (collision-qualified names);
+    `filters`/`advanced` predicates must carry those effective names (built by
+    re-validating the definition against the effective column space) so the
+    reused fragment builders compose over the joined CTE.
+    """
+    quoted_eff = [_quote_ident(c) for c in effective_columns]
+    select_list = ", ".join(f"CAST({c} AS VARCHAR)" for c in quoted_eff)
+
+    filter_sql, filter_params = build_filter_sql(filters or [])
+    advanced_sql, advanced_params = build_advanced_sql(advanced or [])
+
+    q_sql: str
+    q_params: list[Any]
+    if q:
+        like = f"%{q.lower()}%"
+        q_sql = "(" + " OR ".join(f"lower(CAST({c} AS VARCHAR)) LIKE ?" for c in quoted_eff) + ")"
+        q_params = [like] * len(quoted_eff)
+    else:
+        q_sql, q_params = "", []
+
+    where_terms = [t for t in (filter_sql, advanced_sql, q_sql) if t]
+    where_clause = ("WHERE " + " AND ".join(where_terms)) if where_terms else ""
+    where_params: list[Any] = [*filter_params, *advanced_params, *q_params]
+
+    # Inner CTE: join the two sources, aliasing every output column to its
+    # effective (collision-qualified) name; the outer query filters + pages it.
+    cte = (
+        "WITH joined AS ("
+        f"SELECT {', '.join(select_exprs)} "
+        "FROM read_parquet(?) AS L "
+        f"INNER JOIN read_parquet(?) AS R ON L.{_quote_ident(left_key)} = R.{_quote_ident(right_key)}"
+        ")"
+    )
+    offset = (page - 1) * page_size
+
+    with duckdb.connect(":memory:") as con:
+        rows_sql = f"{cte} SELECT {select_list} FROM joined {where_clause} LIMIT ? OFFSET ?"
+        rows_params: list[Any] = [
+            str(left_parquet),
+            str(right_parquet),
+            *where_params,
+            page_size,
+            offset,
+        ]
+        page_rows = con.execute(rows_sql, rows_params).fetchall()
+
+        count_sql = f"{cte} SELECT COUNT(*) FROM joined {where_clause}"
+        count_params: list[Any] = [str(left_parquet), str(right_parquet), *where_params]
+        (total,) = con.execute(count_sql, count_params).fetchone()
+
+    return [list(r) for r in page_rows], int(total)

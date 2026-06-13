@@ -1,7 +1,7 @@
 # Round 71: Join execution — a Query consumes a Relationship (the truth-test of R70's edge)
 
 **Status**: In Progress (Design gate sealed + committed; building the DCFBI chain
-on the human's go-ahead — Contract + Frontend done, B/I next)
+on the human's go-ahead — Contract + Frontend + Backend done, Integration next)
 **Date started**: 2026-06-13
 **Date completed**:
 
@@ -383,7 +383,38 @@ noun-vs-mode invariant held through the build):
 the reused table; `relationship_stale` → join-unavailable; create round-trip;
 affordance disabled when no valid edge). The 2 failures remain the **pre-existing
 upload-wizard flake** (7/7 in isolation). _F1/F2 skipped on the DCFBI path._
-Frontend seam: this commit.
+Frontend seam: `9214c0e`.
+
+### Gate 5 — Backend (B) — DCFBI: B (the engine extension the truth-test named)
+
+The genuinely-new engine the J-2 truth-test surfaced — **`query_joined_rows`** —
+is built **beside** `query_dataset_rows` (the single-source path can't express a
+two-source join), **reusing** the predicate fragment builders:
+
+- **`query_joined_rows`** ([rows_reader.py](../../../../workspace/apps/backend/app/ingest/rows_reader.py))
+  — `FROM read_parquet(L) INNER JOIN read_parquet(R) ON L.k = R.k`, with an inner
+  CTE that **aliases every output column to its effective (collision-qualified)
+  name** so the **reused** `build_filter_sql`/`build_advanced_sql`/`?q=` fragments
+  compose unqualified over the joined relation. `build_effective_columns` computes
+  the `left ++ right` space + the collision rule (qualify duplicate names by
+  dataset).
+- **Run path** ([queries.py](../../../../workspace/apps/backend/app/routers/queries.py))
+  — a `join` branch resolves the edge (reusing R70's `_compatible`/`_dtype_of`),
+  re-validates atoms against the **effective** columns, and on a **drifted join
+  key returns `409 relationship_stale`** (the code R70 reserved), on a drifted
+  **predicate** atom `409 query_stale`. Validate-on-save rejects an unknown /
+  cross-workspace / stale edge `422`. `GET /queries/{id}` exposes the computed
+  **`resolvedColumns`** when joined.
+- **`Relationship` model unrevised** — the build consumed the R70 edge exactly as
+  the truth-test predicted (`rel_` + key pair + dtype-compat); J-4 stayed un-fired
+  through the build, not just the design.
+
+**Backend gate verification:** ruff **clean**; pytest **166/166** (7 new
+`test_joins.py`: create+run joined → 3 rows × 8 effective cols; collision-qualified
+`resolvedColumns` (`deals.id`/`accounts.id`); predicate over the effective space;
+**`409 relationship_stale`** on key drift; `409 query_stale` on predicate drift;
+`422` save-guards for unknown + stale edge), each contract-`validate_response`-checked.
+Backend seam: this commit.
 
 ## Check
 

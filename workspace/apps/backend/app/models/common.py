@@ -178,14 +178,27 @@ class FilterAtom(BaseModel):
     max: int | float | str | None = None
 
 
+class JoinStep(BaseModel):
+    """R71 — an optional join step on a QueryDefinition. The Query consumes a
+    governed Relationship (`rel_`) to read two related datasets as one."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    relationshipId: Annotated[str, Field(pattern=ID_PATTERNS["relationship"])]  # noqa: N815
+    type: Literal["inner"]  # MVP — inner join only
+
+
 class QueryDefinition(BaseModel):
-    """The saved predicate state: chip filters + advanced DNF + `?q=`."""
+    """The saved predicate state: chip filters + advanced DNF + `?q=`. R71 adds
+    an optional `join`: when present the Query is multi-source and a FilterAtom's
+    `col` indexes the EFFECTIVE (left ++ right) column space."""
 
     model_config = ConfigDict(extra="forbid")
 
     q: Annotated[str | None, Field(max_length=200)] = None
     filters: list[FilterAtom]
     advanced: list[list[FilterAtom]]
+    join: JoinStep | None = None
 
 
 class Query(BaseModel):
@@ -196,6 +209,9 @@ class Query(BaseModel):
     datasetId: DsId  # noqa: N815
     name: Annotated[str, Field(min_length=1, max_length=NAME_LENGTHS["query_max"])]
     definition: QueryDefinition
+    # R71 — the effective (combined, collision-qualified) columns; present only
+    # when `definition.join` is set. The FE renders joined headers from it.
+    resolvedColumns: list[Column] | None = None  # noqa: N815
     createdAt: IsoUtc  # noqa: N815
 
 
@@ -255,3 +271,13 @@ class ApiErrorRelationshipExists(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     code: Literal["relationship_exists"] = ERROR_CODES["relationship_exists"]  # type: ignore[assignment]
+
+
+class ApiErrorRelationshipStale(BaseModel):
+    """R71 — a join was requested over an edge whose key column drifted (or whose
+    edge/dataset is gone), so the join can't run. Blocks the join (vs query_stale,
+    which is a predicate-atom drift)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    code: Literal["relationship_stale"] = ERROR_CODES["relationship_stale"]  # type: ignore[assignment]
