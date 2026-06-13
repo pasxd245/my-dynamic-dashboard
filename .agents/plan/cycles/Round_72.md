@@ -556,7 +556,7 @@ the app and found real issues the harness structurally cannot see.
 **What the harness missed (all green through every gate):**
 
 - **CORS: `PUT` not in `allow_methods`** → the builder's Save preflight is rejected
-  in the browser; MSW (FE) + TestClient (BE) never exercise CORS. Fixed `a45875d`.
+  in the browser; MSW (FE) + TestClient (BE) never exercise CORS. Fixed `6e9bdcf`.
 - **Fidelity drifts vs the sealed design** — preview wasn't debounced (a POST per
   keystroke) and the explicit `[Preview]` button was absent; I'd run `ui-design`
   only in **design-spec** mode at Design, never **fidelity** mode at F1/F2 (its
