@@ -1,8 +1,8 @@
 # Round 70: The Query domain comes of age — `queries/` graduation + relationship governance
 
-**Status**: Review
+**Status**: Complete
 **Date started**: 2026-06-13
-**Date completed**:
+**Date completed**: 2026-06-13
 
 ## Goal
 
@@ -414,3 +414,18 @@ joined rows — the point at which R69's parked **route-vs-resolver** question
 answer. Join execution, the interactive query-construction UI, composite/
 multi-column keys, cross-workspace joins, and cardinality inference are the named
 triggers R70 defers into R71+.
+
+**Watch-item — R70 is conformant, not yet truth-validated (human, 2026-06-13).**
+The relationship model "seems promising," but its green suites prove
+_conformance_, never _truth_ — and the truth is tested only when **R71 actually
+consumes a `Relationship` to join** (the second, independent consumer). Until
+then, hold the edge model as a **hypothesis**, not a settled fact. The named
+risk: R70 could **bias R71** — a live, green relationship entity is exactly the
+_self-manufactured evidence_ (mechanism #1) that would make "join = the obvious
+next noun on this exact edge shape" feel pre-decided. **Kill-condition:** if R71
+finds the governed edge doesn't carry what a real join needs (e.g. the edge
+shape, cardinality semantics, or the workspace-scoping turn out wrong under a
+real join), that is the model failing its truth-test — treat it as a model
+revision, not an R71 implementation detail. R71 is where the half (if any) gets
+split. See [specious-model-lock-in](../../memory/2026-06-13-specious-model-lock-in.md)
+(mechanism 3: test-green ≠ model-true).
