@@ -1,8 +1,8 @@
 # Round 72: The interactive query-construction surface — make a joined Query buildable, not just create-able
 
-**Status**: In Progress
+**Status**: Complete
 **Date started**: 2026-06-13
-**Date completed**:
+**Date completed**: 2026-06-14
 
 ## Goal
 
@@ -396,7 +396,26 @@ contracts: preview joined → 3 rows × 8 effective cols + `resolvedColumns`; pr
 single-source omits `resolvedColumns`; **stateless** (workspace lists 0 after
 preview); predicate over the effective space; `409 relationship_stale` /
 `409 query_stale` / `422` preview guards; **PUT** persists + re-runs live;
-`404`; `422` save-guards). Backend seam: this commit.
+`404`; `422` save-guards). Backend seam: `660967c`.
+
+### Gate I — Integration (DFCFBI) — (2026-06-14)
+
+The FE↔BE seam is the **contract**: both sides conform to the same `queries/*`
+YAML — the FE's MSW `preview`/`put` responses are `withContractValidation`-checked
+in the suite (15/15), the BE's are `validate_response`-checked in pytest (175/175).
+**One contract, dual conformance** — the preview shape, `resolvedColumns`, the
+update path, and the `409`/`422`/`404` codes all green on both sides.
+
+Beyond that, a **live cross-process round-trip** against the real backend (uvicorn
+`:8097`, isolated `MDD_BACKEND__DATA_DIR`) exercised the exact construction
+sequence: upload two CSVs → declare `deals.id ↔ accounts.id` → create a joined
+Query → **preview** an edited definition (add `deals.amount > 40`) → **2 rows ×
+8 effective cols + `resolvedColumns`** while the **saved run still returns 3**
+(preview is **stateless** — no persistence) → **`PUT`** the edited definition
+(`200`, name unchanged) → the **saved run now returns 2** (the edit is live) →
+preview an unknown edge → **`422`**, `PUT` an unknown query → **`404`**. The real
+BE's responses are byte-shaped identical to the MSW mocks the FE was built
+against. Integration seam: this commit.
 
 ## Check
 
@@ -422,6 +441,20 @@ preview); predicate over the effective space; `409 relationship_stale` /
       discovered-vs-imposed + commit seam recorded (verdict in Act).
 - [x] Plan gate and Design seam **committed separately**; round STOPPED at the
       Design gate (J-2) until the human's go-ahead.
+- [x] **Build chain on go-ahead (DFCFBI):** **F1** — editable builder + live
+      preview vs MSW; J-3 resolved (stateless preview); suite 142/144
+      (`14b800a`). **Contract** — preview + put YAML frozen, MSW wrapped, OpenAPI
+      **24/24**, no new error codes (`26e935b`). **F2** — confirmed vs
+      contract-derived MSW, +AC#5 client path, **15/15** (`307a90a`). **Backend**
+      — preview + update routes (engine reused, model unrevised), pytest
+      **175/175**, contract-validated (`660967c`). **Integration** — one contract /
+      dual conformance + a live cross-process edit round-trip (create → preview
+      stateless → PUT → live re-run; 422/404 guards) (this commit). Each gate its
+      own seam.
+- [x] **R71 edge + sealed `QueryDefinition` held through the build** — the
+      construction surface **edited** the model and **ran** the shipped engines;
+      **no field added, no engine minted** (the Design "model not re-opened" claim,
+      confirmed in running code).
 
 ## Act
 
@@ -466,9 +499,50 @@ gate): PASS** — the round + design doc record the Design exit criterion (journ
 discovered-vs-imposed model check, and the Design commit seam (below). _Structural
 check only — the modeling answer's correctness remains the human reviewer's call._
 
-**Next:** on the human's go-ahead, the build runs **D → F1 → C → F2 → B → I**,
-each its own commit seam; **F1** leads (≤2 working days, one FE author) to
-de-risk the editable-builder + live-preview interaction and resolve J-3.
+**Build outcome — the construction surface shipped end to end, and the model held.**
+On the go-ahead the design seal built cleanly through **F1 → C → F2 → B → I**
+(each its own commit): a joined Query is now **buildable**, not just create-able —
+`[Edit]` on `/queries/:id` opens an in-place builder that edits the join + builds
+cross-source predicates over `resolvedColumns`, **previews the unsaved copy live**
+(a stateless `POST …/preview`), and Saves via `PUT /queries/{id}`; invalid edits
+flag-don't-crash and block Save. **The DFCFBI lane earned its cost:** F1's
+prototype is what *resolved* J-3 (stateless preview, not save-then-run) — a
+contract shape that genuinely couldn't be settled before the interaction existed
+(selector condition 4), then frozen at C with **no churn** (no contract v2). And
+the round's load-bearing call held: R72's risk was **UX, not model**, so it used
+the **F1 timebox**, not the design-model valve — and the build **added no field
+and no engine**, consuming R71's twice-validated edge + sealed `QueryDefinition`
+exactly. The reuse invariant held through the build: the only new surfaces are the
+builder panel + the join editor; the predicate editors, the relationship
+`<Select>`, `<PagedRowsView>`, and both run engines are reused.
+
+**Learnings (notes, not promotions):**
+
+- **Match the valve to the risk axis.** The governance already *names* the
+  UX-flow valve (F1) and the design-model valve as distinct; R72's contribution
+  was the active discipline of **choosing F1 and explicitly NOT re-invoking the
+  model valve** because the model was settled — "add only the mechanism the named
+  failure mode pulls." This sharpens
+  [specious-model-lock-in](../../memory/2026-06-13-specious-model-lock-in.md) /
+  the hybrid-flow valve distinction; it has now fired once. Promote if a third
+  round re-applies it (the don't-add-until-pulled rule).
+- **A UX-dependent contract question is best *named at Design, resolved at F1,
+  frozen at C*.** J-3 (stateless preview vs save-then-run) rode the DFCFBI lane
+  exactly as intended — named as selector-condition-4 at Design, answered by the
+  F1 prototype, frozen at C with zero contract v2. The DCFBI default would have
+  had to guess the preview shape at C before the interaction existed.
+
+**Follow-ups (notes):**
+
+- **R73 — the multi-join canvas** (J-1′): chain 2+ relationships (a multi-hop
+  join `query_joined_rows` can't yet express → the engine's first growth past one
+  edge), a visual source graph; the **unified `ds_`/`qr_` resolver** lands when
+  Query × Query composition needs it.
+- **Rename-in-builder, left/outer/composite/self/cross-workspace joins, row-
+  explosion guard** — remain deferred with R70/R71/R72 named triggers.
+- **Swapping the driving dataset** (a join edge whose left source differs from the
+  query's) is out of the definition-only edit; if pulled, it's a `datasetId`
+  change (a new contract concern), not part of constructing a definition.
 
 ## Feeds into → Round_73 (multi-join construction — the builder canvas)
 
