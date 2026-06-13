@@ -82,6 +82,29 @@ CREATE INDEX IF NOT EXISTS idx_queries_dataset_id
     ON queries(dataset_id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_queries_name_unique
     ON queries(workspace_id, name);
+
+-- R70: relationship governance. A governed EDGE between two datasets in one
+-- workspace — a column pair + declared cardinality. CASCADE on the workspace
+-- and BOTH datasets (an edge without either endpoint is meaningless). `status`
+-- (valid|stale) is NOT stored — it is recomputed on read against the current
+-- dataset schemas (always-fresh, mirrors query_stale). No user-supplied name;
+-- uniqueness is on the ordered column-pair within the workspace.
+CREATE TABLE IF NOT EXISTS relationships (
+    id TEXT PRIMARY KEY,
+    workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    left_dataset_id TEXT NOT NULL REFERENCES datasets(id) ON DELETE CASCADE,
+    left_column TEXT NOT NULL,
+    right_dataset_id TEXT NOT NULL REFERENCES datasets(id) ON DELETE CASCADE,
+    right_column TEXT NOT NULL,
+    cardinality TEXT NOT NULL
+        CHECK (cardinality IN ('one_to_one', 'one_to_many', 'many_to_many')),
+    created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_relationships_workspace_id
+    ON relationships(workspace_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_relationships_pair_unique
+    ON relationships(workspace_id, left_dataset_id, left_column, right_dataset_id, right_column);
 """
 
 # Unique indexes added by R25 (CRUD hygiene chain). Created AFTER the
@@ -162,6 +185,7 @@ def reset_db_for_tests() -> None:
     """Clear both tables. Used by autouse test fixtures."""
     bootstrap_schema()
     with get_conn() as con:
+        con.execute("DELETE FROM relationships")
         con.execute("DELETE FROM queries")
         con.execute("DELETE FROM datasets")
         con.execute("DELETE FROM workspaces")

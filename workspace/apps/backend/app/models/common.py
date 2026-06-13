@@ -213,3 +213,45 @@ class ApiErrorQueryStale(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     code: Literal["query_stale"] = ERROR_CODES["query_stale"]  # type: ignore[assignment]
+
+
+# ─── R70: relationship governance ────────────────────────────────────
+# Mirrors packages/contracts/_shared/relationship.yaml + relationships/*.
+# A Relationship is a governed EDGE between two datasets in one workspace.
+# `status` is computed on read (never stored). Persistence is raw-SQLite.
+
+RelationshipId = Annotated[str, Field(pattern=ID_PATTERNS["relationship"])]
+Cardinality = Literal["one_to_one", "one_to_many", "many_to_many"]
+RelationshipStatus = Literal["valid", "stale"]
+
+
+class Relationship(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: RelationshipId
+    workspaceId: WsId  # noqa: N815
+    leftDatasetId: DsId  # noqa: N815
+    leftColumn: Annotated[str, Field(min_length=1)]  # noqa: N815
+    rightDatasetId: DsId  # noqa: N815
+    rightColumn: Annotated[str, Field(min_length=1)]  # noqa: N815
+    cardinality: Cardinality
+    status: RelationshipStatus
+    createdAt: IsoUtc  # noqa: N815
+
+
+class CreateRelationshipBody(BaseModel):
+    """POST /workspaces/{id}/relationships request body."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    leftDatasetId: DsId  # noqa: N815
+    leftColumn: Annotated[str, Field(min_length=1)]  # noqa: N815
+    rightDatasetId: DsId  # noqa: N815
+    rightColumn: Annotated[str, Field(min_length=1)]  # noqa: N815
+    cardinality: Cardinality
+
+
+class ApiErrorRelationshipExists(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    code: Literal["relationship_exists"] = ERROR_CODES["relationship_exists"]  # type: ignore[assignment]
