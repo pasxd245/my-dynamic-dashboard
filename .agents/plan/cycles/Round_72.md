@@ -271,6 +271,52 @@ Gate commit seams (gate = commit): Plan `22a9a38` → Design `0045e74` (+ this
 seam-note recording the SHA). Each gate independently revertable. Build chain
 awaits the human's go-ahead.
 
+### Gate F1 — Frontend discovery (DFCFBI) — built on the human's go-ahead (2026-06-13)
+
+The go-ahead came; the DFCFBI build chain proceeds, each gate its own seam. F1
+prototypes the editable-builder + live-preview interaction against MSW (the
+FE-on-MSW is the UX source of truth) and **freezes the interaction decisions**;
+its output is UX acceptance + the contract questions for C (no contract YAML this
+phase, per the F1 timebox rule).
+
+**Interaction decisions frozen (F1 gate exit):**
+
+- **Edit is a mode of the detail, not a page.** `[Edit]` on `/queries/:id` swaps
+  the read-only join + predicate summaries for `QueryBuilderPanel` **in place**
+  (same detail shell); no `/builder` route. The builder owns Save/Cancel; `[Edit]`
+  reappears on exit. (`QueryDetailPage` extended; `QueryBuilderPanel` +
+  `JoinEditor` new — feature-local, reusing the shipped editors.)
+- **Predicates reuse the shipped editors over the effective space.** The chip
+  `FilterPopover` (per effective column) + `ActiveFilterChips` + the
+  `AdvancedQueryInput` + a `?q=` search all bind to **`resolvedColumns`** (combined,
+  collision-qualified) when joined, the source dataset's columns otherwise —
+  **no** new predicate engine; all three are the callback-based (URL-agnostic)
+  shipped components, composed over a **local working-copy** definition.
+- **Join editing is a single edge, left-source-stable.** `JoinEditor` offers
+  valid edges whose **left/driving dataset is the query's source** (+ Clear) — so
+  the edit stays **definition-only** (`datasetId` never changes); swapping the
+  driving table would be a different query (deferred). Clearing reverts to
+  single-source and re-binds the predicate columns.
+- **Live preview before save (J-3 RESOLVED → stateless preview).** Editing re-runs
+  the **unsaved** working copy through a **stateless** `POST
+  /workspaces/{id}/queries/preview` (never persisted), rendered in the reused
+  `<PagedRowsView>`; `query_dataset_rows` / `query_joined_rows` are reused. The
+  save-then-run alternative was rejected — it would orphan drafts and can't preview
+  before commit. **This is F1's contract-question answer handed to C:** preview =
+  a stateless endpoint; persist = `PUT /queries/{id}` with `{ definition }` only.
+- **Flag-don't-crash, blocks save.** A drifted edge → `409 relationship_stale`
+  (join-unavailable `role="alert"`); a structurally-invalid atom (e.g. a filter
+  left dangling after the join is cleared) is caught **client-side** and disables
+  `[Save]`; a dirty-state `Unsaved changes` tag + a discard-confirm on Cancel.
+
+**F1 gate verification:** builder **type-check clean**; suite **142/144** (4 new
+`queries.test.tsx` R72 cases: enter edit + live-preview the joined copy; edit →
+preview → **save** → back to read view; `relationship_stale` preview → join-stale
+state + Save disabled; cancel restores the read view). The 2 failures are the
+**pre-existing upload-wizard 5s flake** (R69/R71) — **7/7 in isolation** at
+`--test-timeout=15000`. F1 ad-hoc MSW handlers (`preview`/`put`) are unwrapped this
+phase; C formalizes + `withContractValidation`-wraps them. **F1 within timebox.**
+
 ## Check
 
 - [x] **J-1, J-2, J-1′ ratified** with the human (Plan gate); **J-3, J-4 held

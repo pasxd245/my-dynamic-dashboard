@@ -1,7 +1,13 @@
 import { appConfig } from '../config';
 import { ApiErrorThrown, isApiError } from '@/features/data-management/_shared/types';
 import type { RowsPage } from '@/features/data-management/datasets/types';
-import type { CreateQueryRequest, Query } from '@/features/data-management/queries/types';
+import type {
+  CreateQueryRequest,
+  PreviewQueryRequest,
+  Query,
+  QueryPreview,
+  UpdateQueryRequest,
+} from '@/features/data-management/queries/types';
 
 // R69 — Saved Query API client. Mirrors datasetsApi conventions (single
 // appConfig base, ApiErrorThrown on structured 4xx). Five routes:
@@ -62,6 +68,33 @@ export const queriesApi = {
     const params = new URLSearchParams({ page: String(page), page_size: String(pageSize) });
     const resp = await fetch(`${API_BASE_URL}/queries/${id}/rows?${params.toString()}`);
     return readJson<RowsPage>(resp);
+  },
+
+  /** R72 — POST /workspaces/{id}/queries/preview — run an UNSAVED working-copy
+   *  definition (the live preview), paged. Returns the `RowsPage` shape plus
+   *  `resolvedColumns` when the definition joins. 409 query_stale /
+   *  relationship_stale (a drifted predicate / edge); 422 (a structurally bad
+   *  definition). Never persists. */
+  async preview(workspaceId: string, body: PreviewQueryRequest, page: number, pageSize: number): Promise<QueryPreview> {
+    const params = new URLSearchParams({ page: String(page), page_size: String(pageSize) });
+    const resp = await fetch(`${API_BASE_URL}/workspaces/${workspaceId}/queries/preview?${params.toString()}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    return readJson<QueryPreview>(resp);
+  },
+
+  /** R72 — PUT /queries/{id} — persist an edited DEFINITION (join + predicates;
+   *  name unchanged this round). Same validate-on-save guards as create
+   *  (422 unknown/cross-workspace/stale edge or bad atom). 404 if absent. */
+  async update(id: string, body: UpdateQueryRequest): Promise<Query> {
+    const resp = await fetch(`${API_BASE_URL}/queries/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    return readJson<Query>(resp);
   },
 
   /** DELETE /queries/{id} — 204 / 404. */

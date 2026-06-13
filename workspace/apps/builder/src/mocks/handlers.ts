@@ -16,7 +16,12 @@ import { http, HttpResponse } from 'msw';
 
 import { OPS_BY_DTYPE, type FilterPredicate, type Operator } from '@/features/data-management/datasets/filters/types';
 import type { Column } from '@/features/data-management/datasets/types';
-import type { CreateQueryRequest } from '@/features/data-management/queries/types';
+import type {
+  CreateQueryRequest,
+  PreviewQueryRequest,
+  QueryDefinition,
+  UpdateQueryRequest,
+} from '@/features/data-management/queries/types';
 import type { CreateRelationshipRequest } from '@/features/data-management/relationships/types';
 import { withContractValidation } from './contract-validator';
 import {
@@ -30,6 +35,7 @@ import {
   MOCK_ROWS,
   MOCK_STALE_JOIN_QUERY_ID,
   MOCK_STALE_QUERY_ID,
+  MOCK_STALE_RELATIONSHIP,
   MOCK_WORKSPACE,
 } from './fixtures';
 
@@ -452,6 +458,56 @@ export const handlers = [
       total: matched.length,
     });
   }),
+  // R72 — preview: run an UNSAVED working-copy definition (the live builder
+  // preview), never persisted. Joined → combined columns + resolvedColumns;
+  // a stale edge → 409 relationship_stale (the builder's join-unavailable
+  // state). Reuses the same applyFiltersAndQ engine as the saved run.
+  http.post(api('/workspaces/:id/queries/preview'), async ({ request }) => {
+    const body = (await request.json()) as PreviewQueryRequest;
+    const def: QueryDefinition = body.definition ?? { q: null, filters: [], advanced: [] };
+    const url = new URL(request.url);
+    const page = Math.max(1, Number(url.searchParams.get('page') ?? 1));
+    const pageSize = Math.max(1, Number(url.searchParams.get('page_size') ?? 25));
+
+    if (def.join) {
+      if (def.join.relationshipId === MOCK_STALE_RELATIONSHIP.id) {
+        return HttpResponse.json({ code: 'relationship_stale' }, { status: 409 });
+      }
+      const columns = [...MOCK_DATASET.columns, ...MOCK_DATASET_2.columns];
+      const preds = def.filters.map(predFromAtom);
+      const aqGroups = def.advanced.map((g) => g.map(predFromAtom));
+      const matched = applyFiltersAndQ(MOCK_JOINED_ROWS.rows, columns, preds, def.q ?? null, aqGroups);
+      const offset = (page - 1) * pageSize;
+      return HttpResponse.json({
+        rows: matched.slice(offset, offset + pageSize),
+        page,
+        pageSize,
+        total: matched.length,
+        resolvedColumns: columns,
+      });
+    }
+
+    const preds = def.filters.map(predFromAtom);
+    const aqGroups = def.advanced.map((g) => g.map(predFromAtom));
+    const matched = applyFiltersAndQ(MOCK_ROWS, MOCK_DATASET.columns, preds, def.q ?? null, aqGroups);
+    const offset = (page - 1) * pageSize;
+    return HttpResponse.json({ rows: matched.slice(offset, offset + pageSize), page, pageSize, total: matched.length });
+  }),
+
+  // R72 — update: persist an edited DEFINITION (name unchanged). Echoes the
+  // Query with the new definition (+ resolvedColumns when joined).
+  http.put(api('/queries/:id'), async ({ params, request }) => {
+    const body = (await request.json()) as UpdateQueryRequest;
+    const base = params.id === MOCK_JOINED_QUERY.id ? MOCK_JOINED_QUERY : MOCK_QUERY;
+    const joined = Boolean(body.definition?.join);
+    return HttpResponse.json({
+      ...base,
+      id: String(params.id),
+      definition: body.definition,
+      ...(joined ? { resolvedColumns: [...MOCK_DATASET.columns, ...MOCK_DATASET_2.columns] } : { resolvedColumns: undefined }),
+    });
+  }),
+
   http.delete(api('/queries/:id'), () => new HttpResponse(null, { status: 204 })),
 
   // Relationships (R70 — governance): declare / list / get / delete.

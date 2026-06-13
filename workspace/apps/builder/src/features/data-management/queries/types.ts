@@ -70,3 +70,29 @@ export type CreateQueryRequest = {
   datasetId: string;
   definition: QueryDefinition;
 };
+
+/** R72 — PUT /queries/{id} request body. The construction surface edits a
+ *  Query's DEFINITION only (join + predicates); the name is unchanged this
+ *  round (rename deferred). Mirrors `queries/put.contract.yaml`. */
+export type UpdateQueryRequest = {
+  definition: QueryDefinition;
+};
+
+/** R72 — POST /workspaces/{id}/queries/preview request body. Runs an UNSAVED
+ *  working-copy definition (the live preview), never persisted. Mirrors
+ *  `queries/preview.contract.yaml`. */
+export type PreviewQueryRequest = {
+  datasetId: string;
+  definition: QueryDefinition;
+};
+
+/** R72 — the preview run result: the same `RowsPage` shape as a saved run,
+ *  plus the server-computed `resolvedColumns` when the working copy joins
+ *  (the builder needs the combined headers to render the preview table). */
+export type QueryPreview = {
+  rows: readonly (readonly (string | null)[])[];
+  page: number;
+  pageSize: number;
+  total: number;
+  resolvedColumns?: readonly ResolvedColumn[];
+};

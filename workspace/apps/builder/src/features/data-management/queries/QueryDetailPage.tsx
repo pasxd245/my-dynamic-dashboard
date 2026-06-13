@@ -21,6 +21,7 @@ import { useRelationshipQuery } from '@/features/data-management/relationships/h
 import { ApiErrorThrown } from '../_shared/types';
 import { DeleteConfirmModal } from '../_shared/DeleteConfirmModal';
 import { PagedRowsView } from '../_shared/PagedRowsView';
+import { QueryBuilderPanel } from './QueryBuilderPanel';
 import { useDeleteQueryMutation, useQueryQuery, useQueryRowsQuery } from './hooks';
 
 const ALLOWED_PAGE_SIZES = [25, 50, 100] as const;
@@ -71,6 +72,7 @@ export function QueryDetailPage() {
   const rightDatasetQuery = useDatasetQuery(relationship?.rightDatasetId);
 
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [editing, setEditing] = useState(false);
   const deleteMutation = useDeleteQueryMutation();
 
   const notFound = isNotFound(queryQuery.error) || isNotFound(rowsQuery.error);
@@ -171,6 +173,17 @@ export function QueryDetailPage() {
     <Button danger onClick={() => setDeleteOpen(true)} data-component="QueryDetailDelete">
       {t('common.delete')}
     </Button>
+  );
+  // R72 — the populated state also offers [Edit] (enter the construction
+  // surface). Hidden while editing (the builder owns Save/Cancel), and absent
+  // from the stale / join-unavailable headers (repair the source/edge first).
+  const populatedActions = editing ? null : (
+    <span style={{ display: 'inline-flex', gap: 8 }}>
+      <Button type="primary" onClick={() => setEditing(true)} data-component="QueryDetailEdit">
+        {t('queries.builder.edit')}
+      </Button>
+      {actions}
+    </span>
   );
 
   // ─── Stale ─────────────────────────────────────────────────────────
@@ -330,7 +343,7 @@ export function QueryDetailPage() {
         breadcrumb={BREADCRUMB}
         title={title}
         subtitle={t('queries.detail.subtitle')}
-        actions={actions}
+        actions={populatedActions}
         onNavigate={(r) => navigate(r)}
       />
       <PageCard variant="fill">
@@ -339,35 +352,45 @@ export function QueryDetailPage() {
             {t('queries.detail.sourceLabel')} {sourceLink}
           </Typography.Text>
         </div>
-        {joinSummary}
-        {def.q || def.filters.length > 0 || def.advanced.length > 0 ? predicateTags : null}
-        <div style={{ flex: '0 0 auto', marginBottom: 12 }}>
-          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-            {isJoined
-              ? t('queries.detail.matchedRows', { matched: total.toLocaleString(locale) })
-              : t('queries.detail.matchedOfTotal', {
-                  matched: total.toLocaleString(locale),
-                  total: (dataset?.rowCount ?? 0).toLocaleString(locale),
-                })}
-          </Typography.Text>
-        </div>
-        <PagedRowsView
-          columns={columns}
-          rows={rowsQuery.data?.rows}
-          loading={rowsQuery.isFetching || datasetQuery.isLoading}
-          total={total}
-          page={page}
-          pageSize={pageSize}
-          onPageChange={handlePageChange}
-          emptyState={
-            <>
-              <Typography.Title level={5} style={{ marginTop: 0 }}>
-                {t('queries.detail.zeroRowsTitle')}
-              </Typography.Title>
-              <Typography.Text type="secondary">{t('queries.detail.zeroRowsHint')}</Typography.Text>
-            </>
-          }
-        />
+        {editing ? (
+          <QueryBuilderPanel
+            query={query}
+            datasetColumns={dataset?.columns ?? []}
+            onDone={() => setEditing(false)}
+          />
+        ) : (
+          <>
+            {joinSummary}
+            {def.q || def.filters.length > 0 || def.advanced.length > 0 ? predicateTags : null}
+            <div style={{ flex: '0 0 auto', marginBottom: 12 }}>
+              <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                {isJoined
+                  ? t('queries.detail.matchedRows', { matched: total.toLocaleString(locale) })
+                  : t('queries.detail.matchedOfTotal', {
+                      matched: total.toLocaleString(locale),
+                      total: (dataset?.rowCount ?? 0).toLocaleString(locale),
+                    })}
+              </Typography.Text>
+            </div>
+            <PagedRowsView
+              columns={columns}
+              rows={rowsQuery.data?.rows}
+              loading={rowsQuery.isFetching || datasetQuery.isLoading}
+              total={total}
+              page={page}
+              pageSize={pageSize}
+              onPageChange={handlePageChange}
+              emptyState={
+                <>
+                  <Typography.Title level={5} style={{ marginTop: 0 }}>
+                    {t('queries.detail.zeroRowsTitle')}
+                  </Typography.Title>
+                  <Typography.Text type="secondary">{t('queries.detail.zeroRowsHint')}</Typography.Text>
+                </>
+              }
+            />
+          </>
+        )}
       </PageCard>
       <DeleteConfirmModal
         resourceLabel="query"

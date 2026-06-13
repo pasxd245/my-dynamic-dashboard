@@ -425,6 +425,31 @@
       "nameLabel": "Name",
       "namePlaceholder": "Name this joined query",
       "failed": "Couldn't create the joined query"
+    },
+    "builder": {
+      "edit": "Edit",
+      "joinLabel": "Join",
+      "joinPlaceholder": "Join with a related dataset",
+      "clearJoin": "Clear join",
+      "joinNone": "No valid relationship drives from this dataset. Declare one in the workspace to join.",
+      "filtersLabel": "Filters",
+      "combinedColumns": "(columns from both datasets)",
+      "columnsPending": "Resolving the joined columns…",
+      "searchLabel": "Search",
+      "searchPlaceholder": "Match any cell…",
+      "joinStale": "This join is unavailable — a join column no longer exists. Pick a different relationship, or clear the join.",
+      "predInvalid": "{{count}} filter references a column that isn't in these results. Remove it or pick a current column.",
+      "previewLoading": "Previewing…",
+      "previewCount": "Preview · {{count}} rows",
+      "unsaved": "Unsaved changes",
+      "previewEmptyTitle": "No rows match this definition",
+      "previewEmptyHint": "Adjust the join or the filters to see rows.",
+      "save": "Save",
+      "saved": "Query \"{{name}}\" updated",
+      "discardTitle": "Discard changes?",
+      "discardBody": "Your edits to this query haven't been saved. Discard them?",
+      "discardConfirm": "Discard",
+      "keepEditing": "Keep editing"
     }
   },
   "relationships": {

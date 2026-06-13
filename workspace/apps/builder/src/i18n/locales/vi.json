@@ -425,6 +425,31 @@
       "nameLabel": "Tên",
       "namePlaceholder": "Đặt tên cho truy vấn nối này",
       "failed": "Không thể tạo truy vấn nối"
+    },
+    "builder": {
+      "edit": "Chỉnh sửa",
+      "joinLabel": "Phép nối",
+      "joinPlaceholder": "Nối với một tập dữ liệu liên quan",
+      "clearJoin": "Bỏ phép nối",
+      "joinNone": "Không có quan hệ hợp lệ nào xuất phát từ tập dữ liệu này. Hãy khai báo một quan hệ trong workspace để nối.",
+      "filtersLabel": "Bộ lọc",
+      "combinedColumns": "(cột từ cả hai tập dữ liệu)",
+      "columnsPending": "Đang phân giải các cột đã nối…",
+      "searchLabel": "Tìm kiếm",
+      "searchPlaceholder": "Khớp bất kỳ ô nào…",
+      "joinStale": "Phép nối này không khả dụng — một cột nối không còn tồn tại. Hãy chọn quan hệ khác hoặc bỏ phép nối.",
+      "predInvalid": "{{count}} bộ lọc tham chiếu một cột không có trong kết quả này. Hãy xóa nó hoặc chọn một cột hiện có.",
+      "previewLoading": "Đang xem trước…",
+      "previewCount": "Xem trước · {{count}} dòng",
+      "unsaved": "Thay đổi chưa lưu",
+      "previewEmptyTitle": "Không có dòng nào khớp với định nghĩa này",
+      "previewEmptyHint": "Điều chỉnh phép nối hoặc bộ lọc để xem các dòng.",
+      "save": "Lưu",
+      "saved": "Đã cập nhật truy vấn \"{{name}}\"",
+      "discardTitle": "Bỏ các thay đổi?",
+      "discardBody": "Các chỉnh sửa cho truy vấn này chưa được lưu. Bỏ chúng?",
+      "discardConfirm": "Bỏ",
+      "keepEditing": "Tiếp tục chỉnh sửa"
     }
   },
   "relationships": {

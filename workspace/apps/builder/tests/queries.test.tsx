@@ -163,3 +163,70 @@ describe('Join execution (R71)', () => {
     await waitFor(() => expect(joinBtn).toBeDisabled());
   });
 });
+
+describe('Query construction (R72 — editable builder)', () => {
+  const JOIN_ID = MOCK_JOINED_QUERY.id;
+
+  function clickEdit() {
+    const editBtn = document.querySelector('[data-component="QueryDetailEdit"]') as HTMLButtonElement;
+    fireEvent.click(editBtn);
+  }
+
+  it('enters edit mode and live-previews the joined definition', async () => {
+    renderApp(`/data-management/queries/${JOIN_ID}`);
+    expect(await screen.findByText(/Matched 2 rows/)).toBeInTheDocument();
+    clickEdit();
+    // The builder panel replaces the read-only summaries; the join editor +
+    // the live-preview status render. The preview re-runs the unsaved copy
+    // (joined, no filters) → 2 rows.
+    expect(await screen.findByText(/Preview · 2 rows/)).toBeInTheDocument();
+    expect(document.querySelector('[data-component="QueryBuilderPanel"]')).not.toBeNull();
+    expect(document.querySelector('[data-component="JoinEditor"]')).not.toBeNull();
+    // A cell from the RIGHT (joined-in) source renders in the preview table.
+    expect(await screen.findByText('Acme')).toBeInTheDocument();
+  });
+
+  it('edits the definition, previews, and saves — returning to the read-only view', async () => {
+    renderApp(`/data-management/queries/${JOIN_ID}`);
+    expect(await screen.findByText(/Matched 2 rows/)).toBeInTheDocument();
+    clickEdit();
+    await screen.findByText(/Preview · 2 rows/);
+    // Save is disabled until the working copy differs from the saved one.
+    const saveBtn = document.querySelector('[data-component="QueryBuilderSave"]') as HTMLButtonElement;
+    expect(saveBtn).toBeDisabled();
+    // Type a row search → the definition is now dirty; preview re-runs.
+    const searchInput = screen.getByPlaceholderText('Match any cell…') as HTMLInputElement;
+    fireEvent.change(searchInput, { target: { value: 'D-0001' } });
+    await waitFor(() => expect(saveBtn).not.toBeDisabled());
+    fireEvent.click(saveBtn);
+    // PUT round-trips; the builder closes and the read-only [Edit] reappears.
+    await waitFor(() => expect(document.querySelector('[data-component="QueryDetailEdit"]')).not.toBeNull());
+    expect(document.querySelector('[data-component="QueryBuilderPanel"]')).toBeNull();
+  });
+
+  it('blocks save with the join-unavailable state when the previewed edge is stale', async () => {
+    server.use(
+      http.post('*/workspaces/:id/queries/preview', () =>
+        HttpResponse.json({ code: 'relationship_stale' }, { status: 409 }),
+      ),
+    );
+    renderApp(`/data-management/queries/${JOIN_ID}`);
+    expect(await screen.findByText(/Matched 2 rows/)).toBeInTheDocument();
+    clickEdit();
+    expect(await screen.findByText(/This join is unavailable/)).toBeInTheDocument();
+    expect(document.querySelector('[data-component="QueryBuilderJoinStale"]')).not.toBeNull();
+    const saveBtn = document.querySelector('[data-component="QueryBuilderSave"]') as HTMLButtonElement;
+    expect(saveBtn).toBeDisabled();
+  });
+
+  it('cancels out of edit mode with no changes, restoring the read-only view', async () => {
+    renderApp(`/data-management/queries/${JOIN_ID}`);
+    expect(await screen.findByText(/Matched 2 rows/)).toBeInTheDocument();
+    clickEdit();
+    await screen.findByText(/Preview · 2 rows/);
+    const cancelBtn = document.querySelector('[data-component="QueryBuilderCancel"]') as HTMLButtonElement;
+    fireEvent.click(cancelBtn);
+    await waitFor(() => expect(document.querySelector('[data-component="QueryDetailEdit"]')).not.toBeNull());
+    expect(document.querySelector('[data-component="QueryBuilderPanel"]')).toBeNull();
+  });
+});

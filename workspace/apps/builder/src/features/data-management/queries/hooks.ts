@@ -2,7 +2,14 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { queriesApi } from '@/api/queriesApi';
 import type { RowsPage } from '@/features/data-management/datasets/types';
-import type { CreateQueryRequest, Query } from './types';
+import type {
+  CreateQueryRequest,
+  PreviewQueryRequest,
+  Query,
+  QueryDefinition,
+  QueryPreview,
+  UpdateQueryRequest,
+} from './types';
 
 // R69 — Saved Query TanStack hooks. Key shapes mirror datasets:
 //   ['queries', { workspaceId }] — list (scoped to a workspace)
@@ -48,6 +55,45 @@ export function useCreateQueryMutation() {
     mutationFn: ({ workspaceId, body }) => queriesApi.create(workspaceId, body),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERIES_QUERY_KEY });
+    },
+  });
+}
+
+/** R72 — POST /workspaces/{id}/queries/preview. The live preview of an
+ *  UNSAVED working-copy definition. Keyed on a stable serialization of the
+ *  definition + paging so editing re-runs only when the draft actually
+ *  changes; `enabled` is the builder's edit-mode flag. `placeholderData`
+ *  keeps the last preview visible while the next runs (no flash to empty). */
+export function useQueryPreviewQuery(
+  workspaceId: string | undefined,
+  datasetId: string | undefined,
+  definition: QueryDefinition,
+  page: number,
+  pageSize: number,
+  enabled: boolean,
+) {
+  const defKey = JSON.stringify(definition);
+  return useQuery<QueryPreview>({
+    queryKey: ['query-preview', workspaceId, datasetId, defKey, { page, pageSize }] as const,
+    queryFn: () =>
+      queriesApi.preview(workspaceId as string, { datasetId: datasetId as string, definition }, page, pageSize),
+    enabled: enabled && typeof workspaceId === 'string' && typeof datasetId === 'string',
+    placeholderData: (prev) => prev,
+    retry: false,
+  });
+}
+
+/** R72 — PUT /queries/{id}. Persists an edited definition; invalidates the
+ *  single + rows caches (so the read-only view re-runs the new definition)
+ *  and the lists (the predicate counts may have changed). */
+export function useUpdateQueryMutation() {
+  const queryClient = useQueryClient();
+  return useMutation<Query, Error, { id: string; body: UpdateQueryRequest }>({
+    mutationFn: ({ id, body }) => queriesApi.update(id, body),
+    onSuccess: (updated) => {
+      queryClient.invalidateQueries({ queryKey: QUERIES_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: ['query', updated.id] });
+      queryClient.invalidateQueries({ queryKey: ['query-rows', updated.id] });
     },
   });
 }
