@@ -24,6 +24,7 @@ backend:
   log_level: 'INFO'
   cors_allow_origins:
     - 'http://localhost:3000'
+    - 'http://127.0.0.1:3000'
   upload_max_bytes: 104857600 # 100 MiB
 
   # R30: runtime data root (hosts uploads_tmp/, datasets/, app.sqlite).

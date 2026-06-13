@@ -122,4 +122,7 @@ def test_invalid_port_raises_validation_error(monkeypatch) -> None:
 def test_cors_origins_from_default_yaml(monkeypatch) -> None:
     """List fields render correctly from the Layer 1 yaml."""
     cfg = _fresh_app_config(monkeypatch)
-    assert cfg.get(Fields.BACKEND_CORS_ALLOW_ORIGINS) == ["http://localhost:3000"]
+    assert cfg.get(Fields.BACKEND_CORS_ALLOW_ORIGINS) == [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ]

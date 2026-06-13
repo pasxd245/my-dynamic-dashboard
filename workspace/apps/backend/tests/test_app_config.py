@@ -27,7 +27,7 @@ def test_facade_get_int_resolves_dotted_key() -> None:
 @pytest.mark.unit
 def test_facade_get_returns_list_for_list_fields() -> None:
     origins = CONFIG.get(Fields.BACKEND_CORS_ALLOW_ORIGINS)
-    assert origins == ["http://localhost:3000"]
+    assert origins == ["http://localhost:3000", "http://127.0.0.1:3000"]
 
 
 @pytest.mark.unit
@@ -41,7 +41,10 @@ def test_facade_get_returns_default_on_unknown_key() -> None:
 def test_typed_access_via_settings_property() -> None:
     assert CONFIG.settings.backend.host == "0.0.0.0"
     assert CONFIG.settings.backend.port == 8000
-    assert CONFIG.settings.backend.cors_allow_origins == ["http://localhost:3000"]
+    assert CONFIG.settings.backend.cors_allow_origins == [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ]
 
 
 @pytest.mark.unit
