@@ -312,8 +312,8 @@ engine + side-qualified columns are a **Backend-gate** focus, flagged in joins.m
 
 **Design gate closed + STOPPED (J-3).** The design model is sealed and committed;
 no C/F/B/I this round. Gate commit seams (gate = commit): Plan `921e86d` → Design
-(joins.md + the sibling updates + the saved-query reconciliation + this round
-record) — this commit. Each gate independently revertable.
+`806ff3f` (joins.md + the sibling updates + the saved-query reconciliation + the
+round record) + this seam-note commit. Each gate independently revertable.
 
 ## Check
 
