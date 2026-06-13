@@ -229,4 +229,33 @@ describe('Query construction (R72 — editable builder)', () => {
     await waitFor(() => expect(document.querySelector('[data-component="QueryDetailEdit"]')).not.toBeNull());
     expect(document.querySelector('[data-component="QueryBuilderPanel"]')).toBeNull();
   });
+
+  // AC #5 (client-side, flag-don't-crash): a filter on a RIGHT-source column,
+  // then clearing the join, leaves the atom dangling out of the (now smaller)
+  // effective space → the builder flags it and disables Save. No server help.
+  it('flags a dangling predicate after the join is cleared and blocks save', async () => {
+    renderApp(`/data-management/queries/${JOIN_ID}`);
+    expect(await screen.findByText(/Matched 2 rows/)).toBeInTheDocument();
+    clickEdit();
+    await screen.findByText(/Preview · 2 rows/);
+    // Effective space when joined = 7 (deals) + 3 (accounts) = 10 columns;
+    // a FilterTrigger renders per column. Index 9 = the last right-source col.
+    const triggers = document.querySelectorAll('[data-component="FilterTrigger"]');
+    expect(triggers.length).toBe(10);
+    fireEvent.click(triggers[9]);
+    await waitFor(() => expect(document.querySelector('[data-component="FilterPopoverContent"]')).not.toBeNull());
+    const valueEl = document.querySelector('[data-component="FilterValueInput"]') as HTMLElement;
+    const valueInput = (valueEl.tagName === 'INPUT' ? valueEl : valueEl.querySelector('input')) as HTMLInputElement;
+    fireEvent.change(valueInput, { target: { value: 'gold' } });
+    const applyBtn = document.querySelector('[data-component="FilterApplyButton"]') as HTMLButtonElement;
+    await waitFor(() => expect(applyBtn).not.toBeDisabled());
+    fireEvent.click(applyBtn);
+    // Now clear the join → effective space shrinks to 7; the col-9 atom dangles.
+    const clearJoin = document.querySelector('[data-component="BuilderClearJoin"]') as HTMLButtonElement;
+    fireEvent.click(clearJoin);
+    expect(await screen.findByText(/references a column that isn't in these results/)).toBeInTheDocument();
+    expect(document.querySelector('[data-component="QueryBuilderPredInvalid"]')).not.toBeNull();
+    const saveBtn = document.querySelector('[data-component="QueryBuilderSave"]') as HTMLButtonElement;
+    expect(saveBtn).toBeDisabled();
+  });
 });

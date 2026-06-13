@@ -344,7 +344,28 @@ existing shapes, sealed R71): the join's data-behaviour truth is the contract.
 **Contract gate verification:** `@mdd/contracts` OpenAPI validity **24/24** (was
 22/22 — +preview +put); builder **type-check clean**; `queries.test.tsx` **14/14**
 with the wrapped handlers (the preview + put responses conform to the frozen YAML
-— dual SoT anchored). Contract seam: this commit.
+— dual SoT anchored). Contract seam: `26e935b`.
+
+### Gate F2 — Frontend confirmation (DFCFBI) — (2026-06-14)
+
+The confirmation pass against the **contract-derived** MSW. Because the contract
+was authored **from** F1's frozen shapes, **no shape changed → no contract v2**:
+F2 is a pure confirmation that the FE-on-MSW conforms to the now-frozen YAML (the
+`withContractValidation` wrap added at C makes every preview/put 2xx body
+schema-checked — the confirmation is mechanical, not eyeballed).
+
+- The 4 F1 journeys re-run **green under contract validation** (enter edit +
+  live-preview; edit → preview → **save** (PUT, schema-checked) → read view;
+  `relationship_stale` preview → join-unavailable; cancel).
+- **+1 confirmation case** rounds out acceptance criterion #5 via its **pure
+  client-side** path (the F1 cases covered the server-409 path only): add a filter
+  on a **right-source** column, then **clear the join** → the atom dangles out of
+  the now-smaller effective space → the builder flags it (`QueryBuilderPredInvalid`,
+  `role="alert"`) and **disables Save** — flag-don't-crash, no server round-trip.
+
+**F2 gate verification:** builder **type-check clean**; `queries.test.tsx`
+**15/15** (5 R72 cases), all preview/put responses contract-validated. No contract
+v2 needed. F2 seam: this commit.
 
 ## Check
 
