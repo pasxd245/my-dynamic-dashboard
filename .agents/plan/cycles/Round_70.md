@@ -1,6 +1,6 @@
 # Round 70: The Query domain comes of age — `queries/` graduation + relationship governance
 
-**Status**: Planning
+**Status**: In Progress
 **Date started**: 2026-06-13
 **Date completed**:
 
@@ -117,24 +117,24 @@ parallel page or a re-invented engine
 
 ## Acceptance criteria (this round = Plan + Design gates only)
 
-- [ ] **J-1…J-6 ratified** with the human and recorded in Do.
-- [ ] **`queries/` domain exists**: `saved-query.md` relocated + refactored
+- [x] **J-1…J-6 ratified** with the human and recorded in Do.
+- [x] **`queries/` domain exists**: `saved-query.md` relocated + refactored
       (Query = noun in `queries/`; "Save as Query" = an action on
       `dataset-detail.md`); `query-builder.md` overview authored; all inbound
       links (active docs + the locked Round_69's paths) resolve.
-- [ ] `relationships.md` exists and specifies: the Relationship as a **governed
+- [x] `relationships.md` exists and specifies: the Relationship as a **governed
       edge** (new entity, reused surfaces), the data model + raw-SQLite table +
       `rel_` identity + the dtype-compatibility rule, the declare/validate flow,
-      the workspace-scoped view (chosen home), the `relationship_stale` +
+      the workspace-scoped view (chosen home), the `status: valid|stale` +
       compatibility states, the routes' contract intent, the scope boundary, and
       acceptance criteria each mapping to ≥1 future F/B/I test.
-- [ ] **Noun-vs-mode check passes**: every new/moved surface declared as reuse
+- [x] **Noun-vs-mode check passes**: every new/moved surface declared as reuse
       of an existing component/layout, not a parallel page
       ([specious-model-lock-in](../../memory/2026-06-13-specious-model-lock-in.md)).
-- [ ] Gates green: `design:lint` 0, `design:tokens` 0, `plan:lint` 0,
+- [x] Gates green: `design:lint` 0, `design:tokens` 0, `plan:lint` 0,
       `markdown-check-link` 0 broken; `ui-design` (design-spec) per-facet report
       attached; `gate-walker` confirms the Design exit criterion met.
-- [ ] Plan gate and the two Design seams **committed separately** (revert seams).
+- [x] Plan gate and the two Design seams **committed separately** (revert seams).
 
 ## Risks / unknowns
 
@@ -187,21 +187,154 @@ parallel page or a re-invented engine
   duplicate a page or re-invent the predicate/dtype engine
   ([specious-model-lock-in](../../memory/2026-06-13-specious-model-lock-in.md)).
 
-_Next: the two Design seams (A: `queries/` graduation; B: `relationships.md`),
-then Design-gate verification + `flow-selector`, committed separately._
+### Gate 2 — Design pass
+
+**Seam A — `queries/` graduation (refactor):** `git mv` `saved-query.md`
+`datasets/` → `queries/`; reframed its header (domain = `queries/`; Query = the
+noun; "Save as Query" = an action on [dataset-detail.md](../../design/data-management/datasets/dataset-detail.md);
+preserved the anti-duplication invariant + the independent-axes note). Authored
+[query-builder.md](../../design/data-management/queries/query-builder.md) — the
+domain anchor (the reuse invariant table, the surface map, the
+single-source→joins→composition→workflow trajectory, the noun/verb framing).
+Relocated all inbound links via `markdown-check-link --fix` (37 auto-fixed,
+unique-basename): `dataset-detail.md` (×5), the 5 `contracts/queries/*.md`,
+**Round_69's 15 unanchored paths** (mechanical relocation — no history change),
+
+- `saved-query.md`'s own outbound sibling links (→ `../datasets/`).
+
+**Seam B — relationship governance (feature):** authored
+[relationships.md](../../design/data-management/workspaces/relationships.md) —
+the governed-edge model (edge, not table-source), the `Relationship` data model
+
+- raw-SQLite `relationships` table + `rel_` identity + the dtype-compatibility
+  rule, the declare/validate flow (modal + live compatibility), the
+  workspace-scoped view (`/workspaces/:id/relationships`, shared Page-List), the
+  computed `status: valid|stale` (stale = a non-erroring flag; the `409
+relationship_stale` deferred to R71 execution — a design-gate refinement of J-4),
+  the four routes' contract intent, an explicit Accessibility declaration
+  (`aria-live` compatibility line + icon-not-colour status), 10 acceptance criteria.
+
+**Model check** (Design gate — per the
+[2026-06-13 governance amendment](../../decisions/2026-05-28-hybrid-flow-governance.md)):
+
+- **Noun-vs-mode:** a Relationship is a genuinely **new entity** (an _edge_,
+  structurally distinct from a table-source) — but its **surfaces are reuse**
+  (modal + Page-List + `<DeleteConfirmModal>` + the dataset dtype metadata),
+  never a parallel page. The `queries/` graduation is a **doc-home** move on an
+  axis independent of UI-duplication; it preserves the reuse invariant. So both
+  R70 surfaces clear the noun-vs-mode check.
+- **Discovered-vs-imposed:** _discovered_ — joins were a parked R69 deferral
+  pulled by a real product requirement (purpose #4); the Query-domain graduation
+  was pulled by the human's Query-Builder reframing, not minted to justify a
+  folder. Kill-condition: if no report ever needs two datasets, the edge was
+  over-built — but the critical path pulls it next (R71).
+
+**Verification** (Design-gate gates — see Check): `design:lint` 0 (12 docs),
+`design:tokens` 0 (9 token maps), `plan:lint` 0, `markdown-check-link` 0 broken
+(169 files), `markdownlint` 0; `ui-design` (design-spec) on `relationships.md`
+**PASS** (0 facet gaps — the one Accessibility gap caught preventively and
+remediated in-spec).
+
+**Flow selector run** (per [R47](../../decisions/2026-05-28-hybrid-flow-governance.md)), against the closed design (relationships.md):
+
+| Condition                            | Fired? | Justification                                                                                                                                                                                                |
+| ------------------------------------ | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1. >3 independent states/branches    | yes    | The declare-flow state model has >3 branches (Empty → Picking → Incompatible/Compatible → Saving → Saved/Duplicate/Invalid) plus the list model.                                                             |
+| 2. New interaction pattern           | no     | Every surface reuses a shipped pattern — modal, Page-List catalog, `<Select>`/`<Segmented>`, `<DeleteConfirmModal>`, `<Alert>`/`<Tag>`; the compatibility line is a micro-affordance on existing primitives. |
+| 3. High user-error risk              | no     | Declare creates a reversible edge (delete-with-confirm); reads non-destructive; server re-validation; no irreversible multi-step.                                                                            |
+| 4. Contract depends on unresolved UI | no     | Routes follow the journey and reuse existing shapes; the one open question (specific 422 code vs generic) is a backend choice, not a UI dependency.                                                          |
+| 5. UX confidence below threshold     | no     | J-1…J-6 ratified with the human; all surfaces reuse proven patterns; ui-design design-spec PASS, 0 gaps.                                                                                                     |
+
+Result: **Flow: DCFBI** (1 condition fired — the default, cheap lane; F1/F2
+skipped on this path). The build chain (C → B → I) is sequenced in later
+sessions on the human's go-ahead.
+
+**Design gate closed — STOP.** Gate commit seams (gate = commit; 2026-06-13
+amendment): Plan `7092b7c` → amended Plan `746c411` → Design **Seam A**
+(`queries/` graduation) `3aa0c5d` → Design **Seam B** (relationships.md + this
+round record) — the relationships commit. Each gate is independently revertable.
+Per R70's design-only scope, the round pauses here awaiting the go-ahead to build
+the DCFBI chain (C → B → I).
 
 ## Check
 
-- [ ] `design:lint` 0 · `design:tokens` 0 · `plan:lint` 0 · `markdown-check-link` 0 broken
-- [ ] `ui-design` (design-spec) per-facet report attached
-- [ ] Noun-vs-mode check recorded (Model check in Do)
-- [ ] `queries/` graduation: relocated doc + overview + all inbound links resolve
-- [ ] `gate-walker` (Design gate) exit criterion + commit seams recorded
-- [ ] Plan gate + two Design seams committed separately
+- [x] `design:lint` 0 (12 docs) · `design:tokens` 0 (9 maps) · `plan:lint` 0 ·
+      `markdown-check-link` 0 broken (169 files) · `markdownlint` 0
+- [x] `ui-design` (design-spec) per-facet report attached — **PASS**, 0 gaps
+      (Accessibility gap caught + remediated in-spec)
+- [x] Noun-vs-mode check recorded (Model check in Do) — edge = new entity, reuse
+      surfaces; graduation = independent doc-home axis
+- [x] `queries/` graduation: relocated doc + overview + all inbound links resolve
+- [x] `gate-walker` (Design gate) exit criterion + commit seams recorded (verdict in Act)
+- [x] Plan gate + two Design seams committed separately
 
 ## Act
 
-_Fills as the Plan and Design gates land._
+**Outcome — the Query domain came of age and the relationship model is sealed at
+the Design gate, before any code.** Two design artifacts (real revert seams)
+landed: (1) `queries/` graduated to a first-class domain — `saved-query.md`
+relocated, "Save as Query" reframed as an action, and
+[query-builder.md](../../design/data-management/queries/query-builder.md) authored
+as the domain anchor + trajectory; (2)
+[relationships.md](../../design/data-management/workspaces/relationships.md)
+sealed the **governed-edge** model — workspace-scoped, governance-only,
+raw-SQLite, dtype-validated, stale-flagged.
+
+**The two R69 doctrines held.** The model-altitude error was pre-empted at D
+([specious-model-lock-in](../../memory/2026-06-13-specious-model-lock-in.md)):
+the noun-vs-mode check distinguished a Relationship (a genuinely new _edge_
+entity) from its surfaces (all reuse), and surfaced the key insight that
+**doc-home and UI-duplication are independent axes** — so graduating `queries/`
+does not re-commit the discarded R69's parallel-pages sin. Per-gate commits gave
+independently-revertable seams (Plan, then Seam A, then Seam B —
+[gate-vs-commit-conflation](../../memory/2026-06-13-gate-vs-commit-conflation.md)).
+
+**A mid-Plan reframing, caught at the cheapest place.** The human's "Query
+Builder" observation re-shaped R70 from "relationships, standalone" to "the Query
+domain comes of age" while still at the Plan altitude — the revert-seams
+discipline ([gate-vs-commit-conflation](../../memory/2026-06-13-gate-vs-commit-conflation.md))
+in action (a re-frame before any code costs an amended Plan commit, not a discard).
+
+**One design-gate refinement of a ratified judgment:** J-4 named
+`relationship_stale`; the design realized stale is best a **non-erroring
+`status` field** on governance reads (flag-don't-reject), reserving the `409
+relationship_stale` for R71's join execution (its first real consumer) — recorded
+in `relationships.md § Data contract`.
+
+**`flow-selector`: DCFBI** (1 of 5 fired). The build chain (C → B → I) is
+sequenced for a later session on the human's go-ahead; F1/F2 skipped.
+
+**Learnings**:
+
+- **A concept's design-doc _home_ can graduate independently of its _surfaces_.**
+  R69 deliberately under-homed the Query (doc under `datasets/`) as a brake;
+  R70's real pull let it graduate to `queries/` **without** touching the
+  anti-duplication invariant — because doc-home and UI-duplication are different
+  axes. The R69 lesson ("reuse, don't duplicate") is about components, not
+  folders. _(Candidate memory — see Promotions.)_
+
+**Promotions** _(if none: write as plain text, not checkboxes)_:
+
+- [ ] → `memory/` : "doc-home vs UI-duplication are independent axes" — a
+      refinement of [specious-model-lock-in](../../memory/2026-06-13-specious-model-lock-in.md)
+      and the build-first home-correction lesson
+      ([ui-boundary-build-first](../../memory/2026-05-22-ui-boundary-build-first.md));
+      promote if a third round re-applies it (defer per the don't-add-until-pulled rule).
+
+**Follow-ups (not promotions, just notes):**
+
+- **Stale truth-check on `saved-query.md`**: its Data-model section still says
+  "`queries` table + SQLModel", but R69's build shipped raw-SQLite (the J-3
+  build-first correction). Not introduced by R70; reconcile when the queries
+  backend doc is next touched (purpose #7 spec-vs-impl truth check).
+- **Build chain (C → B → I)** for relationship governance — on the go-ahead.
+
+## Prune check
+
+No rule/gate/doc-section retired this round. The gates earned their place: the
+noun-vs-mode model check pre-empted the exact R69 failure mode again, and
+`ui-design` (design-spec) caught a real Accessibility gap preventively. Nothing
+to cut.
 
 ## Feeds into → Round_71 (Query Builder: join execution / Query-as-join-input)
 
