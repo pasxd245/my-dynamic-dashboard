@@ -18,10 +18,11 @@ so the design-altitude error contaminated all four layers with no revert seam �
 near-total discard. Nothing was committed, so discard was cheap (the one lucky
 break). Salvage parked at `tmp/queries/`.
 
-Lessons captured and now in force:
-[design-gate-noun-vs-mode](../../memory/2026-06-13-design-gate-noun-vs-mode.md),
-[query-is-virtual-dataset](../../memory/2026-06-13-query-is-virtual-dataset.md),
-[round-bundling-revert-seams](../../memory/2026-06-13-round-bundling-revert-seams.md).
+Lessons captured and now in force (committed repo doctrine):
+[specious-model-lock-in](../../memory/2026-06-13-specious-model-lock-in.md)
+(the noun-vs-mode / discovered-vs-imposed trap) +
+[gate-vs-commit-conflation](../../memory/2026-06-13-gate-vs-commit-conflation.md)
+(per-gate commits as the revert seam).
 The gate-walker now binds each gate to a per-gate commit (R69 post-mortem).
 
 **R69-redo re-does the work on the corrected footing**, and is deliberately a
@@ -126,7 +127,7 @@ identity + the Queries catalog/detail routes** are new.
       acceptance criteria that each map to ≥1 future F/B/I test.
 - [ ] **Noun-vs-mode check passes**: every new surface is declared as reuse of
       an existing component/layout, not a parallel page
-      ([design-gate-noun-vs-mode](../../memory/2026-06-13-design-gate-noun-vs-mode.md)).
+      ([specious-model-lock-in](../../memory/2026-06-13-specious-model-lock-in.md)).
 - [ ] Gates green: `design:lint` 0, `design:tokens` 0, `plan:lint` 0,
       `markdown-check-link` 0 broken; `ui-design` (design-spec) per-facet report
       attached; `gate-walker` confirms the Design exit criterion met.
@@ -180,19 +181,99 @@ identity + the Queries catalog/detail routes** are new.
 - **Invariant across all four:** reuse the dataset surfaces' layout/components,
   never duplicate them — the one thing the discarded R69 got wrong.
 
-_Gate 2 (Design) Do-notes — per-gate commits + any mid-round deviations — fill
-as the two design docs land._
+### Gate 2 — Design pass
+
+**Docs produced:**
+
+- Revised [dataset-detail.md](../../design/data-management/datasets/dataset-detail.md):
+  declared the `<PagedRowsView>` extraction (the parked two-consumer trigger
+  fired), framed the standard detail layout, added the gated
+  `[+ Save as Query]` header action, amended the boundary + lifecycle notes.
+- Authored [saved-query.md](../../design/data-management/datasets/saved-query.md):
+  Query as a distinct archetype reusing the dataset surfaces — own Queries
+  catalog + top-level `/queries/:id` detail (shared layouts), SQLModel base,
+  four-route contract intent (with the route-vs-resolver question flagged for
+  the Contract gate), live re-run execution, save/stale/404/delete/empty
+  states, scope boundary, 11 acceptance criteria.
+
+**Model check** (Design gate — per the
+[2026-06-13 governance amendment](../../decisions/2026-05-28-hybrid-flow-governance.md#amendment-2026-06-13-r69-post-mortem)):
+
+- **Noun-vs-mode:** _mode of the existing dataset surfaces_ — a Query reuses
+  the standard detail layout + `<PagedRowsView>` and the Page-List layout; it
+  adds persistence + identity + routes, never a duplicated page. (It is a
+  distinct *archetype* with its own URL, but the **surface** is reuse, not a
+  new page family — the discarded R69's error.)
+- **Discovered-vs-imposed:** _discovered_ — the second paged-table consumer is
+  a genuine, independent pull (the extraction trigger was parked in
+  dataset-detail.md/datasets.md long before this round, not minted to justify
+  the model); the predicate vocabulary + read path already exist and are reused
+  unchanged. Kill-condition: if dashboards/joins never need a shared read
+  source, `<PagedRowsView>`/`TableSource` was over-built — but R71 already pulls
+  it. See [specious-model-lock-in](../../memory/2026-06-13-specious-model-lock-in.md).
+
+**Verification** (Design-gate gates — see Check): `design:lint` 0, `design:tokens`
+0 parity, `plan:lint` 0, `markdown-check-link` 0 broken, `ui-design`
+(design-spec) **PASS** (0 gaps; 1 a11y advisory deferred to the F-gate backstop).
+
+**Flow selector run** (per [R47](../../decisions/2026-05-28-hybrid-flow-governance.md)), against the closed Design output (saved-query.md):
+
+| Condition                            | Fired? | Justification                                                                                                  |
+| ------------------------------------ | ------ | -------------------------------------------------------------------------------------------------------------- |
+| 1. >3 independent states/branches    | yes    | The save-flow and query-mode state models each declare >3 branches (modal submit → success / name-taken / 422; loading / populated / stale / not-found). |
+| 2. New interaction pattern           | no     | Every surface reuses a shipped pattern — modal (rename-modal), catalog (datasets list), detail (dataset-detail), predicate chips (`ActiveFilterChips`), warning (Alert). |
+| 3. High user-error risk              | no     | Save creates (reversible via delete-with-confirm); reads are non-destructive; no irreversible multi-step.       |
+| 4. Contract depends on unresolved UI | no     | The four routes' shapes are determined by the journey and reuse existing `FilterPredicate` / `RowsPage` shapes; the one open question (separate `/rows` route vs unified resolver) is a backend-architecture choice, not a UI-behavior dependency. |
+| 5. UX confidence below threshold     | no     | Redo direction ratified with the human (J-1…J-4); all surfaces reuse proven patterns; ui-design design-spec PASS, 0 gaps. |
+
+Result: **Flow: DCFBI** (1 condition fired — the default, cheap lane). The
+build chain (C → B → I) is sequenced in later sessions; F1/F2 are skipped on
+this path.
 
 ## Check
 
-_Fills at Design-gate verification: `design:lint` / `design:tokens` /
-`plan:lint` / `markdown-check-link` results, the `ui-design` per-facet report,
-and the `gate-walker` Design-gate verdict._
+- [x] **`design:lint`** — 0 errors across the new + edited docs (saved-query.md,
+      dataset-detail.md).
+- [x] **`design:tokens`** — 0 parity errors (no new token; identifiers reused).
+- [x] **`plan:lint`** — Round_69.md 0 errors (structure + cross-links).
+- [x] **`markdown-check-link`** — 0 broken links across the three touched files
+      (memory links re-pointed to the committed repo doctrine files).
+- [x] **`ui-design` (design-spec)** on saved-query.md — **PASS**, 0 facet gaps;
+      one Accessibility advisory (explicit aria / keyboard for the Save action)
+      deferred to the F1/F2 fidelity backstop.
+- [x] **Noun-vs-mode check** — every new surface declared as reuse of an
+      existing component/layout, not a parallel page (Model check in Do).
+- [x] **`gate-walker` (Design gate)** — exit criterion (journeys + acceptance
+      in the artifact) + commit seam + model check all recorded (verdict in Act).
+- [x] **Per-gate commits** — Plan gate (`281657d`) and Design gate committed
+      separately (revert seams).
 
 ## Act
 
-_Fills at round close: confirm the noun-vs-mode error is sealed at D, state the
-lifecycle event for each doc (amended / new), and hand off to the build chain._
+**Outcome — the noun-vs-mode error is sealed at the Design gate, the cheapest
+place.** The corrected model is committed as a design artifact (a real revert
+seam) before any code: a Query is a distinct **archetype** that **reuses** the
+dataset surfaces (standard detail layout + the extracted `<PagedRowsView>` + the
+Page-List layout), not a duplicated noun. The two compounding R69 failure modes
+are both countered — the model error caught at D
+([specious-model-lock-in](../../memory/2026-06-13-specious-model-lock-in.md)),
+and per-gate commits restore the revert seam
+([gate-vs-commit-conflation](../../memory/2026-06-13-gate-vs-commit-conflation.md)).
+
+**Lifecycle.**
+
+- [dataset-detail.md](../../design/data-management/datasets/dataset-detail.md) —
+  **amended in place** (PagedRowsView extraction declared; `[+ Save as Query]`
+  action added). No change to its states or data contract.
+- [saved-query.md](../../design/data-management/datasets/saved-query.md) — **new**
+  doc; **supersedes** the discarded new-noun `queries.md` (never committed).
+
+**Gate-walker (Design) verdict:** _recorded below the commit seam_ — Design gate
+**closed** (exit criterion + commit seam + model check all present).
+
+**Hand-off.** Flow selected = **DCFBI**. The build chain (Contract → Backend →
+Integration) is sequenced in later sessions, each its own per-gate commit. The
+open route-vs-resolver question is carried to the Contract gate.
 
 ## Feeds into → R69 build chain (C/F/B/I) + R70 (TBD)
 

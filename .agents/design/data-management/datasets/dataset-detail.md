@@ -20,6 +20,9 @@ implementation chain begins R34 (contract), R35 (BE), R36 (FE).
 reused here),
 [dataset-filters.md](dataset-filters.md) (per-column typed
 filters layered on this page; R37 design, R38→R40 impl chain),
+[saved-query.md](saved-query.md) (R69 — the **second consumer** of this
+page's paged-rows body, which it shares via the extracted `<PagedRowsView>`;
+also the destination of this page's `[+ Save as Query]` action),
 [workspace-shell.target.md](../../_platform/workspace-shell.target.md) (the chrome
 this page renders inside).
 
@@ -51,7 +54,7 @@ navigates here.
 | --------------------------------------------------------------------- | ------------------------------------------------------------- | ------------ | ------------------ | ------------------------------------------------------------------- |
 | `DatasetDetailPage` route component                                   | `apps/builder/src/features/data-management/datasets`          | feature      | feature            | react, antd, @tanstack/react-query, react-router-dom, react-i18next |
 | `DatasetMetadataStrip` component                                      | `apps/builder/src/features/data-management/datasets`          | feature      | plain-UI           | react, antd, react-i18next                                          |
-| `DataTable` (paged) component                                         | `apps/builder/src/features/data-management/datasets`          | feature      | plain-UI           | react, antd, react-i18next                                          |
+| `<PagedRowsView>` (paged rows body — R69 extracted from inline `DataTableBody`) | `workspace/packages/ui/src` (`@mdd/ui`)             | shared cross-domain | plain-UI           | react, antd, react-i18next                                          |
 | `useDatasetQuery(id)` hook                                            | `apps/builder/src/features/data-management/datasets`          | feature      | glue (server-data) | @tanstack/react-query                                               |
 | `useDatasetRowsQuery(id, page, pageSize, q?)` hook                    | `apps/builder/src/features/data-management/datasets`          | feature      | glue (server-data) | @tanstack/react-query                                               |
 | `RowSearchBar` component (Input.Search + match counter + clear)       | `apps/builder/src/features/data-management/datasets`          | feature      | plain-UI           | react, antd, react-i18next                                          |
@@ -60,14 +63,32 @@ navigates here.
 | `GET /datasets/{id}/rows` backend route                               | `apps/backend/`                                               | backend      | feature            | (FastAPI — backend native, pyarrow for paged Parquet read)          |
 | `DatasetDetail` + `RowsPage` types (FE)                               | `apps/builder/src/features/data-management/datasets/types.ts` | feature      | data type          | none                                                                |
 
-**Boundary check**: no dataset-detail surface lives in `@mdd/ui`.
-The metadata strip and paged data-table stay feature-local. If a
-second paged-table consumer arrives in a future round (e.g. an
-audit-log page, or a query-results page), the extraction question
-gets re-opened with two concrete consumers in hand. Per the
-build-first lesson
-([memory/2026-05-22-ui-boundary-build-first.md](../../../memory/2026-05-22-ui-boundary-build-first.md)):
-feature-local until two consumers exist.
+**Boundary check**: the metadata strip stays feature-local. The paged
+data-table was feature-local under the build-first rule
+([memory/2026-05-22-ui-boundary-build-first.md](../../../memory/2026-05-22-ui-boundary-build-first.md):
+"feature-local until two consumers exist") with the named trigger _"if a
+second paged-table consumer arrives (e.g. a query-results page), the
+extraction question gets re-opened with two concrete consumers in hand."_
+
+> **R69 amendment — the trigger fired; the table is extracted.**
+> [saved-query.md](saved-query.md)'s query-mode detail is that second
+> concrete consumer, so the parked extraction is now promoted: the inline
+> `DataTableBody` + row-search + `<Pagination>` + the loading / zero-rows /
+> no-match / 404 states become a shared **`<PagedRowsView>`** — a `plain-UI`
+> primitive in `@mdd/ui`, peer to the existing `PageHeader` / `PageCard` /
+> `WorkspaceShell` shells. It takes `columns` (carrying `dtype` for cell
+> rendering) + the current page of `rows` + paging props + a **header slot**
+> (for the search bar or a query's predicate summary) + the state flags; it
+> owns no router, query, or fetch. Each feature page supplies the rows via
+> its own hook. This is the **one** extraction R69 performs — no further
+> layout-framework speculation (the round's dynamic-equilibrium brake). This
+> is a **declaration** at the Design gate; the code extraction is a later
+> F-gate commit (independently revertable).
+>
+> The **standard detail layout** is therefore: `PageHeader` (title / info /
+> actions) + `PageCard variant="fill"` + `<PagedRowsView>`. Dataset-detail
+> and query-detail both instantiate it; each adds its own sections (this page
+> a metadata strip; query-detail a read-only predicate summary).
 
 `DatasetMetadataStrip` and `DataTable` are `plain-UI` purity —
 they take props in, render JSX out, no router, no query, no zod.
@@ -103,8 +124,8 @@ data table.
 ### Populated state (≥1 row)
 
 ```text
-                                                            ┌── PageHeader.actions ──┐
-Home ▸ Data Management ▸ Datasets ▸ q1_pipeline_Deals             [Rename]  [Delete] │
+                                          ┌──────── PageHeader.actions ────────┐
+Home ▸ … ▸ q1_pipeline_Deals       [+ Save as Query]  [Rename]  [Delete] │
 📊 q1_pipeline_Deals                                                                  │
 Excel · Sheet1 — 2,481 rows · 12 columns · 84 KB · Uploaded 14:02 today  ─────────────┘
 
@@ -419,6 +440,21 @@ stateDiagram-v2
   page's 404 state).
 - Both modals already render correctly inside the master shell
   (R26 + R29 contracts); no modal-mount-point changes needed.
+
+### Save as Query (R69 — placement only; spec in saved-query.md)
+
+- A third header action, **`[+ Save as Query]`**, sits left of `[Rename]` in
+  the `PageHeader.actions` slot. It is **enabled iff ≥1 predicate is active**
+  on this page — chip `filters` ([dataset-filters.md](dataset-filters.md)),
+  the `advanced` DNF ([advanced-query.md](advanced-query.md)), or the `?q=`
+  row search — and **disabled** otherwise with the tooltip _"Add a filter or
+  search first."_
+- Clicking it opens the `SaveQueryModal`, which captures the **current**
+  predicate state (built from the live URL/hook state via the shipped
+  serializers) as a named, persisted **Query**. This page only **hosts the
+  action**; the modal, the persisted entity, the Queries catalog, and the
+  query-mode detail view all live in [saved-query.md](saved-query.md). No
+  change to this page's own states or data contract.
 
 ### Row search (`?q=`)
 
@@ -755,8 +791,13 @@ This concept explicitly does NOT cover:
 - Rename/delete modal internals (live in
   [crud-hygiene.md](../_shared/crud-hygiene.md)). This page is a _placement_
   of those modals; the modals themselves are unchanged.
-- Future query / dashboard surfaces that will read the same
-  dataset; those get their own design docs when they land.
+- The Saved Query feature — the modal internals, the persisted
+  `Query` entity, the Queries catalog, and the query-mode detail
+  view all live in [saved-query.md](saved-query.md) (R69). This
+  page only _hosts_ the `[+ Save as Query]` action and _shares_ its
+  paged-rows body via `<PagedRowsView>`.
+- Future dashboard surfaces that will read the same dataset; those
+  get their own design docs when they land.
 
 ---
 
@@ -767,6 +808,12 @@ This doc:
 - **Amended in place** during R34→R36 if implementation surfaces
   a decision not pre-baked here (exact table column widths,
   exact dtype-badge color, exact skeleton row count).
+- **Amended R69 (this revision)** — declared the `<PagedRowsView>`
+  extraction (the parked two-consumer trigger fired via
+  [saved-query.md](saved-query.md)) and the `[+ Save as Query]`
+  header action. Both are Design-gate declarations; the code lands
+  in the R69 build chain. No change to this page's states or data
+  contract.
 - **Superseded** by `dataset-detail-v2.md` if the detail page
   grows a second purpose (e.g. an inline chart preview, a column
   profile panel) — that's a different surface, not an amendment.
