@@ -20,6 +20,7 @@ ID_PATTERNS: dict[str, str] = {
     "workspace": r"{{constants.id_patterns.workspace}}",
     "dataset": r"{{constants.id_patterns.dataset}}",
     "temp": r"{{constants.id_patterns.temp}}",
+    "query": r"{{constants.id_patterns.query}}",
 }
 
 # Code-first error envelope keys (matches packages/contracts/_shared/api-error.yaml
@@ -28,6 +29,7 @@ ERROR_CODES: dict[str, str] = {
     "not_found": "{{constants.error_codes.not_found}}",
     "name_taken": "{{constants.error_codes.name_taken}}",
     "non_empty": "{{constants.error_codes.non_empty}}",
+    "query_stale": "{{constants.error_codes.query_stale}}",
 }
 
 # Name-length bounds enforced by Pydantic Field(max_length=...) on the BE
@@ -37,4 +39,5 @@ ERROR_CODES: dict[str, str] = {
 NAME_LENGTHS: dict[str, int] = {
     "workspace_max": {{constants.name_lengths.workspace_max}},
     "dataset_max": {{constants.name_lengths.dataset_max}},
+    "query_max": {{constants.name_lengths.query_max}},
 }

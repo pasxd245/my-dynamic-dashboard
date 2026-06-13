@@ -6,7 +6,11 @@
 
 /** Discriminated union for code-first error responses on R23 endpoints
  *  (PATCH/DELETE on workspaces and datasets, plus tightened POST /workspaces). */
-export type ApiError = { code: 'not_found' } | { code: 'name_taken' } | { code: 'non_empty'; datasetCount: number };
+export type ApiError =
+  | { code: 'not_found' }
+  | { code: 'name_taken' }
+  | { code: 'non_empty'; datasetCount: number }
+  | { code: 'query_stale' }; // R69 — saved query def stale vs current schema
 
 /** The batch-commit endpoint's 409 carries a `oneOf` over the legacy
  *  `{ error, detail }` envelope and the new `ApiError` variants. The FE
@@ -23,7 +27,12 @@ import { ERROR_CODES } from '@/_generated/constants';
 export function isApiError(body: unknown): body is ApiError {
   if (typeof body !== 'object' || body === null) return false;
   const code = (body as { code?: unknown }).code;
-  return code === ERROR_CODES.NOT_FOUND || code === ERROR_CODES.NAME_TAKEN || code === ERROR_CODES.NON_EMPTY;
+  return (
+    code === ERROR_CODES.NOT_FOUND ||
+    code === ERROR_CODES.NAME_TAKEN ||
+    code === ERROR_CODES.NON_EMPTY ||
+    code === ERROR_CODES.QUERY_STALE
+  );
 }
 
 /** Thrown by the API clients when a 4xx response carries a structured

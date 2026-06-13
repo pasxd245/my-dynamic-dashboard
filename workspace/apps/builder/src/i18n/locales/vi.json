@@ -4,7 +4,8 @@
     "dataManagement": "Quản lý dữ liệu",
     "workspaces": "Không gian làm việc",
     "datasets": "Bộ dữ liệu",
-    "new": "Mới"
+    "new": "Mới",
+    "queries": "Truy vấn"
   },
   "common": {
     "create": "Tạo",
@@ -28,7 +29,8 @@
   },
   "resources": {
     "workspace": "không gian làm việc",
-    "dataset": "bộ dữ liệu"
+    "dataset": "bộ dữ liệu",
+    "query": "truy vấn"
   },
   "app": {
     "errorBoundary": {
@@ -344,5 +346,64 @@
     "body": "Xóa {{resource}} <strong>{{name}}</strong>?",
     "warning": "Hành động này không thể hoàn tác.",
     "ok": "Xóa"
+  },
+  "queries": {
+    "save": {
+      "title": "Lưu thành Truy vấn",
+      "action": "Lưu thành Truy vấn",
+      "disabledTooltip": "Hãy thêm bộ lọc hoặc tìm kiếm trước.",
+      "nameLabel": "Tên",
+      "namePlaceholder": "Đặt tên cho truy vấn này",
+      "nameTaken": "Đã có truy vấn trùng tên trong không gian làm việc này.",
+      "source": "Nguồn: {{dataset}} · {{workspace}}",
+      "captures": "Bao gồm: {{parts}}",
+      "captureFilters": "{{count}} bộ lọc",
+      "captureAdvanced": "{{count}} quy tắc nâng cao",
+      "captureSearch": "1 tìm kiếm",
+      "failed": "Không thể lưu truy vấn",
+      "success": "Đã lưu truy vấn \"{{name}}\"",
+      "defaultName": "Khung nhìn đã lưu"
+    },
+    "list": {
+      "title": "Truy vấn",
+      "subtitle": "Các khung nhìn đã lưu trong các không gian làm việc. Mở để chạy lại trên dữ liệu mới nhất.",
+      "workspaceLabel": "Không gian:",
+      "allWorkspaces": "Tất cả không gian",
+      "searchPlaceholder": "Tìm truy vấn theo tên…",
+      "loadCouldnt": "Không thể tải truy vấn",
+      "emptyTitle": "Chưa có truy vấn nào được lưu",
+      "emptyHint": "Mở một <link>tập dữ liệu</link>, lọc nó và chọn \"Lưu thành Truy vấn\".",
+      "noMatch": "Không có truy vấn khớp với \"{{query}}\"",
+      "noMatchHint": "Thử tên khác hoặc <link>xóa tìm kiếm</link>.",
+      "colName": "Tên",
+      "colSource": "Tập dữ liệu nguồn",
+      "colWorkspace": "Không gian",
+      "colPredicates": "Điều kiện",
+      "colSaved": "Đã lưu",
+      "predFilters": "{{count}} bộ lọc",
+      "predAdvanced": "{{count}} nâng cao",
+      "predSearch": "tìm kiếm",
+      "predNone": "—"
+    },
+    "detail": {
+      "loadingTitle": "Đang tải…",
+      "notFoundTitle": "Truy vấn này không còn tồn tại",
+      "notFoundHint": "Có thể nó đã bị xóa, hoặc tập dữ liệu nguồn đã bị gỡ bỏ.",
+      "backToQueries": "Quay lại Truy vấn",
+      "badgeLive": "Truy vấn · chạy lại trực tiếp",
+      "badgeStale": "Truy vấn · cần chú ý",
+      "subtitle": "Chạy lại trên dữ liệu hiện tại.",
+      "sourceLabel": "Nguồn:",
+      "appliedPredicates": "Điều kiện đang áp dụng (chỉ đọc)",
+      "searchTag": "tìm kiếm: {{q}}",
+      "matchedOfTotal": "Khớp {{matched}} / {{total}} dòng",
+      "zeroRowsTitle": "Không có dòng nào khớp truy vấn này",
+      "zeroRowsHint": "Các điều kiện đã lưu không khớp gì trong dữ liệu hiện tại.",
+      "staleTitle": "Truy vấn này cần chú ý",
+      "staleHint": "Nó tham chiếu một cột không còn tồn tại trong {{dataset}}. Hãy lưu lại từ tập dữ liệu để sửa.",
+      "openSourceDataset": "Mở tập dữ liệu nguồn",
+      "deleteQuery": "Xóa truy vấn",
+      "deleteSuccess": "Đã xóa truy vấn \"{{name}}\""
+    }
   }
 }

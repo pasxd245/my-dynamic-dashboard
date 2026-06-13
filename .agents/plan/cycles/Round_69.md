@@ -261,6 +261,28 @@ stale D-3 judgment labels re-pointed to J-2/J-4.
 are pre-existing 5s-timeout flake under parallel load — pass in isolation and
 at `--test-timeout=15000`).
 
+### Gate 4 — Frontend (DCFBI: F; built against MSW, no hard gate — F1/F2 skipped)
+
+- **`<PagedRowsView>` extracted** (commit `6770fac`) — the parked two-consumer
+  trigger. **Deviation from the design's `@mdd/ui` guess → `data-management/_shared/`**:
+  the primitive depends on builder-domain `@/lib/formatCell` + the dataset
+  dtype types, while `@mdd/ui` is dependency-free; the lowest common ancestor of
+  its two consumers is `data-management/_shared/`. A build-first boundary
+  correction ([2026-05-22-ui-boundary-build-first](../../memory/2026-05-22-ui-boundary-build-first.md)).
+- **Queries feature built**: `queriesApi` (5 routes) + hooks (`useQueriesQuery`
+  / `useQueryQuery` / `useQueryRowsQuery` / `useCreateQueryMutation` /
+  `useDeleteQueryMutation`); `SaveQueryModal` + the gated `[+ Save as Query]`
+  header action on the dataset detail page; `QueriesPage` (own catalog, shared
+  Page-List layout, workspace filter, empty state); `QueryDetailPage` (query
+  mode reusing `<PagedRowsView>` + read-only predicate summary + stale / 404 /
+  delete states); nav + routes + `queries.*` i18n (en + vi).
+- **Config (centralized, FE+BE)**: added the `qr_` id pattern, the `query_stale`
+  error code, and `query_max` to `values.yaml` + both `constants` templates;
+  `ApiError`/`isApiError` widened for `query_stale`.
+- **Verification**: `builder` type-check clean; suite **127/127** (the 6 new
+  `queries.test.tsx` cases include a full **save → navigate → reopen → run**
+  round-trip + the stale state).
+
 ## Check
 
 - [x] **`design:lint`** — 0 errors across the new + edited docs (saved-query.md,

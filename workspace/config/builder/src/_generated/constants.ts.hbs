@@ -20,12 +20,16 @@ export const DATASET_ID_PATTERN = /{{constants.id_patterns.dataset}}/;
 /** Temp upload IDs: `tmp_<16 lowercase hex chars>`. */
 export const TEMP_ID_PATTERN = /{{constants.id_patterns.temp}}/;
 
+/** Query IDs: `qr_<8 lowercase hex chars>` (R69 — Saved Query). */
+export const QUERY_ID_PATTERN = /{{constants.id_patterns.query}}/;
+
 /** R29: error-envelope code values. Used at FE branch sites
  *  (`err.body.code === ERROR_CODES.NAME_TAKEN`). */
 export const ERROR_CODES = {
   NOT_FOUND: "{{constants.error_codes.not_found}}",
   NAME_TAKEN: "{{constants.error_codes.name_taken}}",
   NON_EMPTY: "{{constants.error_codes.non_empty}}",
+  QUERY_STALE: "{{constants.error_codes.query_stale}}",
 } as const;
 
 export type ErrorCode = (typeof ERROR_CODES)[keyof typeof ERROR_CODES];
@@ -36,4 +40,5 @@ export type ErrorCode = (typeof ERROR_CODES)[keyof typeof ERROR_CODES];
 export const NAME_LENGTHS = {
   WORKSPACE_MAX: {{constants.name_lengths.workspace_max}},
   DATASET_MAX: {{constants.name_lengths.dataset_max}},
+  QUERY_MAX: {{constants.name_lengths.query_max}},
 } as const;

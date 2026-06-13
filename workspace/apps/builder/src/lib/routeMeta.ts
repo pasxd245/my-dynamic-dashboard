@@ -66,6 +66,21 @@ export function useRouteMeta(): RouteMeta {
     };
   }
 
+  if (
+    pathname === "/data-management/queries" ||
+    pathname.startsWith("/data-management/queries/")
+  ) {
+    return {
+      breadcrumb: [
+        { label: "Home", route: "/" },
+        { label: "Data Management" },
+        { label: "Queries" },
+      ],
+      title: "Queries",
+      subtitle: "Saved views across your workspaces.",
+    };
+  }
+
   return {
     breadcrumb: [{ label: "Home" }],
     title: "Home",

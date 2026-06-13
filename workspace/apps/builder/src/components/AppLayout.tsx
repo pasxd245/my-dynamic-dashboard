@@ -1,6 +1,7 @@
 import {
   AppstoreOutlined,
   DatabaseOutlined,
+  FilterOutlined,
   TableOutlined,
 } from "@ant-design/icons";
 import { WorkspaceShell, type NavGroup } from "@mdd/ui";
@@ -26,6 +27,11 @@ const NAV_GROUPS: ReadonlyArray<NavGroup> = [
         label: "Datasets",
         icon: <TableOutlined />,
       },
+      {
+        key: "queries",
+        label: "Queries",
+        icon: <FilterOutlined />,
+      },
     ],
   },
 ];
@@ -34,6 +40,7 @@ const NAV_GROUPS: ReadonlyArray<NavGroup> = [
 const ROUTE_FOR_KEY: Record<string, string> = {
   workspaces: "/data-management/workspaces",
   datasets: "/data-management/datasets",
+  queries: "/data-management/queries",
 };
 
 function activeKeyFor(pathname: string): string {
@@ -48,6 +55,12 @@ function activeKeyFor(pathname: string): string {
     pathname.startsWith("/data-management/datasets/")
   ) {
     return "datasets";
+  }
+  if (
+    pathname === "/data-management/queries" ||
+    pathname.startsWith("/data-management/queries/")
+  ) {
+    return "queries";
   }
   // /data-management with no sub-segment is the placeholder route;
   // no leaf is "active" then (the group header just stays expanded).

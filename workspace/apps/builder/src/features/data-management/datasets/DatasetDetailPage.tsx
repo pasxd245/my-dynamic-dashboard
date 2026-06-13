@@ -6,10 +6,11 @@ import {
   EditOutlined,
   FileExcelOutlined,
   FileTextOutlined,
+  PlusOutlined,
 } from '@ant-design/icons';
 import { XCircleIcon } from '@phosphor-icons/react';
 import { PageCard, PageHeader } from '@mdd/ui';
-import { Alert, App, Button, Dropdown, Input, Skeleton, Tag, Typography } from 'antd';
+import { Alert, App, Button, Dropdown, Input, Skeleton, Tag, Tooltip, Typography } from 'antd';
 import i18n from 'i18next';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -18,6 +19,8 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { NAME_LENGTHS } from '@/_generated/constants';
 import { formatBytes } from '@/lib/formatBytes';
 import { useWorkspacesQuery } from '@/features/data-management/workspaces/hooks';
+import { useCreateQueryMutation } from '@/features/data-management/queries/hooks';
+import { SaveQueryModal } from '@/features/data-management/queries/SaveQueryModal';
 import { ApiErrorThrown } from '../_shared/types';
 import { DeleteConfirmModal } from '../_shared/DeleteConfirmModal';
 import { PagedRowsView } from '../_shared/PagedRowsView';
@@ -28,7 +31,7 @@ import {
   useDeleteDatasetMutation,
   useRenameDatasetMutation,
 } from './hooks';
-import { ActiveFilterChips } from './filters/ActiveFilterChips';
+import { ActiveFilterChips, formatChipText } from './filters/ActiveFilterChips';
 import { FilterPopover } from './filters/FilterPopover';
 import { useFiltersState } from './filters/useFiltersState';
 import { AdvancedQueryInput } from './advanced-query/AdvancedQueryInput';
@@ -170,6 +173,43 @@ export function DatasetDetailPage() {
   const renameMutation = useRenameDatasetMutation();
   const deleteMutation = useDeleteDatasetMutation();
 
+  // ─── Save as Query (R69) ───────────────────────────────────────────
+  const [saveQueryOpen, setSaveQueryOpen] = useState(false);
+  const createQueryMutation = useCreateQueryMutation();
+  const openSaveQuery = () => {
+    createQueryMutation.reset();
+    setSaveQueryOpen(true);
+  };
+  const closeSaveQuery = () => {
+    if (createQueryMutation.isPending) return;
+    setSaveQueryOpen(false);
+    createQueryMutation.reset();
+  };
+  const submitSaveQuery = (name: string) => {
+    if (!dataset) return;
+    createQueryMutation.mutate(
+      {
+        workspaceId: dataset.workspaceId,
+        body: {
+          name,
+          datasetId: dataset.id,
+          definition: {
+            q: qParam.length > 0 ? qParam : null,
+            filters: [...filters],
+            advanced: advancedGroups,
+          },
+        },
+      },
+      {
+        onSuccess: (created) => {
+          message.success(t('queries.save.success', { name }));
+          setSaveQueryOpen(false);
+          navigate(`/data-management/queries/${created.id}`);
+        },
+      },
+    );
+  };
+
   const closeModal = () => {
     if (renameMutation.isPending || deleteMutation.isPending) return;
     setModalState({ kind: 'idle' });
@@ -271,7 +311,17 @@ export function DatasetDetailPage() {
   const fullRowCount = dataset.rowCount;
   const hasQuery = qParam.length > 0;
   const hasFilters = filters.length > 0;
+  const hasAdvanced = advancedGroups.length > 0;
+  const hasPredicates = hasQuery || hasFilters || hasAdvanced;
   const showMatchedCounter = hasQuery || rowsQuery.isFetched;
+
+  // Name suggestion for Save-as-Query: the first active chip, else the
+  // search text, else a generic label.
+  const saveQuerySuggestion = hasFilters
+    ? formatChipText(filters[0], dataset.columns, i18n.language, t)
+    : hasQuery
+      ? qParam
+      : t('queries.save.defaultName');
 
   // URL-state translation for PagedRowsView's page/size changes. AntD calls
   // onChange with the prior pageSize when only `page` changed; on page-size
@@ -352,30 +402,42 @@ export function DatasetDetailPage() {
   });
 
   const actions = (
-    <Dropdown
-      trigger={['click']}
-      menu={{
-        items: [
-          {
-            key: 'rename',
-            label: t('common.rename'),
-            icon: <EditOutlined />,
-            onClick: () => setModalState({ kind: 'rename' }),
-          },
-          {
-            key: 'delete',
-            label: t('common.delete'),
-            icon: <DeleteOutlined />,
-            danger: true,
-            onClick: () => setModalState({ kind: 'delete' }),
-          },
-        ],
-      }}
-    >
-      <Button data-component="DatasetDetailActionsTrigger">
-        {t('datasets.detail.actions')} <DownOutlined />
-      </Button>
-    </Dropdown>
+    <span style={{ display: 'inline-flex', gap: 8 }}>
+      <Tooltip title={hasPredicates ? undefined : t('queries.save.disabledTooltip')}>
+        <Button
+          icon={<PlusOutlined />}
+          disabled={!hasPredicates}
+          onClick={openSaveQuery}
+          data-component="SaveAsQueryAction"
+        >
+          {t('queries.save.action')}
+        </Button>
+      </Tooltip>
+      <Dropdown
+        trigger={['click']}
+        menu={{
+          items: [
+            {
+              key: 'rename',
+              label: t('common.rename'),
+              icon: <EditOutlined />,
+              onClick: () => setModalState({ kind: 'rename' }),
+            },
+            {
+              key: 'delete',
+              label: t('common.delete'),
+              icon: <DeleteOutlined />,
+              danger: true,
+              onClick: () => setModalState({ kind: 'delete' }),
+            },
+          ],
+        }}
+      >
+        <Button data-component="DatasetDetailActionsTrigger">
+          {t('datasets.detail.actions')} <DownOutlined />
+        </Button>
+      </Dropdown>
+    </span>
   );
 
   return (
@@ -533,6 +595,19 @@ export function DatasetDetailPage() {
         isPending={deleteMutation.isPending}
         onConfirm={confirmDelete}
         onClose={closeModal}
+      />
+      <SaveQueryModal
+        open={saveQueryOpen}
+        suggestedName={saveQuerySuggestion}
+        sourceDatasetName={dataset.name}
+        workspaceName={workspaceName}
+        filterCount={filters.length}
+        advancedCount={advancedGroups.length}
+        hasSearch={hasQuery}
+        isPending={createQueryMutation.isPending}
+        error={createQueryMutation.error}
+        onSubmit={submitSaveQuery}
+        onClose={closeSaveQuery}
       />
     </div>
   );

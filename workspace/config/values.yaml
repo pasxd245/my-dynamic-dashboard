@@ -72,6 +72,7 @@ constants:
     workspace: '^ws_[0-9a-f]{8}$'
     dataset: '^ds_[0-9a-f]{8}$'
     temp: '^tmp_[0-9a-f]{16}$'
+    query: '^qr_[0-9a-f]{8}$' # R69 — Saved Query
 
   # R29: code-first error envelope keys (matches contracts/_shared/api-error.yaml).
   # The Pydantic Literal annotations on BE side and the discriminated TS union
@@ -81,6 +82,7 @@ constants:
     not_found: 'not_found'
     name_taken: 'name_taken'
     non_empty: 'non_empty'
+    query_stale: 'query_stale' # R69 — saved query def no longer validates vs current schema
 
   # R29: name-length bounds enforced by Pydantic on BE + AntD Form rules on
   # FE. Workspace names globally unique, max 80; dataset names per-workspace
@@ -88,3 +90,4 @@ constants:
   name_lengths:
     workspace_max: 80
     dataset_max: 120
+    query_max: 120 # R69 — query name, per-workspace unique (mirrors dataset)

@@ -4,7 +4,8 @@
     "dataManagement": "Data Management",
     "workspaces": "Workspaces",
     "datasets": "Datasets",
-    "new": "New"
+    "new": "New",
+    "queries": "Queries"
   },
   "common": {
     "create": "Create",
@@ -28,7 +29,8 @@
   },
   "resources": {
     "workspace": "workspace",
-    "dataset": "dataset"
+    "dataset": "dataset",
+    "query": "query"
   },
   "app": {
     "errorBoundary": {
@@ -344,5 +346,64 @@
     "body": "Delete {{resource}} <strong>{{name}}</strong>?",
     "warning": "This action cannot be undone.",
     "ok": "Delete"
+  },
+  "queries": {
+    "save": {
+      "title": "Save as Query",
+      "action": "Save as Query",
+      "disabledTooltip": "Add a filter or search first.",
+      "nameLabel": "Name",
+      "namePlaceholder": "Name this query",
+      "nameTaken": "A query with this name already exists in this workspace.",
+      "source": "Source: {{dataset}} · {{workspace}}",
+      "captures": "Captures: {{parts}}",
+      "captureFilters": "{{count}} filter(s)",
+      "captureAdvanced": "{{count}} advanced rule(s)",
+      "captureSearch": "1 search",
+      "failed": "Couldn't save the query",
+      "success": "Query \"{{name}}\" saved",
+      "defaultName": "Saved view"
+    },
+    "list": {
+      "title": "Queries",
+      "subtitle": "Saved views across your workspaces. Open one to re-run it against fresh data.",
+      "workspaceLabel": "Workspace:",
+      "allWorkspaces": "All workspaces",
+      "searchPlaceholder": "Search queries by name…",
+      "loadCouldnt": "Couldn't load queries",
+      "emptyTitle": "No saved queries yet",
+      "emptyHint": "Open a <link>dataset</link>, filter it, and choose \"Save as Query\".",
+      "noMatch": "No queries match \"{{query}}\"",
+      "noMatchHint": "Try a different name or <link>clear the search</link>.",
+      "colName": "Name",
+      "colSource": "Source dataset",
+      "colWorkspace": "Workspace",
+      "colPredicates": "Predicates",
+      "colSaved": "Saved",
+      "predFilters": "{{count}} filter(s)",
+      "predAdvanced": "{{count}} advanced",
+      "predSearch": "search",
+      "predNone": "—"
+    },
+    "detail": {
+      "loadingTitle": "Loading…",
+      "notFoundTitle": "This query no longer exists",
+      "notFoundHint": "It may have been deleted, or its source dataset was removed.",
+      "backToQueries": "Back to Queries",
+      "badgeLive": "Query · live re-run",
+      "badgeStale": "Query · needs attention",
+      "subtitle": "Re-run against current data.",
+      "sourceLabel": "Source:",
+      "appliedPredicates": "Applied predicates (read-only)",
+      "searchTag": "search: {{q}}",
+      "matchedOfTotal": "Matched {{matched}} / {{total}} rows",
+      "zeroRowsTitle": "No rows match this query",
+      "zeroRowsHint": "The saved predicates matched nothing in the current data.",
+      "staleTitle": "This query needs attention",
+      "staleHint": "It references a column that no longer exists in {{dataset}}. Re-save it from the dataset to fix.",
+      "openSourceDataset": "Open source dataset",
+      "deleteQuery": "Delete query",
+      "deleteSuccess": "Query \"{{name}}\" deleted"
+    }
   }
 }
