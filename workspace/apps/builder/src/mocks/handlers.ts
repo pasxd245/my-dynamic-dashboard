@@ -449,7 +449,8 @@ export const handlers = [
           rightColumn: body.rightColumn ?? 'account_id',
           cardinality: body.cardinality ?? 'one_to_many',
           status: 'valid',
-          createdAt: new Date().toISOString(),
+          // Contract createdAt is second-precision Z (no milliseconds).
+          createdAt: new Date().toISOString().replace(/\.\d{3}Z$/, 'Z'),
         },
         { status: 201 },
       );
