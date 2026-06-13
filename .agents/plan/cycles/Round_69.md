@@ -230,6 +230,10 @@ Result: **Flow: DCFBI** (1 condition fired — the default, cheap lane). The
 build chain (C → B → I) is sequenced in later sessions; F1/F2 are skipped on
 this path.
 
+**Design gate closed** — commit `b866a53` (the two design docs + the Model
+check committed together; this is the Design revert seam). Plan gate seam:
+`281657d`.
+
 ## Check
 
 - [x] **`design:lint`** — 0 errors across the new + edited docs (saved-query.md,
