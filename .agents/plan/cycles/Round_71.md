@@ -1,7 +1,7 @@
 # Round 71: Join execution — a Query consumes a Relationship (the truth-test of R70's edge)
 
-**Status**: Review (Design gate sealed + committed; the C/F/B/I build chain is
-deferred to a later session on the human's go-ahead — J-3)
+**Status**: In Progress (Design gate sealed + committed; building the DCFBI chain
+on the human's go-ahead — Contract done, F/B/I next)
 **Date started**: 2026-06-13
 **Date completed**:
 
@@ -310,10 +310,49 @@ skipped on this path). The build chain (C → F → B → I) is sequenced for a 
 session **on the human's go-ahead** (J-3) — note the new `query_joined_rows`
 engine + side-qualified columns are a **Backend-gate** focus, flagged in joins.md.
 
-**Design gate closed + STOPPED (J-3).** The design model is sealed and committed;
-no C/F/B/I this round. Gate commit seams (gate = commit): Plan `921e86d` → Design
-`806ff3f` (joins.md + the sibling updates + the saved-query reconciliation + the
-round record) + this seam-note commit. Each gate independently revertable.
+**Design gate closed + STOPPED (J-3).** The design model is sealed and committed.
+Gate commit seams (gate = commit): Plan `921e86d` → Design `806ff3f` (joins.md +
+the sibling updates + the saved-query reconciliation + the round record) +
+seam-note `1947a54`. Each gate independently revertable.
+
+### Gate 3 — Contract (C) — built on the human's go-ahead (2026-06-13)
+
+The go-ahead came; the DCFBI build chain proceeds, each gate its own commit seam.
+
+**The open contract question (effective-column exposure) → decided:** a
+**`resolvedColumns` field on `Query`**, server-computed and present **only when a
+join is set** (the combined `left ++ right` space, collision-qualified). Chosen
+over a run-response block: the FE needs the headers on the **detail GET** to
+render the joined `<PagedRowsView>`, and `RowsPage` stays shared with datasets
+unchanged. The J-2′ unified resolver stays deferred (join inputs are two Datasets
+via a `rel_`).
+
+**Delivered (contract artifacts — no new routes; the join is a field on existing
+shapes):**
+
+- `_shared/query.yaml` — new `JoinStep` (`relationshipId` + `type: inner`);
+  `QueryDefinition.join?`; `Query.resolvedColumns?` (the effective columns).
+- `_shared/api-error.yaml` — `ApiErrorRelationshipStale` + `relationship_stale`
+  in the closed `ApiErrorCode` enum + the `oneOf`/discriminator (R70's reserved
+  code, now consumed).
+- `queries/rows-get.contract.yaml` — `409` widened to `oneOf(query_stale,
+  relationship_stale)` with both examples; `queries/post.contract.yaml` — `422`
+  covers an unknown/cross-workspace/stale join edge.
+- **Centralized constants:** `relationship_stale` added to `values.yaml` → both
+  generated templates (`constants.py.hbs` + `constants.ts.hbs`) → re-rendered
+  (BE `ERROR_CODES` + FE `ERROR_CODES.RELATIONSHIP_STALE`).
+- **FE wire types** (`queries/types.ts`): `JoinStep`, `QueryDefinition.join?`,
+  `ResolvedColumn`, `Query.resolvedColumns?`.
+- **MSW + fixtures:** `MOCK_JOINED_QUERY` (join + `resolvedColumns` = Deals ++
+  accounts), `MOCK_JOINED_ROWS`, `MOCK_STALE_JOIN_QUERY_ID`; `getQuery` /
+  `runQuery` handlers serve the joined query, the joined rows, and the `409
+  relationship_stale` for a stale-edge join.
+
+**Contract gate verification:** `@mdd/contracts` OpenAPI validity **22/22**;
+builder **type-check clean**; builder suite **130/132** (the 2 failures are the
+**pre-existing upload-wizard 5s-timeout flake** documented in
+[Round_69 § Contract](Round_69.md) — **7/7 in isolation** at `--test-timeout=15000`;
+queries **6/6**). Contract seam: this commit.
 
 ## Check
 

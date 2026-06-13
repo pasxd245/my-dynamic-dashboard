@@ -149,6 +149,44 @@ export const MOCK_RELATIONSHIPS: readonly Relationship[] = [
   MOCK_STALE_RELATIONSHIP,
 ];
 
+// ─── Joined Query fixtures (R71 — join execution) ────────────────────
+//
+// A Query that consumes MOCK_RELATIONSHIP (Deals.deal_id ↔ Accounts.
+// account_id) to read both datasets as one. Its `resolvedColumns` is the
+// effective space Deals.columns ++ accounts.columns (no name collisions
+// here, so names stay bare); the run returns joined rows in that order.
+
+export const MOCK_JOINED_QUERY: Query = {
+  id: 'qr_101a0001',
+  workspaceId: MOCK_WORKSPACE.id,
+  datasetId: MOCK_DATASET.id, // the LEFT source
+  name: 'Deals × Accounts',
+  definition: {
+    q: null,
+    filters: [],
+    advanced: [],
+    join: { relationshipId: MOCK_RELATIONSHIP.id, type: 'inner' },
+  },
+  resolvedColumns: [...MOCK_DATASET.columns, ...MOCK_DATASET_2.columns],
+  createdAt: '2026-06-13T10:00:00Z',
+};
+
+/** Row-major joined result; cell order matches MOCK_JOINED_QUERY.resolvedColumns
+ *  (7 Deals cols ++ 3 accounts cols = 10). */
+export const MOCK_JOINED_ROWS: RowsPage = {
+  rows: [
+    ['D-0001', '12400', '2026-03-01', 'won', '0.95', 'true', '2026-02-28 14:02:00', 'D-0001', 'Acme', 'gold'],
+    ['D-0005', '24500', '2026-05-02', 'won', '1.00', 'true', '2026-04-22 08:11:00', 'D-0005', 'Globex', 'silver'],
+  ],
+  page: 1,
+  pageSize: 50,
+  total: 2,
+};
+
+/** A joined query whose consumed edge is stale (its join key column drifted):
+ *  run returns 409 relationship_stale, blocking the join. */
+export const MOCK_STALE_JOIN_QUERY_ID = 'qr_5ta1e000';
+
 // R42 YAML-example loader: read `paths.<*>.<*>.responses["200"]
 // .content["application/json"].examples[exampleName].value.rows`
 // from a contract YAML so a fixture mirrors the spec verbatim.

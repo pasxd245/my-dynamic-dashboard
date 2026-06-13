@@ -12,9 +12,20 @@
 import type { PredicateGroups } from '../datasets/advanced-query/types';
 import type { FilterPredicate } from '../datasets/filters/types';
 
+/** R71 — an optional join step: the Query consumes a governed Relationship
+ *  to read two related datasets as one. Mirrors `_shared/query.yaml#/JoinStep`. */
+export type JoinStep = {
+  /** The `rel_…` edge this join consumes (its datasets + key pair). */
+  relationshipId: string;
+  /** MVP — inner join only (left/right/outer deferred). */
+  type: 'inner';
+};
+
 /** The saved predicate state — exactly what the detail page serializes
  *  from its URL (chip filters + advanced DNF + `?q=` search). Re-run
- *  verbatim on open. Mirrors `_shared/query.yaml#/QueryDefinition`. */
+ *  verbatim on open. Mirrors `_shared/query.yaml#/QueryDefinition`.
+ *  R71: an optional `join` makes the Query multi-source; a FilterPredicate's
+ *  column index then refers to the EFFECTIVE (left ++ right) column space. */
 export type QueryDefinition = {
   /** The `?q=` substring search, if the saved view had one. */
   q?: string | null;
@@ -22,6 +33,16 @@ export type QueryDefinition = {
   filters: readonly FilterPredicate[];
   /** Advanced query in DNF — an OR of AND-groups. Empty when none. */
   advanced: PredicateGroups;
+  /** R71 — present iff this Query joins two datasets via a Relationship. */
+  join?: JoinStep;
+};
+
+/** A single effective column of a Query result (name + dtype). For a join,
+ *  duplicate names are collision-qualified (`Deals.id`). Mirrors the inline
+ *  shape in `_shared/query.yaml#/Query/resolvedColumns`. */
+export type ResolvedColumn = {
+  name: string;
+  dtype: 'string' | 'integer' | 'float' | 'boolean' | 'date' | 'datetime';
 };
 
 /** A named, saved definition that produces a (virtual) dataset.
@@ -31,11 +52,14 @@ export type Query = {
   id: string;
   /** FK → Workspace.id (the IA scope). */
   workspaceId: string;
-  /** FK → Dataset.id (the single source — D-4). */
+  /** FK → Dataset.id (the single source — D-4; the LEFT source when joined). */
   datasetId: string;
   /** User-supplied; unique per workspace; 1–120 chars. */
   name: string;
   definition: QueryDefinition;
+  /** R71 — the effective (combined, collision-qualified) columns; present
+   *  only when `definition.join` is set. The FE renders joined headers from it. */
+  resolvedColumns?: readonly ResolvedColumn[];
   /** ISO-8601 UTC, server-stamped. */
   createdAt: string;
 };

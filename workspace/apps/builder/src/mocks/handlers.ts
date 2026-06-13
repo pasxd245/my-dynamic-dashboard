@@ -22,10 +22,13 @@ import { withContractValidation } from './contract-validator';
 import {
   MOCK_DATASET,
   MOCK_DATASET_2,
+  MOCK_JOINED_QUERY,
+  MOCK_JOINED_ROWS,
   MOCK_QUERIES,
   MOCK_QUERY,
   MOCK_RELATIONSHIPS,
   MOCK_ROWS,
+  MOCK_STALE_JOIN_QUERY_ID,
   MOCK_STALE_QUERY_ID,
   MOCK_WORKSPACE,
 } from './fixtures';
@@ -401,6 +404,10 @@ export const handlers = [
     return HttpResponse.json(MOCK_QUERIES);
   }),
   withContractValidation('get', api('/queries/:id'), 'getQuery', ({ params }) => {
+    // R71: a joined query carries `definition.join` + `resolvedColumns`.
+    if (params.id === MOCK_JOINED_QUERY.id) {
+      return HttpResponse.json(MOCK_JOINED_QUERY);
+    }
     if (params.id !== MOCK_QUERY.id) {
       return HttpResponse.json({ code: 'not_found' }, { status: 404 });
     }
@@ -409,6 +416,23 @@ export const handlers = [
   withContractValidation('get', api('/queries/:id/rows'), 'runQuery', ({ params, request }) => {
     if (params.id === MOCK_STALE_QUERY_ID) {
       return HttpResponse.json({ code: 'query_stale' }, { status: 409 });
+    }
+    // R71: a joined query over a stale edge → the join is blocked.
+    if (params.id === MOCK_STALE_JOIN_QUERY_ID) {
+      return HttpResponse.json({ code: 'relationship_stale' }, { status: 409 });
+    }
+    // R71: a valid joined query returns its joined rows (effective columns).
+    if (params.id === MOCK_JOINED_QUERY.id) {
+      const url = new URL(request.url);
+      const page = Math.max(1, Number(url.searchParams.get('page') ?? 1));
+      const pageSize = Math.max(1, Number(url.searchParams.get('page_size') ?? 50));
+      const offset = (page - 1) * pageSize;
+      return HttpResponse.json({
+        rows: MOCK_JOINED_ROWS.rows.slice(offset, offset + pageSize),
+        page,
+        pageSize,
+        total: MOCK_JOINED_ROWS.total,
+      });
     }
     if (params.id !== MOCK_QUERY.id) {
       return HttpResponse.json({ code: 'not_found' }, { status: 404 });

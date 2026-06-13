@@ -85,6 +85,7 @@ constants:
     non_empty: 'non_empty'
     query_stale: 'query_stale' # R69 — saved query def no longer validates vs current schema
     relationship_exists: 'relationship_exists' # R70 — duplicate governed edge (same workspace + column pair)
+    relationship_stale: 'relationship_stale' # R71 — join over an edge whose key column drifted (blocks the join)
 
   # R29: name-length bounds enforced by Pydantic on BE + AntD Form rules on
   # FE. Workspace names globally unique, max 80; dataset names per-workspace

@@ -47,12 +47,41 @@ components:
           type: [string, number]
           description: Upper bound for `between` (inclusive).
 
+    JoinStep:
+      type: object
+      description: |
+        R71 — an optional join step on a QueryDefinition. When present, the
+        Query reads TWO related datasets as one virtual table by consuming a
+        governed Relationship (the `rel_` edge). The join keys + the two
+        datasets come from the Relationship; only the join `type` is a
+        query-time choice. See .agents/design/data-management/queries/joins.md.
+      required: [relationshipId, type]
+      additionalProperties: false
+      properties:
+        relationshipId:
+          type: string
+          pattern: "^rel_[0-9a-f]{8}$"
+          description: |
+            The governed edge this join consumes (its left/right datasets +
+            validated key pair are the join's sources + ON clause). Must be a
+            valid (non-stale), in-workspace Relationship at save time.
+          examples: ["rel_4d7b91ce"]
+        type:
+          type: string
+          enum: [inner]
+          description: |
+            MVP — inner join only. left/right/outer joins are deferred
+            (joins.md § Scope).
+
     QueryDefinition:
       type: object
       description: |
         The saved predicate state — exactly what the dataset detail page
         serializes from its URL: the chip filters, the advanced-query
-        DNF, and the `?q=` row search. Re-run verbatim on open.
+        DNF, and the `?q=` row search. Re-run verbatim on open. R71 adds an
+        optional `join` step: when present, the Query is multi-source and a
+        FilterAtom's `col` indexes the EFFECTIVE column space (left ++ right),
+        not a single dataset.
       required: [filters, advanced]
       additionalProperties: false
       properties:
@@ -79,6 +108,8 @@ components:
             type: array
             items:
               $ref: "#/components/schemas/FilterAtom"
+        join:
+          $ref: "#/components/schemas/JoinStep"
 
     Query:
       type: object
@@ -110,6 +141,28 @@ components:
           examples: ["Won deals over $1k (2026)"]
         definition:
           $ref: "#/components/schemas/QueryDefinition"
+        resolvedColumns:
+          type: array
+          description: |
+            R71 — the Query's EFFECTIVE columns, server-computed and present
+            ONLY when `definition.join` is set. For a join it is the ordered
+            concatenation `leftDataset.columns ++ rightDataset.columns`, with
+            names that collide across the two sides qualified by dataset
+            (`Deals.id` / `Accounts.id`). The FE needs this to render the
+            joined result's headers (it cannot derive them from one source
+            dataset). Omitted for a single-source query (its columns are the
+            source dataset's). See joins.md § Data contract.
+          items:
+            type: object
+            required: [name, dtype]
+            additionalProperties: false
+            properties:
+              name:
+                type: string
+                minLength: 1
+              dtype:
+                type: string
+                enum: [string, integer, float, boolean, date, datetime]
         createdAt:
           type: string
           pattern: "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"

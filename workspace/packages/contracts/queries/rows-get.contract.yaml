@@ -122,17 +122,27 @@ paths:
                   value: { "code": "not_found" }
         "409":
           description: |
-            The saved definition no longer validates against the source
-            dataset's current schema (column removed or retyped). The FE
-            renders the "needs attention" state and points the user at
-            the source dataset to repair (re-save).
+            The saved query can't execute against current data — one of:
+            - `query_stale` — a saved *predicate* atom no longer validates
+              (a filtered column was removed/retyped). R69.
+            - `relationship_stale` — a *joined* query (R71) whose consumed
+              Relationship's key column drifted, so the join can't run. The
+              FE renders the matching "needs attention" / "join unavailable"
+              state and points the user at the source dataset or the
+              workspace Relationships view to repair.
           content:
             application/json:
               schema:
-                $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorQueryStale"
+                oneOf:
+                  - $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorQueryStale"
+                  - $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorRelationshipStale"
               examples:
-                stale:
+                predicate_stale:
+                  summary: A saved filter column drifted (R69)
                   value: { "code": "query_stale" }
+                join_key_stale:
+                  summary: A joined query's relationship key drifted (R71)
+                  value: { "code": "relationship_stale" }
         "422":
           description: |
             Malformed request — `page < 1`, `page_size` not in

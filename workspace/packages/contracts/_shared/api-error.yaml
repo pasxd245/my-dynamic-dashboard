@@ -22,7 +22,7 @@ components:
   schemas:
     ApiErrorCode:
       type: string
-      enum: [not_found, name_taken, non_empty, query_stale, relationship_exists]
+      enum: [not_found, name_taken, non_empty, query_stale, relationship_exists, relationship_stale]
       description: |
         Closed enum. Any new error class lands as a new code in a future
         round + contract update — never as a free-text message.
@@ -102,6 +102,24 @@ components:
             creating a duplicate governed edge. There is no user-supplied
             name, so this — not `name_taken` — is the collision code.
 
+    ApiErrorRelationshipStale:
+      type: object
+      required: [code]
+      additionalProperties: false
+      properties:
+        code:
+          type: string
+          enum: [relationship_stale]
+          description: |
+            A join was requested over a Relationship whose key column was
+            removed or retyped after the edge was declared, so the edge no
+            longer validates against the current dataset schemas. Returned by
+            `GET /queries/{id}/rows` (409) for a joined query instead of
+            executing — R71. The first consumer of the code R70 reserved.
+            Distinct from `query_stale` (a *predicate* atom drifted): this is
+            the *join key* drifting. The FE renders the "join unavailable"
+            state and points the user at the workspace Relationships view.
+
     ApiError:
       description: |
         Discriminated union over `code`. Use `oneOf` + `discriminator` so
@@ -112,6 +130,7 @@ components:
         - $ref: '#/components/schemas/ApiErrorNonEmpty'
         - $ref: '#/components/schemas/ApiErrorQueryStale'
         - $ref: '#/components/schemas/ApiErrorRelationshipExists'
+        - $ref: '#/components/schemas/ApiErrorRelationshipStale'
       discriminator:
         propertyName: code
         mapping:
@@ -120,3 +139,4 @@ components:
           non_empty: '#/components/schemas/ApiErrorNonEmpty'
           query_stale: '#/components/schemas/ApiErrorQueryStale'
           relationship_exists: '#/components/schemas/ApiErrorRelationshipExists'
+          relationship_stale: '#/components/schemas/ApiErrorRelationshipStale'
