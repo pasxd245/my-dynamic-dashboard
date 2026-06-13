@@ -62,6 +62,26 @@ CREATE TABLE IF NOT EXISTS datasets (
 
 CREATE INDEX IF NOT EXISTS idx_datasets_workspace_id
     ON datasets(workspace_id);
+
+-- R69: Saved Query. A Query persists a named predicate definition over ONE
+-- source dataset (D-4). CASCADE on both FKs — a query without its workspace
+-- or its single source dataset is meaningless this round. Fresh table, so its
+-- unique index lives inline (no duplicate-name back-fill needed).
+CREATE TABLE IF NOT EXISTS queries (
+    id TEXT PRIMARY KEY,
+    workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    dataset_id TEXT NOT NULL REFERENCES datasets(id) ON DELETE CASCADE,
+    name TEXT NOT NULL CHECK (length(name) BETWEEN 1 AND 120),
+    definition_json TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_queries_workspace_id
+    ON queries(workspace_id);
+CREATE INDEX IF NOT EXISTS idx_queries_dataset_id
+    ON queries(dataset_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_queries_name_unique
+    ON queries(workspace_id, name);
 """
 
 # Unique indexes added by R25 (CRUD hygiene chain). Created AFTER the
@@ -142,6 +162,7 @@ def reset_db_for_tests() -> None:
     """Clear both tables. Used by autouse test fixtures."""
     bootstrap_schema()
     with get_conn() as con:
+        con.execute("DELETE FROM queries")
         con.execute("DELETE FROM datasets")
         con.execute("DELETE FROM workspaces")
         con.commit()

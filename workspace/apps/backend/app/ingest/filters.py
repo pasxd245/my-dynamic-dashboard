@@ -512,6 +512,27 @@ def parse_advanced_from_query(query_params: QueryParams, columns: list[dict[str,
     return groups
 
 
+def build_definition_predicates(
+    definition: dict[str, Any],
+    columns: list[dict[str, str]],
+) -> tuple[list[FilterPredicate], list[list[FilterPredicate]]]:
+    """Re-validate a saved Query definition's atoms against the CURRENT
+    columns, reusing the per-atom `aq` checks (R69). The `filters` and
+    `advanced` atoms are the same shape `_build_aq_atom` validates.
+
+    Raises ``HTTPException(422)`` on any bad atom — a column that was
+    removed/retyped, an op no longer valid for the column's dtype, or an
+    unparseable value. On the **run** path the caller catches that 422 and
+    maps it to ``409 query_stale`` (the definition drifted post-save); on
+    the **save** path the 422 propagates (you cannot save a broken query).
+    """
+    raw_filters = definition.get("filters") or []
+    raw_advanced = definition.get("advanced") or []
+    filters = [_build_aq_atom(atom, columns) for atom in raw_filters]
+    advanced = [[_build_aq_atom(atom, columns) for atom in group] for group in raw_advanced]
+    return filters, advanced
+
+
 def build_advanced_sql(groups: Iterable[Iterable[FilterPredicate]]) -> tuple[str, list[Any]]:
     """Build the OR-of-AND WHERE fragment + params for the advanced
     query. `(g1 AND …) OR (g2 AND …) OR …`. Returns `("", [])` for an

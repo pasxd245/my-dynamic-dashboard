@@ -153,3 +153,63 @@ class ApiErrorNonEmpty(BaseModel):
 
     code: Literal["non_empty"] = ERROR_CODES["non_empty"]  # type: ignore[assignment]
     datasetCount: Annotated[int, Field(ge=1)]  # noqa: N815
+
+
+# ─── R69: Saved Query ────────────────────────────────────────────────
+# Mirrors packages/contracts/_shared/query.yaml + queries/*. The
+# `definition` reuses the EXACT predicate-atom shape the rows-GET `aq`
+# param already carries (no new vocabulary). Persistence is raw-SQLite
+# (the established backend standard) — see Round_69 Do (J-3 deviation).
+
+QueryId = Annotated[str, Field(pattern=ID_PATTERNS["query"])]
+
+
+class FilterAtom(BaseModel):
+    """One predicate atom — the same shape the rows-GET `aq` param carries.
+    `col` is the 0-based index into the source Dataset.columns[]."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    col: Annotated[int, Field(ge=0)]
+    dtype: Dtype
+    op: Annotated[str, Field(min_length=1)]
+    val: int | float | str | None = None
+    min: int | float | str | None = None
+    max: int | float | str | None = None
+
+
+class QueryDefinition(BaseModel):
+    """The saved predicate state: chip filters + advanced DNF + `?q=`."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    q: Annotated[str | None, Field(max_length=200)] = None
+    filters: list[FilterAtom]
+    advanced: list[list[FilterAtom]]
+
+
+class Query(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: QueryId
+    workspaceId: WsId  # noqa: N815
+    datasetId: DsId  # noqa: N815
+    name: Annotated[str, Field(min_length=1, max_length=NAME_LENGTHS["query_max"])]
+    definition: QueryDefinition
+    createdAt: IsoUtc  # noqa: N815
+
+
+class CreateQueryBody(BaseModel):
+    """POST /workspaces/{id}/queries request body."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: Annotated[str, Field(min_length=1, max_length=NAME_LENGTHS["query_max"])]
+    datasetId: DsId  # noqa: N815
+    definition: QueryDefinition
+
+
+class ApiErrorQueryStale(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    code: Literal["query_stale"] = ERROR_CODES["query_stale"]  # type: ignore[assignment]

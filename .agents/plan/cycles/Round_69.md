@@ -283,6 +283,38 @@ at `--test-timeout=15000`).
   `queries.test.tsx` cases include a full **save → navigate → reopen → run**
   round-trip + the stale state).
 
+### Gate 5 — Backend (DCFBI: B)
+
+**J-3 build-time deviation → raw-SQLite + Pydantic, NOT SQLModel.** The plan
+ratified SQLModel as the "standard backend model base," but the build revealed
+the backend has **zero SQLModel** — it is uniformly raw-`sqlite3` + Pydantic
+response models, and the `queries` table drops cleanly into the existing
+`db.py` `_SCHEMA`. Adopting SQLModel for one entity would add a dependency + a
+second persistence style for **no real pull** — exactly what the
+[dynamic-equilibrium brake](../../context/purpose.md#dynamic-equilibrium)
+forbids, and the kind of premature machinery
+[specious-model-lock-in](../../memory/2026-06-13-specious-model-lock-in.md)
+warns against. So the **established standard (raw-SQLite + Pydantic) IS the
+standard base**; `queries` follows it. A build-first correction of a ratified
+decision — flagged here for review at this gate's commit (the seam).
+
+**Delivered**: `queries` table in `db.py` (FK CASCADE on workspace + dataset;
+inline unique index); `Query` / `QueryDefinition` / `FilterAtom` /
+`CreateQueryBody` / `ApiErrorQueryStale` Pydantic models; `routers/queries.py`
+(5 routes) wired into `main.py`; the run path re-validates the saved definition
+against current columns via the **reused** `_build_aq_atom` (new
+`build_definition_predicates` helper in `ingest/filters.py`) and delegates to
+`query_dataset_rows` — a 422-on-a-drifted-atom maps to **409 query_stale**.
+Validate-on-save (422) blocks unsavable definitions; per-workspace name
+uniqueness → 409; unknown/cross-workspace dataset → 422.
+
+**Backend gate verification**: full backend pytest **146/146** (11 new
+`test_queries.py`: create / list / get / run-live / name-taken / unknown-dataset
+/ invalid-def / **stale→409** / delete / **dataset-delete cascade**), each
+happy/error response `validate_response`-checked against the queries contracts;
+`test_generated_constants` updated for the `query` id-pattern / `query_stale` /
+`query_max`.
+
 ## Check
 
 - [x] **`design:lint`** — 0 errors across the new + edited docs (saved-query.md,
