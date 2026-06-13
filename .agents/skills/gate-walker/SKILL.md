@@ -1,13 +1,13 @@
 ---
 name: gate-walker
-description: Verify a named Hard Gate (Design, F1, Contract, F2, Backend, or Integration) has its exit criterion documented as met in the round file. Block phase advance with a remediation pointer if the gate is open. DCFBI/DFCFBI branching reads the round's Flow line; F1/F2 gates are skipped on the DCFBI path.
+description: Verify a named Hard Gate (Design, F1, Contract, F2, Backend, or Integration) has its exit criterion documented as met in the round file, that the gate's commit seam exists (gate = commit boundary), and — at the Design gate — that the noun-vs-mode / discovered-vs-imposed model check is recorded. Block phase advance with a remediation pointer if the gate is open. DCFBI/DFCFBI branching reads the round's Flow line; F1/F2 gates are skipped on the DCFBI path.
 when_to_use: User or a primary skill needs to verify a phase gate before flipping the round's active phase. Trigger phrases include "is Design closed", "check the Contract gate", "can we advance to Backend", "run gate-walker for X", or any pre-advance audit.
 argument-hint: <gate-name> <round-file-path>
 arguments: gate round
-allowed-tools: Read, Grep, Bash(grep *)
+allowed-tools: Read, Grep, Bash(grep *), Bash(git rev-parse *), Bash(git cat-file *), Bash(git log *)
 metadata:
   author: hand-authored-r49
-  version: '1.0'
+  version: '1.1'
 ---
 
 ## Trigger
@@ -17,6 +17,23 @@ The Hard Gates are checkpoints, not theater — every phase exits
 through its named gate, and the round cannot advance until the
 gate's exit criterion is documented as met in the round file
 (per [R47 § Hard gates](../../decisions/2026-05-28-hybrid-flow-governance.md)).
+
+Since the **2026-06-13 amendment**
+([§ Amendment](../../decisions/2026-05-28-hybrid-flow-governance.md#amendment--2026-06-13-r69-post-mortem)),
+a gate also carries **two enforced invariants** this skill checks:
+
+- **Gate = commit boundary.** Each closed gate has a commit it can
+  point to. A round that reaches a late gate with nothing committed
+  has no revert seam — the R69 failure. This skill verifies the
+  commit exists and resolves (it cannot, and does not, judge that the
+  commit's *content* is correct).
+- **Design model check (Design gate only).** The round file must
+  record the **noun-vs-mode** and **discovered-vs-imposed** answers.
+  This is a forcing-function for the modeling judgment, not a
+  correctness check: it ensures the question was *asked and written*,
+  not that the answer is *right* (a confidently-wrong model still
+  passes — that catch stays human, see
+  [specious-model-lock-in](../../memory/2026-06-13-specious-model-lock-in.md)).
 
 Do not run this skill when:
 
@@ -83,39 +100,102 @@ The skill is a **structural** check — it verifies _evidence is
 cited_, not that the evidence is _truthful_. Truthfulness is the
 round author's responsibility.
 
-### 4. Return Gate-closed or Gate-open
+### 4. Verify the commit seam (all gates)
 
-**Closed**: at least one acceptable evidence form is present and
-the evidence pointer resolves (file exists, commit is reachable,
-test name is greppable).
+Per the 2026-06-13 amendment, **each gate is a commit boundary**.
+The round file's gate-closed line must cite a **commit SHA**, e.g.:
+
+```text
+**Design gate closed** — commit a1b2c3d (design doc committed).
+```
+
+Confirm the SHA resolves to a reachable commit:
+
+```bash
+git rev-parse --verify --quiet "<sha>^{commit}"
+```
+
+- **Resolves** → commit seam present for this gate.
+- **No SHA cited, or SHA does not resolve** → the seam is missing.
+  This is a **hard** miss: a gate with documented evidence but no
+  commit is exactly the R69 shape (work done, nothing to revert to).
+
+This check verifies a commit *exists and is reachable* — it does
+**not** inspect the commit's content. Whether the commit actually
+contains the gate's work is the round author's claim, same
+structural-not-truthful discipline as step 3.
+
+### 5. Design gate — model check (required field)
+
+**Applies only when `$0` is `Design`.** The round file must record
+the modeling judgment, as two lines in the round's `## Do` (Design
+phase) or the design artifact:
+
+```text
+**Model check** (Design gate):
+- Noun-vs-mode: <new noun | mode of <existing surface>> — <one-line justification>
+- Discovered-vs-imposed: <evidence found, independent of this design | imposed → de-risked via D-only round / spike>
+```
+
+Grep for both `Noun-vs-mode:` and `Discovered-vs-imposed:` with
+non-empty answers.
+
+- **Both present and non-empty** → model check recorded.
+- **Either missing or blank** → the Design gate is **open**. This is
+  a forcing-function only: a recorded answer can still be *wrong*
+  (R69 would have written "new noun" and passed). The skill confirms
+  the question was answered, not that the answer is correct — flag
+  this limit in the return so the human reviewer owns the commission
+  check.
+
+### 6. Return Gate-closed or Gate-open
+
+A gate closes only when **all applicable checks** pass:
+
+1. **Exit criterion** (step 3) — at least one acceptable evidence
+   form present and its pointer resolves.
+2. **Commit seam** (step 4) — a cited commit SHA resolves.
+3. **Model check** (step 5) — *Design gate only* — both
+   `Noun-vs-mode:` and `Discovered-vs-imposed:` recorded and
+   non-empty.
+
+**Closed**: every applicable check above passes.
 
 Return:
 
 ```text
-Gate $0 closed. Evidence: <pointer cited in round file>.
+Gate $0 closed. Evidence: <pointer cited in round file>. Commit: <sha>.
+[Design only] Model check recorded — NOTE: structural only; the
+modeling answer's correctness is the human reviewer's call.
 Round may advance to <next-gate-name>.
 ```
 
-**Open**: no evidence form is present, or the cited pointer does
-not resolve.
+**Open**: any applicable check fails (missing evidence, unresolved
+pointer, missing/unresolved commit SHA, or — at Design — a missing
+model-check line).
 
 Return:
 
 ```text
-Gate $0 open. Missing: <what's not documented>.
+Gate $0 open. Missing: <which check(s) failed>.
 
 Remediation:
-- For Design: add user journeys + acceptance criteria to <design markdown>.
-- For F1: freeze interaction decisions; resolve or defer open UX Qs explicitly.
-- For Contract: commit the YAML, align MSW handlers, document shape freeze.
-- For F2: run the confirmation pass; route shape changes as contract v2.
-- For Backend: run conformance + endpoint behavior tests; document pass count.
-- For Integration: verify FE-vs-BE end-to-end; document shared conformance pass.
+- Exit criterion:
+  - For Design: add user journeys + acceptance criteria to <design markdown>.
+  - For F1: freeze interaction decisions; resolve or defer open UX Qs explicitly.
+  - For Contract: commit the YAML, align MSW handlers, document shape freeze.
+  - For F2: run the confirmation pass; route shape changes as contract v2.
+  - For Backend: run conformance + endpoint behavior tests; document pass count.
+  - For Integration: verify FE-vs-BE end-to-end; document shared conformance pass.
+- Commit seam (any gate): commit this gate's work and cite the SHA on
+  the gate-closed line. A gate with no commit has no revert seam.
+- Model check (Design only): record the Noun-vs-mode and
+  Discovered-vs-imposed lines (see § 5).
 
 Round must NOT advance until the gate is closed.
 ```
 
-### 5. Do not auto-advance
+### 7. Do not auto-advance
 
 The skill **verifies**; the round author **advances**. Even on a
 Gate-closed return, the skill does not flip the round's active
@@ -140,3 +220,12 @@ informed by the verification result.
 - **Do not** run on non-feature rounds. Process / tooling /
   documentation rounds use the PDCA template directly without
   the Hard Gates.
+- **Do not** close a gate whose work is done but uncommitted.
+  "Done but not committed" is the R69 shape — the seam only exists
+  once the commit does. A cited SHA that does not `git rev-parse`
+  is a hard miss, not a warning.
+- **Do not** oversell the Design model check. It confirms the
+  Noun-vs-mode / Discovered-vs-imposed answers were *written*, never
+  that they are *right*. Always state this limit in the return so the
+  commission check stays with the human — a confidently-wrong model
+  passes this skill, by design.

@@ -101,6 +101,11 @@ discovery phase."
   closes it.
 - **Silent extension of F1.** If F1 needs more time, the round
   pauses and the user is consulted before scope re-cut.
+- **Bundling the whole D→C→F→B→I chain into one uncommitted
+  changeset.** Each gate commits (see § Hard gates). Reaching
+  Integration with nothing committed leaves no revert seam — an
+  altitude/modeling error then contaminates all layers with nothing
+  to roll back to (the R69 failure).
 
 ## Trade-off accepted
 
@@ -147,6 +152,38 @@ If fewer than 2 conditions fire, use **DCFBI**. The result is
 recorded in the round's Plan section
 (`Flow: DCFBI` or `Flow: DFCFBI (triggers N, M)`).
 
+## Design-model confidence valve (distinct from F1)
+
+The 2-of-5 selector and F1 address **UX-flow** uncertainty — *"am I
+sure how the user moves through this?"* They do **not** address
+**design-model** uncertainty — *"is this the right noun / model?"*
+F1 confirms a flow; it cannot question the model. R69 is the proof: a
+coherent-but-wrong model (Query-as-noun, with parallel
+`QueriesPage`/`QueryDetailPage` surfaces) passed the Design gate *and*
+would have passed any F-phase, because the build faithfully realized
+the wrong spec.
+
+So model confidence is a **separate axis** from the selector. When the
+round author would say *"I'm not sure this is the right model"* (not
+just the flow), the Design phase must de-risk **before** the chain
+commits to it:
+
+- **D-only round** — Design is its own round; its gate is "model
+  validated," it **commits**, and C→F→B→I follow in a later round. A
+  committed design doc is the cheapest revert seam for the most
+  expensive class of error (altitude / modeling errors).
+- **Discardable spike** — prototype *only* the risky model, throwaway
+  by design (**not** the real chain), validate, then design with
+  evidence. The spike must be cheap to throw away — unlike R69, whose
+  "spike" was the entire real chain.
+- **Noun-vs-mode gate question** — at the Design gate, ask explicitly
+  *"new noun, or a mode of an existing surface?"* Default to
+  mode/reuse; a new noun must justify itself against an existing one.
+- **Discovered-vs-imposed test** — *"what evidence for this model did I
+  find vs. generate by adopting it?"* Self-made evidence (a surface you
+  created) is circular; treat the model as unproven. See
+  [specious-model-lock-in](../memory/2026-06-13-specious-model-lock-in.md).
+
 ## Hard gates (non-negotiable)
 
 Every phase exits through a named gate. The round cannot proceed
@@ -162,6 +199,17 @@ DFCFBI; F1 / F2 gates are skipped on the DCFBI path.
 | **F2** _(DFCFBI only)_ | Confirmation pass complete against contract-derived MSW; any shape change re-routed as contract v2 | Round author  |
 | **Backend**            | Contract conformance tests pass; per-endpoint behavior tests pass                                  | Round author  |
 | **Integration**        | FE-vs-BE verified end-to-end; shared conformance tests pass against both MSW and real backend      | Round author  |
+
+**Each gate is a commit boundary (revert seam).** When a gate's exit
+criterion is met, the round **commits** before the next phase opens. A
+gate is therefore not only a checkpoint *documented* in the round file
+— it is a point in git history you can revert to. This restores the
+per-phase revert seam the DCBF 4-round shape had for free
+([contract-round-methodology](../memory/2026-05-24-contract-round-methodology.md):
+`phase = round = commit`) and which collapsing the chain into one
+DCFBI round silently dropped. A round that reaches Integration with
+**nothing committed** has no seam: a single altitude error then forces
+discarding all layers (the R69 failure). See § Amendment 2026-06-13.
 
 ## The O-rule (three truths, cross-cutting)
 
@@ -223,3 +271,36 @@ which itself was pulled by DCBF chain experience (R14→R21,
 over-effort for fair-only results + D-phase overwhelm as
 design-corpus scope grew. Codified by
 [Round_47](../plan/cycles/Round_47.md)._
+
+---
+
+## Amendment — 2026-06-13 (R69 post-mortem)
+
+`revisit-trigger` fired (the *"surfaces an artifact category this
+doctrine did not anticipate"* clause): R69 (Saved Query) exposed **the
+commit boundary the Hard-gates table never specified.** Both patches
+are **additive** — the DCFBI/DFCFBI chain, the 2-of-5 selector, and the
+O-rule are unchanged:
+
+1. **Gate = commit boundary** (§ Hard gates, § What this forbids). DCBF
+   had `phase = round = commit`; the R47 collapse into one round kept
+   the gate as a *documented* checkpoint but dropped the *commit*. R69
+   passed every gate and still had zero revert points. Re-bound: each
+   gate commits.
+2. **Design-model confidence valve** (new § after the Flow selector).
+   F1 / the selector are a **UX-flow** valve; nothing addressed
+   design-**model** uncertainty. Added the D-only round / discardable
+   spike / noun-vs-mode + discovered-vs-imposed checks for when *model*
+   confidence is low.
+
+**Root cause (one line):** the one-round chain was adopted to fix
+UX-SoT token-drift + D-phase overwhelm — the revert seam was un-priced
+collateral of that collapse, never a decision. The fix re-welds the
+seam without un-collapsing the chain.
+
+_Pulled by: 2026-06-13 conversation, post-R69-discard. Companions:
+[specious-model-lock-in](../memory/2026-06-13-specious-model-lock-in.md)
+(discovered-vs-imposed; modeling-error trap),
+[gate-vs-commit-conflation](../memory/2026-06-13-gate-vs-commit-conflation.md)
+(the lineage: vertical-slice → DCBF → DCFBI, and where the seam was
+lost)._
