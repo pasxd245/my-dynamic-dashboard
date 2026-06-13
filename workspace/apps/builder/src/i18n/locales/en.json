@@ -441,6 +441,7 @@
       "predInvalid": "{{count}} filter references a column that isn't in these results. Remove it or pick a current column.",
       "previewLoading": "Previewing…",
       "previewCount": "Preview · {{count}} rows",
+      "preview": "Preview",
       "unsaved": "Unsaved changes",
       "previewEmptyTitle": "No rows match this definition",
       "previewEmptyHint": "Adjust the join or the filters to see rows.",

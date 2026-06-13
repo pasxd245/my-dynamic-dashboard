@@ -10,7 +10,7 @@
 // the shared <PagedRowsView>; Save persists the definition via PUT /queries/:id.
 
 import { App, Button, Input, Tag, Typography } from 'antd';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { ActiveFilterChips } from '@/features/data-management/datasets/filters/ActiveFilterChips';
@@ -27,6 +27,10 @@ import { useQueryPreviewQuery, useUpdateQueryMutation } from './hooks';
 import type { Query, QueryDefinition, ResolvedColumn } from './types';
 
 const PREVIEW_PAGE_SIZE = 25;
+// Preview re-runs on edit, but debounced — one POST after the user settles,
+// not one per keystroke (matches the AdvancedQueryInput's 300ms; design §
+// "auto-runs on change, debounced"). The explicit [Preview] button flushes it.
+const PREVIEW_DEBOUNCE_MS = 300;
 
 function asColumns(resolved: readonly ResolvedColumn[]): Column[] {
   return resolved.map((c) => ({ name: c.name, dtype: c.dtype }));
@@ -64,9 +68,37 @@ export function QueryBuilderPanel({ query, datasetColumns, onDone }: QueryBuilde
   }));
   const [page, setPage] = useState(1);
 
+  // The preview keys on a DEBOUNCED copy of the working draft, so editing
+  // (esp. typing in the search box) fires at most one preview POST per 300ms
+  // of quiet — not one per keystroke. `draft` itself stays live, so the
+  // editors, dirty-state, and client-side validation react instantly; only
+  // the network preview waits. The [Preview] button flushes the debounce.
+  const [debouncedDraft, setDebouncedDraft] = useState<QueryDefinition>(draft);
+  const debounceRef = useRef<number | undefined>(undefined);
+  useEffect(() => {
+    debounceRef.current = window.setTimeout(() => setDebouncedDraft(draft), PREVIEW_DEBOUNCE_MS);
+    return () => window.clearTimeout(debounceRef.current);
+  }, [draft]);
+  const flushPreview = () => {
+    window.clearTimeout(debounceRef.current);
+    setDebouncedDraft(draft);
+  };
+
   const isJoined = Boolean(draft.join);
-  const previewQuery = useQueryPreviewQuery(query.workspaceId, query.datasetId, draft, page, PREVIEW_PAGE_SIZE, true);
+  const previewQuery = useQueryPreviewQuery(
+    query.workspaceId,
+    query.datasetId,
+    debouncedDraft,
+    page,
+    PREVIEW_PAGE_SIZE,
+    true,
+  );
   const preview = previewQuery.data;
+  // A preview is queued when the live draft has outrun the debounced one.
+  const previewPending = useMemo(
+    () => JSON.stringify(debouncedDraft) !== JSON.stringify(draft),
+    [debouncedDraft, draft],
+  );
 
   // Effective columns: the server-computed combined space when joined (from the
   // live preview, falling back to the saved query's), else the source dataset's.
@@ -90,7 +122,9 @@ export function QueryBuilderPanel({ query, datasetColumns, onDone }: QueryBuilde
   const predStale = err instanceof ApiErrorThrown && err.body.code === 'query_stale';
   const invalidCount = invalidAtomCount(draft, columns);
   const previewOk = Boolean(preview) && !relStale && !predStale && !previewQuery.isError;
-  const canSave = dirty && previewOk && invalidCount === 0 && !updateMutation.isPending;
+  // Save only once the preview reflects the CURRENT draft (not while a
+  // debounced preview is still queued/in-flight) — you save what you previewed.
+  const canSave = dirty && previewOk && !previewPending && invalidCount === 0 && !updateMutation.isPending;
 
   const setDraftField = (patch: Partial<QueryDefinition>) => {
     setPage(1);
@@ -239,18 +273,33 @@ export function QueryBuilderPanel({ query, datasetColumns, onDone }: QueryBuilde
 
       {/* Live preview */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <Typography.Text type="secondary" style={{ fontSize: 12 }} role="status" data-component="QueryBuilderPreviewStatus">
-          {previewQuery.isFetching
+        <Typography.Text
+          type="secondary"
+          style={{ fontSize: 12 }}
+          role="status"
+          data-component="QueryBuilderPreviewStatus"
+        >
+          {previewQuery.isFetching || previewPending
             ? t('queries.builder.previewLoading')
             : t('queries.builder.previewCount', { count: total })}
         </Typography.Text>
         {dirty ? <Tag color="warning">{t('queries.builder.unsaved')}</Tag> : null}
+        <Button
+          size="small"
+          onClick={flushPreview}
+          loading={previewQuery.isFetching}
+          disabled={!previewPending && !previewQuery.isFetching}
+          style={{ marginInlineStart: 'auto' }}
+          data-component="QueryBuilderPreviewButton"
+        >
+          {t('queries.builder.preview')}
+        </Button>
       </div>
       <div style={{ flex: 1, minHeight: 0 }}>
         <PagedRowsView
           columns={columns}
           rows={preview?.rows as readonly (readonly (string | null)[])[] | undefined}
-          loading={previewQuery.isFetching}
+          loading={previewQuery.isFetching || previewPending}
           total={total}
           page={page}
           pageSize={PREVIEW_PAGE_SIZE}

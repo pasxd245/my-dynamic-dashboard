@@ -441,6 +441,7 @@
       "predInvalid": "{{count}} bộ lọc tham chiếu một cột không có trong kết quả này. Hãy xóa nó hoặc chọn một cột hiện có.",
       "previewLoading": "Đang xem trước…",
       "previewCount": "Xem trước · {{count}} dòng",
+      "preview": "Xem trước",
       "unsaved": "Thay đổi chưa lưu",
       "previewEmptyTitle": "Không có dòng nào khớp với định nghĩa này",
       "previewEmptyHint": "Điều chỉnh phép nối hoặc bộ lọc để xem các dòng.",
