@@ -1,8 +1,8 @@
 # Round 69 (redo): Saved Query as a *mode* of the dataset surfaces
 
-**Status**: In Progress
+**Status**: Complete
 **Date started**: 2026-06-13
-**Date completed**:
+**Date completed**: 2026-06-13
 
 ## Goal
 
@@ -25,12 +25,12 @@ Lessons captured and now in force (committed repo doctrine):
 (per-gate commits as the revert seam).
 The gate-walker now binds each gate to a per-gate commit (R69 post-mortem).
 
-**R69-redo re-does the work on the corrected footing**, and is deliberately a
-**Design-only pass this gate** — it produces this round file (Plan gate) and
-the design docs (Design gate), each committed at its gate, and **stops before
-any code** (C/F/B/I). The build chain is sequenced by the `flow-selector` at
-Design exit, in later sessions. This enacts the revert-seams lesson directly:
-catch and seal the modeling at D, the cheapest place.
+**R69-redo re-does the work on the corrected footing.** It opened as a
+**Design-only pass** (seal the modeling at D, the cheapest place — the
+revert-seams lesson) and then, **on the human's "go ahead," continued through
+the full DCFBI chain in the same round**, each gate its own commit (Plan →
+Design → Contract → Frontend → Backend → Integration). The early Design seal is
+exactly what made the rest safe to build.
 
 _Track: 1 (product feature). Pulled by ← R69 post-mortem + purpose.md critical
 path. Scoped by the [dynamic-equilibrium brake](../../context/purpose.md#dynamic-equilibrium)
@@ -315,6 +315,27 @@ happy/error response `validate_response`-checked against the queries contracts;
 `test_generated_constants` updated for the `query` id-pattern / `query_stale` /
 `query_max`.
 
+### Gate 6 — Integration (DCFBI: I)
+
+The repo's FE↔BE seam is the **contract**: both sides conform to the same
+`queries/*` YAML — MSW responses are `withContractValidation`-checked in the FE
+suite, BE responses are `validate_response`-checked in pytest. Both green
+(127/127 FE, 146/146 BE) against one contract = shared conformance.
+
+Beyond that, a **live cross-process round-trip** against the real backend
+(uvicorn on :8099, isolated data dir) exercised the exact FE sequence:
+create (201, `qr_` id, `definition` object with null `q` omitted) → list (1) →
+get (200) → run (**live re-run: total 2, rows [Alice, Carol] for amount > 40**)
+→ name_taken (409) → delete (204) → get-after (404). The real BE produces
+byte-shaped responses identical to the MSW mocks the FE was built against.
+
+### Gate commit seams (gate = commit; 2026-06-13 amendment)
+
+- Plan `281657d` · Design `b866a53` (+ seam note `3e96766`) · Contract `32a2dee`
+  · Frontend `6770fac` (PagedRowsView) + `46c5039` · Backend `87d16fb` ·
+  Integration (this commit). Each gate is independently revertable — the
+  revert-seams lesson, applied.
+
 ## Check
 
 - [x] **`design:lint`** — 0 errors across the new + edited docs (saved-query.md,
@@ -330,8 +351,19 @@ happy/error response `validate_response`-checked against the queries contracts;
       existing component/layout, not a parallel page (Model check in Do).
 - [x] **`gate-walker` (Design gate)** — exit criterion (journeys + acceptance
       in the artifact) + commit seam + model check all recorded (verdict in Act).
-- [x] **Per-gate commits** — Plan gate (`281657d`) and Design gate committed
-      separately (revert seams).
+- [x] **Per-gate commits** — every gate committed separately (seams listed in
+      Do); each independently revertable.
+- [x] **Contract** — `@mdd/contracts` OpenAPI validity **18/18** (5 query
+      contracts + `query.yaml` + `query_stale` envelope).
+- [x] **Frontend** — `builder` type-check clean; suite **127/127** (6 new
+      queries cases incl. the save→navigate→reopen→run round-trip).
+- [x] **Backend** — pytest **146/146** (11 new queries cases, contract-validated,
+      incl. stale→409 + dataset-delete cascade).
+- [x] **Integration** — dual contract conformance (MSW + real BE) + a live
+      cross-process FE↔BE round-trip (create→list→get→run→delete) green.
+- [x] **Acceptance** — the 11 saved-query criteria in
+      [saved-query.md § Acceptance](../../design/data-management/datasets/saved-query.md)
+      each map to a passing F / B / I test.
 
 ## Act
 
@@ -353,20 +385,37 @@ and per-gate commits restore the revert seam
 - [saved-query.md](../../design/data-management/datasets/saved-query.md) — **new**
   doc; **supersedes** the discarded new-noun `queries.md` (never committed).
 
-**Gate-walker (Design) verdict:** _recorded below the commit seam_ — Design gate
-**closed** (exit criterion + commit seam + model check all present).
+**Build outcome — the corrected model shipped end to end.** On the Design seal,
+the full DCFBI chain built cleanly: the Query is a distinct **archetype** that
+**reuses** the dataset surfaces (shared detail layout + the extracted
+`<PagedRowsView>` + the Page-List layout) with its own catalog + top-level
+`/queries/:id`, persisted raw-SQLite, run as a live re-run. **No duplicated
+page** — the one thing the discarded R69 got wrong.
 
-**Hand-off.** Flow selected = **DCFBI**. The build chain (Contract → Backend →
-Integration) is sequenced in later sessions, each its own per-gate commit. The
-open route-vs-resolver question is carried to the Contract gate.
+**Two build-first boundary corrections** (the build refuted two plan guesses,
+both recorded): `<PagedRowsView>` lives in `data-management/_shared/`, not
+`@mdd/ui` (it depends on builder-domain utils); and the backend uses the
+established **raw-SQLite + Pydantic** standard, not SQLModel (J-3) — adopting an
+ORM for one entity failed the dynamic-equilibrium brake. Both are the
+[build-first lesson](../../memory/2026-05-22-ui-boundary-build-first.md) in
+action: the design's altitude was right (reuse, single source), the build
+corrected the *home*.
 
-## Feeds into → R69 build chain (C/F/B/I) + R70 (TBD)
+**Doctrine confirmed.** R69-redo validates the post-mortem fixes in practice:
+the model error was caught at D and **never recurred** downstream
+([specious-model-lock-in](../../memory/2026-06-13-specious-model-lock-in.md)),
+and gate=commit gave seven independently-revertable seams across one round
+([gate-vs-commit-conflation](../../memory/2026-06-13-gate-vs-commit-conflation.md)).
 
-With the corrected design committed at the Design gate, the next step is the
-`flow-selector` (DCFBI vs DFCFBI) at Design exit, then the per-gate build
-commits in later sessions. Downstream, **R70 (relationships / joins)** extends
-the `Query` entity beyond a single dataset, inheriting the stable `qr_` id +
-the shared table-source seam this round establishes.
+## Feeds into → R70 (relationships / joins)
+
+The Query entity is live with a stable `qr_` id + top-level URL — the deliberate
+setup for **R70 (relationships / joins)** and **R71 (Query-as-join-input)**,
+which extend it beyond a single dataset. The parked **route-vs-resolver**
+question (separate `/queries/:id/rows` vs a unified table-source resolver) is the
+first thing R71 will pull: when a join needs to resolve a mixed `ds_`/`qr_`
+source by id, the unified resolver earns its place. A11y fidelity backstop for
+the new surfaces (the ui-design design-spec advisory) is a follow-up if pulled.
 
 ---
 
