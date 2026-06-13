@@ -1,9 +1,8 @@
 # Round 71: Join execution — a Query consumes a Relationship (the truth-test of R70's edge)
 
-**Status**: In Progress (Design gate sealed + committed; building the DCFBI chain
-on the human's go-ahead — Contract + Frontend + Backend done, Integration next)
+**Status**: Complete
 **Date started**: 2026-06-13
-**Date completed**:
+**Date completed**: 2026-06-13
 
 ## Goal
 
@@ -391,14 +390,14 @@ The genuinely-new engine the J-2 truth-test surfaced — **`query_joined_rows`**
 is built **beside** `query_dataset_rows` (the single-source path can't express a
 two-source join), **reusing** the predicate fragment builders:
 
-- **`query_joined_rows`** ([rows_reader.py](../../../../workspace/apps/backend/app/ingest/rows_reader.py))
+- **`query_joined_rows`** ([rows_reader.py](../../../workspace/apps/backend/app/ingest/rows_reader.py))
   — `FROM read_parquet(L) INNER JOIN read_parquet(R) ON L.k = R.k`, with an inner
   CTE that **aliases every output column to its effective (collision-qualified)
   name** so the **reused** `build_filter_sql`/`build_advanced_sql`/`?q=` fragments
   compose unqualified over the joined relation. `build_effective_columns` computes
   the `left ++ right` space + the collision rule (qualify duplicate names by
   dataset).
-- **Run path** ([queries.py](../../../../workspace/apps/backend/app/routers/queries.py))
+- **Run path** ([queries.py](../../../workspace/apps/backend/app/routers/queries.py))
   — a `join` branch resolves the edge (reusing R70's `_compatible`/`_dtype_of`),
   re-validates atoms against the **effective** columns, and on a **drifted join
   key returns `409 relationship_stale`** (the code R70 reserved), on a drifted
@@ -414,7 +413,24 @@ two-source join), **reusing** the predicate fragment builders:
 `resolvedColumns` (`deals.id`/`accounts.id`); predicate over the effective space;
 **`409 relationship_stale`** on key drift; `409 query_stale` on predicate drift;
 `422` save-guards for unknown + stale edge), each contract-`validate_response`-checked.
-Backend seam: this commit.
+Backend seam: `f3a7092`.
+
+### Gate 6 — Integration (I) — DCFBI: I
+
+The FE↔BE seam is the **contract**: both sides conform to the same `queries/*`
+YAML — MSW responses are `withContractValidation`-checked in the FE suite (134/136),
+BE responses are `validate_response`-checked in pytest (166/166). One contract,
+dual conformance — the join field, `resolvedColumns`, and `relationship_stale` all
+green on both sides.
+
+Beyond that, a **live cross-process round-trip** against the real backend (uvicorn
+:8097, isolated `MDD_BACKEND__DATA_DIR`) exercised the exact join sequence: upload
+two CSVs → declare `deals.id ↔ accounts.id` → **create a joined Query** (201) →
+**GET** (`resolvedColumns` = `deals.* ++ accounts.*`, collision-qualified) → **run**
+(inner join, **3 rows × 8 effective cols**) → drift the join key → **run again →
+409 `relationship_stale`** (the join blocked, not silently wrong). The real BE's
+responses are byte-shaped identical to the MSW mocks the FE was built against.
+Integration seam: this commit.
 
 ## Check
 
@@ -441,8 +457,18 @@ Backend seam: this commit.
 - [x] `flow-selector` run + result recorded (**DCFBI**, 1 of 5 fired).
 - [x] **`gate-walker` (Design gate)** — exit criterion + model check + commit seam
       recorded (verdict in Act).
-- [x] Plan gate and Design seam **committed separately**; round **STOPS** at the
-      Design gate (J-3) — no C/F/B/I this round.
+- [x] Plan gate and Design seam **committed separately**; round STOPPED at the
+      Design gate (J-3) until the human's go-ahead.
+- [x] **Build chain on go-ahead (DCFBI):** **Contract** — OpenAPI **22/22**, FE
+      type-check clean, suite green (`9c4bbac`). **Frontend** — suite **134/136**
+      (4 join cases; 2 = known upload flake) (`9214c0e`). **Backend** — pytest
+      **166/166** (7 join cases, contract-validated) (`f3a7092`). **Integration**
+      — dual contract conformance (MSW + real BE) + a live cross-process join
+      round-trip (create → get `resolvedColumns` → run 3×8 → key drift → 409
+      relationship_stale) (this commit). Each gate its own seam.
+- [x] **R70 edge model held through the build** — the `Relationship` entity was
+      consumed exactly as the truth-test predicted; **no revision** (J-4 un-fired
+      in design *and* build).
 
 ## Act
 
@@ -483,13 +509,29 @@ new noun.
    fixed where I was already touching the query docs — R70 had scheduled this for
    "when the queries backend doc is next touched."
 
-**`flow-selector`: DCFBI** (1 of 5 fired; F1/F2 skipped). The build chain is
-sequenced for a later session **on the human's go-ahead** (J-3).
+**`flow-selector`: DCFBI** (1 of 5 fired; F1/F2 skipped).
 
 **`gate-walker` (Design gate): PASS** — the round file documents the Design exit
 criterion (journeys + acceptance in joins.md), the noun-vs-mode +
-discovered-vs-imposed model check, and the Design commit seam; the round correctly
-STOPS before C/F/B/I.
+discovered-vs-imposed model check, and the Design commit seam.
+
+**Build outcome — the join model shipped end to end, and the edge model held its
+truth-test through the build.** On the human's go-ahead the design seal built
+cleanly through C → F → B → I (each its own commit): a Query now consumes a
+governed `Relationship` to read two datasets as one — declared from the dataset
+page, reopened with a read-only join summary + the joined rows through the
+**reused** `<PagedRowsView>`, run live, blocked with `409 relationship_stale` when
+a join key drifts. **The half-truth split the truth-test predicted was exactly
+what the build needed:** the `query_dataset_rows` reuse-claim was false (a new
+`query_joined_rows` + side-qualified effective columns were built), while the
+predicate vocabulary / fragment builders / route / `RowsPage` were genuinely
+reused — naming that at the Design gate is why the build had no surprises. And
+**R70's `Relationship` needed no revision** — the second, independent consumer
+validated the edge in *running code*, not just in a green suite (the watch-item's
+real test). The build-first discipline
+([ui-boundary-build-first](../../memory/2026-05-22-ui-boundary-build-first.md))
+held: the altitude was right at D, the build corrected the mechanism (named in
+advance, this time).
 
 **Learnings:**
 
@@ -509,21 +551,30 @@ it (the don't-add-until-pulled rule).
 
 **Follow-ups (notes, not promotions):**
 
-- **Build chain (C → F → B → I)** for join execution — deferred to the human's
-  go-ahead (J-3). The new `query_joined_rows` engine + side-qualified columns are
-  the Backend-gate focus; the effective-column exposure is the one open Contract
-  question.
-- **`relationships.md` delete-guard** when an edge is consumed by a join (the
-  first relationship dependency) — decided at R71's Backend gate, per joins.md
-  Scope.
+- **Build chain (C → F → B → I)** for join execution — **done** this round on the
+  go-ahead (`9c4bbac` · `9214c0e` · `f3a7092` · Integration). The open Contract
+  question (effective-column exposure) → resolved to **`resolvedColumns` on `Query`**.
+- **`relationship_stale` delete-guard**: R71 surfaces the first relationship
+  *dependency* (a join consumes an edge). R71 **blocks the run** on a stale/gone
+  edge (409) but does **not** yet guard *deleting* a consumed relationship — a
+  delete still cascades/orphans the joined query's run into the 409 path. A
+  pre-delete dependency check (e.g. `409 in_use`) is a clean follow-up if the UX
+  needs it; deferred (joins.md Scope).
+- **Left/outer joins, composite keys, self-joins, Query×Query composition,
+  many:many row-explosion guard** — R71 ships single-column, within-workspace,
+  **inner** only; the rest stay R72+ (named triggers in joins.md).
 - **`dataset-detail.md` may carry the same `@mdd/ui`-`PagedRowsView` drift** as
   saved-query.md did — reconcile when that doc is next touched (not this round).
 
 ## Feeds into → Round_72 (the interactive multi-source query-construction surface)
 
 R72 builds the **interactive construction surface** R71 deferred (J-1): visually
-building joins/predicates across sources, on top of R71's sealed join-execution
-model. If R71's Design pass fires the J-4 kill-condition, the **corrected
-`Relationship` model** is what R72 (and any re-built R70 layer) inherits. The
-J-2′ **route/resolver** decision, taken at R71's Contract gate (post-STOP), is the
-table-source abstraction R72's multi-source builder reads through.
+building joins/predicates across sources, on top of R71's now-shipped
+join-execution model (the extended `QueryDefinition` + `query_joined_rows` +
+`resolvedColumns`). R71's flow-selector noted R72 is the **likely DFCFBI** round —
+the visual multi-source builder is a genuinely new interaction pattern with real
+UX uncertainty (the conditions R71's scope cut kept quiet). The J-2′ **unified
+table-source resolver** stays deferred (R71 runs joins through `/queries/{id}/rows`
+over two Datasets); it earns its place when **Query×Query composition** needs to
+resolve a mixed `ds_`/`qr_` source by id. R70's `Relationship` model is now
+**twice-validated** (governance + a real join consuming it) — no revision pending.

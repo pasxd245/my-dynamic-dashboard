@@ -11,10 +11,10 @@ ships **join execution only** — producing joined rows from a declared edge; th
 full interactive multi-source construction surface is **R72**
 ([Round_71](../../../plan/cycles/Round_71.md) J-1).
 
-**Status**: Draft (R71 design — join execution; the C/F/B/I build chain follows
-on the human's go-ahead, sequenced by `flow-selector` at Design exit). This doc
-**seals the join model** (J-2) at the Design gate and records the
-**Relationship-edge truth-test** (J-4) that R70 earmarked for this round.
+**Status**: Accepted (R71 design + **shipped R71** — full DCFBI chain: a Query
+consumes a `Relationship` to produce joined rows). This doc **seals the join
+model** (J-2) at the Design gate and records the **Relationship-edge truth-test**
+(J-4) that R70 earmarked for this round — the edge was **validated** (no revision).
 **Round introduced**: [Round_71](../../../plan/cycles/Round_71.md) — the third
 step of the critical path (`data → relationships → **joins** → dashboards`) and
 the second, independent consumer that **truth-tests** R70's governed edge.
