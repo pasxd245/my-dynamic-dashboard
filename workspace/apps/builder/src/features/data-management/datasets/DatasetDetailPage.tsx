@@ -9,7 +9,7 @@ import {
 } from '@ant-design/icons';
 import { XCircleIcon } from '@phosphor-icons/react';
 import { PageCard, PageHeader } from '@mdd/ui';
-import { Alert, App, Button, Dropdown, Input, Pagination, Skeleton, Tag, Typography } from 'antd';
+import { Alert, App, Button, Dropdown, Input, Skeleton, Tag, Typography } from 'antd';
 import i18n from 'i18next';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -17,10 +17,10 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 import { NAME_LENGTHS } from '@/_generated/constants';
 import { formatBytes } from '@/lib/formatBytes';
-import { formatCell } from '@/lib/formatCell';
 import { useWorkspacesQuery } from '@/features/data-management/workspaces/hooks';
 import { ApiErrorThrown } from '../_shared/types';
 import { DeleteConfirmModal } from '../_shared/DeleteConfirmModal';
+import { PagedRowsView } from '../_shared/PagedRowsView';
 import { RenameModal } from '../_shared/RenameModal';
 import {
   useDatasetQuery,
@@ -66,19 +66,6 @@ function relativeTime(iso: string, t: ReturnType<typeof useTranslation>['t']): s
 
 function isNotFound(err: unknown): boolean {
   return err instanceof ApiErrorThrown && err.body.code === 'not_found';
-}
-
-function DtypeBadge({ dtype }: { dtype: Column['dtype'] }) {
-  const { t } = useTranslation();
-  return (
-    <Tag
-      style={{ marginInlineStart: 6, fontSize: 10, padding: '0 6px', lineHeight: '16px' }}
-      data-component="DtypeBadge"
-      data-dtype={dtype}
-    >
-      {t(`datasets.detail.dtype.${dtype}`)}
-    </Tag>
-  );
 }
 
 function SourceIcon({ format }: { format: Dataset['sourceFormat'] }) {
@@ -283,7 +270,67 @@ export function DatasetDetailPage() {
   const total = rowsPage?.total ?? 0;
   const fullRowCount = dataset.rowCount;
   const hasQuery = qParam.length > 0;
+  const hasFilters = filters.length > 0;
   const showMatchedCounter = hasQuery || rowsQuery.isFetched;
+
+  // URL-state translation for PagedRowsView's page/size changes. AntD calls
+  // onChange with the prior pageSize when only `page` changed; on page-size
+  // change, reset to page 1 (the q-change reset rule's sibling).
+  const handlePageChange = (nextPage: number, nextPageSize: number) => {
+    const params = new URLSearchParams(searchParams);
+    if (nextPageSize !== pageSize) {
+      params.set('page_size', String(nextPageSize));
+      params.delete('page');
+    } else if (nextPage === 1) {
+      params.delete('page');
+    } else {
+      params.set('page', String(nextPage));
+    }
+    setSearchParams(params);
+  };
+
+  // Zero-match empty state — the four variants depend on which predicate(s)
+  // are active. PagedRowsView centers whatever we pass here.
+  const rowsEmptyState =
+    hasQuery && hasFilters ? (
+      <div data-component="DatasetRowsNoMatchBoth">
+        <Typography.Title level={5} style={{ marginTop: 0 }}>
+          {t('datasets.filters.noMatchBothTitle', { query: qParam })}
+        </Typography.Title>
+        <Typography.Text type="secondary">{t('datasets.filters.noMatchBothHint')}</Typography.Text>
+        <div style={{ marginTop: 16, display: 'flex', gap: 8 }}>
+          <Button onClick={onClearSearch}>{t('datasets.detail.clear')}</Button>
+          <Button onClick={clearAll}>{t('datasets.filters.clearAll')}</Button>
+        </div>
+      </div>
+    ) : hasFilters ? (
+      <div data-component="DatasetRowsNoMatchFilters">
+        <Typography.Title level={5} style={{ marginTop: 0 }}>
+          {t('datasets.filters.noMatchFiltersTitle')}
+        </Typography.Title>
+        <Typography.Text type="secondary">{t('datasets.filters.noMatchFiltersHint')}</Typography.Text>
+        <div style={{ marginTop: 16 }}>
+          <Button onClick={clearAll}>{t('datasets.filters.clearAll')}</Button>
+        </div>
+      </div>
+    ) : hasQuery ? (
+      <div data-component="DatasetRowsNoMatch">
+        <Typography.Title level={5} style={{ marginTop: 0 }}>
+          {t('datasets.detail.noMatchTitle', { query: qParam })}
+        </Typography.Title>
+        <Typography.Text type="secondary">{t('datasets.detail.noMatchHint')}</Typography.Text>
+        <div style={{ marginTop: 16 }}>
+          <Button onClick={onClearSearch}>{t('datasets.detail.clear')}</Button>
+        </div>
+      </div>
+    ) : (
+      <div data-component="DatasetRowsZeroRows">
+        <Typography.Title level={5} style={{ marginTop: 0 }}>
+          {t('datasets.detail.zeroRowsTitle')}
+        </Typography.Title>
+        <Typography.Text type="secondary">{t('datasets.detail.zeroRowsHint')}</Typography.Text>
+      </div>
+    );
 
   const title = (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
@@ -448,56 +495,25 @@ export function DatasetDetailPage() {
           />
         ) : null}
 
-        <DataTableBody
-          dataset={dataset}
-          rowsPage={rowsPage}
+        <PagedRowsView
+          columns={dataset.columns}
+          rows={rowsPage?.rows}
           loading={rowsQuery.isFetching}
-          hasQuery={hasQuery}
-          query={qParam}
-          filters={filters}
-          onClearSearch={onClearSearch}
-          onClearAllFilters={clearAll}
-          onApplyFilter={applyFilter}
-          onClearFilter={removeFilter}
-        />
-
-        {total > 0 ? (
-          <div
-            style={{
-              flex: '0 0 auto',
-              marginTop: 16,
-              paddingTop: 16,
-              borderTop: '1px solid var(--ant-color-border-secondary, #f0f0f0)',
-            }}
-            className="dataset-rows-pagination-bar"
-            data-component="DatasetRowsPagination"
-          >
-            <Pagination
-              current={page}
-              pageSize={pageSize}
-              total={total}
-              pageSizeOptions={['25', '50', '100']}
-              showSizeChanger
-              showQuickJumper
-              onChange={(nextPage, nextPageSize) => {
-                const params = new URLSearchParams(searchParams);
-                // AntD calls onChange with the prior pageSize when only
-                // `page` changed; on page-size change, reset to page 1.
-                if (nextPageSize !== pageSize) {
-                  params.set('page_size', String(nextPageSize));
-                  params.delete('page');
-                } else {
-                  if (nextPage === 1) {
-                    params.delete('page');
-                  } else {
-                    params.set('page', String(nextPage));
-                  }
-                }
-                setSearchParams(params);
-              }}
+          total={total}
+          page={page}
+          pageSize={pageSize}
+          onPageChange={handlePageChange}
+          emptyState={rowsEmptyState}
+          renderHeaderExtra={(col, ci) => (
+            <FilterPopover
+              column={col}
+              colIndex={ci}
+              existing={filters.find((p) => p.col === ci)}
+              onApply={applyFilter}
+              onClear={() => removeFilter(ci)}
             />
-          </div>
-        ) : null}
+          )}
+        />
       </PageCard>
 
       <RenameModal
@@ -591,231 +607,3 @@ function MetadataStrip({
   );
 }
 
-type DataTableBodyProps = Readonly<{
-  dataset: Dataset;
-  rowsPage: { rows: (string | null)[][]; total: number } | undefined;
-  loading: boolean;
-  hasQuery: boolean;
-  query: string;
-  filters: import('./filters/types').FilterSet;
-  onClearSearch: () => void;
-  onClearAllFilters: () => void;
-  onApplyFilter: (predicate: import('./filters/types').FilterPredicate) => void;
-  onClearFilter: (colIndex: number) => void;
-}>;
-
-function DataTableBody({
-  dataset,
-  rowsPage,
-  loading,
-  hasQuery,
-  query,
-  filters,
-  onClearSearch,
-  onClearAllFilters,
-  onApplyFilter,
-  onClearFilter,
-}: DataTableBodyProps) {
-  const { t } = useTranslation();
-  const locale = i18n.language;
-
-  if (loading && !rowsPage) {
-    return (
-      <div style={{ flex: '1 1 auto', minHeight: 0 }} data-component="DatasetRowsLoading">
-        <Skeleton active paragraph={{ rows: 10 }} />
-      </div>
-    );
-  }
-
-  const total = rowsPage?.total ?? 0;
-  const hasFilters = filters.length > 0;
-  if (total === 0) {
-    if (hasQuery && hasFilters) {
-      return (
-        <div
-          data-component="DatasetRowsNoMatchBoth"
-          style={{
-            flex: '1 1 auto',
-            minHeight: 0,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '48px 24px',
-            textAlign: 'center',
-          }}
-        >
-          <Typography.Title level={5} style={{ marginTop: 0 }}>
-            {t('datasets.filters.noMatchBothTitle', { query })}
-          </Typography.Title>
-          <Typography.Text type="secondary">{t('datasets.filters.noMatchBothHint')}</Typography.Text>
-          <div style={{ marginTop: 16, display: 'flex', gap: 8 }}>
-            <Button onClick={onClearSearch}>{t('datasets.detail.clear')}</Button>
-            <Button onClick={onClearAllFilters}>{t('datasets.filters.clearAll')}</Button>
-          </div>
-        </div>
-      );
-    }
-    if (hasFilters) {
-      return (
-        <div
-          data-component="DatasetRowsNoMatchFilters"
-          style={{
-            flex: '1 1 auto',
-            minHeight: 0,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '48px 24px',
-            textAlign: 'center',
-          }}
-        >
-          <Typography.Title level={5} style={{ marginTop: 0 }}>
-            {t('datasets.filters.noMatchFiltersTitle')}
-          </Typography.Title>
-          <Typography.Text type="secondary">{t('datasets.filters.noMatchFiltersHint')}</Typography.Text>
-          <div style={{ marginTop: 16 }}>
-            <Button onClick={onClearAllFilters}>{t('datasets.filters.clearAll')}</Button>
-          </div>
-        </div>
-      );
-    }
-    if (hasQuery) {
-      return (
-        <div
-          data-component="DatasetRowsNoMatch"
-          style={{
-            flex: '1 1 auto',
-            minHeight: 0,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '48px 24px',
-            textAlign: 'center',
-          }}
-        >
-          <Typography.Title level={5} style={{ marginTop: 0 }}>
-            {t('datasets.detail.noMatchTitle', { query })}
-          </Typography.Title>
-          <Typography.Text type="secondary">{t('datasets.detail.noMatchHint')}</Typography.Text>
-          <div style={{ marginTop: 16 }}>
-            <Button onClick={onClearSearch}>{t('datasets.detail.clear')}</Button>
-          </div>
-        </div>
-      );
-    }
-    return (
-      <div
-        data-component="DatasetRowsZeroRows"
-        style={{
-          flex: '1 1 auto',
-          minHeight: 0,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: '48px 24px',
-          textAlign: 'center',
-        }}
-      >
-        <Typography.Title level={5} style={{ marginTop: 0 }}>
-          {t('datasets.detail.zeroRowsTitle')}
-        </Typography.Title>
-        <Typography.Text type="secondary">{t('datasets.detail.zeroRowsHint')}</Typography.Text>
-      </div>
-    );
-  }
-
-  return (
-    <div
-      data-component="DatasetRowsTable"
-      style={{
-        flex: '1 1 auto',
-        minHeight: 0,
-        overflow: 'auto',
-        border: '1px solid var(--ant-color-border-secondary, #f0f0f0)',
-        borderRadius: 6,
-      }}
-    >
-      <table
-        style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, fontSize: 13 }}
-      >
-        <thead>
-          <tr>
-            {dataset.columns.map((col, ci) => {
-              const existing = filters.find((p) => p.col === ci);
-              return (
-                <th
-                  key={col.name}
-                  style={{
-                    textAlign: 'left',
-                    padding: '10px 12px',
-                    // Solid #fafafa, not var(--ant-color-fill-quaternary)
-                    // — AntD's fill-* tokens are rgba(0,0,0,0.02) and would
-                    // let scrolled rows show through the sticky header.
-                    background: '#fafafa',
-                    boxShadow: 'inset 0 -1px 0 var(--ant-color-border-secondary, #f0f0f0)',
-                    whiteSpace: 'nowrap',
-                    color: 'var(--ant-color-text-secondary, #595959)',
-                    fontWeight: 600,
-                    position: 'sticky',
-                    top: 0,
-                    zIndex: 2,
-                  }}
-                  data-component="DatasetRowsHeaderCell"
-                  data-column={col.name}
-                >
-                  {col.name}
-                  <DtypeBadge dtype={col.dtype} />
-                  <FilterPopover
-                    column={col}
-                    colIndex={ci}
-                    existing={existing}
-                    onApply={onApplyFilter}
-                    onClear={() => onClearFilter(ci)}
-                  />
-                </th>
-              );
-            })}
-          </tr>
-        </thead>
-        <tbody>
-          {(rowsPage?.rows ?? []).map((row, ri) => (
-            <tr
-              key={ri}
-              data-component="DatasetRowsBodyRow"
-              className="dataset-rows-body-row"
-            >
-              {dataset.columns.map((col, ci) => {
-                const cell = formatCell(row[ci] ?? null, col.dtype, locale);
-                return (
-                  <td
-                    key={col.name}
-                    style={{
-                      padding: '8px 12px',
-                      borderBottom: '1px solid var(--ant-color-border-secondary, #f0f0f0)',
-                      maxWidth: 240,
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                      textAlign: cell.isNumeric ? 'right' : 'left',
-                      color: cell.isNull ? 'var(--ant-color-text-tertiary, #8c8c8c)' : undefined,
-                      fontVariantNumeric: cell.isNumeric ? 'tabular-nums' : undefined,
-                    }}
-                    title={cell.isNull ? undefined : cell.text}
-                    data-component="DatasetRowsBodyCell"
-                    data-null={cell.isNull || undefined}
-                  >
-                    {cell.isNull ? '—' : cell.text}
-                  </td>
-                );
-              })}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
