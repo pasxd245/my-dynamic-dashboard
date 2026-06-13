@@ -38,7 +38,7 @@ are independent axes**: a Query keeps its own home/identity (true) _without_
 duplicating the dataset surfaces (false). When a model feels right, ask which
 _part_ is the truth and whether the rest is just riding on it.
 
-Two compounding mechanisms make it stick:
+Three compounding mechanisms make it stick:
 
 1. **A premature model manufactures its own evidence.** Once you adopt
    "Query is a noun," you build `QueryDetailPage` — and that page is then
@@ -51,6 +51,23 @@ Two compounding mechanisms make it stick:
    _tidier_ mistake. R69's two near-identical surfaces could have been merged
    into a shared component at high execution confidence — and that merge would
    only have cemented the wrong model.
+
+3. **Verification confirms conformance, not truth (user, 2026-06-13).** Tests
+   are this trap automated: a green suite proves _what we built matches what we
+   specified_ — and the spec is itself _generated from our intent_, so the whole
+   loop (intent → spec → build → test-against-spec) is **self-referential**. The
+   BIZ truth — _is this the right model?_ — sits **outside** that loop. R70's
+   22/22 contracts + 132/132 FE + 159/159 BE + dual conformance all answer "does
+   what we have match what we said we wanted?"; **none** asks "is a relationship
+   really a workspace-scoped edge?" So **test-green ≠ model-true** — the suite
+   cheerfully confirms a specious model. This is why
+   [accelerate ⇌ brake](../context/purpose.md#dynamic-equilibrium) run **in
+   sync**, not in tension: _accelerate_ (build + tests) proves **conformance**
+   and is fast/automatable; _brake_ (BIZ-truth validation — the
+   discovered-vs-imposed question, the human) proves **truth** — the one thing
+   the accelerate layer _structurally cannot_ reach, because it tests the
+   generated, not the real. The brake is not ceremony; it covers exactly the gap
+   tests leave open. Neither substitutes for the other.
 
 **The discriminator — one question:** is this model **discovered** or
 **imposed**?
