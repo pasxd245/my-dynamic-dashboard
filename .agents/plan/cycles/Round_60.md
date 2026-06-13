@@ -9,9 +9,9 @@
 **Inherits from ← [Round_59](Round_59.md)**: audit surface 5 of the
 **design-corpus conformance audit**
 ([program plan](../programs/design-corpus-audit.plan.md)) —
-[workspace-shell.md](../../design/data-management/workspace-shell.md)
+[workspace-shell.md](../../design/_platform/workspace-shell.md)
 (canonical) **and**
-[workspace-shell.target.md](../../design/data-management/workspace-shell.target.md)
+[workspace-shell.target.md](../../design/_platform/workspace-shell.target.md)
 (its horizon/target doc) — against the **stable rubric**.
 
 **Two firsts this round**: (a) the first **multi-doc** surface; (b) the

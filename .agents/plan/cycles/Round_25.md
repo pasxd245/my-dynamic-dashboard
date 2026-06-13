@@ -107,7 +107,7 @@ ON datasets(workspace_id, name)`.
     code gets a behavior test asserting the observable state
     change (or non-change in the case of 409).
 - **Stamp**
-  [crud-hygiene.md](../../design/data-management/crud-hygiene.md)
+  [crud-hygiene.md](../../design/data-management/_shared/crud-hygiene.md)
   with a `**Backend**: R25` row alongside the existing
   `**Contract**: R24`.
 - **Update**
@@ -124,7 +124,7 @@ ON datasets(workspace_id, name)`.
   The four new contracts shipped in R24; R25 implements them.
 - **No `?cascade=true` opt-in** on workspace delete. Future
   round per
-  [crud-hygiene.md § Out of scope](../../design/data-management/crud-hygiene.md).
+  [crud-hygiene.md § Out of scope](../../design/data-management/_shared/crud-hygiene.md).
 - **No soft-delete / trash bin.** Same.
 - **No audit log** of mutations. Same.
 - **No cross-workspace dataset move.** Same.
@@ -159,7 +159,7 @@ ON datasets(workspace_id, name)`.
       cross-cutting smoke test with four canonical responses.
 - [x] Run `pnpm --filter @mdd/contracts test` — 11/11 still
       passing. Backend `uv run pytest` — 54/54.
-- [x] Stamp [crud-hygiene.md](../../design/data-management/crud-hygiene.md)
+- [x] Stamp [crud-hygiene.md](../../design/data-management/_shared/crud-hygiene.md)
       with `**Backend**: R25`.
 - [x] `pnpm md:lint` 0 errors; `pnpm format:check` clean for
       R25-touched files after applying prettier.

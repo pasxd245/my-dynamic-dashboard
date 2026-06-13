@@ -26,7 +26,7 @@ code.
 
 _Track: 1 (product — per-column filters are the natural
 extension of R36's `?q=` substring; closes the
-[dataset-detail.md § Read/write boundary](../../design/data-management/dataset-detail.md#readwrite-boundary)
+[dataset-detail.md § Read/write boundary](../../design/data-management/datasets/dataset-detail.md)
 deferral row "Per-column search / typed-filter language"
 without committing to a full query language). Pulled by: R36
 Feeds-into Q&A; the dataset-detail design's own deferred-list
@@ -93,7 +93,7 @@ end-of-round Q&A:**
 ### 1. New design doc — `dataset-filters.md`
 
 Author
-[`.agents/design/data-management/dataset-filters.md`](../../design/data-management/dataset-filters.md)
+[`.agents/design/data-management/dataset-filters.md`](../../design/data-management/datasets/dataset-filters.md)
 following the R10/R14/R33 canonical template:
 
 - **Status header** — concept name, R37 origin, draft status,
@@ -113,11 +113,11 @@ following the R10/R14/R33 canonical template:
     (backend; feature).
   - `FilterPredicate` discriminated-union type (feature; data type).
 - **Reference materials** — sibling docs:
-  [dataset-detail.md](../../design/data-management/dataset-detail.md)
+  [dataset-detail.md](../../design/data-management/datasets/dataset-detail.md)
   (the page this extends),
-  [datasets.md](../../design/data-management/datasets.md) (where
+  [datasets.md](../../design/data-management/datasets/datasets.md) (where
   `dtype` is defined),
-  [upload.md](../../design/data-management/upload.md) (the dtype
+  [upload.md](../../design/data-management/datasets/upload.md) (the dtype
   inference source).
 - **ASCII layout** — populated state with one active string
   filter + one active numeric range filter (showing both the
@@ -193,12 +193,12 @@ q1_pipeline_Deals` — same as the dataset-detail preview.
 ### 3. Stamp sibling docs
 
 - Update
-  [`dataset-detail.md`](../../design/data-management/dataset-detail.md)
+  [`dataset-detail.md`](../../design/data-management/datasets/dataset-detail.md)
   Read/write boundary — flip "Per-column search / typed-filter
   language" deferral row to "Per-column filters — R37 design,
   R38→R40 impl chain" with a sibling link to `dataset-filters.md`.
   Add `dataset-filters.md` to the sibling-docs list at the top.
-- Update [`../../design/index.html`](../../design/_archive/index.html) —
+- Update `../../design/_archive/index.html` —
   add `dataset-filters.preview.html` as a sub-item in the
   Data-Management sidebar group + a card on the right with the
   R37 badge.
@@ -319,7 +319,7 @@ q1_pipeline_Deals` — same as the dataset-detail preview.
 
 **Design doc.**
 
-- [`dataset-filters.md`](../../design/data-management/dataset-filters.md)
+- [`dataset-filters.md`](../../design/data-management/datasets/dataset-filters.md)
   authored from scratch following R10/R14/R33's canonical
   template ([README.md § file-format conventions](../../design/README.md#canonical-conceptmd)).
 - **Surface declaration table** at the top names 8 surfaces:
@@ -346,7 +346,7 @@ q1_pipeline_Deals` — same as the dataset-detail preview.
 - **Token map** cites 18 tokens against
   [themeTokens.ts](../../../workspace/packages/ui/src/themeTokens.ts)
   (via the
-  [`tokens.css`](../../design/_archive/_css/tokens.css) mirror). No new
+  `../../design/_archive/_css/tokens.css` mirror). No new
   token values introduced.
 - **Behavior** section uses Mermaid `stateDiagram-v2` for the
   popover lifecycle (Idle → PopoverOpen → PopoverEditing →
@@ -371,7 +371,7 @@ q1_pipeline_Deals` — same as the dataset-detail preview.
 
 **Preview HTML.**
 
-- [`dataset-filters.preview.html`](../../design/data-management/_archive/dataset-filters.preview.html)
+- `../../design/data-management/_archive/dataset-filters.preview.html`
   authored. Self-contained Tailwind-CDN preview, reuses the
   master-layout chrome via `../_css/{tokens.css,
 preview-shell.css}`.
@@ -400,7 +400,7 @@ preview-shell.css}`.
 
 **Sibling doc stamps.**
 
-- [`dataset-detail.md`](../../design/data-management/dataset-detail.md)
+- [`dataset-detail.md`](../../design/data-management/datasets/dataset-detail.md)
   Read/write boundary — the "Per-column search / typed-filter
   language" deferral row replaced with "Per-column filters —
   R37 design, R38→R40 impl chain" + a sibling link to
@@ -410,7 +410,7 @@ preview-shell.css}`.
 
 **Design index.**
 
-- [`.agents/design/index.html`](../../design/_archive/index.html)
+- `../../design/_archive/index.html`
   gained a sub-item under the Data-Management sidebar group
   (FilterOutlined SVG icon) and a right-side preview card with
   the R37 badge + the "per-column typed filters · sub-page of

@@ -406,9 +406,9 @@ removals in non-UTC deployments. Fixed by explicit
 
 **Cross-doc stamps.**
 
-- [`crud-hygiene.md`](../../design/data-management/crud-hygiene.md)
+- [`crud-hygiene.md`](../../design/data-management/_shared/crud-hygiene.md)
   appended an R30 stamp on the error boundary.
-- [`upload.md`](../../design/data-management/upload.md) updated
+- [`upload.md`](../../design/data-management/datasets/upload.md) updated
   the TTL section + the R15+ scope list — the original "swept on
   backend startup" framing is replaced by the periodic loop.
 

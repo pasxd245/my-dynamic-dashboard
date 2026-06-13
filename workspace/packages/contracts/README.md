@@ -23,8 +23,8 @@ same locked contract without integration debt.
 
 See [Round_15](../../../.agents/plan/cycles/Round_15.md) for the
 round that introduced this layer, and
-[upload.md](../../../.agents/design/data-management/upload.md) /
-[datasets.md](../../../.agents/design/data-management/datasets.md)
+[upload.md](../../../.agents/design/data-management/datasets/upload.md) /
+[datasets.md](../../../.agents/design/data-management/datasets/datasets.md)
 for the design docs the contracts implement.
 
 ## File layout

@@ -9,7 +9,7 @@
 **Inherits from ← [Round_60](Round_60.md)**: audit surface 6 of the
 **design-corpus conformance audit**
 ([program plan](../programs/design-corpus-audit.plan.md)) —
-[upload](../../design/data-management/upload.md) — against the **stable
+[upload](../../design/data-management/datasets/upload.md) — against the **stable
 rubric** (A3 owns tokens; B6 defers). Straight conformance pass; carries
 R60's two corrections forward (judge by conformance not age; A3 has a
 known model in `workspace-shell.md`).
@@ -27,7 +27,7 @@ one** §D spot-verify (decision #2).
 ## Why `upload` sixth
 
 It is the **verb** that *creates* datasets —
-[datasets.md](../../design/data-management/datasets.md) is the noun,
+[datasets.md](../../design/data-management/datasets/datasets.md) is the noun,
 `upload.md` the verb. It **assigns `Dataset.columns[].dtype` via parse
 inference** (the production side of the dtype vocabulary the cluster
 consumes — R56/R57/R58 checked the consumer side; this checks the

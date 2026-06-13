@@ -212,7 +212,7 @@ R17's Act). Pulled by: Round_16 Feeds-into + Q&A lean answers
 - [x] Author
       `.agents/memory/2026-05-24-fe-round-typecheck-pattern.md`
       capturing the FE-side hand-aligned types + mock pattern.
-- [x] Update [datasets.md](../../design/data-management/datasets.md) + [upload.md](../../design/data-management/upload.md) with a
+- [x] Update [datasets.md](../../design/data-management/datasets/datasets.md) + [upload.md](../../design/data-management/datasets/upload.md) with a
       `**Frontend**: R17` stamp.
 - [x] R15+R16+R17 promotion-candidate decision: write up in Act.
 - [x] Cross-link: `Inherits from ← Round_16` (above); `Feeds into
@@ -362,8 +362,8 @@ data-component="WorkspaceSelect">` for tests. Verified that
   — captures the hand-aligned-types + reducer + fetch-mock
   patterns. Linked to R15 + R16 memos via `[[…]]` references.
 - **Design docs stamped** with `**Frontend**: R17` on
-  [`datasets.md`](../../design/data-management/datasets.md) and
-  [`upload.md`](../../design/data-management/upload.md).
+  [`datasets.md`](../../design/data-management/datasets/datasets.md) and
+  [`upload.md`](../../design/data-management/datasets/upload.md).
 
 ## Check
 

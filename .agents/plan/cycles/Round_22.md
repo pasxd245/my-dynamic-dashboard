@@ -15,7 +15,7 @@ independently of the rounds that produced it.
 R22 is that evaluation round. Three outputs:
 
 1. **Promote the "D-step picks the chain" framing** to
-   [context/contract-driven-feature.md](../../context/_archive/contract-driven-feature.md)
+   `../../context/_archive/contract-driven-feature.md`
    as the affirmative complement to the existing "When _not_ to use
    DCBF" section.
 2. **Amend the BE conformance memo**
@@ -102,7 +102,7 @@ Status-flip review._
 
 - [x] Author Round_22.md (this file) and flip to `In Progress`.
 - [x] Re-read
-      [context/contract-driven-feature.md](../../context/_archive/contract-driven-feature.md)
+      `../../context/_archive/contract-driven-feature.md`
       and pick the smallest viable amendment shape for the
       "D-step picks the chain" framing.
 - [x] Apply the amendment; verify line count growth stays modest
@@ -161,7 +161,7 @@ Status-flip review._
 ### Amendment 1 — D-step-picks-the-chain framing (context/)
 
 Added a new section **"What the D-step decides"** to
-[context/contract-driven-feature.md](../../context/_archive/contract-driven-feature.md),
+`../../context/_archive/contract-driven-feature.md`,
 positioned between "What this methodology refuses to add" and
 "When _not_ to use DCBF." The section is the affirmative
 complement to the existing negative-framing section:

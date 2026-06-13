@@ -1,4 +1,4 @@
-# Design — HIxAI brainstorming artifacts
+# Design — intent-before-code artifacts
 
 > This directory holds **intent-before-code** design artifacts for the
 > product UI. The goal is to give the Human a tangible target to react
@@ -31,10 +31,10 @@ applied one layer up: **design the UI first, don't backfill it later**.
 
 ## What lives here
 
-- **Per-concept design specs** in markdown, grouped by domain.
-- **Optional brainstorming previews** in HTML (Tailwind via CDN, no
-  build) when a concept introduces a _new_ visual pattern that text
-  cannot adequately convey.
+- **Per-concept design specs** in markdown, grouped by domain then by
+  feature cluster (mirroring `apps/builder/src/features/<domain>/<cluster>/`).
+- **Optional `<concept>.target.md` horizon docs** when a concept will
+  iterate across three or more rounds and needs a fixed destination.
 - **Reference materials** (images, color palettes, external links)
   imported only when they survive their own scrutiny — see "What does
   NOT live here" below.
@@ -43,8 +43,16 @@ applied one layer up: **design the UI first, don't backfill it later**.
 
 - Implementation details (those live in `apps/builder/src/` or
   `workspace/packages/ui/src/`).
+- **HTML previews / preview-shell infrastructure.** Retired at R47:
+  under the DCFBI/DFCFBI flow the **FE running against MSW is the
+  canonical UX preview**; design markdown is its _spec_, not a
+  parallel artifact. The old `*.preview.html` files and their
+  `_css/` / `_js/` preview-shell were archived at R48 and deleted in
+  the 2026-06-13 restructure — a second UX source of truth was the #1
+  drift risk the hybrid flow eliminated. See
+  [decisions/2026-05-28-hybrid-flow-governance.md](../decisions/2026-05-28-hybrid-flow-governance.md).
 - Storybook config, Ladle, or any component-gallery tooling — not
-  pulled yet.
+  pulled yet (see § When to add structure).
 - Vendor screenshots or generated assets unless the artifact citing
   them genuinely needs them.
 - Architecture/sequence diagrams for non-UI concerns — those belong
@@ -57,20 +65,36 @@ applied one layer up: **design the UI first, don't backfill it later**.
 
 ```text
 .agents/design/
-├── README.md                       (this file)
-└── <domain>/                       (e.g. data-management/)
-    ├── <concept>.md                (canonical intent — always)
-    └── <concept>.preview.html      (Tailwind brainstorming aid — optional)
+├── README.md                         (this file)
+├── _platform/                        (app-level chrome, above any domain)
+│   └── <concept>.md                  (e.g. workspace-shell.md, .target.md)
+└── <domain>/                         (e.g. data-management/ — mirrors features/<domain>/)
+    ├── _TEMPLATE.md                  (domain doc template)
+    ├── _shared/                      (concepts reused across the domain's clusters)
+    │   └── <concept>.md              (e.g. crud-hygiene.md)
+    └── <cluster>/                    (e.g. datasets/, workspaces/ — mirrors features/<domain>/<cluster>/)
+        ├── <concept>.md              (canonical intent — always)
+        └── <concept>.target.md       (horizon doc — optional)
 ```
 
-- **Group by domain/feature**, mirroring how features will be
-  organised under `apps/builder/src/features/<domain>/`.
-- **First puller wins**: a cross-cutting concept (like the workspace
-  shell) lives under the domain folder that pulled it into
-  existence. When a second domain consumes the same concept,
-  promote it via a future round to a cross-cutting location
-  (lean: `_platform/`, name decided at promotion time) and leave a
-  one-line redirect stub at the original path.
+- **Mirror `apps/builder/src/features/`.** Domains and their feature
+  clusters track the code layout
+  (`data-management/{datasets,workspaces,_shared}`); `_platform/`
+  holds app-level chrome that lives above any single domain (the
+  master-layout shell, whose code is in `apps/builder/src/components/`,
+  not under a feature).
+- **First puller wins, then promote when shared.** A concept lives
+  under the cluster that pulled it into existence. When it proves
+  cross-cutting — the workspace shell is consumed app-wide; the
+  rename/delete modals are reused across clusters — promote it:
+  app-level chrome → `_platform/`; within-domain cross-cluster → the
+  domain's `_shared/`. Promotion **moves** the file and **repoints**
+  inbound links (run
+  [`markdown-check-link --fix`](../skills/markdown-check-link/SKILL.md));
+  historical round-file links are repaired the same way rather than
+  left as redirect stubs. _(First promotions: the 2026-06-13
+  restructure moved `workspace-shell{,.target}.md` → `_platform/` and
+  `crud-hygiene.md` → `data-management/_shared/`.)_
 
 ## File-format conventions
 
@@ -131,41 +155,6 @@ Always present. Markdown is the contract. Contains:
 - **Scope boundary**: what this concept covers, what is
   deferred, what is explicitly out.
 
-### Optional: `<concept>.preview.html`
-
-Present only when the concept introduces a _new_ visual pattern that
-the markdown cannot adequately convey. Once the pattern is
-established, later concepts that reuse it stay markdown-only.
-
-Format requirements:
-
-- **Self-contained**: a single `.html` file, opens directly in a
-  browser without any build step or local server.
-- **Tailwind Play CDN** for utility classes:
-  `<script src="https://cdn.tailwindcss.com"></script>`. (Tailwind's
-  own docs endorse this for prototyping; not for production.)
-- **Token parity with `@mdd/ui`**: copy the CSS custom properties
-  derived from
-  [themeTokens.ts](../../workspace/packages/ui/src/themeTokens.ts)
-  into a `<style>` block, with a comment pointing at the
-  authoritative source. The preview will drift; that is acceptable;
-  the source of truth is the React app.
-- **Click-through**: vanilla `<script>` with `addEventListener`
-  and `classList.toggle`. No frameworks, no jQuery.
-- **Header comment** that names the round and the lifecycle:
-
-  ```html
-  <!--
-    HIxAI brainstorming aid for Round_NN — <concept>.
-    Visual reference only. ~90% fidelity to the intended UI.
-    Production truth is the running builder, not this file.
-    May be removed in a later round once the pattern is established.
-  -->
-  ```
-
-- **Honest framing in-page**: a small banner near the top of the
-  rendered page stating "Brainstorming preview — not production."
-
 ### Optional: `<concept>.target.md`
 
 Present only when a concept will iterate across **three or more
@@ -200,34 +189,10 @@ Format requirements:
   relevant material into the canonical doc and delete the target.
 
 First instance: see
-[data-management/workspace-shell.target.md](data-management/workspace-shell.target.md)
+[\_platform/workspace-shell.target.md](_platform/workspace-shell.target.md)
 (Round 10).
 
-### Honest caveats
-
-- **Tailwind Play CDN needs internet** — each open fetches the CDN.
-  Acceptable for now; revisit if friction appears.
-- **Preview will diverge from production.** Tailwind utility-divs do
-  not equal AntD `<Layout.Sider>` components. The token layer
-  (colors, spacing, type) bridges the two. Component-level structure
-  will not match perfectly. Treat the preview as a visual prompt for
-  feedback, not a pixel contract.
-- **Two files per concept = two-way drift risk.** The markdown is
-  canonical for intent; the preview is canonical for visual feel.
-  If they disagree, fix the markdown to match the visual or vice
-  versa, then say which is authoritative for the disputed point.
-
-## Lifecycle: when previews and targets come and go
-
-### Previews
-
-- **Created** in the round that introduces a new visual pattern.
-  Lives through that round's Plan / Do / Check / Act and the
-  immediate next round (so the visual decision stays
-  reconstructible).
-- **Retained or removed** by an explicit per-round decision in a
-  later round's Plan. There is no automatic sweep — trust the round
-  artifact to call it.
+## Lifecycle: when docs come and go
 
 ### Target docs
 
@@ -246,7 +211,9 @@ First instance: see
 
 - **Markdown specs are durable.** They survive concept evolution;
   amend in place when the concept matures, or supersede with a
-  redirect stub when it splits or moves.
+  redirect stub when it splits or moves. When a concept is promoted
+  across clusters, **move** it and repoint inbound links (§ Directory
+  structure) rather than leaving a stub.
 
 ## Token authority
 
@@ -268,19 +235,21 @@ implicit copy.
 
 ## Adding a new design artifact
 
-1. Decide the domain (matches `apps/builder/src/features/<domain>/`).
-2. Create `.agents/design/<domain>/<concept>.md` from the format above.
+1. Decide the **domain + cluster** (matches
+   `apps/builder/src/features/<domain>/<cluster>/`). App-level chrome
+   goes in `_platform/`; a concept reused across a domain's clusters
+   goes in `<domain>/_shared/`.
+2. Create `.agents/design/<domain>/<cluster>/<concept>.md` from the
+   format above.
 3. Fill the **Surface declaration** table at the top of the doc —
    one row per surface the concept introduces. A concept doc without
    this table is incomplete; do not skip it.
-4. Decide whether a `.preview.html` is needed (new visual pattern?
-   yes; reuses established pattern? no).
-5. Decide whether a `<concept>.target.md` is needed (concept will
+4. Decide whether a `<concept>.target.md` is needed (concept will
    iterate across 3+ rounds and needs a visible destination? yes;
    one-or-two-round concept? no).
-6. Reference the design artifact from the round that authored it
+5. Reference the design artifact from the round that authored it
    (`Round_NN.md` → Plan section cites the design doc).
-7. Implement against the design; reconcile any divergence by
+6. Implement against the design; reconcile any divergence by
    amending the design doc in the same round.
 
 ## When to add structure (deferred decisions)
@@ -290,62 +259,18 @@ real pull arrives — not in anticipation. The following expansions
 are foreseeable but not yet justified; this section names the
 trigger so the next round knows when to act.
 
-### Shared CSS extraction → `.agents/design/_css/`
+### Cross-cutting promotion (`_platform/`, `<domain>/_shared/`)
 
-**Trigger**: when a **second** `.preview.html` is created, extract
-the shared token block and any common utility classes
-(`.mdd-sidebar`, `.mdd-nav-item`, etc.) into `.agents/design/_css/`
-in the same round. Do not let triplication happen.
-
-**Shape when extracted**:
-
-```text
-.agents/design/_css/
-├── tokens.css           (CSS variables mirroring themeTokens.ts + AntD seeds)
-└── preview-shell.css    (shared utility classes used across previews)
-```
-
-- Leading underscore (`_css/`) signals "cross-cutting, not a domain"
-  — same convention as `_platform/` for promoted cross-cutting
-  concepts.
-- Previews link via `<link rel="stylesheet" href="../_css/tokens.css">`.
-  This still works directly from `file://` — no build, no server.
-- **Token authority is unchanged**: `_css/tokens.css` mirrors
-  [themeTokens.ts](../../workspace/packages/ui/src/themeTokens.ts);
-  it is not a second source. If the two diverge, themeTokens.ts wins
-  and `_css/tokens.css` is updated to match in the same round.
-- **Lifecycle**: when the last `.preview.html` using a shared CSS
-  file is removed, the CSS file goes with it.
-
-While only one preview exists, **keep the CSS inline** in the
-preview's `<style>` block — N=1 has nothing to deduplicate against.
-
-### Cross-linked previews ("feel the app before it exists")
-
-**Trigger**: arrives with the **second** `.preview.html` — naturally
-coupled to the CSS extraction above (both fire at N=2).
-
-**Pattern**: each preview's sidebar items use plain `<a href>` to
-the other previews' files, so clicking navigates the browser to
-that concept. Full-page navigation between standalone HTML files;
-no SPA, no JS routing, no content-fragment plumbing — works
-directly from `file://`. The HIxAI feedback loop becomes
-interactive: not just "do you like this layout" but "does the
-whole flow work before any of it exists."
-
-**Coordination cost**: every preview's sidebar must list the
-current set of nav items. At N=2-3, copy-paste between preview
-files is acceptable, discipline-managed. At **N=4+**, extract the
-nav structure to a JSON manifest in `_css/` (or alongside it) and
-inject it via ~20 lines of vanilla JS — still no build, still no
-framework.
-
-### Discovery / index page → `.agents/design/index.html`
-
-**Trigger**: when **three or more** `.preview.html` files exist and
-the README's prose listing becomes awkward to scan. Add a manually
-maintained `.agents/design/index.html` then; do not build generation
-tooling.
+**Trigger**: when a concept living under one cluster is genuinely
+consumed by a second cluster or domain (two real consumers, not a
+manufactured duplicate — see
+[memory/2026-06-13-specious-model-lock-in.md](../memory/2026-06-13-specious-model-lock-in.md)).
+Promote it by **moving** the file (app-level chrome → `_platform/`;
+within-domain cross-cluster → `<domain>/_shared/`) and repointing
+inbound links with
+[`markdown-check-link --fix`](../skills/markdown-check-link/SKILL.md)
+in the same round. Don't pre-create empty cluster folders for
+concepts that don't exist yet.
 
 ### Component-gallery tooling (Storybook / Ladle)
 

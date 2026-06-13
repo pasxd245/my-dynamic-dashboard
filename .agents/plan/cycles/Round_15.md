@@ -7,8 +7,8 @@
 ## Goal
 
 **Inherits from ← [Round_14](Round_14.md)** — two locked design
-contracts ([datasets.md](../../design/data-management/datasets.md) +
-[upload.md](../../design/data-management/upload.md)), 17 HIxAI
+contracts ([datasets.md](../../design/data-management/datasets/datasets.md) +
+[upload.md](../../design/data-management/datasets/upload.md)), 17 HIxAI
 decisions, three cross-linked previews.
 
 R15 is the **first contract round** in a new 4-round-per-feature

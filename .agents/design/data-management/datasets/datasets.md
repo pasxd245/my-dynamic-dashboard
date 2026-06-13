@@ -9,29 +9,26 @@ across all workspaces as a sortable / filterable **table list**; a
 workspace card click navigates here with the workspace filter
 applied.
 **Status**: Accepted (R14 design; shipped R15–R17; extended R23, R33).
-**Round introduced**: [Round_14](../../plan/cycles/Round_14.md);
+**Round introduced**: [Round_14](../../../plan/cycles/Round_14.md);
 implementation chain begins R15. Datasets is the **first
 implementation** of R11's sample "Datasets" sub-menu item — it
 promotes from sample to real scope in R14.
-**Backend**: [Round_16](../../plan/cycles/Round_16.md) — SQLite-
+**Backend**: [Round_16](../../../plan/cycles/Round_16.md) — SQLite-
 backed `datasets` table; `POST /workspaces/{id}/datasets/batch` and
 `GET /datasets` land against the locked R15 contracts.
-**Frontend**: [Round_17](../../plan/cycles/Round_17.md) — Datasets
+**Frontend**: [Round_17](../../../plan/cycles/Round_17.md) — Datasets
 table page with workspace filter; workspace-card click handoff.
 **Sibling docs**:
-[workspaces.md](workspaces.md) (the container datasets live inside),
+[workspaces.md](../workspaces/workspaces.md) (the container datasets live inside),
 [upload.md](upload.md) (the action that creates a dataset — verb to
 this doc's noun),
-[crud-hygiene.md](crud-hygiene.md) (rename + delete affordances on
+[crud-hygiene.md](../_shared/crud-hygiene.md) (rename + delete affordances on
 the Dataset row — R23 closes the R∞-deferred CRUD gap below),
 [dataset-detail.md](dataset-detail.md) (R33 design for the
 per-dataset inspector page; resolves this doc's R∞-deferred row-
 click affordance below),
-[workspace-shell.target.md](workspace-shell.target.md) (the chrome
-the Datasets page renders inside), and
-[datasets.preview.html](_archive/datasets.preview.html) (visual preview of
-the Datasets table list — `+ Upload` navigates to the wizard
-preview at [upload.preview.html](_archive/upload.preview.html)).
+[workspace-shell.target.md](../../_platform/workspace-shell.target.md) (the chrome
+the Datasets page renders inside).
 
 ---
 
@@ -88,7 +85,7 @@ introduced in R13 — no new backend surface for the workspace list.
 ## Layout — ASCII intent
 
 The Datasets page renders inside the master-layout chrome
-([workspace-shell.target.md](workspace-shell.target.md)) — sidebar
+([workspace-shell.target.md](../../_platform/workspace-shell.target.md)) — sidebar
 shows "Data Management" expanded with "Datasets" sub-item active;
 PageHeader shows breadcrumb + title + `[+ Upload]` action; PageCard
 wraps the table.
@@ -197,7 +194,7 @@ pre-fills the workspace picker in the modal.
 The Datasets page is AntD primitives (`<Table>`, `<Select>`,
 `<Input>`, `<Empty>`, `<Button>`) styled by the AntD `<ConfigProvider>`
 tokens derived from the six seeds in
-[`themeTokens.ts`](../../../workspace/packages/ui/src/themeTokens.ts)
+[`themeTokens.ts`](../../../../workspace/packages/ui/src/themeTokens.ts)
 (the source of truth — R66). The source-format prefix (`📊` / `📄`) is
 an emoji glyph, not a themed token. No new token is introduced; values
 are informational (resolved via `theme.getDesignToken()`, antd 6.x).
@@ -220,7 +217,7 @@ are informational (resolved via `theme.getDesignToken()`, antd 6.x).
 
 No new token is introduced. Identifier parity against the live AntD
 registry is enforced by
-[`design-token-parity.mjs`](../../../scripts/lint/design-token-parity.mjs).
+[`design-token-parity.mjs`](../../../../scripts/lint/design-token-parity.mjs).
 
 ---
 
@@ -255,7 +252,7 @@ table, it is always `ready`. Failed parses live entirely inside
 the wizard (Step 2 — Preview) and never become persisted
 Datasets. Adding `status` "for future processing pipelines" is
 exactly the speculative scaffolding the
-[Evolution Rule](../../AGENTS.md) warns against; defer until a
+[Evolution Rule](../../../AGENTS.md) warns against; defer until a
 concrete pull arrives.
 
 **`name` is user-supplied**: defaults to the filename stem in the
@@ -453,10 +450,10 @@ This concept explicitly does NOT cover:
 - The per-dataset inspector page (lives in
   [dataset-detail.md](dataset-detail.md)).
 - Rename / delete affordances and their modals (live in
-  [crud-hygiene.md](crud-hygiene.md); the table's Actions column is a
+  [crud-hygiene.md](../_shared/crud-hygiene.md); the table's Actions column is a
   _placement_ of them, added in R23).
 - The Workspace container model (lives in
-  [workspaces.md](workspaces.md)).
+  [workspaces.md](../workspaces/workspaces.md)).
 
 ---
 

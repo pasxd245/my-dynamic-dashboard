@@ -86,7 +86,7 @@ passing + FE tests green**.
   dropped — one discoverable clear, not two.
 - **i18n** — `datasets.advancedQuery.label` + `.clear`, en + vi.
 - **Design-spec sync** —
-  [`advanced-query.md` § Layout](../../design/data-management/advanced-query.md#layout-ascii-intent)
+  [`advanced-query.md` § Layout](../../design/data-management/datasets/advanced-query.md)
   gains an R53 note: the label is a header row + Clear link (the
   ASCII boxes are illustrative, not a literal border), so design
   and build agree.

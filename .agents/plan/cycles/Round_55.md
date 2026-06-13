@@ -181,13 +181,13 @@ match the R36 `?q=` / existing string semantics).
 
 **Design** — amended both design docs:
 
-- [advanced-query.md](../../design/data-management/advanced-query.md):
+- [advanced-query.md](../../design/data-management/datasets/advanced-query.md):
   the operator-prefix table now maps date `>=`/`<=` → `gte`/`lte`
   and string `!=` → `ne`; notes ²/³ rewritten from "known gap" to
   "Closed in R55" (recording the `gte`/`lte`-reuse decision and the
   case-insensitive string-`ne` SQL); the _Deferred_ bullet struck
   through and marked shipped.
-- [dataset-filters.md](../../design/data-management/dataset-filters.md):
+- [dataset-filters.md](../../design/data-management/datasets/dataset-filters.md):
   predicate-vocabulary table gains a string `ne` row + date
   `gte`/`lte` rows; the `ne` UI label changed from `≠` to
   "not equals" across numeric/date/string; the per-dtype operator

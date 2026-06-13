@@ -5,7 +5,7 @@
 ## Purpose
 
 Returns a single dataset by id. Powers the
-[dataset detail page](../../../../.agents/design/data-management/dataset-detail.md)
+[dataset detail page](../../../../.agents/design/data-management/datasets/dataset-detail.md)
 at `/data-management/datasets/:id`. The page header, metadata
 strip, and column-header dtype badges all read from this
 response; per-row data comes from the sibling
@@ -33,7 +33,7 @@ response; per-row data comes from the sibling
   [`ApiErrorNotFound`](../_shared/api-error.yaml) envelope
   from R24 (`{ code: "not_found" }`). The FE 404 state mirrors
   the wording on the
-  [crud-hygiene delete-already-gone race](../../../../.agents/design/data-management/crud-hygiene.md):
+  [crud-hygiene delete-already-gone race](../../../../.agents/design/data-management/_shared/crud-hygiene.md):
   the dataset may have been deleted from another tab.
 - **No 410.** A successfully-deleted dataset returns 404, not
   410, to match the existing delete + patch contracts. The
@@ -91,4 +91,4 @@ Content-Type: application/json
 - [delete.contract.yaml](delete.contract.yaml) — the operation that makes 404 a real state
 - [`../_shared/dataset.yaml`](../_shared/dataset.yaml) — Dataset shape
 - [`../_shared/api-error.yaml`](../_shared/api-error.yaml) — ApiErrorNotFound envelope
-- [dataset-detail.md](../../../../.agents/design/data-management/dataset-detail.md) — R33 design doc
+- [dataset-detail.md](../../../../.agents/design/data-management/datasets/dataset-detail.md) — R33 design doc

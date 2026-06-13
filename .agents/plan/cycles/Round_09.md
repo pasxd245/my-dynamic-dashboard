@@ -36,7 +36,7 @@ R08 Feeds-into. Per [Evolution Rule](../../AGENTS.md)._
 ## What is IN scope
 
 - **Design amendment** to
-  [.agents/design/data-management/workspace-shell.md](../../design/data-management/workspace-shell.md):
+  [.agents/design/data-management/workspace-shell.md](../../design/_platform/workspace-shell.md):
   - New "Collapse states" section between "Icons" and
     "Behaviour": mermaid `stateDiagram-v2` for expanded ↔
     collapsed transitions, a small width-and-content table, the
@@ -47,7 +47,7 @@ R08 Feeds-into. Per [Evolution Rule](../../AGENTS.md)._
   - "Component contract" updated with the two new props
     (`collapsed`, `onToggleCollapse`).
 - **Preview update** to
-  [.agents/design/data-management/workspace-shell.preview.html](../../design/data-management/_archive/workspace-shell.preview.html):
+  `../../design/data-management/_archive/workspace-shell.preview.html`:
   - Hamburger button rendered at top of sidebar.
   - Vanilla-JS toggle between expanded (88px) and collapsed
     (56px) states — same script that already drives the
@@ -107,8 +107,8 @@ R08 Feeds-into. Per [Evolution Rule](../../AGENTS.md)._
 
 ## Plan
 
-- [x] Amended [workspace-shell.md](../../design/data-management/workspace-shell.md): added the "Collapse states" section with mermaid `stateDiagram-v2`, width-and-content table, collapsed wireframe, and interaction rules; updated component contract with `collapsed` + `onToggleCollapse`. Added an Icons-table row for `__shell.toggle` → `MenuOutlined` and a `__shell.*` namespace note.
-- [x] Updated [workspace-shell.preview.html](../../design/data-management/_archive/workspace-shell.preview.html): hamburger button at top of sidebar, frozen `MenuOutlined` SVG from `@ant-design/icons-svg@4.4.2`, `.is-collapsed` CSS class on `.mdd-shell` flipping `grid-template-columns: 88px 1fr` → `56px 1fr` over 200ms, CSS-only tooltip (`::after` pseudo-element gated by `:hover` + `:focus`), vanilla-JS click handler on the toggle.
+- [x] Amended [workspace-shell.md](../../design/_platform/workspace-shell.md): added the "Collapse states" section with mermaid `stateDiagram-v2`, width-and-content table, collapsed wireframe, and interaction rules; updated component contract with `collapsed` + `onToggleCollapse`. Added an Icons-table row for `__shell.toggle` → `MenuOutlined` and a `__shell.*` namespace note.
+- [x] Updated `../../design/data-management/_archive/workspace-shell.preview.html`: hamburger button at top of sidebar, frozen `MenuOutlined` SVG from `@ant-design/icons-svg@4.4.2`, `.is-collapsed` CSS class on `.mdd-shell` flipping `grid-template-columns: 88px 1fr` → `56px 1fr` over 200ms, CSS-only tooltip (`::after` pseudo-element gated by `:hover` + `:focus`), vanilla-JS click handler on the toggle.
 - [x] Added `collapsed` + `onToggleCollapse` props to [`<WorkspaceShell>`](../../../workspace/packages/ui/src/Components/WorkspaceShell.tsx). Hamburger button (renders only when `onToggleCollapse` is provided). Brand mark hidden when collapsed. Nav-item labels hidden via inline `display: none`. Each nav-item wrapped in AntD `<Tooltip>` **only when collapsed** (no wrapper at all when expanded — cleaner DOM than empty-title approach the Plan considered). 200ms transition on sidebar width + nav-item width/padding.
 - [x] Updated [`AppLayout`](../../../workspace/apps/builder/src/components/AppLayout.tsx) to hold collapse state via `useState(false)` (default expanded) and pass both props down.
 - [x] Added five collapse-related tests to [`WorkspaceShell.test.tsx`](../../../workspace/packages/ui/tests/WorkspaceShell.test.tsx) (slightly expanded from the planned three to cover both the "with toggle" and "without toggle" cases). Existing tests unchanged. `renderShell` helper updated to forward `collapsed` + `onToggleCollapse`.

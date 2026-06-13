@@ -6,7 +6,7 @@
 
 Returns a paged slice of a dataset's rows for the data table on
 the
-[dataset detail page](../../../../.agents/design/data-management/dataset-detail.md).
+[dataset detail page](../../../../.agents/design/data-management/datasets/dataset-detail.md).
 The FE pairs this with
 [`detail-get.contract.yaml`](detail-get.contract.yaml) — that
 endpoint returns the schema + column dtypes (the table header
@@ -82,7 +82,7 @@ to all `N < Dataset.columnCount`.
   prose description on `f0_op` carries the full vocabulary;
   the BE does the per-dtype check at request time and returns
   422 with a descriptive `detail[].msg` on mismatch. See
-  [dataset-filters.md § Predicate vocabulary table](../../../../.agents/design/data-management/dataset-filters.md#predicate-vocabulary-table)
+  [dataset-filters.md § Predicate vocabulary table](../../../../.agents/design/data-management/datasets/dataset-filters.md)
   for the authoritative cross-stack spec.
 - **Why `f<N>_val` is `schema.type: string`.** A more typed
   declaration would use `oneOf` with per-dtype schemas, but
@@ -131,7 +131,7 @@ AND (?q=... substring across all cells)`; `total` reflects
 The `aq` query param carries an **advanced query** — boolean
 composition (`AND` / `OR`) over the same predicate vocabulary the
 `f<N>_*` params use. It is the transport for
-[advanced-query.md](../../../../.agents/design/data-management/advanced-query.md).
+[advanced-query.md](../../../../.agents/design/data-management/datasets/advanced-query.md).
 
 - **Why `f<N>_*` could not carry it.** The chip param shape is
   keyed by 0-based column index, at most one predicate per column,
@@ -150,7 +150,7 @@ composition (`AND` / `OR`) over the same predicate vocabulary the
   endpoint shareable (URL is the durability surface for `aq`, same
   as `?q=` and `f<N>_*`) and TanStack-cacheable with the predicate
   set in the key. The
-  [parked `POST :search` JSON-body fallback](../../../../.agents/design/data-management/dataset-filters.md#fallback-json-body-via-post-datasetsidrowssearch)
+  [parked `POST :search` JSON-body fallback](../../../../.agents/design/data-management/datasets/dataset-filters.md)
   stays parked; promote it only if `aq` URLs balloon in practice.
 - **Atom shape = `FilterPredicate`.** Each `aq` atom is the same
   object the chip row serializes: `{ col, dtype, op, val | min,max }`.
@@ -460,6 +460,6 @@ Content-Type: application/json
 - [detail-get.contract.yaml](detail-get.contract.yaml) — schema + column metadata companion
 - [`../_shared/dataset.yaml`](../_shared/dataset.yaml) — column dtype list the FE uses for cell rendering
 - [`../_shared/api-error.yaml`](../_shared/api-error.yaml) — ApiErrorNotFound envelope
-- [dataset-detail.md](../../../../.agents/design/data-management/dataset-detail.md) — R33 design doc (cell rendering rules + state transitions)
-- [dataset-filters.md](../../../../.agents/design/data-management/dataset-filters.md) — R37 design doc (per-column filter UX + predicate vocabulary table — authoritative cross-stack spec for `f<N>_*` params)
-- [advanced-query.md](../../../../.agents/design/data-management/advanced-query.md) — R51 design doc (advanced-query grammar + the `aq` transport rationale)
+- [dataset-detail.md](../../../../.agents/design/data-management/datasets/dataset-detail.md) — R33 design doc (cell rendering rules + state transitions)
+- [dataset-filters.md](../../../../.agents/design/data-management/datasets/dataset-filters.md) — R37 design doc (per-column filter UX + predicate vocabulary table — authoritative cross-stack spec for `f<N>_*` params)
+- [advanced-query.md](../../../../.agents/design/data-management/datasets/advanced-query.md) — R51 design doc (advanced-query grammar + the `aq` transport rationale)

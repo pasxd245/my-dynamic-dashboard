@@ -148,4 +148,4 @@ Content-Type: application/json
 - [post.contract.yaml](post.contract.yaml) — Phase 1 (upload + sheet enumeration)
 - [`../datasets/batch-post.contract.md`](../datasets/batch-post.contract.md) — commit step
 - [`../_shared/parse-options.yaml`](../_shared/parse-options.yaml) — options shape
-- [upload.md](../../../../.agents/design/data-management/upload.md) — design doc + wizard ASCII
+- [upload.md](../../../../.agents/design/data-management/datasets/upload.md) — design doc + wizard ASCII

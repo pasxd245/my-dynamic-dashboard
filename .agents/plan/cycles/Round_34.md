@@ -283,7 +283,7 @@ paged slice of a dataset's rows`.
 
 **Sibling stamp.**
 
-- [`dataset-detail.md`](../../design/data-management/dataset-detail.md)
+- [`dataset-detail.md`](../../design/data-management/datasets/dataset-detail.md)
   § Data contract gains a callout block linking the two new
   YAML files as authoritative (prose YAML stays as a reading
   aid). § Read/write boundary's R34+ list grows a ticked

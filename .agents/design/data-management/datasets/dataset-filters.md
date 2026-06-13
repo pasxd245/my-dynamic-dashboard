@@ -10,15 +10,13 @@ predicate set server-side so `total` reflects matched-row count
 and pagination stays correct. The natural discoverable entry
 point that precedes a real query language.
 **Status**: Accepted (R37 design; shipped R38–R40; amended R55).
-**Round introduced**: [Round_37](../../plan/cycles/Round_37.md);
+**Round introduced**: [Round_37](../../../plan/cycles/Round_37.md);
 implementation chain begins R38 (contract), R39 (BE), R40 (FE).
 **Sibling docs**:
 [dataset-detail.md](dataset-detail.md) (the page this extends),
 [datasets.md](datasets.md) (where the `Dataset.columns[].dtype`
 field is defined),
-[upload.md](upload.md) (the upstream dtype inference),
-[dataset-filters.preview.html](_archive/dataset-filters.preview.html) (visual
-preview of the chip row + per-dtype popover variants).
+[upload.md](upload.md) (the upstream dtype inference).
 
 ---
 
@@ -60,7 +58,7 @@ dashboards) that also evaluate against the same dataset rows.
 | `FilterPredicate` discriminated-union type (+ helpers)                                    | `apps/builder/src/features/data-management/datasets/types.ts`         | feature      | data type                         | none                                                |
 
 **Boundary check**: no filter surface lives in `@mdd/ui`. Per
-[memory/2026-05-22-ui-boundary-build-first.md](../../memory/2026-05-22-ui-boundary-build-first.md)
+[memory/2026-05-22-ui-boundary-build-first.md](../../../memory/2026-05-22-ui-boundary-build-first.md)
 ("build `@mdd/ui` first, don't extract later") and the same
 discipline R33 applied to detail-page surfaces — feature-local
 until a second consumer arrives. If a future round adds filters
@@ -367,7 +365,7 @@ PageCard's `overflow` is irrelevant.
 ## Token map
 
 All cells are AntD `<ConfigProvider>` tokens derived from the six seeds
-in [`themeTokens.ts`](../../../workspace/packages/ui/src/themeTokens.ts)
+in [`themeTokens.ts`](../../../../workspace/packages/ui/src/themeTokens.ts)
 (the source of truth — R66; re-cited off the archived CSS-variable
 mirror). Values are informational (resolved via
 `theme.getDesignToken()`, antd 6.x).
@@ -397,7 +395,7 @@ mirror). Values are informational (resolved via
 
 No new token is introduced. Identifier parity against the live AntD
 registry is enforced by
-[`design-token-parity.mjs`](../../../scripts/lint/design-token-parity.mjs).
+[`design-token-parity.mjs`](../../../../scripts/lint/design-token-parity.mjs).
 
 ---
 
@@ -512,10 +510,10 @@ filters }]`.
 > predicate-vocabulary table below stay as reading aids, but
 > if the two ever drift, the YAML wins.
 >
-> - [`rows-get.contract.yaml`](../../../workspace/packages/contracts/datasets/rows-get.contract.yaml)
+> - [`rows-get.contract.yaml`](../../../../workspace/packages/contracts/datasets/rows-get.contract.yaml)
 >   — `f<N>_op` / `f<N>_val` / `f<N>_min` / `f<N>_max`
 >   query-param extension.
-> - [`rows-get.contract.md`](../../../workspace/packages/contracts/datasets/rows-get.contract.md)
+> - [`rows-get.contract.md`](../../../../workspace/packages/contracts/datasets/rows-get.contract.md)
 >   — rationale (per-column filter section + filter-related
 >   422 cases).
 
@@ -813,7 +811,7 @@ This concept explicitly does NOT cover:
   semantics stay in
   [dataset-detail.md](dataset-detail.md#row-search-q).
 - The dataset rename / delete affordances. Inherited from
-  [crud-hygiene.md](crud-hygiene.md), placed unchanged on the
+  [crud-hygiene.md](../_shared/crud-hygiene.md), placed unchanged on the
   detail page header.
 - Future dashboard / query surfaces that may also evaluate
   predicates against the same dataset rows. Those get their own

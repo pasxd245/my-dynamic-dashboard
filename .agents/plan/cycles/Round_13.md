@@ -17,7 +17,7 @@ in-memory backend store, and the deletion of R12's demo toggle.
 Visual shape stays the same; only the data layer changes.
 
 This is the round R11's design contract at
-[workspaces.md](../../design/data-management/workspaces.md) was
+[workspaces.md](../../design/data-management/workspaces/workspaces.md) was
 written for — all five HIxAI decisions (model, Query, backend
 stub, sub-menu UX, empty state) are locked.
 

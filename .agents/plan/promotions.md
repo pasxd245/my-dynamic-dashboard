@@ -193,7 +193,7 @@ effort-for-fair-results surfaced via R47's brainstorm chain (see
 the 2026-05-28 entry below). Decision artifact makes the
 operating-model pivot binding from R48 onward; AGENTS.md horizons
 bullet makes it loadable. Track-1 anchor: DCBF chain experience
-(R14→R21, [context/contract-driven-feature.md](../context/_archive/contract-driven-feature.md)).
+(R14→R21, `../context/_archive/contract-driven-feature.md`).
 **Promoted by**: pasxd245 (Round_47, explicit authorization
 2026-05-28: "go with R47").
 

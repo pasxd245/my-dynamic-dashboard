@@ -8,23 +8,20 @@ with a substring search bar above the table for Cmd-F-style
 row lookup. Reached by clicking a row in the Datasets list (the
 R14 [datasets.md](datasets.md) R∞-deferred affordance, now
 pulled in). Carries the rename + delete affordances inherited
-from [crud-hygiene.md](crud-hygiene.md), placed in the page
+from [crud-hygiene.md](../_shared/crud-hygiene.md), placed in the page
 header's `actions` slot.
 **Status**: Accepted (R33 design; shipped R34–R36).
-**Round introduced**: [Round_33](../../plan/cycles/Round_33.md);
+**Round introduced**: [Round_33](../../../plan/cycles/Round_33.md);
 implementation chain begins R34 (contract), R35 (BE), R36 (FE).
 **Sibling docs**:
 [datasets.md](datasets.md) (the noun this page inspects),
 [upload.md](upload.md) (the verb that produced the rows),
-[crud-hygiene.md](crud-hygiene.md) (rename + delete affordances
+[crud-hygiene.md](../_shared/crud-hygiene.md) (rename + delete affordances
 reused here),
 [dataset-filters.md](dataset-filters.md) (per-column typed
 filters layered on this page; R37 design, R38→R40 impl chain),
-[workspace-shell.target.md](workspace-shell.target.md) (the chrome
-this page renders inside), and
-[dataset-detail.preview.html](_archive/dataset-detail.preview.html) (visual
-preview of the populated / loading / 404 / zero-rows / no-match
-states).
+[workspace-shell.target.md](../../_platform/workspace-shell.target.md) (the chrome
+this page renders inside).
 
 ---
 
@@ -69,7 +66,7 @@ second paged-table consumer arrives in a future round (e.g. an
 audit-log page, or a query-results page), the extraction question
 gets re-opened with two concrete consumers in hand. Per the
 build-first lesson
-([memory/2026-05-22-ui-boundary-build-first.md](../../memory/2026-05-22-ui-boundary-build-first.md)):
+([memory/2026-05-22-ui-boundary-build-first.md](../../../memory/2026-05-22-ui-boundary-build-first.md)):
 feature-local until two consumers exist.
 
 `DatasetMetadataStrip` and `DataTable` are `plain-UI` purity —
@@ -82,10 +79,10 @@ The hooks + page above them carry the glue.
 
 - [datasets.md § Read/write boundary](datasets.md#readwrite-boundary-r15-scope)
   — the deferral row this page resolves.
-- [crud-hygiene.md](crud-hygiene.md) — rename + delete modals
+- [crud-hygiene.md](../_shared/crud-hygiene.md) — rename + delete modals
   reused unchanged. R33 only adds a new _placement_ (page header
   actions) for the same affordances.
-- [workspace-shell.target.md](workspace-shell.target.md) — the
+- [workspace-shell.target.md](../../_platform/workspace-shell.target.md) — the
   master-layout chrome (sidebar + topbar + page-card) this page
   renders inside.
 - [upload.md](upload.md) — defines `Dataset.columns[].dtype`
@@ -304,7 +301,7 @@ auto`. The sticky `<th>` sticks here.
   bottom.
 
 Anti-patterns documented in
-[2026-05-26-pagecard-fill-pattern-for-fixed-controls.md](../../memory/2026-05-26-pagecard-fill-pattern-for-fixed-controls.md):
+[2026-05-26-pagecard-fill-pattern-for-fixed-controls.md](../../../memory/2026-05-26-pagecard-fill-pattern-for-fixed-controls.md):
 do **not** cap the table with `maxHeight: Xvh`, do **not** use
 `position: sticky` without a bounding scroll container, and do **not**
 paint the sticky header with `var(--ant-color-fill-quaternary)` (it
@@ -315,7 +312,7 @@ resolves to `rgba(0,0,0,0.02)` — rows bleed through).
 ## Token map
 
 All cells are AntD `<ConfigProvider>` tokens derived from the six seeds
-in [`themeTokens.ts`](../../../workspace/packages/ui/src/themeTokens.ts)
+in [`themeTokens.ts`](../../../../workspace/packages/ui/src/themeTokens.ts)
 (the source of truth — R66; re-cited off the archived CSS-variable
 mirror). Values are informational (resolved via
 `theme.getDesignToken()`, antd 6.x).
@@ -350,7 +347,7 @@ mirror). Values are informational (resolved via
 
 No new token is introduced. Identifier parity against the live AntD
 registry is enforced by
-[`design-token-parity.mjs`](../../../scripts/lint/design-token-parity.mjs).
+[`design-token-parity.mjs`](../../../../scripts/lint/design-token-parity.mjs).
 
 ---
 
@@ -476,10 +473,10 @@ button.
 > authoritative. The prose YAML below stays as a reading aid,
 > but if the two ever drift, the YAML wins.
 >
-> - [`detail-get.contract.yaml`](../../../workspace/packages/contracts/datasets/detail-get.contract.yaml)
->   ([rationale](../../../workspace/packages/contracts/datasets/detail-get.contract.md))
-> - [`rows-get.contract.yaml`](../../../workspace/packages/contracts/datasets/rows-get.contract.yaml)
->   ([rationale](../../../workspace/packages/contracts/datasets/rows-get.contract.md))
+> - [`detail-get.contract.yaml`](../../../../workspace/packages/contracts/datasets/detail-get.contract.yaml)
+>   ([rationale](../../../../workspace/packages/contracts/datasets/detail-get.contract.md))
+> - [`rows-get.contract.yaml`](../../../../workspace/packages/contracts/datasets/rows-get.contract.yaml)
+>   ([rationale](../../../../workspace/packages/contracts/datasets/rows-get.contract.md))
 
 ### `GET /datasets/{id}`
 
@@ -642,7 +639,7 @@ export type RowsPage = {
 
 - ✅ **R34** — OpenAPI 3.1 contracts for both routes, sibling
   rationale docs, contract-validity tests green (see
-  [Round_34.md](../../plan/cycles/Round_34.md)).
+  [Round_34.md](../../../plan/cycles/Round_34.md)).
 - `GET /datasets/{id}` BE route (R35).
 - `GET /datasets/{id}/rows?page=&page_size=&q=` BE route (R35,
   reads paged slice from the dataset's Parquet file; applies
@@ -727,7 +724,7 @@ metadata, page through its rows, and search for a row by substring.
    state (schema shown, pagination hidden); no-match state ("No rows
    match `<q>`" + Clear).
 6. **Rename / delete placement** _(FE)_ — the header actions open the
-   [crud-hygiene.md](crud-hygiene.md) modals; delete-success navigates
+   [crud-hygiene.md](../_shared/crud-hygiene.md) modals; delete-success navigates
    back to the list with `replace=true`.
 7. **Contract** _(pytest / contract)_ — `GET /datasets/{id}` → 200
    `Dataset` / 404; `GET /datasets/{id}/rows` → `{ rows, page, pageSize,
@@ -756,7 +753,7 @@ This concept explicitly does NOT cover:
 - The Datasets list page (lives in [datasets.md](datasets.md)).
 - The upload wizard (lives in [upload.md](upload.md)).
 - Rename/delete modal internals (live in
-  [crud-hygiene.md](crud-hygiene.md)). This page is a _placement_
+  [crud-hygiene.md](../_shared/crud-hygiene.md)). This page is a _placement_
   of those modals; the modals themselves are unchanged.
 - Future query / dashboard surfaces that will read the same
   dataset; those get their own design docs when they land.

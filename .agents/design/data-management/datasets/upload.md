@@ -12,26 +12,24 @@ each dataset; and commits. Dataset rows appear in the
 [Datasets table](datasets.md) only after the Confirm step's atomic
 commit succeeds — failed parses never become persisted Datasets.
 **Status**: Accepted (R14 design; shipped R15–R17; extended R19/R21/R30/R32).
-**Round introduced**: [Round_14](../../plan/cycles/Round_14.md);
+**Round introduced**: [Round_14](../../../plan/cycles/Round_14.md);
 implementation chain begins R15.
-**Backend**: [Round_16](../../plan/cycles/Round_16.md) — temp
+**Backend**: [Round_16](../../../plan/cycles/Round_16.md) — temp
 upload + per-sheet parse + atomic batch-commit endpoints land
 against the locked R15 contracts; persistence is SQLite metadata +
 filesystem tree for parsed parquet.
-**Frontend**: [Round_17](../../plan/cycles/Round_17.md) — full-page
+**Frontend**: [Round_17](../../../plan/cycles/Round_17.md) — full-page
 wizard at `/data-management/datasets/new`; reducer-driven state;
 CSV 3-step / Excel 4-step paths.
-**Frontend**: [Round_21](../../plan/cycles/Round_21.md) — parse-options
+**Frontend**: [Round_21](../../../plan/cycles/Round_21.md) — parse-options
 disclosure (range / skip_rows / has_header), Excel `[Re-parse this
 sheet]`, three preview-failed action buttons, override-reset on
 re-parse and on parse-options edit (R19 Q2, Q4).
 **Sibling docs**:
 [datasets.md](datasets.md) (the noun this wizard creates),
-[workspaces.md](workspaces.md) (the container an upload targets),
-[workspace-shell.target.md](workspace-shell.target.md) (the chrome
-the wizard renders inside), and
-[upload.preview.html](_archive/upload.preview.html) (visual preview of the
-wizard with state toggles across both source-type paths).
+[workspaces.md](../workspaces/workspaces.md) (the container an upload targets),
+[workspace-shell.target.md](../../_platform/workspace-shell.target.md) (the chrome
+the wizard renders inside).
 
 ---
 
@@ -240,7 +238,7 @@ Upload a file and turn it into a queryable dataset.                      ──�
 
 Above the column-override table the Metadata step has a collapsed
 **Parse options ▸** disclosure. Pulled forward from the
-[drifted iteration](../../context/drifted-iteration.md) — the
+[drifted iteration](../../../context/drifted-iteration.md) — the
 escape hatch for messy spreadsheets where the table doesn't start
 at A1 with a header row. Defaults are fine for clean files; the
 disclosure exists for the realistic CRM-export case where the
@@ -527,7 +525,7 @@ The wizard is composed of AntD primitives (`<Steps>`, `<Card>`,
 `<Upload.Dragger>`, `<Table>`, `<Tabs>`, `<Select>`, `<Alert>`,
 `<Button>`) styled by the AntD `<ConfigProvider>` tokens derived from
 the six seeds in
-[`themeTokens.ts`](../../../workspace/packages/ui/src/themeTokens.ts)
+[`themeTokens.ts`](../../../../workspace/packages/ui/src/themeTokens.ts)
 (the source of truth — R66). No new token is introduced; values are
 informational (resolved via `theme.getDesignToken()`, antd 6.x).
 
@@ -550,7 +548,7 @@ informational (resolved via `theme.getDesignToken()`, antd 6.x).
 
 No new token is introduced. Identifier parity against the live AntD
 registry is enforced by
-[`design-token-parity.mjs`](../../../scripts/lint/design-token-parity.mjs).
+[`design-token-parity.mjs`](../../../../scripts/lint/design-token-parity.mjs).
 
 ---
 
@@ -912,7 +910,7 @@ preview the rows, and commit one or more datasets.
    `/workspaces/{id}/datasets/batch` atomically (all-or-nothing) and on
    success navigates to the Datasets list with the new rows. _Flag:
    the Confirm step copy validates names as "1–80 chars"; this is
-   narrower than [crud-hygiene.md](crud-hygiene.md)'s `NAME_LENGTHS`
+   narrower than [crud-hygiene.md](../_shared/crud-hygiene.md)'s `NAME_LENGTHS`
    `DATASET_MAX = 120` used by the rename path. Recorded as a cross-doc
    length inconsistency, not rewritten here — a parity-check candidate
    for R66._
@@ -955,9 +953,9 @@ This concept explicitly does NOT cover:
 - The per-dataset inspector page (lives in
   [dataset-detail.md](dataset-detail.md)).
 - Rename / delete of an already-committed dataset (lives in
-  [crud-hygiene.md](crud-hygiene.md)).
+  [crud-hygiene.md](../_shared/crud-hygiene.md)).
 - The Workspace container an upload targets (lives in
-  [workspaces.md](workspaces.md)).
+  [workspaces.md](../workspaces/workspaces.md)).
 
 ---
 
@@ -1033,7 +1031,7 @@ This doc:
 >    field whose contract semantics imply behavior change must
 >    have at least one BE test asserting the change is
 >    observable in the response. R16's gap is the worked anti-
->    example; the [BE round conformance memo](../../memory/2026-05-24-be-round-conformance-pattern.md)
+>    example; the [BE round conformance memo](../../../memory/2026-05-24-be-round-conformance-pattern.md)
 >    deserves this rule as an amendment.
 
 ## R18 design reflection — Metadata-vs-Preview ordering (still open)
@@ -1075,7 +1073,7 @@ All 5 wizard step components (`UploadSourceStep`,
 `UploadSheetStep`, `UploadMetadataStep`, `UploadPreviewStep`,
 `UploadConfirmStep`) plus the `DatasetNewPage` shell have their
 user-facing strings keyed under `upload.*` namespaces in
-[`src/i18n/locales/{en,vi}.json`](../../../workspace/apps/builder/src/i18n/locales/).
+[`src/i18n/locales/{en,vi}.json`](../../../../workspace/apps/builder/src/i18n/locales/).
 Sub-namespaces match the step names (`upload.source.*`,
 `upload.sheet.*`, etc.) so a translator can work one step at a
 time. Inline markup (`<code>A1:C20</code>`, the `<strong>`-wrapped

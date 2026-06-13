@@ -141,8 +141,8 @@ Authored against each surface's **documented shipped behavior** (every
 target doc carries shipped/amended round stamps); criteria describe
 observed behavior, not redesign (per the round's firewall + risk note).
 Token maps cite only tokens already present in the vetted
-[`dataset-detail.md`](../../design/data-management/dataset-detail.md) /
-[`dataset-filters.md`](../../design/data-management/dataset-filters.md)
+[`dataset-detail.md`](../../design/data-management/datasets/dataset-detail.md) /
+[`dataset-filters.md`](../../design/data-management/datasets/dataset-filters.md)
 maps — no invented token names, so R66's value-parity check stays
 honest.
 
@@ -182,12 +182,12 @@ rewritten (both are R66 parity-check candidates):
 
 1. **`workspaces.md` card-click target.** The R13 layout note still
    reads "navigates to `/workspaces/<id>` (route stub)"; shipped
-   behaviour (R17, per [datasets.md](../../design/data-management/datasets.md)
+   behaviour (R17, per [datasets.md](../../design/data-management/datasets/datasets.md)
    R14 Q11) navigates to the workspace-filtered datasets list. Flagged
    in `workspaces.md` C4.
 2. **Dataset-name max length.** `upload.md`'s Confirm step validates
    names as "1–80 chars"; the rename path
-   ([crud-hygiene.md](../../design/data-management/crud-hygiene.md)) uses
+   ([crud-hygiene.md](../../design/data-management/_shared/crud-hygiene.md)) uses
    `NAME_LENGTHS` `DATASET_MAX = 120` (R62 correction). Flagged in
    `upload.md` C8.
 

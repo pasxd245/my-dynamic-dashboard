@@ -10,7 +10,7 @@
 the **design-corpus conformance audit**
 ([program plan](../programs/design-corpus-audit.plan.md)). This is **round 1** —
 the **pilot**: audit
-[dataset-filters](../../design/data-management/dataset-filters.md) against
+[dataset-filters](../../design/data-management/datasets/dataset-filters.md) against
 the rubric, **and** calibrate the rubric itself (round 1's review pass
 hardens it before surface 2).
 

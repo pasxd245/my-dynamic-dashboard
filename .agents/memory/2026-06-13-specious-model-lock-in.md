@@ -74,10 +74,10 @@ hypothesis with a named kill-condition*, not *forbid models*.
   (parked patch/snapshot; backend/contract half was sound, the surface model
   was the defect).
 - Surfaces the redo folds Query into (no new pages needed):
-  [dataset-detail.md](../design/data-management/dataset-detail.md),
-  [advanced-query.md](../design/data-management/advanced-query.md) (already
+  [dataset-detail.md](../design/data-management/datasets/dataset-detail.md),
+  [advanced-query.md](../design/data-management/datasets/advanced-query.md) (already
   pre-declared "Saved queries" as a deferred bullet),
-  [datasets.md](../design/data-management/datasets.md).
+  [datasets.md](../design/data-management/datasets/datasets.md).
 - Twin/related lessons:
   [2026-05-22-ui-boundary-build-first.md](2026-05-22-ui-boundary-build-first.md),
   [2026-05-24-design-first-reframe-absorption.md](2026-05-24-design-first-reframe-absorption.md),

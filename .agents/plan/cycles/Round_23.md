@@ -87,7 +87,7 @@ Operating consequences:
 This philosophy is currently scoped to R23 as a working agreement.
 A future evaluation round (post-POC/MVP, per the user's track-2/3
 freeze) can decide whether to promote it into
-[context/contract-driven-feature.md](../../context/_archive/contract-driven-feature.md)
+`../../context/_archive/contract-driven-feature.md`
 as a sixth principle, or amend the
 [design-first-reframe-absorption memo](../../memory/2026-05-24-design-first-reframe-absorption.md)
 with the viz-first sub-rule. Captured in Follow-ups so the
@@ -105,12 +105,12 @@ choices but is not this round's deliverable._
 - **Design doc** `crud-hygiene.md` in
   [.agents/design/data-management/](../../design/data-management/).
   Match the existing
-  [upload.md](../../design/data-management/upload.md) /
-  [datasets.md](../../design/data-management/datasets.md) shape:
+  [upload.md](../../design/data-management/datasets/upload.md) /
+  [datasets.md](../../design/data-management/datasets/datasets.md) shape:
   concept paragraph, status header, sibling-doc cross-links.
   Cross-link _from_
-  [workspaces.md](../../design/data-management/workspaces.md)
-  and [datasets.md](../../design/data-management/datasets.md)
+  [workspaces.md](../../design/data-management/workspaces/workspaces.md)
+  and [datasets.md](../../design/data-management/datasets/datasets.md)
   in the "Sibling docs" rows (verb-to-noun pattern, matching
   how upload.md hangs off datasets.md).
 - **`crud-hygiene.preview.html`** as the default visual
@@ -153,7 +153,7 @@ choices but is not this round's deliverable._
      Query usage but not the wire.
 - **Chain declaration** at round-end with one-line per-phase
   justification, citing
-  [contract-driven-feature.md § What the D-step decides](../../context/_archive/contract-driven-feature.md).
+  `../../context/_archive/contract-driven-feature.md`.
 - **Chain declaration** at the end of the round — explicit
   statement of which downstream rounds (if any) inherit from
   R23, and what each is on the hook for. Cites R22's "What the
@@ -186,10 +186,10 @@ choices but is not this round's deliverable._
       (workspaces + datasets)**, framed as one DCBF
       enhancement feature.
 - [x] Read sibling design docs
-      ([upload.md](../../design/data-management/upload.md),
-      [datasets.md](../../design/data-management/datasets.md),
-      [workspaces.md](../../design/data-management/workspaces.md),
-      [workspace-shell.target.md](../../design/data-management/workspace-shell.target.md))
+      ([upload.md](../../design/data-management/datasets/upload.md),
+      [datasets.md](../../design/data-management/datasets/datasets.md),
+      [workspaces.md](../../design/data-management/workspaces/workspaces.md),
+      [workspace-shell.target.md](../../design/_platform/workspace-shell.target.md))
       to understand existing concept vocabulary the new design
       must extend.
 - [x] Resolve the four load-bearing UX/design questions through
@@ -203,12 +203,12 @@ choices but is not this round's deliverable._
       hygiene's surface is novel enough that the preview earns
       its place.
 - [x] Cross-link the new doc from
-      [workspaces.md](../../design/data-management/workspaces.md)
-      and [datasets.md](../../design/data-management/datasets.md)
+      [workspaces.md](../../design/data-management/workspaces/workspaces.md)
+      and [datasets.md](../../design/data-management/datasets/datasets.md)
       sibling rows (additive R23 stamps; no rewrites).
 - [x] **Chain declaration**: full DCBF — R24 (C), R25 (B),
       R26 (F). Recorded under Act § Feeds into. Cites
-      [contract-driven-feature.md § What the D-step decides](../../context/_archive/contract-driven-feature.md).
+      `../../context/_archive/contract-driven-feature.md`.
 - [x] `pnpm md:lint` (repo-wide) and `pnpm format:check` for
       R23-touched MDs.
 - [x] Post-round audit per [PDCA.md § Post-round audit](../PDCA.md).
@@ -319,15 +319,15 @@ into the design doc and preview HTML in lockstep._
 
 ### Design doc + preview
 
-- [crud-hygiene.md](../../design/data-management/crud-hygiene.md)
+- [crud-hygiene.md](../../design/data-management/_shared/crud-hygiene.md)
   drafted. Matches the existing
-  [datasets.md](../../design/data-management/datasets.md) /
-  [upload.md](../../design/data-management/upload.md) shape:
+  [datasets.md](../../design/data-management/datasets/datasets.md) /
+  [upload.md](../../design/data-management/datasets/upload.md) shape:
   concept paragraph, status header, sibling cross-links, surfaces
   layer table, ASCII layouts for both affordance surfaces and all
   six modal states, wire shape, state-management, BE endpoint
   shape, lifecycle, out-of-scope deferrals, HIxAI Q&A table.
-- [crud-hygiene.preview.html](../../design/data-management/_archive/crud-hygiene.preview.html)
+- `../../design/data-management/_archive/crud-hygiene.preview.html`
   drafted. Two-surface toggle (Workspaces page / Datasets page)
   alongside six modal-state toggle (rename, rename loading,
   rename 409 error, delete-dataset confirm, delete-workspace
@@ -336,13 +336,13 @@ into the design doc and preview HTML in lockstep._
   are shown open on one card / row each so the affordance is
   visible without a hover state.
 - Cross-linked from
-  [workspaces.md](../../design/data-management/workspaces.md)
+  [workspaces.md](../../design/data-management/workspaces/workspaces.md)
   and
-  [datasets.md](../../design/data-management/datasets.md)
+  [datasets.md](../../design/data-management/datasets/datasets.md)
   sibling rows. Both rows name R23 as the round that closes
   the R∞-deferred CRUD gap each existing doc had under "Out of
   scope."
-- **Preview index updated** ([.agents/design/index.html](../../design/_archive/index.html)):
+- **Preview index updated** (`../../design/_archive/index.html`):
   added the CRUD hygiene entry to both the sidebar nav-items
   block and the preview-card list, and bumped the topbar count
   from `N = 3 previews` to `N = 4`. Per the index's own
@@ -465,7 +465,7 @@ job.
 - [x] Feature named (CRUD hygiene across workspaces + datasets) + framing (one enhancement, two consumers) recorded in
       Do § Brainstorm.
 - [x] Design doc
-      [crud-hygiene.md](../../design/data-management/crud-hygiene.md)
+      [crud-hygiene.md](../../design/data-management/_shared/crud-hygiene.md)
       lives in `.agents/design/data-management/`, matches the
       existing concept-paragraph + status-header + sibling
       cross-links shape.
@@ -473,14 +473,14 @@ job.
       body — both as inline prose and as the bottom "Open
       questions answered in R23" table.
 - [x] Preview HTML
-      [crud-hygiene.preview.html](../../design/data-management/_archive/crud-hygiene.preview.html)
+      `../../design/data-management/_archive/crud-hygiene.preview.html`
       built; two-surface toggle + six modal states; reuses
       shared shell CSS.
 - [x] Chain declaration in Act § Feeds into names R24 (C),
       R25 (B), R26 (F) with one-line per-phase justifications.
 - [x] Sibling design docs cross-link the new doc in their
       "Sibling docs" rows.
-- [x] Preview index ([design/index.html](../../design/_archive/index.html))
+- [x] Preview index (`../../design/_archive/index.html`)
       updated with the CRUD hygiene sidebar item, preview-card
       entry, and `N = 4` count bump.
 - [x] `pnpm md:lint` 0 errors repo-wide.
@@ -553,7 +553,7 @@ round has the thread.
   fit the shape: one cohesive feature spread across multiple
   resource consumers, sharing endpoint shapes and FE components.
   Worth a sentence in
-  [context/contract-driven-feature.md](../../context/_archive/contract-driven-feature.md)
+  `../../context/_archive/contract-driven-feature.md`
   or a memo amendment after the chain closes. Held for the
   post-POC/MVP track-2/3 evaluation round.
 - **Methodology candidate: D-round philosophy formal
@@ -645,7 +645,7 @@ forward" north star follows shortly after.
 **Chain declaration**: full DCBF — R24 (C), R25 (B), R26 (F).
 
 Per the
-[D-step-picks-the-chain rule](../../context/_archive/contract-driven-feature.md),
+`../../context/_archive/contract-driven-feature.md`,
 R23 considered chain truncation and rejected it:
 
 - **C-step survives because the contracts don't exist yet.**
@@ -671,7 +671,7 @@ What R23 hands forward to R24 (Contract):
   three error codes (`not_found`, `name_taken`, `non_empty`)
   and the 409 body for the cascade-blocked path.
 - **A locked HIxAI Q&A table** (10 entries) absorbed into
-  [crud-hygiene.md](../../design/data-management/crud-hygiene.md)
+  [crud-hygiene.md](../../design/data-management/_shared/crud-hygiene.md)
   so R24's contract writer doesn't re-litigate decisions.
 - **The preview HTML** as the visual reference R25 (B) and R26
   (F) implementers can use to confirm wire-vs-UX behavior at

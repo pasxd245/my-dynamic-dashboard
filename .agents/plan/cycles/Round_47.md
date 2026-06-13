@@ -36,7 +36,7 @@ the DCBF experiment + design-corpus pain, surfaced via the
 
 _Track: 2 (agent-method, process discipline). Pulled by Track-1
 experience with the DCBF chain
-([context/contract-driven-feature.md](../../context/_archive/contract-driven-feature.md),
+(`../../context/_archive/contract-driven-feature.md`,
 validated R14→R21): the cycle delivered fair-only results for
 over-effort, and **D-phase began to overwhelm as design-corpus
 scope grew** — concretely surfaced by the 2026-05-28 brainstorm
@@ -761,7 +761,7 @@ speculation.
   scrubbing).
 - Reframing [`.agents/design/README.md`](../../design/README.md)
   around FE-as-preview.
-- Updating [`.agents/context/contract-driven-feature.md`](../../context/_archive/contract-driven-feature.md)'s
+- Updating `../../context/_archive/contract-driven-feature.md`'s
   chain-shape framing to point at the new decision.
 - Status changes on DCBF-era memory files beyond classification.
 - Running the first DCFBI/DFCFBI feature round.
@@ -776,7 +776,7 @@ speculation.
   `.agents/design/_css/preview-shell.css`,
   `.agents/design/_css/tokens.css`, and any `*.target.md`
   (e.g.
-  [`design/data-management/workspace-shell.target.md`](../../design/data-management/workspace-shell.target.md))
+  [`design/data-management/workspace-shell.target.md`](../../design/_platform/workspace-shell.target.md))
   — auxiliary to the `.preview.html` artifacts. R48 triage decides
   their classification alongside the previews; likely _fully
   superseded_ if they serve no consumer beyond the archived
@@ -787,7 +787,7 @@ speculation.
   _partially superseded_ (preview-as-artifact framing displaced;
   journeys + state notes + criteria still valid). Leave in place;
   rewrite deferred.
-- [`.agents/context/contract-driven-feature.md`](../../context/_archive/contract-driven-feature.md)
+- `../../context/_archive/contract-driven-feature.md`
   — likely _partially superseded_ (contract-discipline content
   holds under DCFBI's unchanged C phase; chain-shape framing
   displaced). Leave in place; rewrite deferred.

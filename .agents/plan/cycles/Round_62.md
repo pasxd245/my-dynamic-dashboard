@@ -9,7 +9,7 @@
 **Inherits from ← [Round_61](Round_61.md)**: audit the **final** surface
 of the **design-corpus conformance audit**
 ([program plan](../programs/design-corpus-audit.plan.md)) —
-[crud-hygiene](../../design/data-management/crud-hygiene.md) — against the
+[crud-hygiene](../../design/data-management/_shared/crud-hygiene.md) — against the
 **stable rubric**. After this round the program reaches **close**, where
 the deferred findings are triaged.
 

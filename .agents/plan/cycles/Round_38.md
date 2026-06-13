@@ -8,7 +8,7 @@
 
 **Inherits from ← [Round_37](Round_37.md)** — R37 locked the
 per-column filter design in
-[`dataset-filters.md`](../../design/data-management/dataset-filters.md)
+[`dataset-filters.md`](../../design/data-management/datasets/dataset-filters.md)
 and prose-shaped the rows-GET contract extension in two
 flavors: primary (encoded params `f<N>_op` / `f<N>_val` /
 `f<N>_min` / `f<N>_max`) and fallback (`POST :search` JSON
@@ -163,7 +163,7 @@ end-of-round Q&A:**
 
 ### 3. Stamp the design doc
 
-- [`dataset-filters.md`](../../design/data-management/dataset-filters.md)
+- [`dataset-filters.md`](../../design/data-management/datasets/dataset-filters.md)
   § Data contract: replace the "R38 picks" prose with the
   committed shape (encoded params) and link the now-
   authoritative YAML + rationale files. Keep the
@@ -340,12 +340,12 @@ string` on `val` / `min` / `max`, AND-compose with `?q=`,
   section: per-column `equals`, AND-compose with `?q=`,
   dtype-mismatch 422, numeric `between`.
 - Cross-links section gained
-  [`dataset-filters.md`](../../../.agents/design/data-management/dataset-filters.md)
+  [`dataset-filters.md`](../../design/data-management/datasets/dataset-filters.md)
   as the authoritative design spec.
 
 **Design doc stamp.**
 
-- [`dataset-filters.md`](../../design/data-management/dataset-filters.md)
+- [`dataset-filters.md`](../../design/data-management/datasets/dataset-filters.md)
   § Data contract: "Target shape for R38" header replaced
   with an "R38 update" callout that points to the now-
   authoritative YAML + rationale files. Sub-section retitled

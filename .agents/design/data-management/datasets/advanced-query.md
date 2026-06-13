@@ -11,7 +11,7 @@ the only new capability is **OR** across predicates — which the flat
 `f<N>_*` per-column param shape cannot carry.
 **Status**: Draft (Round 51 design; DCFBI implementation in the
 same round).
-**Round introduced**: [Round_51](../../plan/cycles/Round_51.md);
+**Round introduced**: [Round_51](../../../plan/cycles/Round_51.md);
 first product feature round under R47 hybrid-flow doctrine.
 **Sibling docs**:
 [dataset-filters.md](dataset-filters.md) (the predicate vocabulary
@@ -74,7 +74,7 @@ future surface that needs the same grammar.
 
 The `PredicateGroups` type is literally `FilterPredicate[][]` — an
 array of AND-groups, OR'd together. It imports
-[`FilterPredicate`](../../../workspace/apps/builder/src/features/data-management/datasets/filters/types.ts)
+[`FilterPredicate`](../../../../workspace/apps/builder/src/features/data-management/datasets/filters/types.ts)
 from the chip-filter module; no new predicate variant is
 introduced, so the per-dtype operator surface and the BE evaluator
 stay unchanged. The single new capability lives in the _transport
@@ -92,7 +92,7 @@ and composition_, not in the predicate shape.
   — the `FilterPredicate` discriminated union the parser emits.
 - [dataset-detail.md § Row search (`?q=`)](dataset-detail.md#row-search-q)
   — the substring search the advanced query AND-composes with.
-- [rows-get.contract.yaml](../../../workspace/packages/contracts/datasets/rows-get.contract.yaml)
+- [rows-get.contract.yaml](../../../../workspace/packages/contracts/datasets/rows-get.contract.yaml)
   — the wire contract this round extends with the `aq` param
   (Contract phase).
 
@@ -122,7 +122,7 @@ operand := bare-token | quoted-string
   `"SỐ ĐIỆN THOẠI":~090`. The colon must follow the closing quote;
   the match is case-insensitive (unicode-aware). A bare (unquoted)
   key with a space is a parse error — the space ends the token.
-  (Bug fix in [Round_54](../../plan/cycles/Round_54.md): the bare-
+  (Bug fix in [Round_54](../../../plan/cycles/Round_54.md): the bare-
   token-only key rejected such columns.)
 - **Unicode operator aliases** — the `?` help shows each operator's
   math glyph (the shared `datasets.filters.op.*` label: `≠` `≥`
@@ -171,7 +171,7 @@ combination with no existing predicate is a **semantic error**
 (case-insensitive) → `is_true` / `is_false`. Any other operand on
 a boolean column is a value error.
 
-² **Closed in [Round_55](../../plan/cycles/Round_55.md)** (was a
+² **Closed in [Round_55](../../../plan/cycles/Round_55.md)** (was a
 documented MVP gap). Inclusive date bounds now map onto the
 **existing** `gte` / `lte` operators — `date`/`datetime` reuse the
 same predicate the numeric branch uses, rather than minting
@@ -181,7 +181,7 @@ the change was a one-line `OPS_BY_DTYPE` addition each side (FE +
 BE) plus the parser prefix map. `won_at:>=2026-01-01` is now valid;
 `won_at:>2025-12-31` remains an equivalent way to express it.
 
-³ **Closed in [Round_55](../../plan/cycles/Round_55.md)** (was a
+³ **Closed in [Round_55](../../../plan/cycles/Round_55.md)** (was a
 documented MVP gap). `ne` is now in the `string` vocabulary, so
 `stage:!=won` is valid; the BE adds a case-insensitive
 `lower(col) != lower(?)` branch (matching the `equals`/`contains`
@@ -233,7 +233,7 @@ AND-compose (§ Composition).
 > spec requires (a visible label distinguishing the field from the
 > `?q=` box; a discoverable clear) are what bind; the exact chrome
 > is the build's call. Verified by `ui-design` fidelity mode in
-> [Round_53](../../plan/cycles/Round_53.md).
+> [Round_53](../../../plan/cycles/Round_53.md).
 
 ### Idle / empty state
 
@@ -338,7 +338,7 @@ AND-compose (§ Composition).
 The advanced-query input is placed on the
 [dataset detail page](dataset-detail.md) and reuses that page's theme
 surface: the AntD `<ConfigProvider>` tokens derived from the six seeds
-in [`themeTokens.ts`](../../../workspace/packages/ui/src/themeTokens.ts)
+in [`themeTokens.ts`](../../../../workspace/packages/ui/src/themeTokens.ts)
 (the source of truth — R66). It is an AntD `<Input>` re-skinned only by
 state, so it introduces **no new token** (additive J-2 backfill — the
 C1–C17 acceptance list and grammar tables above are untouched). Values
@@ -363,7 +363,7 @@ No new token is introduced; this map shares the
 [dataset-filters.md token map](dataset-filters.md#token-map) surface the
 advanced-query input sits alongside. Identifier parity against the live
 AntD registry is enforced by
-[`design-token-parity.mjs`](../../../scripts/lint/design-token-parity.mjs).
+[`design-token-parity.mjs`](../../../../scripts/lint/design-token-parity.mjs).
 
 ---
 
@@ -416,7 +416,7 @@ stateDiagram-v2
   deterministic pretty-print of that JSON). A malformed `?aq=`
   hand-edited into the URL is dropped silently on parse (the FE
   never crashes on a bad URL — same discipline as
-  [serialize.ts](../../../workspace/apps/builder/src/features/data-management/datasets/filters/serialize.ts)),
+  [serialize.ts](../../../../workspace/apps/builder/src/features/data-management/datasets/filters/serialize.ts)),
   and the BE returns 422 if such a request is somehow sent.
 
 ### Combine with `?q=` and chip filters — Composition
@@ -442,7 +442,7 @@ stateDiagram-v2
   string: `['datasets', { id }, 'rows', { page, pageSize, q, filters, aq }]`
   where `aq` is `JSON.stringify(predicateGroups)` (empty string
   when no advanced query) — mirroring
-  [`cacheKeyForFilters`](../../../workspace/apps/builder/src/features/data-management/datasets/filters/serialize.ts).
+  [`cacheKeyForFilters`](../../../../workspace/apps/builder/src/features/data-management/datasets/filters/serialize.ts).
 - `placeholderData: (prev) => prev` stays, so the previous result
   is visible during transitions (no blank flash while typing a
   longer query).
@@ -549,17 +549,17 @@ Continuing the C1–C17 numbering from § Acceptance criteria
 
 ## Data contract (target for the Contract phase)
 
-> The Contract phase of [Round_51](../../plan/cycles/Round_51.md)
+> The Contract phase of [Round_51](../../../plan/cycles/Round_51.md)
 > formalizes the wire shape in
-> [rows-get.contract.yaml](../../../workspace/packages/contracts/datasets/rows-get.contract.yaml)
-> and its [rationale](../../../workspace/packages/contracts/datasets/rows-get.contract.md).
+> [rows-get.contract.yaml](../../../../workspace/packages/contracts/datasets/rows-get.contract.yaml)
+> and its [rationale](../../../../workspace/packages/contracts/datasets/rows-get.contract.md).
 > This section states the **design intent** the contract must
 > satisfy; the YAML wins on any drift.
 
 **Why the existing `f<N>_*` shape cannot carry this**: the chip
 param shape is keyed by 0-based column index with at most one
 predicate per column and **implicit AND only**
-([rows-get.contract.yaml lines 96–114](../../../workspace/packages/contracts/datasets/rows-get.contract.yaml)).
+([rows-get.contract.yaml lines 96–114](../../../../workspace/packages/contracts/datasets/rows-get.contract.yaml)).
 There is no key in that shape for "a second predicate on the same
 column" nor for "OR between predicates." OR is structurally
 inexpressible. The contract must therefore **add** a transport, not
@@ -652,7 +652,7 @@ groups } | { ok: false, message, position }`.
 - **Negation** (`NOT` / leading `-`).
 - ~~**Inclusive date bounds** (`>=` / `<=` on date/datetime) and
   **string `!=`**~~ — **shipped in
-  [Round_55](../../plan/cycles/Round_55.md)** by reusing `gte` /
+  [Round_55](../../../plan/cycles/Round_55.md)** by reusing `gte` /
   `lte` for dates and adding `ne` to the string vocabulary (see
   § Operator-prefix mapping notes ² and ³).
 - **Operand-less ops in the grammar** (`is_null`, `is_empty`, …)

@@ -8,20 +8,20 @@ demo needs this before users can do anything beyond
 create-via-upload — without rename/delete, the workspace grid and
 the datasets table become write-once garbage.
 **Status**: Accepted (R23 design; shipped R24–R26; extended R30/R32/R33).
-**Round introduced**: [Round_23](../../plan/cycles/Round_23.md);
+**Round introduced**: [Round_23](../../../plan/cycles/Round_23.md);
 implementation chain begins R24 (Contract phase) per the chain
 declaration at the end of R23.
-**Contract**: [Round_24](../../plan/cycles/Round_24.md) — four
+**Contract**: [Round_24](../../../plan/cycles/Round_24.md) — four
 `*.contract.{yaml,md}` pairs (PATCH/DELETE on workspaces and
 datasets) plus the new shared
-[`_shared/api-error.yaml`](../../../workspace/packages/contracts/_shared/api-error.yaml)
+[`_shared/api-error.yaml`](../../../../workspace/packages/contracts/_shared/api-error.yaml)
 envelope. All 11 contracts in the package validate.
-**Backend**: [Round_25](../../plan/cycles/Round_25.md) — four
+**Backend**: [Round_25](../../../plan/cycles/Round_25.md) — four
 route handlers, four `ApiError*` Pydantic models, schema
 migration (two unique indexes) with a startup-time duplicate-
 name back-fill, plus the `POST /workspaces` and batch-commit
 tightening to 409 on `name_taken`. 54/54 backend tests pass.
-**Frontend**: [Round_26](../../plan/cycles/Round_26.md) — four
+**Frontend**: [Round_26](../../../plan/cycles/Round_26.md) — four
 mutation hooks, three shared modals
 (`features/data-management/_shared/`), overflow-menu wiring on
 the WorkspaceCard and the DatasetTable, the
@@ -30,15 +30,12 @@ inline 409 handling on the existing `CreateWorkspaceModal` and
 the upload wizard's Confirm step. 24/24 vitest tests still pass;
 type-check + build green.
 **Sibling docs**:
-[workspaces.md](workspaces.md) (the noun this verb-set operates
+[workspaces.md](../workspaces/workspaces.md) (the noun this verb-set operates
 on — defines the Workspace data model),
-[datasets.md](datasets.md) (the other noun — defines the Dataset
+[datasets.md](../datasets/datasets.md) (the other noun — defines the Dataset
 data model and table list),
-[upload.md](upload.md) (the existing verb against datasets;
-CRUD hygiene rounds out the set),
-[crud-hygiene.preview.html](_archive/crud-hygiene.preview.html) (visual
-preview of both affordance surfaces + the four modal states the
-HIxAI loop revolved around).
+[upload.md](../datasets/upload.md) (the existing verb against datasets;
+CRUD hygiene rounds out the set).
 
 ---
 
@@ -293,7 +290,7 @@ below the input field:
 The CRUD affordances are AntD primitives (`<Dropdown>`, `<Modal>`,
 `<Input>`, `<Alert>`, `<Button>`) styled by the AntD `<ConfigProvider>`
 tokens derived from the six seeds in
-[`themeTokens.ts`](../../../workspace/packages/ui/src/themeTokens.ts)
+[`themeTokens.ts`](../../../../workspace/packages/ui/src/themeTokens.ts)
 (the source of truth — R66). No new token is introduced; values are
 informational (resolved via `theme.getDesignToken()`, antd 6.x).
 
@@ -315,7 +312,7 @@ informational (resolved via `theme.getDesignToken()`, antd 6.x).
 No new token is introduced; AntD's danger / warning button and alert
 chrome derive from `colorError` / `colorWarning`. Identifier parity is
 enforced by
-[`design-token-parity.mjs`](../../../scripts/lint/design-token-parity.mjs).
+[`design-token-parity.mjs`](../../../../scripts/lint/design-token-parity.mjs).
 
 ---
 
@@ -386,7 +383,7 @@ scope:
   already-committed dataset is the new R23 affordance.
 - Dataset `columns[].name`, `dtype`, or other per-column
   metadata. Lives entirely in the future "schema editing" round
-  ([upload.md](upload.md)'s deferral list).
+  ([upload.md](../datasets/upload.md)'s deferral list).
 
 Uniqueness constraints (the source of 409 `name_taken`):
 
@@ -530,10 +527,10 @@ def delete_dataset(dataset_id: str) -> None:
 `RenameBody` Pydantic model — **per-resource max length**
 (corrected R62 audit; R23 declared a single shared `max_length=80`
 for both, but dataset names have allowed **120** since R15's
-[`_shared/dataset.yaml`](../../../workspace/packages/contracts/_shared/dataset.yaml)
+[`_shared/dataset.yaml`](../../../../workspace/packages/contracts/_shared/dataset.yaml)
 `Dataset.name` (filename stems + sheet names run long). R29's
 cross-language `NAME_LENGTHS` constant
-([`_generated/constants.ts`](../../../workspace/apps/builder/src/_generated/constants.ts))
+([`_generated/constants.ts`](../../../../workspace/apps/builder/src/_generated/constants.ts))
 is the single source of truth — `WORKSPACE_MAX = 80`,
 `DATASET_MAX = 120` — cited identically by the contracts, FE Form
 rules, and BE bodies):
@@ -549,7 +546,7 @@ class RenameBody(BaseModel):
 **Atomicity** (delete dataset): the same atomic-commit pattern
 the upload wizard uses, in reverse. R16's BE-round conformance
 memo (the
-[2026-05-24-be-round-conformance-pattern.md](../../memory/2026-05-24-be-round-conformance-pattern.md))
+[2026-05-24-be-round-conformance-pattern.md](../../../memory/2026-05-24-be-round-conformance-pattern.md))
 already articulates the discipline: validate everything first,
 delete the row, then unlink the parquet — or unlink first, then
 delete the row. Either order is fine; what's not fine is a
@@ -630,7 +627,7 @@ This doc:
 
 R26 visual verification surfaced cases where an uncaught render error
 in any CRUD page would unmount the whole app and leave a blank white
-screen. R30 wrapped the router in [`AppErrorBoundary`](../../../workspace/apps/builder/src/components/AppErrorBoundary.tsx)
+screen. R30 wrapped the router in [`AppErrorBoundary`](../../../../workspace/apps/builder/src/components/AppErrorBoundary.tsx)
 inside the AntD providers, so render-phase errors now show a themed
 `<Result>` page with a Reload button instead. Event-handler errors
 continue to surface through the existing AntD `<App>` message
@@ -644,7 +641,7 @@ runtime wrapper.
 All CRUD user-facing strings (modal titles, button labels,
 toast messages, error alerts, breadcrumb labels) are now keyed
 under `workspaces.*`, `datasets.*`, `rename.*`, `deleteConfirm.*`,
-and `common.*` namespaces in [`src/i18n/locales/{en,vi}.json`](../../../workspace/apps/builder/src/i18n/locales/).
+and `common.*` namespaces in [`src/i18n/locales/{en,vi}.json`](../../../../workspace/apps/builder/src/i18n/locales/).
 Resource label (`"workspace"` / `"dataset"`) lives in
 `resources.{workspace,dataset}` so messages like "Rename
 workspace" and "Delete dataset" inflect correctly per locale.
@@ -656,7 +653,7 @@ for inline emphasis. AntD's built-in Modal OK/Cancel + Empty
 
 ## R33 stamp — extended to dataset detail page
 
-R33 ([dataset-detail.md](dataset-detail.md)) extends the dataset
+R33 ([dataset-detail.md](../datasets/dataset-detail.md)) extends the dataset
 rename + delete affordances to a third placement: the
 `/datasets/:id` page header's `actions` slot. No behavior change
 — same `<RenameModal>` + `<DeleteConfirmModal>` and the same

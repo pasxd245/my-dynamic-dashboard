@@ -9,7 +9,7 @@
 **Inherits from ← [Round_58](Round_58.md)**: audit surface 4 of the
 **design-corpus conformance audit**
 ([program plan](../programs/design-corpus-audit.plan.md)) —
-[workspaces](../../design/data-management/workspaces.md) — against the
+[workspaces](../../design/data-management/workspaces/workspaces.md) — against the
 **stable rubric** (A3 owns tokens; B6 defers). Straight conformance pass.
 
 _Track: 2 (agent-method). Pulled by: design-corpus-audit program, surface
@@ -25,7 +25,7 @@ spot-verify (decision #2).
 ## Why `workspaces` fourth
 
 It is the **container** the dataset cluster lives inside —
-[datasets.md](../../design/data-management/datasets.md) names it "the
+[datasets.md](../../design/data-management/datasets/datasets.md) names it "the
 container datasets live inside," `Dataset.workspaceId` is a FK to
 `Workspace.id`, and the **workspace-card → `/datasets?workspace=<id>`
 handoff** is declared on both sides. Having audited the three dataset

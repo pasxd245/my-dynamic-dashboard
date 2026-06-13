@@ -19,7 +19,7 @@ gate's exit criterion is documented as met in the round file
 (per [R47 § Hard gates](../../decisions/2026-05-28-hybrid-flow-governance.md)).
 
 Since the **2026-06-13 amendment**
-([§ Amendment](../../decisions/2026-05-28-hybrid-flow-governance.md#amendment--2026-06-13-r69-post-mortem)),
+([§ Amendment](../../decisions/2026-05-28-hybrid-flow-governance.md#amendment-2026-06-13-r69-post-mortem)),
 a gate also carries **two enforced invariants** this skill checks:
 
 - **Gate = commit boundary.** Each closed gate has a commit it can

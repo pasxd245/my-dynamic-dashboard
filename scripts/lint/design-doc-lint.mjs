@@ -64,9 +64,14 @@ const RULES = {
 
 // ── File discovery ────────────────────────────────────────────────────────
 function isLintable(relFromDesign) {
-  // Skip the format README, _archive, and any `_`-prefixed meta/template file.
+  // Skip the format README, `_archive` scratch, and `_`-prefixed meta/template
+  // *files* (e.g. `_TEMPLATE.md`). NOTE: `_platform/` and `_shared/` are real
+  // concept-doc cluster dirs (2026-06-13 restructure) and ARE linted — only a
+  // leading-underscore *filename* or an `_archive` dir is skipped.
   const parts = relFromDesign.split(path.sep);
-  if (parts.some((p) => p === '_archive' || p.startsWith('_'))) return false;
+  const base = parts[parts.length - 1];
+  if (parts.includes('_archive')) return false;
+  if (base.startsWith('_')) return false;
   if (relFromDesign === 'README.md') return false;
   return relFromDesign.endsWith('.md');
 }
@@ -244,9 +249,11 @@ const asJson = args.includes('--json');
 const updateBaseline = args.includes('--update-baseline');
 const explicit = args.filter((a) => !a.startsWith('--'));
 
-const files = explicit.length
-  ? explicit.map((a) => path.resolve(process.cwd(), a))
-  : corpusFiles();
+// Apply isLintable to explicit args too (lint-staged passes README.md /
+// _TEMPLATE.md / _archive paths) — corpusFiles() already filters internally.
+const files = (
+  explicit.length ? explicit.map((a) => path.resolve(process.cwd(), a)) : corpusFiles()
+).filter((f) => isLintable(path.relative(DESIGN_ROOT, f)));
 
 const baseline = loadBaseline();
 const report = [];

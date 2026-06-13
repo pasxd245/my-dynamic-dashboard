@@ -18,7 +18,7 @@ methodology gaps** surfaced by the 2026-05-23 brainstorming
 conversation — gaps that single-decision rounds will compound if left
 unaddressed:
 
-1. **No target-shape doc.** [workspace-shell.md](../../design/data-management/workspace-shell.md)
+1. **No target-shape doc.** [workspace-shell.md](../../design/_platform/workspace-shell.md)
    describes the current state, not the destination. Three rounds
    walked toward an undeclared horizon. The drifted iteration shows
    the cost of this exact pattern: R33 hand-rolled a sidebar that R35
@@ -81,7 +81,7 @@ needed a structural answer, not just a preamble.
     `.agents/design/_register/`) because it's a _lesson register_,
     not a design source.
 - **Target-shape doc** at
-  [.agents/design/data-management/workspace-shell.target.md](../../design/data-management/workspace-shell.target.md):
+  [.agents/design/data-management/workspace-shell.target.md](../../design/_platform/workspace-shell.target.md):
   - Sketches the destination AppShell system at the level the
     drifted iteration eventually landed on (post-R35), stripped of
     BIZ leaks.
@@ -118,7 +118,7 @@ needed a structural answer, not just a preamble.
     original horizon.
 - **`workspace-shell.md` backfill**:
   - Add the layer/reuse/purity header table at the top of
-    [workspace-shell.md](../../design/data-management/workspace-shell.md)
+    [workspace-shell.md](../../design/_platform/workspace-shell.md)
     (just after the Status header, before Reference materials).
   - Three rows to start: `WorkspaceShell` (`@mdd/ui`, shared
     cross-domain, plain-UI, peer deps `react`+`antd`+`@ant-design/icons`),
@@ -220,7 +220,7 @@ the user explicitly authorized the direct write. The hub now lives at
       [memory protocol](../../AGENTS.md) — type / date / confidence /
       status fields.
 - [x] Author
-      [.agents/design/data-management/workspace-shell.target.md](../../design/data-management/workspace-shell.target.md):
+      [.agents/design/data-management/workspace-shell.target.md](../../design/_platform/workspace-shell.target.md):
       ASCII target layout, named-future-primitive list, R11–R14
       named-pull sketch, lifecycle clause. Mark every surface
       "target-not-current" in a banner near the top so it can't be
@@ -232,7 +232,7 @@ the user explicitly authorized the direct write. The hub now lives at
       section; add target-doc lifecycle paragraph under "Lifecycle:
       when previews come and go".
 - [x] Backfill the header table into
-      [.agents/design/data-management/workspace-shell.md](../../design/data-management/workspace-shell.md)
+      [.agents/design/data-management/workspace-shell.md](../../design/_platform/workspace-shell.md)
       as the template's first instance. Four rows: `WorkspaceShell`,
       `NAV_ITEMS`, `AppLayout`, `DataManagementPage` (the fourth
       surfaced during writing — the placeholder route component is
@@ -350,7 +350,7 @@ the user explicitly authorized the direct write. The hub now lives at
   current pull, named triggers), four REJECT (the BIZ leaks +
   runtime collision warnings).
 - **Target-shape doc authored** at
-  [.agents/design/data-management/workspace-shell.target.md](../../design/data-management/workspace-shell.target.md).
+  [.agents/design/data-management/workspace-shell.target.md](../../design/_platform/workspace-shell.target.md).
   Includes TARGET-NOT-CURRENT banner near the top, surface table
   with 7 rows (3 existing + 4 future/deferred), full-system ASCII
   layout, target prop signatures for `WorkspaceShell`, `PageCard`,

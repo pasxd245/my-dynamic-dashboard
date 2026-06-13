@@ -99,7 +99,7 @@ promotion bar in [governance.md](../../context/governance.md)
 - **No design-doc edits.** _Amended mid-round_: user verification
   raised a reframe question about Metadata/Preview ordering that
   belongs in the design doc itself, so
-  [upload.md](../../design/data-management/upload.md) gained one
+  [upload.md](../../design/data-management/datasets/upload.md) gained one
   reflection section. The amendment is scoped to capturing the
   open question — design-doc rewrites or new features remain out.
 - **No deep refactor sweeps.** _Amended mid-round_: user-pulled
@@ -125,7 +125,7 @@ promotion bar in [governance.md](../../context/governance.md)
       `cd workspace/apps/backend && uv run pytest`,
       `pnpm md:lint`, `pnpm format:check`. All green before touching
       the context tree.
-- [x] Draft [`.agents/context/contract-driven-feature.md`](../../context/_archive/contract-driven-feature.md)
+- [x] Draft `../../context/_archive/contract-driven-feature.md`
       capturing: the four-phase shape, per-endpoint contract
       granularity, YAML-is-authoritative + MD-is-annotation,
       hand-aligned types across three layers, BE conformance
@@ -140,7 +140,7 @@ Promoted` on
       [be-round-conformance-pattern](../../memory/2026-05-24-be-round-conformance-pattern.md),
       [fe-round-typecheck-pattern](../../memory/2026-05-24-fe-round-typecheck-pattern.md).
       Add a "**Promoted to**:
-      [`context/contract-driven-feature.md`](../../context/_archive/contract-driven-feature.md)
+      `../../context/_archive/contract-driven-feature.md`
       (Round_18, YYYY-MM-DD)" line near the top of each.
 - [x] Append promotion log entry to
       [promotions.md](../promotions.md) covering all three memos
@@ -181,7 +181,7 @@ Promoted` on
 ## Risks / unknowns
 
 - **Context-rot risk on the new file.**
-  [`contract-driven-feature.md`](../../context/_archive/contract-driven-feature.md)
+  `../../context/_archive/contract-driven-feature.md`
   loads on every session — bloat is expensive. Mitigation: write
   lean from the start; the three source memos hold the detailed
   how-to and stay reachable via `[[…]]` links. PDCA post-round
@@ -239,7 +239,7 @@ Promoted` on
 ### Promotion landed
 
 - Authored
-  [`.agents/context/contract-driven-feature.md`](../../context/_archive/contract-driven-feature.md)
+  `../../context/_archive/contract-driven-feature.md`
   — five principles, the four phases, the "default = don't
   add" guards, and the "when _not_ to use DCBF" frame. Lean
   expression per PDCA context-rot check; ~130 lines after
@@ -312,7 +312,7 @@ User verification surfaced a single substantive divergence (no
 runtime bugs). The user paused the verification at the wizard's
 Metadata step to flag: **the FE does not match the R14 design**.
 
-- **Design says** (per [upload.md § Step 3 — Metadata](../../design/data-management/upload.md)):
+- **Design says** (per [upload.md § Step 3 — Metadata](../../design/data-management/datasets/upload.md)):
   CSV is `Source → Metadata → Preview → Confirm` (4 steps); Excel
   is `Source → Sheet → Metadata → Preview → Confirm` (5 steps).
   Metadata and Preview are **distinct** steps in that order.
@@ -368,7 +368,7 @@ Metadata step to flag: **the FE does not match the R14 design**.
   unchanged count** (the added step doesn't add a test; it adds
   a navigation in an existing test).
 - **Design-doc reflection appended** to
-  [upload.md](../../design/data-management/upload.md) capturing
+  [upload.md](../../design/data-management/datasets/upload.md) capturing
   the M→P-vs-P→M question + the R18 decision + the trigger to
   revisit.
 
@@ -406,7 +406,7 @@ Cols · Size`; separate `Source` column removed (encoded as the
 - Filter Select label changed `All` → `All workspaces`.
 - **Search input** (item D7, originally deferred — user re-pulled).
   Client-side substring match against `name` per
-  [datasets.md:131](../../design/data-management/datasets.md)
+  [datasets.md:131](../../design/data-management/datasets/datasets.md)
   ("Search: client-side substring match against Name (R15+ can
   promote to server-side if a real user has >1000 datasets)").
   AntD `Input` with `SearchOutlined` prefix + `allowClear`,
@@ -599,7 +599,7 @@ These need a new DCBF chain or are debatable design calls:
 - ~~**D7 — Search input on the datasets list.**~~ _Mid-round
   correction_: I read this as preview-only decoration and
   deferred. The user re-pulled it; I re-read
-  [datasets.md:131](../../design/data-management/datasets.md)
+  [datasets.md:131](../../design/data-management/datasets/datasets.md)
   and found "Search: client-side substring match against Name
   (R15+ can promote to server-side if a real user has >1000
   datasets)" — a real R15 design decision I had missed.
@@ -629,7 +629,7 @@ R18 pre-change baseline. The bug-fix didn't change the test count.**
 
 ## Check
 
-- [x] [`.agents/context/contract-driven-feature.md`](../../context/_archive/contract-driven-feature.md)
+- [x] `../../context/_archive/contract-driven-feature.md`
       exists, reads lean, cross-links to the three source memos,
       and re-states the "default = don't add" guards.
 - [x] All three R15/R16/R17 methodology memos show `Status:
@@ -709,8 +709,8 @@ Promoted` with the cross-link line.
 - **Design previews are load-bearing artifacts, not decoration.**
   Once the user opened the cross-check ("could you do
   cross-check?"), the design previews
-  ([datasets.preview.html](../../design/data-management/_archive/datasets.preview.html),
-  [upload.preview.html](../../design/data-management/_archive/upload.preview.html))
+  (`../../design/data-management/_archive/datasets.preview.html`,
+  `../../design/data-management/_archive/upload.preview.html`)
   became the spec the FE was failing against. The previews
   encoded ~30 polish decisions that the design markdown didn't
   enumerate (icon-prefix on Name, source-card layout, footnote
@@ -745,7 +745,7 @@ Promoted` with the cross-link line.
 
 - **Promoted**: the DCBF feature methodology + paired
   conformance discipline to
-  [`context/contract-driven-feature.md`](../../context/_archive/contract-driven-feature.md).
+  `../../context/_archive/contract-driven-feature.md`.
   Source memos
   [contract-round-methodology](../../memory/2026-05-24-contract-round-methodology.md)
   (R15),
@@ -784,7 +784,7 @@ Promoted` with the cross-link line.
   design. The R∞ trigger to flip to B is one real-use signal:
   "I changed a dtype, saw the preview, went Back, re-changed
   it." Recorded in
-  [upload.md](../../design/data-management/upload.md). Until
+  [upload.md](../../design/data-management/datasets/upload.md). Until
   that signal, A holds.
 - **Add a `lint-md` step to the post-edit habit**, not just to
   the end-of-round audit. The `+`-prefix gotcha repeatedly bit
@@ -808,7 +808,7 @@ What R18 hands forward:
 
 - **A promoted, canonical DCBF methodology** loaded into every
   session via
-  [`context/contract-driven-feature.md`](../../context/_archive/contract-driven-feature.md).
+  `../../context/_archive/contract-driven-feature.md`.
   R19+ multi-layer feature rounds inherit the four-phase shape
   and conformance discipline by default.
 - **A user-verified upload feature** matching the R14 design
@@ -819,7 +819,7 @@ What R18 hands forward:
 - **An updated `+`-prefix-gotcha memo** capturing R18's 3-hits
   evidence and the "lint after every edit" rule.
 - **A design-doc reflection** on M→P-vs-P→M ordering in
-  [upload.md](../../design/data-management/upload.md), awaiting
+  [upload.md](../../design/data-management/datasets/upload.md), awaiting
   one real-use signal before any flip.
 
 **R19 candidates** (user picks at end-of-round Q&A):
@@ -830,8 +830,8 @@ What R18 hands forward:
    asymmetric gap: CSV parses at upload time, so it needs a new
    contract + BE endpoint for re-parse. Run as a proper DCBF
    chain to keep the methodology honest: Design (already in
-   [upload.md](../../design/data-management/upload.md) +
-   [upload.preview.html](../../design/data-management/_archive/upload.preview.html)
+   [upload.md](../../design/data-management/datasets/upload.md) +
+   `../../design/data-management/_archive/upload.preview.html`
    — likely a small refresh round confirming the spec is still
    right) → Contract (add the CSV re-parse endpoint + tighten
    `ParseOptions` examples) → BE (CSV re-parse handler + tests)

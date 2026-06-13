@@ -126,8 +126,8 @@ adjusted ordering in the Do log before proceeding.
       `.agents/design/data-management/advanced-query.md`. Cover
       the MVP grammar, layout placement, error semantics,
       predicate-output mapping. Cross-link
-      [`dataset-filters.md`](../../design/data-management/dataset-filters.md),
-      [`dataset-detail.md`](../../design/data-management/dataset-detail.md).
+      [`dataset-filters.md`](../../design/data-management/datasets/dataset-filters.md),
+      [`dataset-detail.md`](../../design/data-management/datasets/dataset-detail.md).
       Exit gate: testable acceptance criteria + state-model
       table for the input lifecycle. Run
       [`flow-selector`](../../skills/flow-selector/SKILL.md)
@@ -213,15 +213,15 @@ adjusted ordering in the Do log before proceeding.
 
 ### Design (D)
 
-Authored [`advanced-query.md`](../../design/data-management/advanced-query.md)
+Authored [`advanced-query.md`](../../design/data-management/datasets/advanced-query.md)
 — MVP `key:value AND/OR` grammar (single-level DNF, AND binds
 tighter than OR), operator-prefix→predicate-vocabulary mapping
 table (maps onto the **existing** R37 vocabulary; no new operator),
 input state model, four layout states (idle/parsed/errored/
 composition), the `aq` transport intent, and 17 numbered testable
 acceptance criteria. Cross-links
-[`dataset-filters.md`](../../design/data-management/dataset-filters.md)
-and [`dataset-detail.md`](../../design/data-management/dataset-detail.md).
+[`dataset-filters.md`](../../design/data-management/datasets/dataset-filters.md)
+and [`dataset-detail.md`](../../design/data-management/datasets/dataset-detail.md).
 
 Key Design decisions locked:
 
@@ -249,7 +249,7 @@ Key Design decisions locked:
 **Design gate closed**: user journeys (4 layout states + Mermaid
 lifecycle + state-model table) and 17 testable acceptance criteria
 documented in
-[`advanced-query.md` § Acceptance criteria](../../design/data-management/advanced-query.md#acceptance-criteria-design-gate-exit).
+[`advanced-query.md` § Acceptance criteria](../../design/data-management/datasets/advanced-query.md).
 
 **Flow selector run** (per [R47](../../decisions/2026-05-28-hybrid-flow-governance.md)):
 
@@ -309,7 +309,7 @@ predicates` so the user can confirm precedence parsed as
 - Token-level red underline on the offending substring → deferred
   (needs a rich-text input; MVP uses error border + 1-based
   positional message). Logged in
-  [`advanced-query.md` § Out of scope](../../design/data-management/advanced-query.md#readwrite-boundary).
+  [`advanced-query.md` § Out of scope](../../design/data-management/datasets/advanced-query.md).
 - Autocomplete / type-ahead → deferred (same rich-editor
   dependency).
 
@@ -586,7 +586,7 @@ A two-step decision came out of the close:
   `OPS_BY_DTYPE` + the date chip editor, BE
   [`filters.py`](../../../workspace/apps/backend/app/ingest/filters.py)
   `OPS_BY_DTYPE` + `_predicate_sql`, the MSW `cellMatches`, and
-  [`dataset-filters.md`](../../design/data-management/dataset-filters.md)'s
+  [`dataset-filters.md`](../../design/data-management/datasets/dataset-filters.md)'s
   vocabulary table) — which is exactly why R51 kept it out of
   scope. The advanced-query parser's `DATE_OP_BY_PREFIX` /
   string-prefix maps then light up the deferred prefixes

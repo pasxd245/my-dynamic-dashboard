@@ -7,9 +7,9 @@
 ## Goal
 
 **Inherits from ← [Round_11](Round_11.md)** — design phase landed:
-[workspace-shell.target.md](../../design/data-management/workspace-shell.target.md)
-hardened with concrete prop signatures, [workspaces.md](../../design/data-management/workspaces.md)
-authored as R13's contract, [workspace-shell.preview.html](../../design/data-management/_archive/workspace-shell.preview.html)
+[workspace-shell.target.md](../../design/_platform/workspace-shell.target.md)
+hardened with concrete prop signatures, [workspaces.md](../../design/data-management/workspaces/workspaces.md)
+authored as R13's contract, `../../design/data-management/_archive/workspace-shell.preview.html`
 HIxAI-verified through screenshot review with the AntD-native
 flyout pattern decided.
 

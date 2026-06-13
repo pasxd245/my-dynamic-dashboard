@@ -23,7 +23,7 @@ YAML is authoritative shape; the MD captures the why
 
 _Track: 1 (product — POC/MVP CRUD chain). Pulled by
 [Round_23](Round_23.md)'s chain declaration. Per
-[contract-driven-feature.md](../../context/_archive/contract-driven-feature.md):
+`../../context/_archive/contract-driven-feature.md`:
 "The contract is the unit of agent coordination" — once R24
 locks the YAML, R25 (BE) and R26 (FE) can be implemented
 independently against the same locked spec._
@@ -103,7 +103,7 @@ independently against the same locked spec._
       (was 7 pre-R24; four new YAMLs each get their own
       iterating test, plus the discoverability sentinel).
 - [x] Update
-      [crud-hygiene.md](../../design/data-management/crud-hygiene.md)
+      [crud-hygiene.md](../../design/data-management/_shared/crud-hygiene.md)
       with a `**Contract**: R24` stamp under the existing
       `**Round introduced**` header.
 - [x] `pnpm md:lint` (repo-wide) and `pnpm format:check` for
@@ -270,9 +270,9 @@ for the BE round.
   Almost the entire C-round was translation: R23 had locked
   the wire shape (response codes, error codes, body
   structure) in
-  [crud-hygiene.md § Wire shape](../../design/data-management/crud-hygiene.md)
+  [crud-hygiene.md § Wire shape](../../design/data-management/_shared/crud-hygiene.md)
   and the
-  [`crud-hygiene.preview.html`](../../design/data-management/_archive/crud-hygiene.preview.html)
+  `../../design/data-management/_archive/crud-hygiene.preview.html`
   modal-state toggle had already validated the 409 cascade
   flow visually. R24 only surfaced two new decisions: the
   name-length consistency call (kept existing schemas) and

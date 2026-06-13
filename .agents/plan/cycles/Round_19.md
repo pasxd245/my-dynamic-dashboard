@@ -8,7 +8,7 @@
 
 **Inherits from ← [Round_18](Round_18.md)** — DCBF methodology
 promoted to
-[`context/contract-driven-feature.md`](../../context/_archive/contract-driven-feature.md);
+`../../context/_archive/contract-driven-feature.md`;
 R18's Feeds-into named "parse-options + re-parse — DCBF chain" as
 candidate #1; user explicitly pulled it after R18 Complete with
 the framing _"let try 1 more time the DCBF to have more evidence
@@ -17,7 +17,7 @@ for later."_
 R19 is the **D-step** of the second feature DCBF chain. The chain
 will run R19 (D) → R20 (C) → R21 (B) → R22 (F). R19's purpose is
 focused: most parse-options design is already locked in R14's
-[upload.md](../../design/data-management/upload.md). R19 picks up
+[upload.md](../../design/data-management/datasets/upload.md). R19 picks up
 the open thread R18's cross-check surfaced — the **CSV re-parse
 endpoint asymmetry** — plus a small set of design decisions the
 implementation chain needs to consume.
@@ -25,7 +25,7 @@ implementation chain needs to consume.
 Methodology stake: this is the **second instance** of the full
 DCBF chain. After R22 closes, the methodology will have two
 concrete feature-shape examples (upload + parse-options); that's
-when [the `skills/` promotion bar](../../context/_archive/contract-driven-feature.md)
+when `../../context/_archive/contract-driven-feature.md`
 becomes evaluable (R17's Act deferred this pending "a non-toy
 second feature").
 
@@ -33,7 +33,7 @@ _Track: 2 (agent-method — methodology evidence) + 1 (product —
 closing the parse-options gap R18 surfaced). Pulled by:
 [Round 18](Round_18.md) Feeds-into § "R19 candidates" #1 + user
 explicit pick after R18 Complete. Per
-[contract-driven-feature.md](../../context/_archive/contract-driven-feature.md)
+`../../context/_archive/contract-driven-feature.md`
 the D-step output is the locked design + open-questions table; no
 code changes._
 
@@ -59,7 +59,7 @@ code changes._
 - **Preview-failed actions scope decision.** R14 shows three
   buttons on parse-failed sheets:
   `[Re-pick file] [Deselect this sheet] [Adjust parse options]`
-  ([upload.md:392](../../design/data-management/upload.md)).
+  ([upload.md:392](../../design/data-management/datasets/upload.md)).
   R18 deferred these as item **W2**. R19 decides whether they're
   part of this chain's R22 scope or a separate R∞ round.
 - **Append a "Round 19 locks" block** to upload.md's open-
@@ -92,8 +92,8 @@ shape + ParseOptions schema tighten)`.
 
 - [x] Author Round_19.md (this file) and flip to `In Progress`.
 - [x] Re-read the parse-options sections in
-      [upload.md](../../design/data-management/upload.md) and
-      [upload.preview.html](../../design/data-management/_archive/upload.preview.html).
+      [upload.md](../../design/data-management/datasets/upload.md) and
+      `../../design/data-management/_archive/upload.preview.html`.
 - [x] Re-read the locked parse-related contract surface
       ([\_shared/parse-options.yaml](../../../workspace/packages/contracts/_shared/parse-options.yaml),
       [parse.contract.yaml](../../../workspace/packages/contracts/uploads/parse.contract.yaml))
@@ -154,7 +154,7 @@ FE)` instead of the originally-planned Contract scope.
 ### Findings from re-reading the existing design + contracts + BE
 
 - **R14 design**
-  ([upload.md § Parse-options disclosure](../../design/data-management/upload.md)):
+  ([upload.md § Parse-options disclosure](../../design/data-management/datasets/upload.md)):
   - Excel parse-options: `range`, `has_header`.
   - CSV parse-options: `skip_rows`, `has_header`.
   - "Re-parse" triggers `POST /uploads/<temp_id>/parse` — the
@@ -269,7 +269,7 @@ the correction):
    so the chain compresses").
 
 R∞ candidate refinements of
-[`context/contract-driven-feature.md`](../../context/_archive/contract-driven-feature.md)
+`../../context/_archive/contract-driven-feature.md`
 (hold the edit until R21 (F) closes — that's when two
 instances exist):
 
@@ -389,7 +389,7 @@ waits for R20 (F) close + a re-evaluation.
   async surfaces. **Not a methodology promotion candidate** —
   just a product UX backlog item.
 - After R20 (F) ships, re-read
-  [`context/contract-driven-feature.md`](../../context/_archive/contract-driven-feature.md)
+  `../../context/_archive/contract-driven-feature.md`
   and consider adding a one-liner under "When _not_ to use
   DCBF" pointing at R19 as the worked example of "D-step
   discovers no chain needed."

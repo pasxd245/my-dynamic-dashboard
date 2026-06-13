@@ -9,7 +9,7 @@ close the delete gap deferred since R13. The cascade rule was
 the load-bearing design question of R23 and was resolved as
 **block-on-non-empty** — workspaces with datasets cannot be
 deleted directly. See
-[crud-hygiene.md § Open questions answered in R23](../../../../.agents/design/data-management/crud-hygiene.md)
+[crud-hygiene.md § Open questions answered in R23](../../../../.agents/design/data-management/_shared/crud-hygiene.md)
 for the decision rationale.
 
 ## Behavior
@@ -37,7 +37,7 @@ for the decision rationale.
      FE never trusts its own cached count.
 - **No `?cascade=true` parameter.** R23 considered and
   rejected opt-in cascade for POC. A future round (named in
-  [crud-hygiene.md § Out of scope](../../../../.agents/design/data-management/crud-hygiene.md))
+  [crud-hygiene.md § Out of scope](../../../../.agents/design/data-management/_shared/crud-hygiene.md))
   may add it; the trigger is concrete user friction with the
   blocked path.
 
@@ -101,7 +101,7 @@ Content-Type: application/json
 - [datasets/delete.contract.yaml](../datasets/delete.contract.yaml)
   — parallel delete on the dataset resource (no `non_empty`
   case — datasets have no dependent rows in R23).
-- [crud-hygiene.md](../../../../.agents/design/data-management/crud-hygiene.md)
+- [crud-hygiene.md](../../../../.agents/design/data-management/_shared/crud-hygiene.md)
   — feature design; modal states 3, 5, 6 cover this endpoint's
   FE flows.
 - [Round_23](../../../../.agents/plan/cycles/Round_23.md) — D-round.

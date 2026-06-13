@@ -34,13 +34,13 @@ the first piece); R07 Follow-ups (R08 candidate chain). Per
 ## What is IN scope
 
 - **Design amendment** to
-  [.agents/design/data-management/workspace-shell.md](../../design/data-management/workspace-shell.md):
+  [.agents/design/data-management/workspace-shell.md](../../design/_platform/workspace-shell.md):
   add a new "Icons" subsection mapping each nav-item to the
   chosen AntD icon. R08 binds one entry (Data Management →
   `DatabaseOutlined`); future rounds extend the table when they
   add nav-items.
 - **Preview update** to
-  [.agents/design/data-management/workspace-shell.preview.html](../../design/data-management/_archive/workspace-shell.preview.html):
+  `../../design/data-management/_archive/workspace-shell.preview.html`:
   replace the `▣` text glyph with an inline SVG copied from the
   actual rendered AntD icon (single copy, frozen) — this keeps
   the preview's "~90% fidelity" promise honest now that production
@@ -88,13 +88,13 @@ the first piece); R07 Follow-ups (R08 candidate chain). Per
 ## Plan
 
 - [x] Added an "Icons" subsection to
-      [workspace-shell.md](../../design/data-management/workspace-shell.md)
+      [workspace-shell.md](../../design/_platform/workspace-shell.md)
       with a registry table (key → AntD icon → rationale → round
       added). Initial row: `data-management` → `DatabaseOutlined`
       → "Represents the underlying DuckDB store; signals 'data
       work, not chrome.'" R08 in the round-added column.
 - [x] Updated
-      [workspace-shell.preview.html](../../design/data-management/_archive/workspace-shell.preview.html):
+      `../../design/data-management/_archive/workspace-shell.preview.html`:
       `▣` text glyph replaced with the actual SVG markup from
       `@ant-design/icons-svg@4.4.2`'s `DatabaseOutlined.js`
       (path data copied verbatim). Added `.mdd-nav-icon svg`
@@ -149,7 +149,7 @@ the first piece); R07 Follow-ups (R08 candidate chain). Per
 
 - **Design doc amendment**: added a 12-row "Icons" registry
   section to
-  [workspace-shell.md](../../design/data-management/workspace-shell.md)
+  [workspace-shell.md](../../design/_platform/workspace-shell.md)
   between the "Token map" and "Behaviour" sections. Established
   the per-round-extension pattern (one row added per future
   round that introduces a nav-item).

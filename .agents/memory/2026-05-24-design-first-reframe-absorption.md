@@ -51,11 +51,11 @@ stress-tested it under heavy reframe pressure and the thesis held.
 - Files:
   - [.agents/plan/cycles/Round_14.md](../plan/cycles/Round_14.md) —
     full Do log + Act narrating each reframe
-  - [.agents/design/data-management/upload.md](../design/data-management/upload.md) —
+  - [.agents/design/data-management/upload.md](../design/data-management/datasets/upload.md) —
     17-row open-questions table at the bottom
-  - [.agents/design/data-management/datasets.md](../design/data-management/datasets.md) —
+  - [.agents/design/data-management/datasets.md](../design/data-management/datasets/datasets.md) —
     the noun-side split
-  - [.agents/design/index.html](../design/_archive/index.html) — the hub
+  - `../design/_archive/index.html` — the hub
     that made cross-linked navigation possible
 - Companion lessons:
   - [2026-05-22-ui-boundary-build-first.md](2026-05-22-ui-boundary-build-first.md) —

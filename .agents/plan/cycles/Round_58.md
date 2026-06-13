@@ -9,7 +9,7 @@
 **Inherits from ← [Round_57](Round_57.md)**: audit surface 3 of the
 **design-corpus conformance audit**
 ([program plan](../programs/design-corpus-audit.plan.md)) —
-[datasets](../../design/data-management/datasets.md) — against the
+[datasets](../../design/data-management/datasets/datasets.md) — against the
 **stable rubric** (A3 owns tokens; B6 defers). Straight conformance pass;
 the rubric is settled (R56) — **not** a calibration round.
 

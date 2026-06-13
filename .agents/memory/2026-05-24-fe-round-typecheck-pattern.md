@@ -5,7 +5,7 @@
 **Confidence**: Medium-high (third instance of the 4-round
 methodology; mirrors R16's BE-side pattern)
 **Status**: Promoted
-**Promoted to**: [`context/contract-driven-feature.md`](../context/_archive/contract-driven-feature.md)
+**Promoted to**: `../context/_archive/contract-driven-feature.md`
 ([Round_18](../plan/cycles/Round_18.md), 2026-05-24)
 
 ## Problem
@@ -188,7 +188,7 @@ separate track-2 round when the FE demands an offline demo path.
 ## Promotion Candidate?
 
 - [x] `context/` — promoted in [Round_18](../plan/cycles/Round_18.md)
-      to [`context/contract-driven-feature.md`](../context/_archive/contract-driven-feature.md)
+      to `../context/_archive/contract-driven-feature.md`
       after R17 supplied the third instance. Bundled with the
       contract-round and BE-round memos under the single DCBF
       rule.

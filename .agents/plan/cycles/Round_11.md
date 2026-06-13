@@ -30,7 +30,7 @@ authored before the round begins.
 
 _Track: 1 (product — first real feature direction). Pulled by:
 conversation 2026-05-23 (user named master-layout + workspaces
-together); R10's [target doc](../../design/data-management/workspace-shell.target.md)
+together); R10's [target doc](../../design/_platform/workspace-shell.target.md)
 (sketched the chrome system) and [distillation memo](../../memory/2026-05-23-drifted-shell-distillation.md)
 entries D / E / I / J (chrome primitive pulls). Per
 [Evolution Rule](../../AGENTS.md)._
@@ -44,7 +44,7 @@ time"). Bundled because R13's feature design depends on knowing
 R12's chrome contracts, and the preview crosses both — showing the
 chrome with the workspaces card grid as its content.
 
-- **Refine [workspace-shell.target.md](../../design/data-management/workspace-shell.target.md)**:
+- **Refine [workspace-shell.target.md](../../design/_platform/workspace-shell.target.md)**:
   - Promote sketched sections into concrete decisions for R12:
     - Top-bar contents (which slots, which controls, brand
       placement)
@@ -60,7 +60,7 @@ chrome with the workspaces card grid as its content.
     primitive names; mark R13 with the workspaces pull
   - **No new ASCII layout** — the existing target layout already
     sketches the full chrome; R11 just hardens the contracts
-- **Author [.agents/design/data-management/workspaces.md](../../design/data-management/workspaces.md)**
+- **Author [.agents/design/data-management/workspaces.md](../../design/data-management/workspaces/workspaces.md)**
   (new concept doc, follows R10's canonical template):
   - **Mandatory Surface declaration** header table — every surface
     R13 introduces, declared with Layer / Reusability / Purity /
@@ -81,7 +81,7 @@ chrome with the workspaces card grid as its content.
   - **Lifecycle** — when this design doc gets amended (R13 close)
     vs superseded (workspaces-v2 future round if model grows)
 - **High-fidelity preview** at
-  [.agents/design/data-management/workspace-shell.preview.html](../../design/data-management/_archive/workspace-shell.preview.html)
+  `../../design/data-management/_archive/workspace-shell.preview.html`
   (supersedes R07's preview at the same path, which was past its
   "immediate next round" lifecycle per the design README):
   - Tailwind via CDN, self-contained, opens directly in browser.
@@ -134,17 +134,17 @@ chrome with the workspaces card grid as its content.
 ## Plan
 
 - [x] Refine
-      [workspace-shell.target.md](../../design/data-management/workspace-shell.target.md):
+      [workspace-shell.target.md](../../design/_platform/workspace-shell.target.md):
       promote sketched sections into concrete decisions (top-bar,
       NAV_GROUPS shape, Fold/Unfold direction, PageHeader signature,
       PageCard signature). Update Named-pulls table.
 - [x] Author
-      [.agents/design/data-management/workspaces.md](../../design/data-management/workspaces.md)
+      [.agents/design/data-management/workspaces.md](../../design/data-management/workspaces/workspaces.md)
       with mandatory Surface declaration, ASCII layout, data model,
       read/write boundary, state-management decision, endpoint
       shape, lifecycle.
 - [x] **Author the high-fidelity preview** at
-      [.agents/design/data-management/workspace-shell.preview.html](../../design/data-management/_archive/workspace-shell.preview.html)
+      `../../design/data-management/_archive/workspace-shell.preview.html`
       (supersedes R07's preview in-place). Tailwind CDN; full
       master-layout target with workspaces card grid as content;
       click-through for sub-menu and Fold/Unfold; honest framing
@@ -231,7 +231,7 @@ chrome with the workspaces card grid as its content.
   expand-collapse; centred empty-state CTA. Decisions recorded in
   the relevant design docs.
 - **Target doc hardened**
-  ([workspace-shell.target.md](../../design/data-management/workspace-shell.target.md))
+  ([workspace-shell.target.md](../../design/_platform/workspace-shell.target.md))
   — replaced the "Component contracts (target signatures — not yet
   implemented)" section with concrete decisions: NavItem/NavGroup
   data shapes, R11-hardened WorkspaceShell prop signature, PageCard
@@ -240,7 +240,7 @@ chrome with the workspaces card grid as its content.
   paired Fold/Unfold direction convention. Named-pulls table
   superseded with the concrete R11–R13 chain.
 - **Workspaces feature doc authored**
-  ([workspaces.md](../../design/data-management/workspaces.md))
+  ([workspaces.md](../../design/data-management/workspaces/workspaces.md))
   — Surface declaration with 7 rows spanning `@mdd/ui` / builder /
   backend; ASCII layouts for populated + empty states; data model;
   read/write boundary for R13; TanStack Query setup notes; backend
@@ -253,7 +253,7 @@ chrome with the workspaces card grid as its content.
   amendment needed. R10's mandatory header table is doing its
   job.
 - **High-fidelity preview authored**
-  ([workspace-shell.preview.html](../../design/data-management/_archive/workspace-shell.preview.html))
+  (`../../design/data-management/_archive/workspace-shell.preview.html`)
   — supersedes R07's preview in-place. Full master-layout chrome
   rendered with workspaces card grid as content. Honest framing
   banner at top. Click-through working from `file://`:

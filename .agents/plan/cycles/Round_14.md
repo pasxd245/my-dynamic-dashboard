@@ -35,7 +35,7 @@ One cohesive outcome: **R15+ has concrete contracts to implement
 against, and HIxAI has a tangible visual target for the upload
 surface before code lands.**
 
-- **Author [.agents/design/data-management/upload.md](../../design/data-management/upload.md)**
+- **Author [.agents/design/data-management/upload.md](../../design/data-management/datasets/upload.md)**
   (new concept doc, follows R10's canonical template; R11's
   `workspaces.md` is the direct shape reference):
   - **Mandatory Surface declaration** header table — every surface
@@ -65,14 +65,14 @@ surface before code lands.**
   - **Lifecycle** — when this design doc amends (each impl round
     closes) vs supersedes (uploads-v2 if the model grows beyond
     CSV).
-- **Author [.agents/design/data-management/upload.preview.html](../../design/data-management/_archive/upload.preview.html)**
+- **Author `../../design/data-management/_archive/upload.preview.html`**
   (new preview file — N=2 for `data-management/`, but each preview
   is still N=1 per concept; this is the upload concept's first
   preview, not a zoomed-in workspaces variant):
   - Tailwind via CDN, self-contained, opens directly in browser.
   - Renders inside the master-layout chrome (sidebar, breadcrumb,
     PageHeader, PageCard) — visually consistent with
-    [workspace-shell.preview.html](../../design/data-management/_archive/workspace-shell.preview.html).
+    `../../design/data-management/_archive/workspace-shell.preview.html`.
     Sidebar: "Data Management" expanded → "Workspaces" active →
     breadcrumb shows `Home ▸ Data Management ▸ Workspaces ▸ Marketing`.
   - Content area shows the workspace detail page: page header
@@ -134,12 +134,12 @@ surface before code lands.**
 ## Plan
 
 - [x] Author
-      [.agents/design/data-management/upload.md](../../design/data-management/upload.md)
+      [.agents/design/data-management/upload.md](../../design/data-management/datasets/upload.md)
       with mandatory Surface declaration, ASCII layout, data
       model, file-storage decision, parse-time decision, read/
       write boundary, workspace-persistence dependency, lifecycle.
 - [x] Author the high-fidelity preview at
-      [.agents/design/data-management/upload.preview.html](../../design/data-management/_archive/upload.preview.html).
+      `../../design/data-management/_archive/upload.preview.html`.
       Tailwind CDN; renders inside the master-layout chrome with
       the workspace detail page as content; state toggle for
       zero/uploading/populated/failed; honest framing banner;
@@ -270,10 +270,10 @@ uploads` as a sub-route? **Lean: single page, no tabs** —
   began. The user responded "go with R14" — interpreted as accept
   all eight leans verbatim, mirroring R11's "User accepted all 5
   leans verbatim" pattern. Decisions recorded in
-  [upload.md](../../design/data-management/upload.md)'s "Open
+  [upload.md](../../design/data-management/datasets/upload.md)'s "Open
   questions answered in R14" table at the bottom of the doc.
 - **upload.md authored**
-  ([upload.md](../../design/data-management/upload.md))
+  ([upload.md](../../design/data-management/datasets/upload.md))
   — Surface declaration table with 12 rows spanning `apps/builder`,
   `apps/backend`, `apps/backend/app/ingest`, and a `parse_csv()`
   helper (the schema absorbed all surfaces without amendment, third
@@ -291,7 +291,7 @@ uploads` as a sub-route? **Lean: single page, no tabs** —
   query-key shape `['workspaces', workspaceId, 'uploads']`;
   lifecycle; deferrals list with 13 named triggers.
 - **upload.preview.html authored**
-  ([upload.preview.html](../../design/data-management/_archive/upload.preview.html))
+  (`../../design/data-management/_archive/upload.preview.html`)
   — workspace detail page rendered inside a static-expanded
   master-layout chrome. State toggle (bottom-right) flips between
   the four documented states. CSS token vars mirror
@@ -418,12 +418,12 @@ uploads` as a sub-route? **Lean: single page, no tabs** —
 - **Design-doc split.** Per the user's R14 directive ("keep both
   datasets.md and upload.md"):
   - New
-    [datasets.md](../../design/data-management/datasets.md) —
+    [datasets.md](../../design/data-management/datasets/datasets.md) —
     the noun. Surface declaration (9 rows), table-list ASCII
     layout (populated / empty / filtered-empty), Dataset data
     model, workspace filter behavior, IA placement, `GET /datasets`
     endpoint, sub-menu promotion, lifecycle, deferrals.
-  - [upload.md](../../design/data-management/upload.md)
+  - [upload.md](../../design/data-management/datasets/upload.md)
     rewritten verb-only: Surface declaration (6 rows), modal ASCII
     layouts (closed / no-workspace / workspace-pre-filled), four-
     state status state machine with the `failed` 201 vs network-
@@ -437,7 +437,7 @@ uploads` as a sub-route? **Lean: single page, no tabs** —
     pre-reframe, three from the reframe).
 - **Preview replaced.** Old `upload.preview.html` (workspace-
   detail-page-centric) removed; new
-  [datasets.preview.html](../../design/data-management/_archive/datasets.preview.html)
+  `../../design/data-management/_archive/datasets.preview.html`
   authored — Datasets page (table list with sortable columns,
   workspace filter, status badges, six sample rows including one
   failed) with togglable upload modal overlay. State toggle for
@@ -466,7 +466,7 @@ uploads` as a sub-route? **Lean: single page, no tabs** —
   previews — sidebar with grouped sub-items pointing at the
   previews, topbar, breadcrumb, page-card containing the
   descriptive preview cards. Re-authored
-  [index.html](../../design/_archive/index.html) against
+  `../../design/_archive/index.html` against
   `../_css/preview-shell.css` (same shared chrome as the two
   previews). The index now reads as a small "design-previews
   hub" app in its own right, which is the natural meta-view of
@@ -514,7 +514,7 @@ uploads` as a sub-route? **Lean: single page, no tabs** —
   - 24h TTL sweep on `uploads_tmp/` cleans abandoned wizards.
     R15's Plan decides whether the sweep ships in R15 or R16.
 - **Design-doc updates landed.**
-  - [datasets.md](../../design/data-management/datasets.md):
+  - [datasets.md](../../design/data-management/datasets/datasets.md):
     Dataset data model drops `status` + `errorMessage`; counts
     are non-null at commit time. Surface table drops
     `DatasetStatusBadge`. Populated-state ASCII drops the
@@ -524,7 +524,7 @@ uploads` as a sub-route? **Lean: single page, no tabs** —
     "Status badge rendering" for "`+ Upload` button navigates
     to the wizard." Open-questions table gains Q12 + Q14
     decisions.
-  - [upload.md](../../design/data-management/upload.md):
+  - [upload.md](../../design/data-management/datasets/upload.md):
     rewritten from modal-flow to full-page wizard. New surface
     declaration (12 rows including stepper + three step
     components + temp-upload endpoint + commit endpoint). ASCII
@@ -537,7 +537,7 @@ uploads` as a sub-route? **Lean: single page, no tabs** —
     reframe).
 - **Preview rebuild.**
   - New
-    [upload.preview.html](../../design/data-management/_archive/upload.preview.html)
+    `../../design/data-management/_archive/upload.preview.html`
     — full-page wizard with the master-layout chrome. Stepper
     at the top of the page-card with active / done / pending
     states. State toggle bottom-right has four buttons:
@@ -547,7 +547,7 @@ uploads` as a sub-route? **Lean: single page, no tabs** —
     in JS to match. `Next / Back` buttons in the wizard nav
     cycle through the steps in code, mirroring the eventual
     production behavior.
-  - [datasets.preview.html](../../design/data-management/_archive/datasets.preview.html)
+  - `../../design/data-management/_archive/datasets.preview.html`
     updated in place: modal CSS + markup deleted (~115 lines of
     CSS, ~33 lines of markup, ~17 lines of JS). The `+ Upload`
     button is now `<a href="upload.preview.html">`; the empty-
@@ -557,7 +557,7 @@ uploads` as a sub-route? **Lean: single page, no tabs** —
     removed.
 - **Shared button styles promoted.** `.btn-primary` already
   lived in
-  [`_css/preview-shell.css`](../../design/_archive/_css/preview-shell.css);
+  `../../design/_archive/_css/preview-shell.css`;
   `.btn-secondary` joined it in the same file (it's used by
   both Datasets and Upload previews now, and as links in some
   places). Inline copies in both preview files removed.
@@ -603,7 +603,7 @@ uploads` as a sub-route? **Lean: single page, no tabs** —
     own step variants; R14 does not pre-bake any of them.
 - **Dataset model gains `sourceFormat` + `sheetName`.** Two new
   fields on
-  [datasets.md](../../design/data-management/datasets.md)'s
+  [datasets.md](../../design/data-management/datasets/datasets.md)'s
   Dataset type — `sourceFormat: 'excel' | 'csv'` and an
   optional `sheetName: string` (present iff Excel). The
   Datasets table surfaces a source-format icon prefix
@@ -638,7 +638,7 @@ uploads` as a sub-route? **Lean: single page, no tabs** —
   file plus `parsed.<sheetkey>.parquet` files for each sheet
   the user previews (Excel) or one default key (CSV).
 - **Design-doc updates landed.**
-  - [upload.md](../../design/data-management/upload.md)
+  - [upload.md](../../design/data-management/datasets/upload.md)
     rewritten as the multi-source wizard. New surface table
     (15 rows including the data-source selector, the Excel-
     only Sheet step component, two parse helpers + a
@@ -649,14 +649,14 @@ uploads` as a sub-route? **Lean: single page, no tabs** —
     arms branching at Step 1. Endpoint-shape Python sketches
     with HTTP status semantics. Open-questions table now lists
     thirteen decisions (Q1–Q15).
-  - [datasets.md](../../design/data-management/datasets.md):
+  - [datasets.md](../../design/data-management/datasets/datasets.md):
     Dataset type gains `sourceFormat` + optional `sheetName`.
     Populated-state ASCII shows the source-format icon prefix
     on Name. Open-questions table picks up Q15. Sample dataset
     names use the Excel `<filename>_<sheet>` pattern where
     appropriate.
 - **Preview rebuild.**
-  - [upload.preview.html](../../design/data-management/_archive/upload.preview.html)
+  - `../../design/data-management/_archive/upload.preview.html`
     rewritten. Step 1 now has the source-type selector (two
     cards — Excel default, CSV alternative) above the
     workspace picker. New Step 2 shows the Excel sheet picker
@@ -670,7 +670,7 @@ uploads` as a sub-route? **Lean: single page, no tabs** —
     source flow array (`STEPS_EXCEL = 4`, `STEPS_CSV = 3`) so
     Next from Source goes to Sheet (Excel) or directly to
     Preview (CSV).
-  - [datasets.preview.html](../../design/data-management/_archive/datasets.preview.html):
+  - `../../design/data-management/_archive/datasets.preview.html`:
     Name cells now have the source-format icon prefix (4 of 5
     sample rows are Excel — matching the "Excel primary"
     direction). Empty-state copy generalised from "your first
@@ -733,7 +733,7 @@ uploads` as a sub-route? **Lean: single page, no tabs** —
   selection; `[Re-pick file]` returns to Step 1. Next is disabled
   while any selected sheet has a parse failure.
 - **Design docs updated.**
-  - [upload.md](../../design/data-management/upload.md): concept
+  - [upload.md](../../design/data-management/datasets/upload.md): concept
     paragraph mentions Metadata + multi-sheet + atomic batch.
     Surface table grows from 15 → 18 rows (UploadMetadataStep,
     cast_columns helper, batch commit endpoint, name changes).
@@ -746,13 +746,13 @@ uploads` as a sub-route? **Lean: single page, no tabs** —
     hook renamed to `useDatasetsCommitMutation` (atomic batch).
     Open-questions table grows from 13 → 16 decisions
     (Q14 marked "reversed", Q16/Q17/Q17a/Q17b added).
-  - [datasets.md](../../design/data-management/datasets.md):
+  - [datasets.md](../../design/data-management/datasets/datasets.md):
     backend endpoint note explains the atomic batch commit and
     that one wizard run produces 1+ Datasets. No change to the
     Dataset model itself — the per-sheet semantics live in the
     upload wizard, not in the Dataset row.
 - **Preview rebuild (third pass).**
-  - [upload.preview.html](../../design/data-management/_archive/upload.preview.html)
+  - `../../design/data-management/_archive/upload.preview.html`
     rewritten end-to-end. New Metadata step body with the
     override table (one row per column: Name · Detected · Override
     dropdown · Sample values; the `amount` row's dropdown is
@@ -766,7 +766,7 @@ uploads` as a sub-route? **Lean: single page, no tabs** —
     per dataset-being-created (2 for the Excel multi-sheet demo).
     State-toggle bottom-right now has three rows: Source · Step ·
     Tab (Tab row is hidden on CSV).
-  - [datasets.md](../../design/data-management/datasets.md)
+  - [datasets.md](../../design/data-management/datasets/datasets.md)
     populated-state ASCII unchanged in shape (source-format
     icons remain).
 - **A11y warning fixes.** Four S6848 warnings on the sheet-option
@@ -870,7 +870,7 @@ format?: string }>`.
     `5 of 6 columns included`.
 - **Awaiting HIxAI screenshot review of the Metadata-step
   with Include checkboxes + parse-options + multi-sheet.**
-  Refresh [index.html](../../design/_archive/index.html), open the
+  Refresh `../../design/_archive/index.html`, open the
   Upload wizard preview, and walk:
   - **Excel path (5 steps)**: default state. Step 1 Source
     (Excel card selected) → Next → Step 2 Sheet (checkboxes —
@@ -889,7 +889,7 @@ format?: string }>`.
     The active tab gets a `✗` marker (Excel multi-sheet — one
     bad sheet, other tabs still navigable). `[Deselect this
 sheet]` shows only on Excel.
-  - **Datasets table** ([datasets.preview.html](../../design/data-management/_archive/datasets.preview.html)):
+  - **Datasets table** (`../../design/data-management/_archive/datasets.preview.html`):
     rows now show source icons. Four Excel + one CSV in the
     sample data; empty state copy generalised. `+ Upload`
     navigates to the wizard.
@@ -923,12 +923,12 @@ sheet]` shows only on Excel.
 
 ## Check
 
-- [x] [datasets.md](../../design/data-management/datasets.md)
+- [x] [datasets.md](../../design/data-management/datasets/datasets.md)
       exists (new, mid-round split) — noun-side: Dataset entity,
       DatasetTable surface, workspace filter, source-format
       icons (`📊` / `📄`), atomic-batch backend endpoint,
       lifecycle.
-- [x] [upload.md](../../design/data-management/upload.md)
+- [x] [upload.md](../../design/data-management/datasets/upload.md)
       exists, rewritten end-to-end as the verb-side full-page
       wizard. 18-row Surface declaration, ASCII for all 5 step
       states (Source / Sheet / Metadata / Preview / Confirm) +
@@ -937,7 +937,7 @@ sheet]` shows only on Excel.
       with parallel CSV/Excel arms, `ParseOptions` +
       `ColumnOverride` + `excluded_columns` types, lifecycle,
       named-pull R16+ append-mode deferral.
-- [x] [upload.preview.html](../../design/data-management/_archive/upload.preview.html)
+- [x] `../../design/data-management/_archive/upload.preview.html`
       exists — rebuilt 3 times across the round. Final state:
       source-selector cards (Excel default · CSV) + workspace
       picker + drop zone in Source; checkbox sheet list in
@@ -947,13 +947,13 @@ sheet]` shows only on Excel.
       multi-row commit table in Confirm. Three-row state
       toggle bottom-right (Source · Step · Tab) with sheet/tab
       hiding on CSV.
-- [x] [datasets.preview.html](../../design/data-management/_archive/datasets.preview.html)
+- [x] `../../design/data-management/_archive/datasets.preview.html`
       exists — Datasets table list with workspace filter +
       source-format icon prefix on Name; `+ Upload` navigates
       to the wizard; empty-state drop zone navigates to the
       wizard. Modal-based markup removed when the wizard
       reframe landed.
-- [x] [workspace-shell.preview.html](../../design/data-management/_archive/workspace-shell.preview.html)
+- [x] `../../design/data-management/_archive/workspace-shell.preview.html`
       updated — Datasets sub-item promoted from `(sample)` to
       real; workspace cards `<a href>` to
       `datasets.preview.html`; brand mark wrapped as `<a href>`
@@ -961,13 +961,13 @@ sheet]` shows only on Excel.
       buttons (both PageHeader and empty-state) wired to a
       simulated AntD-style create-workspace modal mirroring
       R13 production.
-- [x] [.agents/design/\_css/tokens.css](../../design/_archive/_css/tokens.css)
+- [x] `../../design/_archive/_css/tokens.css`
       and
-      [.agents/design/\_css/preview-shell.css](../../design/_archive/_css/preview-shell.css)
+      `../../design/_archive/_css/preview-shell.css`
       authored — N=2 preview-infrastructure trigger fired on
       schedule per the design README. `.btn-primary` +
       `.btn-secondary` promoted to shared mid-round.
-- [x] [.agents/design/index.html](../../design/_archive/index.html)
+- [x] `../../design/_archive/index.html`
       authored — chrome-shell layout (sidebar + topbar +
       page-card), three preview entries (Workspaces · Datasets ·
       Upload wizard), each clickable via sidebar sub-item OR
@@ -1124,13 +1124,13 @@ polish pass).
 What R14 hands forward:
 
 - **Two locked design contracts**:
-  [datasets.md](../../design/data-management/datasets.md) (noun)
-  and [upload.md](../../design/data-management/upload.md) (verb).
+  [datasets.md](../../design/data-management/datasets/datasets.md) (noun)
+  and [upload.md](../../design/data-management/datasets/upload.md) (verb).
   17 HIxAI decisions recorded in upload.md's open-questions
   table. Surface declarations (9 + 18 rows) name every
   component, hook, and endpoint R15+ will build.
 - **One running design preview** at
-  [.agents/design/index.html](../../design/_archive/index.html) — three
+  `../../design/_archive/index.html` — three
   cross-linked HTML files HIxAI can walk to verify the running
   builder against. The preview is the "what should this end up
   looking like" anchor for the impl chain.
@@ -1212,7 +1212,7 @@ time.
 **Landed**:
 
 - New
-  [.agents/design/\_js/preview-shell.js](../../design/_archive/_js/preview-shell.js)
+  `../../design/_archive/_js/preview-shell.js`
   carrying `toggleGroup` + `toggleCollapse` + `FOLD_PATH` +
   `UNFOLD_PATH`. Loaded as a classic `<script src>` (not
   `type="module"`) so it works directly from `file://` — same
@@ -1220,10 +1220,10 @@ time.
   Functions are global on purpose; preview-specific inline JS
   calls them by name.
 - Four preview files updated:
-  [workspace-shell.preview.html](../../design/data-management/_archive/workspace-shell.preview.html),
-  [datasets.preview.html](../../design/data-management/_archive/datasets.preview.html),
-  [upload.preview.html](../../design/data-management/_archive/upload.preview.html),
-  and [index.html](../../design/_archive/index.html). Each now does
+  `../../design/data-management/_archive/workspace-shell.preview.html`,
+  `../../design/data-management/_archive/datasets.preview.html`,
+  `../../design/data-management/_archive/upload.preview.html`,
+  and `../../design/_archive/index.html`. Each now does
   `<script src="../_js/preview-shell.js"></script>` (or
   `_js/preview-shell.js` from the index) and dropped the inline
   duplicates.

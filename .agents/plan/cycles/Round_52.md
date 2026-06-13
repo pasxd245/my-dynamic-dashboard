@@ -129,7 +129,7 @@ end-of-round Q&A.**
 - **First run — report only (worked example, both modes)** — run
   `ui-design` against R51 and record the reports:
   - **design-spec mode** on
-    [`advanced-query.md`](../../design/data-management/advanced-query.md)
+    [`advanced-query.md`](../../design/data-management/datasets/advanced-query.md)
     → expected **pass** (the design declared the labeled box +
     `[Clear]` + all states);
   - **fidelity mode** on

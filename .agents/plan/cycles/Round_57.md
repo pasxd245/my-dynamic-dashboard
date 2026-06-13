@@ -9,7 +9,7 @@
 **Inherits from ← [Round_56](Round_56.md)** (the pilot): audit surface 2
 of the **design-corpus conformance audit**
 ([program plan](../programs/design-corpus-audit.plan.md)) —
-[dataset-detail](../../design/data-management/dataset-detail.md) — against
+[dataset-detail](../../design/data-management/datasets/dataset-detail.md) — against
 the **R56-hardened rubric** (A3 owns token-conformance; B6 defers to it).
 
 Single output this round: `dataset-detail` audited. The rubric is no

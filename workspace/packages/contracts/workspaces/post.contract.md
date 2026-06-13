@@ -98,5 +98,5 @@ Content-Type: application/json
 ## Cross-links
 
 - [get.contract.yaml](get.contract.yaml) — list companion
-- [workspaces.md](../../../../.agents/design/data-management/workspaces.md) — design doc
+- [workspaces.md](../../../../.agents/design/data-management/workspaces/workspaces.md) — design doc
 - [Round_13](../../../../.agents/plan/cycles/Round_13.md) — round of origin

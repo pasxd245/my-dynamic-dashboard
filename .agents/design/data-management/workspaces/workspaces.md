@@ -5,16 +5,14 @@
 page at `/data-management/workspaces` lists all workspaces the user
 has created as a card grid; R13 ships read-only + create-stub.
 **Status**: Accepted (R11 design; shipped R13; extended R23).
-**Round introduced**: [Round_11](../../plan/cycles/Round_11.md);
+**Round introduced**: [Round_11](../../../plan/cycles/Round_11.md);
 implemented in R13 per the
-[shell target's named-pulls table](workspace-shell.target.md).
+[shell target's named-pulls table](../../_platform/workspace-shell.target.md).
 **Sibling docs**:
-[workspace-shell.target.md](workspace-shell.target.md) (the chrome
+[workspace-shell.target.md](../../_platform/workspace-shell.target.md) (the chrome
 this feature lives inside),
-[crud-hygiene.md](crud-hygiene.md) (rename + delete affordances on
-the Workspace card — R23 closes the R∞-deferred CRUD gap below)
-and [workspace-shell.preview.html](_archive/workspace-shell.preview.html)
-(visual preview that renders this feature as content).
+[crud-hygiene.md](../_shared/crud-hygiene.md) (rename + delete affordances on
+the Workspace card — R23 closes the R∞-deferred CRUD gap below).
 
 ---
 
@@ -37,7 +35,7 @@ It takes generic props (title, subtitle, footer slots) and is
 shape, fetching, navigation) lives in the builder feature folder.
 
 Per
-[memory/2026-05-22-ui-boundary-build-first.md](../../memory/2026-05-22-ui-boundary-build-first.md):
+[memory/2026-05-22-ui-boundary-build-first.md](../../../memory/2026-05-22-ui-boundary-build-first.md):
 the UI primitive is generic; the feature folder is BIZ.
 
 > **Open question for HIxAI**: should `WorkspaceCard` be a generic
@@ -50,7 +48,7 @@ the UI primitive is generic; the feature folder is BIZ.
 ## Layout — ASCII intent
 
 The page renders inside the master-layout chrome
-([workspace-shell.target.md](workspace-shell.target.md)) — sidebar
+([workspace-shell.target.md](../../_platform/workspace-shell.target.md)) — sidebar
 shows "Data Management" expanded with "Workspaces" sub-item
 active; PageHeader shows breadcrumb + title + Create action;
 PageCard wraps the card grid.
@@ -125,7 +123,7 @@ centred below. CTA copy: "Create your first workspace."
 The Workspaces page is composed entirely of AntD primitives
 (`<Card>`, `<Row>`/`<Col>`, `<Empty>`, `<Modal>`, `<Button>`) styled by
 the AntD `<ConfigProvider>` tokens derived from the six seeds in
-[`themeTokens.ts`](../../../workspace/packages/ui/src/themeTokens.ts)
+[`themeTokens.ts`](../../../../workspace/packages/ui/src/themeTokens.ts)
 (the source of truth — R66). No new token is introduced; values are
 informational (resolved via `theme.getDesignToken()`, antd 6.x).
 
@@ -144,7 +142,7 @@ informational (resolved via `theme.getDesignToken()`, antd 6.x).
 
 No new token is introduced. Identifier parity against the live AntD
 registry is enforced by
-[`design-token-parity.mjs`](../../../scripts/lint/design-token-parity.mjs).
+[`design-token-parity.mjs`](../../../../scripts/lint/design-token-parity.mjs).
 
 ---
 
@@ -153,7 +151,7 @@ registry is enforced by
 Testable criteria the R13 implementation satisfies, each mapping to at
 least one automated test. Numbered `C1`–`C6` for suite reference. These
 describe the **shipped** read + create-stub scope; rename / delete are
-[crud-hygiene.md](crud-hygiene.md)'s criteria, not restated here.
+[crud-hygiene.md](../_shared/crud-hygiene.md)'s criteria, not restated here.
 
 **User journey** — as a user I open Workspaces to see every container I
 have created and to create a new one, so I can organise my datasets.
@@ -172,7 +170,7 @@ have created and to create a new one, so I can organise my datasets.
    workspace-filtered datasets view
    (`/data-management/datasets?workspace=<id>`). _Flag: the R13 layout
    note above still reads "navigates to `/workspaces/<id>` (route stub)";
-   that line is superseded by [datasets.md](datasets.md)'s R14 Q11
+   that line is superseded by [datasets.md](../datasets/datasets.md)'s R14 Q11
    decision (no detail route — cards link to the filtered list, shipped
    R17). Documented, not silently rewritten._
 5. **Grid responsiveness** _(FE)_ — the card grid renders 3 columns at

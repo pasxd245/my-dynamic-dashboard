@@ -48,7 +48,7 @@ Per [Evolution Rule](../../AGENTS.md)._
    sort-by-arbitrary-column still requires full-file read; defer
    until a real query surface needs it.
 5. **Rename + delete affordances reuse
-   [crud-hygiene.md](../../design/data-management/crud-hygiene.md)**
+   [crud-hygiene.md](../../design/data-management/_shared/crud-hygiene.md)**
    — same `<RenameModal>` + `<DeleteConfirmModal>` already used on
    the Datasets list row. Header `actions` slot on the detail page.
 6. **Dtype badges on column headers.** A tiny pill ("int", "date",
@@ -67,7 +67,7 @@ Per [Evolution Rule](../../AGENTS.md)._
 ### 1. New design doc — `dataset-detail.md`
 
 Author
-[`.agents/design/data-management/dataset-detail.md`](../../design/data-management/dataset-detail.md)
+[`.agents/design/data-management/dataset-detail.md`](../../design/data-management/datasets/dataset-detail.md)
 following the R10/R14 canonical template:
 
 - **Status header** — concept name, R33 origin, draft status,
@@ -88,11 +88,11 @@ following the R10/R14 canonical template:
   - `GET /datasets/{id}/rows` BE route (backend; feature)
   - `DatasetDetail` + `RowsPage` types (feature; data type)
 - **Reference materials** — sibling docs:
-  [datasets.md](../../design/data-management/datasets.md) (the
+  [datasets.md](../../design/data-management/datasets/datasets.md) (the
   noun; this doc extends its R∞-deferred detail view),
-  [upload.md](../../design/data-management/upload.md) (where the
+  [upload.md](../../design/data-management/datasets/upload.md) (where the
   data came from),
-  [crud-hygiene.md](../../design/data-management/crud-hygiene.md)
+  [crud-hygiene.md](../../design/data-management/_shared/crud-hygiene.md)
   (rename + delete affordances inherited here).
 - **ASCII layout** — populated state (header + metadata strip +
   paged table), loading state (skeleton rows), error state (404
@@ -151,16 +151,16 @@ in [.agents/design/README.md § previews](../../design/README.md).
 ### 3. Stamp sibling docs
 
 - Update
-  [`datasets.md`](../../design/data-management/datasets.md)
+  [`datasets.md`](../../design/data-management/datasets/datasets.md)
   Read/write boundary table — flip "Dataset detail view (R∞)"
   to "Dataset detail view — R33 design, R34→R36 impl chain";
   add `dataset-detail.md` to the sibling-docs list at the top.
 - Update
-  [`crud-hygiene.md`](../../design/data-management/crud-hygiene.md)
+  [`crud-hygiene.md`](../../design/data-management/_shared/crud-hygiene.md)
   with a one-line note that R33 extends the rename/delete
   affordances to the dataset detail page header (no behavior
   change — same modals, same hooks).
-- Update [`../../design/index.html`](../../design/_archive/index.html) —
+- Update `../../design/_archive/index.html` —
   add `dataset-detail.preview.html` as a sub-item in the
   Data-Management sidebar group + a card on the right.
 
@@ -261,7 +261,7 @@ in [.agents/design/README.md § previews](../../design/README.md).
 
 **Design doc.**
 
-- [`dataset-detail.md`](../../design/data-management/dataset-detail.md)
+- [`dataset-detail.md`](../../design/data-management/datasets/dataset-detail.md)
   authored from scratch following R10/R14's canonical template
   ([README.md § file-format conventions](../../design/README.md#canonical-conceptmd)).
 - **Surface declaration table** at the top names 9 surfaces:
@@ -283,13 +283,13 @@ in [.agents/design/README.md § previews](../../design/README.md).
 - **Token map** cites 22 tokens against
   [themeTokens.ts](../../../workspace/packages/ui/src/themeTokens.ts)
   (via the
-  [`tokens.css`](../../design/_archive/_css/tokens.css) mirror). No new
+  `../../design/_archive/_css/tokens.css` mirror). No new
   token values are introduced; if R36 finds one missing, it
   promotes the value in `themeTokens.ts` as a prerequisite step.
 - **Behavior** section uses Mermaid `stateDiagram-v2` for the
   page state machine and prose for URL state, back navigation,
   rename/delete inheritance from
-  [crud-hygiene.md](../../design/data-management/crud-hygiene.md),
+  [crud-hygiene.md](../../design/data-management/_shared/crud-hygiene.md),
   and the concurrent-delete 404 race.
 - **Data contract** prose-shapes the two new GET routes as
   YAML-ish blocks; R34 will mechanize. Cell stringification (`string |
@@ -303,10 +303,10 @@ null`) rationale documented: BE renders cells, FE re-applies
 
 **Preview HTML.**
 
-- [`dataset-detail.preview.html`](../../design/data-management/_archive/dataset-detail.preview.html)
+- `../../design/data-management/_archive/dataset-detail.preview.html`
   self-contained, opens directly from `file://`. Tailwind CDN
   pulled for layout utilities; chrome via shared
-  [`../_css/{tokens,preview-shell}.css`](../../design/_archive/_css).
+  `../../design/_archive/_css`.
 - Master-layout chrome matches the other previews — Datasets
   sub-item stays active in the sidebar (the detail page is a
   sub-page of Datasets, not its own sub-menu). Sidebar cross-
@@ -327,14 +327,14 @@ null`) rationale documented: BE renders cells, FE re-applies
 
 **Sibling stamps.**
 
-- [`datasets.md`](../../design/data-management/datasets.md):
+- [`datasets.md`](../../design/data-management/datasets/datasets.md):
   added `dataset-detail.md` to the sibling-docs list at the
   top, and flipped the Read/write boundary's "Dataset detail
   view (R∞)" row using strikethrough + a "Resolved by R33"
   follow-on bullet that names the R34→R36 implementation
   chain. Round number kept in the strikethrough so future
   archaeology can find the original deferral.
-- [`crud-hygiene.md`](../../design/data-management/crud-hygiene.md):
+- [`crud-hygiene.md`](../../design/data-management/_shared/crud-hygiene.md):
   appended a new "## R33 stamp — extended to dataset detail
   page" section at the end. Names the third placement of the
   rename/delete affordances (page header actions slot) and
@@ -343,7 +343,7 @@ null`) rationale documented: BE renders cells, FE re-applies
 
 **Design index.**
 
-- [`.agents/design/index.html`](../../design/_archive/index.html): added
+- `../../design/_archive/index.html`: added
   a new sidebar sub-item "Dataset detail" between Upload and
   CRUD hygiene in the Data Management group, and a matching
   preview card with R33 badge + "paged row inspector · sub-
@@ -430,7 +430,7 @@ null`) rationale documented: BE renders cells, FE re-applies
 
 **Promotions** _(none — implementation round's-worth of design
 contract; the canonical design doc lives in
-[dataset-detail.md](../../design/data-management/dataset-detail.md)
+[dataset-detail.md](../../design/data-management/datasets/dataset-detail.md)
 and is self-evident from `.agents/design/data-management/` going
 forward)_:
 
@@ -501,7 +501,7 @@ following design files were updated in the same commit (via
 `git commit --amend`) so the R33 design baseline is
 self-consistent for R34→R36 to implement against:
 
-- [`dataset-detail.md`](../../design/data-management/dataset-detail.md)
+- [`dataset-detail.md`](../../design/data-management/datasets/dataset-detail.md)
   — added `RowSearchBar` surface, updated layout ASCII to show
   the search input + match counter, added new "Row search
   (`?q=`)" behavior section, added new "No-match state" ASCII,
@@ -509,12 +509,12 @@ self-consistent for R34→R36 to implement against:
   R34+ scope to include `?q=`, removed "Cell-content search"
   from Deferred (kept "per-column / typed filters" deferred).
   Data contract section gained the `q` query param on rows-GET.
-- [`dataset-detail.preview.html`](../../design/data-management/_archive/dataset-detail.preview.html)
+- `../../design/data-management/_archive/dataset-detail.preview.html`
   — added `<input type="search">` + match counter above the
   table in populated state; new no-match state with "Matched
   0 / 2,481" counter, `[Clear]` link, and "No rows match
   '<query>'" placeholder; new toggle button at the bottom-right.
-- [`../../design/index.html`](../../design/_archive/index.html) — card
+- `../../design/_archive/index.html` — card
   description updated to mention the search bar and no-match
   state.
 

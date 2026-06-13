@@ -26,12 +26,12 @@ Grounding the plan in the real token infrastructure surfaced a finding
 bigger than "a few values drifted":
 
 - **Every** token map in the corpus (the R65-authored five **and** the
-  pre-existing [`dataset-detail.md`](../../design/data-management/dataset-detail.md)
-  / [`dataset-filters.md`](../../design/data-management/dataset-filters.md)
+  pre-existing [`dataset-detail.md`](../../design/data-management/datasets/dataset-detail.md)
+  / [`dataset-filters.md`](../../design/data-management/datasets/dataset-filters.md)
   maps they were modelled on) cites `--color-*` / `--radius-*` CSS
   variables and a "`tokens.css` mirror of themeTokens.ts".
 - That `tokens.css` exists **only** under
-  [`.agents/design/_archive/_css/tokens.css`](../../design/_archive/_css/tokens.css)
+  `../../design/_archive/_css/tokens.css`
   — an **archived** preview convenience that fed the retired
   `.preview.html` HIxAI aids. It is not consumed by the app.
 - **No live app code** defines or references those `--color-*` /

@@ -38,12 +38,12 @@ from drifted),
   - [.agents/design/README.md](../../design/README.md) — directory
     contract: MD canonical, HTML optional brainstorming aid, domain
     grouping, token-authority rule, lifecycle.
-  - [.agents/design/data-management/workspace-shell.md](../../design/data-management/workspace-shell.md)
+  - [.agents/design/data-management/workspace-shell.md](../../design/_platform/workspace-shell.md)
     — canonical intent for the shell: ASCII layout, token map (cites
     [themeTokens.ts](../../../workspace/packages/ui/src/themeTokens.ts)),
     behaviour, `<WorkspaceShell>` component contract, scope
     boundary, open questions for HIxAI review.
-  - [.agents/design/data-management/workspace-shell.preview.html](../../design/data-management/_archive/workspace-shell.preview.html)
+  - `../../design/data-management/_archive/workspace-shell.preview.html`
     — Tailwind Play CDN visual aid with click-through; ~90% fidelity;
     header marks it as Round 07 brainstorming, lifecycle-aware.
 - **`@mdd/ui` primitive**: `<WorkspaceShell>` per the contract in the
@@ -99,9 +99,9 @@ from drifted),
 
 - [x] Author [.agents/design/README.md](../../design/README.md)
       (directory contract).
-- [x] Author [.agents/design/data-management/workspace-shell.md](../../design/data-management/workspace-shell.md)
+- [x] Author [.agents/design/data-management/workspace-shell.md](../../design/_platform/workspace-shell.md)
       (canonical intent).
-- [x] Author [.agents/design/data-management/workspace-shell.preview.html](../../design/data-management/_archive/workspace-shell.preview.html)
+- [x] Author `../../design/data-management/_archive/workspace-shell.preview.html`
       (brainstorming aid).
 - [x] HIxAI review of the three design artifacts. Accepted with
       stated defaults: sidebar 88px, pill active-state, "MDD" text
@@ -209,13 +209,13 @@ from drifted),
   grouping, token authority, lifecycle, "When to add structure"
   trigger list).
 - Authored
-  [.agents/design/data-management/workspace-shell.md](../../design/data-management/workspace-shell.md)
+  [.agents/design/data-management/workspace-shell.md](../../design/_platform/workspace-shell.md)
   (canonical intent: ASCII layout, token map citing
   [themeTokens.ts](../../../workspace/packages/ui/src/themeTokens.ts),
   mermaid nav-state diagram, component contract, scope boundary,
   four open questions for HIxAI review).
 - Authored
-  [.agents/design/data-management/workspace-shell.preview.html](../../design/data-management/_archive/workspace-shell.preview.html)
+  `../../design/data-management/_archive/workspace-shell.preview.html`
   (Tailwind Play CDN brainstorming aid; vanilla-JS click-through
   demonstrating prop-driven `activeKey` / `onSelect` contract).
 - Mid-Plan README amendments after HIxAI feedback:

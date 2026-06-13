@@ -9,7 +9,7 @@
 **Inherits from ← [Round_34](Round_34.md)** — R34 landed two
 OpenAPI 3.1 contracts and the contract-validity tests passed.
 R35 implements the FastAPI handlers + paged-Parquet reader the
-[dataset detail page](../../design/data-management/dataset-detail.md)
+[dataset detail page](../../design/data-management/datasets/dataset-detail.md)
 needs.
 
 R35 is **a B-round with a discovered scope expansion**: while

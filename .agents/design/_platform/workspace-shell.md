@@ -156,10 +156,7 @@ components in `@ant-design/icons`. The SVG path data lives in
 The `__shell.*` namespace is reserved for shell-internal controls
 (toggles, brand mark, etc.) — not real navigation entries. When a
 future round adds a nav-item, it adds a row here in the same
-round, citing the round id in the last column. The `.preview.html`
-freezes the rendered SVG markup for the chosen icon — see
-[../README.md §"When to add structure"](../README.md) for the
-preview drift caveat.
+round, citing the round id in the last column.
 
 ---
 
@@ -397,7 +394,7 @@ sidebar to reclaim room.
   with a 3-sentence intent paragraph; no real features).
 - Root route `/` redirects to `/data-management` (only nav item, no
   ambiguity).
-- This design doc + the `.preview.html` brainstorming aid.
+- This design doc (markdown only; the FE-against-MSW build is the UX preview).
 
 ### OUT of scope (deferred to later rounds, each its own pull)
 

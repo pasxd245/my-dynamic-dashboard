@@ -6,7 +6,7 @@
 
 Deletes a committed dataset. Introduced by R23's CRUD hygiene
 chain. Closes the R∞-deferred delete affordance from
-[datasets.md](../../../../.agents/design/data-management/datasets.md).
+[datasets.md](../../../../.agents/design/data-management/datasets/datasets.md).
 
 ## Behavior
 
@@ -76,7 +76,7 @@ Content-Type: application/json
   have a 409 `non_empty` case).
 - [batch-post.contract.yaml](batch-post.contract.yaml) — the
   creation path; matching atomic-commit discipline.
-- [crud-hygiene.md](../../../../.agents/design/data-management/crud-hygiene.md)
+- [crud-hygiene.md](../../../../.agents/design/data-management/_shared/crud-hygiene.md)
   — feature design; modal state 4 covers this endpoint's FE flow.
 - [Round_23](../../../../.agents/plan/cycles/Round_23.md) — D-round.
 - [Round_24](../../../../.agents/plan/cycles/Round_24.md) — C-round.

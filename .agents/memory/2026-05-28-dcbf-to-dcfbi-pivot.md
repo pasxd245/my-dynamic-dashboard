@@ -21,7 +21,7 @@ makes the next break-point harder to recognize when it arrives.
 
 2026-05-28 is a **break-point**: the DCBF chain (Design → Contract
 → Backend → Frontend, validated R14→R21, codified in
-[`context/contract-driven-feature.md`](../context/_archive/contract-driven-feature.md))
+`../context/_archive/contract-driven-feature.md`)
 is superseded by the **DCFBI/DFCFBI hybrid flow** codified in
 [`decisions/2026-05-28-hybrid-flow-governance.md`](../decisions/2026-05-28-hybrid-flow-governance.md).
 
@@ -134,7 +134,7 @@ Candidate set:
   (preview-as-artifact framing displaced; journeys, state notes,
   and acceptance criteria still valid). Leave in place; rewrite
   deferred.
-- [`context/contract-driven-feature.md`](../context/_archive/contract-driven-feature.md)
+- `../context/_archive/contract-driven-feature.md`
   — DCBF context file (promoted from R14→R21). Likely _partially
   superseded_ (contract-discipline content holds under DCFBI's
   unchanged C phase; chain-shape framing displaced). Leave in

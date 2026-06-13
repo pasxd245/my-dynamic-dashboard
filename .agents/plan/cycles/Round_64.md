@@ -47,7 +47,7 @@ A-cluster?) de-risks before the contract freezes.
 2. **(C/F/B/I per selected flow)** — author the `data-management` **doc
    template**; implement the **lint** (markdownlint custom rule or a script);
    wire it into the post-round audit. **Prove it**: passes the model
-   ([`workspace-shell.md`](../../design/data-management/workspace-shell.md))
+   ([`workspace-shell.md`](../../design/_platform/workspace-shell.md))
    and flags ≥1 known-non-conforming doc.
 3. **Integration** — template + lint landed and wired. **Grandfather** the 6
    known-non-conforming canonical docs (lint warns, does not break CI) until
@@ -287,7 +287,7 @@ script flags the A-cluster cleanly.
 - [`scripts/lint/design-doc-lint.mjs`](../../../scripts/lint/design-doc-lint.mjs) +
   [`design-doc-lint.baseline.json`](../../../scripts/lint/design-doc-lint.baseline.json)
   — artifact-type-aware conformance lint with per-(doc, rule) grandfather baseline.
-- [`crud-hygiene.md`](../../design/data-management/crud-hygiene.md) — `shared`
+- [`crud-hygiene.md`](../../design/data-management/_shared/crud-hygiene.md) — `shared`
   → `shared cross-domain` (the one in-scope L2 fix).
 - Wiring: `pnpm design:lint` script + [PDCA.md](../PDCA.md) post-round audit bullet.
 

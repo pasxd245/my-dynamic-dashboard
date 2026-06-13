@@ -4,7 +4,7 @@
 **Agent**: claude-opus-4-7
 **Confidence**: Medium (one instance; track-2/3 research)
 **Status**: Promoted
-**Promoted to**: [`context/contract-driven-feature.md`](../context/_archive/contract-driven-feature.md)
+**Promoted to**: `../context/_archive/contract-driven-feature.md`
 ([Round_18](../plan/cycles/Round_18.md), 2026-05-24)
 
 ## Problem
@@ -151,7 +151,7 @@ hidden cost of late integration bugs.
 ## Promotion Candidate?
 
 - [x] `context/` — promoted in [Round_18](../plan/cycles/Round_18.md)
-      to [`context/contract-driven-feature.md`](../context/_archive/contract-driven-feature.md)
+      to `../context/_archive/contract-driven-feature.md`
       after R15 + R16 + R17 supplied three concrete instances.
 - [ ] `skills/` — still possibly, once the pattern is stable
       enough to be a reusable skill (`feature-contract-driven` or

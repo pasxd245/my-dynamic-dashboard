@@ -93,7 +93,7 @@ detail?: string }` for the batch-commit's `oneOf` 409.
     envelope) vs the legacy shape; surface the right error
     accordingly.
 - **Stamps + docs**:
-  - [`crud-hygiene.md`](../../design/data-management/crud-hygiene.md)
+  - [`crud-hygiene.md`](../../design/data-management/_shared/crud-hygiene.md)
     gets `**Frontend**: R26`.
   - The R23 preview's bottom note remains accurate; no
     updates needed.
@@ -143,7 +143,7 @@ detail?: string }` for the batch-commit's `oneOf` 409.
 - [x] Run `pnpm type-check` (0 errors), `pnpm test` (24/24),
       `pnpm build` (green), `pnpm md:lint` (0 errors),
       `pnpm format:check`.
-- [x] Stamp [crud-hygiene.md](../../design/data-management/crud-hygiene.md)
+- [x] Stamp [crud-hygiene.md](../../design/data-management/_shared/crud-hygiene.md)
       with `**Frontend**: R26`.
 - [x] Post-round audit + grep for unticked checkboxes.
 

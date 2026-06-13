@@ -11,7 +11,7 @@ handlers + the full-parquet fix. 94/94 BE pytests green; the
 rows endpoint returns real paged data with the substring filter.
 R36 closes the DCBF chain by wiring the FE against those routes
 and shipping the
-[dataset detail page](../../design/data-management/dataset-detail.md)
+[dataset detail page](../../design/data-management/datasets/dataset-detail.md)
 R33 designed.
 
 R36 is **FE-only**. No BE, no contracts. Renders R33's design

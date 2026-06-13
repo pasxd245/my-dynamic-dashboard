@@ -63,7 +63,7 @@ decides.
     the objective rule that determined R53's far-top-right Clear
     is high-effort — not a feeling.
 - **Design** — amend
-  [`advanced-query.md`](../../design/data-management/advanced-query.md)
+  [`advanced-query.md`](../../design/data-management/datasets/advanced-query.md)
   with a **§ Discoverability**: the help-popover content (operator
   prefix→meaning table per dtype, the dataset's columns, AND/OR +
   precedence) and its open/close states. **The label row now
@@ -162,7 +162,7 @@ the two gaps R51/R53 exposed.
 ### Design (D)
 
 Amended
-[`advanced-query.md` § Discoverability + low-effort clear](../../design/data-management/advanced-query.md#discoverability-low-effort-clear-r54)
+[`advanced-query.md` § Discoverability + low-effort clear](../../design/data-management/datasets/advanced-query.md)
 — the `?` help popover (operator prefixes→meanings per dtype +
 this dataset's columns, rendered from the live vocabulary), the
 low-effort clear (always-visible in-field ×, `Esc`, roomy field,
@@ -245,7 +245,7 @@ follows the closing quote; match stays case-insensitive
 (unicode-aware). [`serialize.ts`](../../../workspace/apps/builder/src/features/data-management/datasets/advanced-query/serialize.ts)
 quotes keys with whitespace so the URL round-trips, and the help
 popover shows spaced names quoted. Grammar updated in
-[`advanced-query.md` § Grammar](../../design/data-management/advanced-query.md#production-rules).
+[`advanced-query.md` § Grammar](../../design/data-management/datasets/advanced-query.md).
 **+6 parser tests** (quoted/unicode/case-insensitive/compose/
 round-trip/unquoted-spaced→error).
 

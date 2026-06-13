@@ -5,7 +5,7 @@
 **Confidence**: Medium (one BE round; pairs with the contract-round
 methodology memo from R15)
 **Status**: Promoted
-**Promoted to**: [`context/contract-driven-feature.md`](../context/_archive/contract-driven-feature.md)
+**Promoted to**: `../context/_archive/contract-driven-feature.md`
 ([Round_18](../plan/cycles/Round_18.md), 2026-05-24)
 
 ## Problem
@@ -193,7 +193,7 @@ across the wire boundary.
 ## Promotion Candidate?
 
 - [x] `context/` — promoted in [Round_18](../plan/cycles/Round_18.md)
-      to [`context/contract-driven-feature.md`](../context/_archive/contract-driven-feature.md),
+      to `../context/_archive/contract-driven-feature.md`,
       bundled with the contract-round and FE-round memos under
       the single DCBF rule.
 - [ ] `skills/` — still possibly, once the pattern is reusable

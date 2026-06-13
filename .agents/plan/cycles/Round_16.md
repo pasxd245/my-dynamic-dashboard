@@ -103,8 +103,8 @@ source.json}`.
 - **R13 backward compatibility.** The four R13 workspaces tests
   still pass against the new SQLite-backed router (same wire shape,
   same status codes, same sort order).
-- **Cross-link in [datasets.md](../../design/data-management/datasets.md)
-  and [upload.md](../../design/data-management/upload.md)** —
+- **Cross-link in [datasets.md](../../design/data-management/datasets/datasets.md)
+  and [upload.md](../../design/data-management/datasets/upload.md)** —
   add a "Backend: R16" note at the top so design ↔ implementation
   is browseable.
 
@@ -220,7 +220,7 @@ contract_path: str, status: int, body: object) -> None`
 - [x] Run `pnpm format:check` — confirm clean for R16-authored
       MDs (R02/R04/R13/promotions.md carry-overs remain — not in
       scope).
-- [x] Update [datasets.md](../../design/data-management/datasets.md) + [upload.md](../../design/data-management/upload.md) with a
+- [x] Update [datasets.md](../../design/data-management/datasets/datasets.md) + [upload.md](../../design/data-management/datasets/upload.md) with a
       one-line "Backend: R16" stamp under the round-introduced
       header.
 - [x] Author
