@@ -1,4 +1,11 @@
-import { AppstoreOutlined, DeleteOutlined, EditOutlined, MoreOutlined, PlusOutlined } from '@ant-design/icons';
+import {
+  AppstoreOutlined,
+  DeleteOutlined,
+  EditOutlined,
+  MoreOutlined,
+  PlusOutlined,
+  ShareAltOutlined,
+} from '@ant-design/icons';
 import { PageCard, PageHeader } from '@mdd/ui';
 import {
   Alert,
@@ -52,11 +59,13 @@ type ModalState =
 function WorkspaceCard({
   workspace,
   onOpen,
+  onRelationships,
   onRename,
   onDelete,
 }: Readonly<{
   workspace: Workspace;
   onOpen: (id: string) => void;
+  onRelationships: (id: string) => void;
   onRename: (ws: Workspace) => void;
   onDelete: (ws: Workspace) => void;
 }>) {
@@ -93,6 +102,15 @@ function WorkspaceCard({
         <Dropdown
           menu={{
             items: [
+              {
+                key: 'relationships',
+                icon: <ShareAltOutlined />,
+                label: t('nav.relationships'),
+                onClick: ({ domEvent }) => {
+                  domEvent.stopPropagation();
+                  onRelationships(workspace.id);
+                },
+              },
               {
                 key: 'rename',
                 icon: <EditOutlined />,
@@ -383,6 +401,7 @@ export function WorkspacesPage() {
             <WorkspaceCard
               workspace={ws}
               onOpen={(id) => navigate(`/data-management/datasets?workspace=${encodeURIComponent(id)}`)}
+              onRelationships={(id) => navigate(`/data-management/workspaces/${encodeURIComponent(id)}/relationships`)}
               onRename={onRename}
               onDelete={onDelete}
             />

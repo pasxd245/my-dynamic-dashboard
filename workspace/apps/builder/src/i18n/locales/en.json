@@ -5,7 +5,8 @@
     "workspaces": "Workspaces",
     "datasets": "Datasets",
     "new": "New",
-    "queries": "Queries"
+    "queries": "Queries",
+    "relationships": "Relationships"
   },
   "common": {
     "create": "Create",
@@ -30,7 +31,8 @@
   "resources": {
     "workspace": "workspace",
     "dataset": "dataset",
-    "query": "query"
+    "query": "query",
+    "relationship": "relationship"
   },
   "app": {
     "errorBoundary": {
@@ -404,6 +406,51 @@
       "openSourceDataset": "Open source dataset",
       "deleteQuery": "Delete query",
       "deleteSuccess": "Query \"{{name}}\" deleted"
+    }
+  },
+  "relationships": {
+    "list": {
+      "title": "Relationships",
+      "subtitle": "Govern how this workspace's datasets join. The Query Builder uses these to combine sources.",
+      "loadCouldnt": "Couldn't load relationships",
+      "emptyTitle": "No relationships yet",
+      "emptyHint": "Declare how two datasets join so the Query Builder can combine them.",
+      "declareAction": "Declare relationship",
+      "colLeft": "Left",
+      "colRight": "Right",
+      "colKeys": "Keys",
+      "colCardinality": "Cardinality",
+      "colStatus": "Status",
+      "staleHint": "A referenced column no longer exists. Re-declare or delete."
+    },
+    "status": {
+      "valid": "Valid",
+      "stale": "Stale"
+    },
+    "cardinality": {
+      "one_to_one": "1:1",
+      "one_to_many": "1:many",
+      "many_to_many": "many:many"
+    },
+    "declare": {
+      "title": "Declare relationship",
+      "ok": "Declare",
+      "leftDataset": "Left dataset",
+      "leftColumn": "Left column",
+      "rightDataset": "Right dataset",
+      "rightColumn": "Right column",
+      "cardinality": "Cardinality",
+      "pickDataset": "Select a dataset",
+      "pickColumn": "Select a column",
+      "compatible": "Keys are join-compatible ({{left}} ↔ {{right}})",
+      "incompatible": "These keys can't join ({{left}} ↔ {{right}})",
+      "sameDataset": "Pick two different datasets (self-joins come later).",
+      "duplicate": "This relationship already exists in this workspace.",
+      "failed": "Couldn't declare the relationship",
+      "success": "Relationship declared"
+    },
+    "delete": {
+      "success": "Relationship deleted"
     }
   }
 }

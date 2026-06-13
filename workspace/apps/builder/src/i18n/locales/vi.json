@@ -5,7 +5,8 @@
     "workspaces": "Không gian làm việc",
     "datasets": "Bộ dữ liệu",
     "new": "Mới",
-    "queries": "Truy vấn"
+    "queries": "Truy vấn",
+    "relationships": "Quan hệ"
   },
   "common": {
     "create": "Tạo",
@@ -30,7 +31,8 @@
   "resources": {
     "workspace": "không gian làm việc",
     "dataset": "bộ dữ liệu",
-    "query": "truy vấn"
+    "query": "truy vấn",
+    "relationship": "quan hệ"
   },
   "app": {
     "errorBoundary": {
@@ -404,6 +406,51 @@
       "openSourceDataset": "Mở tập dữ liệu nguồn",
       "deleteQuery": "Xóa truy vấn",
       "deleteSuccess": "Đã xóa truy vấn \"{{name}}\""
+    }
+  },
+  "relationships": {
+    "list": {
+      "title": "Quan hệ",
+      "subtitle": "Quản lý cách các tập dữ liệu trong không gian làm việc này kết nối. Trình tạo truy vấn dùng chúng để kết hợp nguồn.",
+      "loadCouldnt": "Không thể tải quan hệ",
+      "emptyTitle": "Chưa có quan hệ nào",
+      "emptyHint": "Khai báo cách hai tập dữ liệu kết nối để Trình tạo truy vấn có thể kết hợp chúng.",
+      "declareAction": "Khai báo quan hệ",
+      "colLeft": "Trái",
+      "colRight": "Phải",
+      "colKeys": "Khóa",
+      "colCardinality": "Số lượng",
+      "colStatus": "Trạng thái",
+      "staleHint": "Một cột được tham chiếu không còn tồn tại. Khai báo lại hoặc xóa."
+    },
+    "status": {
+      "valid": "Hợp lệ",
+      "stale": "Lỗi thời"
+    },
+    "cardinality": {
+      "one_to_one": "1:1",
+      "one_to_many": "1:nhiều",
+      "many_to_many": "nhiều:nhiều"
+    },
+    "declare": {
+      "title": "Khai báo quan hệ",
+      "ok": "Khai báo",
+      "leftDataset": "Tập dữ liệu trái",
+      "leftColumn": "Cột trái",
+      "rightDataset": "Tập dữ liệu phải",
+      "rightColumn": "Cột phải",
+      "cardinality": "Số lượng",
+      "pickDataset": "Chọn tập dữ liệu",
+      "pickColumn": "Chọn cột",
+      "compatible": "Khóa tương thích để kết nối ({{left}} ↔ {{right}})",
+      "incompatible": "Các khóa này không thể kết nối ({{left}} ↔ {{right}})",
+      "sameDataset": "Chọn hai tập dữ liệu khác nhau (tự kết nối sẽ có sau).",
+      "duplicate": "Quan hệ này đã tồn tại trong không gian làm việc này.",
+      "failed": "Không thể khai báo quan hệ",
+      "success": "Đã khai báo quan hệ"
+    },
+    "delete": {
+      "success": "Đã xóa quan hệ"
     }
   }
 }

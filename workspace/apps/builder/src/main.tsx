@@ -18,6 +18,7 @@ import { DatasetsPage } from '@/features/data-management/datasets/DatasetsPage';
 import { DatasetNewPage } from '@/features/data-management/datasets/upload/DatasetNewPage';
 import { QueriesPage } from '@/features/data-management/queries/QueriesPage';
 import { QueryDetailPage } from '@/features/data-management/queries/QueryDetailPage';
+import { WorkspaceRelationshipsPage } from '@/features/data-management/relationships/WorkspaceRelationshipsPage';
 import { WorkspacesPage } from '@/features/data-management/workspaces/WorkspacesPage';
 
 // R31: global AntD message defaults — every page that calls
@@ -79,6 +80,10 @@ const appTree = (
                 {/* /data-management is a sidebar group, not a leaf — redirect to default child. */}
                 <Route path="/data-management" element={<Navigate to="/data-management/workspaces" replace />} />
                 <Route path="/data-management/workspaces" element={<WorkspacesPage />} />
+                <Route
+                  path="/data-management/workspaces/:id/relationships"
+                  element={<WorkspaceRelationshipsPage />}
+                />
                 <Route path="/data-management/datasets" element={<DatasetsPage />} />
                 <Route path="/data-management/datasets/new" element={<DatasetNewPage />} />
                 <Route path="/data-management/datasets/:id" element={<DatasetDetailPage />} />
