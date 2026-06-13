@@ -11,8 +11,8 @@ R69 (Saved Query) was built D→C→F→B→I and then **discarded wholesale**.
 The defect was not in the build — the build faithfully implemented the
 spec. The defect was a **modeling error at the Design gate**: `queries.md`
 modeled Query as a **new top-level noun** with parallel surfaces
-(`QueriesPage`, `QueryDetailPage`) when purpose.md says a Query *"produces
-a (virtual) dataset"* — i.e. Query is a **mode/lens over the existing
+(`QueriesPage`, `QueryDetailPage`) when purpose.md says a Query _"produces
+a (virtual) dataset"_ — i.e. Query is a **mode/lens over the existing
 readable-table surfaces, not a new noun**.
 
 The error survived the Design gate precisely because it was **internally
@@ -23,50 +23,73 @@ review, organizes the work cleanly, and every layer built on it "fits."
 
 **Speciousness is coherence around a wrong center.** A premature model is
 dangerous not when it is obviously broken, but when it is plausible enough
-to organize everything around. Two compounding mechanisms make it stick:
+to organize everything around.
+
+**A half-truth is still not the truth** — and it is _more_ dangerous than an
+outright falsehood, because the true fraction is exactly what carries the false
+one past review. That is what _specious_ means: wearing the face of truth
+without being true — a **fallacy** and a **half-truth** are both specious. R69's
+model was half-true: a Query genuinely _does_ earn its own `qr_` identity + URL +
+catalog (**true**) — bundled with _"…so it must be a new top-level noun with
+parallel duplicated pages"_ (**false**). The true half smuggled the false half
+through the gate. The cure is to **split the half**: keep the true fraction, drop
+the false one. R70 named the seam that does it — **doc-home and UI-duplication
+are independent axes**: a Query keeps its own home/identity (true) _without_
+duplicating the dataset surfaces (false). When a model feels right, ask which
+_part_ is the truth and whether the rest is just riding on it.
+
+Two compounding mechanisms make it stick:
 
 1. **A premature model manufactures its own evidence.** Once you adopt
    "Query is a noun," you build `QueryDetailPage` — and that page is then
-   cited as *evidence that Query is a noun*. The model generates the facts
+   cited as _evidence that Query is a noun_. The model generates the facts
    that confirm it. The confirmation is **circular**, not real.
 
 2. **Execution confidence ≠ model confidence.** "Can the agent build/refactor
    this cleanly?" (often >90%) tells you nothing about "is this the right
    model?" A confident, elegant build on a wrong model just produces a
-   *tidier* mistake. R69's two near-identical surfaces could have been merged
+   _tidier_ mistake. R69's two near-identical surfaces could have been merged
    into a shared component at high execution confidence — and that merge would
    only have cemented the wrong model.
 
 **The discriminator — one question:** is this model **discovered** or
 **imposed**?
 
-- **Discovered (true):** reality keeps insisting on it. Two *independent*
+- **Discovered (true):** reality keeps insisting on it. Two _independent_
   consumers you did **not** create both genuinely need the same shape; you
   couldn't avoid it. Truth survives you trying to delete it.
-- **Imposed (specious):** its supporting evidence is what you *produced by
-  adopting it* (the phantom `QueryDetailPage`). Strip away everything your own
+- **Imposed (specious):** its supporting evidence is what you _produced by
+  adopting it_ (the phantom `QueryDetailPage`). Strip away everything your own
   decision created and little remains. It survives only because you keep
   feeding it.
 
 **Corollary — cheap-to-do-later is permission to defer, not a reason to
 rush.** If an abstraction/extraction is mechanically easy whenever you want
-it, waiting costs nothing and *buys* the real second consumer's true shape.
+it, waiting costs nothing and _buys_ the real second consumer's true shape.
 Guess now → derive the shared shape from one example (plus a phantom); wait →
 derive it from two genuine ones. Same easy refactor, better result. (This is
 the build-first boundary rule's twin —
 [2026-05-22-ui-boundary-build-first.md](2026-05-22-ui-boundary-build-first.md)
-says build the boundary *early when the late-extraction failure has been
-observed*; this says do **not** mint a *new abstraction/noun* early when its
+says build the boundary _early when the late-extraction failure has been
+observed_; this says do **not** mint a _new abstraction/noun_ early when its
 only evidence is self-made. The unifying test is the same: real independent
 pull vs. self-generated pull.)
 
-**Calibration (user, 2026-06-13):** *"we should not too easy to
+**Calibration (user, 2026-06-13):** _"we should not too easy to
 make/conclude a modeling/patterning too early, it could trap us into another
-drift (specious, still not the truth)"* — and this need not fire on every
+drift (specious, still not the truth)"_ — and this need not fire on every
 case; **catching even 60–70% of them is a large win.** This is a discipline,
 not an absolute law: over-applied it becomes analysis paralysis (the opposite
-failure — never committing to any model). The posture is *hold the model as a
-hypothesis with a named kill-condition*, not *forbid models*.
+failure — never committing to any model). The posture is _hold the model as a
+hypothesis with a named kill-condition_, not _forbid models_.
+
+**Re-emphasis (user, 2026-06-13):** _specious_ is the load-bearing word — _"even
+a half of truth is still not the truth; a fallacy is specious, a half-truth is
+specious."_ The danger is never the obviously-wrong model (review catches it);
+it is the **partly-right** one, whose true fraction launders the false fraction
+past the gate. See the **half-truth** note in Finding: the discipline is to
+_split the half_ — name which part is true, then test whether the rest only
+survives by riding on it.
 
 ## Evidence
 
@@ -87,11 +110,11 @@ hypothesis with a named kill-condition*, not *forbid models*.
 
 **Do**:
 
-- At the **Design gate**, ask the noun-vs-mode question explicitly: *"is this
-  a new noun, or a mode of an existing surface?"* Default to **mode/reuse**;
+- At the **Design gate**, ask the noun-vs-mode question explicitly: _"is this
+  a new noun, or a mode of an existing surface?"_ Default to **mode/reuse**;
   a new noun must justify itself against an existing surface.
 - Before adopting a model/abstraction, run the **discovered-vs-imposed test**:
-  *"what evidence for this did I find vs. generate by deciding it?"* If the
+  _"what evidence for this did I find vs. generate by deciding it?"_ If the
   support is self-made (a surface you created), treat the model as unproven.
 - When **model confidence is low (e.g. <80%)**, do **not** force Design to
   conclude in one round on a plausible-looking spec. Legitimate moves:
@@ -100,21 +123,21 @@ hypothesis with a named kill-condition*, not *forbid models*.
   follows later). A committed design doc is the cheapest revert seam for the
   most expensive class of error.
 - **Commit per gate** so an altitude error is cheap to revert (R69 was only
-  cheap to discard because *nothing* was committed — don't rely on that;
+  cheap to discard because _nothing_ was committed — don't rely on that;
   see [2026-05-28-dcbf-to-dcfbi-pivot.md](2026-05-28-dcbf-to-dcfbi-pivot.md)
   for the chain).
-- State a model's **kill-condition** when adopting it (e.g. *"if dashboards
-  never need a shared read source, `TableSource` was never real"*).
+- State a model's **kill-condition** when adopting it (e.g. _"if dashboards
+  never need a shared read source, `TableSource` was never real"_).
 
 **Don't**:
 
-- Conclude a model/pattern/abstraction early because it's *coherent* or
-  because the build/refactor would be *easy*. Coherence and execution-ease are
+- Conclude a model/pattern/abstraction early because it's _coherent_ or
+  because the build/refactor would be _easy_. Coherence and execution-ease are
   not evidence of correctness.
 - Treat **self-manufactured duplication** as the "two consumers" that earn an
   abstraction. A duplicate you created by mis-modeling is `1 real + 1 mistake`,
   not `2`. Delete the mistake; don't abstract over it.
-- Bundle an abstraction/refactor *into* a feature's DCFBI chain. A genuinely
+- Bundle an abstraction/refactor _into_ a feature's DCFBI chain. A genuinely
   needed abstraction is a **preparatory refactor round** (its own commit)
   before the feature — never smuggled into a phase (that re-creates the R69
   one-blob, no-revert-seam failure).
