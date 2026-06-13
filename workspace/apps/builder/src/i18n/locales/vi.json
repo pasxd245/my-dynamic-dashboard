@@ -351,8 +351,8 @@
   },
   "queries": {
     "save": {
-      "title": "Lưu thành Truy vấn",
-      "action": "Lưu thành Truy vấn",
+      "title": "Lưu bộ lọc thành Truy vấn",
+      "action": "Lưu bộ lọc thành Truy vấn",
       "disabledTooltip": "Hãy thêm bộ lọc hoặc tìm kiếm trước.",
       "nameLabel": "Tên",
       "namePlaceholder": "Đặt tên cho truy vấn này",

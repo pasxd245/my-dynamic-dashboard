@@ -351,8 +351,8 @@
   },
   "queries": {
     "save": {
-      "title": "Save as Query",
-      "action": "Save as Query",
+      "title": "Save filters as Query",
+      "action": "Save filters as Query",
       "disabledTooltip": "Add a filter or search first.",
       "nameLabel": "Name",
       "namePlaceholder": "Name this query",

@@ -183,79 +183,94 @@ export function QueryBuilderPanel({ query, datasetColumns, onDone }: QueryBuilde
       data-component="QueryBuilderPanel"
       style={{ display: 'flex', flexDirection: 'column', gap: 12, flex: 1, minHeight: 0 }}
     >
-      {/* Join editor */}
-      <JoinEditor
-        datasetId={query.datasetId}
-        workspaceId={query.workspaceId}
-        value={draft.join?.relationshipId}
-        onChange={setJoin}
-      />
-
-      {/* Predicate builders — over the effective column space */}
-      <div data-component="QueryBuilderPredicates" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <Typography.Text strong style={{ fontSize: 12 }}>
-          {t('queries.builder.filtersLabel')}
-          {isJoined ? (
-            <Typography.Text type="secondary" style={{ fontSize: 12, fontWeight: 400 }}>
-              {' '}
-              {t('queries.builder.combinedColumns')}
-            </Typography.Text>
-          ) : null}
-        </Typography.Text>
-        {columns.length === 0 ? (
-          <Typography.Text type="secondary" style={{ fontSize: 12 }} data-component="QueryBuilderColumnsPending">
-            {t('queries.builder.columnsPending')}
-          </Typography.Text>
-        ) : (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
-            {columns.map((col, idx) => (
-              <span
-                key={`${col.name}-${idx}`}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}
-                data-component="QueryBuilderColumnFilter"
-              >
-                <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                  {col.name}
-                </Typography.Text>
-                <FilterPopover
-                  column={col}
-                  colIndex={idx}
-                  existing={draft.filters.find((p) => p.col === idx)}
-                  onApply={applyFilter}
-                  onClear={() => removeFilter(idx)}
-                />
-              </span>
-            ))}
-          </div>
-        )}
-
-        <ActiveFilterChips
-          filters={draft.filters}
-          columns={columns}
-          onRemove={removeFilter}
-          onClearAll={clearAllFilters}
+      {/* Controls (join + predicates) live in a height-capped scroll region so
+          a wide dataset's per-column funnels never crowd out the preview table
+          below — the table owns the remaining height (the PageCard fill pattern). */}
+      <div
+        data-component="QueryBuilderControls"
+        style={{
+          flex: '0 0 auto',
+          maxHeight: '42%',
+          overflowY: 'auto',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 12,
+        }}
+      >
+        {/* Join editor */}
+        <JoinEditor
+          datasetId={query.datasetId}
+          workspaceId={query.workspaceId}
+          value={draft.join?.relationshipId}
+          onChange={setJoin}
         />
 
-        {columns.length > 0 ? (
-          <AdvancedQueryInput
-            columns={columns}
-            value={groupsToText(draft.advanced, columns)}
-            onApply={setAdvanced}
-            onClear={() => setAdvanced([])}
-          />
-        ) : null}
-
-        <div>
-          <Typography.Text strong style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
-            {t('queries.builder.searchLabel')}
+        {/* Predicate builders — over the effective column space */}
+        <div data-component="QueryBuilderPredicates" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <Typography.Text strong style={{ fontSize: 12 }}>
+            {t('queries.builder.filtersLabel')}
+            {isJoined ? (
+              <Typography.Text type="secondary" style={{ fontSize: 12, fontWeight: 400 }}>
+                {' '}
+                {t('queries.builder.combinedColumns')}
+              </Typography.Text>
+            ) : null}
           </Typography.Text>
-          <Input
-            value={draft.q ?? ''}
-            onChange={(e) => setDraftField({ q: e.target.value || null })}
-            placeholder={t('queries.builder.searchPlaceholder')}
-            allowClear
-            data-component="QueryBuilderSearch"
+          {columns.length === 0 ? (
+            <Typography.Text type="secondary" style={{ fontSize: 12 }} data-component="QueryBuilderColumnsPending">
+              {t('queries.builder.columnsPending')}
+            </Typography.Text>
+          ) : (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+              {columns.map((col, idx) => (
+                <span
+                  key={`${col.name}-${idx}`}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}
+                  data-component="QueryBuilderColumnFilter"
+                >
+                  <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                    {col.name}
+                  </Typography.Text>
+                  <FilterPopover
+                    column={col}
+                    colIndex={idx}
+                    existing={draft.filters.find((p) => p.col === idx)}
+                    onApply={applyFilter}
+                    onClear={() => removeFilter(idx)}
+                  />
+                </span>
+              ))}
+            </div>
+          )}
+
+          <ActiveFilterChips
+            filters={draft.filters}
+            columns={columns}
+            onRemove={removeFilter}
+            onClearAll={clearAllFilters}
           />
+
+          {columns.length > 0 ? (
+            <AdvancedQueryInput
+              columns={columns}
+              value={groupsToText(draft.advanced, columns)}
+              onApply={setAdvanced}
+              onClear={() => setAdvanced([])}
+            />
+          ) : null}
+
+          <div>
+            <Typography.Text strong style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
+              {t('queries.builder.searchLabel')}
+            </Typography.Text>
+            <Input
+              value={draft.q ?? ''}
+              onChange={(e) => setDraftField({ q: e.target.value || null })}
+              placeholder={t('queries.builder.searchPlaceholder')}
+              allowClear
+              data-component="QueryBuilderSearch"
+            />
+          </div>
         </div>
       </div>
 
@@ -295,7 +310,7 @@ export function QueryBuilderPanel({ query, datasetColumns, onDone }: QueryBuilde
           {t('queries.builder.preview')}
         </Button>
       </div>
-      <div style={{ flex: 1, minHeight: 0 }}>
+      <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
         <PagedRowsView
           columns={columns}
           rows={preview?.rows as readonly (readonly (string | null)[])[] | undefined}
@@ -315,8 +330,17 @@ export function QueryBuilderPanel({ query, datasetColumns, onDone }: QueryBuilde
         />
       </div>
 
-      {/* Actions */}
-      <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flex: '0 0 auto' }}>
+      {/* Actions — a pinned footer (the fill card's bottom control bar) */}
+      <div
+        style={{
+          display: 'flex',
+          gap: 8,
+          justifyContent: 'flex-end',
+          flex: '0 0 auto',
+          paddingTop: 12,
+          borderTop: '1px solid var(--ant-color-border-secondary, #f0f0f0)',
+        }}
+      >
         <Button onClick={cancel} data-component="QueryBuilderCancel">
           {t('common.cancel')}
         </Button>

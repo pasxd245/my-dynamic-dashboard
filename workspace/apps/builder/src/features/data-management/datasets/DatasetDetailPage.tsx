@@ -6,6 +6,7 @@ import {
   EditOutlined,
   FileExcelOutlined,
   FileTextOutlined,
+  MergeCellsOutlined,
   PlusOutlined,
 } from '@ant-design/icons';
 import { XCircleIcon } from '@phosphor-icons/react';
@@ -27,12 +28,7 @@ import { ApiErrorThrown } from '../_shared/types';
 import { DeleteConfirmModal } from '../_shared/DeleteConfirmModal';
 import { PagedRowsView } from '../_shared/PagedRowsView';
 import { RenameModal } from '../_shared/RenameModal';
-import {
-  useDatasetQuery,
-  useDatasetRowsQuery,
-  useDeleteDatasetMutation,
-  useRenameDatasetMutation,
-} from './hooks';
+import { useDatasetQuery, useDatasetRowsQuery, useDeleteDatasetMutation, useRenameDatasetMutation } from './hooks';
 import { ActiveFilterChips, formatChipText } from './filters/ActiveFilterChips';
 import { FilterPopover } from './filters/FilterPopover';
 import { useFiltersState } from './filters/useFiltersState';
@@ -140,10 +136,7 @@ export function DatasetDetailPage() {
   };
 
   const datasetQuery = useDatasetQuery(id);
-  const datasetColumns = useMemo<Column[]>(
-    () => datasetQuery.data?.columns ?? [],
-    [datasetQuery.data?.columns],
-  );
+  const datasetColumns = useMemo<Column[]>(() => datasetQuery.data?.columns ?? [], [datasetQuery.data?.columns]);
   const { filters, applyFilter, removeFilter, clearAll } = useFiltersState(datasetColumns);
   const {
     groups: advancedGroups,
@@ -287,11 +280,7 @@ export function DatasetDetailPage() {
             </Typography.Title>
             <Typography.Text type="secondary">{t('datasets.detail.notFoundHint')}</Typography.Text>
             <div style={{ marginTop: 20 }}>
-              <Button
-                type="primary"
-                icon={<ArrowLeftOutlined />}
-                onClick={() => navigate('/data-management/datasets')}
-              >
+              <Button type="primary" icon={<ArrowLeftOutlined />} onClick={() => navigate('/data-management/datasets')}>
                 {t('datasets.detail.backToDatasets')}
               </Button>
             </div>
@@ -305,11 +294,7 @@ export function DatasetDetailPage() {
   if (!dataset) {
     return (
       <>
-        <PageHeader
-          breadcrumb={BREADCRUMB}
-          title={t('datasets.detail.loadingTitle')}
-          onNavigate={(r) => navigate(r)}
-        />
+        <PageHeader breadcrumb={BREADCRUMB} title={t('datasets.detail.loadingTitle')} onNavigate={(r) => navigate(r)} />
         <PageCard>
           <Skeleton active paragraph={{ rows: 10 }} data-component="DatasetDetailLoading" />
         </PageCard>
@@ -424,19 +409,21 @@ export function DatasetDetailPage() {
           {t('queries.save.action')}
         </Button>
       </Tooltip>
-      <Tooltip title={joinableRelCount > 0 ? undefined : t('queries.join.disabledTooltip')}>
-        <Button
-          disabled={joinableRelCount === 0}
-          onClick={() => setJoinOpen(true)}
-          data-component="JoinWithRelatedAction"
-        >
-          {t('queries.join.action')}
-        </Button>
-      </Tooltip>
       <Dropdown
         trigger={['click']}
         menu={{
           items: [
+            {
+              key: 'join',
+              label: t('queries.join.action'),
+              icon: <MergeCellsOutlined />,
+              // Disabled when the dataset has no valid relationship to join on
+              // (the same gate the standalone button had — now folded into the
+              // Actions menu so the header isn't a row of competing buttons).
+              disabled: joinableRelCount === 0,
+              onClick: () => setJoinOpen(true),
+            },
+            { type: 'divider' },
             {
               key: 'rename',
               label: t('common.rename'),
@@ -640,10 +627,7 @@ export function DatasetDetailPage() {
   );
 }
 
-function MetadataStrip({
-  dataset,
-  workspaceName,
-}: Readonly<{ dataset: Dataset; workspaceName: string | undefined }>) {
+function MetadataStrip({ dataset, workspaceName }: Readonly<{ dataset: Dataset; workspaceName: string | undefined }>) {
   const { t } = useTranslation();
   const items: ReadonlyArray<{ label: string; value: string }> = [
     {
@@ -708,4 +692,3 @@ function MetadataStrip({
     </div>
   );
 }
-

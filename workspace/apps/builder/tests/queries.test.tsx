@@ -88,7 +88,7 @@ describe('QueryDetailPage (query mode)', () => {
 describe('Save as Query (from the dataset detail page)', () => {
   it('disables the action when no predicate is active', async () => {
     renderApp(`/data-management/datasets/${DS_ID}`);
-    const action = (await screen.findByText('Save as Query')).closest('button');
+    const action = (await screen.findByText('Save filters as Query')).closest('button');
     expect(action).toBeDisabled();
   });
 
@@ -100,11 +100,11 @@ describe('Save as Query (from the dataset detail page)', () => {
     );
     // A per-column filter is active → the action is enabled.
     renderApp(`/data-management/datasets/${DS_ID}?f3_op=equals&f3_val=won`);
-    const action = (await screen.findByText('Save as Query')).closest('button') as HTMLButtonElement;
+    const action = (await screen.findByText('Save filters as Query')).closest('button') as HTMLButtonElement;
     await waitFor(() => expect(action).not.toBeDisabled());
     fireEvent.click(action);
     // Modal opens; submit with the suggested name.
-    expect(await screen.findByText('Save as Query', { selector: '.ant-modal-title' })).toBeInTheDocument();
+    expect(await screen.findByText('Save filters as Query', { selector: '.ant-modal-title' })).toBeInTheDocument();
     const okBtn = document.querySelector('.ant-modal-footer .ant-btn-primary') as HTMLButtonElement;
     fireEvent.click(okBtn);
     // Lands on the query-mode detail of the saved query.
@@ -141,10 +141,13 @@ describe('Join execution (R71)', () => {
       http.post('*/workspaces/:id/queries', () => HttpResponse.json(MOCK_JOINED_QUERY, { status: 201 })),
     );
     renderApp(`/data-management/datasets/${DS_ID}`);
-    // The affordance is enabled — MOCK_DATASET has a valid relationship.
-    const joinBtn = (await screen.findByText('Join with related dataset')).closest('button') as HTMLButtonElement;
-    await waitFor(() => expect(joinBtn).not.toBeDisabled());
-    fireEvent.click(joinBtn);
+    // R72: the join affordance moved into the "Actions ▾" dropdown. Open it,
+    // then click the "Join with related dataset" item (enabled — MOCK_DATASET
+    // has a valid relationship).
+    const actions = (await screen.findByText('Actions')).closest('button') as HTMLButtonElement;
+    fireEvent.click(actions);
+    const joinItem = await screen.findByText('Join with related dataset');
+    fireEvent.click(joinItem);
     // Modal opens; the relationship Select is pre-seeded with the first valid edge.
     expect(await screen.findByText('Join with a related dataset', { selector: '.ant-modal-title' })).toBeInTheDocument();
     const nameInput = document.querySelector('[data-component="JoinQueryNameInput"]') as HTMLInputElement;
@@ -159,8 +162,11 @@ describe('Join execution (R71)', () => {
   it('disables the join affordance when the dataset has no valid relationships', async () => {
     server.use(http.get('*/workspaces/:id/relationships', () => HttpResponse.json([])));
     renderApp(`/data-management/datasets/${DS_ID}`);
-    const joinBtn = (await screen.findByText('Join with related dataset')).closest('button') as HTMLButtonElement;
-    await waitFor(() => expect(joinBtn).toBeDisabled());
+    const actions = (await screen.findByText('Actions')).closest('button') as HTMLButtonElement;
+    fireEvent.click(actions);
+    // The join item renders disabled (no valid relationship to join on).
+    const joinItem = (await screen.findByText('Join with related dataset')).closest('.ant-dropdown-menu-item');
+    await waitFor(() => expect(joinItem).toHaveClass('ant-dropdown-menu-item-disabled'));
   });
 });
 
