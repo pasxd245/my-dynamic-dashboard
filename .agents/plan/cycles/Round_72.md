@@ -267,8 +267,9 @@ author) prototypes the editable builder + preview interaction and **resolves J-3
 UX acceptance, not contract shape).
 
 **Design gate closed + STOPPED (J-2).** The construction-surface design is sealed.
-Gate commit seams (gate = commit): Plan `22a9a38` → Design (this commit). Build
-chain awaits the human's go-ahead.
+Gate commit seams (gate = commit): Plan `22a9a38` → Design `0045e74` (+ this
+seam-note recording the SHA). Each gate independently revertable. Build chain
+awaits the human's go-ahead.
 
 ## Check
 
