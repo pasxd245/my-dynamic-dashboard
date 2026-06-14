@@ -13,8 +13,10 @@ clear home instead of re-deriving the IA.
 **Status**: Accepted (R70 — domain anchor; graduated `queries/` from
 `datasets/`). **Join execution** is specified in [joins.md](joins.md)
 (**shipped R71**); the **interactive construction surface** is specified in
-[query-construction.md](query-construction.md) (**Draft → R72**, the editable
-single-join builder); the **multi-join canvas** is **deferred → R73** (R72 J-1′).
+[query-construction.md](query-construction.md) (**shipped R72**, the editable
+single-join builder); the **multi-join chain** is specified in
+[multi-join.md](multi-join.md) (**Draft → R73**, the linear chain + multi-hop
+engine); the **free-form visual canvas** is **deferred → R74** (R73 J-1′).
 This anchor seals the domain frame, not those surfaces.
 **Round introduced**: [Round_70](../../../plan/cycles/Round_70.md) — "the Query
 domain comes of age": the Query-Builder complexity (joins, composition, workflow)
@@ -30,7 +32,9 @@ R71 join execution),
 [query-construction.md](query-construction.md) (the **third construction mode** —
 the interactive builder: edit a Query's join + cross-source predicates and preview
 before save; R72),
-[dataset-detail.md](../datasets/dataset-detail.md) (hosts the **`[+ Save as
+[multi-join.md](multi-join.md) (the **fourth construction mode** — chain 2+
+relationships into one virtual table; the linear chain + multi-hop engine; R73),
+[dataset-detail.md](../datasets/dataset-detail.md) (hosts the **`[+ Save filters as
 Query]` action** — the verb; the Query is the noun, here),
 [relationships.md](../workspaces/relationships.md) (the workspace-governed
 **join input** the Query Builder consumes from R71),
@@ -85,7 +89,8 @@ routes** — never a duplicated surface.
 | `<PagedRowsView>` (reused, not owned)  | `apps/builder/src/features/data-management/_shared`                                     | shared cross-domain | plain-UI  | react, antd, react-i18next         |
 | `Query` type                           | `.../features/data-management/queries/types.ts`                                         | feature             | data type | none                               |
 | Interactive construction surface (R72) | `.../features/data-management/queries` ([query-construction.md](query-construction.md)) | feature             | feature   | react, antd                        |
-| Multi-join canvas (→ R73)              | `.../features/data-management/queries` (future)                                         | feature             | feature   | react, antd                        |
+| Multi-join chain (R73)                 | `.../features/data-management/queries` ([multi-join.md](multi-join.md))                 | feature             | feature   | react, antd                        |
+| Visual join canvas (→ R74)             | `.../features/data-management/queries` (future)                                         | feature             | feature   | react, antd                        |
 
 **Boundary check**: `<PagedRowsView>` is the only shared-cross-domain row here
 and it is **reused, not owned** (its boundary lives in
@@ -125,10 +130,13 @@ R69    single-source save     saved-query.md       (shipped) — filter a datase
 R70    declared join input    relationships.md     (shipped) — govern column↔column edges
 R71    join execution         joins.md             (shipped) — a Query consumes a relationship
                                                       → joined rows (inner, single-key)
-R72    construction surface   query-construction.md (this round, design) — the editable single-join
+R72    construction surface   query-construction.md (shipped) — the editable single-join
                                                       builder: edit join + cross-source predicates,
                                                       preview before save
-R73    multi-join canvas      (future)             — chain 2+ relationships; a multi-hop join engine
+R73    multi-join chain       multi-join.md        (this round, design) — chain 2+ relationships
+                                                      into one virtual table; the join engine's first
+                                                      growth past a single edge (linear chain)
+R74    visual join canvas     (future)             — a free-form source graph; non-linear topology
 later  workflow / composition (future)             — YAML + polars; a Query as input to another Query
 ```
 

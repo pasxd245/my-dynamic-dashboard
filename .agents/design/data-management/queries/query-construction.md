@@ -32,7 +32,7 @@ valve, and F1 is exactly where the build diverged from the seal.
 > sealed `⬤ Editing` chip was dropped. ④ **Preview** is **debounced (300ms)** with
 > an explicit **`[Preview]`** flush and a **user-controllable items-per-page**
 > (`10 / 25 / 50 / 100`). ⑤ **J-3 resolved** → a **stateless `POST
-> /workspaces/{id}/queries/preview`** (below). ⑥ The dataset-page entry is
+/workspaces/{id}/queries/preview`** (below). ⑥ The dataset-page entry is
 > **"Save filters as Query"** and **"Join with related dataset"** moved into the
 > `Actions ▾` menu ([dataset-detail.md](../datasets/dataset-detail.md)).
 > _A tabs layout was tried during F1 and **reverted** — tabs break live preview
@@ -138,15 +138,15 @@ type QueryDefinition = {
 > R72 ships the **minimal** editable builder (J-1): edit one join + cross-source
 > predicates, preview, save. The multi-join **canvas / source graph** is **R73**.
 
-| Surface                                                       | Layer                                                | Reusability         | Purity   | Allowed peer deps                  |
-| ------------------------------------------------------------- | ---------------------------------------------------- | ------------------- | -------- | ---------------------------------- |
-| `QueryDetailPage` (Edit toggle; header `[Cancel] [Save]`)     | `apps/builder/src/features/data-management/queries`  | feature             | feature  | react, antd, @tanstack/react-query |
-| `QueryBuilderPanel` (NEW: presentational, collapsible Build/Preview) | `apps/builder/src/features/data-management/queries`  | feature             | feature  | react, antd                        |
-| `useQueryBuilder` hook (NEW: builder state + preview + Save lifecycle) | `apps/builder/src/features/data-management/queries`  | feature             | glue     | @tanstack/react-query, antd        |
-| `JoinEditor` (NEW: change/clear the `rel_` in place)          | `apps/builder/src/features/data-management/queries`  | feature             | feature  | react, antd                        |
-| chip-filter + advanced-DNF editors (reused, not owned)        | `apps/builder/src/features/data-management/datasets` | feature (by reuse)  | feature  | react, antd                        |
+| Surface                                                                  | Layer                                                | Reusability         | Purity   | Allowed peer deps                  |
+| ------------------------------------------------------------------------ | ---------------------------------------------------- | ------------------- | -------- | ---------------------------------- |
+| `QueryDetailPage` (Edit toggle; header `[Cancel] [Save]`)                | `apps/builder/src/features/data-management/queries`  | feature             | feature  | react, antd, @tanstack/react-query |
+| `QueryBuilderPanel` (NEW: presentational, collapsible Build/Preview)     | `apps/builder/src/features/data-management/queries`  | feature             | feature  | react, antd                        |
+| `useQueryBuilder` hook (NEW: builder state + preview + Save lifecycle)   | `apps/builder/src/features/data-management/queries`  | feature             | glue     | @tanstack/react-query, antd        |
+| `JoinEditor` (NEW: change/clear the `rel_` in place)                     | `apps/builder/src/features/data-management/queries`  | feature             | feature  | react, antd                        |
+| chip-filter + advanced-DNF editors (reused, not owned)                   | `apps/builder/src/features/data-management/datasets` | feature (by reuse)  | feature  | react, antd                        |
 | `<PagedRowsView>` (reused; preview body **+ per-column filter headers**) | `apps/builder/src/features/data-management/_shared`  | shared cross-domain | plain-ui | react, antd, react-i18next         |
-| `preview` + `update` routes (NEW backend, **shipped**)        | `apps/backend/app/routers/queries.py`                | backend             | feature  | (reuses `query_joined_rows`)       |
+| `preview` + `update` routes (NEW backend, **shipped**)                   | `apps/backend/app/routers/queries.py`                | backend             | feature  | (reuses `query_joined_rows`)       |
 
 **Boundary check**: the only shared-cross-domain row (`<PagedRowsView>`) is
 **reused, not owned** ([dataset-detail.md](../datasets/dataset-detail.md)). The
@@ -339,10 +339,10 @@ stateDiagram-v2
 R72 edits the existing `QueryDefinition` and runs the existing engines, and added
 **two routes** (the open J-3 question, resolved at F1):
 
-| Route (as shipped)                                                          | Shape                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| --------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Route (as shipped)                                                                                                                            | Shape                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| --------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **`POST /workspaces/{id}/queries/preview`** ([preview.contract.yaml](../../../../workspace/packages/contracts/queries/preview.contract.yaml)) | **J-3 resolved → a stateless preview** (option (b)): body `{ datasetId, definition }` → the `RowsPage` shape **+ `resolvedColumns`** when joined, **persisting nothing**. Reuses `query_joined_rows` / `query_dataset_rows`. Mirrors the saved run's drift semantics (`409 relationship_stale` / `409 query_stale`); a structurally-bad request → `422`. Save-then-run (a) was rejected (orphan drafts; can't preview before commit). |
-| **`PUT /queries/{id}`** ([put.contract.yaml](../../../../workspace/packages/contracts/queries/put.contract.yaml)) | The builder's Save (first **mutate-existing** path). Body `{ definition }` only — **definition-only edit**; the Query's **name + source are unchanged** this round (rename deferred — see Scope), so **no `name_taken`**. Validate-on-save mirrors create (`422` for a bad atom or an unknown / cross-workspace / stale edge; `404` if absent). Returns the updated `Query` with `resolvedColumns` recomputed. |
+| **`PUT /queries/{id}`** ([put.contract.yaml](../../../../workspace/packages/contracts/queries/put.contract.yaml))                             | The builder's Save (first **mutate-existing** path). Body `{ definition }` only — **definition-only edit**; the Query's **name + source are unchanged** this round (rename deferred — see Scope), so **no `name_taken`**. Validate-on-save mirrors create (`422` for a bad atom or an unknown / cross-workspace / stale edge; `404` if absent). Returns the updated `Query` with `resolvedColumns` recomputed.                        |
 
 - **No new error codes** — `query_stale`, `relationship_stale`, and the `422`
   envelope (shared
@@ -423,9 +423,12 @@ the human's go-ahead, per J-2):
 
 ### OUT of scope (deferred with named triggers)
 
-- **Multiple joins / a visual builder canvas / source graph** → **R73** (J-1′).
-  _Trigger: a Query must chain more than one relationship — a multi-hop join the
-  single-edge `query_joined_rows` cannot express (R73 also extends the engine)._
+- **Multiple joins (a linear chain)** → **R73**, specified in
+  [multi-join.md](multi-join.md) — the join engine's first growth past a single
+  edge. The **free-form visual builder canvas / source graph** (non-linear
+  topology) → **R74** (R73 J-1′). _Trigger: a Query must chain more than one
+  relationship — a multi-hop join the single-edge `query_joined_rows` cannot
+  express._
 - **Left / right / outer joins; composite / multi-column keys; self-joins;
   cross-workspace joins** → future (R70/R71 triggers hold); R72 edits a
   **single-column, within-workspace, inner** join.

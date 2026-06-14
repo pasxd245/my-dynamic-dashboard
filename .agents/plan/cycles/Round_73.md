@@ -1,6 +1,6 @@
 # Round 73: The multi-join chain — let a Query chain more than one relationship
 
-**Status**: In Progress
+**Status**: In Progress (Design gate sealed; STOPPED for the human's go-ahead — J-2)
 **Date started**: 2026-06-14
 **Date completed**:
 
@@ -199,36 +199,175 @@ read_parquet(D2) ON … JOIN read_parquet(D3) ON …`), the **chain editor** UX 
 - **Invariant:** reuse R72's builder + the shipped predicate/run engines; the
   **only** new work is the chained definition + the multi-hop fold, named honestly.
 
-_(Design-gate record appended below at the Design seam.)_
+### Gate 2 — Design pass (2026-06-14)
+
+**Docs produced / touched:**
+
+- **Authored** [multi-join.md](../../design/data-management/queries/multi-join.md)
+  (J-4 resolved → a **new `queries/` mode doc**, not extending a sibling and **not**
+  a parallel page): the chain truth-test, the **chained `QueryDefinition`**, the
+  honest new-vs-reused split, the generalized effective column space + the multi-hop
+  fold, the chain-editor UX, the per-hop stale gate, the linear-chain constraint, an
+  explicit Accessibility declaration, the contract intent, scope, and 10 acceptance
+  criteria.
+- **Updated** [query-builder.md](../../design/data-management/queries/query-builder.md)
+  (trajectory: R72 construction **shipped** → R73 multi-join chain →
+  multi-join.md; **R74 visual canvas** reserved; sibling list + surface map
+  re-pointed) and cross-linked
+  [joins.md](../../design/data-management/queries/joins.md) +
+  [query-construction.md](../../design/data-management/queries/query-construction.md)
+  (their R73 defer-lines now point forward to multi-join.md).
+
+**J-3 + J-4 resolved with the closed design:**
+
+- **J-3 (chain model shape) → migrate `join` → `joins: JoinStep[]`** (option (a)):
+  a single join is a length-1 chain; one field, clean superset, with a back-compat
+  read shim for legacy singular `join`. The second-field option (b) was rejected as
+  a model smell. The migration seam (read-shim vs. rewrite) is flagged for the
+  Contract/Backend gates; the **shape** is sealed.
+- **J-4 (home + topology) → a new `multi-join.md`; strict linear path**
+  (tail-extension — each hop's left dataset is the chain's tail). Tree/star topology
+  → R74's canvas. The home/mechanism is free to deviate at build
+  ([build-first](../../memory/2026-05-22-ui-boundary-build-first.md) twin).
+
+**Model check (Design gate):**
+
+- **Noun-vs-mode:** the chain is an **extension of R72's Edit mode** (the
+  `JoinEditor` becomes a `ChainEditor`; the builder panel lists hops) reusing the
+  detail shell, the predicate editors, R71's relationship `<Select>`, and
+  `<PagedRowsView>`. **No** parallel canvas page, **no** new noun. **Clears.**
+- **Discovered-vs-imposed:** _discovered_ — pulled by R72's named J-1′ trigger
+  (written before R73) + a real report need (a Deal's account **and** its owner in
+  one table); nothing minted to justify a model.
+- **Design-model confidence valve INVOKED (the inverse of R72).** The **chain
+  truth-test** is recorded in
+  [multi-join.md § Truth-test](../../design/data-management/queries/multi-join.md#truth-test-record-the-chain-truth-test--design-model-confidence-valve):
+  the `Relationship` **edge is VALIDATED (no revision)** — each hop is one governed
+  `rel_`, carrying its two sources + validated key pair + per-edge freshness gate
+  exactly as for one join — while the **`QueryDefinition` + engine genuinely
+  re-open** (singular `join` → an ordered chain; `query_joined_rows` grows from a
+  fixed two-source join into a fold over N sources). The model change + engine
+  growth are **named honestly**, not laundered under "reuse" — R72's risk was UX, so
+  it declined this valve; R73's risk is model, so it invokes it.
+
+**`ui-design` (design-spec) on multi-join.md — PASS (0 gaps).** All six UX-honeycomb
+facets pass; one **Findability/Usability** gap caught **preventively** (the
+`[+ Add a join]` affordance had no declared **disabled / no-eligible-tail-edge**
+state) and **remediated in-spec** (disabled + the R71 guiding tooltip, no dead-end
+empty `<Select>`). Mirrors R71/R72's preventive design-spec catches.
+
+**Flow selector run** (per [R47](../../decisions/2026-05-28-hybrid-flow-governance.md)), against the closed design ([multi-join.md](../../design/data-management/queries/multi-join.md)):
+
+| Condition                            | Fired? | Justification                                                                                                                                                                                                                                   |
+| ------------------------------------ | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1. >3 independent states/branches    | yes    | The state model has 8 branches (Loading → Populated / HopStale / PredStale / NotFound; Editing → add-hop / remove-hop / edit-pred; Saving → SaveRejected; Redirect), well past 3.                                                               |
+| 2. New interaction pattern           | yes    | An **ordered chain editor** (append-a-hop-from-the-tail / remove-the-last-hop, under a linear-path constraint) is genuinely new — R72's `JoinEditor` edits **one** edge; no shipped surface manages an ordered, topology-constrained chain.     |
+| 3. High user-error risk              | no     | Editing is reversible — remove the last hop / discard reverts; invalid edits **block** Save; reads are non-destructive. (Row-multiplication compounds across hops, but it is non-destructive and live-re-run, not an irreversible commit.)      |
+| 4. Contract depends on unresolved UI | no     | The contract **shape** is settled at Design by J-3 (`joins: JoinStep[]` replaces `join`); the open items (the legacy-`join` migration seam; whether the `409` body names the hop index) are a Backend detail + a minor field, not a route fork. |
+| 5. UX confidence below threshold     | yes    | The product's **first** chain builder — how to render a growing chain, enforce tail-extension legibly, and surface compounding row-multiplication are real "not sure this is the right feel yet" questions.                                     |
+
+Result: **Flow: DFCFBI (triggers 1, 2, 5)**. The build chain (D → **F1** → C →
+**F2** → B → I) is sequenced for a later session **on the human's go-ahead** (J-2);
+per the [DFCFBI-F1-human-review rule](../../memory/2026-06-14-dfcfbi-f1-needs-human-review.md)
+(the R72 lesson), **F1 must hard-stop for the human to exercise the running chain
+editor** before Contract — DFCFBI fires precisely because the UX is uncertain, and
+MSW/pytest cannot judge feel / layout / browser preflight.
+
+**`gate-walker` (Design gate): PASS** — the round + design doc record the Design
+exit criterion (journey + 10 acceptance criteria in multi-join.md), the
+noun-vs-mode + discovered-vs-imposed model check **and** the invoked design-model
+confidence valve (the chain truth-test verdict), and the Design commit seam (below).
+_Structural
+check only — the modeling answer's correctness remains the human reviewer's call._
+
+**Design gate closed + STOPPED (J-2).** The multi-join design is sealed. Gate commit
+seams (gate = commit): Plan `7793897` → Design (this commit). Each gate independently
+revertable. The build chain awaits the human's go-ahead.
 
 ## Check
 
-- [ ] **J-1, J-2, J-1′ ratified** (Plan gate); **J-3, J-4 held open** → resolved at
-      the Design gate.
-- [ ] **Multi-join design authored** (home per J-4): chained `QueryDefinition`,
-      generalized effective columns + multi-hop fold, chain editor, per-hop stale
-      gate, linear-chain constraint, states, Accessibility, contract intent.
-- [ ] **Design-model confidence valve + chain truth-test recorded** with a verdict.
-- [ ] **Noun-vs-mode + discovered-vs-imposed** check recorded.
-- [ ] `design:lint` 0 · `design:tokens` 0 · `plan:lint` 0 · `markdown-check-link`
-      0 broken · `markdownlint` 0.
-- [ ] `ui-design` (design-spec) on the multi-join doc — PASS, 0 gaps.
-- [ ] `flow-selector` run + result recorded.
-- [ ] **`gate-walker` (Design gate)** — exit criterion + checks + commit seam.
-- [ ] Plan gate and Design seam **committed separately**; round STOPPED at the
+- [x] **J-1, J-2, J-1′ ratified** (Plan gate); **J-3, J-4 held open** → resolved at
+      the Design gate (J-3 → `joins: JoinStep[]`; J-4 → new `multi-join.md` +
+      strict linear path).
+- [x] **Multi-join design authored**
+      ([multi-join.md](../../design/data-management/queries/multi-join.md)): chained
+      `QueryDefinition`, generalized effective columns + multi-hop fold, chain
+      editor, per-hop stale gate, linear-chain constraint, states, Accessibility,
+      contract intent, 10 acceptance criteria.
+- [x] **Design-model confidence valve + chain truth-test recorded** with a verdict —
+      the `Relationship` edge is VALIDATED (no revision); the `QueryDefinition` +
+      engine genuinely re-open.
+- [x] **Noun-vs-mode + discovered-vs-imposed** check recorded (mode not page;
+      discovered).
+- [x] `design:lint` 0 (15 docs) · `design:tokens` 0 (12 maps) · `plan:lint` 0 ·
+      `markdown-check-link` 0 broken (all links resolve) · `markdownlint` 0.
+- [x] `ui-design` (design-spec) on the multi-join doc — **PASS, 0 gaps** (one
+      Findability/Usability gap caught + remediated in-spec: the disabled
+      no-eligible-tail-edge state).
+- [x] `flow-selector` run + result recorded — **DFCFBI (triggers 1, 2, 5)**.
+- [x] **`gate-walker` (Design gate)** — exit criterion + model checks + commit seam
+      recorded (verdict in Act).
+- [x] Plan gate and Design seam **committed separately**; round STOPPED at the
       Design gate (J-2) until the human's go-ahead.
 
 ## Act
 
-_(Outcome recorded at the Design seam, once the design is authored and the gates
-are green — this section is filled when the round reaches its STOP point.)_
+**Outcome — the multi-join design is sealed at the Design gate, and the round STOPS
+for the human's go-ahead (J-2).** R73 set out to let a Query **chain more than one
+relationship**, and the design does that as a **mode**, not a new noun: the singular
+`QueryDefinition.join` generalizes to an ordered **`joins: JoinStep[]`** (a single
+join is a length-1 chain), `query_joined_rows` grows from a fixed two-source join
+into a **fold over N sources**, and R72's `JoinEditor` becomes a **`ChainEditor`**
+(append a hop from the tail / remove the last hop) under a **linear-path**
+constraint. [multi-join.md](../../design/data-management/queries/multi-join.md) seals
+it; the trajectory now reads R72 construction **shipped** → **R73 multi-join chain**
+→ **R74 visual canvas**.
 
-The Plan gate ratifies the **split** (engine + linear chain now, canvas → R74) and
-the **seal-at-Design + STOP** shape, and — the load-bearing call — names that R73
-**re-opens the model**, so it invokes the **design-model confidence valve** (the
-chain truth-test) that R72 correctly declined. The Design pass that follows seals
-the chained definition + the multi-hop engine behind a committed design doc before
-any code is written.
+**The risk-axis call was the load-bearing judgment — and it inverted R72's.** R72's
+model was settled, so re-invoking the design-model valve would have been ceremony;
+R73 **genuinely re-opens the model** (singular join → a chain; the engine grows past
+one edge), so it **invokes** that valve. The chain truth-test split the question
+cleanly: the **`Relationship` edge holds** (each hop is one governed `rel_`, carrying
+its sources + key pair + freshness gate exactly as for one join — **no revision**),
+while the **`QueryDefinition` + engine re-open** (the ordered `joins` + the fold).
+Naming **which** valve fits **which** risk is the
+[dynamic-equilibrium brake](../../context/purpose.md#dynamic-equilibrium) in
+action: R71 = model valve, R72 = F1 valve, R73 = **both** (model valve at Design +
+DFCFBI/F1 for the chaining UX).
+
+**Design-gate findings beyond the seal:**
+
+1. **The legacy-`join` migration is the build's first fork** — migrating singular
+   `join` → `joins[]` (J-3) needs a back-compat read of stored definitions; the
+   **shape** is sealed now, the **seam** (read-shim vs. one-time rewrite) is
+   deliberately left for the Contract/Backend gates (it depends on the persistence
+   layer, not the UX).
+2. **A scope-tightening caught at the design-spec gate** — `ui-design` flagged the
+   `[+ Add a join]` affordance had no declared **no-eligible-tail-edge** state;
+   remediated in-spec (disabled + the R71 guiding tooltip), so the spec is
+   affordance-consistent before F builds it.
+
+**Next (on the human's go-ahead):** the **DFCFBI** build chain (D → **F1** → C →
+**F2** → B → I), each its own commit seam. Per the
+[DFCFBI-F1-human-review rule](../../memory/2026-06-14-dfcfbi-f1-needs-human-review.md)
+(the R72 lesson), **F1 hard-stops for the human to exercise the running chain
+editor** before Contract — DFCFBI fires precisely because the chaining UX is
+uncertain, and MSW/pytest cannot judge feel / layout / browser preflight.
+
+**Learnings (notes, not promotions):**
+
+- **The valve-to-risk match now has three data points.** R71 (model risk → model
+  valve), R72 (UX risk → F1 valve, model valve **declined**), R73 (model **and** UX
+  risk → **both** valves). The discipline "add only the mechanism the named failure
+  mode pulls" held across an invert and a both-at-once — this is the third
+  re-application of the
+  [specious-model-lock-in](../../memory/2026-06-13-specious-model-lock-in.md) /
+  hybrid-flow valve distinction. **Candidate to promote** (the don't-add-until-pulled
+  rule has now fired three rounds running).
+- **A model generalization (singular → ordered) is a clean superset when the
+  length-1 case is the old case.** `join` → `joins:[join]` adds no concept — it
+  arity-generalizes one — which is why the truth-test could validate the edge while
+  re-opening only the definition/engine. A useful shape for "grow N from 1" changes.
 
 ## Feeds into → Round_74 (the visual multi-join canvas)
 

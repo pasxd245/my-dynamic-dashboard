@@ -459,8 +459,11 @@ R71 chain on the human's go-ahead):
 
 ### OUT of scope (deferred with named triggers)
 
-- **The interactive multi-source construction surface** (visual cross-source
-  predicate building, multiple joins, a builder canvas) → **R72** (J-1).
+- **The interactive construction surface** (editable join + cross-source
+  predicates, preview before save) → **R72** (J-1), shipped in
+  [query-construction.md](query-construction.md). **Multiple joins** (a linear
+  chain + the multi-hop engine) → **R73**, specified in
+  [multi-join.md](multi-join.md); the **free-form visual canvas** → **R74**.
   _Trigger: a Query must be built from more than one minimal join + the saved
   filters._
 - **Left / right / outer joins**; **composite / multi-column** join keys;
