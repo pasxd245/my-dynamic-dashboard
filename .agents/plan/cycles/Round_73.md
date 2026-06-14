@@ -1,6 +1,6 @@
 # Round 73: The multi-join chain — let a Query chain more than one relationship
 
-**Status**: In Progress (DFCFBI build: Design + F1 + Contract + F2 done & green; Backend + Integration remain)
+**Status**: Review (DFCFBI build D→F1→C→F2→B→I complete & green; awaiting human sign-off on the real backend — Complete = signed-off)
 **Date started**: 2026-06-14
 **Date completed**:
 
@@ -241,7 +241,7 @@ read_parquet(D2) ON … JOIN read_parquet(D3) ON …`), the **chain editor** UX 
   one table); nothing minted to justify a model.
 - **Design-model confidence valve INVOKED (the inverse of R72).** The **chain
   truth-test** is recorded in
-  [multi-join.md § Truth-test](../../design/data-management/queries/multi-join.md#truth-test-record-the-chain-truth-test--design-model-confidence-valve):
+  [multi-join.md § Truth-test record](../../design/data-management/queries/multi-join.md):
   the `Relationship` **edge is VALIDATED (no revision)** — each hop is one governed
   `rel_`, carrying its two sources + validated key pair + per-edge freshness gate
   exactly as for one join — while the **`QueryDefinition` + engine genuinely
@@ -387,6 +387,55 @@ boundary).
 **19/19** (4 R73 cases), all chain preview/put responses contract-validated. No
 contract v2 needed. F2 seam: `c69228b`.
 
+### Gate B — Backend (DFCFBI) — (2026-06-14)
+
+The engine's **first growth past a single edge** — and the **model held**: the R70
+`Relationship` edge was unrevised, no new engine noun was minted; only the
+`QueryDefinition` + the join engine generalized (the Design-gate truth-test claim,
+confirmed in running code).
+
+- **`query_joined_rows` two-source → N-source fold** (`rows_reader.py`):
+  `FROM read_parquet(?) T0 INNER JOIN read_parquet(?) T1 ON … INNER JOIN … Tn`;
+  `build_effective_columns` generalized to the ordered concat across all sources,
+  duplicate names collision-qualified across the **whole chain**. R71's join is the
+  length-1 case (the single + N paths unified).
+- **`_resolve_join` → `_resolve_chain`** (`routers/queries.py`): resolve each hop in
+  order, enforce the **linear-chain invariant** (each hop's left = the prior tail;
+  acyclic) → `422 nonlinear_chain`; **per-hop** `relationship_stale` → `409`. A
+  shared `_execute_chain` helper + `_chain_of` (folds legacy `join`) thread the
+  chain through create / run / preview / update.
+- **`QueryDefinition.join` → `joins: list[JoinStep]`** (`models/common.py`) with a
+  `model_validator(before)` **back-compat shim** folding a legacy single `join` →
+  length-1 `joins` (so persisted R71/R72 definitions read back as a chain;
+  responses always carry `joins`).
+
+**Backend gate verification:** ruff **clean**; pytest **183/183** (+7 R73: chain
+executes 3-dataset rows + 12 collision-qualified `resolvedColumns`; nonlinear hop
+`422`; preview stateless; `PUT` grows a join into a chain; per-hop stale `409`;
+**legacy single-`join` folds on read**), each `validate_response`-checked against the
+C-gate contract. Backend seam: `39a42d3`.
+
+### Gate I — Integration (DFCFBI) — (2026-06-14)
+
+The FE↔BE seam is the **contract**: both sides conform to the same migrated
+`queries/*` YAML — the FE's MSW chain `preview`/`put` responses are
+`withContractValidation`-checked in the suite (**19/19**), the BE's are
+`validate_response`-checked in pytest (**183/183**). **One contract, dual
+conformance** — the `joins` chain shape, the N-source `resolvedColumns`, the update
+path, and the `409`/`422`/`404` codes all green on both sides.
+
+Beyond that, the **full chain lifecycle is exercised against the real ASGI app**
+(pytest `TestClient` over the real router + DuckDB engine + SQLite, isolated data
+dir): create → run a 2-hop chain (3 rows × 12 collision-qualified cols) → stateless
+preview → `PUT` grow-a-join-into-a-chain → per-hop `409 relationship_stale` →
+nonlinear `422` → unknown `404`. _A separate cross-process uvicorn round-trip
+(R71/R72 style) was attempted; the live server **boots and serves** (health `200`
+verified) but the sandbox's backgrounded-server + multi-step `curl` orchestration was
+flaky — so the integration evidence rests on the deterministic real-app `TestClient`
+lifecycle + the dual contract conformance. R73 adds **no new route and no CORS
+change** (only a field-shape migration), so the cross-process HTTP-boundary failure
+mode that bit R72 (PUT-CORS) does not recur here._ Integration seam: this commit.
+
 ## Check
 
 - [x] **J-1, J-2, J-1′ ratified** (Plan gate); **J-3, J-4 held open** → resolved at
@@ -422,11 +471,17 @@ contract v2 needed. F2 seam: `c69228b`.
       queries **18/18** chain-validated (`7da0904`).
 - [x] **F2** — confirmed vs contract-derived MSW; +1 client-side chain-shrink flag
       case; **19/19**, no contract v2 (`c69228b`).
-- [ ] **Backend** — grow `query_joined_rows` two-source → N-source fold; migrate the
-      python `QueryDefinition` `join` → `joins` (+ legacy read shim); per-hop +
-      linear-chain validate-on-save; pytest. **Open** (next gate).
-- [ ] **Integration** — one contract / dual conformance (FE 19/19 + pytest) + a live
-      cross-process chain round-trip. **Open**.
+- [x] **Backend** — `query_joined_rows` grown to an N-source fold; `QueryDefinition`
+      `join` → `joins` (+ legacy read-shim validator); per-hop + linear-chain
+      validate-on-save; pytest **183/183** (`39a42d3`).
+- [x] **Integration** — one contract / dual conformance (FE **19/19** +
+      BE **183/183**, both contract-checked) + the full chain lifecycle vs the real
+      ASGI app (`TestClient`). Live uvicorn boots (health 200); cross-process curl
+      orchestration flaky in-sandbox — noted (no new route/CORS, so R72's PUT-CORS
+      mode doesn't recur).
+- [ ] **Human sign-off (Complete = signed-off, not gates-green)** — the human runs
+      the full app against the **real backend** (`enable_mock: false`) and exercises
+      the chain end to end; then Review → Complete. **Open**.
 
 ## Act
 
@@ -465,12 +520,30 @@ DFCFBI/F1 for the chaining UX).
    remediated in-spec (disabled + the R71 guiding tooltip), so the spec is
    affordance-consistent before F builds it.
 
-**Next (on the human's go-ahead):** the **DFCFBI** build chain (D → **F1** → C →
-**F2** → B → I), each its own commit seam. Per the
-[DFCFBI-F1-human-review rule](../../memory/2026-06-14-dfcfbi-f1-needs-human-review.md)
-(the R72 lesson), **F1 hard-stops for the human to exercise the running chain
-editor** before Contract — DFCFBI fires precisely because the chaining UX is
-uncertain, and MSW/pytest cannot judge feel / layout / browser preflight.
+**Build outcome — the chain shipped end to end through DFCFBI, and the model held.**
+On the go-ahead the seal built through **F1 → C → F2 → B → I** (each its own seam):
+a Query can now **chain 2+ relationships** — the builder's `JoinEditor` extends a
+linear chain from the tail, previews the unsaved chain live, and saves it; the
+engine folds N parquet sources into one inner-join chain with collision-qualified
+effective columns; per-hop drift and nonlinear edits flag-don't-crash. **The DFCFBI
+lane earned its cost the way R72's lesson intended:** F1 **hard-stopped for human
+review** (the R72 gap, now a standing rule), and the human caught a real
+fidelity issue MSW/pytest could not — the `[Remove]`/`Bỏ` hop button collapsed to a
+tiny target in the `vi` locale (`size="small"`), fixed to match the header
+Cancel/Save sizing (`8d26302`). And the load-bearing call held in running code: R73's
+risk was **both** model and UX, so it used **both** valves — the design-model valve's
+chain truth-test proved out (the R70 edge needed **no revision**; only the
+`QueryDefinition` + engine generalized), and the F1 timebox + human review caught the
+UX gap. **No new engine noun, no new route, no new error code** — the chain is the
+sealed model + the grown engine, exactly as the truth-test predicted.
+
+**Status Review, not Complete (the R72 discipline).** Gates are green, but "Complete"
+means **human-signed-off**, not gates-green. The round sits at **Review** until the
+human runs the **full app against the real backend** (`enable_mock: false` — the
+chain is now real, not MSW) and exercises an end-to-end chain, then Review → Complete.
+[multi-join.md](../../design/data-management/queries/multi-join.md) is **reconciled to
+the as-built** (the O-rule): status → shipped, the `join`→`joins` wire migration +
+the BE read-shim + the JoinEditor-as-chain-editor recorded.
 
 **Learnings (notes, not promotions):**
 

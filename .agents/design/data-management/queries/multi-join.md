@@ -15,11 +15,28 @@ extends from the previous dataset) editable in R72's builder; the **free-form
 visual source-graph canvas** (non-linear topology) is **R74**
 ([Round_73](../../../plan/cycles/Round_73.md) J-1′).
 
-**Status**: Draft (R73 — sealed at the Design gate; the build chain awaits the
-human's go-ahead per the round's J-2 seal-then-STOP). This doc **re-opens the
-join model** (singular `join` → a chain) under the **design-model confidence
-valve** and records the **chain truth-test** (J-3/J-4) — the inverse of R72,
-whose model was settled.
+**Status**: Accepted — **shipped R73** (DFCFBI: D → F1 → C → F2 → B → I). The design
+was sealed at the Design gate (J-2: seal-then-STOP); on the human's go-ahead the
+chain built through F1 (chain editor + multi-hop preview, human-reviewed) → C
+(`QueryDefinition.join` → `joins` migrated across the contract corpus) → F2 → B
+(`query_joined_rows` grown to an N-source fold; per-hop + linear-chain
+validate-on-save) → I, and **the as-built matches this design**: the chained model,
+the linear tail-extension constraint, the collision-qualified N-source effective
+space, and the per-hop stale gate all shipped as specified. This doc **re-opened the
+join model** (singular `join` → a chain) under the **design-model confidence valve**;
+the **chain truth-test** (below) held in running code — the R70 `Relationship` edge
+needed **no revision**, only the `QueryDefinition` + engine generalized.
+
+> **As-built notes (O-rule reconciliation).** ① The wire/contract migrated `join` →
+> **`joins`** (the FE bridge that briefly kept a length-≤1 chain on the legacy field
+> during F1 was **collapsed at the Contract gate**); the backend **normalizes a
+> legacy persisted single `join` → length-1 `joins` on read** (a
+> `model_validator`), so responses always carry `joins`. ② The chain editor is the
+> R72 `JoinEditor` extended in place (single-edge affordance for ≤1 hop; hop rows +
+> `[+ Add a join]` from the tail + `[Remove]` last for ≥2) — **not** a new canvas.
+> ③ No new route + no new error code (the chain is a field-shape change on the
+> existing create / get / run / preview / update shapes).
+
 **Round introduced**: [Round_73](../../../plan/cycles/Round_73.md) — the fifth
 step of the critical path (`data → relationships → joins → construction →
 **multi-join** → dashboards`) and the **first time the join engine grows past a
