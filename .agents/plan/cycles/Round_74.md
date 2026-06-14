@@ -1,6 +1,6 @@
 # Round 74: The join graph — let a Query join one dataset to two or more others
 
-**Status**: Planning
+**Status**: Review
 **Date started**: 2026-06-14
 
 ## Goal
