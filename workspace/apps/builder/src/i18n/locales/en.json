@@ -400,6 +400,7 @@
       "sourceLabel": "Source:",
       "joinLabel": "Join (read-only)",
       "joinInner": "inner",
+      "joinType": { "inner": "inner", "left": "left", "right": "right", "full": "full" },
       "appliedPredicates": "Applied predicates (read-only)",
       "searchTag": "search: {{q}}",
       "matchedOfTotal": "Matched {{matched}} / {{total}} rows",

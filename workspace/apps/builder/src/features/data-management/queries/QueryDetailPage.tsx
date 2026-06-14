@@ -323,19 +323,20 @@ export function QueryDetailPage() {
           {t('queries.detail.joinLabel')}
         </Typography.Text>
         <Typography.Text>
-          {dataset?.name ?? relationship.leftDatasetId} ⋈ {t('queries.detail.joinInner')} ⋈{' '}
+          {dataset?.name ?? relationship.leftDatasetId} ⋈ {t(`queries.detail.joinType.${chain[0]?.type ?? 'inner'}`)} ⋈{' '}
           {rightDatasetQuery.data?.name ?? relationship.rightDatasetId}
         </Typography.Text>
         <Tag color="default">
           {relationship.leftColumn} ↔ {relationship.rightColumn}
         </Tag>
         <Tag color="default">{t(`relationships.cardinality.${relationship.cardinality}`)}</Tag>
-        {/* R73 — additional hops in a multi-hop chain (the 2nd onward). */}
+        {/* R73 — additional hops in a multi-hop chain (the 2nd onward); R75 — each
+            hop names its join type so an outer hop isn't mislabelled as inner. */}
         {chain.slice(1).map((hop) => {
           const r = relById.get(hop.relationshipId);
           return (
             <Tag key={hop.relationshipId} color="default" data-component="QueryJoinHop">
-              ⋈ {r ? `${r.leftColumn} ↔ ${r.rightColumn}` : hop.relationshipId}
+              ⋈ {t(`queries.detail.joinType.${hop.type}`)} ⋈ {r ? `${r.leftColumn} ↔ ${r.rightColumn}` : hop.relationshipId}
             </Tag>
           );
         })}

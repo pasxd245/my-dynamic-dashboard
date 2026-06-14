@@ -416,4 +416,25 @@ describe('Multi-join chain (R73 linear) + join graph (R74 tree)', () => {
     fireEvent.click(saveBtn);
     await waitFor(() => expect(document.querySelector('[data-component="QueryDetailEdit"]')).not.toBeNull());
   });
+
+  // Regression: the READ-ONLY join summary must reflect the saved join type, not a
+  // hardcoded "inner" (a left join was mislabelled "⋈ inner ⋈" in the view).
+  it('labels the read-only join summary with the saved join type', async () => {
+    server.use(
+      http.get(`*/queries/${JOIN_ID}`, () =>
+        HttpResponse.json({
+          ...MOCK_JOINED_QUERY,
+          definition: {
+            ...MOCK_JOINED_QUERY.definition,
+            joins: (MOCK_JOINED_QUERY.definition.joins ?? []).map((h) => ({ ...h, type: 'left' })),
+          },
+        }),
+      ),
+    );
+    renderApp(`/data-management/queries/${JOIN_ID}`);
+    await waitFor(() => expect(document.querySelector('[data-component="QueryJoinSummary"]')).not.toBeNull());
+    const summary = document.querySelector('[data-component="QueryJoinSummary"]') as HTMLElement;
+    expect(summary.textContent).toContain('⋈ left ⋈');
+    expect(summary.textContent).not.toContain('⋈ inner ⋈');
+  });
 });

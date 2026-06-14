@@ -400,6 +400,7 @@
       "sourceLabel": "Nguồn:",
       "joinLabel": "Phép nối (chỉ đọc)",
       "joinInner": "inner",
+      "joinType": { "inner": "inner", "left": "left", "right": "right", "full": "full" },
       "appliedPredicates": "Điều kiện đang áp dụng (chỉ đọc)",
       "searchTag": "tìm kiếm: {{q}}",
       "matchedOfTotal": "Khớp {{matched}} / {{total}} dòng",
