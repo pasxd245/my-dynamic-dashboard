@@ -1,6 +1,6 @@
 # Round 73: The multi-join chain — let a Query chain more than one relationship
 
-**Status**: In Progress (Design gate sealed; STOPPED for the human's go-ahead — J-2)
+**Status**: In Progress (DFCFBI build: Design + F1 sealed; HARD-STOPPED at F1 for human review before Contract)
 **Date started**: 2026-06-14
 **Date completed**:
 
@@ -284,6 +284,53 @@ check only — the modeling answer's correctness remains the human reviewer's ca
 seams (gate = commit): Plan `7793897` → Design (this commit). Each gate independently
 revertable. The build chain awaits the human's go-ahead.
 
+### Gate F1 — Frontend discovery (DFCFBI) — built on the human's go-ahead (2026-06-14)
+
+The go-ahead came; the DFCFBI chain proceeds, each gate its own seam. F1
+prototypes the chain editor + multi-hop live preview against MSW (the FE-on-MSW is
+the UX source of truth) and **freezes the interaction decisions**; its output is UX
+acceptance + the contract questions for C (no contract YAML this phase, per the F1
+timebox rule).
+
+**Interaction decisions frozen (F1 gate exit):**
+
+- **The chain is a tail-extending linear path.** The single-edge affordance is
+  unchanged for ≤1 hop (R72's `JoinEditor` `<Select>` + Clear); a multi-hop chain
+  renders its hops as read rows with **`[Remove]` on the last hop only** and a
+  **`[+ Add a join]`** that offers **only edges driving from the chain's tail** and
+  **never revisits a dataset already in the chain** (acyclic). When the tail has no
+  eligible edge, add is disabled with a guiding tooltip (no dead-end `<Select>`).
+- **The model is `joins: JoinStep[]`, bridged on the wire (J-3).** The builder works
+  in `joins`; the wire keeps a length-≤1 chain on the legacy `join` field (so
+  single / single-join queries stay on the **R71/R72 contract, contract-validated**)
+  and writes `joins` only for a genuine multi-hop chain (≥2). **This is F1's
+  contract-question answer handed to C:** migrate `_shared/query.yaml#/QueryDefinition`
+  `join` → `joins`, then collapse the FE bridge (`chain.ts`).
+- **Live preview folds the chain.** Editing re-runs the unsaved chain through the
+  reused stateless `POST …/queries/preview`; the MSW preview folds 1 hop →
+  `Deals ⋈ Accounts`, ≥2 → `Deals ⋈ Accounts ⋈ Owners`, exposing **collision-qualified**
+  effective columns (`accounts.tier` / `owners.tier`). Save persists via `PUT`.
+- **Flag-don't-crash, per hop, blocks save.** A stale hop → `409 relationship_stale`
+  (join-unavailable `role="alert"`); a predicate dangling out of the (smaller)
+  effective space after a hop is removed is caught **client-side** and disables
+  `[Save]` — the R72 gates, now over the chain.
+
+**F1 gate verification:** builder **type-check clean**; `queries.test.tsx`
+**18/18** (3 new R73 cases: add a 2nd hop → preview the 3-dataset chain; save a 2-hop
+chain → back to read view; remove the last hop → collapse to a single join). Full
+builder run **142/144** — the 2 failures are the **pre-existing upload-wizard 5s
+flake** (R69/R71/R72), **7/7 in isolation** at `--test-timeout=15000`. F1 ad-hoc MSW
+(the chain `PUT`) is unwrapped this phase; **C formalizes the contract + re-wraps**.
+F1 seam: `503a860`.
+
+> **F1 HARD-STOP for human review (the DFCFBI rule, R72 lesson
+> [2026-06-14-dfcfbi-f1-needs-human-review](../../memory/2026-06-14-dfcfbi-f1-needs-human-review.md)).**
+> DFCFBI fired because the chaining UX is _uncertain_ — MSW + pytest cannot judge
+> feel / layout / browser preflight / the tail-extension legibility. **The round
+> stops here for the human to run the app and exercise the chain editor** before the
+> Contract gate. `ui-design` **fidelity** mode at F1 is the mechanical half; human
+> review is the other half. C/F2/B/I proceed only on the human's sign-off.
+
 ## Check
 
 - [x] **J-1, J-2, J-1′ ratified** (Plan gate); **J-3, J-4 held open** → resolved at
@@ -309,6 +356,11 @@ revertable. The build chain awaits the human's go-ahead.
       recorded (verdict in Act).
 - [x] Plan gate and Design seam **committed separately**; round STOPPED at the
       Design gate (J-2) until the human's go-ahead.
+- [x] **F1 (DFCFBI, on go-ahead)** — chain editor + multi-hop live preview vs MSW;
+      interaction decisions frozen (tail-extending linear path; J-3 wire bridge;
+      collision-qualified preview); `queries.test.tsx` **18/18** (`503a860`).
+- [ ] **F1 human review (DFCFBI hard-stop)** — the human runs the app + exercises
+      the chain editor; `ui-design` fidelity at F1. **Open** — C/F2/B/I gated on it.
 
 ## Act
 
