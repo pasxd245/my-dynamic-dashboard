@@ -149,8 +149,9 @@ later join or compose — because every query surface reuses the same shells.
    detail home (`/data-management/queries`, `/data-management/queries/:id`); both
    **compose** the shared Page-List / detail layouts + `<PagedRowsView>`, with no
    copy-pasted `DatasetsPage` / `DatasetDetailPage` (maps to the R69 reuse tests).
-2. **Save as Query is an action, Query is the noun** _(structural)_ — the
-   `[+ Save as Query]` verb lives on [dataset-detail.md](../datasets/dataset-detail.md);
+2. **Save filters as Query is an action, Query is the noun** _(structural)_ — the
+   `[Save filters as Query]` verb (relabelled R72, was "Save as Query") lives on
+   [dataset-detail.md](../datasets/dataset-detail.md);
    the Query noun + its modes are documented under `queries/` (the
    noun/verb split, mirroring `datasets.md` ↔ `upload.md`).
 3. **Relationships are the declared join input** _(forward / R71)_ — a

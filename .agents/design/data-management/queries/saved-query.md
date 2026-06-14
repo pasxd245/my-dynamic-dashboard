@@ -19,8 +19,7 @@ semantics.
 `queries.md`.
 
 > **As-built deltas since (reconciled R72).** ① The dataset-page action is now
-> **"Save filters as Query"** (relabelled from "Save as Query"; the `[+ Save as
-> Query]` references below are the R69 record). ② **Editing a saved query's
+> **"Save filters as Query"** (relabelled from "Save as Query" at R72). ② **Editing a saved query's
 > predicates is now SHIPPED** — the construction surface
 > ([query-construction.md](query-construction.md), R72) makes the definition
 > editable (join + cross-source predicates) with a live preview; the "deferred"
@@ -174,7 +173,7 @@ identifiers already cited by [datasets.md](../datasets/datasets.md) and
 | Table row border                           | `colorBorderSecondary`         | `#f0f0f0`             |
 | Table row hover                            | `colorPrimaryBg`               | `#e6f4ff`             |
 | Cell text                                  | `colorText`                    | derived               |
-| `[+ Save as Query]` / primary modal action | `colorPrimary`                 | `#1677ff`             |
+| `[Save filters as Query]` / primary modal action | `colorPrimary`                 | `#1677ff`             |
 | Read-only predicate `<Tag>` background     | `colorFillSecondary`           | derived               |
 | Read-only predicate `<Tag>` text           | `colorTextSecondary`           | derived               |
 | Stale-query warning text + icon            | `colorWarning`                 | `#faad14`             |
@@ -195,18 +194,18 @@ All surfaces render inside the master-layout chrome
 
 ### Save-as-Query — from the dataset detail page
 
-The `[+ Save as Query]` action (placement declared in
+The `[Save filters as Query]` action (placement declared in
 [dataset-detail.md](../datasets/dataset-detail.md)) is enabled **only when ≥1 predicate is
 active** (chip filter, advanced query, or `?q=` search). Clicking opens the
 modal.
 
 ```text
-Home ▸ … ▸ q1_pipeline_Deals          [+ Save as Query]  [Rename]  [Delete]
+Home ▸ … ▸ q1_pipeline_Deals          [Save filters as Query]  [Rename]  [Delete]
   ┌─ chips ──────────────────────────────────────────────────────────────────┐
   │  stage = won  ×    amount > 1000  ×    won_at after 2026-01-01  ×          │
   └────────────────────────────────────────────────────────────────────────────┘
 
-        ┌──────────── Save as Query ─────────────┐
+        ┌──────── Save filters as Query ─────────┐
         │  Name                                   │
         │  [ Won deals over $1k (2026)          ] │
         │  Source: q1_pipeline_Deals · Marketing  │
@@ -245,7 +244,7 @@ Saved views across your workspaces. Open one to re-run it against fresh data.
 - **Row click**: navigates to `/data-management/queries/:id` (query mode).
 - **Empty state**: no drop-zone (a Query is born from a dataset view, not an
   upload). Copy: _"No saved queries yet. Open a dataset, filter it, and choose
-  **Save as Query**."_ with a link to Datasets.
+  **Save filters as Query**."_ with a link to Datasets.
 
 ### Query mode — `/data-management/queries/:id`
 
@@ -428,7 +427,7 @@ stateDiagram-v2
     [*] --> NoPredicates: dataset detail, nothing applied
     NoPredicates --> HasPredicates: add filter / aq / q
     HasPredicates --> NoPredicates: clear all
-    HasPredicates --> ModalOpen: click "Save as Query"
+    HasPredicates --> ModalOpen: click "Save filters as Query"
     ModalOpen --> HasPredicates: cancel
     ModalOpen --> Saving: submit (name valid)
     Saving --> Saved: 201 → toast + nav to /queries/:id
@@ -436,7 +435,7 @@ stateDiagram-v2
     Saving --> ModalOpen: 422 validation → inline error
 ```
 
-- `[+ Save as Query]` is **disabled** when no predicate is active
+- `[Save filters as Query]` is **disabled** when no predicate is active
   (`filters.length === 0 && advanced.length === 0 && !q`); disabled tooltip:
   _"Add a filter or search first."_
 - The modal **name input** pre-fills a suggestion derived from the active
@@ -542,7 +541,7 @@ Design exit — sequenced in later sessions):
   / list / get / run / stale / name-taken path.
 - **Contract**: `workspace/packages/contracts/queries/*.contract.{yaml,md}` for
   the four routes; MSW handlers; contract validator stays green.
-- **Frontend**: `SaveQueryModal` + the gated `[+ Save as Query]` action on the
+- **Frontend**: `SaveQueryModal` + the gated `[Save filters as Query]` action on the
   detail page; `QueriesPage` catalog (workspace filter, empty state);
   `QueryDetailPage` query mode (predicate summary + reused `<PagedRowsView>` +
   stale state); `queriesApi` + the four hooks; nav + routes; i18n namespace
@@ -560,7 +559,7 @@ Design exit — sequenced in later sessions):
 ## Acceptance criteria (Design gate exit)
 
 **User journey** — as a user I build a filtered/searched view on a dataset,
-choose **Save as Query** to name and keep it, find it later in a **Queries**
+choose **Save filters as Query** to name and keep it, find it later in a **Queries**
 catalog scoped to my workspace, and reopen it to re-run the same predicates
 against current data — so my reports survive past a single browser session
 without my rebuilding them.
@@ -568,7 +567,7 @@ without my rebuilding them.
 Each criterion maps to ≥1 automated test across F / B / I (built in the R69
 chain):
 
-1. **Save affordance gating** _(FE)_ — `[+ Save as Query]` on the dataset detail
+1. **Save affordance gating** _(FE)_ — `[Save filters as Query]` on the dataset detail
    page is enabled iff ≥1 predicate is active (`filters ∨ advanced ∨ q`),
    disabled otherwise with the tooltip.
 2. **Save round-trips the exact predicate state** _(FE + contract)_ — the modal
@@ -659,7 +658,7 @@ chain):
 
 - The dataset detail page's own states / data contract (live in
   [dataset-detail.md](../datasets/dataset-detail.md); this page only adds the
-  `[+ Save as Query]` action there).
+  `[Save filters as Query]` action there).
 - The `<PagedRowsView>` component boundary (lives in
   [dataset-detail.md](../datasets/dataset-detail.md), the extracting host).
 - The predicate vocabulary internals (live in

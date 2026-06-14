@@ -374,7 +374,7 @@
       "searchPlaceholder": "Search queries by name…",
       "loadCouldnt": "Couldn't load queries",
       "emptyTitle": "No saved queries yet",
-      "emptyHint": "Open a <link>dataset</link>, filter it, and choose \"Save as Query\".",
+      "emptyHint": "Open a <link>dataset</link>, filter it, and choose \"Save filters as Query\".",
       "noMatch": "No queries match \"{{query}}\"",
       "noMatchHint": "Try a different name or <link>clear the search</link>.",
       "colName": "Name",

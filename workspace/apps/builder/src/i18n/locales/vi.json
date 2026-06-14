@@ -374,7 +374,7 @@
       "searchPlaceholder": "Tìm truy vấn theo tên…",
       "loadCouldnt": "Không thể tải truy vấn",
       "emptyTitle": "Chưa có truy vấn nào được lưu",
-      "emptyHint": "Mở một <link>tập dữ liệu</link>, lọc nó và chọn \"Lưu thành Truy vấn\".",
+      "emptyHint": "Mở một <link>tập dữ liệu</link>, lọc nó và chọn \"Lưu bộ lọc thành Truy vấn\".",
       "noMatch": "Không có truy vấn khớp với \"{{query}}\"",
       "noMatchHint": "Thử tên khác hoặc <link>xóa tìm kiếm</link>.",
       "colName": "Tên",
