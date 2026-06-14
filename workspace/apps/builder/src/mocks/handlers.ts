@@ -25,13 +25,15 @@ import type {
 import type { CreateRelationshipRequest } from '@/features/data-management/relationships/types';
 import { withContractValidation } from './contract-validator';
 import {
+  MOCK_CHAIN_COLUMNS,
+  MOCK_CHAIN_ROWS,
   MOCK_DATASET,
   MOCK_DATASET_2,
   MOCK_JOINED_QUERY,
   MOCK_JOINED_ROWS,
   MOCK_QUERIES,
   MOCK_QUERY,
-  MOCK_RELATIONSHIPS,
+  MOCK_RELATIONSHIPS_CHAIN,
   MOCK_ROWS,
   MOCK_STALE_JOIN_QUERY_ID,
   MOCK_STALE_QUERY_ID,
@@ -469,14 +471,20 @@ export const handlers = [
     const page = Math.max(1, Number(url.searchParams.get('page') ?? 1));
     const pageSize = Math.max(1, Number(url.searchParams.get('page_size') ?? 25));
 
-    if (def.join) {
-      if (def.join.relationshipId === MOCK_STALE_RELATIONSHIP.id) {
+    // R73 — fold either wire shape into the chain (legacy `join` → [join]).
+    const chain = def.joins ?? (def.join ? [def.join] : []);
+    if (chain.length > 0) {
+      // Any stale hop blocks the whole chain (per-hop relationship_stale gate).
+      if (chain.some((h) => h.relationshipId === MOCK_STALE_RELATIONSHIP.id)) {
         return HttpResponse.json({ code: 'relationship_stale' }, { status: 409 });
       }
-      const columns = [...MOCK_DATASET.columns, ...MOCK_DATASET_2.columns];
+      // 1 hop → Deals ⋈ Accounts (R71); ≥2 hops → Deals ⋈ Accounts ⋈ Owners (R73).
+      const isChain = chain.length >= 2;
+      const columns = isChain ? MOCK_CHAIN_COLUMNS : [...MOCK_DATASET.columns, ...MOCK_DATASET_2.columns];
+      const sourceRows = isChain ? MOCK_CHAIN_ROWS.rows : MOCK_JOINED_ROWS.rows;
       const preds = def.filters.map(predFromAtom);
       const aqGroups = def.advanced.map((g) => g.map(predFromAtom));
-      const matched = applyFiltersAndQ(MOCK_JOINED_ROWS.rows, columns, preds, def.q ?? null, aqGroups);
+      const matched = applyFiltersAndQ(sourceRows, columns, preds, def.q ?? null, aqGroups);
       const offset = (page - 1) * pageSize;
       return HttpResponse.json({
         rows: matched.slice(offset, offset + pageSize),
@@ -492,6 +500,26 @@ export const handlers = [
     const matched = applyFiltersAndQ(MOCK_ROWS, MOCK_DATASET.columns, preds, def.q ?? null, aqGroups);
     const offset = (page - 1) * pageSize;
     return HttpResponse.json({ rows: matched.slice(offset, offset + pageSize), page, pageSize, total: matched.length });
+  }),
+
+  // R73 (F1) — AD-HOC, UNWRAPPED: a multi-hop chain definition (`joins`) is not
+  // on the R71/R72 contract yet (`_shared/query.yaml` still carries `join`); the
+  // Contract gate migrates `join` → `joins` and re-wraps. Until then this handler
+  // echoes a chain PUT so F1 can exercise save-a-chain. Non-chain PUTs return
+  // `undefined` → MSW falls through to the contract-validated handler below.
+  http.put(api('/queries/:id'), async ({ params, request }) => {
+    // Read from a CLONE: a non-chain PUT falls through to the wrapped handler
+    // below, which re-reads the (still-unconsumed) original body.
+    const body = (await request.clone().json()) as UpdateQueryRequest;
+    const joins = body.definition?.joins;
+    if (!joins || joins.length < 2) return undefined;
+    const base = params.id === MOCK_JOINED_QUERY.id ? MOCK_JOINED_QUERY : MOCK_QUERY;
+    return HttpResponse.json({
+      ...base,
+      id: String(params.id),
+      definition: body.definition,
+      resolvedColumns: MOCK_CHAIN_COLUMNS,
+    });
   }),
 
   // R72 — update: persist an edited DEFINITION (name unchanged). Echoes the
@@ -538,10 +566,10 @@ export const handlers = [
   ),
   withContractValidation('get', api('/workspaces/:id/relationships'), 'listRelationships', ({ params }) => {
     if (params.id !== MOCK_WORKSPACE.id) return HttpResponse.json([]);
-    return HttpResponse.json(MOCK_RELATIONSHIPS);
+    return HttpResponse.json(MOCK_RELATIONSHIPS_CHAIN);
   }),
   withContractValidation('get', api('/relationships/:id'), 'getRelationship', ({ params }) => {
-    const rel = MOCK_RELATIONSHIPS.find((r) => r.id === params.id);
+    const rel = MOCK_RELATIONSHIPS_CHAIN.find((r) => r.id === params.id);
     if (!rel) return HttpResponse.json({ code: 'not_found' }, { status: 404 });
     return HttpResponse.json(rel);
   }),

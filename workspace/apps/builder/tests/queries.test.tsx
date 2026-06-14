@@ -263,3 +263,66 @@ describe('Query construction (R72 — editable builder)', () => {
     expect(saveBtn).toBeDisabled();
   });
 });
+
+describe('Multi-join chain (R73 — F1: linear chain editor + multi-hop preview)', () => {
+  const JOIN_ID = MOCK_JOINED_QUERY.id;
+
+  function clickEdit() {
+    fireEvent.click(document.querySelector('[data-component="QueryDetailEdit"]') as HTMLButtonElement);
+  }
+
+  // Open an AntD <Select> by data-component (the root `.ant-select` div) and
+  // click the dropdown option whose text matches.
+  async function pickFromSelect(dataComponent: string, optionMatch: RegExp) {
+    const root = document.querySelector(`[data-component="${dataComponent}"]`) as HTMLElement;
+    fireEvent.mouseDown(root);
+    const option = await screen.findByText(optionMatch, { selector: '.ant-select-item-option-content,.ant-select-item-option-content *' });
+    fireEvent.click(option);
+  }
+
+  // Enter edit on the single-join query, then append the 2nd hop (Accounts ⋈
+  // Owners), extending from the chain's tail. Shared by the cases below.
+  async function addSecondHop() {
+    renderApp(`/data-management/queries/${JOIN_ID}`);
+    expect(await screen.findByText(/Matched 2 rows/)).toBeInTheDocument();
+    clickEdit();
+    // The single-edge affordance + the "[+ Add a join]" extending from the tail.
+    expect(await screen.findByText('Preview · 2 rows')).toBeInTheDocument();
+    await waitFor(() => expect(document.querySelector('[data-component="BuilderAddJoin"]')).not.toBeNull());
+    await pickFromSelect('BuilderAddJoin', /tier ↔ tier/);
+  }
+
+  it('extends the chain with a second hop and previews the three-dataset result', async () => {
+    await addSecondHop();
+    // The preview now runs Deals ⋈ Accounts ⋈ Owners: an Owners-source cell shows,
+    // and the effective space is 7 + 3 + 3 = 13 per-column filter triggers.
+    expect(await screen.findByText('Dana Lee')).toBeInTheDocument();
+    expect(screen.getByText('Acme')).toBeInTheDocument(); // mid (Accounts) source still present
+    await waitFor(() => expect(document.querySelectorAll('[data-component="FilterTrigger"]').length).toBe(13));
+    // The two hops render as chain rows; the last carries [Remove].
+    expect(document.querySelectorAll('[data-component="BuilderHopRow"]').length).toBe(2);
+    expect(document.querySelector('[data-component="BuilderRemoveHop"]')).not.toBeNull();
+  });
+
+  it('saves a two-hop chain from the header, returning to the read-only view', async () => {
+    await addSecondHop();
+    const saveBtn = document.querySelector('[data-component="QueryBuilderSave"]') as HTMLButtonElement;
+    // Adding the hop makes the copy dirty + the chain previews clean → Save enables.
+    await waitFor(() => expect(saveBtn).not.toBeDisabled());
+    fireEvent.click(saveBtn);
+    // The ad-hoc chain PUT round-trips; the builder closes, read-only [Edit] back.
+    await waitFor(() => expect(document.querySelector('[data-component="QueryDetailEdit"]')).not.toBeNull());
+    expect(document.querySelector('[data-component="QueryBuilderPanel"]')).toBeNull();
+  });
+
+  it('removes the last hop, collapsing the chain back to a single join', async () => {
+    await addSecondHop();
+    expect(await screen.findByText('Dana Lee')).toBeInTheDocument();
+    fireEvent.click(document.querySelector('[data-component="BuilderRemoveHop"]') as HTMLButtonElement);
+    // Back to the single-edge affordance; the Owners-source cell is gone, the
+    // Accounts-source cell remains (Deals ⋈ Accounts).
+    await waitFor(() => expect(document.querySelector('[data-component="BuilderJoinSelect"]')).not.toBeNull());
+    await waitFor(() => expect(screen.queryByText('Dana Lee')).toBeNull());
+    expect(screen.getByText('Acme')).toBeInTheDocument();
+  });
+});

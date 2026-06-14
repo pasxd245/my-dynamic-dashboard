@@ -33,8 +33,17 @@ export type QueryDefinition = {
   filters: readonly FilterPredicate[];
   /** Advanced query in DNF — an OR of AND-groups. Empty when none. */
   advanced: PredicateGroups;
-  /** R71 — present iff this Query joins two datasets via a Relationship. */
+  /** R71 — a SINGLE join (legacy wire field). R73 generalizes this to an
+   *  ordered chain (`joins`); a length-≤1 chain is still written on this field
+   *  so it stays on the R71/R72 contract until the Contract gate migrates
+   *  `join` → `joins`. Read via {@link readChain} which folds either field. */
   join?: JoinStep;
+  /** R73 — an ordered, linear chain of hops: `joins[0]` extends from the
+   *  Query's source dataset, each subsequent hop from the previous hop's right
+   *  (tail) dataset. Present (in the wire) only for a multi-hop chain (≥2);
+   *  a single join still uses {@link join}. Mirrors the J-3 design seal in
+   *  .agents/design/data-management/queries/multi-join.md. */
+  joins?: readonly JoinStep[];
 };
 
 /** A single effective column of a Query result (name + dtype). For a join,
@@ -58,7 +67,8 @@ export type Query = {
   name: string;
   definition: QueryDefinition;
   /** R71 — the effective (combined, collision-qualified) columns; present
-   *  only when `definition.join` is set. The FE renders joined headers from it. */
+   *  whenever the definition joins (a single join, or an R73 multi-hop chain).
+   *  The FE renders joined headers from it. */
   resolvedColumns?: readonly ResolvedColumn[];
   /** ISO-8601 UTC, server-stamped. */
   createdAt: string;

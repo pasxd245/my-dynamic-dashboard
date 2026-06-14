@@ -34,7 +34,7 @@ export function QueryBuilderPanel({ builder }: QueryBuilderPanelProps) {
   const [previewOpen, setPreviewOpen] = useState(true);
 
   const activeCount =
-    draft.filters.length + draft.advanced.flat().length + (draft.q ? 1 : 0) + (draft.join ? 1 : 0);
+    draft.filters.length + draft.advanced.flat().length + (draft.q ? 1 : 0) + builder.joins.length;
 
   return (
     <div
@@ -62,8 +62,10 @@ export function QueryBuilderPanel({ builder }: QueryBuilderPanelProps) {
           <JoinEditor
             datasetId={builder.datasetId}
             workspaceId={builder.workspaceId}
-            value={draft.join?.relationshipId}
-            onChange={builder.setJoin}
+            joins={builder.joins}
+            onSetJoin={builder.setJoin}
+            onAddJoin={builder.addJoin}
+            onRemoveLast={builder.removeLastJoin}
           />
           {isJoined ? (
             <Typography.Text type="secondary" style={{ fontSize: 12 }}>

@@ -187,6 +187,76 @@ export const MOCK_JOINED_ROWS: RowsPage = {
  *  run returns 409 relationship_stale, blocking the join. */
 export const MOCK_STALE_JOIN_QUERY_ID = 'qr_5ta1e000';
 
+// ─── Multi-join chain fixtures (R73 — linear multi-hop) ──────────────
+//
+// A THIRD dataset (owners) + a SECOND governed edge (accounts.tier ↔
+// owners.tier) so a chain can extend Deals ⋈ Accounts ⋈ Owners. The chain's
+// effective space is Deals.columns ++ accounts.columns ++ owners.columns
+// (7 + 3 + 3 = 13; no name collisions here, so names stay bare). The F1
+// preview handler returns MOCK_CHAIN_ROWS for a 2-hop chain.
+
+export const MOCK_DATASET_3: Dataset = {
+  id: 'ds_33333333',
+  workspaceId: MOCK_WORKSPACE.id,
+  name: 'owners',
+  sizeBytes: 12_288,
+  rowCount: 3,
+  columnCount: 3,
+  columns: [
+    { name: 'tier', dtype: 'string' },
+    { name: 'owner_name', dtype: 'string' },
+    { name: 'region', dtype: 'string' },
+  ],
+  sourceFormat: 'csv',
+  createdAt: '2026-05-24T12:00:00Z',
+};
+
+/** The second hop: accounts.tier ↔ owners.tier (drives FROM accounts, the
+ *  chain's tail after hop 1). Valid → offered by the chain editor's add. */
+export const MOCK_RELATIONSHIP_2: Relationship = {
+  id: 'rel_b2c3d4e5',
+  workspaceId: MOCK_WORKSPACE.id,
+  leftDatasetId: MOCK_DATASET_2.id,
+  leftColumn: 'tier',
+  rightDatasetId: MOCK_DATASET_3.id,
+  rightColumn: 'tier',
+  cardinality: 'one_to_many',
+  status: 'valid',
+  createdAt: '2026-06-13T09:30:00Z',
+};
+
+/** All three edges live in the workspace: hop-1 (Deals→Accounts), a stale
+ *  edge (Deals, left-drifted), and hop-2 (Accounts→Owners). */
+export const MOCK_RELATIONSHIPS_CHAIN: readonly Relationship[] = [
+  MOCK_RELATIONSHIP,
+  MOCK_STALE_RELATIONSHIP,
+  MOCK_RELATIONSHIP_2,
+];
+
+/** Row-major 2-hop chain result; cell order matches Deals(7) ++ accounts(3) ++
+ *  owners(3) = 13 columns. The inner join of MOCK_JOINED_ROWS with owners on
+ *  tier (gold/silver) yields 2 rows. */
+export const MOCK_CHAIN_ROWS: RowsPage = {
+  rows: [
+    ['D-0001', '12400', '2026-03-01', 'won', '0.95', 'true', '2026-02-28 14:02:00', 'D-0001', 'Acme', 'gold', 'gold', 'Dana Lee', 'APAC'],
+    ['D-0005', '24500', '2026-05-02', 'won', '1.00', 'true', '2026-04-22 08:11:00', 'D-0005', 'Globex', 'silver', 'silver', 'Sam Ruiz', 'EMEA'],
+  ],
+  page: 1,
+  pageSize: 50,
+  total: 2,
+};
+
+/** The chain's effective (combined) columns — Deals ++ accounts ++ owners.
+ *  `tier` exists in BOTH accounts and owners, so per the collision rule
+ *  (multi-join.md § Result-column collision) the duplicate is qualified by
+ *  dataset name on both sides (`accounts.tier` / `owners.tier`); names unique
+ *  across the chain stay bare. Cell order/values are unchanged (13 columns). */
+export const MOCK_CHAIN_COLUMNS = [
+  ...MOCK_DATASET.columns,
+  ...MOCK_DATASET_2.columns.map((c) => (c.name === 'tier' ? { ...c, name: 'accounts.tier' } : c)),
+  ...MOCK_DATASET_3.columns.map((c) => (c.name === 'tier' ? { ...c, name: 'owners.tier' } : c)),
+];
+
 // R42 YAML-example loader: read `paths.<*>.<*>.responses["200"]
 // .content["application/json"].examples[exampleName].value.rows`
 // from a contract YAML so a fixture mirrors the spec verbatim.

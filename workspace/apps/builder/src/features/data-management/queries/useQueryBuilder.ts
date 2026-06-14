@@ -14,8 +14,9 @@ import type { FilterPredicate } from '@/features/data-management/datasets/filter
 import type { PredicateGroups } from '@/features/data-management/datasets/advanced-query/types';
 import type { Column } from '@/features/data-management/datasets/types';
 import { ApiErrorThrown } from '../_shared/types';
+import { readChain, writeDef } from './chain';
 import { useQueryPreviewQuery, useUpdateQueryMutation } from './hooks';
-import type { Query, QueryDefinition, ResolvedColumn } from './types';
+import type { JoinStep, Query, QueryDefinition, ResolvedColumn } from './types';
 
 export const PREVIEW_PAGE_SIZE = 25;
 // Debounce the preview so editing fires one POST after the user settles, not
@@ -37,15 +38,15 @@ function invalidAtomCount(def: QueryDefinition, columns: readonly Column[]): num
   return def.filters.filter(bad).length + def.advanced.flat().filter(bad).length;
 }
 
-/** Normalize a saved definition to the working-copy shape so the dirty check
- *  compares like-for-like (q defaulted to null; join omitted when absent). */
+/** Normalize a saved definition to the canonical working-copy WIRE shape so the
+ *  dirty check compares like-for-like: q defaulted to null, the chain folded
+ *  through the bridge (legacy `join` and `joins` both canonicalize to the same
+ *  serialization — a length-≤1 chain on `join`, a multi-hop chain on `joins`). */
 function normalize(def: QueryDefinition): QueryDefinition {
-  return {
-    q: def.q ?? null,
-    filters: [...def.filters],
-    advanced: def.advanced.map((g) => [...g]),
-    ...(def.join ? { join: { ...def.join } } : {}),
-  };
+  return writeDef(
+    { q: def.q ?? null, filters: [...def.filters], advanced: def.advanced.map((g) => [...g]) },
+    readChain(def),
+  );
 }
 
 const EMPTY_DEF: QueryDefinition = { q: null, filters: [], advanced: [] };
@@ -99,7 +100,8 @@ export function useQueryBuilder({ query, datasetColumns, active, onDone }: UseQu
     setDebouncedDraft(draft);
   };
 
-  const isJoined = Boolean(draft.join);
+  const joins = useMemo(() => readChain(draft), [draft]);
+  const isJoined = joins.length > 0;
   const previewQuery = useQueryPreviewQuery(
     query?.workspaceId,
     query?.datasetId,
@@ -151,14 +153,24 @@ export function useQueryBuilder({ query, datasetColumns, active, onDone }: UseQu
   const clearAllFilters = () => setDraftField({ filters: [] });
   const setAdvanced = (groups: PredicateGroups) => setDraftField({ advanced: groups });
   const setQ = (q: string | null) => setDraftField({ q });
-  const setJoin = (relationshipId: string | undefined) => {
+
+  // Chain ops (R73). The draft IS the wire definition; each op folds the current
+  // chain through the bridge, mutates it, and re-serializes. A hop is always
+  // `inner` this round. `setPage(1)` because changing the source space resets
+  // the preview window.
+  const reChain = (next: readonly JoinStep[]) => {
     setPage(1);
-    setDraft((d) => {
-      const next: QueryDefinition = { q: d.q, filters: d.filters, advanced: d.advanced };
-      if (relationshipId) next.join = { relationshipId, type: 'inner' };
-      return next;
-    });
+    setDraft((d) => writeDef(d, next));
   };
+  /** Set/clear the FIRST hop in place (the R72 single-edge affordance, kept for
+   *  the single-join case). Only meaningful when the chain has ≤1 hop. */
+  const setJoin = (relationshipId: string | undefined) =>
+    reChain(relationshipId ? [{ relationshipId, type: 'inner' }] : []);
+  /** Append a hop that extends from the chain's current tail dataset (R73). */
+  const addJoin = (relationshipId: string) =>
+    reChain([...readChain(draft), { relationshipId, type: 'inner' }]);
+  /** Remove the LAST hop — the only removable position in the linear chain. */
+  const removeLastJoin = () => reChain(readChain(draft).slice(0, -1));
 
   const save = () => {
     if (!canSave || !query) return;
@@ -196,6 +208,7 @@ export function useQueryBuilder({ query, datasetColumns, active, onDone }: UseQu
     draft,
     columns,
     isJoined,
+    joins,
     page,
     setPage,
     pageSize,
@@ -214,6 +227,8 @@ export function useQueryBuilder({ query, datasetColumns, active, onDone }: UseQu
     isSaving: updateMutation.isPending,
     // editor handlers
     setJoin,
+    addJoin,
+    removeLastJoin,
     applyFilter,
     removeFilter,
     clearAllFilters,
