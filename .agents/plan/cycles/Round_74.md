@@ -1,0 +1,240 @@
+# Round 74: The join graph — let a Query join one dataset to two or more others
+
+**Status**: Planning
+**Date started**: 2026-06-14
+
+## Goal
+
+**Inherits from ← [Round_73](Round_73.md)** — R73 shipped the **linear multi-join
+chain**: `QueryDefinition.join` generalized to an ordered **`joins: JoinStep[]`**,
+`query_joined_rows` grew from a fixed two-source join into a **fold over N sources**,
+and R72's `JoinEditor` became a **`ChainEditor`** (append a hop from the **tail** /
+remove the last hop) under a **strict linear-path** constraint. It **deferred the
+non-linear topology as J-1′** with a named trigger:
+
+> _The free-form visual builder canvas / source graph and non-linear topology (a
+> dataset joined to 2+ others — a star/tree, not a path) → R74. Trigger: a Query must
+> join one dataset to two or more others — a branch the linear path cannot represent._
+> ([multi-join.md § Scope](../../design/data-management/queries/multi-join.md))
+
+R74 fills the [query-builder.md trajectory](../../design/data-management/queries/query-builder.md#the-trajectory-what-queries-grows-into)
+step reserved as **"R74 visual join canvas"** — the sixth step of the critical path
+(`data → relationships → joins → construction → multi-join → **join graph** →
+dashboards`). It is the **first time the join topology grows past a single path**.
+
+**The risk axis is the lighter twin of R73's.** R73 re-opened the model (singular
+`join` → an ordered chain) *and* the engine *and* the interaction, so it invoked
+**both** valves (the design-model confidence valve at Design **and** DFCFBI/F1 for the
+chaining UX). R74 is narrower: the model **does not re-open** — `joins: JoinStep[]`
+**already** carries each hop's explicit `leftDatasetId`/`rightDatasetId`, so it can
+already express a tree. What is linear today is an **invariant**, not the shape:
+`_resolve_chain` rejects `rel.left_dataset_id != tail.id` as `nonlinear_chain`
+([queries.py](../../../workspace/apps/backend/app/routers/queries.py)), and
+`query_joined_rows` hardcodes each hop's ON clause to the **immediately-previous**
+source `T{k}` ([rows_reader.py](../../../workspace/apps/backend/app/ingest/rows_reader.py)).
+R74 **relaxes the invariant** (each hop's left = **any prior source**, not just the
+tail) + **generalizes the engine ON-clause** (`T{k}` → `T{left_idx}`) + adds a
+**left-source `<Select>`** to the hop-list builder. So R74 carries **engine + UX
+risk**, but **not model-altitude risk** — naming which risk is present (and which
+valve it pulls) is itself the
+[dynamic-equilibrium brake](../../context/purpose.md#dynamic-equilibrium).
+
+_Track: 1 (product feature). Pulled by ← R73 J-1′ deferral + the
+[query-builder.md trajectory](../../design/data-management/queries/query-builder.md#the-trajectory-what-queries-grows-into)
+("R74 visual join canvas") + [purpose.md](../../context/purpose.md) critical path +
+key decision #4 (relationships/joins are central, not fixed). Scoped by the
+[dynamic-equilibrium brake](../../context/purpose.md#dynamic-equilibrium) and "one
+feature per round": the **connected acyclic join graph (a tree) inside the existing
+hop-list builder** only — the **free-form visual node-graph canvas** (drag nodes /
+draw edges) is deferred (J-1′ → R75)._
+
+## Judgment calls
+
+### Resolved with the human at the Plan gate (2026-06-14)
+
+| #    | Question          | Resolution                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| ---- | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| J-1  | **Scope** of R74  | **Extend the builder to a connected acyclic graph (a tree); defer the visual canvas** (ratified). Relax the linear-chain invariant so each hop's **left/driving dataset is ANY source already in the graph** (not just the tail), reusing R73's hop-list builder with a **left-source `<Select>`** per hop. **Defer the free-form drag/draw visual node-graph canvas → R75** (J-1′) until a topology genuinely needs visual editing. Mirrors the R71→R72 and R73 splits: ship the smallest generalization that the named trigger pulls — a **tree**, in the surface that already exists — and stand up the canvas only when the hop-list stops scaling. Honors **noun-vs-mode** (a mode, not a parallel `/canvas` page) + "one feature per round" + the [brake](../../context/purpose.md#dynamic-equilibrium). |
+| J-2  | **Round shape**   | **Run straight through** (ratified) — Plan → Design → build chain in one pass, **no Design-gate STOP**. Unlike R73 (which sealed-at-Design because it re-opened the model), R74 **relaxes a constraint** rather than minting a model noun: `joins: JoinStep[]` already expresses a tree, so the expensive model-altitude error R73's STOP braked is **not in play** here. The cheapest revert seam is still **per-gate commits** (each gate independently revertable); the design-model confidence valve (the **topology truth-test**) still runs at Design to *confirm* the model holds, but does not gate a STOP. |
+| J-1′ | **Sub-scope cut** | **Deferred → R75** (ratified): the **free-form visual builder canvas / source graph** (drag datasets as nodes, draw edges on a canvas). Still deferred with their standing triggers: **left / right / outer joins**, **composite / multi-column keys**, **self-joins** (a dataset joined to itself — the acyclic rule blocks revisiting a dataset), **cross-workspace** joins, **Query × Query composition** (+ the unified `ds_`/`qr_` resolver), **workflow (YAML + polars)**, **rename-in-builder**, **result materialization**, the **row-explosion guard**. R74 stays **inner, single-column-per-hop, within-workspace**, and the graph stays a **tree** (each new dataset attaches once — no diamonds/cycles). |
+
+### Deferred to the Design gate — to be resolved with the closed design (J-3, J-4)
+
+| #   | Question                                       | Held open for the Design pass                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| --- | ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| J-3 | **The topology rule + engine generalization**  | The model is settled (`joins: JoinStep[]`, each hop names its own `leftDatasetId`). What R74 must pin is the **graph rule** that replaces the linear invariant: each hop's **left** must be a dataset **already in the graph** (connected) and its **right** must be a dataset **not yet in the graph** (acyclic — a spanning **tree**, so no diamonds/self-joins; those stay deferred). The engine generalizes hop `k`'s ON clause from `T{k}` (the previous source) to **`T{left_idx}`** (the index of the hop's left source), and execution requires a **topological order** (each hop's left precedes it). This is the **topology truth-test**: does the `Relationship` edge / `JoinStep[]` model carry a tree (expected: **yes** — only the invariant + engine ON-clause generalize), and does folding a tree compose correctly (a star: D0 joined to D1 **and** D2)? Lean: **tree rule (connected + acyclic) + `T{left_idx}` engine + topo-order execution**, sealed at Design, the build free to deviate. |
+| J-4 | **Doc home + the builder's tree affordance**   | **Home:** **extend [multi-join.md](../../design/data-management/queries/multi-join.md)** (generalize its "strict linear path" to a "join graph (tree)"; the linear chain becomes the degenerate path case) vs. a **new sibling doc**. **Affordance:** the hop-list builder gains a **left-source `<Select>`** per added hop (choose which existing source to extend from), `[+ Add a join]` lists edges driving from the **chosen** source (was: the tail), and **`[Remove]` applies to any leaf hop** (a hop whose right dataset is no parent's left), not just the last. Lean: **extend multi-join.md**; **left-source `<Select>` + leaf-removal**. Sealed at Design (home/mechanism free to deviate — the [build-first](../../memory/2026-05-22-ui-boundary-build-first.md) twin). |
+
+**Invariant (the R69 → R73 anti-duplication rule):** every new/extended surface is
+**reuse** of an existing component / layout / engine, never a parallel page or a
+re-invented predicate / dtype / join engine
+([specious-model-lock-in](../../memory/2026-06-13-specious-model-lock-in.md)). The
+tree editor **extends** R73's `ChainEditor` (the same eligible-relationships
+`<Select>`, the same chip/advanced predicate editors over `resolvedColumns`, the same
+`<PagedRowsView>` preview); the **only** genuinely-new work is the **left-source
+choice** in the builder, the **relaxed graph validation**, and the **`T{left_idx}`
+engine generalization** — named honestly, not laundered through "reuse".
+
+## Plan (by gate)
+
+1. **Plan gate** — ratify J-1, J-2, J-1′ with the human; record J-3, J-4 as
+   **held open** for the Design gate. Commit the ratified round file as the Plan-gate
+   seam.
+2. **Design gate — author the join-graph (tree) design:**
+   - **Extend the multi-join design** (home per J-4): the **graph rule** (connected +
+     acyclic = a tree) replacing the linear invariant, the **`T{left_idx}` engine
+     generalization** + the **topological-order** execution requirement, the
+     **left-source `<Select>` + leaf-removal** builder affordance, the per-hop
+     **`409 relationship_stale`** gate (unchanged), the effective column space
+     (unchanged — still the ordered concat across all sources), the states, and
+     Accessibility declared (not inferred). Each acceptance criterion → ≥1 future
+     F/B/I test.
+   - **Run the design-model confidence valve (the topology truth-test):** does the
+     R70 `Relationship` edge / the `joins: JoinStep[]` model carry a **tree** join, or
+     does it re-open? Trace a concrete **star** (D0 ⋈ D1 **and** D0 ⋈ D2) end to end;
+     record the verdict (expected: the **model holds** — only the invariant + engine
+     ON-clause + builder affordance generalize). Mirrors
+     [multi-join.md § Truth-test](../../design/data-management/queries/multi-join.md).
+   - **Resolve J-3 (topology rule + engine)** and **J-4 (home + affordance)** with the
+     closed design; update [query-builder.md](../../design/data-management/queries/query-builder.md)
+     (trajectory: R73 multi-join chain **shipped**; **R74 join graph** → its home;
+     **R75 visual canvas** reserved) and cross-link the siblings.
+3. **Design-gate verification** — topology truth-test recorded; noun-vs-mode +
+   discovered-vs-imposed check; `ui-design` (design-spec) on the tree-editor surface;
+   `design:lint` / `design:tokens` / `plan:lint` / `markdown-check-link`;
+   `gate-walker` confirms the Design exit criterion; run **`flow-selector`** to
+   sequence the build chain — and **continue** (J-2: run straight through).
+
+## Acceptance criteria
+
+- [ ] **J-1, J-2, J-1′ ratified** with the human and recorded in Do; **J-3, J-4
+      recorded as held open**, then **resolved at the Design gate**.
+- [ ] **Join-graph (tree) design authored** (home per J-4) specifying: the **graph
+      rule** (connected + acyclic) replacing the linear invariant, the **`T{left_idx}`
+      engine generalization** + topo-order execution, the **left-source `<Select>` +
+      leaf-removal** builder affordance, the per-hop stale gate, the (unchanged)
+      effective column space, the states, Accessibility, and the contract intent.
+- [ ] **Design-model confidence valve invoked** (to *confirm*, not to STOP): the
+      **topology truth-test** is recorded — the `Relationship` edge / `JoinStep[]`
+      model carries a tree; only the invariant + engine ON-clause + builder affordance
+      generalize — with a verdict, named honestly (no model change is laundered under
+      "reuse", and no model change is invented where none is needed).
+- [ ] **Noun-vs-mode check passes**: the tree editor is an **extension of R73's
+      `ChainEditor`**, not a parallel `/canvas` page or a re-invented predicate / join
+      engine — the noun-vs-mode default
+      ([specious-model-lock-in](../../memory/2026-06-13-specious-model-lock-in.md)).
+- [ ] Gates green: `design:lint` 0, `design:tokens` 0, `plan:lint` 0,
+      `markdown-check-link` 0 broken, `markdownlint` 0; `ui-design` (design-spec)
+      per-facet report attached (PASS, 0 gaps); `gate-walker` confirms the Design exit
+      criterion met.
+- [ ] **Build chain green** (per `flow-selector`): FE builder tree-edit + multi-source
+      preview, Contract (no shape change — the `joins` array is unchanged; only the
+      validation invariant relaxes), Backend (`T{left_idx}` fold + graph validation),
+      Integration (one contract / dual conformance + the real-app lifecycle).
+- [ ] Each gate **committed separately** (revert seams); `flow-selector` run recorded;
+      **Complete = human-signed-off** (ran the app against the real backend and
+      exercised a star join), not gates-green
+      ([DFCFBI-F1-human-review](../../memory/2026-06-14-dfcfbi-f1-needs-human-review.md)).
+
+## What is OUT of scope
+
+- **The free-form visual builder canvas / source graph** (drag datasets as nodes,
+  draw edges on a canvas) → **R75** (J-1′). _Trigger: the hop-list + left-source
+  `<Select>` stops scaling — a topology a human can no longer read as a list._
+- **Self-joins / diamonds / general DAGs** — R74's graph is a **tree** (each new
+  dataset attaches exactly once; the acyclic rule blocks revisiting a dataset). A
+  dataset joined-into from two parents (a diamond) or to itself (a self-join) stays
+  deferred with the standing R70/R71 triggers.
+- **Left / right / outer joins, composite / multi-column keys, cross-workspace joins**
+  — standing triggers hold; R74 joins **single-column, within-workspace, inner** hops
+  only.
+- **Query × Query composition** (a Query as a join input) → later; with it the unified
+  `ds_`/`qr_` table-source resolver (R71 J-2′) earns its place.
+- **Workflow / complex query (YAML + polars); rename-in-builder; result
+  materialization / pinned snapshots; Excel export; dashboards** → downstream
+  value-out; preview + save stay **live re-run** (the R69 execution discipline).
+- **Row-explosion guard / aggregation / dedup** — a tree of `many:many` edges
+  multiplies rows even more than a chain; deferred with R71's named trigger (a join
+  too wide to be usable).
+
+## Risks / unknowns
+
+- **Engine ON-clause + topo-order is the load-bearing change.** The fold must
+  reference each hop's **left source by index** (`T{left_idx}`), and the FROM clause
+  must add sources in an order where every hop's left already exists. _Mitigation: the
+  graph is built by appending leaves to existing nodes, so the natural insertion order
+  IS a topological order; the design states it and a star test (D0 ⋈ D1 **and**
+  D0 ⋈ D2) proves the fold._
+- **Builder legibility for a tree-as-list.** A tree rendered as a flat hop list can
+  read ambiguously (which source does this hop extend?). _Mitigation: the left-source
+  `<Select>` makes each hop's parent explicit; `ui-design` (design-spec) checks the
+  affordance before F builds it; the canvas (R75) is the escape hatch when the list
+  stops scaling._
+- **Leaf-removal vs. last-only removal.** Removing a non-leaf hop would orphan its
+  descendants. _Mitigation: `[Remove]` is enabled only on **leaf** hops (a hop whose
+  right dataset is no other hop's left); the design states the rule + the disabled
+  state._
+- **Row multiplication compounds across branches.** A star of `many:many` edges
+  multiplies harder than a chain. _Mitigation: R74 keeps the live-re-run discipline
+  (no materialization) and re-flags the row-explosion guard as the named future
+  trigger; the design states the cardinality reality._
+- **Self-join / diamond temptation.** "Join graph" tempts allowing a dataset to be
+  joined twice. _Mitigation: J-1′ pins R74 to a **tree** (acyclic, each dataset once);
+  diamonds/self-joins stay deferred with their triggers._
+
+## Do
+
+### Plan-gate ratification (2026-06-14)
+
+- **J-1 → Extend the builder to a connected acyclic graph (a tree); defer the visual
+  canvas → R75.** Relax the linear invariant so each hop's left = any source already in
+  the graph; reuse R73's hop-list builder + a left-source `<Select>` per hop. One
+  feature per round.
+- **J-2 → Run straight through** — Plan → Design → build in one pass, no Design-gate
+  STOP. R74 relaxes a constraint, not the model, so R73's model-altitude STOP isn't
+  pulled; per-gate commits remain the revert seams and the topology truth-test still
+  runs at Design to confirm the model holds.
+- **J-1′ → Deferred to R75**: the free-form visual node-graph canvas; plus the
+  standing-deferred self-joins/diamonds, left/outer/composite/cross-workspace joins,
+  Query×Query composition, workflow, rename, materialization, row-explosion guard.
+- **J-3 → topology rule + engine generalization held open** for the Design gate: the
+  tree rule (connected + acyclic) + the `T{left_idx}` engine + topo-order execution.
+  The design-model confidence-valve decision + the topology truth-test (a star).
+- **J-4 → home + affordance held open** for the Design gate: extend multi-join.md
+  (lean) vs. a new sibling; left-source `<Select>` + leaf-removal.
+- **Invariant:** reuse R73's `ChainEditor` + the shipped predicate/run engines; the
+  **only** new work is the left-source choice, the relaxed validation, and the
+  `T{left_idx}` engine generalization, named honestly.
+
+## Check
+
+- [x] **J-1, J-2, J-1′ ratified** (Plan gate); **J-3, J-4 held open** → to be resolved
+      at the Design gate.
+- [ ] **Join-graph (tree) design authored** (Design gate).
+- [ ] **Design-model confidence valve + topology truth-test recorded** with a verdict.
+- [ ] **Noun-vs-mode + discovered-vs-imposed** check recorded.
+- [ ] `design:lint` 0 · `design:tokens` 0 · `plan:lint` 0 · `markdown-check-link` 0
+      broken · `markdownlint` 0.
+- [ ] `ui-design` (design-spec) on the tree-editor surface — per-facet report.
+- [ ] `flow-selector` run + result recorded.
+- [ ] **`gate-walker` (Design gate)** — exit criterion recorded.
+- [ ] **Build chain green** (per `flow-selector`): FE + Contract + Backend +
+      Integration, each its own commit seam.
+- [ ] **Human sign-off** — ran the app against the real backend + exercised a star
+      join (Complete = signed-off, not gates-green).
+
+## Act
+
+_Pending — filled at round close._
+
+## Feeds into → Round_75 (the visual join-graph canvas)
+
+R75 builds the **free-form visual builder canvas / source graph** R74 deferred
+(J-1′): drag datasets as nodes, draw join edges on a canvas, on top of R74's
+now-shipped tree topology + engine + the relaxed validation. Its named trigger is a
+topology a human can **no longer read as a hop list** — when the left-source
+`<Select>` + flat hop list stops scaling. The standing-deferred capabilities
+(self-joins / diamonds / general DAGs, left/outer joins, composite keys,
+cross-workspace, **Query × Query composition** + the unified `ds_`/`qr_` resolver,
+workflow, rename-in-builder, and a **row-explosion guard**) remain deferred with their
+named triggers.
