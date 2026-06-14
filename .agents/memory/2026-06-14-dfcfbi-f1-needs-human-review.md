@@ -50,6 +50,11 @@ exists for precisely this gap.
   `design-spec` mode only checks the *doc*.) Mechanical check + human review.
 - Hold a round at **`Review`** after the Integration gate; flip to **`Complete`**
   only once the human has run it and confirmed.
+- **Reconcile the Design doc to the as-built before Complete.** F1/human-review
+  iteration changes the build; if you align only C → F → B (via the contract) and
+  leave **D** stale, the design markdown — *the* spec / UX source of truth (O-rule)
+  — drifts "alone." Same repair R71 did for `saved-query.md`
+  ([purpose.md](../context/purpose.md) #7). Make it a blocking Review→Complete item.
 - When adding an HTTP method/route, update the backend CORS `allow_methods` — the
   harnesses don't exercise browser preflight.
 

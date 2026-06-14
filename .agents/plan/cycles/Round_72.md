@@ -591,8 +591,31 @@ for exactly this). Human review then reopened real work, so the round sits at
   file (R69-era upload→commit path; reproduced clean with the sample CSV, so it's
   file-specific). Out of R72's scope but tracked here until triaged.
 
+**Blocking exit item — reconcile the Design doc to the as-built (O-rule /
+[purpose.md](../../context/purpose.md) #7).** The F1-review iteration changed the
+build and aligned **C → F → B** through the contract, but
+[query-construction.md](../../design/data-management/queries/query-construction.md)
+(**D**) was **not** updated — so D is now stale ("alone"), describing a design we
+no longer ship. Same drift R71 reconciled for `saved-query.md`. Before Complete,
+reconcile D to the as-built; known deltas:
+
+- **Layout:** D shows a single edit view → build is **collapsible Build / Preview
+  sections** (both open by default; collapse for short screens).
+- **Filters:** D declares a `[+ Add filter]` row → build puts per-column funnels
+  in the **preview table headers** (`<PagedRowsView renderHeaderExtra>`).
+- **Actions:** header `[Cancel] [Save]` (matches D's ASCII intent); the `⬤ Editing`
+  chip was dropped; the dataset-page action is now **"Save filters as Query"** and
+  **Join** moved into the `Actions ▾` menu.
+- **J-3 (preview path):** D flagged it as an open question → **resolved to a
+  stateless `POST /workspaces/{id}/queries/preview`**; record the resolution.
+- **Page size:** add the **`PageSize` enum / `PAGE_SIZES` centralization + the `10`
+  option** (the items-per-page changer) to the Data-contract section.
+
+_Done as a single pass once the in-flight UX is committed (reconciling to a moving
+target would mean doing it twice)._
+
 Sign-off → flip back to **Complete** with the completion date once the in-flight
-UX work is committed and the human confirms the builder.
+UX work is committed, the human confirms the builder, **and D is reconciled**.
 
 ## Feeds into → Round_73 (multi-join construction — the builder canvas)
 
