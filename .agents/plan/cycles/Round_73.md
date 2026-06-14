@@ -1,8 +1,8 @@
 # Round 73: The multi-join chain — let a Query chain more than one relationship
 
-**Status**: Review (DFCFBI build D→F1→C→F2→B→I complete & green; awaiting human sign-off on the real backend — Complete = signed-off)
+**Status**: Complete
 **Date started**: 2026-06-14
-**Date completed**:
+**Date completed**: 2026-06-14
 
 ## Goal
 
@@ -479,9 +479,9 @@ mode that bit R72 (PUT-CORS) does not recur here._ Integration seam: this commit
       ASGI app (`TestClient`). Live uvicorn boots (health 200); cross-process curl
       orchestration flaky in-sandbox — noted (no new route/CORS, so R72's PUT-CORS
       mode doesn't recur).
-- [ ] **Human sign-off (Complete = signed-off, not gates-green)** — the human runs
-      the full app against the **real backend** (`enable_mock: false`) and exercises
-      the chain end to end; then Review → Complete. **Open**.
+- [x] **Human sign-off (Complete = signed-off, not gates-green)** — the human ran
+      the full app against the **real backend** (`enable_mock: false`) and exercised
+      the main chain flow end to end; signed off. **Review → Complete.**
 
 ## Act
 
@@ -537,13 +537,17 @@ chain truth-test proved out (the R70 edge needed **no revision**; only the
 UX gap. **No new engine noun, no new route, no new error code** — the chain is the
 sealed model + the grown engine, exactly as the truth-test predicted.
 
-**Status Review, not Complete (the R72 discipline).** Gates are green, but "Complete"
-means **human-signed-off**, not gates-green. The round sits at **Review** until the
-human runs the **full app against the real backend** (`enable_mock: false` — the
-chain is now real, not MSW) and exercises an end-to-end chain, then Review → Complete.
-[multi-join.md](../../design/data-management/queries/multi-join.md) is **reconciled to
-the as-built** (the O-rule): status → shipped, the `join`→`joins` wire migration +
-the BE read-shim + the JoinEditor-as-chain-editor recorded.
+**Resolved → Complete (2026-06-14).** Gates green **and** human-signed-off: the human
+ran the full app against the **real backend** (`enable_mock: false` — the chain is now
+real, not MSW) and exercised the main chain flow end to end ("looks ok"). The R72
+discipline held — "Complete" waited on hands-on sign-off, not gates-green, and the F1
+hard-stop earned its keep (it surfaced the `Bỏ`-button fidelity fix MSW/pytest could
+not). [multi-join.md](../../design/data-management/queries/multi-join.md) is
+**reconciled to the as-built** (the O-rule): status → shipped, the `join`→`joins` wire
+migration + the BE read-shim + the JoinEditor-as-chain-editor recorded. Ten gate seams
+(Plan `7793897` → Design `5cb1356` → F1 `503a860`/`1552c1c` → F1-review `8d26302` → C
+`7da0904` → F2 `c69228b` → C/F2-record `f95ace0` → B `39a42d3` → I `0efa10c`), each
+independently revertable.
 
 **Learnings (notes, not promotions):**
 
