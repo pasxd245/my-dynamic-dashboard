@@ -1,6 +1,6 @@
 # Round 75: Left / outer joins — keep unmatched rows, not just inner matches
 
-**Status**: Planning
+**Status**: Review
 **Date started**: 2026-06-14
 
 ## Goal
