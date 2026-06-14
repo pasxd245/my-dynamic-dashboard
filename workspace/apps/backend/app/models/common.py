@@ -180,14 +180,15 @@ class FilterAtom(BaseModel):
 
 class JoinStep(BaseModel):
     """One join hop. R71 introduced a single hop; R73 chains an ordered list of
-    them (`QueryDefinition.joins`). Each hop consumes a governed Relationship
-    (`rel_`) to read its right dataset; in a multi-hop chain each hop's
-    left/driving dataset is the chain's current tail (a strict linear path)."""
+    them (`QueryDefinition.joins`); R74 relaxes the topology to a connected acyclic
+    tree (each hop's left = any in-graph source). Each hop consumes a governed
+    Relationship (`rel_`) to read its right dataset. R75: `type` widens beyond
+    `inner` to the outer joins (left / right / full), which keep unmatched rows."""
 
     model_config = ConfigDict(extra="forbid")
 
     relationshipId: Annotated[str, Field(pattern=ID_PATTERNS["relationship"])]  # noqa: N815
-    type: Literal["inner"]  # MVP — inner join only
+    type: Literal["inner", "left", "right", "full"] = "inner"  # R75 — inner default + outer joins
 
 
 class QueryDefinition(BaseModel):

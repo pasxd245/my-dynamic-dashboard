@@ -561,6 +561,46 @@ def test_put_grows_a_chain_into_a_star() -> None:
 
 
 @pytest.mark.unit
+def test_outer_joins_keep_unmatched_rows() -> None:
+    # R75 — join deals.id (1,2,3) ↔ accounts.amount (42.5,17.0,99.9): integer↔float
+    # (dtype-compatible) with ZERO overlap. The join type now decides which rows
+    # survive: inner=0; left keeps all 3 left rows (right NULL); right keeps all 3
+    # right rows (left NULL); full keeps the union = 6. Proves the per-hop keyword.
+    with TestClient(app) as client:
+        ws, deals, accounts = _seed(client)
+        rel = client.post(
+            f"/workspaces/{ws}/relationships",
+            json={
+                "leftDatasetId": deals,
+                "leftColumn": "id",
+                "rightDatasetId": accounts,
+                "rightColumn": "amount",
+                "cardinality": "one_to_one",
+            },
+        ).json()["id"]
+
+        def run(kind: str) -> dict:
+            definition = {"q": None, "filters": [], "advanced": [], "joins": [{"relationshipId": rel, "type": kind}]}
+            qid = client.post(
+                f"/workspaces/{ws}/queries",
+                json={"name": kind, "datasetId": deals, "definition": definition},
+            ).json()["id"]
+            return client.get(f"/queries/{qid}/rows").json()
+
+        inner, left, right, full = (run(k) for k in ("inner", "left", "right", "full"))
+
+    assert inner["total"] == 0
+    assert left["total"] == 3
+    assert right["total"] == 3
+    assert full["total"] == 6
+    # Left join: every row keeps its 4 deals cells; the 4 accounts cells are NULL
+    # (no match), and the RowsPage shape (8 cells) is unchanged.
+    assert all(len(r) == 8 for r in left["rows"])
+    assert all(all(c is None for c in r[4:]) for r in left["rows"])
+    validate_response("queries/rows-get.contract.yaml", 200, left)
+
+
+@pytest.mark.unit
 def test_per_hop_stale_blocks_the_chain() -> None:
     # Drift the SECOND hop's key (owners.id) after save → the chain can't run →
     # 409 relationship_stale (the per-hop gate names the chain unavailable).

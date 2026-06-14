@@ -36,6 +36,16 @@ from app.ingest.filters import (
 )
 
 
+# R75 — SQL keyword per join type. `inner` keeps only matches; the outer joins
+# keep unmatched rows (NULL on the unmatched side).
+_JOIN_KEYWORDS = {
+    "inner": "INNER JOIN",
+    "left": "LEFT JOIN",
+    "right": "RIGHT JOIN",
+    "full": "FULL OUTER JOIN",
+}
+
+
 def _quote_ident(name: str) -> str:
     return '"' + name.replace('"', '""') + '"'
 
@@ -160,7 +170,7 @@ def build_effective_columns(
 def query_joined_rows(
     parquets: list[Path],
     *,
-    join_keys: list[tuple[int, str, str]],
+    join_keys: list[tuple[int, str, str, str]],
     select_exprs: list[str],
     effective_columns: list[str],
     page: int,
@@ -172,12 +182,13 @@ def query_joined_rows(
     """Return ``(rows, total)`` for one page of an INNER-join CHAIN over
     ``parquets`` (the ordered chain ``T0, T1, …, Tn``).
 
-    ``join_keys[k] = (left_idx, left_col, right_col)`` is hop ``k``'s key pair: hop
-    ``k`` joins the new source ``T{k+1}`` to an EARLIER source ``T{left_idx}`` on
-    ``T{left_idx}.left_col = T{k+1}.right_col`` (R74). When ``left_idx == k`` for
-    every hop the graph is a strict linear path (R73); a hop whose ``left_idx``
-    points at an earlier source than its predecessor's right makes the graph a
-    TREE (one source joined to two or more others — a star). Sources arrive in
+    ``join_keys[k] = (left_idx, left_col, right_col, kind)`` is hop ``k``'s key pair:
+    hop ``k`` joins the new source ``T{k+1}`` to an EARLIER source ``T{left_idx}`` on
+    ``T{left_idx}.left_col = T{k+1}.right_col`` (R74), with the SQL keyword for
+    ``kind`` ∈ {inner, left, right, full} (R75 — an outer join keeps unmatched rows,
+    NULL on the unmatched side). When ``left_idx == k`` for every hop the graph is a
+    strict linear path (R73); a hop whose ``left_idx`` points at an earlier source
+    than its predecessor's right makes the graph a TREE (a star). Sources arrive in
     topological order, so ``T{left_idx}`` is always already in the FROM clause.
     ``effective_columns`` is the output column order (collision-qualified names);
     ``filters``/``advanced`` predicates carry those effective names so the reused
@@ -203,13 +214,15 @@ def query_joined_rows(
     where_clause = ("WHERE " + " AND ".join(where_terms)) if where_terms else ""
     where_params: list[Any] = [*filter_params, *advanced_params, *q_params]
 
-    # FROM read_parquet(?) AS T0 INNER JOIN read_parquet(?) AS T{k+1}
+    # FROM read_parquet(?) AS T0 {KW} JOIN read_parquet(?) AS T{k+1}
     #   ON T{left_idx}.k = T{k+1}.k …  — each hop joins its new source against its
-    # OWN left source (R74 tree), not the immediately-previous one (R73 path).
+    # OWN left source (R74 tree), with hop k's SQL keyword (R75 — outer keeps
+    # unmatched rows). `inner` is the default; an unknown kind falls back to inner.
     from_parts = ["read_parquet(?) AS T0"]
-    for k, (left_idx, left_col, right_col) in enumerate(join_keys):
+    for k, (left_idx, left_col, right_col, kind) in enumerate(join_keys):
+        keyword = _JOIN_KEYWORDS.get(kind, "INNER JOIN")
         from_parts.append(
-            f"INNER JOIN read_parquet(?) AS T{k + 1} "
+            f"{keyword} read_parquet(?) AS T{k + 1} "
             f"ON T{left_idx}.{_quote_ident(left_col)} = T{k + 1}.{_quote_ident(right_col)}"
         )
     from_clause = " ".join(from_parts)

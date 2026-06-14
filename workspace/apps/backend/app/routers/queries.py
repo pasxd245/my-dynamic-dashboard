@@ -99,7 +99,7 @@ def _resolve_chain(
     # Map each in-graph dataset id → its position in `sources` (the engine alias
     # index T{idx}); a hop joins its new source against T{left_idx}.
     index_of = {source_ds_id: 0}
-    join_keys: list[tuple[int, str, str]] = []
+    join_keys: list[tuple[int, str, str, str]] = []
     for hop in chain:
         rel = con.execute("SELECT * FROM relationships WHERE id = ?", (hop["relationshipId"],)).fetchone()
         if rel is None:
@@ -125,7 +125,7 @@ def _resolve_chain(
             return None, "relationship_stale"
         index_of[right_ds["id"]] = len(sources)
         sources.append(right_ds)
-        join_keys.append((left_idx, rel["left_column"], rel["right_column"]))
+        join_keys.append((left_idx, rel["left_column"], rel["right_column"], hop.get("type", "inner")))
 
     effective, select_exprs = build_effective_columns(
         [(s["name"], json.loads(s["columns_json"])) for s in sources]
