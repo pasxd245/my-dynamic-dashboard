@@ -140,8 +140,12 @@ R73    multi-join chain       multi-join.md        (shipped) — chain 2+ relati
 R74    join graph (tree)      multi-join.md        (shipped) — relax the linear chain to a connected
                                                       acyclic tree: one dataset joined to 2+ others
                                                       (a star), in the same hop-list builder
-R75    visual join canvas     (future)             — a free-form source graph; drag nodes / draw edges
-later  workflow / composition (future)             — YAML + polars; a Query as input to another Query
+R75    left / outer joins     joins.md             (this round) — widen JoinStep.type beyond inner
+                                                      (left / right / full outer): keep unmatched rows
+                                                      so a relationship can be expressed, not just filtered
+later  Query × Query          (future)             — a Query as a join input; the unified ds_/qr_ resolver
+later  visual join canvas     (future)             — a free-form source graph; drag nodes / draw edges
+                                                      (deferred until the hop-list stops scaling)
 ```
 
 Each step is **pulled, not pre-built** (the Evolution Rule + the
