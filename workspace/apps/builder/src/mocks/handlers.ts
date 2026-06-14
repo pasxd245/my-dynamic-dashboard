@@ -477,6 +477,26 @@ export const handlers = [
     const page = Math.max(1, Number(url.searchParams.get('page') ?? 1));
     const pageSize = Math.max(1, Number(url.searchParams.get('page_size') ?? 25));
 
+    // R76 (composition, F1) — a `qr_` driving source: the preview is COMPOSED
+    // (built ON that saved Query), so it returns the composed effective space.
+    // The base Query's own rows + the working-copy joins fold into one virtual
+    // table; F1 mocks that with the chain fixture (the wire field `sourceId` and
+    // the real recursive resolver land at the Contract / Backend gates).
+    if (typeof body.sourceId === 'string' && body.sourceId.startsWith('qr_')) {
+      const columns = MOCK_CHAIN_COLUMNS;
+      const preds = def.filters.map(predFromAtom);
+      const aqGroups = def.advanced.map((g) => g.map(predFromAtom));
+      const matched = applyFiltersAndQ(MOCK_CHAIN_ROWS.rows, columns, preds, def.q ?? null, aqGroups);
+      const offset = (page - 1) * pageSize;
+      return HttpResponse.json({
+        rows: matched.slice(offset, offset + pageSize),
+        page,
+        pageSize,
+        total: matched.length,
+        resolvedColumns: columns,
+      });
+    }
+
     const chain = def.joins ?? [];
     if (chain.length > 0) {
       // Any stale hop blocks the whole chain (per-hop relationship_stale gate).

@@ -77,6 +77,14 @@ export function useQueryBuilder({ query, datasetColumns, active, onDone }: UseQu
     setPageSize(nextPageSize);
   };
 
+  // R76 (composition, F1) — the DRIVING source: a dataset (`ds_…`, the unchanged
+  // R69→R75 path) or a saved Query (`qr_…`) the query is built ON. Seeded from
+  // the saved source; editable in-builder via the "Build on" picker (the preview
+  // re-runs composed). Persisting a changed base is the Contract gate's job (the
+  // PUT is definition-only this round), so F1 prototypes the construction UX.
+  const [baseSourceId, setBaseSourceId] = useState<string>('');
+  const isComposed = baseSourceId.startsWith('qr_');
+
   // Seed (and re-seed) the working copy from the saved definition each time edit
   // mode opens — so re-entering after a discard starts clean. Read-only mode
   // never touches the draft (the panel is only mounted while editing).
@@ -85,6 +93,7 @@ export function useQueryBuilder({ query, datasetColumns, active, onDone }: UseQu
       const seeded = normalize(query.definition);
       setDraft(seeded);
       setDebouncedDraft(seeded);
+      setBaseSourceId(query.sourceId ?? query.datasetId);
       setPage(1);
     }
   }, [active, query?.id]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -109,6 +118,7 @@ export function useQueryBuilder({ query, datasetColumns, active, onDone }: UseQu
     page,
     pageSize,
     active && Boolean(query),
+    baseSourceId,
   );
   const preview = previewQuery.data;
   const previewPending = useMemo(
@@ -116,13 +126,14 @@ export function useQueryBuilder({ query, datasetColumns, active, onDone }: UseQu
     [debouncedDraft, draft],
   );
 
-  // Effective columns: the server-computed combined space when joined (from the
-  // live preview, falling back to the saved query's), else the source dataset's.
+  // Effective columns: the server-computed combined space when joined OR composed
+  // (R76 — a `qr_` base has its own effective space from the preview), else the
+  // source dataset's.
   const columns: Column[] = useMemo(() => {
-    if (!isJoined) return [...datasetColumns];
+    if (!isJoined && !isComposed) return [...datasetColumns];
     const resolved = preview?.resolvedColumns ?? query?.resolvedColumns;
     return resolved ? asColumns(resolved) : [];
-  }, [isJoined, datasetColumns, preview?.resolvedColumns, query?.resolvedColumns]);
+  }, [isJoined, isComposed, datasetColumns, preview?.resolvedColumns, query?.resolvedColumns]);
 
   const updateMutation = useUpdateQueryMutation();
 
@@ -206,10 +217,22 @@ export function useQueryBuilder({ query, datasetColumns, active, onDone }: UseQu
     });
   };
 
+  /** R76 (composition, F1) — pick the driving source (a dataset or a saved
+   *  Query). Changing it re-runs the preview composed; reset the page window. */
+  const setBaseSource = (sourceId: string) => {
+    setPage(1);
+    setBaseSourceId(sourceId);
+  };
+
   return {
     // identity (for the JoinEditor)
+    queryId: query?.id ?? '',
     datasetId: query?.datasetId ?? '',
     workspaceId: query?.workspaceId ?? '',
+    // R76 (composition) — the driving source + its setter for the "Build on" picker
+    baseSourceId,
+    isComposed,
+    setBaseSource,
     // working state
     draft,
     columns,

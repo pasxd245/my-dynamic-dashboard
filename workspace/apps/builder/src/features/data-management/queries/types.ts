@@ -64,6 +64,11 @@ export type Query = {
   workspaceId: string;
   /** FK → Dataset.id (the single source — D-4; the LEFT source when joined). */
   datasetId: string;
+  /** R76 (composition, FE forward-decl) — the polymorphic DRIVING source:
+   *  `ds_…` (a Dataset, default) or `qr_…` (a saved Query the Query is built ON).
+   *  Not yet on the wire — the Contract gate widens `datasetId` → `sourceId`;
+   *  until then this stays undefined on responses and `datasetId` is the source. */
+  sourceId?: string;
   /** User-supplied; unique per workspace; 1–120 chars. */
   name: string;
   definition: QueryDefinition;
@@ -94,6 +99,10 @@ export type UpdateQueryRequest = {
  *  `queries/preview.contract.yaml`. */
 export type PreviewQueryRequest = {
   datasetId: string;
+  /** R76 (composition, F1) — the driving source when it is a saved Query
+   *  (`qr_…`) rather than `datasetId`. Request-only (preview bodies aren't
+   *  contract-validated); the wire field is formalized at the Contract gate. */
+  sourceId?: string;
   definition: QueryDefinition;
 };
 

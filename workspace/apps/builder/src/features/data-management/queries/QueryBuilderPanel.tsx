@@ -62,6 +62,9 @@ export function QueryBuilderPanel({ builder }: QueryBuilderPanelProps) {
           <JoinEditor
             datasetId={builder.datasetId}
             workspaceId={builder.workspaceId}
+            baseSourceId={builder.baseSourceId}
+            queryId={builder.queryId}
+            onSetBaseSource={builder.setBaseSource}
             joins={builder.joins}
             onSetJoin={builder.setJoin}
             onAddJoin={builder.addJoin}

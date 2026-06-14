@@ -71,12 +71,22 @@ export function useQueryPreviewQuery(
   page: number,
   pageSize: number,
   enabled: boolean,
+  // R76 (composition, F1) — the driving source. When it is a saved Query
+  // (`qr_…`) the preview is COMPOSED (built on that Query); otherwise it is the
+  // source dataset (the unchanged R69→R75 path).
+  baseSourceId?: string,
 ) {
   const defKey = JSON.stringify(definition);
+  const composed = typeof baseSourceId === 'string' && baseSourceId.startsWith('qr_');
   return useQuery<QueryPreview>({
-    queryKey: ['query-preview', workspaceId, datasetId, defKey, { page, pageSize }] as const,
+    queryKey: ['query-preview', workspaceId, datasetId, baseSourceId, defKey, { page, pageSize }] as const,
     queryFn: () =>
-      queriesApi.preview(workspaceId as string, { datasetId: datasetId as string, definition }, page, pageSize),
+      queriesApi.preview(
+        workspaceId as string,
+        { datasetId: datasetId as string, definition, ...(composed ? { sourceId: baseSourceId } : {}) },
+        page,
+        pageSize,
+      ),
     enabled: enabled && typeof workspaceId === 'string' && typeof datasetId === 'string',
     placeholderData: (prev) => prev,
     retry: false,

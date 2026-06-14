@@ -438,3 +438,56 @@ describe('Multi-join chain (R73 linear) + join graph (R74 tree)', () => {
     expect(summary.textContent).not.toContain('⋈ inner ⋈');
   });
 });
+
+// R76 F1 (composition — builder prototype, FE-on-MSW). The "Build on" base-source
+// picker lists Datasets AND saved Queries; picking a Query re-runs the preview
+// COMPOSED (built on that Query → the composed effective space). The wire field
+// (`sourceId`) + persistence + the detail-page composition summary land at the
+// Contract → F2 gates (F1 is contract-safe: the picker is FE state, the preview
+// body carries the base, and the response stays the unchanged RowsPage shape).
+describe('Query × Query composition (R76 F1 — builder)', () => {
+  const JOIN_ID = MOCK_JOINED_QUERY.id;
+
+  function clickEdit() {
+    fireEvent.click(document.querySelector('[data-component="QueryDetailEdit"]') as HTMLButtonElement);
+  }
+
+  it('offers the "Build on" base-source picker listing datasets and saved queries', async () => {
+    renderApp(`/data-management/queries/${JOIN_ID}`);
+    expect(await screen.findByText(/Matched 2 rows/)).toBeInTheDocument();
+    clickEdit();
+    const base = (await waitFor(() => {
+      const el = document.querySelector('[data-component="BuilderBaseSource"]');
+      expect(el).not.toBeNull();
+      return el;
+    })) as HTMLElement;
+    // Open the dropdown → both OptGroups + a saved Query option (the current
+    // query is excluded; "Won deals over $1k" is the other workspace query).
+    fireEvent.mouseDown(base);
+    expect(await screen.findByText('Datasets', { selector: '.ant-select-item-group' })).toBeInTheDocument();
+    expect(await screen.findByText('Saved queries', { selector: '.ant-select-item-group' })).toBeInTheDocument();
+    expect(
+      await screen.findByText('Won deals over $1k', {
+        selector: '.ant-select-item-option-content,.ant-select-item-option-content *',
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it('re-runs the preview composed when a saved Query is picked as the base', async () => {
+    renderApp(`/data-management/queries/${JOIN_ID}`);
+    expect(await screen.findByText(/Matched 2 rows/)).toBeInTheDocument();
+    clickEdit();
+    // The joined preview shows 2 rows over 10 (7+3) columns before composing.
+    expect(await screen.findByText('Preview · 2 rows')).toBeInTheDocument();
+    const base = document.querySelector('[data-component="BuilderBaseSource"]') as HTMLElement;
+    fireEvent.mouseDown(base);
+    const option = await screen.findByText('Won deals over $1k', {
+      selector: '.ant-select-item-option-content,.ant-select-item-option-content *',
+    });
+    fireEvent.click(option);
+    // Composed preview: built on the Won-deals Query → the composed effective
+    // space (13 cols) with an inner cell from the deeper source visible.
+    expect(await screen.findByText('Dana Lee')).toBeInTheDocument();
+    await waitFor(() => expect(document.querySelectorAll('[data-component="FilterTrigger"]').length).toBe(13));
+  });
+});

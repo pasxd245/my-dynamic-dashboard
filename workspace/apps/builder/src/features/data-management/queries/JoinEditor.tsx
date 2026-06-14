@@ -25,6 +25,7 @@ import { useTranslation } from 'react-i18next';
 import { useDatasetsQuery } from '@/features/data-management/datasets/hooks';
 import { useRelationshipsQuery } from '@/features/data-management/relationships/hooks';
 import type { Relationship } from '@/features/data-management/relationships/types';
+import { useQueriesQuery } from './hooks';
 import type { JoinStep, JoinType } from './types';
 
 // R75 — the per-hop join types (inner default + left/right/full outer).
@@ -34,6 +35,13 @@ export type JoinEditorProps = Readonly<{
   /** The query's source (LEFT/driving) dataset — the root of the graph. */
   datasetId: string;
   workspaceId: string;
+  /** R76 (composition, F1) — the driving source id (a `ds_…` dataset or a
+   *  `qr_…` saved Query the query is built ON) + its setter, for the "Build on"
+   *  picker. The current query is excluded from the Query options (self-base is
+   *  the trivial cycle the Backend guard rejects). */
+  baseSourceId: string;
+  queryId: string;
+  onSetBaseSource: (sourceId: string) => void;
   /** The working-copy hops (ordered, topological); empty when single-source. */
   joins: readonly JoinStep[];
   /** Set/clear the FIRST hop in place (the R72 single-edge affordance). */
@@ -49,6 +57,9 @@ export type JoinEditorProps = Readonly<{
 export function JoinEditor({
   datasetId,
   workspaceId,
+  baseSourceId,
+  queryId,
+  onSetBaseSource,
   joins,
   onSetJoin,
   onAddJoin,
@@ -60,9 +71,15 @@ export function JoinEditor({
   const rels = useMemo(() => relationshipsQuery.data ?? [], [relationshipsQuery.data]);
   const relById = useMemo(() => new Map(rels.map((r) => [r.id, r])), [rels]);
   const datasetsQuery = useDatasetsQuery(workspaceId);
-  const dsNameById = useMemo(
-    () => new Map((datasetsQuery.data ?? []).map((d) => [d.id, d.name])),
-    [datasetsQuery.data],
+  const datasets = useMemo(() => datasetsQuery.data ?? [], [datasetsQuery.data]);
+  const dsNameById = useMemo(() => new Map(datasets.map((d) => [d.id, d.name])), [datasets]);
+  // R76 — the saved Queries in this workspace are also selectable as the base
+  // source (a Query is the same readable-table-source kind as a Dataset). The
+  // current query is excluded (a query can't be built on itself).
+  const queriesQuery = useQueriesQuery(workspaceId);
+  const baseQueries = useMemo(
+    () => (queriesQuery.data ?? []).filter((q) => q.id !== queryId),
+    [queriesQuery.data, queryId],
   );
 
   const optionLabel = (r: Relationship) =>
@@ -133,6 +150,29 @@ export function JoinEditor({
 
   return (
     <div data-component="JoinEditor" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      {/* ── Build on: the driving source — a Dataset or a saved Query (R76) ──── */}
+      <Typography.Text strong style={{ fontSize: 12 }} id="builder-base-label">
+        {t('queries.builder.baseSourceLabel')}
+      </Typography.Text>
+      <Select
+        value={baseSourceId || undefined}
+        onChange={(v: string) => onSetBaseSource(v)}
+        style={{ width: '100%' }}
+        aria-labelledby="builder-base-label"
+        placeholder={t('queries.builder.baseSourcePlaceholder')}
+        options={[
+          {
+            label: t('queries.builder.baseSourceDatasets'),
+            options: datasets.map((d) => ({ value: d.id, label: d.name })),
+          },
+          {
+            label: t('queries.builder.baseSourceQueries'),
+            options: baseQueries.map((q) => ({ value: q.id, label: q.name })),
+          },
+        ]}
+        data-component="BuilderBaseSource"
+      />
+
       <Typography.Text strong style={{ fontSize: 12 }} id="builder-join-label">
         {t(joins.length >= 2 ? 'queries.builder.joinsLabel' : 'queries.builder.joinLabel')}
       </Typography.Text>

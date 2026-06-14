@@ -1,7 +1,7 @@
 # Round 76: Query × Query composition — let a Query read another Query as a join input
 
-**Status**: In Progress (Plan + Design gates closed; **sealed, STOP for human model
-review per J-2** before the build chain)
+**Status**: In Progress (Plan + Design closed; model review passed; **F1 built — STOP for
+human hands-on review** before Contract)
 **Date started**: 2026-06-14
 **Flow**: DFCFBI (triggers 1, 5 — set at the Design gate, locked)
 
@@ -228,9 +228,43 @@ _Structural check only — the modelling answer's correctness is the human revie
 the STOP._
 
 **Design gate closed → SEAL-THEN-STOP (J-2).** The closed model is sealed; gate seams:
-Plan `0c092bc` → Design (this commit). **STOP for human model review** — the build chain
-(D → F1 → C → F2 → B → I) resumes **only on the human's go-ahead**, because R76 re-opens the
-source-reference model (R73's model-altitude doctrine).
+Plan `0c092bc` → Design `389faf2`. **Human model review PASSED (2026-06-14)** — approved
+the base-only composition model (`sourceId: ds_|qr_`, recursive resolver, cycle guard,
+relationships unchanged); the `qr_`-on-the-right fork stays deferred. Build chain
+(D → F1 → C → F2 → B → I) proceeds.
+
+### Gate F1 — Frontend prototype (DFCFBI, human-reviewed) — (2026-06-14)
+
+DFCFBI's F1 is the FE-on-MSW prototype the human runs before Contract. **Scoped to the
+builder picker** (resolved with the human): F1 runs **before** the Contract gate, and MSW
+response-validation (`additionalProperties: false`) blocks new wire fields until C — so F1
+is **contract-safe** (the picker is FE state, the preview body carries the base, the
+response stays the unchanged `RowsPage` shape). Mirrors R73/R74's F1 (builder + preview,
+human-reviewed); the detail-page composition summary + cycle/base-stale states + the
+`sourceId`/`composition_cycle` **wire** move to **C → F2**.
+
+**Built:** a **"Build on" base-source `<Select>`** in the `JoinEditor` (`BuilderBaseSource`,
+labelled, two text `<OptGroup>`s — _Datasets_ + _Saved queries_; the current query excluded
+as the trivial self-cycle); `useQueryBuilder` holds the driving `baseSourceId` (seeded from
+`query.sourceId ?? query.datasetId`) + `setBaseSource`, threaded into the preview so picking
+a `qr_` re-runs **composed** (`isComposed` → the composed effective space); the MSW preview
+handler branches on a `qr_` base. `Query.sourceId?` + `PreviewQueryRequest.sourceId?` are
+FE forward-decls (request-only). i18n in **en + vi**.
+
+**F1 gate green:** `type-check` clean; `queries.test.tsx` **25/25** (+2 R76: the picker lists
+Datasets + Saved queries; picking a Query re-runs the preview composed → 13-col effective
+space). Seam: this commit.
+
+**As-built notes (O-rule, for C/F2):** ① The base-source picker is the new affordance, but a
+**changed base does not persist** in F1 (the PUT is definition-only; `sourceId` is identity,
+not in the definition) — **the Contract gate adds `sourceId` to create/preview/get** and F2
+wires persistence. ② The composed preview is **mocked with the chain fixture** (the real
+recursive `ds_`/`qr_` resolver + provenance match is the **Backend** gate). ③ The **detail-page
+composition summary + cycle/base-unavailable states** are **F2** (they need the `sourceId` /
+`composition_cycle` wire C formalizes).
+
+**F1 STOP — human hands-on review.** Per DFCFBI doctrine (gates can't see layout/feel), F1
+hard-stops for the human to **run the app** and exercise the "Build on" picker before Contract.
 
 ## Check
 
@@ -251,10 +285,11 @@ source-reference model (R73's model-altitude doctrine).
       `<OptGroup>`s).
 + [x] `flow-selector` run + result recorded — **DFCFBI (triggers 1, 5)**.
 + [x] **`gate-walker` (Design gate)** — exit criterion + model checks + commit seam recorded.
-+ [x] **Design sealed + STOP for human model review** (J-2) — build chain pends the go-ahead.
-+ [ ] **Build chain green** (after the STOP): C (source-ref + cycle error) · F (unified
-      source `<Select>` + composed preview) · B (recursive resolver + cycle guard) · I
-      (dual conformance + compose-Query lifecycle + cycle rejection).
++ [x] **Design sealed + human model review PASSED** (J-2) — base-only model approved; build proceeds.
++ [ ] **Build chain green** (DFCFBI D→F1→C→F2→B→I): **F1** — base-source picker + composed
+      preview, `type-check` clean, `queries.test.tsx` **25/25** (this commit), **human-reviewed
+      (F1 STOP)**; C (source-ref + `composition_cycle`) · F2 (composition summary + states) ·
+      B (recursive resolver + cycle guard) · I (dual conformance + compose lifecycle + cycle rejection).
 + [ ] **Human sign-off** — ran the app against the real backend + built + ran a Query that
       joins another Query (Complete = signed-off, not gates-green).
 
