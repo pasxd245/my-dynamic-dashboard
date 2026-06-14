@@ -624,6 +624,19 @@ link-check clean. Final green: builder **141/141**, backend **176/176**, contrac
 **24/24**. The Review→Complete pass added a real check (D-reconciliation) that the
 premature first "Complete" had skipped — the `Review` status earned its keep.
 
+**Reconciliation completeness (2026-06-14, human-caught).** The first
+D-reconciliation was **under-scoped** — I read "D" as only the round's primary doc
+(`query-construction.md`), but R72's **cross-cutting** changes (the
+"Save filters as Query" relabel, **Join → `Actions ▾`**, the centralized
+`PageSize` set, and **editing-predicates now shipped**) also drifted **sibling
+design docs**. Extended the reconciliation to them:
+[dataset-detail.md](../../design/data-management/datasets/dataset-detail.md) (actions-row
+ASCII → relabel + Join-in-Actions; page-size → `10/25/50/100`) and
+[saved-query.md](../../design/data-management/queries/saved-query.md) (as-built note;
+the "editing predicates → deferred" scope item **closed → shipped R72**; page-size).
+Lesson sharpened in [the memory](../../memory/2026-06-14-dfcfbi-f1-needs-human-review.md):
+reconcile **every** design doc a change touches, not just the round's own.
+
 > **Carried follow-up (not an R72 blocker):** the **`/datasets/batch` 500** for a
 > specific uploaded file is an **R69-era upload→commit** bug (reproduced clean
 > with the sample CSV — file-specific), outside R72's construction-surface scope.

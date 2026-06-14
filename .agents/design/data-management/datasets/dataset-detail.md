@@ -22,7 +22,10 @@ reused here),
 filters layered on this page; R37 design, R38→R40 impl chain),
 [saved-query.md](../queries/saved-query.md) (R69 — the **second consumer** of this
 page's paged-rows body, which it shares via the extracted `<PagedRowsView>`;
-also the destination of this page's `[+ Save as Query]` action),
+also the destination of this page's **Save filters as Query** action),
+[query-construction.md](../queries/query-construction.md) (R72 — consolidated this
+page's header actions: **Join with related dataset** moved into the `Actions ▾`
+menu, **Save as Query** relabelled **Save filters as Query**),
 [workspace-shell.target.md](../../_platform/workspace-shell.target.md) (the chrome
 this page renders inside).
 
@@ -125,9 +128,10 @@ data table.
 
 ```text
                                           ┌──────── PageHeader.actions ────────┐
-Home ▸ … ▸ q1_pipeline_Deals       [+ Save as Query]  [Rename]  [Delete] │
+Home ▸ … ▸ q1_pipeline_Deals        [Save filters as Query]   [Actions ▾]     │
 📊 q1_pipeline_Deals                                                                  │
 Excel · Sheet1 — 2,481 rows · 12 columns · 84 KB · Uploaded 14:02 today  ─────────────┘
+                                  Actions ▾ = Join with related dataset · Rename · Delete
 
 ┌──────────────────────────────────────────────────────────────────────────────────┐
 │  PageCard                                                                         │
@@ -397,7 +401,7 @@ stateDiagram-v2
 - Route: `/data-management/datasets/:id` where `:id` matches
   `^ds_[0-9a-f]{8}$`.
 - Query params: `?page=N&page_size=M` (both 1-indexed page,
-  page_size ∈ {25, 50, 100}). Both omitted → defaults to
+  page_size ∈ {10, 25, 50, 100}). Both omitted → defaults to
   `page=1&page_size=50`.
 - Page-size change resets `page` to 1 (AntD default; documented
   explicitly so the cache key invalidation works as expected).
@@ -576,7 +580,7 @@ paths:
           required: false
           schema:
             type: integer
-            enum: [25, 50, 100]
+            enum: [10, 25, 50, 100]
             default: 50
         - name: q
           in: query
@@ -613,7 +617,7 @@ paths:
                     minimum: 1
                   pageSize:
                     type: integer
-                    enum: [25, 50, 100]
+                    enum: [10, 25, 50, 100]
                   total:
                     type: integer
                     minimum: 0
@@ -744,7 +748,7 @@ metadata, page through its rows, and search for a row by substring.
    icon and dataset name.
 2. **Paged table** _(FE + BE)_ — `useDatasetRowsQuery(id, page,
    pageSize)` renders rows from `GET /datasets/{id}/rows?page=&page_size=`
-   with an AntD `<Pagination>` (page sizes 25 / 50 / 100 + jumper);
+   with an AntD `<Pagination>` (page sizes 10 / 25 / 50 / 100 + jumper);
    `page` / `page_size` live in the URL and a page-size change resets
    `page` to 1.
 3. **Cell rendering** _(FE)_ — driven by `Dataset.columns[].dtype`:

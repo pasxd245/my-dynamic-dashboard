@@ -17,6 +17,16 @@ semantics.
 **Status**: Accepted (R69 design + shipped R69 — full DCFBI chain;
 **relocated to `queries/` + reframed R70**). Supersedes the discarded new-noun
 `queries.md`.
+
+> **As-built deltas since (reconciled R72).** ① The dataset-page action is now
+> **"Save filters as Query"** (relabelled from "Save as Query"; the `[+ Save as
+> Query]` references below are the R69 record). ② **Editing a saved query's
+> predicates is now SHIPPED** — the construction surface
+> ([query-construction.md](query-construction.md), R72) makes the definition
+> editable (join + cross-source predicates) with a live preview; the "deferred"
+> scope item below is closed. ③ **Page size** is now the centralized
+> **`10 / 25 / 50 / 100`** ([_shared/pagination.yaml#/PageSize](../../../../workspace/packages/contracts/_shared/pagination.yaml)).
+
 **Round introduced**: [Round_69](../../../plan/cycles/Round_69.md) — the redo of
 the discarded first R69, on the corrected "Query is a virtual Dataset" footing.
 **Relocated + reframed**: [Round_70](../../../plan/cycles/Round_70.md) —
@@ -454,9 +464,11 @@ stateDiagram-v2
     NotFound --> Redirect: click "Back to Queries"
 ```
 
-- **URL state**: `?page=N&page_size=M` (page_size ∈ {25, 50, 100}), same
-  convention as dataset-detail.md. Predicates are **not** in the URL here — they
-  live in the saved definition; the view is read-only on predicates this round.
+- **URL state**: `?page=N&page_size=M` (page_size ∈ {10, 25, 50, 100} — the
+  centralized [`PageSize`](../../../../workspace/packages/contracts/_shared/pagination.yaml)
+  set, R72), same convention as dataset-detail.md. Predicates are **not** in the URL
+  here — they live in the saved definition; the read-only view does not edit them
+  (editing is the construction surface, [query-construction.md](query-construction.md)).
 - **Predicate summary** renders the definition as read-only `<Tag>`s using
   `groupsToText` / the chip-label formatter (no remove `×`).
 - **Matched counter**: _"Matched X / Y"_ where `X` = run `total`, `Y` =
@@ -627,10 +639,12 @@ chain):
   stable `qr_` id + top-level URL is the setup for it.
 - **Workflow / complex query** (YAML + polars, the `hg_code` pattern) → R72.
 - **Versioning + execution logging** → when history / audit is a real need.
-- **Editing a saved query's predicates / overwrite / "save changes"** → this
-  round is save + read + run. _Trigger: a user repeatedly re-saves
-  near-identical queries to tweak one predicate._ Until then, repair = re-save
-  from the dataset page.
+- **Editing a saved query's predicates / overwrite / "save changes"** → **SHIPPED
+  R72** (the trigger fired): the construction surface
+  ([query-construction.md](query-construction.md)) makes the saved definition
+  editable (join + cross-source predicates) with a live preview, persisted via
+  `PUT /queries/{id}`. _(R69 shipped save + read + run only; this scope item is
+  now closed.)_
 - **A unified table-source resolver** replacing the per-noun `/rows` routes →
   flagged for the Contract gate; the smaller separate-route step is the default.
 - **Result materialization / pinned snapshots** → when live re-run is too slow

@@ -55,6 +55,14 @@ exists for precisely this gap.
   leave **D** stale, the design markdown — *the* spec / UX source of truth (O-rule)
   — drifts "alone." Same repair R71 did for `saved-query.md`
   ([purpose.md](../context/purpose.md) #7). Make it a blocking Review→Complete item.
+- **"Reconcile D" means EVERY design doc the change touched, not just the round's
+  own.** Cross-cutting changes — a relabel, an action moved between surfaces, a
+  shared/centralized enum, a previously-deferred scope item now shipped — drift
+  *sibling* docs too. In R72 the primary doc was reconciled but `dataset-detail.md`
+  and `saved-query.md` stayed stale until a human asked "how about other design?"
+  (the 4th "declared done, wasn't fully" of the round). Grep the design corpus for
+  the specific things the change altered (old label, old enum literal, the
+  "deferred" line that's now shipped) — don't trust that one doc covers it.
 - When adding an HTTP method/route, update the backend CORS `allow_methods` — the
   harnesses don't exercise browser preflight.
 
