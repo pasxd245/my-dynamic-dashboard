@@ -1,8 +1,8 @@
 # Round 72: The interactive query-construction surface — make a joined Query buildable, not just create-able
 
-**Status**: Review
+**Status**: Complete
 **Date started**: 2026-06-13
-**Date completed**:
+**Date completed**: 2026-06-14
 
 ## Goal
 
@@ -614,8 +614,20 @@ reconcile D to the as-built; known deltas:
 _Done as a single pass once the in-flight UX is committed (reconciling to a moving
 target would mean doing it twice)._
 
-Sign-off → flip back to **Complete** with the completion date once the in-flight
-UX work is committed, the human confirms the builder, **and D is reconciled**.
+**Resolved → Complete again (2026-06-14).** All three reopen conditions closed:
+the human **ran the builder and signed off**; the in-flight UX (collapsible
+Build/Preview, header Save/Cancel, items-per-page changer, page-size
+centralization) is **committed**; and **D was reconciled** to the as-built
+([query-construction.md](../../design/data-management/queries/query-construction.md),
+`dcc5ff4`) — all six deltas above folded in, design:lint/tokens/markdownlint/
+link-check clean. Final green: builder **141/141**, backend **176/176**, contracts
+**24/24**. The Review→Complete pass added a real check (D-reconciliation) that the
+premature first "Complete" had skipped — the `Review` status earned its keep.
+
+> **Carried follow-up (not an R72 blocker):** the **`/datasets/batch` 500** for a
+> specific uploaded file is an **R69-era upload→commit** bug (reproduced clean
+> with the sample CSV — file-specific), outside R72's construction-surface scope.
+> Tracked for triage in a later round, not a gate on R72.
 
 ## Feeds into → Round_73 (multi-join construction — the builder canvas)
 
