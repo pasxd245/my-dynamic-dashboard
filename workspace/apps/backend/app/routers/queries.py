@@ -30,8 +30,14 @@ from fastapi.responses import JSONResponse, Response
 from app._generated.constants import ID_PATTERNS, PAGE_SIZES
 from app.db import get_conn
 from app.ingest.filters import build_definition_predicates
-from app.ingest.rows_reader import build_effective_columns, query_dataset_rows, query_joined_rows
+from app.ingest.rows_reader import (
+    build_effective_columns,
+    build_joined_select,
+    query_dataset_rows,
+    query_joined_rows,
+)
 from app.models.common import (
+    ApiErrorCompositionCycle,
     ApiErrorNameTaken,
     ApiErrorNotFound,
     ApiErrorQueryStale,
@@ -56,6 +62,9 @@ QueryIdPath = Annotated[str, FastApiPath(pattern=ID_PATTERNS["query"])]
 
 _PAGE_SIZE_ALLOWED = PAGE_SIZES  # R72 — centralized (values.yaml → constants)
 
+_SELECT_DATASET = "SELECT * FROM datasets WHERE id = ?"
+_SELECT_QUERY = "SELECT * FROM queries WHERE id = ?"
+
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -75,30 +84,104 @@ def _chain_of(definition: dict) -> list[dict]:
     return [legacy] if legacy else []
 
 
-def _resolve_chain(
-    con: sqlite3.Connection, chain: list[dict], source_ds_id: str, workspace_id: str
-) -> tuple[dict | None, str | None]:
-    """Resolve a join GRAPH against current schemas. Returns ``(payload, None)``
-    when every hop is runnable, else ``(None, reason)``. The reason lets callers
-    map to their own status — create/update → 422 (unsavable), run → 409
-    relationship_stale (join unavailable). R71's single join is the length-1 case.
+def _parquet_of(row: sqlite3.Row) -> str:
+    """The committed parquet path for a dataset row."""
+    return str(dataset_dir(row["workspace_id"], row["id"]) / "parsed.parquet")
 
-    Enforces the TREE invariant (R74, relaxing R73's linear path): each hop's left
-    dataset must ALREADY be in the graph (connected) — else ``disconnected_join`` —
-    and its right dataset must NOT yet be in the graph (acyclic — a spanning tree,
-    no diamonds/self-joins) — else ``cyclic_join``. The hops are stored in
-    topological order, so each hop's left precedes it; its index in ``sources``
-    becomes the engine's ``left_idx``. The linear chain (each hop's left = the
-    prior tail) is the degenerate path case. Reuses R70's dtype-compat check per
-    hop, so a drifted join key surfaces exactly as the governance layer computes
-    `stale`."""
-    source_ds = con.execute("SELECT * FROM datasets WHERE id = ?", (source_ds_id,)).fetchone()
-    if source_ds is None:
+
+def resolve_source(
+    con: sqlite3.Connection, source_id: str, workspace_id: str, visited: frozenset[str]
+) -> tuple[dict | None, str | None]:
+    """Resolve a DRIVING table-source to a SQL relation (R76 — the unified
+    ``ds_``/``qr_`` resolver, J-2′). Returns ``(info, None)`` or ``(None, reason)``,
+    where ``info`` is ``{relation: (sql, params), columns, dataset_ids, name}``:
+
+    - a Dataset (``ds_…``) → ``read_parquet(?)`` over its parquet, raw columns.
+    - a saved Query (``qr_…``) → its full typed SELECT (its own driving source +
+      joins + its OWN filters) wrapped ``( … )`` as a sub-relation, exposing its
+      EFFECTIVE columns. RECURSES (its base may itself be composed); a ``qr_``
+      already on the recursion path is a **composition cycle** (``visited``)."""
+    if source_id.startswith("qr_"):
+        if source_id in visited:
+            return None, "composition_cycle"
+        qrow = con.execute(_SELECT_QUERY, (source_id,)).fetchone()
+        if qrow is None or qrow["workspace_id"] != workspace_id:
+            return None, "composition_base_missing"
+        base_def = json.loads(qrow["definition_json"])
+        base_src = qrow["source_id"] or qrow["dataset_id"]
+        payload, reason = _resolve_chain(
+            con, base_src, _chain_of(base_def), workspace_id, visited | {source_id}
+        )
+        if reason is not None:
+            return None, reason
+        # The base's OWN filters define its virtual table (baked into the sub-relation).
+        try:
+            b_filters, b_advanced = build_definition_predicates(base_def, payload["effective"])
+        except HTTPException:
+            return None, "relationship_stale"
+        sql, params = build_joined_select(
+            payload["relations"],
+            join_keys=payload["join_keys"],
+            select_exprs=payload["select_exprs"],
+            effective_columns=[c["name"] for c in payload["effective"]],
+            q=base_def.get("q"),
+            filters=b_filters,
+            advanced=b_advanced,
+        )
+        return (
+            {
+                "relation": (f"({sql})", params),
+                "columns": payload["effective"],
+                "dataset_ids": payload["dataset_ids"],
+                "name": qrow["name"],
+            },
+            None,
+        )
+
+    ds = con.execute(_SELECT_DATASET, (source_id,)).fetchone()
+    if ds is None or ds["workspace_id"] != workspace_id:
         return None, "relationship_dataset_missing"
-    sources = [source_ds]
-    # Map each in-graph dataset id → its position in `sources` (the engine alias
-    # index T{idx}); a hop joins its new source against T{left_idx}.
-    index_of = {source_ds_id: 0}
+    return (
+        {
+            "relation": ("read_parquet(?)", [_parquet_of(ds)]),
+            "columns": json.loads(ds["columns_json"]),
+            "dataset_ids": {ds["id"]},
+            "name": ds["name"],
+        },
+        None,
+    )
+
+
+def _resolve_chain(
+    con: sqlite3.Connection,
+    source_id: str,
+    chain: list[dict],
+    workspace_id: str,
+    visited: frozenset[str] = frozenset(),
+) -> tuple[dict | None, str | None]:
+    """Resolve a join GRAPH (driving source + hops) against current schemas.
+    Returns ``(payload, None)`` when runnable, else ``(None, reason)`` — callers map
+    the reason to their status (create/update → 422 / 409 composition_cycle; run →
+    409 relationship_stale / composition_cycle). R71's single join is length-1.
+
+    The DRIVING source (``T0``) is polymorphic (R76): a Dataset, or a composed Query
+    sub-relation (via ``resolve_source``, which recurses + cycle-guards). The hops
+    join DATASETS via governed ``rel_`` edges (endpoints stay dataset↔dataset this
+    round). The TREE invariant (R74) generalizes: a hop's left dataset must be a
+    member of some source already in the graph — including a dataset INSIDE a
+    composed base (provenance) — else ``disconnected_join``; its right must be new,
+    else ``cyclic_join``. The join key must still exist with compatible dtypes on
+    both sides (R70's check); a drift, or a base that doesn't expose the left key
+    under its effective name, → ``relationship_stale``."""
+    t0, reason = resolve_source(con, source_id, workspace_id, visited)
+    if reason is not None:
+        return None, reason
+    # Per source: its (qualified) columns + the leaf dataset ids it reads. A hop's
+    # left dataset is matched against these sets (provenance), so a composed base's
+    # inner datasets are joinable targets.
+    source_cols: list[tuple[str, list[dict]]] = [(t0["name"], t0["columns"])]
+    dataset_id_sets: list[set[str]] = [set(t0["dataset_ids"])]
+    relations = [t0["relation"]]
     join_keys: list[tuple[int, str, str, str]] = []
     for hop in chain:
         rel = con.execute("SELECT * FROM relationships WHERE id = ?", (hop["relationshipId"],)).fetchone()
@@ -106,50 +189,56 @@ def _resolve_chain(
             return None, "unknown_relationship"
         if rel["workspace_id"] != workspace_id:
             return None, "cross_workspace_relationship"
-        # Tree invariant: the hop's left must already be in the graph (connected);
-        # its right must be new (acyclic — a tree, not a diamond/self-join).
-        left_idx = index_of.get(rel["left_dataset_id"])
+        left_idx = next((i for i, ids in enumerate(dataset_id_sets) if rel["left_dataset_id"] in ids), None)
         if left_idx is None:
             return None, "disconnected_join"
-        if rel["right_dataset_id"] in index_of:
+        if any(rel["right_dataset_id"] in ids for ids in dataset_id_sets):
             return None, "cyclic_join"
-        left_ds = sources[left_idx]
-        right_ds = con.execute("SELECT * FROM datasets WHERE id = ?", (rel["right_dataset_id"],)).fetchone()
+        right_ds = con.execute(_SELECT_DATASET, (rel["right_dataset_id"],)).fetchone()
         if right_ds is None:
             return None, "relationship_dataset_missing"
-        left_cols = json.loads(left_ds["columns_json"])
+        left_cols = source_cols[left_idx][1]
         right_cols = json.loads(right_ds["columns_json"])
-        # The join key must still exist on both sides with compatible dtypes (the
-        # rule R70 governs the edge by). A drift here = the graph can't run.
+        # The join key must exist on both sides with compatible dtypes. For a
+        # composed base, `left_cols` are its EFFECTIVE columns: a missing/qualified
+        # key (provenance ambiguity) → `_dtype_of` None → relationship_stale, not a
+        # silently-wrong join (composition.md § join-key provenance).
         if not _compatible(_dtype_of(left_cols, rel["left_column"]), _dtype_of(right_cols, rel["right_column"])):
             return None, "relationship_stale"
-        index_of[right_ds["id"]] = len(sources)
-        sources.append(right_ds)
+        relations.append(("read_parquet(?)", [_parquet_of(right_ds)]))
+        source_cols.append((right_ds["name"], right_cols))
+        dataset_id_sets.append({right_ds["id"]})
         join_keys.append((left_idx, rel["left_column"], rel["right_column"], hop.get("type", "inner")))
 
-    effective, select_exprs = build_effective_columns(
-        [(s["name"], json.loads(s["columns_json"])) for s in sources]
-    )
+    effective, select_exprs = build_effective_columns(source_cols)
     return (
         {
-            "sources": sources,
+            "relations": relations,
             "join_keys": join_keys,
             "effective": effective,
             "select_exprs": select_exprs,
+            "dataset_ids": set().union(*dataset_id_sets),
         },
         None,
     )
 
 
+def _is_multi_source(source_id: str, chain: list[dict]) -> bool:
+    """True when the run needs the join engine: a composed (`qr_`) driving source
+    OR at least one join hop. A bare dataset with no hops is single-source."""
+    return source_id.startswith("qr_") or bool(chain)
+
+
 def _resolved_columns(
-    con: sqlite3.Connection, definition: dict, source_ds_id: str, workspace_id: str
+    con: sqlite3.Connection, definition: dict, source_id: str, workspace_id: str
 ) -> list[Column] | None:
-    """The effective columns for a joined query (None for single-source, or when
-    the chain no longer resolves — get/list never error, they just omit it)."""
+    """The effective columns for a multi-source query (joined or composed); None
+    for a single dataset source, or when the graph no longer resolves (get/list
+    never error — they just omit it)."""
     chain = _chain_of(definition)
-    if not chain:
+    if not _is_multi_source(source_id, chain):
         return None
-    payload, reason = _resolve_chain(con, chain, source_ds_id, workspace_id)
+    payload, reason = _resolve_chain(con, source_id, chain, workspace_id)
     if reason is not None:
         return None
     return [Column(name=c["name"], dtype=c["dtype"]) for c in payload["effective"]]
@@ -164,11 +253,11 @@ def _execute_chain(
     filters: list,
     advanced: list,
 ) -> tuple[list[list[str | None]], int]:
-    """Run a resolved chain plan through the N-source engine (shared by the saved
-    run + the stateless preview)."""
-    parquets = [dataset_dir(s["workspace_id"], s["id"]) / "parsed.parquet" for s in payload["sources"]]
+    """Run a resolved graph plan through the unified engine (shared by the saved
+    run + the stateless preview). Each source is a parquet leaf or a composed
+    sub-relation (R76)."""
     return query_joined_rows(
-        parquets,
+        payload["relations"],
         join_keys=payload["join_keys"],
         select_exprs=payload["select_exprs"],
         effective_columns=[c["name"] for c in payload["effective"]],
@@ -182,13 +271,15 @@ def _execute_chain(
 
 def _query_from_row(con: sqlite3.Connection, row: sqlite3.Row) -> QueryModel:
     definition = json.loads(row["definition_json"])
+    source_id = row["source_id"] or row["dataset_id"]
     return QueryModel(
         id=row["id"],
         workspaceId=row["workspace_id"],
         datasetId=row["dataset_id"],
+        sourceId=row["source_id"] or None,
         name=row["name"],
         definition=QueryDefinition(**definition),
-        resolvedColumns=_resolved_columns(con, definition, row["dataset_id"], row["workspace_id"]),
+        resolvedColumns=_resolved_columns(con, definition, source_id, row["workspace_id"]),
         createdAt=row["created_at"],
     )
 
@@ -201,8 +292,10 @@ def create_query(id: WsIdPath, body: CreateQueryBody) -> JSONResponse:  # noqa: 
     per workspace."""
     definition_dict = body.definition.model_dump()
     chain = _chain_of(definition_dict)
+    # R76 — the driving source: the composed base (`qr_`) if given, else the dataset.
+    source_id = body.sourceId or body.datasetId
     with get_conn() as con:
-        ds = con.execute("SELECT * FROM datasets WHERE id = ?", (body.datasetId,)).fetchone()
+        ds = con.execute(_SELECT_DATASET, (body.datasetId,)).fetchone()
         if ds is None or ds["workspace_id"] != id:
             raise HTTPException(
                 status_code=422,
@@ -215,12 +308,14 @@ def create_query(id: WsIdPath, body: CreateQueryBody) -> JSONResponse:  # noqa: 
                 ],
             )
 
-        # R71/R73 — a joined query's atoms index the EFFECTIVE (chained) space;
-        # every hop must resolve (exist, in-workspace, valid keys) and the chain
-        # must be linear at save time. A single-source query validates against its
-        # one dataset (unchanged).
-        if chain:
-            payload, reason = _resolve_chain(con, chain, body.datasetId, id)
+        # R71/R73/R76 — a joined OR composed query's atoms index the EFFECTIVE space;
+        # the driving source + every hop must resolve at save time. A cycle (a query
+        # built transitively on itself) is rejected as composition_cycle. A bare
+        # single-dataset query validates against its one dataset (unchanged).
+        if _is_multi_source(source_id, chain):
+            payload, reason = _resolve_chain(con, source_id, chain, id)
+            if reason == "composition_cycle":
+                return JSONResponse(status_code=409, content=ApiErrorCompositionCycle().model_dump())
             if reason is not None:
                 raise HTTPException(
                     status_code=422,
@@ -241,9 +336,9 @@ def create_query(id: WsIdPath, body: CreateQueryBody) -> JSONResponse:  # noqa: 
         with get_conn() as con:
             con.execute(
                 "INSERT INTO queries "
-                "(id, workspace_id, dataset_id, name, definition_json, created_at) "
-                "VALUES (?, ?, ?, ?, ?, ?)",
-                (qid, id, body.datasetId, body.name, definition_json, created_at),
+                "(id, workspace_id, dataset_id, source_id, name, definition_json, created_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (qid, id, body.datasetId, body.sourceId, body.name, definition_json, created_at),
             )
             con.commit()
     except sqlite3.IntegrityError as err:
@@ -255,6 +350,7 @@ def create_query(id: WsIdPath, body: CreateQueryBody) -> JSONResponse:  # noqa: 
         id=qid,
         workspaceId=id,
         datasetId=body.datasetId,
+        sourceId=body.sourceId,
         name=body.name,
         definition=body.definition,
         createdAt=created_at,
@@ -309,13 +405,16 @@ def run_query(  # noqa: A002
             return JSONResponse(status_code=404, content=ApiErrorNotFound().model_dump())
         definition = json.loads(qrow["definition_json"])
         chain = _chain_of(definition)
+        source_id = qrow["source_id"] or qrow["dataset_id"]
 
-        if chain:
-            # R71/R73 — joined run. Every hop must still resolve with valid keys
-            # and the chain stay linear; a drift here BLOCKS the join (409
-            # relationship_stale), it is not silently wrong (the code R70 reserved
-            # for exactly this consumer).
-            payload, reason = _resolve_chain(con, chain, qrow["dataset_id"], qrow["workspace_id"])
+        if _is_multi_source(source_id, chain):
+            # R71/R73/R76 — joined OR composed run. The driving source + every hop
+            # must still resolve with valid keys; a drift BLOCKS the run (409
+            # relationship_stale), and a base that loops back → 409 composition_cycle
+            # — never silently wrong, never an infinite recursion.
+            payload, reason = _resolve_chain(con, source_id, chain, qrow["workspace_id"])
+            if reason == "composition_cycle":
+                return JSONResponse(status_code=409, content=ApiErrorCompositionCycle().model_dump())
             if reason is not None:
                 return JSONResponse(status_code=409, content=ApiErrorRelationshipStale().model_dump())
             try:
@@ -326,7 +425,7 @@ def run_query(  # noqa: A002
                 raise
             plan: tuple = ("join", payload, filters, advanced)
         else:
-            ds = con.execute("SELECT * FROM datasets WHERE id = ?", (qrow["dataset_id"],)).fetchone()
+            ds = con.execute(_SELECT_DATASET, (qrow["dataset_id"],)).fetchone()
             if ds is None:
                 # Defensive: the FK cascade should remove queries when their
                 # dataset is deleted, so this is a belt-and-braces 404.
@@ -385,8 +484,9 @@ def preview_query(  # noqa: A002
 
     definition = body.definition.model_dump()
     chain = _chain_of(definition)
+    source_id = body.sourceId or body.datasetId  # R76 — composed preview when qr_
     with get_conn() as con:
-        ds = con.execute("SELECT * FROM datasets WHERE id = ?", (body.datasetId,)).fetchone()
+        ds = con.execute(_SELECT_DATASET, (body.datasetId,)).fetchone()
         if ds is None or ds["workspace_id"] != id:
             raise HTTPException(
                 status_code=422,
@@ -399,8 +499,10 @@ def preview_query(  # noqa: A002
                 ],
             )
 
-        if chain:
-            payload, reason = _resolve_chain(con, chain, body.datasetId, id)
+        if _is_multi_source(source_id, chain):
+            payload, reason = _resolve_chain(con, source_id, chain, id)
+            if reason == "composition_cycle":
+                return JSONResponse(status_code=409, content=ApiErrorCompositionCycle().model_dump())
             if reason == "relationship_stale":
                 return JSONResponse(status_code=409, content=ApiErrorRelationshipStale().model_dump())
             if reason is not None:
@@ -464,14 +566,19 @@ def update_query(id: QueryIdPath, body: UpdateQueryBody) -> JSONResponse:  # noq
     definition = body.definition.model_dump()
     chain = _chain_of(definition)
     with get_conn() as con:
-        qrow = con.execute("SELECT * FROM queries WHERE id = ?", (id,)).fetchone()
+        qrow = con.execute(_SELECT_QUERY, (id,)).fetchone()
         if qrow is None:
             return JSONResponse(status_code=404, content=ApiErrorNotFound().model_dump())
-        ds = con.execute("SELECT * FROM datasets WHERE id = ?", (qrow["dataset_id"],)).fetchone()
+        ds = con.execute(_SELECT_DATASET, (qrow["dataset_id"],)).fetchone()
         if ds is None:
             return JSONResponse(status_code=404, content=ApiErrorNotFound().model_dump())
-        if chain:
-            payload, reason = _resolve_chain(con, chain, qrow["dataset_id"], qrow["workspace_id"])
+        # The driving source is unchanged by a definition-only PUT (R72); R76 — a
+        # composed query keeps its `qr_` base.
+        source_id = qrow["source_id"] or qrow["dataset_id"]
+        if _is_multi_source(source_id, chain):
+            payload, reason = _resolve_chain(con, source_id, chain, qrow["workspace_id"])
+            if reason == "composition_cycle":
+                return JSONResponse(status_code=409, content=ApiErrorCompositionCycle().model_dump())
             if reason is not None:
                 raise HTTPException(
                     status_code=422,
@@ -489,7 +596,7 @@ def update_query(id: QueryIdPath, body: UpdateQueryBody) -> JSONResponse:  # noq
     with get_conn() as con:
         con.execute("UPDATE queries SET definition_json = ? WHERE id = ?", (definition_json, id))
         con.commit()
-        updated = _query_from_row(con, con.execute("SELECT * FROM queries WHERE id = ?", (id,)).fetchone())
+        updated = _query_from_row(con, con.execute(_SELECT_QUERY, (id,)).fetchone())
     return JSONResponse(status_code=200, content=updated.model_dump(exclude_none=True))
 
 

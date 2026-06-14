@@ -71,6 +71,11 @@ CREATE TABLE IF NOT EXISTS queries (
     id TEXT PRIMARY KEY,
     workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
     dataset_id TEXT NOT NULL REFERENCES datasets(id) ON DELETE CASCADE,
+    -- R76 (composition): the polymorphic DRIVING source — a `qr_` when the query
+    -- is built ON another Query, else NULL (its source is `dataset_id`). Nullable
+    -- + additive; `dataset_id` stays for back-compat (its removal is a named
+    -- cleanup once all queries carry `source_id`).
+    source_id TEXT,
     name TEXT NOT NULL CHECK (length(name) BETWEEN 1 AND 120),
     definition_json TEXT NOT NULL,
     created_at TEXT NOT NULL

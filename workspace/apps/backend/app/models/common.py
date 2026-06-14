@@ -220,12 +220,22 @@ class QueryDefinition(BaseModel):
         return data
 
 
+# R76 (composition) — a polymorphic DRIVING table-source: a Dataset (`ds_…`, the
+# default) or a saved Query (`qr_…`) the query is built ON. Mirrors the contract's
+# `^(ds_|qr_)[0-9a-f]{8}$`. The unified `ds_`/`qr_` resolver (J-2′) reads either.
+SourceId = Annotated[str, Field(pattern=r"^(ds_|qr_)[0-9a-f]{8}$")]
+
+
 class Query(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     id: QueryId
     workspaceId: WsId  # noqa: N815
     datasetId: DsId  # noqa: N815
+    # R76 — the polymorphic driving source (optional/additive). Present (a `qr_`)
+    # when the query is COMPOSED on another Query; omitted for a dataset-rooted
+    # query (its source is `datasetId`). `datasetId`'s removal is a named cleanup.
+    sourceId: SourceId | None = None  # noqa: N815
     name: Annotated[str, Field(min_length=1, max_length=NAME_LENGTHS["query_max"])]
     definition: QueryDefinition
     # R71/R73 — the effective (combined, collision-qualified) columns; present
@@ -242,6 +252,7 @@ class CreateQueryBody(BaseModel):
 
     name: Annotated[str, Field(min_length=1, max_length=NAME_LENGTHS["query_max"])]
     datasetId: DsId  # noqa: N815
+    sourceId: SourceId | None = None  # noqa: N815 — R76: the qr_/ds_ driving source
     definition: QueryDefinition
 
 
@@ -263,6 +274,7 @@ class PreviewQueryBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     datasetId: DsId  # noqa: N815
+    sourceId: SourceId | None = None  # noqa: N815 — R76: preview a composed draft
     definition: QueryDefinition
 
 
@@ -322,3 +334,14 @@ class ApiErrorRelationshipStale(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     code: Literal["relationship_stale"] = ERROR_CODES["relationship_stale"]  # type: ignore[assignment]
+
+
+class ApiErrorCompositionCycle(BaseModel):
+    """R76 — a Query × Query composition would loop: the driving source (`sourceId`)
+    is, directly or transitively, the query itself. Blocks the save (save-time guard)
+    and the run (409) instead of recursing forever. The composition analogue of
+    `cyclic_join` (which guards dataset re-entry within one join tree)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    code: Literal["composition_cycle"] = ERROR_CODES["composition_cycle"]  # type: ignore[assignment]

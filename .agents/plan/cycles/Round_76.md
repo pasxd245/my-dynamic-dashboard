@@ -1,7 +1,7 @@
 # Round 76: Query × Query composition — let a Query read another Query as a join input
 
-**Status**: In Progress (D, F1, **C, F2** done — green; **Backend (Python resolver) +
-Integration pending**; F1 human-reviewed)
+**Status**: Review (full DFCFBI chain green: D·F1·C·F2·B·I; **awaiting human sign-off** on
+the real backend — Complete = signed-off, not gates-green)
 **Date started**: 2026-06-14
 **Flow**: DFCFBI (triggers 1, 5 — set at the Design gate, locked)
 
@@ -302,6 +302,36 @@ renders the "Built on" summary + composed rows; a cyclic composition renders the
 "would loop" state). _(Pre-existing, unrelated: 2 upload-wizard flakes in `datasets.test.tsx`
 fail on the committed F1 state too — not touched by R76.)_ Seam: this commit (with C).
 
+### Gate B — Backend (DFCFBI) — (2026-06-14)
+
+**The unified `ds_`/`qr_` resolver (R71's J-2′) — the first source past a dataset.** The
+engine generalized from `parquets: list[Path]` to composable **`relations: list[(sql,
+params)]`** (`build_joined_select` factors the typed fold — TYPED, no CAST, so a composed
+sub-relation's join key stays integer — and `query_joined_rows` wraps it for paged VARCHAR
+output). New **`resolve_source(con, source_id, ws, visited)`**: a `ds_` → `read_parquet(?)`;
+a `qr_` → its full typed SELECT (its own driving source + joins + **its own filters**)
+wrapped `( … )` as a sub-relation, **recursing** (the base may itself be composed) with a
+**visited-set cycle guard**. `_resolve_chain` now takes a polymorphic `source_id`; the R74
+tree-membership check generalized to **dataset provenance** (a hop's left dataset may live
+INSIDE a composed base's source set). `Query.sourceId` (`Literal`-less `^(ds_|qr_)…`) +
+`CreateQueryBody`/`PreviewQueryBody.sourceId` widen; the `queries` table gains a nullable
+`source_id` column (additive; `dataset_id` kept). `composition_cycle` is raised at **save**
+(409) and **run** (409). pytest **193/193** (+5 composition: create+run a composed query;
+the base's own filter bakes into the composed run; depth-2 nesting resolves; a self-cycle and
+a transitive cycle each block the run with `composition_cycle`), `validate_response`-checked.
+`ruff` clean. Seam: this commit.
+
+### Gate I — Integration (DFCFBI) — (2026-06-14)
+
+**One contract / dual conformance:** the FE's MSW composed preview/get/rows bodies are
+`withContractValidation`-checked (**27/27**) and the BE's composed post/detail-get/rows are
+`validate_response`-checked (**193/193**), both against the widened `sourceId` shape + the
+new `composition_cycle` code. The **compose lifecycle** is exercised vs the real ASGI app
+(pytest `TestClient`): create a Query on a saved Query → run keeps the base's rows through the
+join (the base's own filter carried in), and a **cycle is rejected** (`composition_cycle`, not
+an infinite recursion). R76 adds **no new route and no CORS change** (an additive field + a new
+error code), so R72's PUT-CORS mode does not recur. Integration seam: this commit (with B).
+
 ## Check
 
 + [x] **J-0, J-1, J-2 ratified** (Plan gate); **J-3, J-4 held open** → Design gate.
@@ -322,12 +352,12 @@ fail on the committed F1 state too — not touched by R76.)_ Seam: this commit (
 + [x] `flow-selector` run + result recorded — **DFCFBI (triggers 1, 5)**.
 + [x] **`gate-walker` (Design gate)** — exit criterion + model checks + commit seam recorded.
 + [x] **Design sealed + human model review PASSED** (J-2) — base-only model approved; build proceeds.
-+ [ ] **Build chain green** (DFCFBI D→F1→C→F2→B→I): **F1** ✓ base-source picker + composed
-      preview, human-reviewed (STOP) · **C** ✓ `sourceId?` (additive) + `composition_cycle`,
-      OpenAPI **24/24** · **F2** ✓ composition summary + cycle state, `queries.test.tsx`
-      **27/27** · B (recursive `ds_`/`qr_` resolver + cycle guard) · I (dual conformance +
-      compose lifecycle + cycle rejection) — **pending**.
-+ [ ] **Human sign-off** — ran the app against the real backend + built + ran a Query that
++ [x] **Build chain green** (DFCFBI D→F1→C→F2→B→I): **F1** ✓ base-source picker, human-reviewed
+      (STOP) · **C** ✓ `sourceId?` (additive) + `composition_cycle`, OpenAPI **24/24** · **F2** ✓
+      composition summary + cycle state, `queries.test.tsx` **27/27** · **B** ✓ unified
+      recursive `ds_`/`qr_` resolver + cycle guard, pytest **193/193**, `ruff` clean · **I** ✓
+      dual conformance + compose lifecycle + cycle rejection (no new route / CORS).
++ [ ] **Human sign-off** — run the app against the real backend + build + run a Query that
       joins another Query (Complete = signed-off, not gates-green).
 
 ## Act

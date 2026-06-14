@@ -167,8 +167,81 @@ def build_effective_columns(
     return effective, select_exprs
 
 
+Relation = tuple[str, list[Any]]
+"""A source RELATION for the fold: ``(sql_expr, params)``. ``sql_expr`` is either
+``read_parquet(?)`` (a Dataset leaf) or a parenthesized sub-SELECT (a composed
+Query used as a source, R76 — the unified ``ds_``/``qr_`` resolver, J-2′);
+``params`` are its bound values, spliced into the FROM clause in source order."""
+
+
+def _build_where(
+    quoted_eff: list[str],
+    q: str | None,
+    filters: list[FilterPredicate] | None,
+    advanced: list[list[FilterPredicate]] | None,
+) -> tuple[str, list[Any]]:
+    """The composed WHERE clause + params over the EFFECTIVE column space:
+    chips ∧ advanced(OR-of-AND) ∧ ``?q=`` substring. Empty when no predicate."""
+    filter_sql, filter_params = build_filter_sql(filters or [])
+    advanced_sql, advanced_params = build_advanced_sql(advanced or [])
+    if q:
+        like = f"%{q.lower()}%"
+        q_sql = "(" + " OR ".join(f"lower(CAST({c} AS VARCHAR)) LIKE ?" for c in quoted_eff) + ")"
+        q_params: list[Any] = [like] * len(quoted_eff)
+    else:
+        q_sql, q_params = "", []
+    where_terms = [t for t in (filter_sql, advanced_sql, q_sql) if t]
+    where_clause = ("WHERE " + " AND ".join(where_terms)) if where_terms else ""
+    return where_clause, [*filter_params, *advanced_params, *q_params]
+
+
+def build_joined_select(
+    relations: list[Relation],
+    *,
+    join_keys: list[tuple[int, str, str, str]],
+    select_exprs: list[str],
+    effective_columns: list[str],
+    q: str | None,
+    filters: list[FilterPredicate] | None = None,
+    advanced: list[list[FilterPredicate]] | None = None,
+) -> tuple[str, list[Any]]:
+    """Build the TYPED relational SELECT (no CAST, no pagination) producing a
+    (possibly joined) query's rows under their EFFECTIVE column names, with the
+    query's OWN filters applied. Returns ``(sql, params)``.
+
+    This is the composable core (R76): a Query used as a join SOURCE wraps this in
+    ``( … )`` as its sub-relation — types are preserved so a downstream join key
+    stays integer — and ``query_joined_rows`` wraps it for paged VARCHAR output.
+
+    ``join_keys[k] = (left_idx, left_col, right_col, kind)`` joins the new source
+    ``T{k+1}`` to an earlier source ``T{left_idx}`` (R74 tree) with ``kind``'s SQL
+    keyword (R75 outer). Each source is a ``relations[i]`` expr aliased ``T{i}``;
+    its params splice in source order. Filters reference the effective names, so
+    they apply over a derived table that exposes the ``select_exprs`` aliases."""
+    from_parts = [f"{relations[0][0]} AS T0"]
+    for k, (left_idx, left_col, right_col, kind) in enumerate(join_keys):
+        keyword = _JOIN_KEYWORDS.get(kind, "INNER JOIN")
+        from_parts.append(
+            f"{keyword} {relations[k + 1][0]} AS T{k + 1} "
+            f"ON T{left_idx}.{_quote_ident(left_col)} = T{k + 1}.{_quote_ident(right_col)}"
+        )
+    from_clause = " ".join(from_parts)
+    relation_params: list[Any] = [p for (_, params) in relations for p in params]
+
+    quoted_eff = [_quote_ident(c) for c in effective_columns]
+    where_clause, where_params = _build_where(quoted_eff, q, filters, advanced)
+    projected = f"SELECT {', '.join(select_exprs)} FROM {from_clause}"
+    # Apply the query's own filters at a level ABOVE the projection so they
+    # reference the effective (collision-qualified) names the select_exprs alias.
+    if where_clause:
+        sql = f"SELECT * FROM ({projected}) AS _q {where_clause}"
+    else:
+        sql = projected
+    return sql, [*relation_params, *where_params]
+
+
 def query_joined_rows(
-    parquets: list[Path],
+    relations: list[Relation],
     *,
     join_keys: list[tuple[int, str, str, str]],
     select_exprs: list[str],
@@ -179,67 +252,32 @@ def query_joined_rows(
     filters: list[FilterPredicate] | None = None,
     advanced: list[list[FilterPredicate]] | None = None,
 ) -> tuple[list[list[str | None]], int]:
-    """Return ``(rows, total)`` for one page of an INNER-join CHAIN over
-    ``parquets`` (the ordered chain ``T0, T1, …, Tn``).
+    """Return ``(rows, total)`` for one page of a join over ``relations`` (the
+    ordered sources ``T0, T1, …, Tn``). Each source is a ``read_parquet(?)`` leaf
+    or a composed sub-SELECT (R76); R71's two-source join is the single-hop case.
 
-    ``join_keys[k] = (left_idx, left_col, right_col, kind)`` is hop ``k``'s key pair:
-    hop ``k`` joins the new source ``T{k+1}`` to an EARLIER source ``T{left_idx}`` on
-    ``T{left_idx}.left_col = T{k+1}.right_col`` (R74), with the SQL keyword for
-    ``kind`` ∈ {inner, left, right, full} (R75 — an outer join keeps unmatched rows,
-    NULL on the unmatched side). When ``left_idx == k`` for every hop the graph is a
-    strict linear path (R73); a hop whose ``left_idx`` points at an earlier source
-    than its predecessor's right makes the graph a TREE (a star). Sources arrive in
-    topological order, so ``T{left_idx}`` is always already in the FROM clause.
-    ``effective_columns`` is the output column order (collision-qualified names);
-    ``filters``/``advanced`` predicates carry those effective names so the reused
-    fragment builders compose over the joined CTE. R71's two-source join is the
-    single-hop (``len(parquets) == 2``) case.
+    Delegates the typed fold (FROM + the query's own filters) to
+    ``build_joined_select``, then CASTs to VARCHAR + paginates here. The CTE
+    ``joined`` exposes the effective names; ``total`` reflects the filtered count.
     """
+    inner_sql, inner_params = build_joined_select(
+        relations,
+        join_keys=join_keys,
+        select_exprs=select_exprs,
+        effective_columns=effective_columns,
+        q=q,
+        filters=filters,
+        advanced=advanced,
+    )
     quoted_eff = [_quote_ident(c) for c in effective_columns]
     select_list = ", ".join(f"CAST({c} AS VARCHAR)" for c in quoted_eff)
-
-    filter_sql, filter_params = build_filter_sql(filters or [])
-    advanced_sql, advanced_params = build_advanced_sql(advanced or [])
-
-    q_sql: str
-    q_params: list[Any]
-    if q:
-        like = f"%{q.lower()}%"
-        q_sql = "(" + " OR ".join(f"lower(CAST({c} AS VARCHAR)) LIKE ?" for c in quoted_eff) + ")"
-        q_params = [like] * len(quoted_eff)
-    else:
-        q_sql, q_params = "", []
-
-    where_terms = [t for t in (filter_sql, advanced_sql, q_sql) if t]
-    where_clause = ("WHERE " + " AND ".join(where_terms)) if where_terms else ""
-    where_params: list[Any] = [*filter_params, *advanced_params, *q_params]
-
-    # FROM read_parquet(?) AS T0 {KW} JOIN read_parquet(?) AS T{k+1}
-    #   ON T{left_idx}.k = T{k+1}.k …  — each hop joins its new source against its
-    # OWN left source (R74 tree), with hop k's SQL keyword (R75 — outer keeps
-    # unmatched rows). `inner` is the default; an unknown kind falls back to inner.
-    from_parts = ["read_parquet(?) AS T0"]
-    for k, (left_idx, left_col, right_col, kind) in enumerate(join_keys):
-        keyword = _JOIN_KEYWORDS.get(kind, "INNER JOIN")
-        from_parts.append(
-            f"{keyword} read_parquet(?) AS T{k + 1} "
-            f"ON T{left_idx}.{_quote_ident(left_col)} = T{k + 1}.{_quote_ident(right_col)}"
-        )
-    from_clause = " ".join(from_parts)
-
-    # Inner CTE: fold the chain, aliasing every output column to its effective
-    # (collision-qualified) name; the outer query filters + pages it.
-    cte = f"WITH joined AS (SELECT {', '.join(select_exprs)} FROM {from_clause})"
-    parquet_params = [str(p) for p in parquets]
     offset = (page - 1) * page_size
 
     with duckdb.connect(":memory:") as con:
-        rows_sql = f"{cte} SELECT {select_list} FROM joined {where_clause} LIMIT ? OFFSET ?"
-        rows_params: list[Any] = [*parquet_params, *where_params, page_size, offset]
-        page_rows = con.execute(rows_sql, rows_params).fetchall()
+        rows_sql = f"WITH joined AS ({inner_sql}) SELECT {select_list} FROM joined LIMIT ? OFFSET ?"
+        page_rows = con.execute(rows_sql, [*inner_params, page_size, offset]).fetchall()
 
-        count_sql = f"{cte} SELECT COUNT(*) FROM joined {where_clause}"
-        count_params: list[Any] = [*parquet_params, *where_params]
-        (total,) = con.execute(count_sql, count_params).fetchone()
+        count_sql = f"WITH joined AS ({inner_sql}) SELECT COUNT(*) FROM joined"
+        (total,) = con.execute(count_sql, [*inner_params]).fetchone()
 
     return [list(r) for r in page_rows], int(total)
