@@ -369,7 +369,7 @@ def test_update_with_unrunnable_definition_is_422() -> None:
     assert bad_edge.status_code == 422
 
 
-# ─── R73: the multi-join chain — N-source fold + linear-chain invariant ──────
+# ─── R73 multi-join chain (N-source fold) + R74 join graph (tree topology) ───
 
 
 def _seed3(client: TestClient) -> tuple[str, str, str, str]:
@@ -439,16 +439,55 @@ def test_chain_resolved_columns_qualified_across_all_sources() -> None:
 
 
 @pytest.mark.unit
-def test_nonlinear_chain_is_422() -> None:
-    # A 2nd hop that does NOT extend from the tail (deals→owners while the tail is
-    # accounts) breaks the linear-chain invariant → unsavable.
+def test_star_executes_a_non_tail_branch() -> None:
+    # R74: a 2nd hop that branches from the SOURCE (deals→owners) while the tail is
+    # accounts — a STAR (deals joined to both accounts and owners), not a path. R73
+    # rejected this as nonlinear_chain; R74 runs it: the engine joins T2 (owners)
+    # against T0 (deals, the hop's own left), not T1. 4+4+4 = 12 effective cells.
     with TestClient(app) as client:
         ws, deals, accounts, owners = _seed3(client)
         rel1 = _declare_id_join(client, ws, deals, accounts)
-        rel_branch = _declare_id_join(client, ws, deals, owners)  # left = deals ≠ tail (accounts)
+        rel_branch = _declare_id_join(client, ws, deals, owners)  # left = deals (the source) — a branch
+        created = client.post(
+            f"/workspaces/{ws}/queries",
+            json={"name": "Deals ⋈ {Accounts, Owners}", "datasetId": deals, "definition": _chain_def([rel1, rel_branch])},
+        )
+        assert created.status_code == 201, created.text
+        validate_response("queries/post.contract.yaml", 201, created.json())
+        resp = client.get(f"/queries/{created.json()['id']}/rows")
+
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["total"] == 3
+    assert all(len(r) == 12 for r in body["rows"])
+    validate_response("queries/rows-get.contract.yaml", 200, body)
+
+
+@pytest.mark.unit
+def test_disconnected_join_is_422() -> None:
+    # R74: a hop whose LEFT dataset is not yet in the graph (accounts→owners while
+    # the source is deals and accounts hasn't been joined) is disconnected → 422.
+    with TestClient(app) as client:
+        ws, deals, accounts, owners = _seed3(client)
+        rel_ao = _declare_id_join(client, ws, accounts, owners)  # left = accounts ∉ graph
         resp = client.post(
             f"/workspaces/{ws}/queries",
-            json={"name": "branch", "datasetId": deals, "definition": _chain_def([rel1, rel_branch])},
+            json={"name": "disconnected", "datasetId": deals, "definition": _chain_def([rel_ao])},
+        )
+    assert resp.status_code == 422, resp.text
+
+
+@pytest.mark.unit
+def test_cyclic_join_is_422() -> None:
+    # R74: a hop whose RIGHT dataset is already in the graph (a dataset joined twice
+    # — a diamond/self-join) breaks the acyclic (tree) rule → 422.
+    with TestClient(app) as client:
+        ws, deals, accounts, _owners = _seed3(client)
+        rel1 = _declare_id_join(client, ws, deals, accounts)
+        rel_back = _declare_id_join(client, ws, accounts, deals)  # right = deals, already in graph
+        resp = client.post(
+            f"/workspaces/{ws}/queries",
+            json={"name": "cyclic", "datasetId": deals, "definition": _chain_def([rel1, rel_back])},
         )
     assert resp.status_code == 422, resp.text
 

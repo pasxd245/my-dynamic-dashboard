@@ -78,47 +78,54 @@ def _chain_of(definition: dict) -> list[dict]:
 def _resolve_chain(
     con: sqlite3.Connection, chain: list[dict], source_ds_id: str, workspace_id: str
 ) -> tuple[dict | None, str | None]:
-    """Resolve a join CHAIN against current schemas. Returns ``(payload, None)``
+    """Resolve a join GRAPH against current schemas. Returns ``(payload, None)``
     when every hop is runnable, else ``(None, reason)``. The reason lets callers
     map to their own status — create/update → 422 (unsavable), run → 409
     relationship_stale (join unavailable). R71's single join is the length-1 case.
 
-    Enforces the LINEAR-CHAIN invariant: hop 0's left dataset is the Query's
-    source, and each subsequent hop's left dataset is the previous hop's right
-    (tail) dataset; a dataset is never revisited (acyclic). A break →
-    ``nonlinear_chain``. Reuses R70's dtype-compat check per hop, so a drifted
-    join key surfaces exactly as the governance layer computes `stale`."""
+    Enforces the TREE invariant (R74, relaxing R73's linear path): each hop's left
+    dataset must ALREADY be in the graph (connected) — else ``disconnected_join`` —
+    and its right dataset must NOT yet be in the graph (acyclic — a spanning tree,
+    no diamonds/self-joins) — else ``cyclic_join``. The hops are stored in
+    topological order, so each hop's left precedes it; its index in ``sources``
+    becomes the engine's ``left_idx``. The linear chain (each hop's left = the
+    prior tail) is the degenerate path case. Reuses R70's dtype-compat check per
+    hop, so a drifted join key surfaces exactly as the governance layer computes
+    `stale`."""
     source_ds = con.execute("SELECT * FROM datasets WHERE id = ?", (source_ds_id,)).fetchone()
     if source_ds is None:
         return None, "relationship_dataset_missing"
     sources = [source_ds]
-    seen_ids = {source_ds_id}
-    join_keys: list[tuple[str, str]] = []
-    tail = source_ds
+    # Map each in-graph dataset id → its position in `sources` (the engine alias
+    # index T{idx}); a hop joins its new source against T{left_idx}.
+    index_of = {source_ds_id: 0}
+    join_keys: list[tuple[int, str, str]] = []
     for hop in chain:
         rel = con.execute("SELECT * FROM relationships WHERE id = ?", (hop["relationshipId"],)).fetchone()
         if rel is None:
             return None, "unknown_relationship"
         if rel["workspace_id"] != workspace_id:
             return None, "cross_workspace_relationship"
-        # Linear invariant: each hop must drive FROM the chain's current tail.
-        if rel["left_dataset_id"] != tail["id"]:
-            return None, "nonlinear_chain"
+        # Tree invariant: the hop's left must already be in the graph (connected);
+        # its right must be new (acyclic — a tree, not a diamond/self-join).
+        left_idx = index_of.get(rel["left_dataset_id"])
+        if left_idx is None:
+            return None, "disconnected_join"
+        if rel["right_dataset_id"] in index_of:
+            return None, "cyclic_join"
+        left_ds = sources[left_idx]
         right_ds = con.execute("SELECT * FROM datasets WHERE id = ?", (rel["right_dataset_id"],)).fetchone()
         if right_ds is None:
             return None, "relationship_dataset_missing"
-        if right_ds["id"] in seen_ids:
-            return None, "nonlinear_chain"  # acyclic — a path, not a graph
-        left_cols = json.loads(tail["columns_json"])
+        left_cols = json.loads(left_ds["columns_json"])
         right_cols = json.loads(right_ds["columns_json"])
         # The join key must still exist on both sides with compatible dtypes (the
-        # rule R70 governs the edge by). A drift here = the chain can't run.
+        # rule R70 governs the edge by). A drift here = the graph can't run.
         if not _compatible(_dtype_of(left_cols, rel["left_column"]), _dtype_of(right_cols, rel["right_column"])):
             return None, "relationship_stale"
+        index_of[right_ds["id"]] = len(sources)
         sources.append(right_ds)
-        seen_ids.add(right_ds["id"])
-        join_keys.append((rel["left_column"], rel["right_column"]))
-        tail = right_ds
+        join_keys.append((left_idx, rel["left_column"], rel["right_column"]))
 
     effective, select_exprs = build_effective_columns(
         [(s["name"], json.loads(s["columns_json"])) for s in sources]
@@ -397,8 +404,9 @@ def preview_query(  # noqa: A002
             if reason == "relationship_stale":
                 return JSONResponse(status_code=409, content=ApiErrorRelationshipStale().model_dump())
             if reason is not None:
-                # unknown / cross-workspace / dataset-missing edge, or a nonlinear
-                # chain → structurally unpreviewable (it could never be saved either).
+                # unknown / cross-workspace / dataset-missing edge, or a
+                # disconnected / cyclic join → structurally unpreviewable (it could
+                # never be saved either).
                 raise HTTPException(
                     status_code=422,
                     detail=[{"loc": ["body", "definition", "joins"], "msg": reason, "type": "value_error"}],

@@ -160,7 +160,7 @@ def build_effective_columns(
 def query_joined_rows(
     parquets: list[Path],
     *,
-    join_keys: list[tuple[str, str]],
+    join_keys: list[tuple[int, str, str]],
     select_exprs: list[str],
     effective_columns: list[str],
     page: int,
@@ -172,12 +172,17 @@ def query_joined_rows(
     """Return ``(rows, total)`` for one page of an INNER-join CHAIN over
     ``parquets`` (the ordered chain ``T0, T1, …, Tn``).
 
-    ``join_keys[k] = (left_col, right_col)`` is hop ``k``'s key pair: hop ``k``
-    joins ``T{k}`` to ``T{k+1}`` on ``T{k}.left_col = T{k+1}.right_col`` (a strict
-    linear path). ``effective_columns`` is the output column order
-    (collision-qualified names); ``filters``/``advanced`` predicates carry those
-    effective names so the reused fragment builders compose over the joined CTE.
-    R71's two-source join is the single-hop (``len(parquets) == 2``) case.
+    ``join_keys[k] = (left_idx, left_col, right_col)`` is hop ``k``'s key pair: hop
+    ``k`` joins the new source ``T{k+1}`` to an EARLIER source ``T{left_idx}`` on
+    ``T{left_idx}.left_col = T{k+1}.right_col`` (R74). When ``left_idx == k`` for
+    every hop the graph is a strict linear path (R73); a hop whose ``left_idx``
+    points at an earlier source than its predecessor's right makes the graph a
+    TREE (one source joined to two or more others — a star). Sources arrive in
+    topological order, so ``T{left_idx}`` is always already in the FROM clause.
+    ``effective_columns`` is the output column order (collision-qualified names);
+    ``filters``/``advanced`` predicates carry those effective names so the reused
+    fragment builders compose over the joined CTE. R71's two-source join is the
+    single-hop (``len(parquets) == 2``) case.
     """
     quoted_eff = [_quote_ident(c) for c in effective_columns]
     select_list = ", ".join(f"CAST({c} AS VARCHAR)" for c in quoted_eff)
@@ -198,12 +203,14 @@ def query_joined_rows(
     where_clause = ("WHERE " + " AND ".join(where_terms)) if where_terms else ""
     where_params: list[Any] = [*filter_params, *advanced_params, *q_params]
 
-    # FROM read_parquet(?) AS T0 INNER JOIN read_parquet(?) AS T1 ON T0.k=T1.k …
+    # FROM read_parquet(?) AS T0 INNER JOIN read_parquet(?) AS T{k+1}
+    #   ON T{left_idx}.k = T{k+1}.k …  — each hop joins its new source against its
+    # OWN left source (R74 tree), not the immediately-previous one (R73 path).
     from_parts = ["read_parquet(?) AS T0"]
-    for k, (left_col, right_col) in enumerate(join_keys):
+    for k, (left_idx, left_col, right_col) in enumerate(join_keys):
         from_parts.append(
             f"INNER JOIN read_parquet(?) AS T{k + 1} "
-            f"ON T{k}.{_quote_ident(left_col)} = T{k + 1}.{_quote_ident(right_col)}"
+            f"ON T{left_idx}.{_quote_ident(left_col)} = T{k + 1}.{_quote_ident(right_col)}"
         )
     from_clause = " ".join(from_parts)
 
