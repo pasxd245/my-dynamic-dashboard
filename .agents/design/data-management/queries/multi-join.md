@@ -44,6 +44,17 @@ leaf removal) generalized.
 > `[+ Add a join]` from the tail + `[Remove]` last for ≥2) — **not** a new canvas.
 > ③ No new route + no new error code (the chain is a field-shape change on the
 > existing create / get / run / preview / update shapes).
+>
+> **R74 as-built (O-rule).** ④ The topology relaxed linear → **tree** with **no model,
+> wire, route, or error-code change**: `_resolve_chain` swapped its `nonlinear_chain`
+> invariant for `disconnected_join` (left ∉ graph) / `cyclic_join` (right ∈ graph),
+> both free-form `422` detail messages; `query_joined_rows`' `join_keys` grew to
+> `(left_idx, left_col, right_col)` so each hop joins against `T{left_idx}`. ⑤ The
+> builder's `JoinEditor` gained a **left-source `<Select>`** (`BuilderAddJoinSource`,
+> shown only when 2+ in-graph sources can branch) + **leaf-only `[Remove]`**
+> (`removeLastJoin` → `removeJoin(relationshipId)`). ⑥ Known limit: the **MSW preview
+> is topology-blind** (length-based canned rows) — tree-execution correctness lives in
+> the backend's real DuckDB engine (pytest), the FE confirms builder mechanics.
 
 **Round introduced**: [Round_73](../../../plan/cycles/Round_73.md) — the fifth
 step of the critical path (`data → relationships → joins → construction →

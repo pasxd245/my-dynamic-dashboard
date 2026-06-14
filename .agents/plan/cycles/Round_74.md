@@ -1,7 +1,8 @@
 # Round 74: The join graph — let a Query join one dataset to two or more others
 
-**Status**: Review
+**Status**: Complete
 **Date started**: 2026-06-14
+**Date completed**: 2026-06-14
 
 ## Goal
 
@@ -395,8 +396,8 @@ failure mode does not recur. Integration seam: this commit.
       `<Select>` + leaf-removal, `queries.test.tsx` **21/21** (`ad44f51`); **B** —
       `T{left_idx}` fold + tree validation, pytest **186/186** (`80d64af`); **I** — one
       contract / dual conformance + the real-app star lifecycle (this commit).
-- [ ] **Human sign-off** — ran the app against the real backend + exercised a star
-      join (Complete = signed-off, not gates-green).
+- [x] **Human sign-off** — ran the app against the real backend + exercised a star
+      join; confirmed. **Review → Complete** (Complete = signed-off, not gates-green).
 
 ## Act
 
@@ -448,6 +449,18 @@ only the mechanism the named failure mode pulls — here, just enough to relax a
   model. The cheapest topology growth was to **relax the guard + generalize one index**,
   not to add a graph model. A useful smell for "grow N→M" changes: check whether the
   limit is a *constraint* or the *shape* before re-opening the model.
+
+**Resolved → Complete (2026-06-14).** Gates green **and** human-signed-off: the human
+ran the full app against the **real backend** (`enable_mock: false`) and exercised a
+**star** join end to end (branch a second join from a non-tail source via the new
+"Join from" select, preview, Save); confirmed. The DCFBI visual-verification gate held —
+"Complete" waited on hands-on sign-off, not gates-green.
+[multi-join.md](../../design/data-management/queries/multi-join.md) is **reconciled to
+the as-built** (the O-rule): the R74 as-built note records the tree relaxation, the
+`disconnected_join`/`cyclic_join` messages, the `T{left_idx}` engine, the JoinEditor
+left-source `<Select>` + leaf removal, and the topology-blind-MSW limit. Six gate seams
+(Plan `18b9376` → Design `81219ac` → C+F `ad44f51` → Backend `80d64af` → Integration
+`10e51ae` → Review `e5b7736`), each independently revertable.
 
 ## Feeds into → Round_75 (the visual join-graph canvas)
 
