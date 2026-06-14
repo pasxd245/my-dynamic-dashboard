@@ -14,7 +14,7 @@ import { AppLayout } from '@/components/AppLayout';
 import { DatasetDetailPage } from '@/features/data-management/datasets/DatasetDetailPage';
 import { QueriesPage } from '@/features/data-management/queries/QueriesPage';
 import { QueryDetailPage } from '@/features/data-management/queries/QueryDetailPage';
-import { MOCK_DATASET, MOCK_JOINED_QUERY, MOCK_QUERY } from '@/mocks/fixtures';
+import { MOCK_COMPOSED_QUERY, MOCK_CYCLE_QUERY_ID, MOCK_DATASET, MOCK_JOINED_QUERY, MOCK_QUERY } from '@/mocks/fixtures';
 import { server } from '@/mocks/server';
 
 const QR_ID = MOCK_QUERY.id;
@@ -489,5 +489,34 @@ describe('Query × Query composition (R76 F1 — builder)', () => {
     // space (13 cols) with an inner cell from the deeper source visible.
     expect(await screen.findByText('Dana Lee')).toBeInTheDocument();
     await waitFor(() => expect(document.querySelectorAll('[data-component="FilterTrigger"]').length).toBe(13));
+  });
+
+  // F2 (detail surfaces): a saved composed query (sourceId = qr_) renders the
+  // read-only "Built on" summary + the composed badge + its composed rows.
+  it('renders the read-only "Built on" composition summary for a composed query', async () => {
+    renderApp(`/data-management/queries/${MOCK_COMPOSED_QUERY.id}`);
+    await waitFor(() =>
+      expect(document.querySelector('[data-component="QueryCompositionSummary"]')).not.toBeNull(),
+    );
+    // Names the base query (resolved async from its own GET) + an open-base link.
+    expect(await screen.findByText('Won deals over $1k')).toBeInTheDocument();
+    expect(document.querySelector('[data-component="QueryBaseSourceLink"]')).not.toBeNull();
+    // The composed rows run (the composed effective space).
+    expect(await screen.findByText('Dana Lee')).toBeInTheDocument();
+  });
+
+  // F2 (flag-don't-crash): a composed query whose base loops back → the run
+  // returns 409 composition_cycle and the detail renders the cycle state, not a
+  // crash or an infinite spinner.
+  it('blocks a cyclic composition with a guided "would loop" state', async () => {
+    renderApp(`/data-management/queries/${MOCK_CYCLE_QUERY_ID}`);
+    const alert = (await waitFor(() => {
+      const el = document.querySelector('[data-component="QueryDetailCompositionUnavailable"]');
+      expect(el).not.toBeNull();
+      return el;
+    })) as HTMLElement;
+    // The guided "would loop" copy + an action pointing at the base query.
+    expect(alert.textContent).toContain('This composition would loop');
+    expect(alert.textContent).toContain('Open base query');
   });
 });

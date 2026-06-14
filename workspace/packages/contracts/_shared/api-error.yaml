@@ -22,7 +22,7 @@ components:
   schemas:
     ApiErrorCode:
       type: string
-      enum: [not_found, name_taken, non_empty, query_stale, relationship_exists, relationship_stale]
+      enum: [not_found, name_taken, non_empty, query_stale, relationship_exists, relationship_stale, composition_cycle]
       description: |
         Closed enum. Any new error class lands as a new code in a future
         round + contract update — never as a free-text message.
@@ -120,6 +120,26 @@ components:
             the *join key* drifting. The FE renders the "join unavailable"
             state and points the user at the workspace Relationships view.
 
+    ApiErrorCompositionCycle:
+      type: object
+      required: [code]
+      additionalProperties: false
+      properties:
+        code:
+          type: string
+          enum: [composition_cycle]
+          description: |
+            A Query × Query composition would form a cycle — a query whose
+            driving source (`sourceId`) is, directly or transitively, itself.
+            Returned by `POST …/queries` and `PUT /queries/{id}` (save-time
+            `422`-class guard, surfaced as this code) and by
+            `GET /queries/{id}/rows` (409, if a later edit to a base introduced
+            the cycle) instead of recursing forever — R76. The composition
+            analogue of `cyclic_join` (which guards dataset re-entry in one
+            tree); this guards a Query re-entering its own resolution path. The
+            FE renders the "composition unavailable — that would loop" state and
+            points the user at the base query.
+
     ApiError:
       description: |
         Discriminated union over `code`. Use `oneOf` + `discriminator` so
@@ -131,6 +151,7 @@ components:
         - $ref: '#/components/schemas/ApiErrorQueryStale'
         - $ref: '#/components/schemas/ApiErrorRelationshipExists'
         - $ref: '#/components/schemas/ApiErrorRelationshipStale'
+        - $ref: '#/components/schemas/ApiErrorCompositionCycle'
       discriminator:
         propertyName: code
         mapping:
@@ -140,3 +161,4 @@ components:
           query_stale: '#/components/schemas/ApiErrorQueryStale'
           relationship_exists: '#/components/schemas/ApiErrorRelationshipExists'
           relationship_stale: '#/components/schemas/ApiErrorRelationshipStale'
+          composition_cycle: '#/components/schemas/ApiErrorCompositionCycle'

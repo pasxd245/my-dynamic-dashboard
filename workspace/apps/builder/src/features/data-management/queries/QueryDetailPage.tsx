@@ -46,6 +46,11 @@ function isStale(err: unknown): boolean {
 function isRelStale(err: unknown): boolean {
   return err instanceof ApiErrorThrown && err.body.code === 'relationship_stale';
 }
+// R76 — a composed query whose base (transitively) builds back on itself: the
+// run is blocked rather than recursing forever (the composition_cycle guard).
+function isCompositionCycle(err: unknown): boolean {
+  return err instanceof ApiErrorThrown && err.body.code === 'composition_cycle';
+}
 
 export function QueryDetailPage() {
   const { t } = useTranslation();
@@ -62,6 +67,14 @@ export function QueryDetailPage() {
   const datasetQuery = useDatasetQuery(query?.datasetId);
   const dataset = datasetQuery.data;
   const rowsQuery = useQueryRowsQuery(id, page, pageSize);
+
+  // R76 — a COMPOSED query's driving source is another Query (`qr_…`); fetch it
+  // to render the read-only "based on" summary + the open-base link. (A `ds_`
+  // source / no sourceId is the unchanged dataset-rooted path.)
+  const baseQueryId = query?.sourceId?.startsWith('qr_') ? query.sourceId : undefined;
+  const isComposed = Boolean(baseQueryId);
+  const baseQueryQuery = useQueryQuery(baseQueryId);
+  const baseQueryName = baseQueryQuery.data?.name ?? baseQueryId;
 
   // R71 — a joined query consumes a Relationship; fetch it (+ the right
   // dataset) to render the read-only join summary. Hooks run unconditionally;
@@ -93,6 +106,8 @@ export function QueryDetailPage() {
   const notFound = isNotFound(queryQuery.error) || isNotFound(rowsQuery.error);
   const stale = isStale(rowsQuery.error);
   const relStale = isRelStale(rowsQuery.error);
+  // R76 — the composition guard fired (the base loops back); block the run.
+  const cycle = isCompositionCycle(rowsQuery.error);
 
   const BREADCRUMB = [
     { label: t('nav.home'), route: '/' },
@@ -164,14 +179,16 @@ export function QueryDetailPage() {
   }
 
   const sourceName = dataset?.name ?? query.datasetId;
-  const warn = stale || relStale;
+  const warn = stale || relStale || cycle;
   let badgeKey = 'queries.detail.badgeLive';
-  if (relStale) badgeKey = 'queries.detail.badgeJoinUnavailable';
+  if (cycle) badgeKey = 'queries.detail.badgeCompositionUnavailable';
+  else if (relStale) badgeKey = 'queries.detail.badgeJoinUnavailable';
   else if (stale) badgeKey = 'queries.detail.badgeStale';
   const title = (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
       <span>{query.name}</span>
       <Tag color={warn ? 'warning' : 'processing'}>{t(badgeKey)}</Tag>
+      {isComposed ? <Tag color="purple">{t('queries.detail.badgeComposed')}</Tag> : null}
       {isJoined ? <Tag color="geekblue">{t('queries.detail.badgeJoin')}</Tag> : null}
     </span>
   );
@@ -292,14 +309,90 @@ export function QueryDetailPage() {
     );
   }
 
+  // ─── Composition unavailable (composition_cycle) — R76 ─────────────
+  // A composed query whose base (transitively) builds back on itself: block the
+  // run, point the user at the base query (flag, don't crash / don't recurse).
+  if (cycle) {
+    return (
+      <>
+        <PageHeader breadcrumb={BREADCRUMB} title={title} actions={actions} onNavigate={(r) => navigate(r)} />
+        <PageCard>
+          <div
+            data-component="QueryDetailCompositionUnavailable"
+            role="alert"
+            style={{ padding: '40px 24px', textAlign: 'center' }}
+          >
+            <WarningOutlined style={{ fontSize: 36, color: 'var(--ant-color-warning, #faad14)', marginBottom: 12 }} />
+            <Typography.Title level={5} style={{ marginTop: 0 }}>
+              {t('queries.detail.cyclicTitle')}
+            </Typography.Title>
+            <Typography.Text type="secondary">
+              {t('queries.detail.cyclicHint', { base: baseQueryName })}
+            </Typography.Text>
+            <div style={{ marginTop: 20, display: 'flex', gap: 8, justifyContent: 'center' }}>
+              {baseQueryId ? (
+                <Button type="primary" onClick={() => navigate(`/data-management/queries/${baseQueryId}`)}>
+                  {t('queries.detail.openBaseQuery')}
+                </Button>
+              ) : null}
+              <Button danger onClick={() => setDeleteOpen(true)}>
+                {t('queries.detail.deleteQuery')}
+              </Button>
+            </div>
+          </div>
+        </PageCard>
+        <DeleteConfirmModal
+          resourceLabel="query"
+          resourceName={query.name}
+          open={deleteOpen}
+          isPending={deleteMutation.isPending}
+          onConfirm={confirmDelete}
+          onClose={() => !deleteMutation.isPending && setDeleteOpen(false)}
+        />
+      </>
+    );
+  }
+
   // ─── Populated ─────────────────────────────────────────────────────
   const total = rowsQuery.data?.total ?? 0;
   // R71 — a joined query's columns are its server-computed effective space
   // (left ++ right, collision-qualified); a single-source query uses its
   // source dataset's columns (unchanged).
-  const columns = isJoined ? [...(query.resolvedColumns ?? [])] : (dataset?.columns ?? []);
+  // R76 — a composed query's columns are its server-computed effective space
+  // (the base's effective columns ++ any joined datasets), like a joined query.
+  const columns = isJoined || isComposed ? [...(query.resolvedColumns ?? [])] : (dataset?.columns ?? []);
   const locale = i18n.language;
   const def = query.definition;
+
+  // R76 — read-only "based on" composition summary (above the join summary).
+  const compositionSummary = isComposed ? (
+    <div
+      data-component="QueryCompositionSummary"
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        flexWrap: 'wrap',
+        padding: '8px 12px',
+        background: 'var(--ant-color-fill-quaternary, #fafafa)',
+        border: '1px solid var(--ant-color-border-secondary, #f0f0f0)',
+        borderRadius: 6,
+        marginBottom: 12,
+        flex: '0 0 auto',
+      }}
+    >
+      <Typography.Text type="secondary" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+        {t('queries.detail.composedLabel')}
+      </Typography.Text>
+      <Typography.Text>{baseQueryName}</Typography.Text>
+      <Typography.Link
+        onClick={() => navigate(`/data-management/queries/${baseQueryId}`)}
+        data-component="QueryBaseSourceLink"
+      >
+        {t('queries.detail.openBaseQuery')} ↗
+      </Typography.Link>
+    </div>
+  ) : null;
 
   // R71 — read-only join summary (above the predicate summary).
   const joinSummary =
@@ -396,6 +489,7 @@ export function QueryDetailPage() {
           <QueryBuilderPanel builder={builder} />
         ) : (
           <>
+            {compositionSummary}
             {joinSummary}
             {def.q || def.filters.length > 0 || def.advanced.length > 0 ? predicateTags : null}
             <div style={{ flex: '0 0 auto', marginBottom: 12 }}>

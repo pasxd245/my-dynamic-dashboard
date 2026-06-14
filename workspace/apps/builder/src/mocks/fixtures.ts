@@ -327,6 +327,33 @@ export const MOCK_CHAIN_COLUMNS = [
   ...MOCK_DATASET_3.columns.map((c) => (c.name === 'tier' ? { ...c, name: 'owners.tier' } : c)),
 ];
 
+// ─── Composition fixtures (R76 — a Query built ON another Query) ──────
+//
+// A COMPOSED query whose driving source is the saved "Won deals over $1k"
+// Query (`sourceId = qr_…`, a `qr_`), then joined to Accounts. Its effective
+// space is the base's effective columns ++ the joined dataset's — F2 mocks it
+// with the chain effective space (13 cols) + rows. The detail page renders the
+// read-only "Built on" summary + the composed badge from `sourceId`.
+export const MOCK_COMPOSED_QUERY: Query = {
+  id: 'qr_c0301111',
+  workspaceId: MOCK_WORKSPACE.id,
+  datasetId: MOCK_DATASET.id, // the base's own root leaf (back-compat field)
+  sourceId: MOCK_QUERY.id, // R76 — the DRIVING source is the Won-deals Query
+  name: 'Won deals × Accounts (composed)',
+  definition: {
+    q: null,
+    filters: [],
+    advanced: [],
+    joins: [{ relationshipId: MOCK_RELATIONSHIP.id, type: 'inner' }],
+  },
+  resolvedColumns: MOCK_CHAIN_COLUMNS,
+  createdAt: '2026-06-14T10:00:00Z',
+};
+
+/** A composed query whose base (transitively) builds back on itself: the run
+ *  returns 409 composition_cycle, blocking the recursion (the cycle guard). */
+export const MOCK_CYCLE_QUERY_ID = 'qr_cc1c0000';
+
 // R42 YAML-example loader: read `paths.<*>.<*>.responses["200"]
 // .content["application/json"].examples[exampleName].value.rows`
 // from a contract YAML so a fixture mirrors the spec verbatim.

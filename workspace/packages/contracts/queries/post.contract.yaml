@@ -47,6 +47,15 @@ paths:
                   type: string
                   pattern: "^ds_[0-9a-f]{8}$"
                   description: The single source dataset (D-4).
+                sourceId:
+                  type: string
+                  pattern: "^(ds_|qr_)[0-9a-f]{8}$"
+                  description: |
+                    R76 (composition) — the polymorphic driving source: a
+                    Dataset (`ds_…`) or a saved Query (`qr_…`) to build ON.
+                    Optional/additive; when omitted the source is `datasetId`.
+                    Save-time validation resolves the base (exists, in-workspace,
+                    runnable) and runs the `composition_cycle` guard (409).
                 definition:
                   $ref: "../_shared/query.yaml#/components/schemas/QueryDefinition"
             examples:

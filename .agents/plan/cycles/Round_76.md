@@ -1,7 +1,7 @@
 # Round 76: Query × Query composition — let a Query read another Query as a join input
 
-**Status**: In Progress (Plan + Design closed; model review passed; **F1 built — STOP for
-human hands-on review** before Contract)
+**Status**: In Progress (D, F1, **C, F2** done — green; **Backend (Python resolver) +
+Integration pending**; F1 human-reviewed)
 **Date started**: 2026-06-14
 **Flow**: DFCFBI (triggers 1, 5 — set at the Design gate, locked)
 
@@ -265,6 +265,42 @@ composition summary + cycle/base-unavailable states** are **F2** (they need the 
 
 **F1 STOP — human hands-on review.** Per DFCFBI doctrine (gates can't see layout/feel), F1
 hard-stops for the human to **run the app** and exercise the "Build on" picker before Contract.
+**F1 review PASSED (2026-06-14)** — picker UX approved; proceed to Contract.
+
+### Gate C — Contract (DCFBI/DFCFBI) — (2026-06-14)
+
+Widen the Query's source reference + add the cycle error code. **Mechanism deviation from
+the design's "rename", flagged (O-rule, per [[design-altitude-vs-build-home]]):** the design
+named a full **rename** `datasetId → sourceId`; the build chose an **additive** widening
+instead — `sourceId` is added as an **optional** field (pattern `^(ds_|qr_)[0-9a-f]{8}$`)
+alongside `datasetId`. _Why:_ a hard rename breaks **both** FE and BE conformance until each
+catches up, but B isn't in this batch; additive keeps the 3-impl (YAML + TS + Python) stack
+**green incrementally** (FE reads `sourceId ?? datasetId`; BE still emits `datasetId` and
+conforms; MSW may emit `sourceId` and conforms). The design's **intent** (polymorphic
+driving source) is delivered; **`datasetId` removal is a named cleanup** once all queries
+carry `sourceId`.
+
+**Changed:** `_shared/query.yaml` (`Query.sourceId?` optional), `queries/post` +
+`queries/preview` request bodies (`sourceId?`), `_shared/api-error.yaml` (new
+**`composition_cycle`** code + `ApiErrorCompositionCycle` variant + the `oneOf`/discriminator),
+`config/values.yaml` + both constant templates (FE + BE) → regenerated. No new route.
+**C gate green:** `@mdd/contracts` OpenAPI validity **24/24**; constants re-rendered (FE
+`COMPOSITION_CYCLE` + BE `composition_cycle`). Seam: this commit.
+
+### Gate F2 — Frontend confirm (DFCFBI) — (2026-06-14)
+
+DFCFBI's F2 confirms the design's remaining FE surfaces against the now-widened contract
+(what F1 deferred). **Built:** the read-only **"Built on" composition summary**
+(`QueryCompositionSummary` — names the base query + an open-base link) above the join
+summary; the **composed badge**; the **`composition_cycle` "would loop" state**
+(`QueryDetailCompositionUnavailable`, `role="alert"`, guided open-base / delete actions);
+composed effective columns (`resolvedColumns` when composed). FE type + `isApiError` widened
+for `composition_cycle`; MSW gains a composed-query fixture (`MOCK_COMPOSED_QUERY`,
+`sourceId = qr_`) + a cycle fixture (`MOCK_CYCLE_QUERY_ID` → 409). i18n en + vi.
+**F2 gate green:** `type-check` clean; `queries.test.tsx` **27/27** (+2: composed detail
+renders the "Built on" summary + composed rows; a cyclic composition renders the guided
+"would loop" state). _(Pre-existing, unrelated: 2 upload-wizard flakes in `datasets.test.tsx`
+fail on the committed F1 state too — not touched by R76.)_ Seam: this commit (with C).
 
 ## Check
 
@@ -286,10 +322,11 @@ hard-stops for the human to **run the app** and exercise the "Build on" picker b
 + [x] `flow-selector` run + result recorded — **DFCFBI (triggers 1, 5)**.
 + [x] **`gate-walker` (Design gate)** — exit criterion + model checks + commit seam recorded.
 + [x] **Design sealed + human model review PASSED** (J-2) — base-only model approved; build proceeds.
-+ [ ] **Build chain green** (DFCFBI D→F1→C→F2→B→I): **F1** — base-source picker + composed
-      preview, `type-check` clean, `queries.test.tsx` **25/25** (this commit), **human-reviewed
-      (F1 STOP)**; C (source-ref + `composition_cycle`) · F2 (composition summary + states) ·
-      B (recursive resolver + cycle guard) · I (dual conformance + compose lifecycle + cycle rejection).
++ [ ] **Build chain green** (DFCFBI D→F1→C→F2→B→I): **F1** ✓ base-source picker + composed
+      preview, human-reviewed (STOP) · **C** ✓ `sourceId?` (additive) + `composition_cycle`,
+      OpenAPI **24/24** · **F2** ✓ composition summary + cycle state, `queries.test.tsx`
+      **27/27** · B (recursive `ds_`/`qr_` resolver + cycle guard) · I (dual conformance +
+      compose lifecycle + cycle rejection) — **pending**.
 + [ ] **Human sign-off** — ran the app against the real backend + built + ran a Query that
       joins another Query (Complete = signed-off, not gates-green).
 

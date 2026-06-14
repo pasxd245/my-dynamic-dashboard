@@ -35,6 +35,7 @@ export const ERROR_CODES = {
   QUERY_STALE: "{{constants.error_codes.query_stale}}",
   RELATIONSHIP_EXISTS: "{{constants.error_codes.relationship_exists}}",
   RELATIONSHIP_STALE: "{{constants.error_codes.relationship_stale}}",
+  COMPOSITION_CYCLE: "{{constants.error_codes.composition_cycle}}",
 } as const;
 
 export type ErrorCode = (typeof ERROR_CODES)[keyof typeof ERROR_CODES];

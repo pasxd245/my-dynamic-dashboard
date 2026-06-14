@@ -73,6 +73,14 @@ paths:
                     The source (LEFT/driving) dataset. For a joined
                     definition this is the edge's left dataset (unchanged
                     by editing — R72 edits the definition, not the source).
+                sourceId:
+                  type: string
+                  pattern: "^(ds_|qr_)[0-9a-f]{8}$"
+                  description: |
+                    R76 (composition) — the polymorphic driving source for the
+                    preview: a Dataset (`ds_…`) or a saved Query (`qr_…`) to
+                    build ON. Optional/additive; when a `qr_`, the preview is
+                    COMPOSED (run via the unified `ds_`/`qr_` resolver, J-2′).
                 definition:
                   $ref: "../_shared/query.yaml#/components/schemas/QueryDefinition"
             examples:

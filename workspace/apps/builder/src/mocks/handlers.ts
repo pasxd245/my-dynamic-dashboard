@@ -27,6 +27,8 @@ import { withContractValidation } from './contract-validator';
 import {
   MOCK_CHAIN_COLUMNS,
   MOCK_CHAIN_ROWS,
+  MOCK_COMPOSED_QUERY,
+  MOCK_CYCLE_QUERY_ID,
   MOCK_DATASET,
   MOCK_DATASET_2,
   MOCK_DATASET_3,
@@ -422,6 +424,15 @@ export const handlers = [
     if (params.id === MOCK_JOINED_QUERY.id) {
       return HttpResponse.json(MOCK_JOINED_QUERY);
     }
+    // R76: a composed query carries `sourceId` (a `qr_` base) + resolvedColumns.
+    if (params.id === MOCK_COMPOSED_QUERY.id) {
+      return HttpResponse.json(MOCK_COMPOSED_QUERY);
+    }
+    // R76: a composed query whose base loops back — still resolvable as metadata
+    // (the cycle is caught on RUN), so it gets the composed shape here.
+    if (params.id === MOCK_CYCLE_QUERY_ID) {
+      return HttpResponse.json({ ...MOCK_COMPOSED_QUERY, id: MOCK_CYCLE_QUERY_ID });
+    }
     if (params.id !== MOCK_QUERY.id) {
       return HttpResponse.json({ code: 'not_found' }, { status: 404 });
     }
@@ -434,6 +445,24 @@ export const handlers = [
     // R71: a joined query over a stale edge → the join is blocked.
     if (params.id === MOCK_STALE_JOIN_QUERY_ID) {
       return HttpResponse.json({ code: 'relationship_stale' }, { status: 409 });
+    }
+    // R76: a composed query whose base loops back → the run is blocked.
+    if (params.id === MOCK_CYCLE_QUERY_ID) {
+      return HttpResponse.json({ code: 'composition_cycle' }, { status: 409 });
+    }
+    // R76: a valid composed query returns its composed rows (the base's rows
+    // fed through the join → the composed effective space).
+    if (params.id === MOCK_COMPOSED_QUERY.id) {
+      const url = new URL(request.url);
+      const page = Math.max(1, Number(url.searchParams.get('page') ?? 1));
+      const pageSize = Math.max(1, Number(url.searchParams.get('page_size') ?? 50));
+      const offset = (page - 1) * pageSize;
+      return HttpResponse.json({
+        rows: MOCK_CHAIN_ROWS.rows.slice(offset, offset + pageSize),
+        page,
+        pageSize,
+        total: MOCK_CHAIN_ROWS.total,
+      });
     }
     // R71: a valid joined query returns its joined rows (effective columns).
     if (params.id === MOCK_JOINED_QUERY.id) {
