@@ -1,6 +1,6 @@
 # Round 73: The multi-join chain — let a Query chain more than one relationship
 
-**Status**: In Progress (DFCFBI build: Design + F1 sealed; HARD-STOPPED at F1 for human review before Contract)
+**Status**: In Progress (DFCFBI build: Design + F1 + Contract + F2 done & green; Backend + Integration remain)
 **Date started**: 2026-06-14
 **Date completed**:
 
@@ -331,6 +331,62 @@ F1 seam: `503a860`.
 > Contract gate. `ui-design` **fidelity** mode at F1 is the mechanical half; human
 > review is the other half. C/F2/B/I proceed only on the human's sign-off.
 
+**F1 human review — signed off (2026-06-14).** The human ran the builder (vi locale)
+and exercised the chain editor. One **fidelity** issue caught + fixed: the
+`[Remove]`/`Bỏ` hop button used `size="small"` and collapsed to a tiny target for
+short labels — changed to a default-size button matching the header Cancel/Save
+(`Hủy`/`Lưu`) sizing (`8d26302`). With that, F1 is signed off and the build chain
+proceeds C → F2 → B → I.
+
+### Gate C — Contract (DFCFBI) — (2026-06-14)
+
+F1's frozen `joins` shape → a **field-shape change on existing routes** (no new
+route, unlike R72): the join generalizes from a single `join` to an ordered
+`joins` chain across the create / get / run / preview / update shapes that `$ref`
+`_shared/query.yaml`.
+
+- **`_shared/query.yaml`** — `QueryDefinition.join` → **`joins`** (array of
+  `JoinStep`); `JoinStep` + `resolvedColumns` descriptions updated for the linear
+  chain; records that the **BE normalizes a legacy single `join` → length-1
+  `joins`** on read (responses always carry `joins`). All routes inherit via `$ref`.
+- **preview / put / post contracts** — examples `join: {…}` → `joins: [{…}]`;
+  the `422` / preview-error descriptions name `definition.joins` + the
+  **linear-chain invariant** (a hop's left ≠ the prior tail → `422`).
+- **No new error codes** — `relationship_stale` / `query_stale` / `not_found` /
+  the `422` envelope all exist; the chain consumes them per hop. So **no
+  `values.yaml` / generated-constants change** (like R72, unlike R71).
+- **FE bridge collapsed (J-3):** `chain.ts` `writeDef` now always emits `joins`
+  (the F1 length-≤1 legacy-`join` bridge is gone); the legacy `join?` field is
+  dropped from the FE type; the create modal + `MOCK_JOINED_QUERY` emit `joins`.
+- **MSW re-wrapped:** the F1 ad-hoc unwrapped chain `PUT` is **removed** — the
+  wrapped `updateQuery` now contract-validates chain responses against the
+  migrated YAML; `preview` reads `joins`.
+
+**Contract gate verification:** `@mdd/contracts` OpenAPI validity **24/24**
+(unchanged — no new route); builder **type-check clean**; `queries.test.tsx`
+**18/18** with the preview + put **chain** responses now `withContractValidation`-checked
+against the migrated YAML (dual SoT anchored). Contract seam: `7da0904`.
+
+### Gate F2 — Frontend confirmation (DFCFBI) — (2026-06-14)
+
+The contract was authored **from** F1's frozen `joins` shape, so **no shape changed
+→ no contract v2**: F2 is a pure confirmation that the FE-on-MSW conforms to the
+now-frozen YAML (the chain preview/put 2xx bodies are schema-checked at the handler
+boundary).
+
+- The F1 chain journeys re-run **green under contract validation** (add a 2nd hop +
+  preview the 3-dataset chain; save the chain via the now-wrapped `PUT`; remove the
+  last hop).
+- **+1 confirmation case** — the chain analog of R72's client-side flag-don't-crash
+  AC: filter on an **Owners-source** column, then **remove that hop** → the atom
+  dangles out of the now-smaller effective space → the builder flags it
+  (`QueryBuilderPredInvalid`, `role="alert"`) and **disables Save** — no server
+  round-trip.
+
+**F2 gate verification:** builder **type-check clean**; `queries.test.tsx`
+**19/19** (4 R73 cases), all chain preview/put responses contract-validated. No
+contract v2 needed. F2 seam: `c69228b`.
+
 ## Check
 
 - [x] **J-1, J-2, J-1′ ratified** (Plan gate); **J-3, J-4 held open** → resolved at
@@ -359,8 +415,18 @@ F1 seam: `503a860`.
 - [x] **F1 (DFCFBI, on go-ahead)** — chain editor + multi-hop live preview vs MSW;
       interaction decisions frozen (tail-extending linear path; J-3 wire bridge;
       collision-qualified preview); `queries.test.tsx` **18/18** (`503a860`).
-- [ ] **F1 human review (DFCFBI hard-stop)** — the human runs the app + exercises
-      the chain editor; `ui-design` fidelity at F1. **Open** — C/F2/B/I gated on it.
+- [x] **F1 human review (DFCFBI hard-stop)** — human ran the app + exercised the
+      chain editor; one fidelity fix (Remove-hop button sizing, `8d26302`). Signed off.
+- [x] **Contract** — `QueryDefinition` `join` → `joins` migrated across the
+      contract corpus; FE bridge collapsed; OpenAPI **24/24** (no new route);
+      queries **18/18** chain-validated (`7da0904`).
+- [x] **F2** — confirmed vs contract-derived MSW; +1 client-side chain-shrink flag
+      case; **19/19**, no contract v2 (`c69228b`).
+- [ ] **Backend** — grow `query_joined_rows` two-source → N-source fold; migrate the
+      python `QueryDefinition` `join` → `joins` (+ legacy read shim); per-hop +
+      linear-chain validate-on-save; pytest. **Open** (next gate).
+- [ ] **Integration** — one contract / dual conformance (FE 19/19 + pytest) + a live
+      cross-process chain round-trip. **Open**.
 
 ## Act
 
