@@ -65,33 +65,68 @@ def _new_qr_id() -> str:
     return f"qr_{secrets.token_hex(4)}"
 
 
-def _resolve_join(con: sqlite3.Connection, join: dict, workspace_id: str) -> tuple[dict | None, str | None]:
-    """Resolve a join step against current schemas. Returns ``(payload, None)``
-    when the join is runnable, else ``(None, reason)``. The reason lets callers
-    map to their own status — create → 422 (unsavable), run → 409
-    relationship_stale (join unavailable). Reuses R70's dtype-compat check, so a
-    drifted join key surfaces exactly as the governance layer computes `stale`."""
-    rel = con.execute("SELECT * FROM relationships WHERE id = ?", (join["relationshipId"],)).fetchone()
-    if rel is None:
-        return None, "unknown_relationship"
-    if rel["workspace_id"] != workspace_id:
-        return None, "cross_workspace_relationship"
-    left_ds = con.execute("SELECT * FROM datasets WHERE id = ?", (rel["left_dataset_id"],)).fetchone()
-    right_ds = con.execute("SELECT * FROM datasets WHERE id = ?", (rel["right_dataset_id"],)).fetchone()
-    if left_ds is None or right_ds is None:
+def _chain_of(definition: dict) -> list[dict]:
+    """The definition's ordered join chain. Folds a legacy single `join` (R71/R72
+    persisted data) into a length-1 chain so callers read one shape (`joins`)."""
+    joins = definition.get("joins")
+    if joins:
+        return list(joins)
+    legacy = definition.get("join")
+    return [legacy] if legacy else []
+
+
+def _resolve_chain(
+    con: sqlite3.Connection, chain: list[dict], source_ds_id: str, workspace_id: str
+) -> tuple[dict | None, str | None]:
+    """Resolve a join CHAIN against current schemas. Returns ``(payload, None)``
+    when every hop is runnable, else ``(None, reason)``. The reason lets callers
+    map to their own status — create/update → 422 (unsavable), run → 409
+    relationship_stale (join unavailable). R71's single join is the length-1 case.
+
+    Enforces the LINEAR-CHAIN invariant: hop 0's left dataset is the Query's
+    source, and each subsequent hop's left dataset is the previous hop's right
+    (tail) dataset; a dataset is never revisited (acyclic). A break →
+    ``nonlinear_chain``. Reuses R70's dtype-compat check per hop, so a drifted
+    join key surfaces exactly as the governance layer computes `stale`."""
+    source_ds = con.execute("SELECT * FROM datasets WHERE id = ?", (source_ds_id,)).fetchone()
+    if source_ds is None:
         return None, "relationship_dataset_missing"
-    left_cols = json.loads(left_ds["columns_json"])
-    right_cols = json.loads(right_ds["columns_json"])
-    # The join key must still exist on both sides with compatible dtypes — the
-    # same rule R70 governs the edge by. A drift here = the join can't run.
-    if not _compatible(_dtype_of(left_cols, rel["left_column"]), _dtype_of(right_cols, rel["right_column"])):
-        return None, "relationship_stale"
-    effective, select_exprs = build_effective_columns(left_cols, right_cols, left_ds["name"], right_ds["name"])
+    sources = [source_ds]
+    seen_ids = {source_ds_id}
+    join_keys: list[tuple[str, str]] = []
+    tail = source_ds
+    for hop in chain:
+        rel = con.execute("SELECT * FROM relationships WHERE id = ?", (hop["relationshipId"],)).fetchone()
+        if rel is None:
+            return None, "unknown_relationship"
+        if rel["workspace_id"] != workspace_id:
+            return None, "cross_workspace_relationship"
+        # Linear invariant: each hop must drive FROM the chain's current tail.
+        if rel["left_dataset_id"] != tail["id"]:
+            return None, "nonlinear_chain"
+        right_ds = con.execute("SELECT * FROM datasets WHERE id = ?", (rel["right_dataset_id"],)).fetchone()
+        if right_ds is None:
+            return None, "relationship_dataset_missing"
+        if right_ds["id"] in seen_ids:
+            return None, "nonlinear_chain"  # acyclic — a path, not a graph
+        left_cols = json.loads(tail["columns_json"])
+        right_cols = json.loads(right_ds["columns_json"])
+        # The join key must still exist on both sides with compatible dtypes (the
+        # rule R70 governs the edge by). A drift here = the chain can't run.
+        if not _compatible(_dtype_of(left_cols, rel["left_column"]), _dtype_of(right_cols, rel["right_column"])):
+            return None, "relationship_stale"
+        sources.append(right_ds)
+        seen_ids.add(right_ds["id"])
+        join_keys.append((rel["left_column"], rel["right_column"]))
+        tail = right_ds
+
+    effective, select_exprs = build_effective_columns(
+        [(s["name"], json.loads(s["columns_json"])) for s in sources]
+    )
     return (
         {
-            "rel": rel,
-            "left_ds": left_ds,
-            "right_ds": right_ds,
+            "sources": sources,
+            "join_keys": join_keys,
             "effective": effective,
             "select_exprs": select_exprs,
         },
@@ -99,16 +134,43 @@ def _resolve_join(con: sqlite3.Connection, join: dict, workspace_id: str) -> tup
     )
 
 
-def _resolved_columns(con: sqlite3.Connection, definition: dict, workspace_id: str) -> list[Column] | None:
+def _resolved_columns(
+    con: sqlite3.Connection, definition: dict, source_ds_id: str, workspace_id: str
+) -> list[Column] | None:
     """The effective columns for a joined query (None for single-source, or when
-    the edge no longer resolves — get/list never error, they just omit it)."""
-    join = definition.get("join")
-    if not join:
+    the chain no longer resolves — get/list never error, they just omit it)."""
+    chain = _chain_of(definition)
+    if not chain:
         return None
-    payload, reason = _resolve_join(con, join, workspace_id)
+    payload, reason = _resolve_chain(con, chain, source_ds_id, workspace_id)
     if reason is not None:
         return None
     return [Column(name=c["name"], dtype=c["dtype"]) for c in payload["effective"]]
+
+
+def _execute_chain(
+    payload: dict,
+    *,
+    page: int,
+    page_size: int,
+    q: str | None,
+    filters: list,
+    advanced: list,
+) -> tuple[list[list[str | None]], int]:
+    """Run a resolved chain plan through the N-source engine (shared by the saved
+    run + the stateless preview)."""
+    parquets = [dataset_dir(s["workspace_id"], s["id"]) / "parsed.parquet" for s in payload["sources"]]
+    return query_joined_rows(
+        parquets,
+        join_keys=payload["join_keys"],
+        select_exprs=payload["select_exprs"],
+        effective_columns=[c["name"] for c in payload["effective"]],
+        page=page,
+        page_size=page_size,
+        q=q,
+        filters=filters,
+        advanced=advanced,
+    )
 
 
 def _query_from_row(con: sqlite3.Connection, row: sqlite3.Row) -> QueryModel:
@@ -119,7 +181,7 @@ def _query_from_row(con: sqlite3.Connection, row: sqlite3.Row) -> QueryModel:
         datasetId=row["dataset_id"],
         name=row["name"],
         definition=QueryDefinition(**definition),
-        resolvedColumns=_resolved_columns(con, definition, row["workspace_id"]),
+        resolvedColumns=_resolved_columns(con, definition, row["dataset_id"], row["workspace_id"]),
         createdAt=row["created_at"],
     )
 
@@ -131,7 +193,7 @@ def create_query(id: WsIdPath, body: CreateQueryBody) -> JSONResponse:  # noqa: 
     (a definition that can't run is rejected 422). Names are unique
     per workspace."""
     definition_dict = body.definition.model_dump()
-    join = definition_dict.get("join")
+    chain = _chain_of(definition_dict)
     with get_conn() as con:
         ds = con.execute("SELECT * FROM datasets WHERE id = ?", (body.datasetId,)).fetchone()
         if ds is None or ds["workspace_id"] != id:
@@ -146,15 +208,16 @@ def create_query(id: WsIdPath, body: CreateQueryBody) -> JSONResponse:  # noqa: 
                 ],
             )
 
-        # R71 — a joined query's atoms index the EFFECTIVE (left ++ right) space;
-        # the edge must resolve (exist, in-workspace, valid keys) at save time. A
-        # single-source query validates against its one dataset (unchanged).
-        if join:
-            payload, reason = _resolve_join(con, join, id)
+        # R71/R73 — a joined query's atoms index the EFFECTIVE (chained) space;
+        # every hop must resolve (exist, in-workspace, valid keys) and the chain
+        # must be linear at save time. A single-source query validates against its
+        # one dataset (unchanged).
+        if chain:
+            payload, reason = _resolve_chain(con, chain, body.datasetId, id)
             if reason is not None:
                 raise HTTPException(
                     status_code=422,
-                    detail=[{"loc": ["body", "definition", "join"], "msg": reason, "type": "value_error"}],
+                    detail=[{"loc": ["body", "definition", "joins"], "msg": reason, "type": "value_error"}],
                 )
             validation_columns = payload["effective"]
         else:
@@ -238,13 +301,14 @@ def run_query(  # noqa: A002
         if qrow is None:
             return JSONResponse(status_code=404, content=ApiErrorNotFound().model_dump())
         definition = json.loads(qrow["definition_json"])
-        join = definition.get("join")
+        chain = _chain_of(definition)
 
-        if join:
-            # R71 — joined run. The edge must still resolve with valid keys;
-            # a drift here BLOCKS the join (409 relationship_stale), it is not
-            # silently wrong (the code R70 reserved for exactly this consumer).
-            payload, reason = _resolve_join(con, join, qrow["workspace_id"])
+        if chain:
+            # R71/R73 — joined run. Every hop must still resolve with valid keys
+            # and the chain stay linear; a drift here BLOCKS the join (409
+            # relationship_stale), it is not silently wrong (the code R70 reserved
+            # for exactly this consumer).
+            payload, reason = _resolve_chain(con, chain, qrow["dataset_id"], qrow["workspace_id"])
             if reason is not None:
                 return JSONResponse(status_code=409, content=ApiErrorRelationshipStale().model_dump())
             try:
@@ -272,21 +336,8 @@ def run_query(  # noqa: A002
     q = definition.get("q")
     if plan[0] == "join":
         _, payload, filters, advanced = plan
-        rel, left_ds, right_ds = payload["rel"], payload["left_ds"], payload["right_ds"]
-        left_pq = dataset_dir(left_ds["workspace_id"], left_ds["id"]) / "parsed.parquet"
-        right_pq = dataset_dir(right_ds["workspace_id"], right_ds["id"]) / "parsed.parquet"
-        rows, total = query_joined_rows(
-            left_pq,
-            right_pq,
-            left_key=rel["left_column"],
-            right_key=rel["right_column"],
-            select_exprs=payload["select_exprs"],
-            effective_columns=[c["name"] for c in payload["effective"]],
-            page=page,
-            page_size=page_size,
-            q=q,
-            filters=filters,
-            advanced=advanced,
+        rows, total = _execute_chain(
+            payload, page=page, page_size=page_size, q=q, filters=filters, advanced=advanced
         )
     else:
         _, ds, columns_meta, filters, advanced = plan
@@ -326,7 +377,7 @@ def preview_query(  # noqa: A002
         )
 
     definition = body.definition.model_dump()
-    join = definition.get("join")
+    chain = _chain_of(definition)
     with get_conn() as con:
         ds = con.execute("SELECT * FROM datasets WHERE id = ?", (body.datasetId,)).fetchone()
         if ds is None or ds["workspace_id"] != id:
@@ -341,16 +392,16 @@ def preview_query(  # noqa: A002
                 ],
             )
 
-        if join:
-            payload, reason = _resolve_join(con, join, id)
+        if chain:
+            payload, reason = _resolve_chain(con, chain, body.datasetId, id)
             if reason == "relationship_stale":
                 return JSONResponse(status_code=409, content=ApiErrorRelationshipStale().model_dump())
             if reason is not None:
-                # unknown / cross-workspace / dataset-missing edge → structurally
-                # unpreviewable (it could never be saved either).
+                # unknown / cross-workspace / dataset-missing edge, or a nonlinear
+                # chain → structurally unpreviewable (it could never be saved either).
                 raise HTTPException(
                     status_code=422,
-                    detail=[{"loc": ["body", "definition", "join"], "msg": reason, "type": "value_error"}],
+                    detail=[{"loc": ["body", "definition", "joins"], "msg": reason, "type": "value_error"}],
                 )
             try:
                 filters, advanced = build_definition_predicates(definition, payload["effective"])
@@ -372,21 +423,8 @@ def preview_query(  # noqa: A002
     q = definition.get("q")
     if plan[0] == "join":
         _, payload, filters, advanced = plan
-        rel, left_ds, right_ds = payload["rel"], payload["left_ds"], payload["right_ds"]
-        left_pq = dataset_dir(left_ds["workspace_id"], left_ds["id"]) / "parsed.parquet"
-        right_pq = dataset_dir(right_ds["workspace_id"], right_ds["id"]) / "parsed.parquet"
-        rows, total = query_joined_rows(
-            left_pq,
-            right_pq,
-            left_key=rel["left_column"],
-            right_key=rel["right_column"],
-            select_exprs=payload["select_exprs"],
-            effective_columns=[c["name"] for c in payload["effective"]],
-            page=page,
-            page_size=page_size,
-            q=q,
-            filters=filters,
-            advanced=advanced,
+        rows, total = _execute_chain(
+            payload, page=page, page_size=page_size, q=q, filters=filters, advanced=advanced
         )
         resolved = [Column(name=c["name"], dtype=c["dtype"]).model_dump() for c in payload["effective"]]
         content = {"rows": rows, "page": page, "pageSize": page_size, "total": total, "resolvedColumns": resolved}
@@ -416,7 +454,7 @@ def update_query(id: QueryIdPath, body: UpdateQueryBody) -> JSONResponse:  # noq
     can't run is rejected 422. The Query's name + source are unchanged this
     round. Returns the updated Query (resolvedColumns recomputed when joined)."""
     definition = body.definition.model_dump()
-    join = definition.get("join")
+    chain = _chain_of(definition)
     with get_conn() as con:
         qrow = con.execute("SELECT * FROM queries WHERE id = ?", (id,)).fetchone()
         if qrow is None:
@@ -424,12 +462,12 @@ def update_query(id: QueryIdPath, body: UpdateQueryBody) -> JSONResponse:  # noq
         ds = con.execute("SELECT * FROM datasets WHERE id = ?", (qrow["dataset_id"],)).fetchone()
         if ds is None:
             return JSONResponse(status_code=404, content=ApiErrorNotFound().model_dump())
-        if join:
-            payload, reason = _resolve_join(con, join, qrow["workspace_id"])
+        if chain:
+            payload, reason = _resolve_chain(con, chain, qrow["dataset_id"], qrow["workspace_id"])
             if reason is not None:
                 raise HTTPException(
                     status_code=422,
-                    detail=[{"loc": ["body", "definition", "join"], "msg": reason, "type": "value_error"}],
+                    detail=[{"loc": ["body", "definition", "joins"], "msg": reason, "type": "value_error"}],
                 )
             validation_columns = payload["effective"]
         else:

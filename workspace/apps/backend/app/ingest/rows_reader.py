@@ -125,40 +125,42 @@ def query_dataset_rows(
 
 
 def build_effective_columns(
-    left_cols: list[dict[str, str]],
-    right_cols: list[dict[str, str]],
-    left_ds_name: str,
-    right_ds_name: str,
+    sources: list[tuple[str, list[dict[str, str]]]],
 ) -> tuple[list[dict[str, str]], list[str]]:
-    """Compute a join's EFFECTIVE column space and the CTE select-expressions.
+    """Compute a join CHAIN's EFFECTIVE column space and the CTE select-expressions.
+
+    ``sources`` is the ordered chain ``[(dataset_name, columns), …]`` starting
+    with the driving source dataset (alias ``T0``), then each chained dataset
+    (``T1``, ``T2``, …) — R71's two-source join is the length-2 case.
 
     Returns ``(effective, select_exprs)`` where ``effective`` is the ordered
-    ``left ++ right`` columns (``{name, dtype}``) with names that **collide
-    across the two sides** qualified by dataset name (``Deals.id`` /
-    ``Accounts.id``); names unique across the join stay bare. ``select_exprs``
-    alias each source column (``L."x"`` / ``R."x"``) to its effective output
-    name so predicates can reference the effective name unqualified.
+    concatenation of every source's columns (``{name, dtype}``) with names that
+    **collide across two or more sources** qualified by dataset name
+    (``Deals.id`` / ``Accounts.id``; ``accounts.tier`` / ``owners.tier``); names
+    unique across the whole chain stay bare. ``select_exprs`` alias each source
+    column (``T{i}."x"``) to its effective output name so predicates can
+    reference the effective name unqualified.
     """
-    left_names = {c["name"] for c in left_cols}
-    right_names = {c["name"] for c in right_cols}
-    dupes = left_names & right_names
+    name_counts: dict[str, int] = {}
+    for _, cols in sources:
+        for c in cols:
+            name_counts[c["name"]] = name_counts.get(c["name"], 0) + 1
 
     effective: list[dict[str, str]] = []
     select_exprs: list[str] = []
-    for side, cols, ds_name in (("L", left_cols, left_ds_name), ("R", right_cols, right_ds_name)):
+    for i, (ds_name, cols) in enumerate(sources):
+        alias = f"T{i}"
         for c in cols:
-            out = f"{ds_name}.{c['name']}" if c["name"] in dupes else c["name"]
+            out = f"{ds_name}.{c['name']}" if name_counts[c["name"]] > 1 else c["name"]
             effective.append({"name": out, "dtype": c["dtype"]})
-            select_exprs.append(f'{side}.{_quote_ident(c["name"])} AS {_quote_ident(out)}')
+            select_exprs.append(f'{alias}.{_quote_ident(c["name"])} AS {_quote_ident(out)}')
     return effective, select_exprs
 
 
 def query_joined_rows(
-    left_parquet: Path,
-    right_parquet: Path,
+    parquets: list[Path],
     *,
-    left_key: str,
-    right_key: str,
+    join_keys: list[tuple[str, str]],
     select_exprs: list[str],
     effective_columns: list[str],
     page: int,
@@ -167,13 +169,15 @@ def query_joined_rows(
     filters: list[FilterPredicate] | None = None,
     advanced: list[list[FilterPredicate]] | None = None,
 ) -> tuple[list[list[str | None]], int]:
-    """Return ``(rows, total)`` for one page of an INNER join of two parquet
-    sources on ``left_key = right_key``.
+    """Return ``(rows, total)`` for one page of an INNER-join CHAIN over
+    ``parquets`` (the ordered chain ``T0, T1, …, Tn``).
 
-    `effective_columns` is the output column order (collision-qualified names);
-    `filters`/`advanced` predicates must carry those effective names (built by
-    re-validating the definition against the effective column space) so the
-    reused fragment builders compose over the joined CTE.
+    ``join_keys[k] = (left_col, right_col)`` is hop ``k``'s key pair: hop ``k``
+    joins ``T{k}`` to ``T{k+1}`` on ``T{k}.left_col = T{k+1}.right_col`` (a strict
+    linear path). ``effective_columns`` is the output column order
+    (collision-qualified names); ``filters``/``advanced`` predicates carry those
+    effective names so the reused fragment builders compose over the joined CTE.
+    R71's two-source join is the single-hop (``len(parquets) == 2``) case.
     """
     quoted_eff = [_quote_ident(c) for c in effective_columns]
     select_list = ", ".join(f"CAST({c} AS VARCHAR)" for c in quoted_eff)
@@ -194,30 +198,28 @@ def query_joined_rows(
     where_clause = ("WHERE " + " AND ".join(where_terms)) if where_terms else ""
     where_params: list[Any] = [*filter_params, *advanced_params, *q_params]
 
-    # Inner CTE: join the two sources, aliasing every output column to its
-    # effective (collision-qualified) name; the outer query filters + pages it.
-    cte = (
-        "WITH joined AS ("
-        f"SELECT {', '.join(select_exprs)} "
-        "FROM read_parquet(?) AS L "
-        f"INNER JOIN read_parquet(?) AS R ON L.{_quote_ident(left_key)} = R.{_quote_ident(right_key)}"
-        ")"
-    )
+    # FROM read_parquet(?) AS T0 INNER JOIN read_parquet(?) AS T1 ON T0.k=T1.k …
+    from_parts = ["read_parquet(?) AS T0"]
+    for k, (left_col, right_col) in enumerate(join_keys):
+        from_parts.append(
+            f"INNER JOIN read_parquet(?) AS T{k + 1} "
+            f"ON T{k}.{_quote_ident(left_col)} = T{k + 1}.{_quote_ident(right_col)}"
+        )
+    from_clause = " ".join(from_parts)
+
+    # Inner CTE: fold the chain, aliasing every output column to its effective
+    # (collision-qualified) name; the outer query filters + pages it.
+    cte = f"WITH joined AS (SELECT {', '.join(select_exprs)} FROM {from_clause})"
+    parquet_params = [str(p) for p in parquets]
     offset = (page - 1) * page_size
 
     with duckdb.connect(":memory:") as con:
         rows_sql = f"{cte} SELECT {select_list} FROM joined {where_clause} LIMIT ? OFFSET ?"
-        rows_params: list[Any] = [
-            str(left_parquet),
-            str(right_parquet),
-            *where_params,
-            page_size,
-            offset,
-        ]
+        rows_params: list[Any] = [*parquet_params, *where_params, page_size, offset]
         page_rows = con.execute(rows_sql, rows_params).fetchall()
 
         count_sql = f"{cte} SELECT COUNT(*) FROM joined {where_clause}"
-        count_params: list[Any] = [str(left_parquet), str(right_parquet), *where_params]
+        count_params: list[Any] = [*parquet_params, *where_params]
         (total,) = con.execute(count_sql, count_params).fetchone()
 
     return [list(r) for r in page_rows], int(total)

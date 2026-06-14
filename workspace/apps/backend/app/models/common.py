@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app._generated.constants import ERROR_CODES, ID_PATTERNS, NAME_LENGTHS
 
@@ -179,8 +179,10 @@ class FilterAtom(BaseModel):
 
 
 class JoinStep(BaseModel):
-    """R71 — an optional join step on a QueryDefinition. The Query consumes a
-    governed Relationship (`rel_`) to read two related datasets as one."""
+    """One join hop. R71 introduced a single hop; R73 chains an ordered list of
+    them (`QueryDefinition.joins`). Each hop consumes a governed Relationship
+    (`rel_`) to read its right dataset; in a multi-hop chain each hop's
+    left/driving dataset is the chain's current tail (a strict linear path)."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -189,16 +191,32 @@ class JoinStep(BaseModel):
 
 
 class QueryDefinition(BaseModel):
-    """The saved predicate state: chip filters + advanced DNF + `?q=`. R71 adds
-    an optional `join`: when present the Query is multi-source and a FilterAtom's
-    `col` indexes the EFFECTIVE (left ++ right) column space."""
+    """The saved predicate state: chip filters + advanced DNF + `?q=`. R71 added
+    an optional join; R73 generalizes it to `joins`, an ordered LINEAR CHAIN of
+    hops: when non-empty the Query is multi-source and a FilterAtom's `col`
+    indexes the EFFECTIVE column space (the source dataset ++ every chained
+    dataset). A single join is just a length-1 chain."""
 
     model_config = ConfigDict(extra="forbid")
 
     q: Annotated[str | None, Field(max_length=200)] = None
     filters: list[FilterAtom]
     advanced: list[list[FilterAtom]]
-    join: JoinStep | None = None
+    joins: list[JoinStep] = []
+
+    @model_validator(mode="before")
+    @classmethod
+    def _fold_legacy_join(cls, data: object) -> object:
+        """Back-compat read shim: a legacy single `join` (R71/R72 persisted
+        definitions, or an older client) folds into a length-1 `joins`, so the
+        model accepts it without violating `extra='forbid'`. New writes use
+        `joins`; responses always carry `joins`."""
+        if isinstance(data, dict) and "join" in data:
+            data = dict(data)
+            legacy = data.pop("join")
+            if legacy is not None and not data.get("joins"):
+                data["joins"] = [legacy]
+        return data
 
 
 class Query(BaseModel):
@@ -209,8 +227,9 @@ class Query(BaseModel):
     datasetId: DsId  # noqa: N815
     name: Annotated[str, Field(min_length=1, max_length=NAME_LENGTHS["query_max"])]
     definition: QueryDefinition
-    # R71 — the effective (combined, collision-qualified) columns; present only
-    # when `definition.join` is set. The FE renders joined headers from it.
+    # R71/R73 — the effective (combined, collision-qualified) columns; present
+    # whenever `definition.joins` is non-empty (a single join or a multi-hop
+    # chain). The FE renders joined headers from it.
     resolvedColumns: list[Column] | None = None  # noqa: N815
     createdAt: IsoUtc  # noqa: N815
 

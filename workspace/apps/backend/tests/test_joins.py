@@ -71,7 +71,7 @@ def _create_join(client: TestClient, ws: str, left: str, rel_id: str, *, name="D
                 "q": None,
                 "filters": filters or [],
                 "advanced": [],
-                "join": {"relationshipId": rel_id, "type": "inner"},
+                "joins": [{"relationshipId": rel_id, "type": "inner"}],
             },
         },
     )
@@ -226,7 +226,7 @@ def _preview(client: TestClient, ws: str, dataset_id: str, definition: dict, *, 
 
 
 def _joined_def(rel_id: str, *, filters=None, q=None) -> dict:
-    return {"q": q, "filters": filters or [], "advanced": [], "join": {"relationshipId": rel_id, "type": "inner"}}
+    return {"q": q, "filters": filters or [], "advanced": [], "joins": [{"relationshipId": rel_id, "type": "inner"}]}
 
 
 @pytest.mark.unit
@@ -367,3 +367,171 @@ def test_update_with_unrunnable_definition_is_422() -> None:
 
     assert bad_atom.status_code == 422
     assert bad_edge.status_code == 422
+
+
+# ─── R73: the multi-join chain — N-source fold + linear-chain invariant ──────
+
+
+def _seed3(client: TestClient) -> tuple[str, str, str, str]:
+    """Workspace + three same-schema datasets (deals, accounts, owners)."""
+    ws = client.post("/workspaces", json={"name": "Marketing"}).json()["id"]
+    return (
+        ws,
+        _commit_csv(client, ws, "deals"),
+        _commit_csv(client, ws, "accounts"),
+        _commit_csv(client, ws, "owners"),
+    )
+
+
+def _chain_def(rel_ids: list[str], *, filters=None, q=None) -> dict:
+    return {
+        "q": q,
+        "filters": filters or [],
+        "advanced": [],
+        "joins": [{"relationshipId": r, "type": "inner"} for r in rel_ids],
+    }
+
+
+@pytest.mark.unit
+def test_create_and_run_chain() -> None:
+    # Deals ⋈ Accounts ⋈ Owners on id over three identical 3-row tables → 3 rows,
+    # 4+4+4 = 12 effective cells per row.
+    with TestClient(app) as client:
+        ws, deals, accounts, owners = _seed3(client)
+        rel1 = _declare_id_join(client, ws, deals, accounts)
+        rel2 = _declare_id_join(client, ws, accounts, owners)
+        created = client.post(
+            f"/workspaces/{ws}/queries",
+            json={"name": "Deals × Accounts × Owners", "datasetId": deals, "definition": _chain_def([rel1, rel2])},
+        )
+        assert created.status_code == 201, created.text
+        validate_response("queries/post.contract.yaml", 201, created.json())
+        qid = created.json()["id"]
+        resp = client.get(f"/queries/{qid}/rows")
+
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["total"] == 3
+    assert all(len(r) == 12 for r in body["rows"])
+    validate_response("queries/rows-get.contract.yaml", 200, body)
+
+
+@pytest.mark.unit
+def test_chain_resolved_columns_qualified_across_all_sources() -> None:
+    with TestClient(app) as client:
+        ws, deals, accounts, owners = _seed3(client)
+        rel1 = _declare_id_join(client, ws, deals, accounts)
+        rel2 = _declare_id_join(client, ws, accounts, owners)
+        qid = client.post(
+            f"/workspaces/{ws}/queries",
+            json={"name": "DAO", "datasetId": deals, "definition": _chain_def([rel1, rel2])},
+        ).json()["id"]
+        body = client.get(f"/queries/{qid}").json()
+
+    names = [c["name"] for c in body["resolvedColumns"]]
+    # `id`/`name`/`amount`/`signed_up` each appear in all three sources → all qualified.
+    assert names == [
+        "deals.id", "deals.name", "deals.amount", "deals.signed_up",
+        "accounts.id", "accounts.name", "accounts.amount", "accounts.signed_up",
+        "owners.id", "owners.name", "owners.amount", "owners.signed_up",
+    ]
+    validate_response("queries/detail-get.contract.yaml", 200, body)
+
+
+@pytest.mark.unit
+def test_nonlinear_chain_is_422() -> None:
+    # A 2nd hop that does NOT extend from the tail (deals→owners while the tail is
+    # accounts) breaks the linear-chain invariant → unsavable.
+    with TestClient(app) as client:
+        ws, deals, accounts, owners = _seed3(client)
+        rel1 = _declare_id_join(client, ws, deals, accounts)
+        rel_branch = _declare_id_join(client, ws, deals, owners)  # left = deals ≠ tail (accounts)
+        resp = client.post(
+            f"/workspaces/{ws}/queries",
+            json={"name": "branch", "datasetId": deals, "definition": _chain_def([rel1, rel_branch])},
+        )
+    assert resp.status_code == 422, resp.text
+
+
+@pytest.mark.unit
+def test_preview_chain_is_stateless() -> None:
+    with TestClient(app) as client:
+        ws, deals, accounts, owners = _seed3(client)
+        rel1 = _declare_id_join(client, ws, deals, accounts)
+        rel2 = _declare_id_join(client, ws, accounts, owners)
+        resp = _preview(client, ws, deals, _chain_def([rel1, rel2]))
+        listed = client.get(f"/workspaces/{ws}/queries").json()
+
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["total"] == 3
+    assert all(len(r) == 12 for r in body["rows"])
+    assert len(body["resolvedColumns"]) == 12
+    assert listed == []  # stateless — no persistence
+    validate_response("queries/preview.contract.yaml", 200, body)
+
+
+@pytest.mark.unit
+def test_put_grows_a_single_join_into_a_chain() -> None:
+    # Save a single join, then PUT a 2-hop chain → the saved run re-runs the chain.
+    with TestClient(app) as client:
+        ws, deals, accounts, owners = _seed3(client)
+        rel1 = _declare_id_join(client, ws, deals, accounts)
+        rel2 = _declare_id_join(client, ws, accounts, owners)
+        qid = client.post(
+            f"/workspaces/{ws}/queries",
+            json={"name": "DA", "datasetId": deals, "definition": _chain_def([rel1])},
+        ).json()["id"]
+        put = client.put(f"/queries/{qid}", json={"definition": _chain_def([rel1, rel2])})
+        body = put.json()
+        rerun = client.get(f"/queries/{qid}/rows").json()
+
+    assert put.status_code == 200, put.text
+    assert len(body["resolvedColumns"]) == 12
+    validate_response("queries/put.contract.yaml", 200, body)
+    assert all(len(r) == 12 for r in rerun["rows"])
+
+
+@pytest.mark.unit
+def test_per_hop_stale_blocks_the_chain() -> None:
+    # Drift the SECOND hop's key (owners.id) after save → the chain can't run →
+    # 409 relationship_stale (the per-hop gate names the chain unavailable).
+    with TestClient(app) as client:
+        ws, deals, accounts, owners = _seed3(client)
+        rel1 = _declare_id_join(client, ws, deals, accounts)
+        rel2 = _declare_id_join(client, ws, accounts, owners)
+        qid = client.post(
+            f"/workspaces/{ws}/queries",
+            json={"name": "DAO", "datasetId": deals, "definition": _chain_def([rel1, rel2])},
+        ).json()["id"]
+        with db.get_conn() as con:
+            row = con.execute("SELECT columns_json FROM datasets WHERE id = ?", (owners,)).fetchone()
+            cols = [c for c in json.loads(row["columns_json"]) if c["name"] != "id"]
+            con.execute("UPDATE datasets SET columns_json = ? WHERE id = ?", (json.dumps(cols), owners))
+            con.commit()
+        resp = client.get(f"/queries/{qid}/rows")
+
+    assert resp.status_code == 409
+    assert resp.json() == {"code": "relationship_stale"}
+
+
+@pytest.mark.unit
+def test_legacy_single_join_folds_to_chain_on_read() -> None:
+    # Back-compat: a persisted R71/R72 definition with a single `join` reads back
+    # as a length-1 `joins` chain (the BE normalize-on-read shim) and runs.
+    with TestClient(app) as client:
+        ws, deals, accounts = _seed(client)
+        rel_id = _declare_id_join(client, ws, deals, accounts)
+        qid = _create_join(client, ws, deals, rel_id).json()["id"]
+        # Rewrite storage to the LEGACY single-`join` shape, as R71/R72 saved it.
+        legacy = {"q": None, "filters": [], "advanced": [], "join": {"relationshipId": rel_id, "type": "inner"}}
+        with db.get_conn() as con:
+            con.execute("UPDATE queries SET definition_json = ? WHERE id = ?", (json.dumps(legacy), qid))
+            con.commit()
+        fetched = client.get(f"/queries/{qid}").json()
+        run = client.get(f"/queries/{qid}/rows").json()
+
+    assert fetched["definition"]["joins"] == [{"relationshipId": rel_id, "type": "inner"}]
+    assert "join" not in fetched["definition"]
+    assert run["total"] == 3
+    validate_response("queries/detail-get.contract.yaml", 200, fetched)
