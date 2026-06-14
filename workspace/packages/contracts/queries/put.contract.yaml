@@ -52,7 +52,7 @@ paths:
                     filters:
                       - { col: 8, dtype: string, op: equals, val: "gold" }
                     advanced: []
-                    join: { relationshipId: "rel_4d7b91ce", type: inner }
+                    joins: [{ relationshipId: "rel_4d7b91ce", type: inner }]
       responses:
         "200":
           description: Query updated. The full `Query` with the new definition.
@@ -72,7 +72,7 @@ paths:
                       filters:
                         - { col: 8, dtype: string, op: equals, val: "gold" }
                       advanced: []
-                      join: { relationshipId: "rel_4d7b91ce", type: inner }
+                      joins: [{ relationshipId: "rel_4d7b91ce", type: inner }]
                     resolvedColumns:
                       - { name: "deal_id", dtype: string }
                       - { name: "account_name", dtype: string }
@@ -89,10 +89,10 @@ paths:
         "422":
           description: |
             The new `definition` can't run — an atom fails the per-atom
-            check against current columns (bad index / op / value), or
-            `definition.join` references an unknown, cross-workspace, or
-            stale edge, or a join atom's `col` is out of range of the
-            EFFECTIVE column space. FastAPI validation envelope.
+            check against current columns (bad index / op / value), or a hop in
+            `definition.joins` references an unknown, cross-workspace, or stale
+            edge or breaks the linear-chain invariant, or a join atom's `col` is
+            out of range of the EFFECTIVE column space. FastAPI validation envelope.
           content:
             application/json:
               schema:

@@ -85,7 +85,7 @@ paths:
                     filters:
                       - { col: 3, dtype: string, op: equals, val: "won" }
                     advanced: []
-                    join: { relationshipId: "rel_4d7b91ce", type: inner }
+                    joins: [{ relationshipId: "rel_4d7b91ce", type: inner }]
       responses:
         "200":
           description: |
@@ -120,7 +120,7 @@ paths:
                     type: array
                     description: |
                       The effective (combined, collision-qualified) columns —
-                      present ONLY when `definition.join` is set. Identical
+                      present whenever `definition.joins` is non-empty. Identical
                       shape to `Query.resolvedColumns`.
                     items:
                       type: object
@@ -167,8 +167,10 @@ paths:
         "422":
           description: |
             The request is structurally unpreviewable — `datasetId`
-            malformed / unknown / not in this workspace; `definition.join`
-            references an unknown or cross-workspace edge; or `page_size` not
+            malformed / unknown / not in this workspace; a hop in
+            `definition.joins` references an unknown or cross-workspace edge,
+            or breaks the linear-chain invariant (its left ≠ the prior tail);
+            or `page_size` not
             in {10, 25, 50, 100}. A drifted *predicate* atom is `409 query_stale`
             and a drifted *join key* is `409 relationship_stale` (above) — this
             endpoint runs, so it mirrors the saved run's drift semantics.

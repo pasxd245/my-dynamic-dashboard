@@ -471,8 +471,7 @@ export const handlers = [
     const page = Math.max(1, Number(url.searchParams.get('page') ?? 1));
     const pageSize = Math.max(1, Number(url.searchParams.get('page_size') ?? 25));
 
-    // R73 — fold either wire shape into the chain (legacy `join` → [join]).
-    const chain = def.joins ?? (def.join ? [def.join] : []);
+    const chain = def.joins ?? [];
     if (chain.length > 0) {
       // Any stale hop blocks the whole chain (per-hop relationship_stale gate).
       if (chain.some((h) => h.relationshipId === MOCK_STALE_RELATIONSHIP.id)) {
@@ -502,37 +501,23 @@ export const handlers = [
     return HttpResponse.json({ rows: matched.slice(offset, offset + pageSize), page, pageSize, total: matched.length });
   }),
 
-  // R73 (F1) — AD-HOC, UNWRAPPED: a multi-hop chain definition (`joins`) is not
-  // on the R71/R72 contract yet (`_shared/query.yaml` still carries `join`); the
-  // Contract gate migrates `join` → `joins` and re-wraps. Until then this handler
-  // echoes a chain PUT so F1 can exercise save-a-chain. Non-chain PUTs return
-  // `undefined` → MSW falls through to the contract-validated handler below.
-  http.put(api('/queries/:id'), async ({ params, request }) => {
-    // Read from a CLONE: a non-chain PUT falls through to the wrapped handler
-    // below, which re-reads the (still-unconsumed) original body.
-    const body = (await request.clone().json()) as UpdateQueryRequest;
-    const joins = body.definition?.joins;
-    if (!joins || joins.length < 2) return undefined;
-    const base = params.id === MOCK_JOINED_QUERY.id ? MOCK_JOINED_QUERY : MOCK_QUERY;
-    return HttpResponse.json({
-      ...base,
-      id: String(params.id),
-      definition: body.definition,
-      resolvedColumns: MOCK_CHAIN_COLUMNS,
-    });
-  }),
-
-  // R72 — update: persist an edited DEFINITION (name unchanged). Echoes the
-  // Query with the new definition (+ resolvedColumns when joined).
+  // R72 — update: persist an edited DEFINITION (name unchanged). R73 — the
+  // definition may now carry a `joins` chain; the contract migrated `join` →
+  // `joins`, so this stays contract-validated for chains too. Echoes the Query
+  // with the recomputed resolvedColumns (1 hop = Deals ⋈ Accounts; ≥2 = the
+  // chain; absent = single-source).
   withContractValidation('put', api('/queries/:id'), 'updateQuery', async ({ params, request }) => {
     const body = (await request.json()) as UpdateQueryRequest;
     const base = params.id === MOCK_JOINED_QUERY.id ? MOCK_JOINED_QUERY : MOCK_QUERY;
-    const joined = Boolean(body.definition?.join);
+    const chain = body.definition?.joins ?? [];
+    let resolvedColumns: typeof MOCK_CHAIN_COLUMNS | undefined;
+    if (chain.length >= 2) resolvedColumns = MOCK_CHAIN_COLUMNS;
+    else if (chain.length === 1) resolvedColumns = [...MOCK_DATASET.columns, ...MOCK_DATASET_2.columns];
     return HttpResponse.json({
       ...base,
       id: String(params.id),
       definition: body.definition,
-      ...(joined ? { resolvedColumns: [...MOCK_DATASET.columns, ...MOCK_DATASET_2.columns] } : { resolvedColumns: undefined }),
+      resolvedColumns,
     });
   }),
 

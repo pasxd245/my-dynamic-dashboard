@@ -50,11 +50,13 @@ components:
     JoinStep:
       type: object
       description: |
-        R71 — an optional join step on a QueryDefinition. When present, the
-        Query reads TWO related datasets as one virtual table by consuming a
-        governed Relationship (the `rel_` edge). The join keys + the two
-        datasets come from the Relationship; only the join `type` is a
-        query-time choice. See .agents/design/data-management/queries/joins.md.
+        One join hop. R71 introduced a single hop; R73 chains an ordered LIST
+        of them (`QueryDefinition.joins`). Each hop consumes a governed
+        Relationship (the `rel_` edge) to read its right dataset as part of one
+        virtual table; the join keys + datasets come from the Relationship, and
+        only the join `type` is a query-time choice. In a multi-hop chain each
+        hop's LEFT/driving dataset is the chain's current tail (a strict linear
+        path). See .agents/design/data-management/queries/multi-join.md.
       required: [relationshipId, type]
       additionalProperties: false
       properties:
@@ -78,10 +80,14 @@ components:
       description: |
         The saved predicate state — exactly what the dataset detail page
         serializes from its URL: the chip filters, the advanced-query
-        DNF, and the `?q=` row search. Re-run verbatim on open. R71 adds an
-        optional `join` step: when present, the Query is multi-source and a
-        FilterAtom's `col` indexes the EFFECTIVE column space (left ++ right),
-        not a single dataset.
+        DNF, and the `?q=` row search. Re-run verbatim on open. R71 added an
+        optional join; R73 generalizes it to `joins`, an ORDERED LINEAR CHAIN
+        of hops: when non-empty the Query is multi-source and a FilterAtom's
+        `col` indexes the EFFECTIVE column space (the ordered concatenation
+        across the source dataset ++ every chained dataset), not a single
+        dataset. (A single join is just a length-1 chain. The backend
+        normalizes any legacy single `join` to a length-1 `joins` on read, so
+        responses always carry `joins`.)
       required: [filters, advanced]
       additionalProperties: false
       properties:
@@ -108,8 +114,17 @@ components:
             type: array
             items:
               $ref: "#/components/schemas/FilterAtom"
-        join:
-          $ref: "#/components/schemas/JoinStep"
+        joins:
+          type: array
+          description: |
+            R73 — an ordered, LINEAR chain of join hops. Empty / omitted for a
+            single-source Query; one hop reads two datasets as one (R71); two or
+            more chain additional datasets (`Deals ⋈ Accounts ⋈ Owners`). Each
+            hop's left/driving dataset is the previous hop's right (tail) dataset
+            — a strict path, validated on save. The free-form (non-linear) graph
+            is deferred (multi-join.md § Scope).
+          items:
+            $ref: "#/components/schemas/JoinStep"
 
     Query:
       type: object
@@ -145,13 +160,14 @@ components:
           type: array
           description: |
             R71 — the Query's EFFECTIVE columns, server-computed and present
-            ONLY when `definition.join` is set. For a join it is the ordered
-            concatenation `leftDataset.columns ++ rightDataset.columns`, with
-            names that collide across the two sides qualified by dataset
-            (`Deals.id` / `Accounts.id`). The FE needs this to render the
-            joined result's headers (it cannot derive them from one source
-            dataset). Omitted for a single-source query (its columns are the
-            source dataset's). See joins.md § Data contract.
+            whenever `definition.joins` is non-empty. It is the ordered
+            concatenation across the source dataset ++ every chained dataset
+            (`Deals.columns ++ Accounts.columns ++ Owners.columns`), with names
+            that collide across sources qualified by dataset (`Deals.id` /
+            `Accounts.id`; `accounts.tier` / `owners.tier`). The FE needs this
+            to render the joined result's headers (it cannot derive them from
+            one source dataset). Omitted for a single-source query (its columns
+            are the source dataset's). See multi-join.md § Data contract.
           items:
             type: object
             required: [name, dtype]

@@ -33,16 +33,13 @@ export type QueryDefinition = {
   filters: readonly FilterPredicate[];
   /** Advanced query in DNF — an OR of AND-groups. Empty when none. */
   advanced: PredicateGroups;
-  /** R71 — a SINGLE join (legacy wire field). R73 generalizes this to an
-   *  ordered chain (`joins`); a length-≤1 chain is still written on this field
-   *  so it stays on the R71/R72 contract until the Contract gate migrates
-   *  `join` → `joins`. Read via {@link readChain} which folds either field. */
-  join?: JoinStep;
-  /** R73 — an ordered, linear chain of hops: `joins[0]` extends from the
-   *  Query's source dataset, each subsequent hop from the previous hop's right
-   *  (tail) dataset. Present (in the wire) only for a multi-hop chain (≥2);
-   *  a single join still uses {@link join}. Mirrors the J-3 design seal in
-   *  .agents/design/data-management/queries/multi-join.md. */
+  /** R71→R73 — an ordered, LINEAR chain of join hops: `joins[0]` extends from
+   *  the Query's source dataset, each subsequent hop from the previous hop's
+   *  right (tail) dataset. Omitted/empty for a single-source Query; one hop is a
+   *  single join (R71); 2+ chain additional datasets. Mirrors
+   *  `_shared/query.yaml#/QueryDefinition.joins` + the J-3 seal in
+   *  .agents/design/data-management/queries/multi-join.md. (The backend
+   *  normalizes any legacy single `join` to a length-1 `joins` on read.) */
   joins?: readonly JoinStep[];
 };
 

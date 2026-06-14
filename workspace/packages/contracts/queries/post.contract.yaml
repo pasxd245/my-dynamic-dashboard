@@ -100,11 +100,12 @@ paths:
             dataset, or any atom in `definition` fails the per-atom
             check against the dataset's current columns (bad column
             index, op invalid for the column's dtype, unparseable
-            value). R71 — also when `definition.join` references a
-            Relationship that is unknown, not in this workspace, or stale
-            at save time, or when a join atom's `col` is out of range of
-            the EFFECTIVE (left ++ right) column space. Body is the
-            FastAPI validation-error envelope.
+            value). R71/R73 — also when any hop in `definition.joins`
+            references a Relationship that is unknown, not in this workspace,
+            or stale at save time, or breaks the linear-chain invariant (its
+            left ≠ the prior tail), or when a join atom's `col` is out of range
+            of the EFFECTIVE (chained) column space. Body is the FastAPI
+            validation-error envelope.
           content:
             application/json:
               schema:

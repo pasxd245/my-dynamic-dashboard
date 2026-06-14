@@ -165,7 +165,7 @@ export const MOCK_JOINED_QUERY: Query = {
     q: null,
     filters: [],
     advanced: [],
-    join: { relationshipId: MOCK_RELATIONSHIP.id, type: 'inner' },
+    joins: [{ relationshipId: MOCK_RELATIONSHIP.id, type: 'inner' }],
   },
   resolvedColumns: [...MOCK_DATASET.columns, ...MOCK_DATASET_2.columns],
   createdAt: '2026-06-13T10:00:00Z',
