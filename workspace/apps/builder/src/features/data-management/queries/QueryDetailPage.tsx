@@ -334,9 +334,11 @@ export function QueryDetailPage() {
             hop names its join type so an outer hop isn't mislabelled as inner. */}
         {chain.slice(1).map((hop) => {
           const r = relById.get(hop.relationshipId);
+          const cardinality = r ? t(`relationships.cardinality.${r.cardinality}`) : null;
           return (
             <Tag key={hop.relationshipId} color="default" data-component="QueryJoinHop">
               ⋈ {t(`queries.detail.joinType.${hop.type}`)} ⋈ {r ? `${r.leftColumn} ↔ ${r.rightColumn}` : hop.relationshipId}
+              {cardinality ? ` · ${cardinality}` : ''}
             </Tag>
           );
         })}
