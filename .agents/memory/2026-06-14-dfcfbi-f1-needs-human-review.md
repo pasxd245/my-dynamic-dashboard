@@ -63,6 +63,13 @@ exists for precisely this gap.
   (the 4th "declared done, wasn't fully" of the round). Grep the design corpus for
   the specific things the change altered (old label, old enum literal, the
   "deferred" line that's now shipped) — don't trust that one doc covers it.
+- **A relabel must sweep CODE references too, not just the label's own key.**
+  Renaming the button (`queries.save.action` → "Save filters as Query") left
+  `queries.list.emptyHint` still telling users to choose **"Save as Query"** — a
+  *shipped* inconsistency (en + vi), caught only when the human asked "is
+  saved-query.md stale fixed?" (5th instance). After any UI rename, grep all
+  user-facing strings that *name* the old label, in every locale — not only its
+  defining key.
 - When adding an HTTP method/route, update the backend CORS `allow_methods` — the
   harnesses don't exercise browser preflight.
 
