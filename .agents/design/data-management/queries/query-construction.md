@@ -273,7 +273,7 @@ stateDiagram-v2
     PreviewPopulated --> Editing: further edits
     PreviewInvalid --> Editing: fix the offending predicate / edge
     Editing --> Saving: click [Save] (def valid)
-    Saving --> Viewing: 200 → persisted; toast; back to read-only
+    Saving --> Viewing: 200 → persisted, toast, back to read-only
     Saving --> SaveRejected: 422 (edge unknown/cross-ws/stale at save) → inline error
     Editing --> DiscardConfirm: click [Cancel] with unsaved changes
     DiscardConfirm --> Viewing: discard → revert to saved definition
