@@ -544,9 +544,12 @@ R71 chain on the human's go-ahead):
 - **Left / right / outer joins** → **R75** (shipped; see [§ R75](#r75-outer-join-types)) — the per-hop `type` widens beyond `inner`. **Composite /
   multi-column** join keys; **self-joins**; **cross-workspace** joins → future
   (R70's named triggers hold; R71→R75 execute single-column, within-workspace hops).
-- **Query × Query joins / composition** (a Query as a join input) → later; R71's
-  join inputs are two **Datasets** via a `rel_`. This is also why the **unified
-  table-source resolver** stays deferred (J-2′).
+- **Query × Query joins / composition** (a Query as a join input) → **R76** (design
+  sealed in [composition.md](composition.md); build pends the J-2 model-review STOP);
+  R71's join inputs are two **Datasets** via a `rel_`. R76 pulls the **unified
+  table-source resolver** (J-2′) — a `qr_` becomes the **driving/base** source (a
+  `qr_` on the *right* of a hop, which would generalize `rel_` endpoints, stays
+  deferred).
 - **Row-explosion guard / aggregation / dedup** on `many:many` joins → future.
   _Trigger: a real report's join multiplies rows past usability._
 - **Relationship delete-guard** when an edge is consumed by a join → flagged as

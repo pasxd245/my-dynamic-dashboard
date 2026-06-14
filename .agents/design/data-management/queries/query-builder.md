@@ -143,7 +143,10 @@ R74    join graph (tree)      multi-join.md        (shipped) — relax the linea
 R75    left / outer joins     joins.md             (this round) — widen JoinStep.type beyond inner
                                                       (left / right / full outer): keep unmatched rows
                                                       so a relationship can be expressed, not just filtered
-later  Query × Query          (future)             — a Query as a join input; the unified ds_/qr_ resolver
+R76    Query × Query          composition.md       (design sealed; build pends the J-2 model-review
+                                                      STOP) — a Query as the driving join source; the
+                                                      unified ds_/qr_ resolver (R71 J-2′), recursive +
+                                                      cycle-guarded
 later  visual join canvas     (future)             — a free-form source graph; drag nodes / draw edges
                                                       (deferred until the hop-list stops scaling)
 ```
@@ -199,9 +202,11 @@ later join or compose — because every query surface reuses the same shells.
   minimal join + the saved filter state._
 - **Join execution** (a Query consuming a [Relationship](../workspaces/relationships.md)
   to produce joined rows) → **R71** (shipped), specified in [joins.md](joins.md).
-  The unified table-source resolver stays deferred (R71 J-2′).
+  The unified table-source resolver is **pulled by R76** (J-2′), specified in
+  [composition.md](composition.md).
 - **Workflow / complex query** (YAML + polars) → **later**.
-- **Query composition** (a Query as input to another Query) → later.
+- **Query composition** (a Query as input to another Query) → **R76** (design sealed;
+  build pends the J-2 model-review STOP), specified in [composition.md](composition.md).
 
 ---
 

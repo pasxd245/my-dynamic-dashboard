@@ -1,7 +1,9 @@
 # Round 76: Query × Query composition — let a Query read another Query as a join input
 
-**Status**: Planning
+**Status**: In Progress (Plan + Design gates closed; **sealed, STOP for human model
+review per J-2** before the build chain)
 **Date started**: 2026-06-14
+**Flow**: DFCFBI (triggers 1, 5 — set at the Design gate, locked)
 
 ## Goal
 
@@ -158,20 +160,98 @@ honestly, not laundered through "reuse" (the R71 honest-split discipline).
   engines; the genuinely new work is the polymorphic source ref, the recursive resolver,
   the cycle guard, and the unified source `<Select>`.
 
+### Gate 2 — Design pass (2026-06-14)
+
+**Doc home (J-4 → new sibling doc, not a fork):** authored
+[composition.md](../../design/data-management/queries/composition.md) — the **fifth
+construction mode**, a sibling of [joins.md](../../design/data-management/queries/joins.md) /
+[multi-join.md](../../design/data-management/queries/multi-join.md) under the
+[query-builder.md](../../design/data-management/queries/query-builder.md) anchor (each
+mode gets its own doc — the trajectory's pattern). Updated the query-builder
+**trajectory** (R76 row) + its composition/J-2′ deferral lines, and joins.md's Scope to
+point at composition.md.
+
+**J-3 + J-4 resolved (the model):**
+
++ **J-3 → polymorphic driving-source ref + recursive resolver.** `Query.datasetId`
+  (`^ds_`) widens to **`sourceId: ds_ | qr_`** — a `qr_` is admitted as the **driving/base**
+  source. One **unified `ds_`/`qr_` resolver** (`resolve_source`, R71's J-2′) returns each
+  source's effective columns + SQL relation — `read_parquet(?)` for a `ds_`, a
+  **recursively-composed subquery** for a `qr_` — consumed by both save-validation and run.
+  **Relationships stay dataset↔dataset** (no governed-edge re-open); a composed join reuses
+  the dataset-level `rel_` whose left dataset is a member of the base's source set, the ON
+  key resolving against the base's effective columns by **provenance**. A visited-set
+  **`composition_cycle`** guard (save `422` + run `409`) makes arbitrary nesting safe.
++ **J-4 → new `composition.md`; the base-source `<Select>` (Datasets + Queries, text
+  `<OptGroup>`s); `sourceId` shape change + a new `composition_cycle` error code; no new
+  route.**
+
+**Model check:** **noun-vs-mode** — the base-source picker extends R74's builder; a composed
+Query is the **same readable-table-source kind**, no parallel page, no new noun.
+**Discovered-vs-imposed** — _discovered_: the inner-only-Dataset limit blocks a real
+expression a user wants; the `qr_` source is pulled by that gap and the resolver was named
+by R71 (J-2′), not minted now. **Source-model confidence valve INVOKED on the model (not to
+confirm)** — unlike R73→R75's field widenings, R76 **re-opens the source-reference model**
+(polymorphic `sourceId` + recursive resolver); the design records the sealed leaning + the
+**named fork** the human adjudicates at the STOP (base-only `qr_` vs. generalizing `rel_`
+endpoints to admit a `qr_` on the *right* of a hop — the latter deferred with a trigger).
+
+**`ui-design` (design-spec) on composition.md — PASS (0 gaps).** All six facets declared:
+Findability (the base-source `<Select>` carries a visible label + text `<OptGroup>` headings
+that disambiguate Datasets vs Queries — the learnability affordance caught preventively and
+**remediated in-spec**); Usability (pick + Save primary, reversible, recoverable cycle/stale
+states with actions); Accessibility (accessible names, keyboard focus order, text-not-colour,
+`<Alert role="alert">`); Credibility (all 7 states specced — Loading/Populated/BaseStale/
+CycleBlocked/EdgeStale/PredStale/NotFound + SaveRejected); Utility (fulfils the compose-and-run
+journey); Desirability (reuses shipped chrome, no new surface). Mirrors R71–R75's preventive
+catches.
+
+**Flow selector run** (per [R47](../../decisions/2026-05-28-hybrid-flow-governance.md)):
+
+| Condition                            | Fired? | Justification                                                                                                                                          |
+| ------------------------------------ | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1. >3 independent states/branches    | yes    | The state model branches Loading → {Populated, BaseStale, CycleBlocked, EdgeStale, PredStale, NotFound} (6) + Editing → SaveRejected — well over three. |
+| 2. New interaction pattern           | no     | The base-source `<Select>` (Datasets + Queries via text `<OptGroup>`s) extends R74's shipped source select — a standard AntD pattern, not a new one.    |
+| 3. High user-error risk              | no     | Reads are non-destructive; a cycle is **guarded** (rejected, reversible); composition keeps more expressiveness, deletes nothing.                       |
+| 4. Contract depends on unresolved UI | no     | The `sourceId` shape follows from the **sealed model**, not unresolved UI; a Query option is obvious from the journey.                                  |
+| 5. UX confidence below threshold     | yes    | A model re-open with a genuinely new "compose a Query" mental model **and** a named, unresolved fork (base-only vs. `rel_`-endpoint generalization).    |
+
+Result: **Flow: DFCFBI (triggers 1, 5)**. Build chain **D → F1 → C → F2 → B → I** — F1 is a
+human-reviewed prototype gate. Consistent with R73, the prior model-re-open round. _(The
+J-2 model-review STOP gates the **whole** build chain; F1 then gates the UX prototype.)_
+
+**`gate-walker` (Design gate): PASS** — composition.md + this round record the Design exit
+criterion (the user journey + the 10 acceptance criteria, each → ≥1 future test), the
+noun-vs-mode + discovered-vs-imposed checks, the **invoked source-model confidence valve**
+(the re-opened source-ref + resolver surface + the named fork), and the Design commit seam.
+_Structural check only — the modelling answer's correctness is the human reviewer's call at
+the STOP._
+
+**Design gate closed → SEAL-THEN-STOP (J-2).** The closed model is sealed; gate seams:
+Plan `0c092bc` → Design (this commit). **STOP for human model review** — the build chain
+(D → F1 → C → F2 → B → I) resumes **only on the human's go-ahead**, because R76 re-opens the
+source-reference model (R73's model-altitude doctrine).
+
 ## Check
 
 + [x] **J-0, J-1, J-2 ratified** (Plan gate); **J-3, J-4 held open** → Design gate.
-+ [ ] **Composition design authored** (home per J-4): polymorphic source ref, recursive
-      resolver, cycle guard, effective-column space, unified source-picker, contract intent.
-+ [ ] **Model-confidence valve invoked on the model** — the re-opened source-ref + resolver
-      surface, not merely confirmed.
-+ [ ] **Noun-vs-mode + discovered-vs-imposed** recorded.
-+ [ ] `design:lint` 0 · `design:tokens` 0 · `plan:lint` 0 · `markdown-check-link` 0 broken ·
-      `markdownlint` 0.
-+ [ ] `ui-design` (design-spec) on the unified source-picker — PASS.
-+ [ ] `flow-selector` run + result recorded.
-+ [ ] **`gate-walker` (Design gate)** — exit criterion + model checks + commit seam recorded.
-+ [ ] **Design sealed + STOP for human model review** (J-2).
++ [x] **Composition design authored** ([composition.md](../../design/data-management/queries/composition.md),
+      home per J-4 → new sibling doc): polymorphic `sourceId` ref, recursive `ds_`/`qr_`
+      resolver, `composition_cycle` guard, effective-column space spanning the base, base-source
+      picker, contract intent.
++ [x] **Source-model confidence valve invoked on the model** — the re-opened source-ref +
+      recursive resolver surface (not merely confirmed); the named base-only-vs-rel-endpoint
+      fork recorded for the STOP.
++ [x] **Noun-vs-mode + discovered-vs-imposed** recorded (mode not page; discovered — inner-only
+      Dataset limit blocks a real expression; resolver named by R71's J-2′).
++ [x] `design:lint` 0 (1 doc) · `design:tokens` 0 (13 maps) · `plan:lint` 0 (76 rounds) ·
+      `markdown-check-link` 0 broken · `markdownlint` 0.
++ [x] `ui-design` (design-spec) on composition.md — **PASS, 0 gaps** (the base-source
+      `<Select>` learnability/disambiguation affordance caught + remediated in-spec via text
+      `<OptGroup>`s).
++ [x] `flow-selector` run + result recorded — **DFCFBI (triggers 1, 5)**.
++ [x] **`gate-walker` (Design gate)** — exit criterion + model checks + commit seam recorded.
++ [x] **Design sealed + STOP for human model review** (J-2) — build chain pends the go-ahead.
 + [ ] **Build chain green** (after the STOP): C (source-ref + cycle error) · F (unified
       source `<Select>` + composed preview) · B (recursive resolver + cycle guard) · I
       (dual conformance + compose-Query lifecycle + cycle rejection).
