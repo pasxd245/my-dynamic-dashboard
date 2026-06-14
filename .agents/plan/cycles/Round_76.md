@@ -315,7 +315,10 @@ wrapped `( … )` as a sub-relation, **recursing** (the base may itself be compo
 tree-membership check generalized to **dataset provenance** (a hop's left dataset may live
 INSIDE a composed base's source set). `Query.sourceId` (`Literal`-less `^(ds_|qr_)…`) +
 `CreateQueryBody`/`PreviewQueryBody.sourceId` widen; the `queries` table gains a nullable
-`source_id` column (additive; `dataset_id` kept). `composition_cycle` is raised at **save**
+`source_id` column (additive; `dataset_id` kept) — applied to pre-R76 DBs by an **idempotent
+`bootstrap_schema` migration** (`PRAGMA table_info` → `ALTER TABLE … ADD COLUMN`), since
+`CREATE TABLE IF NOT EXISTS` never alters an existing table (caught live: `GET /queries` 500'd
+on a persisted DB whose `queries` predated the column). `composition_cycle` is raised at **save**
 (409) and **run** (409). pytest **193/193** (+5 composition: create+run a composed query;
 the base's own filter bakes into the composed run; depth-2 nesting resolves; a self-cycle and
 a transitive cycle each block the run with `composition_cycle`), `validate_response`-checked.

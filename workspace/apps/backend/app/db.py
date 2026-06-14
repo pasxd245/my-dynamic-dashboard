@@ -162,11 +162,28 @@ def _backfill_duplicate_names(con: sqlite3.Connection) -> None:
             print(f"[db.backfill] renamed dataset {ds_id} in {ws_id}: {name!r} -> {new_name!r}")
 
 
+def _add_missing_columns(con: sqlite3.Connection) -> None:
+    """Idempotent additive-column migrations for DBs created before a column
+    existed (``CREATE TABLE IF NOT EXISTS`` never ALTERs an existing table).
+
+    R76: ``queries.source_id`` (the composed-query driving source — a `qr_`, else
+    NULL = the `dataset_id` source). Nullable + additive, so a pre-R76 DB picks it
+    up with every existing query reading as dataset-rooted. No-op on a fresh DB
+    (the column is already in ``_SCHEMA``)."""
+    cols = {row["name"] for row in con.execute("PRAGMA table_info(queries)").fetchall()}
+    if "source_id" not in cols:
+        con.execute("ALTER TABLE queries ADD COLUMN source_id TEXT")
+        print("[db.migrate] added queries.source_id (R76 composition)")
+
+
 def bootstrap_schema() -> None:
     path = get_db_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     with sqlite3.connect(path) as con:
+        con.row_factory = sqlite3.Row
         con.executescript(_SCHEMA)
+        # Additive-column migrations for pre-existing DBs (R76: queries.source_id).
+        _add_missing_columns(con)
         # R25: back-fill duplicate names BEFORE creating the unique
         # indexes — otherwise the CREATE UNIQUE INDEX fails on the
         # duplicates that the index is supposed to prevent.
