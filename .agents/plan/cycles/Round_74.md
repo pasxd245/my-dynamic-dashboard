@@ -206,18 +206,109 @@ engine generalization** — named honestly, not laundered through "reuse".
   **only** new work is the left-source choice, the relaxed validation, and the
   `T{left_idx}` engine generalization, named honestly.
 
+### Gate 2 — Design pass (2026-06-14)
+
+**Docs produced / touched:**
+
+- **Extended** [multi-join.md](../../design/data-management/queries/multi-join.md)
+  (J-4 resolved → **extend the mode doc**, not fork a sibling and **not** a parallel
+  page): a new **topology truth-test record (R74)**, the topology invariant relaxed
+  **linear path → connected acyclic tree**, the **`T{left_idx}` engine
+  generalization**, the relaxed `_resolve_chain` rule (`disconnected_join` /
+  `cyclic_join`), the **left-source `<Select>` + leaf-removal** builder affordance, an
+  Accessibility declaration for the new controls, the (unchanged) contract intent, and
+  4 R74 acceptance criteria.
+- **Updated** [query-builder.md](../../design/data-management/queries/query-builder.md)
+  (trajectory: R73 multi-join chain **shipped** → **R74 join graph (tree)** →
+  multi-join.md; **R75 visual canvas** reserved; surface map + status re-pointed).
+
+**J-3 + J-4 resolved with the closed design:**
+
+- **J-3 (topology rule + engine) → connected acyclic tree + `T{left_idx}` engine +
+  topo-order.** Each hop's left = any source already in the graph (connected); its
+  right ∉ the graph (acyclic — a spanning tree, no diamonds/self-joins); the engine
+  joins each new source `T{k+1}` against its own left `T{left_idx}` (R73 hardcoded
+  `T{k}`); joins are stored in topological order (the builder produces it naturally).
+  **No model change** — `joins: JoinStep[]` already carries a tree.
+- **J-4 (home + affordance) → extend multi-join.md; left-source `<Select>` +
+  leaf-removal.** The mode doc grows a section rather than forking; the linear chain
+  becomes the path special case. The home/affordance is free to deviate at build
+  ([build-first](../../memory/2026-05-22-ui-boundary-build-first.md) twin).
+
+**Model check (Design gate):**
+
+- **Noun-vs-mode:** the tree is an **extension of R73's `ChainEditor`** (the same
+  hop-list, predicate editors, relationship `<Select>`, `<PagedRowsView>`) — the only
+  new affordance is a **left-source `<Select>`** + leaf-removal. **No** `/canvas` page,
+  **no** new noun (no `JoinGraph`). **Clears.**
+- **Discovered-vs-imposed:** _discovered_ — pulled by R73's named J-1′ trigger
+  (written before R74) + a real report need (a Deal's account **and** its owner, both
+  hanging off the Deal — a star); nothing minted. R74 **removes a constraint** the
+  model never needed.
+- **Design-model confidence valve INVOKED to confirm (J-2: run straight through).**
+  The **topology truth-test** is recorded in
+  [multi-join.md § Topology truth-test record (R74)](../../design/data-management/queries/multi-join.md#topology-truth-test-record-r74):
+  the model is **VALIDATED a second time (no revision)** — `joins: JoinStep[]` already
+  expresses a tree because each hop names its own `leftDatasetId`; what R73 made linear
+  was a **policy** (an invariant + a path-shaped engine), not the data shape. Only the
+  invariant + engine ON-clause + builder affordance generalize.
+
+**`ui-design` (design-spec) on multi-join.md — PASS (0 gaps).** All six UX-honeycomb
+facets pass; one **Findability/Accessibility** gap caught **preventively** (the new
+left-source `<Select>` + the non-leaf `[Remove]` had no declared accessible
+name/disabled-reason) and **remediated in-spec** (a labelled "Join from" `<Select>` in
+focus order + an `aria-disabled` `[Remove]` with a text tooltip). Mirrors R71/R72/R73's
+preventive catches.
+
+**Flow selector run** (per [R47](../../decisions/2026-05-28-hybrid-flow-governance.md)), against the closed design ([multi-join.md](../../design/data-management/queries/multi-join.md)):
+
+| Condition                            | Fired? | Justification                                                                                                                                                                                              |
+| ------------------------------------ | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1. >3 independent states/branches    | yes    | The state model has 9 (Loading → Populated/HopStale/PredStale/NotFound; Editing → add-hop/remove-leaf/edit-pred; Saving → SaveRejected; Redirect).                                                          |
+| 2. New interaction pattern           | no     | R74 **reuses** R73's shipped hop-list `<Select>` builder, adding a left-source `<Select>` (standard AntD) + leaf-removal. The genuinely-new drag/draw **canvas** pattern is deferred → R75.                |
+| 3. High user-error risk              | no     | Editing is reversible (remove a leaf / discard reverts); invalid edits **block** Save (`422`); reads are non-destructive.                                                                                  |
+| 4. Contract depends on unresolved UI | no     | R74 has **no** wire-shape change (`joins` unchanged) and **no** new enumerated error code — only free-form `422` detail messages (`disconnected_join`/`cyclic_join`). The shape is fully settled.          |
+| 5. UX confidence below threshold     | no     | A small, confident delta on R73's already **human-reviewed** builder; the tree-as-list legibility concern is resolved in-spec (the left-source `<Select>` makes each hop's parent explicit), R75 the escape hatch. |
+
+Result: **Flow: DCFBI** (only trigger 1 fires — 1 of 5, below the 2-of-5 threshold).
+Unlike R73's DFCFBI: R74 reuses the human-reviewed builder, so no F1 prototype/escape
+is warranted. The build chain is **D → C → F → B → I**; per the DCFBI visual-verification
+gate + the [Complete-is-signed-off rule](../../memory/2026-06-14-dfcfbi-f1-needs-human-review.md),
+the human still **runs the app before Review** and **Complete waits on hands-on
+sign-off**, not gates-green.
+
+**`gate-walker` (Design gate): PASS** — the round + design doc record the Design exit
+criterion (journey + 4 R74 acceptance criteria in multi-join.md), the noun-vs-mode +
+discovered-vs-imposed model check **and** the invoked design-model confidence valve
+(the topology truth-test verdict), and the Design commit seam (below). _Structural
+check only — the modeling answer's correctness remains the human reviewer's call._
+
+**Design gate closed (J-2: run straight through).** The join-graph (tree) design is
+sealed. Gate commit seams (gate = commit): Plan `18b9376` → Design (this commit). The
+build chain proceeds **D → C → F → B → I** without a Design-gate STOP.
+
 ## Check
 
-- [x] **J-1, J-2, J-1′ ratified** (Plan gate); **J-3, J-4 held open** → to be resolved
-      at the Design gate.
-- [ ] **Join-graph (tree) design authored** (Design gate).
-- [ ] **Design-model confidence valve + topology truth-test recorded** with a verdict.
-- [ ] **Noun-vs-mode + discovered-vs-imposed** check recorded.
-- [ ] `design:lint` 0 · `design:tokens` 0 · `plan:lint` 0 · `markdown-check-link` 0
-      broken · `markdownlint` 0.
-- [ ] `ui-design` (design-spec) on the tree-editor surface — per-facet report.
-- [ ] `flow-selector` run + result recorded.
-- [ ] **`gate-walker` (Design gate)** — exit criterion recorded.
+- [x] **J-1, J-2, J-1′ ratified** (Plan gate); **J-3, J-4 held open** → resolved at the
+      Design gate (J-3 → tree rule + `T{left_idx}` engine; J-4 → extend multi-join.md +
+      left-source `<Select>` + leaf-removal).
+- [x] **Join-graph (tree) design authored**
+      ([multi-join.md](../../design/data-management/queries/multi-join.md)): topology
+      invariant relaxed to a tree, `T{left_idx}` engine, `disconnected_join`/`cyclic_join`
+      validation, left-source `<Select>` + leaf-removal, Accessibility, 4 R74 criteria.
+- [x] **Design-model confidence valve + topology truth-test recorded** with a verdict —
+      the model is VALIDATED a second time (no revision); only the invariant + engine
+      ON-clause + builder affordance generalize.
+- [x] **Noun-vs-mode + discovered-vs-imposed** check recorded (mode not page;
+      discovered — removes a constraint, mints nothing).
+- [x] `design:lint` 0 (15 docs) · `design:tokens` 0 (12 maps) · `plan:lint` 0 ·
+      `markdown-check-link` 0 broken · `markdownlint` 0.
+- [x] `ui-design` (design-spec) on the tree-editor surface — **PASS, 0 gaps** (one
+      Findability/Accessibility gap caught + remediated in-spec: the left-source
+      `<Select>` accessible name + the non-leaf `[Remove]` disabled-reason).
+- [x] `flow-selector` run + result recorded — **DCFBI** (only trigger 1 fires).
+- [x] **`gate-walker` (Design gate)** — exit criterion + model checks + commit seam
+      recorded.
 - [ ] **Build chain green** (per `flow-selector`): FE + Contract + Backend +
       Integration, each its own commit seam.
 - [ ] **Human sign-off** — ran the app against the real backend + exercised a star
