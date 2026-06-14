@@ -12,12 +12,32 @@ the same predicate vocabulary, and the same `query_joined_rows` /
 **single** join + cross-source predicates; the multi-join **canvas** is **R73**
 ([Round_72](../../../plan/cycles/Round_72.md) J-1′).
 
-**Status**: Draft → R72 (Design gate). This doc **seals the construction-surface
-design** at the Design gate per [Round_72](../../../plan/cycles/Round_72.md) J-2
-(seal-at-Design, then STOP for the human's go-ahead before C/F1/F2/B/I). The
-round's risk axis is **UX / interaction**, not model — the join model is settled
-and twice-validated (R71), so the **F1 timebox** is the relevant valve, **not**
-the design-model confidence valve.
+**Status**: Accepted — **shipped R72** (DFCFBI: D → F1 → C → F2 → B → I), then
+**reconciled to the as-built** after human review (the O-rule /
+[purpose.md](../../../context/purpose.md) #7 truth-check). The design was sealed at
+the Design gate (J-2: seal-then-STOP); the F1 prototype + the human's hands-on
+review then **moved several interaction choices**, and this doc now describes
+**what shipped**, not the pre-build seal. The round's risk axis was **UX /
+interaction**, not model (the join model is twice-validated, R71) — so F1 was the
+valve, and F1 is exactly where the build diverged from the seal.
+
+> **As-built deltas from the Design-gate seal (reconciled here).** ① **Layout** —
+> not a single stacked view but **two collapsible sections, Build + Preview** (both
+> open by default; collapse Build to give the preview full height on short
+> screens). ② **Filters** — not a separate "add filter" row but **per-column
+> funnels in the preview table headers** (`<PagedRowsView renderHeaderExtra>`, the
+> dataset-detail pattern), so Build stays compact for wide joined results.
+> ③ **Actions** — `[Cancel] [Save]` live in the **page header** (the app's
+> header-actions convention; state lifted into a `useQueryBuilder` hook); the
+> sealed `⬤ Editing` chip was dropped. ④ **Preview** is **debounced (300ms)** with
+> an explicit **`[Preview]`** flush and a **user-controllable items-per-page**
+> (`10 / 25 / 50 / 100`). ⑤ **J-3 resolved** → a **stateless `POST
+> /workspaces/{id}/queries/preview`** (below). ⑥ The dataset-page entry is
+> **"Save filters as Query"** and **"Join with related dataset"** moved into the
+> `Actions ▾` menu ([dataset-detail.md](../datasets/dataset-detail.md)).
+> _A tabs layout was tried during F1 and **reverted** — tabs break live preview
+> (edit → switch → check → switch back); collapsible sections keep it live._
+
 **Round introduced**: [Round_72](../../../plan/cycles/Round_72.md) — the fourth
 step of the critical path (`data → relationships → joins → **construction** →
 dashboards`); it fills the
@@ -118,15 +138,15 @@ type QueryDefinition = {
 > R72 ships the **minimal** editable builder (J-1): edit one join + cross-source
 > predicates, preview, save. The multi-join **canvas / source graph** is **R73**.
 
-| Surface                                                  | Layer                                                | Reusability         | Purity   | Allowed peer deps                  |
-| -------------------------------------------------------- | ---------------------------------------------------- | ------------------- | -------- | ---------------------------------- |
-| `QueryDetailPage` (extended: Edit mode toggle)           | `apps/builder/src/features/data-management/queries`  | feature             | feature  | react, antd, @tanstack/react-query |
-| `QueryBuilderPanel` (NEW: the edit-mode builder shell)   | `apps/builder/src/features/data-management/queries`  | feature             | feature  | react, antd                        |
-| `JoinEditor` (NEW: change/clear the `rel_` in place)     | `apps/builder/src/features/data-management/queries`  | feature             | feature  | react, antd                        |
-| chip-filter + advanced-DNF editors (reused, not owned)   | `apps/builder/src/features/data-management/datasets` | feature (by reuse)  | feature  | react, antd                        |
-| `<PagedRowsView>` (reused for live preview, not owned)   | `apps/builder/src/features/data-management/_shared`  | shared cross-domain | plain-ui | react, antd, react-i18next         |
-| `useQueryPreview` hook (NEW glue — runs the unsaved def) | `apps/builder/src/features/data-management/queries`  | feature             | glue     | @tanstack/react-query              |
-| preview read path (NEW backend — **J-3, Contract gate**) | `apps/backend/app/routers`                           | backend             | feature  | (reuses `query_joined_rows`)       |
+| Surface                                                       | Layer                                                | Reusability         | Purity   | Allowed peer deps                  |
+| ------------------------------------------------------------- | ---------------------------------------------------- | ------------------- | -------- | ---------------------------------- |
+| `QueryDetailPage` (Edit toggle; header `[Cancel] [Save]`)     | `apps/builder/src/features/data-management/queries`  | feature             | feature  | react, antd, @tanstack/react-query |
+| `QueryBuilderPanel` (NEW: presentational, collapsible Build/Preview) | `apps/builder/src/features/data-management/queries`  | feature             | feature  | react, antd                        |
+| `useQueryBuilder` hook (NEW: builder state + preview + Save lifecycle) | `apps/builder/src/features/data-management/queries`  | feature             | glue     | @tanstack/react-query, antd        |
+| `JoinEditor` (NEW: change/clear the `rel_` in place)          | `apps/builder/src/features/data-management/queries`  | feature             | feature  | react, antd                        |
+| chip-filter + advanced-DNF editors (reused, not owned)        | `apps/builder/src/features/data-management/datasets` | feature (by reuse)  | feature  | react, antd                        |
+| `<PagedRowsView>` (reused; preview body **+ per-column filter headers**) | `apps/builder/src/features/data-management/_shared`  | shared cross-domain | plain-ui | react, antd, react-i18next         |
+| `preview` + `update` routes (NEW backend, **shipped**)        | `apps/backend/app/routers/queries.py`                | backend             | feature  | (reuses `query_joined_rows`)       |
 
 **Boundary check**: the only shared-cross-domain row (`<PagedRowsView>`) is
 **reused, not owned** ([dataset-detail.md](../datasets/dataset-detail.md)). The
@@ -172,8 +192,11 @@ Identifier parity is enforced by
 The builder is an **Edit mode** of the existing query-mode detail
 ([saved-query.md § Query mode](saved-query.md) + [joins.md § Layout](joins.md)) —
 the **same** standard detail shell (`PageHeader` + `PageCard` +
-`<PagedRowsView>`). A `[Edit]` action flips the read-only summaries into editable
-controls; the row body becomes a **live preview** of the unsaved definition.
+`<PagedRowsView>`). A `[Edit]` action (page header) swaps to `[Cancel] [Save]`
+(header) and reveals the builder: **two collapsible sections** — **Build** (join +
+predicate editors) and **Preview** (the live rows). Both open by default; collapse
+Build to give the preview the full height on a short screen. Per-column filters
+live in the **preview table headers** (filter where you see the data).
 
 ### View mode (read-only — R71, unchanged)
 
@@ -189,27 +212,35 @@ Deals × Accounts                                  🔎 Query · live re-run · 
   Matched 1,204 rows   <the shared <PagedRowsView> — saved definition's rows>
 ```
 
-### Edit mode (the builder — NEW)
+### Edit mode (the builder — as shipped)
 
 ```text
-Home ▸ Data Management ▸ Queries ▸ Deals × Accounts        ⬤ Editing   [Cancel] [Save]
+Home ▸ Data Management ▸ Queries ▸ Deals × Accounts                  [Cancel] [Save]
 Deals × Accounts                                  🔎 Query · editing (unsaved)
 
+  ▾ Build
   ┌─ Join ──────────────────────────────────────────────────────────────────────┐
   │  Join with a related dataset                                                  │
   │  [ Deals.account_id ↔ Accounts.id   (many:many)            ▾ ]   [ Clear join ]│
   └───────────────────────────────────────────────────────────────────────────────┘
-  ┌─ Predicates  (columns: Deals.* then Accounts.*) ─────────────────────────────┐
-  │  [+ Add filter ▾]   Deals.stage = won  ×    Accounts.region = APAC  ×          │
-  │  Advanced (DNF):  [ open advanced editor ]                                     │
-  └───────────────────────────────────────────────────────────────────────────────┘
+  (columns from both datasets)
+  Deals.stage = won  ×    Accounts.region = APAC  ×            ← active-filter chips
+  Advanced query  [ stage:won AND amount:>1000 ]
+  Search          [ Match any cell…                                              ]
 
-  Preview · 1,204 rows  ⟳ updated      [ Preview ]  (auto-runs on change, debounced)
+  ▾ Preview · 1,204 rows   ⟳        [ Preview ]      ← collapse to free screen height
   ┌────────────────────────────────────────────────────────────────────────┐
-  │ <the shared <PagedRowsView> — preview of the UNSAVED definition;         │
-  │  combined columns, duplicate names qualified (Deals.id · Accounts.id)>   │
+  │  Deals.id ⏷  Deals.stage ⏷ … Accounts.id ⏷ Accounts.region ⏷   ← per-col filter
+  │  <the shared <PagedRowsView> — preview of the UNSAVED definition; combined │
+  │   columns, duplicate names qualified; items-per-page 10 / 25 / 50 / 100>  │
   └────────────────────────────────────────────────────────────────────────┘
 ```
+
+The `▾ Build` / `▾ Preview` bars are independently collapsible (both open by
+default). `[Cancel] [Save]` are in the **page header**; the preview re-runs the
+unsaved copy **debounced** (`[Preview]` flushes it); filters are the **shipped
+chip / advanced editors**, the chips shown in Build and the per-column funnels in
+the table headers.
 
 ### Invalid-edit / preview-blocked states (flag-don't-crash)
 
@@ -263,10 +294,11 @@ stateDiagram-v2
   reusing the shipped serializers/validators verbatim. A predicate over a column
   not in the current space is flagged invalid **in the builder**.
 - **Live preview** — the working-copy definition runs and the result fills
-  `<PagedRowsView>` (auto-run on change, debounced; an explicit `[Preview]` is also
-  available). Preview reuses the live-re-run engines (`query_joined_rows` /
-  `query_dataset_rows`); **how** the unsaved definition is run is **J-3** (Contract
-  gate). Preview is **paged** like any run.
+  `<PagedRowsView>` (auto-run on change, **debounced 300ms**; an explicit
+  `[Preview]` flushes it). It runs through the **stateless `POST …/queries/preview`**
+  (J-3 resolved), reusing the live-re-run engines (`query_joined_rows` /
+  `query_dataset_rows`), **persisting nothing**. Preview is **paged** with a
+  user-controllable items-per-page (`10 / 25 / 50 / 100`).
 - **Save** — persists the working copy to the Query (the server re-validates:
   unknown / cross-workspace / **stale** edge → `422`, mirroring R71's create
   guard). Success returns to **Viewing** with the new saved definition; this is
@@ -302,21 +334,26 @@ stateDiagram-v2
 
 ---
 
-## Data contract (intent — formalized at the Contract gate)
+## Data contract (as shipped)
 
-R72 is **mostly contract-stable**: it edits the existing `QueryDefinition` and runs
-the existing engines. Two contract concerns, the first being the round's open
-question:
+R72 edits the existing `QueryDefinition` and runs the existing engines, and added
+**two routes** (the open J-3 question, resolved at F1):
 
-| Concern                                          | Intent for R72                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **J-3 — preview an unsaved def**                 | The builder previews **before** save. R71's run route (`GET /queries/{id}/rows`) needs a **saved** Query. Candidates: **(a) save-then-run** (the builder Saves first, then runs — weaker UX, risk of orphan drafts); **(b) a stateless preview endpoint** (`POST /workspaces/{id}/queries/preview` with `{ datasetId, definition }` → `RowsPage` + `resolvedColumns`, never persisted, reusing `query_joined_rows` / `query_dataset_rows` + the same validation). **Contract shape depends on the chosen preview UX** ([selector condition 4](../../../decisions/2026-05-28-hybrid-flow-governance.md#flow-selector-2-of-5)) → **decided at the Contract gate after F1**. Lean: (b). |
-| **Edit (mutate) an existing Query's definition** | Persisting the working copy needs an **update** path: `PUT /queries/{id}` (or `PATCH`) with body `{ definition }` — R72 edits the **definition only** (join + predicates); the Query's **name is unchanged** this round (rename stays a separate, deferred affordance — see Scope), so **no `name_taken`** path is in play. Same validate-on-save guards as R71's create (`422` for an unknown / cross-workspace / stale edge). The `Query` response shape is unchanged (it already exposes `resolvedColumns` when joined). Formalized at the Contract gate.                                                                                                                         |
+| Route (as shipped)                                                          | Shape                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| --------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`POST /workspaces/{id}/queries/preview`** ([preview.contract.yaml](../../../../workspace/packages/contracts/queries/preview.contract.yaml)) | **J-3 resolved → a stateless preview** (option (b)): body `{ datasetId, definition }` → the `RowsPage` shape **+ `resolvedColumns`** when joined, **persisting nothing**. Reuses `query_joined_rows` / `query_dataset_rows`. Mirrors the saved run's drift semantics (`409 relationship_stale` / `409 query_stale`); a structurally-bad request → `422`. Save-then-run (a) was rejected (orphan drafts; can't preview before commit). |
+| **`PUT /queries/{id}`** ([put.contract.yaml](../../../../workspace/packages/contracts/queries/put.contract.yaml)) | The builder's Save (first **mutate-existing** path). Body `{ definition }` only — **definition-only edit**; the Query's **name + source are unchanged** this round (rename deferred — see Scope), so **no `name_taken`**. Validate-on-save mirrors create (`422` for a bad atom or an unknown / cross-workspace / stale edge; `404` if absent). Returns the updated `Query` with `resolvedColumns` recomputed. |
 
-- **No new error codes** are anticipated — `query_stale`, `relationship_stale`,
-  and the `422` validation envelope (shared
+- **No new error codes** — `query_stale`, `relationship_stale`, and the `422`
+  envelope (shared
   [api-error.yaml](../../../../workspace/packages/contracts/_shared/api-error.yaml))
-  all already exist; the builder **consumes** them at edit/preview/save time.
+  all already exist; the builder **consumes** them at edit / preview / save time.
+- **Page size is centralized** (R72): the `page_size` param + the response
+  `pageSize` on `preview` (and the dataset / saved-query run) `$ref` the shared
+  [pagination.yaml#/PageSize](../../../../workspace/packages/contracts/_shared/pagination.yaml)
+  enum — now **`10 / 25 / 50 / 100`** (the smaller `10` keeps a paged preview usable
+  on short screens). The set is single-sourced in `values.yaml` → generated
+  `PAGE_SIZES` (BE + FE); adding a size is a one-line change.
 - The **J-2′ unified `ds_`/`qr_` table-source resolver** stays deferred (R71): R72's
   join inputs are still two Datasets via a `rel_`; Query × Query composition is R73+.
 
