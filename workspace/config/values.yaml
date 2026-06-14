@@ -94,3 +94,11 @@ constants:
     workspace_max: 80
     dataset_max: 120
     query_max: 120 # R69 — query name, per-workspace unique (mirrors dataset)
+
+  # R72: page-size vocabulary — the items-per-page options every paged-rows
+  # view offers (dataset rows, saved-query run, builder preview) and the
+  # page_size enum those endpoints enforce. Single source: BE validation +
+  # FE clamps/options read PAGE_SIZES; the OpenAPI enums $ref the shared
+  # _shared/pagination.yaml#/PageSize, which mirrors this list.
+  page_sizes: [10, 25, 50, 100]
+  default_page_size: 50 # the app-wide clamp default (datasets + saved-query run)

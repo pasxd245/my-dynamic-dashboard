@@ -53,8 +53,8 @@ paths:
           in: query
           required: false
           schema:
-            type: integer
-            enum: [25, 50, 100]
+            allOf:
+              - $ref: "../_shared/pagination.yaml#/components/schemas/PageSize"
             default: 50
           description: Rows per page. Closed enum; other values → 422.
       requestBody:
@@ -110,8 +110,8 @@ paths:
                     type: integer
                     minimum: 1
                   pageSize:
-                    type: integer
-                    enum: [25, 50, 100]
+                    allOf:
+                      - $ref: "../_shared/pagination.yaml#/components/schemas/PageSize"
                   total:
                     type: integer
                     minimum: 0
@@ -169,7 +169,7 @@ paths:
             The request is structurally unpreviewable — `datasetId`
             malformed / unknown / not in this workspace; `definition.join`
             references an unknown or cross-workspace edge; or `page_size` not
-            in {25, 50, 100}. A drifted *predicate* atom is `409 query_stale`
+            in {10, 25, 50, 100}. A drifted *predicate* atom is `409 query_stale`
             and a drifted *join key* is `409 relationship_stale` (above) — this
             endpoint runs, so it mirrors the saved run's drift semantics.
             FastAPI validation envelope.

@@ -47,3 +47,9 @@ export const NAME_LENGTHS = {
   DATASET_MAX: {{constants.name_lengths.dataset_max}},
   QUERY_MAX: {{constants.name_lengths.query_max}},
 } as const;
+
+/** R72: allowed items-per-page values — the options every paged-rows view
+ *  offers (`PagedRowsView` `pageSizeOptions`) + the FE clamp set. Mirrors the
+ *  OpenAPI `_shared/pagination.yaml#/PageSize` enum. */
+export const PAGE_SIZES = [{{#each constants.page_sizes}}{{this}}, {{/each}}] as const;
+export const DEFAULT_PAGE_SIZE = {{constants.default_page_size}};

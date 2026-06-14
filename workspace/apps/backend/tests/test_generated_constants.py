@@ -9,7 +9,13 @@ from __future__ import annotations
 
 import pytest
 
-from app._generated.constants import ERROR_CODES, ID_PATTERNS, NAME_LENGTHS
+from app._generated.constants import (
+    DEFAULT_PAGE_SIZE,
+    ERROR_CODES,
+    ID_PATTERNS,
+    NAME_LENGTHS,
+    PAGE_SIZES,
+)
 
 
 @pytest.mark.unit
@@ -38,6 +44,15 @@ def test_name_lengths_values_match_models() -> None:
     assert NAME_LENGTHS["workspace_max"] == 80
     assert NAME_LENGTHS["dataset_max"] == 120
     assert NAME_LENGTHS["query_max"] == 120  # R69
+
+
+@pytest.mark.unit
+def test_page_sizes_centralized() -> None:
+    """R72: the page-size vocabulary is single-sourced here + mirrored by the
+    OpenAPI _shared/pagination.yaml#/PageSize enum and the FE PAGE_SIZES."""
+    assert PAGE_SIZES == (10, 25, 50, 100)
+    assert DEFAULT_PAGE_SIZE == 50
+    assert DEFAULT_PAGE_SIZE in PAGE_SIZES
 
 
 @pytest.mark.unit

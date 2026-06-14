@@ -178,30 +178,27 @@ describe('Query construction (R72 — editable builder)', () => {
     fireEvent.click(editBtn);
   }
 
-  it('enters edit mode and live-previews the joined definition', async () => {
+  it('enters edit mode and live-previews the joined definition (single view)', async () => {
     renderApp(`/data-management/queries/${JOIN_ID}`);
     expect(await screen.findByText(/Matched 2 rows/)).toBeInTheDocument();
     clickEdit();
-    // The builder panel replaces the read-only summaries; the join editor +
-    // the live-preview status render. The preview re-runs the unsaved copy
-    // (joined, no filters) → 2 rows.
-    expect(await screen.findByText(/Preview · 2 rows/)).toBeInTheDocument();
+    // Controls + live preview render together (no tabs); the join editor shows,
+    // the status reports the live count, and joined rows are visible at once.
     expect(document.querySelector('[data-component="QueryBuilderPanel"]')).not.toBeNull();
     expect(document.querySelector('[data-component="JoinEditor"]')).not.toBeNull();
-    // A cell from the RIGHT (joined-in) source renders in the preview table.
+    expect(await screen.findByText(/Preview · 2 rows/)).toBeInTheDocument();
     expect(await screen.findByText('Acme')).toBeInTheDocument();
   });
 
-  it('edits the definition, previews, and saves — returning to the read-only view', async () => {
+  it('edits the definition, previews, and saves from the header — returning to the read-only view', async () => {
     renderApp(`/data-management/queries/${JOIN_ID}`);
     expect(await screen.findByText(/Matched 2 rows/)).toBeInTheDocument();
     clickEdit();
-    await screen.findByText(/Preview · 2 rows/);
-    // Save is disabled until the working copy differs from the saved one.
+    // Save now lives in the page header; disabled until the copy differs.
+    const searchInput = (await screen.findByPlaceholderText('Match any cell…')) as HTMLInputElement;
     const saveBtn = document.querySelector('[data-component="QueryBuilderSave"]') as HTMLButtonElement;
     expect(saveBtn).toBeDisabled();
     // Type a row search → the definition is now dirty; preview re-runs.
-    const searchInput = screen.getByPlaceholderText('Match any cell…') as HTMLInputElement;
     fireEvent.change(searchInput, { target: { value: 'D-0001' } });
     await waitFor(() => expect(saveBtn).not.toBeDisabled());
     fireEvent.click(saveBtn);
@@ -229,7 +226,8 @@ describe('Query construction (R72 — editable builder)', () => {
     renderApp(`/data-management/queries/${JOIN_ID}`);
     expect(await screen.findByText(/Matched 2 rows/)).toBeInTheDocument();
     clickEdit();
-    await screen.findByText(/Preview · 2 rows/);
+    await screen.findByPlaceholderText('Match any cell…');
+    // Cancel now lives in the page header.
     const cancelBtn = document.querySelector('[data-component="QueryBuilderCancel"]') as HTMLButtonElement;
     fireEvent.click(cancelBtn);
     await waitFor(() => expect(document.querySelector('[data-component="QueryDetailEdit"]')).not.toBeNull());
@@ -243,11 +241,11 @@ describe('Query construction (R72 — editable builder)', () => {
     renderApp(`/data-management/queries/${JOIN_ID}`);
     expect(await screen.findByText(/Matched 2 rows/)).toBeInTheDocument();
     clickEdit();
-    await screen.findByText(/Preview · 2 rows/);
-    // Effective space when joined = 7 (deals) + 3 (accounts) = 10 columns;
-    // a FilterTrigger renders per column. Index 9 = the last right-source col.
+    await screen.findByPlaceholderText('Match any cell…');
+    // Per-column filters live in the preview table headers (render once the
+    // joined preview loads): 7 (deals) + 3 (accounts) = 10. Index 9 = last col.
+    await waitFor(() => expect(document.querySelectorAll('[data-component="FilterTrigger"]').length).toBe(10));
     const triggers = document.querySelectorAll('[data-component="FilterTrigger"]');
-    expect(triggers.length).toBe(10);
     fireEvent.click(triggers[9]);
     await waitFor(() => expect(document.querySelector('[data-component="FilterPopoverContent"]')).not.toBeNull());
     const valueEl = document.querySelector('[data-component="FilterValueInput"]') as HTMLElement;

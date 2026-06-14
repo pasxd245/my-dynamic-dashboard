@@ -83,8 +83,8 @@ paths:
           in: query
           required: false
           schema:
-            type: integer
-            enum: [25, 50, 100]
+            allOf:
+              - $ref: "../_shared/pagination.yaml#/components/schemas/PageSize"
             default: 50
           description: |
             Rows per page. The closed enum mirrors the FE's
@@ -277,8 +277,8 @@ paths:
                     minimum: 1
                     description: Echoed page number.
                   pageSize:
-                    type: integer
-                    enum: [25, 50, 100]
+                    allOf:
+                      - $ref: "../_shared/pagination.yaml#/components/schemas/PageSize"
                     description: |
                       Echoed page size. Redundant with the
                       request param, kept so the response is
@@ -435,7 +435,7 @@ paths:
             and not duplicated here. Triggers:
 
             - `page < 1` or non-integer.
-            - `page_size` not in `{25, 50, 100}`.
+            - `page_size` not in `{10, 25, 50, 100}`.
             - `id` not matching `^ds_[0-9a-f]{8}$`.
             - `q` longer than 200 chars.
             - **Filter-related (R38)**:

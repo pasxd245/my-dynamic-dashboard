@@ -20,14 +20,14 @@ import shutil
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Query, Request, status
 from fastapi import Path as FastApiPath
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, ConfigDict, Field
 
-from app._generated.constants import ID_PATTERNS, NAME_LENGTHS
+from app._generated.constants import ID_PATTERNS, NAME_LENGTHS, PAGE_SIZES
 from app.db import get_conn
 from app.ingest.csv_parser import parse_csv
 from app.ingest.excel_parser import parse_sheet
@@ -414,7 +414,7 @@ def get_dataset(id: DsIdPath) -> JSONResponse:  # noqa: A002
     return JSONResponse(status_code=200, content=ds.model_dump(exclude_none=True))
 
 
-_PAGE_SIZE_ALLOWED = (25, 50, 100)
+_PAGE_SIZE_ALLOWED = PAGE_SIZES  # R72 — centralized (values.yaml → constants)
 
 
 class RowsPage(BaseModel):
@@ -426,7 +426,10 @@ class RowsPage(BaseModel):
 
     rows: list[list[str | None]]
     page: int
-    pageSize: Literal[25, 50, 100]
+    # R72: the page-size set is now centralized + extensible (PAGE_SIZES); the
+    # route validates the value against it, so the echoed field is a plain int
+    # (a Literal would re-hardcode the set the centralization just removed).
+    pageSize: int
     total: int
 
 

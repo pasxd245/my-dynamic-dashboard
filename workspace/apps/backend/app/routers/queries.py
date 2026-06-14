@@ -27,7 +27,7 @@ from fastapi import APIRouter, HTTPException, Query, status
 from fastapi import Path as FastApiPath
 from fastapi.responses import JSONResponse, Response
 
-from app._generated.constants import ID_PATTERNS
+from app._generated.constants import ID_PATTERNS, PAGE_SIZES
 from app.db import get_conn
 from app.ingest.filters import build_definition_predicates
 from app.ingest.rows_reader import build_effective_columns, query_dataset_rows, query_joined_rows
@@ -54,7 +54,7 @@ router = APIRouter(tags=["queries"])
 WsIdPath = Annotated[str, FastApiPath(pattern=ID_PATTERNS["workspace"])]
 QueryIdPath = Annotated[str, FastApiPath(pattern=ID_PATTERNS["query"])]
 
-_PAGE_SIZE_ALLOWED = (25, 50, 100)
+_PAGE_SIZE_ALLOWED = PAGE_SIZES  # R72 — centralized (values.yaml → constants)
 
 
 def _now_iso() -> str:

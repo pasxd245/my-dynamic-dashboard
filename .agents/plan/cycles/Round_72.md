@@ -1,8 +1,8 @@
 # Round 72: The interactive query-construction surface — make a joined Query buildable, not just create-able
 
-**Status**: Complete
+**Status**: Review
 **Date started**: 2026-06-13
-**Date completed**: 2026-06-14
+**Date completed**:
 
 ## Goal
 
@@ -574,6 +574,25 @@ and MSW+pytest cannot judge CORS / browser preflight / layout overflow / feel.
 Self-certifying F1 collapses DFCFBI into "DCFBI with extra commits." Running
 `ui-design` **fidelity** mode at F1/F2 is the mechanical half; human review is the
 other half. _(Captured in the agent's auto-memory: `dfcfbi-f1-needs-human-review`.)_
+
+**Status reopened: Complete → Review (2026-06-14).** Marking the round **Complete**
+when the Integration gate's tests went green was itself premature — "Complete"
+must mean **human-signed-off**, not **gates-green** (the same claim-done-without-
+verifying failure the F1 gap exposed; "Review" is the lifecycle status that exists
+for exactly this). Human review then reopened real work, so the round sits at
+**Review** until those close + the human signs off:
+
+- **Builder UX iteration (in flight, not yet committed):** collapsible Build /
+  Preview sections, Save/Cancel lifted to the page header, a working items-per-page
+  changer, and the **page-size centralization** (`values.yaml` → `PAGE_SIZES` +
+  `_shared/pagination.yaml#/PageSize`; adds `10`). Verified green (builder 141/141,
+  backend 176/176, contracts 24/24) but **uncommitted** pending sign-off.
+- **Parked — data-handling 500** on `/datasets/batch` for a specific uploaded
+  file (R69-era upload→commit path; reproduced clean with the sample CSV, so it's
+  file-specific). Out of R72's scope but tracked here until triaged.
+
+Sign-off → flip back to **Complete** with the completion date once the in-flight
+UX work is committed and the human confirms the builder.
 
 ## Feeds into → Round_73 (multi-join construction — the builder canvas)
 

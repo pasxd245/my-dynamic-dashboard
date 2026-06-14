@@ -17,7 +17,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
-import { NAME_LENGTHS } from '@/_generated/constants';
+import { DEFAULT_PAGE_SIZE, NAME_LENGTHS, PAGE_SIZES } from '@/_generated/constants';
 import { formatBytes } from '@/lib/formatBytes';
 import { useWorkspacesQuery } from '@/features/data-management/workspaces/hooks';
 import { useCreateQueryMutation } from '@/features/data-management/queries/hooks';
@@ -36,13 +36,11 @@ import { AdvancedQueryInput } from './advanced-query/AdvancedQueryInput';
 import { useAdvancedQueryState } from './advanced-query/useAdvancedQueryState';
 import type { Column, Dataset } from './types';
 
-const DEFAULT_PAGE_SIZE = 50;
-const ALLOWED_PAGE_SIZES = [25, 50, 100] as const;
 const DEBOUNCE_MS = 300;
 
 function clampPageSize(raw: string | null): number {
   const n = Number(raw);
-  return (ALLOWED_PAGE_SIZES as readonly number[]).includes(n) ? n : DEFAULT_PAGE_SIZE;
+  return (PAGE_SIZES as readonly number[]).includes(n) ? n : DEFAULT_PAGE_SIZE;
 }
 
 function clampPage(raw: string | null): number {

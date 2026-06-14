@@ -50,8 +50,8 @@ paths:
           in: query
           required: false
           schema:
-            type: integer
-            enum: [25, 50, 100]
+            allOf:
+              - $ref: "../_shared/pagination.yaml#/components/schemas/PageSize"
             default: 50
           description: Rows per page. Closed enum; other values return 422.
       responses:
@@ -82,8 +82,8 @@ paths:
                     minimum: 1
                     description: Echoed page number.
                   pageSize:
-                    type: integer
-                    enum: [25, 50, 100]
+                    allOf:
+                      - $ref: "../_shared/pagination.yaml#/components/schemas/PageSize"
                     description: Echoed page size (self-describing for AntD Pagination).
                   total:
                     type: integer
@@ -146,7 +146,7 @@ paths:
         "422":
           description: |
             Malformed request — `page < 1`, `page_size` not in
-            {25, 50, 100}, or `id` not matching `^qr_[0-9a-f]{8}$`.
+            {10, 25, 50, 100}, or `id` not matching `^qr_[0-9a-f]{8}$`.
             FastAPI validation-error envelope.
           content:
             application/json:

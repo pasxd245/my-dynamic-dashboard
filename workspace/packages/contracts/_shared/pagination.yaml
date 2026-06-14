@@ -1,0 +1,18 @@
+# Shared pagination schema (R72).
+#
+# Single source for the page-size vocabulary across every paged-rows endpoint
+# (datasets rows, saved-query run, query-construction preview). The enum mirrors
+# `constants.page_sizes` in workspace/config/values.yaml (→ generated PAGE_SIZES
+# on BE + FE); adding a size is a one-line change here + there, not an N-file
+# hunt. Referenced via `$ref` so the contract validator (swagger-parser) inlines
+# it and BOTH the response `pageSize` property and the request `page_size` param
+# validate against the same closed set.
+components:
+  schemas:
+    PageSize:
+      type: integer
+      enum: [10, 25, 50, 100]
+      description: |
+        Allowed items-per-page. Closed enum — other values return 422. Mirrors
+        `constants.page_sizes` (values.yaml → PAGE_SIZES). The smaller 10 (R72)
+        keeps a paged preview usable on short screens; the larger steps load more.

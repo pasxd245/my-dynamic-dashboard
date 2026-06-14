@@ -428,6 +428,9 @@
     },
     "builder": {
       "edit": "Chỉnh sửa",
+      "sectionBuild": "Dựng",
+      "sectionPreview": "Xem trước",
+      "buildActive": "{{count}} đang áp dụng",
       "joinLabel": "Phép nối",
       "joinPlaceholder": "Nối với một tập dữ liệu liên quan",
       "clearJoin": "Bỏ phép nối",

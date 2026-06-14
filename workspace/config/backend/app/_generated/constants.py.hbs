@@ -44,3 +44,9 @@ NAME_LENGTHS: dict[str, int] = {
     "dataset_max": {{constants.name_lengths.dataset_max}},
     "query_max": {{constants.name_lengths.query_max}},
 }
+
+# R72: allowed items-per-page values — the page_size enum every paged-rows
+# endpoint enforces (datasets rows, saved-query run, builder preview). The
+# OpenAPI enums $ref _shared/pagination.yaml#/PageSize, which mirrors this.
+PAGE_SIZES: tuple[int, ...] = ({{#each constants.page_sizes}}{{this}}, {{/each}})
+DEFAULT_PAGE_SIZE: int = {{constants.default_page_size}}

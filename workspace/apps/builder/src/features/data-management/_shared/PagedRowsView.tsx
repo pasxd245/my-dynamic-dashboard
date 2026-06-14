@@ -23,10 +23,13 @@ import i18n from 'i18next';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { PAGE_SIZES } from '@/_generated/constants';
 import { formatCell } from '@/lib/formatCell';
 import type { Column } from '@/features/data-management/datasets/types';
 
-const DEFAULT_PAGE_SIZES = ['25', '50', '100'] as const;
+// R72: the options come from the centralized PAGE_SIZES (values.yaml →
+// generated constants), so adding a size is a one-line change there.
+const DEFAULT_PAGE_SIZES = PAGE_SIZES.map(String);
 
 function DtypeBadge({ dtype }: { dtype: Column['dtype'] }) {
   const { t } = useTranslation();

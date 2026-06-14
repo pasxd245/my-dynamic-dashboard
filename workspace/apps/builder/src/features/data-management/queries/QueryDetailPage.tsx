@@ -14,6 +14,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
+import { DEFAULT_PAGE_SIZE, PAGE_SIZES } from '@/_generated/constants';
 import { useDatasetQuery } from '@/features/data-management/datasets/hooks';
 import { formatChipText } from '@/features/data-management/datasets/filters/ActiveFilterChips';
 import { groupsToText } from '@/features/data-management/datasets/advanced-query/serialize';
@@ -22,13 +23,12 @@ import { ApiErrorThrown } from '../_shared/types';
 import { DeleteConfirmModal } from '../_shared/DeleteConfirmModal';
 import { PagedRowsView } from '../_shared/PagedRowsView';
 import { QueryBuilderPanel } from './QueryBuilderPanel';
+import { useQueryBuilder } from './useQueryBuilder';
 import { useDeleteQueryMutation, useQueryQuery, useQueryRowsQuery } from './hooks';
-
-const ALLOWED_PAGE_SIZES = [25, 50, 100] as const;
 
 function clampPageSize(raw: string | null): number {
   const n = Number(raw);
-  return (ALLOWED_PAGE_SIZES as readonly number[]).includes(n) ? n : 50;
+  return (PAGE_SIZES as readonly number[]).includes(n) ? n : DEFAULT_PAGE_SIZE;
 }
 function clampPage(raw: string | null): number {
   const n = Number(raw);
@@ -74,6 +74,15 @@ export function QueryDetailPage() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const deleteMutation = useDeleteQueryMutation();
+
+  // R72 — the construction surface's state lives here (not in the panel) so the
+  // page header can drive Save/Cancel. Inactive (no preview) until edit mode.
+  const builder = useQueryBuilder({
+    query,
+    datasetColumns: dataset?.columns ?? [],
+    active: editing,
+    onDone: () => setEditing(false),
+  });
 
   const notFound = isNotFound(queryQuery.error) || isNotFound(rowsQuery.error);
   const stale = isStale(rowsQuery.error);
@@ -174,10 +183,26 @@ export function QueryDetailPage() {
       {t('common.delete')}
     </Button>
   );
-  // R72 — the populated state also offers [Edit] (enter the construction
-  // surface). Hidden while editing (the builder owns Save/Cancel), and absent
-  // from the stale / join-unavailable headers (repair the source/edge first).
-  const populatedActions = editing ? null : (
+  // R72 — the populated header offers [Edit]; in edit mode it swaps to
+  // [Cancel] [Save] (the app's header-actions convention — the builder no
+  // longer has a footer). Absent from the stale / join-unavailable headers
+  // (repair the source/edge first).
+  const populatedActions = editing ? (
+    <span style={{ display: 'inline-flex', gap: 8 }}>
+      <Button onClick={builder.cancel} data-component="QueryBuilderCancel">
+        {t('common.cancel')}
+      </Button>
+      <Button
+        type="primary"
+        onClick={builder.save}
+        disabled={!builder.canSave}
+        loading={builder.isSaving}
+        data-component="QueryBuilderSave"
+      >
+        {t('queries.builder.save')}
+      </Button>
+    </span>
+  ) : (
     <span style={{ display: 'inline-flex', gap: 8 }}>
       <Button type="primary" onClick={() => setEditing(true)} data-component="QueryDetailEdit">
         {t('queries.builder.edit')}
@@ -197,9 +222,7 @@ export function QueryDetailPage() {
             <Typography.Title level={5} style={{ marginTop: 0 }}>
               {t('queries.detail.staleTitle')}
             </Typography.Title>
-            <Typography.Text type="secondary">
-              {t('queries.detail.staleHint', { dataset: sourceName })}
-            </Typography.Text>
+            <Typography.Text type="secondary">{t('queries.detail.staleHint', { dataset: sourceName })}</Typography.Text>
             <div style={{ marginTop: 20, display: 'flex', gap: 8, justifyContent: 'center' }}>
               <Button type="primary" onClick={() => navigate(`/data-management/datasets/${query.datasetId}`)}>
                 {t('queries.detail.openSourceDataset')}
@@ -231,7 +254,11 @@ export function QueryDetailPage() {
       <>
         <PageHeader breadcrumb={BREADCRUMB} title={title} actions={actions} onNavigate={(r) => navigate(r)} />
         <PageCard>
-          <div data-component="QueryDetailJoinUnavailable" role="alert" style={{ padding: '40px 24px', textAlign: 'center' }}>
+          <div
+            data-component="QueryDetailJoinUnavailable"
+            role="alert"
+            style={{ padding: '40px 24px', textAlign: 'center' }}
+          >
             <WarningOutlined style={{ fontSize: 36, color: 'var(--ant-color-warning, #faad14)', marginBottom: 12 }} />
             <Typography.Title level={5} style={{ marginTop: 0 }}>
               {t('queries.detail.joinUnavailableTitle')}
@@ -316,10 +343,7 @@ export function QueryDetailPage() {
         flex: '0 0 auto',
       }}
     >
-      <Typography.Text
-        type="secondary"
-        style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.04em' }}
-      >
+      <Typography.Text type="secondary" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
         {t('queries.detail.appliedPredicates')}
       </Typography.Text>
       {def.q ? <Tag color="default">{t('queries.detail.searchTag', { q: def.q })}</Tag> : null}
@@ -328,9 +352,7 @@ export function QueryDetailPage() {
           {formatChipText(p, columns, locale, t)}
         </Tag>
       ))}
-      {def.advanced.length > 0 ? (
-        <Tag color="default">{groupsToText(def.advanced, columns)}</Tag>
-      ) : null}
+      {def.advanced.length > 0 ? <Tag color="default">{groupsToText(def.advanced, columns)}</Tag> : null}
     </div>
   );
 
@@ -353,11 +375,7 @@ export function QueryDetailPage() {
           </Typography.Text>
         </div>
         {editing ? (
-          <QueryBuilderPanel
-            query={query}
-            datasetColumns={dataset?.columns ?? []}
-            onDone={() => setEditing(false)}
-          />
+          <QueryBuilderPanel builder={builder} />
         ) : (
           <>
             {joinSummary}

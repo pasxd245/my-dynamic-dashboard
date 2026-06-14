@@ -428,6 +428,9 @@
     },
     "builder": {
       "edit": "Edit",
+      "sectionBuild": "Build",
+      "sectionPreview": "Preview",
+      "buildActive": "{{count}} active",
       "joinLabel": "Join",
       "joinPlaceholder": "Join with a related dataset",
       "clearJoin": "Clear join",
