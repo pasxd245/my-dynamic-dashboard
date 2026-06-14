@@ -1,7 +1,8 @@
 # Round 75: Left / outer joins — keep unmatched rows, not just inner matches
 
-**Status**: Review
+**Status**: Complete
 **Date started**: 2026-06-14
+**Date completed**: 2026-06-14
 
 ## Goal
 
@@ -255,8 +256,9 @@ keyword), so R72's PUT-CORS mode does not recur. Integration seam: this commit.
 + [x] `flow-selector` run + result recorded — **DCFBI** (1 of 5).
 + [x] **`gate-walker` (Design gate)** — exit criterion + model checks + commit seam recorded.
 + [x] **Build chain green** (DCFBI): **C** — `JoinStep.type` enum widened, OpenAPI **24/24** (`345fe86`); **F** — per-hop type `<Select>`, `queries.test.tsx` **22/22** (`345fe86`); **B** — per-hop JOIN keyword fold, pytest **187/187** (`9d2efa5`); **I** — dual conformance + the outer-join + PUT-flip lifecycle (this commit).
-+ [ ] **Human sign-off** — ran the app against the real backend + exercised a left join
-      keeping an unmatched row (Complete = signed-off, not gates-green).
++ [x] **Human sign-off** (2026-06-14) — ran the app against the real backend + exercised
+      a left join keeping an unmatched row (blank owner cells, not dropped). Complete =
+      signed-off, not gates-green.
 
 ## Act
 
