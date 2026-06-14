@@ -325,4 +325,28 @@ describe('Multi-join chain (R73 — F1: linear chain editor + multi-hop preview)
     await waitFor(() => expect(screen.queryByText('Dana Lee')).toBeNull());
     expect(screen.getByText('Acme')).toBeInTheDocument();
   });
+
+  // F2 confirmation (client-side, flag-don't-crash over the chain): a filter on
+  // an OWNERS-source column, then removing that hop, leaves the atom dangling
+  // out of the (now smaller) effective space → the builder flags it and disables
+  // Save. The chain analog of R72's join-clear AC — no server round-trip.
+  it('flags a dangling predicate after a hop is removed and blocks save', async () => {
+    await addSecondHop();
+    // 3-dataset chain → 13 per-column filter triggers; index 11 = owner_name (Owners).
+    await waitFor(() => expect(document.querySelectorAll('[data-component="FilterTrigger"]').length).toBe(13));
+    fireEvent.click(document.querySelectorAll('[data-component="FilterTrigger"]')[11]);
+    await waitFor(() => expect(document.querySelector('[data-component="FilterPopoverContent"]')).not.toBeNull());
+    const valueEl = document.querySelector('[data-component="FilterValueInput"]') as HTMLElement;
+    const valueInput = (valueEl.tagName === 'INPUT' ? valueEl : valueEl.querySelector('input')) as HTMLInputElement;
+    fireEvent.change(valueInput, { target: { value: 'Dana Lee' } });
+    const applyBtn = document.querySelector('[data-component="FilterApplyButton"]') as HTMLButtonElement;
+    await waitFor(() => expect(applyBtn).not.toBeDisabled());
+    fireEvent.click(applyBtn);
+    // Remove the Owners hop → effective space shrinks to 10; the col-11 atom dangles.
+    fireEvent.click(document.querySelector('[data-component="BuilderRemoveHop"]') as HTMLButtonElement);
+    expect(await screen.findByText(/references a column that isn't in these results/)).toBeInTheDocument();
+    expect(document.querySelector('[data-component="QueryBuilderPredInvalid"]')).not.toBeNull();
+    const saveBtn = document.querySelector('[data-component="QueryBuilderSave"]') as HTMLButtonElement;
+    expect(saveBtn).toBeDisabled();
+  });
 });
