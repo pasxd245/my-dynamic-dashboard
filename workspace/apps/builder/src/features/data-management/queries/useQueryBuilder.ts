@@ -166,11 +166,14 @@ export function useQueryBuilder({ query, datasetColumns, active, onDone }: UseQu
    *  the single-join case). Only meaningful when the chain has ≤1 hop. */
   const setJoin = (relationshipId: string | undefined) =>
     reChain(relationshipId ? [{ relationshipId, type: 'inner' }] : []);
-  /** Append a hop that extends from the chain's current tail dataset (R73). */
+  /** Append a hop that extends from any in-graph dataset (R74 — the relationship's
+   *  own left determines the branch point, so a tree appends like a chain). */
   const addJoin = (relationshipId: string) =>
     reChain([...readChain(draft), { relationshipId, type: 'inner' }]);
-  /** Remove the LAST hop — the only removable position in the linear chain. */
-  const removeLastJoin = () => reChain(readChain(draft).slice(0, -1));
+  /** Remove a LEAF hop by its relationship id (R74 — any leaf, not just the last).
+   *  Removing a leaf preserves the topological order of the remaining hops. */
+  const removeJoin = (relationshipId: string) =>
+    reChain(readChain(draft).filter((h) => h.relationshipId !== relationshipId));
 
   const save = () => {
     if (!canSave || !query) return;
@@ -228,7 +231,7 @@ export function useQueryBuilder({ query, datasetColumns, active, onDone }: UseQu
     // editor handlers
     setJoin,
     addJoin,
-    removeLastJoin,
+    removeJoin,
     applyFilter,
     removeFilter,
     clearAllFilters,

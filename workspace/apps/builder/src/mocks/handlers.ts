@@ -29,6 +29,9 @@ import {
   MOCK_CHAIN_ROWS,
   MOCK_DATASET,
   MOCK_DATASET_2,
+  MOCK_DATASET_3,
+  MOCK_DATASET_4,
+  MOCK_DATASET_5,
   MOCK_JOINED_QUERY,
   MOCK_JOINED_ROWS,
   MOCK_QUERIES,
@@ -313,11 +316,14 @@ export const handlers = [
     const url = new URL(request.url);
     const ws = url.searchParams.get('workspace_id');
     if (ws && ws !== MOCK_WORKSPACE.id) return HttpResponse.json([]);
-    // Two datasets in the workspace (R70) so relationships have two sides.
-    return HttpResponse.json([MOCK_DATASET, MOCK_DATASET_2]);
+    // The datasets in the workspace: Deals + accounts (R70), owners (R73 chain),
+    // and tiers + regions (R74 branch leaves) — so a join graph has its sources.
+    return HttpResponse.json([MOCK_DATASET, MOCK_DATASET_2, MOCK_DATASET_3, MOCK_DATASET_4, MOCK_DATASET_5]);
   }),
   withContractValidation('get', api('/datasets/:id'), 'getDataset', ({ params }) => {
-    const ds = [MOCK_DATASET, MOCK_DATASET_2].find((d) => d.id === params.id);
+    const ds = [MOCK_DATASET, MOCK_DATASET_2, MOCK_DATASET_3, MOCK_DATASET_4, MOCK_DATASET_5].find(
+      (d) => d.id === params.id,
+    );
     if (!ds) {
       return HttpResponse.json({ code: 'not_found' }, { status: 404 });
     }

@@ -264,7 +264,7 @@ describe('Query construction (R72 — editable builder)', () => {
   });
 });
 
-describe('Multi-join chain (R73 — F1: linear chain editor + multi-hop preview)', () => {
+describe('Multi-join chain (R73 linear) + join graph (R74 tree)', () => {
   const JOIN_ID = MOCK_JOINED_QUERY.id;
 
   function clickEdit() {
@@ -290,6 +290,17 @@ describe('Multi-join chain (R73 — F1: linear chain editor + multi-hop preview)
     expect(await screen.findByText('Preview · 2 rows')).toBeInTheDocument();
     await waitFor(() => expect(document.querySelector('[data-component="BuilderAddJoin"]')).not.toBeNull());
     await pickFromSelect('BuilderAddJoin', /tier ↔ tier/);
+  }
+
+  // Click the last ENABLED [Remove] — a leaf hop (R74: a non-leaf's Remove is
+  // disabled, so querySelector's first match may be a dead control).
+  function clickLeafRemove() {
+    const btns = Array.from(
+      document.querySelectorAll('[data-component="BuilderRemoveHop"]'),
+    ) as HTMLButtonElement[];
+    const enabled = btns.filter((b) => !b.disabled);
+    const leaf = enabled[enabled.length - 1];
+    if (leaf) fireEvent.click(leaf);
   }
 
   it('extends the chain with a second hop and previews the three-dataset result', async () => {
@@ -318,7 +329,7 @@ describe('Multi-join chain (R73 — F1: linear chain editor + multi-hop preview)
   it('removes the last hop, collapsing the chain back to a single join', async () => {
     await addSecondHop();
     expect(await screen.findByText('Dana Lee')).toBeInTheDocument();
-    fireEvent.click(document.querySelector('[data-component="BuilderRemoveHop"]') as HTMLButtonElement);
+    clickLeafRemove();
     // Back to the single-edge affordance; the Owners-source cell is gone, the
     // Accounts-source cell remains (Deals ⋈ Accounts).
     await waitFor(() => expect(document.querySelector('[data-component="BuilderJoinSelect"]')).not.toBeNull());
@@ -343,10 +354,50 @@ describe('Multi-join chain (R73 — F1: linear chain editor + multi-hop preview)
     await waitFor(() => expect(applyBtn).not.toBeDisabled());
     fireEvent.click(applyBtn);
     // Remove the Owners hop → effective space shrinks to 10; the col-11 atom dangles.
-    fireEvent.click(document.querySelector('[data-component="BuilderRemoveHop"]') as HTMLButtonElement);
+    clickLeafRemove();
     expect(await screen.findByText(/references a column that isn't in these results/)).toBeInTheDocument();
     expect(document.querySelector('[data-component="QueryBuilderPredInvalid"]')).not.toBeNull();
     const saveBtn = document.querySelector('[data-component="QueryBuilderSave"]') as HTMLButtonElement;
     expect(saveBtn).toBeDisabled();
+  });
+
+  // ── R74: the join graph (tree) — branch from a NON-TAIL source ───────────
+  //
+  // Build the linear chain Deals ⋈ Accounts ⋈ Owners (tail = Owners), then add a
+  // third hop that extends from ACCOUNTS (the non-tail) → Accounts ⋈ tiers. Under
+  // R73 the tail (Owners) had no eligible edge, so add was dead; R74 offers a
+  // left-source <Select> ("Join from") over the in-graph sources that can branch
+  // (Accounts → tiers, Owners → regions), and a hop can attach to Accounts.
+  async function addBranchFromAccounts() {
+    await addSecondHop(); // Deals ⋈ Accounts ⋈ Owners
+    await waitFor(() => expect(document.querySelectorAll('[data-component="BuilderHopRow"]').length).toBe(2));
+    // Two in-graph sources can be extended (Accounts, Owners) → the left-source
+    // <Select> appears (it is hidden when only one source is eligible).
+    await waitFor(() => expect(document.querySelector('[data-component="BuilderAddJoinSource"]')).not.toBeNull());
+    await pickFromSelect('BuilderAddJoinSource', /accounts/); // branch from the NON-tail
+    await pickFromSelect('BuilderAddJoin', /account_id ↔ acct/); // Accounts → tiers
+  }
+
+  it('branches a third hop from a non-tail source via the left-source select', async () => {
+    await addBranchFromAccounts();
+    // Three hops now render: Deals⋈Accounts, Accounts⋈Owners, Accounts⋈tiers — a
+    // tree (Accounts drives two hops), not a path.
+    await waitFor(() => expect(document.querySelectorAll('[data-component="BuilderHopRow"]').length).toBe(3));
+  });
+
+  it('enables [Remove] only on leaf hops (a non-leaf is disabled)', async () => {
+    await addBranchFromAccounts();
+    await waitFor(() => expect(document.querySelectorAll('[data-component="BuilderHopRow"]').length).toBe(3));
+    const removes = Array.from(
+      document.querySelectorAll('[data-component="BuilderRemoveHop"]'),
+    ) as HTMLButtonElement[];
+    // Deals⋈Accounts is a non-leaf (Accounts is the parent of two hops) → disabled;
+    // the two Accounts-branch leaves (Owners, tiers) are removable.
+    expect(removes.length).toBe(3);
+    expect(removes.filter((b) => b.disabled).length).toBe(1);
+    expect(removes.filter((b) => !b.disabled).length).toBe(2);
+    // Removing a leaf collapses the tree back to two hops.
+    clickLeafRemove();
+    await waitFor(() => expect(document.querySelectorAll('[data-component="BuilderHopRow"]').length).toBe(2));
   });
 });

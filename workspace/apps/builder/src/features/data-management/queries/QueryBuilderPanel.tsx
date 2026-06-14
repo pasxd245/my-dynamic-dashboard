@@ -65,7 +65,7 @@ export function QueryBuilderPanel({ builder }: QueryBuilderPanelProps) {
             joins={builder.joins}
             onSetJoin={builder.setJoin}
             onAddJoin={builder.addJoin}
-            onRemoveLast={builder.removeLastJoin}
+            onRemoveHop={builder.removeJoin}
           />
           {isJoined ? (
             <Typography.Text type="secondary" style={{ fontSize: 12 }}>

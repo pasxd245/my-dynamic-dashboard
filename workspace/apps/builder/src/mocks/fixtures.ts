@@ -225,12 +225,82 @@ export const MOCK_RELATIONSHIP_2: Relationship = {
   createdAt: '2026-06-13T09:30:00Z',
 };
 
-/** All three edges live in the workspace: hop-1 (Deals→Accounts), a stale
- *  edge (Deals, left-drifted), and hop-2 (Accounts→Owners). */
+// ─── Join-graph (tree) fixtures (R74 — non-linear topology) ──────────
+//
+// Two more leaf datasets + two more edges so the graph can BRANCH (a tree,
+// not a path). After Deals ⋈ Accounts ⋈ Owners, BOTH Accounts (→ tiers) and
+// Owners (→ regions) carry an eligible outgoing edge — so the chain editor's
+// add offers a LEFT-SOURCE choice, and a hop can extend from Accounts (NOT the
+// tail, Owners) — the R74 branch the linear chain (R73) could not express.
+
+export const MOCK_DATASET_4: Dataset = {
+  id: 'ds_44444444',
+  workspaceId: MOCK_WORKSPACE.id,
+  name: 'tiers',
+  sizeBytes: 4_096,
+  rowCount: 2,
+  columnCount: 2,
+  columns: [
+    { name: 'acct', dtype: 'string' },
+    { name: 'tier_label', dtype: 'string' },
+  ],
+  sourceFormat: 'csv',
+  createdAt: '2026-05-25T12:00:00Z',
+};
+
+export const MOCK_DATASET_5: Dataset = {
+  id: 'ds_55555555',
+  workspaceId: MOCK_WORKSPACE.id,
+  name: 'regions',
+  sizeBytes: 4_096,
+  rowCount: 3,
+  columnCount: 2,
+  columns: [
+    { name: 'region', dtype: 'string' },
+    { name: 'region_label', dtype: 'string' },
+  ],
+  sourceFormat: 'csv',
+  createdAt: '2026-05-25T13:00:00Z',
+};
+
+/** Accounts → tiers (accounts.account_id ↔ tiers.acct). Drives FROM Accounts —
+ *  so once Owners is the tail, this edge BRANCHES from a non-tail source (R74). */
+export const MOCK_RELATIONSHIP_3: Relationship = {
+  id: 'rel_c3d4e5f6',
+  workspaceId: MOCK_WORKSPACE.id,
+  leftDatasetId: MOCK_DATASET_2.id,
+  leftColumn: 'account_id',
+  rightDatasetId: MOCK_DATASET_4.id,
+  rightColumn: 'acct',
+  cardinality: 'one_to_one',
+  status: 'valid',
+  createdAt: '2026-06-13T09:45:00Z',
+};
+
+/** Owners → regions (owners.region ↔ regions.region). Drives FROM Owners (the
+ *  tail), so the two add-sources (Accounts, Owners) coexist → the left-source
+ *  <Select> appears. */
+export const MOCK_RELATIONSHIP_4: Relationship = {
+  id: 'rel_d4e5f6a7',
+  workspaceId: MOCK_WORKSPACE.id,
+  leftDatasetId: MOCK_DATASET_3.id,
+  leftColumn: 'region',
+  rightDatasetId: MOCK_DATASET_5.id,
+  rightColumn: 'region',
+  cardinality: 'one_to_many',
+  status: 'valid',
+  createdAt: '2026-06-13T09:50:00Z',
+};
+
+/** All edges live in the workspace: hop-1 (Deals→Accounts), a stale edge,
+ *  hop-2 (Accounts→Owners), and the R74 branch edges (Accounts→tiers,
+ *  Owners→regions). */
 export const MOCK_RELATIONSHIPS_CHAIN: readonly Relationship[] = [
   MOCK_RELATIONSHIP,
   MOCK_STALE_RELATIONSHIP,
   MOCK_RELATIONSHIP_2,
+  MOCK_RELATIONSHIP_3,
+  MOCK_RELATIONSHIP_4,
 ];
 
 /** Row-major 2-hop chain result; cell order matches Deals(7) ++ accounts(3) ++

@@ -54,9 +54,12 @@ components:
         of them (`QueryDefinition.joins`). Each hop consumes a governed
         Relationship (the `rel_` edge) to read its right dataset as part of one
         virtual table; the join keys + datasets come from the Relationship, and
-        only the join `type` is a query-time choice. In a multi-hop chain each
-        hop's LEFT/driving dataset is the chain's current tail (a strict linear
-        path). See .agents/design/data-management/queries/multi-join.md.
+        only the join `type` is a query-time choice. R74 generalizes the topology
+        from a linear chain to a connected acyclic TREE: each hop's LEFT/driving
+        dataset is ANY dataset already in the graph (not just the tail), so one
+        dataset may be joined to two or more others (a star). The hops are stored
+        in topological order. See
+        .agents/design/data-management/queries/multi-join.md.
       required: [relationshipId, type]
       additionalProperties: false
       properties:
@@ -81,13 +84,13 @@ components:
         The saved predicate state — exactly what the dataset detail page
         serializes from its URL: the chip filters, the advanced-query
         DNF, and the `?q=` row search. Re-run verbatim on open. R71 added an
-        optional join; R73 generalizes it to `joins`, an ORDERED LINEAR CHAIN
-        of hops: when non-empty the Query is multi-source and a FilterAtom's
-        `col` indexes the EFFECTIVE column space (the ordered concatenation
-        across the source dataset ++ every chained dataset), not a single
-        dataset. (A single join is just a length-1 chain. The backend
-        normalizes any legacy single `join` to a length-1 `joins` on read, so
-        responses always carry `joins`.)
+        optional join; R73 generalizes it to `joins`, an ORDERED list of hops,
+        and R74 relaxes their topology to a connected acyclic TREE: when non-empty
+        the Query is multi-source and a FilterAtom's `col` indexes the EFFECTIVE
+        column space (the ordered concatenation across the source dataset ++ every
+        joined dataset), not a single dataset. (A single join is just a length-1
+        list. The backend normalizes any legacy single `join` to a length-1
+        `joins` on read, so responses always carry `joins`.)
       required: [filters, advanced]
       additionalProperties: false
       properties:
@@ -117,12 +120,15 @@ components:
         joins:
           type: array
           description: |
-            R73 — an ordered, LINEAR chain of join hops. Empty / omitted for a
-            single-source Query; one hop reads two datasets as one (R71); two or
-            more chain additional datasets (`Deals ⋈ Accounts ⋈ Owners`). Each
-            hop's left/driving dataset is the previous hop's right (tail) dataset
-            — a strict path, validated on save. The free-form (non-linear) graph
-            is deferred (multi-join.md § Scope).
+            R73/R74 — an ordered list of join hops forming a connected acyclic
+            TREE. Empty / omitted for a single-source Query; one hop reads two
+            datasets as one (R71); more join additional datasets
+            (`Deals ⋈ Accounts ⋈ Owners`). Each hop's left/driving dataset is ANY
+            dataset already in the graph (R74; R73 fixed it to the previous tail —
+            a linear path is the degenerate tree), its right is a dataset not yet
+            joined (acyclic). Hops are stored in topological order; validated on
+            save (`disconnected_join` / `cyclic_join`). The free-form visual canvas
+            is deferred → R75 (multi-join.md § Scope).
           items:
             $ref: "#/components/schemas/JoinStep"
 
