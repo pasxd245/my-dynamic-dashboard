@@ -32,10 +32,9 @@ correctly a query-time choice, belongs in the join step, not the edge") — R75 
 **widens the enum** + the engine's JOIN keyword + a builder picker.
 
 _Track: 1 (product feature). Pulled by ← R71's named "left/right/outer joins"
-deferral ([joins.md § Scope](../../design/data-management/queries/joins.md)) + the
-[query-builder.md trajectory](../../design/data-management/queries/query-builder.md#the-trajectory-what-queries-grows-into)
-
-+ the user's "express the relationship, don't guard consumption" framing (R75
+deferral ([joins.md § Scope](../../design/data-management/queries/joins.md)), the
+[query-builder.md trajectory](../../design/data-management/queries/query-builder.md#the-trajectory-what-queries-grows-into),
+and the user's "express the relationship, don't guard consumption" framing (R75
 scoping). Scoped by the [dynamic-equilibrium brake](../../context/purpose.md#dynamic-equilibrium)
 and "one feature per round": the **per-hop join `type`** only — composite keys,
 self-joins, cross-workspace joins, and the visual canvas stay deferred with their

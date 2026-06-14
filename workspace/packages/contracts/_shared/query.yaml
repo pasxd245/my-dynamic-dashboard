@@ -73,10 +73,14 @@ components:
           examples: ["rel_4d7b91ce"]
         type:
           type: string
-          enum: [inner]
+          enum: [inner, left, right, full]
+          default: inner
           description: |
-            MVP — inner join only. left/right/outer joins are deferred
-            (joins.md § Scope).
+            The join type for this hop (R75). `inner` (default) keeps only matched
+            rows; `left` keeps all left/driving rows (unmatched right = NULL);
+            `right` keeps all right rows; `full` keeps all rows from both sides.
+            A graph may mix types per hop. Composite keys / self-joins remain
+            deferred (joins.md § Scope).
 
     QueryDefinition:
       type: object

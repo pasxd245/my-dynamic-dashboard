@@ -400,4 +400,20 @@ describe('Multi-join chain (R73 linear) + join graph (R74 tree)', () => {
     clickLeafRemove();
     await waitFor(() => expect(document.querySelectorAll('[data-component="BuilderHopRow"]').length).toBe(2));
   });
+
+  // ── R75: per-hop join type (inner → left / right / full outer) ───────────
+  it('sets a hop to a left outer join via the type select, enabling Save', async () => {
+    renderApp(`/data-management/queries/${JOIN_ID}`);
+    expect(await screen.findByText(/Matched 2 rows/)).toBeInTheDocument();
+    clickEdit();
+    // The single-edge affordance carries a join-type select (default inner).
+    await waitFor(() => expect(document.querySelector('[data-component="BuilderHopType"]')).not.toBeNull());
+    // Pick a LEFT outer join → the working copy is dirty, the chain previews clean,
+    // so Save enables. (inner → left changes which rows the join keeps.)
+    await pickFromSelect('BuilderHopType', /Left \(keep left\)/);
+    const saveBtn = document.querySelector('[data-component="QueryBuilderSave"]') as HTMLButtonElement;
+    await waitFor(() => expect(saveBtn).not.toBeDisabled());
+    fireEvent.click(saveBtn);
+    await waitFor(() => expect(document.querySelector('[data-component="QueryDetailEdit"]')).not.toBeNull());
+  });
 });

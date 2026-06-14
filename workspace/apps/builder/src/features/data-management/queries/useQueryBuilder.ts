@@ -174,6 +174,9 @@ export function useQueryBuilder({ query, datasetColumns, active, onDone }: UseQu
    *  Removing a leaf preserves the topological order of the remaining hops. */
   const removeJoin = (relationshipId: string) =>
     reChain(readChain(draft).filter((h) => h.relationshipId !== relationshipId));
+  /** Set a hop's join type (R75 — inner / left / right / full). Re-runs preview. */
+  const setHopType = (relationshipId: string, type: JoinStep['type']) =>
+    reChain(readChain(draft).map((h) => (h.relationshipId === relationshipId ? { ...h, type } : h)));
 
   const save = () => {
     if (!canSave || !query) return;
@@ -232,6 +235,7 @@ export function useQueryBuilder({ query, datasetColumns, active, onDone }: UseQu
     setJoin,
     addJoin,
     removeJoin,
+    setHopType,
     applyFilter,
     removeFilter,
     clearAllFilters,

@@ -14,11 +14,15 @@ import type { FilterPredicate } from '../datasets/filters/types';
 
 /** R71 — an optional join step: the Query consumes a governed Relationship
  *  to read two related datasets as one. Mirrors `_shared/query.yaml#/JoinStep`. */
+/** The join type for a hop (R75). `inner` keeps only matches; `left`/`right`/`full`
+ *  are outer joins that keep unmatched rows (the unmatched side is NULL). */
+export type JoinType = 'inner' | 'left' | 'right' | 'full';
+
 export type JoinStep = {
   /** The `rel_…` edge this join consumes (its datasets + key pair). */
   relationshipId: string;
-  /** MVP — inner join only (left/right/outer deferred). */
-  type: 'inner';
+  /** The join type (R75): inner (default) + left / right / full outer. */
+  type: JoinType;
 };
 
 /** The saved predicate state — exactly what the detail page serializes

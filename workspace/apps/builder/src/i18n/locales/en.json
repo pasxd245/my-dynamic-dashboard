@@ -442,6 +442,13 @@
       "addJoinNone": "No further relationship extends from any joined dataset. Declare one in the workspace to join another.",
       "removeJoin": "Remove",
       "removeJoinBlocked": "Remove the joins that depend on this one first.",
+      "joinTypeLabel": "Join type",
+      "joinType": {
+        "inner": "Inner (matches only)",
+        "left": "Left (keep left)",
+        "right": "Right (keep right)",
+        "full": "Full (keep all)"
+      },
       "filtersLabel": "Filters",
       "combinedColumns": "(columns from both datasets)",
       "columnsPending": "Resolving the joined columns…",

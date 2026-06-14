@@ -442,6 +442,13 @@
       "addJoinNone": "Không có quan hệ nào khác mở rộng từ các tập dữ liệu đã nối. Hãy khai báo một quan hệ trong workspace để nối thêm.",
       "removeJoin": "Bỏ",
       "removeJoinBlocked": "Hãy bỏ các phép nối phụ thuộc vào phép nối này trước.",
+      "joinTypeLabel": "Kiểu nối",
+      "joinType": {
+        "inner": "Inner (chỉ khớp)",
+        "left": "Left (giữ trái)",
+        "right": "Right (giữ phải)",
+        "full": "Full (giữ tất cả)"
+      },
       "filtersLabel": "Bộ lọc",
       "combinedColumns": "(cột từ cả hai tập dữ liệu)",
       "columnsPending": "Đang phân giải các cột đã nối…",

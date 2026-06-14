@@ -25,7 +25,10 @@ import { useTranslation } from 'react-i18next';
 import { useDatasetsQuery } from '@/features/data-management/datasets/hooks';
 import { useRelationshipsQuery } from '@/features/data-management/relationships/hooks';
 import type { Relationship } from '@/features/data-management/relationships/types';
-import type { JoinStep } from './types';
+import type { JoinStep, JoinType } from './types';
+
+// R75 — the per-hop join types (inner default + left/right/full outer).
+const JOIN_TYPES: readonly JoinType[] = ['inner', 'left', 'right', 'full'];
 
 export type JoinEditorProps = Readonly<{
   /** The query's source (LEFT/driving) dataset — the root of the graph. */
@@ -39,9 +42,19 @@ export type JoinEditorProps = Readonly<{
   onAddJoin: (relationshipId: string) => void;
   /** Remove a LEAF hop by its relationship id (R74 — any leaf, not just last). */
   onRemoveHop: (relationshipId: string) => void;
+  /** Set a hop's join type (R75 — inner / left / right / full). */
+  onSetHopType: (relationshipId: string, type: JoinType) => void;
 }>;
 
-export function JoinEditor({ datasetId, workspaceId, joins, onSetJoin, onAddJoin, onRemoveHop }: JoinEditorProps) {
+export function JoinEditor({
+  datasetId,
+  workspaceId,
+  joins,
+  onSetJoin,
+  onAddJoin,
+  onRemoveHop,
+  onSetHopType,
+}: JoinEditorProps) {
   const { t } = useTranslation();
   const relationshipsQuery = useRelationshipsQuery(workspaceId);
   const rels = useMemo(() => relationshipsQuery.data ?? [], [relationshipsQuery.data]);
@@ -106,6 +119,18 @@ export function JoinEditor({ datasetId, workspaceId, joins, onSetJoin, onAddJoin
   const firstEligible = eligibleFrom(datasetId);
   const firstNone = firstEligible.length === 0;
 
+  // R75 — the per-hop join-type picker (inner default + left/right/full outer).
+  const typeSelect = (hop: JoinStep) => (
+    <Select<JoinType>
+      value={hop.type}
+      onChange={(v) => onSetHopType(hop.relationshipId, v)}
+      style={{ flexShrink: 0, width: 160 }}
+      aria-label={t('queries.builder.joinTypeLabel')}
+      options={JOIN_TYPES.map((jt) => ({ value: jt, label: t(`queries.builder.joinType.${jt}`) }))}
+      data-component="BuilderHopType"
+    />
+  );
+
   return (
     <div data-component="JoinEditor" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
       <Typography.Text strong style={{ fontSize: 12 }} id="builder-join-label">
@@ -125,6 +150,7 @@ export function JoinEditor({ datasetId, workspaceId, joins, onSetJoin, onAddJoin
             options={firstEligible.map((r) => ({ value: r.id, label: optionLabel(r) }))}
             data-component="BuilderJoinSelect"
           />
+          {joins[0] ? typeSelect(joins[0]) : null}
           {joins[0] ? (
             <Button onClick={() => onSetJoin(undefined)} data-component="BuilderClearJoin">
               {t('queries.builder.clearJoin')}
@@ -147,6 +173,7 @@ export function JoinEditor({ datasetId, workspaceId, joins, onSetJoin, onAddJoin
                 <Typography.Text style={{ flex: 1, minWidth: 0 }}>
                   {fromName ? `${fromName} ` : ''}⋈ {r ? optionLabel(r) : hop.relationshipId}
                 </Typography.Text>
+                {typeSelect(hop)}
                 {/* Default-size button (matches the header Cancel/Save) so short
                     labels (Bỏ/Lưu) stay a comfortable target (R73 fix). A non-leaf
                     is disabled with a guiding tooltip — removing it would orphan
