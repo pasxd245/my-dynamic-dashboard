@@ -601,6 +601,41 @@ def test_outer_joins_keep_unmatched_rows() -> None:
 
 
 @pytest.mark.unit
+def test_put_flips_join_type_inner_to_left() -> None:
+    # R75 integration — the full lifecycle vs the real app: save an INNER join on a
+    # zero-overlap key (0 rows), PUT the same hop as LEFT, and the saved run now
+    # keeps all 3 left rows. The join type round-trips through persistence + run.
+    with TestClient(app) as client:
+        ws, deals, accounts = _seed(client)
+        rel = client.post(
+            f"/workspaces/{ws}/relationships",
+            json={
+                "leftDatasetId": deals,
+                "leftColumn": "id",
+                "rightDatasetId": accounts,
+                "rightColumn": "amount",
+                "cardinality": "one_to_one",
+            },
+        ).json()["id"]
+        base = {"q": None, "filters": [], "advanced": []}
+        qid = client.post(
+            f"/workspaces/{ws}/queries",
+            json={"name": "flip", "datasetId": deals, "definition": {**base, "joins": [{"relationshipId": rel, "type": "inner"}]}},
+        ).json()["id"]
+        before = client.get(f"/queries/{qid}/rows").json()
+        put = client.put(
+            f"/queries/{qid}",
+            json={"definition": {**base, "joins": [{"relationshipId": rel, "type": "left"}]}},
+        )
+        after = client.get(f"/queries/{qid}/rows").json()
+
+    assert before["total"] == 0  # inner: no matches
+    assert put.status_code == 200, put.text
+    validate_response("queries/put.contract.yaml", 200, put.json())
+    assert after["total"] == 3  # left: all left rows kept
+
+
+@pytest.mark.unit
 def test_per_hop_stale_blocks_the_chain() -> None:
     # Drift the SECOND hop's key (owners.id) after save → the chain can't run →
     # 409 relationship_stale (the per-hop gate names the chain unavailable).

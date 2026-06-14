@@ -203,7 +203,46 @@ and the Design commit seam. _Structural check only — the modelling answer's co
 is the human reviewer's call._
 
 **Design gate closed (J-2: run straight through).** Gate seams: Plan `091c220` →
-Design (this commit). Build proceeds C → F → B → I without a STOP.
+Design `cf900b4`. Build proceeds C → F → B → I without a STOP.
+
+### Gate C — Contract (DCFBI) — (2026-06-14)
+
+A **real shape change** this round (unlike R74): `_shared/query.yaml#/JoinStep.type`
+**enum widens** `[inner]` → `[inner, left, right, full]`, with `default: inner` and a
+description of each variant's row-keeping rule. `inner` default keeps the change
+**additive** — every stored R71→R74 definition stays valid. **No new route, no new
+error code.** Contract gate: `@mdd/contracts` OpenAPI validity **24/24**. Seam: `345fe86`.
+
+### Gate F — Frontend (DCFBI) — (2026-06-14)
+
+DCFBI's F confirms the design into FE-on-MSW. `JoinStep.type` → a `JoinType` union;
+the `JoinEditor` gains a **per-hop join-type `<Select>`** (`BuilderHopType`, labelled
+_"Join type"_, text options) in **both** the single-edge and multi-hop affordances;
+`useQueryBuilder.setHopType(relationshipId, type)` re-runs the preview. F gate:
+builder **type-check clean**; `queries.test.tsx` **22/22** (+1 R75: set a hop to a left
+outer join via the type select → Save enables). Seam: `345fe86` (with C).
+
+### Gate B — Backend (DCFBI) — (2026-06-14)
+
+The **first join semantic past inner** — the model held (the edge still declines to
+own `type`): `query_joined_rows`' `join_keys` carry the per-hop `(left_idx, left_col,
+right_col, kind)`, and the fold emits `_JOIN_KEYWORDS[kind]` ∈ `{INNER, LEFT, RIGHT,
+FULL OUTER} JOIN` (inner default/fallback); `_resolve_chain` threads
+`hop.get("type","inner")`; `JoinStep.type` `Literal` widens to `inner|left|right|full`
+(default inner). pytest **187/187** (+1: on a zero-overlap `id↔amount` join,
+inner=0 / left=3 / right=3 / full=6 rows; left keeps the unmatched rows with NULL right
+cells), `validate_response`-checked. Seam: `9d2efa5`.
+
+### Gate I — Integration (DCFBI) — (2026-06-14)
+
+**One contract / dual conformance:** the FE's MSW preview/put bodies are
+`withContractValidation`-checked (**22/22**), the BE's are `validate_response`-checked
+(**188/188**), both against the widened `JoinStep.type` enum. Beyond that, the **outer-
+join lifecycle is exercised vs the real ASGI app** (pytest `TestClient`): a left/right/
+full join keeps unmatched rows (inner=0 / left=3 / right=3 / full=6), and **PUT flips a
+hop inner→left** so the saved run goes 0 → 3 rows — the type round-trips through
+persistence + run. R75 adds **no new route and no CORS change** (an enum widen + engine
+keyword), so R72's PUT-CORS mode does not recur. Integration seam: this commit.
 
 ## Check
 
@@ -215,13 +254,46 @@ Design (this commit). Build proceeds C → F → B → I without a STOP.
 + [x] `ui-design` (design-spec) on the type-picker surface — **PASS, 0 gaps** (one Accessibility gap caught + remediated in-spec: the type `<Select>` accessible name).
 + [x] `flow-selector` run + result recorded — **DCFBI** (1 of 5).
 + [x] **`gate-walker` (Design gate)** — exit criterion + model checks + commit seam recorded.
-+ [ ] **Build chain green**: Contract + Frontend + Backend + Integration, each a seam.
++ [x] **Build chain green** (DCFBI): **C** — `JoinStep.type` enum widened, OpenAPI **24/24** (`345fe86`); **F** — per-hop type `<Select>`, `queries.test.tsx` **22/22** (`345fe86`); **B** — per-hop JOIN keyword fold, pytest **187/187** (`9d2efa5`); **I** — dual conformance + the outer-join + PUT-flip lifecycle (this commit).
 + [ ] **Human sign-off** — ran the app against the real backend + exercised a left join
       keeping an unmatched row (Complete = signed-off, not gates-green).
 
 ## Act
 
-_Pending — filled at round close._
+**Outcome — a Query can now express a relationship, not just filter on it.** R75
+widened each hop's `type` beyond `inner` to **left / right / full outer**, so "all
+Deals, with their owner **if any**" is now expressible — an ownerless Deal is kept with
+blank owner cells instead of vanishing. The whole change was, again, **widening an
+existing field**: the `JoinStep.type` enum (FE union + contract enum + BE `Literal`), a
+per-hop SQL keyword in the already-built fold, and a type `<Select>` in R74's builder.
+
+**The risk call matched R74's — no model re-open.** R71 had already sealed the verdict
+that **join type is a query-time choice the governed edge declines to own**; R75's type
+truth-test only **re-confirmed** it. So the model-confidence valve fired on **nothing in
+the edge or the `QueryDefinition` shape** — the `joins: JoinStep[]` list (R73), the tree
+topology (R74), and the `Relationship` edge are all untouched. Run-straight-through (J-2)
+was the right shape: per-gate commits were the only revert seam needed.
+
+**The pull discipline did real work this round.** The trajectory *named* the visual
+canvas next, but its trigger ("the hop-list stops scaling") **had not fired**; a
+row-explosion guard *sounded* useful but **had no problem to solve** — a multiplied
+result is the truthful product of the declared relationships, and runtime cost / report
+drift are a **consumer-side** concern (the surface that *loads* the connection), not the
+Query's. Left/outer joins were the highest-ranked item whose pull was **real** (inner-only
+silently drops rows a consumer wants). The "express the relationship, don't guard
+consumption" framing is now recorded as a standing scope brake.
+
+**Learnings (notes, not promotions):**
+
++ **Three "widen a field" rounds in a row.** R73 grew arity (`join`→`joins`), R74
+  relaxed a constraint (path→tree), R75 widened an enum (`type`). Each re-confirmed the
+  same model without re-opening it — the `joins: JoinStep[]` model has absorbed three
+  capability jumps as field widenings. Evidence that **R71's altitude call (keep type/
+  topology in the definition, not the edge) was right**, paying off three rounds later.
++ **The scope brake is the sibling of the valve brake.** R71–R75 tuned *which valve*
+  fits a round's risk; R75 added *which capability* a round should even take — drop the
+  unpulled (the guard), defer the un-triggered (the canvas), build the pulled
+  expression gap. Both are the dynamic-equilibrium brake; the scope one is newly named.
 
 ## Feeds into → Query × Query composition (next), then the visual canvas
 
