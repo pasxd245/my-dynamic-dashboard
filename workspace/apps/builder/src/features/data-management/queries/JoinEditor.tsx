@@ -110,7 +110,11 @@ export function JoinEditor({ datasetId, workspaceId, joins, onSetJoin, onAddJoin
                   ⋈ {r ? optionLabel(r) : hop.relationshipId}
                 </Typography.Text>
                 {isLast ? (
-                  <Button size="small" onClick={onRemoveLast} data-component="BuilderRemoveHop">
+                  // Default-size button (no `size="small"`), matching the header
+                  // Cancel/Save: AntD's default padding keeps short labels (Bỏ/Lưu)
+                  // a comfortable target. `flexShrink: 0` stops the flex:1 label
+                  // from squeezing it.
+                  <Button onClick={onRemoveLast} data-component="BuilderRemoveHop" style={{ flexShrink: 0 }}>
                     {t('queries.builder.removeJoin')}
                   </Button>
                 ) : null}
