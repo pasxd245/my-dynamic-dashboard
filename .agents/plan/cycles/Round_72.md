@@ -573,7 +573,7 @@ Contract — because the 2-of-5 selector only fires DFCFBI when UX is *uncertain
 and MSW+pytest cannot judge CORS / browser preflight / layout overflow / feel.
 Self-certifying F1 collapses DFCFBI into "DCFBI with extra commits." Running
 `ui-design` **fidelity** mode at F1/F2 is the mechanical half; human review is the
-other half. _(Captured in the agent's auto-memory: `dfcfbi-f1-needs-human-review`.)_
+other half. _(Doctrine: [2026-06-14-dfcfbi-f1-needs-human-review](../../memory/2026-06-14-dfcfbi-f1-needs-human-review.md).)_
 
 **Status reopened: Complete → Review (2026-06-14).** Marking the round **Complete**
 when the Integration gate's tests went green was itself premature — "Complete"
