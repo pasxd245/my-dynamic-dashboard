@@ -284,8 +284,89 @@ discovered-vs-imposed model check **and** the invoked design-model confidence va
 check only — the modeling answer's correctness remains the human reviewer's call._
 
 **Design gate closed (J-2: run straight through).** The join-graph (tree) design is
-sealed. Gate commit seams (gate = commit): Plan `18b9376` → Design (this commit). The
+sealed. Gate commit seams (gate = commit): Plan `18b9376` → Design `81219ac`. The
 build chain proceeds **D → C → F → B → I** without a Design-gate STOP.
+
+### Gate C — Contract (DCFBI) — (2026-06-14)
+
+R74 changes **no wire shape and no enumerated error code** — the lightest contract
+gate yet. `joins: JoinStep[]` already carries a tree (each hop names its own
+`leftDatasetId`), so only the **prose** generalizes:
+
+- **`_shared/query.yaml`** — `JoinStep`, `QueryDefinition`, and `joins` descriptions
+  generalized from "linear chain / strict path" to a **connected acyclic tree** (the
+  linear chain is the degenerate path case); records that hops are stored in
+  topological order and validated on save (`disconnected_join` / `cyclic_join`).
+- **No new route, no schema-shape change, no `values.yaml` change** — the path-invariant
+  rejection R73 emitted as a free-form `422` message (`nonlinear_chain`) is replaced by
+  two equally free-form messages (`disconnected_join` / `cyclic_join`); both are
+  `value_error` strings in the existing `422` envelope, not enumerated codes.
+
+**Contract gate verification:** `@mdd/contracts` OpenAPI validity **24/24** (unchanged
+— no new route, no shape change). Contract seam: `ad44f51` (with F).
+
+### Gate F — Frontend (DCFBI) — (2026-06-14)
+
+DCFBI's F **confirms** the design into the FE-on-MSW (no F1 prototype — the
+flow-selector chose DCFBI). The chain editor (`JoinEditor`) extends from R73 in place:
+
+- **Add from any in-graph source** — `addEligible` relaxes from tail-only to **every
+  valid edge driving from an in-graph dataset to a not-yet-joined one**; when **2+
+  distinct sources** can branch, a **left-source `<Select>`** (`BuilderAddJoinSource`,
+  _"Join from"_) gates the choice (hidden when only one source is eligible, so the R73
+  single-source feel is unchanged).
+- **Leaf removal** — `[Remove]` is enabled per **leaf** hop (a hop whose right is no
+  other hop's left) and **disabled with a guiding tooltip** on a non-leaf;
+  `useQueryBuilder.removeLastJoin` → **`removeJoin(relationshipId)`**.
+- **Fixtures** — two leaf datasets (`tiers`, `regions`) + two edges (Accounts→tiers,
+  Owners→regions) so a **non-tail branch** is reachable in the MSW graph; the datasets
+  list serves all five so the left-source labels resolve.
+
+**F gate verification:** builder **type-check clean**; `queries.test.tsx` **21/21**
+(+2 R74: a 3rd hop branches from a **non-tail** source via the left-source `<Select>`;
+`[Remove]` enabled on leaves only — the non-leaf disabled). The MSW preview stays an
+illustrative confirmation (length-based canned rows); **tree-execution correctness is
+the Backend's domain** (real DuckDB engine, below). F seam: `ad44f51`.
+
+### Gate B — Backend (DCFBI) — (2026-06-14)
+
+The engine's **first growth past a single path** — and the **model held** (the
+Design-gate topology truth-test, confirmed in running code):
+
+- **`query_joined_rows` — `T{k}` → `T{left_idx}` fold** (`rows_reader.py`): `join_keys`
+  grow from `(left_col, right_col)` to **`(left_idx, left_col, right_col)`**; each hop
+  joins its new source `T{k+1}` against its **own** left `T{left_idx}` (R73 hardcoded
+  the immediately-previous `T{k}` — correct only for a path). Topological order means
+  `T{left_idx}` is always already in the FROM clause.
+- **`_resolve_chain` — linear invariant → tree** (`routers/queries.py`): a hop's left
+  must already be in the graph (else **`422 disconnected_join`**) and its right must be
+  new (else **`422 cyclic_join`** — a tree, not a diamond/self-join); an `index_of` map
+  threads each in-graph dataset → its alias index. The per-hop `409 relationship_stale`
+  gate is unchanged. The linear chain is the path special case.
+
+**Backend gate verification:** ruff **clean**; pytest **186/186** (R73's
+`nonlinear_chain` test → **star-executes** (deals ⋈ {accounts, owners}, 12 cells); +
+`disconnected_join` `422`; + `cyclic_join` `422`; + the **PUT grow-a-chain-into-a-star**
+lifecycle), each `validate_response`-checked against the C-gate contract. Backend seam:
+`80d64af`.
+
+### Gate I — Integration (DCFBI) — (2026-06-14)
+
+The FE↔BE seam is the **contract**: both sides conform to the same `queries/*` YAML —
+the FE's MSW chain `preview`/`put` responses are `withContractValidation`-checked
+(**21/21**), the BE's are `validate_response`-checked (**186/186**). **One contract,
+dual conformance** — and because R74 changed **no shape and no error code** (only the
+validation semantics + free-form `422` messages), the conformance surface is identical
+to R73's.
+
+Beyond that, the **full tree lifecycle is exercised against the real ASGI app** (pytest
+`TestClient` over the real router + DuckDB engine + SQLite): create → run a **star**
+(deals ⋈ {accounts, owners}, both hops driving from the source) → stateless preview of
+an unsaved star → **PUT grow a chain into a star** → `422 disconnected_join` (a hop's
+left not in the graph) → `422 cyclic_join` (a dataset joined twice) → per-hop
+`409 relationship_stale`. R74 adds **no new route and no CORS change** (only an engine +
+validation generalization over the existing shapes), so R72's cross-process PUT-CORS
+failure mode does not recur. Integration seam: this commit.
 
 ## Check
 
@@ -309,14 +390,64 @@ build chain proceeds **D → C → F → B → I** without a Design-gate STOP.
 - [x] `flow-selector` run + result recorded — **DCFBI** (only trigger 1 fires).
 - [x] **`gate-walker` (Design gate)** — exit criterion + model checks + commit seam
       recorded.
-- [ ] **Build chain green** (per `flow-selector`): FE + Contract + Backend +
-      Integration, each its own commit seam.
+- [x] **Build chain green** (per `flow-selector` = DCFBI): **C** — query.yaml prose →
+      tree, OpenAPI **24/24**, no shape/code change (`ad44f51`); **F** — left-source
+      `<Select>` + leaf-removal, `queries.test.tsx` **21/21** (`ad44f51`); **B** —
+      `T{left_idx}` fold + tree validation, pytest **186/186** (`80d64af`); **I** — one
+      contract / dual conformance + the real-app star lifecycle (this commit).
 - [ ] **Human sign-off** — ran the app against the real backend + exercised a star
       join (Complete = signed-off, not gates-green).
 
 ## Act
 
-_Pending — filled at round close._
+**Outcome — a Query can now join one dataset to two or more others (a tree), built
+straight through D → C → F → B → I.** R74 set out to relax R73's linear chain to a
+**connected acyclic graph**, and it did so as the cheapest possible "grow the topology"
+change: the builder's `JoinEditor` gained a **left-source `<Select>`** (extend from any
+in-graph source, not just the tail) + **leaf removal**; `_resolve_chain` swapped its
+linear invariant for a **tree rule** (`disconnected_join` / `cyclic_join`); and
+`query_joined_rows` generalized its ON-clause from `T{k}` to **`T{left_idx}`** so each
+hop joins against its own left. A star (deals ⋈ {accounts, owners}) now executes.
+
+**The load-bearing judgment was the risk call — and it inverted R73's again.** R73
+re-opened the model, so it sealed-at-Design + STOPPED and invoked the model valve. R74
+**relaxes a constraint the model never needed** — `joins: JoinStep[]` already carried a
+tree because each hop names its own `leftDatasetId` — so it **ran straight through**
+(J-2). The [topology truth-test](../../design/data-management/queries/multi-join.md#topology-truth-test-record-r74)
+held a **second** time in running code: no model revision, no new noun (`JoinGraph` was
+not minted), no new route, no new error code — only the **invariant + engine ON-clause +
+builder affordance** generalized. That is the
+[dynamic-equilibrium brake](../../context/purpose.md#dynamic-equilibrium) in action: add
+only the mechanism the named failure mode pulls — here, just enough to relax a guard.
+
+**Build findings beyond the seal:**
+
+1. **The MSW preview is topology-blind (a known confirmation-mock limit).** The FE-on-MSW
+   preview keys off chain length, not the resolved tree, so it returns illustrative
+   canned rows; the FE tests assert **builder mechanics** (the left-source `<Select>` +
+   leaf removal), and **tree-execution correctness lives in the Backend** (the real
+   DuckDB engine, pytest 186/186). Logged honestly rather than papered over — a future
+   round may make the mock a real JS fold if a preview-fidelity gap is pulled.
+2. **Edge dedup shaped the cyclic test.** Declaring an identical edge twice returns
+   `409 relationship_exists`, so the `cyclic_join` test uses a distinct `accounts→deals`
+   back-edge (right = the source, already in the graph) — a truer diamond/self-join probe.
+
+**Learnings (notes, not promotions):**
+
+- **The valve-to-risk match now has four data points.** R71 (model risk → model valve),
+  R72 (UX risk → F1 valve, model valve declined), R73 (model **and** UX → **both**), R74
+  (constraint-relaxation, no model re-open → **neither** valve; run straight through, the
+  truth-test only *confirms*). The "add only the mechanism the named failure mode pulls"
+  discipline now spans seal-and-STOP, F1-escape, both-at-once, **and** run-through — the
+  fourth re-application of the
+  [specious-model-lock-in](../../memory/2026-06-13-specious-model-lock-in.md) /
+  hybrid-flow distinction. **Strong promote candidate** (it has now governed four rounds'
+  flow + valve choices, each different).
+- **"Linear" was a policy, not a shape — relaxing a guard beats re-modelling.** R73's
+  path constraint lived in an invariant + a hardcoded engine index, not in the data
+  model. The cheapest topology growth was to **relax the guard + generalize one index**,
+  not to add a graph model. A useful smell for "grow N→M" changes: check whether the
+  limit is a *constraint* or the *shape* before re-opening the model.
 
 ## Feeds into → Round_75 (the visual join-graph canvas)
 

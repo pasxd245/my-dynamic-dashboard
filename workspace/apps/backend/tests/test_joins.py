@@ -532,6 +532,35 @@ def test_put_grows_a_single_join_into_a_chain() -> None:
 
 
 @pytest.mark.unit
+def test_put_grows_a_chain_into_a_star() -> None:
+    # R74 integration — the full tree lifecycle vs the real app: save a single join
+    # (deals⋈accounts), then PUT a STAR (add deals→owners, a 2nd hop branching from
+    # the SOURCE, not the tail) → the saved run re-runs the tree (12 effective cells)
+    # and a stateless preview of the same unsaved star matches.
+    with TestClient(app) as client:
+        ws, deals, accounts, owners = _seed3(client)
+        rel1 = _declare_id_join(client, ws, deals, accounts)
+        rel_branch = _declare_id_join(client, ws, deals, owners)  # left = deals (the source)
+        qid = client.post(
+            f"/workspaces/{ws}/queries",
+            json={"name": "DA", "datasetId": deals, "definition": _chain_def([rel1])},
+        ).json()["id"]
+        star = _chain_def([rel1, rel_branch])
+        preview = _preview(client, ws, deals, star)
+        put = client.put(f"/queries/{qid}", json={"definition": star})
+        body = put.json()
+        rerun = client.get(f"/queries/{qid}/rows").json()
+
+    assert preview.status_code == 200, preview.text
+    assert len(preview.json()["resolvedColumns"]) == 12
+    assert put.status_code == 200, put.text
+    assert len(body["resolvedColumns"]) == 12
+    validate_response("queries/put.contract.yaml", 200, body)
+    assert rerun["total"] == 3
+    assert all(len(r) == 12 for r in rerun["rows"])
+
+
+@pytest.mark.unit
 def test_per_hop_stale_blocks_the_chain() -> None:
     # Drift the SECOND hop's key (owners.id) after save → the chain can't run →
     # 409 relationship_stale (the per-hop gate names the chain unavailable).
