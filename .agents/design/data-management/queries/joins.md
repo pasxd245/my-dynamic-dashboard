@@ -168,11 +168,86 @@ stay bare. Row cells stay a positional `string[][]` aligned to the effective
 column order — the [`RowsPage`](../datasets/dataset-detail.md) shape is unchanged;
 only the **header list** is new information the joined Query must expose.
 
-**Cardinality / row multiplication.** MVP executes a straight SQL **inner join**;
+**Cardinality / row multiplication.** R71 executes a straight SQL **inner join**;
 the result reflects its natural cardinality (a `many:many` edge can multiply
-rows — no dedup, no implicit aggregation this round). The declared `cardinality`
+rows — no dedup, no implicit aggregation). The declared `cardinality`
 on the edge is **advisory** (it set expectations at declare time); it does not
-alter execution. A row-explosion guard/warning is a future concern (Scope).
+alter execution. _A row-explosion guard was considered and **dropped** (R75): a
+multiplied result is the **truthful** product of the declared relationships, live
+re-run and read-only — runtime cost / report-drift are a **consumer-side** concern
+(the surface that *loads* the join), not the join definition's._
+
+---
+
+## R75 outer join types
+
+**Concept (R75).** R71→R74 execute every hop as an **inner** join: a row survives
+only if it matches on the edge, so a Query **silently drops** unmatched rows — "all
+Deals, with their owner **if any**" is inexpressible (an ownerless Deal vanishes).
+R75 **widens each hop's `type`** so a relationship can be **expressed**, not just used
+to filter:
+
+```ts
+// features/data-management/queries/types.ts — R75: widen the per-hop join type
+type JoinStep = {
+  relationshipId: string; // `rel_…` — the governed edge this hop consumes
+  type: 'inner' | 'left' | 'right' | 'full'; // R75: inner (default) + outer joins
+};
+```
+
+- **`inner`** (default, unchanged) — keep only matched rows. Every stored R71→R74
+  definition stays valid (the field already existed; only the enum widens).
+- **`left`** — keep **all left/driving rows**; unmatched right columns are NULL.
+- **`right`** — keep **all right rows**; unmatched left columns are NULL.
+- **`full`** — keep **all rows from both sides**; the unmatched side is NULL.
+
+### Type truth-test (the model-confidence valve — confirm, R75)
+
+_Does widening the join type re-open the governed edge or the model?_ **No — and R71
+already said so.** [The R71 truth-test](#truth-test-record-j-4) recorded that **join
+type is a query-time choice that belongs in the `QueryDefinition` join step, not the
+edge** — "the model already carries `type`". R75 only **widens that enum's values** +
+the engine's emitted JOIN keyword + a builder picker; the `Relationship` edge, the
+`QueryDefinition` shape (the `joins: JoinStep[]` list, R73/R74), and the topology
+(tree, R74) are **untouched**. No new noun, no edge revision — the cheapest "add a
+semantic" change, exactly the R74 pattern (widen a field, not re-model).
+
+### Execution — the per-hop JOIN keyword in the fold
+
+`query_joined_rows` already folds N sources (R73) over an arbitrary tree (R74); R75
+makes the emitted keyword **per hop**: `FROM read_parquet(?) AS T0 {KW1} JOIN
+read_parquet(?) AS T1 ON T{left_idx}.k = T1.k …` where `{KWk}` ∈
+`{INNER, LEFT, RIGHT, FULL OUTER}` is hop *k*'s `type`. A graph may **mix** types (an
+inner hop and a left hop in the same tree); each hop's keyword applies to its own
+edge in the fold. DuckDB executes all four natively; nothing else in the path changes.
+
+### NULL semantics + the reused predicate engine (J-3)
+
+An outer join introduces **NULLs** on the unmatched side. The existing path already
+`CAST(... AS VARCHAR)`s every effective cell, so a NULL becomes Python `None` → an
+**empty cell** in the reused `<PagedRowsView>` (no new render path). The **reused
+predicate fragment builders are unchanged** and behave as standard SQL:
+`equals` / `contains` / comparisons over a now-nullable column **exclude** NULL rows
+(a NULL is not equal to, and does not contain, anything). _A predicate that
+**matches** NULLs (`is_empty` / `is_set`) is a **separate, named future trigger** —
+R75 makes NULLs visible; it does not add null-aware operators._ The effective column
+space + collision rule (R71/R73) are unchanged — outer joins change **which rows**
+appear, not **which columns**.
+
+### Builder affordance + contract (J-4)
+
+- **A per-hop join-type `<Select>`** in R74's `JoinEditor` (options: inner / left /
+  right / full; default **inner**); the read-only summary shows the type in **text**
+  (`⋈ left ⋈`, not glyph-only). Reuses the hop-row layout — no new surface.
+  **Accessibility:** the type `<Select>` carries a labelled **accessible name**
+  (_"Join type"_), is keyboard-reachable in focus order alongside its hop's
+  relationship `<Select>`, and names each option in **text** (inner / left / right /
+  full) — not colour/glyph; the read summary's type is text, screen-reader-legible.
+- **Contract:** the `_shared/query.yaml#/JoinStep.type` **enum widens** from `[inner]`
+  to `[inner, left, right, full]` — a **real shape change** (unlike R74), so the
+  Contract gate re-checks OpenAPI validity + dual conformance. `inner` stays the
+  default, so the migration is additive (no stored definition becomes invalid). **No
+  new route, no new error code.**
 
 ---
 
@@ -466,9 +541,9 @@ R71 chain on the human's go-ahead):
   [multi-join.md](multi-join.md); the **free-form visual canvas** → **R74**.
   _Trigger: a Query must be built from more than one minimal join + the saved
   filters._
-- **Left / right / outer joins**; **composite / multi-column** join keys;
-  **self-joins**; **cross-workspace** joins → future (R70's named triggers hold;
-  R71 executes a single-column, within-workspace, **inner** join).
+- **Left / right / outer joins** → **R75** (shipped; see [§ R75](#r75-outer-join-types)) — the per-hop `type` widens beyond `inner`. **Composite /
+  multi-column** join keys; **self-joins**; **cross-workspace** joins → future
+  (R70's named triggers hold; R71→R75 execute single-column, within-workspace hops).
 - **Query × Query joins / composition** (a Query as a join input) → later; R71's
   join inputs are two **Datasets** via a `rel_`. This is also why the **unified
   table-source resolver** stays deferred (J-2′).

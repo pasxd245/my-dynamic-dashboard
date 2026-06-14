@@ -154,17 +154,68 @@ fold, and a type `<Select>` — named honestly, not laundered through "reuse".
 + **Invariant:** reuse R74's builder + the fold + the predicate/run engines; the only
   new work is the widened enum + the per-hop JOIN keyword + the type `<Select>`.
 
+### Gate 2 — Design pass (2026-06-14)
+
+**Docs touched:** extended [joins.md](../../design/data-management/queries/joins.md)
+(J-4 → extend the per-edge join-semantic doc, not fork) with a **§ R75 outer join
+types** section: the widened `JoinStep.type` enum, the **type truth-test** (the edge
+already declines to own `type` — R71's verdict), the per-hop JOIN keyword in the fold,
+the **NULL semantics + reused-predicate behaviour** (J-3), the builder type-`<Select>`
+
++ its Accessibility, and the (widened) contract intent. The row-explosion-guard line
+was reconciled to "**dropped** (consumer-side concern)".
+
+**J-3 + J-4 resolved:** J-3 → reuse everything; NULLs become blank cells (the VARCHAR
+cast → `None`), the predicate builders behave as standard SQL (exclude NULL), a graph
+mixes per-hop types; null-aware operators (`is_empty`) are a separate future trigger.
+J-4 → extend joins.md; per-hop type `<Select>` (default inner); the `JoinStep.type`
+enum widens (a real contract shape change, unlike R74).
+
+**Model check:** **noun-vs-mode** — the type-picker extends R74's `JoinEditor`; no
+parallel page, no new noun. **Discovered-vs-imposed** — _discovered_: inner-only
+silently drops unmatched rows a consumer wants (a real expression gap); nothing minted.
+**Model-confidence valve INVOKED to confirm** — the **type truth-test** records that
+`type` is a query-time choice the **edge already declines to own** (R71's sealed
+verdict), so only the enum + engine keyword + builder picker widen — no edge/model
+re-open, the R74 "widen a field, don't re-model" pattern a second time.
+
+**`ui-design` (design-spec) on the § R75 type-picker — PASS (0 gaps).** All six facets
+pass; one **Accessibility** gap caught preventively (the new type `<Select>` had no
+declared accessible name) and **remediated in-spec** (a labelled _"Join type"_ select
+in focus order, text options). Mirrors R71–R74's preventive catches.
+
+**Flow selector run** (per [R47](../../decisions/2026-05-28-hybrid-flow-governance.md)):
+
+| Condition                            | Fired? | Justification                                                                                                                              |
+| ------------------------------------ | ------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| 1. >3 independent states/branches    | yes    | The state model is R74's (Loading → Populated/HopStale/PredStale/NotFound; Editing → add/remove/edit-pred/**set-type**; Saving → SaveRejected). |
+| 2. New interaction pattern           | no     | A per-hop join-type `<Select>` is a standard AntD select on R74's shipped hop-row — not a new pattern.                                     |
+| 3. High user-error risk              | no     | Reversible (re-pick / discard); reads non-destructive; an outer join keeps **more** rows, never deletes.                                  |
+| 4. Contract depends on unresolved UI | no     | The four enum values (inner/left/right/full) are settled; the contract widen is not UI-dependent.                                          |
+| 5. UX confidence below threshold     | no     | A type `<Select>` on the already human-reviewed builder; the only subtlety (blanks = no match) is text-legible.                            |
+
+Result: **Flow: DCFBI** (1 of 5). Build chain **C → F → B → I**; the human still runs
+the app before Review + signs off before Complete (the visual-verification gate).
+
+**`gate-walker` (Design gate): PASS** — the round + joins.md record the Design exit
+criterion (the § R75 journey + R75 acceptance criteria), the noun-vs-mode +
+discovered-vs-imposed check + the invoked model-confidence valve (the type truth-test),
+and the Design commit seam. _Structural check only — the modelling answer's correctness
+is the human reviewer's call._
+
+**Design gate closed (J-2: run straight through).** Gate seams: Plan `091c220` →
+Design (this commit). Build proceeds C → F → B → I without a STOP.
+
 ## Check
 
 + [x] **J-0, J-1, J-2 ratified** (Plan gate); **J-3, J-4 held open** → Design gate.
-+ [ ] **Join-type design authored** (Design gate).
-+ [ ] **Model-confidence valve + type truth-test recorded** with a verdict.
-+ [ ] **Noun-vs-mode + discovered-vs-imposed** check recorded.
-+ [ ] `design:lint` 0 · `design:tokens` 0 · `plan:lint` 0 · `markdown-check-link` 0
-      broken · `markdownlint` 0.
-+ [ ] `ui-design` (design-spec) on the type-picker surface — per-facet report.
-+ [ ] `flow-selector` run + result recorded.
-+ [ ] **`gate-walker` (Design gate)** — exit criterion recorded.
++ [x] **Join-type design authored** ([joins.md § R75](../../design/data-management/queries/joins.md#r75-outer-join-types)): widened `type` enum, per-hop JOIN keyword, NULL semantics, type-`<Select>`, contract intent.
++ [x] **Model-confidence valve + type truth-test recorded** — `type` is a query-time choice the edge declines to own (R71's verdict); only the enum + engine keyword + picker widen.
++ [x] **Noun-vs-mode + discovered-vs-imposed** check recorded (mode not page; discovered — inner-only drops rows a consumer wants).
++ [x] `design:lint` 0 (15 docs) · `design:tokens` 0 (12 maps) · `plan:lint` 0 · `markdown-check-link` 0 broken · `markdownlint` 0.
++ [x] `ui-design` (design-spec) on the type-picker surface — **PASS, 0 gaps** (one Accessibility gap caught + remediated in-spec: the type `<Select>` accessible name).
++ [x] `flow-selector` run + result recorded — **DCFBI** (1 of 5).
++ [x] **`gate-walker` (Design gate)** — exit criterion + model checks + commit seam recorded.
 + [ ] **Build chain green**: Contract + Frontend + Backend + Integration, each a seam.
 + [ ] **Human sign-off** — ran the app against the real backend + exercised a left join
       keeping an unmatched row (Complete = signed-off, not gates-green).
