@@ -293,3 +293,32 @@ at Review per R50 plan direction.
 
 **Promoted by**: pasxd245 (Round_50, explicit authorization
 2026-05-28: "go ahead" after iterative planning review).
+
+## 2026-06-14: Heart held in dynamic equilibrium — `AGENTS.md` Evolution Rule + new sections
+
+**Source**: R72 retrospective (this session). The constitution
+presented only the brake ("Default = don't add") on first load,
+risking the heart being read as a locked cage (lock-in risk).
+Logged per [governance § Explicit Human Instructions](../context/governance.md).
+**Change**: (1) new `### Dynamic equilibrium` section — names the
+Rule as the **brake** half of accelerate⇌brake and asserts the heart
+itself **evolves** (add when a round pulls it, prune when stale), with
+a Track-2 / artifact-only justification citing the
+[R99 evo-horizon](../decisions/2026-05-27-r99-evo-horizon.md); (2)
+Evolution Rule generalized to a **catch-all** ("or any new agent-OS
+addition") so the cite-track+pull discipline covers future addition
+kinds, not just the closed list; (3) human-added **Telos Check** + an
+explicit **Pruning discipline**, with the 4×-redundant prune/value
+idea consolidated to one statement; (4) compacted 109→87 lines
+(prettier / markdownlint clean) via lossless rewrap + that one
+consolidation (verified by mechanical word-diff against the reviewed
+version, not an LLM self-check).
+**Rationale**: Surfacing the existing
+[purpose.md § Dynamic equilibrium](../context/purpose.md#dynamic-equilibrium)
+principle into the first-load heart prevents the brake-only misread;
+the catch-all and pruning discipline tighten governance at least
+mechanism. Track 2 (agent-method governance-doc clarification,
+artifact-only — within the R99 evo-horizon, not Track-3 system-building).
+**Promoted by**: pasxd245 (2026-06-14, "I reviewed. Please commit
+changes" — after iterative review incl. a code-review pass that
+reclassified Track 3→2 and restored two review-caught drops).
