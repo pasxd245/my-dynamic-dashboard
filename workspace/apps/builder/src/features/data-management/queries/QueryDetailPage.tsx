@@ -230,6 +230,15 @@ export function QueryDetailPage() {
       <Button type="primary" onClick={() => setEditing(true)} data-component="QueryDetailEdit">
         {t('queries.builder.edit')}
       </Button>
+      {/* R77 — "Build on this query": open the builder in CREATE mode with this
+          Query preset as the base. Present only on the runnable (Populated)
+          detail (these actions are; the stale / unavailable headers use `actions`). */}
+      <Button
+        onClick={() => navigate(`/data-management/queries/new?base=${query.id}`)}
+        data-component="QueryDetailBuildOn"
+      >
+        {t('queries.detail.buildOnThis')}
+      </Button>
       {actions}
     </span>
   );

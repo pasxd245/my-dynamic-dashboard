@@ -18,6 +18,7 @@ import { DatasetsPage } from '@/features/data-management/datasets/DatasetsPage';
 import { DatasetNewPage } from '@/features/data-management/datasets/upload/DatasetNewPage';
 import { QueriesPage } from '@/features/data-management/queries/QueriesPage';
 import { QueryDetailPage } from '@/features/data-management/queries/QueryDetailPage';
+import { QueryCreatePage } from '@/features/data-management/queries/QueryCreatePage';
 import { WorkspaceRelationshipsPage } from '@/features/data-management/relationships/WorkspaceRelationshipsPage';
 import { WorkspacesPage } from '@/features/data-management/workspaces/WorkspacesPage';
 
@@ -88,6 +89,7 @@ const appTree = (
                 <Route path="/data-management/datasets/new" element={<DatasetNewPage />} />
                 <Route path="/data-management/datasets/:id" element={<DatasetDetailPage />} />
                 <Route path="/data-management/queries" element={<QueriesPage />} />
+                <Route path="/data-management/queries/new" element={<QueryCreatePage />} />
                 <Route path="/data-management/queries/:id" element={<QueryDetailPage />} />
               </Routes>
             </AppLayout>

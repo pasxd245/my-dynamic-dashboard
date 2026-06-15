@@ -239,9 +239,45 @@ invoked to confirm** (no model surface re-opened), and the Design commit seam. _
 check only — the design's correctness is the human reviewer's call._ **No Design-gate STOP**
 (J-2: run straight through — R77 re-opens no model).
 
-**Design gate closed → continue (J-2, no STOP).** Gate seams: Plan `bd3ca5f` → Design (this
-commit). The DCFBI build chain (C → F → B → I) proceeds; **Complete = human-signed-off** (a
+**Design gate closed → continue (J-2, no STOP).** Gate seams: Plan `bd3ca5f` → Design
+`b57730f`. The DCFBI build chain (C → F → B → I) proceeds; **Complete = human-signed-off** (a
 composed query created + run end-to-end from the UI).
+
+### Gate C — Contract (confirm, no change) — (2026-06-15)
+
+**Confirmed, not re-widened.** R76's Contract gate already added the optional **`sourceId`**
+(`ds_ | qr_`) to `queries/post` ([post.contract.yaml](../../../workspace/packages/contracts/queries/post.contract.yaml)),
+plus the `composition_cycle` (409) + `name_taken` (409) codes. R77 needs **no** contract change —
+it sends a field the wire already accepts. `@mdd/contracts` OpenAPI validity re-checked: **24/24**.
+
+### Gate F — Frontend (DCFBI) — (2026-06-15)
+
+**Built the create lifecycle as a MODE of the shipped builder (reuse, not a fork):**
+
++ **`useQueryBuilder` generalized edit-only → edit + create.** New `createBase` /
+  `onCreated` args; in create mode there is no `query` — the working copy seeds from the
+  **empty definition**, `baseSourceId` is **preset** to the base Query's `qr_`, `workspaceId`/
+  `datasetId` resolve from the base, the composed preview runs unchanged, `canSave` drops the
+  dirty requirement (a base + zero edits is a valid composed Query), and **`createWithName(name)`**
+  POSTs via `useCreateQueryMutation`. `composition_cycle` from the preview is surfaced for the
+  base-unavailable state.
++ **`QueryCreatePage`** (new) at **`/queries/new?base=qr_…`** — reached only via the verb
+  (base **required**; not the deferred standalone surface). Renders the **shipped**
+  `QueryBuilderPanel`; `[Save query]` opens the **reused `SaveQueryModal`** (name capture
+  mirroring "Save filters as Query") → POST `{ name, datasetId: base.datasetId, sourceId:
+  base.id, definition }` → navigate to the new `qr_` detail. Base-not-found + base-unavailable
+  (cycle) guided states.
++ **"Build on this query" verb** on the `QueryDetailPage` populated header (absent from the
+  stale/unavailable headers); route added in `main.tsx` (before `:id`).
++ **`CreateQueryRequest` widened** with `sourceId?` (request-only alignment to R76's YAML).
+  MSW create handler echoes `sourceId`. i18n **en + vi** (`queries.create.*` +
+  `queries.detail.buildOnThis`).
+
+**F gate green:** `type-check` clean; `queries.test.tsx` **31/31** (+4 R77: the verb opens the
+preset create page; the composed preview runs + Save POSTs `sourceId` → navigates; an
+unrunnable/cyclic base is flagged pre-save and blocks Save; base-not-found). _(Pre-existing,
+unrelated: 1 upload-wizard flake in `datasets.test.tsx` under full-suite parallelism — passes
+in isolation; not touched by R77.)_ Seam: this commit.
 
 ## Check
 

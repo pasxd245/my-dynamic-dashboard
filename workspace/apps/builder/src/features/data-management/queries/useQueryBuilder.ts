@@ -15,7 +15,7 @@ import type { PredicateGroups } from '@/features/data-management/datasets/advanc
 import type { Column } from '@/features/data-management/datasets/types';
 import { ApiErrorThrown } from '../_shared/types';
 import { readChain, writeDef } from './chain';
-import { useQueryPreviewQuery, useUpdateQueryMutation } from './hooks';
+import { useCreateQueryMutation, useQueryPreviewQuery, useUpdateQueryMutation } from './hooks';
 import type { JoinStep, Query, QueryDefinition, ResolvedColumn } from './types';
 
 export const PREVIEW_PAGE_SIZE = 25;
@@ -51,20 +51,51 @@ function normalize(def: QueryDefinition): QueryDefinition {
 
 const EMPTY_DEF: QueryDefinition = { q: null, filters: [], advanced: [] };
 
-export type UseQueryBuilderArgs = Readonly<{
-  /** The saved Query being edited (undefined while the page is still loading). */
-  query: Query | undefined;
-  /** The source (LEFT) dataset's columns — the effective space when single-source. */
-  datasetColumns: readonly Column[];
-  /** True only while edit mode is open — gates the preview (no POSTs in read mode). */
-  active: boolean;
-  /** Leave edit mode (back to the read-only detail). */
-  onDone: () => void;
+/** R77 create mode — build a brand-new Query on a PRESET base (a saved Query).
+ *  The source Query supplies all three: its workspace, its legacy `datasetId`
+ *  (the create handler still requires a NOT-NULL dataset), and its own `qr_` id
+ *  as the driving `sourceId`. */
+export type CreateBase = Readonly<{
+  workspaceId: string;
+  datasetId: string;
+  sourceId: string;
 }>;
 
-export function useQueryBuilder({ query, datasetColumns, active, onDone }: UseQueryBuilderArgs) {
+export type UseQueryBuilderArgs = Readonly<{
+  /** The saved Query being edited (undefined while the page is still loading,
+   *  or in create mode). */
+  query?: Query;
+  /** R77 — create mode: build a NEW Query on this preset base. Mutually
+   *  exclusive with `query` (edit mode). */
+  createBase?: CreateBase;
+  /** The source (LEFT) dataset's columns — the effective space when single-source.
+   *  Unused in create mode (the base is a `qr_` → columns come from the preview). */
+  datasetColumns: readonly Column[];
+  /** True only while the builder is open — gates the preview (no POSTs when idle). */
+  active: boolean;
+  /** Leave the builder (edit: back to the read-only detail; create: navigate away). */
+  onDone: () => void;
+  /** R77 create mode — called with the newly-created Query after a successful POST
+   *  (the page navigates to its detail). */
+  onCreated?: (created: Query) => void;
+}>;
+
+export function useQueryBuilder({
+  query,
+  createBase,
+  datasetColumns,
+  active,
+  onDone,
+  onCreated,
+}: UseQueryBuilderArgs) {
   const { t } = useTranslation();
   const { message, modal } = App.useApp();
+
+  // R77 — create vs edit. Create mode has no saved `query`; it builds a NEW Query
+  // on `createBase` and Saves with POST (not PUT).
+  const isCreate = !query && Boolean(createBase);
+  const workspaceId = query?.workspaceId ?? createBase?.workspaceId ?? '';
+  const datasetId = query?.datasetId ?? createBase?.datasetId ?? '';
 
   const [draft, setDraft] = useState<QueryDefinition>(EMPTY_DEF);
   const [debouncedDraft, setDebouncedDraft] = useState<QueryDefinition>(EMPTY_DEF);
@@ -89,14 +120,21 @@ export function useQueryBuilder({ query, datasetColumns, active, onDone }: UseQu
   // mode opens — so re-entering after a discard starts clean. Read-only mode
   // never touches the draft (the panel is only mounted while editing).
   useEffect(() => {
-    if (active && query) {
+    if (!active) return;
+    if (query) {
       const seeded = normalize(query.definition);
       setDraft(seeded);
       setDebouncedDraft(seeded);
       setBaseSourceId(query.sourceId ?? query.datasetId);
       setPage(1);
+    } else if (createBase) {
+      // R77 create mode — start from an empty definition on the preset base.
+      setDraft(EMPTY_DEF);
+      setDebouncedDraft(EMPTY_DEF);
+      setBaseSourceId(createBase.sourceId);
+      setPage(1);
     }
-  }, [active, query?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [active, query?.id, createBase?.sourceId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Preview keys on a DEBOUNCED copy; the live draft drives the editors/validation.
   const debounceRef = useRef<number | undefined>(undefined);
@@ -112,12 +150,12 @@ export function useQueryBuilder({ query, datasetColumns, active, onDone }: UseQu
   const joins = useMemo(() => readChain(draft), [draft]);
   const isJoined = joins.length > 0;
   const previewQuery = useQueryPreviewQuery(
-    query?.workspaceId,
-    query?.datasetId,
+    workspaceId || undefined,
+    datasetId || undefined,
     debouncedDraft,
     page,
     pageSize,
-    active && Boolean(query),
+    active && (Boolean(query) || isCreate),
     baseSourceId,
   );
   const preview = previewQuery.data;
@@ -136,19 +174,29 @@ export function useQueryBuilder({ query, datasetColumns, active, onDone }: UseQu
   }, [isJoined, isComposed, datasetColumns, preview?.resolvedColumns, query?.resolvedColumns]);
 
   const updateMutation = useUpdateQueryMutation();
+  const createMutation = useCreateQueryMutation();
 
-  const dirty = useMemo(
-    () => (query ? JSON.stringify(draft) !== JSON.stringify(normalize(query.definition)) : false),
-    [draft, query],
-  );
+  const dirty = useMemo(() => {
+    if (query) return JSON.stringify(draft) !== JSON.stringify(normalize(query.definition));
+    // R77 create mode — "dirty" = any edit away from the empty starting
+    // definition (drives the discard-confirm on cancel; not a save gate).
+    return JSON.stringify(draft) !== JSON.stringify(EMPTY_DEF);
+  }, [draft, query]);
 
   const err = previewQuery.error;
   const relStale = err instanceof ApiErrorThrown && err.body.code === 'relationship_stale';
   const predStale = err instanceof ApiErrorThrown && err.body.code === 'query_stale';
+  // R77 — the preset base (transitively) loops back: the composed preview is
+  // blocked (the create page surfaces a guided base-unavailable state).
+  const compositionCycle = err instanceof ApiErrorThrown && err.body.code === 'composition_cycle';
   const invalidCount = invalidAtomCount(draft, columns);
   const previewOk = Boolean(preview) && !relStale && !predStale && !previewQuery.isError;
   // Save only once the preview reflects the CURRENT draft — you save what you previewed.
-  const canSave = dirty && previewOk && !previewPending && invalidCount === 0 && !updateMutation.isPending;
+  // Edit needs a dirty change; create needs only a runnable preview (a base + zero
+  // edits is a valid, if trivial, composed Query — there's no saved baseline).
+  const canSave = isCreate
+    ? previewOk && !previewPending && invalidCount === 0 && !createMutation.isPending
+    : dirty && previewOk && !previewPending && invalidCount === 0 && !updateMutation.isPending;
 
   const setDraftField = (patch: Partial<QueryDefinition>) => {
     setPage(1);
@@ -202,6 +250,26 @@ export function useQueryBuilder({ query, datasetColumns, active, onDone }: UseQu
     );
   };
 
+  /** R77 create mode — persist the working copy as a NEW Query under the captured
+   *  name, carrying the preset `sourceId` (the qr_ base) + the base's `datasetId`
+   *  (the create handler's legacy NOT-NULL field). On success the page navigates
+   *  to the new detail. `name_taken` surfaces via `createError` in the modal. */
+  const createWithName = (name: string) => {
+    if (!isCreate || !createBase || !canSave) return;
+    createMutation.mutate(
+      {
+        workspaceId: createBase.workspaceId,
+        body: { name, datasetId: createBase.datasetId, sourceId: createBase.sourceId, definition: draft },
+      },
+      {
+        onSuccess: (created) => {
+          message.success(t('queries.builder.saved', { name }));
+          onCreated?.(created);
+        },
+      },
+    );
+  };
+
   const cancel = () => {
     if (!dirty) {
       onDone();
@@ -227,8 +295,12 @@ export function useQueryBuilder({ query, datasetColumns, active, onDone }: UseQu
   return {
     // identity (for the JoinEditor)
     queryId: query?.id ?? '',
-    datasetId: query?.datasetId ?? '',
-    workspaceId: query?.workspaceId ?? '',
+    datasetId,
+    workspaceId,
+    // R77 — create vs edit mode + the create-with-name lifecycle
+    isCreate,
+    createWithName,
+    createError: createMutation.error,
     // R76 (composition) — the driving source + its setter for the "Build on" picker
     baseSourceId,
     isComposed,
@@ -249,11 +321,12 @@ export function useQueryBuilder({ query, datasetColumns, active, onDone }: UseQu
     flushPreview,
     // gating / states
     relStale,
+    compositionCycle,
     predStale,
     invalidCount,
     dirty,
     canSave,
-    isSaving: updateMutation.isPending,
+    isSaving: isCreate ? createMutation.isPending : updateMutation.isPending,
     // editor handlers
     setJoin,
     addJoin,

@@ -80,10 +80,17 @@ export type Query = {
   createdAt: string;
 };
 
-/** POST /workspaces/{id}/queries request body. */
+/** POST /workspaces/{id}/queries request body.
+ *  R76 widened the contract (`queries/post.contract.yaml`) with an optional
+ *  `sourceId` (`ds_ | qr_`); R77 ("Build on this query") is the FE create path
+ *  that actually sends it — a `qr_` base composes a new Query. `datasetId`
+ *  stays required (the legacy NOT-NULL column; the source Query supplies it). */
 export type CreateQueryRequest = {
   name: string;
   datasetId: string;
+  /** R77 — the polymorphic driving source when building on a saved Query
+   *  (`qr_…`). Omitted for a plain single-dataset save ("Save filters as Query"). */
+  sourceId?: string;
   definition: QueryDefinition;
 };
 

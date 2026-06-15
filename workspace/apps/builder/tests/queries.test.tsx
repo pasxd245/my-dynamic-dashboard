@@ -14,6 +14,7 @@ import { AppLayout } from '@/components/AppLayout';
 import { DatasetDetailPage } from '@/features/data-management/datasets/DatasetDetailPage';
 import { QueriesPage } from '@/features/data-management/queries/QueriesPage';
 import { QueryDetailPage } from '@/features/data-management/queries/QueryDetailPage';
+import { QueryCreatePage } from '@/features/data-management/queries/QueryCreatePage';
 import { MOCK_COMPOSED_QUERY, MOCK_CYCLE_QUERY_ID, MOCK_DATASET, MOCK_JOINED_QUERY, MOCK_QUERY } from '@/mocks/fixtures';
 import { server } from '@/mocks/server';
 
@@ -31,6 +32,7 @@ function renderApp(initialPath: string) {
               <Routes>
                 <Route path="/data-management/datasets/:id" element={<DatasetDetailPage />} />
                 <Route path="/data-management/queries" element={<QueriesPage />} />
+                <Route path="/data-management/queries/new" element={<QueryCreatePage />} />
                 <Route path="/data-management/queries/:id" element={<QueryDetailPage />} />
               </Routes>
             </AppLayout>
@@ -518,5 +520,103 @@ describe('Query × Query composition (R76 F1 — builder)', () => {
     // The guided "would loop" copy + an action pointing at the base query.
     expect(alert.textContent).toContain('This composition would loop');
     expect(alert.textContent).toContain('Open base query');
+  });
+});
+
+// R77 (composition CREATE — "Build on this query"). R76 shipped the composed
+// model + engine + read + the builder's base picker, but the FE create path never
+// sent `sourceId`, so a composed query was only buildable once it existed. R77's
+// create mode closes that: a verb on a saved Query opens the builder with that
+// Query preset as the base, name + Save = POST carrying `sourceId` → a new query.
+describe('Build on this query (R77 — composition create)', () => {
+  it('offers the "Build on this query" verb on a saved query and opens the create page preset on it', async () => {
+    renderApp(`/data-management/queries/${QR_ID}`);
+    const verb = await waitFor(() => {
+      const el = document.querySelector('[data-component="QueryDetailBuildOn"]') as HTMLButtonElement;
+      expect(el).not.toBeNull();
+      return el;
+    });
+    fireEvent.click(verb);
+    // Lands on the create page, preset on the base query (the "Building on" link).
+    await waitFor(() => expect(document.querySelector('[data-component="QueryCreatePage"]')).not.toBeNull());
+    const baseLink = document.querySelector('[data-component="QueryCreateBaseLink"]') as HTMLElement;
+    expect(baseLink).not.toBeNull();
+    expect(baseLink.textContent).toContain(MOCK_QUERY.name);
+  });
+
+  it('previews COMPOSED on the preset base and Save POSTs sourceId → navigates to the new query', async () => {
+    let posted: { name?: string; datasetId?: string; sourceId?: string } | null = null;
+    server.use(
+      http.post('*/workspaces/:id/queries', async ({ request }) => {
+        posted = (await request.json()) as typeof posted;
+        return HttpResponse.json(
+          {
+            id: 'qr_new00001',
+            workspaceId: MOCK_QUERY.workspaceId,
+            datasetId: posted?.datasetId,
+            sourceId: posted?.sourceId,
+            name: posted?.name,
+            definition: { q: null, filters: [], advanced: [] },
+            createdAt: new Date().toISOString(),
+          },
+          { status: 201 },
+        );
+      }),
+    );
+    renderApp(`/data-management/queries/new?base=${QR_ID}`);
+    // The composed preview renders the combined effective space — a column only a
+    // composed/joined source exposes (the base fed through the join tree).
+    expect(await screen.findByText('accounts.tier')).toBeInTheDocument();
+    // [Save query] becomes enabled (a base + zero edits is a valid composed query).
+    const saveBtn = await waitFor(() => {
+      const b = document.querySelector('[data-component="QueryCreateSave"]') as HTMLButtonElement;
+      expect(b.disabled).toBe(false);
+      return b;
+    });
+    fireEvent.click(saveBtn);
+    // Name capture reuses SaveQueryModal — type a name, submit.
+    const nameInput = await waitFor(() => {
+      const el = document.querySelector('[data-component="SaveQueryNameInput"]') as HTMLInputElement;
+      expect(el).not.toBeNull();
+      return el;
+    });
+    fireEvent.change(nameInput, { target: { value: 'Won deals × Accounts' } });
+    fireEvent.click(within(screen.getByRole('dialog')).getByText('Save'));
+    await waitFor(() => expect(posted).not.toBeNull());
+    // The POST carried the composed source ref (the gap R76 left open).
+    expect(posted!.sourceId).toBe(QR_ID);
+    expect(posted!.datasetId).toBe(MOCK_QUERY.datasetId);
+    expect(posted!.name).toBe('Won deals × Accounts');
+    // Navigated away from the create page (to the new query's detail).
+    await waitFor(() => expect(document.querySelector('[data-component="QueryCreatePage"]')).toBeNull());
+  });
+
+  it('flags an unrunnable / cyclic base pre-save and blocks Save', async () => {
+    server.use(
+      http.post('*/workspaces/:id/queries/preview', () =>
+        HttpResponse.json({ code: 'composition_cycle' }, { status: 409 }),
+      ),
+    );
+    renderApp(`/data-management/queries/new?base=${QR_ID}`);
+    const alert = (await waitFor(() => {
+      const el = document.querySelector('[data-component="QueryCreateBaseUnavailable"]');
+      expect(el).not.toBeNull();
+      return el;
+    })) as HTMLElement;
+    expect(alert.textContent).toMatch(/can.t be built on/);
+    // Save stays disabled (the preview is blocked).
+    const saveBtn = document.querySelector('[data-component="QueryCreateSave"]') as HTMLButtonElement;
+    expect(saveBtn.disabled).toBe(true);
+  });
+
+  it('shows the base-not-found state for a missing ?base=', async () => {
+    server.use(http.get('*/queries/:id', () => HttpResponse.json({ code: 'not_found' }, { status: 404 })));
+    renderApp('/data-management/queries/new?base=qr_deadbeef');
+    const nf = await waitFor(() => {
+      const el = document.querySelector('[data-component="QueryCreateNotFound"]');
+      expect(el).not.toBeNull();
+      return el as HTMLElement;
+    });
+    expect(nf.textContent).toContain('Base query not found');
   });
 });

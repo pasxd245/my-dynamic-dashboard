@@ -402,7 +402,12 @@
       "sourceLabel": "Source:",
       "joinLabel": "Join (read-only)",
       "joinInner": "inner",
-      "joinType": { "inner": "inner", "left": "left", "right": "right", "full": "full" },
+      "joinType": {
+        "inner": "inner",
+        "left": "left",
+        "right": "right",
+        "full": "full"
+      },
       "appliedPredicates": "Applied predicates (read-only)",
       "searchTag": "search: {{q}}",
       "matchedOfTotal": "Matched {{matched}} / {{total}} rows",
@@ -420,7 +425,8 @@
       "openRelationships": "Open relationships",
       "openSourceDataset": "Open source dataset",
       "deleteQuery": "Delete query",
-      "deleteSuccess": "Query \"{{name}}\" deleted"
+      "deleteSuccess": "Query \"{{name}}\" deleted",
+      "buildOnThis": "Build on this query"
     },
     "join": {
       "title": "Join with a related dataset",
@@ -479,6 +485,19 @@
       "discardBody": "Your edits to this query haven't been saved. Discard them?",
       "discardConfirm": "Discard",
       "keepEditing": "Keep editing"
+    },
+    "create": {
+      "title": "Build on {{name}}",
+      "subtitle": "Build a new query on top of this saved query. Add joins and filters, preview, then save.",
+      "buildingOn": "Building on",
+      "save": "Save query",
+      "loadingTitle": "Loading…",
+      "notFoundTitle": "Base query not found",
+      "notFoundHint": "The query you tried to build on no longer exists. Pick another from the catalog.",
+      "baseUnavailableTitle": "This base query can’t be built on",
+      "baseUnavailableHint": "It was deleted, can’t run, or would loop. Open it to fix, or pick a different base.",
+      "openBase": "Open base query",
+      "back": "Back to Queries"
     }
   },
   "relationships": {

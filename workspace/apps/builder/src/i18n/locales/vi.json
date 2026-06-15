@@ -402,7 +402,12 @@
       "sourceLabel": "Nguồn:",
       "joinLabel": "Phép nối (chỉ đọc)",
       "joinInner": "inner",
-      "joinType": { "inner": "inner", "left": "left", "right": "right", "full": "full" },
+      "joinType": {
+        "inner": "inner",
+        "left": "left",
+        "right": "right",
+        "full": "full"
+      },
       "appliedPredicates": "Điều kiện đang áp dụng (chỉ đọc)",
       "searchTag": "tìm kiếm: {{q}}",
       "matchedOfTotal": "Khớp {{matched}} / {{total}} dòng",
@@ -420,7 +425,8 @@
       "openRelationships": "Mở quan hệ",
       "openSourceDataset": "Mở tập dữ liệu nguồn",
       "deleteQuery": "Xóa truy vấn",
-      "deleteSuccess": "Đã xóa truy vấn \"{{name}}\""
+      "deleteSuccess": "Đã xóa truy vấn \"{{name}}\"",
+      "buildOnThis": "Tạo truy vấn từ truy vấn này"
     },
     "join": {
       "title": "Nối với tập dữ liệu liên quan",
@@ -479,6 +485,19 @@
       "discardBody": "Các chỉnh sửa cho truy vấn này chưa được lưu. Bỏ chúng?",
       "discardConfirm": "Bỏ",
       "keepEditing": "Tiếp tục chỉnh sửa"
+    },
+    "create": {
+      "title": "Tạo truy vấn từ {{name}}",
+      "subtitle": "Tạo một truy vấn mới dựa trên truy vấn đã lưu này. Thêm phép nối và bộ lọc, xem trước, rồi lưu.",
+      "buildingOn": "Dựa trên",
+      "save": "Lưu truy vấn",
+      "loadingTitle": "Đang tải…",
+      "notFoundTitle": "Không tìm thấy truy vấn gốc",
+      "notFoundHint": "Truy vấn bạn muốn dựa vào không còn tồn tại. Hãy chọn truy vấn khác từ danh mục.",
+      "baseUnavailableTitle": "Không thể dựa trên truy vấn gốc này",
+      "baseUnavailableHint": "Truy vấn gốc đã bị xoá, không chạy được, hoặc sẽ tạo vòng lặp. Mở để sửa, hoặc chọn truy vấn gốc khác.",
+      "openBase": "Mở truy vấn gốc",
+      "back": "Quay lại Truy vấn"
     }
   },
   "relationships": {
