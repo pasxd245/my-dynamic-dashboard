@@ -1,8 +1,8 @@
 # Round 76: Query × Query composition — let a Query read another Query as a join input
 
-**Status**: Review (full DFCFBI chain green: D·F1·C·F2·B·I; **awaiting human sign-off** on
-the real backend — Complete = signed-off, not gates-green)
+**Status**: Complete
 **Date started**: 2026-06-14
+**Date completed**: 2026-06-15
 **Flow**: DFCFBI (triggers 1, 5 — set at the Design gate, locked)
 
 ## Goal
@@ -360,21 +360,53 @@ error code), so R72's PUT-CORS mode does not recur. Integration seam: this commi
       composition summary + cycle state, `queries.test.tsx` **27/27** · **B** ✓ unified
       recursive `ds_`/`qr_` resolver + cycle guard, pytest **193/193**, `ruff` clean · **I** ✓
       dual conformance + compose lifecycle + cycle rejection (no new route / CORS).
-+ [ ] **Human sign-off** — run the app against the real backend + build + run a Query that
-      joins another Query (Complete = signed-off, not gates-green).
++ [x] **Human sign-off** (2026-06-15) — ran the app against the real backend + exercised a
+      composed query (a Query built on another Query) through the live resolver; the live
+      `GET /queries` 500 (a persisted DB predating `queries.source_id`) was caught + fixed
+      with an idempotent `bootstrap_schema` migration. Complete = signed-off, not gates-green.
+      _Known boundary carried to R77: the FE **create** path doesn't yet send `sourceId`, so
+      saving a brand-new composed query end-to-end from the UI is the next round's pull._
 
 ## Act
 
-_Pending — filled at round close._ The intended outcome: a Query becomes a first-class
-**join input**, the unified `ds_`/`qr_` table-source resolver (R71's J-2′) earns its
-place, and "a Query is the same readable-table-source kind as a Dataset" stops being a
-declaration and becomes executable. This is the round where the join engine stops being
-Dataset-only — the first **model re-open** since R73, run as a seal-then-STOP.
+**Outcome — a Query is now a first-class join SOURCE.** The unified `ds_`/`qr_`
+table-source resolver (R71's J-2′, deferred three rounds) earns its place: a Query
+whose driving source is another saved Query runs via a recursive subquery fold, and
+"a Query is the same readable-table-source kind as a Dataset" stopped being a
+declaration and became executable. The join engine no longer reads Datasets only.
 
-## Feeds into → the visual join-graph canvas (next), then workflow / complex query
+**The model re-open was the right risk call — run as a seal-then-STOP (J-2).** Unlike
+R73→R75's three "widen a field" rounds, R76 re-opened the **source-reference** model
+(`datasetId` → a polymorphic `ds_`/`qr_` driving source + a recursive resolver), so the
+closed model was reviewed by a human before any build. The cheapest coherent model held:
+the **edge stayed dataset↔dataset** (no relationships.md re-open), the `qr_` attaches at
+the **driving source**, and a visited-set **`composition_cycle`** guard makes arbitrary
+nesting safe. The named fork — a `qr_` on the *right* of a hop (which would generalize
+`rel_` endpoints) — stayed deferred.
 
-After R76, the agreed next step is the **free-form visual join-graph canvas** (drag
-nodes / draw edges), still **deferred until the unified source `<Select>` + hop-list
-stops scaling**. Composite/multi-column keys, self-joins, cross-workspace joins, and
-null-aware (`is_empty`) predicates remain deferred with their named triggers; **workflow /
-complex query** (YAML + polars) stays the longer-horizon trajectory item.
+**Two build-discipline learnings (notes, not promotions):**
+
++ **A rename in a 3-impl (YAML + TS + Python) contract can't land atomically gate-by-gate.**
+  The design said rename `datasetId → sourceId`; the build chose an **additive** optional
+  `sourceId` (deviation flagged, [[design-altitude-vs-build-home]]) so each layer stayed
+  conformance-green incrementally. Doctrine recorded: [[dfcfbi-f1-precedes-contract]] — F1
+  runs before C, so new wire fields can't ride F1; keep F1 contract-safe.
++ **An additive column still needs a migration on persisted DBs.** `CREATE TABLE IF NOT
+  EXISTS` never ALTERs; the live `GET /queries` 500 proved gates-green ≠ runs-on-real-data
+  (again — the R72/R75 lesson). The human-sign-off gate caught it; an idempotent
+  `bootstrap_schema` column migration is the fix.
+
+## Feeds into → finish composition's UI create path (R77), then the visual canvas
+
+**Immediate pull → R77:** R76 shipped the composition model + engine + contract + the
+read + the builder picker, but the FE **create** path doesn't send `sourceId`, so a
+brand-new composed query can't be saved end-to-end from the UI (only built/run once it
+exists). R77's pull is to **wire the create/save path** — the highest-priority gap, since
+without it composition isn't reachable for a first-time user.
+
+**Then** the agreed trajectory step — the **free-form visual join-graph canvas** (drag
+nodes / draw edges), still **deferred until the unified source `<Select>` + hop-list stops
+scaling**. Composite/multi-column keys, a `qr_` on the *right* of a hop (generalize `rel_`
+endpoints), self-joins, cross-workspace joins, the `datasetId → sourceId` rename cleanup,
+and null-aware (`is_empty`) predicates remain deferred with their named triggers; **workflow
+/ complex query** (YAML + polars) stays the longer-horizon trajectory item.
