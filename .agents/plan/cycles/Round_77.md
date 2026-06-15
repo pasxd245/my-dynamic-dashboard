@@ -277,7 +277,38 @@ it sends a field the wire already accepts. `@mdd/contracts` OpenAPI validity re-
 preset create page; the composed preview runs + Save POSTs `sourceId` → navigates; an
 unrunnable/cyclic base is flagged pre-save and blocks Save; base-not-found). _(Pre-existing,
 unrelated: 1 upload-wizard flake in `datasets.test.tsx` under full-suite parallelism — passes
-in isolation; not touched by R77.)_ Seam: this commit.
+in isolation; not touched by R77.)_ Seam: commit `a6803d9` (with C).
+
+### Gate B — Backend (confirm, no change) — (2026-06-15)
+
+**Confirmed, not re-opened.** R76 shipped the composed **create** handler
+(`source_id = body.sourceId or body.datasetId`,
+[queries.py](../../../workspace/apps/backend/app/routers/queries.py)) + the recursive
+`resolve_source` resolver + the `composition_cycle` guard at save & run. R77 sends a body the
+handler already accepts — **no backend change**. The existing
+[test_composition.py](../../../workspace/apps/backend/tests/test_composition.py)
+`test_create_and_run_composed_query` posts exactly the FE's R77 body shape
+(`{ name, datasetId: base.datasetId, sourceId: base.id, definition }`) → 201 → composed run;
+the cycle tests reject a self/transitive loop. **pytest 193/193** (`validate_response`-checked).
+
+### Gate I — Integration (DCFBI) — (2026-06-15)
+
+**One contract / dual conformance — against the UNCHANGED `sourceId` shape.** R77 adds **no
+new route, no contract change, no CORS change** (it sends R76's field), so there is no new
+conformance surface; the existing dual conformance is re-confirmed:
+
++ **FE** — the MSW composed **create** + **preview** responses are
+  `withContractValidation`-checked (`queries.test.tsx` **31/31**): the R77 create test drives
+  Build-on → composed preview → Save → `POST {sourceId}` → navigate, and the cyclic-base test
+  blocks Save pre-save.
++ **BE** — the composed **create / detail-get / rows** are `validate_response`-checked against
+  `queries/{post,detail-get,rows-get}.contract.yaml` (`test_composition.py`, within **193/193**):
+  the **create-a-composed-query lifecycle** (create on a saved Query → run keeps the base's
+  rows through the join) + **cycle rejection** (`composition_cycle`).
+
+Both sides validate the **same** `sourceId` (`ds_ | qr_`) shape — the FE create body is exactly
+what the backend accepts. R77 introduces no new integration risk (no route/CORS). Seam: this
+commit (with B — both confirm-only).
 
 ## Check
 
@@ -295,10 +326,12 @@ in isolation; not touched by R77.)_ Seam: this commit.
 + [x] `ui-design` (design-spec) on the create path — **PASS, 0 gaps**.
 + [x] `flow-selector` run + result recorded — **DCFBI** (only condition 1 fires; below 2-of-5).
 + [x] **`gate-walker` (Design gate)** — exit criterion + checks + commit seam recorded; no STOP (J-2).
-+ [ ] **Build chain green** (DCFBI D→C→F→B→I): Contract (confirm `sourceId` on create — no
-      re-widen) · Frontend ("Build on this" verb + create-mode builder; Save POSTs `sourceId`) ·
-      Backend (confirm composed create — no change) · Integration (end-to-end create lifecycle +
-      pre-save unrunnable-base rejection; dual conformance against the unchanged contract).
++ [x] **Build chain green** (DCFBI D→C→F→B→I): **C** ✓ confirm `sourceId` on create — OpenAPI
+      **24/24**, no re-widen · **F** ✓ "Build on this" verb + create-mode builder (Save POSTs
+      `sourceId`), `queries.test.tsx` **31/31**, type-check clean · **B** ✓ confirm composed
+      create — pytest **193/193**, no change · **I** ✓ dual conformance (FE 31/31 + BE 193/193
+      against the unchanged `sourceId` shape) + create-a-composed-query lifecycle + pre-save
+      unrunnable-base rejection; no new route/CORS.
 + [ ] **Human sign-off** — created + ran a composed query end-to-end from the UI against the
       real backend (Complete = signed-off, not gates-green).
 
