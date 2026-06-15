@@ -1,7 +1,8 @@
 # Round 77: Make composition reachable — "Build on this query"
 
-**Status**: In Progress (Design gate closed — build chain proceeds, no STOP per J-2)
+**Status**: Complete (human-signed-off 2026-06-16 — composition reachable end-to-end via "Build on this")
 **Date started**: 2026-06-15
+**Date completed**: 2026-06-16
 **Flow**: DCFBI (only flow-selector condition 1 fired — below 2-of-5; set at the Design gate)
 
 ## Goal
@@ -332,15 +333,35 @@ commit (with B — both confirm-only).
       create — pytest **193/193**, no change · **I** ✓ dual conformance (FE 31/31 + BE 193/193
       against the unchanged `sourceId` shape) + create-a-composed-query lifecycle + pre-save
       unrunnable-base rejection; no new route/CORS.
-+ [ ] **Human sign-off** — created + ran a composed query end-to-end from the UI against the
-      real backend (Complete = signed-off, not gates-green).
++ [x] **Human sign-off (2026-06-16)** — created composed queries end-to-end from the UI against
+      the **real** backend (MSW off, real DuckDB engine): a saved base Query → "Build on this" →
+      add the `customers ⋈ orders` join → name + Save → the new `qr_` persisted with `sourceId` +
+      the join hop (observed in `app.sqlite`). Non-mock seed data (`pnpm dev:seed`) backed the run.
 
 ## Act
 
-_Pending — filled at round close._ The intended outcome: composition becomes **reachable** —
-from a saved Query, "Build on this" lets a user create + save a query built on it — closing
-the gap R76 left, on the shipped hop-list builder, with the least surface area. The standalone
-"New query" surface is consciously **saved for the canvas round** (built right, not rushed).
+**Outcome — composition is reachable.** R77 shipped the "Build on this query" verb + the
+create-mode builder: from a saved Query, one click opens the shipped `QueryBuilderPanel` in
+CREATE mode with that Query preset as the base, and Save POSTs `{name, datasetId, sourceId,
+definition}` → a new composed Query. The gap R76 left (a first-time user could not save a new
+composed query from the UI) is **closed**, on the shipped hop-list builder, with the least
+surface area. The standalone "New query" surface is consciously **saved for the canvas round**
+(built right, not rushed).
+
+**Verification — seed vs MSW (kept distinct).** The human sign-off ran against the **real**
+backend, backed by non-mock seed data (`pnpm dev:seed` — a small sales star). Seed data verifies
+the **actual integrated implementation** (real DuckDB engine, `source_id` resolver, CORS); it is
+**complementary to, not a replacement for, MSW**, which proves FE↔contract conformance in the
+DCFBI gates (`additionalProperties:false` response validation, backend-free, deterministic). Both
+were exercised; neither subsumes the other.
+
+**Edge-state note (carried to a bug-fix round).** The `composition_cycle` / `relationship_stale`
+guards are **defense-in-depth, not user-reachable**: `source_id` is fixed at create and `PUT`
+only edits `definition` (no API path mutates a source → no loop can form); datasets are immutable
+(no in-place column drift). Both are covered at the DB layer by
+[test_composition.py](../../../workspace/apps/backend/tests/test_composition.py) (within 193/193).
+A UI-level "BaseUnavailable" render check is **deferred to a bug-fix round** — agreed with the
+human, who confirmed the current seed is sufficient for the MVP close.
 
 ## Feeds into → the standalone "New query" surface + the visual canvas, then the rename cleanup
 
