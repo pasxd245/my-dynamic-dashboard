@@ -120,8 +120,11 @@ POST-not-PUT) + the **"Build on this" verb** — named honestly, not laundered t
 ## What is OUT of scope
 
 + **The standalone "New query" surface + an empty source picker** → **deferred to the visual
-  canvas round** — it is the home the canvas grows into and is built properly there, not
-  rushed as an MVP. R77 presets the base from the source Query instead.
+  canvas round** — it is the home the canvas grows into and is **high user value** (the
+  Builder helps users a lot); deferring is **deferred-to-do-right, not deprioritized**, a
+  deliberate refusal to "accelerate only". R77's "Build on this" MVP **proves composition is
+  reachable** — it is the proof-of-concept, not the finished value. R77 presets the base from
+  the source Query instead ([[dont-mvp-rush-a-roadmap-home-surface]]).
 + **The free-form visual join-graph canvas** → later (its "hop-list stops scaling" trigger
   has not fired; R77 uses the shipped hop-list builder).
 + **The `datasetId → sourceId` rename cleanup** → a separate named round once all queries
