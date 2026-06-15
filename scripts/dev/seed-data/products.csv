@@ -1,0 +1,8 @@
+product_id,product_name,category,unit_price,in_stock
+1,Analytics Suite,Software,499.00,true
+2,Data Connector,Software,149.50,true
+3,Onboarding Package,Services,1200.00,true
+4,Premium Support,Services,899.00,true
+5,Storage Add-on,Infrastructure,75.25,true
+6,Compute Add-on,Infrastructure,320.00,true
+7,Legacy Tool,Software,49.00,false

@@ -11,6 +11,7 @@
     "dev:local:up": "bash scripts/dev/local-up.sh",
     "dev:local:down": "bash scripts/dev/local-down.sh",
     "dev:local:status": "bash scripts/dev/local-status.sh",
+    "dev:seed": "python3 scripts/dev/seed.py",
     "md:lint": "markdownlint-cli2",
     "design:lint": "node scripts/lint/design-doc-lint.mjs",
     "design:tokens": "node scripts/lint/design-token-parity.mjs",

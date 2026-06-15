@@ -1,0 +1,12 @@
+customer_id,customer_name,region_id,tier,is_active,signed_up
+1,Acme Corp,1,gold,true,2025-01-15
+2,Globex,2,silver,true,2025-02-03
+3,Initech,1,bronze,true,2025-03-22
+4,Umbrella,3,gold,true,2025-04-10
+5,Soylent,2,gold,true,2025-05-18
+6,Hooli,1,silver,true,2025-06-01
+7,Vehement Capital,4,bronze,false,2025-06-25
+8,Massive Dynamic,3,gold,true,2025-07-14
+9,Stark Industries,1,silver,true,2025-08-09
+10,Wayne Enterprises,2,gold,true,2025-09-30
+11,Lonely Co,1,bronze,false,2025-10-05
