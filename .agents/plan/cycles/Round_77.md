@@ -1,7 +1,8 @@
 # Round 77: Make composition reachable — "Build on this query"
 
-**Status**: Planning
+**Status**: In Progress (Design gate closed — build chain proceeds, no STOP per J-2)
 **Date started**: 2026-06-15
+**Flow**: DCFBI (only flow-selector condition 1 fired — below 2-of-5; set at the Design gate)
 
 ## Goal
 
@@ -164,19 +165,104 @@ POST-not-PUT) + the **"Build on this" verb** — named honestly, not laundered t
 + **Invariant:** reuse the catalog + builder + `<PagedRowsView>` + create mutation + R76's
   `sourceId` plumbing; the only new work is the create lifecycle + the "Build on this" verb.
 
+### Gate 2 — Design pass (2026-06-15)
+
+**Doc home (J-4 → extend the existing docs, not a fork):** authored the create path into
+**[query-construction.md § Create mode (R77)](../../design/data-management/queries/query-construction.md#create-mode-r77-build-a-new-query-on-a-preset-base)**
+(the create-mode builder lifecycle — the J-3 home, since this is the builder doc) and the
+**"Build on this query"** verb into
+**[saved-query.md § Build on this query](../../design/data-management/queries/saved-query.md#build-on-this-query-r77-the-create-entry)**
+(the catalog + create-modes home — the J-4 affordance). Updated
+[composition.md](../../design/data-management/queries/composition.md) (create now reachable;
+its R76 Status reconciled to **shipped** — O-rule truth-fix) and the
+[query-builder.md trajectory](../../design/data-management/queries/query-builder.md#the-trajectory-what-queries-grows-into)
+(an R77 row; R76 → shipped).
+
+**J-3 + J-4 resolved (grounded in the shipped build, [[design-altitude-vs-build-home]]):**
+
++ **J-3 → the create-mode lifecycle = a MODE of `useQueryBuilder`.** Edit-only generalizes
+  to edit + create: **no id**, baseline = the **empty definition**, the driving source
+  **preset** to the chosen Query's `qr_` (not seeded from a saved `sourceId`); the composed
+  `POST …/preview` runs the unsaved draft **unchanged**; **name captured at Save** via the
+  reused `SaveQueryModal`; **Save = `POST`** `{ name, datasetId: base.datasetId, sourceId:
+  base.id, definition }` via the reused `useCreateQueryMutation` → navigate to the new `qr_`.
+  _Grounding:_ the backend create handler **already** accepts `sourceId`
+  (`source_id = body.sourceId or body.datasetId`, [queries.py](../../../workspace/apps/backend/app/routers/queries.py)),
+  but still requires a valid `datasetId` (the legacy `NOT NULL` column) — so the create body
+  carries **both** `datasetId = base.datasetId` **and** `sourceId = base.id` (the `datasetId →
+  sourceId` rename is the deferred cleanup). The only FE type change is widening
+  `CreateQueryRequest` to carry `sourceId` (request-only alignment to R76's YAML).
++ **J-4 → the verb on the Query detail header + a base-gated `/queries/new?base=qr_…` route**
+  (reached only via the verb — **not** the deferred standalone empty-picker surface);
+  name capture mirrors "Save filters as Query"; home/mechanism sealed loosely (build may use
+  a transient overlay instead — the **intent** is sealed). _A catalog row action is an optional
+  second placement the build may add._
+
+**Model check:** **noun-vs-mode** — a new composed Query is the **same readable-table-source
+kind**; create is a **mode** of the shipped builder (same `QueryBuilderPanel`), no parallel
+page, no new engine. **Discovered-vs-imposed** — _discovered_: R76 left a named create gap
+(composition unreachable for a first-time user); R77 closes it with the least surface area, no
+invented surface. **Model-confidence valve INVOKED to CONFIRM (not re-open)** — R77 adds **no**
+model / contract / engine / route / error-code change; it sends R76's `sourceId` on the create
+path. (Contrast R76, which re-opened the source-reference model.)
+
+**`ui-design` (design-spec) on the create path — PASS (0 gaps).** All six facets declared:
+Findability (the "Build on this query" verb is a visible **text** action on the detail header,
+distinguishable from `[Edit]`/`[Delete]`; the base is **preset**, no empty picker to learn);
+Usability (primary Save + Cancel/discard-confirm; `canSave` gated on valid preview + non-empty
+name; `name_taken`/base-unavailable recoverable); Accessibility (keyboard-reachable labelled
+verb, text-labelled preset base, reused `SaveQueryModal` semantics, `<Alert role="alert">`
+text-not-colour); Credibility (every create state specced — Editing/PreviewLoading/
+PreviewPopulated/BaseUnavailable/NameCapture/Saving→NewDetail/NameTaken/SaveRejected/Leave;
+the structurally-impossible new-node self-cycle named honestly); Utility (closes R76's create
+gap — criteria 1–6); Desirability (**no new token** — reuses the shipped token maps +
+`SaveQueryModal` styling).
+
+**Flow selector run** (per [R47](../../decisions/2026-05-28-hybrid-flow-governance.md)):
+
+| Condition                            | Fired? | Justification                                                                                                                                                          |
+| ------------------------------------ | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1. >3 independent states/branches    | yes    | The create state model branches PreviewLoading → {PreviewPopulated, BaseUnavailable} and Saving → {NewDetail, NameTaken, SaveRejected}, + Editing / NameCapture / Leave — over three. |
+| 2. New interaction pattern           | no     | The create path **reuses** the shipped `QueryBuilderPanel`, R69's `SaveQueryModal`, R76's base picker, and the exact "Save filters as Query" verb→builder→name→Save rhythm — nothing new. |
+| 3. High user-error risk              | no     | Creating a Query is **non-destructive** (the source Query is untouched, nothing overwritten); a bad/unrunnable base is flagged pre-save and blocks Save; `name_taken` is recoverable. |
+| 4. Contract depends on unresolved UI | no     | The contract is **unchanged** (R76 shipped `sourceId` on create/preview); the FE merely sends it — no YAML decision pends a UI answer.                                  |
+| 5. UX confidence below threshold     | no     | The create path composes **already-shipped, human-reviewed** surfaces (builder R72, base picker R76, save modal R69); `ui-design` PASS 0 gaps; no open fork (unlike R76). |
+
+Result: **Flow: DCFBI** (only condition 1 fires — below the 2-of-5 threshold; the cheap lane,
+no F1/F2 human-prototype gates). Consistent with J-2 "run straight through": build chain
+**D → C → F → B → I**, per-gate commits as the revert seams.
+
+**`gate-walker` (Design gate): PASS** — query-construction.md + saved-query.md + this round
+record the Design exit criterion (the R77 user journey + acceptance criteria 1–6, each → ≥1
+future test), the noun-vs-mode + discovered-vs-imposed checks, the **model-confidence valve
+invoked to confirm** (no model surface re-opened), and the Design commit seam. _Structural
+check only — the design's correctness is the human reviewer's call._ **No Design-gate STOP**
+(J-2: run straight through — R77 re-opens no model).
+
+**Design gate closed → continue (J-2, no STOP).** Gate seams: Plan `bd3ca5f` → Design (this
+commit). The DCFBI build chain (C → F → B → I) proceeds; **Complete = human-signed-off** (a
+composed query created + run end-to-end from the UI).
+
 ## Check
 
 + [x] **J-0, J-1, J-2 ratified** (Plan gate); **J-3, J-4 held open** → Design gate.
-+ [ ] **Create path designed** (home per J-4): the "Build on this" verb + create-mode builder.
-+ [ ] **Model-confidence valve to confirm** — no model/contract/engine change recorded.
-+ [ ] **Noun-vs-mode + discovered-vs-imposed** recorded.
-+ [ ] `design:lint` 0 · `design:tokens` 0 · `plan:lint` 0 · `markdown-check-link` 0 broken ·
-      `markdownlint` 0.
-+ [ ] `ui-design` (design-spec) on the create path — PASS.
-+ [ ] `flow-selector` run + result recorded.
-+ [ ] **`gate-walker` (Design gate)** — exit criterion + checks + commit seam recorded.
-+ [ ] **Build chain green**: Frontend ("Build on this" verb + create-mode builder) ·
-      Integration (end-to-end create lifecycle + pre-save cycle rejection; dual conformance).
++ [x] **Create path designed** (home per J-4): the "Build on this" verb
+      ([saved-query.md](../../design/data-management/queries/saved-query.md#build-on-this-query-r77-the-create-entry))
+      + the create-mode builder
+      ([query-construction.md](../../design/data-management/queries/query-construction.md#create-mode-r77-build-a-new-query-on-a-preset-base)).
++ [x] **Model-confidence valve to confirm** — no model/contract/engine/route/error-code change
+      recorded; R77 sends R76's `sourceId` on the create path.
++ [x] **Noun-vs-mode + discovered-vs-imposed** recorded (mode of the shipped builder; discovered
+      — R76's named create gap).
++ [x] `design:lint` 0 (16 docs) · `design:tokens` 0 (13 maps) · `plan:lint` 0 (77 rounds) ·
+      `markdown-check-link` 0 broken (4 changed) · `markdownlint` 0 (189 files).
++ [x] `ui-design` (design-spec) on the create path — **PASS, 0 gaps**.
++ [x] `flow-selector` run + result recorded — **DCFBI** (only condition 1 fires; below 2-of-5).
++ [x] **`gate-walker` (Design gate)** — exit criterion + checks + commit seam recorded; no STOP (J-2).
++ [ ] **Build chain green** (DCFBI D→C→F→B→I): Contract (confirm `sourceId` on create — no
+      re-widen) · Frontend ("Build on this" verb + create-mode builder; Save POSTs `sourceId`) ·
+      Backend (confirm composed create — no change) · Integration (end-to-end create lifecycle +
+      pre-save unrunnable-base rejection; dual conformance against the unchanged contract).
 + [ ] **Human sign-off** — created + ran a composed query end-to-end from the UI against the
       real backend (Complete = signed-off, not gates-green).
 

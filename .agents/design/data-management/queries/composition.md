@@ -12,12 +12,13 @@ is genuinely new is the **polymorphic source reference** (`datasetId` → a
 `ds_ | qr_` **`sourceId`**) and the **unified `ds_`/`qr_` table-source resolver**
 that R71 deferred as **J-2′** ([joins.md § route-vs-resolver](joins.md#data-contract-intent-formalized-at-the-contract-gate)) — the resolver finally earns its place because composition is its trigger.
 
-**Status**: Accepted (R76 design — **sealed at the Design gate**; the build chain
-**pends the human's model-review STOP per J-2** — this round **re-opens the
-source-reference model**, unlike R73→R75's field widenings, so the closed model is
-reviewed by a human before any build). This doc records the **source-model
-confidence valve** (the source-ref + recursive resolver are the re-opened surface)
-and the **noun-vs-mode / discovered-vs-imposed** checks.
+**Status**: Accepted — **shipped R76** (DFCFBI: D → F1 → C → F2 → B → I; the J-2
+seal-then-STOP model review **passed**, base-only model approved). This round
+**re-opened the source-reference model** (unlike R73→R75's field widenings), so this
+doc records the **source-model confidence valve** (the source-ref + recursive resolver
+are the re-opened surface) and the **noun-vs-mode / discovered-vs-imposed** checks. Its
+**UI create path** ships **R77** ("Build on this query" —
+[query-construction.md § Create mode](query-construction.md#create-mode-r77-build-a-new-query-on-a-preset-base)).
 **Round introduced**: [Round_76](../../../plan/cycles/Round_76.md) — the sixth step
 of the Query trajectory (`data → relationships → joins → construction → multi-join →
 **composition**`), pulling R71's J-2′ unified-resolver deferral.
@@ -333,7 +334,11 @@ stateDiagram-v2
 + **Build (in the R74 builder)**: the **base-source `<Select>`** lists this
   workspace's Datasets **and** Queries; choosing a `qr_` base + (optionally) adding
   join hops + Save persists a composed Query. The cycle guard runs on save (`422
-  composition_cycle` if the chosen base loops back).
+  composition_cycle` if the chosen base loops back). _**R77** makes this **reachable on
+  create**: a composed Query is built from scratch via **"Build on this query"** (the
+  builder's [create mode](query-construction.md#create-mode-r77-build-a-new-query-on-a-preset-base),
+  base preset, Save = `POST` carrying `sourceId`) — R76 shipped this on edit only; the FE
+  create path now sends `sourceId`._
 + **Run** is a GET (idempotent), re-executing the saved definition through the
   recursive resolver; pagination is the only query param (the definition is the
   source of truth), mirroring the dataset-source run.

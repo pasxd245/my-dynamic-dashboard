@@ -37,6 +37,25 @@ valve, and F1 is exactly where the build diverged from the seal.
 > `Actions ▾` menu ([dataset-detail.md](../datasets/dataset-detail.md)).
 > _A tabs layout was tried during F1 and **reverted** — tabs break live preview
 > (edit → switch → check → switch back); collapsible sections keep it live._
+>
+> **R77 extends this builder with a CREATE mode (the create lifecycle, J-3).**
+> R72→R76 made the builder **edit-only**: it always opens on an **existing** saved
+> Query (seeded from `query.definition`, Save = `PUT` definition-only). R76 shipped
+> the composed source model + engine + the **"Build on" base picker**, but the FE
+> **create** path never sent `sourceId` — so a composed Query could only be built /
+> run **once it already existed**; a first-time user **could not save a new composed
+> Query from the UI**. R77 closes that with a **create mode** of this same builder:
+> no `id`, a **preset base** (`sourceId` = the saved Query you chose to build on),
+> **name capture at Save** (the reused `SaveQueryModal`), and **Save = `POST`**
+> carrying `{ name, datasetId, sourceId, definition }` → the new `qr_` detail. The
+> entry verb **"Build on this query"** lives on the Query detail header
+> ([saved-query.md § Build on this query](saved-query.md#build-on-this-query-r77-the-create-entry)).
+> **No model / contract / engine change** — R76's create handler already accepts
+> `sourceId` and the unified `ds_`/`qr_` resolver already runs a composed source
+> ([composition.md](composition.md)); R77 is the **FE create-lifecycle** half. See
+> [§ Create mode (R77)](#create-mode-r77-build-a-new-query-on-a-preset-base).
+> _(Status: **Design** — R77, run-straight-through per its J-2; the build chain is
+> chosen by `flow-selector` at the Design gate.)_
 
 **Round introduced**: [Round_72](../../../plan/cycles/Round_72.md) — the fourth
 step of the critical path (`data → relationships → joins → **construction** →
@@ -147,6 +166,10 @@ type QueryDefinition = {
 | chip-filter + advanced-DNF editors (reused, not owned)                   | `apps/builder/src/features/data-management/datasets` | feature (by reuse)  | feature  | react, antd                        |
 | `<PagedRowsView>` (reused; preview body **+ per-column filter headers**) | `apps/builder/src/features/data-management/_shared`  | shared cross-domain | plain-ui | react, antd, react-i18next         |
 | `preview` + `update` routes (NEW backend, **shipped**)                   | `apps/backend/app/routers/queries.py`                | backend             | feature  | (reuses `query_joined_rows`)       |
+| `QueryCreatePage` (R77: create mode at `/queries/new?base=qr_…`; reuses the panel) | `apps/builder/src/features/data-management/queries`  | feature             | feature  | react, antd, @tanstack/react-query |
+| `useQueryBuilder` (R77: extended with a CREATE mode — no-id, preset base, Save=`POST`) | `apps/builder/src/features/data-management/queries`  | feature             | glue     | @tanstack/react-query, antd        |
+| `SaveQueryModal` (reused, not owned — R69; the create name-capture step)  | `apps/builder/src/features/data-management/queries`  | feature (by reuse)  | feature  | react, antd                        |
+| `useCreateQueryMutation` (reused, not owned — R69; the create `POST`)     | `apps/builder/src/features/data-management/queries`  | feature (by reuse)  | glue     | @tanstack/react-query              |
 
 **Boundary check**: the only shared-cross-domain row (`<PagedRowsView>`) is
 **reused, not owned** ([dataset-detail.md](../datasets/dataset-detail.md)). The
@@ -334,6 +357,122 @@ stateDiagram-v2
 
 ---
 
+## Create mode (R77): build a new Query on a preset base
+
+R72→R76's builder is **edit-only**: it opens on an **existing** Query, seeds the
+working copy from `query.definition`, and Saves with `PUT` (definition-only).
+**Create mode** is the **second mode of the same builder** — it constructs a
+**brand-new** Query whose **driving source is preset** to a saved Query you chose to
+build on (`sourceId = qr_…`). It is the **missing FE create-lifecycle half** of R76
+([composition.md](composition.md)): the composed source model, the recursive resolver,
+and the create handler's `sourceId` acceptance all **shipped R76**; R77 only makes the
+UI **send** `sourceId` on create. **No model / contract / engine change** — the
+design-model valve is invoked **to confirm**, not to re-open (§ Acceptance criteria).
+
+> **Why a create MODE, not a new builder / page (the noun-vs-mode check).** A new
+> composed Query is the **same readable-table-source kind** the catalog + detail +
+> `<PagedRowsView>` already serve; building one introduces **no new noun and no new
+> engine**. So R77 **generalizes the shipped `useQueryBuilder` from edit-only to
+> edit + create** and renders it through the **same** `QueryBuilderPanel` — never a
+> parallel "QueryBuilder" page (the discarded-R69 trap, the
+> [reuse invariant](query-builder.md#the-reuse-invariant-the-one-rule-this-domain-holds)).
+> The only genuinely-new work is the **no-id lifecycle** (preset base → name capture →
+> `POST`) + the **"Build on this query" verb** ([saved-query.md](saved-query.md#build-on-this-query-r77-the-create-entry)).
+
+### The lifecycle (J-3) — how edit-only generalizes to edit + create
+
+`useQueryBuilder` gains a **mode**. In **create mode** there is no `query`/`id`; the
+baseline working copy is the **empty definition** (`{ q: null, filters: [], advanced:
+[] }`) and the **base is preset** from the entry verb, not seeded from a saved
+`sourceId`:
+
+| Concern | Edit mode (R72→R76, shipped) | **Create mode (R77, new)** |
+| --- | --- | --- |
+| Identity | an existing `query` (`qr_…`) | **no id** — a draft until Saved |
+| Baseline | `normalize(query.definition)` | the **empty definition** (build up from nothing) |
+| Driving source | seeded `query.sourceId ?? query.datasetId`; editable | **preset** `sourceId = the source Query's qr_`; the base picker is seeded to it |
+| `workspaceId` / `datasetId` | from `query` | from the **source Query** (`base.workspaceId`; `datasetId = base.datasetId`, the legacy NOT-NULL field — see below) |
+| Live preview | the composed `POST …/preview` (already branches on a `qr_` base — **unchanged**) | the **same** composed preview, keyed on the preset base |
+| Name | unchanged (`PUT` is definition-only) | **captured at Save** via the reused `SaveQueryModal` |
+| Save | `PUT /queries/{id}` `{ definition }` | **`POST /workspaces/{id}/queries`** `{ name, datasetId, sourceId, definition }` via `useCreateQueryMutation` → navigate to the new `qr_` detail |
+| Gate | `canSave = dirty && previewOk && …` | `canSave = previewOk && !pending && invalidCount === 0` **+ a non-empty name** (no `dirty` baseline — nothing saved to diverge from; a base + zero edits is a valid, if trivial, composed Query) |
+
+**The vestigial `datasetId` on a composed create (a real grounding, named honestly).**
+The backend create handler still **requires a valid `datasetId`** in the workspace
+(`queries.dataset_id` is the legacy `NOT NULL` column; `source_id` was added
+**additively** at R76 — the `datasetId → sourceId` rename is a **deferred named
+cleanup**). A "Build on this" create therefore sends **`datasetId = base.datasetId`**
+(the source Query always has one) **and** **`sourceId = base.id`** (the `qr_` that
+actually drives the composed run — `source_id = body.sourceId or body.datasetId`
+server-side). This needs **no contract change**: R76's `CreateQueryBody` already
+carries the optional `sourceId`; only the FE `CreateQueryRequest` type is **widened to
+match the YAML** (a request-only alignment, not a wire change).
+
+### Routing + entry
+
+- **Entry**: the **"Build on this query"** verb on the Query detail header (owned by
+  [saved-query.md](saved-query.md#build-on-this-query-r77-the-create-entry)) opens the
+  builder in create mode with the current Query preset as the base.
+- **Home**: a **base-gated create route — `/data-management/queries/new?base=qr_…`** —
+  reachable **only** via the verb (no nav item, no empty source picker). It is **not**
+  the deferred standalone "New query" surface (that ships with the canvas, built right —
+  [[dont-mvp-rush-a-roadmap-home-surface]]); it is the create lifecycle's URL home, so a
+  refresh / deep-link / back-button work (the durability a transient overlay lacks).
+  _Home/mechanism sealed loosely (build-first, [[design-altitude-vs-build-home]]): the
+  build may render create mode as a transient builder over the catalog/detail instead if
+  that proves simpler — the deviation is flagged at the gate commit; the **intent** (a
+  base-preset, no-id, name-then-`POST` lifecycle) is what's sealed._
+
+### States (create mode)
+
+```mermaid
+stateDiagram-v2
+    [*] --> Editing: open /queries/new?base=qr_… (base preset, empty draft)
+    Editing --> PreviewLoading: add a join / predicate (debounced) or [Preview]
+    PreviewLoading --> PreviewPopulated: composed draft valid → preview rows
+    PreviewLoading --> BaseUnavailable: 409 (base deleted / unrunnable / composition_cycle / stale)
+    PreviewPopulated --> NameCapture: click [Save]
+    NameCapture --> Saving: submit (name valid)
+    Saving --> NewDetail: 201 → toast + navigate to /queries/{new id}
+    Saving --> NameTaken: 409 name_taken → inline field error (stay in modal)
+    Saving --> SaveRejected: 422 bad atom / unknown dataset → inline error
+    Editing --> Leave: [Cancel] (confirm if edited) → back to the base query
+    BaseUnavailable --> Leave: open base / back
+```
+
+- **A new node cannot self-cycle.** The create draft has no id, so nothing composes
+  it — a *direct* `composition_cycle` is structurally impossible at create. What the
+  create path **does** surface pre-save is the **base's own** resolve failure: if the
+  chosen base is deleted, unrunnable, transitively cyclic, or its edge/predicate
+  drifted, the **composed preview** returns the existing `409`
+  (`composition_cycle` / `relationship_stale` / `query_stale`), the builder renders the
+  guided **base-unavailable** state, and **`[Save]` stays disabled** (you cannot save a
+  query whose base won't run). The server re-validates on `POST` (`422` for a bad atom /
+  unknown dataset; `409 composition_cycle` if a base loops) — flag-don't-crash, mirroring
+  the edit-mode and run-time gates ([composition.md § states](composition.md#behaviour-states)).
+- **Name capture mirrors "Save filters as Query".** `[Save]` opens the reused
+  `SaveQueryModal` — name input (`maxLength` = `QUERY_MAX`, `showCount`, Save disabled
+  until the trimmed name is non-empty), a read-only "Source: «base query» · «workspace»"
+  line, and the inline `409 name_taken` error pattern. One create rhythm, not two: both
+  "Save filters as Query" and "Build on this" route through `SaveQueryModal` +
+  `useCreateQueryMutation`, so create logic is never duplicated.
+
+### Accessibility (create mode — declared so F builds it, not infers it)
+
+- The **"Build on this query"** action is keyboard-reachable with a **visible text
+  label** (not icon-only); on activation, focus moves into the builder.
+- The **preset base** is shown in the builder with a **visible, text** label naming the
+  base Query (the `BaseSourcePicker` from R76, seeded + still editable), never colour or
+  glyph alone; its `<OptGroup>` headings ("Datasets" / "Saved queries") stay text.
+- The **name-capture modal** reuses `SaveQueryModal`'s shipped semantics: labelled
+  `<Input>`, autofocus, an accessible `name_taken` error tied to the field, Save-disabled
+  reason.
+- The **base-unavailable** block is an `<Alert role="alert">` whose reason is **text**
+  (the base named, the failure stated in plain language), icon + text — not a colour
+  swatch; its actions (open base / back) are focus-order reachable.
+
+---
+
 ## Data contract (as shipped)
 
 R72 edits the existing `QueryDefinition` and runs the existing engines, and added
@@ -406,9 +545,59 @@ the human's go-ahead, per J-2):
     **update verb** are flagged for the Contract gate (after F1), reusing existing
     error codes; the unified resolver stays deferred.
 
+### Create mode (R77) — acceptance criteria
+
+**User journey (R77)** — as a first-time user looking at a saved Query, I click
+**Build on this query**, the builder opens with that Query **preset as my base**, I add
+a join + a filter and **see the composed rows live**, then **Save**, **name** it, and
+land on the **new** query's detail running composed against current data — so I can
+**create** a composed Query from the UI, not only edit one that already exists.
+
+Each criterion maps to ≥1 future automated test across the build chain (chosen by
+`flow-selector`):
+
+1. **Create mode is a MODE of the builder, not a new page** _(FE)_ — "Build on this
+   query" opens the **same** `QueryBuilderPanel` in create mode; **no** copy-pasted
+   builder/page, **no** re-invented engine — the noun-vs-mode check.
+2. **Base is preset, composed preview runs unsaved** _(FE + I)_ — the create draft's
+   `sourceId` is preset to the source Query (`qr_`); the composed `POST …/preview`
+   runs the **unsaved** draft on that base and `<PagedRowsView>` renders the
+   `base.effective ++ joined.*` columns — no persistence until Save.
+3. **Save POSTs `sourceId` → a new composed Query** _(FE + contract + I)_ — `[Save]`
+   captures a name and `POST`s `{ name, datasetId: base.datasetId, sourceId: base.id,
+   definition }`; a `qr_` composed Query is persisted and the user is navigated to its
+   detail, which runs composed — closing R76's create gap. The wire is **unchanged**
+   (R76 shipped `sourceId` on create); only the FE request type is aligned.
+4. **One create rhythm (no duplication)** _(FE)_ — both "Save filters as Query" and
+   "Build on this" route through `SaveQueryModal` + `useCreateQueryMutation`; name
+   capture, `name_taken`, and the `POST` are **not** duplicated.
+5. **An unrunnable base is flagged pre-save, not crashed** _(FE + B)_ — a deleted /
+   unrunnable / transitively-cyclic / stale base makes the composed preview `409`, the
+   builder renders the guided **base-unavailable** state and **disables `[Save]`**; on
+   `POST` the server re-validates (`422` bad atom; `409 composition_cycle`) — never a
+   saved-but-unrunnable composed Query.
+6. **Model is not re-opened** _(design assertion)_ — R77 adds **no** field, **no**
+    error code, **no** engine, **no** route; it sends `sourceId` (R76's field) on the
+    create path. The **design-model confidence valve is invoked to CONFIRM** (no model
+    surface re-opened) — unlike R76, which re-opened the source-reference model.
+
 ---
 
 ## Scope boundary
+
+### IN scope (R77)
+
+- A **create mode** of `useQueryBuilder` rendered through the shipped
+  `QueryBuilderPanel`: no-id, **preset base** (`sourceId = qr_…`), the composed preview,
+  **name capture at Save** (reused `SaveQueryModal`), **Save = `POST`** carrying
+  `{ name, datasetId, sourceId, definition }` via `useCreateQueryMutation`, then navigate
+  to the new `qr_` detail.
+- The **"Build on this query"** verb (owned by
+  [saved-query.md](saved-query.md#build-on-this-query-r77-the-create-entry)) + the
+  base-gated `/queries/new?base=qr_…` route.
+- The FE `CreateQueryRequest` widened to carry `sourceId` (request-only alignment to the
+  R76 YAML; **no** wire/contract/engine change).
+- The pre-save **base-unavailable** state (reusing R76's `409` gates) blocking Save.
 
 ### IN scope (R72)
 

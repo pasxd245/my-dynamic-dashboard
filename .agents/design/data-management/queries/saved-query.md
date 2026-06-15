@@ -25,6 +25,18 @@ semantics.
 > editable (join + cross-source predicates) with a live preview; the "deferred"
 > scope item below is closed. ③ **Page size** is now the centralized
 > **`10 / 25 / 50 / 100`** ([_shared/pagination.yaml#/PageSize](../../../../workspace/packages/contracts/_shared/pagination.yaml)).
+>
+> **R77 (Design) — a second create entry: "Build on this query".** R76 made a Query a
+> join **source** (`sourceId: ds_ | qr_`, [composition.md](composition.md)) but the FE
+> **create** path never sent `sourceId`, so a composed Query was only buildable once it
+> existed. R77 adds **"Build on this query"** — a verb on the Query detail header that
+> opens the [builder in CREATE mode](query-construction.md#create-mode-r77-build-a-new-query-on-a-preset-base)
+> with that Query **preset as the base**, then name + Save (`POST` carrying `sourceId`).
+> It is the **same create rhythm** as "Save filters as Query" (a verb on the surface
+> you're on → name + `POST`), reusing `SaveQueryModal` + `useCreateQueryMutation`. The
+> create body now carries **`sourceId`** (R76's field; **no** contract change — see
+> § Build on this query + § Data contract). _The standalone "New query" surface (empty
+> source picker) stays deferred to the canvas round ([[dont-mvp-rush-a-roadmap-home-surface]])._
 
 **Round introduced**: [Round_69](../../../plan/cycles/Round_69.md) — the redo of
 the discarded first R69, on the corrected "Query is a virtual Dataset" footing.
@@ -213,6 +225,40 @@ Home ▸ … ▸ q1_pipeline_Deals          [Save filters as Query]  [Rename]  [
         │                  [ Cancel ] [ Save ]    │
         └─────────────────────────────────────────┘
 ```
+
+### Build on this query (R77): the create entry
+
+The second create entry, mirroring "Save filters as Query": a **`[Build on this query]`**
+action on the **Query detail header** (peer to `[Edit]` / `[Delete]`). It is present on
+the **runnable** (Populated) detail and **absent** from the stale / unavailable header
+states (you build on a base that runs). Clicking opens the
+[builder in CREATE mode](query-construction.md#create-mode-r77-build-a-new-query-on-a-preset-base)
+at **`/data-management/queries/new?base=<this qr_>`** — this Query **preset as the base**.
+
+```text
+Home ▸ … ▸ Won deals over $1k          [Build on this query]  [Edit]  [Delete]
+  …read-only summary + rows for the saved Query…
+
+  ┌──────── Build on this query → /queries/new?base=qr_9c2f10ab ──────────────┐
+  │  Build on:  Won deals over $1k  (qr_9c2f10ab)        ← preset base, editable │
+  │  + Join with a related dataset    [ Accounts: account_id ↔ id   ▾ ]         │
+  │  Filters / Advanced / Search  (over the composed effective columns)         │
+  │  ▾ Preview · composed rows   <the shared <PagedRowsView>>                    │
+  │                                          [ Cancel ]   [ Save ] → name modal  │
+  └──────────────────────────────────────────────────────────────────────────────┘
+```
+
+- **Verb home**: the Query **detail** header (the surface you're on — you've opened the
+  Query, you build on it). _A catalog **row** action ("Build on") is an optional second
+  placement the build may add if cheap; not required for the MVP._
+- **Save → name capture**: `[Save]` opens the reused **`SaveQueryModal`** (name + a
+  read-only "Source: «base query» · «workspace»" line + the inline `name_taken` error),
+  then `POST`s `{ name, datasetId: base.datasetId, sourceId: base.id, definition }` and
+  navigates to the new `qr_` detail. The full lifecycle + states are owned by
+  [query-construction.md § Create mode (R77)](query-construction.md#create-mode-r77-build-a-new-query-on-a-preset-base).
+- **Not the standalone surface**: this route is reached **only** via the verb (no nav
+  item, no empty source picker); the first-class standalone "New query" surface ships
+  with the canvas, built right ([[dont-mvp-rush-a-roadmap-home-surface]]).
 
 ### Queries catalog — `/data-management/queries`
 
@@ -507,7 +553,7 @@ draft (sound; not re-applied wholesale).
 
 | Route                                     | Purpose | Notes                                                                                                             |
 | ----------------------------------------- | ------- | ----------------------------------------------------------------------------------------------------------------- |
-| `POST /workspaces/{id}/queries`           | create  | body `{ name, datasetId, definition }`; 201 → `Query`; 409 `name_taken`; 422 on bad definition / unknown dataset. |
+| `POST /workspaces/{id}/queries`           | create  | body `{ name, datasetId, definition }` **+ optional `sourceId` (R76, `ds_ \| qr_`)**; 201 → `Query`; 409 `name_taken` / `composition_cycle`; 422 on bad definition / unknown dataset. _R77 reaches this with `sourceId = qr_` ("Build on this query") — **no contract change** (R76 widened the body)._ |
 | `GET /workspaces/{id}/queries`            | list    | `Query[]`, `created_at` desc; scoped to the workspace.                                                            |
 | `GET /queries/{id}`                       | get     | one `Query` (definition + metadata); 404 if absent.                                                               |
 | `GET /queries/{id}/rows?page=&page_size=` | run     | the **same `RowsPage` shape** as `GET /datasets/{id}/rows`; 404 / 409 `query_stale`.                              |

@@ -143,12 +143,16 @@ R74    join graph (tree)      multi-join.md        (shipped) — relax the linea
 R75    left / outer joins     joins.md             (this round) — widen JoinStep.type beyond inner
                                                       (left / right / full outer): keep unmatched rows
                                                       so a relationship can be expressed, not just filtered
-R76    Query × Query          composition.md       (design sealed; build pends the J-2 model-review
-                                                      STOP) — a Query as the driving join source; the
+R76    Query × Query          composition.md       (shipped) — a Query as the driving join source; the
                                                       unified ds_/qr_ resolver (R71 J-2′), recursive +
                                                       cycle-guarded
-later  visual join canvas     (future)             — a free-form source graph; drag nodes / draw edges
-                                                      (deferred until the hop-list stops scaling)
+R77    composition create     query-construction.md (this round) — make composition REACHABLE: "Build on
+                                                      this query" opens the builder in CREATE mode (base
+                                                      preset, Save=POST carrying sourceId); the FE create
+                                                      half R76 left open. No new model/contract/engine.
+later  visual join canvas     (future)             — a free-form source graph; drag nodes / draw edges +
+                                                      the standalone "New query" surface (deferred until
+                                                      the hop-list stops scaling — its proper home)
 ```
 
 Each step is **pulled, not pre-built** (the Evolution Rule + the
@@ -205,8 +209,9 @@ later join or compose — because every query surface reuses the same shells.
   The unified table-source resolver is **pulled by R76** (J-2′), specified in
   [composition.md](composition.md).
 - **Workflow / complex query** (YAML + polars) → **later**.
-- **Query composition** (a Query as input to another Query) → **R76** (design sealed;
-  build pends the J-2 model-review STOP), specified in [composition.md](composition.md).
+- **Query composition** (a Query as input to another Query) → **shipped R76**,
+  specified in [composition.md](composition.md); its **UI create path** is **R77**
+  (["Build on this query"](query-construction.md#create-mode-r77-build-a-new-query-on-a-preset-base)).
 
 ---
 
