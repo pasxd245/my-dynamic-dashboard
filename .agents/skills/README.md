@@ -106,6 +106,24 @@ Introduced by [Round_52](../plan/cycles/Round_52.md), pulled by
 R51's advanced-query field shipping unlabeled with a hidden clear
 action.
 
+### [`design-sync`](design-sync/SKILL.md)
+
+Re-sync a **domain**'s design docs (`design/<domain>/`) to the
+**actual implementation** — the code is the source of truth — then
+compact them to current-state only. Builds a CODE TRUTH map from the
+backend / contracts / frontend, diffs each doc against it (a
+doc↔code drift report), and rewrites each doc to what is really
+built, dropping the round-by-round ledger (stamps, test counts,
+as-built deltas, HIxAI tables, lifecycle) per the *design docs are
+source code, not history* rule ([design README](../design/README.md)).
+De-fragments spine-first only where a concept has split across ≥3
+docs; merges leave a redirect stub when locked round files link the
+merged path. Filed dependent: operates on design docs + code, runs
+per domain, callable by any round or task. Introduced by
+[Round_81](../plan/cycles/Round_81.md), pulled by the workspaces
+design doc having frozen at R13 (read+create-stub, in-memory) while
+the code shipped full CRUD + SQLModel/Alembic persistence.
+
 ## Adding a skill
 
 1. **Pick category.** Primary if the skill enforces DCFBI/DFCFBI
