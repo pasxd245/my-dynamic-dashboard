@@ -1,12 +1,12 @@
 # Round 79: `datasetId → sourceId` rename cleanup — finish the R76 widening
 
-**Status**: In Progress (Plan gate — J-0 ratified; J-1/J-2 held open for Design)
+**Status**: In Progress (Design gate closed — J-0…J-2 resolved; Contract next)
 **Date started**: 2026-06-16
-**Flow**: TBD — set at the Design gate (`flow-selector`). Unlike R78, this round **re-opens the
-wire contract** (the query schema's source-of-record field) and touches **BE + FE**, so it is a
-full feature-flow round — expected **DCFBI** (a field rename carries no new interaction pattern;
-likely 0–1 selector conditions fire). It is also the **first real feature migration on the R78
-foundation** — a backfill + column drop shipped as an Alembic revision.
+**Flow**: **DCFBI** (set at the Design gate via `flow-selector` — no-UI/refactor branch, 0/5
+conditions; recorded in the Do log). Unlike R78, this round **re-opens the wire contract** (the
+query schema's source-of-record field) and touches **BE + FE**, so it is a full feature-flow
+round — gates **D → C → B → F → I** (F1/F2 skipped on DCFBI). It is also the **first real feature
+migration on the R78 foundation** — a backfill + column drop shipped as an Alembic revision.
 
 ## Goal
 
@@ -39,12 +39,12 @@ migration foundation on its first live feature change** (a backfill + a SQLite c
 | --- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | J-0 | **Round topic** | **Complete the `datasetId → sourceId` rename** (ratified). `sourceId` (pattern `^(ds_\|qr_)[0-9a-f]{8}$`) becomes the **required, canonical** driving-source field; the legacy `datasetId` is **retired** from the contract, BE, and FE; the DB backfills `source_id` from `dataset_id` and the round ships as an Alembic revision. The R78 foundation makes the DB change a versioned migration, not a hand edit. |
 
-### Held open for the Design gate (J-1, J-2)
+### Resolved at the Design gate (2026-06-16)
 
-| #   | Question                                          | The design problem                                                                                                                                                                                                                                                                                                                                                                                |
-| --- | ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| J-1 | **Preserve the dataset-delete → query cascade** (the central catch) | Today `queries.dataset_id` carries `FK … ON DELETE CASCADE`: deleting a dataset deletes its dataset-rooted queries. `source_id` is **plain polymorphic `TEXT` with no FK** (it can hold a `qr_`, which has no single FK target). So **dropping `dataset_id` silently loses that cascade** — deleting a dataset would orphan queries whose `sourceId` is that `ds_`. The Design gate must choose how to preserve current delete behaviour: (a) keep an FK-bearing column under the hood for the `ds_` case; (b) move the cascade to the dataset-delete **handler** (app-level); (c) a partial-FK / trigger. Whatever is chosen, the existing delete tests must stay green. |
-| J-2 | **DB change shape + does the ORM port ride along** | The migration: **backfill `source_id = dataset_id WHERE source_id IS NULL`, then drop `dataset_id`** (SQLite → Alembic batch mode, already enabled in R78's `env.py`). Two sub-questions: ordering within one revision (data-migrate before schema-drop), and whether to opportunistically port the **queries router's raw SQL → ORM** here (R78 deferred the 71-site port to "as feature rounds touch each router"). **Lean: keep the ORM port OUT** — do the rename only, so the round stays a tight, revertible rename; the ORM port is its own incremental call. |
+| #   | Question                                          | Resolution                                                                                                                                                                                                                                                                                                                                                                                          |
+| --- | ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| J-1 | **Preserve the dataset-delete → query cascade** (the central catch) | **Resolved → app-level cascade in the dataset-delete handler.** Grounding: [datasets.py](../../../workspace/apps/backend/app/routers/datasets.py) `delete_dataset` does **only** `DELETE FROM datasets WHERE id = ?` — the query cleanup is 100% the DB FK. Since `source_id` is **polymorphic** (`ds_`/`qr_`), a DB FK can't express it, so the cascade **must** move to the app: the handler also runs `DELETE FROM queries WHERE source_id = <ds_id>` (same connection, `PRAGMA foreign_keys=ON` already set). **Exactly one level**, matching today's FK precisely — a `qr_` query built on a now-deleted `ds_`-query is left dangling exactly as today (no new transitive cascade; the resolver already handles a missing source). Considered + rejected: a SQLite `AFTER DELETE` trigger (works, but app-level is testable and all dataset deletes funnel through this handler — workspace-delete 409s while datasets exist). Existing dataset-delete tests are the guard. |
+| J-2 | **DB change shape + does the ORM port ride along** | **Resolved.** One Alembic revision `0002_*`, ordered: **(1)** backfill `UPDATE queries SET source_id = dataset_id WHERE source_id IS NULL`; **(2)** `batch_alter_table` → drop `idx_queries_dataset_id`, drop the `dataset_id` column (+ its FK), and **set `source_id` NOT NULL**. SQLite needs batch mode — **already enabled** by R78's `render_as_batch=True`. **ORM port stays OUT** (confirmed lean): the queries router keeps its raw SQL, just reading `source_id` instead of `dataset_id or source_id`; the 71-site port remains R78's separate incremental deferral. The R78 schema-parity test updates to the new schema (drops `dataset_id`, `source_id` NOT NULL). |
 
 ## Plan (by gate)
 
@@ -118,10 +118,47 @@ migration foundation on its first live feature change** (a backfill + a SQLite c
 + **Topic chosen over canvas** for R79 — canvas trigger unfired; this cleanup is bounded, removes
   named debt, and is a real first exercise of the R78 migration path.
 
+### Design-gate close (2026-06-16)
+
++ **J-1, J-2 resolved** (see the table above): app-level cascade in the dataset-delete handler;
+  one ordered Alembic `0002_*` revision (backfill → drop `dataset_id` + index, set `source_id`
+  NOT NULL); ORM port stays out.
++ **Contract delta** (for the C gate): in `_shared/query.yaml` + queries `{post, put, get,
+  detail-get, preview}` — `sourceId` becomes **required** (pattern `^(ds_|qr_)[0-9a-f]{8}$`),
+  `datasetId` **removed** from request bodies and the `Query` response `required` list.
++ **BE delta** (B gate): `delete_dataset` adds the app-level query cascade; the queries router
+  reads `source_id` (drop the `or dataset_id` fallback + the `body.datasetId` create path);
+  schema-parity test updated.
++ **FE delta** (F gate): builder create/edit flows send/read `sourceId` only; MSW fixtures
+  updated to the new contract.
++ **Model check** (Design gate). **Noun-vs-mode:** mode of an existing surface — no new noun; a
+  wire-field rename on the existing Query noun + builder surfaces, mode unchanged.
++ **Discovered-vs-imposed:** evidence found, independent of this design — this *completes* R76's
+  already-shipped polymorphic `sourceId` model; the canonical value is **derived from existing
+  data** (`source_id` backfilled from `dataset_id`), not imposed anew.
++ **`ui-design` → N/A** — a field-id rename is **UX-invisible** (no surface, copy, or affordance
+  changes); the design-spec facet review does not apply.
+
+**Flow selector run** (per [R47](../../decisions/2026-05-28-hybrid-flow-governance.md) — no-UI /
+refactor branch, [§ Amendment 2026-06-16](../../decisions/2026-05-28-hybrid-flow-governance.md)):
+
+| Condition                            | Fired? | Justification                                                                                       |
+| ------------------------------------ | ------ | --------------------------------------------------------------------------------------------------- |
+| 1. >3 independent states/branches    | no     | No UI state model — a field-id rename adds no interactive states; the `ds_`/`qr_` polymorphism already exists and isn't user-facing. |
+| 2. New interaction pattern           | no     | Builder create/edit flows are behaviourally unchanged; only the wire field name changes.            |
+| 3. High user-error risk              | no     | UX-invisible rename; the dataset-delete cascade is preserved identically (J-1), so no new error path. |
+| 4. Contract depends on unresolved UI | no     | The contract shape is fully determined (`sourceId` required, `datasetId` removed) — no open UI question gates it. |
+| 5. UX confidence below threshold     | no     | No UX change to be unsure about; the `sourceId` model was designed at R76 and is merely completed.  |
+
+Result: **Flow: DCFBI** (no-UI round → 0/5 by construction). F1/F2 gates skipped; gates are
+**D → C → B → F → I**.
+
 ## Check
 
-+ [ ] **J-0 ratified** (Plan gate); **J-1, J-2 held open** → Design gate.
-+ [ ] _Design gate — pending_ (cascade preservation + migration shape + flow selection).
++ [x] **J-0 ratified** (Plan gate); **J-1, J-2 resolved** (Design gate).
++ [x] **Design gate closed** — J-1/J-2 resolved + contract/BE/FE deltas + model check recorded
+      (see `## Do` Design-gate close); `flow-selector` → **DCFBI** (no-UI branch, recorded);
+      `ui-design` N/A; committed as the Design seam.
 + [ ] _Contract / Backend / FE / Integration gates — pending._
 + [ ] **Human sign-off** — create/edit/delete a query of both source kinds in the real app;
       dataset-delete cascade verified; `pnpm dev:seed` works (Complete = signed-off).
