@@ -1,6 +1,6 @@
 # Round 79: `datasetId → sourceId` rename cleanup — finish the R76 widening
 
-**Status**: In Progress (Design gate closed — J-0…J-2 resolved; Contract next)
+**Status**: In Progress (Contract gate closed — `sourceId` required + `datasetId` removed across the query contracts; Backend next)
 **Date started**: 2026-06-16
 **Flow**: **DCFBI** (set at the Design gate via `flow-selector` — no-UI/refactor branch, 0/5
 conditions; recorded in the Do log). Unlike R78, this round **re-opens the wire contract** (the
@@ -139,6 +139,21 @@ migration foundation on its first live feature change** (a backfill + a SQLite c
 + **`ui-design` → N/A** — a field-id rename is **UX-invisible** (no surface, copy, or affordance
   changes); the design-spec facet review does not apply.
 
+### Contract-gate close (2026-06-16)
+
++ **Contract delta landed** — `sourceId` (pattern `^(ds_|qr_)[0-9a-f]{8}$`) is now
+  **required + canonical** and `datasetId` is **removed** across `_shared/query.yaml`
+  (the `Query` response: removed from `required` + properties) and the request bodies of
+  `queries/{post, preview}`; the `{get, detail-get, put}` response examples now carry
+  `sourceId`. Companion `.md` rationale docs (`post`, `preview`) updated to the new shape.
++ **No codegen step** — the contract YAMLs *are* the OpenAPI (validated by
+  `packages/contracts/tests/openapi-validity.test.ts`, 24/24 green); FE/BE hand-mirror them,
+  so "OpenAPI regenerated" = the YAML edits above. `put` carries `{ definition }` only (no
+  source field in its request), so its request body is unchanged.
++ **Expected red after this seam**: BE pytest + FE conformance now fail against the new
+  required shape until the **B** and **F** gates make each layer conform — exactly the
+  DCFBI C → B → F ordering (commit per gate; the contract is the locked source-of-record).
+
 **Flow selector run** (per [R47](../../decisions/2026-05-28-hybrid-flow-governance.md) — no-UI /
 refactor branch, [§ Amendment 2026-06-16](../../decisions/2026-05-28-hybrid-flow-governance.md)):
 
@@ -159,7 +174,10 @@ Result: **Flow: DCFBI** (no-UI round → 0/5 by construction). F1/F2 gates skipp
 + [x] **Design gate closed** — J-1/J-2 resolved + contract/BE/FE deltas + model check recorded
       (see `## Do` Design-gate close); `flow-selector` → **DCFBI** (no-UI branch, recorded);
       `ui-design` N/A; committed as the Design seam.
-+ [ ] _Contract / Backend / FE / Integration gates — pending._
++ [x] **Contract gate closed** — `sourceId` required + canonical, `datasetId` removed across
+      `_shared/query.yaml` + `queries/{post, preview}` bodies + `{get, detail-get, put}`
+      examples + `.md` companions; `openapi-validity` 24/24 green; committed as the Contract seam.
++ [ ] _Backend / FE / Integration gates — pending._
 + [ ] **Human sign-off** — create/edit/delete a query of both source kinds in the real app;
       dataset-delete cascade verified; `pnpm dev:seed` works (Complete = signed-off).
 

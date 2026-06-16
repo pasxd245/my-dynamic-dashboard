@@ -11,11 +11,13 @@ to a workspace. The verb behind the detail page's "Save as Query" action.
 
 ## Shape decisions
 
-- **Body** = `{ name, datasetId, definition }`. `definition` reuses the
+- **Body** = `{ name, sourceId, definition }`. `definition` reuses the
   shared `QueryDefinition` (`_shared/query.yaml`) whose atoms are the
   exact `aq` predicate shape the rows-GET already transports — no new
   vocabulary, maximal reuse (anti-drift).
-- **Single `datasetId`** (D-4) — one Query reads one Dataset this round.
+- **Single polymorphic `sourceId`** (R79 — completed the `datasetId →
+  sourceId` rename) — one Query is driven by one source: a `ds_` dataset
+  (D-4) or a `qr_` query it composes on.
 - **Validate-on-save**: every atom is re-checked against the dataset's
   *current* columns (same per-atom checks as the rows-GET `aq` path). A
   broken definition is rejected `422` — you cannot persist a query that
@@ -25,5 +27,5 @@ to a workspace. The verb behind the detail page's "Save as Query" action.
 ## Errors
 
 - `409 name_taken` — per-workspace name collision (mirrors datasets).
-- `422` — bad `name` / `datasetId` / unknown dataset / any atom fails
-  validation. FastAPI validation envelope.
+- `422` — bad `name` / `sourceId` / unknown source (dataset or query) /
+  any atom fails validation. FastAPI validation envelope.

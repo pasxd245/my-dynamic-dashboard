@@ -5,8 +5,9 @@ info:
   description: |
     Create (save) a Query in a workspace. R69 — Saved Query MVP.
 
-    The body carries a user-supplied `name`, the single source
-    `datasetId` (D-4), and the `definition` (the chip filters +
+    The body carries a user-supplied `name`, the polymorphic driving
+    `sourceId` (a `ds_` dataset or a `qr_` query — R79), and the
+    `definition` (the chip filters +
     advanced-query DNF + `?q=` search the user built on the dataset
     detail page). The BE validates every atom in the definition against
     the dataset's CURRENT columns at save time — a definition that does
@@ -35,7 +36,7 @@ paths:
           application/json:
             schema:
               type: object
-              required: [name, datasetId, definition]
+              required: [name, sourceId, definition]
               additionalProperties: false
               properties:
                 name:
@@ -43,19 +44,15 @@ paths:
                   minLength: 1
                   maxLength: 120
                   description: Human label; unique within the workspace.
-                datasetId:
-                  type: string
-                  pattern: "^ds_[0-9a-f]{8}$"
-                  description: The single source dataset (D-4).
                 sourceId:
                   type: string
                   pattern: "^(ds_|qr_)[0-9a-f]{8}$"
                   description: |
-                    R76 (composition) — the polymorphic driving source: a
-                    Dataset (`ds_…`) or a saved Query (`qr_…`) to build ON.
-                    Optional/additive; when omitted the source is `datasetId`.
+                    The polymorphic driving source (R79 — canonical, required):
+                    a Dataset (`ds_…`) or a saved Query (`qr_…`) to build ON.
                     Save-time validation resolves the base (exists, in-workspace,
-                    runnable) and runs the `composition_cycle` guard (409).
+                    runnable) and runs the `composition_cycle` guard (409 when a
+                    `qr_` base loops back to this query).
                 definition:
                   $ref: "../_shared/query.yaml#/components/schemas/QueryDefinition"
             examples:
@@ -63,7 +60,7 @@ paths:
                 summary: Save "stage = won AND amount > 1000"
                 value:
                   name: "Won deals over $1k"
-                  datasetId: "ds_71a4e2f0"
+                  sourceId: "ds_71a4e2f0"
                   definition:
                     q: null
                     filters:
@@ -82,7 +79,7 @@ paths:
                   value:
                     id: "qr_9c2f10ab"
                     workspaceId: "ws_3f8a2c91"
-                    datasetId: "ds_71a4e2f0"
+                    sourceId: "ds_71a4e2f0"
                     name: "Won deals over $1k"
                     definition:
                       q: null
@@ -105,8 +102,9 @@ paths:
         "422":
           description: |
             Validation error. Returned when `name` is missing / empty /
-            > 120 chars, `datasetId` is malformed or references no
-            dataset, or any atom in `definition` fails the per-atom
+            > 120 chars, `sourceId` is malformed or references no
+            dataset / query in this workspace, or any atom in `definition`
+            fails the per-atom
             check against the dataset's current columns (bad column
             index, op invalid for the column's dtype, unparseable
             value). R71/R73 — also when any hop in `definition.joins`

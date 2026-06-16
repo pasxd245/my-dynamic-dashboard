@@ -15,7 +15,7 @@ result before the user saves. Nothing is persisted.
 - **Stateless, not save-then-run** (J-3, resolved at F1). The saved-run
   route needs a persisted Query; previewing an unsaved working copy would
   otherwise force a draft Save first (orphan drafts, no preview-before-
-  commit). So preview takes `{ datasetId, definition }` directly and runs
+  commit). So preview takes `{ sourceId, definition }` directly and runs
   them — reusing `query_dataset_rows` / `query_joined_rows` — without
   writing a row.
 - **Same `RowsPage` shape as the saved run**, plus `resolvedColumns` when

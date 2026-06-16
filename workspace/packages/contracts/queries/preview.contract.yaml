@@ -10,7 +10,7 @@ info:
     (its join + cross-source predicates) and SEE the resulting rows
     BEFORE saving. Because the saved-run route (`GET /queries/{id}/rows`)
     needs a persisted Query, previewing an unsaved working copy needs a
-    stateless endpoint: it takes a `datasetId` + a `definition` (the same
+    stateless endpoint: it takes a `sourceId` + a `definition` (the same
     shapes `POST .../queries` carries), runs them against CURRENT data via
     the SAME engines as the saved run (`query_dataset_rows` /
     `query_joined_rows`), and returns the paged rows — but PERSISTS
@@ -63,31 +63,26 @@ paths:
           application/json:
             schema:
               type: object
-              required: [datasetId, definition]
+              required: [sourceId, definition]
               additionalProperties: false
               properties:
-                datasetId:
-                  type: string
-                  pattern: "^ds_[0-9a-f]{8}$"
-                  description: |
-                    The source (LEFT/driving) dataset. For a joined
-                    definition this is the edge's left dataset (unchanged
-                    by editing — R72 edits the definition, not the source).
                 sourceId:
                   type: string
                   pattern: "^(ds_|qr_)[0-9a-f]{8}$"
                   description: |
-                    R76 (composition) — the polymorphic driving source for the
-                    preview: a Dataset (`ds_…`) or a saved Query (`qr_…`) to
-                    build ON. Optional/additive; when a `qr_`, the preview is
-                    COMPOSED (run via the unified `ds_`/`qr_` resolver, J-2′).
+                    The polymorphic driving source for the preview (R79 —
+                    canonical, required): a Dataset (`ds_…`) or a saved Query
+                    (`qr_…`) to build ON. For a joined definition the `ds_`
+                    source is the edge's left/driving dataset (unchanged by
+                    editing — R72 edits the definition, not the source); a `qr_`
+                    runs the preview COMPOSED via the unified `ds_`/`qr_` resolver.
                 definition:
                   $ref: "../_shared/query.yaml#/components/schemas/QueryDefinition"
             examples:
               joined_with_filter:
                 summary: Preview a join with a cross-source filter
                 value:
-                  datasetId: "ds_71a4e2f0"
+                  sourceId: "ds_71a4e2f0"
                   definition:
                     q: null
                     filters:
@@ -174,7 +169,7 @@ paths:
                   value: { "code": "relationship_stale" }
         "422":
           description: |
-            The request is structurally unpreviewable — `datasetId`
+            The request is structurally unpreviewable — `sourceId`
             malformed / unknown / not in this workspace; a hop in
             `definition.joins` references an unknown or cross-workspace edge,
             or breaks the linear-chain invariant (its left ≠ the prior tail);

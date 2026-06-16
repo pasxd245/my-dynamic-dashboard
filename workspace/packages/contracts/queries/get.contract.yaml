@@ -42,7 +42,7 @@ paths:
                   value:
                     - id: "qr_9c2f10ab"
                       workspaceId: "ws_3f8a2c91"
-                      datasetId: "ds_71a4e2f0"
+                      sourceId: "ds_71a4e2f0"
                       name: "Won deals over $1k"
                       definition:
                         q: null

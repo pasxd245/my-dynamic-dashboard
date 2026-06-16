@@ -138,7 +138,7 @@ components:
 
     Query:
       type: object
-      required: [id, workspaceId, datasetId, name, definition, createdAt]
+      required: [id, workspaceId, sourceId, name, definition, createdAt]
       additionalProperties: false
       properties:
         id:
@@ -150,27 +150,18 @@ components:
           type: string
           pattern: "^ws_[0-9a-f]{8}$"
           description: Foreign key to the containing workspace (the IA scope).
-        datasetId:
-          type: string
-          pattern: "^ds_[0-9a-f]{8}$"
-          description: |
-            Foreign key to the single source dataset (D-4). On delete of
-            the dataset, its queries cascade away. R76 (composition): the
-            DRIVING source is `sourceId` (below) — `datasetId` stays the
-            `ds_` source for a dataset-rooted query (every R69→R75 query),
-            and is the legacy field `sourceId` widens (its removal is a named
-            cleanup once all queries carry `sourceId`).
         sourceId:
           type: string
           pattern: "^(ds_|qr_)[0-9a-f]{8}$"
           description: |
-            R76 (composition) — the polymorphic DRIVING source: a Dataset
-            (`ds_…`, the default — equals `datasetId`) or a saved Query
-            (`qr_…`) this query is built ON. Optional this round (additive,
-            conformance-safe): when omitted, the source is `datasetId`; when a
-            `qr_`, the query is COMPOSED (read via the unified `ds_`/`qr_`
-            resolver, J-2′). The design's full rename `datasetId → sourceId`
-            is the named cleanup (see composition.md § Data contract).
+            The polymorphic DRIVING source — the single, canonical
+            source-of-record field (R79 completed the `datasetId → sourceId`
+            rename R76 designed). A Dataset (`ds_…`) for a dataset-rooted query
+            (every R69→R75 query, backfilled from the retired `datasetId`) or a
+            saved Query (`qr_…`) this query is COMPOSED on (read via the unified
+            `ds_`/`qr_` resolver). On delete of a `ds_` source, its dataset-rooted
+            queries cascade away (R79 — app-level, since a polymorphic FK can't
+            express it). See composition.md § Data contract.
           examples: ["ds_71a4e2f0", "qr_9c2f10ab"]
         name:
           type: string
