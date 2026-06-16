@@ -171,11 +171,12 @@ drafting aid only. The wire contract, the FE, and the DuckDB analytics engine (r
   re-open**, so all five 2-of-5 conditions (interactive states, new interaction pattern,
   user-error risk, contract-shape-depends-on-UI, UX confidence) are vacuously **no**. Chain is
   **DCFBI-family minus FE/Contract = D → B** (Design → Backend), no F1/F2/Contract phase.
-+ **Design model check** (gate-walker forcing-function): **noun-vs-mode → neither** — R78
-  introduces **no new noun and no new surface**; it re-homes the *mechanism* that maintains the
-  existing schema. **discovered-vs-imposed → discovered** — the models/baseline are *mirrored
-  from* the existing hand-built `_SCHEMA` (J-1), not an imposed new model; the drifted app's
-  schema is explicitly **not** adopted.
++ **Design model check** (gate-walker forcing-function). **Noun-vs-mode:** mode of an existing
+  surface — R78 introduces **no new noun and no new surface**; it re-homes the *mechanism* that
+  maintains the existing schema (backend-internal, no UI).
++ **Discovered-vs-imposed:** evidence found, independent of this design — the models/baseline are
+  *mirrored from* the existing hand-built `_SCHEMA` (J-1), not an imposed new model; the drifted
+  app's schema is explicitly **not** adopted.
 + **Gates green at Design close:** `plan:lint` 0, `markdownlint` 0, `markdown-check-link` 0
   broken (run below). `ui-design` / `design:lint` / `design:tokens` **N/A** — no UI/design-doc
   surface (the deliverable is a `context/` architecture note).

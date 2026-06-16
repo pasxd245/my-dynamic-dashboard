@@ -7,7 +7,7 @@ arguments: gate round
 allowed-tools: Read, Grep, Bash(grep *), Bash(git rev-parse *), Bash(git cat-file *), Bash(git log *)
 metadata:
   author: hand-authored-r49
-  version: '1.1'
+  version: '1.2'
 ---
 
 ## Trigger
@@ -78,7 +78,7 @@ Each gate's exit criterion is documented in
 
 | Gate                   | Exit criterion                                                                                     |
 | ---------------------- | -------------------------------------------------------------------------------------------------- |
-| **Design**             | User journeys + testable acceptance criteria documented in the design artifact                     |
+| **Design**             | User journeys + testable acceptance criteria documented in the design artifact (**no-UI / refactor round**: journeys N/A — accept the resolved design judgment calls + testable acceptance criteria in the round file) |
 | **F1** _(DFCFBI only)_ | Interaction decisions frozen for this round; open UX questions resolved or explicitly deferred     |
 | **Contract**           | Request / response / error shapes frozen; MSW handlers aligned; YAML committed                     |
 | **F2** _(DFCFBI only)_ | Confirmation pass complete against contract-derived MSW; any shape change re-routed as contract v2 |
@@ -137,8 +137,16 @@ phase) or the design artifact:
 - Discovered-vs-imposed: <evidence found, independent of this design | imposed → de-risked via D-only round / spike>
 ```
 
-Grep for both `Noun-vs-mode:` and `Discovered-vs-imposed:` with
-non-empty answers.
+Grep **tolerantly** for both labels — case-insensitive, and accepting
+either a `:` or a `→` separator (rounds vary the phrasing; the answer,
+not the punctuation, is the point):
+
+```bash
+grep -iE 'noun-vs-mode\s*[:→]' "$1" && grep -iE 'discovered-vs-imposed\s*[:→]' "$1"
+```
+
+The colon form in the template above is the **canonical** spelling, but
+the tolerant grep avoids a false "gate open" on `noun-vs-mode → …`.
 
 - **Both present and non-empty** → model check recorded.
 - **Either missing or blank** → the Design gate is **open**. This is

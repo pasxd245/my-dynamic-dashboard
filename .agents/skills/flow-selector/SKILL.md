@@ -6,7 +6,7 @@ argument-hint: <round-file-path>
 allowed-tools: Read, Grep, Bash(grep *)
 metadata:
   author: hand-authored-r49
-  version: '1.0'
+  version: '1.1'
 ---
 
 ## Trigger
@@ -20,7 +20,10 @@ against).
 Do not run this skill when:
 
 - The round is not a feature round (process / docs / tooling
-  rounds skip the selector).
+  rounds skip the selector). _Note: a feature round that changes the
+  contract / backend but adds **no new UI surface** (a refactor, a
+  field rename) still runs — see step 1's no-UI branch; it lands
+  DCFBI._
 - The Design gate has not yet closed (gate-walker for Design
   comes first).
 - The round file already has a `Flow:` line recorded — that
@@ -38,6 +41,15 @@ Identify which design artifact the round implements against
 If the design source is unclear or the round has no design
 section, **stop** and report: Cannot run flow-selector — Design
 gate not closed.
+
+**No-UI / refactor branch.** If the round is a feature round that
+changes the contract / backend / data layer but introduces **no new UI
+surface** (e.g. a wire-field rename, a persistence refactor), the
+"design source" is the round file's **resolved judgment calls +
+acceptance criteria**, not a UI design doc. Do **not** stop — evaluate
+the five conditions against it; being UX-framed, they read vacuously
+**no**, so the round lands **DCFBI**. Record the run anyway (the audit
+trail is the point) and note "no-UI round → DCFBI by construction."
 
 ### 2. Evaluate each condition
 

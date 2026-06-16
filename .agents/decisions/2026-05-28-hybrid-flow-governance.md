@@ -200,6 +200,15 @@ DFCFBI; F1 / F2 gates are skipped on the DCFBI path.
 | **Backend**            | Contract conformance tests pass; per-endpoint behavior tests pass                                  | Round author  |
 | **Integration**        | FE-vs-BE verified end-to-end; shared conformance tests pass against both MSW and real backend      | Round author  |
 
+**No-UI / refactor rounds.** A feature round that changes the contract /
+backend / data layer but introduces **no new UI surface** (e.g. a wire-field
+rename, a persistence refactor) has no "user journeys." For such a round the
+Design criterion's journeys clause is **N/A**; substitute the **resolved
+design judgment calls + testable acceptance criteria** documented in the round
+file. The flow-selector's five conditions are all UX-framed, so they read
+vacuously **no** → such a round lands **DCFBI** by construction (still run and
+record the selector — the audit trail is the point).
+
 **Each gate is a commit boundary (revert seam).** When a gate's exit
 criterion is met, the round **commits** before the next phase opens. A
 gate is therefore not only a checkpoint *documented* in the round file
@@ -304,3 +313,24 @@ _Pulled by: 2026-06-13 conversation, post-R69-discard. Companions:
 [gate-vs-commit-conflation](../memory/2026-06-13-gate-vs-commit-conflation.md)
 (the lineage: vertical-slice → DCBF → DCFBI, and where the seam was
 lost)._
+
+## Amendment — 2026-06-16 (R79 Design-gate cold-start harness test)
+
+Running the gate harness on R79 (a no-UI `datasetId → sourceId` rename) as a
+cold-start surfaced two leaks; both fixes are **additive** (the chain,
+selector, and O-rule are unchanged):
+
+1. **No-UI / refactor rounds now named** (§ Hard gates note above). The Design
+   exit criterion and the 2-of-5 selector were UI-only by assumption; a
+   contract/BE refactor has no journeys and the five conditions read vacuously
+   no. The substitution (judgment calls + acceptance criteria → DCFBI) is now
+   explicit so a cold agent doesn't read the gate as un-closable.
+2. **`gate-walker` model-check grep made tolerant.** Step 5 grepped the literal
+   `Noun-vs-mode:` / `Discovered-vs-imposed:`; a round recording the answer as
+   `noun-vs-mode → …` (prose/arrow/case variant) produced a **false "gate
+   open."** The grep is now case-insensitive and accepts `:` or `→`; the
+   canonical format stays the colon form.
+
+_Pulled by: 2026-06-16 conversation — R79 cold-start gate run (Track-2
+agent-method; harness hardening, within the [R99 evo-horizon](2026-05-27-r99-evo-horizon.md)
+artifact-only scope)._
