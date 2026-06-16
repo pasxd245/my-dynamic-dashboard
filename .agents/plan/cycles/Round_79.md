@@ -1,6 +1,7 @@
 # Round 79: `datasetId → sourceId` rename cleanup — finish the R76 widening
 
-**Status**: In Progress (FE gate closed — builder send/read `sourceId` only; typecheck + 31 queries tests green; Integration + human sign-off next)
+**Status**: **Review** — all gates green (D → C → B → F → I automated); awaiting human sign-off
+on the real backend (create/edit/delete both source kinds + dataset-delete cascade + `pnpm dev:seed`).
 **Date started**: 2026-06-16
 **Flow**: **DCFBI** (set at the Design gate via `flow-selector` — no-UI/refactor branch, 0/5
 conditions; recorded in the Do log). Unlike R78, this round **re-opens the wire contract** (the
@@ -206,6 +207,21 @@ migration foundation on its first live feature change** (a backfill + a SQLite c
   `datasetId`). (The relationships-suite timeouts under the full parallel run are machine-load
   flakiness — the file passes 5/5 in isolation; unrelated to this rename.)
 
+### Integration-gate close (2026-06-16)
+
++ **Functional integration (automated) green** — the BE suite exercises end-to-end create → run →
+  delete for both source kinds (dataset-rooted in `test_queries.py`; composed `qr_` in
+  `test_composition.py`), and `test_deleting_source_dataset_cascades_queries_away` is the J-1
+  cascade guard (now driven by the app-level cascade, not the dropped FK). The FE suite covers the
+  composition / "Build on this query" create + the detail/list source surfaces. The repo doc gates
+  are clean: **`plan:lint` 0**, **`markdownlint` 0** (193 files), **`markdown-check-link` 0** broken.
++ **`gate-walker`** — each gate's exit criterion is documented as met above (Design → Contract →
+  Backend → FE → Integration); per the DCFBI branch, F1/F2 are skipped (`flow-selector` → DCFBI).
++ **Human sign-off (the real boundary)** — pytest/MSW can't see CORS/preflight, real DuckDB parquet
+  reads, the first live Alembic `0002` upgrade on an actual `app.sqlite`, or layout/feel
+  ([DFCFBI-F1-needs-human-review doctrine](../../memory/2026-06-14-dfcfbi-f1-needs-human-review.md)).
+  **Complete = signed-off**, not gates-green. Hand-off checklist below.
+
 **Flow selector run** (per [R47](../../decisions/2026-05-28-hybrid-flow-governance.md) — no-UI /
 refactor branch, [§ Amendment 2026-06-16](../../decisions/2026-05-28-hybrid-flow-governance.md)):
 
@@ -236,7 +252,10 @@ Result: **Flow: DCFBI** (no-UI round → 0/5 by construction). F1/F2 gates skipp
 + [x] **FE gate closed** — types + builder + preview/create/join flows send & read `sourceId`
       only; composed queries show their base query as the source; MSW fixtures/handlers updated;
       `tsc` clean + 31 queries tests green; committed as the FE seam.
-+ [ ] _Integration gate — pending (human sign-off)._
++ [x] **Integration gate (automated) green** — end-to-end create/run/delete for both source kinds
+      covered by the BE suite; the dataset-delete cascade guard passes; doc gates clean
+      (`plan:lint` 0, `markdownlint` 0, `markdown-check-link` 0); `flow-selector` + `gate-walker`
+      run/recorded.
 + [ ] **Human sign-off** — create/edit/delete a query of both source kinds in the real app;
       dataset-delete cascade verified; `pnpm dev:seed` works (Complete = signed-off).
 
