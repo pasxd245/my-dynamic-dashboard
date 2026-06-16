@@ -7,7 +7,7 @@ arguments: gate round
 allowed-tools: Read, Grep, Bash(grep *), Bash(git rev-parse *), Bash(git cat-file *), Bash(git log *)
 metadata:
   author: hand-authored-r49
-  version: '1.2'
+  version: '1.3'
 ---
 
 ## Trigger
@@ -102,28 +102,34 @@ round author's responsibility.
 
 ### 4. Verify the commit seam (all gates)
 
-Per the 2026-06-13 amendment, **each gate is a commit boundary**.
-The round file's gate-closed line must cite a **commit SHA**, e.g.:
+Per the 2026-06-13 amendment, **each gate is a commit boundary** — the
+point is that closing a gate leaves a **real revert point** (the R69
+failure was work spanning phases, committed nowhere). What matters is
+that the gate-closed state is **committed**, not that the round file
+quotes its own SHA (a line can never cite the commit that contains it).
 
-```text
-**Design gate closed** — commit a1b2c3d (design doc committed).
-```
-
-Confirm the SHA resolves to a reachable commit:
+Verify the revert point *exists*:
 
 ```bash
-git rev-parse --verify --quiet "<sha>^{commit}"
+# (a) the gate-closed edit is committed — not dangling in the working tree
+git diff --quiet -- "$1" && git diff --cached --quiet -- "$1" \
+  && echo "seam OK: round file committed" \
+  || echo "seam MISSING: gate-close is uncommitted"
+# (b) the round has per-gate commit history (the revert points)
+git log --oneline -- "$1"
 ```
 
-- **Resolves** → commit seam present for this gate.
-- **No SHA cited, or SHA does not resolve** → the seam is missing.
-  This is a **hard** miss: a gate with documented evidence but no
-  commit is exactly the R69 shape (work done, nothing to revert to).
+- **Round file clean + history present** → the seam exists: there is a
+  commit to revert to for this gate.
+- **Round file dirty or staged** → the gate-close is uncommitted, the
+  R69 shape (documented, nothing to revert to). **Hard miss** — commit
+  before advancing, then re-run.
 
-This check verifies a commit *exists and is reachable* — it does
-**not** inspect the commit's content. Whether the commit actually
-contains the gate's work is the round author's claim, same
-structural-not-truthful discipline as step 3.
+This verifies a revert point *exists* — not that the commit's content
+is correct (same structural-not-truthful discipline as step 3). Run
+this **after** committing the gate; if you author the gate-close and
+audit before committing, expect (a) to say MISSING — that is the check
+doing its job.
 
 ### 5. Design gate — model check (required field)
 

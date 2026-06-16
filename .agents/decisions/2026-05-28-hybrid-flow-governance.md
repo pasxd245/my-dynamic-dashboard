@@ -330,6 +330,13 @@ selector, and O-rule are unchanged):
    `noun-vs-mode → …` (prose/arrow/case variant) produced a **false "gate
    open."** The grep is now case-insensitive and accepts `:` or `→`; the
    canonical format stays the colon form.
+3. **Commit-seam check reframed to the actual invariant.** Step 4 demanded the
+   gate-closed line **cite its own commit SHA** — impossible (a line can't name
+   the commit that contains it) and low-value. Replaced with the meaningful
+   check: the gate-closed state is **committed** (round file clean in the
+   working tree) and `git log -- <round-file>` shows the per-gate commits — i.e.
+   a real revert point exists. This is exactly what "gate = commit boundary"
+   protects (the R69 "committed nowhere" failure), without the self-citation.
 
 _Pulled by: 2026-06-16 conversation — R79 cold-start gate run (Track-2
 agent-method; harness hardening, within the [R99 evo-horizon](2026-05-27-r99-evo-horizon.md)
