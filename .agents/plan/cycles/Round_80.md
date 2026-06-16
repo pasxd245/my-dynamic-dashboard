@@ -1,6 +1,7 @@
 # Round 80: Open the canvas theme — design the free-form visual source-graph canvas
 
-**Status**: Planning
+**Status**: Review — Design gate closed; awaiting human sign-off on the design
+direction + the build-now/defer call (Complete = signed-off).
 **Date started**: 2026-06-16
 **Date completed**:
 **Flow**: **Design-only** (a theme-opening design round). This round produces the **canvas
@@ -63,13 +64,13 @@ feature theme after the R78 foundation + R79 cleanup) and the named canvas defer
 
 ## Acceptance criteria
 
-+ [ ] **J-0 ratified**; **J-1…J-5 resolved** at the Design gate.
-+ [ ] A **canvas design doc** exists and is **Accepted**, carrying: the **noun-vs-mode** verdict,
++ [x] **J-0 ratified**; **J-1…J-5 resolved** at the Design gate.
++ [x] A **canvas design doc** exists and is **Accepted**, carrying: the **noun-vs-mode** verdict,
       the **model-impact** verdict (FE-only over the existing tree vs a contract re-open), the
       **standalone "New query"** IA, and the **trigger verdict** (build-now vs defer + the evidence).
-+ [ ] **`ui-design` design-spec** facets pass on the design doc; **`design:lint`** 0
-      (+ **`design:tokens`** 0 if the doc has a token map).
-+ [ ] Gates green: **`plan:lint`** 0, **`markdownlint`** 0, **`markdown-check-link`** 0.
++ [x] **`ui-design` design-spec** facets pass on the design doc (6/6, 0 gaps); **`design:lint`** 0
+      (+ **`design:tokens`** 0 — the doc has a token map).
++ [x] Gates green: **`plan:lint`** 0, **`markdownlint`** 0, **`markdown-check-link`** 0.
 + [ ] **Complete = human-signed-off on the design direction** (the canvas concept + the build-now/
       defer call). **No build ships this round.**
 
@@ -108,10 +109,42 @@ feature theme after the R78 foundation + R79 cleanup) and the named canvas defer
 + **`flow-selector` deferred** to the first build round — a Design-only round has no contract/BE/FE
   code to gate (DCFBI/DFCFBI is a build-flow choice).
 
+### Design-gate close (2026-06-16)
+
++ **Canvas design doc authored + Accepted** — new [canvas.md](../../design/data-management/queries/canvas.md)
+  (banked design; build deferred). Sealed as a **sibling MODE doc** under
+  [query-builder.md](../../design/data-management/queries/query-builder.md); the anchor's
+  trajectory + surface map + sibling list updated to point at it (R80 design / R81+ build).
++ **J-1 → MODE (not noun).** The canvas is a **view/edit mode** of the existing builder
+  (`useQueryBuilder` / `QueryBuilderPanel`) over the **same** `definition.joins` tree + R79's
+  unified `sourceId` — no new noun, page, model, or engine. A draw-edge = `addJoin`; a leaf
+  delete = `removeJoin`. The reuse invariant + noun-vs-mode brake applied.
++ **J-2 → DEFER THE BUILD; bank the design.** The deferral trigger ("the hop-list stops
+  scaling — a topology a human can no longer read as a list") is **UNFIRED**: today's real
+  trees are 2–4 nodes (CRM exports), read trivially as a list; no scaling pain reported. Per
+  the dynamic-equilibrium brake + [[dont-mvp-rush-a-roadmap-home-surface]], the honest call is
+  to defer to **R81+** (the build round re-checks the trigger first) and bank the design now.
++ **J-3 → FE-only; no model/contract re-open.** The canvas reads/writes the existing tree +
+  `sourceId`, previews via the existing stateless `POST …/preview`, consumes the existing
+  per-hop `409`/`422` gates. The build (when pulled) is **F-only DCFBI**.
++ **J-4 → "New query" reuses the Queries-catalog IA + R77's create lifecycle.** A `[+ New query]`
+  catalog action opens create mode with **no preset base** (the empty-source case R77 deferred
+  to ship with the canvas, built right) — not a parallel surface; the noun-vs-mode brake on the
+  entry point.
++ **J-5 → phased thin-but-not-rushed first slice.** Phase A = a **read-only canvas view** of the
+  tree (the honest first build), Phase B = interactive editing at hop-list parity, Phase C = the
+  standalone "New query" entry — each its own R81+ round.
++ **`ui-design` (design-spec)** — **6/6 facets pass, 0 gaps**; one fidelity watch-item handed to
+  the build round (render the drag-to-draw learnability hint). **`design:lint`** 0,
+  **`design:tokens`** 0 on canvas.md + query-builder.md.
++ **`flow-selector` deferral recorded** (above) — re-affirmed at the Design gate: no build code
+  to gate this round; the F-only DCFBI lean (J-3) is the build round's starting hypothesis, not
+  a seal.
+
 ## Check
 
-+ [ ] **J-0 ratified** (Plan gate); **J-1…J-5 resolved** (Design gate).
-+ [ ] **Design gate closed** — canvas design doc Accepted; noun-vs-mode + model-impact + "New
++ [x] **J-0 ratified** (Plan gate); **J-1…J-5 resolved** (Design gate).
++ [x] **Design gate closed** — canvas design doc Accepted; noun-vs-mode + model-impact + "New
       query" IA + trigger verdict recorded; `ui-design` design-spec pass; `design:lint`/
       `design:tokens` 0; `flow-selector` deferral recorded; committed as the Design seam.
 + [ ] **Human sign-off** — the design direction + the build-now/defer call (Complete = signed-off).

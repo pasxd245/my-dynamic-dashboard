@@ -17,8 +17,9 @@ clear home instead of re-deriving the IA.
 single-join builder); the **multi-join chain** + the **join graph (tree)** are
 specified in [multi-join.md](multi-join.md) (**shipped R73** — the linear chain +
 multi-hop engine; **shipped R74** — the tree generalization); the **free-form visual
-canvas** is **deferred → R75** (R74 J-1′). This anchor seals the domain frame, not
-those surfaces.
+canvas** is **designed (banked) at R80, build deferred → R81+** ([canvas.md](canvas.md);
+trigger: the hop-list stops scaling). This anchor seals the domain frame, not those
+surfaces.
 **Round introduced**: [Round_70](../../../plan/cycles/Round_70.md) — "the Query
 domain comes of age": the Query-Builder complexity (joins, composition, workflow)
 pulled a first-class domain home, so [saved-query.md](saved-query.md) relocated
@@ -35,6 +36,8 @@ the interactive builder: edit a Query's join + cross-source predicates and previ
 before save; R72),
 [multi-join.md](multi-join.md) (the **fourth construction mode** — chain 2+
 relationships into one virtual table; the linear chain + multi-hop engine; R73),
+[canvas.md](canvas.md) (the **free-form visual source-graph canvas** — a view/edit
+mode over the `joins` tree; **design banked R80, build deferred R81+**),
 [dataset-detail.md](../datasets/dataset-detail.md) (hosts the **`[+ Save filters as
 Query]` action** — the verb; the Query is the noun, here),
 [relationships.md](../workspaces/relationships.md) (the workspace-governed
@@ -91,7 +94,7 @@ routes** — never a duplicated surface.
 | `Query` type                           | `.../features/data-management/queries/types.ts`                                         | feature             | data type | none                               |
 | Interactive construction surface (R72) | `.../features/data-management/queries` ([query-construction.md](query-construction.md)) | feature             | feature   | react, antd                        |
 | Multi-join chain (R73) + join graph (R74) | `.../features/data-management/queries` ([multi-join.md](multi-join.md))              | feature             | feature   | react, antd                        |
-| Visual join canvas (→ R75)             | `.../features/data-management/queries` (future)                                         | feature             | feature   | react, antd                        |
+| Visual source-graph canvas (R80 design; build → R81+) | `.../features/data-management/queries` ([canvas.md](canvas.md))            | feature             | feature   | react, antd                        |
 
 **Boundary check**: `<PagedRowsView>` is the only shared-cross-domain row here
 and it is **reused, not owned** (its boundary lives in
@@ -150,9 +153,11 @@ R77    composition create     query-construction.md (this round) — make compos
                                                       this query" opens the builder in CREATE mode (base
                                                       preset, Save=POST carrying sourceId); the FE create
                                                       half R76 left open. No new model/contract/engine.
-later  visual join canvas     (future)             — a free-form source graph; drag nodes / draw edges +
-                                                      the standalone "New query" surface (deferred until
-                                                      the hop-list stops scaling — its proper home)
+R80    visual source canvas   canvas.md            (design banked) — free-form source graph: nodes =
+                                                      sources (sourceId + joined datasets), edges = hops;
+                                                      a view/edit MODE over the joins tree + the standalone
+                                                      "New query" entry. FE-only; build DEFERRED → R81+
+                                                      (trigger: the hop-list stops scaling — unfired at R80)
 ```
 
 Each step is **pulled, not pre-built** (the Evolution Rule + the
