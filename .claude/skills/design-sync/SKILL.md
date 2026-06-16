@@ -1,6 +1,6 @@
 ---
 name: design-sync
-description: Re-sync a domain's design docs to the ACTUAL implementation (the code is the source of truth), then compact them to current-state only. Emits a doc↔code drift report and rewrites each doc to match what is really built, dropping the round-by-round ledger. Run per domain folder under .agents/design/<domain>/.
+description: Re-sync a domain's design docs to the ACTUAL implementation (the code is the source of truth), then compact them to current-state only. Emits a doc↔code drift report and rewrites each doc to match what is really built, dropping the round-by-round ledger. Run per domain folder under .agents/design/<domain>/. Two modes — `--check` detects drift and stamps an OUT-OF-SYNC marker on each drifted doc (no body rewrite); the default sync mode reconciles each doc to the code, compacts, and clears the marker.
 metadata:
   type: skill-ref
   rootPath: ../../..

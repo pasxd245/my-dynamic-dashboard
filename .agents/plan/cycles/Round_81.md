@@ -1,12 +1,12 @@
-# Round 81: Open the design-compaction theme — distill the design corpus to latest-state + author the compaction skill
+# Round 81: Author the `design-sync` skill — re-sync a domain's design docs to the code (workspaces pilot)
 
-**Status**: Review — re-scoped 2026-06-17 (course-correction): the skill is **`design-sync`**
-(re-sync a domain's design docs to the **actual implementation**, then compact), the primary axis
-is **doc↔code sync** (not doc↔doc merge), and the pilot domain is the **simplest one —
-`workspaces`** (the output is a domain-general skill that re-runs on any `design/<domain>`). Skill
-authored + workspaces pilot synced + gates green; awaiting human sign-off.
+**Status**: Complete — re-scoped 2026-06-17 (course-correction) from "compaction" to
+**`design-sync`** (re-sync a domain's design docs to the **actual implementation**, then compact;
+**doc↔code sync is the primary axis**, code is the source of truth). Pilot = the simplest domain,
+**`workspaces`**; the output is a domain-general skill that re-runs on any `design/<domain>`. Skill
+authored + refined, workspaces pilot synced, gates green — **human-signed-off 2026-06-17**.
 **Date started**: 2026-06-16
-**Date completed**:
+**Date completed**: 2026-06-17
 **Flow**: **Track-2 agent-method** (a design-flow improvement). `flow-selector` (DCFBI vs
 DFCFBI) is **N/A** — this round authors a **skill + a corpus distillation**, not a product
 feature with contract/BE/FE code to gate. Gates: **Plan → Design** (resolve the judgment
@@ -85,7 +85,8 @@ the [dynamic-equilibrium brake](../../context/purpose.md#dynamic-equilibrium)._
       ledger gone; the R13-frozen claims corrected to the shipped CRUD + persistence reality).
 + [x] Gates green: `design:lint` 0, `design:tokens` 0, `markdownlint` 0, `markdown-check-link` 0,
       `plan:lint` 0.
-+ [ ] **Complete = human-signed-off** (the principle + the skill + the workspaces pilot).
++ [x] **Complete = human-signed-off** (the principle + the skill + the workspaces pilot) —
+      signed off 2026-06-17.
 
 ## What is OUT of scope
 
@@ -232,6 +233,34 @@ surface). Recorded here so the Design-gate UX check isn't silently skipped.
   **`ui-design`** not run — `workspaces.md` is a code-true distillation of a shipped surface, not a
   new UX design; affordance fidelity is the shipped app's, already covered by its build rounds.
 
+### Skill refinement + `--check` simulation (2026-06-17)
+
+Post-pilot, the skill was hardened against four design questions, then exercised:
+
++ **BE is not optional** (which-layer-owns-which-fact): contract = the *declared* interface (not
+  self-certifying), **BE = the behavioural truth** (persistence, constraints, **codes actually
+  emitted**) required for any server claim, FE = the UI facts. FE+Contract alone misses BE-only
+  drift. Encoded in the CODE-TRUTH step.
++ **Triggers & modes**: a `--check` mode (detect + stamp marker, no rewrite) vs `sync` (rewrite +
+  clear). Triggers = explicit (disambiguate a bad path, don't guess); **code-changed-without-the-doc**
+  (broader than "outside the flow" — catches in-flow cross-cutting ripple, detect-and-suggest never
+  auto-rewrite); Design-gate pre-flight. A git/CI path-coupling gate is a **deferred** named trigger.
++ **Drift marker** = a top-of-file **OUT OF SYNC** banner + hidden sentinel (deliberately not
+  "stale" — collides with the product's `query_stale`/`status:stale`; not "obsolete" — implies
+  retire). `--check` writes only the marker (a comment, not a rewrite); `sync` clears it; the
+  marker's absence is the in-sync signal.
++ **Mermaid is code-owned**: a `stateDiagram`/`sequenceDiagram`'s states/branches/**error codes**
+  are a drift surface (`sync` corrects the branch labels, not just the contract table); a diagram
+  earns its place only for a real state machine (>3 states / error-branches / loops, the
+  `flow-selector` cond-1 bar), else prose/bullets. Don't invent one; drop a superseded one.
++ **`--check` simulated** on the `workspaces` domain: `workspaces.md` → **IN SYNC, no marker** (no
+  false positive); `relationships.md` → **DRIFTED (3)**, `OUT OF SYNC` marker stamped (persistence
+  SQLModel+Alembic vs "raw-SQLite refuted"; the declare-`422` "open question" resolved to a
+  code-less `detail[]` + `409 relationship_exists`; model home). Two of the three are **BE-only**
+  drifts — proving the BE-not-optional point. Drift report at `.agents/tmp/design-sync/workspaces.md`;
+  gates stayed green with the banner in place (the marker must never break gates — it auto-runs).
+  The marker on `relationships.md` is left in place as the standing R82 signal.
+
 ## Check
 
 + [x] **`design-sync` skill** authored ([SKILL.md](../../skills/design-sync/SKILL.md) + pointer +
@@ -239,8 +268,8 @@ surface). Recorded here so the Design-gate UX check isn't silently skipped.
       brake all specified.
 + [x] **`workspaces.md` re-synced to the code** and compacted; the drift report (doc↔code) recorded
       in Do; all gates 0.
-+ [ ] **Human sign-off** — the doc↔code-sync principle + the `design-sync` skill + the workspaces
-      pilot output (Complete = signed-off). _Review `workspaces.md` against the running app / code._
++ [x] **Human sign-off** — the doc↔code-sync principle + the `design-sync` skill + the workspaces
+      pilot output, signed off 2026-06-17.
 
 ## Act
 

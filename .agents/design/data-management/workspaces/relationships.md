@@ -1,5 +1,13 @@
 # Relationships — govern validated joins between a workspace's datasets
 
+> ⚠️ **OUT OF SYNC** — `design-sync --check` (2026-06-17) found this doc has drifted from the
+> implementation: **3 claim(s) diverge from code** (persistence is SQLModel+Alembic not
+> "raw-SQLite, SQLModel refuted"; the declare-`422` "open question" is resolved to a code-less
+> `detail[]` + `409 relationship_exists`; the `Relationship` model home is `models/common.py` +
+> `db_models.py`). See `.agents/tmp/design-sync/workspaces.md`. Re-sync before trusting or
+> designing on it: run `design-sync .agents/design/data-management/workspaces`.
+<!-- design-sync:out-of-sync domain=data-management/workspaces detected=2026-06-17 claims=3 -->
+
 **Concept**: a **Relationship** is a **governed edge** between two Datasets in
 the same Workspace — a column pair `left.col ↔ right.col` with a declared
 **cardinality** and a validated **dtype compatibility**. It is a genuinely

@@ -1,8 +1,8 @@
 ---
 name: design-sync
-description: Re-sync a domain's design docs to the ACTUAL implementation (the code is the source of truth), then compact them to current-state only. Emits a doc↔code drift report and rewrites each doc to match what is really built, dropping the round-by-round ledger. Run per domain folder under .agents/design/<domain>/.
-when_to_use: A domain's design docs have drifted from the shipped code (stale field names, vanished/added routes, surfaces that moved, behaviour frozen at an old round, deferred items that have since shipped), or a build round changed code without updating the design. Trigger phrases include "sync the design", "is the design in sync with the code", "the design docs are stale", "re-sync <domain>", "compact <domain>".
-argument-hint: <design-domain-dir> (e.g. .agents/design/data-management/workspaces)
+description: Re-sync a domain's design docs to the ACTUAL implementation (the code is the source of truth), then compact them to current-state only. Emits a doc↔code drift report and rewrites each doc to match what is really built, dropping the round-by-round ledger. Run per domain folder under .agents/design/<domain>/. Two modes — `--check` detects drift and stamps an OUT-OF-SYNC marker on each drifted doc (no body rewrite); the default sync mode reconciles each doc to the code, compacts, and clears the marker.
+when_to_use: A domain's design docs have drifted from the shipped code (stale field names, vanished/added routes, surfaces that moved, behaviour frozen at an old round, deferred items that have since shipped), or code in a domain changed without its design/<domain>/*.md being updated in the same round/commit (including cross-cutting ripple from an in-flow round), or a domain is about to be designed-on and its doc needs verifying first. Use --check to report drift without rewriting; default mode rewrites. Trigger phrases include "sync the design", "is the design in sync with the code", "the design docs are stale", "re-sync <domain>", "check <domain> for drift".
+argument-hint: <design-domain-dir | design-doc.md> [--check] (e.g. .agents/design/data-management/workspaces)
 allowed-tools: Read, Grep, Glob, Bash, Edit, Write, Agent
 metadata:
   author: hand-authored-r81
@@ -25,6 +25,60 @@ surfaces). When the doc and the code disagree, the code wins and the doc is corr
 This is the **primary** axis: doc↔code sync. De-fragmenting round-by-round doc sprawl
 (merging redundant docs) is a **secondary** clean-up that happens only where a single
 concept has split across files (§ 5).
+
+## Triggers & modes
+
+**Two modes.** `--check` runs steps 1–3 (CODE-TRUTH map → drift report) and **stamps the
+out-of-sync marker** (§ Drift marker) on each drifted doc — then **stops**. It writes *only the
+marker*, never the body, so it stays safe / idempotent / auto-runnable: this is the detection
+surface. **sync** (default) runs steps 1–6 (check, then reconcile + compact + link-repair +
+gate): it rewrites the body **and clears the marker**, and is **human-invoked**.
+
+### Drift marker
+
+When `--check` finds a doc drifted from code, it stamps a top-of-file banner (immediately after
+the H1, before the Concept) — a **visible banner + a hidden sentinel** the tooling greps:
+
+```markdown
+> ⚠️ **OUT OF SYNC** — `design-sync --check` (<date>) found this doc has drifted from the
+> implementation: **<N> claim(s) diverge from code**. See `.agents/tmp/design-sync/<domain>.md`.
+> Re-sync before trusting or designing on it: run `design-sync <domain>`.
+<!-- design-sync:out-of-sync domain=<domain> detected=<date> claims=<N> -->
+```
+
+- **Term is "OUT OF SYNC" (drifted)** — deliberately **not** "stale" (the product already uses
+  `query_stale` / `relationship_stale` / a relationship's `status: stale` for *runtime* schema
+  drift — reusing it collides) and **not** "obsolete" (which implies retire/replace; a drifted
+  doc's surface still exists, the fix is re-sync, not delete).
+- The marker is a **comment, not content** — `--check` writing it does not violate
+  "never auto-rewrite" (the body is untouched). Matches the existing `*.target.md`
+  TARGET-NOT-CURRENT banner pattern (top-of-file, visible at first scroll).
+- **Idempotent**: a re-`--check` updates the date / claim count in place via the sentinel; it
+  never stacks banners. **`sync` removes** both banner + sentinel as its final step (a synced doc
+  carries no marker — its absence *is* the in-sync signal).
+
+**When it runs:**
+
+1. **Explicit invocation** — on a `design/<domain>` dir or a single `design/<domain>/*.md`. If
+   the argument does **not** resolve to an existing design dir/doc, **do not guess and do not
+   sync** — list the available domains/docs and ask which was meant.
+2. **Code changed without the doc** (the real drift signal) — a change touched a domain's
+   backend / contracts / frontend but **not** its `design/<domain>/*.md`. This is broader than
+   "bypassed the DCFBI/DFCFBI flow": it also catches *in-flow* rounds whose cross-cutting edits
+   (a field rename, a persistence-foundation round) ripple into **sibling / downstream** domains
+   they never re-synced — the actual source of the workspaces/relationships drift. Run `--check`
+   (in the [post-round audit](../../plan/PDCA.md#post-round-audit), or on demand); on confirmed
+   drift a human runs sync. **Detect-and-suggest — never auto-rewrite** (the brake).
+3. **Design-gate pre-flight** (preventive) — before opening a build round on a domain, `--check`
+   it so the round designs against the real current state, not a stale doc.
+
+**When it does NOT run:** during a normal in-scope DCFBI/DFCFBI round on the domain being
+built — that round's Design phase already syncs its own doc by construction, so running sync
+there is redundant double-work.
+
+**Deferred (named trigger):** a git/CI path-coupling gate that auto-flags a change touching a
+domain's code but not its design doc. Useful, but new standing mechanism — add it only when a
+real drift slips past the on-demand / post-round `--check` (the Evolution Rule + the brake).
 
 ## The keep / delete boundary (apply to every line)
 
@@ -68,19 +122,40 @@ Read the **actual code** and extract, per concept:
 - **Field-name inventory** — a flat list of exact identifiers, so a doc can be checked
   word-for-word against reality.
 
+**Which layer owns which fact — and why BE is not optional.** Assign each doc claim to the
+layer that actually owns it, and never sync a server claim from FE+Contract alone:
+
+- **Contract** is the *declared* interface (routes, request/response shapes, declared codes) —
+  the fast, structured spine. But it is **not self-certifying**: it states what *should* be,
+  not what *is*. Treat contract↔BE disagreement as a finding, not a tie.
+- **BE** is the *behavioural* truth and is **required** for any persistence / model / schema /
+  constraint / cascade / uniqueness claim **and for the error codes actually emitted**. These
+  are invisible to the contract and the FE (e.g. a `422` declared with a code but emitted as a
+  plain `detail[]` with none; `status` computed-on-read vs stored; SQLModel+Alembic vs raw
+  SQL; global vs per-workspace uniqueness; block-not-cascade delete). Skipping BE means
+  trusting the contract is faithfully implemented — which is exactly the drift being hunted.
+- **FE** owns the UI facts the other two cannot show: which surfaces/components exist and
+  **where they live** (`@mdd/ui` vs feature-local), hooks / query keys / invalidations,
+  navigation, client-side validation.
+
+The only doc that can be synced from FE+Contract alone is a **pure-UI** surface with no server
+claims — rare in this corpus. BE need not be read line-by-line: use the contract as the spine,
+then read the handlers to *confirm* it and to fill the persistence/behaviour facts it can't carry.
+
 For a large domain, delegate this read to a subagent (`Agent`) so the raw code stays out
 of context and you keep the structured map. Tell it: *read the real code, trust no design
 doc, quote exact identifiers, flag anything half-migrated or inconsistent across
 contract/backend/frontend.*
 
-### 3. Diff → drift report
+### 3. Diff → drift report  _(`--check` mode stops here)_
 
 For each doc, diff its claims against the CODE TRUTH map. Record every gap as
 **doc says X / code does Y**, categorised: stale field name; vanished / added route or
 error code; surface that moved (e.g. `@mdd/ui` → feature-local); behaviour frozen at an
 old round; a "deferred" item that has since shipped; a resolved "open question". Write
 the drift report into the invoking round's Do log (or `.agents/tmp/design-sync/`) — it is
-the auditable evidence that the sync happened and what changed.
+the auditable evidence that the sync happened and what changed. **In `--check` mode, also
+stamp the out-of-sync marker** (§ Drift marker) on each drifted doc, then stop here.
 
 ### 4. Reconcile each doc to the code
 
@@ -91,6 +166,17 @@ ledger. Keep the design-doc format conventions (status header · surface-declara
 with the canonical Reusability/Purity tokens · token map citing
 [`themeTokens.ts`](../../../workspace/packages/ui/src/themeTokens.ts) · scope boundary ·
 acceptance criteria) — see the [design README](../../design/README.md).
+
+**A mermaid diagram is code-owned too.** A `stateDiagram` / `sequenceDiagram` is a drift
+surface — its states, branches, and **error codes** are facts the handlers own (e.g. a
+declare-flow diagram's `409` / `422` branch labels). **Sync the diagram, not only the
+prose.** And honour the convention on *whether* a doc should have one: a diagram earns its
+place only for a genuine **state machine** — >3 interactive states, conditional error-branches
+(`201 | 409 | 422`), or back-edges/loops (the `flow-selector` cond-1 bar); `sequenceDiagram`
+when cross-actor order matters. A flat set of **independent render-states**
+(loading/empty/populated/error), a linear happy-path, spatial layout (→ ASCII), or a flow
+**owned by a sibling doc** stays prose/bullets. **Don't invent** a diagram where prose
+suffices (brake), and **drop** one that shows superseded states.
 
 ### 5. De-fragment (only if a concept has split)
 
@@ -113,6 +199,8 @@ breaking locked history. Live design docs that link it are repointed directly.
   `npx markdownlint-cli2` 0, `markdown-check-link` 0.
 - Verify the highest-risk current-state claim per doc once more against the code (the
   spot-check that catches a reconciliation error).
+- **Clear the out-of-sync marker** (banner + sentinel, § Drift marker) from each doc just
+  synced — a synced doc carries no marker; its absence is the in-sync signal.
 
 ## Brake — does this skill earn its place?
 
