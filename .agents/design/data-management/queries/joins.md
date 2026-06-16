@@ -1,5 +1,11 @@
 # Joins — execute a Query across two related datasets (consume a Relationship)
 
+> ⚠️ **OUT OF SYNC** — `design-sync --check` (2026-06-17) found this doc has drifted from the
+> implementation: **1 claim diverges from code** (`datasetId` → `sourceId`). This doc folds into the
+> `saved-query.md` spine at R83 (redirect-stub on merge). See `.agents/tmp/design-sync/queries.md`.
+> Re-sync before trusting or designing on it: run `design-sync .agents/design/data-management/queries`.
+<!-- design-sync:out-of-sync domain=data-management/queries detected=2026-06-17 claims=1 -->
+
 **Concept**: a **join** is the second construction mode of a
 [Query](saved-query.md): a Query whose definition references a governed
 [Relationship](../workspaces/relationships.md) so its live re-run reads **two

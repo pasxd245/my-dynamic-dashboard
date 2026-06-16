@@ -1,5 +1,15 @@
 # Upload — feature design (verb, full-page wizard, multi-source)
 
+> ⚠️ **OUT OF SYNC** — `design-sync --check` (2026-06-17) found this doc has drifted from the
+> implementation: **9 claim(s) diverge from code** (named helpers `cast_columns()`/`parse_excel()`/
+> `read_excel_sheets()` don't exist — real ingest is `parse_csv`/`parse_sheet`/`enumerate_sheets`/
+> `write_*_to_parquet` with no re-cast step; the temp FS layout is wrong; `POST /uploads` returns
+> 200 not 201; the commit `temp_id` is top-level on `_BatchRequest`, not per-item; there is no
+> parse-options-mismatch `409` and commit RE-PARSES from the original; name validation is 1–120,
+> not 1–80). See `.agents/tmp/design-sync/datasets.md`. Re-sync before trusting or designing on it:
+> run `design-sync .agents/design/data-management/datasets`.
+<!-- design-sync:out-of-sync domain=data-management/datasets detected=2026-06-17 claims=9 -->
+
 **Concept**: Upload is a **full-page wizard** at
 `/data-management/datasets/new` that brings a tabular data file
 into the product and turns it into one or more

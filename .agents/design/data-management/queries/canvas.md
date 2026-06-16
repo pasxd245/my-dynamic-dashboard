@@ -1,5 +1,12 @@
 # Query Canvas — the free-form visual source-graph editor (a view/edit mode of the builder)
 
+> ⚠️ **OUT OF SYNC** — `design-sync --check` (2026-06-17) found this doc has drifted from the
+> implementation: **2 claim(s) diverge from code** (the `datasetId` field is `sourceId` in code; and
+> the canvas surface is **0% built** — design-banked R80, build deferred R81+). Stays a deferred
+> sibling at R83 (fix the field bug, no merge). See `.agents/tmp/design-sync/queries.md`. Re-sync
+> before trusting or designing on it: run `design-sync .agents/design/data-management/queries`.
+<!-- design-sync:out-of-sync domain=data-management/queries detected=2026-06-17 claims=2 -->
+
 **Concept**: the **canvas** is a **visual presentation + editing mode** of the
 [Query](saved-query.md) builder: it renders a Query's
 [`definition.joins`](multi-join.md) **tree** as a **node-link graph** — each

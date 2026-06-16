@@ -1,5 +1,13 @@
 # Dataset detail — feature design
 
+> ⚠️ **OUT OF SYNC** — `design-sync --check` (2026-06-17) found this doc has drifted from the
+> implementation: **3 claim(s) diverge from code** (the rows route reads via DuckDB `read_parquet`,
+> not pyarrow; `MetadataStrip` is inline and there is no `RowSearchBar` component — search is an
+> inline `Input.Search`; the non-populated states still show a stale `[Rename] [Delete]` two-button
+> ASCII, but R72 moved these into an `Actions ▾` menu). See `.agents/tmp/design-sync/datasets.md`.
+> Re-sync before trusting or designing on it: run `design-sync .agents/design/data-management/datasets`.
+<!-- design-sync:out-of-sync domain=data-management/datasets detected=2026-06-17 claims=3 -->
+
 **Concept**: a per-dataset inspector page at
 `/data-management/datasets/:id`. Shows the dataset's headline
 metadata (workspace, format, sheet, rows, columns, size, uploaded

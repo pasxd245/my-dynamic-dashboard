@@ -1,5 +1,14 @@
 # CRUD hygiene — feature design
 
+> ⚠️ **OUT OF SYNC** — `design-sync --check` (2026-06-17) found this doc has drifted from the
+> implementation: **4 claim(s) diverge from code** (`WorkspaceCard` is listed as a `@mdd/ui`
+> primitive but is feature-local; its overflow menu is documented with two items but now has three —
+> `Relationships` + `Rename` + `Delete`; the BE rename handler illustration uses a stale param/body
+> signature; and dataset delete now app-cascades to dependent queries — no longer "no dependents").
+> See `.agents/tmp/design-sync/workspaces.md` + `.agents/tmp/design-sync/datasets.md`. Re-sync before
+> trusting it: run `design-sync .agents/design/data-management/_shared/crud-hygiene.md`.
+<!-- design-sync:out-of-sync domain=data-management/_shared detected=2026-06-17 claims=4 -->
+
 **Concept**: basic resource management on top of the existing
 workspaces + datasets surfaces. Rename and delete affordances on
 both resources, plus the cascade rule for what happens to a

@@ -1,5 +1,13 @@
 # Query Construction — the interactive builder: edit a Query's definition + preview before save
 
+> ⚠️ **OUT OF SYNC** — `design-sync --check` (2026-06-17) found this doc has drifted from the
+> implementation: **6 claim(s) diverge from code** (the "vestigial `datasetId`" section is fiction —
+> the code reads `body.sourceId` only and `datasetId` was dropped in migration 0002; plus the rest of
+> the `datasetId` → `sourceId` drift and builder-surface details). Proposed surviving **sibling** doc
+> of the R83 spine. See `.agents/tmp/design-sync/queries.md`. Re-sync before trusting or designing on
+> it: run `design-sync .agents/design/data-management/queries`.
+<!-- design-sync:out-of-sync domain=data-management/queries detected=2026-06-17 claims=6 -->
+
 **Concept**: the **construction surface** is the third construction mode of a
 [Query](saved-query.md): an **editable mode of the existing query-mode detail**
 that lets a user **build** a Query's definition — change its

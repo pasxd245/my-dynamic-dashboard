@@ -1,5 +1,13 @@
 # Saved Query — persist a filtered dataset view as a named, re-runnable Query
 
+> ⚠️ **OUT OF SYNC** — `design-sync --check` (2026-06-17) found this doc has drifted from the
+> implementation: **4 claim(s) diverge from code** (pervasive `datasetId` → `sourceId` rename — the
+> request body and DB column are `source_id`, `datasetId` was dropped in migration 0002; plus joins
+> shape / route details). This is the proposed **spine** of the `queries/` de-fragmentation
+> (R83). See `.agents/tmp/design-sync/queries.md`. Re-sync before trusting or designing on it: run
+> `design-sync .agents/design/data-management/queries`.
+<!-- design-sync:out-of-sync domain=data-management/queries detected=2026-06-17 claims=4 -->
+
 **Concept**: a **Query** is a named, saved definition that produces a
 **(virtual) dataset** by re-running a set of predicates against a source
 Dataset. It is the **same readable-table-source kind** as a Dataset, but a

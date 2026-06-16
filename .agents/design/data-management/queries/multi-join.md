@@ -1,5 +1,13 @@
 # Multi-join — join a Query across more than two related datasets
 
+> ⚠️ **OUT OF SYNC** — `design-sync --check` (2026-06-17) found this doc has drifted from the
+> implementation: **5 claim(s) diverge from code** (the body still asserts the *linear-chain*
+> invariant while the code runs the R74 join **tree** — `disconnected_join`/`cyclic_join`; plus
+> `datasetId` → `sourceId`). This doc folds into the `saved-query.md` spine at R83 (redirect-stub on
+> merge). See `.agents/tmp/design-sync/queries.md`. Re-sync before trusting or designing on it: run
+> `design-sync .agents/design/data-management/queries`.
+<!-- design-sync:out-of-sync domain=data-management/queries detected=2026-06-17 claims=5 -->
+
 **Concept**: a **multi-join** is the fourth construction mode of a
 [Query](saved-query.md): a Query whose definition joins **two or more** governed
 [Relationships](../workspaces/relationships.md) so its live re-run reads **three or

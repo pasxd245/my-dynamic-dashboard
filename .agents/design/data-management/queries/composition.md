@@ -1,5 +1,12 @@
 # Composition — build a Query on top of another Query (a Query as a join source)
 
+> ⚠️ **OUT OF SYNC** — `design-sync --check` (2026-06-17) found this doc has drifted from the
+> implementation: **4 claim(s) diverge from code** (the cycle guard `composition_cycle` returns
+> **409**, not the documented **422**; plus `datasetId` → `sourceId` drift). This doc folds into the
+> `saved-query.md` spine at R83 (redirect-stub on merge). See `.agents/tmp/design-sync/queries.md`.
+> Re-sync before trusting or designing on it: run `design-sync .agents/design/data-management/queries`.
+<!-- design-sync:out-of-sync domain=data-management/queries detected=2026-06-17 claims=4 -->
+
 **Concept**: **composition** is the fifth construction mode of a
 [Query](saved-query.md): a Query whose **driving source is itself a saved Query**
 (`qr_`) rather than a raw dataset (`ds_`), so its live re-run reads **another

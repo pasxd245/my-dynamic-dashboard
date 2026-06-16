@@ -1,5 +1,14 @@
 # Datasets — feature design
 
+> ⚠️ **OUT OF SYNC** — `design-sync --check` (2026-06-17) found this doc has drifted from the
+> implementation: **4 claim(s) diverge from code** (list page size is 20, not the AntD-default 10;
+> the row-click "no-op" is resolved — a row navigates to `/data-management/datasets/:id`;
+> `DatasetTable`/`WorkspaceFilter` are inline in `DatasetsPage.tsx`, not standalone surfaces; and the
+> R78/R79 SQLModel+Alembic persistence rewrite — `source_id`, app-level delete cascade — is
+> unreferenced). See `.agents/tmp/design-sync/datasets.md`. Re-sync before trusting or designing on
+> it: run `design-sync .agents/design/data-management/datasets`.
+<!-- design-sync:out-of-sync domain=data-management/datasets detected=2026-06-17 claims=4 -->
+
 **Concept**: a Dataset is a tabular artifact in the product — the
 result of an upload, the thing queries and dashboards read from. It
 belongs to a Workspace (the container) but is the primary noun a
