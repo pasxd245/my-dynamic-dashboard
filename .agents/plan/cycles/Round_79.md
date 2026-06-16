@@ -1,8 +1,9 @@
 # Round 79: `datasetId → sourceId` rename cleanup — finish the R76 widening
 
-**Status**: **Review** — all gates green (D → C → B → F → I automated); awaiting human sign-off
+**Status**: **Complete** — all gates green (D → C → B → F → I) and **human-signed-off**
 on the real backend (create/edit/delete both source kinds + dataset-delete cascade + `pnpm dev:seed`).
 **Date started**: 2026-06-16
+**Date completed**: 2026-06-16
 **Flow**: **DCFBI** (set at the Design gate via `flow-selector` — no-UI/refactor branch, 0/5
 conditions; recorded in the Do log). Unlike R78, this round **re-opens the wire contract** (the
 query schema's source-of-record field) and touches **BE + FE**, so it is a full feature-flow
@@ -256,15 +257,33 @@ Result: **Flow: DCFBI** (no-UI round → 0/5 by construction). F1/F2 gates skipp
       covered by the BE suite; the dataset-delete cascade guard passes; doc gates clean
       (`plan:lint` 0, `markdownlint` 0, `markdown-check-link` 0); `flow-selector` + `gate-walker`
       run/recorded.
-+ [ ] **Human sign-off** — create/edit/delete a query of both source kinds in the real app;
-      dataset-delete cascade verified; `pnpm dev:seed` works (Complete = signed-off).
++ [x] **Human sign-off (2026-06-16)** — create/edit/delete a query of both source kinds verified
+      in the real app; dataset-delete cascade confirmed; `pnpm dev:seed` works. **Complete.**
 
 ## Act
 
-_Pending — filled at round close._ The intended outcome: a Query's driving source is the single
-polymorphic `sourceId` everywhere — no legacy `datasetId` — with the DB change delivered as a
-versioned Alembic migration (backfill + column drop) on the R78 foundation, and the
-dataset-delete cascade preserved by design rather than by the dropped FK.
+**Outcome (signed off 2026-06-16).** A Query's driving source is now the single polymorphic
+`sourceId` everywhere — DB, contract, backend, FE — with the legacy `datasetId` fully retired.
+The DB change shipped as the **first real feature migration on the R78 foundation**
+(`0002_query_source_id`: backfill → column drop, batch mode), and the dataset-delete → query
+cascade is preserved **by design** (an app-level `DELETE FROM queries WHERE source_id = ?`) rather
+than by the dropped FK — exactly one level, matching the old `ON DELETE CASCADE`.
+
+**Lessons worth keeping:**
+
++ **The first post-baseline migration exposed a latent test-DB seam** — `create_all_for_tests()`
+  builds the *head* schema but left it unstamped, so the app lifespan's `run_startup_migrations()`
+  mis-read it as a pre-Alembic baseline DB and replayed `0002` (which assumed the dropped column).
+  R78's parity test only caught it because head ≠ baseline for the first time. Fix: a models-built
+  test DB is stamped at head (it IS `upgrade head`). _Generalizable to every future migration._
++ **SQLite batch-recreate can't reflect an unnamed `CHECK` or an FK `ON DELETE` action** — both
+  are silently dropped on recreate. Use `copy_from` with an explicit pre-change table, not
+  reflection, whenever a batch migration must preserve them. The schema-parity test is the guard
+  that makes this non-negotiable.
++ **A wire-field removal is rarely purely mechanical** — dropping `datasetId` removed the FE's
+  cheap "root dataset" for a *composed* query, surfacing that the single-root model never fully fit
+  composition. Dataset-rooted stayed pixel-identical; composed now reads its source from `sourceId`
+  (`qr_` → base query). The deeper composed-join affordance is correctly the canvas theme's job.
 
 ## Feeds into → the canvas theme and the incremental ORM port
 
