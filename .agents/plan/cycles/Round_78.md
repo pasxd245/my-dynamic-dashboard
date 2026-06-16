@@ -1,10 +1,12 @@
 # Round 78: Persistence foundation — migrations (SQLModel + SQLAlchemy + Alembic)
 
-**Status**: In Progress (Plan gate — J-0/J-1/J-2 ratified; Design next)
+**Status**: In Progress (Design gate closed — J-0…J-4 resolved; Backend next)
 **Date started**: 2026-06-16
-**Flow**: TBD — set at the Design gate (`flow-selector`). Infra/refactor round with **no
-contract or FE change**; the substantive gates are **Design** (the migration strategy) +
-**Backend** (implement + tests). Expected a minimal **D → B** chain (not a feature flow).
+**Flow**: **D → B** (non-feature infra/refactor; `flow-selector` is **N/A** — its 5
+conditions are all UI/UX/contract-shape, and this round has **no UI surface and no
+contract re-open**; recorded in the Do log). The substantive gates are **Design** (the
+migration strategy — now closed, see [persistence.md](../../context/persistence.md)) +
+**Backend** (implement + tests). No F1/F2/Contract phases.
 
 ## Goal
 
@@ -43,17 +45,21 @@ refactor only._
 | J-1 | **Distill the MECHANISM, not the schema** | **Ratified.** The drifted ref app (`tmp/ref-apps/my-dynamic-dashboard-drifted/apps/backend`) already has the full stack, but its **schema drifted heavily** (`saved_queries`/`query_id`/`config_hash`/version+event+execution tables; `relationship_rules` with column-id FKs + `overlap_pct`) — it is **not** a superset of our 4 contract-backed tables. Adopt its **mechanism** (the clean `alembic/env.py`, `alembic.ini`, model wiring); author models that **mirror mainstream's current schema exactly** ([drifted-shell-distillation](../../memory/2026-05-23-drifted-shell-distillation.md)). |
 | J-2 | **Scope = foundation only; defer the ORM data-access port** | **Ratified.** R78 delivers the migration *capability*. The **71 raw-SQL data-access sites** across 5 files (`con.execute`) stay on `sqlite3` this round — porting them to the ORM is a large, regression-prone change **not required** for migrations. It is **deferred/incremental** (done as feature rounds touch each router). Thin round, clean revert seam ([round-roadmap-deferrals](../../memory/2026-05-22-round-roadmap-deferrals.md)). |
 
-### Deferred to the Design gate — resolved with the closed design (J-3, J-4)
+### Resolved at the Design gate (2026-06-16) — full strategy in [persistence.md](../../context/persistence.md)
 
-| #   | Question                                          | Held open for the Design pass                                                                                                                                                                                                                                                                                                                                                                                          |
-| --- | ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| J-3 | **Baseline + existing-DB adoption (no data loss)** | The central design problem: the baseline migration must reproduce the **exact** current schema (4 tables + the R76 `source_id` column + R25 unique indexes + the name-uniqueness/`CHECK`/cascade rules), and **existing dev DBs** (already bootstrapped, no `alembic_version`) must be **stamped at baseline** — not re-`CREATE`d (which would fail "table exists"). Lean: a startup adopter — `alembic_version` absent + a known table present → `stamp base` then `upgrade head`; fresh DB → `upgrade head`. Generate the baseline by autogenerate against a fresh hand-bootstrapped DB and assert zero diff. |
-| J-4 | **Test hermeticity + the startup hook**            | The 193 pytest are hermetic + fast (per-test `reset_db_for_tests`). Running Alembic per test would be slow. Lean: **tests build schema from `SQLModel.metadata.create_all()`** (fast, no migrations); **production runs `alembic upgrade head`** on startup — the standard split. Where the upgrade hooks (the `lifespan` in [main.py](../../../workspace/apps/backend/app/main.py), replacing `bootstrap_schema()`), and how `reset_db_for_tests` adapts. Plus the doc home for the persistence/architecture note. |
+| #   | Question                                          | Resolution                                                                                                                                                                                                                                                                                                                                                                                                              |
+| --- | ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| J-3 | **Baseline + existing-DB adoption (no data loss)** | **Resolved.** One `0001_baseline` revision reproducing today's schema. The startup **adopter** branches: fresh DB (no tables) → `upgrade head`; **pre-Alembic** DB (tables, no `alembic_version`) → **heal-then-stamp** (run the idempotent legacy heal once → `stamp 0001_baseline` → `upgrade head`); versioned DB → `upgrade head`. **Heal-then-stamp, not bare stamp** — a bare stamp would silently mis-label a pre-R25/R76 DB that's missing `source_id`/unique indexes; the heal lifts any old DB *to* baseline shape first. The heal is retained **only as a one-time adoption bridge** (clean deletion seam), so J-2's "retire the hand-bootstrap" holds for the steady-state path. Driven via Alembic's Python API (`command.stamp`/`upgrade`), URL = `get_db_path()`. |
+| J-4 | **Test hermeticity + the startup hook**            | **Resolved.** The standard split: **tests** build schema via `SQLModel.metadata.create_all()` (fast, no Alembic) through a new `db.create_all_for_tests()` (fresh engine from the *current* `get_db_path()` so the per-test override still applies); **production / `pnpm dev:seed`** run the adopter (`alembic upgrade head`). Hook point: the [main.py](../../../workspace/apps/backend/app/main.py) `lifespan` (adopter replaces `bootstrap_schema()`); [conftest.py](../../../workspace/apps/backend/tests/conftest.py) + `reset_db_for_tests` call `create_all_for_tests()`. **Doc home: `.agents/context/persistence.md`** (non-UI architecture → `context/`, not `design/`). |
 
-**Invariant (the refactor must be behaviour-preserving):** R78 changes **how the schema is
-created/evolved**, not **what it is**. The 4 tables, their columns, FKs, `ON DELETE CASCADE`,
-`CHECK`s, and unique indexes are reproduced byte-for-byte; the wire contract, the FE, and the
-DuckDB analytics engine (rows/preview) are **untouched** ([be-round-conformance-pattern](../../memory/2026-05-24-be-round-conformance-pattern.md)).
+**Invariant — refined at the Design gate (behaviour-preserving):** R78 changes **how the
+schema is created/evolved**, not **what it is**. The plan said "byte-for-byte"; the Design gate
+refines this to **structural/behavioral equivalence** — SQLAlchemy-generated DDL is never
+character-identical to the hand-written SQL (constraint auto-naming, whitespace, clause order),
+so the **binding parity guard is a structural test** (`PRAGMA table_info` / `foreign_key_list` /
+`index_list` + the `CHECK` clauses, `DB_legacy` vs `create_all()`), with `--autogenerate` as the
+drafting aid only. The wire contract, the FE, and the DuckDB analytics engine (rows/preview) are
+**untouched** ([be-round-conformance-pattern](../../memory/2026-05-24-be-round-conformance-pattern.md)).
 
 ## Plan (by gate)
 
@@ -146,13 +152,37 @@ DuckDB analytics engine (rows/preview) are **untouched** ([be-round-conformance-
 + **J-3 → baseline + existing-DB stamp/upgrade adoption** held open for Design.
 + **J-4 → test hermeticity (`create_all` for tests, migrate in prod) + startup hook** held
   open for Design.
-+ **Invariant:** behaviour-preserving — the schema's *shape* is byte-for-byte unchanged; only
++ **Invariant:** behaviour-preserving — the schema's *shape* is unchanged; only
   its create/evolve mechanism changes. No contract, no FE, no DuckDB-engine change.
+
+### Design-gate close (2026-06-16)
+
++ **Strategy authored** → [persistence.md](../../context/persistence.md): the 4 SQLModel
+  models (schema of record), Alembic wiring (`env.py`/`ini`, `render_as_batch=True`,
+  `target = SQLModel.metadata`, URL = `get_db_path()`), the `0001_baseline` revision, the
+  heal-then-stamp adopter (J-3), and the `create_all` (tests) / `upgrade head` (prod) split (J-4).
++ **J-3, J-4 resolved** (see the table above); the "byte-for-byte" invariant refined to
+  **structural/behavioral parity** with a structural introspection test as the binding guard.
++ **Flow selector — N/A (recorded, not run).** Per [flow-selector](../../skills/flow-selector/SKILL.md)
+  ("not a feature round → skip the selector") and [gate-walker](../../skills/gate-walker/SKILL.md)
+  ("not a feature round → gates don't apply"): R78 has **no UI surface** and **no contract
+  re-open**, so all five 2-of-5 conditions (interactive states, new interaction pattern,
+  user-error risk, contract-shape-depends-on-UI, UX confidence) are vacuously **no**. Chain is
+  **DCFBI-family minus FE/Contract = D → B** (Design → Backend), no F1/F2/Contract phase.
++ **Design model check** (gate-walker forcing-function): **noun-vs-mode → neither** — R78
+  introduces **no new noun and no new surface**; it re-homes the *mechanism* that maintains the
+  existing schema. **discovered-vs-imposed → discovered** — the models/baseline are *mirrored
+  from* the existing hand-built `_SCHEMA` (J-1), not an imposed new model; the drifted app's
+  schema is explicitly **not** adopted.
++ **Gates green at Design close:** `plan:lint` 0, `markdownlint` 0, `markdown-check-link` 0
+  broken (run below). `ui-design` / `design:lint` / `design:tokens` **N/A** — no UI/design-doc
+  surface (the deliverable is a `context/` architecture note).
 
 ## Check
 
-+ [ ] **J-0, J-1, J-2 ratified** (Plan gate); **J-3, J-4 held open** → Design gate.
-+ [ ] _Design gate — pending._
++ [x] **J-0, J-1, J-2 ratified** (Plan gate); **J-3, J-4 resolved** (Design gate).
++ [x] **Design gate closed** — strategy in [persistence.md](../../context/persistence.md);
+      flow = D → B (selector N/A, recorded); model check recorded; design-gate gates green.
 + [ ] _Backend gate — pending._
 + [ ] _Gates green (plan:lint / markdown-check-link / markdownlint / gate-walker /
       flow-selector) — pending._
