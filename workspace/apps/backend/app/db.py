@@ -77,12 +77,38 @@ def create_all_for_tests() -> None:
     """Build the schema directly from `SQLModel.metadata` (the test path).
 
     Equivalent to `alembic upgrade head` for a fresh DB — pinned by
-    `tests/test_schema_parity.py` — but without the migration machinery,
-    so the 193-test suite stays fast and hermetic.
+    `tests/test_schema_parity.py` — but without replaying each migration's
+    DDL, so the test suite stays fast and hermetic.
+
+    Like `upgrade head`, it leaves the DB **stamped at head** (R79): a models-
+    built DB is already current, so when a test instantiates `TestClient(app)`
+    the lifespan's `run_startup_migrations()` takes the versioned (no-op
+    upgrade) branch instead of mis-detecting a pre-Alembic baseline-shape DB
+    and replaying a post-baseline migration (e.g. 0002, which assumes the
+    dropped `dataset_id`).
     """
     engine = get_engine()
     SQLModel.metadata.create_all(engine)
     engine.dispose()
+    _stamp_head_for_tests()
+
+
+def _stamp_head_for_tests() -> None:
+    """Write `alembic_version = head` on a models-built DB (no DDL replay).
+
+    Reads head from the script directory and inserts it directly, avoiding
+    the heavier `command.stamp` env bootstrap on the per-test hot path.
+    """
+    from alembic.script import ScriptDirectory
+
+    head = ScriptDirectory.from_config(_alembic_config()).get_current_head()
+    with get_conn() as con:
+        con.execute(
+            "CREATE TABLE IF NOT EXISTS alembic_version (version_num VARCHAR(32) NOT NULL)"
+        )
+        con.execute("DELETE FROM alembic_version")
+        con.execute("INSERT INTO alembic_version (version_num) VALUES (?)", (head,))
+        con.commit()
 
 
 @contextmanager

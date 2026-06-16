@@ -366,6 +366,13 @@ def delete_dataset(id: DsIdPath) -> Response:  # noqa: A002
     POC (the directory is unreferenced; a future GC round can sweep).
     R23 design has no 409 path because datasets have no dependents.
 
+    R79 (J-1): the dataset → dataset-rooted-query cascade that the dropped
+    `queries.dataset_id` FK used to express is now done HERE, in the app —
+    a polymorphic `source_id` (`ds_`/`qr_`) can't carry a DB FK. Exactly one
+    level, matching the old FK: a `qr_`-rooted query built ON a now-deleted
+    `ds_`-rooted query is left dangling exactly as before (the resolver
+    already handles a missing source).
+
     404 on already-absent (lets the FE distinguish "you did this"
     from "someone else did").
     """
@@ -374,6 +381,9 @@ def delete_dataset(id: DsIdPath) -> Response:  # noqa: A002
         if row is None:
             return JSONResponse(status_code=404, content=ApiErrorNotFound().model_dump())
         workspace_id = row["workspace_id"]
+        # App-level cascade (R79 J-1): drop the dataset's directly-rooted queries
+        # first, then the dataset itself. Same connection (PRAGMA foreign_keys=ON).
+        con.execute("DELETE FROM queries WHERE source_id = ?", (id,))
         con.execute("DELETE FROM datasets WHERE id = ?", (id,))
         con.commit()
 

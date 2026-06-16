@@ -72,7 +72,6 @@ class Query(SQLModel, table=True):
     __table_args__ = (
         CheckConstraint("length(name) BETWEEN 1 AND 120"),
         Index("idx_queries_workspace_id", "workspace_id"),
-        Index("idx_queries_dataset_id", "dataset_id"),
         Index("idx_queries_name_unique", "workspace_id", "name", unique=True),
     )
 
@@ -84,16 +83,12 @@ class Query(SQLModel, table=True):
             nullable=False,
         )
     )
-    dataset_id: str = Field(
-        sa_column=Column(
-            Text,
-            ForeignKey("datasets.id", ondelete="CASCADE"),
-            nullable=False,
-        )
-    )
-    # R76 (composition): the polymorphic driving source — a `qr_` when the
-    # query is built ON another Query, else NULL (its source is `dataset_id`).
-    source_id: str | None = Field(default=None, sa_column=Column(Text, nullable=True))
+    # R79 — the single, canonical polymorphic driving source (completes the
+    # `dataset_id → source_id` rename R76 designed). A `ds_` for a dataset-rooted
+    # query (backfilled from the retired `dataset_id`) or a `qr_` for a composed
+    # one. No FK: a polymorphic column can't express one — the dataset-delete →
+    # query cascade moved to the app (R79 J-1, `routers/datasets.py`).
+    source_id: str = Field(sa_column=Column(Text, nullable=False))
     name: str = Field(sa_column=Column(Text, nullable=False))
     definition_json: str = Field(sa_column=Column(Text, nullable=False))
     created_at: str = Field(sa_column=Column(Text, nullable=False))

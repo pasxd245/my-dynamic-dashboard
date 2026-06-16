@@ -73,11 +73,11 @@ def _create_query(
 ):
     body = {
         "name": name,
-        "datasetId": dataset_id,
+        # R79 — the single canonical driving source: the composed base (`qr_`)
+        # when given, else the root dataset (`ds_`).
+        "sourceId": source_id if source_id is not None else dataset_id,
         "definition": {"q": None, "filters": filters or [], "advanced": [], "joins": joins or []},
     }
-    if source_id is not None:
-        body["sourceId"] = source_id
     return client.post(f"/workspaces/{ws}/queries", json=body)
 
 

@@ -66,7 +66,7 @@ def _create_join(client: TestClient, ws: str, left: str, rel_id: str, *, name="D
         f"/workspaces/{ws}/queries",
         json={
             "name": name,
-            "datasetId": left,
+            "sourceId": left,
             "definition": {
                 "q": None,
                 "filters": filters or [],
@@ -221,7 +221,7 @@ def test_save_join_on_stale_edge_is_422() -> None:
 def _preview(client: TestClient, ws: str, dataset_id: str, definition: dict, *, page_size: int = 50):
     return client.post(
         f"/workspaces/{ws}/queries/preview?page_size={page_size}",
-        json={"datasetId": dataset_id, "definition": definition},
+        json={"sourceId": dataset_id, "definition": definition},
     )
 
 
@@ -402,7 +402,7 @@ def test_create_and_run_chain() -> None:
         rel2 = _declare_id_join(client, ws, accounts, owners)
         created = client.post(
             f"/workspaces/{ws}/queries",
-            json={"name": "Deals × Accounts × Owners", "datasetId": deals, "definition": _chain_def([rel1, rel2])},
+            json={"name": "Deals × Accounts × Owners", "sourceId": deals, "definition": _chain_def([rel1, rel2])},
         )
         assert created.status_code == 201, created.text
         validate_response("queries/post.contract.yaml", 201, created.json())
@@ -424,7 +424,7 @@ def test_chain_resolved_columns_qualified_across_all_sources() -> None:
         rel2 = _declare_id_join(client, ws, accounts, owners)
         qid = client.post(
             f"/workspaces/{ws}/queries",
-            json={"name": "DAO", "datasetId": deals, "definition": _chain_def([rel1, rel2])},
+            json={"name": "DAO", "sourceId": deals, "definition": _chain_def([rel1, rel2])},
         ).json()["id"]
         body = client.get(f"/queries/{qid}").json()
 
@@ -450,7 +450,7 @@ def test_star_executes_a_non_tail_branch() -> None:
         rel_branch = _declare_id_join(client, ws, deals, owners)  # left = deals (the source) — a branch
         created = client.post(
             f"/workspaces/{ws}/queries",
-            json={"name": "Deals ⋈ {Accounts, Owners}", "datasetId": deals, "definition": _chain_def([rel1, rel_branch])},
+            json={"name": "Deals ⋈ {Accounts, Owners}", "sourceId": deals, "definition": _chain_def([rel1, rel_branch])},
         )
         assert created.status_code == 201, created.text
         validate_response("queries/post.contract.yaml", 201, created.json())
@@ -472,7 +472,7 @@ def test_disconnected_join_is_422() -> None:
         rel_ao = _declare_id_join(client, ws, accounts, owners)  # left = accounts ∉ graph
         resp = client.post(
             f"/workspaces/{ws}/queries",
-            json={"name": "disconnected", "datasetId": deals, "definition": _chain_def([rel_ao])},
+            json={"name": "disconnected", "sourceId": deals, "definition": _chain_def([rel_ao])},
         )
     assert resp.status_code == 422, resp.text
 
@@ -487,7 +487,7 @@ def test_cyclic_join_is_422() -> None:
         rel_back = _declare_id_join(client, ws, accounts, deals)  # right = deals, already in graph
         resp = client.post(
             f"/workspaces/{ws}/queries",
-            json={"name": "cyclic", "datasetId": deals, "definition": _chain_def([rel1, rel_back])},
+            json={"name": "cyclic", "sourceId": deals, "definition": _chain_def([rel1, rel_back])},
         )
     assert resp.status_code == 422, resp.text
 
@@ -519,7 +519,7 @@ def test_put_grows_a_single_join_into_a_chain() -> None:
         rel2 = _declare_id_join(client, ws, accounts, owners)
         qid = client.post(
             f"/workspaces/{ws}/queries",
-            json={"name": "DA", "datasetId": deals, "definition": _chain_def([rel1])},
+            json={"name": "DA", "sourceId": deals, "definition": _chain_def([rel1])},
         ).json()["id"]
         put = client.put(f"/queries/{qid}", json={"definition": _chain_def([rel1, rel2])})
         body = put.json()
@@ -543,7 +543,7 @@ def test_put_grows_a_chain_into_a_star() -> None:
         rel_branch = _declare_id_join(client, ws, deals, owners)  # left = deals (the source)
         qid = client.post(
             f"/workspaces/{ws}/queries",
-            json={"name": "DA", "datasetId": deals, "definition": _chain_def([rel1])},
+            json={"name": "DA", "sourceId": deals, "definition": _chain_def([rel1])},
         ).json()["id"]
         star = _chain_def([rel1, rel_branch])
         preview = _preview(client, ws, deals, star)
@@ -583,7 +583,7 @@ def test_outer_joins_keep_unmatched_rows() -> None:
             definition = {"q": None, "filters": [], "advanced": [], "joins": [{"relationshipId": rel, "type": kind}]}
             qid = client.post(
                 f"/workspaces/{ws}/queries",
-                json={"name": kind, "datasetId": deals, "definition": definition},
+                json={"name": kind, "sourceId": deals, "definition": definition},
             ).json()["id"]
             return client.get(f"/queries/{qid}/rows").json()
 
@@ -620,7 +620,7 @@ def test_put_flips_join_type_inner_to_left() -> None:
         base = {"q": None, "filters": [], "advanced": []}
         qid = client.post(
             f"/workspaces/{ws}/queries",
-            json={"name": "flip", "datasetId": deals, "definition": {**base, "joins": [{"relationshipId": rel, "type": "inner"}]}},
+            json={"name": "flip", "sourceId": deals, "definition": {**base, "joins": [{"relationshipId": rel, "type": "inner"}]}},
         ).json()["id"]
         before = client.get(f"/queries/{qid}/rows").json()
         put = client.put(
@@ -645,7 +645,7 @@ def test_per_hop_stale_blocks_the_chain() -> None:
         rel2 = _declare_id_join(client, ws, accounts, owners)
         qid = client.post(
             f"/workspaces/{ws}/queries",
-            json={"name": "DAO", "datasetId": deals, "definition": _chain_def([rel1, rel2])},
+            json={"name": "DAO", "sourceId": deals, "definition": _chain_def([rel1, rel2])},
         ).json()["id"]
         with db.get_conn() as con:
             row = con.execute("SELECT columns_json FROM datasets WHERE id = ?", (owners,)).fetchone()

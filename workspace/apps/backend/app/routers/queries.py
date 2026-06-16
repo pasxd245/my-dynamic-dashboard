@@ -108,7 +108,7 @@ def resolve_source(
         if qrow is None or qrow["workspace_id"] != workspace_id:
             return None, "composition_base_missing"
         base_def = json.loads(qrow["definition_json"])
-        base_src = qrow["source_id"] or qrow["dataset_id"]
+        base_src = qrow["source_id"]
         payload, reason = _resolve_chain(
             con, base_src, _chain_of(base_def), workspace_id, visited | {source_id}
         )
@@ -271,12 +271,11 @@ def _execute_chain(
 
 def _query_from_row(con: sqlite3.Connection, row: sqlite3.Row) -> QueryModel:
     definition = json.loads(row["definition_json"])
-    source_id = row["source_id"] or row["dataset_id"]
+    source_id = row["source_id"]
     return QueryModel(
         id=row["id"],
         workspaceId=row["workspace_id"],
-        datasetId=row["dataset_id"],
-        sourceId=row["source_id"] or None,
+        sourceId=source_id,
         name=row["name"],
         definition=QueryDefinition(**definition),
         resolvedColumns=_resolved_columns(con, definition, source_id, row["workspace_id"]),
@@ -292,26 +291,15 @@ def create_query(id: WsIdPath, body: CreateQueryBody) -> JSONResponse:  # noqa: 
     per workspace."""
     definition_dict = body.definition.model_dump()
     chain = _chain_of(definition_dict)
-    # R76 — the driving source: the composed base (`qr_`) if given, else the dataset.
-    source_id = body.sourceId or body.datasetId
+    # R79 — the driving source is the single, canonical `sourceId` (a `ds_` dataset
+    # or a `qr_` composed base).
+    source_id = body.sourceId
     with get_conn() as con:
-        ds = con.execute(_SELECT_DATASET, (body.datasetId,)).fetchone()
-        if ds is None or ds["workspace_id"] != id:
-            raise HTTPException(
-                status_code=422,
-                detail=[
-                    {
-                        "loc": ["body", "datasetId"],
-                        "msg": f"unknown_dataset: {body.datasetId} is not a dataset in workspace {id}",
-                        "type": "value_error",
-                    }
-                ],
-            )
-
         # R71/R73/R76 — a joined OR composed query's atoms index the EFFECTIVE space;
-        # the driving source + every hop must resolve at save time. A cycle (a query
+        # the driving source + every hop must resolve at save time (resolve_source
+        # checks the base dataset/query exists + is in-workspace). A cycle (a query
         # built transitively on itself) is rejected as composition_cycle. A bare
-        # single-dataset query validates against its one dataset (unchanged).
+        # single-dataset query validates against its one dataset's columns.
         if _is_multi_source(source_id, chain):
             payload, reason = _resolve_chain(con, source_id, chain, id)
             if reason == "composition_cycle":
@@ -323,6 +311,18 @@ def create_query(id: WsIdPath, body: CreateQueryBody) -> JSONResponse:  # noqa: 
                 )
             validation_columns = payload["effective"]
         else:
+            ds = con.execute(_SELECT_DATASET, (source_id,)).fetchone()
+            if ds is None or ds["workspace_id"] != id:
+                raise HTTPException(
+                    status_code=422,
+                    detail=[
+                        {
+                            "loc": ["body", "sourceId"],
+                            "msg": f"unknown_source: {source_id} is not a dataset in workspace {id}",
+                            "type": "value_error",
+                        }
+                    ],
+                )
             validation_columns = json.loads(ds["columns_json"])
 
     # Validate every atom against the relevant column space → 422 on a bad atom
@@ -336,9 +336,9 @@ def create_query(id: WsIdPath, body: CreateQueryBody) -> JSONResponse:  # noqa: 
         with get_conn() as con:
             con.execute(
                 "INSERT INTO queries "
-                "(id, workspace_id, dataset_id, source_id, name, definition_json, created_at) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?)",
-                (qid, id, body.datasetId, body.sourceId, body.name, definition_json, created_at),
+                "(id, workspace_id, source_id, name, definition_json, created_at) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (qid, id, source_id, body.name, definition_json, created_at),
             )
             con.commit()
     except sqlite3.IntegrityError as err:
@@ -349,8 +349,7 @@ def create_query(id: WsIdPath, body: CreateQueryBody) -> JSONResponse:  # noqa: 
     created = QueryModel(
         id=qid,
         workspaceId=id,
-        datasetId=body.datasetId,
-        sourceId=body.sourceId,
+        sourceId=source_id,
         name=body.name,
         definition=body.definition,
         createdAt=created_at,
@@ -405,7 +404,7 @@ def run_query(  # noqa: A002
             return JSONResponse(status_code=404, content=ApiErrorNotFound().model_dump())
         definition = json.loads(qrow["definition_json"])
         chain = _chain_of(definition)
-        source_id = qrow["source_id"] or qrow["dataset_id"]
+        source_id = qrow["source_id"]
 
         if _is_multi_source(source_id, chain):
             # R71/R73/R76 — joined OR composed run. The driving source + every hop
@@ -425,10 +424,10 @@ def run_query(  # noqa: A002
                 raise
             plan: tuple = ("join", payload, filters, advanced)
         else:
-            ds = con.execute(_SELECT_DATASET, (qrow["dataset_id"],)).fetchone()
+            ds = con.execute(_SELECT_DATASET, (source_id,)).fetchone()
             if ds is None:
-                # Defensive: the FK cascade should remove queries when their
-                # dataset is deleted, so this is a belt-and-braces 404.
+                # Defensive: the app-level cascade (R79) removes queries when their
+                # source dataset is deleted, so this is a belt-and-braces 404.
                 return JSONResponse(status_code=404, content=ApiErrorNotFound().model_dump())
             columns_meta = json.loads(ds["columns_json"])
             try:
@@ -484,21 +483,8 @@ def preview_query(  # noqa: A002
 
     definition = body.definition.model_dump()
     chain = _chain_of(definition)
-    source_id = body.sourceId or body.datasetId  # R76 — composed preview when qr_
+    source_id = body.sourceId  # R79 — the canonical driving source (ds_ or qr_)
     with get_conn() as con:
-        ds = con.execute(_SELECT_DATASET, (body.datasetId,)).fetchone()
-        if ds is None or ds["workspace_id"] != id:
-            raise HTTPException(
-                status_code=422,
-                detail=[
-                    {
-                        "loc": ["body", "datasetId"],
-                        "msg": f"unknown_dataset: {body.datasetId} is not a dataset in workspace {id}",
-                        "type": "value_error",
-                    }
-                ],
-            )
-
         if _is_multi_source(source_id, chain):
             payload, reason = _resolve_chain(con, source_id, chain, id)
             if reason == "composition_cycle":
@@ -521,6 +507,18 @@ def preview_query(  # noqa: A002
                 raise
             plan: tuple = ("join", payload, filters, advanced)
         else:
+            ds = con.execute(_SELECT_DATASET, (source_id,)).fetchone()
+            if ds is None or ds["workspace_id"] != id:
+                raise HTTPException(
+                    status_code=422,
+                    detail=[
+                        {
+                            "loc": ["body", "sourceId"],
+                            "msg": f"unknown_source: {source_id} is not a dataset in workspace {id}",
+                            "type": "value_error",
+                        }
+                    ],
+                )
             columns_meta = json.loads(ds["columns_json"])
             try:
                 filters, advanced = build_definition_predicates(definition, columns_meta)
@@ -569,12 +567,9 @@ def update_query(id: QueryIdPath, body: UpdateQueryBody) -> JSONResponse:  # noq
         qrow = con.execute(_SELECT_QUERY, (id,)).fetchone()
         if qrow is None:
             return JSONResponse(status_code=404, content=ApiErrorNotFound().model_dump())
-        ds = con.execute(_SELECT_DATASET, (qrow["dataset_id"],)).fetchone()
-        if ds is None:
-            return JSONResponse(status_code=404, content=ApiErrorNotFound().model_dump())
-        # The driving source is unchanged by a definition-only PUT (R72); R76 — a
-        # composed query keeps its `qr_` base.
-        source_id = qrow["source_id"] or qrow["dataset_id"]
+        # The driving source is unchanged by a definition-only PUT (R72); R76/R79 — a
+        # composed query keeps its `qr_` base, a dataset-rooted one its `ds_`.
+        source_id = qrow["source_id"]
         if _is_multi_source(source_id, chain):
             payload, reason = _resolve_chain(con, source_id, chain, qrow["workspace_id"])
             if reason == "composition_cycle":
@@ -586,6 +581,9 @@ def update_query(id: QueryIdPath, body: UpdateQueryBody) -> JSONResponse:  # noq
                 )
             validation_columns = payload["effective"]
         else:
+            ds = con.execute(_SELECT_DATASET, (source_id,)).fetchone()
+            if ds is None:
+                return JSONResponse(status_code=404, content=ApiErrorNotFound().model_dump())
             validation_columns = json.loads(ds["columns_json"])
 
     # Validate every atom against the relevant column space → 422 on a bad atom

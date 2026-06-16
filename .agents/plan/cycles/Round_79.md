@@ -1,6 +1,6 @@
 # Round 79: `datasetId → sourceId` rename cleanup — finish the R76 widening
 
-**Status**: In Progress (Contract gate closed — `sourceId` required + `datasetId` removed across the query contracts; Backend next)
+**Status**: In Progress (Backend gate closed — Alembic 0002 + app-level cascade + `source_id`-only router; 196 pytest green; FE next)
 **Date started**: 2026-06-16
 **Flow**: **DCFBI** (set at the Design gate via `flow-selector` — no-UI/refactor branch, 0/5
 conditions; recorded in the Do log). Unlike R78, this round **re-opens the wire contract** (the
@@ -154,6 +154,34 @@ migration foundation on its first live feature change** (a backfill + a SQLite c
   required shape until the **B** and **F** gates make each layer conform — exactly the
   DCFBI C → B → F ordering (commit per gate; the contract is the locked source-of-record).
 
+### Backend-gate close (2026-06-16)
+
++ **Migration** — new revision `0002_query_source_id` (down_revision `0001_baseline`): (1) backfills
+  `UPDATE queries SET source_id = dataset_id WHERE source_id IS NULL`; (2) batch-recreates `queries`
+  dropping `idx_queries_dataset_id` + the `dataset_id` column (+ its FK) and setting `source_id`
+  NOT NULL. **`copy_from`** gives batch the exact pre-R79 table — SQLite reflection silently drops
+  the unnamed `name` CHECK and downgrades the `workspace_id` FK `ON DELETE` to NO ACTION, so we
+  recreate from an explicit table, not reflection (caught by the parity test).
++ **`db_models.Query`** — `dataset_id` (col + FK + `idx_queries_dataset_id`) retired; `source_id`
+  now `nullable=False`. **`models/common.py`** — `Query.sourceId` / `CreateQueryBody.sourceId` /
+  `PreviewQueryBody.sourceId` are now required (no `Optional`); `datasetId` removed everywhere.
++ **Queries router** — reads `source_id` only (dropped every `… or dataset_id` fallback + the
+  `body.datasetId` create/preview paths); a bare dataset source 422s on `["body","sourceId"]`.
++ **Cascade (J-1)** — `delete_dataset` now runs `DELETE FROM queries WHERE source_id = ?` before
+  deleting the dataset (same connection, FK pragma on); exactly one level. The existing
+  `test_deleting_source_dataset_cascades_queries_away` is the guard (now exercises the app cascade,
+  not the dropped FK).
++ **Schema-parity test (J-2)** — `_LEGACY_SCHEMA` advanced to the head shape (no `dataset_id`,
+  `source_id` NOT NULL); a new `_PRE_R79_SCHEMA` + seeded query drives
+  `test_existing_db_adopted_without_data_loss` through 0002 and **asserts the backfill** (zero NULL
+  `source_id`, `dataset_id` column gone, head = `0002_query_source_id`).
++ **Test-DB ↔ migration seam** — `create_all_for_tests()` now also **stamps head** (it's the
+  `upgrade head` equivalent): a models-built DB is current, so the app lifespan's
+  `run_startup_migrations()` takes the versioned no-op branch instead of mis-adopting it as a
+  pre-Alembic baseline DB and replaying 0002 (which assumes the dropped `dataset_id`).
++ **Green**: 196 pytest pass; `ruff check` clean; dual conformance against the new contract
+  (`validate_response` on the queries endpoints).
+
 **Flow selector run** (per [R47](../../decisions/2026-05-28-hybrid-flow-governance.md) — no-UI /
 refactor branch, [§ Amendment 2026-06-16](../../decisions/2026-05-28-hybrid-flow-governance.md)):
 
@@ -177,7 +205,11 @@ Result: **Flow: DCFBI** (no-UI round → 0/5 by construction). F1/F2 gates skipp
 + [x] **Contract gate closed** — `sourceId` required + canonical, `datasetId` removed across
       `_shared/query.yaml` + `queries/{post, preview}` bodies + `{get, detail-get, put}`
       examples + `.md` companions; `openapi-validity` 24/24 green; committed as the Contract seam.
-+ [ ] _Backend / FE / Integration gates — pending._
++ [x] **Backend gate closed** — Alembic `0002_query_source_id` (backfill → drop `dataset_id`,
+      `source_id` NOT NULL via `copy_from` batch); router reads `source_id` only; app-level
+      dataset-delete cascade (J-1); schema-parity test updated + asserts the backfill on a seeded
+      pre-R79 DB (J-2); 196 pytest green, ruff clean; committed as the Backend seam.
++ [ ] _FE / Integration gates — pending._
 + [ ] **Human sign-off** — create/edit/delete a query of both source kinds in the real app;
       dataset-delete cascade verified; `pnpm dev:seed` works (Complete = signed-off).
 

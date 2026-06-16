@@ -220,9 +220,10 @@ class QueryDefinition(BaseModel):
         return data
 
 
-# R76 (composition) — a polymorphic DRIVING table-source: a Dataset (`ds_…`, the
-# default) or a saved Query (`qr_…`) the query is built ON. Mirrors the contract's
-# `^(ds_|qr_)[0-9a-f]{8}$`. The unified `ds_`/`qr_` resolver (J-2′) reads either.
+# R76/R79 — the polymorphic DRIVING table-source: a Dataset (`ds_…`) or a saved
+# Query (`qr_…`) the query is built ON. The single, canonical source field (R79
+# completed the `datasetId → sourceId` rename). Mirrors the contract's
+# `^(ds_|qr_)[0-9a-f]{8}$`. The unified `ds_`/`qr_` resolver reads either.
 SourceId = Annotated[str, Field(pattern=r"^(ds_|qr_)[0-9a-f]{8}$")]
 
 
@@ -231,11 +232,10 @@ class Query(BaseModel):
 
     id: QueryId
     workspaceId: WsId  # noqa: N815
-    datasetId: DsId  # noqa: N815
-    # R76 — the polymorphic driving source (optional/additive). Present (a `qr_`)
-    # when the query is COMPOSED on another Query; omitted for a dataset-rooted
-    # query (its source is `datasetId`). `datasetId`'s removal is a named cleanup.
-    sourceId: SourceId | None = None  # noqa: N815
+    # R79 — the single, canonical polymorphic driving source (required); a `ds_`
+    # for a dataset-rooted query or a `qr_` for a composed one. The legacy
+    # `datasetId` was retired here (backfilled into `sourceId`).
+    sourceId: SourceId  # noqa: N815
     name: Annotated[str, Field(min_length=1, max_length=NAME_LENGTHS["query_max"])]
     definition: QueryDefinition
     # R71/R73 — the effective (combined, collision-qualified) columns; present
@@ -251,8 +251,7 @@ class CreateQueryBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     name: Annotated[str, Field(min_length=1, max_length=NAME_LENGTHS["query_max"])]
-    datasetId: DsId  # noqa: N815
-    sourceId: SourceId | None = None  # noqa: N815 — R76: the qr_/ds_ driving source
+    sourceId: SourceId  # noqa: N815 — R79: the required, canonical qr_/ds_ driving source
     definition: QueryDefinition
 
 
@@ -273,8 +272,7 @@ class PreviewQueryBody(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    datasetId: DsId  # noqa: N815
-    sourceId: SourceId | None = None  # noqa: N815 — R76: preview a composed draft
+    sourceId: SourceId  # noqa: N815 — R79: the required, canonical qr_/ds_ driving source
     definition: QueryDefinition
 
 

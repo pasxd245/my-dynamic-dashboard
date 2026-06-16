@@ -43,7 +43,7 @@ def _commit_csv(client: TestClient, ws_name: str = "Marketing") -> tuple[str, st
 def _create(client: TestClient, ws: str, ds_id: str, name: str = "Big deals", definition=None):
     return client.post(
         f"/workspaces/{ws}/queries",
-        json={"name": name, "datasetId": ds_id, "definition": definition or _DEF},
+        json={"name": name, "sourceId": ds_id, "definition": definition or _DEF},
     )
 
 
@@ -57,7 +57,7 @@ def test_create_persists_and_returns_query() -> None:
     body = resp.json()
     assert body["id"].startswith("qr_")
     assert body["workspaceId"] == ws
-    assert body["datasetId"] == ds_id
+    assert body["sourceId"] == ds_id
     assert body["name"] == "Big deals"
     assert body["definition"]["filters"][0]["op"] == "gt"
     validate_response("queries/post.contract.yaml", 201, body)
@@ -155,7 +155,7 @@ def test_run_stale_definition_returns_409_query_stale() -> None:
         drifted = {"q": None, "filters": [{"col": 99, "dtype": "string", "op": "equals", "val": "x"}], "advanced": []}
         with db.get_conn() as con:
             con.execute(
-                "INSERT INTO queries (id, workspace_id, dataset_id, name, definition_json, created_at) "
+                "INSERT INTO queries (id, workspace_id, source_id, name, definition_json, created_at) "
                 "VALUES (?, ?, ?, ?, ?, ?)",
                 ("qr_deadbeef", ws, ds_id, "Stale", json.dumps(drifted), "2026-06-13T00:00:00Z"),
             )

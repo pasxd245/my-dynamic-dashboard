@@ -28,10 +28,13 @@ import pytest
 from app import db
 
 
-# Frozen copy of the retired hand-bootstrapped schema (pre-R78 db.py
-# `_SCHEMA` + `_R25_UNIQUE_INDEXES`). This is the "ground truth" the
-# migration foundation must reproduce. Do not edit to match the models —
-# editing here would defeat the guard.
+# Frozen copy of the hand-bootstrapped schema (pre-R78 db.py `_SCHEMA` +
+# `_R25_UNIQUE_INDEXES`), advanced to the **R79** shape: the `queries` table's
+# legacy `dataset_id` (column + FK + index) is retired and `source_id` is now
+# NOT NULL — the schema the `0002_query_source_id` migration produces at head.
+# This is the "ground truth" the migration foundation must reproduce. Do not
+# edit to match the models on a whim — it changes only when a reviewed
+# migration genuinely changes the schema (R79 J-2), never to paper over drift.
 _LEGACY_SCHEMA = """
 CREATE TABLE IF NOT EXISTS workspaces (
     id TEXT PRIMARY KEY,
@@ -58,8 +61,7 @@ CREATE INDEX IF NOT EXISTS idx_datasets_workspace_id
 CREATE TABLE IF NOT EXISTS queries (
     id TEXT PRIMARY KEY,
     workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
-    dataset_id TEXT NOT NULL REFERENCES datasets(id) ON DELETE CASCADE,
-    source_id TEXT,
+    source_id TEXT NOT NULL,
     name TEXT NOT NULL CHECK (length(name) BETWEEN 1 AND 120),
     definition_json TEXT NOT NULL,
     created_at TEXT NOT NULL
@@ -67,8 +69,6 @@ CREATE TABLE IF NOT EXISTS queries (
 
 CREATE INDEX IF NOT EXISTS idx_queries_workspace_id
     ON queries(workspace_id);
-CREATE INDEX IF NOT EXISTS idx_queries_dataset_id
-    ON queries(dataset_id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_queries_name_unique
     ON queries(workspace_id, name);
 
@@ -97,6 +97,40 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_workspaces_name_unique
 CREATE UNIQUE INDEX IF NOT EXISTS idx_datasets_name_unique
     ON datasets(workspace_id, name);
 """
+
+# The `queries` table BEFORE the R79 rename cleanup — `dataset_id` (NOT NULL,
+# FK, indexed) with a nullable `source_id` (post-R76 additive widening). This is
+# the shape a real *pre-Alembic* dev DB carries, so the adoption test migrates
+# from HERE through `0002_query_source_id` to the head shape, exercising the
+# backfill + column drop on seeded data (R79 J-2).
+_PRE_R79_QUERIES = """
+CREATE TABLE IF NOT EXISTS queries (
+    id TEXT PRIMARY KEY,
+    workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    dataset_id TEXT NOT NULL REFERENCES datasets(id) ON DELETE CASCADE,
+    source_id TEXT,
+    name TEXT NOT NULL CHECK (length(name) BETWEEN 1 AND 120),
+    definition_json TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_queries_workspace_id
+    ON queries(workspace_id);
+CREATE INDEX IF NOT EXISTS idx_queries_dataset_id
+    ON queries(dataset_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_queries_name_unique
+    ON queries(workspace_id, name);
+"""
+
+# Full pre-R79 schema = the head-shape ground truth with its `queries` table
+# swapped back to the pre-rename block above (the other three tables are
+# unchanged by R79).
+_PRE_R79_SCHEMA = (
+    _LEGACY_SCHEMA[: _LEGACY_SCHEMA.index("CREATE TABLE IF NOT EXISTS queries")]
+    + _PRE_R79_QUERIES.strip()
+    + "\n\n"
+    + _LEGACY_SCHEMA[_LEGACY_SCHEMA.index("CREATE TABLE IF NOT EXISTS relationships") :]
+)
 
 _TABLES = ("workspaces", "datasets", "queries", "relationships")
 _IGNORED_TABLES = {"alembic_version", "sqlite_sequence"}
@@ -188,6 +222,16 @@ def _build_legacy(path: Path) -> None:
     con.close()
 
 
+def _build_pre_r79(path: Path) -> None:
+    """A pre-Alembic dev DB at the pre-R79 shape (queries.dataset_id present,
+    source_id nullable) — what the adoption path migrates forward."""
+    con = sqlite3.connect(path)
+    con.executescript(_PRE_R79_SCHEMA)
+    con.executescript(_R25_UNIQUE_INDEXES)
+    con.commit()
+    con.close()
+
+
 @pytest.fixture
 def _restore_db_path():
     original = db.get_db_path()
@@ -220,11 +264,13 @@ def test_models_and_migration_match_legacy_schema(tmp_path: Path, _restore_db_pa
 
 
 def test_existing_db_adopted_without_data_loss(tmp_path: Path, _restore_db_path):
-    """R78 J-3 core guarantee: a pre-Alembic DB with real data is adopted
-    (heal-then-stamp → upgrade) without dropping or re-creating anything,
-    and re-running the adopter is idempotent."""
+    """R78 J-3 + R79 J-2 core guarantee: a pre-Alembic DB at the pre-R79 shape
+    (queries.dataset_id, nullable source_id) with real data is adopted
+    (heal-then-stamp → upgrade through 0002) without losing data; the rename
+    cleanup BACKFILLS source_id = dataset_id, drops dataset_id, and lands the
+    head schema. Re-running the adopter is idempotent."""
     existing = tmp_path / "existing.sqlite"
-    _build_legacy(existing)
+    _build_pre_r79(existing)
     con = sqlite3.connect(existing)
     con.execute("PRAGMA foreign_keys = ON")
     con.execute(
@@ -237,6 +283,13 @@ def test_existing_db_adopted_without_data_loss(tmp_path: Path, _restore_db_path)
         " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         ("ds_1", "ws_1", "Deals", 10, 5, 2, "[]", "csv", None, "2026-06-16T00:00:00Z"),
     )
+    # A dataset-rooted query (the pre-R79 norm): dataset_id set, source_id NULL.
+    con.execute(
+        "INSERT INTO queries (id, workspace_id, dataset_id, source_id, name,"
+        " definition_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        ("qr_1", "ws_1", "ds_1", None, "Won deals",
+         '{"filters": [], "advanced": [], "joins": []}', "2026-06-16T00:00:00Z"),
+    )
     con.commit()
     con.close()
 
@@ -248,11 +301,18 @@ def test_existing_db_adopted_without_data_loss(tmp_path: Path, _restore_db_path)
     try:
         assert con.execute("SELECT name FROM workspaces WHERE id='ws_1'").fetchone()[0] == "Acme"
         assert con.execute("SELECT name FROM datasets WHERE id='ds_1'").fetchone()[0] == "Deals"
-        assert con.execute("SELECT version_num FROM alembic_version").fetchone()[0] == "0001_baseline"
+        # R79 backfill: the dataset-rooted query's source is now its old dataset_id…
+        assert con.execute("SELECT source_id FROM queries WHERE id='qr_1'").fetchone()[0] == "ds_1"
+        # …and no row is left with a NULL canonical source.
+        assert con.execute("SELECT COUNT(*) FROM queries WHERE source_id IS NULL").fetchone()[0] == 0
+        # The legacy column is gone.
+        cols = {r[1] for r in con.execute("PRAGMA table_info(queries)").fetchall()}
+        assert "dataset_id" not in cols and "source_id" in cols
+        assert con.execute("SELECT version_num FROM alembic_version").fetchone()[0] == "0002_query_source_id"
     finally:
         con.close()
 
-    # The adopted DB matches the canonical schema.
+    # The adopted DB matches the canonical (head) schema.
     assert _introspect(existing)["by_table"] == _introspect_models(tmp_path)
 
 
@@ -275,4 +335,4 @@ def test_migration_leaves_alembic_version(tmp_path: Path, _restore_db_path):
         version = con.execute("SELECT version_num FROM alembic_version").fetchone()
     finally:
         con.close()
-    assert version is not None and version[0] == "0001_baseline"
+    assert version is not None and version[0] == "0002_query_source_id"
