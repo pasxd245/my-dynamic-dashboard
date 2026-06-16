@@ -62,13 +62,10 @@ export type Query = {
   id: string;
   /** FK → Workspace.id (the IA scope). */
   workspaceId: string;
-  /** FK → Dataset.id (the single source — D-4; the LEFT source when joined). */
-  datasetId: string;
-  /** R76 (composition, FE forward-decl) — the polymorphic DRIVING source:
-   *  `ds_…` (a Dataset, default) or `qr_…` (a saved Query the Query is built ON).
-   *  Not yet on the wire — the Contract gate widens `datasetId` → `sourceId`;
-   *  until then this stays undefined on responses and `datasetId` is the source. */
-  sourceId?: string;
+  /** R79 — the single, canonical polymorphic DRIVING source: `ds_…` (a Dataset;
+   *  the LEFT source when joined) or `qr_…` (a saved Query the Query is built ON).
+   *  Completed the `datasetId → sourceId` rename; the legacy `datasetId` is gone. */
+  sourceId: string;
   /** User-supplied; unique per workspace; 1–120 chars. */
   name: string;
   definition: QueryDefinition;
@@ -81,16 +78,13 @@ export type Query = {
 };
 
 /** POST /workspaces/{id}/queries request body.
- *  R76 widened the contract (`queries/post.contract.yaml`) with an optional
- *  `sourceId` (`ds_ | qr_`); R77 ("Build on this query") is the FE create path
- *  that actually sends it — a `qr_` base composes a new Query. `datasetId`
- *  stays required (the legacy NOT-NULL column; the source Query supplies it). */
+ *  R79 — the driving source is the single, required, canonical `sourceId`
+ *  (`ds_ | qr_`): a `ds_` for "Save filters as Query", a `qr_` base for
+ *  "Build on this query". Mirrors `queries/post.contract.yaml`. */
 export type CreateQueryRequest = {
   name: string;
-  datasetId: string;
-  /** R77 — the polymorphic driving source when building on a saved Query
-   *  (`qr_…`). Omitted for a plain single-dataset save ("Save filters as Query"). */
-  sourceId?: string;
+  /** The polymorphic driving source: `ds_…` (a dataset) or `qr_…` (a base query). */
+  sourceId: string;
   definition: QueryDefinition;
 };
 
@@ -105,11 +99,9 @@ export type UpdateQueryRequest = {
  *  working-copy definition (the live preview), never persisted. Mirrors
  *  `queries/preview.contract.yaml`. */
 export type PreviewQueryRequest = {
-  datasetId: string;
-  /** R76 (composition, F1) — the driving source when it is a saved Query
-   *  (`qr_…`) rather than `datasetId`. Request-only (preview bodies aren't
-   *  contract-validated); the wire field is formalized at the Contract gate. */
-  sourceId?: string;
+  /** R79 — the polymorphic driving source (required): `ds_…` (a dataset) or
+   *  `qr_…` (a base query). Mirrors `queries/preview.contract.yaml`. */
+  sourceId: string;
   definition: QueryDefinition;
 };
 

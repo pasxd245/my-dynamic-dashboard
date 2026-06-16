@@ -75,8 +75,8 @@ export function JoinWithRelatedModal({
         workspaceId,
         body: {
           name: trimmed,
-          // The LEFT dataset of the edge is the join's driving source.
-          datasetId: selected.leftDatasetId,
+          // The LEFT dataset of the edge is the join's driving source (R79 — `sourceId`).
+          sourceId: selected.leftDatasetId,
           definition: { q: null, filters: [], advanced: [], joins: [{ relationshipId: selected.id, type: 'inner' }] },
         },
       },

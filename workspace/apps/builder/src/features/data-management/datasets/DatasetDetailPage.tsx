@@ -194,7 +194,7 @@ export function DatasetDetailPage() {
         workspaceId: dataset.workspaceId,
         body: {
           name,
-          datasetId: dataset.id,
+          sourceId: dataset.id, // R79 — the canonical driving source (this `ds_`)
           definition: {
             q: qParam.length > 0 ? qParam : null,
             filters: [...filters],

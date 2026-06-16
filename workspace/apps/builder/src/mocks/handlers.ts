@@ -403,15 +403,13 @@ export const handlers = [
   // the SAME engine as getDatasetRows (live re-run, no materialization).
   withContractValidation('post', api('/workspaces/:id/queries'), 'createQuery', async ({ params, request }) => {
     const body = (await request.json()) as Partial<CreateQueryRequest>;
-    // R77 — a composed create ("Build on this query") carries a `qr_` `sourceId`;
-    // echo it back (optional/additive in the contract) so the created Query
-    // reflects its driving source. A plain save omits it.
+    // R79 — the body carries the canonical, required `sourceId` (a `ds_` for a
+    // plain save, a `qr_` for a composed "Build on this query"); echo it back.
     return HttpResponse.json(
       {
         id: `qr_${Math.random().toString(16).slice(2, 10).padEnd(8, '0')}`,
         workspaceId: String(params.id),
-        datasetId: body.datasetId ?? MOCK_DATASET.id,
-        ...(body.sourceId ? { sourceId: body.sourceId } : {}),
+        sourceId: body.sourceId ?? MOCK_DATASET.id,
         name: body.name ?? 'untitled query',
         definition: body.definition ?? { q: null, filters: [], advanced: [] },
         createdAt: new Date().toISOString(),

@@ -64,7 +64,11 @@ export function QueryDetailPage() {
 
   const queryQuery = useQueryQuery(id);
   const query = queryQuery.data;
-  const datasetQuery = useDatasetQuery(query?.datasetId);
+  // R79 — the source is the polymorphic `sourceId`; resolve a Dataset only when it
+  // is a `ds_` (dataset-rooted). A composed query (`qr_` source) shows its BASE
+  // QUERY as the source (the composition summary below), not a source dataset.
+  const sourceDatasetId = query?.sourceId.startsWith('ds_') ? query.sourceId : undefined;
+  const datasetQuery = useDatasetQuery(sourceDatasetId);
   const dataset = datasetQuery.data;
   const rowsQuery = useQueryRowsQuery(id, page, pageSize);
 
@@ -178,7 +182,7 @@ export function QueryDetailPage() {
     );
   }
 
-  const sourceName = dataset?.name ?? query.datasetId;
+  const sourceName = dataset?.name ?? baseQueryName ?? query.sourceId;
   const warn = stale || relStale || cycle;
   let badgeKey = 'queries.detail.badgeLive';
   if (cycle) badgeKey = 'queries.detail.badgeCompositionUnavailable';
@@ -192,14 +196,16 @@ export function QueryDetailPage() {
       {isJoined ? <Tag color="geekblue">{t('queries.detail.badgeJoin')}</Tag> : null}
     </span>
   );
-  const sourceLink = (
+  // The source-dataset link — only for a dataset-rooted query. A composed query's
+  // source is its base query, surfaced by the composition summary below (R79).
+  const sourceLink = sourceDatasetId ? (
     <Typography.Link
-      onClick={() => navigate(`/data-management/datasets/${query.datasetId}`)}
+      onClick={() => navigate(`/data-management/datasets/${sourceDatasetId}`)}
       data-component="QuerySourceDatasetLink"
     >
       {sourceName} ↗
     </Typography.Link>
-  );
+  ) : null;
 
   const actions = (
     <Button danger onClick={() => setDeleteOpen(true)} data-component="QueryDetailDelete">
@@ -256,8 +262,17 @@ export function QueryDetailPage() {
             </Typography.Title>
             <Typography.Text type="secondary">{t('queries.detail.staleHint', { dataset: sourceName })}</Typography.Text>
             <div style={{ marginTop: 20, display: 'flex', gap: 8, justifyContent: 'center' }}>
-              <Button type="primary" onClick={() => navigate(`/data-management/datasets/${query.datasetId}`)}>
-                {t('queries.detail.openSourceDataset')}
+              <Button
+                type="primary"
+                onClick={() =>
+                  navigate(
+                    sourceDatasetId
+                      ? `/data-management/datasets/${sourceDatasetId}`
+                      : `/data-management/queries/${baseQueryId}`,
+                  )
+                }
+              >
+                {t(sourceDatasetId ? 'queries.detail.openSourceDataset' : 'queries.detail.openBaseQuery')}
               </Button>
               <Button danger onClick={() => setDeleteOpen(true)}>
                 {t('queries.detail.deleteQuery')}
@@ -489,11 +504,13 @@ export function QueryDetailPage() {
         onNavigate={(r) => navigate(r)}
       />
       <PageCard variant="fill">
-        <div style={{ flex: '0 0 auto', marginBottom: 8 }}>
-          <Typography.Text type="secondary">
-            {t('queries.detail.sourceLabel')} {sourceLink}
-          </Typography.Text>
-        </div>
+        {sourceLink ? (
+          <div style={{ flex: '0 0 auto', marginBottom: 8 }}>
+            <Typography.Text type="secondary">
+              {t('queries.detail.sourceLabel')} {sourceLink}
+            </Typography.Text>
+          </div>
+        ) : null}
         {editing ? (
           <QueryBuilderPanel builder={builder} />
         ) : (

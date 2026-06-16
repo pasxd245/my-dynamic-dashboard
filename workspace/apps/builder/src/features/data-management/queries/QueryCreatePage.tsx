@@ -6,8 +6,9 @@
 // empty source picker. It REUSES the shipped builder: the same `useQueryBuilder`
 // (now in create mode), the same `<QueryBuilderPanel>`, and the same
 // `SaveQueryModal` name-capture as "Save filters as Query" — so create logic is
-// not duplicated. Save POSTs `{ name, datasetId, sourceId, definition }` (the
-// composition create gap R76 left open) and navigates to the new query's detail.
+// not duplicated. Save POSTs `{ name, sourceId, definition }` (the composition
+// create gap R76 left open; R79 — sourceId is the single driving source) and
+// navigates to the new query's detail.
 
 import { ArrowLeftOutlined, WarningOutlined } from '@ant-design/icons';
 import { PageCard, PageHeader } from '@mdd/ui';
@@ -37,11 +38,9 @@ export function QueryCreatePage() {
   const [nameOpen, setNameOpen] = useState(false);
 
   // Create mode: the preset base is the source Query (a `qr_`); it supplies the
-  // workspace, the legacy `datasetId`, and its own id as the driving `sourceId`.
+  // workspace + its own id as the canonical driving `sourceId` (R79).
   const builder = useQueryBuilder({
-    createBase: base
-      ? { workspaceId: base.workspaceId, datasetId: base.datasetId, sourceId: base.id }
-      : undefined,
+    createBase: base ? { workspaceId: base.workspaceId, sourceId: base.id } : undefined,
     datasetColumns: [],
     active: Boolean(base),
     onDone: () => navigate(base ? `/data-management/queries/${base.id}` : '/data-management/queries'),

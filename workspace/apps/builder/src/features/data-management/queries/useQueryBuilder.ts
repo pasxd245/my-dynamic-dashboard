@@ -52,12 +52,10 @@ function normalize(def: QueryDefinition): QueryDefinition {
 const EMPTY_DEF: QueryDefinition = { q: null, filters: [], advanced: [] };
 
 /** R77 create mode — build a brand-new Query on a PRESET base (a saved Query).
- *  The source Query supplies all three: its workspace, its legacy `datasetId`
- *  (the create handler still requires a NOT-NULL dataset), and its own `qr_` id
- *  as the driving `sourceId`. */
+ *  R79 — the base supplies its workspace + its own `qr_` id as the canonical
+ *  driving `sourceId` (the legacy `datasetId` is retired). */
 export type CreateBase = Readonly<{
   workspaceId: string;
-  datasetId: string;
   sourceId: string;
 }>;
 
@@ -95,7 +93,6 @@ export function useQueryBuilder({
   // on `createBase` and Saves with POST (not PUT).
   const isCreate = !query && Boolean(createBase);
   const workspaceId = query?.workspaceId ?? createBase?.workspaceId ?? '';
-  const datasetId = query?.datasetId ?? createBase?.datasetId ?? '';
 
   const [draft, setDraft] = useState<QueryDefinition>(EMPTY_DEF);
   const [debouncedDraft, setDebouncedDraft] = useState<QueryDefinition>(EMPTY_DEF);
@@ -115,6 +112,12 @@ export function useQueryBuilder({
   // PUT is definition-only this round), so F1 prototypes the construction UX.
   const [baseSourceId, setBaseSourceId] = useState<string>('');
   const isComposed = baseSourceId.startsWith('qr_');
+  // R79 — the JoinEditor's graph root is a DATASET. When the driving source is a
+  // `ds_` that IS the root; when it is a `qr_` (composed) there is no single root
+  // dataset on the wire, so first-hop-from-root isn't offered (joins onto a
+  // composed base extend from its already-joined datasets; the backend validates
+  // provenance regardless). Dataset-rooted queries are unchanged.
+  const joinRootDatasetId = baseSourceId.startsWith('ds_') ? baseSourceId : '';
 
   // Seed (and re-seed) the working copy from the saved definition each time edit
   // mode opens — so re-entering after a discard starts clean. Read-only mode
@@ -125,7 +128,7 @@ export function useQueryBuilder({
       const seeded = normalize(query.definition);
       setDraft(seeded);
       setDebouncedDraft(seeded);
-      setBaseSourceId(query.sourceId ?? query.datasetId);
+      setBaseSourceId(query.sourceId);
       setPage(1);
     } else if (createBase) {
       // R77 create mode — start from an empty definition on the preset base.
@@ -151,12 +154,11 @@ export function useQueryBuilder({
   const isJoined = joins.length > 0;
   const previewQuery = useQueryPreviewQuery(
     workspaceId || undefined,
-    datasetId || undefined,
     debouncedDraft,
     page,
     pageSize,
     active && (Boolean(query) || isCreate),
-    baseSourceId,
+    baseSourceId || undefined,
   );
   const preview = previewQuery.data;
   const previewPending = useMemo(
@@ -251,15 +253,15 @@ export function useQueryBuilder({
   };
 
   /** R77 create mode — persist the working copy as a NEW Query under the captured
-   *  name, carrying the preset `sourceId` (the qr_ base) + the base's `datasetId`
-   *  (the create handler's legacy NOT-NULL field). On success the page navigates
-   *  to the new detail. `name_taken` surfaces via `createError` in the modal. */
+   *  name, carrying the preset `sourceId` (the qr_ base; R79 — the single canonical
+   *  driving source). On success the page navigates to the new detail. `name_taken`
+   *  surfaces via `createError` in the modal. */
   const createWithName = (name: string) => {
     if (!isCreate || !createBase || !canSave) return;
     createMutation.mutate(
       {
         workspaceId: createBase.workspaceId,
-        body: { name, datasetId: createBase.datasetId, sourceId: createBase.sourceId, definition: draft },
+        body: { name, sourceId: createBase.sourceId, definition: draft },
       },
       {
         onSuccess: (created) => {
@@ -293,9 +295,9 @@ export function useQueryBuilder({
   };
 
   return {
-    // identity (for the JoinEditor)
+    // identity (for the JoinEditor — the graph-root DATASET, empty when composed)
     queryId: query?.id ?? '',
-    datasetId,
+    datasetId: joinRootDatasetId,
     workspaceId,
     // R77 — create vs edit mode + the create-with-name lifecycle
     isCreate,

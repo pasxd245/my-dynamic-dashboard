@@ -545,7 +545,7 @@ describe('Build on this query (R77 — composition create)', () => {
   });
 
   it('previews COMPOSED on the preset base and Save POSTs sourceId → navigates to the new query', async () => {
-    let posted: { name?: string; datasetId?: string; sourceId?: string } | null = null;
+    let posted: { name?: string; sourceId?: string } | null = null;
     server.use(
       http.post('*/workspaces/:id/queries', async ({ request }) => {
         posted = (await request.json()) as typeof posted;
@@ -553,7 +553,6 @@ describe('Build on this query (R77 — composition create)', () => {
           {
             id: 'qr_new00001',
             workspaceId: MOCK_QUERY.workspaceId,
-            datasetId: posted?.datasetId,
             sourceId: posted?.sourceId,
             name: posted?.name,
             definition: { q: null, filters: [], advanced: [] },
@@ -583,9 +582,8 @@ describe('Build on this query (R77 — composition create)', () => {
     fireEvent.change(nameInput, { target: { value: 'Won deals × Accounts' } });
     fireEvent.click(within(screen.getByRole('dialog')).getByText('Save'));
     await waitFor(() => expect(posted).not.toBeNull());
-    // The POST carried the composed source ref (the gap R76 left open).
+    // The POST carried the composed source ref as the canonical sourceId (R79).
     expect(posted!.sourceId).toBe(QR_ID);
-    expect(posted!.datasetId).toBe(MOCK_QUERY.datasetId);
     expect(posted!.name).toBe('Won deals × Accounts');
     // Navigated away from the create page (to the new query's detail).
     await waitFor(() => expect(document.querySelector('[data-component="QueryCreatePage"]')).toBeNull());

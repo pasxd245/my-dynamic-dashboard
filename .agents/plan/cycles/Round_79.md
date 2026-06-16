@@ -1,6 +1,6 @@
 # Round 79: `datasetId → sourceId` rename cleanup — finish the R76 widening
 
-**Status**: In Progress (Backend gate closed — Alembic 0002 + app-level cascade + `source_id`-only router; 196 pytest green; FE next)
+**Status**: In Progress (FE gate closed — builder send/read `sourceId` only; typecheck + 31 queries tests green; Integration + human sign-off next)
 **Date started**: 2026-06-16
 **Flow**: **DCFBI** (set at the Design gate via `flow-selector` — no-UI/refactor branch, 0/5
 conditions; recorded in the Do log). Unlike R78, this round **re-opens the wire contract** (the
@@ -182,6 +182,30 @@ migration foundation on its first live feature change** (a backfill + a SQLite c
 + **Green**: 196 pytest pass; `ruff check` clean; dual conformance against the new contract
   (`validate_response` on the queries endpoints).
 
+### FE-gate close (2026-06-16)
+
++ **Types** — `Query.sourceId` / `CreateQueryRequest.sourceId` / `PreviewQueryRequest.sourceId`
+  are now required; `datasetId` removed from all three (mirrors the contract).
++ **Wire calls** — the preview hook sends `{ sourceId, definition }` (driving source = the
+  builder's `baseSourceId`, a `ds_` or `qr_`); "Save filters as Query" (DatasetDetailPage),
+  "Join with related" (JoinWithRelatedModal), and "Build on this query" (create mode) all POST
+  `{ name, sourceId, definition }`. MSW fixtures + create handler carry `sourceId` only.
++ **Reads** — QueryDetailPage resolves a source **Dataset** only when `sourceId` is a `ds_`;
+  a composed (`qr_`) query shows its BASE QUERY as the source (the existing composition summary),
+  so the redundant root-leaf "Source: dataset" line no longer shows for composed queries. The
+  QueriesPage source column resolves a `ds_`→dataset name (link to the dataset) or a
+  `qr_`→base-query name (link to the base query).
++ **Builder join root** — the JoinEditor's graph-root DATASET is the `ds_` driving source;
+  for a composed (`qr_`) base there is no single root dataset on the wire, so first-hop-from-root
+  isn't offered (joins onto a composed base extend from already-joined datasets; the backend
+  validates provenance regardless). **Dataset-rooted queries — every R69→R75 query + "Save filters
+  as Query" — are pixel-identical.** A first-class composed-join affordance is left to the canvas
+  theme (deferred, with its trigger).
++ **Green**: `tsc --noEmit` clean; the 31 queries FE tests pass (composition + create + build-on
+  included); the R77 create test now asserts the POST carries the canonical `sourceId` (no
+  `datasetId`). (The relationships-suite timeouts under the full parallel run are machine-load
+  flakiness — the file passes 5/5 in isolation; unrelated to this rename.)
+
 **Flow selector run** (per [R47](../../decisions/2026-05-28-hybrid-flow-governance.md) — no-UI /
 refactor branch, [§ Amendment 2026-06-16](../../decisions/2026-05-28-hybrid-flow-governance.md)):
 
@@ -209,7 +233,10 @@ Result: **Flow: DCFBI** (no-UI round → 0/5 by construction). F1/F2 gates skipp
       `source_id` NOT NULL via `copy_from` batch); router reads `source_id` only; app-level
       dataset-delete cascade (J-1); schema-parity test updated + asserts the backfill on a seeded
       pre-R79 DB (J-2); 196 pytest green, ruff clean; committed as the Backend seam.
-+ [ ] _FE / Integration gates — pending._
++ [x] **FE gate closed** — types + builder + preview/create/join flows send & read `sourceId`
+      only; composed queries show their base query as the source; MSW fixtures/handlers updated;
+      `tsc` clean + 31 queries tests green; committed as the FE seam.
++ [ ] _Integration gate — pending (human sign-off)._
 + [ ] **Human sign-off** — create/edit/delete a query of both source kinds in the real app;
       dataset-delete cascade verified; `pnpm dev:seed` works (Complete = signed-off).
 

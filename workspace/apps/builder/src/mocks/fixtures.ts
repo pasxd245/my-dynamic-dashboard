@@ -78,7 +78,7 @@ export const MOCK_ROWS_FULL: RowsPage = {
 export const MOCK_QUERY: Query = {
   id: 'qr_9c2f10ab',
   workspaceId: MOCK_WORKSPACE.id,
-  datasetId: MOCK_DATASET.id,
+  sourceId: MOCK_DATASET.id, // R79 — the canonical driving source (a `ds_`)
   name: 'Won deals over $1k',
   definition: {
     q: null,
@@ -159,7 +159,7 @@ export const MOCK_RELATIONSHIPS: readonly Relationship[] = [
 export const MOCK_JOINED_QUERY: Query = {
   id: 'qr_101a0001',
   workspaceId: MOCK_WORKSPACE.id,
-  datasetId: MOCK_DATASET.id, // the LEFT source
+  sourceId: MOCK_DATASET.id, // R79 — the driving source (the LEFT `ds_` source)
   name: 'Deals × Accounts',
   definition: {
     q: null,
@@ -337,8 +337,7 @@ export const MOCK_CHAIN_COLUMNS = [
 export const MOCK_COMPOSED_QUERY: Query = {
   id: 'qr_c0301111',
   workspaceId: MOCK_WORKSPACE.id,
-  datasetId: MOCK_DATASET.id, // the base's own root leaf (back-compat field)
-  sourceId: MOCK_QUERY.id, // R76 — the DRIVING source is the Won-deals Query
+  sourceId: MOCK_QUERY.id, // R79 — the DRIVING source is the Won-deals Query (a `qr_`)
   name: 'Won deals × Accounts (composed)',
   definition: {
     q: null,

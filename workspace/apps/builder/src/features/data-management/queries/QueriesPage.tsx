@@ -70,6 +70,12 @@ export function QueriesPage() {
     const flat = queryResults.flatMap((r) => r.data ?? []);
     return [...flat].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }, [queryResults]);
+  // R79 — a Query's source is the polymorphic `sourceId`: a `ds_` dataset or a
+  // `qr_` base query. Resolve a base-query name from the loaded list.
+  const queryNameById = useMemo(
+    () => new Map(allQueries.map((q) => [q.id, q.name])),
+    [allQueries],
+  );
 
   const normalised = nameQuery.trim().toLowerCase();
   const visible =
@@ -158,15 +164,19 @@ export function QueriesPage() {
           },
           {
             title: t('queries.list.colSource'),
-            dataIndex: 'datasetId',
-            key: 'datasetId',
-            render: (datasetId: string) => {
-              const name = datasetById.get(datasetId) ?? datasetId;
+            dataIndex: 'sourceId',
+            key: 'sourceId',
+            render: (sourceId: string) => {
+              const isDataset = sourceId.startsWith('ds_');
+              const name = (isDataset ? datasetById.get(sourceId) : queryNameById.get(sourceId)) ?? sourceId;
+              const route = isDataset
+                ? `/data-management/datasets/${sourceId}`
+                : `/data-management/queries/${sourceId}`;
               return (
                 <Typography.Link
                   onClick={(e) => {
                     e.stopPropagation();
-                    navigate(`/data-management/datasets/${datasetId}`);
+                    navigate(route);
                   }}
                   data-component="QuerySourceLink"
                 >
