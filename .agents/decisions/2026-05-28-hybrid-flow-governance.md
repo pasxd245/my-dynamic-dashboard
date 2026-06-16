@@ -337,6 +337,10 @@ selector, and O-rule are unchanged):
    working tree) and `git log -- <round-file>` shows the per-gate commits — i.e.
    a real revert point exists. This is exactly what "gate = commit boundary"
    protects (the R69 "committed nowhere" failure), without the self-citation.
+4. **`flow-selector` now syncs the round header's `Flow` field.** The selector
+   wrote the decision to the Do log but left the header `**Flow**: TBD` — a
+   stale, two-sources-of-truth state. Added step 5: after recording, update the
+   header to the resolved flow (header = pointer; Do-log block = audit trail).
 
 _Pulled by: 2026-06-16 conversation — R79 cold-start gate run (Track-2
 agent-method; harness hardening, within the [R99 evo-horizon](2026-05-27-r99-evo-horizon.md)

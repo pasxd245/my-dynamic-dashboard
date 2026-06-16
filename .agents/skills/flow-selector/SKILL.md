@@ -6,7 +6,7 @@ argument-hint: <round-file-path>
 allowed-tools: Read, Grep, Bash(grep *)
 metadata:
   author: hand-authored-r49
-  version: '1.1'
+  version: '1.2'
 ---
 
 ## Trigger
@@ -111,6 +111,17 @@ Result: **Flow: DCFBI** (or **Flow: DFCFBI (triggers N, M)**)
 
 The `Flow:` line is what [`gate-walker`](../gate-walker/SKILL.md)
 reads to decide whether F1/F2 gates apply.
+
+### 5. Sync the round header's `Flow` field
+
+The round template carries a `**Flow**:` field in its header that is
+typically authored as `TBD — set at the Design gate`. The decision now
+lives in the Do log, so **update that header field to the recorded
+flow** (e.g. `**Flow**: **DCFBI** — set at the Design gate via
+flow-selector; recorded in the Do log`). Otherwise the header stays
+`TBD` and contradicts the Do-log decision — a stale, two-sources-of-
+truth state a cold reader hits at the top of the file. The Do-log block
+remains the authoritative audit trail; the header is a pointer to it.
 
 ## Quality Bar
 
