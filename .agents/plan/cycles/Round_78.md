@@ -1,7 +1,8 @@
 # Round 78: Persistence foundation — migrations (SQLModel + SQLAlchemy + Alembic)
 
-**Status**: In Progress (Backend gate closed — implemented + green; **awaiting human sign-off**)
+**Status**: ✅ Complete (human-signed-off 2026-06-16) — migrations foundation shipped
 **Date started**: 2026-06-16
+**Date completed**: 2026-06-16
 **Flow**: **D → B** (non-feature infra/refactor; `flow-selector` is **N/A** — its 5
 conditions are all UI/UX/contract-shape, and this round has **no UI surface and no
 contract re-open**; recorded in the Do log). The substantive gates are **Design** (the
@@ -209,19 +210,42 @@ drafting aid only. The wire contract, the FE, and the DuckDB analytics engine (r
       flow = D → B (selector N/A, recorded); model check recorded; design-gate gates green.
 + [x] **Backend gate closed** — models + Alembic + adopter implemented; pytest 196/196; ruff
       clean; parity + no-data-loss guards green; fresh-DB boot verified. Per-gate commit (seam).
-+ [ ] _Gates green (plan:lint / markdown-check-link / markdownlint / gate-walker /
-      flow-selector) — pending._
-+ [ ] **Human sign-off** — fresh + existing seeded DBs both come up on Alembic with data
-      intact; `pnpm dev:seed` works; pytest 193/193 (Complete = signed-off, not gates-green).
++ [x] **Gates green**: `plan:lint` 0, `markdown-check-link` 0 broken, `markdownlint` 0
+      (Design + Backend commits); `flow-selector` N/A (recorded); model check recorded.
++ [x] **Human sign-off (2026-06-16)** — ran `pnpm dev` → `pnpm dev:seed` against an isolated
+      `data-test/` root: **fresh DB came up on Alembic and the seed data renders** (scenario 1
+      verified live — real engine + CORS + UI). Existing-DB adoption-without-loss (scenario 2)
+      is covered by the green `test_existing_db_adopted_without_data_loss` test; the real pre-R78
+      `data/` was left **untouched** (still un-stamped, data intact) by using the isolated root.
+      pytest 196/196. Complete = signed-off.
 
 ## Act
 
-_Pending — filled at round close._ The intended outcome: the backend evolves its schema
-through **versioned Alembic migrations** instead of hand edits, with SQLModel models as the
-schema of record — the foundation every subsequent feature theme (canvas, workflow,
-consumer-save, dashboard) rides, each shipping its schema as its own migration. The raw-SQL →
-ORM data-access port and all schema *changes* are consciously deferred (this round changes the
-*mechanism*, not the *model*).
+**Shipped.** The backend now evolves its schema through **versioned Alembic migrations** with
+SQLModel models as the schema of record, replacing the hand-bootstrapped `_SCHEMA` /
+`_add_missing_columns` / `_backfill` that ran on every boot. The `0001_baseline` reproduces
+today's 4-table schema (verified by the structural-parity test pinning legacy == `create_all()`
+== `alembic upgrade head`); the lifespan adopter brings fresh DBs to head and adopts existing
+dev DBs without data loss (heal-then-stamp). Tests build via `create_all()` (fast/hermetic);
+production migrates. pytest **196/196**, no FE/contract change, DuckDB engine untouched.
+
+**Lessons / deltas worth carrying forward:**
+
++ **"Byte-for-byte" was the wrong invariant; structural/behavioral parity is the right one.**
+  SQLAlchemy-generated DDL is never character-identical to hand SQL — the binding guard is a
+  structural introspection test, not an autogenerate-zero-diff. (Confirmed concretely: the inline
+  `id TEXT PRIMARY KEY` `notnull=0` vs SQLAlchemy's explicit `NOT NULL` quirk — behavior-equivalent,
+  normalized in the test.) → candidate memory.
++ **Seed (demo fixtures, I-verify, goes *through* the API) and Alembic data-migrations (real-data
+  transforms, run everywhere) are orthogonal** — do not fold seed into migrations. The genuine
+  data-migration fit is the deferred `datasetId → sourceId` backfill, not fixtures.
++ **The data root (not the `.sqlite` file) is the isolation/backup unit** — `app.sqlite` + parquet
+  + `uploads_tmp/` move together via `MDD_BACKEND__DATA_DIR`; the adopter mutates in place, so
+  verify on a copy. (Used for this round's sign-off via an isolated `data-test/` root.)
+
+**Deferred (unchanged):** the raw-SQL → ORM data-access port (incremental as feature rounds touch
+each router); all schema *changes* (each ships as its own migration); the `datasetId → sourceId`
+rename (now a clean Alembic migration).
 
 ## Feeds into → the feature themes, each carrying its own migrations
 
