@@ -1,9 +1,9 @@
 # Round 80: Open the canvas theme — design the free-form visual source-graph canvas
 
-**Status**: Review — Design gate closed; awaiting human sign-off on the design
-direction + the build-now/defer call (Complete = signed-off).
+**Status**: Complete — Design gate closed; design direction + build-now/defer call
+human-signed-off (2026-06-16).
 **Date started**: 2026-06-16
-**Date completed**:
+**Date completed**: 2026-06-16
 **Flow**: **Design-only** (a theme-opening design round). This round produces the **canvas
 design** and resolves its judgment calls; it ships **no build**. `flow-selector` (DCFBI vs
 DFCFBI) is therefore **deferred to the first build round** (R81+) — there is no contract/BE/FE
@@ -71,8 +71,8 @@ feature theme after the R78 foundation + R79 cleanup) and the named canvas defer
 + [x] **`ui-design` design-spec** facets pass on the design doc (6/6, 0 gaps); **`design:lint`** 0
       (+ **`design:tokens`** 0 — the doc has a token map).
 + [x] Gates green: **`plan:lint`** 0, **`markdownlint`** 0, **`markdown-check-link`** 0.
-+ [ ] **Complete = human-signed-off on the design direction** (the canvas concept + the build-now/
-      defer call). **No build ships this round.**
++ [x] **Complete = human-signed-off on the design direction** (the canvas concept + the build-now/
+      defer call) — signed off 2026-06-16. **No build shipped this round.**
 
 ## What is OUT of scope
 
@@ -147,14 +147,37 @@ feature theme after the R78 foundation + R79 cleanup) and the named canvas defer
 + [x] **Design gate closed** — canvas design doc Accepted; noun-vs-mode + model-impact + "New
       query" IA + trigger verdict recorded; `ui-design` design-spec pass; `design:lint`/
       `design:tokens` 0; `flow-selector` deferral recorded; committed as the Design seam.
-+ [ ] **Human sign-off** — the design direction + the build-now/defer call (Complete = signed-off).
++ [x] **Human sign-off** — the design direction + the build-now/defer call, signed off 2026-06-16.
 
 ## Act
 
-_Pending — filled at round close._ The intended outcome: an **accepted canvas design** anchored on
-the unified `sourceId` + the existing `joins` tree, with the noun-vs-mode and build-now/defer calls
-made on evidence — so the first canvas **build** round (R81+) inherits a clear, thin-but-not-rushed
-home instead of re-deriving the IA, or so the build is honestly deferred with its trigger restated.
+**Learnings**:
+
++ The **noun-vs-mode brake + the unfired-trigger test** did their job: they turned "build the
+  canvas now" into "bank the canvas design, defer the build" on evidence (2–4-node trees read
+  fine as a list). A Design-only round was the cheap, revertible way to make that call.
++ **An honest caveat surfaced at sign-off** (user, 2026-06-16): today's trees are small **partly
+  because the product is concept-proof, not yet CRM-solving** — not purely because users tried
+  bigger and didn't need the canvas. So "trigger unfired" is real *now*, but the build round must
+  re-check it against *real* CRM workloads, not just today's demo data.
++ **The bigger pull this round exposed**: the design corpus has drifted into a ledger
+  (accretion + fragmentation), which is why "where does the canvas live" was hard to read. That
+  pull opens **[Round_81](Round_81.md)** (design-compaction) and **adds a gate on the canvas
+  build** — it now waits until the corpus is compacted to a final current-state version.
+
+**Promotions** — none to `context/` or `skills/` this round. The design-doc-as-source-code
+principle the canvas work exposed is being captured as a **memory** + carried into
+[Round_81](Round_81.md), not promoted to a standing rule yet (let R81's pilot prove it first).
+
+**Follow-ups (not promotions, just notes):**
+
++ Canvas **build** is doubly deferred: R80 J-2 (trigger unfired) **and** R81's new gate
+  (compacted-corpus-first). Both re-checked when R81's sweep completes.
++ The drag-to-draw learnability hint (`ui-design` fidelity watch-item) is handed to the canvas
+  build round, unchanged.
+
+**Prune check**: nothing pruned. The noun-vs-mode + unfired-trigger mechanisms earned their
+place this round (they produced the defer verdict); no rule was found redundant.
 
 ## Feeds into → the first canvas build round (R81+, TBD)
 
