@@ -10,3 +10,4 @@ app/_version.py
 
 # the data dir (by default) is used when no running env var provided
 data/
+data-*/

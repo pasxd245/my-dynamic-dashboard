@@ -17,7 +17,7 @@
 #   - valuesFile is loaded into the top-level view object that templates
 #     reference as `{{backend.port}}`, `{{constants.id_patterns.workspace}}`, etc.
 
-templateDir: .
+templateDir: ./templates
 outDir: ../apps
 valuesFile: values.yaml
 extname: .hbs
