@@ -17,5 +17,8 @@ from app import db, storage
 def _isolated_backend_data(tmp_path: Path):
     db.set_db_path(tmp_path / "app.sqlite")
     storage.set_data_root(tmp_path / "data")
-    db.bootstrap_schema()
+    # R78: tests build the schema from SQLModel.metadata (fast, no Alembic);
+    # production migrates via run_startup_migrations(). Pinned equal by
+    # tests/test_schema_parity.py.
+    db.create_all_for_tests()
     yield

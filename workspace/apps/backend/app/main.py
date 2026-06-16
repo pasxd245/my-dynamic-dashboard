@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app._config import CONFIG
-from app.db import bootstrap_schema
+from app.db import run_startup_migrations
 from app.jobs.tmp_sweep import sweep_loop
 from app.routers import datasets, queries, relationships, uploads, workspaces
 from app.storage import get_data_root
@@ -19,7 +19,10 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    bootstrap_schema()
+    # R78: adopt-or-upgrade via Alembic (replaces the hand-bootstrapped
+    # schema). Fresh DB → upgrade head; existing dev DB → heal-then-stamp
+    # then upgrade. See app/db.py and .agents/context/persistence.md.
+    run_startup_migrations()
 
     # R30: spawn the tmp-upload sweep as a lifespan-managed asyncio task.
     # Disabled in tests via MDD_BACKEND__TMP_SWEEP__ENABLED=false.
