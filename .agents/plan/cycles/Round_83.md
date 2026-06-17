@@ -1,10 +1,9 @@
 # Round 83: design-sync — fold the `queries` domain (7→4 spine-first) + sync to code
 
-**Status**: Review — Plan gate ratified + Fix gate complete (2026-06-17); gates green, awaiting
-human sign-off. Inherited R82's Detect (drift report + 6 markers); R83 ran the **Fix gate** (sync +
-de-fragment) and **Check**.
+**Status**: Complete — human-signed-off 2026-06-18 (alongside R84). Inherited R82's Detect (drift
+report + 6 markers); R83 ran the **Fix gate** (sync + de-fragment) and **Check**.
 **Date started**: 2026-06-17
-**Date completed**:
+**Date completed**: 2026-06-18
 **Flow**: **Track-2 agent-method** — applies the [`design-sync`](../../skills/design-sync/SKILL.md)
 skill's `sync` mode (+ its §5 de-fragment step) to the `queries` domain. `flow-selector` (DCFBI vs
 DFCFBI) is **N/A** (no product contract/BE/FE code; sync-only). Gates: **Plan → Fix → Check**
@@ -108,7 +107,7 @@ deferred (`canvas`).** 3 docs fold away behind redirect stubs.
       now matches the implementation and is ledger-free.
 + [ ] Gates green: `design:lint` 0, `design:tokens` 0, `markdownlint` 0, `markdown-check-link` 0
       broken (in scope), `plan:lint` 0.
-+ [ ] **Complete = human-signed-off** (the synced + folded `queries` corpus).
++ [x] **Complete = human-signed-off** (the synced + folded `queries` corpus).
 
 ## What is OUT of scope
 
@@ -180,11 +179,18 @@ Fix gate complete; gates green. Status → **Review** (awaiting human sign-off).
 + [x] **Gates green**: `design:lint` 0 errors (15 grandfathered = the 3 redirect stubs, baselined as
       a deliberate exception — `design-doc-lint.baseline.json`), `design:tokens` 0, `markdownlint` 0,
       `markdown-check-link` 0 in-scope broken, `plan:lint` 0.
-+ [ ] **Complete = human-signed-off** (the synced + folded `queries` corpus — run/click as needed).
++ [x] **Complete = human-signed-off** (the synced + folded `queries` corpus — run/click as needed).
 
 ## Act
 
-_Pending — filled at round close (after human sign-off)._
+**Complete (human-signed-off 2026-06-18).** The `queries` corpus was synced to the code and
+de-fragmented 7→3 living + 1 deferred (`saved-query` spine + `joins`/`multi-join`/`composition`
+folded behind anchor-preserving stubs + `query-construction`/`query-builder` siblings + `canvas`
+deferred), the 2 high-severity drifts fixed (`composition_cycle`=`409`; the `datasetId` fiction
+deleted), all 6 `OUT OF SYNC` markers cleared. Committed `30c85df` (Fix) atop `e1d8b7e` (Plan).
+**Superseded in the same sign-off by [R84](Round_84.md)**, which consolidated the spine + anchor
+into a single `queries.md` and replaced the stubs with repointed links — so the stubs this round
+created no longer exist; the locked-round links now resolve to `queries.md`.
 
 ## Feeds into → the canvas-build gate / consumer-save + dashboard themes
 

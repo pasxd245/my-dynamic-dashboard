@@ -1,8 +1,8 @@
 # Round 84: consolidate `queries/` → a single `queries.md` (sibling-consistent) + `--resolution` for markdown-check-link
 
-**Status**: Review — Plan ratified + Fix complete (2026-06-18); gates green, awaiting human sign-off.
+**Status**: Complete — human-signed-off 2026-06-18 (alongside R83).
 **Date started**: 2026-06-18
-**Date completed**:
+**Date completed**: 2026-06-18
 **Flow**: **Track-2 agent-method** — a design-doc structure cleanup (the naming half R83 left
 open) plus the tooling it pulls. `flow-selector` (DCFBI vs DFCFBI) is **N/A** (no product
 contract/BE/FE code). Gates: **Plan → Fix → Check**.
@@ -67,7 +67,7 @@ round's merge (the auto-suggester can't remap merge anchors); within the [R99 ev
 + [ ] **All inbound links repointed** to `queries.md#<anchor>` (locked rounds R69–R81 + live docs);
       `markdown-check-link` reports only the pre-existing out-of-scope breakages.
 + [ ] Gates green; `design-doc-lint.baseline.json` no longer lists the 3 stubs.
-+ [ ] **Complete = human-signed-off.**
++ [x] **Complete = human-signed-off.**
 
 ## What is OUT of scope
 
@@ -118,11 +118,17 @@ Fix gate complete; gates green. Status → **Review** (awaiting human sign-off).
 + [x] `design-doc-lint.baseline.json` **emptied** (the 3 R83 stubs are gone).
 + [x] Gates green: `design:lint` 0, `design:tokens` 0, `markdownlint` 0, `plan:lint` 0,
       `markdown-check-link` 0 in-scope broken.
-+ [ ] **Complete = human-signed-off** (the consolidated `queries.md` + the `--resolution` tooling).
++ [x] **Complete = human-signed-off** (the consolidated `queries.md` + the `--resolution` tooling).
 
 ## Act
 
-_Pending — filled at round close (after human sign-off)._
+**Complete (human-signed-off 2026-06-18).** `queries/` consolidated to a single `queries.md`
+(query-builder + saved-query merged; the two locked anchors preserved as headings) with
+`query-construction.md` + `canvas.md` — mirroring `datasets/`, **no stubs**. `markdown-check-link`
+gained `--resolution <file>` (frag-preserving old→new target map), used to repoint 157 inbound links
+(locked rounds + live docs) before deleting the old files; `design-doc-lint.baseline.json` emptied.
+Committed `a7c8299`. Gates green. The `--resolution` flag is a reusable tool for future design-doc
+merges/folds.
 
 ## Feeds into → R83 sign-off + the canvas-build / consumer-save / dashboard themes
 
