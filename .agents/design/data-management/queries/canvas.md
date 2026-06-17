@@ -1,12 +1,5 @@
 # Query Canvas — the free-form visual source-graph editor (a view/edit mode of the builder)
 
-> ⚠️ **OUT OF SYNC** — `design-sync --check` (2026-06-17) found this doc has drifted from the
-> implementation: **2 claim(s) diverge from code** (the `datasetId` field is `sourceId` in code; and
-> the canvas surface is **0% built** — design-banked R80, build deferred R81+). Stays a deferred
-> sibling at R83 (fix the field bug, no merge). See `.agents/tmp/design-sync/queries.md`. Re-sync
-> before trusting or designing on it: run `design-sync .agents/design/data-management/queries`.
-<!-- design-sync:out-of-sync domain=data-management/queries detected=2026-06-17 claims=2 -->
-
 **Concept**: the **canvas** is a **visual presentation + editing mode** of the
 [Query](saved-query.md) builder: it renders a Query's
 [`definition.joins`](multi-join.md) **tree** as a **node-link graph** — each
@@ -149,7 +142,7 @@ opens the builder in **create mode with no preset base** — the empty-source ca
 **explicitly deferred to ship with the canvas, built right**
 ([[dont-mvp-rush-a-roadmap-home-surface]]). It **reuses R77's create lifecycle**
 (`/queries/new`, no `?base=`): no id, name-capture at Save via the reused
-`SaveQueryModal`, `POST` carrying `{ name, datasetId, sourceId, definition }`. The
+`SaveQueryModal`, `POST` carrying `{ name, sourceId, definition }`. The
 canvas is the natural editor for that empty start (place a node = pick the driving
 `sourceId`; draw an edge = add a hop). **Verdict: not a parallel surface — a catalog
 entry into the same create lifecycle, with the canvas as its editor (noun-vs-mode brake
@@ -349,7 +342,7 @@ Home ▸ Data Management ▸ Queries                                   [ + New q
   │            ( empty )   [ + Add a source ]  ← place the first node            │
   │                         pick a dataset or saved query (sets sourceId)        │
   └──────────────────────────────────────────────────────────────────────────────┘
-  [ Save ] → SaveQueryModal (name) → POST {name, datasetId, sourceId, definition}
+  [ Save ] → SaveQueryModal (name) → POST {name, sourceId, definition}
 ```
 
 `[+ New query]` lives on the **Queries catalog** beside the existing source-rooted

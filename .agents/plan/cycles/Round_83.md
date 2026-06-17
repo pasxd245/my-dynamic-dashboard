@@ -1,8 +1,8 @@
 # Round 83: design-sync — fold the `queries` domain (7→4 spine-first) + sync to code
 
-**Status**: Fix — Plan gate ratified 2026-06-17 ("proceed r83"); Fix gate in progress. Inherits
-R82's Detect (drift report + 6 markers already stamped); R83 runs the **Fix gate** (sync +
-de-fragment) then Check.
+**Status**: Review — Plan gate ratified + Fix gate complete (2026-06-17); gates green, awaiting
+human sign-off. Inherited R82's Detect (drift report + 6 markers); R83 ran the **Fix gate** (sync +
+de-fragment) and **Check**.
 **Date started**: 2026-06-17
 **Date completed**:
 **Flow**: **Track-2 agent-method** — applies the [`design-sync`](../../skills/design-sync/SKILL.md)
@@ -151,13 +151,40 @@ at the Fix seam:
   folded paths (`relationships.md`, `query-construction.md`, `canvas.md`) are **repointed** to the
   spine directly.
 
-## Check
+## Check (2026-06-17)
 
-+ [ ] _(Pending.)_
+Fix gate complete; gates green. Status → **Review** (awaiting human sign-off).
+
++ [x] **`queries` synced to the code.** Both high-severity drifts fixed: `composition_cycle`
+      documented as **`409`** (create/update/preview + run); the **"vestigial `datasetId`" fiction**
+      deleted from `query-construction.md`. `datasetId` → `sourceId` everywhere (model, create/update/
+      preview bodies, the R77 create body, the resolve pseudocode, canvas create spec); the
+      **linear-chain → connected-acyclic tree** invariant corrected (`disconnected_join`/`cyclic_join`,
+      `T{left_idx}`); `join_keys` 4-tuple; outer-join types folded.
++ [x] **7 → 4 fold done spine-first.** `saved-query.md` rewritten as the canonical spine (model ·
+      7 routes + exact codes · single-source/tree/composed engine). `joins.md`, `multi-join.md`,
+      `composition.md` replaced by **redirect stubs** preserving the locked deep-link anchors
+      (`#truth-test-record-j-4`, `#r75-outer-join-types`, `#topology-truth-test-record-r74`).
+      `query-construction.md` (builder UX) + `query-builder.md` (anchor) compacted to current-state;
+      `canvas.md` kept deferred (only the `datasetId`→`sourceId` field bug fixed).
++ [x] **Locked-round + live links resolve.** `markdown-check-link` reports only the **pre-existing,
+      out-of-scope** breakages (`decisions/README.md` AGENTS anchor; `.hbs` in Round_30/32/45) — none
+      introduced by this sweep. Two R77 anchors on the surviving docs that the rewrite first dropped
+      (`query-construction.md#create-mode-r77-build-a-new-query-on-a-preset-base`,
+      `saved-query.md#build-on-this-query-r77-the-create-entry`) were **restored**. Two self-inflicted
+      `--`-slug links (the [md-anchor-slug linter conflict](../../memory/2026-06-15-md-anchor-slug-linter-conflict.md))
+      were fixed by renaming the headings (`Joins:` / `IA and navigation`). `relationships.md`
+      repointed to the spine's execution section.
++ [x] **No `OUT OF SYNC` marker remains anywhere in `design/`** — the whole data-management corpus
+      matches the implementation and is ledger-free.
++ [x] **Gates green**: `design:lint` 0 errors (15 grandfathered = the 3 redirect stubs, baselined as
+      a deliberate exception — `design-doc-lint.baseline.json`), `design:tokens` 0, `markdownlint` 0,
+      `markdown-check-link` 0 in-scope broken, `plan:lint` 0.
++ [ ] **Complete = human-signed-off** (the synced + folded `queries` corpus — run/click as needed).
 
 ## Act
 
-_Pending — filled at round close._
+_Pending — filled at round close (after human sign-off)._
 
 ## Feeds into → the canvas-build gate / consumer-save + dashboard themes
 

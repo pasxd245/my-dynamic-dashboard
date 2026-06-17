@@ -329,7 +329,7 @@ the **design intent** the YAML must satisfy.
   refines J-4, which named `relationship_stale`: in R70 stale is a non-erroring
   status; the 409 variant lands with its first consumer.)_ **R71 consumes it** —
   a join over a stale edge returns `409 relationship_stale`
-  ([joins.md § Execution model](../queries/joins.md#execution-model-live-re-run-two-sources-no-materialization)).
+  ([saved-query.md § Execution model](../queries/saved-query.md#execution-model-live-re-run-no-materialization)).
 - **Error envelopes.** The duplicate-pair conflict is a code-first envelope —
   `409 { code: "relationship_exists" }` (reusing the shared
   [api-error.yaml](../../../../workspace/packages/contracts/_shared/api-error.yaml)
