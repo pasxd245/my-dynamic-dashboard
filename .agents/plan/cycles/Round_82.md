@@ -1,8 +1,9 @@
 # Round 82: design-sync sweep — re-sync the design corpus to code (workspaces → datasets → queries)
 
-**Status**: In Progress — Detect done (J-1 → `queries`→R83); Fix gate **done** (workspaces + datasets + `_shared`, all markers cleared, gates green); awaiting human sign-off → Review.
+**Status**: **Complete** (human-signed-off 2026-06-17) — workspaces + datasets + `_shared` synced to
+code, ledger-free, markers cleared, gates green. `queries` spilled to R83 (J-1).
 **Date started**: 2026-06-17
-**Date completed**:
+**Date completed**: 2026-06-17
 **Flow**: **Track-2 agent-method** — applies the [`design-sync`](../../skills/design-sync/SKILL.md)
 skill across the data-management corpus. `flow-selector` (DCFBI vs DFCFBI) is **N/A** (no product
 contract/BE/FE code). Gates: **Plan → Detect → Fix** (per-domain seams) **→ Check**.
@@ -171,11 +172,27 @@ Gates re-run with all syncs in place: `design:lint` **0 error / 0 grandfathered*
 
 + [x] **R82 scope fully synced & gate-green.** workspaces + datasets + `_shared` reconciled to
       code, ledger-free, markers cleared; only the 6 `queries/` markers remain (R83's signal).
-+ [ ] **Human sign-off** — pending (Complete = the human reads the synced corpus and confirms).
++ [x] **Human sign-off (2026-06-17)** — the user read the synced corpus and confirmed; flip to
+      Complete + plan R83 for the `queries` fold.
 
 ## Act
 
-_Pending — filled at round close._
+**Shipped & signed off.** The data-management design corpus now matches the implementation for
+workspaces + datasets + `_shared` (code is the source of truth) and is ledger-free. Committed as two
+per-domain Fix seams (`14c7b45` workspaces, `0bb4f13` datasets+`_shared`) atop the Plan + Detect
+seams.
+
+**Lessons banked:**
+
++ **Detect-first paid off.** One `--check` sweep surfaced the whole drift picture before any rewrite
+  and let J-1 spill the heaviest domain (`queries`, 7 docs / ~22 drifts / a 7→4 fold) cleanly to R83
+  rather than starving it inside a bundled round ([[round-bundling-revert-seams]]).
++ **The biggest systemic drift driver was a foundation round rippling into siblings** — the R78/R79
+  persistence rewrite (SQLModel+Alembic schema-of-record, raw-sqlite handlers, `dataset_id→source_id`,
+  app-level delete cascade) landed after every data-management doc was last touched; none mentioned it.
+  This is the exact in-flow cross-cutting drift `design-sync --check` exists to catch.
++ **A marker's absence is the in-sync signal** — the 6 `queries/` markers that remain are not debt in
+  this round; they are R83's pulled-by signal (the relationships.md→R82 pattern, repeated).
 
 ## Feeds into → R83 (if `queries` spills) / the canvas-build gate
 
