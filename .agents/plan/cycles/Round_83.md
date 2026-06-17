@@ -1,7 +1,8 @@
 # Round 83: design-sync — fold the `queries` domain (7→4 spine-first) + sync to code
 
-**Status**: Planning — Plan gate (this step). Inherits R82's Detect (drift report + 6 markers
-already stamped); R83 runs the **Fix gate** (sync + de-fragment) then Check.
+**Status**: Fix — Plan gate ratified 2026-06-17 ("proceed r83"); Fix gate in progress. Inherits
+R82's Detect (drift report + 6 markers already stamped); R83 runs the **Fix gate** (sync +
+de-fragment) then Check.
 **Date started**: 2026-06-17
 **Date completed**:
 **Flow**: **Track-2 agent-method** — applies the [`design-sync`](../../skills/design-sync/SKILL.md)
@@ -132,7 +133,23 @@ deferred (`canvas`).** 3 docs fold away behind redirect stubs.
 
 ### Plan-gate ratification (2026-06-17)
 
-_Pending — filled when the Plan seam is ratified ("proceed r83")._
+Ratified on "proceed r83". The fold map (§ The fold map), the **spine-first** order, and the
+drift-fix list (§ Drift to fix) are accepted as-is from the R82 Detect / CODE-TRUTH map
+([`tmp/design-sync/queries.md`](../../tmp/design-sync/queries.md)). J-1…J-3 held open and resolved
+at the Fix seam:
+
++ **J-1 (spine/mode split from CODE-TRUTH, not the R81-reverted draft)** — ratified. The §3 map is
+  confirmed against the CODE-TRUTH map (router `queries.py` / engine `rows_reader.py` / contracts):
+  spine = `saved-query.md`; fold `joins` + `multi-join` + `composition`; siblings
+  `query-construction` (builder UX) + `query-builder` (anchor); `canvas` deferred.
++ **J-2 (builder UX split)** — model/route/engine facts → spine; layout/debounce/per-column-funnel/
+  create-vs-edit/save-lifecycle stay in the `query-construction.md` sibling.
++ **J-3 (redirect-stub anchors)** — the locked-round deep-link anchors the 3 stubs MUST preserve,
+  read from the locked files: `joins.md#truth-test-record-j-4` (R71/R73/R75) +
+  `joins.md#r75-outer-join-types` (R75); `multi-join.md#topology-truth-test-record-r74` (R74);
+  `composition.md` is linked **bare** by R76/R77 (no anchor). Live design docs that deep-link the
+  folded paths (`relationships.md`, `query-construction.md`, `canvas.md`) are **repointed** to the
+  spine directly.
 
 ## Check
 
