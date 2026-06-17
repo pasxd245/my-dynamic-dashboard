@@ -1,39 +1,28 @@
 # Dataset detail — feature design
 
-> ⚠️ **OUT OF SYNC** — `design-sync --check` (2026-06-17) found this doc has drifted from the
-> implementation: **3 claim(s) diverge from code** (the rows route reads via DuckDB `read_parquet`,
-> not pyarrow; `MetadataStrip` is inline and there is no `RowSearchBar` component — search is an
-> inline `Input.Search`; the non-populated states still show a stale `[Rename] [Delete]` two-button
-> ASCII, but R72 moved these into an `Actions ▾` menu). See `.agents/tmp/design-sync/datasets.md`.
-> Re-sync before trusting or designing on it: run `design-sync .agents/design/data-management/datasets`.
-<!-- design-sync:out-of-sync domain=data-management/datasets detected=2026-06-17 claims=3 -->
-
 **Concept**: a per-dataset inspector page at
 `/data-management/datasets/:id`. Shows the dataset's headline
 metadata (workspace, format, sheet, rows, columns, size, uploaded
 timestamp) and renders its row contents as a paged data table
 with a substring search bar above the table for Cmd-F-style
-row lookup. Reached by clicking a row in the Datasets list (the
-R14 [datasets.md](datasets.md) R∞-deferred affordance, now
-pulled in). Carries the rename + delete affordances inherited
+row lookup. Reached by clicking a row in the Datasets list.
+Carries the rename + delete affordances inherited
 from [crud-hygiene.md](../_shared/crud-hygiene.md), placed in the page
-header's `actions` slot.
-**Status**: Accepted (R33 design; shipped R34–R36).
-**Round introduced**: [Round_33](../../../plan/cycles/Round_33.md);
-implementation chain begins R34 (contract), R35 (BE), R36 (FE).
+header's `actions` slot (inside an `Actions ▾` menu).
+**Status**: Accepted.
 **Sibling docs**:
 [datasets.md](datasets.md) (the noun this page inspects),
 [upload.md](upload.md) (the verb that produced the rows),
 [crud-hygiene.md](../_shared/crud-hygiene.md) (rename + delete affordances
 reused here),
 [dataset-filters.md](dataset-filters.md) (per-column typed
-filters layered on this page; R37 design, R38→R40 impl chain),
-[saved-query.md](../queries/saved-query.md) (R69 — the **second consumer** of this
+filters layered on this page),
+[saved-query.md](../queries/saved-query.md) (the **second consumer** of this
 page's paged-rows body, which it shares via the extracted `<PagedRowsView>`;
 also the destination of this page's **Save filters as Query** action),
-[query-construction.md](../queries/query-construction.md) (R72 — consolidated this
-page's header actions: **Join with related dataset** moved into the `Actions ▾`
-menu, **Save as Query** relabelled **Save filters as Query**),
+[query-construction.md](../queries/query-construction.md) (consolidates this
+page's header actions — **Join with related dataset** lives in the `Actions ▾`
+menu alongside Rename / Delete),
 [workspace-shell.target.md](../../_platform/workspace-shell.target.md) (the chrome
 this page renders inside).
 
@@ -42,15 +31,13 @@ this page renders inside).
 ## Why this exists separately from datasets.md
 
 [datasets.md](datasets.md) covers the **collection** — the list
-page, the workspace filter, the workspace-card handoff. It
-explicitly deferred the **per-dataset** surface to R∞ "until a
-downstream surface (query, dashboard) needs a per-dataset URL."
+page, the workspace filter, the workspace-card handoff. This doc
+covers the **per-dataset** surface.
 
-R33 promotes that surface because POC/MVP needs the user to **see**
-their uploaded data before query/dashboard surfaces land. Without
-detail, the upload wizard's preview-step is the only place the
-user ever views their rows — and that view disappears the moment
-they commit. The detail page is the durable readout.
+The detail page exists because the user needs to **see** their
+uploaded data outside the upload wizard's preview step — which
+disappears the moment they commit. The detail page is the durable
+readout.
 
 This split keeps datasets.md focused on the noun's _catalog_
 behavior and lets this doc focus on the noun's _single-instance_
@@ -63,57 +50,52 @@ navigates here.
 
 | Surface                                                               | Layer                                                         | Reusability  | Purity             | Allowed peer deps                                                   |
 | --------------------------------------------------------------------- | ------------------------------------------------------------- | ------------ | ------------------ | ------------------------------------------------------------------- |
-| `DatasetDetailPage` route component                                   | `apps/builder/src/features/data-management/datasets`          | feature      | feature            | react, antd, @tanstack/react-query, react-router-dom, react-i18next |
-| `DatasetMetadataStrip` component                                      | `apps/builder/src/features/data-management/datasets`          | feature      | plain-UI           | react, antd, react-i18next                                          |
-| `<PagedRowsView>` (paged rows body — R69 extracted from inline `DataTableBody`) | `workspace/packages/ui/src` (`@mdd/ui`)             | shared cross-domain | plain-UI           | react, antd, react-i18next                                          |
+| `DatasetDetailPage` route component (contains the `MetadataStrip`, the `<Input.Search>` row-search bar, and the `SourceIcon` inline — no standalone `DatasetMetadataStrip` / `RowSearchBar` files) | `apps/builder/src/features/data-management/datasets`          | feature      | feature            | react, antd, @tanstack/react-query, react-router-dom, react-i18next |
+| `<PagedRowsView>` (paged rows body — extracted from the inline `DataTableBody` when query-detail became a second consumer) | `apps/builder/src/features/data-management/_shared`             | feature (shared across datasets + queries) | plain-UI           | react, antd, react-i18next                                          |
 | `useDatasetQuery(id)` hook                                            | `apps/builder/src/features/data-management/datasets`          | feature      | glue (server-data) | @tanstack/react-query                                               |
 | `useDatasetRowsQuery(id, page, pageSize, q?)` hook                    | `apps/builder/src/features/data-management/datasets`          | feature      | glue (server-data) | @tanstack/react-query                                               |
-| `RowSearchBar` component (Input.Search + match counter + clear)       | `apps/builder/src/features/data-management/datasets`          | feature      | plain-UI           | react, antd, react-i18next                                          |
 | `datasetsApi.get(id)` + `datasetsApi.getRows(id, page, pageSize, q?)` | `apps/builder/src/api/`                                       | builder-only | glue               | (fetch — no extra peer dep)                                         |
 | `GET /datasets/{id}` backend route                                    | `apps/backend/`                                               | backend      | feature            | (FastAPI — backend native)                                          |
-| `GET /datasets/{id}/rows` backend route                               | `apps/backend/`                                               | backend      | feature            | (FastAPI — backend native, pyarrow for paged Parquet read)          |
+| `GET /datasets/{id}/rows` backend route                               | `apps/backend/`                                               | backend      | feature            | (FastAPI — backend native; DuckDB `read_parquet` for the paged read) |
 | `DatasetDetail` + `RowsPage` types (FE)                               | `apps/builder/src/features/data-management/datasets/types.ts` | feature      | data type          | none                                                                |
 
-**Boundary check**: the metadata strip stays feature-local. The paged
-data-table was feature-local under the build-first rule
-([memory/2026-05-22-ui-boundary-build-first.md](../../../memory/2026-05-22-ui-boundary-build-first.md):
-"feature-local until two consumers exist") with the named trigger _"if a
-second paged-table consumer arrives (e.g. a query-results page), the
-extraction question gets re-opened with two concrete consumers in hand."_
+**Boundary check**: the metadata strip stays feature-local (inline in
+`DatasetDetailPage`). The paged data-table is **extracted** into a shared
+**`<PagedRowsView>`** because a second consumer exists — query-mode detail
+([saved-query.md](../queries/saved-query.md)) renders the same paged-rows body.
+Per the build-first rule (feature-local until two consumers exist,
+[memory/2026-05-22-ui-boundary-build-first.md](../../../memory/2026-05-22-ui-boundary-build-first.md)),
+two concrete consumers justify the extraction.
 
-> **R69 amendment — the trigger fired; the table is extracted.**
-> [saved-query.md](../queries/saved-query.md)'s query-mode detail is that second
-> concrete consumer, so the parked extraction is now promoted: the inline
-> `DataTableBody` + row-search + `<Pagination>` + the loading / zero-rows /
-> no-match / 404 states become a shared **`<PagedRowsView>`** — a `plain-UI`
-> primitive in `@mdd/ui`, peer to the existing `PageHeader` / `PageCard` /
-> `WorkspaceShell` shells. It takes `columns` (carrying `dtype` for cell
-> rendering) + the current page of `rows` + paging props + a **header slot**
-> (for the search bar or a query's predicate summary) + the state flags; it
-> owns no router, query, or fetch. Each feature page supplies the rows via
-> its own hook. This is the **one** extraction R69 performs — no further
-> layout-framework speculation (the round's dynamic-equilibrium brake). This
-> is a **declaration** at the Design gate; the code extraction is a later
-> F-gate commit (independently revertable).
->
-> The **standard detail layout** is therefore: `PageHeader` (title / info /
-> actions) + `PageCard variant="fill"` + `<PagedRowsView>`. Dataset-detail
-> and query-detail both instantiate it; each adds its own sections (this page
-> a metadata strip; query-detail a read-only predicate summary).
+`<PagedRowsView>` is the inline `DataTableBody` + `<Pagination>` + the loading
+/ zero-rows / no-match / 404 states, lifted into one `plain-UI` primitive. It
+takes `columns` (carrying `dtype` for cell rendering) + the current page of
+`rows` + paging props + an optional per-column header extra (e.g. the filter
+popover) + an `emptyState` slot + the state flags; it owns no router, query,
+or fetch, so each consumer supplies the rows via its own hook and keeps its
+own empty-state copy. It lives in `data-management/_shared/` (the lowest common
+ancestor of its two consumers, `datasets/` and `queries/`) rather than `@mdd/ui`,
+because it depends on the builder-domain `formatCell` helper + the dataset
+`Column`/`Dtype` types and `@mdd/ui` is dependency-free.
 
-`DatasetMetadataStrip` and `DataTable` are `plain-UI` purity —
-they take props in, render JSX out, no router, no query, no zod.
-The hooks + page above them carry the glue.
+The **standard detail layout** is therefore: `PageHeader` (title / info /
+actions) + `PageCard variant="fill"` + `<PagedRowsView>`. Dataset-detail and
+query-detail both instantiate it; each adds its own sections (this page a
+metadata strip; query-detail a read-only predicate summary).
+
+The metadata strip and `<PagedRowsView>` are `plain-UI` purity — they take
+props in, render JSX out, no router, no query, no zod. The hooks + page above
+them carry the glue.
 
 ---
 
 ## Reference materials
 
-- [datasets.md § Read/write boundary](datasets.md#readwrite-boundary-r15-scope)
-  — the deferral row this page resolves.
+- [datasets.md § Read/write boundary](datasets.md#readwrite-boundary)
+  — the collection-side read/write split this page complements.
 - [crud-hygiene.md](../_shared/crud-hygiene.md) — rename + delete modals
-  reused unchanged. R33 only adds a new _placement_ (page header
-  actions) for the same affordances.
+  reused unchanged. This page only adds a new _placement_ (page
+  header actions) for the same affordances.
 - [workspace-shell.target.md](../../_platform/workspace-shell.target.md) — the
   master-layout chrome (sidebar + topbar + page-card) this page
   renders inside.
@@ -198,12 +180,12 @@ Excel · Sheet1 — 2,481 rows · 12 columns · 84 KB · Uploaded 14:02 today  �
   the unfiltered total (`Y / Y`). Visible whenever the dataset
   has rows; hidden in zero-rows state. The wider goal is
   Cmd-F-style "find a row in this dataset" — not the full
-  query/dashboard surface, which remains R∞.
+  query/dashboard surface, which is out of scope here.
 
 ### Loading state (first load or page change)
 
 ```text
-Home ▸ Data Management ▸ Datasets ▸ q1_pipeline_Deals             [Rename]  [Delete]
+Home ▸ Data Management ▸ Datasets ▸ q1_pipeline_Deals   [Save filters as Query]  [Actions ▾]
 📊 q1_pipeline_Deals
 …loading…
 
@@ -215,12 +197,12 @@ Home ▸ Data Management ▸ Datasets ▸ q1_pipeline_Deals             [Rename]
 ```
 
 - Page header renders immediately from the dataset query (cached
-  from the list page if entered via row click — R31's
-  TanStack-Query cache covers this; React-router preload
-  optional, not designed in this round).
-- Table area shows AntD `<Skeleton>` rows (R31 added skeleton
-  pattern) — ~10 placeholder rows, header row is the real
-  column headers if the dataset query resolved.
+  from the list page if entered via row click — the TanStack-Query
+  cache covers this; React-router preload optional, not designed
+  in).
+- Table area shows AntD `<Skeleton>` rows — ~10 placeholder rows,
+  header row is the real column headers if the dataset query
+  resolved.
 - Subsequent page changes (page 2, 3, …) keep the previous page's
   rows visible behind a `loading={true}` overlay (AntD `<Table>`
   native behavior; no skeleton flash).
@@ -254,7 +236,7 @@ Home ▸ Data Management ▸ Datasets ▸ ?
 ### Zero-rows state (rare but legit)
 
 ```text
-Home ▸ Data Management ▸ Datasets ▸ commission_calc               [Rename]  [Delete]
+Home ▸ Data Management ▸ Datasets ▸ commission_calc    [Save filters as Query]  [Actions ▾]
 📄 commission_calc
 CSV — 0 rows · 6 columns · 4 KB · Uploaded 1 week ago
 
@@ -283,7 +265,7 @@ CSV — 0 rows · 6 columns · 4 KB · Uploaded 1 week ago
 ### No-match state (search returned zero rows)
 
 ```text
-Home ▸ Data Management ▸ Datasets ▸ q1_pipeline_Deals             [Rename]  [Delete]
+Home ▸ Data Management ▸ Datasets ▸ q1_pipeline_Deals   [Save filters as Query]  [Actions ▾]
 📊 q1_pipeline_Deals
 Excel · Sheet1 — 2,481 rows · 12 columns · 84 KB · Uploaded 14:02 today
 
@@ -321,7 +303,7 @@ This page is one of the codebase's **fixed-viewport-height** pages —
 the pagination bar pins to the card's bottom edge and the table body
 owns the vertical scroll (so the sticky `<th>` has a real scroll
 container to stick within). Use the `PageCard variant="fill"` recipe,
-exactly as `DatasetNewPage` (R17 wizard) does:
+exactly as the upload wizard's `DatasetNewPage` does:
 
 - Outer page `<div>`: `height: calc(100vh - 88px)` (WorkspaceShell
   chrome math = Layout.Header 56 + Content padding 16×2), flex column.
@@ -346,8 +328,7 @@ resolves to `rgba(0,0,0,0.02)` — rows bleed through).
 
 All cells are AntD `<ConfigProvider>` tokens derived from the six seeds
 in [`themeTokens.ts`](../../../../workspace/packages/ui/src/themeTokens.ts)
-(the source of truth — R66; re-cited off the archived CSS-variable
-mirror). Values are informational (resolved via
+(the source of truth). Values are informational (resolved via
 `theme.getDesignToken()`, antd 6.x).
 
 | Surface                       | AntD token                                | Value (informational) |
@@ -432,32 +413,29 @@ stateDiagram-v2
 - Direct browser back (`history.back()`) is the primary
   list-state-preservation lever — if the user clicked a row from
   a filtered list, browser back returns to the filtered list.
-- No explicit `referrer` param this round — flagged as a risk
-  (`../../plan/cycles/Round_33.md#risks--unknowns`);
-  promote to a `?from=` query param if `history.back()` proves
-  flaky in R36 verification.
+- No explicit `referrer` param — promote to a `?from=` query
+  param if `history.back()` proves flaky.
 
 ### Rename / delete (inherited from crud-hygiene.md)
 
-- Rename: opens existing `<RenameModal>` with `resourceLabel="dataset"`
-  and the current name pre-filled. Mutation hook: existing
-  `useRenameDatasetMutation()` from R26. Success → toast "Dataset
-  renamed" + the header title updates from the
-  re-cached dataset (TanStack Query invalidation already wired).
-- Delete: opens existing `<DeleteConfirmModal>` with
+- Rename: opens the `<RenameModal>` with `resourceLabel="dataset"`
+  and the current name pre-filled. Mutation hook:
+  `useRenameDatasetMutation()`. Success → toast "Dataset renamed",
+  and the header title updates from the re-cached dataset (TanStack
+  Query invalidation already wired).
+- Delete: opens the `<DeleteConfirmModal>` with
   `resourceLabel="dataset"` and the current name in the body. Mutation
-  hook: existing `useDeleteDatasetMutation()` from R26. Success
-  → toast "Dataset deleted" + `navigate('/data-management/datasets')`
-  (replace=true so back-button doesn't re-enter the deleted
-  page's 404 state).
-- Both modals already render correctly inside the master shell
-  (R26 + R29 contracts); no modal-mount-point changes needed.
+  hook: `useDeleteDatasetMutation()`. Success → toast "Dataset
+  deleted" + `navigate('/data-management/datasets')` (replace=true
+  so back-button doesn't re-enter the deleted page's 404 state).
+- Both modals render correctly inside the master shell; no
+  modal-mount-point changes needed.
 
-### Save as Query (R69 — placement only; spec in saved-query.md)
+### Save filters as Query (placement only; spec in saved-query.md)
 
-- A third header action, **`[+ Save as Query]`**, sits left of `[Rename]` in
-  the `PageHeader.actions` slot. It is **enabled iff ≥1 predicate is active**
-  on this page — chip `filters` ([dataset-filters.md](dataset-filters.md)),
+- A header action, **`[Save filters as Query]`**, sits left of the `Actions ▾`
+  dropdown in the `PageHeader.actions` slot. It is **enabled iff ≥1 predicate is
+  active** on this page — chip `filters` ([dataset-filters.md](dataset-filters.md)),
   the `advanced` DNF ([advanced-query.md](advanced-query.md)), or the `?q=`
   row search — and **disabled** otherwise with the tooltip _"Add a filter or
   search first."_
@@ -494,9 +472,8 @@ stateDiagram-v2
   `rowCount`).
 - **Cell rendering**: matched substring highlighting (mark
   matched chars in yellow) is **deferred** — useful but
-  expensive at 100 rows × 12 cols × highlight-render. Names
-  the trigger: promote if users complain they can't find their
-  match on the page. R∞ until then.
+  expensive at 100 rows × 12 cols × highlight-render. Promote if
+  users complain they can't find their match on the page.
 - **Zero matches**: table body shows a centered "No rows match
   `<q>`" placeholder; pagination disabled. Same chrome as the
   zero-rows state but with a different message.
@@ -517,9 +494,9 @@ button.
 
 ## Data contract
 
-> **R34 update**: the OpenAPI 3.1 YAML files are now
-> authoritative. The prose YAML below stays as a reading aid,
-> but if the two ever drift, the YAML wins.
+> The OpenAPI 3.1 YAML files are authoritative. The prose YAML
+> below stays as a reading aid, but if the two ever drift, the
+> YAML wins.
 >
 > - [`detail-get.contract.yaml`](../../../../workspace/packages/contracts/datasets/detail-get.contract.yaml)
 >   ([rationale](../../../../workspace/packages/contracts/datasets/detail-get.contract.md))
@@ -640,23 +617,23 @@ paths:
             `page_size` outside the enum. A page beyond
             `ceil(total / pageSize)` is NOT a 422 — it returns 200
             with an empty `rows` array (see `rows-get.contract.yaml`).
-            Body is the request-level validation shape (R34).
+            Body is the request-level validation shape.
 ```
 
 **Cell stringification rationale**: cells come over the wire as
-`string | null`. BE renders each cell via Parquet → string
-conversion (`pyarrow.compute.cast` or python-side `str()` per
-dtype) and FE re-applies dtype-aware display formatting using
+`string | null`. BE reads the page slice with DuckDB over the
+Parquet file and stringifies each cell via SQL `CAST(col AS
+VARCHAR)`; FE re-applies dtype-aware display formatting using
 the column dtype carried on the parent `Dataset.columns[].dtype`.
 This keeps the rows-payload schema-free and lets FE control
 locale/format without round-tripping every change. The
 alternative (typed cells with `(string | number | boolean |
 null)[][]`) leaks BE's parser opinions; defer until a real need.
 
-### FE types (target for R36)
+### FE types
 
 ```ts
-export type DatasetDetail = Dataset; // No extra fields in R33+.
+export type DatasetDetail = Dataset; // No extra fields.
 
 export type RowsPage = {
   rows: (string | null)[][];
@@ -676,50 +653,38 @@ export type RowsPage = {
   rows GET. `q` is part of the cache key so the same page across
   different searches stays cached independently. Invalidated on
   dataset delete (covered by the list-cache invalidation in
-  R26's `useDeleteDatasetMutation`); no separate invalidation
-  needed on rename (rows don't change).
+  `useDeleteDatasetMutation`); no separate invalidation needed on
+  rename (rows don't change).
 
 ---
 
 ## Read/write boundary
 
-**R34+ implements** (this design's full scope):
+**Implemented** (this design's full scope):
 
-- ✅ **R34** — OpenAPI 3.1 contracts for both routes, sibling
-  rationale docs, contract-validity tests green (see
-  [Round_34.md](../../../plan/cycles/Round_34.md)).
-- `GET /datasets/{id}` BE route (R35).
-- `GET /datasets/{id}/rows?page=&page_size=&q=` BE route (R35,
-  reads paged slice from the dataset's Parquet file; applies
-  the optional substring filter before paginating).
-- `datasetsApi.get(id)` + `.getRows(id, page, pageSize, q)` (R36).
-- `useDatasetQuery` + `useDatasetRowsQuery` hooks (R36).
+- OpenAPI 3.1 contracts for both routes, with sibling rationale docs.
+- `GET /datasets/{id}` BE route.
+- `GET /datasets/{id}/rows?page=&page_size=&q=` BE route — reads the
+  paged slice from the dataset's Parquet file via DuckDB; applies the
+  optional substring filter before paginating.
+- `datasetsApi.get(id)` + `.getRows(id, page, pageSize, q)`.
+- `useDatasetQuery` + `useDatasetRowsQuery` hooks.
 - `DatasetDetailPage` route at `/data-management/datasets/:id`
   with breadcrumb, header actions, metadata strip, search bar
-  (debounced 300 ms, AntD `<Input.Search>`), paged `<Table>`,
-  AntD `<Pagination>`, loading skeleton, 404 state, zero-rows
-  state, no-match state (R36).
-- List-page row-click handoff: `<Table>` `onRow` → navigate to
-  detail route (R36 — one-line behavioral update to existing
-  DatasetsPage).
+  (debounced 300 ms, AntD `<Input.Search>`), the shared
+  `<PagedRowsView>` (paged `<Table>` + AntD `<Pagination>`),
+  loading skeleton, 404 state, zero-rows state, no-match state.
+- List-page row-click handoff: `<Table>` `onRow` → navigate to the
+  detail route.
 - i18n keys: namespace `datasets.detail.*` for all user-facing
-  strings; en + vi resource entries (R36, follows R32's
-  pattern).
+  strings; en + vi resource entries.
 
-**Deferred** (not in this implementation chain):
+**Deferred**:
 
 - **Column sorting**. Parquet is column-oriented but sort-by-
   arbitrary-column still requires full-file read. Promote when
   a query/dashboard surface needs it or when row counts make
   unsorted browsing impractical.
-- **Per-column filters** — R37 design, R38→R40 impl chain.
-  Typed per-column predicates (`stage = won`, `amount between
-10,000 and 50,000`, `won_at after 2026-04-01`) layered on top
-  of `?q=`. Spec lives in
-  [dataset-filters.md](dataset-filters.md). Advanced query
-  language (`stage:won AND amount>10000` parsed syntax with
-  OR/grouping) remains deferred as the _next_ feature beyond
-  filters.
 - **Matched-substring highlighting** in cell text. Cheap UX
   win but adds a per-cell render pass; defer until users
   actually complain they can't find their match on the page.
@@ -731,10 +696,10 @@ export type RowsPage = {
 - **Row-level CRUD** (edit / delete / insert). Datasets are
   immutable post-commit in this iteration.
 - **Row inspection drawer** (click row → full-cell-text drawer
-  for long-string blobs). Truncate-with-tooltip is the R36
-  affordance; drawer is a follow-up.
+  for long-string blobs). Truncate-with-tooltip is the affordance
+  today; drawer is a follow-up.
 - **CSV / JSON / Parquet export**. Separate feature with its own
-  auth + perms story; R∞.
+  auth + perms story.
 - **Append / re-upload from this page**. Append-mode is reserved
   on the batch-commit contract but unimplemented; re-upload is
   delete + upload-new today.
@@ -743,9 +708,9 @@ export type RowsPage = {
 
 ## Acceptance criteria (Design gate exit)
 
-Testable criteria the R34–R36 chain satisfies, each mapping to at least
+Testable criteria the inspector satisfies, each mapping to at least
 one automated test across F / B / I. Numbered `C1`–`C8`; they describe
-the **shipped** inspector behaviour.
+the current inspector behaviour.
 
 **User journey** — as a user I click a dataset to inspect it: I see its
 metadata, page through its rows, and search for a row by substring.
@@ -805,32 +770,8 @@ This concept explicitly does NOT cover:
   of those modals; the modals themselves are unchanged.
 - The Saved Query feature — the modal internals, the persisted
   `Query` entity, the Queries catalog, and the query-mode detail
-  view all live in [saved-query.md](../queries/saved-query.md) (R69). This
-  page only _hosts_ the `[+ Save as Query]` action and _shares_ its
+  view all live in [saved-query.md](../queries/saved-query.md). This
+  page only _hosts_ the `[Save filters as Query]` action and _shares_ its
   paged-rows body via `<PagedRowsView>`.
 - Future dashboard surfaces that will read the same dataset; those
   get their own design docs when they land.
-
----
-
-## Lifecycle
-
-This doc:
-
-- **Amended in place** during R34→R36 if implementation surfaces
-  a decision not pre-baked here (exact table column widths,
-  exact dtype-badge color, exact skeleton row count).
-- **Amended R69 (this revision)** — declared the `<PagedRowsView>`
-  extraction (the parked two-consumer trigger fired via
-  [saved-query.md](../queries/saved-query.md)) and the `[+ Save as Query]`
-  header action. Both are Design-gate declarations; the code lands
-  in the R69 build chain. No change to this page's states or data
-  contract.
-- **Superseded** by `dataset-detail-v2.md` if the detail page
-  grows a second purpose (e.g. an inline chart preview, a column
-  profile panel) — that's a different surface, not an amendment.
-- **Folded back** into a `data-management/` overview doc if the
-  data-management spine (workspaces + datasets + detail +
-  queries + dashboards) cohere as one cross-feature design.
-
-R36's Act section confirms which lifecycle event applies.

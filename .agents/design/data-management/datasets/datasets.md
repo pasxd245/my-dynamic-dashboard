@@ -1,14 +1,5 @@
 # Datasets — feature design
 
-> ⚠️ **OUT OF SYNC** — `design-sync --check` (2026-06-17) found this doc has drifted from the
-> implementation: **4 claim(s) diverge from code** (list page size is 20, not the AntD-default 10;
-> the row-click "no-op" is resolved — a row navigates to `/data-management/datasets/:id`;
-> `DatasetTable`/`WorkspaceFilter` are inline in `DatasetsPage.tsx`, not standalone surfaces; and the
-> R78/R79 SQLModel+Alembic persistence rewrite — `source_id`, app-level delete cascade — is
-> unreferenced). See `.agents/tmp/design-sync/datasets.md`. Re-sync before trusting or designing on
-> it: run `design-sync .agents/design/data-management/datasets`.
-<!-- design-sync:out-of-sync domain=data-management/datasets detected=2026-06-17 claims=4 -->
-
 **Concept**: a Dataset is a tabular artifact in the product — the
 result of an upload, the thing queries and dashboards read from. It
 belongs to a Workspace (the container) but is the primary noun a
@@ -17,25 +8,15 @@ Datasets page at `/data-management/datasets` shows all datasets
 across all workspaces as a sortable / filterable **table list**; a
 workspace card click navigates here with the workspace filter
 applied.
-**Status**: Accepted (R14 design; shipped R15–R17; extended R23, R33).
-**Round introduced**: [Round_14](../../../plan/cycles/Round_14.md);
-implementation chain begins R15. Datasets is the **first
-implementation** of R11's sample "Datasets" sub-menu item — it
-promotes from sample to real scope in R14.
-**Backend**: [Round_16](../../../plan/cycles/Round_16.md) — SQLite-
-backed `datasets` table; `POST /workspaces/{id}/datasets/batch` and
-`GET /datasets` land against the locked R15 contracts.
-**Frontend**: [Round_17](../../../plan/cycles/Round_17.md) — Datasets
-table page with workspace filter; workspace-card click handoff.
+**Status**: Accepted.
 **Sibling docs**:
 [workspaces.md](../workspaces/workspaces.md) (the container datasets live inside),
 [upload.md](upload.md) (the action that creates a dataset — verb to
 this doc's noun),
 [crud-hygiene.md](../_shared/crud-hygiene.md) (rename + delete affordances on
-the Dataset row — R23 closes the R∞-deferred CRUD gap below),
-[dataset-detail.md](dataset-detail.md) (R33 design for the
-per-dataset inspector page; resolves this doc's R∞-deferred row-
-click affordance below),
+the Dataset row),
+[dataset-detail.md](dataset-detail.md) (the per-dataset inspector
+page reached by clicking a row),
 [workspace-shell.target.md](../../_platform/workspace-shell.target.md) (the chrome
 the Datasets page renders inside).
 
@@ -43,13 +24,9 @@ the Datasets page renders inside).
 
 ## Why this exists separately from upload.md
 
-Until R14's mid-round HIxAI review, the upload feature was framed
-with Upload as both noun and verb — "an upload" was the thing the
-user manipulated. Walking the preview surfaced the framing error:
-upload is an **action**; the **dataset** is what the user actually
-thinks about, queries, and reasons about going forward.
-
-This split:
+Upload is an **action**; the **dataset** is what the user actually
+thinks about, queries, and reasons about going forward. So the two
+are split into separate docs:
 
 - `datasets.md` (this file) — the **noun**: what a Dataset is, how
   the table list works, where it lives in the IA, how it relates
@@ -70,9 +47,7 @@ event" entity and no `status` field on Dataset.
 
 | Surface                            | Layer                                                         | Reusability  | Purity             | Allowed peer deps                  |
 | ---------------------------------- | ------------------------------------------------------------- | ------------ | ------------------ | ---------------------------------- |
-| `DatasetsPage` route component     | `apps/builder/src/features/data-management/datasets`          | feature      | feature            | react, antd, @tanstack/react-query |
-| `DatasetTable` component           | `apps/builder/src/features/data-management/datasets`          | feature      | feature            | react, antd                        |
-| `WorkspaceFilter` component        | `apps/builder/src/features/data-management/datasets`          | feature      | feature            | react, antd, @tanstack/react-query |
+| `DatasetsPage` route component (contains the table, workspace `<Select>` filter, drop-zone empty state, source icon, and relative-time formatter inline) | `apps/builder/src/features/data-management/datasets`          | feature      | feature            | react, antd, @tanstack/react-query |
 | `useDatasetsQuery` hook            | `apps/builder/src/features/data-management/datasets`          | feature      | glue (server-data) | @tanstack/react-query              |
 | `datasetsApi` client               | `apps/builder/src/api/`                                       | builder-only | glue               | (fetch — no extra peer dep)        |
 | `GET /datasets` backend route      | `apps/backend/`                                               | backend      | feature            | (FastAPI — backend native)         |
@@ -80,14 +55,16 @@ event" entity and no `status` field on Dataset.
 | `Dataset` type (frontend)          | `apps/builder/src/features/data-management/datasets/types.ts` | feature      | data type          | none                               |
 
 **Boundary check**: no dataset surface lives in `@mdd/ui`. The
-table list and its sub-components stay feature-local; if a second
-table list arrives in a future round (e.g., "Saved Queries
-table"), the extraction question gets re-opened with two concrete
-consumers in hand. Per the build-first lesson: feature-local until
-two consumers exist.
+table list, the workspace `<Select>` filter, and the drop-zone
+empty state are all **inline within `DatasetsPage.tsx`** — there
+are no standalone `DatasetTable` / `WorkspaceFilter` component
+files. They stay feature-local; if a second table list arrives
+(e.g. a "Saved Queries table"), the extraction question gets
+re-opened with two concrete consumers in hand. Per the build-first
+lesson: feature-local until two consumers exist.
 
-The `WorkspaceFilter` reads from the existing `useWorkspacesQuery`
-introduced in R13 — no new backend surface for the workspace list.
+The workspace filter reads from the existing `useWorkspacesQuery`
+hook — no new backend surface for the workspace list.
 
 ---
 
@@ -139,11 +116,11 @@ All tables across your workspaces. Click a row to inspect, sort by any column. �
   When set, URL becomes `/data-management/datasets?workspace=<id>`
   and breadcrumb shows `Home ▸ Data Management ▸ Datasets ▸
 Marketing` (workspace name appears as the filter trail).
-- **Search**: client-side substring match against Name (R15+ can
-  promote to server-side if a real user has >1000 datasets).
-- **Row click**: R∞ (dataset detail view). R15 ships row click as
-  a no-op or a tooltip — the row already shows the headline
-  metadata.
+- **Search**: client-side substring match against Name (can be
+  promoted to server-side if a real user has >1000 datasets).
+- **Row click**: navigates to the per-dataset inspector at
+  `/data-management/datasets/:id` (see
+  [dataset-detail.md](dataset-detail.md)).
 
 ### Empty state (zero datasets across all workspaces)
 
@@ -232,8 +209,6 @@ registry is enforced by
 
 ## Dataset data model
 
-R15+ ships:
-
 ```ts
 type Dataset = {
   id: string; // backend-generated (matches Workspace.id format)
@@ -254,34 +229,57 @@ type Column = {
 };
 ```
 
-**Decision rationale** (HIxAI Q12, locked R14 mid-round): no
-status field. The [upload wizard](upload.md) validates the parse
-before committing the Dataset row — when a row appears in this
-table, it is always `ready`. Failed parses live entirely inside
-the wizard (Step 2 — Preview) and never become persisted
+**No status field**: the [upload wizard](upload.md) validates the
+parse before committing the Dataset row — when a row appears in
+this table, it is always `ready`. Failed parses live entirely
+inside the wizard (Preview step) and never become persisted
 Datasets. Adding `status` "for future processing pipelines" is
 exactly the speculative scaffolding the
 [Evolution Rule](../../../AGENTS.md) warns against; defer until a
 concrete pull arrives.
 
 **`name` is user-supplied**: defaults to the filename stem in the
-wizard's Confirm step, editable before commit. R∞ adds rename UI
-on the Dataset row.
+wizard's Confirm step, editable before commit; the Dataset row's
+rename affordance ([crud-hygiene.md](../_shared/crud-hygiene.md))
+edits it after commit.
 
 **Counts and columns are never null**: they are set at commit
 time by the wizard, populated from the parsed Parquet schema.
 The two-phase upload flow (see [upload.md](upload.md)) means the
 Dataset only exists once parsing succeeded.
 
-**Deferred fields**: `updatedAt`, `parsedAt`, `parseDurationMs`,
-`tags`, `description`, `sourcePath`. Each lands when a UI surface
-or operational concern needs it.
+**Deferred fields**: `updatedAt`, `parseDurationMs`, `tags`,
+`description`. Each lands when a UI surface or operational concern
+needs it.
+
+### Persistence
+
+The schema-of-record is **SQLModel** (`app/db_models.py`) with
+**Alembic** migrations (`0001_baseline`, `0002_query_source_id`);
+the wire shape (camelCase) is mapped from the DB columns
+(snake_case): `workspaceId`↔`workspace_id`, `sizeBytes`↔`size_bytes`,
+`rowCount`↔`row_count`, `columnCount`↔`column_count`,
+`columns`↔`columns_json` (JSON), `sourceFormat`↔`source_format`,
+`sheetName`↔`sheet_name`, `createdAt`↔`created_at`. Every router
+handler reads/writes through raw `sqlite3` (`get_conn()`), not the
+ORM session — SQLModel + Alembic own the DDL; the handlers own the
+queries. The `datasets` table CHECKs name 1–120, `size_bytes ≥ 0`,
+`row_count ≥ 0`, `column_count ≥ 1`, `source_format IN (csv, excel)`;
+`(workspace_id, name)` is UNIQUE and `workspace_id` is an
+`ON DELETE CASCADE` FK to `workspaces`.
+
+A dataset is **not terminal**: a Query can be rooted on a dataset
+via the Query's `source_id`. `DELETE /datasets/{id}` therefore runs
+an **app-level cascade** — it first deletes `queries WHERE source_id
+= <ds>`, then the dataset row, then `rmtree`s the dataset's storage
+directory. The delete still returns 204 (no 409 path), so the
+FE-facing contract is unchanged.
 
 ---
 
 ## Workspace filter behavior
 
-- Dropdown sourced from `useWorkspacesQuery()` (R13's hook).
+- Dropdown sourced from `useWorkspacesQuery()`.
 - Options: `All` (default) + one option per workspace, ordered by
   workspace `createdAt` desc (matches the Workspaces grid order).
 - Selecting a workspace updates the URL query param:
@@ -294,55 +292,51 @@ or operational concern needs it.
 
 ---
 
-## Read/write boundary (R15+ scope)
+## Read/write boundary
 
-**R15+ implements**:
+**In scope**:
 
-- `DatasetTable` component with default-sort, workspace filter,
-  client-side search.
+- The dataset table (inline in `DatasetsPage`) with default-sort,
+  workspace filter, client-side search.
 - `DatasetsPage` route at `/data-management/datasets`.
 - Workspace filter via URL query param.
 - `useDatasetsQuery(workspaceId?: string)` returning datasets for
   the given workspace (or all if omitted).
 - `GET /datasets?workspace_id=<id>` backend route.
-- Workspace card click navigates to the filtered view (R13's
-  Workspaces page gets a one-line behavioral update).
+- Workspace card click navigates to the filtered view.
 - `+ Upload` button navigates to the wizard route
   `/data-management/datasets/new` (see [upload.md](upload.md)).
+- Row click navigates to the per-dataset inspector
+  ([dataset-detail.md](dataset-detail.md)).
+- Rename / delete affordances on the row
+  ([crud-hygiene.md](../_shared/crud-hygiene.md)).
+- **List pagination**: the table sets `pageSize: 20` with
+  `hideOnSinglePage: true` — at most 20 rows per page, no
+  pagination control until a second page exists.
 
-**Deferred** (not in R15+'s implementation chain):
+**Deferred**:
 
-- ~~**Dataset detail view** (clicking a row). R∞ until a downstream
-  surface (query, dashboard) needs a per-dataset URL.~~ **Resolved
-  by R33** ([dataset-detail.md](dataset-detail.md)) — per-dataset
-  inspector page at `/datasets/:id` with paged row table. R34
-  (contract), R35 (BE), R36 (FE) implement against R33's design.
-- **Rename dataset / delete dataset**. R∞ until a user has a
-  mis-named or stale dataset blocking work.
-- **Re-parse** (re-run parser without re-uploading). R∞.
-- **Column-level affordances** (rename column, override dtype). R∞
-  per [upload.md](upload.md)'s deferral list.
-- **Saved-filter / pinned-search**. R∞.
-- **Bulk operations** (multi-select, bulk delete). R∞.
-- **Pagination / virtualization**. The table is single-page until
-  a real user has 100+ datasets; AntD `<Table>`'s default
-  pagination kicks in at 10 rows per page as a stopgap. Virtual
-  scroll lands when 1000+ rows is a real number.
+- **Re-parse** (re-run parser without re-uploading).
+- **Column-level affordances** (rename column, override dtype) —
+  see [upload.md](upload.md)'s deferral list.
+- **Saved-filter / pinned-search**.
+- **Bulk operations** (multi-select, bulk delete).
+- **Virtualized scroll**. Lands when 1000+ datasets is a real
+  number.
 
 ---
 
 ## Backend endpoint shape
 
-R15+ ships:
-
 ```python
 # apps/backend/app/routers/datasets.py
 @router.get("/datasets", response_model=list[Dataset])
 def list_datasets(workspace_id: str | None = None) -> list[Dataset]:
-    # Returns datasets ordered createdAt desc. When workspace_id is
-    # provided, scopes to that workspace; otherwise returns all
-    # datasets across all workspaces. All returned datasets are
-    # committed-ready by definition (no transient or failed rows).
+    # Returns datasets ordered created_at DESC, id DESC. When
+    # workspace_id is provided, scopes to that workspace; otherwise
+    # returns all datasets across all workspaces. All returned
+    # datasets are committed-ready by definition (no transient or
+    # failed rows).
 ```
 
 The matching **create** endpoint lives in [upload.md](upload.md) —
@@ -365,8 +359,7 @@ filter variants.
 
 ## Sub-menu and navigation
 
-R11's `NAV_GROUPS` had `Datasets (sample)` as a placeholder; R14
-promotes it to real. R15+ ships:
+Datasets is a real `NAV_GROUPS` sub-item under Data Management:
 
 ```ts
 const NAV_GROUPS: NavGroup[] = [
@@ -383,21 +376,16 @@ const NAV_GROUPS: NavGroup[] = [
 ];
 ```
 
-The `Schemas (sample)` item from R11's sidebar remains sample for
-now — no real surface pulls it in yet. R∞ promotes if schema
-editing becomes a real feature.
-
 **Active state**: when route is `/data-management/datasets`
 (with or without `?workspace=...`), Datasets is highlighted.
 Workspace filter does not change which sidebar item is active.
 
 ---
 
-## Acceptance criteria (Design gate exit)
+## Acceptance criteria
 
-Testable criteria the R15–R17 chain satisfies (extended R23, R33), each
-mapping to at least one automated test across F / B / I. Numbered
-`C1`–`C9`; they describe the **shipped** catalog behaviour.
+Testable criteria, each mapping to at least one automated test
+across F / B / I. They describe the current catalog behaviour.
 
 **User journey** — as a user I open Datasets to see every table across
 my workspaces in one sortable list, filter to a workspace, and find a
@@ -429,9 +417,9 @@ dataset by name.
    `workspaceId`, `name`, `sizeBytes`, `rowCount`, `columnCount`,
    `columns[]`, `sourceFormat`, `sheetName?` (iff Excel), `createdAt`;
    `rowCount` / `columnCount` / `columns` are never null.
-9. **Row-click handoff (R33)** _(FE)_ — clicking a row navigates to
-   `/data-management/datasets/:id`, resolving the R∞-deferred affordance
-   per [dataset-detail.md](dataset-detail.md).
+9. **Row-click handoff** _(FE)_ — clicking a row navigates to
+   `/data-management/datasets/:id` per
+   [dataset-detail.md](dataset-detail.md).
 
 ---
 
@@ -447,10 +435,9 @@ This concept covers:
 
 This concept defers:
 
-- All of the "Deferred" bullets in § Read/write boundary above (detail
-  view — resolved by R33; rename / delete — by R23; re-parse,
-  column-level affordances, saved filters, bulk ops, and
-  pagination / virtualization).
+- All of the "Deferred" bullets in § Read/write boundary above
+  (re-parse, column-level affordances, saved filters, bulk ops,
+  and virtualized scroll).
 
 This concept explicitly does NOT cover:
 
@@ -460,39 +447,6 @@ This concept explicitly does NOT cover:
   [dataset-detail.md](dataset-detail.md)).
 - Rename / delete affordances and their modals (live in
   [crud-hygiene.md](../_shared/crud-hygiene.md); the table's Actions column is a
-  _placement_ of them, added in R23).
+  _placement_ of them).
 - The Workspace container model (lives in
   [workspaces.md](../workspaces/workspaces.md)).
-
----
-
-## Lifecycle
-
-This doc:
-
-- **Amended in place** during R15+ if implementation surfaces a
-  decision not pre-baked here (table column widths, exact filter
-  UI, etc.).
-- **Superseded** by `datasets-v2.md` if dataset semantics grow
-  beyond "the result of a CSV upload" (e.g., virtual datasets
-  defined by a saved query, or imported tables from a connector).
-- **Folded back** into a `data-management/` overview doc if the
-  data-management spine (workspaces + datasets + queries +
-  dashboards) cohere as one cross-feature design.
-
-R15+'s Act section confirms which lifecycle event applies.
-
----
-
-## Open questions answered in R14 (mid-round reframe)
-
-| Q                                                        | Decision                                                                           | Source                        |
-| -------------------------------------------------------- | ---------------------------------------------------------------------------------- | ----------------------------- |
-| Should upload be its own sub-menu (vs Workspaces child)? | Datasets is the noun and the sub-menu item; upload is a verb against datasets.     | R14 HIxAI Q9 (user-directed)  |
-| Card grid or table list for the dataset index?           | Table list — sortable columns, workspace filter (no status column)                 | R14 HIxAI Q10 (user-directed) |
-| Workspace detail page route?                             | No dedicated route — workspace cards link to `/datasets?workspace=<id>`            | R14 HIxAI Q11 (user-directed) |
-| `datasets.md` vs single `upload.md`?                     | Two docs — noun (datasets.md) + verb (upload.md), cross-referencing                | R14 mid-round design decision |
-| Empty state for filtered view?                           | Drop zone with workspace name; submit takes user into the wizard pre-filled        | R14 mid-round design decision |
-| Keep `status` field on Dataset?                          | No — wizard validates pre-commit, every persisted Dataset is ready                 | R14 HIxAI Q12 (lean accepted) |
-| Wizard column-dtype override in step 2?                  | No — trust inferred types; override is R∞ until a real user is blocked             | R14 HIxAI Q14 (lean accepted) |
-| Primary data source for R15?                             | Excel (CRM-export dominant), CSV secondary. Dataset gains sourceFormat + sheetName | R14 HIxAI Q15 (user-directed) |

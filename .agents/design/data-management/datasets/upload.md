@@ -1,15 +1,5 @@
 # Upload — feature design (verb, full-page wizard, multi-source)
 
-> ⚠️ **OUT OF SYNC** — `design-sync --check` (2026-06-17) found this doc has drifted from the
-> implementation: **9 claim(s) diverge from code** (named helpers `cast_columns()`/`parse_excel()`/
-> `read_excel_sheets()` don't exist — real ingest is `parse_csv`/`parse_sheet`/`enumerate_sheets`/
-> `write_*_to_parquet` with no re-cast step; the temp FS layout is wrong; `POST /uploads` returns
-> 200 not 201; the commit `temp_id` is top-level on `_BatchRequest`, not per-item; there is no
-> parse-options-mismatch `409` and commit RE-PARSES from the original; name validation is 1–120,
-> not 1–80). See `.agents/tmp/design-sync/datasets.md`. Re-sync before trusting or designing on it:
-> run `design-sync .agents/design/data-management/datasets`.
-<!-- design-sync:out-of-sync domain=data-management/datasets detected=2026-06-17 claims=9 -->
-
 **Concept**: Upload is a **full-page wizard** at
 `/data-management/datasets/new` that brings a tabular data file
 into the product and turns it into one or more
@@ -21,20 +11,7 @@ a Metadata step; previews the first ten rows of parsed data; names
 each dataset; and commits. Dataset rows appear in the
 [Datasets table](datasets.md) only after the Confirm step's atomic
 commit succeeds — failed parses never become persisted Datasets.
-**Status**: Accepted (R14 design; shipped R15–R17; extended R19/R21/R30/R32).
-**Round introduced**: [Round_14](../../../plan/cycles/Round_14.md);
-implementation chain begins R15.
-**Backend**: [Round_16](../../../plan/cycles/Round_16.md) — temp
-upload + per-sheet parse + atomic batch-commit endpoints land
-against the locked R15 contracts; persistence is SQLite metadata +
-filesystem tree for parsed parquet.
-**Frontend**: [Round_17](../../../plan/cycles/Round_17.md) — full-page
-wizard at `/data-management/datasets/new`; reducer-driven state;
-CSV 3-step / Excel 4-step paths.
-**Frontend**: [Round_21](../../../plan/cycles/Round_21.md) — parse-options
-disclosure (range / skip_rows / has_header), Excel `[Re-parse this
-sheet]`, three preview-failed action buttons, override-reset on
-re-parse and on parse-options edit (R19 Q2, Q4).
+**Status**: Accepted.
 **Sibling docs**:
 [datasets.md](datasets.md) (the noun this wizard creates),
 [workspaces.md](../workspaces/workspaces.md) (the container an upload targets),
@@ -45,27 +22,27 @@ the wizard renders inside).
 
 ## Why a page, not a modal — and why a multi-source wizard
 
-Two reframes shaped this design, both during R14's HIxAI review:
+Two rationales shape this design:
 
-1. **Modal → page.** The modal couldn't carry a useful data
+1. **Page, not modal.** A modal can't carry a useful data
    preview — and previewing the parsed schema + first ten rows is
    the gate that justifies multi-step ingestion in an analytics
    product. The wizard gives the preview step the full content
    area, lets Cancel be a clean exit, and is the in-flow failure-
    handling surface (so the Datasets table never carries
    transient or failed rows).
-2. **Single-source → multi-source.** The user named Excel as the
-   primary data source (CRM exports are predominantly `.xlsx`;
-   CSV is the export-of-export fallback). The wizard's IA
-   accommodates this: a data-source selector at Step 1 sets the
-   downstream step path. CSV stays a 3-step flow; Excel becomes
-   a 4-step flow with a Sheet selection inserted before Preview.
-   Future sources (API, Website, SQL, …) plug in as additional
-   selector options with their own step variants; R15 commits
-   only Excel + CSV.
+2. **Multi-source, Excel primary.** Excel is the primary data
+   source (CRM exports are predominantly `.xlsx`; CSV is the
+   export-of-export fallback). The wizard's IA accommodates this:
+   a data-source selector at Step 1 sets the downstream step path.
+   CSV stays a 4-step flow; Excel becomes a 5-step flow with a
+   Sheet selection inserted before Metadata. Future sources (API,
+   Website, SQL, …) plug in as additional selector options with
+   their own step variants; today the wizard commits only Excel +
+   CSV.
 
-The wizard's stepper renders dynamically — it shows 3 dots for
-CSV, 4 for Excel. Users see only the steps relevant to their
+The wizard's stepper renders dynamically — it shows 4 steps for
+CSV, 5 for Excel. Users see only the steps relevant to their
 chosen source.
 
 ---
@@ -74,8 +51,7 @@ chosen source.
 
 | Surface                                                | Layer                                                | Reusability  | Purity             | Allowed peer deps                                |
 | ------------------------------------------------------ | ---------------------------------------------------- | ------------ | ------------------ | ------------------------------------------------ |
-| `DatasetNewPage` route component                       | `apps/builder/src/features/data-management/datasets` | feature      | feature            | react, react-router-dom, antd, @ant-design/icons |
-| `UploadStepper` component                              | `apps/builder/src/features/data-management/datasets` | feature      | plain-UI           | react, antd                                      |
+| `DatasetNewPage` route component (owns the inline AntD `<Steps>` stepper + reducer state) | `apps/builder/src/features/data-management/datasets` | feature      | feature            | react, react-router-dom, antd, @ant-design/icons |
 | `UploadSourceStep` component                           | `apps/builder/src/features/data-management/datasets` | feature      | feature            | react, antd, @tanstack/react-query               |
 | `UploadSheetStep` component (Excel-only, checkboxes)   | `apps/builder/src/features/data-management/datasets` | feature      | feature            | react, antd                                      |
 | `UploadMetadataStep` component (per-sheet tabs)        | `apps/builder/src/features/data-management/datasets` | feature      | feature            | react, antd                                      |
@@ -88,21 +64,24 @@ chosen source.
 | `POST /uploads` route (temp + light metadata)          | `apps/backend/`                                      | backend      | feature            | (FastAPI multipart — backend native)             |
 | `POST /uploads/<temp_id>/parse` route (per-sheet)      | `apps/backend/`                                      | backend      | feature            | (FastAPI — backend native)                       |
 | `POST /workspaces/<id>/datasets/batch` (atomic commit) | `apps/backend/`                                      | backend      | feature            | (FastAPI — backend native)                       |
-| `parse_csv()` ingestion helper                         | `apps/backend/app/ingest/`                           | backend      | pure (data)        | duckdb                                           |
-| `parse_excel()` ingestion helper                       | `apps/backend/app/ingest/`                           | backend      | pure (data)        | duckdb (excel ext) or pandas+openpyxl            |
-| `read_excel_sheets()` helper                           | `apps/backend/app/ingest/`                           | backend      | pure (data)        | openpyxl (or duckdb excel ext)                   |
-| `cast_columns()` helper (dtype-override re-cast)       | `apps/backend/app/ingest/`                           | backend      | pure (data)        | duckdb / pyarrow                                 |
+| `parse_csv()` ingestion helper (`ingest/csv_parser.py`) | `apps/backend/app/ingest/`                          | backend      | pure (data)        | duckdb                                           |
+| `parse_sheet()` + `enumerate_sheets()` (`ingest/excel_parser.py`) | `apps/backend/app/ingest/`                | backend      | pure (data)        | openpyxl / duckdb excel ext                      |
+| `write_csv_to_parquet()` + `write_excel_to_parquet()` (`ingest/parquet_writer.py`) | `apps/backend/app/ingest/`     | backend      | pure (data)        | duckdb                                           |
 | `UploadDraft` type (frontend in-memory)                | `apps/builder/src/features/data-management/datasets` | feature      | data type          | none                                             |
 
-**Boundary check**: no wizard surface lives in `@mdd/ui`. All
-step components and ingestion helpers live in their respective
-feature folders; the wizard's state-machine wiring stays
-co-located with `DatasetTable`.
+**Boundary check**: no wizard surface lives in `@mdd/ui`. The
+stepper is an inline AntD `<Steps>` inside `DatasetNewPage`, not a
+standalone component; all step components and ingestion helpers
+live in their respective feature folders; the wizard's
+state-machine wiring (`upload/state.ts`) stays co-located with the
+step components.
 
-The `parse_csv()` and `parse_excel()` helpers are intentionally
-parallel — one entry point per source type. A future source adds
-a new helper (`parse_api_endpoint`, `parse_database_query`, …)
-following the same shape: `(source) → ParseResult`.
+The CSV and Excel ingest paths are intentionally parallel — one
+parser entry point per source type (`parse_csv` /
+`parse_sheet` + `enumerate_sheets`) feeding one parquet writer per
+source (`write_csv_to_parquet` / `write_excel_to_parquet`). A
+future source adds a new parser + writer pair following the same
+shape.
 
 ---
 
@@ -112,7 +91,7 @@ The wizard renders inside the master-layout chrome with the
 sidebar's "Datasets" sub-item active. PageHeader carries the
 breadcrumb, title, and Cancel affordance; PageCard wraps the
 stepper, step content, and nav buttons. The stepper renders
-**dynamically** — 3 dots for CSV, 4 dots for Excel.
+**dynamically** — 4 steps for CSV, 5 for Excel.
 
 ### Step 1 — Source (data-source type + workspace + file)
 
@@ -197,12 +176,11 @@ Upload a file and turn it into a queryable dataset.                      ──�
   row count, column count — returned by `POST /uploads`. No
   parse yet. **Checkbox selection** (multi-select, 1+ required).
 - `[Next >]` enabled iff ≥ 1 sheet selected. Clicking Next triggers
-  `POST /uploads/<temp_id>/parse` for **each selected sheet** —
-  parsed in sequence on the backend, each writing
-  `parsed.<sheet_key>.parquet` and `preview.<sheet_key>.json`.
-  Lean: parallel parse on the backend when feasible (small files);
-  the frontend awaits all results before transitioning. R15+ Plan
-  decides serial vs concurrent.
+  a single `POST /uploads/<temp_id>/parse` carrying one item per
+  selected sheet; the backend parses each sheet from the stored
+  `original.<ext>` and returns the per-sheet schema + sample rows
+  in the response body. Nothing is persisted to disk at parse
+  time — parses are re-read from the original on demand.
 - Subsequent steps (Metadata, Preview) gain **tabs** — one per
   selected sheet. The wizard's "Next" navigation moves between
   steps, not between tabs; the user reviews each sheet inside the
@@ -305,11 +283,11 @@ the Dataset, and overriding each kept column's dtype.
   dtype field — column **name** is read-only in R15+ (renaming
   deferred to R∞).
 - Override dropdown values: `string · integer · float · boolean ·
-date · datetime`. Any override is allowed at this step; the
-  Commit step's atomic commit re-casts via `cast_columns()` —
-  implausible casts (e.g., `"abc"` → integer) surface as a 422
-  with a row-pointing error and the wizard remains on Confirm
-  with an inline `<Alert>`.
+date · datetime`. The override is a **dtype relabel** applied to
+  the committed dataset's `columns_json` (`_apply_overrides`) — the
+  parquet is written with the dtypes the parser inferred, not
+  re-cast. A `date` / `datetime` override **requires** a `format`
+  (422 otherwise).
 - **Format string** input appears under the dtype dropdown **only
   when the dtype is `date` or `datetime`**. CSV / Excel source
   dates are notoriously ambiguous (`01/02/2026` could be Jan 2
@@ -368,9 +346,9 @@ date · datetime`. Any override is allowed at this step; the
   override (read-only here — to change it, go back to Metadata).
 - 10 rows of sample data. Horizontal scroll for wide tables.
 - **Excel multi-sheet**: same tabs as the Metadata step. Each
-  tab's preview reads from `preview.<sheet_key>.json` (the temp
-  upload's per-sheet preview file). Switching tabs is cheap; no
-  re-parse needed since overrides only affect commit.
+  tab's preview rows come from the `POST /uploads/<temp_id>/parse`
+  response held in client state. Switching tabs is cheap; no
+  re-parse needed since dtype overrides only relabel at commit.
 - `[Adjust parse options ▾]` R∞ stub. For Excel: header-row
   detection (sheets with title rows). For CSV: delimiter,
   encoding, header-row.
@@ -454,19 +432,24 @@ inspection of the others.
   - Excel: `<filename_stem>_<sheet_name>` (e.g.,
     `q1_pipeline_2026_Deals`) — disambiguates when multiple
     sheets from the same workbook are imported.
-- Each row's name input is editable; validation is 1–80 chars
-  (same as Workspace name). Duplicate names within this batch
-  surface as inline validation errors.
+- Each row's name input is editable; validation is **1–120 chars**
+  (the `_BatchItem.name` bound, matching the rename path's
+  `NAME_LENGTHS["dataset_max"]`). Duplicate names within this
+  batch surface as inline validation errors.
 - **Overrides column** summarizes how many columns the user
   overrode on each sheet in the Metadata step (`none` /
   `N columns`). Helps spot accidental misclicks.
 - `[Create datasets]` triggers
-  `POST /workspaces/<id>/datasets/batch` with the full payload:
+  `POST /workspaces/<id>/datasets/batch` with the full payload —
+  `temp_id` is a **single top-level field** (the whole batch comes
+  from one upload), and each item carries its own sheet / name /
+  options / overrides / exclusions:
 
   ```ts
   {
+    temp_id,
     items: [
-      { temp_id, sheet, name, column_overrides? },
+      { sheet?, name, parse_options?, column_overrides?, excluded_columns? },
       ...
     ]
   }
@@ -562,51 +545,47 @@ registry is enforced by
 
 ---
 
-## File storage decision
+## File storage
 
-R15+ stores each uploaded file as the **raw source file** plus a
+Each committed dataset is stored as the **raw source file** plus a
 **Parquet companion** of the parsed table, on the backend
-filesystem:
+filesystem (`app/storage.py`):
 
 ```text
 workspace/apps/backend/data/datasets/
 └── <workspace_id>/
     └── <dataset_id>/
         ├── original.<csv|xlsx>           # verbatim bytes
-        ├── parsed.parquet                # DuckDB/pandas-written, schema-enforced
-        └── source.json                   # { sourceFormat, sheetName?, parsedAt }
+        ├── parsed.parquet                # DuckDB-written, schema-enforced
+        └── source.json                   # { temp_id, sourceFormat, sheet, originalName }
 ```
 
-**Temp upload storage** (Step 1 → Step 2/3):
+**Temp upload storage** (during the wizard, before commit) holds
+**only the raw bytes plus light metadata** — there are no
+per-sheet parsed/preview files; each parse is re-read from
+`original.<ext>` on demand and returned in the response:
 
 ```text
 workspace/apps/backend/data/uploads_tmp/
 └── <temp_id>/
     ├── original.<csv|xlsx>
-    ├── metadata.json                     # { sourceFormat, sheets?: [{name,rowCount,columnCount}] }
-    ├── parsed.<sheetkey>.parquet         # written after /uploads/<temp_id>/parse succeeds
-    └── preview.<sheetkey>.json           # first 10 rows + schema for the preview step
+    └── meta.json                         # { sourceFormat, sheets?: [{sheet,rowCount,columnCount,usedRange?}] }
 ```
 
-For CSV `<sheetkey>` is `default`. For Excel it's the sanitized
-sheet name. This lets a user pick a different sheet in Step 2 and
-get a fresh parse without re-uploading the file.
-
-**Commit (Step 3/4 → POST /workspaces/<id>/datasets/batch)**: the
-backend reads `metadata.json` to know which sheet was chosen
-last, copies `original.<ext>` and `parsed.<sheetkey>.parquet` →
-`datasets/<workspace_id>/<dataset_id>/{original.ext, parsed.parquet}`,
-writes a `source.json` summarising the source format + sheet
-name, inserts the Dataset row, deletes the temp directory.
+**Commit (`POST /workspaces/<id>/datasets/batch`)**: the backend
+**re-parses each item from `original.<ext>` at commit time**
+(applying that item's `parse_options`), `shutil.copy2`s the
+original into the dataset directory, **writes a fresh
+`parsed.parquet`** via the parquet writer, writes `source.json`,
+and inserts the Dataset row. It does **not** delete the temp
+directory — the TTL sweep is the sole reaper.
 
 **TTL on temp uploads**: 24 hours, swept by a lifespan-spawned
 asyncio task (`app.jobs.tmp_sweep.sweep_loop`) that re-runs on the
 configured interval. Disabled in tests via
 `MDD_BACKEND__TMP_SWEEP__ENABLED=false`. Configured under
 `backend.tmp_sweep.{enabled, interval_seconds, ttl_seconds}` in
-`workspace/config/values.yaml` (R30). Original R15 framing
-("swept on backend startup") was a one-shot; R30 replaced it with
-a real periodic sweep.
+`workspace/config/values.yaml`.
 
 **File-size cap**: 100 MB per upload, same for both formats.
 Larger files defer to a future chunked-upload round.

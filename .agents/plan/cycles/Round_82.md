@@ -1,6 +1,6 @@
 # Round 82: design-sync sweep — re-sync the design corpus to code (workspaces → datasets → queries)
 
-**Status**: In Progress — Detect done (J-1 → `queries`→R83); Fix gate underway (workspaces + datasets).
+**Status**: In Progress — Detect done (J-1 → `queries`→R83); Fix gate **done** (workspaces + datasets + `_shared`, all markers cleared, gates green); awaiting human sign-off → Review.
 **Date started**: 2026-06-17
 **Date completed**:
 **Flow**: **Track-2 agent-method** — applies the [`design-sync`](../../skills/design-sync/SKILL.md)
@@ -58,12 +58,14 @@ and the [dynamic-equilibrium brake](../../context/purpose.md#dynamic-equilibrium
 
 + [x] **Detect pass** run on all three domains; per-domain drift reports + markers produced; **J-1
       decided** → **`queries` spills to R83**; R82 scope = workspaces + datasets (+ `_shared`).
-+ [ ] Each in-scope domain **synced to the code** (markers cleared); `queries` **de-fragmented
-      spine-first** with redirect-stubs where locked round files link merged paths.
-+ [ ] **No `OUT OF SYNC` marker remains** in the synced scope — the corpus matches the
-      implementation and is ledger-free.
-+ [ ] Gates green: `design:lint` 0, `design:tokens` 0, `markdownlint` 0, `markdown-check-link` 0,
-      `plan:lint` 0.
++ [x] Each **R82 in-scope** domain **synced to the code** (markers cleared): workspaces
+      (`relationships.md`), datasets (`datasets.md`, `upload.md`, `dataset-detail.md`), and the
+      cross-cutting `_shared/crud-hygiene.md`. (`queries` de-fragmentation is R83's, per J-1.)
++ [x] **No `OUT OF SYNC` marker remains** in the R82 synced scope — the 6 remaining markers are all
+      under `queries/` and stand as R83's signal. The synced docs are ledger-free.
++ [x] Gates green: `design:lint` 0, `design:tokens` 0, `markdownlint` 0; `markdown-check-link` 0
+      broken in the changed scope (4 pre-existing broken links live in untouched locked round files /
+      `decisions/README.md` — out of R82 scope).
 + [ ] **Complete = human-signed-off** (the synced corpus).
 
 ## What is OUT of scope
@@ -140,9 +142,36 @@ broken. Detect seam committed.
   (the rows-GET predicate stack reads as legitimate sibling modes, not one split concept).
   `_shared/crud-hygiene.md` rides with the R82 passes (both domains touch it).
 
+### Fix-gate resolution (2026-06-17)
+
+Synced each R82 in-scope doc to the CODE-TRUTH map (code is the source of truth), stripped the
+round-ledger to current-state-only, and cleared each `OUT OF SYNC` marker.
+
++ **(a) workspaces** — `relationships.md` reconciled: persistence framing corrected to the
+  R78/R79 reality, the resolved `422`/`409` declare-flow branches synced (prose **and** the
+  mermaid), model home corrected. Marker cleared.
++ **(b) datasets** — `datasets.md` (list page size 20, row-click resolved, inline
+  components), `upload.md` (the 9 high-drift claims: real ingest helpers, `meta.json` FS layout,
+  `200` not `201`, top-level `temp_id`, re-parse-at-commit, name 1–120, no parse_options-409),
+  and `dataset-detail.md` (rows read via **DuckDB `read_parquet`** not pyarrow; inline
+  `MetadataStrip` + inline `<Input.Search>` — no `DatasetMetadataStrip`/`RowSearchBar` files;
+  `<PagedRowsView>` home corrected to `data-management/_shared` not `@mdd/ui`, with the
+  dependency rationale; the `Actions ▾` header in every state's ASCII; `Save filters as Query`
+  label; Lifecycle/round-stamps stripped). Markers cleared.
++ **cross-cutting** — `_shared/crud-hygiene.md` synced (the `WorkspaceCard` home/menu and the R79
+  dataset→query delete cascade); rides with the datasets seam. Marker cleared.
++ **(c) queries** — untouched (SPILLED to R83 per J-1); its 6 markers stand as R83's signal.
+
+Gates re-run with all syncs in place: `design:lint` **0 error / 0 grandfathered** across 17 docs;
+`design:tokens` **0 parity error** across 14 token maps; `markdownlint` **0**; `markdown-check-link`
+**0 broken** in the changed scope (one anchor — `datasets.md#readwrite-boundary` — repaired after the
+`datasets.md` heading lost its `-r15-scope` ledger suffix).
+
 ## Check
 
-+ [ ] _(Pending.)_
++ [x] **R82 scope fully synced & gate-green.** workspaces + datasets + `_shared` reconciled to
+      code, ledger-free, markers cleared; only the 6 `queries/` markers remain (R83's signal).
++ [ ] **Human sign-off** — pending (Complete = the human reads the synced corpus and confirms).
 
 ## Act
 

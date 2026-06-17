@@ -1,14 +1,5 @@
 # CRUD hygiene — feature design
 
-> ⚠️ **OUT OF SYNC** — `design-sync --check` (2026-06-17) found this doc has drifted from the
-> implementation: **4 claim(s) diverge from code** (`WorkspaceCard` is listed as a `@mdd/ui`
-> primitive but is feature-local; its overflow menu is documented with two items but now has three —
-> `Relationships` + `Rename` + `Delete`; the BE rename handler illustration uses a stale param/body
-> signature; and dataset delete now app-cascades to dependent queries — no longer "no dependents").
-> See `.agents/tmp/design-sync/workspaces.md` + `.agents/tmp/design-sync/datasets.md`. Re-sync before
-> trusting it: run `design-sync .agents/design/data-management/_shared/crud-hygiene.md`.
-<!-- design-sync:out-of-sync domain=data-management/_shared detected=2026-06-17 claims=4 -->
-
 **Concept**: basic resource management on top of the existing
 workspaces + datasets surfaces. Rename and delete affordances on
 both resources, plus the cascade rule for what happens to a
@@ -16,28 +7,12 @@ workspace's datasets when the workspace itself is deleted. The
 demo needs this before users can do anything beyond
 create-via-upload — without rename/delete, the workspace grid and
 the datasets table become write-once garbage.
-**Status**: Accepted (R23 design; shipped R24–R26; extended R30/R32/R33).
-**Round introduced**: [Round_23](../../../plan/cycles/Round_23.md);
-implementation chain begins R24 (Contract phase) per the chain
-declaration at the end of R23.
-**Contract**: [Round_24](../../../plan/cycles/Round_24.md) — four
-`*.contract.{yaml,md}` pairs (PATCH/DELETE on workspaces and
-datasets) plus the new shared
+**Status**: Accepted, shipped. Rename + delete affordances on both
+resources, four route handlers, four `ApiError*` Pydantic models, the
+shared
 [`_shared/api-error.yaml`](../../../../workspace/packages/contracts/_shared/api-error.yaml)
-envelope. All 11 contracts in the package validate.
-**Backend**: [Round_25](../../../plan/cycles/Round_25.md) — four
-route handlers, four `ApiError*` Pydantic models, schema
-migration (two unique indexes) with a startup-time duplicate-
-name back-fill, plus the `POST /workspaces` and batch-commit
-tightening to 409 on `name_taken`. 54/54 backend tests pass.
-**Frontend**: [Round_26](../../../plan/cycles/Round_26.md) — four
-mutation hooks, three shared modals
-(`features/data-management/_shared/`), overflow-menu wiring on
-the WorkspaceCard and the DatasetTable, the
-`ApiErrorThrown` / `BatchApiErrorThrown` typed error path, and
-inline 409 handling on the existing `CreateWorkspaceModal` and
-the upload wizard's Confirm step. 24/24 vitest tests still pass;
-type-check + build green.
+envelope, four mutation hooks, and three shared modals
+(`features/data-management/_shared/`).
 **Sibling docs**:
 [workspaces.md](../workspaces/workspaces.md) (the noun this verb-set operates
 on — defines the Workspace data model),
@@ -59,12 +34,10 @@ question (cascade on workspace delete) is inherently about the
 relationship between the two resources, not about either one in
 isolation.
 
-User framing at R23 kickoff: **"enhancement feature (DCBF)."**
-Structurally parallel to the parse-options chain (R19→R21),
-which was one feature (`ParseOptions` shape) across two
-consumers (CSV + Excel source formats). CRUD hygiene is one
-feature (rename + delete + 409-on-conflict) across two consumers
-(workspaces + datasets).
+It is structurally parallel to the parse-options chain, which was one
+feature (the `ParseOptions` shape) across two consumers (CSV + Excel
+source formats). CRUD hygiene is one feature (rename + delete +
+409-on-conflict) across two consumers (workspaces + datasets).
 
 ---
 
@@ -72,7 +45,7 @@ feature (rename + delete + 409-on-conflict) across two consumers
 
 | Surface                                  | Layer                                                  | Reusability  | Purity             | Allowed peer deps              |
 | ---------------------------------------- | ------------------------------------------------------ | ------------ | ------------------ | ------------------------------ |
-| `WorkspaceCard` (extended)               | `@mdd/ui`                                              | shared cross-domain | plain-UI    | react, antd, @ant-design/icons |
+| `WorkspaceCard`                          | `apps/builder/src/features/data-management/workspaces` | feature             | feature     | react, antd, @ant-design/icons |
 | Card overflow `<Dropdown>` menu          | `apps/builder/src/features/data-management/workspaces` | feature      | feature            | react, antd                    |
 | `DatasetActionsCell` (new table column)  | `apps/builder/src/features/data-management/datasets`   | feature      | feature            | react, antd                    |
 | `RenameModal` (shared by both resources) | `apps/builder/src/features/data-management/_shared`    | feature      | feature            | react, antd                    |
@@ -95,8 +68,9 @@ not generic enough for `@mdd/ui` — they encode domain-specific
 copy ("delete this workspace?", "this workspace has N datasets")
 and the 409 error-code branching. Per the build-first lesson:
 feature-local until a third consumer proves the generic shape.
-`WorkspaceCard` gains an `extra` slot for the overflow dropdown,
-but the dropdown content itself is feature-local.
+`WorkspaceCard` is itself feature-local (it lives in
+`features/data-management/workspaces/WorkspacesPage.tsx`, not `@mdd/ui`) and
+carries the overflow dropdown directly.
 
 ---
 
@@ -129,8 +103,10 @@ Manage logical containers for your data and reports.            ─────�
 - Each `WorkspaceCard` gains a `⋮` (`<MoreOutlined />`) icon
   button in the top-right `extra` slot. Always-visible (not
   hover-only) so the affordance is discoverable.
-- Click opens an AntD `<Dropdown>` with two items: `Rename` and
-  `Delete` (the latter styled `danger`, red text).
+- Click opens an AntD `<Dropdown>` with three items:
+  `Relationships` (`ShareAltOutlined`, navigates to the workspace's
+  relationships sub-route), `Rename`, and `Delete` (the latter styled
+  `danger`, red text).
 - Item click stops propagation (otherwise the card's
   navigate-to-datasets-filter click would fire). The dropdown
   trigger button has `onClick={(e) => e.stopPropagation()}`
@@ -166,9 +142,9 @@ All tables across your workspaces.                              ─────�
   visual marker), width fixed (`48px`), `align: 'right'`.
 - Each row's Actions cell renders the same `⋮` overflow trigger
   with the same `Rename` / `Delete` `<Dropdown>` items.
-- Row click is not used by R23 (the existing row-click no-op
-  stays; click on the action cell stops propagation regardless,
-  in case row-click is wired later).
+- Row click is not used (the existing row-click no-op stays; click
+  on the action cell stops propagation regardless, in case row-click
+  is wired later).
 - Consistent affordance shape across both surfaces — same icon,
   same menu items, same modal dispatched on click.
 
@@ -327,10 +303,9 @@ enforced by
 
 ## Acceptance criteria (Design gate exit)
 
-Testable criteria the R24–R26 chain satisfies (extended R30/R32/R33),
-each mapping to at least one automated test across F / B / I. Numbered
-`C1`–`C11` for suite reference; they describe the **shipped** rename +
-delete + cascade-guard behaviour.
+Testable criteria, each mapping to at least one automated test across
+F / B / I. Numbered `C1`–`C11` for suite reference; they describe the
+**shipped** rename + delete + cascade-guard behaviour.
 
 **User journey** — as a user I rename or delete a workspace or a
 dataset from its overflow menu, and I am protected from deleting a
@@ -338,7 +313,8 @@ workspace that still holds datasets.
 
 1. **Affordance** _(FE component)_ — each `WorkspaceCard` and each
    datasets-table row renders an always-visible `⋮` overflow trigger
-   that opens a `Rename` / `Delete` (danger-styled) dropdown; the
+   that opens a `Rename` / `Delete` (danger-styled) dropdown (the
+   `WorkspaceCard` menu also leads with a `Relationships` item); the
    trigger click stops propagation so it never fires the card / row
    click.
 2. **Rename** _(FE + BE)_ — Rename opens `<RenameModal>` pre-filled
@@ -369,9 +345,9 @@ workspace that still holds datasets.
 9. **Error-code branching** _(FE)_ — `not_found` / `name_taken` /
    `non_empty` each map to exactly one FE branch (toast + invalidate /
    inline error / swap-to-blocked-modal).
-10. **Detail-page placement (R33)** _(FE)_ — the same rename + delete
+10. **Detail-page placement** _(FE)_ — the same rename + delete
     affordances render in the `/datasets/:id` page-header actions slot,
-    reusing the R26 modals + hooks unchanged; delete-success navigates
+    reusing the shared modals + hooks unchanged; delete-success navigates
     back to the Datasets list with `replace=true`.
 11. **Integration** — renaming a workspace refreshes the Workspace
     column on the Datasets table (both `['workspaces']` and
@@ -504,18 +480,18 @@ const useDeleteWorkspaceMutation = () => {
 R24+ implements:
 
 ```python
-# apps/backend/app/routers/workspaces.py
-@router.patch("/workspaces/{workspace_id}", response_model=Workspace)
-def rename_workspace(workspace_id: str, body: RenameBody) -> Workspace:
+# apps/backend/app/routers/workspaces.py  (router prefix="/workspaces")
+@router.patch("/{id}", response_model=Workspace)
+def rename_workspace(id: str, body: RenameWorkspaceBody) -> Workspace:
     # 404 if not found
     # 409 { code: "name_taken" } if another workspace has body.name
     # Updates and returns the Workspace row.
 
-@router.delete("/workspaces/{workspace_id}", status_code=204)
-def delete_workspace(workspace_id: str) -> None:
+@router.delete("/{id}", status_code=204)
+def delete_workspace(id: str) -> None:
     # 404 if not found
     # 409 { code: "non_empty", datasetCount: N } if N > 0 datasets reference this workspace
-    # Otherwise deletes the row (no datasets to cascade — that's the cascade rule).
+    # Otherwise deletes the row (block-not-cascade; FK cascade is the DB backstop).
 ```
 
 ```python
@@ -529,57 +505,42 @@ def rename_dataset(dataset_id: str, body: RenameBody) -> Dataset:
 @router.delete("/datasets/{dataset_id}", status_code=204)
 def delete_dataset(dataset_id: str) -> None:
     # 404 if not found
-    # Deletes the row AND the underlying parquet file in one transaction.
-    # No 409 path — dataset has no dependent resources in R23.
+    # Deletes the row AND the underlying parquet file in one transaction,
+    # and app-cascades to dependent queries (DELETE ... WHERE source_id = <ds>).
+    # Still 204 (no 409) — the dependents are removed, not blocked on.
 ```
 
-`RenameBody` Pydantic model — **per-resource max length**
-(corrected R62 audit; R23 declared a single shared `max_length=80`
-for both, but dataset names have allowed **120** since R15's
-[`_shared/dataset.yaml`](../../../../workspace/packages/contracts/_shared/dataset.yaml)
-`Dataset.name` (filename stems + sheet names run long). R29's
-cross-language `NAME_LENGTHS` constant
+Rename body — **per-resource max length** via dedicated body classes.
+Workspace names allow 80; dataset names allow 120
+([`_shared/dataset.yaml`](../../../../workspace/packages/contracts/_shared/dataset.yaml)
+`Dataset.name` — filename stems + sheet names run long). The cross-language
+`NAME_LENGTHS` constant
 ([`_generated/constants.ts`](../../../../workspace/apps/builder/src/_generated/constants.ts))
 is the single source of truth — `WORKSPACE_MAX = 80`,
 `DATASET_MAX = 120` — cited identically by the contracts, FE Form
-rules, and BE bodies):
+rules, and BE bodies:
 
 ```python
-# RenameWorkspaceBody — max_length = NAME_LENGTHS["workspace_max"] (80)
-# RenameDatasetBody   — max_length = NAME_LENGTHS["dataset_max"]   (120)
-class RenameBody(BaseModel):
+# Dedicated body class per resource (both extra='forbid'):
+#   RenameWorkspaceBody — max_length = NAME_LENGTHS["workspace_max"] (80)
+#   RenameDatasetBody   — max_length = NAME_LENGTHS["dataset_max"]   (120)
+class RenameWorkspaceBody(BaseModel):
     model_config = ConfigDict(extra='forbid')
-    name: str = Field(min_length=1, max_length=...)  # per-resource, from NAME_LENGTHS
+    name: str = Field(min_length=1, max_length=80)  # NAME_LENGTHS["workspace_max"]
 ```
 
 **Atomicity** (delete dataset): the same atomic-commit pattern
-the upload wizard uses, in reverse. R16's BE-round conformance
-memo (the
-[2026-05-24-be-round-conformance-pattern.md](../../../memory/2026-05-24-be-round-conformance-pattern.md))
-already articulates the discipline: validate everything first,
-delete the row, then unlink the parquet — or unlink first, then
-delete the row. Either order is fine; what's not fine is a
-half-deleted state. Tests cover both success and the rollback
-path.
+the upload wizard uses, in reverse (the
+[BE-round conformance pattern](../../../memory/2026-05-24-be-round-conformance-pattern.md)):
+validate everything first, delete the row, cascade the dependent
+queries, and unlink the parquet — or unlink first, then delete the
+row. Either order is fine; what's not fine is a half-deleted state.
+Tests cover both success and the rollback path.
 
-**Atomicity** (delete workspace): no cascade in R23, so the
-DELETE is just a row removal. The 409 path is the safety net.
-
----
-
-## Lifecycle
-
-This doc:
-
-- **Amended in place** during the R23 chain's downstream rounds
-  if implementation surfaces a decision not pre-baked here
-  (e.g., the precise overflow-menu z-index against the table
-  sticky header).
-- **Superseded** by `crud-hygiene-v2.md` if a future round adds
-  cascade-opt-in (`?cascade=true`), bulk delete, or
-  soft-delete + trash bin — those are R∞ pulls, named below.
-- **Folded back** into a `data-management/` overview doc if the
-  data-management spine grows enough to warrant one.
+**Atomicity** (delete workspace): block-not-cascade — the handler
+pre-counts datasets and returns `409 non_empty` if any remain, so a
+successful DELETE is just a row removal. The DB-level FK cascade is the
+backstop only.
 
 ---
 
@@ -615,59 +576,23 @@ This doc:
 
 ---
 
-## Open questions answered in R23 (HIxAI Q&A)
+## Runtime hardening
 
-| Q                                                 | Decision                                                                               | Source                                               |
-| ------------------------------------------------- | -------------------------------------------------------------------------------------- | ---------------------------------------------------- |
-| What happens when deleting a non-empty workspace? | Block (409 `non_empty` with `datasetCount`) — no cascade in R23                        | R23 HIxAI Q1 (user-recommended)                      |
-| Confirmation UX shape?                            | Simple AntD modal with `danger`-styled Delete button — no type-the-name, no toast-undo | R23 HIxAI Q2 (user-recommended)                      |
-| Rename scope?                                     | `name` only on both resources                                                          | R23 HIxAI Q3 (user-recommended)                      |
-| Optimistic or pessimistic mutation UI?            | Pessimistic for both, with loading state on the affected control                       | R23 HIxAI Q4 (user-recommended)                      |
-| Workspace name uniqueness scope?                  | Global (across all workspaces)                                                         | R23 design — implicit from POC scope                 |
-| Dataset name uniqueness scope?                    | Per-workspace (same name in different workspaces is allowed)                           | R23 design — matches upload-wizard behavior          |
-| Affordance shape on cards/rows?                   | Overflow `⋮` dropdown menu, always visible (not hover-only)                            | R23 design — discoverability over visual cleanliness |
-| Error code surface shape?                         | `{ code: string, ... }` body with FE branching on `code`                               | R23 design — single-branch FE handler                |
-| Same modal component for both resources?          | Yes — `RenameModal` and `DeleteConfirmModal` parameterized by resource label           | R23 design — one feature, two consumers              |
-| Delete dataset cleanup of parquet file?           | Same DB transaction (atomic), reuses R16 atomic-commit pattern in reverse              | R23 design — leans on R16/R20 pattern                |
-
----
-
-## R30 stamp — top-level error boundary
-
-R26 visual verification surfaced cases where an uncaught render error
-in any CRUD page would unmount the whole app and leave a blank white
-screen. R30 wrapped the router in [`AppErrorBoundary`](../../../../workspace/apps/builder/src/components/AppErrorBoundary.tsx)
-inside the AntD providers, so render-phase errors now show a themed
-`<Result>` page with a Reload button instead. Event-handler errors
-continue to surface through the existing AntD `<App>` message
-channel. No change to the CRUD wire shape — purely a defensive
-runtime wrapper.
-
----
-
-## R32 stamp — i18n keying
-
-All CRUD user-facing strings (modal titles, button labels,
-toast messages, error alerts, breadcrumb labels) are now keyed
-under `workspaces.*`, `datasets.*`, `rename.*`, `deleteConfirm.*`,
-and `common.*` namespaces in [`src/i18n/locales/{en,vi}.json`](../../../../workspace/apps/builder/src/i18n/locales/).
-Resource label (`"workspace"` / `"dataset"`) lives in
-`resources.{workspace,dataset}` so messages like "Rename
-workspace" and "Delete dataset" inflect correctly per locale.
-Modal copy uses `<Trans components={{ strong: <strong /> }}>`
-for inline emphasis. AntD's built-in Modal OK/Cancel + Empty
-"No data" strings localize via `<ConfigProvider locale={...}>`.
-
----
-
-## R33 stamp — extended to dataset detail page
-
-R33 ([dataset-detail.md](../datasets/dataset-detail.md)) extends the dataset
-rename + delete affordances to a third placement: the
-`/datasets/:id` page header's `actions` slot. No behavior change
-— same `<RenameModal>` + `<DeleteConfirmModal>` and the same
-`useRenameDatasetMutation()` + `useDeleteDatasetMutation()` hooks
-from R26 are reused unchanged. Delete-success navigates back to
-the Datasets list (`replace=true` so the deleted detail page is
-not in browser history). The workspace surfaces are unaffected;
-workspace CRUD remains on the Workspaces grid only.
+- **Top-level error boundary.** The router is wrapped in
+  [`AppErrorBoundary`](../../../../workspace/apps/builder/src/components/AppErrorBoundary.tsx)
+  inside the AntD providers, so a render-phase error in any CRUD page
+  shows a themed `<Result>` page with a Reload button instead of
+  unmounting the whole app to a blank screen. Event-handler errors
+  continue to surface through the AntD `<App>` message channel. No
+  change to the CRUD wire shape — purely a defensive runtime wrapper.
+- **i18n keying.** All CRUD user-facing strings (modal titles, button
+  labels, toast messages, error alerts, breadcrumb labels) are keyed
+  under the `workspaces.*`, `datasets.*`, `rename.*`, `deleteConfirm.*`,
+  and `common.*` namespaces in
+  [`src/i18n/locales/{en,vi}.json`](../../../../workspace/apps/builder/src/i18n/locales/).
+  The resource label (`"workspace"` / `"dataset"`) lives in
+  `resources.{workspace,dataset}` so "Rename workspace" / "Delete
+  dataset" inflect correctly per locale. Modal copy uses
+  `<Trans components={{ strong: <strong /> }}>` for inline emphasis;
+  AntD's built-in Modal OK/Cancel + Empty "No data" strings localize via
+  `<ConfigProvider locale={...}>`.
