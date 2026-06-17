@@ -12,21 +12,35 @@ new page**: it edits the **identical** `definition.joins` tree the hop-list
 `sourceId`, runs the **same** stateless preview, and saves through the **same**
 lifecycle. The canvas is a **second editor over one model**, not a second model.
 
-**Status**: **Accepted (design — banked); build DEFERRED to R81+.** This round (R80)
-**resolves the canvas's judgment calls and seals its design**; it ships **no code**.
-The build is deferred because the canvas's deferral **trigger has not fired** (J-2,
-below): at today's tree sizes the hop-list + left-source `<Select>` still reads cleanly
-as a list, so building the visual editor now would
-**[[dont-mvp-rush-a-roadmap-home-surface]]** against an unfired pull. The design is
-**banked** here so the first build round (R81+) inherits a resolved home + flow instead
-of re-deriving them; the trigger is **restated** in the Scope boundary below.
+**Status**: **Accepted** (design) — **Phase A building at
+[R85](../../../plan/cycles/Round_85.md) (read-only view); Phases B/C still deferred
+(→ R86/R87).** R80 sealed the design and banked the
+build (the deferral trigger — "until the hop-list stops scaling" — was UNFIRED at R80's
+2–4-node trees, J-2 below). **R85 fires the build of Phase A on the human's product
+call** — _"canvas is the #1 end-user-value feature"_ — the **accelerate** side of the
+[dynamic equilibrium](../../../context/purpose.md#dynamic-equilibrium): the human pull,
+not a hop-list-scaling pain signal, is the authority that opens the build (deliberately
+overriding the agent-side "unfired" verdict). Phase A is built **right, not MVP-rushed**
+([[dont-mvp-rush-a-roadmap-home-surface]]) — a genuine node-link render. **Phases B
+(editing) and C ("New query") remain deferred** with their own triggers (Scope boundary).
 
-> **What "design banked, build deferred" means for this doc.** Everything below the
-> verdict record specifies the canvas **as it will be built when the trigger fires** —
-> the surfaces, the reuse split, the layout, the states, the accessibility, the
-> contract intent. None of it is scaffolded today. Treat the spec as the **inheritance**
-> the build round reads, not as a description of shipped code. The build round
-> **re-confirms** the verdicts against the then-current hop-list pain before it starts.
+> **R85 Design-gate build decision (Phase A).** Render mechanism: **hand-rolled SVG/DOM**
+> (AntD-styled nodes positioned by a small deterministic tree-layout fn; SVG edges with
+> text labels) — **not** a graph library. This matches the surfaces table's declared
+> `react, antd` peer deps (**no deviation**), adds zero bundle weight, and keeps full
+> control over the token styling + text-label accessibility model; the bounded-small tree
+> (2–4 nodes) makes a generic graph engine overkill. If Phase B (R86) drag-editing proves
+> it needs a lib, that is R86's deviation to flag against R86's evidence. `flow-selector`
+> at R85's Design gate scored **0/5 → F-only DCFBI** (read-only, FE-only, no new
+> interaction), confirming J-3.
+>
+> **What this doc specifies, by phase.** **Phase A** (the read-only view) is being built
+> at R85 against this spec — its surfaces/states/accessibility below are the contract F
+> confirms. **Phases B (editing) and C ("New query")** specify the canvas **as it will be
+> built when their triggers fire** (Scope boundary); none of B/C is scaffolded today —
+> treat those parts as the **inheritance** the later build rounds read. Each build round
+> **re-confirms** the verdicts against the then-current builder before it starts (R85 did
+> so at its Design gate — see the build-decision note above).
 
 **Round introduced**: [Round_80](../../../plan/cycles/Round_80.md) — the **canvas
 theme-opener**, a Design-only round. It fills the
@@ -181,7 +195,7 @@ The canvas introduces **no change** to `QueryDefinition` (the tree was sealed in
 // unchanged — the canvas renders this as a graph and edits it via the same ops
 type JoinStep = {
   relationshipId: string; // `rel_…` — the governed edge this EDGE consumes
-  type: 'inner'; // MVP: inner only (left/outer is its own trajectory step)
+  type: JoinType; // shipped: 'inner' | 'left' | 'right' | 'full' (types.ts)
 };
 
 type QueryDefinition = {
@@ -379,6 +393,15 @@ stateDiagram-v2
 - **View toggle is lossless** — `[List] ⇄ [Canvas]` swaps the **rendering** of one
   working copy; no edit is lost, no model is forked. Edits in either view call the same
   `useQueryBuilder` ops.
+- **Phase-A trivial states (R85 — declared so F builds them, not infers them).** _Empty
+  graph_: a Query with **no joins** (`joins[] === []`) renders the **lone driving node**
+  (`sourceId`) — a single-node canvas, not a blank. _Loading_: the canvas mounts on the
+  builder's **existing** load — it reads the resolved `joins` plus the same
+  `useRelationshipsQuery` / `useDatasetsQuery` the hop-list (`JoinEditor`) already uses to
+  name nodes/edges; **no new spinner state is invented** (until that data resolves, the
+  Build section shows the same loading it shows today). The canvas resolves each hop's
+  dataset names + key pair + cardinality exactly as the list does (reuse, not a parallel
+  fetch path).
 - **Editing (Phase B)** maps to the hop-list ops exactly: draw-edge → `addJoin`
   (connected-acyclic guard unchanged); delete-leaf → `removeJoin`; non-leaf delete
   disabled with a text tooltip. When **no** source has an eligible outgoing edge, the
@@ -387,9 +410,16 @@ stateDiagram-v2
 - **Preview / Save / discard** are **unchanged** — the stateless `POST …/queries/preview`
   and the dirty-Save/discard lifecycle; the canvas persists nothing new (positions are
   view-only).
-- **Stale gates are flag-don't-crash, per edge** — the first stale hop renders the
+- **Stale gates are flag-don't-crash, per edge** — a stale hop renders the
   "edge unavailable" `<Alert role="alert">` on its edge, naming the column, never a
-  blank crash ([purpose.md](../../../context/purpose.md) #5).
+  blank crash ([purpose.md](../../../context/purpose.md) #5). _Code-reality note (R85):_
+  `useQueryBuilder` exposes only a **chain-wide** `relStale: boolean` (set when the
+  preview returns `409 relationship_stale`), **not** per-hop. The **per-edge** state is
+  derived on the FE from each resolved `Relationship.status` (`'valid' | 'stale'`, already
+  on the type the canvas resolves per hop) — no new wire field. Phase A may render the
+  per-edge marker from `rel.status` and reuse the chain-wide `relStale` for the
+  Save-guarded banner; a richer per-hop preview signal, if ever wanted, is a later
+  contract decision, not Phase A's.
 - **"New query" (Phase C)** opens create mode with no base; place the first node (sets
   `sourceId`), build the graph, Save captures a name and `POST`s — R77's lifecycle.
 

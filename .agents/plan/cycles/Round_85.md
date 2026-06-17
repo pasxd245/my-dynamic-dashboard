@@ -1,12 +1,12 @@
 # Round 85: canvas theme-opener — build Phase A (the read-only source-graph view)
 
-**Status**: In Progress — Plan gate **ratified** (2026-06-18, "proceed r85"); **Design gate next**.
+**Status**: In Progress — Plan + Design gates **closed** (2026-06-18); **F gate next**.
 **Date started**: 2026-06-18
 **Date completed**:
-**Flow**: **Track-1 product feature** (the canvas theme's first build round). Per
-[canvas.md J-3](../../design/data-management/queries/canvas.md), Phase A is a **frontend-only**
-slice (render the existing `joins` tree; no contract/BE/engine change) → an **F-only DCFBI** lean;
-`flow-selector` runs at the **Design gate** to confirm. Gates: **Plan → Design → F → Integration**.
+**Flow**: **DCFBI** (F-only) — Track-1 product feature; set at the Design gate via `flow-selector`
+(0/5 fired; recorded in the Do log). Per [canvas.md J-3](../../design/data-management/queries/canvas.md),
+Phase A is a **frontend-only** slice (render the existing `joins` tree; no contract/BE/engine change).
+Gates: **Plan → Design → F → Integration**.
 
 ## Goal
 
@@ -153,6 +153,56 @@ will be amended **in place** at the Design gate to reflect Phase A as it ships
 **Gates remaining**: Design → F → Integration (Integration hard-stops for **human review** in the
 running app — a visual surface MSW/vitest can't fully judge, [[dfcfbi-f1-needs-human-review]]).
 
+### Design-gate close (2026-06-18)
+
+**Verdicts re-confirmed against the current builder.** Read the shipped code under
+`workspace/apps/builder/src/features/data-management/queries/` (`useQueryBuilder.ts`,
+`QueryBuilderPanel.tsx`, `JoinEditor.tsx`). canvas.md's J-1…J-5 hold: the canvas is a **mode**, not a
+noun; `QueryCanvas` binds to `useQueryBuilder`'s `joins` and resolves each hop exactly as `JoinEditor`
+does (via `useRelationshipsQuery` + `useDatasetsQuery` → `relById`/`dsNameById`). Two **code-drift**
+points found and folded into canvas.md in place ([[design-docs-are-source-code]]):
+
++ `JoinStep.type` is shipped as `'inner' | 'left' | 'right' | 'full'` (`types.ts`), not "inner only" —
+  canvas.md's model block corrected.
++ `useQueryBuilder` exposes only a **chain-wide** `relStale: boolean`, not per-hop; the **per-edge**
+  stale state is FE-derivable from each resolved `Relationship.status` (`'valid'|'stale'`). Recorded as
+  a code-reality note on canvas.md's stale-edge behaviour so the F gate builds the marker from
+  `rel.status`, not an invented wire field.
+
+**Graph-render mechanism → hand-rolled SVG/DOM** (human-confirmed at the gate). AntD-styled nodes
+positioned by a small deterministic tree-layout fn; SVG edges with text labels. **No new peer dep** —
+matches canvas.md's declared `react, antd`, so **no deviation to flag**; the lighter path
+([[design-altitude-vs-build-home]]) for a bounded-small (2–4-node) tree. If Phase B (R86) drag-editing
+needs a lib, that is R86's deviation against R86's evidence — not pre-committed now.
+
+**Flow selector run** (per [R47](../../decisions/2026-05-28-hybrid-flow-governance.md)):
+
+| Condition                            | Fired? | Justification  |
+| ------------------------------------ | ------ | -------------- |
+| 1. >3 independent states/branches    | no     | Phase A is read-only; the only interactive branch is the `[List]⇄[Canvas]` toggle (+ a passive edge-stale alert). Editing branches are Phase B. |
+| 2. New interaction pattern           | no     | No new *interaction*: a static node-link render + a standard AntD segmented toggle; drag/draw is Phase B. |
+| 3. High user-error risk              | no     | Zero editing, zero destructive action — a read-only view; the list stays the editor. |
+| 4. Contract depends on unresolved UI | no     | FE-only (J-3); renders the resolved `joins` the builder already holds — no wire field/route/error code. |
+| 5. UX confidence below threshold     | no     | canvas.md is a sealed, verdict-reviewed design; Phase A is the lowest-risk slice, "reads-well" uncertainty mitigated by the Integration human-review hard-stop. |
+
+Result: **Flow: DCFBI** (F-only — Phase A adds no contract/BE; confirms J-3's lean).
+
+**`ui-design` (design-spec) on Phase A** — 5 pass / 1 gap. Findability, Usability, Accessibility,
+Utility, Desirability **pass** (labelled toggle; text-not-colour nodes/edges; List = SR-complete
+equivalent; token map reused). **Credibility gap**: the **no-joins/single-node** and **data-loading**
+canvas states were undeclared. **Fixed in canvas.md** (new Phase-A trivial-states bullet: empty graph
+renders the lone driving node; the canvas mounts on the builder's existing load — no invented spinner).
+Re-review clean.
+
+**canvas.md amended in place** (Design-gate task #4): Status now reads "Phase A building at R85; B/C
+deferred" with the R85 build-decision note (mechanism + flow-selector); the phase-scoped "what this doc
+specifies" blockquote; the `JoinStep.type` correction; the per-edge-stale code-reality note; the
+Phase-A trivial-states declaration.
+
+**F gate next**: build `QueryCanvas` (hand-rolled SVG/DOM, read-only) + the `[List]/[Canvas]` toggle in
+`QueryBuilderPanel` over the one working copy; vitest + MSW for faithful render (a 2+-hop star) +
+lossless toggle. No contract/BE work.
+
 ## Check (2026-06-18)
 
 + [x] Plan gate ratified on "proceed r85"; Do log records the scope (Phase A only), the **trigger
@@ -160,9 +210,12 @@ running app — a visual surface MSW/vitest can't fully judge, [[dfcfbi-f1-needs
       against canvas.md (FE-only, reuse invariant, additive view).
 + [x] Phase-A scope verified consistent with [canvas.md J-3/J-5](../../design/data-management/queries/canvas.md):
       read-only, FE-only, F-only DCFBI lean, no model/contract/BE/engine change.
-+ [ ] _Design gate (next step): re-confirm verdicts vs. current builder; pick the graph-render
-      mechanism; run `flow-selector` (expect F-only DCFBI) + `ui-design` (design-spec); amend
-      canvas.md in place to current-state._
++ [x] **Design gate closed.** Verdicts re-confirmed vs. the current builder code (2 drift points
+      folded into canvas.md); mechanism picked (**hand-rolled SVG/DOM**, human-confirmed, no peer-dep
+      deviation); `flow-selector` run (**0/5 → DCFBI, F-only**); `ui-design` design-spec run (5 pass /
+      1 Credibility gap, **fixed** in canvas.md); canvas.md amended in place to current-state.
++ [ ] _F gate (next step): build `QueryCanvas` (read-only SVG/DOM) + `[List]/[Canvas]` toggle; vitest
+      + MSW for faithful 2+-hop-star render + lossless toggle; no contract/BE._
 
 ## Act
 
