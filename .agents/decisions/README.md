@@ -10,7 +10,7 @@ round doc.
 - **Track-2/3 deferrals with named triggers** — what we are explicitly
   _not_ building, and the condition that would revisit it
 - **Conversation-derived governance** that constrains the
-  [Evolution Rule](../AGENTS.md#evolution-rule-governance-against-drift)
+  [Evolution Rule](../AGENTS.md#evolution-rule)
   without amending it
 
 ## What does NOT go here

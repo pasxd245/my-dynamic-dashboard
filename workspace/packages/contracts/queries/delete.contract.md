@@ -1,7 +1,7 @@
 # DELETE /queries/{id} — rationale
 
 **Round**: R69 — Saved Query MVP (acceptance C9). **Design**:
-[saved-query.md](../../../../.agents/design/data-management/queries/saved-query.md)
+[saved-query.md](../../../../.agents/design/data-management/queries/queries.md)
 § Behaviour (query-mode Delete).
 
 ## What it is
