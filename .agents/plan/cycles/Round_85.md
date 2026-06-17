@@ -1,6 +1,6 @@
 # Round 85: canvas theme-opener — build Phase A (the read-only source-graph view)
 
-**Status**: Planning — Plan gate (this step), awaiting ratification ("proceed r85").
+**Status**: In Progress — Plan gate **ratified** (2026-06-18, "proceed r85"); **Design gate next**.
 **Date started**: 2026-06-18
 **Date completed**:
 **Flow**: **Track-1 product feature** (the canvas theme's first build round). Per
@@ -110,11 +110,59 @@ builds against). Per the [Evolution Rule](../../AGENTS.md)._
 
 ### Plan-gate ratification (2026-06-18)
 
-_Pending — filled when the Plan seam is ratified ("proceed r85")._
+Ratified on "proceed r85". The round opens the **canvas theme** and builds **Phase A only** — the
+**read-only source-graph VIEW** ([canvas.md § J-5](../../design/data-management/queries/canvas.md)) —
+this round; Phases B (editing) and C ("New query") stay deferred to R86/R87. The scope, acceptance
+criteria, and OUT-of-scope list above are accepted as-is.
 
-## Check
+**Trigger override recorded.** [canvas.md J-2](../../design/data-management/queries/canvas.md) banked
+the canvas with the build DEFERRED, verdict **UNFIRED** (at R80's 2–4-node trees the hop-list still
+read fine as a list; an agent-side brake). R85 **fires the build on the human's R85 product call** —
+_"canvas is the #1 end-user-value feature (dashboards #2); the MVP only proved the concept."_ This is
+the **accelerate** side of the [dynamic equilibrium](../../context/purpose.md#dynamic-equilibrium):
+the authority opening the build is the **human pull**, not a hop-list-scaling pain signal. The human
+partner, who owns the product intent, deliberately overrides the agent-side "unfired" verdict — a
+legitimate move under the equilibrium ([[dont-mvp-rush-a-roadmap-home-surface]]: this is why Phase A
+is built *right*, not MVP-rushed, in its proper round). canvas.md's "build DEFERRED to R81+" status
+will be amended **in place** at the Design gate to reflect Phase A as it ships
+([[design-docs-are-source-code]]).
 
-+ [ ] _(Pending.)_
+**Phase-A scope confirmed sound against canvas.md** before ratifying:
+
++ **FE-only / F-only DCFBI** — Phase A renders the resolved `definition.joins` tree the builder
+  already holds; **no** field/route/error-code/engine ([canvas.md J-3](../../design/data-management/queries/canvas.md)).
+  `flow-selector` runs at the **Design gate** (not Plan) to confirm the F-only lean — its banked
+  hypothesis, not a seal.
++ **Reuse invariant** — `QueryCanvas` binds to the shipped `useQueryBuilder`, rendered through
+  `QueryBuilderPanel` over **one** working copy; re-implements no engine/predicate-editor/detail page
+  ([canvas.md surfaces table](../../design/data-management/queries/canvas.md)).
++ **List stays the editor; canvas is additive** — accessibility default for assistive tech is the
+  `[List]` view; the `[List] ⇄ [Canvas]` toggle is lossless over the same chain.
+
+**Open items carried to the Design gate** (not blockers to ratification):
+
++ **Graph-render mechanism** — react-flow-style peer dep vs. hand-rolled SVG/DOM. A real build-home
+  decision ([[design-altitude-vs-build-home]]); decide at the Design gate against the reuse invariant
+  + allowed peer-deps (canvas.md declares only `react, antd` for `QueryCanvas`), flag any deviation at
+  the gate commit.
++ **Re-confirm canvas.md's verdicts against the *current* builder** (`useQueryBuilder` /
+  `QueryBuilderPanel` / `JoinEditor`, now under [queries.md](../../design/data-management/queries/queries.md)
+  + [query-construction.md](../../design/data-management/queries/query-construction.md) after the R83/R84
+  fold) before drawing against names that may have moved.
+
+**Gates remaining**: Design → F → Integration (Integration hard-stops for **human review** in the
+running app — a visual surface MSW/vitest can't fully judge, [[dfcfbi-f1-needs-human-review]]).
+
+## Check (2026-06-18)
+
++ [x] Plan gate ratified on "proceed r85"; Do log records the scope (Phase A only), the **trigger
+      override** (human pull fires R80's banked-unfired build), and the Phase-A soundness check
+      against canvas.md (FE-only, reuse invariant, additive view).
++ [x] Phase-A scope verified consistent with [canvas.md J-3/J-5](../../design/data-management/queries/canvas.md):
+      read-only, FE-only, F-only DCFBI lean, no model/contract/BE/engine change.
++ [ ] _Design gate (next step): re-confirm verdicts vs. current builder; pick the graph-render
+      mechanism; run `flow-selector` (expect F-only DCFBI) + `ui-design` (design-spec); amend
+      canvas.md in place to current-state._
 
 ## Act
 
