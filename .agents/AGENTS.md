@@ -63,9 +63,10 @@ At the start of every session, an agent MUST:
 
 1. Read [.agents/context/purpose.md](context/purpose.md).
 2. Read [.agents/context/governance.md](context/governance.md) and active [.agents/decisions/](decisions/) entries when the task touches `.agents/`, governance, memory, skills, prompts, planning, or a cross-round commitment.
-3. Read relevant files in `.agents/skills/` based on the task.
-4. Treat `.agents/prompts/*.prompt.md` as runtime instructions when loaded by supported agent tooling.
-5. Optionally review recent or task-relevant files in `.agents/memory/`.
+3. Consult [.agents/context/tools.md](context/tools.md) when choosing a tool, skill, or repo command — the "what do I reach for?" index.
+4. Read relevant files in `.agents/skills/` based on the task.
+5. Treat `.agents/prompts/*.prompt.md` as runtime instructions when loaded by supported agent tooling.
+6. Optionally review recent or task-relevant files in `.agents/memory/`.
 
 ---
 
