@@ -1,35 +1,25 @@
 # Relationships — govern validated joins between a workspace's datasets
 
-> ⚠️ **OUT OF SYNC** — `design-sync --check` (2026-06-17) found this doc has drifted from the
-> implementation: **4 claim(s) diverge from code** (persistence is SQLModel+Alembic not
-> "raw-SQLite, SQLModel refuted"; the declare-`422` "open question" is resolved to a code-less
-> `detail[]` + `409 relationship_exists`; the `Relationship` model home is `models/common.py` +
-> `db_models.py`; the mermaid declare-flow branch labels need the real `409`/`422` granularity).
-> See `.agents/tmp/design-sync/workspaces.md`. Re-sync before trusting or designing on it: run
-> `design-sync .agents/design/data-management/workspaces`.
-<!-- design-sync:out-of-sync domain=data-management/workspaces detected=2026-06-17 claims=4 -->
-
 **Concept**: a **Relationship** is a **governed edge** between two Datasets in
 the same Workspace — a column pair `left.col ↔ right.col` with a declared
 **cardinality** and a validated **dtype compatibility**. It is a genuinely
 **new entity**, but an _edge_, **not a table-source**: Datasets and
 [Queries](../queries/query-builder.md) are the table-sources it connects. Its
 **home is the Workspace** that owns those datasets (joins are within-workspace).
-R70 ships **governance only** — a user **declares** an edge, the system
+This surface is **governance only** — a user **declares** an edge, the system
 **validates** it (both columns exist, dtypes join-compatible), and the edge is
 **stored, listed, and kept honest** against schema drift (`flag, don't reject` —
 [purpose.md](../../../context/purpose.md) #5). It produces **no joined rows**;
-consuming a Relationship to actually join is the [Query Builder](../queries/query-builder.md)'s
-job in **R71**.
-**Status**: Accepted (R70 design + shipped R70 — full DCFBI chain: governance
-only). **Truth-tested R71** — the governed edge was confirmed to carry what a
-real join needs as input (the join key pair, two sources, the freshness gate);
-R70 needed **no model revision** (the R70 watch-item kill-condition did **not**
-fire). See [joins.md § Truth-test record](../queries/joins.md#truth-test-record-j-4).
-**Round introduced**: [Round_70](../../../plan/cycles/Round_70.md) — the third
-step of the critical path (`data → relationships → dashboards`) and a stated
-product requirement ([purpose.md](../../../context/purpose.md) #4: _"Relationships
-are central and not fixed… relationship governance is a product requirement"_).
+consuming a Relationship to actually join is the
+[Query Builder](../queries/query-builder.md)'s job.
+**Status**: Accepted, shipped (full DCFBI chain: governance only). The governed
+edge carries what a real join needs as input — the join key pair, two sources,
+the freshness gate — see
+[joins.md § Truth-test record](../queries/joins.md#truth-test-record-j-4).
+Relationship governance is a stated product requirement
+([purpose.md](../../../context/purpose.md) #4: _"Relationships are central and
+not fixed… relationship governance is a product requirement"_) and the third
+step of the critical path (`data → relationships → dashboards`).
 **Domain folder**: `data-management/workspaces/` (a Relationship is owned by the
 **Workspace** whose datasets it connects — J-1; a sibling of
 [workspaces.md](workspaces.md), **not** a top-level catalog and **not** a
@@ -49,16 +39,14 @@ here),
 chrome all surfaces render inside).
 
 > **Why an edge, not a mode or a table-source (the noun-vs-mode check).** Unlike
-> R69's Query (a virtual dataset — a _mode_ of the dataset surfaces), a
-> Relationship is structurally distinct: it has no rows of its own; it _relates_
-> two row-sources. So it earns a new entity — but the
+> a Query (a virtual dataset — a _mode_ of the dataset surfaces), a Relationship
+> is structurally distinct: it has no rows of its own; it _relates_ two
+> row-sources. So it earns a new entity — but the
 > [anti-duplication invariant](../queries/query-builder.md#the-reuse-invariant-the-one-rule-this-domain-holds)
 > still binds its **surfaces**: the declare flow is a **modal**, the list
 > **reuses the Page-List layout**, validation **reuses the dataset `dtype`
 > metadata** — never a parallel page, never a re-invented engine
 > ([specious-model-lock-in](../../../memory/2026-06-13-specious-model-lock-in.md)).
-> _Track: 1 (product feature). Pulled by ← R69 deferral ("joins → R70") +
-> [purpose.md](../../../context/purpose.md) critical path._
 
 ---
 
@@ -71,7 +59,7 @@ chrome all surfaces render inside).
 | `useRelationshipsQuery` / `use*Mutation` hooks      | `apps/builder/src/features/data-management/relationships` | feature             | glue (server-data) | @tanstack/react-query              |
 | `relationshipsApi` client                           | `apps/builder/src/api`                                    | builder-only        | glue               | (fetch — no extra peer dep)        |
 | `POST/GET/DELETE …/relationships` routes            | `apps/backend`                                            | backend             | feature            | (FastAPI — backend native)         |
-| `Relationship` Pydantic model                       | `apps/backend/app/routers/relationships.py` (or `models`) | backend             | data type          | pydantic                           |
+| `Relationship` Pydantic model                       | `apps/backend/app/models/common.py`                       | backend             | data type          | pydantic                           |
 | `Relationship` type (frontend)                      | `.../features/data-management/relationships/types.ts`     | feature             | data type          | none                               |
 | `<DeleteConfirmModal>` (reused)                     | `apps/builder/src/features/data-management/_shared`       | shared cross-domain | plain-UI           | react, antd                        |
 | Page-List shells `PageHeader` / `PageCard` (reused) | `apps/builder/src/features/data-management/_shared`       | shared cross-domain | plain-UI           | react, antd                        |
@@ -118,7 +106,7 @@ Identifier parity is enforced by
 
 All surfaces render inside the master-layout chrome
 ([workspace-shell.target.md](../../_platform/workspace-shell.target.md)). There is
-no workspace _detail_ page today (only the card grid), so R70 introduces a thin
+no workspace _detail_ page today (only the card grid), so this surface is a thin
 workspace-scoped sub-route **`/data-management/workspaces/:id/relationships`**
 reached from the workspace card (a **Relationships** affordance on the card; J-1)
 — **not** a full workspace detail page (the [brake](../../../context/purpose.md#dynamic-equilibrium)).
@@ -192,10 +180,12 @@ Status shows `⚠ stale` and an inline detail; the edge is **not** auto-deleted.
 
 ## Data model
 
-R70 follows the **established raw-SQLite + Pydantic** standard (J-3 — the R69
-build proved the backend is uniformly raw-`sqlite3`; SQLModel was the refuted
-guess). The `Relationship` entity persists to a new `relationships` table in the
-same `app.sqlite` ([db.py](../../../../workspace/apps/backend/app/db.py)).
+The `Relationship` entity persists to the `relationships` table in `app.sqlite`.
+The **schema of record is the SQLModel `Relationship` table**
+([db_models.py](../../../../workspace/apps/backend/app/db_models.py)), evolved via
+**Alembic** (`alembic/versions/0001_baseline.py`). Request **handlers use raw
+`sqlite3`** (`db.get_conn()`, hand-written SQL, `PRAGMA foreign_keys = ON` per
+connection) — SQLModel owns the DDL/migration, the handlers own the queries.
 
 ```ts
 // Frontend type — features/data-management/relationships/types.ts
@@ -215,13 +205,14 @@ type Relationship = {
 };
 ```
 
-**Persistence (raw-SQLite).** Mirrors the `queries` table conventions
-(per-workspace uniqueness, FK cascade). **Status is not a column** — it is
-recomputed on every read by checking both columns against the current dataset
-schemas (the always-fresh discipline, like `query_stale`):
+**Persistence (SQLModel schema of record).** Mirrors the `queries` table
+conventions (per-workspace uniqueness, FK cascade). **Status is not a column** —
+it is recomputed on every read by checking both columns against the current
+dataset schemas (the always-fresh discipline, like `query_stale`). The effective
+DDL the SQLModel model emits:
 
 ```sql
-CREATE TABLE IF NOT EXISTS relationships (
+CREATE TABLE relationships (
     id TEXT PRIMARY KEY,                                       -- rel_xxxxxxxx
     workspace_id     TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
     left_dataset_id  TEXT NOT NULL REFERENCES datasets(id)   ON DELETE CASCADE,
@@ -232,8 +223,9 @@ CREATE TABLE IF NOT EXISTS relationships (
         CHECK (cardinality IN ('one_to_one','one_to_many','many_to_many')),
     created_at TEXT NOT NULL
 );
+CREATE INDEX idx_relationships_workspace_id ON relationships(workspace_id);
 -- one governed edge per ordered column-pair, per workspace (J-5; no user name)
-CREATE UNIQUE INDEX IF NOT EXISTS idx_relationships_pair_unique
+CREATE UNIQUE INDEX idx_relationships_pair_unique
     ON relationships(workspace_id, left_dataset_id, left_column, right_dataset_id, right_column);
 ```
 
@@ -243,10 +235,9 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_relationships_pair_unique
 every other cross-type pair is rejected. The rule reuses the dataset column
 metadata; no new dtype machinery.
 
-**Centralized constants (contract/build intent — added at the Contract/Backend
-gates, not this design round).** Mirroring R69's `qr_` path: add
-`relationship: '^rel_[0-9a-f]{8}$'` to `id_patterns`, and (for R71) a
-`relationship_stale` error code — see the contract note below.
+**Centralized constants.** `relationship: '^rel_[0-9a-f]{8}$'` lives in the
+shared `id_patterns`; the `relationship_stale` error code is defined but unused
+until its first consumer (the join executor) — see the contract note below.
 
 ---
 
@@ -263,8 +254,8 @@ stateDiagram-v2
     Incompatible --> Picking: change a column
     Compatible --> Saving: click Declare
     Saving --> Saved: 201 → toast + refresh list
-    Saving --> Duplicate: 409 → inline "this relationship already exists"
-    Saving --> Invalid: 422 → inline reason (unknown col / cross-workspace / self-pair)
+    Saving --> Duplicate: 409 relationship_exists → inline "this relationship already exists"
+    Saving --> Invalid: 422 detail[] → generic Alert (server message)
 ```
 
 - **Declare** is disabled until both columns are chosen and the live
@@ -339,12 +330,15 @@ the **design intent** the YAML must satisfy.
   status; the 409 variant lands with its first consumer.)_ **R71 consumes it** —
   a join over a stale edge returns `409 relationship_stale`
   ([joins.md § Execution model](../queries/joins.md#execution-model-live-re-run-two-sources-no-materialization)).
-- Error envelopes reuse the shared
+- **Error envelopes.** The duplicate-pair conflict is a code-first envelope —
+  `409 { code: "relationship_exists" }` (reusing the shared
   [api-error.yaml](../../../../workspace/packages/contracts/_shared/api-error.yaml)
-  shape. **Open contract question (flag for the Contract gate):** whether the
-  declare `422` carries a specific machine code (e.g. `incompatible_join_keys`)
-  or a generic validation envelope with a human message — decide at the Contract
-  gate, not here (R69 used a generic `422` for a bad query definition).
+  shape). The **declare `422` carries NO machine code**: it is the generic
+  FastAPI/pydantic validation envelope `detail: [{ loc, msg, type: "value_error" }]`.
+  The human reason (self-pair, unknown dataset, cross-workspace, unknown column,
+  incompatible join keys) rides as a text prefix inside `msg` — it is not a
+  structured `code`. The FE special-cases only `relationship_exists`; every other
+  failure renders the server message in a generic `<Alert>`.
 
 ---
 
@@ -356,7 +350,7 @@ are compatible and remembers the edge, I see it listed (and flagged if a column
 later drifts), so that the Query Builder can later combine those datasets without
 my re-explaining how they relate.
 
-Each criterion maps to ≥1 automated test across F / B / I (built in the R70 chain):
+Each criterion maps to ≥1 automated test across F / B / I:
 
 1. **Declare affordance + live compatibility** _(FE)_ — the
    `[+ Declare relationship]` modal lists the workspace's datasets/columns (with
@@ -400,7 +394,8 @@ Each criterion maps to ≥1 automated test across F / B / I (built in the R70 ch
 
 - Declaring a single-column edge `(left.col ↔ right.col)` between two datasets in
   one workspace, with a declared cardinality and server-side dtype-compatibility
-  validation; a `relationships` raw-SQLite table + `rel_` identity.
+  validation; a `relationships` table (SQLModel schema, Alembic-migrated) +
+  `rel_` identity.
 - The four routes (declare / list / get / delete); `status` computed on read
   (`valid | stale`).
 - The FE: the workspace-scoped `WorkspaceRelationshipsPage` (Page-List), the
