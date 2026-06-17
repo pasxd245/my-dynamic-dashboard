@@ -4,18 +4,18 @@
 the same Workspace — a column pair `left.col ↔ right.col` with a declared
 **cardinality** and a validated **dtype compatibility**. It is a genuinely
 **new entity**, but an _edge_, **not a table-source**: Datasets and
-[Queries](../queries/query-builder.md) are the table-sources it connects. Its
+[Queries](../queries/queries.md) are the table-sources it connects. Its
 **home is the Workspace** that owns those datasets (joins are within-workspace).
 This surface is **governance only** — a user **declares** an edge, the system
 **validates** it (both columns exist, dtypes join-compatible), and the edge is
 **stored, listed, and kept honest** against schema drift (`flag, don't reject` —
 [purpose.md](../../../context/purpose.md) #5). It produces **no joined rows**;
 consuming a Relationship to actually join is the
-[Query Builder](../queries/query-builder.md)'s job.
+[Query Builder](../queries/queries.md)'s job.
 **Status**: Accepted, shipped (full DCFBI chain: governance only). The governed
 edge carries what a real join needs as input — the join key pair, two sources,
 the freshness gate — see
-[joins.md § Truth-test record](../queries/joins.md#truth-test-record-j-4).
+[joins.md § Truth-test record](../queries/queries.md#joins-reading-related-datasets-as-one).
 Relationship governance is a stated product requirement
 ([purpose.md](../../../context/purpose.md) #4: _"Relationships are central and
 not fixed… relationship governance is a product requirement"_) and the third
@@ -30,9 +30,9 @@ is reached from the workspace card),
 [datasets.md](../datasets/datasets.md) +
 [dataset-detail.md](../datasets/dataset-detail.md) (the datasets + the column /
 `dtype` metadata the compatibility rule reads),
-[joins.md](../queries/joins.md) (the **consumer** — R71 join execution resolves a
+[joins.md](../queries/queries.md#joins-reading-related-datasets-as-one) (the **consumer** — R71 join execution resolves a
 declared Relationship to produce joined rows) +
-[query-builder.md](../queries/query-builder.md) (the queries domain anchor),
+[query-builder.md](../queries/queries.md) (the queries domain anchor),
 [crud-hygiene.md](../_shared/crud-hygiene.md) (the delete-confirm modal reused
 here),
 [workspace-shell.target.md](../../_platform/workspace-shell.target.md) (the
@@ -42,7 +42,7 @@ chrome all surfaces render inside).
 > a Query (a virtual dataset — a _mode_ of the dataset surfaces), a Relationship
 > is structurally distinct: it has no rows of its own; it _relates_ two
 > row-sources. So it earns a new entity — but the
-> [anti-duplication invariant](../queries/query-builder.md#the-reuse-invariant-the-one-rule-this-domain-holds)
+> [anti-duplication invariant](../queries/queries.md#the-reuse-invariant-the-one-rule-this-domain-holds)
 > still binds its **surfaces**: the declare flow is a **modal**, the list
 > **reuses the Page-List layout**, validation **reuses the dataset `dtype`
 > metadata** — never a parallel page, never a re-invented engine
@@ -82,7 +82,7 @@ The relationships surfaces are AntD primitives (`<Table>`, `<Modal>`, `<Select>`
 [`themeTokens.ts`](../../../../workspace/packages/ui/src/themeTokens.ts) (the
 source of truth — R66). **No new token is introduced**; the map reuses the
 identifiers already cited by [datasets.md](../datasets/datasets.md) and
-[saved-query.md](../queries/saved-query.md). `Value` is informational.
+[saved-query.md](../queries/queries.md). `Value` is informational.
 
 | Surface                                     | AntD token (themeTokens.ts) | Value (informational) |
 | ------------------------------------------- | --------------------------- | --------------------- |
@@ -329,7 +329,7 @@ the **design intent** the YAML must satisfy.
   refines J-4, which named `relationship_stale`: in R70 stale is a non-erroring
   status; the 409 variant lands with its first consumer.)_ **R71 consumes it** —
   a join over a stale edge returns `409 relationship_stale`
-  ([saved-query.md § Execution model](../queries/saved-query.md#execution-model-live-re-run-no-materialization)).
+  ([saved-query.md § Execution model](../queries/queries.md#execution-model-live-re-run-no-materialization)).
 - **Error envelopes.** The duplicate-pair conflict is a code-first envelope —
   `409 { code: "relationship_exists" }` (reusing the shared
   [api-error.yaml](../../../../workspace/packages/contracts/_shared/api-error.yaml)
@@ -406,7 +406,7 @@ Each criterion maps to ≥1 automated test across F / B / I:
 
 - **Join execution** — producing joined rows from a declared edge; the unified
   table-source resolver; the `409 relationship_stale` error → **R71**
-  ([query-builder.md](../queries/query-builder.md)). _Trigger: a query/report
+  ([query-builder.md](../queries/queries.md)). _Trigger: a query/report
   must read two related datasets as one._
 - **Composite / multi-column join keys** (`(a,b) ↔ (c,d)`) → future. _Trigger: a
   real CRM export needs a two-column key._
@@ -425,15 +425,15 @@ Each criterion maps to ≥1 automated test across F / B / I:
   [datasets.md](../datasets/datasets.md) / [dataset-detail.md](../datasets/dataset-detail.md);
   this doc only **reads** it).
 - How a Query consumes a Relationship to join (lives in
-  [query-builder.md](../queries/query-builder.md), R71).
+  [query-builder.md](../queries/queries.md), R71).
 
 ---
 
 ## Reference materials (read-only)
 
-- [query-builder.md](../queries/query-builder.md) — the R71 consumer that joins
+- [query-builder.md](../queries/queries.md) — the R71 consumer that joins
   by resolving a declared Relationship.
-- [saved-query.md](../queries/saved-query.md) — the `query_stale` precedent this
+- [saved-query.md](../queries/queries.md) — the `query_stale` precedent this
   doc mirrors for `status: stale` / the deferred `relationship_stale`.
 - [specious-model-lock-in](../../../memory/2026-06-13-specious-model-lock-in.md)
   — the noun-vs-mode / reuse-not-duplicate lesson the edge model honors.

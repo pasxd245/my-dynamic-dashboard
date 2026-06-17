@@ -172,9 +172,9 @@ Fix gate complete; gates green. Status → **Review** (awaiting human sign-off).
       introduced by this sweep. Two R77 anchors on the surviving docs that the rewrite first dropped
       (`query-construction.md#create-mode-r77-build-a-new-query-on-a-preset-base`,
       `saved-query.md#build-on-this-query-r77-the-create-entry`) were **restored**. Two self-inflicted
-      `--`-slug links (the [md-anchor-slug linter conflict](../../memory/2026-06-15-md-anchor-slug-linter-conflict.md))
-      were fixed by renaming the headings (`Joins:` / `IA and navigation`). `relationships.md`
-      repointed to the spine's execution section.
+      `--`-slug links (the md-anchor-slug linter conflict — `MD051` keeps `--`, `check_links`
+      collapses to `-`) were fixed by renaming the headings (`Joins:` / `IA and navigation`).
+      `relationships.md` repointed to the spine's execution section.
 + [x] **No `OUT OF SYNC` marker remains anywhere in `design/`** — the whole data-management corpus
       matches the implementation and is ledger-free.
 + [x] **Gates green**: `design:lint` 0 errors (15 grandfathered = the 3 redirect stubs, baselined as

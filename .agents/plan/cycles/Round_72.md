@@ -14,12 +14,12 @@ server-computed `resolvedColumns`, and the `409 relationship_stale` run gate), a
 > _The interactive multi-source construction surface (visual cross-source
 > predicate building, multiple joins, a builder canvas) → R72. Trigger: a Query
 > must be built from more than one minimal join + the saved filters._
-> ([joins.md § Scope](../../design/data-management/queries/joins.md))
+> ([joins.md § Scope](../../design/data-management/queries/queries.md#joins-reading-related-datasets-as-one))
 
 R71's hand-off named R72 the **likely DFCFBI** round: the visual multi-source
 builder is a genuinely new interaction pattern with real UX uncertainty (the
 conditions R71's scope cut kept quiet). R72 fills the
-[query-builder.md trajectory](../../design/data-management/queries/query-builder.md#the-trajectory-what-queries-grows-into)
+[query-builder.md trajectory](../../design/data-management/queries/queries.md#the-trajectory-what-queries-grows-into)
 step reserved as **"R72 construction surface"** — the fourth step of the critical
 path (`data → relationships → joins → **construction** → dashboards`).
 
@@ -38,7 +38,7 @@ guard against ceremony misapplied (the
 only the mechanism the named failure mode pulls).
 
 _Track: 1 (product feature). Pulled by ← R71 J-1 deferral + the
-[query-builder.md trajectory](../../design/data-management/queries/query-builder.md#the-trajectory-what-queries-grows-into)
+[query-builder.md trajectory](../../design/data-management/queries/queries.md#the-trajectory-what-queries-grows-into)
 ("R72 construction surface") + [purpose.md](../../context/purpose.md) critical
 path + key decision #4 (relationships/joins are central, not fixed). Scoped by
 the [dynamic-equilibrium brake](../../context/purpose.md#dynamic-equilibrium) and
@@ -62,7 +62,7 @@ for the human's go-ahead before any C/F1/F2/B/I (J-2)._
 | #   | Question                                                     | Held open for the Design pass                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | --- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | J-3 | **Live-preview run path** (contract-shape, **UX-dependent**) | The editable builder wants to **preview rows before Save**. R71's run route (`GET /queries/{id}/rows`) requires a **saved** Query. Two candidates: **(a) save-then-run** (no new route; the builder Saves a draft, then runs it — weaker UX, possible orphan drafts); **(b) a stateless preview endpoint** (`POST …/queries/preview` with a `QueryDefinition` body → `RowsPage`, never persisted). Because the contract shape **depends on the chosen UX**, this is a textbook [selector condition 4](../../decisions/2026-05-28-hybrid-flow-governance.md#flow-selector-2-of-5) → flagged for the Design gate, then the Contract gate. Lean: (b), if the F1 prototype shows save-before-preview is the wrong feel.                                                                                    |
-| J-4 | **Home (noun-vs-mode)**                                      | The builder is an **editable mode of the existing query detail**, **not** a new noun / parallel `/builder` page — the [reuse invariant](../../design/data-management/queries/query-builder.md#the-reuse-invariant-the-one-rule-this-domain-holds) + the noun-vs-mode default ([specious-model-lock-in](../../memory/2026-06-13-specious-model-lock-in.md)). The Design pass picks the **doc home** (a new `query-construction.md` mode doc the trajectory reserved, vs. extending `saved-query.md` / `joins.md`) and the **edit affordance** (inline-editable detail vs. a `/queries/:id/edit` mode) — sealed at Design, the home/mechanism free to deviate from the lean (the [build-first](../../memory/2026-05-22-ui-boundary-build-first.md) twin: adopt the intent, let the build pick the home). |
+| J-4 | **Home (noun-vs-mode)**                                      | The builder is an **editable mode of the existing query detail**, **not** a new noun / parallel `/builder` page — the [reuse invariant](../../design/data-management/queries/queries.md#the-reuse-invariant-the-one-rule-this-domain-holds) + the noun-vs-mode default ([specious-model-lock-in](../../memory/2026-06-13-specious-model-lock-in.md)). The Design pass picks the **doc home** (a new `query-construction.md` mode doc the trajectory reserved, vs. extending `saved-query.md` / `joins.md`) and the **edit affordance** (inline-editable detail vs. a `/queries/:id/edit` mode) — sealed at Design, the home/mechanism free to deviate from the lean (the [build-first](../../memory/2026-05-22-ui-boundary-build-first.md) twin: adopt the intent, let the build pick the home). |
 
 **Invariant (the R69 → R71 anti-duplication rule):** every new/extended surface is
 **reuse** of an existing component / layout / engine, never a parallel page or a
@@ -93,9 +93,9 @@ builder **edits** the `QueryDefinition` R71 sealed and **runs** the
      [parked-question discipline](../../memory/2026-06-13-specious-model-lock-in.md)
      R69/R70/R71 used.
    - **Resolve J-4 (home + edit affordance)**; update
-     [query-builder.md](../../design/data-management/queries/query-builder.md)
+     [query-builder.md](../../design/data-management/queries/queries.md)
      (trajectory: R72 construction surface → its new home; R73 reserved for
-     multi-join canvas) and cross-link [joins.md](../../design/data-management/queries/joins.md)
+     multi-join canvas) and cross-link [joins.md](../../design/data-management/queries/queries.md#joins-reading-related-datasets-as-one)
      (its read-only summary becomes the builder's editable surface).
 3. **Design-gate verification** — noun-vs-mode check (an editable **mode**, not a
    new page); `ui-design` (design-spec) on the construction surface;
@@ -215,11 +215,11 @@ builder **edits** the `QueryDefinition` R71 sealed and **runs** the
   state machine, the invalid-predicate / stale-edge **flag-don't-crash** states,
   an explicit Accessibility declaration, the contract intent (with **J-3**
   flagged), scope, and 10 acceptance criteria.
-- **Updated** [query-builder.md](../../design/data-management/queries/query-builder.md)
+- **Updated** [query-builder.md](../../design/data-management/queries/queries.md)
   (trajectory: R71 join execution **shipped**; **R72 construction surface** →
   query-construction.md; **R73 multi-join canvas** reserved; sibling, surface-map,
   and scope re-pointed) and
-  [joins.md](../../design/data-management/queries/joins.md) (its **read-only** join
+  [joins.md](../../design/data-management/queries/queries.md#joins-reading-related-datasets-as-one) (its **read-only** join
   summary now points forward as the builder's **editable** join editor).
 
 **Model check** (Design gate):
@@ -632,7 +632,7 @@ D-reconciliation was **under-scoped** — I read "D" as only the round's primary
 design docs**. Extended the reconciliation to them:
 [dataset-detail.md](../../design/data-management/datasets/dataset-detail.md) (actions-row
 ASCII → relabel + Join-in-Actions; page-size → `10/25/50/100`) and
-[saved-query.md](../../design/data-management/queries/saved-query.md) (as-built note;
+[saved-query.md](../../design/data-management/queries/queries.md) (as-built note;
 the "editing predicates → deferred" scope item **closed → shipped R72**; page-size).
 Lesson sharpened in [the memory](../../memory/2026-06-14-dfcfbi-f1-needs-human-review.md):
 reconcile **every** design doc a change touches, not just the round's own.

@@ -16,6 +16,7 @@ from __future__ import annotations
 import argparse
 import fnmatch
 import functools
+import json
 import os
 import re
 import subprocess
@@ -385,6 +386,97 @@ def _suggest_for_missing_fragment(
     _dedup_extend(rec.suggestions, out)
 
 
+# --------------------------------------------------------------- resolution map
+
+
+def _load_resolution_map(path: Path) -> dict[str, str]:
+    """Load an explicit {old-target → new-target} resolution map (JSON).
+
+    Keys match a broken link by repo-relative resolved path or basename,
+    optionally with a `#fragment` (e.g. `"query-builder.md#trajectory"` or
+    `"data-management/queries/query-builder.md#trajectory"`). Values are the
+    replacement target as a **repo-relative path** with an optional
+    `#fragment` (e.g. `"data-management/queries/queries.md#trajectory"`); the
+    per-source relative path is computed at apply time. A bare `"#frag"` value
+    repoints the fragment only.
+
+    This is the explicit, hand-authored bridge for moves the heuristic
+    suggester cannot infer — chiefly an N→1 **merge/fold** (git-rename only
+    follows 1:1 renames). Malformed map → SystemExit (don't silently no-op).
+    """
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as exc:
+        raise SystemExit(f"error: cannot read --resolution map {path}: {exc}")
+    if not isinstance(data, dict) or not all(
+        isinstance(k, str) and isinstance(v, str) for k, v in data.items()
+    ):
+        raise SystemExit(
+            f"error: --resolution map {path} must be a JSON object of "
+            "string→string (old-target → new-target)."
+        )
+    return data
+
+
+def _resolution_keys(rec: LinkRecord) -> list[str]:
+    """Candidate match keys for a record, most specific first:
+    `resolved-path#frag`, `basename#frag`, `resolved-path`, `basename`, raw
+    target. The first key present in the map wins."""
+    path_part, _, frag = rec.target.partition("#")
+    rel_path = rec.resolved_path or unquote(path_part)
+    base = os.path.basename(rel_path)
+    keys: list[str] = []
+    if frag:
+        keys += [f"{rel_path}#{frag}", f"{base}#{frag}"]
+    keys += [rel_path, base, rec.target]
+    return keys
+
+
+def _resolution_target(
+    rec: LinkRecord, mapping: dict[str, str], used: set[str]
+) -> Optional[str]:
+    """Computed replacement target for one record, or None if unmapped.
+
+    File-only remap (map key + value both frag-less) preserves the link's
+    original fragment, so `old.md#frag` → `new.md#frag`. Records the matched
+    key in `used` for the unused-key warning.
+    """
+    matched_key = next((k for k in _resolution_keys(rec) if k in mapping), None)
+    if matched_key is None:
+        return None
+    used.add(matched_key)
+    new_path, sep, new_frag = mapping[matched_key].partition("#")
+    if not sep and "#" not in matched_key:
+        new_frag = rec.target.partition("#")[2]
+    rel = _rel_from(REPO_ROOT / new_path, (REPO_ROOT / rec.file).parent) if new_path else ""
+    return f"{rel}#{new_frag}" if new_frag else rel
+
+
+def _apply_resolution_map(records: list[LinkRecord], mapping: dict[str, str]) -> int:
+    """Inject `link:<computed>` resolutions for broken records matching the map.
+
+    Reuses the existing `link:` fix machinery (`output._plan_action`). Skips
+    records already carrying a resolution (a `suggestions.fixed.json` override
+    wins). Returns the count matched; warns on map keys that matched nothing.
+    """
+    matched = 0
+    used: set[str] = set()
+    for rec in records:
+        if rec.status != "broken" or rec.resolution is not None:
+            continue
+        target = _resolution_target(rec, mapping, used)
+        if target is not None:
+            rec.resolution = f"link:{target}"
+            matched += 1
+    for key in mapping:
+        if key not in used:
+            print(
+                f"warning: --resolution key '{key}' matched no broken link",
+                file=sys.stderr,
+            )
+    return matched
+
+
 # --------------------------------------------------------------- verify
 
 
@@ -549,6 +641,15 @@ def main(argv: list[str] | None = None) -> int:  # NOSONAR
             f"suggestions."
         ),
     )
+    parser.add_argument(
+        "--resolution",
+        metavar="FILE",
+        help=(
+            "JSON {old-target: new-target} map to repoint broken links the "
+            "heuristic suggester cannot infer (chiefly N→1 merges/folds). "
+            "Applied under --fix / --dry-run, before the auto-suggester."
+        ),
+    )
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument(
         "--fix",
@@ -608,6 +709,14 @@ def main(argv: list[str] | None = None) -> int:  # NOSONAR
                 "link (link already fixed or source file changed)",
                 file=sys.stderr,
             )
+
+    if fix_mode and args.resolution:
+        mapping = _load_resolution_map(Path(args.resolution))
+        matched = _apply_resolution_map(records, mapping)
+        print(
+            f"applied {matched} --resolution repoint(s) from {args.resolution}",
+            file=sys.stderr,
+        )
 
     if fix_mode:
         diff = O.apply_fixes(

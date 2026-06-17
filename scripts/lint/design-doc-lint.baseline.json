@@ -1,25 +1,4 @@
 {
-  "_comment": "Grandfathered design-doc conformance failures. Baselined failures WARN; non-baselined violations ERROR. The three queries/ entries are deliberate REDIRECT STUBS created by the R83 design-sync fold (joins/multi-join/composition merged into the saved-query.md spine); a stub is intentionally not a full doc (no status/surface/token/scope/acceptance) — it only preserves locked-round deep-link anchors. Regenerate: node scripts/lint/design-doc-lint.mjs --update-baseline",
-  "_generated": "R83 (queries fold — redirect stubs grandfathered)",
-  "data-management/queries/composition.md": [
-    "L1-status-header",
-    "L2-surface-vocab",
-    "L3-token-map",
-    "L4-scope-boundary",
-    "L5-acceptance-criteria"
-  ],
-  "data-management/queries/joins.md": [
-    "L1-status-header",
-    "L2-surface-vocab",
-    "L3-token-map",
-    "L4-scope-boundary",
-    "L5-acceptance-criteria"
-  ],
-  "data-management/queries/multi-join.md": [
-    "L1-status-header",
-    "L2-surface-vocab",
-    "L3-token-map",
-    "L4-scope-boundary",
-    "L5-acceptance-criteria"
-  ]
+  "_comment": "Grandfathered design-doc conformance failures. Baselined failures WARN; non-baselined violations ERROR. EMPTY again as of R84 — the R83 redirect stubs (joins/multi-join/composition) were merged into queries.md and deleted, so no doc is grandfathered; every design doc conforms to all five rules. Re-grandfather a deliberate exception by adding a \"<rel/path.md>\": [\"<rule-id>\"] entry. Regenerate: node scripts/lint/design-doc-lint.mjs --update-baseline",
+  "_generated": "R84 (queries consolidated to a single queries.md; stubs removed)"
 }

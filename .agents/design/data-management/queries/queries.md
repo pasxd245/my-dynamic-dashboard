@@ -1,4 +1,4 @@
-# Saved Query — the persisted, re-runnable Query (model · routes · engine)
+# Queries — the Query domain (noun · model · routes · engine)
 
 **Concept**: a **Query** is a named, saved definition that produces a **virtual
 dataset** by re-running a set of predicates — and, optionally, a tree of joins —
@@ -9,16 +9,15 @@ identity (`qr_…`), its own home (the **Queries catalog**), and its own URL —
 A Query stores **only its definition**, never a materialized result: opening one
 re-runs it against current data, so the result is always fresh.
 
-This doc is the **spine** of the `queries/` domain — the single home for the Query
-**model**, its **routes + error codes**, and the **execution engine** (single-source
-read, the join-tree fold, and composed `qr_` sources). The interactive builder UX
-lives in its sibling [query-construction.md](query-construction.md); the domain frame
-and reuse invariant live in the anchor [query-builder.md](query-builder.md); the
+This doc is the **domain anchor + spine** of `queries/` — the single home for the
+Query **noun**, the **reuse invariant** every surface here obeys, the **trajectory** the
+domain grows along, and the Query **model · routes + error codes · execution engine**
+(single-source read, the join-tree fold, and composed `qr_` sources). The interactive
+builder UX lives in the sibling [query-construction.md](query-construction.md); the
 unbuilt visual editor is [canvas.md](canvas.md) (design-banked, build deferred).
 
 **Status**: Accepted.
 **Sibling docs**:
-[query-builder.md](query-builder.md) (the domain anchor — reuse invariant + trajectory),
 [query-construction.md](query-construction.md) (the editable builder surface: edit a
 Query's definition + preview before save; the create-mode "Build on this query"),
 [canvas.md](canvas.md) (the visual source-graph editor — design banked, build deferred),
@@ -47,7 +46,7 @@ identity, listed in a catalog and reopenable.
 
 + `dataset-detail.md` — the **ephemeral view**: build predicates, read rows, share via
   URL. Predicates live in the URL.
-+ `saved-query.md` (this file) — the **persisted view + the engine that runs it**.
++ `queries.md` (this file) — the **persisted view + the engine that runs it**.
   The definition lives in a `queries` row; the run re-executes it live.
 
 A Query is **not** a Dataset (no Parquet of its own — see § Execution model) and
@@ -57,10 +56,15 @@ another Query (§ Composed source).
 
 ---
 
-## Reuse, not duplication — the invariant
+## The reuse invariant (the one rule this domain holds)
 
-Every `queries/` surface is **composed from existing shared components/layouts**, never
-a parallel page or a re-invented engine:
+`queries/` is a first-class domain because the Query-Builder complexity (joins,
+composition, the construction surface) genuinely pulled one — the domain is
+**discovered, not imposed**. But **doc-home and UI-duplication are independent axes**:
+having a `queries/` folder does **not** license parallel pages that re-implement the row
+table. So the one rule every surface here obeys — every `queries/` surface is **composed
+from existing shared components/layouts**, never a parallel page or a re-invented engine
+([specious-model-lock-in](../../../memory/2026-06-13-specious-model-lock-in.md)):
 
 | Concern                 | Reused from                                                                                                  |
 | ----------------------- | ------------------------------------------------------------------------------------------------------------ |
@@ -530,6 +534,30 @@ stateDiagram-v2
 
 ---
 
+## The trajectory (what queries grows into)
+
+The domain grows by **adding construction modes + inputs**, each obeying the reuse
+invariant. What is **built** today is this doc; what is **next** is named with its home
+and trigger:
+
+```text
+BUILT  → this doc (queries.md)
+         · single-source save (filter a dataset, Save as Query)
+         · join execution + the multi-hop join TREE (connected acyclic; inner/left/right/full)
+         · composition (a Query as the driving source; the unified ds_/qr_ resolver)
+         · the interactive construction surface (query-construction.md):
+           edit + live-preview + the "Build on this query" create mode
+NEXT   → the visual source-graph canvas (canvas.md) — design banked, build DEFERRED.
+         Trigger: a real report's joins tree outgrows the hop list (unfired).
+LATER  → consumer-save / dashboards (downstream value-out) — read the clean single-spine
+         Query model.
+```
+
+Each step is **pulled, not pre-built** (the Evolution Rule + the
+[dynamic-equilibrium brake](../../../context/purpose.md#dynamic-equilibrium)).
+
+---
+
 ## Scope boundary
 
 ### IN scope
@@ -574,7 +602,7 @@ stateDiagram-v2
 
 ## Reference materials (read-only)
 
-+ [query-builder.md](query-builder.md) — the domain anchor + reuse invariant + trajectory.
++ [query-builder.md](queries.md) — the domain anchor + reuse invariant + trajectory.
 + [dataset-detail.md](../datasets/dataset-detail.md) — the `<PagedRowsView>` host + the
   surface a Query is saved from.
 + [relationships.md](../workspaces/relationships.md) — the governed edge a join consumes;

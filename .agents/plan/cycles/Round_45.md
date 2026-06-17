@@ -469,7 +469,7 @@ obviously-wrong bodies', …)`. Probes `validateResponse(opId,
 - Fix: add `builder.enable_mock` to `values.yaml` (default
   `false` — explicit opt-in; committing `true` would surprise
   teammates). Update
-  [`workspace/config/builder/.env.hbs`](../../../workspace/config/builder/.env.hbs)
+  [`workspace/config/builder/.env.hbs`](../../../workspace/config/templates/builder/.env.hbs)
   with `{{#if builder.enable_mock}}VITE_MOCKS=1{{/if}}` — the
   variable is _absent_ when the flag is false, not set to `'0'`.
   This matches [`main.tsx:78`](../../../workspace/apps/builder/src/main.tsx#L78)'s

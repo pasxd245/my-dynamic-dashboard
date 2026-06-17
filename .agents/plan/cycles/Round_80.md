@@ -17,8 +17,8 @@ polymorphic `sourceId` (`ds_`/`qr_`), `datasetId` retired. R79 unified the sourc
 **specifically so the canvas reads/writes one source, not two** ([Round_79 § Feeds into](Round_79.md)).
 This round also inherits the named **canvas deferral**: the *free-form visual source-graph canvas
 (drag nodes / draw edges)* has been deferred since R74 (J-1′) under the trigger **"until the
-hop-list stops scaling"** ([multi-join.md § Scope](../../design/data-management/queries/multi-join.md),
-[query-builder.md trajectory](../../design/data-management/queries/query-builder.md)).
+hop-list stops scaling"** ([multi-join.md § Scope](../../design/data-management/queries/queries.md#joins-reading-related-datasets-as-one),
+[query-builder.md trajectory](../../design/data-management/queries/queries.md)).
 
 Open the **canvas theme** with a **Design round**: specify the free-form visual source-graph canvas
 (datasets + saved queries as nodes, governed relationships as edges) and the standalone **"New
@@ -29,8 +29,8 @@ code. The build is one or more **later rounds (R81+)**.
 
 _Track: 1 (product feature — design). Pulled by ← the post-MVP roadmap (the canvas is the next
 feature theme after the R78 foundation + R79 cleanup) and the named canvas deferral in
-[multi-join.md](../../design/data-management/queries/multi-join.md) /
-[query-builder.md](../../design/data-management/queries/query-builder.md) — per
+[multi-join.md](../../design/data-management/queries/queries.md#joins-reading-related-datasets-as-one) /
+[query-builder.md](../../design/data-management/queries/queries.md) — per
 [Evolution Rule](../../AGENTS.md)._
 
 ## Judgment calls (held open for the Design gate)
@@ -113,7 +113,7 @@ feature theme after the R78 foundation + R79 cleanup) and the named canvas defer
 
 + **Canvas design doc authored + Accepted** — new [canvas.md](../../design/data-management/queries/canvas.md)
   (banked design; build deferred). Sealed as a **sibling MODE doc** under
-  [query-builder.md](../../design/data-management/queries/query-builder.md); the anchor's
+  [query-builder.md](../../design/data-management/queries/queries.md); the anchor's
   trajectory + surface map + sibling list updated to point at it (R80 design / R81+ build).
 + **J-1 → MODE (not noun).** The canvas is a **view/edit mode** of the existing builder
   (`useQueryBuilder` / `QueryBuilderPanel`) over the **same** `definition.joins` tree + R79's

@@ -15,7 +15,7 @@ whole point of R76 (a Query as a join source) is therefore **unreachable**. R77 
 gap with the **smallest** path that makes composition reachable end-to-end.
 
 R77 adds a **"Build on this query"** action: from a saved Query (its
-[detail / catalog](../../design/data-management/queries/saved-query.md)), one click opens the
+[detail / catalog](../../design/data-management/queries/queries.md)), one click opens the
 **shipped hop-list builder in a CREATE mode** with **that Query preset as the base**
 (`sourceId`), so the user adds joins + predicates, names it, and **Saves (POST, carrying
 `sourceId`)** → a new composed Query. No model/contract/engine change — R76's `sourceId` on
@@ -31,7 +31,7 @@ base from the surface you're on** (no empty source-picker, no standalone route, 
 from-scratch IA), and **reuses the exact "Save filters as Query" rhythm** (a verb on an
 existing surface → the builder → name + Save). It is **not a new noun**: a query is still a
 query; the create path **reuses** `useQueryBuilder` / `JoinEditor` / `<PagedRowsView>` (the
-[reuse invariant](../../design/data-management/queries/query-builder.md#the-reuse-invariant-the-one-rule-this-domain-holds)),
+[reuse invariant](../../design/data-management/queries/queries.md#the-reuse-invariant-the-one-rule-this-domain-holds)),
 never a parallel page (the discarded-R69 trap).
 
 _Track: 1 (product feature). Pulled by ← R76's named create-path gap (its Feeds-into).
@@ -70,7 +70,7 @@ stay deferred with their triggers._
 | #   | Question                                  | Held open for the Design pass                                                                                                                                                                                                                                                                                                       |
 | --- | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | J-3 | **The create-mode builder lifecycle**     | How the builder generalizes from edit-only to create+edit with a **preset base**: the no-`id` initial state seeded with `sourceId` = the source Query, **name capture** (mirror "Save filters as Query" — inline field vs a Save dialog), Save = POST(`{name, datasetId, sourceId, definition}`) then navigate to the new `qr_` detail, and the `composition_cycle`/validation states surfaced pre-save. Lean: extend `useQueryBuilder` with a create mode; reuse the name-capture pattern. |
-| J-4 | **The "Build on this" affordance + doc home** | Where the verb lives (the Query **detail** header, the **catalog** row action, or both), its label + how the new draft is routed/opened (a transient builder over the catalog vs a `…/queries/new?base=qr_…` route), and the doc home — extend [saved-query.md](../../design/data-management/queries/saved-query.md) (the catalog + create modes) + [query-construction.md](../../design/data-management/queries/query-construction.md) (the builder). Lean: a Query-detail verb mirroring "Save filters as Query"; extend the existing docs. Sealed at Design (home/mechanism free to deviate — [build-first](../../memory/2026-05-22-ui-boundary-build-first.md)). |
+| J-4 | **The "Build on this" affordance + doc home** | Where the verb lives (the Query **detail** header, the **catalog** row action, or both), its label + how the new draft is routed/opened (a transient builder over the catalog vs a `…/queries/new?base=qr_…` route), and the doc home — extend [saved-query.md](../../design/data-management/queries/queries.md) (the catalog + create modes) + [query-construction.md](../../design/data-management/queries/query-construction.md) (the builder). Lean: a Query-detail verb mirroring "Save filters as Query"; extend the existing docs. Sealed at Design (home/mechanism free to deviate — [build-first](../../memory/2026-05-22-ui-boundary-build-first.md)). |
 
 **Invariant (the R69→R76 anti-duplication rule):** R77 **reuses** the Queries catalog +
 detail, `useQueryBuilder` / `JoinEditor` / `QueryBuilderPanel` / `<PagedRowsView>`, the
@@ -172,11 +172,11 @@ POST-not-PUT) + the **"Build on this" verb** — named honestly, not laundered t
 **[query-construction.md § Create mode (R77)](../../design/data-management/queries/query-construction.md#create-mode-r77-build-a-new-query-on-a-preset-base)**
 (the create-mode builder lifecycle — the J-3 home, since this is the builder doc) and the
 **"Build on this query"** verb into
-**[saved-query.md § Build on this query](../../design/data-management/queries/saved-query.md#build-on-this-query-r77-the-create-entry)**
+**[saved-query.md § Build on this query](../../design/data-management/queries/queries.md#build-on-this-query-r77-the-create-entry)**
 (the catalog + create-modes home — the J-4 affordance). Updated
-[composition.md](../../design/data-management/queries/composition.md) (create now reachable;
+[composition.md](../../design/data-management/queries/queries.md#composed-source-qr_) (create now reachable;
 its R76 Status reconciled to **shipped** — O-rule truth-fix) and the
-[query-builder.md trajectory](../../design/data-management/queries/query-builder.md#the-trajectory-what-queries-grows-into)
+[query-builder.md trajectory](../../design/data-management/queries/queries.md#the-trajectory-what-queries-grows-into)
 (an R77 row; R76 → shipped).
 
 **J-3 + J-4 resolved (grounded in the shipped build, [[design-altitude-vs-build-home]]):**
@@ -315,7 +315,7 @@ commit (with B — both confirm-only).
 
 + [x] **J-0, J-1, J-2 ratified** (Plan gate); **J-3, J-4 held open** → Design gate.
 + [x] **Create path designed** (home per J-4): the "Build on this" verb
-      ([saved-query.md](../../design/data-management/queries/saved-query.md#build-on-this-query-r77-the-create-entry))
+      ([saved-query.md](../../design/data-management/queries/queries.md#build-on-this-query-r77-the-create-entry))
       + the create-mode builder
       ([query-construction.md](../../design/data-management/queries/query-construction.md#create-mode-r77-build-a-new-query-on-a-preset-base)).
 + [x] **Model-confidence valve to confirm** — no model/contract/engine/route/error-code change

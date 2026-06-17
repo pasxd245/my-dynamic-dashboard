@@ -9,7 +9,7 @@
 **Inherits from ← [Round_70](Round_70.md)** — R70 sealed and shipped the
 **governed `Relationship` edge** (a `rel_` identity, dtype-validated join keys,
 workspace-scoped, `valid|stale` status) and graduated the
-[`queries/` domain](../../design/data-management/queries/query-builder.md) with a
+[`queries/` domain](../../design/data-management/queries/queries.md) with a
 named trajectory whose next step is **R71: join execution + the construction
 surface**. R71 is the third step of the critical path
 (`data → relationships → dashboards`) and a stated product requirement
@@ -73,7 +73,7 @@ discriminate between (see J-2).
 
 | #   | Question                            | Candidates held open (Design pass discriminates)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | --- | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| J-2 | **How a join is modeled**           | **(a) Extend the Query** — `QueryDefinition` gains a join step referencing a `rel_` id; the Query stays the single ["virtual dataset" archetype](../../design/data-management/queries/saved-query.md), now multi-source; reuses the Query run route + archetype; the table-source resolver stays internal. Consistent with the [reuse invariant](../../design/data-management/queries/query-builder.md#the-reuse-invariant-the-one-rule-this-domain-holds). **(b) New joined-source entity** — a join becomes its own first-class source (higher model risk; closest to the discarded R69 new-noun trap). **Lean (not a ratification):** (a), per query-is-virtual-dataset + noun-vs-mode default; the Design pass must *earn* it by actually resolving an edge to rows, or surface why (b) is forced. |
+| J-2 | **How a join is modeled**           | **(a) Extend the Query** — `QueryDefinition` gains a join step referencing a `rel_` id; the Query stays the single ["virtual dataset" archetype](../../design/data-management/queries/queries.md), now multi-source; reuses the Query run route + archetype; the table-source resolver stays internal. Consistent with the [reuse invariant](../../design/data-management/queries/queries.md#the-reuse-invariant-the-one-rule-this-domain-holds). **(b) New joined-source entity** — a join becomes its own first-class source (higher model risk; closest to the discarded R69 new-noun trap). **Lean (not a ratification):** (a), per query-is-virtual-dataset + noun-vs-mode default; the Design pass must *earn* it by actually resolving an edge to rows, or surface why (b) is forced. |
 | J-2′ | **Route / resolver** (parked R69+R70) | The R69/R70-parked **separate `/rows` route vs unified table-source resolver** question — *dependent on J-2*. If J-2 = (a), a join runs through the **existing `/queries/{id}/rows`** route and the resolver is an **internal** detail; the unified-by-id resolver lands only if the Design pass shows a join genuinely must resolve a mixed `ds_`/`qr_` source by id. Flagged for the **Contract gate** (post-STOP), as R69 and R70 flagged it — not pre-decided here.                                                                                                              |
 
 **Invariant (the R69 → R70 anti-duplication rule):** any new/extended surface is
@@ -95,8 +95,8 @@ re-invented predicate/dtype/join engine
      whether the R70 edge **carries** all of it (→ confirm J-2(a), seal) or **does
      not** (→ J-4 kill-condition fires: amend `relationships.md`, a model revision).
    - **Author the join-execution design** in
-     [query-builder.md](../../design/data-management/queries/query-builder.md)
-     and/or [saved-query.md](../../design/data-management/queries/saved-query.md)
+     [query-builder.md](../../design/data-management/queries/queries.md)
+     and/or [saved-query.md](../../design/data-management/queries/queries.md)
      (home chosen by J-2's outcome — extend the Query docs, not a new page): the
      extended `QueryDefinition` (the join step referencing a `rel_` id), the
      execution model (resolve both table-sources → join on the validated keys →
@@ -194,7 +194,7 @@ re-invented predicate/dtype/join engine
   resolved **with truth-test evidence**, not pre-locked on R70's self-referential
   suite. Lean (not a ratification): extend the Query (`QueryDefinition` join step
   referencing a `rel_`) — per the "Query is a virtual dataset" doctrine
-  ([saved-query.md](../../design/data-management/queries/saved-query.md)) and the
+  ([saved-query.md](../../design/data-management/queries/queries.md)) and the
   noun-vs-mode default.
 - **J-2′ → route/resolver flagged for the Contract gate** (dependent on J-2), as
   R69 and R70 flagged it; default to the existing `/queries/{id}/rows` if J-2 = (a).
@@ -240,7 +240,7 @@ and [common.py](../../../workspace/apps/backend/app/models/common.py).
   space, and a result-column **collision rule**. What _is_ genuinely reused: the
   predicate _vocabulary_, the SQL _fragment builders_, the `409 *_stale` pattern,
   and the `RowsPage` shape. (Recorded in
-  [joins.md § Truth-test record](../../design/data-management/queries/joins.md#truth-test-record-j-4).)
+  [joins.md § Truth-test record](../../design/data-management/queries/queries.md#joins-reading-related-datasets-as-one).)
 - **J-2′ (route/resolver) → unified resolver stays deferred.** R71's join inputs
   are two **Datasets** via a `rel_` (Query×Query composition is deferred), so the
   join runs through the existing `/queries/{id}/rows` route, resolving both
@@ -250,14 +250,14 @@ and [common.py](../../../workspace/apps/backend/app/models/common.py).
 
 **Docs produced / touched:**
 
-- **Authored** [joins.md](../../design/data-management/queries/joins.md) — the
+- **Authored** [joins.md](../../design/data-management/queries/queries.md#joins-reading-related-datasets-as-one) — the
   join-execution **mode** (not a new noun): the truth-test record, the extended
   `QueryDefinition` join step + effective-column / collision rule, the
   `query_joined_rows` execution model, the `409 relationship_stale` run gate, the
   minimal create surface + the read-only join summary + stale-edge state, an
   explicit Accessibility declaration, the contract intent, scope, and 10
   acceptance criteria.
-- **Updated** [query-builder.md](../../design/data-management/queries/query-builder.md)
+- **Updated** [query-builder.md](../../design/data-management/queries/queries.md)
   (trajectory split: R71 join execution → joins.md; construction surface → R72;
   sibling link + scope re-pointed) and
   [relationships.md](../../design/data-management/workspaces/relationships.md)
@@ -265,7 +265,7 @@ and [common.py](../../../workspace/apps/backend/app/models/common.py).
   marked **consumed**; consumer link → joins.md).
 - **Reconciled a spec-vs-impl truth-debt R70 flagged** ([purpose.md](../../context/purpose.md)
   #7) while touching the query docs:
-  [saved-query.md](../../design/data-management/queries/saved-query.md) said
+  [saved-query.md](../../design/data-management/queries/queries.md) said
   **SQLModel** (the J-3 plan) and **`@mdd/ui`** for `<PagedRowsView>`, but the R69
   build shipped **raw-SQLite + Pydantic** and `data-management/_shared/`.
   Reconciled to the shipped truth (the J-3 row annotated as build-corrected, not
@@ -477,7 +477,7 @@ its truth-test.** The expensive question this round existed to answer — _does 
 governed `Relationship` carry what a real join needs?_ — was answered against the
 **code**, not R70's self-referential green suite: yes. The edge is the right
 shape for its role (join **input**); **J-4 did not fire; R70 needs no revision**.
-[joins.md](../../design/data-management/queries/joins.md) seals the join as a
+[joins.md](../../design/data-management/queries/queries.md#joins-reading-related-datasets-as-one) seals the join as a
 **mode** of the Query (extend `QueryDefinition`, reuse the archetype/route), not a
 new noun.
 

@@ -90,7 +90,7 @@ migration foundation on its first live feature change** (a backfill + a SQLite c
   incremental (R78 deferral); this round renames a field, it does not rewrite the data layer.
 + **A `qr_` on the RIGHT of a join hop** (generalize `rel_` endpoints) — deferred (own trigger).
 + **The free-form visual join canvas / standalone "New query"** — the canvas theme, deferred
-  until its trigger ([query-builder.md](../../design/data-management/queries/query-builder.md) —
+  until its trigger ([query-builder.md](../../design/data-management/queries/queries.md) —
   built right, not MVP-rushed).
 + **Any new query capability** — this is a rename + backfill, behaviour-preserving for the user.
 

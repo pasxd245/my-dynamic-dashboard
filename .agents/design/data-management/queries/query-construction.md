@@ -1,25 +1,23 @@
 # Query Construction — the interactive builder: edit a Query's definition + preview before save
 
 **Concept**: the **construction surface** is the editable builder for a
-[Query](saved-query.md): an **Edit mode** of the query detail (and a **Create mode**
+[Query](queries.md): an **Edit mode** of the query detail (and a **Create mode**
 reached from "Build on this query") that lets a user build a Query's definition — pick its
-driving source, edit its [join tree](saved-query.md#joins-reading-related-datasets-as-one),
+driving source, edit its [join tree](queries.md#joins-reading-related-datasets-as-one),
 and compose **cross-source predicates** over the combined column space — and **preview**
 the resulting rows **before saving**. It is **not a new noun and not a new engine**: it
-edits the [`QueryDefinition`](saved-query.md#data-model) the spine owns and runs the spine's
+edits the [`QueryDefinition`](queries.md#data-model) the spine owns and runs the spine's
 `query_joined_rows` / `query_dataset_rows` / `resolve_source` engines through a stateless
 preview. This doc owns the **builder UX** — layout, the edit/create lifecycle, the live
 preview, and the in-builder validation — while the model, routes, and engine live in the
-[saved-query.md spine](saved-query.md).
+[queries.md spine](queries.md).
 
 **Status**: Accepted.
 **Sibling docs**:
-[saved-query.md](saved-query.md) (the spine — the `QueryDefinition` model, the
-`POST …/preview` / `PUT /queries/{id}` / `POST …/queries` routes, the engines, and the
-`query_stale` / `relationship_stale` / `composition_cycle` gates this builder edits and
-previews against),
-[query-builder.md](query-builder.md) (the domain anchor; the
-[reuse invariant](query-builder.md#the-reuse-invariant-the-one-rule-this-domain-holds)
+[queries.md](queries.md) (the domain spine — the `QueryDefinition` model, all routes +
+error codes (`POST …/preview` / `PUT /queries/{id}` / `POST …/queries`), the engines + the
+`query_stale` / `relationship_stale` / `composition_cycle` gates this builder edits against,
+and the [reuse invariant](queries.md#the-reuse-invariant-the-one-rule-this-domain-holds)
 this obeys),
 [canvas.md](canvas.md) (the visual editor that adds a canvas view/edit mode over this
 same builder — design banked, build deferred),
@@ -91,7 +89,7 @@ The builder surfaces are AntD primitives (`<Select>`, `<Button>`, `<Tag>`, `<Ale
 the `<ConfigProvider>` tokens derived from the six seeds in
 [`themeTokens.ts`](../../../../workspace/packages/ui/src/themeTokens.ts) (the source of
 truth). **No new token is introduced**; the map reuses identifiers already cited by
-[saved-query.md](saved-query.md). `Value` is informational.
+[queries.md](queries.md). `Value` is informational.
 
 | Surface                                        | AntD token (themeTokens.ts) | Value (informational) |
 | ---------------------------------------------- | --------------------------- | --------------------- |
@@ -233,7 +231,7 @@ The builder also runs in **create mode** to construct a **brand-new** Query whos
 source is preset to a saved Query you chose to build on (`sourceId = qr_…`). It is the
 same `QueryBuilderPanel` + `useQueryBuilder` rendered with a **mode** flag — never a
 parallel page. The entry verb **"Build on this query"** lives on the Query detail header
-([saved-query.md § IA](saved-query.md#ia-and-navigation)); its route is
+([queries.md § IA](queries.md#ia-and-navigation)); its route is
 `/data-management/queries/new?base=qr_…` (`QueryCreatePage`), reached **only** via the verb
 (no nav item, no empty source picker — the standalone "New query" entry ships with the
 [canvas](canvas.md), built right: [[dont-mvp-rush-a-roadmap-home-surface]]).
@@ -252,7 +250,7 @@ How edit-only generalizes to edit + create (`useQueryBuilder` gains a mode):
 
 The create `POST` carries **`{ name, sourceId, definition }`** — `sourceId` is the
 canonical (and only) source field; there is no `datasetId` (it was dropped in migration
-`0002`, see [saved-query.md § Data model](saved-query.md#data-model)). Both "Save filters
+`0002`, see [queries.md § Data model](queries.md#data-model)). Both "Save filters
 as Query" and "Build on this query" route through the **same** `SaveQueryModal` +
 `useCreateQueryMutation`, so create logic is never duplicated.
 
@@ -360,14 +358,14 @@ if a base loops) — flag-don't-crash, mirroring the edit-mode and run-time gate
   separate rename affordance is its own pull.
 - **A `qr_` on the right of a join hop; composite keys; self-joins; cross-workspace
   joins; null-aware predicate operators** → spine-level future triggers
-  ([saved-query.md § Scope](saved-query.md#scope-boundary)).
+  ([queries.md § Scope](queries.md#scope-boundary)).
 - **Workflow / complex query (YAML + polars); result materialization; Excel export;
   dashboards** → downstream value-out; preview + save stay live re-run.
 
 ### This concept explicitly does NOT cover
 
 - The `QueryDefinition` model, the routes + error codes, and the join/composition engines —
-  [saved-query.md](saved-query.md); this **edits + previews** them, it does not restate them.
+  [queries.md](queries.md); this **edits + previews** them, it does not restate them.
 - The predicate vocabulary internals — [dataset-filters.md](../datasets/dataset-filters.md)
   - [advanced-query.md](../datasets/advanced-query.md).
 - The governed-edge model (declare / validate / stale) —
@@ -377,9 +375,9 @@ if a base loops) — flag-don't-crash, mirroring the edit-mode and run-time gate
 
 ## Reference materials (read-only)
 
-- [saved-query.md](saved-query.md) — the Query model, routes, engines, and gates this
+- [queries.md](queries.md) — the Query model, routes, engines, and gates this
   builder edits + previews.
-- [query-builder.md](query-builder.md) — the domain anchor + reuse invariant + trajectory.
+- [queries.md](queries.md) — the domain anchor + reuse invariant + trajectory.
 - [canvas.md](canvas.md) — the deferred visual editor that re-presents this builder.
 - [specious-model-lock-in](../../../memory/2026-06-13-specious-model-lock-in.md) — the
   noun-vs-mode / honest-split discipline this doc applies.

@@ -2,7 +2,7 @@
 name: markdown-check-link
 description: Verify markdown links resolve to existing files and headings. Emits full link inventory + broken-link report under .agents/tmp/markdown-check-link/. Supports opt-in auto-correct (--fix / --dry-run) driven by ranked, confidence-scored suggestions (git-rename, case-mismatch, unique-basename, fragment-case).
 when_to_use: Invoke in the post-round audit (alongside markdownlint-cli2), after large doc edits, or when a session-load link click 404s. Default scope reads .markdownlint-cli2.jsonc globs + ignores; falls back to .agents/**/*.md if config missing. Trigger phrases include "check links", "broken markdown links", "link rot", "verify .agents links".
-argument-hint: '[path-or-glob ...] [--changed] [--check-http] [--fix | --dry-run] [--min-confidence FLOAT] [--exclude PATTERN]'
+argument-hint: '[path-or-glob ...] [--changed] [--check-http] [--fix | --dry-run] [--min-confidence FLOAT] [--exclude PATTERN] [--resolution FILE]'
 allowed-tools: Read, Grep, Glob, Bash(python3 *)
 metadata:
   author: hand-authored-r50
@@ -217,6 +217,44 @@ warnings emit, the link stays broken.
 
 After `--fix`, **re-run default mode** to confirm clean exit
 before stopping. Idempotence is the correctness bar.
+
+#### `--resolution <file>` — bulk repoint for merges / folds
+
+`suggestions.fixed.json` is keyed by `(file, line, target)` — fine for a
+handful of ambiguous links, impractical when **one moved/merged target** is
+linked from dozens of places (e.g. a design-doc **fold**: `joins.md` +
+`multi-join.md` + `query-builder.md` → `queries.md`). The `git-rename`
+heuristic auto-follows a **1:1** rename, but an **N→1 merge** has no single
+rename target, and merged anchors (`old.md#frag` → `new.md#other-frag`) can't
+be inferred. `--resolution <file>` is the explicit, repo-wide bridge:
+
+```bash
+# map.json: { "<old-target>": "<new-repo-rel-target>", ... }
+python3 .agents/skills/markdown-check-link/scripts/check_links.py --dry-run --resolution map.json
+python3 .agents/skills/markdown-check-link/scripts/check_links.py --fix     --resolution map.json
+```
+
+- **Keys** match a broken link by `resolved-path#frag`, `basename#frag`,
+  `resolved-path`, `basename`, or the raw target (most specific first), so one
+  entry repoints every inbound link to that old anchor regardless of the
+  relative path each source used.
+- **Values** are the new target as a **repo-relative path from the repo root**
+  (+ optional `#frag`); the per-source relative path is computed at apply time.
+  A **file-only** value (no `#frag`) matched by a **file-only** key **preserves
+  the link's original fragment** (`old.md#frag` → `new.md#frag`). A bare
+  `"#frag"` value repoints the fragment only.
+- It injects a `link:<computed>` resolution (reusing the table above), then the
+  normal `--fix` path rewrites the URL. Records already carrying a
+  `suggestions.fixed.json` resolution are left alone (that override wins).
+- A map key matching no broken link emits a stderr warning (catch typos / a
+  link already repointed). Malformed map → hard error (no silent no-op).
+
+```json
+{
+  "query-builder.md#the-trajectory-what-queries-grows-into": ".agents/design/data-management/queries/queries.md#the-trajectory-what-queries-grows-into",
+  "joins.md": ".agents/design/data-management/queries/queries.md#joins-reading-related-datasets-as-one"
+}
+```
 
 ### 5. Optional: HTTP link check
 

@@ -11,14 +11,14 @@
 **Datasets only**: every join input is a `ds_` parquet source, resolved through a
 governed `rel_` edge whose **both endpoints are Datasets**. A **Query cannot yet be a
 join input** — so "join my *Won-deals* Query to Accounts" is **inexpressible**, even
-though [query-builder.md](../../design/data-management/queries/query-builder.md) declares
+though [query-builder.md](../../design/data-management/queries/queries.md) declares
 a Query is **the same readable-table-source kind as a Dataset**. R76 makes that
 declaration real.
 
-R76 fills the [query-builder.md trajectory](../../design/data-management/queries/query-builder.md#the-trajectory-what-queries-grows-into)
+R76 fills the [query-builder.md trajectory](../../design/data-management/queries/queries.md#the-trajectory-what-queries-grows-into)
 step **"later — Query × Query: a Query as a join input; the unified `ds_`/`qr_`
 resolver"** and finally pulls **R71's J-2′ deferral** — the **unified `ds_`/`qr_`
-table-source resolver** ([joins.md § route-vs-resolver](../../design/data-management/queries/joins.md),
+table-source resolver** ([joins.md § route-vs-resolver](../../design/data-management/queries/queries.md#joins-reading-related-datasets-as-one),
 [query-construction.md § J-2′](../../design/data-management/queries/query-construction.md)).
 Until now J-2′ was **not pulled** (join inputs were two Datasets via a `rel_`); composition
 is its trigger.
@@ -34,7 +34,7 @@ genuine **model-altitude** move — the kind R73's doctrine says must STOP at De
 human, **not** ride through as a field widening.
 
 _Track: 1 (product feature). Pulled by ← R71's J-2′ unified-resolver deferral, the
-[query-builder.md trajectory](../../design/data-management/queries/query-builder.md#the-trajectory-what-queries-grows-into),
+[query-builder.md trajectory](../../design/data-management/queries/queries.md#the-trajectory-what-queries-grows-into),
 and the "a Query is the same readable-table-source kind as a Dataset" anchor. Scoped by
 the [dynamic-equilibrium brake](../../context/purpose.md#dynamic-equilibrium) and "one
 capability per round": **a Query usable as a join source + the unified resolver** only —
@@ -57,7 +57,7 @@ triggers._
 | #   | Question                                   | Held open for the Design pass                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | --- | ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | J-3 | **Where the `qr_` source attaches + the recursive resolver (the model)** | The model question the STOP reviews. The design must decide: does `Query.datasetId` (`^ds_`) **widen to a polymorphic `sourceRef: ds_\|qr_`** (and/or does a join hop carry the composed source)? Do `rel_` **endpoints stay Dataset-only** (composition expressed by the *source ref*, not the edge — keeping the governed edge's altitude), or can an edge endpoint be a `qr_`? How does the **recursive resolver** run an inner Query → rows and feed the join — a sub-SELECT/CTE over the inner definition vs. materialized rows — and how is the **effective-column space** + the cycle guard computed across a composed source? Lean: a polymorphic **source ref**, `rel_` endpoints stay Dataset-only, the resolver recurses on the definition (no materialization), cycle guard at save + run. |
-| J-4 | **Doc home + the builder source-picker + error code** | **Home:** extend [joins.md](../../design/data-management/queries/joins.md) / [query-construction.md](../../design/data-management/queries/query-construction.md) (the resolver + the builder), or a new `composition.md`. **Affordance:** the builder's **left/driving source `<Select>`** now lists **Queries as well as Datasets** (one unified source picker). **Contract:** the source-ref shape change + a new **`cyclic_composition`** (or reuse `cyclic_join`) error code. Lean: extend the existing docs; one unified source `<Select>`; a distinct cycle error. Sealed at Design (home/mechanism free to deviate — [build-first](../../memory/2026-05-22-ui-boundary-build-first.md)). |
+| J-4 | **Doc home + the builder source-picker + error code** | **Home:** extend [joins.md](../../design/data-management/queries/queries.md#joins-reading-related-datasets-as-one) / [query-construction.md](../../design/data-management/queries/query-construction.md) (the resolver + the builder), or a new `composition.md`. **Affordance:** the builder's **left/driving source `<Select>`** now lists **Queries as well as Datasets** (one unified source picker). **Contract:** the source-ref shape change + a new **`cyclic_composition`** (or reuse `cyclic_join`) error code. Lean: extend the existing docs; one unified source `<Select>`; a distinct cycle error. Sealed at Design (home/mechanism free to deviate — [build-first](../../memory/2026-05-22-ui-boundary-build-first.md)). |
 
 **Invariant (the R69→R75 anti-duplication rule):** R76 **reuses** the Query archetype +
 catalog + `/queries/{id}` routes, R74's hop-list builder, the `query_joined_rows` fold,
@@ -77,7 +77,7 @@ honestly, not laundered through "reuse" (the R71 honest-split discipline).
    contract intent, the states, Accessibility. Run the **model-confidence valve** — and
    because R76 **re-opens the model**, the valve fires on real model surface (the source
    ref + resolver), not just to confirm. Each acceptance criterion → ≥1 future test.
-   Update the doc home per J-4 + the [trajectory](../../design/data-management/queries/query-builder.md#the-trajectory-what-queries-grows-into).
+   Update the doc home per J-4 + the [trajectory](../../design/data-management/queries/queries.md#the-trajectory-what-queries-grows-into).
 3. **Design-gate verification** — noun-vs-mode + discovered-vs-imposed; `ui-design`
    (design-spec); `design:lint` / `design:tokens` / `plan:lint` / `markdown-check-link` /
    `markdownlint`; `gate-walker`; run `flow-selector`.
@@ -163,10 +163,10 @@ honestly, not laundered through "reuse" (the R71 honest-split discipline).
 ### Gate 2 — Design pass (2026-06-14)
 
 **Doc home (J-4 → new sibling doc, not a fork):** authored
-[composition.md](../../design/data-management/queries/composition.md) — the **fifth
-construction mode**, a sibling of [joins.md](../../design/data-management/queries/joins.md) /
-[multi-join.md](../../design/data-management/queries/multi-join.md) under the
-[query-builder.md](../../design/data-management/queries/query-builder.md) anchor (each
+[composition.md](../../design/data-management/queries/queries.md#composed-source-qr_) — the **fifth
+construction mode**, a sibling of [joins.md](../../design/data-management/queries/queries.md#joins-reading-related-datasets-as-one) /
+[multi-join.md](../../design/data-management/queries/queries.md#joins-reading-related-datasets-as-one) under the
+[query-builder.md](../../design/data-management/queries/queries.md) anchor (each
 mode gets its own doc — the trajectory's pattern). Updated the query-builder
 **trajectory** (R76 row) + its composition/J-2′ deferral lines, and joins.md's Scope to
 point at composition.md.
@@ -338,7 +338,7 @@ error code), so R72's PUT-CORS mode does not recur. Integration seam: this commi
 ## Check
 
 + [x] **J-0, J-1, J-2 ratified** (Plan gate); **J-3, J-4 held open** → Design gate.
-+ [x] **Composition design authored** ([composition.md](../../design/data-management/queries/composition.md),
++ [x] **Composition design authored** ([composition.md](../../design/data-management/queries/queries.md#composed-source-qr_),
       home per J-4 → new sibling doc): polymorphic `sourceId` ref, recursive `ds_`/`qr_`
       resolver, `composition_cycle` guard, effective-column space spanning the base, base-source
       picker, contract intent.

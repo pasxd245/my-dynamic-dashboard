@@ -1,10 +1,10 @@
 # Query Canvas — the free-form visual source-graph editor (a view/edit mode of the builder)
 
 **Concept**: the **canvas** is a **visual presentation + editing mode** of the
-[Query](saved-query.md) builder: it renders a Query's
-[`definition.joins`](multi-join.md) **tree** as a **node-link graph** — each
-table-source (the driving [`sourceId`](saved-query.md) + every joined dataset) is a
-**node**, each governed [`JoinStep`](multi-join.md) is an **edge** — and lets a user
+[Query](queries.md) builder: it renders a Query's
+[`definition.joins`](queries.md#joins-reading-related-datasets-as-one) **tree** as a **node-link graph** — each
+table-source (the driving [`sourceId`](queries.md) + every joined dataset) is a
+**node**, each governed [`JoinStep`](queries.md#joins-reading-related-datasets-as-one) is an **edge** — and lets a user
 read and (later) **edit** that same tree by direct manipulation (drag nodes, draw an
 edge to add a hop, delete a leaf edge to remove one). It is **not a new noun and not a
 new page**: it edits the **identical** `definition.joins` tree the hop-list
@@ -30,28 +30,28 @@ of re-deriving them; the trigger is **restated** in the Scope boundary below.
 
 **Round introduced**: [Round_80](../../../plan/cycles/Round_80.md) — the **canvas
 theme-opener**, a Design-only round. It fills the
-[query-builder.md trajectory](query-builder.md) step long reserved as the
+[queries.md trajectory](queries.md#the-trajectory-what-queries-grows-into) step long reserved as the
 "free-form visual join canvas", deferred since R74 (J-1′) under the named trigger
 **"until the hop-list stops scaling"**.
 **Domain folder**: `data-management/queries/` — a **mode** sibling of
 [query-construction.md](query-construction.md) (the hop-list builder this re-presents),
-[multi-join.md](multi-join.md) (the `joins` tree this visualizes), and
-[saved-query.md](saved-query.md) (the create lifecycle the "New query" entry reuses)
-under the [query-builder.md](query-builder.md) anchor; **not** a parallel page.
+[queries.md § Joins](queries.md#joins-reading-related-datasets-as-one) (the `joins` tree this visualizes), and
+[queries.md](queries.md) (the create lifecycle the "New query" entry reuses)
+under the [queries.md](queries.md) anchor; **not** a parallel page.
 **Sibling docs**:
-[query-builder.md](query-builder.md) (the domain anchor whose trajectory step this
-fills; the [reuse invariant](query-builder.md#the-reuse-invariant-the-one-rule-this-domain-holds)
+[queries.md](queries.md) (the domain anchor whose trajectory step this
+fills; the [reuse invariant](queries.md#the-reuse-invariant-the-one-rule-this-domain-holds)
 this obeys),
 [query-construction.md](query-construction.md) (the editable builder —
 `useQueryBuilder` + `QueryBuilderPanel` — this adds a canvas view/edit mode to; the
 create lifecycle the "New query" entry generalizes),
-[multi-join.md](multi-join.md) (the `definition.joins: JoinStep[]` connected acyclic
+[queries.md § Joins](queries.md#joins-reading-related-datasets-as-one) (the `definition.joins: JoinStep[]` connected acyclic
 **tree** the canvas reads/writes — nodes = sources, edges = hops; the `add a hop from
 any source` / `remove any leaf` affordances the canvas re-presents),
-[saved-query.md](saved-query.md) (the base `QueryDefinition`, the catalog the "New
+[queries.md](queries.md) (the base `QueryDefinition`, the catalog the "New
 query" entry lives on, and the "Save filters as Query" / "Build on this query" create
 verbs the empty-canvas entry sits beside),
-[joins.md](joins.md) (the per-hop `409 relationship_stale` gate the canvas renders on an
+[queries.md § Joins](queries.md#joins-reading-related-datasets-as-one) (the per-hop `409 relationship_stale` gate the canvas renders on an
 edge),
 [relationships.md](../workspaces/relationships.md) (the governed edges each canvas edge
 consumes — one `rel_` per hop),
@@ -62,17 +62,17 @@ surfaces render inside).
 
 > **Why a mode, not a noun (the noun-vs-mode check — J-1).** A canvas introduces **no
 > new readable-table-source kind, no new engine, and no new model**. It renders and
-> edits the **same** `definition.joins` tree [multi-join.md](multi-join.md) sealed
+> edits the **same** `definition.joins` tree [queries.md § Joins](queries.md#joins-reading-related-datasets-as-one) sealed
 > (each hop already names its own `leftDatasetId`/`rightDatasetId` — a tree, not a
 > path), keyed on the **same** unified `sourceId` R79 landed, and previews/saves through
 > the **same** `useQueryBuilder` lifecycle and stateless `POST …/preview`. So it
 > **adds a view/edit mode** to the existing builder rather than minting a `/canvas`
 > page or a `JoinGraph` / `Canvas` noun (the discarded-R69 trap, the
-> [reuse invariant](query-builder.md#the-reuse-invariant-the-one-rule-this-domain-holds)).
+> [reuse invariant](queries.md#the-reuse-invariant-the-one-rule-this-domain-holds)).
 > What is genuinely new is **only the visual rendering + direct-manipulation UX** over
 > that tree, named honestly below — never laundered as a new capability.
 > _Track: 1 (product feature — design). Pulled by ← R74 J-1′ canvas deferral +
-> [query-builder.md](query-builder.md) trajectory + R79's unified `sourceId` +
+> [queries.md](queries.md) trajectory + R79's unified `sourceId` +
 > [purpose.md](../../../context/purpose.md) critical path / key decision #4._
 
 ---
@@ -101,7 +101,7 @@ hop-list over one working copy — not a noun, not a page.**
 
 ### J-2 — Has the trigger fired? → **NO. Defer the build; bank the design.**
 
-The deferral trigger ([multi-join.md scope](multi-join.md)) is: _"the hop-list +
+The deferral trigger ([queries.md § Joins / Scope](queries.md#joins-reading-related-datasets-as-one)) is: _"the hop-list +
 left-source `<Select>` stops scaling — a topology a human can no longer read as a
 list."_ Evidence at R80:
 
@@ -135,7 +135,7 @@ truth; `flow-selector` runs at that build round's Design gate, not here.
 
 Today's create entries are **source-rooted**: "Save filters as Query" (from a dataset,
 [dataset-detail.md](../datasets/dataset-detail.md)) and "Build on this query" (from a
-saved Query, [saved-query.md](saved-query.md)). The canvas implies the **missing
+saved Query, [queries.md](queries.md)). The canvas implies the **missing
 no-source start**: an empty graph onto which you place the first node. Its home is a
 **`[+ New query]` action on the Queries catalog** (`/data-management/queries`) that
 opens the builder in **create mode with no preset base** — the empty-source case R77
@@ -174,7 +174,7 @@ the meantime.
 ## The model — unchanged; the canvas renders + edits it
 
 The canvas introduces **no change** to `QueryDefinition` (the tree was sealed in
-[multi-join.md](multi-join.md); the source field unified to `sourceId` in R79). It is a
+[queries.md § Joins](queries.md#joins-reading-related-datasets-as-one); the source field unified to `sourceId` in R79). It is a
 **read-write projection** of the same object:
 
 ```ts
@@ -197,7 +197,7 @@ type QueryDefinition = {
 - **Nodes** = the sources the resolver already walks: the driving `sourceId` plus each
   hop's right dataset. **Edges** = the `JoinStep`s in `joins[]`, each labelled with its
   key pair (`account_id ↔ id`) and advisory `cardinality`.
-- **Editing maps 1:1 onto the hop-list ops** ([multi-join.md](multi-join.md)): draw an
+- **Editing maps 1:1 onto the hop-list ops** ([queries.md § Joins](queries.md#joins-reading-related-datasets-as-one)): draw an
   edge = `addJoin` (left ∈ graph, right ∉ graph — the connected-acyclic invariant,
   enforced unchanged); delete a leaf edge = `removeJoin` (a hop whose right is no other
   hop's left). The canvas **cannot express** anything the hop list can't — same tree,
@@ -262,7 +262,7 @@ The canvas surfaces are AntD primitives (`<Button>`, `<Tag>`, `<Select>`, `<Aler
 by the `<ConfigProvider>` tokens derived from the six seeds in
 [`themeTokens.ts`](../../../../workspace/packages/ui/src/themeTokens.ts) (the source of
 truth — R66). **No new token is introduced**; the map reuses the identifiers already
-cited by [multi-join.md](multi-join.md) and [query-construction.md](query-construction.md).
+cited by [queries.md § Joins](queries.md#joins-reading-related-datasets-as-one) and [query-construction.md](query-construction.md).
 `Value` is informational.
 
 | Surface | AntD token (themeTokens.ts) | Value (informational) |
@@ -424,7 +424,7 @@ The canvas is a **frontend-only** surface (J-3). It introduces **no new route, n
 wire field, and no new error code**:
 
 - **Reads/writes** the existing `definition.joins: JoinStep[]` on the existing create /
-  get / run / preview / update shapes ([multi-join.md](multi-join.md) /
+  get / run / preview / update shapes ([queries.md § Joins](queries.md#joins-reading-related-datasets-as-one) /
   [query-construction.md](query-construction.md)); `sourceId` is R79's unified field.
 - **Previews** through the existing stateless `POST /workspaces/{id}/queries/preview`.
 - **"New query"** uses the existing `POST /workspaces/{id}/queries` (R76/R77 already
@@ -510,20 +510,20 @@ the verdicts are recorded**, not that code runs. The **design-gate** criteria be
 - **Persisting cosmetic node positions / auto-layout** → a build-round detail if pulled;
   the model carries **no** view state ([[design-altitude-vs-build-home]]).
 - **Self-joins / diamonds / general DAGs; re-ordering hops; left/outer joins; composite
-  keys; cross-workspace joins** → their own named triggers ([multi-join.md](multi-join.md));
+  keys; cross-workspace joins** → their own named triggers ([queries.md § Joins](queries.md#joins-reading-related-datasets-as-one));
   the canvas edits the **same tree** the model already permits, no more.
 - **`qr_` on the RIGHT of a join hop; the raw-SQL → ORM data-access port; consumer-save
   / workflow / dashboard themes** → their own rounds, untouched here.
 
 ### This concept explicitly does NOT cover
 
-- The `joins` tree model + engine (live in [multi-join.md](multi-join.md)) and the
+- The `joins` tree model + engine (live in [queries.md § Joins](queries.md#joins-reading-related-datasets-as-one)) and the
   builder lifecycle (live in [query-construction.md](query-construction.md)) — the
   canvas **re-presents + edits** them, it does not restate them.
 - The governed-edge model (declare / validate / stale) — lives in
   [relationships.md](../workspaces/relationships.md); the canvas **consumes** one edge
   per drawn edge.
-- The create modal / catalog (live in [saved-query.md](saved-query.md)); the "New
+- The create modal / catalog (live in [queries.md](queries.md)); the "New
   query" entry **reuses** them.
 - The predicate vocabulary internals (live in the dataset filter/advanced docs).
 
@@ -531,15 +531,15 @@ the verdicts are recorded**, not that code runs. The **design-gate** criteria be
 
 ## Reference materials (read-only)
 
-- [multi-join.md](multi-join.md) — the `definition.joins` connected-acyclic **tree**
+- [queries.md § Joins](queries.md#joins-reading-related-datasets-as-one) — the `definition.joins` connected-acyclic **tree**
   (nodes + edges) this canvas renders and edits; the `add from any source` / `remove any
   leaf` affordances it re-presents; the per-hop stale gate.
 - [query-construction.md](query-construction.md) — the hop-list builder
   (`useQueryBuilder` / `QueryBuilderPanel`) this adds a canvas view/edit mode to; R77's
   create lifecycle the "New query" entry generalizes.
-- [query-builder.md](query-builder.md) — the domain anchor + trajectory step this fills;
+- [queries.md](queries.md) — the domain anchor + trajectory step this fills;
   the reuse invariant this obeys.
-- [saved-query.md](saved-query.md) — the catalog + create verbs the "New query" entry
+- [queries.md](queries.md) — the catalog + create verbs the "New query" entry
   sits beside and reuses.
 - [specious-model-lock-in](../../../memory/2026-06-13-specious-model-lock-in.md) — the
   noun-vs-mode / discovered-vs-imposed lesson the verdict record applies.

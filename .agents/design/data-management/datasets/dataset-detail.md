@@ -17,7 +17,7 @@ header's `actions` slot (inside an `Actions ▾` menu).
 reused here),
 [dataset-filters.md](dataset-filters.md) (per-column typed
 filters layered on this page),
-[saved-query.md](../queries/saved-query.md) (the **second consumer** of this
+[saved-query.md](../queries/queries.md) (the **second consumer** of this
 page's paged-rows body, which it shares via the extracted `<PagedRowsView>`;
 also the destination of this page's **Save filters as Query** action),
 [query-construction.md](../queries/query-construction.md) (consolidates this
@@ -62,7 +62,7 @@ navigates here.
 **Boundary check**: the metadata strip stays feature-local (inline in
 `DatasetDetailPage`). The paged data-table is **extracted** into a shared
 **`<PagedRowsView>`** because a second consumer exists — query-mode detail
-([saved-query.md](../queries/saved-query.md)) renders the same paged-rows body.
+([saved-query.md](../queries/queries.md)) renders the same paged-rows body.
 Per the build-first rule (feature-local until two consumers exist,
 [memory/2026-05-22-ui-boundary-build-first.md](../../../memory/2026-05-22-ui-boundary-build-first.md)),
 two concrete consumers justify the extraction.
@@ -443,7 +443,7 @@ stateDiagram-v2
   predicate state (built from the live URL/hook state via the shipped
   serializers) as a named, persisted **Query**. This page only **hosts the
   action**; the modal, the persisted entity, the Queries catalog, and the
-  query-mode detail view all live in [saved-query.md](../queries/saved-query.md). No
+  query-mode detail view all live in [saved-query.md](../queries/queries.md). No
   change to this page's own states or data contract.
 
 ### Row search (`?q=`)
@@ -770,7 +770,7 @@ This concept explicitly does NOT cover:
   of those modals; the modals themselves are unchanged.
 - The Saved Query feature — the modal internals, the persisted
   `Query` entity, the Queries catalog, and the query-mode detail
-  view all live in [saved-query.md](../queries/saved-query.md). This
+  view all live in [saved-query.md](../queries/queries.md). This
   page only _hosts_ the `[Save filters as Query]` action and _shares_ its
   paged-rows body via `<PagedRowsView>`.
 - Future dashboard surfaces that will read the same dataset; those

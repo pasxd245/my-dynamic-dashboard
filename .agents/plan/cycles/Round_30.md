@@ -337,7 +337,7 @@ not the config layer.
 - `values.yaml` gained `backend.tmp_sweep.{enabled,
 interval_seconds, ttl_seconds}` (86400s TTL, 3600s interval,
   enabled true). Template at
-  [`workspace/config/backend/data/config/default.yaml.hbs`](../../../workspace/config/backend/data/config/default.yaml.hbs)
+  [`workspace/config/backend/data/config/default.yaml.hbs`](../../../workspace/config/templates/backend/data/config/default.yaml.hbs)
   picked it up; `pnpm config:render` re-emitted the BE default
   yaml cleanly.
 - [`workspace/apps/backend/app/_config/settings.py`](../../../workspace/apps/backend/app/_config/settings.py)

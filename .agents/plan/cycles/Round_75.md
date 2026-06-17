@@ -12,7 +12,7 @@ Every join R71→R74 executes is an **inner** join: a row survives only if it ma
 on **every** hop. So a Query **silently drops** unmatched rows — "all Deals, with
 their owner **if any**" is **inexpressible** today; an ownerless Deal vanishes.
 
-R75 fills the [query-builder.md trajectory](../../design/data-management/queries/query-builder.md#the-trajectory-what-queries-grows-into)
+R75 fills the [query-builder.md trajectory](../../design/data-management/queries/queries.md#the-trajectory-what-queries-grows-into)
 step **"R75 left / outer joins"** — widen each hop's **`type`** beyond `inner`
 (left / right / full outer) so a relationship can be **expressed**, not just used to
 **filter**. It is the **first join semantic past inner**.
@@ -28,13 +28,13 @@ worksheet that *loads* the connection), not the Query definition's (the
 contrast, **strengthen how a relationship is expressed** — a real, pulled gap
 (inner-only drops rows a consumer wants). _The model needs no re-open:_ `JoinStep`
 **already carries `type`** as a query-time choice
-([joins.md § truth-test](../../design/data-management/queries/joins.md): "join type …
+([joins.md § truth-test](../../design/data-management/queries/queries.md#joins-reading-related-datasets-as-one): "join type …
 correctly a query-time choice, belongs in the join step, not the edge") — R75 only
 **widens the enum** + the engine's JOIN keyword + a builder picker.
 
 _Track: 1 (product feature). Pulled by ← R71's named "left/right/outer joins"
-deferral ([joins.md § Scope](../../design/data-management/queries/joins.md)), the
-[query-builder.md trajectory](../../design/data-management/queries/query-builder.md#the-trajectory-what-queries-grows-into),
+deferral ([joins.md § Scope](../../design/data-management/queries/queries.md#joins-reading-related-datasets-as-one)), the
+[query-builder.md trajectory](../../design/data-management/queries/queries.md#the-trajectory-what-queries-grows-into),
 and the user's "express the relationship, don't guard consumption" framing (R75
 scoping). Scoped by the [dynamic-equilibrium brake](../../context/purpose.md#dynamic-equilibrium)
 and "one feature per round": the **per-hop join `type`** only — composite keys,
@@ -56,7 +56,7 @@ standing triggers._
 | #   | Question                              | Held open for the Design pass                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | --- | ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | J-3 | **NULL semantics + predicate/effective-column behaviour** | An outer join introduces **NULLs** on the unmatched side. The design must state: how the effective-column cells render the NULLs (the VARCHAR cast → `None` → the existing `<PagedRowsView>` blank), how the **reused predicate engine** behaves over a now-nullable column (standard SQL: `equals`/`contains` don't match NULL; a future `is_empty` is a separate trigger), and how a **multi-hop tree mixes** inner + outer hops (each hop's `type` applies to its own edge in the fold). Lean: reuse everything; NULLs are just absent cells; no predicate change. |
-| J-4 | **Doc home + the builder type-picker** | **Home:** extend [joins.md](../../design/data-management/queries/joins.md) (the per-edge join *semantic* lives there; [multi-join.md](../../design/data-management/queries/multi-join.md)'s fold *consumes* the per-hop type) vs. a new doc. **Affordance:** a **join-type `<Select>`** per hop (inner default) in the `JoinEditor`; the read summary shows `⋈ left ⋈` etc. **Contract:** the `JoinStep.type` enum **widens** (a real shape change, unlike R74). Lean: extend joins.md; per-hop type `<Select>`; widen the enum. Sealed at Design (home/mechanism free to deviate — [build-first](../../memory/2026-05-22-ui-boundary-build-first.md)).            |
+| J-4 | **Doc home + the builder type-picker** | **Home:** extend [joins.md](../../design/data-management/queries/queries.md#joins-reading-related-datasets-as-one) (the per-edge join *semantic* lives there; [multi-join.md](../../design/data-management/queries/queries.md#joins-reading-related-datasets-as-one)'s fold *consumes* the per-hop type) vs. a new doc. **Affordance:** a **join-type `<Select>`** per hop (inner default) in the `JoinEditor`; the read summary shows `⋈ left ⋈` etc. **Contract:** the `JoinStep.type` enum **widens** (a real shape change, unlike R74). Lean: extend joins.md; per-hop type `<Select>`; widen the enum. Sealed at Design (home/mechanism free to deviate — [build-first](../../memory/2026-05-22-ui-boundary-build-first.md)).            |
 
 **Invariant (the R69→R74 anti-duplication rule):** R75 **reuses** R74's hop-list
 builder, the `query_joined_rows` fold, the predicate/run engines, and `<PagedRowsView>`
@@ -73,8 +73,8 @@ fold, and a type `<Select>` — named honestly, not laundered through "reuse".
    type-picker (J-4), the (widened) contract intent, the states, Accessibility. Run
    the model-confidence valve (the **type truth-test**: the edge already declines to
    own `type` — confirmed). Each acceptance criterion → ≥1 future test. Update
-   [joins.md](../../design/data-management/queries/joins.md) +
-   [multi-join.md](../../design/data-management/queries/multi-join.md) (the fold
+   [joins.md](../../design/data-management/queries/queries.md#joins-reading-related-datasets-as-one) +
+   [multi-join.md](../../design/data-management/queries/queries.md#joins-reading-related-datasets-as-one) (the fold
    consumes per-hop type).
 3. **Design-gate verification** — type truth-test recorded; noun-vs-mode +
    discovered-vs-imposed; `ui-design` (design-spec); `design:lint` / `design:tokens` /
@@ -156,7 +156,7 @@ fold, and a type `<Select>` — named honestly, not laundered through "reuse".
 
 ### Gate 2 — Design pass (2026-06-14)
 
-**Docs touched:** extended [joins.md](../../design/data-management/queries/joins.md)
+**Docs touched:** extended [joins.md](../../design/data-management/queries/queries.md#joins-reading-related-datasets-as-one)
 (J-4 → extend the per-edge join-semantic doc, not fork) with a **§ R75 outer join
 types** section: the widened `JoinStep.type` enum, the **type truth-test** (the edge
 already declines to own `type` — R71's verdict), the per-hop JOIN keyword in the fold,
@@ -248,7 +248,7 @@ keyword), so R72's PUT-CORS mode does not recur. Integration seam: this commit.
 ## Check
 
 + [x] **J-0, J-1, J-2 ratified** (Plan gate); **J-3, J-4 held open** → Design gate.
-+ [x] **Join-type design authored** ([joins.md § R75](../../design/data-management/queries/joins.md#r75-outer-join-types)): widened `type` enum, per-hop JOIN keyword, NULL semantics, type-`<Select>`, contract intent.
++ [x] **Join-type design authored** ([joins.md § R75](../../design/data-management/queries/queries.md#join-types)): widened `type` enum, per-hop JOIN keyword, NULL semantics, type-`<Select>`, contract intent.
 + [x] **Model-confidence valve + type truth-test recorded** — `type` is a query-time choice the edge declines to own (R71's verdict); only the enum + engine keyword + picker widen.
 + [x] **Noun-vs-mode + discovered-vs-imposed** check recorded (mode not page; discovered — inner-only drops rows a consumer wants).
 + [x] `design:lint` 0 (15 docs) · `design:tokens` 0 (12 maps) · `plan:lint` 0 · `markdown-check-link` 0 broken · `markdownlint` 0.

@@ -99,7 +99,7 @@ identity + the Queries catalog/detail routes** are new.
    add the gated **`[+ Save as Query]`** header action (enabled iff
    `filters ∨ advanced ∨ q`). Keep all existing dataset behavior.
 3. **Gate 2b — author
-   [saved-query.md](../../design/data-management/queries/saved-query.md)**
+   [saved-query.md](../../design/data-management/queries/queries.md)**
    (thin mode-doc, sibling under `datasets/`): concept + why-separate (contrast
    the discarded new-noun model); `Query` data model + SQLModel base; Save
    flow; query-mode detail (reused layout + read-only predicate summary +
@@ -189,7 +189,7 @@ identity + the Queries catalog/detail routes** are new.
   declared the `<PagedRowsView>` extraction (the parked two-consumer trigger
   fired), framed the standard detail layout, added the gated
   `[+ Save as Query]` header action, amended the boundary + lifecycle notes.
-- Authored [saved-query.md](../../design/data-management/queries/saved-query.md):
+- Authored [saved-query.md](../../design/data-management/queries/queries.md):
   Query as a distinct archetype reusing the dataset surfaces — own Queries
   catalog + top-level `/queries/:id` detail (shared layouts), SQLModel base,
   four-route contract intent (with the route-vs-resolver question flagged for
@@ -362,7 +362,7 @@ byte-shaped responses identical to the MSW mocks the FE was built against.
 - [x] **Integration** — dual contract conformance (MSW + real BE) + a live
       cross-process FE↔BE round-trip (create→list→get→run→delete) green.
 - [x] **Acceptance** — the 11 saved-query criteria in
-      [saved-query.md § Acceptance](../../design/data-management/queries/saved-query.md)
+      [saved-query.md § Acceptance](../../design/data-management/queries/queries.md)
       each map to a passing F / B / I test.
 
 ## Act
@@ -382,7 +382,7 @@ and per-gate commits restore the revert seam
 - [dataset-detail.md](../../design/data-management/datasets/dataset-detail.md) —
   **amended in place** (PagedRowsView extraction declared; `[+ Save as Query]`
   action added). No change to its states or data contract.
-- [saved-query.md](../../design/data-management/queries/saved-query.md) — **new**
+- [saved-query.md](../../design/data-management/queries/queries.md) — **new**
   doc; **supersedes** the discarded new-noun `queries.md` (never committed).
 
 **Build outcome — the corrected model shipped end to end.** On the Design seal,

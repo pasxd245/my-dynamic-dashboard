@@ -1,7 +1,7 @@
 # Workspaces — feature design
 
 **Concept**: a **Workspace** is the top-level container that scopes a user's data —
-every [Dataset](../datasets/datasets.md), [Query](../queries/saved-query.md), and
+every [Dataset](../datasets/datasets.md), [Query](../queries/queries.md), and
 [Relationship](relationships.md) belongs to exactly one workspace (FK, `ON DELETE
 CASCADE`). The Workspaces page at `/data-management/workspaces` lists them as a card grid
 and is the home for workspace **CRUD** (create, rename, delete) and the entry point to a

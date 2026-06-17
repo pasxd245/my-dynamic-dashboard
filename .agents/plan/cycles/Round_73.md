@@ -17,7 +17,7 @@ multi-join surface as J-1′** with a named trigger:
 > `query_joined_rows` cannot express (R73 also extends the engine)._
 > ([query-construction.md § Scope](../../design/data-management/queries/query-construction.md))
 
-R73 fills the [query-builder.md trajectory](../../design/data-management/queries/query-builder.md#the-trajectory-what-queries-grows-into)
+R73 fills the [query-builder.md trajectory](../../design/data-management/queries/queries.md#the-trajectory-what-queries-grows-into)
 step reserved as **"R73 multi-join canvas"** — the fifth step of the critical
 path (`data → relationships → joins → construction → **multi-join** →
 dashboards`). It is the **first time the join engine grows past a single edge**.
@@ -38,7 +38,7 @@ add only the mechanism the named failure mode pulls — here, **both**, because
 R73 carries both kinds of risk.
 
 _Track: 1 (product feature). Pulled by ← R72 J-1′ deferral + the
-[query-builder.md trajectory](../../design/data-management/queries/query-builder.md#the-trajectory-what-queries-grows-into)
+[query-builder.md trajectory](../../design/data-management/queries/queries.md#the-trajectory-what-queries-grows-into)
 ("R73 multi-join canvas") + [purpose.md](../../context/purpose.md) critical path +
 key decision #4 (relationships/joins are central, not fixed). Scoped by the
 [dynamic-equilibrium brake](../../context/purpose.md#dynamic-equilibrium) and "one
@@ -62,7 +62,7 @@ go-ahead before any C/F1/F2/B/I (J-2)._
 | #   | Question                                       | Held open for the Design pass                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | --- | ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | J-3 | **The chain model shape** (re-opens the model) | `QueryDefinition.join: JoinStep \| None` is **singular**. A chain needs an **ordered** representation. Candidates: **(a)** migrate `join` → **`joins: JoinStep[]`** (a single join is just a length-1 chain; one field, clean superset; needs a back-compat read of legacy `join` + a contract change to existing shapes); **(b)** keep `join` + add a separate `joins` for hops past the first (avoids migration, but two fields expressing one concept — a model smell). This is the **design-model confidence-valve decision** + a **chain truth-test** (does folding N edges compose correctly; does it re-open the `Relationship` edge?). Lean: **(a)**, sealed at Design, the build free to deviate.                                                  |
-| J-4 | **Doc home + the linear-chain topology rule**  | **Home:** a new **`multi-join.md`** sibling mode doc (the trajectory reserved an "R73" step) vs. extending [joins.md](../../design/data-management/queries/joins.md) / [query-construction.md](../../design/data-management/queries/query-construction.md). **Topology rule:** R73 is a **strict linear path** — each new edge's **left/driving dataset is the chain's current tail** (so the chain stays a path, not a tree) — vs. allowing an edge onto **any** dataset already in the chain (a tree/star → the canvas's job). Lean: **a new `multi-join.md`**; **strict linear path** (tail-extension), tree/star → R74. Sealed at Design (home/mechanism free to deviate — the [build-first](../../memory/2026-05-22-ui-boundary-build-first.md) twin). |
+| J-4 | **Doc home + the linear-chain topology rule**  | **Home:** a new **`multi-join.md`** sibling mode doc (the trajectory reserved an "R73" step) vs. extending [joins.md](../../design/data-management/queries/queries.md#joins-reading-related-datasets-as-one) / [query-construction.md](../../design/data-management/queries/query-construction.md). **Topology rule:** R73 is a **strict linear path** — each new edge's **left/driving dataset is the chain's current tail** (so the chain stays a path, not a tree) — vs. allowing an edge onto **any** dataset already in the chain (a tree/star → the canvas's job). Lean: **a new `multi-join.md`**; **strict linear path** (tail-extension), tree/star → R74. Sealed at Design (home/mechanism free to deviate — the [build-first](../../memory/2026-05-22-ui-boundary-build-first.md) twin). |
 
 **Invariant (the R69 → R72 anti-duplication rule):** every new/extended surface is
 **reuse** of an existing component / layout / engine, never a parallel page or a
@@ -94,9 +94,9 @@ read_parquet(D2) ON … JOIN read_parquet(D3) ON …`), the **chain editor** UX 
      R70 `Relationship` edge carry a **multi-hop** join's needs, or does chaining
      re-open it? Trace a concrete 2-hop join end to end; record the verdict
      (expected: the **edge** holds — each hop is still one governed `rel_`; the
-     **`QueryDefinition` + engine** grow). Mirrors [joins.md § Truth-test](../../design/data-management/queries/joins.md#truth-test-record-j-4).
+     **`QueryDefinition` + engine** grow). Mirrors [joins.md § Truth-test](../../design/data-management/queries/queries.md#joins-reading-related-datasets-as-one).
    - **Resolve J-3 (chain model shape)** and **J-4 (home + topology rule)** with
-     the closed design; update [query-builder.md](../../design/data-management/queries/query-builder.md)
+     the closed design; update [query-builder.md](../../design/data-management/queries/queries.md)
      (trajectory: R72 construction **shipped**; **R73 multi-join chain** → its home;
      **R74 visual canvas** reserved) and cross-link the siblings.
 3. **Design-gate verification** — chain truth-test recorded; noun-vs-mode +
@@ -203,18 +203,18 @@ read_parquet(D2) ON … JOIN read_parquet(D3) ON …`), the **chain editor** UX 
 
 **Docs produced / touched:**
 
-- **Authored** [multi-join.md](../../design/data-management/queries/multi-join.md)
+- **Authored** [multi-join.md](../../design/data-management/queries/queries.md#joins-reading-related-datasets-as-one)
   (J-4 resolved → a **new `queries/` mode doc**, not extending a sibling and **not**
   a parallel page): the chain truth-test, the **chained `QueryDefinition`**, the
   honest new-vs-reused split, the generalized effective column space + the multi-hop
   fold, the chain-editor UX, the per-hop stale gate, the linear-chain constraint, an
   explicit Accessibility declaration, the contract intent, scope, and 10 acceptance
   criteria.
-- **Updated** [query-builder.md](../../design/data-management/queries/query-builder.md)
+- **Updated** [query-builder.md](../../design/data-management/queries/queries.md)
   (trajectory: R72 construction **shipped** → R73 multi-join chain →
   multi-join.md; **R74 visual canvas** reserved; sibling list + surface map
   re-pointed) and cross-linked
-  [joins.md](../../design/data-management/queries/joins.md) +
+  [joins.md](../../design/data-management/queries/queries.md#joins-reading-related-datasets-as-one) +
   [query-construction.md](../../design/data-management/queries/query-construction.md)
   (their R73 defer-lines now point forward to multi-join.md).
 
@@ -241,7 +241,7 @@ read_parquet(D2) ON … JOIN read_parquet(D3) ON …`), the **chain editor** UX 
   one table); nothing minted to justify a model.
 - **Design-model confidence valve INVOKED (the inverse of R72).** The **chain
   truth-test** is recorded in
-  [multi-join.md § Truth-test record](../../design/data-management/queries/multi-join.md):
+  [multi-join.md § Truth-test record](../../design/data-management/queries/queries.md#joins-reading-related-datasets-as-one):
   the `Relationship` **edge is VALIDATED (no revision)** — each hop is one governed
   `rel_`, carrying its two sources + validated key pair + per-edge freshness gate
   exactly as for one join — while the **`QueryDefinition` + engine genuinely
@@ -256,7 +256,7 @@ facets pass; one **Findability/Usability** gap caught **preventively** (the
 state) and **remediated in-spec** (disabled + the R71 guiding tooltip, no dead-end
 empty `<Select>`). Mirrors R71/R72's preventive design-spec catches.
 
-**Flow selector run** (per [R47](../../decisions/2026-05-28-hybrid-flow-governance.md)), against the closed design ([multi-join.md](../../design/data-management/queries/multi-join.md)):
+**Flow selector run** (per [R47](../../decisions/2026-05-28-hybrid-flow-governance.md)), against the closed design ([multi-join.md](../../design/data-management/queries/queries.md#joins-reading-related-datasets-as-one)):
 
 | Condition                            | Fired? | Justification                                                                                                                                                                                                                                   |
 | ------------------------------------ | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -442,7 +442,7 @@ mode that bit R72 (PUT-CORS) does not recur here._ Integration seam: this commit
       the Design gate (J-3 → `joins: JoinStep[]`; J-4 → new `multi-join.md` +
       strict linear path).
 - [x] **Multi-join design authored**
-      ([multi-join.md](../../design/data-management/queries/multi-join.md)): chained
+      ([multi-join.md](../../design/data-management/queries/queries.md#joins-reading-related-datasets-as-one)): chained
       `QueryDefinition`, generalized effective columns + multi-hop fold, chain
       editor, per-hop stale gate, linear-chain constraint, states, Accessibility,
       contract intent, 10 acceptance criteria.
@@ -492,7 +492,7 @@ relationship**, and the design does that as a **mode**, not a new noun: the sing
 join is a length-1 chain), `query_joined_rows` grows from a fixed two-source join
 into a **fold over N sources**, and R72's `JoinEditor` becomes a **`ChainEditor`**
 (append a hop from the tail / remove the last hop) under a **linear-path**
-constraint. [multi-join.md](../../design/data-management/queries/multi-join.md) seals
+constraint. [multi-join.md](../../design/data-management/queries/queries.md#joins-reading-related-datasets-as-one) seals
 it; the trajectory now reads R72 construction **shipped** → **R73 multi-join chain**
 → **R74 visual canvas**.
 
@@ -542,7 +542,7 @@ ran the full app against the **real backend** (`enable_mock: false` — the chai
 real, not MSW) and exercised the main chain flow end to end ("looks ok"). The R72
 discipline held — "Complete" waited on hands-on sign-off, not gates-green, and the F1
 hard-stop earned its keep (it surfaced the `Bỏ`-button fidelity fix MSW/pytest could
-not). [multi-join.md](../../design/data-management/queries/multi-join.md) is
+not). [multi-join.md](../../design/data-management/queries/queries.md#joins-reading-related-datasets-as-one) is
 **reconciled to the as-built** (the O-rule): status → shipped, the `join`→`joins` wire
 migration + the BE read-shim + the JoinEditor-as-chain-editor recorded. Ten gate seams
 (Plan `7793897` → Design `5cb1356` → F1 `503a860`/`1552c1c` → F1-review `8d26302` → C

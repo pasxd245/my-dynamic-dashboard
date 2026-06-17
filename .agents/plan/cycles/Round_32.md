@@ -323,7 +323,7 @@ already enforces `backend.upload_max_bytes: 104857600` in
 values.yaml; the FE was displaying a parallel hardcoded copy
 that could drift. Wired through:
 
-- [`.env.hbs`](../../../workspace/config/builder/.env.hbs)
+- [`.env.hbs`](../../../workspace/config/templates/builder/.env.hbs)
   gained `VITE_UPLOAD_MAX_BYTES={{backend.upload_max_bytes}}` —
   references BE's value directly. Single source of truth.
 - `Fields.UPLOAD_MAX_BYTES`, `Const.UPLOAD_MAX_BYTES_FALLBACK`,

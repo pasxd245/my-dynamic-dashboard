@@ -12,7 +12,7 @@ live re-run), but deliberately parked its design doc under `datasets/` as "a
 mode of the dataset surfaces" — a **brake**, not a permanent truth. R69 recorded
 the deferral this round picks up: _"Joins / relationships (governed
 column↔column) → R70. Trigger: a report needs two datasets."_
-([saved-query.md § Scope boundary](../../design/data-management/queries/saved-query.md)),
+([saved-query.md § Scope boundary](../../design/data-management/queries/queries.md)),
 and noted saved-query.md would be _"extended by R70."_ R69 also banked two
 doctrines this round runs on from the first commit:
 [specious-model-lock-in](../../memory/2026-06-13-specious-model-lock-in.md)
@@ -195,7 +195,7 @@ parallel page or a re-invented engine
 `datasets/` → `queries/`; reframed its header (domain = `queries/`; Query = the
 noun; "Save as Query" = an action on [dataset-detail.md](../../design/data-management/datasets/dataset-detail.md);
 preserved the anti-duplication invariant + the independent-axes note). Authored
-[query-builder.md](../../design/data-management/queries/query-builder.md) — the
+[query-builder.md](../../design/data-management/queries/queries.md) — the
 domain anchor (the reuse invariant table, the surface map, the
 single-source→joins→composition→workflow trajectory, the noun/verb framing).
 Relocated all inbound links via `markdown-check-link --fix` (37 auto-fixed,
@@ -326,7 +326,7 @@ across the round (Plan ×2, Design ×2, C, F, B) + this Integration commit.
 the Design gate, before any code.** Two design artifacts (real revert seams)
 landed: (1) `queries/` graduated to a first-class domain — `saved-query.md`
 relocated, "Save as Query" reframed as an action, and
-[query-builder.md](../../design/data-management/queries/query-builder.md) authored
+[query-builder.md](../../design/data-management/queries/queries.md) authored
 as the domain anchor + trajectory; (2)
 [relationships.md](../../design/data-management/workspaces/relationships.md)
 sealed the **governed-edge** model — workspace-scoped, governance-only,

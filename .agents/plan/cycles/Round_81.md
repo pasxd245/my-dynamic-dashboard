@@ -139,9 +139,9 @@ the [dynamic-equilibrium brake](../../context/purpose.md#dynamic-equilibrium)._
   *newest* doc in a cluster is usually a **leaf mode** (`canvas.md` is newest in `queries/` but
   sits on top of the model), so compacting newest-first re-derives the model from a derived doc ⇒
   rework — exactly the failure the user flagged. Order: **(1)** establish the canonical
-  **spine** = the noun/model docs (for `queries/`: [saved-query.md](../../design/data-management/queries/saved-query.md)
-  + the joins-tree model in [multi-join.md](../../design/data-management/queries/multi-join.md)/
-  [joins.md](../../design/data-management/queries/joins.md)); **(2)** fold the verb/mode docs
+  **spine** = the noun/model docs (for `queries/`: [saved-query.md](../../design/data-management/queries/queries.md)
+  + the joins-tree model in [multi-join.md](../../design/data-management/queries/queries.md#joins-reading-related-datasets-as-one)/
+  [joins.md](../../design/data-management/queries/queries.md#joins-reading-related-datasets-as-one)); **(2)** fold the verb/mode docs
   (query-construction, query-builder, composition, canvas) onto the spine in dependency order.
   **Recency is only a tiebreaker** within one dependency layer (the newer statement of the *same*
   surface usually reflects current truth). The Build-gate pilot **confirms** this order empirically.

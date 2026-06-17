@@ -16,9 +16,9 @@ non-linear topology as J-1′** with a named trigger:
 > _The free-form visual builder canvas / source graph and non-linear topology (a
 > dataset joined to 2+ others — a star/tree, not a path) → R74. Trigger: a Query must
 > join one dataset to two or more others — a branch the linear path cannot represent._
-> ([multi-join.md § Scope](../../design/data-management/queries/multi-join.md))
+> ([multi-join.md § Scope](../../design/data-management/queries/queries.md#joins-reading-related-datasets-as-one))
 
-R74 fills the [query-builder.md trajectory](../../design/data-management/queries/query-builder.md#the-trajectory-what-queries-grows-into)
+R74 fills the [query-builder.md trajectory](../../design/data-management/queries/queries.md#the-trajectory-what-queries-grows-into)
 step reserved as **"R74 visual join canvas"** — the sixth step of the critical path
 (`data → relationships → joins → construction → multi-join → **join graph** →
 dashboards`). It is the **first time the join topology grows past a single path**.
@@ -41,7 +41,7 @@ valve it pulls) is itself the
 [dynamic-equilibrium brake](../../context/purpose.md#dynamic-equilibrium).
 
 _Track: 1 (product feature). Pulled by ← R73 J-1′ deferral + the
-[query-builder.md trajectory](../../design/data-management/queries/query-builder.md#the-trajectory-what-queries-grows-into)
+[query-builder.md trajectory](../../design/data-management/queries/queries.md#the-trajectory-what-queries-grows-into)
 ("R74 visual join canvas") + [purpose.md](../../context/purpose.md) critical path +
 key decision #4 (relationships/joins are central, not fixed). Scoped by the
 [dynamic-equilibrium brake](../../context/purpose.md#dynamic-equilibrium) and "one
@@ -64,7 +64,7 @@ draw edges) is deferred (J-1′ → R75)._
 | #   | Question                                       | Held open for the Design pass                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | --- | ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | J-3 | **The topology rule + engine generalization**  | The model is settled (`joins: JoinStep[]`, each hop names its own `leftDatasetId`). What R74 must pin is the **graph rule** that replaces the linear invariant: each hop's **left** must be a dataset **already in the graph** (connected) and its **right** must be a dataset **not yet in the graph** (acyclic — a spanning **tree**, so no diamonds/self-joins; those stay deferred). The engine generalizes hop `k`'s ON clause from `T{k}` (the previous source) to **`T{left_idx}`** (the index of the hop's left source), and execution requires a **topological order** (each hop's left precedes it). This is the **topology truth-test**: does the `Relationship` edge / `JoinStep[]` model carry a tree (expected: **yes** — only the invariant + engine ON-clause generalize), and does folding a tree compose correctly (a star: D0 joined to D1 **and** D2)? Lean: **tree rule (connected + acyclic) + `T{left_idx}` engine + topo-order execution**, sealed at Design, the build free to deviate. |
-| J-4 | **Doc home + the builder's tree affordance**   | **Home:** **extend [multi-join.md](../../design/data-management/queries/multi-join.md)** (generalize its "strict linear path" to a "join graph (tree)"; the linear chain becomes the degenerate path case) vs. a **new sibling doc**. **Affordance:** the hop-list builder gains a **left-source `<Select>`** per added hop (choose which existing source to extend from), `[+ Add a join]` lists edges driving from the **chosen** source (was: the tail), and **`[Remove]` applies to any leaf hop** (a hop whose right dataset is no parent's left), not just the last. Lean: **extend multi-join.md**; **left-source `<Select>` + leaf-removal**. Sealed at Design (home/mechanism free to deviate — the [build-first](../../memory/2026-05-22-ui-boundary-build-first.md) twin). |
+| J-4 | **Doc home + the builder's tree affordance**   | **Home:** **extend [multi-join.md](../../design/data-management/queries/queries.md#joins-reading-related-datasets-as-one)** (generalize its "strict linear path" to a "join graph (tree)"; the linear chain becomes the degenerate path case) vs. a **new sibling doc**. **Affordance:** the hop-list builder gains a **left-source `<Select>`** per added hop (choose which existing source to extend from), `[+ Add a join]` lists edges driving from the **chosen** source (was: the tail), and **`[Remove]` applies to any leaf hop** (a hop whose right dataset is no parent's left), not just the last. Lean: **extend multi-join.md**; **left-source `<Select>` + leaf-removal**. Sealed at Design (home/mechanism free to deviate — the [build-first](../../memory/2026-05-22-ui-boundary-build-first.md) twin). |
 
 **Invariant (the R69 → R73 anti-duplication rule):** every new/extended surface is
 **reuse** of an existing component / layout / engine, never a parallel page or a
@@ -95,9 +95,9 @@ engine generalization** — named honestly, not laundered through "reuse".
      does it re-open? Trace a concrete **star** (D0 ⋈ D1 **and** D0 ⋈ D2) end to end;
      record the verdict (expected: the **model holds** — only the invariant + engine
      ON-clause + builder affordance generalize). Mirrors
-     [multi-join.md § Truth-test](../../design/data-management/queries/multi-join.md).
+     [multi-join.md § Truth-test](../../design/data-management/queries/queries.md#joins-reading-related-datasets-as-one).
    - **Resolve J-3 (topology rule + engine)** and **J-4 (home + affordance)** with the
-     closed design; update [query-builder.md](../../design/data-management/queries/query-builder.md)
+     closed design; update [query-builder.md](../../design/data-management/queries/queries.md)
      (trajectory: R73 multi-join chain **shipped**; **R74 join graph** → its home;
      **R75 visual canvas** reserved) and cross-link the siblings.
 3. **Design-gate verification** — topology truth-test recorded; noun-vs-mode +
@@ -211,7 +211,7 @@ engine generalization** — named honestly, not laundered through "reuse".
 
 **Docs produced / touched:**
 
-- **Extended** [multi-join.md](../../design/data-management/queries/multi-join.md)
+- **Extended** [multi-join.md](../../design/data-management/queries/queries.md#joins-reading-related-datasets-as-one)
   (J-4 resolved → **extend the mode doc**, not fork a sibling and **not** a parallel
   page): a new **topology truth-test record (R74)**, the topology invariant relaxed
   **linear path → connected acyclic tree**, the **`T{left_idx}` engine
@@ -219,7 +219,7 @@ engine generalization** — named honestly, not laundered through "reuse".
   `cyclic_join`), the **left-source `<Select>` + leaf-removal** builder affordance, an
   Accessibility declaration for the new controls, the (unchanged) contract intent, and
   4 R74 acceptance criteria.
-- **Updated** [query-builder.md](../../design/data-management/queries/query-builder.md)
+- **Updated** [query-builder.md](../../design/data-management/queries/queries.md)
   (trajectory: R73 multi-join chain **shipped** → **R74 join graph (tree)** →
   multi-join.md; **R75 visual canvas** reserved; surface map + status re-pointed).
 
@@ -248,7 +248,7 @@ engine generalization** — named honestly, not laundered through "reuse".
   model never needed.
 - **Design-model confidence valve INVOKED to confirm (J-2: run straight through).**
   The **topology truth-test** is recorded in
-  [multi-join.md § Topology truth-test record (R74)](../../design/data-management/queries/multi-join.md#topology-truth-test-record-r74):
+  [multi-join.md § Topology truth-test record (R74)](../../design/data-management/queries/queries.md#join-tree-topology):
   the model is **VALIDATED a second time (no revision)** — `joins: JoinStep[]` already
   expresses a tree because each hop names its own `leftDatasetId`; what R73 made linear
   was a **policy** (an invariant + a path-shaped engine), not the data shape. Only the
@@ -261,7 +261,7 @@ name/disabled-reason) and **remediated in-spec** (a labelled "Join from" `<Selec
 focus order + an `aria-disabled` `[Remove]` with a text tooltip). Mirrors R71/R72/R73's
 preventive catches.
 
-**Flow selector run** (per [R47](../../decisions/2026-05-28-hybrid-flow-governance.md)), against the closed design ([multi-join.md](../../design/data-management/queries/multi-join.md)):
+**Flow selector run** (per [R47](../../decisions/2026-05-28-hybrid-flow-governance.md)), against the closed design ([multi-join.md](../../design/data-management/queries/queries.md#joins-reading-related-datasets-as-one)):
 
 | Condition                            | Fired? | Justification                                                                                                                                                                                              |
 | ------------------------------------ | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -375,7 +375,7 @@ failure mode does not recur. Integration seam: this commit.
       Design gate (J-3 → tree rule + `T{left_idx}` engine; J-4 → extend multi-join.md +
       left-source `<Select>` + leaf-removal).
 - [x] **Join-graph (tree) design authored**
-      ([multi-join.md](../../design/data-management/queries/multi-join.md)): topology
+      ([multi-join.md](../../design/data-management/queries/queries.md#joins-reading-related-datasets-as-one)): topology
       invariant relaxed to a tree, `T{left_idx}` engine, `disconnected_join`/`cyclic_join`
       validation, left-source `<Select>` + leaf-removal, Accessibility, 4 R74 criteria.
 - [x] **Design-model confidence valve + topology truth-test recorded** with a verdict —
@@ -414,7 +414,7 @@ hop joins against its own left. A star (deals ⋈ {accounts, owners}) now execut
 re-opened the model, so it sealed-at-Design + STOPPED and invoked the model valve. R74
 **relaxes a constraint the model never needed** — `joins: JoinStep[]` already carried a
 tree because each hop names its own `leftDatasetId` — so it **ran straight through**
-(J-2). The [topology truth-test](../../design/data-management/queries/multi-join.md#topology-truth-test-record-r74)
+(J-2). The [topology truth-test](../../design/data-management/queries/queries.md#join-tree-topology)
 held a **second** time in running code: no model revision, no new noun (`JoinGraph` was
 not minted), no new route, no new error code — only the **invariant + engine ON-clause +
 builder affordance** generalized. That is the
@@ -455,7 +455,7 @@ ran the full app against the **real backend** (`enable_mock: false`) and exercis
 **star** join end to end (branch a second join from a non-tail source via the new
 "Join from" select, preview, Save); confirmed. The DCFBI visual-verification gate held —
 "Complete" waited on hands-on sign-off, not gates-green.
-[multi-join.md](../../design/data-management/queries/multi-join.md) is **reconciled to
+[multi-join.md](../../design/data-management/queries/queries.md#joins-reading-related-datasets-as-one) is **reconciled to
 the as-built** (the O-rule): the R74 as-built note records the tree relaxation, the
 `disconnected_join`/`cyclic_join` messages, the `T{left_idx}` engine, the JoinEditor
 left-source `<Select>` + leaf removal, and the topology-blind-MSW limit. Six gate seams
