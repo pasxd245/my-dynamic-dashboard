@@ -1,6 +1,7 @@
 # Round 86: canvas Phase B — interactive editing, in the two-tab Form/Canvas builder
 
-**Status**: **Planning** — Plan gate **drafted** (2026-06-18); awaiting ratification on "proceed r86".
+**Status**: **In Progress** — Plan gate **closed** (ratified 2026-06-18, scope = **SPLIT / layout-first**);
+**Design gate next**.
 **Date started**: 2026-06-18
 **Date completed**:
 **Flow**: **DCFBI** (F-only) — _hypothesis_; Phase B maps editing onto the shipped
@@ -31,12 +32,18 @@ _Track: 1 (product feature). Pulled by ← Phase A's in-app confirmation (the R8
 Phase B — "Phase A's render confirmed in the app" — has **fired**) + the human's two-tab direction +
 [canvas.md J-5](../../design/data-management/queries/canvas.md). Per the [Evolution Rule](../../AGENTS.md)._
 
-## Scope decision for ratification (the #1 open item)
+## Scope decision (ratified 2026-06-18 → SPLIT / layout-first)
+
+**Resolved: the human chose the SPLIT.** R86 = the **two-tab restructure only** (canvas stays
+read-only); editing → R87; Phase C "New query" → R88. _Human rationale: "we are experimenting, thus
+commit and revert is more valuable" — in an exploratory phase the option value of a clean revert seam
+beats saving a round_ ([[round-bundling-revert-seams]]). The acceptance criteria below (written for the
+layout-first cut) stand as-is.
 
 R86 couples **two separable concerns**: the **two-tab layout** (a low-risk refactor over existing
 state) and the **canvas editing** (the new interaction). Per [[round-bundling-revert-seams]] (keep rounds
 thin so one design error doesn't force discarding all layers) and [[dont-mvp-rush-a-roadmap-home-surface]],
-the recommendation is to **split**, layout first:
+the recommendation was to **split**, layout first:
 
 - **Recommended — R86 = the two-tab restructure only** (Form/Canvas tabs, preview-on-Form, the clickable
   status chip), **canvas stays read-only**. A clean, revertible layout slice that gives the editor its
@@ -112,11 +119,41 @@ fold in. **This is the human's call at the Plan gate** (the equilibrium authorit
 
 ## Do
 
-_Pending — filled as gates close (starting at Plan-gate ratification)._
+### Plan-gate ratification (2026-06-18)
+
+Ratified on "split please". **Scope = SPLIT / layout-first**: R86 builds **only** the two-tab
+Form/Canvas restructure (preview-on-Form, the clickable canvas status chip) with the **canvas
+staying read-only**; canvas **editing** (Phase B's draw/delete) moves to **R87** and the standalone
+"New query" entry (Phase C) to **R88**. The Goal, Plan-by-gate, acceptance criteria, and OUT-of-scope
+list above are accepted for this cut.
+
+**Why split (human's call, recorded).** _"We are experimenting, thus commit and revert is more
+valuable."_ In the current exploratory phase the **option value of a clean revert seam** (a layout
+mistake and an editing mistake stay in separate, independently-revertible commits) outweighs the cost
+of one extra round — the [[round-bundling-revert-seams]] discipline applied deliberately, with the human
+as the equilibrium authority on pace.
+
+**Confirmed sound before ratifying:** the two-tab builder is a **mode, not a route** — both tabs bind to
+the **one** `useQueryBuilder` working copy and Save through the **same** header lifecycle (honors
+[canvas.md J-1](../../design/data-management/queries/canvas.md)); the Save gate stays intact on the
+Canvas tab because the preview query runs regardless of the visible tab; the canvas stays read-only this
+round (no model/contract/BE/engine change).
+
+**Open items carried to the Design gate** (not blockers): tab labels (**Form / Canvas** recommended);
+`flow-selector` (expect F-only DCFBI — the new *drag* interaction that would weigh condition 2 is R87's,
+not this layout round's); amend [canvas.md](../../design/data-management/queries/canvas.md)'s layout
+(preview currently drawn **under** the canvas) to the two-tab model in place.
+
+**Gates remaining**: Design → F → Integration (Integration hard-stops for **human review** in the
+running app, [[dfcfbi-f1-needs-human-review]]).
 
 ## Check
 
-_Pending._
+- [x] Plan gate ratified on "split please"; Do log records the **scope (SPLIT / layout-first)**, the
+      human's revert-value rationale, and the mode-not-route soundness check.
+- [ ] _Design gate (next step): re-confirm the shipped builder; settle tab labels; run `flow-selector`
+      (expect F-only DCFBI) + `ui-design` (design-spec) on the two-tab surface + status chip; amend
+      canvas.md layout to the two-tab model in place._
 
 ## Act
 
