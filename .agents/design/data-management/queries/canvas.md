@@ -17,8 +17,10 @@ lifecycle. The canvas is a **second editor over one model**, not a second model.
 `QueryCanvas` + the `[List]/[Canvas]` toggle in `QueryBuilderPanel`). [R86](../../../plan/cycles/Round_86.md)
 restructures the builder into two tabs — `Form` (list + preview) and `Canvas`
 (graph + status chip, no preview table) — over the one working copy (Design gate closed
-2026-06-18; canvas stays read-only). Editing (Phase B) → R87; "New query" (Phase C) →
-R88.** R80 sealed the design and banked the
+2026-06-18; canvas stays read-only). **[R87](../../../plan/cycles/Round_87.md) turns the
+Canvas tab into an EDITOR** at hop-list parity (draw-edge + delete-leaf), mechanism sealed
+at its Design gate (the **pick-pair** note below). "New query" (Phase C) → R88.** R80 sealed
+the design and banked the
 build (the deferral trigger — "until the hop-list stops scaling" — was UNFIRED at R80's
 2–4-node trees, J-2 below). **R85 fires the build of Phase A on the human's product
 call** — _"canvas is the #1 end-user-value feature"_ — the **accelerate** side of the
@@ -37,6 +39,30 @@ overriding the agent-side "unfired" verdict). Phase A is built **right, not MVP-
 > it needs a lib, that is R87's deviation to flag against R87's evidence. `flow-selector`
 > at R85's Design gate scored **0/5 → F-only DCFBI** (read-only, FE-only, no new
 > interaction), confirming J-3.
+>
+> **R87 Design-gate build decision (Phase B — editing).** Mechanism: a **pick-pair**,
+> AntD-native, **zero-dep** editor (the human-ratified default, 2026-06-18) — **no graph
+> library, no peer-dep deviation** (the `react, antd` surfaces-table deps hold). The
+> human's two-step shape is honoured: **(1)** click `[+ Add a source]` to stage a node
+> (a dataset or saved query) onto the canvas; **(2)** connect at **column granularity** —
+> click a source column → click a target column (or a small `<Select>` of eligible
+> governed pairs) — which **PICKS the existing governed `rel_`** whose key pair matches →
+> `addJoin(relationshipId)`. A **prior-art survey of 11 visual join/ER editors**
+> ([brainstorm](../../../plan/brainstorms/2026-06-18-r87-canvas-editing-prior-art.md))
+> established the decisive category split: **schema-authoring** tools (dbdiagram, drawSQL,
+> Supabase Designer, Prisma) **DECLARE** an FK when you draw a link, whereas
+> **query/analytics** tools (Metabase, Hasura, Looker, dbt) **PICK/consume** an existing
+> relationship. **Our canvas edits a _query's_ join tree → query category → PICK.** So a
+> drawn column pair with **no** matching governed `rel_` does **not** mint one — it guides
+> to [relationships.md](../workspaces/relationships.md) (inline relationship _declaration_
+> is schema-authoring, a **separate pull, OUT of R87**). React Flow (`@xyflow/react`) is
+> the de-facto React standard for literal column-drag + pan/zoom and the
+> evidence-backed library **if** drag is ever judged worth the flagged deviation — held in
+> reserve, **not adopted at R87**: pick-pair is keyboard-accessible by construction
+> (Metabase's dropdown path is the most accessible of all surveyed), tractable on our
+> bounded-small 2–4-node trees, and reuses the list's exact eligibility/leaf controls
+> (zero lib risk). This is R85's reserved "deviation against R87's evidence" note,
+> **resolved: no deviation.** `flow-selector` at R87's Design gate (below).
 >
 > **What this doc specifies, by phase.** **Phase A** (the read-only view) is being built
 > at R85 against this spec — its surfaces/states/accessibility below are the contract F
@@ -335,9 +361,11 @@ shared <PagedRowsView> preview below (the R85 builder, unchanged).
 ```
 
 `◆` marks the **driving node** (`sourceId`). Edges carry **text** labels (the key pair +
-cardinality `<Tag>`), not colour/glyph alone. The **Canvas tab is read-only at R86**
-(editing is R87); the **`Form` tab remains the editor** and the keyboard/screen-reader-
-complete equivalent + assistive-tech default.
+cardinality `<Tag>`), not colour/glyph alone. The **Canvas tab is read-only at R86; R87
+makes it an EDITOR** (the pick-pair Phase B below); the **`Form` tab remains the
+keyboard/screen-reader-complete equivalent + assistive-tech default** (editing is available
+on both tabs over the one working copy — the Form tab is not the _only_ editor, but it is
+the AT-complete one).
 
 **The canvas status chip** (`[ N rows ↗ ]`, top-right of the Canvas tab) is a labelled,
 keyboard-reachable button that mirrors the preview gate and links to it (the "where the
@@ -352,22 +380,41 @@ results live" discovery affordance — preferred over a static note). Its states
   alone), pointing to the `Form` tab where the blocked-state alert + the fix live. Save
   stays disabled (the gate reads preview validity regardless of the visible tab).
 
-### Phase B — interactive editing (drag/draw, at hop-list parity)
+### Phase B — interactive editing (pick-pair, column-granularity, at hop-list parity, R87)
 
 ```text
   ┌─ Canvas (editing) ──────────────────────────────────────────────────────────┐
   │   ┌──────────┐                ┌───────────┐                                  │
-  │   │  Deals ◆ │════════════════│  Accounts │   ⊕ drag from a node to a        │
-  │   └──────────┘  account_id↔id └───────────┘     not-yet-joined dataset →     │
-  │                                                  pick the rel_ → adds a hop   │
-  │   [ + Add a source ]   (disabled w/ tooltip when no eligible edge remains)    │
+  │   │  Deals ◆ │════════════[×]═│  Accounts │  ① [+ Add a source] stages a     │
+  │   │  · id    │  account_id↔id  │  · id     │     not-yet-joined node (dataset │
+  │   │  · …     │                 │  · …      │     or saved query)              │
+  │   └──────────┘                 └───────────┘  ② click a source column → a     │
+  │   ┌ · · · · · ┐  (staged, not yet joined)        target column → PICKS the     │
+  │   ┊  Owners   ┊  ← click a column pair to        governed rel_ → addJoin       │
+  │   └ · · · · · ┘     connect (or pick from <Select>)                            │
+  │   [ + Add a source ]   (disabled w/ tooltip when no eligible rel_ remains)     │
   └──────────────────────────────────────────────────────────────────────────────┘
 ```
 
-Draw an edge from an in-graph node to a new dataset → choose the governed `rel_` →
-`addJoin` (same connected-acyclic guard). A **leaf** edge shows a `[×]`/delete affordance
-→ `removeJoin`; a non-leaf edge's delete is **disabled with a text tooltip** (_"remove
-the joins that depend on this one first"_). Exactly the hop list's affordances, drawn.
+**Two steps (R87, the human's ratified shape).** **①** `[+ Add a source]` stages a
+not-yet-joined node (a dataset or saved query) onto the canvas — **FE-only staging state**;
+the node enters `joins[]` only when its column link is drawn (the model stays a connected
+tree rooted at `sourceId` — an unjoined node is ephemeral, never persisted). **②** connect
+at **column granularity**: click a source column → a target column (or a small `<Select>`
+of eligible governed pairs), which **PICKS the existing governed `rel_`** whose key pair
+matches → `addJoin(relationshipId)` (the **same** connected-acyclic guard, the **same**
+eligibility set `JoinEditor` computes: `valid && left∈graph && right∉graph`). **Gesture
+learnability (declared so F builds it):** after the source-column click, the **eligible
+target columns are highlighted** (the draw.io row-highlight cue) and a transient hint names
+the next step; the **`<Select>` of eligible governed pairs is the self-describing,
+discoverable equivalent** for anyone who doesn't reach for the click-gesture (and the
+keyboard/SR path — a11y section). A column pair
+with **no** matching governed `rel_` does **not** declare one — it guides to
+[relationships.md](../workspaces/relationships.md) (schema-authoring, OUT of R87). A
+**leaf** edge shows a `[×]` delete affordance → `removeJoin`; a non-leaf edge's `[×]` is
+**disabled with a text tooltip** (the shipped `removeJoinBlocked` reason). Exactly the hop
+list's eligibility + leaf rules, on the graph — **no new model, route, error code, or
+peer-dep** (J-3 holds). Mechanism = **pick-pair, zero-dep** (the build-decision note above).
 
 ### Phase C — empty-canvas "New query" (the no-source create entry)
 
@@ -432,11 +479,17 @@ stateDiagram-v2
   Build section shows the same loading it shows today). The canvas resolves each hop's
   dataset names + key pair + cardinality exactly as the list does (reuse, not a parallel
   fetch path).
-- **Editing (Phase B)** maps to the hop-list ops exactly: draw-edge → `addJoin`
-  (connected-acyclic guard unchanged); delete-leaf → `removeJoin`; non-leaf delete
-  disabled with a text tooltip. When **no** source has an eligible outgoing edge, the
-  add affordance is **disabled** with the same guiding tooltip the hop list uses
-  (_"Declare a relationship first"_, linking to [relationships.md](../workspaces/relationships.md)).
+- **Editing (Phase B, R87 — pick-pair)** maps to the hop-list ops exactly: **①** stage a
+  node via `[+ Add a source]` (FE-only, not yet in `joins[]`); **②** connect at column
+  granularity (click source column → target column, or a `<Select>` of eligible governed
+  pairs) → **PICK** the matching governed `rel_` → `addJoin` (connected-acyclic guard +
+  eligibility set unchanged); delete-leaf → `removeJoin`; non-leaf delete disabled with the
+  shipped `removeJoinBlocked` text tooltip. A drawn column pair with **no** matching
+  governed `rel_` does **not** declare one — it guides to
+  [relationships.md](../workspaces/relationships.md). When **no** source has an eligible
+  outgoing edge, the add affordance is **disabled** with the same guiding tooltip the hop
+  list uses (the `addJoinNone` state). **Mechanism = pick-pair, zero-dep — no graph lib**
+  (the R87 build-decision note); React Flow held in reserve for literal drag only.
 - **Preview / Save / discard** are **unchanged** — the stateless `POST …/queries/preview`
   and the dirty-Save/discard lifecycle; the canvas persists nothing new (positions are
   view-only).
@@ -470,10 +523,18 @@ stateDiagram-v2
   **text**; each edge names its key pair (`account_id ↔ id`) + a labelled cardinality
   `<Tag>`; the driving node is marked with **text/icon + label**, not colour. Node/edge
   selection is keyboard-reachable in a defined focus order.
-- **Editing affordances are labelled** — draw-edge / `[+ Add a source]` / per-edge
+- **Editing affordances are labelled** — `[+ Add a source]` / the column-pick / per-edge
   delete are labelled controls; a **disabled non-leaf delete** keeps its label and
   exposes its reason as **text** via tooltip (`aria-disabled`, not a silent dead
-  control), so the leaf rule is discoverable.
+  control), so the leaf rule is discoverable. The per-edge `[×]` delete is
+  **always-visible and keyboard-reachable** (not hover-only).
+- **Column-granularity editing has a keyboard/SR-complete path (R87).** Columns are in a
+  **defined focus order** within each node; the **column-pick gesture** (click source
+  column → click target column) has a **keyboard equivalent**: the **`<Select>` of eligible
+  governed `rel_` pairs** is the self-describing, fully keyboard/screen-reader-navigable way
+  to pick the same pair (the Metabase dropdown convention the prior-art brief found most
+  accessible). No editing capability is mouse-only; the `Form` tab remains the AT default
+  and the SR-complete equivalent.
 - **The stale-edge state** is an `<Alert role="alert">` whose reason is **text** (the
   missing column + the edge named), icon + text — not a colour swatch; its
   `[Open relationships]` / `[Remove edge]` actions are focus-order reachable.

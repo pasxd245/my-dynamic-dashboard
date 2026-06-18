@@ -4,12 +4,10 @@
 Inherits the confirmed two-tab `Form`/`Canvas` home from [Round_86](Round_86.md) (Complete,
 human-signed-off). This round turns the **read-only** Canvas tab into an **editor** at hop-list parity.
 **Date started**: 2026-06-18
-**Flow**: **TBD at the Design gate** via `flow-selector`. Unlike R86 (0/5 → DCFBI), this round adds the
-**genuinely-new drag/draw interaction** R86 explicitly deferred here — so **condition 2 (new interaction
-pattern) is expected to fire**, and condition 5 (UX confidence) may, depending on the chosen mechanism
-(see the Design-gate decision below). If ≥2 fire → **DFCFBI** with an **F1 interactive-prototype
-checkpoint** for human review before the FE is finished; if only condition 2 fires → **DCFBI** (F-only)
-with the Integration human-review hard-stop ([[dfcfbi-f1-needs-human-review]]). FE-only either way — **no
+**Flow**: **DFCFBI (triggers 1, 2, 5)** — set at the Design gate via `flow-selector`; recorded in the Do
+log. The genuinely-new column-pick interaction fires conditions 1 (>3 editing branches), 2 (new pattern),
+and 5 (UX confidence — prototype-worthy), so the round carries an **F1 interactive-prototype checkpoint**
+for human review before the FE is finished ([[dfcfbi-f1-needs-human-review]]). FE-only — **no
 contract/BE/engine** ([canvas.md J-3](../../design/data-management/queries/canvas.md)).
 
 ## Goal
@@ -273,14 +271,56 @@ prototype the column-draw to seal pick-pair-vs-React-Flow, and amend
 
 **Gates remaining**: Design → F (+ F1 prototype if DFCFBI) → Integration (human-review hard-stop).
 
+### Design-gate work (2026-06-18)
+
+**Reuse surface re-confirmed** (Explore over the shipped builder): `addJoin(relationshipId)` /
+`removeJoin(relationshipId)` are stable
+([useQueryBuilder.ts:232-237](../../../workspace/apps/builder/src/features/data-management/queries/useQueryBuilder.ts#L232-L237));
+the eligibility set (`valid && left∈graph && right∉graph`) + `isLeaf` + `removeJoinBlocked` tooltip +
+`addJoinNone` empty state all live locally in
+[JoinEditor.tsx](../../../workspace/apps/builder/src/features/data-management/queries/JoinEditor.tsx)
+(extractable for the canvas, not yet externalized); each governed `rel_` carries top-level
+`leftColumn`/`rightColumn`
+([relationships/types.ts](../../../workspace/apps/builder/src/features/data-management/relationships/types.ts))
+— so **column-level pick-pair is fully expressible with no model change** (J-3 confirmed). `QueryCanvas`
+already receives the working-copy `joins[]` and renders per-edge `rel.status` stale markers.
+
+**canvas.md amended** ([[design-docs-are-source-code]]): Canvas tab "read-only at R86" → **editor at R87**;
+added the **R87 Design-gate build decision** note (pick-pair, zero-dep, **no peer-dep deviation** — R85's
+reserved deviation resolved to "none"); rewrote the Phase-B layout + behaviour to the **two-step
+pick-pair** (stage node → column-pick → PICK existing `rel_` → `addJoin`; no-match guides to
+relationships.md); extended the a11y section for column-granularity (focus order over columns +
+`<Select>` as the keyboard/SR equivalent).
+
+**`ui-design` (design-spec) run** on the editing affordances → initial **GAP (2: Findability,
+Accessibility)** on the new column-granularity mechanism (column-pick learnability + column keyboard
+path under-declared); **remediated in canvas.md** (row-highlight cue + hint + `<Select>` learnable
+equivalent; column focus order + `<Select>` keyboard/SR equivalent + always-visible `[×]`) → **re-run
+PASS (6/6)**.
+
+**Flow selector run** (per [R47](../../decisions/2026-05-28-hybrid-flow-governance.md)):
+
+| Condition                            | Fired? | Justification  |
+| ------------------------------------ | ------ | -------------- |
+| 1. >3 independent states/branches    | yes    | Editing adds ≥4 independent branches beyond R86's read-only states: add-via-column-pick, add-via-`<Select>`, `addJoinNone`, no-match→relationships.md guide, delete-leaf, non-leaf-delete-blocked. |
+| 2. New interaction pattern           | yes    | Direct-manipulation column-to-column linking on the canvas is genuinely new; R86's canvas was read-only — no connect/draw gesture exists in-product. |
+| 3. High user-error risk              | no     | Maps to `addJoin`/`removeJoin` under the unchanged acyclic + leaf-only guards; non-destructive until Save (Save-gated); recoverable. |
+| 4. Contract depends on unresolved UI | no     | FE-only (J-3); `addJoin`/`removeJoin` unchanged, no new wire field — request/response shapes are untouched. |
+| 5. UX confidence below threshold     | yes    | The column-pick gesture's feel is unproven in-product and the human reserved the React-Flow-vs-pick-pair call pending an interactive prototype (the brief's "prototype the column-draw" recommendation) — a genuine open UX question. |
+
+Result: **Flow: DFCFBI (triggers 1, 2, 5)** — an **F1 interactive-prototype checkpoint** before the FE is
+finished. F1 is where the human sees pick-pair working and the React-Flow-in-reserve question is resolved
+against real evidence ([[dfcfbi-f1-needs-human-review]]).
+
 ## Check
 
 _(Filled as the gates close — verification against the [Acceptance criteria](#acceptance-criteria).)_
 
-- [ ] **Design gate** — builder re-confirmed (`addJoin`/`removeJoin`/`canSave`, `JoinEditor` eligibility +
-      leaf, `QueryCanvas` layout); `flow-selector` run (flow recorded); `ui-design` (design-spec) on the
-      add/delete affordances; column-draw prototype seals pick-pair-vs-React-Flow; canvas.md amended to
-      "editor at R87".
+- [x] **Design gate** — builder re-confirmed (`addJoin`/`removeJoin`/`canSave`, `JoinEditor` eligibility +
+      leaf, `QueryCanvas` layout); `flow-selector` run → **DFCFBI (1,2,5)**; `ui-design` (design-spec) on the
+      add/delete affordances → remediated → **PASS 6/6**; mechanism sealed = **pick-pair, zero-dep** (no
+      lib); the React-Flow-vs-drag call moves to the **F1 interactive-prototype** (DFCFBI); canvas.md
+      amended to "editor at R87".
 - [ ] **F gate** (+ F1 prototype checkpoint if DFCFBI) — draw-edge / delete-leaf bound to the builder;
       vitest + MSW green (add hop + live preview; remove leaf; non-leaf delete disabled + tooltip;
       `addJoinNone` ineligible state; Save stays gated). No contract/BE work.
