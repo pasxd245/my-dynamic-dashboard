@@ -12,9 +12,10 @@ new page**: it edits the **identical** `definition.joins` tree the hop-list
 `sourceId`, runs the **same** stateless preview, and saves through the **same**
 lifecycle. The canvas is a **second editor over one model**, not a second model.
 
-**Status**: **Accepted** (design) — **Phase A building at
-[R85](../../../plan/cycles/Round_85.md) (read-only view); Phases B/C still deferred
-(→ R86/R87).** R80 sealed the design and banked the
+**Status**: **Accepted** (design) — **Phase A SHIPPED at
+[R85](../../../plan/cycles/Round_85.md) (read-only view, human-signed-off 2026-06-18:
+`QueryCanvas` + the `[List]/[Canvas]` toggle in `QueryBuilderPanel`); Phases B/C still
+deferred (→ R86/R87).** R80 sealed the design and banked the
 build (the deferral trigger — "until the hop-list stops scaling" — was UNFIRED at R80's
 2–4-node trees, J-2 below). **R85 fires the build of Phase A on the human's product
 call** — _"canvas is the #1 end-user-value feature"_ — the **accelerate** side of the

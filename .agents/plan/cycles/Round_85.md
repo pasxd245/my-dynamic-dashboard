@@ -1,9 +1,9 @@
 # Round 85: canvas theme-opener — build Phase A (the read-only source-graph view)
 
-**Status**: In Progress — Plan + Design + **F** gates **closed** (2026-06-18); **Integration gate next**
-(human review in the running app).
+**Status**: **Complete** (human-signed-off, 2026-06-18) — Plan + Design + F + **Integration** gates all
+closed. Phase A (the read-only source-graph view) shipped; Phases B/C deferred (→ R86/R87).
 **Date started**: 2026-06-18
-**Date completed**:
+**Date completed**: 2026-06-18
 **Flow**: **DCFBI** (F-only) — Track-1 product feature; set at the Design gate via `flow-selector`
 (0/5 fired; recorded in the Do log). Per [canvas.md J-3](../../design/data-management/queries/canvas.md),
 Phase A is a **frontend-only** slice (render the existing `joins` tree; no contract/BE/engine change).
@@ -64,26 +64,27 @@ builds against). Per the [Evolution Rule](../../AGENTS.md)._
 
 ## Acceptance criteria (Phase A — from canvas.md "handed down")
 
-+ [ ] **Canvas renders the tree faithfully** _(FE)_ — nodes = `sourceId` + each hop's right
++ [x] **Canvas renders the tree faithfully** _(FE)_ — nodes = `sourceId` + each hop's right
       dataset; edges = `joins[]` labelled with the key pair + advisory cardinality; a 2+-hop **star**
       (one source driving two hops) renders correctly (not just a linear path); the driving node is
-      marked in **text/icon + label**, not colour alone.
-+ [ ] **View toggle is lossless** _(FE)_ — `[List] ⇄ [Canvas]` swaps the **rendering** of one
+      marked in **text/icon + label**, not colour alone. _(vitest star case + human review in app.)_
++ [x] **View toggle is lossless** _(FE)_ — `[List] ⇄ [Canvas]` swaps the **rendering** of one
       working copy with **no edit lost and no model fork**; both views read the same
-      `useQueryBuilder` chain.
-+ [ ] **Read-only — no model/contract/BE/engine change** _(structural)_ — Phase A adds **no** field,
+      `useQueryBuilder` chain. _(vitest lossless-toggle case + human review.)_
++ [x] **Read-only — no model/contract/BE/engine change** _(structural)_ — Phase A adds **no** field,
       route, error code, or engine; it renders the resolved `definition.joins` the builder already
       holds. The list remains the editor.
-+ [ ] **Accessibility: List is the equivalent** _(FE)_ — the `[List]` view is the
++ [x] **Accessibility: List is the equivalent** _(FE)_ — the `[List]` view is the
       keyboard/screen-reader-complete equal and the assistive-tech default; the toggle is a labelled,
       keyboard-reachable control; nodes/edges carry text labels; a per-edge stale state is an
       `<Alert role="alert">` with text reason.
-+ [ ] **Reuse, not duplication** _(FE)_ — `QueryCanvas` binds to the shipped `useQueryBuilder` and is
++ [x] **Reuse, not duplication** _(FE)_ — `QueryCanvas` binds to the shipped `useQueryBuilder` and is
       rendered through `QueryBuilderPanel`; it re-implements no engine, predicate editor, or detail
       page (the [reuse invariant](../../design/data-management/queries/queries.md#the-reuse-invariant-the-one-rule-this-domain-holds)).
-+ [ ] **Done right, not rushed** _(human review)_ — a genuine node-link render (real layout), judged
-      in the running app, not a placeholder sketch.
-+ [ ] **Complete = human-signed-off** (Phase A canvas view, run in the app).
++ [x] **Done right, not rushed** _(human review)_ — a genuine node-link render (real layout), judged
+      in the running app (the one read-well gap — edge-label overflow — was caught in review and fixed),
+      not a placeholder sketch.
++ [x] **Complete = human-signed-off** (Phase A canvas view, run in the app — signed off 2026-06-18).
 
 ## What is OUT of scope (deferred to later canvas-theme rounds)
 
@@ -245,6 +246,25 @@ read-only).
 no field, route, or error code added (confirms J-3). **Integration gate next** — hard-stops for **human
 review in the running app** (a visual surface MSW/vitest can't fully judge, [[dfcfbi-f1-needs-human-review]]).
 
+### Integration-gate close (2026-06-18) — human-signed-off
+
+The human ran the app (mocks on) and reviewed the read-only canvas — the review MSW/vitest can't do
+([[dfcfbi-f1-needs-human-review]]). It worked exactly as designed: **one read-well defect surfaced and
+was fixed in the loop** — the edge label (`key pair` + cardinality + the **verbose** join-type
+`Inner (matches only)`) overflowed past the column gap onto the neighbouring node card. Fix: a compact
+`joinTypeShort` label (`inner`/`left`/…), a wider column gap, and the edge label **width-capped to the
+gap with wrapping** so it can never spill onto a node. Re-checked clean. _This is the value of the
+human-review hard-stop: green gates rendered + toggled correctly, but only a human eye caught that it
+didn't **read** well._
+
+**Forward product direction captured (does not change Phase A).** During review the human set the
+**Phase B (R86)** shape: the builder becomes **two tabs over one working copy** — **"Form"** (the
+current list editor + preview) and **"Canvas"** (the full-width graph, **no preview table**) — still a
+**mode, not a route** (honors J-1). Preview lives on Form only; the Save gate stays intact because the
+preview query runs regardless of the visible tab. A **clickable status chip** on the canvas
+(row count + `valid / ⚠ stale`, jumping to the Form preview) is preferred over a static "go to Form"
+note. Recorded for R86; Phase A keeps its simple inline `[List]/[Canvas]` toggle.
+
 ## Check (2026-06-18)
 
 + [x] Plan gate ratified on "proceed r85"; Do log records the scope (Phase A only), the **trigger
@@ -260,13 +280,34 @@ review in the running app** (a visual surface MSW/vitest can't fully judge, [[df
       `<Segmented>` toggle in `QueryBuilderPanel` over the one working copy; per-edge stale derived from
       `Relationship.status`. vitest+MSW (3 new, green): faithful 2+-hop **star** render, **lossless**
       toggle, per-edge stale alert. `type-check` clean; token parity clean; no contract/BE/engine change.
-+ [ ] _Integration gate (next step): open a joined/composed Query, toggle to Canvas, confirm the graph
-      matches the hop-list; toggle back, no state lost. **Human review** in the running app
-      ([[dfcfbi-f1-needs-human-review]] — a visual surface MSW/vitest can't fully judge)._
++ [x] **Integration gate closed — human-signed-off (2026-06-18).** The human ran the app, toggled a
+      joined Query to Canvas (graph matched the hop-list), toggled back (no state lost). One read-well
+      defect (edge-label overflow) was caught in review and fixed (compact join-type label + width-capped
+      wrapping label + wider gap); re-checked clean. The human-review hard-stop did its job.
 
 ## Act
 
-_Pending — filled at round close._
+**Shipped (Phase A — the read-only source-graph canvas view, FE-only):**
+
++ `QueryCanvas` (NEW) + the `[List]/[Canvas]` `<Segmented>` toggle in `QueryBuilderPanel`, over the one
+  `useQueryBuilder` working copy; hand-rolled SVG/DOM render; per-edge stale derived from
+  `Relationship.status`; i18n (en + vi). Committed `feat(R85 F): close F gate`.
++ No contract/BE/engine change (J-3 held). `type-check` + token parity + i18n parity clean; 3 new
+  vitest+MSW cases green.
+
+**What we learned / decided:**
+
++ **The human-review hard-stop earns its keep on visual rounds** — gates were green and the canvas
+  rendered + toggled correctly, yet only a human eye caught that the edge label *overflowed onto a node*
+  (it didn't **read** well). [[dfcfbi-f1-needs-human-review]] confirmed for any FE-visual round, not just
+  DFCFBI F1.
++ **Phase B (R86) direction set by the human** (recorded, not built): two-tab builder — **Form**
+  (list + preview) and **Canvas** (graph, no preview table) over one working copy (mode, not route);
+  preview/validation on Form only; a clickable canvas status chip over a static note.
+
+**Deferred (unchanged):** Phase B editing → **R86** (trigger fired: Phase A confirmed in the app);
+Phase C "New query" → **R87**; persisting node positions → only if pulled; the dashboard theme → after
+canvas.
 
 ## Feeds into → canvas Phase B/C, then the dashboard theme
 
