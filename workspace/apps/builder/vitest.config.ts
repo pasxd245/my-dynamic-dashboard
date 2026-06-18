@@ -13,5 +13,9 @@ export default defineConfig({
     environment: "happy-dom",
     setupFiles: ["./tests/setup.ts"],
     globals: true,
+    // Integration-style tests drive heavy AntD Select/dropdown interactions
+    // (e.g. building a multi-hop join chain) that legitimately run ~5s in
+    // happy-dom; the 5s default flaked under load. Give them headroom.
+    testTimeout: 15000,
   },
 });

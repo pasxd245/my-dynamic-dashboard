@@ -15,6 +15,18 @@ body,
   background: var(--ant-color-primary-bg, #e6f4ff);
 }
 
+/* Query builder (R86) — the [Form]/[Canvas] <Tabs> is used as a TAB BAR only;
+   each view's content renders below it (so the flex chain to the preview is
+   unchanged and the preview scrolls inside the card, not the whole page). Hide
+   the empty tab content-holder so it reserves no vertical space, and tighten the
+   nav's default bottom margin. */
+.builder-tabs > .ant-tabs-content-holder {
+  display: none;
+}
+.builder-tabs > .ant-tabs-nav {
+  margin-bottom: 4px;
+}
+
 /* Dataset detail — pagination split layout: page numbers on the
    left, size-changer + quick-jumper on the right. Matches the
    .pagination-bar in dataset-detail.preview.html. */

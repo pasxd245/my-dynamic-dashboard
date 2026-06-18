@@ -489,6 +489,7 @@
       "columnsPending": "Resolving the joined columns…",
       "searchLabel": "Search",
       "searchPlaceholder": "Match any cell…",
+      "searchClear": "Clear search",
       "joinStale": "This join is unavailable — a join column no longer exists. Pick a different relationship, or clear the join.",
       "predInvalid": "{{count}} filter references a column that isn't in these results. Remove it or pick a current column.",
       "previewLoading": "Previewing…",

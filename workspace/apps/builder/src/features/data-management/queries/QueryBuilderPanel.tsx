@@ -1,19 +1,18 @@
 // QueryBuilderPanel (R72) — the interactive construction surface (presentational).
 //
-// Two COLLAPSIBLE sections, both open by default: **Build** (join editor +
-// active-filter chips + advanced query + row search) and **Preview** (the live
-// rows the unsaved definition produces). Both stay visible so the preview is
-// live as you edit; on a short screen, collapse Build to give the preview the
-// full height (or collapse Preview to focus on building). The preview is a
-// bounded SAMPLE — paged (the pagination bar is the "load more"), never all rows.
-//
-// Per-column filters live in the preview table HEADERS (the dataset-detail
-// pattern, via <PagedRowsView renderHeaderExtra>) so the Build section stays
-// compact even for wide joined results. State + the Save/Cancel lifecycle live
-// in `useQueryBuilder` (the PAGE HEADER drives Save/Cancel). No new model/engine.
+// R86 — two top-level VIEW TABS over the SAME working copy: the **Form** tab
+// (the editable hop list + filters + the live preview; the keyboard/SR-complete
+// equivalent and the assistive-tech default) and the **Canvas** tab (the
+// read-only source-graph + a status chip; no preview table). The tab bar is an
+// AntD <Tabs> (real tablist/tab a11y); each view's content renders BELOW the bar
+// (the `.builder-tabs` content-holder is hidden) so the existing flex layout is
+// preserved and the preview scrolls inside the card, not the whole page.
+// Switching swaps the rendering only — no edit lost, no model forked (canvas.md
+// J-1). State + the Save/Cancel lifecycle live in `useQueryBuilder`.
 
 import { RightOutlined, WarningOutlined } from '@ant-design/icons';
-import { Button, Input, Segmented, Tag, Typography } from 'antd';
+import { XCircleIcon } from '@phosphor-icons/react';
+import { Button, Input, Tabs, Tag, Typography } from 'antd';
 import type { TFunction } from 'i18next';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -27,33 +26,21 @@ import { JoinEditor } from './JoinEditor';
 import { QueryCanvas } from './QueryCanvas';
 import { type QueryBuilderState } from './useQueryBuilder';
 
-// R86 — the builder is two top-level views over the SAME working copy: the
-// **Form** tab (the editable hop list + filters + the live preview; the
-// keyboard/SR-complete equivalent and the assistive-tech default) and the
-// **Canvas** tab (the read-only source-graph + a status chip; no preview table).
-// Switching swaps the rendering only — no edit lost, no model forked (canvas.md
-// J-1, two-tab layout). The control is a Segmented acting as the tab switch (a
-// build-home choice; it satisfies the declared labelled/keyboard-reachable a11y).
 type BuilderTab = 'form' | 'canvas';
 
 export type QueryBuilderPanelProps = Readonly<{ builder: QueryBuilderState }>;
 
 export function QueryBuilderPanel({ builder }: QueryBuilderPanelProps) {
   const { t } = useTranslation();
-  const { draft, columns, isJoined } = builder;
   const [buildOpen, setBuildOpen] = useState(true);
   const [previewOpen, setPreviewOpen] = useState(true);
   // R86 — active view tab is local rendering state (the switch is lossless);
   // Form is the default and the assistive-tech equivalent.
   const [activeTab, setActiveTab] = useState<BuilderTab>('form');
 
-  const activeCount =
-    draft.filters.length + draft.advanced.flat().length + (draft.q ? 1 : 0) + builder.joins.length;
-
-  // R86 — the Canvas tab's status chip mirrors the preview gate (which runs off
-  // the working copy regardless of the visible tab) and links to the Form
-  // preview, so a user on the Canvas tab still sees the row count / why Save is
-  // blocked. Text + icon, never colour alone.
+  // The Canvas tab's status chip mirrors the preview gate (which runs off the
+  // working copy regardless of the visible tab) and links back to the Form
+  // preview — so a Canvas-tab user still sees the row count / why Save is blocked.
   const canvasStatus = canvasStatusOf(builder, t);
   const goToFormPreview = () => {
     setActiveTab('form');
@@ -66,82 +53,88 @@ export function QueryBuilderPanel({ builder }: QueryBuilderPanelProps) {
       data-component="QueryBuilderPanel"
       style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1, minHeight: 0 }}
     >
-      {/* R86 — top-level [Form] [Canvas] view tabs over the ONE working copy.
-          Form = the editor + live preview; Canvas = the read-only source-graph +
-          a status chip (no preview table). Switching is lossless — state lives in
-          useQueryBuilder, and the preview query runs regardless of the visible tab
-          so the Save gate holds on the Canvas tab too. */}
-      <Segmented<BuilderTab>
-        block
-        value={activeTab}
-        onChange={(v) => setActiveTab(v)}
+      {/* R86 — the [Form] [Canvas] tab bar. Content renders below (the empty
+          content-holder is hidden via `.builder-tabs`), so the flex chain to the
+          preview is unchanged and the switch is a cheap conditional render. */}
+      <Tabs
+        className="builder-tabs"
+        activeKey={activeTab}
+        onChange={(k) => setActiveTab(k as BuilderTab)}
         aria-label={t('queries.builder.viewToggleLabel')}
         data-component="QueryBuilderTabs"
-        options={[
-          { label: t('queries.builder.tabForm'), value: 'form' },
-          { label: t('queries.builder.tabCanvas'), value: 'canvas' },
+        style={{ flex: '0 0 auto' }}
+        items={[
+          { key: 'form', label: t('queries.builder.tabForm') },
+          { key: 'canvas', label: t('queries.builder.tabCanvas') },
         ]}
       />
 
       {activeTab === 'canvas' ? (
-        // ── Canvas tab — read-only source-graph + status chip; no preview ──
-        <div
-          data-component="QueryBuilderCanvasTab"
-          style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1, minHeight: 0 }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-            <Button
-              size="small"
-              data-component="QueryCanvasStatusChip"
-              data-stale={canvasStatus.stale ? 'true' : 'false'}
-              aria-label={canvasStatus.aria}
-              icon={canvasStatus.stale ? <WarningOutlined /> : undefined}
-              onClick={goToFormPreview}
-              style={canvasStatus.stale ? { color: 'var(--ant-color-warning, #faad14)' } : undefined}
-            >
-              {canvasStatus.label} ↗
-            </Button>
-          </div>
-          <QueryCanvas
-            datasetId={builder.datasetId}
-            baseSourceId={builder.baseSourceId}
-            workspaceId={builder.workspaceId}
-            joins={builder.joins}
-          />
-        </div>
+        <CanvasTab builder={builder} status={canvasStatus} onGoToForm={goToFormPreview} />
       ) : (
-        // ── Form tab — the hop-list editor + filters + the live preview ──
-        <>
-          {/* ── Build section ─────────────────────────────────────────────── */}
-          <SectionBar
-            open={buildOpen}
-            onToggle={() => setBuildOpen((o) => !o)}
-            title={t('queries.builder.sectionBuild')}
-            dataComponent="QueryBuilderBuildHeader"
-          >
-            {!buildOpen && activeCount > 0 ? (
-              <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                {t('queries.builder.buildActive', { count: activeCount })}
-              </Typography.Text>
-            ) : null}
-          </SectionBar>
-          {buildOpen ? (
-            <div
-              data-component="QueryBuilderControls"
-              style={{ flex: '0 0 auto', display: 'flex', flexDirection: 'column', gap: 10 }}
-            >
-              <JoinEditor
-                datasetId={builder.datasetId}
-                workspaceId={builder.workspaceId}
-                baseSourceId={builder.baseSourceId}
-                queryId={builder.queryId}
-                onSetBaseSource={builder.setBaseSource}
-                joins={builder.joins}
-                onSetJoin={builder.setJoin}
-                onAddJoin={builder.addJoin}
-                onRemoveHop={builder.removeJoin}
-                onSetHopType={builder.setHopType}
-              />
+        <FormTab
+          builder={builder}
+          buildOpen={buildOpen}
+          setBuildOpen={setBuildOpen}
+          previewOpen={previewOpen}
+          setPreviewOpen={setPreviewOpen}
+        />
+      )}
+    </div>
+  );
+}
+
+/** The Form tab — the editable hop-list builder + filters + the live preview. */
+function FormTab({
+  builder,
+  buildOpen,
+  setBuildOpen,
+  previewOpen,
+  setPreviewOpen,
+}: Readonly<{
+  builder: QueryBuilderState;
+  buildOpen: boolean;
+  setBuildOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  previewOpen: boolean;
+  setPreviewOpen: React.Dispatch<React.SetStateAction<boolean>>;
+}>) {
+  const { t } = useTranslation();
+  const { draft, columns, isJoined } = builder;
+  const activeCount =
+    draft.filters.length + draft.advanced.flat().length + (draft.q ? 1 : 0) + builder.joins.length;
+
+  return (
+    <>
+      {/* ── Build section ─────────────────────────────────────────────── */}
+      <SectionBar
+        open={buildOpen}
+        onToggle={() => setBuildOpen((o) => !o)}
+        title={t('queries.builder.sectionBuild')}
+        dataComponent="QueryBuilderBuildHeader"
+      >
+        {!buildOpen && activeCount > 0 ? (
+          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+            {t('queries.builder.buildActive', { count: activeCount })}
+          </Typography.Text>
+        ) : null}
+      </SectionBar>
+      {buildOpen ? (
+        <div
+          data-component="QueryBuilderControls"
+          style={{ flex: '0 0 auto', display: 'flex', flexDirection: 'column', gap: 10 }}
+        >
+          <JoinEditor
+            datasetId={builder.datasetId}
+            workspaceId={builder.workspaceId}
+            baseSourceId={builder.baseSourceId}
+            queryId={builder.queryId}
+            onSetBaseSource={builder.setBaseSource}
+            joins={builder.joins}
+            onSetJoin={builder.setJoin}
+            onAddJoin={builder.addJoin}
+            onRemoveHop={builder.removeJoin}
+            onSetHopType={builder.setHopType}
+          />
           {isJoined ? (
             <Typography.Text type="secondary" style={{ fontSize: 12 }}>
               {t('queries.builder.combinedColumns')}
@@ -167,10 +160,38 @@ export function QueryBuilderPanel({ builder }: QueryBuilderPanelProps) {
             </Typography.Text>
             <Input
               value={draft.q ?? ''}
+              // Empty → null so the definition omits the search (and a controlled
+              // input never renders a literal "null").
               onChange={(e) => builder.setQ(e.target.value || null)}
+              // Own Escape deterministically; AntD `allowClear` is dropped because
+              // its Escape/clear path emits a stray "null" value on real browsers
+              // (same fix as the dataset-detail row search). The only clear paths
+              // are this Esc and the in-field × below.
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  builder.setQ(null);
+                }
+              }}
               placeholder={t('queries.builder.searchPlaceholder')}
-              allowClear
               data-component="QueryBuilderSearch"
+              suffix={
+                draft.q ? (
+                  <XCircleIcon
+                    size={16}
+                    weight="fill"
+                    role="button"
+                    aria-label={t('queries.builder.searchClear')}
+                    data-component="QueryBuilderSearchClear"
+                    className="aq-icon-btn"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => builder.setQ(null)}
+                  />
+                ) : (
+                  <span />
+                )
+              }
             />
           </div>
         </div>
@@ -249,8 +270,43 @@ export function QueryBuilderPanel({ builder }: QueryBuilderPanelProps) {
           />
         </div>
       ) : null}
-        </>
-      )}
+    </>
+  );
+}
+
+/** The Canvas tab — the read-only source-graph + a status chip (no preview table).
+ *  Read-only at R86; editing is R87. */
+function CanvasTab({
+  builder,
+  status,
+  onGoToForm,
+}: Readonly<{ builder: QueryBuilderState; status: CanvasStatus; onGoToForm: () => void }>) {
+  return (
+    <div
+      data-component="QueryBuilderCanvasTab"
+      style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: '1 1 auto', minHeight: 0 }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'flex-end', flex: '0 0 auto' }}>
+        <Button
+          size="small"
+          data-component="QueryCanvasStatusChip"
+          data-stale={status.stale ? 'true' : 'false'}
+          aria-label={status.aria}
+          icon={status.stale ? <WarningOutlined /> : undefined}
+          onClick={onGoToForm}
+          style={status.stale ? { color: 'var(--ant-color-warning, #faad14)' } : undefined}
+        >
+          {status.label} ↗
+        </Button>
+      </div>
+      <div style={{ flex: '1 1 auto', minHeight: 0, overflow: 'auto' }}>
+        <QueryCanvas
+          datasetId={builder.datasetId}
+          baseSourceId={builder.baseSourceId}
+          workspaceId={builder.workspaceId}
+          joins={builder.joins}
+        />
+      </div>
     </div>
   );
 }

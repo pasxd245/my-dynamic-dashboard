@@ -639,10 +639,9 @@ describe('Query canvas view (R85 — Phase A, read-only source-graph)', () => {
     fireEvent.click(option);
   }
 
-  // R86 — switch the top-level [Form]/[Canvas] view tabs (a Segmented control).
+  // R86 — switch the top-level [Form]/[Canvas] view tabs (an AntD <Tabs> bar).
   function switchTab(tab: 'form' | 'canvas') {
-    const tabs = document.querySelector('[data-component="QueryBuilderTabs"]') as HTMLElement;
-    fireEvent.click(within(tabs).getByText(tab === 'canvas' ? 'Canvas' : 'Form'));
+    fireEvent.click(screen.getByRole('tab', { name: tab === 'canvas' ? 'Canvas' : 'Form' }));
   }
 
   // Build Deals ⋈ Accounts ⋈ Owners, then branch Accounts ⋈ tiers — a STAR

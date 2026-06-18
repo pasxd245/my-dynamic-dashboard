@@ -1,9 +1,10 @@
 # Round 86: the two-tab Form/Canvas builder (layout-first; canvas editing → R87)
 
-**Status**: **In Progress** — Plan + Design + **F** gates **closed** (2026-06-18, scope = **SPLIT /
-layout-first**); **Integration gate next** (human review in the running app).
+**Status**: **Complete** (human-signed-off on the feature, 2026-06-18) — Plan + Design + F + Integration
+gates closed; scope = **SPLIT / layout-first**. The two-tab Form/Canvas builder ships; remaining UI
+polish (the whole-page-scroll re-confirm) is batched into a dedicated UI-bug-fixing round.
 **Date started**: 2026-06-18
-**Date completed**:
+**Date completed**: 2026-06-18
 **Flow**: **DCFBI** (F-only) — set at the Design gate via `flow-selector` (**0/5 fired**; recorded in
 the Do log). This layout round adds **no new interaction pattern** (a tab control = R85's Segmented; the
 status chip = a standard button) and **no** contract/BE/engine change ([canvas.md J-3](../../design/data-management/queries/canvas.md));
@@ -238,8 +239,42 @@ branches in one component) — consistent with how the repo already tolerates So
 eslint/Sonar gate in pre-commit). A `/simplify` extraction of `FormTab`/`CanvasTab` is an optional
 follow-up; left inline to avoid a risky refactor mid-gate.
 
-**Integration gate next** — hard-stops for **human review** in the running app (the two tabs read well,
-the canvas has room, the status chip makes the Form preview discoverable; [[dfcfbi-f1-needs-human-review]]).
+### Integration-gate close (2026-06-18) — human-signed-off
+
+The human ran the app and reviewed the two-tab builder. **One read-well defect surfaced and was fixed in
+the loop** — exactly the Segmented-vs-Tabs item the F-gate note **flagged**: the `<Segmented>` pill
+"didn't look like the tabs." Fix: swapped the control to an AntD **`<Tabs>`** bar (real `tablist`/`tab`
+semantics, the conventional tab look) while keeping the view content rendering below the bar — so the
+existing flex layout, the lossless switch, and the conditional mount/unmount (and their tests) are
+unchanged. The `switchTab` test helper was repointed to drive the real tab control; `type-check` clean,
+queries + i18n suites green. Re-checked in the app: **reads as tabs, switching is lossless, the status
+chip still navigates** — human sign-off given.
+
+_This is the human-review hard-stop doing its job again: F's gates were green and the control worked, but
+only a human eye called that a Segmented pill doesn't read as "tabs." The F-gate had flagged the choice;
+Integration exercised the flag ([[dfcfbi-f1-needs-human-review]], [[design-altitude-vs-build-home]])._
+
+**Two further UI defects surfaced in review; one fixed, the rest batched.**
+
+1. **Search field rendered `null`** — AntD `allowClear`'s Escape path emits a stray `"null"` (a known
+   bug the team had already fixed on the dataset-detail row search). **Fixed** by applying that same
+   pattern to the builder search: drop `allowClear`, own `Escape` (preventDefault + stopPropagation →
+   clear), custom in-field `×` (`XCircleIcon` + `.aq-icon-btn`), defensive empty→null. New i18n
+   `searchClear` (en + vi). Verified by a throwaway render assertion (value `""`, placeholder intact).
+2. **Whole-page scroll — the preview overflowed the page-body** — the AntD `<Tabs>` empty content-holder
+   reserved vertical space and broke the flex chain. **Addressed structurally**: the `<Tabs>` is used as
+   a **tab bar only** (content renders below; `.builder-tabs > .ant-tabs-content-holder { display:none }`),
+   so the preview (`PagedRowsView` already `overflow:auto`) scrolls inside the card. _Not yet
+   re-confirmed in the app._
+
+Also: `FormTab`/`CanvasTab` extracted (lower per-component complexity); `vitest` `testTimeout` → 15s (the
+heavy multi-hop AntD-interaction tests legitimately run ~5s and flaked on the 5s default — environmental,
+verified to pass with headroom). **Full suite 162/162.**
+
+**Human's call: focus on features; batch remaining UI polish into a dedicated UI-bug-fixing round.** So
+R86 closes on the **feature** (the two-tab builder, human-approved tab look + the verified search fix);
+the scroll fix's visual re-confirmation + any other UI polish are **deferred** to that round
+([[r-ui-bug-fixing-round]]).
 
 ## Check
 
@@ -256,13 +291,40 @@ the canvas has room, the status chip makes the Form preview discoverable; [[dfcf
       Canvas (row count / unavailable, navigates to Form). `type-check` clean; full suite **162/162**
       (3 R85 canvas tests repointed to tabs + 2 new: chip navigation, Save-gated-on-Canvas-tab); no
       contract/BE.
-- [ ] _Integration gate (next step): **human review** in the running app — toggle Form ⇄ Canvas (room,
-      reads well), the status chip makes the Form preview discoverable, Save gating is clear on Canvas
-      ([[dfcfbi-f1-needs-human-review]])._
+- [x] **Integration gate closed — human-signed-off on the FEATURE (2026-06-18).** Reviewed in the
+      running app: the Form ⇄ Canvas switch reads well and is lossless, the canvas has room, the status
+      chip navigates to the Form preview. Three UI defects surfaced: Segmented-not-tabs (**fixed** → AntD
+      `<Tabs>`) and search-renders-`null` (**fixed** via the team's Esc/allowClear pattern) are done; the
+      whole-page-scroll fix is **addressed structurally but not re-confirmed**. Per the human's call,
+      remaining UI polish is **batched into a dedicated UI-bug-fixing round** ([[r-ui-bug-fixing-round]]).
 
 ## Act
 
-_Pending — filled at round close._
+**Shipped (FE-only — the two-tab Form/Canvas builder, layout-first cut):**
+
+- `QueryBuilderPanel` restructured into a top-level **`[Form] [Canvas]` `<Tabs>` bar** over the one
+  `useQueryBuilder` working copy: **Form** = the editor + live preview; **Canvas** = the read-only
+  `QueryCanvas` + a clickable `QueryCanvasStatusChip` (no preview table). The R85 inline toggle is gone.
+  i18n (en + vi). Committed across `feat(R86 F)` + the Integration tab fix.
+- Canvas stays read-only; no model/contract/BE/engine change (J-3 held). `type-check` + token parity +
+  i18n parity clean; full suite 162/162.
+
+**What we learned / decided:**
+
+- **The human-review hard-stop earns its keep on visual rounds (again).** Gates were green and the
+  Segmented control worked, but only a human eye called that it "didn't look like tabs." The F-gate had
+  **flagged** the Segmented-vs-Tabs choice; Integration exercised the flag → AntD `<Tabs>`. The
+  flag-the-deviation discipline ([[design-altitude-vs-build-home]]) made the fix a one-line follow-up,
+  not a litigation.
+- **The split paid off.** Layout landed clean and revertible on its own seam; canvas **editing (Phase B)
+  → R87** starts from a confirmed two-tab home — the human's "experiment → commit/revert value" rationale
+  ([[round-bundling-revert-seams]]) validated.
+
+**Deferred:** Phase B editing → **R87**; Phase C "New query" → **R88**; the dashboard theme → after
+canvas. **A dedicated UI-bug-fixing round** ([[r-ui-bug-fixing-round]]) — re-confirm the whole-page-scroll
+fix (and, if it persists, check the `AppLayout` page-shell height math vs. `QueryDetailPage`'s
+`calc(100vh - 88px)`), plus any other accumulated UI polish. (`FormTab`/`CanvasTab` are now extracted, so
+the earlier complexity advisory is resolved.)
 
 ## Feeds into → canvas Phase B editing (R87), then Phase C "New query" (R88), then the dashboard theme
 
