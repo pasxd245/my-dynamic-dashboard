@@ -14,8 +14,11 @@ lifecycle. The canvas is a **second editor over one model**, not a second model.
 
 **Status**: **Accepted** (design) — **Phase A SHIPPED at
 [R85](../../../plan/cycles/Round_85.md) (read-only view, human-signed-off 2026-06-18:
-`QueryCanvas` + the `[List]/[Canvas]` toggle in `QueryBuilderPanel`); Phases B/C still
-deferred (→ R86/R87).** R80 sealed the design and banked the
+`QueryCanvas` + the `[List]/[Canvas]` toggle in `QueryBuilderPanel`). [R86](../../../plan/cycles/Round_86.md)
+restructures the builder into two tabs — `Form` (list + preview) and `Canvas`
+(graph + status chip, no preview table) — over the one working copy (Design gate closed
+2026-06-18; canvas stays read-only). Editing (Phase B) → R87; "New query" (Phase C) →
+R88.** R80 sealed the design and banked the
 build (the deferral trigger — "until the hop-list stops scaling" — was UNFIRED at R80's
 2–4-node trees, J-2 below). **R85 fires the build of Phase A on the human's product
 call** — _"canvas is the #1 end-user-value feature"_ — the **accelerate** side of the
@@ -30,8 +33,8 @@ overriding the agent-side "unfired" verdict). Phase A is built **right, not MVP-
 > text labels) — **not** a graph library. This matches the surfaces table's declared
 > `react, antd` peer deps (**no deviation**), adds zero bundle weight, and keeps full
 > control over the token styling + text-label accessibility model; the bounded-small tree
-> (2–4 nodes) makes a generic graph engine overkill. If Phase B (R86) drag-editing proves
-> it needs a lib, that is R86's deviation to flag against R86's evidence. `flow-selector`
+> (2–4 nodes) makes a generic graph engine overkill. If Phase B (R87) drag-editing proves
+> it needs a lib, that is R87's deviation to flag against R87's evidence. `flow-selector`
 > at R85's Design gate scored **0/5 → F-only DCFBI** (read-only, FE-only, no new
 > interaction), confirming J-3.
 >
@@ -288,6 +291,8 @@ cited by [queries.md § Joins](queries.md#joins-reading-related-datasets-as-one)
 | Edge label / cardinality `<Tag>` text | `colorTextSecondary` | derived |
 | Node / edge border | `colorBorderSecondary` | `#f0f0f0` |
 | Stale-edge `⚠` warning (hop unavailable) | `colorWarning` | `#faad14` |
+| Canvas status chip — valid (`N rows ↗`) text (R86) | `colorTextSecondary` | derived |
+| Canvas status chip — stale/invalid (`⚠ unavailable ↗`) (R86) | `colorWarning` | `#faad14` |
 | Invalid / unrunnable-graph `<Alert>` | `colorError` | `#ff4d4f` |
 | Border radius (node card, table, tag, button) | `borderRadius` | `6` |
 | Font family | `fontFamily` | system stack |
@@ -300,35 +305,52 @@ Identifier parity is enforced by
 ## Layout — ASCII intent
 
 The canvas is a **view of the builder**, inside the **same** detail shell
-(`PageHeader` + `PageCard`) the hop-list builder uses. A **`[List] [Canvas]` view
-toggle** in the Build section swaps the hop list for the node-link graph **over the
-same working copy** — edits in either view are the same `addJoin`/`removeJoin`. The
-preview + result stay the shared `<PagedRowsView>` below.
+(`PageHeader` + `PageCard`) the hop-list builder uses. **R85** shipped it as a
+`[List]/[Canvas]` toggle inside the Build section (the preview below, shared). **R86
+restructures this into two top-level tabs over the one working copy** — **`Form`** (the
+hop-list builder + the live preview) and **`Canvas`** (the full-width node-link graph;
+**no preview table** — a clickable **status chip** links to the Form preview). Both tabs
+bind to the same `useQueryBuilder`; Save lives in the shared `PageHeader`. Still a
+**mode, not a route** (J-1): switching tabs swaps the rendering of one copy, losing no
+edit; the preview query keys on the working copy and runs regardless of the visible tab,
+so the Save gate holds on either tab.
 
-### Phase A — read-only canvas view (toggle beside the hop list)
+### The two-tab builder (R86 — `Form` / `Canvas`)
 
 ```text
 Deals × Accounts × Owners                                         [Cancel] [Save]
+[ Form ] ( Canvas )   ← top-level tabs; one working copy, shared header Save
+┌─ Canvas ───────────────────────────────────────────────[ 1,204 rows ↗ ]─┐
+│                          ┌───────────┐                   ↑ status chip:    │
+│        ┌──────────┐      │  Accounts │     ┌────────┐      click → Form     │
+│        │  Deals ◆ │──────┤           ├─────│ Owners │      tab, preview      │
+│        └──────────┘ account_id↔id     └──┬─┘ owner_id↔id   expanded          │
+│           (driving)     many:many        │     many:one                      │
+│                                          └─ (edges: key pair + cardinality)  │
+└──────────────────────────────────────────────────────────────────────────────┘
+  (no preview table on the Canvas tab — results live on the Form tab)
 
-  ▾ Build              view:  [ List ] ( Canvas )      ← toggle; same working copy
-  ┌─ Canvas ────────────────────────────────────────────────────────────────────┐
-  │                          ┌───────────┐                                       │
-  │        ┌──────────┐      │  Accounts │      ┌────────┐                        │
-  │        │  Deals ◆ │──────┤           ├──────│ Owners │                        │
-  │        └──────────┘ account_id↔id    └──┬───┘ owner_id↔id                     │
-  │           (driving)     many:many        │       many:one                     │
-  │                                          └── (edges labelled: key pair + card.)│
-  └──────────────────────────────────────────────────────────────────────────────┘
-  Deals.stage = won  ×    Owners.region = APAC  ×            ← active-filter chips
-  ▾ Preview · 1,204 rows  ⟳   [ Preview ]
-  ┌────────────────────────────────────────────────────────────────────────┐
-  │  <the shared <PagedRowsView> — combined columns across all nodes>        │
-  └────────────────────────────────────────────────────────────────────────┘
+[ Form ] tab → the hop-list editor + filter chips + advanced + search, with the
+shared <PagedRowsView> preview below (the R85 builder, unchanged).
 ```
 
-`◆` marks the **driving node** (`sourceId`). Edges carry **text** labels (the key
-pair + cardinality `<Tag>`), not colour/glyph alone. Phase A is **read-only**: the list
-remains the editor.
+`◆` marks the **driving node** (`sourceId`). Edges carry **text** labels (the key pair +
+cardinality `<Tag>`), not colour/glyph alone. The **Canvas tab is read-only at R86**
+(editing is R87); the **`Form` tab remains the editor** and the keyboard/screen-reader-
+complete equivalent + assistive-tech default.
+
+**The canvas status chip** (`[ N rows ↗ ]`, top-right of the Canvas tab) is a labelled,
+keyboard-reachable button that mirrors the preview gate and links to it (the "where the
+results live" discovery affordance — preferred over a static note). Its states:
+
+- _valid_ → `N rows ↗` (`colorTextSecondary`); clicking switches to the `Form` tab with
+  the preview expanded.
+- _loading_ → `Previewing…` (reuses the builder's existing preview-fetching state — no
+  new spinner).
+- _empty / zero_ → `0 rows ↗` (the definition matches nothing — **not** an error).
+- _stale / invalid_ → `⚠ unavailable ↗` (`colorWarning`, **text + icon**, not colour
+  alone), pointing to the `Form` tab where the blocked-state alert + the fix live. Save
+  stays disabled (the gate reads preview validity regardless of the visible tab).
 
 ### Phase B — interactive editing (drag/draw, at hop-list parity)
 
@@ -391,9 +413,16 @@ stateDiagram-v2
     EdgeStale --> Redirect: open relationships / remove edge
 ```
 
-- **View toggle is lossless** — `[List] ⇄ [Canvas]` swaps the **rendering** of one
-  working copy; no edit is lost, no model is forked. Edits in either view call the same
-  `useQueryBuilder` ops.
+- **View switch is lossless** — `[Form] ⇄ [Canvas]` (R86 tabs; R85's inline `[List]/
+  [Canvas]` toggle was the first cut) swaps the **rendering** of one working copy; no edit
+  is lost, no model is forked. Edits call the same `useQueryBuilder` ops.
+- **Preview lives on the `Form` tab only; the Save gate holds on both (R86).** The Canvas
+  tab carries **no preview table** — but `useQueryBuilder`'s preview query keys on the
+  working copy and runs whenever the builder is active, **independent of the visible
+  tab**, so `canSave` (preview-validity-gated) is correct on the Canvas tab too. The
+  **canvas status chip** (`[ N rows ↗ ]`) mirrors that gate and links to the Form preview;
+  its states (valid / loading / empty / stale-or-invalid) are declared in the Layout
+  section. No change to the hook — an FE rendering addition only.
 - **Phase-A trivial states (R85 — declared so F builds them, not infers them).** _Empty
   graph_: a Query with **no joins** (`joins[] === []`) renders the **lone driving node**
   (`sourceId`) — a single-node canvas, not a blank. _Loading_: the canvas mounts on the
@@ -426,11 +455,17 @@ stateDiagram-v2
 
 ### Accessibility (declared here so F builds it, not infers it)
 
-- **The canvas is not the only way to read/edit the tree.** The **`[List]` view is the
-  keyboard-and-screen-reader-complete equivalent** (the shipped hop-list affordances);
-  the `[List] [Canvas]` toggle is a labelled, keyboard-reachable control, and **List is
-  the default for assistive-tech** — the canvas is an *additional*, not a *replacement*,
-  affordance. No capability is canvas-only.
+- **The canvas is not the only way to read/edit the tree.** The **`Form` tab is the
+  keyboard-and-screen-reader-complete equivalent** (the shipped hop-list affordances + the
+  preview); the `[Form] [Canvas]` tabs are labelled, keyboard-reachable controls, and
+  **`Form` is the default for assistive-tech** — the canvas is an *additional*, not a
+  *replacement*, affordance. No capability is canvas-only. _(R86 tabs; R85 shipped this as
+  the inline `[List]/[Canvas]` toggle.)_
+- **The canvas status chip** (`[ N rows ↗ ]`, R86) is a labelled, keyboard-reachable
+  **button** (`aria-label` "View N result rows in Form builder"), not a static badge; its
+  stale/invalid state reads as **text + icon** (`⚠ unavailable`), not colour alone; on
+  activation it moves focus to the `Form` tab's preview. It makes "results live on Form"
+  **discoverable** without a static instructional note (the Findability path).
 - **Nodes and edges carry text, not colour/glyph alone** — each node names its source in
   **text**; each edge names its key pair (`account_id ↔ id`) + a labelled cardinality
   `<Tag>`; the driving node is marked with **text/icon + label**, not colour. Node/edge

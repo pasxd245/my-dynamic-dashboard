@@ -1,15 +1,15 @@
 # Round 86: canvas Phase B — interactive editing, in the two-tab Form/Canvas builder
 
-**Status**: **In Progress** — Plan gate **closed** (ratified 2026-06-18, scope = **SPLIT / layout-first**);
-**Design gate next**.
+**Status**: **In Progress** — Plan + **Design** gates **closed** (2026-06-18, scope = **SPLIT /
+layout-first**); **F gate next**.
 **Date started**: 2026-06-18
 **Date completed**:
-**Flow**: **DCFBI** (F-only) — _hypothesis_; Phase B maps editing onto the shipped
-`addJoin`/`removeJoin` ops with **no** contract/BE/engine change ([canvas.md J-3](../../design/data-management/queries/canvas.md)).
-The drag/draw **interaction** is new, so `flow-selector` runs at the **Design gate** to confirm the
-F-only lean (condition 2 "new interaction pattern" is the one to weigh). Gates: **Plan → Design → F →
-Integration** (Integration hard-stops for **human review** — a visual/interactive surface MSW/vitest
-can't fully judge, [[dfcfbi-f1-needs-human-review]]).
+**Flow**: **DCFBI** (F-only) — set at the Design gate via `flow-selector` (**0/5 fired**; recorded in
+the Do log). This layout round adds **no new interaction pattern** (a tab control = R85's Segmented; the
+status chip = a standard button) and **no** contract/BE/engine change ([canvas.md J-3](../../design/data-management/queries/canvas.md));
+the genuinely-new drag/draw interaction is **R87's**. Gates: **Plan → Design → F → Integration**
+(Integration hard-stops for **human review** — a visual surface MSW/vitest can't fully judge,
+[[dfcfbi-f1-needs-human-review]]).
 
 ## Goal
 
@@ -147,13 +147,72 @@ not this layout round's); amend [canvas.md](../../design/data-management/queries
 **Gates remaining**: Design → F → Integration (Integration hard-stops for **human review** in the
 running app, [[dfcfbi-f1-needs-human-review]]).
 
+### Design-gate close (2026-06-18)
+
+**Verdicts re-confirmed against the shipped builder.** Read the R85 code under
+`workspace/apps/builder/src/features/data-management/queries/` (`QueryBuilderPanel.tsx`,
+`useQueryBuilder.ts`, `QueryCanvas.tsx`). Today the `[List]/[Canvas]` `<Segmented>` toggle lives
+**inside** the Build section and swaps only the join editor, with the preview section below (shared).
+R86 promotes this to **two top-level tabs over the one working copy**: **Form** (the full builder — base
+picker + hop list + filter chips + advanced + search + the live **preview**) and **Canvas** (the
+full-width `QueryCanvas`, read-only this round, + a **clickable status chip**; **no** preview table).
+Both tabs bind to the **one** `useQueryBuilder`; Save (page header) is shared. **Mode, not a route**
+(honors [canvas.md J-1](../../design/data-management/queries/canvas.md)) — no new page/state/model.
+
+**Tab labels → `Form` / `Canvas`** (human-leaning; "Simple view" rejected as it undersells a full
+editor). Recorded; final string lives in i18n at the F gate.
+
+**Save gate without a visible preview on Canvas — confirmed sound.** `useQueryBuilder`'s preview query
+keys on the working copy (`debouncedDraft`) and runs whenever `active && (query || isCreate)` —
+**independent of which tab is visible**. So `canSave` (which reads `previewOk` / `relStale` /
+`invalidCount`) stays correctly gated on the Canvas tab; the user just doesn't see the rows there. The
+**status chip** surfaces the gate state (row count + `valid / ⚠ stale`) and navigates to the Form
+preview — no logic change to the hook, an FE rendering addition only.
+
+**Flow selector run** (per [R47](../../decisions/2026-05-28-hybrid-flow-governance.md)):
+
+| Condition                            | Fired? | Justification  |
+| ------------------------------------ | ------ | -------------- |
+| 1. >3 independent states/branches    | no     | The round adds a 2-state `[Form]/[Canvas]` tab switch + a chip-click; the canvas stays read-only (editing branches are R87). |
+| 2. New interaction pattern           | no     | A tab control is R85's shipped `<Segmented>` pattern; the status chip is a standard navigating button. The genuinely-new drag/draw is R87. |
+| 3. High user-error risk              | no     | Read-mostly layout refactor; canvas read-only; no destructive or irreversible action. |
+| 4. Contract depends on unresolved UI | no     | FE-only — zero contract surface (renders the resolved `joins` + the existing preview the builder already holds). |
+| 5. UX confidence below threshold     | no     | The two-tab model is the human's explicit direction over a reviewed design; the one open question (preview discoverability on Canvas) is answered by the status chip, validated at `ui-design` + Integration. |
+
+Result: **Flow: DCFBI** (F-only — this layout round adds no contract/BE and no new interaction pattern).
+
+**`ui-design` (design-spec) on the two-tab surface + status chip** — **5 pass / 1 gap → fixed**.
+Findability, Usability, Accessibility, Utility, Desirability **pass** (labelled `Form`/`Canvas` tabs; the
+status chip is the declared discovery path to results; Form stays the SR-complete equivalent + AT
+default; reuses the token map). **Credibility gap**: the canvas **status chip's states were undeclared**
+(loading / empty-zero / valid / stale-or-invalid). **Fixed in canvas.md** — the Layout section now
+declares all four chip states (text + icon, not colour alone), the Behaviour section declares
+"preview-on-Form-only, Save gate holds on both tabs," the Accessibility section declares the chip's
+`aria-label` + focus move, and the token map adds the chip's valid/stale token rows. Re-review clean.
+
+**canvas.md amended in place** ([[design-docs-are-source-code]]): Status block → R86 two-tab restructure
+(Design gate closed); Layout section rewritten to the **two-tab `Form`/`Canvas` model** (preview-on-Form,
+the full-width canvas + the status chip; ASCII updated); Behaviour + Accessibility + token map carry the
+chip; the build-decision note's "Phase B (R86)" drag-editing reference repointed to **R87** (editing is
+now R87, not R86). `design-token-parity` **0 errors**; `markdown-check-link` **all links resolve**.
+
+**F gate next**: restructure `QueryBuilderPanel` into `[Form] [Canvas]` tabs over the one
+`useQueryBuilder` copy; preview into the Form tab; clickable status chip on the Canvas tab; vitest + MSW
+(lossless tab switch, Save-gated-on-Canvas-tab, chip reflects valid/stale + navigates). No contract/BE.
+
 ## Check
 
 - [x] Plan gate ratified on "split please"; Do log records the **scope (SPLIT / layout-first)**, the
       human's revert-value rationale, and the mode-not-route soundness check.
-- [ ] _Design gate (next step): re-confirm the shipped builder; settle tab labels; run `flow-selector`
-      (expect F-only DCFBI) + `ui-design` (design-spec) on the two-tab surface + status chip; amend
-      canvas.md layout to the two-tab model in place._
+- [x] **Design gate closed.** Verdicts re-confirmed vs. the shipped builder (the two-tab model is a
+      mode, not a route — one `useQueryBuilder`, shared Save; the Save gate holds on the Canvas tab
+      because the preview query runs regardless of visible tab); tab labels → **Form / Canvas**;
+      `flow-selector` run (**0/5 → DCFBI, F-only**); `ui-design` design-spec run (**5 pass / 1
+      Credibility gap → fixed** in canvas.md — the status-chip states); canvas.md amended in place to
+      the two-tab model; token-parity + link checks clean.
+- [ ] _F gate (next step): restructure `QueryBuilderPanel` into `[Form] [Canvas]` tabs over the one
+      working copy; preview into Form; clickable status chip on Canvas; vitest + MSW for lossless tab
+      switch + Save-gated-on-Canvas-tab + chip behaviour; no contract/BE._
 
 ## Act
 
