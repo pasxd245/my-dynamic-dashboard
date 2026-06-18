@@ -12,8 +12,9 @@
 // compact even for wide joined results. State + the Save/Cancel lifecycle live
 // in `useQueryBuilder` (the PAGE HEADER drives Save/Cancel). No new model/engine.
 
-import { RightOutlined } from '@ant-design/icons';
+import { RightOutlined, WarningOutlined } from '@ant-design/icons';
 import { Button, Input, Segmented, Tag, Typography } from 'antd';
+import type { TFunction } from 'i18next';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -26,11 +27,14 @@ import { JoinEditor } from './JoinEditor';
 import { QueryCanvas } from './QueryCanvas';
 import { type QueryBuilderState } from './useQueryBuilder';
 
-// R85 — the join tree is rendered in one of two views over the SAME working
-// copy: the editable hop LIST (default; the keyboard/SR-complete equivalent and
-// the assistive-tech default) or the read-only CANVAS source-graph. The toggle
-// swaps the rendering only — no edit is lost, no model is forked (canvas.md).
-type JoinView = 'list' | 'canvas';
+// R86 — the builder is two top-level views over the SAME working copy: the
+// **Form** tab (the editable hop list + filters + the live preview; the
+// keyboard/SR-complete equivalent and the assistive-tech default) and the
+// **Canvas** tab (the read-only source-graph + a status chip; no preview table).
+// Switching swaps the rendering only — no edit lost, no model forked (canvas.md
+// J-1, two-tab layout). The control is a Segmented acting as the tab switch (a
+// build-home choice; it satisfies the declared labelled/keyboard-reachable a11y).
+type BuilderTab = 'form' | 'canvas';
 
 export type QueryBuilderPanelProps = Readonly<{ builder: QueryBuilderState }>;
 
@@ -39,76 +43,105 @@ export function QueryBuilderPanel({ builder }: QueryBuilderPanelProps) {
   const { draft, columns, isJoined } = builder;
   const [buildOpen, setBuildOpen] = useState(true);
   const [previewOpen, setPreviewOpen] = useState(true);
-  // R85 — view mode is local rendering state (the toggle is lossless); List is
-  // the default and the assistive-tech equivalent.
-  const [joinView, setJoinView] = useState<JoinView>('list');
+  // R86 — active view tab is local rendering state (the switch is lossless);
+  // Form is the default and the assistive-tech equivalent.
+  const [activeTab, setActiveTab] = useState<BuilderTab>('form');
 
   const activeCount =
     draft.filters.length + draft.advanced.flat().length + (draft.q ? 1 : 0) + builder.joins.length;
+
+  // R86 — the Canvas tab's status chip mirrors the preview gate (which runs off
+  // the working copy regardless of the visible tab) and links to the Form
+  // preview, so a user on the Canvas tab still sees the row count / why Save is
+  // blocked. Text + icon, never colour alone.
+  const canvasStatus = canvasStatusOf(builder, t);
+  const goToFormPreview = () => {
+    setActiveTab('form');
+    setPreviewOpen(true);
+    builder.flushPreview();
+  };
 
   return (
     <div
       data-component="QueryBuilderPanel"
       style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1, minHeight: 0 }}
     >
-      {/* ── Build section ─────────────────────────────────────────────── */}
-      <SectionBar
-        open={buildOpen}
-        onToggle={() => setBuildOpen((o) => !o)}
-        title={t('queries.builder.sectionBuild')}
-        dataComponent="QueryBuilderBuildHeader"
-      >
-        {!buildOpen && activeCount > 0 ? (
-          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-            {t('queries.builder.buildActive', { count: activeCount })}
-          </Typography.Text>
-        ) : null}
-      </SectionBar>
-      {buildOpen ? (
+      {/* R86 — top-level [Form] [Canvas] view tabs over the ONE working copy.
+          Form = the editor + live preview; Canvas = the read-only source-graph +
+          a status chip (no preview table). Switching is lossless — state lives in
+          useQueryBuilder, and the preview query runs regardless of the visible tab
+          so the Save gate holds on the Canvas tab too. */}
+      <Segmented<BuilderTab>
+        block
+        value={activeTab}
+        onChange={(v) => setActiveTab(v)}
+        aria-label={t('queries.builder.viewToggleLabel')}
+        data-component="QueryBuilderTabs"
+        options={[
+          { label: t('queries.builder.tabForm'), value: 'form' },
+          { label: t('queries.builder.tabCanvas'), value: 'canvas' },
+        ]}
+      />
+
+      {activeTab === 'canvas' ? (
+        // ── Canvas tab — read-only source-graph + status chip; no preview ──
         <div
-          data-component="QueryBuilderControls"
-          style={{ flex: '0 0 auto', display: 'flex', flexDirection: 'column', gap: 10 }}
+          data-component="QueryBuilderCanvasTab"
+          style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1, minHeight: 0 }}
         >
-          {/* R85 — [List] ⇄ [Canvas] view toggle over the one working copy.
-              The List view is the editor; the Canvas is an additional read-only
-              source-graph view. The toggle swaps rendering only (lossless). */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Typography.Text strong style={{ fontSize: 12 }} id="builder-view-label">
-              {t('queries.builder.viewToggleLabel')}
-            </Typography.Text>
-            <Segmented<JoinView>
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <Button
               size="small"
-              value={joinView}
-              onChange={(v) => setJoinView(v)}
-              aria-labelledby="builder-view-label"
-              data-component="QueryBuilderViewToggle"
-              options={[
-                { label: t('queries.builder.viewList'), value: 'list' },
-                { label: t('queries.builder.viewCanvas'), value: 'canvas' },
-              ]}
-            />
+              data-component="QueryCanvasStatusChip"
+              data-stale={canvasStatus.stale ? 'true' : 'false'}
+              aria-label={canvasStatus.aria}
+              icon={canvasStatus.stale ? <WarningOutlined /> : undefined}
+              onClick={goToFormPreview}
+              style={canvasStatus.stale ? { color: 'var(--ant-color-warning, #faad14)' } : undefined}
+            >
+              {canvasStatus.label} ↗
+            </Button>
           </div>
-          {joinView === 'canvas' ? (
-            <QueryCanvas
-              datasetId={builder.datasetId}
-              baseSourceId={builder.baseSourceId}
-              workspaceId={builder.workspaceId}
-              joins={builder.joins}
-            />
-          ) : (
-            <JoinEditor
-              datasetId={builder.datasetId}
-              workspaceId={builder.workspaceId}
-              baseSourceId={builder.baseSourceId}
-              queryId={builder.queryId}
-              onSetBaseSource={builder.setBaseSource}
-              joins={builder.joins}
-              onSetJoin={builder.setJoin}
-              onAddJoin={builder.addJoin}
-              onRemoveHop={builder.removeJoin}
-              onSetHopType={builder.setHopType}
-            />
-          )}
+          <QueryCanvas
+            datasetId={builder.datasetId}
+            baseSourceId={builder.baseSourceId}
+            workspaceId={builder.workspaceId}
+            joins={builder.joins}
+          />
+        </div>
+      ) : (
+        // ── Form tab — the hop-list editor + filters + the live preview ──
+        <>
+          {/* ── Build section ─────────────────────────────────────────────── */}
+          <SectionBar
+            open={buildOpen}
+            onToggle={() => setBuildOpen((o) => !o)}
+            title={t('queries.builder.sectionBuild')}
+            dataComponent="QueryBuilderBuildHeader"
+          >
+            {!buildOpen && activeCount > 0 ? (
+              <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                {t('queries.builder.buildActive', { count: activeCount })}
+              </Typography.Text>
+            ) : null}
+          </SectionBar>
+          {buildOpen ? (
+            <div
+              data-component="QueryBuilderControls"
+              style={{ flex: '0 0 auto', display: 'flex', flexDirection: 'column', gap: 10 }}
+            >
+              <JoinEditor
+                datasetId={builder.datasetId}
+                workspaceId={builder.workspaceId}
+                baseSourceId={builder.baseSourceId}
+                queryId={builder.queryId}
+                onSetBaseSource={builder.setBaseSource}
+                joins={builder.joins}
+                onSetJoin={builder.setJoin}
+                onAddJoin={builder.addJoin}
+                onRemoveHop={builder.removeJoin}
+                onSetHopType={builder.setHopType}
+              />
           {isJoined ? (
             <Typography.Text type="secondary" style={{ fontSize: 12 }}>
               {t('queries.builder.combinedColumns')}
@@ -216,6 +249,8 @@ export function QueryBuilderPanel({ builder }: QueryBuilderPanelProps) {
           />
         </div>
       ) : null}
+        </>
+      )}
     </div>
   );
 }
@@ -272,6 +307,29 @@ function SectionBar({
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginInlineStart: 'auto' }}>{children}</div>
     </div>
   );
+}
+
+/** R86 — the Canvas-tab status chip's state, derived from the same preview gate
+ *  the Form preview reads. Valid → "N rows"; blocked (stale / invalid predicate)
+ *  → "Unavailable" (text + ⚠ icon, never colour alone); fetching → "Previewing…". */
+type CanvasStatus = Readonly<{ label: string; stale: boolean; aria: string }>;
+function canvasStatusOf(builder: QueryBuilderState, t: TFunction): CanvasStatus {
+  if (builder.previewFetching) {
+    const loading = t('queries.builder.previewLoading');
+    return { label: loading, stale: false, aria: loading };
+  }
+  if (builder.relStale || builder.predStale || builder.invalidCount > 0) {
+    return {
+      label: t('queries.builder.canvasStatusUnavailable'),
+      stale: true,
+      aria: t('queries.builder.canvasStatusAriaUnavailable'),
+    };
+  }
+  return {
+    label: t('queries.builder.canvasStatusRows', { count: builder.previewTotal }),
+    stale: false,
+    aria: t('queries.builder.canvasStatusAria', { count: builder.previewTotal }),
+  };
 }
 
 function alertStyle(): React.CSSProperties {

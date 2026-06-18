@@ -639,10 +639,10 @@ describe('Query canvas view (R85 — Phase A, read-only source-graph)', () => {
     fireEvent.click(option);
   }
 
-  // Flip the [List]/[Canvas] view toggle (an AntD Segmented control).
-  function toggleView(view: 'list' | 'canvas') {
-    const seg = document.querySelector('[data-component="QueryBuilderViewToggle"]') as HTMLElement;
-    fireEvent.click(within(seg).getByText(view === 'canvas' ? 'Canvas' : 'List'));
+  // R86 — switch the top-level [Form]/[Canvas] view tabs (a Segmented control).
+  function switchTab(tab: 'form' | 'canvas') {
+    const tabs = document.querySelector('[data-component="QueryBuilderTabs"]') as HTMLElement;
+    fireEvent.click(within(tabs).getByText(tab === 'canvas' ? 'Canvas' : 'Form'));
   }
 
   // Build Deals ⋈ Accounts ⋈ Owners, then branch Accounts ⋈ tiers — a STAR
@@ -662,7 +662,7 @@ describe('Query canvas view (R85 — Phase A, read-only source-graph)', () => {
 
   it('renders the joins tree faithfully as a node-link star (nodes, labelled edges, driving marker)', async () => {
     await buildStar();
-    toggleView('canvas');
+    switchTab('canvas');
     // The list editor unmounts; the canvas renders.
     await waitFor(() => expect(document.querySelector('[data-component="QueryCanvas"]')).not.toBeNull());
     expect(document.querySelector('[data-component="JoinEditor"]')).toBeNull();
@@ -693,10 +693,10 @@ describe('Query canvas view (R85 — Phase A, read-only source-graph)', () => {
     await pickFromSelect('BuilderAddJoin', /tier ↔ tier/);
     await waitFor(() => expect(document.querySelectorAll('[data-component="BuilderHopRow"]').length).toBe(2));
     // Toggle to Canvas → it renders the EDITED copy (3 nodes: Deals/Accounts/Owners).
-    toggleView('canvas');
+    switchTab('canvas');
     await waitFor(() => expect(document.querySelectorAll('[data-component="CanvasNode"]').length).toBe(3));
     // Toggle back to List → no edit lost (the 2 hop rows return; preview intact).
-    toggleView('list');
+    switchTab('form');
     await waitFor(() => expect(document.querySelectorAll('[data-component="BuilderHopRow"]').length).toBe(2));
     expect(document.querySelector('[data-component="QueryCanvas"]')).toBeNull();
   });
@@ -717,7 +717,7 @@ describe('Query canvas view (R85 — Phase A, read-only source-graph)', () => {
     renderApp(`/data-management/queries/${JOIN_ID}`);
     expect(await screen.findByText(/Matched 2 rows/)).toBeInTheDocument();
     clickEdit();
-    toggleView('canvas');
+    switchTab('canvas');
     await waitFor(() => expect(document.querySelector('[data-component="QueryCanvas"]')).not.toBeNull());
     // The stale edge renders a text alert naming the missing column — flag-don't-crash.
     const alert = (await waitFor(() => {
@@ -727,5 +727,58 @@ describe('Query canvas view (R85 — Phase A, read-only source-graph)', () => {
     })) as HTMLElement;
     expect(alert.getAttribute('role')).toBe('alert');
     expect(alert.textContent).toContain(MOCK_STALE_RELATIONSHIP.leftColumn);
+  });
+
+  // R86 — the Canvas tab carries NO preview table; a status chip mirrors the
+  // preview gate (row count) and navigates back to the Form preview.
+  it('shows a status chip with the row count on the Canvas tab and navigates back to Form', async () => {
+    renderApp(`/data-management/queries/${JOIN_ID}`);
+    expect(await screen.findByText(/Matched 2 rows/)).toBeInTheDocument();
+    clickEdit();
+    await screen.findByText('Preview · 2 rows'); // the Form preview settled (total 2)
+    switchTab('canvas');
+    const chip = (await waitFor(() => {
+      const el = document.querySelector('[data-component="QueryCanvasStatusChip"]') as HTMLButtonElement;
+      expect(el).not.toBeNull();
+      return el;
+    })) as HTMLButtonElement;
+    await waitFor(() => expect(chip.textContent).toContain('2 rows'));
+    expect(chip.getAttribute('data-stale')).toBe('false');
+    // No preview table on the Canvas tab (it lives on Form).
+    expect(document.querySelector('[data-component="QueryBuilderPreviewHeader"]')).toBeNull();
+    // Clicking the chip returns to the Form tab (editor + preview reappear).
+    fireEvent.click(chip);
+    await waitFor(() => expect(document.querySelector('[data-component="JoinEditor"]')).not.toBeNull());
+    expect(document.querySelector('[data-component="QueryCanvas"]')).toBeNull();
+    expect(document.querySelector('[data-component="QueryBuilderPreviewHeader"]')).not.toBeNull();
+  });
+
+  // R86 — the Save gate reads preview validity, which runs regardless of the
+  // visible tab; so a blocked preview keeps Save disabled even on the Canvas tab,
+  // and the chip surfaces WHY (unavailable) without a visible preview table.
+  it('keeps Save gated on the Canvas tab when the preview is blocked (chip shows unavailable)', async () => {
+    server.use(
+      http.post('*/workspaces/:id/queries/preview', () =>
+        HttpResponse.json({ code: 'relationship_stale' }, { status: 409 }),
+      ),
+    );
+    renderApp(`/data-management/queries/${JOIN_ID}`);
+    expect(await screen.findByText(/Matched 2 rows/)).toBeInTheDocument();
+    clickEdit();
+    // On Form: the blocked-state alert shows and Save is disabled.
+    expect(await screen.findByText(/This join is unavailable/)).toBeInTheDocument();
+    await waitFor(() =>
+      expect(document.querySelector('[data-component="QueryBuilderSave"]')).toBeDisabled(),
+    );
+    // Switch to Canvas → the chip reflects the blocked gate; Save stays disabled.
+    switchTab('canvas');
+    const chip = (await waitFor(() => {
+      const el = document.querySelector('[data-component="QueryCanvasStatusChip"]') as HTMLButtonElement;
+      expect(el).not.toBeNull();
+      return el;
+    })) as HTMLButtonElement;
+    await waitFor(() => expect(chip.getAttribute('data-stale')).toBe('true'));
+    expect(chip.textContent).toContain('Unavailable');
+    expect(document.querySelector('[data-component="QueryBuilderSave"]')).toBeDisabled();
   });
 });

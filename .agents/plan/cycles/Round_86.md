@@ -1,7 +1,7 @@
-# Round 86: canvas Phase B — interactive editing, in the two-tab Form/Canvas builder
+# Round 86: the two-tab Form/Canvas builder (layout-first; canvas editing → R87)
 
-**Status**: **In Progress** — Plan + **Design** gates **closed** (2026-06-18, scope = **SPLIT /
-layout-first**); **F gate next**.
+**Status**: **In Progress** — Plan + Design + **F** gates **closed** (2026-06-18, scope = **SPLIT /
+layout-first**); **Integration gate next** (human review in the running app).
 **Date started**: 2026-06-18
 **Date completed**:
 **Flow**: **DCFBI** (F-only) — set at the Design gate via `flow-selector` (**0/5 fired**; recorded in
@@ -196,9 +196,50 @@ the full-width canvas + the status chip; ASCII updated); Behaviour + Accessibili
 chip; the build-decision note's "Phase B (R86)" drag-editing reference repointed to **R87** (editing is
 now R87, not R86). `design-token-parity` **0 errors**; `markdown-check-link` **all links resolve**.
 
-**F gate next**: restructure `QueryBuilderPanel` into `[Form] [Canvas]` tabs over the one
-`useQueryBuilder` copy; preview into the Form tab; clickable status chip on the Canvas tab; vitest + MSW
-(lossless tab switch, Save-gated-on-Canvas-tab, chip reflects valid/stale + navigates). No contract/BE.
+### F-gate close (2026-06-18)
+
+**Built (FE-only):**
+
+- **`QueryBuilderPanel.tsx`** restructured into a top-level **`[Form] [Canvas]`** view switch over the
+  **one** `useQueryBuilder` working copy:
+  - **Form tab** — the shipped builder unchanged (base picker + hop list + filter chips + advanced +
+    search) **with** the live `<PagedRowsView>` preview below.
+  - **Canvas tab** — the read-only `QueryCanvas` (full-width) + a **clickable status chip**; **no
+    preview table**. The chip (`QueryCanvasStatusChip`) mirrors the preview gate — `N rows` (valid) /
+    `Previewing…` / `⚠ Unavailable` (text + icon, not colour alone) — and on click returns to the Form
+    tab with the preview expanded (`aria-label` "View N result rows in the Form builder").
+  - The R85 inline `[List]/[Canvas]` toggle (which lived inside the Build section) is **replaced** by
+    these tabs.
+- **i18n** (en + vi, parity-aligned): `tabForm` / `tabCanvas` / `canvasStatusRows` /
+  `canvasStatusUnavailable` / `canvasStatusAria` / `canvasStatusAriaUnavailable`.
+
+**Mechanism note (build-home, [[design-altitude-vs-build-home]]).** The tab switch is an AntD
+`<Segmented>` (not `<Tabs>`) acting as the view control — the proven R85 pattern, conditional-render so
+each view cleanly mounts/unmounts. It satisfies the design's declared a11y (labelled, keyboard-reachable,
+text labels). If true ARIA `tablist`/`tabpanel` semantics are wanted, that's a small follow-up — flagged,
+not silently diverged.
+
+**Save gate holds on the Canvas tab — verified.** `useQueryBuilder`'s preview query keys on the working
+copy and runs whenever the builder is active, **independent of the visible tab**, so `canSave` stays
+correct on Canvas; the chip surfaces the gate state without a preview table.
+
+**Verification:**
+
+- `tsc --noEmit` (`type-check`) — **clean**.
+- vitest + MSW (`tests/queries.test.tsx`): the 3 R85 canvas tests repointed to the new tabs (lossless
+  switch, faithful star render, per-edge stale) **+ 2 new**: (1) the Canvas-tab **status chip** shows the
+  row count and **navigates back to Form** (no preview table on Canvas); (2) a **blocked preview
+  (409)** keeps **Save disabled on the Canvas tab** and the chip reads `Unavailable`. **Full builder
+  suite: 162/162 green.**
+- i18n parity test green (new keys aligned en/vi).
+
+**Known advisory (non-blocking):** Sonar flags `QueryBuilderPanel`'s cognitive complexity (two full view
+branches in one component) — consistent with how the repo already tolerates Sonar advisories (no
+eslint/Sonar gate in pre-commit). A `/simplify` extraction of `FormTab`/`CanvasTab` is an optional
+follow-up; left inline to avoid a risky refactor mid-gate.
+
+**Integration gate next** — hard-stops for **human review** in the running app (the two tabs read well,
+the canvas has room, the status chip makes the Form preview discoverable; [[dfcfbi-f1-needs-human-review]]).
 
 ## Check
 
@@ -210,9 +251,14 @@ now R87, not R86). `design-token-parity` **0 errors**; `markdown-check-link` **a
       `flow-selector` run (**0/5 → DCFBI, F-only**); `ui-design` design-spec run (**5 pass / 1
       Credibility gap → fixed** in canvas.md — the status-chip states); canvas.md amended in place to
       the two-tab model; token-parity + link checks clean.
-- [ ] _F gate (next step): restructure `QueryBuilderPanel` into `[Form] [Canvas]` tabs over the one
-      working copy; preview into Form; clickable status chip on Canvas; vitest + MSW for lossless tab
-      switch + Save-gated-on-Canvas-tab + chip behaviour; no contract/BE._
+- [x] **F gate closed.** `QueryBuilderPanel` restructured into `[Form] [Canvas]` tabs over the one
+      working copy (Segmented mechanism, flagged); preview on Form; clickable `QueryCanvasStatusChip` on
+      Canvas (row count / unavailable, navigates to Form). `type-check` clean; full suite **162/162**
+      (3 R85 canvas tests repointed to tabs + 2 new: chip navigation, Save-gated-on-Canvas-tab); no
+      contract/BE.
+- [ ] _Integration gate (next step): **human review** in the running app — toggle Form ⇄ Canvas (room,
+      reads well), the status chip makes the Form preview discoverable, Save gating is clear on Canvas
+      ([[dfcfbi-f1-needs-human-review]])._
 
 ## Act
 
