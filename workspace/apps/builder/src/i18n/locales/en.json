@@ -466,8 +466,20 @@
         "right": "Right (keep right)",
         "full": "Full (keep all)"
       },
+      "joinTypeShort": {
+        "inner": "inner",
+        "left": "left",
+        "right": "right",
+        "full": "full"
+      },
       "filtersLabel": "Filters",
       "combinedColumns": "(columns from both datasets)",
+      "viewToggleLabel": "View",
+      "viewList": "List",
+      "viewCanvas": "Canvas",
+      "canvasDriving": "driving",
+      "canvasUnresolvedEdge": "(relationship unavailable)",
+      "canvasEdgeStale": "The \"{{edge}}\" join is unavailable — \"{{column}}\" no longer exists. Switch to the List view to fix the relationship or remove the edge.",
       "columnsPending": "Resolving the joined columns…",
       "searchLabel": "Search",
       "searchPlaceholder": "Match any cell…",

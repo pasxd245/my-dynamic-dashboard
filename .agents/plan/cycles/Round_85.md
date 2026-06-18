@@ -1,6 +1,7 @@
 # Round 85: canvas theme-opener — build Phase A (the read-only source-graph view)
 
-**Status**: In Progress — Plan + Design gates **closed** (2026-06-18); **F gate next**.
+**Status**: In Progress — Plan + Design + **F** gates **closed** (2026-06-18); **Integration gate next**
+(human review in the running app).
 **Date started**: 2026-06-18
 **Date completed**:
 **Flow**: **DCFBI** (F-only) — Track-1 product feature; set at the Design gate via `flow-selector`
@@ -203,6 +204,47 @@ Phase-A trivial-states declaration.
 `QueryBuilderPanel` over the one working copy; vitest + MSW for faithful render (a 2+-hop star) +
 lossless toggle. No contract/BE work.
 
+### F-gate close (2026-06-18)
+
+**Built (FE-only, per the Design gate's hand-rolled-SVG/DOM decision):**
+
++ **`QueryCanvas.tsx`** (NEW) — the read-only node-link render of `definition.joins`. Nodes = the
+  driving `sourceId` + each hop's right dataset; edges = the `JoinStep`s, labelled with the **key
+  pair** (`leftColumn ↔ rightColumn`) + an advisory **cardinality** `<Tag>` + the join-type `<Tag>`.
+  Hand-rolled: AntD-styled DOM node cards positioned by a small deterministic **depth/row tree-layout**
+  (`layout()`), SVG `<line>`s for edges. **Reuse, not a parallel fetch path** — it resolves names/edges
+  through the **same** `useRelationshipsQuery` / `useDatasetsQuery` / `useQueriesQuery` the `JoinEditor`
+  uses (`relById` / `dsNameById` / `qrNameById`). Driving node marked in **text** (`◆` + a "driving"
+  caption), not colour alone. Empty graph (`joins===[]`) → the lone driving node (single-node canvas).
++ **`QueryBuilderPanel.tsx`** (extended) — a **`[List] [Canvas]` `<Segmented>` view toggle** in the
+  Build section over the **one** working copy. Local rendering state (`joinView`); the toggle swaps
+  `JoinEditor` ⇄ `QueryCanvas` only — **no edit lost, no model fork**. List is the default + the
+  assistive-tech equivalent (the editor stays the list; the canvas is additive, read-only).
++ **i18n** (en + vi, parity-aligned) — `viewToggleLabel` / `viewList` / `viewCanvas` / `canvasDriving`
+  / `canvasEdgeStale` / `canvasUnresolvedEdge`.
+
+**Per-edge stale state** — derived on the FE from each resolved `Relationship.status` (`'stale'`), per
+the Design-gate code-reality note (no invented wire field): a stale edge renders a dashed `colorWarning`
+line + a `<Alert role="alert">` naming the missing column; the fix lives in the List view (Phase A is
+read-only).
+
+**Verification:**
+
++ `type-check` (`tsc --noEmit`) — **clean**.
++ vitest + MSW (`tests/queries.test.tsx`, 3 new cases, all green; 38/38 in the queries+i18n files):
+  (1) **faithful star render** — Deals ⋈ Accounts ⋈ Owners **+** Accounts ⋈ tiers (Accounts drives
+  two hops) → 4 nodes / 3 edges (a star, not a path), driving node text-marked, all three key-pair
+  labels present; (2) **lossless toggle** — Canvas reads the *edited* working copy (3 nodes after a 2nd
+  hop), List returns the 2 hop rows unchanged; (3) **stale edge** — a drifted hop renders the per-edge
+  text alert (`role="alert"`, names the column), not a crash.
++ Full builder suite: 158/160 (the 2 reds are pre-existing **Excel-upload-wizard timeouts** under
+  full-suite parallel load — both pass in isolation; unrelated to queries/canvas).
++ `design-token-parity.mjs` — **0 errors** across 10 token maps (no new token; CSS-var reuse only).
+
+**No contract/BE/engine change** — `QueryCanvas` renders the resolved `joins` the builder already holds;
+no field, route, or error code added (confirms J-3). **Integration gate next** — hard-stops for **human
+review in the running app** (a visual surface MSW/vitest can't fully judge, [[dfcfbi-f1-needs-human-review]]).
+
 ## Check (2026-06-18)
 
 + [x] Plan gate ratified on "proceed r85"; Do log records the scope (Phase A only), the **trigger
@@ -214,8 +256,13 @@ lossless toggle. No contract/BE work.
       folded into canvas.md); mechanism picked (**hand-rolled SVG/DOM**, human-confirmed, no peer-dep
       deviation); `flow-selector` run (**0/5 → DCFBI, F-only**); `ui-design` design-spec run (5 pass /
       1 Credibility gap, **fixed** in canvas.md); canvas.md amended in place to current-state.
-+ [ ] _F gate (next step): build `QueryCanvas` (read-only SVG/DOM) + `[List]/[Canvas]` toggle; vitest
-      + MSW for faithful 2+-hop-star render + lossless toggle; no contract/BE._
++ [x] **F gate closed.** Built `QueryCanvas` (read-only hand-rolled SVG/DOM) + the `[List]/[Canvas]`
+      `<Segmented>` toggle in `QueryBuilderPanel` over the one working copy; per-edge stale derived from
+      `Relationship.status`. vitest+MSW (3 new, green): faithful 2+-hop **star** render, **lossless**
+      toggle, per-edge stale alert. `type-check` clean; token parity clean; no contract/BE/engine change.
++ [ ] _Integration gate (next step): open a joined/composed Query, toggle to Canvas, confirm the graph
+      matches the hop-list; toggle back, no state lost. **Human review** in the running app
+      ([[dfcfbi-f1-needs-human-review]] — a visual surface MSW/vitest can't fully judge)._
 
 ## Act
 

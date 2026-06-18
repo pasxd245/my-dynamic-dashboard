@@ -13,7 +13,7 @@
 // in `useQueryBuilder` (the PAGE HEADER drives Save/Cancel). No new model/engine.
 
 import { RightOutlined } from '@ant-design/icons';
-import { Button, Input, Tag, Typography } from 'antd';
+import { Button, Input, Segmented, Tag, Typography } from 'antd';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -23,7 +23,14 @@ import { AdvancedQueryInput } from '@/features/data-management/datasets/advanced
 import { groupsToText } from '@/features/data-management/datasets/advanced-query/serialize';
 import { PagedRowsView } from '../_shared/PagedRowsView';
 import { JoinEditor } from './JoinEditor';
+import { QueryCanvas } from './QueryCanvas';
 import { type QueryBuilderState } from './useQueryBuilder';
+
+// R85 — the join tree is rendered in one of two views over the SAME working
+// copy: the editable hop LIST (default; the keyboard/SR-complete equivalent and
+// the assistive-tech default) or the read-only CANVAS source-graph. The toggle
+// swaps the rendering only — no edit is lost, no model is forked (canvas.md).
+type JoinView = 'list' | 'canvas';
 
 export type QueryBuilderPanelProps = Readonly<{ builder: QueryBuilderState }>;
 
@@ -32,6 +39,9 @@ export function QueryBuilderPanel({ builder }: QueryBuilderPanelProps) {
   const { draft, columns, isJoined } = builder;
   const [buildOpen, setBuildOpen] = useState(true);
   const [previewOpen, setPreviewOpen] = useState(true);
+  // R85 — view mode is local rendering state (the toggle is lossless); List is
+  // the default and the assistive-tech equivalent.
+  const [joinView, setJoinView] = useState<JoinView>('list');
 
   const activeCount =
     draft.filters.length + draft.advanced.flat().length + (draft.q ? 1 : 0) + builder.joins.length;
@@ -59,18 +69,46 @@ export function QueryBuilderPanel({ builder }: QueryBuilderPanelProps) {
           data-component="QueryBuilderControls"
           style={{ flex: '0 0 auto', display: 'flex', flexDirection: 'column', gap: 10 }}
         >
-          <JoinEditor
-            datasetId={builder.datasetId}
-            workspaceId={builder.workspaceId}
-            baseSourceId={builder.baseSourceId}
-            queryId={builder.queryId}
-            onSetBaseSource={builder.setBaseSource}
-            joins={builder.joins}
-            onSetJoin={builder.setJoin}
-            onAddJoin={builder.addJoin}
-            onRemoveHop={builder.removeJoin}
-            onSetHopType={builder.setHopType}
-          />
+          {/* R85 — [List] ⇄ [Canvas] view toggle over the one working copy.
+              The List view is the editor; the Canvas is an additional read-only
+              source-graph view. The toggle swaps rendering only (lossless). */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Typography.Text strong style={{ fontSize: 12 }} id="builder-view-label">
+              {t('queries.builder.viewToggleLabel')}
+            </Typography.Text>
+            <Segmented<JoinView>
+              size="small"
+              value={joinView}
+              onChange={(v) => setJoinView(v)}
+              aria-labelledby="builder-view-label"
+              data-component="QueryBuilderViewToggle"
+              options={[
+                { label: t('queries.builder.viewList'), value: 'list' },
+                { label: t('queries.builder.viewCanvas'), value: 'canvas' },
+              ]}
+            />
+          </div>
+          {joinView === 'canvas' ? (
+            <QueryCanvas
+              datasetId={builder.datasetId}
+              baseSourceId={builder.baseSourceId}
+              workspaceId={builder.workspaceId}
+              joins={builder.joins}
+            />
+          ) : (
+            <JoinEditor
+              datasetId={builder.datasetId}
+              workspaceId={builder.workspaceId}
+              baseSourceId={builder.baseSourceId}
+              queryId={builder.queryId}
+              onSetBaseSource={builder.setBaseSource}
+              joins={builder.joins}
+              onSetJoin={builder.setJoin}
+              onAddJoin={builder.addJoin}
+              onRemoveHop={builder.removeJoin}
+              onSetHopType={builder.setHopType}
+            />
+          )}
           {isJoined ? (
             <Typography.Text type="secondary" style={{ fontSize: 12 }}>
               {t('queries.builder.combinedColumns')}

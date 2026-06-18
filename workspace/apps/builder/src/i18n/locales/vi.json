@@ -466,8 +466,20 @@
         "right": "Right (giữ phải)",
         "full": "Full (giữ tất cả)"
       },
+      "joinTypeShort": {
+        "inner": "inner",
+        "left": "left",
+        "right": "right",
+        "full": "full"
+      },
       "filtersLabel": "Bộ lọc",
       "combinedColumns": "(cột từ cả hai tập dữ liệu)",
+      "viewToggleLabel": "Chế độ xem",
+      "viewList": "Danh sách",
+      "viewCanvas": "Sơ đồ",
+      "canvasDriving": "nguồn chính",
+      "canvasUnresolvedEdge": "(quan hệ không khả dụng)",
+      "canvasEdgeStale": "Phép nối \"{{edge}}\" không khả dụng — \"{{column}}\" không còn tồn tại. Chuyển sang chế độ Danh sách để sửa quan hệ hoặc bỏ cạnh này.",
       "columnsPending": "Đang phân giải các cột đã nối…",
       "searchLabel": "Tìm kiếm",
       "searchPlaceholder": "Khớp bất kỳ ô nào…",

@@ -15,7 +15,7 @@ import { DatasetDetailPage } from '@/features/data-management/datasets/DatasetDe
 import { QueriesPage } from '@/features/data-management/queries/QueriesPage';
 import { QueryDetailPage } from '@/features/data-management/queries/QueryDetailPage';
 import { QueryCreatePage } from '@/features/data-management/queries/QueryCreatePage';
-import { MOCK_COMPOSED_QUERY, MOCK_CYCLE_QUERY_ID, MOCK_DATASET, MOCK_JOINED_QUERY, MOCK_QUERY } from '@/mocks/fixtures';
+import { MOCK_COMPOSED_QUERY, MOCK_CYCLE_QUERY_ID, MOCK_DATASET, MOCK_JOINED_QUERY, MOCK_QUERY, MOCK_STALE_RELATIONSHIP } from '@/mocks/fixtures';
 import { server } from '@/mocks/server';
 
 const QR_ID = MOCK_QUERY.id;
@@ -616,5 +616,116 @@ describe('Build on this query (R77 — composition create)', () => {
       return el as HTMLElement;
     });
     expect(nf.textContent).toContain('Base query not found');
+  });
+});
+
+// R85 (canvas theme — Phase A). The read-only source-graph VIEW: a [List]/[Canvas]
+// toggle in the builder's Build section swaps the editable hop list for a node-link
+// render of the SAME working-copy `joins` tree (nodes = sources, edges = hops).
+// Zero editing, zero model/contract/BE change — pure visualization (canvas.md J-5).
+describe('Query canvas view (R85 — Phase A, read-only source-graph)', () => {
+  const JOIN_ID = MOCK_JOINED_QUERY.id;
+
+  function clickEdit() {
+    fireEvent.click(document.querySelector('[data-component="QueryDetailEdit"]') as HTMLButtonElement);
+  }
+
+  async function pickFromSelect(dataComponent: string, optionMatch: RegExp) {
+    const root = document.querySelector(`[data-component="${dataComponent}"]`) as HTMLElement;
+    fireEvent.mouseDown(root);
+    const option = await screen.findByText(optionMatch, {
+      selector: '.ant-select-item-option-content,.ant-select-item-option-content *',
+    });
+    fireEvent.click(option);
+  }
+
+  // Flip the [List]/[Canvas] view toggle (an AntD Segmented control).
+  function toggleView(view: 'list' | 'canvas') {
+    const seg = document.querySelector('[data-component="QueryBuilderViewToggle"]') as HTMLElement;
+    fireEvent.click(within(seg).getByText(view === 'canvas' ? 'Canvas' : 'List'));
+  }
+
+  // Build Deals ⋈ Accounts ⋈ Owners, then branch Accounts ⋈ tiers — a STAR
+  // (Accounts drives two hops), not a linear path (the R74 topology).
+  async function buildStar() {
+    renderApp(`/data-management/queries/${JOIN_ID}`);
+    expect(await screen.findByText(/Matched 2 rows/)).toBeInTheDocument();
+    clickEdit();
+    await waitFor(() => expect(document.querySelector('[data-component="BuilderAddJoin"]')).not.toBeNull());
+    await pickFromSelect('BuilderAddJoin', /tier ↔ tier/); // hop 2: Accounts ⋈ Owners
+    await waitFor(() => expect(document.querySelectorAll('[data-component="BuilderHopRow"]').length).toBe(2));
+    await waitFor(() => expect(document.querySelector('[data-component="BuilderAddJoinSource"]')).not.toBeNull());
+    await pickFromSelect('BuilderAddJoinSource', /accounts/); // branch from the NON-tail
+    await pickFromSelect('BuilderAddJoin', /account_id ↔ acct/); // hop 3: Accounts ⋈ tiers
+    await waitFor(() => expect(document.querySelectorAll('[data-component="BuilderHopRow"]').length).toBe(3));
+  }
+
+  it('renders the joins tree faithfully as a node-link star (nodes, labelled edges, driving marker)', async () => {
+    await buildStar();
+    toggleView('canvas');
+    // The list editor unmounts; the canvas renders.
+    await waitFor(() => expect(document.querySelector('[data-component="QueryCanvas"]')).not.toBeNull());
+    expect(document.querySelector('[data-component="JoinEditor"]')).toBeNull();
+    // Four nodes (Deals + Accounts + Owners + tiers) and three edges — a star,
+    // not a path (Accounts drives two of the edges).
+    const nodes = document.querySelectorAll('[data-component="CanvasNode"]');
+    const edges = document.querySelectorAll('[data-component="CanvasEdge"]');
+    expect(nodes.length).toBe(4);
+    expect(edges.length).toBe(3);
+    // The driving node is marked in TEXT (not colour alone) and names the source.
+    const driving = document.querySelector('[data-component="CanvasNode"][data-driving="true"]') as HTMLElement;
+    expect(driving).not.toBeNull();
+    expect(driving.textContent).toContain(MOCK_DATASET.name);
+    expect(driving.textContent).toContain('driving');
+    // Each edge carries its key pair as text.
+    const edgeText = Array.from(edges).map((e) => e.textContent).join(' | ');
+    expect(edgeText).toContain('deal_id ↔ account_id');
+    expect(edgeText).toContain('tier ↔ tier');
+    expect(edgeText).toContain('account_id ↔ acct');
+  });
+
+  it('the view toggle is lossless — Canvas reads the edited working copy, List returns unchanged', async () => {
+    // Add a 2nd hop (the working copy is now a 2-hop chain, dirty vs. saved).
+    renderApp(`/data-management/queries/${JOIN_ID}`);
+    expect(await screen.findByText(/Matched 2 rows/)).toBeInTheDocument();
+    clickEdit();
+    await waitFor(() => expect(document.querySelector('[data-component="BuilderAddJoin"]')).not.toBeNull());
+    await pickFromSelect('BuilderAddJoin', /tier ↔ tier/);
+    await waitFor(() => expect(document.querySelectorAll('[data-component="BuilderHopRow"]').length).toBe(2));
+    // Toggle to Canvas → it renders the EDITED copy (3 nodes: Deals/Accounts/Owners).
+    toggleView('canvas');
+    await waitFor(() => expect(document.querySelectorAll('[data-component="CanvasNode"]').length).toBe(3));
+    // Toggle back to List → no edit lost (the 2 hop rows return; preview intact).
+    toggleView('list');
+    await waitFor(() => expect(document.querySelectorAll('[data-component="BuilderHopRow"]').length).toBe(2));
+    expect(document.querySelector('[data-component="QueryCanvas"]')).toBeNull();
+  });
+
+  it('flags a stale edge on the canvas (alert, not a crash) derived from the relationship status', async () => {
+    // A joined query whose consumed edge is stale (its key column drifted).
+    server.use(
+      http.get(`*/queries/${JOIN_ID}`, () =>
+        HttpResponse.json({
+          ...MOCK_JOINED_QUERY,
+          definition: {
+            ...MOCK_JOINED_QUERY.definition,
+            joins: [{ relationshipId: MOCK_STALE_RELATIONSHIP.id, type: 'inner' }],
+          },
+        }),
+      ),
+    );
+    renderApp(`/data-management/queries/${JOIN_ID}`);
+    expect(await screen.findByText(/Matched 2 rows/)).toBeInTheDocument();
+    clickEdit();
+    toggleView('canvas');
+    await waitFor(() => expect(document.querySelector('[data-component="QueryCanvas"]')).not.toBeNull());
+    // The stale edge renders a text alert naming the missing column — flag-don't-crash.
+    const alert = (await waitFor(() => {
+      const el = document.querySelector('[data-component="CanvasEdgeStale"]');
+      expect(el).not.toBeNull();
+      return el as HTMLElement;
+    })) as HTMLElement;
+    expect(alert.getAttribute('role')).toBe('alert');
+    expect(alert.textContent).toContain(MOCK_STALE_RELATIONSHIP.leftColumn);
   });
 });
