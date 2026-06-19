@@ -8,7 +8,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { freeFormRel } from '@/features/data-management/queries/chain';
-import { relDivergence, resolveConnect } from '@/features/data-management/queries/joinGraph';
+import { inferCardinality, relDivergence, resolveConnect } from '@/features/data-management/queries/joinGraph';
 import type { Relationship } from '@/features/data-management/relationships/types';
 import type { QueryRelationship } from '@/features/data-management/queries/types';
 
@@ -121,6 +121,31 @@ describe('relDivergence (R89 — copied rel vs. its origin governed rel)', () =>
 
   it("is 'changed' when the origin's join fields drifted from the snapshot", () => {
     expect(relDivergence({ ...copied, cardinality: 'one_to_one' }, byId)).toBe('changed');
+  });
+});
+
+describe('inferCardinality (R90 — smart default for a free-form drawn pair)', () => {
+  it('infers one_to_one when BOTH columns read as keys (PK ↔ PK)', () => {
+    expect(inferCardinality('account_id', 'id')).toBe('one_to_one');
+    expect(inferCardinality('uuid', 'customer_id')).toBe('one_to_one');
+  });
+
+  it('infers one_to_many when exactly ONE side is key-like (parent-key ↔ child-FK)', () => {
+    expect(inferCardinality('id', 'region')).toBe('one_to_many');
+    expect(inferCardinality('deal_name', 'owner_id')).toBe('one_to_many');
+  });
+
+  it('infers many_to_many when NEITHER side is key-like (a fan-out join — surface it)', () => {
+    expect(inferCardinality('region', 'region_name')).toBe('many_to_many');
+    expect(inferCardinality('tier', 'segment')).toBe('many_to_many');
+  });
+
+  it('does not mistake a word merely ENDING in "id" for a key (valid, void)', () => {
+    expect(inferCardinality('valid', 'segment')).toBe('many_to_many');
+  });
+
+  it('is case-insensitive on the key suffixes', () => {
+    expect(inferCardinality('Account_ID', 'Region')).toBe('one_to_many');
   });
 });
 

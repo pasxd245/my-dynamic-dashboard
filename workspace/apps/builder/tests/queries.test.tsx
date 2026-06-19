@@ -896,6 +896,22 @@ describe('Query canvas EDITING (R89 — free-form, React Flow)', () => {
     await waitFor(() => expect(document.querySelectorAll('[data-component="CanvasNode"]').length).toBe(2));
   }
 
+  // R90 — the edge's action toolbar is a bpmn-style context pad revealed by SELECTING
+  // the edge (clicking its label pill); at rest the canvas shows only the compact label.
+  // So a test must select the edge before its Promote / Re-sync / [×] buttons exist.
+  async function selectEdge(edgeId?: string) {
+    const sel = edgeId
+      ? `[data-component="CanvasEdge"][data-edge="${edgeId}"]`
+      : '[data-component="CanvasEdge"]';
+    const pill = (await waitFor(() => {
+      const el = document.querySelector(sel) as HTMLElement;
+      expect(el).not.toBeNull();
+      return el;
+    })) as HTMLElement;
+    fireEvent.click(pill);
+    return pill;
+  }
+
   it('renders the join tree as React Flow nodes + a labelled, governed edge', async () => {
     await openCanvasEditor();
     expect(document.querySelector('[data-component="JoinEditor"]')).toBeNull();
@@ -941,6 +957,7 @@ describe('Query canvas EDITING (R89 — free-form, React Flow)', () => {
 
   it('deletes a leaf edge via its [×] → removeJoin (collapsing to the lone driving node)', async () => {
     await openCanvasEditor();
+    await selectEdge(); // reveal the context pad
     const del = (await waitFor(() => {
       const el = document.querySelector('[data-component="CanvasEdgeDelete"]') as HTMLButtonElement;
       expect(el).not.toBeNull();
@@ -965,14 +982,27 @@ describe('Query canvas EDITING (R89 — free-form, React Flow)', () => {
     expect(await screen.findByText(/Matched 2 rows/)).toBeInTheDocument();
     clickEdit();
     switchTab('canvas');
-    const dels = (await waitFor(() => {
-      const els = Array.from(document.querySelectorAll('[data-component="CanvasEdgeDelete"]')) as HTMLButtonElement[];
-      expect(els.length).toBe(2);
-      return els;
-    })) as HTMLButtonElement[];
-    // Deals⋈Accounts is a NON-leaf (Accounts drives the 2nd hop) → its [×] is disabled.
-    expect(dels.filter((b) => b.disabled).length).toBe(1);
-    expect(dels.filter((b) => b.getAttribute('data-leaf') === 'false')[0]).toBeDisabled();
+    await waitFor(() => expect(document.querySelectorAll('[data-component="CanvasEdge"]').length).toBe(2));
+    // Deals⋈Accounts is a NON-leaf (Accounts drives the 2nd hop) → select it: its [×]
+    // is disabled with data-leaf=false (the context pad shows only the selected edge).
+    await selectEdge('qrel_a1b2c3d4');
+    const nonLeafDel = (await waitFor(() => {
+      const el = document.querySelector('[data-component="CanvasEdgeDelete"]') as HTMLButtonElement;
+      expect(el).not.toBeNull();
+      return el;
+    })) as HTMLButtonElement;
+    expect(nonLeafDel.getAttribute('data-leaf')).toBe('false');
+    expect(nonLeafDel).toBeDisabled();
+    // The leaf hop (Accounts⋈Owners) is removable — select it: enabled, data-leaf=true.
+    await selectEdge('qrel_b2c3d4e5');
+    const leafDel = (await waitFor(() => {
+      const el = document.querySelector(
+        '[data-component="CanvasEdgeDelete"][data-leaf="true"]',
+      ) as HTMLButtonElement;
+      expect(el).not.toBeNull();
+      return el;
+    })) as HTMLButtonElement;
+    expect(leafDel).not.toBeDisabled();
   });
 
   it('promotes a query-owned rel up to the governed ER via POST /relationships', async () => {
@@ -987,6 +1017,7 @@ describe('Query canvas EDITING (R89 — free-form, React Flow)', () => {
       }),
     );
     await openCanvasEditor();
+    await selectEdge(); // reveal the context pad
     const promote = (await waitFor(() => {
       const el = document.querySelector('[data-component="CanvasPromote"]') as HTMLButtonElement;
       expect(el).not.toBeNull();
@@ -1019,7 +1050,15 @@ describe('Query canvas EDITING (R89 — free-form, React Flow)', () => {
     })) as HTMLElement;
     expect(diverged.getAttribute('data-divergence')).toBe('changed');
     // Opt-in re-sync re-copies the governed fields → divergence clears (warn gone).
-    fireEvent.click(document.querySelector('[data-component="CanvasResync"]') as HTMLButtonElement);
+    // Re-sync lives in the edge context pad (R90) → select the edge first.
+    await selectEdge();
+    fireEvent.click(
+      await waitFor(() => {
+        const el = document.querySelector('[data-component="CanvasResync"]') as HTMLButtonElement;
+        expect(el).not.toBeNull();
+        return el;
+      }),
+    );
     await waitFor(() => expect(document.querySelector('[data-component="CanvasEdgeDiverged"]')).toBeNull());
   });
 });

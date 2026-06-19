@@ -120,7 +120,7 @@ React, no I/O), which orients the in-graph endpoint as the hop's LEFT and decide
 | Drawn pair | Routes to | Result |
 | --- | --- | --- |
 | Matches a `valid` governed `rel_` (in-graph → new dataset) | **copy-on-pick** → `addJoin(relId)` | snapshots the governed rel's fields into a query-owned `QueryRelationship` (`originRelationshipId` = the `rel_`) and appends a `JoinStep` |
-| No governed match (in-graph → new dataset) | **free-form define** → cardinality `<Modal>` → `defineJoin(fields)` | mints a query-owned rel with `originRelationshipId: null` (`freeFormRel`) and appends a `JoinStep` |
+| No governed match (in-graph → new dataset) | **free-form define** → cardinality `<Modal>` (pre-set to an **inferred** default) → `defineJoin(fields)` | mints a query-owned rel with `originRelationshipId: null` (`freeFormRel`) and appends a `JoinStep` |
 | Self / cyclic (both endpoints in-graph) / disconnected (neither) / incomplete | **invalid** | a warn `message`, mints nothing |
 
 **Drawing creates** is the load-bearing distinction: a pure pick gesture *selects* an
@@ -133,11 +133,17 @@ governed-reachable ones) so it can be drawn to; it is disabled only when every d
 already on the canvas. A staged node is FE-only and ephemeral — it enters `joins[]` only
 when its column connection is drawn; the model stays a connected tree rooted at `sourceId`.
 
-**The edge toolbar** (rendered on each edge via React Flow's `EdgeLabelRenderer`) carries:
-the key pair, the cardinality `<Tag>`, the join-type `<Tag>`, the **Free-form / Governed**
-`<Tag>`, **Promote**, **Re-sync** (only when the edge has diverged), and a leaf **`[×]`**
-delete (a non-leaf delete is disabled with the shipped `removeJoinBlocked` reason — only
-leaves are removable, the tree invariant).
+**The edge label + context pad** (rendered on each edge via React Flow's
+`EdgeLabelRenderer`). At rest the edge shows a **compact, opaque label** — the key pair,
+the cardinality `<Tag>`, the join-type `<Tag>`, and the **Free-form / Governed** `<Tag>`.
+**Clicking the label selects the edge** and reveals a floating **context pad** (a
+bpmn-style action palette) carrying **Promote**, **Re-sync** (only when the edge has
+diverged), and a leaf **`[×]`** delete (a non-leaf delete is disabled with the shipped
+`removeJoinBlocked` reason — only leaves are removable, the tree invariant). The pad is
+lifted above the node cards (`zIndex`) so it never clips behind an adjacent node — the fix
+for the F1 edge-label/node overlap. Selection is **canvas-local state** (clicking the pane
+background deselects), not React Flow's internal selection. The connect **handles** read as
+draggable — enlarged dots, a crosshair cursor, a hover halo, and a "drag to join" tooltip.
 
 - **Promote** pushes any query-owned rel up into the governed ER via the existing
   `POST /workspaces/{id}/relationships` (`promoteRel` → `useCreateRelationshipMutation`).
@@ -165,7 +171,7 @@ leaves are removable, the tree invariant).
 | `QueryCanvas` (the React Flow node-link render + drag-to-connect editor: copy-on-pick / free-form define / promote / re-sync / leaf delete) | `apps/builder/src/features/data-management/queries` | feature | feature | react, antd, @xyflow/react |
 | `QueryBuilderPanel` (the `Form` / `Canvas` `<Tabs>` over one working copy; hosts the Canvas-tab status chip) | `apps/builder/src/features/data-management/queries` | feature | feature | react, antd |
 | `useQueryBuilder` (the canvas binds to its `addJoin` / `defineJoin` / `removeJoin` / `promoteRel` / `resyncRel` / Save) | `apps/builder/src/features/data-management/queries` | feature | glue (server-data) | @tanstack/react-query, antd |
-| `joinGraph.ts` (pure selectors shared by the list + canvas: `graphDatasetIds` / `addEligibleRels` / `isLeafHop` / `resolveConnect` / `relDivergence`) | `apps/builder/src/features/data-management/queries` | feature | pure | none |
+| `joinGraph.ts` (pure selectors shared by the list + canvas: `graphDatasetIds` / `addEligibleRels` / `isLeafHop` / `resolveConnect` / `relDivergence` / `inferCardinality`) | `apps/builder/src/features/data-management/queries` | feature | pure | none |
 | `chain.ts` (working-chain ↔ wire bridge: `readChain` / `readRels` / `writeDef` + `copyGovernedRel` / `freeFormRel`) | `apps/builder/src/features/data-management/queries` | feature | pure | none |
 | `<PagedRowsView>` (reused, not owned — the Form-tab preview body) | `apps/builder/src/features/data-management/_shared` | shared cross-domain | plain-UI | react, antd, react-i18next |
 | `JoinStep[]` + `QueryRelationship[]` (the query-owned edges; frontend + contract type) | `.../features/data-management/queries/types.ts` | feature | data type | none |
@@ -234,10 +240,10 @@ Deals × Accounts × Owners                                         [Cancel] [Sa
 │        │ ◆ Deals   │ ○──┤  ○ id         ├○─┤ Owners   │   tab, preview     │
 │        │  · id   ○ │     │  · region     │  │ · id   ○ │   expanded         │
 │        │  · …    ○ │     └───────────────┘  └──────────┘                    │
-│        └───────────┘    account_id ↔ id        owner_id ↔ id                │
-│         (driving)       [many:many][inner]      [many:one][left]            │
-│                         [Governed] Promote  ×   [Free-form] Promote  ×      │
-│                                                                            │
+│        └───────────┘    account_id ↔ id        owner_id ↔ id ◄selected      │
+│         (driving)       [many:many][inner]      [many:one][left][Free-form]  │
+│                         [Governed]              ┌ Promote · × ┐ ← context pad│
+│                                                 └─────────────┘ (on select)  │
 │  [ + Add a source ]   drag a column handle → another to add a hop          │
 │        ┌ Background grid ┐                         ┌ Controls (zoom/fit) ┐  │
 └──────────────────────────────────────────────────────────────────────────────┘
@@ -248,9 +254,11 @@ shared <PagedRowsView> preview below.
 ```
 
 `◆` marks the **driving node** (`sourceId`). `○` marks a per-column connect handle
-(target-left, source-right). Each edge carries **text** labels (key pair · cardinality ·
-join type · Free-form/Governed) and its toolbar (Promote · Re-sync when diverged · leaf
-`[×]`). The **`Form` tab remains the keyboard/screen-reader-complete equivalent +
+(target-left, source-right; enlarged, crosshair-cursored, with a "drag to join" tooltip).
+Each edge carries an at-rest **text** label (key pair · cardinality · join type ·
+Free-form/Governed); **clicking it selects the edge and reveals a context pad** (Promote ·
+Re-sync when diverged · leaf `[×]`), lifted above the node cards so it never clips. The
+**`Form` tab remains the keyboard/screen-reader-complete equivalent +
 assistive-tech default** (React Flow drag is mouse-first); the `<Controls>` give
 zoom/fit/recenter, and `fitView` re-runs whenever the node set changes so a newly-staged
 node stays in view.
@@ -262,17 +270,26 @@ expanded; _stale / invalid_ → `⚠ unavailable ↗` (`colorWarning`, **text + 
 pointing to the Form tab where the blocked-state alert + the fix live (Save stays disabled,
 gated by preview validity regardless of the visible tab).
 
-### Free-form define — cardinality picker
+### Free-form define — cardinality picker (inferred, confirmable default)
 
 ```text
   drawn column pair has no governed match →
   ┌─ Define this relationship ──────────────────────────────┐
-  │  Deals.region ↔ Accounts.region                          │
-  │  Cardinality:  [ one to many ▾ ]                         │
+  │  Deals.owner_id ↔ Owners.id                              │
+  │  Cardinality:  [ one to many ▾ ]   ← inferred from cols  │
+  │  Suggested from the join columns — change it if wrong.   │
   │                                  [ Cancel ]  [ Define ]  │
   └─────────────────────────────────────────────────────────┘
   → defineJoin → a query-owned rel (originRelationshipId: null) + a JoinStep
 ```
+
+The modal opens **pre-set to a cardinality inferred from the drawn column names** — the
+only pre-run signal available (`inferCardinality`, `joinGraph.ts`): both columns key-like
+(`id` / `*_id` / `*_key` / `*_code` / `uuid`) → `one_to_one`; exactly one key-like →
+`one_to_many` (the common parent-key ↔ child-FK case); neither → `many_to_many` (a non-key
+join can fan out — surfaced so the analyst notices). Cardinality is **advisory** metadata —
+it does not change the join SQL (the join **type** does) — so a wrong guess is
+non-destructive and the user confirms or overrides it before `defineJoin`.
 
 ### Divergence / stale state (warn-only, per edge)
 
@@ -431,8 +448,10 @@ field, and no new error code**:
   first node on an empty graph). Not built: `QueryCreatePage` currently **requires** a
   preset `?base=` (the R77 "Build on this query" path); the catalog has no `[+ New query]`
   action. A still-deferred trajectory item ([[dont-mvp-rush-a-roadmap-home-surface]]).
-- **Canvas usability polish** — edge-label / node overlap, cardinality-at-draw UX, handle
-  discoverability — a deferred polish batch, not a redesign.
+- **Further canvas polish beyond the R90 batch** — the R90 usability batch (edge-label /
+  node overlap → context pad; cardinality-at-draw → inferred default; handle
+  discoverability) is **built**; any further refinement is its own follow-up, not a
+  redesign.
 - **Persisting cosmetic node positions / auto-layout** — the model carries **no** view
   state ([[design-altitude-vs-build-home]]).
 - **Dashboards / charts** (downstream value-out) and the data-saver "save before staling"

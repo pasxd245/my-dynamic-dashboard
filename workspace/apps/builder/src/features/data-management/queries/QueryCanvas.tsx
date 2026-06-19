@@ -54,6 +54,7 @@ import { useQueriesQuery } from './hooks';
 import {
   addEligibleRels,
   graphDatasetIds,
+  inferCardinality,
   isLeafHop,
   relDivergence,
   resolveConnect,
@@ -69,6 +70,26 @@ const ROW_GAP = 36;
 const PAD = 16;
 const HEADER_H = 46;
 const COL_ROW_H = 22;
+const HANDLE_SZ = 11;
+
+// R90 (handle discoverability) — the connect dots must READ as draggable. CSS-only
+// affordances React Flow's inline handle style can't express: a grab/crosshair
+// cursor, a hover halo, and a grow-on-hover. Scoped to handles inside the canvas.
+const CANVAS_CSS = `
+[data-component="QueryCanvas"] .react-flow__handle {
+  cursor: crosshair;
+  border: 1px solid var(--ant-color-bg-base, #fff);
+  transition: transform .1s ease, box-shadow .1s ease;
+}
+[data-component="QueryCanvas"] .react-flow__handle:hover {
+  transform: scale(1.5);
+  box-shadow: 0 0 0 4px var(--ant-control-outline, rgba(22, 119, 255, 0.18));
+}
+[data-component="QueryCanvas"] [data-component="CanvasColumn"]:hover {
+  background: var(--ant-color-fill-quaternary, rgba(0,0,0,0.02));
+  border-radius: 4px;
+}
+`;
 
 type Cardinality = QueryRelationship['cardinality'];
 const CARDINALITIES: Cardinality[] = ['one_to_one', 'one_to_many', 'many_to_many'];
@@ -107,6 +128,7 @@ type SourceNodeData = {
   columns: readonly ColumnData[];
   drivingLabel: string;
   stagedLabel: string;
+  handleTip: string;
 };
 
 function SourceNode({ data, id }: NodeProps<Node<SourceNodeData>>) {
@@ -166,13 +188,15 @@ function SourceNode({ data, id }: NodeProps<Node<SourceNodeData>>) {
                     type="target"
                     position={Position.Left}
                     id={c.name}
-                    style={{ width: 8, height: 8, background: 'var(--ant-color-border, #d9d9d9)' }}
+                    title={data.handleTip}
+                    style={{ width: HANDLE_SZ, height: HANDLE_SZ, background: 'var(--ant-color-border, #d9d9d9)' }}
                   />
                   <Handle
                     type="source"
                     position={Position.Right}
                     id={c.name}
-                    style={{ width: 8, height: 8, background: 'var(--ant-color-primary, #1677ff)' }}
+                    title={data.handleTip}
+                    style={{ width: HANDLE_SZ, height: HANDLE_SZ, background: 'var(--ant-color-primary, #1677ff)' }}
                   />
                 </>
               ) : null}
@@ -187,6 +211,7 @@ function SourceNode({ data, id }: NodeProps<Node<SourceNodeData>>) {
 
 // ── Custom edge: a labelled join with the promote / re-sync / delete toolbar ───
 type RelEdgeData = {
+  edgeId: string;
   keyPair: string;
   cardinalityLabel: string;
   typeLabel: string;
@@ -194,6 +219,10 @@ type RelEdgeData = {
   divergence: Divergence;
   stale: boolean;
   leaf: boolean;
+  /** Editor canvas — the context pad of actions is reachable. */
+  editable: boolean;
+  /** This edge is the selected one — reveal its context pad (bpmn-style). */
+  selected: boolean;
   promoting: boolean;
   i18n: {
     freeForm: string;
@@ -201,11 +230,11 @@ type RelEdgeData = {
     promote: string;
     promoteTip: string;
     resync: string;
-    divergedChanged: string;
-    divergedRemoved: string;
     remove: string;
     removeBlocked: string;
+    selectTip: string;
   };
+  onSelect: () => void;
   onPromote: () => void;
   onResync: () => void;
   onDelete: () => void;
@@ -239,76 +268,127 @@ function RelEdge(props: EdgeProps<Edge<RelEdgeData>>) {
         }}
       />
       <EdgeLabelRenderer>
+        {/* R90 — bpmn-style: at rest the edge shows only a compact, OPAQUE label
+            (key-pair · cardinality · type · governed/free). Clicking it SELECTS the
+            edge and reveals a floating context pad of actions (Promote · Re-sync ·
+            [×]) lifted above the node cards (zIndex), so the toolbar never clips
+            behind an adjacent node. Selection is canvas-local state (robust + testable),
+            not React Flow's internal selection. */}
         <div
-          data-component="CanvasEdge"
-          data-free={data.free ? 'true' : 'false'}
-          data-diverged={data.divergence ?? 'false'}
-          data-stale={data.stale ? 'true' : 'false'}
           style={{
             position: 'absolute',
             transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            gap: 2,
-            background: 'var(--ant-color-bg-layout, #f5f5f5)',
-            padding: '2px 6px',
-            borderRadius: 6,
+            gap: 4,
             pointerEvents: 'all',
-            textAlign: 'center',
-            lineHeight: 1.3,
+            zIndex: data.selected ? 1000 : 1,
           }}
         >
-          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-            {data.keyPair}
-          </Typography.Text>
-          <span style={{ display: 'flex', gap: 4, flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center' }}>
-            <Tag style={{ margin: 0 }}>{data.cardinalityLabel}</Tag>
-            <Tag color="default" style={{ margin: 0 }}>
-              {data.typeLabel}
-            </Tag>
-            <Tag color={data.free ? 'blue' : 'default'} style={{ margin: 0 }}>
-              {data.free ? data.i18n.freeForm : data.i18n.governed}
-            </Tag>
-            {/* Promote — any query-owned rel can be pushed up to the governed ER. */}
-            <Tooltip title={data.i18n.promoteTip}>
-              <Button
-                size="small"
-                type="link"
-                loading={data.promoting}
-                onClick={data.onPromote}
-                data-component="CanvasPromote"
-                style={{ margin: 0, padding: 0, height: 20 }}
-              >
-                {data.i18n.promote}
-              </Button>
-            </Tooltip>
-            {/* Re-sync — only when a copied rel has diverged from its origin. */}
-            {data.divergence !== null ? (
-              <Button
-                size="small"
-                type="link"
-                onClick={data.onResync}
-                data-component="CanvasResync"
-                style={{ margin: 0, padding: 0, height: 20, color: 'var(--ant-color-warning, #faad14)' }}
-              >
-                {data.i18n.resync}
-              </Button>
-            ) : null}
-            <Tooltip title={data.leaf ? data.i18n.remove : data.i18n.removeBlocked}>
-              <Button
-                size="small"
-                type="text"
-                icon={<CloseOutlined />}
-                disabled={!data.leaf}
-                onClick={data.onDelete}
-                aria-label={data.leaf ? data.i18n.remove : data.i18n.removeBlocked}
-                data-component="CanvasEdgeDelete"
-                data-leaf={data.leaf ? 'true' : 'false'}
-                style={{ margin: 0, height: 20, minWidth: 20 }}
-              />
-            </Tooltip>
-          </span>
+          <Tooltip title={data.editable && !data.selected ? data.i18n.selectTip : ''}>
+            <div
+              data-component="CanvasEdge"
+              data-edge={data.edgeId}
+              data-free={data.free ? 'true' : 'false'}
+              data-diverged={data.divergence ?? 'false'}
+              data-stale={data.stale ? 'true' : 'false'}
+              data-selected={data.selected ? 'true' : 'false'}
+              onClick={(e) => {
+                if (!data.editable) return;
+                e.stopPropagation();
+                data.onSelect();
+              }}
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: 2,
+                background: 'var(--ant-color-bg-base, #fff)',
+                border: `1px solid ${
+                  data.selected
+                    ? 'var(--ant-color-primary, #1677ff)'
+                    : 'var(--ant-color-border-secondary, #f0f0f0)'
+                }`,
+                padding: '2px 8px',
+                borderRadius: 6,
+                boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
+                cursor: data.editable ? 'pointer' : 'default',
+                textAlign: 'center',
+                lineHeight: 1.3,
+              }}
+            >
+              <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                {data.keyPair}
+              </Typography.Text>
+              <span style={{ display: 'flex', gap: 4, flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center' }}>
+                <Tag style={{ margin: 0 }}>{data.cardinalityLabel}</Tag>
+                <Tag color="default" style={{ margin: 0 }}>
+                  {data.typeLabel}
+                </Tag>
+                <Tag color={data.free ? 'blue' : 'default'} style={{ margin: 0 }}>
+                  {data.free ? data.i18n.freeForm : data.i18n.governed}
+                </Tag>
+              </span>
+            </div>
+          </Tooltip>
+
+          {/* The context pad — only when this edge is selected on an editor canvas. */}
+          {data.editable && data.selected ? (
+            <span
+              data-component="CanvasEdgePad"
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                display: 'flex',
+                gap: 2,
+                alignItems: 'center',
+                background: 'var(--ant-color-bg-base, #fff)',
+                border: '1px solid var(--ant-color-border, #d9d9d9)',
+                borderRadius: 6,
+                padding: '1px 4px',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
+              }}
+            >
+              {/* Promote — any query-owned rel can be pushed up to the governed ER. */}
+              <Tooltip title={data.i18n.promoteTip}>
+                <Button
+                  size="small"
+                  type="link"
+                  loading={data.promoting}
+                  onClick={data.onPromote}
+                  data-component="CanvasPromote"
+                  style={{ margin: 0, padding: '0 4px', height: 22 }}
+                >
+                  {data.i18n.promote}
+                </Button>
+              </Tooltip>
+              {/* Re-sync — only when a copied rel has diverged from its origin. */}
+              {data.divergence !== null ? (
+                <Button
+                  size="small"
+                  type="link"
+                  onClick={data.onResync}
+                  data-component="CanvasResync"
+                  style={{ margin: 0, padding: '0 4px', height: 22, color: 'var(--ant-color-warning, #faad14)' }}
+                >
+                  {data.i18n.resync}
+                </Button>
+              ) : null}
+              <Tooltip title={data.leaf ? data.i18n.remove : data.i18n.removeBlocked}>
+                <Button
+                  size="small"
+                  type="text"
+                  icon={<CloseOutlined />}
+                  disabled={!data.leaf}
+                  onClick={data.onDelete}
+                  aria-label={data.leaf ? data.i18n.remove : data.i18n.removeBlocked}
+                  data-component="CanvasEdgeDelete"
+                  data-leaf={data.leaf ? 'true' : 'false'}
+                  style={{ margin: 0, height: 22, minWidth: 22 }}
+                />
+              </Tooltip>
+            </span>
+          ) : null}
         </div>
       </EdgeLabelRenderer>
     </>
@@ -407,7 +487,9 @@ function QueryCanvasInner({
   const [posOverride, setPosOverride] = useState<Record<string, XYPosition>>({});
   const [defineDraft, setDefineDraft] = useState<ConnectFields | null>(null);
   const [cardinality, setCardinality] = useState<Cardinality>('one_to_many');
+  const [cardinalityInferred, setCardinalityInferred] = useState(false);
   const [promotingId, setPromotingId] = useState<string | null>(null);
+  const [selectedEdge, setSelectedEdge] = useState<string | null>(null);
 
   // Build the node set (root + each hop's endpoints) and the edges from the query's
   // own relationships — exactly the tree `joins[]` encodes.
@@ -464,6 +546,7 @@ function QueryCanvasInner({
   const nodes = useMemo<Node<SourceNodeData>[]>(() => {
     const drivingLabel = t('queries.builder.canvasDriving');
     const stagedLabel = t('queries.builder.canvasStaged');
+    const handleTip = t('queries.builder.canvasHandleTip');
     const make = (id: string, isStaged: boolean): Node<SourceNodeData> => ({
       id,
       type: 'source',
@@ -475,6 +558,7 @@ function QueryCanvasInner({
         editable,
         drivingLabel,
         stagedLabel,
+        handleTip,
         columns: (dsColumnsById.get(id) ?? []).map((c) => ({
           name: c.name,
           stale: columnMissing(id, c.name),
@@ -491,10 +575,9 @@ function QueryCanvasInner({
       promote: t('queries.builder.canvasPromote'),
       promoteTip: t('queries.builder.canvasPromoteTip'),
       resync: t('queries.builder.canvasResync'),
-      divergedChanged: t('queries.builder.canvasDivergedChanged'),
-      divergedRemoved: t('queries.builder.canvasDivergedRemoved'),
       remove: t('queries.builder.removeJoin'),
       removeBlocked: t('queries.builder.removeJoinBlocked'),
+      selectTip: t('queries.builder.canvasEdgeSelectTip'),
     };
     return builtEdges.map(({ hop, qrel, stale }) => {
       const free = !qrel.originRelationshipId;
@@ -507,6 +590,7 @@ function QueryCanvasInner({
         targetHandle: qrel.rightColumn,
         type: 'rel',
         data: {
+          edgeId: hop.queryRelId,
           keyPair: `${qrel.leftColumn} ↔ ${qrel.rightColumn}`,
           cardinalityLabel: t(`relationships.cardinality.${qrel.cardinality}`),
           typeLabel: t(`queries.builder.joinTypeShort.${hop.type}`),
@@ -514,8 +598,11 @@ function QueryCanvasInner({
           divergence,
           stale,
           leaf: isLeafHop(hop.queryRelId, joins, qrelById),
+          editable,
+          selected: selectedEdge === hop.queryRelId,
           promoting: promoteState?.pending === true && promotingId === hop.queryRelId,
           i18n,
+          onSelect: () => setSelectedEdge(hop.queryRelId),
           onPromote: () => {
             setPromotingId(hop.queryRelId);
             onPromoteRel?.(hop.queryRelId);
@@ -525,7 +612,7 @@ function QueryCanvasInner({
         },
       };
     });
-  }, [builtEdges, governedById, joins, qrelById, promoteState, promotingId, onPromoteRel, onResyncRel, onRemoveJoin, t]);
+  }, [builtEdges, governedById, joins, qrelById, editable, selectedEdge, promoteState, promotingId, onPromoteRel, onResyncRel, onRemoveJoin, t]);
 
   // Keep the whole graph in view as nodes are staged/joined/removed — otherwise a
   // newly-staged node lands outside the viewport and the user can't see (or draw to)
@@ -562,9 +649,12 @@ function QueryCanvasInner({
         if (newDs) setStaged((s) => s.filter((id) => id !== newDs));
         return;
       }
-      // define — confirm cardinality first (the gesture that *creates*).
+      // define — confirm cardinality first (the gesture that *creates*). R90 — the
+      // modal opens pre-set to an INFERRED default from the drawn columns (key-like →
+      // 1:1 / 1:N, non-key → M:N); advisory + confirmable, so a wrong guess is safe.
       setDefineDraft(res.fields);
-      setCardinality('one_to_many');
+      setCardinality(inferCardinality(res.fields.leftColumn, res.fields.rightColumn));
+      setCardinalityInferred(true);
     },
     [editable, graphIds, rels, message, t, onAddJoin],
   );
@@ -574,6 +664,7 @@ function QueryCanvasInner({
     onDefineJoin?.({ ...defineDraft, cardinality });
     setStaged((s) => s.filter((id) => id !== defineDraft.rightDatasetId));
     setDefineDraft(null);
+    setCardinalityInferred(false);
   };
 
   const relationshipsHref = `/data-management/workspaces/${workspaceId}/relationships`;
@@ -589,6 +680,7 @@ function QueryCanvasInner({
       aria-label={t('queries.builder.viewCanvas')}
       style={{ display: 'flex', flexDirection: 'column', gap: 8, height: '100%', minHeight: 440 }}
     >
+      <style>{CANVAS_CSS}</style>
       {/* ── The graph ──────────────────────────────────────────────────── */}
       {/* React Flow needs a definitely-sized parent (a flex/`height:100%` chain
           that collapses leaves the pane 0px → nodes show but nothing is
@@ -609,6 +701,7 @@ function QueryCanvasInner({
           edgeTypes={edgeTypes}
           onNodesChange={onNodesChange}
           onConnect={onConnect}
+          onPaneClick={() => setSelectedEdge(null)}
           nodesConnectable={editable}
           fitView
           proOptions={{ hideAttribution: true }}
@@ -682,12 +775,20 @@ function QueryCanvasInner({
               </Typography.Text>
               <Select<Cardinality>
                 value={cardinality}
-                onChange={setCardinality}
+                onChange={(c) => {
+                  setCardinality(c);
+                  setCardinalityInferred(false);
+                }}
                 style={{ width: '100%' }}
                 aria-label={t('queries.builder.canvasCardinalityLabel')}
                 data-component="CanvasCardinalitySelect"
                 options={CARDINALITIES.map((c) => ({ value: c, label: t(`relationships.cardinality.${c}`) }))}
               />
+              {cardinalityInferred ? (
+                <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 4 }}>
+                  {t('queries.builder.canvasCardinalityInferred')}
+                </Typography.Text>
+              ) : null}
             </div>
           </div>
         ) : null}

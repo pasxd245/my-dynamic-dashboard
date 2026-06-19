@@ -131,6 +131,33 @@ export function resolveConnect(
   return match ? { kind: 'copy', relId: match.id } : { kind: 'define', fields };
 }
 
+/** R90 — a column name that reads like a unique key (the only pre-run signal we
+ *  have for cardinality inference). Exact `id`/`code`/`key`/`uuid`/`guid`/`pk`, or a
+ *  `_id` / `_key` / `_code` suffix. Deliberately tight to avoid matching words that
+ *  merely END in "id" (valid, void). */
+const KEY_NAMES = new Set(['id', 'code', 'key', 'uuid', 'guid', 'pk']);
+function isKeyLike(col: string): boolean {
+  const c = col.trim().toLowerCase();
+  return KEY_NAMES.has(c) || c.endsWith('_id') || c.endsWith('_key') || c.endsWith('_code');
+}
+
+/** R90 — infer a sensible default cardinality for a free-form drawn pair from the
+ *  column names alone (the only signal available before a run). Cardinality is
+ *  **advisory** metadata in this product — it does NOT change the join SQL (the join
+ *  TYPE does), so a wrong guess is non-destructive and the user confirms/overrides it
+ *  in the define modal. Heuristic:
+ *  - both columns key-like (id ↔ id) → `one_to_one` (a PK↔PK extension);
+ *  - exactly one key-like → `one_to_many` (the common parent-key ↔ child-FK case);
+ *  - neither key-like → `many_to_many` (a non-key join can fan out — surface it so the
+ *    analyst notices rather than silently assuming 1:N). */
+export function inferCardinality(leftColumn: string, rightColumn: string): QueryRelationship['cardinality'] {
+  const left = isKeyLike(leftColumn);
+  const right = isKeyLike(rightColumn);
+  if (left && right) return 'one_to_one';
+  if (left || right) return 'one_to_many';
+  return 'many_to_many';
+}
+
 /** A hop is a LEAF when its right dataset is no other hop's left — only leaves
  *  are removable (removing a non-leaf would orphan its descendants, R74). R88 —
  *  keyed by the hop's `queryRelId` over the query-owned relationships. */
