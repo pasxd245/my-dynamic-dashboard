@@ -74,6 +74,7 @@ constants:
     temp: '^tmp_[0-9a-f]{16}$'
     query: '^qr_[0-9a-f]{8}$' # R69 — Saved Query
     relationship: '^rel_[0-9a-f]{8}$' # R70 — relationship governance (edge)
+    query_relationship: '^qrel_[0-9a-f]{8}$' # R88 — query-owned relationship (copy-on-pick / free-form)
 
   # R29: code-first error envelope keys (matches contracts/_shared/api-error.yaml).
   # The Pydantic Literal annotations on BE side and the discriminated TS union

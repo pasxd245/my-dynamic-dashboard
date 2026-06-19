@@ -180,7 +180,7 @@ def upsert_query(ws: str, name: str, dataset_id: str, definition: dict) -> str:
             die(f"update query({name}) [{status}]: {data}")
         ok("update", f'query {existing} ("{name}")')
         return existing
-    status, data = post(f"/workspaces/{ws}/queries", {"name": name, "datasetId": dataset_id, "definition": definition})
+    status, data = post(f"/workspaces/{ws}/queries", {"name": name, "sourceId": dataset_id, "definition": definition})
     if status not in (200, 201):
         die(f"create query({name}) [{status}]: {data}")
     ok("create", f'query {data["id"]} ("{name}")')
@@ -226,8 +226,32 @@ def main() -> None:
     # Column indexes (0-based) for the filter atoms below:
     #   customers: 0 customer_id · 1 customer_name · 2 region_id · 3 tier · 4 is_active · 5 signed_up
     #   orders:    0 order_id · 1 customer_id · 2 product_id · 3 amount · 4 quantity · 5 status · 6 is_priority · 7 ordered_at
-    def defn(filters=None, advanced=None, joins=None):
-        return {"q": None, "filters": filters or [], "advanced": advanced or [], "joins": joins or []}
+    def defn(filters=None, advanced=None, joins=None, relationships=None):
+        return {
+            "q": None,
+            "filters": filters or [],
+            "advanced": advanced or [],
+            # R88 — a query OWNS its join relationships (copy-on-pick); hops reference
+            # them by `queryRelId`. Empty for single-source queries.
+            "relationships": relationships or [],
+            "joins": joins or [],
+        }
+
+    def qrel(rel_id, left, lcol, right, rcol, card="one_to_many"):
+        """COPY-ON-PICK: a query-owned relationship copied from a governed `rel_`
+        (provenance kept in `originRelationshipId`)."""
+        return {
+            "id": "qrel_" + rel_id.split("_", 1)[1],
+            "leftDatasetId": left,
+            "leftColumn": lcol,
+            "rightDatasetId": right,
+            "rightColumn": rcol,
+            "cardinality": card,
+            "originRelationshipId": rel_id,
+        }
+
+    # The seeded saved join: customers ⋈ orders, copy-on-picked from the governed rel.
+    cust_ord_qrel = qrel(rel_cust_ord, ds["customers"], "customer_id", ds["orders"], "customer_id")
 
     # Each base query exercises a distinct query-builder flow. (name, source, definition, blurb)
     base_queries = [
@@ -246,7 +270,8 @@ def main() -> None:
         ("All regions", "regions", defn(),
          "Build-on → 2-hop tree regions ⋈ customers ⋈ orders"),
         ("Customers with orders", "customers",
-         defn(joins=[{"relationshipId": rel_cust_ord, "type": "inner"}]),
+         defn(relationships=[cust_ord_qrel],
+              joins=[{"queryRelId": cust_ord_qrel["id"], "type": "inner"}]),
          "a saved inner join (renders an existing hop)"),
         ("All customers", "customers", defn(),
          "plain base — try left/full joins to see unmatched rows"),

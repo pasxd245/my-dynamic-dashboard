@@ -205,9 +205,13 @@ stateDiagram-v2
   **preview** of the working copy.
 - **Edit the source / joins** — the base `<Select>` picks the driving `sourceId` (a
   Dataset or a Query); `JoinEditor` adds a hop from any in-graph source (left-source
-  `<Select>` when 2+ can branch), removes any leaf, and sets each hop's type. Editing the
-  tree recomputes the effective columns, so the predicate editors re-bind; a predicate
-  over a now-absent column flags invalid **in the builder**.
+  `<Select>` when 2+ can branch), removes any leaf, and sets each hop's type. **Adding a
+  hop is copy-on-pick**: picking a governed relationship copies its current join fields
+  into the working copy as a query-owned `QueryRelationship` (with an `originRelationshipId`
+  back-ref) and the new `JoinStep` references it by `queryRelId` — so the query carries its
+  own edge snapshot, not a live `rel_` reference (see [queries.md § Joins](queries.md#joins-reading-related-datasets-as-one)).
+  Editing the tree recomputes the effective columns, so the predicate editors re-bind; a
+  predicate over a now-absent column flags invalid **in the builder**.
 - **Edit predicates** — the chip + advanced editors operate over the effective columns
   (collision-qualified when joined; one dataset's columns when not), reusing the shipped
   serializers/validators verbatim.
@@ -241,7 +245,7 @@ How edit-only generalizes to edit + create (`useQueryBuilder` gains a mode):
 | Concern | Edit mode | Create mode |
 | --- | --- | --- |
 | Identity | an existing `query` (`qr_…`) | **no id** — a draft until Saved |
-| Baseline | `normalize(query.definition)` | the **empty definition** (`{ q: null, filters: [], advanced: [], joins: [] }`) |
+| Baseline | `normalize(query.definition)` | the **empty definition** (`{ q: null, filters: [], advanced: [], relationships: [], joins: [] }`) |
 | Driving source | seeded `query.sourceId`; editable | **preset** `sourceId = the source Query's qr_`; the base picker is seeded to it |
 | Live preview | the composed `POST …/preview` | the **same** composed preview, keyed on the preset base |
 | Name | unchanged (`PUT` is definition-only) | **captured at Save** via the reused `SaveQueryModal` |
@@ -249,8 +253,8 @@ How edit-only generalizes to edit + create (`useQueryBuilder` gains a mode):
 | Gate | `canSave = dirty && previewOk && invalidCount === 0` | `canSave = previewOk && !pending && invalidCount === 0` **+ a non-empty name** (no `dirty` baseline — a base + zero edits is a valid, if trivial, composed Query) |
 
 The create `POST` carries **`{ name, sourceId, definition }`** — `sourceId` is the
-canonical (and only) source field; there is no `datasetId` (it was dropped in migration
-`0002`, see [queries.md § Data model](queries.md#data-model)). Both "Save filters
+canonical (and only) source field; there is no `datasetId` (see
+[queries.md § Data model](queries.md#data-model)). Both "Save filters
 as Query" and "Build on this query" route through the **same** `SaveQueryModal` +
 `useCreateQueryMutation`, so create logic is never duplicated.
 
@@ -378,7 +382,6 @@ if a base loops) — flag-don't-crash, mirroring the edit-mode and run-time gate
 - [queries.md](queries.md) — the Query model, routes, engines, and gates this
   builder edits + previews.
 - [queries.md](queries.md) — the domain anchor + reuse invariant + trajectory.
-- [canvas.md](canvas.md) — the deferred visual editor that re-presents this builder.
+- [canvas.md](canvas.md) — the visual source-graph editor (built) that re-presents this builder.
 - [specious-model-lock-in](../../../memory/2026-06-13-specious-model-lock-in.md) — the
   noun-vs-mode / honest-split discipline this doc applies.
-</content>

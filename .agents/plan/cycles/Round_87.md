@@ -1,6 +1,11 @@
 # Round 87: canvas Phase B — make the canvas an editor (draw-edge / delete-leaf, hop-list parity)
 
-**Status**: **In Progress** — Plan gate **RATIFIED** (human-signed-off, 2026-06-18); **next gate: Design**.
+**Status**: **Complete (parity shipped) — superseded by the query-owned-relationships theme** (F1 verdict,
+human, 2026-06-19). The pick-pair editor met its narrow parity AC and is **retained as the governed
+copy-on-pick path**, but the human's F1 review redirected the *target* experience to free-form,
+query-owned relationships → [2026-06-19-query-owned-relationships brainstorm](../brainstorms/2026-06-19-query-owned-relationships.md)
+(Round_88+). Originally: Plan gate RATIFIED (human-signed-off, 2026-06-18).
+**Date completed**: 2026-06-19
 Inherits the confirmed two-tab `Form`/`Canvas` home from [Round_86](Round_86.md) (Complete,
 human-signed-off). This round turns the **read-only** Canvas tab into an **editor** at hop-list parity.
 **Date started**: 2026-06-18
@@ -312,6 +317,34 @@ Result: **Flow: DFCFBI (triggers 1, 2, 5)** — an **F1 interactive-prototype ch
 finished. F1 is where the human sees pick-pair working and the React-Flow-in-reserve question is resolved
 against real evidence ([[dfcfbi-f1-needs-human-review]]).
 
+### F-gate build / F1 prototype (2026-06-18) — built, suite green, **HARD-STOP for human review**
+
+The pick-pair editor is built and bound to the **shipped** ops over the **one** working copy — **zero
+contract/BE/engine change** (J-3 held), **zero new peer dep** (no graph lib; the R85-reserved deviation
+stays "none" pending F1 evidence). What landed:
+
+- **Shared selector extracted** — [`joinGraph.ts`](../../../workspace/apps/builder/src/features/data-management/queries/joinGraph.ts)
+  (`graphDatasetIds` / `addEligibleRels` / `isLeafHop`), pulled out of `JoinEditor` **verbatim**; both the
+  list and the canvas now read the **one** eligibility/leaf source (Round_87 risk "duplication" closed).
+  `JoinEditor` refactored to delegate — **no behaviour change** (its R72–R76 tests stay green).
+- **`QueryCanvas` is now an editor** — columns rendered inside nodes; **`[+ Add a source]`** stages a
+  not-yet-joined dataset (FE-only, dashed node; disabled + `addJoinNone` tooltip when no eligible `rel_`);
+  **column→column pick** (click source col → target col, **or** the `<Select>` of eligible governed pairs —
+  the keyboard/SR equivalent) **PICKS** the matching governed `rel_` → `addJoin`; a column pair with **no**
+  governed `rel_` shows the **no-match guide → Relationships** (does **not** declare — schema-authoring is
+  OUT). A **leaf** edge's `[×]` → `removeJoin`; a **non-leaf** `[×]` is **disabled** with the shipped
+  `removeJoinBlocked` tooltip. `QueryBuilderPanel` passes `addJoin`/`removeJoin` to the Canvas tab.
+- **Verification**: `tsc --noEmit` clean; **vitest + MSW 169/169 green**, incl. **7 new R87 cases**
+  (draw-edge via `<Select>`; draw-edge via the column gesture; no-match → guide-not-declare; delete-leaf;
+  non-leaf `[×]` disabled; `addJoinNone` add disabled; Save gate holds through a canvas edit). The R85
+  read-only canvas tests stay green (additive). `design:tokens` parity ✔; prettier ✔.
+
+**This is the DFCFBI F1 hard-stop** ([[dfcfbi-f1-needs-human-review]]): MSW/tsc cannot see feel, focus
+order, layout, or the column-gesture's ergonomics. **Awaiting the human to run the app** and rule on the
+**one reserved open question** — is the AntD-native **pick-pair** good enough, or does literal
+drag-to-connect + pan/zoom warrant adopting **React Flow** (`@xyflow/react`) as a flagged peer-dep
+deviation? Only after that sign-off does the round proceed to **Integration**.
+
 ## Check
 
 _(Filled as the gates close — verification against the [Acceptance criteria](#acceptance-criteria).)_
@@ -321,31 +354,60 @@ _(Filled as the gates close — verification against the [Acceptance criteria](#
       add/delete affordances → remediated → **PASS 6/6**; mechanism sealed = **pick-pair, zero-dep** (no
       lib); the React-Flow-vs-drag call moves to the **F1 interactive-prototype** (DFCFBI); canvas.md
       amended to "editor at R87".
-- [ ] **F gate** (+ F1 prototype checkpoint if DFCFBI) — draw-edge / delete-leaf bound to the builder;
-      vitest + MSW green (add hop + live preview; remove leaf; non-leaf delete disabled + tooltip;
-      `addJoinNone` ineligible state; Save stays gated). No contract/BE work.
-- [ ] **Integration** — human review in the running app: canvas editing reaches hop-list parity; guards
-      (acyclic, leaf-only delete, stale-edge) behave as on the list.
+- [x] **F gate — built + suite green** — draw-edge (`<Select>` + column gesture) / delete-leaf bound to the
+      shipped `addJoin`/`removeJoin`; **vitest + MSW 169/169** (add hop; remove leaf; non-leaf delete
+      disabled + tooltip; `addJoinNone` ineligible state; no-match → guide-not-declare; Save stays gated);
+      `tsc` + `design:tokens` + prettier clean. No contract/BE work. Shared selector extracted to
+      `joinGraph.ts`. **Eligibility/leaf reused from the list, not forked.**
+- [x] **F1 prototype checkpoint (DFCFBI) — RESOLVED (human, 2026-06-19).** The human ran the app and
+      judged the pick-pair editor **"almost the same as the current Form builder"** — correctly: drawing a
+      line to *pick* an existing governed rel is redundant with the list's `<Select>`, so no lib/drag would
+      fix the feel. **Verdict: parity met, but pick-pair is only the _governed copy-on-pick_ half.** The
+      missing capability is **query-owned, free-form relationships** (a DA needs ad-hoc joins beyond the
+      predefined FKs). React-Flow-vs-pick-pair is **moot** until drawing *creates* (R89). This is exactly
+      the evidence the DFCFBI F1 gate exists to surface ([[dfcfbi-f1-needs-human-review]]).
+- [~] **Integration — NOT RUN (superseded).** The round closes at F1; the target experience moves to the
+      [query-owned-relationships theme](../brainstorms/2026-06-19-query-owned-relationships.md) (R88+). The
+      shipped pick-pair editor stays in `dev` as the governed copy-on-pick path + the keyboard/SR equivalent.
 
 ## Act
 
-_(Filled at round close.)_
+Closed at the F1 verdict (human, 2026-06-19). The build is sound and stays in `dev`; the round's
+*approach* is superseded by a larger theme the F1 review revealed.
 
-**Learnings**: TBD.
+**Learnings**:
 
-**Promotions** _(if none: write as plain text, not checkboxes)_: TBD at close.
+- **Draw-to-pick feels like a list, because it _is_ a selection.** A direct-manipulation gesture only
+  earns its keep when the act of drawing **creates** something. Drawing a line merely to PICK an existing
+  governed `rel_` is redundant with a `<Select>` — no graph lib, drag physics, or pan/zoom changes that.
+  The "pick-pair feels like the Form builder" verdict was structural, not cosmetic. _(Candidate promotion —
+  a reusable UX principle; see memory [[query-owned-relationships]].)_
+- **DFCFBI F1 paid for itself.** The hard-stop surfaced a load-bearing product gap (query-owned ad-hoc
+  relationships) **before** a graph-lib deviation was spent chasing the wrong target. Confirms
+  [[dfcfbi-f1-needs-human-review]]: green gates + a working prototype still can't replace the human
+  running it.
+- **The reuse invariant was half-right.** R87's "canvas PICKs, never declares" was correct for a *query*
+  editor — but a DA legitimately needs to *define* relationships **scoped to the query** (not the governed
+  ER). The fix isn't "declare into the workspace ER"; it's **query-owned relationships** with a promote
+  bridge. See the [brainstorm](../brainstorms/2026-06-19-query-owned-relationships.md).
+
+**Promotions**: none land this round. The "draw-to-pick is a selection, not a creation" principle is a
+**promotion candidate** to a memory/UX-principle once it has a second confirming rep (held in
+[[query-owned-relationships]] for now).
 
 **Follow-ups (not promotions, just notes):**
 
-- Phase C standalone "New query" → **R88** (depends on this round's add-a-source interaction).
-- True drag-to-connect via React Flow → its own evidence-backed pull, only if the Design-gate prototype
-  showed it worth the peer-dep deviation.
-- Inline relationship _declaration_ → a [relationships.md](../../design/data-management/workspaces/relationships.md)
-  (schema-authoring) pull, OUT of R87.
+- The shipped pick-pair editor (`QueryCanvas` editing + `joinGraph.ts`) **stays** — it becomes the
+  **governed copy-on-pick** path + the keyboard/SR equivalent in the new theme.
+- True drag-to-connect via React Flow → revisited at **R89** (free-form canvas UX), where drawing
+  *creates* a query-owned rel and the lib finally pays off.
+- Phase C standalone "New query" (the old R88 plan) → folded into the theme's later rounds; the empty-graph
+  create flow rides on the query-owned-rel model.
 
-## Feeds into → Round_88 (canvas Phase C "New query") (TBD)
+## Feeds into → the query-owned-relationships theme (R88+)
 
-The shipped canvas **editor** (draw-edge + delete-leaf at parity, pick-pair mechanism over one
-`useQueryBuilder` copy) and its add-a-source interaction become R88's foundation for the standalone
-"New query" empty-canvas create flow. Any Design-gate verdict on the graph-lib (pick-pair vs React Flow)
-hands forward as the sealed mechanism R88 inherits.
+[2026-06-19-query-owned-relationships brainstorm](../brainstorms/2026-06-19-query-owned-relationships.md):
+a query **owns its relationships** (copy-on-pick from the governed ER · define free-form · promote back up),
+with a clean-slate model change (fresh alembic `0001`). **R88 = model truth first** (contract, BE, engine,
+and FE copy-on-pick — no new UX); **R89 = free-form canvas UX + promote** (React Flow); **R90+ =
+dashboards**. R87's pick-pair editor is the inherited copy-on-pick seed.

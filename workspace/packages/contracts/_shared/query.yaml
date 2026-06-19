@@ -51,26 +51,30 @@ components:
       type: object
       description: |
         One join hop. R71 introduced a single hop; R73 chains an ordered LIST
-        of them (`QueryDefinition.joins`). Each hop consumes a governed
-        Relationship (the `rel_` edge) to read its right dataset as part of one
-        virtual table; the join keys + datasets come from the Relationship, and
-        only the join `type` is a query-time choice. R74 generalizes the topology
-        from a linear chain to a connected acyclic TREE: each hop's LEFT/driving
-        dataset is ANY dataset already in the graph (not just the tail), so one
-        dataset may be joined to two or more others (a star). The hops are stored
-        in topological order. See
-        .agents/design/data-management/queries/multi-join.md.
-      required: [relationshipId, type]
+        of them (`QueryDefinition.joins`). R74 generalizes the topology from a
+        linear chain to a connected acyclic TREE: each hop's LEFT/driving dataset
+        is ANY dataset already in the graph (not just the tail), so one dataset
+        may be joined to two or more others (a star). The hops are stored in
+        topological order. R88 — a hop now consumes a QUERY-OWNED relationship
+        (`queryRelId` → a `QueryRelationship` in this definition's
+        `relationships[]`), not a governed `rel_` by id; the keys + datasets come
+        from that QueryRelationship, only `type` is a query-time choice. See
+        .agents/design/data-management/queries/multi-join.md and the
+        query-owned-relationships brainstorm.
+      required: [queryRelId, type]
       additionalProperties: false
       properties:
-        relationshipId:
+        queryRelId:
           type: string
-          pattern: "^rel_[0-9a-f]{8}$"
+          pattern: "^qrel_[0-9a-f]{8}$"
           description: |
-            The governed edge this join consumes (its left/right datasets +
-            validated key pair are the join's sources + ON clause). Must be a
-            valid (non-stale), in-workspace Relationship at save time.
-          examples: ["rel_4d7b91ce"]
+            R88 — the QUERY-OWNED relationship this hop consumes: an id into this
+            definition's `relationships[]`. Replaces R71–R87's `relationshipId`
+            (→ a governed `rel_`): a query now owns its join edges (copy-on-pick
+            or, R89, free-form), so a hop references a local `QueryRelationship`,
+            not the workspace store. Its left/right datasets + validated key pair
+            are the join's sources + ON clause.
+          examples: ["qrel_4d7b91ce"]
         type:
           type: string
           enum: [inner, left, right, full]
@@ -81,6 +85,58 @@ components:
             `right` keeps all right rows; `full` keeps all rows from both sides.
             A graph may mix types per hop. Composite keys / self-joins remain
             deferred (joins.md § Scope).
+
+    QueryRelationship:
+      type: object
+      description: |
+        R88 — a QUERY-OWNED join relationship: the same join fields as a governed
+        Relationship (_shared/relationship.yaml), but stored INSIDE a
+        QueryDefinition and scoped to that query. Seeded by COPY-ON-PICK (picking a
+        governed `rel_` copies its current fields here, recording
+        `originRelationshipId` as provenance) or — R89 — defined free-form. Because
+        the query carries its own copy, editing/deleting the governed rel never
+        breaks the saved query (it runs on this snapshot); a later round may
+        PROMOTE a query-owned rel back up to the governed ER. The connected-acyclic
+        TREE + per-hop dtype-compat validation are unchanged (re-checked against
+        current dataset columns on save/run). See the query-owned-relationships
+        brainstorm.
+      required: [id, leftDatasetId, leftColumn, rightDatasetId, rightColumn, cardinality]
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          pattern: "^qrel_[0-9a-f]{8}$"
+          description: Query-local id, referenced by `JoinStep.queryRelId`.
+          examples: ["qrel_4d7b91ce"]
+        leftDatasetId:
+          type: string
+          pattern: "^ds_[0-9a-f]{8}$"
+          description: The LEFT/driving dataset of this edge.
+        leftColumn:
+          type: string
+          minLength: 1
+          description: The join key on the left dataset.
+        rightDatasetId:
+          type: string
+          pattern: "^ds_[0-9a-f]{8}$"
+          description: The RIGHT dataset joined in by this edge.
+        rightColumn:
+          type: string
+          minLength: 1
+          description: The join key on the right dataset.
+        cardinality:
+          type: string
+          enum: [one_to_one, one_to_many, many_to_many]
+          description: Declared multiplicity (mirrors the governed Relationship).
+        originRelationshipId:
+          type: [string, "null"]
+          pattern: "^rel_[0-9a-f]{8}$"
+          description: |
+            Provenance back-ref to the governed Relationship this was copied from
+            (copy-on-pick). Null/omitted when defined free-form (R89). On divergence
+            (the governed rel later changes or is removed) the builder WARNS only —
+            the query keeps its copy; re-syncing is the user's choice (R89).
+          examples: ["rel_4d7b91ce"]
 
     QueryDefinition:
       type: object
@@ -121,6 +177,17 @@ components:
             type: array
             items:
               $ref: "#/components/schemas/FilterAtom"
+        relationships:
+          type: array
+          description: |
+            R88 — the query's OWN join relationships (query-owned rels). Each
+            `JoinStep` references one by `queryRelId`. Empty / omitted for a
+            single-source Query. Seeded by COPY-ON-PICK from governed `rel_`s
+            (provenance recorded in `originRelationshipId`) or defined free-form
+            (R89). The query runs on these copies, so it never breaks when a
+            governed rel changes (query-owned-relationships brainstorm).
+          items:
+            $ref: "#/components/schemas/QueryRelationship"
         joins:
           type: array
           description: |
@@ -131,8 +198,9 @@ components:
             dataset already in the graph (R74; R73 fixed it to the previous tail —
             a linear path is the degenerate tree), its right is a dataset not yet
             joined (acyclic). Hops are stored in topological order; validated on
-            save (`disconnected_join` / `cyclic_join`). The free-form visual canvas
-            is deferred → R75 (multi-join.md § Scope).
+            save (`disconnected_join` / `cyclic_join`). R88 — each hop references a
+            query-owned `relationships[]` entry via `queryRelId` (was a governed
+            `relationshipId`).
           items:
             $ref: "#/components/schemas/JoinStep"
 

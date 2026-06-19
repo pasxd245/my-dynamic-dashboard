@@ -42,7 +42,6 @@ import {
   MOCK_ROWS,
   MOCK_STALE_JOIN_QUERY_ID,
   MOCK_STALE_QUERY_ID,
-  MOCK_STALE_RELATIONSHIP,
   MOCK_WORKSPACE,
 } from './fixtures';
 
@@ -530,8 +529,20 @@ export const handlers = [
 
     const chain = def.joins ?? [];
     if (chain.length > 0) {
-      // Any stale hop blocks the whole chain (per-hop relationship_stale gate).
-      if (chain.some((h) => h.relationshipId === MOCK_STALE_RELATIONSHIP.id)) {
+      // R88 — a hop's QUERY-OWNED rel is stale when a key column no longer exists
+      // on its dataset (mirrors the backend resolver's dtype-compat check against
+      // current columns); any stale hop blocks the chain (relationship_stale gate).
+      const dsCols = new Map(
+        [MOCK_DATASET, MOCK_DATASET_2, MOCK_DATASET_3, MOCK_DATASET_4, MOCK_DATASET_5].map((d) => [d.id, d.columns]),
+      );
+      const colMissing = (dsId: string, col: string) => {
+        const cs = dsCols.get(dsId);
+        return cs ? !cs.some((c) => c.name === col) : false;
+      };
+      const anyStale = (def.relationships ?? []).some(
+        (r) => colMissing(r.leftDatasetId, r.leftColumn) || colMissing(r.rightDatasetId, r.rightColumn),
+      );
+      if (anyStale) {
         return HttpResponse.json({ code: 'relationship_stale' }, { status: 409 });
       }
       // 1 hop → Deals ⋈ Accounts (R71); ≥2 hops → Deals ⋈ Accounts ⋈ Owners (R73).

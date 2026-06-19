@@ -13,10 +13,11 @@ import { useTranslation } from 'react-i18next';
 import type { FilterPredicate } from '@/features/data-management/datasets/filters/types';
 import type { PredicateGroups } from '@/features/data-management/datasets/advanced-query/types';
 import type { Column } from '@/features/data-management/datasets/types';
+import { useRelationshipsQuery } from '@/features/data-management/relationships/hooks';
 import { ApiErrorThrown } from '../_shared/types';
-import { readChain, writeDef } from './chain';
+import { copyGovernedRel, readChain, readRels, writeDef } from './chain';
 import { useCreateQueryMutation, useQueryPreviewQuery, useUpdateQueryMutation } from './hooks';
-import type { JoinStep, Query, QueryDefinition, ResolvedColumn } from './types';
+import type { JoinStep, Query, QueryDefinition, QueryRelationship, ResolvedColumn } from './types';
 
 export const PREVIEW_PAGE_SIZE = 25;
 // Debounce the preview so editing fires one POST after the user settles, not
@@ -45,6 +46,7 @@ function invalidAtomCount(def: QueryDefinition, columns: readonly Column[]): num
 function normalize(def: QueryDefinition): QueryDefinition {
   return writeDef(
     { q: def.q ?? null, filters: [...def.filters], advanced: def.advanced.map((g) => [...g]) },
+    readRels(def),
     readChain(def),
   );
 }
@@ -151,6 +153,17 @@ export function useQueryBuilder({
   };
 
   const joins = useMemo(() => readChain(draft), [draft]);
+  // R88 — the query's OWN relationships (copy-on-pick snapshots); the join hops
+  // reference these by `queryRelId`. Exposed so the list + canvas resolve hops
+  // against the query's copies, not the (mutable) governed store.
+  const queryRels = useMemo(() => readRels(draft), [draft]);
+  // The governed workspace rels — the copy-on-pick LIBRARY (picking one copies it
+  // into the query). React Query dedupes with the list/canvas's own fetch.
+  const relationshipsQuery = useRelationshipsQuery(workspaceId || undefined);
+  const governedRelById = useMemo(
+    () => new Map((relationshipsQuery.data ?? []).map((r) => [r.id, r])),
+    [relationshipsQuery.data],
+  );
   const isJoined = joins.length > 0;
   const previewQuery = useQueryPreviewQuery(
     workspaceId || undefined,
@@ -219,25 +232,44 @@ export function useQueryBuilder({
   // chain through the bridge, mutates it, and re-serializes. A hop is always
   // `inner` this round. `setPage(1)` because changing the source space resets
   // the preview window.
-  const reChain = (next: readonly JoinStep[]) => {
+  // R88 — copy-on-pick over TWO parallel arrays (the query-owned `relationships`
+  // + the `joins` that reference them by `queryRelId`). `addJoin`/`setJoin` take
+  // the picked GOVERNED rel id and SNAPSHOT it; `removeJoin`/`setHopType` key on
+  // the query-owned rel id. `setPage(1)` resets the preview window.
+  const reDraft = (relationships: readonly QueryRelationship[], next: readonly JoinStep[]) => {
     setPage(1);
-    setDraft((d) => writeDef(d, next));
+    setDraft((d) => writeDef(d, relationships, next));
   };
-  /** Set/clear the FIRST hop in place (the R72 single-edge affordance, kept for
-   *  the single-join case). Only meaningful when the chain has ≤1 hop. */
-  const setJoin = (relationshipId: string | undefined) =>
-    reChain(relationshipId ? [{ relationshipId, type: 'inner' }] : []);
-  /** Append a hop that extends from any in-graph dataset (R74 — the relationship's
-   *  own left determines the branch point, so a tree appends like a chain). */
-  const addJoin = (relationshipId: string) =>
-    reChain([...readChain(draft), { relationshipId, type: 'inner' }]);
-  /** Remove a LEAF hop by its relationship id (R74 — any leaf, not just the last).
-   *  Removing a leaf preserves the topological order of the remaining hops. */
-  const removeJoin = (relationshipId: string) =>
-    reChain(readChain(draft).filter((h) => h.relationshipId !== relationshipId));
-  /** Set a hop's join type (R75 — inner / left / right / full). Re-runs preview. */
-  const setHopType = (relationshipId: string, type: JoinStep['type']) =>
-    reChain(readChain(draft).map((h) => (h.relationshipId === relationshipId ? { ...h, type } : h)));
+  /** Set/clear the FIRST hop in place (the R72 single-edge affordance). Picks a
+   *  GOVERNED rel by id → copy-on-pick; `undefined` clears to single-source. */
+  const setJoin = (relationshipId: string | undefined) => {
+    const gov = relationshipId ? governedRelById.get(relationshipId) : undefined;
+    if (!gov) return reDraft([], []);
+    const qrel = copyGovernedRel(gov);
+    reDraft([qrel], [{ queryRelId: qrel.id, type: 'inner' }]);
+  };
+  /** Append a hop by COPYING the picked governed rel into a query-owned rel (R88
+   *  copy-on-pick). The rel's own left determines the branch point (R74 tree). */
+  const addJoin = (relationshipId: string) => {
+    const gov = governedRelById.get(relationshipId);
+    if (!gov) return;
+    const qrel = copyGovernedRel(gov);
+    reDraft([...readRels(draft), qrel], [...readChain(draft), { queryRelId: qrel.id, type: 'inner' }]);
+  };
+  /** Remove a LEAF hop by its query-owned rel id (R74 — any leaf); prune the
+   *  now-unreferenced query-owned relationship. */
+  const removeJoin = (queryRelId: string) => {
+    const next = readChain(draft).filter((h) => h.queryRelId !== queryRelId);
+    const rels = readRels(draft).filter((r) => next.some((h) => h.queryRelId === r.id));
+    reDraft(rels, next);
+  };
+  /** Set a hop's join type (R75 — inner / left / right / full), keyed by its
+   *  query-owned rel id. Re-runs preview. */
+  const setHopType = (queryRelId: string, type: JoinStep['type']) =>
+    reDraft(
+      readRels(draft),
+      readChain(draft).map((h) => (h.queryRelId === queryRelId ? { ...h, type } : h)),
+    );
 
   const save = () => {
     if (!canSave || !query) return;
@@ -312,6 +344,9 @@ export function useQueryBuilder({
     columns,
     isJoined,
     joins,
+    // R88 — the query's own relationships (copy-on-pick snapshots); hops resolve
+    // through these (the list + canvas read them, not the governed store).
+    queryRels,
     page,
     setPage,
     pageSize,

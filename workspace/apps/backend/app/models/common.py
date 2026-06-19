@@ -178,16 +178,44 @@ class FilterAtom(BaseModel):
     max: int | float | str | None = None
 
 
-class JoinStep(BaseModel):
-    """One join hop. R71 introduced a single hop; R73 chains an ordered list of
-    them (`QueryDefinition.joins`); R74 relaxes the topology to a connected acyclic
-    tree (each hop's left = any in-graph source). Each hop consumes a governed
-    Relationship (`rel_`) to read its right dataset. R75: `type` widens beyond
-    `inner` to the outer joins (left / right / full), which keep unmatched rows."""
+QueryRelationshipId = Annotated[str, Field(pattern=ID_PATTERNS["query_relationship"])]
+
+
+class QueryRelationship(BaseModel):
+    """R88 — a QUERY-OWNED join relationship: the governed Relationship's join
+    fields, but stored INSIDE a QueryDefinition and scoped to that query. Seeded
+    by COPY-ON-PICK (picking a governed `rel_` copies its current fields here,
+    recording `originRelationshipId` as provenance) or — R89 — defined free-form
+    (`originRelationshipId` null). Because the query carries its own copy, editing
+    or deleting the governed rel never breaks the saved query (it runs on this
+    snapshot). Mirrors `_shared/query.yaml#/QueryRelationship`."""
 
     model_config = ConfigDict(extra="forbid")
 
-    relationshipId: Annotated[str, Field(pattern=ID_PATTERNS["relationship"])]  # noqa: N815
+    id: QueryRelationshipId
+    leftDatasetId: DsId  # noqa: N815
+    leftColumn: Annotated[str, Field(min_length=1)]  # noqa: N815
+    rightDatasetId: DsId  # noqa: N815
+    rightColumn: Annotated[str, Field(min_length=1)]  # noqa: N815
+    cardinality: Literal["one_to_one", "one_to_many", "many_to_many"]
+    # Provenance back-ref to the governed rel copied from (copy-on-pick); null /
+    # omitted when defined free-form (R89).
+    originRelationshipId: (  # noqa: N815
+        Annotated[str, Field(pattern=ID_PATTERNS["relationship"])] | None
+    ) = None
+
+
+class JoinStep(BaseModel):
+    """One join hop. R71 introduced a single hop; R73 chains an ordered list of
+    them (`QueryDefinition.joins`); R74 relaxes the topology to a connected acyclic
+    tree (each hop's left = any in-graph source). R75: `type` widens beyond `inner`
+    to the outer joins (left / right / full), which keep unmatched rows. R88 — a
+    hop now consumes a QUERY-OWNED relationship (`queryRelId` → a `QueryRelationship`
+    in this definition's `relationships`), not a governed `rel_` by id."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    queryRelId: QueryRelationshipId  # noqa: N815
     type: Literal["inner", "left", "right", "full"] = "inner"  # R75 — inner default + outer joins
 
 
@@ -203,6 +231,9 @@ class QueryDefinition(BaseModel):
     q: Annotated[str | None, Field(max_length=200)] = None
     filters: list[FilterAtom]
     advanced: list[list[FilterAtom]]
+    # R88 — the query's OWN join relationships (query-owned rels). Each `JoinStep`
+    # references one by `queryRelId`. Seeded by copy-on-pick or (R89) free-form.
+    relationships: list[QueryRelationship] = []
     joins: list[JoinStep] = []
 
     @model_validator(mode="before")

@@ -26,6 +26,9 @@ export const QUERY_ID_PATTERN = /{{constants.id_patterns.query}}/;
 /** Relationship IDs: `rel_<8 lowercase hex chars>` (R70 — governed edge). */
 export const RELATIONSHIP_ID_PATTERN = /{{constants.id_patterns.relationship}}/;
 
+/** Query-owned relationship IDs: `qrel_<8 lowercase hex chars>` (R88 — copy-on-pick / free-form). */
+export const QUERY_RELATIONSHIP_ID_PATTERN = /{{constants.id_patterns.query_relationship}}/;
+
 /** R29: error-envelope code values. Used at FE branch sites
  *  (`err.body.code === ERROR_CODES.NAME_TAKEN`). */
 export const ERROR_CODES = {

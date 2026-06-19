@@ -14,13 +14,14 @@ Query **noun**, the **reuse invariant** every surface here obeys, the **trajecto
 domain grows along, and the Query **model · routes + error codes · execution engine**
 (single-source read, the join-tree fold, and composed `qr_` sources). The interactive
 builder UX lives in the sibling [query-construction.md](query-construction.md); the
-unbuilt visual editor is [canvas.md](canvas.md) (design-banked, build deferred).
+visual source-graph editor is [canvas.md](canvas.md) (the Canvas tab — built).
 
 **Status**: Accepted.
 **Sibling docs**:
 [query-construction.md](query-construction.md) (the editable builder surface: edit a
 Query's definition + preview before save; the create-mode "Build on this query"),
-[canvas.md](canvas.md) (the visual source-graph editor — design banked, build deferred),
+[canvas.md](canvas.md) (the visual source-graph editor — the Canvas tab, built: read-only
+graph + pick-pair draw-edge / delete-leaf editing),
 [dataset-detail.md](../datasets/dataset-detail.md) (the surface a Query is saved _from_,
 and whose extracted `<PagedRowsView>` + standard detail layout this archetype reuses),
 [dataset-filters.md](../datasets/dataset-filters.md) +
@@ -154,19 +155,33 @@ type Query = {
   sourceId: SourceId;          // the single canonical driving source — a Dataset OR a Query
   name: string;                // user-supplied; unique per (workspaceId)
   definition: QueryDefinition; // the saved predicate + join state (below)
-  resolvedColumns?: string[];  // effective columns, present when multi-source
+  resolvedColumns?: { name: string; dtype: string }[]; // effective columns, present when multi-source
   createdAt: string;           // ISO-8601 UTC, backend commit time
 };
 
 type QueryDefinition = {
-  q?: string | null;        // the `?q=` row search (≤200 chars)
-  filters: FilterAtom[];    // chip filters (dataset-filters.md)
-  advanced: FilterAtom[][]; // advanced-query DNF (advanced-query.md)
-  joins: JoinStep[];        // ordered join tree (default []); see § Joins
+  q?: string | null;                  // the `?q=` row search (≤200 chars)
+  filters: FilterAtom[];              // chip filters (dataset-filters.md)
+  advanced: FilterAtom[][];           // advanced-query DNF (advanced-query.md)
+  relationships: QueryRelationship[]; // the query's OWN join edges (default []); see § Joins
+  joins: JoinStep[];                  // ordered join tree (default []); each hop → a query-owned rel
+};
+
+// A query OWNS its join relationships (copy-on-pick from the governed ER, or — R89 —
+// defined free-form). The query runs on this snapshot, so editing/deleting the governed
+// rel never breaks it.
+type QueryRelationship = {
+  id: string;                  // query-local, `^qrel_[0-9a-f]{8}$`
+  leftDatasetId: string;       // `ds_…` — the LEFT/driving dataset of this edge
+  leftColumn: string;          // the join key on the left
+  rightDatasetId: string;      // `ds_…` — the RIGHT dataset joined in
+  rightColumn: string;         // the join key on the right
+  cardinality: 'one_to_one' | 'one_to_many' | 'many_to_many';
+  originRelationshipId?: string | null; // `rel_…` provenance back-ref (null = free-form)
 };
 
 type JoinStep = {
-  relationshipId: string;                        // `rel_…` — the governed edge this hop consumes
+  queryRelId: string;                            // `qrel_…` — the query-owned rel this hop consumes
   type: 'inner' | 'left' | 'right' | 'full';     // per-hop join type (default 'inner')
 };
 
@@ -176,13 +191,17 @@ type JoinStep = {
 
 **`sourceId` is the single canonical source field — there is no `datasetId`.** The
 `queries.source_id` column is `TEXT NOT NULL` with **no FK** (it is polymorphic
-`ds_ | qr_`). Migration `0002_query_source_id.py` (down-revision `0001_baseline`)
-backfilled `source_id = dataset_id`, **dropped** the `dataset_id` column + its FK + the
-`idx_queries_dataset_id` index, and set `source_id NOT NULL`. The dataset-delete →
-query cascade that the dropped FK once provided now lives in the **app layer**
-(`routers/datasets.py`). A legacy persisted single `join` key is folded to a length-1
-`joins` list on read by a `model_validator` (`_fold_legacy_join`); new writes always use
-`joins`.
+`ds_ | qr_`). The dataset-delete → query cascade that a dataset FK would provide lives in
+the **app layer** (`routers/datasets.py`), since a polymorphic column can't carry one. A
+legacy persisted single `join` key is folded to a length-1 `joins` list on read by a
+`model_validator` (`_fold_legacy_join`); new writes always use `joins`.
+
+**Migrations are a single fresh baseline.** Alembic carries one revision —
+`0001_baseline.py` (`down_revision = None`) — that creates all four tables at their
+current shape directly. The query-owned-relationships model lives entirely inside the
+opaque `definition_json` blob, so it needs no DDL; the history was collapsed to this one
+baseline (clean-slate: on `dev`, no backward-compat), and the pre-Alembic adoption bridge
+was retired — a stale dev DB is re-created (`pnpm dev:seed --reset`), not migrated.
 
 **Persistence (the `queries` table, code-true).**
 
@@ -241,34 +260,47 @@ scale, or a downstream surface (dashboard) that needs a pinned snapshot — neit
 ## Joins: reading related datasets as one
 
 When `definition.joins` is non-empty, the Query reads **two or more** datasets as one
-virtual table by consuming governed [Relationships](../workspaces/relationships.md). A
-join is **not a new noun** — it is a `JoinStep` in the `joins` list; the Query keeps its
-`qr_` identity, catalog, detail, and run/preview routes. The governed `rel_` edge is
-**unchanged** by joins: it carries the two datasets, the dtype-validated key pair, and a
-freshness gate; the join **type**, the result projection, and predicate qualification
-are query-time concerns that live in the definition, not the edge.
+virtual table through its **own** join edges — `definition.relationships`, a list of
+`QueryRelationship`s the query OWNS. A join is **not a new noun** — it is a `JoinStep` in
+the `joins` list referencing a query-owned rel by `queryRelId`; the Query keeps its `qr_`
+identity, catalog, detail, and run/preview routes.
+
+**A query owns its relationships (copy-on-pick).** Picking a governed
+[Relationship](../workspaces/relationships.md) (`rel_…`) **copies** its current join
+fields into the definition as a `QueryRelationship` (a fresh `qrel_` id, the same
+datasets/columns/cardinality, `originRelationshipId` recording provenance). The join then
+resolves through that **embedded copy** — the resolver never re-reads the workspace
+`relationships` table — so editing or deleting the governed rel can no longer break a
+saved query (it runs on its own snapshot). The join **type**, the result projection, and
+predicate qualification are query-time concerns that live in the definition. Defining a
+query-owned rel **free-form** (no governed origin) and **promoting** one back up to the
+governed ER are R89; at this round every query-owned rel is seeded by copy-on-pick, so
+`originRelationshipId` is always set.
 
 ### Join tree (topology)
 
 `joins: JoinStep[]` is an ordered list of edges forming a **connected acyclic tree**
 (not merely a linear chain). Resolution (`_resolve_chain` in `queries.py`):
 
-+ The driving source (`sourceId`) is the root; for each hop `k`, the hop's `rel_` left
-  dataset must already be a member of **some source in the graph** (else
-  `disconnected_join`), and its right dataset must be **new** (else `cyclic_join` — a
-  diamond/self-join is rejected). So one dataset can drive **two or more** hops (a star).
++ The driving source (`sourceId`) is the root; for each hop `k`, the query-owned rel's
+  left dataset (`leftDatasetId`) must already be a member of **some source in the graph**
+  (else `disconnected_join`), and its right dataset (`rightDatasetId`) must be **new**
+  (else `cyclic_join` — a diamond/self-join is rejected). So one dataset can drive **two
+  or more** hops (a star).
 + Hops are stored in **topological order**; the builder produces this naturally by
   appending a hop onto an existing source. The linear chain is the degenerate **path**
   case (each hop's left = the prior tail). A single join is a length-1 `joins`.
-+ `join_keys[k] = (left_idx, left_col, right_col, type)` — the engine joins source
++ `join_keys[k] = (left_idx, leftColumn, rightColumn, type)` — the engine joins source
   `T{k+1}` against `T{left_idx}` (its own left, **not** the previous source), so a star
   resolves correctly.
 
-`disconnected_join`, `cyclic_join`, `unknown_relationship`,
-`cross_workspace_relationship`, `relationship_dataset_missing`, and
+`disconnected_join`, `cyclic_join`, `unknown_relationship` (a hop's `queryRelId` has no
+matching `QueryRelationship`), `relationship_dataset_missing`, and
 `composition_base_missing` are **internal reason strings** folded into a FastAPI `422`
 `detail[].msg` at create/update/preview validation — they are **not** top-level response
-codes. At run time any non-cycle resolve failure collapses to `409 relationship_stale`.
+codes. At run time any non-cycle resolve failure collapses to `409 relationship_stale` —
+including a query-owned key column that drifted away from its dataset (re-checked against
+current columns on every run).
 
 ### Effective columns + predicate qualification
 
@@ -302,8 +334,9 @@ declared relationships, and runtime cost / report drift are a **consumer-side** 
 ### Per-hop freshness gate
 
 At run, each edge's status is recomputed against current schemas
-(`_compatible(_dtype_of(left, rel.left_column), _dtype_of(right, rel.right_column))`); a
-missing/incompatible key fails on the first stale hop with `409 relationship_stale`,
+(`_compatible(_dtype_of(left, qrel.leftColumn), _dtype_of(right, qrel.rightColumn))`,
+reading the query-owned rel); a missing/incompatible key fails on the first stale hop with
+`409 relationship_stale`,
 naming the hop and column — flag-don't-crash, never wrong or empty rows.
 
 ---
@@ -544,11 +577,16 @@ and trigger:
 BUILT  → this doc (queries.md)
          · single-source save (filter a dataset, Save as Query)
          · join execution + the multi-hop join TREE (connected acyclic; inner/left/right/full)
+         · query-OWNED relationships (copy-on-pick): a query carries its own join edges,
+           runs on its snapshot (the governed ER can't break a saved query)
          · composition (a Query as the driving source; the unified ds_/qr_ resolver)
          · the interactive construction surface (query-construction.md):
            edit + live-preview + the "Build on this query" create mode
-NEXT   → the visual source-graph canvas (canvas.md) — design banked, build DEFERRED.
-         Trigger: a real report's joins tree outgrows the hop list (unfired).
+         · the visual source-graph canvas (canvas.md): read-only graph + pick-pair
+           draw-edge / delete-leaf editing
+NEXT   → free-form canvas UX (R89): draw a column pair with no governed match to DEFINE a
+         query-owned rel, and PROMOTE a useful one up to the governed ER (React Flow); plus
+         the divergence-warn UI.
 LATER  → consumer-save / dashboards (downstream value-out) — read the clean single-spine
          Query model.
 ```
@@ -562,7 +600,8 @@ Each step is **pulled, not pre-built** (the Evolution Rule + the
 
 ### IN scope
 
-+ The Query model (`sourceId` polymorphic `ds_|qr_`, `definition{q,filters,advanced,joins}`),
++ The Query model (`sourceId` polymorphic `ds_|qr_`,
+  `definition{q,filters,advanced,relationships,joins}` with query-owned rels),
   the `queries` table, and the `qr_` identity + Queries catalog.
 + The 7 routes (create / list / get / run / preview / update / delete) with the error
   codes above; run/preview are **live re-runs**.
@@ -576,7 +615,8 @@ Each step is **pulled, not pre-built** (the Evolution Rule + the
 + **A `qr_` on the right of a join hop** (a Query joined *in* via a `rel_`) → defers a
   governed-edge re-open (relationship endpoints `ds_ | qr_`). `rel_` endpoints stay
   dataset↔dataset; the `qr_` source is the **base** only.
-+ **The visual source-graph canvas** → design-banked, build deferred ([canvas.md](canvas.md)).
++ **Free-form define + promote + the divergence-warn UI** → R89 ([canvas.md](canvas.md));
+  this round seeds query-owned rels by copy-on-pick only (`originRelationshipId` always set).
 + **Composite / multi-column join keys; self-joins / diamonds; cross-workspace joins;
   null-aware predicate operators** → future; the engine joins single-column,
   within-workspace, tree (no diamond) hops.
@@ -602,13 +642,9 @@ Each step is **pulled, not pre-built** (the Evolution Rule + the
 
 ## Reference materials (read-only)
 
-+ [query-builder.md](queries.md) — the domain anchor + reuse invariant + trajectory.
 + [dataset-detail.md](../datasets/dataset-detail.md) — the `<PagedRowsView>` host + the
   surface a Query is saved from.
-+ [relationships.md](../workspaces/relationships.md) — the governed edge a join consumes;
-  the `relationship_stale` gate.
++ [relationships.md](../workspaces/relationships.md) — the governed edge copy-on-pick
+  copies from; the `relationship_stale` gate.
 + [specious-model-lock-in](../../../memory/2026-06-13-specious-model-lock-in.md) — the
   noun-vs-mode / reuse-not-duplicate discipline this archetype enforces.
-</content>
-
-</invoke>

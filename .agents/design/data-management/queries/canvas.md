@@ -12,23 +12,15 @@ new page**: it edits the **identical** `definition.joins` tree the hop-list
 `sourceId`, runs the **same** stateless preview, and saves through the **same**
 lifecycle. The canvas is a **second editor over one model**, not a second model.
 
-**Status**: **Accepted** (design) — **Phase A SHIPPED at
-[R85](../../../plan/cycles/Round_85.md) (read-only view, human-signed-off 2026-06-18:
-`QueryCanvas` + the `[List]/[Canvas]` toggle in `QueryBuilderPanel`). [R86](../../../plan/cycles/Round_86.md)
-restructures the builder into two tabs — `Form` (list + preview) and `Canvas`
-(graph + status chip, no preview table) — over the one working copy (Design gate closed
-2026-06-18; canvas stays read-only). **[R87](../../../plan/cycles/Round_87.md) turns the
-Canvas tab into an EDITOR** at hop-list parity (draw-edge + delete-leaf), mechanism sealed
-at its Design gate (the **pick-pair** note below). "New query" (Phase C) → R88.** R80 sealed
-the design and banked the
-build (the deferral trigger — "until the hop-list stops scaling" — was UNFIRED at R80's
-2–4-node trees, J-2 below). **R85 fires the build of Phase A on the human's product
-call** — _"canvas is the #1 end-user-value feature"_ — the **accelerate** side of the
-[dynamic equilibrium](../../../context/purpose.md#dynamic-equilibrium): the human pull,
-not a hop-list-scaling pain signal, is the authority that opens the build (deliberately
-overriding the agent-side "unfired" verdict). Phase A is built **right, not MVP-rushed**
-([[dont-mvp-rush-a-roadmap-home-surface]]) — a genuine node-link render. **Phases B
-(editing) and C ("New query") remain deferred** with their own triggers (Scope boundary).
+**Status**: **Accepted — built.** The builder is two tabs — `Form` (hop list + preview)
+and `Canvas` (graph + status chip) — over one working copy (`QueryBuilderPanel`). The
+Canvas tab is a **read-only node-link render** of the join tree (`QueryCanvas`, a
+hand-rolled SVG/DOM graph — no graph library) **and a pick-pair EDITOR** at hop-list
+parity: `[+ Add a source]` stages a node, a column→column pick (or the eligible-pairs
+`<Select>`) adds a hop, and a leaf edge's `[×]` removes one — bound to `useQueryBuilder`'s
+shipped ops. R88 made the edge **query-owned** (picking copies the governed rel into the
+query — copy-on-pick). **Free-form define + promote + the divergence-warn UI, and the
+standalone "New query" create flow, are R89/later** (Scope boundary).
 
 > **R85 Design-gate build decision (Phase A).** Render mechanism: **hand-rolled SVG/DOM**
 > (AntD-styled nodes positioned by a small deterministic tree-layout fn; SVG edges with
@@ -46,8 +38,10 @@ overriding the agent-side "unfired" verdict). Phase A is built **right, not MVP-
 > human's two-step shape is honoured: **(1)** click `[+ Add a source]` to stage a node
 > (a dataset or saved query) onto the canvas; **(2)** connect at **column granularity** —
 > click a source column → click a target column (or a small `<Select>` of eligible
-> governed pairs) — which **PICKS the existing governed `rel_`** whose key pair matches →
-> `addJoin(relationshipId)`. A **prior-art survey of 11 visual join/ER editors**
+> governed pairs) — which **PICKS the existing governed `rel_`** whose key pair matches and
+> **copies it into the query** (R88 copy-on-pick): `addJoin(governedRelId)` snapshots the
+> rel's fields as a query-owned `QueryRelationship` and adds a `JoinStep{queryRelId}`. A
+> **prior-art survey of 11 visual join/ER editors**
 > ([brainstorm](../../../plan/brainstorms/2026-06-18-r87-canvas-editing-prior-art.md))
 > established the decisive category split: **schema-authoring** tools (dbdiagram, drawSQL,
 > Supabase Designer, Prisma) **DECLARE** an FK when you draw a link, whereas
@@ -217,14 +211,17 @@ the meantime.
 
 ## The model — unchanged; the canvas renders + edits it
 
-The canvas introduces **no change** to `QueryDefinition` (the tree was sealed in
-[queries.md § Joins](queries.md#joins-reading-related-datasets-as-one); the source field unified to `sourceId` in R79). It is a
-**read-write projection** of the same object:
+The canvas introduces **no change of its own** to `QueryDefinition` — it is a
+**read-write projection** of the same object the hop list edits (the tree was sealed in
+[queries.md § Joins](queries.md#joins-reading-related-datasets-as-one); the source field
+unified to `sourceId` in R79; R88 moved each edge into the query's own
+`relationships[]`, referenced by `queryRelId`):
 
 ```ts
-// unchanged — the canvas renders this as a graph and edits it via the same ops
+// the canvas renders this as a graph and edits it via the same ops. R88 — a hop
+// references a query-OWNED relationship (`queryRelId`), not a governed `rel_` by id.
 type JoinStep = {
-  relationshipId: string; // `rel_…` — the governed edge this EDGE consumes
+  queryRelId: string; // `qrel_…` — the query-owned edge this EDGE consumes
   type: JoinType; // shipped: 'inner' | 'left' | 'right' | 'full' (types.ts)
 };
 
@@ -232,10 +229,12 @@ type QueryDefinition = {
   q?: string | null;
   filters: FilterAtom[];
   advanced: FilterAtom[][];
+  relationships: QueryRelationship[]; // the query's OWN edges (copy-on-pick); see queries.md
   joins: JoinStep[]; // R74 tree: each hop names its own left/right → a graph already
 };
-// the driving node is the Query's unified `sourceId` (R79: ds_ | qr_); each
-// joins[k].rel.rightDatasetId is a further node. The canvas reads exactly these.
+// the driving node is the Query's unified `sourceId` (R79: ds_ | qr_); each hop's
+// query-owned rel (`relationships[]` by `queryRelId`) carries the rightDatasetId of a
+// further node. The canvas reads exactly these.
 ```
 
 - **Nodes** = the sources the resolver already walks: the driving `sourceId` plus each
@@ -282,15 +281,16 @@ model, validation, preview, and persistence concern is reuse.
 | `QueryCanvas` (NEW: node-link render of the `joins` tree; Phase A) | `apps/builder/src/features/data-management/queries` | feature | feature | react, antd |
 | `QueryBuilderPanel` (extended: a canvas/list view toggle over one working copy) | `apps/builder/src/features/data-management/queries` | feature | feature | react, antd |
 | `useQueryBuilder` (reused: the canvas binds to its `addJoin`/`removeJoin`/Save) | `apps/builder/src/features/data-management/queries` | feature | glue | @tanstack/react-query, antd |
-| `CanvasEditing` (NEW: draw-edge / delete-leaf direct manipulation; Phase B) | `apps/builder/src/features/data-management/queries` | feature | feature | react, antd |
+| `QueryCanvas` (the SVG/DOM graph render + pick-pair draw-edge / delete-leaf editing — editing lives inside this component, not a separate one) | `apps/builder/src/features/data-management/queries` | feature | feature | react, antd |
+| `joinGraph.ts` (extracted shared selectors `graphDatasetIds` / `addEligibleRels` / `isLeafHop`, keyed on the query-owned rels — the list and canvas read one source) | `apps/builder/src/features/data-management/queries` | feature | glue | none |
 | `<PagedRowsView>` (reused, not owned — preview + result body) | `apps/builder/src/features/data-management/_shared` | shared cross-domain | plain-ui | react, antd, react-i18next |
 | `SaveQueryModal` (reused, not owned — R69; "New query" name capture; Phase C) | `apps/builder/src/features/data-management/queries` | feature | feature | react, antd |
 | `useCreateQueryMutation` (reused, not owned — R69; the "New query" `POST`) | `apps/builder/src/features/data-management/queries` | feature | glue | @tanstack/react-query |
-| `JoinStep[]` tree (frontend + contract type) | `.../features/data-management/queries/types.ts` | feature | data type | none |
+| `JoinStep[]` tree + `QueryRelationship[]` (the query-owned edges; frontend + contract type) | `.../features/data-management/queries/types.ts` | feature | data type | none |
 
 **Boundary check**: the only shared-cross-domain row (`<PagedRowsView>`) is **reused,
-not owned** ([dataset-detail.md](../datasets/dataset-detail.md)). `QueryCanvas` /
-`CanvasEditing` **bind to** `useQueryBuilder`'s shipped `addJoin`/`removeJoin`/Save and
+not owned** ([dataset-detail.md](../datasets/dataset-detail.md)). `QueryCanvas` (render +
+editing) **binds to** `useQueryBuilder`'s shipped `addJoin`/`removeJoin`/Save and
 the stateless preview — they re-implement **no** validation, engine, predicate editor,
 or detail page. The "New query" entry **reuses** R77's `SaveQueryModal` +
 `useCreateQueryMutation`. No canvas surface re-implements a dataset/query page, a join
@@ -402,16 +402,19 @@ the node enters `joins[]` only when its column link is drawn (the model stays a 
 tree rooted at `sourceId` — an unjoined node is ephemeral, never persisted). **②** connect
 at **column granularity**: click a source column → a target column (or a small `<Select>`
 of eligible governed pairs), which **PICKS the existing governed `rel_`** whose key pair
-matches → `addJoin(relationshipId)` (the **same** connected-acyclic guard, the **same**
+matches → `addJoin(governedRelId)` — which **copies** it into the query's
+`relationships[]` (R88 copy-on-pick) and adds a `JoinStep{queryRelId}` (the **same**
+connected-acyclic guard, the **same**
 eligibility set `JoinEditor` computes: `valid && left∈graph && right∉graph`). **Gesture
 learnability (declared so F builds it):** after the source-column click, the **eligible
 target columns are highlighted** (the draw.io row-highlight cue) and a transient hint names
 the next step; the **`<Select>` of eligible governed pairs is the self-describing,
 discoverable equivalent** for anyone who doesn't reach for the click-gesture (and the
 keyboard/SR path — a11y section). A column pair
-with **no** matching governed `rel_` does **not** declare one — it guides to
-[relationships.md](../workspaces/relationships.md) (schema-authoring, OUT of R87). A
-**leaf** edge shows a `[×]` delete affordance → `removeJoin`; a non-leaf edge's `[×]` is
+with **no** matching governed `rel_` does **not** create one this round — it guides to
+[relationships.md](../workspaces/relationships.md); **defining a query-owned rel free-form
+from that drawn pair is R89** (where drawing *creates*, the gesture finally earns a graph
+library). A **leaf** edge shows a `[×]` delete affordance → `removeJoin`; a non-leaf edge's `[×]` is
 **disabled with a text tooltip** (the shipped `removeJoinBlocked` reason). Exactly the hop
 list's eligibility + leaf rules, on the graph — **no new model, route, error code, or
 peer-dep** (J-3 holds). Mechanism = **pick-pair, zero-dep** (the build-decision note above).
@@ -495,14 +498,14 @@ stateDiagram-v2
   view-only).
 - **Stale gates are flag-don't-crash, per edge** — a stale hop renders the
   "edge unavailable" `<Alert role="alert">` on its edge, naming the column, never a
-  blank crash ([purpose.md](../../../context/purpose.md) #5). _Code-reality note (R85):_
-  `useQueryBuilder` exposes only a **chain-wide** `relStale: boolean` (set when the
-  preview returns `409 relationship_stale`), **not** per-hop. The **per-edge** state is
-  derived on the FE from each resolved `Relationship.status` (`'valid' | 'stale'`, already
-  on the type the canvas resolves per hop) — no new wire field. Phase A may render the
-  per-edge marker from `rel.status` and reuse the chain-wide `relStale` for the
-  Save-guarded banner; a richer per-hop preview signal, if ever wanted, is a later
-  contract decision, not Phase A's.
+  blank crash ([purpose.md](../../../context/purpose.md) #5). _Code reality:_
+  `useQueryBuilder` exposes a **chain-wide** `relStale: boolean` (set when the preview
+  returns `409 relationship_stale`) for the Save-guarded banner. The **per-edge** marker is
+  computed on the FE by `QueryCanvas` via `columnMissing()` — checking whether the
+  query-owned rel's key columns (`leftColumn` / `rightColumn`) still exist in the
+  referenced datasets' **current** columns (R88 — the query owns its edge, so there is no
+  governed `Relationship.status` to read; staleness is a column-drift check against the
+  snapshot). No new wire field.
 - **"New query" (Phase C)** opens create mode with no base; place the first node (sets
   `sourceId`), build the graph, Save captures a name and `POST`s — R77's lifecycle.
 
@@ -615,22 +618,22 @@ the verdicts are recorded**, not that code runs. The **design-gate** criteria be
 
 ## Scope boundary
 
-### IN scope (R80 — Design only)
+### IN scope
 
-- **Resolving J-1…J-5** and **sealing this canvas design**: the noun-vs-mode verdict
-  (MODE), the trigger verdict (DEFER, with evidence), the model-impact verdict
-  (FE-only), the "New query" IA (catalog entry into R77's create lifecycle), and the
-  phased first-build scope (A view → B editing → C "New query").
-- **Banking the spec** (surfaces, reuse split, layout, states, accessibility, contract
-  intent) so R81+ inherits a resolved home/flow.
+- **The Canvas tab as a view + editor** over the one `useQueryBuilder` working copy: a
+  read-only node-link render of the join tree, plus **pick-pair editing** (stage a node →
+  column-pick / eligible-pairs `<Select>` → copy-on-pick `addJoin`; leaf `[×]` →
+  `removeJoin`) at hop-list parity, the `Form` tab staying the keyboard/SR-complete
+  equivalent.
+- **Copy-on-pick** of a governed `rel_` into the query's own `relationships[]` (R88) — the
+  canvas pick and the hop-list pick share this behaviour and the `joinGraph.ts` selectors.
 
 ### OUT of scope (deferred with named triggers)
 
-- **The canvas BUILD** — any FE code (`QueryCanvas`, `CanvasEditing`, the view toggle,
-  the "New query" entry) → **R81+**. _Trigger: a real report's `joins` tree outgrows the
-  hop list + left-source `<Select>` — a topology a human can no longer read as a list.
-  The build round re-checks this trigger before starting; if trees are still small, it
-  defers again._
+- **Free-form define + promote + the divergence-warn UI** → **R89**: drawing a column pair
+  with no governed match to *create* a query-owned rel (where the gesture earns React
+  Flow), promoting one up to the governed ER, and the warn surface. This round only
+  copies-on-pick.
 - **`flow-selector` (DCFBI vs DFCFBI)** → the first build round's Design gate (a
   Design-only round has no contract/BE/FE code to gate; the F-only DCFBI lean recorded
   in J-3 is the build round's starting hypothesis, not a seal).

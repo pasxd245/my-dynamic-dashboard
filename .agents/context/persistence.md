@@ -112,38 +112,34 @@ is what *pins models == today's schema*.
 
 ## Existing-DB adoption — no data loss (J-3)
 
-The central problem: existing dev DBs are already bootstrapped and have
-**no `alembic_version` table**. A naive `upgrade head` would try to
-`CREATE` tables that already exist and fail. The startup **adopter**
-(replacing `bootstrap_schema()` in the
-[lifespan](../../workspace/apps/backend/app/main.py)) branches on the DB's
-state:
+The startup **adopter** (replacing `bootstrap_schema()` in the
+[lifespan](../../workspace/apps/backend/app/main.py)) brings the DB to head:
 
-| DB state on startup                               | Action                                                       |
-| ------------------------------------------------- | ------------------------------------------------------------ |
-| **Fresh** (no tables)                             | `alembic upgrade head` — creates everything from the migrations |
-| **Pre-Alembic** (tables present, no `alembic_version`) | **heal-then-stamp**: run the idempotent legacy heal once (add missing columns + back-fill dup names + unique indexes — all `IF NOT EXISTS`), then `alembic stamp 0001_baseline`, then `upgrade head` |
-| **Versioned** (`alembic_version` present)         | `alembic upgrade head` — the normal steady-state path        |
+| DB state on startup                       | Action                                                      |
+| ----------------------------------------- | ----------------------------------------------------------- |
+| **Fresh** (no tables)                     | `alembic upgrade head` — creates everything at `0001_baseline` |
+| **Versioned** (`alembic_version` present) | `alembic upgrade head` — no-op when already current         |
 
-**Why heal-then-stamp, not bare stamp:** stamping declares "the baseline
-schema is already applied." That's only *true* if the existing DB really
-is at baseline shape. A DB predating R25/R76 (missing `source_id` or the
-unique indexes) would be **silently mis-stamped**. Running the legacy
-heal first brings any old DB *up to* baseline shape before we stamp it —
-cheap insurance against divergence. The heal code is retained **only as
-this one-time adoption bridge** (labeled as such; a clean deletion seam
-once all dev DBs carry `alembic_version`), not as steady-state logic — so
-J-2's "retire the hand-bootstrap" still holds for the normal path.
+> **R88 — the pre-Alembic adoption bridge was retired (clean-slate, decision 5).** R78/R79
+> carried a third branch for a pre-Alembic dev DB (tables present, no `alembic_version`):
+> **heal-then-stamp** — an idempotent legacy heal (add missing columns + back-fill dup
+> names + unique indexes), then `stamp 0001_baseline`, then `upgrade head` — plus the
+> `_legacy_adoption_heal` / `_backfill_duplicate_names` / `_add_missing_columns` helpers.
+> When R88 collapsed the migration history to a single fresh `0001_baseline`, that bridge
+> (which assumed the old two-revision baseline) no longer applied. We are on `dev` with no
+> backward-compat obligation, so it was **removed**: a stale pre-Alembic dev DB is
+> **re-created** (`pnpm dev:seed --reset`), not migrated in place. `run_startup_migrations`
+> is now just `upgrade head`.
 
 The adopter drives Alembic via its **Python API** — `alembic.config.Config`
-with `command.stamp` / `command.upgrade` — and sets `sqlalchemy.url` to the
-resolved `get_db_path()` (no shelling out).
+with `command.upgrade` — and sets `sqlalchemy.url` to the resolved
+`get_db_path()` (no shelling out).
 
 ---
 
 ## Test hermeticity + the startup split (J-4)
 
-The 193 pytest are hermetic and fast (per-test `tmp_path` data-root +
+The pytest suite is hermetic and fast (per-test `tmp_path` data-root +
 `reset_db_for_tests`). Running Alembic per test would be slow and is
 unnecessary — so we take the **standard split**:
 

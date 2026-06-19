@@ -129,6 +129,7 @@ function FormTab({
             baseSourceId={builder.baseSourceId}
             queryId={builder.queryId}
             onSetBaseSource={builder.setBaseSource}
+            relationships={builder.queryRels}
             joins={builder.joins}
             onSetJoin={builder.setJoin}
             onAddJoin={builder.addJoin}
@@ -274,8 +275,9 @@ function FormTab({
   );
 }
 
-/** The Canvas tab — the read-only source-graph + a status chip (no preview table).
- *  Read-only at R86; editing is R87. */
+/** The Canvas tab — the source-graph editor + a status chip (no preview table).
+ *  R87 makes it an EDITOR (pick-pair draw-edge / delete-leaf) over the one
+ *  working copy; the Form tab stays the keyboard/SR-complete equivalent. */
 function CanvasTab({
   builder,
   status,
@@ -304,7 +306,10 @@ function CanvasTab({
           datasetId={builder.datasetId}
           baseSourceId={builder.baseSourceId}
           workspaceId={builder.workspaceId}
+          relationships={builder.queryRels}
           joins={builder.joins}
+          onAddJoin={builder.addJoin}
+          onRemoveJoin={builder.removeJoin}
         />
       </div>
     </div>

@@ -12,15 +12,33 @@
 import type { PredicateGroups } from '../datasets/advanced-query/types';
 import type { FilterPredicate } from '../datasets/filters/types';
 
-/** R71 — an optional join step: the Query consumes a governed Relationship
- *  to read two related datasets as one. Mirrors `_shared/query.yaml#/JoinStep`. */
 /** The join type for a hop (R75). `inner` keeps only matches; `left`/`right`/`full`
  *  are outer joins that keep unmatched rows (the unmatched side is NULL). */
 export type JoinType = 'inner' | 'left' | 'right' | 'full';
 
+/** R88 — a QUERY-OWNED join relationship: the same join fields as a governed
+ *  `Relationship`, stored INSIDE the QueryDefinition and scoped to the query.
+ *  Seeded by COPY-ON-PICK (copying a governed `rel_`, with `originRelationshipId`
+ *  as provenance) or — R89 — defined free-form. The query runs on its own copy,
+ *  so a governed-rel edit never breaks it. Mirrors `_shared/query.yaml#/QueryRelationship`. */
+export type QueryRelationship = {
+  /** Query-local id, `^qrel_[0-9a-f]{8}$`. Referenced by `JoinStep.queryRelId`. */
+  id: string;
+  leftDatasetId: string;
+  leftColumn: string;
+  rightDatasetId: string;
+  rightColumn: string;
+  cardinality: 'one_to_one' | 'one_to_many' | 'many_to_many';
+  /** Provenance back-ref to the governed `rel_` copied from (null = free-form, R89). */
+  originRelationshipId?: string | null;
+};
+
+/** R71 — a join hop. R88: it consumes a QUERY-OWNED relationship (`queryRelId` →
+ *  a `QueryRelationship` in this definition's `relationships[]`), not a governed
+ *  `rel_` by id. Mirrors `_shared/query.yaml#/JoinStep`. */
 export type JoinStep = {
-  /** The `rel_…` edge this join consumes (its datasets + key pair). */
-  relationshipId: string;
+  /** R88 — the query-owned relationship this hop consumes (id into `relationships[]`). */
+  queryRelId: string;
   /** The join type (R75): inner (default) + left / right / full outer. */
   type: JoinType;
 };
@@ -37,13 +55,14 @@ export type QueryDefinition = {
   filters: readonly FilterPredicate[];
   /** Advanced query in DNF — an OR of AND-groups. Empty when none. */
   advanced: PredicateGroups;
-  /** R71→R73 — an ordered, LINEAR chain of join hops: `joins[0]` extends from
-   *  the Query's source dataset, each subsequent hop from the previous hop's
-   *  right (tail) dataset. Omitted/empty for a single-source Query; one hop is a
-   *  single join (R71); 2+ chain additional datasets. Mirrors
-   *  `_shared/query.yaml#/QueryDefinition.joins` + the J-3 seal in
-   *  .agents/design/data-management/queries/multi-join.md. (The backend
-   *  normalizes any legacy single `join` to a length-1 `joins` on read.) */
+  /** R88 — the query's OWN join relationships (query-owned rels). Each `JoinStep`
+   *  references one by `queryRelId`. Empty/omitted for a single-source Query.
+   *  Seeded by copy-on-pick from governed `rel_`s, or free-form (R89). Mirrors
+   *  `_shared/query.yaml#/QueryDefinition.relationships`. */
+  relationships?: readonly QueryRelationship[];
+  /** R71→R74 — an ordered tree of join hops; each references a `relationships[]`
+   *  entry via `queryRelId` (R88; was a governed `relationshipId`). Omitted/empty
+   *  for a single-source Query. Mirrors `_shared/query.yaml#/QueryDefinition.joins`. */
   joins?: readonly JoinStep[];
 };
 

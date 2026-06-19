@@ -18,9 +18,8 @@ import { DEFAULT_PAGE_SIZE, PAGE_SIZES } from '@/_generated/constants';
 import { useDatasetQuery } from '@/features/data-management/datasets/hooks';
 import { formatChipText } from '@/features/data-management/datasets/filters/ActiveFilterChips';
 import { groupsToText } from '@/features/data-management/datasets/advanced-query/serialize';
-import { useRelationshipQuery, useRelationshipsQuery } from '@/features/data-management/relationships/hooks';
 import { ApiErrorThrown } from '../_shared/types';
-import { readChain } from './chain';
+import { readChain, readRels } from './chain';
 import { DeleteConfirmModal } from '../_shared/DeleteConfirmModal';
 import { PagedRowsView } from '../_shared/PagedRowsView';
 import { QueryBuilderPanel } from './QueryBuilderPanel';
@@ -85,14 +84,14 @@ export function QueryDetailPage() {
   // both are `enabled` only when their id resolves.
   // R73 — a Query may now chain 2+ hops; read either wire shape into the chain.
   const chain = query ? readChain(query.definition) : [];
+  // R88 — the read-only join summary reads the query's OWN relationships
+  // (snapshots in the definition), not the governed store: a saved query runs on
+  // its copies, so the summary reflects exactly what it will execute.
+  const qrelById = new Map((query ? readRels(query.definition) : []).map((r) => [r.id, r]));
   const firstJoin = chain[0];
   const isJoined = chain.length > 0;
-  const relQuery = useRelationshipQuery(firstJoin?.relationshipId);
-  const relationship = relQuery.data;
+  const relationship = firstJoin ? qrelById.get(firstJoin.queryRelId) : undefined;
   const rightDatasetQuery = useDatasetQuery(relationship?.rightDatasetId);
-  // Extra hops (2nd onward) are summarized from the workspace's relationship list.
-  const relsListQuery = useRelationshipsQuery(query?.workspaceId);
-  const relById = new Map((relsListQuery.data ?? []).map((r) => [r.id, r]));
 
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -450,11 +449,11 @@ export function QueryDetailPage() {
         {/* R73 — additional hops in a multi-hop chain (the 2nd onward); R75 — each
             hop names its join type so an outer hop isn't mislabelled as inner. */}
         {chain.slice(1).map((hop) => {
-          const r = relById.get(hop.relationshipId);
+          const r = qrelById.get(hop.queryRelId);
           const cardinality = r ? t(`relationships.cardinality.${r.cardinality}`) : null;
           return (
-            <Tag key={hop.relationshipId} color="default" data-component="QueryJoinHop">
-              ⋈ {t(`queries.detail.joinType.${hop.type}`)} ⋈ {r ? `${r.leftColumn} ↔ ${r.rightColumn}` : hop.relationshipId}
+            <Tag key={hop.queryRelId} color="default" data-component="QueryJoinHop">
+              ⋈ {t(`queries.detail.joinType.${hop.type}`)} ⋈ {r ? `${r.leftColumn} ↔ ${r.rightColumn}` : hop.queryRelId}
               {cardinality ? ` · ${cardinality}` : ''}
             </Tag>
           );

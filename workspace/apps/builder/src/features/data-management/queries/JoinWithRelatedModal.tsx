@@ -15,6 +15,7 @@ import { useNavigate } from 'react-router-dom';
 import { NAME_LENGTHS } from '@/_generated/constants';
 import { ApiErrorThrown } from '@/features/data-management/_shared/types';
 import { useRelationshipsQuery } from '@/features/data-management/relationships/hooks';
+import { copyGovernedRel } from './chain';
 import { useCreateQueryMutation } from './hooks';
 
 export type JoinWithRelatedModalProps = Readonly<{
@@ -70,6 +71,10 @@ export function JoinWithRelatedModal({
 
   const submit = () => {
     if (!selected || !canSave) return;
+    // R88 — COPY-ON-PICK: the joined query OWNS its relationship (a snapshot of the
+    // picked governed rel, with `originRelationshipId` as provenance); the hop
+    // references it by `queryRelId`.
+    const qrel = copyGovernedRel(selected);
     createMutation.mutate(
       {
         workspaceId,
@@ -77,7 +82,13 @@ export function JoinWithRelatedModal({
           name: trimmed,
           // The LEFT dataset of the edge is the join's driving source (R79 — `sourceId`).
           sourceId: selected.leftDatasetId,
-          definition: { q: null, filters: [], advanced: [], joins: [{ relationshipId: selected.id, type: 'inner' }] },
+          definition: {
+            q: null,
+            filters: [],
+            advanced: [],
+            relationships: [qrel],
+            joins: [{ queryRelId: qrel.id, type: 'inner' }],
+          },
         },
       },
       {

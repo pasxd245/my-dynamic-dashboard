@@ -26,7 +26,8 @@ import { useDatasetsQuery } from '@/features/data-management/datasets/hooks';
 import { useRelationshipsQuery } from '@/features/data-management/relationships/hooks';
 import type { Relationship } from '@/features/data-management/relationships/types';
 import { useQueriesQuery } from './hooks';
-import type { JoinStep, JoinType } from './types';
+import { addEligibleRels, graphDatasetIds, isLeafHop } from './joinGraph';
+import type { JoinStep, JoinType, QueryRelationship } from './types';
 
 // R75 — the per-hop join types (inner default + left/right/full outer).
 const JOIN_TYPES: readonly JoinType[] = ['inner', 'left', 'right', 'full'];
@@ -42,16 +43,19 @@ export type JoinEditorProps = Readonly<{
   baseSourceId: string;
   queryId: string;
   onSetBaseSource: (sourceId: string) => void;
+  /** R88 — the query's OWN relationships (copy-on-pick snapshots); hops resolve
+   *  through these by `queryRelId`, not the governed store. */
+  relationships: readonly QueryRelationship[];
   /** The working-copy hops (ordered, topological); empty when single-source. */
   joins: readonly JoinStep[];
-  /** Set/clear the FIRST hop in place (the R72 single-edge affordance). */
+  /** Set/clear the FIRST hop in place — picks a GOVERNED rel id (copy-on-pick). */
   onSetJoin: (relationshipId: string | undefined) => void;
-  /** Append a hop extending from any in-graph dataset (R74). */
+  /** Append a hop — picks a GOVERNED rel id (copy-on-pick, R88). */
   onAddJoin: (relationshipId: string) => void;
-  /** Remove a LEAF hop by its relationship id (R74 — any leaf, not just last). */
-  onRemoveHop: (relationshipId: string) => void;
-  /** Set a hop's join type (R75 — inner / left / right / full). */
-  onSetHopType: (relationshipId: string, type: JoinType) => void;
+  /** Remove a LEAF hop by its query-owned rel id (R88 — any leaf, not just last). */
+  onRemoveHop: (queryRelId: string) => void;
+  /** Set a hop's join type, keyed by its query-owned rel id (R88). */
+  onSetHopType: (queryRelId: string, type: JoinType) => void;
 }>;
 
 export function JoinEditor({
@@ -60,6 +64,7 @@ export function JoinEditor({
   baseSourceId,
   queryId,
   onSetBaseSource,
+  relationships,
   joins,
   onSetJoin,
   onAddJoin,
@@ -69,7 +74,9 @@ export function JoinEditor({
   const { t } = useTranslation();
   const relationshipsQuery = useRelationshipsQuery(workspaceId);
   const rels = useMemo(() => relationshipsQuery.data ?? [], [relationshipsQuery.data]);
-  const relById = useMemo(() => new Map(rels.map((r) => [r.id, r])), [rels]);
+  // R88 — the GOVERNED workspace rels are the copy-on-pick LIBRARY (add-eligibility
+  // is computed over them). HOP DISPLAY resolves through the query's OWN rels.
+  const qrelById = useMemo(() => new Map(relationships.map((r) => [r.id, r])), [relationships]);
   const datasetsQuery = useDatasetsQuery(workspaceId);
   const datasets = useMemo(() => datasetsQuery.data ?? [], [datasetsQuery.data]);
   const dsNameById = useMemo(() => new Map(datasets.map((d) => [d.id, d.name])), [datasets]);
@@ -82,7 +89,9 @@ export function JoinEditor({
     [queriesQuery.data, queryId],
   );
 
-  const optionLabel = (r: Relationship) =>
+  // Works for a governed Relationship (the add library) OR a query-owned rel (a
+  // hop's display) — both carry the key pair + cardinality.
+  const optionLabel = (r: { leftColumn: string; rightColumn: string; cardinality: Relationship['cardinality'] }) =>
     `${r.leftColumn} ↔ ${r.rightColumn} · ${t(`relationships.cardinality.${r.cardinality}`)}`;
   const dsName = (id: string) => dsNameById.get(id) ?? id;
 
@@ -91,21 +100,16 @@ export function JoinEditor({
 
   // The datasets already in the graph (source + each hop's right). R74: a hop may
   // extend from ANY of these, not only the last (tail) — so the shape is a tree.
-  const graphDatasets = useMemo(() => {
-    const ids = [datasetId];
-    for (const hop of joins) {
-      const right = relById.get(hop.relationshipId)?.rightDatasetId;
-      if (right) ids.push(right);
-    }
-    return ids;
-  }, [datasetId, joins, relById]);
+  // R87/R88 — shared with the canvas via joinGraph; hops resolve through the
+  // query's OWN rels (qrelById).
+  const graphDatasets = useMemo(
+    () => graphDatasetIds(datasetId, joins, qrelById),
+    [datasetId, joins, qrelById],
+  );
 
   // Every addable edge: valid, drives FROM an in-graph dataset (connected), and
   // its right is NOT yet in the graph (acyclic — keeps the graph a tree).
-  const addEligible = useMemo(
-    () => rels.filter((r) => r.status === 'valid' && graphDatasets.includes(r.leftDatasetId) && !graphDatasets.includes(r.rightDatasetId)),
-    [rels, graphDatasets],
-  );
+  const addEligible = useMemo(() => addEligibleRels(rels, graphDatasets), [rels, graphDatasets]);
   // The distinct in-graph sources that can be extended (the left-source choices).
   const addSources = useMemo(
     () => graphDatasets.filter((id) => addEligible.some((r) => r.leftDatasetId === id)),
@@ -119,18 +123,8 @@ export function JoinEditor({
 
   // A hop is a LEAF when its right dataset is no other hop's left (R74). Only
   // leaves are removable — removing a non-leaf would orphan its descendants.
-  const leftDatasetIdsInUse = useMemo(() => {
-    const set = new Set<string>();
-    for (const hop of joins) {
-      const r = relById.get(hop.relationshipId);
-      if (r) set.add(r.leftDatasetId);
-    }
-    return set;
-  }, [joins, relById]);
-  const isLeaf = (hop: JoinStep) => {
-    const right = relById.get(hop.relationshipId)?.rightDatasetId;
-    return right ? !leftDatasetIdsInUse.has(right) : true;
-  };
+  // R87 — shared with the canvas via joinGraph.
+  const isLeaf = (hop: JoinStep) => isLeafHop(hop.queryRelId, joins, qrelById);
 
   const single = joins.length <= 1; // R72 single-edit affordance
   const firstEligible = eligibleFrom(datasetId);
@@ -140,7 +134,7 @@ export function JoinEditor({
   const typeSelect = (hop: JoinStep) => (
     <Select<JoinType>
       value={hop.type}
-      onChange={(v) => onSetHopType(hop.relationshipId, v)}
+      onChange={(v) => onSetHopType(hop.queryRelId, v)}
       style={{ flexShrink: 0, width: 160 }}
       aria-label={t('queries.builder.joinTypeLabel')}
       options={JOIN_TYPES.map((jt) => ({ value: jt, label: t(`queries.builder.joinType.${jt}`) }))}
@@ -181,7 +175,7 @@ export function JoinEditor({
         // ── Single-edge affordance (R72, unchanged): editable Select + Clear ──
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <Select
-            value={joins[0]?.relationshipId}
+            value={joins[0] ? (qrelById.get(joins[0].queryRelId)?.originRelationshipId ?? undefined) : undefined}
             onChange={(v) => onSetJoin(v)}
             style={{ flex: 1, minWidth: 0 }}
             aria-labelledby="builder-join-label"
@@ -201,17 +195,17 @@ export function JoinEditor({
         // ── Multi-hop graph: hops as read rows, [Remove] on each leaf ──────────
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           {joins.map((hop) => {
-            const r = relById.get(hop.relationshipId);
+            const qrel = qrelById.get(hop.queryRelId);
             const leaf = isLeaf(hop);
-            const fromName = r ? dsName(r.leftDatasetId) : '';
+            const fromName = qrel ? dsName(qrel.leftDatasetId) : '';
             return (
               <div
-                key={hop.relationshipId}
+                key={hop.queryRelId}
                 data-component="BuilderHopRow"
                 style={{ display: 'flex', alignItems: 'center', gap: 8 }}
               >
                 <Typography.Text style={{ flex: 1, minWidth: 0 }}>
-                  {fromName ? `${fromName} ` : ''}⋈ {r ? optionLabel(r) : hop.relationshipId}
+                  {fromName ? `${fromName} ` : ''}⋈ {qrel ? optionLabel(qrel) : hop.queryRelId}
                 </Typography.Text>
                 {typeSelect(hop)}
                 {/* Default-size button (matches the header Cancel/Save) so short
@@ -220,7 +214,7 @@ export function JoinEditor({
                     its descendants (R74). */}
                 <Tooltip title={leaf ? '' : t('queries.builder.removeJoinBlocked')}>
                   <Button
-                    onClick={() => onRemoveHop(hop.relationshipId)}
+                    onClick={() => onRemoveHop(hop.queryRelId)}
                     disabled={!leaf}
                     data-component="BuilderRemoveHop"
                     style={{ flexShrink: 0 }}

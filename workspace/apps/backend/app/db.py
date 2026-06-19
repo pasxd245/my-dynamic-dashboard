@@ -80,12 +80,11 @@ def create_all_for_tests() -> None:
     `tests/test_schema_parity.py` — but without replaying each migration's
     DDL, so the test suite stays fast and hermetic.
 
-    Like `upgrade head`, it leaves the DB **stamped at head** (R79): a models-
-    built DB is already current, so when a test instantiates `TestClient(app)`
-    the lifespan's `run_startup_migrations()` takes the versioned (no-op
-    upgrade) branch instead of mis-detecting a pre-Alembic baseline-shape DB
-    and replaying a post-baseline migration (e.g. 0002, which assumes the
-    dropped `dataset_id`).
+    Like `upgrade head`, it leaves the DB **stamped at head**: a models-built DB
+    is already current, so when a test instantiates `TestClient(app)` the
+    lifespan's `run_startup_migrations()` takes the versioned (no-op upgrade)
+    branch. R88 collapsed the migration history to a single `0001_baseline`, so
+    head is that one revision.
     """
     engine = get_engine()
     SQLModel.metadata.create_all(engine)
@@ -151,113 +150,21 @@ def _alembic_config():
     return cfg
 
 
-def _table_exists(con: sqlite3.Connection, name: str) -> bool:
-    row = con.execute(
-        "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (name,)
-    ).fetchone()
-    return row is not None
-
-
 def run_startup_migrations() -> None:
-    """Bring `app.sqlite` to head, adopting any existing DB without data loss.
+    """Bring `app.sqlite` to head via `alembic upgrade head`.
 
-    Three states (R78 J-3 — see persistence.md):
+    - **Fresh** (no tables) → `upgrade head` creates everything at `0001_baseline`.
+    - **Versioned** (`alembic_version` present) → `upgrade head` (no-op when current).
 
-    - **Fresh** (no tables) → `upgrade head` creates everything.
-    - **Pre-Alembic** (tables present, no `alembic_version`) →
-      **heal-then-stamp**: run the one-time legacy heal so the DB truly
-      matches the baseline shape, `stamp` the baseline, then `upgrade head`.
-    - **Versioned** (`alembic_version` present) → `upgrade head`.
+    R88 (clean-slate, decision 5) retired the pre-Alembic *adoption* bridge — the
+    one-time heal-then-stamp path (and its `_legacy_adoption_heal` / duplicate-name
+    backfill helpers) that lifted a hand-bootstrapped, pre-R78 dev DB to baseline
+    shape. We are on `dev` with no backward-compat obligation; a stale pre-Alembic
+    DB is re-created (`pnpm dev:seed --reset`), not migrated in place. See
+    .agents/context/persistence.md.
     """
     from alembic import command
 
     path = get_db_path()
     path.parent.mkdir(parents=True, exist_ok=True)
-
-    with sqlite3.connect(path) as con:
-        has_alembic = _table_exists(con, "alembic_version")
-        has_known_table = _table_exists(con, "workspaces")
-
-    cfg = _alembic_config()
-
-    if not has_alembic and has_known_table:
-        # Pre-Alembic existing DB: lift it to baseline shape, then adopt.
-        with sqlite3.connect(path) as con:
-            con.row_factory = sqlite3.Row
-            _legacy_adoption_heal(con)
-            con.commit()
-        command.stamp(cfg, "0001_baseline")
-
-    command.upgrade(cfg, "head")
-
-
-# --------------------------------------------------------------------------
-# Legacy adoption bridge (one-time, R78)
-#
-# These helpers are NOT steady-state schema logic — the hand-bootstrapped
-# `_SCHEMA` is retired into the `0001_baseline` migration. They exist only
-# to lift a *pre-Alembic* dev DB to baseline shape before it is stamped, so
-# a DB created before R25/R76 (missing the unique indexes / `source_id`) is
-# not silently mis-stamped. Delete once every dev DB carries `alembic_version`.
-# --------------------------------------------------------------------------
-
-_R25_UNIQUE_INDEXES = """
-CREATE UNIQUE INDEX IF NOT EXISTS idx_workspaces_name_unique
-    ON workspaces(name);
-
-CREATE UNIQUE INDEX IF NOT EXISTS idx_datasets_name_unique
-    ON datasets(workspace_id, name);
-"""
-
-
-def _backfill_duplicate_names(con: sqlite3.Connection) -> None:
-    """Resolve duplicate names by suffixing later rows with `(N)` so the
-    R25 unique indexes can be created on a legacy DB. Idempotent — a fresh
-    or already-deduped DB is a no-op. (One-time adoption bridge.)"""
-    dups = con.execute(
-        "SELECT name FROM workspaces GROUP BY name HAVING COUNT(*) > 1"
-    ).fetchall()
-    for (name,) in dups:
-        rows = con.execute(
-            "SELECT id FROM workspaces WHERE name = ? ORDER BY created_at ASC, id ASC",
-            (name,),
-        ).fetchall()
-        for idx, (ws_id,) in enumerate(rows[1:], start=2):
-            new_name = f"{name} ({idx})"
-            con.execute("UPDATE workspaces SET name = ? WHERE id = ?", (new_name, ws_id))
-            print(f"[db.adopt] renamed workspace {ws_id}: {name!r} -> {new_name!r}")
-
-    dups = con.execute(
-        "SELECT workspace_id, name FROM datasets GROUP BY workspace_id, name HAVING COUNT(*) > 1"
-    ).fetchall()
-    for ws_id, name in dups:
-        rows = con.execute(
-            "SELECT id FROM datasets WHERE workspace_id = ? AND name = ? ORDER BY created_at ASC, id ASC",
-            (ws_id, name),
-        ).fetchall()
-        for idx, (ds_id,) in enumerate(rows[1:], start=2):
-            new_name = f"{name} ({idx})"
-            con.execute("UPDATE datasets SET name = ? WHERE id = ?", (new_name, ds_id))
-            print(f"[db.adopt] renamed dataset {ds_id} in {ws_id}: {name!r} -> {new_name!r}")
-
-
-def _add_missing_columns(con: sqlite3.Connection) -> None:
-    """Add `queries.source_id` (R76) to a pre-R76 DB. Idempotent.
-    (One-time adoption bridge.)"""
-    cols = {row["name"] for row in con.execute("PRAGMA table_info(queries)").fetchall()}
-    if "source_id" not in cols:
-        con.execute("ALTER TABLE queries ADD COLUMN source_id TEXT")
-        print("[db.adopt] added queries.source_id (R76 composition)")
-
-
-def _legacy_adoption_heal(con: sqlite3.Connection) -> None:
-    """Lift a pre-Alembic DB to the baseline schema shape before stamping.
-
-    Tables already exist on a pre-Alembic DB (by definition of this branch),
-    so this only adds the late-arriving column + unique indexes that older
-    DBs may lack — exactly what the old `bootstrap_schema()` did on every
-    boot. All steps are idempotent.
-    """
-    _add_missing_columns(con)
-    _backfill_duplicate_names(con)
-    con.executescript(_R25_UNIQUE_INDEXES)
+    command.upgrade(_alembic_config(), "head")

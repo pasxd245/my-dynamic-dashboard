@@ -52,7 +52,15 @@ paths:
                     filters:
                       - { col: 8, dtype: string, op: equals, val: "gold" }
                     advanced: []
-                    joins: [{ relationshipId: "rel_4d7b91ce", type: inner }]
+                    relationships:
+                      - id: "qrel_4d7b91ce"
+                        leftDatasetId: "ds_71a4e2f0"
+                        leftColumn: "deal_id"
+                        rightDatasetId: "ds_8c2a1b40"
+                        rightColumn: "account_id"
+                        cardinality: one_to_many
+                        originRelationshipId: "rel_4d7b91ce"
+                    joins: [{ queryRelId: "qrel_4d7b91ce", type: inner }]
       responses:
         "200":
           description: Query updated. The full `Query` with the new definition.
@@ -72,7 +80,15 @@ paths:
                       filters:
                         - { col: 8, dtype: string, op: equals, val: "gold" }
                       advanced: []
-                      joins: [{ relationshipId: "rel_4d7b91ce", type: inner }]
+                      relationships:
+                        - id: "qrel_4d7b91ce"
+                          leftDatasetId: "ds_71a4e2f0"
+                          leftColumn: "deal_id"
+                          rightDatasetId: "ds_8c2a1b40"
+                          rightColumn: "account_id"
+                          cardinality: one_to_many
+                          originRelationshipId: "rel_4d7b91ce"
+                      joins: [{ queryRelId: "qrel_4d7b91ce", type: inner }]
                     resolvedColumns:
                       - { name: "deal_id", dtype: string }
                       - { name: "account_name", dtype: string }

@@ -46,7 +46,7 @@ def _seed(client: TestClient) -> tuple[str, str, str]:
     return ws, _commit_csv(client, ws, "deals"), _commit_csv(client, ws, "accounts")
 
 
-def _declare_id_join(client: TestClient, ws: str, left: str, right: str) -> str:
+def _declare_id_join(client: TestClient, ws: str, left: str, right: str) -> dict:
     resp = client.post(
         f"/workspaces/{ws}/relationships",
         json={
@@ -58,7 +58,20 @@ def _declare_id_join(client: TestClient, ws: str, left: str, right: str) -> str:
         },
     )
     assert resp.status_code == 201, resp.text
-    return resp.json()["id"]
+    return resp.json()
+
+
+def _qrel(rel: dict) -> dict:
+    """COPY-ON-PICK (R88): a query-owned relationship copied from a governed rel."""
+    return {
+        "id": "qrel_" + rel["id"].split("_", 1)[1],
+        "leftDatasetId": rel["leftDatasetId"],
+        "leftColumn": rel["leftColumn"],
+        "rightDatasetId": rel["rightDatasetId"],
+        "rightColumn": rel["rightColumn"],
+        "cardinality": rel["cardinality"],
+        "originRelationshipId": rel["id"],
+    }
 
 
 def _create_query(
@@ -68,15 +81,24 @@ def _create_query(
     name: str,
     dataset_id: str,
     source_id: str | None = None,
-    joins: list | None = None,
+    rels: list[dict] | None = None,
     filters: list | None = None,
 ):
+    # R88 — copy-on-pick each governed rel into a query-owned `relationships[]`
+    # entry; the hops reference them by `queryRelId`.
+    qrels = [_qrel(r) for r in (rels or [])]
     body = {
         "name": name,
         # R79 — the single canonical driving source: the composed base (`qr_`)
         # when given, else the root dataset (`ds_`).
         "sourceId": source_id if source_id is not None else dataset_id,
-        "definition": {"q": None, "filters": filters or [], "advanced": [], "joins": joins or []},
+        "definition": {
+            "q": None,
+            "filters": filters or [],
+            "advanced": [],
+            "relationships": qrels,
+            "joins": [{"queryRelId": qr["id"], "type": "inner"} for qr in qrels],
+        },
     }
     return client.post(f"/workspaces/{ws}/queries", json=body)
 
@@ -98,7 +120,7 @@ def test_create_and_run_composed_query() -> None:
             name="Deals (composed) × Accounts",
             dataset_id=deals,
             source_id=base_id,
-            joins=[{"relationshipId": rel, "type": "inner"}],
+            rels=[rel],
         )
         assert composed.status_code == 201, composed.text
         validate_response("queries/post.contract.yaml", 201, composed.json())
@@ -141,7 +163,7 @@ def test_composed_base_filter_applies() -> None:
             name="Big deals × Accounts",
             dataset_id=deals,
             source_id=base.json()["id"],
-            joins=[{"relationshipId": rel, "type": "inner"}],
+            rels=[rel],
         )
         assert composed.status_code == 201, composed.text
         run = client.get(f"/queries/{composed.json()['id']}/rows")
