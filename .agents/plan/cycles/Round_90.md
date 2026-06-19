@@ -1,8 +1,8 @@
 # Round 90: free-form canvas — "the rest" (Contract/Backend confirm · F2 polish · real Integration)
 
-**Status**: In progress
+**Status**: Complete
 **Date started**: 2026-06-19
-**Date completed**: —
+**Date completed**: 2026-06-19
 **Flow**: **DFCFBI continuation** — the back half of [R89](Round_89.md)'s DFCFBI flow
 (**C + B + F2 + Integration**); R89 shipped **[D + F1 + design-sync]** per the
 [[dfcfbi-two-round-split]] convention. No new `flow-selector` run (the flow is inherited).
@@ -167,15 +167,18 @@ flips the round to **`Complete`** ([governance](../../context/governance.md) —
 - [x] **F2 gate** — usability batch landed (context pad · inferred cardinality · handle
       discoverability); **`ui-design` fidelity PASS (0 gaps)**; tsc clean; **vitest 186/186**;
       `vite build` green; canvas.md re-synced (design:lint/tokens/markdownlint/round-lint 0).
-- [~] **Integration gate** — real-backend end-to-end **agent-verified** (free-form join in DuckDB ·
-      promote persists · snapshot win holds · CORS preflight clean; stack left up for the human). Awaiting
-      the **human browser feel-check + `Complete` flip** (only humans flip — [[dfcfbi-f1-needs-human-review]]).
+- [x] **Integration gate** — real-backend end-to-end **agent-verified** (free-form join in DuckDB ·
+      promote persists · snapshot win holds · CORS preflight clean) **+ human feel-checked**.
+- [x] **Complete** — **human-flipped** (user instruction, 2026-06-19) after the browser feel-check; only
+      humans flip ([governance](../../context/governance.md)).
 
 ## Act
 
-**Round at Review (2026-06-19)** — Contract + Backend confirmed no-change; F2 usability batch
-landed + `ui-design`-PASS + design-synced; Integration agent-verified on the live stack.
-Awaiting the human's browser feel-check + `Complete` flip.
+**Round COMPLETE (2026-06-19)** — Contract + Backend confirmed no-change; F2 usability batch
+landed + `ui-design`-PASS + design-synced; Integration agent-verified on the live stack +
+human feel-checked; **human-flipped to `Complete`** (user instruction). The free-form canvas
+is hardened and proven on the real stack — the theme payoff (rich query-owned relationships)
+is ready to feed **R91+ dashboards**.
 
 **Learnings**:
 
