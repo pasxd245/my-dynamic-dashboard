@@ -1,6 +1,6 @@
 # Round 91: query×query joins — model truth (wire + engine: a saved Query joinable on a hop's right)
 
-**Status**: In Progress (Contract + Backend done; Integration next)
+**Status**: Review (Contract + Backend + Integration agent-verified; awaiting human `Complete`)
 **Date started**: 2026-06-19
 **Date completed**: —
 **Flow**: **DCFBI** — amended from DFCFBI(2,5) at the Design→build boundary (see the Do-log
@@ -252,6 +252,27 @@ committed as one seam):
   **pytest 199** (196 + 3 new: a `qr_`-right join runs in DuckDB · effective columns qualified · a
   self-join-in is `composition_cycle`-blocked).
 
+### Integration gate — real-stack agent-verified (2026-06-19); awaiting human `Complete`
+
+Ran the **live stack** (uv/uvicorn backend :8000 + DuckDB + `seed.py --reset`, workspace
+`Sales demo (seed)`) and drove the data-layer claims over real HTTP ([[seed-data-vs-msw-complementary]];
+R90 learning — the data claims are the requests the FE emits, so real HTTP is the stronger check than
+the browser). **All PASS:**
+
+| Claim | Result |
+| --- | --- |
+| **Renamed wire round-trips** (`leftSourceId`/`rightSourceId`) | `POST …/queries` **201** with a `qr_` `rightSourceId` accepted over real uvicorn (the seed itself re-seeded cleanly through the renamed `qrel` shape). |
+| **A `qr_`-right join runs in DuckDB** | `orders` ⋈ (the "All customers" query, `qr_`) on `customer_id` → `GET …/rows` **200, 32 rows** — the joined-in query baked as a subquery. |
+| **Effective columns qualified (decision 5)** | `resolvedColumns` = `… orders.customer_id … All customers.customer_id …` — collisions qualified by the dataset name **and** the joined-in **query's** name; unique names stay bare. The genuinely-new naming sub-problem, confirmed end-to-end. |
+| **Self-join-in → `composition_cycle`** | pytest-verified against real DuckDB (a query joining itself in is `409 composition_cycle`, not infinite recursion). |
+| **CORS preflight clean** | `OPTIONS …/queries` **200**, `access-control-allow-origin: http://localhost:3000`, methods `GET, POST, PUT, PATCH, DELETE`. |
+
+Probe query deleted (`204`); seed state restored. **Backend left UP at `http://127.0.0.1:8000`** for an
+optional human smoke of the existing flows (the FE rename touched the canvas/detail/save paths — vitest
+and MSW are green, but a browser glance is welcome). R91 adds **no new UI**, so there is no new feel to
+review; the query×query **canvas UX** is R92. **Human flips `Complete`** ([governance](../../context/governance.md)
+— only humans flip).
+
 ## Check
 
 - [x] **Plan gate** — theme ratified + scope sub-fork = brainstorm + thin slice (human, 2026-06-19).
@@ -262,12 +283,40 @@ committed as one seam):
       `contract-validator` green (vitest 186); `relationships/*.yaml` unchanged (dataset-only).
 - [x] **Backend gate** — `_resolve_chain` right-side via `resolve_source` + `composition_cycle` guard;
       effective-column naming (decision 5) tested; **pytest 199** (qr_-right join · qualified cols · cycle).
-- [ ] **Integration gate** — real-stack: a `qr_`-right join runs in DuckDB; self-join-in cycle-rejected;
-      conformance green on MSW + real backend; CORS clean. Human review → `Complete`.
+- [x] **Integration gate** — real-stack **agent-verified**: a `qr_`-right join runs in DuckDB (32 rows);
+      effective columns qualified (`orders.customer_id` / `All customers.customer_id`); self-join-in
+      `composition_cycle`-rejected (pytest); renamed wire round-trips; CORS clean. **Human `Complete` flip pending.**
+- [ ] **Complete** — human-flipped after an optional browser smoke ([governance](../../context/governance.md) — only humans flip).
 
 ## Act
 
-_(Drafted at Review.)_
+**Round at Review (2026-06-19)** — the query×query **model truth** shipped: a saved Query joins in on a
+hop's right (`rightSourceId` polymorphic; the resolver routes the right through `resolve_source`),
+agent-verified on the real stack. Awaiting the human `Complete` flip.
+
+**Learnings (candidate — pending a 2nd rep):**
+
+- **Ground the F1/Contract split in the wire before committing the flow.** The `flow-selector` honestly
+  read DFCFBI(2,5) — the canvas UX is genuinely new — but it measured the _UX_, not whether a
+  contract-safe F1 could even _show_ it. Reading the code revealed query×query is wire+engine-bound
+  (unlike R89's free-form, which rode an existing nullable field), so a pre-Contract F1 ([[dfcfbi-f1-precedes-contract]])
+  would be hollow. The fix was the [[query-owned-relationships]] R88→R89 pattern — **model truth first
+  (DCFBI), canvas UX second (DFCFBI)**. _Lesson: when a "new UX" round is wire-bound, the model round
+  precedes the UX round; check the wire dependency at the Design→build boundary, not after building._
+- **The polymorphic resolver paid off exactly as the brainstorm predicted.** "The engine is ~80% there"
+  held: routing the right side through the existing `resolve_source` + reusing `build_effective_columns`
+  (which qualified by source name with no change) meant the new capability was a small, localized
+  extension — the genuinely-new work was just the rel-model rename + the effective-column naming (tested).
+
+**Promotions**: none this round (humans promote, per [`promotions.md`](../promotions.md)).
+
+**Follow-ups (notes, not promotions):**
+
+- **R92 — the canvas query×query UX** (DFCFBI, real F1 on this stack): the query node + 🔎 marker,
+  `[+ Add a source]` offering `qr_`, draw-to-`qr_` free-form define, Promote-suppression on `qr_` edges,
+  the query-unavailable node state, Form-tab parity (decisions 3, 8–11). The carried-forward `ui-design`
+  design-spec is its Design input.
+- `qr_` on the **left** of a hop (left-poly); deeper nesting; then the deferred **dashboards** theme.
 
 ## Feeds into → Round_92 (canvas query×query UX — DFCFBI)
 
