@@ -210,6 +210,15 @@ advisory-field-inference learning above is a `context/` candidate **pending a se
 - Dashboards / charts over the richer queries → **R91+**.
 - Further canvas polish beyond the R90 batch (if the human's feel-check surfaces any) is its
   own follow-up, not this round.
+- **Query↔query joins — a query as a *non-driving* (joined-in) source → R91+** (human-flagged,
+  2026-06-19). Today only **datasets** are joinable hops: the resolver reads each hop's right
+  side as a dataset ([queries.py `_resolve_chain`](../../../workspace/apps/backend/app/routers/queries.py#L210))
+  and governed rels are dataset↔dataset; a saved query enters only as the **driving base**
+  (composition, R76/R77). So the canvas `[+ Add a source]` listing datasets-only is faithful,
+  **not a bug**. Joining query↔query is a **new theme** (resolver must resolve a `qr_`
+  right-side; the key/rel model must span queries' effective, collision-qualified columns) —
+  also surfaces a related edge: a **composed** query (driving = `qr_`) currently renders no
+  connect handles on its base node (columns resolve for datasets only). Not R90 polish scope.
 
 ## Feeds into → Round_91+ (dashboards) (TBD)
 
