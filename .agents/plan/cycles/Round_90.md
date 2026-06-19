@@ -41,13 +41,17 @@ _Track: 1 (product — the production hardening + real-stack verification of R89
 
 ## Acceptance criteria (draft: sharpen at F2)
 
-- [ ] **Contract/Backend confirmed no-change** — conformance + pytest green; no `query.yaml` edit.
-- [ ] **Edge labels don't overlap nodes** _(FE)_ — the edge toolbar is legible at the canvas's real node
-      spacing (no clipped Promote/[×]).
-- [ ] **Cardinality-at-draw decided + built** _(FE)_ — infer-vs-prompt resolved; the chosen affordance ships.
-- [ ] **Handle discoverability** _(FE)_ — the connect-dots read as draggable (cue/label).
-- [ ] **Real-stack Integration** _(I)_ — promote persists to the DB; a free-form join runs in DuckDB; the
-      snapshot win holds; CORS clean — on the live backend, human-verified.
+- [x] **Contract/Backend confirmed no-change** — conformance (186 vitest) + pytest (196) green; no
+      `query.yaml` edit; `cardinality` verified advisory (not read by the resolver).
+- [x] **Edge labels don't overlap nodes** _(FE)_ — actions moved into a select-revealed context pad lifted
+      above the node cards (`zIndex`); compact opaque label at rest. _(Built + test-verified; human confirms feel.)_
+- [x] **Cardinality-at-draw decided + built** _(FE)_ — **infer smart default, keep confirm** (human's call);
+      `inferCardinality` ships, modal pre-sets it as a confirmable suggestion.
+- [x] **Handle discoverability** _(FE)_ — enlarged dots + crosshair cursor + hover halo + "drag to join"
+      tooltip + column-row hover highlight.
+- [x] **Real-stack Integration** _(I)_ — promote persists to the DB; a free-form join runs in DuckDB; the
+      snapshot win holds; CORS clean — **agent-verified on the live backend** (data layer); **human browser
+      feel-check + `Complete` flip pending** ([[dfcfbi-f1-needs-human-review]]).
 
 ## Risks / unknowns
 
@@ -126,11 +130,33 @@ description; `inferCardinality` added to the `joinGraph.ts` surfaces row; the "u
 polish" OUT-of-scope item retargeted "deferred" → "built (R90)". Gates: **design:lint 0 ·
 design:tokens 0 · markdownlint 0 · round-lint 0**.
 
-### Integration gate — real-stack verification (in progress)
+### Integration gate — real-stack agent-verified (2026-06-19); awaiting human feel-check + `Complete`
 
-_Next: run the app against the live Python backend + DuckDB + seed; confirm promote
-persists, a free-form join runs in DuckDB, the snapshot win holds, CORS clean. Then the
-human's `Complete` flip ([[dfcfbi-f1-needs-human-review]] — gates can't see CORS/feel)._
+Ran the **live stack** (uv/uvicorn backend :8000 + DuckDB v1.1.3 + `seed.py` upsert,
+workspace `ws_1e2d1a32` — the sales star) and drove the four data-layer claims over HTTP
+(the FE sends exactly these requests; this is the stronger check for the data claims, vs
+MSW). **All four PASS:**
+
+| Claim | Result |
+| --- | --- |
+| **Free-form join runs in DuckDB** (`originRelationshipId: null`) | `POST …/queries/preview` 200 — 11 matched rows, collision-qualified columns (`customers.region_id` / `regions.region_id`). A genuinely free-form pair (customers.region_id → regions.region_id; governed is the reverse orientation). |
+| **Promote persists to the governed ER** | `POST …/relationships` **201** → the new `rel_` is present in `GET …/relationships`. |
+| **Snapshot win holds (R88) on the real DB** | a copy-on-pick saved query ran **11 rows** → `DELETE` its origin governed rel (**204**) → re-ran **11 rows** (unbroken — runs on its own `definition.relationships` snapshot). |
+| **CORS preflight clean** | `OPTIONS` **200** with `access-control-allow-origin: http://localhost:3000`, `-allow-methods`, `-allow-headers: content-type`, `-max-age: 600`; a simple `GET` echoes the ACAO. |
+
+State restored after the probe (3 seed governed rels; probe query deleted). Two self-inflicted
+script bugs surfaced (and confirmed the backend's correctness, not a product gap): a probe
+`qrel_` id with a non-hex char was correctly **422**-rejected by the `^qrel_[0-9a-f]{8}$`
+contract pattern; advisory `cardinality` (`many_to_many`) on a 1:N pair joined fine (cardinality
+is not a runtime constraint — Backend-gate finding confirmed end-to-end).
+
+**Full dev stack left UP for the human's feel-check:** backend `http://127.0.0.1:8000`
+(seeded) + builder `http://localhost:3000`. **Hard-stop for the human** ([[dfcfbi-f1-needs-human-review]]
+— gates/agent can't judge feel or browser CORS): open a seeded query → **Canvas** tab and
+confirm the F2 polish in the browser — (a) the **edge context pad** appears on click and no
+longer clips behind nodes; (b) a free-form draw opens the modal **pre-set to an inferred
+cardinality**; (c) the **handles read as draggable** (cursor/halo/tooltip). Then the human
+flips the round to **`Complete`** ([governance](../../context/governance.md) — only humans flip).
 
 ## Check
 
@@ -141,24 +167,49 @@ human's `Complete` flip ([[dfcfbi-f1-needs-human-review]] — gates can't see CO
 - [x] **F2 gate** — usability batch landed (context pad · inferred cardinality · handle
       discoverability); **`ui-design` fidelity PASS (0 gaps)**; tsc clean; **vitest 186/186**;
       `vite build` green; canvas.md re-synced (design:lint/tokens/markdownlint/round-lint 0).
-- [ ] **Integration gate** — real-backend end-to-end; **agent real-stack verification next**,
-      then **human-verified** `Complete` flip.
+- [~] **Integration gate** — real-backend end-to-end **agent-verified** (free-form join in DuckDB ·
+      promote persists · snapshot win holds · CORS preflight clean; stack left up for the human). Awaiting
+      the **human browser feel-check + `Complete` flip** (only humans flip — [[dfcfbi-f1-needs-human-review]]).
 
 ## Act
 
-_(Drafted at Review.)_
+**Round at Review (2026-06-19)** — Contract + Backend confirmed no-change; F2 usability batch
+landed + `ui-design`-PASS + design-synced; Integration agent-verified on the live stack.
+Awaiting the human's browser feel-check + `Complete` flip.
 
 **Learnings**:
 
-- TBD
+- **Before agonizing over a default's correctness, check whether the value is load-bearing
+  at all.** The cardinality-at-draw decision looked high-stakes (selector condition 3:
+  "a wrong join silently produces wrong analytics") until a one-line `grep` showed
+  `cardinality` is **never read by the query resolver** — it is advisory ("direction by
+  side order"); the join **type** drives the SQL. That flipped the call: infer a smart
+  default, keep the confirm, ship — a wrong guess is non-destructive. The axis that matters
+  for "how safe is an inferred/auto value" is **does anything load-bearing consume it**, not
+  "how often is the guess right." _(Candidate principle — pending a 2nd rep.)_
+- **A human's design reference can beat the options you posed.** I offered always-visible vs.
+  hover-reveal for the edge-overlap fix; the human pointed to the **bpmn-js context pad**
+  (select an element → a floating action palette beside it). Honoring the reference produced
+  a strictly better fix — declutter at rest, lift the pad above nodes on select — and a more
+  testable design (**canvas-local selection state**, not React Flow's happy-dom-fragile
+  internal selection). When a human cites a concrete pattern, build to it rather than to the
+  multiple-choice you framed.
+- **For an Integration gate, verify data-layer claims over real HTTP, not the browser.** The
+  load-bearing R90 claims (free-form join in DuckDB · promote persists · snapshot win holds ·
+  CORS preflight) are all exactly the requests the FE emits, so driving them with `urllib`
+  against the live backend is the **stronger, faster** check — Playwright/feel is reserved for
+  the browser-only concerns the human owns. Reinforces [[seed-data-vs-msw-complementary]].
 
-**Promotions** _(if none: write as plain text, not checkboxes)_:
-
-- TBD
+**Promotions**: none land this round (the governance brake — humans promote, per
+[`promotions.md`](../promotions.md)). The "draw-to-pick is a selection, not a creation"
+principle ([[query-owned-relationships]]) gained further real-stack validation but holds. The
+advisory-field-inference learning above is a `context/` candidate **pending a second rep**.
 
 **Follow-ups (not promotions, just notes):**
 
 - Dashboards / charts over the richer queries → **R91+**.
+- Further canvas polish beyond the R90 batch (if the human's feel-check surfaces any) is its
+  own follow-up, not this round.
 
 ## Feeds into → Round_91+ (dashboards) (TBD)
 
