@@ -356,8 +356,9 @@ if a base loops) — flag-don't-crash, mirroring the edit-mode and run-time gate
 
 ### OUT of scope (deferred with named triggers)
 
-- **The visual source-graph canvas** (a canvas view/edit mode over this builder + the
-  standalone "New query" entry) → design banked, build deferred ([canvas.md](canvas.md)).
+- **The visual source-graph canvas** (the React Flow canvas view/edit mode over this builder)
+  is **built** — it lives in [canvas.md](canvas.md), not here. The standalone "New query"
+  empty-canvas create entry remains deferred ([canvas.md](canvas.md) Scope).
 - **Renaming a Query from the builder** → the builder edits the **definition** only; a
   separate rename affordance is its own pull.
 - **A `qr_` on the right of a join hop; composite keys; self-joins; cross-workspace

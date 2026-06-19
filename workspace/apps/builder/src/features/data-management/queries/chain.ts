@@ -61,3 +61,21 @@ export function copyGovernedRel(rel: {
     originRelationshipId: rel.id,
   };
 }
+
+/** R89 — the join fields a free-form / promoted query-owned rel carries (no id, no
+ *  origin). Shared by `freeFormRel` (define) and the promote `POST` body. */
+export type RelFields = {
+  leftDatasetId: string;
+  leftColumn: string;
+  rightDatasetId: string;
+  rightColumn: string;
+  cardinality: QueryRelationship['cardinality'];
+};
+
+/** R89 — FREE-FORM DEFINE: mint a query-owned relationship from a drawn column pair
+ *  with NO governed match. `originRelationshipId` is null (it has no provenance —
+ *  it was created here, not copied). The resolver is origin-agnostic, so it joins
+ *  exactly like a copied rel; `promoteRel` can later give it an origin. */
+export function freeFormRel(fields: RelFields): QueryRelationship {
+  return { id: newQueryRelId(), ...fields, originRelationshipId: null };
+}

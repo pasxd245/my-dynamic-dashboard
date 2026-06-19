@@ -20,8 +20,8 @@ visual source-graph editor is [canvas.md](canvas.md) (the Canvas tab — built).
 **Sibling docs**:
 [query-construction.md](query-construction.md) (the editable builder surface: edit a
 Query's definition + preview before save; the create-mode "Build on this query"),
-[canvas.md](canvas.md) (the visual source-graph editor — the Canvas tab, built: read-only
-graph + pick-pair draw-edge / delete-leaf editing),
+[canvas.md](canvas.md) (the visual source-graph editor — the React Flow Canvas tab, built:
+draw-to-connect copy-on-pick + free-form define, promote, and the divergence warn),
 [dataset-detail.md](../datasets/dataset-detail.md) (the surface a Query is saved _from_,
 and whose extracted `<PagedRowsView>` + standard detail layout this archetype reuses),
 [dataset-filters.md](../datasets/dataset-filters.md) +
@@ -272,10 +272,12 @@ datasets/columns/cardinality, `originRelationshipId` recording provenance). The 
 resolves through that **embedded copy** — the resolver never re-reads the workspace
 `relationships` table — so editing or deleting the governed rel can no longer break a
 saved query (it runs on its own snapshot). The join **type**, the result projection, and
-predicate qualification are query-time concerns that live in the definition. Defining a
-query-owned rel **free-form** (no governed origin) and **promoting** one back up to the
-governed ER are R89; at this round every query-owned rel is seeded by copy-on-pick, so
-`originRelationshipId` is always set.
+predicate qualification are query-time concerns that live in the definition. A query-owned
+rel is seeded either by **copy-on-pick** (from a governed `rel_`, `originRelationshipId`
+set) or **defined free-form** (no governed origin, `originRelationshipId: null`); a useful
+one can be **promoted** up to the governed ER. The free-form / promote / divergence-warn UX
+lives on the canvas ([canvas.md](canvas.md)); the model supports it via the nullable
+`originRelationshipId`.
 
 ### Join tree (topology)
 
@@ -582,12 +584,9 @@ BUILT  → this doc (queries.md)
          · composition (a Query as the driving source; the unified ds_/qr_ resolver)
          · the interactive construction surface (query-construction.md):
            edit + live-preview + the "Build on this query" create mode
-         · the visual source-graph canvas (canvas.md): read-only graph + pick-pair
-           draw-edge / delete-leaf editing
-NEXT   → free-form canvas UX (R89): draw a column pair with no governed match to DEFINE a
-         query-owned rel, and PROMOTE a useful one up to the governed ER (React Flow); plus
-         the divergence-warn UI.
-LATER  → consumer-save / dashboards (downstream value-out) — read the clean single-spine
+         · the visual source-graph canvas (canvas.md): the React Flow editor —
+           draw-to-connect copy-on-pick + free-form define, promote, divergence warn
+NEXT   → consumer-save / dashboards (downstream value-out) — read the clean single-spine
          Query model.
 ```
 
@@ -615,8 +614,9 @@ Each step is **pulled, not pre-built** (the Evolution Rule + the
 + **A `qr_` on the right of a join hop** (a Query joined *in* via a `rel_`) → defers a
   governed-edge re-open (relationship endpoints `ds_ | qr_`). `rel_` endpoints stay
   dataset↔dataset; the `qr_` source is the **base** only.
-+ **Free-form define + promote + the divergence-warn UI** → R89 ([canvas.md](canvas.md));
-  this round seeds query-owned rels by copy-on-pick only (`originRelationshipId` always set).
++ **Free-form define + promote + the divergence-warn UX** are a **canvas** concern, built in
+  [canvas.md](canvas.md); this model doc owns only the shape that supports them (the nullable
+  `originRelationshipId` + the origin-agnostic resolver).
 + **Composite / multi-column join keys; self-joins / diamonds; cross-workspace joins;
   null-aware predicate operators** → future; the engine joins single-column,
   within-workspace, tree (no diamond) hops.

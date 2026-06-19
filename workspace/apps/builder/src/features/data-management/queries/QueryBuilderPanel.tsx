@@ -309,7 +309,11 @@ function CanvasTab({
           relationships={builder.queryRels}
           joins={builder.joins}
           onAddJoin={builder.addJoin}
+          onDefineJoin={builder.defineJoin}
           onRemoveJoin={builder.removeJoin}
+          onPromoteRel={builder.promoteRel}
+          onResyncRel={builder.resyncRel}
+          promoteState={builder.promoteState}
         />
       </div>
     </div>

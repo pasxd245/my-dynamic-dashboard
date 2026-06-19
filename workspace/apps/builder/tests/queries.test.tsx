@@ -8,7 +8,7 @@ import { App } from 'antd';
 import { http, HttpResponse } from 'msw';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { AppLayout } from '@/components/AppLayout';
 import { DatasetDetailPage } from '@/features/data-management/datasets/DatasetDetailPage';
@@ -30,6 +30,45 @@ import { server } from '@/mocks/server';
 
 const QR_ID = MOCK_QUERY.id;
 const DS_ID = MOCK_DATASET.id;
+
+// React Flow needs ResizeObserver + element dimensions to measure nodes; only once
+// both endpoints of an edge are measured does it render the edge (its EdgeLabelRenderer
+// toolbar). happy-dom provides neither, and a no-op ResizeObserver never fires — so the
+// mock must INVOKE its callback so nodes get measured. Scoped install/restore keeps the
+// rest of the suite on happy-dom defaults.
+function installReactFlowEnv(): () => void {
+  const origGBCR = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'getBoundingClientRect');
+  const origRO = globalThis.ResizeObserver;
+  const origDM = (globalThis as Record<string, unknown>).DOMMatrixReadOnly;
+  class RO {
+    cb: ResizeObserverCallback;
+    constructor(cb: ResizeObserverCallback) {
+      this.cb = cb;
+    }
+    observe(target: Element) {
+      this.cb([{ target, contentRect: { width: 400, height: 300 } } as ResizeObserverEntry], this);
+    }
+    unobserve() {}
+    disconnect() {}
+  }
+  globalThis.ResizeObserver = RO as unknown as typeof ResizeObserver;
+  (globalThis as Record<string, unknown>).DOMMatrixReadOnly = class {
+    m22 = 1;
+  };
+  Object.defineProperty(HTMLElement.prototype, 'getBoundingClientRect', {
+    configurable: true,
+    value: () => ({ x: 0, y: 0, top: 0, left: 0, right: 400, bottom: 300, width: 400, height: 300, toJSON() {} }),
+  });
+  Object.defineProperty(HTMLElement.prototype, 'offsetWidth', { configurable: true, value: 400 });
+  Object.defineProperty(HTMLElement.prototype, 'offsetHeight', { configurable: true, value: 300 });
+  return () => {
+    globalThis.ResizeObserver = origRO;
+    (globalThis as Record<string, unknown>).DOMMatrixReadOnly = origDM;
+    if (origGBCR) Object.defineProperty(HTMLElement.prototype, 'getBoundingClientRect', origGBCR);
+    delete (HTMLElement.prototype as unknown as { offsetWidth?: number }).offsetWidth;
+    delete (HTMLElement.prototype as unknown as { offsetHeight?: number }).offsetHeight;
+  };
+}
 
 function renderApp(initialPath: string) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -626,6 +665,14 @@ describe('Build on this query (R77 — composition create)', () => {
 describe('Query canvas view (R85 — Phase A, read-only source-graph)', () => {
   const JOIN_ID = MOCK_JOINED_QUERY.id;
 
+  // The canvas renders via React Flow (R89) — install the measurement env so edges
+  // render (the read-only view still asserts edge labels).
+  let restoreRf: () => void;
+  beforeAll(() => {
+    restoreRf = installReactFlowEnv();
+  });
+  afterAll(() => restoreRf());
+
   function clickEdit() {
     fireEvent.click(document.querySelector('[data-component="QueryDetailEdit"]') as HTMLButtonElement);
   }
@@ -795,16 +842,26 @@ describe('Query canvas view (R85 — Phase A, read-only source-graph)', () => {
   });
 });
 
-// R87 (canvas theme — Phase B). The Canvas tab is now an EDITOR at hop-list
-// parity: a pick-pair, zero-dep mechanism — [+ Add a source] stages a not-yet-
-// joined dataset, then connect at COLUMN granularity (click source col → target
-// col, or pick the eligible governed pair from the <Select>) → PICKS the
-// governed rel_ → addJoin. A leaf edge's [×] → removeJoin; a non-leaf's [×] is
-// disabled with the shipped tooltip. FE-only over the SAME working copy, the
-// SAME eligibility/leaf rules the list computes (joinGraph), no contract/BE
-// change (canvas.md Phase B; Round_87 acceptance).
-describe('Query canvas EDITING (R87 — Phase B, pick-pair draw-edge / delete-leaf)', () => {
+// R89 (canvas theme — free-form, React Flow). The Canvas tab is a React Flow
+// EDITOR: drag a column handle → another column handle (resolveConnect) routes to
+// copy-on-pick (governed match) or free-form define (no match, the gesture that
+// CREATES). Any query-owned rel can be PROMOTED up to the governed ER; a copied rel
+// that drifted from its origin shows a divergence WARN + opt-in re-sync. The drag
+// gesture itself is human-verified at the F1 review (happy-dom can't fire a React
+// Flow connect); these tests cover the routing (resolveConnect, separate file), the
+// rendered graph, and the edge toolbar + free-form staging + promote + divergence —
+// everything reachable without a literal drag.
+describe('Query canvas EDITING (R89 — free-form, React Flow)', () => {
   const JOIN_ID = MOCK_JOINED_QUERY.id;
+  const DEALS = MOCK_DATASET.id;
+  const ACCOUNTS = MOCK_DATASET_2.id;
+  const OWNERS = MOCK_DATASET_3.id;
+
+  let restoreRf: () => void;
+  beforeAll(() => {
+    restoreRf = installReactFlowEnv();
+  });
+  afterAll(() => restoreRf());
 
   function clickEdit() {
     fireEvent.click(document.querySelector('[data-component="QueryDetailEdit"]') as HTMLButtonElement);
@@ -820,14 +877,15 @@ describe('Query canvas EDITING (R87 — Phase B, pick-pair draw-edge / delete-le
     });
     fireEvent.click(option);
   }
-  function canvasColumn(nodeId: string, col: string) {
-    return document.querySelector(
-      `[data-component="CanvasColumn"][data-node="${nodeId}"][data-col="${col}"]`,
-    ) as HTMLButtonElement | null;
+
+  // A query whose definition is supplied inline (so a test can load a 2-hop tree or a
+  // diverged copy without driving the drag gesture).
+  function serveQuery(definition: (typeof MOCK_JOINED_QUERY)['definition']) {
+    server.use(http.get(`*/queries/${JOIN_ID}`, () => HttpResponse.json({ ...MOCK_JOINED_QUERY, definition })));
   }
 
-  // Enter edit on the 1-hop joined query (Deals ⋈ Accounts) and land on the
-  // Canvas editor tab: 2 nodes, 1 edge, the editing toolbar present.
+  // Enter edit on the 1-hop joined query (Deals ⋈ Accounts) and land on the Canvas
+  // editor tab: 2 nodes + 1 edge (the copied governed rel), the editing toolbar present.
   async function openCanvasEditor() {
     renderApp(`/data-management/queries/${JOIN_ID}`);
     expect(await screen.findByText(/Matched 2 rows/)).toBeInTheDocument();
@@ -838,108 +896,130 @@ describe('Query canvas EDITING (R87 — Phase B, pick-pair draw-edge / delete-le
     await waitFor(() => expect(document.querySelectorAll('[data-component="CanvasNode"]').length).toBe(2));
   }
 
-  it('draws an edge via the <Select> of eligible governed pairs (the keyboard/SR path) → addJoin', async () => {
+  it('renders the join tree as React Flow nodes + a labelled, governed edge', async () => {
     await openCanvasEditor();
-    // [+ Add a source] → stage owners (a not-yet-joined dataset reachable by a
-    // governed rel from Accounts). It renders dashed; it is NOT yet a hop.
-    fireEvent.click(document.querySelector('[data-component="CanvasAddSource"]') as HTMLButtonElement);
+    expect(document.querySelector('[data-component="JoinEditor"]')).toBeNull();
+    const driving = document.querySelector('[data-component="CanvasNode"][data-driving="true"]') as HTMLElement;
+    expect(driving.textContent).toContain(MOCK_DATASET.name);
+    expect(driving.textContent).toContain('driving');
+    const edge = (await waitFor(() => {
+      const el = document.querySelector('[data-component="CanvasEdge"]');
+      expect(el).not.toBeNull();
+      return el as HTMLElement;
+    })) as HTMLElement;
+    // The copied rel reads as a GOVERNED edge (it carries an originRelationshipId).
+    expect(edge.getAttribute('data-free')).toBe('false');
+    expect(edge.textContent).toContain('deal_id ↔ account_id');
+  });
+
+  it('stages ANY not-in-graph dataset for free-form — even one no governed rel reaches', async () => {
+    // Only the Deals↔Accounts edge is governed → nothing drives onward from the graph.
+    // R87 would DISABLE add-source here; R89 free-form offers every not-in-graph dataset.
+    server.use(http.get('*/workspaces/:id/relationships', () => HttpResponse.json([MOCK_RELATIONSHIP])));
+    await openCanvasEditor();
+    const addBtn = document.querySelector('[data-component="CanvasAddSource"]') as HTMLButtonElement;
+    expect(addBtn).not.toBeDisabled(); // free-form: still addable
+    fireEvent.click(addBtn);
+    // owners is offered for a free-form join even though no governed rel reaches it
+    // from {Deals, Accounts}; staging it adds a dashed, not-yet-joined node.
     await pickFromSelect('CanvasAddSourceSelect', new RegExp(MOCK_DATASET_3.name));
     await waitFor(() =>
       expect(document.querySelector('[data-component="CanvasNode"][data-staged="true"]')).not.toBeNull(),
     );
-    expect(document.querySelectorAll('[data-component="CanvasEdge"]').length).toBe(1); // still 1 hop
-    // Connect via the eligible-pair <Select> → PICKS accounts.tier ↔ owners.tier
-    // → addJoin. The staged node becomes a real second hop (2 edges, 3 nodes).
-    await pickFromSelect('CanvasConnectSelect', /accounts\.tier ↔ owners\.tier/);
-    await waitFor(() => expect(document.querySelectorAll('[data-component="CanvasEdge"]').length).toBe(2));
-    expect(document.querySelectorAll('[data-component="CanvasNode"]').length).toBe(3);
-    expect(document.querySelector('[data-component="CanvasNode"][data-staged="true"]')).toBeNull();
+    expect(document.querySelectorAll('[data-component="CanvasEdge"]').length).toBe(1); // no hop yet (drag commits it)
   });
 
-  it('draws an edge via the column→column pick gesture (click source col, then target col)', async () => {
+  it('disables [+ Add a source] only when every dataset is already on the canvas', async () => {
+    // Workspace has just Deals + Accounts → after the 1-hop join, nothing is left to add.
+    server.use(
+      http.get('*/datasets', () => HttpResponse.json([MOCK_DATASET, MOCK_DATASET_2])),
+      http.get('*/workspaces/:id/relationships', () => HttpResponse.json([MOCK_RELATIONSHIP])),
+    );
     await openCanvasEditor();
-    fireEvent.click(document.querySelector('[data-component="CanvasAddSource"]') as HTMLButtonElement);
-    await pickFromSelect('CanvasAddSourceSelect', new RegExp(MOCK_DATASET_3.name));
-    await waitFor(() => expect(canvasColumn(MOCK_DATASET_3.id, 'tier')).not.toBeNull());
-    // Click the SOURCE column accounts.tier (eligible — it has a governed pair).
-    const srcCol = canvasColumn(MOCK_DATASET_2.id, 'tier') as HTMLButtonElement;
-    expect(srcCol.getAttribute('data-eligible')).toBe('true');
-    fireEvent.click(srcCol);
-    await waitFor(() => expect(srcCol.getAttribute('aria-pressed')).toBe('true'));
-    // The matching TARGET column owners.tier highlights; click it → PICK → addJoin.
-    const tgtCol = canvasColumn(MOCK_DATASET_3.id, 'tier') as HTMLButtonElement;
-    await waitFor(() => expect(tgtCol.getAttribute('data-eligible')).toBe('true'));
-    fireEvent.click(tgtCol);
-    await waitFor(() => expect(document.querySelectorAll('[data-component="CanvasEdge"]').length).toBe(2));
+    expect(document.querySelector('[data-component="CanvasAddSource"]') as HTMLButtonElement).toBeDisabled();
   });
 
-  it('guides to Relationships (does NOT declare) when a drawn column pair has no governed rel', async () => {
+  it('deletes a leaf edge via its [×] → removeJoin (collapsing to the lone driving node)', async () => {
     await openCanvasEditor();
-    fireEvent.click(document.querySelector('[data-component="CanvasAddSource"]') as HTMLButtonElement);
-    await pickFromSelect('CanvasAddSourceSelect', new RegExp(MOCK_DATASET_3.name));
-    await waitFor(() => expect(canvasColumn(MOCK_DATASET_2.id, 'tier')).not.toBeNull());
-    // Arm a source column, then click a NON-matching target (owners.owner_name has
-    // no governed rel for this pair) → the no-match guide, not a new relationship.
-    fireEvent.click(canvasColumn(MOCK_DATASET_2.id, 'tier') as HTMLButtonElement);
-    fireEvent.click(canvasColumn(MOCK_DATASET_3.id, 'owner_name') as HTMLButtonElement);
-    const guide = await waitFor(() => {
-      const el = document.querySelector('[data-component="CanvasNoMatchGuide"]');
+    const del = (await waitFor(() => {
+      const el = document.querySelector('[data-component="CanvasEdgeDelete"]') as HTMLButtonElement;
       expect(el).not.toBeNull();
-      return el as HTMLElement;
-    });
-    // It points at the Relationships surface (schema-authoring lives there, OUT of R87).
-    const link = guide.querySelector('[data-component="CanvasNoMatchLink"]') as HTMLAnchorElement;
-    expect(link).not.toBeNull();
-    expect(link.getAttribute('href')).toContain('/relationships');
-    // No hop was added — still the single Deals ⋈ Accounts edge.
-    expect(document.querySelectorAll('[data-component="CanvasEdge"]').length).toBe(1);
-  });
-
-  it('deletes a leaf edge via its [×] → removeJoin (collapsing back to the lone driving node)', async () => {
-    await openCanvasEditor();
-    // The single Deals ⋈ Accounts edge is a leaf → its [×] is enabled.
-    const del = document.querySelector('[data-component="CanvasEdgeDelete"]') as HTMLButtonElement;
+      return el;
+    })) as HTMLButtonElement;
     expect(del.getAttribute('data-leaf')).toBe('true');
-    expect(del).not.toBeDisabled();
     fireEvent.click(del);
-    // removeJoin → no hops; the canvas collapses to the lone driving node, no edges.
     await waitFor(() => expect(document.querySelectorAll('[data-component="CanvasEdge"]').length).toBe(0));
     expect(document.querySelectorAll('[data-component="CanvasNode"]').length).toBe(1);
   });
 
-  it("disables a non-leaf edge's [×] with the shipped removeJoinBlocked tooltip reason", async () => {
-    await openCanvasEditor();
-    // Build Deals ⋈ Accounts ⋈ Owners so Deals⋈Accounts becomes a NON-leaf.
-    fireEvent.click(document.querySelector('[data-component="CanvasAddSource"]') as HTMLButtonElement);
-    await pickFromSelect('CanvasAddSourceSelect', new RegExp(MOCK_DATASET_3.name));
-    await pickFromSelect('CanvasConnectSelect', /accounts\.tier ↔ owners\.tier/);
-    await waitFor(() => expect(document.querySelectorAll('[data-component="CanvasEdge"]').length).toBe(2));
-    const dels = Array.from(document.querySelectorAll('[data-component="CanvasEdgeDelete"]')) as HTMLButtonElement[];
-    expect(dels.length).toBe(2);
-    // Exactly one is a disabled non-leaf (Deals⋈Accounts); the leaf (Accounts⋈Owners) is enabled.
+  it("disables a non-leaf edge's [×] with the removeJoinBlocked reason (2-hop tree)", async () => {
+    serveQuery({
+      ...MOCK_JOINED_QUERY.definition,
+      relationships: [
+        { id: 'qrel_a1b2c3d4', leftDatasetId: DEALS, leftColumn: 'deal_id', rightDatasetId: ACCOUNTS, rightColumn: 'account_id', cardinality: 'one_to_many', originRelationshipId: 'rel_a1b2c3d4' },
+        { id: 'qrel_b2c3d4e5', leftDatasetId: ACCOUNTS, leftColumn: 'tier', rightDatasetId: OWNERS, rightColumn: 'tier', cardinality: 'one_to_many', originRelationshipId: 'rel_b2c3d4e5' },
+      ],
+      joins: [{ queryRelId: 'qrel_a1b2c3d4', type: 'inner' }, { queryRelId: 'qrel_b2c3d4e5', type: 'inner' }],
+    });
+    renderApp(`/data-management/queries/${JOIN_ID}`);
+    expect(await screen.findByText(/Matched 2 rows/)).toBeInTheDocument();
+    clickEdit();
+    switchTab('canvas');
+    const dels = (await waitFor(() => {
+      const els = Array.from(document.querySelectorAll('[data-component="CanvasEdgeDelete"]')) as HTMLButtonElement[];
+      expect(els.length).toBe(2);
+      return els;
+    })) as HTMLButtonElement[];
+    // Deals⋈Accounts is a NON-leaf (Accounts drives the 2nd hop) → its [×] is disabled.
     expect(dels.filter((b) => b.disabled).length).toBe(1);
     expect(dels.filter((b) => b.getAttribute('data-leaf') === 'false')[0]).toBeDisabled();
   });
 
-  it('disables [+ Add a source] with the addJoinNone tooltip when no eligible relationship remains', async () => {
-    // Only the Deals ↔ Accounts edge exists → once joined, nothing else is eligible.
-    server.use(http.get('*/workspaces/:id/relationships', () => HttpResponse.json([MOCK_RELATIONSHIP])));
+  it('promotes a query-owned rel up to the governed ER via POST /relationships', async () => {
+    let posted: Record<string, unknown> | null = null;
+    server.use(
+      http.post('*/workspaces/:id/relationships', async ({ request }) => {
+        posted = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json(
+          { ...MOCK_RELATIONSHIP, id: 'rel_promoted', ...posted, status: 'valid' },
+          { status: 201 },
+        );
+      }),
+    );
     await openCanvasEditor();
-    const addBtn = document.querySelector('[data-component="CanvasAddSource"]') as HTMLButtonElement;
-    expect(addBtn).toBeDisabled();
+    const promote = (await waitFor(() => {
+      const el = document.querySelector('[data-component="CanvasPromote"]') as HTMLButtonElement;
+      expect(el).not.toBeNull();
+      return el;
+    })) as HTMLButtonElement;
+    fireEvent.click(promote);
+    // Success surfaces the message; the POST carried the query-owned rel's join fields.
+    expect(await screen.findByText('Relationship promoted to the workspace.')).toBeInTheDocument();
+    expect(posted).toMatchObject({ leftColumn: 'deal_id', rightColumn: 'account_id' });
   });
 
-  it('holds the Save gate through a canvas edit — adding a hop makes the copy dirty and previews clean', async () => {
-    await openCanvasEditor();
-    fireEvent.click(document.querySelector('[data-component="CanvasAddSource"]') as HTMLButtonElement);
-    await pickFromSelect('CanvasAddSourceSelect', new RegExp(MOCK_DATASET_3.name));
-    await pickFromSelect('CanvasConnectSelect', /accounts\.tier ↔ owners\.tier/);
-    await waitFor(() => expect(document.querySelectorAll('[data-component="CanvasEdge"]').length).toBe(2));
-    // The edit is dirty + the chain previews clean → Save (in the shared header) enables.
-    const saveBtn = document.querySelector('[data-component="QueryBuilderSave"]') as HTMLButtonElement;
-    await waitFor(() => expect(saveBtn).not.toBeDisabled());
-    fireEvent.click(saveBtn);
-    await waitFor(() => expect(document.querySelector('[data-component="QueryDetailEdit"]')).not.toBeNull());
-    expect(document.querySelector('[data-component="QueryBuilderPanel"]')).toBeNull();
+  it("warns when a copied rel diverged from its origin, and re-syncs on the user's opt-in", async () => {
+    // The query's snapshot says one_to_one; the governed origin (default handler) is
+    // one_to_many → a 'changed' divergence. Warn-only — the query still runs.
+    serveQuery({
+      ...MOCK_JOINED_QUERY.definition,
+      relationships: [
+        { id: 'qrel_a1b2c3d4', leftDatasetId: DEALS, leftColumn: 'deal_id', rightDatasetId: ACCOUNTS, rightColumn: 'account_id', cardinality: 'one_to_one', originRelationshipId: 'rel_a1b2c3d4' },
+      ],
+      joins: [{ queryRelId: 'qrel_a1b2c3d4', type: 'inner' }],
+    });
+    renderApp(`/data-management/queries/${JOIN_ID}`);
+    expect(await screen.findByText(/Matched 2 rows/)).toBeInTheDocument();
+    clickEdit();
+    switchTab('canvas');
+    const diverged = (await waitFor(() => {
+      const el = document.querySelector('[data-component="CanvasEdgeDiverged"]');
+      expect(el).not.toBeNull();
+      return el as HTMLElement;
+    })) as HTMLElement;
+    expect(diverged.getAttribute('data-divergence')).toBe('changed');
+    // Opt-in re-sync re-copies the governed fields → divergence clears (warn gone).
+    fireEvent.click(document.querySelector('[data-component="CanvasResync"]') as HTMLButtonElement);
+    await waitFor(() => expect(document.querySelector('[data-component="CanvasEdgeDiverged"]')).toBeNull());
   });
 });

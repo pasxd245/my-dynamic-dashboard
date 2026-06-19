@@ -6,6 +6,10 @@ import viVN from 'antd/locale/vi_VN';
 import { StrictMode, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import './index.css';
+// R89 — React Flow base styles (the query canvas). Imported at the entry so the
+// pane's pointer/viewport CSS is always present app-wide (robust to HMR adding a
+// side-effect CSS import inside a lazily-mounted component).
+import '@xyflow/react/dist/style.css';
 import { useTranslation } from 'react-i18next';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 // R32: i18n init must run before any component mounts so the

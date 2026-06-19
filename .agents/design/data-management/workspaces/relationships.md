@@ -264,6 +264,11 @@ stateDiagram-v2
 - **Self-pair guard**: same dataset + same column on both sides is rejected
   (a degenerate edge); self-joins (same dataset, _different_ columns) are **out**
   this round (Scope) and also rejected `422`.
+- **Promote target.** The same `POST …/relationships` is the **promote** endpoint for a
+  query-owned relationship: the Query Builder's canvas ([canvas.md](../queries/canvas.md))
+  posts a query-local rel's join fields here to lift it into the governed ER, reusing the
+  whole rulebook (dedup `409`, dtype/self `422`) — no separate route. On success the
+  query-owned rel records the new `rel_` id as its provenance back-ref.
 
 ### List / governance reads
 

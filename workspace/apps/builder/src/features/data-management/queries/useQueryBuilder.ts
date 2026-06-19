@@ -13,9 +13,9 @@ import { useTranslation } from 'react-i18next';
 import type { FilterPredicate } from '@/features/data-management/datasets/filters/types';
 import type { PredicateGroups } from '@/features/data-management/datasets/advanced-query/types';
 import type { Column } from '@/features/data-management/datasets/types';
-import { useRelationshipsQuery } from '@/features/data-management/relationships/hooks';
+import { useCreateRelationshipMutation, useRelationshipsQuery } from '@/features/data-management/relationships/hooks';
 import { ApiErrorThrown } from '../_shared/types';
-import { copyGovernedRel, readChain, readRels, writeDef } from './chain';
+import { copyGovernedRel, freeFormRel, readChain, readRels, writeDef, type RelFields } from './chain';
 import { useCreateQueryMutation, useQueryPreviewQuery, useUpdateQueryMutation } from './hooks';
 import type { JoinStep, Query, QueryDefinition, QueryRelationship, ResolvedColumn } from './types';
 
@@ -190,6 +190,10 @@ export function useQueryBuilder({
 
   const updateMutation = useUpdateQueryMutation();
   const createMutation = useCreateQueryMutation();
+  // R89 — promote a query-owned rel up into the governed ER (reuses the existing
+  // POST /workspaces/{id}/relationships; the endpoint already dedups via 409 and
+  // dtype-validates via 422).
+  const promoteMutation = useCreateRelationshipMutation();
 
   const dirty = useMemo(() => {
     if (query) return JSON.stringify(draft) !== JSON.stringify(normalize(query.definition));
@@ -270,6 +274,75 @@ export function useQueryBuilder({
       readRels(draft),
       readChain(draft).map((h) => (h.queryRelId === queryRelId ? { ...h, type } : h)),
     );
+
+  /** R89 FREE-FORM DEFINE — create a query-owned rel from a drawn column pair with
+   *  NO governed match (`originRelationshipId: null`) and append a hop that consumes
+   *  it. The resolver is origin-agnostic, so it joins exactly like a copied rel; the
+   *  backend re-validates dtype-compat on the next preview. This is the gesture that
+   *  finally *creates* (R87 F1 verdict) — drawing, not picking. */
+  const defineJoin = (fields: RelFields) => {
+    const qrel = freeFormRel(fields);
+    reDraft([...readRels(draft), qrel], [...readChain(draft), { queryRelId: qrel.id, type: 'inner' }]);
+  };
+
+  /** R89 PROMOTE — push a query-owned rel up into the governed ER via the existing
+   *  POST /relationships (which dedups → 409, dtype-validates → 422). On success the
+   *  query-owned rel keeps running on its own copy but gains the new governed rel's
+   *  id as `originRelationshipId` (provenance closes the loop; divergence now tracks
+   *  it). `409 relationship_exists` / `422` surface via `promoteState` to the caller. */
+  const promoteRel = (queryRelId: string) => {
+    const qrel = readRels(draft).find((r) => r.id === queryRelId);
+    if (!qrel || !workspaceId) return;
+    promoteMutation.mutate(
+      {
+        workspaceId,
+        body: {
+          leftDatasetId: qrel.leftDatasetId,
+          leftColumn: qrel.leftColumn,
+          rightDatasetId: qrel.rightDatasetId,
+          rightColumn: qrel.rightColumn,
+          cardinality: qrel.cardinality,
+        },
+      },
+      {
+        onSuccess: (created) => {
+          message.success(t('queries.builder.promoted'));
+          setDraft((d) =>
+            writeDef(
+              d,
+              readRels(d).map((r) => (r.id === queryRelId ? { ...r, originRelationshipId: created.id } : r)),
+              readChain(d),
+            ),
+          );
+        },
+      },
+    );
+  };
+
+  /** R89 RE-SYNC — the user's opt-in choice when a copy-on-pick rel has diverged
+   *  from its origin governed rel (warn-only, never automatic — brainstorm §2):
+   *  re-copy the current governed fields into the query-owned snapshot. Keyed by the
+   *  query-owned rel id; the governed source is found via its `originRelationshipId`. */
+  const resyncRel = (queryRelId: string) => {
+    const qrel = readRels(draft).find((r) => r.id === queryRelId);
+    const gov = qrel?.originRelationshipId ? governedRelById.get(qrel.originRelationshipId) : undefined;
+    if (!qrel || !gov) return;
+    reDraft(
+      readRels(draft).map((r) =>
+        r.id === queryRelId
+          ? {
+              ...r,
+              leftDatasetId: gov.leftDatasetId,
+              leftColumn: gov.leftColumn,
+              rightDatasetId: gov.rightDatasetId,
+              rightColumn: gov.rightColumn,
+              cardinality: gov.cardinality,
+            }
+          : r,
+      ),
+      readChain(draft),
+    );
+  };
 
   const save = () => {
     if (!canSave || !query) return;
@@ -369,6 +442,12 @@ export function useQueryBuilder({
     addJoin,
     removeJoin,
     setHopType,
+    // R89 — free-form define / promote / re-sync (the canvas binds to these)
+    defineJoin,
+    promoteRel,
+    resyncRel,
+    promoteState: { pending: promoteMutation.isPending, error: promoteMutation.error },
+    governedRelById,
     applyFilter,
     removeFilter,
     clearAllFilters,
