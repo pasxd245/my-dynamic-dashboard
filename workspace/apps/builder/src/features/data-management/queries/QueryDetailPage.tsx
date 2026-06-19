@@ -91,7 +91,7 @@ export function QueryDetailPage() {
   const firstJoin = chain[0];
   const isJoined = chain.length > 0;
   const relationship = firstJoin ? qrelById.get(firstJoin.queryRelId) : undefined;
-  const rightDatasetQuery = useDatasetQuery(relationship?.rightDatasetId);
+  const rightDatasetQuery = useDatasetQuery(relationship?.rightSourceId);
 
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -439,8 +439,8 @@ export function QueryDetailPage() {
           {t('queries.detail.joinLabel')}
         </Typography.Text>
         <Typography.Text>
-          {dataset?.name ?? relationship.leftDatasetId} ⋈ {t(`queries.detail.joinType.${chain[0]?.type ?? 'inner'}`)} ⋈{' '}
-          {rightDatasetQuery.data?.name ?? relationship.rightDatasetId}
+          {dataset?.name ?? relationship.leftSourceId} ⋈ {t(`queries.detail.joinType.${chain[0]?.type ?? 'inner'}`)} ⋈{' '}
+          {rightDatasetQuery.data?.name ?? relationship.rightSourceId}
         </Typography.Text>
         <Tag color="default">
           {relationship.leftColumn} ↔ {relationship.rightColumn}

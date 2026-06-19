@@ -170,9 +170,9 @@ export const MOCK_JOINED_QUERY: Query = {
     relationships: [
       {
         id: 'qrel_a1b2c3d4',
-        leftDatasetId: MOCK_RELATIONSHIP.leftDatasetId,
+        leftSourceId: MOCK_RELATIONSHIP.leftDatasetId,
         leftColumn: MOCK_RELATIONSHIP.leftColumn,
-        rightDatasetId: MOCK_RELATIONSHIP.rightDatasetId,
+        rightSourceId: MOCK_RELATIONSHIP.rightDatasetId,
         rightColumn: MOCK_RELATIONSHIP.rightColumn,
         cardinality: MOCK_RELATIONSHIP.cardinality,
         originRelationshipId: MOCK_RELATIONSHIP.id,
@@ -359,9 +359,9 @@ export const MOCK_COMPOSED_QUERY: Query = {
     relationships: [
       {
         id: 'qrel_c0303333',
-        leftDatasetId: MOCK_RELATIONSHIP.leftDatasetId,
+        leftSourceId: MOCK_RELATIONSHIP.leftDatasetId,
         leftColumn: MOCK_RELATIONSHIP.leftColumn,
-        rightDatasetId: MOCK_RELATIONSHIP.rightDatasetId,
+        rightSourceId: MOCK_RELATIONSHIP.rightDatasetId,
         rightColumn: MOCK_RELATIONSHIP.rightColumn,
         cardinality: MOCK_RELATIONSHIP.cardinality,
         originRelationshipId: MOCK_RELATIONSHIP.id,

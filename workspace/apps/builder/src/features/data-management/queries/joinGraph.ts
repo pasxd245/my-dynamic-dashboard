@@ -26,18 +26,21 @@ export function relDivergence(
   if (!qrel.originRelationshipId) return null; // free-form — nothing to diverge from
   const gov = governedById.get(qrel.originRelationshipId);
   if (!gov) return 'removed';
+  // The governed rel keeps dataset-only names (`…DatasetId`); the query-owned copy uses
+  // the polymorphic `…SourceId` names (R91). A `qr_`-right edge is always free-form, so
+  // it never reaches here (it has no `originRelationshipId`).
   const same =
-    gov.leftDatasetId === qrel.leftDatasetId &&
+    gov.leftDatasetId === qrel.leftSourceId &&
     gov.leftColumn === qrel.leftColumn &&
-    gov.rightDatasetId === qrel.rightDatasetId &&
+    gov.rightDatasetId === qrel.rightSourceId &&
     gov.rightColumn === qrel.rightColumn &&
     gov.cardinality === qrel.cardinality;
   return same ? null : 'changed';
 }
 
-/** Anything with the join endpoints — a governed `Relationship` OR a query-owned
- *  `QueryRelationship` (R88; both carry left/right dataset ids). */
-type Edge = Pick<QueryRelationship, 'leftDatasetId' | 'rightDatasetId'>;
+/** The join endpoints of a query-owned `QueryRelationship` (R88; R91 — polymorphic
+ *  `…SourceId`: the right side may be a `qr_`). The graph math treats ids as opaque. */
+type Edge = Pick<QueryRelationship, 'leftSourceId' | 'rightSourceId'>;
 
 /** The datasets currently in the graph: the driving root + each hop's right
  *  dataset. A hop's left is always already in the graph (the tree invariant), so
@@ -50,7 +53,7 @@ export function graphDatasetIds(
 ): string[] {
   const ids = rootId ? [rootId] : [];
   for (const hop of joins) {
-    const right = qrelById.get(hop.queryRelId)?.rightDatasetId;
+    const right = qrelById.get(hop.queryRelId)?.rightSourceId;
     if (right && !ids.includes(right)) ids.push(right);
   }
   return ids;
@@ -68,9 +71,9 @@ export function addEligibleRels(rels: readonly Relationship[], graphIds: readonl
 /** R89 — the column pair a drawn connection resolves to, oriented so the in-graph
  *  endpoint is always LEFT (the hop's left dataset must already be in the graph). */
 export type ConnectFields = {
-  leftDatasetId: string;
+  leftSourceId: string;
   leftColumn: string;
-  rightDatasetId: string;
+  rightSourceId: string;
   rightColumn: string;
 };
 
@@ -115,17 +118,20 @@ export function resolveConnect(
         { ds: source, col: sourceHandle },
       ];
   const fields: ConnectFields = {
-    leftDatasetId: left.ds,
+    leftSourceId: left.ds,
     leftColumn: left.col,
-    rightDatasetId: right.ds,
+    rightSourceId: right.ds,
     rightColumn: right.col,
   };
+  // A governed rel match (→ copy-on-pick) is only possible dataset↔dataset; a `qr_`
+  // right side never matches a governed `rel_`, so it always routes to `define`
+  // (free-form) — R91 query×query edges have no governed counterpart.
   const match = governedRels.find(
     (r) =>
       r.status === 'valid' &&
-      r.leftDatasetId === fields.leftDatasetId &&
+      r.leftDatasetId === fields.leftSourceId &&
       r.leftColumn === fields.leftColumn &&
-      r.rightDatasetId === fields.rightDatasetId &&
+      r.rightDatasetId === fields.rightSourceId &&
       r.rightColumn === fields.rightColumn,
   );
   return match ? { kind: 'copy', relId: match.id } : { kind: 'define', fields };
@@ -169,8 +175,8 @@ export function isLeafHop(
   const leftIdsInUse = new Set<string>();
   for (const hop of joins) {
     const r = qrelById.get(hop.queryRelId);
-    if (r) leftIdsInUse.add(r.leftDatasetId);
+    if (r) leftIdsInUse.add(r.leftSourceId);
   }
-  const right = qrelById.get(queryRelId)?.rightDatasetId;
+  const right = qrelById.get(queryRelId)?.rightSourceId;
   return right ? !leftIdsInUse.has(right) : true;
 }

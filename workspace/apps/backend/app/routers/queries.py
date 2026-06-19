@@ -202,26 +202,37 @@ def _resolve_chain(
         qrel = query_rels.get(hop["queryRelId"])
         if qrel is None:
             return None, "unknown_relationship"
-        left_idx = next((i for i, ids in enumerate(dataset_id_sets) if qrel["leftDatasetId"] in ids), None)
+        left_idx = next((i for i, ids in enumerate(dataset_id_sets) if qrel["leftSourceId"] in ids), None)
         if left_idx is None:
             return None, "disconnected_join"
-        if any(qrel["rightDatasetId"] in ids for ids in dataset_id_sets):
+        # R91 — the RIGHT side is polymorphic: a dataset (`ds_`) OR a saved Query
+        # (`qr_…`, a query×query join), resolved through the SAME unified
+        # ``resolve_source`` the driving base uses — a ``read_parquet`` leaf for a
+        # dataset, or the joined-in query baked as a ``( … )`` sub-relation exposing its
+        # EFFECTIVE (collision-qualified) columns. ``visited`` threads through, so a
+        # query that joins itself in (directly or transitively) → ``composition_cycle``.
+        right, reason = resolve_source(con, qrel["rightSourceId"], workspace_id, visited)
+        if reason is not None:
+            return None, reason
+        right_ids = set(right["dataset_ids"])
+        # The right must be NEW — the tree invariant. A `qr_` right brings a SET of
+        # leaf datasets, so any overlap with the graph (the same dataset appearing
+        # twice → ambiguous columns) → `cyclic_join`. For a `ds_` right this is the
+        # original "right dataset already present" check.
+        if any(right_ids & ids for ids in dataset_id_sets):
             return None, "cyclic_join"
-        right_ds = con.execute(_SELECT_DATASET, (qrel["rightDatasetId"],)).fetchone()
-        if right_ds is None or right_ds["workspace_id"] != workspace_id:
-            return None, "relationship_dataset_missing"
         left_cols = source_cols[left_idx][1]
-        right_cols = json.loads(right_ds["columns_json"])
+        right_cols = right["columns"]
         # The join key must exist on both sides with compatible dtypes, re-checked
-        # against CURRENT columns. For a composed base, `left_cols` are its EFFECTIVE
-        # columns: a missing/qualified key (provenance ambiguity) → `_dtype_of` None →
-        # relationship_stale, not a silently-wrong join (composition.md § join-key
-        # provenance). A query-owned key column that drifted away → the same stale.
+        # against CURRENT columns. For a composed base / `qr_` right, the columns are
+        # EFFECTIVE names: a missing/qualified key (provenance ambiguity) → `_dtype_of`
+        # None → relationship_stale, not a silently-wrong join. A query-owned key column
+        # that drifted away → the same stale.
         if not _compatible(_dtype_of(left_cols, qrel["leftColumn"]), _dtype_of(right_cols, qrel["rightColumn"])):
             return None, "relationship_stale"
-        relations.append(("read_parquet(?)", [_parquet_of(right_ds)]))
-        source_cols.append((right_ds["name"], right_cols))
-        dataset_id_sets.append({right_ds["id"]})
+        relations.append(right["relation"])
+        source_cols.append((right["name"], right_cols))
+        dataset_id_sets.append(right_ids)
         join_keys.append((left_idx, qrel["leftColumn"], qrel["rightColumn"], hop.get("type", "inner")))
 
     effective, select_exprs = build_effective_columns(source_cols)

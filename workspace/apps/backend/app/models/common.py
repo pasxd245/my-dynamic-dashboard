@@ -24,6 +24,11 @@ SourceFormat = Literal["excel", "csv"]
 # source of truth.
 WsId = Annotated[str, Field(pattern=ID_PATTERNS["workspace"])]
 DsId = Annotated[str, Field(pattern=ID_PATTERNS["dataset"])]
+# R76/R79/R91 — the polymorphic table-source id: a Dataset (`ds_…`) or a saved Query
+# (`qr_…`). Used by the driving `sourceId` (R79) and, R91, by a join edge's
+# `rightSourceId` (query×query). Hoisted here so the QueryRelationship model can use it.
+# Mirrors the contract's `^(ds_|qr_)[0-9a-f]{8}$`; the unified resolver reads either.
+SourceId = Annotated[str, Field(pattern=r"^(ds_|qr_)[0-9a-f]{8}$")]
 TempId = Annotated[str, Field(pattern=ID_PATTERNS["temp"])]
 IsoUtc = Annotated[
     str,
@@ -193,9 +198,13 @@ class QueryRelationship(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     id: QueryRelationshipId
-    leftDatasetId: DsId  # noqa: N815
+    # R91 — right-side-first: a hop's left is always an in-graph dataset (`ds_`).
+    leftSourceId: DsId  # noqa: N815
     leftColumn: Annotated[str, Field(min_length=1)]  # noqa: N815
-    rightDatasetId: DsId  # noqa: N815
+    # R91 — the right source may be a dataset OR a saved Query (`qr_`, query×query),
+    # resolved as a subquery exposing its effective columns. The governed ER stays
+    # dataset-only, so a `qr_`-right edge is always free-form (no originRelationshipId).
+    rightSourceId: SourceId  # noqa: N815
     rightColumn: Annotated[str, Field(min_length=1)]  # noqa: N815
     cardinality: Literal["one_to_one", "one_to_many", "many_to_many"]
     # Provenance back-ref to the governed rel copied from (copy-on-pick); null /
@@ -251,11 +260,8 @@ class QueryDefinition(BaseModel):
         return data
 
 
-# R76/R79 — the polymorphic DRIVING table-source: a Dataset (`ds_…`) or a saved
-# Query (`qr_…`) the query is built ON. The single, canonical source field (R79
-# completed the `datasetId → sourceId` rename). Mirrors the contract's
-# `^(ds_|qr_)[0-9a-f]{8}$`. The unified `ds_`/`qr_` resolver reads either.
-SourceId = Annotated[str, Field(pattern=r"^(ds_|qr_)[0-9a-f]{8}$")]
+# `SourceId` (the polymorphic `ds_|qr_` driving-source id) is defined near `DsId`
+# above so the QueryRelationship model (R91 `rightSourceId`) can reference it too.
 
 
 class Query(BaseModel):

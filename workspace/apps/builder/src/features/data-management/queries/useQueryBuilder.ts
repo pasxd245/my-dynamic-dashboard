@@ -297,9 +297,12 @@ export function useQueryBuilder({
       {
         workspaceId,
         body: {
-          leftDatasetId: qrel.leftDatasetId,
+          // The governed POST body keeps dataset-only field names; the query-owned rel
+          // carries the polymorphic `…SourceId` values. Promote is only reachable for a
+          // dataset↔dataset edge (a `qr_`-side edge is non-promotable, R91), so these are ds_.
+          leftDatasetId: qrel.leftSourceId,
           leftColumn: qrel.leftColumn,
-          rightDatasetId: qrel.rightDatasetId,
+          rightDatasetId: qrel.rightSourceId,
           rightColumn: qrel.rightColumn,
           cardinality: qrel.cardinality,
         },
@@ -332,9 +335,9 @@ export function useQueryBuilder({
         r.id === queryRelId
           ? {
               ...r,
-              leftDatasetId: gov.leftDatasetId,
+              leftSourceId: gov.leftDatasetId,
               leftColumn: gov.leftColumn,
-              rightDatasetId: gov.rightDatasetId,
+              rightSourceId: gov.rightDatasetId,
               rightColumn: gov.rightColumn,
               cardinality: gov.cardinality,
             }

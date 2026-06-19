@@ -197,7 +197,7 @@ export function JoinEditor({
           {joins.map((hop) => {
             const qrel = qrelById.get(hop.queryRelId);
             const leaf = isLeaf(hop);
-            const fromName = qrel ? dsName(qrel.leftDatasetId) : '';
+            const fromName = qrel ? dsName(qrel.leftSourceId) : '';
             return (
               <div
                 key={hop.queryRelId}

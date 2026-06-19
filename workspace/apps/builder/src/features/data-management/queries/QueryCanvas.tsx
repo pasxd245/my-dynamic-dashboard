@@ -508,11 +508,11 @@ function QueryCanvasInner({
         missing.push(hop);
         continue;
       }
-      push(qrel.leftDatasetId);
-      push(qrel.rightDatasetId);
-      if (!parent.has(qrel.rightDatasetId)) parent.set(qrel.rightDatasetId, qrel.leftDatasetId);
+      push(qrel.leftSourceId);
+      push(qrel.rightSourceId);
+      if (!parent.has(qrel.rightSourceId)) parent.set(qrel.rightSourceId, qrel.leftSourceId);
       const stale =
-        columnMissing(qrel.leftDatasetId, qrel.leftColumn) || columnMissing(qrel.rightDatasetId, qrel.rightColumn);
+        columnMissing(qrel.leftSourceId, qrel.leftColumn) || columnMissing(qrel.rightSourceId, qrel.rightColumn);
       built.push({ hop, qrel, stale });
     }
     return { nodeIds: ids, parentOf: parent, builtEdges: built, unresolved: missing };
@@ -584,9 +584,9 @@ function QueryCanvasInner({
       const divergence = relDivergence(qrel, governedById);
       return {
         id: hop.queryRelId,
-        source: qrel.leftDatasetId,
+        source: qrel.leftSourceId,
         sourceHandle: qrel.leftColumn,
-        target: qrel.rightDatasetId,
+        target: qrel.rightSourceId,
         targetHandle: qrel.rightColumn,
         type: 'rel',
         data: {
@@ -662,7 +662,7 @@ function QueryCanvasInner({
   const confirmDefine = () => {
     if (!defineDraft) return;
     onDefineJoin?.({ ...defineDraft, cardinality });
-    setStaged((s) => s.filter((id) => id !== defineDraft.rightDatasetId));
+    setStaged((s) => s.filter((id) => id !== defineDraft.rightSourceId));
     setDefineDraft(null);
     setCardinalityInferred(false);
   };
@@ -765,8 +765,8 @@ function QueryCanvasInner({
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <Typography.Text>
               {t('queries.builder.canvasDefineBody', {
-                left: `${sourceName(defineDraft.leftDatasetId)}.${defineDraft.leftColumn}`,
-                right: `${sourceName(defineDraft.rightDatasetId)}.${defineDraft.rightColumn}`,
+                left: `${sourceName(defineDraft.leftSourceId)}.${defineDraft.leftColumn}`,
+                right: `${sourceName(defineDraft.rightSourceId)}.${defineDraft.rightColumn}`,
               })}
             </Typography.Text>
             <div>
@@ -818,7 +818,7 @@ function QueryCanvasInner({
             e.divergence === 'removed'
               ? 'queries.builder.canvasDivergedRemoved'
               : 'queries.builder.canvasDivergedChanged',
-            { edge: `${sourceName(e.qrel.leftDatasetId)} ⋈ ${sourceName(e.qrel.rightDatasetId)}` },
+            { edge: `${sourceName(e.qrel.leftSourceId)} ⋈ ${sourceName(e.qrel.rightSourceId)}` },
           )}
         />
       ))}
@@ -832,8 +832,8 @@ function QueryCanvasInner({
           showIcon
           data-component="CanvasEdgeStale"
           message={t('queries.builder.canvasEdgeStale', {
-            edge: `${sourceName(e.qrel.leftDatasetId)} ⋈ ${sourceName(e.qrel.rightDatasetId)}`,
-            column: columnMissing(e.qrel.leftDatasetId, e.qrel.leftColumn) ? e.qrel.leftColumn : e.qrel.rightColumn,
+            edge: `${sourceName(e.qrel.leftSourceId)} ⋈ ${sourceName(e.qrel.rightSourceId)}`,
+            column: columnMissing(e.qrel.leftSourceId, e.qrel.leftColumn) ? e.qrel.leftColumn : e.qrel.rightColumn,
           })}
         />
       ))}

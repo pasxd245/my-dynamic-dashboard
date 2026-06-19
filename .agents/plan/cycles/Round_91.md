@@ -1,11 +1,12 @@
-# Round 91: query×query joins — a saved Query as a joined-in source (theme opening — Plan gate)
+# Round 91: query×query joins — model truth (wire + engine: a saved Query joinable on a hop's right)
 
-**Status**: Planning
+**Status**: In Progress (Contract + Backend done; Integration next)
 **Date started**: 2026-06-19
 **Date completed**: —
-**Flow**: **DFCFBI (triggers 2, 5)** — set at the Design gate via `flow-selector`; recorded in the Do
-log. Per [[dfcfbi-two-round-split]], R91 runs **[D + F1 + design-sync]**; **[C + B + F2 + Integration]**
-lands as R92.
+**Flow**: **DCFBI** — amended from DFCFBI(2,5) at the Design→build boundary (see the Do-log
+**Amendment** entry). R91 is a **no-new-UI model-truth round** (wire + engine + FE types) → DCFBI by
+construction; the canvas query×query **UX** (the DFCFBI feel-check) moves to **R92**. Mirrors the
+[[query-owned-relationships]] R88 (model truth) → R89 (canvas UX) sequencing.
 
 ## Goal
 
@@ -21,6 +22,15 @@ free-form/relationships theme, not dashboards yet_). It realizes the
 [[query-is-virtual-dataset]] "unify `ds_` ∪ `qr_` as one readable table-source" direction and
 closes a named scope boundary in
 [queries.md](../../design/data-management/queries/queries.md) OUT-of-scope.
+
+**R91 = the model-truth slice** (the wire + engine + FE types; **no new canvas UX**): the
+`QueryRelationship` edge gains a polymorphic `rightSourceId` (`ds_|qr_`), and the resolver routes a
+hop's right side through `resolve_source` so a saved Query resolves as a joined-in subquery in DuckDB.
+The **canvas UX** that lets a user *draw* a query-in-join (query node + 🔎 marker + `[+ Add a source]`
+offering `qr_` + Promote-suppression + the unavailable state — decisions 3, 8–11) lands at **R92** as
+a DFCFBI round with a real F1 feel-check on this now-working stack. _Why split this way: grounding in
+the code showed query×query is wire+engine-bound, so a pre-Contract F1 (the DFCFBI default) can't show
+a working prototype — model truth must come first (the R88→R89 precedent). See the Do-log Amendment._
 
 _Track: 1 (product — model + engine + canvas evolution that completes the relationships theme).
 Pulled by ← [Round_90](Round_90.md) "Query↔query joins → R91+" (human-flagged, 2026-06-19) +
@@ -58,28 +68,39 @@ Full detail: [the brainstorm](../brainstorms/2026-06-19-query-x-query-joins.md).
   handle-bearing canvas node serves both *joining a query in* **and** the R90-flagged
   **composed-base-no-handles** gap.
 
-## Plan (by gate — pending the scope sub-fork + `flow-selector` at Design)
+## Plan (by gate — DCFBI model-truth, the wire + engine)
 
-1. **Plan gate** — theme ratified + scope sub-fork = **brainstorm + thin slice** (above);
-   brainstorm written. _(CLOSED — human-ratified 2026-06-19.)_
-2. **Design gate** — run `flow-selector`; seal the model (rename `…DatasetId` → `…SourceId` vs.
-   widen-in-place; the effective-column naming rule **with a test**; right-side-first vs. both
-   sides); run `ui-design` (design-spec mode) on the canvas query-node + Promote-suppression;
-   re-sync [queries.md](../../design/data-management/queries/queries.md) +
-   [canvas.md](../../design/data-management/queries/canvas.md) ([[design-docs-are-source-code]]).
-3. **C / F / B / I** (or **F1** if DFCFBI) — per the sealed flow, **only if** the sub-fork is
-   "brainstorm + thin slice."
+1. **Plan gate** — theme ratified + scope sub-fork = **brainstorm + thin slice**. _(CLOSED —
+   human-ratified 2026-06-19.)_
+2. **Design gate** — model sealed (11 decisions below); `ui-design` design-spec run; `flow-selector`
+   recorded → **DCFBI** (amended). _(CLOSED — commit `9cd33e9` + the Amendment entry.)_
+3. **Contract gate** — rename `QueryRelationship.leftDatasetId`/`rightDatasetId` →
+   `leftSourceId`/`rightSourceId` in `_shared/query.yaml`; **`rightSourceId` pattern `^(ds_|qr_)…`**
+   (left stays `^ds_…` — right-side-first, decision 2); align MSW + `contract-validator`; rename the FE
+   `types.ts`, the working-copy bridge (`chain.ts`), and `joinGraph.ts`. **No new canvas UX.**
+4. **Backend gate** — `_resolve_chain` routes a hop's **right** through `resolve_source`
+   (parquet for `ds_`, `(<subquery>) AS Ti` for `qr_`), threading `visited` so a self/transitive
+   join-in → **`composition_cycle`**; effective-column naming per decision 5 **with a unit test**;
+   `relationships.py` stays dataset-only; pytest green (new qr_-right + cycle cases).
+5. **Integration gate** — real stack (live backend + DuckDB + seed): a `qr_`-right join **runs**
+   end-to-end; a self-join-in is `composition_cycle`-rejected; conformance green against MSW **and**
+   the real backend; CORS clean. Human review → `Complete`.
 
-## Acceptance criteria (draft — sharpen at Plan/Design)
+## Acceptance criteria
 
-- [x] **Theme ratified** — query×query joins, brainstorm-first (human, 2026-06-19).
-- [ ] **Scope sub-fork ratified** — the human has chosen brainstorm+slice vs. brainstorm-only.
-- [ ] **Model sealed at Design** — the rel-edge source fields, the effective-column naming rule
-      (with a test), and right-side-first vs. both-sides — decided; governed ER confirmed unchanged.
-- [ ] **A saved Query joins in on the right** _(first slice, if a build round)_ — `qr_` on a hop's
-      right resolves via `resolve_source`, runs in DuckDB; the canvas renders it as a
-      handle-bearing node (closing the R90 composed-base gap); Promote suppressed on `qr_` edges;
-      cycle/stale reuse the existing guards.
+- [x] **Theme + scope + model + flow ratified** — query×query joins; brainstorm + thin slice; 11
+      decisions sealed; DCFBI (amended) — all human-ratified (2026-06-19).
+- [ ] **Wire renamed + widened** — `leftSourceId`/`rightSourceId` replace `…DatasetId`; `rightSourceId`
+      accepts `^(ds_|qr_)…`; conformance (MSW `additionalProperties:false` + `contract-validator`) green;
+      governed `relationships/*.yaml` unchanged (dataset-only).
+- [ ] **A saved Query joins in on the right** — a definition with a `qr_` `rightSourceId` resolves via
+      `resolve_source` and **runs in DuckDB** (the joined-in query baked as a subquery), paged, in
+      effective-column order; collision-qualified names hold across the nested boundary (decision 5, tested).
+- [ ] **Cycle + stale reuse existing guards** — a self/transitive join-in → `composition_cycle`; a
+      drifted exposed column → `relationship_stale`; deleting a joined-in query stales dependents
+      (app-level cascade).
+- [ ] **No new UI** — the canvas/Form UX is unchanged this round beyond the mechanical field rename;
+      the query×query *drawing* UX is R92.
 
 ## Risks / unknowns
 
@@ -177,23 +198,81 @@ model + the `ui-design` design-spec check + the flow selection.
 | 4. Contract depends on unresolved UI | no     | The contract change (rename `…DatasetId`→`…SourceId` + widen pattern to `^(ds_\|qr_)…`) is fully determined by the sealed model; the node-render/picker UI doesn't alter the wire shape. |
 | 5. UX confidence below threshold     | yes    | A new node species (a joinable query-result node with derived-column handles) needs a human feel-check before the wire commits — the established R88–R90 canvas practice ([[dfcfbi-f1-needs-human-review]]). |
 
-Result: **Flow: DFCFBI (triggers 2, 5)**. Per [[dfcfbi-two-round-split]], R91 runs **[D + F1 +
-design-sync]**; **[C + B + F2 + Integration]** lands as R92. F1 is **contract-safe** (FE working-state
-and request-only, no new wire serialization — [[dfcfbi-f1-precedes-contract]]); the rename/pattern-widen
-lands at Contract (R92).
+Result _(superseded — see the Amendment below)_: **DFCFBI (triggers 2, 5)** — this assumed R91 would
+build the **canvas UX** (the new node species). Grounding in the code at the Design→build boundary
+showed that UX is wire+engine-bound and can't be a contract-safe pre-Contract F1 — so the round was
+re-scoped to model-truth, which is a no-UI round.
+
+### Amendment — reshape to DCFBI model-truth (2026-06-19, human-ratified)
+
+Reading the real canvas/builder code before building revealed that query×query is **wire+engine-bound**
+(unlike R89's free-form, which rode the already-nullable `originRelationshipId`):
+
+- A `qr_` in `rightSourceId` would be serialized by `chain.ts`'s `writeDef` into the preview request →
+  MSW rejects it against the `^ds_…` pattern; the rename + `qr_`-pattern is a **Contract-gate** change,
+  and **F1 runs before Contract** ([[dfcfbi-f1-precedes-contract]]).
+- Even rendering a composed-base node's handles to join *from* needs each effective column's inner
+  `(dataset, column)` **provenance**, which `resolvedColumns` doesn't carry — itself a wire add.
+
+So a pre-Contract F1 can only show a **hollow** canvas prototype — defeating the feel-check the DFCFBI
+split exists for. **Reshape (human's call): R91 = model truth (the wire + engine + FE types, _no new
+UX_) → DCFBI; the canvas query×query UX → R92 (DFCFBI, real F1 on the working stack).** This mirrors
+the [[query-owned-relationships]] R88 (model) → R89 (canvas) sequencing. Decisions **3, 8, 9, 10, 11**
+(all canvas UX) carry forward to **R92**; the `ui-design` design-spec already run becomes R92's
+Design-gate input.
+
+**Flow selector re-run (no-UI / refactor branch, per the [skill](../../skills/flow-selector/SKILL.md)):**
+R91 introduces **no new UI surface** (a wire rename + a resolver extension + FE type rename). The five
+UX-framed conditions read vacuously **no** against a no-UI round → **DCFBI by construction**. Recorded
+for the audit trail.
+
+Result: **Flow: DCFBI** (amended; no-UI model-truth round).
+
+### Contract + Backend gates — wire + engine landed (2026-06-19)
+
+Built the model-truth slice (DCFBI; Contract + Backend are one inseparable rename+resolver change,
+committed as one seam):
+
+- **Contract** — renamed `QueryRelationship.leftDatasetId`/`rightDatasetId` →
+  **`leftSourceId`/`rightSourceId`** in `_shared/query.yaml` (+ the put/preview examples);
+  **`rightSourceId` pattern `^(ds_|qr_)…`**, `leftSourceId` stays `^ds_…` (right-side-first). The
+  governed `relationship.yaml` + `relationships/*.yaml` are **unchanged** (dataset-only — the ER is not
+  re-opened). FE renamed end-to-end: `types.ts`, `chain.ts` (`copyGovernedRel`/`RelFields`),
+  `joinGraph.ts` (the `Edge` Pick + `resolveConnect`/`relDivergence`/`isLeafHop`), `QueryCanvas`,
+  `QueryDetailPage`, `useQueryBuilder` (promote body maps `…SourceId`→governed `…DatasetId`), `JoinEditor`,
+  MSW fixtures/handlers, FE tests. **tsc clean · vitest 186/186** (contract-validator + MSW
+  `additionalProperties:false` green).
+- **Backend** — `_resolve_chain` routes a hop's **right** through the unified `resolve_source`
+  (`read_parquet` for `ds_`, a baked `( … )` sub-relation for a `qr_`, exposing its effective columns),
+  threading `visited` so a self/transitive join-in → **`composition_cycle`**. The right-must-be-new tree
+  check generalized to dataset-set overlap (a `qr_` brings a set). `build_effective_columns` needed **no
+  change** — it qualifies a joined-in query's columns by the query's display name, yielding decision-5's
+  two-level qualification (`deals.id` / `Accounts base.id`) naturally. `common.py` `QueryRelationship`
+  renamed (`rightSourceId: SourceId`, hoisted the polymorphic alias). `relationships.py` untouched.
+  **pytest 199** (196 + 3 new: a `qr_`-right join runs in DuckDB · effective columns qualified · a
+  self-join-in is `composition_cycle`-blocked).
 
 ## Check
 
-- [ ] **Plan gate** — theme ratified ✅; scope sub-fork = brainstorm + thin slice ✅ (human, 2026-06-19).
-- [ ] **Design gate** — model sealed (11 decisions above); `ui-design` design-spec run (3 facet gaps
-      → closed by decisions 9–11); `flow-selector` recorded.
+- [x] **Plan gate** — theme ratified + scope sub-fork = brainstorm + thin slice (human, 2026-06-19).
+- [x] **Design gate** — model sealed (11 decisions above); `ui-design` design-spec run; `flow-selector`
+      recorded → DFCFBI(2,5) **then amended → DCFBI** (no-UI model-truth, see Amendment); `gate-walker`
+      closed (criterion + model-check + commit seam `design(R91)` `9cd33e9`).
+- [x] **Contract gate** — renamed → `leftSourceId`/`rightSourceId`; `rightSourceId` `^(ds_|qr_)…`; MSW +
+      `contract-validator` green (vitest 186); `relationships/*.yaml` unchanged (dataset-only).
+- [x] **Backend gate** — `_resolve_chain` right-side via `resolve_source` + `composition_cycle` guard;
+      effective-column naming (decision 5) tested; **pytest 199** (qr_-right join · qualified cols · cycle).
+- [ ] **Integration gate** — real-stack: a `qr_`-right join runs in DuckDB; self-join-in cycle-rejected;
+      conformance green on MSW + real backend; CORS clean. Human review → `Complete`.
 
 ## Act
 
 _(Drafted at Review.)_
 
-## Feeds into → Round_92+ (TBD)
+## Feeds into → Round_92 (canvas query×query UX — DFCFBI)
 
-If R91 is brainstorm-only, R92 builds the slice. Beyond that: `qr_` on the **left** of a hop, more
-nested depth, then the deferred **dashboards / value-out** theme (free exploration → rich queries →
-visualized).
+R92 builds the **canvas UX** for query×query on this now-working wire+engine: the query node + 🔎 marker,
+`[+ Add a source]` offering `qr_`, draw-to-`qr_` free-form define, Promote-suppression, the
+query-unavailable node state, and Form-tab parity (decisions 3, 8–11) — **DFCFBI with a real F1
+feel-check** (the carried-forward `ui-design` design-spec is its Design input). Beyond that: `qr_` on the
+**left** of a hop, deeper nesting, then the deferred **dashboards / value-out** theme.

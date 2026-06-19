@@ -65,9 +65,9 @@ def _qrel(rel: dict) -> dict:
     """COPY-ON-PICK (R88): a query-owned relationship copied from a governed rel."""
     return {
         "id": "qrel_" + rel["id"].split("_", 1)[1],
-        "leftDatasetId": rel["leftDatasetId"],
+        "leftSourceId": rel["leftDatasetId"],
         "leftColumn": rel["leftColumn"],
-        "rightDatasetId": rel["rightDatasetId"],
+        "rightSourceId": rel["rightDatasetId"],
         "rightColumn": rel["rightColumn"],
         "cardinality": rel["cardinality"],
         "originRelationshipId": rel["id"],
@@ -216,6 +216,136 @@ def test_composition_transitive_cycle_blocks_run() -> None:
         # Close the loop: A now builds on B (which builds on A).
         with db.get_conn() as con:
             con.execute("UPDATE queries SET source_id = ? WHERE id = ?", (bid, aid))
+            con.commit()
+        run = client.get(f"/queries/{aid}/rows")
+        assert run.status_code == 409, run.text
+        assert run.json()["code"] == "composition_cycle"
+
+
+# ── R91: query×query joins — a saved Query joined IN on a hop's RIGHT side ───────
+# Distinct from composition above (a `qr_` as the DRIVING base): here a `qr_` is a
+# NON-driving, joined-in source resolved through the same `resolve_source` as a
+# subquery exposing its EFFECTIVE columns. The edge is free-form (`rightSourceId` is
+# a `qr_`, no governed origin — the governed ER stays dataset-only).
+
+
+def _join_in_query(
+    client: TestClient,
+    ws: str,
+    *,
+    name: str,
+    driving_ds: str,
+    left_col: str,
+    joined_qr: str,
+    right_col: str,
+    card: str = "one_to_one",
+):
+    """Create a Query driving on a dataset that joins a saved Query IN on the right
+    (a free-form query×query edge — `rightSourceId` is the joined-in `qr_`)."""
+    qrel = {
+        "id": "qrel_a1b2c3d4",
+        "leftSourceId": driving_ds,
+        "leftColumn": left_col,
+        "rightSourceId": joined_qr,
+        "rightColumn": right_col,
+        "cardinality": card,
+        "originRelationshipId": None,
+    }
+    return client.post(
+        f"/workspaces/{ws}/queries",
+        json={
+            "name": name,
+            "sourceId": driving_ds,
+            "definition": {
+                "q": None,
+                "filters": [],
+                "advanced": [],
+                "relationships": [qrel],
+                "joins": [{"queryRelId": qrel["id"], "type": "inner"}],
+            },
+        },
+    )
+
+
+@pytest.mark.unit
+def test_query_x_query_join_runs_in_duckdb() -> None:
+    """A saved Query joined IN on the right resolves as a subquery and RUNS: deals ⋈
+    (Query on accounts) on id → 3 self-id matches. The create validates the `qr_`
+    right side, and the run produces rows via the recursive resolver."""
+    with TestClient(app) as client:
+        ws, deals, accounts = _seed(client)
+        base = _create_query(client, ws, name="Accounts base", dataset_id=accounts)
+        assert base.status_code == 201, base.text
+        bid = base.json()["id"]
+
+        a = _join_in_query(
+            client, ws, name="Deals ⋈ (Accounts query)", driving_ds=deals,
+            left_col="id", joined_qr=bid, right_col="id",
+        )
+        assert a.status_code == 201, a.text
+        validate_response("queries/post.contract.yaml", 201, a.json())
+        qid = a.json()["id"]
+
+        run = client.get(f"/queries/{qid}/rows")
+        assert run.status_code == 200, run.text
+        validate_response("queries/rows-get.contract.yaml", 200, run.json())
+        assert run.json()["total"] == 3, "deals (3) ⋈ Accounts-query (3) on id → 3 self-id matches"
+
+
+@pytest.mark.unit
+def test_query_x_query_effective_columns_qualified() -> None:
+    """Decision 5 — a joined-in query contributes its effective columns; names that
+    collide across the nested boundary are qualified by the SOURCE display name (the
+    dataset name AND the joined-in query's name), so the outer effective space stays
+    unambiguous (`deals.id` vs `Accounts base.id`)."""
+    with TestClient(app) as client:
+        ws, deals, accounts = _seed(client)
+        bid = _create_query(client, ws, name="Accounts base", dataset_id=accounts).json()["id"]
+        a = _join_in_query(
+            client, ws, name="Deals ⋈ (Accounts query)", driving_ds=deals,
+            left_col="id", joined_qr=bid, right_col="id",
+        )
+        assert a.status_code == 201, a.text
+        detail = client.get(f"/queries/{a.json()['id']}")
+        assert detail.status_code == 200, detail.text
+        names = [c["name"] for c in detail.json().get("resolvedColumns", [])]
+        # sample.csv columns (id,name,amount,signed_up) collide across both sources →
+        # every one is qualified, by the dataset name on the left and the QUERY name on
+        # the right.
+        assert "deals.id" in names, names
+        assert "Accounts base.id" in names, names
+
+
+@pytest.mark.unit
+def test_query_x_query_self_join_in_cycle_blocks_run() -> None:
+    """A query that joins ITSELF in on the right (`rightSourceId` = its own id) is
+    blocked on run with 409 composition_cycle — the same `visited` guard the driving
+    base uses, now threaded through the right-side resolve. Crafted at the DB layer
+    (the API won't create a self-reference before the query exists)."""
+    import json
+
+    with TestClient(app) as client:
+        ws, deals, _accounts = _seed(client)
+        aid = _create_query(client, ws, name="A", dataset_id=deals).json()["id"]
+        self_join_def = {
+            "q": None,
+            "filters": [],
+            "advanced": [],
+            "relationships": [
+                {
+                    "id": "qrel_dead0001",
+                    "leftSourceId": deals,
+                    "leftColumn": "id",
+                    "rightSourceId": aid,  # joins ITSELF in
+                    "rightColumn": "id",
+                    "cardinality": "one_to_one",
+                    "originRelationshipId": None,
+                }
+            ],
+            "joins": [{"queryRelId": "qrel_dead0001", "type": "inner"}],
+        }
+        with db.get_conn() as con:
+            con.execute("UPDATE queries SET definition_json = ? WHERE id = ?", (json.dumps(self_join_def), aid))
             con.commit()
         run = client.get(f"/queries/{aid}/rows")
         assert run.status_code == 409, run.text

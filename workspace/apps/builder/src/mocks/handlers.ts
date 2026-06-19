@@ -540,7 +540,10 @@ export const handlers = [
         return cs ? !cs.some((c) => c.name === col) : false;
       };
       const anyStale = (def.relationships ?? []).some(
-        (r) => colMissing(r.leftDatasetId, r.leftColumn) || colMissing(r.rightDatasetId, r.rightColumn),
+        // R91 — `…SourceId` (the right may be a `qr_`; `colMissing` over datasets returns
+        // false for a `qr_`, so the mock doesn't flag a query×query edge stale — the real
+        // backend resolves it, tested in pytest + Integration).
+        (r) => colMissing(r.leftSourceId, r.leftColumn) || colMissing(r.rightSourceId, r.rightColumn),
       );
       if (anyStale) {
         return HttpResponse.json({ code: 'relationship_stale' }, { status: 409 });

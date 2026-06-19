@@ -54,9 +54,9 @@ paths:
                     advanced: []
                     relationships:
                       - id: "qrel_4d7b91ce"
-                        leftDatasetId: "ds_71a4e2f0"
+                        leftSourceId: "ds_71a4e2f0"
                         leftColumn: "deal_id"
-                        rightDatasetId: "ds_8c2a1b40"
+                        rightSourceId: "ds_8c2a1b40"
                         rightColumn: "account_id"
                         cardinality: one_to_many
                         originRelationshipId: "rel_4d7b91ce"
@@ -82,9 +82,9 @@ paths:
                       advanced: []
                       relationships:
                         - id: "qrel_4d7b91ce"
-                          leftDatasetId: "ds_71a4e2f0"
+                          leftSourceId: "ds_71a4e2f0"
                           leftColumn: "deal_id"
-                          rightDatasetId: "ds_8c2a1b40"
+                          rightSourceId: "ds_8c2a1b40"
                           rightColumn: "account_id"
                           cardinality: one_to_many
                           originRelationshipId: "rel_4d7b91ce"

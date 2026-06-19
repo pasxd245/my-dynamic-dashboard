@@ -24,12 +24,20 @@ export type JoinType = 'inner' | 'left' | 'right' | 'full';
 export type QueryRelationship = {
   /** Query-local id, `^qrel_[0-9a-f]{8}$`. Referenced by `JoinStep.queryRelId`. */
   id: string;
-  leftDatasetId: string;
+  /** R91 — the LEFT source. A hop's left is always in-graph (the tree invariant), so
+   *  it is a dataset (`ds_…`) this round; `qr_` on the left is deferred (right-side-first).
+   *  Renamed from `leftDatasetId` when the right side became polymorphic. */
+  leftSourceId: string;
   leftColumn: string;
-  rightDatasetId: string;
+  /** R91 — the RIGHT source joined in: a dataset (`ds_…`) OR a saved Query (`qr_…`, a
+   *  query×query join — resolved as a subquery exposing its effective columns). Renamed
+   *  from `rightDatasetId` and widened to polymorphic. A `qr_` right side is always
+   *  free-form (no governed origin — the governed ER stays dataset-only). */
+  rightSourceId: string;
   rightColumn: string;
   cardinality: 'one_to_one' | 'one_to_many' | 'many_to_many';
-  /** Provenance back-ref to the governed `rel_` copied from (null = free-form, R89). */
+  /** Provenance back-ref to the governed `rel_` copied from (null = free-form, R89; always
+   *  null when `rightSourceId` is a `qr_` — no governed counterpart). */
   originRelationshipId?: string | null;
 };
 

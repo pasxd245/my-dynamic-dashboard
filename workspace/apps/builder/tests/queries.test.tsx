@@ -762,9 +762,9 @@ describe('Query canvas view (R85 — Phase A, read-only source-graph)', () => {
             relationships: [
               {
                 id: 'qrel_57a1e000',
-                leftDatasetId: MOCK_STALE_RELATIONSHIP.leftDatasetId,
+                leftSourceId: MOCK_STALE_RELATIONSHIP.leftDatasetId,
                 leftColumn: MOCK_STALE_RELATIONSHIP.leftColumn,
-                rightDatasetId: MOCK_STALE_RELATIONSHIP.rightDatasetId,
+                rightSourceId: MOCK_STALE_RELATIONSHIP.rightDatasetId,
                 rightColumn: MOCK_STALE_RELATIONSHIP.rightColumn,
                 cardinality: MOCK_STALE_RELATIONSHIP.cardinality,
                 originRelationshipId: MOCK_STALE_RELATIONSHIP.id,
@@ -973,8 +973,8 @@ describe('Query canvas EDITING (R89 — free-form, React Flow)', () => {
     serveQuery({
       ...MOCK_JOINED_QUERY.definition,
       relationships: [
-        { id: 'qrel_a1b2c3d4', leftDatasetId: DEALS, leftColumn: 'deal_id', rightDatasetId: ACCOUNTS, rightColumn: 'account_id', cardinality: 'one_to_many', originRelationshipId: 'rel_a1b2c3d4' },
-        { id: 'qrel_b2c3d4e5', leftDatasetId: ACCOUNTS, leftColumn: 'tier', rightDatasetId: OWNERS, rightColumn: 'tier', cardinality: 'one_to_many', originRelationshipId: 'rel_b2c3d4e5' },
+        { id: 'qrel_a1b2c3d4', leftSourceId: DEALS, leftColumn: 'deal_id', rightSourceId: ACCOUNTS, rightColumn: 'account_id', cardinality: 'one_to_many', originRelationshipId: 'rel_a1b2c3d4' },
+        { id: 'qrel_b2c3d4e5', leftSourceId: ACCOUNTS, leftColumn: 'tier', rightSourceId: OWNERS, rightColumn: 'tier', cardinality: 'one_to_many', originRelationshipId: 'rel_b2c3d4e5' },
       ],
       joins: [{ queryRelId: 'qrel_a1b2c3d4', type: 'inner' }, { queryRelId: 'qrel_b2c3d4e5', type: 'inner' }],
     });
@@ -1035,7 +1035,7 @@ describe('Query canvas EDITING (R89 — free-form, React Flow)', () => {
     serveQuery({
       ...MOCK_JOINED_QUERY.definition,
       relationships: [
-        { id: 'qrel_a1b2c3d4', leftDatasetId: DEALS, leftColumn: 'deal_id', rightDatasetId: ACCOUNTS, rightColumn: 'account_id', cardinality: 'one_to_one', originRelationshipId: 'rel_a1b2c3d4' },
+        { id: 'qrel_a1b2c3d4', leftSourceId: DEALS, leftColumn: 'deal_id', rightSourceId: ACCOUNTS, rightColumn: 'account_id', cardinality: 'one_to_one', originRelationshipId: 'rel_a1b2c3d4' },
       ],
       joins: [{ queryRelId: 'qrel_a1b2c3d4', type: 'inner' }],
     });

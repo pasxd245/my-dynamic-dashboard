@@ -74,9 +74,9 @@ def _qrel(rel: dict) -> dict:
     governed hex for deterministic tests), record `originRelationshipId`."""
     return {
         "id": "qrel_" + rel["id"].split("_", 1)[1],
-        "leftDatasetId": rel["leftDatasetId"],
+        "leftSourceId": rel["leftDatasetId"],
         "leftColumn": rel["leftColumn"],
-        "rightDatasetId": rel["rightDatasetId"],
+        "rightSourceId": rel["rightDatasetId"],
         "rightColumn": rel["rightColumn"],
         "cardinality": rel["cardinality"],
         "originRelationshipId": rel["id"],

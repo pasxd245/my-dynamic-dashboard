@@ -100,7 +100,7 @@ components:
         TREE + per-hop dtype-compat validation are unchanged (re-checked against
         current dataset columns on save/run). See the query-owned-relationships
         brainstorm.
-      required: [id, leftDatasetId, leftColumn, rightDatasetId, rightColumn, cardinality]
+      required: [id, leftSourceId, leftColumn, rightSourceId, rightColumn, cardinality]
       additionalProperties: false
       properties:
         id:
@@ -108,22 +108,34 @@ components:
           pattern: "^qrel_[0-9a-f]{8}$"
           description: Query-local id, referenced by `JoinStep.queryRelId`.
           examples: ["qrel_4d7b91ce"]
-        leftDatasetId:
+        leftSourceId:
           type: string
           pattern: "^ds_[0-9a-f]{8}$"
-          description: The LEFT/driving dataset of this edge.
+          description: |
+            R91 — the LEFT source of this edge. A hop's left is always already in
+            the graph (the tree invariant), so it is a dataset (`ds_…`) this round
+            — `qr_` on the LEFT is deferred (right-side-first). Renamed from
+            `leftDatasetId` when the right side became polymorphic.
         leftColumn:
           type: string
           minLength: 1
-          description: The join key on the left dataset.
-        rightDatasetId:
+          description: The join key on the left source.
+        rightSourceId:
           type: string
-          pattern: "^ds_[0-9a-f]{8}$"
-          description: The RIGHT dataset joined in by this edge.
+          pattern: "^(ds_|qr_)[0-9a-f]{8}$"
+          description: |
+            R91 — the RIGHT source joined in by this edge: a dataset (`ds_…`) OR a
+            saved Query (`qr_…`, a query×query join — the joined-in query resolves as
+            a subquery, exposing its effective columns). Renamed from `rightDatasetId`
+            and widened to polymorphic. A `qr_` right side is always free-form
+            (`originRelationshipId: null`) — the governed ER stays dataset-only, so it
+            has no governed origin and cannot be promoted.
         rightColumn:
           type: string
           minLength: 1
-          description: The join key on the right dataset.
+          description: |
+            The join key on the right source. For a `qr_` right side it names one of
+            the joined-in query's EFFECTIVE (collision-qualified) column names.
         cardinality:
           type: string
           enum: [one_to_one, one_to_many, many_to_many]

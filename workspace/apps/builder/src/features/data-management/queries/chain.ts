@@ -51,11 +51,13 @@ export function copyGovernedRel(rel: {
   rightColumn: string;
   cardinality: QueryRelationship['cardinality'];
 }): QueryRelationship {
+  // The governed rel keeps its dataset-only field names (`…DatasetId`); the
+  // query-owned copy uses the polymorphic `…SourceId` names (R91).
   return {
     id: newQueryRelId(),
-    leftDatasetId: rel.leftDatasetId,
+    leftSourceId: rel.leftDatasetId,
     leftColumn: rel.leftColumn,
-    rightDatasetId: rel.rightDatasetId,
+    rightSourceId: rel.rightDatasetId,
     rightColumn: rel.rightColumn,
     cardinality: rel.cardinality,
     originRelationshipId: rel.id,
@@ -63,11 +65,12 @@ export function copyGovernedRel(rel: {
 }
 
 /** R89 — the join fields a free-form / promoted query-owned rel carries (no id, no
- *  origin). Shared by `freeFormRel` (define) and the promote `POST` body. */
+ *  origin). Shared by `freeFormRel` (define) and the promote `POST` body. R91 — the
+ *  right side may be a `qr_` (query×query); the left stays `ds_` (right-side-first). */
 export type RelFields = {
-  leftDatasetId: string;
+  leftSourceId: string;
   leftColumn: string;
-  rightDatasetId: string;
+  rightSourceId: string;
   rightColumn: string;
   cardinality: QueryRelationship['cardinality'];
 };

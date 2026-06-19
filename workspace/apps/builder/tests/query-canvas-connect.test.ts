@@ -57,7 +57,7 @@ describe('resolveConnect (R89 — draw-to-connect routing)', () => {
     );
     expect(res).toEqual({
       kind: 'define',
-      fields: { leftDatasetId: DEALS, leftColumn: 'amount', rightDatasetId: ACCOUNTS, rightColumn: 'account_name' },
+      fields: { leftSourceId: DEALS, leftColumn: 'amount', rightSourceId: ACCOUNTS, rightColumn: 'account_name' },
     });
   });
 
@@ -99,9 +99,9 @@ describe('relDivergence (R89 — copied rel vs. its origin governed rel)', () =>
 
   const copied: QueryRelationship = {
     id: 'qrel_a1b2c3d4',
-    leftDatasetId: DEALS,
+    leftSourceId: DEALS,
     leftColumn: 'deal_id',
-    rightDatasetId: ACCOUNTS,
+    rightSourceId: ACCOUNTS,
     rightColumn: 'account_id',
     cardinality: 'one_to_many',
     originRelationshipId: 'rel_a1b2c3d4',
@@ -152,9 +152,9 @@ describe('inferCardinality (R90 — smart default for a free-form drawn pair)', 
 describe('freeFormRel (R89 — mint a query-owned rel with no provenance)', () => {
   it('records originRelationshipId: null and a qrel_ id', () => {
     const r = freeFormRel({
-      leftDatasetId: DEALS,
+      leftSourceId: DEALS,
       leftColumn: 'amount',
-      rightDatasetId: ACCOUNTS,
+      rightSourceId: ACCOUNTS,
       rightColumn: 'account_name',
       cardinality: 'one_to_many',
     });

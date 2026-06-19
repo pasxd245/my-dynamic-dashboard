@@ -242,9 +242,9 @@ def main() -> None:
         (provenance kept in `originRelationshipId`)."""
         return {
             "id": "qrel_" + rel_id.split("_", 1)[1],
-            "leftDatasetId": left,
+            "leftSourceId": left,
             "leftColumn": lcol,
-            "rightDatasetId": right,
+            "rightSourceId": right,
             "rightColumn": rcol,
             "cardinality": card,
             "originRelationshipId": rel_id,
