@@ -124,6 +124,30 @@ per domain, callable by any round or task. Introduced by
 design doc having frozen at R13 (read+create-stub, in-memory) while
 the code shipped full CRUD + SQLModel/Alembic persistence.
 
+### [`cold-reviewer`](cold-reviewer/SKILL.md)
+
+Apply a fixed, **cold-authored** six-anchor review to a decision at
+its **lock-in moment** (sealing a Plan/Design gate, locking a
+scope/model, flipping a round Complete, approving a diff) so blind
+spots surface before commitment. One axis — reviewer disposition
+(`challenge`/`fair`/`constructive`/`mix`); the anchor-set is fixed and
+every verdict is **grounded-or-`could-not-verify`** (never a fluent
+assertion). **Surfaces, never decides** — only the human locks (same
+verify-don't-fix discipline as `ui-design`/`gate-walker`). The *why*
+(Kahneman S1/S2 human + S3 AI, WYSIATI, regression-to-mean, "cold" =
+pre-registered questions) lives in
+[`references/theory.md`](cold-reviewer/references/theory.md). Companion:
+a proposed `gate-walker` Design-exit criterion (the gate triggers the
+pause; this skill is the lens applied during it). Filed dependent:
+operates on round files / diffs / decisions, human-invoked at lock-in,
+not DCFBI/DFCFBI doctrine enforcement. _Track 2 (agent-method —
+decision-hygiene for the HIxAI co-spiral). Pulled by
+[Round_92](../plan/cycles/Round_92.md) planning — a cold-reviewer pass
+caught the `resolveConnect`/provenance seam and pinned the `qr_`-node
+scope before build; within the
+[R99 evo-horizon](../decisions/2026-05-27-r99-evo-horizon.md) (a
+Track-2 promotion of a crystallized lesson, allowed)._
+
 ## Adding a skill
 
 1. **Pick category.** Primary if the skill enforces DCFBI/DFCFBI

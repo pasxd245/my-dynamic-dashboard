@@ -5,15 +5,14 @@ when_to_use: Run at a lock-in moment — before sealing a Plan/Design gate, lock
 argument-hint: '<target: round-file | diff | described-decision> [--mode challenge|fair|constructive|mix]'
 allowed-tools: Read, Grep, Glob, Bash(grep *), Bash(git diff *), Bash(git log *), Bash(git show *)
 metadata:
-  author: hand-authored-draft-2026-06-24
-  version: '0.1-draft'
-  status: parked-draft — Track-2; NOT registered (no .claude/ pointer, not in skills/README.md index), so it does not auto-trigger. Promote when a Track-1 round pulls it. Concept: ../../plan/brainstorms/2026-06-24-s3-anchors-feedback-skill.md
+  author: hand-authored-2026-06-24
+  version: '1.0'
+  status: registered — Track-2 (agent-method, decision-hygiene). Pulled by R92 planning (a cold-reviewer pass caught the resolveConnect/provenance seam + pinned the qr_-node scope before build). Concept: ../../plan/brainstorms/2026-06-24-s3-anchors-feedback-skill.md
 ---
 
-> **PARKED DRAFT — not registered/active.** No `.claude/skills/cold-reviewer/` pointer and not in
-> [`../README.md`](../README.md), so the runtime does not auto-discover it. Promote only when a
-> Track-1 round pulls it (add the pointer + a README line). The *why* behind every rule here lives
-> in [`references/theory.md`](references/theory.md) (S1/S2/S3, WYSIATI, "cold" = pre-registered).
+> The *why* behind every rule here lives in [`references/theory.md`](references/theory.md)
+> (S1/S2/S3, WYSIATI, "cold" = pre-registered). This skill is **registered** (a `.claude/` pointer +
+> a [`../README.md`](../README.md) index line), so the runtime auto-discovers it at session load.
 
 ## What it does
 
