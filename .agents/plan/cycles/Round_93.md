@@ -1,8 +1,8 @@
 # Round 93: column provenance on the wire + F2 fidelity — query×query joins resolve for real (C + B + F2 + Integration)
 
-**Status**: **Planning** — Plan-gate draft, awaiting human ratification. DFCFBI **back half** of the
-[Round_92](Round_92.md) split per [[dfcfbi-two-round-split]] (front half [D + F1 + design-sync]
-shipped & Complete).
+**Status**: **In Progress** — Plan **ratified** + **Contract gate closed** (2026-06-24); **Backend
+gate next**. DFCFBI **back half** of the [Round_92](Round_92.md) split per [[dfcfbi-two-round-split]]
+(front half [D + F1 + design-sync] shipped & Complete).
 **Date started**: 2026-06-24
 **Date completed**: —
 **Flow**: **DFCFBI back half — [C + B + F2 + Integration]** (inherited from R92's Design-gate split;
@@ -147,14 +147,46 @@ Opened on the human's instruction ("plan R93") after flipping R92 Complete. R93 
 back half** of the R92 DFCFBI split (not a re-opened theme fork) — its scope is fixed by R92's
 Feeds-into + the F1-prep pinned wire shape, re-grounded above against the real backend
 (`resolve_source`, `build_effective_columns`, `_resolved_columns`; computed-on-read → no migration).
-**Awaiting Plan-gate ratification** (the human ratifies before Design, as for R92); consider a
-`cold-reviewer` pass at lock-in.
+
+**Plan gate ratified (human, 2026-06-24):** "as drafted" — scope locked, no `cold-reviewer` pass
+this round (the human's call; the wire shape was already cold-reviewed at R92's F1-prep). → **Plan
+gate closed; next: Contract.**
+
+### Contract gate — closed (2026-06-24)
+
+Extended `resolvedColumns` items with **optional** `ownerSourceId` (a leaf `ds_`, pattern-bound) +
+`sourceColumn`, keeping `additionalProperties: false`. Optional-not-required so a future
+derived/aggregate column (no single owner) omits them — no aggregation today, so every current
+effective column carries them.
+
++ **Contract schema** — both inline copies:
+  [`_shared/query.yaml`](../../../workspace/packages/contracts/_shared/query.yaml#L256) (the
+  canonical `Query.resolvedColumns`) + the
+  [preview](../../../workspace/packages/contracts/queries/preview.contract.yaml#L130) response;
+  examples enriched in [put](../../../workspace/packages/contracts/queries/put.contract.yaml#L92) +
+  preview (R42 examples-as-fixtures).
++ **FE contract type** — `ResolvedColumn`
+  ([types.ts](../../../workspace/apps/builder/src/features/data-management/queries/types.ts#L80))
+  gains optional `ownerSourceId` / `sourceColumn`, mirroring the wire; the doc-comment names the
+  R93 mock retirement.
++ **MSW conformance** — `withProvenance` fixture helper; `MOCK_JOINED_QUERY` + `MOCK_CHAIN_COLUMNS`
+  now emit provenance (a collision-qualified `accounts.tier` keeps `sourceColumn: "tier"`), so MSW
+  validates the **present** shape (the inverse of F1's mock-off-the-response constraint).
++ **Verified:** `@mdd/contracts` vitest **24/24** (OpenAPI valid + examples conform); builder
+  `type-check` clean; builder vitest **191/191** (MSW responses-with-provenance pass contract
+  validation). The wire add is **backward-compatible** — the real backend doesn't emit the fields
+  until the Backend gate; optional ⇒ both presence and absence validate.
+
+**Contract gate → CLOSED.** Next: **Backend** (emit provenance for real + pytest).
 
 ## Check
 
-+ [ ] **Plan gate** — _this draft; awaiting human ratification._
-+ [ ] **Contract gate** — pending.
-+ [ ] **Backend gate** — pending.
++ [x] **Plan gate** — **ratified** (human, 2026-06-24, "as drafted"); scope locked, no cold-reviewer
+      pass this round (wire shape cold-reviewed at R92 F1-prep).
++ [x] **Contract gate** — **closed** (2026-06-24): `resolvedColumns` items gain optional
+      `ownerSourceId`/`sourceColumn` (both inline copies + examples + FE type + MSW fixtures);
+      contracts 24/24 · builder type-check 0 · builder 191/191. Backward-compatible (optional).
++ [ ] **Backend gate** — **next**.
 + [ ] **F2 gate** — pending (FE-consumes-wire + fidelity + human F2 feel-check).
 + [ ] **Integration gate** — pending (real-stack + human Complete).
 

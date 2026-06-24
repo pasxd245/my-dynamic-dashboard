@@ -90,8 +90,8 @@ paths:
                           originRelationshipId: "rel_4d7b91ce"
                       joins: [{ queryRelId: "qrel_4d7b91ce", type: inner }]
                     resolvedColumns:
-                      - { name: "deal_id", dtype: string }
-                      - { name: "account_name", dtype: string }
+                      - { name: "deal_id", dtype: string, ownerSourceId: "ds_71a4e2f0", sourceColumn: "deal_id" }
+                      - { name: "account_name", dtype: string, ownerSourceId: "ds_8c2a1b40", sourceColumn: "account_name" }
                     createdAt: "2026-06-13T10:00:00Z"
         "404":
           description: No query with the given `id` exists.

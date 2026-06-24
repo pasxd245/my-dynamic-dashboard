@@ -132,7 +132,8 @@ paths:
                     description: |
                       The effective (combined, collision-qualified) columns —
                       present whenever `definition.joins` is non-empty. Identical
-                      shape to `Query.resolvedColumns`.
+                      shape to `Query.resolvedColumns`, including the R93 column
+                      provenance (`ownerSourceId` / `sourceColumn`).
                     items:
                       type: object
                       required: [name, dtype]
@@ -144,6 +145,17 @@ paths:
                         dtype:
                           type: string
                           enum: [string, integer, float, boolean, date, datetime]
+                        ownerSourceId:
+                          type: string
+                          pattern: "^ds_[0-9a-f]{8}$"
+                          description: |
+                            R93 — the leaf dataset owning this column (a `ds_`).
+                            Present for a 1:1-owned column; omitted for derived.
+                        sourceColumn:
+                          type: string
+                          minLength: 1
+                          description: |
+                            R93 — the pre-qualification name on the owning leaf.
               examples:
                 joined_preview:
                   value:
@@ -155,8 +167,8 @@ paths:
                     pageSize: 25
                     total: 1
                     resolvedColumns:
-                      - { name: "deal_id", dtype: string }
-                      - { name: "amount", dtype: integer }
+                      - { name: "deal_id", dtype: string, ownerSourceId: "ds_71a4e2f0", sourceColumn: "deal_id" }
+                      - { name: "amount", dtype: integer, ownerSourceId: "ds_71a4e2f0", sourceColumn: "amount" }
         "409":
           description: |
             The previewed definition can't execute against current data —

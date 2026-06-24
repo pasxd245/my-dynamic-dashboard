@@ -16,8 +16,8 @@
 // they are (test-stable), but the convention applies forward —
 // "YAML examples are the canonical reference; fixtures conform."
 
-import type { Dataset, RowsPage } from '@/features/data-management/datasets/types';
-import type { Query } from '@/features/data-management/queries/types';
+import type { Column, Dataset, RowsPage } from '@/features/data-management/datasets/types';
+import type { Query, ResolvedColumn } from '@/features/data-management/queries/types';
 import type { Relationship } from '@/features/data-management/relationships/types';
 import type { Workspace } from '@/features/data-management/workspaces/types';
 
@@ -28,6 +28,24 @@ export const MOCK_WORKSPACE: Workspace = {
   name: 'Marketing',
   createdAt: '2026-05-21T10:00:00Z',
 };
+
+/** R93 — attach column provenance to a dataset's columns for a joined query's
+ *  `resolvedColumns` fixture: each effective column traces 1:1 to its leaf
+ *  (`ownerSourceId`) with the pre-qualification `sourceColumn` (the bare name on
+ *  that leaf). `qualify` renames the collision-qualified DISPLAY `name`
+ *  (`tier` → `accounts.tier`) while `sourceColumn` stays the bare leaf name. */
+function withProvenance(
+  cols: readonly Column[],
+  ownerSourceId: string,
+  qualify: (name: string) => string = (n) => n,
+): ResolvedColumn[] {
+  return cols.map((c) => ({
+    name: qualify(c.name),
+    dtype: c.dtype,
+    ownerSourceId,
+    sourceColumn: c.name,
+  }));
+}
 
 export const MOCK_DATASET: Dataset = {
   id: 'ds_11111111',
@@ -180,7 +198,10 @@ export const MOCK_JOINED_QUERY: Query = {
     ],
     joins: [{ queryRelId: 'qrel_a1b2c3d4', type: 'inner' }],
   },
-  resolvedColumns: [...MOCK_DATASET.columns, ...MOCK_DATASET_2.columns],
+  resolvedColumns: [
+    ...withProvenance(MOCK_DATASET.columns, MOCK_DATASET.id),
+    ...withProvenance(MOCK_DATASET_2.columns, MOCK_DATASET_2.id),
+  ],
   createdAt: '2026-06-13T10:00:00Z',
 };
 
@@ -334,10 +355,10 @@ export const MOCK_CHAIN_ROWS: RowsPage = {
  *  (multi-join.md § Result-column collision) the duplicate is qualified by
  *  dataset name on both sides (`accounts.tier` / `owners.tier`); names unique
  *  across the chain stay bare. Cell order/values are unchanged (13 columns). */
-export const MOCK_CHAIN_COLUMNS = [
-  ...MOCK_DATASET.columns,
-  ...MOCK_DATASET_2.columns.map((c) => (c.name === 'tier' ? { ...c, name: 'accounts.tier' } : c)),
-  ...MOCK_DATASET_3.columns.map((c) => (c.name === 'tier' ? { ...c, name: 'owners.tier' } : c)),
+export const MOCK_CHAIN_COLUMNS: ResolvedColumn[] = [
+  ...withProvenance(MOCK_DATASET.columns, MOCK_DATASET.id),
+  ...withProvenance(MOCK_DATASET_2.columns, MOCK_DATASET_2.id, (n) => (n === 'tier' ? 'accounts.tier' : n)),
+  ...withProvenance(MOCK_DATASET_3.columns, MOCK_DATASET_3.id, (n) => (n === 'tier' ? 'owners.tier' : n)),
 ];
 
 // ─── Composition fixtures (R76 — a Query built ON another Query) ──────

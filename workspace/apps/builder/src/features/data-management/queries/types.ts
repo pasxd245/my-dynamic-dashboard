@@ -76,10 +76,18 @@ export type QueryDefinition = {
 
 /** A single effective column of a Query result (name + dtype). For a join,
  *  duplicate names are collision-qualified (`Deals.id`). Mirrors the inline
- *  shape in `_shared/query.yaml#/Query/resolvedColumns`. */
+ *  shape in `_shared/query.yaml#/Query/resolvedColumns`.
+ *  R93 — carries COLUMN PROVENANCE: the leaf dataset (`ownerSourceId`, always a
+ *  `ds_`) and pre-qualification name (`sourceColumn`) the effective column traces
+ *  to, so a consumer can join OFF a query's column (the canvas resolves the hop's
+ *  left key to the owning leaf). Present for a 1:1-owned column; absent for a
+ *  derived/aggregate column (no single owner). This RETIRES the F1 frontend mock
+ *  (`provenance.ts`) — provenance now arrives on the wire. */
 export type ResolvedColumn = {
   name: string;
   dtype: 'string' | 'integer' | 'float' | 'boolean' | 'date' | 'datetime';
+  ownerSourceId?: string;
+  sourceColumn?: string;
 };
 
 /** A named, saved definition that produces a (virtual) dataset.
