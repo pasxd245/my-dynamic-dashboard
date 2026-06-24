@@ -1,8 +1,9 @@
 # Round 92: canvas query×query UX — the symmetric "join anything to anything" canvas (D + F1 feel-check)
 
-**Status**: In Progress (Plan + **Design gates closed** 2026-06-24 — DFCFBI front half; **F1 next**)
+**Status**: **Complete** — front half (Plan + Design + **F1 human-accepted** + **design-sync**)
+**human-signed-off 2026-06-24**. Back half (C+B+F2+Integration) = **R93**.
 **Date started**: 2026-06-24
-**Date completed**: —
+**Date completed**: 2026-06-24
 **Flow**: **DFCFBI front half — [D + F1 + design-sync]** per [[dfcfbi-two-round-split]] (isolate the
 F1 feel-review risk); the back half (**C + B + F2 + Integration**) is **R93**. Recorded at the Design
 gate via `flow-selector` → **DFCFBI (triggers 1, 2, 5)** (see the Do log); the Do-log block is the
@@ -358,6 +359,73 @@ column's provenance: `leftSourceId = ownerSourceId`, `leftColumn = sourceColumn`
 owner → no provenance → not a legal left key. No aggregation exists today, so the demo uses only 1:1
 columns and the derived-column case is documented, not demoed.
 
+### F1 build — implemented; automated gates green; awaiting the human feel-check (2026-06-24)
+
+Built the sealed F1 scope on the real builder; **no wire change** (provenance is FE-derived state).
+
++ **Provenance enabler (the crux).** New `provenance.ts` (`effectiveColumnsWithProvenance`) derives,
+  FE-side, each `qr_`'s effective columns + the leaf `(ds_, sourceColumn)` each traces to (the mock,
+  matching the pinned R93 wire shape (the **F1 prep** section below); leaf-walk + collision-qualify by owner-dataset name).
+  `resolveConnect` ([joinGraph.ts:103](../../../workspace/apps/builder/src/features/data-management/queries/joinGraph.ts#L103))
+  takes an optional `provenanceOf` (defaults to **identity** — the dataset↔dataset path + the R89
+  unit tests are unchanged) and **rewrites the hop LEFT** from a `qr_` node id to its owning leaf
+  `ds_`, so the drawn join is legal on **R91's wire**. A derived column (no owner) → `invalid:
+  'derived'` (the documented boundary — surfaced, not demoed).
++ **`QueryCanvas`** — a `qr_` node now sources its **effective columns** (`columnsOf`, fed by the
+  mock), renders a node-header type **`<Tag>` (Dataset/Query) + 🔎**, a **"+ N more" disclosure**
+  (collapse past 8 cols; a revealed column draws like any other — the reveal-to-draw crux), an
+  **unavailable** card for an unresolvable `qr_` (Dec 11, no handles), `[+ Add a source]` **grouped
+  Datasets/Queries** (Dec 9/10; the query under edit excluded — no self-join), and **Promote
+  suppressed on any `qr_`-side edge** (Dec 3, `promotable`).
++ **Verification (automated only — the gate is the human's).** `pnpm --filter builder type-check`
+  clean; **191/191** vitest pass incl. new `tests/query-provenance.test.ts` (provenance rewrite +
+  derived-boundary + the FE-mock collision-qualify); one existing test renamed/retargeted
+  ("…every **source** is on the canvas" — `[+ Add a source]` now offers queries too, so it mocks an
+  empty queries list to keep the disabled assertion honest); changed files prettier-clean.
+
+**HARD-STOP — DFCFBI F1 human feel-check** ([[dfcfbi-f1-needs-human-review]]): green gates ≠ proven
+feel. The human runs the builder (`pnpm dev`), exercises **drawing OFF a query-rooted node** (the
+provenance crux), the **"+ N more" reveal-to-draw** (incl. keyboard/SR reach — the `ui-design`
+watch-item), the `qr_` picker, and Form-tab parity, then flips F1.
+
+### F1 — human feel-checked & accepted (2026-06-24)
+
+The human ran the real builder and **accepted the F1 feel**: the **interaction** works; it doesn't
+yet *look* as polished as the Attio reference (`tmp/attio-crm.jpeg`), and that is **fine — UI polish
+deferred** (the human's call: "continue, UI can improve later"). This is exactly the **sealed scope
+posture** (the **Scope posture** section above): Attio is the *feel* north-star, not a paint-job mandate;
+interaction-first, fidelity later. The reference confirms the already-named **F2 deferrals** — nothing
+new: per-field **column-type glyphs**, **curved/rounded edge** styling, and card/header polish
+(icon-chip + tag layout). **F1 gate → CLOSED** (human-flipped). Next: **design-sync**.
+
+### design-sync — canvas.md re-synced to the F1-proven code (2026-06-24)
+
+Ran `design-sync` (default mode) on `.agents/design/data-management/queries/`, scoped to
+[canvas.md](../../design/data-management/queries/canvas.md) (the doc the F1 build changed), per
+[[design-docs-are-source-code]] (code is truth). **Drift report (doc said X / code does Y):**
+
++ **R91 ripple (pre-existing):** the model snippet declared `leftDatasetId` / `rightDatasetId`
+  (dataset-only) — code (types.ts, R91) uses polymorphic **`leftSourceId` / `rightSourceId`**
+  (right may be a `qr_`). _Fixed; this drift predated R92 — the canvas had no UI at R91 so it
+  was never re-synced then._
++ **Nodes are sources, not datasets:** doc said "each hop's right **dataset**" — code renders a
+  right **source** (dataset OR saved query) with a type `<Tag>` + 🔎 + effective columns.
++ **Missing F1 affordances:** query-source nodes (type tag, effective columns, **"+ N more"**
+  disclosure, unavailable state), grouped **`[+ Add a source]`** (Datasets / Saved queries),
+  **promote-suppression** on `qr_`-side edges, and the **frontend-derived column provenance**
+  (`provenance.ts`) + provenance-aware `resolveConnect` (`derived` reject) — none were in the doc.
+
+**Reconciled:** Status/concept, model snippet, Editing (provenance orientation + grouped picker),
+a new **Query (`qr_`) source nodes** subsection, the Surfaces table (provenance.ts row +
+resolveConnect note), Data-contract (still no wire change this round; provenance FE-derived, the
+on-the-wire add named as the R93 follow-up), Accessibility (the "+ N more" keyboard reach), three
+new Acceptance criteria (11–13), and the Scope boundary (query×query IN; provenance-on-wire →
+R93, glyphs/curved-edges → F2, derived-left-keys + `qr_`-on-left → named triggers). No round-ledger
+added (design docs are current-state spec). **Gates:** `design:lint` 0 · `design:tokens` 0 ·
+`markdownlint` 0 · `check:links` clean for canvas.md (the only flags are pre-existing `#L` line-anchor
+refs in round files — [[md-anchor-slug-linter-conflict]] — not the design doc; my two added `#L`
+refs were converted to plain section references).
+
 ## Check
 
 + [x] **Plan gate** — theme + 2×2 reframe + **front-half scope-fork** ratified by the human
@@ -365,12 +433,30 @@ columns and the derived-column case is documented, not demoed.
 + [x] **Design gate** — **closed** (`gate-walker`, 2026-06-24): exit criterion ✓ + Model check ✓ +
       `ui-design` re-confirm ✓ + `flow-selector` → **DFCFBI (1,2,5)** ✓ + commit seam ✓ (human OK'd
       the gate commit). Canvas UX sealed, grounded in `QueryCanvas.tsx` / the resolver.
-+ [ ] **F1 gate** — **next**; the prototype build + the **DFCFBI human feel-check hard-stop**.
-+ [ ] **design-sync** — pending (after F1).
++ [x] **F1 gate** — **CLOSED** (human feel-checked & accepted 2026-06-24): build + automated gates
+      green (type-check · 191/191 vitest · provenance unit tests · prettier) **and** the human-run
+      real-builder feel-check passed (interaction proven; UI polish deferred to F2 per the sealed
+      scope posture — Attio is the feel, not a paint-job).
++ [x] **design-sync** — **done**; canvas.md re-synced to the F1-proven code (R91 `…SourceId`
+      rename + the R92 query×query affordances + provenance); design gates 0; canvas.md link-clean.
 
 ## Act
 
-_Pending — round not yet ratified/started._
+**Front half shipped & human-signed-off (2026-06-24).** The symmetric "join anything to anything"
+canvas interaction is proven on the real builder: a `qr_` source renders as a handle-bearing node
+(type `<Tag>` + 🔎 + effective columns + "+ N more"), the grouped `[+ Add a source]` offers saved
+queries, a drag off a query column resolves its owning leaf via FE-mock provenance (so the join is
+legal on R91's wire), `qr_` edges are non-promotable, and an unresolvable `qr_` shows an unavailable
+node. Automated gates green (type-check · 191/191 vitest · provenance unit tests · prettier ·
+design:lint/tokens/markdownlint 0); F1 **human feel-checked** (interaction proven; UI fidelity
+deferred to F2 per the sealed scope posture); canvas.md re-synced to the code.
+
+**Carry-forward to R93** (the back half): column **provenance on the wire** (Contract+Backend — so
+the FE stops re-deriving it and the drawn joins resolve on persisted provenance), the **F2** visual
+fidelity batch (per-field glyphs + curved edges — the Attio polish the human flagged), and real-stack
+**Integration**. The **provenance.ts FE mock is throwaway** — deleted when R93 puts provenance on the
+wire. Named boundaries persist: derived/aggregate left-keys (only if aggregation arrives) and
+`qr_`-on-left (unneeded while every effective column traces 1:1 to a single leaf).
 
 ## Feeds into → Round_93 (provenance C+B + F2 + Integration — DFCFBI back half)
 
