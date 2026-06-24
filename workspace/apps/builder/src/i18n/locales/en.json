@@ -487,8 +487,14 @@
       "canvasUnresolvedEdge": "(relationship unavailable)",
       "canvasEdgeStale": "The \"{{edge}}\" join is unavailable — \"{{column}}\" no longer exists. Switch to the List view to fix the relationship or remove the edge.",
       "canvasStaged": "not yet joined",
-      "canvasAddSource": "+ Add a source",
+      "canvasAddSource": "Add a source",
       "canvasAddSourcePlaceholder": "Pick a source to add…",
+      "canvasHelp": "Help",
+      "canvasMaximize": "Maximize",
+      "canvasExitMaximize": "Exit maximize",
+      "canvasHelpTitle": "Building joins on the canvas",
+      "canvasHelpAddSource": "“Add a source” brings in another dataset or saved query to draw to.",
+      "canvasHelpEdges": "Click a join to promote, re-sync, or remove it.",
       "canvasAddSourceGroupDatasets": "Datasets",
       "canvasAddSourceGroupQueries": "Saved queries",
       "canvasNodeTypeDataset": "Dataset",
@@ -543,7 +549,8 @@
       "canvasConnect_self": "Pick two different columns to join.",
       "canvasConnect_cyclic": "Those sources are already joined — drag to a source that isn’t on the canvas yet.",
       "canvasConnect_disconnected": "Start the join from a source already in the graph.",
-      "canvasConnect_derived": "That column is computed from more than one source, so it can’t anchor a join. Draw from a column that maps to a single source."
+      "canvasConnect_derived": "That column is computed from more than one source, so it can’t anchor a join. Draw from a column that maps to a single source.",
+      "canvasConnect_dtype_mismatch": "Those columns have different data types, so they can’t be joined. Pick columns of the same type (numbers can join numbers)."
     },
     "create": {
       "title": "Build on {{name}}",

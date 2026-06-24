@@ -1,9 +1,8 @@
 # Round 93: column provenance on the wire + F2 fidelity — query×query joins resolve for real (C + B + F2 + Integration)
 
-**Status**: **In Progress** — Plan ratified + **Contract + Backend closed**; **F2 build done**
-(FE-consumes-wire + mock retired + fidelity), **awaiting the human F2 feel-check** (2026-06-25).
-DFCFBI **back half** of the [Round_92](Round_92.md) split per [[dfcfbi-two-round-split]] (front half
-shipped & Complete).
+**Status**: **In Progress** — Plan ratified + **Contract + Backend + F2 closed** (F2 human-accepted
+2026-06-25); **Integration gate next**. DFCFBI **back half** of the [Round_92](Round_92.md) split per
+[[dfcfbi-two-round-split]] (front half shipped & Complete).
 **Date started**: 2026-06-24
 **Date completed**: —
 **Flow**: **DFCFBI back half — [C + B + F2 + Integration]** (inherited from R92's Design-gate split;
@@ -225,14 +224,48 @@ The provenance loop is closed FE-side and the deferred fidelity landed:
   icon per dtype (`TextAa`/`Hash`/`CheckSquare`/`CalendarBlank`/`Clock`, supplementary to the text
   name + a `title`, so never glyph/colour-alone — accessibility holds). _(b)_ **Rounded edges** —
   `getSmoothStepPath` (orthogonal, `borderRadius: 12`) replaces the bezier S-curve.
-+ **Verified (automated):** builder `type-check` clean; vitest **189/189** (191 − the 2 retired
-  mock tests); prettier clean. The "+ N more" disclosure, picker, promote-suppression, unavailable
-  node, and Form-tab parity are unchanged.
++ **Draw-time dtype guard (human-requested in the feel-check).** `resolveConnect` now rejects an
+  incompatible key pair (e.g. text ↔ number) **before minting** — `invalid: 'dtype_mismatch'` with a
+  message — mirroring the backend's `_compatible` rule (equal dtype, or both numeric). **FE-lenient
+  on unknown dtypes** (a not-yet-loaded column isn't blocked; the backend stays the authoritative
+  gate). Previously an incompatible draw minted an edge that the next preview blocked as
+  `relationship_stale` (feedback one beat late); now it's instant. Threaded via a `dtypeOf` resolver
+  (the same per-source column space the nodes render).
++ **Distinct cursors (human-requested in the feel-check).** The node card and the pane read
+  identically on hover, so panning vs. moving a node was indistinguishable. Now each action reads
+  differently: **pane = `grab`** (pan), **node card = `move`** (reposition, *unchanging* while
+  dragging — per the human, the icon shouldn't flip mid-move), **column row = `default`** (neutral),
+  **handle dot = `crosshair`** (draw a join). The neutral-row → crosshair-dot contrast makes the
+  draw-a-join affordance obvious as you reach the dot. CSS-only, scoped to the canvas.
++ **Verified (automated):** builder `type-check` clean; vitest **193/193** (the retired mock tests
+  removed; +4 dtype-guard cases: incompatible rejected, numeric cross allowed, equal allowed, unknown
+  lenient); prettier clean. The "+ N more" disclosure, picker, promote-suppression, unavailable node,
+  and Form-tab parity are unchanged.
 
 **HARD-STOP — human F2 feel-check** ([[dfcfbi-f1-needs-human-review]]): now on the **real-resolving
 stack** (`pnpm dev` — the joins resolve on server provenance, not a FE mock). Exercise drawing off a
 query-rooted node, the glyphs/rounded-edge feel, and confirm a query×query join returns rows; then
-flip F2. **Not flipped here.**
+flip F2.
+
+### F2 — human feel-checked & closed (2026-06-25)
+
+The human ran it on the real-resolving stack and **accepted F2**, after a feel-check polish pass
+(driven interactively; all committed as one squash per the human's "review then commit" preference):
+
++ **Draw-time dtype guard** — `resolveConnect` rejects an incompatible key pair (text ↔ number)
+  before minting (`invalid: 'dtype_mismatch'`), mirroring the backend `_compatible` rule, FE-lenient
+  on unknown dtypes. Closed the "validation felt one beat late" gap the human spotted.
++ **Cursor scheme** — pane `grab` (pan) · node card `move` (steady while dragging) · column row
+  `default` · handle `crosshair`; so pan vs. move-node vs. draw-join each read distinctly.
++ **Enlarged handle hit-area** — a transparent `::before` grows the connect-dot grab/hover zone
+  without enlarging the visible dot.
++ **One-line toolbar** — `[+ Add a source] [👁 N rows ↗] [? Help]`, top-right, uniform text+icon;
+  the verbose drag-tip folded into the Help popover; the preview chip passed into the canvas toolbar.
++ **Maximize** — a tab-size in-page overlay (NOT the OS Fullscreen API, which left the pane
+  unmeasured → blank) fills the viewport to draw with room; `Esc` exits; the fit re-runs on toggle.
+
+**Verified (automated):** builder `type-check` clean; vitest **193/193**; prettier + i18n parity
+clean. **F2 gate → CLOSED** (human-accepted). Next: **canvas.md re-sync**, then **Integration**.
 
 ## Check
 
@@ -245,8 +278,11 @@ flip F2. **Not flipped here.**
       `resolve_source` attaches (ds_) / passes up (qr_) to any depth; `_resolved_columns` + preview
       emit `ResolvedColumn` (exclude_none). No alembic (computed-on-read). pytest 200/200 (+2
       provenance cases) · ruff clean · schema-parity + conformance green.
-+ [ ] **F2 gate** — **next** (FE-consumes-wire + retire mock + fidelity + human F2 feel-check).
-+ [ ] **Integration gate** — pending (real-stack + human Complete).
++ [x] **F2 gate** — **closed** (human feel-checked & accepted 2026-06-25): FE consumes wire
+      provenance + mock retired; fidelity (glyphs, rounded edges) + feel-check polish (dtype guard,
+      cursor scheme, enlarged handle area, one-line toolbar, tab-size maximize). type-check 0 ·
+      vitest 193/193 · prettier + i18n parity clean.
++ [ ] **Integration gate** — **next** (real-stack query×query resolves + human Complete).
 
 ## Act
 

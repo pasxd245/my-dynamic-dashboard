@@ -87,6 +87,22 @@ export type ColumnProvenance = { ownerSourceId: string; sourceColumn: string };
  *  owner (derived/aggregate, or not yet known). A `ds_` column always owns itself. */
 export type ProvenanceOf = (sourceId: string, column: string) => ColumnProvenance | null;
 
+/** R93 — resolve a drawn endpoint's column dtype, or `null` when unknown (data not yet
+ *  loaded). Supplied by the canvas so a drawn join key can be dtype-checked at draw time. */
+export type DtypeOf = (sourceId: string, column: string) => string | null;
+
+const NUMERIC = new Set(['integer', 'float']);
+
+/** R93 — the FE mirror of the backend join-key compatibility rule
+ *  ([relationships.py](../../../../../backend/app/routers/relationships.py) `_compatible`):
+ *  equal dtype, or both numeric (`integer`/`float`). **FE-lenient on unknowns** — a `null`
+ *  dtype means *not-yet-loaded*, NOT *missing*, so it is NOT a mismatch (the backend stays
+ *  the authoritative gate); only two KNOWN, incompatible dtypes are rejected at draw time. */
+function dtypeIncompatible(a: string | null, b: string | null): boolean {
+  if (!a || !b || a === b) return false;
+  return !(NUMERIC.has(a) && NUMERIC.has(b));
+}
+
 /** R89 — what a drawn canvas connection means, decided purely (no React, no I/O) so
  *  it is unit-testable without firing a React Flow drag:
  *  - `copy`   → the drawn pair matches a governed `rel_` (in the in-graph→new
@@ -98,7 +114,7 @@ export type ProvenanceOf = (sourceId: string, column: string) => ColumnProvenanc
 export type ConnectResult =
   | { kind: 'copy'; relId: string }
   | { kind: 'define'; fields: ConnectFields }
-  | { kind: 'invalid'; reason: 'self' | 'cyclic' | 'disconnected' | 'incomplete' | 'derived' };
+  | { kind: 'invalid'; reason: 'self' | 'cyclic' | 'disconnected' | 'incomplete' | 'derived' | 'dtype_mismatch' };
 
 export function resolveConnect(
   conn: {
@@ -114,6 +130,10 @@ export function resolveConnect(
   // the existing unit tests are unchanged; supplied by the canvas so a drag OFF a
   // `qr_` node's effective column rewrites the hop's LEFT to the owning leaf.
   provenanceOf: ProvenanceOf = (sourceId, column) => ({ ownerSourceId: sourceId, sourceColumn: column }),
+  // R93 — resolve a drawn column's dtype for the draw-time compatibility guard.
+  // Defaults to unknown (no guard) so the existing unit tests are unchanged; the canvas
+  // supplies it so an incompatible pair (e.g. text ↔ number) is rejected before minting.
+  dtypeOf: DtypeOf = () => null,
 ): ConnectResult {
   const { source, sourceHandle, target, targetHandle } = conn;
   if (!source || !target || !sourceHandle || !targetHandle) return { kind: 'invalid', reason: 'incomplete' };
@@ -135,6 +155,11 @@ export function resolveConnect(
   // R92 — the LEFT (in-graph) endpoint must name a LEAF `ds_` for the resolver's
   // membership match. A `qr_` left's effective column is rewritten to its owning leaf
   // via provenance; a derived/aggregate column (no single owner) can't be a left key.
+  // R93 — draw-time dtype guard: reject an incompatible key pair (e.g. text ↔ number)
+  // BEFORE minting, mirroring the backend's `_compatible` rule. Lenient on unknown
+  // dtypes (the backend re-checks on preview/run regardless).
+  if (dtypeIncompatible(dtypeOf(left.ds, left.col), dtypeOf(right.ds, right.col)))
+    return { kind: 'invalid', reason: 'dtype_mismatch' };
   const leftProv = provenanceOf(left.ds, left.col);
   if (!leftProv) return { kind: 'invalid', reason: 'derived' };
   const fields: ConnectFields = {

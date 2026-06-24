@@ -22,12 +22,19 @@
 
 import '@xyflow/react/dist/style.css';
 
-import { Alert, App, Button, Modal, Select, Tag, Tooltip, Typography } from 'antd';
-import { CloseOutlined } from '@ant-design/icons';
+import { Alert, App, Button, Modal, Popover, Select, Tag, Tooltip, Typography } from 'antd';
+import {
+  CloseOutlined,
+  FullscreenExitOutlined,
+  FullscreenOutlined,
+  PlusOutlined,
+  QuestionCircleOutlined,
+} from '@ant-design/icons';
 import { CalendarBlankIcon, CheckSquareIcon, ClockIcon, HashIcon, type Icon, TextAaIcon } from '@phosphor-icons/react';
 import {
   BaseEdge,
   Background,
+  ControlButton,
   Controls,
   EdgeLabelRenderer,
   Handle,
@@ -44,13 +51,12 @@ import {
   type NodeProps,
   type XYPosition,
 } from '@xyflow/react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 
 import { useDatasetsQuery } from '@/features/data-management/datasets/hooks';
 import { useRelationshipsQuery } from '@/features/data-management/relationships/hooks';
-import type { Relationship } from '@/features/data-management/relationships/types';
 import { useQueriesQuery } from './hooks';
 import {
   addEligibleRels,
@@ -117,10 +123,31 @@ function DtypeGlyph({ dtype }: Readonly<{ dtype: Dtype }>) {
 // affordances React Flow's inline handle style can't express: a grab/crosshair
 // cursor, a hover halo, and a grow-on-hover. Scoped to handles inside the canvas.
 const CANVAS_CSS = `
+/* R93 (F2) — distinct cursors for the canvas's actions, so each reads differently on
+   hover: the PANE pans (grab/grabbing, React Flow's default), a NODE card repositions
+   (move = 4-arrow, UNCHANGING while dragging), a column ROW is neutral (default arrow),
+   and a connect HANDLE draws a join (crosshair). The neutral row → crosshair handle
+   contrast makes the draw-a-join affordance obvious as you reach the dot. */
+[data-component="QueryCanvas"] .react-flow__node {
+  cursor: move;
+}
+[data-component="QueryCanvas"] [data-component="CanvasColumn"] {
+  cursor: default;
+}
 [data-component="QueryCanvas"] .react-flow__handle {
   cursor: crosshair;
   border: 1px solid var(--ant-color-bg-base, #fff);
   transition: transform .1s ease, box-shadow .1s ease;
+}
+/* R93 (F2) — enlarge the GRAB/HOVER area without enlarging the visible dot: a
+   transparent ::before extends the hit target (the event still targets the handle, so
+   React Flow starts the connection from anywhere in it). Generous horizontally — into
+   the row + out toward the canvas, where the pointer approaches — and modest vertically
+   so stacked same-edge handles don't overlap into an ambiguous target. */
+[data-component="QueryCanvas"] .react-flow__handle::before {
+  content: '';
+  position: absolute;
+  inset: -5px -9px;
 }
 [data-component="QueryCanvas"] .react-flow__handle:hover {
   transform: scale(1.5);
@@ -157,6 +184,9 @@ export type QueryCanvasProps = Readonly<{
   onResyncRel?: (queryRelId: string) => void;
   /** R89 — the promote mutation's in-flight / error state (for the edge toolbar). */
   promoteState?: Readonly<{ pending: boolean; error: Error | null }>;
+  /** R93 (F2) — the preview status chip, rendered by the parent (it owns the preview
+   *  gate) but placed in the canvas's single top-right toolbar row, between Add and Help. */
+  statusChip?: ReactNode;
 }>;
 
 // ── Custom node: a source card with a connect Handle per column ────────────────
@@ -543,6 +573,7 @@ function QueryCanvasInner({
   onPromoteRel,
   onResyncRel,
   promoteState,
+  statusChip,
 }: QueryCanvasProps) {
   const { t } = useTranslation();
   const { message } = App.useApp();
@@ -631,6 +662,14 @@ function QueryCanvasInner({
     [effectiveByQr],
   );
 
+  // R93 — a drawn column's dtype (from the same per-source column space the nodes render),
+  // for the draw-time dtype guard; `null` when unknown (data not yet loaded → not blocked).
+  const dtypeOf = useCallback(
+    (sourceId: string, column: string): string | null =>
+      columnsOf(sourceId).find((c) => c.name === column)?.dtype ?? null,
+    [columnsOf],
+  );
+
   const rootId = datasetId || baseSourceId;
 
   // Per-edge column-drift staleness (R88): a key column no longer exists on its
@@ -654,6 +693,21 @@ function QueryCanvasInner({
   const [cardinalityInferred, setCardinalityInferred] = useState(false);
   const [promotingId, setPromotingId] = useState<string | null>(null);
   const [selectedEdge, setSelectedEdge] = useState<string | null>(null);
+
+  // R93 (F2) — "fullscreen" = MAXIMIZE the canvas to fill the browser TAB via an in-page
+  // fixed overlay, NOT the OS Fullscreen API: the API left the graph pane unmeasured at
+  // toggle → a blank canvas, and it can be blocked inside embeds. The overlay gives the
+  // pane a definite viewport size (so React Flow measures + fits), keeps the app's own
+  // chrome, and `Esc` exits. The fit re-runs on toggle (fitSignature includes `maximized`).
+  const [maximized, setMaximized] = useState(false);
+  useEffect(() => {
+    if (!maximized) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMaximized(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [maximized]);
 
   // Build the node set (root + each hop's endpoints) and the edges from the query's
   // own relationships — exactly the tree `joins[]` encodes.
@@ -837,7 +891,7 @@ function QueryCanvasInner({
   // Keep the whole graph in view as nodes are staged/joined/removed — otherwise a
   // newly-staged node lands outside the viewport and the user can't see (or draw to)
   // it. Re-fit on the node-set size changing; the rAF lets React Flow measure first.
-  const fitSignature = `${nodeIds.length}:${liveStaged.length}`;
+  const fitSignature = `${nodeIds.length}:${liveStaged.length}:${maximized}`;
   useEffect(() => {
     const id = requestAnimationFrame(() => rf.fitView({ padding: 0.2, duration: 200 }));
     return () => cancelAnimationFrame(id);
@@ -861,7 +915,7 @@ function QueryCanvasInner({
       // R92 — `provenanceOf` lets a drag OFF a `qr_` node's effective column resolve to
       // its owning leaf `ds_` for the hop's LEFT (the resolver matches leaf ids); a
       // derived column has no owner → routed to `invalid: 'derived'`.
-      const res = resolveConnect(conn, graphIds, rels, provenanceOf);
+      const res = resolveConnect(conn, graphIds, rels, provenanceOf, dtypeOf);
       if (res.kind === 'invalid') {
         if (res.reason !== 'incomplete') message.warning(t(`queries.builder.canvasConnect_${res.reason}`));
         return;
@@ -879,7 +933,7 @@ function QueryCanvasInner({
       setCardinality(inferCardinality(res.fields.leftColumn, res.fields.rightColumn));
       setCardinalityInferred(true);
     },
-    [editable, graphIds, rels, provenanceOf, message, t, onAddJoin],
+    [editable, graphIds, rels, provenanceOf, dtypeOf, message, t, onAddJoin],
   );
 
   const confirmDefine = () => {
@@ -899,21 +953,124 @@ function QueryCanvasInner({
   return (
     <div
       data-component="QueryCanvas"
+      data-maximized={maximized ? 'true' : 'false'}
       role="group"
       aria-label={t('queries.builder.viewCanvas')}
-      style={{ display: 'flex', flexDirection: 'column', gap: 8, height: '100%', minHeight: 440 }}
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 8,
+        minHeight: 440,
+        // R93 (F2) — maximized: an in-page overlay filling the browser tab's viewport.
+        ...(maximized
+          ? {
+              position: 'fixed',
+              inset: 0,
+              zIndex: 1000,
+              height: '100%',
+              padding: 8,
+              background: 'var(--ant-color-bg-base, #fff)',
+            }
+          : { height: '100%' }),
+      }}
     >
       <style>{CANVAS_CSS}</style>
+      {/* ── Top toolbar — ONE right-aligned row: Add a source › Preview › Help, all
+          uniform text+icon buttons. The preview chip is passed in by the parent (which
+          owns the preview gate) and sits BETWEEN add and help; the drag instructions live
+          in the help popover so the bar stays a single line. ── */}
+      {editable || statusChip ? (
+        <div
+          data-component="CanvasEditTools"
+          style={{ display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'flex-end', flex: '0 0 auto' }}
+        >
+          {editable &&
+            (adding ? (
+              <Select
+                autoFocus
+                open
+                showSearch
+                optionFilterProp="label"
+                value={undefined}
+                onChange={(id?: string) => {
+                  if (id) setStaged((s) => [...s, id]);
+                  setAdding(false);
+                }}
+                onBlur={() => setAdding(false)}
+                style={{ width: 280 }}
+                placeholder={t('queries.builder.canvasAddSourcePlaceholder')}
+                aria-label={t('queries.builder.canvasAddSource')}
+                // R92 — grouped so a saved query (`qr_`) is disambiguated from a dataset
+                // (`ds_`) at the point of choosing; both can be joined in (Dec 9/10).
+                options={[
+                  {
+                    label: t('queries.builder.canvasAddSourceGroupDatasets'),
+                    options: stageableDatasets.map((id) => ({ value: id, label: sourceName(id) })),
+                  },
+                  {
+                    label: t('queries.builder.canvasAddSourceGroupQueries'),
+                    options: stageableQueries.map((id) => ({ value: id, label: `🔎 ${sourceName(id)}` })),
+                  },
+                ].filter((g) => g.options.length > 0)}
+                data-component="CanvasAddSourceSelect"
+              />
+            ) : (
+              <Tooltip title={stageable.length === 0 ? t('queries.builder.canvasAddSourceNone') : ''}>
+                <Button
+                  type="text"
+                  size="small"
+                  icon={<PlusOutlined />}
+                  onClick={() => setAdding(true)}
+                  disabled={stageable.length === 0}
+                  data-component="CanvasAddSource"
+                >
+                  {t('queries.builder.canvasAddSource')}
+                </Button>
+              </Tooltip>
+            ))}
+          {statusChip}
+          {editable && (
+            <Popover
+              trigger="click"
+              placement="bottomRight"
+              title={t('queries.builder.canvasHelpTitle')}
+              content={
+                <div style={{ maxWidth: 300, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <Typography.Text style={{ fontSize: 12 }} data-component="CanvasDragHint">
+                    {addEligible.length > 0
+                      ? t('queries.builder.canvasDragHintGoverned')
+                      : t('queries.builder.canvasDragHint')}
+                  </Typography.Text>
+                  <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                    {t('queries.builder.canvasHelpAddSource')}
+                  </Typography.Text>
+                  <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                    {t('queries.builder.canvasHelpEdges')}
+                  </Typography.Text>
+                </div>
+              }
+            >
+              <Button type="text" size="small" icon={<QuestionCircleOutlined />} data-component="CanvasHelp">
+                {t('queries.builder.canvasHelp')}
+              </Button>
+            </Popover>
+          )}
+        </div>
+      ) : null}
+
       {/* ── The graph ──────────────────────────────────────────────────── */}
       {/* React Flow needs a definitely-sized parent (a flex/`height:100%` chain
           that collapses leaves the pane 0px → nodes show but nothing is
           interactive). Pin an explicit height so the pane is always real. */}
       <div
+        data-component="QueryCanvasPane"
         style={{
-          height: 'clamp(420px, 60vh, 640px)',
-          flex: '0 0 auto',
+          // Maximized: fill the remaining overlay height; otherwise the clamped pane.
+          ...(maximized
+            ? { flex: '1 1 auto', minHeight: 0 }
+            : { height: 'clamp(420px, 60vh, 640px)', flex: '0 0 auto' }),
           border: '1px solid var(--ant-color-border-secondary, #f0f0f0)',
-          borderRadius: 6,
+          borderRadius: maximized ? 0 : 6,
           background: 'var(--ant-color-bg-layout, #f5f5f5)',
         }}
       >
@@ -930,58 +1087,20 @@ function QueryCanvasInner({
           proOptions={{ hideAttribution: true }}
         >
           <Background />
-          <Controls showInteractive={false} />
+          <Controls showInteractive={false}>
+            {/* R93 (F2) — a maximize toggle alongside zoom/fit, to fill the tab and draw
+                with room (Esc exits). */}
+            <ControlButton
+              onClick={() => setMaximized((m) => !m)}
+              title={maximized ? t('queries.builder.canvasExitMaximize') : t('queries.builder.canvasMaximize')}
+              aria-label={maximized ? t('queries.builder.canvasExitMaximize') : t('queries.builder.canvasMaximize')}
+              data-component="CanvasFullscreen"
+            >
+              {maximized ? <FullscreenExitOutlined /> : <FullscreenOutlined />}
+            </ControlButton>
+          </Controls>
         </ReactFlow>
       </div>
-
-      {/* ── Editing toolbar — add a not-yet-joined source to draw to ──────── */}
-      {editable ? (
-        <div data-component="CanvasEditTools" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {adding ? (
-            <Select
-              autoFocus
-              open
-              showSearch
-              optionFilterProp="label"
-              value={undefined}
-              onChange={(id?: string) => {
-                if (id) setStaged((s) => [...s, id]);
-                setAdding(false);
-              }}
-              onBlur={() => setAdding(false)}
-              style={{ width: 280 }}
-              placeholder={t('queries.builder.canvasAddSourcePlaceholder')}
-              aria-label={t('queries.builder.canvasAddSource')}
-              // R92 — grouped so a saved query (`qr_`) is disambiguated from a dataset
-              // (`ds_`) at the point of choosing; both can be joined in (Dec 9/10).
-              options={[
-                {
-                  label: t('queries.builder.canvasAddSourceGroupDatasets'),
-                  options: stageableDatasets.map((id) => ({ value: id, label: sourceName(id) })),
-                },
-                {
-                  label: t('queries.builder.canvasAddSourceGroupQueries'),
-                  options: stageableQueries.map((id) => ({ value: id, label: `🔎 ${sourceName(id)}` })),
-                },
-              ].filter((g) => g.options.length > 0)}
-              data-component="CanvasAddSourceSelect"
-            />
-          ) : (
-            <Tooltip title={stageable.length === 0 ? t('queries.builder.canvasAddSourceNone') : ''}>
-              <Button
-                onClick={() => setAdding(true)}
-                disabled={stageable.length === 0}
-                data-component="CanvasAddSource"
-              >
-                {t('queries.builder.canvasAddSource')}
-              </Button>
-            </Tooltip>
-          )}
-          <Typography.Text type="secondary" style={{ fontSize: 12 }} data-component="CanvasDragHint">
-            {addEligible.length > 0 ? t('queries.builder.canvasDragHintGoverned') : t('queries.builder.canvasDragHint')}
-          </Typography.Text>
-        </div>
-      ) : null}
 
       {/* ── Free-form define — pick a cardinality for the drawn pair ──────── */}
       <Modal

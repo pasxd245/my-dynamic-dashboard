@@ -63,3 +63,63 @@ describe('resolveConnect — provenance rewrites a qr_ left to its owning leaf (
     });
   });
 });
+
+describe('resolveConnect — draw-time dtype guard (R93 F2)', () => {
+  // DEALS.amount = integer, DEALS.deal_id = string; ACCOUNTS.tier = string,
+  // ACCOUNTS.score = float. Mirrors the backend rule: equal, or both numeric.
+  const dtype = (sourceId: string, column: string): string | null => {
+    const m: Record<string, string> = {
+      [`${DEALS}.amount`]: 'integer',
+      [`${DEALS}.deal_id`]: 'string',
+      [`${ACCOUNTS}.tier`]: 'string',
+      [`${ACCOUNTS}.score`]: 'float',
+    };
+    return m[`${sourceId}.${column}`] ?? null;
+  };
+  const identity = (sourceId: string, column: string) => ({ ownerSourceId: sourceId, sourceColumn: column });
+
+  it('rejects an incompatible pair (text ↔ number) before minting', () => {
+    const res = resolveConnect(
+      { source: DEALS, sourceHandle: 'deal_id', target: ACCOUNTS, targetHandle: 'score' },
+      [DEALS],
+      governed,
+      identity,
+      dtype,
+    );
+    expect(res).toEqual({ kind: 'invalid', reason: 'dtype_mismatch' });
+  });
+
+  it('allows a numeric cross-type pair (integer ↔ float), mirroring the backend', () => {
+    const res = resolveConnect(
+      { source: DEALS, sourceHandle: 'amount', target: ACCOUNTS, targetHandle: 'score' },
+      [DEALS],
+      governed,
+      identity,
+      dtype,
+    );
+    expect(res.kind).toBe('define');
+  });
+
+  it('allows equal dtypes (string ↔ string)', () => {
+    const res = resolveConnect(
+      { source: DEALS, sourceHandle: 'deal_id', target: ACCOUNTS, targetHandle: 'tier' },
+      [DEALS],
+      governed,
+      identity,
+      dtype,
+    );
+    expect(res.kind).toBe('define');
+  });
+
+  it('is lenient on unknown dtypes — does NOT block (the backend stays the gate)', () => {
+    const res = resolveConnect(
+      // ACCOUNTS.unknown_col has no dtype in the map → null → not blocked
+      { source: DEALS, sourceHandle: 'deal_id', target: ACCOUNTS, targetHandle: 'unknown_col' },
+      [DEALS],
+      governed,
+      identity,
+      dtype,
+    );
+    expect(res.kind).toBe('define');
+  });
+});

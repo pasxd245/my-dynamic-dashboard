@@ -10,7 +10,7 @@
 // Switching swaps the rendering only — no edit lost, no model forked (canvas.md
 // J-1). State + the Save/Cancel lifecycle live in `useQueryBuilder`.
 
-import { RightOutlined, WarningOutlined } from '@ant-design/icons';
+import { EyeOutlined, RightOutlined, WarningOutlined } from '@ant-design/icons';
 import { XCircleIcon } from '@phosphor-icons/react';
 import { Button, Input, Tabs, Tag, Typography } from 'antd';
 import type { TFunction } from 'i18next';
@@ -100,8 +100,7 @@ function FormTab({
 }>) {
   const { t } = useTranslation();
   const { draft, columns, isJoined } = builder;
-  const activeCount =
-    draft.filters.length + draft.advanced.flat().length + (draft.q ? 1 : 0) + builder.joins.length;
+  const activeCount = draft.filters.length + draft.advanced.flat().length + (draft.q ? 1 : 0) + builder.joins.length;
 
   return (
     <>
@@ -283,24 +282,28 @@ function CanvasTab({
   status,
   onGoToForm,
 }: Readonly<{ builder: QueryBuilderState; status: CanvasStatus; onGoToForm: () => void }>) {
+  // R93 (F2) — the preview chip is a uniform text+icon button, passed INTO the canvas so
+  // all three top-right toolbar actions (Add › Preview › Help) sit on one line. The parent
+  // still owns it (the preview gate lives here); the canvas only places it.
+  const statusChip = (
+    <Button
+      type="text"
+      size="small"
+      data-component="QueryCanvasStatusChip"
+      data-stale={status.stale ? 'true' : 'false'}
+      aria-label={status.aria}
+      icon={status.stale ? <WarningOutlined /> : <EyeOutlined />}
+      onClick={onGoToForm}
+      style={status.stale ? { color: 'var(--ant-color-warning, #faad14)' } : undefined}
+    >
+      {status.label} ↗
+    </Button>
+  );
   return (
     <div
       data-component="QueryBuilderCanvasTab"
       style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: '1 1 auto', minHeight: 0 }}
     >
-      <div style={{ display: 'flex', justifyContent: 'flex-end', flex: '0 0 auto' }}>
-        <Button
-          size="small"
-          data-component="QueryCanvasStatusChip"
-          data-stale={status.stale ? 'true' : 'false'}
-          aria-label={status.aria}
-          icon={status.stale ? <WarningOutlined /> : undefined}
-          onClick={onGoToForm}
-          style={status.stale ? { color: 'var(--ant-color-warning, #faad14)' } : undefined}
-        >
-          {status.label} ↗
-        </Button>
-      </div>
       <div style={{ flex: '1 1 auto', minHeight: 0, overflow: 'auto' }}>
         <QueryCanvas
           datasetId={builder.datasetId}
@@ -314,6 +317,7 @@ function CanvasTab({
           onPromoteRel={builder.promoteRel}
           onResyncRel={builder.resyncRel}
           promoteState={builder.promoteState}
+          statusChip={statusChip}
         />
       </div>
     </div>

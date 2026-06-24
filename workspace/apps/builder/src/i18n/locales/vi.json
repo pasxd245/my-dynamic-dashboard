@@ -487,8 +487,14 @@
       "canvasUnresolvedEdge": "(quan hệ không khả dụng)",
       "canvasEdgeStale": "Phép nối \"{{edge}}\" không khả dụng — \"{{column}}\" không còn tồn tại. Chuyển sang chế độ Danh sách để sửa quan hệ hoặc bỏ cạnh này.",
       "canvasStaged": "chưa được nối",
-      "canvasAddSource": "+ Thêm nguồn",
+      "canvasAddSource": "Thêm nguồn",
       "canvasAddSourcePlaceholder": "Chọn nguồn để thêm…",
+      "canvasHelp": "Trợ giúp",
+      "canvasMaximize": "Phóng to",
+      "canvasExitMaximize": "Thu nhỏ",
+      "canvasHelpTitle": "Tạo phép nối trên canvas",
+      "canvasHelpAddSource": "“Thêm nguồn” đưa thêm một tập dữ liệu hoặc truy vấn đã lưu vào để vẽ nối.",
+      "canvasHelpEdges": "Nhấp vào một phép nối để thăng cấp, đồng bộ lại, hoặc xóa.",
       "canvasAddSourceGroupDatasets": "Tập dữ liệu",
       "canvasAddSourceGroupQueries": "Truy vấn đã lưu",
       "canvasNodeTypeDataset": "Tập dữ liệu",
@@ -543,7 +549,8 @@
       "canvasConnect_self": "Chọn hai cột khác nhau để nối.",
       "canvasConnect_cyclic": "Các nguồn đó đã được nối — kéo tới một nguồn chưa có trên canvas.",
       "canvasConnect_disconnected": "Bắt đầu phép nối từ một nguồn đã có trong đồ thị.",
-      "canvasConnect_derived": "Cột đó được tính từ nhiều nguồn nên không thể làm khóa nối. Hãy kéo từ một cột thuộc về một nguồn duy nhất."
+      "canvasConnect_derived": "Cột đó được tính từ nhiều nguồn nên không thể làm khóa nối. Hãy kéo từ một cột thuộc về một nguồn duy nhất.",
+      "canvasConnect_dtype_mismatch": "Hai cột có kiểu dữ liệu khác nhau nên không thể nối. Hãy chọn các cột cùng kiểu (số có thể nối với số)."
     },
     "create": {
       "title": "Tạo truy vấn từ {{name}}",
