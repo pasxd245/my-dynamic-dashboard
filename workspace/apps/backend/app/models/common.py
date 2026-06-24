@@ -29,6 +29,9 @@ DsId = Annotated[str, Field(pattern=ID_PATTERNS["dataset"])]
 # `rightSourceId` (query×query). Hoisted here so the QueryRelationship model can use it.
 # Mirrors the contract's `^(ds_|qr_)[0-9a-f]{8}$`; the unified resolver reads either.
 SourceId = Annotated[str, Field(pattern=r"^(ds_|qr_)[0-9a-f]{8}$")]
+# R93 — a LEAF dataset id (`ds_…` only); used by a ResolvedColumn's `ownerSourceId`,
+# which is always a leaf (the join resolver matches a hop's left by leaf membership).
+DatasetId = Annotated[str, Field(pattern=r"^ds_[0-9a-f]{8}$")]
 TempId = Annotated[str, Field(pattern=ID_PATTERNS["temp"])]
 IsoUtc = Annotated[
     str,
@@ -41,6 +44,22 @@ class Column(BaseModel):
 
     name: Annotated[str, Field(min_length=1)]
     dtype: Dtype
+
+
+class ResolvedColumn(BaseModel):
+    """R93 — an EFFECTIVE column of a (joined/composed) query, carrying its COLUMN
+    PROVENANCE: the leaf dataset (`ownerSourceId`, always a `ds_`) + the
+    pre-qualification name (`sourceColumn`) it traces to. A consumer joining OFF a
+    query's effective column resolves the hop's left key to that leaf, which the
+    join resolver matches by membership. A 1:1-owned column carries both; a
+    derived/aggregate column (no single owner) omits them — none exist today."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: Annotated[str, Field(min_length=1)]
+    dtype: Dtype
+    ownerSourceId: DatasetId | None = None  # noqa: N815 — wire shape; a leaf `ds_`
+    sourceColumn: Annotated[str, Field(min_length=1)] | None = None  # noqa: N815
 
 
 class Workspace(BaseModel):
@@ -278,7 +297,7 @@ class Query(BaseModel):
     # R71/R73 — the effective (combined, collision-qualified) columns; present
     # whenever `definition.joins` is non-empty (a single join or a multi-hop
     # chain). The FE renders joined headers from it.
-    resolvedColumns: list[Column] | None = None  # noqa: N815
+    resolvedColumns: list[ResolvedColumn] | None = None  # noqa: N815
     createdAt: IsoUtc  # noqa: N815
 
 

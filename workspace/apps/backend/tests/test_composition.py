@@ -308,12 +308,46 @@ def test_query_x_query_effective_columns_qualified() -> None:
         assert a.status_code == 201, a.text
         detail = client.get(f"/queries/{a.json()['id']}")
         assert detail.status_code == 200, detail.text
-        names = [c["name"] for c in detail.json().get("resolvedColumns", [])]
+        cols = {c["name"]: c for c in detail.json().get("resolvedColumns", [])}
         # sample.csv columns (id,name,amount,signed_up) collide across both sources →
         # every one is qualified, by the dataset name on the left and the QUERY name on
         # the right.
-        assert "deals.id" in names, names
-        assert "Accounts base.id" in names, names
+        assert "deals.id" in cols, list(cols)
+        assert "Accounts base.id" in cols, list(cols)
+        # R93 — column provenance points to the LEAF dataset, even though the right
+        # side's DISPLAY name is qualified by the joined-in QUERY's name ("Accounts
+        # base"): the resolver passes the leaf owner up through the sub-query.
+        assert cols["deals.id"]["ownerSourceId"] == deals
+        assert cols["deals.id"]["sourceColumn"] == "id"
+        assert cols["Accounts base.id"]["ownerSourceId"] == accounts
+        assert cols["Accounts base.id"]["sourceColumn"] == "id"
+        validate_response("queries/detail-get.contract.yaml", 200, detail.json())
+
+
+@pytest.mark.unit
+def test_resolved_columns_provenance_traces_through_composed_base() -> None:
+    """R93 — column provenance traces to the true LEAF dataset THROUGH a composed
+    (`qr_`) driving base: a query built ON a joined base inherits effective columns
+    whose `ownerSourceId` is the leaf `ds_` (deals/accounts), not the base `qr_`. This
+    is the resolver-recursion path (`resolve_source` for a `qr_` source passes up the
+    sub-query's effective-column provenance)."""
+    with TestClient(app) as client:
+        ws, deals, accounts = _seed(client)
+        rel = _declare_id_join(client, ws, deals, accounts)
+        base = _create_query(client, ws, name="Deals x Accounts base", dataset_id=deals, rels=[rel])
+        assert base.status_code == 201, base.text
+        composed = _create_query(client, ws, name="On base", dataset_id=deals, source_id=base.json()["id"])
+        assert composed.status_code == 201, composed.text
+        detail = client.get(f"/queries/{composed.json()['id']}")
+        assert detail.status_code == 200, detail.text
+        cols = {c["name"]: c for c in detail.json().get("resolvedColumns", [])}
+        # deals+accounts share sample.csv's columns → qualified deals.id / accounts.id;
+        # provenance names the leaf each came from, with the pre-qualification name.
+        assert cols["deals.id"]["ownerSourceId"] == deals
+        assert cols["deals.id"]["sourceColumn"] == "id"
+        assert cols["accounts.id"]["ownerSourceId"] == accounts
+        assert cols["accounts.id"]["sourceColumn"] == "id"
+        validate_response("queries/detail-get.contract.yaml", 200, detail.json())
 
 
 @pytest.mark.unit

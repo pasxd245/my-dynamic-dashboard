@@ -42,11 +42,11 @@ from app.models.common import (
     ApiErrorNotFound,
     ApiErrorQueryStale,
     ApiErrorRelationshipStale,
-    Column,
     CreateQueryBody,
     PreviewQueryBody,
     Query as QueryModel,
     QueryDefinition,
+    ResolvedColumn,
     UpdateQueryBody,
 )
 from app.routers.datasets import RowsPage
@@ -148,10 +148,14 @@ def resolve_source(
     ds = con.execute(_SELECT_DATASET, (source_id,)).fetchone()
     if ds is None or ds["workspace_id"] != workspace_id:
         return None, "relationship_dataset_missing"
+    # R93 — a leaf dataset's columns own themselves 1:1: each carries its
+    # ownerSourceId (this `ds_`) + sourceColumn (its own bare name). build_effective_columns
+    # rides this through (a `qr_` source passes its sub-query's provenance up instead).
+    cols = [{**c, "ownerSourceId": ds["id"], "sourceColumn": c["name"]} for c in json.loads(ds["columns_json"])]
     return (
         {
             "relation": ("read_parquet(?)", [_parquet_of(ds)]),
-            "columns": json.loads(ds["columns_json"]),
+            "columns": cols,
             "dataset_ids": {ds["id"]},
             "name": ds["name"],
         },
@@ -254,19 +258,32 @@ def _is_multi_source(source_id: str, chain: list[dict]) -> bool:
     return source_id.startswith("qr_") or bool(chain)
 
 
+def _to_resolved(c: dict) -> ResolvedColumn:
+    """R93 — map an effective-column dict (`name`/`dtype` + the leaf provenance
+    `ownerSourceId`/`sourceColumn` that `build_effective_columns` rode through) to
+    the wire model. A derived column (no single owner) carries neither — the
+    optional fields stay `None` and are dropped via `exclude_none`."""
+    return ResolvedColumn(
+        name=c["name"],
+        dtype=c["dtype"],
+        ownerSourceId=c.get("ownerSourceId"),
+        sourceColumn=c.get("sourceColumn"),
+    )
+
+
 def _resolved_columns(
     con: sqlite3.Connection, definition: dict, source_id: str, workspace_id: str
-) -> list[Column] | None:
+) -> list[ResolvedColumn] | None:
     """The effective columns for a multi-source query (joined or composed); None
     for a single dataset source, or when the graph no longer resolves (get/list
-    never error — they just omit it)."""
+    never error — they just omit it). R93 — each carries its leaf provenance."""
     chain = _chain_of(definition)
     if not _is_multi_source(source_id, chain):
         return None
     payload, reason = _resolve_chain(con, source_id, chain, _rels_of(definition), workspace_id)
     if reason is not None:
         return None
-    return [Column(name=c["name"], dtype=c["dtype"]) for c in payload["effective"]]
+    return [_to_resolved(c) for c in payload["effective"]]
 
 
 def _execute_chain(
@@ -559,7 +576,7 @@ def preview_query(  # noqa: A002
         rows, total = _execute_chain(
             payload, page=page, page_size=page_size, q=q, filters=filters, advanced=advanced
         )
-        resolved = [Column(name=c["name"], dtype=c["dtype"]).model_dump() for c in payload["effective"]]
+        resolved = [_to_resolved(c).model_dump(exclude_none=True) for c in payload["effective"]]
         content = {"rows": rows, "page": page, "pageSize": page_size, "total": total, "resolvedColumns": resolved}
     else:
         _, ds, columns_meta, filters, advanced = plan

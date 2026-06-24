@@ -150,6 +150,15 @@ def build_effective_columns(
     unique across the whole chain stay bare. ``select_exprs`` alias each source
     column (``T{i}."x"``) to its effective output name so predicates can
     reference the effective name unqualified.
+
+    R93 — COLUMN PROVENANCE rides through unchanged: a source column carrying
+    ``ownerSourceId`` (a leaf ``ds_``) + ``sourceColumn`` (its pre-qualification
+    name) is copied onto the effective entry. Only the display ``name`` is
+    collision-qualified; the leaf owner + ``sourceColumn`` are untouched, so a
+    composed (``qr_``) source — whose columns already carry leaf provenance —
+    passes it up to ANY depth. The SQL alias still keys on the source-exposed
+    ``c["name"]`` (a leaf's bare name, or a sub-query's effective name), so the
+    join/select machinery is unchanged.
     """
     name_counts: dict[str, int] = {}
     for _, cols in sources:
@@ -162,7 +171,11 @@ def build_effective_columns(
         alias = f"T{i}"
         for c in cols:
             out = f"{ds_name}.{c['name']}" if name_counts[c["name"]] > 1 else c["name"]
-            effective.append({"name": out, "dtype": c["dtype"]})
+            eff_col: dict[str, str] = {"name": out, "dtype": c["dtype"]}
+            if c.get("ownerSourceId"):
+                eff_col["ownerSourceId"] = c["ownerSourceId"]
+                eff_col["sourceColumn"] = c["sourceColumn"]
+            effective.append(eff_col)
             select_exprs.append(f'{alias}.{_quote_ident(c["name"])} AS {_quote_ident(out)}')
     return effective, select_exprs
 

@@ -1,8 +1,8 @@
 # Round 93: column provenance on the wire + F2 fidelity — query×query joins resolve for real (C + B + F2 + Integration)
 
-**Status**: **In Progress** — Plan **ratified** + **Contract gate closed** (2026-06-24); **Backend
-gate next**. DFCFBI **back half** of the [Round_92](Round_92.md) split per [[dfcfbi-two-round-split]]
-(front half [D + F1 + design-sync] shipped & Complete).
+**Status**: **In Progress** — Plan **ratified** + **Contract + Backend gates closed** (2026-06-24);
+**F2 gate next** (FE-consumes-wire + fidelity + human feel-check). DFCFBI **back half** of the
+[Round_92](Round_92.md) split per [[dfcfbi-two-round-split]] (front half shipped & Complete).
 **Date started**: 2026-06-24
 **Date completed**: —
 **Flow**: **DFCFBI back half — [C + B + F2 + Integration]** (inherited from R92's Design-gate split;
@@ -179,6 +179,37 @@ effective column carries them.
 
 **Contract gate → CLOSED.** Next: **Backend** (emit provenance for real + pytest).
 
+### Backend gate — closed (2026-06-24)
+
+The resolver now emits column provenance for real — the engine reshape was exactly as scoped (no
+migration, no SQL change):
+
++ **`build_effective_columns`**
+  ([rows_reader.py:137](../../../workspace/apps/backend/app/ingest/rows_reader.py#L137)) — rides
+  `ownerSourceId` / `sourceColumn` through the concatenation: it copies them onto each effective
+  entry and **only collision-qualifies the display `name`**. The SQL alias still keys on the
+  source-exposed `c["name"]`, so the join/select machinery is byte-for-byte unchanged.
++ **`resolve_source`**
+  ([queries.py:99](../../../workspace/apps/backend/app/routers/queries.py#L99)) — a `ds_` leaf
+  attaches `ownerSourceId = <this ds_>`, `sourceColumn = <bare name>` (1:1); a `qr_` **passes its
+  sub-query's already-provenanced effective columns up** — so provenance traces to the true leaf at
+  **any nesting depth** (the recursion the resolver already does).
++ **Emit** — new `ResolvedColumn` model (`Column` + optional `ownerSourceId` (a `DatasetId`) /
+  `sourceColumn`, `extra="forbid"`); `_resolved_columns` + the preview handler emit it via
+  `_to_resolved(...).model_dump(exclude_none=True)` (a derived column's `None` provenance is
+  dropped — optional-contract-clean). `QueryModel.resolvedColumns` retyped; `Column` import removed.
++ **No alembic** — confirmed: `resolvedColumns` is computed-on-read in `_resolved_columns`; only
+  `definition_json` is persisted, untouched. The stored schema does not change.
++ **Verified** — `uv run pytest` **200/200** (+1: two new provenance cases —
+  `test_query_x_query_effective_columns_qualified` now asserts a `qr_`-right column's
+  **display name is query-qualified (`Accounts base.id`) while its provenance owner is the LEAF
+  `accounts` dataset**; `test_resolved_columns_provenance_traces_through_composed_base` proves the
+  recursion through a composed driving base). `ruff` clean; schema-parity + conformance green (the
+  backend output conforms to the extended contract via `validate_response`).
+
+**Backend gate → CLOSED.** Next: **F2** (FE consumes the wire + retires the mock; fidelity polish;
+the **human F2 feel-check** hard-stop).
+
 ## Check
 
 + [x] **Plan gate** — **ratified** (human, 2026-06-24, "as drafted"); scope locked, no cold-reviewer
@@ -186,8 +217,11 @@ effective column carries them.
 + [x] **Contract gate** — **closed** (2026-06-24): `resolvedColumns` items gain optional
       `ownerSourceId`/`sourceColumn` (both inline copies + examples + FE type + MSW fixtures);
       contracts 24/24 · builder type-check 0 · builder 191/191. Backward-compatible (optional).
-+ [ ] **Backend gate** — **next**.
-+ [ ] **F2 gate** — pending (FE-consumes-wire + fidelity + human F2 feel-check).
++ [x] **Backend gate** — **closed** (2026-06-24): `build_effective_columns` rides provenance through;
+      `resolve_source` attaches (ds_) / passes up (qr_) to any depth; `_resolved_columns` + preview
+      emit `ResolvedColumn` (exclude_none). No alembic (computed-on-read). pytest 200/200 (+2
+      provenance cases) · ruff clean · schema-parity + conformance green.
++ [ ] **F2 gate** — **next** (FE-consumes-wire + retire mock + fidelity + human F2 feel-check).
 + [ ] **Integration gate** — pending (real-stack + human Complete).
 
 ## Act
