@@ -49,7 +49,7 @@ When rules, habits, or prior decisions conflict with the current purpose, re-che
 1. Anchor in product value and the canonical purpose.
 2. Identify the active track before changing files or process.
 3. Make the smallest useful change that advances the current round.
-4. Verify against the real repo, not only docs or assumptions.
+4. Verify against the real repo, not only docs or assumptions — and never report an edit as lossless or a task as done without proof (diff item counts; run the touched tests/lint).
 5. Capture only reusable lessons in `memory/`.
 6. Promote slowly, with evidence and human review.
 
@@ -63,7 +63,7 @@ At the start of every session, an agent MUST:
 
 1. Read [.agents/context/purpose.md](context/purpose.md).
 2. Read [.agents/context/governance.md](context/governance.md) and active [.agents/decisions/](decisions/) entries when the task touches `.agents/`, governance, memory, skills, prompts, planning, or a cross-round commitment.
-3. Consult [.agents/context/tools.md](context/tools.md) when choosing a tool, skill, or repo command — the "what do I reach for?" index.
+3. **Before reaching for** a tool, skill, or repo command, consult [.agents/context/tools.md](context/tools.md) — it carries the repo's **binding prefer/fallback defaults** (e.g. `rg` over `grep`), the capability index, and the dev toolchain.
 4. Read relevant files in `.agents/skills/` based on the task.
 5. Treat `.agents/prompts/*.prompt.md` as runtime instructions when loaded by supported agent tooling.
 6. Optionally review recent or task-relevant files in `.agents/memory/`.
@@ -79,6 +79,7 @@ This work is an **HIxAI co-spiral** — Human Intelligence and AI taking turns l
 - **Ask before assuming.** Confirm intent before changes to product behavior, public API, or governance. If a request is ambiguous, internally inconsistent, or hard to reverse, restate your understanding + a one-line plan and wait for confirmation.
 - **Think out loud.** State the track and the pull before adding code, files, or sections — per the Evolution Rule above.
 - **Small steps, frequent checks.** Incremental edits with verification over large rewrites. One feature per round.
+- **Respect scope brakes.** When a design or task exceeds a stated boundary (route counts, feature scope, round scope), flag the divergence and stop — don't faithfully build past the brief.
 - **Stay in track.** If a task blurs tracks, pause and split it.
 
 ---

@@ -15,8 +15,4 @@ Claude Code loads this file at cold start. Treat the imported agent constitution
 
 If the import fails or `.agents/AGENTS.md` is unavailable, stop before making changes, state that you could not load it, and ask the user how to proceed.
 
-<!--
-
-## Your instructions here
-
--->
+On a resumed session, follow AGENTS.md's **Load Order**, then — in one message — summarize the current round state from code-sourced truth and name the next gate **before** any long work. Don't spend the first turn on broad exploration.

@@ -13,6 +13,7 @@
     "dev:local:down": "bash scripts/dev/local-down.sh",
     "dev:local:status": "bash scripts/dev/local-status.sh",
     "md:lint": "markdownlint-cli2",
+    "check:links": "python3 .agents/skills/markdown-check-link/scripts/check_links.py",
     "design:lint": "node scripts/lint/design-doc-lint.mjs",
     "design:tokens": "node scripts/lint/design-token-parity.mjs",
     "plan:lint": "node scripts/lint/round-lint.mjs",
