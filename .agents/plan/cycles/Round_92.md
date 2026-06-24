@@ -316,6 +316,48 @@ this very block — a gate-close line cannot cite its own SHA, per the skill's s
   build + the **DFCFBI human feel-check hard-stop** ([[dfcfbi-f1-needs-human-review]]); F1 may now
   begin.
 
+### F1 prep — mock-provenance shape (sketched at Design, 2026-06-24)
+
+The cold-reviewer pre-mortem: F1 mocks provenance, so pin the shape **now** against what R93 can
+cheaply emit — else the feel-check blesses an interaction the real wire can't deliver.
+
+**Wire shape (R93 Contract target).** Extend each *effective* column entry with the leaf it traces to:
+
+```json
+{ "name": "Deals.id", "dtype": "...", "ownerSourceId": "ds_abcd1234", "sourceColumn": "id" }
+```
+
++ `ownerSourceId` is always a **leaf `ds_`** — matches the resolver's left-matching, which tests
+  `leftSourceId ∈ dataset_id_sets` (leaf `ds_` ids) at
+  [queries.py:205](../../../workspace/apps/backend/app/routers/queries.py#L205).
++ `sourceColumn` is the **pre-qualification** name on that leaf; the collision-qualified display
+  `name` (`Deals.id`) is for the header, the join key uses `sourceColumn`.
+
+**Cheap to emit — clean recursion, no engine reshape:**
+
++ `resolve_source` ([queries.py:99](../../../workspace/apps/backend/app/routers/queries.py#L99))
+  returns a `provenance` list aligned with `columns`: a `ds_` leaf →
+  `[{ownerSourceId: <this ds_>, sourceColumn: c.name} …]` (1:1, exact); a `qr_` → pass up
+  `payload["provenance"]` (its effective columns already carry it).
++ `build_effective_columns`
+  ([rows_reader.py:137](../../../workspace/apps/backend/app/ingest/rows_reader.py#L137))
+  concatenates each source's provenance alongside `effective`, qualifying `name` only
+  (owner/`sourceColumn` untouched) → `effective[i] ↔ provenance[i]`; `_resolved_columns` attaches it.
+
+**F1 mock constraint** (contract-safe per [[dfcfbi-f1-precedes-contract]]): pre-Contract, MSW
+response-validation is `additionalProperties:false`, so the mock must live as **FE-derived state**,
+**not** a field on the MSW response. Mock the `{ownerSourceId, sourceColumn}` map FE-side; it moves
+onto the wire at R93.
+
+**Consumer to wire at F1:** `resolveConnect`
+([joinGraph.ts:121](../../../workspace/apps/builder/src/features/data-management/queries/joinGraph.ts#L121))
+today sets `leftSourceId` from the **node id** — for a `qr_` node it must instead read the dragged
+column's provenance: `leftSourceId = ownerSourceId`, `leftColumn = sourceColumn`.
+
+**Boundary:** only **1:1-owned** columns get provenance; a derived/aggregate column has no single
+owner → no provenance → not a legal left key. No aggregation exists today, so the demo uses only 1:1
+columns and the derived-column case is documented, not demoed.
+
 ## Check
 
 + [x] **Plan gate** — theme + 2×2 reframe + **front-half scope-fork** ratified by the human
