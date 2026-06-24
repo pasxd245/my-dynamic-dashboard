@@ -900,9 +900,7 @@ describe('Query canvas EDITING (R89 — free-form, React Flow)', () => {
   // the edge (clicking its label pill); at rest the canvas shows only the compact label.
   // So a test must select the edge before its Promote / Re-sync / [×] buttons exist.
   async function selectEdge(edgeId?: string) {
-    const sel = edgeId
-      ? `[data-component="CanvasEdge"][data-edge="${edgeId}"]`
-      : '[data-component="CanvasEdge"]';
+    const sel = edgeId ? `[data-component="CanvasEdge"][data-edge="${edgeId}"]` : '[data-component="CanvasEdge"]';
     const pill = (await waitFor(() => {
       const el = document.querySelector(sel) as HTMLElement;
       expect(el).not.toBeNull();
@@ -945,10 +943,13 @@ describe('Query canvas EDITING (R89 — free-form, React Flow)', () => {
     expect(document.querySelectorAll('[data-component="CanvasEdge"]').length).toBe(1); // no hop yet (drag commits it)
   });
 
-  it('disables [+ Add a source] only when every dataset is already on the canvas', async () => {
-    // Workspace has just Deals + Accounts → after the 1-hop join, nothing is left to add.
+  it('disables [+ Add a source] only when every source is already on the canvas', async () => {
+    // Workspace has just Deals + Accounts and NO other saved query → after the 1-hop
+    // join, nothing (dataset OR query) is left to add. R92 — the stage list spans both
+    // datasets and saved queries, so an empty queries list is mocked to leave nothing.
     server.use(
       http.get('*/datasets', () => HttpResponse.json([MOCK_DATASET, MOCK_DATASET_2])),
+      http.get('*/workspaces/:id/queries', () => HttpResponse.json([])),
       http.get('*/workspaces/:id/relationships', () => HttpResponse.json([MOCK_RELATIONSHIP])),
     );
     await openCanvasEditor();
@@ -973,10 +974,29 @@ describe('Query canvas EDITING (R89 — free-form, React Flow)', () => {
     serveQuery({
       ...MOCK_JOINED_QUERY.definition,
       relationships: [
-        { id: 'qrel_a1b2c3d4', leftSourceId: DEALS, leftColumn: 'deal_id', rightSourceId: ACCOUNTS, rightColumn: 'account_id', cardinality: 'one_to_many', originRelationshipId: 'rel_a1b2c3d4' },
-        { id: 'qrel_b2c3d4e5', leftSourceId: ACCOUNTS, leftColumn: 'tier', rightSourceId: OWNERS, rightColumn: 'tier', cardinality: 'one_to_many', originRelationshipId: 'rel_b2c3d4e5' },
+        {
+          id: 'qrel_a1b2c3d4',
+          leftSourceId: DEALS,
+          leftColumn: 'deal_id',
+          rightSourceId: ACCOUNTS,
+          rightColumn: 'account_id',
+          cardinality: 'one_to_many',
+          originRelationshipId: 'rel_a1b2c3d4',
+        },
+        {
+          id: 'qrel_b2c3d4e5',
+          leftSourceId: ACCOUNTS,
+          leftColumn: 'tier',
+          rightSourceId: OWNERS,
+          rightColumn: 'tier',
+          cardinality: 'one_to_many',
+          originRelationshipId: 'rel_b2c3d4e5',
+        },
       ],
-      joins: [{ queryRelId: 'qrel_a1b2c3d4', type: 'inner' }, { queryRelId: 'qrel_b2c3d4e5', type: 'inner' }],
+      joins: [
+        { queryRelId: 'qrel_a1b2c3d4', type: 'inner' },
+        { queryRelId: 'qrel_b2c3d4e5', type: 'inner' },
+      ],
     });
     renderApp(`/data-management/queries/${JOIN_ID}`);
     expect(await screen.findByText(/Matched 2 rows/)).toBeInTheDocument();
@@ -996,9 +1016,7 @@ describe('Query canvas EDITING (R89 — free-form, React Flow)', () => {
     // The leaf hop (Accounts⋈Owners) is removable — select it: enabled, data-leaf=true.
     await selectEdge('qrel_b2c3d4e5');
     const leafDel = (await waitFor(() => {
-      const el = document.querySelector(
-        '[data-component="CanvasEdgeDelete"][data-leaf="true"]',
-      ) as HTMLButtonElement;
+      const el = document.querySelector('[data-component="CanvasEdgeDelete"][data-leaf="true"]') as HTMLButtonElement;
       expect(el).not.toBeNull();
       return el;
     })) as HTMLButtonElement;
@@ -1035,7 +1053,15 @@ describe('Query canvas EDITING (R89 — free-form, React Flow)', () => {
     serveQuery({
       ...MOCK_JOINED_QUERY.definition,
       relationships: [
-        { id: 'qrel_a1b2c3d4', leftSourceId: DEALS, leftColumn: 'deal_id', rightSourceId: ACCOUNTS, rightColumn: 'account_id', cardinality: 'one_to_one', originRelationshipId: 'rel_a1b2c3d4' },
+        {
+          id: 'qrel_a1b2c3d4',
+          leftSourceId: DEALS,
+          leftColumn: 'deal_id',
+          rightSourceId: ACCOUNTS,
+          rightColumn: 'account_id',
+          cardinality: 'one_to_one',
+          originRelationshipId: 'rel_a1b2c3d4',
+        },
       ],
       joins: [{ queryRelId: 'qrel_a1b2c3d4', type: 'inner' }],
     });

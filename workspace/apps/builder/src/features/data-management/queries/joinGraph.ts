@@ -19,10 +19,7 @@ import type { JoinStep, QueryRelationship } from './types';
  *  choice ([brainstorm §2](../../../../../.agents/plan/brainstorms/2026-06-19-query-owned-relationships.md)). */
 export type Divergence = 'removed' | 'changed' | null;
 
-export function relDivergence(
-  qrel: QueryRelationship,
-  governedById: ReadonlyMap<string, Relationship>,
-): Divergence {
+export function relDivergence(qrel: QueryRelationship, governedById: ReadonlyMap<string, Relationship>): Divergence {
   if (!qrel.originRelationshipId) return null; // free-form — nothing to diverge from
   const gov = governedById.get(qrel.originRelationshipId);
   if (!gov) return 'removed';
@@ -77,6 +74,19 @@ export type ConnectFields = {
   rightColumn: string;
 };
 
+/** R92 (F1) — where an effective column traces to: the LEAF dataset that owns it
+ *  (`ownerSourceId`, always a `ds_`) and the pre-qualification name on that leaf
+ *  (`sourceColumn`). This is the single enabler that lets a drag OFF a query node's
+ *  effective column become a legal hop left key — the resolver matches `leftSourceId`
+ *  against leaf `ds_` ids (queries.py membership), never a `qr_`. A 1:1-owned column
+ *  has provenance; a derived/aggregate column has none (`null`) and cannot be a left
+ *  key (the documented boundary). Mocked FE-side at F1, wired at R93 (Round_92.md). */
+export type ColumnProvenance = { ownerSourceId: string; sourceColumn: string };
+
+/** Resolve an effective column to its owning leaf, or `null` when it has no single
+ *  owner (derived/aggregate, or not yet known). A `ds_` column always owns itself. */
+export type ProvenanceOf = (sourceId: string, column: string) => ColumnProvenance | null;
+
 /** R89 — what a drawn canvas connection means, decided purely (no React, no I/O) so
  *  it is unit-testable without firing a React Flow drag:
  *  - `copy`   → the drawn pair matches a governed `rel_` (in the in-graph→new
@@ -88,7 +98,7 @@ export type ConnectFields = {
 export type ConnectResult =
   | { kind: 'copy'; relId: string }
   | { kind: 'define'; fields: ConnectFields }
-  | { kind: 'invalid'; reason: 'self' | 'cyclic' | 'disconnected' | 'incomplete' };
+  | { kind: 'invalid'; reason: 'self' | 'cyclic' | 'disconnected' | 'incomplete' | 'derived' };
 
 export function resolveConnect(
   conn: {
@@ -99,6 +109,11 @@ export function resolveConnect(
   },
   graphIds: readonly string[],
   governedRels: readonly Relationship[],
+  // R92 (F1) — resolve a drawn endpoint's effective column to its owning leaf `ds_`.
+  // Defaults to identity (every column owns itself) so the dataset↔dataset path and
+  // the existing unit tests are unchanged; supplied by the canvas so a drag OFF a
+  // `qr_` node's effective column rewrites the hop's LEFT to the owning leaf.
+  provenanceOf: ProvenanceOf = (sourceId, column) => ({ ownerSourceId: sourceId, sourceColumn: column }),
 ): ConnectResult {
   const { source, sourceHandle, target, targetHandle } = conn;
   if (!source || !target || !sourceHandle || !targetHandle) return { kind: 'invalid', reason: 'incomplete' };
@@ -117,9 +132,14 @@ export function resolveConnect(
         { ds: target, col: targetHandle },
         { ds: source, col: sourceHandle },
       ];
+  // R92 — the LEFT (in-graph) endpoint must name a LEAF `ds_` for the resolver's
+  // membership match. A `qr_` left's effective column is rewritten to its owning leaf
+  // via provenance; a derived/aggregate column (no single owner) can't be a left key.
+  const leftProv = provenanceOf(left.ds, left.col);
+  if (!leftProv) return { kind: 'invalid', reason: 'derived' };
   const fields: ConnectFields = {
-    leftSourceId: left.ds,
-    leftColumn: left.col,
+    leftSourceId: leftProv.ownerSourceId,
+    leftColumn: leftProv.sourceColumn,
     rightSourceId: right.ds,
     rightColumn: right.col,
   };

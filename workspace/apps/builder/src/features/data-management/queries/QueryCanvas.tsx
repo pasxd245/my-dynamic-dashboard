@@ -61,6 +61,7 @@ import {
   type ConnectFields,
   type Divergence,
 } from './joinGraph';
+import { effectiveColumnsWithProvenance, type EffectiveColumn } from './provenance';
 import type { RelFields } from './chain';
 import type { JoinStep, QueryRelationship } from './types';
 
@@ -71,6 +72,13 @@ const PAD = 16;
 const HEADER_H = 46;
 const COL_ROW_H = 22;
 const HANDLE_SZ = 11;
+// R92 — a query (`qr_`) source exposes its full EFFECTIVE space, which can be wide
+// (a composed/joined query has every leaf column). Collapse past a threshold to keep
+// the node legible — "+ N more" reveals the rest, and a revealed column is drawable
+// like any other (the reveal-to-draw crux, Round_92.md). Datasets are narrow and
+// rarely trip the threshold.
+const COLLAPSE_AT = 8;
+const COLLAPSE_VISIBLE = 6;
 
 // R90 (handle discoverability) — the connect dots must READ as draggable. CSS-only
 // affordances React Flow's inline handle style can't express: a grab/crosshair
@@ -122,6 +130,12 @@ export type QueryCanvasProps = Readonly<{
 type ColumnData = Readonly<{ name: string; stale: boolean }>;
 type SourceNodeData = {
   label: string;
+  /** R92 — a dataset (`ds_`) or a saved query (`qr_`); drives the header type `<Tag>`
+   *  + the 🔎 query marker (Round_92.md decision 9). */
+  kind: 'dataset' | 'query';
+  /** R92 — a `qr_` that can't be resolved (deleted / composition cycle): a marked
+   *  "unavailable" card with no handles (decision 11), not a blank crash. */
+  unavailable: boolean;
   driving: boolean;
   staged: boolean;
   editable: boolean;
@@ -129,13 +143,25 @@ type SourceNodeData = {
   drivingLabel: string;
   stagedLabel: string;
   handleTip: string;
+  typeLabel: string;
+  unavailableLabel: string;
+  moreLabel: (n: number) => string;
+  fewerLabel: string;
 };
 
 function SourceNode({ data, id }: NodeProps<Node<SourceNodeData>>) {
+  // R92 — disclosure is node-local view state: a wide `qr_` collapses to the first
+  // few columns; "+ N more" reveals the rest (a revealed column draws like any other).
+  const [expanded, setExpanded] = useState(false);
+  const collapsible = data.columns.length > COLLAPSE_AT;
+  const visible = collapsible && !expanded ? data.columns.slice(0, COLLAPSE_VISIBLE) : data.columns;
+  const hidden = data.columns.length - visible.length;
   return (
     <div
       data-component="CanvasNode"
       data-node={id}
+      data-kind={data.kind}
+      data-unavailable={data.unavailable ? 'true' : 'false'}
       data-driving={data.driving ? 'true' : 'false'}
       data-staged={data.staged ? 'true' : 'false'}
       style={{
@@ -144,16 +170,24 @@ function SourceNode({ data, id }: NodeProps<Node<SourceNodeData>>) {
         padding: '8px 10px',
         background: 'var(--ant-color-bg-base, #fff)',
         border: `1px ${data.staged ? 'dashed' : 'solid'} ${
-          data.driving ? 'var(--ant-color-primary, #1677ff)' : 'var(--ant-color-border-secondary, #f0f0f0)'
+          data.unavailable
+            ? 'var(--ant-color-warning, #faad14)'
+            : data.driving
+              ? 'var(--ant-color-primary, #1677ff)'
+              : 'var(--ant-color-border-secondary, #f0f0f0)'
         }`,
         borderRadius: 6,
         boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
       }}
     >
-      <Typography.Text strong style={{ fontSize: 13 }}>
-        {data.driving ? '◆ ' : ''}
-        {data.label}
-      </Typography.Text>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+        <Typography.Text strong style={{ fontSize: 13, flex: 1, minWidth: 0 }} ellipsis>
+          {data.driving ? '◆ ' : ''}
+          {data.kind === 'query' ? '🔎 ' : ''}
+          {data.label}
+        </Typography.Text>
+        <Tag style={{ margin: 0, fontSize: 10, lineHeight: '16px', padding: '0 4px' }}>{data.typeLabel}</Tag>
+      </div>
       {data.driving ? (
         <Typography.Text type="secondary" style={{ fontSize: 11, display: 'block' }}>
           {data.drivingLabel}
@@ -164,9 +198,14 @@ function SourceNode({ data, id }: NodeProps<Node<SourceNodeData>>) {
           {data.stagedLabel}
         </Typography.Text>
       ) : null}
-      {data.columns.length ? (
+      {data.unavailable ? (
+        <Typography.Text type="warning" style={{ fontSize: 11, display: 'block', marginTop: 4 }}>
+          {data.unavailableLabel}
+        </Typography.Text>
+      ) : null}
+      {visible.length ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 1, marginTop: 4 }}>
-          {data.columns.map((c) => (
+          {visible.map((c) => (
             <div
               key={c.name}
               data-component="CanvasColumn"
@@ -205,6 +244,18 @@ function SourceNode({ data, id }: NodeProps<Node<SourceNodeData>>) {
           ))}
         </div>
       ) : null}
+      {collapsible ? (
+        <Button
+          type="link"
+          size="small"
+          onClick={() => setExpanded((e) => !e)}
+          data-component="CanvasColumnsToggle"
+          data-expanded={expanded ? 'true' : 'false'}
+          style={{ padding: '0 8px', height: COL_ROW_H, fontSize: 11 }}
+        >
+          {expanded ? data.fewerLabel : data.moreLabel(hidden)}
+        </Button>
+      ) : null}
     </div>
   );
 }
@@ -216,6 +267,9 @@ type RelEdgeData = {
   cardinalityLabel: string;
   typeLabel: string;
   free: boolean;
+  /** R92 — a `qr_`-side edge is non-promotable (Dec 3: the governed ER stays
+   *  dataset-only); the context pad hides Promote for it. */
+  promotable: boolean;
   divergence: Divergence;
   stale: boolean;
   leaf: boolean;
@@ -306,9 +360,7 @@ function RelEdge(props: EdgeProps<Edge<RelEdgeData>>) {
                 gap: 2,
                 background: 'var(--ant-color-bg-base, #fff)',
                 border: `1px solid ${
-                  data.selected
-                    ? 'var(--ant-color-primary, #1677ff)'
-                    : 'var(--ant-color-border-secondary, #f0f0f0)'
+                  data.selected ? 'var(--ant-color-primary, #1677ff)' : 'var(--ant-color-border-secondary, #f0f0f0)'
                 }`,
                 padding: '2px 8px',
                 borderRadius: 6,
@@ -321,7 +373,9 @@ function RelEdge(props: EdgeProps<Edge<RelEdgeData>>) {
               <Typography.Text type="secondary" style={{ fontSize: 12 }}>
                 {data.keyPair}
               </Typography.Text>
-              <span style={{ display: 'flex', gap: 4, flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center' }}>
+              <span
+                style={{ display: 'flex', gap: 4, flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center' }}
+              >
                 <Tag style={{ margin: 0 }}>{data.cardinalityLabel}</Tag>
                 <Tag color="default" style={{ margin: 0 }}>
                   {data.typeLabel}
@@ -349,19 +403,23 @@ function RelEdge(props: EdgeProps<Edge<RelEdgeData>>) {
                 boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
               }}
             >
-              {/* Promote — any query-owned rel can be pushed up to the governed ER. */}
-              <Tooltip title={data.i18n.promoteTip}>
-                <Button
-                  size="small"
-                  type="link"
-                  loading={data.promoting}
-                  onClick={data.onPromote}
-                  data-component="CanvasPromote"
-                  style={{ margin: 0, padding: '0 4px', height: 22 }}
-                >
-                  {data.i18n.promote}
-                </Button>
-              </Tooltip>
+              {/* Promote — any dataset↔dataset query-owned rel can be pushed up to the
+                  governed ER. R92 (Dec 3): suppressed on a `qr_`-side edge — the governed
+                  ER stays dataset-only, so a query×query join has no governed counterpart. */}
+              {data.promotable ? (
+                <Tooltip title={data.i18n.promoteTip}>
+                  <Button
+                    size="small"
+                    type="link"
+                    loading={data.promoting}
+                    onClick={data.onPromote}
+                    data-component="CanvasPromote"
+                    style={{ margin: 0, padding: '0 4px', height: 22 }}
+                  >
+                    {data.i18n.promote}
+                  </Button>
+                </Tooltip>
+              ) : null}
               {/* Re-sync — only when a copied rel has diverged from its origin. */}
               {data.divergence !== null ? (
                 <Button
@@ -461,21 +519,58 @@ function QueryCanvasInner({
   const dsNameById = useMemo(() => new Map(datasets.map((d) => [d.id, d.name])), [datasets]);
   const dsColumnsById = useMemo(() => new Map(datasets.map((d) => [d.id, d.columns])), [datasets]);
   const queriesQuery = useQueriesQuery(workspaceId);
-  const qrNameById = useMemo(
-    () => new Map((queriesQuery.data ?? []).map((q) => [q.id, q.name])),
-    [queriesQuery.data],
-  );
+  const queries = useMemo(() => queriesQuery.data ?? [], [queriesQuery.data]);
+  const qrById = useMemo(() => new Map(queries.map((q) => [q.id, q])), [queries]);
+  const qrNameById = useMemo(() => new Map(queries.map((q) => [q.id, q.name])), [queries]);
   const sourceName = useCallback(
     (id: string) => dsNameById.get(id) ?? qrNameById.get(id) ?? id,
     [dsNameById, qrNameById],
+  );
+  const kindOf = useCallback((id: string): 'dataset' | 'query' => (id.startsWith('qr_') ? 'query' : 'dataset'), []);
+
+  // R92 (F1) — a `qr_` source's EFFECTIVE columns + the leaf `(ds_, col)` each traces
+  // to, derived FE-side (the mock provenance; the real wire add lands at R93). Computed
+  // once per saved query reachable on the canvas, keyed by `qr_` id.
+  const effectiveByQr = useMemo(() => {
+    const m = new Map<string, EffectiveColumn[]>();
+    for (const q of queries) {
+      m.set(q.id, effectiveColumnsWithProvenance(q, dsColumnsById, dsNameById, qrById));
+    }
+    return m;
+  }, [queries, dsColumnsById, dsNameById, qrById]);
+
+  // A `qr_` is UNAVAILABLE when it isn't in the loaded set (deleted / cycle / stale base)
+  // — it renders a marked card with no handles (Dec 11), never a blank crash.
+  const unavailableOf = useCallback((id: string): boolean => id.startsWith('qr_') && !qrById.has(id), [qrById]);
+
+  // The display columns of any source — a dataset's own, or a query's effective space.
+  const columnsOf = useCallback(
+    (id: string): { name: string }[] => {
+      if (id.startsWith('qr_')) return (effectiveByQr.get(id) ?? []).map((c) => ({ name: c.name }));
+      return [...(dsColumnsById.get(id) ?? [])];
+    },
+    [dsColumnsById, effectiveByQr],
+  );
+
+  // R92 — resolve a drawn endpoint's effective column to its owning leaf `ds_`. A `ds_`
+  // owns itself; a `qr_` column maps through the mock provenance (or `null` when derived).
+  const provenanceOf = useCallback(
+    (sourceId: string, column: string) => {
+      if (!sourceId.startsWith('qr_')) return { ownerSourceId: sourceId, sourceColumn: column };
+      return (effectiveByQr.get(sourceId) ?? []).find((c) => c.name === column)?.owner ?? null;
+    },
+    [effectiveByQr],
   );
 
   const rootId = datasetId || baseSourceId;
 
   // Per-edge column-drift staleness (R88): a key column no longer exists on its
   // dataset. Unknown/not-yet-loaded datasets → not stale (the backend run is the gate).
+  // R92 — a `qr_` side is never flagged here (it has no flat dataset columns); the
+  // backend run stays the authoritative gate for a query×query edge.
   const columnMissing = useCallback(
     (dsId: string, col: string): boolean => {
+      if (dsId.startsWith('qr_')) return false;
       const cols = dsColumnsById.get(dsId);
       return cols ? !cols.some((c) => c.name === col) : false;
     },
@@ -521,21 +616,33 @@ function QueryCanvasInner({
   const graphIds = useMemo(() => graphDatasetIds(rootId, joins, qrelById), [rootId, joins, qrelById]);
   // Staged nodes that haven't been joined yet (drop any that became in-graph).
   const liveStaged = useMemo(() => staged.filter((id) => !graphIds.includes(id)), [staged, graphIds]);
-  // Free-form lets you add ANY not-in-graph dataset (not only ones with a governed
-  // rel — that was R87's pick-only constraint). Governed eligibility still drives the
-  // copy-on-pick hint, but the stage list is the full not-in-graph set.
-  const stageable = useMemo(
+  // Free-form lets you add ANY not-in-graph source (not only ones with a governed
+  // rel — that was R87's pick-only constraint). R92 — the stage list now spans BOTH
+  // datasets AND saved queries (the symmetric "join anything to anything" canvas);
+  // a query can't be joined to itself, so the query under edit is excluded.
+  const editingQueryId = baseSourceId.startsWith('qr_') ? baseSourceId : '';
+  const stageableDatasets = useMemo(
     () => datasets.map((d) => d.id).filter((id) => !graphIds.includes(id) && !liveStaged.includes(id)),
     [datasets, graphIds, liveStaged],
   );
+  const stageableQueries = useMemo(
+    () =>
+      queries
+        .map((q) => q.id)
+        .filter((id) => id !== editingQueryId && !graphIds.includes(id) && !liveStaged.includes(id)),
+    [queries, editingQueryId, graphIds, liveStaged],
+  );
+  const stageable = useMemo(() => [...stageableDatasets, ...stageableQueries], [stageableDatasets, stageableQueries]);
   const addEligible = useMemo(() => addEligibleRels(rels, graphIds), [rels, graphIds]);
 
   const heightOf = useCallback(
     (id: string): number => {
-      const cols = dsColumnsById.get(id) ?? [];
-      return HEADER_H + cols.length * COL_ROW_H;
+      const n = columnsOf(id).length;
+      // Collapsed-tall nodes (a wide `qr_`) only render the visible slice + a toggle row.
+      const shown = n > COLLAPSE_AT ? COLLAPSE_VISIBLE + 1 : n;
+      return HEADER_H + shown * COL_ROW_H;
     },
-    [dsColumnsById],
+    [columnsOf],
   );
 
   const basePos = useMemo(
@@ -547,26 +654,52 @@ function QueryCanvasInner({
     const drivingLabel = t('queries.builder.canvasDriving');
     const stagedLabel = t('queries.builder.canvasStaged');
     const handleTip = t('queries.builder.canvasHandleTip');
-    const make = (id: string, isStaged: boolean): Node<SourceNodeData> => ({
-      id,
-      type: 'source',
-      position: posOverride[id] ?? basePos.get(id) ?? { x: 0, y: 0 },
-      data: {
-        label: sourceName(id),
-        driving: id === rootId,
-        staged: isStaged,
-        editable,
-        drivingLabel,
-        stagedLabel,
-        handleTip,
-        columns: (dsColumnsById.get(id) ?? []).map((c) => ({
-          name: c.name,
-          stale: columnMissing(id, c.name),
-        })),
-      },
-    });
+    const fewerLabel = t('queries.builder.canvasColumnsFewer');
+    const moreLabel = (n: number) => t('queries.builder.canvasColumnsMore', { count: n });
+    const unavailableLabel = t('queries.builder.canvasQueryUnavailable');
+    const make = (id: string, isStaged: boolean): Node<SourceNodeData> => {
+      const kind = kindOf(id);
+      const unavailable = unavailableOf(id);
+      return {
+        id,
+        type: 'source',
+        position: posOverride[id] ?? basePos.get(id) ?? { x: 0, y: 0 },
+        data: {
+          label: sourceName(id),
+          kind,
+          unavailable,
+          driving: id === rootId,
+          staged: isStaged,
+          editable,
+          drivingLabel,
+          stagedLabel,
+          handleTip,
+          typeLabel: t(
+            kind === 'query' ? 'queries.builder.canvasNodeTypeQuery' : 'queries.builder.canvasNodeTypeDataset',
+          ),
+          unavailableLabel,
+          moreLabel,
+          fewerLabel,
+          // An unavailable `qr_` has no resolvable columns → no handles (Dec 11).
+          columns: unavailable ? [] : columnsOf(id).map((c) => ({ name: c.name, stale: columnMissing(id, c.name) })),
+        },
+      };
+    };
     return [...nodeIds.map((id) => make(id, false)), ...liveStaged.map((id) => make(id, true))];
-  }, [nodeIds, liveStaged, posOverride, basePos, sourceName, rootId, editable, dsColumnsById, columnMissing, t]);
+  }, [
+    nodeIds,
+    liveStaged,
+    posOverride,
+    basePos,
+    sourceName,
+    rootId,
+    editable,
+    columnsOf,
+    columnMissing,
+    kindOf,
+    unavailableOf,
+    t,
+  ]);
 
   const edges = useMemo<Edge<RelEdgeData>[]>(() => {
     const i18n = {
@@ -581,6 +714,8 @@ function QueryCanvasInner({
     };
     return builtEdges.map(({ hop, qrel, stale }) => {
       const free = !qrel.originRelationshipId;
+      // R92 (Dec 3) — a `qr_`-side edge has no governed counterpart, so it's non-promotable.
+      const promotable = !qrel.leftSourceId.startsWith('qr_') && !qrel.rightSourceId.startsWith('qr_');
       const divergence = relDivergence(qrel, governedById);
       return {
         id: hop.queryRelId,
@@ -595,6 +730,7 @@ function QueryCanvasInner({
           cardinalityLabel: t(`relationships.cardinality.${qrel.cardinality}`),
           typeLabel: t(`queries.builder.joinTypeShort.${hop.type}`),
           free,
+          promotable,
           divergence,
           stale,
           leaf: isLeafHop(hop.queryRelId, joins, qrelById),
@@ -612,7 +748,20 @@ function QueryCanvasInner({
         },
       };
     });
-  }, [builtEdges, governedById, joins, qrelById, editable, selectedEdge, promoteState, promotingId, onPromoteRel, onResyncRel, onRemoveJoin, t]);
+  }, [
+    builtEdges,
+    governedById,
+    joins,
+    qrelById,
+    editable,
+    selectedEdge,
+    promoteState,
+    promotingId,
+    onPromoteRel,
+    onResyncRel,
+    onRemoveJoin,
+    t,
+  ]);
 
   // Keep the whole graph in view as nodes are staged/joined/removed — otherwise a
   // newly-staged node lands outside the viewport and the user can't see (or draw to)
@@ -638,7 +787,10 @@ function QueryCanvasInner({
   const onConnect = useCallback(
     (conn: Connection) => {
       if (!editable) return;
-      const res = resolveConnect(conn, graphIds, rels);
+      // R92 — `provenanceOf` lets a drag OFF a `qr_` node's effective column resolve to
+      // its owning leaf `ds_` for the hop's LEFT (the resolver matches leaf ids); a
+      // derived column has no owner → routed to `invalid: 'derived'`.
+      const res = resolveConnect(conn, graphIds, rels, provenanceOf);
       if (res.kind === 'invalid') {
         if (res.reason !== 'incomplete') message.warning(t(`queries.builder.canvasConnect_${res.reason}`));
         return;
@@ -656,7 +808,7 @@ function QueryCanvasInner({
       setCardinality(inferCardinality(res.fields.leftColumn, res.fields.rightColumn));
       setCardinalityInferred(true);
     },
-    [editable, graphIds, rels, message, t, onAddJoin],
+    [editable, graphIds, rels, provenanceOf, message, t, onAddJoin],
   );
 
   const confirmDefine = () => {
@@ -729,7 +881,18 @@ function QueryCanvasInner({
               style={{ width: 280 }}
               placeholder={t('queries.builder.canvasAddSourcePlaceholder')}
               aria-label={t('queries.builder.canvasAddSource')}
-              options={stageable.map((id) => ({ value: id, label: sourceName(id) }))}
+              // R92 — grouped so a saved query (`qr_`) is disambiguated from a dataset
+              // (`ds_`) at the point of choosing; both can be joined in (Dec 9/10).
+              options={[
+                {
+                  label: t('queries.builder.canvasAddSourceGroupDatasets'),
+                  options: stageableDatasets.map((id) => ({ value: id, label: sourceName(id) })),
+                },
+                {
+                  label: t('queries.builder.canvasAddSourceGroupQueries'),
+                  options: stageableQueries.map((id) => ({ value: id, label: `🔎 ${sourceName(id)}` })),
+                },
+              ].filter((g) => g.options.length > 0)}
               data-component="CanvasAddSourceSelect"
             />
           ) : (
@@ -744,9 +907,7 @@ function QueryCanvasInner({
             </Tooltip>
           )}
           <Typography.Text type="secondary" style={{ fontSize: 12 }} data-component="CanvasDragHint">
-            {addEligible.length > 0
-              ? t('queries.builder.canvasDragHintGoverned')
-              : t('queries.builder.canvasDragHint')}
+            {addEligible.length > 0 ? t('queries.builder.canvasDragHintGoverned') : t('queries.builder.canvasDragHint')}
           </Typography.Text>
         </div>
       ) : null}
