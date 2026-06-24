@@ -1,8 +1,9 @@
 # Round 93: column provenance on the wire + F2 fidelity — query×query joins resolve for real (C + B + F2 + Integration)
 
-**Status**: **In Progress** — Plan **ratified** + **Contract + Backend gates closed** (2026-06-24);
-**F2 gate next** (FE-consumes-wire + fidelity + human feel-check). DFCFBI **back half** of the
-[Round_92](Round_92.md) split per [[dfcfbi-two-round-split]] (front half shipped & Complete).
+**Status**: **In Progress** — Plan ratified + **Contract + Backend closed**; **F2 build done**
+(FE-consumes-wire + mock retired + fidelity), **awaiting the human F2 feel-check** (2026-06-25).
+DFCFBI **back half** of the [Round_92](Round_92.md) split per [[dfcfbi-two-round-split]] (front half
+shipped & Complete).
 **Date started**: 2026-06-24
 **Date completed**: —
 **Flow**: **DFCFBI back half — [C + B + F2 + Integration]** (inherited from R92's Design-gate split;
@@ -209,6 +210,29 @@ migration, no SQL change):
 
 **Backend gate → CLOSED.** Next: **F2** (FE consumes the wire + retires the mock; fidelity polish;
 the **human F2 feel-check** hard-stop).
+
+### F2 build — done; awaiting the human feel-check (2026-06-25)
+
+The provenance loop is closed FE-side and the deferred fidelity landed:
+
++ **FE consumes the wire; the mock is retired.** `QueryCanvas`'s `effectiveByQr` now reads a
+  `qr_`'s effective columns + provenance straight off `q.resolvedColumns` (`ownerSourceId` /
+  `sourceColumn`) — a single-source query (no `resolvedColumns`) falls back to its driving dataset's
+  columns, owned 1:1. **`provenance.ts` (the F1 mock) is deleted**; `provenanceOf` / `columnsOf`
+  read the wire-derived map. `resolveConnect` is unchanged (still provenance-aware); its unit tests
+  stay (the `effectiveColumnsWithProvenance` tests went with the mock).
++ **Fidelity (the two named Attio items).** _(a)_ **Per-field column-type glyphs** — a muted line
+  icon per dtype (`TextAa`/`Hash`/`CheckSquare`/`CalendarBlank`/`Clock`, supplementary to the text
+  name + a `title`, so never glyph/colour-alone — accessibility holds). _(b)_ **Rounded edges** —
+  `getSmoothStepPath` (orthogonal, `borderRadius: 12`) replaces the bezier S-curve.
++ **Verified (automated):** builder `type-check` clean; vitest **189/189** (191 − the 2 retired
+  mock tests); prettier clean. The "+ N more" disclosure, picker, promote-suppression, unavailable
+  node, and Form-tab parity are unchanged.
+
+**HARD-STOP — human F2 feel-check** ([[dfcfbi-f1-needs-human-review]]): now on the **real-resolving
+stack** (`pnpm dev` — the joins resolve on server provenance, not a FE mock). Exercise drawing off a
+query-rooted node, the glyphs/rounded-edge feel, and confirm a query×query join returns rows; then
+flip F2. **Not flipped here.**
 
 ## Check
 

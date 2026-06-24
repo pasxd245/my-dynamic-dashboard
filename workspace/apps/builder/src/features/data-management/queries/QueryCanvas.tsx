@@ -24,6 +24,7 @@ import '@xyflow/react/dist/style.css';
 
 import { Alert, App, Button, Modal, Select, Tag, Tooltip, Typography } from 'antd';
 import { CloseOutlined } from '@ant-design/icons';
+import { CalendarBlankIcon, CheckSquareIcon, ClockIcon, HashIcon, type Icon, TextAaIcon } from '@phosphor-icons/react';
 import {
   BaseEdge,
   Background,
@@ -33,7 +34,7 @@ import {
   Position,
   ReactFlow,
   ReactFlowProvider,
-  getBezierPath,
+  getSmoothStepPath,
   useReactFlow,
   type Connection,
   type Edge,
@@ -58,12 +59,19 @@ import {
   isLeafHop,
   relDivergence,
   resolveConnect,
+  type ColumnProvenance,
   type ConnectFields,
   type Divergence,
 } from './joinGraph';
-import { effectiveColumnsWithProvenance, type EffectiveColumn } from './provenance';
 import type { RelFields } from './chain';
-import type { JoinStep, QueryRelationship } from './types';
+import type { JoinStep, QueryRelationship, ResolvedColumn } from './types';
+
+type Dtype = ResolvedColumn['dtype'];
+
+/** R93 — one effective column of a `qr_` source as the canvas renders it: its display
+ *  name, dtype (for the per-field type glyph), + the leaf it traces to (`null` for a
+ *  future derived column). Read off the wire (`resolvedColumns`), no longer re-derived. */
+type EffectiveColumn = Readonly<{ name: string; dtype: Dtype; owner: ColumnProvenance | null }>;
 
 const NODE_W = 188;
 const COL_GAP = 140;
@@ -79,6 +87,31 @@ const HANDLE_SZ = 11;
 // rarely trip the threshold.
 const COLLAPSE_AT = 8;
 const COLLAPSE_VISIBLE = 6;
+
+// R93 (F2) — a per-field column-type glyph (the Attio fidelity item): a muted line
+// icon per dtype, left of each column name. It is SUPPLEMENTARY to the text name
+// (carries a `title` for the dtype) — never colour/glyph-alone, so accessibility holds.
+const DTYPE_ICON: Record<Dtype, Icon> = {
+  string: TextAaIcon,
+  integer: HashIcon,
+  float: HashIcon,
+  boolean: CheckSquareIcon,
+  date: CalendarBlankIcon,
+  datetime: ClockIcon,
+};
+
+function DtypeGlyph({ dtype }: Readonly<{ dtype: Dtype }>) {
+  const Glyph = DTYPE_ICON[dtype];
+  return (
+    <span
+      title={dtype}
+      aria-hidden
+      style={{ display: 'inline-flex', flex: '0 0 auto', color: 'var(--ant-color-text-quaternary, #bfbfbf)' }}
+    >
+      <Glyph size={12} />
+    </span>
+  );
+}
 
 // R90 (handle discoverability) — the connect dots must READ as draggable. CSS-only
 // affordances React Flow's inline handle style can't express: a grab/crosshair
@@ -127,7 +160,7 @@ export type QueryCanvasProps = Readonly<{
 }>;
 
 // ── Custom node: a source card with a connect Handle per column ────────────────
-type ColumnData = Readonly<{ name: string; stale: boolean }>;
+type ColumnData = Readonly<{ name: string; dtype: Dtype; stale: boolean }>;
 type SourceNodeData = {
   label: string;
   /** R92 — a dataset (`ds_`) or a saved query (`qr_`); drives the header type `<Tag>`
@@ -239,7 +272,10 @@ function SourceNode({ data, id }: NodeProps<Node<SourceNodeData>>) {
                   />
                 </>
               ) : null}
-              · {c.name}
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+                <DtypeGlyph dtype={c.dtype} />
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</span>
+              </span>
             </div>
           ))}
         </div>
@@ -296,13 +332,16 @@ type RelEdgeData = {
 
 function RelEdge(props: EdgeProps<Edge<RelEdgeData>>) {
   const { id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, data } = props;
-  const [path, labelX, labelY] = getBezierPath({
+  // R93 (F2) — rounded orthogonal routing (the Attio look): right-angle turns with
+  // softened corners, replacing the prior bezier S-curve.
+  const [path, labelX, labelY] = getSmoothStepPath({
     sourceX,
     sourceY,
     sourcePosition,
     targetX,
     targetY,
     targetPosition,
+    borderRadius: 12,
   });
   if (!data) return <BaseEdge id={id} path={path} />;
   const warn = data.stale || data.divergence !== null;
@@ -528,26 +567,56 @@ function QueryCanvasInner({
   );
   const kindOf = useCallback((id: string): 'dataset' | 'query' => (id.startsWith('qr_') ? 'query' : 'dataset'), []);
 
-  // R92 (F1) — a `qr_` source's EFFECTIVE columns + the leaf `(ds_, col)` each traces
-  // to, derived FE-side (the mock provenance; the real wire add lands at R93). Computed
-  // once per saved query reachable on the canvas, keyed by `qr_` id.
+  // R93 — a `qr_` source's EFFECTIVE columns + the leaf `(ds_, col)` each traces to,
+  // read straight off the WIRE: a joined/composed query carries `resolvedColumns` with
+  // per-column provenance (`ownerSourceId` / `sourceColumn`) the resolver now emits, so
+  // the canvas no longer re-derives it (the R92 F1 `provenance.ts` mock is retired). A
+  // single-source query omits `resolvedColumns` → its driving dataset's columns, owned
+  // 1:1. Keyed by `qr_` id; a column with no owner (a future derived column) maps to null.
   const effectiveByQr = useMemo(() => {
     const m = new Map<string, EffectiveColumn[]>();
     for (const q of queries) {
-      m.set(q.id, effectiveColumnsWithProvenance(q, dsColumnsById, dsNameById, qrById));
+      const resolved = q.resolvedColumns;
+      if (resolved && resolved.length > 0) {
+        m.set(
+          q.id,
+          resolved.map((c) => ({
+            name: c.name,
+            dtype: c.dtype,
+            owner:
+              c.ownerSourceId && c.sourceColumn
+                ? { ownerSourceId: c.ownerSourceId, sourceColumn: c.sourceColumn }
+                : null,
+          })),
+        );
+      } else if (q.sourceId.startsWith('ds_')) {
+        // Single-source query — its effective space is the driving dataset's columns,
+        // each owned 1:1 by that leaf.
+        m.set(
+          q.id,
+          (dsColumnsById.get(q.sourceId) ?? []).map((c) => ({
+            name: c.name,
+            dtype: c.dtype,
+            owner: { ownerSourceId: q.sourceId, sourceColumn: c.name },
+          })),
+        );
+      } else {
+        m.set(q.id, []);
+      }
     }
     return m;
-  }, [queries, dsColumnsById, dsNameById, qrById]);
+  }, [queries, dsColumnsById]);
 
   // A `qr_` is UNAVAILABLE when it isn't in the loaded set (deleted / cycle / stale base)
   // — it renders a marked card with no handles (Dec 11), never a blank crash.
   const unavailableOf = useCallback((id: string): boolean => id.startsWith('qr_') && !qrById.has(id), [qrById]);
 
-  // The display columns of any source — a dataset's own, or a query's effective space.
+  // The display columns of any source — a dataset's own, or a query's effective space —
+  // each with its dtype (for the per-field type glyph, R93 F2).
   const columnsOf = useCallback(
-    (id: string): { name: string }[] => {
-      if (id.startsWith('qr_')) return (effectiveByQr.get(id) ?? []).map((c) => ({ name: c.name }));
-      return [...(dsColumnsById.get(id) ?? [])];
+    (id: string): { name: string; dtype: Dtype }[] => {
+      if (id.startsWith('qr_')) return (effectiveByQr.get(id) ?? []).map((c) => ({ name: c.name, dtype: c.dtype }));
+      return (dsColumnsById.get(id) ?? []).map((c) => ({ name: c.name, dtype: c.dtype }));
     },
     [dsColumnsById, effectiveByQr],
   );
@@ -681,7 +750,9 @@ function QueryCanvasInner({
           moreLabel,
           fewerLabel,
           // An unavailable `qr_` has no resolvable columns → no handles (Dec 11).
-          columns: unavailable ? [] : columnsOf(id).map((c) => ({ name: c.name, stale: columnMissing(id, c.name) })),
+          columns: unavailable
+            ? []
+            : columnsOf(id).map((c) => ({ name: c.name, dtype: c.dtype, stale: columnMissing(id, c.name) })),
         },
       };
     };
