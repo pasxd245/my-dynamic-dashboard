@@ -1,8 +1,8 @@
 # Round 91: query×query joins — model truth (wire + engine: a saved Query joinable on a hop's right)
 
-**Status**: Review (Contract + Backend + Integration agent-verified; awaiting human `Complete`)
+**Status**: Complete
 **Date started**: 2026-06-19
-**Date completed**: —
+**Date completed**: 2026-06-24
 **Flow**: **DCFBI** — amended from DFCFBI(2,5) at the Design→build boundary (see the Do-log
 **Amendment** entry). R91 is a **no-new-UI model-truth round** (wire + engine + FE types) → DCFBI by
 construction; the canvas query×query **UX** (the DFCFBI feel-check) moves to **R92**. Mirrors the
@@ -285,14 +285,17 @@ review; the query×query **canvas UX** is R92. **Human flips `Complete`** ([gove
       effective-column naming (decision 5) tested; **pytest 199** (qr_-right join · qualified cols · cycle).
 - [x] **Integration gate** — real-stack **agent-verified**: a `qr_`-right join runs in DuckDB (32 rows);
       effective columns qualified (`orders.customer_id` / `All customers.customer_id`); self-join-in
-      `composition_cycle`-rejected (pytest); renamed wire round-trips; CORS clean. **Human `Complete` flip pending.**
-- [ ] **Complete** — human-flipped after an optional browser smoke ([governance](../../context/governance.md) — only humans flip).
+      `composition_cycle`-rejected (pytest); renamed wire round-trips; CORS clean.
+- [x] **Complete** — **human-flipped** (user instruction, 2026-06-24); R91 adds no new UI, so the optional
+      browser smoke carried no new feel to review ([governance](../../context/governance.md) — only humans flip).
 
 ## Act
 
-**Round at Review (2026-06-19)** — the query×query **model truth** shipped: a saved Query joins in on a
+**Round COMPLETE (2026-06-24)** — the query×query **model truth** shipped: a saved Query joins in on a
 hop's right (`rightSourceId` polymorphic; the resolver routes the right through `resolve_source`),
-agent-verified on the real stack. Awaiting the human `Complete` flip.
+agent-verified on the real stack and **human-flipped to `Complete`** (user instruction). R91 added no new
+UI, so the optional browser smoke carried no new feel to review. The wire+engine is now ready to carry the
+query×query **canvas UX** at R92 (DFCFBI, real F1 feel-check).
 
 **Learnings (candidate — pending a 2nd rep):**
 
