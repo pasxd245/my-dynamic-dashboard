@@ -215,9 +215,7 @@ export function DatasetNewPage() {
       title={t('upload.title')}
       subtitle={t('upload.subtitle')}
       onNavigate={(route) => navigate(route)}
-      actions={
-        <Button onClick={() => navigate('/data-management/datasets')}>{t('common.cancel')}</Button>
-      }
+      actions={<Button onClick={() => navigate('/data-management/datasets')}>{t('common.cancel')}</Button>}
     />
   );
 
@@ -258,7 +256,7 @@ export function DatasetNewPage() {
         height: 'calc(100vh - 88px)',
         display: 'flex',
         flexDirection: 'column',
-        gap: 16,
+        // R94 (D1) — no flex `gap`: PageHeader's marginBottom is the single header→content gap.
       }}
     >
       {header}

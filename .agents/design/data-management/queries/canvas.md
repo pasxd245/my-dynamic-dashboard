@@ -192,8 +192,20 @@ hover grow + halo and a "drag to join" tooltip.
   The endpoint already dedups (`409 relationship_exists`) and dtype-validates (`422`); on
   `201` the query-owned rel keeps running on its own snapshot but gains the new `rel_` id
   as its `originRelationshipId` (provenance closes the loop, and divergence now tracks it).
-  **Promote is suppressed on any `qr_`-side edge** (a query×query join): the governed ER stays
-  dataset-only, so such an edge has no governed counterpart and is non-promotable.
+  **Promote is suppressed on any edge VISUALLY anchored on a query node** — a query×query join,
+  **and** an edge drawn off a `qr_` node (build-on-query root or a joined-in query). The governed
+  ER is dataset-only: you don't **create** (promote) a governed rel from a query context.
+  `promotable` is computed in `buildSourceGraph` from the **display node** (`leftNode`), not the
+  stored `leftSourceId` (which the provenance rewrite always reduces to a leaf `ds_`) — so it is
+  true only when **both visual endpoints are datasets** (R94 D5).
+  - **Reuse vs. write (the distinction promote rests on).** A query-anchored edge can still
+    **copy-on-pick** an existing governed rel: a draw off a `qr_` node rewrites its left to the
+    owning leaf, and if that **leaf ↔ dataset** pair matches a `valid` governed `rel_`, the edge is
+    tagged **Governed** (`originRelationshipId` set) with warn-only **divergence** + **re-sync**
+    against it — the query-owned-rel doctrine ([[query-owned-relationships]]). That is **reading**
+    the governed ER (reuse), which is allowed; **promote** is **writing** a new governed rel, which
+    is suppressed from a query context. A `qr_` on the **right** (query×query) never matches a
+    governed rel → always free-form.
 - **Divergence** is a frontend diff: `relDivergence(qrel, governedById)` →
   `null | 'removed' | 'changed'` — `removed` when the origin `rel_` is gone, `changed`
   when it still exists but its join fields/cardinality differ from the query's snapshot,

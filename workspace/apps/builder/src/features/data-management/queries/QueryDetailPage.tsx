@@ -493,7 +493,7 @@ export function QueryDetailPage() {
   return (
     <div
       data-component="QueryDetailPage"
-      style={{ height: 'calc(100vh - 88px)', display: 'flex', flexDirection: 'column', gap: 16 }}
+      style={{ height: 'calc(100vh - 88px)', display: 'flex', flexDirection: 'column' }}
     >
       <PageHeader
         breadcrumb={BREADCRUMB}

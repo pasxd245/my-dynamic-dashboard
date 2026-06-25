@@ -71,11 +71,7 @@ export function QueryCreatePage() {
             </Typography.Title>
             <Typography.Text type="secondary">{t('queries.create.notFoundHint')}</Typography.Text>
             <div style={{ marginTop: 20 }}>
-              <Button
-                type="primary"
-                icon={<ArrowLeftOutlined />}
-                onClick={() => navigate('/data-management/queries')}
-              >
+              <Button type="primary" icon={<ArrowLeftOutlined />} onClick={() => navigate('/data-management/queries')}>
                 {t('queries.create.back')}
               </Button>
             </div>
@@ -123,7 +119,7 @@ export function QueryCreatePage() {
   return (
     <div
       data-component="QueryCreatePage"
-      style={{ height: 'calc(100vh - 88px)', display: 'flex', flexDirection: 'column', gap: 16 }}
+      style={{ height: 'calc(100vh - 88px)', display: 'flex', flexDirection: 'column' }}
     >
       <PageHeader
         breadcrumb={BREADCRUMB}

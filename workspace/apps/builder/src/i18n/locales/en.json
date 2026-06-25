@@ -448,6 +448,7 @@
       "baseSourcePlaceholder": "A dataset or a saved query",
       "baseSourceDatasets": "Datasets",
       "baseSourceQueries": "Saved queries",
+      "baseSourceFixedHint": "The base is set when a query is created and can't be changed here. Use \"Build on this query\" to start from a different source.",
       "joinLabel": "Join",
       "joinsLabel": "Joins",
       "joinPlaceholder": "Join with a related dataset",

@@ -456,7 +456,7 @@ export function DatasetDetailPage() {
         height: 'calc(100vh - 88px)',
         display: 'flex',
         flexDirection: 'column',
-        gap: 16,
+        // R94 (D1) — no flex `gap`: PageHeader's marginBottom is the single header→content gap.
       }}
     >
       <PageHeader

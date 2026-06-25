@@ -448,6 +448,7 @@
       "baseSourcePlaceholder": "Một tập dữ liệu hoặc một truy vấn đã lưu",
       "baseSourceDatasets": "Tập dữ liệu",
       "baseSourceQueries": "Truy vấn đã lưu",
+      "baseSourceFixedHint": "Nguồn gốc được đặt khi tạo truy vấn và không thể thay đổi ở đây. Dùng \"Dựng trên truy vấn này\" để bắt đầu từ một nguồn khác.",
       "joinLabel": "Phép nối",
       "joinsLabel": "Các phép nối",
       "joinPlaceholder": "Nối với một tập dữ liệu liên quan",

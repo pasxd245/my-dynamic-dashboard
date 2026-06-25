@@ -246,7 +246,7 @@ How edit-only generalizes to edit + create (`useQueryBuilder` gains a mode):
 | --- | --- | --- |
 | Identity | an existing `query` (`qr_…`) | **no id** — a draft until Saved |
 | Baseline | `normalize(query.definition)` | the **empty definition** (`{ q: null, filters: [], advanced: [], relationships: [], joins: [] }`) |
-| Driving source | seeded `query.sourceId`; editable | **preset** `sourceId = the source Query's qr_`; the base picker is seeded to it |
+| Driving source | seeded `query.sourceId`; **the base picker is disabled (read-only) with a hint** — the PUT is definition-only, so the base is fixed after create (R94 D6); changing it is the deferred "Build on this query" / New-query path | **preset** `sourceId = the source Query's qr_`; the base picker is seeded to it |
 | Live preview | the composed `POST …/preview` | the **same** composed preview, keyed on the preset base |
 | Name | unchanged (`PUT` is definition-only) | **captured at Save** via the reused `SaveQueryModal` |
 | Save | `PUT /queries/{id}` `{ definition }` | **`POST /workspaces/{id}/queries`** `{ name, sourceId, definition }` via `useCreateQueryMutation` → navigate to the new `qr_` detail |

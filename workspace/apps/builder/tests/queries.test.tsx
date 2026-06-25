@@ -495,7 +495,12 @@ describe('Query × Query composition (R76 F1 — builder)', () => {
     fireEvent.click(document.querySelector('[data-component="QueryDetailEdit"]') as HTMLButtonElement);
   }
 
-  it('offers the "Build on" base-source picker listing datasets and saved queries', async () => {
+  // R94 (D6) — the "Build on" picker is editable only in CREATE; on an existing query the
+  // PUT is definition-only (the base is fixed at create), so in edit mode it's disabled with
+  // a hint rather than silently dropping the change on save. (Composed-preview-on-a-base is
+  // covered by the R77 create test "previews COMPOSED on the preset base" + the composed-query
+  // render test below — both unchanged.)
+  it('disables the "Build on" base-source picker in edit mode (the base is fixed after create)', async () => {
     renderApp(`/data-management/queries/${JOIN_ID}`);
     expect(await screen.findByText(/Matched 2 rows/)).toBeInTheDocument();
     clickEdit();
@@ -504,34 +509,10 @@ describe('Query × Query composition (R76 F1 — builder)', () => {
       expect(el).not.toBeNull();
       return el;
     })) as HTMLElement;
-    // Open the dropdown → both OptGroups + a saved Query option (the current
-    // query is excluded; "Won deals over $1k" is the other workspace query).
+    // Disabled — and opening it does nothing (no option group renders).
+    expect(base.className).toContain('ant-select-disabled');
     fireEvent.mouseDown(base);
-    expect(await screen.findByText('Datasets', { selector: '.ant-select-item-group' })).toBeInTheDocument();
-    expect(await screen.findByText('Saved queries', { selector: '.ant-select-item-group' })).toBeInTheDocument();
-    expect(
-      await screen.findByText('Won deals over $1k', {
-        selector: '.ant-select-item-option-content,.ant-select-item-option-content *',
-      }),
-    ).toBeInTheDocument();
-  });
-
-  it('re-runs the preview composed when a saved Query is picked as the base', async () => {
-    renderApp(`/data-management/queries/${JOIN_ID}`);
-    expect(await screen.findByText(/Matched 2 rows/)).toBeInTheDocument();
-    clickEdit();
-    // The joined preview shows 2 rows over 10 (7+3) columns before composing.
-    expect(await screen.findByText('Preview · 2 rows')).toBeInTheDocument();
-    const base = document.querySelector('[data-component="BuilderBaseSource"]') as HTMLElement;
-    fireEvent.mouseDown(base);
-    const option = await screen.findByText('Won deals over $1k', {
-      selector: '.ant-select-item-option-content,.ant-select-item-option-content *',
-    });
-    fireEvent.click(option);
-    // Composed preview: built on the Won-deals Query → the composed effective
-    // space (13 cols) with an inner cell from the deeper source visible.
-    expect(await screen.findByText('Dana Lee')).toBeInTheDocument();
-    await waitFor(() => expect(document.querySelectorAll('[data-component="FilterTrigger"]').length).toBe(13));
+    expect(screen.queryByText('Saved queries', { selector: '.ant-select-item-group' })).toBeNull();
   });
 
   // F2 (detail surfaces): a saved composed query (sourceId = qr_) renders the

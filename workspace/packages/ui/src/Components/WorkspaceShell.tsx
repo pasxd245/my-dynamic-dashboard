@@ -1,10 +1,7 @@
-import {
-  MenuFoldOutlined,
-  MenuUnfoldOutlined,
-} from "@ant-design/icons";
-import { Layout, Menu, theme } from "antd";
-import type { MenuProps } from "antd";
-import type { CSSProperties, ReactNode } from "react";
+import { MenuFoldOutlined, MenuUnfoldOutlined } from '@ant-design/icons';
+import { Layout, Menu, theme } from 'antd';
+import type { MenuProps } from 'antd';
+import type { CSSProperties, ReactNode } from 'react';
 
 export type NavItem = {
   key: string;
@@ -48,6 +45,13 @@ type WorkspaceShellBaseProps = {
    */
   brand?: ReactNode;
   /**
+   * R94 (D4a): invoked when the brand/logo is clicked. When provided, the
+   * brand becomes a labelled button that navigates home; omitted = inert mark.
+   */
+  onHome?: () => void;
+  /** R94 (D4a): accessible label for the home action (e.g. "Go to home"). */
+  homeLabel?: string;
+  /**
    * R12: optional build version string in the sidebar footer.
    * Hidden in collapsed mode.
    */
@@ -62,10 +66,7 @@ const EXPANDED_WIDTH = 220;
 const COLLAPSED_WIDTH = 64;
 const HEADER_HEIGHT = 56;
 
-function toMenuItems(
-  source: NavItem[] | NavGroup[],
-  isGrouped: boolean,
-): MenuProps["items"] {
+function toMenuItems(source: NavItem[] | NavGroup[], isGrouped: boolean): MenuProps['items'] {
   if (isGrouped) {
     return (source as NavGroup[]).map((group) => ({
       key: group.key,
@@ -101,37 +102,49 @@ export function WorkspaceShell(props: Readonly<WorkspaceShellProps>) {
     title,
     headerExtra,
     brand,
+    onHome,
+    homeLabel,
     buildVersion,
   } = props;
   const { token } = theme.useToken();
 
-  const isGrouped = "groups" in props && props.groups !== undefined;
-  const navSource = isGrouped
-    ? (props as { groups: NavGroup[] }).groups
-    : (props as { items: NavItem[] }).items;
+  const isGrouped = 'groups' in props && props.groups !== undefined;
+  const navSource = isGrouped ? (props as { groups: NavGroup[] }).groups : (props as { items: NavItem[] }).items;
   const menuItems = toMenuItems(navSource, isGrouped);
-  const defaultOpenKeys = isGrouped
-    ? defaultOpenKeysFor((props as { groups: NavGroup[] }).groups)
-    : [];
+  const defaultOpenKeys = isGrouped ? defaultOpenKeysFor((props as { groups: NavGroup[] }).groups) : [];
 
   const siderStyle: CSSProperties = {
     background: token.colorBgContainer,
     borderRight: `1px solid ${token.colorBorderSecondary}`,
-    display: "flex",
-    flexDirection: "column",
-    overflow: collapsed ? "visible" : "hidden",
-    transition: "all 200ms ease",
+    display: 'flex',
+    flexDirection: 'column',
+    overflow: collapsed ? 'visible' : 'hidden',
+    transition: 'all 200ms ease',
   };
 
   const sidebarHeaderStyle: CSSProperties = {
     height: HEADER_HEIGHT,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: collapsed ? "center" : "flex-start",
-    padding: collapsed ? 0 : "0 16px",
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: collapsed ? 'center' : 'flex-start',
+    padding: collapsed ? 0 : '0 16px',
     borderBottom: `1px solid ${token.colorBorderSecondary}`,
     gap: 8,
     flexShrink: 0,
+  };
+
+  // R94 (D4a) — when `onHome` is given, the brand is a labelled button (→ home).
+  const brandButtonStyle: CSSProperties = {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 8,
+    background: 'transparent',
+    border: 'none',
+    padding: 0,
+    margin: 0,
+    cursor: 'pointer',
+    color: 'inherit',
+    font: 'inherit',
   };
 
   const brandBadgeStyle: CSSProperties = {
@@ -140,9 +153,9 @@ export function WorkspaceShell(props: Readonly<WorkspaceShellProps>) {
     background: token.colorPrimary,
     color: token.colorTextLightSolid,
     borderRadius: token.borderRadius,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
     fontWeight: 700,
     fontSize: 14,
     flexShrink: 0,
@@ -152,39 +165,39 @@ export function WorkspaceShell(props: Readonly<WorkspaceShellProps>) {
     fontWeight: 700,
     fontSize: 16,
     color: token.colorPrimary,
-    display: collapsed ? "none" : "inline",
+    display: collapsed ? 'none' : 'inline',
   };
 
   const headerStyle: CSSProperties = {
     height: HEADER_HEIGHT,
     background: token.colorBgContainer,
     borderBottom: `1px solid ${token.colorBorderSecondary}`,
-    display: "flex",
-    alignItems: "center",
-    padding: "0 24px 0 8px",
+    display: 'flex',
+    alignItems: 'center',
+    padding: '0 24px 0 8px',
     gap: 16,
   };
 
   const toggleStyle: CSSProperties = {
     width: 40,
     height: 40,
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    background: "transparent",
-    border: "none",
-    cursor: "pointer",
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    background: 'transparent',
+    border: 'none',
+    cursor: 'pointer',
     color: token.colorTextSecondary,
     borderRadius: token.borderRadius,
     fontSize: 18,
   };
 
   const footerStyle: CSSProperties = {
-    padding: collapsed ? "12px 4px" : "12px 16px",
+    padding: collapsed ? '12px 4px' : '12px 16px',
     fontSize: 11,
     color: token.colorTextTertiary,
     borderTop: `1px solid ${token.colorBorderSecondary}`,
-    textAlign: collapsed ? "center" : "left",
+    textAlign: collapsed ? 'center' : 'left',
     flexShrink: 0,
   };
 
@@ -200,7 +213,7 @@ export function WorkspaceShell(props: Readonly<WorkspaceShellProps>) {
   );
 
   return (
-    <Layout style={{ height: "100vh" }}>
+    <Layout style={{ height: '100vh' }}>
       <Layout.Sider
         width={EXPANDED_WIDTH}
         collapsedWidth={COLLAPSED_WIDTH}
@@ -217,13 +230,27 @@ export function WorkspaceShell(props: Readonly<WorkspaceShellProps>) {
         */}
         <div
           style={{
-            display: "flex",
-            flexDirection: "column",
-            height: "100%",
+            display: 'flex',
+            flexDirection: 'column',
+            height: '100%',
           }}
         >
-          <div style={sidebarHeaderStyle}>{brandContent}</div>
-          <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden" }}>
+          <div style={sidebarHeaderStyle}>
+            {onHome ? (
+              <button
+                type="button"
+                onClick={onHome}
+                aria-label={homeLabel}
+                style={brandButtonStyle}
+                data-component="WorkspaceBrandHome"
+              >
+                {brandContent}
+              </button>
+            ) : (
+              brandContent
+            )}
+          </div>
+          <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
             <Menu
               mode="inline"
               inlineCollapsed={collapsed}
@@ -232,16 +259,14 @@ export function WorkspaceShell(props: Readonly<WorkspaceShellProps>) {
               defaultOpenKeys={defaultOpenKeys}
               onClick={(info) => onSelect(info.key)}
               style={{
-                borderRight: "none",
-                background: "transparent",
+                borderRight: 'none',
+                background: 'transparent',
                 paddingTop: 8,
               }}
             />
           </div>
           {buildVersion !== undefined && (
-            <div style={footerStyle}>
-              {collapsed ? buildVersion : `build ${buildVersion}`}
-            </div>
+            <div style={footerStyle}>{collapsed ? buildVersion : `build ${buildVersion}`}</div>
           )}
         </div>
       </Layout.Sider>
@@ -251,7 +276,7 @@ export function WorkspaceShell(props: Readonly<WorkspaceShellProps>) {
             <button
               type="button"
               data-testid="workspace-shell-toggle"
-              aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+              aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
               aria-expanded={!collapsed}
               onClick={onToggleCollapse}
               style={toggleStyle}
@@ -259,16 +284,11 @@ export function WorkspaceShell(props: Readonly<WorkspaceShellProps>) {
               <ToggleIcon />
             </button>
           )}
-          <div style={{ flex: 1, display: "flex", alignItems: "center" }}>
-            {header ?? (
-              <span style={{ fontSize: 16, fontWeight: 600 }}>{title}</span>
-            )}
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center' }}>
+            {header ?? <span style={{ fontSize: 16, fontWeight: 600 }}>{title}</span>}
           </div>
           {headerExtra ? (
-            <div
-              style={{ display: "flex", alignItems: "center", gap: 8 }}
-              data-component="WorkspaceShellHeaderExtra"
-            >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }} data-component="WorkspaceShellHeaderExtra">
               {headerExtra}
             </div>
           ) : null}
@@ -276,8 +296,8 @@ export function WorkspaceShell(props: Readonly<WorkspaceShellProps>) {
         <Layout.Content
           style={{
             background: token.colorBgLayout,
-            padding: "16px",
-            overflow: "auto",
+            padding: '16px',
+            overflow: 'auto',
           }}
         >
           {children}

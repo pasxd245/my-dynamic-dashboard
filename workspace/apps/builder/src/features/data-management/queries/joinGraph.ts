@@ -62,12 +62,19 @@ export function graphDatasetIds(
 export type EffectiveLookup = (qrId: string) => ReadonlyArray<{ name: string; owner: ColumnProvenance | null }>;
 
 /** An edge of the rendered source graph: the hop + its query-owned rel, plus the
- *  in-graph (node, column-handle) its LEFT visually anchors to. */
+ *  in-graph (node, column-handle) its LEFT visually anchors to, and whether it is
+ *  promotable to the governed ER. */
 export type SourceGraphEdge = {
   hop: JoinStep;
   qrel: QueryRelationship;
   leftNode: string;
   leftHandle: string;
+  /** R94 (D5) — promotable ONLY when the edge VISUALLY links two datasets. The governed
+   *  ER is dataset-only, so an edge anchored on a query node has no governed counterpart.
+   *  Tests the DISPLAY node (`leftNode`), not the stored leaf — the provenance rewrite
+   *  makes `qrel.leftSourceId` always a leaf `ds_` even when drawn off a `qr_`, so the
+   *  stored value would wrongly pass. */
+  promotable: boolean;
 };
 
 export type SourceGraph = {
@@ -134,7 +141,8 @@ export function buildSourceGraph(
     if (!qrel) continue;
     const left = displayLeft(qrel.leftSourceId, qrel.leftColumn);
     if (!parentOf.has(qrel.rightSourceId)) parentOf.set(qrel.rightSourceId, left.node);
-    edges.push({ hop, qrel, leftNode: left.node, leftHandle: left.handle });
+    const promotable = !left.node.startsWith('qr_') && !qrel.rightSourceId.startsWith('qr_');
+    edges.push({ hop, qrel, leftNode: left.node, leftHandle: left.handle, promotable });
   }
   return { nodeIds, parentOf, edges, unresolved };
 }

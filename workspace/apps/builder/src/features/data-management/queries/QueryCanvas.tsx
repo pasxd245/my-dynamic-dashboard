@@ -825,10 +825,11 @@ function QueryCanvasInner({
       removeBlocked: t('queries.builder.removeJoinBlocked'),
       selectTip: t('queries.builder.canvasEdgeSelectTip'),
     };
-    return builtEdges.map(({ hop, qrel, stale, leftNode, leftHandle }) => {
+    return builtEdges.map(({ hop, qrel, stale, leftNode, leftHandle, promotable }) => {
       const free = !qrel.originRelationshipId;
-      // R92 (Dec 3) — a `qr_`-side edge has no governed counterpart, so it's non-promotable.
-      const promotable = !qrel.leftSourceId.startsWith('qr_') && !qrel.rightSourceId.startsWith('qr_');
+      // R94 (D5) — `promotable` comes from `buildSourceGraph`: true only when the edge
+      // VISUALLY links two datasets (a `qr_`-side edge — incl. one drawn off a query node,
+      // whose stored left is a leaf `ds_` — has no governed counterpart).
       const divergence = relDivergence(qrel, governedById);
       return {
         id: hop.queryRelId,

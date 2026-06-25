@@ -207,6 +207,8 @@ describe('buildSourceGraph (R93 — render-only left re-anchor)', () => {
     expect(g.nodeIds).toEqual([DEALS, ACCOUNTS]); // exactly the two endpoints
     expect(g.edges[0]).toMatchObject({ leftNode: DEALS, leftHandle: 'deal_id' });
     expect(g.parentOf.get(ACCOUNTS)).toBe(DEALS);
+    // D5 — both visual endpoints are datasets → promotable.
+    expect(g.edges[0].promotable).toBe(true);
   });
 
   it('build-on-query — drawing off the qr_ ROOT anchors the edge on the query node, no orphaned leaf', () => {
@@ -227,6 +229,9 @@ describe('buildSourceGraph (R93 — render-only left re-anchor)', () => {
     // The edge anchors on the qr_ root node + its effective column handle.
     expect(g.edges[0]).toMatchObject({ leftNode: QR_BASE, leftHandle: 'deal_id' });
     expect(g.parentOf.get(ACCOUNTS)).toBe(QR_BASE);
+    // D5 — the edge VISUALLY touches a query node → NOT promotable (even though the stored
+    // leftSourceId is a leaf ds_; promotability tests the display node, not the stored leaf).
+    expect(g.edges[0].promotable).toBe(false);
   });
 
   it('query×query — drawing off a joined-in qr_ anchors on that query node, not its leaf', () => {
@@ -262,6 +267,10 @@ describe('buildSourceGraph (R93 — render-only left re-anchor)', () => {
     expect(g.nodeIds).toEqual([DEALS, QR_RIGHT, OWNERS]); // ACCOUNTS leaf is not its own node
     expect(g.edges[1]).toMatchObject({ leftNode: QR_RIGHT, leftHandle: 'account_id' });
     expect(g.parentOf.get(OWNERS)).toBe(QR_RIGHT);
+    // D5 — edge 0 (DEALS → QR_RIGHT) has a qr_ RIGHT → not promotable; edge 1 is anchored
+    // on the QR_RIGHT query node → not promotable. Neither links two datasets visually.
+    expect(g.edges[0].promotable).toBe(false);
+    expect(g.edges[1].promotable).toBe(false);
   });
 
   it('a hop with no matching query-owned rel is reported unresolved, not rendered', () => {

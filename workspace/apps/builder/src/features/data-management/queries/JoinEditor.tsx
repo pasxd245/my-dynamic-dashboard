@@ -43,6 +43,10 @@ export type JoinEditorProps = Readonly<{
   baseSourceId: string;
   queryId: string;
   onSetBaseSource: (sourceId: string) => void;
+  /** R94 (D6) — the base is mutable only in CREATE mode. On an existing query the PUT is
+   *  definition-only (the driving source is fixed at create), so in edit mode the picker is
+   *  disabled with a hint rather than silently dropping the change on save. */
+  baseEditable: boolean;
   /** R88 — the query's OWN relationships (copy-on-pick snapshots); hops resolve
    *  through these by `queryRelId`, not the governed store. */
   relationships: readonly QueryRelationship[];
@@ -62,6 +66,7 @@ export function JoinEditor({
   datasetId,
   workspaceId,
   baseSourceId,
+  baseEditable,
   queryId,
   onSetBaseSource,
   relationships,
@@ -102,10 +107,7 @@ export function JoinEditor({
   // extend from ANY of these, not only the last (tail) — so the shape is a tree.
   // R87/R88 — shared with the canvas via joinGraph; hops resolve through the
   // query's OWN rels (qrelById).
-  const graphDatasets = useMemo(
-    () => graphDatasetIds(datasetId, joins, qrelById),
-    [datasetId, joins, qrelById],
-  );
+  const graphDatasets = useMemo(() => graphDatasetIds(datasetId, joins, qrelById), [datasetId, joins, qrelById]);
 
   // Every addable edge: valid, drives FROM an in-graph dataset (connected), and
   // its right is NOT yet in the graph (acyclic — keeps the graph a tree).
@@ -148,24 +150,29 @@ export function JoinEditor({
       <Typography.Text strong style={{ fontSize: 12 }} id="builder-base-label">
         {t('queries.builder.baseSourceLabel')}
       </Typography.Text>
-      <Select
-        value={baseSourceId || undefined}
-        onChange={(v: string) => onSetBaseSource(v)}
-        style={{ width: '100%' }}
-        aria-labelledby="builder-base-label"
-        placeholder={t('queries.builder.baseSourcePlaceholder')}
-        options={[
-          {
-            label: t('queries.builder.baseSourceDatasets'),
-            options: datasets.map((d) => ({ value: d.id, label: d.name })),
-          },
-          {
-            label: t('queries.builder.baseSourceQueries'),
-            options: baseQueries.map((q) => ({ value: q.id, label: q.name })),
-          },
-        ]}
-        data-component="BuilderBaseSource"
-      />
+      {/* R94 (D6) — editable only in CREATE; on an existing query the base is fixed (the PUT
+          is definition-only), so disable + hint rather than silently drop the change on save. */}
+      <Tooltip title={baseEditable ? '' : t('queries.builder.baseSourceFixedHint')}>
+        <Select
+          value={baseSourceId || undefined}
+          onChange={(v: string) => onSetBaseSource(v)}
+          disabled={!baseEditable}
+          style={{ width: '100%' }}
+          aria-labelledby="builder-base-label"
+          placeholder={t('queries.builder.baseSourcePlaceholder')}
+          options={[
+            {
+              label: t('queries.builder.baseSourceDatasets'),
+              options: datasets.map((d) => ({ value: d.id, label: d.name })),
+            },
+            {
+              label: t('queries.builder.baseSourceQueries'),
+              options: baseQueries.map((q) => ({ value: q.id, label: q.name })),
+            },
+          ]}
+          data-component="BuilderBaseSource"
+        />
+      </Tooltip>
 
       <Typography.Text strong style={{ fontSize: 12 }} id="builder-join-label">
         {t(joins.length >= 2 ? 'queries.builder.joinsLabel' : 'queries.builder.joinLabel')}

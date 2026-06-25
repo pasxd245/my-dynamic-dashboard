@@ -427,7 +427,10 @@ sidebar to reclaim room.
    alternative.
 3. **Where does the app brand mark go** (top-left of sidebar)?
    Confirm "MDD" text mark for now (the preview shows three letters
-   stacked); a logo is deferred.
+   stacked); a logo is deferred. **R94 (D4a): the brand mark is a
+   labelled button that navigates home** (`WorkspaceShell` `onHome` /
+   `homeLabel`; `AppLayout` passes `navigate('/')`) — the conventional
+   clickable-logo affordance, independent of the deferred logo art.
 4. **Route base for Data Management** — `/data-management` (clear,
    slug-cased) or `/data` (terse)? Preview uses
    `/data-management` to match the domain folder name. Confirm.
