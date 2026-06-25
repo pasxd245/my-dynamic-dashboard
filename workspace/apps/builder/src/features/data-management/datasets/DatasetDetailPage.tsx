@@ -446,10 +446,11 @@ export function DatasetDetailPage() {
   );
 
   return (
-    // R95 (D2/D3): `fill` swaps the old hard `height: calc(100vh-88px)` for a
-    // min-height (tall fills so the table body owns the scroll; short grows),
-    // `data` caps + centers the table on wide screens.
-    <PageContainer fill width="data" dataComponent="DatasetDetailPage">
+    // R96: `fill="bounded"` caps the card at the viewport (vs R95's grow) so the
+    // table body's inner scroll absorbs short viewports and the pager stays
+    // pinned at the viewport bottom (the view-table "Excel" model). `data`
+    // caps + centers on wide screens (R95 D3).
+    <PageContainer fill="bounded" width="data" dataComponent="DatasetDetailPage">
       <PageHeader
         breadcrumb={BREADCRUMB}
         title={title}

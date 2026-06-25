@@ -491,11 +491,11 @@ export function QueryDetailPage() {
   );
 
   return (
-    // R95 (D2/D3): `fill` swaps the old hard `height: calc(100vh-88px)` for a
-    // min-height (tall fills, short grows). Width is fluid when editing (the
-    // builder hosts the canvas, which wants full width), capped to the data
-    // width when viewing the result table.
-    <PageContainer fill width={editing ? 'fluid' : 'data'} dataComponent="QueryDetailPage">
+    // R95/R96: editing hosts the builder/canvas → `fill` (grow, min-height) +
+    // `fluid` width. Viewing shows the result table → `fill="bounded"` (R96:
+    // cap at viewport so the body's inner scroll absorbs short viewports and
+    // the pager pins at the viewport bottom) + `data` width.
+    <PageContainer fill={editing ? true : 'bounded'} width={editing ? 'fluid' : 'data'} dataComponent="QueryDetailPage">
       <PageHeader
         breadcrumb={BREADCRUMB}
         title={title}

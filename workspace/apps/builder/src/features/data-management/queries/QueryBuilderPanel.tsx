@@ -251,6 +251,9 @@ function FormTab({
             page={builder.page}
             pageSize={builder.pageSize}
             onPageChange={builder.onPageChange}
+            // R96: the preview is a peek — flow (no inner scroll); the page
+            // scrolls and the pager sits at the natural end.
+            scrollMode="flow"
             renderHeaderExtra={(col, colIndex) => (
               <FilterPopover
                 column={col}

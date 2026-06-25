@@ -61,6 +61,16 @@ export type PagedRowsViewProps = Readonly<{
   /** Rendered when `total === 0`. The parent supplies the message + any
    *  recovery affordances (clear-search / clear-filters / re-save). */
   emptyState?: ReactNode;
+  /**
+   * R96 — how the rows scroll:
+   * - `"contained"` (default) — the table body owns an inner `overflow:auto`
+   *   scroll (`flex:1 1 auto`), so the sticky `<th>` and the bottom pager stay
+   *   pinned. For **view tables** inside a `PageContainer fill="bounded"` card.
+   * - `"flow"` — the table flows at natural height (no inner scroll); the page
+   *   scrolls and the pager sits at the natural end. For the **builder
+   *   preview** (a quick peek — "scroll to the end").
+   */
+  scrollMode?: 'contained' | 'flow';
 }>;
 
 export function PagedRowsView({
@@ -74,7 +84,9 @@ export function PagedRowsView({
   pageSizeOptions = DEFAULT_PAGE_SIZES,
   renderHeaderExtra,
   emptyState,
+  scrollMode = 'contained',
 }: PagedRowsViewProps) {
+  const contained = scrollMode === 'contained';
   const locale = i18n.language;
 
   // First paint of a page (no rows yet) → skeleton.
@@ -114,10 +126,11 @@ export function PagedRowsView({
     <>
       <div
         data-component="PagedRowsTable"
+        data-scroll-mode={scrollMode}
         style={{
-          flex: '1 1 auto',
-          minHeight: 0,
-          overflow: 'auto',
+          // "contained": own inner scroll (sticky header + pinned pager pin
+          // against this box). "flow": natural height — the page scrolls.
+          ...(contained ? { flex: '1 1 auto', minHeight: 0, overflow: 'auto' } : {}),
           border: '1px solid var(--ant-color-border-secondary, #f0f0f0)',
           borderRadius: 6,
         }}

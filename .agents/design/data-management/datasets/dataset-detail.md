@@ -300,29 +300,36 @@ Excel · Sheet1 — 2,481 rows · 12 columns · 84 KB · Uploaded 14:02 today
 
 ## Layout shell
 
-This page **fills a tall viewport but grows on a short one** (R95) — the
-pagination bar pins to the card's bottom edge and the table body owns the
-vertical scroll (so the sticky `<th>` has a real scroll container to stick
-within). Use the shared `PageContainer` (R95) + the `PageCard
-variant="fill"` recipe, exactly as the upload wizard's `DatasetNewPage` does:
+This page is a **bounded view table** (R96): the card is capped at the
+viewport, the table body owns the vertical scroll (so the sticky `<th>` has a
+real scroll container), and the pager pins at the **viewport bottom** at every
+realistic height. Use the shared `PageContainer fill="bounded"` (R96) + the
+`PageCard variant="fill"` recipe:
 
-- Outer page wrapper: `<PageContainer fill width="data">` (`@mdd/ui`).
-  `fill` applies `min-height: calc(100svh - 88px)` (WorkspaceShell chrome
-  math = Layout.Header 56 + Content padding 16×2) + flex column — **`min-height`,
-  not a hard `height`** (R95 D2), so a short viewport grows into the shell's
-  document scroll instead of cramping. `width="data"` caps and centers the
-  page to `layoutTokens.contentWidthData` on wide screens (R95 D3), the empty
-  gutters falling on the shell `colorBgLayout`.
+- Outer page wrapper: `<PageContainer fill="bounded" width="data">`
+  (`@mdd/ui`). `fill="bounded"` applies **`height: calc(100svh - 88px)`**
+  (WorkspaceShell chrome math = Layout.Header 56 + Content padding 16×2) + flex
+  column — a **hard cap** (R96), so a short viewport is absorbed by the table
+  body's inner scroll (it shrinks) rather than growing the page and pushing the
+  pager below the fold. (Contrast: forms/wizard/builder use `fill` = grow /
+  `min-height`, R95 D2 — they have content below the fold, not an inner
+  scroll.) `width="data"` caps + centers on wide screens (R95 D3), gutters on
+  the shell `colorBgLayout`.
 - `<PageCard variant="fill">` — fills the rest as a flex column.
 - Metadata strip + search bar + (optional) error alert — each `flex: 0 0
-  auto`, stack at the top.
-- Table scroll container — `flex: 1 1 auto; minHeight: 0; overflow: auto`.
-  The sticky `<th>` sticks here.
-- Pagination bar — `flex: 0 0 auto` with a top border, pinned at the bottom.
+  auto`, stack at the top (fixed; visible at the top of the bounded card).
+- `<PagedRowsView>` `scrollMode="contained"` (default) — table body
+  `flex: 1 1 auto; minHeight: 0; overflow: auto` (the sticky `<th>` sticks
+  here) + pagination bar `flex: 0 0 auto`, pinned at the bottom = viewport
+  bottom. **Not** CSS `position: sticky; bottom: 0` (which occludes rows).
+- **Known limit** (R96, accepted): a *genuinely tiny* viewport where the fixed
+  chrome alone exceeds the screen overflows the bounded card — fine for a
+  desktop analytics app.
 
-> **Pagination UX on short viewports** (pager occlusion / scroll-to-reach, and
-> a top-pager redesign) is tracked separately — it is **out of R95's
-> responsive-bounds scope**. See the pagination-UX round.
+> The **builder preview** (Query Edit) is the *other* surface and uses the
+> opposite knob — `<PagedRowsView scrollMode="flow">` (no inner scroll, pager
+> at the natural end, "scroll to the end"). See
+> [query-construction.md](../queries/query-construction.md).
 
 Anti-patterns documented in
 [2026-05-26-pagecard-fill-pattern-for-fixed-controls.md](../../../memory/2026-05-26-pagecard-fill-pattern-for-fixed-controls.md):

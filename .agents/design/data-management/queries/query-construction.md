@@ -117,6 +117,13 @@ The builder is an **Edit mode** of the query detail — the same standard detail
 default; collapse Build to give the preview full height on a short screen. Per-column
 filters live in the **preview table headers** (filter where you see the data).
 
+The preview renders `<PagedRowsView scrollMode="flow">` (R96) — a **peek**: the table flows
+(no inner scroll), the page scrolls, and the pager sits at the natural end ("scroll to the
+end"). This is the deliberate opposite of the **view tables** (dataset detail / query view),
+which use `scrollMode="contained"` + `PageContainer fill="bounded"` for a fixed header and a
+viewport-pinned pager — see [dataset-detail.md](../datasets/dataset-detail.md). Giving the
+preview *more* space (maximize / a dedicated tab) is a separate, deferred concern.
+
 ### View mode (read-only)
 
 ```text

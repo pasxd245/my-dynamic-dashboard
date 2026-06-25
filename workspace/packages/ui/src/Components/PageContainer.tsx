@@ -23,15 +23,21 @@ export type PageContainerProps = {
    */
   width?: PageContainerWidth;
   /**
-   * R95 (D2) — fill a tall viewport but grow + document-scroll on a short
-   * one. Replaces the detail/builder page wrapper's hard
-   * `height: calc(100vh - 88px)` with a `min-height`: a tall viewport still
-   * fills (a `PageCard variant="fill"` child stretches as before), while a
-   * short viewport overflows into the shell's document scroll instead of
-   * cramping the inner region. Use on pages that hold a
-   * `PageCard variant="fill"`.
+   * Fill the viewport-minus-chrome region as a flex column (for pages that
+   * hold a `PageCard variant="fill"`). Two modes:
+   *
+   * - `true` (R95 D2) — **grow**: `min-height: calc(100svh - 88px)`. A tall
+   *   viewport fills; a short one overflows into the shell's document scroll
+   *   instead of cramping. Right for **forms / wizard / builder** (content
+   *   below the fold must stay reachable by scrolling the page).
+   * - `"bounded"` (R96) — **cap**: `height: calc(100svh - 88px)`. The card
+   *   can't grow past the viewport, so a `variant="fill"` child with an inner
+   *   `overflow:auto` body absorbs a short viewport by shrinking its scroll
+   *   window, keeping a sticky header + a bottom-pinned control at the
+   *   viewport bottom. Right for **paginated view tables** (the data is in an
+   *   internal scroll, so the page itself should not grow).
    */
-  fill?: boolean;
+  fill?: boolean | "bounded";
   /**
    * Overrides the root `data-component` attribute. Pages that previously
    * owned their wrapper `<div data-component="…">` pass their name through
@@ -62,6 +68,7 @@ export function PageContainer({
   fill = false,
   dataComponent = "PageContainer",
 }: Readonly<PageContainerProps>) {
+  const fillHeight = `calc(100svh - ${SHELL_CHROME_PX}px)`;
   const style: CSSProperties = {
     maxWidth: maxWidthFor(width),
     width: "100%",
@@ -69,9 +76,12 @@ export function PageContainer({
     marginInline: "auto",
     ...(fill
       ? {
-          // D2: `min-height`, not hard `height` — a tall viewport fills (the
-          // `variant="fill"` child stretches), a short one document-scrolls.
-          minHeight: `calc(100svh - ${SHELL_CHROME_PX}px)`,
+          // "bounded" → hard `height` (cap at the viewport: the inner
+          // overflow:auto body absorbs short viewports, pager stays pinned).
+          // `true` → `min-height` (grow: a short viewport document-scrolls).
+          ...(fill === "bounded"
+            ? { height: fillHeight }
+            : { minHeight: fillHeight }),
           display: "flex",
           flexDirection: "column",
         }

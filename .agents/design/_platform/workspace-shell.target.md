@@ -187,7 +187,7 @@ type PageContainerWidth = 'data' | 'text' | 'fluid';
 type PageContainerProps = {
   children: ReactNode;
   width?: PageContainerWidth; // default 'data'
-  fill?: boolean;
+  fill?: boolean | 'bounded'; // R96: true = grow (min-height); 'bounded' = cap (height)
   dataComponent?: string; // root data-component, default 'PageContainer'
 };
 ```
@@ -204,11 +204,16 @@ laptop → 4K range (R95, D2 + D3). It sits directly inside
   (960, forms/prose ~66 CPL), `'fluid'` is **uncapped — the exception
   for the canvas**, which wants the full width. Empty gutters fall on
   the shell `colorBgLayout`, so the cap reads as intentional whitespace.
-- **`fill` — `min-height`, not hard `height`** (D2): applies
-  `min-height: calc(100svh - 88px)` + flex column. A tall viewport
-  fills (a `PageCard variant="fill"` child stretches as before); a
-  short viewport overflows into the document scroll instead of cramping.
-  Replaces the old per-page `height: calc(100vh - 88px)` wrapper.
+- **`fill` — two modes** (flex column either way; replaces the old
+  per-page `height: calc(100vh - 88px)` wrapper):
+  - `true` (**grow**, R95 D2): `min-height: calc(100svh - 88px)`. Tall
+    fills, short overflows into the document scroll instead of cramping.
+    For **forms / wizard / builder** (content below the fold).
+  - `'bounded'` (**cap**, R96): `height: calc(100svh - 88px)`. The card
+    can't grow past the viewport, so a `variant="fill"` child's inner
+    `overflow:auto` body absorbs a short viewport (shrinks its scroll
+    window) and a bottom-pinned control stays at the viewport bottom.
+    For **paginated view tables** (data lives in an internal scroll).
 - **Cap numbers are tokens** (`layoutTokens` in `themeTokens.ts`), not
   scattered literals — tunable in one edit.
 - No router awareness; no data fetching; no BIZ libs.
