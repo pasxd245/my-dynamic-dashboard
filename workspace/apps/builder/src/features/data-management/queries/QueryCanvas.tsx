@@ -60,6 +60,7 @@ import { useRelationshipsQuery } from '@/features/data-management/relationships/
 import { useQueriesQuery } from './hooks';
 import {
   addEligibleRels,
+  buildSourceGraph,
   graphDatasetIds,
   inferCardinality,
   isLeafHop,
@@ -709,32 +710,19 @@ function QueryCanvasInner({
     return () => window.removeEventListener('keydown', onKey);
   }, [maximized]);
 
-  // Build the node set (root + each hop's endpoints) and the edges from the query's
-  // own relationships — exactly the tree `joins[]` encodes.
+  // Build the node set + edges from the query's own join tree (pure `buildSourceGraph`,
+  // shared logic in joinGraph.ts), then attach the per-edge column-drift staleness flag
+  // (a loaded-data check that stays component-side).
   const { nodeIds, parentOf, builtEdges, unresolved } = useMemo(() => {
-    const ids: string[] = [];
-    const push = (id: string) => {
-      if (id && !ids.includes(id)) ids.push(id);
-    };
-    push(rootId);
-    const parent = new Map<string, string>();
-    const built: Array<{ hop: JoinStep; qrel: QueryRelationship; stale: boolean }> = [];
-    const missing: JoinStep[] = [];
-    for (const hop of joins) {
-      const qrel = qrelById.get(hop.queryRelId);
-      if (!qrel) {
-        missing.push(hop);
-        continue;
-      }
-      push(qrel.leftSourceId);
-      push(qrel.rightSourceId);
-      if (!parent.has(qrel.rightSourceId)) parent.set(qrel.rightSourceId, qrel.leftSourceId);
-      const stale =
-        columnMissing(qrel.leftSourceId, qrel.leftColumn) || columnMissing(qrel.rightSourceId, qrel.rightColumn);
-      built.push({ hop, qrel, stale });
-    }
-    return { nodeIds: ids, parentOf: parent, builtEdges: built, unresolved: missing };
-  }, [rootId, joins, qrelById, columnMissing]);
+    const g = buildSourceGraph(rootId, joins, qrelById, (id) => effectiveByQr.get(id) ?? []);
+    const built = g.edges.map((e) => ({
+      ...e,
+      stale:
+        columnMissing(e.qrel.leftSourceId, e.qrel.leftColumn) ||
+        columnMissing(e.qrel.rightSourceId, e.qrel.rightColumn),
+    }));
+    return { nodeIds: g.nodeIds, parentOf: g.parentOf, builtEdges: built, unresolved: g.unresolved };
+  }, [rootId, joins, qrelById, columnMissing, effectiveByQr]);
 
   const graphIds = useMemo(() => graphDatasetIds(rootId, joins, qrelById), [rootId, joins, qrelById]);
   // Staged nodes that haven't been joined yet (drop any that became in-graph).
@@ -837,15 +825,17 @@ function QueryCanvasInner({
       removeBlocked: t('queries.builder.removeJoinBlocked'),
       selectTip: t('queries.builder.canvasEdgeSelectTip'),
     };
-    return builtEdges.map(({ hop, qrel, stale }) => {
+    return builtEdges.map(({ hop, qrel, stale, leftNode, leftHandle }) => {
       const free = !qrel.originRelationshipId;
       // R92 (Dec 3) — a `qr_`-side edge has no governed counterpart, so it's non-promotable.
       const promotable = !qrel.leftSourceId.startsWith('qr_') && !qrel.rightSourceId.startsWith('qr_');
       const divergence = relDivergence(qrel, governedById);
       return {
         id: hop.queryRelId,
-        source: qrel.leftSourceId,
-        sourceHandle: qrel.leftColumn,
+        // R93 (I-phase fix) — anchor on the in-graph node that VISUALLY owns the left, not
+        // the stored leaf (which is inside a `qr_` when drawn off a query node).
+        source: leftNode,
+        sourceHandle: leftHandle,
         target: qrel.rightSourceId,
         targetHandle: qrel.rightColumn,
         type: 'rel',
@@ -1087,7 +1077,10 @@ function QueryCanvasInner({
           proOptions={{ hideAttribution: true }}
         >
           <Background />
-          <Controls showInteractive={false}>
+          {/* R93 (I-phase) — pin the zoom/fit/maximize controls TOP-LEFT, not React Flow's
+              default bottom-left: on a short viewport the bottom controls fell below the fold
+              and needed a scroll to reach. Top-left is clear (the toolbar sits top-right). */}
+          <Controls position="top-left" showInteractive={false}>
             {/* R93 (F2) — a maximize toggle alongside zoom/fit, to fill the tab and draw
                 with room (Esc exits). */}
             <ControlButton

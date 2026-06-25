@@ -1,10 +1,11 @@
 # Round 93: column provenance on the wire + F2 fidelity — query×query joins resolve for real (C + B + F2 + Integration)
 
-**Status**: **In Progress** — Plan ratified + **Contract + Backend + F2 closed** (F2 human-accepted
-2026-06-25); **Integration gate next**. DFCFBI **back half** of the [Round_92](Round_92.md) split per
+**Status**: **Complete** — human-signed-off 2026-06-25 ("okay to close"). All gates closed
+(Plan · Contract · Backend · F2 · Integration); two I-phase defects fixed (query-node-draw
+re-anchor + controls top-left). DFCFBI **back half** of the [Round_92](Round_92.md) split per
 [[dfcfbi-two-round-split]] (front half shipped & Complete).
 **Date started**: 2026-06-24
-**Date completed**: —
+**Date completed**: 2026-06-25
 **Flow**: **DFCFBI back half — [C + B + F2 + Integration]** (inherited from R92's Design-gate split;
 the `flow-selector` ran at R92 → DFCFBI (1,2,5) — not re-run here, the split is the decision). F1
 already happened (R92); F2 is the post-build feel-check on the real-resolving stack + the fidelity polish.
@@ -267,6 +268,100 @@ The human ran it on the real-resolving stack and **accepted F2**, after a feel-c
 **Verified (automated):** builder `type-check` clean; vitest **193/193**; prettier + i18n parity
 clean. **F2 gate → CLOSED** (human-accepted). Next: **canvas.md re-sync**, then **Integration**.
 
+### canvas.md re-sync — done (2026-06-25, the F2-close pre-step to Integration)
+
+Ran `design-sync` (sync mode) on
+[`canvas.md`](../../design/data-management/queries/canvas.md) — the F2 build moved the code past
+the doc. Drift report: [`.agents/tmp/design-sync/queries-canvas.md`](../../tmp/design-sync/queries-canvas.md)
+(9 drift items). Reconciled to code truth:
+
++ **Provenance: FE-derived → wire-read.** The doc claimed provenance is computed frontend-side
+  (`provenance.ts`) with the on-the-wire add "deferred". Code: the resolver emits
+  `resolvedColumns[].ownerSourceId/sourceColumn`; `QueryCanvas.effectiveByQr` reads it off the
+  wire; **`provenance.ts` is deleted**. Rewrote the Editing/Query-node/Data-contract/Scope
+  sections; **deleted the phantom `provenance.ts` surface row**; renamed the Data-contract
+  heading to "consumes the resolver's column provenance".
++ **Deferred items that shipped, moved OUT-of-scope → built:** "column provenance on the wire"
+  and "visual fidelity polish (glyphs + curved edges)" — both removed from the deferred list.
++ **Added current behaviour:** the `dtype_mismatch` invalid draw (guard before minting,
+  FE-lenient on unknowns); per-field type glyphs (`@phosphor-icons/react`, supplementary + a11y);
+  rounded orthogonal edges (`getSmoothStepPath`); the cursor scheme + enlarged handle hit-area;
+  the one-line top toolbar (status chip folded in); the in-page maximize overlay. Updated the
+  Surfaces table, peer-dep deviation note, token map (glyph colour), ASCII intent, and
+  acceptance criteria 5 + 11. De-attributed two round-stamp ledger phrases (F1 overlap, R90 batch).
++ **Gate green:** `design:lint` 0 · `design:tokens` 0 · `markdownlint` 0 · `check:links` all
+  resolved (the new intra-doc fragment resolves). Doc-only change; no code touched.
+
+→ **canvas.md in sync. Next: Integration gate** (real-stack query×query resolves + human Complete).
+
+### Integration gate — agent-verified on the real stack (2026-06-25); awaiting human Complete
+
+Brought up the real backend (`uv run uvicorn` on `:8000`, DuckDB **v1.1.3**) + `seed.py --reset`
+(workspace `ws_18c510d0`: regions·products·customers·orders, 3 governed rels, 6 base queries) —
+the live DuckDB/CORS path, [[seed-data-vs-msw-complementary]]. Verified the R93 wire + engine for
+real (not fixtures):
+
++ **Provenance on the wire (GET + preview).** `GET /queries/qr_2e742bbf` (seed's composed
+  customers ⋈ orders) returns `resolvedColumns` carrying `ownerSourceId`/`sourceColumn` per
+  column. The collision-qualified display names trace to the **true leaf**: `customers.customer_id`
+  → owner `ds_50617934`/src `customer_id`; `orders.customer_id` → owner `ds_2bee41e2`/src
+  `customer_id`.
++ **A query×query join resolves for real.** Built a `qr_`-right join (drive `customers`, free-form
+  join in the saved query `qr_e3a8c38b` "Big or pending orders" on `customer_id` — exactly the
+  canvas draw) → `POST …/queries/preview` returned **10 rows** of real seed data (first row: Acme
+  Corp ⋈ a $1200 pending order). The **recursion proof on the live stack**: the right query's
+  columns trace through the `qr_` to the **orders leaf** `ds_2bee41e2` (e.g.
+  `Big or pending orders.customer_id` → owner `ds_2bee41e2`), never the `qr_` id; the left key is
+  the server-provenanced leaf `ds_50617934`.
++ **`composition_cycle` holds.** Forcing a cycle (PUT the right query to join back to the probe)
+  is **rejected at write time — `422 cyclic_join`** — the right query stays untouched
+  (`relationships: [] · joins: []`). The throwaway probe query was deleted (`204` → `404`); the
+  seed workspace is back to its 6 queries (clean).
++ Backend stopped cleanly (`dev:local:down`), `:8000` freed; the seed persists for the human's
+  in-browser pass.
+
+**HARD-STOP — human Complete** ([[dfcfbi-f1-needs-human-review]]): the API-level resolution +
+provenance + cycle-guard are agent-verified on the real stack; the in-browser **canvas draw** of a
+query×query join and the **Complete flip** are the human's. Run `pnpm dev` (seed already loaded),
+open a query, draw off a `qr_` node, confirm rows + the glyph/rounded-edge feel, then flip Complete.
+
+### I-phase defect fix — canvas re-anchors a query-node draw, no orphaned leaf (2026-06-25)
+
+Human-reported during the I-phase in-browser pass: **"Build on this query" → draw a rel → the canvas
+shows the query, the dataset the query was built from, AND the added source** (three nodes), instead
+of just a rel from the driving query to the added source.
+
+**Root cause (verified, render-only).** Drawing off a `qr_` node, `resolveConnect` correctly rewrites
+the left endpoint to the qr_'s **owning leaf** dataset (the resolver requires a leaf `leftSourceId` —
+[queries.py:209](../../../workspace/apps/backend/app/routers/queries.py#L209) matches against the
+base's inner leaf ids, never a `qr_`). The canvas node-builder then did `push(qrel.leftSourceId)`,
+spawning that leaf as a **separate node** (≠ the qr_ root) → the qr_ root rendered **orphaned** + the
+inner leaf showed as an extra card. Confirmed it's render-only: built the exact model on the live
+stack — it previews **21 rows, all `tier=gold` ⋈ orders**; the stored leaf-left is required and
+semantically correct.
+
+**Fix (render-only; model untouched).** Extracted the node/edge construction into a pure
+`buildSourceGraph` ([joinGraph.ts](../../../workspace/apps/builder/src/features/data-management/queries/joinGraph.ts) —
+the established home for shared canvas selectors). Node set = **root + each hop's RIGHT** only; a hop's
+LEFT is never its own node — `displayLeft` re-anchors a stored leaf-left onto the in-graph `qr_` whose
+effective column owns it (via wire provenance), with the effective column as the edge handle. A
+dataset×dataset left (already an in-graph node) is unchanged; a degenerate ownerless leaf falls back to
+rendering as its own node (keeps the edge attached). `QueryCanvas` now consumes `buildSourceGraph` and
+anchors each edge on `leftNode`/`leftHandle`.
+
+**Verified:** builder `type-check` clean; vitest **197/197** (+4 `buildSourceGraph` cases:
+dataset×dataset unchanged · build-on-query root re-anchor (no orphaned leaf) · query×query joined-in
+re-anchor · unresolved hop); prettier clean on the touched files. The in-browser confirmation of the
+draw stays the human's (part of the Complete pass).
+
+### I-phase UX fix — canvas controls pinned top-left (2026-06-25)
+
+Human-reported: the zoom/fit/maximize **`<Controls>` sat bottom-left** (React Flow's default), so on a
+short viewport they fell **below the fold** and needed a scroll to reach. Set `position="top-left"` on
+[`<Controls>`](../../../workspace/apps/builder/src/features/data-management/queries/QueryCanvas.tsx#L1080) —
+top-left is clear (the toolbar is top-right). One-line change; `type-check` clean, prettier clean,
+`queries.test` **43/43** (canvas still mounts). canvas.md layout synced (ASCII + prose).
+
 ## Check
 
 + [x] **Plan gate** — **ratified** (human, 2026-06-24, "as drafted"); scope locked, no cold-reviewer
@@ -282,11 +377,31 @@ clean. **F2 gate → CLOSED** (human-accepted). Next: **canvas.md re-sync**, the
       provenance + mock retired; fidelity (glyphs, rounded edges) + feel-check polish (dtype guard,
       cursor scheme, enlarged handle area, one-line toolbar, tab-size maximize). type-check 0 ·
       vitest 193/193 · prettier + i18n parity clean.
-+ [ ] **Integration gate** — **next** (real-stack query×query resolves + human Complete).
++ [x] **Integration gate** — **closed; human-signed-off Complete 2026-06-25** ("okay to close").
+      Real-stack agent-verification: query×query join previews **10 real rows**; `resolvedColumns`
+      provenance traces through the `qr_` to the orders leaf `ds_2bee41e2`; `composition_cycle`
+      rejected at write (`422 cyclic_join`); probe cleaned up + canvas.md re-synced. Two I-phase
+      defects fixed: canvas **re-anchors a query-node draw** (`buildSourceGraph`, no orphaned leaf)
+      + **controls pinned top-left** (reachable on a short viewport). vitest 197/197.
 
 ## Act
 
-_Pending — round not yet ratified/started._
+R93 **closes the query×query relationships theme** (R88→R93) — a user can draw a join off any
+source on the canvas and it resolves for real on server-emitted column provenance. Carried lessons:
+
++ **Provenance computed-on-read scales cleanly** — emitting `ownerSourceId`/`sourceColumn` on
+  `resolvedColumns` needed no migration and recursed to the true leaf at any depth; the F1 FE mock
+  was a faithful stand-in that retired without churn (the R92 cold-review pin paid off).
++ **A leaf-left that lives inside a `qr_` is a rendering concern, not a model one** — the resolver
+  rightly requires a leaf `leftSourceId`; the canvas must re-anchor it onto the owning in-graph
+  query node (`buildSourceGraph`). Worth remembering for any future source-graph view.
++ **Two I-phase defects surfaced only in the human's real-app pass** (orphaned-leaf render,
+  bottom-left controls below the fold) — reaffirms [[dfcfbi-f1-needs-human-review]]: green gates +
+  agent API-verification still can't see layout/feel; the human run is the gate.
+
+Further canvas polish (any additional defects beyond the two fixed) batches to a dedicated UI-bug
+round per [[batch-ui-bugs-into-one-round]], not piecemeal. Next theme is the human's call at the
+fork (see Feeds-into).
 
 ## Feeds into → Round_94+ (the next theme — human's call at the R93 fork)
 
@@ -297,3 +412,11 @@ human's call at the R93 completion fork; the standing roadmap candidate is the d
 which R91→R92 deferred in favour of finishing relationships. Named non-theme follow-ups stay parked:
 derived/aggregate-column left-keys (only if aggregation arrives) and `qr_`-on-left (unneeded while
 every effective column traces 1:1 to a single leaf).
+
+**Plan candidate (human-flagged at the R93 I-phase, 2026-06-25):** the **standalone "New query"
+create action**. A query today offers `Edit` + `Build on this query`, but there is **no plain
+"New query"** entry — `QueryCreatePage` requires a preset `?base=` (the R77 build-on path) and the
+catalog has no `[+ New query]`. This is the empty-canvas create entry already deferred in
+[canvas.md Scope OUT](../../design/data-management/queries/canvas.md) ([[dont-mvp-rush-a-roadmap-home-surface]]);
+now promoted to a **tracked candidate** for a future round (place the first node on an empty graph,
+no preset base). Not in R93 scope.

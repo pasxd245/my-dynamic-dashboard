@@ -56,6 +56,89 @@ export function graphDatasetIds(
   return ids;
 }
 
+/** A `qr_` source's effective columns + the leaf each traces to (read off
+ *  `resolvedColumns`). Supplied by the canvas so `buildSourceGraph` can re-anchor a
+ *  stored leaf-left onto the in-graph query node that visually owns it. */
+export type EffectiveLookup = (qrId: string) => ReadonlyArray<{ name: string; owner: ColumnProvenance | null }>;
+
+/** An edge of the rendered source graph: the hop + its query-owned rel, plus the
+ *  in-graph (node, column-handle) its LEFT visually anchors to. */
+export type SourceGraphEdge = {
+  hop: JoinStep;
+  qrel: QueryRelationship;
+  leftNode: string;
+  leftHandle: string;
+};
+
+export type SourceGraph = {
+  nodeIds: string[];
+  parentOf: Map<string, string>;
+  edges: SourceGraphEdge[];
+  unresolved: JoinStep[];
+};
+
+/** Build the canvas node/edge graph from a query's join tree (R93 I-phase).
+ *
+ *  The node set is the driving **root + each hop's RIGHT source** — a hop's LEFT is
+ *  **never its own node**. The resolver requires a hop's `leftSourceId` to be a LEAF
+ *  dataset (it matches against the base's inner leaf ids, never a `qr_`), so drawing off
+ *  a `qr_` node stores the qr_'s OWNING LEAF as the left (`resolveConnect`'s provenance
+ *  rewrite). That leaf lives INSIDE an in-graph query (the build-on-query root, or a
+ *  joined-in `qr_`), so the edge must render FROM that query node — not spawn the leaf as
+ *  a separate, orphaned card. `displayLeft` maps a stored leaf-left back to the in-graph
+ *  (node, handle) that owns it via wire provenance; a leaf that IS itself an in-graph node
+ *  (dataset×dataset) renders as-is, unchanged. */
+export function buildSourceGraph(
+  rootId: string,
+  joins: readonly JoinStep[],
+  qrelById: ReadonlyMap<string, QueryRelationship>,
+  effectiveOf: EffectiveLookup,
+): SourceGraph {
+  const nodeIds: string[] = [];
+  const push = (id: string) => {
+    if (id && !nodeIds.includes(id)) nodeIds.push(id);
+  };
+  push(rootId);
+  const unresolved: JoinStep[] = [];
+  // Pass 1 — the canonical node set: driving root + each hop's right source.
+  for (const hop of joins) {
+    const qrel = qrelById.get(hop.queryRelId);
+    if (!qrel) {
+      unresolved.push(hop);
+      continue;
+    }
+    push(qrel.rightSourceId);
+  }
+  // The in-graph (node id, column handle) a stored leaf-left anchors to: the leaf itself
+  // when it's a rendered node, else the in-graph `qr_` whose effective column owns that
+  // leaf `(ds_, column)` via wire provenance (the effective column name is the handle).
+  const displayLeft = (leftSourceId: string, leftColumn: string): { node: string; handle: string } => {
+    if (nodeIds.includes(leftSourceId)) return { node: leftSourceId, handle: leftColumn };
+    for (const id of nodeIds) {
+      if (!id.startsWith('qr_')) continue;
+      const match = effectiveOf(id).find(
+        (c) => c.owner?.ownerSourceId === leftSourceId && c.owner?.sourceColumn === leftColumn,
+      );
+      if (match) return { node: id, handle: match.name };
+    }
+    // Fallback (a leaf with no in-graph owner — a degenerate/disconnected state): keep the
+    // edge attached by rendering the leaf as its own node, preserving the prior behaviour.
+    push(leftSourceId);
+    return { node: leftSourceId, handle: leftColumn };
+  };
+  const parentOf = new Map<string, string>();
+  const edges: SourceGraphEdge[] = [];
+  // Pass 2 — resolve each hop's visual left against the full node set, build edges + parent.
+  for (const hop of joins) {
+    const qrel = qrelById.get(hop.queryRelId);
+    if (!qrel) continue;
+    const left = displayLeft(qrel.leftSourceId, qrel.leftColumn);
+    if (!parentOf.has(qrel.rightSourceId)) parentOf.set(qrel.rightSourceId, left.node);
+    edges.push({ hop, qrel, leftNode: left.node, leftHandle: left.handle });
+  }
+  return { nodeIds, parentOf, edges, unresolved };
+}
+
 /** Every addable edge: a `valid` relationship that drives FROM an in-graph
  *  dataset (connected) to one NOT yet in the graph (acyclic — keeps it a tree).
  *  This is the exact set the hop list's "[+ Add a join]" offers. */

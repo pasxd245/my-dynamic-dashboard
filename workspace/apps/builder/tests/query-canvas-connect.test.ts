@@ -8,9 +8,15 @@
 import { describe, expect, it } from 'vitest';
 
 import { freeFormRel } from '@/features/data-management/queries/chain';
-import { inferCardinality, relDivergence, resolveConnect } from '@/features/data-management/queries/joinGraph';
+import {
+  buildSourceGraph,
+  type EffectiveLookup,
+  inferCardinality,
+  relDivergence,
+  resolveConnect,
+} from '@/features/data-management/queries/joinGraph';
 import type { Relationship } from '@/features/data-management/relationships/types';
-import type { QueryRelationship } from '@/features/data-management/queries/types';
+import type { JoinStep, QueryRelationship } from '@/features/data-management/queries/types';
 
 const DEALS = 'ds_11111111';
 const ACCOUNTS = 'ds_22222222';
@@ -89,7 +95,11 @@ describe('resolveConnect (R89 — draw-to-connect routing)', () => {
   });
 
   it('treats a missing handle as incomplete (a stray drag, no error)', () => {
-    const res = resolveConnect({ source: DEALS, sourceHandle: null, target: ACCOUNTS, targetHandle: 'account_id' }, [DEALS], governed);
+    const res = resolveConnect(
+      { source: DEALS, sourceHandle: null, target: ACCOUNTS, targetHandle: 'account_id' },
+      [DEALS],
+      governed,
+    );
     expect(res).toEqual({ kind: 'invalid', reason: 'incomplete' });
   });
 });
@@ -161,5 +171,103 @@ describe('freeFormRel (R89 — mint a query-owned rel with no provenance)', () =
     expect(r.originRelationshipId).toBeNull();
     expect(r.id).toMatch(/^qrel_[0-9a-f]{8}$/);
     expect(r.leftColumn).toBe('amount');
+  });
+});
+
+// R93 (I-phase fix) — the node set is root + each hop's RIGHT; a hop's LEFT is never its
+// own node. The resolver stores a LEAF as the left (inside a `qr_` when drawn off a query
+// node), so the edge must anchor on that in-graph query node — NOT spawn an orphaned leaf
+// card (the reported build-on-query bug: query + its underlying dataset + the added source).
+describe('buildSourceGraph (R93 — render-only left re-anchor)', () => {
+  const QR_BASE = 'qr_aaaaaaaa'; // a build-on base (single-source query on DEALS)
+  const QR_RIGHT = 'qr_bbbbbbbb'; // a joined-in query (effective space owned by ACCOUNTS)
+  const hop = (queryRelId: string): JoinStep => ({ queryRelId, type: 'inner' });
+  // Each query's effective space + the leaf each column traces to (a single-source query
+  // owns its driving dataset's columns 1:1).
+  const EFFECTIVE: Record<
+    string,
+    ReadonlyArray<{ name: string; owner: { ownerSourceId: string; sourceColumn: string } }>
+  > = {
+    [QR_BASE]: [{ name: 'deal_id', owner: { ownerSourceId: DEALS, sourceColumn: 'deal_id' } }],
+    [QR_RIGHT]: [{ name: 'account_id', owner: { ownerSourceId: ACCOUNTS, sourceColumn: 'account_id' } }],
+  };
+  const effectiveOf: EffectiveLookup = (id) => EFFECTIVE[id] ?? [];
+
+  it('dataset×dataset is unchanged — left is the in-graph root, no extra node', () => {
+    const qrel: QueryRelationship = {
+      id: 'qrel_11111111',
+      leftSourceId: DEALS,
+      leftColumn: 'deal_id',
+      rightSourceId: ACCOUNTS,
+      rightColumn: 'account_id',
+      cardinality: 'one_to_many',
+      originRelationshipId: 'rel_a1b2c3d4',
+    };
+    const g = buildSourceGraph(DEALS, [hop(qrel.id)], new Map([[qrel.id, qrel]]), effectiveOf);
+    expect(g.nodeIds).toEqual([DEALS, ACCOUNTS]); // exactly the two endpoints
+    expect(g.edges[0]).toMatchObject({ leftNode: DEALS, leftHandle: 'deal_id' });
+    expect(g.parentOf.get(ACCOUNTS)).toBe(DEALS);
+  });
+
+  it('build-on-query — drawing off the qr_ ROOT anchors the edge on the query node, no orphaned leaf', () => {
+    // The model stores the qr_'s OWNING LEAF (DEALS) as the left (provenance rewrite).
+    const qrel: QueryRelationship = {
+      id: 'qrel_22222222',
+      leftSourceId: DEALS, // the leaf inside QR_BASE — NOT the qr_ id
+      leftColumn: 'deal_id',
+      rightSourceId: ACCOUNTS,
+      rightColumn: 'account_id',
+      cardinality: 'one_to_many',
+      originRelationshipId: null,
+    };
+    const g = buildSourceGraph(QR_BASE, [hop(qrel.id)], new Map([[qrel.id, qrel]]), effectiveOf);
+    // Two nodes only — the query root + the added source. The leaf DEALS is NOT a node.
+    expect(g.nodeIds).toEqual([QR_BASE, ACCOUNTS]);
+    expect(g.nodeIds).not.toContain(DEALS);
+    // The edge anchors on the qr_ root node + its effective column handle.
+    expect(g.edges[0]).toMatchObject({ leftNode: QR_BASE, leftHandle: 'deal_id' });
+    expect(g.parentOf.get(ACCOUNTS)).toBe(QR_BASE);
+  });
+
+  it('query×query — drawing off a joined-in qr_ anchors on that query node, not its leaf', () => {
+    // Drive on a dataset, join in QR_RIGHT, then draw OFF QR_RIGHT to OWNERS — the second
+    // hop's left is stored as ACCOUNTS (QR_RIGHT's leaf), and must render on QR_RIGHT.
+    const h1: QueryRelationship = {
+      id: 'qrel_33333333',
+      leftSourceId: DEALS,
+      leftColumn: 'deal_id',
+      rightSourceId: QR_RIGHT,
+      rightColumn: 'account_id',
+      cardinality: 'one_to_many',
+      originRelationshipId: null,
+    };
+    const h2: QueryRelationship = {
+      id: 'qrel_44444444',
+      leftSourceId: ACCOUNTS, // QR_RIGHT's owning leaf — must re-anchor onto QR_RIGHT
+      leftColumn: 'account_id',
+      rightSourceId: OWNERS,
+      rightColumn: 'account_id',
+      cardinality: 'one_to_many',
+      originRelationshipId: null,
+    };
+    const g = buildSourceGraph(
+      DEALS,
+      [hop(h1.id), hop(h2.id)],
+      new Map([
+        [h1.id, h1],
+        [h2.id, h2],
+      ]),
+      effectiveOf,
+    );
+    expect(g.nodeIds).toEqual([DEALS, QR_RIGHT, OWNERS]); // ACCOUNTS leaf is not its own node
+    expect(g.edges[1]).toMatchObject({ leftNode: QR_RIGHT, leftHandle: 'account_id' });
+    expect(g.parentOf.get(OWNERS)).toBe(QR_RIGHT);
+  });
+
+  it('a hop with no matching query-owned rel is reported unresolved, not rendered', () => {
+    const g = buildSourceGraph(DEALS, [hop('qrel_99999999')], new Map(), effectiveOf);
+    expect(g.nodeIds).toEqual([DEALS]);
+    expect(g.edges).toHaveLength(0);
+    expect(g.unresolved).toHaveLength(1);
   });
 });
