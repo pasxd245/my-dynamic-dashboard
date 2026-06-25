@@ -7,7 +7,7 @@
 // source of truth and the rows come from the live re-run (GET /queries/:id/rows).
 
 import { ArrowLeftOutlined, DatabaseOutlined, WarningOutlined } from '@ant-design/icons';
-import { PageCard, PageHeader } from '@mdd/ui';
+import { PageCard, PageContainer, PageHeader } from '@mdd/ui';
 import { App, Button, Skeleton, Tag, Typography } from 'antd';
 import i18n from 'i18next';
 import { useState } from 'react';
@@ -491,10 +491,11 @@ export function QueryDetailPage() {
   );
 
   return (
-    <div
-      data-component="QueryDetailPage"
-      style={{ height: 'calc(100vh - 88px)', display: 'flex', flexDirection: 'column' }}
-    >
+    // R95 (D2/D3): `fill` swaps the old hard `height: calc(100vh-88px)` for a
+    // min-height (tall fills, short grows). Width is fluid when editing (the
+    // builder hosts the canvas, which wants full width), capped to the data
+    // width when viewing the result table.
+    <PageContainer fill width={editing ? 'fluid' : 'data'} dataComponent="QueryDetailPage">
       <PageHeader
         breadcrumb={BREADCRUMB}
         title={title}
@@ -555,6 +556,6 @@ export function QueryDetailPage() {
         onConfirm={confirmDelete}
         onClose={() => !deleteMutation.isPending && setDeleteOpen(false)}
       />
-    </div>
+    </PageContainer>
   );
 }

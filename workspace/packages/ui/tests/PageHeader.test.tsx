@@ -16,7 +16,10 @@ describe("PageHeader", () => {
         />
       </AntdConfig>,
     );
-    expect(container.textContent).toContain("Home");
+    // R94 (D4b): the root `/` crumb renders as a Home icon, keeping its label
+    // as the accessible name (aria-label) — not as visible text. Assert the
+    // affordance via that accessible name, not raw textContent.
+    expect(container.querySelector('[aria-label="Home"]')).not.toBeNull();
     expect(container.textContent).toContain("Data Management");
   });
 

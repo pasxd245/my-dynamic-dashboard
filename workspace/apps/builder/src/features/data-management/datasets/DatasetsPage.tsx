@@ -9,7 +9,7 @@ import {
   SearchOutlined,
   TableOutlined,
 } from '@ant-design/icons';
-import { PageCard, PageHeader } from '@mdd/ui';
+import { PageCard, PageContainer, PageHeader } from '@mdd/ui';
 import { Alert, App, Button, Dropdown, Input, Select, Skeleton, Table, Typography } from 'antd';
 import { useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
@@ -165,7 +165,8 @@ export function DatasetsPage() {
   }
 
   return (
-    <>
+    // R95 (D3): cap + center the list on wide screens (data width).
+    <PageContainer width="data">
       {header}
       <PageCard>
         <div
@@ -226,7 +227,7 @@ export function DatasetsPage() {
         onConfirm={confirmDelete}
         onClose={closeModal}
       />
-    </>
+    </PageContainer>
   );
 }
 

@@ -78,10 +78,11 @@ ancestor of its two consumers, `datasets/` and `queries/`) rather than `@mdd/ui`
 because it depends on the builder-domain `formatCell` helper + the dataset
 `Column`/`Dtype` types and `@mdd/ui` is dependency-free.
 
-The **standard detail layout** is therefore: `PageHeader` (title / info /
-actions) + `PageCard variant="fill"` + `<PagedRowsView>`. Dataset-detail and
-query-detail both instantiate it; each adds its own sections (this page a
-metadata strip; query-detail a read-only predicate summary).
+The **standard detail layout** is therefore: `<PageContainer fill width="data">`
+(R95) + `PageHeader` (title / info / actions) + `PageCard variant="fill"` +
+`<PagedRowsView>`. Dataset-detail and query-detail both instantiate it; each
+adds its own sections (this page a metadata strip; query-detail a read-only
+predicate summary).
 
 The metadata strip and `<PagedRowsView>` are `plain-UI` purity — they take
 props in, render JSX out, no router, no query, no zod. The hooks + page above
@@ -299,21 +300,29 @@ Excel · Sheet1 — 2,481 rows · 12 columns · 84 KB · Uploaded 14:02 today
 
 ## Layout shell
 
-This page is one of the codebase's **fixed-viewport-height** pages —
-the pagination bar pins to the card's bottom edge and the table body
-owns the vertical scroll (so the sticky `<th>` has a real scroll
-container to stick within). Use the `PageCard variant="fill"` recipe,
-exactly as the upload wizard's `DatasetNewPage` does:
+This page **fills a tall viewport but grows on a short one** (R95) — the
+pagination bar pins to the card's bottom edge and the table body owns the
+vertical scroll (so the sticky `<th>` has a real scroll container to stick
+within). Use the shared `PageContainer` (R95) + the `PageCard
+variant="fill"` recipe, exactly as the upload wizard's `DatasetNewPage` does:
 
-- Outer page `<div>`: `height: calc(100vh - 88px)` (WorkspaceShell
-  chrome math = Layout.Header 56 + Content padding 16×2), flex column.
+- Outer page wrapper: `<PageContainer fill width="data">` (`@mdd/ui`).
+  `fill` applies `min-height: calc(100svh - 88px)` (WorkspaceShell chrome
+  math = Layout.Header 56 + Content padding 16×2) + flex column — **`min-height`,
+  not a hard `height`** (R95 D2), so a short viewport grows into the shell's
+  document scroll instead of cramping. `width="data"` caps and centers the
+  page to `layoutTokens.contentWidthData` on wide screens (R95 D3), the empty
+  gutters falling on the shell `colorBgLayout`.
 - `<PageCard variant="fill">` — fills the rest as a flex column.
-- Metadata strip + search bar + (optional) error alert — each `flex: 0
-0 auto`, stack at the top.
-- Table scroll container — `flex: 1 1 auto; minHeight: 0; overflow:
-auto`. The sticky `<th>` sticks here.
-- Pagination bar — `flex: 0 0 auto` with a top border, pinned at the
-  bottom.
+- Metadata strip + search bar + (optional) error alert — each `flex: 0 0
+  auto`, stack at the top.
+- Table scroll container — `flex: 1 1 auto; minHeight: 0; overflow: auto`.
+  The sticky `<th>` sticks here.
+- Pagination bar — `flex: 0 0 auto` with a top border, pinned at the bottom.
+
+> **Pagination UX on short viewports** (pager occlusion / scroll-to-reach, and
+> a top-pager redesign) is tracked separately — it is **out of R95's
+> responsive-bounds scope**. See the pagination-UX round.
 
 Anti-patterns documented in
 [2026-05-26-pagecard-fill-pattern-for-fixed-controls.md](../../../memory/2026-05-26-pagecard-fill-pattern-for-fixed-controls.md):

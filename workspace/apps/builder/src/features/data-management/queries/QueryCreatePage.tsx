@@ -11,7 +11,7 @@
 // navigates to the new query's detail.
 
 import { ArrowLeftOutlined, WarningOutlined } from '@ant-design/icons';
-import { PageCard, PageHeader } from '@mdd/ui';
+import { PageCard, PageContainer, PageHeader } from '@mdd/ui';
 import { Alert, Button, Skeleton, Typography } from 'antd';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -117,10 +117,9 @@ export function QueryCreatePage() {
   );
 
   return (
-    <div
-      data-component="QueryCreatePage"
-      style={{ height: 'calc(100vh - 88px)', display: 'flex', flexDirection: 'column' }}
-    >
+    // R95 (D2/D3): `fill` (min-height, not hard height) + `fluid` width — the
+    // create page hosts the query builder/canvas, which wants the full width.
+    <PageContainer fill width="fluid" dataComponent="QueryCreatePage">
       <PageHeader
         breadcrumb={BREADCRUMB}
         title={title}
@@ -176,6 +175,6 @@ export function QueryCreatePage() {
         onSubmit={(name) => builder.createWithName(name)}
         onClose={() => setNameOpen(false)}
       />
-    </div>
+    </PageContainer>
   );
 }

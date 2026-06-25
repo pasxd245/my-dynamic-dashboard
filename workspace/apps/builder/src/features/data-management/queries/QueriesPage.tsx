@@ -8,7 +8,7 @@
 // view fans out across workspaces with useQueries and flattens.
 
 import { SearchOutlined, TableOutlined } from '@ant-design/icons';
-import { PageCard, PageHeader } from '@mdd/ui';
+import { PageCard, PageContainer, PageHeader } from '@mdd/ui';
 import { useQueries } from '@tanstack/react-query';
 import { Alert, Input, Select, Skeleton, Table, Typography } from 'antd';
 import i18n from 'i18next';
@@ -216,7 +216,8 @@ export function QueriesPage() {
   }
 
   return (
-    <>
+    // R95 (D3): cap + center the list on wide screens (data width).
+    <PageContainer width="data">
       <PageHeader
         breadcrumb={BREADCRUMB}
         title={t('queries.list.title')}
@@ -255,6 +256,6 @@ export function QueriesPage() {
         </div>
         {body}
       </PageCard>
-    </>
+    </PageContainer>
   );
 }

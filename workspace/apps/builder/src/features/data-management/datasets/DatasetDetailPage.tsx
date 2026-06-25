@@ -10,7 +10,7 @@ import {
   PlusOutlined,
 } from '@ant-design/icons';
 import { XCircleIcon } from '@phosphor-icons/react';
-import { PageCard, PageHeader } from '@mdd/ui';
+import { PageCard, PageContainer, PageHeader } from '@mdd/ui';
 import { Alert, App, Button, Dropdown, Input, Skeleton, Tag, Tooltip, Typography } from 'antd';
 import i18n from 'i18next';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -446,19 +446,10 @@ export function DatasetDetailPage() {
   );
 
   return (
-    <div
-      data-component="DatasetDetailPage"
-      style={{
-        // Mirrors DatasetNewPage: fill the Layout.Content area
-        // (100vh − Layout.Header 56 − Content padding 16 × 2 = 88px)
-        // so the pagination bar can stick to the bottom of the card
-        // and the table body owns the vertical scroll.
-        height: 'calc(100vh - 88px)',
-        display: 'flex',
-        flexDirection: 'column',
-        // R94 (D1) — no flex `gap`: PageHeader's marginBottom is the single header→content gap.
-      }}
-    >
+    // R95 (D2/D3): `fill` swaps the old hard `height: calc(100vh-88px)` for a
+    // min-height (tall fills so the table body owns the scroll; short grows),
+    // `data` caps + centers the table on wide screens.
+    <PageContainer fill width="data" dataComponent="DatasetDetailPage">
       <PageHeader
         breadcrumb={BREADCRUMB}
         title={title}
@@ -621,7 +612,7 @@ export function DatasetDetailPage() {
         workspaceId={dataset.workspaceId}
         onClose={() => setJoinOpen(false)}
       />
-    </div>
+    </PageContainer>
   );
 }
 

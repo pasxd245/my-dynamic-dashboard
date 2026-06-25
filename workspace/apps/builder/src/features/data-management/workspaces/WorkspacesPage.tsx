@@ -6,7 +6,7 @@ import {
   PlusOutlined,
   ShareAltOutlined,
 } from '@ant-design/icons';
-import { PageCard, PageHeader } from '@mdd/ui';
+import { PageCard, PageContainer, PageHeader } from '@mdd/ui';
 import {
   Alert,
   App,
@@ -343,12 +343,13 @@ export function WorkspacesPage() {
   let body: React.ReactNode;
   if (query.isLoading) {
     // R31: card-grid skeleton matches the post-load layout
-    // (xs={24} md={12} xl={8}) so the grid doesn't jump when
-    // real data lands. 6 cards = 2 rows on xl, 3 rows on md.
+    // (xs={24} md={12} xl={8} xxl={6}) so the grid doesn't jump when
+    // real data lands. R95 (D3): xxl adds a 4th column on very wide
+    // screens — density over stretch.
     body = (
       <Row gutter={[16, 16]} data-component="WorkspacesLoading">
         {['s1', 's2', 's3', 's4', 's5', 's6'].map((k) => (
-          <Col key={k} xs={24} md={12} xl={8}>
+          <Col key={k} xs={24} md={12} xl={8} xxl={6}>
             <Card>
               <Skeleton active title paragraph={{ rows: 2 }} />
             </Card>
@@ -397,7 +398,7 @@ export function WorkspacesPage() {
     body = (
       <Row gutter={[16, 16]}>
         {workspaces.map((ws) => (
-          <Col key={ws.id} xs={24} md={12} xl={8}>
+          <Col key={ws.id} xs={24} md={12} xl={8} xxl={6}>
             <WorkspaceCard
               workspace={ws}
               onOpen={(id) => navigate(`/data-management/datasets?workspace=${encodeURIComponent(id)}`)}
@@ -412,7 +413,9 @@ export function WorkspacesPage() {
   }
 
   return (
-    <>
+    // R95 (D3): cap + center the catalog on wide screens (data width); the
+    // card grid gains a 4th column at xxl rather than stretching.
+    <PageContainer width="data">
       {header}
       <PageCard>{body}</PageCard>
       <CreateWorkspaceModal open={createOpen} onClose={closeCreate} />
@@ -440,6 +443,6 @@ export function WorkspacesPage() {
         open={modalState.kind === 'blocked'}
         onClose={closeModal}
       />
-    </>
+    </PageContainer>
   );
 }

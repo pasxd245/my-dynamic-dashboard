@@ -85,8 +85,10 @@ type Workspace = {
 
 The page renders inside the master-layout chrome
 ([workspace-shell.target.md](../../_platform/workspace-shell.target.md)) with "Data Management ▸
-Workspaces" active; `PageHeader` carries the breadcrumb + title + `[+ Create]`; `PageCard` wraps
-a responsive `<Row>`/`<Col>` grid (3 cols ≥1280px, 2 ≥768px, 1 below).
+Workspaces" active, wrapped in `<PageContainer width="data">` (R95 — capped + centered to
+`layoutTokens.contentWidthData` on wide screens). `PageHeader` carries the breadcrumb + title +
+`[+ Create]`; `PageCard` wraps a responsive `<Row>`/`<Col>` grid: **4 cols ≥1600px (`xxl`, R95
+density), 3 ≥1200px (`xl`), 2 ≥768px (`md`), 1 below** (`xs`).
 
 ### Populated state
 

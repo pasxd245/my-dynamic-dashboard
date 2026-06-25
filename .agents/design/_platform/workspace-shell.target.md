@@ -169,17 +169,49 @@ type WorkspaceShellBaseProps = {
 ```ts
 type PageCardProps = {
   children: ReactNode;
-  variant?: 'default' | 'flush';
+  variant?: 'default' | 'flush' | 'fill';
 };
 ```
 
-- **R12 ships `default` only.** Renders a white-surface card with
-  card-radius, soft shadow, comfortable padding. `flush` is declared
-  in the signature but **defers until a real consumer asks for it**
-  (per "Default = don't add" / drifted's `variant="flush"` had no
-  consumer at extraction time).
+- **R12 ships `default`**; `flush` is declared but deferred (no
+  consumer at extraction time). **`fill` (R18)** — the card becomes a
+  flex column that fills its parent's remaining height, for pages that
+  pin a bottom bar / sticky header over a scrollable body.
 - No router awareness; no data fetching; no BIZ libs.
 - Every route renders inside one (Rule of one card).
+
+### `PageContainer` (new in R95, `@mdd/ui`)
+
+```ts
+type PageContainerWidth = 'data' | 'text' | 'fluid';
+type PageContainerProps = {
+  children: ReactNode;
+  width?: PageContainerWidth; // default 'data'
+  fill?: boolean;
+  dataComponent?: string; // root data-component, default 'PageContainer'
+};
+```
+
+The page-level layout wrapper that bounds content across the small
+laptop → 4K range (R95, D2 + D3). It sits directly inside
+`Layout.Content` (which stays the scroll container) and wraps the
+`PageHeader` + `PageCard` of a page.
+
+- **Width — cap-and-center** (mirrors AntD Pro `contentWidth:
+  Fixed|Fluid`), so content doesn't sprawl edge-to-edge on wide
+  screens: `'data'` caps to `layoutTokens.contentWidthData` (1600,
+  list/table catalogs), `'text'` to `layoutTokens.contentWidthText`
+  (960, forms/prose ~66 CPL), `'fluid'` is **uncapped — the exception
+  for the canvas**, which wants the full width. Empty gutters fall on
+  the shell `colorBgLayout`, so the cap reads as intentional whitespace.
+- **`fill` — `min-height`, not hard `height`** (D2): applies
+  `min-height: calc(100svh - 88px)` + flex column. A tall viewport
+  fills (a `PageCard variant="fill"` child stretches as before); a
+  short viewport overflows into the document scroll instead of cramping.
+  Replaces the old per-page `height: calc(100vh - 88px)` wrapper.
+- **Cap numbers are tokens** (`layoutTokens` in `themeTokens.ts`), not
+  scattered literals — tunable in one edit.
+- No router awareness; no data fetching; no BIZ libs.
 
 ### `PageHeader` (new in R12, `@mdd/ui`)
 

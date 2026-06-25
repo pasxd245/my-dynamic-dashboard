@@ -1,5 +1,5 @@
 import { ArrowLeftOutlined, ArrowRightOutlined } from '@ant-design/icons';
-import { PageCard, PageHeader } from '@mdd/ui';
+import { PageCard, PageContainer, PageHeader } from '@mdd/ui';
 import { Button, Space, Steps } from 'antd';
 import { useEffect, useReducer } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -245,20 +245,10 @@ export function DatasetNewPage() {
   }
 
   return (
-    <div
-      data-component="DatasetNewPage"
-      style={{
-        // Fill the available Layout.Content area = 100vh − Layout.Header
-        // (56) − Layout.Content padding (16 × 2 = 32) = 100vh − 88px.
-        // Both constants are owned by WorkspaceShell; the wizard borrows
-        // them. PageCard (variant="fill") grows to fill the rest; body
-        // scrolls inside the card.
-        height: 'calc(100vh - 88px)',
-        display: 'flex',
-        flexDirection: 'column',
-        // R94 (D1) — no flex `gap`: PageHeader's marginBottom is the single header→content gap.
-      }}
-    >
+    // R95 (D2/D3): `fill` swaps the old hard `height: calc(100vh-88px)` for a
+    // min-height (tall fills so the body scrolls inside the card; short
+    // document-scrolls), `data` caps + centers the wizard on wide screens.
+    <PageContainer fill width="data" dataComponent="DatasetNewPage">
       {header}
       <PageCard variant="fill">
         <Steps
@@ -318,6 +308,6 @@ export function DatasetNewPage() {
           </Space>
         </div>
       </PageCard>
-    </div>
+    </PageContainer>
   );
 }
