@@ -1,9 +1,10 @@
 # Round 101: Dashboard as a persisted noun — create / name / list dashboards (headline-value round)
 
-**Status**: **In Progress** — Design gate CLOSED (DFCFBI 1,2,4,5). **F1 build DONE** (FE-state widget
-builder + list/detail + dynamic nav; type-check + 206 tests + prod build green). **F1 gate OPEN** —
-exits only when the **human runs the app** ([[dfcfbi-f1-needs-human-review]]); the Widget shape then
-freezes at Contract. **Awaiting human app-run.**
+**Status**: **In Progress** — Design gate CLOSED (DFCFBI 1,2,4,5). **F1 build + review iteration DONE**
+(FE-state widget builder + list/detail + dynamic nav + the human's review changes; type-check + 210
+tests + prod build green). **F1 gate OPEN** — exits on the human's final F1 sign-off
+([[dfcfbi-f1-needs-human-review]]); the Widget shape (now incl. `slug`, per-widget `span`, the
+cross-workspace question) then freezes at Contract. **Awaiting human F1 sign-off.**
 **Date started**: 2026-06-26
 **Flow**: **DFCFBI (triggers 1, 2, 4, 5)** — set at the Design gate via `flow-selector`; recorded in the
 Do log. The widget-builder UX is discovered at **F1 before the Widget contract shape freezes**
