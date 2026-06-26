@@ -308,6 +308,8 @@ function CanvasTab({
       data-component="QueryBuilderCanvasTab"
       style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: '1 1 auto', minHeight: 0 }}
     >
+      {/* The canvas pane owns its (viewport-relative) height; this wrapper just
+          fills the tab area and scrolls if the pane exceeds it (R97 Item 1). */}
       <div style={{ flex: '1 1 auto', minHeight: 0, overflow: 'auto' }}>
         <QueryCanvas
           datasetId={builder.datasetId}

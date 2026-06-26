@@ -704,13 +704,25 @@ describe('Query canvas view (R85 — Phase A, read-only source-graph)', () => {
     expect(driving).not.toBeNull();
     expect(driving.textContent).toContain(MOCK_DATASET.name);
     expect(driving.textContent).toContain('driving');
-    // Each edge carries its key pair as text.
-    const edgeText = Array.from(edges)
-      .map((e) => e.textContent)
-      .join(' | ');
-    expect(edgeText).toContain('deal_id ↔ account_id');
-    expect(edgeText).toContain('tier ↔ tier');
-    expect(edgeText).toContain('account_id ↔ acct');
+    // R97 Item 2 — at rest each edge is a compact cardinality badge; the key-pair
+    // lives in the expanded info-box. Click each edge (by its stable id), confirm
+    // it became the selected one, then read its pad — collecting all three pairs.
+    const edgeIds = Array.from(edges).map((e) => e.getAttribute('data-edge'));
+    const seenPairs = new Set<string>();
+    for (const id of edgeIds) {
+      fireEvent.click(document.querySelector(`[data-component="CanvasEdge"][data-edge="${id}"]`) as HTMLElement);
+      const pad = (await waitFor(() => {
+        const sel = document.querySelector('[data-component="CanvasEdge"][data-selected="true"]');
+        expect(sel?.getAttribute('data-edge')).toBe(id);
+        const p = sel?.parentElement?.querySelector('[data-component="CanvasEdgePad"]');
+        expect(p).not.toBeNull();
+        return p as HTMLElement;
+      })) as HTMLElement;
+      for (const pair of ['deal_id ↔ account_id', 'tier ↔ tier', 'account_id ↔ acct']) {
+        if (pad.textContent?.includes(pair)) seenPairs.add(pair);
+      }
+    }
+    expect(seenPairs).toEqual(new Set(['deal_id ↔ account_id', 'tier ↔ tier', 'account_id ↔ acct']));
   });
 
   it('the view toggle is lossless — Canvas reads the edited working copy, List returns unchanged', async () => {
@@ -904,7 +916,15 @@ describe('Query canvas EDITING (R89 — free-form, React Flow)', () => {
     })) as HTMLElement;
     // The copied rel reads as a GOVERNED edge (it carries an originRelationshipId).
     expect(edge.getAttribute('data-free')).toBe('false');
-    expect(edge.textContent).toContain('deal_id ↔ account_id');
+    // R97 Item 2 — at rest the edge is a compact cardinality badge; the key-pair
+    // now lives in the expanded info-box (click to select/expand).
+    fireEvent.click(edge);
+    const pad = (await waitFor(() => {
+      const el = document.querySelector('[data-component="CanvasEdgePad"]');
+      expect(el).not.toBeNull();
+      return el as HTMLElement;
+    })) as HTMLElement;
+    expect(pad.textContent).toContain('deal_id ↔ account_id');
   });
 
   it('stages ANY not-in-graph dataset for free-form — even one no governed rel reaches', async () => {

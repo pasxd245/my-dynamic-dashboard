@@ -151,28 +151,27 @@ export function JoinEditor({
         {t('queries.builder.baseSourceLabel')}
       </Typography.Text>
       {/* R94 (D6) — editable only in CREATE; on an existing query the base is fixed (the PUT
-          is definition-only), so disable + hint rather than silently drop the change on save. */}
-      <Tooltip title={baseEditable ? '' : t('queries.builder.baseSourceFixedHint')}>
-        <Select
-          value={baseSourceId || undefined}
-          onChange={(v: string) => onSetBaseSource(v)}
-          disabled={!baseEditable}
-          style={{ width: '100%' }}
-          aria-labelledby="builder-base-label"
-          placeholder={t('queries.builder.baseSourcePlaceholder')}
-          options={[
-            {
-              label: t('queries.builder.baseSourceDatasets'),
-              options: datasets.map((d) => ({ value: d.id, label: d.name })),
-            },
-            {
-              label: t('queries.builder.baseSourceQueries'),
-              options: baseQueries.map((q) => ({ value: q.id, label: q.name })),
-            },
-          ]}
-          data-component="BuilderBaseSource"
-        />
-      </Tooltip>
+          is definition-only), so the picker is disabled. R97: the explanatory tooltip was
+          dropped (not useful — the disabled state already conveys "fixed"). */}
+      <Select
+        value={baseSourceId || undefined}
+        onChange={(v: string) => onSetBaseSource(v)}
+        disabled={!baseEditable}
+        style={{ width: '100%' }}
+        aria-labelledby="builder-base-label"
+        placeholder={t('queries.builder.baseSourcePlaceholder')}
+        options={[
+          {
+            label: t('queries.builder.baseSourceDatasets'),
+            options: datasets.map((d) => ({ value: d.id, label: d.name })),
+          },
+          {
+            label: t('queries.builder.baseSourceQueries'),
+            options: baseQueries.map((q) => ({ value: q.id, label: q.name })),
+          },
+        ]}
+        data-component="BuilderBaseSource"
+      />
 
       <Typography.Text strong style={{ fontSize: 12 }} id="builder-join-label">
         {t(joins.length >= 2 ? 'queries.builder.joinsLabel' : 'queries.builder.joinLabel')}

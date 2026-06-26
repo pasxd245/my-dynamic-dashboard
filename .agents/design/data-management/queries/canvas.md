@@ -110,8 +110,9 @@ type QueryDefinition = {
 - **Nodes** = the sources the resolver already walks: the driving `sourceId` (root) plus
   each hop's right **source** — a **dataset (`ds_`)** or a **saved query (`qr_`)** (the pure
   `buildSourceGraph` selector, `joinGraph.ts`). A node carries a type **`<Tag>`** (Dataset /
-  Query, the latter with a 🔎 marker) and renders its columns as connect handles: a dataset's
-  own columns, or a query's **effective** columns (collapsed behind **"+ N more"** when wide).
+  Query) + a **default kind icon** (R97 — table / filter) and renders its columns as connect
+  handles: a dataset's own columns, or a query's **effective** columns (collapsed behind
+  **"+ N more"** when wide).
   **A hop's LEFT is never its own node**: it is stored as a leaf `ds_` (the resolver's
   requirement), but when that leaf lives inside an in-graph query (the build-on-query root, or
   a joined-in `qr_`), the edge **re-anchors onto that query node** via wire provenance — so a
@@ -165,18 +166,21 @@ governed-reachable ones) so it can be drawn to: the picker is **grouped** into *
 and **Saved queries**, the query under edit excluded (no self-join). It is disabled only when
 every source is already on the canvas. A staged node is FE-only and ephemeral — it enters
 `joins[]` only when its column connection is drawn; the model stays a connected tree rooted
-at `sourceId`.
+at `sourceId`. An unconnected staged node carries a **`[×]` unstage** control (R97) that drops
+it from the canvas (pure FE state — no `joins[]` / save impact); without it the only escape was
+a tab-switch (unmounts the canvas, clears all staged).
 
-**The edge label + context pad** (rendered on each edge via React Flow's
-`EdgeLabelRenderer`). At rest the edge shows a **compact, opaque label** — the key pair,
-the cardinality `<Tag>`, the join-type `<Tag>`, and the **Free-form / Governed** `<Tag>`.
-**Clicking the label selects the edge** and reveals a floating **context pad** (a
-bpmn-style action palette) carrying **Promote**, **Re-sync** (only when the edge has
-diverged), and a leaf **`[×]`** delete (a non-leaf delete is disabled with the shipped
-`removeJoinBlocked` reason — only leaves are removable, the tree invariant). The pad is
-lifted above the node cards (`zIndex`) so it never clips behind an adjacent node. Selection
-is **canvas-local state** (clicking the pane background deselects), not React Flow's internal
-selection.
+**The edge: a compact cardinality badge → an expandable info-box** (R97; rendered on each edge
+via React Flow's `EdgeLabelRenderer`). At rest the edge shows only a **small cardinality badge**
+(`1:1` / `1:n` / `n:n`, sized like the Free-form tag, blue when free-form) + a **warn icon** when
+diverged/stale — replacing the old crammed label (key-pair + 3 tags), which was hard to read.
+**Clicking it selects the edge** and **expands an info-box** (animated in) with labelled rows —
+**On** (key pair) · **Join type** · **Relationship** (cardinality) · **Relationship type**
+(Free-form / Governed) — and an actions row: **Promote**, **Re-sync** (only when diverged), and a
+leaf **Remove** (a non-leaf delete is disabled with the shipped `removeJoinBlocked` reason — only
+leaves are removable, the tree invariant). The box is lifted above the node cards (`zIndex`) so it
+never clips behind an adjacent node. Selection is **canvas-local state** (clicking the pane
+background deselects), not React Flow's internal selection.
 
 **Action cursors read distinctly** (CSS-only, scoped to the canvas) so each gesture is
 self-evident on hover: the **pane** pans (`grab`, React Flow's default), a **node card**
@@ -227,8 +231,11 @@ tables or queries — same expressive power as the full source×source space, on
 to teach. A query node differs from a dataset node only in how it sources columns and a few
 guards:
 
-- **Type marker** — a node-header type **`<Tag>`** (`Dataset` / `Query`) plus a **🔎** prefix
-  on a query, so a `qr_` source reads at a glance (`kindOf`).
+- **Type marker** — a node-header type **`<Tag>`** (`Dataset` / `Query`) plus a **default
+  leading icon by kind** (R97): a **table** icon for a dataset, a **filter** icon for a query
+  (mirroring the nav; `aria-hidden`, the `<Tag>` carries the accessible name) — replacing the
+  old `🔎` emoji — so a `qr_` source reads at a glance (`kindOf`). _(A per-dataset custom icon
+  field could later override this default; none exists yet.)_
 - **Effective columns as handles** — a query node exposes its **effective** column space
   (not a flat dataset's columns); each is a connect handle. The columns + the leaf each
   traces to are **read off the wire** — `q.resolvedColumns`, each item carrying its
@@ -328,8 +335,8 @@ Deals × Accounts × Owners                                         [Cancel] [Sa
 │    maximize   │ Aa …  ○│    └───────────────┘  └──────────┘  (╮╰ = rounded   │
 │  (TOP-left)   └────────┘   account_id ↔ id     owner_id ↔ id ◄selected  edge)│
 │         (driving)         [many:many][inner]    [many:one][left][Free-form]   │
-│                           [Governed]            ┌ Promote · × ┐ ← context pad │
-│        ┌ Background grid ┐                       └─────────────┘ (on select)  │
+│                           [Governed]          ┌ info-box + actions ┐ ←R97 box │
+│        ┌ Background grid ┐                     └────────────────────┘(on select)│
 └──────────────────────────────────────────────────────────────────────────────┘
   (no preview table on the Canvas tab — results live on the Form tab)
 
@@ -341,19 +348,23 @@ shared <PagedRowsView> preview below.
 (target-left, source-right; enlarged hit-area, `crosshair` cursor, hover grow + halo, a
 "drag to join" tooltip). A muted **type glyph** precedes each column name (`#` number, `Aa`
 text, etc. — supplementary to the name). A node carries a type **`<Tag>`** in its header
-(`Dataset` / `Query`); a **query** source adds a **🔎** and renders its **effective** columns
-behind a **"+ N more"** toggle when wide (example above uses datasets; a `qr_` node looks the
-same with the `Query` tag + 🔎). Each edge is a **rounded orthogonal** connector carrying an
-at-rest **text** label (key pair · cardinality · join type · Free-form/Governed);
-**clicking it selects the edge and reveals a context pad** (Promote · Re-sync when diverged ·
-leaf `[×]`), lifted above the node cards so it never clips. The canvas's controls live in
-**one top-right toolbar row** — `[+ Add a source]` · the preview **status chip** · a `[? Help]`
+(`Dataset` / `Query`) + a **default kind icon** (R97 — a **table** for a dataset, a **filter**
+for a query; replaced the old `🔎`) and renders its **effective** columns behind a **"+ N more"**
+toggle when wide. An unconnected staged node carries a **`[×]` unstage** (R97). Each edge is a
+**rounded orthogonal** connector showing, at rest, a **compact cardinality badge** (R97 —
+`1:1`/`1:n`/`n:n`, + a warn icon when diverged); **clicking it selects the edge and expands an
+info-box** (On · Join type · Relationship · Relationship type) + actions (Promote · Re-sync when
+diverged · leaf Remove), lifted above the node cards so it never clips. The canvas's controls live
+in **one top-right toolbar row** — `[+ Add a source]` · the preview **status chip** · a `[? Help]`
 popover (which holds the verbose drag tip) — all uniform text+icon. The
 **`Form` tab remains the keyboard/screen-reader-complete equivalent + assistive-tech default**
 (React Flow drag is mouse-first); the `<Controls>` give zoom/fit/recenter **and a maximize
 toggle** (an in-page overlay that fills the browser tab to draw with room — `Esc` exits — not
-the OS Fullscreen API, which left the pane unmeasured → blank), and `fitView` re-runs whenever
-the node set changes or maximize toggles so a newly-staged node stays in view. The controls are
+the OS Fullscreen API, which left the pane unmeasured → blank). The pane has a **viewport-relative
+height** (`clamp(420px, calc(100svh − 280px), 2400px)` — definite, so React Flow always measures it;
+it fills large screens, R97), and `fitView` (capped at **1× zoom** so a small graph isn't blown up,
+R97) re-runs whenever the node set changes or maximize toggles so a newly-staged node stays in view.
+The controls are
 pinned **top-left** (not React Flow's default bottom-left), so they stay reachable without a
 scroll on a short viewport.
 
@@ -452,8 +463,9 @@ stateDiagram-v2
   not a static badge; its stale/invalid state reads as **text + icon** (`⚠ unavailable`),
   not colour alone; on activation it moves to the Form tab's preview.
 - **Nodes and edges carry text, not colour/glyph alone** — each node names its source in
-  text; the driving node is marked with a **text glyph + label** (`◆`); each edge names its
-  key pair + labelled cardinality / join-type / Free-form-Governed `<Tag>`s.
+  text; the driving node is marked with a **text glyph + label** (`◆`); each edge shows a
+  cardinality badge at rest and, on select, an expandable info-box with labelled rows (key pair ·
+  join type · cardinality · Free-form/Governed) + actions.
 - **Editing affordances are labelled** — `[+ Add a source]` (grouped Datasets / Saved
   queries), the per-edge Promote / Re-sync / delete are labelled controls; the **disabled
   non-leaf delete** keeps its label and exposes its reason as **text** via tooltip
@@ -503,8 +515,8 @@ orient a query-column draw onto its owning leaf:
 ## Acceptance criteria
 
 1. **Canvas renders the tree faithfully** — nodes = `sourceId` + each hop's right **source**
-   (dataset or saved query); edges = `joins[]` resolved through their query-owned rels,
-   labelled with key pair, cardinality, join type, and Free-form/Governed; a star (one source
+   (dataset or saved query); edges = `joins[]` resolved through their query-owned rels, shown
+   as a cardinality badge (expand for key pair · join type · type); a star (one source
    driving 2+ hops) renders correctly; an empty Query renders the lone driving node.
 2. **Tab switch is lossless** — `[Form] ⇄ [Canvas]` swaps the rendering of one working copy
    with no edit lost and no model fork; the Save gate holds on both tabs via the
@@ -531,7 +543,7 @@ orient a query-column draw onto its owning leaf:
 10. **Form tab stays AT-complete** — every capability is reachable on the keyboard/SR
     Form tab; the canvas is an additional, not a replacement, affordance.
 11. **A query source joins like a dataset** — a `qr_` node carries a `Query` type `<Tag>` +
-    🔎 and exposes its effective columns (each with a type glyph) as handles; `[+ Add a source]`
+    a **filter** kind-icon (R97) and exposes its effective columns (each with a type glyph) as handles; `[+ Add a source]`
     offers saved queries (grouped, self excluded); drawing off a query column resolves its leaf
     owner via the **wire provenance** (`resolvedColumns[].ownerSourceId/sourceColumn`) so the
     join is legal; a derived column is rejected (`derived`); an incompatible key pair is
@@ -556,7 +568,7 @@ orient a query-column draw onto its owning leaf:
   keyboard/SR-complete equivalent.
 - **Divergence warn** (`relDivergence`, warn-only `<Alert>`) and **per-edge column-drift
   staleness** (`columnMissing`), both frontend computations over the query's snapshot.
-- **Query×query sources** — a `qr_` source node (type `<Tag>` + 🔎, effective columns,
+- **Query×query sources** — a `qr_` source node (type `<Tag>` + kind icon, effective columns,
   "+ N more" disclosure, unavailable state), the grouped `[+ Add a source]`, `qr_`-edge
   promote-suppression, and the **wire-read column provenance** (`resolvedColumns[].ownerSourceId/sourceColumn`)
   that orients a query-column draw onto its owning leaf `ds_`.
