@@ -17,6 +17,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import '@/i18n';
 import { AppErrorBoundary } from '@/components/AppErrorBoundary';
 import { AppLayout } from '@/components/AppLayout';
+import { DashboardPage } from '@/features/dashboard/DashboardPage';
 import { DatasetDetailPage } from '@/features/data-management/datasets/DatasetDetailPage';
 import { DatasetsPage } from '@/features/data-management/datasets/DatasetsPage';
 import { DatasetNewPage } from '@/features/data-management/datasets/upload/DatasetNewPage';
@@ -82,6 +83,7 @@ const appTree = (
             <AppLayout>
               <Routes>
                 <Route path="/" element={<Navigate to="/data-management/workspaces" replace />} />
+                <Route path="/dashboard" element={<DashboardPage />} />
                 {/* /data-management is a sidebar group, not a leaf — redirect to default child. */}
                 <Route path="/data-management" element={<Navigate to="/data-management/workspaces" replace />} />
                 <Route path="/data-management/workspaces" element={<WorkspacesPage />} />

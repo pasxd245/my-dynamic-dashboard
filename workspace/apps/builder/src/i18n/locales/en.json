@@ -1,12 +1,39 @@
 {
   "nav": {
     "home": "Home",
+    "dashboard": "Dashboard",
     "dataManagement": "Data Management",
     "workspaces": "Workspaces",
     "datasets": "Datasets",
     "new": "New",
     "queries": "Queries",
     "relationships": "Relationships"
+  },
+  "dashboard": {
+    "title": "Sales dashboard",
+    "subtitle": "A live view of your seeded Sales data — each widget re-runs a saved query.",
+    "setupTitle": "No Sales dashboard data yet",
+    "setupHint": "Seed the Sales scenario to populate this dashboard: run `pnpm dev:seed:full`.",
+    "widget": {
+      "revenueByRegion": "Revenue by region",
+      "revenueByProduct": "Revenue by product",
+      "telesaleOutcomes": "Telesale outcomes"
+    },
+    "axis": {
+      "region": "Region",
+      "product": "Product",
+      "revenue": "Revenue"
+    },
+    "state": {
+      "error": "Couldn't load this widget",
+      "errorHint": "The saved query failed to run. Check the backend is up and seeded.",
+      "retry": "Retry",
+      "empty": "No data to chart",
+      "missingQuery": "Saved query not found",
+      "missingQueryHint": "This widget expects a seeded saved query. Re-run `pnpm dev:seed:full`."
+    },
+    "ariaBar": "Bar chart: {{title}}",
+    "ariaPie": "Pie chart: {{title}}"
   },
   "common": {
     "create": "Create",

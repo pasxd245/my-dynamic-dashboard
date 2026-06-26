@@ -1,9 +1,9 @@
 # Round 100: Dashboard theme-opener — a static multi-widget Sales dashboard (FE-only, live)
 
-**Status**: **In Progress** — **Design gate CLOSED** (human-ratified 2026-06-26): requirements table +
-5 decisions ratified, `flow-selector` → DFCFBI (triggers 2, 5), `ux-design --design-spec` gaps folded
-into the acceptance criteria. **Next gate: F1** (FE state + layout skeleton + charts off live query
-data; human runs the app for layout/feel/affordance review). **Awaiting human sign-off to start F1.**
+**Status**: **In Progress** — Design gate CLOSED (human-ratified 2026-06-26). **F1 build DONE**
+(seed extended + `/dashboard` surface + 3 live widgets; type-check + 204 tests + prod build all green).
+**F1 gate OPEN** — DFCFBI F1 exits only when the **human runs the app** for the layout/feel/affordance
+review ([[dfcfbi-f1-needs-human-review]]). **Awaiting human app-run.**
 **Date started**: 2026-06-26
 **Flow**: **DFCFBI (triggers 2, 5)** — set at the Design gate via `flow-selector`; recorded in the Do
 log. Per [[dfcfbi-two-round-split]] a DFCFBI round may split [D+F1+design-sync] then
@@ -227,6 +227,46 @@ per [[product-value-framing]]). All 5 open Design decisions now resolved.
 | 5. UX confidence below threshold     | yes    | First charting surface; layout/feel + chart-lib React-19 fit need human eyeball at F1 (round flags this explicitly).       |
 
 Result: **Flow: DFCFBI (triggers 2, 5)**
+
+### F1 scope discovery — widgets had no backing saved queries (human: extend the seed, 2026-06-26)
+
+On opening F1, found the Design-gate assumption ("all three widgets are single-Query aggregations over
+the seed") **did not hold**: the R99 seed created 6 saved queries (Gold-tier customers · Active customers
+· Big or pending orders · All regions · Customers with orders · All customers) — **none** back the 3
+ratified widgets (no telesale query at all; no clean orders-by-product or revenue-by-region-name query).
+Flagged + stopped per the scope brake. **Human chose: extend the seed** (Path A) — add named saved
+queries the dashboard binds to. **Touches dev seed data only — no contract/backend/migration change, so
+R100 stays FE-only in product terms** (the natural completion of R99's "feeds into the dashboard").
+Seed additions (LEFT joins so the seed's edge cases surface as zero): **"Orders by product"**
+(products ⋈ orders → product names + the Legacy-Tool-never-ordered edge), **"Telesale calls"** (telesale
+plain → outcomes), **"Revenue by region"** (regions ⋈ customers ⋈ orders → region names + Africa-no-sales
+edge).
+
+### F1 build (2026-06-26) — awaiting human app-run
+
+Built the static Sales dashboard, FE-only. Verification: `pnpm --filter builder type-check` clean,
+**204/204 tests** pass (incl. new `aggregate.test.ts`), `pnpm --filter builder build` green.
+
++ **Seed** (`scripts/dev/seed.py`): +3 saved queries (Path A) — `Revenue by region` (regions⋈customers⋈
+  orders, LEFT), `Orders by product` (products⋈orders, LEFT), `Telesale calls` (plain). LEFT joins so the
+  seed's edge cases surface as a zero bar/slice (Africa = no sales; Legacy Tool = never ordered).
++ **chart lib**: `recharts@3.9.0` installed; peer range declares `react ^19.0.0` → **React-19 risk
+  cleared** (decision #3).
++ **Surface**: new `Dashboard › Sales` nav group + `/dashboard` route + breadcrumb (`AppLayout`,
+  `main.tsx`, `routeMeta.ts`); i18n keys (en + vi).
++ **Feature** (`src/features/dashboard/`): `aggregate.ts` (pure roll-ups, unit-tested), `hooks.ts`
+  (seed-workspace + by-name query resolution + paged fetch-all + theme-token palette), `ChartCard.tsx`
+  (loading/error/empty/missing states), `widgets.tsx` (bar + pie, axis/legend labels, `role="img"`
+  accessible names, non-colour-only pie labels), `DashboardPage.tsx` (responsive 3-col grid + seed-setup
+  state).
++ **Affordance criteria** (folded at Design): Credibility (per-widget loading/error/empty + page-level
+  seed-setup) ✓ built; Findability (titles + axis/legend labels) ✓ built; Accessibility (non-colour-only
+  pie labels + `aria-label` per chart + theme-token colours) ✓ built — **human verifies fidelity at the
+  app-run** (`ux-design --fidelity` backstop can run after).
++ **To review** (run `pnpm dev` + `pnpm dev:seed:full`, open `/dashboard`): layout/feel, chart
+  readability (long region/product labels on the X axis), the pie at 5 outcomes, responsiveness, and the
+  edge-case zeros (Africa, Legacy Tool). Note: bundle grew (~669 KB gz) — dashboard-route code-split is a
+  later option, not an F1 blocker.
 
 ## Check
 

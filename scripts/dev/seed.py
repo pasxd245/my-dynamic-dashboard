@@ -440,8 +440,8 @@ def main() -> None:
     ds["telesale"] = upsert_dataset_bytes(ws, "telesale", gen["telesale"])
 
     rel_cust_ord = upsert_relationship(ws, ds["customers"], "customer_id", ds["orders"], "customer_id", "one_to_many")
-    upsert_relationship(ws, ds["products"], "product_id", ds["orders"], "product_id", "one_to_many")
-    upsert_relationship(ws, ds["regions"], "region_id", ds["customers"], "region_id", "one_to_many")
+    rel_prod_ord = upsert_relationship(ws, ds["products"], "product_id", ds["orders"], "product_id", "one_to_many")
+    rel_reg_cust = upsert_relationship(ws, ds["regions"], "region_id", ds["customers"], "region_id", "one_to_many")
     # R99 — telesale: a customer receives many calls; a converted call links one order
     # (order_id is nullable on non-converted calls → the order link is optional).
     upsert_relationship(ws, ds["customers"], "customer_id", ds["telesale"], "customer_id", "one_to_many")
@@ -477,6 +477,10 @@ def main() -> None:
     # The seeded saved join: customers ⋈ orders, copy-on-picked from the governed rel.
     cust_ord_qrel = qrel(rel_cust_ord, ds["customers"], "customer_id", ds["orders"], "customer_id")
 
+    # R100 — copy-on-pick qrels backing the dashboard's saved queries (see below).
+    prod_ord_qrel = qrel(rel_prod_ord, ds["products"], "product_id", ds["orders"], "product_id")
+    reg_cust_qrel = qrel(rel_reg_cust, ds["regions"], "region_id", ds["customers"], "region_id")
+
     # Each base query exercises a distinct query-builder flow. (name, source, definition, blurb)
     base_queries = [
         ("Gold-tier customers", "customers",
@@ -499,6 +503,20 @@ def main() -> None:
          "a saved inner join (renders an existing hop)"),
         ("All customers", "customers", defn(),
          "plain base — try left/full joins to see unmatched rows"),
+        # R100 — three saved queries the static Sales dashboard binds to. LEFT joins so
+        # the seed's edge cases surface as a zero bar/slice (not silently dropped):
+        #   Africa (no customers) · Legacy Tool (never ordered).
+        ("Revenue by region", "regions",
+         defn(relationships=[reg_cust_qrel, cust_ord_qrel],
+              joins=[{"queryRelId": reg_cust_qrel["id"], "type": "left"},
+                     {"queryRelId": cust_ord_qrel["id"], "type": "left"}]),
+         "R100 dashboard — regions ⋈ customers ⋈ orders (revenue-by-region widget)"),
+        ("Orders by product", "products",
+         defn(relationships=[prod_ord_qrel],
+              joins=[{"queryRelId": prod_ord_qrel["id"], "type": "left"}]),
+         "R100 dashboard — products ⋈ orders (revenue-by-product widget; Legacy Tool = 0)"),
+        ("Telesale calls", "telesale", defn(),
+         "R100 dashboard — plain telesale (outcomes-breakdown widget)"),
     ]
     seeded = [(name, upsert_query(ws, name, ds[source], definition), blurb)
               for name, source, definition, blurb in base_queries]

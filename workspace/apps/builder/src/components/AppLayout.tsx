@@ -1,4 +1,11 @@
-import { AppstoreOutlined, DatabaseOutlined, FilterOutlined, TableOutlined } from '@ant-design/icons';
+import {
+  AppstoreOutlined,
+  BarChartOutlined,
+  DatabaseOutlined,
+  FilterOutlined,
+  FundOutlined,
+  TableOutlined,
+} from '@ant-design/icons';
 import { WorkspaceShell, type NavGroup } from '@mdd/ui';
 import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -7,6 +14,19 @@ import { LocaleSwitcher } from '@/i18n/LocaleSwitcher';
 import { useRouteMeta } from '../lib/routeMeta';
 
 const NAV_GROUPS: ReadonlyArray<NavGroup> = [
+  {
+    key: 'dashboard',
+    label: 'Dashboard',
+    icon: <BarChartOutlined />,
+    defaultExpanded: true,
+    items: [
+      {
+        key: 'sales-dashboard',
+        label: 'Sales',
+        icon: <FundOutlined />,
+      },
+    ],
+  },
   {
     key: 'data-management',
     label: 'Data Management',
@@ -34,12 +54,16 @@ const NAV_GROUPS: ReadonlyArray<NavGroup> = [
 
 // Map from leaf nav-item key to its route.
 const ROUTE_FOR_KEY: Record<string, string> = {
+  'sales-dashboard': '/dashboard',
   workspaces: '/data-management/workspaces',
   datasets: '/data-management/datasets',
   queries: '/data-management/queries',
 };
 
 function activeKeyFor(pathname: string): string {
+  if (pathname === '/dashboard' || pathname.startsWith('/dashboard/')) {
+    return 'sales-dashboard';
+  }
   if (pathname === '/data-management/workspaces' || pathname.startsWith('/data-management/workspaces/')) {
     return 'workspaces';
   }

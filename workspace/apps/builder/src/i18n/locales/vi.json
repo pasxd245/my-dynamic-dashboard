@@ -1,12 +1,39 @@
 {
   "nav": {
     "home": "Trang chủ",
+    "dashboard": "Bảng điều khiển",
     "dataManagement": "Quản lý dữ liệu",
     "workspaces": "Không gian làm việc",
     "datasets": "Bộ dữ liệu",
     "new": "Mới",
     "queries": "Truy vấn",
     "relationships": "Quan hệ"
+  },
+  "dashboard": {
+    "title": "Bảng điều khiển bán hàng",
+    "subtitle": "Khung nhìn trực tiếp trên dữ liệu bán hàng đã nạp — mỗi widget chạy lại một truy vấn đã lưu.",
+    "setupTitle": "Chưa có dữ liệu cho bảng điều khiển bán hàng",
+    "setupHint": "Nạp kịch bản bán hàng để hiển thị bảng điều khiển: chạy `pnpm dev:seed:full`.",
+    "widget": {
+      "revenueByRegion": "Doanh thu theo khu vực",
+      "revenueByProduct": "Doanh thu theo sản phẩm",
+      "telesaleOutcomes": "Kết quả telesale"
+    },
+    "axis": {
+      "region": "Khu vực",
+      "product": "Sản phẩm",
+      "revenue": "Doanh thu"
+    },
+    "state": {
+      "error": "Không thể tải widget này",
+      "errorHint": "Truy vấn đã lưu chạy thất bại. Kiểm tra backend đang chạy và đã nạp dữ liệu.",
+      "retry": "Thử lại",
+      "empty": "Không có dữ liệu để vẽ biểu đồ",
+      "missingQuery": "Không tìm thấy truy vấn đã lưu",
+      "missingQueryHint": "Widget này cần một truy vấn đã lưu từ dữ liệu mẫu. Chạy lại `pnpm dev:seed:full`."
+    },
+    "ariaBar": "Biểu đồ cột: {{title}}",
+    "ariaPie": "Biểu đồ tròn: {{title}}"
   },
   "common": {
     "create": "Tạo",
