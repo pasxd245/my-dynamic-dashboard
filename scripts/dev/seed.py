@@ -23,24 +23,39 @@ UPSERT by default — re-running CONVERGES instead of duplicating:
             scripts/dev/seed.sh). Use when a CSV's CONTENT changed — a reused
             dataset keeps its original rows.
 
+R99 — the FACT tables (orders, telesale) are GENERATED to a target volume
+(deterministic) and uploaded in-memory; the bulk is never committed. Two modes:
+  • ``pnpm dev:seed``       — LIGHT/fast (small counts, same structure: telesale +
+                              all relationships + edge cases). For everyday dev.
+  • ``pnpm dev:seed:full``  — the full Sales scenario (default 2000/2000/50), for
+                              the dashboard / volume work. Tune: --orders/--telesale/--customers.
+
 Pure stdlib (urllib) — no extra deps. Prereq: dev backend up (pnpm dev:local:up).
+(Dataset content is immutable once committed — re-seed at a new volume with --reset.)
 
 Usage:
-    python3 scripts/dev/seed.py
-    python3 scripts/dev/seed.py --reset
+    pnpm dev:seed                 # light (≈ --light)
+    pnpm dev:seed:full            # full volume (2000/2000/50)
+    python3 scripts/dev/seed.py --reset                                  # full + fresh
+    python3 scripts/dev/seed.py --orders 5000 --telesale 3000 --customers 80 --reset
+    python3 scripts/dev/seed.py --light --dry-run    # generate + validate, no backend
     BACKEND_URL=http://127.0.0.1:8000 python3 scripts/dev/seed.py
 """
 
 from __future__ import annotations
 
 import argparse
+import csv
+import io
 import json
 import mimetypes
 import os
+import random
 import sys
 import urllib.error
 import urllib.request
 import uuid
+from datetime import date, timedelta
 from pathlib import Path
 
 BACKEND_URL = os.environ.get("BACKEND_URL", "http://127.0.0.1:8000").rstrip("/")
@@ -100,17 +115,17 @@ def delete(path: str):
     return _request("DELETE", path)
 
 
-def upload_csv(csv_path: Path) -> str:
-    """multipart/form-data POST /uploads — returns temp_id."""
+def upload_bytes(filename: str, content: bytes) -> str:
+    """multipart/form-data POST /uploads of in-memory CSV bytes — returns temp_id."""
     boundary = f"----seed{uuid.uuid4().hex}"
-    ctype = mimetypes.guess_type(csv_path.name)[0] or "text/csv"
+    ctype = mimetypes.guess_type(filename)[0] or "text/csv"
     parts = [
         f'--{boundary}\r\nContent-Disposition: form-data; name="sourceFormat"\r\n\r\ncsv\r\n'.encode(),
         (
             f'--{boundary}\r\nContent-Disposition: form-data; name="file"; '
-            f'filename="{csv_path.name}"\r\nContent-Type: {ctype}\r\n\r\n'
+            f'filename="{filename}"\r\nContent-Type: {ctype}\r\n\r\n'
         ).encode(),
-        csv_path.read_bytes(),
+        content,
         f"\r\n--{boundary}--\r\n".encode(),
     ]
     status, data = _request(
@@ -118,8 +133,13 @@ def upload_csv(csv_path: Path) -> str:
         headers={"Content-Type": f"multipart/form-data; boundary={boundary}"},
     )
     if status != 200 or not data or "temp_id" not in data:
-        die(f"upload({csv_path.name}) failed [{status}]: {data}")
+        die(f"upload({filename}) failed [{status}]: {data}")
     return data["temp_id"]
+
+
+def upload_csv(csv_path: Path) -> str:
+    """Upload a committed fixture CSV (small dimensions)."""
+    return upload_bytes(csv_path.name, csv_path.read_bytes())
 
 
 # --- upserts -----------------------------------------------------------------
@@ -138,16 +158,7 @@ def upsert_workspace(name: str) -> str:
     return data["id"]
 
 
-def upsert_dataset(ws: str, name: str) -> str:
-    csv_path = DATA_DIR / f"{name}.csv"
-    if not csv_path.is_file():
-        die(f"missing fixture: {csv_path}")
-    _, all_ds = get("/datasets")
-    existing = next((d["id"] for d in (all_ds or []) if d["workspaceId"] == ws and d["name"] == name), None)
-    if existing:
-        ok("reuse", f"dataset {existing} ({name})")
-        return existing
-    temp_id = upload_csv(csv_path)
+def _commit_dataset(ws: str, name: str, temp_id: str) -> str:
     status, data = post(f"/workspaces/{ws}/datasets/batch", {"temp_id": temp_id, "items": [{"name": name}]})
     if status not in (200, 201) or not isinstance(data, list):
         die(f"commit dataset({name}) [{status}]: {data}")
@@ -155,7 +166,37 @@ def upsert_dataset(ws: str, name: str) -> str:
     return data[0]["id"]
 
 
-def upsert_relationship(ws: str, left: str, lcol: str, right: str, rcol: str, card: str) -> str:
+def _existing_dataset(ws: str, name: str) -> str | None:
+    _, all_ds = get("/datasets")
+    return next((d["id"] for d in (all_ds or []) if d["workspaceId"] == ws and d["name"] == name), None)
+
+
+def upsert_dataset(ws: str, name: str) -> str:
+    """Upsert from a committed fixture CSV (the small, immutable dimensions)."""
+    csv_path = DATA_DIR / f"{name}.csv"
+    if not csv_path.is_file():
+        die(f"missing fixture: {csv_path}")
+    existing = _existing_dataset(ws, name)
+    if existing:
+        ok("reuse", f"dataset {existing} ({name})")
+        return existing
+    return _commit_dataset(ws, name, upload_csv(csv_path))
+
+
+def upsert_dataset_bytes(ws: str, name: str, content: bytes) -> str:
+    """Upsert from in-memory generated CSV bytes (the volume facts + scaled customers).
+    Content is immutable once committed, so re-running reuses; use --reset to re-seed
+    at a different volume."""
+    existing = _existing_dataset(ws, name)
+    if existing:
+        ok("reuse", f"dataset {existing} ({name})")
+        return existing
+    return _commit_dataset(ws, name, upload_bytes(f"{name}.csv", content))
+
+
+def upsert_relationship(ws: str, left: str, lcol: str, right: str, rcol: str, card: str, optional: bool = False):
+    """`optional=True` — a nullable FK (e.g. telesale.order_id, blank on non-converted
+    calls) may fail dtype-matching; warn + skip instead of aborting the whole seed."""
     _, rels = get(f"/workspaces/{ws}/relationships")
     for r in rels or []:
         if (r["leftDatasetId"], r["leftColumn"], r["rightDatasetId"], r["rightColumn"]) == (left, lcol, right, rcol):
@@ -166,6 +207,9 @@ def upsert_relationship(ws: str, left: str, lcol: str, right: str, rcol: str, ca
         {"leftDatasetId": left, "leftColumn": lcol, "rightDatasetId": right, "rightColumn": rcol, "cardinality": card},
     )
     if status not in (200, 201):
+        if optional:
+            print(f"  {C_DIM}~ skipped optional relationship ({lcol} → {rcol}) [{status}]: {data}{C_RESET}")
+            return None
         die(f"declare relationship({lcol}→{rcol}) [{status}]: {data}")
     ok("create", f"relationship {data['id']} ({lcol} → {rcol})")
     return data["id"]
@@ -187,12 +231,183 @@ def upsert_query(ws: str, name: str, dataset_id: str, definition: dict) -> str:
     return data["id"]
 
 
+# --- data generator ----------------------------------------------------------
+# Deterministic (fixed RNG seed) — re-runs + reviews are stable. Extends the
+# committed "light" base CSVs (edge cases) up to a target volume in-memory; the
+# bulk is never committed to git (R99 decision 1).
+GEN_SEED = 1337
+AGENTS = ["Alice Nguyen", "Bao Tran", "Carmen Diaz", "Dan O'Neil", "Elif Kaya",
+          "Farouk Aziz", "Grace Park", "Hiro Tanaka"]
+ORDER_STATUSES = ["completed", "completed", "completed", "pending", "cancelled", "refunded"]
+TELESALE_OUTCOMES = ["connected", "no_answer", "callback", "converted", "declined"]
+TELESALE_WEIGHTS = [30, 25, 15, 18, 12]
+CUST_ADJ = ["Apex", "Vertex", "Quantum", "Summit", "Pioneer", "Atlas", "Nimbus",
+            "Beacon", "Cobalt", "Zenith", "Orbit", "Delta", "Lumen", "Forge"]
+CUST_NOUN = ["Systems", "Labs", "Holdings", "Partners", "Group", "Works", "Dynamics",
+             "Logistics", "Ventures", "Industries", "Networks", "Solutions"]
+
+
+def _read_base(name: str) -> tuple[list[str], list[list[str]]]:
+    rows = list(csv.reader((DATA_DIR / f"{name}.csv").read_text().splitlines()))
+    return rows[0], rows[1:]
+
+
+def _to_csv_bytes(header: list[str], rows: list[list[str]]) -> bytes:
+    buf = io.StringIO()
+    w = csv.writer(buf, lineterminator="\n")
+    w.writerow(header)
+    w.writerows(rows)
+    return buf.getvalue().encode()
+
+
+def _rand_date(rng: random.Random, start=date(2025, 1, 1), span_days=364) -> str:
+    return (start + timedelta(days=rng.randint(0, span_days))).isoformat()
+
+
+def generate_data(n_customers: int, n_orders: int, n_telesale: int) -> dict[str, bytes]:
+    """Extend the committed base to the target volume. Returns {name: csv bytes}
+    for the scaled/new datasets (customers, orders, telesale). Preserves the
+    edge cases: Africa (region 5) gets no customers, Legacy Tool (product 7) is
+    never ordered, Lonely Co (customer 11) has no orders."""
+    rng = random.Random(GEN_SEED)
+    cust_h, cust_rows = _read_base("customers")
+    _, prod_rows = _read_base("products")
+    _, region_rows = _read_base("regions")
+    ord_h, ord_rows = _read_base("orders")
+
+    # Region pool excludes Africa (5) so the "no customers" edge case holds.
+    region_pool = [r[0] for r in region_rows if r[1] != "Africa"]
+    # Product price lookup; orderable products exclude Legacy Tool (never ordered).
+    price_of = {p[0]: p[3] for p in prod_rows}
+    orderable_products = [p[0] for p in prod_rows if p[1] != "Legacy Tool"]
+
+    # --- customers: base + generated up to n_customers ---
+    next_cid = max(int(r[0]) for r in cust_rows) + 1
+    for i in range(max(0, n_customers - len(cust_rows))):
+        cid = next_cid + i
+        cust_rows.append([
+            str(cid),
+            f"{rng.choice(CUST_ADJ)} {rng.choice(CUST_NOUN)}",
+            rng.choice(region_pool),
+            rng.choice(["gold", "silver", "bronze"]),
+            "true" if rng.random() < 0.8 else "false",
+            _rand_date(rng),
+        ])
+    # Orders may reference any customer EXCEPT Lonely Co (11) — keep it order-less.
+    order_cust_ids = [r[0] for r in cust_rows if r[0] != "11"]
+
+    # --- orders: base + generated up to n_orders ---
+    next_oid = max(int(r[0]) for r in ord_rows) + 1
+    for i in range(max(0, n_orders - len(ord_rows))):
+        oid = next_oid + i
+        pid = rng.choice(orderable_products)
+        ord_rows.append([
+            str(oid),
+            rng.choice(order_cust_ids),
+            pid,
+            price_of[pid],  # amount = unit price (matches the base convention)
+            str(rng.randint(1, 5)),
+            rng.choice(ORDER_STATUSES),
+            "true" if rng.random() < 0.25 else "false",
+            _rand_date(rng),
+        ])
+    # Per-customer order ids — a converted telesale call links to a real order of that customer.
+    cust_orders: dict[str, list[str]] = {}
+    for r in ord_rows:
+        cust_orders.setdefault(r[1], []).append(r[0])
+
+    # --- telesale: generated (a call targets any customer; converted ⇒ links an order) ---
+    all_cust_ids = [r[0] for r in cust_rows]
+    tele_h = ["call_id", "customer_id", "agent", "called_at", "duration_sec", "outcome", "order_id"]
+    tele_rows: list[list[str]] = []
+    for i in range(n_telesale):
+        cid = rng.choice(all_cust_ids)
+        outcome = rng.choices(TELESALE_OUTCOMES, weights=TELESALE_WEIGHTS)[0]
+        # "converted" requires a real order to link; a customer with none can't convert.
+        if outcome == "converted" and not cust_orders.get(cid):
+            outcome = "connected"
+        order_id = rng.choice(cust_orders[cid]) if outcome == "converted" else ""
+        tele_rows.append([
+            str(i + 1), cid, rng.choice(AGENTS), _rand_date(rng),
+            str(rng.randint(30, 1500)), outcome, order_id,
+        ])
+
+    return {
+        "customers": _to_csv_bytes(cust_h, cust_rows),
+        "orders": _to_csv_bytes(ord_h, ord_rows),
+        "telesale": _to_csv_bytes(tele_h, tele_rows),
+    }
+
+
+def validate_data(gen: dict[str, bytes]) -> None:
+    """Referential-integrity + edge-case check (used by --dry-run, and before upload)."""
+    def parse(name):
+        rows = list(csv.reader(gen[name].decode().splitlines()))
+        return rows[0], rows[1:]
+
+    _, cust = parse("customers")
+    _, orders = parse("orders")
+    _, tele = parse("telesale")
+    cust_ids = {r[0] for r in cust}
+    order_owner = {r[0]: r[1] for r in orders}  # order_id → customer_id
+    _, prod_rows = _read_base("products")
+    legacy_pid = next(p[0] for p in prod_rows if p[1] == "Legacy Tool")
+
+    errs = []
+    if any(r[1] not in cust_ids for r in orders):
+        errs.append("orders.customer_id references a missing customer")
+    if any(r[2] == legacy_pid for r in orders):
+        errs.append("orders reference Legacy Tool (should never be ordered)")
+    if "11" in {r[1] for r in orders}:
+        errs.append("Lonely Co (11) has orders (should be order-less)")
+    if any(r[1] not in cust_ids for r in tele):
+        errs.append("telesale.customer_id references a missing customer")
+    if any(r[6] and r[6] not in order_owner for r in tele):
+        errs.append("telesale.order_id references a missing order")
+    bad_conv = [r for r in tele if r[5] == "converted" and not r[6]]
+    if bad_conv:
+        errs.append(f"{len(bad_conv)} converted calls with no linked order")
+    # A converted call must link an order belonging to THAT customer.
+    if any(r[6] and order_owner.get(r[6]) != r[1] for r in tele):
+        errs.append("a converted call links an order owned by a different customer")
+    if errs:
+        die("generated data failed validation:\n  - " + "\n  - ".join(errs))
+    say(f"generated: customers({len(cust)}) · orders({len(orders)}) · telesale({len(tele)}) — integrity OK")
+
+
 # --- seed --------------------------------------------------------------------
-def main() -> None:
+def parse_args() -> argparse.Namespace:
     ap = argparse.ArgumentParser(description="Seed/upsert non-mock testing data into the local backend.")
     ap.add_argument("--reset", action="store_true", help="delete the workspace first, then seed fresh")
+    ap.add_argument("--orders", type=int, default=2000, help="total orders (default 2000; 1k–5k band)")
+    ap.add_argument("--telesale", type=int, default=2000, help="total telesale calls (default 2000)")
+    ap.add_argument("--customers", type=int, default=50, help="total customers (default 50)")
+    ap.add_argument("--light", action="store_true",
+                    help="fast, small seed (same structure: telesale + all rels + edge cases) — `pnpm dev:seed`")
+    ap.add_argument("--dry-run", action="store_true", help="generate + validate the data, print counts, no backend")
     # Tolerate pnpm's argument separator: `pnpm dev:seed --reset` forwards a bare `--`.
-    args = ap.parse_args([a for a in sys.argv[1:] if a != "--"])
+    argv = [a for a in sys.argv[1:] if a != "--"]
+    args = ap.parse_args(argv)
+    # --light: a quick, structurally-complete seed — small counts, overridable by explicit flags.
+    if args.light:
+        if "--orders" not in argv:
+            args.orders = 40
+        if "--telesale" not in argv:
+            args.telesale = 25
+        if "--customers" not in argv:
+            args.customers = 12
+    return args
+
+
+def main() -> None:
+    args = parse_args()
+
+    # R99 — generate the volume (deterministic; extends the committed light base).
+    gen = generate_data(args.customers, args.orders, args.telesale)
+    validate_data(gen)
+    if args.dry_run:
+        say("--dry-run: generated + validated, no backend write.")
+        return
 
     status, _ = get("/health")
     if status != 200:
@@ -217,11 +432,20 @@ def main() -> None:
 
     ws = upsert_workspace(WS_NAME)
 
-    ds = {name: upsert_dataset(ws, name) for name in ("regions", "products", "customers", "orders")}
+    # Small dimensions from the committed CSVs; the scaled facts + telesale from the
+    # generated bytes (R99 — content immutable once committed; --reset to re-seed at a new volume).
+    ds = {name: upsert_dataset(ws, name) for name in ("regions", "products")}
+    ds["customers"] = upsert_dataset_bytes(ws, "customers", gen["customers"])
+    ds["orders"] = upsert_dataset_bytes(ws, "orders", gen["orders"])
+    ds["telesale"] = upsert_dataset_bytes(ws, "telesale", gen["telesale"])
 
     rel_cust_ord = upsert_relationship(ws, ds["customers"], "customer_id", ds["orders"], "customer_id", "one_to_many")
     upsert_relationship(ws, ds["products"], "product_id", ds["orders"], "product_id", "one_to_many")
     upsert_relationship(ws, ds["regions"], "region_id", ds["customers"], "region_id", "one_to_many")
+    # R99 — telesale: a customer receives many calls; a converted call links one order
+    # (order_id is nullable on non-converted calls → the order link is optional).
+    upsert_relationship(ws, ds["customers"], "customer_id", ds["telesale"], "customer_id", "one_to_many")
+    upsert_relationship(ws, ds["orders"], "order_id", ds["telesale"], "order_id", "one_to_many", optional=True)
 
     # Column indexes (0-based) for the filter atoms below:
     #   customers: 0 customer_id · 1 customer_name · 2 region_id · 3 tier · 4 is_active · 5 signed_up
@@ -281,10 +505,13 @@ def main() -> None:
 
     print()
     say(f"seed complete — workspace \"{WS_NAME}\" ({ws})")
-    print("\n  Datasets:      regions(5) · products(7) · customers(11) · orders(32)")
-    print("  Relationships: customers→orders · products→orders · regions→customers (one_to_many)")
+    print(f"\n  Datasets:      regions(5) · products(7) · customers({args.customers}) · "
+          f"orders({args.orders}) · telesale({args.telesale})")
+    print("  Relationships: customers→orders · products→orders · regions→customers ·")
+    print("                 customers→telesale · orders→telesale (converted calls) (one_to_many)")
     print("  Unmatched rows (for left/right/full joins): region 'Africa' (no customers),")
-    print("    customer 'Lonely Co' (no orders), product 'Legacy Tool' (never ordered).")
+    print("    customer 'Lonely Co' (no orders, but receives telesale calls), product")
+    print("    'Legacy Tool' (never ordered); non-converted telesale calls (no order_id).")
     print("\n  Base queries — each exercises a different query-builder flow:")
     for name, qid, blurb in seeded:
         print(f"    • {name:<22} {FRONTEND_URL}/data-management/queries/{qid}")
