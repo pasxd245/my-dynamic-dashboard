@@ -10,6 +10,10 @@ export type ChartType = 'bar' | 'pie';
 /** sum needs a numeric `measureCol`; count tallies rows (no measure). */
 export type Agg = 'sum' | 'count';
 
+/** How many columns (of a 3-column grid) a widget occupies: 1 = third,
+ *  2 = two-thirds, 3 = full row. A per-widget size (Tableau-style arranging). */
+export type WidgetSpan = 1 | 2 | 3;
+
 /** One chart on a dashboard, defined formula-free: a saved Query + which
  *  column is the dimension, which is the measure, how to aggregate, how to
  *  chart it. Bound to the Query by id (a deleted query → "unavailable"). */
@@ -24,6 +28,8 @@ export type Widget = {
   /** The numeric column summed when `agg === 'sum'`; omitted for `count`. */
   measureCol?: string;
   agg: Agg;
+  /** Grid width: 1–3 columns of a 3-col grid (default 1). */
+  span: WidgetSpan;
 };
 
 /** A named, workspace-scoped dashboard: an ordered set of widgets. */
@@ -31,5 +37,8 @@ export type Dashboard = {
   id: string;
   workspaceId: string;
   name: string;
+  /** URL-friendly dash-case identifier, auto-derived from the name (editable).
+   *  Uniqueness is enforced at the Contract/Backend gate. */
+  slug: string;
   widgets: Widget[];
 };

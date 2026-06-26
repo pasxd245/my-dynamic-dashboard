@@ -1,70 +1,55 @@
-// DashboardDetailPage (R101) — /dashboard/:id. The widget grid for one
+// DashboardDetailPage (R101) — /dashboards/:slug. The widget grid for one
 // dashboard (FE state this round) + the formula-free widget builder
 // (add / edit / remove). Reuses R100's chart rendering via WidgetView.
+//
+// The dashboard's own lifecycle (rename / delete) is managed from the
+// Settings › Dashboard list, not here — this view is for viewing + building.
+// Each widget carries its OWN width (1–3 cols of a 3-col grid; Tableau-style),
+// set inline on the card — a small widget sits 3-up, a big one takes the row.
 
-import { ArrowLeftOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
+import { DeleteOutlined, EditOutlined, MoreOutlined, PlusOutlined } from '@ant-design/icons';
 import { PageContainer, PageHeader } from '@mdd/ui';
-import { App, Button, Card, Col, Empty, Row, Typography } from 'antd';
+import { App, Button, Card, Col, Dropdown, Empty, Row } from 'antd';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
 
-import { NameModal } from './NameModal';
+import { NotFoundPage } from '@/components/NotFoundPage';
 import { useDashboardStore } from './store';
-import type { Widget } from './types';
+import type { Widget, WidgetSpan } from './types';
 import { WidgetBuilder } from './WidgetBuilder';
 import { WidgetView } from './WidgetView';
+
+// Per-widget span (of a 3-col grid) → responsive Col span (collapses on
+// smaller screens): 1 = third, 2 = two-thirds, 3 = full row.
+const COL_SPANS: Record<WidgetSpan, Record<string, number>> = {
+  1: { xs: 24, md: 12, xl: 8 },
+  2: { xs: 24, xl: 16 },
+  3: { xs: 24 },
+};
 
 export function DashboardDetailPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { id } = useParams<{ id: string }>();
+  const { slug } = useParams<{ slug: string }>();
   const { modal } = App.useApp();
   const store = useDashboardStore();
-  const dashboard = id ? store.get(id) : undefined;
+  const dashboard = slug ? store.getBySlug(slug) : undefined;
 
-  const [renaming, setRenaming] = useState(false);
-  // null = builder closed; { initial?: Widget } = open (add when no initial).
   const [builder, setBuilder] = useState<{ initial?: Widget } | null>(null);
 
-  const breadcrumb = [
-    { label: t('nav.home'), route: '/' },
-    { label: t('nav.dashboard'), route: '/dashboard' },
-    { label: dashboard?.name ?? '…' },
-  ];
-
-  if (!dashboard) {
-    return (
-      <PageContainer width="data" dataComponent="DashboardDetailNotFound">
-        <PageHeader breadcrumb={breadcrumb} title={t('dashboard.notFoundTitle')} onNavigate={(r) => navigate(r)} />
-        <Card>
-          <div style={{ padding: '40px 24px', textAlign: 'center' }}>
-            <Typography.Text type="secondary">{t('dashboard.notFoundHint')}</Typography.Text>
-            <div style={{ marginTop: 16 }}>
-              <Button type="primary" icon={<ArrowLeftOutlined />} onClick={() => navigate('/dashboard')}>
-                {t('dashboard.backToList')}
-              </Button>
-            </div>
-          </div>
-        </Card>
-      </PageContainer>
-    );
-  }
+  // An unknown slug (deleted / stale / typo'd link) is just "not found" — the
+  // global 404, not a dashboard-flavoured page with a misleading breadcrumb.
+  if (!dashboard) return <NotFoundPage />;
 
   const dash = dashboard;
-
-  const confirmDeleteDashboard = () => {
-    modal.confirm({
-      title: t('dashboard.deleteTitle', { name: dash.name }),
-      content: t('dashboard.deleteHint'),
-      okButtonProps: { danger: true },
-      okText: t('common.delete'),
-      onOk: () => {
-        store.deleteDashboard(dash.id);
-        navigate('/dashboard', { replace: true });
-      },
-    });
-  };
+  // Mirror the nav path: Home › Settings › Dashboard (the list/manage) › ‹name›.
+  const breadcrumb = [
+    { label: t('nav.home'), route: '/' },
+    { label: t('nav.system') },
+    { label: t('nav.dashboard'), route: '/settings/dashboard' },
+    { label: dash.name },
+  ];
 
   const confirmRemoveWidget = (widget: Widget) => {
     modal.confirm({
@@ -84,23 +69,43 @@ export function DashboardDetailPage() {
     setBuilder(null);
   };
 
+  // Width is a persisted widget option set in the builder (Create/Edit); the
+  // card header carries just the ⋯ menu (Edit / Delete).
+  const widgetExtra = (w: Widget) => (
+    <Dropdown
+      trigger={['click']}
+      menu={{
+        items: [
+          { key: 'edit', icon: <EditOutlined />, label: t('common.edit'), onClick: () => setBuilder({ initial: w }) },
+          {
+            key: 'delete',
+            icon: <DeleteOutlined />,
+            label: t('common.delete'),
+            danger: true,
+            onClick: () => confirmRemoveWidget(w),
+          },
+        ],
+      }}
+    >
+      <Button
+        type="text"
+        size="small"
+        icon={<MoreOutlined />}
+        aria-label={`${w.title} — ${t('common.edit')} / ${t('common.delete')}`}
+        data-component="WidgetMoreButton"
+      />
+    </Dropdown>
+  );
+
   return (
     <PageContainer width="data" dataComponent="DashboardDetailPage">
       <PageHeader
         breadcrumb={breadcrumb}
         title={dash.name}
         actions={
-          <span style={{ display: 'inline-flex', gap: 8 }}>
-            <Button icon={<EditOutlined />} onClick={() => setRenaming(true)} data-component="DashboardRename">
-              {t('common.rename')}
-            </Button>
-            <Button type="primary" icon={<PlusOutlined />} onClick={() => setBuilder({})} data-component="DashboardAddWidget">
-              {t('dashboard.builder.add')}
-            </Button>
-            <Button danger onClick={confirmDeleteDashboard} data-component="DashboardDelete">
-              {t('common.delete')}
-            </Button>
-          </span>
+          <Button type="primary" icon={<PlusOutlined />} onClick={() => setBuilder({})} data-component="DashboardAddWidget">
+            {t('dashboard.builder.add')}
+          </Button>
         }
         onNavigate={(r) => navigate(r)}
       />
@@ -116,20 +121,8 @@ export function DashboardDetailPage() {
       ) : (
         <Row gutter={[16, 16]}>
           {dash.widgets.map((w) => (
-            <Col key={w.id} xs={24} lg={8}>
-              <WidgetView
-                widget={w}
-                extra={
-                  <span style={{ display: 'inline-flex', gap: 4 }}>
-                    <Button type="text" size="small" onClick={() => setBuilder({ initial: w })}>
-                      {t('common.edit')}
-                    </Button>
-                    <Button type="text" size="small" danger onClick={() => confirmRemoveWidget(w)}>
-                      {t('common.delete')}
-                    </Button>
-                  </span>
-                }
-              />
+            <Col key={w.id} {...COL_SPANS[w.span]}>
+              <WidgetView widget={w} extra={widgetExtra(w)} />
             </Col>
           ))}
         </Row>
@@ -141,18 +134,6 @@ export function DashboardDetailPage() {
         initial={builder?.initial}
         onSubmit={submitWidget}
         onCancel={() => setBuilder(null)}
-      />
-
-      <NameModal
-        open={renaming}
-        title={t('dashboard.renameTitle')}
-        initialName={dash.name}
-        okText={t('common.rename')}
-        onSubmit={(name) => {
-          store.renameDashboard(dash.id, name);
-          setRenaming(false);
-        }}
-        onCancel={() => setRenaming(false)}
       />
     </PageContainer>
   );

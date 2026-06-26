@@ -149,6 +149,54 @@ contract-safe (no wire/contract change; reuses the existing query-execution endp
   **builder feel + the Widget shape** (sort? limit? store column by name vs index?) — that's what F1
   de-risks before the contract freezes.
 
+### F1 iteration — human feedback (2026-06-26)
+
+Human reviewed F1 and gave three changes; all built (type-check · 210 tests · build green):
+
+1. **Nav IA** — dashboard **config/creation** moved under a **`System › Dashboard`** menu
+   (`/systems/dashboard`); a created dashboard is **viewed at `/dashboard/<slug>`**. The `Dashboard`
+   nav group lists created dashboards by slug (shown once ≥1 exists). Replaces the earlier
+   `Dashboard › All dashboards` placement.
+2. **Slug** — `Dashboard` gains a **`slug`** (dash-case, auto-derived from the name, editable;
+   diacritics-stripped for vi). Routing is now slug-based. **Slug uniqueness → enforce at Contract.**
+3. **Widget builder = workspace-first** — pick **Workspace → Query** (query list scoped to the chosen
+   workspace).
+
+**New open question surfaced by (3) → resolve at Contract:** a widget can now bind a query from a
+**different workspace** than the dashboard's, so "dashboard is workspace-scoped" (decision #1) is in
+tension with **cross-workspace widgets**. F1 default = allowed; decide at Contract whether to constrain
+to the dashboard's workspace or formally allow cross-workspace widgets (affects the `Dashboard`/`Widget`
+contract + the workspace-scope of the list).
+
+### F1 review iteration — human feedback (2026-06-26 → 27)
+
+Iterated on F1 from the human's hands-on review (all built; type-check · 210 tests · build green each step):
+
++ **Nav IA** — config/create under **`Settings › Dashboard`** (`/settings/dashboard`); view a dashboard
+  at **`/dashboards/<slug>`** (slug-based). The `Dashboards` group lists instances by slug (only when
+  ≥1). Menu label **"Settings"** (route renamed `/systems`→`/settings` to match).
++ **Slug** — dashboards gain an auto-derived, editable dash-case `slug` (diacritics stripped); routing
+  is slug-based. Uniqueness → Contract.
++ **Widget builder = workspace-first** (Workspace → Query). Surfaced for Contract: cross-workspace
+  widgets (a widget may bind a query from another workspace) — decide scope at Contract.
++ **Not-found** — bare `/dashboard(s)` + unknown dashboard slug → a **global 404** (`NotFoundPage`,
+  new catch-all `*` route; fixed the pre-existing blank-screen gap). Detail breadcrumb corrected to
+  mirror the nav (Home › Settings › Dashboard › name) — and confirmed `routeMeta.breadcrumb` was dead.
++ **Catalog layout** — `/settings/dashboard` now matches the workspaces catalog (`PageCard` + grid +
+  ⋯ menu). Detail keeps the frame + grid breakpoints (no card-in-card wrapper).
++ **Actions split** — dashboard rename/delete live only in the `Settings › Dashboard` list (card ⋯);
+  the detail view has only **Add widget**. Per-widget **Edit/Delete via a ⋯ menu**.
++ **Widget width** — a **per-widget** `span` (1–3 cols, Tableau-style; small = ⅓ → 3-up, big = full
+  row), set as a **persisted option in the Create/Edit builder** (default 1).
++ **Empty-state actions cross-fixed** — Workspaces/Datasets/Dashboards all show the primary action
+  **always** (one convention). **Datasets empty state standardised** to the shared `Empty` + primary
+  CTA (removed the fake dashed "dropzone" that advertised drag-drop but never handled a drop — a
+  pre-existing bug; real drag-drop stays in the upload wizard).
++ **`routeMeta` pruned** (decision: A) — dead `breadcrumb` + `subtitle` removed; `routeMeta` is now a
+  clean `path → title` map (per-page `PageHeader` is the breadcrumb SoT — it needs dynamic/per-state
+  data a pathname map can't give). Centralized breadcrumbs (loader-data mechanism) parked as a future
+  enhancement.
+
 ## Check
 
 _Pending — populated at Integration._

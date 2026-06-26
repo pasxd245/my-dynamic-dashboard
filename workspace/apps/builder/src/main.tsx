@@ -17,6 +17,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import '@/i18n';
 import { AppErrorBoundary } from '@/components/AppErrorBoundary';
 import { AppLayout } from '@/components/AppLayout';
+import { NotFoundPage } from '@/components/NotFoundPage';
 import { DashboardListPage } from '@/features/dashboard/DashboardListPage';
 import { DashboardDetailPage } from '@/features/dashboard/DashboardDetailPage';
 import { DashboardStoreProvider } from '@/features/dashboard/store';
@@ -86,8 +87,11 @@ const appTree = (
               <AppLayout>
                 <Routes>
                   <Route path="/" element={<Navigate to="/data-management/workspaces" replace />} />
-                  <Route path="/dashboard" element={<DashboardListPage />} />
-                  <Route path="/dashboard/:id" element={<DashboardDetailPage />} />
+                  {/* R101 — dashboard config/creation lives under /settings; viewing a
+                      dashboard is /dashboards/<slug>. Bare /dashboard(s) is not a page →
+                      it falls through to the catch-all 404 below. */}
+                  <Route path="/settings/dashboard" element={<DashboardListPage />} />
+                  <Route path="/dashboards/:slug" element={<DashboardDetailPage />} />
                 {/* /data-management is a sidebar group, not a leaf — redirect to default child. */}
                 <Route path="/data-management" element={<Navigate to="/data-management/workspaces" replace />} />
                 <Route path="/data-management/workspaces" element={<WorkspacesPage />} />
@@ -101,6 +105,8 @@ const appTree = (
                 <Route path="/data-management/queries" element={<QueriesPage />} />
                 <Route path="/data-management/queries/new" element={<QueryCreatePage />} />
                 <Route path="/data-management/queries/:id" element={<QueryDetailPage />} />
+                  {/* Global catch-all — unknown routes (incl. a bare /dashboard) → 404. */}
+                  <Route path="*" element={<NotFoundPage />} />
                 </Routes>
               </AppLayout>
             </DashboardStoreProvider>

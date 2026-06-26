@@ -2,6 +2,8 @@
   "nav": {
     "home": "Home",
     "dashboard": "Dashboard",
+    "dashboards": "Dashboards",
+    "system": "Settings",
     "dataManagement": "Data Management",
     "workspaces": "Workspaces",
     "datasets": "Datasets",
@@ -12,19 +14,16 @@
   "dashboard": {
     "listTitle": "Dashboards",
     "listSubtitle": "Live dashboards over your data — each widget re-runs a saved query.",
-    "allDashboards": "All dashboards",
     "new": "New dashboard",
     "newTitle": "New dashboard",
     "renameTitle": "Rename dashboard",
     "nameLabel": "Name",
     "namePlaceholder": "e.g. Weekly report",
+    "emptyTitle": "No dashboards yet",
     "emptyList": "No dashboards yet — create your first.",
     "widgetCount": "Widgets: {{count}}",
     "deleteTitle": "Delete “{{name}}”?",
     "deleteHint": "This removes the dashboard and its widgets. The underlying queries are not affected.",
-    "notFoundTitle": "Dashboard not found",
-    "notFoundHint": "It may have been deleted, or this link is stale.",
-    "backToList": "Back to dashboards",
     "noWidgets": "No widgets yet — add your first.",
     "setupTitle": "No workspace data yet",
     "setupHint": "Seed the Sales scenario first: run `pnpm dev:seed:full`.",
@@ -61,8 +60,15 @@
       "preview": "Preview",
       "previewHint": "Pick a query to preview the widget.",
       "countLabel": "Count",
-      "removeTitle": "Remove “{{title}}”?"
-    }
+      "removeTitle": "Remove “{{title}}”?",
+      "workspace": "Workspace",
+      "workspacePlaceholder": "Pick a workspace",
+      "width": "Width",
+      "widthHelp": "Columns the widget spans (of 3)."
+    },
+    "slugLabel": "Slug",
+    "slugHelp": "URL-friendly id, auto-filled from the name. Editable.",
+    "slugPlaceholder": "e.g. weekly-report"
   },
   "common": {
     "create": "Create",
@@ -132,7 +138,7 @@
     "searchPlaceholder": "Search datasets…",
     "emptyTitle": "Upload your first file to get started",
     "emptyTitleFiltered": "No datasets in this workspace",
-    "emptyHint": "Drag and drop here, or click to browse · Excel or CSV · Up to {{maxSize}}",
+    "emptyHint": "Excel or CSV · up to {{maxSize}}",
     "relativeTime": {
       "justNow": "Just now",
       "minutesAgo": "{{count}}m ago",
@@ -672,5 +678,10 @@
     "delete": {
       "success": "Relationship deleted"
     }
+  },
+  "notFound": {
+    "title": "Page not found",
+    "subtitle": "This page doesn't exist or has moved.",
+    "back": "Go home"
   }
 }

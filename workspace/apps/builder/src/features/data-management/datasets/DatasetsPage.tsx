@@ -10,7 +10,7 @@ import {
   TableOutlined,
 } from '@ant-design/icons';
 import { PageCard, PageContainer, PageHeader } from '@mdd/ui';
-import { Alert, App, Button, Dropdown, Input, Select, Skeleton, Table, Typography } from 'antd';
+import { Alert, App, Button, Dropdown, Empty, Input, Select, Skeleton, Table, Typography } from 'antd';
 import { useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -136,7 +136,7 @@ export function DatasetsPage() {
       />
     );
   } else if (allRows.length === 0) {
-    body = <EmptyDropZone onClick={goNew} hasWorkspaceFilter={!!workspaceParam} />;
+    body = <DatasetsEmpty onClick={goNew} hasWorkspaceFilter={!!workspaceParam} />;
   } else if (visibleRows.length === 0) {
     body = (
       <div data-component="DatasetsNoMatch" style={{ padding: '32px 0', textAlign: 'center' }}>
@@ -236,41 +236,39 @@ type EmptyProps = Readonly<{
   hasWorkspaceFilter: boolean;
 }>;
 
-function EmptyDropZone({ onClick, hasWorkspaceFilter }: EmptyProps) {
+// Standard empty state (matches Workspaces / the dashboard catalog): an Empty
+// with an icon + a primary CTA that launches the upload wizard. (Replaced the
+// old fake "dropzone" — a dashed zone that advertised drag-and-drop but never
+// handled a drop; the real drag-drop lives in the upload wizard's source step.)
+function DatasetsEmpty({ onClick, hasWorkspaceFilter }: EmptyProps) {
   const { t } = useTranslation();
   return (
-    <button
-      type="button"
-      onClick={onClick}
+    <Empty
+      image={
+        hasWorkspaceFilter ? (
+          <TableOutlined style={{ fontSize: 48, opacity: 0.4 }} />
+        ) : (
+          <InboxOutlined style={{ fontSize: 48, opacity: 0.4 }} />
+        )
+      }
+      styles={{ image: { height: 80, display: 'flex', justifyContent: 'center', alignItems: 'center' } }}
+      description={
+        <>
+          <Typography.Title level={5} style={{ marginTop: 0, marginBottom: 4 }}>
+            {hasWorkspaceFilter ? t('datasets.emptyTitleFiltered') : t('datasets.emptyTitle')}
+          </Typography.Title>
+          <Typography.Text type="secondary">
+            {t('datasets.emptyHint', { maxSize: formatBytesCoarse(appConfig.uploadMaxBytes()) })}
+          </Typography.Text>
+        </>
+      }
+      style={{ padding: '48px 0' }}
       data-component="DatasetsEmpty"
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        width: '100%',
-        minHeight: 220,
-        padding: 32,
-        border: '2px dashed var(--ant-color-border, #d9d9d9)',
-        borderRadius: 8,
-        background: 'var(--ant-color-fill-quaternary, #fafafa)',
-        cursor: 'pointer',
-        textAlign: 'center',
-        gap: 8,
-      }}
     >
-      {hasWorkspaceFilter ? (
-        <TableOutlined style={{ fontSize: 48, opacity: 0.45 }} />
-      ) : (
-        <InboxOutlined style={{ fontSize: 48, opacity: 0.45 }} />
-      )}
-      <Typography.Title level={5} style={{ margin: 0 }}>
-        {hasWorkspaceFilter ? t('datasets.emptyTitleFiltered') : t('datasets.emptyTitle')}
-      </Typography.Title>
-      <Typography.Text type="secondary">
-        {t('datasets.emptyHint', { maxSize: formatBytesCoarse(appConfig.uploadMaxBytes()) })}
-      </Typography.Text>
-    </button>
+      <Button type="primary" icon={<PlusOutlined />} size="large" onClick={onClick}>
+        {t('datasets.uploadFirst')}
+      </Button>
+    </Empty>
   );
 }
 

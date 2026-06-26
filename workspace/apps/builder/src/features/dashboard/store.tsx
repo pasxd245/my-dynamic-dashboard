@@ -18,7 +18,10 @@ function newId(prefix: string): string {
 type DashboardStore = {
   dashboards: readonly Dashboard[];
   get: (id: string) => Dashboard | undefined;
-  createDashboard: (workspaceId: string, name: string) => Dashboard;
+  /** Resolve by slug (the URL identifier). First match wins; slug uniqueness
+   *  is enforced at the Contract/Backend gate. */
+  getBySlug: (slug: string) => Dashboard | undefined;
+  createDashboard: (workspaceId: string, name: string, slug: string) => Dashboard;
   renameDashboard: (id: string, name: string) => void;
   deleteDashboard: (id: string) => void;
   addWidget: (dashboardId: string, widget: Omit<Widget, 'id'>) => void;
@@ -32,9 +35,10 @@ export function DashboardStoreProvider({ children }: Readonly<{ children: ReactN
   const [dashboards, setDashboards] = useState<readonly Dashboard[]>([]);
 
   const get = useCallback((id: string) => dashboards.find((d) => d.id === id), [dashboards]);
+  const getBySlug = useCallback((slug: string) => dashboards.find((d) => d.slug === slug), [dashboards]);
 
-  const createDashboard = useCallback((workspaceId: string, name: string) => {
-    const dashboard: Dashboard = { id: newId('dsh'), workspaceId, name, widgets: [] };
+  const createDashboard = useCallback((workspaceId: string, name: string, slug: string) => {
+    const dashboard: Dashboard = { id: newId('dsh'), workspaceId, name, slug, widgets: [] };
     setDashboards((prev) => [...prev, dashboard]);
     return dashboard;
   }, []);
@@ -77,6 +81,7 @@ export function DashboardStoreProvider({ children }: Readonly<{ children: ReactN
     () => ({
       dashboards,
       get,
+      getBySlug,
       createDashboard,
       renameDashboard,
       deleteDashboard,
@@ -84,7 +89,7 @@ export function DashboardStoreProvider({ children }: Readonly<{ children: ReactN
       updateWidget,
       removeWidget,
     }),
-    [dashboards, get, createDashboard, renameDashboard, deleteDashboard, addWidget, updateWidget, removeWidget],
+    [dashboards, get, getBySlug, createDashboard, renameDashboard, deleteDashboard, addWidget, updateWidget, removeWidget],
   );
 
   return <DashboardStoreContext.Provider value={value}>{children}</DashboardStoreContext.Provider>;

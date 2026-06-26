@@ -4,14 +4,15 @@
 // choice is a labelled select. This is the surface F1 exists to validate before
 // the Widget contract shape freezes.
 
-import { Alert, Col, Form, Input, Modal, Row, Select, Typography } from 'antd';
+import { Alert, Col, Form, Input, Modal, Row, Segmented, Select, Typography } from 'antd';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { isNumeric, pickWidgetDefaults } from './aggregate';
 import { useQueriesQuery } from '@/features/data-management/queries/hooks';
+import { useWorkspacesQuery } from '@/features/data-management/workspaces/hooks';
 import { useWidgetData } from './hooks';
-import type { Agg, ChartType, Widget } from './types';
+import type { Agg, ChartType, Widget, WidgetSpan } from './types';
 import { WidgetView } from './WidgetView';
 
 type Draft = {
@@ -21,9 +22,11 @@ type Draft = {
   dimensionCol?: string;
   measureCol?: string;
   agg: Agg;
+  /** Width carried through the builder; arranged on the dashboard (default 1). */
+  span: WidgetSpan;
 };
 
-const EMPTY: Draft = { title: '', chartType: 'bar', agg: 'sum' };
+const EMPTY: Draft = { title: '', chartType: 'bar', agg: 'sum', span: 1 };
 
 type WidgetBuilderProps = Readonly<{
   open: boolean;
@@ -36,14 +39,19 @@ type WidgetBuilderProps = Readonly<{
 
 export function WidgetBuilder({ open, workspaceId, initial, onSubmit, onCancel }: WidgetBuilderProps) {
   const { t } = useTranslation();
-  const queries = useQueriesQuery(workspaceId);
+  const workspaces = useWorkspacesQuery();
+  // Workspace is picked FIRST (it scopes the query list); defaults to the
+  // dashboard's workspace. Builder-local UI state — the Widget binds by queryId.
+  const [wsId, setWsId] = useState<string | undefined>(workspaceId);
+  const queries = useQueriesQuery(wsId);
   const [draft, setDraft] = useState<Draft>(EMPTY);
 
-  // Reset the draft each time the modal opens (seed from `initial` for edit).
+  // Reset the draft + workspace each time the modal opens (seed from `initial`).
   useEffect(() => {
     if (!open) return;
+    setWsId(workspaceId);
     setDraft(initial ? { ...initial } : EMPTY);
-  }, [open, initial]);
+  }, [open, initial, workspaceId]);
 
   const data = useWidgetData(draft.queryId);
   const columns = data.columns;
@@ -67,6 +75,10 @@ export function WidgetBuilder({ open, workspaceId, initial, onSubmit, onCancel }
     () => (queries.data ?? []).map((q) => ({ value: q.id, label: q.name })),
     [queries.data],
   );
+  const workspaceOptions = useMemo(
+    () => (workspaces.data ?? []).map((w) => ({ value: w.id, label: w.name })),
+    [workspaces.data],
+  );
 
   const canSubmit =
     Boolean(draft.queryId) &&
@@ -84,6 +96,7 @@ export function WidgetBuilder({ open, workspaceId, initial, onSubmit, onCancel }
           dimensionCol: draft.dimensionCol,
           measureCol: draft.agg === 'sum' ? draft.measureCol : undefined,
           agg: draft.agg,
+          span: draft.span,
         }
       : null;
 
@@ -96,6 +109,7 @@ export function WidgetBuilder({ open, workspaceId, initial, onSubmit, onCancel }
       dimensionCol: draft.dimensionCol as string,
       measureCol: draft.agg === 'sum' ? draft.measureCol : undefined,
       agg: draft.agg,
+      span: draft.span,
     });
   };
 
@@ -114,6 +128,22 @@ export function WidgetBuilder({ open, workspaceId, initial, onSubmit, onCancel }
       <Row gutter={20}>
         <Col xs={24} md={10}>
           <Form layout="vertical">
+            <Form.Item label={t('dashboard.builder.workspace')} required>
+              <Select
+                showSearch
+                optionFilterProp="label"
+                placeholder={t('dashboard.builder.workspacePlaceholder')}
+                value={wsId}
+                options={workspaceOptions}
+                loading={workspaces.isLoading}
+                onChange={(next) => {
+                  setWsId(next);
+                  setDraft((p) => ({ ...p, queryId: undefined, dimensionCol: undefined }));
+                }}
+                data-component="WidgetBuilderWorkspace"
+              />
+            </Form.Item>
+
             <Form.Item label={t('dashboard.builder.query')} required>
               <Select
                 showSearch
@@ -122,6 +152,7 @@ export function WidgetBuilder({ open, workspaceId, initial, onSubmit, onCancel }
                 value={draft.queryId}
                 options={queryOptions}
                 loading={queries.isLoading}
+                disabled={!wsId}
                 onChange={(queryId) => setDraft((p) => ({ ...p, queryId, dimensionCol: undefined }))}
                 data-component="WidgetBuilderQuery"
               />
@@ -179,6 +210,19 @@ export function WidgetBuilder({ open, workspaceId, initial, onSubmit, onCancel }
                   { value: 'bar', label: t('dashboard.builder.chartBar') },
                   { value: 'pie', label: t('dashboard.builder.chartPie') },
                 ]}
+              />
+            </Form.Item>
+
+            <Form.Item label={t('dashboard.builder.width')} help={t('dashboard.builder.widthHelp')}>
+              <Segmented<WidgetSpan>
+                value={draft.span}
+                onChange={(span) => setDraft((p) => ({ ...p, span }))}
+                options={[
+                  { label: '1', value: 1 },
+                  { label: '2', value: 2 },
+                  { label: '3', value: 3 },
+                ]}
+                data-component="WidgetBuilderWidth"
               />
             </Form.Item>
           </Form>

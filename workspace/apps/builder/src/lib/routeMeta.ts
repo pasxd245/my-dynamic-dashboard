@@ -1,24 +1,19 @@
-import type { BreadcrumbItem } from "@mdd/ui";
 import { useLocation } from "react-router-dom";
 
 export type RouteMeta = {
-  breadcrumb: BreadcrumbItem[];
+  /** The WorkspaceShell top-bar title for the active route. */
   title: string;
-  subtitle?: string;
 };
 
 /**
- * R12: route → page-header metadata resolver. Switch-case on the
- * pathname for now; a registry/route-table can land later if more
- * routes accumulate.
+ * R12 / R101: route → shell **title** resolver (pathname switch).
  *
- * Note: sidebar **section** labels (e.g. "Data Management") have no
- * route — they are non-destination group headers. Only **leaf**
- * routes appear here.
- *
- * BIZ boundary: only the builder imports `react-router-dom`. The
- * `@mdd/ui` PageHeader primitive stays router-agnostic and
- * consumes the resolved `BreadcrumbItem[]`.
+ * Scope is deliberately narrow: this only feeds the WorkspaceShell top-bar
+ * title. **Breadcrumbs and subtitles live in each page's own `PageHeader`** —
+ * they often need per-page or dynamic data (e.g. the loaded dashboard's name,
+ * a 404/edit state) that a static, pathname-keyed map cannot provide. A
+ * registry/route-table can land later if more routes accumulate; centralized
+ * breadcrumbs would need a richer (loader-data) mechanism than this.
  */
 export function useRouteMeta(): RouteMeta {
   const { pathname } = useLocation();
@@ -27,80 +22,22 @@ export function useRouteMeta(): RouteMeta {
     pathname === "/data-management/workspaces" ||
     pathname.startsWith("/data-management/workspaces/")
   ) {
-    return {
-      breadcrumb: [
-        { label: "Home", route: "/" },
-        { label: "Data Management" },
-        { label: "Workspaces" },
-      ],
-      title: "Workspaces",
-      subtitle: "Manage logical containers for your data and reports.",
-    };
+    return { title: "Workspaces" };
   }
-
-  if (pathname.startsWith("/dashboard/")) {
-    return {
-      breadcrumb: [
-        { label: "Home", route: "/" },
-        { label: "Dashboard", route: "/dashboard" },
-      ],
-      title: "Dashboard",
-    };
-  }
-
-  if (pathname === "/dashboard") {
-    return {
-      breadcrumb: [{ label: "Home", route: "/" }, { label: "Dashboard" }],
-      title: "Dashboards",
-      subtitle: "Live dashboards over your data.",
-    };
-  }
-
-  if (pathname === "/data-management/datasets/new") {
-    return {
-      breadcrumb: [
-        { label: "Home", route: "/" },
-        { label: "Data Management" },
-        { label: "Datasets", route: "/data-management/datasets" },
-        { label: "New" },
-      ],
-      title: "New dataset",
-      subtitle: "Upload a file and turn it into a queryable dataset.",
-    };
-  }
-
+  if (pathname.startsWith("/dashboards/")) return { title: "Dashboards" };
+  if (pathname === "/settings/dashboard") return { title: "Dashboards" };
+  if (pathname === "/data-management/datasets/new") return { title: "New dataset" };
   if (
     pathname === "/data-management/datasets" ||
     pathname.startsWith("/data-management/datasets/")
   ) {
-    return {
-      breadcrumb: [
-        { label: "Home", route: "/" },
-        { label: "Data Management" },
-        { label: "Datasets" },
-      ],
-      title: "Datasets",
-      subtitle: "All tables across your workspaces.",
-    };
+    return { title: "Datasets" };
   }
-
   if (
     pathname === "/data-management/queries" ||
     pathname.startsWith("/data-management/queries/")
   ) {
-    return {
-      breadcrumb: [
-        { label: "Home", route: "/" },
-        { label: "Data Management" },
-        { label: "Queries" },
-      ],
-      title: "Queries",
-      subtitle: "Saved views across your workspaces.",
-    };
+    return { title: "Queries" };
   }
-
-  return {
-    breadcrumb: [{ label: "Home" }],
-    title: "Home",
-  };
+  return { title: "Home" };
 }

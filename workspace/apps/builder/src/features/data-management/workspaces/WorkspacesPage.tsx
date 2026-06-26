@@ -322,7 +322,6 @@ export function WorkspacesPage() {
   };
 
   const workspaces = query.data ?? [];
-  const showActions = !query.isLoading && !query.isError && workspaces.length > 0;
 
   const header = (
     <PageHeader
@@ -330,12 +329,12 @@ export function WorkspacesPage() {
       title={t('workspaces.title')}
       subtitle={t('workspaces.subtitle')}
       onNavigate={(route) => navigate(route)}
+      // The primary action shows always (consistent with Datasets + the
+      // dashboard catalog), not only when the list is non-empty.
       actions={
-        showActions ? (
-          <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-            {t('common.create')}
-          </Button>
-        ) : undefined
+        <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
+          {t('common.create')}
+        </Button>
       }
     />
   );
