@@ -51,9 +51,39 @@ signed up to learn.
   **AI-skill + a subscription**: *user states a business need → an AI agent operates the
   platform's primitives → the human verifies the **meaning** (not the formulas).* It
   accelerates an already-easy product; it is **never load-bearing** for the core value.
+- **#3 — Heavy DA task / compute, as a *separate surface* (TENTATIVE — parked, set 2026-06-26;
+  details deferred).** A higher tier for a **bespoke deep insight** beyond reading a standard
+  dashboard (e.g. *"boss asks for a certain insight from the data"*). The thing that is off-axis and
+  parked here is the **separate Python-analyst SURFACE** (think **Plotly Dash** — a parallel
+  Python-served front-end), **off the #1 formula-free axis** because authoring analysis in code is
+  the opposite of formula-free. The rungs are needs-driven: **#1 can't solve everything → #2 exists;
+  #2 doesn't cover the heaviest bespoke surface → #3 may.**
 
-Build #1 first, on its own merit; #2 layers on top. Everything in the core product must be
-**fully usable by hand**; the agent only makes an already-easy thing faster.
+**CRITICAL — do not pin Polars to #3 (anti-lock-in).** **Polars is a COMPUTE ENGINE, tier-agnostic** —
+it is **not** the off-axis thing. Its first pull is the **workflow / complex-query** feature, a
+**core-trajectory roadmap item** (the long-standing *"workflow (YAML + Polars)"* deferral across
+R71–R77; [[post-mvp-roadmap-migration-first]]) that stays **formula-free** and renders to the **same
+recharts widgets**. Polars serves #1/#2 core; it *could* also back #3. **Only the Dash-style separate
+surface is the #3 / off-axis fork.** This doctrine MUST NOT be cited to *resist* adding Polars when a
+workflow round pulls it — that would be the constitution braking the thing it exists to enable
+([[gates-dont-survive-self-modification]] · dynamic equilibrium).
+
+**Architectural through-line (set at R100) — separate two orthogonal layers:**
+
+- **Compute** (where aggregation happens): client JS today → **DuckDB `GROUP BY`** → **Polars** for
+  multi-step *workflows*. A compute upgrade behind an endpoint feeds `{label, value}` to the **same
+  widget** — the widget impl is the swappable detail ([[layout-is-the-architecture]]).
+- **Presentation** (how it renders): **recharts widgets in the one React app** (#1/#2). A **Dash**
+  surface (#3) is a *different front-end app*, not a charting-lib swap — **Dash ≠ a charting lib**.
+  Adopt Dash only with a real #3 *surface* pull, never as a side effect of "we need a heavier
+  aggregate" (that's a compute pull → DuckDB/Polars, presentation unchanged).
+
+The #1/#2 recharts dashboard and a future #3 Dash surface **coexist** (different jobs); Polars may
+power either.
+
+Build #1 first, on its own merit; #2 layers on top; #3 (the separate surface) is a parked higher
+tier. Everything in the core product must be **fully usable by hand**; the agent only makes an
+already-easy thing faster.
 
 ### Why the #2 agent-loop beats Excel + an AI plugin — the moat is the SUBSTRATE, not the AI
 
