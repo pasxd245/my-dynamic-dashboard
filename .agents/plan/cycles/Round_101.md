@@ -1,10 +1,10 @@
 # Round 101: Dashboard as a persisted noun — create / name / list dashboards (headline-value round)
 
-**Status**: **In Progress** — Design gate CLOSED (DFCFBI 1,2,4,5). **F1 build + review iteration DONE**
-(FE-state widget builder + list/detail + dynamic nav + the human's review changes; type-check + 210
-tests + prod build green). **F1 gate OPEN** — exits on the human's final F1 sign-off
-([[dfcfbi-f1-needs-human-review]]); the Widget shape (now incl. `slug`, per-widget `span`, the
-cross-workspace question) then freezes at Contract. **Awaiting human F1 sign-off.**
+**Status**: **In Progress** — Design + **F1 gates CLOSED** (DFCFBI 1,2,4,5; human signed off F1
+2026-06-27 after the hands-on review). FE-state widget builder + list/detail + dynamic nav, all review
+changes folded; type-check + 210 tests + prod build green. **Next gate: Contract** — freeze the
+`Dashboard`/`Widget` wire shapes (incl. `slug`, per-widget `span`) + resolve the two open questions
+(cross-workspace widgets · slug-uniqueness scope), then Backend → F2 → Integration.
 **Date started**: 2026-06-26
 **Flow**: **DFCFBI (triggers 1, 2, 4, 5)** — set at the Design gate via `flow-selector`; recorded in the
 Do log. The widget-builder UX is discovered at **F1 before the Widget contract shape freezes**
@@ -197,6 +197,14 @@ Iterated on F1 from the human's hands-on review (all built; type-check · 210 te
   clean `path → title` map (per-page `PageHeader` is the breadcrumb SoT — it needs dynamic/per-state
   data a pathname map can't give). Centralized breadcrumbs (loader-data mechanism) parked as a future
   enhancement.
+
+### F1 gate CLOSED (human sign-off, 2026-06-27)
+
+Human ran the app across an extended hands-on review and signed off F1 ("F1 done"). Interaction
+decisions are frozen for this round; open UX questions resolved or explicitly deferred (reorder →
+dynamic-widgets round). The two shape questions carried into **Contract**: (a) cross-workspace widgets
+(a widget may bind a query from another workspace — allow, or constrain to the dashboard's workspace?);
+(b) slug-uniqueness scope (per-workspace, matching query/dataset names?). **Next: Contract gate.**
 
 ## Check
 
