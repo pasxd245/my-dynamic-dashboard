@@ -20,8 +20,6 @@
       "telesaleOutcomes": "Telesale outcomes"
     },
     "axis": {
-      "region": "Region",
-      "product": "Product",
       "revenue": "Revenue"
     },
     "state": {

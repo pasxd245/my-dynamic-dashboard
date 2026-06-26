@@ -1,10 +1,12 @@
 # Round 100: Dashboard theme-opener — a static multi-widget Sales dashboard (FE-only, live)
 
-**Status**: **In Progress** — Design gate CLOSED (human-ratified 2026-06-26). **F1 build DONE**
-(seed extended + `/dashboard` surface + 3 live widgets; type-check + 204 tests + prod build all green).
-**F1 gate OPEN** — DFCFBI F1 exits only when the **human runs the app** for the layout/feel/affordance
-review ([[dfcfbi-f1-needs-human-review]]). **Awaiting human app-run.**
+**Status**: **Complete** — the static Sales dashboard render-proof shipped (FE-only). Design + F1
+gates closed (human-reviewed app-run; X-axis label overlap fixed); Contract/F2/Backend N/A; Integration
+confirmed against the real seeded backend. The headline value (persisted, dynamic, multi-dashboard) is
+the **next theme** (see Feeds into). Do not mistake this proof for "treadmill solved"
+([[dont-mvp-rush-a-roadmap-home-surface]]).
 **Date started**: 2026-06-26
+**Date completed**: 2026-06-26
 **Flow**: **DFCFBI (triggers 2, 5)** — set at the Design gate via `flow-selector`; recorded in the Do
 log. Per [[dfcfbi-two-round-split]] a DFCFBI round may split [D+F1+design-sync] then
 [C+B+F2+Integration]; here R100 is **FE-only**, so the split is lighter.
@@ -153,22 +155,22 @@ single-Query aggregations over the seed.
 
 ## Acceptance criteria (finalized at Design — 2026-06-26)
 
-+ [ ] A new "Dashboard" surface (nav + route) renders a fixed 2–3 widget Sales dashboard.
-+ [ ] Each widget reads a saved Query **live** and shows a correct aggregate over the R99 seed.
-+ [ ] Responsive layout (content-width cap + fill); no horizontal page scroll.
-+ [ ] FE-only — no migration, no contract change, no persisted dashboard entity.
-+ [ ] Snapshot model recorded as a parked later-noun decision (not built).
++ [x] A new "Dashboard" surface (nav + route) renders a fixed 2–3 widget Sales dashboard.
++ [x] Each widget reads a saved Query **live** and shows a correct aggregate over the R99 seed.
++ [x] Responsive layout (content-width cap + fill); no horizontal page scroll. (human-confirmed at F1)
++ [x] FE-only — no migration, no contract change, no persisted dashboard entity (seed dev-data only).
++ [x] Snapshot model recorded as a parked later-noun decision (not built).
 
 **Affordance criteria (added at Design from `ux-design --design-spec` — close the 3 gaps so F1 builds
 them, not discovers them):**
 
-+ [ ] **Credibility — per-widget states.** Each widget declares + renders **loading**, **error**
-  (live query can fail), and **empty** (zero rows) states — not happy-path only.
-+ [ ] **Findability — chart labeling.** Each widget carries a **visible title** and **axis + legend
-  labels** (recharts `<Legend/>` + axis labels); a chart is not learnable without them.
-+ [ ] **Accessibility — non-color-only + accessible names.** The telesale-outcomes pie shows
-  **value/percent labels + legend** (not color alone); each chart has an **accessible name**
-  (`aria-label` / `role="img"`); chart colors come from **contrast-checked AntD theme tokens**.
++ [x] **Credibility — per-widget states.** `ChartCard` renders **loading / error+retry / empty**, plus
+  a page-level **seed-setup** state.
++ [x] **Findability — chart labeling.** Visible card title + Y-axis title + legend; category axis
+  labelled by its (angled) ticks. The redundant X-axis *title* was dropped at F1 (the card title +
+  ticks already name the dimension — human-flagged label overlap, fixed).
++ [x] **Accessibility — non-color-only + accessible names.** Pie shows name+percent labels + legend;
+  each chart wrapped `role="img"` + `aria-label`; colours from AntD theme tokens (`useToken`).
 
 ## Risks / unknowns
 
@@ -270,22 +272,45 @@ Built the static Sales dashboard, FE-only. Verification: `pnpm --filter builder 
 
 ## Check
 
-_Pending — populated at F1 / Integration. Design gate closed; verify against the acceptance criteria
-(incl. the 3 folded affordance criteria) once F1 builds the surface. F1 exit needs **human runs the
-app** ([[dfcfbi-f1-needs-human-review]]); Integration runs against the real R99-seeded backend._
+**Verified (2026-06-26).** All acceptance criteria met (checklist above). Machine: `type-check` clean ·
+**204/204 tests** (incl. `aggregate.test.ts`) · prod build green. Human: ran the app against the real
+`pnpm dev:seed:full` backend — the 3 widgets render correct live aggregates (revenue by region · revenue
+by product with Legacy Tool = 0 · telesale outcomes pie), responsive layout holds, **"looks nice."** One
+F1 defect found + fixed: **X-axis label overlap** → angled category ticks + dropped the redundant X-axis
+title. **F1 gate CLOSED** (human review done). DFCFBI back half: **Contract / F2 / Backend = N/A** (FE-
+only; reuses existing query-execution endpoints; the only backend-adjacent change was dev seed data).
+**Integration = the human app-run above** (real seeded backend).
 
 ## Act
 
-_Pending — round in progress. Capture reusable lessons here at Complete (e.g. recharts-on-React-19 fit,
-client-side aggregation over paged fetch-all, the static-vs-persisted dashboard boundary)._
+Reusable lessons (candidates for `memory/`):
+
++ **recharts@3.9.0 is React-19-safe** — peer range declares `react ^19`; `@ant-design/charts`
+  disqualified (decision #3 confirmed at install).
++ **Client-side aggregation over a paged fetch-all works at seed volume** — loop `getRows` to `total`
+  (~20 req/2k rows); column resolution must mirror QueryDetailPage (joined → `resolvedColumns`;
+  single-source → dataset columns). Pure roll-ups (`aggregate.ts`) kept unit-testable.
++ **A "single-Query aggregation" Design assumption can be false** — the ratified widgets had no backing
+  saved queries; caught at F1, resolved by extending the seed (Path A). Lesson: at the Design gate,
+  **verify the backing data/queries exist**, don't assume.
++ **Compute vs presentation layering + the Polars/Dash decoupling** — recorded in
+  [[product-value-framing]] (the doctrine reframe this round triggered).
++ **The static slice is a proof, not the product** — F1 feedback (dynamic widgets · multiple named
+  dashboards · settings) confirms the headline value needs the persisted-noun theme (below).
 
 ## Feeds into
 
-**Feeds into →** later dashboard-theme slices once the static render path is proven:
+**Feeds into →** the **"Dashboard as a persisted noun" theme** (human-chosen next, 2026-06-26), seeded by
+R100's F1 feedback. Sequence = value-first ([[post-mvp-roadmap-migration-first]]):
 
-+ **Persist + re-run-on-upload** — the round where the headline value actually lands (a saved dashboard
-  definition that re-runs against the latest upload + absorbs CRM drift) ([[post-mvp-roadmap-migration-first]]).
-+ **Edit / configure widgets** — add/remove/configure widgets; must stay **formula-free** per the
-  basic-Excel-user constraint ([[product-value-framing]]).
-+ **Snapshot / Report noun** — the parked later-noun (freeze a report artifact) on the consumer-save /
-  Excel-export path, **not** a dashboard property (data-model recommendation above).
++ **① Persist the noun (next round — headline value).** A **Dashboard** entity (SQLModel + alembic
+  migration + contract); create / name / list dashboards (`Dashboard › Weekly report`); **dynamic nav**
+  from the saved list (replaces R100's hardcoded `Sales` leaf). This is where "define once → re-runs on
+  new data + absorbs drift" lands.
++ **② Dynamic / interactive widgets (Tableau-like).** Per-widget filters · date-range · drill-down ·
+  swap dimension/measure **via UI controls** — must stay **formula-free** ([[product-value-framing]] #1).
++ **③ Dashboard settings (minimal).** Per-dashboard config (name · layout · default range); keep small.
++ **Snapshot / Report noun** — parked later-noun (freeze a report artifact) on the consumer-save /
+  Excel-export path, **not** a dashboard property.
++ **Heavy-DA #3 surface (Dash) + Polars compute** — parked; see [[product-value-framing]] (Polars may
+  arrive earlier as core workflow compute — not gated by #3).

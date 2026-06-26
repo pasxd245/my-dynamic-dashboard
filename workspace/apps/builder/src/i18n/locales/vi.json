@@ -20,8 +20,6 @@
       "telesaleOutcomes": "Kết quả telesale"
     },
     "axis": {
-      "region": "Khu vực",
-      "product": "Sản phẩm",
       "revenue": "Doanh thu"
     },
     "state": {

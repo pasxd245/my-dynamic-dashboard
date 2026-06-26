@@ -58,7 +58,6 @@ export function DashboardPage() {
               title={t('dashboard.widget.revenueByRegion')}
               groupColumn="region_name"
               valueColumn="amount"
-              xAxisLabel={t('dashboard.axis.region')}
               yAxisLabel={t('dashboard.axis.revenue')}
               seriesName={t('dashboard.axis.revenue')}
             />
@@ -71,7 +70,6 @@ export function DashboardPage() {
               title={t('dashboard.widget.revenueByProduct')}
               groupColumn="product_name"
               valueColumn="amount"
-              xAxisLabel={t('dashboard.axis.product')}
               yAxisLabel={t('dashboard.axis.revenue')}
               seriesName={t('dashboard.axis.revenue')}
             />

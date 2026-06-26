@@ -44,7 +44,6 @@ type BarWidgetProps = Readonly<{
   /** Logical column names (resolved against the effective columns). */
   groupColumn: string;
   valueColumn: string;
-  xAxisLabel: string;
   yAxisLabel: string;
   /** The series name (legend + tooltip). */
   seriesName: string;
@@ -58,7 +57,6 @@ export function BarSumWidget({
   title,
   groupColumn,
   valueColumn,
-  xAxisLabel,
   yAxisLabel,
   seriesName,
 }: BarWidgetProps) {
@@ -83,18 +81,22 @@ export function BarSumWidget({
     >
       <ChartFigure label={t('dashboard.ariaBar', { title })}>
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={chartData} margin={{ top: 8, right: 16, bottom: 24, left: 12 }} accessibilityLayer>
+          <BarChart data={chartData} margin={{ top: 8, right: 16, bottom: 8, left: 8 }} accessibilityLayer>
             <CartesianGrid strokeDasharray="3 3" vertical={false} />
             <XAxis
               dataKey="label"
               interval={0}
-              tick={{ fontSize: 12 }}
-              label={{ value: xAxisLabel, position: 'insideBottom', offset: -16, fontSize: 12 }}
+              angle={-30}
+              textAnchor="end"
+              height={68}
+              tickMargin={6}
+              tick={{ fontSize: 11 }}
             />
             <YAxis
-              tick={{ fontSize: 12 }}
+              width={52}
+              tick={{ fontSize: 11 }}
               tickFormatter={(v: number) => compactFmt.format(v)}
-              label={{ value: yAxisLabel, angle: -90, position: 'insideLeft', fontSize: 12 }}
+              label={{ value: yAxisLabel, angle: -90, position: 'insideLeft', style: { fontSize: 12, textAnchor: 'middle' } }}
             />
             <Tooltip formatter={(v) => numberFmt.format(Number(v))} />
             <Legend />
