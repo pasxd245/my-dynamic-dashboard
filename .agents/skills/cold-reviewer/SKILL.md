@@ -7,7 +7,7 @@ allowed-tools: Read, Grep, Glob, Bash(grep *), Bash(git diff *), Bash(git log *)
 metadata:
   author: hand-authored-2026-06-24
   version: '1.0'
-  status: registered — Track-2 (agent-method, decision-hygiene). Pulled by R92 planning (a cold-reviewer pass caught the resolveConnect/provenance seam + pinned the qr_-node scope before build). Concept: ../../plan/brainstorms/2026-06-24-s3-anchors-feedback-skill.md
+  status: 'registered — Track-2 (agent-method, decision-hygiene). Pulled by R92 planning (a cold-reviewer pass caught the resolveConnect/provenance seam + pinned the qr_-node scope before build). Concept: ../../plan/brainstorms/2026-06-24-s3-anchors-feedback-skill.md'
 ---
 
 > The *why* behind every rule here lives in [`references/theory.md`](references/theory.md)

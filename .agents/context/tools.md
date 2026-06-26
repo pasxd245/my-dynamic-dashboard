@@ -40,7 +40,7 @@ Hints only — open the linked source for the full procedure.
   Design exit) · [`gate-walker`](../skills/gate-walker/SKILL.md) (verify a
   Hard Gate before advancing) ·
   [`design-sync`](../skills/design-sync/SKILL.md) (re-sync a domain's design
-  docs to the code) · [`ui-design`](../skills/ui-design/SKILL.md) (review a UI
+  docs to the code) · [`ux-design`](../skills/ux-design/SKILL.md) (review a UI
   vs the six UX facets) · [`research`](../skills/research/SKILL.md) (sourced
   investigation) ·
   [`markdown-check-link`](../skills/markdown-check-link/SKILL.md) (markdown

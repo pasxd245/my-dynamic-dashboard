@@ -1,13 +1,14 @@
 ---
-name: ui-design
+name: ux-design
 description: Review a UI surface against the six essential components of a design (UX-honeycomb facets — Findability, Usability, Accessibility, Credibility, Utility, Desirability) grounded in Ant Design's Data Entry guidance. Two modes — design-spec (does the design doc DECLARE the affordances; run at the Design gate, primary/preventive) and fidelity (does the BUILD carry them; run at F1/F2, backstop/corrective). Emits a per-facet pass/gap report. Verifies — does not auto-fix.
-when_to_use: Run at the Design gate on the design doc (primary — verify the spec is affordance-complete before F builds it), and at the F1/F2 gate on the built component (backstop — verify the build carries what the design declared). Also ad hoc on any surface or design doc. Trigger phrases include "review the UX", "is this design complete", "is this field usable", "check the affordances", "run ui-design", "does this match the design".
+when_to_use: Run at the Design gate on the design doc (primary — verify the spec is affordance-complete before F builds it), and at the F1/F2 gate on the built component (backstop — verify the build carries what the design declared). Also ad hoc on any surface or design doc. Trigger phrases include "review the UX", "is this design complete", "is this field usable", "check the affordances", "run ux-design", "does this match the design".
 argument-hint: <design-doc-path> [component-path]
 arguments: design component
 allowed-tools: Read, Grep, Bash(grep *)
 metadata:
   author: hand-authored-r52
   version: '1.0'
+  renamed-from: ui-design (R98 — reviews UX affordances, not the UI layout skeleton; `ui-design` reserved for a future layout skill)
 ---
 
 ## Trigger
@@ -136,7 +137,7 @@ backstop failure this mode exists to catch.
 Return inline (no file written):
 
 ```text
-ui-design [<mode>] — <surface-or-design> (vs <design-doc | "no design doc">)
+ux-design [<mode>] — <surface-or-design> (vs <design-doc | "no design doc">)
 
 | Facet         | Verdict | Evidence / gap (pointer) |
 |---------------|---------|--------------------------|

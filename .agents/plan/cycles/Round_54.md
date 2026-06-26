@@ -48,7 +48,7 @@ decides.
 
 - **Sharpen two `ui-design` facets** (prerequisite, Track-2) —
   both gaps R51/R53 exposed that the v1 skill under-probed. Update
-  [`ui-design/SKILL.md`](../../skills/ui-design/SKILL.md) + the
+  [`ui-design/SKILL.md`](../../skills/ux-design/SKILL.md) + the
   README role-line:
   - **Findability → learnability** — extend from "labeled +
     distinguishable" to also ask **"is there a discoverable way to
@@ -151,7 +151,7 @@ decides.
 
 ### Facets sharpened (prerequisite)
 
-[`ui-design/SKILL.md`](../../skills/ui-design/SKILL.md): **Findability**
+[`ui-design/SKILL.md`](../../skills/ux-design/SKILL.md): **Findability**
 now also asks "is the control **learnable** — for a non-obvious
 syntax, is there a discoverable help affordance, not just a
 placeholder?"; **Usability** now also asks "is the clear/reset

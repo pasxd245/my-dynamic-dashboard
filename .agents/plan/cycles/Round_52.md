@@ -224,14 +224,14 @@ verified by lints / the skill's own report, not Hard Gates.
 
 ### Authored the skill (two modes)
 
-- [`.agents/skills/ui-design/SKILL.md`](../../skills/ui-design/SKILL.md)
+- [`.agents/skills/ui-design/SKILL.md`](../../skills/ux-design/SKILL.md)
   — design-spec mode (primary, Design gate) + fidelity mode
   (backstop, F1/F2) + build-only (ad hoc); six-facet structural
   checklist with per-mode evidence source; fidelity diff; inline
   report; structural-only quality bar; AntD + Figma references
   cited. `allowed-tools: Read, Grep, Bash(grep *)` (read-only,
   no script).
-- [`.claude/skills/ui-design/SKILL.md`](../../../.claude/skills/ui-design/SKILL.md)
+- [`.claude/skills/ui-design/SKILL.md`](../../../.claude/skills/ux-design/SKILL.md)
   ref stub. The skill is discoverable at session load (appears in
   the Skill list).
 

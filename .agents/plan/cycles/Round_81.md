@@ -153,7 +153,7 @@ the [dynamic-equilibrium brake](../../context/purpose.md#dynamic-equilibrium)._
   `canvas.md` stays a sibling per R80), **(c)** a short cluster index listing the reason set +
   pointing at spine + modes. Bar for a surviving mode doc: _folding it into the spine would push
   the spine past readability._ `queries/` 7 → spine + ≤2 modes + index (pilot sets the exact count).
-+ **J-4 → procedure-checklist skill** (judgment-heavy, like [`ui-design`](../../skills/ui-design/SKILL.md)/
++ **J-4 → procedure-checklist skill** (judgment-heavy, like [`ui-design`](../../skills/ux-design/SKILL.md)/
   [`research`](../../skills/research/SKILL.md)), **not** a mechanical script — the keep/delete (J-1)
   and spine/mode (J-3) calls need judgment a regex can't make.
   + **Trigger** (human-invoked, no auto-sweep — README precedent): a cluster crosses a smell
@@ -170,7 +170,7 @@ the [dynamic-equilibrium brake](../../context/purpose.md#dynamic-equilibrium)._
   (1) distills to current-state, (2) **spot-verifies the single highest-risk current-state claim
   per cluster against the shipped FE/contract** (the audit program's proven depth —
   [design-corpus-audit](../programs/design-corpus-audit.plan.md) § "doc-conformance + spot-verify"),
-  (3) **hands deeper drift to [`ui-design`](../../skills/ui-design/SKILL.md) fidelity mode** as a
+  (3) **hands deeper drift to [`ui-design`](../../skills/ux-design/SKILL.md) fidelity mode** as a
   follow-up rather than fixing inline. Not a full fidelity audit (brake — that's `ui-design`'s job).
 + **J-6 → R81 = author skill + pilot `queries/` only; full sweep = R82+ rounds, NOT a program
   (yet).** A program is justified only if the sweep needs cross-round governance + a rolling

@@ -36,7 +36,7 @@ Active commitments in [`decisions/`](decisions/) constrain this Rule — check b
 
 - **[R99 evo-horizon](decisions/2026-05-27-r99-evo-horizon.md)** — no Track-3 system-building before Round 99; artifact-only until then.
 - **[Hybrid flow governance](decisions/2026-05-28-hybrid-flow-governance.md)** — DCFBI default, DFCFBI conditional (2-of-5 selector), O-rule cross-cutting; F1 timebox ≤2 working days.
-- **[Skills index](skills/README.md)** — operationalize R47's flow: `flow-selector` + `gate-walker` (primary); `research`, `markdown-check-link`, `ui-design` (dependent).
+- **[Skills index](skills/README.md)** — operationalize R47's flow: `flow-selector` + `gate-walker` (primary); `research`, `markdown-check-link`, `ux-design` (dependent).
 
 ### Telos Check
 

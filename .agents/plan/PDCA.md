@@ -58,7 +58,7 @@ Each round follows four phases:
   unblocked — but skipping it on a UI round is a known-defect risk.
   Log the verification (or its explicit skip + reason) in Do.
 - **Affordance check (UI-bearing rounds): run
-  [`ui-design`](../skills/ui-design/SKILL.md)** against the six
+  [`ux-design`](../skills/ux-design/SKILL.md)** against the six
   essential components of a design (Findability, Usability,
   Accessibility, Credibility, Utility, Desirability), structurally.
   **Primary use is at the Design gate** (design-spec mode, on the

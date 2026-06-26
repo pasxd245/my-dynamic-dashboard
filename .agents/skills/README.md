@@ -87,7 +87,11 @@ single unambiguous basename); anything else stays as a
 suggestion in the report. Invoke as an optional companion to
 `npx markdownlint-cli2` in the post-round audit.
 
-### [`ui-design`](ui-design/SKILL.md)
+### [`ux-design`](ux-design/SKILL.md)
+
+> **Renamed from `ui-design` in R98** — it reviews **UX affordances**, not the **UI layout
+> skeleton**; the `ui-design` name is reserved for a future layout-skeleton skill. (Round files
+> R51–R97 + memories reference the old `ui-design` name as historical record.)
 
 Review a UI surface against **the six essential components of a
 design** (UX-honeycomb facets — Findability, Usability,
@@ -133,7 +137,7 @@ spots surface before commitment. One axis — reviewer disposition
 (`challenge`/`fair`/`constructive`/`mix`); the anchor-set is fixed and
 every verdict is **grounded-or-`could-not-verify`** (never a fluent
 assertion). **Surfaces, never decides** — only the human locks (same
-verify-don't-fix discipline as `ui-design`/`gate-walker`). The *why*
+verify-don't-fix discipline as `ux-design`/`gate-walker`). The *why*
 (Kahneman S1/S2 human + S3 AI, WYSIATI, regression-to-mean, "cold" =
 pre-registered questions) lives in
 [`references/theory.md`](cold-reviewer/references/theory.md). Companion:
