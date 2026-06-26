@@ -73,13 +73,23 @@ workflow round pulls it — that would be the constitution braking the thing it 
 - **Compute** (where aggregation happens): client JS today → **DuckDB `GROUP BY`** → **Polars** for
   multi-step *workflows*. A compute upgrade behind an endpoint feeds `{label, value}` to the **same
   widget** — the widget impl is the swappable detail ([[layout-is-the-architecture]]).
-- **Presentation** (how it renders): **recharts widgets in the one React app** (#1/#2). A **Dash**
-  surface (#3) is a *different front-end app*, not a charting-lib swap — **Dash ≠ a charting lib**.
-  Adopt Dash only with a real #3 *surface* pull, never as a side effect of "we need a heavier
-  aggregate" (that's a compute pull → DuckDB/Polars, presentation unchanged).
+- **Presentation** (how it renders): charts in the one React app (#1/#2). A **chart-lib ladder** within
+  presentation: **recharts (basic — bar/pie/line, now)** → **ECharts (advanced — heatmap/sankey/
+  zoom-brush, added later)**. Chart *sophistication is still #1/#2 presentation* — an advanced ECharts
+  chart over a normal query is NOT #3. A **Dash** surface (#3) is a *different front-end app*, not a
+  charting-lib swap — **Dash ≠ a charting lib**. Adopt Dash only with a real #3 *surface/compute* pull,
+  never as a side effect of "we need a heavier aggregate" (compute pull → DuckDB/Polars) **or** "we need
+  a fancier chart" (presentation pull → ECharts).
 
-The #1/#2 recharts dashboard and a future #3 Dash surface **coexist** (different jobs); Polars may
-power either.
+**Chart-lib plan (set R101, 2026-06-26):** WidgetView is the **lib-agnostic seam** — the `Widget` config
+(`chartType`/`dimensionCol`/`measureCol`/`agg`) leaks no chart-lib types, and WidgetView is the single
+render chokepoint. That IS "architecture-ready"; **do not** build a speculative plugin layer before the
+pull ("default = don't add"). When advanced charts are pulled, the work is **additive**: extend the
+`chartType` union, add an `EChartsView` renderer, dispatch `chartType → recharts | echarts` (basic bar/
+pie stay on recharts — no migration), and **lazy-load** ECharts so basic dashboards don't pay its bundle.
+
+The #1/#2 recharts (→ECharts) dashboard and a future #3 Dash surface **coexist** (different jobs); Polars
+may power either.
 
 Build #1 first, on its own merit; #2 layers on top; #3 (the separate surface) is a parked higher
 tier. Everything in the core product must be **fully usable by hand**; the agent only makes an
