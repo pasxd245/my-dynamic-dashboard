@@ -9,6 +9,37 @@
  *  (joined query) — both carry a `name`. */
 export type ColumnLike = { readonly name: string };
 
+/** A column with its dtype — what the widget builder needs to default the
+ *  dimension (categorical) vs measure (numeric). Both `Column` and
+ *  `ResolvedColumn` satisfy it. */
+export type DataColumn = { readonly name: string; readonly dtype: string };
+
+const NUMERIC_DTYPES = new Set(['integer', 'float']);
+
+/** Is this column numeric (a candidate measure)? */
+export function isNumeric(col: DataColumn): boolean {
+  return NUMERIC_DTYPES.has(col.dtype);
+}
+
+/** Default a widget's config from a query's columns: first categorical column
+ *  is the dimension, first numeric column is the measure (→ `sum`); with no
+ *  numeric column, fall back to counting rows (`count`). Chart defaults to bar.
+ *  Pure — the builder seeds its controls with this, then the user adjusts. */
+export function pickWidgetDefaults(columns: readonly DataColumn[]): {
+  dimensionCol: string;
+  measureCol?: string;
+  agg: 'sum' | 'count';
+  chartType: 'bar' | 'pie';
+} {
+  const numeric = columns.filter(isNumeric);
+  const categorical = columns.filter((c) => !isNumeric(c));
+  const dimensionCol = (categorical[0] ?? columns[0])?.name ?? '';
+  if (numeric.length > 0) {
+    return { dimensionCol, measureCol: numeric[0].name, agg: 'sum', chartType: 'bar' };
+  }
+  return { dimensionCol, agg: 'count', chartType: 'bar' };
+}
+
 /** A single chart datum: one bar / one pie slice. */
 export type Datum = { readonly label: string; readonly value: number };
 

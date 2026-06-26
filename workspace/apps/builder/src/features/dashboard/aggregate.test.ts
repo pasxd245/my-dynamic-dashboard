@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { countByGroup, findColIndex, sortDesc, sumByGroup, toNum } from './aggregate';
+import { countByGroup, findColIndex, pickWidgetDefaults, sortDesc, sumByGroup, toNum } from './aggregate';
 
 describe('findColIndex', () => {
   const cols = [{ name: 'region_name' }, { name: 'Orders.amount' }, { name: 'Customers.region_id' }];
@@ -60,6 +60,30 @@ describe('countByGroup', () => {
       { label: 'no_answer', value: 1 },
       { label: 'declined', value: 1 },
     ]);
+  });
+});
+
+describe('pickWidgetDefaults', () => {
+  it('picks first categorical as dimension, first numeric as measure → sum/bar', () => {
+    const cols = [
+      { name: 'region_name', dtype: 'string' },
+      { name: 'amount', dtype: 'float' },
+      { name: 'qty', dtype: 'integer' },
+    ];
+    expect(pickWidgetDefaults(cols)).toEqual({
+      dimensionCol: 'region_name',
+      measureCol: 'amount',
+      agg: 'sum',
+      chartType: 'bar',
+    });
+  });
+
+  it('falls back to count when there is no numeric column', () => {
+    const cols = [
+      { name: 'outcome', dtype: 'string' },
+      { name: 'agent', dtype: 'string' },
+    ];
+    expect(pickWidgetDefaults(cols)).toEqual({ dimensionCol: 'outcome', agg: 'count', chartType: 'bar' });
   });
 });
 

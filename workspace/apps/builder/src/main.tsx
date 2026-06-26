@@ -17,7 +17,9 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import '@/i18n';
 import { AppErrorBoundary } from '@/components/AppErrorBoundary';
 import { AppLayout } from '@/components/AppLayout';
-import { DashboardPage } from '@/features/dashboard/DashboardPage';
+import { DashboardListPage } from '@/features/dashboard/DashboardListPage';
+import { DashboardDetailPage } from '@/features/dashboard/DashboardDetailPage';
+import { DashboardStoreProvider } from '@/features/dashboard/store';
 import { DatasetDetailPage } from '@/features/data-management/datasets/DatasetDetailPage';
 import { DatasetsPage } from '@/features/data-management/datasets/DatasetsPage';
 import { DatasetNewPage } from '@/features/data-management/datasets/upload/DatasetNewPage';
@@ -80,10 +82,12 @@ const appTree = (
       <LocaleAwareAntd>
         <AppErrorBoundary>
           <BrowserRouter>
-            <AppLayout>
-              <Routes>
-                <Route path="/" element={<Navigate to="/data-management/workspaces" replace />} />
-                <Route path="/dashboard" element={<DashboardPage />} />
+            <DashboardStoreProvider>
+              <AppLayout>
+                <Routes>
+                  <Route path="/" element={<Navigate to="/data-management/workspaces" replace />} />
+                  <Route path="/dashboard" element={<DashboardListPage />} />
+                  <Route path="/dashboard/:id" element={<DashboardDetailPage />} />
                 {/* /data-management is a sidebar group, not a leaf — redirect to default child. */}
                 <Route path="/data-management" element={<Navigate to="/data-management/workspaces" replace />} />
                 <Route path="/data-management/workspaces" element={<WorkspacesPage />} />
@@ -97,8 +101,9 @@ const appTree = (
                 <Route path="/data-management/queries" element={<QueriesPage />} />
                 <Route path="/data-management/queries/new" element={<QueryCreatePage />} />
                 <Route path="/data-management/queries/:id" element={<QueryDetailPage />} />
-              </Routes>
-            </AppLayout>
+                </Routes>
+              </AppLayout>
+            </DashboardStoreProvider>
           </BrowserRouter>
         </AppErrorBoundary>
       </LocaleAwareAntd>

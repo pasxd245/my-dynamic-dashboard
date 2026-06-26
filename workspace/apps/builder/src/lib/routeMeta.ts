@@ -38,11 +38,21 @@ export function useRouteMeta(): RouteMeta {
     };
   }
 
-  if (pathname === "/dashboard" || pathname.startsWith("/dashboard/")) {
+  if (pathname.startsWith("/dashboard/")) {
+    return {
+      breadcrumb: [
+        { label: "Home", route: "/" },
+        { label: "Dashboard", route: "/dashboard" },
+      ],
+      title: "Dashboard",
+    };
+  }
+
+  if (pathname === "/dashboard") {
     return {
       breadcrumb: [{ label: "Home", route: "/" }, { label: "Dashboard" }],
-      title: "Sales dashboard",
-      subtitle: "A live view of your seeded Sales data.",
+      title: "Dashboards",
+      subtitle: "Live dashboards over your data.",
     };
   }
 

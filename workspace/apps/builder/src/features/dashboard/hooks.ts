@@ -14,9 +14,7 @@ import { queriesApi } from '@/api/queriesApi';
 import { useDatasetQuery } from '@/features/data-management/datasets/hooks';
 import { useQueriesQuery, useQueryQuery } from '@/features/data-management/queries/hooks';
 import { useWorkspacesQuery } from '@/features/data-management/workspaces/hooks';
-import type { Column } from '@/features/data-management/datasets/types';
-import type { ResolvedColumn } from '@/features/data-management/queries/types';
-import type { ColumnLike } from './aggregate';
+import type { DataColumn } from './aggregate';
 
 /** The seed's workspace name (scripts/dev/seed.py · WS_NAME). */
 export const SEED_WORKSPACE_NAME = 'Sales demo (seed)';
@@ -60,7 +58,7 @@ export function useQueryIdByName(workspaceId: string | undefined, name: string):
 export type WidgetData = {
   /** The effective columns (joined → `resolvedColumns`; single-source →
    *  the source dataset's columns — the QueryDetailPage rule). */
-  columns: readonly ColumnLike[];
+  columns: readonly DataColumn[];
   rows: readonly (readonly (string | null)[])[];
   isLoading: boolean;
   isError: boolean;
@@ -82,13 +80,13 @@ export function useWidgetData(queryId: string | undefined): WidgetData {
     query && !joined && query.sourceId.startsWith('ds_') ? query.sourceId : undefined;
   const datasetQ = useDatasetQuery(sourceDatasetId);
 
-  const columns: readonly ColumnLike[] = joined
-    ? (query?.resolvedColumns as readonly ResolvedColumn[])
-    : ((datasetQ.data?.columns as readonly Column[]) ?? []);
+  const resolved: readonly DataColumn[] = query?.resolvedColumns ?? [];
+  const datasetCols: readonly DataColumn[] = datasetQ.data?.columns ?? [];
+  const columns: readonly DataColumn[] = joined ? resolved : datasetCols;
 
   const rowsQ = useQuery({
     queryKey: ['dashboard-all-rows', queryId] as const,
-    queryFn: () => fetchAllRows(queryId as string),
+    queryFn: () => fetchAllRows(queryId ?? ''),
     enabled: typeof queryId === 'string',
   });
 
@@ -98,7 +96,7 @@ export function useWidgetData(queryId: string | undefined): WidgetData {
     isLoading: queryQ.isLoading || rowsQ.isLoading || (Boolean(sourceDatasetId) && datasetQ.isLoading),
     isError: queryQ.isError || rowsQ.isError || datasetQ.isError,
     refetch: () => {
-      void rowsQ.refetch();
+      rowsQ.refetch().catch(() => undefined);
     },
   };
 }

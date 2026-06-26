@@ -10,28 +10,59 @@
     "relationships": "Quan hệ"
   },
   "dashboard": {
-    "title": "Bảng điều khiển bán hàng",
-    "subtitle": "Khung nhìn trực tiếp trên dữ liệu bán hàng đã nạp — mỗi widget chạy lại một truy vấn đã lưu.",
-    "setupTitle": "Chưa có dữ liệu cho bảng điều khiển bán hàng",
-    "setupHint": "Nạp kịch bản bán hàng để hiển thị bảng điều khiển: chạy `pnpm dev:seed:full`.",
-    "widget": {
-      "revenueByRegion": "Doanh thu theo khu vực",
-      "revenueByProduct": "Doanh thu theo sản phẩm",
-      "telesaleOutcomes": "Kết quả telesale"
-    },
-    "axis": {
-      "revenue": "Doanh thu"
-    },
+    "listTitle": "Bảng điều khiển",
+    "listSubtitle": "Các bảng điều khiển trực tiếp trên dữ liệu của bạn — mỗi widget chạy lại một truy vấn đã lưu.",
+    "allDashboards": "Tất cả bảng điều khiển",
+    "new": "Bảng điều khiển mới",
+    "newTitle": "Bảng điều khiển mới",
+    "renameTitle": "Đổi tên bảng điều khiển",
+    "nameLabel": "Tên",
+    "namePlaceholder": "ví dụ: Báo cáo tuần",
+    "emptyList": "Chưa có bảng điều khiển nào — hãy tạo cái đầu tiên.",
+    "widgetCount": "Widget: {{count}}",
+    "deleteTitle": "Xóa “{{name}}”?",
+    "deleteHint": "Thao tác này xóa bảng điều khiển và các widget của nó. Các truy vấn gốc không bị ảnh hưởng.",
+    "notFoundTitle": "Không tìm thấy bảng điều khiển",
+    "notFoundHint": "Có thể nó đã bị xóa, hoặc liên kết này đã cũ.",
+    "backToList": "Quay lại danh sách",
+    "noWidgets": "Chưa có widget nào — hãy thêm cái đầu tiên.",
+    "setupTitle": "Chưa có dữ liệu không gian làm việc",
+    "setupHint": "Hãy nạp kịch bản bán hàng trước: chạy `pnpm dev:seed:full`.",
     "state": {
       "error": "Không thể tải widget này",
       "errorHint": "Truy vấn đã lưu chạy thất bại. Kiểm tra backend đang chạy và đã nạp dữ liệu.",
       "retry": "Thử lại",
       "empty": "Không có dữ liệu để vẽ biểu đồ",
-      "missingQuery": "Không tìm thấy truy vấn đã lưu",
-      "missingQueryHint": "Widget này cần một truy vấn đã lưu từ dữ liệu mẫu. Chạy lại `pnpm dev:seed:full`."
+      "missingQuery": "Truy vấn không khả dụng",
+      "missingQueryHint": "Truy vấn mà widget này trỏ tới bị thiếu hoặc lỗi."
     },
     "ariaBar": "Biểu đồ cột: {{title}}",
-    "ariaPie": "Biểu đồ tròn: {{title}}"
+    "ariaPie": "Biểu đồ tròn: {{title}}",
+    "builder": {
+      "addTitle": "Thêm widget",
+      "editTitle": "Sửa widget",
+      "add": "Thêm widget",
+      "addFirst": "Thêm widget đầu tiên",
+      "query": "Truy vấn",
+      "queryPlaceholder": "Chọn một truy vấn đã lưu",
+      "title": "Tiêu đề",
+      "titlePlaceholder": "ví dụ: Doanh thu theo khu vực",
+      "previewTitle": "Widget chưa đặt tên",
+      "dimension": "Nhóm theo",
+      "agg": "Tổng hợp",
+      "aggSum": "Tổng",
+      "aggCount": "Đếm dòng",
+      "measure": "Giá trị đo",
+      "measurePlaceholder": "Chọn một cột số",
+      "noNumeric": "Truy vấn này không có cột số",
+      "chart": "Biểu đồ",
+      "chartBar": "Cột",
+      "chartPie": "Tròn",
+      "preview": "Xem trước",
+      "previewHint": "Chọn một truy vấn để xem trước widget.",
+      "countLabel": "Số lượng",
+      "removeTitle": "Xóa “{{title}}”?"
+    }
   },
   "common": {
     "create": "Tạo",
@@ -51,7 +82,8 @@
     "nameLabel": "Tên",
     "nameRequired": "Vui lòng nhập tên",
     "nameMaxLength": "Tên không được quá {{max}} ký tự",
-    "newResourceName": "Tên {{resource}} mới"
+    "newResourceName": "Tên {{resource}} mới",
+    "edit": "Sửa"
   },
   "resources": {
     "workspace": "không gian làm việc",

@@ -10,28 +10,59 @@
     "relationships": "Relationships"
   },
   "dashboard": {
-    "title": "Sales dashboard",
-    "subtitle": "A live view of your seeded Sales data — each widget re-runs a saved query.",
-    "setupTitle": "No Sales dashboard data yet",
-    "setupHint": "Seed the Sales scenario to populate this dashboard: run `pnpm dev:seed:full`.",
-    "widget": {
-      "revenueByRegion": "Revenue by region",
-      "revenueByProduct": "Revenue by product",
-      "telesaleOutcomes": "Telesale outcomes"
-    },
-    "axis": {
-      "revenue": "Revenue"
-    },
+    "listTitle": "Dashboards",
+    "listSubtitle": "Live dashboards over your data — each widget re-runs a saved query.",
+    "allDashboards": "All dashboards",
+    "new": "New dashboard",
+    "newTitle": "New dashboard",
+    "renameTitle": "Rename dashboard",
+    "nameLabel": "Name",
+    "namePlaceholder": "e.g. Weekly report",
+    "emptyList": "No dashboards yet — create your first.",
+    "widgetCount": "Widgets: {{count}}",
+    "deleteTitle": "Delete “{{name}}”?",
+    "deleteHint": "This removes the dashboard and its widgets. The underlying queries are not affected.",
+    "notFoundTitle": "Dashboard not found",
+    "notFoundHint": "It may have been deleted, or this link is stale.",
+    "backToList": "Back to dashboards",
+    "noWidgets": "No widgets yet — add your first.",
+    "setupTitle": "No workspace data yet",
+    "setupHint": "Seed the Sales scenario first: run `pnpm dev:seed:full`.",
     "state": {
       "error": "Couldn't load this widget",
       "errorHint": "The saved query failed to run. Check the backend is up and seeded.",
       "retry": "Retry",
       "empty": "No data to chart",
-      "missingQuery": "Saved query not found",
-      "missingQueryHint": "This widget expects a seeded saved query. Re-run `pnpm dev:seed:full`."
+      "missingQuery": "Saved query unavailable",
+      "missingQueryHint": "The query this widget points to is missing or failed."
     },
     "ariaBar": "Bar chart: {{title}}",
-    "ariaPie": "Pie chart: {{title}}"
+    "ariaPie": "Pie chart: {{title}}",
+    "builder": {
+      "addTitle": "Add widget",
+      "editTitle": "Edit widget",
+      "add": "Add widget",
+      "addFirst": "Add your first widget",
+      "query": "Query",
+      "queryPlaceholder": "Pick a saved query",
+      "title": "Title",
+      "titlePlaceholder": "e.g. Revenue by region",
+      "previewTitle": "Untitled widget",
+      "dimension": "Group by",
+      "agg": "Aggregation",
+      "aggSum": "Sum",
+      "aggCount": "Count rows",
+      "measure": "Measure",
+      "measurePlaceholder": "Pick a numeric column",
+      "noNumeric": "No numeric columns in this query",
+      "chart": "Chart",
+      "chartBar": "Bar",
+      "chartPie": "Pie",
+      "preview": "Preview",
+      "previewHint": "Pick a query to preview the widget.",
+      "countLabel": "Count",
+      "removeTitle": "Remove “{{title}}”?"
+    }
   },
   "common": {
     "create": "Create",
@@ -51,7 +82,8 @@
     "nameLabel": "Name",
     "nameRequired": "Name is required",
     "nameMaxLength": "Name must be {{max}} characters or fewer",
-    "newResourceName": "New {{resource}} name"
+    "newResourceName": "New {{resource}} name",
+    "edit": "Edit"
   },
   "resources": {
     "workspace": "workspace",

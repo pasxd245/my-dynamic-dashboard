@@ -21,6 +21,8 @@ type ChartCardProps = Readonly<{
   /** Loaded successfully but the query returned no rows to chart. */
   isEmpty: boolean;
   onRetry?: () => void;
+  /** Header-right slot — per-widget actions (edit / remove). */
+  extra?: ReactNode;
   children: ReactNode;
 }>;
 
@@ -42,7 +44,7 @@ function Centered({ children }: Readonly<{ children: ReactNode }>) {
   );
 }
 
-export function ChartCard({ title, isLoading, isError, isMissingQuery, isEmpty, onRetry, children }: ChartCardProps) {
+export function ChartCard({ title, isLoading, isError, isMissingQuery, isEmpty, onRetry, extra, children }: ChartCardProps) {
   const { t } = useTranslation();
 
   let body: ReactNode;
@@ -83,7 +85,13 @@ export function ChartCard({ title, isLoading, isError, isMissingQuery, isEmpty, 
   }
 
   return (
-    <Card title={title} variant="outlined" data-component="DashboardChartCard" styles={{ body: { paddingTop: 12 } }}>
+    <Card
+      title={title}
+      extra={extra}
+      variant="outlined"
+      data-component="DashboardChartCard"
+      styles={{ body: { paddingTop: 12 } }}
+    >
       {body}
     </Card>
   );

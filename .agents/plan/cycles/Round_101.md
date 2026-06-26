@@ -1,9 +1,9 @@
 # Round 101: Dashboard as a persisted noun — create / name / list dashboards (headline-value round)
 
-**Status**: **In Progress** — **Design gate CLOSED** (human-ratified 2026-06-26): data model + full
-widget builder + clear decisions ratified; `flow-selector` → DFCFBI (1,2,4,5); `ux-design --design-spec`
-gap (widget remove/edit) folded. **Next gate: F1** (widget-builder FE discovery against MSW, contract-
-safe — the Widget shape freezes at Contract *after* F1). **Awaiting human go-ahead to start F1.**
+**Status**: **In Progress** — Design gate CLOSED (DFCFBI 1,2,4,5). **F1 build DONE** (FE-state widget
+builder + list/detail + dynamic nav; type-check + 206 tests + prod build green). **F1 gate OPEN** —
+exits only when the **human runs the app** ([[dfcfbi-f1-needs-human-review]]); the Widget shape then
+freezes at Contract. **Awaiting human app-run.**
 **Date started**: 2026-06-26
 **Flow**: **DFCFBI (triggers 1, 2, 4, 5)** — set at the Design gate via `flow-selector`; recorded in the
 Do log. The widget-builder UX is discovered at **F1 before the Widget contract shape freezes**
@@ -123,6 +123,31 @@ questions resolved (see Design decisions above). Declared the affordances/states
 
 Result: **Flow: DFCFBI (triggers 1, 2, 4, 5)** — F1 discovers the widget-builder + Widget shape before
 Contract freezes.
+
+### F1 build (2026-06-26) — awaiting human app-run
+
+Built the widget builder + dashboard list/detail on **FE state** (in-memory `DashboardStoreProvider`),
+contract-safe (no wire/contract change; reuses the existing query-execution endpoints). Verification:
+`type-check` clean · **206/206 tests** (incl. new `pickWidgetDefaults` cases) · prod build green.
+
++ **Store** (`store.tsx`) — in-memory dashboards (CRUD on dashboards + widgets); swapped for the real
+  API at Contract/Backend without touching the component tree. `useDashboardsForNav` is a tolerant
+  read so the shell renders without a provider (keeps the layout-only test harnesses green).
++ **WidgetView** (`WidgetView.tsx`) — generalised R100's two hardcoded widgets into one config-driven
+  renderer (bar/pie) keyed off a `Widget`; reuses `aggregate.ts` + `ChartCard`. R100's `DashboardPage`
+  + `widgets.tsx` removed (superseded).
++ **WidgetBuilder** (`WidgetBuilder.tsx`) — formula-free: pick Query → dimension/measure/agg/chart
+  (defaulted from column dtypes via `pickWidgetDefaults`, adjustable) with a **live preview**.
++ **Pages** — `DashboardListPage` (`/dashboard`: list + New + delete + empty/seed-setup states),
+  `DashboardDetailPage` (`/dashboard/:id`: widget grid + add/edit/remove widget + rename + delete).
++ **Dynamic nav** — the `Dashboard` group now lists saved dashboards from the store (feedback ②:
+  `Dashboard › <name>`), with `All dashboards` → the list. Routes + breadcrumbs + i18n (en/vi).
++ **To review** (`pnpm dev` + `pnpm dev:seed:full` + `pnpm dev:builder`, open `/dashboard`): create a
+  "Weekly report" dashboard → Add widget → pick a seeded query, watch the defaults + live preview, adjust
+  dimension/measure/chart → add; edit/remove; the dynamic nav. **Caveat (F1 only):** dashboards live in
+  FE state → they **do not survive reload** (persistence lands at Contract/Backend). Validate the
+  **builder feel + the Widget shape** (sort? limit? store column by name vs index?) — that's what F1
+  de-risks before the contract freezes.
 
 ## Check
 
