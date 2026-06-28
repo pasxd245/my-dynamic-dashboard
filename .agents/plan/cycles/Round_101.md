@@ -1,11 +1,16 @@
 # Round 101: Dashboard as a persisted noun — create / name / list dashboards (headline-value round)
 
-**Status**: **In Progress** — Design + **F1 gates CLOSED** (DFCFBI 1,2,4,5; human signed off F1
-2026-06-27 after the hands-on review). FE-state widget builder + list/detail + dynamic nav, all review
-changes folded; type-check + 210 tests + prod build green. **Next gate: Contract** — freeze the
-`Dashboard`/`Widget` wire shapes (incl. `slug`, per-widget `span`) + resolve the two open questions
-(cross-workspace widgets · slug-uniqueness scope), then Backend → F2 → Integration.
+**Status**: **COMPLETE** — signed off by the human 2026-06-28 (DFCFBI 1,2,4,5; all gates Design · F1 ·
+Contract · F2 · Backend · Integration CLOSED). The dashboard is now a **persisted, user-created noun**
+(define once → re-runs live → survives reload). Settled decisions: workspace = **project** → widgets
+constrained to the dashboard's workspace; `name` **and** `slug` unique **per-workspace**; route
+**`/dashboards/<ws_id>/<slug>`**; nav **`Dashboards › [Workspace] › [Dashboard]`**. Contract = **5
+endpoints** + shared schema + `slug_taken`. Backend = SQLModel `Dashboard` + additive `0002_dashboards`
+migration + the 5 endpoints. Frontend = real-API persistence + wire↔FE adapter + formula-free builder
+(workspace-at-create · query picker inherits) + 3-level nav (extended shared `WorkspaceShell`). **Final
+green: backend 215 · contracts 29 · builder 210 (+ type-check + build) · ui 27.**
 **Date started**: 2026-06-26
+**Date completed**: 2026-06-28
 **Flow**: **DFCFBI (triggers 1, 2, 4, 5)** — set at the Design gate via `flow-selector`; recorded in the
 Do log. The widget-builder UX is discovered at **F1 before the Widget contract shape freezes**
 (condition 4). Per [[dfcfbi-two-round-split]] this may split [D+F1+design-sync] then [C+F2+B+Integration]
@@ -86,14 +91,17 @@ The build must carry these (declared now so they aren't discovered late, per R10
 
 ## Acceptance criteria (finalize at Design)
 
-+ [ ] A user can **create + name** a dashboard and it **persists** (survives reload / re-run).
-+ [ ] The `Dashboard` nav lists saved dashboards **dynamically**; `New dashboard` works; empty state.
-+ [ ] A dashboard's widgets bind to saved Queries by id and render **live** aggregates (reusing R100's
-  widget components); a dangling `queryId` shows a per-widget "unavailable" state.
-+ [ ] A widget can be **added, edited, and removed** via the formula-free builder (pick query →
++ [x] A user can **create + name** a dashboard and it **persists** (survives reload / re-run) — `dashboards`
+  table + create/PUT; human created `test 1 2 3` against the real backend and it survived reload.
++ [x] The `Dashboards` nav lists saved dashboards **dynamically** (now grouped by project — `Dashboards ›
+  ‹Workspace› › ‹Dashboard›`); `New dashboard` works; empty state.
++ [x] A dashboard's widgets bind to saved Queries by id and render **live** aggregates (reusing R100's
+  widget components); a dangling `queryId` shows a per-widget "unavailable" state (`ChartCard` missingQuery).
++ [x] A widget can be **added, edited, and removed** via the formula-free builder (pick query →
   dimension/measure/agg/chart, defaulted + adjustable). _(Reorder deferred.)_
-+ [ ] Backend `Dashboard` entity + **additive alembic migration**; contract + conformance tests pass.
-+ [ ] Creating/configuring stays **formula-free** (pick query + columns + chart via UI).
++ [x] Backend `Dashboard` entity + **additive alembic migration** (`0002_dashboards`); contract +
+  conformance tests pass (215 backend · 29 contract · schema-parity).
++ [x] Creating/configuring stays **formula-free** (pick query + columns + chart via UI; no formula path).
 
 ## Do
 
@@ -206,13 +214,219 @@ dynamic-widgets round). The two shape questions carried into **Contract**: (a) c
 (a widget may bind a query from another workspace — allow, or constrain to the dashboard's workspace?);
 (b) slug-uniqueness scope (per-workspace, matching query/dataset names?). **Next: Contract gate.**
 
+### Contract drafted (2026-06-27) — awaiting human ratification
+
+The two open shape questions resolved by the human (2026-06-27):
+
+1. **Cross-workspace widgets → CONSTRAINED to the dashboard's workspace.** A widget's `queryId` must
+   reference a query in the dashboard's own workspace at save time (else `422`); keeps decision #1
+   (dashboard is workspace-scoped) clean and simplifies the F1 builder (the query picker is scoped to
+   the dashboard's WS — that FE trim lands at Frontend, not now).
+2. **Slug uniqueness → GLOBAL** (per deployment), not per-workspace. The slug is the URL routing key
+   (`/dashboards/<slug>`), so it must resolve without a workspace in context. `name` stays unique
+   per-workspace (mirrors query/dataset). The two scopes get **distinct error codes**: `name_taken`
+   (per-WS) · new `slug_taken` (global).
+
+**Frozen wire shapes** (`workspace/packages/contracts/`):
+
++ **`_shared/dashboard.yaml`** — `Widget { id(wdg_), queryId(qr_), title, chartType(bar|pie),
+  dimensionCol, measureCol?, agg(sum|count), span(1–3) }` (columns by NAME — F1 resolved name-vs-index);
+  `DashboardDefinition { widgets[] }` (embedded JSON, mirrors `queries.definition`);
+  `Dashboard { id(dsh_), workspaceId, name, slug, definition, createdAt }`.
++ **`_shared/api-error.yaml`** — added `slug_taken` (code enum + variant + oneOf + discriminator).
++ **6 endpoints** (`dashboards/*.contract.{yaml,md}`): `createDashboard` (POST …/dashboards),
+  `listDashboards` (GET …/dashboards, WS-scoped), `getDashboard` (GET /dashboards/{id}),
+  `getDashboardBySlug` (GET /dashboards/by-slug/{slug}), `updateDashboard` (PUT /dashboards/{id},
+  full-representation replace of name+slug+definition), `deleteDashboard` (DELETE /dashboards/{id}).
+  **The 6th (`by-slug`) is an addition beyond the plan's 5** — pulled by the global-slug decision: the
+  detail route carries no workspace, so a global slug resolver is the leanest way to load it; mutations
+  stay id-keyed (slug is editable).
++ **MSW aligned** — `dashboard/wire.ts` (contract-faithful types, distinct from the F1 FE-state
+  `types.ts`), `MOCK_DASHBOARD(S)` fixtures, 6 handlers (stateless, contract-validated shapes). The FE
+  still uses the F1 in-memory store; the store→fetch swap + wire↔FE-state adapter is the Frontend gate.
+
+Verification: `@mdd/contracts` 30/30 (6 new endpoints validate as OpenAPI 3.1 + dereference) ·
+builder type-check clean · 210/210 builder tests · prod build green.
+
+**Open for the human at the gate:** ratify the wire shapes (esp. the PUT = full-representation-replace
+choice, the global-slug `by-slug` 6th endpoint, and the `count`-without-`measureCol` rule expressed as a
+description + BE check rather than a JSON-Schema if/then). Optional `cold-reviewer` pre-lock pass before
+freezing. **Next gate: Backend** (SQLModel `Dashboard` + additive alembic migration + conformance tests).
+
+### Contract revised after cold-review (2026-06-27) — workspace = project
+
+A `cold-reviewer` pass (fair mode) on the dashboard↔workspace binding surfaced one load-bearing
+unknown: the binding is only safe if a **workspace is coarse-grained**. The human confirmed **workspace
+= project**, which resolves it — a dashboard showing only its project's widgets is the right model
+(cross-workspace executive rollups are a non-need; and the constraint is a relaxable backend rule, not a
+wire field, so it's a low-regret lock).
+
+That clarification (project + **many dashboards per project**) overturned the earlier **global-slug**
+pick: a flat `/dashboards/<slug>` forces global slug uniqueness, so two projects couldn't each have a
+`weekly-report` — and the second user would hit a confusing "slug taken" that leaks another project.
+**Revised decisions (human):**
+
++ **Route nests the project — `/dashboards/<ws_id>/<slug>`**; both `name` and `slug` unique
+  **per-workspace** (one rule, matching datasets/queries and the rest of the IA). `slug_taken` rescoped
+  per-workspace. The `ws_id` in the path is URL-safe, so workspaces need no slug.
++ **Dropped `GET /dashboards/by-slug/{slug}`** (the 6th endpoint): the detail route carries the `ws_id`,
+  so the FE resolves slug → dashboard from the per-workspace list it already loads for the nav. Back to
+  the planned **5 endpoints**.
++ **Sidebar IA = `Dashboards › [Workspace] › [Dashboard]`** (two-level, group by project). Both levels
+  are already unambiguous — **workspace `name` is globally unique** (verified: DB index
+  `idx_workspaces_name_unique`, R25; corrected a stale "Not unique" comment in
+  `_shared/workspace.yaml`), dashboard `name` unique per-workspace. **Pure FE/IA — no contract impact**;
+  lands at the **Frontend gate**. Caveat: grows as projects × dashboards (collapse/lazy-load later).
++ **No new name "uniformity" needed** — names are **display labels** (free human text, length-bounded,
+  already unique at both levels); the **URL** uses the dash-case `slug` + `ws_id` and is already safe.
+  Forcing dash-case onto names would be the Excel-with-extra-steps friction #1 forbids ([[product-value-framing]]).
+
+### Frontend-gate notes (carried — workspace-at-create + builder inherit)
+
+Folded from the workspace-scope decision (not implemented this gate — F1 stays closed):
+
++ **Create-dashboard gains a Workspace (project) picker** — replaces the F1 hardwire to the seed
+  workspace; the workspace is chosen ONCE at create (preselect/hide when only one exists).
++ **Widget builder DROPS its Workspace picker** — inherit the dashboard's workspace; the query list is
+  scoped to it. (The per-widget WS picker is now meaningless under the constraint.)
+
+Verification after the revision: `@mdd/contracts` 29/29 · builder type-check clean · 210/210 tests ·
+prod build green.
+
+### Contract gate CLOSED (human ratified, 2026-06-27)
+
+Human ratified the revised contract ("go ahead"). Wire shapes frozen: 5 endpoints
+(`createDashboard` · `listDashboards` · `getDashboard` · `updateDashboard` · `deleteDashboard`),
+`_shared/dashboard.yaml` (Widget / DashboardDefinition / Dashboard), `slug_taken` per-workspace code.
+Both `name` + `slug` unique per-workspace; widgets constrained to the dashboard's workspace; route
+`/dashboards/<ws_id>/<slug>`. **Next: Backend gate** — SQLModel `Dashboard`, an additive alembic
+migration, per-endpoint behavior, and conformance tests.
+
+### Backend gate built (2026-06-27) — schema + migration + 5 endpoints
+
+Implemented the backend per the frozen contract (raw-SQLite + Pydantic router; SQLModel + alembic as the
+schema of record — the established split):
+
++ **Schema of record** — `db_models.Dashboard` (5th table): `workspace_id` FK → workspaces `ON DELETE
+  CASCADE`; widgets in an embedded `definition_json` blob (mirrors `queries`); per-workspace unique
+  indexes on **both** `(workspace_id, name)` and `(workspace_id, slug)`; name/slug length CHECKs.
++ **Migration** — additive `0002_dashboards` on top of the collapsed `0001_baseline` (creates the table
+  + 3 indexes). `test_schema_parity` extended (legacy schema + table list + head → `0002_dashboards`):
+  legacy == models == migrated all hold.
++ **Constants** — added `dashboard`/`widget` id patterns, `slug_taken`, `dashboard_max` to the js-tmpl
+  **templates** (BE `.py.hbs` + FE `.ts.hbs`) and re-rendered (the generated modules are gitignored);
+  `values.yaml` already carried the values (slug comments corrected global→per-workspace).
++ **Pydantic** (`models/common.py`, `extra='forbid'`) — `Widget` (with a `sum`⇒`measureCol` /
+  `count`⇒no-measure model-validator), `DashboardDefinition`, `Dashboard`, `Create`/`UpdateDashboardBody`,
+  `ApiErrorSlugTaken`; dash-case `SlugStr`.
++ **Router** (`routers/dashboards.py`, registered in `main.py`) — the 5 endpoints. Widget `queryId`
+  validated in-workspace at save (422 cross-workspace); per-workspace name/slug collisions disambiguated
+  to `name_taken` / `slug_taken` (409) from the SQLite index-violation message; `count` widgets drop
+  `measureCol` via `exclude_none`.
+
+Verification: **215/215 backend pytest** (16 new `test_dashboards` + parity/constants updates) ·
+`ruff check` clean · the migration is exercised end-to-end by the parity test's real `upgrade head`.
+**Next: F2 / Frontend** — swap the F1 in-memory store for the real API (wire↔FE-state adapter), plus the
+two carried builder trims (workspace picker at create · drop the per-widget WS picker); then Integration.
+
+### F2 / Frontend built (2026-06-28) — store → real API, awaiting human app-run
+
+Swapped the F1 in-memory store for the real `dashboards` API and folded the two carried builder trims:
+
++ **API + hooks** — `api/dashboardsApi.ts` (5 routes) + `dashboard/hooks.ts` TanStack hooks
+  (`useDashboardsQuery` per-workspace · `useAllDashboards` fan-out across workspaces for the nav/catalog ·
+  `useCreate/Update/DeleteDashboardMutation`). The **wire↔FE-state adapter** lives in `wire.ts`
+  (`wireToDashboard` flattens `definition.widgets`; `widgetsToDefinition` nests them back); components stay
+  wire-free. `DashboardStoreProvider`/`store.tsx` **deleted**.
++ **Routing** — `/dashboards/:slug` → **`/dashboards/:workspaceId/:slug`** (project nested). The detail page
+  resolves (workspace, slug) from the workspace's list (no global slug lookup — slug is per-workspace).
+  Each widget add/edit/remove persists the WHOLE dashboard via the full-representation PUT.
++ **Builder trims** (the carried Frontend-gate items) — **create** now picks the **Workspace (project)**
+  once (`NameModal` gained a workspace select, preselected when only one exists); the **WidgetBuilder
+  dropped its per-widget workspace picker** (the query list is scoped to the dashboard's workspace).
++ **Catalog** — `Settings › Dashboard` lists **every workspace's** dashboards (fan-out), each card showing
+  its owning project; create/rename/delete via the mutations; `name_taken`/`slug_taken` surfaced inline.
++ **i18n** — `dashboard.workspaceLabel/placeholder`, `dashboard.error.{nameTaken,slugTaken}`, `common.error`
+  (en + vi); removed the now-unused `dashboard.builder.workspace*`.
+
+**Flagged for the human (open):** the **nav grouping**. `WorkspaceShell` supports only **two levels**
+(group → items), so the discussed **`Dashboards › [Workspace] › [Dashboard]`** (three-level) isn't
+renderable without extending that shared component — **deferred** (not silently built). F2 keeps a single
+**`Dashboards`** group listing all dashboards across workspaces, routing correctly by `<ws_id>/<slug>`;
+same-named dashboards in different projects show identical nav labels (rare; the route disambiguates).
+Decide later: extend `WorkspaceShell` for true nesting, or make each project its own nav group. Also: the
+nav fans out one list query per workspace (`useQueries`) — fine at demo scale, lazy-load if it grows.
+
+Verification: builder **type-check clean · 210/210 tests · prod build green** (one transient React-Flow
+timeout under full-parallel load passed in isolation + on re-run). `enable_mock: false`, so the human
+review runs against the **real seeded backend** (real persistence). **Next: human runs the app (F2 feel
+review)**; then Integration.
+
+### F2 review iteration — human findings (2026-06-28)
+
+Human ran the app and gave two findings; both fixed (resolves the deferred nav-grouping decision —
+human chose **`Dashboards › [Workspace] › [Dashboard]`**):
+
++ **Nav grouping (3-level).** Extended the shared **`WorkspaceShell`** additively — `NavItem` gains an
+  optional `children`, `toMenuItems` recurses, nested SubMenus open by default (+ a nested-variant test;
+  UI suite 27 green). `AppLayout` now groups dashboards under the `Dashboards` group **by workspace**
+  (`Dashboards › ‹Project› › ‹Dashboard›`); the workspace SubMenu key (`dashws:<ws_id>`) only toggles,
+  leaves keep `<ws_id>/<slug>` routing. Fixes "Sidebar: no [Workspace name]".
++ **Breadcrumb.** The dashboard VIEW breadcrumb no longer routes through Settings: was
+  `Home / Settings / Dashboard / ‹name›` → now **`Home / Dashboards / ‹Workspace› / ‹name›`** (mirrors the
+  nav; the Dashboards + Workspace segments are inert groupings, only Home links). Manage/create still
+  lives at `Settings › Dashboard`, reachable from the sidebar — just not from this view's breadcrumb.
+
++ **Sidebar width** (follow-up — the 3-level nav felt cramped). No shared standard existed (a local
+  `EXPANDED_WIDTH = 220` in `WorkspaceShell`; AntD's Sider default is 200). Bumped to **240** + tightened
+  the inline menu's per-level indent **24 → 16** (`inlineIndent`) so nesting reclaims label room. Then
+  **relocated the sider sizing to `layoutTokens` (themeTokens.ts)** — the R95 "one tunable home for layout
+  numbers" object (`siderWidth`/`siderCollapsedWidth`/`siderInlineIndent`). NOT `values.yaml` (cross-language
+  contract pipeline — no second consumer / drift risk) and NOT the AntD `ThemeConfig` (these are
+  Sider/Menu **props**, not theme tokens); `layoutTokens` is the right, lowest-mechanism home.
+
+Verification: UI **27/27** · builder **type-check clean · 210/210 · build green**. **Next: human re-runs
+the app**; then Integration.
+
+### F2 + Integration CLOSED — human sign-off (2026-06-28)
+
+Human ran the app hands-on (real seeded backend, `enable_mock: false`) — created `test 1 2 3` in a
+workspace, navigated to `/dashboards/<ws_id>/<slug>`, exercised the sidebar/breadcrumb — gave the
+nav-grouping + breadcrumb + sidebar-width feedback (all folded), then signed off ("I'm ok"). That
+hands-on run **is** the Integration scenario (create → persist → navigate against the real backend); the
+acceptance criteria are met. **Round Complete.**
+
 ## Check
 
-_Pending — populated at Integration._
+Final verification (2026-06-28), all green:
+
+| Suite | Result |
+| --- | --- |
+| Backend pytest | **215** (incl. `test_dashboards` + schema-parity + generated-constants) |
+| Contracts (OpenAPI 3.1 validity) | **29** |
+| Builder (vitest) | **210** · type-check clean · prod build green |
+| `@mdd/ui` (vitest) | **27** (incl. nested-nav `WorkspaceShell` test) |
+
+Human Integration run (real backend): create + name + persist + reload-survival + dynamic nav + slug-route
+all confirmed. DFCFBI gates Design · F1 · Contract · F2 · Backend · Integration all CLOSED.
 
 ## Act
 
-_Pending — round in planning._
+**Shipped:** the dashboard becomes a **persisted, user-created noun** — defined once, re-runs live on the
+latest upload, survives reload (the headline value: out of the report-maintenance treadmill).
+`@mdd/contracts` 5 endpoints + `Dashboard`/`Widget` shapes; `dashboards` table + `0002` migration;
+formula-free widget builder bound by `queryId`; `Dashboards › ‹Workspace› › ‹Dashboard›` nav.
+
+**Decisions worth remembering** (the in-round forks): workspace = **project** → widgets constrained to the
+dashboard's workspace + `name`/`slug` unique **per-workspace** + route `/dashboards/<ws_id>/<slug>`;
+config-home heuristic — `values.yaml` is for **cross-language contract** constants, `layoutTokens`/theme for
+**FE design/layout**, a local `const` for a **single consumer** (sidebar sizing landed in `layoutTokens`,
+not `values.yaml` / not AntD `ThemeConfig`).
+
+**Feeds into** (unchanged from below): dynamic/interactive widgets (filters · date-range · drill · reorder),
+dashboard settings (layout / default-range), snapshot/report noun + heavy-DA. **One deferred seam noted:**
+same-named dashboards in different projects show identical nav leaf labels (route disambiguates) — revisit
+only if it bites.
 
 ## Feeds into
 
