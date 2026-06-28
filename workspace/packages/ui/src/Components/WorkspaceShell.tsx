@@ -73,9 +73,12 @@ export type WorkspaceShellProps =
 // Sidebar sizing lives in `layoutTokens` (themeTokens.ts) — the one tunable
 // home for app layout numbers. They're AntD PROPS (Sider width / Menu
 // inlineIndent), not ThemeConfig tokens, so they're read here and passed in.
-const { siderWidth: EXPANDED_WIDTH, siderCollapsedWidth: COLLAPSED_WIDTH, siderInlineIndent: INLINE_INDENT } =
-  layoutTokens;
-const HEADER_HEIGHT = 56; // top-bar (not the sider) — stays local
+const {
+  siderWidth: EXPANDED_WIDTH,
+  siderCollapsedWidth: COLLAPSED_WIDTH,
+  siderInlineIndent: INLINE_INDENT,
+  headerHeight: HEADER_HEIGHT,
+} = layoutTokens;
 
 /** A NavItem → AntD menu node, recursing into `children` as a nested SubMenu. */
 function toMenuNode(item: NavItem): NonNullable<MenuProps['items']>[number] {
@@ -112,9 +115,7 @@ function defaultOpenKeysFor(groups: NavGroup[] | undefined): string[] {
   if (!groups) return [];
   // An expanded group opens its own key + every nested SubMenu under it, so a
   // 3-level nav (group › ‹workspace› › ‹dashboard›) shows its leaves by default.
-  return groups
-    .filter((g) => g.defaultExpanded)
-    .flatMap((g) => [g.key, ...nestedSubmenuKeys(g.items)]);
+  return groups.filter((g) => g.defaultExpanded).flatMap((g) => [g.key, ...nestedSubmenuKeys(g.items)]);
 }
 
 export function WorkspaceShell(props: Readonly<WorkspaceShellProps>) {

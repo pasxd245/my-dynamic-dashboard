@@ -20,12 +20,14 @@ export const layoutTokens = {
   // ThemeConfig tokens (Layout.Sider `width`/`collapsedWidth`, Menu
   // `inlineIndent`), so they live here as app layout numbers — the same
   // "one tunable home, not scattered literals" pattern as the content widths —
-  // and are fed to the components as props. `siderWidth` 240 (AntD's Sider
+  // and are fed to the components as props. `siderWidth` 300 (AntD's Sider
   // default is 200) + a tightened `siderInlineIndent` 16 (AntD default 24) give
   // the 3-level nav (Dashboards › ‹Workspace› › ‹Dashboard›) room.
-  siderWidth: 240,
+  siderWidth: 300,
   siderCollapsedWidth: 64,
   siderInlineIndent: 16,
+  // the header height (WorkspaceShell)
+  headerHeight: 64,
 } as const;
 
 export const themeTokens: ThemeConfig = {
