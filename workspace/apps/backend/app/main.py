@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app._config import CONFIG
 from app.db import run_startup_migrations
 from app.jobs.tmp_sweep import sweep_loop
-from app.routers import datasets, queries, relationships, uploads, workspaces
+from app.routers import dashboards, datasets, queries, relationships, uploads, workspaces
 from app.storage import get_data_root
 
 
@@ -80,6 +80,7 @@ app.include_router(uploads.router)
 app.include_router(datasets.router)
 app.include_router(queries.router)
 app.include_router(relationships.router)
+app.include_router(dashboards.router)
 
 
 @app.get("/health")

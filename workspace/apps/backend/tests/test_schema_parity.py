@@ -88,6 +88,22 @@ CREATE INDEX IF NOT EXISTS idx_relationships_workspace_id
     ON relationships(workspace_id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_relationships_pair_unique
     ON relationships(workspace_id, left_dataset_id, left_column, right_dataset_id, right_column);
+
+CREATE TABLE IF NOT EXISTS dashboards (
+    id TEXT PRIMARY KEY,
+    workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    name TEXT NOT NULL CHECK (length(name) BETWEEN 1 AND 120),
+    slug TEXT NOT NULL CHECK (length(slug) BETWEEN 1 AND 120),
+    definition_json TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_dashboards_workspace_id
+    ON dashboards(workspace_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_dashboards_name_unique
+    ON dashboards(workspace_id, name);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_dashboards_slug_unique
+    ON dashboards(workspace_id, slug);
 """
 
 _R25_UNIQUE_INDEXES = """
@@ -98,7 +114,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_datasets_name_unique
     ON datasets(workspace_id, name);
 """
 
-_TABLES = ("workspaces", "datasets", "queries", "relationships")
+_TABLES = ("workspaces", "datasets", "queries", "relationships", "dashboards")
 _IGNORED_TABLES = {"alembic_version", "sqlite_sequence"}
 
 
@@ -241,7 +257,8 @@ def _introspect_models(tmp_path: Path) -> dict:
 
 def test_migration_leaves_alembic_version(tmp_path: Path, _restore_db_path):
     """The migrated DB is genuinely versioned (so subsequent boots take the
-    fast versioned path). R88 collapsed history → head is `0001_baseline`."""
+    fast versioned path). R88 collapsed history to `0001_baseline`; R101's
+    `0002_dashboards` is the additive head."""
     migrated_path = tmp_path / "versioned.sqlite"
     db.set_db_path(migrated_path)
     db.run_startup_migrations()
@@ -251,4 +268,4 @@ def test_migration_leaves_alembic_version(tmp_path: Path, _restore_db_path):
         version = con.execute("SELECT version_num FROM alembic_version").fetchone()
     finally:
         con.close()
-    assert version is not None and version[0] == "0001_baseline"
+    assert version is not None and version[0] == "0002_dashboards"

@@ -1,7 +1,7 @@
 """SQLite persistence layer.
 
-Four tables — `workspaces` (R13), `datasets` (R16), `queries` (R69),
-`relationships` (R70). As of **R78** the schema is defined by the
+Five tables — `workspaces` (R13), `datasets` (R16), `queries` (R69),
+`relationships` (R70), `dashboards` (R101). As of **R78** the schema is defined by the
 SQLModel models in [db_models.py](db_models.py) (the schema of record)
 and evolved through **versioned Alembic migrations**, not the old
 hand-bootstrapped `_SCHEMA` / `_add_missing_columns`.
@@ -126,6 +126,7 @@ def reset_db_for_tests() -> None:
     create_all_for_tests()
     with get_conn() as con:
         con.execute("DELETE FROM relationships")
+        con.execute("DELETE FROM dashboards")
         con.execute("DELETE FROM queries")
         con.execute("DELETE FROM datasets")
         con.execute("DELETE FROM workspaces")

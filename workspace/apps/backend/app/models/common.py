@@ -399,3 +399,97 @@ class ApiErrorCompositionCycle(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     code: Literal["composition_cycle"] = ERROR_CODES["composition_cycle"]  # type: ignore[assignment]
+
+
+# ─── R101: Dashboard (persisted noun) ────────────────────────────────
+# Mirrors packages/contracts/_shared/dashboard.yaml + dashboards/*. A Dashboard
+# is workspace-scoped; its widgets live in an embedded-JSON `definition` (no
+# separate widgets table). Both `name` and `slug` are unique per-workspace (the
+# route nests the project — `/dashboards/<ws_id>/<slug>`). A widget is FORMULA-FREE:
+# a saved Query (`queryId`) + dimension/measure/agg/chart, columns by NAME.
+# Persistence is raw-SQLite (the established backend standard).
+
+DashboardId = Annotated[str, Field(pattern=ID_PATTERNS["dashboard"])]
+WidgetId = Annotated[str, Field(pattern=ID_PATTERNS["widget"])]
+# Dash-case URL slug: lowercase alphanumerics + single internal hyphens.
+SlugStr = Annotated[
+    str,
+    Field(pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$", max_length=NAME_LENGTHS["dashboard_max"]),
+]
+ChartType = Literal["bar", "pie"]
+Agg = Literal["sum", "count"]
+
+
+class Widget(BaseModel):
+    """One formula-free chart on a dashboard: a saved Query (`queryId`) + which
+    column is the dimension / measure, how to aggregate, how to chart it, and its
+    grid width. Columns are stored by logical NAME (F1 resolved name-vs-index).
+    `measureCol` is required for `sum` and omitted for `count`."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: WidgetId
+    queryId: QueryId  # noqa: N815 — FK → Query.id (must be a query in the dashboard's workspace)
+    title: Annotated[str, Field(min_length=1, max_length=NAME_LENGTHS["dashboard_max"])]
+    chartType: ChartType  # noqa: N815
+    dimensionCol: Annotated[str, Field(min_length=1)]  # noqa: N815
+    measureCol: Annotated[str, Field(min_length=1)] | None = None  # noqa: N815
+    agg: Agg
+    span: Annotated[int, Field(ge=1, le=3)]
+
+    @model_validator(mode="after")
+    def _check_measure(self) -> Widget:
+        """`sum` totals `measureCol` (required); `count` tallies rows (no
+        measure). Mirrors the contract's per-field rule — a `sum` without a
+        measure, or a `count` carrying one, is 422."""
+        if self.agg == "sum" and self.measureCol is None:
+            raise ValueError("measureCol is required when agg='sum'")
+        if self.agg == "count" and self.measureCol is not None:
+            raise ValueError("measureCol must be omitted when agg='count'")
+        return self
+
+
+class DashboardDefinition(BaseModel):
+    """The embedded dashboard body — its ordered widget set. Empty `widgets` is
+    valid (a freshly-created dashboard before its first widget)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    widgets: list[Widget]
+
+
+class Dashboard(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: DashboardId
+    workspaceId: WsId  # noqa: N815
+    name: Annotated[str, Field(min_length=1, max_length=NAME_LENGTHS["dashboard_max"])]
+    slug: SlugStr
+    definition: DashboardDefinition
+    createdAt: IsoUtc  # noqa: N815
+
+
+class CreateDashboardBody(BaseModel):
+    """POST /workspaces/{id}/dashboards request body."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: Annotated[str, Field(min_length=1, max_length=NAME_LENGTHS["dashboard_max"])]
+    slug: SlugStr
+    definition: DashboardDefinition
+
+
+class UpdateDashboardBody(CreateDashboardBody):
+    """PUT /dashboards/{id} request body — a FULL-representation replace of
+    `name` + `slug` + `definition` (every FE mutation resends the whole
+    dashboard). Same shape as create."""
+
+
+class ApiErrorSlugTaken(BaseModel):
+    """R101 — a dashboard's `slug` collides with another dashboard's slug in the
+    SAME workspace (per-workspace, like `name`). Distinct from `name_taken` so the
+    FE points the inline error at the slug field."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    code: Literal["slug_taken"] = ERROR_CODES["slug_taken"]  # type: ignore[assignment]

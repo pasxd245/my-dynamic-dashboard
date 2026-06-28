@@ -1,11 +1,11 @@
 """SQLModel table models — the **schema of record** for `app.sqlite`.
 
-R78 (persistence foundation): these four models replace the
+R78 (persistence foundation): these models replace the
 hand-bootstrapped `_SCHEMA` in [db.py](db.py) as the canonical
 definition of the metadata schema. Alembic's `env.py` targets
 `SQLModel.metadata`; `db.create_all_for_tests()` builds the test
-schema from it; the `0001_baseline` migration reproduces it for
-production.
+schema from it; the `0001_baseline` migration (+ later additive revisions,
+e.g. R101's `0002_dashboards`) reproduces it for production.
 
 Every column uses an explicit ``sa_column=Column(...)`` so the emitted
 SQLite DDL matches the legacy schema's type names exactly — a bare
@@ -14,9 +14,9 @@ SQLite DDL matches the legacy schema's type names exactly — a bare
 legacy ``_SCHEMA`` so the introspected ``CHECK`` clauses are identical
 (see ``tests/test_schema_parity.py``).
 
-Mirrors mainstream's current 4 tables exactly (R78 J-1) — it does **not**
-adopt the drifted ref app's schema. Behaviour-preserving: same columns,
-types, nullability, FKs + ``ON DELETE CASCADE``, ``CHECK``s, and indexes.
+Started from mainstream's 4 tables exactly (R78 J-1) — it does **not** adopt the
+drifted ref app's schema; R101 added a 5th (``dashboards``). Behaviour-preserving:
+same columns, types, nullability, FKs + ``ON DELETE CASCADE``, ``CHECK``s, indexes.
 """
 
 from __future__ import annotations
@@ -90,6 +90,35 @@ class Query(SQLModel, table=True):
     # query cascade moved to the app (R79 J-1, `routers/datasets.py`).
     source_id: str = Field(sa_column=Column(Text, nullable=False))
     name: str = Field(sa_column=Column(Text, nullable=False))
+    definition_json: str = Field(sa_column=Column(Text, nullable=False))
+    created_at: str = Field(sa_column=Column(Text, nullable=False))
+
+
+class Dashboard(SQLModel, table=True):
+    """R101 — a persisted dashboard noun (workspace-scoped). The widgets live in
+    the opaque ``definition_json`` blob (mirrors ``queries.definition_json``; no
+    separate ``dashboard_widgets`` table). Both ``name`` and ``slug`` are unique
+    PER WORKSPACE (the route nests the project — ``/dashboards/<ws_id>/<slug>``)."""
+
+    __tablename__ = "dashboards"
+    __table_args__ = (
+        CheckConstraint("length(name) BETWEEN 1 AND 120"),
+        CheckConstraint("length(slug) BETWEEN 1 AND 120"),
+        Index("idx_dashboards_workspace_id", "workspace_id"),
+        Index("idx_dashboards_name_unique", "workspace_id", "name", unique=True),
+        Index("idx_dashboards_slug_unique", "workspace_id", "slug", unique=True),
+    )
+
+    id: str = Field(sa_column=Column(Text, primary_key=True))
+    workspace_id: str = Field(
+        sa_column=Column(
+            Text,
+            ForeignKey("workspaces.id", ondelete="CASCADE"),
+            nullable=False,
+        )
+    )
+    name: str = Field(sa_column=Column(Text, nullable=False))
+    slug: str = Field(sa_column=Column(Text, nullable=False))
     definition_json: str = Field(sa_column=Column(Text, nullable=False))
     created_at: str = Field(sa_column=Column(Text, nullable=False))
 

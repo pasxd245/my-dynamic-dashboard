@@ -22,6 +22,7 @@ from app._generated.constants import (
 def test_id_patterns_keys_and_shapes() -> None:
     assert set(ID_PATTERNS.keys()) == {
         "workspace", "dataset", "temp", "query", "relationship", "query_relationship",
+        "dashboard", "widget",
     }
     assert ID_PATTERNS["workspace"] == r"^ws_[0-9a-f]{8}$"
     assert ID_PATTERNS["dataset"] == r"^ds_[0-9a-f]{8}$"
@@ -29,6 +30,8 @@ def test_id_patterns_keys_and_shapes() -> None:
     assert ID_PATTERNS["query"] == r"^qr_[0-9a-f]{8}$"  # R69
     assert ID_PATTERNS["relationship"] == r"^rel_[0-9a-f]{8}$"  # R70
     assert ID_PATTERNS["query_relationship"] == r"^qrel_[0-9a-f]{8}$"  # R88 — query-owned rel
+    assert ID_PATTERNS["dashboard"] == r"^dsh_[0-9a-f]{8}$"  # R101
+    assert ID_PATTERNS["widget"] == r"^wdg_[0-9a-f]{8}$"  # R101
 
 
 @pytest.mark.unit
@@ -39,6 +42,7 @@ def test_error_codes_values_match_contract() -> None:
     assert ERROR_CODES["non_empty"] == "non_empty"
     assert ERROR_CODES["query_stale"] == "query_stale"  # R69
     assert ERROR_CODES["relationship_exists"] == "relationship_exists"  # R70
+    assert ERROR_CODES["slug_taken"] == "slug_taken"  # R101
 
 
 @pytest.mark.unit
@@ -47,6 +51,7 @@ def test_name_lengths_values_match_models() -> None:
     assert NAME_LENGTHS["workspace_max"] == 80
     assert NAME_LENGTHS["dataset_max"] == 120
     assert NAME_LENGTHS["query_max"] == 120  # R69
+    assert NAME_LENGTHS["dashboard_max"] == 120  # R101
 
 
 @pytest.mark.unit
