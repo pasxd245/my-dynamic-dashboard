@@ -23,12 +23,18 @@ import type {
   UpdateQueryRequest,
 } from '@/features/data-management/queries/types';
 import type { CreateRelationshipRequest } from '@/features/data-management/relationships/types';
+import type {
+  CreateDashboardRequest,
+  UpdateDashboardRequest,
+} from '@/features/dashboard/wire';
 import { withContractValidation } from './contract-validator';
 import {
   MOCK_CHAIN_COLUMNS,
   MOCK_CHAIN_ROWS,
   MOCK_COMPOSED_QUERY,
   MOCK_CYCLE_QUERY_ID,
+  MOCK_DASHBOARD,
+  MOCK_DASHBOARDS,
   MOCK_DATASET,
   MOCK_DATASET_2,
   MOCK_DATASET_3,
@@ -593,6 +599,47 @@ export const handlers = [
   }),
 
   http.delete(api('/queries/:id'), () => new HttpResponse(null, { status: 204 })),
+
+  // Dashboards (R101 — dashboard-as-a-persisted-noun): create / list / get /
+  // update / delete. Stateless mocks that echo contract-valid shapes (the live
+  // re-run of each widget's query reuses the existing /queries/{id}/rows
+  // handler). Both `name` and `slug` are unique per-workspace; the detail route
+  // (/dashboards/<ws_id>/<slug>) resolves the slug from the workspace list.
+  withContractValidation('post', api('/workspaces/:id/dashboards'), 'createDashboard', async ({ params, request }) => {
+    const body = (await request.json()) as Partial<CreateDashboardRequest>;
+    return HttpResponse.json(
+      {
+        id: `dsh_${Math.random().toString(16).slice(2, 10).padEnd(8, '0')}`,
+        workspaceId: String(params.id),
+        name: body.name ?? 'untitled dashboard',
+        slug: body.slug ?? 'untitled-dashboard',
+        definition: body.definition ?? { widgets: [] },
+        createdAt: new Date().toISOString(),
+      },
+      { status: 201 },
+    );
+  }),
+  withContractValidation('get', api('/workspaces/:id/dashboards'), 'listDashboards', ({ params }) => {
+    if (params.id !== MOCK_WORKSPACE.id) return HttpResponse.json([]);
+    return HttpResponse.json(MOCK_DASHBOARDS);
+  }),
+  withContractValidation('get', api('/dashboards/:id'), 'getDashboard', ({ params }) => {
+    if (params.id !== MOCK_DASHBOARD.id) {
+      return HttpResponse.json({ code: 'not_found' }, { status: 404 });
+    }
+    return HttpResponse.json(MOCK_DASHBOARD);
+  }),
+  withContractValidation('put', api('/dashboards/:id'), 'updateDashboard', async ({ params, request }) => {
+    const body = (await request.json()) as UpdateDashboardRequest;
+    return HttpResponse.json({
+      ...MOCK_DASHBOARD,
+      id: String(params.id),
+      name: body.name,
+      slug: body.slug,
+      definition: body.definition,
+    });
+  }),
+  http.delete(api('/dashboards/:id'), () => new HttpResponse(null, { status: 204 })),
 
   // Relationships (R70 — governance): declare / list / get / delete.
   // No /rows route — governance only; join execution is R71. `status` is

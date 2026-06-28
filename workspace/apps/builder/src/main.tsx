@@ -20,7 +20,6 @@ import { AppLayout } from '@/components/AppLayout';
 import { NotFoundPage } from '@/components/NotFoundPage';
 import { DashboardListPage } from '@/features/dashboard/DashboardListPage';
 import { DashboardDetailPage } from '@/features/dashboard/DashboardDetailPage';
-import { DashboardStoreProvider } from '@/features/dashboard/store';
 import { DatasetDetailPage } from '@/features/data-management/datasets/DatasetDetailPage';
 import { DatasetsPage } from '@/features/data-management/datasets/DatasetsPage';
 import { DatasetNewPage } from '@/features/data-management/datasets/upload/DatasetNewPage';
@@ -83,15 +82,15 @@ const appTree = (
       <LocaleAwareAntd>
         <AppErrorBoundary>
           <BrowserRouter>
-            <DashboardStoreProvider>
-              <AppLayout>
-                <Routes>
-                  <Route path="/" element={<Navigate to="/data-management/workspaces" replace />} />
-                  {/* R101 — dashboard config/creation lives under /settings; viewing a
-                      dashboard is /dashboards/<slug>. Bare /dashboard(s) is not a page →
-                      it falls through to the catch-all 404 below. */}
-                  <Route path="/settings/dashboard" element={<DashboardListPage />} />
-                  <Route path="/dashboards/:slug" element={<DashboardDetailPage />} />
+            <AppLayout>
+              <Routes>
+                <Route path="/" element={<Navigate to="/data-management/workspaces" replace />} />
+                {/* R101 — dashboard config/creation lives under /settings; viewing a
+                    dashboard is /dashboards/<ws_id>/<slug> (the project is nested in the
+                    path; slug is unique per-workspace). Bare /dashboard(s) is not a page →
+                    it falls through to the catch-all 404 below. */}
+                <Route path="/settings/dashboard" element={<DashboardListPage />} />
+                <Route path="/dashboards/:workspaceId/:slug" element={<DashboardDetailPage />} />
                 {/* /data-management is a sidebar group, not a leaf — redirect to default child. */}
                 <Route path="/data-management" element={<Navigate to="/data-management/workspaces" replace />} />
                 <Route path="/data-management/workspaces" element={<WorkspacesPage />} />
@@ -105,11 +104,10 @@ const appTree = (
                 <Route path="/data-management/queries" element={<QueriesPage />} />
                 <Route path="/data-management/queries/new" element={<QueryCreatePage />} />
                 <Route path="/data-management/queries/:id" element={<QueryDetailPage />} />
-                  {/* Global catch-all — unknown routes (incl. a bare /dashboard) → 404. */}
-                  <Route path="*" element={<NotFoundPage />} />
-                </Routes>
-              </AppLayout>
-            </DashboardStoreProvider>
+                {/* Global catch-all — unknown routes (incl. a bare /dashboard) → 404. */}
+                <Route path="*" element={<NotFoundPage />} />
+              </Routes>
+            </AppLayout>
           </BrowserRouter>
         </AppErrorBoundary>
       </LocaleAwareAntd>

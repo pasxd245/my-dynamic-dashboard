@@ -130,6 +130,47 @@ describe("WorkspaceShell — groups variant", () => {
   });
 });
 
+const nestedGroups: NavGroup[] = [
+  {
+    key: "dashboards",
+    label: "Dashboards",
+    icon: "▣",
+    defaultExpanded: true,
+    items: [
+      {
+        key: "dashws:ws_a",
+        label: "Project A",
+        icon: "▦",
+        children: [
+          { key: "dash:ws_a/weekly", label: "Weekly report" },
+          { key: "dash:ws_a/pipeline", label: "Pipeline" },
+        ],
+      },
+    ],
+  },
+];
+
+describe("WorkspaceShell — nested (3-level) groups variant", () => {
+  it("renders a nested SubMenu and reaches the leaf key on click", () => {
+    const onSelect = vi.fn();
+    const { container } = render(
+      <AntdConfig>
+        <WorkspaceShell groups={nestedGroups} activeKey="dash:ws_a/weekly" onSelect={onSelect}>
+          <p>content</p>
+        </WorkspaceShell>
+      </AntdConfig>,
+    );
+    // Two SubMenus: the "Dashboards" group + the "Project A" workspace level.
+    expect(container.querySelectorAll("li.ant-menu-submenu").length).toBeGreaterThanOrEqual(2);
+    const leaf = container.querySelector<HTMLElement>(
+      'li.ant-menu-item[data-menu-id$="weekly"]',
+    );
+    if (!leaf) throw new Error("nested leaf missing");
+    fireEvent.click(leaf);
+    expect(onSelect).toHaveBeenCalledWith("dash:ws_a/weekly");
+  });
+});
+
 describe("WorkspaceShell — top-bar + collapse", () => {
   it("renders hamburger toggle in the top-bar when onToggleCollapse is provided", () => {
     const { container } = renderShellGrouped({ onToggleCollapse: vi.fn() });

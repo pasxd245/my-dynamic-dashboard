@@ -61,14 +61,18 @@
       "previewHint": "Pick a query to preview the widget.",
       "countLabel": "Count",
       "removeTitle": "Remove “{{title}}”?",
-      "workspace": "Workspace",
-      "workspacePlaceholder": "Pick a workspace",
       "width": "Width",
       "widthHelp": "Columns the widget spans (of 3)."
     },
     "slugLabel": "Slug",
     "slugHelp": "URL-friendly id, auto-filled from the name. Editable.",
-    "slugPlaceholder": "e.g. weekly-report"
+    "slugPlaceholder": "e.g. weekly-report",
+    "workspaceLabel": "Workspace",
+    "workspacePlaceholder": "Pick a workspace",
+    "error": {
+      "nameTaken": "A dashboard with this name already exists in this workspace.",
+      "slugTaken": "A dashboard with this slug already exists in this workspace."
+    }
   },
   "common": {
     "create": "Create",
@@ -89,7 +93,8 @@
     "nameRequired": "Name is required",
     "nameMaxLength": "Name must be {{max}} characters or fewer",
     "newResourceName": "New {{resource}} name",
-    "edit": "Edit"
+    "edit": "Edit",
+    "error": "Something went wrong. Please try again."
   },
   "resources": {
     "workspace": "workspace",

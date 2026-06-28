@@ -16,6 +16,16 @@ import { theme } from "antd";
 export const layoutTokens = {
   contentWidthText: 960,
   contentWidthData: 1600,
+  // R101 — sidebar (WorkspaceShell) sizing. These are AntD component PROPS, not
+  // ThemeConfig tokens (Layout.Sider `width`/`collapsedWidth`, Menu
+  // `inlineIndent`), so they live here as app layout numbers — the same
+  // "one tunable home, not scattered literals" pattern as the content widths —
+  // and are fed to the components as props. `siderWidth` 240 (AntD's Sider
+  // default is 200) + a tightened `siderInlineIndent` 16 (AntD default 24) give
+  // the 3-level nav (Dashboards › ‹Workspace› › ‹Dashboard›) room.
+  siderWidth: 240,
+  siderCollapsedWidth: 64,
+  siderInlineIndent: 16,
 } as const;
 
 export const themeTokens: ThemeConfig = {

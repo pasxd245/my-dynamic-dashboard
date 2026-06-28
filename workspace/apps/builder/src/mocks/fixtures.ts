@@ -19,6 +19,7 @@
 import type { Column, Dataset, RowsPage } from '@/features/data-management/datasets/types';
 import type { Query, ResolvedColumn } from '@/features/data-management/queries/types';
 import type { Relationship } from '@/features/data-management/relationships/types';
+import type { DashboardWire } from '@/features/dashboard/wire';
 import type { Workspace } from '@/features/data-management/workspaces/types';
 
 import { CONTRACTS_ROOT } from './contracts-root';
@@ -112,6 +113,35 @@ export const MOCK_QUERIES: readonly Query[] = [MOCK_QUERY];
  *  schema drifted). Lets the FE/integration exercise the stale state
  *  deterministically without mutating a dataset. */
 export const MOCK_STALE_QUERY_ID = 'qr_dead0000';
+
+// ─── Dashboard fixtures (R101 — dashboard-as-a-persisted-noun) ───────
+//
+// One dashboard in MOCK_WORKSPACE, slug `weekly-report`, with a single
+// formula-free widget over MOCK_QUERY (deals by stage, summed). Mirrors the
+// dashboards/*.contract.yaml examples; columns by NAME, `dsh_`/`wdg_` ids.
+export const MOCK_DASHBOARD: DashboardWire = {
+  id: 'dsh_71a4e2f0',
+  workspaceId: MOCK_WORKSPACE.id,
+  name: 'Weekly report',
+  slug: 'weekly-report',
+  definition: {
+    widgets: [
+      {
+        id: 'wdg_4d7b91ce',
+        queryId: MOCK_QUERY.id,
+        title: 'Won deals by stage',
+        chartType: 'bar',
+        dimensionCol: 'stage',
+        measureCol: 'amount',
+        agg: 'sum',
+        span: 1,
+      },
+    ],
+  },
+  createdAt: '2026-06-27T14:02:00Z',
+};
+
+export const MOCK_DASHBOARDS: readonly DashboardWire[] = [MOCK_DASHBOARD];
 
 // ─── Relationship fixtures (R70 — governance) ────────────────────────
 //

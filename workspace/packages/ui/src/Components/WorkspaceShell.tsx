@@ -3,10 +3,18 @@ import { Layout, Menu, theme } from 'antd';
 import type { MenuProps } from 'antd';
 import type { CSSProperties, ReactNode } from 'react';
 
+import { layoutTokens } from '../themeTokens';
+
 export type NavItem = {
   key: string;
   label: string;
   icon?: ReactNode;
+  /**
+   * R101: an optional nested level — when present, this item renders as a
+   * SubMenu whose children are these items (e.g. Dashboards › ‹Workspace› ›
+   * ‹Dashboard›). One extra level; leaves still carry the selectable key.
+   */
+  children?: NavItem[];
 };
 
 export type NavGroup = {
@@ -62,9 +70,20 @@ export type WorkspaceShellProps =
   | (WorkspaceShellBaseProps & { items: NavItem[]; groups?: never })
   | (WorkspaceShellBaseProps & { items?: never; groups: NavGroup[] });
 
-const EXPANDED_WIDTH = 220;
-const COLLAPSED_WIDTH = 64;
-const HEADER_HEIGHT = 56;
+// Sidebar sizing lives in `layoutTokens` (themeTokens.ts) — the one tunable
+// home for app layout numbers. They're AntD PROPS (Sider width / Menu
+// inlineIndent), not ThemeConfig tokens, so they're read here and passed in.
+const { siderWidth: EXPANDED_WIDTH, siderCollapsedWidth: COLLAPSED_WIDTH, siderInlineIndent: INLINE_INDENT } =
+  layoutTokens;
+const HEADER_HEIGHT = 56; // top-bar (not the sider) — stays local
+
+/** A NavItem → AntD menu node, recursing into `children` as a nested SubMenu. */
+function toMenuNode(item: NavItem): NonNullable<MenuProps['items']>[number] {
+  if (item.children && item.children.length > 0) {
+    return { key: item.key, icon: item.icon, label: item.label, children: item.children.map(toMenuNode) };
+  }
+  return { key: item.key, icon: item.icon, label: item.label };
+}
 
 function toMenuItems(source: NavItem[] | NavGroup[], isGrouped: boolean): MenuProps['items'] {
   if (isGrouped) {
@@ -72,23 +91,30 @@ function toMenuItems(source: NavItem[] | NavGroup[], isGrouped: boolean): MenuPr
       key: group.key,
       icon: group.icon,
       label: group.label,
-      children: group.items.map((item) => ({
-        key: item.key,
-        icon: item.icon,
-        label: item.label,
-      })),
+      children: group.items.map(toMenuNode),
     }));
   }
-  return (source as NavItem[]).map((item) => ({
-    key: item.key,
-    icon: item.icon,
-    label: item.label,
-  }));
+  return (source as NavItem[]).map(toMenuNode);
+}
+
+/** Keys of every nested SubMenu under these items (so they start open). */
+function nestedSubmenuKeys(items: NavItem[]): string[] {
+  const keys: string[] = [];
+  for (const it of items) {
+    if (it.children && it.children.length > 0) {
+      keys.push(it.key, ...nestedSubmenuKeys(it.children));
+    }
+  }
+  return keys;
 }
 
 function defaultOpenKeysFor(groups: NavGroup[] | undefined): string[] {
   if (!groups) return [];
-  return groups.filter((g) => g.defaultExpanded).map((g) => g.key);
+  // An expanded group opens its own key + every nested SubMenu under it, so a
+  // 3-level nav (group › ‹workspace› › ‹dashboard›) shows its leaves by default.
+  return groups
+    .filter((g) => g.defaultExpanded)
+    .flatMap((g) => [g.key, ...nestedSubmenuKeys(g.items)]);
 }
 
 export function WorkspaceShell(props: Readonly<WorkspaceShellProps>) {
@@ -254,6 +280,7 @@ export function WorkspaceShell(props: Readonly<WorkspaceShellProps>) {
             <Menu
               mode="inline"
               inlineCollapsed={collapsed}
+              inlineIndent={INLINE_INDENT}
               items={menuItems}
               selectedKeys={activeKey ? [activeKey] : []}
               defaultOpenKeys={defaultOpenKeys}

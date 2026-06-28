@@ -7,19 +7,21 @@ import {
   SettingOutlined,
   TableOutlined,
 } from '@ant-design/icons';
-import { WorkspaceShell, type NavGroup } from '@mdd/ui';
+import { WorkspaceShell, type NavGroup, type NavItem } from '@mdd/ui';
 import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { LocaleSwitcher } from '@/i18n/LocaleSwitcher';
-import { useDashboardsForNav } from '@/features/dashboard/store';
+import { useAllDashboards } from '@/features/dashboard/hooks';
 import { useRouteMeta } from '../lib/routeMeta';
 
 // R101 — nav keys. `Settings › Dashboard` (config/create) is `settings-dashboard`
-// → /settings/dashboard; a created dashboard's item is `dash:<slug>` →
-// /dashboards/<slug>.
+// → /settings/dashboard; a created dashboard's item is `dash:<ws_id>/<slug>` →
+// /dashboards/<ws_id>/<slug> (the project is nested in the path; slug is unique
+// per-workspace).
 const SETTINGS_DASHBOARD_KEY = 'settings-dashboard';
 const DASH_ITEM_PREFIX = 'dash:';
+const DASH_WS_PREFIX = 'dashws:'; // workspace SubMenu header (toggles only; no route)
 const DASHBOARDS_PATH = '/dashboards/';
 
 const DATA_MANAGEMENT_GROUP: NavGroup = {
@@ -65,7 +67,7 @@ export function AppLayout({ children }: Readonly<{ children: ReactNode }>) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const { t } = useTranslation();
-  const dashboards = useDashboardsForNav();
+  const { items: dashboardItems } = useAllDashboards();
   const activeKey = activeKeyFor(pathname);
   const [collapsed, setCollapsed] = useState(false);
   const routeMeta = useRouteMeta();
@@ -79,19 +81,32 @@ export function AppLayout({ children }: Readonly<{ children: ReactNode }>) {
     items: [{ key: SETTINGS_DASHBOARD_KEY, label: t('nav.dashboard'), icon: <BarChartOutlined /> }],
   };
 
-  // The `Dashboard` group lists the created dashboards by slug (feedback:
-  // "Dashboard › Weekly report"). Shown only once at least one exists.
+  // The `Dashboards` group nests by project: Dashboards › ‹Workspace› ›
+  // ‹Dashboard›. Each leaf's key carries `<ws_id>/<slug>` so the route nests the
+  // project; the workspace SubMenu key (`dashws:<ws_id>`) only toggles open (it
+  // has no route). Shown only once at least one dashboard exists.
+  const byWorkspace = new Map<string, { name: string; items: NavItem[] }>();
+  for (const { dashboard: d, workspaceName } of dashboardItems) {
+    const entry = byWorkspace.get(d.workspaceId) ?? { name: workspaceName, items: [] };
+    entry.items.push({
+      key: `${DASH_ITEM_PREFIX}${d.workspaceId}/${d.slug}`,
+      label: d.name,
+      icon: <FundOutlined />,
+    });
+    byWorkspace.set(d.workspaceId, entry);
+  }
   const dashboardGroup: NavGroup | null =
-    dashboards.length > 0
+    dashboardItems.length > 0
       ? {
           key: 'dashboards',
           label: t('nav.dashboards'),
           icon: <FundOutlined />,
           defaultExpanded: true,
-          items: dashboards.map((d) => ({
-            key: `${DASH_ITEM_PREFIX}${d.slug}`,
-            label: d.name,
-            icon: <FundOutlined />,
+          items: [...byWorkspace.entries()].map(([wsId, { name, items }]) => ({
+            key: `${DASH_WS_PREFIX}${wsId}`,
+            label: name,
+            icon: <AppstoreOutlined />,
+            children: items,
           })),
         }
       : null;

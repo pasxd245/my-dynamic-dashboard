@@ -10,7 +10,6 @@ import { useTranslation } from 'react-i18next';
 
 import { isNumeric, pickWidgetDefaults } from './aggregate';
 import { useQueriesQuery } from '@/features/data-management/queries/hooks';
-import { useWorkspacesQuery } from '@/features/data-management/workspaces/hooks';
 import { useWidgetData } from './hooks';
 import type { Agg, ChartType, Widget, WidgetSpan } from './types';
 import { WidgetView } from './WidgetView';
@@ -39,19 +38,17 @@ type WidgetBuilderProps = Readonly<{
 
 export function WidgetBuilder({ open, workspaceId, initial, onSubmit, onCancel }: WidgetBuilderProps) {
   const { t } = useTranslation();
-  const workspaces = useWorkspacesQuery();
-  // Workspace is picked FIRST (it scopes the query list); defaults to the
-  // dashboard's workspace. Builder-local UI state — the Widget binds by queryId.
-  const [wsId, setWsId] = useState<string | undefined>(workspaceId);
-  const queries = useQueriesQuery(wsId);
+  // The query list is scoped to the DASHBOARD's workspace (a dashboard is
+  // workspace-scoped, so a widget can only bind a query from that same project —
+  // no per-widget workspace picker).
+  const queries = useQueriesQuery(workspaceId);
   const [draft, setDraft] = useState<Draft>(EMPTY);
 
-  // Reset the draft + workspace each time the modal opens (seed from `initial`).
+  // Reset the draft each time the modal opens (seed from `initial`).
   useEffect(() => {
     if (!open) return;
-    setWsId(workspaceId);
     setDraft(initial ? { ...initial } : EMPTY);
-  }, [open, initial, workspaceId]);
+  }, [open, initial]);
 
   const data = useWidgetData(draft.queryId);
   const columns = data.columns;
@@ -74,10 +71,6 @@ export function WidgetBuilder({ open, workspaceId, initial, onSubmit, onCancel }
   const queryOptions = useMemo(
     () => (queries.data ?? []).map((q) => ({ value: q.id, label: q.name })),
     [queries.data],
-  );
-  const workspaceOptions = useMemo(
-    () => (workspaces.data ?? []).map((w) => ({ value: w.id, label: w.name })),
-    [workspaces.data],
   );
 
   const canSubmit =
@@ -128,22 +121,6 @@ export function WidgetBuilder({ open, workspaceId, initial, onSubmit, onCancel }
       <Row gutter={20}>
         <Col xs={24} md={10}>
           <Form layout="vertical">
-            <Form.Item label={t('dashboard.builder.workspace')} required>
-              <Select
-                showSearch
-                optionFilterProp="label"
-                placeholder={t('dashboard.builder.workspacePlaceholder')}
-                value={wsId}
-                options={workspaceOptions}
-                loading={workspaces.isLoading}
-                onChange={(next) => {
-                  setWsId(next);
-                  setDraft((p) => ({ ...p, queryId: undefined, dimensionCol: undefined }));
-                }}
-                data-component="WidgetBuilderWorkspace"
-              />
-            </Form.Item>
-
             <Form.Item label={t('dashboard.builder.query')} required>
               <Select
                 showSearch
@@ -152,7 +129,6 @@ export function WidgetBuilder({ open, workspaceId, initial, onSubmit, onCancel }
                 value={draft.queryId}
                 options={queryOptions}
                 loading={queries.isLoading}
-                disabled={!wsId}
                 onChange={(queryId) => setDraft((p) => ({ ...p, queryId, dimensionCol: undefined }))}
                 data-component="WidgetBuilderQuery"
               />

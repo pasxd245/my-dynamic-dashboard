@@ -61,14 +61,18 @@
       "previewHint": "Chọn một truy vấn để xem trước widget.",
       "countLabel": "Số lượng",
       "removeTitle": "Xóa “{{title}}”?",
-      "workspace": "Không gian làm việc",
-      "workspacePlaceholder": "Chọn không gian làm việc",
       "width": "Chiều rộng",
       "widthHelp": "Số cột widget chiếm (trên 3)."
     },
     "slugLabel": "Slug",
     "slugHelp": "Định danh thân thiện URL, tự điền từ tên. Có thể sửa.",
-    "slugPlaceholder": "ví dụ: bao-cao-tuan"
+    "slugPlaceholder": "ví dụ: bao-cao-tuan",
+    "workspaceLabel": "Không gian làm việc",
+    "workspacePlaceholder": "Chọn không gian làm việc",
+    "error": {
+      "nameTaken": "Đã có bảng điều khiển trùng tên trong không gian làm việc này.",
+      "slugTaken": "Đã có bảng điều khiển trùng slug trong không gian làm việc này."
+    }
   },
   "common": {
     "create": "Tạo",
@@ -89,7 +93,8 @@
     "nameRequired": "Vui lòng nhập tên",
     "nameMaxLength": "Tên không được quá {{max}} ký tự",
     "newResourceName": "Tên {{resource}} mới",
-    "edit": "Sửa"
+    "edit": "Sửa",
+    "error": "Đã xảy ra lỗi. Vui lòng thử lại."
   },
   "resources": {
     "workspace": "không gian làm việc",
