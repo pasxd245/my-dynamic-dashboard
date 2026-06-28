@@ -11,6 +11,8 @@
 # Variants, discriminated by `code`:
 #   - not_found        — resource id resolves to nothing (404)
 #   - name_taken       — rename collides with an existing name (409)
+#   - slug_taken       — dashboard slug collides with an existing slug in the
+#                        same workspace (409, per-workspace scope) — R101
 #   - non_empty        — workspace delete blocked by N datasets (409)
 #   - query_stale      — saved query definition no longer validates against
 #                        the source dataset's current schema (409) — R69
@@ -22,7 +24,7 @@ components:
   schemas:
     ApiErrorCode:
       type: string
-      enum: [not_found, name_taken, non_empty, query_stale, relationship_exists, relationship_stale, composition_cycle]
+      enum: [not_found, name_taken, slug_taken, non_empty, query_stale, relationship_exists, relationship_stale, composition_cycle]
       description: |
         Closed enum. Any new error class lands as a new code in a future
         round + contract update — never as a free-text message.
@@ -47,7 +49,26 @@ components:
           enum: [name_taken]
           description: |
             Rename collision. For workspaces, uniqueness is global; for
-            datasets, uniqueness is scoped to the parent workspace.
+            datasets and dashboards, uniqueness is scoped to the parent
+            workspace (R101 — a dashboard's NAME collides per-workspace; its
+            SLUG collides globally → `slug_taken`).
+
+    ApiErrorSlugTaken:
+      type: object
+      required: [code]
+      additionalProperties: false
+      properties:
+        code:
+          type: string
+          enum: [slug_taken]
+          description: |
+            R101 — a dashboard's `slug` collides with another dashboard's slug
+            in the SAME workspace. Slug uniqueness is per-workspace, like `name`
+            (the route nests the workspace — `/dashboards/<ws_id>/<slug>` — so a
+            slug only disambiguates within its project). Returned by
+            `POST …/dashboards` and `PUT /dashboards/{id}` (409). Distinct from
+            `name_taken` so the FE can point the inline error at the slug field,
+            not the name field.
 
     ApiErrorNonEmpty:
       type: object
@@ -147,6 +168,7 @@ components:
       oneOf:
         - $ref: '#/components/schemas/ApiErrorNotFound'
         - $ref: '#/components/schemas/ApiErrorNameTaken'
+        - $ref: '#/components/schemas/ApiErrorSlugTaken'
         - $ref: '#/components/schemas/ApiErrorNonEmpty'
         - $ref: '#/components/schemas/ApiErrorQueryStale'
         - $ref: '#/components/schemas/ApiErrorRelationshipExists'
@@ -157,6 +179,7 @@ components:
         mapping:
           not_found: '#/components/schemas/ApiErrorNotFound'
           name_taken: '#/components/schemas/ApiErrorNameTaken'
+          slug_taken: '#/components/schemas/ApiErrorSlugTaken'
           non_empty: '#/components/schemas/ApiErrorNonEmpty'
           query_stale: '#/components/schemas/ApiErrorQueryStale'
           relationship_exists: '#/components/schemas/ApiErrorRelationshipExists'

@@ -29,6 +29,12 @@ export const RELATIONSHIP_ID_PATTERN = /{{constants.id_patterns.relationship}}/;
 /** Query-owned relationship IDs: `qrel_<8 lowercase hex chars>` (R88 — copy-on-pick / free-form). */
 export const QUERY_RELATIONSHIP_ID_PATTERN = /{{constants.id_patterns.query_relationship}}/;
 
+/** Dashboard IDs: `dsh_<8 lowercase hex chars>` (R101 — persisted dashboard noun). */
+export const DASHBOARD_ID_PATTERN = /{{constants.id_patterns.dashboard}}/;
+
+/** Widget IDs: `wdg_<8 lowercase hex chars>` (R101 — dashboard widget). */
+export const WIDGET_ID_PATTERN = /{{constants.id_patterns.widget}}/;
+
 /** R29: error-envelope code values. Used at FE branch sites
  *  (`err.body.code === ERROR_CODES.NAME_TAKEN`). */
 export const ERROR_CODES = {
@@ -39,6 +45,7 @@ export const ERROR_CODES = {
   RELATIONSHIP_EXISTS: "{{constants.error_codes.relationship_exists}}",
   RELATIONSHIP_STALE: "{{constants.error_codes.relationship_stale}}",
   COMPOSITION_CYCLE: "{{constants.error_codes.composition_cycle}}",
+  SLUG_TAKEN: "{{constants.error_codes.slug_taken}}",
 } as const;
 
 export type ErrorCode = (typeof ERROR_CODES)[keyof typeof ERROR_CODES];
@@ -50,6 +57,7 @@ export const NAME_LENGTHS = {
   WORKSPACE_MAX: {{constants.name_lengths.workspace_max}},
   DATASET_MAX: {{constants.name_lengths.dataset_max}},
   QUERY_MAX: {{constants.name_lengths.query_max}},
+  DASHBOARD_MAX: {{constants.name_lengths.dashboard_max}},
 } as const;
 
 /** R72: allowed items-per-page values — the options every paged-rows view

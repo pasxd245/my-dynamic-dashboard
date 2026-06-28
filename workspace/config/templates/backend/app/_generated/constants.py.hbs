@@ -23,6 +23,8 @@ ID_PATTERNS: dict[str, str] = {
     "query": r"{{constants.id_patterns.query}}",
     "relationship": r"{{constants.id_patterns.relationship}}",
     "query_relationship": r"{{constants.id_patterns.query_relationship}}",
+    "dashboard": r"{{constants.id_patterns.dashboard}}",
+    "widget": r"{{constants.id_patterns.widget}}",
 }
 
 # Code-first error envelope keys (matches packages/contracts/_shared/api-error.yaml
@@ -35,6 +37,7 @@ ERROR_CODES: dict[str, str] = {
     "relationship_exists": "{{constants.error_codes.relationship_exists}}",
     "relationship_stale": "{{constants.error_codes.relationship_stale}}",
     "composition_cycle": "{{constants.error_codes.composition_cycle}}",
+    "slug_taken": "{{constants.error_codes.slug_taken}}",
 }
 
 # Name-length bounds enforced by Pydantic Field(max_length=...) on the BE
@@ -45,6 +48,7 @@ NAME_LENGTHS: dict[str, int] = {
     "workspace_max": {{constants.name_lengths.workspace_max}},
     "dataset_max": {{constants.name_lengths.dataset_max}},
     "query_max": {{constants.name_lengths.query_max}},
+    "dashboard_max": {{constants.name_lengths.dashboard_max}},
 }
 
 # R72: allowed items-per-page values — the page_size enum every paged-rows

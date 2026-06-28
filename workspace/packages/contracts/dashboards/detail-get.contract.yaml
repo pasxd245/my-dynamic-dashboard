@@ -1,0 +1,65 @@
+openapi: 3.1.0
+info:
+  title: my-dynamic-dashboard — GET /dashboards/{id}
+  version: 0.1.0
+  description: |
+    Get a single dashboard by id (its definition + metadata). R101 —
+    dashboard-as-a-persisted-noun. The canonical id-keyed resource read: used
+    after a create/update to hydrate the FE cache by the stable `dsh_` id. The
+    URL-facing detail route (`/dashboards/<ws_id>/<slug>`) resolves the slug →
+    dashboard from the workspace's dashboard list (`get.contract.yaml`), not via
+    a dedicated slug endpoint.
+
+paths:
+  /dashboards/{id}:
+    get:
+      operationId: getDashboard
+      summary: Get a single dashboard by id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^dsh_[0-9a-f]{8}$"
+          description: Dashboard id.
+          examples:
+            weekly:
+              value: "dsh_71a4e2f0"
+      responses:
+        "200":
+          description: |
+            The dashboard — its definition (widgets) and metadata. The same
+            shape as the list-GET items, so the FE hydrates its cache without
+            reshaping.
+          content:
+            application/json:
+              schema:
+                $ref: "../_shared/dashboard.yaml#/components/schemas/Dashboard"
+              examples:
+                weekly:
+                  value:
+                    id: "dsh_71a4e2f0"
+                    workspaceId: "ws_3f8a2c91"
+                    name: "Weekly report"
+                    slug: "weekly-report"
+                    definition:
+                      widgets:
+                        - id: "wdg_4d7b91ce"
+                          queryId: "qr_9c2f10ab"
+                          title: "Won deals by stage"
+                          chartType: bar
+                          dimensionCol: "stage"
+                          measureCol: "amount"
+                          agg: sum
+                          span: 1
+                    createdAt: "2026-06-27T14:02:00Z"
+        "404":
+          description: No dashboard with the given `id` exists (deleted, or never existed).
+          content:
+            application/json:
+              schema:
+                $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorNotFound"
+              examples:
+                missing:
+                  value: { "code": "not_found" }

@@ -1,0 +1,58 @@
+openapi: 3.1.0
+info:
+  title: my-dynamic-dashboard — GET /workspaces/{id}/dashboards
+  version: 0.1.0
+  description: |
+    List the dashboards in a workspace, most-recent first. R101 —
+    dashboard-as-a-persisted-noun. Powers the `Settings › Dashboard` catalog
+    list and the dynamic `Dashboards` nav group (workspace-scoped, mirroring the
+    datasets/queries list IA). Empty array when the workspace has none (the
+    list page's empty state).
+
+paths:
+  /workspaces/{id}/dashboards:
+    get:
+      operationId: listDashboards
+      summary: List a workspace's dashboards (most-recent first)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^ws_[0-9a-f]{8}$"
+          description: Workspace id (the IA scope).
+          examples:
+            marketing:
+              value: "ws_3f8a2c91"
+      responses:
+        "200":
+          description: Array of dashboards, sorted by `createdAt` descending.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "../_shared/dashboard.yaml#/components/schemas/Dashboard"
+              examples:
+                empty:
+                  summary: No dashboards in this workspace yet
+                  value: []
+                one:
+                  summary: One dashboard with a single widget
+                  value:
+                    - id: "dsh_71a4e2f0"
+                      workspaceId: "ws_3f8a2c91"
+                      name: "Weekly report"
+                      slug: "weekly-report"
+                      definition:
+                        widgets:
+                          - id: "wdg_4d7b91ce"
+                            queryId: "qr_9c2f10ab"
+                            title: "Won deals by stage"
+                            chartType: bar
+                            dimensionCol: "stage"
+                            measureCol: "amount"
+                            agg: sum
+                            span: 1
+                      createdAt: "2026-06-27T14:02:00Z"

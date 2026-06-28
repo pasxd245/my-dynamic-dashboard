@@ -75,6 +75,8 @@ constants:
     query: '^qr_[0-9a-f]{8}$' # R69 — Saved Query
     relationship: '^rel_[0-9a-f]{8}$' # R70 — relationship governance (edge)
     query_relationship: '^qrel_[0-9a-f]{8}$' # R88 — query-owned relationship (copy-on-pick / free-form)
+    dashboard: '^dsh_[0-9a-f]{8}$' # R101 — persisted dashboard (noun)
+    widget: '^wdg_[0-9a-f]{8}$' # R101 — dashboard widget
 
   # R29: code-first error envelope keys (matches contracts/_shared/api-error.yaml).
   # The Pydantic Literal annotations on BE side and the discriminated TS union
@@ -88,6 +90,7 @@ constants:
     relationship_exists: 'relationship_exists' # R70 — duplicate governed edge (same workspace + column pair)
     relationship_stale: 'relationship_stale' # R71 — join over an edge whose key column drifted (blocks the join)
     composition_cycle: 'composition_cycle' # R76 — Query × Query composition would loop (a query transitively builds on itself)
+    slug_taken: 'slug_taken' # R101 — dashboard slug collides within its workspace (per-workspace, like name)
 
   # R29: name-length bounds enforced by Pydantic on BE + AntD Form rules on
   # FE. Workspace names globally unique, max 80; dataset names per-workspace
@@ -96,6 +99,7 @@ constants:
     workspace_max: 80
     dataset_max: 120
     query_max: 120 # R69 — query name, per-workspace unique (mirrors dataset)
+    dashboard_max: 120 # R101 — dashboard name + slug, both unique per-workspace
 
   # R72: page-size vocabulary — the items-per-page options every paged-rows
   # view offers (dataset rows, saved-query run, builder preview) and the

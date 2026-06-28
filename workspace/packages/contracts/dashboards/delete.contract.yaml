@@ -1,0 +1,41 @@
+openapi: 3.1.0
+info:
+  title: my-dynamic-dashboard — DELETE /dashboards/{id}
+  version: 0.1.0
+  description: |
+    Delete a dashboard. R101 — dashboard-as-a-persisted-noun. Keyed by the
+    stable `dsh_` id (the `Settings › Dashboard` card ⋯ menu). A dashboard has
+    no dependents (it OWNS its embedded widgets, which reference queries but are
+    not referenced BY anything), so there is no 409 path; deleting it removes it
+    and its widget definitions. The referenced queries are untouched.
+
+paths:
+  /dashboards/{id}:
+    delete:
+      operationId: deleteDashboard
+      summary: Delete a dashboard
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^dsh_[0-9a-f]{8}$"
+          description: Dashboard id.
+          examples:
+            weekly:
+              value: "dsh_71a4e2f0"
+      responses:
+        "204":
+          description: Deleted. No body.
+        "404":
+          description: |
+            No dashboard with the given `id` exists (already deleted). Lets the
+            FE distinguish "you did this" from "someone else did".
+          content:
+            application/json:
+              schema:
+                $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorNotFound"
+              examples:
+                missing:
+                  value: { "code": "not_found" }

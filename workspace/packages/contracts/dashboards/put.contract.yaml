@@ -1,0 +1,150 @@
+openapi: 3.1.0
+info:
+  title: my-dynamic-dashboard — PUT /dashboards/{id}
+  version: 0.1.0
+  description: |
+    Update a dashboard — a FULL representation replace of its `name`, `slug`,
+    and `definition`. R101 — dashboard-as-a-persisted-noun.
+
+    Every dashboard mutation the FE makes (rename, edit the slug, add / edit /
+    remove a widget, change a widget's span) persists by sending the dashboard's
+    full current state here — one idempotent endpoint instead of granular
+    sub-resource verbs. Mutations are keyed by the STABLE `id` (not the editable
+    slug). The same uniqueness + widget-validation guards as create apply: a
+    per-workspace `name` collision → 409 `name_taken`; a per-workspace `slug`
+    collision → 409 `slug_taken`; a malformed definition (a widget's `queryId` not in this
+    workspace, a `sum` with no `measureCol`, a bad enum / span) → 422. The
+    response is the updated `Dashboard`.
+
+paths:
+  /dashboards/{id}:
+    put:
+      operationId: updateDashboard
+      summary: Update a dashboard's name, slug, and widgets
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^dsh_[0-9a-f]{8}$"
+          description: Dashboard id (the stable mutation key).
+          examples:
+            weekly:
+              value: "dsh_71a4e2f0"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, slug, definition]
+              additionalProperties: false
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 120
+                slug:
+                  type: string
+                  pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+                  minLength: 1
+                  maxLength: 120
+                definition:
+                  $ref: "../_shared/dashboard.yaml#/components/schemas/DashboardDefinition"
+            examples:
+              add_widget:
+                summary: Add a second widget (count of deals by owner, pie)
+                value:
+                  name: "Weekly report"
+                  slug: "weekly-report"
+                  definition:
+                    widgets:
+                      - id: "wdg_4d7b91ce"
+                        queryId: "qr_9c2f10ab"
+                        title: "Won deals by stage"
+                        chartType: bar
+                        dimensionCol: "stage"
+                        measureCol: "amount"
+                        agg: sum
+                        span: 1
+                      - id: "wdg_8c2a1b40"
+                        queryId: "qr_9c2f10ab"
+                        title: "Deals by owner"
+                        chartType: pie
+                        dimensionCol: "owner"
+                        agg: count
+                        span: 2
+      responses:
+        "200":
+          description: Dashboard updated. The full `Dashboard` with the new state.
+          content:
+            application/json:
+              schema:
+                $ref: "../_shared/dashboard.yaml#/components/schemas/Dashboard"
+              examples:
+                updated:
+                  value:
+                    id: "dsh_71a4e2f0"
+                    workspaceId: "ws_3f8a2c91"
+                    name: "Weekly report"
+                    slug: "weekly-report"
+                    definition:
+                      widgets:
+                        - id: "wdg_4d7b91ce"
+                          queryId: "qr_9c2f10ab"
+                          title: "Won deals by stage"
+                          chartType: bar
+                          dimensionCol: "stage"
+                          measureCol: "amount"
+                          agg: sum
+                          span: 1
+                        - id: "wdg_8c2a1b40"
+                          queryId: "qr_9c2f10ab"
+                          title: "Deals by owner"
+                          chartType: pie
+                          dimensionCol: "owner"
+                          agg: count
+                          span: 2
+                    createdAt: "2026-06-27T14:02:00Z"
+        "404":
+          description: No dashboard with the given `id` exists.
+          content:
+            application/json:
+              schema:
+                $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorNotFound"
+              examples:
+                missing:
+                  value: { "code": "not_found" }
+        "409":
+          description: |
+            A per-workspace uniqueness collision on the new `name`
+            (→ `name_taken`) or `slug` (→ `slug_taken`). The current
+            dashboard's own value never collides with itself.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorNameTaken"
+                  - $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorSlugTaken"
+              examples:
+                name_collision:
+                  value: { "code": "name_taken" }
+                slug_collision:
+                  value: { "code": "slug_taken" }
+        "422":
+          description: |
+            The new representation is malformed — bad `name` / `slug`, or a
+            widget whose `queryId` is not a query in this workspace, a `sum`
+            with no `measureCol` (or a `count` carrying one), or an out-of-range
+            `chartType` / `agg` / `span`. FastAPI validation envelope.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [detail]
+                properties:
+                  detail:
+                    type: array
+                    items:
+                      type: object

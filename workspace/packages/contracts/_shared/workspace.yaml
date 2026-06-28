@@ -19,7 +19,11 @@ components:
           type: string
           minLength: 1
           maxLength: 80
-          description: User-supplied human label. Not unique.
+          description: |
+            User-supplied human label. Unique GLOBALLY — the create/rename
+            endpoints enforce it (R25; DB index `idx_workspaces_name_unique`),
+            returning 409 `name_taken` on collision. (Unlike datasets / queries
+            / dashboards, whose names are unique only per-workspace.)
           examples: ["Marketing"]
         createdAt:
           type: string

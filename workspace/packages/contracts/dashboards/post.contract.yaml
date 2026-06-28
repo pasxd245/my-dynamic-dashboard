@@ -1,0 +1,133 @@
+openapi: 3.1.0
+info:
+  title: my-dynamic-dashboard — POST /workspaces/{id}/dashboards
+  version: 0.1.0
+  description: |
+    Create a Dashboard in a workspace. R101 — dashboard-as-a-persisted-noun.
+
+    The body carries a user-supplied `name`, an (auto-derived, editable) URL
+    `slug`, and the `definition` (`{ widgets: [] }` — possibly empty at create,
+    then widgets added via PUT). The dashboard is workspace-scoped (the IA
+    scope, mirroring Datasets/Queries); both `name` and `slug` are unique PER
+    WORKSPACE (the route nests the workspace — `/dashboards/<ws_id>/<slug>`).
+    Every widget's `queryId`
+    must reference a saved query in THIS workspace at save time (cross-workspace
+    widgets are constrained out — Contract decision, human 2026-06-27); a later
+    delete of that query is tolerated and renders the per-widget "unavailable"
+    state on the detail view.
+
+paths:
+  /workspaces/{id}/dashboards:
+    post:
+      operationId: createDashboard
+      summary: Create a dashboard in a workspace
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^ws_[0-9a-f]{8}$"
+          description: Workspace id (the IA scope).
+          examples:
+            marketing:
+              value: "ws_3f8a2c91"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, slug, definition]
+              additionalProperties: false
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 120
+                  description: Display name; unique within the workspace.
+                slug:
+                  type: string
+                  pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+                  minLength: 1
+                  maxLength: 120
+                  description: |
+                    URL slug (`/dashboards/<ws_id>/<slug>`); unique per workspace.
+                    Auto-derived from `name` (diacritics stripped) but editable.
+                definition:
+                  $ref: "../_shared/dashboard.yaml#/components/schemas/DashboardDefinition"
+            examples:
+              empty:
+                summary: Create an empty "Weekly report" (widgets added later)
+                value:
+                  name: "Weekly report"
+                  slug: "weekly-report"
+                  definition: { widgets: [] }
+              with_widget:
+                summary: Create with a first widget (deals by stage, summed)
+                value:
+                  name: "Weekly report"
+                  slug: "weekly-report"
+                  definition:
+                    widgets:
+                      - id: "wdg_4d7b91ce"
+                        queryId: "qr_9c2f10ab"
+                        title: "Won deals by stage"
+                        chartType: bar
+                        dimensionCol: "stage"
+                        measureCol: "amount"
+                        agg: sum
+                        span: 1
+      responses:
+        "201":
+          description: Dashboard created.
+          content:
+            application/json:
+              schema:
+                $ref: "../_shared/dashboard.yaml#/components/schemas/Dashboard"
+              examples:
+                created:
+                  value:
+                    id: "dsh_71a4e2f0"
+                    workspaceId: "ws_3f8a2c91"
+                    name: "Weekly report"
+                    slug: "weekly-report"
+                    definition: { widgets: [] }
+                    createdAt: "2026-06-27T14:02:00Z"
+        "409":
+          description: |
+            A uniqueness collision in THIS workspace. `name_taken` — another
+            dashboard here already has the requested `name`. `slug_taken` —
+            another dashboard here already has the requested `slug`. Both are
+            per-workspace. Code-first envelope (R24); the FE points the inline
+            error at the matching field.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorNameTaken"
+                  - $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorSlugTaken"
+              examples:
+                name_collision:
+                  value: { "code": "name_taken" }
+                slug_collision:
+                  value: { "code": "slug_taken" }
+        "422":
+          description: |
+            Validation error. Returned when `name` is missing / empty / > 120
+            chars; `slug` is missing / malformed (not dash-case) / > 120 chars;
+            or any widget in `definition.widgets` is malformed — a `queryId`
+            that references no query in THIS workspace (cross-workspace
+            constraint), a `sum` widget with no `measureCol` (or a `count`
+            widget carrying one), or an out-of-enum `chartType` / `agg` / a
+            `span` outside 1–3. FastAPI validation envelope.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [detail]
+                properties:
+                  detail:
+                    type: array
+                    items:
+                      type: object
