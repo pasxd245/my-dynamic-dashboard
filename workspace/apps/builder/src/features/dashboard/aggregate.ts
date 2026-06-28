@@ -102,3 +102,37 @@ export function countByGroup(
 export function sortDesc(data: readonly Datum[]): Datum[] {
   return [...data].sort((a, b) => b.value - a.value);
 }
+
+// ─── R103 — runtime dashboard filter (client-side, categorical one-of) ───────
+
+/** One active dashboard filter: keep rows whose `column` cell is one of
+ *  `values`. Matched by NAME against each widget's columns (so the same filter
+ *  applies across widgets that share the column; widgets without it are
+ *  unaffected). Labels use the same `(blank)` convention as the aggregates. */
+export type DashboardFilter = { readonly column: string; readonly values: readonly string[] };
+
+/** Distinct cell labels of a column (the value-picker options); sorted, blanks
+ *  shown as `(blank)`. */
+export function distinctValues(rows: readonly (readonly (string | null)[])[], colIdx: number): string[] {
+  const set = new Set<string>();
+  for (const row of rows) set.add(labelOf(row[colIdx]));
+  return [...set].sort((a, b) => a.localeCompare(b));
+}
+
+/**
+ * Filter rows by the active dashboard filters (implicit AND across filters,
+ * one-of within a filter). A filter whose column is ABSENT from `columns` is
+ * skipped — the widget doesn't have that dimension, so it's unaffected (not
+ * blanked). An empty value list is also skipped (a half-built filter). Pure.
+ */
+export function applyFilters(
+  rows: readonly (readonly (string | null)[])[],
+  columns: readonly ColumnLike[],
+  filters: readonly DashboardFilter[],
+): readonly (readonly (string | null)[])[] {
+  const active = filters
+    .map((f) => ({ idx: findColIndex(columns, f.column), values: new Set(f.values) }))
+    .filter((f) => f.idx !== -1 && f.values.size > 0);
+  if (active.length === 0) return rows;
+  return rows.filter((row) => active.every((f) => f.values.has(labelOf(row[f.idx]))));
+}

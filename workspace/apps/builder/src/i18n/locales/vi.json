@@ -79,6 +79,17 @@
       "moved": "{{title}} đã chuyển đến vị trí {{position}} trên {{total}}.",
       "cancelled": "Đã hủy sắp xếp lại.",
       "tooltip": "Kéo để sắp xếp lại"
+    },
+    "filter": {
+      "title": "Lọc — {{title}}",
+      "iconLabel": "Lọc {{title}}",
+      "add": "Thêm bộ lọc",
+      "clear": "Xóa",
+      "none": "Widget này không có cột nào để lọc.",
+      "valuesPlaceholder": "Mọi giá trị",
+      "valuesFor": "Lọc giá trị cho {{column}}",
+      "remove": "Bỏ bộ lọc {{column}}",
+      "hint": "Thêm bộ lọc để cắt lát widget này."
     }
   },
   "common": {

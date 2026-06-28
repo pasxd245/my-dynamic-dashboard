@@ -14,7 +14,15 @@
 // (no contract change). Pointer + keyboard sensors; optimistic order, revert on
 // a failed save.
 
-import { DeleteOutlined, EditOutlined, HolderOutlined, MoreOutlined, PlusOutlined } from '@ant-design/icons';
+import {
+  DeleteOutlined,
+  EditOutlined,
+  FilterFilled,
+  FilterOutlined,
+  HolderOutlined,
+  MoreOutlined,
+  PlusOutlined,
+} from '@ant-design/icons';
 import {
   DndContext,
   KeyboardSensor,
@@ -34,16 +42,18 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { PageContainer, PageHeader } from '@mdd/ui';
-import { App, Button, Card, Col, Dropdown, Empty, Row, Space, Spin, Tooltip } from 'antd';
+import { App, Button, Card, Col, Dropdown, Empty, Row, Space, Spin, Tooltip, theme } from 'antd';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
 
 import { NotFoundPage } from '@/components/NotFoundPage';
 import { useWorkspacesQuery } from '@/features/data-management/workspaces/hooks';
+import type { DashboardFilter } from './aggregate';
 import { useDashboardsQuery, useUpdateDashboardMutation } from './hooks';
 import type { Widget, WidgetSpan } from './types';
 import { WidgetBuilder } from './WidgetBuilder';
+import { WidgetFilterDrawer } from './WidgetFilterDrawer';
 import { WidgetView } from './WidgetView';
 import { widgetsToDefinition } from './wire';
 
@@ -69,14 +79,23 @@ function SortableWidget({
   canReorder,
   handleLabel,
   handleTooltip,
+  filterActive,
+  filterLabel,
+  onOpenFilter,
   menu,
+  filters,
 }: Readonly<{
   widget: Widget;
   canReorder: boolean;
   handleLabel: string;
   handleTooltip: string;
+  filterActive: boolean;
+  filterLabel: string;
+  onOpenFilter: () => void;
   menu: React.ReactNode;
+  filters: readonly DashboardFilter[];
 }>) {
+  const { token } = theme.useToken();
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } =
     useSortable({ id: widget.id });
   const style: React.CSSProperties = {
@@ -102,9 +121,25 @@ function SortableWidget({
       />
     </Tooltip>
   ) : null;
+  // Filter affordance: filled + primary-coloured when this widget has an active
+  // filter, outline otherwise (an honest active/inactive status).
+  const filterButton = (
+    <Tooltip title={filterLabel}>
+      <Button
+        type="text"
+        size="small"
+        icon={filterActive ? <FilterFilled /> : <FilterOutlined />}
+        onClick={onOpenFilter}
+        aria-label={filterLabel}
+        aria-pressed={filterActive}
+        style={filterActive ? { color: token.colorPrimary } : undefined}
+        data-component="WidgetFilterButton"
+      />
+    </Tooltip>
+  );
   return (
     <Col ref={setNodeRef} style={style} {...COL_SPANS[widget.span]}>
-      <WidgetView widget={widget} extra={<Space size={0}>{handle}{menu}</Space>} />
+      <WidgetView widget={widget} filters={filters} extra={<Space size={0}>{handle}{filterButton}{menu}</Space>} />
     </Col>
   );
 }
@@ -134,6 +169,13 @@ export function DashboardDetailPage() {
   useEffect(() => {
     setOrderIds(serverKey ? serverKey.split(',') : []);
   }, [serverKey]);
+
+  // R103 — runtime, client-side PER-WIDGET filters (FE state, resets per visit):
+  // a map widgetId → filters, plus the widget whose filter Drawer is open.
+  const [filtersByWidget, setFiltersByWidget] = useState<Record<string, DashboardFilter[]>>({});
+  const [filterWidget, setFilterWidget] = useState<Widget | null>(null);
+  const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
+  const filtersFor = (id: string): DashboardFilter[] => filtersByWidget[id] ?? [];
 
   if (dashboardsQ.isLoading) {
     return (
@@ -299,7 +341,14 @@ export function DashboardDetailPage() {
                   canReorder={canReorder}
                   handleLabel={t('dashboard.reorder.handle', { title: w.title })}
                   handleTooltip={t('dashboard.reorder.tooltip')}
+                  filterActive={filtersFor(w.id).some((f) => f.values.length > 0)}
+                  filterLabel={t('dashboard.filter.iconLabel', { title: w.title })}
+                  onOpenFilter={() => {
+                    setFilterWidget(w);
+                    setFilterDrawerOpen(true);
+                  }}
                   menu={widgetMenu(w)}
+                  filters={filtersFor(w.id)}
                 />
               ))}
             </Row>
@@ -313,6 +362,17 @@ export function DashboardDetailPage() {
         initial={builder?.initial}
         onSubmit={submitWidget}
         onCancel={() => setBuilder(null)}
+      />
+
+      <WidgetFilterDrawer
+        open={filterDrawerOpen}
+        widget={filterWidget}
+        filters={filterWidget ? filtersFor(filterWidget.id) : []}
+        onChange={(next) =>
+          filterWidget && setFiltersByWidget((prev) => ({ ...prev, [filterWidget.id]: next }))
+        }
+        onClose={() => setFilterDrawerOpen(false)}
+        afterClose={() => setFilterWidget(null)}
       />
     </PageContainer>
   );

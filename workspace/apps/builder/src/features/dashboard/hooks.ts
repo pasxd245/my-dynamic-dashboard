@@ -11,11 +11,11 @@ import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/rea
 
 import { PAGE_SIZES } from '@/_generated/constants';
 import { dashboardsApi } from '@/api/dashboardsApi';
+import { datasetsApi } from '@/api/datasetsApi';
 import { queriesApi } from '@/api/queriesApi';
-import { useDatasetQuery } from '@/features/data-management/datasets/hooks';
-import { useQueriesQuery, useQueryQuery } from '@/features/data-management/queries/hooks';
+import { useQueriesQuery } from '@/features/data-management/queries/hooks';
 import { useWorkspacesQuery } from '@/features/data-management/workspaces/hooks';
-import type { DataColumn } from './aggregate';
+import { distinctValues, isNumeric, type DataColumn } from './aggregate';
 import type { Dashboard } from './types';
 import { wireToDashboard, type CreateDashboardRequest, type UpdateDashboardRequest } from './wire';
 
@@ -69,39 +69,68 @@ export type WidgetData = {
 };
 
 /**
- * Columns + the full row set for one saved query.
- *
- * Column resolution mirrors QueryDetailPage: a joined/composed query uses its
- * server-computed `resolvedColumns`; a single-source query uses its source
- * dataset's columns.
+ * One widget's effective columns + full row set, as a SINGLE cache entry so the
+ * widget render and the dashboard filter-options picker (R103) share the fetch
+ * — no double round-trip. Column resolution mirrors QueryDetailPage: a
+ * joined/composed query uses its server `resolvedColumns`; a single-source query
+ * uses its source dataset's columns.
  */
+async function fetchWidgetData(
+  queryId: string,
+): Promise<{ columns: readonly DataColumn[]; rows: (string | null)[][] }> {
+  const query = await queriesApi.get(queryId);
+  const joined = (query.resolvedColumns?.length ?? 0) > 0;
+  let columns: readonly DataColumn[];
+  if (joined) {
+    columns = query.resolvedColumns ?? [];
+  } else if (query.sourceId.startsWith('ds_')) {
+    columns = (await datasetsApi.get(query.sourceId)).columns;
+  } else {
+    columns = []; // composed (qr_) single-source without resolvedColumns — rare; no columns to chart
+  }
+  const rows = await fetchAllRows(queryId);
+  return { columns, rows };
+}
+
+function widgetDataKey(queryId: string | undefined) {
+  return ['dashboard-widget-data', queryId] as const;
+}
+
 export function useWidgetData(queryId: string | undefined): WidgetData {
-  const queryQ = useQueryQuery(queryId);
-  const query = queryQ.data;
-  const joined = (query?.resolvedColumns?.length ?? 0) > 0;
-  const sourceDatasetId =
-    query && !joined && query.sourceId.startsWith('ds_') ? query.sourceId : undefined;
-  const datasetQ = useDatasetQuery(sourceDatasetId);
-
-  const resolved: readonly DataColumn[] = query?.resolvedColumns ?? [];
-  const datasetCols: readonly DataColumn[] = datasetQ.data?.columns ?? [];
-  const columns: readonly DataColumn[] = joined ? resolved : datasetCols;
-
-  const rowsQ = useQuery({
-    queryKey: ['dashboard-all-rows', queryId] as const,
-    queryFn: () => fetchAllRows(queryId ?? ''),
-    enabled: typeof queryId === 'string',
+  const q = useQuery({
+    queryKey: widgetDataKey(queryId),
+    queryFn: () => fetchWidgetData(queryId as string),
+    enabled: typeof queryId === 'string' && queryId.length > 0,
   });
-
   return {
-    columns,
-    rows: rowsQ.data ?? [],
-    isLoading: queryQ.isLoading || rowsQ.isLoading || (Boolean(sourceDatasetId) && datasetQ.isLoading),
-    isError: queryQ.isError || rowsQ.isError || datasetQ.isError,
+    columns: q.data?.columns ?? [],
+    rows: q.data?.rows ?? [],
+    isLoading: q.isLoading,
+    isError: q.isError,
     refetch: () => {
-      rowsQ.refetch().catch(() => undefined);
+      q.refetch().catch(() => undefined);
     },
   };
+}
+
+/** A filterable column + its distinct values (the per-widget filter picker). */
+export type FilterOption = { column: string; values: string[] };
+
+/**
+ * R103 — ONE widget's filterable columns + distinct values (categorical only,
+ * v1), read from its own `useWidgetData` (shared cache with the widget's
+ * render). Powers the per-widget filter drawer: each widget filters on its OWN
+ * columns, so there's no cross-widget column-matching ambiguity. Empty until
+ * the widget's data has loaded (or when it has no categorical columns).
+ */
+export function useWidgetFilterOptions(queryId: string | undefined): FilterOption[] {
+  const { columns, rows } = useWidgetData(queryId);
+  const options: FilterOption[] = [];
+  columns.forEach((c, i) => {
+    if (isNumeric(c)) return; // categorical only (v1)
+    options.push({ column: c.name, values: distinctValues(rows, i) });
+  });
+  return options;
 }
 
 /** Categorical chart palette drawn from the AntD theme tokens (Desirability:

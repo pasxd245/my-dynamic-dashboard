@@ -18,7 +18,15 @@ import {
   YAxis,
 } from 'recharts';
 
-import { countByGroup, findColIndex, sortDesc, sumByGroup, type Datum } from './aggregate';
+import {
+  applyFilters,
+  countByGroup,
+  findColIndex,
+  sortDesc,
+  sumByGroup,
+  type DashboardFilter,
+  type Datum,
+} from './aggregate';
 import { ChartCard } from './ChartCard';
 import { useChartPalette, useWidgetData } from './hooks';
 import type { Widget } from './types';
@@ -79,17 +87,24 @@ function PieView({ data, palette }: Readonly<{ data: Datum[]; palette: string[] 
 
 /** Roll a widget's live rows up to chart data per its config. Exported for the
  *  builder's live preview (same path as the rendered widget). */
-export function useWidgetChartData(widget: Pick<Widget, 'queryId' | 'dimensionCol' | 'measureCol' | 'agg'>) {
+export function useWidgetChartData(
+  widget: Pick<Widget, 'queryId' | 'dimensionCol' | 'measureCol' | 'agg'>,
+  filters: readonly DashboardFilter[] = [],
+) {
   const data = useWidgetData(widget.queryId);
   const dimIdx = findColIndex(data.columns, widget.dimensionCol);
   const measureIdx = widget.measureCol ? findColIndex(data.columns, widget.measureCol) : -1;
 
+  // R103 — apply the active dashboard filters to the rows BEFORE the roll-up
+  // (client-side; filters whose column this widget lacks are skipped).
+  const rows = applyFilters(data.rows, data.columns, filters);
+
   let chartData: Datum[] = [];
   if (dimIdx !== -1) {
     if (widget.agg === 'sum' && measureIdx !== -1) {
-      chartData = sortDesc(sumByGroup(data.rows, dimIdx, measureIdx));
+      chartData = sortDesc(sumByGroup(rows, dimIdx, measureIdx));
     } else if (widget.agg === 'count') {
-      chartData = sortDesc(countByGroup(data.rows, dimIdx));
+      chartData = sortDesc(countByGroup(rows, dimIdx));
     }
   }
   return { ...data, chartData };
@@ -99,12 +114,15 @@ type WidgetViewProps = Readonly<{
   widget: Widget;
   /** Optional per-widget actions (edit/remove) rendered in the card header. */
   extra?: React.ReactNode;
+  /** R103 — active dashboard filters; applied to this widget's rows before the
+   *  roll-up (skipped for any filter whose column the widget lacks). */
+  filters?: readonly DashboardFilter[];
 }>;
 
-export function WidgetView({ widget, extra }: WidgetViewProps) {
+export function WidgetView({ widget, extra, filters }: WidgetViewProps) {
   const { t } = useTranslation();
   const palette = useChartPalette();
-  const { chartData, isLoading, isError } = useWidgetChartData(widget);
+  const { chartData, isLoading, isError } = useWidgetChartData(widget, filters);
 
   const valueName = widget.agg === 'count' ? t('dashboard.builder.countLabel') : (widget.measureCol ?? '');
   const ariaKey = widget.chartType === 'pie' ? 'dashboard.ariaPie' : 'dashboard.ariaBar';

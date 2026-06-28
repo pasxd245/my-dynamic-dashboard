@@ -79,6 +79,17 @@
       "moved": "{{title}} moved to position {{position}} of {{total}}.",
       "cancelled": "Reorder cancelled.",
       "tooltip": "Drag to reorder"
+    },
+    "filter": {
+      "title": "Filter — {{title}}",
+      "iconLabel": "Filter {{title}}",
+      "add": "Add filter",
+      "clear": "Clear",
+      "none": "This widget has no filterable columns.",
+      "valuesPlaceholder": "Any value",
+      "valuesFor": "Filter values for {{column}}",
+      "remove": "Remove {{column}} filter",
+      "hint": "Add a filter to slice this widget."
     }
   },
   "common": {

@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest';
 
-import { countByGroup, findColIndex, pickWidgetDefaults, sortDesc, sumByGroup, toNum } from './aggregate';
+import {
+  applyFilters,
+  countByGroup,
+  distinctValues,
+  findColIndex,
+  pickWidgetDefaults,
+  sortDesc,
+  sumByGroup,
+  toNum,
+} from './aggregate';
 
 describe('findColIndex', () => {
   const cols = [{ name: 'region_name' }, { name: 'Orders.amount' }, { name: 'Customers.region_id' }];
@@ -96,5 +105,58 @@ describe('sortDesc', () => {
     ];
     expect(sortDesc(input).map((d) => d.label)).toEqual(['b', 'c', 'a']);
     expect(input[0].label).toBe('a');
+  });
+});
+
+describe('distinctValues (R103)', () => {
+  // rows: [region, outcome]
+  const rows = [
+    ['EMEA', 'won'],
+    ['APAC', 'lost'],
+    ['EMEA', 'won'],
+    [null, 'won'],
+  ];
+
+  it('returns sorted distinct labels, blanks as (blank)', () => {
+    expect(distinctValues(rows, 0)).toEqual(['(blank)', 'APAC', 'EMEA']);
+    expect(distinctValues(rows, 1)).toEqual(['lost', 'won']);
+  });
+});
+
+describe('applyFilters (R103)', () => {
+  const columns = [{ name: 'region' }, { name: 'outcome' }];
+  const rows = [
+    ['EMEA', 'won'],
+    ['APAC', 'lost'],
+    ['EMEA', 'lost'],
+    [null, 'won'],
+  ];
+
+  it('keeps rows matching a one-of filter', () => {
+    expect(applyFilters(rows, columns, [{ column: 'region', values: ['EMEA'] }])).toEqual([
+      ['EMEA', 'won'],
+      ['EMEA', 'lost'],
+    ]);
+  });
+
+  it('ANDs multiple filters', () => {
+    expect(
+      applyFilters(rows, columns, [
+        { column: 'region', values: ['EMEA'] },
+        { column: 'outcome', values: ['won'] },
+      ]),
+    ).toEqual([['EMEA', 'won']]);
+  });
+
+  it('matches (blank) for null cells', () => {
+    expect(applyFilters(rows, columns, [{ column: 'region', values: ['(blank)'] }])).toEqual([[null, 'won']]);
+  });
+
+  it('skips a filter whose column is absent (widget unaffected)', () => {
+    expect(applyFilters(rows, columns, [{ column: 'missing', values: ['x'] }])).toBe(rows);
+  });
+
+  it('skips a half-built filter with no values', () => {
+    expect(applyFilters(rows, columns, [{ column: 'region', values: [] }])).toBe(rows);
   });
 });
