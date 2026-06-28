@@ -72,6 +72,13 @@
     "error": {
       "nameTaken": "A dashboard with this name already exists in this workspace.",
       "slugTaken": "A dashboard with this slug already exists in this workspace."
+    },
+    "reorder": {
+      "handle": "Reorder {{title}}",
+      "picked": "Picked up {{title}}, position {{position}} of {{total}}. Use arrow keys to move, space to drop.",
+      "moved": "{{title}} moved to position {{position}} of {{total}}.",
+      "cancelled": "Reorder cancelled.",
+      "tooltip": "Drag to reorder"
     }
   },
   "common": {

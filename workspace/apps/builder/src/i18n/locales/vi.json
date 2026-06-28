@@ -72,6 +72,13 @@
     "error": {
       "nameTaken": "Đã có bảng điều khiển trùng tên trong không gian làm việc này.",
       "slugTaken": "Đã có bảng điều khiển trùng slug trong không gian làm việc này."
+    },
+    "reorder": {
+      "handle": "Sắp xếp lại {{title}}",
+      "picked": "Đã chọn {{title}}, vị trí {{position}} trên {{total}}. Dùng phím mũi tên để di chuyển, phím cách để thả.",
+      "moved": "{{title}} đã chuyển đến vị trí {{position}} trên {{total}}.",
+      "cancelled": "Đã hủy sắp xếp lại.",
+      "tooltip": "Kéo để sắp xếp lại"
     }
   },
   "common": {

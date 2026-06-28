@@ -8,11 +8,34 @@
 // definition via PUT (the full-representation update). The dashboard's own
 // lifecycle (rename / delete) lives on the Settings › Dashboard list, not here.
 // Each widget carries its OWN width (1–3 cols of a 3-col grid; Tableau-style).
+//
+// R102 — widgets are drag-reorderable (by a per-card handle) via @dnd-kit;
+// the order is definition.widgets[] order, persisted on drop via the same PUT
+// (no contract change). Pointer + keyboard sensors; optimistic order, revert on
+// a failed save.
 
-import { DeleteOutlined, EditOutlined, MoreOutlined, PlusOutlined } from '@ant-design/icons';
+import { DeleteOutlined, EditOutlined, HolderOutlined, MoreOutlined, PlusOutlined } from '@ant-design/icons';
+import {
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type Announcements,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  arrayMove,
+  rectSortingStrategy,
+  sortableKeyboardCoordinates,
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { PageContainer, PageHeader } from '@mdd/ui';
-import { App, Button, Card, Col, Dropdown, Empty, Row, Spin } from 'antd';
-import { useState } from 'react';
+import { App, Button, Card, Col, Dropdown, Empty, Row, Space, Spin, Tooltip } from 'antd';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
 
@@ -38,6 +61,54 @@ function newWidgetId(): string {
   return `wdg_${crypto.randomUUID().slice(0, 8)}`;
 }
 
+/** One widget as a sortable grid cell. The drag activator is the HANDLE only
+ *  (not the whole card), so the ⋯ menu and the interactive chart keep their
+ *  clicks; the handle is keyboard-focusable (dnd-kit keyboard sensor). */
+function SortableWidget({
+  widget,
+  canReorder,
+  handleLabel,
+  handleTooltip,
+  menu,
+}: Readonly<{
+  widget: Widget;
+  canReorder: boolean;
+  handleLabel: string;
+  handleTooltip: string;
+  menu: React.ReactNode;
+}>) {
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } =
+    useSortable({ id: widget.id });
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.4 : 1,
+    zIndex: isDragging ? 1 : undefined,
+  };
+  const handle = canReorder ? (
+    <Tooltip title={handleTooltip}>
+      <Button
+        type="text"
+        size="small"
+        ref={setActivatorNodeRef}
+        icon={<HolderOutlined />}
+        aria-label={handleLabel}
+        // The `move` cursor (four-way arrows) makes "this moves" obvious; the
+        // ⋮⋮ holder icon stays as the recognizable drag affordance.
+        style={{ cursor: 'move', touchAction: 'none' }}
+        data-component="WidgetDragHandle"
+        {...attributes}
+        {...listeners}
+      />
+    </Tooltip>
+  ) : null;
+  return (
+    <Col ref={setNodeRef} style={style} {...COL_SPANS[widget.span]}>
+      <WidgetView widget={widget} extra={<Space size={0}>{handle}{menu}</Space>} />
+    </Col>
+  );
+}
+
 export function DashboardDetailPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -50,6 +121,19 @@ export function DashboardDetailPage() {
   const updateMutation = useUpdateDashboardMutation();
 
   const [builder, setBuilder] = useState<{ initial?: Widget } | null>(null);
+
+  // R102 reorder — display order (widget ids). Kept local for an optimistic
+  // reorder on drop; resynced whenever the server order/set changes (so a
+  // successful save is a no-op and a failed save / external edit reverts).
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+  const [orderIds, setOrderIds] = useState<string[]>([]);
+  const serverKey = (dashboard?.widgets ?? []).map((w) => w.id).join(',');
+  useEffect(() => {
+    setOrderIds(serverKey ? serverKey.split(',') : []);
+  }, [serverKey]);
 
   if (dashboardsQ.isLoading) {
     return (
@@ -78,12 +162,59 @@ export function DashboardDetailPage() {
     { label: dash.name },
   ];
 
+  const widgetsById = new Map(dash.widgets.map((w) => [w.id, w]));
+  // Display widgets in the local order; fall back to server order, and drop any
+  // ids the optimistic order hasn't caught up on (e.g. just-removed widget).
+  const displayIds = orderIds.filter((id) => widgetsById.has(id));
+  const ordered: Widget[] = displayIds.map((id) => widgetsById.get(id) as Widget);
+  const canReorder = ordered.length > 1;
+
   // Every widget mutation persists the WHOLE dashboard (full-representation PUT):
   // build the next widget list, send name + slug (unchanged) + the new widgets.
   const persistWidgets = (widgets: Widget[]) =>
     updateMutation
       .mutateAsync({ id: dash.id, body: { name: dash.name, slug: dash.slug, definition: widgetsToDefinition(widgets) } })
       .catch(() => message.error(t('common.error')));
+
+  const onDragEnd = ({ active, over }: DragEndEvent) => {
+    if (!over || active.id === over.id) return;
+    const prev = displayIds;
+    const oldIndex = prev.indexOf(String(active.id));
+    const newIndex = prev.indexOf(String(over.id));
+    if (oldIndex < 0 || newIndex < 0) return;
+    const nextIds = arrayMove(prev, oldIndex, newIndex);
+    setOrderIds(nextIds); // optimistic
+    const nextWidgets = nextIds.map((id) => widgetsById.get(id) as Widget);
+    updateMutation
+      .mutateAsync({
+        id: dash.id,
+        body: { name: dash.name, slug: dash.slug, definition: widgetsToDefinition(nextWidgets) },
+      })
+      .catch(() => {
+        setOrderIds(prev); // revert the optimistic reorder
+        message.error(t('common.error'));
+      });
+  };
+
+  const announce = (id: string) => widgetsById.get(id)?.title ?? '';
+  const announcements: Announcements = {
+    onDragStart: ({ active }) =>
+      t('dashboard.reorder.picked', {
+        title: announce(String(active.id)),
+        position: displayIds.indexOf(String(active.id)) + 1,
+        total: displayIds.length,
+      }),
+    onDragOver: () => undefined,
+    onDragEnd: ({ active, over }) =>
+      over
+        ? t('dashboard.reorder.moved', {
+            title: announce(String(active.id)),
+            position: displayIds.indexOf(String(over.id)) + 1,
+            total: displayIds.length,
+          })
+        : t('dashboard.reorder.cancelled'),
+    onDragCancel: () => t('dashboard.reorder.cancelled'),
+  };
 
   const confirmRemoveWidget = (widget: Widget) => {
     modal.confirm({
@@ -103,9 +234,9 @@ export function DashboardDetailPage() {
     setBuilder(null);
   };
 
-  // Width is a persisted widget option set in the builder (Create/Edit); the
-  // card header carries just the ⋯ menu (Edit / Delete).
-  const widgetExtra = (w: Widget) => (
+  // The card header carries the drag handle (R102, added in SortableWidget) +
+  // this ⋯ menu (Edit / Delete).
+  const widgetMenu = (w: Widget) => (
     <Dropdown
       trigger={['click']}
       menu={{
@@ -144,7 +275,7 @@ export function DashboardDetailPage() {
         onNavigate={(r) => navigate(r)}
       />
 
-      {dash.widgets.length === 0 ? (
+      {ordered.length === 0 ? (
         <Card data-component="DashboardNoWidgets">
           <Empty description={t('dashboard.noWidgets')}>
             <Button type="primary" icon={<PlusOutlined />} onClick={() => setBuilder({})}>
@@ -153,13 +284,27 @@ export function DashboardDetailPage() {
           </Empty>
         </Card>
       ) : (
-        <Row gutter={[16, 16]}>
-          {dash.widgets.map((w) => (
-            <Col key={w.id} {...COL_SPANS[w.span]}>
-              <WidgetView widget={w} extra={widgetExtra(w)} />
-            </Col>
-          ))}
-        </Row>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={onDragEnd}
+          accessibility={{ announcements }}
+        >
+          <SortableContext items={displayIds} strategy={rectSortingStrategy}>
+            <Row gutter={[16, 16]}>
+              {ordered.map((w) => (
+                <SortableWidget
+                  key={w.id}
+                  widget={w}
+                  canReorder={canReorder}
+                  handleLabel={t('dashboard.reorder.handle', { title: w.title })}
+                  handleTooltip={t('dashboard.reorder.tooltip')}
+                  menu={widgetMenu(w)}
+                />
+              ))}
+            </Row>
+          </SortableContext>
+        </DndContext>
       )}
 
       <WidgetBuilder
