@@ -4,6 +4,8 @@
 // `ChartCard` (which owns loading/error/empty). Same compute→present split as
 // R100; the config now comes from the builder instead of hardcoded props.
 
+import { WarningOutlined } from '@ant-design/icons';
+import { Tooltip as AntTooltip, theme } from 'antd';
 import { useTranslation } from 'react-i18next';
 import {
   Bar,
@@ -18,6 +20,7 @@ import {
   YAxis,
 } from 'recharts';
 
+import { DASHBOARD_MAX_ROWS } from '@/_generated/constants';
 import {
   applyFilters,
   countByGroup,
@@ -121,11 +124,28 @@ type WidgetViewProps = Readonly<{
 
 export function WidgetView({ widget, extra, filters }: WidgetViewProps) {
   const { t } = useTranslation();
+  const { token } = theme.useToken();
   const palette = useChartPalette();
-  const { chartData, isLoading, isError } = useWidgetChartData(widget, filters);
+  const { chartData, isLoading, isError, capped, total } = useWidgetChartData(widget, filters);
 
   const valueName = widget.agg === 'count' ? t('dashboard.builder.countLabel') : (widget.measureCol ?? '');
   const ariaKey = widget.chartType === 'pie' ? 'dashboard.ariaPie' : 'dashboard.ariaBar';
+
+  // R104 — over-cap signpost: this widget's data is partial (first N of M).
+  const capWarning = capped ? (
+    <AntTooltip
+      title={t('dashboard.cap.tooltip', {
+        cap: DASHBOARD_MAX_ROWS.toLocaleString(),
+        total: total.toLocaleString(),
+      })}
+    >
+      <WarningOutlined
+        style={{ color: token.colorWarning, fontSize: 14 }}
+        aria-label={t('dashboard.cap.label', { cap: DASHBOARD_MAX_ROWS.toLocaleString(), total: total.toLocaleString() })}
+        data-component="WidgetCapWarning"
+      />
+    </AntTooltip>
+  ) : undefined;
 
   return (
     <ChartCard
@@ -135,6 +155,7 @@ export function WidgetView({ widget, extra, filters }: WidgetViewProps) {
       isMissingQuery={false}
       isEmpty={chartData.length === 0}
       extra={extra}
+      warning={capWarning}
     >
       <ChartFigure label={t(ariaKey, { title: widget.title })}>
         {widget.chartType === 'pie' ? (

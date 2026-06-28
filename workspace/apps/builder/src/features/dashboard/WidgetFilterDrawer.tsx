@@ -9,9 +9,10 @@
 // values; only added filters show. Scales to wide queries.
 
 import { CloseOutlined, PlusOutlined } from '@ant-design/icons';
-import { Button, Drawer, Empty, Select, Space, Typography } from 'antd';
+import { Alert, Button, Drawer, Empty, Flex, Select, Typography } from 'antd';
 import { useTranslation } from 'react-i18next';
 
+import { DASHBOARD_MAX_ROWS } from '@/_generated/constants';
 import type { DashboardFilter } from './aggregate';
 import { useWidgetFilterOptions } from './hooks';
 import type { Widget } from './types';
@@ -41,7 +42,7 @@ export function WidgetFilterDrawer({
   afterClose,
 }: WidgetFilterDrawerProps) {
   const { t } = useTranslation();
-  const options = useWidgetFilterOptions(widget?.queryId);
+  const { options, capped } = useWidgetFilterOptions(widget?.queryId);
 
   // Distinct values offered for a column (the picker) vs the currently-selected
   // ones (from the active filters).
@@ -75,7 +76,14 @@ export function WidgetFilterDrawer({
       {options.length === 0 ? (
         <Empty description={t('dashboard.filter.none')} />
       ) : (
-        <Space direction="vertical" size="middle" style={{ width: '100%' }} data-component="WidgetFilterForm">
+        <Flex vertical gap="middle" data-component="WidgetFilterForm">
+          {capped ? (
+            <Alert
+              type="info"
+              showIcon
+              title={t('dashboard.filter.partialNote', { cap: DASHBOARD_MAX_ROWS.toLocaleString() })}
+            />
+          ) : null}
           {filters.map((f) => (
             <div key={f.column}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
@@ -124,7 +132,7 @@ export function WidgetFilterDrawer({
               {t('dashboard.filter.hint')}
             </Typography.Text>
           ) : null}
-        </Space>
+        </Flex>
       )}
     </Drawer>
   );

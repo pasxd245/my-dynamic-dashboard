@@ -9,7 +9,7 @@
 import { theme } from 'antd';
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { PAGE_SIZES } from '@/_generated/constants';
+import { DASHBOARD_MAX_ROWS, PAGE_SIZES } from '@/_generated/constants';
 import { dashboardsApi } from '@/api/dashboardsApi';
 import { datasetsApi } from '@/api/datasetsApi';
 import { queriesApi } from '@/api/queriesApi';
@@ -27,19 +27,25 @@ export const SEED_WORKSPACE_NAME = 'Sales demo (seed)';
 const MAX_PAGE_SIZE = Math.max(...(PAGE_SIZES as readonly number[]));
 
 /**
- * Fetch ALL rows of a saved query by looping the paged rows-GET to `total`.
- * The contract exposes only paged raw rows; this is the FE-only path the
- * Design gate resolved (decision #1).
+ * Fetch a saved query's rows by looping the paged rows-GET, BOUNDED at `cap`
+ * (R104): stop once `cap` rows are pulled (or `total` is reached), so an
+ * oversized query degrades gracefully instead of pulling everything. Returns
+ * the (capped) rows + the server's `total` so the caller can warn when the view
+ * is partial. The contract caps `page_size` at 100, so this still pages — the
+ * cap bounds the page count (the request-count fix is the deferred server-side
+ * pushdown, not a bigger page).
  */
-async function fetchAllRows(id: string): Promise<(string | null)[][]> {
+async function fetchAllRows(id: string, cap: number): Promise<{ rows: (string | null)[][]; total: number }> {
   const first = await queriesApi.getRows(id, 1, MAX_PAGE_SIZE);
   const rows: (string | null)[][] = [...first.rows];
-  const pages = first.pageSize > 0 ? Math.ceil(first.total / first.pageSize) : 1;
+  const pageSize = first.pageSize > 0 ? first.pageSize : MAX_PAGE_SIZE;
+  const targetRows = Math.min(cap, first.total);
+  const pages = Math.ceil(targetRows / pageSize);
   for (let page = 2; page <= pages; page += 1) {
-    const next = await queriesApi.getRows(id, page, first.pageSize);
+    const next = await queriesApi.getRows(id, page, pageSize);
     rows.push(...next.rows);
   }
-  return rows;
+  return { rows: rows.slice(0, cap), total: first.total };
 }
 
 /** The seed workspace's id (looked up by name), with load state. */
@@ -62,7 +68,13 @@ export type WidgetData = {
   /** The effective columns (joined → `resolvedColumns`; single-source →
    *  the source dataset's columns — the QueryDetailPage rule). */
   columns: readonly DataColumn[];
+  /** Rows, BOUNDED at the fetch cap (R104). `capped` says whether they're partial. */
   rows: readonly (readonly (string | null)[])[];
+  /** The server's full row count for the query (may exceed `rows.length`). */
+  total: number;
+  /** R104 — true when `total` exceeded the cap, so `rows` (and any aggregate /
+   *  filter built on them) is PARTIAL. */
+  capped: boolean;
   isLoading: boolean;
   isError: boolean;
   refetch: () => void;
@@ -77,7 +89,7 @@ export type WidgetData = {
  */
 async function fetchWidgetData(
   queryId: string,
-): Promise<{ columns: readonly DataColumn[]; rows: (string | null)[][] }> {
+): Promise<{ columns: readonly DataColumn[]; rows: (string | null)[][]; total: number; capped: boolean }> {
   const query = await queriesApi.get(queryId);
   const joined = (query.resolvedColumns?.length ?? 0) > 0;
   let columns: readonly DataColumn[];
@@ -88,8 +100,8 @@ async function fetchWidgetData(
   } else {
     columns = []; // composed (qr_) single-source without resolvedColumns — rare; no columns to chart
   }
-  const rows = await fetchAllRows(queryId);
-  return { columns, rows };
+  const { rows, total } = await fetchAllRows(queryId, DASHBOARD_MAX_ROWS);
+  return { columns, rows, total, capped: total > DASHBOARD_MAX_ROWS };
 }
 
 function widgetDataKey(queryId: string | undefined) {
@@ -105,6 +117,8 @@ export function useWidgetData(queryId: string | undefined): WidgetData {
   return {
     columns: q.data?.columns ?? [],
     rows: q.data?.rows ?? [],
+    total: q.data?.total ?? 0,
+    capped: q.data?.capped ?? false,
     isLoading: q.isLoading,
     isError: q.isError,
     refetch: () => {
@@ -123,14 +137,15 @@ export type FilterOption = { column: string; values: string[] };
  * columns, so there's no cross-widget column-matching ambiguity. Empty until
  * the widget's data has loaded (or when it has no categorical columns).
  */
-export function useWidgetFilterOptions(queryId: string | undefined): FilterOption[] {
-  const { columns, rows } = useWidgetData(queryId);
+export function useWidgetFilterOptions(queryId: string | undefined): { options: FilterOption[]; capped: boolean } {
+  const { columns, rows, capped } = useWidgetData(queryId);
   const options: FilterOption[] = [];
   columns.forEach((c, i) => {
     if (isNumeric(c)) return; // categorical only (v1)
     options.push({ column: c.name, values: distinctValues(rows, i) });
   });
-  return options;
+  // R104 — when the widget is capped, the distinct-value lists are partial too.
+  return { options, capped };
 }
 
 /** Categorical chart palette drawn from the AntD theme tokens (Desirability:

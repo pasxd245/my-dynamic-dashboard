@@ -23,6 +23,9 @@ type ChartCardProps = Readonly<{
   onRetry?: () => void;
   /** Header-right slot — per-widget actions (edit / remove). */
   extra?: ReactNode;
+  /** R104 — optional inline affordance next to the title (the over-cap
+   *  "partial data" warning). */
+  warning?: ReactNode;
   children: ReactNode;
 }>;
 
@@ -44,7 +47,7 @@ function Centered({ children }: Readonly<{ children: ReactNode }>) {
   );
 }
 
-export function ChartCard({ title, isLoading, isError, isMissingQuery, isEmpty, onRetry, extra, children }: ChartCardProps) {
+export function ChartCard({ title, isLoading, isError, isMissingQuery, isEmpty, onRetry, extra, warning, children }: ChartCardProps) {
   const { t } = useTranslation();
 
   let body: ReactNode;
@@ -86,7 +89,16 @@ export function ChartCard({ title, isLoading, isError, isMissingQuery, isEmpty, 
 
   return (
     <Card
-      title={title}
+      title={
+        warning ? (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            {title}
+            {warning}
+          </span>
+        ) : (
+          title
+        )
+      }
       extra={extra}
       variant="outlined"
       data-component="DashboardChartCard"

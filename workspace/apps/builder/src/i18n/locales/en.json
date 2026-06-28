@@ -89,7 +89,12 @@
       "valuesPlaceholder": "Any value",
       "valuesFor": "Filter values for {{column}}",
       "remove": "Remove {{column}} filter",
-      "hint": "Add a filter to slice this widget."
+      "hint": "Add a filter to slice this widget.",
+      "partialNote": "Values from the first {{cap}} rows — this widget’s data is partial."
+    },
+    "cap": {
+      "tooltip": "Showing the first {{cap}} of {{total}} rows — this dataset is large for a live dashboard, so totals are partial.",
+      "label": "Partial data: showing the first {{cap}} of {{total}} rows"
     }
   },
   "common": {

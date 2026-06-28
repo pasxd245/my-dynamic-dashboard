@@ -65,3 +65,7 @@ export const NAME_LENGTHS = {
  *  OpenAPI `_shared/pagination.yaml#/PageSize` enum. */
 export const PAGE_SIZES = [{{#each constants.page_sizes}}{{this}}, {{/each}}] as const;
 export const DEFAULT_PAGE_SIZE = {{constants.default_page_size}};
+
+/** R104: dashboard widget fetch cap — a widget pulls at most this many rows
+ *  (paged fetch-all), then stops + warns the view is partial. FE-only. */
+export const DASHBOARD_MAX_ROWS = {{constants.dashboard_max_rows}};
