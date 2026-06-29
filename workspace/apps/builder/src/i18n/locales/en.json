@@ -37,6 +37,7 @@
     },
     "ariaBar": "Bar chart: {{title}}",
     "ariaPie": "Pie chart: {{title}}",
+    "ariaLine": "Line chart: {{title}}",
     "builder": {
       "addTitle": "Add widget",
       "editTitle": "Edit widget",
@@ -57,6 +58,7 @@
       "chart": "Chart",
       "chartBar": "Bar",
       "chartPie": "Pie",
+      "chartLine": "Line",
       "preview": "Preview",
       "previewHint": "Pick a query to preview the widget.",
       "countLabel": "Count",

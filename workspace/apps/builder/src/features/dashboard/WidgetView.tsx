@@ -12,6 +12,8 @@ import {
   BarChart,
   CartesianGrid,
   Legend,
+  Line,
+  LineChart,
   Pie,
   PieChart,
   ResponsiveContainer,
@@ -25,6 +27,7 @@ import {
   applyFilters,
   countByGroup,
   findColIndex,
+  sortByDimension,
   sortDesc,
   sumByGroup,
   type DashboardFilter,
@@ -66,6 +69,26 @@ function BarView({ data, valueName, palette }: Readonly<{ data: Datum[]; valueNa
   );
 }
 
+function LineView({ data, valueName, palette }: Readonly<{ data: Datum[]; valueName: string; palette: string[] }>) {
+  return (
+    <ResponsiveContainer width="100%" height="100%">
+      <LineChart data={data} margin={{ top: 8, right: 16, bottom: 8, left: 8 }} accessibilityLayer>
+        <CartesianGrid strokeDasharray="3 3" />
+        <XAxis dataKey="label" interval="preserveStartEnd" angle={-30} textAnchor="end" height={68} tickMargin={6} tick={{ fontSize: 11 }} />
+        <YAxis
+          width={52}
+          tick={{ fontSize: 11 }}
+          tickFormatter={(v: number) => compactFmt.format(v)}
+          label={{ value: valueName, angle: -90, position: 'insideLeft', style: { fontSize: 12, textAnchor: 'middle' } }}
+        />
+        <Tooltip formatter={(v) => numberFmt.format(Number(v))} />
+        <Legend />
+        <Line type="monotone" dataKey="value" name={valueName} stroke={palette[0]} strokeWidth={2} dot={false} isAnimationActive={false} />
+      </LineChart>
+    </ResponsiveContainer>
+  );
+}
+
 function PieView({ data, palette }: Readonly<{ data: Datum[]; palette: string[] }>) {
   const colored = data.map((d, i) => ({ ...d, fill: palette[i % palette.length] }));
   return (
@@ -91,7 +114,7 @@ function PieView({ data, palette }: Readonly<{ data: Datum[]; palette: string[] 
 /** Roll a widget's live rows up to chart data per its config. Exported for the
  *  builder's live preview (same path as the rendered widget). */
 export function useWidgetChartData(
-  widget: Pick<Widget, 'queryId' | 'dimensionCol' | 'measureCol' | 'agg'>,
+  widget: Pick<Widget, 'queryId' | 'chartType' | 'dimensionCol' | 'measureCol' | 'agg'>,
   filters: readonly DashboardFilter[] = [],
 ) {
   const data = useWidgetData(widget.queryId);
@@ -104,11 +127,19 @@ export function useWidgetChartData(
 
   let chartData: Datum[] = [];
   if (dimIdx !== -1) {
+    let raw: Datum[] = [];
     if (widget.agg === 'sum' && measureIdx !== -1) {
-      chartData = sortDesc(sumByGroup(rows, dimIdx, measureIdx));
+      raw = sumByGroup(rows, dimIdx, measureIdx);
     } else if (widget.agg === 'count') {
-      chartData = sortDesc(countByGroup(rows, dimIdx));
+      raw = countByGroup(rows, dimIdx);
     }
+    // R109 — a line/time chart orders by the dimension (the x-axis); bar/pie
+    // order by value (largest first). The dimension's dtype drives chronological
+    // vs lexical ordering for line.
+    chartData =
+      widget.chartType === 'line'
+        ? sortByDimension(raw, data.columns[dimIdx]?.dtype ?? 'string')
+        : sortDesc(raw);
   }
   return { ...data, chartData };
 }
@@ -129,7 +160,7 @@ export function WidgetView({ widget, extra, filters }: WidgetViewProps) {
   const { chartData, isLoading, isError, capped, total } = useWidgetChartData(widget, filters);
 
   const valueName = widget.agg === 'count' ? t('dashboard.builder.countLabel') : (widget.measureCol ?? '');
-  const ariaKey = widget.chartType === 'pie' ? 'dashboard.ariaPie' : 'dashboard.ariaBar';
+  const ariaKey = { bar: 'dashboard.ariaBar', pie: 'dashboard.ariaPie', line: 'dashboard.ariaLine' }[widget.chartType];
 
   // R104 — over-cap signpost: this widget's data is partial (first N of M).
   const capWarning = capped ? (
@@ -158,11 +189,9 @@ export function WidgetView({ widget, extra, filters }: WidgetViewProps) {
       warning={capWarning}
     >
       <ChartFigure label={t(ariaKey, { title: widget.title })}>
-        {widget.chartType === 'pie' ? (
-          <PieView data={chartData} palette={palette} />
-        ) : (
-          <BarView data={chartData} valueName={valueName} palette={palette} />
-        )}
+        {widget.chartType === 'pie' && <PieView data={chartData} palette={palette} />}
+        {widget.chartType === 'line' && <LineView data={chartData} valueName={valueName} palette={palette} />}
+        {widget.chartType === 'bar' && <BarView data={chartData} valueName={valueName} palette={palette} />}
       </ChartFigure>
     </ChartCard>
   );

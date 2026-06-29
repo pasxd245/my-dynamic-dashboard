@@ -59,11 +59,12 @@ components:
           description: Widget heading, user-supplied (defaulted from the query name).
         chartType:
           type: string
-          enum: [bar, pie]
+          enum: [bar, pie, line]
           description: |
-            The chart kind. `bar` + `pie` this round; the chart-lib ladder
-            (recharts now → ECharts when an advanced chart is pulled) is a
-            PRESENTATION detail behind `WidgetView`, not a contract field.
+            The chart kind. `bar` + `pie` + `line` (R109 — line/time-series).
+            The chart-lib ladder (recharts now → ECharts when a can't-do-in-
+            recharts chart is pulled) is a PRESENTATION detail behind
+            `WidgetView`, not a contract field.
         dimensionCol:
           type: string
           minLength: 1

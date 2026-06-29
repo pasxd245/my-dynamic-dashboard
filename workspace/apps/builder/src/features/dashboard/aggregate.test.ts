@@ -8,8 +8,38 @@ import {
   pickWidgetDefaults,
   sortDesc,
   sumByGroup,
+  sortByDimension,
   toNum,
 } from './aggregate';
+
+// R109 — line/time-series ordering: by the dimension (x-axis), not by value.
+describe('sortByDimension', () => {
+  it('orders a date dimension chronologically (not by value)', () => {
+    const data = [
+      { label: '2026-03-01', value: 5 },
+      { label: '2026-01-01', value: 99 },
+      { label: '2026-02-01', value: 1 },
+    ];
+    expect(sortByDimension(data, 'date').map((d) => d.label)).toEqual(['2026-01-01', '2026-02-01', '2026-03-01']);
+  });
+
+  it('orders a non-temporal dimension lexically', () => {
+    const data = [
+      { label: 'Charlie', value: 1 },
+      { label: 'Alice', value: 9 },
+      { label: 'Bob', value: 5 },
+    ];
+    expect(sortByDimension(data, 'string').map((d) => d.label)).toEqual(['Alice', 'Bob', 'Charlie']);
+  });
+
+  it('falls back to lexical order for unparseable date cells', () => {
+    const data = [
+      { label: 'zzz', value: 1 },
+      { label: 'aaa', value: 2 },
+    ];
+    expect(sortByDimension(data, 'datetime').map((d) => d.label)).toEqual(['aaa', 'zzz']);
+  });
+});
 
 describe('findColIndex', () => {
   const cols = [{ name: 'region_name' }, { name: 'Orders.amount' }, { name: 'Customers.region_id' }];

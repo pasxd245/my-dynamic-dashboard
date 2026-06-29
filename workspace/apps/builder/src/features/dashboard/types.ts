@@ -5,7 +5,7 @@
 // ([[dfcfbi-f1-precedes-contract]]). The fields here are the F1 hypothesis for
 // what a persisted Widget/Dashboard needs — the thing F1 exists to confirm.
 
-export type ChartType = 'bar' | 'pie';
+export type ChartType = 'bar' | 'pie' | 'line';
 
 /** sum needs a numeric `measureCol`; count tallies rows (no measure). */
 export type Agg = 'sum' | 'count';

@@ -103,6 +103,29 @@ export function sortDesc(data: readonly Datum[]): Datum[] {
   return [...data].sort((a, b) => b.value - a.value);
 }
 
+/**
+ * R109 — order by the DIMENSION (the x-axis), ascending: chronological for a
+ * date/datetime dimension, else lexical. A line/time chart reads left→right
+ * along the axis, so value-sorting (`sortDesc`) would scramble the trend. Date
+ * parsing falls back to string compare for unparseable cells (and `(blank)`).
+ *
+ * NOTE (data-layer signal): we parse stringified date cells in the FE here.
+ * A recurring need to bucket/parse dates for a trend is a candidate to push
+ * into a query/workflow (`date_trunc` + GROUP BY) rather than re-derive client-
+ * side every render.
+ */
+export function sortByDimension(data: readonly Datum[], dtype: string): Datum[] {
+  const temporal = dtype === 'date' || dtype === 'datetime';
+  return [...data].sort((a, b) => {
+    if (temporal) {
+      const ta = Date.parse(a.label);
+      const tb = Date.parse(b.label);
+      if (Number.isFinite(ta) && Number.isFinite(tb)) return ta - tb;
+    }
+    return a.label.localeCompare(b.label);
+  });
+}
+
 // ─── R103 — runtime dashboard filter (client-side, categorical one-of) ───────
 
 /** One active dashboard filter: keep rows whose `column` cell is one of

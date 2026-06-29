@@ -198,6 +198,7 @@ export function WidgetBuilder({ open, workspaceId, initial, onSubmit, onCancel }
                 onChange={(chartType) => setDraft((p) => ({ ...p, chartType }))}
                 options={[
                   { value: 'bar', label: t('dashboard.builder.chartBar') },
+                  { value: 'line', label: t('dashboard.builder.chartLine') },
                   { value: 'pie', label: t('dashboard.builder.chartPie') },
                 ]}
               />
