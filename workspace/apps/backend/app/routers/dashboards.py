@@ -23,7 +23,6 @@ from __future__ import annotations
 import json
 import secrets
 import sqlite3
-from datetime import datetime, timezone
 from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, status
@@ -41,6 +40,7 @@ from app.models.common import (
     DashboardDefinition,
     UpdateDashboardBody,
 )
+from app.routers._shared import _now_iso
 
 
 router = APIRouter(tags=["dashboards"])
@@ -49,10 +49,6 @@ WsIdPath = Annotated[str, FastApiPath(pattern=ID_PATTERNS["workspace"])]
 DashboardIdPath = Annotated[str, FastApiPath(pattern=ID_PATTERNS["dashboard"])]
 
 _SELECT_DASHBOARD = "SELECT * FROM dashboards WHERE id = ?"
-
-
-def _now_iso() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def _new_dsh_id() -> str:
@@ -86,7 +82,7 @@ def _validate_widget_queries(
         ).fetchone()
         if row is None or row["workspace_id"] != workspace_id:
             raise HTTPException(
-                status_code=422,
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail=[
                     {
                         "loc": ["body", "definition", "widgets"],
@@ -131,9 +127,9 @@ def create_dashboard(id: WsIdPath, body: CreateDashboardBody) -> JSONResponse:  
     except sqlite3.IntegrityError as err:
         code = _collision_code(err)
         if code == "name_taken":
-            return JSONResponse(status_code=409, content=ApiErrorNameTaken().model_dump())
+            return JSONResponse(status_code=status.HTTP_409_CONFLICT, content=ApiErrorNameTaken().model_dump())
         if code == "slug_taken":
-            return JSONResponse(status_code=409, content=ApiErrorSlugTaken().model_dump())
+            return JSONResponse(status_code=status.HTTP_409_CONFLICT, content=ApiErrorSlugTaken().model_dump())
         raise
 
     created = DashboardModel(
@@ -144,7 +140,7 @@ def create_dashboard(id: WsIdPath, body: CreateDashboardBody) -> JSONResponse:  
         definition=body.definition,
         createdAt=created_at,
     )
-    return JSONResponse(status_code=201, content=created.model_dump(exclude_none=True))
+    return JSONResponse(status_code=status.HTTP_201_CREATED, content=created.model_dump(exclude_none=True))
 
 
 @router.get("/workspaces/{id}/dashboards")
@@ -156,7 +152,7 @@ def list_dashboards(id: WsIdPath) -> JSONResponse:  # noqa: A002
             (id,),
         ).fetchall()
         items = [_dashboard_from_row(r).model_dump(exclude_none=True) for r in rows]
-    return JSONResponse(status_code=200, content=items)
+    return JSONResponse(status_code=status.HTTP_200_OK, content=items)
 
 
 @router.get("/dashboards/{id}")
@@ -165,9 +161,9 @@ def get_dashboard(id: DashboardIdPath) -> JSONResponse:  # noqa: A002
     with get_conn() as con:
         row = con.execute(_SELECT_DASHBOARD, (id,)).fetchone()
         if row is None:
-            return JSONResponse(status_code=404, content=ApiErrorNotFound().model_dump())
+            return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=ApiErrorNotFound().model_dump())
         content = _dashboard_from_row(row).model_dump(exclude_none=True)
-    return JSONResponse(status_code=200, content=content)
+    return JSONResponse(status_code=status.HTTP_200_OK, content=content)
 
 
 @router.put("/dashboards/{id}")
@@ -179,7 +175,7 @@ def update_dashboard(id: DashboardIdPath, body: UpdateDashboardBody) -> JSONResp
     with get_conn() as con:
         row = con.execute(_SELECT_DASHBOARD, (id,)).fetchone()
         if row is None:
-            return JSONResponse(status_code=404, content=ApiErrorNotFound().model_dump())
+            return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=ApiErrorNotFound().model_dump())
         _validate_widget_queries(con, row["workspace_id"], definition_dict)
 
     definition_json = json.dumps(definition_dict)
@@ -194,12 +190,12 @@ def update_dashboard(id: DashboardIdPath, body: UpdateDashboardBody) -> JSONResp
     except sqlite3.IntegrityError as err:
         code = _collision_code(err)
         if code == "name_taken":
-            return JSONResponse(status_code=409, content=ApiErrorNameTaken().model_dump())
+            return JSONResponse(status_code=status.HTTP_409_CONFLICT, content=ApiErrorNameTaken().model_dump())
         if code == "slug_taken":
-            return JSONResponse(status_code=409, content=ApiErrorSlugTaken().model_dump())
+            return JSONResponse(status_code=status.HTTP_409_CONFLICT, content=ApiErrorSlugTaken().model_dump())
         raise
 
-    return JSONResponse(status_code=200, content=updated.model_dump(exclude_none=True))
+    return JSONResponse(status_code=status.HTTP_200_OK, content=updated.model_dump(exclude_none=True))
 
 
 @router.delete("/dashboards/{id}")
@@ -209,7 +205,7 @@ def delete_dashboard(id: DashboardIdPath) -> Response:  # noqa: A002
     with get_conn() as con:
         row = con.execute("SELECT id FROM dashboards WHERE id = ?", (id,)).fetchone()
         if row is None:
-            return JSONResponse(status_code=404, content=ApiErrorNotFound().model_dump())
+            return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=ApiErrorNotFound().model_dump())
         con.execute("DELETE FROM dashboards WHERE id = ?", (id,))
         con.commit()
-    return Response(status_code=204)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

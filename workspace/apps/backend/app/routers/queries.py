@@ -20,7 +20,6 @@ from __future__ import annotations
 import json
 import secrets
 import sqlite3
-from datetime import datetime, timezone
 from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Query, status
@@ -49,9 +48,13 @@ from app.models.common import (
     ResolvedColumn,
     UpdateQueryBody,
 )
-from app.routers.datasets import RowsPage
-from app.routers.relationships import _compatible, _dtype_of
-from app.routers.workspaces import _is_unique_violation
+from app.routers._shared import (
+    RowsPage,
+    _compatible,
+    _dtype_of,
+    _is_unique_violation,
+    _now_iso,
+)
 from app.storage import dataset_dir
 
 
@@ -64,10 +67,6 @@ _PAGE_SIZE_ALLOWED = PAGE_SIZES  # R72 — centralized (values.yaml → constant
 
 _SELECT_DATASET = "SELECT * FROM datasets WHERE id = ?"
 _SELECT_QUERY = "SELECT * FROM queries WHERE id = ?"
-
-
-def _now_iso() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def _new_qr_id() -> str:
@@ -311,6 +310,47 @@ def _execute_chain(
     )
 
 
+def _resolve_plan(
+    con: sqlite3.Connection,
+    source_id: str,
+    chain: list[dict],
+    query_rels: dict[str, dict],
+    workspace_id: str,
+) -> tuple[dict | None, str | None]:
+    """Resolve a definition's driving source to a PLAN — the shared front half of
+    create / update / run / preview (R106 extraction; behavior-preserving). The
+    four endpoints used to repeat this branch inline; the resolve mechanics are
+    unified here, while each caller keeps its own reason→HTTP mapping (which
+    genuinely differs: create/update reject a bad definition 422, run/preview map
+    drift to 409-stale).
+
+    Returns ``(plan, None)`` or ``(None, reason)``:
+
+    - **multi-source** (composed ``qr_`` base or ≥1 join hop) → delegates to
+      ``_resolve_chain``; ``plan = {"kind": "join", "payload": …, "columns":
+      payload["effective"]}``; ``reason`` is the chain's failure reason
+      (``composition_cycle`` / ``relationship_stale`` / ``unknown_relationship`` …).
+    - **single dataset** → ``plan = {"kind": "single", "ds": <row>, "columns":
+      <columns_meta>}``; an absent OR cross-workspace dataset → reason
+      ``"source_missing"`` (callers map it to 404 or 422 per their contract).
+
+    ``columns`` is the validation/effective column space either way, so callers
+    read a single ``plan["columns"]``. The single-source workspace check is a
+    no-op for the trusted run/update paths (a saved query's ``ds_`` source is
+    invariantly in the query's own workspace — datasets don't move) and
+    reproduces the inline membership check create/preview do on a user-supplied
+    ``sourceId``."""
+    if _is_multi_source(source_id, chain):
+        payload, reason = _resolve_chain(con, source_id, chain, query_rels, workspace_id)
+        if reason is not None:
+            return None, reason
+        return {"kind": "join", "payload": payload, "columns": payload["effective"]}, None
+    ds = con.execute(_SELECT_DATASET, (source_id,)).fetchone()
+    if ds is None or ds["workspace_id"] != workspace_id:
+        return None, "source_missing"
+    return {"kind": "single", "ds": ds, "columns": json.loads(ds["columns_json"])}, None
+
+
 def _query_from_row(con: sqlite3.Connection, row: sqlite3.Row) -> QueryModel:
     definition = json.loads(row["definition_json"])
     source_id = row["source_id"]
@@ -336,40 +376,35 @@ def create_query(id: WsIdPath, body: CreateQueryBody) -> JSONResponse:  # noqa: 
     # R79 — the driving source is the single, canonical `sourceId` (a `ds_` dataset
     # or a `qr_` composed base).
     source_id = body.sourceId
+    # R71/R73/R76 — a joined OR composed query's atoms index the EFFECTIVE space;
+    # the driving source + every hop must resolve at save time (resolve_source
+    # checks the base dataset/query exists + is in-workspace). A cycle (a query
+    # built transitively on itself) is rejected as composition_cycle. A bare
+    # single-dataset query validates against its one dataset's columns.
     with get_conn() as con:
-        # R71/R73/R76 — a joined OR composed query's atoms index the EFFECTIVE space;
-        # the driving source + every hop must resolve at save time (resolve_source
-        # checks the base dataset/query exists + is in-workspace). A cycle (a query
-        # built transitively on itself) is rejected as composition_cycle. A bare
-        # single-dataset query validates against its one dataset's columns.
-        if _is_multi_source(source_id, chain):
-            payload, reason = _resolve_chain(con, source_id, chain, _rels_of(definition_dict), id)
-            if reason == "composition_cycle":
-                return JSONResponse(status_code=409, content=ApiErrorCompositionCycle().model_dump())
-            if reason is not None:
-                raise HTTPException(
-                    status_code=422,
-                    detail=[{"loc": ["body", "definition", "joins"], "msg": reason, "type": "value_error"}],
-                )
-            validation_columns = payload["effective"]
-        else:
-            ds = con.execute(_SELECT_DATASET, (source_id,)).fetchone()
-            if ds is None or ds["workspace_id"] != id:
-                raise HTTPException(
-                    status_code=422,
-                    detail=[
-                        {
-                            "loc": ["body", "sourceId"],
-                            "msg": f"unknown_source: {source_id} is not a dataset in workspace {id}",
-                            "type": "value_error",
-                        }
-                    ],
-                )
-            validation_columns = json.loads(ds["columns_json"])
+        plan, reason = _resolve_plan(con, source_id, chain, _rels_of(definition_dict), id)
+    if reason == "composition_cycle":
+        return JSONResponse(status_code=status.HTTP_409_CONFLICT, content=ApiErrorCompositionCycle().model_dump())
+    if reason == "source_missing":
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=[
+                {
+                    "loc": ["body", "sourceId"],
+                    "msg": f"unknown_source: {source_id} is not a dataset in workspace {id}",
+                    "type": "value_error",
+                }
+            ],
+        )
+    if reason is not None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=[{"loc": ["body", "definition", "joins"], "msg": reason, "type": "value_error"}],
+        )
 
     # Validate every atom against the relevant column space → 422 on a bad atom
     # (you cannot persist a query that can't run).
-    build_definition_predicates(definition_dict, validation_columns)
+    build_definition_predicates(definition_dict, plan["columns"])
 
     qid = _new_qr_id()
     created_at = _now_iso()
@@ -385,7 +420,7 @@ def create_query(id: WsIdPath, body: CreateQueryBody) -> JSONResponse:  # noqa: 
             con.commit()
     except sqlite3.IntegrityError as err:
         if "idx_queries_name_unique" in str(err) or _is_unique_violation(err, "queries.name"):
-            return JSONResponse(status_code=409, content=ApiErrorNameTaken().model_dump())
+            return JSONResponse(status_code=status.HTTP_409_CONFLICT, content=ApiErrorNameTaken().model_dump())
         raise
 
     created = QueryModel(
@@ -396,7 +431,7 @@ def create_query(id: WsIdPath, body: CreateQueryBody) -> JSONResponse:  # noqa: 
         definition=body.definition,
         createdAt=created_at,
     )
-    return JSONResponse(status_code=201, content=created.model_dump(exclude_none=True))
+    return JSONResponse(status_code=status.HTTP_201_CREATED, content=created.model_dump(exclude_none=True))
 
 
 @router.get("/workspaces/{id}/queries")
@@ -408,18 +443,18 @@ def list_queries(id: WsIdPath) -> JSONResponse:  # noqa: A002
             (id,),
         ).fetchall()
         items = [_query_from_row(con, r).model_dump(exclude_none=True) for r in rows]
-    return JSONResponse(status_code=200, content=items)
+    return JSONResponse(status_code=status.HTTP_200_OK, content=items)
 
 
 @router.get("/queries/{id}")
 def get_query(id: QueryIdPath) -> JSONResponse:  # noqa: A002
     """Return one saved query (definition + metadata; resolvedColumns when joined)."""
     with get_conn() as con:
-        row = con.execute("SELECT * FROM queries WHERE id = ?", (id,)).fetchone()
+        row = con.execute(_SELECT_QUERY, (id,)).fetchone()
         if row is None:
-            return JSONResponse(status_code=404, content=ApiErrorNotFound().model_dump())
+            return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=ApiErrorNotFound().model_dump())
         content = _query_from_row(con, row).model_dump(exclude_none=True)
-    return JSONResponse(status_code=200, content=content)
+    return JSONResponse(status_code=status.HTTP_200_OK, content=content)
 
 
 @router.get("/queries/{id}/rows")
@@ -434,64 +469,50 @@ def run_query(  # noqa: A002
     query_stale if a predicate atom drifted."""
     if page_size not in _PAGE_SIZE_ALLOWED:
         raise HTTPException(
-            status_code=422,
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=f"page_size must be one of {_PAGE_SIZE_ALLOWED}; got {page_size}",
         )
 
     # Gather the run plan under the sqlite connection; execute the (duckdb) read
     # after it closes — the existing single-source discipline, extended for join.
+    # R71/R73/R76 — a joined OR composed run resolves the driving source + every
+    # hop with valid keys; a drift BLOCKS the run (409 relationship_stale), and a
+    # base that loops back → 409 composition_cycle — never silently wrong, never an
+    # infinite recursion.
     with get_conn() as con:
-        qrow = con.execute("SELECT * FROM queries WHERE id = ?", (id,)).fetchone()
+        qrow = con.execute(_SELECT_QUERY, (id,)).fetchone()
         if qrow is None:
-            return JSONResponse(status_code=404, content=ApiErrorNotFound().model_dump())
+            return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=ApiErrorNotFound().model_dump())
         definition = json.loads(qrow["definition_json"])
         chain = _chain_of(definition)
-        source_id = qrow["source_id"]
+        plan, reason = _resolve_plan(con, qrow["source_id"], chain, _rels_of(definition), qrow["workspace_id"])
 
-        if _is_multi_source(source_id, chain):
-            # R71/R73/R76 — joined OR composed run. The driving source + every hop
-            # must still resolve with valid keys; a drift BLOCKS the run (409
-            # relationship_stale), and a base that loops back → 409 composition_cycle
-            # — never silently wrong, never an infinite recursion.
-            payload, reason = _resolve_chain(con, source_id, chain, _rels_of(definition), qrow["workspace_id"])
-            if reason == "composition_cycle":
-                return JSONResponse(status_code=409, content=ApiErrorCompositionCycle().model_dump())
-            if reason is not None:
-                return JSONResponse(status_code=409, content=ApiErrorRelationshipStale().model_dump())
-            try:
-                filters, advanced = build_definition_predicates(definition, payload["effective"])
-            except HTTPException as exc:
-                if exc.status_code == 422:
-                    return JSONResponse(status_code=409, content=ApiErrorQueryStale().model_dump())
-                raise
-            plan: tuple = ("join", payload, filters, advanced)
-        else:
-            ds = con.execute(_SELECT_DATASET, (source_id,)).fetchone()
-            if ds is None:
-                # Defensive: the app-level cascade (R79) removes queries when their
-                # source dataset is deleted, so this is a belt-and-braces 404.
-                return JSONResponse(status_code=404, content=ApiErrorNotFound().model_dump())
-            columns_meta = json.loads(ds["columns_json"])
-            try:
-                filters, advanced = build_definition_predicates(definition, columns_meta)
-            except HTTPException as exc:
-                if exc.status_code == 422:
-                    return JSONResponse(status_code=409, content=ApiErrorQueryStale().model_dump())
-                raise
-            plan = ("single", ds, columns_meta, filters, advanced)
+    if reason == "composition_cycle":
+        return JSONResponse(status_code=status.HTTP_409_CONFLICT, content=ApiErrorCompositionCycle().model_dump())
+    if reason == "source_missing":
+        # Defensive: the app-level cascade (R79) removes queries when their source
+        # dataset is deleted, so this is a belt-and-braces 404.
+        return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=ApiErrorNotFound().model_dump())
+    if reason is not None:
+        return JSONResponse(status_code=status.HTTP_409_CONFLICT, content=ApiErrorRelationshipStale().model_dump())
+    try:
+        filters, advanced = build_definition_predicates(definition, plan["columns"])
+    except HTTPException as exc:
+        if exc.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY:
+            return JSONResponse(status_code=status.HTTP_409_CONFLICT, content=ApiErrorQueryStale().model_dump())
+        raise
 
     q = definition.get("q")
-    if plan[0] == "join":
-        _, payload, filters, advanced = plan
+    if plan["kind"] == "join":
         rows, total = _execute_chain(
-            payload, page=page, page_size=page_size, q=q, filters=filters, advanced=advanced
+            plan["payload"], page=page, page_size=page_size, q=q, filters=filters, advanced=advanced
         )
     else:
-        _, ds, columns_meta, filters, advanced = plan
+        ds = plan["ds"]
         parquet_path = dataset_dir(ds["workspace_id"], ds["id"]) / "parsed.parquet"
         rows, total = query_dataset_rows(
             parquet_path,
-            [c["name"] for c in columns_meta],
+            [c["name"] for c in plan["columns"]],
             page=page,
             page_size=page_size,
             q=q,
@@ -500,7 +521,7 @@ def run_query(  # noqa: A002
         )
 
     body = RowsPage(rows=rows, page=page, pageSize=page_size, total=total)
-    return JSONResponse(status_code=200, content=body.model_dump())
+    return JSONResponse(status_code=status.HTTP_200_OK, content=body.model_dump())
 
 
 @router.post("/workspaces/{id}/queries/preview")
@@ -519,7 +540,7 @@ def preview_query(  # noqa: A002
     server-computed resolvedColumns (the builder's headers)."""
     if page_size not in _PAGE_SIZE_ALLOWED:
         raise HTTPException(
-            status_code=422,
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=f"page_size must be one of {_PAGE_SIZE_ALLOWED}; got {page_size}",
         )
 
@@ -527,63 +548,50 @@ def preview_query(  # noqa: A002
     chain = _chain_of(definition)
     source_id = body.sourceId  # R79 — the canonical driving source (ds_ or qr_)
     with get_conn() as con:
-        if _is_multi_source(source_id, chain):
-            payload, reason = _resolve_chain(con, source_id, chain, _rels_of(definition), id)
-            if reason == "composition_cycle":
-                return JSONResponse(status_code=409, content=ApiErrorCompositionCycle().model_dump())
-            if reason == "relationship_stale":
-                return JSONResponse(status_code=409, content=ApiErrorRelationshipStale().model_dump())
-            if reason is not None:
-                # unknown / cross-workspace / dataset-missing edge, or a
-                # disconnected / cyclic join → structurally unpreviewable (it could
-                # never be saved either).
-                raise HTTPException(
-                    status_code=422,
-                    detail=[{"loc": ["body", "definition", "joins"], "msg": reason, "type": "value_error"}],
-                )
-            try:
-                filters, advanced = build_definition_predicates(definition, payload["effective"])
-            except HTTPException as exc:
-                if exc.status_code == 422:
-                    return JSONResponse(status_code=409, content=ApiErrorQueryStale().model_dump())
-                raise
-            plan: tuple = ("join", payload, filters, advanced)
-        else:
-            ds = con.execute(_SELECT_DATASET, (source_id,)).fetchone()
-            if ds is None or ds["workspace_id"] != id:
-                raise HTTPException(
-                    status_code=422,
-                    detail=[
-                        {
-                            "loc": ["body", "sourceId"],
-                            "msg": f"unknown_source: {source_id} is not a dataset in workspace {id}",
-                            "type": "value_error",
-                        }
-                    ],
-                )
-            columns_meta = json.loads(ds["columns_json"])
-            try:
-                filters, advanced = build_definition_predicates(definition, columns_meta)
-            except HTTPException as exc:
-                if exc.status_code == 422:
-                    return JSONResponse(status_code=409, content=ApiErrorQueryStale().model_dump())
-                raise
-            plan = ("single", ds, columns_meta, filters, advanced)
+        plan, reason = _resolve_plan(con, source_id, chain, _rels_of(definition), id)
+
+    if reason == "composition_cycle":
+        return JSONResponse(status_code=status.HTTP_409_CONFLICT, content=ApiErrorCompositionCycle().model_dump())
+    if reason == "relationship_stale":
+        return JSONResponse(status_code=status.HTTP_409_CONFLICT, content=ApiErrorRelationshipStale().model_dump())
+    if reason == "source_missing":
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=[
+                {
+                    "loc": ["body", "sourceId"],
+                    "msg": f"unknown_source: {source_id} is not a dataset in workspace {id}",
+                    "type": "value_error",
+                }
+            ],
+        )
+    if reason is not None:
+        # unknown / cross-workspace / dataset-missing edge, or a disconnected /
+        # cyclic join → structurally unpreviewable (it could never be saved either).
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=[{"loc": ["body", "definition", "joins"], "msg": reason, "type": "value_error"}],
+        )
+    try:
+        filters, advanced = build_definition_predicates(definition, plan["columns"])
+    except HTTPException as exc:
+        if exc.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY:
+            return JSONResponse(status_code=status.HTTP_409_CONFLICT, content=ApiErrorQueryStale().model_dump())
+        raise
 
     q = definition.get("q")
-    if plan[0] == "join":
-        _, payload, filters, advanced = plan
+    if plan["kind"] == "join":
         rows, total = _execute_chain(
-            payload, page=page, page_size=page_size, q=q, filters=filters, advanced=advanced
+            plan["payload"], page=page, page_size=page_size, q=q, filters=filters, advanced=advanced
         )
-        resolved = [_to_resolved(c).model_dump(exclude_none=True) for c in payload["effective"]]
+        resolved = [_to_resolved(c).model_dump(exclude_none=True) for c in plan["payload"]["effective"]]
         content = {"rows": rows, "page": page, "pageSize": page_size, "total": total, "resolvedColumns": resolved}
     else:
-        _, ds, columns_meta, filters, advanced = plan
+        ds = plan["ds"]
         parquet_path = dataset_dir(ds["workspace_id"], ds["id"]) / "parsed.parquet"
         rows, total = query_dataset_rows(
             parquet_path,
-            [c["name"] for c in columns_meta],
+            [c["name"] for c in plan["columns"]],
             page=page,
             page_size=page_size,
             q=q,
@@ -592,7 +600,7 @@ def preview_query(  # noqa: A002
         )
         content = {"rows": rows, "page": page, "pageSize": page_size, "total": total}
 
-    return JSONResponse(status_code=200, content=content)
+    return JSONResponse(status_code=status.HTTP_200_OK, content=content)
 
 
 @router.put("/queries/{id}")
@@ -608,36 +616,31 @@ def update_query(id: QueryIdPath, body: UpdateQueryBody) -> JSONResponse:  # noq
     with get_conn() as con:
         qrow = con.execute(_SELECT_QUERY, (id,)).fetchone()
         if qrow is None:
-            return JSONResponse(status_code=404, content=ApiErrorNotFound().model_dump())
+            return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=ApiErrorNotFound().model_dump())
         # The driving source is unchanged by a definition-only PUT (R72); R76/R79 — a
         # composed query keeps its `qr_` base, a dataset-rooted one its `ds_`.
-        source_id = qrow["source_id"]
-        if _is_multi_source(source_id, chain):
-            payload, reason = _resolve_chain(con, source_id, chain, _rels_of(definition), qrow["workspace_id"])
-            if reason == "composition_cycle":
-                return JSONResponse(status_code=409, content=ApiErrorCompositionCycle().model_dump())
-            if reason is not None:
-                raise HTTPException(
-                    status_code=422,
-                    detail=[{"loc": ["body", "definition", "joins"], "msg": reason, "type": "value_error"}],
-                )
-            validation_columns = payload["effective"]
-        else:
-            ds = con.execute(_SELECT_DATASET, (source_id,)).fetchone()
-            if ds is None:
-                return JSONResponse(status_code=404, content=ApiErrorNotFound().model_dump())
-            validation_columns = json.loads(ds["columns_json"])
+        plan, reason = _resolve_plan(con, qrow["source_id"], chain, _rels_of(definition), qrow["workspace_id"])
+
+    if reason == "composition_cycle":
+        return JSONResponse(status_code=status.HTTP_409_CONFLICT, content=ApiErrorCompositionCycle().model_dump())
+    if reason == "source_missing":
+        return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=ApiErrorNotFound().model_dump())
+    if reason is not None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=[{"loc": ["body", "definition", "joins"], "msg": reason, "type": "value_error"}],
+        )
 
     # Validate every atom against the relevant column space → 422 on a bad atom
     # (you cannot save a definition that can't run) — the create-time semantics.
-    build_definition_predicates(definition, validation_columns)
+    build_definition_predicates(definition, plan["columns"])
 
     definition_json = json.dumps(body.definition.model_dump())
     with get_conn() as con:
         con.execute("UPDATE queries SET definition_json = ? WHERE id = ?", (definition_json, id))
         con.commit()
         updated = _query_from_row(con, con.execute(_SELECT_QUERY, (id,)).fetchone())
-    return JSONResponse(status_code=200, content=updated.model_dump(exclude_none=True))
+    return JSONResponse(status_code=status.HTTP_200_OK, content=updated.model_dump(exclude_none=True))
 
 
 @router.delete("/queries/{id}")
@@ -646,7 +649,7 @@ def delete_query(id: QueryIdPath) -> Response:  # noqa: A002
     with get_conn() as con:
         row = con.execute("SELECT id FROM queries WHERE id = ?", (id,)).fetchone()
         if row is None:
-            return JSONResponse(status_code=404, content=ApiErrorNotFound().model_dump())
+            return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=ApiErrorNotFound().model_dump())
         con.execute("DELETE FROM queries WHERE id = ?", (id,))
         con.commit()
-    return Response(status_code=204)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

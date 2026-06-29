@@ -21,7 +21,6 @@ from __future__ import annotations
 import json
 import secrets
 import sqlite3
-from datetime import datetime, timezone
 from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, status
@@ -36,6 +35,7 @@ from app.models.common import (
     CreateRelationshipBody,
     Relationship,
 )
+from app.routers._shared import _compatible, _dtype_of, _now_iso
 
 
 router = APIRouter(tags=["relationships"])
@@ -43,31 +43,9 @@ router = APIRouter(tags=["relationships"])
 WsIdPath = Annotated[str, FastApiPath(pattern=ID_PATTERNS["workspace"])]
 RelIdPath = Annotated[str, FastApiPath(pattern=ID_PATTERNS["relationship"])]
 
-_NUMERIC = {"integer", "float"}
-
-
-def _now_iso() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-
 
 def _new_rel_id() -> str:
     return f"rel_{secrets.token_hex(4)}"
-
-
-def _dtype_of(columns_meta: list[dict], col_name: str) -> str | None:
-    for c in columns_meta:
-        if c["name"] == col_name:
-            return c["dtype"]
-    return None
-
-
-def _compatible(left: str | None, right: str | None) -> bool:
-    """J-4 — equal dtypes join, with integer/float numeric cross-compatible."""
-    if left is None or right is None:
-        return False
-    if left == right:
-        return True
-    return left in _NUMERIC and right in _NUMERIC
 
 
 def _columns_of(con: sqlite3.Connection, dataset_id: str) -> list[dict] | None:
@@ -102,7 +80,7 @@ def _relationship_from_row(con: sqlite3.Connection, row: sqlite3.Row) -> Relatio
 
 def _validation_error(field: str, msg: str) -> HTTPException:
     return HTTPException(
-        status_code=422,
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         detail=[{"loc": ["body", field], "msg": msg, "type": "value_error"}],
     )
 
@@ -171,7 +149,7 @@ def create_relationship(id: WsIdPath, body: CreateRelationshipBody) -> JSONRespo
         # "UNIQUE constraint failed: relationships.workspace_id, ...".
         msg = str(err)
         if "UNIQUE constraint failed" in msg and "relationships." in msg:
-            return JSONResponse(status_code=409, content=ApiErrorRelationshipExists().model_dump())
+            return JSONResponse(status_code=status.HTTP_409_CONFLICT, content=ApiErrorRelationshipExists().model_dump())
         raise
 
     created = Relationship(
@@ -185,7 +163,7 @@ def create_relationship(id: WsIdPath, body: CreateRelationshipBody) -> JSONRespo
         status="valid",
         createdAt=created_at,
     )
-    return JSONResponse(status_code=201, content=created.model_dump())
+    return JSONResponse(status_code=status.HTTP_201_CREATED, content=created.model_dump())
 
 
 @router.get("/workspaces/{id}/relationships")
@@ -197,7 +175,7 @@ def list_relationships(id: WsIdPath) -> JSONResponse:  # noqa: A002
             (id,),
         ).fetchall()
         items = [_relationship_from_row(con, r).model_dump() for r in rows]
-    return JSONResponse(status_code=200, content=items)
+    return JSONResponse(status_code=status.HTTP_200_OK, content=items)
 
 
 @router.get("/relationships/{id}")
@@ -206,9 +184,9 @@ def get_relationship(id: RelIdPath) -> JSONResponse:  # noqa: A002
     with get_conn() as con:
         row = con.execute("SELECT * FROM relationships WHERE id = ?", (id,)).fetchone()
         if row is None:
-            return JSONResponse(status_code=404, content=ApiErrorNotFound().model_dump())
+            return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=ApiErrorNotFound().model_dump())
         rel = _relationship_from_row(con, row)
-    return JSONResponse(status_code=200, content=rel.model_dump())
+    return JSONResponse(status_code=status.HTTP_200_OK, content=rel.model_dump())
 
 
 @router.delete("/relationships/{id}")
@@ -217,7 +195,7 @@ def delete_relationship(id: RelIdPath) -> Response:  # noqa: A002
     with get_conn() as con:
         row = con.execute("SELECT id FROM relationships WHERE id = ?", (id,)).fetchone()
         if row is None:
-            return JSONResponse(status_code=404, content=ApiErrorNotFound().model_dump())
+            return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=ApiErrorNotFound().model_dump())
         con.execute("DELETE FROM relationships WHERE id = ?", (id,))
         con.commit()
-    return Response(status_code=204)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

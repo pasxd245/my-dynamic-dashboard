@@ -18,7 +18,6 @@ import json
 import secrets
 import shutil
 import sqlite3
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Annotated
 
@@ -42,8 +41,7 @@ from app.models.common import (
     Dataset,
     ParseOptions,
 )
-from app.routers.uploads import _load_meta
-from app.routers.workspaces import _is_unique_violation
+from app.routers._shared import RowsPage, _is_unique_violation, _load_meta, _now_iso
 from app.storage import dataset_dir, temp_upload_dir
 
 
@@ -61,10 +59,6 @@ class RenameDatasetBody(BaseModel):
 
 # R29: pattern sourced from ID_PATTERNS (was hardcoded `^ds_[0-9a-f]{8}$`).
 DsIdPath = Annotated[str, FastApiPath(pattern=ID_PATTERNS["dataset"])]
-
-
-def _now_iso() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def _new_ds_id() -> str:
@@ -99,7 +93,7 @@ def _apply_overrides(
     missing = [name for name in overrides if name not in by_name]
     if missing:
         raise HTTPException(
-            status_code=409,
+            status_code=status.HTTP_409_CONFLICT,
             detail={
                 "error": "unknown_column",
                 "detail": f"column_overrides references missing column(s): {', '.join(missing)}",
@@ -113,7 +107,7 @@ def _apply_overrides(
         else:
             if ov.dtype in ("date", "datetime") and not ov.format:
                 raise HTTPException(
-                    status_code=422,
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                     detail=f"column_overrides[{col['name']}] dtype={ov.dtype} requires `format`",
                 )
             out.append({"name": col["name"], "dtype": ov.dtype})
@@ -127,7 +121,7 @@ def _apply_exclusions(columns: list[dict[str, str]], excluded: list[str] | None)
     missing = [n for n in excluded if n not in by_name]
     if missing:
         raise HTTPException(
-            status_code=409,
+            status_code=status.HTTP_409_CONFLICT,
             detail={
                 "error": "unknown_column",
                 "detail": f"excluded_columns references missing column(s): {', '.join(missing)}",
@@ -136,7 +130,7 @@ def _apply_exclusions(columns: list[dict[str, str]], excluded: list[str] | None)
     kept = [c for c in columns if c["name"] not in set(excluded)]
     if not kept:
         raise HTTPException(
-            status_code=422,
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="excluded_columns leaves zero columns",
         )
     return kept
@@ -152,16 +146,16 @@ def commit_datasets_batch(id: str, body: _BatchRequest) -> list[Dataset] | JSONR
     with get_conn() as con:
         ws_row = con.execute("SELECT id FROM workspaces WHERE id = ?", (id,)).fetchone()
     if ws_row is None:
-        raise HTTPException(status_code=404, detail="workspace or temp_id not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="workspace or temp_id not found")
 
     meta = _load_meta(body.temp_id)
     if meta is None:
-        raise HTTPException(status_code=404, detail="workspace or temp_id not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="workspace or temp_id not found")
 
     temp_dir = temp_upload_dir(body.temp_id)
     original_path = temp_dir / f"original{meta['ext']}"
     if not original_path.exists():
-        raise HTTPException(status_code=404, detail="workspace or temp_id not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="workspace or temp_id not found")
 
     source_format = meta["sourceFormat"]
 
@@ -169,12 +163,12 @@ def commit_datasets_batch(id: str, body: _BatchRequest) -> list[Dataset] | JSONR
     for item in body.items:
         if item.target_dataset_id is not None:
             raise HTTPException(
-                status_code=422,
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail="target_dataset_id is reserved for append-mode (R∞)",
             )
         if source_format == "excel" and item.sheet is None:
             raise HTTPException(
-                status_code=422,
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail="excel commits require a sheet per item",
             )
         if item.excluded_columns is not None and not item.excluded_columns:
@@ -293,7 +287,7 @@ def commit_datasets_batch(id: str, body: _BatchRequest) -> list[Dataset] | JSONR
         # Map the violation to the contract's `name_taken` envelope.
         if _is_unique_violation(err, "datasets.name") or "idx_datasets_name_unique" in str(err):
             return JSONResponse(
-                status_code=409,
+                status_code=status.HTTP_409_CONFLICT,
                 content=ApiErrorNameTaken().model_dump(),
             )
         raise
@@ -319,7 +313,7 @@ def rename_dataset(  # noqa: A002 — match contract path param name
     with get_conn() as con:
         row = con.execute("SELECT * FROM datasets WHERE id = ?", (id,)).fetchone()
         if row is None:
-            return JSONResponse(status_code=404, content=ApiErrorNotFound().model_dump())
+            return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=ApiErrorNotFound().model_dump())
         try:
             con.execute(
                 "UPDATE datasets SET name = ? WHERE id = ?",
@@ -329,7 +323,7 @@ def rename_dataset(  # noqa: A002 — match contract path param name
         except sqlite3.IntegrityError as err:
             if _is_unique_violation(err, "datasets.name") or "idx_datasets_name_unique" in str(err):
                 return JSONResponse(
-                    status_code=409,
+                    status_code=status.HTTP_409_CONFLICT,
                     content=ApiErrorNameTaken().model_dump(),
                 )
             raise
@@ -351,7 +345,7 @@ def rename_dataset(  # noqa: A002 — match contract path param name
         createdAt=updated["created_at"],
     )
     return JSONResponse(
-        status_code=200,
+        status_code=status.HTTP_200_OK,
         content=ds.model_dump(exclude_none=True),
     )
 
@@ -379,7 +373,7 @@ def delete_dataset(id: DsIdPath) -> Response:  # noqa: A002
     with get_conn() as con:
         row = con.execute("SELECT id, workspace_id FROM datasets WHERE id = ?", (id,)).fetchone()
         if row is None:
-            return JSONResponse(status_code=404, content=ApiErrorNotFound().model_dump())
+            return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=ApiErrorNotFound().model_dump())
         workspace_id = row["workspace_id"]
         # App-level cascade (R79 J-1): drop the dataset's directly-rooted queries
         # first, then the dataset itself. Same connection (PRAGMA foreign_keys=ON).
@@ -394,7 +388,7 @@ def delete_dataset(id: DsIdPath) -> Response:  # noqa: A002
     if target.exists():
         shutil.rmtree(target, ignore_errors=True)
 
-    return Response(status_code=204)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 def _dataset_from_row(row) -> Dataset:  # type: ignore[no-untyped-def]
@@ -419,28 +413,12 @@ def get_dataset(id: DsIdPath) -> JSONResponse:  # noqa: A002
     with get_conn() as con:
         row = con.execute("SELECT * FROM datasets WHERE id = ?", (id,)).fetchone()
     if row is None:
-        return JSONResponse(status_code=404, content=ApiErrorNotFound().model_dump())
+        return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=ApiErrorNotFound().model_dump())
     ds = _dataset_from_row(row)
-    return JSONResponse(status_code=200, content=ds.model_dump(exclude_none=True))
+    return JSONResponse(status_code=status.HTTP_200_OK, content=ds.model_dump(exclude_none=True))
 
 
 _PAGE_SIZE_ALLOWED = PAGE_SIZES  # R72 — centralized (values.yaml → constants)
-
-
-class RowsPage(BaseModel):
-    """Response shape for GET /datasets/{id}/rows. Mirrors the inline
-    RowsPage schema in workspace/packages/contracts/datasets/rows-get.contract.yaml.
-    `additionalProperties: false` per the R16 conformance pattern."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    rows: list[list[str | None]]
-    page: int
-    # R72: the page-size set is now centralized + extensible (PAGE_SIZES); the
-    # route validates the value against it, so the echoed field is a plain int
-    # (a Literal would re-hardcode the set the centralization just removed).
-    pageSize: int
-    total: int
 
 
 @router.get("/datasets/{id}/rows")
@@ -465,14 +443,14 @@ def get_dataset_rows(  # noqa: A002
     # the contract.
     if page_size not in _PAGE_SIZE_ALLOWED:
         raise HTTPException(
-            status_code=422,
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=(f"page_size must be one of {_PAGE_SIZE_ALLOWED}; got {page_size}"),
         )
 
     with get_conn() as con:
         row = con.execute("SELECT * FROM datasets WHERE id = ?", (id,)).fetchone()
     if row is None:
-        return JSONResponse(status_code=404, content=ApiErrorNotFound().model_dump())
+        return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=ApiErrorNotFound().model_dump())
 
     parquet_path = dataset_dir(row["workspace_id"], row["id"]) / "parsed.parquet"
     columns_meta = json.loads(row["columns_json"])  # full {name, dtype} list
@@ -495,7 +473,7 @@ def get_dataset_rows(  # noqa: A002
     )
 
     body = RowsPage(rows=rows, page=page, pageSize=page_size, total=total)
-    return JSONResponse(status_code=200, content=body.model_dump())
+    return JSONResponse(status_code=status.HTTP_200_OK, content=body.model_dump())
 
 
 @router.get("/datasets", response_model=list[Dataset], response_model_exclude_none=True)

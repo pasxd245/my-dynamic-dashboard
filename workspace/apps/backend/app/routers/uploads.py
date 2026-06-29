@@ -18,7 +18,7 @@ import secrets
 from pathlib import Path
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status
 from pydantic import BaseModel, ConfigDict, Field
 
 from app._config import CONFIG
@@ -32,6 +32,7 @@ from app.models.common import (
     TempUploadCsv,
     TempUploadExcel,
 )
+from app.routers._shared import _load_meta
 from app.storage import temp_upload_dir, temp_uploads_dir
 
 
@@ -55,13 +56,13 @@ def _ext_for_format(filename: str, source_format: str) -> str:
     suffix = Path(filename).suffix.lower()
     if source_format == "csv":
         if suffix not in _CSV_EXTS:
-            raise HTTPException(status_code=415, detail="sourceFormat/extension mismatch")
+            raise HTTPException(status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, detail="sourceFormat/extension mismatch")
         return ".csv"
     if source_format == "excel":
         if suffix not in _EXCEL_EXTS:
-            raise HTTPException(status_code=415, detail="sourceFormat/extension mismatch")
+            raise HTTPException(status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, detail="sourceFormat/extension mismatch")
         return suffix
-    raise HTTPException(status_code=422, detail="unknown sourceFormat")
+    raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="unknown sourceFormat")
 
 
 def _write_temp(temp_id: str, ext: str, payload: bytes, *, source_format: str, original_name: str) -> Path:
@@ -79,13 +80,6 @@ def _write_temp(temp_id: str, ext: str, payload: bytes, *, source_format: str, o
     return file_path
 
 
-def _load_meta(temp_id: str) -> dict | None:
-    meta_path = temp_upload_dir(temp_id) / "meta.json"
-    if not meta_path.exists():
-        return None
-    return json.loads(meta_path.read_text())
-
-
 @router.post("")
 async def create_temp_upload(
     file: Annotated[UploadFile, File()],
@@ -93,7 +87,7 @@ async def create_temp_upload(
 ):
     payload = await file.read()
     if len(payload) > MAX_UPLOAD_BYTES:
-        raise HTTPException(status_code=413, detail="file too large")
+        raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="file too large")
 
     ext = _ext_for_format(file.filename or "", sourceFormat)
     temp_id = _new_temp_id()
@@ -113,7 +107,7 @@ async def create_temp_upload(
             import shutil
 
             shutil.rmtree(file_path.parent, ignore_errors=True)
-            raise HTTPException(status_code=422, detail=str(exc)) from exc
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
 
         return TempUploadCsv(
             temp_id=temp_id,
@@ -133,13 +127,13 @@ async def create_temp_upload(
         import shutil
 
         shutil.rmtree(file_path.parent, ignore_errors=True)
-        raise HTTPException(status_code=415, detail=f"excel read failed: {exc}") from exc
+        raise HTTPException(status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, detail=f"excel read failed: {exc}") from exc
 
     if not sheets:
         import shutil
 
         shutil.rmtree(file_path.parent, ignore_errors=True)
-        raise HTTPException(status_code=415, detail="excel workbook has no sheets")
+        raise HTTPException(status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, detail="excel workbook has no sheets")
 
     return TempUploadExcel(
         temp_id=temp_id,
@@ -182,32 +176,32 @@ def parse_temp_upload(temp_id: str, body: _ParseRequest):
     """
     meta = _load_meta(temp_id)
     if meta is None:
-        raise HTTPException(status_code=404, detail="temp_id unknown")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="temp_id unknown")
 
     file_path = temp_upload_dir(temp_id) / f"original{meta['ext']}"
     if not file_path.exists():
-        raise HTTPException(status_code=404, detail="temp file missing")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="temp file missing")
 
     source_format = meta.get("sourceFormat")
     if source_format == "csv":
         return {"results": _parse_csv_items(file_path, body.items)}
     if source_format == "excel":
         return {"results": _parse_excel_items(file_path, body.items)}
-    raise HTTPException(status_code=404, detail="temp_id has unknown sourceFormat")
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="temp_id has unknown sourceFormat")
 
 
 def _parse_excel_items(file_path: Path, items: list[_ParseItem]) -> list[dict]:
     missing = [i for i, item in enumerate(items) if item.sheet is None]
     if missing:
         raise HTTPException(
-            status_code=422,
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=f"item(s) at index {missing} missing `sheet` (required for excel)",
         )
     sheet_names = {s.sheet for s in enumerate_sheets(file_path)}
     unknown = [item.sheet for item in items if item.sheet not in sheet_names]
     if unknown:
         raise HTTPException(
-            status_code=422,
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=f"unknown sheet(s): {', '.join(unknown)}",
         )
 
@@ -249,13 +243,13 @@ def _parse_excel_items(file_path: Path, items: list[_ParseItem]) -> list[dict]:
 def _parse_csv_items(file_path: Path, items: list[_ParseItem]) -> list[dict]:
     if len(items) != 1:
         raise HTTPException(
-            status_code=422,
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="CSV uploads accept exactly one item",
         )
     item = items[0]
     if item.sheet is not None:
         raise HTTPException(
-            status_code=422,
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="CSV items must not carry `sheet`",
         )
     opts = item.parse_options or ParseOptions()
