@@ -28,6 +28,13 @@ describe('draftToConfig', () => {
     });
   });
 
+  it('drops dimensionCol for a stat (KPI) widget — no grouping', () => {
+    const config = draftToConfig({ ...sumDraft, chartType: 'stat' });
+    expect('dimensionCol' in config).toBe(false);
+    expect(config.chartType).toBe('stat');
+    expect(config.measureCol).toBe('amount'); // a sum stat still totals a measure
+  });
+
   it('drops measureCol for a count aggregation (meaningless there)', () => {
     const config = draftToConfig({ ...sumDraft, agg: 'count' });
     expect('measureCol' in config).toBe(false);

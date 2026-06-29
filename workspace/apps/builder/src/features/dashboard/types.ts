@@ -5,7 +5,7 @@
 // ([[dfcfbi-f1-precedes-contract]]). The fields here are the F1 hypothesis for
 // what a persisted Widget/Dashboard needs — the thing F1 exists to confirm.
 
-export type ChartType = 'bar' | 'pie' | 'line';
+export type ChartType = 'bar' | 'pie' | 'line' | 'stat';
 
 /** sum needs a numeric `measureCol`; count tallies rows (no measure). */
 export type Agg = 'sum' | 'count';
@@ -23,8 +23,9 @@ export type Widget = {
   queryId: string;
   title: string;
   chartType: ChartType;
-  /** The grouping column (logical name; resolved against the query's columns). */
-  dimensionCol: string;
+  /** The grouping column (logical name; resolved against the query's columns).
+   *  R110: optional — a `stat` (KPI) widget has no grouping. */
+  dimensionCol?: string;
   /** The numeric column summed when `agg === 'sum'`; omitted for `count`. */
   measureCol?: string;
   agg: Agg;

@@ -20,7 +20,8 @@ export type WidgetWire = {
   queryId: string;
   title: string;
   chartType: ChartType;
-  dimensionCol: string;
+  /** Omitted for a `stat` (KPI) widget — no grouping (R110). */
+  dimensionCol?: string;
   /** Required when `agg === 'sum'`; omitted for `count`. */
   measureCol?: string;
   agg: Agg;

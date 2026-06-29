@@ -9,8 +9,27 @@ import {
   sortDesc,
   sumByGroup,
   sortByDimension,
+  aggregateScalar,
   toNum,
 } from './aggregate';
+
+// R110 — KPI scalar over all rows.
+describe('aggregateScalar', () => {
+  const rows = [
+    ['Alice', '10'],
+    ['Bob', '20'],
+    ['Carol', ''],
+  ];
+  it('sums a measure column (blank → 0)', () => {
+    expect(aggregateScalar(rows, 1, 'sum')).toBe(30);
+  });
+  it('counts rows regardless of measure', () => {
+    expect(aggregateScalar(rows, -1, 'count')).toBe(3);
+  });
+  it('sum with no measure column is 0', () => {
+    expect(aggregateScalar(rows, -1, 'sum')).toBe(0);
+  });
+});
 
 // R109 — line/time-series ordering: by the dimension (x-axis), not by value.
 describe('sortByDimension', () => {

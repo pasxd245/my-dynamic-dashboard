@@ -179,6 +179,22 @@ def test_count_widget_omits_measure() -> None:
 
 
 @pytest.mark.unit
+def test_stat_widget_omits_dimension() -> None:
+    # R110 — a stat (KPI) widget has no grouping: dimensionCol omitted, saves fine.
+    with TestClient(app) as client:
+        ws, qid = _seed_query(client)
+        w = _widget(qid, chartType="stat")
+        w.pop("dimensionCol")
+        resp = _create(client, ws, widgets=[w])
+
+    assert resp.status_code == 201
+    saved = resp.json()["definition"]["widgets"][0]
+    assert saved["chartType"] == "stat"
+    assert "dimensionCol" not in saved
+    validate_response("dashboards/post.contract.yaml", 201, resp.json())
+
+
+@pytest.mark.unit
 def test_list_returns_workspace_dashboards() -> None:
     with TestClient(app) as client:
         ws, _ = _seed_query(client)

@@ -5,7 +5,7 @@
 // R100; the config now comes from the builder instead of hardcoded props.
 
 import { WarningOutlined } from '@ant-design/icons';
-import { Tooltip as AntTooltip, theme } from 'antd';
+import { Tooltip as AntTooltip, Statistic, theme } from 'antd';
 import { useTranslation } from 'react-i18next';
 import {
   Bar,
@@ -24,6 +24,7 @@ import {
 
 import { DASHBOARD_MAX_ROWS } from '@/_generated/constants';
 import {
+  aggregateScalar,
   applyFilters,
   countByGroup,
   findColIndex,
@@ -89,6 +90,14 @@ function LineView({ data, valueName, palette }: Readonly<{ data: Datum[]; valueN
   );
 }
 
+function StatView({ value, label }: Readonly<{ value: number; label: string }>) {
+  return (
+    <div style={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center', padding: 8 }}>
+      <Statistic title={label} value={value} formatter={(v) => numberFmt.format(Number(v))} />
+    </div>
+  );
+}
+
 function PieView({ data, palette }: Readonly<{ data: Datum[]; palette: string[] }>) {
   const colored = data.map((d, i) => ({ ...d, fill: palette[i % palette.length] }));
   return (
@@ -118,15 +127,23 @@ export function useWidgetChartData(
   filters: readonly DashboardFilter[] = [],
 ) {
   const data = useWidgetData(widget.queryId);
-  const dimIdx = findColIndex(data.columns, widget.dimensionCol);
+  const dimIdx = widget.dimensionCol ? findColIndex(data.columns, widget.dimensionCol) : -1;
   const measureIdx = widget.measureCol ? findColIndex(data.columns, widget.measureCol) : -1;
 
   // R103 — apply the active dashboard filters to the rows BEFORE the roll-up
   // (client-side; filters whose column this widget lacks are skipped).
   const rows = applyFilters(data.rows, data.columns, filters);
 
+  // R110 — a `stat` (KPI) widget has no dimension: one scalar over all rows.
+  // `null` when there are no rows (→ ChartCard empty state); a value of 0 over
+  // ≥1 row is a legitimate KPI ("0 deals"), not empty.
+  let statValue: number | null = null;
+  if (widget.chartType === 'stat') {
+    statValue = rows.length === 0 ? null : aggregateScalar(rows, measureIdx, widget.agg);
+  }
+
   let chartData: Datum[] = [];
-  if (dimIdx !== -1) {
+  if (dimIdx !== -1 && widget.chartType !== 'stat') {
     let raw: Datum[] = [];
     if (widget.agg === 'sum' && measureIdx !== -1) {
       raw = sumByGroup(rows, dimIdx, measureIdx);
@@ -141,7 +158,7 @@ export function useWidgetChartData(
         ? sortByDimension(raw, data.columns[dimIdx]?.dtype ?? 'string')
         : sortDesc(raw);
   }
-  return { ...data, chartData };
+  return { ...data, chartData, statValue };
 }
 
 type WidgetViewProps = Readonly<{
@@ -157,10 +174,18 @@ export function WidgetView({ widget, extra, filters }: WidgetViewProps) {
   const { t } = useTranslation();
   const { token } = theme.useToken();
   const palette = useChartPalette();
-  const { chartData, isLoading, isError, capped, total } = useWidgetChartData(widget, filters);
+  const { chartData, statValue, isLoading, isError, capped, total } = useWidgetChartData(widget, filters);
 
   const valueName = widget.agg === 'count' ? t('dashboard.builder.countLabel') : (widget.measureCol ?? '');
-  const ariaKey = { bar: 'dashboard.ariaBar', pie: 'dashboard.ariaPie', line: 'dashboard.ariaLine' }[widget.chartType];
+  const ariaKey = {
+    bar: 'dashboard.ariaBar',
+    pie: 'dashboard.ariaPie',
+    line: 'dashboard.ariaLine',
+    stat: 'dashboard.ariaStat',
+  }[widget.chartType];
+  // R110 — a stat is empty only when there's nothing to aggregate (statValue
+  // null); a charted widget is empty when the roll-up yields no data.
+  const isEmpty = widget.chartType === 'stat' ? statValue === null : chartData.length === 0;
 
   // R104 — over-cap signpost: this widget's data is partial (first N of M).
   const capWarning = capped ? (
@@ -184,11 +209,12 @@ export function WidgetView({ widget, extra, filters }: WidgetViewProps) {
       isLoading={isLoading}
       isError={isError}
       isMissingQuery={false}
-      isEmpty={chartData.length === 0}
+      isEmpty={isEmpty}
       extra={extra}
       warning={capWarning}
     >
       <ChartFigure label={t(ariaKey, { title: widget.title })}>
+        {widget.chartType === 'stat' && <StatView value={statValue ?? 0} label={valueName} />}
         {widget.chartType === 'pie' && <PieView data={chartData} palette={palette} />}
         {widget.chartType === 'line' && <LineView data={chartData} valueName={valueName} palette={palette} />}
         {widget.chartType === 'bar' && <BarView data={chartData} valueName={valueName} palette={palette} />}

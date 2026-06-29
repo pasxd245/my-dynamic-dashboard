@@ -416,7 +416,7 @@ SlugStr = Annotated[
     str,
     Field(pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$", max_length=NAME_LENGTHS["dashboard_max"]),
 ]
-ChartType = Literal["bar", "pie", "line"]
+ChartType = Literal["bar", "pie", "line", "stat"]
 Agg = Literal["sum", "count"]
 
 
@@ -432,7 +432,10 @@ class Widget(BaseModel):
     queryId: QueryId  # noqa: N815 — FK → Query.id (must be a query in the dashboard's workspace)
     title: Annotated[str, Field(min_length=1, max_length=NAME_LENGTHS["dashboard_max"])]
     chartType: ChartType  # noqa: N815
-    dimensionCol: Annotated[str, Field(min_length=1)]  # noqa: N815
+    # R110: optional — a `stat` (KPI) widget has no grouping; breakdown charts
+    # (bar/pie/line) still carry it. (No model_validator ties it to chartType:
+    # a dimensionless bar simply renders empty, like a missing column does.)
+    dimensionCol: Annotated[str, Field(min_length=1)] | None = None  # noqa: N815
     measureCol: Annotated[str, Field(min_length=1)] | None = None  # noqa: N815
     agg: Agg
     span: Annotated[int, Field(ge=1, le=3)]

@@ -126,6 +126,28 @@ export function sortByDimension(data: readonly Datum[], dtype: string): Datum[] 
   });
 }
 
+/**
+ * R110 — a single scalar over ALL rows (the KPI value): sum of a measure, or
+ * row count. Pure.
+ *
+ * NOTE (data-layer signal): a scalar over a CAPPED fetch is a *partial total* —
+ * "total revenue" computed over the first N rows is simply wrong, not just
+ * truncated. This is the sharpest case for pushing aggregation server-side (a
+ * query/workflow `SUM(...)`), since the FE cannot recover the true total from a
+ * capped row set. The over-cap warning matters most here.
+ */
+export function aggregateScalar(
+  rows: readonly (readonly (string | null)[])[],
+  measureIdx: number,
+  agg: 'sum' | 'count',
+): number {
+  if (agg === 'count') return rows.length;
+  if (measureIdx === -1) return 0;
+  let total = 0;
+  for (const row of rows) total += toNum(row[measureIdx]);
+  return total;
+}
+
 // ─── R103 — runtime dashboard filter (client-side, categorical one-of) ───────
 
 /** One active dashboard filter: keep rows whose `column` cell is one of

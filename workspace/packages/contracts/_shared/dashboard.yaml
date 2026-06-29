@@ -34,7 +34,7 @@ components:
         decision #2) — a dangling `queryId` is tolerated at RENDER, never a
         crash. (At SAVE time the `queryId` must resolve to a query in the
         dashboard's own workspace — see dashboards/post.contract.yaml §422.)
-      required: [id, queryId, title, chartType, dimensionCol, agg, span]
+      required: [id, queryId, title, chartType, agg, span]
       additionalProperties: false
       properties:
         id:
@@ -59,12 +59,13 @@ components:
           description: Widget heading, user-supplied (defaulted from the query name).
         chartType:
           type: string
-          enum: [bar, pie, line]
+          enum: [bar, pie, line, stat]
           description: |
-            The chart kind. `bar` + `pie` + `line` (R109 — line/time-series).
-            The chart-lib ladder (recharts now → ECharts when a can't-do-in-
-            recharts chart is pulled) is a PRESENTATION detail behind
-            `WidgetView`, not a contract field.
+            The chart kind. `bar` + `pie` + `line` (R109 — line/time-series) +
+            `stat` (R110 — a single-number KPI: no dimension, one aggregate over
+            the whole result). The chart-lib ladder (recharts now → ECharts when
+            a can't-do-in-recharts chart is pulled) is a PRESENTATION detail
+            behind `WidgetView`, not a contract field.
         dimensionCol:
           type: string
           minLength: 1
@@ -72,7 +73,10 @@ components:
             The grouping column, stored by its logical NAME (not a positional
             index — F1 resolved the name-vs-index question to NAME, so a column
             reorder on the source query doesn't silently re-point the widget).
-            Resolved against the query's effective columns at render.
+            Resolved against the query's effective columns at render. OPTIONAL as
+            of R110: a `stat` (KPI) widget has no grouping — one aggregate over
+            the whole result — so it omits `dimensionCol`. The breakdown charts
+            (bar/pie/line) still carry it.
           examples: ["stage", "owner"]
         measureCol:
           type: string

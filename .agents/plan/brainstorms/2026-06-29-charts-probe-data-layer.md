@@ -27,6 +27,8 @@ a recurring client-side computation is a candidate to **push down** into a query
 | --- | --- | --- | --- |
 | Sortable **typed temporal** column on the x-axis | R109 line | yes (`Date.parse` per render) | queries/datasets must expose a real date/datetime dtype (not just string); ordering should be stable |
 | **Time-bucketing** ("by month/week") | R109 line | not done (user must pre-shape) | a **workflow/query `date_trunc` + GROUP BY**; the FE can't bucket a raw timestamp into months without a transform |
+| **Scalar aggregate** (one number, no dimension) | R110 stat | yes (`aggregateScalar`) | the widget model isn't always a *breakdown*; made `dimensionCol` optional. A KPI is "measure-only" — a query that returns a single value would serve it directly |
+| **Correct totals require the WHOLE result** | R110 stat | yes — but **wrong when capped** | sharpest server-side-aggregate pull: a `SUM` over the first N rows is *incorrect*, not merely partial. Strongly pulls a query/workflow `SUM()`/`COUNT()` (an **aggregate endpoint**) so totals don't depend on the fetch cap |
 
 ---
 
@@ -49,3 +51,21 @@ a recurring client-side computation is a candidate to **push down** into a query
    `date_trunc(col, month|week|day) + GROUP BY` transform. This is the strongest data-layer pull so far.
 3. **Aggregation is still single dim × single measure.** A line is one series; multi-series (a line per
    category) needs a second grouping → deferred to R111 (`seriesCol`). Noted, not built.
+
+### R110 — KPI / stat (single number) ✅
+
+**Built:** `chartType: 'stat'` — a single aggregate over the whole result (sum of a measure, or row count),
+rendered with AntD `Statistic`. No dimension: `dimensionCol` made **optional** across contract / backend
+model / FE types / wire.
+
+**What it demanded of the data:**
+
+1. **Not every widget is a breakdown.** Bar/pie/line are "dimension × measure"; a KPI is "measure only".
+   The model carried a *required* `dimensionCol`, which the KPI exposed as an over-assumption →
+   `dimensionCol` is now optional. **Signal:** the data contract a widget consumes has (at least) two
+   shapes — *grouped rows* and *a scalar*.
+2. **The cap bites hardest here.** A line/bar over capped rows is a partial *picture*; a KPI total over
+   capped rows is an *incorrect number*. The FE genuinely cannot compute "total revenue" from a truncated
+   fetch. **Signal (strongest server-side pull so far):** KPIs want a real **aggregate query/endpoint**
+   (`SUM`/`COUNT` server-side) so the value is correct regardless of the row cap. This is the first demand
+   the client-side-over-unpaged-rows model *cannot* satisfy correctly.

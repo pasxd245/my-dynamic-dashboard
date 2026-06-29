@@ -36,7 +36,8 @@ export function draftToConfig(draft: Draft): Omit<Widget, 'id'> {
     queryId: draft.queryId as string,
     title: draft.title.trim(),
     chartType: draft.chartType,
-    dimensionCol: draft.dimensionCol as string,
+    // R110 — a `stat` widget omits the dimension (no grouping).
+    ...(draft.chartType === 'stat' ? {} : { dimensionCol: draft.dimensionCol }),
     ...(draft.agg === 'sum' ? { measureCol: draft.measureCol } : {}),
     agg: draft.agg,
     span: draft.span,
@@ -90,25 +91,28 @@ export function WidgetBuilder({ open, workspaceId, initial, onSubmit, onCancel }
     [queries.data],
   );
 
+  // R110 — a `stat` (KPI) widget has no grouping, so it doesn't need a dimension.
+  const needsDimension = draft.chartType !== 'stat';
+
   const canSubmit =
     Boolean(draft.queryId) &&
-    Boolean(draft.dimensionCol) &&
+    (!needsDimension || Boolean(draft.dimensionCol)) &&
     draft.title.trim().length > 0 &&
     (draft.agg === 'count' || Boolean(draft.measureCol));
 
-  const previewWidget: Widget | null =
-    draft.queryId && draft.dimensionCol
-      ? {
-          id: 'preview',
-          queryId: draft.queryId,
-          title: draft.title.trim() || t('dashboard.builder.previewTitle'),
-          chartType: draft.chartType,
-          dimensionCol: draft.dimensionCol,
-          measureCol: draft.agg === 'sum' ? draft.measureCol : undefined,
-          agg: draft.agg,
-          span: draft.span,
-        }
-      : null;
+  const previewReady = Boolean(draft.queryId) && (!needsDimension || Boolean(draft.dimensionCol));
+  const previewWidget: Widget | null = previewReady
+    ? {
+        id: 'preview',
+        queryId: draft.queryId as string,
+        title: draft.title.trim() || t('dashboard.builder.previewTitle'),
+        chartType: draft.chartType,
+        dimensionCol: needsDimension ? draft.dimensionCol : undefined,
+        measureCol: draft.agg === 'sum' ? draft.measureCol : undefined,
+        agg: draft.agg,
+        span: draft.span,
+      }
+    : null;
 
   // R108 — read-only transparency view: the persisted widget shape as live
   // working-copy JSON. Same `draftToConfig` the submit sends; the structured
@@ -157,15 +161,17 @@ export function WidgetBuilder({ open, workspaceId, initial, onSubmit, onCancel }
               />
             </Form.Item>
 
-            <Form.Item label={t('dashboard.builder.dimension')} required>
-              <Select
-                value={draft.dimensionCol}
-                options={colOptions}
-                disabled={!draft.queryId}
-                onChange={(dimensionCol) => setDraft((p) => ({ ...p, dimensionCol }))}
-                data-component="WidgetBuilderDimension"
-              />
-            </Form.Item>
+            {needsDimension ? (
+              <Form.Item label={t('dashboard.builder.dimension')} required>
+                <Select
+                  value={draft.dimensionCol}
+                  options={colOptions}
+                  disabled={!draft.queryId}
+                  onChange={(dimensionCol) => setDraft((p) => ({ ...p, dimensionCol }))}
+                  data-component="WidgetBuilderDimension"
+                />
+              </Form.Item>
+            ) : null}
 
             <Form.Item label={t('dashboard.builder.agg')}>
               <Select<Agg>
@@ -200,6 +206,7 @@ export function WidgetBuilder({ open, workspaceId, initial, onSubmit, onCancel }
                   { value: 'bar', label: t('dashboard.builder.chartBar') },
                   { value: 'line', label: t('dashboard.builder.chartLine') },
                   { value: 'pie', label: t('dashboard.builder.chartPie') },
+                  { value: 'stat', label: t('dashboard.builder.chartStat') },
                 ]}
               />
             </Form.Item>

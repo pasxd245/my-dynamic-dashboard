@@ -38,6 +38,7 @@
     "ariaBar": "Biểu đồ cột: {{title}}",
     "ariaPie": "Biểu đồ tròn: {{title}}",
     "ariaLine": "Biểu đồ đường: {{title}}",
+    "ariaStat": "Chỉ số: {{title}}",
     "builder": {
       "addTitle": "Thêm widget",
       "editTitle": "Sửa widget",
@@ -59,6 +60,7 @@
       "chartBar": "Cột",
       "chartPie": "Tròn",
       "chartLine": "Đường",
+      "chartStat": "Số",
       "preview": "Xem trước",
       "previewHint": "Chọn một truy vấn để xem trước widget.",
       "countLabel": "Số lượng",
