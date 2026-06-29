@@ -62,7 +62,11 @@
       "countLabel": "Số lượng",
       "removeTitle": "Xóa “{{title}}”?",
       "width": "Chiều rộng",
-      "widthHelp": "Số cột widget chiếm (trên 3)."
+      "widthHelp": "Số cột widget chiếm (trên 3).",
+      "viewJson": "Xem dạng JSON",
+      "jsonHint": "Chỉ đọc — cấu hình đã lưu của widget.",
+      "jsonCopy": "Sao chép",
+      "jsonCopied": "Đã sao chép"
     },
     "slugLabel": "Slug",
     "slugHelp": "Định danh thân thiện URL, tự điền từ tên. Có thể sửa.",

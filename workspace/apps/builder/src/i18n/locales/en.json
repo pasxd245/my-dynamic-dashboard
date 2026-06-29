@@ -62,7 +62,11 @@
       "countLabel": "Count",
       "removeTitle": "Remove “{{title}}”?",
       "width": "Width",
-      "widthHelp": "Columns the widget spans (of 3)."
+      "widthHelp": "Columns the widget spans (of 3).",
+      "viewJson": "View as JSON",
+      "jsonHint": "Read-only — the widget’s saved configuration.",
+      "jsonCopy": "Copy",
+      "jsonCopied": "Copied"
     },
     "slugLabel": "Slug",
     "slugHelp": "URL-friendly id, auto-filled from the name. Editable.",

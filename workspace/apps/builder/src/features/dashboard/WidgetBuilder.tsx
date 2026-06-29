@@ -4,7 +4,7 @@
 // choice is a labelled select. This is the surface F1 exists to validate before
 // the Widget contract shape freezes.
 
-import { Alert, Col, Form, Input, Modal, Row, Segmented, Select, Typography } from 'antd';
+import { Alert, Col, Collapse, Form, Input, Modal, Row, Segmented, Select, theme, Typography } from 'antd';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -14,7 +14,7 @@ import { useWidgetData } from './hooks';
 import type { Agg, ChartType, Widget, WidgetSpan } from './types';
 import { WidgetView } from './WidgetView';
 
-type Draft = {
+export type Draft = {
   queryId?: string;
   title: string;
   chartType: ChartType;
@@ -27,6 +27,22 @@ type Draft = {
 
 const EMPTY: Draft = { title: '', chartType: 'bar', agg: 'sum', span: 1 };
 
+/** A draft → the persisted widget shape (`Omit<Widget,'id'>`): the single source
+ *  for both the submit payload and the read-only JSON view. `measureCol` is
+ *  dropped for `count` (meaningless there); unset fields drop out under
+ *  JSON.stringify. R108. */
+export function draftToConfig(draft: Draft): Omit<Widget, 'id'> {
+  return {
+    queryId: draft.queryId as string,
+    title: draft.title.trim(),
+    chartType: draft.chartType,
+    dimensionCol: draft.dimensionCol as string,
+    ...(draft.agg === 'sum' ? { measureCol: draft.measureCol } : {}),
+    agg: draft.agg,
+    span: draft.span,
+  };
+}
+
 type WidgetBuilderProps = Readonly<{
   open: boolean;
   workspaceId: string | undefined;
@@ -38,6 +54,7 @@ type WidgetBuilderProps = Readonly<{
 
 export function WidgetBuilder({ open, workspaceId, initial, onSubmit, onCancel }: WidgetBuilderProps) {
   const { t } = useTranslation();
+  const { token } = theme.useToken();
   // The query list is scoped to the DASHBOARD's workspace (a dashboard is
   // workspace-scoped, so a widget can only bind a query from that same project —
   // no per-widget workspace picker).
@@ -93,17 +110,14 @@ export function WidgetBuilder({ open, workspaceId, initial, onSubmit, onCancel }
         }
       : null;
 
+  // R108 — read-only transparency view: the persisted widget shape as live
+  // working-copy JSON. Same `draftToConfig` the submit sends; the structured
+  // form above stays the editor, this only mirrors it.
+  const configJson = JSON.stringify(draftToConfig(draft), null, 2);
+
   const submit = () => {
     if (!canSubmit) return;
-    onSubmit({
-      queryId: draft.queryId as string,
-      title: draft.title.trim(),
-      chartType: draft.chartType,
-      dimensionCol: draft.dimensionCol as string,
-      measureCol: draft.agg === 'sum' ? draft.measureCol : undefined,
-      agg: draft.agg,
-      span: draft.span,
-    });
+    onSubmit(draftToConfig(draft));
   };
 
   return (
@@ -215,6 +229,46 @@ export function WidgetBuilder({ open, workspaceId, initial, onSubmit, onCancel }
               <Alert type="info" showIcon message={t('dashboard.builder.previewHint')} />
             )}
           </div>
+
+          <Collapse
+            ghost
+            size="small"
+            style={{ marginTop: 16 }}
+            items={[
+              {
+                key: 'json',
+                label: t('dashboard.builder.viewJson'),
+                children: (
+                  <>
+                    <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                      {t('dashboard.builder.jsonHint')}
+                    </Typography.Text>
+                    <Typography.Paragraph
+                      copyable={{
+                        text: configJson,
+                        tooltips: [t('dashboard.builder.jsonCopy'), t('dashboard.builder.jsonCopied')],
+                      }}
+                      style={{ marginTop: 8, marginBottom: 0 }}
+                    >
+                      <pre
+                        data-component="WidgetConfigJson"
+                        style={{
+                          margin: 0,
+                          padding: 12,
+                          background: token.colorFillQuaternary,
+                          borderRadius: token.borderRadius,
+                          fontSize: 12,
+                          overflowX: 'auto',
+                        }}
+                      >
+                        {configJson}
+                      </pre>
+                    </Typography.Paragraph>
+                  </>
+                ),
+              },
+            ]}
+          />
         </Col>
       </Row>
     </Modal>
