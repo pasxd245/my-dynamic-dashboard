@@ -188,6 +188,36 @@ export function aggregateByGroupSeries(
   return { data, seriesKeys };
 }
 
+/** R112 — a combo datum: a dimension label with two summed measures (bar + line). */
+export type ComboDatum = { label: string; v1: number; v2: number };
+
+/**
+ * R112 — sum TWO measures per dimension value (for a bar+line combo). Ordered
+ * by the primary measure desc, like a bar. Pure.
+ *
+ * NOTE (data-layer signal): combo needs *two aggregated columns over one
+ * grouping* — a query/workflow emitting `GROUP BY dim → SUM(m1), SUM(m2)`. It's
+ * the multiple-MEASURES shape (vs R111's multiple-SERIES of one measure).
+ */
+export function sumTwoMeasures(
+  rows: readonly (readonly (string | null)[])[],
+  groupIdx: number,
+  m1Idx: number,
+  m2Idx: number,
+): ComboDatum[] {
+  const acc = new Map<string, { v1: number; v2: number }>();
+  for (const row of rows) {
+    const key = labelOf(row[groupIdx]);
+    const cur = acc.get(key) ?? { v1: 0, v2: 0 };
+    cur.v1 += toNum(row[m1Idx]);
+    cur.v2 += toNum(row[m2Idx]);
+    acc.set(key, cur);
+  }
+  return [...acc.entries()]
+    .map(([label, { v1, v2 }]) => ({ label, v1, v2 }))
+    .sort((a, b) => b.v1 - a.v1);
+}
+
 // ─── R103 — runtime dashboard filter (client-side, categorical one-of) ───────
 
 /** One active dashboard filter: keep rows whose `column` cell is one of

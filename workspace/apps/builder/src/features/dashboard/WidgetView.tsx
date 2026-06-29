@@ -11,6 +11,7 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  ComposedChart,
   Legend,
   Line,
   LineChart,
@@ -32,6 +33,8 @@ import {
   sortByDimension,
   sortDesc,
   sumByGroup,
+  sumTwoMeasures,
+  type ComboDatum,
   type DashboardFilter,
   type Datum,
   type WideDatum,
@@ -89,6 +92,28 @@ function MultiBarView({
           <Bar key={k} dataKey={k} name={k} fill={palette[i % palette.length]} radius={[4, 4, 0, 0]} />
         ))}
       </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
+function ComboView({
+  data,
+  name1,
+  name2,
+  palette,
+}: Readonly<{ data: ComboDatum[]; name1: string; name2: string; palette: string[] }>) {
+  return (
+    <ResponsiveContainer width="100%" height="100%">
+      <ComposedChart data={data} margin={{ top: 8, right: 16, bottom: 8, left: 8 }} accessibilityLayer>
+        <CartesianGrid strokeDasharray="3 3" vertical={false} />
+        <XAxis dataKey="label" interval={0} angle={-30} textAnchor="end" height={68} tickMargin={6} tick={{ fontSize: 11 }} />
+        <YAxis yAxisId="left" width={52} tick={{ fontSize: 11 }} tickFormatter={(v: number) => compactFmt.format(v)} />
+        <YAxis yAxisId="right" orientation="right" width={52} tick={{ fontSize: 11 }} tickFormatter={(v: number) => compactFmt.format(v)} />
+        <Tooltip formatter={(v) => numberFmt.format(Number(v))} />
+        <Legend />
+        <Bar yAxisId="left" dataKey="v1" name={name1} fill={palette[0]} radius={[4, 4, 0, 0]} />
+        <Line yAxisId="right" type="monotone" dataKey="v2" name={name2} stroke={palette[1] ?? palette[0]} strokeWidth={2} dot={false} isAnimationActive={false} />
+      </ComposedChart>
     </ResponsiveContainer>
   );
 }
@@ -162,13 +187,14 @@ function singleSeriesData(
 /** Roll a widget's live rows up to chart data per its config. Exported for the
  *  builder's live preview (same path as the rendered widget). */
 export function useWidgetChartData(
-  widget: Pick<Widget, 'queryId' | 'chartType' | 'dimensionCol' | 'seriesCol' | 'measureCol' | 'agg'>,
+  widget: Pick<Widget, 'queryId' | 'chartType' | 'dimensionCol' | 'seriesCol' | 'measureCol' | 'measureCol2' | 'agg'>,
   filters: readonly DashboardFilter[] = [],
 ) {
   const data = useWidgetData(widget.queryId);
   const dimIdx = widget.dimensionCol ? findColIndex(data.columns, widget.dimensionCol) : -1;
   const seriesIdx = widget.seriesCol ? findColIndex(data.columns, widget.seriesCol) : -1;
   const measureIdx = widget.measureCol ? findColIndex(data.columns, widget.measureCol) : -1;
+  const measure2Idx = widget.measureCol2 ? findColIndex(data.columns, widget.measureCol2) : -1;
 
   // R103 — apply the active dashboard filters to the rows BEFORE the roll-up
   // (client-side; filters whose column this widget lacks are skipped).
@@ -189,11 +215,17 @@ export function useWidgetChartData(
       ? aggregateByGroupSeries(rows, dimIdx, seriesIdx, measureIdx, widget.agg)
       : null;
 
-  const singleSeries = dimIdx !== -1 && widget.chartType !== 'stat' && !multiSeries;
+  // R112 — combo: two summed measures over the dimension (bar + line).
+  const comboData =
+    widget.chartType === 'combo' && dimIdx !== -1 && measureIdx !== -1 && measure2Idx !== -1
+      ? sumTwoMeasures(rows, dimIdx, measureIdx, measure2Idx)
+      : null;
+
+  const singleSeries = dimIdx !== -1 && widget.chartType !== 'stat' && widget.chartType !== 'combo' && !multiSeries;
   const chartData: Datum[] = singleSeries
     ? singleSeriesData(rows, dimIdx, measureIdx, widget.agg, widget.chartType, data.columns[dimIdx]?.dtype ?? 'string')
     : [];
-  return { ...data, chartData, statValue, multiSeries };
+  return { ...data, chartData, statValue, multiSeries, comboData };
 }
 
 type WidgetViewProps = Readonly<{
@@ -209,7 +241,10 @@ export function WidgetView({ widget, extra, filters }: WidgetViewProps) {
   const { t } = useTranslation();
   const { token } = theme.useToken();
   const palette = useChartPalette();
-  const { chartData, statValue, multiSeries, isLoading, isError, capped, total } = useWidgetChartData(widget, filters);
+  const { chartData, statValue, multiSeries, comboData, isLoading, isError, capped, total } = useWidgetChartData(
+    widget,
+    filters,
+  );
 
   const valueName = widget.agg === 'count' ? t('dashboard.builder.countLabel') : (widget.measureCol ?? '');
   const ariaKey = {
@@ -217,12 +252,13 @@ export function WidgetView({ widget, extra, filters }: WidgetViewProps) {
     pie: 'dashboard.ariaPie',
     line: 'dashboard.ariaLine',
     stat: 'dashboard.ariaStat',
+    combo: 'dashboard.ariaCombo',
   }[widget.chartType];
-  // Empty depends on the active render path: stat → no value; multi-series →
-  // no grouped rows; otherwise → no single-series data.
+  // Empty depends on the active render path.
   const computeEmpty = () => {
     if (widget.chartType === 'stat') return statValue === null;
     if (multiSeries) return multiSeries.data.length === 0;
+    if (comboData) return comboData.length === 0;
     return chartData.length === 0;
   };
   const isEmpty = computeEmpty();
@@ -255,6 +291,9 @@ export function WidgetView({ widget, extra, filters }: WidgetViewProps) {
     >
       <ChartFigure label={t(ariaKey, { title: widget.title })}>
         {widget.chartType === 'stat' && <StatView value={statValue ?? 0} label={valueName} />}
+        {widget.chartType === 'combo' && comboData && (
+          <ComboView data={comboData} name1={widget.measureCol ?? ''} name2={widget.measureCol2 ?? ''} palette={palette} />
+        )}
         {widget.chartType === 'pie' && <PieView data={chartData} palette={palette} />}
         {widget.chartType === 'line' && <LineView data={chartData} valueName={valueName} palette={palette} />}
         {widget.chartType === 'bar' && multiSeries && (

@@ -416,7 +416,7 @@ SlugStr = Annotated[
     str,
     Field(pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$", max_length=NAME_LENGTHS["dashboard_max"]),
 ]
-ChartType = Literal["bar", "pie", "line", "stat"]
+ChartType = Literal["bar", "pie", "line", "stat", "combo"]
 Agg = Literal["sum", "count"]
 
 
@@ -439,6 +439,8 @@ class Widget(BaseModel):
     # R111: optional second grouping ("split by") for a multi-series bar.
     seriesCol: Annotated[str, Field(min_length=1)] | None = None  # noqa: N815
     measureCol: Annotated[str, Field(min_length=1)] | None = None  # noqa: N815
+    # R112: combo only — the second measure, summed and drawn as a line.
+    measureCol2: Annotated[str, Field(min_length=1)] | None = None  # noqa: N815
     agg: Agg
     span: Annotated[int, Field(ge=1, le=3)]
 

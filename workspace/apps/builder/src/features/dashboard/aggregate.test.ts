@@ -11,8 +11,24 @@ import {
   sortByDimension,
   aggregateScalar,
   aggregateByGroupSeries,
+  sumTwoMeasures,
   toNum,
 } from './aggregate';
+
+// R112 — combo: two summed measures per dimension, ordered by the primary.
+describe('sumTwoMeasures', () => {
+  it('sums both measures per dimension, ordered by v1 desc', () => {
+    const rows = [
+      ['A', '3', '100'],
+      ['B', '9', '50'],
+      ['A', '7', '20'],
+    ];
+    expect(sumTwoMeasures(rows, 0, 1, 2)).toEqual([
+      { label: 'A', v1: 10, v2: 120 },
+      { label: 'B', v1: 9, v2: 50 },
+    ]);
+  });
+});
 
 // R111 — multi-series 2-D roll-up (client-side pivot: long rows → wide series).
 describe('aggregateByGroupSeries', () => {

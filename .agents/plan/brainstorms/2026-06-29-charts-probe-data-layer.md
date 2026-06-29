@@ -30,6 +30,7 @@ a recurring client-side computation is a candidate to **push down** into a query
 | **Scalar aggregate** (one number, no dimension) | R110 stat | yes (`aggregateScalar`) | the widget model isn't always a *breakdown*; made `dimensionCol` optional. A KPI is "measure-only" — a query that returns a single value would serve it directly |
 | **Correct totals require the WHOLE result** | R110 stat | yes — but **wrong when capped** | sharpest server-side-aggregate pull: a `SUM` over the first N rows is *incorrect*, not merely partial. Strongly pulls a query/workflow `SUM()`/`COUNT()` (an **aggregate endpoint**) so totals don't depend on the fetch cap |
 | **2-D grouping** (dimension × series) | R111 multi-bar | yes (`aggregateByGroupSeries` — a client PIVOT) | `GROUP BY (dim, series)` server-side / a **pivot/crosstab workflow**; wide-result query shape; eventual TOP-N + "other" bucketing for cardinality |
+| **Multiple measures** over one grouping | R112 combo | yes (`sumTwoMeasures`) | `GROUP BY dim → SUM(m1), SUM(m2)` — a multi-aggregate wide result; reinforces the aggregate-endpoint pull |
 
 ---
 
@@ -87,3 +88,18 @@ across contract / backend / FE types.
    would produce server-side; re-pivoting the full (capped) row set in the browser is the brittle stopgap.
 3. **Cardinality risk compounds.** dim × series can explode the distinct-key count and the legend; a
    server-side TOP-N / "other" bucket is a likely future data-layer need.
+
+### R112 — combo (bar + line, two measures) ✅
+
+**Built:** `chartType: 'combo'` + optional `measureCol2`. Two measures summed per dimension
+(`sumTwoMeasures`) → recharts `ComposedChart` (bar = measure 1, line = measure 2, dual Y-axis). Combo forces
+sum (the agg select is hidden); the builder shows "Bar measure" + "Line measure".
+
+**What it demanded of the data:**
+
+1. **Multiple MEASURES over one grouping** (vs R111's multiple *series* of one measure). **Signal:** a query
+   emitting `GROUP BY dim → SUM(m1), SUM(m2)` — a multi-aggregate wide result.
+2. **Heterogeneous scales coexist** (a count vs a revenue total) → the chart needs two axes; the *data* just
+   needs both aggregates, but it confirms the consumed shape is "one dimension key + N numeric aggregates",
+   the same wide row a server GROUP-BY would yield. Reinforces (not adds to) the R110/R111 aggregate-endpoint
+   pull.

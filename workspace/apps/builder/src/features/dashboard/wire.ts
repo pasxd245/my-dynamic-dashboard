@@ -26,6 +26,8 @@ export type WidgetWire = {
   seriesCol?: string;
   /** Required when `agg === 'sum'`; omitted for `count`. */
   measureCol?: string;
+  /** R112 — combo only: the second measure, drawn as a line. */
+  measureCol2?: string;
   agg: Agg;
   span: WidgetSpan;
 };

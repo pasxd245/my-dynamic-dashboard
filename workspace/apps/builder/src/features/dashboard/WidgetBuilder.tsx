@@ -22,6 +22,8 @@ export type Draft = {
   /** R111 — optional second grouping ("split by") for a multi-series bar. */
   seriesCol?: string;
   measureCol?: string;
+  /** R112 — combo only: the second (line) measure. */
+  measureCol2?: string;
   agg: Agg;
   /** Width carried through the builder; arranged on the dashboard (default 1). */
   span: WidgetSpan;
@@ -42,7 +44,10 @@ export function draftToConfig(draft: Draft): Omit<Widget, 'id'> {
     ...(draft.chartType === 'stat' ? {} : { dimensionCol: draft.dimensionCol }),
     // R111 — `seriesCol` only on a multi-series bar; dropped otherwise.
     ...(draft.chartType === 'bar' && draft.seriesCol ? { seriesCol: draft.seriesCol } : {}),
-    ...(draft.agg === 'sum' ? { measureCol: draft.measureCol } : {}),
+    // measureCol for a sum, or for combo (the bar measure). R112 — combo also
+    // carries measureCol2 (the line measure).
+    ...(draft.agg === 'sum' || draft.chartType === 'combo' ? { measureCol: draft.measureCol } : {}),
+    ...(draft.chartType === 'combo' ? { measureCol2: draft.measureCol2 } : {}),
     agg: draft.agg,
     span: draft.span,
   };
@@ -98,11 +103,17 @@ export function WidgetBuilder({ open, workspaceId, initial, onSubmit, onCancel }
   // R110 — a `stat` (KPI) widget has no grouping, so it doesn't need a dimension.
   const needsDimension = draft.chartType !== 'stat';
 
+  // R112 — combo needs BOTH measures; otherwise a sum needs its one measure.
+  const measureOk =
+    draft.chartType === 'combo'
+      ? Boolean(draft.measureCol) && Boolean(draft.measureCol2)
+      : draft.agg === 'count' || Boolean(draft.measureCol);
+
   const canSubmit =
     Boolean(draft.queryId) &&
     (!needsDimension || Boolean(draft.dimensionCol)) &&
     draft.title.trim().length > 0 &&
-    (draft.agg === 'count' || Boolean(draft.measureCol));
+    measureOk;
 
   const previewReady = Boolean(draft.queryId) && (!needsDimension || Boolean(draft.dimensionCol));
   // Build the preview from the SAME draftToConfig the submit uses (so preview ==
@@ -184,19 +195,25 @@ export function WidgetBuilder({ open, workspaceId, initial, onSubmit, onCancel }
               </Form.Item>
             ) : null}
 
-            <Form.Item label={t('dashboard.builder.agg')}>
-              <Select<Agg>
-                value={draft.agg}
-                onChange={(agg) => setDraft((p) => ({ ...p, agg }))}
-                options={[
-                  { value: 'sum', label: t('dashboard.builder.aggSum') },
-                  { value: 'count', label: t('dashboard.builder.aggCount') },
-                ]}
-              />
-            </Form.Item>
+            {/* R112 — combo forces sum of two measures; the agg select is hidden. */}
+            {draft.chartType === 'combo' ? null : (
+              <Form.Item label={t('dashboard.builder.agg')}>
+                <Select<Agg>
+                  value={draft.agg}
+                  onChange={(agg) => setDraft((p) => ({ ...p, agg }))}
+                  options={[
+                    { value: 'sum', label: t('dashboard.builder.aggSum') },
+                    { value: 'count', label: t('dashboard.builder.aggCount') },
+                  ]}
+                />
+              </Form.Item>
+            )}
 
-            {draft.agg === 'sum' ? (
-              <Form.Item label={t('dashboard.builder.measure')} required>
+            {draft.agg === 'sum' || draft.chartType === 'combo' ? (
+              <Form.Item
+                label={draft.chartType === 'combo' ? t('dashboard.builder.measureBar') : t('dashboard.builder.measure')}
+                required
+              >
                 <Select
                   value={draft.measureCol}
                   options={numericOptions}
@@ -209,6 +226,20 @@ export function WidgetBuilder({ open, workspaceId, initial, onSubmit, onCancel }
               </Form.Item>
             ) : null}
 
+            {draft.chartType === 'combo' ? (
+              <Form.Item label={t('dashboard.builder.measureLine')} required>
+                <Select
+                  value={draft.measureCol2}
+                  options={numericOptions}
+                  disabled={!draft.queryId}
+                  placeholder={t('dashboard.builder.measurePlaceholder')}
+                  notFoundContent={t('dashboard.builder.noNumeric')}
+                  onChange={(measureCol2) => setDraft((p) => ({ ...p, measureCol2 }))}
+                  data-component="WidgetBuilderMeasure2"
+                />
+              </Form.Item>
+            ) : null}
+
             <Form.Item label={t('dashboard.builder.chart')}>
               <Select<ChartType>
                 value={draft.chartType}
@@ -217,6 +248,7 @@ export function WidgetBuilder({ open, workspaceId, initial, onSubmit, onCancel }
                   { value: 'bar', label: t('dashboard.builder.chartBar') },
                   { value: 'line', label: t('dashboard.builder.chartLine') },
                   { value: 'pie', label: t('dashboard.builder.chartPie') },
+                  { value: 'combo', label: t('dashboard.builder.chartCombo') },
                   { value: 'stat', label: t('dashboard.builder.chartStat') },
                 ]}
               />
