@@ -78,6 +78,7 @@ const {
   siderCollapsedWidth: COLLAPSED_WIDTH,
   siderInlineIndent: INLINE_INDENT,
   headerHeight: HEADER_HEIGHT,
+  contentPadding: CONTENT_PADDING,
 } = layoutTokens;
 
 /** A NavItem → AntD menu node, recursing into `children` as a nested SubMenu. */
@@ -324,7 +325,8 @@ export function WorkspaceShell(props: Readonly<WorkspaceShellProps>) {
         <Layout.Content
           style={{
             background: token.colorBgLayout,
-            padding: '16px',
+            // R105 — single-sourced with PageContainer's fill-height chrome math.
+            padding: CONTENT_PADDING,
             overflow: 'auto',
           }}
         >

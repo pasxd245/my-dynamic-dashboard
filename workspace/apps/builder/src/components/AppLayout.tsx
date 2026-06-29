@@ -24,17 +24,6 @@ const DASH_ITEM_PREFIX = 'dash:';
 const DASH_WS_PREFIX = 'dashws:'; // workspace SubMenu header (toggles only; no route)
 const DASHBOARDS_PATH = '/dashboards/';
 
-const DATA_MANAGEMENT_GROUP: NavGroup = {
-  key: 'data-management',
-  label: 'Data Management',
-  icon: <DatabaseOutlined />,
-  defaultExpanded: true,
-  items: [
-    { key: 'workspaces', label: 'Workspaces', icon: <AppstoreOutlined /> },
-    { key: 'datasets', label: 'Datasets', icon: <TableOutlined /> },
-    { key: 'queries', label: 'Queries', icon: <FilterOutlined /> },
-  ],
-};
 
 // Static leaf → route map (the dashboard instance items are resolved dynamically).
 const ROUTE_FOR_KEY: Record<string, string> = {
@@ -71,6 +60,20 @@ export function AppLayout({ children }: Readonly<{ children: ReactNode }>) {
   const activeKey = activeKeyFor(pathname);
   const [collapsed, setCollapsed] = useState(false);
   const routeMeta = useRouteMeta();
+
+  // Built INSIDE the component so the labels are i18n'd (R105 B1 — was a
+  // module-level const with hardcoded English; the keys already exist in en+vi).
+  const dataManagementGroup: NavGroup = {
+    key: 'data-management',
+    label: t('nav.dataManagement'),
+    icon: <DatabaseOutlined />,
+    defaultExpanded: true,
+    items: [
+      { key: 'workspaces', label: t('nav.workspaces'), icon: <AppstoreOutlined /> },
+      { key: 'datasets', label: t('nav.datasets'), icon: <TableOutlined /> },
+      { key: 'queries', label: t('nav.queries'), icon: <FilterOutlined /> },
+    ],
+  };
 
   // R101 — `Settings › Dashboard` is the config/create entry (→ /settings/dashboard).
   const systemGroup: NavGroup = {
@@ -121,7 +124,7 @@ export function AppLayout({ children }: Readonly<{ children: ReactNode }>) {
   };
 
   // Order: created dashboards (if any) → Data Management → Settings (config, last).
-  const groups = [...(dashboardGroup ? [dashboardGroup] : []), DATA_MANAGEMENT_GROUP, systemGroup];
+  const groups = [...(dashboardGroup ? [dashboardGroup] : []), dataManagementGroup, systemGroup];
 
   return (
     <WorkspaceShell

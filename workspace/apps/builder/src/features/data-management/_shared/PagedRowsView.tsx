@@ -128,9 +128,12 @@ export function PagedRowsView({
         data-component="PagedRowsTable"
         data-scroll-mode={scrollMode}
         style={{
-          // "contained": own inner scroll (sticky header + pinned pager pin
-          // against this box). "flow": natural height — the page scrolls.
-          ...(contained ? { flex: '1 1 auto', minHeight: 0, overflow: 'auto' } : {}),
+          // "contained": own inner scroll on both axes (sticky header + pinned
+          // pager pin against this box). "flow": natural height so the PAGE
+          // scrolls vertically — but horizontal stays contained to this box
+          // (R105 B2: a wide table must not push the page width). `overflowX:auto`
+          // also gives this flex child min-size 0, so it can't grow past its parent.
+          ...(contained ? { flex: '1 1 auto', minHeight: 0, overflow: 'auto' } : { overflowX: 'auto' }),
           border: '1px solid var(--ant-color-border-secondary, #f0f0f0)',
           borderRadius: 6,
         }}

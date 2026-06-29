@@ -28,6 +28,10 @@ export const layoutTokens = {
   siderInlineIndent: 16,
   // the header height (WorkspaceShell)
   headerHeight: 64,
+  // R105 — Layout.Content padding (WorkspaceShell). Single-sourced so
+  // PageContainer's fill height (`100svh − header − 2×padding`) tracks the
+  // header instead of a hardcoded magic number that silently drifts (B3).
+  contentPadding: 16,
 } as const;
 
 export const themeTokens: ThemeConfig = {

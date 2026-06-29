@@ -47,8 +47,10 @@ export type PageContainerProps = {
   dataComponent?: string;
 };
 
-// WorkspaceShell chrome: Layout.Header (56) + Layout.Content padding (16×2).
-const SHELL_CHROME_PX = 88;
+// WorkspaceShell chrome: Layout.Header + Layout.Content padding (×2), derived
+// from the shared tokens so it tracks the header (R105 B3 — a hardcoded 88
+// assumed a 56px header and broke when it grew to 64).
+const SHELL_CHROME_PX = layoutTokens.headerHeight + layoutTokens.contentPadding * 2;
 
 function maxWidthFor(width: PageContainerWidth): number | undefined {
   switch (width) {
