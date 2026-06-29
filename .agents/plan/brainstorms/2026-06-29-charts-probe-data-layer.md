@@ -31,6 +31,8 @@ a recurring client-side computation is a candidate to **push down** into a query
 | **Correct totals require the WHOLE result** | R110 stat | yes — but **wrong when capped** | sharpest server-side-aggregate pull: a `SUM` over the first N rows is *incorrect*, not merely partial. Strongly pulls a query/workflow `SUM()`/`COUNT()` (an **aggregate endpoint**) so totals don't depend on the fetch cap |
 | **2-D grouping** (dimension × series) | R111 multi-bar | yes (`aggregateByGroupSeries` — a client PIVOT) | `GROUP BY (dim, series)` server-side / a **pivot/crosstab workflow**; wide-result query shape; eventual TOP-N + "other" bucketing for cardinality |
 | **Multiple measures** over one grouping | R112 combo | yes (`sumTwoMeasures`) | `GROUP BY dim → SUM(m1), SUM(m2)` — a multi-aggregate wide result; reinforces the aggregate-endpoint pull |
+| **Raw row-level data** (no group-by) | R113 scatter | yes (`toScatterPoints`) | a THIRD consumed shape — raw rows; cap = a *biased sample*, pulling server-side **sampling** (`TABLESAMPLE`) or a higher row budget for row-level widgets |
+| **Declarative widget-config** (meta) | R109–R113 builder | n/a | the hand-branched builder doesn't scale with chart variety → a per-chart field-schema and/or the `advancedOptions` JSON escape hatch (the config MODEL wants a declarative shape) |
 
 ---
 
@@ -103,3 +105,27 @@ sum (the agg select is hidden); the builder shows "Bar measure" + "Line measure"
    needs both aggregates, but it confirms the consumed shape is "one dimension key + N numeric aggregates",
    the same wide row a server GROUP-BY would yield. Reinforces (not adds to) the R110/R111 aggregate-endpoint
    pull.
+
+### R113 — scatter (raw row-level points) ✅
+
+**Built:** `chartType: 'scatter'` — `measureCol` (X) × `measureCol2` (Y), one point per row, **NO
+aggregation** (`toScatterPoints`). recharts `ScatterChart`. First widget that does not roll up.
+
+**What it demanded of the data:**
+
+1. **Row-level data, not a group-by.** Every prior widget aggregated; scatter wants the raw rows. **Signal:**
+   the data contract has a THIRD shape — *raw rows* (alongside *grouped rows* and *scalar*). A query that
+   returns selected raw columns already serves this; no aggregate needed.
+2. **The cap means a SAMPLE, not a partial aggregate.** Plotting the first N rows is a *biased sample*, not a
+   truncated total. **Signal:** row-level widgets pull either a higher row budget or server-side **sampling**
+   (`TABLESAMPLE` / `ORDER BY random() LIMIT n`) so the scatter is representative — a distinct data-layer
+   need from the aggregate-endpoint one.
+
+### META-finding (R109–R113) — the builder is the canary
+
+As chart types grew (bar→line→stat→multi-series→combo→scatter), the **structured-props builder's branching
+exploded** (cognitive complexity 21 at its peak; conditional dimension/series/measure/measure2/agg fields per
+chart kind). **Signal:** a hand-branched form does not scale with chart variety. Two pulls converge:
+(a) a **declarative field-schema per chart type** (data-driven form), and/or (b) the **`advancedOptions`
+escape hatch** for the long tail (the R108 inspector's eventual editor) — exactly the ECharts-`option`
+direction. The *config model*, not just the data, wants a more declarative shape.

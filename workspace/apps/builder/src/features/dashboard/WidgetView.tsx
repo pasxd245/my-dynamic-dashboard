@@ -18,9 +18,12 @@ import {
   Pie,
   PieChart,
   ResponsiveContainer,
+  Scatter,
+  ScatterChart,
   Tooltip,
   XAxis,
   YAxis,
+  ZAxis,
 } from 'recharts';
 
 import { DASHBOARD_MAX_ROWS } from '@/_generated/constants';
@@ -34,9 +37,11 @@ import {
   sortDesc,
   sumByGroup,
   sumTwoMeasures,
+  toScatterPoints,
   type ComboDatum,
   type DashboardFilter,
   type Datum,
+  type ScatterPoint,
   type WideDatum,
 } from './aggregate';
 import { ChartCard } from './ChartCard';
@@ -92,6 +97,26 @@ function MultiBarView({
           <Bar key={k} dataKey={k} name={k} fill={palette[i % palette.length]} radius={[4, 4, 0, 0]} />
         ))}
       </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
+function ScatterView({
+  data,
+  xName,
+  yName,
+  palette,
+}: Readonly<{ data: ScatterPoint[]; xName: string; yName: string; palette: string[] }>) {
+  return (
+    <ResponsiveContainer width="100%" height="100%">
+      <ScatterChart margin={{ top: 8, right: 16, bottom: 16, left: 8 }} accessibilityLayer>
+        <CartesianGrid strokeDasharray="3 3" />
+        <XAxis type="number" dataKey="x" name={xName} tick={{ fontSize: 11 }} tickFormatter={(v: number) => compactFmt.format(v)} />
+        <YAxis type="number" dataKey="y" name={yName} width={52} tick={{ fontSize: 11 }} tickFormatter={(v: number) => compactFmt.format(v)} />
+        <ZAxis range={[40, 40]} />
+        <Tooltip cursor={{ strokeDasharray: '3 3' }} formatter={(v) => numberFmt.format(Number(v))} />
+        <Scatter data={data} fill={palette[0]} isAnimationActive={false} />
+      </ScatterChart>
     </ResponsiveContainer>
   );
 }
@@ -221,11 +246,18 @@ export function useWidgetChartData(
       ? sumTwoMeasures(rows, dimIdx, measureIdx, measure2Idx)
       : null;
 
-  const singleSeries = dimIdx !== -1 && widget.chartType !== 'stat' && widget.chartType !== 'combo' && !multiSeries;
+  // R113 — scatter: raw (x, y) points, no aggregation.
+  const scatterData =
+    widget.chartType === 'scatter' && measureIdx !== -1 && measure2Idx !== -1
+      ? toScatterPoints(rows, measureIdx, measure2Idx)
+      : null;
+
+  const isSpecial = widget.chartType === 'stat' || widget.chartType === 'combo' || widget.chartType === 'scatter';
+  const singleSeries = dimIdx !== -1 && !isSpecial && !multiSeries;
   const chartData: Datum[] = singleSeries
     ? singleSeriesData(rows, dimIdx, measureIdx, widget.agg, widget.chartType, data.columns[dimIdx]?.dtype ?? 'string')
     : [];
-  return { ...data, chartData, statValue, multiSeries, comboData };
+  return { ...data, chartData, statValue, multiSeries, comboData, scatterData };
 }
 
 type WidgetViewProps = Readonly<{
@@ -241,10 +273,8 @@ export function WidgetView({ widget, extra, filters }: WidgetViewProps) {
   const { t } = useTranslation();
   const { token } = theme.useToken();
   const palette = useChartPalette();
-  const { chartData, statValue, multiSeries, comboData, isLoading, isError, capped, total } = useWidgetChartData(
-    widget,
-    filters,
-  );
+  const { chartData, statValue, multiSeries, comboData, scatterData, isLoading, isError, capped, total } =
+    useWidgetChartData(widget, filters);
 
   const valueName = widget.agg === 'count' ? t('dashboard.builder.countLabel') : (widget.measureCol ?? '');
   const ariaKey = {
@@ -253,12 +283,14 @@ export function WidgetView({ widget, extra, filters }: WidgetViewProps) {
     line: 'dashboard.ariaLine',
     stat: 'dashboard.ariaStat',
     combo: 'dashboard.ariaCombo',
+    scatter: 'dashboard.ariaScatter',
   }[widget.chartType];
   // Empty depends on the active render path.
   const computeEmpty = () => {
     if (widget.chartType === 'stat') return statValue === null;
     if (multiSeries) return multiSeries.data.length === 0;
     if (comboData) return comboData.length === 0;
+    if (scatterData) return scatterData.length === 0;
     return chartData.length === 0;
   };
   const isEmpty = computeEmpty();
@@ -293,6 +325,9 @@ export function WidgetView({ widget, extra, filters }: WidgetViewProps) {
         {widget.chartType === 'stat' && <StatView value={statValue ?? 0} label={valueName} />}
         {widget.chartType === 'combo' && comboData && (
           <ComboView data={comboData} name1={widget.measureCol ?? ''} name2={widget.measureCol2 ?? ''} palette={palette} />
+        )}
+        {widget.chartType === 'scatter' && scatterData && (
+          <ScatterView data={scatterData} xName={widget.measureCol ?? ''} yName={widget.measureCol2 ?? ''} palette={palette} />
         )}
         {widget.chartType === 'pie' && <PieView data={chartData} palette={palette} />}
         {widget.chartType === 'line' && <LineView data={chartData} valueName={valueName} palette={palette} />}

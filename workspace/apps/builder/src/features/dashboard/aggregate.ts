@@ -218,6 +218,27 @@ export function sumTwoMeasures(
     .sort((a, b) => b.v1 - a.v1);
 }
 
+/** R113 — a scatter point: one row, two numeric axes (NOT aggregated). */
+export type ScatterPoint = { x: number; y: number };
+
+/**
+ * R113 — map raw rows to scatter points (x, y) with NO aggregation — the first
+ * widget shape that does not roll up.
+ *
+ * NOTE (data-layer signal): scatter wants **row-level** data, not a group-by.
+ * The fetch cap here means the chart plots a *sample* (the first N rows), not a
+ * partial aggregate — a distinct cap semantics. Pulls either a higher row
+ * budget for row-level widgets or server-side **sampling** (e.g. `TABLESAMPLE`)
+ * so the scatter is representative.
+ */
+export function toScatterPoints(
+  rows: readonly (readonly (string | null)[])[],
+  xIdx: number,
+  yIdx: number,
+): ScatterPoint[] {
+  return rows.map((row) => ({ x: toNum(row[xIdx]), y: toNum(row[yIdx]) }));
+}
+
 // ─── R103 — runtime dashboard filter (client-side, categorical one-of) ───────
 
 /** One active dashboard filter: keep rows whose `column` cell is one of

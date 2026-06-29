@@ -12,8 +12,25 @@ import {
   aggregateScalar,
   aggregateByGroupSeries,
   sumTwoMeasures,
+  toScatterPoints,
   toNum,
 } from './aggregate';
+
+// R113 — scatter: raw (x,y) points, NO aggregation (one point per row).
+describe('toScatterPoints', () => {
+  it('maps each row to an (x,y) point without rolling up', () => {
+    const rows = [
+      ['a', '1', '2'],
+      ['b', '3', '4'],
+      ['c', '', '5'], // blank x → 0
+    ];
+    expect(toScatterPoints(rows, 1, 2)).toEqual([
+      { x: 1, y: 2 },
+      { x: 3, y: 4 },
+      { x: 0, y: 5 },
+    ]);
+  });
+});
 
 // R112 — combo: two summed measures per dimension, ordered by the primary.
 describe('sumTwoMeasures', () => {

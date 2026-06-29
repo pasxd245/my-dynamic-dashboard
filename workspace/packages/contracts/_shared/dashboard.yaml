@@ -59,13 +59,14 @@ components:
           description: Widget heading, user-supplied (defaulted from the query name).
         chartType:
           type: string
-          enum: [bar, pie, line, stat, combo]
+          enum: [bar, pie, line, stat, combo, scatter]
           description: |
             The chart kind. `bar` + `pie` + `line` (R109) + `stat` (R110 — a
-            single-number KPI) + `combo` (R112 — bar + line, two summed measures
-            on one dimension). The chart-lib ladder (recharts now → ECharts when
-            a can't-do-in-recharts chart is pulled) is a PRESENTATION detail
-            behind `WidgetView`, not a contract field.
+            single-number KPI) + `combo` (R112 — bar + line, two summed measures)
+            + `scatter` (R113 — raw row-level points, x = `measureCol`,
+            y = `measureCol2`, NO aggregation). The chart-lib ladder (recharts
+            now → ECharts when a can't-do-in-recharts chart is pulled) is a
+            PRESENTATION detail behind `WidgetView`, not a contract field.
         dimensionCol:
           type: string
           minLength: 1
@@ -104,9 +105,10 @@ components:
           type: string
           minLength: 1
           description: |
-            R112 — OPTIONAL second measure, by logical NAME, used ONLY by a
-            `combo` widget: it's summed per dimension and drawn as a LINE over
-            the bar (the first `measureCol`). Absent for every other chart kind.
+            OPTIONAL second numeric column, by logical NAME. R112 `combo`: the
+            line measure (summed per dimension, over the bar = `measureCol`).
+            R113 `scatter`: the Y axis (raw, with `measureCol` as X — no
+            aggregation). Absent for every other chart kind.
           examples: ["count", "margin"]
         agg:
           type: string

@@ -5,7 +5,7 @@
 // ([[dfcfbi-f1-precedes-contract]]). The fields here are the F1 hypothesis for
 // what a persisted Widget/Dashboard needs — the thing F1 exists to confirm.
 
-export type ChartType = 'bar' | 'pie' | 'line' | 'stat' | 'combo';
+export type ChartType = 'bar' | 'pie' | 'line' | 'stat' | 'combo' | 'scatter';
 
 /** sum needs a numeric `measureCol`; count tallies rows (no measure). */
 export type Agg = 'sum' | 'count';
@@ -30,8 +30,8 @@ export type Widget = {
   seriesCol?: string;
   /** The numeric column summed when `agg === 'sum'`; omitted for `count`. */
   measureCol?: string;
-  /** R112 — combo only: the SECOND measure, drawn as a line over the bar.
-   *  Both measures are summed per dimension (combo implies sum). */
+  /** Second numeric column. R112 combo: the line measure (summed). R113
+   *  scatter: the Y axis (raw, with `measureCol` as X — no aggregation). */
   measureCol2?: string;
   agg: Agg;
   /** Grid width: 1–3 columns of a 3-col grid (default 1). */
