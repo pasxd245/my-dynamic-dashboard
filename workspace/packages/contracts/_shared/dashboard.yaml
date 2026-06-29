@@ -78,6 +78,16 @@ components:
             the whole result — so it omits `dimensionCol`. The breakdown charts
             (bar/pie/line) still carry it.
           examples: ["stage", "owner"]
+        seriesCol:
+          type: string
+          minLength: 1
+          description: |
+            R111 — OPTIONAL second grouping (the "split by" column), by logical
+            NAME. When present on a `bar` widget, the roll-up is 2-D
+            (dimension × series) and renders grouped bars (one bar per series
+            value per dimension group). Absent → single-series, as before. Only
+            meaningful for `bar` this round.
+          examples: ["region", "channel"]
         measureCol:
           type: string
           minLength: 1

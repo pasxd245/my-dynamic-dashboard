@@ -29,6 +29,7 @@ a recurring client-side computation is a candidate to **push down** into a query
 | **Time-bucketing** ("by month/week") | R109 line | not done (user must pre-shape) | a **workflow/query `date_trunc` + GROUP BY**; the FE can't bucket a raw timestamp into months without a transform |
 | **Scalar aggregate** (one number, no dimension) | R110 stat | yes (`aggregateScalar`) | the widget model isn't always a *breakdown*; made `dimensionCol` optional. A KPI is "measure-only" — a query that returns a single value would serve it directly |
 | **Correct totals require the WHOLE result** | R110 stat | yes — but **wrong when capped** | sharpest server-side-aggregate pull: a `SUM` over the first N rows is *incorrect*, not merely partial. Strongly pulls a query/workflow `SUM()`/`COUNT()` (an **aggregate endpoint**) so totals don't depend on the fetch cap |
+| **2-D grouping** (dimension × series) | R111 multi-bar | yes (`aggregateByGroupSeries` — a client PIVOT) | `GROUP BY (dim, series)` server-side / a **pivot/crosstab workflow**; wide-result query shape; eventual TOP-N + "other" bucketing for cardinality |
 
 ---
 
@@ -69,3 +70,20 @@ model / FE types / wire.
    fetch. **Signal (strongest server-side pull so far):** KPIs want a real **aggregate query/endpoint**
    (`SUM`/`COUNT` server-side) so the value is correct regardless of the row cap. This is the first demand
    the client-side-over-unpaged-rows model *cannot* satisfy correctly.
+
+### R111 — multi-series grouped bar ✅
+
+**Built:** optional `seriesCol` (a "split by" second grouping). On a `bar` widget it triggers a 2-D roll-up
+(`aggregateByGroupSeries`) → grouped bars (one bar per series value per dimension group). New optional field
+across contract / backend / FE types.
+
+**What it demanded of the data:**
+
+1. **A second GROUP BY dimension.** Single dim × measure was the model's spine; a real chart need (revenue by
+   quarter, split by region) is **2-D**. **Signal:** the aggregate the data layer should expose is
+   `GROUP BY (dimension, series)`, not just one key.
+2. **The client is doing a PIVOT** (long rows → wide series columns) every render — `aggregateByGroupSeries`
+   is a crosstab. **Signal:** this is the same shape a **pivot/crosstab workflow** or a wide-result query
+   would produce server-side; re-pivoting the full (capped) row set in the browser is the brittle stopgap.
+3. **Cardinality risk compounds.** dim × series can explode the distinct-key count and the legend; a
+   server-side TOP-N / "other" bucket is a likely future data-layer need.

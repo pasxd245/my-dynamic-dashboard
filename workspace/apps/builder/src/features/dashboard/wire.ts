@@ -22,6 +22,8 @@ export type WidgetWire = {
   chartType: ChartType;
   /** Omitted for a `stat` (KPI) widget — no grouping (R110). */
   dimensionCol?: string;
+  /** R111 — optional second grouping ("split by") → multi-series bar. */
+  seriesCol?: string;
   /** Required when `agg === 'sum'`; omitted for `count`. */
   measureCol?: string;
   agg: Agg;

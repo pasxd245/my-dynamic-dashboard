@@ -24,6 +24,7 @@ import {
 
 import { DASHBOARD_MAX_ROWS } from '@/_generated/constants';
 import {
+  aggregateByGroupSeries,
   aggregateScalar,
   applyFilters,
   countByGroup,
@@ -33,10 +34,11 @@ import {
   sumByGroup,
   type DashboardFilter,
   type Datum,
+  type WideDatum,
 } from './aggregate';
 import { ChartCard } from './ChartCard';
 import { useChartPalette, useWidgetData } from './hooks';
-import type { Widget } from './types';
+import type { ChartType, Widget } from './types';
 
 const numberFmt = new Intl.NumberFormat();
 const compactFmt = new Intl.NumberFormat(undefined, { notation: 'compact', maximumFractionDigits: 1 });
@@ -65,6 +67,27 @@ function BarView({ data, valueName, palette }: Readonly<{ data: Datum[]; valueNa
         <Tooltip formatter={(v) => numberFmt.format(Number(v))} />
         <Legend />
         <Bar dataKey="value" name={valueName} fill={palette[0]} radius={[4, 4, 0, 0]} />
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
+function MultiBarView({
+  data,
+  seriesKeys,
+  palette,
+}: Readonly<{ data: WideDatum[]; seriesKeys: string[]; palette: string[] }>) {
+  return (
+    <ResponsiveContainer width="100%" height="100%">
+      <BarChart data={data} margin={{ top: 8, right: 16, bottom: 8, left: 8 }} accessibilityLayer>
+        <CartesianGrid strokeDasharray="3 3" vertical={false} />
+        <XAxis dataKey="label" interval={0} angle={-30} textAnchor="end" height={68} tickMargin={6} tick={{ fontSize: 11 }} />
+        <YAxis width={52} tick={{ fontSize: 11 }} tickFormatter={(v: number) => compactFmt.format(v)} />
+        <Tooltip formatter={(v) => numberFmt.format(Number(v))} />
+        <Legend />
+        {seriesKeys.map((k, i) => (
+          <Bar key={k} dataKey={k} name={k} fill={palette[i % palette.length]} radius={[4, 4, 0, 0]} />
+        ))}
       </BarChart>
     </ResponsiveContainer>
   );
@@ -120,14 +143,31 @@ function PieView({ data, palette }: Readonly<{ data: Datum[]; palette: string[] 
   );
 }
 
+/** Single-series roll-up for bar/line/pie: aggregate by the dimension, then
+ *  order (line → by dimension/dtype; bar/pie → by value desc). */
+function singleSeriesData(
+  rows: readonly (readonly (string | null)[])[],
+  dimIdx: number,
+  measureIdx: number,
+  agg: 'sum' | 'count',
+  chartType: ChartType,
+  dtype: string,
+): Datum[] {
+  let raw: Datum[] = [];
+  if (agg === 'sum' && measureIdx !== -1) raw = sumByGroup(rows, dimIdx, measureIdx);
+  else if (agg === 'count') raw = countByGroup(rows, dimIdx);
+  return chartType === 'line' ? sortByDimension(raw, dtype) : sortDesc(raw);
+}
+
 /** Roll a widget's live rows up to chart data per its config. Exported for the
  *  builder's live preview (same path as the rendered widget). */
 export function useWidgetChartData(
-  widget: Pick<Widget, 'queryId' | 'chartType' | 'dimensionCol' | 'measureCol' | 'agg'>,
+  widget: Pick<Widget, 'queryId' | 'chartType' | 'dimensionCol' | 'seriesCol' | 'measureCol' | 'agg'>,
   filters: readonly DashboardFilter[] = [],
 ) {
   const data = useWidgetData(widget.queryId);
   const dimIdx = widget.dimensionCol ? findColIndex(data.columns, widget.dimensionCol) : -1;
+  const seriesIdx = widget.seriesCol ? findColIndex(data.columns, widget.seriesCol) : -1;
   const measureIdx = widget.measureCol ? findColIndex(data.columns, widget.measureCol) : -1;
 
   // R103 — apply the active dashboard filters to the rows BEFORE the roll-up
@@ -142,23 +182,18 @@ export function useWidgetChartData(
     statValue = rows.length === 0 ? null : aggregateScalar(rows, measureIdx, widget.agg);
   }
 
-  let chartData: Datum[] = [];
-  if (dimIdx !== -1 && widget.chartType !== 'stat') {
-    let raw: Datum[] = [];
-    if (widget.agg === 'sum' && measureIdx !== -1) {
-      raw = sumByGroup(rows, dimIdx, measureIdx);
-    } else if (widget.agg === 'count') {
-      raw = countByGroup(rows, dimIdx);
-    }
-    // R109 — a line/time chart orders by the dimension (the x-axis); bar/pie
-    // order by value (largest first). The dimension's dtype drives chronological
-    // vs lexical ordering for line.
-    chartData =
-      widget.chartType === 'line'
-        ? sortByDimension(raw, data.columns[dimIdx]?.dtype ?? 'string')
-        : sortDesc(raw);
-  }
-  return { ...data, chartData, statValue };
+  // R111 — multi-series (grouped bar): a 2-D roll-up by dimension × series.
+  // Only for `bar` with a `seriesCol`; null otherwise (→ single-series path).
+  const multiSeries =
+    widget.chartType === 'bar' && dimIdx !== -1 && seriesIdx !== -1
+      ? aggregateByGroupSeries(rows, dimIdx, seriesIdx, measureIdx, widget.agg)
+      : null;
+
+  const singleSeries = dimIdx !== -1 && widget.chartType !== 'stat' && !multiSeries;
+  const chartData: Datum[] = singleSeries
+    ? singleSeriesData(rows, dimIdx, measureIdx, widget.agg, widget.chartType, data.columns[dimIdx]?.dtype ?? 'string')
+    : [];
+  return { ...data, chartData, statValue, multiSeries };
 }
 
 type WidgetViewProps = Readonly<{
@@ -174,7 +209,7 @@ export function WidgetView({ widget, extra, filters }: WidgetViewProps) {
   const { t } = useTranslation();
   const { token } = theme.useToken();
   const palette = useChartPalette();
-  const { chartData, statValue, isLoading, isError, capped, total } = useWidgetChartData(widget, filters);
+  const { chartData, statValue, multiSeries, isLoading, isError, capped, total } = useWidgetChartData(widget, filters);
 
   const valueName = widget.agg === 'count' ? t('dashboard.builder.countLabel') : (widget.measureCol ?? '');
   const ariaKey = {
@@ -183,9 +218,14 @@ export function WidgetView({ widget, extra, filters }: WidgetViewProps) {
     line: 'dashboard.ariaLine',
     stat: 'dashboard.ariaStat',
   }[widget.chartType];
-  // R110 — a stat is empty only when there's nothing to aggregate (statValue
-  // null); a charted widget is empty when the roll-up yields no data.
-  const isEmpty = widget.chartType === 'stat' ? statValue === null : chartData.length === 0;
+  // Empty depends on the active render path: stat → no value; multi-series →
+  // no grouped rows; otherwise → no single-series data.
+  const computeEmpty = () => {
+    if (widget.chartType === 'stat') return statValue === null;
+    if (multiSeries) return multiSeries.data.length === 0;
+    return chartData.length === 0;
+  };
+  const isEmpty = computeEmpty();
 
   // R104 — over-cap signpost: this widget's data is partial (first N of M).
   const capWarning = capped ? (
@@ -217,7 +257,12 @@ export function WidgetView({ widget, extra, filters }: WidgetViewProps) {
         {widget.chartType === 'stat' && <StatView value={statValue ?? 0} label={valueName} />}
         {widget.chartType === 'pie' && <PieView data={chartData} palette={palette} />}
         {widget.chartType === 'line' && <LineView data={chartData} valueName={valueName} palette={palette} />}
-        {widget.chartType === 'bar' && <BarView data={chartData} valueName={valueName} palette={palette} />}
+        {widget.chartType === 'bar' && multiSeries && (
+          <MultiBarView data={multiSeries.data} seriesKeys={multiSeries.seriesKeys} palette={palette} />
+        )}
+        {widget.chartType === 'bar' && !multiSeries && (
+          <BarView data={chartData} valueName={valueName} palette={palette} />
+        )}
       </ChartFigure>
     </ChartCard>
   );

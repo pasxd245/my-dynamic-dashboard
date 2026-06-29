@@ -19,6 +19,8 @@ export type Draft = {
   title: string;
   chartType: ChartType;
   dimensionCol?: string;
+  /** R111 — optional second grouping ("split by") for a multi-series bar. */
+  seriesCol?: string;
   measureCol?: string;
   agg: Agg;
   /** Width carried through the builder; arranged on the dashboard (default 1). */
@@ -38,6 +40,8 @@ export function draftToConfig(draft: Draft): Omit<Widget, 'id'> {
     chartType: draft.chartType,
     // R110 — a `stat` widget omits the dimension (no grouping).
     ...(draft.chartType === 'stat' ? {} : { dimensionCol: draft.dimensionCol }),
+    // R111 — `seriesCol` only on a multi-series bar; dropped otherwise.
+    ...(draft.chartType === 'bar' && draft.seriesCol ? { seriesCol: draft.seriesCol } : {}),
     ...(draft.agg === 'sum' ? { measureCol: draft.measureCol } : {}),
     agg: draft.agg,
     span: draft.span,
@@ -101,17 +105,10 @@ export function WidgetBuilder({ open, workspaceId, initial, onSubmit, onCancel }
     (draft.agg === 'count' || Boolean(draft.measureCol));
 
   const previewReady = Boolean(draft.queryId) && (!needsDimension || Boolean(draft.dimensionCol));
+  // Build the preview from the SAME draftToConfig the submit uses (so preview ==
+  // saved shape), with a fallback title; the field conditionals live there.
   const previewWidget: Widget | null = previewReady
-    ? {
-        id: 'preview',
-        queryId: draft.queryId as string,
-        title: draft.title.trim() || t('dashboard.builder.previewTitle'),
-        chartType: draft.chartType,
-        dimensionCol: needsDimension ? draft.dimensionCol : undefined,
-        measureCol: draft.agg === 'sum' ? draft.measureCol : undefined,
-        agg: draft.agg,
-        span: draft.span,
-      }
+    ? { id: 'preview', ...draftToConfig({ ...draft, title: draft.title.trim() || t('dashboard.builder.previewTitle') }) }
     : null;
 
   // R108 — read-only transparency view: the persisted widget shape as live
@@ -169,6 +166,20 @@ export function WidgetBuilder({ open, workspaceId, initial, onSubmit, onCancel }
                   disabled={!draft.queryId}
                   onChange={(dimensionCol) => setDraft((p) => ({ ...p, dimensionCol }))}
                   data-component="WidgetBuilderDimension"
+                />
+              </Form.Item>
+            ) : null}
+
+            {draft.chartType === 'bar' ? (
+              <Form.Item label={t('dashboard.builder.series')} help={t('dashboard.builder.seriesHelp')}>
+                <Select
+                  allowClear
+                  value={draft.seriesCol}
+                  options={colOptions}
+                  disabled={!draft.queryId}
+                  placeholder={t('dashboard.builder.seriesPlaceholder')}
+                  onChange={(seriesCol) => setDraft((p) => ({ ...p, seriesCol }))}
+                  data-component="WidgetBuilderSeries"
                 />
               </Form.Item>
             ) : null}

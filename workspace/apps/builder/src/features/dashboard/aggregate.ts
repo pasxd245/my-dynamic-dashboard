@@ -148,6 +148,46 @@ export function aggregateScalar(
   return total;
 }
 
+/** R111 — a wide datum for a multi-series chart: a dimension label plus one
+ *  numeric field per series value. */
+export type WideDatum = { label: string } & Record<string, string | number>;
+
+/**
+ * R111 — 2-D roll-up: aggregate by **dimension × series** into WIDE rows for a
+ * grouped bar. Returns `{ data, seriesKeys }`; each datum is
+ * `{ label: <dimValue>, [seriesValue]: <agg> }`, missing cells → 0.
+ *
+ * NOTE (data-layer signal): this is a client-side **PIVOT** (long rows → wide
+ * series columns). A recurring multi-series need pulls a **2-D server GROUP BY
+ * (dimension, series)** or a pivot/crosstab workflow — the FE shouldn't
+ * re-pivot the whole row set every render.
+ */
+export function aggregateByGroupSeries(
+  rows: readonly (readonly (string | null)[])[],
+  groupIdx: number,
+  seriesIdx: number,
+  measureIdx: number,
+  agg: 'sum' | 'count',
+): { data: WideDatum[]; seriesKeys: string[] } {
+  const groups = new Map<string, Map<string, number>>();
+  const seriesSet = new Set<string>();
+  for (const row of rows) {
+    const g = labelOf(row[groupIdx]);
+    const s = labelOf(row[seriesIdx]);
+    seriesSet.add(s);
+    const inner = groups.get(g) ?? new Map<string, number>();
+    inner.set(s, (inner.get(s) ?? 0) + (agg === 'count' ? 1 : toNum(row[measureIdx])));
+    groups.set(g, inner);
+  }
+  const seriesKeys = [...seriesSet].sort((a, b) => a.localeCompare(b));
+  const data: WideDatum[] = [...groups.entries()].map(([label, inner]) => {
+    const d: WideDatum = { label };
+    for (const k of seriesKeys) d[k] = inner.get(k) ?? 0;
+    return d;
+  });
+  return { data, seriesKeys };
+}
+
 // ─── R103 — runtime dashboard filter (client-side, categorical one-of) ───────
 
 /** One active dashboard filter: keep rows whose `column` cell is one of

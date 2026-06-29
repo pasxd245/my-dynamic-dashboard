@@ -10,8 +10,30 @@ import {
   sumByGroup,
   sortByDimension,
   aggregateScalar,
+  aggregateByGroupSeries,
   toNum,
 } from './aggregate';
+
+// R111 — multi-series 2-D roll-up (client-side pivot: long rows → wide series).
+describe('aggregateByGroupSeries', () => {
+  const rows = [
+    ['Q1', 'East', '10'],
+    ['Q1', 'West', '5'],
+    ['Q2', 'East', '7'],
+  ];
+  it('pivots dimension × series into wide rows with sorted series keys', () => {
+    const { data, seriesKeys } = aggregateByGroupSeries(rows, 0, 1, 2, 'sum');
+    expect(seriesKeys).toEqual(['East', 'West']);
+    expect(data).toEqual([
+      { label: 'Q1', East: 10, West: 5 },
+      { label: 'Q2', East: 7, West: 0 }, // missing Q2×West cell → 0
+    ]);
+  });
+  it('counts rows per dimension × series for count agg', () => {
+    const { data } = aggregateByGroupSeries(rows, 0, 1, -1, 'count');
+    expect(data[0]).toEqual({ label: 'Q1', East: 1, West: 1 });
+  });
+});
 
 // R110 — KPI scalar over all rows.
 describe('aggregateScalar', () => {

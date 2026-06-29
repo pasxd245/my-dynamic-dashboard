@@ -436,6 +436,8 @@ class Widget(BaseModel):
     # (bar/pie/line) still carry it. (No model_validator ties it to chartType:
     # a dimensionless bar simply renders empty, like a missing column does.)
     dimensionCol: Annotated[str, Field(min_length=1)] | None = None  # noqa: N815
+    # R111: optional second grouping ("split by") for a multi-series bar.
+    seriesCol: Annotated[str, Field(min_length=1)] | None = None  # noqa: N815
     measureCol: Annotated[str, Field(min_length=1)] | None = None  # noqa: N815
     agg: Agg
     span: Annotated[int, Field(ge=1, le=3)]

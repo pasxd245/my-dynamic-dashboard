@@ -26,6 +26,8 @@ export type Widget = {
   /** The grouping column (logical name; resolved against the query's columns).
    *  R110: optional — a `stat` (KPI) widget has no grouping. */
   dimensionCol?: string;
+  /** R111: optional second grouping ("split by") → grouped multi-series bar. */
+  seriesCol?: string;
   /** The numeric column summed when `agg === 'sum'`; omitted for `count`. */
   measureCol?: string;
   agg: Agg;
