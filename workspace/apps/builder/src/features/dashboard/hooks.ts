@@ -2,14 +2,14 @@
 //
 // The static Sales dashboard binds each widget to a SAVED QUERY (by name — the
 // seed names are stable; ids are server-generated) and runs it LIVE. There is
-// no aggregation endpoint, so each widget fetches all rows (paged fetch-all)
-// and rolls them up client-side (see `aggregate.ts`). FE-only — reuses the
-// existing query-execution endpoints; no contract change.
+// no aggregation endpoint, so each widget fetches all rows and rolls them up
+// client-side (see `aggregate.ts`). R107 — the fetch is now a SINGLE
+// `?unpaged=true` request (capped server-side at `dashboard_max_rows`),
+// replacing the paged-at-100 loop.
 
 import { theme } from 'antd';
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { DASHBOARD_MAX_ROWS, PAGE_SIZES } from '@/_generated/constants';
 import { dashboardsApi } from '@/api/dashboardsApi';
 import { datasetsApi } from '@/api/datasetsApi';
 import { queriesApi } from '@/api/queriesApi';
@@ -21,32 +21,6 @@ import { wireToDashboard, type CreateDashboardRequest, type UpdateDashboardReque
 
 /** The seed's workspace name (scripts/dev/seed.py · WS_NAME). */
 export const SEED_WORKSPACE_NAME = 'Sales demo (seed)';
-
-/** Largest allowed page (the contract caps page_size at 100) — minimises the
- *  fetch-all round-trips (~20 for a 2k-row query). */
-const MAX_PAGE_SIZE = Math.max(...(PAGE_SIZES as readonly number[]));
-
-/**
- * Fetch a saved query's rows by looping the paged rows-GET, BOUNDED at `cap`
- * (R104): stop once `cap` rows are pulled (or `total` is reached), so an
- * oversized query degrades gracefully instead of pulling everything. Returns
- * the (capped) rows + the server's `total` so the caller can warn when the view
- * is partial. The contract caps `page_size` at 100, so this still pages — the
- * cap bounds the page count (the request-count fix is the deferred server-side
- * pushdown, not a bigger page).
- */
-async function fetchAllRows(id: string, cap: number): Promise<{ rows: (string | null)[][]; total: number }> {
-  const first = await queriesApi.getRows(id, 1, MAX_PAGE_SIZE);
-  const rows: (string | null)[][] = [...first.rows];
-  const pageSize = first.pageSize > 0 ? first.pageSize : MAX_PAGE_SIZE;
-  const targetRows = Math.min(cap, first.total);
-  const pages = Math.ceil(targetRows / pageSize);
-  for (let page = 2; page <= pages; page += 1) {
-    const next = await queriesApi.getRows(id, page, pageSize);
-    rows.push(...next.rows);
-  }
-  return { rows: rows.slice(0, cap), total: first.total };
-}
 
 /** The seed workspace's id (looked up by name), with load state. */
 export function useSeedWorkspace(): { id: string | undefined; isLoading: boolean; isError: boolean } {
@@ -100,8 +74,10 @@ async function fetchWidgetData(
   } else {
     columns = []; // composed (qr_) single-source without resolvedColumns — rare; no columns to chart
   }
-  const { rows, total } = await fetchAllRows(queryId, DASHBOARD_MAX_ROWS);
-  return { columns, rows, total, capped: total > DASHBOARD_MAX_ROWS };
+  // R107 — one unpaged request; the server caps rows at `dashboard_max_rows`
+  // and returns the full `total`, so a partial (capped) result is `total > len`.
+  const { rows, total } = await queriesApi.getUnpagedRows(queryId);
+  return { columns, rows, total, capped: total > rows.length };
 }
 
 function widgetDataKey(queryId: string | undefined) {

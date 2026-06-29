@@ -26,7 +26,7 @@ from fastapi import APIRouter, HTTPException, Query, status
 from fastapi import Path as FastApiPath
 from fastapi.responses import JSONResponse, Response
 
-from app._generated.constants import ID_PATTERNS, PAGE_SIZES
+from app._generated.constants import DASHBOARD_MAX_ROWS, ID_PATTERNS, PAGE_SIZES
 from app.db import get_conn
 from app.ingest.filters import build_definition_predicates
 from app.ingest.rows_reader import (
@@ -462,16 +462,30 @@ def run_query(  # noqa: A002
     id: QueryIdPath,
     page: Annotated[int, Query(ge=1)] = 1,
     page_size: Annotated[int, Query()] = 50,
+    unpaged: Annotated[bool, Query()] = False,
 ) -> JSONResponse:
     """RUN the saved query: re-execute its definition against CURRENT data,
     paged. For a JOINED query (R71) the two related datasets are read as one;
     409 relationship_stale if the join key drifted (the join is blocked), 409
-    query_stale if a predicate atom drifted."""
-    if page_size not in _PAGE_SIZE_ALLOWED:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"page_size must be one of {_PAGE_SIZE_ALLOWED}; got {page_size}",
-        )
+    query_stale if a predicate atom drifted.
+
+    R107 — ``unpaged=true`` is the dashboard widget's single-request load path:
+    paging is bypassed and rows are returned in ONE response, capped
+    server-side at ``DASHBOARD_MAX_ROWS`` (the name is the mechanism, not a
+    completeness promise — an oversized result is still capped). ``total`` still
+    carries the full matched count, so a capped/partial result is detectable via
+    ``total > len(rows)``."""
+    if unpaged:
+        # Unpaged: read the first page sized to the cap. `total` (computed
+        # separately) stays the full matched count, preserving the over-cap warning.
+        eff_page, eff_page_size = 1, DASHBOARD_MAX_ROWS
+    else:
+        if page_size not in _PAGE_SIZE_ALLOWED:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"page_size must be one of {_PAGE_SIZE_ALLOWED}; got {page_size}",
+            )
+        eff_page, eff_page_size = page, page_size
 
     # Gather the run plan under the sqlite connection; execute the (duckdb) read
     # after it closes — the existing single-source discipline, extended for join.
@@ -505,7 +519,7 @@ def run_query(  # noqa: A002
     q = definition.get("q")
     if plan["kind"] == "join":
         rows, total = _execute_chain(
-            plan["payload"], page=page, page_size=page_size, q=q, filters=filters, advanced=advanced
+            plan["payload"], page=eff_page, page_size=eff_page_size, q=q, filters=filters, advanced=advanced
         )
     else:
         ds = plan["ds"]
@@ -513,14 +527,17 @@ def run_query(  # noqa: A002
         rows, total = query_dataset_rows(
             parquet_path,
             [c["name"] for c in plan["columns"]],
-            page=page,
-            page_size=page_size,
+            page=eff_page,
+            page_size=eff_page_size,
             q=q,
             filters=filters,
             advanced=advanced,
         )
 
-    body = RowsPage(rows=rows, page=page, pageSize=page_size, total=total)
+    # Unpaged response echoes the returned row count as pageSize (it's not a
+    # "page" in the pager sense); paged response echoes the requested size.
+    echoed_page_size = len(rows) if unpaged else eff_page_size
+    body = RowsPage(rows=rows, page=eff_page, pageSize=echoed_page_size, total=total)
     return JSONResponse(status_code=status.HTTP_200_OK, content=body.model_dump())
 
 

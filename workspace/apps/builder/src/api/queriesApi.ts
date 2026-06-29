@@ -70,6 +70,16 @@ export const queriesApi = {
     return readJson<RowsPage>(resp);
   },
 
+  /** R107 — GET /queries/{id}/rows?unpaged=true — single-request run for
+   *  dashboard widgets: returns the rows in ONE response, capped server-side at
+   *  `dashboard_max_rows`. `pageSize` echoes the returned row count; `total` is
+   *  the full matched count (so `total > rows.length` ⇒ partial). Replaces the
+   *  paged-at-100 fetch-all loop. 404 / 409 query_stale (both throw). */
+  async getUnpagedRows(id: string): Promise<RowsPage> {
+    const resp = await fetch(`${API_BASE_URL}/queries/${id}/rows?unpaged=true`);
+    return readJson<RowsPage>(resp);
+  },
+
   /** R72 — POST /workspaces/{id}/queries/preview — run an UNSAVED working-copy
    *  definition (the live preview), paged. Returns the `RowsPage` shape plus
    *  `resolvedColumns` when the definition joins. 409 query_stale /

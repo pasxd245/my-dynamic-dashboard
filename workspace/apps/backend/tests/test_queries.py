@@ -117,6 +117,93 @@ def test_run_is_live_rerun_against_current_data() -> None:
 
 
 @pytest.mark.unit
+def test_run_unpaged_returns_single_response() -> None:
+    # R107 — ?unpaged=true returns the matched rows in ONE response (no paging).
+    with TestClient(app) as client:
+        ws, ds_id = _commit_csv(client)
+        qid = _create(client, ws, ds_id).json()["id"]
+        resp = client.get(f"/queries/{qid}/rows?unpaged=true")
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["total"] == 2  # Alice + Carol (amount > 40)
+    assert len(body["rows"]) == 2  # all of them, unpaged
+    assert body["page"] == 1
+    assert body["pageSize"] == 2  # echoes the returned row count, not the pager enum
+    validate_response("queries/rows-get.contract.yaml", 200, body)
+
+
+@pytest.mark.unit
+def test_run_unpaged_returns_all_rows_beyond_one_page() -> None:
+    # R107 — the decisive test: unpaged must return MORE than one default page
+    # (50), proving it isn't silently falling back to paged. A 2-row fixture
+    # can't distinguish the two; 120 rows (> default page, < cap) can.
+    import csv
+    import io
+
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow(["id", "name", "amount", "signed_up"])
+    for i in range(120):
+        writer.writerow([f"D-{i:04d}", f"name{i}", "99.9", "true"])  # amount > 40 → all match _DEF
+    big_csv = buf.getvalue().encode()
+
+    with TestClient(app) as client:
+        ws = client.post("/workspaces", json={"name": "Big"}).json()["id"]
+        up = client.post(
+            "/uploads",
+            data={"sourceFormat": "csv"},
+            files={"file": ("big.csv", big_csv, "text/csv")},
+        ).json()
+        ds_id = client.post(
+            f"/workspaces/{ws}/datasets/batch",
+            json={"temp_id": up["temp_id"], "items": [{"name": "big"}]},
+        ).json()[0]["id"]
+        qid = _create(client, ws, ds_id).json()["id"]
+
+        paged = client.get(f"/queries/{qid}/rows").json()
+        unpaged = client.get(f"/queries/{qid}/rows?unpaged=true").json()
+
+    assert (len(paged["rows"]), paged["total"]) == (50, 120)  # default page is bounded
+    assert (len(unpaged["rows"]), unpaged["total"]) == (120, 120)  # unpaged returns them all
+    # The capped flag a widget computes (`total > len(rows)`) is False here — the
+    # warning must NOT fire when the result fits under the cap.
+    assert unpaged["total"] <= len(unpaged["rows"])
+
+
+@pytest.mark.unit
+def test_run_unpaged_ignores_page_size_validation() -> None:
+    # R107 — with unpaged=true, page/page_size are ignored, so an off-enum
+    # page_size does NOT 422 (the unpaged path skips that check).
+    with TestClient(app) as client:
+        ws, ds_id = _commit_csv(client)
+        qid = _create(client, ws, ds_id).json()["id"]
+        resp = client.get(f"/queries/{qid}/rows?unpaged=true&page_size=7")
+
+    assert resp.status_code == 200
+    assert resp.json()["total"] == 2
+
+
+@pytest.mark.unit
+def test_run_unpaged_caps_server_side(monkeypatch: pytest.MonkeyPatch) -> None:
+    # R107 — the unpaged response is capped server-side at DASHBOARD_MAX_ROWS,
+    # and `total` still carries the full count so a partial result is detectable.
+    from app.routers import queries as queries_router
+
+    monkeypatch.setattr(queries_router, "DASHBOARD_MAX_ROWS", 1)
+    with TestClient(app) as client:
+        ws, ds_id = _commit_csv(client)
+        qid = _create(client, ws, ds_id).json()["id"]
+        resp = client.get(f"/queries/{qid}/rows?unpaged=true")
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert len(body["rows"]) == 1  # capped at DASHBOARD_MAX_ROWS=1
+    assert body["total"] == 2  # full matched count → capped result detectable (total > len)
+    validate_response("queries/rows-get.contract.yaml", 200, body)
+
+
+@pytest.mark.unit
 def test_create_duplicate_name_in_workspace_returns_409() -> None:
     with TestClient(app) as client:
         ws, ds_id = _commit_csv(client)

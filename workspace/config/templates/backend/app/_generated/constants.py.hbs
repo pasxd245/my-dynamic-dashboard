@@ -56,3 +56,10 @@ NAME_LENGTHS: dict[str, int] = {
 # OpenAPI enums $ref _shared/pagination.yaml#/PageSize, which mirrors this.
 PAGE_SIZES: tuple[int, ...] = ({{#each constants.page_sizes}}{{this}}, {{/each}})
 DEFAULT_PAGE_SIZE: int = {{constants.default_page_size}}
+
+# R104/R107: dashboard widget fetch cap — the max rows a widget pulls. R107 made
+# this a BE consumer: GET /queries/{id}/rows?unpaged=true returns rows up to this cap
+# in ONE response (replacing the FE paged-at-100 loop), so the cap is enforced
+# server-side and can't be bypassed by the unpaged path. Mirrors the FE
+# DASHBOARD_MAX_ROWS in apps/builder/src/_generated/constants.ts.
+DASHBOARD_MAX_ROWS: int = {{constants.dashboard_max_rows}}

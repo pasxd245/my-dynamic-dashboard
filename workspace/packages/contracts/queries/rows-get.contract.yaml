@@ -8,10 +8,14 @@ info:
     Saved Query MVP (live re-run, no materialization).
 
     The endpoint takes NO predicate params of its own — the saved
-    `definition` is the source of truth; only pagination is a query
-    param. The response is the SAME `RowsPage` shape as
-    `GET /datasets/{id}/rows` (the BE delegates to the shipped
-    `query_dataset_rows` path after hydrating the definition).
+    `definition` is the source of truth; only pagination (or the R107
+    `unpaged=true` fetch) is a query param. The response is the SAME
+    `RowsPage` shape as `GET /datasets/{id}/rows` (the BE delegates to the
+    shipped `query_dataset_rows` path after hydrating the definition).
+
+    R107 — `unpaged=true` returns the result in ONE response (no paging),
+    capped server-side at `dashboard_max_rows`. This is the dashboard
+    widget's load path: one request instead of a paged-at-100 loop.
 
     Because the run is live, the result always reflects current data:
     mutating the source dataset between two runs changes the result.
@@ -54,6 +58,24 @@ paths:
               - $ref: "../_shared/pagination.yaml#/components/schemas/PageSize"
             default: 50
           description: Rows per page. Closed enum; other values return 422.
+        - name: unpaged
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: false
+          description: |
+            R107 — single-request (unpaged) fetch. When `true`, `page` and
+            `page_size` are IGNORED and the endpoint returns the result rows in
+            ONE response, capped server-side at `dashboard_max_rows` (the
+            dashboard widget fetch cap). The name describes the mechanism (no
+            paging), NOT completeness — an oversized result is still capped.
+            Replaces the FE's paged-at-100 fetch-all loop for dashboard widgets.
+            `total` still reflects the full matched count, so a consumer can
+            detect a capped (partial) result via `total > rows.length`. `page`
+            echoes `1`; `pageSize` echoes the returned row count (which may
+            exceed the `PageSize` enum, since the unpaged response is not a
+            "page" in the pager sense).
       responses:
         "200":
           description: |
@@ -82,9 +104,15 @@ paths:
                     minimum: 1
                     description: Echoed page number.
                   pageSize:
-                    allOf:
-                      - $ref: "../_shared/pagination.yaml#/components/schemas/PageSize"
-                    description: Echoed page size (self-describing for AntD Pagination).
+                    type: integer
+                    minimum: 0
+                    description: |
+                      Echoed page size (self-describing for AntD Pagination).
+                      A plain integer, not the `PageSize` enum: for a paged
+                      response it carries one of the enum values, but the R107
+                      `unpaged=true` response echoes the returned row count,
+                      which may exceed the enum. Mirrors the BE `RowsPage` model,
+                      whose `pageSize` is a plain `int` (R72/R106).
                   total:
                     type: integer
                     minimum: 0

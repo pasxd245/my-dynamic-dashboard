@@ -109,8 +109,10 @@ constants:
   page_sizes: [10, 25, 50, 100]
   default_page_size: 50 # the app-wide clamp default (datasets + saved-query run)
 
-  # R104: dashboard widget fetch cap — the max rows a widget pulls (paged
-  # fetch-all) before it stops + warns the view is partial. Bounds the
-  # client-side fetch for an oversized query; the cap is #1's boundary (beyond
-  # it = a compute-pull / heavier-tier signal). FE-only today (no BE consumer).
+  # R104: dashboard widget fetch cap — the max rows a widget pulls before it
+  # stops + warns the view is partial. Bounds the client-side fetch for an
+  # oversized query; the cap is #1's boundary (beyond it = a compute-pull /
+  # heavier-tier signal). R107: now ALSO a BE consumer — GET
+  # /queries/{id}/rows?unpaged=true caps its single-request response server-side at
+  # this value (the unpaged path can't bypass the bound).
   dashboard_max_rows: 10000

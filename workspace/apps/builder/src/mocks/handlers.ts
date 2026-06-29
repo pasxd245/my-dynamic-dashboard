@@ -457,50 +457,35 @@ export const handlers = [
     if (params.id === MOCK_CYCLE_QUERY_ID) {
       return HttpResponse.json({ code: 'composition_cycle' }, { status: 409 });
     }
+    // R107 — `unpaged=true` returns the full result in one response (page=1,
+    // pageSize=row count); otherwise a page slice. Shared across the valid-run
+    // branches below.
+    const url = new URL(request.url);
+    const unpaged = url.searchParams.get('unpaged') === 'true';
+    const page = Math.max(1, Number(url.searchParams.get('page') ?? 1));
+    const pageSize = Math.max(1, Number(url.searchParams.get('page_size') ?? 50));
+    const pageOf = (allRows: (string | null)[][], total: number) => {
+      if (unpaged) return { rows: allRows, page: 1, pageSize: allRows.length, total };
+      const offset = (page - 1) * pageSize;
+      return { rows: allRows.slice(offset, offset + pageSize), page, pageSize, total };
+    };
     // R76: a valid composed query returns its composed rows (the base's rows
     // fed through the join → the composed effective space).
     if (params.id === MOCK_COMPOSED_QUERY.id) {
-      const url = new URL(request.url);
-      const page = Math.max(1, Number(url.searchParams.get('page') ?? 1));
-      const pageSize = Math.max(1, Number(url.searchParams.get('page_size') ?? 50));
-      const offset = (page - 1) * pageSize;
-      return HttpResponse.json({
-        rows: MOCK_CHAIN_ROWS.rows.slice(offset, offset + pageSize),
-        page,
-        pageSize,
-        total: MOCK_CHAIN_ROWS.total,
-      });
+      return HttpResponse.json(pageOf(MOCK_CHAIN_ROWS.rows, MOCK_CHAIN_ROWS.total));
     }
     // R71: a valid joined query returns its joined rows (effective columns).
     if (params.id === MOCK_JOINED_QUERY.id) {
-      const url = new URL(request.url);
-      const page = Math.max(1, Number(url.searchParams.get('page') ?? 1));
-      const pageSize = Math.max(1, Number(url.searchParams.get('page_size') ?? 50));
-      const offset = (page - 1) * pageSize;
-      return HttpResponse.json({
-        rows: MOCK_JOINED_ROWS.rows.slice(offset, offset + pageSize),
-        page,
-        pageSize,
-        total: MOCK_JOINED_ROWS.total,
-      });
+      return HttpResponse.json(pageOf(MOCK_JOINED_ROWS.rows, MOCK_JOINED_ROWS.total));
     }
     if (params.id !== MOCK_QUERY.id) {
       return HttpResponse.json({ code: 'not_found' }, { status: 404 });
     }
-    const url = new URL(request.url);
-    const page = Math.max(1, Number(url.searchParams.get('page') ?? 1));
-    const pageSize = Math.max(1, Number(url.searchParams.get('page_size') ?? 50));
     const def = MOCK_QUERY.definition;
     const preds = def.filters.map(predFromAtom);
     const aqGroups = def.advanced.map((g) => g.map(predFromAtom));
     const matched = applyFiltersAndQ(MOCK_ROWS, MOCK_DATASET.columns, preds, def.q ?? null, aqGroups);
-    const offset = (page - 1) * pageSize;
-    return HttpResponse.json({
-      rows: matched.slice(offset, offset + pageSize),
-      page,
-      pageSize,
-      total: matched.length,
-    });
+    return HttpResponse.json(pageOf(matched, matched.length));
   }),
   // R72 — preview: run an UNSAVED working-copy definition (the live builder
   // preview), never persisted. Joined → combined columns + resolvedColumns;
