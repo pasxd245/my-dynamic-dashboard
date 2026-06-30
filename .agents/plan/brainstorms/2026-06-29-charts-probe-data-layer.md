@@ -199,3 +199,52 @@ dimension/measure/agg (builder hides them). The rawest consumer: all columns, no
    `unpaged` fetch is not right for every widget.
 3. **Builder complexity peaked at 23** here (10 chart kinds) — the strongest evidence for the declarative
    field-schema refactor (the meta-finding).
+
+---
+
+## SYNTHESIS (R118) — what the data layer must produce
+
+Nine widget kinds (bar, line, pie, stat, combo, scatter, heatmap, gauge, table) across recharts + ECharts,
+each built against the **client-side-over-unpaged-rows** model (R107). The probe's verdict:
+
+### Finding 1 — the dominant pull is a SERVER-SIDE AGGREGATE / GROUP-BY (the workflow feature)
+
+Recurred in R110 (scalar totals), R111 (2-D pivot), R112 (multi-measure), R114 (dense crosstab). The
+client-side roll-up is **correct only at small scale and WRONG for totals once the fetch is capped** (R110).
+This is the #1 data-layer requirement and it maps exactly to the long-anticipated **workflow (YAML + Polars)
+aggregate** feature ([[2026-06-26-product-value-framing]]): a query/transform that returns
+**`GROUP BY (dims…) → aggregates`** server-side. Sub-capabilities the charts proved we need:
+
+- **Time-bucketing** — `date_trunc(col, month|week|day)` before grouping (R109; the first concrete workflow op).
+- **Multi-dimension group-by** — `GROUP BY (dim, series)` (R111) and the full `(x, y)` matrix (R114).
+- **Multi-aggregate** — `SUM(m1), SUM(m2), COUNT(*)` in one result (R112).
+- **TOP-N + "other"** bucketing for cardinality (R111).
+- **Typed columns preserved** — real `date`/`datetime` dtypes survive joins/transforms, ISO-sortable (R109).
+
+### Finding 2 — three consumed data SHAPES; fetch mode differs by widget
+
+| Shape | Widgets | Right fetch |
+| --- | --- | --- |
+| Aggregated result (grouped rows / matrix) | bar, line, pie, combo, multi-bar, heatmap | a **server aggregate** (small result; no cap problem) |
+| Scalar | stat, gauge | a server **single-value aggregate** |
+| Raw rows | scatter, table | scatter → **sampling**; table → **server pagination + sort + filter** |
+
+R107's one-size `unpaged=true` (capped) fetch is right for *none* of these at scale — it's a small-data
+stopgap. The data layer should let a widget **bind to the fetch its shape needs**.
+
+### Finding 3 — config model & presentation (NOT data-layer)
+
+The widget model grew cleanly (the R101 lib-agnostic seam held — ECharts dropped in beside recharts with
+**zero contract change**, R114). But the **builder's hand-branching hit cognitive-complexity 23** across 10
+kinds, and config gained **non-data params** (`target` R115, `numberFormat` R116). Pulls (presentation, not
+data): a **declarative per-chart field-schema**, a **typed display-options bag** for #1, and a free-form
+`advancedOptions` JSON reserved for **#2 (AI-authored) / #3 (power)** — the R108-inspector trajectory.
+Presentation config has **no** data-layer pull (R116) → keep it client-side.
+
+### Recommended next theme
+
+**Build the workflow (YAML + Polars) aggregate feature** — it is the demand-proven, dominant pull, and the
+charts are now ready consumers (a widget would bind to an aggregate workflow instead of rolling up rows
+client-side). Sequence: aggregate-query/workflow first → then per-widget fetch-mode binding → then the
+(separate, presentation-only) widget-config refactor. Datasets need no change beyond preserving typed
+columns; **queries/workflows are where the work is.**
