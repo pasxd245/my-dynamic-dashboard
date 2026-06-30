@@ -21,6 +21,7 @@ import type {
   CreateQueryRequest,
   PreviewQueryRequest,
   QueryDefinition,
+  Step,
   UpdateQueryRequest,
 } from '@/features/data-management/queries/types';
 import type { CreateRelationshipRequest } from '@/features/data-management/relationships/types';
@@ -329,7 +330,7 @@ function computeAggregate(
     const groups = new Map<string, { keyCells: (string | null)[]; rows: (string | null)[][] }>();
     for (const r of matched) {
       const keyCells = dimIdxs.map((i) => r[i] ?? null);
-      const key = keyCells.map((c) => (c === null ? ' ' : c)).join('');
+      const key = JSON.stringify(keyCells); // printable, collision-free group key
       const g = groups.get(key) ?? { keyCells, rows: [] };
       g.rows.push([...r]);
       groups.set(key, g);
@@ -349,6 +350,105 @@ function computeAggregate(
     );
   });
   return { columns: outColumns, rows: outRows, total: outRows.length };
+}
+
+// ─── R126: steps-aware preview mock ──────────────────────────────────
+//
+// Mirror the backend `run_steps` over the mock rows so a previewed stepped
+// definition shows the SHAPED result in dev + tests (the builder's live preview).
+// Approximate (JS vs DuckDB number formatting); the backend pytest is the
+// correctness gate. Threads (columns, rows) through each step.
+
+type MockTable = { columns: { name: string; dtype: Column['dtype'] }[]; rows: (string | null)[][] };
+
+function deriveStepMock(step: Extract<Step, { kind: 'derive' }>, table: MockTable): MockTable {
+  const li = _aggColIdx(table.columns, step.left);
+  const ri = step.right.kind === 'col' ? _aggColIdx(table.columns, step.right.col) : -1;
+  const rows = table.rows.map((row) => {
+    const l = Number(row[li]);
+    const rv = step.right.kind === 'col' ? Number(row[ri]) : step.right.value;
+    let v: number | null;
+    if (step.op === '/') v = rv === 0 ? null : l / rv;
+    else v = step.op === '+' ? l + rv : step.op === '-' ? l - rv : l * rv;
+    return [...row, v === null || !Number.isFinite(v) ? null : String(v)];
+  });
+  return { columns: [...table.columns, { name: step.name, dtype: 'float' }], rows };
+}
+
+function filterStepMock(step: Extract<Step, { kind: 'filter' }>, table: MockTable): MockTable {
+  const preds = step.predicates.map((p) => ({ idx: _aggColIdx(table.columns, p.col), p }));
+  const rows = table.rows.filter((row) =>
+    preds.every(({ idx, p }) =>
+      cellMatches(
+        row[idx] ?? null,
+        {
+          col: idx,
+          op: p.op as Operator,
+          val: p.val != null ? String(p.val) : undefined,
+          min: p.min != null ? String(p.min) : undefined,
+          max: p.max != null ? String(p.max) : undefined,
+        },
+        table.columns[idx]?.dtype ?? 'string',
+      ),
+    ),
+  );
+  return { columns: table.columns, rows };
+}
+
+function topNStepMock(step: Extract<Step, { kind: 'top_n' }>, table: MockTable): MockTable {
+  const ci = _aggColIdx(table.columns, step.col);
+  const num = (cell: string | null) => (Number.isFinite(Number(cell)) ? Number(cell) : 0);
+  const rows = [...table.rows]
+    .sort((a, b) => (step.descending ? num(b[ci]) - num(a[ci]) : num(a[ci]) - num(b[ci])))
+    .slice(0, step.n);
+  return { columns: table.columns, rows };
+}
+
+function applyStepsMock(
+  columns: readonly Column[],
+  rows: readonly (readonly (string | null)[])[],
+  steps: readonly Step[],
+): MockTable {
+  let table: MockTable = { columns: [...columns], rows: rows.map((r) => [...r]) };
+  for (const step of steps) {
+    if (step.kind === 'aggregate') {
+      table = computeAggregate(table.columns, table.rows, {
+        dimensions: step.dimensions,
+        measures: step.measures,
+        filters: [],
+      });
+    } else if (step.kind === 'derive') {
+      table = deriveStepMock(step, table);
+    } else if (step.kind === 'filter') {
+      table = filterStepMock(step, table);
+    } else {
+      table = topNStepMock(step, table);
+    }
+  }
+  return table;
+}
+
+/** Build a preview JSON response, applying any `steps` (shaped result + post-step
+ *  `resolvedColumns`). `alwaysResolved` carries the joined/composed contract
+ *  (resolvedColumns even with no steps); a stepped query always reports them. */
+function previewJson(
+  columns: readonly Column[],
+  matched: (string | null)[][],
+  page: number,
+  pageSize: number,
+  steps: readonly Step[] | undefined,
+  alwaysResolved: boolean,
+) {
+  const shaped = steps?.length ? applyStepsMock(columns, matched, steps) : { columns: [...columns], rows: matched };
+  const offset = (page - 1) * pageSize;
+  const body: Record<string, unknown> = {
+    rows: shaped.rows.slice(offset, offset + pageSize),
+    page,
+    pageSize,
+    total: shaped.rows.length,
+  };
+  if (alwaysResolved || steps?.length) body.resolvedColumns = shaped.columns;
+  return HttpResponse.json(body);
 }
 
 // ─── Handlers ────────────────────────────────────────────────────────
@@ -601,14 +701,7 @@ export const handlers = [
       const preds = def.filters.map(predFromAtom);
       const aqGroups = def.advanced.map((g) => g.map(predFromAtom));
       const matched = applyFiltersAndQ(MOCK_CHAIN_ROWS.rows, columns, preds, def.q ?? null, aqGroups);
-      const offset = (page - 1) * pageSize;
-      return HttpResponse.json({
-        rows: matched.slice(offset, offset + pageSize),
-        page,
-        pageSize,
-        total: matched.length,
-        resolvedColumns: columns,
-      });
+      return previewJson(columns, matched, page, pageSize, def.steps, true);
     }
 
     const chain = def.joins ?? [];
@@ -639,21 +732,13 @@ export const handlers = [
       const preds = def.filters.map(predFromAtom);
       const aqGroups = def.advanced.map((g) => g.map(predFromAtom));
       const matched = applyFiltersAndQ(sourceRows, columns, preds, def.q ?? null, aqGroups);
-      const offset = (page - 1) * pageSize;
-      return HttpResponse.json({
-        rows: matched.slice(offset, offset + pageSize),
-        page,
-        pageSize,
-        total: matched.length,
-        resolvedColumns: columns,
-      });
+      return previewJson(columns, matched, page, pageSize, def.steps, true);
     }
 
     const preds = def.filters.map(predFromAtom);
     const aqGroups = def.advanced.map((g) => g.map(predFromAtom));
     const matched = applyFiltersAndQ(MOCK_ROWS, MOCK_DATASET.columns, preds, def.q ?? null, aqGroups);
-    const offset = (page - 1) * pageSize;
-    return HttpResponse.json({ rows: matched.slice(offset, offset + pageSize), page, pageSize, total: matched.length });
+    return previewJson(MOCK_DATASET.columns, matched, page, pageSize, def.steps, false);
   }),
 
   // R72 — update: persist an edited DEFINITION (name unchanged). R73 — the
