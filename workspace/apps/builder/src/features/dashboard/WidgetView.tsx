@@ -51,6 +51,7 @@ import {
 const HeatmapView = lazy(() => import('./HeatmapView'));
 const GaugeView = lazy(() => import('./GaugeView'));
 import { ChartCard } from './ChartCard';
+import { useQueryQuery } from '@/features/data-management/queries/hooks';
 import { useChartPalette, useWidgetAggregate, useWidgetData } from './hooks';
 import type { AggregateMeasure, AggregateRequest } from '@/features/data-management/queries/types';
 import type { Widget } from './types';
@@ -333,7 +334,13 @@ export function useWidgetChartData(
     (widget.chartType === 'bar' && !widget.seriesCol);
   const specValid =
     (widget.agg === 'count' || Boolean(widget.measureCol)) && (isScalar || Boolean(widget.dimensionCol));
-  const aggregateEnabled = usesAggregate && specValid;
+  // R127 — a PRE-SHAPED query (one that already aggregates via transform steps)
+  // must NOT be re-aggregated: the widget renders its (already-shaped) rows
+  // directly. Detected from the bound query's definition (cheap, cached `get`).
+  const boundQuery = useQueryQuery(widget.queryId);
+  const preShaped = (boundQuery.data?.definition.steps?.length ?? 0) > 0;
+  const aggregateEnabled = usesAggregate && specValid && !preShaped;
+  const directShaped = usesAggregate && specValid && preShaped;
 
   const measures: AggregateMeasure[] =
     widget.agg === 'count' ? [{ agg: 'count' }] : [{ col: widget.measureCol, agg: 'sum' }];
@@ -402,13 +409,30 @@ export function useWidgetChartData(
       const datums: Datum[] = agg.rows.map((r) => ({ label: labelOf(r[0]), value: toNum(r[1]) }));
       chartData = widget.chartType === 'line' ? sortByDimension(datums, dimDtype) : sortDesc(datums);
     }
+  } else if (directShaped) {
+    // R127 — the query already shaped the data: map its rows to chart data
+    // DIRECTLY (no re-aggregation). The measure is the named measureCol, else the
+    // shaped `count` column, else the last (measure) column.
+    const valueIdx = widget.measureCol
+      ? measureIdx
+      : findColIndex(data.columns, 'count') !== -1
+        ? findColIndex(data.columns, 'count')
+        : data.columns.length - 1;
+    if (isScalar) {
+      statValue = rows.length > 0 ? toNum(rows[0][valueIdx]) : null;
+    } else if (dimIdx !== -1) {
+      const dimDtype = data.columns[dimIdx]?.dtype ?? 'string';
+      const datums: Datum[] = rows.map((r) => ({ label: labelOf(r[dimIdx]), value: toNum(r[valueIdx]) }));
+      chartData = widget.chartType === 'line' ? sortByDimension(datums, dimDtype) : sortDesc(datums);
+    }
   }
 
   return {
     ...data,
     // The aggregate result is complete (no cap), so its load/error state and a
-    // never-capped flag replace the raw fetch's for the aggregating kinds.
-    isLoading: aggregateEnabled ? agg.isLoading : data.isLoading,
+    // never-capped flag replace the raw fetch's for the aggregating kinds. The
+    // bound-query fetch (preShaped detection) also gates loading.
+    isLoading: (aggregateEnabled ? agg.isLoading : data.isLoading) || boundQuery.isLoading,
     isError: aggregateEnabled ? agg.isError : data.isError,
     capped: aggregateEnabled ? false : data.capped,
     chartData,
