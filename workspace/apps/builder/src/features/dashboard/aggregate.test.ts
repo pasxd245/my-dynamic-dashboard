@@ -13,8 +13,32 @@ import {
   aggregateByGroupSeries,
   sumTwoMeasures,
   toScatterPoints,
+  aggregateMatrix,
   toNum,
 } from './aggregate';
+
+// R114 — heatmap: a 2-D matrix (x × y → agg), the densest crosstab.
+describe('aggregateMatrix', () => {
+  const rows = [
+    ['Mon', 'AM', '2'],
+    ['Mon', 'PM', '5'],
+    ['Tue', 'AM', '1'],
+    ['Mon', 'AM', '3'], // same cell → sums with the first Mon/AM
+  ];
+  it('builds sorted x/y axes and [xi, yi, value] cells (sum)', () => {
+    const { xs, ys, cells } = aggregateMatrix(rows, 0, 1, 2, 'sum');
+    expect(xs).toEqual(['Mon', 'Tue']);
+    expect(ys).toEqual(['AM', 'PM']);
+    // Mon/AM = 2+3 = 5
+    expect(cells).toContainEqual([0, 0, 5]);
+    expect(cells).toContainEqual([0, 1, 5]); // Mon/PM
+    expect(cells).toContainEqual([1, 0, 1]); // Tue/AM
+  });
+  it('counts cells for count agg', () => {
+    const { cells } = aggregateMatrix(rows, 0, 1, -1, 'count');
+    expect(cells).toContainEqual([0, 0, 2]); // two Mon/AM rows
+  });
+});
 
 // R113 — scatter: raw (x,y) points, NO aggregation (one point per row).
 describe('toScatterPoints', () => {

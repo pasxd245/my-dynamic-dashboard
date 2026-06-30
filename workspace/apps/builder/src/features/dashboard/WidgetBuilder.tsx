@@ -36,6 +36,11 @@ function twoMeasures(draft: Pick<Draft, 'chartType'>): boolean {
   return draft.chartType === 'combo' || draft.chartType === 'scatter';
 }
 
+/** Bar (optional split) and heatmap (required Y) use the second grouping. */
+function usesSeries(draft: Pick<Draft, 'chartType'>): boolean {
+  return draft.chartType === 'bar' || draft.chartType === 'heatmap';
+}
+
 /** A draft → the persisted widget shape (`Omit<Widget,'id'>`): the single source
  *  for both the submit payload and the read-only JSON view. `measureCol` is
  *  dropped for `count` (meaningless there); unset fields drop out under
@@ -47,8 +52,8 @@ export function draftToConfig(draft: Draft): Omit<Widget, 'id'> {
     chartType: draft.chartType,
     // R110 — a `stat` widget omits the dimension (no grouping).
     ...(draft.chartType === 'stat' ? {} : { dimensionCol: draft.dimensionCol }),
-    // R111 — `seriesCol` only on a multi-series bar; dropped otherwise.
-    ...(draft.chartType === 'bar' && draft.seriesCol ? { seriesCol: draft.seriesCol } : {}),
+    // R111/R114 — `seriesCol` on a multi-series bar (optional) or a heatmap (Y).
+    ...(usesSeries(draft) && draft.seriesCol ? { seriesCol: draft.seriesCol } : {}),
     // measureCol: a sum's measure, combo's bar, or scatter's X. measureCol2:
     // combo's line / scatter's Y (R112/R113).
     ...(draft.agg === 'sum' || twoMeasures(draft) ? { measureCol: draft.measureCol } : {}),
@@ -112,10 +117,14 @@ export function WidgetBuilder({ open, workspaceId, initial, onSubmit, onCancel }
   const showMeasure1 = draft.agg === 'sum' || isTwoMeasures;
   const showAgg = !isTwoMeasures;
 
+  const showSeries = usesSeries(draft);
+  const seriesRequired = draft.chartType === 'heatmap'; // bar's split is optional
+
   // Measure-validity per chart kind: two-measure charts need both; a sum needs
   // its one measure; a count needs none.
   let measureOk = draft.agg === 'count' || Boolean(draft.measureCol);
   if (isTwoMeasures) measureOk = Boolean(draft.measureCol) && Boolean(draft.measureCol2);
+  const seriesOk = !seriesRequired || Boolean(draft.seriesCol);
 
   let measure1Label = t('dashboard.builder.measure');
   if (draft.chartType === 'scatter') measure1Label = t('dashboard.builder.measureX');
@@ -127,7 +136,8 @@ export function WidgetBuilder({ open, workspaceId, initial, onSubmit, onCancel }
     Boolean(draft.queryId) &&
     (!needsDimension || Boolean(draft.dimensionCol)) &&
     draft.title.trim().length > 0 &&
-    measureOk;
+    measureOk &&
+    seriesOk;
 
   const previewReady = Boolean(draft.queryId) && (!needsDimension || Boolean(draft.dimensionCol));
   // Build the preview from the SAME draftToConfig the submit uses (so preview ==
@@ -195,10 +205,14 @@ export function WidgetBuilder({ open, workspaceId, initial, onSubmit, onCancel }
               </Form.Item>
             ) : null}
 
-            {draft.chartType === 'bar' ? (
-              <Form.Item label={t('dashboard.builder.series')} help={t('dashboard.builder.seriesHelp')}>
+            {showSeries ? (
+              <Form.Item
+                label={t('dashboard.builder.series')}
+                help={seriesRequired ? undefined : t('dashboard.builder.seriesHelp')}
+                required={seriesRequired}
+              >
                 <Select
-                  allowClear
+                  allowClear={!seriesRequired}
                   value={draft.seriesCol}
                   options={colOptions}
                   disabled={!draft.queryId}
@@ -261,6 +275,7 @@ export function WidgetBuilder({ open, workspaceId, initial, onSubmit, onCancel }
                   { value: 'pie', label: t('dashboard.builder.chartPie') },
                   { value: 'combo', label: t('dashboard.builder.chartCombo') },
                   { value: 'scatter', label: t('dashboard.builder.chartScatter') },
+                  { value: 'heatmap', label: t('dashboard.builder.chartHeatmap') },
                   { value: 'stat', label: t('dashboard.builder.chartStat') },
                 ]}
               />

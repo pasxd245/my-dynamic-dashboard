@@ -33,6 +33,7 @@ a recurring client-side computation is a candidate to **push down** into a query
 | **Multiple measures** over one grouping | R112 combo | yes (`sumTwoMeasures`) | `GROUP BY dim → SUM(m1), SUM(m2)` — a multi-aggregate wide result; reinforces the aggregate-endpoint pull |
 | **Raw row-level data** (no group-by) | R113 scatter | yes (`toScatterPoints`) | a THIRD consumed shape — raw rows; cap = a *biased sample*, pulling server-side **sampling** (`TABLESAMPLE`) or a higher row budget for row-level widgets |
 | **Declarative widget-config** (meta) | R109–R113 builder | n/a | the hand-branched builder doesn't scale with chart variety → a per-chart field-schema and/or the `advancedOptions` JSON escape hatch (the config MODEL wants a declarative shape) |
+| **Dense 2-D crosstab** (full x × y grid) | R114 heatmap | yes (`aggregateMatrix`) | strongest `GROUP BY (x, y)` / server-pivot pull — a full matrix over capped rows is both wrong and wasteful. Also PROVED the lib-agnostic seam (ECharts ⇄ recharts, no model change) |
 
 ---
 
@@ -129,3 +130,21 @@ chart kind). **Signal:** a hand-branched form does not scale with chart variety.
 (a) a **declarative field-schema per chart type** (data-driven form), and/or (b) the **`advancedOptions`
 escape hatch** for the long tail (the R108 inspector's eventual editor) — exactly the ECharts-`option`
 direction. The *config model*, not just the data, wants a more declarative shape.
+
+### R114 — heatmap (FIRST ECharts chart, lazy-loaded) ✅
+
+**Built:** `chartType: 'heatmap'` — a 2-D matrix (`dimensionCol` × `seriesCol` → sum/count via
+`aggregateMatrix`) rendered by **ECharts** in a new `HeatmapView`, **lazy-loaded** (`React.lazy` +
+`Suspense`) so the echarts bundle stays out of the base chunk. `echarts ^6.1.0` added.
+
+**What it proved / demanded:**
+
+1. **The R101 lib-agnostic seam HOLDS.** ECharts and recharts renderers now coexist behind `WidgetView`,
+   chosen by `chartType`, with **no change to the widget model or the persisted shape** — exactly the seam
+   R101 predicted. No plugin layer was needed; a `lazy()` renderer + the existing `chartType` discriminator
+   sufficed. The data contract is unchanged by the lib swap → the model really is presentation-agnostic.
+2. **The densest crosstab demand.** A heatmap fills an entire x × y grid; the FE builds the whole matrix
+   client-side from capped rows. **Signal:** the strongest case yet for a **server `GROUP BY (x, y)` /
+   pivot** — a full matrix over a capped fetch is both wrong (missing cells beyond the cap) and wasteful.
+3. **Bundle cost is real.** echarts is ~1 MB; lazy-loading is mandatory, confirming R101's "ECharts added
+   additively + lazy-loaded". A dashboard with no heatmap pays nothing.

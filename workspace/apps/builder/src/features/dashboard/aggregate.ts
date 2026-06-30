@@ -239,6 +239,49 @@ export function toScatterPoints(
   return rows.map((row) => ({ x: toNum(row[xIdx]), y: toNum(row[yIdx]) }));
 }
 
+/** R114 — a 2-D matrix for a heatmap: x/y category labels + `[xi, yi, value]`
+ *  cells (the shape ECharts' heatmap series consumes). */
+export type Matrix = { xs: string[]; ys: string[]; cells: [number, number, number][] };
+
+/**
+ * R114 — aggregate rows into an x × y matrix (sum of a measure, or count) for a
+ * heatmap. Pure.
+ *
+ * NOTE (data-layer signal): a heatmap is the densest **2-D crosstab** — every
+ * (x, y) cell. It's the same `GROUP BY (x, y)` pull as R111's multi-series, but
+ * the full grid makes the **server pivot / crosstab** need unmistakable: the FE
+ * builds the entire matrix client-side from the (capped) rows.
+ */
+export function aggregateMatrix(
+  rows: readonly (readonly (string | null)[])[],
+  xIdx: number,
+  yIdx: number,
+  measureIdx: number,
+  agg: 'sum' | 'count',
+): Matrix {
+  // Key each cell on a NUL-joined (x, y) pair (cells can't contain NUL) and keep
+  // x/y on the value so we never parse the key back out.
+  const acc = new Map<string, { x: string; y: string; v: number }>();
+  const xset = new Set<string>();
+  const yset = new Set<string>();
+  for (const row of rows) {
+    const x = labelOf(row[xIdx]);
+    const y = labelOf(row[yIdx]);
+    xset.add(x);
+    yset.add(y);
+    const key = `${x}\u0000${y}`;
+    const cur = acc.get(key) ?? { x, y, v: 0 };
+    cur.v += agg === 'count' ? 1 : toNum(row[measureIdx]);
+    acc.set(key, cur);
+  }
+  const xs = [...xset].sort((a, b) => a.localeCompare(b));
+  const ys = [...yset].sort((a, b) => a.localeCompare(b));
+  const xi = new Map(xs.map((v, i) => [v, i]));
+  const yi = new Map(ys.map((v, i) => [v, i]));
+  const cells: [number, number, number][] = [...acc.values()].map(({ x, y, v }) => [xi.get(x) ?? 0, yi.get(y) ?? 0, v]);
+  return { xs, ys, cells };
+}
+
 // ─── R103 — runtime dashboard filter (client-side, categorical one-of) ───────
 
 /** One active dashboard filter: keep rows whose `column` cell is one of

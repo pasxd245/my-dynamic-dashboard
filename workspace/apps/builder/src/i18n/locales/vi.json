@@ -41,6 +41,7 @@
     "ariaStat": "Chỉ số: {{title}}",
     "ariaCombo": "Biểu đồ cột + đường: {{title}}",
     "ariaScatter": "Biểu đồ phân tán: {{title}}",
+    "ariaHeatmap": "Bản đồ nhiệt: {{title}}",
     "builder": {
       "addTitle": "Thêm widget",
       "editTitle": "Sửa widget",
@@ -72,6 +73,7 @@
       "chartStat": "Số",
       "chartCombo": "Cột + đường",
       "chartScatter": "Phân tán",
+      "chartHeatmap": "Bản đồ nhiệt",
       "preview": "Xem trước",
       "previewHint": "Chọn một truy vấn để xem trước widget.",
       "countLabel": "Số lượng",

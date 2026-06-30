@@ -5,7 +5,8 @@
 // R100; the config now comes from the builder instead of hardcoded props.
 
 import { WarningOutlined } from '@ant-design/icons';
-import { Tooltip as AntTooltip, Statistic, theme } from 'antd';
+import { Spin, Tooltip as AntTooltip, Statistic, theme } from 'antd';
+import { lazy, Suspense } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Bar,
@@ -29,6 +30,7 @@ import {
 import { DASHBOARD_MAX_ROWS } from '@/_generated/constants';
 import {
   aggregateByGroupSeries,
+  aggregateMatrix,
   aggregateScalar,
   applyFilters,
   countByGroup,
@@ -44,6 +46,8 @@ import {
   type ScatterPoint,
   type WideDatum,
 } from './aggregate';
+
+const HeatmapView = lazy(() => import('./HeatmapView'));
 import { ChartCard } from './ChartCard';
 import { useChartPalette, useWidgetData } from './hooks';
 import type { ChartType, Widget } from './types';
@@ -252,12 +256,22 @@ export function useWidgetChartData(
       ? toScatterPoints(rows, measureIdx, measure2Idx)
       : null;
 
-  const isSpecial = widget.chartType === 'stat' || widget.chartType === 'combo' || widget.chartType === 'scatter';
+  // R114 — heatmap: a 2-D matrix (dimension × series → agg).
+  const matrixData =
+    widget.chartType === 'heatmap' && dimIdx !== -1 && seriesIdx !== -1
+      ? aggregateMatrix(rows, dimIdx, seriesIdx, measureIdx, widget.agg)
+      : null;
+
+  const isSpecial =
+    widget.chartType === 'stat' ||
+    widget.chartType === 'combo' ||
+    widget.chartType === 'scatter' ||
+    widget.chartType === 'heatmap';
   const singleSeries = dimIdx !== -1 && !isSpecial && !multiSeries;
   const chartData: Datum[] = singleSeries
     ? singleSeriesData(rows, dimIdx, measureIdx, widget.agg, widget.chartType, data.columns[dimIdx]?.dtype ?? 'string')
     : [];
-  return { ...data, chartData, statValue, multiSeries, comboData, scatterData };
+  return { ...data, chartData, statValue, multiSeries, comboData, scatterData, matrixData };
 }
 
 type WidgetViewProps = Readonly<{
@@ -273,7 +287,7 @@ export function WidgetView({ widget, extra, filters }: WidgetViewProps) {
   const { t } = useTranslation();
   const { token } = theme.useToken();
   const palette = useChartPalette();
-  const { chartData, statValue, multiSeries, comboData, scatterData, isLoading, isError, capped, total } =
+  const { chartData, statValue, multiSeries, comboData, scatterData, matrixData, isLoading, isError, capped, total } =
     useWidgetChartData(widget, filters);
 
   const valueName = widget.agg === 'count' ? t('dashboard.builder.countLabel') : (widget.measureCol ?? '');
@@ -284,6 +298,7 @@ export function WidgetView({ widget, extra, filters }: WidgetViewProps) {
     stat: 'dashboard.ariaStat',
     combo: 'dashboard.ariaCombo',
     scatter: 'dashboard.ariaScatter',
+    heatmap: 'dashboard.ariaHeatmap',
   }[widget.chartType];
   // Empty depends on the active render path.
   const computeEmpty = () => {
@@ -291,6 +306,7 @@ export function WidgetView({ widget, extra, filters }: WidgetViewProps) {
     if (multiSeries) return multiSeries.data.length === 0;
     if (comboData) return comboData.length === 0;
     if (scatterData) return scatterData.length === 0;
+    if (matrixData) return matrixData.cells.length === 0;
     return chartData.length === 0;
   };
   const isEmpty = computeEmpty();
@@ -328,6 +344,11 @@ export function WidgetView({ widget, extra, filters }: WidgetViewProps) {
         )}
         {widget.chartType === 'scatter' && scatterData && (
           <ScatterView data={scatterData} xName={widget.measureCol ?? ''} yName={widget.measureCol2 ?? ''} palette={palette} />
+        )}
+        {widget.chartType === 'heatmap' && matrixData && (
+          <Suspense fallback={<Spin />}>
+            <HeatmapView matrix={matrixData} palette={palette} />
+          </Suspense>
         )}
         {widget.chartType === 'pie' && <PieView data={chartData} palette={palette} />}
         {widget.chartType === 'line' && <LineView data={chartData} valueName={valueName} palette={palette} />}

@@ -59,14 +59,14 @@ components:
           description: Widget heading, user-supplied (defaulted from the query name).
         chartType:
           type: string
-          enum: [bar, pie, line, stat, combo, scatter]
+          enum: [bar, pie, line, stat, combo, scatter, heatmap]
           description: |
             The chart kind. `bar` + `pie` + `line` (R109) + `stat` (R110 — a
-            single-number KPI) + `combo` (R112 — bar + line, two summed measures)
-            + `scatter` (R113 — raw row-level points, x = `measureCol`,
-            y = `measureCol2`, NO aggregation). The chart-lib ladder (recharts
-            now → ECharts when a can't-do-in-recharts chart is pulled) is a
-            PRESENTATION detail behind `WidgetView`, not a contract field.
+            single-number KPI) + `combo` (R112) + `scatter` (R113 — raw points)
+            + `heatmap` (R114 — 2-D matrix: `dimensionCol` × `seriesCol` → agg,
+            the first ECharts-rendered chart). The chart-lib ladder (recharts +
+            ECharts) is a PRESENTATION detail behind `WidgetView` (lib chosen by
+            chartType; ECharts lazy-loaded), not a contract field.
         dimensionCol:
           type: string
           minLength: 1

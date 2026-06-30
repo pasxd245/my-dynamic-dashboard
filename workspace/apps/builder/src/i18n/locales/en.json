@@ -41,6 +41,7 @@
     "ariaStat": "Statistic: {{title}}",
     "ariaCombo": "Bar + line chart: {{title}}",
     "ariaScatter": "Scatter plot: {{title}}",
+    "ariaHeatmap": "Heatmap: {{title}}",
     "builder": {
       "addTitle": "Add widget",
       "editTitle": "Edit widget",
@@ -72,6 +73,7 @@
       "chartStat": "Number",
       "chartCombo": "Bar + line",
       "chartScatter": "Scatter",
+      "chartHeatmap": "Heatmap",
       "preview": "Preview",
       "previewHint": "Pick a query to preview the widget.",
       "countLabel": "Count",
