@@ -42,6 +42,7 @@
     "ariaCombo": "Biểu đồ cột + đường: {{title}}",
     "ariaScatter": "Biểu đồ phân tán: {{title}}",
     "ariaHeatmap": "Bản đồ nhiệt: {{title}}",
+    "ariaGauge": "Đồng hồ đo: {{title}}",
     "builder": {
       "addTitle": "Thêm widget",
       "editTitle": "Sửa widget",
@@ -74,6 +75,9 @@
       "chartCombo": "Cột + đường",
       "chartScatter": "Phân tán",
       "chartHeatmap": "Bản đồ nhiệt",
+      "chartGauge": "Đồng hồ đo",
+      "target": "Mục tiêu",
+      "targetHelp": "Tùy chọn — giá trị mà đồng hồ tiến tới (mức tối đa).",
       "preview": "Xem trước",
       "previewHint": "Chọn một truy vấn để xem trước widget.",
       "countLabel": "Số lượng",

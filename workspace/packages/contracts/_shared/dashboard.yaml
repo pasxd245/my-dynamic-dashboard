@@ -59,14 +59,15 @@ components:
           description: Widget heading, user-supplied (defaulted from the query name).
         chartType:
           type: string
-          enum: [bar, pie, line, stat, combo, scatter, heatmap]
+          enum: [bar, pie, line, stat, combo, scatter, heatmap, gauge]
           description: |
             The chart kind. `bar` + `pie` + `line` (R109) + `stat` (R110 — a
             single-number KPI) + `combo` (R112) + `scatter` (R113 — raw points)
             + `heatmap` (R114 — 2-D matrix: `dimensionCol` × `seriesCol` → agg,
-            the first ECharts-rendered chart). The chart-lib ladder (recharts +
-            ECharts) is a PRESENTATION detail behind `WidgetView` (lib chosen by
-            chartType; ECharts lazy-loaded), not a contract field.
+            the first ECharts-rendered chart) + `gauge` (R115 — a scalar value
+            shown against a literal `target`, ECharts). The chart-lib ladder
+            (recharts + ECharts) is a PRESENTATION detail behind `WidgetView`
+            (lib chosen by chartType; ECharts lazy-loaded), not a contract field.
         dimensionCol:
           type: string
           minLength: 1
@@ -110,6 +111,15 @@ components:
             R113 `scatter`: the Y axis (raw, with `measureCol` as X — no
             aggregation). Absent for every other chart kind.
           examples: ["count", "margin"]
+        target:
+          type: number
+          minimum: 0
+          description: |
+            R115 — OPTIONAL gauge target/max: the value the gauge's aggregate is
+            shown against. A LITERAL config number (not a data column) — the
+            first widget field that isn't a column reference. Absent for every
+            other chart kind; absent on a gauge → the gauge maxes at its value.
+          examples: [100, 1000000]
         agg:
           type: string
           enum: [sum, count]

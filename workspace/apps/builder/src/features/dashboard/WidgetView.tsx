@@ -48,6 +48,7 @@ import {
 } from './aggregate';
 
 const HeatmapView = lazy(() => import('./HeatmapView'));
+const GaugeView = lazy(() => import('./GaugeView'));
 import { ChartCard } from './ChartCard';
 import { useChartPalette, useWidgetData } from './hooks';
 import type { ChartType, Widget } from './types';
@@ -232,8 +233,9 @@ export function useWidgetChartData(
   // R110 — a `stat` (KPI) widget has no dimension: one scalar over all rows.
   // `null` when there are no rows (→ ChartCard empty state); a value of 0 over
   // ≥1 row is a legitimate KPI ("0 deals"), not empty.
+  // stat + gauge both reduce to one scalar over all rows (null = nothing to show).
   let statValue: number | null = null;
-  if (widget.chartType === 'stat') {
+  if (widget.chartType === 'stat' || widget.chartType === 'gauge') {
     statValue = rows.length === 0 ? null : aggregateScalar(rows, measureIdx, widget.agg);
   }
 
@@ -264,6 +266,7 @@ export function useWidgetChartData(
 
   const isSpecial =
     widget.chartType === 'stat' ||
+    widget.chartType === 'gauge' ||
     widget.chartType === 'combo' ||
     widget.chartType === 'scatter' ||
     widget.chartType === 'heatmap';
@@ -299,10 +302,11 @@ export function WidgetView({ widget, extra, filters }: WidgetViewProps) {
     combo: 'dashboard.ariaCombo',
     scatter: 'dashboard.ariaScatter',
     heatmap: 'dashboard.ariaHeatmap',
+    gauge: 'dashboard.ariaGauge',
   }[widget.chartType];
   // Empty depends on the active render path.
   const computeEmpty = () => {
-    if (widget.chartType === 'stat') return statValue === null;
+    if (widget.chartType === 'stat' || widget.chartType === 'gauge') return statValue === null;
     if (multiSeries) return multiSeries.data.length === 0;
     if (comboData) return comboData.length === 0;
     if (scatterData) return scatterData.length === 0;
@@ -348,6 +352,11 @@ export function WidgetView({ widget, extra, filters }: WidgetViewProps) {
         {widget.chartType === 'heatmap' && matrixData && (
           <Suspense fallback={<Spin />}>
             <HeatmapView matrix={matrixData} palette={palette} />
+          </Suspense>
+        )}
+        {widget.chartType === 'gauge' && statValue !== null && (
+          <Suspense fallback={<Spin />}>
+            <GaugeView value={statValue} max={widget.target ?? 0} label={valueName} palette={palette} />
           </Suspense>
         )}
         {widget.chartType === 'pie' && <PieView data={chartData} palette={palette} />}

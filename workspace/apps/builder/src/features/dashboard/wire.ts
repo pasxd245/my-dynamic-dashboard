@@ -24,6 +24,8 @@ export type WidgetWire = {
   dimensionCol?: string;
   /** R111 — optional second grouping ("split by") → multi-series bar. */
   seriesCol?: string;
+  /** R115 — gauge only: the target/max (a literal config number). */
+  target?: number;
   /** Required when `agg === 'sum'`; omitted for `count`. */
   measureCol?: string;
   /** R112 — combo only: the second measure, drawn as a line. */

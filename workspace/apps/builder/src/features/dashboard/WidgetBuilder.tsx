@@ -4,7 +4,7 @@
 // choice is a labelled select. This is the surface F1 exists to validate before
 // the Widget contract shape freezes.
 
-import { Alert, Col, Collapse, Form, Input, Modal, Row, Segmented, Select, theme, Typography } from 'antd';
+import { Alert, Col, Collapse, Form, Input, InputNumber, Modal, Row, Segmented, Select, theme, Typography } from 'antd';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -24,6 +24,8 @@ export type Draft = {
   measureCol?: string;
   /** R112 — combo only: the second (line) measure. */
   measureCol2?: string;
+  /** R115 — gauge only: the literal target/max. */
+  target?: number;
   agg: Agg;
   /** Width carried through the builder; arranged on the dashboard (default 1). */
   span: WidgetSpan;
@@ -50,14 +52,16 @@ export function draftToConfig(draft: Draft): Omit<Widget, 'id'> {
     queryId: draft.queryId as string,
     title: draft.title.trim(),
     chartType: draft.chartType,
-    // R110 — a `stat` widget omits the dimension (no grouping).
-    ...(draft.chartType === 'stat' ? {} : { dimensionCol: draft.dimensionCol }),
+    // R110/R115 — stat + gauge have no grouping dimension.
+    ...(draft.chartType === 'stat' || draft.chartType === 'gauge' ? {} : { dimensionCol: draft.dimensionCol }),
     // R111/R114 — `seriesCol` on a multi-series bar (optional) or a heatmap (Y).
     ...(usesSeries(draft) && draft.seriesCol ? { seriesCol: draft.seriesCol } : {}),
     // measureCol: a sum's measure, combo's bar, or scatter's X. measureCol2:
     // combo's line / scatter's Y (R112/R113).
     ...(draft.agg === 'sum' || twoMeasures(draft) ? { measureCol: draft.measureCol } : {}),
     ...(twoMeasures(draft) ? { measureCol2: draft.measureCol2 } : {}),
+    // R115 — gauge's literal target/max.
+    ...(draft.chartType === 'gauge' && draft.target != null ? { target: draft.target } : {}),
     agg: draft.agg,
     span: draft.span,
   };
@@ -110,8 +114,9 @@ export function WidgetBuilder({ open, workspaceId, initial, onSubmit, onCancel }
     [queries.data],
   );
 
-  // `stat` (KPI) and `scatter` (x/y) have no grouping dimension.
-  const needsDimension = draft.chartType !== 'stat' && draft.chartType !== 'scatter';
+  // `stat`, `gauge`, and `scatter` have no grouping dimension.
+  const noDimension = draft.chartType === 'stat' || draft.chartType === 'gauge' || draft.chartType === 'scatter';
+  const needsDimension = !noDimension;
   // Combo (bar+line) and scatter (x/y) both use two measures.
   const isTwoMeasures = twoMeasures(draft);
   const showMeasure1 = draft.agg === 'sum' || isTwoMeasures;
@@ -276,10 +281,23 @@ export function WidgetBuilder({ open, workspaceId, initial, onSubmit, onCancel }
                   { value: 'combo', label: t('dashboard.builder.chartCombo') },
                   { value: 'scatter', label: t('dashboard.builder.chartScatter') },
                   { value: 'heatmap', label: t('dashboard.builder.chartHeatmap') },
+                  { value: 'gauge', label: t('dashboard.builder.chartGauge') },
                   { value: 'stat', label: t('dashboard.builder.chartStat') },
                 ]}
               />
             </Form.Item>
+
+            {draft.chartType === 'gauge' ? (
+              <Form.Item label={t('dashboard.builder.target')} help={t('dashboard.builder.targetHelp')}>
+                <InputNumber
+                  style={{ width: '100%' }}
+                  value={draft.target}
+                  min={0}
+                  onChange={(target) => setDraft((p) => ({ ...p, target: target ?? undefined }))}
+                  data-component="WidgetBuilderTarget"
+                />
+              </Form.Item>
+            ) : null}
 
             <Form.Item label={t('dashboard.builder.width')} help={t('dashboard.builder.widthHelp')}>
               <Segmented<WidgetSpan>

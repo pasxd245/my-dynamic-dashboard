@@ -34,6 +34,7 @@ a recurring client-side computation is a candidate to **push down** into a query
 | **Raw row-level data** (no group-by) | R113 scatter | yes (`toScatterPoints`) | a THIRD consumed shape — raw rows; cap = a *biased sample*, pulling server-side **sampling** (`TABLESAMPLE`) or a higher row budget for row-level widgets |
 | **Declarative widget-config** (meta) | R109–R113 builder | n/a | the hand-branched builder doesn't scale with chart variety → a per-chart field-schema and/or the `advancedOptions` JSON escape hatch (the config MODEL wants a declarative shape) |
 | **Dense 2-D crosstab** (full x × y grid) | R114 heatmap | yes (`aggregateMatrix`) | strongest `GROUP BY (x, y)` / server-pivot pull — a full matrix over capped rows is both wrong and wasteful. Also PROVED the lib-agnostic seam (ECharts ⇄ recharts, no model change) |
+| **Literal config (target/threshold)** | R115 gauge | n/a (not data) | first NON-column config field; widget config mixes data-bindings + params → typed field-schema (declarative); a future "goals" dataset could source targets |
 
 ---
 
@@ -148,3 +149,19 @@ direction. The *config model*, not just the data, wants a more declarative shape
    pivot** — a full matrix over a capped fetch is both wrong (missing cells beyond the cap) and wasteful.
 3. **Bundle cost is real.** echarts is ~1 MB; lazy-loading is mandatory, confirming R101's "ECharts added
    additively + lazy-loaded". A dashboard with no heatmap pays nothing.
+
+### R115 — gauge (second ECharts chart) ✅
+
+**Built:** `chartType: 'gauge'` — a scalar aggregate (reuses `aggregateScalar`, like stat) shown against a
+literal `target`/max, rendered by a lazy `GaugeView` (ECharts, shares the echarts chunk with HeatmapView).
+
+**What it demanded / proved:**
+
+1. **The ECharts seam holds for a SECOND chart family** (recharts has no gauge) — added with no model
+   restructuring, just a new lazy renderer + the `chartType` discriminator + reusing the scalar path.
+   Confirms ECharts is the right home for "can't-do-in-recharts" charts.
+2. **First NON-DATA config field.** `target` is a *literal number*, not a column reference — the widget
+   config now mixes data-bindings (`*Col`) with presentation/params (`target`). **Signal:** reinforces the
+   declarative-config meta-finding (the builder needs a typed field-schema, not just column pickers); and a
+   minor data-layer hint — targets/goals may eventually want their own **"goals" dataset** rather than a
+   hardcoded literal.

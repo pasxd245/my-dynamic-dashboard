@@ -416,7 +416,7 @@ SlugStr = Annotated[
     str,
     Field(pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$", max_length=NAME_LENGTHS["dashboard_max"]),
 ]
-ChartType = Literal["bar", "pie", "line", "stat", "combo", "scatter", "heatmap"]
+ChartType = Literal["bar", "pie", "line", "stat", "combo", "scatter", "heatmap", "gauge"]
 Agg = Literal["sum", "count"]
 
 
@@ -441,6 +441,8 @@ class Widget(BaseModel):
     measureCol: Annotated[str, Field(min_length=1)] | None = None  # noqa: N815
     # R112: combo only — the second measure, summed and drawn as a line.
     measureCol2: Annotated[str, Field(min_length=1)] | None = None  # noqa: N815
+    # R115: gauge only — the target/max the value is shown against (a literal).
+    target: float | None = None
     agg: Agg
     span: Annotated[int, Field(ge=1, le=3)]
 

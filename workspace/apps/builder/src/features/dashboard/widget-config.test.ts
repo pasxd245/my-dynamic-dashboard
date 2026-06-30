@@ -35,6 +35,18 @@ describe('draftToConfig', () => {
     expect(config.measureCol).toBe('amount'); // a sum stat still totals a measure
   });
 
+  it('keeps a gauge target (a literal config number) and drops the dimension', () => {
+    const config = draftToConfig({ ...sumDraft, chartType: 'gauge', target: 1000 });
+    expect(config.chartType).toBe('gauge');
+    expect(config.target).toBe(1000);
+    expect('dimensionCol' in config).toBe(false);
+  });
+
+  it('omits target when unset, even on a gauge', () => {
+    const config = draftToConfig({ ...sumDraft, chartType: 'gauge' });
+    expect('target' in config).toBe(false);
+  });
+
   it('drops measureCol for a count aggregation (meaningless there)', () => {
     const config = draftToConfig({ ...sumDraft, agg: 'count' });
     expect('measureCol' in config).toBe(false);
