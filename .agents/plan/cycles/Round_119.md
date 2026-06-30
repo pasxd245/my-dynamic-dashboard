@@ -1,6 +1,6 @@
 # Round 119: Plan gate — data-layer server-side aggregate (GROUP BY)
 
-**Status**: In Progress
+**Status**: Review
 **Date started**: 2026-06-30
 **Date completed**:
 **Flow**: **DCFBI** — no-UI / backend+contract round; set via flow-selector (recorded in the Do log).
@@ -110,14 +110,18 @@ table) keep the existing fetch — **different widgets, different fetch modes** 
 
 - [x] **D (Design):** lock the four forks (human sign-off 2026-06-30); flow → **DCFBI** (no-UI
       branch, recorded in Do); acceptance criteria stated (Do § Acceptance criteria).
-- [ ] **C (Contract):** `POST /queries/{id}/aggregate` YAML + `.md`; shared `AggregateRequest`
-      schema (dimensions / measures / filters); MSW `withContractValidation` handler.
-- [ ] **B (Backend):** `AggregateBody` model + `query_aggregate_rows` (GROUP BY over the `joined`
-      CTE / single source) + the router endpoint; pytest (grouping, correct-totals-past-cap, drift
-      409, bad-column 422, scalar, filter push-down).
-- [ ] **I (Integration/FE):** `queriesApi.aggregate`, request/response types, bind **bar/pie/line/
-      stat** in `useWidgetChartData` (push the widget's active R103 filters into the request),
-      retire client roll-up for those kinds; FE tests + tsc + lint green.
+- [x] **C (Contract):** `POST /queries/{id}/aggregate` YAML + `.md` + shared `AggregateRequest`
+      schema. Auto-discovered by the contract validator (operationId `aggregateQuery`). Commit `c5a5465`.
+- [x] **B (Backend):** `AggregateBody` model + `query_aggregate_rows` / `build_single_inner`
+      (DuckDB GROUP BY over the run/preview inner relation) + the router endpoint reusing
+      `_resolve_plan`. **14 pytest** (grouping, count, scalar, not-page-capped, filter push-down,
+      filter-on-absent-col skipped, 5× bad-spec 422, 404, 409 query_stale); **239 backend pass**.
+      Commit `faacac4`.
+- [x] **I (Integration/FE):** `queriesApi.aggregate` + request/response types; `useWidgetAggregate`
+      + an `enabled` flag on `useWidgetData`; **bar/pie/line/stat** bind to the aggregate in
+      `useWidgetChartData` (client roll-up retired for those kinds; active R103 filters pushed
+      server-side); MSW handler; 3 renderHook tests. **tsc clean · 239 FE pass · prettier clean**.
+      Commit `d6f2897`.
 - [ ] **Post-build:** sync the `data-management/queries` design doc via
       [`design-sync`](../../skills/design-sync/SKILL.md) ([[design-docs-are-source-code]]).
 - [ ] `ux-design` skipped — no builder affordance changes (same widget config, correct data).
@@ -183,15 +187,40 @@ Result: **Flow: DCFBI** (0 conditions fired; no-UI round → DCFBI by constructi
 7. Contract YAML + MSW handler cover the new endpoint (the [[2026-05-27-msw-contract-anchor]]
    gate); existing query/dashboard contract tests stay green.
 
+### Build — C → B → I (in-round; commit per gate)
+
+Built in this round (scope merged from the original Plan-gate-only framing — see the header note).
+The risks above were resolved in the build:
+
+- **Aggregate dtype** — `query_aggregate_rows` reports `columns[].dtype` from the effective column
+  (dim keeps its dtype; `sum` keeps the measure's numeric dtype; `count` → `integer`, named
+  `count`). Sums are emitted `CAST(COALESCE(SUM(col), 0) AS VARCHAR)` so an integer sum stays integer
+  and an all-NULL group reads `0` (matches the client `toNum`).
+- **GROUP BY over effective names** — confirmed: the aggregate wraps the existing
+  `build_joined_select` inner relation (`SELECT … FROM (<inner>) AS _base … GROUP BY`), so it
+  references the same effective names the query's own filters already compose over.
+- **Empty / scalar** — a scalar (no dimensions) always returns one row (`0` for an empty sum/count);
+  a grouped query with no rows returns zero groups (→ the chart's empty state). _Behavior note: a
+  `stat` over zero matching rows now shows `0`, not an empty card — a correct KPI value._
+- **Per-kind binding** — the FE switches fetch mode **per chart kind**: bar(no series)/pie/line/stat
+  → server aggregate; bar+series/combo/scatter/heatmap/table/gauge → unchanged client roll-up. A
+  bar with a `seriesCol` stays on the multi-series client path (verified by the kept tests).
+
+**Verification:** backend `pytest` 239 pass (14 new in `test_aggregate.py`) · `ruff` clean · FE
+`tsc` clean · `vitest` 239 pass (3 new in `widget-aggregate.test.tsx`) · contract validator green
+(MSW `aggregateQuery` response conforms) · `prettier` clean. Commits `c5a5465` (C) · `faacac4` (B)
+· `d6f2897` (I).
+
 ## Check
 
 - [x] Forks 1–4 signed off by the human (2026-06-30).
 - [x] Flow selected + recorded → DCFBI (no-UI branch).
-- [x] Acceptance criteria stated (R120's build target).
+- [x] Acceptance criteria 1–7 met (see Build log).
 - [x] Scope grounded in code truth (engine probe), not only the consumer-side synthesis.
-
-_(No code, contract, or design-doc change this round → `design:lint` / `plan:lint` scope only the
-round file; build-gate verification is R120's.)_
+- [x] **Backend** — `pytest` 239 pass (14 new), `ruff` clean.
+- [x] **Contract** — validator green; MSW `aggregateQuery` response conforms to the YAML.
+- [x] **FE** — `tsc` clean, `vitest` 239 pass (3 new), `prettier` clean.
+- [x] No regression — full FE + backend suites pass; no existing widget/dashboard test broke.
 
 ## Act
 
@@ -205,20 +234,36 @@ round file; build-gate verification is R120's.)_
 - The **aggregate is widget-driven** (grouping spec lives on the Widget), so it's a **stateless
   request** like `preview`, not a saved-query property — the existing `preview` endpoint is the
   precedent to mirror.
+- **The aggregate reused the engine wholesale.** `build_single_inner` + `build_joined_select` wrapped
+  in `SELECT … FROM (<inner>) AS _base … GROUP BY` meant joins, query-owned filters, and all four
+  drift codes (404/409×3) were inherited with zero new resolution logic — the round's payload was a
+  ~70-line `rows_reader` projection + a thin router + the FE binding.
+- **A shipped feature can be one round, gated internally.** This started as a Plan-gate-only round;
+  folding the build in (DCFBI C→B→I, commit per gate) was lighter than a second round file once the
+  forks were locked — the round-split pattern is DFCFBI-only (feel-review isolation), N/A here.
 
 **Promotions**: none this round — the DuckDB-GROUP-BY-before-Polars rung is already captured in
 memory [[charts-probe-data-layer]] / [[2026-06-26-product-value-framing]] (the compute ladder); this
 round is a concrete application of it, not a new general lesson.
 
+**Prune check:** nothing pruned. `sumByGroup` / `countByGroup` in `aggregate.ts` are now unused by
+the app (only the deferred kinds + their unit tests reference the module), but they stay exported +
+tested until the 2-D follow-up moves the remaining kinds server-side — pruning now would be churn
+without evidence. Flagged for that round.
+
 **Follow-ups (not promotions, just notes):**
 
 - Deferred sub-capabilities (own rounds): time-bucketing (`date_trunc`), 2-D / series GROUP BY,
-  multi-measure combo, TOP-N + "other", raw-row fetch modes (table pagination / scatter sampling).
-- Post-R120: `design-sync` the `data-management/queries` doc to the shipped aggregate.
+  multi-measure combo, TOP-N + "other", raw-row fetch modes (table pagination / scatter sampling),
+  gauge → scalar aggregate (trivially the same path as `stat`).
+- Once all kinds are server-side: prune the now-dead client roll-ups (`sumByGroup`/`countByGroup`).
+- `design-sync` the `data-management/queries` design doc to the shipped aggregate
+  ([[design-docs-are-source-code]]).
 
 ## Feeds into → Round_120 (TBD)
 
-The locked aggregate scope — **`POST /queries/{id}/aggregate`** (stateless, DuckDB GROUP BY over the
-existing `joined` CTE), **1-D grouped + scalar** width (bar/pie/line/stat), **per-kind FE binding** —
-plus the seven acceptance criteria above become R120's build input (DCFBI: Contract → Backend →
-Integration). R120's Goal cites this via "Inherits from ← Round_119".
+The aggregate **shipped** this round (endpoint + engine + FE binding). R120 picks the next deferred
+sub-capability from the follow-ups — most likely **time-bucketing (`date_trunc`)** (the R109 line
+pull, the first genuinely-new SQL op) or **2-D / series GROUP BY** (heatmap / multi-bar, which then
+lets those kinds drop their client roll-up). It inherits the `query_aggregate_rows` seam and the
+`POST /queries/{id}/aggregate` contract via "Inherits from ← Round_119".
