@@ -1,8 +1,8 @@
 # Round 125: workflows FE — the transform-steps builder (F1, awaits feel-review)
 
-**Status**: Review
+**Status**: Complete
 **Date started**: 2026-06-30
-**Date completed**:
+**Date completed**: 2026-06-30
 **Flow**: **DFCFBI** — a UI feel-surface; **hard-stops at F1 for the human's in-browser review**
 ([[dfcfbi-f1-needs-human-review]]). No contract/backend change — the wire (steps on the definition)
 shipped R120–R123; this is FE authoring over it.
