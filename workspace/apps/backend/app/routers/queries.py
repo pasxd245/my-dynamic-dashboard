@@ -680,11 +680,29 @@ def _plan_derive(step: dict, cur_cols: list[dict], loc: list) -> tuple[dict, lis
     return norm, [*cur_cols, {"name": name, "dtype": "float"}]
 
 
+def _plan_filter(step: dict, cur_cols: list[dict], loc: list) -> tuple[dict, list[dict]]:
+    """R123 — validate a filter step's predicates against the CURRENT columns. Maps
+    each predicate's col NAME → its index, then reuses ``build_definition_predicates``
+    (the source-filter validator: op-for-dtype + operand parse → 422). Returns the
+    normalized descriptor (carrying the built ``FilterPredicate``s) + unchanged cols."""
+    name_to_idx = {c["name"]: i for i, c in enumerate(cur_cols)}
+    atoms: list[dict] = []
+    for j, pred in enumerate(step.get("predicates", [])):
+        idx = name_to_idx.get(pred.get("col"))
+        if idx is None:
+            raise _agg_422([*loc, "predicates", j, "col"], f"unknown_column: {pred.get('col')!r} is not a column at this step")
+        atoms.append({"col": idx, "op": pred.get("op"), "val": pred.get("val"), "min": pred.get("min"), "max": pred.get("max")})
+    predicates_fp, _ = build_definition_predicates({"filters": atoms, "advanced": []}, cur_cols)
+    return {"kind": "filter", "predicates_fp": predicates_fp}, cur_cols
+
+
 def _plan_one_step(step: dict, cur_cols: list[dict], loc: list) -> tuple[dict, list[dict]]:
     """Validate one step against the CURRENT column space; return its normalized
     descriptor (for the typed `run_steps` engine) + the column space AFTER it.
-    ``aggregate`` reshapes; ``top_n`` preserves; ``derive`` appends a column."""
+    ``aggregate`` reshapes; ``top_n`` preserves; ``derive`` appends; ``filter`` narrows."""
     kind = step.get("kind")
+    if kind == "filter":
+        return _plan_filter(step, cur_cols, loc)
     if kind == "aggregate":
         dims = step.get("dimensions", [])
         measures_plan = _validate_aggregate(dims, step.get("measures", []), cur_cols, loc)

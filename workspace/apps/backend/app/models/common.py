@@ -318,9 +318,34 @@ class DeriveStep(BaseModel):
     right: Annotated[ColOperand | ConstOperand, Field(discriminator="kind")]
 
 
-# R121/R122 — a transform step is a `kind`-discriminated union (so a bad `kind` is
-# a clean 422, and each kind keeps its own required fields).
-Step = Annotated[AggregateStep | TopNStep | DeriveStep, Field(discriminator="kind")]
+class FilterStepPredicate(BaseModel):
+    """R123 — one predicate of a filter step, by effective column NAME (no
+    ``dtype`` — the BE looks it up from the current columns). Same operator/operand
+    vocabulary as a source ``FilterAtom``. Mirrors `_shared/query.yaml#/FilterStepPredicate`."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    col: Annotated[str, Field(min_length=1)]
+    op: Annotated[str, Field(min_length=1)]
+    val: int | float | str | None = None
+    min: int | float | str | None = None
+    max: int | float | str | None = None
+
+
+class FilterStep(BaseModel):
+    """R123 — keep rows matching ALL ``predicates`` (AND) over the CURRENT column
+    space — a post-aggregate/derive WHERE (HAVING-like). Mirrors
+    `_shared/query.yaml#/FilterStep`."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["filter"]
+    predicates: Annotated[list[FilterStepPredicate], Field(min_length=1)]
+
+
+# R121/R122/R123 — a transform step is a `kind`-discriminated union (so a bad
+# `kind` is a clean 422, and each kind keeps its own required fields).
+Step = Annotated[AggregateStep | TopNStep | DeriveStep | FilterStep, Field(discriminator="kind")]
 
 
 class QueryDefinition(BaseModel):

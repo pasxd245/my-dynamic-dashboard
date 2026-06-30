@@ -111,8 +111,26 @@ export type DeriveStep = {
   right: DeriveOperand;
 };
 
-/** R121/R122 — a transform step, discriminated by `kind`. */
-export type Step = AggregateStep | TopNStep | DeriveStep;
+/** R123 — one predicate of a filter step, by effective column NAME (op vocabulary
+ *  matches a source `FilterPredicate`; dtype is BE-resolved). Mirrors
+ *  `_shared/query.yaml#/FilterStepPredicate`. */
+export type FilterStepPredicate = {
+  col: string;
+  op: string;
+  val?: string | number;
+  min?: string | number;
+  max?: string | number;
+};
+
+/** R123 — keep rows matching ALL predicates (AND) over the current columns — a
+ *  post-aggregate/derive WHERE (HAVING-like). Mirrors `_shared/query.yaml#/FilterStep`. */
+export type FilterStep = {
+  kind: 'filter';
+  predicates: readonly FilterStepPredicate[];
+};
+
+/** R121/R122/R123 — a transform step, discriminated by `kind`. */
+export type Step = AggregateStep | TopNStep | DeriveStep | FilterStep;
 
 /** A single effective column of a Query result (name + dtype). For a join,
  *  duplicate names are collision-qualified (`Deals.id`). Mirrors the inline

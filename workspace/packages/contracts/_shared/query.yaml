@@ -261,6 +261,49 @@ components:
                 value:
                   type: number
 
+    FilterStepPredicate:
+      type: object
+      description: |
+        R123 — one predicate of a filter STEP, referencing a column BY effective
+        NAME (the column space at this step). Same operator vocabulary + operand
+        fields as a source `FilterAtom`, but name-keyed (not the source index) and
+        with no `dtype` (the BE looks it up from the current columns). `op` validity
+        is dtype-dependent and re-checked on save/run.
+      required: [col, op]
+      additionalProperties: false
+      properties:
+        col:
+          type: string
+          minLength: 1
+          description: Column to test, by effective name (post prior steps).
+        op:
+          type: string
+          description: Operator key (validity is dtype-dependent, like `FilterAtom.op`).
+        val:
+          type: [string, number]
+        min:
+          type: [string, number]
+        max:
+          type: [string, number]
+
+    FilterStep:
+      type: object
+      description: |
+        R123 — keep rows matching ALL `predicates` (implicit AND) over the CURRENT
+        column space — a post-aggregate / post-derive `WHERE` (HAVING-like). Distinct
+        from `QueryDefinition.filters`, which filter the SOURCE rows before any step.
+        The column space is unchanged.
+      required: [kind, predicates]
+      additionalProperties: false
+      properties:
+        kind:
+          const: filter
+        predicates:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/FilterStepPredicate"
+
     QueryDefinition:
       type: object
       description: |
@@ -345,12 +388,14 @@ components:
               - $ref: "#/components/schemas/AggregateStep"
               - $ref: "#/components/schemas/TopNStep"
               - $ref: "#/components/schemas/DeriveStep"
+              - $ref: "#/components/schemas/FilterStep"
             discriminator:
               propertyName: kind
               mapping:
                 aggregate: "#/components/schemas/AggregateStep"
                 top_n: "#/components/schemas/TopNStep"
                 derive: "#/components/schemas/DeriveStep"
+                filter: "#/components/schemas/FilterStep"
 
     Query:
       type: object

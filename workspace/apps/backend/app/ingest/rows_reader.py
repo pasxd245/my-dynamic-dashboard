@@ -348,6 +348,40 @@ def build_aggregate_select(
     return sql, [*inner_params, *where_params]
 
 
+def _derive_expr(step: dict) -> str:
+    """The R122 derive expression. The constant is a validated float (pydantic) →
+    safe to inline, keeping ``?`` out of the SELECT clause (param-order sanity);
+    ``÷`` guards the denominator with ``NULLIF(…, 0)`` → NULL, not a crash."""
+    left = f"CAST({_quote_ident(step['left'])} AS DOUBLE)"
+    right = (
+        f"CAST({_quote_ident(step['right_col'])} AS DOUBLE)"
+        if step["right_kind"] == "col"
+        else f"CAST({float(step['right_value'])} AS DOUBLE)"
+    )
+    return f"({left} / NULLIF({right}, 0))" if step["op"] == "/" else f"({left} {step['op']} {right})"
+
+
+def _apply_step(step: dict, sql: str, params: list[Any], cols: list[str]) -> tuple[str, list[Any], list[str]]:
+    """Apply one TYPED step → ``(sql, params, columns)``. ``aggregate`` reshapes;
+    ``top_n`` orders + caps; ``derive`` appends a column; ``filter`` narrows rows."""
+    kind = step["kind"]
+    if kind == "aggregate":
+        sql, params = build_aggregate_select(
+            sql, params, dimensions=step["dimensions"], measures=step["measures_plan"], dashboard_filters=[], stringify=False
+        )
+        return sql, params, step["output_cols"]
+    if kind == "top_n":
+        direction = "DESC" if step["descending"] else "ASC"
+        return f"SELECT * FROM ({sql}) AS _t ORDER BY {_quote_ident(step['col'])} {direction} LIMIT ?", [*params, step["n"]], cols
+    if kind == "derive":
+        return f"SELECT *, {_derive_expr(step)} AS {_quote_ident(step['name'])} FROM ({sql}) AS _d", params, [*cols, step["name"]]
+    # filter — post-step WHERE (HAVING-like); params append AFTER the inner params.
+    frag, fparams = build_filter_sql(step["predicates_fp"])
+    if not frag:
+        return sql, params, cols
+    return f"SELECT * FROM ({sql}) AS _w WHERE {frag}", [*params, *fparams], cols
+
+
 def run_steps(
     inner_sql: str,
     inner_params: list[Any],
@@ -356,40 +390,16 @@ def run_steps(
 ) -> list[list[str | None]]:
     """R121 — apply an ordered list of TYPED transform steps over the inner
     relation, then stringify the FINAL relation to rows. ``steps`` are normalized
-    dicts (validated by the router): an ``aggregate`` step reshapes the relation +
-    column space; a ``top_n`` step orders + caps (column space unchanged). Only the
-    final output is CAST to VARCHAR, so intermediate types survive the chain (a
-    ``top_n`` after an ``aggregate`` sorts the measure numerically)."""
-    sql, params = inner_sql, inner_params
-    cols = list(base_columns)
+    dicts (validated by the router). Only the final output is CAST to VARCHAR, so
+    intermediate types survive the chain (a ``top_n`` after an ``aggregate`` sorts
+    the measure numerically; a ``filter`` compares a derived float numerically)."""
+    sql, params, cols = inner_sql, inner_params, list(base_columns)
     for step in steps:
-        if step["kind"] == "aggregate":
-            sql, params = build_aggregate_select(
-                sql, params, dimensions=step["dimensions"], measures=step["measures_plan"], dashboard_filters=[], stringify=False
-            )
-            cols = step["output_cols"]
-        elif step["kind"] == "top_n":
-            direction = "DESC" if step["descending"] else "ASC"
-            sql = f"SELECT * FROM ({sql}) AS _t ORDER BY {_quote_ident(step['col'])} {direction} LIMIT ?"
-            params = [*params, step["n"]]
-        elif step["kind"] == "derive":
-            left = f"CAST({_quote_ident(step['left'])} AS DOUBLE)"
-            # The constant is a validated float (pydantic) → safe to inline; this
-            # keeps `?` placeholders out of the SELECT clause (param-order sanity).
-            right = (
-                f"CAST({_quote_ident(step['right_col'])} AS DOUBLE)"
-                if step["right_kind"] == "col"
-                else f"CAST({float(step['right_value'])} AS DOUBLE)"
-            )
-            # `÷` guards the denominator so a zero divisor yields NULL, not a crash.
-            expr = f"({left} / NULLIF({right}, 0))" if step["op"] == "/" else f"({left} {step['op']} {right})"
-            sql = f"SELECT *, {expr} AS {_quote_ident(step['name'])} FROM ({sql}) AS _d"
-            cols = [*cols, step["name"]]
+        sql, params, cols = _apply_step(step, sql, params, cols)
     quoted = [_quote_ident(c) for c in cols]
     select_list = ", ".join(f"CAST({c} AS VARCHAR)" for c in quoted)
-    final_sql = f"SELECT {select_list} FROM ({sql}) AS _final"
     with duckdb.connect(":memory:") as con:
-        rows = con.execute(final_sql, params).fetchall()
+        rows = con.execute(f"SELECT {select_list} FROM ({sql}) AS _final", params).fetchall()
     return [list(r) for r in rows]
 
 
