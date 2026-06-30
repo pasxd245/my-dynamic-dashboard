@@ -47,6 +47,13 @@ describe('draftToConfig', () => {
     expect('target' in config).toBe(false);
   });
 
+  it('a table omits dimension + measure (raw rows; just query + title)', () => {
+    const config = draftToConfig({ ...sumDraft, chartType: 'table' });
+    expect(config.chartType).toBe('table');
+    expect('dimensionCol' in config).toBe(false);
+    expect('measureCol' in config).toBe(false);
+  });
+
   it('carries numberFormat when set, omits the plain default', () => {
     expect(draftToConfig({ ...sumDraft, numberFormat: 'compact' }).numberFormat).toBe('compact');
     expect('numberFormat' in draftToConfig(sumDraft)).toBe(false);

@@ -43,6 +43,7 @@
     "ariaScatter": "Scatter plot: {{title}}",
     "ariaHeatmap": "Heatmap: {{title}}",
     "ariaGauge": "Gauge: {{title}}",
+    "ariaTable": "Table: {{title}}",
     "builder": {
       "addTitle": "Add widget",
       "editTitle": "Edit widget",
@@ -76,6 +77,7 @@
       "chartScatter": "Scatter",
       "chartHeatmap": "Heatmap",
       "chartGauge": "Gauge",
+      "chartTable": "Table",
       "target": "Target",
       "targetHelp": "Optional — the value the gauge fills toward (its max).",
       "numberFormat": "Number format",

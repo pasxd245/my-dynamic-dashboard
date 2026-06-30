@@ -5,7 +5,7 @@
 // R100; the config now comes from the builder instead of hardcoded props.
 
 import { WarningOutlined } from '@ant-design/icons';
-import { Spin, Tooltip as AntTooltip, Statistic, theme } from 'antd';
+import { Spin, Table, Tooltip as AntTooltip, Statistic, theme } from 'antd';
 import { lazy, Suspense } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -176,6 +176,25 @@ function StatView({ value, label, fmt }: Readonly<{ value: number; label: string
   );
 }
 
+function TableView({
+  columns,
+  rows,
+}: Readonly<{ columns: readonly { name: string }[]; rows: readonly (readonly (string | null)[])[] }>) {
+  const cols = columns.map((c, i) => ({ title: c.name, dataIndex: String(i), key: String(i), ellipsis: true }));
+  const dataSource = rows.map((r, ri) => {
+    const o: Record<string, string> = { key: String(ri) };
+    r.forEach((cell, ci) => {
+      o[String(ci)] = cell ?? '';
+    });
+    return o;
+  });
+  return (
+    <div style={{ width: '100%', height: '100%', overflow: 'auto' }}>
+      <Table size="small" columns={cols} dataSource={dataSource} pagination={{ pageSize: 8, size: 'small' }} scroll={{ x: 'max-content' }} />
+    </div>
+  );
+}
+
 function PieView({ data, palette }: Readonly<{ data: Datum[]; palette: string[] }>) {
   const colored = data.map((d, i) => ({ ...d, fill: palette[i % palette.length] }));
   return (
@@ -264,17 +283,21 @@ export function useWidgetChartData(
       ? aggregateMatrix(rows, dimIdx, seriesIdx, measureIdx, widget.agg)
       : null;
 
+  // R117 — table: the raw (filtered) rows + columns, no transform.
+  const tableData = widget.chartType === 'table' ? { columns: data.columns, rows } : null;
+
   const isSpecial =
     widget.chartType === 'stat' ||
     widget.chartType === 'gauge' ||
     widget.chartType === 'combo' ||
     widget.chartType === 'scatter' ||
-    widget.chartType === 'heatmap';
+    widget.chartType === 'heatmap' ||
+    widget.chartType === 'table';
   const singleSeries = dimIdx !== -1 && !isSpecial && !multiSeries;
   const chartData: Datum[] = singleSeries
     ? singleSeriesData(rows, dimIdx, measureIdx, widget.agg, widget.chartType, data.columns[dimIdx]?.dtype ?? 'string')
     : [];
-  return { ...data, chartData, statValue, multiSeries, comboData, scatterData, matrixData };
+  return { ...data, chartData, statValue, multiSeries, comboData, scatterData, matrixData, tableData };
 }
 
 type WidgetViewProps = Readonly<{
@@ -290,8 +313,19 @@ export function WidgetView({ widget, extra, filters }: WidgetViewProps) {
   const { t } = useTranslation();
   const { token } = theme.useToken();
   const palette = useChartPalette();
-  const { chartData, statValue, multiSeries, comboData, scatterData, matrixData, isLoading, isError, capped, total } =
-    useWidgetChartData(widget, filters);
+  const {
+    chartData,
+    statValue,
+    multiSeries,
+    comboData,
+    scatterData,
+    matrixData,
+    tableData,
+    isLoading,
+    isError,
+    capped,
+    total,
+  } = useWidgetChartData(widget, filters);
 
   const valueName = widget.agg === 'count' ? t('dashboard.builder.countLabel') : (widget.measureCol ?? '');
   // R116 — per-widget number format (presentation). Applied to the headline
@@ -306,6 +340,7 @@ export function WidgetView({ widget, extra, filters }: WidgetViewProps) {
     scatter: 'dashboard.ariaScatter',
     heatmap: 'dashboard.ariaHeatmap',
     gauge: 'dashboard.ariaGauge',
+    table: 'dashboard.ariaTable',
   }[widget.chartType];
   // Empty depends on the active render path.
   const computeEmpty = () => {
@@ -314,6 +349,7 @@ export function WidgetView({ widget, extra, filters }: WidgetViewProps) {
     if (comboData) return comboData.length === 0;
     if (scatterData) return scatterData.length === 0;
     if (matrixData) return matrixData.cells.length === 0;
+    if (tableData) return tableData.rows.length === 0;
     return chartData.length === 0;
   };
   const isEmpty = computeEmpty();
@@ -362,6 +398,7 @@ export function WidgetView({ widget, extra, filters }: WidgetViewProps) {
             <GaugeView value={statValue} max={widget.target ?? 0} label={valueName} palette={palette} compact={widget.numberFormat === 'compact'} />
           </Suspense>
         )}
+        {widget.chartType === 'table' && tableData && <TableView columns={tableData.columns} rows={tableData.rows} />}
         {widget.chartType === 'pie' && <PieView data={chartData} palette={palette} />}
         {widget.chartType === 'line' && <LineView data={chartData} valueName={valueName} palette={palette} />}
         {widget.chartType === 'bar' && multiSeries && (

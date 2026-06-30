@@ -36,6 +36,7 @@ a recurring client-side computation is a candidate to **push down** into a query
 | **Dense 2-D crosstab** (full x × y grid) | R114 heatmap | yes (`aggregateMatrix`) | strongest `GROUP BY (x, y)` / server-pivot pull — a full matrix over capped rows is both wrong and wasteful. Also PROVED the lib-agnostic seam (ECharts ⇄ recharts, no model change) |
 | **Literal config (target/threshold)** | R115 gauge | n/a (not data) | first NON-column config field; widget config mixes data-bindings + params → typed field-schema (declarative); a future "goals" dataset could source targets |
 | **Presentation options** (number format) | R116 | n/a (client-only) | a useful NEGATIVE: pure-display config has no data-layer pull and should stay client-side. For #1 it's a typed select; free-form JSON options belong to #2/#3 |
+| **All raw columns + server paging** | R117 table | yes (client-paged over unpaged fetch) | confirms the raw-rows shape; TENSION with R107 — tables want server **pagination + sort + filter**, not the unpaged-capped fetch that suits aggregates. Different widgets → different fetch modes |
 
 ---
 
@@ -181,3 +182,20 @@ widgets (stat, gauge). Optional field across contract/backend/FE; builder gets a
    authored) / #3 (power) — exactly the R108-inspector trajectory.
 2. **No data-layer pull.** Formatting is purely client-side and *should* stay there — a useful negative
    result: not every widget option implies a data-layer change. Helps bound the synthesis.
+
+### R117 — table (raw rows, paged; no chart) ✅
+
+**Built:** `chartType: 'table'` — renders the raw (filtered) query rows in an AntD `Table`, client-paged. No
+dimension/measure/agg (builder hides them). The rawest consumer: all columns, no transform.
+
+**What it demanded of the data:**
+
+1. **Confirms the raw-rows shape** (with R113 scatter) but for *all* columns — the table wants the query's
+   columns + rows verbatim.
+2. **Fetch-strategy TENSION with R107.** A table naturally wants **server-side paging** (page through the
+   whole result, sorted/filtered server-side), whereas R107's `unpaged=true` (capped) fits *aggregates*.
+   **Signal:** different widgets want different fetch modes — aggregates → a server aggregate (small result);
+   tables → server **pagination + sort + filter** (the existing paged endpoint, extended). The one-size
+   `unpaged` fetch is not right for every widget.
+3. **Builder complexity peaked at 23** here (10 chart kinds) — the strongest evidence for the declarative
+   field-schema refactor (the meta-finding).

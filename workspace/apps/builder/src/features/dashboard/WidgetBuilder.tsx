@@ -54,13 +54,17 @@ export function draftToConfig(draft: Draft): Omit<Widget, 'id'> {
     queryId: draft.queryId as string,
     title: draft.title.trim(),
     chartType: draft.chartType,
-    // R110/R115 — stat + gauge have no grouping dimension.
-    ...(draft.chartType === 'stat' || draft.chartType === 'gauge' ? {} : { dimensionCol: draft.dimensionCol }),
+    // R110/R115/R117 — stat, gauge, table have no grouping dimension.
+    ...(draft.chartType === 'stat' || draft.chartType === 'gauge' || draft.chartType === 'table'
+      ? {}
+      : { dimensionCol: draft.dimensionCol }),
     // R111/R114 — `seriesCol` on a multi-series bar (optional) or a heatmap (Y).
     ...(usesSeries(draft) && draft.seriesCol ? { seriesCol: draft.seriesCol } : {}),
-    // measureCol: a sum's measure, combo's bar, or scatter's X. measureCol2:
+    // measureCol: a sum's measure, combo's bar, or scatter's X (never for table). measureCol2:
     // combo's line / scatter's Y (R112/R113).
-    ...(draft.agg === 'sum' || twoMeasures(draft) ? { measureCol: draft.measureCol } : {}),
+    ...((draft.agg === 'sum' || twoMeasures(draft)) && draft.chartType !== 'table'
+      ? { measureCol: draft.measureCol }
+      : {}),
     ...(twoMeasures(draft) ? { measureCol2: draft.measureCol2 } : {}),
     // R115 — gauge's literal target/max.
     ...(draft.chartType === 'gauge' && draft.target != null ? { target: draft.target } : {}),
@@ -118,13 +122,16 @@ export function WidgetBuilder({ open, workspaceId, initial, onSubmit, onCancel }
     [queries.data],
   );
 
-  // `stat`, `gauge`, and `scatter` have no grouping dimension.
-  const noDimension = draft.chartType === 'stat' || draft.chartType === 'gauge' || draft.chartType === 'scatter';
+  // `table` shows the raw rows — no dimension/measure/agg at all.
+  const isTable = draft.chartType === 'table';
+  // `stat`, `gauge`, `scatter`, `table` have no grouping dimension.
+  const noDimension =
+    isTable || draft.chartType === 'stat' || draft.chartType === 'gauge' || draft.chartType === 'scatter';
   const needsDimension = !noDimension;
   // Combo (bar+line) and scatter (x/y) both use two measures.
   const isTwoMeasures = twoMeasures(draft);
-  const showMeasure1 = draft.agg === 'sum' || isTwoMeasures;
-  const showAgg = !isTwoMeasures;
+  const showMeasure1 = !isTable && (draft.agg === 'sum' || isTwoMeasures);
+  const showAgg = !isTable && !isTwoMeasures;
 
   const showSeries = usesSeries(draft);
   const seriesRequired = draft.chartType === 'heatmap'; // bar's split is optional
@@ -133,6 +140,7 @@ export function WidgetBuilder({ open, workspaceId, initial, onSubmit, onCancel }
   // its one measure; a count needs none.
   let measureOk = draft.agg === 'count' || Boolean(draft.measureCol);
   if (isTwoMeasures) measureOk = Boolean(draft.measureCol) && Boolean(draft.measureCol2);
+  if (isTable) measureOk = true; // table needs no measure — just query + title
   const seriesOk = !seriesRequired || Boolean(draft.seriesCol);
 
   let measure1Label = t('dashboard.builder.measure');
@@ -287,6 +295,7 @@ export function WidgetBuilder({ open, workspaceId, initial, onSubmit, onCancel }
                   { value: 'heatmap', label: t('dashboard.builder.chartHeatmap') },
                   { value: 'gauge', label: t('dashboard.builder.chartGauge') },
                   { value: 'stat', label: t('dashboard.builder.chartStat') },
+                  { value: 'table', label: t('dashboard.builder.chartTable') },
                 ]}
               />
             </Form.Item>

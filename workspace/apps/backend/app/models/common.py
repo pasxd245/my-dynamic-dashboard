@@ -416,7 +416,7 @@ SlugStr = Annotated[
     str,
     Field(pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$", max_length=NAME_LENGTHS["dashboard_max"]),
 ]
-ChartType = Literal["bar", "pie", "line", "stat", "combo", "scatter", "heatmap", "gauge"]
+ChartType = Literal["bar", "pie", "line", "stat", "combo", "scatter", "heatmap", "gauge", "table"]
 Agg = Literal["sum", "count"]
 NumberFormat = Literal["plain", "compact"]
 

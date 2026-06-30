@@ -43,6 +43,7 @@
     "ariaScatter": "Biểu đồ phân tán: {{title}}",
     "ariaHeatmap": "Bản đồ nhiệt: {{title}}",
     "ariaGauge": "Đồng hồ đo: {{title}}",
+    "ariaTable": "Bảng: {{title}}",
     "builder": {
       "addTitle": "Thêm widget",
       "editTitle": "Sửa widget",
@@ -76,6 +77,7 @@
       "chartScatter": "Phân tán",
       "chartHeatmap": "Bản đồ nhiệt",
       "chartGauge": "Đồng hồ đo",
+      "chartTable": "Bảng",
       "target": "Mục tiêu",
       "targetHelp": "Tùy chọn — giá trị mà đồng hồ tiến tới (mức tối đa).",
       "numberFormat": "Định dạng số",
