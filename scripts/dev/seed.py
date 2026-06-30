@@ -450,7 +450,7 @@ def main() -> None:
     # Column indexes (0-based) for the filter atoms below:
     #   customers: 0 customer_id · 1 customer_name · 2 region_id · 3 tier · 4 is_active · 5 signed_up
     #   orders:    0 order_id · 1 customer_id · 2 product_id · 3 amount · 4 quantity · 5 status · 6 is_priority · 7 ordered_at
-    def defn(filters=None, advanced=None, joins=None, relationships=None):
+    def defn(filters=None, advanced=None, joins=None, relationships=None, steps=None):
         return {
             "q": None,
             "filters": filters or [],
@@ -459,6 +459,9 @@ def main() -> None:
             # them by `queryRelId`. Empty for single-source queries.
             "relationships": relationships or [],
             "joins": joins or [],
+            # R120+ — ordered transform steps (workflow shaping); empty = a plain
+            # select query. By effective column NAME.
+            "steps": steps or [],
         }
 
     def qrel(rel_id, left, lcol, right, rcol, card="one_to_many"):
@@ -517,6 +520,13 @@ def main() -> None:
          "R100 dashboard — products ⋈ orders (revenue-by-product widget; Legacy Tool = 0)"),
         ("Telesale calls", "telesale", defn(),
          "R100 dashboard — plain telesale (outcomes-breakdown widget)"),
+        # R128 — a WORKFLOW demo: a single-source query that SHAPES its result with
+        # a transform step (GROUP BY status → SUM(amount)). Its detail shows the
+        # grouped rows directly; a chart widget binds to it pre-shaped (R127).
+        ("Revenue by order status", "orders",
+         defn(steps=[{"kind": "aggregate", "dimensions": ["status"],
+                      "measures": [{"col": "amount", "agg": "sum"}]}]),
+         "R128 workflow — a saved aggregate STEP (pre-shaped: revenue by status)"),
     ]
     seeded = [(name, upsert_query(ws, name, ds[source], definition), blurb)
               for name, source, definition, blurb in base_queries]
