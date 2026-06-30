@@ -253,6 +253,114 @@ def build_joined_select(
     return sql, [*relation_params, *where_params]
 
 
+# ─── R119: server-side aggregate (GROUP BY) ──────────────────────────
+#
+# A widget that aggregates (bar/pie/line/scalar) asks for GROUP BY (dims) →
+# measures computed server-side, instead of fetching capped raw rows and
+# rolling them up client-side (a SUM over the first N rows is WRONG once
+# capped, R110). The aggregate is a NEW PROJECTION over the SAME inner
+# relation the run/preview path already builds (single-source read_parquet or
+# the joined CTE), with the query's OWN filters applied — DuckDB GROUP BY, not
+# a new engine. The result is one row per group, so no row cap applies.
+
+
+def build_single_inner(
+    parquet_path: Path,
+    columns: list[str],
+    *,
+    q: str | None,
+    filters: list[FilterPredicate] | None = None,
+    advanced: list[list[FilterPredicate]] | None = None,
+) -> tuple[str, list[Any]]:
+    """Typed inner relation for a SINGLE-source query: ``read_parquet`` with the
+    query's own filters applied — no CAST, no pagination (the aggregate wrapper
+    groups over it). Mirrors the front half of ``query_dataset_rows``."""
+    quoted_cols = [_quote_ident(c) for c in columns]
+    where_clause, where_params = _build_where(quoted_cols, q, filters, advanced)
+    sql = f"SELECT * FROM read_parquet(?) {where_clause}"
+    return sql, [str(parquet_path), *where_params]
+
+
+def _name_in_sql(dashboard_filters: list[tuple[str, list[Any]]]) -> tuple[str, list[Any]]:
+    """The R103 runtime dashboard filters as a WHERE over the base relation:
+    each is a categorical one-of on an effective column by NAME (AND-composed
+    across filters). A ``None`` value matches a NULL/empty cell — the
+    ``(blank)`` option — mirroring the client ``applyFilters``/``labelOf``."""
+    terms: list[str] = []
+    params: list[Any] = []
+    for col, values in dashboard_filters:
+        ident = _quote_ident(col)
+        non_null = [v for v in values if v is not None]
+        has_blank = any(v is None for v in values)
+        ors: list[str] = []
+        if non_null:
+            placeholders = ", ".join("?" for _ in non_null)
+            ors.append(f"CAST({ident} AS VARCHAR) IN ({placeholders})")
+            params.extend(non_null)
+        if has_blank:
+            ors.append(f"({ident} IS NULL OR CAST({ident} AS VARCHAR) = '')")
+        if ors:
+            terms.append("(" + " OR ".join(ors) + ")")
+    where = ("WHERE " + " AND ".join(terms)) if terms else ""
+    return where, params
+
+
+def build_aggregate_select(
+    inner_sql: str,
+    inner_params: list[Any],
+    *,
+    dimensions: list[str],
+    measures: list[tuple[str | None, str]],
+    dashboard_filters: list[tuple[str, list[Any]]],
+) -> tuple[str, list[Any]]:
+    """Compose a GROUP BY aggregate over a base relation (the single-source or
+    joined inner SELECT, which already applies the query's OWN filters).
+    ``measures`` is an ordered list of ``(col, agg)`` — ``agg='count'`` ignores
+    ``col`` (``COUNT(*)``), ``agg='sum'`` totals a validated numeric ``col``
+    (``COALESCE(SUM(col), 0)`` so an all-NULL group reads 0, matching the client
+    ``toNum``). The dashboard filters apply as a WHERE over the base BEFORE the
+    grouping; ``dimensions`` are the GROUP BY keys (empty = one scalar row).
+    Output cells are stringified ``VARCHAR`` like every other rows response."""
+    where_sql, where_params = _name_in_sql(dashboard_filters)
+    select_terms: list[str] = []
+    for d in dimensions:
+        qd = _quote_ident(d)
+        select_terms.append(f"CAST({qd} AS VARCHAR) AS {qd}")
+    for col, agg in measures:
+        if agg == "count":
+            select_terms.append('CAST(COUNT(*) AS VARCHAR) AS "count"')
+        else:  # sum — col is validated present + numeric by the caller
+            qc = _quote_ident(col or "")
+            select_terms.append(f"CAST(COALESCE(SUM({qc}), 0) AS VARCHAR) AS {qc}")
+    group_by = ("GROUP BY " + ", ".join(_quote_ident(d) for d in dimensions)) if dimensions else ""
+    sql = f"SELECT {', '.join(select_terms)} FROM ({inner_sql}) AS _base {where_sql} {group_by}"
+    return sql, [*inner_params, *where_params]
+
+
+def query_aggregate_rows(
+    inner_sql: str,
+    inner_params: list[Any],
+    *,
+    dimensions: list[str],
+    measures: list[tuple[str | None, str]],
+    dashboard_filters: list[tuple[str, list[Any]]],
+) -> list[list[str | None]]:
+    """Execute the GROUP BY aggregate; return stringified grouped rows (one per
+    group; a scalar request — no dimensions — returns exactly one row). No row
+    cap: the result is small by construction, so totals are correct regardless
+    of the dashboard fetch cap (the R119 point)."""
+    sql, params = build_aggregate_select(
+        inner_sql,
+        inner_params,
+        dimensions=dimensions,
+        measures=measures,
+        dashboard_filters=dashboard_filters,
+    )
+    with duckdb.connect(":memory:") as con:
+        rows = con.execute(sql, params).fetchall()
+    return [list(r) for r in rows]
+
+
 def query_joined_rows(
     relations: list[Relation],
     *,

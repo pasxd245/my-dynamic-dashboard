@@ -338,6 +338,49 @@ class ApiErrorQueryStale(BaseModel):
     code: Literal["query_stale"] = ERROR_CODES["query_stale"]  # type: ignore[assignment]
 
 
+# ─── R119: server-side aggregate (GROUP BY) ──────────────────────────
+# Mirrors packages/contracts/_shared/query.yaml#/AggregateRequest +
+# queries/aggregate.contract.yaml. The body of POST /queries/{id}/aggregate:
+# a stateless GROUP BY over a saved query's resolved rows. Columns are
+# referenced by EFFECTIVE NAME (the widget consumer thinks in names), unlike
+# a FilterAtom's index. Per-field shape rules (sum needs col / count omits it,
+# numeric col) are re-checked in the router against the query's effective
+# columns (a 422), since the column space is only known there.
+
+
+class AggregateMeasure(BaseModel):
+    """One aggregate. `agg` mirrors the dashboard Widget's `Agg`
+    (`sum` | `count`); `sum` requires a numeric `col`, `count` omits it."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    col: Annotated[str, Field(min_length=1)] | None = None
+    agg: Literal["sum", "count"]
+
+
+class AggregateFilter(BaseModel):
+    """R103 runtime dashboard filter, pushed server-side: keep rows whose
+    `column` cell is one of `values` (a `null` value matches a NULL/empty
+    cell — the `(blank)` option). By effective-column NAME."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    column: Annotated[str, Field(min_length=1)]
+    values: list[str | None]
+
+
+class AggregateBody(BaseModel):
+    """POST /queries/{id}/aggregate request body. R119 scope: 0-or-1
+    `dimensions` + exactly 1 `measures` (validated in the router; the model
+    only enforces ≥1 measure)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    dimensions: list[Annotated[str, Field(min_length=1)]]
+    measures: Annotated[list[AggregateMeasure], Field(min_length=1)]
+    filters: list[AggregateFilter] = []
+
+
 # ─── R70: relationship governance ────────────────────────────────────
 # Mirrors packages/contracts/_shared/relationship.yaml + relationships/*.
 # A Relationship is a governed EDGE between two datasets in one workspace.

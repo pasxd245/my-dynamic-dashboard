@@ -32,10 +32,13 @@ from app.ingest.filters import build_definition_predicates
 from app.ingest.rows_reader import (
     build_effective_columns,
     build_joined_select,
+    build_single_inner,
+    query_aggregate_rows,
     query_dataset_rows,
     query_joined_rows,
 )
 from app.models.common import (
+    AggregateBody,
     ApiErrorCompositionCycle,
     ApiErrorNameTaken,
     ApiErrorNotFound,
@@ -539,6 +542,132 @@ def run_query(  # noqa: A002
     echoed_page_size = len(rows) if unpaged else eff_page_size
     body = RowsPage(rows=rows, page=eff_page, pageSize=echoed_page_size, total=total)
     return JSONResponse(status_code=status.HTTP_200_OK, content=body.model_dump())
+
+
+_NUMERIC_DTYPES = {"integer", "float"}
+
+
+def _agg_422(loc: list[str], msg: str) -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        detail=[{"loc": loc, "msg": msg, "type": "value_error"}],
+    )
+
+
+def _validate_aggregate_spec(
+    body: AggregateBody, columns: list[dict]
+) -> list[tuple[str | None, str]]:
+    """Re-check the aggregate spec against the query's EFFECTIVE columns (the
+    only place the column space is known) → 422 on a bad reference. Returns the
+    ordered ``(col, agg)`` measure plan. Mirrors the dashboard Widget rule: a
+    ``sum`` needs a numeric ``col``, a ``count`` omits it."""
+    by_name = {c["name"]: c for c in columns}
+    for i, d in enumerate(body.dimensions):
+        if d not in by_name:
+            raise _agg_422(["body", "dimensions", i], f"unknown_column: {d!r} is not a column of this query")
+    measures: list[tuple[str | None, str]] = []
+    for i, m in enumerate(body.measures):
+        if m.agg == "sum":
+            if m.col is None:
+                raise _agg_422(["body", "measures", i, "col"], "measure_col_required: agg 'sum' requires col")
+            col = by_name.get(m.col)
+            if col is None:
+                raise _agg_422(["body", "measures", i, "col"], f"unknown_column: {m.col!r} is not a column of this query")
+            if col["dtype"] not in _NUMERIC_DTYPES:
+                raise _agg_422(["body", "measures", i, "col"], f"measure_not_numeric: {m.col!r} is {col['dtype']}, not numeric")
+            measures.append((m.col, "sum"))
+        else:  # count
+            if m.col is not None:
+                raise _agg_422(["body", "measures", i, "col"], "measure_col_forbidden: agg 'count' must omit col")
+            measures.append((None, "count"))
+    return measures
+
+
+@router.post("/queries/{id}/aggregate")
+def aggregate_query(id: QueryIdPath, body: AggregateBody) -> JSONResponse:  # noqa: A002
+    """R119 — SERVER-SIDE AGGREGATE: a stateless ``GROUP BY (dimensions) →
+    measures`` over the saved query's resolved rows, computed in DuckDB over the
+    WHOLE result (no row cap — the result is one row per group). The dashboard
+    consumer (bar/pie/line/scalar KPI) binds to this instead of rolling capped
+    raw rows up client-side, so totals are correct regardless of the fetch cap.
+
+    Resolves the saved query's plan with the SAME engine as the run path
+    (driving source + joins + its OWN definition filters), so drift semantics
+    are inherited verbatim: 404 absent · 409 composition_cycle /
+    relationship_stale / query_stale. The aggregate spec is re-validated against
+    the EFFECTIVE columns (422). ``filters`` are the runtime dashboard filters
+    (R103), pushed server-side as a name-based one-of so an aggregated widget
+    honours an active filter; a filter on a column this query lacks is skipped
+    (mirrors the client ``applyFilters``)."""
+    with get_conn() as con:
+        qrow = con.execute(_SELECT_QUERY, (id,)).fetchone()
+        if qrow is None:
+            return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=ApiErrorNotFound().model_dump())
+        definition = json.loads(qrow["definition_json"])
+        chain = _chain_of(definition)
+        plan, reason = _resolve_plan(con, qrow["source_id"], chain, _rels_of(definition), qrow["workspace_id"])
+
+    if reason == "composition_cycle":
+        return JSONResponse(status_code=status.HTTP_409_CONFLICT, content=ApiErrorCompositionCycle().model_dump())
+    if reason == "source_missing":
+        return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=ApiErrorNotFound().model_dump())
+    if reason is not None:
+        return JSONResponse(status_code=status.HTTP_409_CONFLICT, content=ApiErrorRelationshipStale().model_dump())
+
+    # Validate the aggregate spec against the effective columns (422) BEFORE the
+    # predicate re-check, so a malformed request 422s regardless of query state.
+    measures = _validate_aggregate_spec(body, plan["columns"])
+
+    try:
+        filters, advanced = build_definition_predicates(definition, plan["columns"])
+    except HTTPException as exc:
+        if exc.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY:
+            return JSONResponse(status_code=status.HTTP_409_CONFLICT, content=ApiErrorQueryStale().model_dump())
+        raise
+
+    # A dashboard filter on a column this query lacks is skipped (R103 semantics).
+    col_names = {c["name"] for c in plan["columns"]}
+    dashboard_filters = [(f.column, f.values) for f in body.filters if f.column in col_names]
+
+    q = definition.get("q")
+    if plan["kind"] == "join":
+        payload = plan["payload"]
+        inner_sql, inner_params = build_joined_select(
+            payload["relations"],
+            join_keys=payload["join_keys"],
+            select_exprs=payload["select_exprs"],
+            effective_columns=[c["name"] for c in payload["effective"]],
+            q=q,
+            filters=filters,
+            advanced=advanced,
+        )
+    else:
+        inner_sql, inner_params = build_single_inner(
+            _parquet_of(plan["ds"]),
+            [c["name"] for c in plan["columns"]],
+            q=q,
+            filters=filters,
+            advanced=advanced,
+        )
+
+    rows = query_aggregate_rows(
+        inner_sql,
+        inner_params,
+        dimensions=body.dimensions,
+        measures=measures,
+        dashboard_filters=dashboard_filters,
+    )
+
+    by_name = {c["name"]: c for c in plan["columns"]}
+    out_columns = [{"name": d, "dtype": by_name[d]["dtype"]} for d in body.dimensions]
+    for col, agg in measures:
+        if agg == "count":
+            out_columns.append({"name": "count", "dtype": "integer"})
+        else:
+            out_columns.append({"name": col, "dtype": by_name[col]["dtype"]})
+
+    content = {"columns": out_columns, "rows": rows, "total": len(rows)}
+    return JSONResponse(status_code=status.HTTP_200_OK, content=content)
 
 
 @router.post("/workspaces/{id}/queries/preview")
