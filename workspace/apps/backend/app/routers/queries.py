@@ -36,6 +36,7 @@ from app.ingest.rows_reader import (
     query_aggregate_rows,
     query_dataset_rows,
     query_joined_rows,
+    run_steps,
 )
 from app.models.common import (
     AggregateBody,
@@ -545,7 +546,7 @@ def run_query(  # noqa: A002
     # result (one row per group), so paging/`unpaged` don't apply (the result is
     # small by construction). A stepless query takes the existing paged path.
     if step_plan is not None:
-        rows = _run_step(plan, q, filters, advanced, step_plan)
+        rows = _run_steps(plan, q, filters, advanced, step_plan)
         body = RowsPage(rows=rows, page=1, pageSize=len(rows), total=len(rows))
         return JSONResponse(status_code=status.HTTP_200_OK, content=body.model_dump())
 
@@ -649,24 +650,43 @@ def _build_inner_relation(plan: dict, q: str | None, filters: list, advanced: li
     )
 
 
-def _step_plan(
-    steps: list[dict], columns: list[dict]
-) -> tuple[dict, list[tuple[str | None, str]], list[dict]] | None:
-    """Validate a query's transform `steps` against its PRE-step effective columns
-    and return ``(step, measures_plan, output_columns)`` — or ``None`` when there
-    are no steps. Raises 422 on a bad step (callers map it: create/update → 422,
-    run/preview → 409 query_stale, read → None). v1 cap: at most ONE step, kind
-    ``aggregate`` (chaining of ≥2 typed steps is a later round)."""
+_MAX_STEPS = 8
+
+
+def _plan_one_step(step: dict, cur_cols: list[dict], loc: list) -> tuple[dict, list[dict]]:
+    """Validate one step against the CURRENT column space; return its normalized
+    descriptor (for the typed `run_steps` engine) + the column space AFTER it.
+    ``aggregate`` reshapes; ``top_n`` preserves columns (orders + caps)."""
+    kind = step.get("kind")
+    if kind == "aggregate":
+        dims = step.get("dimensions", [])
+        measures_plan = _validate_aggregate(dims, step.get("measures", []), cur_cols, loc)
+        out_cols = _aggregate_output_columns(dims, measures_plan, cur_cols)
+        return {"kind": "aggregate", "dimensions": dims, "measures_plan": measures_plan,
+                "output_cols": [c["name"] for c in out_cols]}, out_cols
+    if kind == "top_n":
+        col = step.get("col")
+        if col not in {c["name"] for c in cur_cols}:
+            raise _agg_422([*loc, "col"], f"unknown_column: {col!r} is not a column at this step")
+        return {"kind": "top_n", "col": col, "descending": bool(step.get("descending")), "n": step.get("n")}, cur_cols
+    raise _agg_422([*loc, "kind"], f"unknown_step_kind: {kind!r}")
+
+
+def _step_plan(steps: list[dict], columns: list[dict]) -> tuple[list[dict], list[dict]] | None:
+    """Validate a query's ordered transform `steps` by FOLDING over the evolving
+    column space; return ``(normalized_steps, final_output_columns)`` — or ``None``
+    when there are no steps. Raises 422 on a bad step (callers map it: create/update
+    → 422, run/preview → 409 query_stale, read → None). Capped at ``_MAX_STEPS``."""
     if not steps:
         return None
-    if len(steps) > 1:
-        raise _agg_422(["body", "definition", "steps"], "too_many_steps: v1 supports at most one transform step")
-    step = steps[0]
-    if step.get("kind") != "aggregate":
-        raise _agg_422(["body", "definition", "steps", 0, "kind"], f"unknown_step_kind: {step.get('kind')!r}")
-    dims = step.get("dimensions", [])
-    measures_plan = _validate_aggregate(dims, step.get("measures", []), columns, ["body", "definition", "steps", 0])
-    return step, measures_plan, _aggregate_output_columns(dims, measures_plan, columns)
+    if len(steps) > _MAX_STEPS:
+        raise _agg_422(["body", "definition", "steps"], f"too_many_steps: at most {_MAX_STEPS}")
+    normalized: list[dict] = []
+    cur_cols = columns
+    for i, step in enumerate(steps):
+        norm, cur_cols = _plan_one_step(step, cur_cols, ["body", "definition", "steps", i])
+        normalized.append(norm)
+    return normalized, cur_cols
 
 
 def _step_output_columns(steps: list[dict], columns: list[dict]) -> list[dict] | None:
@@ -677,20 +697,17 @@ def _step_output_columns(steps: list[dict], columns: list[dict]) -> list[dict] |
         plan = _step_plan(steps, columns)
     except HTTPException:
         return None
-    return plan[2] if plan else None
+    return plan[1] if plan else None
 
 
-def _run_step(
-    plan: dict, q: str | None, filters: list, advanced: list, step_plan: tuple[dict, list, list]
+def _run_steps(
+    plan: dict, q: str | None, filters: list, advanced: list, step_plan: tuple[list[dict], list[dict]]
 ) -> list[list[str | None]]:
-    """Execute a query's transform step over its resolved + filtered relation → the
-    shaped (grouped) rows. v1: the single aggregate step (no runtime dashboard
-    filters — those are a widget-binding concern, not a saved-shaping one)."""
-    step, measures_plan, _out = step_plan
+    """Execute a query's chained transform steps over its resolved + filtered
+    relation → the shaped rows (typed intermediates, final stringify)."""
+    normalized, _final_cols = step_plan
     inner_sql, inner_params = _build_inner_relation(plan, q, filters, advanced)
-    return query_aggregate_rows(
-        inner_sql, inner_params, dimensions=step["dimensions"], measures=measures_plan, dashboard_filters=[]
-    )
+    return run_steps(inner_sql, inner_params, [c["name"] for c in plan["columns"]], normalized)
 
 
 @router.post("/queries/{id}/aggregate")
@@ -812,8 +829,8 @@ def preview_query(  # noqa: A002
     # R120 — a stepped preview returns the SHAPED rows + the post-step columns as
     # `resolvedColumns` (the builder's headers for the transformed result).
     if step_plan is not None:
-        rows = _run_step(plan, q, filters, advanced, step_plan)
-        resolved = [{"name": c["name"], "dtype": c["dtype"]} for c in step_plan[2]]
+        rows = _run_steps(plan, q, filters, advanced, step_plan)
+        resolved = [{"name": c["name"], "dtype": c["dtype"]} for c in step_plan[1]]
         content = {"rows": rows, "page": 1, "pageSize": len(rows), "total": len(rows), "resolvedColumns": resolved}
         return JSONResponse(status_code=status.HTTP_200_OK, content=content)
 

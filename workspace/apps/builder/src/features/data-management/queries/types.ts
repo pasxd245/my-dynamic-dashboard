@@ -72,11 +72,12 @@ export type QueryDefinition = {
    *  entry via `queryRelId` (R88; was a governed `relationshipId`). Omitted/empty
    *  for a single-source Query. Mirrors `_shared/query.yaml#/QueryDefinition.joins`. */
   joins?: readonly JoinStep[];
-  /** R120 — ordered TRANSFORM steps applied after source/join/filter resolve
+  /** R120/R121 — ordered TRANSFORM steps applied after source/join/filter resolve
    *  (saved shaping — the "workflow" direction). Empty/omitted = a plain select
-   *  query. v1: at most one, kind `aggregate`; a stepped query's `resolvedColumns`
-   *  are its POST-step output. Mirrors `_shared/query.yaml#/QueryDefinition.steps`. */
-  steps?: readonly AggregateStep[];
+   *  query. A `kind`-discriminated union (aggregate · top_n), chained; a stepped
+   *  query's `resolvedColumns` are its POST-step output. Mirrors
+   *  `_shared/query.yaml#/QueryDefinition.steps`. */
+  steps?: readonly Step[];
 };
 
 /** R120 — a saved aggregate transform step on a query (`GROUP BY → measures`).
@@ -86,6 +87,18 @@ export type AggregateStep = {
   dimensions: readonly string[];
   measures: readonly AggregateMeasure[];
 };
+
+/** R121 — order by a column, keep the first `n` (post-aggregate "top N by
+ *  measure"). Mirrors `_shared/query.yaml#/TopNStep`. */
+export type TopNStep = {
+  kind: 'top_n';
+  col: string;
+  n: number;
+  descending?: boolean;
+};
+
+/** R121 — a transform step, discriminated by `kind`. */
+export type Step = AggregateStep | TopNStep;
 
 /** A single effective column of a Query result (name + dtype). For a join,
  *  duplicate names are collision-qualified (`Deals.id`). Mirrors the inline

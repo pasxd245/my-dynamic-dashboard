@@ -190,6 +190,31 @@ components:
                 type: string
                 enum: [sum, count]
 
+    TopNStep:
+      type: object
+      description: |
+        R121 — a TRANSFORM STEP that orders the rows by a column and keeps the
+        first `n` (the canonical post-aggregate "top N by measure"). `col` is by
+        effective name (the column space AFTER any prior step); the column space
+        is unchanged by this step. Compiles to `ORDER BY col [DESC] LIMIT n`.
+      required: [kind, col, n]
+      additionalProperties: false
+      properties:
+        kind:
+          const: top_n
+        col:
+          type: string
+          minLength: 1
+          description: Column to order by (effective name, post prior steps).
+        n:
+          type: integer
+          minimum: 1
+          description: Keep the first `n` rows after ordering.
+        descending:
+          type: boolean
+          default: false
+          description: Order descending (largest first) when true; ascending otherwise.
+
     QueryDefinition:
       type: object
       description: |
@@ -263,14 +288,21 @@ components:
         steps:
           type: array
           description: |
-            R120 — an ordered list of TRANSFORM steps applied AFTER the
-            source/join/filter resolve (saved shaping — the "workflow" direction).
-            Empty/omitted for a plain select query. v1: at most one step, kind
-            `aggregate`; a query with a step exposes its POST-step columns as
-            `resolvedColumns`. Future steps (derive, sort, …) extend the item
-            schema to a `kind`-discriminated union.
+            An ordered list of TRANSFORM steps applied AFTER the source/join/filter
+            resolve (saved shaping — the "workflow" direction). Empty/omitted for a
+            plain select query. R120 added the `aggregate` step; R121 makes steps
+            CHAIN (a typed engine threads a typed relation through each, stringifying
+            only the final output) and adds `top_n`. A query with steps exposes its
+            POST-step columns as `resolvedColumns`. `kind`-discriminated union.
           items:
-            $ref: "#/components/schemas/AggregateStep"
+            oneOf:
+              - $ref: "#/components/schemas/AggregateStep"
+              - $ref: "#/components/schemas/TopNStep"
+            discriminator:
+              propertyName: kind
+              mapping:
+                aggregate: "#/components/schemas/AggregateStep"
+                top_n: "#/components/schemas/TopNStep"
 
     Query:
       type: object

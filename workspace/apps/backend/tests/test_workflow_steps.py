@@ -123,10 +123,61 @@ def test_stepless_query_is_unchanged() -> None:
     [
         [{"kind": "aggregate", "dimensions": ["nope"], "measures": [{"agg": "count"}]}],  # unknown dim
         [{"kind": "aggregate", "dimensions": [], "measures": [{"col": "region", "agg": "sum"}]}],  # sum non-numeric
-        [_AGG_BY_REGION, _AGG_BY_REGION],  # >1 step (v1 cap)
+        [{"kind": "bogus", "dimensions": [], "measures": [{"agg": "count"}]}],  # unknown step kind
     ],
 )
 def test_bad_step_rejected_on_save_422(steps: list[dict]) -> None:
+    with TestClient(app) as client:
+        ws, ds_id = _commit_csv(client)
+        resp = _create(client, ws, ds_id, _defn(steps))
+
+    assert resp.status_code == 422
+
+
+@pytest.mark.unit
+def test_aggregate_then_top_n_orders_numerically_and_caps() -> None:
+    # aggregate by region (EMEA 150, APAC 200) → top_n by amount DESC, n=2.
+    # The chain is TYPED, so the measure sorts NUMERICALLY (200 > 150), not
+    # lexically ("150" < "200" would be the wrong order if stringified early).
+    steps = [_AGG_BY_REGION, {"kind": "top_n", "col": "amount", "n": 2, "descending": True}]
+    with TestClient(app) as client:
+        ws, ds_id = _commit_csv(client)
+        created = _create(client, ws, ds_id, _defn(steps))
+        assert created.status_code == 201
+        qid = created.json()["id"]
+        body = client.get(f"/queries/{qid}/rows").json()
+        # top_n preserves the column space → resolvedColumns is the aggregate output.
+        assert client.get(f"/queries/{qid}").json()["resolvedColumns"] == [
+            {"name": "region", "dtype": "string"},
+            {"name": "amount", "dtype": "integer"},
+        ]
+
+    assert body["rows"] == [["APAC", "200"], ["EMEA", "150"]]
+
+
+@pytest.mark.unit
+def test_top_n_only_over_raw_rows() -> None:
+    # No aggregate — just the top 2 raw rows by amount DESC (200, 100).
+    steps = [{"kind": "top_n", "col": "amount", "n": 2, "descending": True}]
+    with TestClient(app) as client:
+        ws, ds_id = _commit_csv(client)
+        qid = _create(client, ws, ds_id, _defn(steps)).json()["id"]
+        body = client.get(f"/queries/{qid}/rows").json()
+
+    assert [r[2] for r in body["rows"]] == ["200", "100"]
+    assert body["total"] == 2
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "steps",
+    [
+        [{"kind": "top_n", "col": "ghost", "n": 1}],  # unknown order column
+        [_AGG_BY_REGION, {"kind": "top_n", "col": "product", "n": 1}],  # col dropped by the aggregate
+        [{"kind": "top_n", "col": "amount", "n": 1}] * 9,  # > _MAX_STEPS (8)
+    ],
+)
+def test_bad_chain_rejected_on_save_422(steps: list[dict]) -> None:
     with TestClient(app) as client:
         ws, ds_id = _commit_csv(client)
         resp = _create(client, ws, ds_id, _defn(steps))

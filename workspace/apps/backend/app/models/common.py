@@ -272,6 +272,24 @@ class AggregateStep(BaseModel):
     measures: Annotated[list[AggregateMeasure], Field(min_length=1)]
 
 
+class TopNStep(BaseModel):
+    """R121 — a saved step that orders by a column and keeps the first ``n`` (the
+    canonical post-aggregate "top N by measure"). The column space is unchanged.
+    Mirrors `_shared/query.yaml#/TopNStep`."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["top_n"]
+    col: Annotated[str, Field(min_length=1)]
+    n: Annotated[int, Field(ge=1)]
+    descending: bool = False
+
+
+# R121 — a transform step is a `kind`-discriminated union (so a bad `kind` is a
+# clean 422, and each kind keeps its own required fields).
+Step = Annotated[AggregateStep | TopNStep, Field(discriminator="kind")]
+
+
 class QueryDefinition(BaseModel):
     """The saved predicate state: chip filters + advanced DNF + `?q=`. R71 added
     an optional join; R73 generalizes it to `joins`, an ordered LINEAR CHAIN of
@@ -289,10 +307,11 @@ class QueryDefinition(BaseModel):
     # references one by `queryRelId`. Seeded by copy-on-pick or (R89) free-form.
     relationships: list[QueryRelationship] = []
     joins: list[JoinStep] = []
-    # R120 — ordered transform steps applied after source/join/filter resolve. v1:
-    # at most one, kind `aggregate` (the router enforces the cap + per-step
-    # column validation). Empty = a plain select query (unchanged).
-    steps: list[AggregateStep] = []
+    # R120/R121 — ordered transform steps applied after source/join/filter resolve;
+    # a `kind`-discriminated union (aggregate · top_n), chained by the typed engine.
+    # The router validates each against the evolving column space + caps the count.
+    # Empty = a plain select query (unchanged).
+    steps: list[Step] = []
 
     @model_validator(mode="before")
     @classmethod

@@ -305,6 +305,13 @@ def _name_in_sql(dashboard_filters: list[tuple[str, list[Any]]]) -> tuple[str, l
     return where, params
 
 
+def _agg_term(expr: str, alias: str, stringify: bool) -> str:
+    """An aggregate select term: typed (``expr AS alias``) or stringified
+    (``CAST(expr AS VARCHAR) AS alias``). Typed terms let a step chain (R121) — a
+    following ``top_n`` must order a NUMERIC measure, not a lexical string."""
+    return f"CAST({expr} AS VARCHAR) AS {alias}" if stringify else f"{expr} AS {alias}"
+
+
 def build_aggregate_select(
     inner_sql: str,
     inner_params: list[Any],
@@ -312,6 +319,7 @@ def build_aggregate_select(
     dimensions: list[str],
     measures: list[tuple[str | None, str]],
     dashboard_filters: list[tuple[str, list[Any]]],
+    stringify: bool = True,
 ) -> tuple[str, list[Any]]:
     """Compose a GROUP BY aggregate over a base relation (the single-source or
     joined inner SELECT, which already applies the query's OWN filters).
@@ -320,21 +328,56 @@ def build_aggregate_select(
     (``COALESCE(SUM(col), 0)`` so an all-NULL group reads 0, matching the client
     ``toNum``). The dashboard filters apply as a WHERE over the base BEFORE the
     grouping; ``dimensions`` are the GROUP BY keys (empty = one scalar row).
-    Output cells are stringified ``VARCHAR`` like every other rows response."""
+
+    ``stringify`` (default True) casts output cells to ``VARCHAR`` (the rows-
+    response shape). The R121 step engine passes ``False`` for a NON-final
+    aggregate so the relation stays TYPED and a following step composes correctly."""
     where_sql, where_params = _name_in_sql(dashboard_filters)
     select_terms: list[str] = []
     for d in dimensions:
         qd = _quote_ident(d)
-        select_terms.append(f"CAST({qd} AS VARCHAR) AS {qd}")
+        select_terms.append(_agg_term(qd, qd, stringify))
     for col, agg in measures:
         if agg == "count":
-            select_terms.append('CAST(COUNT(*) AS VARCHAR) AS "count"')
+            select_terms.append(_agg_term("COUNT(*)", '"count"', stringify))
         else:  # sum — col is validated present + numeric by the caller
             qc = _quote_ident(col or "")
-            select_terms.append(f"CAST(COALESCE(SUM({qc}), 0) AS VARCHAR) AS {qc}")
+            select_terms.append(_agg_term(f"COALESCE(SUM({qc}), 0)", qc, stringify))
     group_by = ("GROUP BY " + ", ".join(_quote_ident(d) for d in dimensions)) if dimensions else ""
     sql = f"SELECT {', '.join(select_terms)} FROM ({inner_sql}) AS _base {where_sql} {group_by}"
     return sql, [*inner_params, *where_params]
+
+
+def run_steps(
+    inner_sql: str,
+    inner_params: list[Any],
+    base_columns: list[str],
+    steps: list[dict],
+) -> list[list[str | None]]:
+    """R121 — apply an ordered list of TYPED transform steps over the inner
+    relation, then stringify the FINAL relation to rows. ``steps`` are normalized
+    dicts (validated by the router): an ``aggregate`` step reshapes the relation +
+    column space; a ``top_n`` step orders + caps (column space unchanged). Only the
+    final output is CAST to VARCHAR, so intermediate types survive the chain (a
+    ``top_n`` after an ``aggregate`` sorts the measure numerically)."""
+    sql, params = inner_sql, inner_params
+    cols = list(base_columns)
+    for step in steps:
+        if step["kind"] == "aggregate":
+            sql, params = build_aggregate_select(
+                sql, params, dimensions=step["dimensions"], measures=step["measures_plan"], dashboard_filters=[], stringify=False
+            )
+            cols = step["output_cols"]
+        elif step["kind"] == "top_n":
+            direction = "DESC" if step["descending"] else "ASC"
+            sql = f"SELECT * FROM ({sql}) AS _t ORDER BY {_quote_ident(step['col'])} {direction} LIMIT ?"
+            params = [*params, step["n"]]
+    quoted = [_quote_ident(c) for c in cols]
+    select_list = ", ".join(f"CAST({c} AS VARCHAR)" for c in quoted)
+    final_sql = f"SELECT {select_list} FROM ({sql}) AS _final"
+    with duckdb.connect(":memory:") as con:
+        rows = con.execute(final_sql, params).fetchall()
+    return [list(r) for r in rows]
 
 
 def query_aggregate_rows(
