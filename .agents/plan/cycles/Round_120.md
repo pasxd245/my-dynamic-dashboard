@@ -1,8 +1,8 @@
 # Round 120: workflows v1 — a query gains transform `steps` (aggregate step)
 
-**Status**: Review
+**Status**: Complete
 **Date started**: 2026-06-30
-**Date completed**:
+**Date completed**: 2026-06-30
 **Flow**: **DCFBI** — backend-only (no new UI surface); the query's stored JSON definition gains an
 optional `steps` list, so no migration / new noun / new router.
 
