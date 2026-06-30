@@ -17,7 +17,7 @@ import { useCreateRelationshipMutation, useRelationshipsQuery } from '@/features
 import { ApiErrorThrown } from '../_shared/types';
 import { copyGovernedRel, freeFormRel, readChain, readRels, writeDef, type RelFields } from './chain';
 import { useCreateQueryMutation, useQueryPreviewQuery, useUpdateQueryMutation } from './hooks';
-import type { JoinStep, Query, QueryDefinition, QueryRelationship, ResolvedColumn } from './types';
+import type { JoinStep, Query, QueryDefinition, QueryRelationship, ResolvedColumn, Step } from './types';
 
 export const PREVIEW_PAGE_SIZE = 25;
 // Debounce the preview so editing fires one POST after the user settles, not
@@ -80,14 +80,7 @@ export type UseQueryBuilderArgs = Readonly<{
   onCreated?: (created: Query) => void;
 }>;
 
-export function useQueryBuilder({
-  query,
-  createBase,
-  datasetColumns,
-  active,
-  onDone,
-  onCreated,
-}: UseQueryBuilderArgs) {
+export function useQueryBuilder({ query, createBase, datasetColumns, active, onDone, onCreated }: UseQueryBuilderArgs) {
   const { t } = useTranslation();
   const { message, modal } = App.useApp();
 
@@ -188,6 +181,20 @@ export function useQueryBuilder({
     return resolved ? asColumns(resolved) : [];
   }, [isJoined, isComposed, datasetColumns, preview?.resolvedColumns, query?.resolvedColumns]);
 
+  // R125 — the RESULT columns matching `previewRows`: a stepped query's preview
+  // returns its POST-step columns, so the preview TABLE renders the shaped shape;
+  // for a stepless query this equals `columns` (no change). The editors keep using
+  // `columns` (the PRE-step space).
+  const resultColumns: Column[] = useMemo(
+    () => (preview?.resolvedColumns ? asColumns(preview.resolvedColumns) : columns),
+    [preview?.resolvedColumns, columns],
+  );
+  // R125 — transform steps author against the PRE-step column space. v1 supports
+  // SINGLE-SOURCE dataset queries (where `columns` IS that pre-step base);
+  // joined/composed steps wait until the preview exposes base + result columns
+  // separately (the column fork). Empty `steps` = unchanged for every query.
+  const canUseSteps = !isJoined && !isComposed;
+
   const updateMutation = useUpdateQueryMutation();
   const createMutation = useCreateQueryMutation();
   // R89 — promote a query-owned rel up into the governed ER (reuses the existing
@@ -231,6 +238,8 @@ export function useQueryBuilder({
   const clearAllFilters = () => setDraftField({ filters: [] });
   const setAdvanced = (groups: PredicateGroups) => setDraftField({ advanced: groups });
   const setQ = (q: string | null) => setDraftField({ q });
+  // R125 — set the ordered transform steps (empty = a plain select query).
+  const setSteps = (steps: readonly Step[]) => setDraftField({ steps: [...steps] });
 
   // Chain ops (R73). The draft IS the wire definition; each op folds the current
   // chain through the bridge, mutates it, and re-serializes. A hop is always
@@ -418,6 +427,11 @@ export function useQueryBuilder({
     // working state
     draft,
     columns,
+    // R125 — result columns (post-step, for the preview table) + steps authoring
+    // gate (single-source only in v1) + the steps setter.
+    resultColumns,
+    canUseSteps,
+    setSteps,
     isJoined,
     joins,
     // R88 — the query's own relationships (copy-on-pick snapshots); hops resolve

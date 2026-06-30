@@ -24,6 +24,7 @@ import { groupsToText } from '@/features/data-management/datasets/advanced-query
 import { PagedRowsView } from '../_shared/PagedRowsView';
 import { JoinEditor } from './JoinEditor';
 import { QueryCanvas } from './QueryCanvas';
+import { StepsEditor } from './StepsEditor';
 import { type QueryBuilderState } from './useQueryBuilder';
 
 type BuilderTab = 'form' | 'canvas';
@@ -100,6 +101,13 @@ function FormTab({
 }>) {
   const { t } = useTranslation();
   const { draft, columns, isJoined } = builder;
+  // R125 — the Transform (steps) section state.
+  const [stepsOpen, setStepsOpen] = useState(true);
+  // When the query shapes (has steps), the preview rows are the SHAPED result, so
+  // the table uses the post-step result columns + the per-column source filter
+  // popover (a source-index filter) no longer applies.
+  const shaping = (draft.steps?.length ?? 0) > 0;
+  const previewColumns = shaping ? builder.resultColumns : columns;
   const activeCount = draft.filters.length + draft.advanced.flat().length + (draft.q ? 1 : 0) + builder.joins.length;
 
   return (
@@ -198,6 +206,8 @@ function FormTab({
         </div>
       ) : null}
 
+      <TransformSection builder={builder} open={stepsOpen} setOpen={setStepsOpen} />
+
       {/* Blocked states — flag-don't-crash; they disable Save in the header. */}
       {builder.relStale ? (
         <div role="alert" data-component="QueryBuilderJoinStale" style={alertStyle()}>
@@ -244,7 +254,7 @@ function FormTab({
       {previewOpen ? (
         <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
           <PagedRowsView
-            columns={columns}
+            columns={previewColumns}
             rows={builder.previewRows}
             loading={builder.previewFetching}
             total={builder.previewTotal}
@@ -254,15 +264,23 @@ function FormTab({
             // R96: the preview is a peek — flow (no inner scroll); the page
             // scrolls and the pager sits at the natural end.
             scrollMode="flow"
-            renderHeaderExtra={(col, colIndex) => (
-              <FilterPopover
-                column={col}
-                colIndex={colIndex}
-                existing={draft.filters.find((p) => p.col === colIndex)}
-                onApply={builder.applyFilter}
-                onClear={() => builder.removeFilter(colIndex)}
-              />
-            )}
+            // R125 — the per-column source filter applies to the SOURCE rows (by
+            // index); once the query shapes (steps), the preview is the shaped
+            // result, so the popover no longer maps — drop it (post-step filtering
+            // is a `filter` step).
+            renderHeaderExtra={
+              shaping
+                ? undefined
+                : (col, colIndex) => (
+                    <FilterPopover
+                      column={col}
+                      colIndex={colIndex}
+                      existing={draft.filters.find((p) => p.col === colIndex)}
+                      onApply={builder.applyFilter}
+                      onClear={() => builder.removeFilter(colIndex)}
+                    />
+                  )
+            }
             emptyState={
               <>
                 <Typography.Title level={5} style={{ marginTop: 0 }}>
@@ -327,6 +345,45 @@ function CanvasTab({
         />
       </div>
     </div>
+  );
+}
+
+/** R125 — the Transform (steps) section: the ordered-shaping editor for
+ *  single-source queries, or a note that steps are single-source-only (the
+ *  joined/composed column-fork is deferred). Collapsible like Build/Preview. */
+function TransformSection({
+  builder,
+  open,
+  setOpen,
+}: Readonly<{ builder: QueryBuilderState; open: boolean; setOpen: React.Dispatch<React.SetStateAction<boolean>> }>) {
+  const { t } = useTranslation();
+  const steps = builder.draft.steps ?? [];
+  return (
+    <>
+      <SectionBar
+        open={open}
+        onToggle={() => setOpen((o) => !o)}
+        title={t('queries.builder.steps.section')}
+        dataComponent="QueryBuilderStepsHeader"
+      >
+        {!open && steps.length > 0 ? (
+          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+            {t('queries.builder.buildActive', { count: steps.length })}
+          </Typography.Text>
+        ) : null}
+      </SectionBar>
+      {open ? (
+        <div data-component="QueryBuilderSteps" style={{ flex: '0 0 auto' }}>
+          {builder.canUseSteps ? (
+            <StepsEditor steps={steps} columns={builder.columns} onChange={builder.setSteps} />
+          ) : (
+            <Typography.Text type="secondary" style={{ fontSize: 12 }} data-component="QueryBuilderStepsJoinedNote">
+              {t('queries.builder.steps.joinedNote')}
+            </Typography.Text>
+          )}
+        </div>
+      ) : null}
+    </>
   );
 }
 
