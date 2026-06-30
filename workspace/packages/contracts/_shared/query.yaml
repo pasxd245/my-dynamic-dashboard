@@ -150,6 +150,46 @@ components:
             the query keeps its copy; re-syncing is the user's choice (R89).
           examples: ["rel_4d7b91ce"]
 
+    AggregateStep:
+      type: object
+      description: |
+        R120 — a TRANSFORM STEP that aggregates the query's resolved rows
+        server-side: `GROUP BY (dimensions) → measures`, the same shape the R119
+        `POST /queries/{id}/aggregate` endpoint carries, but SAVED on the query as
+        reusable shaping (the first "workflow" step). Columns are by EFFECTIVE
+        name. After this step the query's effective columns become the grouped
+        output (dimensions then measures), reflected in `Query.resolvedColumns`.
+        v1 scope: a query carries at most ONE step, kind `aggregate` (chaining of
+        ≥2 typed steps is a later round).
+      required: [kind, dimensions, measures]
+      additionalProperties: false
+      properties:
+        kind:
+          const: aggregate
+          description: The step discriminator. v1 supports only `aggregate`.
+        dimensions:
+          type: array
+          description: GROUP BY columns by effective name (empty = a scalar, one row).
+          items:
+            type: string
+            minLength: 1
+        measures:
+          type: array
+          minItems: 1
+          description: The aggregates to compute, in output order.
+          items:
+            type: object
+            required: [agg]
+            additionalProperties: false
+            properties:
+              col:
+                type: string
+                minLength: 1
+                description: Column to aggregate (effective name). Required for `sum`, omitted for `count`.
+              agg:
+                type: string
+                enum: [sum, count]
+
     QueryDefinition:
       type: object
       description: |
@@ -163,6 +203,11 @@ components:
         joined dataset), not a single dataset. (A single join is just a length-1
         list. The backend normalizes any legacy single `join` to a length-1
         `joins` on read, so responses always carry `joins`.)
+
+        R120 — an optional ordered `steps` list applies TRANSFORMS after the
+        source/join/filter resolve (the "workflow" direction): saved, reusable
+        shaping. Empty/omitted = a plain select query (unchanged). A query with a
+        step exposes its POST-step columns as `resolvedColumns`.
       required: [filters, advanced]
       additionalProperties: false
       properties:
@@ -215,6 +260,17 @@ components:
             `relationshipId`).
           items:
             $ref: "#/components/schemas/JoinStep"
+        steps:
+          type: array
+          description: |
+            R120 — an ordered list of TRANSFORM steps applied AFTER the
+            source/join/filter resolve (saved shaping — the "workflow" direction).
+            Empty/omitted for a plain select query. v1: at most one step, kind
+            `aggregate`; a query with a step exposes its POST-step columns as
+            `resolvedColumns`. Future steps (derive, sort, …) extend the item
+            schema to a `kind`-discriminated union.
+          items:
+            $ref: "#/components/schemas/AggregateStep"
 
     Query:
       type: object

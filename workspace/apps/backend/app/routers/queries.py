@@ -276,16 +276,33 @@ def _to_resolved(c: dict) -> ResolvedColumn:
 def _resolved_columns(
     con: sqlite3.Connection, definition: dict, source_id: str, workspace_id: str
 ) -> list[ResolvedColumn] | None:
-    """The effective columns for a multi-source query (joined or composed); None
-    for a single dataset source, or when the graph no longer resolves (get/list
-    never error — they just omit it). R93 — each carries its leaf provenance."""
+    """The effective columns for a multi-source query (joined or composed) and/or a
+    query with transform steps; None for a plain single-source query, or when the
+    graph/step no longer resolves (get/list never error — they just omit it). R93 —
+    each carries its leaf provenance (a step's derived columns carry none). R120 —
+    a query with `steps` exposes its POST-step output columns here."""
     chain = _chain_of(definition)
-    if not _is_multi_source(source_id, chain):
+    steps = definition.get("steps") or []
+    multi = _is_multi_source(source_id, chain)
+    if not multi and not steps:
         return None
-    payload, reason = _resolve_chain(con, source_id, chain, _rels_of(definition), workspace_id)
-    if reason is not None:
-        return None
-    return [_to_resolved(c) for c in payload["effective"]]
+    if multi:
+        payload, reason = _resolve_chain(con, source_id, chain, _rels_of(definition), workspace_id)
+        if reason is not None:
+            return None
+        base = payload["effective"]
+    else:
+        ds = con.execute(_SELECT_DATASET, (source_id,)).fetchone()
+        if ds is None or ds["workspace_id"] != workspace_id:
+            return None
+        base = json.loads(ds["columns_json"])
+    if steps:
+        out = _step_output_columns(steps, base)
+        if out is None:
+            return None
+        # A step's output columns are derived (no single leaf owner) → no provenance.
+        return [ResolvedColumn(name=c["name"], dtype=c["dtype"]) for c in out]
+    return [_to_resolved(c) for c in base]
 
 
 def _execute_chain(
@@ -408,6 +425,8 @@ def create_query(id: WsIdPath, body: CreateQueryBody) -> JSONResponse:  # noqa: 
     # Validate every atom against the relevant column space → 422 on a bad atom
     # (you cannot persist a query that can't run).
     build_definition_predicates(definition_dict, plan["columns"])
+    # R120 — transform steps validate against the same (pre-step) column space → 422.
+    _step_plan(definition_dict.get("steps") or [], plan["columns"])
 
     qid = _new_qr_id()
     created_at = _now_iso()
@@ -514,12 +533,22 @@ def run_query(  # noqa: A002
         return JSONResponse(status_code=status.HTTP_409_CONFLICT, content=ApiErrorRelationshipStale().model_dump())
     try:
         filters, advanced = build_definition_predicates(definition, plan["columns"])
+        step_plan = _step_plan(definition.get("steps") or [], plan["columns"])
     except HTTPException as exc:
         if exc.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY:
             return JSONResponse(status_code=status.HTTP_409_CONFLICT, content=ApiErrorQueryStale().model_dump())
         raise
 
     q = definition.get("q")
+    # R120 — a query with a transform step returns its SHAPED (grouped) rows: the
+    # step runs over the resolved+filtered relation, server-side over the whole
+    # result (one row per group), so paging/`unpaged` don't apply (the result is
+    # small by construction). A stepless query takes the existing paged path.
+    if step_plan is not None:
+        rows = _run_step(plan, q, filters, advanced, step_plan)
+        body = RowsPage(rows=rows, page=1, pageSize=len(rows), total=len(rows))
+        return JSONResponse(status_code=status.HTTP_200_OK, content=body.model_dump())
+
     if plan["kind"] == "join":
         rows, total = _execute_chain(
             plan["payload"], page=eff_page, page_size=eff_page_size, q=q, filters=filters, advanced=advanced
@@ -554,33 +583,114 @@ def _agg_422(loc: list[str], msg: str) -> HTTPException:
     )
 
 
-def _validate_aggregate_spec(
-    body: AggregateBody, columns: list[dict]
+def _validate_measure(m: dict, by_name: dict, loc: list) -> tuple[str | None, str]:
+    """Validate one measure → its ``(col, agg)`` plan entry, or 422. ``count`` omits
+    ``col``; ``sum`` needs a numeric ``col``."""
+    agg, col_name = m.get("agg"), m.get("col")
+    if agg != "sum":  # count
+        if col_name is not None:
+            raise _agg_422([*loc, "col"], "measure_col_forbidden: agg 'count' must omit col")
+        return (None, "count")
+    if col_name is None:
+        raise _agg_422([*loc, "col"], "measure_col_required: agg 'sum' requires col")
+    col = by_name.get(col_name)
+    if col is None:
+        raise _agg_422([*loc, "col"], f"unknown_column: {col_name!r} is not a column of this query")
+    if col["dtype"] not in _NUMERIC_DTYPES:
+        raise _agg_422([*loc, "col"], f"measure_not_numeric: {col_name!r} is {col['dtype']}, not numeric")
+    return (col_name, "sum")
+
+
+def _validate_aggregate(
+    dimensions: list[str], measures: list[dict], columns: list[dict], loc: list
 ) -> list[tuple[str | None, str]]:
-    """Re-check the aggregate spec against the query's EFFECTIVE columns (the
-    only place the column space is known) → 422 on a bad reference. Returns the
-    ordered ``(col, agg)`` measure plan. Mirrors the dashboard Widget rule: a
-    ``sum`` needs a numeric ``col``, a ``count`` omits it."""
+    """Re-check an aggregate spec (`dimensions` + `measures`) against the EFFECTIVE
+    columns → 422 (with `loc`-rooted detail) on a bad reference. Returns the ordered
+    ``(col, agg)`` measure plan. Shared by the R119 ``/aggregate`` endpoint and the
+    R120 aggregate STEP. `measures` are dicts (`{col?, agg}`) so it serves both a
+    request body (model-dumped) and a saved step definition."""
     by_name = {c["name"]: c for c in columns}
-    for i, d in enumerate(body.dimensions):
+    for i, d in enumerate(dimensions):
         if d not in by_name:
-            raise _agg_422(["body", "dimensions", i], f"unknown_column: {d!r} is not a column of this query")
-    measures: list[tuple[str | None, str]] = []
-    for i, m in enumerate(body.measures):
-        if m.agg == "sum":
-            if m.col is None:
-                raise _agg_422(["body", "measures", i, "col"], "measure_col_required: agg 'sum' requires col")
-            col = by_name.get(m.col)
-            if col is None:
-                raise _agg_422(["body", "measures", i, "col"], f"unknown_column: {m.col!r} is not a column of this query")
-            if col["dtype"] not in _NUMERIC_DTYPES:
-                raise _agg_422(["body", "measures", i, "col"], f"measure_not_numeric: {m.col!r} is {col['dtype']}, not numeric")
-            measures.append((m.col, "sum"))
-        else:  # count
-            if m.col is not None:
-                raise _agg_422(["body", "measures", i, "col"], "measure_col_forbidden: agg 'count' must omit col")
-            measures.append((None, "count"))
-    return measures
+            raise _agg_422([*loc, "dimensions", i], f"unknown_column: {d!r} is not a column of this query")
+    return [_validate_measure(m, by_name, [*loc, "measures", i]) for i, m in enumerate(measures)]
+
+
+def _aggregate_output_columns(
+    dimensions: list[str], measures_plan: list[tuple[str | None, str]], columns: list[dict]
+) -> list[dict]:
+    """The output columns of an aggregate (dimensions then measures): a dimension
+    keeps its source dtype; a ``sum`` keeps the measure's numeric dtype; a ``count``
+    is ``integer`` named ``count``."""
+    by_name = {c["name"]: c for c in columns}
+    out = [{"name": d, "dtype": by_name[d]["dtype"]} for d in dimensions]
+    for col, agg in measures_plan:
+        out.append({"name": "count", "dtype": "integer"} if agg == "count" else {"name": col, "dtype": by_name[col]["dtype"]})
+    return out
+
+
+def _build_inner_relation(plan: dict, q: str | None, filters: list, advanced: list) -> tuple[str, list]:
+    """The typed inner relation (filters applied, no pagination) for a resolved
+    plan — a joined CTE or a single-source ``read_parquet`` — shared by the
+    ``/aggregate`` endpoint and the aggregate-step run path."""
+    if plan["kind"] == "join":
+        payload = plan["payload"]
+        return build_joined_select(
+            payload["relations"],
+            join_keys=payload["join_keys"],
+            select_exprs=payload["select_exprs"],
+            effective_columns=[c["name"] for c in payload["effective"]],
+            q=q,
+            filters=filters,
+            advanced=advanced,
+        )
+    return build_single_inner(
+        _parquet_of(plan["ds"]), [c["name"] for c in plan["columns"]], q=q, filters=filters, advanced=advanced
+    )
+
+
+def _step_plan(
+    steps: list[dict], columns: list[dict]
+) -> tuple[dict, list[tuple[str | None, str]], list[dict]] | None:
+    """Validate a query's transform `steps` against its PRE-step effective columns
+    and return ``(step, measures_plan, output_columns)`` — or ``None`` when there
+    are no steps. Raises 422 on a bad step (callers map it: create/update → 422,
+    run/preview → 409 query_stale, read → None). v1 cap: at most ONE step, kind
+    ``aggregate`` (chaining of ≥2 typed steps is a later round)."""
+    if not steps:
+        return None
+    if len(steps) > 1:
+        raise _agg_422(["body", "definition", "steps"], "too_many_steps: v1 supports at most one transform step")
+    step = steps[0]
+    if step.get("kind") != "aggregate":
+        raise _agg_422(["body", "definition", "steps", 0, "kind"], f"unknown_step_kind: {step.get('kind')!r}")
+    dims = step.get("dimensions", [])
+    measures_plan = _validate_aggregate(dims, step.get("measures", []), columns, ["body", "definition", "steps", 0])
+    return step, measures_plan, _aggregate_output_columns(dims, measures_plan, columns)
+
+
+def _step_output_columns(steps: list[dict], columns: list[dict]) -> list[dict] | None:
+    """Read-path helper: the POST-step output columns, or ``None`` if there are no
+    steps OR a step no longer validates (a drifted saved query — get/list never
+    error, they just omit `resolvedColumns`)."""
+    try:
+        plan = _step_plan(steps, columns)
+    except HTTPException:
+        return None
+    return plan[2] if plan else None
+
+
+def _run_step(
+    plan: dict, q: str | None, filters: list, advanced: list, step_plan: tuple[dict, list, list]
+) -> list[list[str | None]]:
+    """Execute a query's transform step over its resolved + filtered relation → the
+    shaped (grouped) rows. v1: the single aggregate step (no runtime dashboard
+    filters — those are a widget-binding concern, not a saved-shaping one)."""
+    step, measures_plan, _out = step_plan
+    inner_sql, inner_params = _build_inner_relation(plan, q, filters, advanced)
+    return query_aggregate_rows(
+        inner_sql, inner_params, dimensions=step["dimensions"], measures=measures_plan, dashboard_filters=[]
+    )
 
 
 @router.post("/queries/{id}/aggregate")
@@ -616,7 +726,7 @@ def aggregate_query(id: QueryIdPath, body: AggregateBody) -> JSONResponse:  # no
 
     # Validate the aggregate spec against the effective columns (422) BEFORE the
     # predicate re-check, so a malformed request 422s regardless of query state.
-    measures = _validate_aggregate_spec(body, plan["columns"])
+    measures = _validate_aggregate(body.dimensions, [m.model_dump() for m in body.measures], plan["columns"], ["body"])
 
     try:
         filters, advanced = build_definition_predicates(definition, plan["columns"])
@@ -629,27 +739,7 @@ def aggregate_query(id: QueryIdPath, body: AggregateBody) -> JSONResponse:  # no
     col_names = {c["name"] for c in plan["columns"]}
     dashboard_filters = [(f.column, f.values) for f in body.filters if f.column in col_names]
 
-    q = definition.get("q")
-    if plan["kind"] == "join":
-        payload = plan["payload"]
-        inner_sql, inner_params = build_joined_select(
-            payload["relations"],
-            join_keys=payload["join_keys"],
-            select_exprs=payload["select_exprs"],
-            effective_columns=[c["name"] for c in payload["effective"]],
-            q=q,
-            filters=filters,
-            advanced=advanced,
-        )
-    else:
-        inner_sql, inner_params = build_single_inner(
-            _parquet_of(plan["ds"]),
-            [c["name"] for c in plan["columns"]],
-            q=q,
-            filters=filters,
-            advanced=advanced,
-        )
-
+    inner_sql, inner_params = _build_inner_relation(plan, definition.get("q"), filters, advanced)
     rows = query_aggregate_rows(
         inner_sql,
         inner_params,
@@ -657,15 +747,7 @@ def aggregate_query(id: QueryIdPath, body: AggregateBody) -> JSONResponse:  # no
         measures=measures,
         dashboard_filters=dashboard_filters,
     )
-
-    by_name = {c["name"]: c for c in plan["columns"]}
-    out_columns = [{"name": d, "dtype": by_name[d]["dtype"]} for d in body.dimensions]
-    for col, agg in measures:
-        if agg == "count":
-            out_columns.append({"name": "count", "dtype": "integer"})
-        else:
-            out_columns.append({"name": col, "dtype": by_name[col]["dtype"]})
-
+    out_columns = _aggregate_output_columns(body.dimensions, measures, plan["columns"])
     content = {"columns": out_columns, "rows": rows, "total": len(rows)}
     return JSONResponse(status_code=status.HTTP_200_OK, content=content)
 
@@ -720,12 +802,21 @@ def preview_query(  # noqa: A002
         )
     try:
         filters, advanced = build_definition_predicates(definition, plan["columns"])
+        step_plan = _step_plan(definition.get("steps") or [], plan["columns"])
     except HTTPException as exc:
         if exc.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY:
             return JSONResponse(status_code=status.HTTP_409_CONFLICT, content=ApiErrorQueryStale().model_dump())
         raise
 
     q = definition.get("q")
+    # R120 — a stepped preview returns the SHAPED rows + the post-step columns as
+    # `resolvedColumns` (the builder's headers for the transformed result).
+    if step_plan is not None:
+        rows = _run_step(plan, q, filters, advanced, step_plan)
+        resolved = [{"name": c["name"], "dtype": c["dtype"]} for c in step_plan[2]]
+        content = {"rows": rows, "page": 1, "pageSize": len(rows), "total": len(rows), "resolvedColumns": resolved}
+        return JSONResponse(status_code=status.HTTP_200_OK, content=content)
+
     if plan["kind"] == "join":
         rows, total = _execute_chain(
             plan["payload"], page=page, page_size=page_size, q=q, filters=filters, advanced=advanced
@@ -780,6 +871,7 @@ def update_query(id: QueryIdPath, body: UpdateQueryBody) -> JSONResponse:  # noq
     # Validate every atom against the relevant column space → 422 on a bad atom
     # (you cannot save a definition that can't run) — the create-time semantics.
     build_definition_predicates(definition, plan["columns"])
+    _step_plan(definition.get("steps") or [], plan["columns"])  # R120 — steps validate too
 
     definition_json = json.dumps(body.definition.model_dump())
     with get_conn() as con:

@@ -247,12 +247,38 @@ class JoinStep(BaseModel):
     type: Literal["inner", "left", "right", "full"] = "inner"  # R75 — inner default + outer joins
 
 
+class AggregateMeasure(BaseModel):
+    """One aggregate. `agg` mirrors the dashboard Widget's `Agg`
+    (`sum` | `count`); `sum` requires a numeric `col`, `count` omits it. Shared by
+    the R119 `AggregateBody` (the stateless endpoint) and the R120 `AggregateStep`
+    (saved query shaping)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    col: Annotated[str, Field(min_length=1)] | None = None
+    agg: Literal["sum", "count"]
+
+
+class AggregateStep(BaseModel):
+    """R120 — a saved TRANSFORM step that aggregates the query's resolved rows
+    (`GROUP BY (dimensions) → measures`). The first "workflow" step; columns are
+    by EFFECTIVE name. After it, the query's effective columns become the grouped
+    output. Mirrors `_shared/query.yaml#/AggregateStep`."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["aggregate"]
+    dimensions: list[Annotated[str, Field(min_length=1)]]
+    measures: Annotated[list[AggregateMeasure], Field(min_length=1)]
+
+
 class QueryDefinition(BaseModel):
     """The saved predicate state: chip filters + advanced DNF + `?q=`. R71 added
     an optional join; R73 generalizes it to `joins`, an ordered LINEAR CHAIN of
     hops: when non-empty the Query is multi-source and a FilterAtom's `col`
     indexes the EFFECTIVE column space (the source dataset ++ every chained
-    dataset). A single join is just a length-1 chain."""
+    dataset). A single join is just a length-1 chain. R120 — an optional ordered
+    `steps` list applies TRANSFORMS after the resolve (saved shaping)."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -263,6 +289,10 @@ class QueryDefinition(BaseModel):
     # references one by `queryRelId`. Seeded by copy-on-pick or (R89) free-form.
     relationships: list[QueryRelationship] = []
     joins: list[JoinStep] = []
+    # R120 — ordered transform steps applied after source/join/filter resolve. v1:
+    # at most one, kind `aggregate` (the router enforces the cap + per-step
+    # column validation). Empty = a plain select query (unchanged).
+    steps: list[AggregateStep] = []
 
     @model_validator(mode="before")
     @classmethod
@@ -346,16 +376,6 @@ class ApiErrorQueryStale(BaseModel):
 # a FilterAtom's index. Per-field shape rules (sum needs col / count omits it,
 # numeric col) are re-checked in the router against the query's effective
 # columns (a 422), since the column space is only known there.
-
-
-class AggregateMeasure(BaseModel):
-    """One aggregate. `agg` mirrors the dashboard Widget's `Agg`
-    (`sum` | `count`); `sum` requires a numeric `col`, `count` omits it."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    col: Annotated[str, Field(min_length=1)] | None = None
-    agg: Literal["sum", "count"]
 
 
 class AggregateFilter(BaseModel):

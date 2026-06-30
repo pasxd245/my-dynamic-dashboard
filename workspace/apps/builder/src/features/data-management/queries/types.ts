@@ -72,6 +72,19 @@ export type QueryDefinition = {
    *  entry via `queryRelId` (R88; was a governed `relationshipId`). Omitted/empty
    *  for a single-source Query. Mirrors `_shared/query.yaml#/QueryDefinition.joins`. */
   joins?: readonly JoinStep[];
+  /** R120 — ordered TRANSFORM steps applied after source/join/filter resolve
+   *  (saved shaping — the "workflow" direction). Empty/omitted = a plain select
+   *  query. v1: at most one, kind `aggregate`; a stepped query's `resolvedColumns`
+   *  are its POST-step output. Mirrors `_shared/query.yaml#/QueryDefinition.steps`. */
+  steps?: readonly AggregateStep[];
+};
+
+/** R120 — a saved aggregate transform step on a query (`GROUP BY → measures`).
+ *  Mirrors `_shared/query.yaml#/AggregateStep`. */
+export type AggregateStep = {
+  kind: 'aggregate';
+  dimensions: readonly string[];
+  measures: readonly AggregateMeasure[];
 };
 
 /** A single effective column of a Query result (name + dtype). For a join,
