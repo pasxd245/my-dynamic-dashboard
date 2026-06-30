@@ -11,7 +11,7 @@
 // for the real API; this module is the contract-faithful boundary type used by
 // the API client + the MSW handlers.
 
-import type { ChartType, Agg, WidgetSpan, Dashboard, Widget } from './types';
+import type { ChartType, Agg, NumberFormat, WidgetSpan, Dashboard, Widget } from './types';
 
 /** A widget as carried on the wire. Same fields as the FE-state `Widget`
  *  (./types.ts) — columns by logical NAME, `dsh_`/`wdg_`/`qr_` id shapes. */
@@ -26,6 +26,8 @@ export type WidgetWire = {
   seriesCol?: string;
   /** R115 — gauge only: the target/max (a literal config number). */
   target?: number;
+  /** R116 — per-widget number format (presentation; default `plain`). */
+  numberFormat?: NumberFormat;
   /** Required when `agg === 'sum'`; omitted for `count`. */
   measureCol?: string;
   /** R112 — combo only: the second measure, drawn as a line. */

@@ -35,6 +35,7 @@ a recurring client-side computation is a candidate to **push down** into a query
 | **Declarative widget-config** (meta) | R109–R113 builder | n/a | the hand-branched builder doesn't scale with chart variety → a per-chart field-schema and/or the `advancedOptions` JSON escape hatch (the config MODEL wants a declarative shape) |
 | **Dense 2-D crosstab** (full x × y grid) | R114 heatmap | yes (`aggregateMatrix`) | strongest `GROUP BY (x, y)` / server-pivot pull — a full matrix over capped rows is both wrong and wasteful. Also PROVED the lib-agnostic seam (ECharts ⇄ recharts, no model change) |
 | **Literal config (target/threshold)** | R115 gauge | n/a (not data) | first NON-column config field; widget config mixes data-bindings + params → typed field-schema (declarative); a future "goals" dataset could source targets |
+| **Presentation options** (number format) | R116 | n/a (client-only) | a useful NEGATIVE: pure-display config has no data-layer pull and should stay client-side. For #1 it's a typed select; free-form JSON options belong to #2/#3 |
 
 ---
 
@@ -165,3 +166,18 @@ literal `target`/max, rendered by a lazy `GaugeView` (ECharts, shares the echart
    declarative-config meta-finding (the builder needs a typed field-schema, not just column pickers); and a
    minor data-layer hint — targets/goals may eventually want their own **"goals" dataset** rather than a
    hardcoded literal.
+
+### R116 — per-widget number format (display-options seed) ✅
+
+**Built:** `numberFormat: 'plain' | 'compact'` — a presentation-only option, applied to the headline-number
+widgets (stat, gauge). Optional field across contract/backend/FE; builder gets a "Number format" select.
+
+**What it demanded / showed:**
+
+1. **Presentation config is its own axis.** `numberFormat` binds to no data — like `target` (R115) it's a
+   display param. Two flat presentation fields now exist (`target`, `numberFormat`) → the **declarative
+   display-options bag** the meta-finding predicted is materialising. **Decision implied:** for #1, this is a
+   **typed select** (no raw JSON on the #1 path); a free-form `advancedOptions` JSON belongs to #2 (AI-
+   authored) / #3 (power) — exactly the R108-inspector trajectory.
+2. **No data-layer pull.** Formatting is purely client-side and *should* stay there — a useful negative
+   result: not every widget option implies a data-layer change. Helps bound the synthesis.

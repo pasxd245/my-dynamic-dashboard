@@ -6,20 +6,24 @@
 import * as echarts from 'echarts';
 import { useEffect, useRef } from 'react';
 
-const numberFmt = new Intl.NumberFormat();
+const plainFmt = new Intl.NumberFormat();
+const compactFmt = new Intl.NumberFormat(undefined, { notation: 'compact', maximumFractionDigits: 1 });
 
-/** Render a scalar value as an ECharts gauge against `max` (the target). */
+/** Render a scalar value as an ECharts gauge against `max` (the target).
+ *  R116 — `compact` switches the number format (1.2K vs 1,234). */
 export default function GaugeView({
   value,
   max,
   label,
   palette,
-}: Readonly<{ value: number; max: number; label: string; palette: string[] }>) {
+  compact = false,
+}: Readonly<{ value: number; max: number; label: string; palette: string[]; compact?: boolean }>) {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const el = ref.current;
     if (!el) return undefined;
+    const numberFmt = compact ? compactFmt : plainFmt;
     const chart = echarts.init(el);
     chart.setOption({
       series: [
@@ -48,7 +52,7 @@ export default function GaugeView({
       ro.disconnect();
       chart.dispose();
     };
-  }, [value, max, label, palette]);
+  }, [value, max, label, palette, compact]);
 
   return <div ref={ref} style={{ width: '100%', height: '100%' }} data-component="GaugeView" />;
 }

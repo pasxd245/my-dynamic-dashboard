@@ -418,6 +418,7 @@ SlugStr = Annotated[
 ]
 ChartType = Literal["bar", "pie", "line", "stat", "combo", "scatter", "heatmap", "gauge"]
 Agg = Literal["sum", "count"]
+NumberFormat = Literal["plain", "compact"]
 
 
 class Widget(BaseModel):
@@ -443,6 +444,8 @@ class Widget(BaseModel):
     measureCol2: Annotated[str, Field(min_length=1)] | None = None  # noqa: N815
     # R115: gauge only — the target/max the value is shown against (a literal).
     target: float | None = None
+    # R116: per-widget number format (presentation; default plain when absent).
+    numberFormat: NumberFormat | None = None  # noqa: N815
     agg: Agg
     span: Annotated[int, Field(ge=1, le=3)]
 

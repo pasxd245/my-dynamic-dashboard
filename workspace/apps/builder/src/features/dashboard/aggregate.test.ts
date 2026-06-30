@@ -92,6 +92,8 @@ describe('aggregateByGroupSeries', () => {
   });
 });
 
+// (R116 numberFormat is covered in widget-config.test.ts — pure presentation.)
+
 // R110 — KPI scalar over all rows.
 describe('aggregateScalar', () => {
   const rows = [

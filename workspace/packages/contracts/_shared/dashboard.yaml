@@ -120,6 +120,14 @@ components:
             first widget field that isn't a column reference. Absent for every
             other chart kind; absent on a gauge → the gauge maxes at its value.
           examples: [100, 1000000]
+        numberFormat:
+          type: string
+          enum: [plain, compact]
+          description: |
+            R116 — OPTIONAL per-widget number format (presentation, not data):
+            `plain` (1,234) or `compact` (1.2K). Absent → `plain`. The first
+            display-only option; the seed of a wider display-options bag.
+          examples: ["compact"]
         agg:
           type: string
           enum: [sum, count]

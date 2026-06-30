@@ -47,6 +47,11 @@ describe('draftToConfig', () => {
     expect('target' in config).toBe(false);
   });
 
+  it('carries numberFormat when set, omits the plain default', () => {
+    expect(draftToConfig({ ...sumDraft, numberFormat: 'compact' }).numberFormat).toBe('compact');
+    expect('numberFormat' in draftToConfig(sumDraft)).toBe(false);
+  });
+
   it('drops measureCol for a count aggregation (meaningless there)', () => {
     const config = draftToConfig({ ...sumDraft, agg: 'count' });
     expect('measureCol' in config).toBe(false);

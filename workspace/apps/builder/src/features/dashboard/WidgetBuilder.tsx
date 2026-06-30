@@ -11,7 +11,7 @@ import { useTranslation } from 'react-i18next';
 import { isNumeric, pickWidgetDefaults } from './aggregate';
 import { useQueriesQuery } from '@/features/data-management/queries/hooks';
 import { useWidgetData } from './hooks';
-import type { Agg, ChartType, Widget, WidgetSpan } from './types';
+import type { Agg, ChartType, NumberFormat, Widget, WidgetSpan } from './types';
 import { WidgetView } from './WidgetView';
 
 export type Draft = {
@@ -26,6 +26,8 @@ export type Draft = {
   measureCol2?: string;
   /** R115 — gauge only: the literal target/max. */
   target?: number;
+  /** R116 — per-widget number format (presentation). */
+  numberFormat?: NumberFormat;
   agg: Agg;
   /** Width carried through the builder; arranged on the dashboard (default 1). */
   span: WidgetSpan;
@@ -62,6 +64,8 @@ export function draftToConfig(draft: Draft): Omit<Widget, 'id'> {
     ...(twoMeasures(draft) ? { measureCol2: draft.measureCol2 } : {}),
     // R115 — gauge's literal target/max.
     ...(draft.chartType === 'gauge' && draft.target != null ? { target: draft.target } : {}),
+    // R116 — per-widget number format (omit the `plain` default).
+    ...(draft.numberFormat ? { numberFormat: draft.numberFormat } : {}),
     agg: draft.agg,
     span: draft.span,
   };
@@ -298,6 +302,18 @@ export function WidgetBuilder({ open, workspaceId, initial, onSubmit, onCancel }
                 />
               </Form.Item>
             ) : null}
+
+            <Form.Item label={t('dashboard.builder.numberFormat')}>
+              <Select<NumberFormat>
+                value={draft.numberFormat ?? 'plain'}
+                onChange={(numberFormat) => setDraft((p) => ({ ...p, numberFormat }))}
+                options={[
+                  { value: 'plain', label: t('dashboard.builder.fmtPlain') },
+                  { value: 'compact', label: t('dashboard.builder.fmtCompact') },
+                ]}
+                data-component="WidgetBuilderNumberFormat"
+              />
+            </Form.Item>
 
             <Form.Item label={t('dashboard.builder.width')} help={t('dashboard.builder.widthHelp')}>
               <Segmented<WidgetSpan>

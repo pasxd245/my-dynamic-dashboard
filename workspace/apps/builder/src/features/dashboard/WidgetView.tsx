@@ -168,10 +168,10 @@ function LineView({ data, valueName, palette }: Readonly<{ data: Datum[]; valueN
   );
 }
 
-function StatView({ value, label }: Readonly<{ value: number; label: string }>) {
+function StatView({ value, label, fmt }: Readonly<{ value: number; label: string; fmt: Intl.NumberFormat }>) {
   return (
     <div style={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center', padding: 8 }}>
-      <Statistic title={label} value={value} formatter={(v) => numberFmt.format(Number(v))} />
+      <Statistic title={label} value={value} formatter={(v) => fmt.format(Number(v))} />
     </div>
   );
 }
@@ -294,6 +294,9 @@ export function WidgetView({ widget, extra, filters }: WidgetViewProps) {
     useWidgetChartData(widget, filters);
 
   const valueName = widget.agg === 'count' ? t('dashboard.builder.countLabel') : (widget.measureCol ?? '');
+  // R116 — per-widget number format (presentation). Applied to the headline
+  // value displays (stat, gauge); charts keep their compact-axis defaults.
+  const fmt = widget.numberFormat === 'compact' ? compactFmt : numberFmt;
   const ariaKey = {
     bar: 'dashboard.ariaBar',
     pie: 'dashboard.ariaPie',
@@ -342,7 +345,7 @@ export function WidgetView({ widget, extra, filters }: WidgetViewProps) {
       warning={capWarning}
     >
       <ChartFigure label={t(ariaKey, { title: widget.title })}>
-        {widget.chartType === 'stat' && <StatView value={statValue ?? 0} label={valueName} />}
+        {widget.chartType === 'stat' && <StatView value={statValue ?? 0} label={valueName} fmt={fmt} />}
         {widget.chartType === 'combo' && comboData && (
           <ComboView data={comboData} name1={widget.measureCol ?? ''} name2={widget.measureCol2 ?? ''} palette={palette} />
         )}
@@ -356,7 +359,7 @@ export function WidgetView({ widget, extra, filters }: WidgetViewProps) {
         )}
         {widget.chartType === 'gauge' && statValue !== null && (
           <Suspense fallback={<Spin />}>
-            <GaugeView value={statValue} max={widget.target ?? 0} label={valueName} palette={palette} />
+            <GaugeView value={statValue} max={widget.target ?? 0} label={valueName} palette={palette} compact={widget.numberFormat === 'compact'} />
           </Suspense>
         )}
         {widget.chartType === 'pie' && <PieView data={chartData} palette={palette} />}

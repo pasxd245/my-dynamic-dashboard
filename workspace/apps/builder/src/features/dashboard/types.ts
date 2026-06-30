@@ -10,6 +10,10 @@ export type ChartType = 'bar' | 'pie' | 'line' | 'stat' | 'combo' | 'scatter' | 
 /** sum needs a numeric `measureCol`; count tallies rows (no measure). */
 export type Agg = 'sum' | 'count';
 
+/** R116 — per-widget number formatting (a presentation option, not data):
+ *  `plain` = 1,234 · `compact` = 1.2K. The seed of a wider display-options bag. */
+export type NumberFormat = 'plain' | 'compact';
+
 /** How many columns (of a 3-column grid) a widget occupies: 1 = third,
  *  2 = two-thirds, 3 = full row. A per-widget size (Tableau-style arranging). */
 export type WidgetSpan = 1 | 2 | 3;
@@ -31,6 +35,8 @@ export type Widget = {
   /** R115: gauge only — the target/max the value is shown against (a literal
    *  config number, not a data column). */
   target?: number;
+  /** R116: per-widget number format (presentation; default `plain`). */
+  numberFormat?: NumberFormat;
   /** The numeric column summed when `agg === 'sum'`; omitted for `count`. */
   measureCol?: string;
   /** Second numeric column. R112 combo: the line measure (summed). R113
