@@ -1,8 +1,8 @@
 # Round 119: Plan gate — data-layer server-side aggregate (GROUP BY)
 
-**Status**: Review
+**Status**: Complete
 **Date started**: 2026-06-30
-**Date completed**:
+**Date completed**: 2026-06-30
 **Flow**: **DCFBI** — no-UI / backend+contract round; set via flow-selector (recorded in the Do log).
 
 > **Scope note (2026-06-30):** originally drafted as a Design-only "Plan gate," now run as **one full
