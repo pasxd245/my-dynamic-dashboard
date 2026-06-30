@@ -140,6 +140,43 @@ export type PreviewQueryRequest = {
   definition: QueryDefinition;
 };
 
+/** R119 — one aggregate in a `POST /queries/{id}/aggregate` request. `agg`
+ *  mirrors the Widget's `Agg`; `sum` needs a numeric `col`, `count` omits it.
+ *  Mirrors `_shared/query.yaml#/AggregateRequest`. */
+export type AggregateMeasure = {
+  col?: string;
+  agg: 'sum' | 'count';
+};
+
+/** R119 — an R103 dashboard filter pushed server-side: keep rows whose `column`
+ *  cell is one of `values`. `null` matches a NULL/empty cell (the `(blank)`
+ *  option). By effective-column NAME. */
+export type AggregateFilter = {
+  column: string;
+  values: readonly (string | null)[];
+};
+
+/** R119 — POST /queries/{id}/aggregate request body: a stateless server-side
+ *  GROUP BY over a saved query. Columns are referenced by effective NAME.
+ *  R119 scope: 0-or-1 `dimensions` + exactly 1 `measures`. Mirrors
+ *  `_shared/query.yaml#/AggregateRequest`. */
+export type AggregateRequest = {
+  /** GROUP BY columns by effective name; empty = a scalar (one row). */
+  dimensions: readonly string[];
+  measures: readonly AggregateMeasure[];
+  /** R103 dashboard filters; omitted/empty when none active. */
+  filters?: readonly AggregateFilter[];
+};
+
+/** R119 — the grouped result: output columns (dimensions then measures) +
+ *  stringified rows + group count (no row cap). Mirrors
+ *  `queries/aggregate.contract.yaml`. */
+export type AggregateResult = {
+  columns: readonly { name: string; dtype: ResolvedColumn['dtype'] }[];
+  rows: readonly (readonly (string | null)[])[];
+  total: number;
+};
+
 /** R72 — the preview run result: the same `RowsPage` shape as a saved run,
  *  plus the server-computed `resolvedColumns` when the working copy joins
  *  (the builder needs the combined headers to render the preview table). */

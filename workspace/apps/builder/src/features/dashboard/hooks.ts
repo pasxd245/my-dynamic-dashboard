@@ -16,6 +16,7 @@ import { queriesApi } from '@/api/queriesApi';
 import { useQueriesQuery } from '@/features/data-management/queries/hooks';
 import { useWorkspacesQuery } from '@/features/data-management/workspaces/hooks';
 import { distinctValues, isNumeric, type DataColumn } from './aggregate';
+import type { AggregateRequest } from '@/features/data-management/queries/types';
 import type { Dashboard } from './types';
 import { wireToDashboard, type CreateDashboardRequest, type UpdateDashboardRequest } from './wire';
 
@@ -84,11 +85,15 @@ function widgetDataKey(queryId: string | undefined) {
   return ['dashboard-widget-data', queryId] as const;
 }
 
-export function useWidgetData(queryId: string | undefined): WidgetData {
+export function useWidgetData(queryId: string | undefined, enabled = true): WidgetData {
+  // R119 — `enabled` lets an aggregating widget (bar/pie/line/stat) SKIP the raw
+  // fetch: it binds to the server aggregate instead, so it never pulls (capped)
+  // rows. The filter-options drawer still calls this with the default `enabled`,
+  // so the raw rows are fetched lazily only when a filter drawer opens.
   const q = useQuery({
     queryKey: widgetDataKey(queryId),
     queryFn: () => fetchWidgetData(queryId as string),
-    enabled: typeof queryId === 'string' && queryId.length > 0,
+    enabled: enabled && typeof queryId === 'string' && queryId.length > 0,
   });
   return {
     columns: q.data?.columns ?? [],
@@ -100,6 +105,36 @@ export function useWidgetData(queryId: string | undefined): WidgetData {
     refetch: () => {
       q.refetch().catch(() => undefined);
     },
+  };
+}
+
+/** R119 — one aggregating widget's server-computed GROUP BY result. `enabled`
+ *  gates the fetch (so a non-aggregating widget doesn't call the endpoint). The
+ *  result is small (one row per group) — no cap, so totals are correct. */
+export type WidgetAggregate = {
+  columns: readonly DataColumn[];
+  rows: readonly (readonly (string | null)[])[];
+  total: number;
+  isLoading: boolean;
+  isError: boolean;
+};
+
+export function useWidgetAggregate(
+  queryId: string | undefined,
+  body: AggregateRequest,
+  enabled: boolean,
+): WidgetAggregate {
+  const q = useQuery({
+    queryKey: ['dashboard-widget-aggregate', queryId, body] as const,
+    queryFn: () => queriesApi.aggregate(queryId as string, body),
+    enabled: enabled && typeof queryId === 'string' && queryId.length > 0,
+  });
+  return {
+    columns: q.data?.columns ?? [],
+    rows: q.data?.rows ?? [],
+    total: q.data?.total ?? 0,
+    isLoading: q.isLoading,
+    isError: q.isError,
   };
 }
 

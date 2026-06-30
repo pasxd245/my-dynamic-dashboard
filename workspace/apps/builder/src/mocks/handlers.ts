@@ -17,16 +17,14 @@ import { http, HttpResponse } from 'msw';
 import { OPS_BY_DTYPE, type FilterPredicate, type Operator } from '@/features/data-management/datasets/filters/types';
 import type { Column } from '@/features/data-management/datasets/types';
 import type {
+  AggregateRequest,
   CreateQueryRequest,
   PreviewQueryRequest,
   QueryDefinition,
   UpdateQueryRequest,
 } from '@/features/data-management/queries/types';
 import type { CreateRelationshipRequest } from '@/features/data-management/relationships/types';
-import type {
-  CreateDashboardRequest,
-  UpdateDashboardRequest,
-} from '@/features/dashboard/wire';
+import type { CreateDashboardRequest, UpdateDashboardRequest } from '@/features/dashboard/wire';
 import { withContractValidation } from './contract-validator';
 import {
   MOCK_CHAIN_COLUMNS,
@@ -183,9 +181,7 @@ function applyFiltersAndQ(
     .map((r) => [...r]);
 }
 
-type AqParseResult =
-  | { ok: true; groups: Pred[][] }
-  | { ok: false; loc: string[]; msg: string };
+type AqParseResult = { ok: true; groups: Pred[][] } | { ok: false; loc: string[]; msg: string };
 
 /** Parse + validate the `aq` JSON param. Mirrors the BE: malformed
  *  JSON / structure → `advanced_query_malformed`; a bad atom → the
@@ -282,6 +278,79 @@ function predFromAtom(atom: FilterPredicate): Pred {
   return p;
 }
 
+// ─── Aggregate helper (R119) ─────────────────────────────────────────
+//
+// Mirrors the backend `query_aggregate_rows`: over the query's matched rows,
+// push the R103 dashboard filters (name-based one-of; `null` matches a
+// NULL/empty cell), GROUP BY the dimensions, and compute the measures
+// (`sum` → COALESCE 0; `count` → row tally). A scalar (no dimensions) returns
+// exactly one row. Output columns are dimensions then measures.
+
+const _aggColIdx = (columns: readonly Column[], name: string): number => {
+  const exact = columns.findIndex((c) => c.name === name);
+  return exact !== -1 ? exact : columns.findIndex((c) => c.name.endsWith(`.${name}`));
+};
+
+function computeAggregate(
+  columns: readonly Column[],
+  rows: readonly (readonly (string | null)[])[],
+  body: AggregateRequest,
+): { columns: { name: string; dtype: Column['dtype'] }[]; rows: (string | null)[][]; total: number } {
+  let matched = rows;
+  for (const f of body.filters ?? []) {
+    const idx = _aggColIdx(columns, f.column);
+    if (idx === -1) continue; // a filter on a column this query lacks is skipped
+    const wantsBlank = f.values.includes(null);
+    const set = new Set(f.values);
+    matched = matched.filter((r) => {
+      const cell = r[idx] ?? null;
+      if (cell === null || cell === '') return wantsBlank;
+      return set.has(cell);
+    });
+  }
+  const dimIdxs = body.dimensions.map((d) => _aggColIdx(columns, d));
+  const measureIdxs = body.measures.map((m) => (m.col ? _aggColIdx(columns, m.col) : -1));
+
+  const measuresFor = (groupRows: readonly (readonly (string | null)[])[]): string[] =>
+    body.measures.map((m, i) => {
+      if (m.agg === 'count') return String(groupRows.length);
+      let sum = 0;
+      for (const r of groupRows) {
+        const n = Number(r[measureIdxs[i]]);
+        sum += Number.isFinite(n) ? n : 0;
+      }
+      return String(sum);
+    });
+
+  let outRows: (string | null)[][];
+  if (body.dimensions.length === 0) {
+    outRows = [measuresFor(matched)]; // scalar — always one row
+  } else {
+    const groups = new Map<string, { keyCells: (string | null)[]; rows: (string | null)[][] }>();
+    for (const r of matched) {
+      const keyCells = dimIdxs.map((i) => r[i] ?? null);
+      const key = keyCells.map((c) => (c === null ? ' ' : c)).join('');
+      const g = groups.get(key) ?? { keyCells, rows: [] };
+      g.rows.push([...r]);
+      groups.set(key, g);
+    }
+    outRows = [...groups.values()].map((g) => [...g.keyCells, ...measuresFor(g.rows)]);
+  }
+
+  const outColumns: { name: string; dtype: Column['dtype'] }[] = body.dimensions.map((d) => ({
+    name: d,
+    dtype: columns[_aggColIdx(columns, d)]?.dtype ?? 'string',
+  }));
+  body.measures.forEach((m, i) => {
+    outColumns.push(
+      m.agg === 'count'
+        ? { name: 'count', dtype: 'integer' }
+        : { name: m.col ?? '', dtype: columns[measureIdxs[i]]?.dtype ?? 'integer' },
+    );
+  });
+  return { columns: outColumns, rows: outRows, total: outRows.length };
+}
+
 // ─── Handlers ────────────────────────────────────────────────────────
 //
 // R45: every JSON-2xx handler is wrapped with `withContractValidation`
@@ -294,9 +363,7 @@ function predFromAtom(atom: FilterPredicate): Pred {
 
 export const handlers = [
   // Workspaces
-  withContractValidation('get', api('/workspaces'), 'listWorkspaces', () =>
-    HttpResponse.json([MOCK_WORKSPACE]),
-  ),
+  withContractValidation('get', api('/workspaces'), 'listWorkspaces', () => HttpResponse.json([MOCK_WORKSPACE])),
   withContractValidation('post', api('/workspaces'), 'createWorkspace', async ({ request }) => {
     const body = (await request.json()) as { name?: string };
     return HttpResponse.json(
@@ -354,18 +421,12 @@ export const handlers = [
 
     const check = validateFiltersOr422(preds, MOCK_DATASET.columns);
     if (!check.ok) {
-      return HttpResponse.json(
-        { detail: [{ loc: check.loc, msg: check.msg, type: 'value_error' }] },
-        { status: 422 },
-      );
+      return HttpResponse.json({ detail: [{ loc: check.loc, msg: check.msg, type: 'value_error' }] }, { status: 422 });
     }
 
     const aq = parseAq(url.searchParams, MOCK_DATASET.columns);
     if (!aq.ok) {
-      return HttpResponse.json(
-        { detail: [{ loc: aq.loc, msg: aq.msg, type: 'value_error' }] },
-        { status: 422 },
-      );
+      return HttpResponse.json({ detail: [{ loc: aq.loc, msg: aq.msg, type: 'value_error' }] }, { status: 422 });
     }
 
     const matched = applyFiltersAndQ(MOCK_ROWS, MOCK_DATASET.columns, preds, q, aq.groups);
@@ -487,6 +548,38 @@ export const handlers = [
     const matched = applyFiltersAndQ(MOCK_ROWS, MOCK_DATASET.columns, preds, def.q ?? null, aqGroups);
     return HttpResponse.json(pageOf(matched, matched.length));
   }),
+  // R119 — aggregate: a server-side GROUP BY over a saved query. Mirrors the
+  // saved-run drift branches (stale / join-stale / composition cycle / 404),
+  // then computes the aggregate over the query's matched rows + the pushed
+  // dashboard filters. The aggregate result is small (one row per group) — no
+  // cap. Contract-validated against queries/aggregate.contract.yaml.
+  withContractValidation('post', api('/queries/:id/aggregate'), 'aggregateQuery', async ({ params, request }) => {
+    if (params.id === MOCK_STALE_QUERY_ID) {
+      return HttpResponse.json({ code: 'query_stale' }, { status: 409 });
+    }
+    if (params.id === MOCK_STALE_JOIN_QUERY_ID) {
+      return HttpResponse.json({ code: 'relationship_stale' }, { status: 409 });
+    }
+    if (params.id === MOCK_CYCLE_QUERY_ID) {
+      return HttpResponse.json({ code: 'composition_cycle' }, { status: 409 });
+    }
+    const body = (await request.json()) as AggregateRequest;
+    if (params.id === MOCK_COMPOSED_QUERY.id) {
+      return HttpResponse.json(computeAggregate(MOCK_CHAIN_COLUMNS, MOCK_CHAIN_ROWS.rows, body));
+    }
+    if (params.id === MOCK_JOINED_QUERY.id) {
+      return HttpResponse.json(computeAggregate(MOCK_JOINED_QUERY.resolvedColumns ?? [], MOCK_JOINED_ROWS.rows, body));
+    }
+    if (params.id !== MOCK_QUERY.id) {
+      return HttpResponse.json({ code: 'not_found' }, { status: 404 });
+    }
+    const def = MOCK_QUERY.definition;
+    const preds = def.filters.map(predFromAtom);
+    const aqGroups = def.advanced.map((g) => g.map(predFromAtom));
+    const matched = applyFiltersAndQ(MOCK_ROWS, MOCK_DATASET.columns, preds, def.q ?? null, aqGroups);
+    return HttpResponse.json(computeAggregate(MOCK_DATASET.columns, matched, body));
+  }),
+
   // R72 — preview: run an UNSAVED working-copy definition (the live builder
   // preview), never persisted. Joined → combined columns + resolvedColumns;
   // a stale edge → 409 relationship_stale (the builder's join-unavailable

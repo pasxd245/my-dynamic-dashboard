@@ -43,7 +43,10 @@ export function pickWidgetDefaults(columns: readonly DataColumn[]): {
 /** A single chart datum: one bar / one pie slice. */
 export type Datum = { readonly label: string; readonly value: number };
 
-const BLANK_LABEL = '(blank)';
+/** The label shown for a null/empty categorical cell. Exported so the R119
+ *  server-aggregate path labels a null dimension cell identically to the
+ *  client roll-up, and so a dashboard filter can translate `(blank)` ⟷ null. */
+export const BLANK_LABEL = '(blank)';
 
 /**
  * Resolve a logical column name to its positional index in a (possibly
@@ -66,17 +69,15 @@ export function toNum(cell: string | null | undefined): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-function labelOf(cell: string | null | undefined): string {
+/** A categorical cell's display label: null / empty → `(blank)`. Exported for
+ *  the R119 server-aggregate path (a null grouped-dimension cell). */
+export function labelOf(cell: string | null | undefined): string {
   return cell == null || cell === '' ? BLANK_LABEL : cell;
 }
 
 /** Sum a numeric column per distinct value of a group column. Preserves
  *  first-seen group order; caller sorts for presentation. */
-export function sumByGroup(
-  rows: readonly (readonly (string | null)[])[],
-  groupIdx: number,
-  valueIdx: number,
-): Datum[] {
+export function sumByGroup(rows: readonly (readonly (string | null)[])[], groupIdx: number, valueIdx: number): Datum[] {
   const acc = new Map<string, number>();
   for (const row of rows) {
     const key = labelOf(row[groupIdx]);
@@ -86,10 +87,7 @@ export function sumByGroup(
 }
 
 /** Count rows per distinct value of a group column. */
-export function countByGroup(
-  rows: readonly (readonly (string | null)[])[],
-  groupIdx: number,
-): Datum[] {
+export function countByGroup(rows: readonly (readonly (string | null)[])[], groupIdx: number): Datum[] {
   const acc = new Map<string, number>();
   for (const row of rows) {
     const key = labelOf(row[groupIdx]);
@@ -213,9 +211,7 @@ export function sumTwoMeasures(
     cur.v2 += toNum(row[m2Idx]);
     acc.set(key, cur);
   }
-  return [...acc.entries()]
-    .map(([label, { v1, v2 }]) => ({ label, v1, v2 }))
-    .sort((a, b) => b.v1 - a.v1);
+  return [...acc.entries()].map(([label, { v1, v2 }]) => ({ label, v1, v2 })).sort((a, b) => b.v1 - a.v1);
 }
 
 /** R113 — a scatter point: one row, two numeric axes (NOT aggregated). */

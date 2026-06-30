@@ -33,12 +33,13 @@ import {
   aggregateMatrix,
   aggregateScalar,
   applyFilters,
-  countByGroup,
+  BLANK_LABEL,
   findColIndex,
+  labelOf,
   sortByDimension,
   sortDesc,
-  sumByGroup,
   sumTwoMeasures,
+  toNum,
   toScatterPoints,
   type ComboDatum,
   type DashboardFilter,
@@ -50,8 +51,9 @@ import {
 const HeatmapView = lazy(() => import('./HeatmapView'));
 const GaugeView = lazy(() => import('./GaugeView'));
 import { ChartCard } from './ChartCard';
-import { useChartPalette, useWidgetData } from './hooks';
-import type { ChartType, Widget } from './types';
+import { useChartPalette, useWidgetAggregate, useWidgetData } from './hooks';
+import type { AggregateMeasure, AggregateRequest } from '@/features/data-management/queries/types';
+import type { Widget } from './types';
 
 const numberFmt = new Intl.NumberFormat();
 const compactFmt = new Intl.NumberFormat(undefined, { notation: 'compact', maximumFractionDigits: 1 });
@@ -70,12 +72,25 @@ function BarView({ data, valueName, palette }: Readonly<{ data: Datum[]; valueNa
     <ResponsiveContainer width="100%" height="100%">
       <BarChart data={data} margin={{ top: 8, right: 16, bottom: 8, left: 8 }} accessibilityLayer>
         <CartesianGrid strokeDasharray="3 3" vertical={false} />
-        <XAxis dataKey="label" interval={0} angle={-30} textAnchor="end" height={68} tickMargin={6} tick={{ fontSize: 11 }} />
+        <XAxis
+          dataKey="label"
+          interval={0}
+          angle={-30}
+          textAnchor="end"
+          height={68}
+          tickMargin={6}
+          tick={{ fontSize: 11 }}
+        />
         <YAxis
           width={52}
           tick={{ fontSize: 11 }}
           tickFormatter={(v: number) => compactFmt.format(v)}
-          label={{ value: valueName, angle: -90, position: 'insideLeft', style: { fontSize: 12, textAnchor: 'middle' } }}
+          label={{
+            value: valueName,
+            angle: -90,
+            position: 'insideLeft',
+            style: { fontSize: 12, textAnchor: 'middle' },
+          }}
         />
         <Tooltip formatter={(v) => numberFmt.format(Number(v))} />
         <Legend />
@@ -94,7 +109,15 @@ function MultiBarView({
     <ResponsiveContainer width="100%" height="100%">
       <BarChart data={data} margin={{ top: 8, right: 16, bottom: 8, left: 8 }} accessibilityLayer>
         <CartesianGrid strokeDasharray="3 3" vertical={false} />
-        <XAxis dataKey="label" interval={0} angle={-30} textAnchor="end" height={68} tickMargin={6} tick={{ fontSize: 11 }} />
+        <XAxis
+          dataKey="label"
+          interval={0}
+          angle={-30}
+          textAnchor="end"
+          height={68}
+          tickMargin={6}
+          tick={{ fontSize: 11 }}
+        />
         <YAxis width={52} tick={{ fontSize: 11 }} tickFormatter={(v: number) => compactFmt.format(v)} />
         <Tooltip formatter={(v) => numberFmt.format(Number(v))} />
         <Legend />
@@ -116,8 +139,21 @@ function ScatterView({
     <ResponsiveContainer width="100%" height="100%">
       <ScatterChart margin={{ top: 8, right: 16, bottom: 16, left: 8 }} accessibilityLayer>
         <CartesianGrid strokeDasharray="3 3" />
-        <XAxis type="number" dataKey="x" name={xName} tick={{ fontSize: 11 }} tickFormatter={(v: number) => compactFmt.format(v)} />
-        <YAxis type="number" dataKey="y" name={yName} width={52} tick={{ fontSize: 11 }} tickFormatter={(v: number) => compactFmt.format(v)} />
+        <XAxis
+          type="number"
+          dataKey="x"
+          name={xName}
+          tick={{ fontSize: 11 }}
+          tickFormatter={(v: number) => compactFmt.format(v)}
+        />
+        <YAxis
+          type="number"
+          dataKey="y"
+          name={yName}
+          width={52}
+          tick={{ fontSize: 11 }}
+          tickFormatter={(v: number) => compactFmt.format(v)}
+        />
         <ZAxis range={[40, 40]} />
         <Tooltip cursor={{ strokeDasharray: '3 3' }} formatter={(v) => numberFmt.format(Number(v))} />
         <Scatter data={data} fill={palette[0]} isAnimationActive={false} />
@@ -136,13 +172,36 @@ function ComboView({
     <ResponsiveContainer width="100%" height="100%">
       <ComposedChart data={data} margin={{ top: 8, right: 16, bottom: 8, left: 8 }} accessibilityLayer>
         <CartesianGrid strokeDasharray="3 3" vertical={false} />
-        <XAxis dataKey="label" interval={0} angle={-30} textAnchor="end" height={68} tickMargin={6} tick={{ fontSize: 11 }} />
+        <XAxis
+          dataKey="label"
+          interval={0}
+          angle={-30}
+          textAnchor="end"
+          height={68}
+          tickMargin={6}
+          tick={{ fontSize: 11 }}
+        />
         <YAxis yAxisId="left" width={52} tick={{ fontSize: 11 }} tickFormatter={(v: number) => compactFmt.format(v)} />
-        <YAxis yAxisId="right" orientation="right" width={52} tick={{ fontSize: 11 }} tickFormatter={(v: number) => compactFmt.format(v)} />
+        <YAxis
+          yAxisId="right"
+          orientation="right"
+          width={52}
+          tick={{ fontSize: 11 }}
+          tickFormatter={(v: number) => compactFmt.format(v)}
+        />
         <Tooltip formatter={(v) => numberFmt.format(Number(v))} />
         <Legend />
         <Bar yAxisId="left" dataKey="v1" name={name1} fill={palette[0]} radius={[4, 4, 0, 0]} />
-        <Line yAxisId="right" type="monotone" dataKey="v2" name={name2} stroke={palette[1] ?? palette[0]} strokeWidth={2} dot={false} isAnimationActive={false} />
+        <Line
+          yAxisId="right"
+          type="monotone"
+          dataKey="v2"
+          name={name2}
+          stroke={palette[1] ?? palette[0]}
+          strokeWidth={2}
+          dot={false}
+          isAnimationActive={false}
+        />
       </ComposedChart>
     </ResponsiveContainer>
   );
@@ -153,16 +212,37 @@ function LineView({ data, valueName, palette }: Readonly<{ data: Datum[]; valueN
     <ResponsiveContainer width="100%" height="100%">
       <LineChart data={data} margin={{ top: 8, right: 16, bottom: 8, left: 8 }} accessibilityLayer>
         <CartesianGrid strokeDasharray="3 3" />
-        <XAxis dataKey="label" interval="preserveStartEnd" angle={-30} textAnchor="end" height={68} tickMargin={6} tick={{ fontSize: 11 }} />
+        <XAxis
+          dataKey="label"
+          interval="preserveStartEnd"
+          angle={-30}
+          textAnchor="end"
+          height={68}
+          tickMargin={6}
+          tick={{ fontSize: 11 }}
+        />
         <YAxis
           width={52}
           tick={{ fontSize: 11 }}
           tickFormatter={(v: number) => compactFmt.format(v)}
-          label={{ value: valueName, angle: -90, position: 'insideLeft', style: { fontSize: 12, textAnchor: 'middle' } }}
+          label={{
+            value: valueName,
+            angle: -90,
+            position: 'insideLeft',
+            style: { fontSize: 12, textAnchor: 'middle' },
+          }}
         />
         <Tooltip formatter={(v) => numberFmt.format(Number(v))} />
         <Legend />
-        <Line type="monotone" dataKey="value" name={valueName} stroke={palette[0]} strokeWidth={2} dot={false} isAnimationActive={false} />
+        <Line
+          type="monotone"
+          dataKey="value"
+          name={valueName}
+          stroke={palette[0]}
+          strokeWidth={2}
+          dot={false}
+          isAnimationActive={false}
+        />
       </LineChart>
     </ResponsiveContainer>
   );
@@ -190,7 +270,13 @@ function TableView({
   });
   return (
     <div style={{ width: '100%', height: '100%', overflow: 'auto' }}>
-      <Table size="small" columns={cols} dataSource={dataSource} pagination={{ pageSize: 8, size: 'small' }} scroll={{ x: 'max-content' }} />
+      <Table
+        size="small"
+        columns={cols}
+        dataSource={dataSource}
+        pagination={{ pageSize: 8, size: 'small' }}
+        scroll={{ x: 'max-content' }}
+      />
     </div>
   );
 }
@@ -217,49 +303,66 @@ function PieView({ data, palette }: Readonly<{ data: Datum[]; palette: string[] 
   );
 }
 
-/** Single-series roll-up for bar/line/pie: aggregate by the dimension, then
- *  order (line → by dimension/dtype; bar/pie → by value desc). */
-function singleSeriesData(
-  rows: readonly (readonly (string | null)[])[],
-  dimIdx: number,
-  measureIdx: number,
-  agg: 'sum' | 'count',
-  chartType: ChartType,
-  dtype: string,
-): Datum[] {
-  let raw: Datum[] = [];
-  if (agg === 'sum' && measureIdx !== -1) raw = sumByGroup(rows, dimIdx, measureIdx);
-  else if (agg === 'count') raw = countByGroup(rows, dimIdx);
-  return chartType === 'line' ? sortByDimension(raw, dtype) : sortDesc(raw);
+/** Translate the active R103 dashboard filters to the aggregate wire shape:
+ *  the `(blank)` label maps to a `null` value (a NULL/empty cell). */
+function toWireFilters(filters: readonly DashboardFilter[]): AggregateRequest['filters'] {
+  return filters.map((f) => ({
+    column: f.column,
+    values: f.values.map((v) => (v === BLANK_LABEL ? null : v)),
+  }));
 }
 
-/** Roll a widget's live rows up to chart data per its config. Exported for the
- *  builder's live preview (same path as the rendered widget). */
+/** Roll a widget's data up to chart data per its config. Exported for the
+ *  builder's live preview (same path as the rendered widget).
+ *
+ *  R119 — fetch mode is per chart kind. The AGGREGATING kinds (bar without a
+ *  series / pie / line / stat) bind to the SERVER aggregate (`GROUP BY` in
+ *  DuckDB over the whole result — correct totals, no row cap), pushing the
+ *  active dashboard filters server-side. The rest (multi-series bar, combo,
+ *  scatter, heatmap, table, gauge) keep the client roll-up over raw rows. */
 export function useWidgetChartData(
   widget: Pick<Widget, 'queryId' | 'chartType' | 'dimensionCol' | 'seriesCol' | 'measureCol' | 'measureCol2' | 'agg'>,
   filters: readonly DashboardFilter[] = [],
 ) {
-  const data = useWidgetData(widget.queryId);
+  // R119 — which kinds aggregate server-side, and whether the spec can run.
+  const isScalar = widget.chartType === 'stat';
+  const usesAggregate =
+    isScalar ||
+    widget.chartType === 'pie' ||
+    widget.chartType === 'line' ||
+    (widget.chartType === 'bar' && !widget.seriesCol);
+  const specValid =
+    (widget.agg === 'count' || Boolean(widget.measureCol)) && (isScalar || Boolean(widget.dimensionCol));
+  const aggregateEnabled = usesAggregate && specValid;
+
+  const measures: AggregateMeasure[] =
+    widget.agg === 'count' ? [{ agg: 'count' }] : [{ col: widget.measureCol, agg: 'sum' }];
+  const aggBody: AggregateRequest = {
+    dimensions: isScalar || !widget.dimensionCol ? [] : [widget.dimensionCol],
+    measures,
+    filters: toWireFilters(filters),
+  };
+
+  // The aggregating widget skips the raw fetch; the rest fetch raw rows.
+  const data = useWidgetData(widget.queryId, !aggregateEnabled);
+  const agg = useWidgetAggregate(widget.queryId, aggBody, aggregateEnabled);
+
   const dimIdx = widget.dimensionCol ? findColIndex(data.columns, widget.dimensionCol) : -1;
   const seriesIdx = widget.seriesCol ? findColIndex(data.columns, widget.seriesCol) : -1;
   const measureIdx = widget.measureCol ? findColIndex(data.columns, widget.measureCol) : -1;
   const measure2Idx = widget.measureCol2 ? findColIndex(data.columns, widget.measureCol2) : -1;
 
-  // R103 — apply the active dashboard filters to the rows BEFORE the roll-up
-  // (client-side; filters whose column this widget lacks are skipped).
+  // R103 — client-side filter for the raw-row (non-aggregate) kinds; the
+  // aggregate kinds push filters server-side via `aggBody` instead.
   const rows = applyFilters(data.rows, data.columns, filters);
 
-  // R110 — a `stat` (KPI) widget has no dimension: one scalar over all rows.
-  // `null` when there are no rows (→ ChartCard empty state); a value of 0 over
-  // ≥1 row is a legitimate KPI ("0 deals"), not empty.
-  // stat + gauge both reduce to one scalar over all rows (null = nothing to show).
+  // gauge stays client-side (a scalar over raw rows); stat is overridden below.
   let statValue: number | null = null;
-  if (widget.chartType === 'stat' || widget.chartType === 'gauge') {
+  if (widget.chartType === 'gauge') {
     statValue = rows.length === 0 ? null : aggregateScalar(rows, measureIdx, widget.agg);
   }
 
   // R111 — multi-series (grouped bar): a 2-D roll-up by dimension × series.
-  // Only for `bar` with a `seriesCol`; null otherwise (→ single-series path).
   const multiSeries =
     widget.chartType === 'bar' && dimIdx !== -1 && seriesIdx !== -1
       ? aggregateByGroupSeries(rows, dimIdx, seriesIdx, measureIdx, widget.agg)
@@ -286,18 +389,36 @@ export function useWidgetChartData(
   // R117 — table: the raw (filtered) rows + columns, no transform.
   const tableData = widget.chartType === 'table' ? { columns: data.columns, rows } : null;
 
-  const isSpecial =
-    widget.chartType === 'stat' ||
-    widget.chartType === 'gauge' ||
-    widget.chartType === 'combo' ||
-    widget.chartType === 'scatter' ||
-    widget.chartType === 'heatmap' ||
-    widget.chartType === 'table';
-  const singleSeries = dimIdx !== -1 && !isSpecial && !multiSeries;
-  const chartData: Datum[] = singleSeries
-    ? singleSeriesData(rows, dimIdx, measureIdx, widget.agg, widget.chartType, data.columns[dimIdx]?.dtype ?? 'string')
-    : [];
-  return { ...data, chartData, statValue, multiSeries, comboData, scatterData, matrixData, tableData };
+  // R119 — bar(no series)/pie/line/stat read the SERVER aggregate. A grouped
+  // result is `[dimension, measure]` rows → Datum (a null dim → `(blank)`),
+  // ordered like the client path (line → by dimension/dtype; bar/pie → desc).
+  // A scalar is one row; `null` only when the spec can't run (→ empty state).
+  let chartData: Datum[] = [];
+  if (aggregateEnabled) {
+    if (isScalar) {
+      statValue = agg.rows.length > 0 ? toNum(agg.rows[0][0]) : null;
+    } else {
+      const dimDtype = agg.columns[0]?.dtype ?? 'string';
+      const datums: Datum[] = agg.rows.map((r) => ({ label: labelOf(r[0]), value: toNum(r[1]) }));
+      chartData = widget.chartType === 'line' ? sortByDimension(datums, dimDtype) : sortDesc(datums);
+    }
+  }
+
+  return {
+    ...data,
+    // The aggregate result is complete (no cap), so its load/error state and a
+    // never-capped flag replace the raw fetch's for the aggregating kinds.
+    isLoading: aggregateEnabled ? agg.isLoading : data.isLoading,
+    isError: aggregateEnabled ? agg.isError : data.isError,
+    capped: aggregateEnabled ? false : data.capped,
+    chartData,
+    statValue,
+    multiSeries,
+    comboData,
+    scatterData,
+    matrixData,
+    tableData,
+  };
 }
 
 type WidgetViewProps = Readonly<{
@@ -364,7 +485,10 @@ export function WidgetView({ widget, extra, filters }: WidgetViewProps) {
     >
       <WarningOutlined
         style={{ color: token.colorWarning, fontSize: 14 }}
-        aria-label={t('dashboard.cap.label', { cap: DASHBOARD_MAX_ROWS.toLocaleString(), total: total.toLocaleString() })}
+        aria-label={t('dashboard.cap.label', {
+          cap: DASHBOARD_MAX_ROWS.toLocaleString(),
+          total: total.toLocaleString(),
+        })}
         data-component="WidgetCapWarning"
       />
     </AntTooltip>
@@ -383,10 +507,20 @@ export function WidgetView({ widget, extra, filters }: WidgetViewProps) {
       <ChartFigure label={t(ariaKey, { title: widget.title })}>
         {widget.chartType === 'stat' && <StatView value={statValue ?? 0} label={valueName} fmt={fmt} />}
         {widget.chartType === 'combo' && comboData && (
-          <ComboView data={comboData} name1={widget.measureCol ?? ''} name2={widget.measureCol2 ?? ''} palette={palette} />
+          <ComboView
+            data={comboData}
+            name1={widget.measureCol ?? ''}
+            name2={widget.measureCol2 ?? ''}
+            palette={palette}
+          />
         )}
         {widget.chartType === 'scatter' && scatterData && (
-          <ScatterView data={scatterData} xName={widget.measureCol ?? ''} yName={widget.measureCol2 ?? ''} palette={palette} />
+          <ScatterView
+            data={scatterData}
+            xName={widget.measureCol ?? ''}
+            yName={widget.measureCol2 ?? ''}
+            palette={palette}
+          />
         )}
         {widget.chartType === 'heatmap' && matrixData && (
           <Suspense fallback={<Spin />}>
@@ -395,7 +529,13 @@ export function WidgetView({ widget, extra, filters }: WidgetViewProps) {
         )}
         {widget.chartType === 'gauge' && statValue !== null && (
           <Suspense fallback={<Spin />}>
-            <GaugeView value={statValue} max={widget.target ?? 0} label={valueName} palette={palette} compact={widget.numberFormat === 'compact'} />
+            <GaugeView
+              value={statValue}
+              max={widget.target ?? 0}
+              label={valueName}
+              palette={palette}
+              compact={widget.numberFormat === 'compact'}
+            />
           </Suspense>
         )}
         {widget.chartType === 'table' && tableData && <TableView columns={tableData.columns} rows={tableData.rows} />}
