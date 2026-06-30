@@ -176,10 +176,14 @@ export function useQueryBuilder({ query, createBase, datasetColumns, active, onD
   // (R76 — a `qr_` base has its own effective space from the preview), else the
   // source dataset's.
   const columns: Column[] = useMemo(() => {
+    // R129 — when the previewed definition has steps, the preview reports the
+    // PRE-step (base) columns; the editors author against those (not the post-step
+    // result the preview table shows).
+    if (preview?.baseColumns) return asColumns(preview.baseColumns);
     if (!isJoined && !isComposed) return [...datasetColumns];
     const resolved = preview?.resolvedColumns ?? query?.resolvedColumns;
     return resolved ? asColumns(resolved) : [];
-  }, [isJoined, isComposed, datasetColumns, preview?.resolvedColumns, query?.resolvedColumns]);
+  }, [isJoined, isComposed, datasetColumns, preview?.baseColumns, preview?.resolvedColumns, query?.resolvedColumns]);
 
   // R125 — the RESULT columns matching `previewRows`: a stepped query's preview
   // returns its POST-step columns, so the preview TABLE renders the shaped shape;
@@ -189,11 +193,6 @@ export function useQueryBuilder({ query, createBase, datasetColumns, active, onD
     () => (preview?.resolvedColumns ? asColumns(preview.resolvedColumns) : columns),
     [preview?.resolvedColumns, columns],
   );
-  // R125 — transform steps author against the PRE-step column space. v1 supports
-  // SINGLE-SOURCE dataset queries (where `columns` IS that pre-step base);
-  // joined/composed steps wait until the preview exposes base + result columns
-  // separately (the column fork). Empty `steps` = unchanged for every query.
-  const canUseSteps = !isJoined && !isComposed;
 
   const updateMutation = useUpdateQueryMutation();
   const createMutation = useCreateQueryMutation();
@@ -427,10 +426,8 @@ export function useQueryBuilder({ query, createBase, datasetColumns, active, onD
     // working state
     draft,
     columns,
-    // R125 — result columns (post-step, for the preview table) + steps authoring
-    // gate (single-source only in v1) + the steps setter.
+    // R125/R129 — result columns (post-step, for the preview table) + the steps setter.
     resultColumns,
-    canUseSteps,
     setSteps,
     isJoined,
     joins,

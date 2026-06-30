@@ -244,4 +244,8 @@ export type QueryPreview = {
   pageSize: number;
   total: number;
   resolvedColumns?: readonly ResolvedColumn[];
+  /** R129 — the PRE-step effective columns (present only when the previewed
+   *  definition has `steps`; then `resolvedColumns` are the POST-step result).
+   *  The builder's join/filter editors author against these. */
+  baseColumns?: readonly { name: string; dtype: ResolvedColumn['dtype'] }[];
 };

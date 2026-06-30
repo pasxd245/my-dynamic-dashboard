@@ -2,9 +2,10 @@
 // query's ordered `steps` as cards over the PRE-step column space, threading the
 // evolving columns through each step (steps.ts) so every step offers the columns
 // available AT that point. Edits call `onChange` with the next step list; the
-// live preview (which sends the steps) shows the shaped result. v1: single-source
-// queries; one measure per aggregate / one predicate per filter (chain steps for
-// more). Backend re-validates on preview/save (a bad step → the predInvalid alert).
+// live preview (which sends the steps) shows the shaped result. R129 — works for
+// ALL query shapes (single-source / joined / composed): the preview reports the
+// PRE-step `baseColumns` the builder feeds here. One measure per aggregate / one
+// predicate per filter (chain steps for more). Backend re-validates on preview/save.
 
 import { ArrowDownOutlined, ArrowUpOutlined, DeleteOutlined } from '@ant-design/icons';
 import { Button, Input, InputNumber, Segmented, Select, Space, Switch, Typography } from 'antd';

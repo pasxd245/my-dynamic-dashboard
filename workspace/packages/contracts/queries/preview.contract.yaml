@@ -156,6 +156,25 @@ paths:
                           minLength: 1
                           description: |
                             R93 — the pre-qualification name on the owning leaf.
+                  baseColumns:
+                    type: array
+                    description: |
+                      R129 — the PRE-step effective columns (before any transform
+                      `steps` apply). Present only when the previewed definition has
+                      steps; then `resolvedColumns` are the POST-step (result)
+                      columns. The builder's join/filter editors author against
+                      `baseColumns`; the steps editor + preview table use the result.
+                    items:
+                      type: object
+                      required: [name, dtype]
+                      additionalProperties: false
+                      properties:
+                        name:
+                          type: string
+                          minLength: 1
+                        dtype:
+                          type: string
+                          enum: [string, integer, float, boolean, date, datetime]
               examples:
                 joined_preview:
                   value:

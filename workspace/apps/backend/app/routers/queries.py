@@ -878,7 +878,13 @@ def preview_query(  # noqa: A002
     if step_plan is not None:
         rows = _run_steps(plan, q, filters, advanced, step_plan)
         resolved = [{"name": c["name"], "dtype": c["dtype"]} for c in step_plan[1]]
-        content = {"rows": rows, "page": 1, "pageSize": len(rows), "total": len(rows), "resolvedColumns": resolved}
+        # R129 — the PRE-step effective columns, so the builder's join/filter editors
+        # author against the base while the steps editor + table use the result.
+        base = [{"name": c["name"], "dtype": c["dtype"]} for c in plan["columns"]]
+        content = {
+            "rows": rows, "page": 1, "pageSize": len(rows), "total": len(rows),
+            "resolvedColumns": resolved, "baseColumns": base,
+        }
         return JSONResponse(status_code=status.HTTP_200_OK, content=content)
 
     if plan["kind"] == "join":

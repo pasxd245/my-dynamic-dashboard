@@ -448,6 +448,8 @@ function previewJson(
     total: shaped.rows.length,
   };
   if (alwaysResolved || steps?.length) body.resolvedColumns = shaped.columns;
+  // R129 — a stepped preview reports the PRE-step (base) columns too.
+  if (steps?.length) body.baseColumns = columns.map((c) => ({ name: c.name, dtype: c.dtype }));
   return HttpResponse.json(body);
 }
 

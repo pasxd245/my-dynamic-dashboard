@@ -34,6 +34,8 @@ describe('R126 steps-aware preview mock', () => {
       { name: 'stage', dtype: 'string' },
       { name: 'amount', dtype: 'integer' },
     ]);
+    // R129 — the PRE-step (base) columns are reported too (the source columns).
+    expect(res.baseColumns?.map((c) => c.name)).toEqual(MOCK_DATASET.columns.map((c) => c.name));
   });
 
   it('chains aggregate → top_n, ordering numerically', async () => {

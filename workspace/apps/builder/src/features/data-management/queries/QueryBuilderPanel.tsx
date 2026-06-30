@@ -374,13 +374,10 @@ function TransformSection({
       </SectionBar>
       {open ? (
         <div data-component="QueryBuilderSteps" style={{ flex: '0 0 auto' }}>
-          {builder.canUseSteps ? (
-            <StepsEditor steps={steps} columns={builder.columns} onChange={builder.setSteps} />
-          ) : (
-            <Typography.Text type="secondary" style={{ fontSize: 12 }} data-component="QueryBuilderStepsJoinedNote">
-              {t('queries.builder.steps.joinedNote')}
-            </Typography.Text>
-          )}
+          {/* R129 — steps author against the PRE-step columns for ALL query shapes
+              (the preview reports `baseColumns`), so single-source / joined /
+              composed all get the editor. */}
+          <StepsEditor steps={steps} columns={builder.columns} onChange={builder.setSteps} />
         </div>
       ) : null}
     </>
