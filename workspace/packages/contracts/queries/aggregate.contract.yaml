@@ -1,0 +1,185 @@
+openapi: 3.1.0
+info:
+  title: my-dynamic-dashboard — POST /queries/{id}/aggregate
+  version: 0.1.0
+  description: |
+    R119 — SERVER-SIDE AGGREGATE over a saved query (the data-layer
+    GROUP BY). A dashboard widget that aggregates (bar / pie / line / a
+    scalar KPI) no longer fetches capped raw rows and rolls them up in the
+    browser; it asks the server for `GROUP BY (dimensions) → measures`,
+    computed in DuckDB over the WHOLE result.
+
+    This is the dominant pull the R109–R118 charts probe surfaced: a SUM /
+    COUNT over the first N (capped) rows is *wrong*, not merely partial
+    (a KPI "total revenue" computed client-side over a truncated fetch is
+    incorrect). The aggregate result is SMALL — one row per group — so the
+    dashboard row cap is irrelevant and totals are correct.
+
+    STATELESS, like `POST /workspaces/{id}/queries/preview`: the grouping
+    spec lives on the WIDGET (ad-hoc per render), not in the saved query.
+    The endpoint resolves the saved query's plan (driving source + joins +
+    its OWN definition filters) with the SAME engine as the saved run
+    (`GET /queries/{id}/rows`), then composes a GROUP BY over the resulting
+    relation. Drift semantics are inherited verbatim: a drifted predicate
+    atom → 409 `query_stale`; a drifted join key → 409 `relationship_stale`;
+    a composition loop → 409 `composition_cycle`; an absent query → 404.
+
+    `filters` carries the runtime dashboard filters (R103) — a categorical
+    one-of per column, BY effective-column NAME — pushed server-side so an
+    aggregated widget still honours an active dashboard filter (else it
+    would silently ignore it). `(blank)` is expressed on the wire as a
+    `null` value (matches a NULL or empty cell), mirroring the client
+    `applyFilters`.
+
+    SCOPE (R119, first build): 0-or-1 dimension (scalar KPI = 0; bar/pie/
+    line = 1) and 1 measure. Multi-dimension (series / crosstab),
+    multi-measure (combo), time-bucketing (`date_trunc`) and TOP-N are
+    deferred to follow-up rounds.
+
+paths:
+  /queries/{id}/aggregate:
+    post:
+      operationId: aggregateQuery
+      summary: Aggregate a saved query server-side (GROUP BY → measures)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^qr_[0-9a-f]{8}$"
+          description: The saved query to aggregate over.
+          examples:
+            won_deals:
+              value: "qr_9c2f10ab"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "../_shared/query.yaml#/components/schemas/AggregateRequest"
+            examples:
+              revenue_by_region:
+                summary: SUM(amount) grouped by region
+                value:
+                  dimensions: ["region"]
+                  measures: [{ col: "amount", agg: "sum" }]
+                  filters: []
+              total_revenue_kpi:
+                summary: Scalar KPI — SUM(amount) over the whole result
+                value:
+                  dimensions: []
+                  measures: [{ col: "amount", agg: "sum" }]
+                  filters: []
+              count_by_stage_filtered:
+                summary: COUNT(*) by stage, dashboard-filtered to two regions
+                value:
+                  dimensions: ["stage"]
+                  measures: [{ agg: "count" }]
+                  filters:
+                    - { column: "region", values: ["EMEA", "APAC"] }
+      responses:
+        "200":
+          description: |
+            The grouped result. `columns` are the output columns in order —
+            the dimensions first (each keeping its source dtype), then one
+            column per measure (a `sum` keeps the measure column's numeric
+            dtype; a `count` is `integer`, named `count`). `rows` are
+            row-major, one cell per output column, stringified like every
+            other rows response. `total` is the number of groups
+            (= `rows.length`) — there is no cap, so it never exceeds it.
+            A scalar request (no dimensions) returns exactly one row.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [columns, rows, total]
+                additionalProperties: false
+                properties:
+                  columns:
+                    type: array
+                    description: Output columns in order — dimensions then measures.
+                    items:
+                      type: object
+                      required: [name, dtype]
+                      additionalProperties: false
+                      properties:
+                        name:
+                          type: string
+                          minLength: 1
+                        dtype:
+                          type: string
+                          enum: [string, integer, float, boolean, date, datetime]
+                  rows:
+                    type: array
+                    description: Row-major; one cell per output column, in order.
+                    items:
+                      type: array
+                      items:
+                        type: [string, "null"]
+                  total:
+                    type: integer
+                    minimum: 0
+                    description: Group count (= `rows.length`; no cap applies).
+              examples:
+                revenue_by_region:
+                  value:
+                    columns:
+                      - { name: "region", dtype: string }
+                      - { name: "amount", dtype: integer }
+                    rows:
+                      [["EMEA", "412000"], ["APAC", "288000"], ["AMER", "503000"]]
+                    total: 3
+                total_revenue_kpi:
+                  value:
+                    columns:
+                      - { name: "amount", dtype: integer }
+                    rows: [["1203000"]]
+                    total: 1
+        "404":
+          description: No saved query with this id.
+          content:
+            application/json:
+              schema:
+                $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorNotFound"
+              examples:
+                not_found:
+                  value: { "code": "not_found" }
+        "409":
+          description: |
+            The saved query can't execute against current data —
+            `query_stale` (a predicate atom drifted), `relationship_stale`
+            (a join key drifted) or `composition_cycle` (a composed base
+            loops back). Mirrors `GET /queries/{id}/rows` exactly.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorQueryStale"
+                  - $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorRelationshipStale"
+                  - $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorCompositionCycle"
+              examples:
+                predicate_stale:
+                  value: { "code": "query_stale" }
+                join_key_stale:
+                  value: { "code": "relationship_stale" }
+                composed_loop:
+                  value: { "code": "composition_cycle" }
+        "422":
+          description: |
+            The aggregate spec is structurally invalid against the query's
+            EFFECTIVE columns: an unknown `dimensions[]` / `measures[].col`
+            / `filters[].column` name; a `sum` measure missing its `col`, or
+            a `count` measure carrying one; a `sum` over a non-numeric
+            column; or the request shape itself is malformed (FastAPI
+            validation envelope).
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [detail]
+                properties:
+                  detail:
+                    type: array
+                    items:
+                      type: object

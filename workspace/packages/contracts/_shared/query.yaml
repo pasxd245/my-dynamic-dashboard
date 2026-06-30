@@ -304,3 +304,67 @@ components:
           pattern: "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
           description: ISO-8601 UTC, `Z`-suffixed. Server-stamped at save time.
           examples: ["2026-06-12T14:02:00Z"]
+
+    AggregateRequest:
+      type: object
+      description: |
+        R119 — the body of `POST /queries/{id}/aggregate`. Describes a
+        server-side GROUP BY over a saved query's resolved rows. Columns are
+        referenced BY effective NAME (the consumer — a dashboard widget —
+        thinks in column names, e.g. `dimensionCol` / `measureCol`), not by
+        the 0-based index a `FilterAtom` uses. SCOPE (R119): 0-or-1
+        `dimensions` + 1 `measures`; `filters` are the runtime dashboard
+        filters (R103) pushed server-side.
+      required: [dimensions, measures]
+      additionalProperties: false
+      properties:
+        dimensions:
+          type: array
+          description: |
+            The GROUP BY columns, by effective name, in output order. Empty
+            for a scalar KPI (one row over the whole result). R119 scope:
+            0 or 1.
+          items:
+            type: string
+            minLength: 1
+        measures:
+          type: array
+          minItems: 1
+          description: |
+            The aggregates to compute, in output order. R119 scope: exactly 1.
+          items:
+            type: object
+            required: [agg]
+            additionalProperties: false
+            properties:
+              col:
+                type: string
+                minLength: 1
+                description: |
+                  The column to aggregate, by effective name. REQUIRED for
+                  `sum` (must be numeric); OMITTED for `count` (tallies rows).
+              agg:
+                type: string
+                enum: [sum, count]
+        filters:
+          type: array
+          description: |
+            R103 runtime dashboard filters, pushed server-side so an
+            aggregated widget honours an active filter. Each is a categorical
+            one-of on an effective column BY NAME: keep rows whose `column`
+            cell equals one of `values`. AND-composed across filters; a
+            `null` value matches a NULL/empty cell (the `(blank)` option).
+            Empty / omitted when no dashboard filter is active.
+          default: []
+          items:
+            type: object
+            required: [column, values]
+            additionalProperties: false
+            properties:
+              column:
+                type: string
+                minLength: 1
+              values:
+                type: array
+                items:
+                  type: [string, "null"]
