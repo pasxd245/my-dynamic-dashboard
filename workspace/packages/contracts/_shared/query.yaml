@@ -215,6 +215,52 @@ components:
           default: false
           description: Order descending (largest first) when true; ascending otherwise.
 
+    DeriveStep:
+      type: object
+      description: |
+        R122 — a TRANSFORM STEP that adds a new column from a FORMULA-FREE binary
+        op: `name = left <op> right`. `left` is an existing numeric column (by
+        effective name); `right` is another numeric column or a literal number;
+        `op` is one of `+ - * /`. NOT a formula string — a structured op (the
+        product's no-formula rule). Compound expressions chain multiple `derive`
+        steps. `÷` by zero yields NULL (guarded). The output column is `float`.
+      required: [kind, name, left, op, right]
+      additionalProperties: false
+      properties:
+        kind:
+          const: derive
+        name:
+          type: string
+          minLength: 1
+          description: New column name; must not collide with an existing column.
+        left:
+          type: string
+          minLength: 1
+          description: Left operand — an existing numeric column (effective name).
+        op:
+          type: string
+          enum: ["+", "-", "*", "/"]
+        right:
+          description: Right operand — a numeric column OR a literal number.
+          oneOf:
+            - type: object
+              required: [kind, col]
+              additionalProperties: false
+              properties:
+                kind:
+                  const: col
+                col:
+                  type: string
+                  minLength: 1
+            - type: object
+              required: [kind, value]
+              additionalProperties: false
+              properties:
+                kind:
+                  const: const
+                value:
+                  type: number
+
     QueryDefinition:
       type: object
       description: |
@@ -298,11 +344,13 @@ components:
             oneOf:
               - $ref: "#/components/schemas/AggregateStep"
               - $ref: "#/components/schemas/TopNStep"
+              - $ref: "#/components/schemas/DeriveStep"
             discriminator:
               propertyName: kind
               mapping:
                 aggregate: "#/components/schemas/AggregateStep"
                 top_n: "#/components/schemas/TopNStep"
+                derive: "#/components/schemas/DeriveStep"
 
     Query:
       type: object

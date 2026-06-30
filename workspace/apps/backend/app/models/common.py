@@ -285,9 +285,42 @@ class TopNStep(BaseModel):
     descending: bool = False
 
 
-# R121 — a transform step is a `kind`-discriminated union (so a bad `kind` is a
-# clean 422, and each kind keeps its own required fields).
-Step = Annotated[AggregateStep | TopNStep, Field(discriminator="kind")]
+class ColOperand(BaseModel):
+    """R122 — a derive operand referencing an existing column."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["col"]
+    col: Annotated[str, Field(min_length=1)]
+
+
+class ConstOperand(BaseModel):
+    """R122 — a derive operand that is a literal number."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["const"]
+    value: float
+
+
+class DeriveStep(BaseModel):
+    """R122 — add a column from a FORMULA-FREE binary op: ``name = left <op> right``.
+    ``left`` is an existing numeric column; ``right`` is a numeric column or a
+    literal; ``op`` ∈ ``+ - * /``. A structured op, not a formula string. Mirrors
+    `_shared/query.yaml#/DeriveStep`."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["derive"]
+    name: Annotated[str, Field(min_length=1)]
+    left: Annotated[str, Field(min_length=1)]
+    op: Literal["+", "-", "*", "/"]
+    right: Annotated[ColOperand | ConstOperand, Field(discriminator="kind")]
+
+
+# R121/R122 — a transform step is a `kind`-discriminated union (so a bad `kind` is
+# a clean 422, and each kind keeps its own required fields).
+Step = Annotated[AggregateStep | TopNStep | DeriveStep, Field(discriminator="kind")]
 
 
 class QueryDefinition(BaseModel):

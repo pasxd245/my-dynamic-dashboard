@@ -653,10 +653,37 @@ def _build_inner_relation(plan: dict, q: str | None, filters: list, advanced: li
 _MAX_STEPS = 8
 
 
+def _require_numeric(col: str | None, by_name: dict, loc: list) -> None:
+    """The column must exist at this step AND be numeric (a derive operand) → 422."""
+    c = by_name.get(col)
+    if c is None:
+        raise _agg_422(loc, f"unknown_column: {col!r} is not a column at this step")
+    if c["dtype"] not in _NUMERIC_DTYPES:
+        raise _agg_422(loc, f"derive_operand_not_numeric: {col!r} is {c['dtype']}, not numeric")
+
+
+def _plan_derive(step: dict, cur_cols: list[dict], loc: list) -> tuple[dict, list[dict]]:
+    """R122 — validate a derive step (numeric operands, no name collision) → its
+    normalized descriptor + column space (base ++ the new `float` column)."""
+    by_name = {c["name"]: c for c in cur_cols}
+    name = step.get("name")
+    if name in by_name:
+        raise _agg_422([*loc, "name"], f"column_exists: {name!r} is already a column")
+    _require_numeric(step.get("left"), by_name, [*loc, "left"])
+    right = step.get("right", {})
+    norm = {"kind": "derive", "name": name, "left": step.get("left"), "op": step.get("op"), "right_kind": right.get("kind")}
+    if right.get("kind") == "col":
+        _require_numeric(right.get("col"), by_name, [*loc, "right", "col"])
+        norm["right_col"] = right.get("col")
+    else:
+        norm["right_value"] = right.get("value")
+    return norm, [*cur_cols, {"name": name, "dtype": "float"}]
+
+
 def _plan_one_step(step: dict, cur_cols: list[dict], loc: list) -> tuple[dict, list[dict]]:
     """Validate one step against the CURRENT column space; return its normalized
     descriptor (for the typed `run_steps` engine) + the column space AFTER it.
-    ``aggregate`` reshapes; ``top_n`` preserves columns (orders + caps)."""
+    ``aggregate`` reshapes; ``top_n`` preserves; ``derive`` appends a column."""
     kind = step.get("kind")
     if kind == "aggregate":
         dims = step.get("dimensions", [])
@@ -669,6 +696,8 @@ def _plan_one_step(step: dict, cur_cols: list[dict], loc: list) -> tuple[dict, l
         if col not in {c["name"] for c in cur_cols}:
             raise _agg_422([*loc, "col"], f"unknown_column: {col!r} is not a column at this step")
         return {"kind": "top_n", "col": col, "descending": bool(step.get("descending")), "n": step.get("n")}, cur_cols
+    if kind == "derive":
+        return _plan_derive(step, cur_cols, loc)
     raise _agg_422([*loc, "kind"], f"unknown_step_kind: {kind!r}")
 
 

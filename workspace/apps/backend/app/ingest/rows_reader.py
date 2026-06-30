@@ -372,6 +372,19 @@ def run_steps(
             direction = "DESC" if step["descending"] else "ASC"
             sql = f"SELECT * FROM ({sql}) AS _t ORDER BY {_quote_ident(step['col'])} {direction} LIMIT ?"
             params = [*params, step["n"]]
+        elif step["kind"] == "derive":
+            left = f"CAST({_quote_ident(step['left'])} AS DOUBLE)"
+            # The constant is a validated float (pydantic) → safe to inline; this
+            # keeps `?` placeholders out of the SELECT clause (param-order sanity).
+            right = (
+                f"CAST({_quote_ident(step['right_col'])} AS DOUBLE)"
+                if step["right_kind"] == "col"
+                else f"CAST({float(step['right_value'])} AS DOUBLE)"
+            )
+            # `÷` guards the denominator so a zero divisor yields NULL, not a crash.
+            expr = f"({left} / NULLIF({right}, 0))" if step["op"] == "/" else f"({left} {step['op']} {right})"
+            sql = f"SELECT *, {expr} AS {_quote_ident(step['name'])} FROM ({sql}) AS _d"
+            cols = [*cols, step["name"]]
     quoted = [_quote_ident(c) for c in cols]
     select_list = ", ".join(f"CAST({c} AS VARCHAR)" for c in quoted)
     final_sql = f"SELECT {select_list} FROM ({sql}) AS _final"

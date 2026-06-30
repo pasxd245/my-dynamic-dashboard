@@ -97,8 +97,22 @@ export type TopNStep = {
   descending?: boolean;
 };
 
-/** R121 — a transform step, discriminated by `kind`. */
-export type Step = AggregateStep | TopNStep;
+/** R122 — a derive operand: an existing column or a literal number. */
+export type DeriveOperand = { kind: 'col'; col: string } | { kind: 'const'; value: number };
+
+/** R122 — add a column from a formula-free binary op `name = left <op> right`
+ *  (op ∈ + − × ÷; `right` a column or a literal). Mirrors
+ *  `_shared/query.yaml#/DeriveStep`. */
+export type DeriveStep = {
+  kind: 'derive';
+  name: string;
+  left: string;
+  op: '+' | '-' | '*' | '/';
+  right: DeriveOperand;
+};
+
+/** R121/R122 — a transform step, discriminated by `kind`. */
+export type Step = AggregateStep | TopNStep | DeriveStep;
 
 /** A single effective column of a Query result (name + dtype). For a join,
  *  duplicate names are collision-qualified (`Deals.id`). Mirrors the inline
