@@ -567,7 +567,6 @@
       "steps": {
         "section": "Transform",
         "hint": "Shape the result with ordered steps — computed server-side.",
-        "joinedNote": "Transform steps are available for single-source queries for now.",
         "add": "Add step",
         "remove": "Remove step",
         "up": "Move up",

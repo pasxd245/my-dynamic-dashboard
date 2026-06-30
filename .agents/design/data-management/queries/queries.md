@@ -16,7 +16,7 @@ domain grows along, and the Query **model · routes + error codes · execution e
 builder UX lives in the sibling [query-construction.md](query-construction.md); the
 visual source-graph editor is [canvas.md](canvas.md) (the Canvas tab — built).
 
-**Status**: Accepted.
+**Status**: Accepted (extended R120–R129 — transform `steps` / workflows).
 **Sibling docs**:
 [query-construction.md](query-construction.md) (the editable builder surface: edit a
 Query's definition + preview before save; the create-mode "Build on this query"),
@@ -383,6 +383,38 @@ built, as it would re-open the governed edge.)_
 
 ---
 
+## Transform steps (workflows) — R120–R129
+
+A `QueryDefinition` carries an optional ordered **`steps`** list applied **after** the
+source/join/filter resolve — saved, reusable **data shaping** (the "workflow"). A query
+with no steps is a plain select (unchanged). `steps` is a **`kind`-discriminated union**:
+
++ **`aggregate`** — `GROUP BY (dimensions) → measures` (`sum` of a numeric col, or `count`).
++ **`derive`** — a new `float` column from a **formula-free** binary op (`name = left <op>
+  right`, `op ∈ + − × ÷`, `right` a numeric column or a literal; `÷0 → NULL`).
++ **`filter`** — keep rows matching name-referenced predicates (AND), a post-aggregate
+  `WHERE` (HAVING-like). Distinct from `definition.filters` (which filter the SOURCE rows).
++ **`top_n`** — `ORDER BY col [DESC] LIMIT n`.
+
+**Engine** (`rows_reader.run_steps` / `_apply_step`): a **TYPED** relation is threaded
+through each step and stringified only at the end, so steps **chain** (a `top_n` after an
+`aggregate` sorts the measure numerically). All steps compile to **DuckDB SQL** — no Polars.
+Steps are validated against the **evolving** effective column space (`_step_plan` folds the
+list); a bad step → **`422`** on save, **`409 query_stale`** on run-time drift. A query with
+steps exposes its **POST-step** columns as `resolvedColumns`; the preview additionally
+returns the **PRE-step** `baseColumns` (R129) so the builder's editors author against the
+base while the steps editor + table use the result (see [query-construction.md](query-construction.md)).
+
+**Consumers.** A dashboard widget bound to a **pre-shaped** query (one with steps) renders
+its rows **directly** (no re-aggregation, R127). The stateless `POST /queries/{id}/aggregate`
+(R119) is the *ad-hoc* widget-driven aggregate over a raw query — the same DuckDB GROUP BY,
+not saved; steps are the *saved* equivalent.
+
+**The wall (deferred).** Steps cover every **static-schema, single-table, SQL** transform.
+A **pivot/crosstab** (data-dependent output columns), **multi-output**, or **non-SQL**
+(stats/fuzzy → Polars) transform does NOT fit the live-query model — it pulls a separate
+**materialized `Workflow` noun** (R124). Not built; see § Scope boundary.
+
 ## Routes (data contract)
 
 Wire shapes live under
@@ -398,8 +430,9 @@ envelopes: `not_found`, `name_taken`, `query_stale`, `relationship_stale`,
 | `POST` | `/workspaces/{id}/queries` | `{ name, sourceId, definition }` | `201` → `Query` | `409 name_taken`; `409 composition_cycle`; `422` (unknown/cross-ws source, bad atom, or join reason in `detail[].msg`) |
 | `GET` | `/workspaces/{id}/queries` | — | `200` → `Query[]`, `ORDER BY created_at DESC, id DESC` | (none — per-row resolve failure simply omits `resolvedColumns`) |
 | `GET` | `/queries/{id}` | — | `200` → `Query` | `404 not_found` |
-| `GET` | `/queries/{id}/rows?page=&page_size=` | — | `200` → `RowsPage {rows, page, pageSize, total}` | `404 not_found`; `409 query_stale`; `409 relationship_stale`; `409 composition_cycle`; `422` (bad `page_size`) |
-| `POST` | `/workspaces/{id}/queries/preview?page=&page_size=` | `{ sourceId, definition }` | `200` → `RowsPage` **+ `resolvedColumns`** when multi-source | `409 query_stale`; `409 relationship_stale`; `409 composition_cycle`; `422` (structurally-bad source/edge, bad `page_size`) |
+| `GET` | `/queries/{id}/rows?page=&page_size=` | — | `200` → `RowsPage {rows, page, pageSize, total}`; a query with `steps` returns its **shaped** rows | `404 not_found`; `409 query_stale`; `409 relationship_stale`; `409 composition_cycle`; `422` (bad `page_size`) |
+| `POST` | `/workspaces/{id}/queries/preview?page=&page_size=` | `{ sourceId, definition }` | `200` → `RowsPage` **+ `resolvedColumns`** when multi-source; a stepped preview also returns **`baseColumns`** (pre-step) | `409 query_stale`; `409 relationship_stale`; `409 composition_cycle`; `422` (structurally-bad source/edge, bad `page_size`) |
+| `POST` | `/queries/{id}/aggregate` | `{ dimensions, measures, filters }` | `200` → `{ columns, rows, total }` (server GROUP BY; R119) | `404 not_found`; `409 query_stale`; `409 relationship_stale`; `409 composition_cycle`; `422` (bad aggregate spec) |
 | `PUT` | `/queries/{id}` | `{ definition }` only | `200` → updated `Query` | `404 not_found`; `409 composition_cycle`; `422` (bad atom / join reason). **No `name_taken`** (definition-only). |
 | `DELETE` | `/queries/{id}` | — | `204` (no body) | `404 not_found` |
 
@@ -622,6 +655,9 @@ Each step is **pulled, not pre-built** (the Evolution Rule + the
   within-workspace, tree (no diamond) hops.
 + **Result materialization / pinned snapshots; a depth/cost cap on composition** → when
   live re-run is too slow at real scale.
++ **A materialized `Workflow` noun** (R124's wall) → for transforms the live-query `steps`
+  model can't carry: **pivot/crosstab** (data-dependent output columns), **multi-output**, or
+  **non-SQL** compute (stats/fuzzy → Polars). Trigger: a concrete pivot/multi-output pull.
 + **Excel export of a Query result; dashboards** → downstream value-out.
 + **An ORM data-access port** (handlers use raw `sqlite3`; the schema-of-record is
   SQLModel + Alembic) → pulled only when schema churn needs it.

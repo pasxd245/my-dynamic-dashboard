@@ -567,7 +567,6 @@
       "steps": {
         "section": "Biến đổi",
         "hint": "Định hình kết quả bằng các bước theo thứ tự — tính ở máy chủ.",
-        "joinedNote": "Các bước biến đổi hiện hỗ trợ truy vấn một nguồn.",
         "add": "Thêm bước",
         "remove": "Xóa bước",
         "up": "Lên",
