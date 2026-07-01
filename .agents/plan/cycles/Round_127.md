@@ -1,8 +1,8 @@
 # Round 127: workflows — widgets render a pre-shaped query directly
 
-**Status**: Review
+**Status**: Complete
 **Date started**: 2026-06-30
-**Date completed**:
+**Date completed**: 2026-07-01
 **Flow**: **DCFBI** — FE; resolves the "two aggregate paths" R120 flagged.
 
 ## Goal

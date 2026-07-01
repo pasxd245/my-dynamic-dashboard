@@ -1,8 +1,8 @@
 # Round 128: workflows — seed a demo pre-shaped (stepped) query
 
-**Status**: Review
+**Status**: Complete
 **Date started**: 2026-06-30
-**Date completed**:
+**Date completed**: 2026-07-01
 **Flow**: DCFBI — dev seed script; no product code.
 
 ## Goal

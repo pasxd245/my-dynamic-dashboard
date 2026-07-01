@@ -1,8 +1,8 @@
 # Round 126: workflows — steps-aware MSW preview mock
 
-**Status**: Review
+**Status**: Complete
 **Date started**: 2026-06-30
-**Date completed**:
+**Date completed**: 2026-07-01
 **Flow**: **DCFBI** — FE mock/test infra; no product UI change.
 
 ## Goal

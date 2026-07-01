@@ -1,8 +1,8 @@
 # Round 130: workflows — design-sync the queries doc + prune
 
-**Status**: Review
+**Status**: Complete
 **Date started**: 2026-06-30
-**Date completed**:
+**Date completed**: 2026-07-01
 **Flow**: DCFBI — docs + prune; no product code.
 
 ## Goal
