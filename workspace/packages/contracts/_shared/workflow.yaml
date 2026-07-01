@@ -1,0 +1,82 @@
+# Shared schema: Workflow (R132 — the `queries ⇒ workflows` module)
+# Used by: workflows/post (response), workflows/get (items), workflows/detail-get.
+#
+# A Workflow is a workspace-scoped noun that consolidates + transforms saved
+# QUERIES into a MATERIALIZED output. It REUSES the query transform `steps` union
+# (query.yaml). Persistence mirrors the Query noun (raw-SQLite + a definition blob).
+components:
+  schemas:
+    WorkflowDefinition:
+      type: object
+      description: |
+        R132 — a workflow's sources (saved queries `qr_`) + transform steps. v1:
+        one source (the array carries ≥1; multi-query consolidation is R134). The
+        `steps` reuse the query transform union (aggregate/derive/filter/top_n).
+      required: [sources]
+      additionalProperties: false
+      properties:
+        sources:
+          type: array
+          minItems: 1
+          description: The source saved-query ids (`qr_…`) this workflow reads.
+          items:
+            type: string
+            pattern: "^qr_[0-9a-f]{8}$"
+        steps:
+          type: array
+          description: Ordered transforms (reuses `query.yaml` step kinds). Empty = passthrough.
+          items:
+            oneOf:
+              - $ref: "query.yaml#/components/schemas/AggregateStep"
+              - $ref: "query.yaml#/components/schemas/TopNStep"
+              - $ref: "query.yaml#/components/schemas/DeriveStep"
+              - $ref: "query.yaml#/components/schemas/FilterStep"
+            discriminator:
+              propertyName: kind
+              mapping:
+                aggregate: "query.yaml#/components/schemas/AggregateStep"
+                top_n: "query.yaml#/components/schemas/TopNStep"
+                derive: "query.yaml#/components/schemas/DeriveStep"
+                filter: "query.yaml#/components/schemas/FilterStep"
+
+    Workflow:
+      type: object
+      required: [id, workspaceId, name, definition, createdAt]
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          pattern: "^wf_[0-9a-f]{8}$"
+          description: Server-generated. Format `wf_<8 lowercase hex>`.
+          examples: ["wf_9c2f10ab"]
+        workspaceId:
+          type: string
+          pattern: "^ws_[0-9a-f]{8}$"
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+          description: User-supplied; unique per workspace.
+        definition:
+          $ref: "#/components/schemas/WorkflowDefinition"
+        resolvedColumns:
+          type: array
+          description: |
+            R133 — the MATERIALIZED output's captured columns; present only once the
+            workflow has been run. Omitted before the first run.
+          items:
+            type: object
+            required: [name, dtype]
+            additionalProperties: false
+            properties:
+              name: { type: string, minLength: 1 }
+              dtype:
+                type: string
+                enum: [string, integer, float, boolean, date, datetime]
+        materializedAt:
+          type: string
+          pattern: "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+          description: R133 — ISO-8601 UTC of the last materialize (run). Omitted before first run.
+        createdAt:
+          type: string
+          pattern: "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"

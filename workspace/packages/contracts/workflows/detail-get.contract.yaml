@@ -1,0 +1,27 @@
+openapi: 3.1.0
+info:
+  title: my-dynamic-dashboard — GET /workflows/{id}
+  version: 0.1.0
+  description: R132 — return one saved workflow (definition + metadata; resolvedColumns once run).
+paths:
+  /workflows/{id}:
+    get:
+      operationId: getWorkflow
+      summary: Get one workflow
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, pattern: "^wf_[0-9a-f]{8}$" }
+      responses:
+        "200":
+          description: The saved workflow.
+          content:
+            application/json:
+              schema: { $ref: "../_shared/workflow.yaml#/components/schemas/Workflow" }
+        "404":
+          description: No workflow with this id.
+          content:
+            application/json:
+              schema: { $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorNotFound" }
+              examples: { not_found: { value: { code: "not_found" } } }

@@ -123,6 +123,37 @@ class Dashboard(SQLModel, table=True):
     created_at: str = Field(sa_column=Column(Text, nullable=False))
 
 
+class Workflow(SQLModel, table=True):
+    """R132 — a Workflow noun (workspace-scoped): consolidates + transforms saved
+    queries into a MATERIALIZED output. The ``definition_json`` blob holds the
+    sources (``qr_`` ids) + steps (mirrors ``queries.definition_json``). The
+    output is materialized on RUN (R133): ``output_columns_json`` (captured
+    schema) + ``materialized_at`` are NULL until the first run. ``name`` is unique
+    per workspace (mirrors query/dashboard)."""
+
+    __tablename__ = "workflows"
+    __table_args__ = (
+        CheckConstraint("length(name) BETWEEN 1 AND 120"),
+        Index("idx_workflows_workspace_id", "workspace_id"),
+        Index("idx_workflows_name_unique", "workspace_id", "name", unique=True),
+    )
+
+    id: str = Field(sa_column=Column(Text, primary_key=True))
+    workspace_id: str = Field(
+        sa_column=Column(
+            Text,
+            ForeignKey("workspaces.id", ondelete="CASCADE"),
+            nullable=False,
+        )
+    )
+    name: str = Field(sa_column=Column(Text, nullable=False))
+    definition_json: str = Field(sa_column=Column(Text, nullable=False))
+    # R133 — the captured output schema + materialize timestamp; NULL until first run.
+    output_columns_json: str | None = Field(default=None, sa_column=Column(Text, nullable=True))
+    materialized_at: str | None = Field(default=None, sa_column=Column(Text, nullable=True))
+    created_at: str = Field(sa_column=Column(Text, nullable=False))
+
+
 class Relationship(SQLModel, table=True):
     __tablename__ = "relationships"
     __table_args__ = (

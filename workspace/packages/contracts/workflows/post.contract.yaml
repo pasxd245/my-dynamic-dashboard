@@ -1,0 +1,62 @@
+openapi: 3.1.0
+info:
+  title: my-dynamic-dashboard — POST /workspaces/{id}/workflows
+  version: 0.1.0
+  description: |
+    R132 — save a Workflow (the `queries ⇒ workflows` module). A workflow
+    consolidates + transforms saved queries into a materialized output.
+    Validate-on-save: every source must be a query in this workspace (else 422);
+    names are unique per workspace (409 name_taken).
+paths:
+  /workspaces/{id}/workflows:
+    post:
+      operationId: createWorkflow
+      summary: Save a workflow
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, pattern: "^ws_[0-9a-f]{8}$" }
+          examples: { marketing: { value: "ws_3f8a2c91" } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, definition]
+              additionalProperties: false
+              properties:
+                name: { type: string, minLength: 1, maxLength: 120 }
+                definition: { $ref: "../_shared/workflow.yaml#/components/schemas/WorkflowDefinition" }
+            examples:
+              revenue_by_status:
+                value:
+                  name: "Revenue by status (consolidated)"
+                  definition:
+                    sources: ["qr_9c2f10ab"]
+                    steps:
+                      - kind: aggregate
+                        dimensions: ["status"]
+                        measures: [{ col: "amount", agg: "sum" }]
+      responses:
+        "201":
+          description: The saved workflow.
+          content:
+            application/json:
+              schema: { $ref: "../_shared/workflow.yaml#/components/schemas/Workflow" }
+        "409":
+          description: A workflow with this name already exists in the workspace.
+          content:
+            application/json:
+              schema: { $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorNameTaken" }
+              examples: { name_taken: { value: { code: "name_taken" } } }
+        "422":
+          description: A source is not a query in this workspace (FastAPI validation envelope).
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [detail]
+                properties:
+                  detail: { type: array, items: { type: object } }

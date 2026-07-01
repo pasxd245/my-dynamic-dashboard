@@ -22,7 +22,7 @@ from app._generated.constants import (
 def test_id_patterns_keys_and_shapes() -> None:
     assert set(ID_PATTERNS.keys()) == {
         "workspace", "dataset", "temp", "query", "relationship", "query_relationship",
-        "dashboard", "widget",
+        "dashboard", "widget", "workflow",
     }
     assert ID_PATTERNS["workspace"] == r"^ws_[0-9a-f]{8}$"
     assert ID_PATTERNS["dataset"] == r"^ds_[0-9a-f]{8}$"
@@ -32,6 +32,7 @@ def test_id_patterns_keys_and_shapes() -> None:
     assert ID_PATTERNS["query_relationship"] == r"^qrel_[0-9a-f]{8}$"  # R88 — query-owned rel
     assert ID_PATTERNS["dashboard"] == r"^dsh_[0-9a-f]{8}$"  # R101
     assert ID_PATTERNS["widget"] == r"^wdg_[0-9a-f]{8}$"  # R101
+    assert ID_PATTERNS["workflow"] == r"^wf_[0-9a-f]{8}$"  # R132
 
 
 @pytest.mark.unit

@@ -645,3 +645,46 @@ class ApiErrorSlugTaken(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     code: Literal["slug_taken"] = ERROR_CODES["slug_taken"]  # type: ignore[assignment]
+
+
+# ─── R132: Workflow noun ─────────────────────────────────────────────
+# Mirrors packages/contracts/_shared/workflow.yaml + workflows/*. A Workflow is a
+# workspace-scoped noun that consolidates + transforms saved QUERIES into a
+# MATERIALIZED output (the `queries ⇒ workflows` module). It REUSES the query
+# `Step` union — no new transform vocabulary. Persistence is raw-SQLite.
+
+WorkflowId = Annotated[str, Field(pattern=ID_PATTERNS["workflow"])]
+
+
+class WorkflowDefinition(BaseModel):
+    """A workflow's sources (saved queries, `qr_`) + transform steps. v1: exactly
+    one source (the model carries a list; multi-query consolidation is R134). The
+    `steps` reuse the query transform union (aggregate/derive/filter/top_n)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    sources: Annotated[list[QueryId], Field(min_length=1)]
+    steps: list[Step] = []
+
+
+class Workflow(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: WorkflowId
+    workspaceId: WsId  # noqa: N815
+    name: Annotated[str, Field(min_length=1, max_length=NAME_LENGTHS["query_max"])]
+    definition: WorkflowDefinition
+    # R133 — the captured output columns + materialize timestamp; present only once
+    # the workflow has been RUN (its output materialized). Null before the first run.
+    resolvedColumns: list[Column] | None = None  # noqa: N815
+    materializedAt: IsoUtc | None = None  # noqa: N815
+    createdAt: IsoUtc  # noqa: N815
+
+
+class CreateWorkflowBody(BaseModel):
+    """POST /workspaces/{id}/workflows request body."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: Annotated[str, Field(min_length=1, max_length=NAME_LENGTHS["query_max"])]
+    definition: WorkflowDefinition

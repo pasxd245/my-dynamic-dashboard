@@ -77,6 +77,7 @@ constants:
     query_relationship: '^qrel_[0-9a-f]{8}$' # R88 — query-owned relationship (copy-on-pick / free-form)
     dashboard: '^dsh_[0-9a-f]{8}$' # R101 — persisted dashboard (noun)
     widget: '^wdg_[0-9a-f]{8}$' # R101 — dashboard widget
+    workflow: '^wf_[0-9a-f]{8}$' # R132 — Workflow noun (queries ⇒ materialized output)
 
   # R29: code-first error envelope keys (matches contracts/_shared/api-error.yaml).
   # The Pydantic Literal annotations on BE side and the discriminated TS union
