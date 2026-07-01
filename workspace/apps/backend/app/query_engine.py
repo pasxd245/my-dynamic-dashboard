@@ -29,11 +29,12 @@ from app.ingest.rows_reader import (
 )
 from app.models.common import ResolvedColumn
 from app.routers._shared import _compatible, _dtype_of
-from app.storage import dataset_dir
+from app.storage import dataset_dir, workflow_dir
 
 
 _SELECT_DATASET = "SELECT * FROM datasets WHERE id = ?"
 _SELECT_QUERY = "SELECT * FROM queries WHERE id = ?"
+_SELECT_WORKFLOW = "SELECT * FROM workflows WHERE id = ?"
 
 
 def _chain_of(definition: dict) -> list[dict]:
@@ -107,6 +108,9 @@ def resolve_source(
             None,
         )
 
+    if source_id.startswith("wf_"):
+        return _resolve_workflow_leaf(con, source_id, workspace_id)
+
     ds = con.execute(_SELECT_DATASET, (source_id,)).fetchone()
     if ds is None or ds["workspace_id"] != workspace_id:
         return None, "relationship_dataset_missing"
@@ -120,6 +124,31 @@ def resolve_source(
             "columns": cols,
             "dataset_ids": {ds["id"]},
             "name": ds["name"],
+        },
+        None,
+    )
+
+
+def _resolve_workflow_leaf(
+    con: sqlite3.Connection, source_id: str, workspace_id: str
+) -> tuple[dict | None, str | None]:
+    """R135 — a WORKFLOW output used as a source is a LEAF, not a recursive
+    composition: it reads the workflow's already-MATERIALIZED parquet (frozen at its
+    last run), exactly like a dataset leaf. Because it never resolves the workflow's
+    own definition, no cycle is possible (a stale self-reference just reads the prior
+    frozen output). An un-run workflow has no output → a missing composition base."""
+    wrow = con.execute(_SELECT_WORKFLOW, (source_id,)).fetchone()
+    if wrow is None or wrow["workspace_id"] != workspace_id or wrow["output_columns_json"] is None:
+        return None, "composition_base_missing"
+    out_cols = json.loads(wrow["output_columns_json"])
+    cols = [{**c, "ownerSourceId": source_id, "sourceColumn": c["name"]} for c in out_cols]
+    parquet = str(workflow_dir(wrow["workspace_id"], wrow["id"]) / "output.parquet")
+    return (
+        {
+            "relation": ("read_parquet(?)", [parquet]),
+            "columns": cols,
+            "dataset_ids": {source_id},
+            "name": wrow["name"],
         },
         None,
     )
@@ -215,9 +244,10 @@ def _resolve_chain(
 
 
 def _is_multi_source(source_id: str, chain: list[dict]) -> bool:
-    """True when the run needs the join engine: a composed (`qr_`) driving source
-    OR at least one join hop. A bare dataset with no hops is single-source."""
-    return source_id.startswith("qr_") or bool(chain)
+    """True when the run needs the join engine: a composed (`qr_`) driving source, a
+    workflow-output (`wf_`) leaf (R135), OR at least one join hop. A bare dataset
+    with no hops is single-source (the plain ``read_parquet`` path)."""
+    return source_id.startswith(("qr_", "wf_")) or bool(chain)
 
 
 def _to_resolved(c: dict) -> ResolvedColumn:
@@ -514,3 +544,34 @@ def _run_steps(
     normalized, _final_cols = step_plan
     inner_sql, inner_params = _build_inner_relation(plan, q, filters, advanced)
     return run_steps(inner_sql, inner_params, [c["name"] for c in plan["columns"]], normalized)
+
+
+def build_consolidated_relation(
+    con: sqlite3.Connection, sources: list[str], workspace_id: str
+) -> tuple[dict | None, str | None]:
+    """R135 — CONSOLIDATE ≥1 source (saved query ``qr_`` or workflow-output ``wf_``)
+    into ONE typed relation by stacking them with ``UNION ALL BY NAME`` — the
+    same-schema consolidation the ``queries ⇒ workflows`` module exists for (many
+    period/provider exports → one table). ``BY NAME`` aligns columns by name, so a
+    column-order difference between sources is tolerated; a genuinely divergent
+    schema is best-effort (missing columns read NULL) — v1 assumes same-shape
+    sources. Each source's OWN filters are already baked into its resolved
+    sub-relation, so no extra predicate is applied here.
+
+    Returns ``({"sql", "params", "columns"}, None)`` — ``columns`` is the FIRST
+    source's column space (the declared consolidation schema, used for step
+    validation + output capture) — or ``(None, reason)`` from the first source that
+    fails to resolve (callers map the reason to their status)."""
+    parts: list[str] = []
+    params: list = []
+    columns: list[dict] | None = None
+    for src in sources:
+        plan, reason = _resolve_plan(con, src, [], {}, workspace_id)
+        if reason is not None:
+            return None, reason
+        sql, p = _build_inner_relation(plan, None, [], [])
+        parts.append(f"SELECT * FROM ({sql})")
+        params.extend(p)
+        if columns is None:
+            columns = plan["columns"]
+    return {"sql": " UNION ALL BY NAME ".join(parts), "params": params, "columns": columns}, None

@@ -9,8 +9,8 @@ components:
     WorkflowDefinition:
       type: object
       description: |
-        R132 — a workflow's sources (saved queries `qr_`) + transform steps. v1:
-        one source (the array carries ≥1; multi-query consolidation is R134). The
+        R135 — a workflow's sources (saved queries `qr_` and/or workflow outputs
+        `wf_`) + transform steps. ≥1 source, CONSOLIDATED via UNION ALL BY NAME. The
         `steps` reuse the query transform union (aggregate/derive/filter/top_n).
       required: [sources]
       additionalProperties: false
@@ -18,10 +18,12 @@ components:
         sources:
           type: array
           minItems: 1
-          description: The source saved-query ids (`qr_…`) this workflow reads.
+          description: |
+            The source ids this workflow consolidates: saved queries (`qr_…`) and/or
+            another workflow's materialized output (`wf_…`, output-as-source, R135).
           items:
             type: string
-            pattern: "^qr_[0-9a-f]{8}$"
+            pattern: "^(qr_|wf_)[0-9a-f]{8}$"
         steps:
           type: array
           description: Ordered transforms (reuses `query.yaml` step kinds). Empty = passthrough.

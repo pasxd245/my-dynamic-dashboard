@@ -655,15 +655,20 @@ class ApiErrorSlugTaken(BaseModel):
 
 WorkflowId = Annotated[str, Field(pattern=ID_PATTERNS["workflow"])]
 
+# R135 — a workflow source is a saved query (`qr_`) OR another workflow's
+# MATERIALIZED output (`wf_`) used as a source (output-as-source, loop closes).
+# The alternation of two existing id shapes; mirrored in workflow.yaml's `sources`.
+WorkflowSourceId = Annotated[str, Field(pattern=r"^(qr_|wf_)[0-9a-f]{8}$")]
+
 
 class WorkflowDefinition(BaseModel):
-    """A workflow's sources (saved queries, `qr_`) + transform steps. v1: exactly
-    one source (the model carries a list; multi-query consolidation is R134). The
+    """A workflow's sources (saved queries `qr_` and/or workflow outputs `wf_`) +
+    transform steps. R135 — ≥1 source, CONSOLIDATED via UNION ALL BY NAME. The
     `steps` reuse the query transform union (aggregate/derive/filter/top_n)."""
 
     model_config = ConfigDict(extra="forbid")
 
-    sources: Annotated[list[QueryId], Field(min_length=1)]
+    sources: Annotated[list[WorkflowSourceId], Field(min_length=1)]
     steps: list[Step] = []
 
 

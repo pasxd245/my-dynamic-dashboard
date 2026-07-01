@@ -90,3 +90,66 @@ def test_run_after_source_query_deleted_returns_409() -> None:
         resp = client.post(f"/workflows/{wid}/run")
     assert resp.status_code == 409
     assert resp.json() == {"code": "query_stale"}
+
+
+# ─── R135: multi-query consolidation (UNION) + output-as-source ──────
+
+
+def _create_multi(client: TestClient, ws: str, sources: list[str], name: str, steps=None):
+    return client.post(
+        f"/workspaces/{ws}/workflows",
+        json={"name": name, "definition": {"sources": sources, "steps": steps or []}},
+    )
+
+
+@pytest.mark.unit
+def test_consolidate_stacks_rows_via_union() -> None:
+    with TestClient(app) as client:
+        ws, qid = _query_source(client)
+        one = _create(client, ws, qid, name="one", steps=[]).json()["id"]
+        client.post(f"/workflows/{one}/run")
+        n1 = client.get(f"/workflows/{one}/rows?unpaged=true").json()["total"]
+        # Consolidating the SAME query twice unions its rows → 2× the single count.
+        two = _create_multi(client, ws, [qid, qid], name="two", steps=[]).json()["id"]
+        client.post(f"/workflows/{two}/run")
+        n2 = client.get(f"/workflows/{two}/rows?unpaged=true").json()["total"]
+
+    assert n1 >= 1
+    assert n2 == 2 * n1
+
+
+@pytest.mark.unit
+def test_workflow_output_used_as_source() -> None:
+    with TestClient(app) as client:
+        ws, qid = _query_source(client)
+        a = _create(client, ws, qid, name="A", steps=[]).json()["id"]
+        client.post(f"/workflows/{a}/run")
+        na = client.get(f"/workflows/{a}/rows?unpaged=true").json()["total"]
+        # Workflow B reads A's MATERIALIZED output as a source (loop closes).
+        created_b = _create_multi(client, ws, [a], name="B", steps=[])
+        assert created_b.status_code == 201  # wf_ source accepted (not 422)
+        bid = created_b.json()["id"]
+        run_b = client.post(f"/workflows/{bid}/run")
+        nb = client.get(f"/workflows/{bid}/rows?unpaged=true").json()["total"]
+
+    assert run_b.status_code == 200
+    assert nb == na >= 1
+
+
+@pytest.mark.unit
+def test_run_with_unrun_workflow_source_returns_409() -> None:
+    with TestClient(app) as client:
+        ws, qid = _query_source(client)
+        a = _create(client, ws, qid, name="A").json()["id"]  # created but NOT run → no output
+        bid = _create_multi(client, ws, [a], name="B").json()["id"]
+        resp = client.post(f"/workflows/{bid}/run")
+    assert resp.status_code == 409
+    assert resp.json() == {"code": "query_stale"}
+
+
+@pytest.mark.unit
+def test_create_with_unknown_workflow_source_returns_422() -> None:
+    with TestClient(app) as client:
+        ws, _qid = _query_source(client)
+        resp = _create_multi(client, ws, ["wf_00000000"], name="bad")
+    assert resp.status_code == 422

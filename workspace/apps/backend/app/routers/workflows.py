@@ -40,7 +40,7 @@ from app.models.common import (
     Workflow as WorkflowModel,
     WorkflowDefinition,
 )
-from app.query_engine import _build_inner_relation, _resolve_plan, _step_plan
+from app.query_engine import _step_plan, build_consolidated_relation
 from app.routers._shared import RowsPage, _is_unique_violation, _now_iso
 from app.storage import workflow_dir
 
@@ -73,16 +73,18 @@ def _workflow_from_row(row: sqlite3.Row) -> WorkflowModel:
 
 
 def _validate_sources(con: sqlite3.Connection, sources: list[str], workspace_id: str) -> None:
-    """Each source must be a saved query (`qr_`) in THIS workspace → else 422."""
+    """Each source must be a saved query (`qr_`) OR a workflow output (`wf_`, R135)
+    in THIS workspace → else 422."""
     for i, src in enumerate(sources):
-        row = con.execute("SELECT workspace_id FROM queries WHERE id = ?", (src,)).fetchone()
+        table = "queries" if src.startswith("qr_") else "workflows"
+        row = con.execute(f"SELECT workspace_id FROM {table} WHERE id = ?", (src,)).fetchone()
         if row is None or row["workspace_id"] != workspace_id:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail=[
                     {
                         "loc": ["body", "definition", "sources", i],
-                        "msg": f"unknown_source: {src} is not a query in workspace {workspace_id}",
+                        "msg": f"unknown_source: {src} is not a query/workflow in workspace {workspace_id}",
                         "type": "value_error",
                     }
                 ],
@@ -169,27 +171,29 @@ def run_workflow(id: WfIdPath) -> JSONResponse:  # noqa: A002
             return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=ApiErrorNotFound().model_dump())
         workspace_id = row["workspace_id"]
         definition = json.loads(row["definition_json"])
-        source_id = definition["sources"][0]  # v1: single source (multi-query is R135)
+        sources = definition["sources"]  # R135 — ≥1; consolidated via UNION ALL BY NAME
         steps = definition.get("steps") or []
-        plan, reason = _resolve_plan(con, source_id, [], {}, workspace_id)
+        consolidated, reason = build_consolidated_relation(con, sources, workspace_id)
 
     if reason == "composition_cycle":
         return JSONResponse(status_code=status.HTTP_409_CONFLICT, content=ApiErrorCompositionCycle().model_dump())
     if reason is not None:
-        # Source query deleted / drifted → the workflow can't run against current data.
+        # A source query/workflow deleted / drifted / not-yet-run → can't run.
         return JSONResponse(status_code=status.HTTP_409_CONFLICT, content=ApiErrorQueryStale().model_dump())
+    columns = consolidated["columns"]
     try:
-        step_plan = _step_plan(steps, plan["columns"])
+        step_plan = _step_plan(steps, columns)
     except HTTPException as exc:
         if exc.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY:
             return JSONResponse(status_code=status.HTTP_409_CONFLICT, content=ApiErrorQueryStale().model_dump())
         raise
 
     normalized = step_plan[0] if step_plan else []
-    final_cols = step_plan[1] if step_plan else plan["columns"]
-    inner_sql, inner_params = _build_inner_relation(plan, None, [], [])
+    final_cols = step_plan[1] if step_plan else columns
     out_path = workflow_dir(workspace_id, id) / "output.parquet"
-    materialize_steps(inner_sql, inner_params, [c["name"] for c in plan["columns"]], normalized, out_path)
+    materialize_steps(
+        consolidated["sql"], consolidated["params"], [c["name"] for c in columns], normalized, out_path
+    )
 
     output_columns = [{"name": c["name"], "dtype": c["dtype"]} for c in final_cols]
     materialized_at = _now_iso()
