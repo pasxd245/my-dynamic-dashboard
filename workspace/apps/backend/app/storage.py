@@ -68,3 +68,14 @@ def datasets_dir() -> Path:
 
 def dataset_dir(workspace_id: str, dataset_id: str) -> Path:
     return datasets_dir() / workspace_id / dataset_id
+
+
+def workflows_dir() -> Path:
+    p = get_data_root() / "workflows"
+    p.mkdir(parents=True, exist_ok=True)
+    return p
+
+
+def workflow_dir(workspace_id: str, workflow_id: str) -> Path:
+    """A materialized workflow's output tree — holds ``output.parquet`` (R134)."""
+    return workflows_dir() / workspace_id / workflow_id

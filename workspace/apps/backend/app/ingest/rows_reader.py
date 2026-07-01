@@ -403,6 +403,32 @@ def run_steps(
     return [list(r) for r in rows]
 
 
+def materialize_steps(
+    inner_sql: str,
+    inner_params: list[Any],
+    base_columns: list[str],
+    steps: list[dict],
+    out_path: Path,
+) -> None:
+    """R134 — fold an ordered list of TYPED transform steps over the inner relation
+    (a workflow's resolved + filtered source), then write the TYPED final relation
+    to ``out_path`` as parquet. Unlike ``run_steps`` (which stringifies to rows for a
+    response), this keeps native types — an integer stays integer — so the
+    materialized output can later be read back as a typed table source (R135). An
+    empty ``steps`` list writes the inner relation verbatim (passthrough)."""
+    sql, params, _cols = inner_sql, inner_params, list(base_columns)
+    for step in steps:
+        sql, params, _cols = _apply_step(step, sql, params, _cols)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    target = str(out_path).replace("'", "''")
+    with duckdb.connect(":memory:") as con:
+        # CREATE-then-COPY: the subquery binds `?` params; COPY's target must be a
+        # SQL literal (DuckDB won't parameterize a COPY path). The path is server-
+        # generated from validated ids, so the escaped literal is safe.
+        con.execute(f"CREATE TABLE _out AS ({sql})", params)
+        con.execute(f"COPY _out TO '{target}' (FORMAT PARQUET)")
+
+
 def query_aggregate_rows(
     inner_sql: str,
     inner_params: list[Any],

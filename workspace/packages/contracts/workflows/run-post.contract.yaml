@@ -1,0 +1,50 @@
+openapi: 3.1.0
+info:
+  title: my-dynamic-dashboard — POST /workflows/{id}/run
+  version: 0.1.0
+  description: |
+    R134 — MATERIALIZE a workflow. Resolve its (v1: single) source query via the
+    shared query engine, apply the workflow's transform steps over the resolved +
+    filtered relation, write the TYPED output to parquet, and capture the output
+    schema. The response is the workflow with `resolvedColumns` + `materializedAt`
+    now populated. Read the materialized rows via `GET /workflows/{id}/rows`.
+
+    Unlike a live query run, a workflow's output is MATERIALIZED (frozen at run
+    time) — re-run to refresh it against current source data.
+paths:
+  /workflows/{id}/run:
+    post:
+      operationId: runWorkflow
+      summary: Run a workflow (materialize its output)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, pattern: "^wf_[0-9a-f]{8}$" }
+      responses:
+        "200":
+          description: The workflow, now materialized (`resolvedColumns` + `materializedAt` present).
+          content:
+            application/json:
+              schema: { $ref: "../_shared/workflow.yaml#/components/schemas/Workflow" }
+        "404":
+          description: No workflow with this id.
+          content:
+            application/json:
+              schema: { $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorNotFound" }
+              examples: { not_found: { value: { code: "not_found" } } }
+        "409":
+          description: |
+            The workflow can't run against current data — one of:
+            - `query_stale` — the source query drifted (a filtered/derived column
+              was removed or retyped), or a workflow step no longer validates.
+            - `composition_cycle` — the source query composes back onto itself.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorQueryStale"
+                  - $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorCompositionCycle"
+              examples:
+                source_stale: { summary: The source query drifted, value: { code: "query_stale" } }
+                cycle: { summary: The source query cycles, value: { code: "composition_cycle" } }

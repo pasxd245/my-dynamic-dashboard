@@ -1,0 +1,84 @@
+openapi: 3.1.0
+info:
+  title: my-dynamic-dashboard — GET /workflows/{id}/rows
+  version: 0.1.0
+  description: |
+    R134 — page a MATERIALIZED workflow's output. The workflow must have been RUN
+    (`POST /workflows/{id}/run`) first; before that there is no materialized output
+    and the endpoint 404s. The response is the SAME `RowsPage` shape as the query
+    and dataset rows paths. `unpaged=true` returns the result in ONE response,
+    capped server-side at `dashboard_max_rows` (the widget load path).
+paths:
+  /workflows/{id}/rows:
+    get:
+      operationId: workflowRows
+      summary: Page a materialized workflow's output rows
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, pattern: "^wf_[0-9a-f]{8}$" }
+        - name: page
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, default: 1 }
+          description: 1-indexed page. Out-of-range returns 200 with empty `rows`; below 1 returns 422.
+        - name: page_size
+          in: query
+          required: false
+          schema:
+            allOf:
+              - $ref: "../_shared/pagination.yaml#/components/schemas/PageSize"
+            default: 50
+          description: Rows per page. Closed enum; other values return 422.
+        - name: unpaged
+          in: query
+          required: false
+          schema: { type: boolean, default: false }
+          description: One-shot fetch capped at `dashboard_max_rows` (`total` still carries the full count).
+      responses:
+        "200":
+          description: Paged row slice of the materialized output.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [rows, page, pageSize, total]
+                additionalProperties: false
+                properties:
+                  rows:
+                    type: array
+                    description: Row-major; one cell per output column, in column order. Cells stringified; nulls preserved.
+                    items:
+                      type: array
+                      items:
+                        type: [string, "null"]
+                  page: { type: integer, minimum: 1, description: Echoed page number. }
+                  pageSize: { type: integer, minimum: 0, description: Echoed page size (plain int; mirrors the BE RowsPage model). }
+                  total: { type: integer, minimum: 0, description: Total rows in the materialized output. }
+              examples:
+                first_page:
+                  summary: First page of a materialized aggregate output
+                  value:
+                    rows: [["won", "36900"], ["lost", "8200"], ["open", "15400"]]
+                    page: 1
+                    pageSize: 50
+                    total: 3
+        "404":
+          description: No workflow with this id, OR it has not been run yet (no materialized output).
+          content:
+            application/json:
+              schema: { $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorNotFound" }
+              examples: { not_found: { value: { code: "not_found" } } }
+        "422":
+          description: Malformed request — `page < 1`, `page_size` not in the enum, or a bad id.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [detail]
+                properties:
+                  detail:
+                    type: array
+                    items:
+                      type: object
