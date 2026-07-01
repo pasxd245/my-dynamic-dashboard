@@ -25,6 +25,7 @@ import type {
   UpdateQueryRequest,
 } from '@/features/data-management/queries/types';
 import type { CreateRelationshipRequest } from '@/features/data-management/relationships/types';
+import type { CreateWorkflowRequest } from '@/features/data-management/workflows/types';
 import type { CreateDashboardRequest, UpdateDashboardRequest } from '@/features/dashboard/wire';
 import { withContractValidation } from './contract-validator';
 import {
@@ -47,6 +48,8 @@ import {
   MOCK_ROWS,
   MOCK_STALE_JOIN_QUERY_ID,
   MOCK_STALE_QUERY_ID,
+  MOCK_WORKFLOW,
+  MOCK_WORKFLOWS,
   MOCK_WORKSPACE,
 } from './fixtures';
 
@@ -764,6 +767,55 @@ export const handlers = [
   }),
 
   http.delete(api('/queries/:id'), () => new HttpResponse(null, { status: 204 })),
+
+  // Workflows (R132–R135 — the `queries ⇒ workflows` module): create / list /
+  // get / run / rows / delete. Stateless mocks echoing contract-valid shapes.
+  // `getWorkflow`/`runWorkflow` return the MATERIALIZED shape so the detail page
+  // shows its output; `workflowRows` pages MOCK_ROWS (the materialized output).
+  withContractValidation('post', api('/workspaces/:id/workflows'), 'createWorkflow', async ({ params, request }) => {
+    const body = (await request.json()) as Partial<CreateWorkflowRequest>;
+    return HttpResponse.json(
+      {
+        id: `wf_${Math.random().toString(16).slice(2, 10).padEnd(8, '0')}`,
+        workspaceId: String(params.id),
+        name: body.name ?? 'untitled workflow',
+        definition: body.definition ?? { sources: [MOCK_QUERY.id], steps: [] },
+        createdAt: new Date().toISOString(),
+      },
+      { status: 201 },
+    );
+  }),
+  withContractValidation('get', api('/workspaces/:id/workflows'), 'listWorkflows', ({ params }) => {
+    if (params.id !== MOCK_WORKSPACE.id) return HttpResponse.json([]);
+    return HttpResponse.json(MOCK_WORKFLOWS);
+  }),
+  withContractValidation('get', api('/workflows/:id'), 'getWorkflow', ({ params }) => {
+    if (params.id !== MOCK_WORKFLOW.id) {
+      return HttpResponse.json({ code: 'not_found' }, { status: 404 });
+    }
+    return HttpResponse.json(MOCK_WORKFLOW);
+  }),
+  withContractValidation('post', api('/workflows/:id/run'), 'runWorkflow', ({ params }) => {
+    if (params.id !== MOCK_WORKFLOW.id) {
+      return HttpResponse.json({ code: 'not_found' }, { status: 404 });
+    }
+    // Materialize → echo the workflow with resolvedColumns + materializedAt.
+    return HttpResponse.json({ ...MOCK_WORKFLOW, materializedAt: new Date().toISOString() });
+  }),
+  withContractValidation('get', api('/workflows/:id/rows'), 'workflowRows', ({ params, request }) => {
+    if (params.id !== MOCK_WORKFLOW.id) {
+      return HttpResponse.json({ code: 'not_found' }, { status: 404 });
+    }
+    const url = new URL(request.url);
+    const unpaged = url.searchParams.get('unpaged') === 'true';
+    const page = Math.max(1, Number(url.searchParams.get('page') ?? 1));
+    const pageSize = Math.max(1, Number(url.searchParams.get('page_size') ?? 50));
+    const all = MOCK_ROWS.map((r) => [...r]);
+    if (unpaged) return HttpResponse.json({ rows: all, page: 1, pageSize: all.length, total: all.length });
+    const offset = (page - 1) * pageSize;
+    return HttpResponse.json({ rows: all.slice(offset, offset + pageSize), page, pageSize, total: all.length });
+  }),
+  http.delete(api('/workflows/:id'), () => new HttpResponse(null, { status: 204 })),
 
   // Dashboards (R101 — dashboard-as-a-persisted-noun): create / list / get /
   // update / delete. Stateless mocks that echo contract-valid shapes (the live

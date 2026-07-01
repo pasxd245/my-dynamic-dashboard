@@ -9,7 +9,8 @@
     "datasets": "Bộ dữ liệu",
     "new": "Mới",
     "queries": "Truy vấn",
-    "relationships": "Quan hệ"
+    "relationships": "Quan hệ",
+    "workflows": "Quy trình"
   },
   "dashboard": {
     "listTitle": "Bảng điều khiển",
@@ -153,7 +154,8 @@
     "workspace": "không gian làm việc",
     "dataset": "bộ dữ liệu",
     "query": "truy vấn",
-    "relationship": "quan hệ"
+    "relationship": "quan hệ",
+    "workflow": "quy trình"
   },
   "app": {
     "errorBoundary": {
@@ -766,5 +768,69 @@
     "title": "Không tìm thấy trang",
     "subtitle": "Trang này không tồn tại hoặc đã được di chuyển.",
     "back": "Về trang chủ"
+  },
+  "workflows": {
+    "list": {
+      "title": "Quy trình",
+      "subtitle": "Hợp nhất các truy vấn đã lưu thành kết quả được kết xuất. Chạy để làm mới.",
+      "newWorkflow": "Quy trình mới",
+      "loadCouldnt": "Không tải được quy trình",
+      "emptyTitle": "Chưa có quy trình nào",
+      "emptyHint": "Tạo một quy trình để hợp nhất một hoặc nhiều truy vấn đã lưu thành một kết quả.",
+      "noMatch": "Không có quy trình nào khớp \"{{query}}\"",
+      "workspaceLabel": "Không gian làm việc:",
+      "allWorkspaces": "Tất cả không gian",
+      "searchPlaceholder": "Tìm quy trình theo tên…",
+      "colName": "Tên",
+      "colSources": "Nguồn",
+      "colSteps": "Bước",
+      "colWorkspace": "Không gian",
+      "colLastRun": "Lần chạy gần nhất",
+      "neverRun": "Chưa chạy"
+    },
+    "builder": {
+      "newTitle": "Quy trình mới",
+      "newSubtitle": "Chọn nguồn để hợp nhất, thêm các bước biến đổi, rồi lưu. Sau đó chạy để kết xuất kết quả.",
+      "save": "Lưu",
+      "workspaceLabel": "Không gian làm việc",
+      "workspacePlaceholder": "Chọn không gian làm việc",
+      "nameLabel": "Tên",
+      "namePlaceholder": "vd: Hợp nhất pipeline Q1",
+      "sourcesLabel": "Nguồn",
+      "sourcesHint": "Các truy vấn đã lưu (và kết quả quy trình khác) để hợp nhất — gộp lại bằng union.",
+      "sourcesPlaceholder": "Chọn một hoặc nhiều nguồn",
+      "sourceGroupQueries": "Truy vấn",
+      "sourceGroupWorkflows": "Kết quả quy trình",
+      "stepsLabel": "Bước biến đổi",
+      "stepsHint": "Tùy chọn. Tổng hợp, tạo cột, lọc hoặc lấy top-N trên các dòng đã hợp nhất.",
+      "pickSourceFirst": "Chọn nguồn ở trên để soạn bước theo các cột của nó.",
+      "createSuccess": "Đã tạo quy trình \"{{name}}\"",
+      "nameTaken": "Đã có quy trình trùng tên trong không gian này.",
+      "createFailed": "Không tạo được quy trình. Vui lòng thử lại."
+    },
+    "detail": {
+      "notFoundTitle": "Không tìm thấy quy trình",
+      "notFoundHint": "Có thể nó đã bị xóa.",
+      "backToWorkflows": "Quay lại quy trình",
+      "loadingTitle": "Đang tải…",
+      "subtitle": "Kết quả hợp nhất được kết xuất từ các truy vấn đã lưu.",
+      "badgeMaterialized": "Đã kết xuất",
+      "badgeNeverRun": "Chưa chạy",
+      "run": "Chạy",
+      "rerun": "Chạy lại",
+      "definitionLabel": "Định nghĩa",
+      "sourcesCount": "{{count}} nguồn",
+      "stepsCount": "{{count}} bước",
+      "materializedAt": "Đã kết xuất {{at}}",
+      "zeroRowsTitle": "Không có dòng nào",
+      "zeroRowsHint": "Kết quả hợp nhất rỗng.",
+      "neverRunTitle": "Chưa chạy",
+      "neverRunHint": "Chạy quy trình để kết xuất kết quả, rồi xem tại đây.",
+      "runSuccess": "Đã kết xuất quy trình",
+      "runCycle": "Không chạy được — một nguồn tự tham chiếu vòng lại chính nó.",
+      "runStale": "Không chạy được — một truy vấn nguồn đã thay đổi hoặc chưa được chạy.",
+      "runFailed": "Không chạy được quy trình. Vui lòng thử lại.",
+      "deleteSuccess": "Đã xóa quy trình \"{{name}}\""
+    }
   }
 }

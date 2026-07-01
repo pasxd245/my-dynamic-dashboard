@@ -2,7 +2,7 @@ import { Modal, Typography } from 'antd';
 import { Trans, useTranslation } from 'react-i18next';
 
 export type DeleteConfirmModalProps = Readonly<{
-  resourceLabel: 'workspace' | 'dataset' | 'query' | 'relationship';
+  resourceLabel: 'workspace' | 'dataset' | 'query' | 'relationship' | 'workflow';
   /** The resource's display name, shown in the confirmation copy. */
   resourceName: string;
   open: boolean;

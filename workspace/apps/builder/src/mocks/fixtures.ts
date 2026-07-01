@@ -18,6 +18,7 @@
 
 import type { Column, Dataset, RowsPage } from '@/features/data-management/datasets/types';
 import type { Query, ResolvedColumn } from '@/features/data-management/queries/types';
+import type { Workflow } from '@/features/data-management/workflows/types';
 import type { Relationship } from '@/features/data-management/relationships/types';
 import type { DashboardWire } from '@/features/dashboard/wire';
 import type { Workspace } from '@/features/data-management/workspaces/types';
@@ -108,6 +109,21 @@ export const MOCK_QUERY: Query = {
 };
 
 export const MOCK_QUERIES: readonly Query[] = [MOCK_QUERY];
+
+// R132–R135 — a MATERIALIZED workflow consolidating one saved query. `getWorkflow`
+// returns it materialized so the detail page shows its output table in dev;
+// `runWorkflow` echoes the same materialized shape; `workflowRows` pages MOCK_ROWS.
+export const MOCK_WORKFLOW: Workflow = {
+  id: 'wf_11111111',
+  workspaceId: MOCK_WORKSPACE.id,
+  name: 'Consolidated leads',
+  definition: { sources: [MOCK_QUERY.id], steps: [] },
+  resolvedColumns: MOCK_DATASET.columns,
+  materializedAt: '2026-07-01T12:00:00Z',
+  createdAt: '2026-07-01T10:00:00Z',
+};
+
+export const MOCK_WORKFLOWS: readonly Workflow[] = [MOCK_WORKFLOW];
 
 /** A query id whose run returns 409 query_stale (the source dataset's
  *  schema drifted). Lets the FE/integration exercise the stale state

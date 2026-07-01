@@ -26,6 +26,9 @@ import { DatasetNewPage } from '@/features/data-management/datasets/upload/Datas
 import { QueriesPage } from '@/features/data-management/queries/QueriesPage';
 import { QueryDetailPage } from '@/features/data-management/queries/QueryDetailPage';
 import { QueryCreatePage } from '@/features/data-management/queries/QueryCreatePage';
+import { WorkflowsPage } from '@/features/data-management/workflows/WorkflowsPage';
+import { WorkflowCreatePage } from '@/features/data-management/workflows/WorkflowCreatePage';
+import { WorkflowDetailPage } from '@/features/data-management/workflows/WorkflowDetailPage';
 import { WorkspaceRelationshipsPage } from '@/features/data-management/relationships/WorkspaceRelationshipsPage';
 import { WorkspacesPage } from '@/features/data-management/workspaces/WorkspacesPage';
 
@@ -104,6 +107,9 @@ const appTree = (
                 <Route path="/data-management/queries" element={<QueriesPage />} />
                 <Route path="/data-management/queries/new" element={<QueryCreatePage />} />
                 <Route path="/data-management/queries/:id" element={<QueryDetailPage />} />
+                <Route path="/data-management/workflows" element={<WorkflowsPage />} />
+                <Route path="/data-management/workflows/new" element={<WorkflowCreatePage />} />
+                <Route path="/data-management/workflows/:id" element={<WorkflowDetailPage />} />
                 {/* Global catch-all — unknown routes (incl. a bare /dashboard) → 404. */}
                 <Route path="*" element={<NotFoundPage />} />
               </Routes>

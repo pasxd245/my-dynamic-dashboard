@@ -4,6 +4,7 @@ import {
   DatabaseOutlined,
   FilterOutlined,
   FundOutlined,
+  PartitionOutlined,
   SettingOutlined,
   TableOutlined,
 } from '@ant-design/icons';
@@ -31,6 +32,7 @@ const ROUTE_FOR_KEY: Record<string, string> = {
   workspaces: '/data-management/workspaces',
   datasets: '/data-management/datasets',
   queries: '/data-management/queries',
+  workflows: '/data-management/workflows',
 };
 
 function activeKeyFor(pathname: string): string {
@@ -46,6 +48,9 @@ function activeKeyFor(pathname: string): string {
   }
   if (pathname === '/data-management/queries' || pathname.startsWith('/data-management/queries/')) {
     return 'queries';
+  }
+  if (pathname === '/data-management/workflows' || pathname.startsWith('/data-management/workflows/')) {
+    return 'workflows';
   }
   // /data-management with no sub-segment is the placeholder route;
   // no leaf is "active" then (the group header just stays expanded).
@@ -72,6 +77,7 @@ export function AppLayout({ children }: Readonly<{ children: ReactNode }>) {
       { key: 'workspaces', label: t('nav.workspaces'), icon: <AppstoreOutlined /> },
       { key: 'datasets', label: t('nav.datasets'), icon: <TableOutlined /> },
       { key: 'queries', label: t('nav.queries'), icon: <FilterOutlined /> },
+      { key: 'workflows', label: t('nav.workflows'), icon: <PartitionOutlined /> },
     ],
   };
 
