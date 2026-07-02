@@ -8,7 +8,7 @@
 import { AntdConfig } from '@mdd/ui';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { App } from 'antd';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
 
@@ -46,6 +46,18 @@ describe('Workflows catalog + detail (R137)', () => {
     // (materialized) → workflowRows fetched → PagedRowsView rendered it.
     await waitFor(() => expect(screen.getByText('D-0001')).toBeInTheDocument());
     expect(screen.getAllByText(MOCK_WORKFLOW.name).length).toBeGreaterThan(0);
+  });
+
+  it('enters edit mode and saves via PUT (updateWorkflow → contract)', async () => {
+    renderApp(`/data-management/workflows/${MOCK_WORKFLOW.id}`);
+    // Wait for the loaded detail, then open edit mode.
+    await waitFor(() => expect(document.querySelector('[data-component="WorkflowDetailEdit"]')).toBeInTheDocument());
+    fireEvent.click(document.querySelector('[data-component="WorkflowDetailEdit"]') as Element);
+    // The shared builder form appears (name field pre-filled).
+    await waitFor(() => expect(document.querySelector('[data-component="WorkflowForm"]')).toBeInTheDocument());
+    // Save PUTs and exits edit mode (form goes away).
+    fireEvent.click(document.querySelector('[data-component="WorkflowEditSave"]') as Element);
+    await waitFor(() => expect(document.querySelector('[data-component="WorkflowForm"]')).not.toBeInTheDocument());
   });
 
   it('404s an unknown workflow (getWorkflow → not_found)', async () => {

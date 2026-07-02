@@ -14,10 +14,18 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 import { DEFAULT_PAGE_SIZE, PAGE_SIZES } from '@/_generated/constants';
+import type { Step } from '@/features/data-management/queries/types';
 import { ApiErrorThrown } from '../_shared/types';
 import { DeleteConfirmModal } from '../_shared/DeleteConfirmModal';
 import { PagedRowsView } from '../_shared/PagedRowsView';
-import { useDeleteWorkflowMutation, useRunWorkflowMutation, useWorkflowQuery, useWorkflowRowsQuery } from './hooks';
+import { WorkflowForm } from './WorkflowForm';
+import {
+  useDeleteWorkflowMutation,
+  useRunWorkflowMutation,
+  useUpdateWorkflowMutation,
+  useWorkflowQuery,
+  useWorkflowRowsQuery,
+} from './hooks';
 
 function clampPageSize(raw: string | null): number {
   const n = Number(raw);
@@ -49,6 +57,43 @@ export function WorkflowDetailPage() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const runMutation = useRunWorkflowMutation();
   const deleteMutation = useDeleteWorkflowMutation();
+
+  // R139 — inline edit mode over a working copy (mirrors the query detail's [Edit]).
+  const [editing, setEditing] = useState(false);
+  const [draftName, setDraftName] = useState('');
+  const [draftSources, setDraftSources] = useState<string[]>([]);
+  const [draftSteps, setDraftSteps] = useState<Step[]>([]);
+  const updateMutation = useUpdateWorkflowMutation();
+
+  const startEdit = () => {
+    if (!workflow) return;
+    setDraftName(workflow.name);
+    setDraftSources([...workflow.definition.sources]);
+    setDraftSteps([...(workflow.definition.steps ?? [])]);
+    setEditing(true);
+  };
+
+  const canSaveEdit = draftName.trim().length > 0 && draftSources.length > 0 && !updateMutation.isPending;
+
+  const saveEdit = () => {
+    if (!workflow || !canSaveEdit) return;
+    updateMutation.mutate(
+      { id: workflow.id, body: { name: draftName.trim(), definition: { sources: draftSources, steps: draftSteps } } },
+      {
+        onSuccess: () => {
+          message.success(t('workflows.builder.editSuccess'));
+          setEditing(false);
+        },
+        onError: (err) => {
+          if (err instanceof ApiErrorThrown && err.body.code === 'name_taken') {
+            message.error(t('workflows.builder.nameTaken'));
+          } else {
+            message.error(t('workflows.builder.editFailed'));
+          }
+        },
+      },
+    );
+  };
 
   const notFound = isNotFound(workflowQuery.error);
 
@@ -156,7 +201,22 @@ export function WorkflowDetailPage() {
     </span>
   );
 
-  const actions = (
+  const actions = editing ? (
+    <span style={{ display: 'inline-flex', gap: 8 }}>
+      <Button onClick={() => setEditing(false)} data-component="WorkflowEditCancel">
+        {t('common.cancel')}
+      </Button>
+      <Button
+        type="primary"
+        onClick={saveEdit}
+        disabled={!canSaveEdit}
+        loading={updateMutation.isPending}
+        data-component="WorkflowEditSave"
+      >
+        {t('workflows.builder.save')}
+      </Button>
+    </span>
+  ) : (
     <span style={{ display: 'inline-flex', gap: 8 }}>
       <Button
         type="primary"
@@ -166,6 +226,9 @@ export function WorkflowDetailPage() {
         data-component="WorkflowRun"
       >
         {materialized ? t('workflows.detail.rerun') : t('workflows.detail.run')}
+      </Button>
+      <Button onClick={startEdit} data-component="WorkflowDetailEdit">
+        {t('workflows.detail.edit')}
       </Button>
       <Button danger onClick={() => setDeleteOpen(true)} data-component="WorkflowDetailDelete">
         {t('common.delete')}
@@ -203,7 +266,11 @@ export function WorkflowDetailPage() {
   );
 
   return (
-    <PageContainer fill="bounded" width="data" dataComponent="WorkflowDetailPage">
+    <PageContainer
+      fill={editing ? true : 'bounded'}
+      width={editing ? 'fluid' : 'data'}
+      dataComponent="WorkflowDetailPage"
+    >
       <PageHeader
         breadcrumb={BREADCRUMB}
         title={title}
@@ -212,8 +279,21 @@ export function WorkflowDetailPage() {
         onNavigate={(r) => navigate(r)}
       />
       <PageCard variant="fill">
-        {summary}
-        {materialized ? (
+        {editing ? (
+          <WorkflowForm
+            workspaceId={workflow.workspaceId}
+            name={draftName}
+            sources={draftSources}
+            steps={draftSteps}
+            onNameChange={setDraftName}
+            onSourcesChange={setDraftSources}
+            onStepsChange={setDraftSteps}
+            excludeWorkflowId={workflow.id}
+          />
+        ) : (
+          <>
+            {summary}
+            {materialized ? (
           <PagedRowsView
             columns={columns}
             rows={rowsQuery.data?.rows}
@@ -250,6 +330,8 @@ export function WorkflowDetailPage() {
               </Button>
             </div>
           </div>
+            )}
+          </>
         )}
       </PageCard>
       <DeleteConfirmModal

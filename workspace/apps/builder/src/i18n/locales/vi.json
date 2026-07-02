@@ -806,7 +806,9 @@
       "pickSourceFirst": "Chọn nguồn ở trên để soạn bước theo các cột của nó.",
       "createSuccess": "Đã tạo quy trình \"{{name}}\"",
       "nameTaken": "Đã có quy trình trùng tên trong không gian này.",
-      "createFailed": "Không tạo được quy trình. Vui lòng thử lại."
+      "createFailed": "Không tạo được quy trình. Vui lòng thử lại.",
+      "editSuccess": "Đã cập nhật quy trình",
+      "editFailed": "Không lưu được thay đổi. Vui lòng thử lại."
     },
     "detail": {
       "notFoundTitle": "Không tìm thấy quy trình",
@@ -830,7 +832,8 @@
       "runCycle": "Không chạy được — một nguồn tự tham chiếu vòng lại chính nó.",
       "runStale": "Không chạy được — một truy vấn nguồn đã thay đổi hoặc chưa được chạy.",
       "runFailed": "Không chạy được quy trình. Vui lòng thử lại.",
-      "deleteSuccess": "Đã xóa quy trình \"{{name}}\""
+      "deleteSuccess": "Đã xóa quy trình \"{{name}}\"",
+      "edit": "Sửa"
     }
   }
 }

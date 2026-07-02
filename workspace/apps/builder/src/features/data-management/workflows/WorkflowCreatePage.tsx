@@ -8,18 +8,16 @@
 // now, recreate it.
 
 import { PageCard, PageContainer, PageHeader } from '@mdd/ui';
-import { App, Button, Divider, Input, Select, Typography } from 'antd';
+import { App, Button, Divider, Select, Typography } from 'antd';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
-import { NAME_LENGTHS } from '@/_generated/constants';
-import { StepsEditor } from '@/features/data-management/queries/StepsEditor';
 import type { Step } from '@/features/data-management/queries/types';
 import { useWorkspacesQuery } from '@/features/data-management/workspaces/hooks';
 import { ApiErrorThrown } from '../_shared/types';
-import { WorkflowSourcePicker } from './WorkflowSourcePicker';
-import { useCreateWorkflowMutation, useSourceColumns } from './hooks';
+import { WorkflowForm } from './WorkflowForm';
+import { useCreateWorkflowMutation } from './hooks';
 
 export function WorkflowCreatePage() {
   const { t } = useTranslation();
@@ -32,10 +30,6 @@ export function WorkflowCreatePage() {
   const [name, setName] = useState('');
   const [sources, setSources] = useState<string[]>([]);
   const [steps, setSteps] = useState<Step[]>([]);
-
-  // Steps author against the FIRST source's columns (the consolidation schema).
-  const firstSource = sources[0];
-  const { columns, loading: columnsLoading } = useSourceColumns(firstSource);
 
   const createMutation = useCreateWorkflowMutation();
 
@@ -95,56 +89,34 @@ export function WorkflowCreatePage() {
         onNavigate={(r) => navigate(r)}
       />
       <PageCard variant="fill">
-        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: 8 }}>
-          <div>
-            <Typography.Text strong style={{ display: 'block', marginBottom: 4 }}>
-              {t('workflows.builder.workspaceLabel')}
-            </Typography.Text>
-            <Select
-              value={workspaceId}
-              onChange={(v) => {
-                setWorkspaceId(v);
-                setSources([]);
-                setSteps([]);
-              }}
-              style={{ minWidth: 220 }}
-              placeholder={t('workflows.builder.workspacePlaceholder')}
-              loading={workspaces.isLoading}
-              options={(workspaces.data ?? []).map((w) => ({ value: w.id, label: w.name }))}
-              data-component="WorkflowWorkspaceSelect"
-            />
-          </div>
-          <div style={{ flex: '1 1 260px' }}>
-            <Typography.Text strong style={{ display: 'block', marginBottom: 4 }}>
-              {t('workflows.builder.nameLabel')}
-            </Typography.Text>
-            <Input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              maxLength={NAME_LENGTHS.QUERY_MAX}
-              placeholder={t('workflows.builder.namePlaceholder')}
-              data-component="WorkflowNameInput"
-            />
-          </div>
-        </div>
-
-        <Divider style={{ margin: '12px 0' }} />
-        <WorkflowSourcePicker workspaceId={workspaceId} value={sources} onChange={setSources} />
-
-        <Divider style={{ margin: '16px 0 8px' }} />
-        <Typography.Text strong>{t('workflows.builder.stepsLabel')}</Typography.Text>
-        <Typography.Paragraph type="secondary" style={{ marginTop: 2, marginBottom: 8, fontSize: 12 }}>
-          {t('workflows.builder.stepsHint')}
-        </Typography.Paragraph>
-        {sources.length === 0 ? (
-          <Typography.Text type="secondary" data-component="WorkflowStepsNoSource">
-            {t('workflows.builder.pickSourceFirst')}
+        <div style={{ marginBottom: 8 }}>
+          <Typography.Text strong style={{ display: 'block', marginBottom: 4 }}>
+            {t('workflows.builder.workspaceLabel')}
           </Typography.Text>
-        ) : columnsLoading ? (
-          <Typography.Text type="secondary">{t('common.loading')}</Typography.Text>
-        ) : (
-          <StepsEditor steps={steps} columns={columns} onChange={setSteps} />
-        )}
+          <Select
+            value={workspaceId}
+            onChange={(v) => {
+              setWorkspaceId(v);
+              setSources([]);
+              setSteps([]);
+            }}
+            style={{ minWidth: 220 }}
+            placeholder={t('workflows.builder.workspacePlaceholder')}
+            loading={workspaces.isLoading}
+            options={(workspaces.data ?? []).map((w) => ({ value: w.id, label: w.name }))}
+            data-component="WorkflowWorkspaceSelect"
+          />
+        </div>
+        <Divider style={{ margin: '12px 0' }} />
+        <WorkflowForm
+          workspaceId={workspaceId}
+          name={name}
+          sources={sources}
+          steps={steps}
+          onNameChange={setName}
+          onSourcesChange={setSources}
+          onStepsChange={setSteps}
+        />
       </PageCard>
     </PageContainer>
   );

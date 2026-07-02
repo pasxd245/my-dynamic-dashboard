@@ -72,6 +72,17 @@ export const workflowsApi = {
     return readJson<RowsPage>(resp);
   },
 
+  /** PUT /workflows/{id} — edit name + definition. A definition change clears the
+   *  materialized output (must re-run). 404 / 409 name_taken / 422 bad-source. */
+  async update(id: string, body: CreateWorkflowRequest): Promise<Workflow> {
+    const resp = await fetch(`${API_BASE_URL}/workflows/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    return readJson<Workflow>(resp);
+  },
+
   /** DELETE /workflows/{id} — 204 / 404. */
   async delete(id: string): Promise<void> {
     const resp = await fetch(`${API_BASE_URL}/workflows/${id}`, { method: 'DELETE' });

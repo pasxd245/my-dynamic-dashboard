@@ -806,7 +806,9 @@
       "pickSourceFirst": "Pick a source above to author steps against its columns.",
       "createSuccess": "Workflow \"{{name}}\" created",
       "nameTaken": "A workflow with that name already exists in this workspace.",
-      "createFailed": "Couldn't create the workflow. Please try again."
+      "createFailed": "Couldn't create the workflow. Please try again.",
+      "editSuccess": "Workflow updated",
+      "editFailed": "Couldn't save changes. Please try again."
     },
     "detail": {
       "notFoundTitle": "Workflow not found",
@@ -830,7 +832,8 @@
       "runCycle": "Can't run — a source composes back onto itself.",
       "runStale": "Can't run — a source query drifted or hasn't been run yet.",
       "runFailed": "Couldn't run the workflow. Please try again.",
-      "deleteSuccess": "Workflow \"{{name}}\" deleted"
+      "deleteSuccess": "Workflow \"{{name}}\" deleted",
+      "edit": "Edit"
     }
   }
 }

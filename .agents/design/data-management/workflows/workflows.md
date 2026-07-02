@@ -16,8 +16,8 @@ This doc is the **domain anchor** of `workflows/` — the home for the Workflow
 them.
 
 **Status**: Accepted (R131 design gate; backend shipped R132·R134·R135·R138; FE
-shipped R137 — this doc reconciled to the built state 2026-07-01, backfilling the
-missing D-gate artifact flagged in that session).
+shipped R137; FE edit mode R139 — this doc reconciled to the built state
+2026-07-01, backfilling the missing D-gate artifact flagged in that session).
 **Round introduced**: [`Round_131`](../../../plan/cycles/Round_131.md) (Plan/Design
 gate); FE design gate [`Round_136`](../../../plan/cycles/Round_136.md).
 **Domain folder**: `workflows/`.
@@ -37,7 +37,8 @@ conventions), [crud-hygiene.md](../_shared/crud-hygiene.md) (the delete-confirm 
 | --- | --- | --- | --- | --- |
 | `WorkflowsPage` (catalog) route | `apps/builder/src/features/data-management/workflows/` | feature | feature | react, antd, @tanstack/react-query, react-router-dom |
 | `WorkflowCreatePage` (builder) route | `.../features/data-management/workflows/` | feature | feature | react, antd, react-router-dom |
-| `WorkflowDetailPage` (detail + Run) route | `.../features/data-management/workflows/` | feature | feature | react, antd, react-router-dom |
+| `WorkflowDetailPage` (detail + Run + **edit mode**) route | `.../features/data-management/workflows/` | feature | feature | react, antd, react-router-dom |
+| `WorkflowForm` component (R139 — name + sources + steps; shared by create + edit) | `.../features/data-management/workflows/` | feature | plain-UI (glue) | react, antd |
 | `WorkflowSourcePicker` component | `.../features/data-management/workflows/` | feature | plain-UI (glue) | react, antd |
 | `useWorkflows*`/`useSourceColumns` hooks | `.../features/data-management/workflows/` | feature | glue (server-data) | @tanstack/react-query |
 | `workflowsApi` client | `apps/builder/src/api/` | builder-only | glue | (fetch — no extra peer dep) |
@@ -122,6 +123,11 @@ stateDiagram-v2
   (no recursion → no cycle). An un-run source → 409 on run.
 - **Run errors** map like the query run path: `query_stale` / `composition_cycle` → 409.
 - **`GET /rows`** 404s until the first run (the output is the rows resource).
+- **Edit (R139)** — the detail page toggles an inline edit mode (mirroring the
+  query detail's [Edit]) rendering the shared `WorkflowForm` over a working copy
+  (name + sources + steps); [Save] `PUT`s. When the definition changed, the backend
+  invalidates the frozen output → the view returns to the never-run state with a
+  **"re-run to refresh"** cue; a name-only edit leaves the output intact.
 
 ---
 
@@ -147,6 +153,10 @@ output — without writing a formula.
    materialized output (rows→404, must re-run); a name-only edit keeps it.
    (`test_workflows.py`)
 8. **Delete** _(backend)_ — `DELETE` → 204; subsequent `GET` → 404. (`test_workflows.py`)
+9. **Edit mode** _(FE, R139)_ — the detail page's [Edit] reveals `WorkflowForm`
+   pre-filled with the current definition; [Save] `PUT`s and returns to view; after a
+   definition change the view shows the never-run state (re-run to refresh).
+   (`workflows.test.tsx`)
 
 ---
 
@@ -155,12 +165,11 @@ output — without writing a formula.
 ### IN scope
 
 - The Workflow noun (CRUD + run/rows + update), consolidation via union, transform
-  steps (reused), materialize/freeze, output-as-source, and the three FE surfaces.
+  steps (reused), materialize/freeze, output-as-source, the three FE surfaces, and the
+  detail-page **edit mode** (R139 — inline `WorkflowForm` over a working copy → `PUT`).
 
 ### OUT of scope (deferred with named triggers)
 
-- **FE edit mode** — the `PUT` backend exists (R138); the builder edit affordance is
-  **R139** (DFCFBI, needs F2).
 - **Value-out deliverable** (Excel/CSV download of the materialized output) — deferred
   at R136; decide once the in-app output is proven (a real value-out pull).
 - **YAML import/edit of the spec** — PARKED. A raw-spec editor cuts against the #1 ease

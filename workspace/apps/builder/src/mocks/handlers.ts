@@ -815,6 +815,17 @@ export const handlers = [
     const offset = (page - 1) * pageSize;
     return HttpResponse.json({ rows: all.slice(offset, offset + pageSize), page, pageSize, total: all.length });
   }),
+  withContractValidation('put', api('/workflows/:id'), 'updateWorkflow', async ({ params, request }) => {
+    if (params.id !== MOCK_WORKFLOW.id) {
+      return HttpResponse.json({ code: 'not_found' }, { status: 404 });
+    }
+    const body = (await request.json()) as Partial<CreateWorkflowRequest>;
+    return HttpResponse.json({
+      ...MOCK_WORKFLOW,
+      name: body.name ?? MOCK_WORKFLOW.name,
+      definition: body.definition ?? MOCK_WORKFLOW.definition,
+    });
+  }),
   http.delete(api('/workflows/:id'), () => new HttpResponse(null, { status: 204 })),
 
   // Dashboards (R101 — dashboard-as-a-persisted-noun): create / list / get /

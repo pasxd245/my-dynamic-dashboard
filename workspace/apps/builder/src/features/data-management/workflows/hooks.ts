@@ -70,6 +70,20 @@ export function useRunWorkflowMutation() {
   });
 }
 
+/** PUT /workflows/{id} — edit name + definition. Invalidates the single (definition/
+ *  materialized state may have changed) + rows caches, and the lists. */
+export function useUpdateWorkflowMutation() {
+  const queryClient = useQueryClient();
+  return useMutation<Workflow, Error, { id: string; body: CreateWorkflowRequest }>({
+    mutationFn: ({ id, body }) => workflowsApi.update(id, body),
+    onSuccess: (updated) => {
+      queryClient.invalidateQueries({ queryKey: WORKFLOWS_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: ['workflow', updated.id] });
+      queryClient.invalidateQueries({ queryKey: ['workflow-rows', updated.id] });
+    },
+  });
+}
+
 /** DELETE /workflows/{id}. Invalidates the lists and drops the single + rows caches. */
 export function useDeleteWorkflowMutation() {
   const queryClient = useQueryClient();
