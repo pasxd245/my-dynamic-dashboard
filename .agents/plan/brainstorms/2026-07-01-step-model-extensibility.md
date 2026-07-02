@@ -176,6 +176,48 @@ execution-isolation story — self-hosted/enterprise deployment or a hard sandbo
 plugin repo is community, versioned, and OUT of this repo; the core runs fully
 without it.
 
+### The mission ring — marketplace economics in the AI era (Kahneman-grounded)
+
+> Third brainstorm pass (2026-07-02): the human's mission framing — a small thing
+> solving our own CRM pain, driven by a big dream; classic path = gain users →
+> commercialize (marketplace); the game-changer = AI can author most things itself.
+
+**The inversion.** A plugin marketplace classically sells *code*. AI collapses the
+price of average code toward zero — the marketplace's long tail evaporates. What
+stays scarce (what "quality stuff" precisely means): **domain truth** (the
+authorization list behind `is_authorized` — AI writes the function, it doesn't own
+the fact), **vetted trust** (reputation-staked, warranted), and **maintenance
+against drift** (keeps working as the world changes — the CRM-drift pain, one level
+up). So the marketplace inverts from an *artifact market* into a **service market**:
+contributors sell *maintained domain truth*, AI authors the commodity glue, the
+end-user buys the outcome. Services-as-Software closes its own loop — even the
+plugins are services.
+
+**Kahneman grounding.** *WYSIATI*: AI output looks complete; S1 can't see missing
+edge cases — so the scarce good is what counters WYSIATI (provenance, verification,
+a legible trust tier; the marketplace's real product is making S1 adoption safe).
+*Loss aversion*: users weigh the broken monthly report (recurring loss) ~2× an
+equivalent gain — willingness-to-pay is insurance-shaped → subscription/service
+economics, not artifact sales. *Regression to the mean*: an AI-flooded plugin pool
+regresses to mediocre; staying above the mean needs a mechanism (curation,
+reputation, upkeep) — that mechanism is what the platform monetizes.
+
+**Three honest challenges (S3).** (1) **AI reverses the chicken-and-egg** — the AI
+lane covers the long tail from day one, so no ecosystem is needed to win early
+users; the marketplace moves to LAST in sequence, built only when domain-truth
+contributors actually appear (default-don't-add, one ring out). (2) **Features are
+nobody's moat, including ours** — the durable assets are the governed substrate
+(contracts/validation/typing/materialization), the verify-meaning surface, the trust
+registry, and the user's accumulated workflows (switching cost). (3) **Value
+capture** stays as doctrine already says: #2 = AI-skill + subscription, additive
+premium; a marketplace take is a *trust-rake, not a code-rake*.
+
+**The rings, each gated by the previous ring's real demand:**
+
+> ease (#1) → AI lane (#2, subscription) → plugins (domain semantics) →
+> marketplace (trust economy). The small CRM-pain thing is not a stepping stone to
+> the dream — it IS ring one, dogfooded.
+
 ## Rough roadmap (thin rounds, each a Design gate first)
 
 1. **Aggregate functions** — enum-extend `agg` to avg/min/max/count_distinct. Cheapest
