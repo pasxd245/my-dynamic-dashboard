@@ -6,6 +6,12 @@
 > → YAML edit/import for advanced users → so the step model must be extendable, and
 > (3) what else? Anything acted on gets a proper Design gate + round.
 >
+> **Mission RESOLVED (2026-07-02, after a cold-review pass):** the human's final
+> framing — *"I just build this to solve my problem/pain; if someone has the same
+> issue, they may use it. No more than that."* Purpose.md's "real problem first"
+> stands unchanged; the vision sections below (§Services-as-Software, §mission ring)
+> are **horizon sketches only, zero commitment** — do not read them as direction.
+>
 > _Track: 1 (product — the data-shaping trajectory). Pulled by: the human's three
 > threads at R139. Consistent with [[workflows-extend-query-duckdb-first]] (steps =
 > DuckDB-first, extend the closed vocabulary) and the product-value framing (#1 ease
