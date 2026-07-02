@@ -1,8 +1,8 @@
 # Round 139: Workflows FE — edit mode
 
-**Status**: Review — **built; awaiting F2** (human app-run feel-review)
+**Status**: Complete — F2 signed off 2026-07-01
 **Date started**: 2026-07-01
-**Date completed**:
+**Date completed**: 2026-07-01
 **Flow**: **DFCFBI — F + I slice** (D in the [workflows design doc](../../design/data-management/workflows/workflows.md), authored FIRST this round; C+B were R138's `PUT`; **F2 hard-stops for the human**).
 
 ## Goal
@@ -23,7 +23,7 @@ updated before code — the [[d-gate-artifact-in-design-corpus]] lesson applied)
 - [x] `WorkflowDetailPage` inline edit mode: [Edit] → `WorkflowForm` over a working copy → [Save] `PUT`
       (409 name_taken message) / [Cancel]; `excludeWorkflowId` = self.
 - [x] MSW `updateWorkflow` handler (contract-validated) + edit-mode i18n (en/vi) + smoke test.
-- [ ] **F2 — human runs the app** (edit a workflow, save, confirm re-run cue) → then Complete.
+- [x] **F2 — human ran the app** (edited a workflow, saved, confirmed the re-run cue); signed off 2026-07-01.
 
 ## Risks / unknowns
 
@@ -50,7 +50,7 @@ suite and the i18n en/vi parity checks pass. **F2 not yet run.**
 
 - [x] `tsc` clean; workflow edit-mode test green; `updateWorkflow` contract-validated on call.
 - [x] Create + edit share `WorkflowForm` (no duplicated builder body); design doc reflects edit mode.
-- [ ] **F2 — human runs the app** (edit → save → re-run cue after a definition change).
+- [x] **F2 — human ran the app** (edit → save → re-run cue after a definition change) — signed off 2026-07-01.
 
 ## Act
 
