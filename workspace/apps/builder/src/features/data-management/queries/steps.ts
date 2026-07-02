@@ -30,14 +30,23 @@ function aggregateOutput(step: AggregateStep, cols: readonly Column[]): Column[]
 }
 
 /** The output columns of one step given its input columns (mirrors the backend:
- *  aggregate reshapes, derive appends a float, top_n/filter preserve). */
+ *  aggregate reshapes, derive appends a float, top_n/sort/filter preserve,
+ *  select re-binds — projection + rename + reorder, R141). */
 export function stepOutput(step: Step, cols: readonly Column[]): Column[] {
   switch (step.kind) {
     case 'aggregate':
       return aggregateOutput(step, cols);
     case 'derive':
       return [...cols, { name: step.name, dtype: 'float' }];
+    case 'select': {
+      const byName = new Map(cols.map((c) => [c.name, c]));
+      return step.cols.map((s) => ({
+        name: s.name ?? s.col,
+        dtype: byName.get(s.col)?.dtype ?? 'string',
+      }));
+    }
     case 'top_n':
+    case 'sort':
     case 'filter':
       return [...cols];
   }
@@ -78,7 +87,11 @@ export function blankStep(kind: Step['kind'], cols: readonly Column[]): Step {
       return { kind: 'top_n', col: (numeric[0] ?? cols[0])?.name ?? '', n: 10, descending: true };
     case 'filter':
       return { kind: 'filter', predicates: [{ col: cols[0]?.name ?? '', op: 'equals', val: '' }] };
+    case 'sort':
+      return { kind: 'sort', keys: [{ col: cols[0]?.name ?? '', descending: false }] };
+    case 'select':
+      return { kind: 'select', cols: cols.map((c) => ({ col: c.name })) };
   }
 }
 
-export const STEP_KINDS: readonly Step['kind'][] = ['aggregate', 'derive', 'filter', 'top_n'];
+export const STEP_KINDS: readonly Step['kind'][] = ['aggregate', 'derive', 'filter', 'top_n', 'sort', 'select'];

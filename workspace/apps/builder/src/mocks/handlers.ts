@@ -422,6 +422,39 @@ function topNStepMock(step: Extract<Step, { kind: 'top_n' }>, table: MockTable):
   return { columns: table.columns, rows };
 }
 
+function sortStepMock(step: Extract<Step, { kind: 'sort' }>, table: MockTable): MockTable {
+  // R141 mirror: multi-key, later keys tie-break; NULLs/blanks last in BOTH
+  // directions (backend NULLS LAST); numbers compare numerically, else lexically.
+  const keys = step.keys.map((k) => ({ idx: _aggColIdx(table.columns, k.col), desc: k.descending ?? false }));
+  const cmp = (a: string | null, b: string | null, desc: boolean): number => {
+    const aBlank = a === null || a === '';
+    const bBlank = b === null || b === '';
+    if (aBlank || bBlank) return aBlank === bBlank ? 0 : aBlank ? 1 : -1; // blanks last, direction-independent
+    const an = Number(a);
+    const bn = Number(b);
+    const numeric = Number.isFinite(an) && Number.isFinite(bn);
+    const base = numeric ? an - bn : a < b ? -1 : a > b ? 1 : 0;
+    return desc ? -base : base;
+  };
+  const rows = [...table.rows].sort((a, b) => {
+    for (const { idx, desc } of keys) {
+      const c = cmp(a[idx] ?? null, b[idx] ?? null, desc);
+      if (c !== 0) return c;
+    }
+    return 0;
+  });
+  return { columns: table.columns, rows };
+}
+
+function selectStepMock(step: Extract<Step, { kind: 'select' }>, table: MockTable): MockTable {
+  // R141 mirror: output = EXACTLY the entries in order, dtypes kept, `name ?? col`.
+  const picked = step.cols.map((s) => ({ idx: _aggColIdx(table.columns, s.col), out: s.name ?? s.col }));
+  return {
+    columns: picked.map(({ idx, out }) => ({ name: out, dtype: table.columns[idx]?.dtype ?? 'string' })),
+    rows: table.rows.map((row) => picked.map(({ idx }) => row[idx] ?? null)),
+  };
+}
+
 function applyStepsMock(
   columns: readonly Column[],
   rows: readonly (readonly (string | null)[])[],
@@ -439,6 +472,10 @@ function applyStepsMock(
       table = deriveStepMock(step, table);
     } else if (step.kind === 'filter') {
       table = filterStepMock(step, table);
+    } else if (step.kind === 'sort') {
+      table = sortStepMock(step, table);
+    } else if (step.kind === 'select') {
+      table = selectStepMock(step, table);
     } else {
       table = topNStepMock(step, table);
     }

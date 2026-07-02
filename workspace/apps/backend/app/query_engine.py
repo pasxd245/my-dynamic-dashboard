@@ -504,10 +504,46 @@ def _plan_filter(step: dict, cur_cols: list[dict], loc: list) -> tuple[dict, lis
     return {"kind": "filter", "predicates_fp": predicates_fp}, cur_cols
 
 
+def _plan_sort(step: dict, cur_cols: list[dict], loc: list) -> tuple[dict, list[dict]]:
+    """R141 — validate a sort step's keys against the CURRENT columns (any dtype
+    orders). Returns the normalized descriptor + unchanged cols."""
+    names = {c["name"] for c in cur_cols}
+    keys: list[dict] = []
+    for j, key in enumerate(step.get("keys", [])):
+        col = key.get("col")
+        if col not in names:
+            raise _agg_422([*loc, "keys", j, "col"], f"unknown_column: {col!r} is not a column at this step")
+        keys.append({"col": col, "descending": bool(key.get("descending"))})
+    return {"kind": "sort", "keys": keys}, cur_cols
+
+
+def _plan_select(step: dict, cur_cols: list[dict], loc: list) -> tuple[dict, list[dict]]:
+    """R141 — validate a select step (every ``col`` exists; output names
+    ``name ?? col`` unique) → its normalized descriptor + the projected/renamed
+    column space (dtypes kept, NEW names — a rename is a re-binding)."""
+    by_name = {c["name"]: c for c in cur_cols}
+    cols: list[dict] = []
+    out_cols: list[dict] = []
+    seen: set[str] = set()
+    for j, entry in enumerate(step.get("cols", [])):
+        col = entry.get("col")
+        src = by_name.get(col)
+        if src is None:
+            raise _agg_422([*loc, "cols", j, "col"], f"unknown_column: {col!r} is not a column at this step")
+        out_name = entry.get("name") or col
+        if out_name in seen:
+            raise _agg_422([*loc, "cols", j, "name"], f"duplicate_output_column: {out_name!r} appears twice")
+        seen.add(out_name)
+        cols.append({"col": col, "name": out_name})
+        out_cols.append({"name": out_name, "dtype": src["dtype"]})
+    return {"kind": "select", "cols": cols, "output_cols": [c["name"] for c in out_cols]}, out_cols
+
+
 def _plan_one_step(step: dict, cur_cols: list[dict], loc: list) -> tuple[dict, list[dict]]:
     """Validate one step against the CURRENT column space; return its normalized
     descriptor (for the typed `run_steps` engine) + the column space AFTER it.
-    ``aggregate`` reshapes; ``top_n`` preserves; ``derive`` appends; ``filter`` narrows."""
+    ``aggregate`` reshapes; ``top_n``/``sort`` preserve; ``derive`` appends;
+    ``filter`` narrows; ``select`` re-binds (projection + rename + reorder)."""
     kind = step.get("kind")
     if kind == "filter":
         return _plan_filter(step, cur_cols, loc)
@@ -524,6 +560,10 @@ def _plan_one_step(step: dict, cur_cols: list[dict], loc: list) -> tuple[dict, l
         return {"kind": "top_n", "col": col, "descending": bool(step.get("descending")), "n": step.get("n")}, cur_cols
     if kind == "derive":
         return _plan_derive(step, cur_cols, loc)
+    if kind == "sort":
+        return _plan_sort(step, cur_cols, loc)
+    if kind == "select":
+        return _plan_select(step, cur_cols, loc)
     raise _agg_422([*loc, "kind"], f"unknown_step_kind: {kind!r}")
 
 

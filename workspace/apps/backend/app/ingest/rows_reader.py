@@ -372,7 +372,9 @@ def _derive_expr(step: dict) -> str:
 
 def _apply_step(step: dict, sql: str, params: list[Any], cols: list[str]) -> tuple[str, list[Any], list[str]]:
     """Apply one TYPED step → ``(sql, params, columns)``. ``aggregate`` reshapes;
-    ``top_n`` orders + caps; ``derive`` appends a column; ``filter`` narrows rows."""
+    ``top_n`` orders + caps; ``sort`` orders (R141, no limit); ``derive`` appends a
+    column; ``filter`` narrows rows; ``select`` re-binds (projection + rename +
+    reorder, R141)."""
     kind = step["kind"]
     if kind == "aggregate":
         sql, params = build_aggregate_select(
@@ -382,6 +384,15 @@ def _apply_step(step: dict, sql: str, params: list[Any], cols: list[str]) -> tup
     if kind == "top_n":
         direction = "DESC" if step["descending"] else "ASC"
         return f"SELECT * FROM ({sql}) AS _t ORDER BY {_quote_ident(step['col'])} {direction} LIMIT ?", [*params, step["n"]], cols
+    if kind == "sort":
+        # Explicit NULLS LAST both directions — a deliverable keeps blanks at the bottom.
+        order = ", ".join(
+            f"{_quote_ident(k['col'])} {'DESC' if k['descending'] else 'ASC'} NULLS LAST" for k in step["keys"]
+        )
+        return f"SELECT * FROM ({sql}) AS _o ORDER BY {order}", params, cols
+    if kind == "select":
+        select_list = ", ".join(f"{_quote_ident(c['col'])} AS {_quote_ident(c['name'])}" for c in step["cols"])
+        return f"SELECT {select_list} FROM ({sql}) AS _p", params, step["output_cols"]
     if kind == "derive":
         return f"SELECT *, {_derive_expr(step)} AS {_quote_ident(step['name'])} FROM ({sql}) AS _d", params, [*cols, step["name"]]
     # filter — post-step WHERE (HAVING-like); params append AFTER the inner params.

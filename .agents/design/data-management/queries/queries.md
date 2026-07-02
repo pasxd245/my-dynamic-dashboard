@@ -410,14 +410,14 @@ with no steps is a plain select (unchanged). `steps` is a **`kind`-discriminated
   stringify. Two chained sorts do NOT compose into multi-key (the later one wins) —
   that's what `keys` is for.
 + **`select`** — R141 column shaping: **projection + rename + reorder in ONE body** —
-  an ordered list of **`cols`** (`{col, as?}`, min 1). The output is EXACTLY these
-  columns in THIS order, each keeping its source **dtype**, named **`as ?? col`**.
-  Rules: every `col` must exist at this step (`unknown_column`); output names must be
-  unique (`duplicate_output_column`); `as` is a plain non-empty name (same freedom as a
-  `derive` name). Later steps — and `resolvedColumns` — see the NEW names/order, so a
-  rename is a real re-binding, not a display alias. Closes the R140 naming wart:
-  `count_distinct(product)` (output col `product`) → `select {col: product, as:
-  distinct_products}`.
+  an ordered list of **`cols`** (`{col, name?}`, min 1). The output is EXACTLY these
+  columns in THIS order, each keeping its source **dtype**, named **`name ?? col`**
+  (`name` — the same rename vocabulary as `derive.name`; the wire avoids the Python
+  keyword `as`). Rules: every `col` must exist at this step (`unknown_column`); output
+  names must be unique (`duplicate_output_column`). Later steps — and
+  `resolvedColumns` — see the NEW names/order, so a rename is a real re-binding, not a
+  display alias. Closes the R140 naming wart: `count_distinct(product)` (output col
+  `product`) → `select {col: product, name: distinct_products}`.
 
 **Engine** (`rows_reader.run_steps` / `_apply_step`): a **TYPED** relation is threaded
 through each step and stringified only at the end, so steps **chain** (a `top_n` after an

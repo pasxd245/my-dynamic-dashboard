@@ -15,7 +15,7 @@ import type { Step } from '@/features/data-management/queries/types';
 /** A workflow's sources + transform steps. Sources are saved queries (`qr_`)
  *  and/or another workflow's materialized output (`wf_`, output-as-source);
  *  ≥1, consolidated via UNION ALL BY NAME. `steps` reuse the query transform
- *  union (aggregate/derive/filter/top_n). Mirrors
+ *  union (aggregate/derive/filter/top_n/sort/select). Mirrors
  *  `_shared/workflow.yaml#/WorkflowDefinition`. */
 export type WorkflowDefinition = {
   /** Source ids (`qr_…` and/or `wf_…`), ≥1. */

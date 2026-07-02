@@ -11,7 +11,8 @@ components:
       description: |
         R135 — a workflow's sources (saved queries `qr_` and/or workflow outputs
         `wf_`) + transform steps. ≥1 source, CONSOLIDATED via UNION ALL BY NAME. The
-        `steps` reuse the query transform union (aggregate/derive/filter/top_n).
+        `steps` reuse the query transform union
+        (aggregate/derive/filter/top_n/sort/select).
       required: [sources]
       additionalProperties: false
       properties:
@@ -33,6 +34,8 @@ components:
               - $ref: "query.yaml#/components/schemas/TopNStep"
               - $ref: "query.yaml#/components/schemas/DeriveStep"
               - $ref: "query.yaml#/components/schemas/FilterStep"
+              - $ref: "query.yaml#/components/schemas/SortStep"
+              - $ref: "query.yaml#/components/schemas/SelectStep"
             discriminator:
               propertyName: kind
               mapping:
@@ -40,6 +43,8 @@ components:
                 top_n: "query.yaml#/components/schemas/TopNStep"
                 derive: "query.yaml#/components/schemas/DeriveStep"
                 filter: "query.yaml#/components/schemas/FilterStep"
+                sort: "query.yaml#/components/schemas/SortStep"
+                select: "query.yaml#/components/schemas/SelectStep"
 
     Workflow:
       type: object

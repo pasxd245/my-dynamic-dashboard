@@ -129,8 +129,38 @@ export type FilterStep = {
   predicates: readonly FilterStepPredicate[];
 };
 
-/** R121/R122/R123 — a transform step, discriminated by `kind`. */
-export type Step = AggregateStep | TopNStep | DeriveStep | FilterStep;
+/** R141 — one ordering key of a sort step (any dtype; NULLs last both ways). */
+export type SortKey = {
+  col: string;
+  descending?: boolean;
+};
+
+/** R141 — order the rows by one or more keys (a `top_n` without the limit —
+ *  deliverable ordering); later keys tie-break. Column space unchanged. Mirrors
+ *  `_shared/query.yaml#/SortStep`. */
+export type SortStep = {
+  kind: 'sort';
+  keys: readonly SortKey[];
+};
+
+/** R141 — one output column of a select step: source `col`, optionally renamed
+ *  via `name` (omitted = keep `col`'s name). */
+export type SelectCol = {
+  col: string;
+  name?: string;
+};
+
+/** R141 — projection + rename + reorder in ONE body: the output is EXACTLY
+ *  `cols` in this order, dtypes kept, named `name ?? col` (unique). A rename
+ *  RE-BINDS — later steps see the new names. Mirrors
+ *  `_shared/query.yaml#/SelectStep`. */
+export type SelectStep = {
+  kind: 'select';
+  cols: readonly SelectCol[];
+};
+
+/** R121/R122/R123/R141 — a transform step, discriminated by `kind`. */
+export type Step = AggregateStep | TopNStep | DeriveStep | FilterStep | SortStep | SelectStep;
 
 /** A single effective column of a Query result (name + dtype). For a join,
  *  duplicate names are collision-qualified (`Deals.id`). Mirrors the inline

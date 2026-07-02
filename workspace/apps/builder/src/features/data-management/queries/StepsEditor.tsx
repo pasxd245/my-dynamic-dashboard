@@ -14,7 +14,16 @@ import { useTranslation } from 'react-i18next';
 import { OPS_BY_DTYPE, type Operator } from '@/features/data-management/datasets/filters/types';
 import type { Column } from '@/features/data-management/datasets/types';
 import { STEP_KINDS, blankStep, isNumericCol, isOrderableCol, threadColumns } from './steps';
-import type { AggregateMeasure, AggregateStep, DeriveStep, FilterStep, Step, TopNStep } from './types';
+import type {
+  AggregateMeasure,
+  AggregateStep,
+  DeriveStep,
+  FilterStep,
+  SelectStep,
+  SortStep,
+  Step,
+  TopNStep,
+} from './types';
 
 type StepsEditorProps = Readonly<{
   steps: readonly Step[];
@@ -46,6 +55,8 @@ export function StepsEditor({ steps, columns, onChange }: StepsEditorProps) {
       derive: t('queries.builder.steps.kindDerive'),
       filter: t('queries.builder.steps.kindFilter'),
       top_n: t('queries.builder.steps.kindTopN'),
+      sort: t('queries.builder.steps.kindSort'),
+      select: t('queries.builder.steps.kindSelect'),
     })[kind];
 
   return (
@@ -131,6 +142,10 @@ function StepBody({
       return <FilterBody step={step} cols={cols} onChange={onChange} />;
     case 'top_n':
       return <TopNBody step={step} cols={cols} onChange={onChange} />;
+    case 'sort':
+      return <SortBody step={step} cols={cols} onChange={onChange} />;
+    case 'select':
+      return <SelectBody step={step} cols={cols} onChange={onChange} />;
   }
 }
 
@@ -330,6 +345,133 @@ function TopNBody({
         />
       </FieldLabel>
     </Space>
+  );
+}
+
+function SortBody({
+  step,
+  cols,
+  onChange,
+}: Readonly<{ step: SortStep; cols: readonly Column[]; onChange: (s: Step) => void }>) {
+  const { t } = useTranslation();
+  const setKey = (i: number, patch: Partial<SortStep['keys'][number]>) =>
+    onChange({ ...step, keys: step.keys.map((k, j) => (j === i ? { ...k, ...patch } : k)) });
+  const removeKey = (i: number) => onChange({ ...step, keys: step.keys.filter((_, j) => j !== i) });
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      {step.keys.map((key, i) => (
+        <Space key={i} wrap size={[8, 6]}>
+          <FieldLabel text={i === 0 ? t('queries.builder.steps.sortBy') : t('queries.builder.steps.thenBy')}>
+            <Select
+              size="small"
+              style={{ minWidth: 120 }}
+              value={key.col}
+              options={nameOptions(cols)}
+              onChange={(col: string) => setKey(i, { col })}
+            />
+          </FieldLabel>
+          <FieldLabel text={t('queries.builder.steps.highestFirst')}>
+            <Switch
+              size="small"
+              checked={key.descending ?? false}
+              onChange={(descending) => setKey(i, { descending })}
+            />
+          </FieldLabel>
+          {step.keys.length > 1 && (
+            <Button
+              type="text"
+              size="small"
+              danger
+              icon={<DeleteOutlined />}
+              aria-label={t('queries.builder.steps.removeKey')}
+              onClick={() => removeKey(i)}
+            />
+          )}
+        </Space>
+      ))}
+      <Button
+        size="small"
+        style={{ alignSelf: 'flex-start' }}
+        onClick={() => onChange({ ...step, keys: [...step.keys, { col: cols[0]?.name ?? '', descending: false }] })}
+      >
+        {t('queries.builder.steps.addKey')}
+      </Button>
+    </div>
+  );
+}
+
+function SelectBody({
+  step,
+  cols,
+  onChange,
+}: Readonly<{ step: SelectStep; cols: readonly Column[]; onChange: (s: Step) => void }>) {
+  const { t } = useTranslation();
+  const setCol = (i: number, patch: Partial<SelectStep['cols'][number]>) =>
+    onChange({ ...step, cols: step.cols.map((c, j) => (j === i ? { ...c, ...patch } : c)) });
+  const removeCol = (i: number) => onChange({ ...step, cols: step.cols.filter((_, j) => j !== i) });
+  const moveCol = (i: number, dir: -1 | 1) => {
+    const j = i + dir;
+    if (j < 0 || j >= step.cols.length) return;
+    const next = [...step.cols];
+    [next[i], next[j]] = [next[j], next[i]];
+    onChange({ ...step, cols: next });
+  };
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      {step.cols.map((entry, i) => (
+        <Space key={i} wrap size={[8, 6]}>
+          <Space size={0}>
+            <Button
+              type="text"
+              size="small"
+              icon={<ArrowUpOutlined />}
+              disabled={i === 0}
+              aria-label={t('queries.builder.steps.up')}
+              onClick={() => moveCol(i, -1)}
+            />
+            <Button
+              type="text"
+              size="small"
+              icon={<ArrowDownOutlined />}
+              disabled={i === step.cols.length - 1}
+              aria-label={t('queries.builder.steps.down')}
+              onClick={() => moveCol(i, 1)}
+            />
+          </Space>
+          <Select
+            size="small"
+            style={{ minWidth: 120 }}
+            value={entry.col}
+            options={nameOptions(cols)}
+            onChange={(col: string) => setCol(i, { col })}
+          />
+          <Input
+            size="small"
+            style={{ width: 140 }}
+            placeholder={t('queries.builder.steps.renameOptional')}
+            value={entry.name ?? ''}
+            onChange={(e) => setCol(i, { name: e.target.value || undefined })}
+          />
+          {step.cols.length > 1 && (
+            <Button
+              type="text"
+              size="small"
+              danger
+              icon={<DeleteOutlined />}
+              aria-label={t('queries.builder.steps.removeColumn')}
+              onClick={() => removeCol(i)}
+            />
+          )}
+        </Space>
+      ))}
+      <Button
+        size="small"
+        style={{ alignSelf: 'flex-start' }}
+        onClick={() => onChange({ ...step, cols: [...step.cols, { col: cols[0]?.name ?? '' }] })}
+      >
+        {t('queries.builder.steps.addColumn')}
+      </Button>
+    </div>
   );
 }
 

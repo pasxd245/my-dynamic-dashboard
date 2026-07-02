@@ -51,4 +51,44 @@ describe('R126 steps-aware preview mock', () => {
     // Top 2 totals: negotiating 102000, won 95650 (numeric, not lexical).
     expect(res.rows.map((r) => r[0])).toEqual(['negotiating', 'won']);
   });
+
+  it('R141: chains aggregate → sort, ordering the measure numerically without a cap', async () => {
+    const res = await queriesApi.preview(
+      MOCK_DATASET.workspaceId,
+      previewWith([
+        { kind: 'aggregate', dimensions: ['stage'], measures: [{ col: 'amount', agg: 'sum' }] },
+        { kind: 'sort', keys: [{ col: 'amount', descending: true }] },
+      ]),
+      1,
+      25,
+    );
+    // ALL four groups, numerically descending (102000, 95650, 17050, 3200).
+    expect(res.rows.map((r) => r[0])).toEqual(['negotiating', 'won', 'open', 'lost']);
+    expect(res.resolvedColumns).toEqual([
+      { name: 'stage', dtype: 'string' },
+      { name: 'amount', dtype: 'integer' },
+    ]);
+  });
+
+  it('R141: select projects + renames + reorders — resolvedColumns carry the NEW names', async () => {
+    const res = await queriesApi.preview(
+      MOCK_DATASET.workspaceId,
+      previewWith([
+        { kind: 'aggregate', dimensions: ['stage'], measures: [{ col: 'amount', agg: 'sum' }] },
+        { kind: 'select', cols: [{ col: 'amount', name: 'total' }, { col: 'stage' }] },
+      ]),
+      1,
+      25,
+    );
+    expect(res.resolvedColumns).toEqual([
+      { name: 'total', dtype: 'integer' },
+      { name: 'stage', dtype: 'string' },
+    ]);
+    expect(Object.fromEntries(res.rows.map((r) => [r[1], Number(r[0])]))).toEqual({
+      won: 95650,
+      open: 17050,
+      negotiating: 102000,
+      lost: 3200,
+    });
+  });
 });

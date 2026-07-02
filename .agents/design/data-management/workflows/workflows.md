@@ -3,7 +3,7 @@
 **Concept**: a **Workflow** (`wf_…`) is a named, workspace-scoped noun that
 **consolidates ≥1 saved query** (and/or another workflow's output) via `UNION ALL BY
 NAME`, applies the **same transform `steps`** a query uses (aggregate · derive ·
-filter · top_n), and **materializes a FROZEN typed output** on run. Unlike a
+filter · top_n · sort · select), and **materializes a FROZEN typed output** on run. Unlike a
 [Query](../queries/queries.md) — which is a *live* re-run and stores only its
 definition — a Workflow **freezes** its result (a committed parquet + captured
 schema), so it can be read back as a stable source and consolidates the recurring

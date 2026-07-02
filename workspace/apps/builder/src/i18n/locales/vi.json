@@ -593,7 +593,16 @@
         "avgOf": "Trung bình của",
         "minOf": "Nhỏ nhất của",
         "maxOf": "Lớn nhất của",
-        "countDistinct": "Đếm giá trị khác nhau"
+        "countDistinct": "Đếm giá trị khác nhau",
+        "kindSort": "Sắp xếp",
+        "kindSelect": "Chọn cột",
+        "sortBy": "Sắp xếp theo",
+        "thenBy": "rồi theo",
+        "addKey": "Thêm khóa sắp xếp",
+        "removeKey": "Xóa khóa sắp xếp",
+        "renameOptional": "Đổi tên (tùy chọn)",
+        "addColumn": "Thêm cột",
+        "removeColumn": "Xóa cột"
       },
       "buildActive": "{{count}} đang áp dụng",
       "baseSourceLabel": "Dựng trên",

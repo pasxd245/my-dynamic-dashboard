@@ -66,6 +66,24 @@ describe('R125 step column-threading (steps.ts)', () => {
       measures: [{ col: 'amount', agg: 'sum' }],
     });
   });
+
+  it('R141: sort preserves the column space; select re-binds (project + rename + reorder)', () => {
+    const sort: Step = { kind: 'sort', keys: [{ col: 'region' }, { col: 'amount', descending: true }] };
+    expect(stepOutput(sort, COLS)).toEqual(COLS);
+    const select: Step = { kind: 'select', cols: [{ col: 'amount', name: 'total' }, { col: 'region' }] };
+    expect(stepOutput(select, COLS)).toEqual([
+      { name: 'total', dtype: 'integer' },
+      { name: 'region', dtype: 'string' },
+    ]);
+  });
+
+  it('R141: blankStep defaults — sort takes the first column, select keeps everything', () => {
+    expect(blankStep('sort', COLS)).toEqual({ kind: 'sort', keys: [{ col: 'region', descending: false }] });
+    expect(blankStep('select', COLS)).toEqual({
+      kind: 'select',
+      cols: [{ col: 'region' }, { col: 'amount' }],
+    });
+  });
 });
 
 function renderEditor(steps: Step[], onChange = vi.fn()) {
@@ -89,5 +107,17 @@ describe('R125 StepsEditor', () => {
     const onChange = renderEditor([blankStep('aggregate', COLS)]);
     fireEvent.click(screen.getByRole('button', { name: 'Remove step' }));
     expect(onChange).toHaveBeenCalledWith([]);
+  });
+
+  it('R141: renders sort + select cards; a select rename fires onChange with `name`', () => {
+    const onChange = renderEditor([blankStep('sort', COLS), blankStep('select', COLS)]);
+    expect(screen.getByText(/1\. Sort/)).toBeInTheDocument();
+    expect(screen.getByText(/2\. Select columns/)).toBeInTheDocument();
+    const [firstRename] = screen.getAllByPlaceholderText('Rename (optional)');
+    fireEvent.change(firstRename, { target: { value: 'area' } });
+    expect(onChange).toHaveBeenCalledWith([
+      blankStep('sort', COLS),
+      { kind: 'select', cols: [{ col: 'region', name: 'area' }, { col: 'amount' }] },
+    ]);
   });
 });

@@ -318,6 +318,52 @@ class DeriveStep(BaseModel):
     right: Annotated[ColOperand | ConstOperand, Field(discriminator="kind")]
 
 
+class SortKey(BaseModel):
+    """R141 — one ordering key of a sort step. ``col`` is by effective name (post
+    prior steps), ANY dtype; ``descending`` flips direction. NULLs sort last in
+    both directions (explicit, deterministic deliverable)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    col: Annotated[str, Field(min_length=1)]
+    descending: bool = False
+
+
+class SortStep(BaseModel):
+    """R141 — order the rows by one or more ``keys`` (a ``top_n`` without the
+    limit — deliverable ordering); later keys tie-break earlier ones. The column
+    space is unchanged. Order is an OUTPUT property: a following ``aggregate``
+    discards it. Mirrors `_shared/query.yaml#/SortStep`."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["sort"]
+    keys: Annotated[list[SortKey], Field(min_length=1)]
+
+
+class SelectCol(BaseModel):
+    """R141 — one output column of a select step: source ``col`` (effective name)
+    with an optional ``name`` rename (same vocabulary as ``DeriveStep.name``; the
+    wire avoids the Python keyword ``as``)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    col: Annotated[str, Field(min_length=1)]
+    name: Annotated[str, Field(min_length=1)] | None = None
+
+
+class SelectStep(BaseModel):
+    """R141 — projection + rename + reorder in ONE body: the output is EXACTLY
+    ``cols`` in this order, each keeping its source dtype, named ``name ?? col``
+    (unique). A rename is a real RE-BINDING — later steps and ``resolvedColumns``
+    see the new names. Mirrors `_shared/query.yaml#/SelectStep`."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["select"]
+    cols: Annotated[list[SelectCol], Field(min_length=1)]
+
+
 class FilterStepPredicate(BaseModel):
     """R123 — one predicate of a filter step, by effective column NAME (no
     ``dtype`` — the BE looks it up from the current columns). Same operator/operand
@@ -343,9 +389,12 @@ class FilterStep(BaseModel):
     predicates: Annotated[list[FilterStepPredicate], Field(min_length=1)]
 
 
-# R121/R122/R123 — a transform step is a `kind`-discriminated union (so a bad
+# R121/R122/R123/R141 — a transform step is a `kind`-discriminated union (so a bad
 # `kind` is a clean 422, and each kind keeps its own required fields).
-Step = Annotated[AggregateStep | TopNStep | DeriveStep | FilterStep, Field(discriminator="kind")]
+Step = Annotated[
+    AggregateStep | TopNStep | DeriveStep | FilterStep | SortStep | SelectStep,
+    Field(discriminator="kind"),
+]
 
 
 class QueryDefinition(BaseModel):

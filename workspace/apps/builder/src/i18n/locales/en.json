@@ -593,7 +593,16 @@
         "avgOf": "Average of",
         "minOf": "Min of",
         "maxOf": "Max of",
-        "countDistinct": "Count distinct"
+        "countDistinct": "Count distinct",
+        "kindSort": "Sort",
+        "kindSelect": "Select columns",
+        "sortBy": "Sort by",
+        "thenBy": "then by",
+        "addKey": "Add sort key",
+        "removeKey": "Remove sort key",
+        "renameOptional": "Rename (optional)",
+        "addColumn": "Add column",
+        "removeColumn": "Remove column"
       },
       "buildActive": "{{count}} active",
       "baseSourceLabel": "Build on",
