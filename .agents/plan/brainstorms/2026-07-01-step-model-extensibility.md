@@ -67,7 +67,9 @@ and AI/YAML (thread 2) from one seam — and the function catalog IS the thing t
 and an advanced YAML author target. Keep `sort` and `select` as their own small kinds
 (they are row/column *shaping*, not column *computation*), and `avg/min/max/
 count_distinct` as a plain enum extension (cheapest win, no fork needed). This is the
-one architectural decision worth locking before the date family.
+one architectural decision worth locking before the date family. The long-run vision
+(§ below) strengthens this lean further: **the catalog call-shape is the future
+plugin ABI**, so (B) is also the substrate the plugin ecosystem stands on.
 
 ## Thread 2 — #2 (AI) → YAML edit/import
 
@@ -108,6 +110,72 @@ declarative and closed. Fork (B) serves it directly.
   needs the human to verify *meaning*; a per-step "what this did" view may become the
   verification surface (serves both #1 confidence and #2 review).
 
+## The long-run vision — "Services as Software" (BYO-AI + a plugin ecosystem)
+
+> Added in a second brainstorm pass (2026-07-02, the human's long-run framing).
+> **Vision, not commitment** — the near-term roadmap below is unchanged; this section
+> records WHERE it points and which cheap design choices NOW keep that future open.
+
+**The vision (human's framing).** As AI becomes more useful, the endgame is
+**"Services as Software"**: the user buys the OUTCOME (the report maintained, the
+consolidation done), not a tool they operate. The #2 doctrine already carries the
+seed — *state a need → the agent operates → the human verifies meaning*. Two
+additions complete the picture:
+
+- **BYO-AI** — an advanced user brings their own AI, which authors the "extra" work:
+  e.g. a new domain column like hg_code's `plugin.is_authorized("column")` (a
+  Polars-callable plugin function). The human's job shifts from writing to verifying.
+- **A plugin ecosystem, OUTSIDE this repo** — community-contributed functions in a
+  separate plugin repo, explicitly opt-in for advanced users (a "do your own
+  research" warning — the browser-extension trust UX), never load-bearing for #1.
+
+**The extension-mechanism ladder** (what "call predefined / Polars / plugins from
+YAML" actually decomposes into — each rung a different author + trust boundary):
+
+| Rung | Who writes the fn | Power | Tier |
+| --- | --- | --- | --- |
+| 1. Closed SQL vocab (`compute` catalog) | — (declarative) | low | #1 + #2 |
+| 2. Curated catalog incl. **Polars-backed** (fuzzy, dates) | us (vetted) | medium | #1 + #2 |
+| 3. Polars expressions exposed to the user | user (DSL) | high | advanced |
+| 4. **Plugins** (user/AI-authored Python, community repo) | user's AI | max | #2-advanced / self-host |
+
+**Why rung 4 is legitimate (what changed vs the earlier brake):**
+
+1. **Domain semantics are the real wall.** A closed catalog can cover *generic*
+   compute forever; it can NEVER cover `is_authorized` — a user-domain predicate.
+   When that wall fires, the only honest answers are "no" or "plugins"; there is no
+   third, catalog-shaped answer.
+2. **The Excel precedent.** Excel is simultaneously the #1-ease tool AND a platform
+   with VBA/add-ins — macros never hurt basic users; they made Excel the durable
+   platform. dbt packages / Home Assistant / Airflow providers repeat the shape:
+   **safe core · opt-in ecosystem · explicit trust boundary · separate repo**.
+3. **BYO-AI changes authorship economics.** The advanced user doesn't hand-write
+   Python; their AI does. The platform's job is not authoring but **GOVERNANCE**:
+   validation, typing, isolated execution, and the verify-meaning surface.
+
+**The bridge — near-term choices that make the future cheap.** The `compute` catalog
+(fork B) call-shape IS the future plugin ABI. Design it with four properties and
+plugins become a *namespace extension*, not a new mechanism:
+
+1. **Namespaced fn ids** — `core.date_trunc` today; `plugin:<repo>.is_authorized`
+   later. One resolver.
+2. **Self-describing registry** — every entry declares its args schema + output
+   dtype. The UI renders arg forms from it, the AI grounds on it, YAML names it, and
+   step-threading reads the declared output type. A plugin must declare the same
+   contract — **plugins are contract-first too**.
+3. **An executor slot per entry** — `duckdb-sql` today; `polars` when the first
+   Polars-backed catalog fn lands. The Polars slot a CATALOG fn uses is the SAME slot
+   a PLUGIN fn uses later; sandboxing wraps the slot, not the model.
+4. **Trust-tier metadata** — `core | community | local` on every entry. Invisible
+   now; the warning UX + policy gate later.
+
+**Gates that must fire before any plugin round** (the brake, now as fire conditions):
+(a) a real domain-semantic need a catalog genuinely cannot express; (b) the #2
+AI-authoring lane exists first (the plugin's author is an AI); (c) an
+execution-isolation story — self-hosted/enterprise deployment or a hard sandbox. The
+plugin repo is community, versioned, and OUT of this repo; the core runs fully
+without it.
+
 ## Rough roadmap (thin rounds, each a Design gate first)
 
 1. **Aggregate functions** — enum-extend `agg` to avg/min/max/count_distinct. Cheapest
@@ -128,6 +196,10 @@ declarative and closed. Fork (B) serves it directly.
   pull (an actual AI-authoring feature) fires.
 - Scheduled refresh scope (manual re-run button → cron → CRM-drift detection) — a
   theme-sized question, not a step.
+- Plugin-round timing — the vision § names its three fire-gates (domain-semantic
+  wall · AI lane exists · isolation story); until they fire, only the four cheap
+  catalog properties (namespacing, registry, executor slot, trust tier) are built —
+  as part of fork (B), not as plugin infra.
 
 ## Links
 
