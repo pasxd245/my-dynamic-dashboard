@@ -1,0 +1,68 @@
+openapi: 3.1.0
+info:
+  title: my-dynamic-dashboard — PUT /workflows/{id}
+  version: 0.1.0
+  description: |
+    R138 — edit a saved workflow's name + definition (source consolidation +
+    transform steps) via the UI builder. Every source must still exist in the
+    workspace (422); names stay unique per workspace (409).
+
+    Changing the DEFINITION invalidates the materialized output (the frozen
+    result no longer matches the definition), so `resolvedColumns` +
+    `materializedAt` are cleared on the response — the workflow must be re-run
+    (`POST /workflows/{id}/run`). A name-only edit keeps the materialized output.
+paths:
+  /workflows/{id}:
+    put:
+      operationId: updateWorkflow
+      summary: Edit a workflow's name + definition
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, pattern: "^wf_[0-9a-f]{8}$" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, definition]
+              additionalProperties: false
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 120
+                definition:
+                  $ref: "../_shared/workflow.yaml#/components/schemas/WorkflowDefinition"
+      responses:
+        "200":
+          description: The updated workflow (materialized fields cleared if the definition changed).
+          content:
+            application/json:
+              schema: { $ref: "../_shared/workflow.yaml#/components/schemas/Workflow" }
+        "404":
+          description: No workflow with this id.
+          content:
+            application/json:
+              schema: { $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorNotFound" }
+              examples: { not_found: { value: { code: "not_found" } } }
+        "409":
+          description: Another workflow in this workspace already has this name.
+          content:
+            application/json:
+              schema: { $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorNameTaken" }
+              examples: { name_taken: { value: { code: "name_taken" } } }
+        "422":
+          description: A source is not a query/workflow in this workspace, or the body is malformed.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [detail]
+                properties:
+                  detail:
+                    type: array
+                    items:
+                      type: object

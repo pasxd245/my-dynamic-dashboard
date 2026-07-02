@@ -37,6 +37,7 @@ from app.models.common import (
     ApiErrorQueryStale,
     Column,
     CreateWorkflowBody,
+    UpdateWorkflowBody,
     Workflow as WorkflowModel,
     WorkflowDefinition,
 )
@@ -141,6 +142,44 @@ def get_workflow(id: WfIdPath) -> JSONResponse:  # noqa: A002
             return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=ApiErrorNotFound().model_dump())
         content = _workflow_from_row(row).model_dump(exclude_none=True)
     return JSONResponse(status_code=status.HTTP_200_OK, content=content)
+
+
+@router.put("/workflows/{id}")
+def update_workflow(id: WfIdPath, body: UpdateWorkflowBody) -> JSONResponse:  # noqa: A002
+    """Edit a saved workflow's name + definition. Every source must still exist in
+    the workspace (422); names stay unique per workspace (409). Changing the
+    DEFINITION invalidates the materialized output (the frozen result no longer
+    matches the definition) → `resolvedColumns`/`materializedAt` are cleared and
+    the workflow must be re-run. A name-only edit keeps the materialized output."""
+    with get_conn() as con:
+        row = con.execute(_SELECT_WORKFLOW, (id,)).fetchone()
+        if row is None:
+            return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=ApiErrorNotFound().model_dump())
+        _validate_sources(con, list(body.definition.sources), row["workspace_id"])
+
+        new_definition = body.definition.model_dump()
+        definition_changed = new_definition != json.loads(row["definition_json"])
+        definition_json = json.dumps(new_definition)
+        try:
+            if definition_changed:
+                # Invalidate the stale materialized output — must re-run.
+                con.execute(
+                    "UPDATE workflows SET name = ?, definition_json = ?, "
+                    "output_columns_json = NULL, materialized_at = NULL WHERE id = ?",
+                    (body.name, definition_json, id),
+                )
+            else:
+                con.execute(
+                    "UPDATE workflows SET name = ?, definition_json = ? WHERE id = ?",
+                    (body.name, definition_json, id),
+                )
+            con.commit()
+        except sqlite3.IntegrityError as err:
+            if "idx_workflows_name_unique" in str(err) or _is_unique_violation(err, "workflows.name"):
+                return JSONResponse(status_code=status.HTTP_409_CONFLICT, content=ApiErrorNameTaken().model_dump())
+            raise
+        row = con.execute(_SELECT_WORKFLOW, (id,)).fetchone()
+    return JSONResponse(status_code=status.HTTP_200_OK, content=_workflow_from_row(row).model_dump(exclude_none=True))
 
 
 @router.delete("/workflows/{id}")

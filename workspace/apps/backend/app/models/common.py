@@ -693,3 +693,15 @@ class CreateWorkflowBody(BaseModel):
 
     name: Annotated[str, Field(min_length=1, max_length=NAME_LENGTHS["query_max"])]
     definition: WorkflowDefinition
+
+
+class UpdateWorkflowBody(BaseModel):
+    """R138 — PUT /workflows/{id} request body. Edits both name + definition
+    (source consolidation + steps) via the UI builder. Changing the definition
+    invalidates the materialized output (the frozen result no longer matches) →
+    the run must be re-triggered. Mirrors `workflows/put.contract.yaml`."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: Annotated[str, Field(min_length=1, max_length=NAME_LENGTHS["query_max"])]
+    definition: WorkflowDefinition

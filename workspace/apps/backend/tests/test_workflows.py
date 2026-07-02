@@ -112,3 +112,85 @@ def test_delete_then_404() -> None:
         wid = _create(client, ws, qid).json()["id"]
         assert client.delete(f"/workflows/{wid}").status_code == 204
         assert client.get(f"/workflows/{wid}").status_code == 404
+
+
+# ─── R138: update (PUT) — edit name + definition ─────────────────────
+
+
+def _put(client: TestClient, wid: str, sources, name: str = "wf", steps=None):
+    return client.put(
+        f"/workflows/{wid}",
+        json={"name": name, "definition": {"sources": sources, "steps": steps if steps is not None else [_STEP]}},
+    )
+
+
+@pytest.mark.unit
+def test_update_changes_name_and_definition() -> None:
+    with TestClient(app) as client:
+        ws, qid = _query_source(client)
+        wid = _create(client, ws, qid, name="before").json()["id"]
+        resp = _put(client, wid, [qid], name="after", steps=[])
+        got = client.get(f"/workflows/{wid}").json()
+
+    assert resp.status_code == 200
+    assert resp.json()["name"] == "after"
+    assert resp.json()["definition"]["steps"] == []
+    assert got["name"] == "after"
+    validate_response("workflows/put.contract.yaml", 200, resp.json())
+
+
+@pytest.mark.unit
+def test_update_definition_clears_materialized_output() -> None:
+    with TestClient(app) as client:
+        ws, qid = _query_source(client)
+        wid = _create(client, ws, qid, steps=[_STEP]).json()["id"]
+        client.post(f"/workflows/{wid}/run")  # materialize
+        assert client.get(f"/workflows/{wid}").json().get("materializedAt") is not None
+        # A definition change (steps → []) invalidates the frozen output.
+        _put(client, wid, [qid], name="wf", steps=[])
+        after = client.get(f"/workflows/{wid}").json()
+        rows = client.get(f"/workflows/{wid}/rows")
+
+    assert "materializedAt" not in after and "resolvedColumns" not in after
+    assert rows.status_code == 404  # must re-run
+
+
+@pytest.mark.unit
+def test_update_name_only_keeps_materialized_output() -> None:
+    with TestClient(app) as client:
+        ws, qid = _query_source(client)
+        wid = _create(client, ws, qid, name="orig", steps=[_STEP]).json()["id"]
+        client.post(f"/workflows/{wid}/run")
+        # Same definition, new name → materialized output preserved.
+        _put(client, wid, [qid], name="renamed", steps=[_STEP])
+        after = client.get(f"/workflows/{wid}").json()
+
+    assert after["name"] == "renamed"
+    assert after.get("materializedAt") is not None
+
+
+@pytest.mark.unit
+def test_update_unknown_returns_404() -> None:
+    with TestClient(app) as client:
+        resp = _put(client, "wf_00000000", ["qr_00000000"], steps=[])
+    assert resp.status_code == 404
+
+
+@pytest.mark.unit
+def test_update_to_duplicate_name_returns_409() -> None:
+    with TestClient(app) as client:
+        ws, qid = _query_source(client)
+        _create(client, ws, qid, name="taken")
+        wid = _create(client, ws, qid, name="mine").json()["id"]
+        resp = _put(client, wid, [qid], name="taken", steps=[])
+    assert resp.status_code == 409
+    assert resp.json() == {"code": "name_taken"}
+
+
+@pytest.mark.unit
+def test_update_with_unknown_source_returns_422() -> None:
+    with TestClient(app) as client:
+        ws, qid = _query_source(client)
+        wid = _create(client, ws, qid).json()["id"]
+        resp = _put(client, wid, ["qr_00000000"], steps=[])
+    assert resp.status_code == 422
