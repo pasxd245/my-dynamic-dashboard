@@ -23,7 +23,7 @@ R141 open. D-gate first per the d-gate-artifact-in-design-corpus lesson._
 
 ## Plan
 
-- [ ] **D**: [queries.md](../../design/data-management/queries/queries.md) §Transform steps — spec
+- [x] **D**: [queries.md](../../design/data-management/queries/queries.md) §Transform steps — spec
       both kinds: `sort` (multi-key? asc/desc per key; NULL ordering; dtype-agnostic) and `select`
       (projection list + rename map + implicit reorder; unknown-column and duplicate-output-name
       rules; effect on resolved output columns). Decide one step or two (brainstorm leans two small
@@ -33,7 +33,8 @@ R141 open. D-gate first per the d-gate-artifact-in-design-corpus lesson._
 - [ ] **B**: engine — models + validators + `build_*_select` SQL + output-column resolution;
       endpoint parity (ad-hoc + saved-step + workflow inherits via the `Step` union).
 - [ ] **F**: FE step types + `steps.ts` output mirror + two StepsEditor bodies + MSW compute mirror.
-- [ ] **I**: i18n en/vi labels.
+- [ ] **I**: i18n en/vi labels; sync the step-kind list in
+      [workflows.md](../../design/data-management/workflows/workflows.md) (inherits the union).
 - [ ] Tests: backend per-kind happy + 422 specs; FE vitest contract/mirror.
 
 ## Risks / unknowns
@@ -48,11 +49,18 @@ R141 open. D-gate first per the d-gate-artifact-in-design-corpus lesson._
 
 ## Do
 
-_(pending)_
+**2026-07-02 — D signed off** (human, same day). [queries.md §Transform steps](../../design/data-management/queries/queries.md)
+now specs both kinds. Decisions taken in the draft: **two kinds** (`sort` + `select`, per the
+brainstorm — shaping, not computation); `sort` is **multi-key** (`keys: [{col, descending}]` —
+chained single-key sorts don't compose, the later one wins); explicit **NULLS LAST both
+directions** (deterministic deliverable, blanks at the bottom); `select` is **one body** doing
+projection + rename + reorder (`cols: [{col, as?}]`, output = exactly these, dtypes kept, names
+`as ?? col`, unique); renames are **real re-bindings** (later steps + `resolvedColumns` see new
+names).
 
 ## Check
 
-- [ ] Design doc section signed off (D-gate) before C/B/F.
+- [x] Design doc section signed off (D-gate) before C/B/F (2026-07-02).
 - [ ] Backend pytest green incl. new specs; ruff clean.
 - [ ] FE tsc + vitest green; editor offers both kinds with sane column pools.
 - [ ] count_distinct-rename path works end-to-end (the R140 wart is closed).

@@ -383,7 +383,7 @@ built, as it would re-open the governed edge.)_
 
 ---
 
-## Transform steps (workflows) — R120–R129
+## Transform steps (workflows) — R120–R141
 
 A `QueryDefinition` carries an optional ordered **`steps`** list applied **after** the
 source/join/filter resolve — saved, reusable **data shaping** (the "workflow"). A query
@@ -399,7 +399,25 @@ with no steps is a plain select (unchanged). `steps` is a **`kind`-discriminated
   right`, `op ∈ + − × ÷`, `right` a numeric column or a literal; `÷0 → NULL`).
 + **`filter`** — keep rows matching name-referenced predicates (AND), a post-aggregate
   `WHERE` (HAVING-like). Distinct from `definition.filters` (which filter the SOURCE rows).
-+ **`top_n`** — `ORDER BY col [DESC] LIMIT n`.
++ **`top_n`** — `ORDER BY col [DESC] LIMIT n` (= a single-key `sort` + limit).
++ **`sort`** — R141 deliverable ordering: an ordered list of **`keys`**
+  (`{col, descending}`, min 1 — later keys tie-break earlier ones), each `col` an
+  effective column at this step, **any dtype** (strings sort lexically). Column space
+  unchanged; no limit. Explicit **`NULLS LAST` in both directions** — a deliverable
+  keeps blanks at the bottom, deterministically. **Order is an output property**: it is
+  meaningful when `sort` is the last *reshaping* step — a following `aggregate` discards
+  it; the engine carries it through `derive`/`filter`/`select` wrappers and the final
+  stringify. Two chained sorts do NOT compose into multi-key (the later one wins) —
+  that's what `keys` is for.
++ **`select`** — R141 column shaping: **projection + rename + reorder in ONE body** —
+  an ordered list of **`cols`** (`{col, as?}`, min 1). The output is EXACTLY these
+  columns in THIS order, each keeping its source **dtype**, named **`as ?? col`**.
+  Rules: every `col` must exist at this step (`unknown_column`); output names must be
+  unique (`duplicate_output_column`); `as` is a plain non-empty name (same freedom as a
+  `derive` name). Later steps — and `resolvedColumns` — see the NEW names/order, so a
+  rename is a real re-binding, not a display alias. Closes the R140 naming wart:
+  `count_distinct(product)` (output col `product`) → `select {col: product, as:
+  distinct_products}`.
 
 **Engine** (`rows_reader.run_steps` / `_apply_step`): a **TYPED** relation is threaded
 through each step and stringified only at the end, so steps **chain** (a `top_n` after an
