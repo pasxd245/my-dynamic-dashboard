@@ -1,8 +1,8 @@
 # Round 141: Deliverable shaping steps — sort · select/rename/reorder
 
-**Status**: Review
+**Status**: Complete
 **Date started**: 2026-07-02
-**Date completed**:
+**Date completed**: 2026-07-02
 **Flow**: **DCFBI** — set at the Design gate via flow-selector (0 of 5 conditions fired); recorded
 in the Do log.
 
@@ -95,8 +95,8 @@ FE vitest **258 pass** (5 new; preview responses contract-validated by the MSW s
       move/rename/remove).
 - [x] count_distinct-rename path works end-to-end (the R140 wart is closed —
       `test_count_distinct_rename_closes_the_r140_wart`).
-- [ ] Optional human eyeball (two new step bodies in the existing editor; DCFBI F confirms, no
-      hard F2 gate).
+- [x] Optional human eyeball (two new step bodies in the existing editor; DCFBI F confirms, no
+      hard F2 gate). 2026-07-02: human signed off.
 
 ## Act
 
