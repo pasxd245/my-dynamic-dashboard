@@ -1,8 +1,8 @@
 # Round 140: Aggregate functions — avg · min · max · count_distinct
 
-**Status**: Review
+**Status**: Complete
 **Date started**: 2026-07-02
-**Date completed**:
+**Date completed**: 2026-07-02
 **Flow**: **DCFBI — full thin slice** (D: queries design doc updated first · C: enum ×3 · B: engine ·
 F: StepsEditor options + MSW mirror · I: i18n). UI delta = four dropdown options; no F1 discovery.
 
@@ -63,7 +63,9 @@ count_distinct integer · min-on-date · 3 new 422 specs · avg saved-step run) 
 - [x] Backend 295 (8 new); ruff clean; no regression.
 - [x] All four functions work at the endpoint AND the saved-step path; dtype/naming per spec.
 - [x] FE editor offers six measures with correct per-agg column pools; tsc + vitest green.
-- [ ] Optional human eyeball (UI delta = a dropdown; DCFBI F confirms, no hard F2 gate).
+- [x] Optional human eyeball (UI delta = a dropdown; DCFBI F confirms, no hard F2 gate).
+      2026-07-02: human reviewed — acceptable. Minor UI/UX issues noted (unspecified); carry to a
+      dedicated batched UI-bug round per doctrine, don't fix piecemeal mid-feature.
 
 ## Act
 
