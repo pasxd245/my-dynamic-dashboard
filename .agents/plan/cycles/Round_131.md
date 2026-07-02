@@ -1,8 +1,8 @@
 # Round 131: Plan gate — the Workflow noun (`queries ⇒ workflows`)
 
-**Status**: Review
+**Status**: Complete
 **Date started**: 2026-07-01
-**Date completed**:
+**Date completed**: 2026-07-01
 **Flow**: **DCFBI** — Plan/Design gate (docs only); the arc's later FE round (R135) is DFCFBI.
 
 ## Goal

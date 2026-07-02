@@ -1,8 +1,8 @@
 # Round 134: Workflow run → materialize + rows
 
-**Status**: Review
+**Status**: Complete
 **Date started**: 2026-07-01
-**Date completed**:
+**Date completed**: 2026-07-01
 **Flow**: **DCFBI** — Contract + Backend (no UI); the noun gains behavior.
 
 ## Goal
