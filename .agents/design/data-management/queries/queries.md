@@ -389,7 +389,12 @@ A `QueryDefinition` carries an optional ordered **`steps`** list applied **after
 source/join/filter resolve — saved, reusable **data shaping** (the "workflow"). A query
 with no steps is a plain select (unchanged). `steps` is a **`kind`-discriminated union**:
 
-+ **`aggregate`** — `GROUP BY (dimensions) → measures` (`sum` of a numeric col, or `count`).
++ **`aggregate`** — `GROUP BY (dimensions) → measures`. R140 measure vocabulary:
+  `sum`/`avg` (numeric col), `min`/`max` (numeric or date/datetime col), `count_distinct`
+  (any col), `count` (no col). Output dtypes: `avg` → `float`; `count`/`count_distinct` →
+  `integer`; `sum`/`min`/`max` keep the col's dtype; `count` is named `count`, every other
+  measure keeps the col's name. `sum`/`avg` coalesce an all-NULL group to `0` (client
+  parity); `min`/`max` stay honest `NULL`.
 + **`derive`** — a new `float` column from a **formula-free** binary op (`name = left <op>
   right`, `op ∈ + − × ÷`, `right` a numeric column or a literal; `÷0 → NULL`).
 + **`filter`** — keep rows matching name-referenced predicates (AND), a post-aggregate

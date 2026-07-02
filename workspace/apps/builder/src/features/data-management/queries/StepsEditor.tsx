@@ -13,8 +13,8 @@ import { useTranslation } from 'react-i18next';
 
 import { OPS_BY_DTYPE, type Operator } from '@/features/data-management/datasets/filters/types';
 import type { Column } from '@/features/data-management/datasets/types';
-import { STEP_KINDS, blankStep, isNumericCol, threadColumns } from './steps';
-import type { AggregateStep, DeriveStep, FilterStep, Step, TopNStep } from './types';
+import { STEP_KINDS, blankStep, isNumericCol, isOrderableCol, threadColumns } from './steps';
+import type { AggregateMeasure, AggregateStep, DeriveStep, FilterStep, Step, TopNStep } from './types';
 
 type StepsEditorProps = Readonly<{
   steps: readonly Step[];
@@ -142,6 +142,20 @@ function AggregateBody({
   const { t } = useTranslation();
   const measure = step.measures[0] ?? { agg: 'count' as const };
   const numeric = cols.filter(isNumericCol);
+  const orderable = cols.filter(isOrderableCol);
+  // R140 — the column pool each agg draws from (mirrors the backend dtype rules).
+  const poolFor = (agg: AggregateMeasure['agg']): readonly Column[] => {
+    if (agg === 'sum' || agg === 'avg') return numeric;
+    if (agg === 'min' || agg === 'max') return orderable;
+    return cols; // count_distinct — any column
+  };
+  const setAgg = (agg: AggregateMeasure['agg']) => {
+    if (agg === 'count') return onChange({ ...step, measures: [{ agg }] });
+    const pool = poolFor(agg);
+    // Keep the current col when the new agg still accepts it; else the pool's first.
+    const col = pool.some((c) => c.name === measure.col) ? measure.col : pool[0]?.name;
+    onChange({ ...step, measures: [{ agg, col }] });
+  };
   return (
     <Space wrap size={[8, 6]}>
       <FieldLabel text={t('queries.builder.steps.groupBy')}>
@@ -157,26 +171,28 @@ function AggregateBody({
       <FieldLabel text={t('queries.builder.steps.measure')}>
         <Select
           size="small"
-          style={{ width: 120 }}
+          style={{ width: 140 }}
           value={measure.agg}
           options={[
             { label: t('queries.builder.steps.sumOf'), value: 'sum' },
+            { label: t('queries.builder.steps.avgOf'), value: 'avg' },
+            { label: t('queries.builder.steps.minOf'), value: 'min' },
+            { label: t('queries.builder.steps.maxOf'), value: 'max' },
+            { label: t('queries.builder.steps.countDistinct'), value: 'count_distinct' },
             { label: t('queries.builder.steps.countRows'), value: 'count' },
           ]}
-          onChange={(agg: 'sum' | 'count') =>
-            onChange({ ...step, measures: [agg === 'count' ? { agg } : { agg, col: numeric[0]?.name }] })
-          }
+          onChange={setAgg}
         />
-        {measure.agg === 'sum' ? (
+        {measure.agg === 'count' ? null : (
           <Select
             size="small"
             style={{ minWidth: 120 }}
             value={measure.col}
             placeholder="—"
-            options={nameOptions(numeric)}
-            onChange={(col: string) => onChange({ ...step, measures: [{ agg: 'sum', col }] })}
+            options={nameOptions(poolFor(measure.agg))}
+            onChange={(col: string) => onChange({ ...step, measures: [{ agg: measure.agg, col }] })}
           />
-        ) : null}
+        )}
       </FieldLabel>
     </Space>
   );

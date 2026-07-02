@@ -10,12 +10,20 @@ import type { AggregateStep, Step } from './types';
 const NUMERIC = new Set(['integer', 'float']);
 export const isNumericCol = (c: Column): boolean => NUMERIC.has(c.dtype);
 
-/** The output columns of an aggregate step given its input columns. */
+// R140 — min/max order any ORDERABLE column: numeric or date/datetime.
+const ORDERABLE = new Set(['integer', 'float', 'date', 'datetime']);
+export const isOrderableCol = (c: Column): boolean => ORDERABLE.has(c.dtype);
+
+/** The output columns of an aggregate step given its input columns. R140 measure
+ *  dtypes mirror the backend: `sum`/`min`/`max` keep the col's dtype; `avg` is
+ *  `float`; `count`/`count_distinct` are `integer`; `count` is named `count`. */
 function aggregateOutput(step: AggregateStep, cols: readonly Column[]): Column[] {
   const byName = new Map(cols.map((c) => [c.name, c]));
   const out: Column[] = step.dimensions.map((d) => byName.get(d) ?? { name: d, dtype: 'string' });
   for (const m of step.measures) {
     if (m.agg === 'count') out.push({ name: 'count', dtype: 'integer' });
+    else if (m.agg === 'count_distinct') out.push({ name: m.col ?? '', dtype: 'integer' });
+    else if (m.agg === 'avg') out.push({ name: m.col ?? '', dtype: 'float' });
     else out.push({ name: m.col ?? '', dtype: byName.get(m.col ?? '')?.dtype ?? 'float' });
   }
   return out;

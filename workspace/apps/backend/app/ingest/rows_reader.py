@@ -340,9 +340,18 @@ def build_aggregate_select(
     for col, agg in measures:
         if agg == "count":
             select_terms.append(_agg_term("COUNT(*)", '"count"', stringify))
-        else:  # sum — col is validated present + numeric by the caller
+        else:  # col is validated present + dtype-checked per agg by the caller (R140)
             qc = _quote_ident(col or "")
-            select_terms.append(_agg_term(f"COALESCE(SUM({qc}), 0)", qc, stringify))
+            # sum/avg coalesce an all-NULL group to 0 (client `toNum` parity);
+            # min/max stay honest NULL; count_distinct is never NULL.
+            expr = {
+                "sum": f"COALESCE(SUM({qc}), 0)",
+                "avg": f"COALESCE(AVG({qc}), 0)",
+                "min": f"MIN({qc})",
+                "max": f"MAX({qc})",
+                "count_distinct": f"COUNT(DISTINCT {qc})",
+            }[agg]
+            select_terms.append(_agg_term(expr, qc, stringify))
     group_by = ("GROUP BY " + ", ".join(_quote_ident(d) for d in dimensions)) if dimensions else ""
     sql = f"SELECT {', '.join(select_terms)} FROM ({inner_sql}) AS _base {where_sql} {group_by}"
     return sql, [*inner_params, *where_params]

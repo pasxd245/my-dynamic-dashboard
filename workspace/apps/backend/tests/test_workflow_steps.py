@@ -66,6 +66,25 @@ def test_save_and_run_aggregate_step() -> None:
 
 
 @pytest.mark.unit
+def test_avg_step_runs_and_reports_float() -> None:
+    """R140 — the widened measure vocabulary flows through the SAVED-step path
+    too: an avg step groups correctly and resolvedColumns reports float."""
+    step = {"kind": "aggregate", "dimensions": ["region"], "measures": [{"col": "amount", "agg": "avg"}]}
+    with TestClient(app) as client:
+        ws, ds_id = _commit_csv(client)
+        created = _create(client, ws, ds_id, _defn([step]))
+        assert created.status_code == 201
+        qid = created.json()["id"]
+        assert client.get(f"/queries/{qid}").json()["resolvedColumns"] == [
+            {"name": "region", "dtype": "string"},
+            {"name": "amount", "dtype": "float"},
+        ]
+        rows = client.get(f"/queries/{qid}/rows")
+
+    assert _as_map(rows.json()["rows"]) == {"EMEA": "75.0", "APAC": "200.0"}
+
+
+@pytest.mark.unit
 def test_query_filter_applies_before_the_step() -> None:
     # filter amount (col 2, integer) > 60 keeps 100 + 200 (50 excluded), THEN
     # group by region → EMEA 100, APAC 200.

@@ -315,15 +315,29 @@ function computeAggregate(
   const dimIdxs = body.dimensions.map((d) => _aggColIdx(columns, d));
   const measureIdxs = body.measures.map((m) => (m.col ? _aggColIdx(columns, m.col) : -1));
 
-  const measuresFor = (groupRows: readonly (readonly (string | null)[])[]): string[] =>
+  // R140 — sum/avg/min/max/count_distinct join count. Numbers compare numerically;
+  // min/max on date/datetime compare lexically (ISO strings order correctly).
+  // sum/avg coalesce an empty/all-NULL group to 0 (backend parity); min/max → null.
+  const measuresFor = (groupRows: readonly (readonly (string | null)[])[]): (string | null)[] =>
     body.measures.map((m, i) => {
       if (m.agg === 'count') return String(groupRows.length);
+      const cells = groupRows.map((r) => r[measureIdxs[i]]).filter((c): c is string => c !== null && c !== '');
+      if (m.agg === 'count_distinct') return String(new Set(cells).size);
+      if (m.agg === 'min' || m.agg === 'max') {
+        if (cells.length === 0) return null;
+        const numeric = cells.every((c) => Number.isFinite(Number(c)));
+        const pick = (a: string, b: string) => {
+          const less = numeric ? Number(a) < Number(b) : a < b;
+          return (m.agg === 'min') === less ? a : b;
+        };
+        return cells.reduce(pick);
+      }
       let sum = 0;
-      for (const r of groupRows) {
-        const n = Number(r[measureIdxs[i]]);
+      for (const c of cells) {
+        const n = Number(c);
         sum += Number.isFinite(n) ? n : 0;
       }
-      return String(sum);
+      return String(m.agg === 'avg' ? (cells.length ? sum / cells.length : 0) : sum);
     });
 
   let outRows: (string | null)[][];
@@ -346,11 +360,12 @@ function computeAggregate(
     dtype: columns[_aggColIdx(columns, d)]?.dtype ?? 'string',
   }));
   body.measures.forEach((m, i) => {
-    outColumns.push(
-      m.agg === 'count'
-        ? { name: 'count', dtype: 'integer' }
-        : { name: m.col ?? '', dtype: columns[measureIdxs[i]]?.dtype ?? 'integer' },
-    );
+    // R140 dtype mirror: avg → float; count/count_distinct → integer;
+    // sum/min/max keep the measure column's dtype.
+    if (m.agg === 'count') outColumns.push({ name: 'count', dtype: 'integer' });
+    else if (m.agg === 'count_distinct') outColumns.push({ name: m.col ?? '', dtype: 'integer' });
+    else if (m.agg === 'avg') outColumns.push({ name: m.col ?? '', dtype: 'float' });
+    else outColumns.push({ name: m.col ?? '', dtype: columns[measureIdxs[i]]?.dtype ?? 'integer' });
   });
   return { columns: outColumns, rows: outRows, total: outRows.length };
 }

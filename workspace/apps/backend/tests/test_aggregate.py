@@ -169,6 +169,69 @@ def test_aggregate_filter_on_absent_column_is_skipped() -> None:
     assert _as_map(resp.json()) == {"EMEA": "2", "APAC": "1"}
 
 
+# ─── R140: avg / min / max / count_distinct ──────────────────────────
+
+
+@pytest.mark.unit
+def test_aggregate_avg_by_group() -> None:
+    with TestClient(app) as client:
+        ws, ds_id = _commit_csv_text(client, _CSV)
+        qid = _query(client, ws, ds_id)
+        resp = _agg(client, qid, {"dimensions": ["region"], "measures": [{"col": "amount", "agg": "avg"}]})
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert _as_map(body) == {"EMEA": "75.0", "APAC": "200.0"}
+    # avg reports FLOAT regardless of the source column's integer dtype.
+    assert body["columns"] == [{"name": "region", "dtype": "string"}, {"name": "amount", "dtype": "float"}]
+
+
+@pytest.mark.unit
+def test_aggregate_min_max_by_group() -> None:
+    with TestClient(app) as client:
+        ws, ds_id = _commit_csv_text(client, _CSV)
+        qid = _query(client, ws, ds_id)
+        lo = _agg(client, qid, {"dimensions": ["region"], "measures": [{"col": "amount", "agg": "min"}]})
+        hi = _agg(client, qid, {"dimensions": ["region"], "measures": [{"col": "amount", "agg": "max"}]})
+
+    assert _as_map(lo.json()) == {"EMEA": "50", "APAC": "200"}
+    assert _as_map(hi.json()) == {"EMEA": "100", "APAC": "200"}
+    # min/max keep the measure column's dtype (integer here).
+    assert lo.json()["columns"][1] == {"name": "amount", "dtype": "integer"}
+
+
+@pytest.mark.unit
+def test_aggregate_count_distinct_by_group() -> None:
+    with TestClient(app) as client:
+        ws, ds_id = _commit_csv_text(client, _CSV)
+        qid = _query(client, ws, ds_id)
+        resp = _agg(
+            client, qid, {"dimensions": ["region"], "measures": [{"col": "product", "agg": "count_distinct"}]}
+        )
+
+    assert resp.status_code == 200
+    body = resp.json()
+    # EMEA has products A+B (2 distinct); APAC only A (1).
+    assert _as_map(body) == {"EMEA": "2", "APAC": "1"}
+    # count_distinct reports INTEGER under the measure column's name.
+    assert body["columns"][1] == {"name": "product", "dtype": "integer"}
+
+
+@pytest.mark.unit
+def test_aggregate_min_on_date_column() -> None:
+    """min/max accept date/datetime (orderable) columns — the 'earliest sign-up' shape."""
+    csv = b"region,signed\nEMEA,2024-03-01\nEMEA,2024-01-15\nAPAC,2024-02-10\n"
+    with TestClient(app) as client:
+        ws, ds_id = _commit_csv_text(client, csv)
+        qid = _query(client, ws, ds_id)
+        resp = _agg(client, qid, {"dimensions": [], "measures": [{"col": "signed", "agg": "min"}]})
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["rows"] == [["2024-01-15"]]
+    assert body["columns"] == [{"name": "signed", "dtype": "date"}]
+
+
 @pytest.mark.unit
 @pytest.mark.parametrize(
     "body",
@@ -178,6 +241,9 @@ def test_aggregate_filter_on_absent_column_is_skipped() -> None:
         {"dimensions": [], "measures": [{"col": "amount", "agg": "count"}]},  # count with col
         {"dimensions": [], "measures": [{"col": "nope", "agg": "sum"}]},  # unknown measure col
         {"dimensions": [], "measures": [{"col": "region", "agg": "sum"}]},  # sum on non-numeric
+        {"dimensions": [], "measures": [{"col": "region", "agg": "avg"}]},  # R140: avg on non-numeric
+        {"dimensions": [], "measures": [{"col": "product", "agg": "min"}]},  # R140: min on non-orderable
+        {"dimensions": [], "measures": [{"agg": "count_distinct"}]},  # R140: count_distinct without col
     ],
 )
 def test_aggregate_bad_spec_returns_422(body: dict) -> None:

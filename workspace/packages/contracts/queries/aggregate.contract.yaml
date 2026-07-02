@@ -83,12 +83,14 @@ paths:
           description: |
             The grouped result. `columns` are the output columns in order —
             the dimensions first (each keeping its source dtype), then one
-            column per measure (a `sum` keeps the measure column's numeric
-            dtype; a `count` is `integer`, named `count`). `rows` are
-            row-major, one cell per output column, stringified like every
-            other rows response. `total` is the number of groups
-            (= `rows.length`) — there is no cap, so it never exceeds it.
-            A scalar request (no dimensions) returns exactly one row.
+            column per measure. R140 measure dtypes — `sum`/`min`/`max` keep
+            the measure column's dtype; `avg` is `float`; `count` and
+            `count_distinct` are `integer`. `count` is named `count`; every
+            other measure keeps its column's name. `rows` are row-major, one
+            cell per output column, stringified like every other rows
+            response. `total` is the number of groups (= `rows.length`) —
+            there is no cap, so it never exceeds it. A scalar request (no
+            dimensions) returns exactly one row.
           content:
             application/json:
               schema:

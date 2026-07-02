@@ -198,12 +198,13 @@ export type PreviewQueryRequest = {
   definition: QueryDefinition;
 };
 
-/** R119 — one aggregate in a `POST /queries/{id}/aggregate` request. `agg`
- *  mirrors the Widget's `Agg`; `sum` needs a numeric `col`, `count` omits it.
+/** R119 — one aggregate in a `POST /queries/{id}/aggregate` request. R140
+ *  vocabulary: `sum`/`avg` need a numeric `col`; `min`/`max` a numeric or
+ *  date/datetime `col`; `count_distinct` any `col`; `count` omits it.
  *  Mirrors `_shared/query.yaml#/AggregateRequest`. */
 export type AggregateMeasure = {
   col?: string;
-  agg: 'sum' | 'count';
+  agg: 'sum' | 'count' | 'avg' | 'min' | 'max' | 'count_distinct';
 };
 
 /** R119 — an R103 dashboard filter pushed server-side: keep rows whose `column`

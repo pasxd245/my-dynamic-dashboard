@@ -373,22 +373,33 @@ def _agg_422(loc: list[str], msg: str) -> HTTPException:
     )
 
 
+# R140 — per-agg column dtype rules: `sum`/`avg` need numeric; `min`/`max` need
+# an ORDERABLE dtype (numeric or date/datetime); `count_distinct` takes any.
+_NUMERIC_AGGS = {"sum", "avg"}
+_ORDERABLE_DTYPES = _NUMERIC_DTYPES | {"date", "datetime"}
+
+
 def _validate_measure(m: dict, by_name: dict, loc: list) -> tuple[str | None, str]:
     """Validate one measure → its ``(col, agg)`` plan entry, or 422. ``count`` omits
-    ``col``; ``sum`` needs a numeric ``col``."""
+    ``col``; every other agg requires one (R140 dtype rules per ``agg``)."""
     agg, col_name = m.get("agg"), m.get("col")
-    if agg != "sum":  # count
+    if agg == "count":
         if col_name is not None:
             raise _agg_422([*loc, "col"], "measure_col_forbidden: agg 'count' must omit col")
         return (None, "count")
     if col_name is None:
-        raise _agg_422([*loc, "col"], "measure_col_required: agg 'sum' requires col")
+        raise _agg_422([*loc, "col"], f"measure_col_required: agg {agg!r} requires col")
     col = by_name.get(col_name)
     if col is None:
         raise _agg_422([*loc, "col"], f"unknown_column: {col_name!r} is not a column of this query")
-    if col["dtype"] not in _NUMERIC_DTYPES:
+    if agg in _NUMERIC_AGGS and col["dtype"] not in _NUMERIC_DTYPES:
         raise _agg_422([*loc, "col"], f"measure_not_numeric: {col_name!r} is {col['dtype']}, not numeric")
-    return (col_name, "sum")
+    if agg in ("min", "max") and col["dtype"] not in _ORDERABLE_DTYPES:
+        raise _agg_422(
+            [*loc, "col"],
+            f"measure_not_orderable: {col_name!r} is {col['dtype']}, not numeric/date/datetime",
+        )
+    return (col_name, agg)
 
 
 def _validate_aggregate(
@@ -410,12 +421,20 @@ def _aggregate_output_columns(
     dimensions: list[str], measures_plan: list[tuple[str | None, str]], columns: list[dict]
 ) -> list[dict]:
     """The output columns of an aggregate (dimensions then measures): a dimension
-    keeps its source dtype; a ``sum`` keeps the measure's numeric dtype; a ``count``
-    is ``integer`` named ``count``."""
+    keeps its source dtype. R140 measure dtypes — ``sum``/``min``/``max`` keep the
+    col's dtype; ``avg`` is ``float``; ``count``/``count_distinct`` are ``integer``.
+    ``count`` is named ``count``; every other measure keeps its col's name."""
     by_name = {c["name"]: c for c in columns}
     out = [{"name": d, "dtype": by_name[d]["dtype"]} for d in dimensions]
     for col, agg in measures_plan:
-        out.append({"name": "count", "dtype": "integer"} if agg == "count" else {"name": col, "dtype": by_name[col]["dtype"]})
+        if agg == "count":
+            out.append({"name": "count", "dtype": "integer"})
+        elif agg == "count_distinct":
+            out.append({"name": col, "dtype": "integer"})
+        elif agg == "avg":
+            out.append({"name": col, "dtype": "float"})
+        else:  # sum / min / max — keep the col's dtype
+            out.append({"name": col, "dtype": by_name[col]["dtype"]})
     return out
 
 

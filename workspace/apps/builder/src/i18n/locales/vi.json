@@ -589,7 +589,11 @@
         "value": "Giá trị",
         "keepFirst": "Giữ lại",
         "orderBy": "sắp theo",
-        "highestFirst": "Cao nhất trước"
+        "highestFirst": "Cao nhất trước",
+        "avgOf": "Trung bình của",
+        "minOf": "Nhỏ nhất của",
+        "maxOf": "Lớn nhất của",
+        "countDistinct": "Đếm giá trị khác nhau"
       },
       "buildActive": "{{count}} đang áp dụng",
       "baseSourceLabel": "Dựng trên",

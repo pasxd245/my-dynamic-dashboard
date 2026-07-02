@@ -589,7 +589,11 @@
         "value": "Value",
         "keepFirst": "Keep first",
         "orderBy": "ordered by",
-        "highestFirst": "Highest first"
+        "highestFirst": "Highest first",
+        "avgOf": "Average of",
+        "minOf": "Min of",
+        "maxOf": "Max of",
+        "countDistinct": "Count distinct"
       },
       "buildActive": "{{count}} active",
       "baseSourceLabel": "Build on",

@@ -185,10 +185,14 @@ components:
               col:
                 type: string
                 minLength: 1
-                description: Column to aggregate (effective name). Required for `sum`, omitted for `count`.
+                description: |
+                  Column to aggregate (effective name). Required for every agg
+                  except `count` (which tallies rows and omits it). R140 dtype
+                  rules — `sum`/`avg`: numeric; `min`/`max`: numeric or
+                  date/datetime; `count_distinct`: any.
               agg:
                 type: string
-                enum: [sum, count]
+                enum: [sum, count, avg, min, max, count_distinct]
 
     TopNStep:
       type: object
@@ -523,10 +527,12 @@ components:
                 minLength: 1
                 description: |
                   The column to aggregate, by effective name. REQUIRED for
-                  `sum` (must be numeric); OMITTED for `count` (tallies rows).
+                  every agg except `count` (which tallies rows and omits it).
+                  R140 dtype rules — `sum`/`avg`: numeric; `min`/`max`:
+                  numeric or date/datetime; `count_distinct`: any.
               agg:
                 type: string
-                enum: [sum, count]
+                enum: [sum, count, avg, min, max, count_distinct]
         filters:
           type: array
           description: |

@@ -248,15 +248,15 @@ class JoinStep(BaseModel):
 
 
 class AggregateMeasure(BaseModel):
-    """One aggregate. `agg` mirrors the dashboard Widget's `Agg`
-    (`sum` | `count`); `sum` requires a numeric `col`, `count` omits it. Shared by
-    the R119 `AggregateBody` (the stateless endpoint) and the R120 `AggregateStep`
-    (saved query shaping)."""
+    """One aggregate. R140 vocabulary: `sum`/`avg` need a NUMERIC `col`;
+    `min`/`max` a numeric or date/datetime `col`; `count_distinct` any `col`;
+    `count` omits it (tallies rows). Shared by the R119 `AggregateBody` (the
+    stateless endpoint) and the R120 `AggregateStep` (saved query shaping)."""
 
     model_config = ConfigDict(extra="forbid")
 
     col: Annotated[str, Field(min_length=1)] | None = None
-    agg: Literal["sum", "count"]
+    agg: Literal["sum", "count", "avg", "min", "max", "count_distinct"]
 
 
 class AggregateStep(BaseModel):
