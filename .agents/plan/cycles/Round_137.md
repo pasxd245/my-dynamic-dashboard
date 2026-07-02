@@ -1,8 +1,8 @@
 # Round 137: Workflows FE — build (catalog + builder + detail/Run)
 
-**Status**: Review — **built; awaiting F2** (human app-run feel-review)
+**Status**: Complete — F2 signed off 2026-07-01
 **Date started**: 2026-07-01
-**Date completed**:
+**Date completed**: 2026-07-01
 **Flow**: **DFCFBI** — C + B + Integration built here; **F2 hard-stops for the human** (MSW/tsc/vitest
 can't see CORS/layout/feel — [[dfcfbi-f1-needs-human-review]]).
 
@@ -23,7 +23,7 @@ _Track: 1. Pulled by ← R136 design gate. Reuses `StepsEditor`, `PagedRowsView`
 - [x] `WorkflowsPage` (catalog) · `WorkflowCreatePage` (builder) · `WorkflowDetailPage` (Run + `PagedRowsView`).
 - [x] MSW handlers + fixtures (contract-validated); nav + routes + i18n (en/vi).
 - [x] tsc + vitest (smoke tests exercising the handlers against contracts).
-- [ ] **F2 — human runs the app** (create → run → view output) → then Complete.
+- [x] **F2 — human ran the app** (create → run → view output); signed off 2026-07-01.
 
 ## Risks / unknowns
 
@@ -59,7 +59,7 @@ isolation). **F2 not yet run** (needs the human).
 - [x] `tsc --noEmit` clean; workflow smoke tests green (handlers contract-validated on call).
 - [x] Catalog lists + navigates; detail Runs → shows materialized output; 404/never-run states render.
 - [x] Reuses `StepsEditor`/`PagedRowsView`/shells verbatim; one new picker + one resolver hook.
-- [ ] **F2 — human runs the app** (create a workflow from a seeded query, Run, view output).
+- [x] **F2 — human ran the app** (created a workflow from a seeded query, Ran it, viewed output) — signed off 2026-07-01.
 
 ## Act
 
