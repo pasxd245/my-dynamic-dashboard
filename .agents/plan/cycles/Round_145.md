@@ -39,8 +39,9 @@ D-gate first per the d-gate-artifact-in-design-corpus lesson._
       [upload.md](../../design/data-management/datasets/upload.md) — a **§Refresh** section:
       entry point (the noun-vs-mode question: reuse the wizard against an existing dataset —
       likely via the R15-reserved `target_dataset_id` seam — vs a parallel surface; the
-      [design-gate noun-vs-mode lesson](../../../memory/2026-06-13-design-gate-noun-vs-mode.md)
-      says reuse), carry-forward scope (sheet · parse options · overrides+formats ·
+      reuse-not-duplicate discipline
+      ([specious-model-lock-in](../../memory/2026-06-13-specious-model-lock-in.md)) says
+      reuse), carry-forward scope (sheet · parse options · overrides+formats ·
       exclusions), refresh semantics (**replace** — atomic swap of `original` + parquet +
       `columns_json`, forward-only history), and the drift gate's UX (what blocks vs what
       warns — **domain decision, ask the human**: is a NEW column a warn-and-continue or a
