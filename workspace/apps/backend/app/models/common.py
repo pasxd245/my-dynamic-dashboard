@@ -182,9 +182,10 @@ class ApiErrorNonEmpty(BaseModel):
 class CoercionFailedCell(BaseModel):
     """R143 — one offending cell in a failed commit-time dtype cast.
 
-    `row` is the 1-indexed data row (header excluded), the same numbering
-    as the wizard's preview-failure copy. Mirrors
-    `_shared/api-error.yaml#/CoercionFailedCell`."""
+    `row` is the 1-indexed SOURCE-FILE row — header and skipped/range rows
+    included, so it is the row number the user sees in Excel or a CSV
+    editor (R144 correction: the original data-row numbering sent users to
+    the wrong line). Mirrors `_shared/api-error.yaml#/CoercionFailedCell`."""
 
     model_config = ConfigDict(extra="forbid")
 

@@ -372,7 +372,8 @@ def test_uncastable_override_returns_typed_422_and_commits_nothing() -> None:
         assert body["column"] == "caller"
         assert body["dtype"] == "integer"
         assert body["totalFailed"] == 4
-        assert body["cells"][0] == {"row": 1, "value": "a"}
+        # R144 — rows are SOURCE-FILE rows: "a" is data row 1 → sheet row 2 (header at 1).
+        assert body["cells"][0] == {"row": 2, "value": "a"}
         assert len(body["cells"]) <= 5
         # atomicity: the clean sheet must not have committed either
         listed = client.get(f"/datasets?workspace={ws}").json()
@@ -422,7 +423,37 @@ def test_csv_uncastable_override_returns_coercion_failed_without_sheet() -> None
     assert body["code"] == "coercion_failed"
     assert "sheet" not in body
     assert body["column"] == "name"
-    assert body["cells"][0]["row"] == 1
+    assert body["cells"][0]["row"] == 2  # R144 — file line (header line 1 counted)
+
+
+@pytest.mark.unit
+def test_coercion_row_counts_skipped_lines_and_header() -> None:
+    """R144 — the reported row is the SOURCE-FILE line: skip_rows and the
+    header line count, so the user can jump straight to it in an editor."""
+    csv = b"junk title line\nsecond junk line\nname,age\nalice,abc\n"
+    with TestClient(app) as client:
+        ws = _make_workspace(client)
+        resp = client.post(
+            "/uploads", data={"sourceFormat": "csv"}, files={"file": ("j.csv", csv, "text/csv")}
+        )
+        temp = resp.json()["temp_id"]
+        resp = client.post(
+            f"/workspaces/{ws}/datasets/batch",
+            json={
+                "temp_id": temp,
+                "items": [
+                    {
+                        "name": "j",
+                        "parse_options": {"skip_rows": 2},
+                        "column_overrides": {"age": {"dtype": "integer"}},
+                    }
+                ],
+            },
+        )
+    assert resp.status_code == 422, resp.text
+    body = resp.json()
+    # "abc" is data row 1, but file line 4 (2 skipped + header + 1).
+    assert body["cells"] == [{"row": 4, "value": "abc"}]
 
 
 # ---------------------------------------------------------------------------
@@ -527,7 +558,8 @@ def test_unparseable_date_cell_returns_coercion_failed(caplog: pytest.LogCapture
             assert body["sheet"] == "BadDates"
             assert body["column"] == "called_at"
             assert body["dtype"] == "datetime"
-            assert body["cells"] == [{"row": 2, "value": "not a date"}]
+            # R144 — sheet row: "not a date" is data row 2 → sheet row 3.
+            assert body["cells"] == [{"row": 3, "value": "not a date"}]
             assert body["totalFailed"] == 1
             listed = client.get(f"/datasets?workspace={ws}").json()
     finally:

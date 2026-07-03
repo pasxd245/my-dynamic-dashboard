@@ -444,7 +444,7 @@
       "errorCoercionFailedDescription": "{{column}} không thể chuyển sang kiểu {{dtype}} — {{count}} giá trị không khớp. Ví dụ: {{samples}}. Chưa có gì được tạo.",
       "errorCoercionFailedHint": "Nếu giá trị lỗi trông là dữ liệu thật thì kiểu hoặc định dạng đã chọn chưa khớp — hãy chỉnh ở bước Metadata. Nếu là dòng rác (chữ lạc, dòng tổng, tiêu đề lặp lại), hãy sửa các dòng đó trong file gốc rồi tải lên lại.",
       "errorCoercionFailedHeaderRowHint": "Giá trị lỗi trùng với tên cột — file có thể chứa dòng tiêu đề lặp lại; hãy xóa dòng đó trong file gốc rồi tải lên lại.",
-      "errorCoercionFailedCell": "dòng {{row}}: “{{value}}”",
+      "errorCoercionFailedCell": "dòng {{row}} trong file: “{{value}}”",
       "errorGenericTitle": "Không thể tạo bộ dữ liệu",
       "errorServerCode": "Máy chủ trả về mã {{code}}."
     },

@@ -222,6 +222,18 @@ backend.log.** Three pieces:
 
 328 pytest + ruff green; FE tsc + datasets tests green.
 
+**2026-07-03 — Review finding #5 (human dogfood): the reported row number didn't locate the
+cell.** The envelope's `row` was the 1-indexed DATA row (header excluded, the R143
+convention) — "row 2899" sent the user to Excel row 2899, one off from the actual junk row
+at 2900; with skip-rows/range parse options the gap widens further. **Semantic correction:**
+`row` is now the 1-indexed **source-file row** (header + skipped/range rows included — the
+number the user sees in Excel / a CSV editor and can jump straight to). Writers compute the
+offset from their own parse options (CSV: `skip_rows` + header; Excel: range start +
+header); the FE copy reads "file row N" (en/vi); contract description + model docstring +
+upload.md §Failure semantics amended. Tests updated to sheet/file rows + a new test proving
+the offset composes with `skip_rows`. The backend WARNING log inherits the corrected
+number. **329 pytest + ruff green; FE tsc + tests green.**
+
 **Cold-review anchor 4 CLOSED (bonus):** the re-uploaded workbook IS the report
 (`PvtReport` sheet): "Thống kê cuộc gọi theo Tuần" pivots agents × DAYS with the first
 column 2025-02-03 — **a Monday**. The operation's week framing is Monday-start; the ISO

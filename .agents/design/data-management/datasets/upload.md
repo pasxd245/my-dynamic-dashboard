@@ -870,8 +870,11 @@ timezone tokens are outside the subset (rejected loudly like any other).
   }
   ```
 
-  `cells` carries the **first 5** offending cells; `row` is the 1-indexed data row (header
-  excluded — same convention as the preview-failure copy "Row 2,103 has 11 columns").
+  `cells` carries the **first 5** offending cells; `row` is the 1-indexed **source-file
+  row** — header and skipped/range rows INCLUDED, so it is the row number the user sees in
+  Excel / a CSV editor and can jump straight to. _(R144 correction from real dogfood: the
+  original data-row convention — header excluded — pointed the user one row off when
+  locating the cell to fix; the FE copy reads "file row N".)_
 - FE: the Confirm step's existing inline `<Alert>` renders the typed payload (column + sample
   cells + count) instead of today's generic "Failed to fetch" — display only, no new
   interaction. i18n under `upload.confirm.coercionFailed.*` (en + vi).

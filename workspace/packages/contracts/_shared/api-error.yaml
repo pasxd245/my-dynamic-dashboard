@@ -170,8 +170,11 @@ components:
           type: integer
           minimum: 1
           description: |
-            1-indexed data row (header excluded) — the same row-numbering
-            convention as the wizard's preview-failure copy.
+            1-indexed SOURCE-FILE row — header and skipped/range rows
+            INCLUDED, so it is the row number the user sees in Excel or a
+            CSV editor and can jump straight to. (R144 correction: the
+            original data-row numbering, header excluded, sent users to
+            the wrong line when locating the cell to fix.)
           examples: [2103]
         value:
           type: string

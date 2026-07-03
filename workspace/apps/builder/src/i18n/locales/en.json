@@ -444,7 +444,7 @@
       "errorCoercionFailedDescription": "{{column}} can't convert to {{dtype}} — {{count}} value(s) don't fit. Examples: {{samples}}. Nothing was created.",
       "errorCoercionFailedHint": "If the failing values look like real data, the chosen type or format doesn't match them — adjust it on the Metadata step. If they're junk rows (stray text, totals, repeated headers), fix those rows in the source file and re-upload.",
       "errorCoercionFailedHeaderRowHint": "A failing value equals the column name — the file likely contains a repeated header row; delete that row in the source file and re-upload.",
-      "errorCoercionFailedCell": "row {{row}}: “{{value}}”",
+      "errorCoercionFailedCell": "file row {{row}}: “{{value}}”",
       "errorGenericTitle": "Couldn't commit datasets",
       "errorServerCode": "Server returned code {{code}}."
     },

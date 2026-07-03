@@ -116,7 +116,8 @@ class CoercionError(Exception):
 
     Carries what the `coercion_failed` envelope needs: the column, the
     target dtype, the first `_CELL_LIMIT` offending cells as
-    `(row, value)` with 1-indexed data rows, and the total count.
+    `(row, value)` with 1-indexed SOURCE-FILE rows (header/skipped rows
+    included — the number the user sees in Excel; R144), and the total count.
     """
 
     def __init__(self, column: str, dtype: str, cells: list[tuple[int, str]], total_failed: int) -> None:
@@ -257,12 +258,16 @@ _CONFORMS = {
 }
 
 
-def _coerce_column(series: pd.Series, column: str, dtype: str, fmt: str | None = None) -> pd.Series:
+def _coerce_column(
+    series: pd.Series, column: str, dtype: str, fmt: str | None = None, row_offset: int = 0
+) -> pd.Series:
     """Cast one column; single pass. Raise CoercionError on any failure.
 
-    NULL cells pass through as NULL (nullable pandas dtypes). Rows are
-    1-indexed data rows — the series is already header-stripped, so
-    `position + 1` is the number the user sees in the wizard's copy.
+    NULL cells pass through as NULL (nullable pandas dtypes). Reported rows
+    are SOURCE-FILE rows (R144, dogfood: a data-row number sent the user to
+    the wrong Excel line): `row_offset` carries the header + skipped/range
+    rows the caller consumed, so `position + 1 + offset` is the row number
+    the user sees in Excel / a CSV editor.
     `fmt` is the TRANSLATED strptime format (date/datetime targets, R144).
     """
     caster, pandas_dtype = _resolve_caster(dtype, fmt)
@@ -278,7 +283,7 @@ def _coerce_column(series: pd.Series, column: str, dtype: str, fmt: str | None =
         except (ValueError, TypeError):
             total_failed += 1
             if len(failed) < _CELL_LIMIT:
-                failed.append((pos + 1, _cell_to_string(v)))
+                failed.append((pos + 1 + row_offset, _cell_to_string(v)))
             casted.append(None)
     if failed:
         raise CoercionError(column, dtype, failed, total_failed)
@@ -289,20 +294,22 @@ def _coerce_dataframe(
     df: pd.DataFrame,
     dtype_targets: dict[str, str],
     dtype_formats: dict[str, str] | None = None,
+    row_offset: int = 0,
 ) -> pd.DataFrame:
     """Apply R143/R144 dtype targets to `df`; raise CoercionError on failure.
 
     Columns already conforming to their committed dtype are skipped
     without a scan; only non-conforming (mixed/object or genuinely
     overridden) columns pay the per-cell pass. `dtype_formats` carries the
-    TRANSLATED strptime format per date/datetime column (R144).
+    TRANSLATED strptime format per date/datetime column (R144); `row_offset`
+    maps reported rows to SOURCE-FILE rows (see `_coerce_column`).
     """
     for col, dtype in dtype_targets.items():
         if col not in df.columns:  # unknown columns are 409-guarded upstream
             continue
         if _CONFORMS[dtype](df[col]):
             continue
-        df[col] = _coerce_column(df[col], col, dtype, (dtype_formats or {}).get(col))
+        df[col] = _coerce_column(df[col], col, dtype, (dtype_formats or {}).get(col), row_offset)
     return df
 
 
@@ -424,7 +431,9 @@ def write_csv_to_parquet(
             # R143 — detour through the shared pandas coercion so CSV and
             # Excel apply the SAME cell lexicon, then parquet via pandas.
             df = con.execute(f"SELECT {select_list} FROM tmp").fetch_df()  # noqa: S608 — idents quoted above
-            df = _coerce_dataframe(df, pending, dtype_formats)
+            # Reported rows = SOURCE-FILE line numbers: skipped lines + header.
+            row_offset = int(skip_rows) + (1 if has_header else 0)
+            df = _coerce_dataframe(df, pending, dtype_formats, row_offset)
             df.to_parquet(dst, index=False)
             return
         dst_literal = _quote_string_literal(str(dst))
@@ -458,6 +467,7 @@ def write_excel_to_parquet(
         "header": 0 if has_header else None,
         "engine": "openpyxl",
     }
+    row_first = 1  # the sheet row the read starts at (range override below)
     if range_ is not None:
         m = _RANGE_RE.match(range_)
         if m is None:
@@ -479,5 +489,7 @@ def write_excel_to_parquet(
     keep = [c for c in kept_columns if c in df.columns]
     df = df[keep]
     if dtype_targets:
-        df = _coerce_dataframe(df, dtype_targets, dtype_formats)
+        # Reported rows = SHEET rows: rows above the range start + the header.
+        row_offset = (row_first - 1) + (1 if has_header else 0)
+        df = _coerce_dataframe(df, dtype_targets, dtype_formats, row_offset)
     df.to_parquet(dst, index=False)
