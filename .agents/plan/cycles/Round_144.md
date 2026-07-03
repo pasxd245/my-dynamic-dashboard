@@ -1,8 +1,8 @@
 # Round 144: Date-typed ingest + date-bucket step — THE report's time axis (② / F11)
 
-**Status**: Review (C/B/F/I built + gates green — human eyeball pending)
+**Status**: Complete (human signed off 2026-07-04)
 **Date started**: 2026-07-03
-**Date completed**:
+**Date completed**: 2026-07-04
 **Flow**: **DCFBI** — set at the Design gate via flow-selector (0 of 5 fired); recorded in the Do log.
 
 ## Goal
@@ -273,24 +273,48 @@ pivot's actual day-column shape (`week` = the rollup).
 
 ## Check
 
-- [ ] D signed off before C/B/F.
-- [ ] Real FM1 file: `Ngày gọi` commits as datetime (override + format), parquet == metadata;
-      leading F2-invariant regression stays green. **Note (cold-review):** coercion is
-      forward-only — this requires **re-uploading** FM1; the existing `ds_2d436084` keeps its
-      string column.
-- [ ] A saved query on FM1 data: bucket(week) + aggregate(count per agent per bucket) returns
-      THE weekly report's shape; preview + dashboard widget render it.
-- [ ] Unparseable date cell → typed 422 `coercion_failed` naming sheet · column · cells.
-- [ ] Backend pytest + ruff green; FE tsc + vitest green; human eyeball of the new step +
-      ingest surface (gate per selected flow).
+- [x] D signed off before C/B/F (2026-07-03; week rule closed against the real PvtReport).
+- [x] Real FM1 file: `Ngày gọi` commits as datetime (override + format), parquet == metadata;
+      leading F2-invariant regression stays green. Verified on the REAL re-uploaded FM2.25
+      (after deleting the repeated-header row) + the FM1-shaped fixture end-to-end test.
+- [x] A saved query on FM1 data: bucket(week) + aggregate(count per agent per bucket) returns
+      THE weekly report's shape; preview + detail render it (findings #1/#2 fixed the stepped
+      detail columns + paging on the way).
+- [x] Unparseable date cell → typed 422 `coercion_failed` naming sheet · column · **file
+      row** (finding #5 semantic correction) — exercised on the real repeated-header row.
+- [x] Backend pytest + ruff green (330); FE tsc + vitest green (266); human eyeball done
+      across the 2026-07-03/04 dogfood session — signed off 2026-07-04 ("look okay").
 
 ## Act
 
-**Learnings:** _(pending)_
+**Learnings:**
 
-**Promotions:** _(pending)_
+1. **Error surfaces must teach the FIX, not just name the failure.** Six dogfood findings,
+   four of them error-surface iterations on ONE 422: rows must be user-space numbers (the
+   file row you can jump to, not an internal data-row); a total-failure (all 6,692 cells)
+   needs TYPE guidance, not row guidance; targeted signals beat generic advice (cell ==
+   column name → "repeated header row"; time-part under `date` → "choose datetime"); and
+   the client must never eat a structured detail (the FastAPI string-detail fold). Captured
+   → [memory/2026-07-04-error-surfaces-teach-the-fix](../../memory/2026-07-04-error-surfaces-teach-the-fix.md).
+2. **When a vocabulary grows, grep for its v1 assumptions.** Three latent bugs shared one
+   shape: an assumption true at v1 died silently as the steps vocabulary grew — R120's
+   "shaped results are small by construction" (paging), the detail page's pre-steps column
+   gate (hidden appended columns), R143's data-row convention (wrong Excel line). Same
+   memory file.
+3. **Real-file dogfood at Review is the highest-yield gate.** One session on the real
+   FM2.25 surfaced 6 findings including two multi-round latent bugs and one infra bug
+   (alembic `fileConfig` silently disabling ALL app loggers since adoption). No fixture
+   would have found the repeated-header row or the logger kill.
+4. **The month-2 pull is now lived, not predicted:** the human re-uploaded the same export
+   family four times, re-picking overrides each time — F9 (settings carry-forward) stopped
+   being a brainstorm line and became felt pain. Strengthens ⑥ as R145.
 
-**Prune check:** _(pending)_
+**Promotions:** the new memory file is the promotion candidate (error-surface checklist —
+promote to a skill/context note if it proves out across ⑥'s rounds). Nothing else.
+
+**Prune check:** `COERCIBLE_DTYPES` now equals the full dtype set — the constant's filter
+role is vestigial; prune (or repurpose as documentation) when ⑥ touches the commit path.
+The R143 "date/datetime OUT" language in upload.md was already rewritten, not preserved.
 
 ## Feeds into → Round_145 (TBD)
 
