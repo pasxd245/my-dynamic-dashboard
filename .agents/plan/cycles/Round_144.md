@@ -186,6 +186,26 @@ intact); stepped responses now also echo a contract-valid `pageSize` (the old
 1/2 slicing + totals, unpaged echo, stepped preview paging with `resolvedColumns` +
 `baseColumns` intact. **328 pytest + ruff green.**
 
+**2026-07-03 — Review finding #3 (human dogfood, real FM2.25 re-upload): the real export
+carries a REPEATED HEADER ROW mid-data.** The datetime override 422'd exactly as designed:
+`coercion_failed · Worksheet · Ngày gọi · row 2899 · "Ngày gọi"`. Grounded on the actual
+uploaded file (`uploads_tmp`): data row 2899 (Excel row 2900) is a **full 13-column header
+repeat** — the seam where a newer export block was appended to an older one (the
+report-maintenance treadmill in the wild; the old 5,047-row commit predates the append).
+Scan of all 6,692 rows: exactly ONE unparseable cell. **No code change** — the error
+surface did its job (named the exact row; the manual fix is one deleted row). Captured
+requirement for a FUTURE round: real exports contain repeated-header/junk rows → candidate
+mechanism = a "skip rows that exactly repeat the header" parse option (deterministic, zero
+information loss). Deliberately NOT built now: it would soften the just-signed-off
+"loud reject, no inference" D-decision mid-round — that reversal needs its own gate
+(⑥ refresh / ingest-hygiene family).
+
+**Cold-review anchor 4 CLOSED (bonus):** the re-uploaded workbook IS the report
+(`PvtReport` sheet): "Thống kê cuộc gọi theo Tuần" pivots agents × DAYS with the first
+column 2025-02-03 — **a Monday**. The operation's week framing is Monday-start; the ISO
+decision is confirmed against the real report, and `date_bucket(day)` reproduces the
+pivot's actual day-column shape (`week` = the rollup).
+
 ## Check
 
 - [ ] D signed off before C/B/F.
