@@ -283,11 +283,11 @@ the Dataset, and overriding each kept column's dtype.
   dtype field — column **name** is read-only in R15+ (renaming
   deferred to R∞).
 - Override dropdown values: `string · integer · float · boolean ·
-date · datetime`. **R143 semantics** (see
-  [§Commit dtype semantics](#commit-dtype-semantics-r143)): a
-  `string`/`integer`/`float`/`boolean` override is **applied for
-  real** at the commit's parquet write; `date`/`datetime` remain
-  metadata-relabel-only until the ② date-ingest round. *(Pre-R143
+date · datetime`. **R143+R144 semantics** (see
+  [§Commit dtype semantics](#commit-dtype-semantics-r143)): every
+  override is **applied for real** at the commit's parquet write —
+  `string`/`integer`/`float`/`boolean` since R143, `date`/`datetime`
+  since R144 (parsed via the translated `format`). *(Pre-R143
   shipped behavior — all overrides relabel-only, parquet keeps
   parser-inferred dtypes — was the R142-F2 defect: metadata could
   contradict stored data.)* A `date` / `datetime` override
@@ -747,13 +747,12 @@ For every dtype in the **coerced set**, a committed dataset's `parsed.parquet` p
 - **Coerced set (this round): `string · integer · float · boolean`** — the formatless dtypes.
   The verified F1/F2 need is `→string` (leading-zero phones in mixed-type columns); the other
   three ride the same one-seam cast machinery at zero marginal design cost.
-- **`date` / `datetime`: explicitly OUT — remain relabel-only, documented here.** Reason: the
-  wizard's `format` field speaks Java-`DateTimeFormatter` tokens (`dd/MM/yyyy`), which neither
-  pandas (`%d/%m/%Y`) nor DuckDB `strptime` accept natively — honest date coercion needs a
-  token-translation decision that belongs to the **② date-ingest round** (R142-F11), where
-  date-typed storage and the bucket step land as one coherent seam. Until then the invariant
-  above holds for the coerced set only; date/datetime overrides keep pre-R143 relabel
-  semantics.
+- **`date` / `datetime`: joined the coerced set in R144** — see
+  [§ Date and datetime coercion (R144)](#date-and-datetime-coercion-r144) for the
+  format-token subset, the date-vs-datetime split, and the rejection behavior. _(R143 had
+  left them relabel-only because the wizard's `format` field speaks
+  Java-`DateTimeFormatter` tokens, which neither pandas nor DuckDB `strptime` accept
+  natively; R144's token translation closes that gap.)_
 
 ### Where coercion runs
 
@@ -772,6 +771,83 @@ overrides-only cast would leave the no-override commit of such a column dying as
 above is only real if the committed dtype is enforced wherever it came from. Intent
 (user-set overrides applied; no new inference) unchanged — the committed metadata drives;
 nothing guesses beyond the parser's existing inference.
+
+### Date and datetime coercion (R144)
+
+> **Status: SIGNED OFF (human, 2026-07-03) — R144 D-gate.** Week convention accepted as
+> ISO-8601 Monday-start (the product's convention). Extends the R143 machinery so
+> `date` / `datetime` overrides are applied for real at the parquet write; closes the
+> deliberate R143 defer (the Java-token translation decision). Pulled by R142-F11 (②):
+> THE weekly report needs `Ngày gọi` (`dd-MM-yyyy HH:mm:ss`) as a real datetime, not a
+> 5,015-group timestamp string.
+
+**Semantics.** A `date` / `datetime` override joins the coerced set: at the commit's
+parquet write, a string cell is **parsed** via the override's translated `format`, and the
+committed column lands as a physical **DATE / TIMESTAMP**. The invariant above extends:
+for `date` / `datetime` too, `parsed.parquet`'s physical dtype equals the `columns_json`
+dtype. The wire shape is unchanged — `ColumnOverride.format` already exists and is
+already required for these dtypes (422 otherwise); only what it MEANS at commit changes
+(relabel → real parse). The contract description note updates at C.
+
+**Format-token subset (scope brake).** Exactly six Java-style tokens plus non-alphabetic
+literal separators. The subset constrains the **format vocabulary**, not cell padding —
+translation goes through pandas `strptime`, whose `%d`/`%m`/`%H` are **lenient on
+padding** (a cell `3-7-2026` parses under `dd-MM-yyyy`; verified live). Deliberate: real
+exports mix padding, and leniency here never mis-reads a value — the separators still
+disambiguate. _(Grounded on the real FM1 file: 5,047/5,047 non-null `Ngày gọi` cells
+match padded `dd-MM-yyyy HH:mm:ss`.)_
+
+| Java token | pandas `strptime` | Meaning        |
+| ---------- | ----------------- | -------------- |
+| `yyyy`     | `%Y`              | 4-digit year   |
+| `MM`       | `%m`              | 2-digit month  |
+| `dd`       | `%d`              | 2-digit day    |
+| `HH`       | `%H`              | 2-digit hour   |
+| `mm`       | `%M`              | 2-digit minute |
+| `ss`       | `%S`              | 2-digit second |
+
+This covers the real FM1 family (`dd-MM-yyyy HH:mm:ss` and its separator variants). Any
+other **alphabetic run** in the format (`d`, `M`, `EEE`, `a`, timezone tokens, …) →
+**422 at commit validation, before any write** — `format_unsupported`, the same
+dict-detail family as the existing "format required" 422. Loud reject, never a silent
+relabel. _Trigger to widen: a real file whose format needs a token outside the subset._
+
+**date vs datetime targets.**
+
+- A **`date`** target's format must carry **date tokens only** (`yyyy`/`MM`/`dd`); a time
+  token in a `date` format → `format_unsupported`. Day-level truncation of a timestamp is
+  the **bucket step's** job ([queries.md § Transform steps](../queries/queries.md#transform-steps-workflows-r120r141)),
+  not ingest's — ingest never silently discards a time part.
+- A **`datetime`** target's format may use any subset tokens; absent time tokens parse as
+  midnight (standard `strptime` default — honest, not lossy).
+
+**Cell semantics** (same lexicon rules as the R143 casters):
+
+- NULL cells pass through as NULL.
+- A cell that is already a **native** date/datetime (pandas parses real Excel date cells
+  natively) passes through; under a `date` target a native cell with a **non-midnight
+  time part fails** (the user should pick `datetime` — never silent truncation).
+- A **string** cell parses via the translated format, **whole-cell strict** (full-match;
+  trailing garbage fails).
+- Any failing non-NULL cell → the same `CoercionError` → `coercion_failed` 422 envelope
+  (`dtype: "date" | "datetime"`, first 5 cells, 1-indexed data rows); the whole batch
+  aborts. The Confirm step's R143 alert renders it unchanged — verify-only at F.
+- Conformance fast-paths extend: a column already physically datetime64 conforms to
+  `datetime` without a scan; `_DUCK_CONFORMS` gains `DATE → date`, `TIMESTAMP → datetime`
+  (CSV columns DuckDB already inferred as temporal skip the pandas detour).
+
+**Timezone: out of scope.** Naive datetimes only — the CRM exports carry no offsets;
+timezone tokens are outside the subset (rejected loudly like any other).
+
+**Acceptance (R144, maps to Check).**
+
+1. Real FM1 `Ngày gọi` (`dd-MM-yyyy HH:mm:ss` + `datetime` override) → parquet TIMESTAMP
+   == `columns_json` `datetime`.
+2. An unparseable date cell → 422 `coercion_failed` naming sheet · column · cells; zero
+   datasets created.
+3. An unsupported format token → 422 `format_unsupported` at validation, before any
+   write.
+4. The R143 invariant regression extends to `date` / `datetime` commits.
 
 ### Failure semantics — the typed 422 (replaces the F1 500)
 

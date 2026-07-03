@@ -409,6 +409,20 @@ with no steps is a plain select (unchanged). `steps` is a **`kind`-discriminated
   it; the engine carries it through `derive`/`filter`/`select` wrappers and the final
   stringify. Two chained sorts do NOT compose into multi-key (the later one wins) —
   that's what `keys` is for.
++ **`date_bucket`** — R144 time-axis bucketing _(D-gate signed off 2026-07-03)_:
+  **append** a new column holding `col` truncated to a **`granularity`**.
+  Body: `{col, granularity, name}` — `col` must be `date`/`datetime` **at this step**
+  (else 422 `bucket_col_not_date`; unknown col → `unknown_column`); `granularity` ∈
+  **`day · week · month · quarter · year`**; `name` is required and follows the `derive`
+  naming vocabulary (collision → 422 `column_exists`). Output: a new **`date`** column
+  named `name`, value = the **period's start date** (month → its 1st, week → its
+  **Monday**: **ISO-8601 Monday-start**, DuckDB's native `date_trunc('week')` — human
+  decision, R144). Column space folds like `derive` (base ++ the new column); the source
+  column stays available to later steps. Compiles to
+  `CAST(date_trunc('<granularity>', col) AS DATE)` — DuckDB SQL like every other step;
+  the appended column is a **data value** (sortable, chart-axis-friendly), not a display
+  label — week/month LABELS are presentation. THE weekly report's shape is
+  `date_bucket(week) → aggregate(count_distinct/count per agent per bucket)`.
 + **`select`** — R141 column shaping: **projection + rename + reorder in ONE body** —
   an ordered list of **`cols`** (`{col, name?}`, min 1). The output is EXACTLY these
   columns in THIS order, each keeping its source **dtype**, named **`name ?? col`**
