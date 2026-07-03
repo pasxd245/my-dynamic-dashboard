@@ -28,7 +28,7 @@ D-gate first per the d-gate-artifact-in-design-corpus lesson._
 
 ## Plan
 
-- [ ] **D**: [upload.md](../../design/data-management/datasets/upload.md) — new §Commit dtype
+- [x] **D**: [upload.md](../../design/data-management/datasets/upload.md) — new §Commit dtype
       semantics: which coercions the commit applies (`→string` from any pandas-inferred type is
       the F1/F2 case; decide whether `→date` parsing is in or out of scope), WHEN coercion runs
       (at parquet write, per `kept_columns` order), what counts as failure, the typed error
@@ -62,7 +62,16 @@ D-gate first per the d-gate-artifact-in-design-corpus lesson._
 
 ## Do
 
-_(pending — D first)_
+**2026-07-03 — D SIGNED OFF (human, same day)** ([upload.md §Commit dtype semantics
+(R143)](../../design/data-management/datasets/upload.md#commit-dtype-semantics-r143)). Draft discovery: the design doc was **self-contradictory** — §Metadata said
+overrides relabel-only (design-synced to the shipped defect) while §Backend endpoint shape + C9
+specced real casting with a 422; R143 restores the original intent, and C9 turns out to be a
+checked-off criterion the implementation never honored (500s today). Key leans taken in the
+draft: coerced set = the four **formatless** dtypes (string/integer/float/boolean);
+**date/datetime stay relabel-only** this round — their `format` field speaks Java-style tokens
+that pandas/DuckDB don't parse, a translation decision that belongs to ②'s date-ingest round;
+typed 422 `coercion_failed` (sheet · column · dtype · first-5 cells · totalFailed); batch
+atomicity unchanged; forward-only.
 
 ## Check
 

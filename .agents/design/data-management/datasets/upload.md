@@ -283,11 +283,15 @@ the Dataset, and overriding each kept column's dtype.
   dtype field — column **name** is read-only in R15+ (renaming
   deferred to R∞).
 - Override dropdown values: `string · integer · float · boolean ·
-date · datetime`. The override is a **dtype relabel** applied to
-  the committed dataset's `columns_json` (`_apply_overrides`) — the
-  parquet is written with the dtypes the parser inferred, not
-  re-cast. A `date` / `datetime` override **requires** a `format`
-  (422 otherwise).
+date · datetime`. **R143 semantics** (see
+  [§Commit dtype semantics](#commit-dtype-semantics-r143)): a
+  `string`/`integer`/`float`/`boolean` override is **applied for
+  real** at the commit's parquet write; `date`/`datetime` remain
+  metadata-relabel-only until the ② date-ingest round. *(Pre-R143
+  shipped behavior — all overrides relabel-only, parquet keeps
+  parser-inferred dtypes — was the R142-F2 defect: metadata could
+  contradict stored data.)* A `date` / `datetime` override
+  **requires** a `format` (422 otherwise).
 - **Format string** input appears under the dtype dropdown **only
   when the dtype is `date` or `datetime`**. CSV / Excel source
   dates are notoriously ambiguous (`01/02/2026` could be Jan 2
@@ -720,6 +724,89 @@ def commit_datasets_batch(
   commits never happen.
 
 **CORS**: already configured by R13 for `http://localhost:3000`.
+
+---
+
+## Commit dtype semantics (R143)
+
+> **Status: SIGNED OFF (human, 2026-07-03) — R143 D-gate.** Restores the ORIGINAL intent of
+> this doc's §Backend endpoint shape ("`cast_columns()` re-writes the Parquet with the override
+> dtypes; implausible casts raise CastError → 422") and acceptance criterion **C9** — which the
+> shipped implementation never honored: `_apply_overrides` relabels `columns_json` only, the
+> writers receive only `kept_columns`, and an uncastable mixed-type column dies as an unhandled
+> `ArrowInvalid` **500**, not a 422 (R142 findings **F1+F2**, verified on real files:
+> `.agents/plan/brainstorms/2026-07-03-r142-dogfood-findings.md`).
+
+### Invariant (the round's exit condition)
+
+For every dtype in the **coerced set**, a committed dataset's `parsed.parquet` physical dtype
+**equals** its `columns_json` dtype. Metadata never lies about storage.
+
+### Coercion scope — decision Q1
+
+- **Coerced set (this round): `string · integer · float · boolean`** — the formatless dtypes.
+  The verified F1/F2 need is `→string` (leading-zero phones in mixed-type columns); the other
+  three ride the same one-seam cast machinery at zero marginal design cost.
+- **`date` / `datetime`: explicitly OUT — remain relabel-only, documented here.** Reason: the
+  wizard's `format` field speaks Java-`DateTimeFormatter` tokens (`dd/MM/yyyy`), which neither
+  pandas (`%d/%m/%Y`) nor DuckDB `strptime` accept natively — honest date coercion needs a
+  token-translation decision that belongs to the **② date-ingest round** (R142-F11), where
+  date-typed storage and the bucket step land as one coherent seam. Until then the invariant
+  above holds for the coerced set only; date/datetime overrides keep pre-R143 relabel
+  semantics.
+
+### Where coercion runs
+
+At commit, inside the parquet writers (`write_csv_to_parquet` / `write_excel_to_parquet`):
+signatures gain the item's dtype targets for kept columns (from `column_overrides`), and the
+cast happens in the write path (CSV: `TRY_CAST` in the DuckDB COPY projection; Excel: on the
+DataFrame before `to_parquet`). Parse/preview steps are untouched — coercion is a
+commit-time contract, exactly where the F2 defect lives.
+
+### Failure semantics — the typed 422 (replaces the F1 500)
+
+- A cell **fails** when its non-NULL value cannot cast to the target dtype (`TRY_CAST` → NULL
+  on non-NULL input, or the pandas equivalent). NULL cells pass through as NULL. `→string`
+  never fails by construction.
+- Any failing cell → the item fails → the **whole batch aborts** (existing staged/rollback
+  atomicity unchanged — no half-commit; matches "ATOMIC — all items succeed together").
+- Response: **422** with structured detail, same dict-detail family as this router's existing
+  422s:
+
+  ```json
+  {
+    "code": "coercion_failed",
+    "sheet": "Worksheet",
+    "column": "Số gọi",
+    "dtype": "integer",
+    "cells": [{ "row": 2103, "value": "0387353189" }],
+    "totalFailed": 17
+  }
+  ```
+
+  `cells` carries the **first 5** offending cells; `row` is the 1-indexed data row (header
+  excluded — same convention as the preview-failure copy "Row 2,103 has 11 columns").
+- FE: the Confirm step's existing inline `<Alert>` renders the typed payload (column + sample
+  cells + count) instead of today's generic "Failed to fetch" — display only, no new
+  interaction. i18n under `upload.confirm.coercionFailed.*` (en + vi).
+
+### Boundaries (named)
+
+- **Forward-only.** Already-committed datasets keep their stored dtypes (FM1's int64 phones
+  stay wrong until re-upload); systematic repair belongs to the ⑥ refresh theme.
+- **No new wizard UI.** The Metadata step's override dropdown is unchanged; only what the
+  override MEANS at commit changes (relabel → real cast for the coerced set).
+- **No inference.** Nothing guesses dtypes beyond the parser's existing inference; coercion
+  applies only user-set overrides.
+
+### Acceptance (maps to Check)
+
+1. Real FM2.25 + `int→string` overrides on `Số gọi`/`Số nhận` → commits; parquet holds
+   leading-zero strings (F1 unblocked, F2 invariant).
+2. An uncastable override (e.g. `"abc"` → `integer`) → 422 `coercion_failed` naming sheet ·
+   column · cells; zero datasets created (C9 finally true).
+3. Regression: parquet dtype == `columns_json` dtype for every commit with coerced-set
+   overrides.
 
 ---
 
