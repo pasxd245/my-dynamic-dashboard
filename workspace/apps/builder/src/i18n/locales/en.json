@@ -440,6 +440,9 @@
       "footer_other": "Creating <strong>{{count}}</strong> datasets in <strong>{{workspace}}</strong>.",
       "errorNameTakenTitle": "A dataset with that name already exists in this workspace",
       "errorNameTakenDescription": "Rename one of the items in the table above (the wizard's Confirm step) so each dataset name is unique within this workspace, then try again.",
+      "errorCoercionFailedTitle": "Some values don't fit the chosen column type",
+      "errorCoercionFailedDescription": "{{column}} can't convert to {{dtype}} — {{count}} value(s) don't fit. Examples: {{samples}}. Nothing was created; adjust the dtype override on the Metadata step and try again.",
+      "errorCoercionFailedCell": "row {{row}}: “{{value}}”",
       "errorGenericTitle": "Couldn't commit datasets",
       "errorServerCode": "Server returned code {{code}}."
     },

@@ -14,7 +14,16 @@ export type ApiError =
   | { code: 'relationship_exists' } // R70 — duplicate governed edge (workspace + column pair)
   | { code: 'relationship_stale' } // R71 — join over an edge whose key column drifted
   | { code: 'composition_cycle' } // R76 — Query × Query composition would loop (transitive self-reference)
-  | { code: 'slug_taken' }; // R101 — dashboard slug collides within its workspace
+  | { code: 'slug_taken' } // R101 — dashboard slug collides within its workspace
+  | {
+      // R143 — commit-time dtype cast failed (batch aborted; first-5 cells)
+      code: 'coercion_failed';
+      sheet?: string;
+      column: string;
+      dtype: string;
+      cells: { row: number; value: string }[];
+      totalFailed: number;
+    };
 
 /** The batch-commit endpoint's 409 carries a `oneOf` over the legacy
  *  `{ error, detail }` envelope and the new `ApiError` variants. The FE
@@ -39,7 +48,8 @@ export function isApiError(body: unknown): body is ApiError {
     code === ERROR_CODES.RELATIONSHIP_EXISTS ||
     code === ERROR_CODES.RELATIONSHIP_STALE ||
     code === ERROR_CODES.COMPOSITION_CYCLE ||
-    code === ERROR_CODES.SLUG_TAKEN
+    code === ERROR_CODES.SLUG_TAKEN ||
+    code === ERROR_CODES.COERCION_FAILED
   );
 }
 

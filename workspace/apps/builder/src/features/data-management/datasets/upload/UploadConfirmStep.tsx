@@ -13,6 +13,9 @@ function commitErrorTitle(err: Error, t: TFunction): string {
     if (err.body.code === ERROR_CODES.NAME_TAKEN) {
       return t('upload.confirm.errorNameTakenTitle');
     }
+    if (err.body.code === ERROR_CODES.COERCION_FAILED) {
+      return t('upload.confirm.errorCoercionFailedTitle');
+    }
   }
   return t('upload.confirm.errorGenericTitle');
 }
@@ -22,6 +25,19 @@ function commitErrorDescription(err: Error, t: TFunction): string {
     if ('code' in err.body) {
       if (err.body.code === ERROR_CODES.NAME_TAKEN) {
         return t('upload.confirm.errorNameTakenDescription');
+      }
+      if (err.body.code === ERROR_CODES.COERCION_FAILED) {
+        // R143 — name the column, target dtype, sample cells, total count.
+        const { sheet, column, dtype, cells, totalFailed } = err.body;
+        const samples = cells
+          .map((c) => t('upload.confirm.errorCoercionFailedCell', { row: c.row, value: c.value }))
+          .join(' \u00b7 ');
+        return t('upload.confirm.errorCoercionFailedDescription', {
+          column: sheet ? `${sheet} \u203a ${column}` : column,
+          dtype,
+          count: totalFailed,
+          samples,
+        });
       }
       return t('upload.confirm.errorServerCode', { code: err.body.code });
     }

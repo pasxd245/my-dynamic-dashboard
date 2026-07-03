@@ -440,6 +440,9 @@
       "footer_other": "Tạo <strong>{{count}}</strong> bộ dữ liệu trong <strong>{{workspace}}</strong>.",
       "errorNameTakenTitle": "Đã có bộ dữ liệu cùng tên trong không gian này",
       "errorNameTakenDescription": "Đổi tên một mục trong bảng trên để mỗi bộ dữ liệu có tên duy nhất trong không gian này, rồi thử lại.",
+      "errorCoercionFailedTitle": "Một số giá trị không khớp kiểu dữ liệu đã chọn",
+      "errorCoercionFailedDescription": "{{column}} không thể chuyển sang kiểu {{dtype}} — {{count}} giá trị không khớp. Ví dụ: {{samples}}. Chưa có gì được tạo; hãy chỉnh kiểu dữ liệu ở bước Metadata rồi thử lại.",
+      "errorCoercionFailedCell": "dòng {{row}}: “{{value}}”",
       "errorGenericTitle": "Không thể tạo bộ dữ liệu",
       "errorServerCode": "Máy chủ trả về mã {{code}}."
     },
