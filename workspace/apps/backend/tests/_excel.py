@@ -28,3 +28,25 @@ def two_sheet_workbook() -> bytes:
 def malformed_workbook() -> bytes:
     """A bytes blob that is not actually an xlsx — used for 415 path."""
     return b"not really an xlsx"
+
+
+def mixed_type_workbook() -> bytes:
+    """R143 — the FM2.25 shape: a phone column mixing numeric cells with
+    leading-zero TEXT cells (pandas reads `object`; pre-R143 the parquet
+    write died with ArrowInvalid), plus a clean sheet for atomicity tests."""
+    wb = Workbook()
+    calls = wb.active
+    calls.title = "Calls"
+    calls.append(["caller", "phone", "duration"])
+    calls.append(["a", 903359280, 10])
+    calls.append(["b", "0387353189", 20])  # leading-zero text cell
+    calls.append(["c", "09-8157-2157", 30])  # non-numeric text keeps the column mixed
+    calls.append(["d", None, 40])  # NULL passes through
+
+    clean = wb.create_sheet("Clean")
+    clean.append(["k", "v"])
+    clean.append(["x", 1])
+
+    buf = BytesIO()
+    wb.save(buf)
+    return buf.getvalue()

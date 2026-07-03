@@ -758,10 +758,20 @@ For every dtype in the **coerced set**, a committed dataset's `parsed.parquet` p
 ### Where coercion runs
 
 At commit, inside the parquet writers (`write_csv_to_parquet` / `write_excel_to_parquet`):
-signatures gain the item's dtype targets for kept columns (from `column_overrides`), and the
-cast happens in the write path (CSV: `TRY_CAST` in the DuckDB COPY projection; Excel: on the
-DataFrame before `to_parquet`). Parse/preview steps are untouched — coercion is a
-commit-time contract, exactly where the F2 defect lives.
+signatures gain the item's dtype targets for kept columns, and the cast happens on the
+table before the parquet write (one shared cell lexicon, `_coerce_dataframe`, for both
+source paths; columns whose physical type already conforms skip without a scan — CSV's
+no-override commits keep the pure-DuckDB COPY path). Parse/preview steps are untouched —
+coercion is a commit-time contract, exactly where the F2 defect lives.
+
+**Build deviation from the signed-off draft (flagged, R141-style):** targets are **every
+kept column's committed formatless dtype** (parser-inferred or overridden), not
+overrides-only. Discovered at B: the parser infers `string` for a MIXED-type column, so an
+overrides-only cast would leave the no-override commit of such a column dying as the same
+`ArrowInvalid` 500 (F1 alive) with `columns_json` still lying (F2 alive). The invariant
+above is only real if the committed dtype is enforced wherever it came from. Intent
+(user-set overrides applied; no new inference) unchanged — the committed metadata drives;
+nothing guesses beyond the parser's existing inference.
 
 ### Failure semantics — the typed 422 (replaces the F1 500)
 
@@ -796,8 +806,9 @@ commit-time contract, exactly where the F2 defect lives.
   stay wrong until re-upload); systematic repair belongs to the ⑥ refresh theme.
 - **No new wizard UI.** The Metadata step's override dropdown is unchanged; only what the
   override MEANS at commit changes (relabel → real cast for the coerced set).
-- **No inference.** Nothing guesses dtypes beyond the parser's existing inference; coercion
-  applies only user-set overrides.
+- **No inference.** Nothing guesses dtypes beyond the parser's existing inference; the write
+  enforces the COMMITTED dtypes (parser-inferred or user-overridden — see the flagged build
+  deviation above), it never invents new ones.
 
 ### Acceptance (maps to Check)
 

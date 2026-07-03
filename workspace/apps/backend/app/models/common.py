@@ -179,6 +179,37 @@ class ApiErrorNonEmpty(BaseModel):
     datasetCount: Annotated[int, Field(ge=1)]  # noqa: N815
 
 
+class CoercionFailedCell(BaseModel):
+    """R143 — one offending cell in a failed commit-time dtype cast.
+
+    `row` is the 1-indexed data row (header excluded), the same numbering
+    as the wizard's preview-failure copy. Mirrors
+    `_shared/api-error.yaml#/CoercionFailedCell`."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    row: Annotated[int, Field(ge=1)]
+    value: str
+
+
+class ApiErrorCoercionFailed(BaseModel):
+    """R143 — a commit-time dtype coercion failed; the batch aborted (422).
+
+    Replaces the pre-R143 unhandled 500 (`ArrowInvalid`) for a
+    `column_overrides` cast hitting a non-NULL cell that cannot convert.
+    `sheet` is present for Excel items only. Mirrors
+    `_shared/api-error.yaml#/ApiErrorCoercionFailed`."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    code: Literal["coercion_failed"] = ERROR_CODES["coercion_failed"]  # type: ignore[assignment]
+    sheet: str | None = None
+    column: str
+    dtype: Dtype
+    cells: Annotated[list[CoercionFailedCell], Field(min_length=1, max_length=5)]
+    totalFailed: Annotated[int, Field(ge=1)]  # noqa: N815 — wire shape
+
+
 # ─── R69: Saved Query ────────────────────────────────────────────────
 # Mirrors packages/contracts/_shared/query.yaml + queries/*. The
 # `definition` reuses the EXACT predicate-atom shape the rows-GET `aq`

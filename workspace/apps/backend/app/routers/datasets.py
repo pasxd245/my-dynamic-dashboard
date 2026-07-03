@@ -31,11 +31,18 @@ from app.db import get_conn
 from app.ingest.csv_parser import parse_csv
 from app.ingest.excel_parser import parse_sheet
 from app.ingest.filters import parse_advanced_from_query, parse_filters_from_query
-from app.ingest.parquet_writer import write_csv_to_parquet, write_excel_to_parquet
+from app.ingest.parquet_writer import (
+    COERCIBLE_DTYPES,
+    CoercionError,
+    write_csv_to_parquet,
+    write_excel_to_parquet,
+)
 from app.ingest.rows_reader import query_dataset_rows
 from app.models.common import (
+    ApiErrorCoercionFailed,
     ApiErrorNameTaken,
     ApiErrorNotFound,
+    CoercionFailedCell,
     Column,
     ColumnOverride,
     Dataset,
@@ -176,9 +183,10 @@ def commit_datasets_batch(id: str, body: _BatchRequest) -> list[Dataset] | JSONR
             pass
 
     # Parse + validate each item. Build the dataset rows in memory first.
-    # Staged carries (Dataset, ParseOptions, kept_column_names) — enough for
+    # Staged carries (Dataset, ParseOptions, kept_column_names, dtype_targets)
+    # (R143 — formatless overrides applied at the write) — enough for
     # the parquet writer to re-read the source and persist the full table.
-    staged: list[tuple[Dataset, ParseOptions, list[str]]] = []
+    staged: list[tuple[Dataset, ParseOptions, list[str], dict[str, str]]] = []
     for item in body.items:
         opts = item.parse_options or ParseOptions()
         if source_format == "csv":
@@ -214,12 +222,19 @@ def commit_datasets_batch(id: str, body: _BatchRequest) -> list[Dataset] | JSONR
         )
 
         kept_names = [c["name"] for c in cols]
-        staged.append((ds, opts, kept_names))
+        # R143 — the parquet write ENFORCES every kept column's committed
+        # formatless dtype (parser-inferred or overridden), so
+        # `parsed.parquet` can never contradict `columns_json` — and a
+        # mixed-type column (inferred "string") commits instead of dying
+        # as an ArrowInvalid 500. date/datetime stay relabel-only until
+        # the date-ingest round (upload.md §Commit dtype semantics).
+        dtype_targets = {c["name"]: c["dtype"] for c in cols if c["dtype"] in COERCIBLE_DTYPES}
+        staged.append((ds, opts, kept_names, dtype_targets))
 
     # Write filesystem trees, then commit DB. Roll back files on DB failure.
     created_dirs: list[Path] = []
     try:
-        for ds, opts, kept_names in staged:
+        for ds, opts, kept_names, dtype_targets in staged:
             target = dataset_dir(ds.workspaceId, ds.id)
             target.mkdir(parents=True, exist_ok=True)
             created_dirs.append(target)
@@ -227,22 +242,40 @@ def commit_datasets_batch(id: str, body: _BatchRequest) -> list[Dataset] | JSONR
             # R35: write the FULL table (not the wizard's 10-row sample)
             # so GET /datasets/{id}/rows can serve real data.
             parquet_target = target / "parsed.parquet"
-            if source_format == "csv":
-                write_csv_to_parquet(
-                    original_path,
-                    parquet_target,
-                    skip_rows=0 if opts.skip_rows is None else opts.skip_rows,
-                    has_header=True if opts.has_header is None else opts.has_header,
-                    kept_columns=kept_names,
-                )
-            else:
-                write_excel_to_parquet(
-                    original_path,
-                    parquet_target,
-                    sheet=ds.sheetName or "",
-                    range_=opts.range,
-                    has_header=True if opts.has_header is None else opts.has_header,
-                    kept_columns=kept_names,
+            try:
+                if source_format == "csv":
+                    write_csv_to_parquet(
+                        original_path,
+                        parquet_target,
+                        skip_rows=0 if opts.skip_rows is None else opts.skip_rows,
+                        has_header=True if opts.has_header is None else opts.has_header,
+                        kept_columns=kept_names,
+                        dtype_targets=dtype_targets or None,
+                    )
+                else:
+                    write_excel_to_parquet(
+                        original_path,
+                        parquet_target,
+                        sheet=ds.sheetName or "",
+                        range_=opts.range,
+                        has_header=True if opts.has_header is None else opts.has_header,
+                        kept_columns=kept_names,
+                        dtype_targets=dtype_targets or None,
+                    )
+            except CoercionError as err:
+                # R143 — typed 422 instead of the pre-R143 ArrowInvalid 500.
+                # The whole batch aborts; nothing half-commits.
+                for d in created_dirs:
+                    shutil.rmtree(d, ignore_errors=True)
+                return JSONResponse(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    content=ApiErrorCoercionFailed(
+                        sheet=ds.sheetName,
+                        column=err.column,
+                        dtype=err.dtype,  # type: ignore[arg-type] — writer guards to COERCIBLE_DTYPES
+                        cells=[CoercionFailedCell(row=r, value=v) for r, v in err.cells],
+                        totalFailed=err.total_failed,
+                    ).model_dump(exclude_none=True),
                 )
             (target / "source.json").write_text(
                 json.dumps(
@@ -258,7 +291,7 @@ def commit_datasets_batch(id: str, body: _BatchRequest) -> list[Dataset] | JSONR
 
         with get_conn() as con:
             con.execute("BEGIN")
-            for ds, _opts, _kept in staged:
+            for ds, _opts, _kept, _targets in staged:
                 con.execute(
                     """INSERT INTO datasets (
                         id, workspace_id, name, size_bytes, row_count,
@@ -296,7 +329,7 @@ def commit_datasets_batch(id: str, body: _BatchRequest) -> list[Dataset] | JSONR
             shutil.rmtree(d, ignore_errors=True)
         raise
 
-    return [ds for ds, _opts, _kept in staged]
+    return [ds for ds, _opts, _kept, _targets in staged]
 
 
 @router.patch("/datasets/{id}")

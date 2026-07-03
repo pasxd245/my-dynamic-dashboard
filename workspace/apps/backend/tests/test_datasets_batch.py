@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import pandas as pd
 import pytest
 from fastapi.testclient import TestClient
 
@@ -234,3 +235,191 @@ def test_column_overrides_missing_column_returns_409() -> None:
             },
         )
     assert resp.status_code == 409
+
+
+# ---------------------------------------------------------------------------
+# R143 — commit honors dtype overrides; typed coercion errors
+# (upload.md §Commit dtype semantics)
+# ---------------------------------------------------------------------------
+
+
+def _mixed_upload(client: TestClient) -> str:
+    from tests._excel import mixed_type_workbook
+
+    resp = client.post(
+        "/uploads",
+        data={"sourceFormat": "excel"},
+        files={"file": ("mixed.xlsx", mixed_type_workbook(), "application/octet-stream")},
+    )
+    return resp.json()["temp_id"]
+
+
+def _parquet_of(ds: dict) -> "pd.DataFrame":
+    from app.storage import dataset_dir
+
+    return pd.read_parquet(dataset_dir(ds["workspaceId"], ds["id"]) / "parsed.parquet")
+
+
+@pytest.mark.unit
+def test_mixed_type_column_with_string_override_commits_and_keeps_leading_zero() -> None:
+    """The FM2.25 case (R142-F1): mixed numeric+text phone column, string
+    override → commits; parquet holds strings, leading zero intact."""
+    with TestClient(app) as client:
+        ws = _make_workspace(client)
+        temp = _mixed_upload(client)
+        resp = client.post(
+            f"/workspaces/{ws}/datasets/batch",
+            json={
+                "temp_id": temp,
+                "items": [
+                    {
+                        "sheet": "Calls",
+                        "name": "calls",
+                        "column_overrides": {"phone": {"dtype": "string"}},
+                    }
+                ],
+            },
+        )
+        assert resp.status_code == 201, resp.text
+        ds = resp.json()[0]
+        assert {"name": "phone", "dtype": "string"} in ds["columns"]
+        df = _parquet_of(ds)
+    assert str(df["phone"].dtype) == "string"
+    assert df["phone"].tolist()[:3] == ["903359280", "0387353189", "09-8157-2157"]
+    assert pd.isna(df["phone"].tolist()[3])  # NULL passed through
+
+
+@pytest.mark.unit
+def test_mixed_type_column_without_override_commits_via_inferred_string() -> None:
+    """R143 build deviation (flagged in upload.md): the committed dtype is
+    enforced even with NO override — the parser infers `string` for a mixed
+    column, so the write casts instead of dying as an ArrowInvalid 500."""
+    with TestClient(app) as client:
+        ws = _make_workspace(client)
+        temp = _mixed_upload(client)
+        resp = client.post(
+            f"/workspaces/{ws}/datasets/batch",
+            json={"temp_id": temp, "items": [{"sheet": "Calls", "name": "calls_raw"}]},
+        )
+        assert resp.status_code == 201, resp.text
+        ds = resp.json()[0]
+        df = _parquet_of(ds)
+    assert df["phone"].tolist()[1] == "0387353189"
+
+
+@pytest.mark.unit
+def test_parquet_dtypes_match_committed_columns_json() -> None:
+    """The R142-F2 invariant: stored physical dtypes == columns_json dtypes."""
+    pandas_kind = {
+        "string": lambda s: str(s.dtype) in ("string", "object"),
+        "integer": lambda s: pd.api.types.is_integer_dtype(s),
+        "float": lambda s: pd.api.types.is_float_dtype(s),
+        "boolean": lambda s: pd.api.types.is_bool_dtype(s),
+    }
+    with TestClient(app) as client:
+        ws = _make_workspace(client)
+        temp = _mixed_upload(client)
+        resp = client.post(
+            f"/workspaces/{ws}/datasets/batch",
+            json={
+                "temp_id": temp,
+                "items": [
+                    {
+                        "sheet": "Calls",
+                        "name": "calls_inv",
+                        "column_overrides": {
+                            "phone": {"dtype": "string"},
+                            "duration": {"dtype": "float"},
+                        },
+                    }
+                ],
+            },
+        )
+        assert resp.status_code == 201, resp.text
+        ds = resp.json()[0]
+        df = _parquet_of(ds)
+    for col in ds["columns"]:
+        if col["dtype"] in pandas_kind:
+            assert pandas_kind[col["dtype"]](df[col["name"]]), (col, str(df[col["name"]].dtype))
+
+
+@pytest.mark.unit
+def test_uncastable_override_returns_typed_422_and_commits_nothing() -> None:
+    """R143: `caller` (text) → integer cannot cast → 422 coercion_failed
+    naming sheet · column · cells · totalFailed; the whole batch (including
+    the clean second sheet) aborts — nothing is committed."""
+    with TestClient(app) as client:
+        ws = _make_workspace(client)
+        temp = _mixed_upload(client)
+        resp = client.post(
+            f"/workspaces/{ws}/datasets/batch",
+            json={
+                "temp_id": temp,
+                "items": [
+                    {"sheet": "Clean", "name": "clean"},
+                    {
+                        "sheet": "Calls",
+                        "name": "calls_bad",
+                        "column_overrides": {"caller": {"dtype": "integer"}},
+                    },
+                ],
+            },
+        )
+        assert resp.status_code == 422, resp.text
+        body = resp.json()
+        assert body["code"] == "coercion_failed"
+        assert body["sheet"] == "Calls"
+        assert body["column"] == "caller"
+        assert body["dtype"] == "integer"
+        assert body["totalFailed"] == 4
+        assert body["cells"][0] == {"row": 1, "value": "a"}
+        assert len(body["cells"]) <= 5
+        # atomicity: the clean sheet must not have committed either
+        listed = client.get(f"/datasets?workspace={ws}").json()
+    assert listed == []
+
+
+@pytest.mark.unit
+def test_csv_override_to_string_casts_for_real() -> None:
+    """R143 on the CSV path: `id` (DuckDB BIGINT) → string override is
+    applied through the shared coercion, not relabel-only."""
+    with TestClient(app) as client:
+        ws = _make_workspace(client)
+        temp = _csv_upload(client)
+        resp = client.post(
+            f"/workspaces/{ws}/datasets/batch",
+            json={
+                "temp_id": temp,
+                "items": [
+                    {"name": "leads_str", "column_overrides": {"id": {"dtype": "string"}}}
+                ],
+            },
+        )
+        assert resp.status_code == 201, resp.text
+        ds = resp.json()[0]
+        df = _parquet_of(ds)
+    assert str(df["id"].dtype) == "string"
+    assert df["id"].tolist()[0] == "1"
+
+
+@pytest.mark.unit
+def test_csv_uncastable_override_returns_coercion_failed_without_sheet() -> None:
+    """CSV items carry no sheet — the envelope omits it (exclude_none)."""
+    with TestClient(app) as client:
+        ws = _make_workspace(client)
+        temp = _csv_upload(client)
+        resp = client.post(
+            f"/workspaces/{ws}/datasets/batch",
+            json={
+                "temp_id": temp,
+                "items": [
+                    {"name": "bad", "column_overrides": {"name": {"dtype": "integer"}}}
+                ],
+            },
+        )
+    assert resp.status_code == 422, resp.text
+    body = resp.json()
+    assert body["code"] == "coercion_failed"
+    assert "sheet" not in body
+    assert body["column"] == "name"
+    assert body["cells"][0]["row"] == 1
