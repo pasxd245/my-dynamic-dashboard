@@ -132,6 +132,51 @@ def test_bad_bucket_rejected_on_save_422(steps: list[dict]) -> None:
     assert resp.status_code == 422, resp.text
 
 
+def _commit_many_csv(client: TestClient) -> tuple[str, str]:
+    """12 rows — enough to cross a 10-row page with a row-preserving step."""
+    lines = ["agent,called_at"] + [f"a{i},2026-07-{(i % 28) + 1:02d} 08:00:00" for i in range(12)]
+    csv = ("\n".join(lines) + "\n").encode()
+    ws = client.post("/workspaces", json={"name": "PG"}).json()["id"]
+    up = client.post("/uploads", data={"sourceFormat": "csv"}, files={"file": ("m.csv", csv, "text/csv")}).json()
+    ds = client.post(
+        f"/workspaces/{ws}/datasets/batch", json={"temp_id": up["temp_id"], "items": [{"name": "m"}]}
+    ).json()[0]
+    return ws, ds["id"]
+
+
+@pytest.mark.unit
+def test_stepped_rows_are_paged_and_unpaged_is_one_capped_response() -> None:
+    """R144 Review finding #2: a ROW-PRESERVING step (date_bucket) keeps the
+    source cardinality — the shaped result pages like every other path (the
+    R120 'small by construction' assumption held only for `aggregate`)."""
+    with TestClient(app) as client:
+        ws, ds_id = _commit_many_csv(client)
+        qid = _create(client, ws, ds_id, [_WEEK_BUCKET]).json()["id"]
+        p1 = client.get(f"/queries/{qid}/rows?page=1&page_size=10").json()
+        p2 = client.get(f"/queries/{qid}/rows?page=2&page_size=10").json()
+        up_resp = client.get(f"/queries/{qid}/rows?unpaged=true").json()
+
+    assert (len(p1["rows"]), p1["total"], p1["pageSize"], p1["page"]) == (10, 12, 10, 1)
+    assert (len(p2["rows"]), p2["total"], p2["page"]) == (2, 12, 2)
+    # unpaged (the widget path): one response, full total, pageSize echoes the count
+    assert (len(up_resp["rows"]), up_resp["total"], up_resp["pageSize"]) == (12, 12, 12)
+
+
+@pytest.mark.unit
+def test_stepped_preview_pages_and_keeps_resolved_and_base_columns() -> None:
+    with TestClient(app) as client:
+        ws, ds_id = _commit_many_csv(client)
+        definition = {"q": None, "filters": [], "advanced": [], "steps": [_WEEK_BUCKET]}
+        body = client.post(
+            f"/workspaces/{ws}/queries/preview?page=1&page_size=10",
+            json={"sourceId": ds_id, "definition": definition},
+        ).json()
+
+    assert (len(body["rows"]), body["total"], body["pageSize"], body["page"]) == (10, 12, 10, 1)
+    assert body["resolvedColumns"][-1] == {"name": "week", "dtype": "date"}
+    assert [c["name"] for c in body["baseColumns"]] == ["agent", "called_at"]
+
+
 @pytest.mark.unit
 def test_fm1_end_to_end_override_ingest_then_weekly_grouping() -> None:
     """The round's Check headline: the FM1 shape (`Ngày gọi`-style TEXT

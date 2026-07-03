@@ -245,13 +245,16 @@ def run_query(  # noqa: A002
         raise
 
     q = definition.get("q")
-    # R120 — a query with a transform step returns its SHAPED (grouped) rows: the
-    # step runs over the resolved+filtered relation, server-side over the whole
-    # result (one row per group), so paging/`unpaged` don't apply (the result is
-    # small by construction). A stepless query takes the existing paged path.
+    # R120 — a query with a transform step returns its SHAPED rows: the steps run
+    # over the resolved+filtered relation server-side. R144 (Review finding #2) —
+    # the shaped relation pages like every other path: the R120 "small by
+    # construction" assumption held only while `aggregate` was the sole step
+    # kind; row-preserving steps (derive/filter/sort/date_bucket) keep the source
+    # cardinality. `unpaged` (the widget path) stays one capped response.
     if step_plan is not None:
-        rows = _run_steps(plan, q, filters, advanced, step_plan)
-        body = RowsPage(rows=rows, page=1, pageSize=len(rows), total=len(rows))
+        rows, total = _run_steps(plan, q, filters, advanced, step_plan, page=eff_page, page_size=eff_page_size)
+        echoed_page_size = len(rows) if unpaged else eff_page_size
+        body = RowsPage(rows=rows, page=eff_page, pageSize=echoed_page_size, total=total)
         return JSONResponse(status_code=status.HTTP_200_OK, content=body.model_dump())
 
     if plan["kind"] == "join":
@@ -396,14 +399,16 @@ def preview_query(  # noqa: A002
     q = definition.get("q")
     # R120 — a stepped preview returns the SHAPED rows + the post-step columns as
     # `resolvedColumns` (the builder's headers for the transformed result).
+    # R144 (Review finding #2) — paged like the saved run: row-preserving steps
+    # keep the source cardinality, so "return everything" no longer holds.
     if step_plan is not None:
-        rows = _run_steps(plan, q, filters, advanced, step_plan)
+        rows, total = _run_steps(plan, q, filters, advanced, step_plan, page=page, page_size=page_size)
         resolved = [{"name": c["name"], "dtype": c["dtype"]} for c in step_plan[1]]
         # R129 — the PRE-step effective columns, so the builder's join/filter editors
         # author against the base while the steps editor + table use the result.
         base = [{"name": c["name"], "dtype": c["dtype"]} for c in plan["columns"]]
         content = {
-            "rows": rows, "page": 1, "pageSize": len(rows), "total": len(rows),
+            "rows": rows, "page": page, "pageSize": page_size, "total": total,
             "resolvedColumns": resolved, "baseColumns": base,
         }
         return JSONResponse(status_code=status.HTTP_200_OK, content=content)

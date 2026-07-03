@@ -628,13 +628,23 @@ def _step_output_columns(steps: list[dict], columns: list[dict]) -> list[dict] |
 
 
 def _run_steps(
-    plan: dict, q: str | None, filters: list, advanced: list, step_plan: tuple[list[dict], list[dict]]
-) -> list[list[str | None]]:
+    plan: dict,
+    q: str | None,
+    filters: list,
+    advanced: list,
+    step_plan: tuple[list[dict], list[dict]],
+    *,
+    page: int = 1,
+    page_size: int | None = None,
+) -> tuple[list[list[str | None]], int]:
     """Execute a query's chained transform steps over its resolved + filtered
-    relation → the shaped rows (typed intermediates, final stringify)."""
+    relation → ``(shaped rows, total)`` (typed intermediates, final stringify).
+    R144 — pages the shaped relation (see ``run_steps``)."""
     normalized, _final_cols = step_plan
     inner_sql, inner_params = _build_inner_relation(plan, q, filters, advanced)
-    return run_steps(inner_sql, inner_params, [c["name"] for c in plan["columns"]], normalized)
+    return run_steps(
+        inner_sql, inner_params, [c["name"] for c in plan["columns"]], normalized, page=page, page_size=page_size
+    )
 
 
 def build_consolidated_relation(

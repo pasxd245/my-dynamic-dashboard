@@ -170,6 +170,22 @@ server-computed `resolvedColumns` whenever present (joined / composed / STEPPED)
 back to the dataset's columns. Regression test added (stepped single-source detail renders
 the post-step header + locale-formatted date cell). tsc + 262 vitest green.
 
+**2026-07-03 — Review finding #2 (human dogfood): stepped query returned ALL rows, pager
+lying.** The rows GET + preview stepped branches returned the ENTIRE shaped result with
+`pageSize=len(rows)` — an explicit R120 assumption in the code ("the result is small by
+construction — one row per group") that held only while `aggregate` was the sole step kind;
+the row-preserving steps (derive R122 · filter R123 · sort R141 · date_bucket R144) keep
+the source cardinality, so a bucketed FM1 query shipped 5,015 rows in one response while
+the pager showed a page size. **Latent since R122**, visible now at real-data scale.
+Notably the MSW mocks already paged shaped rows — the FE mirror was ahead of the real
+backend. Fix: `run_steps` returns `(rows, total)` and pages the shaped relation via
+LIMIT/OFFSET (COUNT for total); both branches mirror the stepless path's `eff_page` /
+`unpaged` semantics (widgets keep one capped response, `total > len(rows)` over-cap signal
+intact); stepped responses now also echo a contract-valid `pageSize` (the old
+`pageSize=len(rows)` violated the PageSize enum). Regression tests: 12-row bucket → page
+1/2 slicing + totals, unpaged echo, stepped preview paging with `resolvedColumns` +
+`baseColumns` intact. **328 pytest + ruff green.**
+
 ## Check
 
 - [ ] D signed off before C/B/F.

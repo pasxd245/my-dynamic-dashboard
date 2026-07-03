@@ -412,20 +412,35 @@ def run_steps(
     inner_params: list[Any],
     base_columns: list[str],
     steps: list[dict],
-) -> list[list[str | None]]:
+    *,
+    page: int = 1,
+    page_size: int | None = None,
+) -> tuple[list[list[str | None]], int]:
     """R121 — apply an ordered list of TYPED transform steps over the inner
     relation, then stringify the FINAL relation to rows. ``steps`` are normalized
     dicts (validated by the router). Only the final output is CAST to VARCHAR, so
     intermediate types survive the chain (a ``top_n`` after an ``aggregate`` sorts
-    the measure numerically; a ``filter`` compares a derived float numerically)."""
+    the measure numerically; a ``filter`` compares a derived float numerically).
+
+    R144 (Review finding #2) — returns ``(rows, total)`` and pages the SHAPED
+    relation via LIMIT/OFFSET; ``total`` is the full shaped count. The R120
+    "shaped results are small by construction" assumption died with the
+    row-preserving steps (derive/filter/sort/date_bucket). ``page_size=None``
+    returns everything (the callers' unpaged path is capped upstream)."""
     sql, params, cols = inner_sql, inner_params, list(base_columns)
     for step in steps:
         sql, params, cols = _apply_step(step, sql, params, cols)
     quoted = [_quote_ident(c) for c in cols]
     select_list = ", ".join(f"CAST({c} AS VARCHAR)" for c in quoted)
+    page_sql = f"SELECT {select_list} FROM ({sql}) AS _final"
+    page_params = list(params)
+    if page_size is not None:
+        page_sql += " LIMIT ? OFFSET ?"
+        page_params += [page_size, (page - 1) * page_size]
     with duckdb.connect(":memory:") as con:
-        rows = con.execute(f"SELECT {select_list} FROM ({sql}) AS _final", params).fetchall()
-    return [list(r) for r in rows]
+        total = con.execute(f"SELECT COUNT(*) FROM ({sql}) AS _c", params).fetchone()[0]  # noqa: S608 — composed from validated steps
+        rows = con.execute(page_sql, page_params).fetchall()
+    return [list(r) for r in rows], int(total)
 
 
 def materialize_steps(
