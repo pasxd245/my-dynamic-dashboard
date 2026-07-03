@@ -253,6 +253,18 @@ The log/UI DID carry the file row (first_cell=(row 2, …)) — the finding is t
 total-failure of a `date` target needs type guidance, not row guidance. 330 pytest + ruff
 green; FE tsc + tests green (both new messages covered).
 
+**Finding #6, second half (same dogfood session): the improved `format_unsupported`
+message never reached the UI.** The BE logged it correctly, but the wizard showed the
+generic "Request failed: 422" — `throwBatchApiError` only wrapped coded envelopes and the
+legacy `{error, detail}` shape; a FastAPI `HTTPException` body (`{"detail": <string>}`, or
+pydantic's `detail: [{msg}, …]`) fell through to the generic throw, discarding the
+guidance. This silently ate EVERY string-detail 422 of the batch endpoint
+(format-required, sheet-required, zero-columns, format_unsupported). Fix: fold both
+FastAPI detail shapes into the legacy body (`error: 'unprocessable_request'`, detail =
+the message / joined msgs); the Confirm alert's existing fallback renders `detail`. FE
+test: the format_unsupported guidance renders, no generic "Request failed". 266 vitest +
+tsc green.
+
 **Cold-review anchor 4 CLOSED (bonus):** the re-uploaded workbook IS the report
 (`PvtReport` sheet): "Thống kê cuộc gọi theo Tuần" pivots agents × DAYS with the first
 column 2025-02-03 — **a Monday**. The operation's week framing is Monday-start; the ISO

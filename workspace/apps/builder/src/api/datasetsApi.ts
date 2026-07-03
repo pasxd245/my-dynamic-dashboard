@@ -55,6 +55,23 @@ async function throwBatchApiError(resp: Response): Promise<never> {
         detail: typeof legacy.detail === 'string' ? legacy.detail : undefined,
       });
     }
+    // R144 (dogfood): FastAPI HTTPException bodies carry `detail` with no
+    // `error` key — a STRING for the router's own validation messages
+    // (format_unsupported, format-required, sheet-required, …) or a LIST of
+    // {msg} for pydantic body validation. Fold both into the legacy shape so
+    // the wizard renders the actual guidance instead of "Request failed: 422".
+    if (typeof legacy.detail === 'string') {
+      throw new BatchApiErrorThrown(resp.status, { error: 'unprocessable_request', detail: legacy.detail });
+    }
+    if (Array.isArray(legacy.detail)) {
+      const msgs = legacy.detail
+        .map((d) => (d && typeof d === 'object' ? (d as { msg?: unknown }).msg : null))
+        .filter((m): m is string => typeof m === 'string')
+        .join(' · ');
+      if (msgs) {
+        throw new BatchApiErrorThrown(resp.status, { error: 'unprocessable_request', detail: msgs });
+      }
+    }
   }
   throw new Error(`Request failed: ${resp.status} ${resp.statusText}`);
 }

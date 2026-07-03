@@ -382,12 +382,8 @@ describe("Upload wizard — Excel sheet step parses on Next", () => {
 
 describe("Upload wizard — coercion_failed 422 renders the typed error (R143)", () => {
   // Walk the CSV wizard to Confirm against a batch endpoint that 422s with
-  // the given coercion cells; returns after clicking [Create datasets].
-  async function walkToCoercionError(
-    cells: { row: number; value: string }[],
-    totalFailed: number,
-    dtype = "integer",
-  ) {
+  // the given body; returns after clicking [Create datasets].
+  async function walkToBatch422(batchBody: unknown) {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === "string" ? input : input.toString();
       const method = (init?.method ?? "GET").toUpperCase();
@@ -413,7 +409,7 @@ describe("Upload wizard — coercion_failed 422 renders the typed error (R143)",
         });
       }
       if (url.endsWith(`/workspaces/${WS_A.id}/datasets/batch`) && method === "POST") {
-        return jsonResponse({ code: "coercion_failed", column: "phone", dtype, cells, totalFailed }, 422);
+        return jsonResponse(batchBody, 422);
       }
       if (url.endsWith("/datasets") && method === "GET") {
         return jsonResponse([]);
@@ -439,6 +435,22 @@ describe("Upload wizard — coercion_failed 422 renders the typed error (R143)",
     await screen.findByRole("button", { name: /Create datasets/ });
     fireEvent.click(screen.getByRole("button", { name: /Create datasets/ }));
   }
+
+  const walkToCoercionError = (cells: { row: number; value: string }[], totalFailed: number, dtype = "integer") =>
+    walkToBatch422({ code: "coercion_failed", column: "phone", dtype, cells, totalFailed });
+
+  it("R144: a FastAPI string-detail 422 renders its message, not a generic 'Request failed'", async () => {
+    // The format_unsupported family: HTTPException(detail=<string>) — no `error`
+    // key, no coded envelope. The client folds it into the legacy shape so the
+    // wizard shows the actual guidance (finding #6's second half).
+    await walkToBatch422({
+      detail:
+        "format_unsupported: column_overrides[phone] — dtype `date` accepts date tokens only (yyyy MM dd). " +
+        "Values that carry a time part need dtype `datetime`; group by day/week later with a Date bucket step.",
+    });
+    expect(await screen.findByText(/date tokens only/)).toBeInTheDocument();
+    expect(screen.queryByText(/Request failed: 422/)).toBeNull();
+  });
 
   it("R144: a failing cell equal to the column name → the repeated-header-row hint", async () => {
     await walkToCoercionError([{ row: 2899, value: "phone" }], 1);
