@@ -2,6 +2,9 @@
 # Used by: datasets/batch-post (request — per-item `column_overrides` map)
 # Carried per-column from the wizard's Metadata step to the commit endpoint.
 # Format string is required only for date / datetime dtype overrides.
+# R143: formatless dtypes (string/integer/float/boolean) are APPLIED at the
+# parquet write; date/datetime remain metadata-only relabels until the
+# date-ingest round (upload.md §Commit dtype semantics).
 components:
   schemas:
     ColumnOverride:
@@ -14,8 +17,12 @@ components:
         format:
           type: string
           description: |
-            Date / datetime format string in Java `DateTimeFormatter` syntax
-            (also understood by pandas + DuckDB). Required iff dtype is
-            `date` or `datetime`; ignored for other dtypes. Default = the
-            wizard's auto-detected format from sample rows.
+            Date / datetime format string in Java `DateTimeFormatter` syntax.
+            Required iff dtype is `date` or `datetime`; ignored for other
+            dtypes. Default = the wizard's auto-detected format from sample
+            rows. NOTE (R143 correction): this syntax is NOT natively parsed
+            by pandas / DuckDB (they speak `%`-style strptime); the token
+            translation is a deliberate open decision for the date-ingest
+            round — which is why date/datetime overrides stay relabel-only
+            today.
           examples: ["yyyy-MM-dd", "yyyy-MM-dd HH:mm:ss", "MM/dd/yyyy"]

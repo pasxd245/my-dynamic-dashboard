@@ -24,7 +24,7 @@ components:
   schemas:
     ApiErrorCode:
       type: string
-      enum: [not_found, name_taken, slug_taken, non_empty, query_stale, relationship_exists, relationship_stale, composition_cycle]
+      enum: [not_found, name_taken, slug_taken, non_empty, query_stale, relationship_exists, relationship_stale, composition_cycle, coercion_failed]
       description: |
         Closed enum. Any new error class lands as a new code in a future
         round + contract update — never as a free-text message.
@@ -161,6 +161,65 @@ components:
             FE renders the "composition unavailable — that would loop" state and
             points the user at the base query.
 
+    CoercionFailedCell:
+      type: object
+      required: [row, value]
+      additionalProperties: false
+      properties:
+        row:
+          type: integer
+          minimum: 1
+          description: |
+            1-indexed data row (header excluded) — the same row-numbering
+            convention as the wizard's preview-failure copy.
+          examples: [2103]
+        value:
+          type: string
+          description: The offending cell's value, stringified.
+          examples: ['0387353189']
+
+    ApiErrorCoercionFailed:
+      type: object
+      required: [code, column, dtype, cells, totalFailed]
+      additionalProperties: false
+      properties:
+        code:
+          type: string
+          enum: [coercion_failed]
+          description: |
+            R143 — a commit-time dtype coercion failed. The batch commit
+            applies `column_overrides` for the FORMATLESS dtypes
+            (string · integer · float · boolean) by actually casting the
+            data at the parquet write (upload.md §Commit dtype semantics);
+            a non-NULL cell that cannot cast to the override's target
+            dtype fails the item and aborts the WHOLE batch (atomicity
+            unchanged — nothing half-commits). Returned by
+            `POST /workspaces/{id}/datasets/batch` (422). Replaces the
+            pre-R143 unhandled 500 (`ArrowInvalid`) — the R142-F1 defect.
+            `→string` never fails by construction. The FE renders the
+            column + sample cells + count inline on the Confirm step.
+        sheet:
+          type: string
+          minLength: 1
+          description: Excel only — the failing item's sheet. Omitted on CSV.
+        column:
+          type: string
+          minLength: 1
+          description: The column whose coercion failed.
+        dtype:
+          $ref: '../_shared/column.yaml#/components/schemas/Dtype'
+        cells:
+          type: array
+          minItems: 1
+          maxItems: 5
+          items:
+            $ref: '#/components/schemas/CoercionFailedCell'
+          description: The first (up to) 5 offending cells.
+        totalFailed:
+          type: integer
+          minimum: 1
+          description: Total count of cells that failed the cast.
+
     ApiError:
       description: |
         Discriminated union over `code`. Use `oneOf` + `discriminator` so
@@ -174,6 +233,7 @@ components:
         - $ref: '#/components/schemas/ApiErrorRelationshipExists'
         - $ref: '#/components/schemas/ApiErrorRelationshipStale'
         - $ref: '#/components/schemas/ApiErrorCompositionCycle'
+        - $ref: '#/components/schemas/ApiErrorCoercionFailed'
       discriminator:
         propertyName: code
         mapping:
@@ -185,3 +245,4 @@ components:
           relationship_exists: '#/components/schemas/ApiErrorRelationshipExists'
           relationship_stale: '#/components/schemas/ApiErrorRelationshipStale'
           composition_cycle: '#/components/schemas/ApiErrorCompositionCycle'
+          coercion_failed: '#/components/schemas/ApiErrorCoercionFailed'

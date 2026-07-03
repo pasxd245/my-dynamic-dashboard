@@ -62,6 +62,14 @@ paths:
                           Per-column dtype + optional format-string overrides
                           from the wizard's Metadata step. Keys are column
                           names; values are `ColumnOverride` objects.
+                          R143 semantics: for the FORMATLESS dtypes
+                          (string · integer · float · boolean) the override is
+                          APPLIED at the parquet write — stored dtype equals
+                          committed `columns_json` dtype; an uncastable cell
+                          fails the batch with 422 `coercion_failed`.
+                          `date` / `datetime` overrides remain metadata-only
+                          relabels until the date-ingest round
+                          (upload.md §Commit dtype semantics).
                         additionalProperties:
                           $ref: '../_shared/column-override.yaml#/components/schemas/ColumnOverride'
                       excluded_columns:
@@ -126,7 +134,27 @@ paths:
                   - $ref: '../_shared/api-error.yaml#/components/schemas/ApiErrorNameTaken'
         '422':
           description: |
-            Request-level validation failure. Examples: empty `items` array;
-            `target_dataset_id` set (not yet implemented); empty
-            `excluded_columns` would leave zero columns; `column_overrides`
-            value has `dtype: date|datetime` without a `format` field.
+            Two body shapes are possible (the FE branches on whether a
+            top-level `code` field is present, same rule as the 409):
+
+            1. The FastAPI `{ detail: ... }` envelope — request-level
+               validation failures. Examples: empty `items` array;
+               `target_dataset_id` set (not yet implemented); empty
+               `excluded_columns` would leave zero columns;
+               `column_overrides` value has `dtype: date|datetime`
+               without a `format` field.
+            2. The code-first envelope `{ code: "coercion_failed", … }`
+               (R143) — a commit-time dtype cast failed: some non-NULL
+               cell cannot convert to an override's target dtype. Names
+               the sheet, column, target dtype, the first 5 offending
+               cells (1-indexed data rows), and the total failed count.
+               The whole batch aborts — nothing is committed.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: object
+                    required: [detail]
+                    properties:
+                      detail: {}
+                  - $ref: '../_shared/api-error.yaml#/components/schemas/ApiErrorCoercionFailed'

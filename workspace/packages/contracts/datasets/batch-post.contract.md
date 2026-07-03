@@ -47,9 +47,17 @@ out, not this endpoint.
 - **`column_overrides` semantics.** Each key is a column name
   (post-`excluded_columns` set). Each value's `dtype` is the
   client-requested type. For `date` / `datetime`, the
-  `format` is required (R14 HIxAI Q14a). Backend casts via
-  `cast_columns()` at commit time; cast failures return 422 with
-  a row-pointing error.
+  `format` is required (R14 HIxAI Q14a). **R143**: the FORMATLESS
+  dtypes (string · integer · float · boolean) are cast for real at
+  the parquet write — stored dtype equals committed `columns_json`
+  dtype (the R142-F2 invariant); an uncastable non-NULL cell fails
+  the batch with 422 `coercion_failed` (column + first-5 cells +
+  count). `date` / `datetime` overrides remain metadata-only
+  relabels until the date-ingest round decides the format-token
+  translation (upload.md §Commit dtype semantics). *(Pre-R143 the
+  doc claimed `cast_columns()` casting here while the shipped code
+  relabeled only — the R142-F1/F2 defects; R143 makes this
+  paragraph true for the formatless set.)*
 - **`excluded_columns` semantics.** Drop these columns from the
   parsed Parquet at commit time. Must leave ≥ 1 remaining column
   or 422. R14 HIxAI Q14d locked this.
@@ -85,11 +93,21 @@ out, not this endpoint.
     shapes are kept distinct because the legacy 409s carry
     per-row context (`parse_options_stale` etc.) that the
     code-first envelope does not.
-- **`422 Unprocessable Entity`**: request-level validation
-  (per the field-level rules in the YAML), plus the R16+
-  rejection of `target_dataset_id`, plus the
-  `excluded_columns` would leave zero columns case, plus the
-  date/datetime override missing `format`.
+- **`422 Unprocessable Entity`** — two body shapes (see YAML's
+  `oneOf`; FE branches on top-level `code` presence, same rule as
+  the 409):
+  - **FastAPI `{ detail: ... }` envelope** — request-level
+    validation (per the field-level rules in the YAML), plus the
+    R16+ rejection of `target_dataset_id`, plus the
+    `excluded_columns` would leave zero columns case, plus the
+    date/datetime override missing `format`.
+  - **Code-first `{ code: "coercion_failed", … }` envelope**
+    _(R143)_ — a commit-time cast failed: sheet (Excel only) ·
+    column · target dtype · first-5 offending cells (1-indexed
+    data rows) · totalFailed. Atomic — nothing commits. Replaces
+    the pre-R143 unhandled 500 (`ArrowInvalid`), and supersedes
+    the never-implemented legacy `cast_failed` 409 listed above
+    (kept in the 409 list for history; no code path emits it).
 
 ## Examples
 
