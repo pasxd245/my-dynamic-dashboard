@@ -378,6 +378,39 @@ components:
                 minLength: 1
                 description: Output name; omitted = keep `col`'s name.
 
+    DateBucketStep:
+      type: object
+      description: |
+        R144 — a TRANSFORM STEP that APPENDS a new `date` column holding `col`
+        truncated to `granularity` (the time axis of a report). `col` is by
+        effective name (the column space AFTER any prior step) and must be
+        dtype `date` or `datetime` at that step (`bucket_col_not_date`
+        otherwise); `name` follows the `DeriveStep.name` rename vocabulary
+        (collision → `column_exists`). The output value is the PERIOD'S START
+        DATE (month → its 1st; week → its MONDAY — ISO-8601 Monday-start, the
+        product's week convention, human-decided R144) — a sortable data
+        value, not a display label (week/month labels are presentation).
+        Compiles to `CAST(date_trunc('<granularity>', col) AS DATE)`. The
+        column space folds like `derive`: base ++ the new `date` column; the
+        source column stays available to later steps.
+      required: [kind, col, granularity, name]
+      additionalProperties: false
+      properties:
+        kind:
+          const: date_bucket
+        col:
+          type: string
+          minLength: 1
+          description: Column to bucket (effective name, post prior steps); must be date/datetime.
+        granularity:
+          type: string
+          enum: [day, week, month, quarter, year]
+          description: Truncation unit; week is ISO-8601 Monday-start.
+        name:
+          type: string
+          minLength: 1
+          description: The appended output column's name (must not collide).
+
     QueryDefinition:
       type: object
       description: |
@@ -466,6 +499,7 @@ components:
               - $ref: "#/components/schemas/FilterStep"
               - $ref: "#/components/schemas/SortStep"
               - $ref: "#/components/schemas/SelectStep"
+              - $ref: "#/components/schemas/DateBucketStep"
             discriminator:
               propertyName: kind
               mapping:
@@ -475,6 +509,7 @@ components:
                 filter: "#/components/schemas/FilterStep"
                 sort: "#/components/schemas/SortStep"
                 select: "#/components/schemas/SelectStep"
+                date_bucket: "#/components/schemas/DateBucketStep"
 
     Query:
       type: object
