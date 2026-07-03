@@ -1,8 +1,8 @@
 # Round 143: Commit honors dtype overrides — typed coercion errors (F1+F2)
 
-**Status**: Review
+**Status**: Complete
 **Date started**: 2026-07-03
-**Date completed**:
+**Date completed**: 2026-07-03
 **Flow**: **DCFBI** — set at the Design gate via flow-selector (0 of 5 conditions fired);
 recorded in the Do log.
 
@@ -110,6 +110,9 @@ in the same batch; `Trạng thái`→integer → **422** `coercion_failed` (tota
 live wizard renders the typed alert (headless screenshot; the R142 "stuck upload" scenario now
 fails loud, in-place, with the fix named).
 
+**2026-07-03 — HUMAN VERIFIED (Integration gate closed).** Human eyeballed the new error
+surface and signed off ("Verified r143"); all Check items green → flip to Complete.
+
 ## Check
 
 - [x] D signed off before C/B/F (2026-07-03).
@@ -121,17 +124,38 @@ fails loud, in-place, with the fix named).
       half-committed. *(Real-file demo: `Trạng thái`→integer → 422 `coercion_failed`,
       totalFailed 6692; atomicity test covers the two-sheet abort.)*
 - [x] Parquet dtypes == `columns_json` dtypes for every new commit (F2 invariant test).
-- [ ] Backend pytest + ruff green; FE tsc + vitest green; human eyeball of the new error
+- [x] Backend pytest + ruff green; FE tsc + vitest green; human eyeball of the new error
       surface (gate per selected flow). *(pytest 312 · ruff clean · tsc clean · vitest 259 —
-      all green 2026-07-03; HUMAN EYEBALL PENDING — screenshot of the live alert captured.)*
+      all green 2026-07-03; human eyeball verified 2026-07-03 — round signed off.)*
 
 ## Act
 
-**Learnings:** _(pending)_
+**Learnings:**
 
-**Promotions:** _(pending)_
+- **Design-sync can canonize a defect.** The D-draft found upload.md self-contradictory:
+  §Metadata said overrides relabel-only (faithfully synced to the shipped bug) while §Backend +
+  C9 specced real casting — a checked-off acceptance criterion the implementation never honored.
+  "Code is truth" syncing launders defects into spec; an inter-section contradiction in a design
+  doc is a defect signal, not doc noise. Captured in memory
+  ([2026-07-03-design-sync-can-canonize-defects](../../memory/2026-07-03-design-sync-can-canonize-defects.md)).
+- **Committed metadata drives the write — overrides are just one editor of it.** The B-phase
+  deviation (coerce every kept column's formatless dtype, not overrides-only) fell out of one
+  question: what is the invariant? Answer: parquet == `columns_json`, regardless of how the
+  metadata got its values. Chasing "apply the override" would have left the no-override mixed
+  column 500ing (F1 alive).
+- **Real-file acceptance closed the round, not the fixtures.** The synthetic FM2-shaped tests
+  passed early; the proof was the actual blocked FM2.25 through the live API with the probe's
+  exact overrides (201, 26 leading zeros intact, parquet==metadata). Probe artifacts as repro
+  fixtures (R142's deliberate keep) paid off exactly as intended.
 
-**Prune check:** _(pending)_
+**Promotions:** memory
+[2026-07-03-design-sync-can-canonize-defects](../../memory/2026-07-03-design-sync-can-canonize-defects.md)
+drafted (New) — refines, not contradicts, the design-docs-are-source-code doctrine. No
+context/skills promotion this round; the lesson needs a second occurrence first.
+
+**Prune check:** the false "pandas+DuckDB parse Java-style formats" claim in
+`column-override.yaml` was cut during C (a doc-level prune inside the round). No rule, gate, or
+doc-section identified as dead weight; the round used the standard DCFBI chain end-to-end.
 
 ## Feeds into → Round_144
 
