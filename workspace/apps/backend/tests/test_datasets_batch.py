@@ -596,3 +596,31 @@ def test_unsupported_format_token_returns_422_before_any_write(override: dict) -
         assert "format_unsupported" in resp.text
         listed = client.get(f"/datasets?workspace={ws}").json()
     assert listed == []
+
+
+@pytest.mark.unit
+def test_date_with_time_tokens_message_points_to_datetime() -> None:
+    """R144 finding #6 (FM02.2025 dogfood): a time token under a `date` target
+    is a TYPE mistake, not a format typo — the message must say 'use datetime',
+    not list HH mm ss as supported while rejecting them."""
+    with TestClient(app) as client:
+        ws = _make_workspace(client)
+        temp = _fm1_upload(client)
+        resp = client.post(
+            f"/workspaces/{ws}/datasets/batch",
+            json={
+                "temp_id": temp,
+                "items": [
+                    {
+                        "sheet": "Calls",
+                        "name": "x",
+                        "column_overrides": {
+                            "called_at": {"dtype": "date", "format": "dd-MM-yyyy HH:mm:ss"}
+                        },
+                    }
+                ],
+            },
+        )
+    assert resp.status_code == 422, resp.text
+    assert "need dtype `datetime`" in resp.text
+    assert "Date bucket" in resp.text

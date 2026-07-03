@@ -131,19 +131,30 @@ def _apply_overrides(
                 except FormatUnsupportedError as err:
                     # R144 — supportability: the reject is also visible server-side.
                     logger.warning(
-                        "format_unsupported: column=%r dtype=%s format=%r token=%r",
+                        "format_unsupported: column=%r dtype=%s format=%r token=%r reason=%s",
                         col["name"],
                         ov.dtype,
                         ov.format,
                         err.token,
+                        err.reason,
                     )
-                    raise HTTPException(
-                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                        detail=(
+                    # Two distinct user mistakes, two messages: a time token under
+                    # a `date` target means the VALUES need dtype `datetime` (the
+                    # FM02.2025 dogfood trap — do not list HH mm ss as "supported"
+                    # while rejecting them); an unknown token is a format typo.
+                    if err.reason == "time_token_in_date":
+                        detail = (
+                            f"format_unsupported: column_overrides[{col['name']}] — dtype `date` "
+                            f"accepts date tokens only (yyyy MM dd). Values that carry a time part "
+                            f"need dtype `datetime`; group by day/week later with a Date bucket step."
+                        )
+                    else:
+                        detail = (
                             f"format_unsupported: column_overrides[{col['name']}] token "
-                            f"{err.token!r} is outside the supported subset (yyyy MM dd HH mm ss"
-                            f"{'' if ov.dtype == 'datetime' else '; date accepts date tokens only'})"
-                        ),
+                            f"{err.token!r} is outside the supported subset (yyyy MM dd HH mm ss)"
+                        )
+                    raise HTTPException(
+                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=detail
                     ) from err
             out.append({"name": col["name"], "dtype": ov.dtype})
     return out

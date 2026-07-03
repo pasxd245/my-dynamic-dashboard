@@ -74,13 +74,15 @@ _ALPHA_RUN_RE = re.compile(r"[A-Za-z]+")
 
 class FormatUnsupportedError(ValueError):
     """R144 — a date/datetime override `format` uses a token outside the
-    subset (or a time token under a `date` target). Raised at commit
-    VALIDATION, before any write."""
+    subset (`reason='unknown_token'`) or a time token under a `date` target
+    (`reason='time_token_in_date'` — the values need dtype `datetime`).
+    Raised at commit VALIDATION, before any write."""
 
-    def __init__(self, fmt: str, token: str) -> None:
-        super().__init__(f"format_unsupported: token {token!r} in {fmt!r}")
+    def __init__(self, fmt: str, token: str, reason: str = "unknown_token") -> None:
+        super().__init__(f"format_unsupported: token {token!r} in {fmt!r} ({reason})")
         self.fmt = fmt
         self.token = token
+        self.reason = reason
 
 
 def translate_format(fmt: str, *, dtype: str) -> str:
@@ -98,8 +100,10 @@ def translate_format(fmt: str, *, dtype: str) -> str:
     for m in _ALPHA_RUN_RE.finditer(fmt):
         token = m.group(0)
         directive = _FORMAT_TOKENS.get(token)
-        if directive is None or (dtype == "date" and token in _TIME_TOKENS):
+        if directive is None:
             raise FormatUnsupportedError(fmt, token)
+        if dtype == "date" and token in _TIME_TOKENS:
+            raise FormatUnsupportedError(fmt, token, reason="time_token_in_date")
         out.append(fmt[pos : m.start()].replace("%", "%%"))
         out.append(directive)
         pos = m.end()

@@ -38,17 +38,19 @@ function commitErrorDescription(err: Error, t: TFunction): string {
           count: totalFailed,
           samples,
         });
-        // R144 (Review finding #3) \u2014 help the user tell WRONG DATA from WRONG
-        // FORMAT. A failing cell equal to the column name is a repeated header
-        // row in the source file (the real-export append seam) \u2014 a data fix,
-        // not an override fix; otherwise offer both readings.
+        // R144 (Review findings #3/#6) \u2014 help the user tell WRONG DATA from
+        // WRONG TYPE/FORMAT. A failing cell equal to the column name is a
+        // repeated header row in the source file (a data fix, not an override
+        // fix). A `date` target whose failing values carry a time part means
+        // the TYPE is wrong \u2014 choose datetime (day-level grouping is the Date
+        // bucket step's job, never silent truncation at ingest). Otherwise
+        // offer both readings.
         const headerRow = cells.some((c) => c.value.trim() === column);
-        const hint = t(
-          headerRow
-            ? 'upload.confirm.errorCoercionFailedHeaderRowHint'
-            : 'upload.confirm.errorCoercionFailedHint',
-        );
-        return `${base} ${hint}`;
+        const timeInDate = dtype === 'date' && cells.some((c) => /\d{1,2}:\d{2}/.test(c.value));
+        let hintKey = 'upload.confirm.errorCoercionFailedHint';
+        if (headerRow) hintKey = 'upload.confirm.errorCoercionFailedHeaderRowHint';
+        else if (timeInDate) hintKey = 'upload.confirm.errorCoercionFailedTimeInDateHint';
+        return `${base} ${t(hintKey)}`;
       }
       return t('upload.confirm.errorServerCode', { code: err.body.code });
     }

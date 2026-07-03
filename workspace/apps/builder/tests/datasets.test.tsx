@@ -383,7 +383,11 @@ describe("Upload wizard — Excel sheet step parses on Next", () => {
 describe("Upload wizard — coercion_failed 422 renders the typed error (R143)", () => {
   // Walk the CSV wizard to Confirm against a batch endpoint that 422s with
   // the given coercion cells; returns after clicking [Create datasets].
-  async function walkToCoercionError(cells: { row: number; value: string }[], totalFailed: number) {
+  async function walkToCoercionError(
+    cells: { row: number; value: string }[],
+    totalFailed: number,
+    dtype = "integer",
+  ) {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === "string" ? input : input.toString();
       const method = (init?.method ?? "GET").toUpperCase();
@@ -409,7 +413,7 @@ describe("Upload wizard — coercion_failed 422 renders the typed error (R143)",
         });
       }
       if (url.endsWith(`/workspaces/${WS_A.id}/datasets/batch`) && method === "POST") {
-        return jsonResponse({ code: "coercion_failed", column: "phone", dtype: "integer", cells, totalFailed }, 422);
+        return jsonResponse({ code: "coercion_failed", column: "phone", dtype, cells, totalFailed }, 422);
       }
       if (url.endsWith("/datasets") && method === "GET") {
         return jsonResponse([]);
@@ -448,6 +452,13 @@ describe("Upload wizard — coercion_failed 422 renders the typed error (R143)",
     const desc = await screen.findByText(/phone.*can't convert to.*integer/);
     expect(desc.textContent).toContain("adjust it on the Metadata step");
     expect(desc.textContent).toContain("fix those rows in the source file");
+  });
+
+  it("R144: a date target whose failing values carry a time part → the choose-datetime hint", async () => {
+    await walkToCoercionError([{ row: 2, value: "07-02-2025 17:52:57" }], 6692, "date");
+    const desc = await screen.findByText(/phone.*can't convert to.*date/);
+    expect(desc.textContent).toContain("choose datetime instead");
+    expect(desc.textContent).toContain("Date bucket step");
   });
 
   it("shows column, sample cells and count on the Confirm alert; wizard stays put", async () => {

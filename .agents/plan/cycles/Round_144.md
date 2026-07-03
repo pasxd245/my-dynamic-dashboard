@@ -234,6 +234,25 @@ upload.md §Failure semantics amended. Tests updated to sheet/file rows + a new 
 the offset composes with `skip_rows`. The backend WARNING log inherits the corrected
 number. **329 pytest + ruff green; FE tsc + tests green.**
 
+**2026-07-04 — Review finding #6 (human dogfood, FM02.2025): a wrong TYPE choice read as a
+"which row?" problem.** The user overrode `Ngày gọi` → **`date`** twice (`dd-MM-yyyy` →
+all 6,692 cells failed, the values carry a time part; `dd-MM-yyyy HH:mm:ss` →
+`format_unsupported token='HH'`) and asked which row to fix — but no row was at fault, the
+TYPE was. Two message defects fixed:
+
+- `format_unsupported` for a time token under a `date` target was self-contradictory (it
+  rejected `HH` while listing `HH mm ss` as "supported"). `FormatUnsupportedError` gains a
+  `reason` (`time_token_in_date` | `unknown_token`); the date-case detail now says: dtype
+  `date` accepts date tokens only — values with a time part **need dtype `datetime`**;
+  day/week grouping = the Date bucket step.
+- The coercion alert gains a third targeted hint: dtype `date` + failing values matching a
+  time pattern → "choose datetime instead (e.g. dd-MM-yyyy HH:mm:ss); group by day/week
+  with a Date bucket step afterwards" (en/vi).
+
+The log/UI DID carry the file row (first_cell=(row 2, …)) — the finding is that a
+total-failure of a `date` target needs type guidance, not row guidance. 330 pytest + ruff
+green; FE tsc + tests green (both new messages covered).
+
 **Cold-review anchor 4 CLOSED (bonus):** the re-uploaded workbook IS the report
 (`PvtReport` sheet): "Thống kê cuộc gọi theo Tuần" pivots agents × DAYS with the first
 column 2025-02-03 — **a Monday**. The operation's week framing is Monday-start; the ISO
