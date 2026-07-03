@@ -200,6 +200,28 @@ information loss). Deliberately NOT built now: it would soften the just-signed-o
 "loud reject, no inference" D-decision mid-round — that reversal needs its own gate
 (⑥ refresh / ingest-hygiene family).
 
+**2026-07-03 — Finding #3 follow-up (human ask): proper error catch for end-user AND
+backend.log.** Three pieces:
+
+- **FE guidance now separates WRONG DATA from WRONG FORMAT** — the old copy's only CTA
+  ("adjust the dtype override") was wrong advice for the junk-row case. The coercion alert
+  keeps the column/dtype/cells/count naming and appends a hint: a failing cell **equal to
+  the column name** → the targeted "repeated header row — delete that row in the source
+  file" hint; anything else → the two-branch hint (real-looking values → fix type/format on
+  Metadata; junk rows → fix the source file). i18n en/vi; FE tests cover both branches.
+- **Backend WARNING logs** for `coercion_failed` (sheet · column · dtype · count · first
+  cell) and `format_unsupported` (column · format · token) — the wizard alert is transient;
+  backend.log is the durable trace.
+- **Review finding #4 (latent, uncovered by the above): ALL app logs were silently
+  disabled.** The startup migration's `alembic/env.py` `fileConfig()` used the stdlib
+  default `disable_existing_loggers=True`, disabling every logger created before it
+  (`app.routers.*`, `app.main` — including the existing tmp-sweep crash logging). Proven
+  live (old default → `logger.disabled=True`; fix → alive). Fixed with
+  `disable_existing_loggers=False`. Note: `fileConfig` also RESETS root handlers — the
+  pytest caplog assertion attaches to the router logger directly.
+
+328 pytest + ruff green; FE tsc + datasets tests green.
+
 **Cold-review anchor 4 CLOSED (bonus):** the re-uploaded workbook IS the report
 (`PvtReport` sheet): "Thống kê cuộc gọi theo Tuần" pivots agents × DAYS with the first
 column 2025-02-03 — **a Monday**. The operation's week framing is Monday-start; the ISO

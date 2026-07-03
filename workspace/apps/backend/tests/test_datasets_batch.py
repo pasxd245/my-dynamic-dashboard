@@ -499,29 +499,42 @@ def test_date_override_commits_physical_date() -> None:
 
 
 @pytest.mark.unit
-def test_unparseable_date_cell_returns_coercion_failed() -> None:
+def test_unparseable_date_cell_returns_coercion_failed(caplog: pytest.LogCaptureFixture) -> None:
     """An unparseable cell under a datetime override → the typed R143
-    envelope, dtype `datetime`, naming sheet · column · cells; zero commits."""
-    with TestClient(app) as client:
-        ws = _make_workspace(client)
-        temp = _fm1_upload(client)
-        resp = client.post(
-            f"/workspaces/{ws}/datasets/batch",
-            json={
-                "temp_id": temp,
-                "items": [{"sheet": "BadDates", "name": "bad", "column_overrides": _DT_OVERRIDE}],
-            },
-        )
-        assert resp.status_code == 422, resp.text
-        body = resp.json()
-        assert body["code"] == "coercion_failed"
-        assert body["sheet"] == "BadDates"
-        assert body["column"] == "called_at"
-        assert body["dtype"] == "datetime"
-        assert body["cells"] == [{"row": 2, "value": "not a date"}]
-        assert body["totalFailed"] == 1
-        listed = client.get(f"/datasets?workspace={ws}").json()
+    envelope, dtype `datetime`, naming sheet · column · cells; zero commits.
+    R144 — the event is also WARNING-logged server-side (the wizard alert is
+    transient; the backend log is the durable trace). caplog's handler attaches
+    to the ROUTER logger directly: the startup migration's `fileConfig` resets
+    the root handlers, detaching pytest's root capture."""
+    import logging
+
+    router_logger = logging.getLogger("app.routers.datasets")
+    router_logger.addHandler(caplog.handler)
+    try:
+        with TestClient(app) as client, caplog.at_level(logging.WARNING, logger="app.routers.datasets"):
+            ws = _make_workspace(client)
+            temp = _fm1_upload(client)
+            resp = client.post(
+                f"/workspaces/{ws}/datasets/batch",
+                json={
+                    "temp_id": temp,
+                    "items": [{"sheet": "BadDates", "name": "bad", "column_overrides": _DT_OVERRIDE}],
+                },
+            )
+            assert resp.status_code == 422, resp.text
+            body = resp.json()
+            assert body["code"] == "coercion_failed"
+            assert body["sheet"] == "BadDates"
+            assert body["column"] == "called_at"
+            assert body["dtype"] == "datetime"
+            assert body["cells"] == [{"row": 2, "value": "not a date"}]
+            assert body["totalFailed"] == 1
+            listed = client.get(f"/datasets?workspace={ws}").json()
+    finally:
+        router_logger.removeHandler(caplog.handler)
     assert listed == []
+    assert "coercion_failed" in caplog.text
+    assert "'called_at'" in caplog.text and "'not a date'" in caplog.text
 
 
 @pytest.mark.unit

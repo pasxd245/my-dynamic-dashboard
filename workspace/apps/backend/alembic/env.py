@@ -28,7 +28,12 @@ import app.db_models  # noqa: F401
 config = context.config
 
 if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+    # R144 — keep the app's own loggers alive: fileConfig's default
+    # (disable_existing_loggers=True) silently disabled every logger created
+    # before the startup migration (app.routers.*, app.main), swallowing all
+    # post-startup app logs (found via the coercion_failed WARNING never
+    # reaching backend.log).
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 # Single source of truth for the DB location (see module docstring).
 config.set_main_option("sqlalchemy.url", f"sqlite:///{get_db_path()}")

@@ -15,6 +15,7 @@ created so the filesystem matches the (rolled-back) DB state.
 from __future__ import annotations
 
 import json
+import logging
 import secrets
 import shutil
 import sqlite3
@@ -55,6 +56,8 @@ from app.storage import dataset_dir, temp_upload_dir
 
 
 router = APIRouter(tags=["datasets"])
+
+logger = logging.getLogger(__name__)
 
 
 class RenameDatasetBody(BaseModel):
@@ -126,6 +129,14 @@ def _apply_overrides(
                 try:
                     translate_format(ov.format, dtype=ov.dtype)
                 except FormatUnsupportedError as err:
+                    # R144 — supportability: the reject is also visible server-side.
+                    logger.warning(
+                        "format_unsupported: column=%r dtype=%s format=%r token=%r",
+                        col["name"],
+                        ov.dtype,
+                        ov.format,
+                        err.token,
+                    )
                     raise HTTPException(
                         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                         detail=(
@@ -291,6 +302,17 @@ def commit_datasets_batch(id: str, body: _BatchRequest) -> list[Dataset] | JSONR
             except CoercionError as err:
                 # R143 — typed 422 instead of the pre-R143 ArrowInvalid 500.
                 # The whole batch aborts; nothing half-commits.
+                # R144 — supportability: the data issue is also visible in the
+                # backend log (the wizard alert is transient; this isn't).
+                logger.warning(
+                    "coercion_failed: sheet=%r column=%r dtype=%s total_failed=%d first_cell=(row %d, %r)",
+                    ds.sheetName,
+                    err.column,
+                    err.dtype,
+                    err.total_failed,
+                    err.cells[0][0],
+                    err.cells[0][1],
+                )
                 for d in created_dirs:
                     shutil.rmtree(d, ignore_errors=True)
                 return JSONResponse(

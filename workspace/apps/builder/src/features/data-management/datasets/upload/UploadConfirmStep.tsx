@@ -32,12 +32,23 @@ function commitErrorDescription(err: Error, t: TFunction): string {
         const samples = cells
           .map((c) => t('upload.confirm.errorCoercionFailedCell', { row: c.row, value: c.value }))
           .join(' \u00b7 ');
-        return t('upload.confirm.errorCoercionFailedDescription', {
+        const base = t('upload.confirm.errorCoercionFailedDescription', {
           column: sheet ? `${sheet} \u203a ${column}` : column,
           dtype,
           count: totalFailed,
           samples,
         });
+        // R144 (Review finding #3) \u2014 help the user tell WRONG DATA from WRONG
+        // FORMAT. A failing cell equal to the column name is a repeated header
+        // row in the source file (the real-export append seam) \u2014 a data fix,
+        // not an override fix; otherwise offer both readings.
+        const headerRow = cells.some((c) => c.value.trim() === column);
+        const hint = t(
+          headerRow
+            ? 'upload.confirm.errorCoercionFailedHeaderRowHint'
+            : 'upload.confirm.errorCoercionFailedHint',
+        );
+        return `${base} ${hint}`;
       }
       return t('upload.confirm.errorServerCode', { code: err.body.code });
     }

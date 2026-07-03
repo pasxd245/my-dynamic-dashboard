@@ -381,6 +381,75 @@ describe("Upload wizard — Excel sheet step parses on Next", () => {
 });
 
 describe("Upload wizard — coercion_failed 422 renders the typed error (R143)", () => {
+  // Walk the CSV wizard to Confirm against a batch endpoint that 422s with
+  // the given coercion cells; returns after clicking [Create datasets].
+  async function walkToCoercionError(cells: { row: number; value: string }[], totalFailed: number) {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === "string" ? input : input.toString();
+      const method = (init?.method ?? "GET").toUpperCase();
+      if (url.endsWith("/workspaces") && method === "GET") {
+        return jsonResponse([WS_A]);
+      }
+      if (url.endsWith("/uploads") && method === "POST") {
+        return jsonResponse({
+          temp_id: "tmp_1234567890abcdef",
+          sourceFormat: "csv",
+          sizeBytes: 64,
+          csvPreview: {
+            columns: [
+              { name: "id", dtype: "integer" },
+              { name: "phone", dtype: "string" },
+            ],
+            rowCount: 2,
+            sampleRows: [
+              ["1", "0387353189"],
+              ["2", "abc"],
+            ],
+          },
+        });
+      }
+      if (url.endsWith(`/workspaces/${WS_A.id}/datasets/batch`) && method === "POST") {
+        return jsonResponse({ code: "coercion_failed", column: "phone", dtype: "integer", cells, totalFailed }, 422);
+      }
+      if (url.endsWith("/datasets") && method === "GET") {
+        return jsonResponse([]);
+      }
+      return new Response("not found", { status: 404 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { container } = renderApp(`/data-management/datasets/new?workspace=${WS_A.id}`);
+    await screen.findByText("Data source");
+    fireEvent.click(screen.getByText("CSV"));
+    const fileInput = container.querySelector<HTMLInputElement>('input[type="file"]');
+    const file = new File(["id,phone\n1,0387353189"], "calls.csv", { type: "text/csv" });
+    fireEvent.change(fileInput!, { target: { files: [file] } });
+    await waitFor(() => {
+      expect(container.querySelector('[data-component="UploadMetadataStep"]')).not.toBeNull();
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Next/ }));
+    await waitFor(() => {
+      expect(container.querySelector('[data-component="UploadPreviewStep"]')).not.toBeNull();
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Next/ }));
+    await screen.findByRole("button", { name: /Create datasets/ });
+    fireEvent.click(screen.getByRole("button", { name: /Create datasets/ }));
+  }
+
+  it("R144: a failing cell equal to the column name → the repeated-header-row hint", async () => {
+    await walkToCoercionError([{ row: 2899, value: "phone" }], 1);
+    const desc = await screen.findByText(/phone.*can't convert to.*integer/);
+    expect(desc.textContent).toContain("repeated header row");
+    expect(desc.textContent).not.toContain("adjust it on the Metadata step");
+  });
+
+  it("R144: other failing values → the two-branch wrong-format/wrong-data hint", async () => {
+    await walkToCoercionError([{ row: 2, value: "abc" }], 7);
+    const desc = await screen.findByText(/phone.*can't convert to.*integer/);
+    expect(desc.textContent).toContain("adjust it on the Metadata step");
+    expect(desc.textContent).toContain("fix those rows in the source file");
+  });
+
   it("shows column, sample cells and count on the Confirm alert; wizard stays put", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === "string" ? input : input.toString();
