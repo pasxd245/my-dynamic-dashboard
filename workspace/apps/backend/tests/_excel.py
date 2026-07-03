@@ -30,6 +30,31 @@ def malformed_workbook() -> bytes:
     return b"not really an xlsx"
 
 
+def fm1_shaped_workbook() -> bytes:
+    """R144 — the FM1 "Weekly - Report Call" shape: an agent column + a TEXT
+    `dd-MM-yyyy HH:mm:ss` call timestamp (pandas reads `object` → the parser
+    infers `string`, exactly like the real `Ngày gọi`), spanning two ISO
+    weeks; plus a sheet with one unparseable cell for the 422 path."""
+    wb = Workbook()
+    calls = wb.active
+    calls.title = "Calls"
+    calls.append(["agent", "called_at", "call_date"])
+    calls.append(["An", "29-06-2026 09:15:00", "29-06-2026"])  # Mon — ISO week starting 2026-06-29
+    calls.append(["An", "01-07-2026 10:30:00", "01-07-2026"])  # Wed, same week
+    calls.append(["Binh", "03-07-2026 17:45:00", "03-07-2026"])  # Fri, same week
+    calls.append(["An", "06-07-2026 08:00:00", "06-07-2026"])  # Mon — the NEXT ISO week
+    calls.append(["Binh", None, None])  # NULL passes through
+
+    bad = wb.create_sheet("BadDates")
+    bad.append(["agent", "called_at"])
+    bad.append(["An", "29-06-2026 09:15:00"])
+    bad.append(["Chi", "not a date"])
+
+    buf = BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
+
+
 def mixed_type_workbook() -> bytes:
     """R143 — the FM2.25 shape: a phone column mixing numeric cells with
     leading-zero TEXT cells (pandas reads `object`; pre-R143 the parquet

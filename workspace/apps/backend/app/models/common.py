@@ -395,6 +395,21 @@ class SelectStep(BaseModel):
     cols: Annotated[list[SelectCol], Field(min_length=1)]
 
 
+class DateBucketStep(BaseModel):
+    """R144 — APPEND a `date` column holding ``col`` truncated to ``granularity``
+    (a report's time axis). ``col`` must be date/datetime at this step; the value
+    is the PERIOD'S START date (week = ISO-8601 Monday-start — the product's week
+    convention). The source column stays available to later steps. Mirrors
+    `_shared/query.yaml#/DateBucketStep`."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["date_bucket"]
+    col: Annotated[str, Field(min_length=1)]
+    granularity: Literal["day", "week", "month", "quarter", "year"]
+    name: Annotated[str, Field(min_length=1)]
+
+
 class FilterStepPredicate(BaseModel):
     """R123 — one predicate of a filter step, by effective column NAME (no
     ``dtype`` — the BE looks it up from the current columns). Same operator/operand
@@ -420,10 +435,10 @@ class FilterStep(BaseModel):
     predicates: Annotated[list[FilterStepPredicate], Field(min_length=1)]
 
 
-# R121/R122/R123/R141 — a transform step is a `kind`-discriminated union (so a bad
-# `kind` is a clean 422, and each kind keeps its own required fields).
+# R121/R122/R123/R141/R144 — a transform step is a `kind`-discriminated union (so a
+# bad `kind` is a clean 422, and each kind keeps its own required fields).
 Step = Annotated[
-    AggregateStep | TopNStep | DeriveStep | FilterStep | SortStep | SelectStep,
+    AggregateStep | TopNStep | DeriveStep | FilterStep | SortStep | SelectStep | DateBucketStep,
     Field(discriminator="kind"),
 ]
 

@@ -423,3 +423,131 @@ def test_csv_uncastable_override_returns_coercion_failed_without_sheet() -> None
     assert "sheet" not in body
     assert body["column"] == "name"
     assert body["cells"][0]["row"] == 1
+
+
+# ---------------------------------------------------------------------------
+# R144 — date/datetime join the coerced set via format-token translation
+# (upload.md §Date and datetime coercion)
+# ---------------------------------------------------------------------------
+
+
+def _fm1_upload(client: TestClient) -> str:
+    from tests._excel import fm1_shaped_workbook
+
+    resp = client.post(
+        "/uploads",
+        data={"sourceFormat": "excel"},
+        files={"file": ("fm1.xlsx", fm1_shaped_workbook(), "application/octet-stream")},
+    )
+    return resp.json()["temp_id"]
+
+
+_DT_OVERRIDE = {"called_at": {"dtype": "datetime", "format": "dd-MM-yyyy HH:mm:ss"}}
+
+
+@pytest.mark.unit
+def test_datetime_override_with_format_commits_real_timestamps() -> None:
+    """The ② headline (R142-F11): a TEXT `dd-MM-yyyy HH:mm:ss` column +
+    datetime override commits as physical TIMESTAMP == columns_json datetime."""
+    with TestClient(app) as client:
+        ws = _make_workspace(client)
+        temp = _fm1_upload(client)
+        resp = client.post(
+            f"/workspaces/{ws}/datasets/batch",
+            json={
+                "temp_id": temp,
+                "items": [{"sheet": "Calls", "name": "calls", "column_overrides": _DT_OVERRIDE}],
+            },
+        )
+        assert resp.status_code == 201, resp.text
+        ds = resp.json()[0]
+        assert {"name": "called_at", "dtype": "datetime"} in ds["columns"]
+        df = _parquet_of(ds)
+    assert pd.api.types.is_datetime64_any_dtype(df["called_at"])
+    assert df["called_at"].tolist()[0] == pd.Timestamp("2026-06-29 09:15:00")
+    assert pd.isna(df["called_at"].tolist()[4])  # NULL passes through
+
+
+@pytest.mark.unit
+def test_date_override_commits_physical_date() -> None:
+    """A `date` target with a date-only format lands as physical DATE (the
+    F2 invariant extends to dates)."""
+    import datetime as dt
+
+    with TestClient(app) as client:
+        ws = _make_workspace(client)
+        temp = _fm1_upload(client)
+        resp = client.post(
+            f"/workspaces/{ws}/datasets/batch",
+            json={
+                "temp_id": temp,
+                "items": [
+                    {
+                        "sheet": "Calls",
+                        "name": "dates_only",
+                        "column_overrides": {"call_date": {"dtype": "date", "format": "dd-MM-yyyy"}},
+                    }
+                ],
+            },
+        )
+        assert resp.status_code == 201, resp.text
+        ds = resp.json()[0]
+        assert {"name": "call_date", "dtype": "date"} in ds["columns"]
+        df = _parquet_of(ds)
+    assert df["call_date"].tolist()[0] == dt.date(2026, 6, 29)
+    assert pd.isna(df["call_date"].tolist()[4])  # NULL passes through
+
+
+@pytest.mark.unit
+def test_unparseable_date_cell_returns_coercion_failed() -> None:
+    """An unparseable cell under a datetime override → the typed R143
+    envelope, dtype `datetime`, naming sheet · column · cells; zero commits."""
+    with TestClient(app) as client:
+        ws = _make_workspace(client)
+        temp = _fm1_upload(client)
+        resp = client.post(
+            f"/workspaces/{ws}/datasets/batch",
+            json={
+                "temp_id": temp,
+                "items": [{"sheet": "BadDates", "name": "bad", "column_overrides": _DT_OVERRIDE}],
+            },
+        )
+        assert resp.status_code == 422, resp.text
+        body = resp.json()
+        assert body["code"] == "coercion_failed"
+        assert body["sheet"] == "BadDates"
+        assert body["column"] == "called_at"
+        assert body["dtype"] == "datetime"
+        assert body["cells"] == [{"row": 2, "value": "not a date"}]
+        assert body["totalFailed"] == 1
+        listed = client.get(f"/datasets?workspace={ws}").json()
+    assert listed == []
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "override",
+    [
+        # token outside the six-token subset
+        {"dtype": "datetime", "format": "EEE dd-MM-yyyy HH:mm:ss"},
+        # single-letter (non-subset) tokens are rejected, not guessed
+        {"dtype": "datetime", "format": "d-M-yyyy"},
+        # a `date` target must not carry time tokens (no silent truncation)
+        {"dtype": "date", "format": "dd-MM-yyyy HH:mm"},
+    ],
+)
+def test_unsupported_format_token_returns_422_before_any_write(override: dict) -> None:
+    with TestClient(app) as client:
+        ws = _make_workspace(client)
+        temp = _fm1_upload(client)
+        resp = client.post(
+            f"/workspaces/{ws}/datasets/batch",
+            json={
+                "temp_id": temp,
+                "items": [{"sheet": "Calls", "name": "x", "column_overrides": {"called_at": override}}],
+            },
+        )
+        assert resp.status_code == 422, resp.text
+        assert "format_unsupported" in resp.text
+        listed = client.get(f"/datasets?workspace={ws}").json()
+    assert listed == []

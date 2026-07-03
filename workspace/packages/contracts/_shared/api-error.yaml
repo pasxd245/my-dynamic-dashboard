@@ -188,12 +188,13 @@ components:
           enum: [coercion_failed]
           description: |
             R143 — a commit-time dtype coercion failed. The batch commit
-            applies `column_overrides` for the FORMATLESS dtypes
-            (string · integer · float · boolean) by actually casting the
-            data at the parquet write (upload.md §Commit dtype semantics);
-            a non-NULL cell that cannot cast to the override's target
-            dtype fails the item and aborts the WHOLE batch (atomicity
-            unchanged — nothing half-commits). Returned by
+            applies `column_overrides` by actually casting the data at the
+            parquet write — the formatless dtypes (string · integer ·
+            float · boolean, R143) and date/datetime via the translated
+            `format` (R144; upload.md §Date and datetime coercion); a
+            non-NULL cell that cannot cast/parse to the target dtype fails
+            the item and aborts the WHOLE batch (atomicity unchanged —
+            nothing half-commits). Returned by
             `POST /workspaces/{id}/datasets/batch` (422). Replaces the
             pre-R143 unhandled 500 (`ArrowInvalid`) — the R142-F1 defect.
             `→string` never fails by construction. The FE renders the

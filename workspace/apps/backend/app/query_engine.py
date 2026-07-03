@@ -504,6 +504,36 @@ def _plan_filter(step: dict, cur_cols: list[dict], loc: list) -> tuple[dict, lis
     return {"kind": "filter", "predicates_fp": predicates_fp}, cur_cols
 
 
+# R144 — the date_bucket granularity vocabulary (each is a DuckDB date_trunc
+# unit). Guarded here because the granularity is INLINED into the step SQL —
+# a saved definition's value must re-validate on every plan, never be trusted.
+_BUCKET_GRANULARITIES = frozenset({"day", "week", "month", "quarter", "year"})
+
+
+def _plan_date_bucket(step: dict, cur_cols: list[dict], loc: list) -> tuple[dict, list[dict]]:
+    """R144 — validate a date_bucket step (date/datetime col, known granularity,
+    no name collision) → its normalized descriptor + column space (base ++ the
+    new `date` column). The output value is the period's START date (week =
+    ISO-8601 Monday-start, DuckDB's native date_trunc)."""
+    by_name = {c["name"]: c for c in cur_cols}
+    name = step.get("name")
+    if name in by_name:
+        raise _agg_422([*loc, "name"], f"column_exists: {name!r} is already a column")
+    col = by_name.get(step.get("col"))
+    if col is None:
+        raise _agg_422([*loc, "col"], f"unknown_column: {step.get('col')!r} is not a column at this step")
+    if col["dtype"] not in ("date", "datetime"):
+        raise _agg_422(
+            [*loc, "col"],
+            f"bucket_col_not_date: {step.get('col')!r} is {col['dtype']}, not date/datetime",
+        )
+    granularity = step.get("granularity")
+    if granularity not in _BUCKET_GRANULARITIES:
+        raise _agg_422([*loc, "granularity"], f"unknown_granularity: {granularity!r}")
+    norm = {"kind": "date_bucket", "col": step.get("col"), "granularity": granularity, "name": name}
+    return norm, [*cur_cols, {"name": name, "dtype": "date"}]
+
+
 def _plan_sort(step: dict, cur_cols: list[dict], loc: list) -> tuple[dict, list[dict]]:
     """R141 — validate a sort step's keys against the CURRENT columns (any dtype
     orders). Returns the normalized descriptor + unchanged cols."""
@@ -542,8 +572,8 @@ def _plan_select(step: dict, cur_cols: list[dict], loc: list) -> tuple[dict, lis
 def _plan_one_step(step: dict, cur_cols: list[dict], loc: list) -> tuple[dict, list[dict]]:
     """Validate one step against the CURRENT column space; return its normalized
     descriptor (for the typed `run_steps` engine) + the column space AFTER it.
-    ``aggregate`` reshapes; ``top_n``/``sort`` preserve; ``derive`` appends;
-    ``filter`` narrows; ``select`` re-binds (projection + rename + reorder)."""
+    ``aggregate`` reshapes; ``top_n``/``sort`` preserve; ``derive``/``date_bucket``
+    append; ``filter`` narrows; ``select`` re-binds (projection + rename + reorder)."""
     kind = step.get("kind")
     if kind == "filter":
         return _plan_filter(step, cur_cols, loc)
@@ -564,6 +594,8 @@ def _plan_one_step(step: dict, cur_cols: list[dict], loc: list) -> tuple[dict, l
         return _plan_sort(step, cur_cols, loc)
     if kind == "select":
         return _plan_select(step, cur_cols, loc)
+    if kind == "date_bucket":
+        return _plan_date_bucket(step, cur_cols, loc)
     raise _agg_422([*loc, "kind"], f"unknown_step_kind: {kind!r}")
 
 

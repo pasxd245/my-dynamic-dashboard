@@ -34,6 +34,8 @@ from app.ingest.filters import parse_advanced_from_query, parse_filters_from_que
 from app.ingest.parquet_writer import (
     COERCIBLE_DTYPES,
     CoercionError,
+    FormatUnsupportedError,
+    translate_format,
     write_csv_to_parquet,
     write_excel_to_parquet,
 )
@@ -112,11 +114,26 @@ def _apply_overrides(
         if ov is None:
             out.append(col)
         else:
-            if ov.dtype in ("date", "datetime") and not ov.format:
-                raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    detail=f"column_overrides[{col['name']}] dtype={ov.dtype} requires `format`",
-                )
+            if ov.dtype in ("date", "datetime"):
+                if not ov.format:
+                    raise HTTPException(
+                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                        detail=f"column_overrides[{col['name']}] dtype={ov.dtype} requires `format`",
+                    )
+                # R144 — validate the token subset BEFORE any write; a token
+                # outside it (or a time token under `date`) is a loud reject,
+                # never a silent relabel (upload.md §Date and datetime coercion).
+                try:
+                    translate_format(ov.format, dtype=ov.dtype)
+                except FormatUnsupportedError as err:
+                    raise HTTPException(
+                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                        detail=(
+                            f"format_unsupported: column_overrides[{col['name']}] token "
+                            f"{err.token!r} is outside the supported subset (yyyy MM dd HH mm ss"
+                            f"{'' if ov.dtype == 'datetime' else '; date accepts date tokens only'})"
+                        ),
+                    ) from err
             out.append({"name": col["name"], "dtype": ov.dtype})
     return out
 
@@ -183,10 +200,11 @@ def commit_datasets_batch(id: str, body: _BatchRequest) -> list[Dataset] | JSONR
             pass
 
     # Parse + validate each item. Build the dataset rows in memory first.
-    # Staged carries (Dataset, ParseOptions, kept_column_names, dtype_targets)
-    # (R143 — formatless overrides applied at the write) — enough for
-    # the parquet writer to re-read the source and persist the full table.
-    staged: list[tuple[Dataset, ParseOptions, list[str], dict[str, str]]] = []
+    # Staged carries (Dataset, ParseOptions, kept_column_names, dtype_targets,
+    # dtype_formats) (R143 — formatless overrides applied at the write; R144 —
+    # date/datetime too, via the translated format) — enough for the parquet
+    # writer to re-read the source and persist the full table.
+    staged: list[tuple[Dataset, ParseOptions, list[str], dict[str, str], dict[str, str]]] = []
     for item in body.items:
         opts = item.parse_options or ParseOptions()
         if source_format == "csv":
@@ -222,19 +240,25 @@ def commit_datasets_batch(id: str, body: _BatchRequest) -> list[Dataset] | JSONR
         )
 
         kept_names = [c["name"] for c in cols]
-        # R143 — the parquet write ENFORCES every kept column's committed
-        # formatless dtype (parser-inferred or overridden), so
-        # `parsed.parquet` can never contradict `columns_json` — and a
-        # mixed-type column (inferred "string") commits instead of dying
-        # as an ArrowInvalid 500. date/datetime stay relabel-only until
-        # the date-ingest round (upload.md §Commit dtype semantics).
+        # R143/R144 — the parquet write ENFORCES every kept column's committed
+        # dtype (parser-inferred or overridden), so `parsed.parquet` can never
+        # contradict `columns_json`. date/datetime overrides additionally carry
+        # their TRANSLATED strptime format (validated above, upload.md §Date
+        # and datetime coercion); a parser-inferred temporal column has no
+        # format and conforms physically.
         dtype_targets = {c["name"]: c["dtype"] for c in cols if c["dtype"] in COERCIBLE_DTYPES}
-        staged.append((ds, opts, kept_names, dtype_targets))
+        kept = set(kept_names)
+        dtype_formats = {
+            name: translate_format(ov.format, dtype=ov.dtype)
+            for name, ov in (item.column_overrides or {}).items()
+            if name in kept and ov.dtype in ("date", "datetime") and ov.format
+        }
+        staged.append((ds, opts, kept_names, dtype_targets, dtype_formats))
 
     # Write filesystem trees, then commit DB. Roll back files on DB failure.
     created_dirs: list[Path] = []
     try:
-        for ds, opts, kept_names, dtype_targets in staged:
+        for ds, opts, kept_names, dtype_targets, dtype_formats in staged:
             target = dataset_dir(ds.workspaceId, ds.id)
             target.mkdir(parents=True, exist_ok=True)
             created_dirs.append(target)
@@ -251,6 +275,7 @@ def commit_datasets_batch(id: str, body: _BatchRequest) -> list[Dataset] | JSONR
                         has_header=True if opts.has_header is None else opts.has_header,
                         kept_columns=kept_names,
                         dtype_targets=dtype_targets or None,
+                        dtype_formats=dtype_formats or None,
                     )
                 else:
                     write_excel_to_parquet(
@@ -261,6 +286,7 @@ def commit_datasets_batch(id: str, body: _BatchRequest) -> list[Dataset] | JSONR
                         has_header=True if opts.has_header is None else opts.has_header,
                         kept_columns=kept_names,
                         dtype_targets=dtype_targets or None,
+                        dtype_formats=dtype_formats or None,
                     )
             except CoercionError as err:
                 # R143 — typed 422 instead of the pre-R143 ArrowInvalid 500.
@@ -291,7 +317,7 @@ def commit_datasets_batch(id: str, body: _BatchRequest) -> list[Dataset] | JSONR
 
         with get_conn() as con:
             con.execute("BEGIN")
-            for ds, _opts, _kept, _targets in staged:
+            for ds, _opts, _kept, _targets, _formats in staged:
                 con.execute(
                     """INSERT INTO datasets (
                         id, workspace_id, name, size_bytes, row_count,
@@ -329,7 +355,7 @@ def commit_datasets_batch(id: str, body: _BatchRequest) -> list[Dataset] | JSONR
             shutil.rmtree(d, ignore_errors=True)
         raise
 
-    return [ds for ds, _opts, _kept, _targets in staged]
+    return [ds for ds, _opts, _kept, _targets, _formats in staged]
 
 
 @router.patch("/datasets/{id}")

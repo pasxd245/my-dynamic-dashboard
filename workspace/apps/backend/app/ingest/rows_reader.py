@@ -373,8 +373,8 @@ def _derive_expr(step: dict) -> str:
 def _apply_step(step: dict, sql: str, params: list[Any], cols: list[str]) -> tuple[str, list[Any], list[str]]:
     """Apply one TYPED step → ``(sql, params, columns)``. ``aggregate`` reshapes;
     ``top_n`` orders + caps; ``sort`` orders (R141, no limit); ``derive`` appends a
-    column; ``filter`` narrows rows; ``select`` re-binds (projection + rename +
-    reorder, R141)."""
+    column; ``date_bucket`` appends a truncated date column (R144); ``filter``
+    narrows rows; ``select`` re-binds (projection + rename + reorder, R141)."""
     kind = step["kind"]
     if kind == "aggregate":
         sql, params = build_aggregate_select(
@@ -395,6 +395,11 @@ def _apply_step(step: dict, sql: str, params: list[Any], cols: list[str]) -> tup
         return f"SELECT {select_list} FROM ({sql}) AS _p", params, step["output_cols"]
     if kind == "derive":
         return f"SELECT *, {_derive_expr(step)} AS {_quote_ident(step['name'])} FROM ({sql}) AS _d", params, [*cols, step["name"]]
+    if kind == "date_bucket":
+        # R144 — append the period's START date (week = ISO Monday-start, DuckDB
+        # native). granularity is enum-guarded by the planner → safe to inline.
+        expr = f"CAST(date_trunc('{step['granularity']}', {_quote_ident(step['col'])}) AS DATE)"
+        return f"SELECT *, {expr} AS {_quote_ident(step['name'])} FROM ({sql}) AS _g", params, [*cols, step["name"]]
     # filter — post-step WHERE (HAVING-like); params append AFTER the inner params.
     frag, fparams = build_filter_sql(step["predicates_fp"])
     if not frag:

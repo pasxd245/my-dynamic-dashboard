@@ -27,24 +27,85 @@ are APPLIED here, at the write, so the parquet's physical dtype
 equals the committed `columns_json` dtype. A non-NULL cell that
 cannot cast raises `CoercionError` (→ the router's typed 422)
 instead of the pre-R143 unhandled `ArrowInvalid` 500. `→string`
-never fails by construction. date/datetime targets are NOT passed
-down (relabel-only until the date-ingest round).
+never fails by construction.
+
+R144 — date/datetime join the coerced set (upload.md §Date and
+datetime coercion): a `date`/`datetime` override's Java-style
+`format` is translated to strptime (`translate_format`) and string
+cells are PARSED at the write, landing as physical DATE/TIMESTAMP.
+Tokens outside the six-token subset raise `FormatUnsupportedError`
+(→ the router's 422, before any write).
 """
 
 from __future__ import annotations
 
 import math
 import re
+from datetime import date as dt_date
+from datetime import datetime as dt_datetime
+from datetime import time as dt_time
 from pathlib import Path
 
 import duckdb
 import pandas as pd
+import pyarrow as pa
 
 
 _RANGE_RE = re.compile(r"^([A-Z]+)([0-9]+):([A-Z]+)([0-9]+)$")
 
-# The formatless dtypes the commit path casts for real (R143).
-COERCIBLE_DTYPES = frozenset({"string", "integer", "float", "boolean"})
+# The dtypes the commit path casts for real: the formatless four (R143)
+# + date/datetime via format-token translation (R144).
+COERCIBLE_DTYPES = frozenset({"string", "integer", "float", "boolean", "date", "datetime"})
+
+# R144 — the supported Java-`DateTimeFormatter` token subset → strptime.
+# The scope brake (upload.md §Date and datetime coercion): anything
+# alphabetic outside this map is rejected loudly, never silently kept.
+_FORMAT_TOKENS = {
+    "yyyy": "%Y",
+    "MM": "%m",
+    "dd": "%d",
+    "HH": "%H",
+    "mm": "%M",
+    "ss": "%S",
+}
+_TIME_TOKENS = frozenset({"HH", "mm", "ss"})
+_ALPHA_RUN_RE = re.compile(r"[A-Za-z]+")
+
+
+class FormatUnsupportedError(ValueError):
+    """R144 — a date/datetime override `format` uses a token outside the
+    subset (or a time token under a `date` target). Raised at commit
+    VALIDATION, before any write."""
+
+    def __init__(self, fmt: str, token: str) -> None:
+        super().__init__(f"format_unsupported: token {token!r} in {fmt!r}")
+        self.fmt = fmt
+        self.token = token
+
+
+def translate_format(fmt: str, *, dtype: str) -> str:
+    """Translate a Java-style date format to strptime (`dd-MM-yyyy` → `%d-%m-%Y`).
+
+    Only the six-token subset translates; any other alphabetic run raises
+    `FormatUnsupportedError`, as does a time token when `dtype` is `date`
+    (day-level truncation of a timestamp is the bucket step's job — ingest
+    never silently drops a time part). Non-alphabetic separators pass
+    through as literals (`%` escaped — it has no meaning in Java formats
+    but would leak as a strptime directive).
+    """
+    out: list[str] = []
+    pos = 0
+    for m in _ALPHA_RUN_RE.finditer(fmt):
+        token = m.group(0)
+        directive = _FORMAT_TOKENS.get(token)
+        if directive is None or (dtype == "date" and token in _TIME_TOKENS):
+            raise FormatUnsupportedError(fmt, token)
+        out.append(fmt[pos : m.start()].replace("%", "%%"))
+        out.append(directive)
+        pos = m.end()
+    out.append(fmt[pos:].replace("%", "%%"))
+    return "".join(out)
+
 
 # How many offending cells a CoercionError carries (contract: first 5).
 _CELL_LIMIT = 5
@@ -125,25 +186,86 @@ _CASTERS: dict[str, tuple] = {
     "boolean": (_cast_boolean, "boolean"),
 }
 
+# R144 — arrow-backed date dtype so an all-NULL/date column still lands as
+# physical DATE (a plain object series of `datetime.date` would too, but
+# degrades to a null-typed column when every cell is NULL).
+_DATE_PANDAS_DTYPE = pd.ArrowDtype(pa.date32())
+
+
+def _make_datetime_caster(fmt: str):
+    """R144 — datetime cells: native pass-through, strings parse via the
+    TRANSLATED format (whole-cell strict; `strptime` rejects any residue)."""
+
+    def cast(v: object) -> dt_datetime:
+        if isinstance(v, dt_datetime):  # includes pd.Timestamp (native Excel cells)
+            return v
+        if isinstance(v, dt_date):
+            return dt_datetime(v.year, v.month, v.day)
+        if isinstance(v, str):
+            return dt_datetime.strptime(v.strip(), fmt)  # noqa: DTZ007 — naive by design (upload.md: timezone out of scope)
+        raise ValueError(v)
+
+    return cast
+
+
+def _make_date_caster(fmt: str):
+    """R144 — date cells: a NATIVE datetime with a non-midnight time part
+    FAILS (the user should pick `datetime`; ingest never silently truncates);
+    strings parse via the translated date-only format."""
+
+    def cast(v: object) -> dt_date:
+        if isinstance(v, dt_datetime):
+            if v.time() != dt_time(0, 0):
+                raise ValueError(v)
+            return v.date()
+        if isinstance(v, dt_date):
+            return v
+        if isinstance(v, str):
+            # fmt carries date tokens only (translate_format guards) → the
+            # parsed time part is midnight by construction.
+            return dt_datetime.strptime(v.strip(), fmt).date()  # noqa: DTZ007 — naive by design
+        raise ValueError(v)
+
+    return cast
+
+
+def _resolve_caster(dtype: str, fmt: str | None) -> tuple:
+    """The (cell caster, pandas dtype) pair for a target dtype. date/datetime
+    casters are built per column from the translated `format` (R144); an
+    absent format still passes native temporal cells through — only string
+    cells then fail (honest: nothing guesses a format)."""
+    if dtype == "datetime":
+        return _make_datetime_caster(fmt or ""), "datetime64[ns]"
+    if dtype == "date":
+        return _make_date_caster(fmt or ""), _DATE_PANDAS_DTYPE
+    return _CASTERS[dtype]
+
+
 # Conformance fast-path: a column whose physical dtype already satisfies its
 # committed dtype skips the per-cell pass entirely (the common case — only
-# mixed/object columns and real overrides pay the loop).
+# mixed/object columns and real overrides pay the loop). `date` never
+# fast-paths: pandas reads temporal cells as datetime64, and a datetime64
+# column under a `date` target must still be checked cell-by-cell for
+# non-midnight time parts (R144).
 _CONFORMS = {
     "string": lambda s: isinstance(s.dtype, pd.StringDtype),
     "integer": pd.api.types.is_integer_dtype,
     "float": pd.api.types.is_float_dtype,
     "boolean": pd.api.types.is_bool_dtype,
+    "datetime": pd.api.types.is_datetime64_any_dtype,
+    "date": lambda _s: False,
 }
 
 
-def _coerce_column(series: pd.Series, column: str, dtype: str) -> pd.Series:
+def _coerce_column(series: pd.Series, column: str, dtype: str, fmt: str | None = None) -> pd.Series:
     """Cast one column; single pass. Raise CoercionError on any failure.
 
     NULL cells pass through as NULL (nullable pandas dtypes). Rows are
     1-indexed data rows — the series is already header-stripped, so
     `position + 1` is the number the user sees in the wizard's copy.
+    `fmt` is the TRANSLATED strptime format (date/datetime targets, R144).
     """
-    caster, pandas_dtype = _CASTERS[dtype]
+    caster, pandas_dtype = _resolve_caster(dtype, fmt)
     casted: list[object] = []
     failed: list[tuple[int, str]] = []
     total_failed = 0
@@ -163,19 +285,24 @@ def _coerce_column(series: pd.Series, column: str, dtype: str) -> pd.Series:
     return pd.Series(casted, index=series.index, dtype=pandas_dtype)
 
 
-def _coerce_dataframe(df: pd.DataFrame, dtype_targets: dict[str, str]) -> pd.DataFrame:
-    """Apply R143 dtype targets to `df`; raise CoercionError on failure.
+def _coerce_dataframe(
+    df: pd.DataFrame,
+    dtype_targets: dict[str, str],
+    dtype_formats: dict[str, str] | None = None,
+) -> pd.DataFrame:
+    """Apply R143/R144 dtype targets to `df`; raise CoercionError on failure.
 
     Columns already conforming to their committed dtype are skipped
     without a scan; only non-conforming (mixed/object or genuinely
-    overridden) columns pay the per-cell pass.
+    overridden) columns pay the per-cell pass. `dtype_formats` carries the
+    TRANSLATED strptime format per date/datetime column (R144).
     """
     for col, dtype in dtype_targets.items():
         if col not in df.columns:  # unknown columns are 409-guarded upstream
             continue
         if _CONFORMS[dtype](df[col]):
             continue
-        df[col] = _coerce_column(df[col], col, dtype)
+        df[col] = _coerce_column(df[col], col, dtype, (dtype_formats or {}).get(col))
     return df
 
 
@@ -215,6 +342,14 @@ _DUCK_CONFORMS: dict[str, str] = {
     "DOUBLE": "float",
     "BOOLEAN": "boolean",
     "VARCHAR": "string",
+    # R144 — DuckDB-inferred temporal columns already satisfy their committed
+    # dtype (the same mapping parse_csv uses), so no-override commits keep
+    # the pure-DuckDB COPY path.
+    "DATE": "date",
+    "TIMESTAMP": "datetime",
+    "TIMESTAMP_S": "datetime",
+    "TIMESTAMP_MS": "datetime",
+    "TIMESTAMP_NS": "datetime",
 }
 
 
@@ -246,6 +381,7 @@ def write_csv_to_parquet(
     has_header: bool,
     kept_columns: list[str],
     dtype_targets: dict[str, str] | None = None,
+    dtype_formats: dict[str, str] | None = None,
 ) -> None:
     """Read a CSV via DuckDB and write the full table to parquet.
 
@@ -288,7 +424,7 @@ def write_csv_to_parquet(
             # R143 — detour through the shared pandas coercion so CSV and
             # Excel apply the SAME cell lexicon, then parquet via pandas.
             df = con.execute(f"SELECT {select_list} FROM tmp").fetch_df()  # noqa: S608 — idents quoted above
-            df = _coerce_dataframe(df, pending)
+            df = _coerce_dataframe(df, pending, dtype_formats)
             df.to_parquet(dst, index=False)
             return
         dst_literal = _quote_string_literal(str(dst))
@@ -304,6 +440,7 @@ def write_excel_to_parquet(
     has_header: bool,
     kept_columns: list[str],
     dtype_targets: dict[str, str] | None = None,
+    dtype_formats: dict[str, str] | None = None,
 ) -> None:
     """Read an Excel sheet (full table) and write to parquet.
 
@@ -342,5 +479,5 @@ def write_excel_to_parquet(
     keep = [c for c in kept_columns if c in df.columns]
     df = df[keep]
     if dtype_targets:
-        df = _coerce_dataframe(df, dtype_targets)
+        df = _coerce_dataframe(df, dtype_targets, dtype_formats)
     df.to_parquet(dst, index=False)
