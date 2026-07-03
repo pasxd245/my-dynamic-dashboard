@@ -605,7 +605,15 @@
         "removeKey": "Remove sort key",
         "renameOptional": "Rename (optional)",
         "addColumn": "Add column",
-        "removeColumn": "Remove column"
+        "removeColumn": "Remove column",
+        "kindDateBucket": "Date bucket",
+        "bucketOf": "of",
+        "granularity": "per",
+        "granularity_day": "Day",
+        "granularity_week": "Week (Mon)",
+        "granularity_month": "Month",
+        "granularity_quarter": "Quarter",
+        "granularity_year": "Year"
       },
       "buildActive": "{{count}} active",
       "baseSourceLabel": "Build on",

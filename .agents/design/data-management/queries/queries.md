@@ -16,7 +16,7 @@ domain grows along, and the Query **model · routes + error codes · execution e
 builder UX lives in the sibling [query-construction.md](query-construction.md); the
 visual source-graph editor is [canvas.md](canvas.md) (the Canvas tab — built).
 
-**Status**: Accepted (extended R120–R129 — transform `steps` / workflows).
+**Status**: Accepted (extended R120–R144 — transform `steps` / workflows / date_bucket).
 **Sibling docs**:
 [query-construction.md](query-construction.md) (the editable builder surface: edit a
 Query's definition + preview before save; the create-mode "Build on this query"),

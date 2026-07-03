@@ -455,6 +455,30 @@ function selectStepMock(step: Extract<Step, { kind: 'select' }>, table: MockTabl
   };
 }
 
+function dateBucketStepMock(step: Extract<Step, { kind: 'date_bucket' }>, table: MockTable): MockTable {
+  // R144 mirror: append the period's START date as `YYYY-MM-DD` (week =
+  // ISO-8601 Monday-start, matching DuckDB date_trunc). Approximate — cells
+  // that don't Date-parse read as NULL; the backend pytest is the gate.
+  const ci = _aggColIdx(table.columns, step.col);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const rows = table.rows.map((row) => {
+    const cell = row[ci];
+    const d = cell ? new Date(cell) : null;
+    if (!d || Number.isNaN(d.getTime())) return [...row, null];
+    let y = d.getFullYear();
+    let m = d.getMonth();
+    let day = d.getDate();
+    if (step.granularity === 'week') {
+      const monday = new Date(y, m, day - ((d.getDay() + 6) % 7));
+      [y, m, day] = [monday.getFullYear(), monday.getMonth(), monday.getDate()];
+    } else if (step.granularity === 'month') day = 1;
+    else if (step.granularity === 'quarter') [m, day] = [Math.floor(m / 3) * 3, 1];
+    else if (step.granularity === 'year') [m, day] = [0, 1];
+    return [...row, `${y}-${pad(m + 1)}-${pad(day)}`];
+  });
+  return { columns: [...table.columns, { name: step.name, dtype: 'date' }], rows };
+}
+
 function applyStepsMock(
   columns: readonly Column[],
   rows: readonly (readonly (string | null)[])[],
@@ -476,6 +500,8 @@ function applyStepsMock(
       table = sortStepMock(step, table);
     } else if (step.kind === 'select') {
       table = selectStepMock(step, table);
+    } else if (step.kind === 'date_bucket') {
+      table = dateBucketStepMock(step, table);
     } else {
       table = topNStepMock(step, table);
     }

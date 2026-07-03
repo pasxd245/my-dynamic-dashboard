@@ -13,10 +13,11 @@ import { useTranslation } from 'react-i18next';
 
 import { OPS_BY_DTYPE, type Operator } from '@/features/data-management/datasets/filters/types';
 import type { Column } from '@/features/data-management/datasets/types';
-import { STEP_KINDS, blankStep, isNumericCol, isOrderableCol, threadColumns } from './steps';
+import { STEP_KINDS, blankStep, isNumericCol, isOrderableCol, isTemporalCol, threadColumns } from './steps';
 import type {
   AggregateMeasure,
   AggregateStep,
+  DateBucketStep,
   DeriveStep,
   FilterStep,
   SelectStep,
@@ -57,6 +58,7 @@ export function StepsEditor({ steps, columns, onChange }: StepsEditorProps) {
       top_n: t('queries.builder.steps.kindTopN'),
       sort: t('queries.builder.steps.kindSort'),
       select: t('queries.builder.steps.kindSelect'),
+      date_bucket: t('queries.builder.steps.kindDateBucket'),
     })[kind];
 
   return (
@@ -146,7 +148,56 @@ function StepBody({
       return <SortBody step={step} cols={cols} onChange={onChange} />;
     case 'select':
       return <SelectBody step={step} cols={cols} onChange={onChange} />;
+    case 'date_bucket':
+      return <DateBucketBody step={step} cols={cols} onChange={onChange} />;
   }
+}
+
+// R144 — bucket a temporal column to a granularity, appending a `date` column
+// (the period's START date; week = ISO Monday-start). Only date/datetime
+// columns are offered — mirrors the backend `bucket_col_not_date` guard.
+function DateBucketBody({
+  step,
+  cols,
+  onChange,
+}: Readonly<{ step: DateBucketStep; cols: readonly Column[]; onChange: (s: Step) => void }>) {
+  const { t } = useTranslation();
+  const temporal = cols.filter(isTemporalCol);
+  const granularities: DateBucketStep['granularity'][] = ['day', 'week', 'month', 'quarter', 'year'];
+  return (
+    <Space wrap size={[8, 6]}>
+      <FieldLabel text={t('queries.builder.steps.newColumn')}>
+        <Input
+          size="small"
+          style={{ width: 140 }}
+          value={step.name}
+          onChange={(e) => onChange({ ...step, name: e.target.value })}
+        />
+      </FieldLabel>
+      <FieldLabel text={t('queries.builder.steps.bucketOf')}>
+        <Select
+          size="small"
+          style={{ minWidth: 120 }}
+          value={step.col || undefined}
+          placeholder="—"
+          options={nameOptions(temporal)}
+          onChange={(col: string) => onChange({ ...step, col })}
+        />
+      </FieldLabel>
+      <FieldLabel text={t('queries.builder.steps.granularity')}>
+        <Select
+          size="small"
+          style={{ width: 110 }}
+          value={step.granularity}
+          options={granularities.map((g) => ({
+            label: t(`queries.builder.steps.granularity_${g}`),
+            value: g,
+          }))}
+          onChange={(granularity: DateBucketStep['granularity']) => onChange({ ...step, granularity })}
+        />
+      </FieldLabel>
+    </Space>
+  );
 }
 
 function AggregateBody({

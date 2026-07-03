@@ -14,6 +14,10 @@ export const isNumericCol = (c: Column): boolean => NUMERIC.has(c.dtype);
 const ORDERABLE = new Set(['integer', 'float', 'date', 'datetime']);
 export const isOrderableCol = (c: Column): boolean => ORDERABLE.has(c.dtype);
 
+// R144 — a date_bucket step buckets only temporal columns.
+const TEMPORAL = new Set(['date', 'datetime']);
+export const isTemporalCol = (c: Column): boolean => TEMPORAL.has(c.dtype);
+
 /** The output columns of an aggregate step given its input columns. R140 measure
  *  dtypes mirror the backend: `sum`/`min`/`max` keep the col's dtype; `avg` is
  *  `float`; `count`/`count_distinct` are `integer`; `count` is named `count`. */
@@ -30,14 +34,17 @@ function aggregateOutput(step: AggregateStep, cols: readonly Column[]): Column[]
 }
 
 /** The output columns of one step given its input columns (mirrors the backend:
- *  aggregate reshapes, derive appends a float, top_n/sort/filter preserve,
- *  select re-binds — projection + rename + reorder, R141). */
+ *  aggregate reshapes, derive appends a float, date_bucket appends a date (R144),
+ *  top_n/sort/filter preserve, select re-binds — projection + rename + reorder,
+ *  R141). */
 export function stepOutput(step: Step, cols: readonly Column[]): Column[] {
   switch (step.kind) {
     case 'aggregate':
       return aggregateOutput(step, cols);
     case 'derive':
       return [...cols, { name: step.name, dtype: 'float' }];
+    case 'date_bucket':
+      return [...cols, { name: step.name, dtype: 'date' }];
     case 'select': {
       const byName = new Map(cols.map((c) => [c.name, c]));
       return step.cols.map((s) => ({
@@ -91,7 +98,22 @@ export function blankStep(kind: Step['kind'], cols: readonly Column[]): Step {
       return { kind: 'sort', keys: [{ col: cols[0]?.name ?? '', descending: false }] };
     case 'select':
       return { kind: 'select', cols: cols.map((c) => ({ col: c.name })) };
+    case 'date_bucket':
+      return {
+        kind: 'date_bucket',
+        col: cols.find(isTemporalCol)?.name ?? '',
+        granularity: 'week',
+        name: 'bucket',
+      };
   }
 }
 
-export const STEP_KINDS: readonly Step['kind'][] = ['aggregate', 'derive', 'filter', 'top_n', 'sort', 'select'];
+export const STEP_KINDS: readonly Step['kind'][] = [
+  'aggregate',
+  'derive',
+  'date_bucket',
+  'filter',
+  'top_n',
+  'sort',
+  'select',
+];

@@ -1,6 +1,6 @@
 # Round 144: Date-typed ingest + date-bucket step — THE report's time axis (② / F11)
 
-**Status**: Doing (D signed off — C/B/F/I in progress)
+**Status**: Review (C/B/F/I built + gates green — human eyeball pending)
 **Date started**: 2026-07-03
 **Date completed**:
 **Flow**: **DCFBI** — set at the Design gate via flow-selector (0 of 5 fired); recorded in the Do log.
@@ -44,22 +44,26 @@ d-gate-artifact-in-design-corpus lesson._
 - [x] **Flow selector** at D exit (per
       [hybrid-flow-governance](../../decisions/2026-05-28-hybrid-flow-governance.md)); record
       the table in Do. → **DCFBI** (0/5 fired).
-- [ ] **C**: contract — the new step kind joins the `steps` discriminated union
-      (`values.yaml`/`_shared` schemas + both templates); no new error envelope (dates reuse
+- [x] **C**: contract — the new step kind joins the `steps` discriminated union
+      (`_shared/query.yaml` + the `workflow.yaml` mirror — no step enumeration lives in
+      `values.yaml`/templates, verified); no new error envelope (dates reuse
       `coercion_failed` from R143; bad step body reuses the existing 422 step-validation
-      family).
-- [ ] **B**: `_coerce_dataframe` gains date/datetime targets with format-token translation;
-      step engine gains the bucket step (`_apply_step` + `_step_plan` column-space fold);
-      rollback/atomicity unchanged.
-- [ ] **F**: builder steps editor gains the bucket step kind (existing steps-editor pattern);
-      wizard Confirm step already renders `coercion_failed` (R143) — dates inherit it, verify
-      only.
-- [ ] **I**: i18n en/vi; design-doc sync.
-- [ ] Tests: real FM1 `Ngày gọi` (dd-mm-yyyy hh:mm:ss + override) → datetime in parquet ==
-      metadata · unparseable cell → typed 422 naming column/cells · bucket step over
-      week/month on the FM1-shaped fixture → THE report's grouping (calls-per-agent-per-week)
-      · unsupported format token → loud reject (not silent relabel) · step validation: bucket
-      on a non-date column → 422.
+      family). `column-override.yaml` + `api-error.yaml` description notes updated.
+- [x] **B**: `_coerce_dataframe` gains date/datetime targets with format-token translation
+      (`translate_format`, `FormatUnsupportedError`); step engine gains the bucket step
+      (`_apply_step` + `_plan_date_bucket` column-space fold); rollback/atomicity unchanged.
+- [x] **F**: builder steps editor gains the bucket step kind (existing steps-editor pattern:
+      types/steps/StepsEditor/MSW mirror); wizard Confirm step already renders
+      `coercion_failed` (R143) — dates inherit it (dtype interpolates generically), verified
+      by reading; `format_unsupported` renders via the existing string-detail fallback.
+- [x] **I**: i18n en/vi (`queries.builder.steps.kindDateBucket` + granularity labels);
+      design-doc sync (workflows.md step vocabulary, queries.md status line).
+- [x] Tests: FM1-SHAPED fixture (text dd-MM-yyyy HH:mm:ss + override) → datetime in parquet
+      == metadata · unparseable cell → typed 422 naming column/cells · bucket step over
+      week/month → THE report's grouping (calls-per-agent-per-week) incl. the flagship
+      Excel-override→bucket→aggregate end-to-end · unsupported format token → loud 422
+      pre-write · bucket on a non-date column → 422. (The REAL FM1 file re-upload is the
+      human Check item — forward-only coercion.)
 
 ## Risks / unknowns
 
@@ -128,6 +132,30 @@ match padded `dd-MM-yyyy HH:mm:ss`; DuckDB `date_trunc('week')` verified Monday-
 
 Result: **Flow: DCFBI** (0 of 5 fired — default chain; F1/F2 gates do not apply, single F
 lands after B per the hybrid-flow decision).
+
+**2026-07-03 — C/B/F/I built + verified.**
+
+- **C** (`36c907a`): `DateBucketStep` joined the union in `query.yaml` + the `workflow.yaml`
+  mirror; contract-marked pytest green. Round-plan deviation (flagged): the plan named
+  "`values.yaml` + both templates" — verified no step enumeration lives there; the real
+  union homes are the two `_shared` YAMLs.
+- **B** (`8f44723`): `translate_format` (six tokens → strptime; `FormatUnsupportedError`;
+  date targets reject time tokens), date/datetime casters (native pass-through,
+  non-midnight-under-`date` fails, whole-cell-strict string parse, arrow `date32` output),
+  and `_DUCK_CONFORMS`/`_CONFORMS` temporal extensions; router validates tokens at commit
+  validation (422 `format_unsupported` BEFORE any write) and stages translated formats;
+  `_plan_date_bucket` (granularity re-validated every plan — it inlines into SQL) +
+  `date_trunc` SQL. **326 pytest + ruff green**; new tests include the flagship FM1-shaped
+  end-to-end (override ingest → `date_bucket(week)` → aggregate → THE report's grouping,
+  incl. the honest NULL-bucket group).
+- **F+I**: FE `DateBucketStep` type + `steps.ts` threading (`isTemporalCol`, blank default:
+  first temporal col · week) + `StepsEditor` body (temporal-only col options, 5
+  granularities) + MSW `dateBucketStepMock` (ISO-Monday mirror) + en/vi keys + design-doc
+  sync (workflows.md vocabulary line, queries.md status). **tsc + 261 vitest green.**
+  Confirm-step `coercion_failed` rendering verified dtype-agnostic (dates inherit R143).
+
+Remaining: the human Check items — re-upload the REAL FM1 file (forward-only coercion),
+eyeball the new step in the builder + preview/widget rendering.
 
 ## Check
 

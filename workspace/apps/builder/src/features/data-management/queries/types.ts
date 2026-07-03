@@ -159,8 +159,19 @@ export type SelectStep = {
   cols: readonly SelectCol[];
 };
 
-/** R121/R122/R123/R141 — a transform step, discriminated by `kind`. */
-export type Step = AggregateStep | TopNStep | DeriveStep | FilterStep | SortStep | SelectStep;
+/** R144 — APPEND a `date` column holding `col` truncated to `granularity`
+ *  (a report's time axis). `col` must be date/datetime at this step; the value
+ *  is the period's START date (week = ISO-8601 Monday-start). Mirrors
+ *  `_shared/query.yaml#/DateBucketStep`. */
+export type DateBucketStep = {
+  kind: 'date_bucket';
+  col: string;
+  granularity: 'day' | 'week' | 'month' | 'quarter' | 'year';
+  name: string;
+};
+
+/** R121/R122/R123/R141/R144 — a transform step, discriminated by `kind`. */
+export type Step = AggregateStep | TopNStep | DeriveStep | FilterStep | SortStep | SelectStep | DateBucketStep;
 
 /** A single effective column of a Query result (name + dtype). For a join,
  *  duplicate names are collision-qualified (`Deals.id`). Mirrors the inline

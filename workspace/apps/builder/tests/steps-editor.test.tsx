@@ -84,6 +84,20 @@ describe('R125 step column-threading (steps.ts)', () => {
       cols: [{ col: 'region' }, { col: 'amount' }],
     });
   });
+
+  it('R144: date_bucket appends a date column; blankStep picks the first temporal column', () => {
+    const withDate: Column[] = [...COLS, { name: 'called_at', dtype: 'datetime' }];
+    const bucket: Step = { kind: 'date_bucket', col: 'called_at', granularity: 'week', name: 'week' };
+    expect(stepOutput(bucket, withDate)).toEqual([...withDate, { name: 'week', dtype: 'date' }]);
+    expect(blankStep('date_bucket', withDate)).toEqual({
+      kind: 'date_bucket',
+      col: 'called_at',
+      granularity: 'week',
+      name: 'bucket',
+    });
+    // no temporal column → the col defaults empty (BE rejects on save anyway)
+    expect(blankStep('date_bucket', COLS)).toMatchObject({ col: '' });
+  });
 });
 
 function renderEditor(steps: Step[], onChange = vi.fn()) {
@@ -107,6 +121,23 @@ describe('R125 StepsEditor', () => {
     const onChange = renderEditor([blankStep('aggregate', COLS)]);
     fireEvent.click(screen.getByRole('button', { name: 'Remove step' }));
     expect(onChange).toHaveBeenCalledWith([]);
+  });
+
+  it('R144: renders a date-bucket card; the name input fires onChange', () => {
+    const withDate: Column[] = [...COLS, { name: 'called_at', dtype: 'datetime' }];
+    const onChange = vi.fn();
+    render(
+      <AntdConfig>
+        <App>
+          <StepsEditor steps={[blankStep('date_bucket', withDate)]} columns={withDate} onChange={onChange} />
+        </App>
+      </AntdConfig>,
+    );
+    expect(screen.getByText(/1\. Date bucket/)).toBeInTheDocument();
+    fireEvent.change(screen.getByDisplayValue('bucket'), { target: { value: 'week' } });
+    expect(onChange).toHaveBeenCalledWith([
+      { kind: 'date_bucket', col: 'called_at', granularity: 'week', name: 'week' },
+    ]);
   });
 
   it('R141: renders sort + select cards; a select rename fires onChange with `name`', () => {

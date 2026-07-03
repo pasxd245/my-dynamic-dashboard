@@ -605,7 +605,15 @@
         "removeKey": "Xóa khóa sắp xếp",
         "renameOptional": "Đổi tên (tùy chọn)",
         "addColumn": "Thêm cột",
-        "removeColumn": "Xóa cột"
+        "removeColumn": "Xóa cột",
+        "kindDateBucket": "Gom theo thời gian",
+        "bucketOf": "từ cột",
+        "granularity": "theo",
+        "granularity_day": "Ngày",
+        "granularity_week": "Tuần (T2)",
+        "granularity_month": "Tháng",
+        "granularity_quarter": "Quý",
+        "granularity_year": "Năm"
       },
       "buildActive": "{{count}} đang áp dụng",
       "baseSourceLabel": "Dựng trên",
