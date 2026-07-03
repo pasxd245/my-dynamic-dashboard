@@ -383,7 +383,15 @@ export function QueryDetailPage() {
   // source dataset's columns (unchanged).
   // R76 — a composed query's columns are its server-computed effective space
   // (the base's effective columns ++ any joined datasets), like a joined query.
-  const columns = isJoined || isComposed ? [...(query.resolvedColumns ?? [])] : (dataset?.columns ?? []);
+  // R144 (Review finding) — a query with `steps` returns SHAPED rows, and the
+  // server reports the POST-step space as `resolvedColumns` even single-source;
+  // prefer them whenever present, else the rows misalign against the source
+  // dataset's pre-step headers (latent since R120, surfaced by date_bucket).
+  const columns = query.resolvedColumns?.length
+    ? [...query.resolvedColumns]
+    : isJoined || isComposed
+      ? []
+      : (dataset?.columns ?? []);
   const locale = i18n.language;
   const def = query.definition;
 

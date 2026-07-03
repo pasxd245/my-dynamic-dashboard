@@ -157,6 +157,19 @@ lands after B per the hybrid-flow decision).
 Remaining: the human Check items — re-upload the REAL FM1 file (forward-only coercion),
 eyeball the new step in the builder + preview/widget rendering.
 
+**2026-07-03 — Review finding #1 (human dogfood): stepped query's detail table hid the new
+column.** Saving a query with a `date_bucket` step succeeded, but the query DETAIL page
+didn't show the appended column. Root cause:
+[QueryDetailPage.tsx](../../../workspace/apps/builder/src/features/data-management/queries/QueryDetailPage.tsx)
+took its table headers from the SOURCE dataset's (pre-step) columns for any single-source
+query — the `isJoined || isComposed` gate predates steps — while the rows GET returns the
+SHAPED (post-step) rows, so the appended cell had no header. **Latent since R120** (any
+single-source stepped query misrendered its detail table; dashboards were unaffected —
+`dashboard/hooks.ts` already keys off "resolvedColumns present"). Fix: prefer the
+server-computed `resolvedColumns` whenever present (joined / composed / STEPPED), else fall
+back to the dataset's columns. Regression test added (stepped single-source detail renders
+the post-step header + locale-formatted date cell). tsc + 262 vitest green.
+
 ## Check
 
 - [ ] D signed off before C/B/F.

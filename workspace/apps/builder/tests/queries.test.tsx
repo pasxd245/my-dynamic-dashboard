@@ -130,6 +130,34 @@ describe('QueryDetailPage (query mode)', () => {
     expect(await screen.findByText('This query needs attention')).toBeInTheDocument();
     expect(document.querySelector('[data-component="QueryDetailStale"]')).not.toBeNull();
   });
+
+  it('R144: a single-source STEPPED query renders the POST-step columns (resolvedColumns)', async () => {
+    // A query with steps returns SHAPED rows; the detail table must take its
+    // headers from `resolvedColumns` (post-step), not the source dataset's
+    // pre-step columns — else an appended column (date_bucket/derive) is invisible.
+    const stepped = {
+      ...MOCK_QUERY,
+      definition: {
+        ...MOCK_QUERY.definition,
+        steps: [{ kind: 'date_bucket', col: 'created_at', granularity: 'week', name: 'call_week' }],
+      },
+      resolvedColumns: [
+        { name: 'stage', dtype: 'string' },
+        { name: 'call_week', dtype: 'date' },
+      ],
+    };
+    server.use(
+      http.get('*/queries/:id', () => HttpResponse.json(stepped)),
+      http.get('*/queries/:id/rows', () =>
+        HttpResponse.json({ rows: [['won', '2026-06-29']], page: 1, pageSize: 25, total: 1 }),
+      ),
+    );
+    renderApp(`/data-management/queries/${QR_ID}`);
+    // The appended bucket column's header + cell both render (the `date` cell
+    // is locale-formatted by formatCell — en: MM/DD/YYYY).
+    expect(await screen.findByText('call_week')).toBeInTheDocument();
+    expect(screen.getByText('06/29/2026')).toBeInTheDocument();
+  });
 });
 
 describe('Save as Query (from the dataset detail page)', () => {
