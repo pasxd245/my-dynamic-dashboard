@@ -227,6 +227,13 @@ paths:
             column missing from the incoming kept columns; committed↔incoming
             key dtype mismatch; kept committed rows failing the cast to a
             drifted incoming column dtype.
+
+            R147 also maps a commit-time SOURCE PARSE failure (an item's
+            `sheet` not in the uploaded workbook — the renamed-sheet cadence —
+            or a malformed range) to shape 1 (`parse_failed: …`), on both
+            create and refresh items. Previously this raised an unhandled 500
+            (the parse endpoint mapped these; the commit path didn't). A
+            refresh fails BEFORE any write — the dataset is untouched.
           content:
             application/json:
               schema:

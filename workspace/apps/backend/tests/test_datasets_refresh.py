@@ -176,3 +176,57 @@ def test_refresh_settings_available_false_for_legacy_dataset() -> None:
         body = client.get(f"/datasets/{ds['id']}/refresh-settings").json()
         validate_response("datasets/refresh-settings-get.contract.yaml", 200, body)
         assert body == {"available": False}
+
+
+def _excel_upload(client: TestClient, content: bytes) -> str:
+    resp = client.post(
+        "/uploads",
+        data={"sourceFormat": "excel"},
+        files={"file": ("book.xlsx", content, "application/octet-stream")},
+    )
+    return resp.json()["temp_id"]
+
+
+@pytest.mark.unit
+def test_refresh_unknown_sheet_is_422_not_500_dataset_intact() -> None:
+    """R147 — a commit naming a sheet the workbook doesn't have (the renamed-
+    sheet cadence: monthly exports date-stamp sheet names) is a typed 422,
+    not the R142-F1 opaque 500; the dataset is untouched."""
+    from tests._excel import two_sheet_workbook
+
+    with TestClient(app) as client:
+        ws = _make_workspace(client)
+        temp = _excel_upload(client, two_sheet_workbook())
+        resp = client.post(
+            f"/workspaces/{ws}/datasets/batch",
+            json={"temp_id": temp, "items": [{"name": "deals", "sheet": "Deals"}]},
+        )
+        assert resp.status_code == 201, resp.text
+        ds = resp.json()[0]
+
+        # Refresh with a workbook whose sheets are Deals/Contacts, but send
+        # a stale sheet name (as a raw client could; the FE now prevents it).
+        temp2 = _excel_upload(client, two_sheet_workbook())
+        resp = client.post(
+            f"/workspaces/{ws}/datasets/batch",
+            json={"temp_id": temp2, "items": [{"name": "x", "sheet": "Data 12.4", "target_dataset_id": ds["id"]}]},
+        )
+        assert resp.status_code == 422, resp.text
+        assert "parse_failed" in str(resp.json()["detail"])
+        # Dataset fully intact.
+        assert client.get(f"/datasets/{ds['id']}").json()["rowCount"] == 2
+
+
+@pytest.mark.unit
+def test_create_unknown_sheet_is_422_not_500() -> None:
+    from tests._excel import two_sheet_workbook
+
+    with TestClient(app) as client:
+        ws = _make_workspace(client)
+        temp = _excel_upload(client, two_sheet_workbook())
+        resp = client.post(
+            f"/workspaces/{ws}/datasets/batch",
+            json={"temp_id": temp, "items": [{"name": "x", "sheet": "Nope"}]},
+        )
+        assert resp.status_code == 422, resp.text
+        assert "parse_failed" in str(resp.json()["detail"])

@@ -224,6 +224,17 @@ tests (ghost, pre-select-when-present, radio replace/clear, create multi-select 
 renamed-sheet preset fallback). **Gates re-run:** FE `tsc` 0 · `vitest` 291/291 · en/vi
 parity OK · doc lints clean.
 
+**Backend net (human follow-up "do we need to verify at backend?", 2026-07-05):** audit
+found the refresh sheet rules ALREADY backend-enforced except one: single-item ✓ (422),
+excel-requires-sheet ✓ (422), source-format match ✓ (422), renamed sheet allowed by design ✓
+— but a commit naming a sheet **not in the workbook** raised an unhandled **500** (the
+R142-F1 opaque-500 class: the parse endpoint mapped `ExcelParseError`, the commit path never
+did; reachable by any raw client, and by the FE until yesterday's ghost-pre-select fix).
+Fixed at the shared `_parse_and_target` seam: `CsvParseError`/`ExcelParseError` → 422
+detail (`parse_failed: …`), create + refresh both; refresh fails before any write (dataset
+untouched — test-asserted). Contract 422 description updated. +2 pytest (unknown sheet on
+refresh → 422 + intact; on create → 422). **Gates:** `pytest` 349 · `ruff` clean.
+
 ## Check
 
 - [x] D signed off before C/B/F (incl. the identity-key, in-file-duplicate, and

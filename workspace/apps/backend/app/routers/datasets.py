@@ -29,8 +29,8 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app._generated.constants import ID_PATTERNS, NAME_LENGTHS, PAGE_SIZES
 from app.db import get_conn
-from app.ingest.csv_parser import parse_csv
-from app.ingest.excel_parser import parse_sheet
+from app.ingest.csv_parser import CsvParseError, parse_csv
+from app.ingest.excel_parser import ExcelParseError, parse_sheet
 from app.ingest.filters import parse_advanced_from_query, parse_filters_from_query
 from app.ingest.parquet_writer import (
     CoercionError,
@@ -192,19 +192,28 @@ def _parse_and_target(item: _BatchItem, source_format: str, original_path: Path)
     so both enforce the R143/R144 dtype contract identically. Returns
     ``(parsed, cols, opts, kept_names, dtype_targets, dtype_formats)``."""
     opts = item.parse_options or ParseOptions()
-    if source_format == "csv":
-        parsed = parse_csv(
-            original_path,
-            skip_rows=0 if opts.skip_rows is None else opts.skip_rows,
-            has_header=True if opts.has_header is None else opts.has_header,
-        )
-    else:
-        parsed = parse_sheet(
-            original_path,
-            item.sheet or "",
-            range_=opts.range,
-            has_header=True if opts.has_header is None else opts.has_header,
-        )
+    try:
+        if source_format == "csv":
+            parsed = parse_csv(
+                original_path,
+                skip_rows=0 if opts.skip_rows is None else opts.skip_rows,
+                has_header=True if opts.has_header is None else opts.has_header,
+            )
+        else:
+            parsed = parse_sheet(
+                original_path,
+                item.sheet or "",
+                range_=opts.range,
+                has_header=True if opts.has_header is None else opts.has_header,
+            )
+    except (CsvParseError, ExcelParseError) as exc:
+        # R147 — a commit whose source can't parse (unknown/renamed sheet,
+        # malformed range) is a CLIENT error, not an opaque 500 (the R142-F1
+        # class; the parse endpoint already mapped these, the commit path
+        # didn't). Create raises in the up-front validation loop (nothing
+        # committed); refresh raises BEFORE any staging write (dataset
+        # untouched).
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
     cols = _apply_overrides(parsed.columns, item.column_overrides)
     cols = _apply_exclusions(cols, item.excluded_columns)
     kept_names = [c["name"] for c in cols]
