@@ -1,8 +1,8 @@
 # Round 147: Merge-on-key / precedence — refresh for overlapping exports (⑥ / F5+F6)
 
-**Status**: Planning
+**Status**: Complete — human directed finish (2026-07-05)
 **Date started**: 2026-07-04
-**Date completed**:
+**Date completed**: 2026-07-05
 **Flow**: **DCFBI** — set at the Design gate via flow-selector (1 of 5 fired: high
 user-error risk); recorded in the Do log. No F1/F2 gates; human verification at Integration.
 
@@ -271,11 +271,51 @@ no double-classifier residuals ("mối mối" = 0).
 - [x] Key-dtype mismatch is a loud typed failure, never a silent false non-overlap.
       _`test_merge_key_dtype_drift_is_blocked_422` (BE) + `mergeKeyIssues` tests (FE)._
 - [x] Backend pytest + ruff green; FE tsc + vitest green; design/plan/markdown lints clean.
-- [ ] Human feel-review of the refresh-with-merge walk (checklist handed over 2026-07-04).
+- [~] Human feel-review of the refresh-with-merge walk (checklist handed over 2026-07-04).
+      _Not separately logged as an in-app end-to-end run; completion **human-directed**
+      2026-07-05 ("flip R147"). The human DID exercise the surface enough to raise three
+      real findings (the sheet-handling gaps + the backend-net question + the VN terminology
+      pass), so the feel-review was substantive even if the full merge walk on real FM data
+      wasn't ticked box-by-box. Residual risk = the class an in-app merge-on-real-overlap
+      walk would catch (a runtime wiring bug on the new wrapper response / key picker);
+      flagged, accepted by the human — same honest-note pattern as R145._
 
 ## Act
 
-_(open)_
+**Learnings:**
+
+1. **A "does the backend verify this?" reflex catches the opaque-500 class.** The human's
+   follow-up on the sheet fix — "do we need to verify at backend?" — surfaced that a
+   commit-time unknown-sheet parse failure still bubbled as a 500 (R142-F1's exact class),
+   invisible until a FE guard stopped feeding it bad input. Lesson: when a round adds a FE
+   guard, ask what happens if a raw client skips it — the BE typed-error net is the contract,
+   the FE guard is only UX. (Capture only if it recurs — it's a specific instance of the
+   established `dfcfbi-f1-needs-human-review` "gates can't see runtime" theme.)
+2. **A human's real usage is the feel-review, even without a scripted walk.** The three
+   findings this round (silent multi-sheet, ghost pre-select, carry-forward-lost-on-rename)
+   all came from the human *thinking about* the surface, not from a logged end-to-end run —
+   and each was a genuine latent bug. The checklist mattered less than the human engaging
+   with the design.
+3. **VN classifier is per-syntax-position, not per-concept** — promoted to the locale memory
+   (rule 7): "mối quan hệ" standalone, bare "quan hệ" in compounds; lowercase after a verb
+   ("Mở mối quan hệ"). The one-word-per-concept rule governs the *head noun*; the classifier
+   follows grammar. A blind replace-all would have produced "loại mối quan hệ"-class errors.
+
+**Promotions:** `labels-context-and-locale-aware` auto-memory extended (rules 7–8: classifier
+per syntax-position; workflow="quy trình" not "luồng dữ liệu"; "liên kết" banned for
+relationship = hyperlink collision). No repo-memory promotion — the merge doctrine lives in
+[upload.md § Refresh merge mode](../../design/data-management/datasets/upload.md#refresh-merge-mode-merge-on-key-and-precedence-r147),
+current-state spec.
+
+**Prune check:** nothing added to the agent OS (no skill, doc area, or process). `app/ingest/merge.py`
+is new *product* code earning its place (the F5 correctness need). The build reused the R145
+staged/atomic-swap seam and the `_parse_and_target` helper rather than forking a merge path —
+consolidation, not accretion. No vestigial code carried in.
+
+**Left as-is (flagged, human aware):** `queries.builder.canvasOpenRelationships` = "Mở Mối
+quan hệ ↗" keeps its capital classifier (the ↗ reads as a named destination link, parallel
+to "trong mục Mối quan hệ"); its twin `queries.detail.openRelationships` was lowercased. A
+one-line follow if the human later wants them uniform.
 
 ## Feeds into → Round_148 (TBD)
 
