@@ -1,8 +1,8 @@
 # Round 146: Context-aware copy pass — refresh labels + full i18n text audit
 
-**Status**: In progress — refresh labels applied; full-corpus audit running
+**Status**: Complete — human signed off 2026-07-04
 **Date started**: 2026-07-04
-**Date completed**:
+**Date completed**: 2026-07-04
 **Flow**: **Copy/i18n round** — no contract/backend/new-interaction surface; wording is decided
 (D), applied to i18n strings (F), and human-eyeballed (Complete). Flow-selector's no-UI branch
 reads vacuously → DCFBI-degenerate; recorded, not ceremonially walked.
@@ -36,16 +36,16 @@ Feeds-into re-rank + `labels-context-and-locale-aware` memory + human "check all
 
 ## Plan
 
-- [ ] **D (wording table)**: for each surface the refresh label appears on, pick EN (unchanged)
+- [x] **D (wording table)**: for each surface the refresh label appears on, pick EN (unchanged)
       + VN (revised) wording that fits the context. Surfaces: Datasets row-action menu +
       dataset-detail action (`datasets.refresh`); wizard breadcrumb (`upload.refresh.crumb`);
       wizard title (`upload.refresh.title`); commit button (`upload.refresh.commitLabel`);
       source banner (`upload.refresh.sourceBannerTitle`); sheet note (`upload.refresh.sheetNote`);
       confirm-replace body (`upload.refresh.confirmReplaceBody`).
-- [ ] **F (apply)**: edit `vi.json` only (EN unchanged); replace the `Làm mới` family with the
+- [x] **F (apply)**: edit `vi.json` only (EN unchanged); replace the `Làm mới` family with the
       context-appropriate `Cập nhật` wording. No code/route/design changes ("refresh" stays the
       internal/dev vocabulary).
-- [ ] **Verify**: i18n JSON valid + en/vi key parity intact (values-only change); FE `tsc` +
+- [x] **Verify**: i18n JSON valid + en/vi key parity intact (values-only change); FE `tsc` +
       `vitest` unaffected (no key renames); human eyeball of each surface in the app.
 - [x] **Full-corpus audit (expanded scope)**: scan all 772 en+vi keys for VN false-friends /
       context mismatch, literal-translation misses, terminology drift, and ease-persona jargon;
@@ -183,17 +183,38 @@ weak evidence; BigQuery has no vi docs):**
       "canvas", "luận lý", "trang tính", "vd." — **all 0**; "workspace" remains only as the
       `{{workspace}}` placeholder.
 - [x] Post-batch: JSON valid, en/vi key parity intact, `tsc` OK, `vitest` 277/277 passed.
-- [ ] Human eyeball: each surface reads right in VN (menu, breadcrumb, title, button, banner,
+- [x] Human eyeball: each surface reads right in VN (menu, breadcrumb, title, button, banner,
       confirm) — now including the corpus-wide renames (Dashboard nav/pages, tập dữ liệu,
-      workflow result copy).
+      workflow result copy). _(human signed off, 2026-07-04 — "flip R146 to Complete")_
 
 ## Act
 
-**Learnings:** _(pending)_
+**Learnings:**
 
-**Promotions:** _(pending)_
+1. **Loanword register rule** (human: "some words should keep in English") — for domain nouns the
+   VN office persona code-switches daily (**Dashboard, sheet, widget**), the EN loanword beats the
+   vendor-VN rendering; everything else (verbs, generic UI, tệp, không gian làm việc) is VN.
+   "Bảng điều khiển" is banned for dashboard (= Control Panel / admin console in VN).
+2. **Vendor convention is evidence, not verdict** — research showed Excel-vi's own standard is
+   "Làm mới dữ liệu", surfaced as a challenge per fair-review-at-lock-in; the human consciously
+   kept "Cập nhật dữ liệu" (audience runs *English* Excel, so the vi-Excel convention is weakly
+   load-bearing). The right move was citing the evidence and letting the human pick the register.
+3. **Residual sweeps must cover the whole corpus, not the feature namespace** — slice 1's grep
+   scoped to `upload.refresh.*`/`datasets.refresh` missed a "làm mới" in `upload.drift.subtitle`
+   (same feature, different namespace) and one in `workflows.*`. Value-only greps (keys excluded)
+   are the reliable form; key names false-positive ("canvas", "workspace").
+4. **One VN word per concept, corpus-wide** — the core noun *dataset* had silently split
+   "bộ dữ liệu"/"tập dữ liệu" 26/24 across namespaces because each round coined copy locally.
+   New-copy checklist: grep the corpus for an existing rendering before coining one.
 
-**Prune check:** _(pending)_
+**Promotions:** `labels-context-and-locale-aware` auto-memory extended with the loanword register
+rule, the banned "Bảng điều khiển", the one-word-per-concept rule, and vendor-convention-≠-verdict
+(items 3–6 in that memory); MEMORY.md hook updated. No repo-memory promotion needed — the wording
+decisions themselves live in this round file + the strings.
+
+**Prune check:** nothing added to the agent OS (no skill, no doc area; the audit script was
+session-scratch). The audit findings tables above are a closed ledger, not a living artifact —
+nothing new to maintain.
 
 ## Feeds into → Round_147 (⑥ merge)
 
