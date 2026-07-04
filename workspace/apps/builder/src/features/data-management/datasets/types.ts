@@ -111,6 +111,19 @@ export type CommitBatchItem = {
   parse_options?: ParseOptions;
   column_overrides?: Record<string, ColumnOverride>;
   excluded_columns?: string[];
+  /** R145 refresh — replace this existing dataset in place (name ignored). */
+  target_dataset_id?: string;
+};
+
+/** R145: GET /datasets/{id}/refresh-settings — the carry-forward snapshot a
+ *  refresh wizard pre-fills from. Mirrors a commit item's settings shape.
+ *  `available: false` for pre-R145 datasets (no snapshot → lossy fallback). */
+export type RefreshSettings = {
+  available: boolean;
+  sheet?: string;
+  parse_options?: ParseOptions;
+  column_overrides?: Record<string, ColumnOverride>;
+  excluded_columns?: string[];
 };
 
 export type CommitBatchRequest = {

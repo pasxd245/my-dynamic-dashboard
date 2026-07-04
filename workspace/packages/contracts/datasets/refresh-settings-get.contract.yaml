@@ -1,0 +1,99 @@
+openapi: 3.1.0
+info:
+  title: my-dynamic-dashboard — GET /datasets/{id}/refresh-settings
+  version: 0.1.0
+  description: |
+    Return the carry-forward settings a REFRESH wizard pre-fills from
+    (R145 § Refresh, F9). These are the `commitSettings` snapshot the last
+    commit persisted alongside the dataset (in `source.json`): the sheet,
+    parse options, per-column dtype/format overrides, and exclusions — i.e.
+    exactly what the user chose last time, so a monthly re-upload does not
+    re-configure everything from scratch.
+
+    The payload mirrors a batch-commit item's settings shape (snake_case
+    `parse_options` / `column_overrides` / `excluded_columns`) so the wizard
+    can round-trip it straight back into the refresh commit.
+
+    Kept OFF the hot `GET /datasets/{id}` detail path (no shape change / no
+    per-read file cost there). Datasets committed before R145 have no
+    snapshot: the endpoint returns `available: false` and the wizard falls
+    back to a lossy pre-fill (sheet + final committed dtypes only).
+
+paths:
+  /datasets/{id}/refresh-settings:
+    get:
+      operationId: getDatasetRefreshSettings
+      summary: Carry-forward settings for a refresh of this dataset
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^ds_[0-9a-f]{8}$"
+          description: Dataset id.
+          examples:
+            deals:
+              value: "ds_71a4e2f0"
+      responses:
+        "200":
+          description: |
+            The carry-forward settings, or `available: false` for a
+            pre-R145 dataset with no persisted snapshot.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [available]
+                additionalProperties: false
+                properties:
+                  available:
+                    type: boolean
+                    description: |
+                      `true` when a `commitSettings` snapshot exists (R145+
+                      commit). `false` for legacy datasets — the wizard then
+                      uses the lossy fallback and writes a snapshot on this
+                      dataset's next refresh.
+                  sheet:
+                    type: string
+                    minLength: 1
+                    description: Excel only — the committed sheet name.
+                  parse_options:
+                    $ref: "../_shared/parse-options.yaml#/components/schemas/ParseOptions"
+                  column_overrides:
+                    type: object
+                    additionalProperties:
+                      $ref: "../_shared/column-override.yaml#/components/schemas/ColumnOverride"
+                    description: |
+                      Per-column dtype/format overrides the last commit
+                      applied, keyed by column name.
+                  excluded_columns:
+                    type: array
+                    items:
+                      type: string
+                    description: Column names dropped at the last commit.
+              examples:
+                excel_available:
+                  summary: Excel dataset with a carried snapshot
+                  value:
+                    available: true
+                    sheet: "Worksheet"
+                    parse_options: { has_header: true }
+                    column_overrides:
+                      "Số gọi": { dtype: "string" }
+                      "Ngày gọi": { dtype: "datetime", format: "dd-MM-yyyy HH:mm:ss" }
+                    excluded_columns: ["Ghi chú nội bộ"]
+                legacy_unavailable:
+                  summary: Pre-R145 dataset (no snapshot)
+                  value:
+                    available: false
+        "404":
+          description: |
+            No dataset with the given `id` exists.
+          content:
+            application/json:
+              schema:
+                $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorNotFound"
+              examples:
+                missing:
+                  value: { "code": "not_found" }

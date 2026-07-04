@@ -5,6 +5,7 @@ import type {
   CommitBatchResponse,
   Dataset,
   FilterSet,
+  RefreshSettings,
   RowsPage,
 } from '@/features/data-management/datasets/types';
 import { serializeFiltersToSearchParams } from '@/features/data-management/datasets/filters/serialize';
@@ -89,6 +90,13 @@ export const datasetsApi = {
   async get(id: string): Promise<Dataset> {
     const resp = await fetch(`${API_BASE_URL}/datasets/${id}`);
     return readJson<Dataset>(resp);
+  },
+
+  /** R145: GET /datasets/{id}/refresh-settings — the carry-forward snapshot a
+   *  refresh wizard pre-fills from (F9). `available: false` for legacy datasets. */
+  async getRefreshSettings(id: string): Promise<RefreshSettings> {
+    const resp = await fetch(`${API_BASE_URL}/datasets/${id}/refresh-settings`);
+    return readJson<RefreshSettings>(resp);
   },
 
   /** R36: GET /datasets/{id}/rows — paged rows with optional substring

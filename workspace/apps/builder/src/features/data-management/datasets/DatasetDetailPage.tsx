@@ -8,6 +8,7 @@ import {
   FileTextOutlined,
   MergeCellsOutlined,
   PlusOutlined,
+  ReloadOutlined,
 } from '@ant-design/icons';
 import { XCircleIcon } from '@phosphor-icons/react';
 import { PageCard, PageContainer, PageHeader } from '@mdd/ui';
@@ -422,6 +423,12 @@ export function DatasetDetailPage() {
               onClick: () => setJoinOpen(true),
             },
             { type: 'divider' },
+            {
+              key: 'refresh',
+              label: t('datasets.refresh'),
+              icon: <ReloadOutlined />,
+              onClick: () => navigate(`/data-management/datasets/${dataset.id}/refresh`),
+            },
             {
               key: 'rename',
               label: t('common.rename'),

@@ -348,7 +348,8 @@
         "dangling_operator": "Truy vấn kết thúc bằng AND/OR — cần thêm một điều kiện",
         "unterminated_quote": "Dấu nháy kép chưa đóng"
       }
-    }
+    },
+    "refresh": "Làm mới"
   },
   "upload": {
     "title": "Bộ dữ liệu mới",
@@ -359,7 +360,8 @@
       "sheet": "Sheet",
       "metadata": "Cấu trúc",
       "preview": "Xem trước",
-      "confirm": "Xác nhận"
+      "confirm": "Xác nhận",
+      "drift": "Thay đổi"
     },
     "source": {
       "heading": "Nguồn dữ liệu",
@@ -463,6 +465,34 @@
       "dtypeHint": "Kiểu dữ liệu phản ánh các thay đổi ở bước Cấu trúc. Nhấn Quay lại để chỉnh.",
       "showing_one": "Hiển thị {{shown}}/{{total}} dòng · {{cols}} cột (cuộn ngang để xem thêm)",
       "showing_other": "Hiển thị {{shown}}/{{total}} dòng · {{cols}} cột (cuộn ngang để xem thêm)"
+    },
+    "refresh": {
+      "crumb": "Làm mới",
+      "title": "Làm mới tập dữ liệu",
+      "subtitle": "Tải lên bản xuất mới vào “{{name}}”.",
+      "commitLabel": "Làm mới tập dữ liệu",
+      "sourceBannerTitle": "Đang làm mới “{{name}}”",
+      "sourceBannerBody": "Chọn tệp xuất mới. Không gian làm việc, loại nguồn và các thiết lập cột trước đó được giữ lại.",
+      "sheetNote": "Làm mới áp dụng cho trang tính gốc “{{sheet}}” — đã được chọn sẵn.",
+      "confirmReplaceTitle": "Thao tác này thay thế toàn bộ dữ liệu trong “{{name}}”",
+      "confirmReplaceBody": "Làm mới thay thế toàn bộ bảng — dữ liệu trước đó bị ghi đè (không lưu lịch sử phiên bản). Tập dữ liệu giữ nguyên tên và id, nên các truy vấn và bảng điều khiển dựa trên nó vẫn được kết nối.",
+      "legacyNote": "Một số thiết lập không thể khôi phục từ lần tải lên cũ — vui lòng kiểm tra lại kiểu cột và định dạng trước khi tiếp tục."
+    },
+    "drift": {
+      "noneTitle": "Không có thay đổi lược đồ",
+      "noneBody": "Các cột của tệp mới khớp với tập dữ liệu hiện tại. Không ảnh hưởng đến thành phần phụ thuộc.",
+      "title": "Phát hiện thay đổi lược đồ",
+      "subtitle": "Các cột của tệp mới khác với tập dữ liệu hiện tại. Hãy xem lại các thay đổi bên dưới rồi xác nhận để tiếp tục — làm mới không bao giờ âm thầm chấp nhận thay đổi.",
+      "removedTitle": "Cột bị xóa ({{count}})",
+      "removedHint": "Trước đây có, nay không còn — truy vấn hoặc quan hệ phụ thuộc dùng các cột này có thể trở nên lỗi thời.",
+      "dtypeChangedTitle": "Thay đổi kiểu ({{count}})",
+      "dtypeChangedHint": "Cùng một cột nhưng kiểu phát hiện trong tệp mới khác đi.",
+      "dtypeArrow": "{{from}} → {{to}}",
+      "addedTitle": "Cột mới ({{count}})",
+      "addedHint": "Có trong tệp mới, không có trong tập dữ liệu hiện tại.",
+      "blastRadiusTitle": "Thành phần phụ thuộc",
+      "blastRadiusStub": "Bản xem trước các truy vấn và quan hệ tham chiếu đến các cột bị xóa/thay đổi sẽ có khi phần đọc phía máy chủ hoàn tất (trong vòng này). Trong lúc đó, các thành phần phụ thuộc sẽ được đánh dấu tự động vào lần mở tiếp theo.",
+      "acknowledge": "Tôi hiểu các thay đổi lược đồ này và muốn tiếp tục."
     }
   },
   "rename": {

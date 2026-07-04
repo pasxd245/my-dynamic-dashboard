@@ -2,9 +2,12 @@ import type {
   Column,
   ColumnOverride,
   CsvParsePreview,
+  Dataset,
+  Dtype,
   ParseOptions,
   ParseSheetFailed,
   ParseSheetOk,
+  RefreshSettings,
   SheetSummary,
   SourceFormat,
   TempUploadResponse,
@@ -15,7 +18,25 @@ export type WizardStep =
   | "sheet"
   | "metadata"
   | "preview"
+  | "drift"
   | "confirm";
+
+/** Create = new dataset(s). Refresh = re-upload into an existing dataset
+ *  (R145 § Refresh — whole-table replace, settings carry-forward, drift gate). */
+export type WizardMode = "create" | "refresh";
+
+/** Refresh carry-forward preset for one sheet key, (re)applied AFTER the
+ *  seeding parse so PARSE_SHEET_SUCCESS's override-wipe (R19 Q2) cannot
+ *  discard it. Keyed by column NAME — columns that survive keep their
+ *  override, vanished columns drop theirs, new columns start inferred
+ *  (upload.md § Refresh, "strict on the skeleton"). */
+export type RefreshPreset = {
+  columnOverrides: Record<string, ColumnOverride>;
+  excludedColumns: string[];
+  parseOptions: ParseOptions;
+  /** Target dataset name — pinned; refresh never renames. */
+  name: string;
+};
 
 /** Key used to store CSV state in the sheets map. */
 export const CSV_SHEET_KEY = "";
@@ -51,6 +72,7 @@ export function hasParseOptionsSet(opts: ParseOptions | undefined): boolean {
 
 export type WizardState = {
   step: WizardStep;
+  mode: WizardMode;
   sourceFormat: SourceFormat;
   workspaceId: string | null;
   file: File | null;
@@ -61,10 +83,26 @@ export type WizardState = {
   selectedSheets: string[];
   /** Per-sheet state map. CSV uses the empty-string sentinel key. */
   sheets: Record<string, SheetState>;
+  /** Refresh only — the target dataset's id (→ commit `target_dataset_id` at C). */
+  targetDatasetId: string | null;
+  /** Refresh only — the target's committed columns, the drift-diff baseline. */
+  refreshBaseline: Column[] | null;
+  /** Refresh only — target name (banner + pinned dataset name). */
+  refreshTargetName: string | null;
+  /** Refresh only (Excel) — the target's committed sheet, pre-selected. */
+  refreshTargetSheet: string | null;
+  /** Refresh only — carry-forward preset per sheet key, applied post-parse. */
+  pendingPreset: Record<string, RefreshPreset> | null;
+  /** Refresh only — the Drift-review step's acknowledge gate. */
+  driftAcknowledged: boolean;
+  /** Refresh only — true when the target had no persisted commitSettings
+   *  (legacy dataset → lossy pre-fill; surfaced honestly to the user). */
+  refreshLegacy: boolean;
 };
 
 export const INITIAL_WIZARD_STATE: WizardState = {
   step: "source",
+  mode: "create",
   sourceFormat: "excel",
   workspaceId: null,
   file: null,
@@ -72,6 +110,13 @@ export const INITIAL_WIZARD_STATE: WizardState = {
   availableSheets: [],
   selectedSheets: [],
   sheets: {},
+  targetDatasetId: null,
+  refreshBaseline: null,
+  refreshTargetName: null,
+  refreshTargetSheet: null,
+  pendingPreset: null,
+  driftAcknowledged: false,
+  refreshLegacy: false,
 };
 
 function stemFromName(filename: string): string {
@@ -102,8 +147,60 @@ export type WizardAction =
   | { type: "TOGGLE_EXCLUDED_COLUMN"; sheet: string; column: string }
   | { type: "SET_PARSE_OPTIONS"; sheet: string; options: ParseOptions }
   | { type: "SET_DATASET_NAME"; sheet: string; name: string }
+  | { type: "SEED_REFRESH"; target: Dataset; settings?: RefreshSettings | null }
+  | { type: "SET_DRIFT_ACK"; acknowledged: boolean }
   | { type: "GOTO_STEP"; step: WizardStep }
   | { type: "RESET" };
+
+/** Build the lossy-fallback carry-forward preset from a committed dataset
+ *  (F1 — no `commitSettings` yet, so only sheet + final dtypes are known;
+ *  formats / parse options / exclusions land with the C/B backend read).
+ *  Each committed column becomes a dtype override so the Metadata step
+ *  shows the prior choice pre-filled. */
+function presetFromDataset(target: Dataset): RefreshPreset {
+  const columnOverrides: Record<string, ColumnOverride> = {};
+  for (const col of target.columns) {
+    columnOverrides[col.name] = { dtype: col.dtype };
+  }
+  return {
+    columnOverrides,
+    excludedColumns: [],
+    parseOptions: {},
+    name: target.name,
+  };
+}
+
+/** Apply a refresh preset against the freshly-parsed columns, keyed by name:
+ *  survivors keep their override, vanished columns drop out, new columns are
+ *  absent (→ inferred). Returns the patch for the sheet + whether a preset ran. */
+function applyPreset(
+  preset: RefreshPreset | undefined,
+  columns: Column[],
+): Partial<SheetState> {
+  if (!preset) return { columnOverrides: {}, excludedColumns: [] };
+  const present = new Set(columns.map((c) => c.name));
+  const columnOverrides: Record<string, ColumnOverride> = {};
+  for (const [name, ov] of Object.entries(preset.columnOverrides)) {
+    if (present.has(name)) columnOverrides[name] = ov;
+  }
+  return {
+    columnOverrides,
+    excludedColumns: preset.excludedColumns.filter((c) => present.has(c)),
+    name: preset.name,
+  };
+}
+
+/** Remove a sheet's preset once applied, so a later user re-parse resets
+ *  normally (create-mode behavior — R19 Q2). */
+function clearPreset(
+  pending: Record<string, RefreshPreset> | null,
+  key: string,
+): Record<string, RefreshPreset> | null {
+  if (!pending || !(key in pending)) return pending;
+  const next = { ...pending };
+  delete next[key];
+  return Object.keys(next).length === 0 ? null : next;
+}
 
 function setSheet(
   state: WizardState,
@@ -122,6 +219,95 @@ function setSheet(
   };
   const next: SheetState = { ...base, ...patch };
   return { ...state, sheets: { ...state.sheets, [key]: next } };
+}
+
+/** UPLOAD_INIT_SUCCESS handler — extracted to keep the reducer flat.
+ *  CSV seeds its single sheet ok (+ refresh preset); Excel lists sheets
+ *  (refresh pre-selects the target's committed sheet). */
+function reduceUploadInit(
+  state: WizardState,
+  response: TempUploadResponse,
+): WizardState {
+  if (response.sourceFormat === "csv") {
+    const preview: CsvParsePreview = response.csvPreview;
+    const preset =
+      state.mode === "refresh" ? state.pendingPreset?.[CSV_SHEET_KEY] : undefined;
+    const seeded = setSheet({ ...state, tempId: response.temp_id }, CSV_SHEET_KEY, {
+      status: "ok",
+      columns: preview.columns,
+      rowCount: preview.rowCount,
+      sampleRows: preview.sampleRows,
+      name: defaultName(state.file, undefined),
+      ...applyPreset(preset, preview.columns),
+    });
+    return {
+      ...seeded,
+      pendingPreset: clearPreset(state.pendingPreset, CSV_SHEET_KEY),
+      step: "metadata",
+    };
+  }
+  // Excel — refresh pre-selects the target's committed sheet (single-target).
+  const selectedSheets =
+    state.mode === "refresh" && state.refreshTargetSheet
+      ? [state.refreshTargetSheet]
+      : [];
+  return {
+    ...state,
+    tempId: response.temp_id,
+    availableSheets: response.sheets,
+    selectedSheets,
+    sheets: {},
+    step: "sheet",
+  };
+}
+
+/** PARSE_SHEET_SUCCESS handler — extracted to keep the reducer flat.
+ *  Create mode wipes overrides (R19 Q2); refresh replays the preset once. */
+function reduceParseSuccess(
+  state: WizardState,
+  action: Extract<WizardAction, { type: "PARSE_SHEET_SUCCESS" }>,
+): WizardState {
+  const preset =
+    state.mode === "refresh" ? state.pendingPreset?.[action.sheet] : undefined;
+  const next = setSheet(state, action.sheet, {
+    status: "ok",
+    columns: action.result.columns,
+    rowCount: action.result.rowCount,
+    sampleRows: action.result.sampleRows,
+    parseError: undefined,
+    ...applyPreset(preset, action.result.columns),
+  });
+  return { ...next, pendingPreset: clearPreset(state.pendingPreset, action.sheet) };
+}
+
+/** SEED_REFRESH handler — enter refresh mode against a committed dataset.
+ *  Fresh state (the user picks the new file next); fixes workspace + source +
+ *  target, stashes the drift baseline + the carry-forward preset. The preset
+ *  comes from the persisted `commitSettings` (F9, faithful) when available,
+ *  else a lossy fallback derived from the committed columns (legacy datasets). */
+function reduceSeedRefresh(target: Dataset, settings: RefreshSettings | null | undefined): WizardState {
+  const isCsv = target.sourceFormat === "csv";
+  const sheetKey = isCsv ? CSV_SHEET_KEY : (target.sheetName ?? "");
+  const preset: RefreshPreset = settings?.available
+    ? {
+        parseOptions: settings.parse_options ?? {},
+        columnOverrides: settings.column_overrides ?? {},
+        excludedColumns: settings.excluded_columns ?? [],
+        name: target.name,
+      }
+    : presetFromDataset(target);
+  return {
+    ...INITIAL_WIZARD_STATE,
+    mode: "refresh",
+    sourceFormat: target.sourceFormat,
+    workspaceId: target.workspaceId,
+    targetDatasetId: target.id,
+    refreshBaseline: target.columns,
+    refreshTargetName: target.name,
+    refreshTargetSheet: isCsv ? null : (target.sheetName ?? null),
+    pendingPreset: { [sheetKey]: preset },
+    refreshLegacy: !settings?.available,
+  };
 }
 
 export function wizardReducer(
@@ -151,32 +337,8 @@ export function wizardReducer(
         selectedSheets: [],
         sheets: {},
       };
-    case "UPLOAD_INIT_SUCCESS": {
-      if (action.response.sourceFormat === "csv") {
-        const preview: CsvParsePreview = action.response.csvPreview;
-        const seeded = setSheet(
-          { ...state, tempId: action.response.temp_id },
-          CSV_SHEET_KEY,
-          {
-            status: "ok",
-            columns: preview.columns,
-            rowCount: preview.rowCount,
-            sampleRows: preview.sampleRows,
-            name: defaultName(state.file, undefined),
-          },
-        );
-        return { ...seeded, step: "metadata" };
-      }
-      // Excel
-      return {
-        ...state,
-        tempId: action.response.temp_id,
-        availableSheets: action.response.sheets,
-        selectedSheets: [],
-        sheets: {},
-        step: "sheet",
-      };
-    }
+    case "UPLOAD_INIT_SUCCESS":
+      return reduceUploadInit(state, action.response);
     case "TOGGLE_SELECTED_SHEET": {
       const present = state.selectedSheets.includes(action.sheet);
       const selectedSheets = present
@@ -190,18 +352,9 @@ export function wizardReducer(
     case "PARSE_SHEET_START":
       return setSheet(state, action.sheet, { status: "parsing" });
     case "PARSE_SHEET_SUCCESS":
-      // R19 Q2: a successful (re-)parse resets column overrides and
-      // excluded columns for the sheet. Idempotent on first parse;
-      // bites on Excel re-parse after the user adjusted options.
-      return setSheet(state, action.sheet, {
-        status: "ok",
-        columns: action.result.columns,
-        rowCount: action.result.rowCount,
-        sampleRows: action.result.sampleRows,
-        parseError: undefined,
-        columnOverrides: {},
-        excludedColumns: [],
-      });
+      // Create wipes overrides (R19 Q2); refresh replays the preset once
+      // (R145 — the seeding parse survives the wipe). See reduceParseSuccess.
+      return reduceParseSuccess(state, action);
     case "PARSE_SHEET_FAILED":
       return setSheet(state, action.sheet, {
         status: "failed",
@@ -237,6 +390,10 @@ export function wizardReducer(
       });
     case "SET_DATASET_NAME":
       return setSheet(state, action.sheet, { name: action.name });
+    case "SEED_REFRESH":
+      return reduceSeedRefresh(action.target, action.settings);
+    case "SET_DRIFT_ACK":
+      return { ...state, driftAcknowledged: action.acknowledged };
     case "GOTO_STEP":
       return { ...state, step: action.step };
     case "RESET":
@@ -244,37 +401,62 @@ export function wizardReducer(
   }
 }
 
-/** Total step count for the stepper, by source format. */
-export function stepCount(format: SourceFormat): number {
-  return format === "csv" ? 4 : 5;
+/** The wizard's step sequence for a given mode + source format. The active
+ *  step's index is `steps.indexOf(state.step)` — mode-aware (refresh inserts
+ *  a Drift-review step before Confirm; R145). Single source of truth for both
+ *  the stepper and Back/Next navigation. */
+export function wizardSteps(state: WizardState): WizardStep[] {
+  const isCsv = state.sourceFormat === "csv";
+  const base: WizardStep[] = isCsv
+    ? ["source", "metadata", "preview"]
+    : ["source", "sheet", "metadata", "preview"];
+  if (state.mode === "refresh") base.push("drift");
+  base.push("confirm");
+  return base;
 }
 
-/** Numeric step index (1-based) for the active step, by source format. */
+/** 1-based index of the active step within its sequence (0 if not present).
+ *  Thin wrapper over {@link wizardSteps} — mode + source aware. */
 export function stepIndex(state: WizardState): number {
-  if (state.sourceFormat === "csv") {
-    switch (state.step) {
-      case "source":
-        return 1;
-      case "metadata":
-        return 2;
-      case "preview":
-        return 3;
-      case "confirm":
-        return 4;
-      default:
-        return 1;
+  return wizardSteps(state).indexOf(state.step) + 1;
+}
+
+/** The single sheet a refresh targets (refresh is single-table): the CSV
+ *  sentinel, or the user's selected Excel sheet (pre-seeded to the target's
+ *  committed sheet). */
+export function refreshSheetKey(state: WizardState): string {
+  if (state.sourceFormat === "csv") return CSV_SHEET_KEY;
+  return state.selectedSheets[0] ?? state.refreshTargetSheet ?? "";
+}
+
+export type SchemaDrift = {
+  added: Column[];
+  removed: Column[];
+  dtypeChanged: { name: string; from: Dtype; to: Dtype }[];
+};
+
+/** F10 drift diff — the incoming file's parsed columns vs the target's
+ *  committed columns, by name. Pure + client-side (F1); the dependent-artifact
+ *  blast-radius is a backend read that lands at C/B (upload.md § Refresh F10). */
+export function computeSchemaDrift(
+  baseline: Column[],
+  incoming: Column[],
+): SchemaDrift {
+  const baseByName = new Map(baseline.map((c) => [c.name, c]));
+  const incByName = new Map(incoming.map((c) => [c.name, c]));
+  const added = incoming.filter((c) => !baseByName.has(c.name));
+  const removed = baseline.filter((c) => !incByName.has(c.name));
+  const dtypeChanged: SchemaDrift["dtypeChanged"] = [];
+  for (const col of baseline) {
+    const inc = incByName.get(col.name);
+    if (inc && inc.dtype !== col.dtype) {
+      dtypeChanged.push({ name: col.name, from: col.dtype, to: inc.dtype });
     }
   }
-  switch (state.step) {
-    case "source":
-      return 1;
-    case "sheet":
-      return 2;
-    case "metadata":
-      return 3;
-    case "preview":
-      return 4;
-    case "confirm":
-      return 5;
-  }
+  return { added, removed, dtypeChanged };
+}
+
+/** True when any drift kind is present (gates the Drift-review acknowledge). */
+export function hasSchemaDrift(d: SchemaDrift): boolean {
+  return d.added.length > 0 || d.removed.length > 0 || d.dtypeChanged.length > 0;
 }

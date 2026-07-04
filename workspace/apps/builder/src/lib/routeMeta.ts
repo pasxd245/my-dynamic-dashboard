@@ -27,6 +27,9 @@ export function useRouteMeta(): RouteMeta {
   if (pathname.startsWith("/dashboards/")) return { title: "Dashboards" };
   if (pathname === "/settings/dashboard") return { title: "Dashboards" };
   if (pathname === "/data-management/datasets/new") return { title: "New dataset" };
+  if (/^\/data-management\/datasets\/[^/]+\/refresh$/.test(pathname)) {
+    return { title: "Refresh dataset" };
+  }
   if (
     pathname === "/data-management/datasets" ||
     pathname.startsWith("/data-management/datasets/")

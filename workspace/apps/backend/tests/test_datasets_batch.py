@@ -100,7 +100,10 @@ def test_unknown_temp_id_returns_404() -> None:
 
 
 @pytest.mark.unit
-def test_target_dataset_id_returns_422() -> None:
+def test_target_dataset_id_unknown_returns_404() -> None:
+    # R145: target_dataset_id graduated from 422-reserved to a real REFRESH
+    # (whole-table replace). An unknown target is now a 404, not the old
+    # "reserved → 422". Full refresh behavior lives in test_datasets_refresh.py.
     with TestClient(app) as client:
         ws = _make_workspace(client)
         temp = _csv_upload(client)
@@ -111,7 +114,7 @@ def test_target_dataset_id_returns_422() -> None:
                 "items": [{"name": "x", "target_dataset_id": "ds_00000001"}],
             },
         )
-    assert resp.status_code == 422
+    assert resp.status_code == 404
 
 
 @pytest.mark.unit

@@ -103,6 +103,8 @@ const appTree = (
                 />
                 <Route path="/data-management/datasets" element={<DatasetsPage />} />
                 <Route path="/data-management/datasets/new" element={<DatasetNewPage />} />
+                {/* R145 — refresh mode reuses DatasetNewPage against an existing dataset. */}
+                <Route path="/data-management/datasets/:id/refresh" element={<DatasetNewPage />} />
                 <Route path="/data-management/datasets/:id" element={<DatasetDetailPage />} />
                 <Route path="/data-management/queries" element={<QueriesPage />} />
                 <Route path="/data-management/queries/new" element={<QueryCreatePage />} />

@@ -11,6 +11,7 @@ import type {
   FilterSet,
   ParseSheetsRequest,
   ParseSheetsResponse,
+  RefreshSettings,
   RowsPage,
   TempUploadResponse,
 } from './types';
@@ -35,6 +36,17 @@ export function useDatasetQuery(id: string | undefined) {
   return useQuery<Dataset>({
     queryKey: [...DATASETS_QUERY_KEY, { id }] as const,
     queryFn: () => datasetsApi.get(id as string),
+    enabled: typeof id === 'string',
+  });
+}
+
+/** R145: GET /datasets/{id}/refresh-settings — the carry-forward snapshot the
+ *  refresh wizard seeds its preset from. Own cache key so it isn't disturbed
+ *  by unrelated dataset mutations. */
+export function useRefreshSettingsQuery(id: string | undefined) {
+  return useQuery<RefreshSettings>({
+    queryKey: [...DATASETS_QUERY_KEY, { id }, 'refresh-settings'] as const,
+    queryFn: () => datasetsApi.getRefreshSettings(id as string),
     enabled: typeof id === 'string',
   });
 }

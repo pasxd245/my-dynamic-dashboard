@@ -348,7 +348,8 @@
         "dangling_operator": "Query ends with AND/OR — expected another predicate",
         "unterminated_quote": "Unterminated quoted value"
       }
-    }
+    },
+    "refresh": "Refresh"
   },
   "upload": {
     "title": "New dataset",
@@ -359,7 +360,8 @@
       "sheet": "Sheet",
       "metadata": "Metadata",
       "preview": "Preview",
-      "confirm": "Confirm"
+      "confirm": "Confirm",
+      "drift": "Drift"
     },
     "source": {
       "heading": "Data source",
@@ -463,6 +465,34 @@
       "dtypeHint": "Dtypes reflect your overrides from the Metadata step. Use Back to revise.",
       "showing_one": "Showing {{shown}} of {{total}} row · {{cols}} columns (scroll horizontally for more)",
       "showing_other": "Showing {{shown}} of {{total}} rows · {{cols}} columns (scroll horizontally for more)"
+    },
+    "refresh": {
+      "crumb": "Refresh",
+      "title": "Refresh dataset",
+      "subtitle": "Re-upload a new export into “{{name}}”.",
+      "commitLabel": "Refresh dataset",
+      "sourceBannerTitle": "Refreshing “{{name}}”",
+      "sourceBannerBody": "Pick the new export file. The workspace, source type, and your previous column settings are carried forward.",
+      "sheetNote": "Refresh targets the original sheet “{{sheet}}” — pre-selected.",
+      "confirmReplaceTitle": "This replaces all data in “{{name}}”",
+      "confirmReplaceBody": "Refresh does a whole-table replace — the previous rows are overwritten (no version history). The dataset keeps its name and id, so queries and dashboards built on it stay connected.",
+      "legacyNote": "Some settings couldn’t be restored from an older upload — please re-check the column types and format before continuing."
+    },
+    "drift": {
+      "noneTitle": "No schema drift",
+      "noneBody": "The new file’s columns match the current dataset. Nothing downstream is affected.",
+      "title": "Schema changes detected",
+      "subtitle": "The new file’s columns differ from the current dataset. Review the changes below, then acknowledge to continue — a refresh never silently absorbs drift.",
+      "removedTitle": "Removed columns ({{count}})",
+      "removedHint": "Present before, missing now — dependent queries or relationships that use these may go stale.",
+      "dtypeChangedTitle": "Type changes ({{count}})",
+      "dtypeChangedHint": "Same column, different detected type in the new file.",
+      "dtypeArrow": "{{from}} → {{to}}",
+      "addedTitle": "New columns ({{count}})",
+      "addedHint": "Present in the new file, not in the current dataset.",
+      "blastRadiusTitle": "Dependent artifacts",
+      "blastRadiusStub": "A preview of the queries and relationships that reference the removed / changed columns lands with the backend read (later this round). Until then, dependents are flagged automatically the next time they’re opened.",
+      "acknowledge": "I understand these schema changes and want to continue."
     }
   },
   "rename": {

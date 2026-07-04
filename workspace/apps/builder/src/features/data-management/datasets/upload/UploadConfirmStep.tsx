@@ -171,8 +171,20 @@ export function UploadConfirmStep({ state, dispatch, commitError }: Props) {
     },
   ];
 
+  const isRefresh = state.mode === 'refresh';
+
   return (
     <div data-component="UploadConfirmStep">
+      {isRefresh ? (
+        <Alert
+          type="warning"
+          showIcon
+          title={t('upload.refresh.confirmReplaceTitle', { name: state.refreshTargetName ?? '' })}
+          description={t('upload.refresh.confirmReplaceBody')}
+          style={{ marginBottom: 12 }}
+          data-component="RefreshConfirmNote"
+        />
+      ) : null}
       <div
         style={{
           marginBottom: 12,

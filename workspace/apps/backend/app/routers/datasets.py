@@ -33,7 +33,6 @@ from app.ingest.csv_parser import parse_csv
 from app.ingest.excel_parser import parse_sheet
 from app.ingest.filters import parse_advanced_from_query, parse_filters_from_query
 from app.ingest.parquet_writer import (
-    COERCIBLE_DTYPES,
     CoercionError,
     FormatUnsupportedError,
     translate_format,
@@ -182,6 +181,235 @@ def _apply_exclusions(columns: list[dict[str, str]], excluded: list[str] | None)
     return kept
 
 
+def _parse_and_target(item: _BatchItem, source_format: str, original_path: Path):  # type: ignore[no-untyped-def]
+    """Parse one item's source, apply overrides + exclusions, and derive the
+    parquet writer's coercion targets. Shared by the create and refresh paths
+    so both enforce the R143/R144 dtype contract identically. Returns
+    ``(parsed, cols, opts, kept_names, dtype_targets, dtype_formats)``."""
+    opts = item.parse_options or ParseOptions()
+    if source_format == "csv":
+        parsed = parse_csv(
+            original_path,
+            skip_rows=0 if opts.skip_rows is None else opts.skip_rows,
+            has_header=True if opts.has_header is None else opts.has_header,
+        )
+    else:
+        parsed = parse_sheet(
+            original_path,
+            item.sheet or "",
+            range_=opts.range,
+            has_header=True if opts.has_header is None else opts.has_header,
+        )
+    cols = _apply_overrides(parsed.columns, item.column_overrides)
+    cols = _apply_exclusions(cols, item.excluded_columns)
+    kept_names = [c["name"] for c in cols]
+    kept = set(kept_names)
+    # Every kept column's committed dtype is a coercion target (R143 build
+    # deviation, made canonical). The former `if dtype in COERCIBLE_DTYPES`
+    # guard was vestigial once R144 made all six dtypes coercible — pruned
+    # (R145, per the carried R144 prune-check).
+    dtype_targets = {c["name"]: c["dtype"] for c in cols}
+    dtype_formats = {
+        name: translate_format(ov.format, dtype=ov.dtype)
+        for name, ov in (item.column_overrides or {}).items()
+        if name in kept and ov.dtype in ("date", "datetime") and ov.format
+    }
+    return parsed, cols, opts, kept_names, dtype_targets, dtype_formats
+
+
+def _write_parquet(  # type: ignore[no-untyped-def]
+    source_format: str,
+    original_path: Path,
+    parquet_target: Path,
+    *,
+    opts: ParseOptions,
+    kept_names: list[str],
+    dtype_targets: dict[str, str],
+    dtype_formats: dict[str, str],
+    sheet: str | None,
+) -> None:
+    """Write the full coerced table to parquet. Raises CoercionError on an
+    uncastable cell (→ typed 422 by the callers). Shared by create + refresh."""
+    if source_format == "csv":
+        write_csv_to_parquet(
+            original_path,
+            parquet_target,
+            skip_rows=0 if opts.skip_rows is None else opts.skip_rows,
+            has_header=True if opts.has_header is None else opts.has_header,
+            kept_columns=kept_names,
+            dtype_targets=dtype_targets or None,
+            dtype_formats=dtype_formats or None,
+        )
+    else:
+        write_excel_to_parquet(
+            original_path,
+            parquet_target,
+            sheet=sheet or "",
+            range_=opts.range,
+            has_header=True if opts.has_header is None else opts.has_header,
+            kept_columns=kept_names,
+            dtype_targets=dtype_targets or None,
+            dtype_formats=dtype_formats or None,
+        )
+
+
+def _commit_settings_dict(item: _BatchItem, sheet_name: str | None) -> dict:
+    """The carry-forward snapshot persisted in source.json (R145 F9) — exactly
+    what a future refresh wizard pre-fills. Stores the USER's overrides
+    (Java-token formats intact), re-translated at the next commit. Mirrors a
+    commit item's settings shape so `GET .../refresh-settings` round-trips it."""
+    d: dict = {
+        "parse_options": (item.parse_options or ParseOptions()).model_dump(exclude_none=True),
+        "column_overrides": {
+            name: ov.model_dump(exclude_none=True) for name, ov in (item.column_overrides or {}).items()
+        },
+        "excluded_columns": list(item.excluded_columns or []),
+    }
+    if sheet_name is not None:
+        d["sheet"] = sheet_name
+    return d
+
+
+def _source_json_dict(temp_id: str, source_format: str, sheet: str | None, meta: dict, commit_settings: dict) -> str:
+    return json.dumps(
+        {
+            "temp_id": temp_id,
+            "sourceFormat": source_format,
+            "sheet": sheet,
+            "originalName": meta.get("originalName"),
+            "commitSettings": commit_settings,
+        },
+        ensure_ascii=False,
+    )
+
+
+def _load_source_json(workspace_id: str, ds_id: str) -> dict | None:
+    p = dataset_dir(workspace_id, ds_id) / "source.json"
+    if not p.exists():
+        return None
+    try:
+        return json.loads(p.read_text())
+    except (OSError, json.JSONDecodeError):
+        return None
+
+
+def _handle_refresh(
+    body: _BatchRequest, meta: dict, original_path: Path, source_format: str
+) -> list[Dataset] | JSONResponse:
+    """R145 § Refresh — whole-table REPLACE of an existing dataset.
+
+    The dataset's ``id`` is kept (dependent queries/relationships survive); the
+    parquet, original file, columns_json, counts and commitSettings are
+    atomically swapped. Coercion is validated on a STAGING copy before any swap,
+    so a coercion failure leaves the existing dataset fully intact (acceptance
+    #4). A directory-level rename (old → .bak, staging → live) keeps the swap
+    atomic; any failure during the DB update restores the old directory.
+    """
+    if len(body.items) != 1:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="a refresh commits exactly one dataset (target_dataset_id)",
+        )
+    item = body.items[0]
+    target_id = item.target_dataset_id
+    with get_conn() as con:
+        row = con.execute("SELECT * FROM datasets WHERE id = ?", (target_id,)).fetchone()
+    if row is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="workspace or temp_id not found")
+    ws_id = row["workspace_id"]
+    if source_format == "excel" and item.sheet is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="excel commits require a sheet per item",
+        )
+    if row["source_format"] != source_format:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="refresh source format must match the existing dataset",
+        )
+
+    parsed, cols, opts, kept_names, dtype_targets, dtype_formats = _parse_and_target(
+        item, source_format, original_path
+    )
+    sheet_name = item.sheet if source_format == "excel" else None
+
+    ds_dir = dataset_dir(ws_id, target_id)
+    staging_dir = ds_dir.parent / f"{target_id}.staging"
+    bak_dir = ds_dir.parent / f"{target_id}.bak"
+    if staging_dir.exists():
+        shutil.rmtree(staging_dir, ignore_errors=True)
+    staging_dir.mkdir(parents=True, exist_ok=True)
+
+    # Coercion is validated HERE, on the staging copy, BEFORE any swap → the
+    # existing dataset is untouched on failure (acceptance #4).
+    try:
+        _write_parquet(
+            source_format,
+            original_path,
+            staging_dir / "parsed.parquet",
+            opts=opts,
+            kept_names=kept_names,
+            dtype_targets=dtype_targets,
+            dtype_formats=dtype_formats,
+            sheet=sheet_name,
+        )
+    except CoercionError as err:
+        shutil.rmtree(staging_dir, ignore_errors=True)
+        logger.warning(
+            "coercion_failed (refresh): dataset=%r column=%r dtype=%s total_failed=%d first_cell=(row %d, %r)",
+            target_id,
+            err.column,
+            err.dtype,
+            err.total_failed,
+            err.cells[0][0],
+            err.cells[0][1],
+        )
+        return JSONResponse(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            content=ApiErrorCoercionFailed(
+                sheet=sheet_name,
+                column=err.column,
+                dtype=err.dtype,  # type: ignore[arg-type]
+                cells=[CoercionFailedCell(row=r, value=v) for r, v in err.cells],
+                totalFailed=err.total_failed,
+            ).model_dump(exclude_none=True),
+        )
+    shutil.copy2(original_path, staging_dir / f"original{meta['ext']}")
+    commit_settings = _commit_settings_dict(item, sheet_name)
+    (staging_dir / "source.json").write_text(
+        _source_json_dict(body.temp_id, source_format, sheet_name, meta, commit_settings)
+    )
+
+    columns_json = json.dumps(cols, ensure_ascii=False)
+    new_size = original_path.stat().st_size
+
+    # Atomic swap: old dir → .bak, staging → live, then UPDATE the row. Any
+    # failure restores the old directory so the dataset is never left broken.
+    if bak_dir.exists():
+        shutil.rmtree(bak_dir, ignore_errors=True)
+    ds_dir.replace(bak_dir)
+    try:
+        staging_dir.replace(ds_dir)
+        with get_conn() as con:
+            con.execute("BEGIN")
+            con.execute(
+                "UPDATE datasets SET row_count=?, column_count=?, columns_json=?, "
+                "size_bytes=?, sheet_name=? WHERE id=?",
+                (parsed.row_count, len(cols), columns_json, new_size, sheet_name, target_id),
+            )
+            con.commit()
+    except Exception:
+        shutil.rmtree(ds_dir, ignore_errors=True)
+        bak_dir.replace(ds_dir)
+        shutil.rmtree(staging_dir, ignore_errors=True)
+        raise
+    shutil.rmtree(bak_dir, ignore_errors=True)
+
+    with get_conn() as con:
+        updated = con.execute("SELECT * FROM datasets WHERE id = ?", (target_id,)).fetchone()
+    return [_dataset_from_row(updated)]
+
+
 @router.post(
     "/workspaces/{id}/datasets/batch",
     status_code=status.HTTP_201_CREATED,
@@ -205,51 +433,36 @@ def commit_datasets_batch(id: str, body: _BatchRequest) -> list[Dataset] | JSONR
 
     source_format = meta["sourceFormat"]
 
+    # R145 — any item carrying target_dataset_id is a REFRESH (whole-table
+    # replace of an existing dataset). Route the whole batch to the refresh
+    # handler, which enforces single-item + atomic in-place swap.
+    if any(it.target_dataset_id is not None for it in body.items):
+        return _handle_refresh(body, meta, original_path, source_format)
+
     # Validate items up front. Any failure rejects the whole batch.
     for item in body.items:
-        if item.target_dataset_id is not None:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="target_dataset_id is reserved for append-mode (R∞)",
-            )
         if source_format == "excel" and item.sheet is None:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail="excel commits require a sheet per item",
             )
-        if item.excluded_columns is not None and not item.excluded_columns:
-            # Explicit empty list is fine; it's "exclude nothing".
-            pass
 
     # Parse + validate each item. Build the dataset rows in memory first.
     # Staged carries (Dataset, ParseOptions, kept_column_names, dtype_targets,
     # dtype_formats) (R143 — formatless overrides applied at the write; R144 —
     # date/datetime too, via the translated format) — enough for the parquet
     # writer to re-read the source and persist the full table.
-    staged: list[tuple[Dataset, ParseOptions, list[str], dict[str, str], dict[str, str]]] = []
+    staged: list[tuple[Dataset, ParseOptions, list[str], dict[str, str], dict[str, str], dict]] = []
     for item in body.items:
-        opts = item.parse_options or ParseOptions()
-        if source_format == "csv":
-            parsed = parse_csv(
-                original_path,
-                skip_rows=0 if opts.skip_rows is None else opts.skip_rows,
-                has_header=True if opts.has_header is None else opts.has_header,
-            )
-        else:
-            parsed = parse_sheet(
-                original_path,
-                item.sheet or "",
-                range_=opts.range,
-                has_header=True if opts.has_header is None else opts.has_header,
-            )
-
-        cols = _apply_overrides(parsed.columns, item.column_overrides)
-        cols = _apply_exclusions(cols, item.excluded_columns)
-
-        ds_id = _new_ds_id()
-        created_at = _now_iso()
+        # R143/R144 — the parquet write ENFORCES every kept column's committed
+        # dtype (parser-inferred or overridden) via _parse_and_target's
+        # dtype_targets/dtype_formats, so `parsed.parquet` can never contradict
+        # `columns_json` (shared with the refresh path).
+        parsed, cols, opts, kept_names, dtype_targets, dtype_formats = _parse_and_target(
+            item, source_format, original_path
+        )
         ds = Dataset(
-            id=ds_id,
+            id=_new_ds_id(),
             workspaceId=id,
             name=item.name,
             sizeBytes=original_path.stat().st_size,
@@ -258,58 +471,32 @@ def commit_datasets_batch(id: str, body: _BatchRequest) -> list[Dataset] | JSONR
             columns=[Column(**c) for c in cols],
             sourceFormat=source_format,
             sheetName=item.sheet if source_format == "excel" else None,
-            createdAt=created_at,
+            createdAt=_now_iso(),
         )
-
-        kept_names = [c["name"] for c in cols]
-        # R143/R144 — the parquet write ENFORCES every kept column's committed
-        # dtype (parser-inferred or overridden), so `parsed.parquet` can never
-        # contradict `columns_json`. date/datetime overrides additionally carry
-        # their TRANSLATED strptime format (validated above, upload.md §Date
-        # and datetime coercion); a parser-inferred temporal column has no
-        # format and conforms physically.
-        dtype_targets = {c["name"]: c["dtype"] for c in cols if c["dtype"] in COERCIBLE_DTYPES}
-        kept = set(kept_names)
-        dtype_formats = {
-            name: translate_format(ov.format, dtype=ov.dtype)
-            for name, ov in (item.column_overrides or {}).items()
-            if name in kept and ov.dtype in ("date", "datetime") and ov.format
-        }
-        staged.append((ds, opts, kept_names, dtype_targets, dtype_formats))
+        commit_settings = _commit_settings_dict(item, ds.sheetName)
+        staged.append((ds, opts, kept_names, dtype_targets, dtype_formats, commit_settings))
 
     # Write filesystem trees, then commit DB. Roll back files on DB failure.
     created_dirs: list[Path] = []
     try:
-        for ds, opts, kept_names, dtype_targets, dtype_formats in staged:
+        for ds, opts, kept_names, dtype_targets, dtype_formats, commit_settings in staged:
             target = dataset_dir(ds.workspaceId, ds.id)
             target.mkdir(parents=True, exist_ok=True)
             created_dirs.append(target)
             shutil.copy2(original_path, target / f"original{meta['ext']}")
             # R35: write the FULL table (not the wizard's 10-row sample)
             # so GET /datasets/{id}/rows can serve real data.
-            parquet_target = target / "parsed.parquet"
             try:
-                if source_format == "csv":
-                    write_csv_to_parquet(
-                        original_path,
-                        parquet_target,
-                        skip_rows=0 if opts.skip_rows is None else opts.skip_rows,
-                        has_header=True if opts.has_header is None else opts.has_header,
-                        kept_columns=kept_names,
-                        dtype_targets=dtype_targets or None,
-                        dtype_formats=dtype_formats or None,
-                    )
-                else:
-                    write_excel_to_parquet(
-                        original_path,
-                        parquet_target,
-                        sheet=ds.sheetName or "",
-                        range_=opts.range,
-                        has_header=True if opts.has_header is None else opts.has_header,
-                        kept_columns=kept_names,
-                        dtype_targets=dtype_targets or None,
-                        dtype_formats=dtype_formats or None,
-                    )
+                _write_parquet(
+                    source_format,
+                    original_path,
+                    target / "parsed.parquet",
+                    opts=opts,
+                    kept_names=kept_names,
+                    dtype_targets=dtype_targets,
+                    dtype_formats=dtype_formats,
+                    sheet=ds.sheetName,
+                )
             except CoercionError as err:
                 # R143 — typed 422 instead of the pre-R143 ArrowInvalid 500.
                 # The whole batch aborts; nothing half-commits.
@@ -337,20 +524,12 @@ def commit_datasets_batch(id: str, body: _BatchRequest) -> list[Dataset] | JSONR
                     ).model_dump(exclude_none=True),
                 )
             (target / "source.json").write_text(
-                json.dumps(
-                    {
-                        "temp_id": body.temp_id,
-                        "sourceFormat": source_format,
-                        "sheet": ds.sheetName,
-                        "originalName": meta.get("originalName"),
-                    },
-                    ensure_ascii=False,
-                )
+                _source_json_dict(body.temp_id, source_format, ds.sheetName, meta, commit_settings)
             )
 
         with get_conn() as con:
             con.execute("BEGIN")
-            for ds, _opts, _kept, _targets, _formats in staged:
+            for ds, _opts, _kept, _targets, _formats, _cs in staged:
                 con.execute(
                     """INSERT INTO datasets (
                         id, workspace_id, name, size_bytes, row_count,
@@ -388,7 +567,7 @@ def commit_datasets_batch(id: str, body: _BatchRequest) -> list[Dataset] | JSONR
             shutil.rmtree(d, ignore_errors=True)
         raise
 
-    return [ds for ds, _opts, _kept, _targets, _formats in staged]
+    return [ds for ds, _opts, _kept, _targets, _formats, _cs in staged]
 
 
 @router.patch("/datasets/{id}")
@@ -508,6 +687,24 @@ def get_dataset(id: DsIdPath) -> JSONResponse:  # noqa: A002
         return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=ApiErrorNotFound().model_dump())
     ds = _dataset_from_row(row)
     return JSONResponse(status_code=status.HTTP_200_OK, content=ds.model_dump(exclude_none=True))
+
+
+@router.get("/datasets/{id}/refresh-settings")
+def get_dataset_refresh_settings(id: DsIdPath) -> JSONResponse:  # noqa: A002
+    """R145 § Refresh (F9) — the carry-forward settings a refresh wizard
+    pre-fills from. Reads the `commitSettings` snapshot the last commit
+    persisted in source.json. `available: false` for pre-R145 datasets (no
+    snapshot) → the wizard uses its lossy fallback. Kept off the hot
+    detail-get path."""
+    with get_conn() as con:
+        row = con.execute("SELECT id, workspace_id FROM datasets WHERE id = ?", (id,)).fetchone()
+    if row is None:
+        return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=ApiErrorNotFound().model_dump())
+    src = _load_source_json(row["workspace_id"], id)
+    settings = (src or {}).get("commitSettings")
+    if not settings:
+        return JSONResponse(status_code=status.HTTP_200_OK, content={"available": False})
+    return JSONResponse(status_code=status.HTTP_200_OK, content={"available": True, **settings})
 
 
 _PAGE_SIZE_ALLOWED = PAGE_SIZES  # R72 — centralized (values.yaml → constants)

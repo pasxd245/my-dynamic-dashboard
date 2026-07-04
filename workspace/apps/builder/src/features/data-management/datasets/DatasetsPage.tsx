@@ -6,6 +6,7 @@ import {
   InboxOutlined,
   MoreOutlined,
   PlusOutlined,
+  ReloadOutlined,
   SearchOutlined,
   TableOutlined,
 } from '@ant-design/icons';
@@ -56,6 +57,9 @@ export function DatasetsPage() {
     deleteMutation.reset();
     setModalState({ kind: 'delete', target: ds });
   };
+  // R145 § Refresh — re-upload a new export into this dataset (wizard in
+  // refresh mode; whole-table replace).
+  const onRefresh = (ds: Dataset) => navigate(`/data-management/datasets/${ds.id}/refresh`);
   const closeModal = () => {
     if (renameMutation.isPending || deleteMutation.isPending) return;
     setModalState({ kind: 'idle' });
@@ -159,6 +163,7 @@ export function DatasetsPage() {
         onWorkspaceClick={(id) => setSearchParams({ workspace: id })}
         onRename={onRename}
         onDelete={onDelete}
+        onRefresh={onRefresh}
         onRowClick={(ds) => navigate(`/data-management/datasets/${ds.id}`)}
       />
     );
@@ -278,11 +283,13 @@ type TableProps = Readonly<{
   onWorkspaceClick: (id: string) => void;
   onRename: (ds: Dataset) => void;
   onDelete: (ds: Dataset) => void;
+  /** R145: re-upload into this dataset (refresh mode). */
+  onRefresh: (ds: Dataset) => void;
   /** R36: row click opens the dataset detail page. */
   onRowClick: (ds: Dataset) => void;
 }>;
 
-function DatasetTable({ rows, workspaceById, onWorkspaceClick, onRename, onDelete, onRowClick }: TableProps) {
+function DatasetTable({ rows, workspaceById, onWorkspaceClick, onRename, onDelete, onRefresh, onRowClick }: TableProps) {
   const { t } = useTranslation();
   const data = rows.map((r) => ({ ...r, key: r.id }));
   return (
@@ -376,6 +383,15 @@ function DatasetTable({ rows, workspaceById, onWorkspaceClick, onRename, onDelet
             <Dropdown
               menu={{
                 items: [
+                  {
+                    key: 'refresh',
+                    icon: <ReloadOutlined />,
+                    label: t('datasets.refresh'),
+                    onClick: ({ domEvent }) => {
+                      domEvent.stopPropagation();
+                      onRefresh(row);
+                    },
+                  },
                   {
                     key: 'rename',
                     icon: <EditOutlined />,

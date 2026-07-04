@@ -83,11 +83,17 @@ paths:
                         type: string
                         pattern: '^ds_[0-9a-f]{8}$'
                         description: |
-                          Reserved for append-mode (R∞). When set, `name` is
-                          ignored and the item appends to the named dataset
-                          instead of creating a new one. R16+ does not
-                          implement this; the field is parsed but rejected
-                          with 422 until append-mode lands.
+                          R145 REFRESH mode. When set, the item performs a
+                          whole-table REPLACE of the named existing dataset
+                          (same id kept, so dependent queries/relationships
+                          survive) instead of creating a new one — the parquet,
+                          original file, columns_json, counts and commitSettings
+                          are atomically swapped; the dataset is left intact if
+                          the refresh fails (e.g. coercion_failed). `name` is
+                          IGNORED (the target keeps its committed name). A
+                          refresh batch carries exactly one item. Row
+                          merge-on-key / precedence for non-cumulative exports
+                          is a later round (R146); R145 is replace-only.
       responses:
         '201':
           description: |
@@ -102,9 +108,10 @@ paths:
                   $ref: '../_shared/dataset.yaml#/components/schemas/Dataset'
         '404':
           description: |
-            Workspace `id` does not exist, OR `temp_id` is unknown / expired.
-            The response body does not distinguish (deliberately — clients
-            should not branch on which of the two is missing).
+            Workspace `id` does not exist, OR `temp_id` is unknown / expired,
+            OR a refresh item's `target_dataset_id` does not exist. The response
+            body does not distinguish (deliberately — clients should not branch
+            on which is missing).
         '409':
           description: |
             Commit-time conflict. Two body shapes are possible:
@@ -139,8 +146,7 @@ paths:
 
             1. The FastAPI `{ detail: ... }` envelope — request-level
                validation failures. Examples: empty `items` array;
-               `target_dataset_id` set (not yet implemented); empty
-               `excluded_columns` would leave zero columns;
+               empty `excluded_columns` would leave zero columns;
                `column_overrides` value has `dtype: date|datetime`
                without a `format` field.
             2. The code-first envelope `{ code: "coercion_failed", … }`

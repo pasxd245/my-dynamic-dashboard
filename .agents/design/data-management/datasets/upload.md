@@ -900,6 +900,239 @@ timezone tokens are outside the subset (rejected loudly like any other).
 
 ---
 
+## Refresh: re-upload into an existing Dataset (R145)
+
+_⑥ refresh theme, slice 1 — F9 (settings carry-forward) + F10 (schema-drift gate)._
+
+> **Status: SIGNED OFF (human, 2026-07-04) — R145 D-gate.** Drift-severity = warn-loud-never-block
+> and the header-skip rider deferral are the human's domain calls; carry-forward home
+> (`commitSettings` on `source.json`, no migration) is the agent build-home call, accepted.
+> Graduates the R14-deferred
+> "Append / update an existing Dataset" bullet (§Read/write boundary) from `R∞` to shipped,
+> in its first slice. Pulled by [Round_144](../../../plan/cycles/Round_144.md) Feeds-into +
+> the signed-off ⑥ ranking in
+> [2026-07-03-r142-dogfood-findings](../../../plan/brainstorms/2026-07-03-r142-dogfood-findings.md)
+> (rank 3, month-2 blocker) + R144 Act learning #4 — the F9 pain was **lived, not predicted**
+> (the human re-uploaded the FM family four times in one session, re-choosing sheet, dtype
+> overrides, and format each time).
+
+### Concept
+
+A **Refresh** brings a *new export of the same source* into an **existing** Dataset instead
+of creating a sibling. The real CRM cadence: every month a fresh call-log / lead export
+lands, and it should update `monthly_calls` in place — not spawn a 12th near-duplicate row.
+
+R145 ships **whole-table replace** semantics: the new file's parsed table **replaces** the
+dataset's contents (original + parquet + `columns_json` + counts), forward-only (no version
+history). This is the lived case — the FM exports are **cumulative** (FM2.25 carried 6,692
+rows that supersede the earlier 5,047-row commit), so replace is correct and sufficient.
+
+> **Not this round (revert seam, R146):** row **merge-on-key / precedence** (F5+F6) for
+> *overlapping, non-cumulative* re-exports (identity key + precedence are domain decisions).
+> Replace can't dedup overlapping partial exports; that wall pulls the merge round next. If
+> R145's build discovers replace can't serve the real refresh cadence, **stop and re-rank**
+> rather than absorbing merge.
+
+### Entry point — a mode of the wizard, not a new surface
+
+Per the noun-vs-mode discipline
+([specious-model-lock-in](../../../memory/2026-06-13-specious-model-lock-in.md)): **reuse the
+upload wizard in a refresh mode**, do not build a parallel "refresh page." Refresh is the
+same verb (file → parsed table) against a *known target*.
+
+- **Affordance**: a **Refresh** action on the Dataset row (Actions column, beside
+  rename/delete) and on the dataset-detail header. See
+  [datasets.md § Refresh affordance](datasets.md#refresh-affordance-r145).
+- **Route**: `/data-management/datasets/:id/refresh` — the **same `DatasetNewPage`
+  component** in refresh mode (a `targetDatasetId` prop / route param), NOT a duplicated
+  page. The wizard's create-mode state machine
+  ([§ Wizard state machine](#wizard-state-machine)) is **reused unchanged**; refresh only
+  (a) **seeds** the reducer with a carry-forward preset, (b) fixes the workspace + target
+  (Source step's workspace picker is read-only, pre-set to the dataset's workspace), and
+  (c) has `commit` populate `target_dataset_id`.
+
+> **Strict on the skeleton (round risk):** the refresh preset must **not** fork the reducer
+> into two half-duplicated flows. Known hazard — `PARSE_SHEET_SUCCESS` and
+> `SET_PARSE_OPTIONS` currently **wipe** `columnOverrides` / `excludedColumns` on any
+> re-parse ([upload/state.ts](../../../../workspace/apps/builder/src/features/data-management/datasets/upload/state.ts)).
+> A refresh seeds those from carry-forward; the first parse must **replay the preset**, not
+> discard it. The build must preserve the preset across the initial parse (the design decision:
+> carry-forward is applied *after* the seeding parse, keyed by column name — columns that
+> still exist keep their override; columns that vanished drop theirs silently, columns that
+> appeared start at their inferred dtype).
+
+### F9 — settings carry-forward (where the state comes from)
+
+**Problem**: committed datasets are **lossy** — `source.json` holds only
+`{temp_id, sourceFormat, sheet, originalName}` and `columns_json` holds only `{name, dtype}`
+per column. **Parse options** (`range` / `skip_rows` / `has_header`), the **date/datetime
+`format`** string, the **exclusion** list, and pre-override dtypes are all *discarded* after
+commit (they survive only as their effect on the parquet). So the two things the R144 human
+re-typed most — **dtype/format overrides and parse options** — cannot be re-derived from
+what's stored.
+
+**Decision — persist a commit-settings snapshot (no migration).** At **every** commit
+(create *and* refresh), extend the per-dataset `source.json` with a `commitSettings` block
+capturing exactly what a future refresh needs to pre-fill:
+
+```jsonc
+// data/datasets/<ws>/<ds>/source.json  (R145 extends)
+{
+  "temp_id": "…", "sourceFormat": "excel", "sheet": "Worksheet",
+  "originalName": "FM2.25.xlsx",
+  "commitSettings": {                       // ← new (R145)
+    "parseOptions": { "range": "A1:M6693", "has_header": true },
+    "columnOverrides": {                    // keyed by column name; format preserved
+      "Số gọi": { "dtype": "string" },
+      "Ngày gọi": { "dtype": "datetime", "format": "dd-MM-yyyy HH:mm:ss" }
+    },
+    "excludedColumns": ["Ghi chú nội bộ"]
+  }
+}
+```
+
+- **Why `source.json`, not a DB column**: `source.json` is already written per-dataset at
+  commit; extending it needs **zero Alembic migration** and mirrors the existing sidecar
+  pattern — the least mechanism that works (per the `config-value-home-heuristic` lesson:
+  single-consumer state, no cross-language contract, no query need → local home). The wire
+  `Dataset` shape is **unchanged** — `commitSettings` is server-only refresh fuel, never sent
+  to the list/detail views.
+- **How the wizard reads it**: a dedicated **`GET /datasets/{id}/refresh-settings`** returns
+  the stored `commitSettings` (`{ sheet?, parseOptions, columnOverrides, excludedColumns }`)
+  or `null` for a legacy dataset (→ the lossy fallback below). Kept off the hot `detail-get`
+  path (no shape change / per-read file cost there); the refresh wizard calls it once to seed
+  the carry-forward preset. Empty `commitSettings` for legacy datasets is an honest `null`,
+  not a fabricated snapshot.
+- **Carry-forward scope** (pre-filled into the refresh wizard): **sheet** (source.json) ·
+  **parse options** · **dtype overrides + formats** · **exclusions** (all from
+  `commitSettings`). The user re-picks only the **file**; everything else arrives pre-set and
+  editable.
+- **Legacy datasets** (committed before R145, no `commitSettings`): **lossy-pre-fill
+  fallback** — pre-fill `sheet` + each column's **final committed dtype** as an override
+  (formats unavailable → the user re-enters date/datetime formats). Surfaced honestly with an
+  inline note ("some settings couldn't be restored from an older upload"). The snapshot is
+  written on that dataset's *next* refresh, so the gap self-heals forward.
+
+### F10: schema-drift gate (surface loudly, never silently absorb)
+
+Before the replace commits, the incoming file's parsed columns are compared against the
+target's committed `columns_json`, and drift is surfaced in the wizard. purpose.md #5 —
+version, flag, **adapt**: don't reject normal business drift, don't hide it either.
+
+**Drift kinds** (per column, by name):
+
+| Kind | Meaning | Severity (human decision, R145 D) |
+| ---- | ------- | --------------------------------- |
+| **Added** | in new file, not in committed schema | **warn** — informational (no dependent can reference it yet) |
+| **Removed** | in committed schema, absent from new file | **warn + blast-radius** (see below) |
+| **Dtype-changed** | same name, the carried-forward override no longer fits the new data | **warn** — the coercion path (below) is the hard net |
+| **Renamed** | indistinguishable from removed+added without a heuristic | surfaced as **both** a removal and an addition (no rename inference in slice 1) |
+
+**Severity policy — warn-loud, never block (human decision, R145 D-gate):** all drift is
+surfaced in a dedicated **Drift review** step the user must explicitly acknowledge, then the
+refresh **proceeds**. Nothing about column drift *blocks* the commit. Rationale: the runtime
+`query_stale` / `relationship_stale` machinery already re-computes dependent-artifact validity
+**on read** (it is never stored —
+[relationships.py `_compute_status`](../../../../workspace/apps/backend/app/routers/relationships.py),
+[query_engine.py](../../../../workspace/apps/backend/app/query_engine.py)); a refresh that
+drops/changes a column auto-flips its dependents to stale on their next open. The drift gate's
+job is to **preview that blast radius before the user commits**, not to duplicate or replace
+the runtime net.
+
+**Blast-radius preview** — **split to slice 1b (deferred, R145 Plan decision, 2026-07-04).**
+The ideal is: for **removed** / **dtype-changed** columns, the Drift review step names the
+dependent **queries** and **relationships** that reference those columns ("refreshing will
+break the *Weekly Call Report* query"). That needs a BE read resolving a dataset's dependents
+**by referenced column** — a per-column reference-extraction engine over query
+definitions/predicates/joins. Per the fat-seam below, **R145 (slice 1a) does not build it.**
+The Drift review step instead states plainly that the runtime staleness net re-checks
+dependents on next open (see below); the named blast-radius preview lands in **slice 1b**.
+
+> **Round fat-seam (revert seam) — TAKEN at Plan.** The blast-radius dependents lookup was the
+> round's flagged fat point. Plan decision: **split**. Slice **1a** (R145) ships the drift
+> *columns* surfaced (added / removed / dtype-changed) with the acknowledge gate; the
+> *dependents* preview is slice **1b**. Safe because the runtime `query_stale` /
+> `relationship_stale` machinery (recomputed on read) still catches broken dependents the next
+> time they're opened — nothing goes silently wrong; 1a only lacks the *pre-commit* warning.
+> _Trigger for 1b: dogfood shows refresh-then-discover-broken-query is too costly without the
+> pre-commit preview._
+
+### Refresh semantics — atomic replace, existing dataset intact on failure
+
+The commit endpoint's `target_dataset_id` (already declared, currently **422-reserved** at
+[datasets.py:210-214](../../../../workspace/apps/backend/app/routers/datasets.py)) graduates
+to **real** and, when set on an item, is **mutually exclusive with `name`** (the target keeps
+its name). In refresh mode the commit path **UPDATEs in place** — same `ds_id` — rather than
+minting a new id:
+
+- Re-parse the new file (applying the item's parse options + overrides, same machinery as
+  create), producing the new parquet + `columns_json` + counts + the fresh `commitSettings`.
+- **Stage** the new `original.<ext>` + `parsed.parquet` under temp names in the dataset dir,
+  then **atomically swap** them over the old files and **UPDATE** the DB row
+  (`columns_json`, `row_count`, `column_count`, `size_bytes`; `created_at` unchanged, no
+  `updated_at` field in slice 1) inside one transaction; write the new `source.json` last.
+  Forward-only — the previous parquet is **replaced**, not archived.
+- **Failure leaves the existing dataset fully intact** (R145 Check): a coercion failure or FS
+  error rolls back the staged files and aborts the UPDATE — the old `original` / `parsed` /
+  `columns_json` are untouched. This extends the R143/R144 staged/rollback discipline
+  ([datasets.py](../../../../workspace/apps/backend/app/routers/datasets.py) lines 280-389)
+  from create-INSERT to refresh-UPDATE.
+
+**Coercion on refresh** reuses the existing typed **`coercion_failed` 422** unchanged (a
+carried-forward override that the new data can't satisfy → 422 naming sheet · column · cells;
+zero mutation to the dataset). No new blocking envelope is introduced — **drift is
+informational (FE acknowledge)**, and only coercion (existing) can abort.
+
+### Wire shape (refresh)
+
+The commit request gains no new *item* field — `target_dataset_id` already exists; refresh
+just stops 422-ing it. A refresh batch carries **exactly one item** (a Dataset maps to one
+source table), targeting one dataset:
+
+```ts
+// refresh: target_dataset_id set, name omitted (mutually exclusive)
+{ temp_id, items: [{ target_dataset_id, sheet?, parse_options?, column_overrides?, excluded_columns? }] }
+```
+
+- 201 → the updated `Dataset` (same `id`). 404 if the target dataset is missing. 422
+  `coercion_failed` (unchanged) on an uncoercible cell — dataset untouched. `name` +
+  `target_dataset_id` both set → 422 (mutually exclusive).
+- **Drift report** is served by the preview read (`GET /datasets/:id/dependents` +
+  client-side column diff, or a dedicated drift-preview response), **not** the commit — the
+  wizard shows it *before* Confirm. Shape: `{ added: string[], removed: [{name, dependents}],
+  dtypeChanged: [{name, from, to, dependents}] }`.
+
+### Boundaries (named)
+
+- **Replace only** — merge-on-key / precedence (F5+F6) is R146 (revert seam above).
+- **Forward-only** — no version history / rollback-to-previous-parquet in slice 1.
+- **One dataset per refresh** — a refresh batch is length 1 (multi-dataset refresh has no
+  lived pull; the create path stays multi-item for Excel multi-sheet).
+- **Header-skip rider deferred (R144 finding #3)** — a "skip rows that exactly repeat the
+  header" parse option (the real FM append-seam) is **not** this round; it defers to the
+  parse-options / UI-batch round with its trigger named (a real file whose append seam
+  repeats the header mid-table). Human decision, R145 D-gate.
+- **No rename inference** — a renamed column reads as removed + added.
+
+### Acceptance (R145, maps to Check)
+
+1. **Carry-forward**: refreshing a dataset committed with overrides + a datetime format
+   pre-fills the wizard with the committed sheet · parse options · dtype overrides + formats ·
+   exclusions (== what was committed); the user re-picks only the file.
+2. **Real FM pair**: refresh the 5,047-row dataset with the 6,692-row FM2.25 export →
+   settings pre-filled, one commit, whole-table replace; the dependent weekly-report query
+   returns the wider range.
+3. **Drift surfaced**: added / removed / dtype-changed columns each appear in the Drift review
+   step; removed / dtype-changed name their dependent queries + relationships (blast-radius);
+   the user acknowledges and the refresh proceeds (never blocked).
+4. **Atomicity**: a refresh whose new data fails coercion → 422 `coercion_failed`, and the
+   existing dataset (original + parquet + columns_json) is **fully intact**.
+5. **Legacy fallback**: refreshing a pre-R145 dataset (no `commitSettings`) pre-fills
+   sheet + final dtypes, notes the un-restorable settings, and writes a fresh snapshot on
+   commit.
+
+---
+
 ## Dataset model implications
 
 The Dataset model gains two fields (see
@@ -1006,19 +1239,14 @@ Datasets reference `workspace_id` via a foreign key.
 - **Column rename** in the Metadata step. R∞ per HIxAI Q16 —
   dtype override only. Rename triggers when a user is blocked by
   an ugly auto-extracted column name.
-- **Append / update an existing Dataset** — R16+ named pull
-  (HIxAI Q14e). Real CRM workflow: upload February's sales export
-  into the existing `monthly_sales` Dataset rather than creating
-  a 12th sibling. **R15 ships create-only**; the commit endpoint's
-  shape is **forward-compatible** for this — a future round adds
-  `target_dataset_id?: string` to each batch item (mutually
-  exclusive with `name`), and the backend handles schema-match
-  validation, conflict resolution, and append vs upsert semantics.
-  Concretely deferred to R16+ because R15's scope is already
-  heavy — persistence, Excel parser, 5-step wizard, multi-sheet,
-  dtype/format overrides, parse options, and column selection —
-  and append-mode is a feature in its own right, not a polish
-  pass. Pulled by: user reference + CRM-export reality.
+- **Append / update an existing Dataset** — **R145 ships the first slice (Refresh, replace
+  semantics)** — see [§ Refresh](#refresh-re-upload-into-an-existing-dataset-r145).
+  R15 shipped create-only with the commit endpoint's shape **forward-compatible**
+  (`target_dataset_id?` per item, mutually exclusive with `name`); R145 graduates that field
+  from 422-reserved to real for whole-table replace + settings carry-forward + a schema-drift
+  gate. **Row merge-on-key / precedence** (overlapping non-cumulative re-exports) remains
+  deferred to R146. Pulled by: user reference + CRM-export reality + the R142 dogfood ⑥
+  ranking.
 - **Draft persistence** (resume wizard after reload). R∞.
 - **Browser back/forward** inside the wizard. R∞.
 - **Optimistic dataset row** during commit. R15+ Plan decides.
@@ -1158,7 +1386,7 @@ This doc:
 | Table range / skip-rows override?      | **Yes** — Excel range + CSV skip-rows in a Parse-options disclosure on Metadata   | R14 HIxAI Q14b (drifted pull, user-directed) |
 | Auto-generate headers when no header?  | **Yes** — has-header toggle; auto-gen names `column1, column2, …` when off        | R14 HIxAI Q14c (drifted pull, user-directed) |
 | Column-selection (Include checkboxes)? | **Yes** — Include column on Metadata table; all-checked default; uncheck to drop  | R14 HIxAI Q14d (user-directed)               |
-| Append / update existing Dataset?      | **Deferred to R16+** — R15 ships create-only; commit endpoint is forward-compat   | R14 HIxAI Q14e (user-directed defer)         |
+| Append / update existing Dataset?      | R15 create-only (forward-compat); **R145 ships Refresh (replace); R146 = merge**  | R14 Q14e defer → R145 D (§ Refresh)          |
 | Column rename in Metadata step?        | No — dtype override only; column rename is R∞                                     | R14 HIxAI Q16 (lean accepted)                |
 | Primary data source?                   | Excel (CRM-export dominant); CSV as secondary                                     | R14 HIxAI Q15 (user-directed)                |
 | Multi-sheet selection per wizard run?  | **Yes** — checkboxes in Sheet step; one Dataset per selected sheet; atomic commit | R14 HIxAI Q17 (user-directed)                |

@@ -3,18 +3,26 @@ import { PageCard, PageContainer, PageHeader } from '@mdd/ui';
 import { Button, Space, Steps } from 'antd';
 import { useEffect, useReducer } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useDatasetsCommitMutation, useUploadParseMutation } from '../hooks';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import {
+  useDatasetQuery,
+  useDatasetsCommitMutation,
+  useRefreshSettingsQuery,
+  useUploadParseMutation,
+} from '../hooks';
 import type { CommitBatchItem } from '../types';
 import {
+  computeSchemaDrift,
   CSV_SHEET_KEY,
   hasParseOptionsSet,
+  hasSchemaDrift,
   INITIAL_WIZARD_STATE,
-  stepIndex,
-  type WizardStep,
+  refreshSheetKey,
   wizardReducer,
+  wizardSteps,
 } from './state';
 import { UploadConfirmStep } from './UploadConfirmStep';
+import { UploadDriftStep } from './UploadDriftStep';
 import { UploadMetadataStep } from './UploadMetadataStep';
 import { UploadPreviewStep } from './UploadPreviewStep';
 import { UploadSheetStep } from './UploadSheetStep';
@@ -24,30 +32,55 @@ export function DatasetNewPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const BREADCRUMB = [
-    { label: t('nav.home'), route: '/' },
-    { label: t('nav.dataManagement') },
-    { label: t('nav.datasets'), route: '/data-management/datasets' },
-    { label: t('nav.new') },
-  ];
+  // Refresh mode: `/data-management/datasets/:id/refresh` re-uploads into an
+  // existing dataset (R145 § Refresh). The wizard is reused as a MODE, not a
+  // parallel page — same reducer, a carry-forward preset, and a Drift step.
+  const { id: refreshId } = useParams<{ id: string }>();
+  const isRefresh = typeof refreshId === 'string';
+  const targetQuery = useDatasetQuery(refreshId);
+  const target = targetQuery.data;
+  const settingsQuery = useRefreshSettingsQuery(refreshId);
+
   const [state, dispatch] = useReducer(wizardReducer, INITIAL_WIZARD_STATE);
   const parseMutation = useUploadParseMutation();
   const commitMutation = useDatasetsCommitMutation();
 
-  // Pre-fill the workspace from `?workspace=<ws_id>` if present.
+  // Seed refresh mode once BOTH the target dataset and its carry-forward
+  // settings have settled (so the preset is the faithful commitSettings, not a
+  // premature lossy fallback). Guard fires exactly once per target.
+  const settingsSettled = settingsQuery.isSuccess || settingsQuery.isError;
+  useEffect(() => {
+    if (isRefresh && target && settingsSettled && state.targetDatasetId !== target.id) {
+      dispatch({ type: 'SEED_REFRESH', target, settings: settingsQuery.data ?? null });
+    }
+  }, [isRefresh, target, settingsSettled, settingsQuery.data, state.targetDatasetId]);
+
+  // Pre-fill the workspace from `?workspace=<ws_id>` (create mode only).
   const workspaceQs = searchParams.get('workspace');
   useEffect(() => {
-    if (workspaceQs && !state.workspaceId) {
+    if (!isRefresh && workspaceQs && !state.workspaceId) {
       dispatch({ type: 'SET_WORKSPACE', workspaceId: workspaceQs });
     }
-  }, [workspaceQs, state.workspaceId]);
+  }, [isRefresh, workspaceQs, state.workspaceId]);
 
-  const stepsByFormat: Record<typeof state.sourceFormat, WizardStep[]> = {
-    csv: ['source', 'metadata', 'preview', 'confirm'],
-    excel: ['source', 'sheet', 'metadata', 'preview', 'confirm'],
-  };
-  const steps = stepsByFormat[state.sourceFormat];
-  const currentIdx = stepIndex(state) - 1;
+  const refreshName = state.refreshTargetName ?? target?.name ?? '';
+  const BREADCRUMB = isRefresh
+    ? [
+        { label: t('nav.home'), route: '/' },
+        { label: t('nav.dataManagement') },
+        { label: t('nav.datasets'), route: '/data-management/datasets' },
+        { label: refreshName || t('nav.datasets') },
+        { label: t('upload.refresh.crumb') },
+      ]
+    : [
+        { label: t('nav.home'), route: '/' },
+        { label: t('nav.dataManagement') },
+        { label: t('nav.datasets'), route: '/data-management/datasets' },
+        { label: t('nav.new') },
+      ];
+
+  const steps = wizardSteps(state);
+  const currentIdx = Math.max(0, steps.indexOf(state.step));
 
   const goBack = () => {
     if (currentIdx === 0) {
@@ -161,7 +194,39 @@ export function DatasetNewPage() {
     }
   };
 
+  // R145 refresh commit — one item carrying `target_dataset_id` (whole-table
+  // replace). `name` is required by the wire but ignored server-side (the
+  // target keeps its name); we send the target's name. Sends the wizard's
+  // CURRENT settings (the user may have edited the carried-forward preset).
+  const commitRefresh = async () => {
+    if (!state.tempId || !state.workspaceId || !state.targetDatasetId) return;
+    const key = refreshSheetKey(state);
+    const s = state.sheets[key];
+    if (!s) return;
+    const item: CommitBatchItem = {
+      name: state.refreshTargetName ?? 'dataset',
+      target_dataset_id: state.targetDatasetId,
+    };
+    if (state.sourceFormat !== 'csv') item.sheet = key;
+    if (hasParseOptionsSet(s.parseOptions)) item.parse_options = s.parseOptions;
+    if (Object.keys(s.columnOverrides).length > 0) item.column_overrides = s.columnOverrides;
+    if (s.excludedColumns.length > 0) item.excluded_columns = s.excludedColumns;
+    try {
+      await commitMutation.mutateAsync({
+        workspaceId: state.workspaceId,
+        body: { temp_id: state.tempId, items: [item] },
+      });
+      navigate(`/data-management/datasets/${state.targetDatasetId}`);
+    } catch {
+      // Error surfaces via commitMutation.isError (rendered on Confirm).
+    }
+  };
+
   const commit = async () => {
+    if (isRefresh) {
+      await commitRefresh();
+      return;
+    }
     if (!state.tempId || !state.workspaceId) return;
     const isCsv = state.sourceFormat === 'csv';
     const sheetKeys = isCsv ? [CSV_SHEET_KEY] : state.selectedSheets;
@@ -204,6 +269,13 @@ export function DatasetNewPage() {
       }
       case 'preview':
         return true;
+      case 'drift': {
+        // Warn-loud, never block (R145 D): clean schema advances freely; any
+        // drift requires the explicit acknowledge.
+        const key = refreshSheetKey(state);
+        const drift = computeSchemaDrift(state.refreshBaseline ?? [], state.sheets[key]?.columns ?? []);
+        return !hasSchemaDrift(drift) || state.driftAcknowledged;
+      }
       case 'confirm':
         return false; // handled separately by Commit button
     }
@@ -212,8 +284,8 @@ export function DatasetNewPage() {
   const header = (
     <PageHeader
       breadcrumb={BREADCRUMB}
-      title={t('upload.title')}
-      subtitle={t('upload.subtitle')}
+      title={isRefresh ? t('upload.refresh.title') : t('upload.title')}
+      subtitle={isRefresh ? t('upload.refresh.subtitle', { name: refreshName }) : t('upload.subtitle')}
       onNavigate={(route) => navigate(route)}
       actions={<Button onClick={() => navigate('/data-management/datasets')}>{t('common.cancel')}</Button>}
     />
@@ -232,6 +304,9 @@ export function DatasetNewPage() {
       break;
     case 'preview':
       body = <UploadPreviewStep state={state} dispatch={dispatch} />;
+      break;
+    case 'drift':
+      body = <UploadDriftStep state={state} dispatch={dispatch} />;
       break;
     case 'confirm':
       body = (
@@ -292,7 +367,7 @@ export function DatasetNewPage() {
                 disabled={!state.workspaceId}
                 data-component="WizardCommitButton"
               >
-                {t('upload.createDatasets')}
+                {isRefresh ? t('upload.refresh.commitLabel') : t('upload.createDatasets')}
               </Button>
             ) : (
               <Button

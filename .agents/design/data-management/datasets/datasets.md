@@ -277,6 +277,40 @@ FE-facing contract is unchanged.
 
 ---
 
+## Refresh affordance (R145)
+
+> **Status: SIGNED OFF (human, 2026-07-04) — R145 D-gate.** The Refresh *verb* — carry-forward,
+> the drift gate, and atomic replace — is specified in
+> [upload.md § Refresh](upload.md#refresh-re-upload-into-an-existing-dataset-r145); this
+> section covers only its **placement** on the Datasets surfaces + the dependent-artifact
+> consequence.
+
+A Dataset row (and the [dataset-detail](dataset-detail.md) header) gains a **Refresh**
+action beside rename/delete. It re-uploads a *new export of the same source* into the
+existing dataset — **whole-table replace**, forward-only — rather than creating a sibling.
+The real CRM cadence: month-2's export updates `monthly_calls` in place.
+
+- **Placement**: an item in the row's Actions menu (`Refresh` · `Rename` · `Delete`) and a
+  `[Refresh]` button on the dataset-detail header. Both `navigate('/data-management/datasets/:id/refresh')`
+  — the [upload wizard](upload.md) in refresh mode (a mode, not a new page; noun-vs-mode per
+  [specious-model-lock-in](../../../memory/2026-06-13-specious-model-lock-in.md)).
+- **What the user sees**: the wizard opens pre-filled from the dataset's committed settings
+  (sheet · parse options · dtype overrides + formats · exclusions — see
+  [upload.md § F9](upload.md#refresh-re-upload-into-an-existing-dataset-r145)); they re-pick
+  only the file. A **Drift review** step surfaces any added / removed / dtype-changed columns
+  and (for removed / changed) the dependent queries + relationships they'll affect; the user
+  acknowledges and proceeds — **drift never blocks** (R145 D decision).
+- **Dependent artifacts on drift**: staleness is **not stored** — the runtime
+  `query_stale` / `relationship_stale` machinery re-computes dependent validity on read
+  ([dataset-detail.md](dataset-detail.md), the query/relationship surfaces), so a refresh that
+  drops or retypes a column auto-flips its dependents to stale on their next open. The Drift
+  review step **previews** that blast radius before commit; it does not rebuild the runtime
+  net. No new persisted status field is added.
+- **Not this round**: row merge-on-key / precedence for overlapping non-cumulative
+  re-exports is R146 (replace is R145's lived case — cumulative FM exports).
+
+---
+
 ## Workspace filter behavior
 
 - Dropdown sourced from `useWorkspacesQuery()`.

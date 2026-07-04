@@ -1,4 +1,4 @@
-import { Button, Checkbox, Empty, Space, Table, Typography } from "antd";
+import { Alert, Button, Checkbox, Empty, Space, Table, Typography } from "antd";
 import type { Dispatch } from "react";
 import { useTranslation } from "react-i18next";
 import { formatBytes } from "@/lib/formatBytes";
@@ -73,6 +73,15 @@ export function UploadSheetStep({ state, dispatch }: Props) {
 
   return (
     <div data-component="UploadSheetStep">
+      {state.mode === 'refresh' && state.refreshTargetSheet ? (
+        <Alert
+          type="info"
+          showIcon
+          title={t('upload.refresh.sheetNote', { sheet: state.refreshTargetSheet })}
+          style={{ marginBottom: 12 }}
+          data-component="RefreshSheetNote"
+        />
+      ) : null}
       <Typography.Paragraph style={{ marginBottom: 4 }}>
         <strong>{fileName}</strong>
         {fileSize ? ` · ${fileSize}` : ""} · {t('upload.sheet.fileSummary', { count: total })}
