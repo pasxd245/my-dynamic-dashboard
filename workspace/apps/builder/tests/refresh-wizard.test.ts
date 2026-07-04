@@ -322,3 +322,69 @@ describe("mergeKeyIssues (R147 F5×F2 client guard)", () => {
     expect(mergeKeyIssues(baseline, undefined, ["a"])).toEqual([]);
   });
 });
+
+describe("refresh sheet handling (R147 fix — single-select, ghost pre-select, renamed sheet)", () => {
+  const initExcel = (sheets: { sheet: string; rowCount: number; columnCount: number }[]) => {
+    let s = wizardReducer(INITIAL_WIZARD_STATE, { type: "SEED_REFRESH", target: excelTarget });
+    return wizardReducer(s, {
+      type: "UPLOAD_INIT_SUCCESS",
+      response: { temp_id: "tmp_0011223344556677", sourceFormat: "excel", sizeBytes: 2048, sheets },
+    });
+  };
+
+  it("does NOT pre-select the committed sheet when the new workbook renamed it (no ghost)", () => {
+    const s = initExcel([{ sheet: "Data 1.5", rowCount: 10, columnCount: 3 }]);
+    expect(s.selectedSheets).toEqual([]);
+  });
+
+  it("still pre-selects the committed sheet when it exists", () => {
+    const s = initExcel([
+      { sheet: "Worksheet", rowCount: 10, columnCount: 3 },
+      { sheet: "Other", rowCount: 1, columnCount: 1 },
+    ]);
+    expect(s.selectedSheets).toEqual(["Worksheet"]);
+  });
+
+  it("refresh sheet selection is radio: picking another sheet REPLACES; re-toggling clears", () => {
+    let s = initExcel([
+      { sheet: "Worksheet", rowCount: 10, columnCount: 3 },
+      { sheet: "Other", rowCount: 1, columnCount: 1 },
+    ]);
+    s = wizardReducer(s, { type: "TOGGLE_SELECTED_SHEET", sheet: "Other" });
+    expect(s.selectedSheets).toEqual(["Other"]); // replaced, not appended
+    s = wizardReducer(s, { type: "TOGGLE_SELECTED_SHEET", sheet: "Other" });
+    expect(s.selectedSheets).toEqual([]);
+  });
+
+  it("create mode keeps multi-select (unregressed)", () => {
+    let s = wizardReducer(INITIAL_WIZARD_STATE, { type: "TOGGLE_SELECTED_SHEET", sheet: "A" });
+    s = wizardReducer(s, { type: "TOGGLE_SELECTED_SHEET", sheet: "B" });
+    expect(s.selectedSheets).toEqual(["A", "B"]);
+  });
+
+  it("carry-forward preset survives a RENAMED sheet (fallback by single pending preset)", () => {
+    let s = initExcel([{ sheet: "Data 1.5", rowCount: 10, columnCount: 3 }]);
+    s = wizardReducer(s, { type: "TOGGLE_SELECTED_SHEET", sheet: "Data 1.5" });
+    s = wizardReducer(s, {
+      type: "PARSE_SHEET_SUCCESS",
+      sheet: "Data 1.5",
+      result: {
+        sheet: "Data 1.5",
+        status: "ok",
+        columns: [
+          { name: "a", dtype: "string" },
+          { name: "b", dtype: "string" },
+        ],
+        rowCount: 10,
+        sampleRows: [["x", "1"]],
+      },
+    });
+    // Preset was keyed under the committed "Worksheet" name but still applies.
+    expect(s.sheets["Data 1.5"].columnOverrides).toEqual({
+      a: { dtype: "string" },
+      b: { dtype: "integer" },
+    });
+    expect(s.sheets["Data 1.5"].name).toBe("monthly_calls");
+    expect(s.pendingPreset).toBeNull(); // consumed wholesale — later re-parse resets normally
+  });
+});

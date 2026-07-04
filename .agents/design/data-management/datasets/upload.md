@@ -949,6 +949,14 @@ same verb (file → parsed table) against a *known target*.
   (a) **seeds** the reducer with a carry-forward preset, (b) fixes the workspace + target
   (Source step's workspace picker is read-only, pre-set to the dataset's workspace), and
   (c) has `commit` populate `target_dataset_id`.
+- **Sheet step in refresh is SINGLE-select** (R147, human finding): a refresh maps one new
+  table into one dataset (the wire's one-item invariant), so selecting a sheet REPLACES the
+  selection (radio semantics; Select all/Clear hidden; advance requires exactly one).
+  The committed sheet is a **default, not a lock** — monthly exports rename sheets
+  (date-stamped names), so: pre-select only when the committed name exists in the new
+  workbook (no ghost selection); when absent, the note flips to "pick the sheet to update
+  from" (warning); and the carry-forward preset applies to whichever single sheet is parsed
+  (fallback past its committed-name key), so a rename never silently drops carry-forward.
 
 > **Strict on the skeleton (round risk):** the refresh preset must **not** fork the reducer
 > into two half-duplicated flows. Known hazard — `PARSE_SHEET_SUCCESS` and

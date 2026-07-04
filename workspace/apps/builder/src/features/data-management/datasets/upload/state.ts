@@ -201,16 +201,17 @@ function applyPreset(
   };
 }
 
-/** Remove a sheet's preset once applied, so a later user re-parse resets
- *  normally (create-mode behavior — R19 Q2). */
-function clearPreset(
+/** The single pending refresh preset (refresh is single-table). It is keyed
+ *  by the COMMITTED sheet name, but the new export may have RENAMED the sheet
+ *  (the lived CRM shape: date-stamped sheet names) — fall back to the one
+ *  stashed preset whatever its key, so carry-forward survives a rename
+ *  (R147 fix; before this, a renamed sheet silently lost the preset). */
+function pendingPresetFor(
   pending: Record<string, RefreshPreset> | null,
   key: string,
-): Record<string, RefreshPreset> | null {
-  if (!pending || !(key in pending)) return pending;
-  const next = { ...pending };
-  delete next[key];
-  return Object.keys(next).length === 0 ? null : next;
+): RefreshPreset | undefined {
+  if (!pending) return undefined;
+  return pending[key] ?? Object.values(pending)[0];
 }
 
 function setSheet(
@@ -242,7 +243,7 @@ function reduceUploadInit(
   if (response.sourceFormat === "csv") {
     const preview: CsvParsePreview = response.csvPreview;
     const preset =
-      state.mode === "refresh" ? state.pendingPreset?.[CSV_SHEET_KEY] : undefined;
+      state.mode === "refresh" ? pendingPresetFor(state.pendingPreset, CSV_SHEET_KEY) : undefined;
     const seeded = setSheet({ ...state, tempId: response.temp_id }, CSV_SHEET_KEY, {
       status: "ok",
       columns: preview.columns,
@@ -253,13 +254,20 @@ function reduceUploadInit(
     });
     return {
       ...seeded,
-      pendingPreset: clearPreset(state.pendingPreset, CSV_SHEET_KEY),
+      pendingPreset: preset === undefined ? state.pendingPreset : null,
       step: "metadata",
     };
   }
-  // Excel — refresh pre-selects the target's committed sheet (single-target).
+  // Excel — refresh pre-selects the target's committed sheet, but ONLY when
+  // the new workbook actually has it (R147 fix: a renamed sheet used to
+  // leave a ghost selection — "1 selected", nothing visibly checked, a
+  // doomed parse). Absent → empty selection + the Sheet-step note switches
+  // to "pick the sheet to update from".
+  const committedSheetPresent =
+    state.refreshTargetSheet !== null &&
+    response.sheets.some((s) => s.sheet === state.refreshTargetSheet);
   const selectedSheets =
-    state.mode === "refresh" && state.refreshTargetSheet
+    state.mode === "refresh" && state.refreshTargetSheet && committedSheetPresent
       ? [state.refreshTargetSheet]
       : [];
   return {
@@ -279,7 +287,7 @@ function reduceParseSuccess(
   action: Extract<WizardAction, { type: "PARSE_SHEET_SUCCESS" }>,
 ): WizardState {
   const preset =
-    state.mode === "refresh" ? state.pendingPreset?.[action.sheet] : undefined;
+    state.mode === "refresh" ? pendingPresetFor(state.pendingPreset, action.sheet) : undefined;
   const next = setSheet(state, action.sheet, {
     status: "ok",
     columns: action.result.columns,
@@ -288,7 +296,10 @@ function reduceParseSuccess(
     parseError: undefined,
     ...applyPreset(preset, action.result.columns),
   });
-  return { ...next, pendingPreset: clearPreset(state.pendingPreset, action.sheet) };
+  // Refresh stashes exactly ONE preset; once applied (by committed name OR
+  // the rename fallback) it is consumed wholesale, so a later user re-parse
+  // resets normally (R19 Q2 create-mode behavior).
+  return { ...next, pendingPreset: preset === undefined ? state.pendingPreset : null };
 }
 
 /** SEED_REFRESH handler — enter refresh mode against a committed dataset.
@@ -331,6 +342,26 @@ function reduceSeedRefresh(target: Dataset, settings: RefreshSettings | null | u
   };
 }
 
+/** TOGGLE_SELECTED_SHEET handler — extracted to keep the reducer flat.
+ *  R147 — refresh is single-table: selecting a sheet REPLACES the selection
+ *  (radio semantics; before this, extra selections were silently dropped at
+ *  commit). Toggling the selected one clears it. Create keeps multi-select. */
+function reduceToggleSheet(state: WizardState, sheet: string): WizardState {
+  const present = state.selectedSheets.includes(sheet);
+  if (state.mode === "refresh") {
+    const sheets: Record<string, SheetState> = {};
+    if (!present && state.sheets[sheet]) sheets[sheet] = state.sheets[sheet];
+    return { ...state, selectedSheets: present ? [] : [sheet], sheets };
+  }
+  const selectedSheets = present
+    ? state.selectedSheets.filter((s) => s !== sheet)
+    : [...state.selectedSheets, sheet];
+  // Drop sheet state when deselected so re-selecting re-parses.
+  const sheets = { ...state.sheets };
+  if (present) delete sheets[sheet];
+  return { ...state, selectedSheets, sheets };
+}
+
 export function wizardReducer(
   state: WizardState,
   action: WizardAction,
@@ -360,16 +391,8 @@ export function wizardReducer(
       };
     case "UPLOAD_INIT_SUCCESS":
       return reduceUploadInit(state, action.response);
-    case "TOGGLE_SELECTED_SHEET": {
-      const present = state.selectedSheets.includes(action.sheet);
-      const selectedSheets = present
-        ? state.selectedSheets.filter((s) => s !== action.sheet)
-        : [...state.selectedSheets, action.sheet];
-      // Drop sheet state when deselected so re-selecting re-parses.
-      const sheets = { ...state.sheets };
-      if (present) delete sheets[action.sheet];
-      return { ...state, selectedSheets, sheets };
-    }
+    case "TOGGLE_SELECTED_SHEET":
+      return reduceToggleSheet(state, action.sheet);
     case "PARSE_SHEET_START":
       return setSheet(state, action.sheet, { status: "parsing" });
     case "PARSE_SHEET_SUCCESS":

@@ -476,6 +476,8 @@
       "sourceBannerTitle": "Đang cập nhật “{{name}}”",
       "sourceBannerBody": "Chọn tệp xuất mới. Không gian làm việc, loại nguồn và các thiết lập cột trước đó được giữ lại.",
       "sheetNote": "Cập nhật áp dụng cho sheet gốc “{{sheet}}” — đã được chọn sẵn.",
+      "sheetNoteMissing": "Sheet gốc “{{sheet}}” không có trong tệp này — hãy chọn sheet chứa dữ liệu cập nhật.",
+      "sheetSelectionHint": "Chọn đúng một sheet — bản cập nhật áp dụng cho một tập dữ liệu.",
       "confirmReplaceTitle": "Thao tác này thay thế toàn tập dữ liệu trong “{{name}}”",
       "confirmReplaceBody": "Cập nhật thay thế toàn bộ bảng — dữ liệu trước đó bị ghi đè (không lưu lịch sử phiên bản). Tập dữ liệu giữ nguyên tên và id, nên các truy vấn và dashboard dựa trên nó vẫn được kết nối.",
       "legacyNote": "Một số thiết lập không thể khôi phục từ lần tải lên cũ — vui lòng kiểm tra lại kiểu cột và định dạng trước khi tiếp tục.",

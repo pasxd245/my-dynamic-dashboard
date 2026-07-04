@@ -476,6 +476,8 @@
       "sourceBannerTitle": "Refreshing “{{name}}”",
       "sourceBannerBody": "Pick the new export file. The workspace, source type, and your previous column settings are carried forward.",
       "sheetNote": "Refresh targets the original sheet “{{sheet}}” — pre-selected.",
+      "sheetNoteMissing": "The original sheet “{{sheet}}” isn’t in this file — pick the sheet to update from.",
+      "sheetSelectionHint": "Pick exactly one sheet — this update applies to one dataset.",
       "confirmReplaceTitle": "This replaces all data in “{{name}}”",
       "confirmReplaceBody": "Refresh does a whole-table replace — the previous rows are overwritten (no version history). The dataset keeps its name and id, so queries and dashboards built on it stay connected.",
       "legacyNote": "Some settings couldn’t be restored from an older upload — please re-check the column types and format before continuing.",

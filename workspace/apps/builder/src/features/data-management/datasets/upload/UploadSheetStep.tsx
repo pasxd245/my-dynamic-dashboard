@@ -11,7 +11,6 @@ type Props = Readonly<{
 
 export function UploadSheetStep({ state, dispatch }: Props) {
   const { t } = useTranslation();
-
   if (state.availableSheets.length === 0) {
     return (
       <Empty
@@ -20,6 +19,14 @@ export function UploadSheetStep({ state, dispatch }: Props) {
       />
     );
   }
+
+  const isRefresh = state.mode === "refresh";
+  // R147 — the committed sheet is a DEFAULT, not a lock: monthly exports
+  // rename sheets (date-stamped names), so the note flips to "pick the sheet
+  // to update from" when the original name isn't in the new workbook.
+  const committedSheetPresent =
+    state.refreshTargetSheet !== null &&
+    state.availableSheets.some((s) => s.sheet === state.refreshTargetSheet);
 
   const fileName = state.file?.name ?? "workbook";
   const fileSize = state.file ? formatBytes(state.file.size) : "";
@@ -73,11 +80,14 @@ export function UploadSheetStep({ state, dispatch }: Props) {
 
   return (
     <div data-component="UploadSheetStep">
-      {state.mode === 'refresh' && state.refreshTargetSheet ? (
+      {isRefresh && state.refreshTargetSheet ? (
         <Alert
-          type="info"
+          type={committedSheetPresent ? "info" : "warning"}
           showIcon
-          title={t('upload.refresh.sheetNote', { sheet: state.refreshTargetSheet })}
+          title={t(
+            committedSheetPresent ? 'upload.refresh.sheetNote' : 'upload.refresh.sheetNoteMissing',
+            { sheet: state.refreshTargetSheet },
+          )}
           style={{ marginBottom: 12 }}
           data-component="RefreshSheetNote"
         />
@@ -86,7 +96,9 @@ export function UploadSheetStep({ state, dispatch }: Props) {
         <strong>{fileName}</strong>
         {fileSize ? ` · ${fileSize}` : ""} · {t('upload.sheet.fileSummary', { count: total })}
       </Typography.Paragraph>
-      <Typography.Paragraph type="secondary">{t('upload.sheet.selectionHint')}</Typography.Paragraph>
+      <Typography.Paragraph type="secondary">
+        {t(isRefresh ? 'upload.refresh.sheetSelectionHint' : 'upload.sheet.selectionHint')}
+      </Typography.Paragraph>
       <Table
         rowKey="sheet"
         size="small"
@@ -102,26 +114,30 @@ export function UploadSheetStep({ state, dispatch }: Props) {
           alignItems: "center",
         }}
       >
-        <Space>
-          <Button
-            type="link"
-            size="small"
-            onClick={selectAll}
-            disabled={selectedCount === total}
-            data-component="SheetSelectAll"
-          >
-            {t('upload.sheet.selectAll')}
-          </Button>
-          <Button
-            type="link"
-            size="small"
-            onClick={clearAll}
-            disabled={selectedCount === 0}
-            data-component="SheetClear"
-          >
-            {t('upload.sheet.clear')}
-          </Button>
-        </Space>
+        {isRefresh ? (
+          <span />
+        ) : (
+          <Space>
+            <Button
+              type="link"
+              size="small"
+              onClick={selectAll}
+              disabled={selectedCount === total}
+              data-component="SheetSelectAll"
+            >
+              {t('upload.sheet.selectAll')}
+            </Button>
+            <Button
+              type="link"
+              size="small"
+              onClick={clearAll}
+              disabled={selectedCount === 0}
+              data-component="SheetClear"
+            >
+              {t('upload.sheet.clear')}
+            </Button>
+          </Space>
+        )}
         <Typography.Text type="secondary" data-component="SheetSelectedCount">
           {t('upload.sheet.selectedOfTotal', { selected: selectedCount, total })}
         </Typography.Text>

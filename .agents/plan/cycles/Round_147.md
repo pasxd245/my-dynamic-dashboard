@@ -198,6 +198,32 @@ guards, merge-on-create 422, composite key, D5 schema, commitSettings memory, re
 unregressed) · FE `tsc` 0 · `vitest` 286/286 (incl. 9 new merge reducer/guard tests) · i18n
 en/vi parity OK.
 
+### Post-build fix — refresh sheet handling (human finding, 2026-07-05)
+
+The human's checklist question ("should refresh allow multi-sheet select?") surfaced **three
+R145-era gaps** the merge build had inherited. Design answer recorded in
+[upload.md § Entry point](../../design/data-management/datasets/upload.md): refresh stays
+**single-sheet by design** (one new table → one dataset; the wire's one-item invariant), but
+the sheet must stay **re-pickable** — the committed sheet name is a default, not a lock
+(monthly exports rename sheets; the real CRM files are date-stamped). Fixed:
+
+1. **Silent multi-select** — the Sheet step allowed checking N sheets; commit silently used
+   only the first. Now radio semantics in refresh (`reduceToggleSheet`): selecting REPLACES,
+   Select all/Clear hidden, advance requires exactly one.
+2. **Ghost pre-select** — the committed sheet was pre-selected without checking it exists in
+   the new workbook ("1 selected", nothing visibly checked, doomed parse). Now pre-selected
+   only when present; when absent the note flips to a warning:
+   "sheet gốc … không có trong tệp này — hãy chọn sheet chứa dữ liệu cập nhật".
+3. **Carry-forward lost on rename** — the preset was keyed by the committed sheet name, so
+   parsing a renamed sheet silently dropped ALL carry-forward (the F9 value). Now
+   `pendingPresetFor` falls back to the single stashed preset whatever its key, consumed
+   wholesale on first apply (re-parse still resets normally, R19 Q2).
+
+i18n: `upload.refresh.sheetNoteMissing` + `sheetSelectionHint` (en+vi). Tests: +5 reducer
+tests (ghost, pre-select-when-present, radio replace/clear, create multi-select unregressed,
+renamed-sheet preset fallback). **Gates re-run:** FE `tsc` 0 · `vitest` 291/291 · en/vi
+parity OK · doc lints clean.
+
 ## Check
 
 - [x] D signed off before C/B/F (incl. the identity-key, in-file-duplicate, and

@@ -272,7 +272,11 @@ export function DatasetNewPage() {
       case 'source':
         return state.tempId !== null && state.workspaceId !== null;
       case 'sheet':
-        return state.selectedSheets.length > 0;
+        // R147 — refresh is single-table: exactly one sheet (the reducer
+        // enforces radio semantics; this keeps the gate explicit).
+        return state.mode === 'refresh'
+          ? state.selectedSheets.length === 1
+          : state.selectedSheets.length > 0;
       case 'metadata': {
         const isCsv = state.sourceFormat === 'csv';
         const keys = isCsv ? [CSV_SHEET_KEY] : state.selectedSheets;
