@@ -235,6 +235,29 @@ detail (`parse_failed: …`), create + refresh both; refresh fails before any wr
 untouched — test-asserted). Contract 422 description updated. +2 pytest (unknown sheet on
 refresh → 422 + intact; on create → 422). **Gates:** `pytest` 349 · `ruff` clean.
 
+### VN terminology minor — workflow / relationship (human, 2026-07-05)
+
+Human raised the standard database-context translations (workflow → "luồng dữ liệu" /
+"quy trình xử lý"; relationship → "mối quan hệ" / "liên kết"). Assessed per the R146 method
+(corpus grep + vendor evidence + persona register), steered ("Good catch, please append"):
+
+- **Workflow: keep "quy trình"** (18 hits, already uniform). "Luồng dữ liệu" declined —
+  it names a *pipeline/stream* mechanism our noun isn't (a workflow here is a saved shaping
+  recipe), and it's engineering register vs the office persona. No collision exists (unlike
+  the banned "Bảng điều khiển").
+- **Relationship: "mối quan hệ" in standalone/referential positions** — vendor evidence:
+  Access-vi (the persona's nearest product) titles its docs "Tạo, sửa, hoặc xóa bỏ mối quan
+  hệ" / "mối quan hệ bảng". Applied as a per-string pass (33 replacements over 30 keys):
+  nav/titles/labels ("Mối quan hệ"), determiner slots ("một/này/nào/khác" → "một mối quan
+  hệ" …), action toasts ("Đã khai báo mối quan hệ"). **Bare "quan hệ" kept in compounds and
+  type names** ("Loại quan hệ", "quan hệ tự do", "quan hệ phụ thuộc"), generic plurals, and
+  the compact canvas chip — a blind replace-all would have produced "loại mối quan hệ"-class
+  awkwardness. **"Liên kết" declined** — it is the standard VN for *hyperlink*; adopting it
+  for table relationships plants a one-word-two-concepts collision.
+
+Values-only (`vi.json`), en/vi parity OK, `vitest` 291/291 (no test asserts these strings),
+no double-classifier residuals ("mối mối" = 0).
+
 ## Check
 
 - [x] D signed off before C/B/F (incl. the identity-key, in-file-duplicate, and
