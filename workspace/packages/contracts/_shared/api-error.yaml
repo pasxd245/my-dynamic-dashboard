@@ -24,7 +24,7 @@ components:
   schemas:
     ApiErrorCode:
       type: string
-      enum: [not_found, name_taken, slug_taken, non_empty, query_stale, relationship_exists, relationship_stale, composition_cycle, coercion_failed]
+      enum: [not_found, name_taken, slug_taken, non_empty, query_stale, relationship_exists, relationship_stale, composition_cycle, coercion_failed, merge_duplicate_keys]
       description: |
         Closed enum. Any new error class lands as a new code in a future
         round + contract update — never as a free-text message.
@@ -224,6 +224,43 @@ components:
           minimum: 1
           description: Total count of cells that failed the cast.
 
+    ApiErrorMergeDuplicateKeys:
+      type: object
+      required: [code, key, duplicateKeyCount, sampleKeys]
+      additionalProperties: false
+      properties:
+        code:
+          type: string
+          enum: [merge_duplicate_keys]
+          description: |
+            R147 — a merge refresh's INCOMING file carries more than one row
+            per declared `merge_key` value, so "incoming row wins" is
+            undefined (file row order is not time — the D2 domain decision:
+            loud stop, never a silent pick). The batch aborts; the dataset is
+            untouched. Evidence the declared key is not the row's identity —
+            the fix is a fuller key (add a column) or a cleaned export.
+            Returned by `POST /workspaces/{id}/datasets/batch` (422) for
+            items carrying `merge_key`.
+        key:
+          type: array
+          minItems: 1
+          items:
+            type: string
+          description: The declared merge_key columns, as sent.
+        duplicateKeyCount:
+          type: integer
+          minimum: 1
+          description: How many distinct key values occur on >1 incoming row.
+        sampleKeys:
+          type: array
+          minItems: 1
+          maxItems: 5
+          items:
+            type: string
+          description: |
+            The first (up to) 5 duplicated key values, stringified; composite
+            keys join their parts with " · ".
+
     ApiError:
       description: |
         Discriminated union over `code`. Use `oneOf` + `discriminator` so
@@ -238,6 +275,7 @@ components:
         - $ref: '#/components/schemas/ApiErrorRelationshipStale'
         - $ref: '#/components/schemas/ApiErrorCompositionCycle'
         - $ref: '#/components/schemas/ApiErrorCoercionFailed'
+        - $ref: '#/components/schemas/ApiErrorMergeDuplicateKeys'
       discriminator:
         propertyName: code
         mapping:
@@ -250,3 +288,4 @@ components:
           relationship_stale: '#/components/schemas/ApiErrorRelationshipStale'
           composition_cycle: '#/components/schemas/ApiErrorCompositionCycle'
           coercion_failed: '#/components/schemas/ApiErrorCoercionFailed'
+          merge_duplicate_keys: '#/components/schemas/ApiErrorMergeDuplicateKeys'

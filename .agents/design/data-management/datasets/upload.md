@@ -1138,8 +1138,12 @@ source table), targeting one dataset:
 _⑥ refresh theme, slice 2 — F5 (merge needs a key + precedence; UNION cannot fake it) +
 F6 (the identity key is a domain decision)._
 
-> **Status: DRAFT — R147 D-gate, awaiting human sign-off.** Domain decisions marked **❓ D1–D5**
-> below; each carries a recommendation, none is decided. Pulled by
+> **Status: SIGNED OFF (human, 2026-07-04) — R147 D-gate.** Domain decisions **D1–D5 all
+> resolved to the tabled recommendations** ("recs are fine"): D1 = ≥1 committed columns,
+> remembered in `commitSettings.mergeKey` · D2 = incoming dup-key rows → loud typed 422 ·
+> D3 = incoming-wins · D4 = per-refresh choice, last-used default · D5 = incoming schema wins.
+> The key-dtype exception to warn-never-block (blocks merge, not refresh) is part of the
+> sign-off. Pulled by
 > [Round_147](../../../plan/cycles/Round_147.md) ←
 > [2026-07-03-r142-dogfood-findings](../../../plan/brainstorms/2026-07-03-r142-dogfood-findings.md)
 > (rank 3, ⑥ month-2 blocker; F5 upgraded to correctness risk) + the R145 revert seam above.
@@ -1175,8 +1179,12 @@ Two candidate homes, per the noun-vs-mode discipline — the rejected one named:
 
 The wizard skeleton is untouched (strict on the skeleton): merge adds **no new step**. The
 **Confirm step** in refresh mode gains a *refresh semantics* block — `replace | merge` choice;
-choosing merge reveals the **key picker** (select from the committed columns) — and the
-existing Drift review step gains merge-aware severity (below).
+choosing merge reveals the **key picker** (select from the committed columns).
+_Build deviation (flagged, per `design-altitude-vs-build-home`): the draft placed merge-aware
+severity on the Drift review step, but the key is only DECLARED on Confirm (which follows
+Drift) — so the FE guard lives on Confirm (`mergeKeyIssues`: picker error state + blocking
+alert + disabled commit); the Drift step is unchanged. The backend enforces the same guards
+independently (the contract net), so the intent — key drift never silently merges — holds._
 
 ### Merge semantics: keep-latest-per-key
 
@@ -1214,8 +1222,10 @@ in-file duplicate-phone rows). These are the human's calls:
 
 Duplicates already inside the **committed** table (e.g. from a pre-merge replace commit) merge
 per the same rule — all committed rows whose key matches an incoming key are superseded by the
-one incoming row; committed dup-keys *not* touched by the incoming file are kept as-is and
-surfaced as a count in the merge report (cleaning history is not this slice's job).
+one incoming row; committed dup-keys *not* touched by the incoming file are kept as-is
+(cleaning history is not this slice's job). _Build deviation (flagged): the draft surfaced
+untouched committed dups as their own count; the build folds them into `kept` — a fourth
+count earned no wire field before a lived pull._
 
 ### F5×F2: the key-dtype guard (the one loud stop in the drift gate)
 
@@ -1245,7 +1255,10 @@ The refresh item gains one optional field — presence selects the mode:
   ❓ D2 (recommended: typed 422 naming key + count + sample).
 - 201 → the updated `Dataset` (same `id`) **plus merge counts** `{ updated, inserted, kept }`
   (response-shape addition — lands at C with the contract update).
-- `commitSettings` extends with `mergeKey` + `refreshMode` (remembered defaults; F9 pattern).
+- `commitSettings` extends with `merge_key` + `refresh_mode` (remembered defaults; F9 pattern —
+  snake_case like the rest of the snapshot, which mirrors a commit item's shape). A later
+  REPLACE refresh flips `refresh_mode` but **carries the declared key forward** (the key is
+  per-dataset memory, not per-run).
 - `merge_key` on a **create** item (no `target_dataset_id`) → 422 (meaningless).
 
 ### Boundaries (named, R147)

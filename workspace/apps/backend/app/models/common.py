@@ -211,6 +211,21 @@ class ApiErrorCoercionFailed(BaseModel):
     totalFailed: Annotated[int, Field(ge=1)]  # noqa: N815 — wire shape
 
 
+class ApiErrorMergeDuplicateKeys(BaseModel):
+    """R147 — a merge refresh's INCOMING file carries more than one row per
+    declared `merge_key` value, so "incoming row wins" is undefined (the D2
+    domain decision: loud stop, never a silent pick — file row order is not
+    time). The batch aborts; the dataset is untouched. Mirrors
+    `_shared/api-error.yaml#/ApiErrorMergeDuplicateKeys`."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    code: Literal["merge_duplicate_keys"] = ERROR_CODES["merge_duplicate_keys"]  # type: ignore[assignment]
+    key: Annotated[list[str], Field(min_length=1)]
+    duplicateKeyCount: Annotated[int, Field(ge=1)]  # noqa: N815 — wire shape
+    sampleKeys: Annotated[list[str], Field(min_length=1, max_length=5)]  # noqa: N815 — wire shape
+
+
 # ─── R69: Saved Query ────────────────────────────────────────────────
 # Mirrors packages/contracts/_shared/query.yaml + queries/*. The
 # `definition` reuses the EXACT predicate-atom shape the rows-GET `aq`

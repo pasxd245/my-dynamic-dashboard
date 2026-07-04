@@ -72,6 +72,23 @@ paths:
                     items:
                       type: string
                     description: Column names dropped at the last commit.
+                  merge_key:
+                    type: array
+                    minItems: 1
+                    items:
+                      type: string
+                    description: |
+                      R147 — the identity key the last MERGE refresh declared
+                      (D1: remembered per dataset). Pre-fills the key picker;
+                      absent if the dataset has never merge-refreshed.
+                  refresh_mode:
+                    type: string
+                    enum: [replace, merge]
+                    description: |
+                      R147 — the semantics the last refresh used (D4: the
+                      per-refresh choice defaults to last-used). Absent on
+                      datasets whose last commit was a create or pre-R147
+                      refresh (the wizard then defaults to replace).
               examples:
                 excel_available:
                   summary: Excel dataset with a carried snapshot

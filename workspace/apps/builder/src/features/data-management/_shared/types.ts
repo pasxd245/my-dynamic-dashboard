@@ -23,6 +23,14 @@ export type ApiError =
       dtype: string;
       cells: { row: number; value: string }[];
       totalFailed: number;
+    }
+  | {
+      // R147 — merge refresh: incoming file has >1 row per declared key
+      // (D2 loud stop; the batch aborted, the dataset is untouched)
+      code: 'merge_duplicate_keys';
+      key: string[];
+      duplicateKeyCount: number;
+      sampleKeys: string[];
     };
 
 /** The batch-commit endpoint's 409 carries a `oneOf` over the legacy
@@ -49,7 +57,8 @@ export function isApiError(body: unknown): body is ApiError {
     code === ERROR_CODES.RELATIONSHIP_STALE ||
     code === ERROR_CODES.COMPOSITION_CYCLE ||
     code === ERROR_CODES.SLUG_TAKEN ||
-    code === ERROR_CODES.COERCION_FAILED
+    code === ERROR_CODES.COERCION_FAILED ||
+    code === ERROR_CODES.MERGE_DUPLICATE_KEYS
   );
 }
 

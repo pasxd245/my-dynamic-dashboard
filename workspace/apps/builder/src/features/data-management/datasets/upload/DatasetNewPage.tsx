@@ -1,6 +1,6 @@
 import { ArrowLeftOutlined, ArrowRightOutlined } from '@ant-design/icons';
 import { PageCard, PageContainer, PageHeader } from '@mdd/ui';
-import { Button, Space, Steps } from 'antd';
+import { App, Button, Space, Steps } from 'antd';
 import { useEffect, useReducer } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
@@ -17,6 +17,7 @@ import {
   hasParseOptionsSet,
   hasSchemaDrift,
   INITIAL_WIZARD_STATE,
+  mergeKeyIssues,
   refreshSheetKey,
   wizardReducer,
   wizardSteps,
@@ -30,6 +31,7 @@ import { UploadSourceStep } from './UploadSourceStep';
 
 export function DatasetNewPage() {
   const { t } = useTranslation();
+  const { message } = App.useApp();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   // Refresh mode: `/data-management/datasets/:id/refresh` re-uploads into an
@@ -194,10 +196,13 @@ export function DatasetNewPage() {
     }
   };
 
-  // R145 refresh commit — one item carrying `target_dataset_id` (whole-table
-  // replace). `name` is required by the wire but ignored server-side (the
-  // target keeps its name); we send the target's name. Sends the wizard's
-  // CURRENT settings (the user may have edited the carried-forward preset).
+  // R145 refresh commit — one item carrying `target_dataset_id`. R147: in
+  // merge mode the item also carries `merge_key` (keep-latest-per-key) and
+  // the 201 comes back as the `{ datasets, merge }` wrapper — surface the
+  // counts (updated · inserted · kept) as the success toast. `name` is
+  // required by the wire but ignored server-side (the target keeps its
+  // name); we send the target's name. Sends the wizard's CURRENT settings
+  // (the user may have edited the carried-forward preset).
   const commitRefresh = async () => {
     if (!state.tempId || !state.workspaceId || !state.targetDatasetId) return;
     const key = refreshSheetKey(state);
@@ -211,11 +216,17 @@ export function DatasetNewPage() {
     if (hasParseOptionsSet(s.parseOptions)) item.parse_options = s.parseOptions;
     if (Object.keys(s.columnOverrides).length > 0) item.column_overrides = s.columnOverrides;
     if (s.excludedColumns.length > 0) item.excluded_columns = s.excludedColumns;
+    if (state.refreshMode === 'merge' && state.mergeKey.length > 0) {
+      item.merge_key = state.mergeKey;
+    }
     try {
-      await commitMutation.mutateAsync({
+      const result = await commitMutation.mutateAsync({
         workspaceId: state.workspaceId,
         body: { temp_id: state.tempId, items: [item] },
       });
+      if (!Array.isArray(result)) {
+        message.success(t('upload.refresh.mergeSuccess', result.merge));
+      }
       navigate(`/data-management/datasets/${state.targetDatasetId}`);
     } catch {
       // Error surfaces via commitMutation.isError (rendered on Confirm).
@@ -280,6 +291,19 @@ export function DatasetNewPage() {
         return false; // handled separately by Commit button
     }
   })();
+
+  // R147 — merge commit guard: an empty key or a missing/dtype-drifted key
+  // column disables the commit (client mirror of the backend F5×F2 422s).
+  const mergeBlocked =
+    isRefresh &&
+    state.refreshMode === 'merge' &&
+    (state.mergeKey.length === 0 ||
+      mergeKeyIssues(state.refreshBaseline ?? [], state.sheets[refreshSheetKey(state)], state.mergeKey).length > 0);
+  let commitLabel = t('upload.createDatasets');
+  if (isRefresh) {
+    commitLabel =
+      state.refreshMode === 'merge' ? t('upload.refresh.commitMergeLabel') : t('upload.refresh.commitLabel');
+  }
 
   const header = (
     <PageHeader
@@ -364,10 +388,10 @@ export function DatasetNewPage() {
                 type="primary"
                 onClick={commit}
                 loading={commitMutation.isPending}
-                disabled={!state.workspaceId}
+                disabled={!state.workspaceId || mergeBlocked}
                 data-component="WizardCommitButton"
               >
-                {isRefresh ? t('upload.refresh.commitLabel') : t('upload.createDatasets')}
+                {commitLabel}
               </Button>
             ) : (
               <Button

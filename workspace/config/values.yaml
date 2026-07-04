@@ -93,6 +93,7 @@ constants:
     composition_cycle: 'composition_cycle' # R76 — Query × Query composition would loop (a query transitively builds on itself)
     slug_taken: 'slug_taken' # R101 — dashboard slug collides within its workspace (per-workspace, like name)
     coercion_failed: 'coercion_failed' # R143 — commit-time dtype cast failed (batch aborts; names column + cells)
+    merge_duplicate_keys: 'merge_duplicate_keys' # R147 — merge refresh: incoming file has >1 row per declared key (D2 loud stop)
 
   # R29: name-length bounds enforced by Pydantic on BE + AntD Form rules on
   # FE. Workspace names globally unique, max 80; dataset names per-workspace

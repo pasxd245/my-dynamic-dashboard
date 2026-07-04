@@ -61,11 +61,26 @@ out, not this endpoint.
 - **`excluded_columns` semantics.** Drop these columns from the
   parsed Parquet at commit time. Must leave ≥ 1 remaining column
   or 422. R14 HIxAI Q14d locked this.
-- **`target_dataset_id` semantics.** Forward-compatible slot for
-  R∞ append-mode (R14 HIxAI Q14e). In R16+, any value here
-  returns 422 with `error: append_mode_not_implemented`. The
-  field is intentionally in the contract from day one so a
-  future round can implement append without breaking the wire.
+- **`target_dataset_id` semantics** _(R145 — graduates the R14
+  HIxAI Q14e forward-compat slot; pre-R145 any value 422'd)_.
+  When set, the item is a **REFRESH** of that existing dataset:
+  same `ds_` id kept (dependent queries/relationships survive),
+  `name` ignored (the target keeps its committed name), batch
+  length exactly 1, source format must match. Default semantics =
+  whole-table **replace**, atomic (staging validated before any
+  swap; the dataset is fully intact on failure). Missing target →
+  404.
+- **`merge_key` semantics** _(R147)_. Only valid alongside
+  `target_dataset_id` (422 on a create item); selects **MERGE**
+  semantics: keep-latest-per-key — incoming rows supersede
+  committed rows sharing their key, incoming-only keys insert,
+  committed-only keys are **kept** (the difference from replace).
+  Result schema = the incoming table's (D5). The 201 becomes the
+  `{ datasets, merge: { updated, inserted, kept } }` wrapper (FE
+  branches on `Array.isArray`). Guards: unknown/missing/
+  dtype-drifted key column → 422 detail (the F5×F2
+  false-non-overlap stop); duplicate incoming rows per key → 422
+  `merge_duplicate_keys` (D2 — loud, never a silent pick).
 - **Authentication / workspace authorization**: none (single-user
   product).
 

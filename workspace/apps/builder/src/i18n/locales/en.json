@@ -448,6 +448,8 @@
       "errorCoercionFailedHeaderRowHint": "A failing value equals the column name — the file likely contains a repeated header row; delete that row in the source file and re-upload.",
       "errorCoercionFailedTimeInDateHint": "The failing values carry a time part but the chosen type is date — choose datetime instead (e.g. format dd-MM-yyyy HH:mm:ss). To group by day or week, add a Date bucket step in a query afterwards.",
       "errorCoercionFailedCell": "file row {{row}}: “{{value}}”",
+      "errorMergeDuplicateKeysTitle": "The new file repeats the key",
+      "errorMergeDuplicateKeysDescription": "{{count}} key value(s) ({{key}}) appear on more than one row in the new file, so merge can't tell which row wins. Examples: {{samples}}. Add another column to the key (e.g. a date) or clean the export, then try again. Nothing was changed.",
       "errorGenericTitle": "Couldn't commit datasets",
       "errorServerCode": "Server returned code {{code}}."
     },
@@ -476,7 +478,23 @@
       "sheetNote": "Refresh targets the original sheet “{{sheet}}” — pre-selected.",
       "confirmReplaceTitle": "This replaces all data in “{{name}}”",
       "confirmReplaceBody": "Refresh does a whole-table replace — the previous rows are overwritten (no version history). The dataset keeps its name and id, so queries and dashboards built on it stay connected.",
-      "legacyNote": "Some settings couldn’t be restored from an older upload — please re-check the column types and format before continuing."
+      "legacyNote": "Some settings couldn’t be restored from an older upload — please re-check the column types and format before continuing.",
+      "modeLabel": "How should this update apply?",
+      "modeReplace": "Replace all rows",
+      "modeReplaceHint": "The new file’s rows replace everything currently in the dataset.",
+      "modeMerge": "Merge by key",
+      "modeMergeHint": "Rows matching on the key are updated from the new file; rows only in the dataset are kept; new keys are added.",
+      "mergeKeyLabel": "Key column(s)",
+      "mergeKeyPlaceholder": "Pick the column(s) that identify a row",
+      "mergeKeyRequired": "Pick at least one key column to merge.",
+      "mergeKeyIssueMissing": "“{{name}}” is missing from the new file’s kept columns.",
+      "mergeKeyIssueDtype": "“{{name}}” changed type ({{from}} → {{to}}).",
+      "mergeKeyBlockedTitle": "Merge is blocked by the key column(s)",
+      "mergeKeyBlockedHint": "Fix the column or its type, pick a different key, or switch to Replace.",
+      "confirmMergeTitle": "This merges the new file into “{{name}}”",
+      "confirmMergeBody": "Rows sharing the key ({{key}}) are updated from the new file; rows only in the dataset are kept; new keys are added. The dataset keeps its name and id, so queries and dashboards built on it stay connected.",
+      "commitMergeLabel": "Merge into dataset",
+      "mergeSuccess": "Merged: {{updated}} updated · {{inserted}} added · {{kept}} kept."
     },
     "drift": {
       "noneTitle": "No schema drift",

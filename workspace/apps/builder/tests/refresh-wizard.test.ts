@@ -5,6 +5,7 @@ import {
   CSV_SHEET_KEY,
   hasSchemaDrift,
   INITIAL_WIZARD_STATE,
+  mergeKeyIssues,
   wizardReducer,
   wizardSteps,
 } from "@/features/data-management/datasets/upload/state";
@@ -228,5 +229,96 @@ describe("computeSchemaDrift (F10)", () => {
   it("reports no drift for an identical schema", () => {
     const cols = [{ name: "a", dtype: "string" as const }];
     expect(hasSchemaDrift(computeSchemaDrift(cols, cols))).toBe(false);
+  });
+});
+
+describe("refresh merge mode (R147)", () => {
+  it("SEED_REFRESH defaults to replace with no key when nothing is remembered", () => {
+    const s = wizardReducer(INITIAL_WIZARD_STATE, { type: "SEED_REFRESH", target: excelTarget });
+    expect(s.refreshMode).toBe("replace");
+    expect(s.mergeKey).toEqual([]);
+  });
+
+  it("SEED_REFRESH pre-fills the remembered key + last-used mode (D1/D4)", () => {
+    const s = wizardReducer(INITIAL_WIZARD_STATE, {
+      type: "SEED_REFRESH",
+      target: excelTarget,
+      settings: {
+        available: true,
+        sheet: "Worksheet",
+        merge_key: ["a", "b"],
+        refresh_mode: "merge",
+      },
+    });
+    expect(s.refreshMode).toBe("merge");
+    expect(s.mergeKey).toEqual(["a", "b"]);
+  });
+
+  it("drops a remembered key column no longer on the committed schema; merge with no surviving key falls back to replace", () => {
+    const s = wizardReducer(INITIAL_WIZARD_STATE, {
+      type: "SEED_REFRESH",
+      target: excelTarget,
+      settings: { available: true, merge_key: ["gone"], refresh_mode: "merge" },
+    });
+    expect(s.mergeKey).toEqual([]);
+    expect(s.refreshMode).toBe("replace");
+  });
+
+  it("SET_REFRESH_MODE / SET_MERGE_KEY update the choice", () => {
+    let s = wizardReducer(INITIAL_WIZARD_STATE, { type: "SEED_REFRESH", target: excelTarget });
+    s = wizardReducer(s, { type: "SET_REFRESH_MODE", mode: "merge" });
+    s = wizardReducer(s, { type: "SET_MERGE_KEY", key: ["a"] });
+    expect(s.refreshMode).toBe("merge");
+    expect(s.mergeKey).toEqual(["a"]);
+  });
+});
+
+describe("mergeKeyIssues (R147 F5×F2 client guard)", () => {
+  const baseline = [
+    { name: "a", dtype: "string" as const },
+    { name: "b", dtype: "integer" as const },
+  ];
+  const okSheet = {
+    status: "ok" as const,
+    columns: [
+      { name: "a", dtype: "string" as const },
+      { name: "b", dtype: "integer" as const },
+    ],
+    rowCount: 1,
+    sampleRows: [],
+    columnOverrides: {},
+    excludedColumns: [],
+    parseOptions: {},
+    name: "x",
+  };
+
+  it("passes when every key survives with its committed dtype", () => {
+    expect(mergeKeyIssues(baseline, okSheet, ["a", "b"])).toEqual([]);
+  });
+
+  it("flags a key column absent from the incoming file", () => {
+    const sheet = { ...okSheet, columns: [{ name: "b", dtype: "integer" as const }] };
+    expect(mergeKeyIssues(baseline, sheet, ["a"])).toEqual([{ kind: "missing", name: "a" }]);
+  });
+
+  it("flags a key column the user excluded (excluded = missing from the kept set)", () => {
+    const sheet = { ...okSheet, excludedColumns: ["a"] };
+    expect(mergeKeyIssues(baseline, sheet, ["a"])).toEqual([{ kind: "missing", name: "a" }]);
+  });
+
+  it("flags a key dtype drift — from the parsed dtype or an override", () => {
+    const parsedDrift = { ...okSheet, columns: [{ name: "a", dtype: "integer" as const }, okSheet.columns[1]] };
+    expect(mergeKeyIssues(baseline, parsedDrift, ["a"])).toEqual([
+      { kind: "dtypeChanged", name: "a", from: "string", to: "integer" },
+    ]);
+    // The override, not the parsed dtype, is what commits (effective dtype).
+    const overrideDrift = { ...okSheet, columnOverrides: { b: { dtype: "string" as const } } };
+    expect(mergeKeyIssues(baseline, overrideDrift, ["b"])).toEqual([
+      { kind: "dtypeChanged", name: "b", from: "integer", to: "string" },
+    ]);
+  });
+
+  it("returns no issues while the sheet is not parsed yet (guard runs at Confirm)", () => {
+    expect(mergeKeyIssues(baseline, undefined, ["a"])).toEqual([]);
   });
 });

@@ -1,4 +1,4 @@
-import { Alert, Input, Table, Tag, Typography } from 'antd';
+import { Alert, Input, Radio, Select, Space, Table, Tag, Typography } from 'antd';
 import type { TFunction } from 'i18next';
 import type { Dispatch } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
@@ -6,7 +6,28 @@ import { ERROR_CODES, NAME_LENGTHS } from '@/_generated/constants';
 import { formatBytes } from '@/lib/formatBytes';
 import { BatchApiErrorThrown } from '@/features/data-management/_shared/types';
 import { useWorkspacesQuery } from '@/features/data-management/workspaces/hooks';
-import { CSV_SHEET_KEY, type WizardAction, type WizardState } from './state';
+import {
+  CSV_SHEET_KEY,
+  mergeKeyIssues,
+  refreshSheetKey,
+  type WizardAction,
+  type WizardState,
+} from './state';
+
+const SAMPLE_SEP = ' · ';
+
+/** R147 D2 — the loud stop teaches the fix: the declared key is not the
+ *  row's identity (pick a fuller key or clean the export). */
+function mergeDuplicateKeysDescription(
+  body: Extract<BatchApiErrorThrown['body'], { code: 'merge_duplicate_keys' }>,
+  t: TFunction,
+): string {
+  return t('upload.confirm.errorMergeDuplicateKeysDescription', {
+    key: body.key.join(' + '),
+    count: body.duplicateKeyCount,
+    samples: body.sampleKeys.join(SAMPLE_SEP),
+  });
+}
 
 function commitErrorTitle(err: Error, t: TFunction): string {
   if (err instanceof BatchApiErrorThrown && 'code' in err.body) {
@@ -15,6 +36,9 @@ function commitErrorTitle(err: Error, t: TFunction): string {
     }
     if (err.body.code === ERROR_CODES.COERCION_FAILED) {
       return t('upload.confirm.errorCoercionFailedTitle');
+    }
+    if (err.body.code === ERROR_CODES.MERGE_DUPLICATE_KEYS) {
+      return t('upload.confirm.errorMergeDuplicateKeysTitle');
     }
   }
   return t('upload.confirm.errorGenericTitle');
@@ -31,7 +55,7 @@ function commitErrorDescription(err: Error, t: TFunction): string {
         const { sheet, column, dtype, cells, totalFailed } = err.body;
         const samples = cells
           .map((c) => t('upload.confirm.errorCoercionFailedCell', { row: c.row, value: c.value }))
-          .join(' \u00b7 ');
+          .join(SAMPLE_SEP);
         const base = t('upload.confirm.errorCoercionFailedDescription', {
           column: sheet ? `${sheet} \u203a ${column}` : column,
           dtype,
@@ -52,6 +76,9 @@ function commitErrorDescription(err: Error, t: TFunction): string {
         else if (timeInDate) hintKey = 'upload.confirm.errorCoercionFailedTimeInDateHint';
         return `${base} ${t(hintKey)}`;
       }
+      if (err.body.code === ERROR_CODES.MERGE_DUPLICATE_KEYS) {
+        return mergeDuplicateKeysDescription(err.body, t);
+      }
       return t('upload.confirm.errorServerCode', { code: err.body.code });
     }
     return err.body.detail ?? err.body.error;
@@ -64,6 +91,100 @@ type Props = Readonly<{
   dispatch: Dispatch<WizardAction>;
   commitError?: Error | null;
 }>;
+
+/** R147 — the refresh-semantics block (upload.md § Refresh merge mode): the
+ *  replace|merge choice + key picker live HERE on Confirm (no new wizard
+ *  step). Key guards mirror the backend (F5×F2): a missing / dtype-drifted
+ *  key column blocks MERGE — never the refresh (switch to replace, fix the
+ *  override, or re-pick). The page-level commit button reads the same
+ *  `mergeKeyIssues` helper. */
+function RefreshSemantics({ state, dispatch }: Readonly<Pick<Props, 'state' | 'dispatch'>>) {
+  const { t } = useTranslation();
+  const keyIssues = mergeKeyIssues(
+    state.refreshBaseline ?? [],
+    state.sheets[refreshSheetKey(state)],
+    state.mergeKey,
+  );
+  const mergeBlocked = state.refreshMode === 'merge' && (state.mergeKey.length === 0 || keyIssues.length > 0);
+  const issueText =
+    state.mergeKey.length === 0
+      ? t('upload.refresh.mergeKeyRequired')
+      : `${keyIssues
+          .map((i) =>
+            i.kind === 'missing'
+              ? t('upload.refresh.mergeKeyIssueMissing', { name: i.name })
+              : t('upload.refresh.mergeKeyIssueDtype', { name: i.name, from: i.from, to: i.to }),
+          )
+          .join(SAMPLE_SEP)} ${t('upload.refresh.mergeKeyBlockedHint')}`;
+
+  return (
+    <div data-component="RefreshSemantics" style={{ marginBottom: 12 }}>
+      <Typography.Text strong>{t('upload.refresh.modeLabel')}</Typography.Text>
+      <Radio.Group
+        value={state.refreshMode}
+        onChange={(e) => dispatch({ type: 'SET_REFRESH_MODE', mode: e.target.value })}
+        style={{ display: 'block', margin: '8px 0' }}
+        data-component="RefreshModeChoice"
+      >
+        <Space orientation="vertical" size={4}>
+          <Radio value="replace" data-component="RefreshModeReplace">
+            {t('upload.refresh.modeReplace')}{' '}
+            <Typography.Text type="secondary">{t('upload.refresh.modeReplaceHint')}</Typography.Text>
+          </Radio>
+          <Radio value="merge" data-component="RefreshModeMerge">
+            {t('upload.refresh.modeMerge')}{' '}
+            <Typography.Text type="secondary">{t('upload.refresh.modeMergeHint')}</Typography.Text>
+          </Radio>
+        </Space>
+      </Radio.Group>
+      {state.refreshMode === 'merge' ? (
+        <div style={{ marginBottom: 8, maxWidth: 520 }} data-component="MergeKeyPicker">
+          <Typography.Text>{t('upload.refresh.mergeKeyLabel')}</Typography.Text>
+          <Select
+            mode="multiple"
+            style={{ width: '100%', marginTop: 4 }}
+            placeholder={t('upload.refresh.mergeKeyPlaceholder')}
+            value={state.mergeKey}
+            onChange={(key: string[]) => dispatch({ type: 'SET_MERGE_KEY', key })}
+            options={(state.refreshBaseline ?? []).map((c) => ({
+              value: c.name,
+              label: `${c.name} (${c.dtype})`,
+            }))}
+            status={mergeBlocked ? 'error' : undefined}
+            data-component="MergeKeySelect"
+          />
+        </div>
+      ) : null}
+      {state.refreshMode === 'merge' && mergeBlocked ? (
+        <Alert
+          type="error"
+          showIcon
+          title={t('upload.refresh.mergeKeyBlockedTitle')}
+          description={issueText}
+          data-component="MergeKeyBlocked"
+        />
+      ) : null}
+      {state.refreshMode === 'merge' && !mergeBlocked ? (
+        <Alert
+          type="info"
+          showIcon
+          title={t('upload.refresh.confirmMergeTitle', { name: state.refreshTargetName ?? '' })}
+          description={t('upload.refresh.confirmMergeBody', { key: state.mergeKey.join(' + ') })}
+          data-component="RefreshConfirmNote"
+        />
+      ) : null}
+      {state.refreshMode === 'replace' ? (
+        <Alert
+          type="warning"
+          showIcon
+          title={t('upload.refresh.confirmReplaceTitle', { name: state.refreshTargetName ?? '' })}
+          description={t('upload.refresh.confirmReplaceBody')}
+          data-component="RefreshConfirmNote"
+        />
+      ) : null}
+    </div>
+  );
+}
 
 type RowData = {
   key: string;
@@ -175,16 +296,7 @@ export function UploadConfirmStep({ state, dispatch, commitError }: Props) {
 
   return (
     <div data-component="UploadConfirmStep">
-      {isRefresh ? (
-        <Alert
-          type="warning"
-          showIcon
-          title={t('upload.refresh.confirmReplaceTitle', { name: state.refreshTargetName ?? '' })}
-          description={t('upload.refresh.confirmReplaceBody')}
-          style={{ marginBottom: 12 }}
-          data-component="RefreshConfirmNote"
-        />
-      ) : null}
+      {isRefresh ? <RefreshSemantics state={state} dispatch={dispatch} /> : null}
       <div
         style={{
           marginBottom: 12,

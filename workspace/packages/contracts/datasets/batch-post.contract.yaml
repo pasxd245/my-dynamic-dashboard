@@ -91,21 +91,82 @@ paths:
                           are atomically swapped; the dataset is left intact if
                           the refresh fails (e.g. coercion_failed). `name` is
                           IGNORED (the target keeps its committed name). A
-                          refresh batch carries exactly one item. Row
-                          merge-on-key / precedence for non-cumulative exports
-                          is a later round (R146); R145 is replace-only.
+                          refresh batch carries exactly one item. R147: setting
+                          `merge_key` alongside selects MERGE semantics instead
+                          of replace.
+                      merge_key:
+                        type: array
+                        minItems: 1
+                        items:
+                          type: string
+                          minLength: 1
+                        description: |
+                          R147 MERGE refresh (requires `target_dataset_id`;
+                          422 on a create item). Names one or more of the
+                          target's COMMITTED columns as the row identity key.
+                          Semantics: keep-latest-per-key — an incoming row
+                          supersedes ALL committed rows sharing its key
+                          (incoming wins, whole row); incoming-only keys
+                          insert; committed-only keys are KEPT (the difference
+                          from replace). Result schema = the incoming table's
+                          schema (D5): kept rows NULL-fill added columns and
+                          drop removed ones. Guards (all 422, dataset
+                          untouched): key column not in the committed schema;
+                          key column missing from the incoming kept columns or
+                          committed↔incoming key dtype mismatch (the F5×F2
+                          false-non-overlap guard — the one exception to
+                          warn-never-block drift); duplicate incoming rows per
+                          key → `merge_duplicate_keys` (D2: loud stop, file
+                          row order is not time).
       responses:
         '201':
           description: |
-            All items committed atomically. Returns the created Dataset
-            rows in the same order as the request `items` array.
+            All items committed atomically. Two shapes (the FE branches on
+            `Array.isArray`):
+
+            1. Create / replace-refresh — the created (or updated) Dataset
+               rows in the same order as the request `items` array.
+            2. MERGE refresh (R147, item carried `merge_key`) — a wrapper
+               carrying the updated Dataset plus the merge report counts,
+               so the FE can surface what the merge did (`updated` incoming
+               rows superseded a committed key, `inserted` were new keys,
+               `kept` committed rows had no incoming counterpart;
+               updated + inserted + kept = the dataset's new row_count).
           content:
             application/json:
               schema:
-                type: array
-                minItems: 1
-                items:
-                  $ref: '../_shared/dataset.yaml#/components/schemas/Dataset'
+                oneOf:
+                  - type: array
+                    minItems: 1
+                    items:
+                      $ref: '../_shared/dataset.yaml#/components/schemas/Dataset'
+                  - type: object
+                    required: [datasets, merge]
+                    additionalProperties: false
+                    properties:
+                      datasets:
+                        type: array
+                        minItems: 1
+                        maxItems: 1
+                        items:
+                          $ref: '../_shared/dataset.yaml#/components/schemas/Dataset'
+                      merge:
+                        type: object
+                        required: [updated, inserted, kept]
+                        additionalProperties: false
+                        properties:
+                          updated:
+                            type: integer
+                            minimum: 0
+                            description: Incoming rows whose key superseded committed row(s).
+                          inserted:
+                            type: integer
+                            minimum: 0
+                            description: Incoming rows with a key new to the dataset.
+                          kept:
+                            type: integer
+                            minimum: 0
+                            description: Committed rows kept (key absent from the incoming file).
         '404':
           description: |
             Workspace `id` does not exist, OR `temp_id` is unknown / expired,
@@ -155,6 +216,17 @@ paths:
                the sheet, column, target dtype, the first 5 offending
                cells (1-indexed data rows), and the total failed count.
                The whole batch aborts — nothing is committed.
+            3. The code-first envelope `{ code: "merge_duplicate_keys", … }`
+               (R147) — a merge refresh's incoming file carries more than
+               one row per declared key (D2: loud stop). Names the key,
+               the duplicated-value count, and up to 5 sample key values.
+               The dataset is untouched.
+
+            R147 merge guards using shape 1 (detail string): `merge_key` on
+            a create item; key column unknown to the committed schema; key
+            column missing from the incoming kept columns; committed↔incoming
+            key dtype mismatch; kept committed rows failing the cast to a
+            drifted incoming column dtype.
           content:
             application/json:
               schema:
@@ -164,3 +236,4 @@ paths:
                     properties:
                       detail: {}
                   - $ref: '../_shared/api-error.yaml#/components/schemas/ApiErrorCoercionFailed'
+                  - $ref: '../_shared/api-error.yaml#/components/schemas/ApiErrorMergeDuplicateKeys'

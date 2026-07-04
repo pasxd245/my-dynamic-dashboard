@@ -448,6 +448,8 @@
       "errorCoercionFailedHeaderRowHint": "Giá trị lỗi trùng với tên cột — tệp có thể chứa dòng tiêu đề lặp lại; hãy xóa dòng đó trong tệp gốc rồi tải lên lại.",
       "errorCoercionFailedTimeInDateHint": "Giá trị lỗi có kèm giờ nhưng kiểu đã chọn là date — hãy chọn datetime (ví dụ định dạng dd-MM-yyyy HH:mm:ss). Muốn gom theo ngày/tuần, hãy thêm bước Gom theo thời gian trong truy vấn sau đó.",
       "errorCoercionFailedCell": "dòng {{row}} trong tệp: “{{value}}”",
+      "errorMergeDuplicateKeysTitle": "Tệp mới có khóa bị trùng",
+      "errorMergeDuplicateKeysDescription": "{{count}} giá trị khóa ({{key}}) xuất hiện trên nhiều dòng trong tệp mới, nên không thể xác định dòng nào được giữ. Ví dụ: {{samples}}. Hãy thêm một cột vào khóa (ví dụ: ngày) hoặc làm sạch tệp xuất rồi thử lại. Chưa có gì bị thay đổi.",
       "errorGenericTitle": "Không thể tạo tập dữ liệu",
       "errorServerCode": "Máy chủ trả về mã {{code}}."
     },
@@ -476,7 +478,23 @@
       "sheetNote": "Cập nhật áp dụng cho sheet gốc “{{sheet}}” — đã được chọn sẵn.",
       "confirmReplaceTitle": "Thao tác này thay thế toàn tập dữ liệu trong “{{name}}”",
       "confirmReplaceBody": "Cập nhật thay thế toàn bộ bảng — dữ liệu trước đó bị ghi đè (không lưu lịch sử phiên bản). Tập dữ liệu giữ nguyên tên và id, nên các truy vấn và dashboard dựa trên nó vẫn được kết nối.",
-      "legacyNote": "Một số thiết lập không thể khôi phục từ lần tải lên cũ — vui lòng kiểm tra lại kiểu cột và định dạng trước khi tiếp tục."
+      "legacyNote": "Một số thiết lập không thể khôi phục từ lần tải lên cũ — vui lòng kiểm tra lại kiểu cột và định dạng trước khi tiếp tục.",
+      "modeLabel": "Áp dụng bản cập nhật này như thế nào?",
+      "modeReplace": "Thay thế toàn bộ",
+      "modeReplaceHint": "Dữ liệu trong tệp mới thay thế toàn bộ dữ liệu hiện có.",
+      "modeMerge": "Gộp theo khóa",
+      "modeMergeHint": "Dòng trùng khóa được cập nhật theo tệp mới; dòng chỉ có trong tập dữ liệu được giữ lại; khóa mới được thêm vào.",
+      "mergeKeyLabel": "Cột khóa",
+      "mergeKeyPlaceholder": "Chọn cột xác định một dòng",
+      "mergeKeyRequired": "Chọn ít nhất một cột khóa để gộp.",
+      "mergeKeyIssueMissing": "“{{name}}” không có trong các cột được giữ của tệp mới.",
+      "mergeKeyIssueDtype": "“{{name}}” bị đổi kiểu ({{from}} → {{to}}).",
+      "mergeKeyBlockedTitle": "Không thể gộp do cột khóa",
+      "mergeKeyBlockedHint": "Hãy sửa cột hoặc kiểu của nó, chọn khóa khác, hoặc chuyển sang Thay thế toàn bộ.",
+      "confirmMergeTitle": "Thao tác này gộp tệp mới vào “{{name}}”",
+      "confirmMergeBody": "Dòng trùng khóa ({{key}}) được cập nhật theo tệp mới; dòng chỉ có trong tập dữ liệu được giữ lại; khóa mới được thêm vào. Tập dữ liệu giữ nguyên tên và id, nên các truy vấn và dashboard dựa trên nó vẫn được kết nối.",
+      "commitMergeLabel": "Gộp vào tập dữ liệu",
+      "mergeSuccess": "Đã gộp: {{updated}} cập nhật · {{inserted}} thêm mới · {{kept}} giữ nguyên."
     },
     "drift": {
       "noneTitle": "Không có thay đổi lược đồ",

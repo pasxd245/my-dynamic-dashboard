@@ -113,7 +113,14 @@ export type CommitBatchItem = {
   excluded_columns?: string[];
   /** R145 refresh — replace this existing dataset in place (name ignored). */
   target_dataset_id?: string;
+  /** R147 merge refresh — the identity-key column(s); requires
+   *  `target_dataset_id`. Presence selects merge (keep-latest-per-key)
+   *  instead of replace. */
+  merge_key?: string[];
 };
+
+/** R147 refresh mode — replace (R145, whole-table) or merge-on-key. */
+export type RefreshMode = 'replace' | 'merge';
 
 /** R145: GET /datasets/{id}/refresh-settings — the carry-forward snapshot a
  *  refresh wizard pre-fills from. Mirrors a commit item's settings shape.
@@ -124,6 +131,10 @@ export type RefreshSettings = {
   parse_options?: ParseOptions;
   column_overrides?: Record<string, ColumnOverride>;
   excluded_columns?: string[];
+  /** R147 D1 — the key the last merge refresh declared (remembered per dataset). */
+  merge_key?: string[];
+  /** R147 D4 — the last refresh's semantics (the per-refresh choice defaults to it). */
+  refresh_mode?: RefreshMode;
 };
 
 export type CommitBatchRequest = {
@@ -131,7 +142,23 @@ export type CommitBatchRequest = {
   items: CommitBatchItem[];
 };
 
-export type CommitBatchResponse = Dataset[];
+/** R147 — what the merge did: incoming rows that superseded a committed key ·
+ *  incoming rows with a new key · committed rows kept (no incoming counterpart).
+ *  Sums to the dataset's new rowCount. */
+export type MergeReport = {
+  updated: number;
+  inserted: number;
+  kept: number;
+};
+
+/** R147 — 201 shape 2: a merge refresh wraps the updated dataset with the
+ *  merge report. The FE branches on `Array.isArray`. */
+export type CommitBatchMergeResponse = {
+  datasets: Dataset[];
+  merge: MergeReport;
+};
+
+export type CommitBatchResponse = Dataset[] | CommitBatchMergeResponse;
 
 /** R36: response shape for GET /datasets/{id}/rows.
  *  Mirrors `workspace/packages/contracts/datasets/rows-get.contract.yaml`.

@@ -7,6 +7,7 @@ import type {
   ParseOptions,
   ParseSheetFailed,
   ParseSheetOk,
+  RefreshMode,
   RefreshSettings,
   SheetSummary,
   SourceFormat,
@@ -98,6 +99,12 @@ export type WizardState = {
   /** Refresh only — true when the target had no persisted commitSettings
    *  (legacy dataset → lossy pre-fill; surfaced honestly to the user). */
   refreshLegacy: boolean;
+  /** Refresh only — the commit semantics (R147): replace (R145 whole-table)
+   *  or merge-on-key. Defaults to the last-used mode (D4, via refresh-settings). */
+  refreshMode: RefreshMode;
+  /** Refresh only — the declared identity-key columns for a merge (R147 D1;
+   *  pre-filled from the remembered `merge_key` when available). */
+  mergeKey: string[];
 };
 
 export const INITIAL_WIZARD_STATE: WizardState = {
@@ -117,6 +124,8 @@ export const INITIAL_WIZARD_STATE: WizardState = {
   pendingPreset: null,
   driftAcknowledged: false,
   refreshLegacy: false,
+  refreshMode: "replace",
+  mergeKey: [],
 };
 
 function stemFromName(filename: string): string {
@@ -148,6 +157,8 @@ export type WizardAction =
   | { type: "SET_PARSE_OPTIONS"; sheet: string; options: ParseOptions }
   | { type: "SET_DATASET_NAME"; sheet: string; name: string }
   | { type: "SEED_REFRESH"; target: Dataset; settings?: RefreshSettings | null }
+  | { type: "SET_REFRESH_MODE"; mode: RefreshMode }
+  | { type: "SET_MERGE_KEY"; key: string[] }
   | { type: "SET_DRIFT_ACK"; acknowledged: boolean }
   | { type: "GOTO_STEP"; step: WizardStep }
   | { type: "RESET" };
@@ -296,6 +307,14 @@ function reduceSeedRefresh(target: Dataset, settings: RefreshSettings | null | u
         name: target.name,
       }
     : presetFromDataset(target);
+  // R147 D1/D4 — pre-fill the remembered key + last-used mode. A remembered
+  // key column no longer on the committed schema is dropped (a later replace
+  // may have reshaped the dataset); a merge default with no surviving key
+  // falls back to replace rather than seeding an un-committable state.
+  const committed = new Set(target.columns.map((c) => c.name));
+  const mergeKey = (settings?.merge_key ?? []).filter((k) => committed.has(k));
+  const refreshMode: RefreshMode =
+    settings?.refresh_mode === "merge" && mergeKey.length > 0 ? "merge" : "replace";
   return {
     ...INITIAL_WIZARD_STATE,
     mode: "refresh",
@@ -307,6 +326,8 @@ function reduceSeedRefresh(target: Dataset, settings: RefreshSettings | null | u
     refreshTargetSheet: isCsv ? null : (target.sheetName ?? null),
     pendingPreset: { [sheetKey]: preset },
     refreshLegacy: !settings?.available,
+    refreshMode,
+    mergeKey,
   };
 }
 
@@ -392,6 +413,10 @@ export function wizardReducer(
       return setSheet(state, action.sheet, { name: action.name });
     case "SEED_REFRESH":
       return reduceSeedRefresh(action.target, action.settings);
+    case "SET_REFRESH_MODE":
+      return { ...state, refreshMode: action.mode };
+    case "SET_MERGE_KEY":
+      return { ...state, mergeKey: action.key };
     case "SET_DRIFT_ACK":
       return { ...state, driftAcknowledged: action.acknowledged };
     case "GOTO_STEP":
@@ -459,4 +484,39 @@ export function computeSchemaDrift(
 /** True when any drift kind is present (gates the Drift-review acknowledge). */
 export function hasSchemaDrift(d: SchemaDrift): boolean {
   return d.added.length > 0 || d.removed.length > 0 || d.dtypeChanged.length > 0;
+}
+
+export type MergeKeyIssue =
+  | { kind: "missing"; name: string }
+  | { kind: "dtypeChanged"; name: string; from: Dtype; to: Dtype };
+
+/** R147 F5×F2 — the key columns are the ONE exception to warn-never-block:
+ *  a key that is excluded/absent from the incoming kept set, or whose
+ *  effective incoming dtype (override ?? parsed) differs from the committed
+ *  dtype, silently mis-matches rows. Pure client-side mirror of the backend
+ *  guards; a non-empty result disables the merge commit. */
+export function mergeKeyIssues(
+  baseline: Column[],
+  sheet: SheetState | undefined,
+  mergeKey: string[],
+): MergeKeyIssue[] {
+  if (sheet?.status !== "ok") return [];
+  const committedDtype = new Map(baseline.map((c) => [c.name, c.dtype]));
+  const excluded = new Set(sheet.excludedColumns);
+  const incomingDtype = new Map(
+    sheet.columns
+      .filter((c) => !excluded.has(c.name))
+      .map((c) => [c.name, sheet.columnOverrides[c.name]?.dtype ?? c.dtype]),
+  );
+  const issues: MergeKeyIssue[] = [];
+  for (const name of mergeKey) {
+    const to = incomingDtype.get(name);
+    const from = committedDtype.get(name);
+    if (to === undefined) {
+      issues.push({ kind: "missing", name });
+    } else if (from !== undefined && from !== to) {
+      issues.push({ kind: "dtypeChanged", name, from, to });
+    }
+  }
+  return issues;
 }

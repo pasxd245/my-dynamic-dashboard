@@ -39,9 +39,11 @@ from app.ingest.parquet_writer import (
     write_csv_to_parquet,
     write_excel_to_parquet,
 )
+from app.ingest.merge import MergeCastError, MergeDuplicateKeysError, merge_parquets
 from app.ingest.rows_reader import query_dataset_rows
 from app.models.common import (
     ApiErrorCoercionFailed,
+    ApiErrorMergeDuplicateKeys,
     ApiErrorNameTaken,
     ApiErrorNotFound,
     CoercionFailedCell,
@@ -85,6 +87,9 @@ class _BatchItem(BaseModel):
     column_overrides: dict[str, ColumnOverride] | None = None
     excluded_columns: list[str] | None = None
     target_dataset_id: Annotated[str, Field(pattern=r"^ds_[0-9a-f]{8}$")] | None = None
+    # R147 — merge refresh: names the target's committed identity-key
+    # columns; requires target_dataset_id (422 on a create item).
+    merge_key: Annotated[list[Annotated[str, Field(min_length=1)]], Field(min_length=1)] | None = None
 
 
 class _BatchRequest(BaseModel):
@@ -293,10 +298,95 @@ def _load_source_json(workspace_id: str, ds_id: str) -> dict | None:
         return None
 
 
+def _merge_key_guards(
+    merge_key: list[str], committed_cols: dict[str, str], dtype_targets: dict[str, str]
+) -> None:
+    """R147 F5×F2 — the key columns are the ONE loud stop in the otherwise
+    warn-never-block drift policy: a silently drifted key dtype = the same
+    value failing to match its own prior row (false non-overlap). All three
+    guards 422 BEFORE any write; the dataset is untouched."""
+    unknown = [k for k in merge_key if k not in committed_cols]
+    if unknown:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"merge_key references column(s) not in the existing dataset: {', '.join(unknown)}",
+        )
+    missing = [k for k in merge_key if k not in dtype_targets]
+    if missing:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                f"merge_key column(s) missing from the incoming file: {', '.join(missing)} — "
+                f"fix the file or switch the refresh to replace"
+            ),
+        )
+    drifted = [
+        f"{k} ({committed_cols[k]} → {dtype_targets[k]})"
+        for k in merge_key
+        if committed_cols[k] != dtype_targets[k]
+    ]
+    if drifted:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                f"merge_key column dtype changed between the dataset and the incoming file: "
+                f"{', '.join(drifted)} — a drifted key silently mis-matches rows; "
+                f"fix the override or switch the refresh to replace"
+            ),
+        )
+
+
+def _run_merge(
+    staging_dir: Path, ds_dir: Path, merge_key: list[str], cols: list[dict[str, str]], target_id: str
+) -> dict[str, int] | JSONResponse:
+    """R147 — run keep-latest-per-key against the STAGED incoming parquet and
+    swap the merged result into staging. Any failure discards staging and the
+    dataset is untouched: duplicate incoming keys → the typed
+    `merge_duplicate_keys` 422 (D2 — loud stop); an uncastable kept committed
+    value → 422 detail (loud, never a silent TRY_CAST NULL)."""
+    staged_parquet = staging_dir / "parsed.parquet"
+    merged_target = staging_dir / "merged.parquet"
+    try:
+        merge_stats = merge_parquets(
+            ds_dir / "parsed.parquet",
+            staged_parquet,
+            merged_target,
+            key=merge_key,
+            incoming_cols=cols,
+        )
+    except MergeDuplicateKeysError as err:
+        shutil.rmtree(staging_dir, ignore_errors=True)
+        logger.warning(
+            "merge_duplicate_keys (refresh): dataset=%r key=%r duplicated=%d sample=%r",
+            target_id,
+            merge_key,
+            err.duplicate_key_count,
+            err.sample_keys[0],
+        )
+        return JSONResponse(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            content=ApiErrorMergeDuplicateKeys(
+                key=merge_key,
+                duplicateKeyCount=err.duplicate_key_count,
+                sampleKeys=err.sample_keys,
+            ).model_dump(exclude_none=True),
+        )
+    except MergeCastError as err:
+        shutil.rmtree(staging_dir, ignore_errors=True)
+        logger.warning("merge_cast_failed (refresh): dataset=%r key=%r error=%s", target_id, merge_key, err)
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"merge failed casting existing rows to the incoming schema: {err}",
+        ) from err
+    merged_target.replace(staged_parquet)
+    return merge_stats
+
+
 def _handle_refresh(
     body: _BatchRequest, meta: dict, original_path: Path, source_format: str
 ) -> list[Dataset] | JSONResponse:
-    """R145 § Refresh — whole-table REPLACE of an existing dataset.
+    """R145 § Refresh — whole-table REPLACE of an existing dataset; R147 —
+    MERGE (keep-latest-per-key) when the item carries ``merge_key``.
 
     The dataset's ``id`` is kept (dependent queries/relationships survive); the
     parquet, original file, columns_json, counts and commitSettings are
@@ -304,6 +394,8 @@ def _handle_refresh(
     so a coercion failure leaves the existing dataset fully intact (acceptance
     #4). A directory-level rename (old → .bak, staging → live) keeps the swap
     atomic; any failure during the DB update restores the old directory.
+    The merge (dup-key check + reconciliation) also runs against the staging
+    copy BEFORE any swap — same intact-on-failure invariant.
     """
     if len(body.items) != 1:
         raise HTTPException(
@@ -332,6 +424,13 @@ def _handle_refresh(
         item, source_format, original_path
     )
     sheet_name = item.sheet if source_format == "excel" else None
+
+    # R147 — merge guards run BEFORE any write (key must exist on both
+    # sides with the committed dtype; the F5×F2 false-non-overlap stop).
+    merge_key = list(dict.fromkeys(item.merge_key)) if item.merge_key else None
+    if merge_key is not None:
+        committed_cols = {c["name"]: c["dtype"] for c in json.loads(row["columns_json"])}
+        _merge_key_guards(merge_key, committed_cols, dtype_targets)
 
     ds_dir = dataset_dir(ws_id, target_id)
     staging_dir = ds_dir.parent / f"{target_id}.staging"
@@ -374,14 +473,35 @@ def _handle_refresh(
                 totalFailed=err.total_failed,
             ).model_dump(exclude_none=True),
         )
+    # R147 — MERGE: reconcile the staged incoming table with the committed
+    # parquet (keep-latest-per-key), still before any swap. A dup-key or
+    # cast failure discards staging; the dataset is untouched.
+    merge_stats: dict[str, int] | None = None
+    if merge_key is not None:
+        merge_result = _run_merge(staging_dir, ds_dir, merge_key, cols, target_id)
+        if isinstance(merge_result, JSONResponse):
+            return merge_result
+        merge_stats = merge_result
+
     shutil.copy2(original_path, staging_dir / f"original{meta['ext']}")
     commit_settings = _commit_settings_dict(item, sheet_name)
+    # R147 D1/D4 — remember the refresh semantics + declared key per dataset
+    # (the wizard's next-refresh defaults). A replace refresh carries the
+    # previously declared key forward so it isn't forgotten between merges.
+    commit_settings["refresh_mode"] = "merge" if merge_key is not None else "replace"
+    if merge_key is not None:
+        commit_settings["merge_key"] = merge_key
+    else:
+        prev_key = (((_load_source_json(ws_id, target_id) or {}).get("commitSettings")) or {}).get("merge_key")
+        if prev_key:
+            commit_settings["merge_key"] = prev_key
     (staging_dir / "source.json").write_text(
         _source_json_dict(body.temp_id, source_format, sheet_name, meta, commit_settings)
     )
 
     columns_json = json.dumps(cols, ensure_ascii=False)
     new_size = original_path.stat().st_size
+    new_row_count = parsed.row_count if merge_stats is None else sum(merge_stats.values())
 
     # Atomic swap: old dir → .bak, staging → live, then UPDATE the row. Any
     # failure restores the old directory so the dataset is never left broken.
@@ -395,7 +515,7 @@ def _handle_refresh(
             con.execute(
                 "UPDATE datasets SET row_count=?, column_count=?, columns_json=?, "
                 "size_bytes=?, sheet_name=? WHERE id=?",
-                (parsed.row_count, len(cols), columns_json, new_size, sheet_name, target_id),
+                (new_row_count, len(cols), columns_json, new_size, sheet_name, target_id),
             )
             con.commit()
     except Exception:
@@ -407,7 +527,18 @@ def _handle_refresh(
 
     with get_conn() as con:
         updated = con.execute("SELECT * FROM datasets WHERE id = ?", (target_id,)).fetchone()
-    return [_dataset_from_row(updated)]
+    updated_ds = _dataset_from_row(updated)
+    if merge_stats is not None:
+        # R147 — the merge report wrapper (contract 201 shape 2). Bypasses
+        # response_model (JSONResponse); contract-verified via validate_response.
+        return JSONResponse(
+            status_code=status.HTTP_201_CREATED,
+            content={
+                "datasets": [updated_ds.model_dump(exclude_none=True, mode="json")],
+                "merge": merge_stats,
+            },
+        )
+    return [updated_ds]
 
 
 @router.post(
@@ -441,6 +572,12 @@ def commit_datasets_batch(id: str, body: _BatchRequest) -> list[Dataset] | JSONR
 
     # Validate items up front. Any failure rejects the whole batch.
     for item in body.items:
+        if item.merge_key is not None:
+            # R147 — merge is a refresh semantics; meaningless on a create.
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="merge_key requires target_dataset_id (merge is a refresh mode)",
+            )
         if source_format == "excel" and item.sheet is None:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,

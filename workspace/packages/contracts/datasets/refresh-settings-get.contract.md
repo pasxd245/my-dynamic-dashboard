@@ -28,6 +28,11 @@ dogfood pain).
   R145 have no snapshot; the wizard then uses a lossy fallback (sheet +
   final committed dtypes only) and writes a snapshot on the next refresh, so
   the gap self-heals forward.
+- **Merge memory (R147).** `merge_key` carries the identity key the last
+  merge refresh declared (D1 — remembered per dataset) and `refresh_mode`
+  the semantics the last refresh used (D4 — the per-refresh choice defaults
+  to last-used). Both absent until the dataset's first (merge) refresh; the
+  wizard then defaults to replace with no key pre-picked.
 
 ## Error semantics
 

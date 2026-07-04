@@ -287,7 +287,7 @@ FE-facing contract is unchanged.
 
 A Dataset row (and the [dataset-detail](dataset-detail.md) header) gains a **Refresh**
 action beside rename/delete. It re-uploads a *new export of the same source* into the
-existing dataset — forward-only, **replace** or (R147, draft) **merge-on-key** — rather than
+existing dataset — forward-only, **replace** or (R147) **merge-on-key** — rather than
 creating a sibling. The real CRM cadence: month-2's export updates `monthly_calls` in place.
 
 - **Placement**: an item in the row's Actions menu (`Refresh` · `Rename` · `Delete`) and a
@@ -306,7 +306,7 @@ creating a sibling. The real CRM cadence: month-2's export updates `monthly_call
   drops or retypes a column auto-flips its dependents to stale on their next open. The Drift
   review step **previews** that blast radius before commit; it does not rebuild the runtime
   net. No new persisted status field is added.
-- **Merge mode (R147, draft)**: row merge-on-key / precedence for overlapping non-cumulative
+- **Merge mode (R147, signed off 2026-07-04)**: row merge-on-key / precedence for overlapping non-cumulative
   re-exports — specified in
   [upload.md § Refresh merge mode](upload.md#refresh-merge-mode-merge-on-key-and-precedence-r147).
   **No new placement**: the replace|merge choice + key picker live inside the wizard's Confirm

@@ -3,7 +3,8 @@
 **Status**: Planning
 **Date started**: 2026-07-04
 **Date completed**:
-**Flow**: _TBD — run flow-selector at the Design gate exit._
+**Flow**: **DCFBI** — set at the Design gate via flow-selector (1 of 5 fired: high
+user-error risk); recorded in the Do log. No F1/F2 gates; human verification at Integration.
 
 ## Goal
 
@@ -136,16 +137,81 @@ the fix) · D3 precedence (rec: incoming-wins; precedence-column defers with tri
 D4 mode selection (rec: per-refresh choice, last-used default) · D5 result schema under drift
 (rec: incoming schema wins, consistent with replace). **Hard stop here for the human.**
 
+### D-gate — CLOSED (human, 2026-07-04)
+
+**"recs are fine"** — D1–D5 all resolved to the tabled recommendations, including the
+key-dtype exception to warn-never-block (blocks merge, not refresh). Spec banners flipped to
+SIGNED OFF in upload.md + datasets.md. Human verification scheduled at Integration ("proceed
+then tell me what to confirm").
+
+**Flow selector run** (per [R47](../../decisions/2026-05-28-hybrid-flow-governance.md)):
+
+| Condition                            | Fired? | Justification |
+| ------------------------------------ | ------ | ------------- |
+| 1. >3 independent states/branches    | no     | Wizard state machine reused unchanged; merge adds a mode choice + key picker on Confirm and one blocking condition in the existing Drift step — not >3 new independent branches. |
+| 2. New interaction pattern           | no     | Radio mode choice, column multi-select, and typed-422 surfacing all exist (metadata dtype dropdowns, coercion alert, R145 drift review). |
+| 3. High user-error risk              | yes    | Irreversible forward-only merge of live data; a wrongly-declared key silently reshapes the dataset (the F5 class). |
+| 4. Contract depends on unresolved UI | no     | D1–D5 resolved; `merge_key` + `{updated, inserted, kept}` are writable as YAML now. |
+| 5. UX confidence below threshold     | no     | Standard controls inside an existing step; D review closed with no open UX questions. |
+
+Result: **Flow: DCFBI**
+
+### C/B/F/I — built (2026-07-04)
+
+- **C (contracts):** [batch-post.contract.yaml](../../../workspace/packages/contracts/datasets/batch-post.contract.yaml)
+  — item gains `merge_key` (requires `target_dataset_id`); 201 becomes a `oneOf`
+  (plain array | `{ datasets, merge: {updated, inserted, kept} }` wrapper, FE branches on
+  `Array.isArray`); 422 oneOf gains the `merge_duplicate_keys` envelope + the detail-string
+  guard list. New shared [ApiErrorMergeDuplicateKeys](../../../workspace/packages/contracts/_shared/api-error.yaml)
+  (key · duplicateKeyCount · sampleKeys ≤5). [refresh-settings-get](../../../workspace/packages/contracts/datasets/refresh-settings-get.contract.yaml)
+  gains `merge_key` + `refresh_mode` (D1/D4 memory). Both `.md` rationales updated —
+  including the stale-since-R145 `target_dataset_id` "422-reserved" paragraph (truth fix).
+  Error code added to `values.yaml` + both constants templates → regenerated.
+- **B (backend):** new [app/ingest/merge.py](../../../workspace/apps/backend/app/ingest/merge.py)
+  — one DuckDB statement (incoming ∪ anti-join committed) writing the merged parquet;
+  dup-key detection BEFORE any write; kept committed rows CAST loudly into the incoming
+  schema (no TRY_CAST-to-NULL by design). [datasets.py](../../../workspace/apps/backend/app/routers/datasets.py):
+  `_merge_key_guards` (unknown / missing-from-incoming / dtype-drifted key → 422, dataset
+  untouched — the F5×F2 stop, BEFORE any write) · `_run_merge` (staging-side merge; failures
+  discard staging, same intact-on-failure invariant as replace) · `merge_key` on a create
+  item → 422 · row_count = merge sum · `commitSettings` remembers `refresh_mode` +
+  `merge_key` (a later replace carries the key forward) · merge 201 = the wrapper response.
+- **F (FE):** `RefreshSemantics` block on the Confirm step (mode radio + key multi-select
+  from the committed columns + blocking alert); `mergeKeyIssues` pure guard (excluded =
+  missing; effective dtype = override ?? parsed) drives picker error state AND the disabled
+  commit button; `SEED_REFRESH` seeds remembered key/mode (dropping key columns no longer
+  committed; merge with no surviving key falls back to replace); commit sends `merge_key`;
+  wrapper response → success toast with the counts; `merge_duplicate_keys` typed error
+  rendered on Confirm (title + teach-the-fix description). Types: `RefreshMode`,
+  `MergeReport`, `CommitBatchMergeResponse`, ApiError variant + `isApiError`.
+- **I (i18n):** en+vi `upload.refresh.mode*`/`mergeKey*`/`confirmMerge*`/`commitMergeLabel`/
+  `mergeSuccess` + `upload.confirm.errorMergeDuplicateKeys*`. VN per the R146 lessons —
+  corpus-grepped first: **"khóa"** (established: "khóa nối", "khóa sắp xếp") + **"gộp"**
+  (Excel-vi "Gộp ô"); one word per concept; value-framed hints ("dòng chỉ có trong tập dữ
+  liệu được giữ lại"). Design-sync: 2 build deviations flagged in upload.md (key guard
+  surfaced on Confirm, not the Drift step — the key is only declared on Confirm; committed
+  dups folded into `kept`, no 4th count) + snake_case snapshot keys.
+
+**Gates:** BE `ruff` clean · `pytest` 347 (incl. new `tests/test_datasets_merge_refresh.py`
+— 10: keep/incoming-wins/counts, dup-key envelope + intact, unknown/missing/dtype-drift key
+guards, merge-on-create 422, composite key, D5 schema, commitSettings memory, replace
+unregressed) · FE `tsc` 0 · `vitest` 286/286 (incl. 9 new merge reducer/guard tests) · i18n
+en/vi parity OK.
+
 ## Check
 
-- [ ] D signed off before C/B/F (incl. the identity-key, in-file-duplicate, and
-      choice-vs-setting domain decisions).
-- [ ] Real CRM pair merges: one row per declared key, incoming status wins, non-overlapping
-      committed rows kept; counts surfaced.
-- [ ] A merge that fails validation leaves the existing dataset fully intact.
-- [ ] Key-dtype mismatch is a loud typed failure, never a silent false non-overlap.
-- [ ] Backend pytest + ruff green; FE tsc + vitest green; design/plan/markdown lints clean.
-- [ ] Human feel-review of the refresh-with-merge walk.
+- [x] D signed off before C/B/F (incl. the identity-key, in-file-duplicate, and
+      choice-vs-setting domain decisions). _Human, 2026-07-04 — "recs are fine"._
+- [~] Real CRM pair merges: one row per declared key, incoming status wins, non-overlapping
+      committed rows kept; counts surfaced. _Automated proxy green
+      (`test_merge_keeps_committed_only_rows_and_incoming_wins` — the overlap/changed-status
+      fixture shape); the real-file walk is the human verification below._
+- [x] A merge that fails validation leaves the existing dataset fully intact.
+      _dup-key + guard tests assert rowCount/rows unchanged._
+- [x] Key-dtype mismatch is a loud typed failure, never a silent false non-overlap.
+      _`test_merge_key_dtype_drift_is_blocked_422` (BE) + `mergeKeyIssues` tests (FE)._
+- [x] Backend pytest + ruff green; FE tsc + vitest green; design/plan/markdown lints clean.
+- [ ] Human feel-review of the refresh-with-merge walk (checklist handed over 2026-07-04).
 
 ## Act
 
