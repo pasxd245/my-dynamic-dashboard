@@ -927,11 +927,10 @@ dataset's contents (original + parquet + `columns_json` + counts), forward-only 
 history). This is the lived case — the FM exports are **cumulative** (FM2.25 carried 6,692
 rows that supersede the earlier 5,047-row commit), so replace is correct and sufficient.
 
-> **Not this round (revert seam, R146):** row **merge-on-key / precedence** (F5+F6) for
+> **Not this round (revert seam → R147):** row **merge-on-key / precedence** (F5+F6) for
 > *overlapping, non-cumulative* re-exports (identity key + precedence are domain decisions).
-> Replace can't dedup overlapping partial exports; that wall pulls the merge round next. If
-> R145's build discovers replace can't serve the real refresh cadence, **stop and re-rank**
-> rather than absorbing merge.
+> Replace can't dedup overlapping partial exports; that wall pulled
+> [§ Refresh merge mode](#refresh-merge-mode-merge-on-key-and-precedence-r147).
 
 ### Entry point — a mode of the wizard, not a new surface
 
@@ -1104,7 +1103,8 @@ source table), targeting one dataset:
 
 ### Boundaries (named)
 
-- **Replace only** — merge-on-key / precedence (F5+F6) is R146 (revert seam above).
+- **Replace only** — merge-on-key / precedence (F5+F6) is
+  [§ Refresh merge mode (R147)](#refresh-merge-mode-merge-on-key-and-precedence-r147).
 - **Forward-only** — no version history / rollback-to-previous-parquet in slice 1.
 - **One dataset per refresh** — a refresh batch is length 1 (multi-dataset refresh has no
   lived pull; the create path stays multi-item for Excel multi-sheet).
@@ -1130,6 +1130,150 @@ source table), targeting one dataset:
 5. **Legacy fallback**: refreshing a pre-R145 dataset (no `commitSettings`) pre-fills
    sheet + final dtypes, notes the un-restorable settings, and writes a fresh snapshot on
    commit.
+
+---
+
+## Refresh merge mode: merge-on-key and precedence (R147)
+
+_⑥ refresh theme, slice 2 — F5 (merge needs a key + precedence; UNION cannot fake it) +
+F6 (the identity key is a domain decision)._
+
+> **Status: DRAFT — R147 D-gate, awaiting human sign-off.** Domain decisions marked **❓ D1–D5**
+> below; each carries a recommendation, none is decided. Pulled by
+> [Round_147](../../../plan/cycles/Round_147.md) ←
+> [2026-07-03-r142-dogfood-findings](../../../plan/brainstorms/2026-07-03-r142-dogfood-findings.md)
+> (rank 3, ⑥ month-2 blocker; F5 upgraded to correctness risk) + the R145 revert seam above.
+
+### Concept: the case replace cannot serve
+
+R145's refresh **replaces** the whole table — correct when each export supersedes the last
+(the cumulative FM files). The second real export shape is **overlapping and non-cumulative**:
+the two CRM lead snapshots share **6,960 phone values**, and under every counting policy
+roughly **half changed** their call-status between snapshots. Set arithmetic cannot reconcile
+that — `UNION ALL` double-lists, `UNION DISTINCT` keeps both (the rows differ). Replace loses
+whatever the new partial export doesn't carry. What's needed is **record reconciliation**:
+**keep one row per declared identity key, newest snapshot wins, and keep committed rows the
+incoming export doesn't mention**. That last clause is the whole difference from replace.
+
+### Build home: a refresh-commit mode, not a workflow step (argued)
+
+Two candidate homes, per the noun-vs-mode discipline — the rejected one named:
+
+- **Chosen: a second refresh semantics** (`replace | merge`) inside the existing refresh
+  commit. The merge happens **once, at ingest**, and materializes into the dataset's parquet;
+  the dataset stays the single source of truth every dependent reads, unchanged.
+- **Rejected: a workflow step** ("keep latest per key"). It is *expressible* — one DuckDB
+  window/anti-join step, and the workflows doctrine
+  ([queries-to-workflows brainstorm](../../../plan/brainstorms/2026-07-01-queries-to-workflows-module.md);
+  "query gains steps", DuckDB-first) rightly biases shaping toward steps. But a step-home dedup is **opt-in per consumer**: the
+  dataset itself would stay double-rowed (it would also need a new *append* refresh semantics
+  to even hold both snapshots), and every query/widget that forgets the step is **silently
+  wrong by default** — exactly the F5 correctness failure. F5 is not presentation shaping;
+  it is correctness of the *source*. Month-2 correctness must hold by construction.
+  _(A "latest per key" step for presentation-level dedup remains open to a future pull —
+  orthogonal, not precluded.)_
+
+The wizard skeleton is untouched (strict on the skeleton): merge adds **no new step**. The
+**Confirm step** in refresh mode gains a *refresh semantics* block — `replace | merge` choice;
+choosing merge reveals the **key picker** (select from the committed columns) — and the
+existing Drift review step gains merge-aware severity (below).
+
+### Merge semantics: keep-latest-per-key
+
+Inputs: the committed parquet (current rows) + the incoming staged table — the incoming side
+already coerced to the committed dtype contract by the R143/R145 machinery, *before* any swap.
+
+| Key present in… | Result |
+| --------------- | ------ |
+| both | **incoming row wins** (whole row — no cell-level merge) |
+| incoming only | inserted |
+| committed only | **kept** (the clause replace lacks) |
+
+- **Precedence = snapshot recency**: the incoming file wins, period (❓ D3). No precedence
+  column, no per-cell reconciliation in slice 1.
+- One DuckDB statement over the two tables (anti-join committed-minus-incoming ∪ incoming),
+  writing a fresh parquet via the same staged/atomic-swap path as replace — failure at any
+  point leaves the existing dataset fully intact (the R145 invariant extends).
+- **Merge report**: the commit response carries `{ updated, inserted, kept }` counts; the
+  Confirm step shows them post-commit (toast/result), and the FE cannot precompute them
+  (it never holds the full committed table).
+
+### F6: the identity key (domain decisions)
+
+The mechanism above is generic; **what a row IS is not inferable** — phone is not unique even
+within one file (the source's own `TRÙNG` column counts 1..8+ occurrences per phone; 16,375
+in-file duplicate-phone rows). These are the human's calls:
+
+| ❓ | Decision | Options | Recommendation |
+| --- | -------- | ------- | -------------- |
+| **D1** | Key shape + persistence | (a) one or more committed columns, picked in the wizard, remembered per dataset in `commitSettings.mergeKey`; (b) single column only | **(a)** — composite keys are the *expected* real case ("lead = phone + creation-date"); a multi-select costs no extra skeleton. Remembered key pre-fills next month |
+| **D2** | Incoming file has duplicate rows per key | (a) **loud stop** — typed 422 naming the key, dup count, sample keys (evidence the declared key is wrong); (b) last-in-file wins, count surfaced; (c) keep all dup-key rows | **(a)** — file row order is not time, so "last" is fiction; a dup-key incoming file means the key doesn't mean what the user thinks. The 422 teaches the fix (pick a fuller key or clean the export) |
+| **D3** | Precedence rule | (a) incoming-wins (snapshot recency); (b) precedence column (e.g. max timestamp) | **(a)** for slice 1; (b) defers with trigger: a real pair where the older snapshot holds the newer truth |
+| **D4** | Mode selection | (a) per-refresh choice, defaulting to the last-used mode (remembered in `commitSettings`); (b) fixed per-dataset setting | **(a)** — the same dataset can plausibly get a cumulative export one month and a partial the next; the choice stays visible at every refresh |
+| **D5** | Result schema under column drift | (a) incoming schema wins (kept rows NULL-fill added columns, lose removed ones — consistent with replace; drift review already warns); (b) union of both schemas, NULL-filled | **(a)** — the incoming export defines the current shape; (b) accretes ghost columns forever |
+
+Duplicates already inside the **committed** table (e.g. from a pre-merge replace commit) merge
+per the same rule — all committed rows whose key matches an incoming key are superseded by the
+one incoming row; committed dup-keys *not* touched by the incoming file are kept as-is and
+surfaced as a count in the merge report (cleaning history is not this slice's job).
+
+### F5×F2: the key-dtype guard (the one loud stop in the drift gate)
+
+A silently drifted **key** dtype = the same phone failing to match its own prior row =
+**false non-overlap** — dedup silently misses, the exact F5 corruption. General drift stays
+**warn-never-block** (R145 human decision, unchanged); the **key columns are the exception**,
+because a corrupt merge is a different severity class than a stale dependent:
+
+- Key column **removed** from the incoming file, or its **dtype changed** → the Drift review
+  step **blocks merge** (not refresh: the user may switch to replace, fix the override, or
+  pick a different key).
+- Backend enforces the same independently: a merge whose key column is missing or
+  dtype-mismatched at commit → typed 422 (dataset untouched) — the FE gate is UX, the BE
+  check is the contract.
+
+### Wire shape (merge)
+
+The refresh item gains one optional field — presence selects the mode:
+
+```ts
+// merge refresh: target_dataset_id + merge_key; absence of merge_key = replace (R145, unchanged)
+{ temp_id, items: [{ target_dataset_id, merge_key?: string[], sheet?, parse_options?, column_overrides?, excluded_columns? }] }
+```
+
+- `merge_key` names committed columns (≥1). Unknown column → 422. Key column missing/
+  dtype-drifted in the incoming parse → 422 (the F5×F2 guard). Incoming dup-key rows → per
+  ❓ D2 (recommended: typed 422 naming key + count + sample).
+- 201 → the updated `Dataset` (same `id`) **plus merge counts** `{ updated, inserted, kept }`
+  (response-shape addition — lands at C with the contract update).
+- `commitSettings` extends with `mergeKey` + `refreshMode` (remembered defaults; F9 pattern).
+- `merge_key` on a **create** item (no `target_dataset_id`) → 422 (meaningless).
+
+### Boundaries (named, R147)
+
+- **Whole-row wins** — no cell-level merge / per-column precedence.
+- **Incoming-wins only** — precedence columns defer with the ❓ D3 trigger.
+- **No rename inference** (unchanged from R145) — a renamed key column reads as
+  removed → blocks merge.
+- **No AI-propose-key** — the F6 "agent proposes, human verifies meaning" moment is a natural
+  #2 AI-loop slice, and #2 is additive, never load-bearing: the manual pick ships and lives
+  first. Trigger: the manual key pick proves repetitive/error-prone in dogfood.
+- **Forward-only** — no unmerge / version history (unchanged).
+- **Committed-side dup cleanup** is out of scope (surfaced as a count, not repaired).
+
+### Acceptance (R147, maps to Check)
+
+1. **Real CRM pair**: merge the two lead snapshots on the declared key → one row per key,
+   incoming status wins on the ~3.4k changed keys, committed-only rows kept, counts surfaced.
+2. **Absence semantics**: a key in the committed table but not in the incoming file survives
+   the merge (the difference from replace, proven by test).
+3. **Loud key guard**: key-column dtype drift or removal blocks merge in the Drift review AND
+   422s at the backend; the dataset is untouched.
+4. **Dup-key policy** (per ❓ D2): the real dup-heavy file behaves per the signed-off rule,
+   loudly.
+5. **Replace unregressed**: an R145-style replace refresh (no `merge_key`) is byte-for-byte
+   the old behavior.
+6. **Carry-forward**: the declared key + mode are remembered; next month's refresh pre-fills
+   both.
 
 ---
 
@@ -1386,7 +1530,7 @@ This doc:
 | Table range / skip-rows override?      | **Yes** — Excel range + CSV skip-rows in a Parse-options disclosure on Metadata   | R14 HIxAI Q14b (drifted pull, user-directed) |
 | Auto-generate headers when no header?  | **Yes** — has-header toggle; auto-gen names `column1, column2, …` when off        | R14 HIxAI Q14c (drifted pull, user-directed) |
 | Column-selection (Include checkboxes)? | **Yes** — Include column on Metadata table; all-checked default; uncheck to drop  | R14 HIxAI Q14d (user-directed)               |
-| Append / update existing Dataset?      | R15 create-only (forward-compat); **R145 ships Refresh (replace); R146 = merge**  | R14 Q14e defer → R145 D (§ Refresh)          |
+| Append / update existing Dataset?      | R15 create-only (forward-compat); **R145 ships Refresh (replace); R147 = merge**  | R14 Q14e defer → R145 D (§ Refresh)          |
 | Column rename in Metadata step?        | No — dtype override only; column rename is R∞                                     | R14 HIxAI Q16 (lean accepted)                |
 | Primary data source?                   | Excel (CRM-export dominant); CSV as secondary                                     | R14 HIxAI Q15 (user-directed)                |
 | Multi-sheet selection per wizard run?  | **Yes** — checkboxes in Sheet step; one Dataset per selected sheet; atomic commit | R14 HIxAI Q17 (user-directed)                |

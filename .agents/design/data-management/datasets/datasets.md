@@ -287,8 +287,8 @@ FE-facing contract is unchanged.
 
 A Dataset row (and the [dataset-detail](dataset-detail.md) header) gains a **Refresh**
 action beside rename/delete. It re-uploads a *new export of the same source* into the
-existing dataset — **whole-table replace**, forward-only — rather than creating a sibling.
-The real CRM cadence: month-2's export updates `monthly_calls` in place.
+existing dataset — forward-only, **replace** or (R147, draft) **merge-on-key** — rather than
+creating a sibling. The real CRM cadence: month-2's export updates `monthly_calls` in place.
 
 - **Placement**: an item in the row's Actions menu (`Refresh` · `Rename` · `Delete`) and a
   `[Refresh]` button on the dataset-detail header. Both `navigate('/data-management/datasets/:id/refresh')`
@@ -306,8 +306,12 @@ The real CRM cadence: month-2's export updates `monthly_calls` in place.
   drops or retypes a column auto-flips its dependents to stale on their next open. The Drift
   review step **previews** that blast radius before commit; it does not rebuild the runtime
   net. No new persisted status field is added.
-- **Not this round**: row merge-on-key / precedence for overlapping non-cumulative
-  re-exports is R146 (replace is R145's lived case — cumulative FM exports).
+- **Merge mode (R147, draft)**: row merge-on-key / precedence for overlapping non-cumulative
+  re-exports — specified in
+  [upload.md § Refresh merge mode](upload.md#refresh-merge-mode-merge-on-key-and-precedence-r147).
+  **No new placement**: the replace|merge choice + key picker live inside the wizard's Confirm
+  step; the Datasets/detail surfaces are unchanged (the remembered key does NOT surface on the
+  detail header in slice 1 — the wizard shows it where it's acted on).
 
 ---
 

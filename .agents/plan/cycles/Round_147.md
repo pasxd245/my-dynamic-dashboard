@@ -106,7 +106,35 @@ D-gate first per the d-gate-artifact-in-design-corpus lesson._
 
 ## Do
 
-_(open)_
+### D-gate — design draft (2026-07-04, awaiting human sign-off)
+
+Design corpus drafted (the D deliverable, per the `d-gate-artifact-in-design-corpus` lesson):
+
+- [upload.md § Refresh merge mode (R147)](../../design/data-management/datasets/upload.md#refresh-merge-mode-merge-on-key-and-precedence-r147)
+  — **build home ARGUED, not assumed**: refresh-commit mode chosen over the workflow-step home
+  (a step-home dedup is opt-in per consumer → the dataset stays double-rowed and every query
+  that forgets the step is silently wrong — the exact F5 failure; F5 is source correctness,
+  not presentation shaping, so the DuckDB-first steps doctrine doesn't claim it; a
+  presentation-level "latest per key" step stays open to a future pull, orthogonal). No new
+  wizard step: Confirm gains the `replace | merge` choice + key picker. Merge = keep-latest-
+  per-key (incoming wins; committed-only rows KEPT — the difference from replace); one DuckDB
+  statement, same staged/atomic-swap invariant. **F5×F2 key-dtype guard**: key-column drift
+  (removed / dtype-changed) is the ONE loud stop in the otherwise warn-never-block drift gate
+  — blocks *merge*, not refresh (switch to replace / fix / re-pick); backend 422s
+  independently. Wire: item gains optional `merge_key: string[]` (absence = replace,
+  unchanged); 201 adds `{updated, inserted, kept}` counts; `commitSettings` remembers
+  `mergeKey` + `refreshMode` (F9 pattern).
+- [datasets.md § Refresh affordance](../../design/data-management/datasets/datasets.md#refresh-affordance-r145)
+  — stamped: **no new placement**; choice + key live in the wizard Confirm step; detail
+  header unchanged in slice 1.
+- Stale R146→R147 pointers in both docs corrected (design docs are current-state spec).
+
+**❓ Domain decisions D1–D5 tabled for the human** (each with a recommendation, none decided):
+D1 key shape/persistence (rec: ≥1 committed columns, remembered in `commitSettings.mergeKey`) ·
+D2 incoming dup-key rows (rec: **loud typed 422** — file order is not time; the error teaches
+the fix) · D3 precedence (rec: incoming-wins; precedence-column defers with trigger) ·
+D4 mode selection (rec: per-refresh choice, last-used default) · D5 result schema under drift
+(rec: incoming schema wins, consistent with replace). **Hard stop here for the human.**
 
 ## Check
 
