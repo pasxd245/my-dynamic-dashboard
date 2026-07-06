@@ -1,7 +1,8 @@
 # Round 149: Multi-range wizard — one sheet → N named ranges (F8)
 
-**Status**: Review — built, gates green; awaiting human Integration walk (2026-07-06)
+**Status**: Complete — human-directed finish (2026-07-06)
 **Date started**: 2026-07-06
+**Date completed**: 2026-07-06
 **Flow**: **DCFBI** — set at the Design gate via flow-selector (0 of 5 fired); recorded in the
 Do log. No F1/F2 gates; human verification at Integration.
 
@@ -195,13 +196,51 @@ Result: **Flow: DCFBI** (0 conditions fired). No F1/F2 gates; human verification
 - [x] Single-range and multi-sheet paths unregressed; single-unit refresh path unregressed.
       _BE pytest 350 (create/refresh/merge suites) + FE vitest 299 (incl. refresh-wizard)._
 - [x] Backend pytest + ruff green; FE tsc + vitest green; design/plan/markdown lints clean.
-- [~] Human feel-review of the multi-range walk (Integration — DCFBI human gate). _Handed over
-      2026-07-06; pending an in-app run (carve two ranges from one sheet → two datasets; check the
-      add/remove-range affordance, the range-bearing tab labels, and the Confirm Range column)._
+- [x] Human feel-review of the multi-range walk (Integration — DCFBI human gate). _Human ran the
+      surface 2026-07-06 and surfaced two real visual findings — the button-size mismatch (fixed,
+      a6b3155) and the button-label vertical-centering (diagnosed as the DejaVu-Sans font fallback
+      on the Linux dev box, not our CSS and not an F8 regression; left as-is per the human, renders
+      correctly on users' Windows/Mac). Full real-CRM multi-range merge walk not logged
+      box-by-box; completion **human-directed** ("complete r149"). Residual risk = the class a
+      deeper real-file walk would catch; flagged + accepted, same honest-note pattern as R147/R145._
 
 ## Act
 
-_(Learnings / promotions / prune check at close.)_
+**Learnings:**
+
+1. **The cheap-win rank held because the cost was named at D, not discovered at B.** F8 was ranked
+   rank-4 "backend already supports it" — and it did: C and B needed **zero** code change. The
+   real cost (the FE `sheets`-map re-key from sheet-name to unit-id) was surfaced by the R148
+   design-sync pre-flight and written into the D-spec as "the load-bearing FE change," so the
+   build had no surprise. The lesson is the sequencing: a pre-flight that corrects the state-keying
+   doc turns a would-be mid-build surprise into a named design fact. (Instance of the established
+   `design-docs-are-source-code` value — no new memory.)
+2. **A synthetic unit-id keyed on an impossible separator beats a bare-name key.** Keeping the
+   initial unit keyed by the sheet name (backward-compat for refresh/CSV/single-range) while
+   giving added ranges a `${sheet}:${seq}` key works because `:` is Excel-forbidden in sheet
+   names — no collision, and refresh (single-unit) stayed literally untouched. The one hazard hit
+   in passing: an early draft used a NUL byte as the separator and silently wrote a binary char
+   into the source; caught by `rg` flagging the file binary. Prefer a visible, domain-illegal
+   separator over a control char.
+3. **The Integration walk earns its gate on visual consistency.** DCFBI has no F1, but the human's
+   in-app pass caught a button-size mismatch (`size="small"` vs the wizard's default) that every
+   automated gate (tsc/vitest/lints) is blind to — the `dfcfbi-f1-needs-human-review` theme again.
+   And the follow-up "is it our CSS?" on label centering was worth grounding in evidence
+   (`fc-match` → DejaVu fallback) before touching anything: it turned a tempting CSS hack into a
+   correct "not our bug, environmental" call.
+
+**Promotions:** none — the doctrines these touch (`design-docs-are-source-code`,
+`dfcfbi-f1-needs-human-review`, `name-value-not-mechanism`) already exist; this round applies them.
+
+**Prune check:** nothing added to the agent OS (no skill, doc area, or process). The `state.ts`
+unit model is product code earning its place (the F8 need); the build **reused** the existing tab
+model, parse-options Range field, and batch wire rather than forking a multi-range path — C and B
+took no code change at all. No vestigial code carried in.
+
+**Left as-is (flagged, human aware):** button-label vertical centering on the Linux dev box (the
+DejaVu-Sans system-font fallback). Not our CSS, renders correctly on users' Windows/Mac; a
+deterministic cross-platform fix (self-hosting a webfont in `@mdd/ui`) is a candidate for a future
+UI-polish round if dogfooding friction warrants it — explicitly NOT pulled now (default = don't add).
 
 ## Feeds into → Round_150 (TBD)
 
