@@ -1,7 +1,8 @@
 # Round 151: UI / diagnosability batch, continued (F3 · F4 · F13 + F7/R140 decisions)
 
-**Status**: Planning — F3 recommended first; two decisions open (2026-07-06)
+**Status**: Complete — F3/F4/F13 done; F7 + R140 deferred to [R152](Round_152.md) (2026-07-06)
 **Date started**: 2026-07-06
+**Date completed**: 2026-07-06
 **Flow**: TBD — batch round. F3/F4/F13 are backend/diagnosability C+B slices (DCFBI, no F1);
 F7 (if pulled in) runs its own D-gate. Set per-item after the decisions.
 
@@ -123,17 +124,46 @@ widgets remain a named residual (unknown-dtype → attempt).
 
 ## Check
 
-- [ ] R140 + F7 decisions recorded.
-- [ ] Each in-scope finding fixed with a test; no silent-error regressions (F3/F13 surface truth).
-- [ ] Backend pytest + ruff green; FE tsc + vitest green; design/plan/markdown lints clean.
-- [ ] Human review of the batch.
+- [x] R140 + F7 decisions recorded: **both deferred to [R152](Round_152.md)** (human, 2026-07-06
+      — "defer to next round"). F7 splits to its own design-gated round; R140 stays an open
+      enumerate-or-drop input.
+- [x] Each in-scope finding fixed with a test (or found already-resolved): F3 test-verified; F13
+      diagnosed live + test; F4 already-resolved (R30 sweep, no test needed). No silent-error
+      regressions — F3 surfaces the real 500, F13 removes the doomed request rather than hiding it.
+- [x] Backend pytest 352 + ruff green; FE tsc 0 + vitest 304 green; design/plan/markdown lints clean.
+- [x] Human review — human-directed completion; F13 was reproduced **live** on the seeded backend
+      (the sum-on-string 422) and F3 verified through the real middleware stack.
 
 ## Act
 
-_(Learnings / promotions / prune check at close.)_
+**Learnings:**
 
-## Feeds into → Round_152 (TBD)
+1. **Re-verify a logged finding is still real before building it.** F4 ("no temp sweep") was
+   already solved by R30's `tmp_sweep`; the R142 observation was intra-session accumulation before
+   the 24h TTL. A batch round is where stale findings surface — check each against the current code
+   first, don't build what already exists. (Instance of verify-against-the-real-repo.)
+2. **Some findings can only be pinned by running the app.** F13's two 422s were invisible in code —
+   the mechanism (server `sum` on a string-typed numeric column → 422 → silent client-rollup
+   fallback) only showed once I reproduced it against the **running seeded backend**. Static
+   analysis narrowed the candidates; the live replay confirmed the exact class. The `verify`/run-live
+   discipline isn't only for UI feel — it's how a "silent error" finding gets a real diagnosis.
+3. **CORS ordering is the fix for the "CORS blocked" mislabel.** An unhandled 500 must be caught by
+   a middleware INNER to CORS so the error response still flows out through the CORS layer;
+   otherwise Starlette's outermost `ServerErrorMiddleware` emits a header-less 500 the browser
+   mislabels. A one-middleware fix that makes every future 500 debuggable — high diagnosability
+   leverage for low cost.
 
-Depends on the F7 decision: if split, a candidate next round is **F7** (column-visibility hint +
-column-metadata PATCH). Otherwise re-rank at open. **Carried**: R145 slice 1b + AI-propose-key.
-④ export parked.
+**Promotions:** none — applies existing doctrine (verify-against-repo, dfcfbi-f1/live-verify).
+
+**Prune check:** nothing added to the agent OS. `UnhandledErrorMiddleware` + the
+`serverAggregateSupportsMeasure` gate are product code earning their place (diagnosability +
+removing a doomed request); F4 added nothing (already-resolved); the F13 fix REMOVED a network
+request rather than adding surface. No new skill/process.
+
+## Feeds into → Round_152 (F7 + the R140 decision)
+
+[R152](Round_152.md) = **F7** — wide-table column show/hide: a `hidden?` view-hint on column
+metadata + a new column-metadata `PATCH` (design-gated: the "visible-by-default *for whom*" Q →
+D-gate first). **Carried into R152 as an open input:** the never-enumerated **R140 UI/UX list**
+(enumerate-and-fold or formally drop). **Also carried:** R145 slice 1b (blast-radius preview) +
+AI-propose-key (parked, #2). ④ export parked.
