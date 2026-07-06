@@ -1,8 +1,15 @@
 import { Alert, Button, Space, Table, Tabs, Typography } from "antd";
+import type { TFunction } from "i18next";
 import type { Dispatch } from "react";
 import { useTranslation } from "react-i18next";
 import type { Dtype } from "../types";
-import { CSV_SHEET_KEY, type WizardAction, type WizardState } from "./state";
+import {
+  sheetHasMultipleUnits,
+  units,
+  type WizardAction,
+  type WizardState,
+  type WizardUnit,
+} from "./state";
 
 type Props = Readonly<{
   state: WizardState;
@@ -12,9 +19,9 @@ type Props = Readonly<{
 export function UploadPreviewStep({ state, dispatch }: Props) {
   const { t } = useTranslation();
   const isCsv = state.sourceFormat === "csv";
-  const sheetKeys = isCsv ? [CSV_SHEET_KEY] : state.selectedSheets;
+  const unitList = units(state);
 
-  if (sheetKeys.length === 0) {
+  if (unitList.length === 0) {
     return (
       <Alert
         type="info"
@@ -28,11 +35,7 @@ export function UploadPreviewStep({ state, dispatch }: Props) {
   if (isCsv) {
     return (
       <div data-component="UploadPreviewStep">
-        <SheetPreview
-          sheetKey={CSV_SHEET_KEY}
-          state={state}
-          dispatch={dispatch}
-        />
+        <SheetPreview unit={unitList[0]} state={state} dispatch={dispatch} />
       </div>
     );
   }
@@ -40,12 +43,10 @@ export function UploadPreviewStep({ state, dispatch }: Props) {
   return (
     <div data-component="UploadPreviewStep">
       <Tabs
-        items={sheetKeys.map((key) => ({
-          key,
-          label: tabLabel(key, state),
-          children: (
-            <SheetPreview sheetKey={key} state={state} dispatch={dispatch} />
-          ),
+        items={unitList.map((unit) => ({
+          key: unit.key,
+          label: tabLabel(unit, state, t),
+          children: <SheetPreview unit={unit} state={state} dispatch={dispatch} />,
         }))}
       />
     </div>
@@ -53,29 +54,58 @@ export function UploadPreviewStep({ state, dispatch }: Props) {
 }
 
 type SheetPreviewProps = Readonly<{
-  sheetKey: string;
+  unit: WizardUnit;
   state: WizardState;
   dispatch: Dispatch<WizardAction>;
 }>;
 
-function tabLabel(key: string, state: WizardState): string {
-  const sheet = state.sheets[key];
-  if (!sheet) return key;
-  if (sheet.status === "failed") return `${key} ✗`;
-  if (sheet.status === "ok") return `${key} ✓`;
-  return key;
+/** F8 — a preview tab is a UNIT; disambiguate same-sheet units by range. */
+function unitLabelText(unit: WizardUnit, state: WizardState, t: TFunction): string {
+  const base = sheetHasMultipleUnits(state, unit.sheetName)
+    ? `${unit.sheetName} · ${unit.range ?? t('upload.confirm.rangeFull')}`
+    : unit.sheetName;
+  return base || 'CSV';
 }
 
-function SheetPreview({ sheetKey, state, dispatch }: SheetPreviewProps) {
-  const { t } = useTranslation();
-  const sheet = state.sheets[sheetKey];
-  const isCsv = state.sourceFormat === "csv";
+function tabLabel(unit: WizardUnit, state: WizardState, t: TFunction): string {
+  const name = unitLabelText(unit, state, t);
+  const sheet = unit.state;
+  if (sheet.status === "failed") return `${name} ✗`;
+  if (sheet.status === "ok") return `${name} ✓`;
+  return name;
+}
 
-  if (!sheet) {
-    return <Alert type="info" title={t('upload.preview.notParsedYet')} />;
-  }
+function SheetPreview({ unit, state, dispatch }: SheetPreviewProps) {
+  const { t } = useTranslation();
+  const sheet = unit.state;
+  const isCsv = state.sourceFormat === "csv";
+  const isAdded = unit.key !== unit.sheetName;
 
   if (sheet.status === "failed") {
+    // F8 — remove an added range-unit on its own; deselect an initial unit's
+    // sheet; CSV has neither.
+    let removeAction: React.ReactNode = null;
+    if (!isCsv && isAdded) {
+      removeAction = (
+        <Button
+          onClick={() => dispatch({ type: "REMOVE_RANGE_UNIT", unit: unit.key })}
+          data-component="SheetParseFailedRemoveRange"
+        >
+          {t('upload.metadata.removeRange')}
+        </Button>
+      );
+    } else if (!isCsv) {
+      removeAction = (
+        <Button
+          onClick={() =>
+            dispatch({ type: "TOGGLE_SELECTED_SHEET", sheet: unit.sheetName })
+          }
+          data-component="SheetParseFailedDeselect"
+        >
+          {t('upload.preview.deselectSheet')}
+        </Button>
+      );
+    }
     return (
       <div>
         <Alert
@@ -92,16 +122,7 @@ function SheetPreview({ sheetKey, state, dispatch }: SheetPreviewProps) {
           >
             {t('upload.preview.repickFile')}
           </Button>
-          {isCsv ? null : (
-            <Button
-              onClick={() =>
-                dispatch({ type: "TOGGLE_SELECTED_SHEET", sheet: sheetKey })
-              }
-              data-component="SheetParseFailedDeselect"
-            >
-              {t('upload.preview.deselectSheet')}
-            </Button>
-          )}
+          {removeAction}
           <Button
             type="primary"
             onClick={() => dispatch({ type: "GOTO_STEP", step: "metadata" })}
@@ -114,6 +135,10 @@ function SheetPreview({ sheetKey, state, dispatch }: SheetPreviewProps) {
     );
   }
 
+  if (sheet.status !== "ok") {
+    return <Alert type="info" title={t('upload.preview.notParsedYet')} />;
+  }
+
   const includedColumns = sheet.columns.filter(
     (c) => !sheet.excludedColumns.includes(c.name),
   );
@@ -122,7 +147,7 @@ function SheetPreview({ sheetKey, state, dispatch }: SheetPreviewProps) {
     sheet.columnOverrides[name]?.dtype ?? inferred;
 
   const fileName = state.file?.name ?? (isCsv ? "file.csv" : "workbook");
-  const sheetLabel = isCsv ? "" : sheetKey;
+  const sheetLabel = isCsv ? "" : unit.sheetName;
 
   return (
     <div>

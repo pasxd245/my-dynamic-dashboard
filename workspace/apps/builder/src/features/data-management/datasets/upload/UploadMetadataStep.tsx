@@ -17,25 +17,32 @@ import type { Dispatch } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import type { Column, ColumnOverride, Dtype, ParseOptions, SheetSummary } from '../types';
-import { CSV_SHEET_KEY, type SheetState, type WizardAction, type WizardState } from './state';
+import {
+  sheetHasMultipleUnits,
+  type SheetState,
+  units,
+  type WizardAction,
+  type WizardState,
+  type WizardUnit,
+} from './state';
 
 const DTYPES: Dtype[] = ['string', 'integer', 'float', 'boolean', 'date', 'datetime'];
 
 type Props = Readonly<{
   state: WizardState;
   dispatch: Dispatch<WizardAction>;
-  /** Re-parse a sheet (Excel) or the whole file (CSV) with its
-   *  current parseOptions. R26 extended this to CSV — see the
-   *  uploads/parse.contract.yaml description for the wire shape. */
-  onReparseSheet?: (sheet: string) => void;
+  /** Re-parse a unit (Excel sheet/range) or the whole file (CSV) with its
+   *  current parseOptions, keyed by the unit KEY. R26 extended this to CSV —
+   *  see the uploads/parse.contract.yaml description for the wire shape. */
+  onReparseSheet?: (unitKey: string) => void;
 }>;
 
 export function UploadMetadataStep({ state, dispatch, onReparseSheet }: Props) {
   const { t } = useTranslation();
   const isCsv = state.sourceFormat === 'csv';
-  const sheetKeys = isCsv ? [CSV_SHEET_KEY] : state.selectedSheets;
+  const unitList = units(state);
 
-  if (sheetKeys.length === 0) {
+  if (unitList.length === 0) {
     return (
       <Alert
         type="info"
@@ -49,7 +56,7 @@ export function UploadMetadataStep({ state, dispatch, onReparseSheet }: Props) {
   if (isCsv) {
     return (
       <div data-component="UploadMetadataStep">
-        <SheetPane sheetKey={CSV_SHEET_KEY} state={state} dispatch={dispatch} onReparse={onReparseSheet} />
+        <SheetPane unit={unitList[0]} state={state} dispatch={dispatch} onReparse={onReparseSheet} />
       </div>
     );
   }
@@ -57,20 +64,28 @@ export function UploadMetadataStep({ state, dispatch, onReparseSheet }: Props) {
   return (
     <div data-component="UploadMetadataStep">
       <Tabs
-        items={sheetKeys.map((key) => ({
-          key,
-          label: tabLabel(key, state, t),
-          children: <SheetPane sheetKey={key} state={state} dispatch={dispatch} onReparse={onReparseSheet} />,
+        items={unitList.map((unit) => ({
+          key: unit.key,
+          label: tabLabel(unit, state, t),
+          children: <SheetPane unit={unit} state={state} dispatch={dispatch} onReparse={onReparseSheet} />,
         }))}
       />
     </div>
   );
 }
 
-function tabLabel(key: string, state: WizardState, t: TFunction): React.ReactNode {
-  const name = key || 'CSV';
-  const sheet = state.sheets[key];
-  if (!sheet) return name;
+/** F8 — a tab is a UNIT. When a sheet holds >1 unit, disambiguate the label
+ *  with the unit's range (or "(full)" for the whole-sheet unit). */
+function unitLabelText(unit: WizardUnit, state: WizardState, t: TFunction): string {
+  const base = sheetHasMultipleUnits(state, unit.sheetName)
+    ? `${unit.sheetName} · ${unit.range ?? t('upload.confirm.rangeFull')}`
+    : unit.sheetName;
+  return base || 'CSV';
+}
+
+function tabLabel(unit: WizardUnit, state: WizardState, t: TFunction): React.ReactNode {
+  const name = unitLabelText(unit, state, t);
+  const sheet = unit.state;
   if (sheet.status === 'parsing') return `${name} ⏳`;
   if (sheet.status === 'failed') return `${name} ✗`;
   if (sheet.status === 'ok') {
@@ -102,22 +117,51 @@ function tabLabel(key: string, state: WizardState, t: TFunction): React.ReactNod
 }
 
 type PaneProps = Readonly<{
-  sheetKey: string;
+  unit: WizardUnit;
   state: WizardState;
   dispatch: Dispatch<WizardAction>;
-  /** Re-parse callback: a single sheet (Excel) or the whole file
-   *  (CSV; the `sheet` arg is `CSV_SHEET_KEY = ""`). R26 extension. */
-  onReparse: ((sheet: string) => void) | undefined;
+  /** Re-parse callback: the unit key (Excel) or `CSV_SHEET_KEY = ""` (CSV).
+   *  R26 extension. */
+  onReparse: ((unitKey: string) => void) | undefined;
 }>;
 
-function SheetPane({ sheetKey, state, dispatch, onReparse }: PaneProps) {
+function SheetPane({ unit, state, dispatch, onReparse }: PaneProps) {
   const { t } = useTranslation();
-  const sheet = state.sheets[sheetKey];
+  const sheet = unit.state;
+  const unitKey = unit.key;
   const isCsv = state.sourceFormat === 'csv';
+  const isAdded = unitKey !== unit.sheetName;
 
-  if (!sheet) {
-    return <Alert type="info" title={t('upload.metadata.notParsedYet')} />;
-  }
+  // F8 — per-unit range controls: spawn a sibling range-unit (Excel, create
+  // mode) or remove an added one. Rendered across the pending/failed/ok states
+  // so a range is always addable/removable.
+  const canAddRange = !isCsv && state.mode === 'create';
+  const unitControls =
+    canAddRange || isAdded ? (
+      <Space style={{ marginBottom: 12 }} data-component="UnitRangeControls">
+        {canAddRange ? (
+          <Button
+            size="small"
+            onClick={() => dispatch({ type: 'ADD_RANGE_UNIT', sheetName: unit.sheetName })}
+            data-component="AddRangeButton"
+            data-sheet={unit.sheetName}
+          >
+            {t('upload.metadata.addRange')}
+          </Button>
+        ) : null}
+        {isAdded ? (
+          <Button
+            size="small"
+            danger
+            onClick={() => dispatch({ type: 'REMOVE_RANGE_UNIT', unit: unitKey })}
+            data-component="RemoveRangeButton"
+            data-unit={unitKey}
+          >
+            {t('upload.metadata.removeRange')}
+          </Button>
+        ) : null}
+      </Space>
+    ) : null;
 
   if (sheet.status === 'parsing') {
     return (
@@ -128,10 +172,11 @@ function SheetPane({ sheetKey, state, dispatch, onReparse }: PaneProps) {
   }
 
   // The parse-options disclosure is always available (auto-expands on
-  // failed so the user lands on the obvious next action).
+  // failed/pending so the user lands on the obvious next action — typing a
+  // range then re-parsing).
   const optionsDisclosure = (
     <ParseOptionsDisclosure
-      sheetKey={sheetKey}
+      unitKey={unitKey}
       sheet={sheet}
       isCsv={isCsv}
       availableSheets={state.availableSheets}
@@ -140,10 +185,23 @@ function SheetPane({ sheetKey, state, dispatch, onReparse }: PaneProps) {
     />
   );
 
+  // F8 — a freshly-added range-unit starts pending (no columns yet); the user
+  // types a range in the disclosure and re-parses.
+  if (sheet.status === 'pending') {
+    return (
+      <div>
+        {optionsDisclosure}
+        {unitControls}
+        <Alert type="info" showIcon title={t('upload.metadata.notParsedYet')} data-component="UnitNotParsedYet" />
+      </div>
+    );
+  }
+
   if (sheet.status === 'failed') {
     return (
       <div>
         {optionsDisclosure}
+        {unitControls}
         <Alert
           type="error"
           showIcon
@@ -151,12 +209,12 @@ function SheetPane({ sheetKey, state, dispatch, onReparse }: PaneProps) {
           description={sheet.parseError?.detail}
           data-component="SheetParseFailed"
         />
-        <ParseFailedActions sheetKey={sheetKey} isCsv={isCsv} dispatch={dispatch} />
+        <ParseFailedActions unit={unit} isCsv={isCsv} dispatch={dispatch} />
       </div>
     );
   }
 
-  const sheetLabel = isCsv ? '' : sheetKey;
+  const sheetLabel = isCsv ? '' : unit.sheetName;
   const total = sheet.columns.length;
   const kept = total - sheet.excludedColumns.length;
 
@@ -165,7 +223,7 @@ function SheetPane({ sheetKey, state, dispatch, onReparse }: PaneProps) {
       if (sheet.columnOverrides[col.name]) {
         dispatch({
           type: 'SET_COLUMN_OVERRIDE',
-          sheet: sheetKey,
+          unit: unitKey,
           column: col.name,
           override: null,
         });
@@ -185,7 +243,7 @@ function SheetPane({ sheetKey, state, dispatch, onReparse }: PaneProps) {
           onChange={() =>
             dispatch({
               type: 'TOGGLE_EXCLUDED_COLUMN',
-              sheet: sheetKey,
+              unit: unitKey,
               column: row.name,
             })
           }
@@ -216,7 +274,7 @@ function SheetPane({ sheetKey, state, dispatch, onReparse }: PaneProps) {
           onChange={(override) =>
             dispatch({
               type: 'SET_COLUMN_OVERRIDE',
-              sheet: sheetKey,
+              unit: unitKey,
               column: row.name,
               override,
             })
@@ -238,6 +296,7 @@ function SheetPane({ sheetKey, state, dispatch, onReparse }: PaneProps) {
   return (
     <div>
       {optionsDisclosure}
+      {unitControls}
       <Typography.Paragraph type="secondary" style={{ marginTop: 0 }}>
         {sheetLabel ? (
           <Trans
@@ -344,15 +403,15 @@ function sampleFor(rows: (string | null)[][], cols: Column[], name: string): str
 }
 
 type DisclosureProps = Readonly<{
-  sheetKey: string;
+  unitKey: string;
   sheet: SheetState;
   isCsv: boolean;
   availableSheets: SheetSummary[];
   dispatch: Dispatch<WizardAction>;
-  onReparse: ((sheet: string) => void) | undefined;
+  onReparse: ((unitKey: string) => void) | undefined;
 }>;
 
-function ParseOptionsDisclosure({ sheetKey, sheet, isCsv, availableSheets, dispatch, onReparse }: DisclosureProps) {
+function ParseOptionsDisclosure({ unitKey, sheet, isCsv, availableSheets, dispatch, onReparse }: DisclosureProps) {
   const { t } = useTranslation();
   const opts = sheet.parseOptions;
   const update = (patch: Partial<ParseOptions>) => {
@@ -361,10 +420,10 @@ function ParseOptionsDisclosure({ sheetKey, sheet, isCsv, availableSheets, dispa
     for (const k of Object.keys(next) as (keyof ParseOptions)[]) {
       if (next[k] === undefined) delete next[k];
     }
-    dispatch({ type: 'SET_PARSE_OPTIONS', sheet: sheetKey, options: next });
+    dispatch({ type: 'SET_PARSE_OPTIONS', unit: unitKey, options: next });
   };
 
-  const usedRange = isCsv ? undefined : availableSheets.find((s) => s.sheet === sheetKey)?.usedRange;
+  const usedRange = isCsv ? undefined : availableSheets.find((s) => s.sheet === sheet.sheetName)?.usedRange;
 
   const body = (
     <Space orientation="vertical" size={12} style={{ width: '100%' }}>
@@ -417,7 +476,7 @@ function ParseOptionsDisclosure({ sheetKey, sheet, isCsv, availableSheets, dispa
       </div>
       {onReparse ? (
         <Button
-          onClick={() => onReparse(sheetKey)}
+          onClick={() => onReparse(unitKey)}
           disabled={sheet.status === 'parsing'}
           loading={sheet.status === 'parsing'}
           data-component="ParseOptionReparseButton"
@@ -436,8 +495,8 @@ function ParseOptionsDisclosure({ sheetKey, sheet, isCsv, availableSheets, dispa
     </Space>
   );
 
-  // Auto-expand on failed so the user lands on the obvious next action.
-  const defaultOpen = sheet.status === 'failed';
+  // Auto-expand on failed/pending so the user lands on the obvious next action.
+  const defaultOpen = sheet.status === 'failed' || sheet.status === 'pending';
 
   return (
     <Collapse
@@ -457,13 +516,36 @@ function ParseOptionsDisclosure({ sheetKey, sheet, isCsv, availableSheets, dispa
 }
 
 type ParseFailedActionsProps = Readonly<{
-  sheetKey: string;
+  unit: WizardUnit;
   isCsv: boolean;
   dispatch: Dispatch<WizardAction>;
 }>;
 
-function ParseFailedActions({ sheetKey, isCsv, dispatch }: ParseFailedActionsProps) {
+function ParseFailedActions({ unit, isCsv, dispatch }: ParseFailedActionsProps) {
   const { t } = useTranslation();
+  const isAdded = unit.key !== unit.sheetName;
+  // F8 — an added range-unit is removed on its own; an initial unit is dropped
+  // by deselecting its sheet; CSV has neither.
+  let removeAction: React.ReactNode = null;
+  if (!isCsv && isAdded) {
+    removeAction = (
+      <Button
+        onClick={() => dispatch({ type: 'REMOVE_RANGE_UNIT', unit: unit.key })}
+        data-component="SheetParseFailedRemoveRange"
+      >
+        {t('upload.metadata.removeRange')}
+      </Button>
+    );
+  } else if (!isCsv) {
+    removeAction = (
+      <Button
+        onClick={() => dispatch({ type: 'TOGGLE_SELECTED_SHEET', sheet: unit.sheetName })}
+        data-component="SheetParseFailedDeselect"
+      >
+        {t('upload.metadata.deselectSheet')}
+      </Button>
+    );
+  }
   return (
     <Space style={{ marginTop: 12 }} data-component="SheetParseFailedActions">
       <Button
@@ -472,14 +554,7 @@ function ParseFailedActions({ sheetKey, isCsv, dispatch }: ParseFailedActionsPro
       >
         {t('upload.metadata.repickFile')}
       </Button>
-      {isCsv ? null : (
-        <Button
-          onClick={() => dispatch({ type: 'TOGGLE_SELECTED_SHEET', sheet: sheetKey })}
-          data-component="SheetParseFailedDeselect"
-        >
-          {t('upload.metadata.deselectSheet')}
-        </Button>
-      )}
+      {removeAction}
       <Typography.Text type="secondary" style={{ marginLeft: 4 }}>
         {t('upload.metadata.parseFailedAdjustHint')}
       </Typography.Text>

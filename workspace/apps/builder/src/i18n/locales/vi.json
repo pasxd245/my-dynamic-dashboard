@@ -424,12 +424,16 @@
       "resetWarningExcel": "Khi phân tích lại hoặc đổi vùng dữ liệu, các kiểu dữ liệu đã thay đổi thủ công và cột đã loại trừ của sheet này sẽ được đặt lại.",
       "hasOverridesAria": "có thay đổi thủ công",
       "hasOverridesTitle": "Sheet này có thay đổi thủ công",
-      "parsedAria": "đã phân tích"
+      "parsedAria": "đã phân tích",
+      "addRange": "Thêm vùng từ sheet này",
+      "removeRange": "Xóa vùng"
     },
     "confirm": {
       "workspaceLabel": "Không gian làm việc:",
       "sourceLabel": "Nguồn:",
       "tableSheet": "Sheet",
+      "rangeColumn": "Vùng",
+      "rangeFull": "(toàn bộ)",
       "tableDatasetName": "Tên tập dữ liệu",
       "tableRows": "Dòng",
       "tableCols": "Cột",

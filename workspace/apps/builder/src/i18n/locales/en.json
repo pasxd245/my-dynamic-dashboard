@@ -424,12 +424,16 @@
       "resetWarningExcel": "Re-parsing or editing the range resets your column overrides and exclusions for this sheet.",
       "hasOverridesAria": "has overrides",
       "hasOverridesTitle": "This sheet has user overrides",
-      "parsedAria": "parsed"
+      "parsedAria": "parsed",
+      "addRange": "Add range from this sheet",
+      "removeRange": "Remove this range"
     },
     "confirm": {
       "workspaceLabel": "Workspace:",
       "sourceLabel": "Source:",
       "tableSheet": "Sheet",
+      "rangeColumn": "Range",
+      "rangeFull": "(full)",
       "tableDatasetName": "Dataset name",
       "tableRows": "Rows",
       "tableCols": "Cols",

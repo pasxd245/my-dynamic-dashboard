@@ -39,11 +39,16 @@ export type RefreshPreset = {
   name: string;
 };
 
-/** Key used to store CSV state in the sheets map. */
+/** Key used to store CSV state in the sheets map (CSV is single-unit). */
 export const CSV_SHEET_KEY = "";
 
+/** One dataset-to-be. F8: the wizard models one **unit** = one dataset, keyed
+ *  in the `sheets` map by a **unit key** (NOT the sheet name — one sheet can be
+ *  carved into N range-units, each its own dataset). A sheet's FIRST unit keys
+ *  by the bare sheet name (so refresh + CSV + single-range paths are unchanged);
+ *  additional range-units get a synthetic `${sheetName}:<seq>` key. */
 export type SheetState = {
-  /** Per-sheet parse status (Excel) or "ok" once the CSV upload returns. */
+  /** Per-unit parse status (Excel) or "ok" once the CSV upload returns. */
   status: "pending" | "parsing" | "ok" | "failed";
   columns: Column[];
   rowCount: number;
@@ -54,10 +59,16 @@ export type SheetState = {
   columnOverrides: Record<string, ColumnOverride>;
   /** Column names the user has chosen to drop. */
   excludedColumns: string[];
-  /** Per-sheet parse options (range / skip_rows / has_header). */
+  /** Per-unit parse options (range / skip_rows / has_header). */
   parseOptions: ParseOptions;
-  /** Dataset name input. Defaults to `<file-stem>_<sheet>` for Excel. */
+  /** Dataset name input. Defaults per D2 (see {@link unitName}). */
   name: string;
+  /** F8 — the source sheet this unit reads. The map key is a unit key, not the
+   *  sheet name, once a sheet is split into ranges. CSV uses "". */
+  sheetName: string;
+  /** F8 — true once the user edits the name, so the range-derived default (D2)
+   *  stops overwriting it. */
+  nameEdited?: boolean;
 };
 
 /** True when at least one ParseOptions field is set. Used to omit the
@@ -80,10 +91,17 @@ export type WizardState = {
   tempId: string | null;
   /** Excel only — sheet metadata returned by `POST /uploads`. */
   availableSheets: SheetSummary[];
-  /** Excel only — user-selected sheets, in the order they'll appear. */
+  /** Excel only — user-selected sheets, in the order they'll appear. Drives the
+   *  Sheet-step checkboxes; each selected sheet seeds one initial unit. */
   selectedSheets: string[];
-  /** Per-sheet state map. CSV uses the empty-string sentinel key. */
+  /** Per-unit state map, keyed by unit key (see {@link SheetState}). */
   sheets: Record<string, SheetState>;
+  /** F8 — the ordered unit keys that drive the Metadata/Preview tabs, the
+   *  Confirm rows, and the commit items. One entry per dataset-to-be. */
+  unitOrder: string[];
+  /** F8 — monotonic counter for synthetic range-unit keys (deterministic;
+   *  survives remove/re-add without collision). */
+  nextUnitSeq: number;
   /** Refresh only — the target dataset's id (→ commit `target_dataset_id` at C). */
   targetDatasetId: string | null;
   /** Refresh only — the target's committed columns, the drift-diff baseline. */
@@ -117,6 +135,8 @@ export const INITIAL_WIZARD_STATE: WizardState = {
   availableSheets: [],
   selectedSheets: [],
   sheets: {},
+  unitOrder: [],
+  nextUnitSeq: 0,
   targetDatasetId: null,
   refreshBaseline: null,
   refreshTargetName: null,
@@ -133,9 +153,43 @@ function stemFromName(filename: string): string {
   return last <= 0 ? filename : filename.slice(0, last);
 }
 
-function defaultName(file: File | null, sheet: string | undefined): string {
+/** D2 — the default dataset name for a unit. CSV = `<stem>`; a sheet's first
+ *  unit = `<stem>_<sheet>`; an additional range-unit = `<stem>_<sheet>_<range>`
+ *  (A1 sanitized, `:`→`-`), falling back to an ordinal until the range is typed. */
+function unitName(
+  file: File | null,
+  sheetName: string,
+  isAdded: boolean,
+  range: string | undefined,
+  ordinal: number,
+): string {
   const stem = file ? stemFromName(file.name) : "dataset";
-  return sheet ? `${stem}_${sheet}` : stem;
+  if (!sheetName) return stem;
+  if (!isAdded) return `${stem}_${sheetName}`;
+  const suffix = range ? range.replace(/:/g, "-") : String(ordinal);
+  return `${stem}_${sheetName}_${suffix}`;
+}
+
+/** A sheet's first unit keys by the bare sheet name; the CSV sentinel likewise.
+ *  A key equal to its own sheetName is therefore the initial (non-added) unit. */
+function isAddedUnit(key: string, sheetName: string): boolean {
+  return key !== sheetName;
+}
+
+/** The default SheetState for a unit key not yet in the map (an initial unit
+ *  between sheet-selection and its first parse). `key === sheetName` here. */
+function defaultSheetState(state: WizardState, key: string): SheetState {
+  return {
+    status: "pending",
+    columns: [],
+    rowCount: 0,
+    sampleRows: [],
+    columnOverrides: {},
+    excludedColumns: [],
+    parseOptions: {},
+    name: unitName(state.file, key, false, undefined, 1),
+    sheetName: key,
+  };
 }
 
 export type WizardAction =
@@ -144,18 +198,20 @@ export type WizardAction =
   | { type: "SET_FILE"; file: File }
   | { type: "UPLOAD_INIT_SUCCESS"; response: TempUploadResponse }
   | { type: "TOGGLE_SELECTED_SHEET"; sheet: string }
-  | { type: "PARSE_SHEET_START"; sheet: string }
-  | { type: "PARSE_SHEET_SUCCESS"; sheet: string; result: ParseSheetOk }
-  | { type: "PARSE_SHEET_FAILED"; sheet: string; result: ParseSheetFailed }
+  | { type: "ADD_RANGE_UNIT"; sheetName: string }
+  | { type: "REMOVE_RANGE_UNIT"; unit: string }
+  | { type: "PARSE_SHEET_START"; unit: string }
+  | { type: "PARSE_SHEET_SUCCESS"; unit: string; result: ParseSheetOk }
+  | { type: "PARSE_SHEET_FAILED"; unit: string; result: ParseSheetFailed }
   | {
       type: "SET_COLUMN_OVERRIDE";
-      sheet: string;
+      unit: string;
       column: string;
       override: ColumnOverride | null;
     }
-  | { type: "TOGGLE_EXCLUDED_COLUMN"; sheet: string; column: string }
-  | { type: "SET_PARSE_OPTIONS"; sheet: string; options: ParseOptions }
-  | { type: "SET_DATASET_NAME"; sheet: string; name: string }
+  | { type: "TOGGLE_EXCLUDED_COLUMN"; unit: string; column: string }
+  | { type: "SET_PARSE_OPTIONS"; unit: string; options: ParseOptions }
+  | { type: "SET_DATASET_NAME"; unit: string; name: string }
   | { type: "SEED_REFRESH"; target: Dataset; settings?: RefreshSettings | null }
   | { type: "SET_REFRESH_MODE"; mode: RefreshMode }
   | { type: "SET_MERGE_KEY"; key: string[] }
@@ -219,22 +275,13 @@ function setSheet(
   key: string,
   patch: Partial<SheetState>,
 ): WizardState {
-  const base: SheetState = state.sheets[key] ?? {
-    status: "pending",
-    columns: [],
-    rowCount: 0,
-    sampleRows: [],
-    columnOverrides: {},
-    excludedColumns: [],
-    parseOptions: {},
-    name: defaultName(state.file, key || undefined),
-  };
+  const base: SheetState = state.sheets[key] ?? defaultSheetState(state, key);
   const next: SheetState = { ...base, ...patch };
   return { ...state, sheets: { ...state.sheets, [key]: next } };
 }
 
 /** UPLOAD_INIT_SUCCESS handler — extracted to keep the reducer flat.
- *  CSV seeds its single sheet ok (+ refresh preset); Excel lists sheets
+ *  CSV seeds its single unit ok (+ refresh preset); Excel lists sheets
  *  (refresh pre-selects the target's committed sheet). */
 function reduceUploadInit(
   state: WizardState,
@@ -244,14 +291,19 @@ function reduceUploadInit(
     const preview: CsvParsePreview = response.csvPreview;
     const preset =
       state.mode === "refresh" ? pendingPresetFor(state.pendingPreset, CSV_SHEET_KEY) : undefined;
-    const seeded = setSheet({ ...state, tempId: response.temp_id }, CSV_SHEET_KEY, {
-      status: "ok",
-      columns: preview.columns,
-      rowCount: preview.rowCount,
-      sampleRows: preview.sampleRows,
-      name: defaultName(state.file, undefined),
-      ...applyPreset(preset, preview.columns),
-    });
+    const seeded = setSheet(
+      { ...state, tempId: response.temp_id, unitOrder: [CSV_SHEET_KEY], nextUnitSeq: 0 },
+      CSV_SHEET_KEY,
+      {
+        status: "ok",
+        columns: preview.columns,
+        rowCount: preview.rowCount,
+        sampleRows: preview.sampleRows,
+        name: unitName(state.file, "", false, undefined, 1),
+        sheetName: "",
+        ...applyPreset(preset, preview.columns),
+      },
+    );
     return {
       ...seeded,
       pendingPreset: preset === undefined ? state.pendingPreset : null,
@@ -275,6 +327,9 @@ function reduceUploadInit(
     tempId: response.temp_id,
     availableSheets: response.sheets,
     selectedSheets,
+    // One initial unit per selected sheet (keyed by the sheet name).
+    unitOrder: [...selectedSheets],
+    nextUnitSeq: 0,
     sheets: {},
     step: "sheet",
   };
@@ -287,8 +342,8 @@ function reduceParseSuccess(
   action: Extract<WizardAction, { type: "PARSE_SHEET_SUCCESS" }>,
 ): WizardState {
   const preset =
-    state.mode === "refresh" ? pendingPresetFor(state.pendingPreset, action.sheet) : undefined;
-  const next = setSheet(state, action.sheet, {
+    state.mode === "refresh" ? pendingPresetFor(state.pendingPreset, action.unit) : undefined;
+  const next = setSheet(state, action.unit, {
     status: "ok",
     columns: action.result.columns,
     rowCount: action.result.rowCount,
@@ -345,21 +400,91 @@ function reduceSeedRefresh(target: Dataset, settings: RefreshSettings | null | u
 /** TOGGLE_SELECTED_SHEET handler — extracted to keep the reducer flat.
  *  R147 — refresh is single-table: selecting a sheet REPLACES the selection
  *  (radio semantics; before this, extra selections were silently dropped at
- *  commit). Toggling the selected one clears it. Create keeps multi-select. */
+ *  commit). Toggling the selected one clears it. Create keeps multi-select.
+ *  F8 — units track selection: selecting adds the sheet's initial unit,
+ *  deselecting drops it AND any range-units carved from it. */
 function reduceToggleSheet(state: WizardState, sheet: string): WizardState {
   const present = state.selectedSheets.includes(sheet);
   if (state.mode === "refresh") {
     const sheets: Record<string, SheetState> = {};
     if (!present && state.sheets[sheet]) sheets[sheet] = state.sheets[sheet];
-    return { ...state, selectedSheets: present ? [] : [sheet], sheets };
+    return {
+      ...state,
+      selectedSheets: present ? [] : [sheet],
+      unitOrder: present ? [] : [sheet],
+      sheets,
+    };
   }
-  const selectedSheets = present
-    ? state.selectedSheets.filter((s) => s !== sheet)
-    : [...state.selectedSheets, sheet];
-  // Drop sheet state when deselected so re-selecting re-parses.
+  if (present) {
+    // Deselect: drop the sheet + every unit (initial + added ranges) it owns.
+    const selectedSheets = state.selectedSheets.filter((s) => s !== sheet);
+    const dropped = new Set(
+      state.unitOrder.filter((k) => (state.sheets[k]?.sheetName ?? k) === sheet),
+    );
+    const unitOrder = state.unitOrder.filter((k) => !dropped.has(k));
+    const sheets = { ...state.sheets };
+    for (const k of dropped) delete sheets[k];
+    return { ...state, selectedSheets, unitOrder, sheets };
+  }
+  // Select: append the sheet + its initial unit (keyed by the sheet name).
+  return {
+    ...state,
+    selectedSheets: [...state.selectedSheets, sheet],
+    unitOrder: [...state.unitOrder, sheet],
+  };
+}
+
+/** ADD_RANGE_UNIT — F8: carve another range-unit from an already-selected
+ *  sheet. The new unit gets a synthetic key, is inserted right after the
+ *  sheet's existing units (keeping a sheet's units contiguous), and starts
+ *  pending with an empty range for the user to type. */
+function reduceAddRangeUnit(state: WizardState, sheetName: string): WizardState {
+  if (state.mode === "refresh") return state; // refresh is single-unit (slice 1)
+  // `:` can't occur in an Excel sheet name (Excel forbids it) → the synthetic
+  // key never collides with a real sheet's initial-unit key (the bare name).
+  const key = `${sheetName}:${state.nextUnitSeq}`;
+  const ordinal =
+    state.unitOrder.filter((k) => (state.sheets[k]?.sheetName ?? k) === sheetName).length + 1;
+  // Insert after the last existing unit of this sheet.
+  let insertAt = state.unitOrder.length;
+  for (let i = state.unitOrder.length - 1; i >= 0; i--) {
+    if ((state.sheets[state.unitOrder[i]]?.sheetName ?? state.unitOrder[i]) === sheetName) {
+      insertAt = i + 1;
+      break;
+    }
+  }
+  const unitOrder = [
+    ...state.unitOrder.slice(0, insertAt),
+    key,
+    ...state.unitOrder.slice(insertAt),
+  ];
+  const unit: SheetState = {
+    status: "pending",
+    columns: [],
+    rowCount: 0,
+    sampleRows: [],
+    columnOverrides: {},
+    excludedColumns: [],
+    parseOptions: {},
+    name: unitName(state.file, sheetName, true, undefined, ordinal),
+    sheetName,
+  };
+  return {
+    ...state,
+    unitOrder,
+    nextUnitSeq: state.nextUnitSeq + 1,
+    sheets: { ...state.sheets, [key]: unit },
+  };
+}
+
+/** REMOVE_RANGE_UNIT — F8: drop an added range-unit. Only added units are
+ *  removable (an initial unit is removed by deselecting its sheet). */
+function reduceRemoveRangeUnit(state: WizardState, key: string): WizardState {
+  const unit = state.sheets[key];
+  if (!unit || !isAddedUnit(key, unit.sheetName)) return state;
   const sheets = { ...state.sheets };
-  if (present) delete sheets[sheet];
-  return { ...state, selectedSheets, sheets };
+  delete sheets[key];
+  return { ...state, unitOrder: state.unitOrder.filter((k) => k !== key), sheets };
 }
 
 export function wizardReducer(
@@ -371,12 +496,14 @@ export function wizardReducer(
       return {
         ...state,
         sourceFormat: action.sourceFormat,
-        // Switching source resets file + temp + sheets to avoid stale state.
+        // Switching source resets file + temp + units to avoid stale state.
         file: null,
         tempId: null,
         availableSheets: [],
         selectedSheets: [],
         sheets: {},
+        unitOrder: [],
+        nextUnitSeq: 0,
       };
     case "SET_WORKSPACE":
       return { ...state, workspaceId: action.workspaceId };
@@ -388,24 +515,30 @@ export function wizardReducer(
         availableSheets: [],
         selectedSheets: [],
         sheets: {},
+        unitOrder: [],
+        nextUnitSeq: 0,
       };
     case "UPLOAD_INIT_SUCCESS":
       return reduceUploadInit(state, action.response);
     case "TOGGLE_SELECTED_SHEET":
       return reduceToggleSheet(state, action.sheet);
+    case "ADD_RANGE_UNIT":
+      return reduceAddRangeUnit(state, action.sheetName);
+    case "REMOVE_RANGE_UNIT":
+      return reduceRemoveRangeUnit(state, action.unit);
     case "PARSE_SHEET_START":
-      return setSheet(state, action.sheet, { status: "parsing" });
+      return setSheet(state, action.unit, { status: "parsing" });
     case "PARSE_SHEET_SUCCESS":
       // Create wipes overrides (R19 Q2); refresh replays the preset once
       // (R145 — the seeding parse survives the wipe). See reduceParseSuccess.
       return reduceParseSuccess(state, action);
     case "PARSE_SHEET_FAILED":
-      return setSheet(state, action.sheet, {
+      return setSheet(state, action.unit, {
         status: "failed",
         parseError: { error: action.result.error, detail: action.result.detail },
       });
     case "SET_COLUMN_OVERRIDE": {
-      const sheet = state.sheets[action.sheet];
+      const sheet = state.sheets[action.unit];
       if (!sheet) return state;
       const columnOverrides = { ...sheet.columnOverrides };
       if (action.override === null) {
@@ -413,27 +546,43 @@ export function wizardReducer(
       } else {
         columnOverrides[action.column] = action.override;
       }
-      return setSheet(state, action.sheet, { columnOverrides });
+      return setSheet(state, action.unit, { columnOverrides });
     }
     case "TOGGLE_EXCLUDED_COLUMN": {
-      const sheet = state.sheets[action.sheet];
+      const sheet = state.sheets[action.unit];
       if (!sheet) return state;
       const present = sheet.excludedColumns.includes(action.column);
       const excludedColumns = present
         ? sheet.excludedColumns.filter((c) => c !== action.column)
         : [...sheet.excludedColumns, action.column];
-      return setSheet(state, action.sheet, { excludedColumns });
+      return setSheet(state, action.unit, { excludedColumns });
     }
-    case "SET_PARSE_OPTIONS":
-      // R19 Q4: editing parse options invalidates per-column choices,
-      // so reset overrides + exclusions symmetrically with Q2's re-parse.
-      return setSheet(state, action.sheet, {
+    case "SET_PARSE_OPTIONS": {
+      // R19 Q4: editing parse options invalidates per-column choices, so reset
+      // overrides + exclusions symmetrically with Q2's re-parse. F8 D2: for an
+      // added range-unit whose name the user hasn't edited, refresh the
+      // range-derived default name to track the new range.
+      const sheet = state.sheets[action.unit];
+      const patch: Partial<SheetState> = {
         parseOptions: action.options,
         columnOverrides: {},
         excludedColumns: [],
-      });
+      };
+      if (
+        sheet &&
+        isAddedUnit(action.unit, sheet.sheetName) &&
+        !sheet.nameEdited
+      ) {
+        const ordinal =
+          state.unitOrder
+            .filter((k) => (state.sheets[k]?.sheetName ?? k) === sheet.sheetName)
+            .indexOf(action.unit) + 1;
+        patch.name = unitName(state.file, sheet.sheetName, true, action.options.range, ordinal);
+      }
+      return setSheet(state, action.unit, patch);
+    }
     case "SET_DATASET_NAME":
-      return setSheet(state, action.sheet, { name: action.name });
+      return setSheet(state, action.unit, { name: action.name, nameEdited: true });
     case "SEED_REFRESH":
       return reduceSeedRefresh(action.target, action.settings);
     case "SET_REFRESH_MODE":
@@ -447,6 +596,32 @@ export function wizardReducer(
     case "RESET":
       return INITIAL_WIZARD_STATE;
   }
+}
+
+/** One dataset-to-be, resolved for the tabs / Confirm / commit. `range` is the
+ *  unit's A1 range (undefined = the sheet's full used range). */
+export type WizardUnit = {
+  key: string;
+  sheetName: string;
+  range: string | undefined;
+  state: SheetState;
+};
+
+/** The ordered units driving the Metadata/Preview tabs, the Confirm rows, and
+ *  the commit items (F8). One entry per dataset-to-be. */
+export function units(state: WizardState): WizardUnit[] {
+  return state.unitOrder.map((key) => {
+    const s = state.sheets[key] ?? defaultSheetState(state, key);
+    return { key, sheetName: s.sheetName, range: s.parseOptions.range, state: s };
+  });
+}
+
+/** True when a sheet has more than one unit (→ show the Range column / a
+ *  range-bearing tab label so the units are distinguishable). */
+export function sheetHasMultipleUnits(state: WizardState, sheetName: string): boolean {
+  return (
+    state.unitOrder.filter((k) => (state.sheets[k]?.sheetName ?? k) === sheetName).length > 1
+  );
 }
 
 /** The wizard's step sequence for a given mode + source format. The active
@@ -469,7 +644,7 @@ export function stepIndex(state: WizardState): number {
   return wizardSteps(state).indexOf(state.step) + 1;
 }
 
-/** The single sheet a refresh targets (refresh is single-table): the CSV
+/** The single unit-key a refresh targets (refresh is single-table): the CSV
  *  sentinel, or the user's selected Excel sheet (pre-seeded to the target's
  *  committed sheet). */
 export function refreshSheetKey(state: WizardState): string {

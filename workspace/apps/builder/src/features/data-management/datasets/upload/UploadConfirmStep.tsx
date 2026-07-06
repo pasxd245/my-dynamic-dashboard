@@ -7,9 +7,9 @@ import { formatBytes } from '@/lib/formatBytes';
 import { BatchApiErrorThrown } from '@/features/data-management/_shared/types';
 import { useWorkspacesQuery } from '@/features/data-management/workspaces/hooks';
 import {
-  CSV_SHEET_KEY,
   mergeKeyIssues,
   refreshSheetKey,
+  units,
   type WizardAction,
   type WizardState,
 } from './state';
@@ -188,8 +188,9 @@ function RefreshSemantics({ state, dispatch }: Readonly<Pick<Props, 'state' | 'd
 
 type RowData = {
   key: string;
-  sheetKey: string;
+  unitKey: string;
   sheetLabel: string;
+  range: string;
   name: string;
   rowCount: number;
   kept: number;
@@ -200,7 +201,6 @@ type RowData = {
 export function UploadConfirmStep({ state, dispatch, commitError }: Props) {
   const { t } = useTranslation();
   const isCsv = state.sourceFormat === 'csv';
-  const sheetKeys = isCsv ? [CSV_SHEET_KEY] : state.selectedSheets;
   const workspaces = useWorkspacesQuery();
   const workspaceName = workspaces.data?.find((w) => w.id === state.workspaceId)?.name ?? state.workspaceId ?? '—';
 
@@ -208,24 +208,23 @@ export function UploadConfirmStep({ state, dispatch, commitError }: Props) {
   const fileSize = state.file ? formatBytes(state.file.size) : null;
   const sourceLabel = isCsv ? 'CSV' : 'Excel';
 
-  const rows: RowData[] = sheetKeys
-    .map((key) => {
-      const sheet = state.sheets[key];
-      if (!sheet) return null;
-      const total = sheet.columns.length;
-      const kept = total - sheet.excludedColumns.length;
-      return {
-        key: key || 'csv',
-        sheetKey: key,
-        sheetLabel: isCsv ? '—' : key,
-        name: sheet.name,
-        rowCount: sheet.rowCount,
-        kept,
-        total,
-        overrideCount: Object.keys(sheet.columnOverrides).length,
-      };
-    })
-    .filter((r): r is RowData => r !== null);
+  // F8 — one row per UNIT. Sheet + Range distinguish two units of one sheet.
+  const rows: RowData[] = units(state).map((unit) => {
+    const sheet = unit.state;
+    const total = sheet.columns.length;
+    const kept = total - sheet.excludedColumns.length;
+    return {
+      key: unit.key || 'csv',
+      unitKey: unit.key,
+      sheetLabel: isCsv ? '—' : unit.sheetName,
+      range: unit.range ?? t('upload.confirm.rangeFull'),
+      name: sheet.name,
+      rowCount: sheet.rowCount,
+      kept,
+      total,
+      overrideCount: Object.keys(sheet.columnOverrides).length,
+    };
+  });
 
   const tableColumns = [
     ...(isCsv
@@ -236,6 +235,12 @@ export function UploadConfirmStep({ state, dispatch, commitError }: Props) {
             dataIndex: 'sheetLabel',
             key: 'sheetLabel',
             render: (label: string) => <span style={{ fontWeight: 500 }}>{label}</span>,
+          },
+          {
+            title: t('upload.confirm.rangeColumn'),
+            dataIndex: 'range',
+            key: 'range',
+            render: (range: string) => <Typography.Text type="secondary">{range}</Typography.Text>,
           },
         ] as const)),
     {
@@ -255,7 +260,7 @@ export function UploadConfirmStep({ state, dispatch, commitError }: Props) {
           onChange={(e) =>
             dispatch({
               type: 'SET_DATASET_NAME',
-              sheet: row.sheetKey,
+              unit: row.unitKey,
               name: e.target.value,
             })
           }
@@ -263,7 +268,7 @@ export function UploadConfirmStep({ state, dispatch, commitError }: Props) {
           maxLength={NAME_LENGTHS.DATASET_MAX}
           size="small"
           data-component="DatasetNameInput"
-          data-sheet={row.sheetKey}
+          data-unit={row.unitKey}
         />
       ),
     },

@@ -1,9 +1,9 @@
 # Round 149: Multi-range wizard — one sheet → N named ranges (F8)
 
-**Status**: Planning — blocked on [Round_148](Round_148.md) (design-sync); D-gate opens once
-upload.md is current-state (2026-07-06)
-**Date started**: TBD (after R148 closes)
-**Flow**: TBD — set at the Design gate via flow-selector, recorded in the Do log.
+**Status**: Review — built, gates green; awaiting human Integration walk (2026-07-06)
+**Date started**: 2026-07-06
+**Flow**: **DCFBI** — set at the Design gate via flow-selector (0 of 5 fired); recorded in the
+Do log. No F1/F2 gates; human verification at Integration.
 
 ## Goal
 
@@ -103,15 +103,93 @@ stays rank-4 (no backend/contract/refresh change), but the cost lives here, not 
 
 ## Do
 
-_(D-gate work lands here, after R148 closes.)_
+### D-gate — design draft (2026-07-06, awaiting human sign-off)
+
+Design-corpus draft (the D deliverable, per `d-gate-artifact-in-design-corpus`), onto the
+R148-synced current-state upload.md:
+
+- [upload.md § Multi-range extraction (F8)](../../design/data-management/datasets/upload.md#multi-range-extraction-n-ranges-from-one-sheet-f8)
+  — **build home ARGUED**: extend the existing per-dataset **unit** (one tab = one dataset-to-be),
+  not a new wizard step (rejected: duplicates the tab model, adds a state-machine branch for no new
+  capability). The load-bearing FE change is the **unit re-key** — `sheets: Record<unitId,
+  SheetState>` keyed by a synthetic unit id + `SheetState.sheetName`, replacing today's key-by-sheet-name
+  1:1 assumption; contained (reducer + tabs + Confirm + commit map) but the bulk of the round.
+  **Wire unchanged** (N units = N items sharing `sheet`, differing `parse_options.range` — backend
+  already accepts). UX: Sheet step unchanged (each sheet seeds one full-range unit); Metadata step
+  gains `+ Add range from this sheet` → sibling tab; Confirm shows one row per unit with Sheet · Range.
+  **Refresh untouched** (single-unit; re-key must preserve it).
+
+**❓ Domain/UX decisions D1–D3 tabled for the human** (each with a recommendation, none decided):
+D1 add-range affordance placement (rec: Metadata step) · D2 per-range naming default (rec: first
+unit `<stem>_<sheet>`, additional `<stem>_<sheet>_<range>`, editable, dup-validation catches
+collisions) · D3 override/column ownership (rec: per-unit by construction). **Hard stop here for
+the human before C/B/F.**
+
+Doc gates on the draft: `design:lint` 0 · `design:tokens` 0 · `md:lint` 0 · `check:links` clean.
+
+### D-gate — CLOSED (human, 2026-07-06)
+
+**"pls proceed"** — D1–D3 all resolved to the tabled recommendations (D1 = Metadata-step
+affordance; D2 = first-unit `<stem>_<sheet>` / additional `<stem>_<sheet>_<range>`; D3 = per-unit
+ownership). Spec banner flipped to SIGNED OFF in upload.md.
+
+**Flow selector run** (per [R47](../../decisions/2026-05-28-hybrid-flow-governance.md)):
+
+| Condition                            | Fired? | Justification |
+| ------------------------------------ | ------ | ------------- |
+| 1. >3 independent states/branches    | no     | Wizard state machine unchanged (Source→[Sheet]→Metadata→Preview→Confirm); F8 is a state re-key (sheet-name → unit-id) + an add-item affordance over the existing dynamic-tab model — no new state-machine branch. |
+| 2. New interaction pattern           | no     | Composes existing primitives: dynamic per-sheet tabs, the typed Range field (parse-options disclosure), and an add-another-item affordance — prior art in the filters surface's "add filter" chips. No new pattern class. |
+| 3. High user-error risk              | no     | Create-mode, not live-data mutation; the Preview step shows the parsed range before commit and datasets are freely deletable, so a wrong range is low-cost to redo (unlike R147's irreversible merge, which fired this). |
+| 4. Contract depends on unresolved UI | no     | Wire unchanged — N units = N existing batch items sharing `sheet`, differing `parse_options.range`; the YAML is already written; D1–D3 resolved. |
+| 5. UX confidence below threshold     | no     | D-gate closed with D1–D3 resolved and no open UX questions; the UX reuses reviewed primitives. Closest call (two-same-sheet-tab labeling is a minor detail); the multi-unit feel is verified at the DCFBI human Integration check. |
+
+Result: **Flow: DCFBI** (0 conditions fired). No F1/F2 gates; human verification at Integration.
+
+### C/B/F/I — built (2026-07-06)
+
+- **C (contracts):** no change — each batch item already carries its own `sheet`,
+  `parse_options.range`, and `name`, and `items` has no `uniqueItems`, so N same-`sheet` items
+  with distinct ranges are already valid ([batch-post.contract.yaml](../../../workspace/packages/contracts/datasets/batch-post.contract.yaml)).
+- **B (backend):** no code change — the create loop maps each item to a fresh `_new_ds_id()` via
+  `_parse_and_target` (own `parse_options.range`), no per-sheet dedup
+  ([datasets.py:602-623](../../../workspace/apps/backend/app/routers/datasets.py)). Added
+  `test_two_ranges_from_one_sheet_commit_to_distinct_datasets` — two items on the same `Deals`
+  sheet (full + `A1:B3`) → two datasets, distinct ids, 3 vs 2 columns.
+- **F (frontend, the bulk):** the **unit re-key** —
+  [state.ts](../../../workspace/apps/builder/src/features/data-management/datasets/upload/state.ts):
+  `sheets: Record<unitKey, SheetState>` (initial unit keys by sheet name for backward-compat;
+  added ranges get a synthetic `${sheet}:${seq}` key — `:` is Excel-forbidden so no collision),
+  `SheetState.sheetName` + `nameEdited`, `unitOrder` + `nextUnitSeq`, actions `ADD_RANGE_UNIT` /
+  `REMOVE_RANGE_UNIT`, the `sheet`→`unit` action-field rename on the seven per-dataset actions,
+  and `units()` / `sheetHasMultipleUnits()` selectors + D2 range-derived naming. Components:
+  parse is now **per-unit** (one `/parse` call per unit reading `results[0]` — the old batch
+  matched by `result.sheet`, which collides when two units share a sheet); commit maps
+  `units(state)` → items with `sheet = unit.sheetName` (N units of one sheet = N items sharing
+  `sheet`, differing `range`); Metadata gains the `+ Add range from this sheet` affordance +
+  Remove on added units + range-bearing tab labels; Confirm gains a Range column + one row per
+  unit; advance guard = `units().every(status==='ok')`. Refresh untouched (single-unit; re-key
+  preserves it).
+- **I (i18n):** en+vi `upload.metadata.addRange` / `removeRange`, `upload.confirm.rangeColumn` /
+  `rangeFull` — VN "vùng" (reuses `upload.metadata.range`), "(toàn bộ)"; parity OK.
+
+**Gates:** BE `pytest` 350 (incl. the new multi-range test) · `ruff` clean · FE `tsc` 0 ·
+`vitest` 299/299 (incl. 8 new F8 reducer tests) · `design:lint`/`design:tokens`/`plan:lint`/
+`md:lint` 0 · i18n parity OK.
 
 ## Check
 
-- [ ] D signed off before C/B/F (incl. the slice boundary + naming/override/affordance decisions).
-- [ ] One sheet with two adjacent tables → two datasets, each correct columns/rows, in one pass.
-- [ ] Single-range and multi-sheet paths unregressed.
-- [ ] Backend pytest + ruff green; FE tsc + vitest green; design/plan/markdown lints clean.
-- [ ] Human feel-review of the multi-range walk.
+- [x] D signed off before C/B/F (incl. the slice boundary + naming/override/affordance
+      decisions). _Human, 2026-07-06 — "pls proceed"._
+- [x] One sheet with two adjacent tables → two datasets, each correct columns/rows, in one pass.
+      _Automated: `test_two_ranges_from_one_sheet_commit_to_distinct_datasets` (Deals full +
+      `A1:B3` → 2 datasets, distinct ids, 3 vs 2 cols); the in-app real-file walk is the human
+      verification below._
+- [x] Single-range and multi-sheet paths unregressed; single-unit refresh path unregressed.
+      _BE pytest 350 (create/refresh/merge suites) + FE vitest 299 (incl. refresh-wizard)._
+- [x] Backend pytest + ruff green; FE tsc + vitest green; design/plan/markdown lints clean.
+- [~] Human feel-review of the multi-range walk (Integration — DCFBI human gate). _Handed over
+      2026-07-06; pending an in-app run (carve two ranges from one sheet → two datasets; check the
+      add/remove-range affordance, the range-bearing tab labels, and the Confirm Range column)._
 
 ## Act
 

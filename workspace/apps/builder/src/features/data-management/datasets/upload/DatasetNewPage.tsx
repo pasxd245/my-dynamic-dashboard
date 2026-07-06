@@ -13,12 +13,12 @@ import {
 import type { CommitBatchItem } from '../types';
 import {
   computeSchemaDrift,
-  CSV_SHEET_KEY,
   hasParseOptionsSet,
   hasSchemaDrift,
   INITIAL_WIZARD_STATE,
   mergeKeyIssues,
   refreshSheetKey,
+  units,
   wizardReducer,
   wizardSteps,
 } from './state';
@@ -92,102 +92,38 @@ export function DatasetNewPage() {
     dispatch({ type: 'GOTO_STEP', step: steps[currentIdx - 1] });
   };
 
-  const goNext = async () => {
-    const next = steps[currentIdx + 1];
-    if (!next) return;
-    // Excel: when leaving the Sheet step, kick off parses for selected sheets.
-    if (state.step === 'sheet' && next === 'metadata') {
-      if (state.selectedSheets.length === 0 || !state.tempId) return;
-      for (const sheet of state.selectedSheets) {
-        dispatch({ type: 'PARSE_SHEET_START', sheet });
-      }
-      try {
-        const res = await parseMutation.mutateAsync({
-          tempId: state.tempId,
-          body: {
-            items: state.selectedSheets.map((sheet) => {
-              const opts = state.sheets[sheet]?.parseOptions;
-              return hasParseOptionsSet(opts) ? { sheet, parse_options: opts } : { sheet };
-            }),
-          },
-        });
-        for (const result of res.results) {
-          // Excel batch — server always echoes `sheet`. R26 widened the
-          // response type for CSV support; this Excel path narrows back.
-          const sheet = result.sheet ?? '';
-          if (result.status === 'ok') {
-            dispatch({
-              type: 'PARSE_SHEET_SUCCESS',
-              sheet,
-              result: { ...result, sheet },
-            });
-          } else {
-            dispatch({
-              type: 'PARSE_SHEET_FAILED',
-              sheet,
-              result: { ...result, sheet },
-            });
-          }
-        }
-      } catch (err) {
-        // Mark all selected as failed with a generic error.
-        for (const sheet of state.selectedSheets) {
-          dispatch({
-            type: 'PARSE_SHEET_FAILED',
-            sheet,
-            result: {
-              sheet,
-              status: 'failed',
-              error: 'request_failed',
-              detail: err instanceof Error ? err.message : 'Unknown error',
-            },
-          });
-        }
-      }
-    }
-    dispatch({ type: 'GOTO_STEP', step: next });
-  };
-
-  // Re-parse a single sheet (Excel) or the whole file (CSV) with the
-  // current parseOptions. R26 extended this from Excel-only to also
-  // handle CSV via the same /uploads/{temp_id}/parse endpoint (closes
-  // R19 Q1=C). For CSV the `sheet` arg is the CSV_SHEET_KEY sentinel
-  // ("") and the wire item omits `sheet`.
-  const reparseSheet = async (sheet: string) => {
+  // F8 — parse ONE unit. Two units can share a sheet (same `sheet` echoed in
+  // the response), so each unit gets its own single-item `/parse` call keyed
+  // by the unit KEY (the request still carries the bare `sheetName`). For CSV
+  // the item omits `sheet` (single implicit table). Reads `res.results[0]`.
+  const parseUnit = async (key: string) => {
     if (!state.tempId) return;
     const isCsv = state.sourceFormat === 'csv';
-    const opts = state.sheets[sheet]?.parseOptions;
-    dispatch({ type: 'PARSE_SHEET_START', sheet });
+    const unitState = state.sheets[key];
+    const sheetName = unitState?.sheetName ?? key;
+    const opts = unitState?.parseOptions;
+    dispatch({ type: 'PARSE_SHEET_START', unit: key });
     try {
       const item: { sheet?: string; parse_options?: typeof opts } = {};
-      if (!isCsv) item.sheet = sheet;
+      if (!isCsv) item.sheet = sheetName;
       if (hasParseOptionsSet(opts)) item.parse_options = opts;
       const res = await parseMutation.mutateAsync({
         tempId: state.tempId,
         body: { items: [item] },
       });
-      // Excel response items carry `sheet`; CSV's single item omits it.
-      const result = isCsv ? res.results[0] : res.results.find((r) => r.sheet === sheet);
+      const result = res.results[0];
       if (!result) return;
       if (result.status === 'ok') {
-        dispatch({
-          type: 'PARSE_SHEET_SUCCESS',
-          sheet,
-          result: { ...result, sheet },
-        });
+        dispatch({ type: 'PARSE_SHEET_SUCCESS', unit: key, result });
       } else {
-        dispatch({
-          type: 'PARSE_SHEET_FAILED',
-          sheet,
-          result: { ...result, sheet },
-        });
+        dispatch({ type: 'PARSE_SHEET_FAILED', unit: key, result });
       }
     } catch (err) {
       dispatch({
         type: 'PARSE_SHEET_FAILED',
-        sheet,
+        unit: key,
         result: {
-          sheet,
+          sheet: sheetName,
           status: 'failed',
           error: 'request_failed',
           detail: err instanceof Error ? err.message : 'Unknown error',
@@ -195,6 +131,29 @@ export function DatasetNewPage() {
       });
     }
   };
+
+  const goNext = async () => {
+    const next = steps[currentIdx + 1];
+    if (!next) return;
+    // Excel: when leaving the Sheet step, parse each not-yet-ok unit — one
+    // `/parse` call per unit (F8: units may share a sheet, so a batch keyed by
+    // `sheet` would collide).
+    if (state.step === 'sheet' && next === 'metadata') {
+      if (state.selectedSheets.length === 0 || !state.tempId) return;
+      await Promise.all(
+        units(state)
+          .filter((u) => u.state.status !== 'ok')
+          .map((u) => parseUnit(u.key)),
+      );
+    }
+    dispatch({ type: 'GOTO_STEP', step: next });
+  };
+
+  // Re-parse a single unit (Excel) or the whole file (CSV) with its current
+  // parseOptions. R26 extended this from Excel-only to also handle CSV via the
+  // same /uploads/{temp_id}/parse endpoint (closes R19 Q1=C). For CSV the arg
+  // is the CSV_SHEET_KEY sentinel ("") and the wire item omits `sheet`.
+  const reparseSheet = parseUnit;
 
   // R145 refresh commit — one item carrying `target_dataset_id`. R147: in
   // merge mode the item also carries `merge_key` (keep-latest-per-key) and
@@ -240,11 +199,13 @@ export function DatasetNewPage() {
     }
     if (!state.tempId || !state.workspaceId) return;
     const isCsv = state.sourceFormat === 'csv';
-    const sheetKeys = isCsv ? [CSV_SHEET_KEY] : state.selectedSheets;
-    const items: CommitBatchItem[] = sheetKeys.map((key) => {
-      const s = state.sheets[key];
+    // F8 — one batch item per UNIT. N units of one sheet = N items sharing the
+    // same `sheet`, each with its own `parse_options.range` (the backend
+    // already commits these to distinct datasets).
+    const items: CommitBatchItem[] = units(state).map((u) => {
+      const s = u.state;
       const item: CommitBatchItem = { name: s.name };
-      if (!isCsv) item.sheet = key;
+      if (!isCsv) item.sheet = s.sheetName;
       if (hasParseOptionsSet(s.parseOptions)) {
         item.parse_options = s.parseOptions;
       }
@@ -277,13 +238,10 @@ export function DatasetNewPage() {
         return state.mode === 'refresh'
           ? state.selectedSheets.length === 1
           : state.selectedSheets.length > 0;
-      case 'metadata': {
-        const isCsv = state.sourceFormat === 'csv';
-        const keys = isCsv ? [CSV_SHEET_KEY] : state.selectedSheets;
-        return keys.every((k) => state.sheets[k]?.status === 'ok');
-      }
+      case 'metadata':
       case 'preview':
-        return true;
+        // F8 — every dataset-unit must have parsed OK to advance.
+        return units(state).every((u) => u.state.status === 'ok');
       case 'drift': {
         // Warn-loud, never block (R145 D): clean schema advances freely; any
         // drift requires the explicit acknowledge.

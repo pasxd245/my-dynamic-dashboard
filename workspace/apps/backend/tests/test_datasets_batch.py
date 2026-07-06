@@ -78,6 +78,38 @@ def test_excel_multi_item_commit_returns_ordered_datasets() -> None:
 
 
 @pytest.mark.unit
+def test_two_ranges_from_one_sheet_commit_to_distinct_datasets() -> None:
+    # F8 (R149): a single sheet carved into N ranges → N datasets. Two items
+    # share the SAME sheet with DIFFERENT parse_options.range; each parses its
+    # own sub-range into its own dataset. The backend already supports this
+    # (items are independent, no per-sheet dedup); R149 added the wizard UX.
+    with TestClient(app) as client:
+        ws = _make_workspace(client)
+        temp = _excel_upload(client)
+        resp = client.post(
+            f"/workspaces/{ws}/datasets/batch",
+            json={
+                "temp_id": temp,
+                "items": [
+                    {"sheet": "Deals", "name": "deals_full"},
+                    {"sheet": "Deals", "name": "deals_ids", "parse_options": {"range": "A1:B3"}},
+                ],
+            },
+        )
+    assert resp.status_code == 201, resp.text
+    body = resp.json()
+    assert len(body) == 2
+    assert [d["name"] for d in body] == ["deals_full", "deals_ids"]
+    # Both carved from the SAME sheet, but distinct datasets with distinct ids.
+    assert [d["sheetName"] for d in body] == ["Deals", "Deals"]
+    assert body[0]["id"] != body[1]["id"]
+    # Each honored its own range: full = all 3 columns; A1:B3 = the first two.
+    assert body[0]["columnCount"] == 3
+    assert [c["name"] for c in body[1]["columns"]] == ["deal_id", "amount"]
+    validate_response("datasets/batch-post.contract.yaml", 201, body)
+
+
+@pytest.mark.unit
 def test_unknown_workspace_returns_404() -> None:
     with TestClient(app) as client:
         temp = _csv_upload(client)

@@ -120,7 +120,7 @@ describe("refresh mode — preset replay across the seeding parse (the hazard)",
     // `c` vanished, `d` is new.
     s = wizardReducer(s, {
       type: "PARSE_SHEET_SUCCESS",
-      sheet: "Worksheet",
+      unit: "Worksheet",
       result: {
         sheet: "Worksheet",
         status: "ok",
@@ -143,7 +143,7 @@ describe("refresh mode — preset replay across the seeding parse (the hazard)",
     expect(s.pendingPreset).toBeNull();
     s = wizardReducer(s, {
       type: "PARSE_SHEET_SUCCESS",
-      sheet: "Worksheet",
+      unit: "Worksheet",
       result: {
         sheet: "Worksheet",
         status: "ok",
@@ -290,6 +290,7 @@ describe("mergeKeyIssues (R147 F5×F2 client guard)", () => {
     excludedColumns: [],
     parseOptions: {},
     name: "x",
+    sheetName: "",
   };
 
   it("passes when every key survives with its committed dtype", () => {
@@ -367,7 +368,7 @@ describe("refresh sheet handling (R147 fix — single-select, ghost pre-select, 
     s = wizardReducer(s, { type: "TOGGLE_SELECTED_SHEET", sheet: "Data 1.5" });
     s = wizardReducer(s, {
       type: "PARSE_SHEET_SUCCESS",
-      sheet: "Data 1.5",
+      unit: "Data 1.5",
       result: {
         sheet: "Data 1.5",
         status: "ok",

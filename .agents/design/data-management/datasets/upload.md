@@ -929,6 +929,130 @@ timezone tokens are outside the subset (rejected loudly like any other).
 
 ---
 
+## Multi-range extraction: N ranges from one sheet (F8)
+
+_Create-mode wizard feature — F8 (a single sheet can hold more than one table, but the wizard
+can only carve one)._
+
+> **Status: SIGNED OFF (human, 2026-07-06) — R149 D-gate.** Decisions **D1–D3 all resolved to
+> the tabled recommendations** ("proceed"): D1 = add-range affordance on the **Metadata step** ·
+> D2 = first unit `<stem>_<sheet>`, additional units `<stem>_<sheet>_<range>` (editable,
+> dup-validation catches collisions) · D3 = per-unit override/column ownership. Slice locked at
+> open: **N ranges within one sheet · typed A1 · new-datasets-only (refresh untouched)**. Pulled
+> by [Round_149](../../../plan/cycles/Round_149.md) ←
+> [2026-07-03-r142-dogfood-findings](../../../plan/brainstorms/2026-07-03-r142-dogfood-findings.md)
+> (rank 4, "backend already supports; unblocks clean dimension extraction").
+
+### Concept: one sheet, more than one table
+
+Real CRM exports put **side-by-side blocks on one sheet** — a `Hot line` dimension block next to
+the main call log; the CRM `Master`. Today the wizard creates **one Dataset per selected sheet**
+and exposes **one Range** per sheet (the parse-options disclosure), so a sheet with two tables
+forces two separate uploads of the same file — or the second table is simply lost. F8 lets the
+user **carve N ranges out of one sheet, each becoming its own Dataset, in a single pass.**
+
+This is a **UX gap over a capability that already exists**: the parse and commit paths read one
+A1 `range` per item today (`parse_sheet(range_=…)` in `excel_parser.py`; the `_RANGE_RE` cell-range
+regex in `parquet_writer.py`; `parse_options.range` on each batch item). N ranges of one sheet is
+just **N items sharing the same `sheet`, each with its own `range`** — a shape the backend already
+accepts. The wire and the parser do not change; the wizard learns to declare it.
+
+### Build home: extend the per-dataset unit, not a new step (argued)
+
+Two candidate homes, per the noun-vs-mode discipline — the rejected one named:
+
+- **A new wizard step** ("split ranges"): rejected. Range selection is a property of a
+  dataset-to-be, not a new phase of the flow; a dedicated step would duplicate the Metadata tab
+  model and add a branch to the state machine for no new capability.
+- **Extend the existing per-dataset unit** (chosen): the wizard already models **one tab = one
+  dataset-to-be** across the Metadata / Preview / Confirm steps, and the Metadata step already
+  carries the per-tab **Range** field. F8 makes the tab-generating unit a **(sheet, range) pair**
+  instead of a bare sheet, and adds an affordance to spawn a second range-unit from a sheet. No
+  new step; the tab model absorbs it.
+
+**The unit re-key (the load-bearing FE change).** Today per-dataset state is keyed by sheet name:
+`sheets: Record<string, SheetState>` (Excel = sheet name, CSV = `CSV_SHEET_KEY = ""`) — a hard
+**1 sheet = 1 dataset** assumption threaded through tabs, `SET_DATASET_NAME; sheet`, the Confirm
+rows, and the batch-item construction. F8 makes one sheet spawn N units, so the map is re-keyed by
+a **synthetic unit id** and `SheetState` gains a `sheetName` field (the source sheet, no longer
+recoverable from the key). `selectedSheets` stays the sheet selection; a derived unit list drives
+the tabs and Confirm rows. This is contained (reducer + tab render + Confirm table + commit map)
+but it is the bulk of the round — F8 stays rank-4 (no backend/contract/refresh change), the cost
+lives here. **Refresh is single-unit and untouched** (the re-key must preserve the one-unit
+refresh path — asserted by the unregressed refresh tests).
+
+### UX flow
+
+- **Step 2 — Sheet (unchanged).** Select sheets. Each selected sheet seeds **one initial unit**
+  covering its full used range (today's behavior).
+- **Step 3 — Metadata.** Each unit is a tab. Within a tab's **Parse options** disclosure the
+  **Range** field works as today (typed A1, default = the sheet's used range). New affordance:
+  **`+ Add range from this sheet`** — spawns a **sibling unit** (a new tab) for the same sheet with
+  an empty Range for the user to type, its own name, and its own overrides. Adding/re-parsing a
+  range runs the existing per-tab `POST /uploads/<temp_id>/parse` with that range and populates the
+  new tab's column list. A unit can be removed (`Remove this range`) as long as its sheet keeps ≥1.
+- **Step 4 — Preview (unchanged shape).** One preview per unit tab; per-unit parse-failure marker.
+- **Step 5 — Confirm.** **One row per unit** (N ranges = N rows). The row shows **Sheet · Range**
+  so two units of the same sheet are distinguishable; each has its own editable name.
+
+```text
+  Review and name the datasets you're about to create.
+
+  ┌──────────────────────────────────────────────────────────────────────────────┐
+  │ Sheet      │ Range     │ Dataset name *                │ Rows  │ Cols │ Overrides │
+  ├──────────────────────────────────────────────────────────────────────────────┤
+  │ CallLog    │ (full)    │ [fm_2026_CallLog          ]   │ 2,481 │ 12   │  none     │
+  │ CallLog    │ H1:K40    │ [fm_2026_CallLog_H1-K40   ]   │    39 │  4   │  none     │
+  │ Master     │ (full)    │ [fm_2026_Master           ]   │14,902 │  7   │  2 columns│
+  └──────────────────────────────────────────────────────────────────────────────┘
+
+  Creating 3 datasets in Marketing.
+```
+
+### Wire (no change)
+
+Each unit maps to one existing batch item `{ sheet, name, parse_options: { range }, column_overrides,
+excluded_columns }`. N units of one sheet = N items with the same `sheet`, different
+`parse_options.range`. The `POST /workspaces/<id>/datasets/batch` payload, the 201 shape, and the
+422 families are unchanged. **B verifies** the backend commits N same-`sheet` items to distinct
+datasets under the single transaction (items are independent today; confirm no per-sheet dedup
+assumption) — if a gap appears there, the cheap-win rank is wrong and the round re-scopes.
+
+### Boundaries (named)
+
+- **In (slice 1):** N ranges within an already-selected sheet, typed A1, at dataset **creation**.
+- **Deferred, trigger named:** a range participating in **refresh** identity (refresh stays
+  single-unit); **visual / derive-from-preview** range picking (units already support any range —
+  only the *entry* is typed); a dedicated **N-sheets × M-ranges matrix** UI (the unit model already
+  represents the cross-product; only the per-tab add-range affordance is scoped here).
+
+### Domain / UX decisions — tabled for the human (D1–D3)
+
+Each has a recommendation; **none decided**. Hard stop here.
+
+- **D1 — add-range affordance placement.** _Rec: the **Metadata step** (where the Range field and
+  the parsed preview already live), as `+ Add range from this sheet` spawning a sibling tab._
+  Alternative: the Sheet step (declare ranges pre-parse) — rejected in the rec because ranges are
+  easier to type after seeing the sheet, and the Sheet step is pre-parse checkboxes.
+- **D2 — per-range dataset naming default.** `<stem>_<sheet>` is no longer unique across a sheet's
+  units. _Rec: the sheet's **first** unit keeps `<stem>_<sheet>`; **additional** units default to
+  `<stem>_<sheet>_<range>` (sanitized A1, e.g. `H1-K40`); all editable; the existing
+  duplicate-name-within-batch validation catches residual collisions._
+- **D3 — per-range override / column-selection ownership.** _Rec: **per-unit** — each range parses
+  to its own schema, so overrides and excluded-columns are owned per unit by construction (the same
+  way today's per-sheet tabs each own theirs). No sharing across a sheet's units._
+
+### Acceptance (F8, maps to Check)
+
+1. A sheet with two adjacent tables → two Datasets in one pass, each with the correct
+   columns/rows for its range; adjacent ranges don't bleed.
+2. Two units of one sheet carry distinct names (default-disambiguated per D2) and independent
+   overrides (D3).
+3. A malformed range on any unit → the existing typed 422 (`range_invalid`), that unit's tab
+   flagged; other units unaffected.
+4. The single-range (one unit per sheet) path and the multi-sheet path are unregressed; the
+   single-unit **refresh** path is unregressed (the unit re-key preserves it).
+
 ## Refresh: re-upload into an existing Dataset (R145)
 
 _⑥ refresh theme, slice 1 — F9 (settings carry-forward) + F10 (schema-drift gate)._
