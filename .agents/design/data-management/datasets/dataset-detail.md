@@ -132,7 +132,7 @@ Excel · Sheet1 — 2,481 rows · 12 columns · 84 KB · Uploaded 14:02 today  �
 │   │ Marketing    2,481    12     84 KB     14:02 today      Excel · Sheet1  │   │
 │   └─────────────────────────────────────────────────────────────────────────┘   │
 │                                                                                   │
-│   [🔍 Search rows…                  ]  Matched 2,481 / 2,481   [⚙ Columns 9/12]│
+│   [🔍 Search rows…                  ]  Matched 2,481 / 2,481   [▦ Columns 9/12]│
 │                                                                                   │
 │   ┌──────────────────────────────────────────────────────────────────────────┐  │
 │   │ deal_id [str] │ amount [int]  │ won_at [date]  │ stage [str]  │ ...      │  │
@@ -174,7 +174,7 @@ Excel · Sheet1 — 2,481 rows · 12 columns · 84 KB · Uploaded 14:02 today  �
   (10 / 25 / 50 / 100), jumper input. Always-visible when total > 0;
   hidden for zero-rows state.
 - **Columns control (R152)**: to the right of the "Matched X / Y"
-  counter, a `[⚙ Columns N/M]` button (N visible of M total) opens
+  counter, a `[▦ Columns N/M]` button (N visible of M total) opens
   the **Columns manager** — see [§ Column visibility](#column-visibility-r152).
   The preview **default-hides** any `hidden` column; the manager
   carries the "show all" escape.
@@ -528,7 +528,7 @@ columns (Q1: an overridable default, not a projection).
 ### Row-preview default
 
 `<PagedRowsView>` filters the rendered columns to `columns.filter(c => !c.hidden)` **by
-default**. The header count `[⚙ Columns N/M]` shows N visible of M total. When a "show all
+default**. The header count `[▦ Columns N/M]` shows N visible of M total. When a "show all
 columns" toggle is on (manager-controlled, session-local — not persisted), the preview
 renders every column including hidden ones, so the hint is always an **overridable** default.
 Cell rendering, search, filter, and pagination are unchanged — they operate on whatever
@@ -536,7 +536,7 @@ columns are currently rendered; search/filter pickers themselves still enumerate
 
 ### Columns manager
 
-The `[⚙ Columns N/M]` button (in the table toolbar, right of the "Matched X / Y" counter)
+The `[▦ Columns N/M]` button (in the table toolbar, right of the "Matched X / Y" counter)
 opens a **Columns manager** — an AntD drawer/popover:
 
 ```text
@@ -819,7 +819,7 @@ paths:
 - `datasetsApi.setColumnVisibility(id, hidden[])` + `useSetColumnVisibility`.
 - `<PagedRowsView>` default-hides `hidden` columns, with the manager's
   "show all" escape.
-- The Columns manager surface (drawer/popover) + the `[⚙ Columns N/M]` toolbar button.
+- The Columns manager surface (drawer/popover) + the `[▦ Columns N/M]` toolbar button.
 - `hidden?: boolean` on the shared `Column` schema
   ([`column.yaml`](../../../../workspace/packages/contracts/_shared/column.yaml)).
 - i18n keys `datasets.detail.columns.*` (en + vi).

@@ -213,7 +213,7 @@ The Q1 honor/ignore split, made real with the cell-alignment risk engineered aro
   `row[ci]` cell alignment and `renderHeaderExtra(col, ci)` (the per-column filter key) are
   preserved. The query-detail consumer is unaffected (its columns carry no `hidden`).
 - **[`ColumnsManager`](../../../workspace/apps/builder/src/features/data-management/datasets/ColumnsManager.tsx)**
-  — a `[⚙ Columns N/M]` toolbar button (right of the search counter) opening an AntD Popover:
+  — a `[▦ Columns N/M]` toolbar button (right of the search counter) opening an AntD Popover:
   a per-column checklist (persisted `hidden` set via Apply→PATCH) **plus** a session-local
   "show all" Switch (preview override, never persisted). At-least-one-visible guarded client-side
   (Apply disabled) **and** server-side (`422 no_visible_columns`). The only surface that can
@@ -234,6 +234,18 @@ full hidden set.
 
 Gates: FE **tsc clean · vitest 308** (304 + 4); backend **pytest 362**; contracts valid; i18n parity clean.
 
+### Post-build human feedback (2026-07-07)
+
+- **Icon** — the Columns button uses `ColumnsIcon` (phosphor), not a gear/settings icon
+  (a columns glyph reads truer than "settings"). Design ASCII glyph synced `⚙ → ▦`.
+- **Upload-time hide — considered, DECLINED (no evidence).** Asked whether the upload Metadata
+  step should also set `hidden`. Declined per **default = don't-add**: the Metadata step already
+  carries a per-column **include/exclude** checkbox (`ColumnIncludeCheckbox` = keep-vs-**drop the
+  parquet column**); a second, default-checked show/hide checkbox beside it would read alike but do
+  something very different (reversible view-hint vs permanent drop). Clean separation kept —
+  **upload = keep/drop; post-upload = show/hide**. If a real pull appears, the right move is to
+  redesign the two overlapping controls together under their own D-gate, not bolt a checkbox on.
+
 ## Check
 
 - [x] R140 decision recorded — **DROPPED** (see Do log; R142 dogfood ranking is the backlog).
@@ -249,4 +261,7 @@ _(Learnings / promotions / prune check at close.)_
 
 ## Feeds into → Round_153 (TBD)
 
-Re-rank at open. **Carried**: R140 list (if still open), R145 slice 1b, AI-propose-key. ④ export parked.
+Re-rank at open. **Carried**: R140 list (if still open — R140 was dropped this round), R145 slice 1b,
+AI-propose-key. ④ export parked. **Declined this round (revisit only with evidence)**: upload-time
+column visibility — would need a unified keep/drop + show/hide per-column control (its own D-gate),
+not a second checkbox beside the existing include/exclude one.

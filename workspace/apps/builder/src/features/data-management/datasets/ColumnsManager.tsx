@@ -6,7 +6,7 @@
 //     so the hint is always an overridable default.
 // Scope guard: a visibility editor only — no rename / reorder / dtype here.
 
-import { GearIcon } from '@phosphor-icons/react';
+import { ColumnsIcon } from '@phosphor-icons/react';
 import { Button, Checkbox, Divider, Popover, Space, Switch, Typography } from 'antd';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -140,7 +140,7 @@ export function ColumnsManager({
     >
       <Button
         size="small"
-        icon={<GearIcon size={16} />}
+        icon={<ColumnsIcon size={16} />}
         data-component="ColumnsManagerButton"
       >
         {t('datasets.detail.columns.button', { visible: persistedVisible, total })}
