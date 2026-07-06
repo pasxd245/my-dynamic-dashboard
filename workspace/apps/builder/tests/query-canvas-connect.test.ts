@@ -140,9 +140,14 @@ describe('inferCardinality (R90 — smart default for a free-form drawn pair)', 
     expect(inferCardinality('uuid', 'customer_id')).toBe('one_to_one');
   });
 
-  it('infers one_to_many when exactly ONE side is key-like (parent-key ↔ child-FK)', () => {
+  it('infers one_to_many when only the LEFT side is key-like (parent-key ↔ child-FK)', () => {
     expect(inferCardinality('id', 'region')).toBe('one_to_many');
-    expect(inferCardinality('deal_name', 'owner_id')).toBe('one_to_many');
+    expect(inferCardinality('account_id', 'region_name')).toBe('one_to_many');
+  });
+
+  it('infers many_to_one when only the RIGHT side is key-like (F12 — fact→dim, left-FK → right-PK)', () => {
+    expect(inferCardinality('region', 'id')).toBe('many_to_one');
+    expect(inferCardinality('deal_name', 'owner_id')).toBe('many_to_one');
   });
 
   it('infers many_to_many when NEITHER side is key-like (a fan-out join — surface it)', () => {

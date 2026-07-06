@@ -10,7 +10,7 @@
 // It is not a table-source; the Query Builder (R71) consumes it to join.
 
 /** Declared multiplicity of the edge (MVP; direction by side order). */
-export type Cardinality = 'one_to_one' | 'one_to_many' | 'many_to_many';
+export type Cardinality = 'one_to_one' | 'one_to_many' | 'many_to_one' | 'many_to_many';
 
 /** Computed at read vs current schemas — never stored. */
 export type RelationshipStatus = 'valid' | 'stale';

@@ -35,7 +35,7 @@ export type QueryRelationship = {
    *  free-form (no governed origin — the governed ER stays dataset-only). */
   rightSourceId: string;
   rightColumn: string;
-  cardinality: 'one_to_one' | 'one_to_many' | 'many_to_many';
+  cardinality: 'one_to_one' | 'one_to_many' | 'many_to_one' | 'many_to_many';
   /** Provenance back-ref to the governed `rel_` copied from (null = free-form, R89; always
    *  null when `rightSourceId` is a `qr_` — no governed counterpart). */
   originRelationshipId?: string | null;

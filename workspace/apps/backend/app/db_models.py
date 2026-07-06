@@ -158,7 +158,7 @@ class Relationship(SQLModel, table=True):
     __tablename__ = "relationships"
     __table_args__ = (
         CheckConstraint(
-            "cardinality IN ('one_to_one', 'one_to_many', 'many_to_many')"
+            "cardinality IN ('one_to_one', 'one_to_many', 'many_to_one', 'many_to_many')"
         ),
         Index("idx_relationships_workspace_id", "workspace_id"),
         Index(

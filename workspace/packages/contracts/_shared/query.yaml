@@ -138,7 +138,7 @@ components:
             the joined-in query's EFFECTIVE (collision-qualified) column names.
         cardinality:
           type: string
-          enum: [one_to_one, one_to_many, many_to_many]
+          enum: [one_to_one, one_to_many, many_to_one, many_to_many]
           description: Declared multiplicity (mirrors the governed Relationship).
         originRelationshipId:
           type: [string, "null"]

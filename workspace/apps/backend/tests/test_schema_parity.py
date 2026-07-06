@@ -80,7 +80,7 @@ CREATE TABLE IF NOT EXISTS relationships (
     right_dataset_id TEXT NOT NULL REFERENCES datasets(id) ON DELETE CASCADE,
     right_column TEXT NOT NULL,
     cardinality TEXT NOT NULL
-        CHECK (cardinality IN ('one_to_one', 'one_to_many', 'many_to_many')),
+        CHECK (cardinality IN ('one_to_one', 'one_to_many', 'many_to_one', 'many_to_many')),
     created_at TEXT NOT NULL
 );
 
@@ -272,8 +272,8 @@ def _introspect_models(tmp_path: Path) -> dict:
 
 def test_migration_leaves_alembic_version(tmp_path: Path, _restore_db_path):
     """The migrated DB is genuinely versioned (so subsequent boots take the
-    fast versioned path). R88 collapsed history to `0001_baseline`; R132's
-    `0003_workflows` is the additive head."""
+    fast versioned path). R88 collapsed history to `0001_baseline`; F12's
+    `0004_many_to_one_cardinality` is the additive head."""
     migrated_path = tmp_path / "versioned.sqlite"
     db.set_db_path(migrated_path)
     db.run_startup_migrations()
@@ -283,4 +283,4 @@ def test_migration_leaves_alembic_version(tmp_path: Path, _restore_db_path):
         version = con.execute("SELECT version_num FROM alembic_version").fetchone()
     finally:
         con.close()
-    assert version is not None and version[0] == "0003_workflows"
+    assert version is not None and version[0] == "0004_many_to_one_cardinality"

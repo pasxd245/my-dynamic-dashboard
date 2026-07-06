@@ -822,6 +822,7 @@
     "cardinality": {
       "one_to_one": "1:1",
       "one_to_many": "1:nhiều",
+      "many_to_one": "nhiều:1",
       "many_to_many": "nhiều:nhiều"
     },
     "declare": {

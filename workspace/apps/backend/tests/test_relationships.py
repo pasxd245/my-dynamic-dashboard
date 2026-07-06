@@ -83,6 +83,20 @@ def test_declare_persists_and_returns_relationship() -> None:
 
 
 @pytest.mark.unit
+def test_declare_accepts_many_to_one_cardinality() -> None:
+    """F12 — `many_to_one` (fact→dimension: left-FK → right-PK) is a valid
+    advisory cardinality that round-trips through the widened CHECK."""
+    with TestClient(app) as client:
+        ws, a, b = _seed(client)
+        resp = _declare(client, ws, a, b, card="many_to_one")
+
+    assert resp.status_code == 201
+    body = resp.json()
+    assert body["cardinality"] == "many_to_one"
+    validate_response("relationships/post.contract.yaml", 201, body)
+
+
+@pytest.mark.unit
 def test_list_returns_workspace_relationships_with_status() -> None:
     with TestClient(app) as client:
         ws, a, b = _seed(client)

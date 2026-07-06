@@ -289,14 +289,18 @@ function isKeyLike(col: string): boolean {
  *  TYPE does), so a wrong guess is non-destructive and the user confirms/overrides it
  *  in the define modal. Heuristic:
  *  - both columns key-like (id ↔ id) → `one_to_one` (a PK↔PK extension);
- *  - exactly one key-like → `one_to_many` (the common parent-key ↔ child-FK case);
+ *  - LEFT key-like only (parent-key ↔ child-FK) → `one_to_many`;
+ *  - RIGHT key-like only (child-FK ↔ parent-key, i.e. left-FK → right-PK) → `many_to_one`
+ *    (the fact→dimension case — the directional inverse of `one_to_many`, since a
+ *    relationship's sides are ordered left→right);
  *  - neither key-like → `many_to_many` (a non-key join can fan out — surface it so the
  *    analyst notices rather than silently assuming 1:N). */
 export function inferCardinality(leftColumn: string, rightColumn: string): QueryRelationship['cardinality'] {
   const left = isKeyLike(leftColumn);
   const right = isKeyLike(rightColumn);
   if (left && right) return 'one_to_one';
-  if (left || right) return 'one_to_many';
+  if (left && !right) return 'one_to_many';
+  if (!left && right) return 'many_to_one';
   return 'many_to_many';
 }
 

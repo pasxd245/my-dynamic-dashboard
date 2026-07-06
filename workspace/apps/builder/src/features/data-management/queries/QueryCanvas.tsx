@@ -173,7 +173,7 @@ const CANVAS_CSS = `
 `;
 
 type Cardinality = QueryRelationship['cardinality'];
-const CARDINALITIES: Cardinality[] = ['one_to_one', 'one_to_many', 'many_to_many'];
+const CARDINALITIES: Cardinality[] = ['one_to_one', 'one_to_many', 'many_to_one', 'many_to_many'];
 
 export type QueryCanvasProps = Readonly<{
   /** The driving (root) DATASET id — `ds_…`. Empty when the base is a composed

@@ -1,6 +1,6 @@
 # Round 150: UI / diagnosability batch (F3 · F4 · F7 · F12 · F13 + R140 list)
 
-**Status**: Planning — triage + two round-shaping decisions open (2026-07-06)
+**Status**: In Progress — F12 done; F3/F4/F13 next; F7 + R140 await two decisions (2026-07-06)
 **Date started**: 2026-07-06
 **Flow**: TBD — batch round; triage first. The small fixes run as a DCFBI C+B/F slice; F7 (if
 kept in scope) runs its own D-gate. Set per-item after triage.
@@ -84,7 +84,58 @@ _Track: 1. Pulled by ← [Round_149](Round_149.md) Feeds-into + the signed-off r
 
 ## Do
 
-_(Triage + build land here.)_
+### F12 — D-gate (2026-07-06)
+
+**Started with F12** (human: "F12 first"). Design confirmed against code, not assumed:
+
+- **Cardinality is ADVISORY, not behavioral.** The join executor picks its SQL from a separate
+  join-*type* `kind` (`_JOIN_KEYWORDS.get(kind, "INNER JOIN")`,
+  [rows_reader.py](../../../workspace/apps/backend/app/ingest/rows_reader.py)); it never reads
+  `cardinality`. `inferCardinality`'s own comment
+  ([joinGraph.ts](../../../workspace/apps/builder/src/features/data-management/queries/joinGraph.ts))
+  says the same. So `many_to_one` is a **truthful label** for the fact→dim direction — zero
+  engine/join-behavior risk. This is why F12 is safe and small (an enum-vocabulary add, the shape
+  of R140's aggregate-enum round → DCFBI thin slice, no F1).
+- **`many_to_one` is a distinct directional label, not a dup of `one_to_many`.** A relationship
+  has a fixed left→right side order (design doc J-5 "direction by side order"). Left-PK→right-FK
+  is `one_to_many`; **left-FK→right-PK is `many_to_one`** — the common fact(base)→dimension join
+  the R142 probe hit and had to mislabel `many_to_many`. So the auto-inference gains the truthful
+  directional branch: `!leftKeyLike && rightKeyLike → many_to_one` (today it flattens both
+  directions to `one_to_many`).
+- **The one non-trivial bit: the DB CHECK.** `cardinality IN (…)` is pinned by a 3-way
+  schema-parity guard (`test_schema_parity.py`: legacy `_SCHEMA` == SQLModel DDL == `alembic
+  upgrade head`). Widening it needs all three updated + a new migration (SQLite can't ALTER a
+  CHECK in place → a batch/table rebuild). Bounded, but not a one-liner.
+
+No flow-selector re-run (R150's Flow line already scopes the small fixes to a DCFBI C+B/F slice;
+F12 is the R140 enum shape). Build delegated + self-verified against the parity test.
+
+### F12 — built (2026-07-06)
+
+- **C:** `many_to_one` added to the cardinality enum in `_shared/relationship.yaml` +
+  `_shared/query.yaml` (after `one_to_many`). Not in `values.yaml` (confirmed absent) → no
+  constant regen.
+- **B:** two `Literal`s in `common.py` (the `QueryRelationship` one AND the governed `Cardinality`
+  alias — the subagent caught the second), the `db_models.py` `CheckConstraint`, and the
+  `test_schema_parity.py` `_LEGACY_SCHEMA` CHECK all widened. New migration
+  **`0004_many_to_one_cardinality`** (down_revision `0003_workflows`): SQLite can't ALTER a CHECK
+  in place, so it rebuilds `relationships` (rename-aside → create with the widened CHECK, columns/
+  FK-CASCADE/PK reproduced from `0001` → `INSERT…SELECT` → drop old → recreate both indexes),
+  leaving exactly one CHECK so the 3-way parity guard matches; `downgrade()` rebuilds narrow.
+- **F:** `Cardinality` union widened in `relationships/types.ts` + `queries/types.ts`;
+  `CARDINALITIES` arrays in `DeclareRelationshipModal` + `QueryCanvas`; **`inferCardinality`** gains
+  the truthful directional branch — `left&&!right → one_to_many`, `!left&&right → many_to_one`
+  (the fact→dim case), both→`one_to_one`, neither→`many_to_many`.
+- **I:** en `"many:1"` / vi `"nhiều:1"` (matches the `1:nhiều` style); parity kept.
+- **D artifact:** relationships.md's `Cardinality` type + CHECK DDL + an advisory-cardinality note.
+- **Tests:** BE `test_declare_accepts_many_to_one_cardinality` (201 + round-trip); FE split the
+  `inferCardinality` one-side test into left-only (`one_to_many`) / right-only (`many_to_one`).
+
+**Gates:** BE `pytest` 351 · `ruff` clean · `test_schema_parity` green · FE `tsc` 0 ·
+`vitest` 300 · `design:lint`/`plan:lint`/`md:lint` 0.
+
+**Next in the batch:** F3 (error-envelope + logging) — the higher-value core; then F4, F13.
+F7 + the R140 list still await the two round-shaping decisions (F7 split? R140 enumerate?).
 
 ## Check
 

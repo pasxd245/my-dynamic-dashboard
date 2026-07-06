@@ -272,7 +272,7 @@ class QueryRelationship(BaseModel):
     # dataset-only, so a `qr_`-right edge is always free-form (no originRelationshipId).
     rightSourceId: SourceId  # noqa: N815
     rightColumn: Annotated[str, Field(min_length=1)]  # noqa: N815
-    cardinality: Literal["one_to_one", "one_to_many", "many_to_many"]
+    cardinality: Literal["one_to_one", "one_to_many", "many_to_one", "many_to_many"]
     # Provenance back-ref to the governed rel copied from (copy-on-pick); null /
     # omitted when defined free-form (R89).
     originRelationshipId: (  # noqa: N815
@@ -595,7 +595,7 @@ class AggregateBody(BaseModel):
 # `status` is computed on read (never stored). Persistence is raw-SQLite.
 
 RelationshipId = Annotated[str, Field(pattern=ID_PATTERNS["relationship"])]
-Cardinality = Literal["one_to_one", "one_to_many", "many_to_many"]
+Cardinality = Literal["one_to_one", "one_to_many", "many_to_one", "many_to_many"]
 RelationshipStatus = Literal["valid", "stale"]
 
 

@@ -19,7 +19,7 @@ export function dtypeCompatible(a: Dtype, b: Dtype): boolean {
   return numeric(a) && numeric(b);
 }
 
-const CARDINALITIES: readonly Cardinality[] = ['one_to_one', 'one_to_many', 'many_to_many'];
+const CARDINALITIES: readonly Cardinality[] = ['one_to_one', 'one_to_many', 'many_to_one', 'many_to_many'];
 
 export type DeclareRelationshipModalProps = Readonly<{
   open: boolean;

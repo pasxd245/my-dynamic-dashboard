@@ -189,7 +189,7 @@ connection) — SQLModel owns the DDL/migration, the handlers own the queries.
 
 ```ts
 // Frontend type — features/data-management/relationships/types.ts
-type Cardinality = 'one_to_one' | 'one_to_many' | 'many_to_many'; // J-5; direction by side order
+type Cardinality = 'one_to_one' | 'one_to_many' | 'many_to_one' | 'many_to_many'; // J-5/F12; direction by side order
 type RelationshipStatus = 'valid' | 'stale'; // COMPUTED at read vs current schemas — not stored
 
 type Relationship = {
@@ -204,6 +204,15 @@ type Relationship = {
   createdAt: string; // ISO-8601 UTC
 };
 ```
+
+**Cardinality is advisory** — a label only; it never changes the join SQL (the
+join *type* does). Direction is by side order (left → right). `many_to_one` (F12)
+is the truthful label for a fact(left) → dimension(right) join and is the
+directional inverse of `one_to_many`. When a pair is drawn free-form in the query
+canvas, `inferCardinality` picks a sensible default from the column names: both
+sides key-like → `one_to_one`; only the LEFT key-like → `one_to_many`; only the
+RIGHT key-like (left-FK → right-PK, i.e. fact → dim) → `many_to_one`; neither →
+`many_to_many`. The user always confirms/overrides it.
 
 **Persistence (SQLModel schema of record).** Mirrors the `queries` table
 conventions (per-workspace uniqueness, FK cascade). **Status is not a column** —
@@ -220,7 +229,7 @@ CREATE TABLE relationships (
     right_dataset_id TEXT NOT NULL REFERENCES datasets(id)   ON DELETE CASCADE,
     right_column     TEXT NOT NULL,
     cardinality TEXT NOT NULL
-        CHECK (cardinality IN ('one_to_one','one_to_many','many_to_many')),
+        CHECK (cardinality IN ('one_to_one','one_to_many','many_to_one','many_to_many')),
     created_at TEXT NOT NULL
 );
 CREATE INDEX idx_relationships_workspace_id ON relationships(workspace_id);
