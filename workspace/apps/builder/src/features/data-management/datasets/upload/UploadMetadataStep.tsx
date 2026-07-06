@@ -141,7 +141,6 @@ function SheetPane({ unit, state, dispatch, onReparse }: PaneProps) {
       <Space style={{ marginBottom: 12 }} data-component="UnitRangeControls">
         {canAddRange ? (
           <Button
-            size="small"
             onClick={() => dispatch({ type: 'ADD_RANGE_UNIT', sheetName: unit.sheetName })}
             data-component="AddRangeButton"
             data-sheet={unit.sheetName}
@@ -151,7 +150,6 @@ function SheetPane({ unit, state, dispatch, onReparse }: PaneProps) {
         ) : null}
         {isAdded ? (
           <Button
-            size="small"
             danger
             onClick={() => dispatch({ type: 'REMOVE_RANGE_UNIT', unit: unitKey })}
             data-component="RemoveRangeButton"
