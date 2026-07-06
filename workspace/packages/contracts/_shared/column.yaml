@@ -1,5 +1,6 @@
 # Shared schema: Column
-# Used by: uploads/parse, datasets/batch-post, datasets/get, _shared/dataset
+# Used by: uploads/parse, datasets/batch-post, datasets/get, _shared/dataset,
+#          datasets/columns-patch (R152 hidden view-hint)
 # A single column in a parsed dataset's schema.
 components:
   schemas:
@@ -25,3 +26,15 @@ components:
           examples: ["deal_id", "amount", "closed_at"]
         dtype:
           $ref: "#/components/schemas/Dtype"
+        hidden:
+          type: boolean
+          description: |
+            R152 presentation-only view-hint. Absent or `false` = visible.
+            When `true`, the dataset-detail row-preview (`PagedRowsView`)
+            default-hides this column (with a "show all columns" escape);
+            EVERY picker (filter · advanced-query · relationship-key ·
+            query-builder · join · workflows) IGNORES it — a hidden column
+            stays fully joinable/selectable/filterable. NEVER touches the
+            parquet: it lives only in `columns_json`, set via
+            `PATCH /datasets/{id}/columns`. A refresh carries it forward by
+            name (a column no longer present drops its hint).

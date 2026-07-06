@@ -48,8 +48,8 @@ not a substitute. Two new capabilities are implied:
 - [x] **D**: design-corpus draft — the `hidden?` view-hint + the column-metadata `PATCH` +
       which surfaces honor the default (Q1). Resolve Q1–Q3; table any domain decisions. Then
       flow-selector at D exit. ✅ Q1–Q3 + R140 resolved; **Flow: DCFBI** (0/5). **Awaiting human D sign-off.**
-- [ ] **C**: `Column` gains `hidden?: boolean`; a new column-metadata `PATCH` contract
-      (+ `values.yaml`/constants if a code/enum is introduced).
+- [x] **C**: `Column` gains `hidden?: boolean`; a new column-metadata `PATCH` contract
+      (+ `values.yaml`/constants if a code/enum is introduced). ✅ see Do log below.
 - [ ] **B**: the `PATCH` writes `columns_json` only (never the parquet); validation (unknown
       column, can't-hide-all?, at-least-one-visible?). Atomicity per the existing dataset writes.
       **Refresh carry-forward** (cold-review anchor-2): the R145/R147 refresh handler re-applies
@@ -145,6 +145,33 @@ intended framing. Could-not-verify carried to C: FE TS `Column` type + MSW stric
 | 5. UX confidence below threshold     | no     | Well-understood AntD pattern; Q1–Q3 resolved with human input at the D-gate. |
 
 Result: **Flow: DCFBI** (0/5 fired).
+
+### C — contract landed (2026-07-06)
+
+The wire contract for the `hidden` view-hint + the new column-visibility PATCH:
+
+- **`_shared/column.yaml`** — `Column` gains optional `hidden: boolean` (absent = visible;
+  never nullable). Widened the FE `Column` TS type + the Pydantic `Column` (`common.py`) in
+  lockstep (no codegen — the 3-impl lockstep discipline).
+- **New endpoint** — [`datasets/columns-patch.contract.{yaml,md}`](../../../workspace/packages/contracts/datasets/columns-patch.contract.yaml):
+  `PATCH /datasets/{id}/columns` body `{ hidden: string[] }` (replace semantics, `uniqueItems`),
+  `200 Dataset`. Errors: `404 not_found`; `422` two-shape (FastAPI `{detail}` for a malformed
+  body · code-first `{code:"unknown_column",column}` / `{code:"no_visible_columns"}`), matching
+  the batch-commit 422 convention. Deliberately **no 409** (presentation-only, reversible).
+- **`_shared/api-error.yaml`** — added `unknown_column` + `no_visible_columns` to the enum, two
+  variant schemas, the `oneOf`, and the discriminator mapping.
+- **Serialization guard** — widening the *shared* `Column` leaked `hidden: null` into the
+  existing uploads-preview response (a direct FastAPI model return; `hidden` is `type: boolean`,
+  non-nullable → contract-validity test failed). Fixed at the source: a `@model_serializer` on
+  `Column` **omits `hidden` when unset** on every wire path, so absent = visible per the
+  contract. (Caught by the backend contract-validity test — the R41 3-impl anti-drift net earning
+  its place.)
+- **Cold-review could-not-verify resolved**: MSW validates 2xx bodies with AJV; `hidden` is
+  optional, so existing fixtures (which omit it) stay valid — no fixture break. FE `Column` type
+  updated.
+
+Gates: contracts openapi-validity **39 passed**; backend **ruff clean · pytest 352**; FE
+**tsc clean · vitest 304**; markdownlint **0** + links clean.
 
 ## Check
 

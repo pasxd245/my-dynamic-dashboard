@@ -1,5 +1,6 @@
 # Shared schema: ApiError
-# Used by: workspaces/patch, workspaces/delete, datasets/patch, datasets/delete
+# Used by: workspaces/patch, workspaces/delete, datasets/patch, datasets/delete,
+#          datasets/columns-patch (R152 — unknown_column, no_visible_columns)
 #
 # Code-first error envelope introduced by R24 (CRUD hygiene chain). The FE
 # branches on `code` without parsing free-text messages. Distinct from the
@@ -24,7 +25,7 @@ components:
   schemas:
     ApiErrorCode:
       type: string
-      enum: [not_found, name_taken, slug_taken, non_empty, query_stale, relationship_exists, relationship_stale, composition_cycle, coercion_failed, merge_duplicate_keys]
+      enum: [not_found, name_taken, slug_taken, non_empty, query_stale, relationship_exists, relationship_stale, composition_cycle, coercion_failed, merge_duplicate_keys, unknown_column, no_visible_columns]
       description: |
         Closed enum. Any new error class lands as a new code in a future
         round + contract update — never as a free-text message.
@@ -261,6 +262,39 @@ components:
             The first (up to) 5 duplicated key values, stringified; composite
             keys join their parts with " · ".
 
+    ApiErrorUnknownColumn:
+      type: object
+      required: [code, column]
+      additionalProperties: false
+      properties:
+        code:
+          type: string
+          enum: [unknown_column]
+          description: |
+            R152 — the `PATCH /datasets/{id}/columns` visibility set named a
+            column that is not part of this dataset's schema (422). The whole
+            call is rejected; `columns_json` is untouched. Distinct from the
+            FastAPI `{ detail }` envelope (a malformed request body) — the
+            request is well-formed, but a referenced column name is unknown.
+        column:
+          type: string
+          minLength: 1
+          description: The first `hidden` entry that is not a column of this dataset.
+
+    ApiErrorNoVisibleColumns:
+      type: object
+      required: [code]
+      additionalProperties: false
+      properties:
+        code:
+          type: string
+          enum: [no_visible_columns]
+          description: |
+            R152 — the `PATCH /datasets/{id}/columns` visibility set would hide
+            EVERY column (422; the at-least-one-visible guard — an empty
+            row-preview is not a valid state). The call is rejected;
+            `columns_json` is untouched.
+
     ApiError:
       description: |
         Discriminated union over `code`. Use `oneOf` + `discriminator` so
@@ -276,6 +310,8 @@ components:
         - $ref: '#/components/schemas/ApiErrorCompositionCycle'
         - $ref: '#/components/schemas/ApiErrorCoercionFailed'
         - $ref: '#/components/schemas/ApiErrorMergeDuplicateKeys'
+        - $ref: '#/components/schemas/ApiErrorUnknownColumn'
+        - $ref: '#/components/schemas/ApiErrorNoVisibleColumns'
       discriminator:
         propertyName: code
         mapping:
@@ -289,3 +325,5 @@ components:
           composition_cycle: '#/components/schemas/ApiErrorCompositionCycle'
           coercion_failed: '#/components/schemas/ApiErrorCoercionFailed'
           merge_duplicate_keys: '#/components/schemas/ApiErrorMergeDuplicateKeys'
+          unknown_column: '#/components/schemas/ApiErrorUnknownColumn'
+          no_visible_columns: '#/components/schemas/ApiErrorNoVisibleColumns'

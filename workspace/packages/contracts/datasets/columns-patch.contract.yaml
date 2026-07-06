@@ -1,0 +1,129 @@
+openapi: 3.1.0
+info:
+  title: my-dynamic-dashboard — PATCH /datasets/{id}/columns
+  version: 0.1.0
+  description: |
+    Set a dataset's column VISIBILITY set (R152, F7). The first
+    post-commit column mutation — rename is name-only (`PATCH /datasets/{id}`)
+    and dtype overrides are upload-time (`POST …/datasets/batch`).
+
+    Presentation-only: the handler writes the `hidden` view-hint into
+    `columns_json` and NEVER re-reads or rewrites the parquet, `column_count`,
+    `row_count`, or the storage directory. A hidden column stays fully present
+    in storage and in every compute path — the row-preview default-hides it,
+    every picker ignores it (see `_shared/column.yaml#/Column/hidden`).
+
+    Replace semantics: the body carries the COMPLETE set of column names to
+    mark hidden. Names not listed become visible. Idempotent and
+    order-independent — one toggle or a bulk edit is a single call.
+
+paths:
+  /datasets/{id}/columns:
+    patch:
+      operationId: setDatasetColumnVisibility
+      summary: Set a dataset's hidden-column set (presentation-only view-hint)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^ds_[0-9a-f]{8}$'
+          description: Dataset id (server-generated; see _shared/dataset.yaml).
+          examples:
+            commission:
+              value: 'ds_71a4e2f0'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [hidden]
+              additionalProperties: false
+              properties:
+                hidden:
+                  type: array
+                  items:
+                    type: string
+                    minLength: 1
+                  uniqueItems: true
+                  description: |
+                    The COMPLETE list of column names to mark hidden (replace
+                    semantics — a column absent from the list becomes visible).
+                    Every name must be a column of this dataset (else
+                    `422 unknown_column`) and the list must NOT cover every
+                    column (else `422 no_visible_columns`). An empty array
+                    clears all hints (all columns visible).
+            examples:
+              hideTwo:
+                summary: Hide two noisy columns
+                value: { 'hidden': ['internal_notes', 'raw_payload'] }
+              clearAll:
+                summary: Show every column again
+                value: { 'hidden': [] }
+      responses:
+        '200':
+          description: |
+            Visibility set applied. Returns the updated dataset; each
+            `columns[].hidden` reflects the new set (true for a hidden column,
+            omitted otherwise).
+          content:
+            application/json:
+              schema:
+                $ref: '../_shared/dataset.yaml#/components/schemas/Dataset'
+              examples:
+                applied:
+                  value:
+                    id: 'ds_71a4e2f0'
+                    workspaceId: 'ws_a31002bb'
+                    name: 'commission_calc_2026'
+                    sizeBytes: 4096
+                    rowCount: 58
+                    columnCount: 6
+                    columns:
+                      - { name: 'month', dtype: 'string' }
+                      - { name: 'rep', dtype: 'string' }
+                      - { name: 'amount', dtype: 'float' }
+                      - { name: 'paid', dtype: 'boolean' }
+                      - { name: 'paid_on', dtype: 'date' }
+                      - { name: 'notes', dtype: 'string', hidden: true }
+                    sourceFormat: 'csv'
+                    createdAt: '2026-05-18T14:22:00Z'
+        '404':
+          description: No dataset with the given `id` exists.
+          content:
+            application/json:
+              schema:
+                $ref: '../_shared/api-error.yaml#/components/schemas/ApiErrorNotFound'
+              examples:
+                missing:
+                  value: { 'code': 'not_found' }
+        '422':
+          description: |
+            Two body shapes (the FE branches on the `code` field, same rule as
+            the batch-commit 422):
+
+            1. The FastAPI `{ detail: ... }` envelope — a malformed request
+               body (missing `hidden`, non-array, non-string / empty-string
+               entries, duplicate entries, extra keys).
+            2. The code-first envelope — a well-formed request that violates a
+               domain rule: `{ code: "unknown_column", column }` (a name is not
+               a column of this dataset) or `{ code: "no_visible_columns" }`
+               (the set would hide every column). In both cases `columns_json`
+               is untouched.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: object
+                    required: [detail]
+                    properties:
+                      detail: {}
+                  - $ref: '../_shared/api-error.yaml#/components/schemas/ApiErrorUnknownColumn'
+                  - $ref: '../_shared/api-error.yaml#/components/schemas/ApiErrorNoVisibleColumns'
+              examples:
+                unknownColumn:
+                  value: { 'code': 'unknown_column', 'column': 'nope' }
+                noVisibleColumns:
+                  value: { 'code': 'no_visible_columns' }

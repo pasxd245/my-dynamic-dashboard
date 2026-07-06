@@ -10,6 +10,11 @@ export type SourceFormat = 'excel' | 'csv';
 export type Column = {
   name: string;
   dtype: Dtype;
+  /** R152 presentation-only view-hint. Absent/false = visible. When true,
+   *  the dataset-detail row-preview default-hides it (with a "show all"
+   *  escape); every picker ignores it. Set via PATCH /datasets/{id}/columns;
+   *  never touches the parquet. */
+  hidden?: boolean;
 };
 
 export type Dataset = {

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_serializer, model_validator
 
 from app._generated.constants import ERROR_CODES, ID_PATTERNS, NAME_LENGTHS
 
@@ -44,6 +44,21 @@ class Column(BaseModel):
 
     name: Annotated[str, Field(min_length=1)]
     dtype: Dtype
+    # R152 presentation-only view-hint. None/False = visible. Lives in
+    # columns_json only (never the parquet); set via PATCH /datasets/{id}/columns.
+    # The row-preview default-hides hidden columns; every picker ignores it.
+    hidden: bool | None = None
+
+    @model_serializer(mode="wrap")
+    def _serialize(self, handler):  # type: ignore[no-untyped-def]
+        # Contract: `hidden` is a boolean that is OMITTED when unset (absent =
+        # visible), never emitted as null. Applies on every wire path — a
+        # direct FastAPI return or an explicit model_dump — so a widened shared
+        # model never leaks `hidden: null` into an existing endpoint's response.
+        data = handler(self)
+        if not data.get("hidden"):
+            data.pop("hidden", None)
+        return data
 
 
 class ResolvedColumn(BaseModel):
