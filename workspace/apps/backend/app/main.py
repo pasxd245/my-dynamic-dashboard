@@ -4,8 +4,11 @@ from contextlib import asynccontextmanager
 from typing import AsyncIterator
 
 import duckdb
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
+from starlette.responses import Response
 
 from app._config import CONFIG
 from app.db import run_startup_migrations
@@ -54,7 +57,31 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
                 logger.exception("tmp_sweep_loop crashed during shutdown")
 
 
+class UnhandledErrorMiddleware(BaseHTTPMiddleware):
+    """R151/F3 — turn an unhandled exception into a typed JSON 500 that flows
+    back OUT through CORSMiddleware. Without this, an unhandled 500 propagates to
+    Starlette's outermost ServerErrorMiddleware (OUTSIDE the CORS layer), so the
+    response carries no ``Access-Control-Allow-Origin`` header — the browser then
+    mislabels it a *CORS* failure and the FE sees only a generic "Failed to
+    fetch", hiding the real server error (R142-F3). Registered INNER to CORS
+    (added BEFORE it, so CORS wraps it) so the CORS layer still decorates the
+    error response. The traceback is logged — the durable trace in ``backend.log``
+    — while the client body stays generic (no internals leaked)."""
+
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
+        try:
+            return await call_next(request)
+        except Exception:
+            logger.exception("unhandled_error: %s %s", request.method, request.url.path)
+            return JSONResponse(status_code=500, content={"detail": "internal_error"})
+
+
 app = FastAPI(title="my-dynamic-dashboard backend", lifespan=lifespan)
+
+# R151/F3 — added BEFORE CORSMiddleware so CORS is the OUTER layer and decorates
+# the 500 this emits (a later add_middleware call is the outer wrapper). Order is
+# load-bearing: flipped, the 500 would again lack CORS headers.
+app.add_middleware(UnhandledErrorMiddleware)
 
 # R13: first time the backend serves the browser. The builder dev
 # server runs on :3000; restrict to that until a staging/prod origin

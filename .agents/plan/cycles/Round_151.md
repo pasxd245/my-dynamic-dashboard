@@ -66,7 +66,46 @@ then F13, then F4.
 
 ## Do
 
-_(Decisions + build land here.)_
+### F3 — built (2026-07-06)
+
+**CORS-safe 500 + traceback logging.** Root cause confirmed: an unhandled exception propagates
+past `CORSMiddleware` to Starlette's outermost `ServerErrorMiddleware`, whose bare 500 carries no
+`Access-Control-Allow-Origin` → the browser mislabels it a CORS failure → the FE shows only
+"Failed to fetch" (R142-F3). Fix: a `UnhandledErrorMiddleware` (`BaseHTTPMiddleware`) registered
+**INNER to CORS** (added BEFORE it, so CORS is the outer wrapper) that catches the exception,
+`logger.exception(...)`s the traceback, and returns a typed `{"detail": "internal_error"}` JSON
+500 — which flows back out through CORS and gets decorated. Ordering is load-bearing (flagged in
+the code comment). The two other parts of F3 were **already handled**: the alembic `fileConfig`
+logger-kill was fixed in R144 (`disable_existing_loggers=False`), and access logs + tracebacks
+reach `backend.log` via uvicorn's default logging → `local-up.sh`'s `2>&1` redirect.
+
+- Test: `test_app_errors.py::test_unhandled_exception_returns_cors_safe_typed_500` — hits a temp
+  route that raises through the **real app middleware stack** (`TestClient`,
+  `raise_server_exceptions=False`), asserts 500 + `{"detail":"internal_error"}` + the
+  `access-control-allow-origin` header echoes the configured origin + the traceback is logged. The
+  test IS the middleware-ordering verification (it fails if CORS is inner / the status is swallowed).
+- **Gates:** BE `pytest` 352 (+1) · `ruff` clean. FE untouched (the browser already renders a
+  `detail` body, so no FE change needed for the core fix).
+
+### F4 — assessed: already resolved (no code) (2026-07-06)
+
+The orphaned-temp-upload sweep the R142 finding asked for **already exists** (R30):
+`app/jobs/tmp_sweep.py`'s `sweep_loop`, spawned in the lifespan, `enabled: true`,
+`interval_seconds: 3600` (1h), `ttl_seconds: 86400` (24h) ([settings.py](../../../workspace/apps/backend/app/_config/settings.py) +
+[values.yaml](../../../workspace/config/values.yaml)). The R142 observation — 6 dirs in one
+session — is **intra-session accumulation before the 24h TTL elapses**, i.e. working as designed
+(the sweep is TTL-based, not immediate). No change; F4 closed as already-handled. (If a shorter TTL
+is ever wanted it's a one-line config tune, not a code gap.)
+
+### F13 — needs a live dashboard repro (2026-07-06)
+
+F13 ("two silent 422s on dashboard load") is a **runtime-observation** finding: the two 422s were
+seen on the R142 probe's dashboard `dsh_b41da51f` load (headless console). That dashboard is probe
+data, **not in the repo**, and the dashboard-load fetch fan-out (per-widget `useWidgetAggregate`
+POST + `useWidgetData` rows) 422s depend on the specific widget configs — so the two specific 422s
+can't be pinned from static code. F3's envelope work doesn't change 422s (those are already typed;
+"silent" = the FE fires-and-ignores them in the console). **Options:** run the seeded app + load a
+dashboard to catch them live, or defer to the human's in-app review. **Pending a repro / decision.**
 
 ## Check
 
