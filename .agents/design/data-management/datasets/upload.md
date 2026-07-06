@@ -35,15 +35,17 @@ Two rationales shape this design:
    source (CRM exports are predominantly `.xlsx`; CSV is the
    export-of-export fallback). The wizard's IA accommodates this:
    a data-source selector at Step 1 sets the downstream step path.
-   CSV stays a 4-step flow; Excel becomes a 5-step flow with a
-   Sheet selection inserted before Metadata. Future sources (API,
-   Website, SQL, …) plug in as additional selector options with
-   their own step variants; today the wizard commits only Excel +
-   CSV.
+   In **create** mode CSV is a 4-step flow and Excel a 5-step flow
+   with a Sheet selection inserted before Metadata; in **refresh**
+   mode a Drift-review step is inserted before Confirm (CSV 5 /
+   Excel 6). Future sources (API, Website, SQL, …) plug in as
+   additional selector options with their own step variants; today
+   the wizard commits only Excel + CSV.
 
-The wizard's stepper renders dynamically — it shows 4 steps for
-CSV, 5 for Excel. Users see only the steps relevant to their
-chosen source.
+The wizard's stepper renders dynamically — in create mode 4 steps
+for CSV, 5 for Excel; refresh mode adds a Drift-review step before
+Confirm (CSV 5 / Excel 6). Users see only the steps relevant to
+their chosen source and mode.
 
 ---
 
@@ -67,7 +69,7 @@ chosen source.
 | `parse_csv()` ingestion helper (`ingest/csv_parser.py`) | `apps/backend/app/ingest/`                          | backend      | pure (data)        | duckdb                                           |
 | `parse_sheet()` + `enumerate_sheets()` (`ingest/excel_parser.py`) | `apps/backend/app/ingest/`                | backend      | pure (data)        | openpyxl / duckdb excel ext                      |
 | `write_csv_to_parquet()` + `write_excel_to_parquet()` (`ingest/parquet_writer.py`) | `apps/backend/app/ingest/`     | backend      | pure (data)        | duckdb                                           |
-| `UploadDraft` type (frontend in-memory)                | `apps/builder/src/features/data-management/datasets` | feature      | data type          | none                                             |
+| `WizardState` reducer state + `SheetState` (`upload/state.ts`, frontend in-memory) | `apps/builder/src/features/data-management/datasets` | feature      | data type          | none                                             |
 
 **Boundary check**: no wizard surface lives in `@mdd/ui`. The
 stepper is an inline AntD `<Steps>` inside `DatasetNewPage`, not a
@@ -311,8 +313,9 @@ date · datetime`. **R143+R144 semantics** (see
   columns and needs targeted reverts.
 - **Excel multi-sheet**: tabs at the top of the step body, one
   per selected sheet. Active tab is highlighted. Switching tabs
-  preserves overrides per sheet (held in `UploadDraft` client
-  state, keyed by sheet name).
+  preserves overrides per sheet (held in the `WizardState` reducer's
+  `sheets: Record<string, SheetState>` map — Excel keys by sheet
+  name, CSV by the empty-string sentinel `CSV_SHEET_KEY = ""`).
 - **CSV**: no tabs; single column-list.
 
 ### Step 3/4 — Preview (parse succeeded)
@@ -453,11 +456,15 @@ inspection of the others.
   {
     temp_id,
     items: [
-      { sheet?, name, parse_options?, column_overrides?, excluded_columns? },
+      { sheet?, name, parse_options?, column_overrides?, excluded_columns?,
+        target_dataset_id?, merge_key? },  // refresh/merge-only — see § Refresh + § Refresh merge mode
       ...
     ]
   }
   ```
+
+  `target_dataset_id?` and `merge_key?` are **refresh/merge-only**
+  and unset on a create commit — detailed in the Refresh sections.
 
   The backend handles all items in a single transaction —
   all-or-nothing. On success, navigate to
@@ -474,20 +481,19 @@ inspection of the others.
 ## Wizard state machine
 
 ```text
-                              ┌─── CSV (4 steps) ───────────────────────────┐
-            ┌─────────┐ Next  │  ┌──────────┐    ┌──────────┐   ┌──────────┐│
-[entry] ──▶│ Source  │ ──────▶│  │ Metadata │──▶│ Preview  │─▶│ Confirm  ││
-            │  (1)    │ ◀──── │  │  (CSV·2) │◀─ │ (CSV·3)  │◀─│ (CSV·4)  ││
-            └─────────┘  Back │  └──────────┘    └──────────┘   └──────────┘│
-                 │             └────────────────────────────────────────────┘
+                       ┌─── CSV — create 4 / refresh 5 ────────────────────────────┐
+            ┌────────┐ │  ┌──────────┐   ┌──────────┐  ┌·········┐   ┌──────────┐  │
+[entry] ──▶│ Source │─▶│  │ Metadata │─▶│ Preview  │─▶: Drift    :─▶│ Confirm  │  │
+            │  (1)   │◀─│  │  (CSV·2) │◀─│ (CSV·3)  │◀─:(refresh) :◀─│  (last)  │  │
+            └────────┘  │  └──────────┘   └──────────┘  └·········┘   └──────────┘  │
+                 │      └───────────────────────────────────────────────────────────┘
                  │
-                 │   ┌─── Excel (5 steps) ────────────────────────────────────────────┐
-                 │   │  ┌──────────┐    ┌────────────┐    ┌──────────┐   ┌──────────┐│
-                 │   │  │  Sheet   │──▶│ Metadata   │──▶│ Preview  │─▶│ Confirm  ││
-                 ├──▶│  │ (Excel·2)│◀─ │ (Excel·3)  │◀─ │(Excel·4) │◀─│(Excel·5) ││
-                 │   │  │ checkbox │    │  tabs/sheet│    │ tabs/sht │   │ N-row    ││
-                 │   │  └──────────┘    └────────────┘    └──────────┘   └──────────┘│
-                 │   └────────────────────────────────────────────────────────────────┘
+                 │  ┌─── Excel — create 5 / refresh 6 ──────────────────────────────────────┐
+                 │  │  ┌────────┐  ┌──────────┐  ┌────────┐  ┌·········┐   ┌────────┐ │
+                 │  │  │ Sheet  │─▶│ Metadata │─▶│Preview │─▶: Drift    :─▶│Confirm │ │
+                 ├─▶│  │checkbox │◀─│ tabs/sht │◀─│tabs/sht│◀─:(refresh) :◀─│ N-row  │ │
+                 │  │  └────────┘  └──────────┘  └────────┘  └·········┘   └────────┘ │
+                 │  └───────────────────────────────────────────────────────────────────┘
                  │
                  ▼ Cancel from any step       Create datasets (atomic batch)
             /data-management/             POST /workspaces/<id>/datasets/batch
@@ -499,7 +505,14 @@ inspection of the others.
 
 - The state machine has **two parallel arms** branching at the
   Source step based on selected data-source type. Step indices
-  are local to each arm.
+  are local to each arm. The step sequence is `wizardSteps(state)`
+  in `upload/state.ts` — the single source of truth for both the
+  stepper and Back/Next.
+- The dotted **Drift-review** step (`"drift"` in the `WizardStep`
+  union; `UploadDriftStep.tsx`) is inserted **before Confirm in
+  refresh mode only** — the schema-drift acknowledge gate (see
+  § Refresh F10). Create mode omits it (4 CSV / 5 Excel); refresh
+  mode has it (5 CSV / 6 Excel).
 - The Metadata + Preview steps' content varies by source:
   - **CSV**: single column list (Metadata) / single preview
     table (Preview). No tabs.
@@ -603,17 +616,20 @@ Larger files defer to a future chunked-upload round.
 1. **Initial upload** (`POST /uploads`) — extracts lightweight
    metadata only:
    - **CSV**: sniffs the schema (column names + dtypes from
-     `duckdb.read_csv_auto`'s metadata) and writes the Parquet
-     companion. Returns `{ temp_id, sourceFormat: 'csv', schema, sampleRows, rowCount, sizeBytes }`.
+     `duckdb.read_csv_auto`'s metadata) and returns the preview
+     inline — no Parquet is written yet (persisted at commit). Returns
+     a `TempUploadCsv` body `{ temp_id, sourceFormat: 'csv', sizeBytes, csvPreview: { columns, rowCount, sampleRows } }`.
    - **Excel**: opens the workbook (openpyxl or DuckDB excel
      extension), enumerates sheet names + per-sheet row/column
      counts. Does **not** parse any sheet. Returns
      `{ temp_id, sourceFormat: 'excel', sheets: [{name, rowCount, columnCount}], sizeBytes }`.
-2. **Sheet parse** (`POST /uploads/<temp_id>/parse`, Excel only) —
-   the Sheet step's Next button triggers this. The chosen sheet is
-   parsed to Parquet; schema + 10 sample rows returned. CSV skips
-   this step (the schema and sample rows were already returned in
-   step 1).
+2. **Sheet parse** (`POST /uploads/<temp_id>/parse`) — the Sheet
+   step's Next button triggers this. The chosen sheet(s) are parsed
+   in-memory and the schema + 10 sample rows are returned inline in
+   the response body — **nothing is persisted** (no per-sheet
+   Parquet/preview files; each parse re-reads `original.<ext>`). CSV
+   already got its schema + sample rows in step 1 but can also
+   re-parse here (R26 extended `/parse` to CSV for parse-option edits).
 
 This split keeps Step 1's wait short for Excel workbooks (sheet
 enumeration is fast; parsing all sheets eagerly would be slow for
@@ -637,32 +653,35 @@ multi-sheet files where the user only wants one).
 R15+ ships **three endpoints**:
 
 ```python
-# apps/backend/app/routers/uploads.py
-@router.post("/uploads", status_code=201, response_model=UploadInit)
-async def init_upload(
-    source: Literal["csv", "excel"] = Form(...),
+# apps/backend/app/routers/uploads.py  (router mounted under /uploads)
+@router.post("")  # no status_code → FastAPI default 200
+async def create_temp_upload(
     file: UploadFile = File(...),
-) -> UploadInit:
+    sourceFormat: Literal["csv", "excel"] = Form(...),  # wire field is `sourceFormat`
+):
+    # Returns TempUploadCsv | TempUploadExcel (discriminated on sourceFormat).
     # 1. Validate file size + mime; 413 / 415 on violation.
     # 2. temp_id = secrets.token_hex(8).
     # 3. Stream-write to data/uploads_tmp/<temp_id>/original.<ext>.
-    # 4. Branch by source:
-    #    - CSV: parse_csv() → schema + Parquet + sampleRows.
+    # 4. Branch by sourceFormat:
+    #    - CSV: parse_csv() → schema + sampleRows (returned inline, no file).
     #    - Excel: enumerate sheets only (no parse) → sheet list.
-    # 5. Persist metadata.json. Return UploadInit.
+    # 5. Persist meta.json. Return the temp-upload response body.
 
-@router.post("/uploads/{temp_id}/parse", status_code=200, response_model=UploadParse)
-async def parse_sheet(
+@router.post("/{temp_id}/parse")  # no status_code → FastAPI default 200
+def parse_temp_upload(
     temp_id: str,
     body: ParseRequest,  # { items: [{ sheet?: str, parse_options?: ParseOptions }] }
-) -> UploadParse:
+):
     # ParseOptions = { range?: str (Excel only), skip_rows?: int (CSV only),
     #                  has_header?: bool (default true) }
-    # Parses each item to data/uploads_tmp/<temp_id>/parsed.<sheetkey>.parquet
-    # and writes preview.<sheetkey>.json with the first 10 rows + schema.
+    # Parses each item and returns the per-sheet results INLINE in the
+    # response body ({ "results": [ {sheet?, status, columns?, rowCount?,
+    # sampleRows?, error?, detail?} ] }). It PERSISTS NOTHING — no per-sheet
+    # parquet/preview files; each parse is re-read from original.<ext> on
+    # demand (matches § File storage).
     # When has_header=false, auto-generates column names as column1, column2, …
     # (HIxAI Q14c). For CSV, items has exactly one entry with sheet omitted.
-    # Returns UploadParse with per-sheet results (success or failure per sheet).
     # Individual sheet failures DO NOT 422 the whole request — the response
     # carries a per-sheet status so the wizard can show a partial-fail UI.
 
@@ -683,44 +702,54 @@ def commit_datasets_batch(
     # ParseOptions = { range?: str, skip_rows?: int, has_header?: bool }
     # ColumnOverride = { dtype: str, format?: str }  # `format` only meaningful for date/datetime
     # excluded_columns: names the user unchecked in the Metadata step;
-    # backend drops them from the committed Parquet (SELECT * EXCEPT excluded_columns).
+    # backend drops them from the committed Parquet. Unknown column name in
+    # excluded_columns / column_overrides → 409 `unknown_column`.
     # Empty / omitted = include all. At least one column must remain
     # after exclusion or the commit fails with 422.
-    # parse_options on the commit must match what was last applied via /parse —
-    # the backend reads the parsed.<sheetkey>.parquet that reflects those options;
-    # mismatch is a 409 (the user changed options without re-parsing).
+    # The commit RE-PARSES each item from original.<ext> (applying the item's
+    # parse_options) — there is no pre-parsed per-sheet parquet to match
+    # against, so there is NO parse_options-mismatch check and NO such 409.
     # ATOMIC — all items succeed together or none do.
-    # 1. Validate workspace; 404 otherwise.
+    # 1. Validate workspace + temp_id; 404 otherwise.
     # 2. For each item:
-    #    - Validate temp_id; ensure parsed.<sheetkey>.parquet exists; 409 otherwise.
-    #    - Validate name (1-80 chars, unique within batch); 422 otherwise.
-    #    - If column_overrides set: cast_columns() re-writes the Parquet
-    #      with the override dtypes. Implausible casts raise CastError → 422
-    #      with row-pointing message; the whole batch aborts.
-    # 3. Open a single DB transaction.
-    # 4. For each item: dataset_id = secrets.token_hex(8); move
-    #    data/uploads_tmp/<temp_id>/{original.ext, parsed.<sheetkey>.parquet} →
-    #    data/datasets/<workspace_id>/<dataset_id>/{original.ext, parsed.parquet};
-    #    insert Dataset row; write source.json.
-    # 5. Commit the transaction. Delete the temp directory once all items
-    #    are committed (or roll back filesystem moves on failure — best-effort,
-    #    the TTL sweep is the safety net).
-    # 6. Return the list of created Datasets.
+    #    - Validate name (1-120 chars); duplicate name in the workspace → 409
+    #      `name_taken` (unique index on datasets(workspace_id, name)).
+    #    - Re-parse original.<ext>; a parse failure (unknown/renamed sheet,
+    #      malformed range) → 422 `parse_failed`.
+    #    - Apply overrides + exclusions; the parquet write coerces every kept
+    #      column to its committed dtype. An uncastable cell raises
+    #      CoercionError → 422 `coercion_failed` (row-pointing); the batch aborts.
+    # 3. Write the fresh parsed.parquet + copy original + write source.json
+    #    per item under data/datasets/<workspace_id>/<dataset_id>/.
+    # 4. Open a single DB transaction; insert every Dataset row.
+    # 5. Commit. The temp directory is NOT deleted here — the TTL sweep is the
+    #    sole reaper (filesystem trees roll back on DB failure).
+    # 6. Return the created Datasets — a plain list for create/replace, or a
+    #    {datasets, merge} wrapper for a merge refresh (201 oneOf; see below).
 ```
 
 **HTTP semantics**:
 
-- `POST /uploads` → `201` with `UploadInit` on success;
-  `422` on parse failure (CSV only — Excel doesn't parse here);
-  `413 / 415` on validation.
-- `POST /uploads/<temp_id>/parse` → `200` with `UploadParse`
-  (per-sheet status list); `404` if temp missing. Individual
-  sheet parse failures are carried in the response body, not a
-  4xx — the wizard surfaces them as per-tab `✗` markers.
-- `POST /workspaces/<id>/datasets/batch` → `201` with
-  `list[Dataset]` on success; `404` if workspace missing; `409`
-  if any temp's parsed Parquet is missing; `422` on validation
-  failure (name, cast). The whole batch is atomic — partial
+- `POST /uploads` → `200` with `TempUploadCsv` / `TempUploadExcel`
+  (discriminated on `sourceFormat`) on success; `422` on parse
+  failure (CSV only — Excel doesn't parse here); `413 / 415` on
+  validation.
+- `POST /uploads/<temp_id>/parse` → `200` with `{ results: [...] }`
+  (per-sheet status list, returned inline — nothing persisted);
+  `404` if temp missing. Individual sheet parse failures are
+  carried in the response body, not a 4xx — the wizard surfaces
+  them as per-tab `✗` markers.
+- `POST /workspaces/<id>/datasets/batch` → `201` on success with a
+  **oneOf** body: a plain `list[Dataset]` for create / replace, or a
+  `{ datasets: [Dataset], merge: { updated, inserted, kept } }`
+  wrapper for a merge refresh (FE branches on `Array.isArray`).
+  `404` if workspace or temp_id missing; `409` `unknown_column`
+  (bad `excluded_columns` / `column_overrides` name) or `name_taken`
+  (duplicate name in the workspace) — the only 409s emitted; `422`
+  on validation (`coercion_failed` cast failure, missing `format`,
+  zero columns after exclusion) or `parse_failed` (commit-time
+  source re-parse failed — unknown/renamed sheet or malformed range,
+  for both create and refresh). The whole batch is atomic — partial
   commits never happen.
 
 **CORS**: already configured by R13 for `http://localhost:3000`.
@@ -1187,12 +1216,12 @@ Two candidate homes, per the noun-vs-mode discipline — the rejected one named:
 
 The wizard skeleton is untouched (strict on the skeleton): merge adds **no new step**. The
 **Confirm step** in refresh mode gains a *refresh semantics* block — `replace | merge` choice;
-choosing merge reveals the **key picker** (select from the committed columns).
-_Build deviation (flagged, per `design-altitude-vs-build-home`): the draft placed merge-aware
-severity on the Drift review step, but the key is only DECLARED on Confirm (which follows
-Drift) — so the FE guard lives on Confirm (`mergeKeyIssues`: picker error state + blocking
-alert + disabled commit); the Drift step is unchanged. The backend enforces the same guards
-independently (the contract net), so the intent — key drift never silently merges — holds._
+choosing merge reveals the **key picker** (select from the committed columns). Because the key
+is only DECLARED on Confirm (which follows the Drift-review step), the FE key-drift guard lives
+on Confirm too: `mergeKeyIssues` (`upload/state.ts`) feeds the picker's error state + blocking
+alert + disabled commit in `UploadConfirmStep.tsx` (the merge-commit button reads that Confirm
+state in `DatasetNewPage.tsx`). The Drift-review step carries no merge logic. The backend
+enforces the same guards independently (the contract net), so key drift never silently merges.
 
 ### Merge semantics: keep-latest-per-key
 
@@ -1242,9 +1271,10 @@ A silently drifted **key** dtype = the same phone failing to match its own prior
 **warn-never-block** (R145 human decision, unchanged); the **key columns are the exception**,
 because a corrupt merge is a different severity class than a stale dependent:
 
-- Key column **removed** from the incoming file, or its **dtype changed** → the Drift review
-  step **blocks merge** (not refresh: the user may switch to replace, fix the override, or
-  pick a different key).
+- Key column **removed** from the incoming file, or its **dtype changed** → the **Confirm
+  step** (where the merge key is declared) **blocks merge** (not refresh: the user may switch
+  to replace, fix the override, or pick a different key). `mergeKeyIssues` flags it and the
+  merge-commit button is disabled; the Drift-review step is unchanged.
 - Backend enforces the same independently: a merge whose key column is missing or
   dtype-mismatched at commit → typed 422 (dataset untouched) — the FE gate is UX, the BE
   check is the contract.
@@ -1287,7 +1317,7 @@ The refresh item gains one optional field — presence selects the mode:
    incoming status wins on the ~3.4k changed keys, committed-only rows kept, counts surfaced.
 2. **Absence semantics**: a key in the committed table but not in the incoming file survives
    the merge (the difference from replace, proven by test).
-3. **Loud key guard**: key-column dtype drift or removal blocks merge in the Drift review AND
+3. **Loud key guard**: key-column dtype drift or removal blocks merge on the Confirm step AND
    422s at the backend; the dataset is untouched.
 4. **Dup-key policy** (per ❓ D2): the real dup-heavy file behaves per the signed-off rule,
    loudly.
@@ -1347,6 +1377,8 @@ function useDatasetsCommitMutation(workspaceId: string) {
         parse_options?: ParseOptions;
         column_overrides?: Record<string, ColumnOverride>;
         excluded_columns?: string[];
+        target_dataset_id?: string; // refresh-only (§ Refresh)
+        merge_key?: string[];       // merge-refresh-only (§ Refresh merge mode)
       }[];
     }) => uploadsApi.commitBatch(workspaceId, body),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['datasets'] }),
@@ -1379,7 +1411,7 @@ Datasets reference `workspace_id` via a foreign key.
 **R15+ implements**:
 
 - `/data-management/datasets/new` route with the dynamic wizard
-  (3 steps for CSV, 4 for Excel).
+  (create mode: 4 steps for CSV, 5 for Excel).
 - Data-source selector at Step 1 (Excel default, CSV alternate).
 - Sheet selection step for Excel.
 - `UploadStepper`, all four step components, three mutation
@@ -1409,8 +1441,8 @@ Datasets reference `workspace_id` via a foreign key.
   R15 shipped create-only with the commit endpoint's shape **forward-compatible**
   (`target_dataset_id?` per item, mutually exclusive with `name`); R145 graduates that field
   from 422-reserved to real for whole-table replace + settings carry-forward + a schema-drift
-  gate. **Row merge-on-key / precedence** (overlapping non-cumulative re-exports) remains
-  deferred to R146. Pulled by: user reference + CRM-export reality + the R142 dogfood ⑥
+  gate. **Row merge-on-key / precedence** (overlapping non-cumulative re-exports) shipped — see
+  [§ Refresh merge mode](#refresh-merge-mode-merge-on-key-and-precedence-r147). Pulled by: user reference + CRM-export reality + the R142 dogfood ⑥
   ranking.
 - **Draft persistence** (resume wizard after reload). R∞.
 - **Browser back/forward** inside the wizard. R∞.
@@ -1438,8 +1470,9 @@ preview the rows, and commit one or more datasets.
    `?workspace=<id>`), and a required file drop-zone whose accept-types
    adapt to the source; `[Next]` is enabled only when all three are set
    and triggers `POST /uploads`.
-2. **Stepper branching** _(FE)_ — the stepper renders 3 steps for CSV
-   and 4 for Excel; Excel inserts a Sheet step before Metadata.
+2. **Stepper branching** _(FE)_ — in create mode the stepper renders 4
+   steps for CSV and 5 for Excel; Excel inserts a Sheet step before
+   Metadata (refresh mode adds a Drift-review step before Confirm: 5 / 6).
 3. **Sheet step (Excel)** _(FE + BE)_ — sheets are listed with light
    metadata (name / row / column counts) from `POST /uploads`;
    multi-select checkboxes require ≥1; `[Next]` triggers
@@ -1457,8 +1490,9 @@ preview the rows, and commit one or more datasets.
    (R19 Q2 / Q4). CSV has no re-parse — its options apply at commit
    (R19 Q1) and the BE honours them observably (R20).
 6. **Preview step** _(FE + BE)_ — shows each column's name + dtype and
-   10 sample rows read from `preview.<sheetkey>.json`; Excel renders
-   per-sheet tabs.
+   10 sample rows from the inline `POST /uploads/{temp_id}/parse`
+   response (held in client state — nothing is persisted per sheet);
+   Excel renders per-sheet tabs.
 7. **Preview failure** _(FE)_ — a parse failure surfaces inline: CSV is
    total (`[Re-pick file]` → Step 1); Excel is per-sheet (a `✗` tab
    marker + `[Deselect this sheet]`). `[Next]` is disabled while any
@@ -1467,16 +1501,16 @@ preview the rows, and commit one or more datasets.
    row per selected sheet (exactly one for CSV); duplicate names within
    the batch are flagged inline; `[Create datasets]` POSTs
    `/workspaces/{id}/datasets/batch` atomically (all-or-nothing) and on
-   success navigates to the Datasets list with the new rows. _Flag:
-   the Confirm step copy validates names as "1–80 chars"; this is
-   narrower than [crud-hygiene.md](../_shared/crud-hygiene.md)'s `NAME_LENGTHS`
-   `DATASET_MAX = 120` used by the rename path. Recorded as a cross-doc
-   length inconsistency, not rewritten here — a parity-check candidate
-   for R66._
+   success navigates to the Datasets list with the new rows. Names
+   validate as **1–120 chars** (`_BatchItem.name` `max_length=120`),
+   matching [crud-hygiene.md](../_shared/crud-hygiene.md)'s `NAME_LENGTHS`
+   `DATASET_MAX = 120` used by the rename path.
 9. **Commit validation** _(pytest)_ — an implausible dtype cast (e.g.
-   `"abc"` → integer) raises a `422` with a row-pointing message and the
-   wizard stays on Confirm with an inline `<Alert>`; a commit whose
-   `parse_options` differ from the last `/parse` returns `409`.
+   `"abc"` → integer) raises a `422` `coercion_failed` with a row-pointing
+   message and the wizard stays on Confirm with an inline `<Alert>`; a
+   bad `excluded_columns` / `column_overrides` column name returns `409`
+   `unknown_column`, and a commit-time source re-parse failure returns
+   `422` `parse_failed`.
 10. **File guards** _(pytest)_ — a 100 MB size cap with `413` / `415`
     on size / mime violation; temp uploads are swept on a 24 h TTL by
     the R30 periodic sweep (`app.jobs.tmp_sweep`), disabled in tests.

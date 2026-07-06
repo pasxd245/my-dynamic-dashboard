@@ -32,8 +32,8 @@ are split into separate docs:
   the table list works, where it lives in the IA, how it relates
   to Workspaces.
 - [upload.md](upload.md) — the **verb**: how a Dataset comes into
-  being. Drop zone, modal, multipart POST, parse pipeline, status
-  state machine, error handling.
+  being. The full-page upload wizard, multipart POST, parse pipeline,
+  and commit/error handling.
 
 Both docs reference each other. Failed parses **never become
 Datasets** — the upload wizard validates the parse before
@@ -47,7 +47,7 @@ event" entity and no `status` field on Dataset.
 
 | Surface                            | Layer                                                         | Reusability  | Purity             | Allowed peer deps                  |
 | ---------------------------------- | ------------------------------------------------------------- | ------------ | ------------------ | ---------------------------------- |
-| `DatasetsPage` route component (contains the table, workspace `<Select>` filter, drop-zone empty state, source icon, and relative-time formatter inline) | `apps/builder/src/features/data-management/datasets`          | feature      | feature            | react, antd, @tanstack/react-query |
+| `DatasetsPage` route component (contains the table, workspace `<Select>` filter, `<Empty>` state with an upload CTA, source icon, and relative-time formatter inline) | `apps/builder/src/features/data-management/datasets`          | feature      | feature            | react, antd, @tanstack/react-query |
 | `useDatasetsQuery` hook            | `apps/builder/src/features/data-management/datasets`          | feature      | glue (server-data) | @tanstack/react-query              |
 | `datasetsApi` client               | `apps/builder/src/api/`                                       | builder-only | glue               | (fetch — no extra peer dep)        |
 | `GET /datasets` backend route      | `apps/backend/`                                               | backend      | feature            | (FastAPI — backend native)         |
@@ -55,8 +55,8 @@ event" entity and no `status` field on Dataset.
 | `Dataset` type (frontend)          | `apps/builder/src/features/data-management/datasets/types.ts` | feature      | data type          | none                               |
 
 **Boundary check**: no dataset surface lives in `@mdd/ui`. The
-table list, the workspace `<Select>` filter, and the drop-zone
-empty state are all **inline within `DatasetsPage.tsx`** — there
+table list, the workspace `<Select>` filter, and the `<Empty>`
+state are all **inline within `DatasetsPage.tsx`** — there
 are no standalone `DatasetTable` / `WorkspaceFilter` component
 files. They stay feature-local; if a second table list arrives
 (e.g. a "Saved Queries table"), the extraction question gets
@@ -133,23 +133,22 @@ All tables across your workspaces.
 │  PageCard                                                                 │
 │                                                                           │
 │                                                                           │
-│   ┌─────────────────────────────────────────────────────────────────┐    │
-│   │                                                                  │    │
-│   │                              📥                                  │    │
-│   │                                                                  │    │
-│   │             Upload your first CSV to get started                 │    │
-│   │             Drag and drop here, or click to browse               │    │
-│   │             Up to 100 MB · CSV only                              │    │
-│   │                                                                  │    │
-│   └─────────────────────────────────────────────────────────────────┘    │
+│                              📥  (InboxOutlined)                          │
+│                                                                           │
+│                   Upload your first dataset to get started               │
+│                        Up to 100 MB · CSV or Excel                       │
+│                                                                           │
+│                            [ + Upload ]                                   │
 │                                                                           │
 └──────────────────────────────────────────────────────────────────────────┘
 ```
 
-The drop zone IS the empty state (same principle as the workspace
-detail page in the previous framing). Dropping a file here opens
-the upload modal with the file pre-selected and the workspace
-picker required (no workspace context).
+The empty state is a standard AntD `<Empty>` (icon + title + hint)
+with a primary **`[+ Upload]`** CTA that navigates to the full-page
+upload wizard at `/data-management/datasets/new` — the same pattern as
+the Workspaces and dashboard-catalog empty states. There is no
+drag-and-drop here and no upload modal: the real drag-drop lives in the
+wizard's Source step; this page only launches it.
 
 ### Filtered empty state (workspace selected, no datasets in it)
 
@@ -160,18 +159,17 @@ Datasets
 
 ┌──────────────────────────────────────────────────────────────────────────┐
 │                                                                           │
-│   ┌─────────────────────────────────────────────────────────────────┐    │
-│   │   📥  No datasets in Marketing yet                              │    │
-│   │       Drag and drop here, or click to browse                    │    │
-│   └─────────────────────────────────────────────────────────────────┘    │
+│                          ▦  (TableOutlined)                               │
+│                    No datasets in Marketing yet                           │
+│                       [ + Upload to Marketing ]                           │
 │                                                                           │
 └──────────────────────────────────────────────────────────────────────────┘
 ```
 
-When the workspace filter is active and the resulting list is
-empty, the drop zone copy and the `[+ Upload]` button both
-incorporate the workspace name. Submitting from this state
-pre-fills the workspace picker in the modal.
+When the workspace filter is active and the resulting list is empty, the
+`<Empty>` swaps to a table icon, the title incorporates the workspace
+name, and the CTA reads `[+ Upload to <workspace>]` — launching the same
+wizard.
 
 ---
 
@@ -197,7 +195,7 @@ are informational (resolved via `theme.getDesignToken()`, antd 6.x).
 | Workspace filter / search input border   | `colorBorder` → `colorPrimary`   | `#d9d9d9` / `#1677ff` |
 | "Clear filter" `×` link                  | `colorPrimary`                   | `#1677ff`             |
 | `+ Upload` primary action button         | `colorPrimary`                   | `#1677ff`             |
-| Empty-state drop-zone border             | `colorBorder` (dashed)           | `#d9d9d9`             |
+| Empty-state icon (Inbox / Table)         | `colorTextTertiary` (0.4 opacity)| derived               |
 | Border radius (card, table, button)      | `borderRadius`                   | `6`                   |
 | Font family                              | `fontFamily`                     | system stack          |
 
@@ -255,8 +253,9 @@ needs it.
 ### Persistence
 
 The schema-of-record is **SQLModel** (`app/db_models.py`) with
-**Alembic** migrations (`0001_baseline`, `0002_query_source_id`);
-the wire shape (camelCase) is mapped from the DB columns
+**Alembic** migrations (`0001_baseline`, `0002_dashboards`,
+`0003_workflows`); the Dataset table is defined in `0001_baseline`.
+The wire shape (camelCase) is mapped from the DB columns
 (snake_case): `workspaceId`↔`workspace_id`, `sizeBytes`↔`size_bytes`,
 `rowCount`↔`row_count`, `columnCount`↔`column_count`,
 `columns`↔`columns_json` (JSON), `sourceFormat`↔`source_format`,
@@ -444,9 +443,10 @@ dataset by name.
    match against Name.
 5. **Workspace-card handoff** _(integration)_ — navigating from a
    Workspaces card lands on this page with that workspace pre-filtered.
-6. **Empty states** _(FE)_ — zero datasets renders the drop-zone empty
-   state; a filtered view with no datasets incorporates the workspace
-   name into the drop-zone copy and the `[+ Upload]` button.
+6. **Empty states** _(FE)_ — zero datasets renders an `<Empty>` with an
+   Inbox icon + a `[+ Upload]` CTA that launches the wizard; a filtered
+   view with no datasets swaps to a Table icon and incorporates the
+   workspace name into the title and the `[+ Upload to <workspace>]` CTA.
 7. **Backend list** _(pytest)_ — `GET /datasets?workspace_id=<id>`
    returns datasets ordered `createdAt` desc, scoped when `workspace_id`
    is given and across all workspaces otherwise; every returned dataset
@@ -468,7 +468,7 @@ This concept covers:
 - The Datasets **table-list** page at `/data-management/datasets` — the
   noun's catalog: the columns + default sort, the workspace filter
   (URL `?workspace=`), client-side name search, the empty and
-  filtered-empty drop-zone states, the source-format icon, and the
+  filtered-empty `<Empty>` states, the source-format icon, and the
   workspace-card handoff into the filtered view.
 
 This concept defers:
