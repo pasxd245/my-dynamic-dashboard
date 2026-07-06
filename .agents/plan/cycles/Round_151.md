@@ -97,15 +97,29 @@ session — is **intra-session accumulation before the 24h TTL elapses**, i.e. w
 (the sweep is TTL-based, not immediate). No change; F4 closed as already-handled. (If a shorter TTL
 is ever wanted it's a one-line config tune, not a code gap.)
 
-### F13 — needs a live dashboard repro (2026-07-06)
+### F13 — diagnosed live + fixed (2026-07-06)
 
-F13 ("two silent 422s on dashboard load") is a **runtime-observation** finding: the two 422s were
-seen on the R142 probe's dashboard `dsh_b41da51f` load (headless console). That dashboard is probe
-data, **not in the repo**, and the dashboard-load fetch fan-out (per-widget `useWidgetAggregate`
-POST + `useWidgetData` rows) 422s depend on the specific widget configs — so the two specific 422s
-can't be pinned from static code. F3's envelope work doesn't change 422s (those are already typed;
-"silent" = the FE fires-and-ignores them in the console). **Options:** run the seeded app + load a
-dashboard to catch them live, or defer to the human's in-app review. **Pending a repro / decision.**
+Human picked "run the app + catch them." Reproduced against the **running seeded backend**: the
+seeded queries are joined (LEFT joins) and their `POST /queries/{id}/aggregate` calls work for
+valid bodies (200), but `sum` over a **string** column returns **422 `measure_not_numeric`**
+(confirmed on `qr_e5b5d436`: `sum(country)` → 422). Root cause: the dashboard's `aggregateEnabled`
+gate ([WidgetView.tsx](../../../workspace/apps/builder/src/features/dashboard/WidgetView.tsx))
+checked only that `measureCol` was PRESENT, not numeric. So a `sum`/`avg` widget over a numeric
+column that **ingested as string** (the F1/F2 CRM reality) fires a server aggregate that 422s, then
+silently falls back to the client roll-up and renders — a doomed 422 in the console per such widget.
+The probe's `dsh_b41da51f` (gone) had two; the mechanism reproduces on any such widget.
+
+**Fix:** a pure `serverAggregateSupportsMeasure(agg, measureCol, resolvedColumns)` gate — `count`
+always runs; `sum` needs a numeric measure (checked against the bound query's `resolvedColumns`
+dtypes). A KNOWN non-numeric measure now skips the server aggregate and takes the raw-rows client
+path directly (identical rendered result, no 422). **Conservative:** an unknown dtype (measure
+absent from `resolvedColumns` — a single-source query resolving columns from its dataset) still
+attempts it, so only provably-doomed requests are removed (no regression). Covers the finding's
+case (dashboards bind to joined queries → `resolvedColumns` present); single-source string-measure
+widgets remain a named residual (unknown-dtype → attempt).
+
+- Test: `server-aggregate-measure.test.ts` (4 — count / numeric / known-non-numeric-skip /
+  unknown-allowed); `widget-aggregate.test.tsx` unregressed. **Gates:** FE `tsc` 0 · `vitest` 304 (+4).
 
 ## Check
 

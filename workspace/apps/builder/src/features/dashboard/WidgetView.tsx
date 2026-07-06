@@ -54,10 +54,34 @@ import { ChartCard } from './ChartCard';
 import { useQueryQuery } from '@/features/data-management/queries/hooks';
 import { useChartPalette, useWidgetAggregate, useWidgetData } from './hooks';
 import type { AggregateMeasure, AggregateRequest } from '@/features/data-management/queries/types';
-import type { Widget } from './types';
+import type { Agg, Widget } from './types';
 
 const numberFmt = new Intl.NumberFormat();
 const compactFmt = new Intl.NumberFormat(undefined, { notation: 'compact', maximumFractionDigits: 1 });
+
+// R151/F13 — the dtypes the server `sum` aggregate accepts as a measure; a
+// non-numeric measure 422s (`measure_not_numeric`), so the widget takes the
+// client roll-up path instead of firing a doomed request.
+const NUMERIC_MEASURE_DTYPES = new Set(['integer', 'float']);
+
+/** R151/F13 — can the SERVER aggregate run for this measure? `count` always
+ *  can; `sum` needs a numeric measure — a non-numeric one 422s
+ *  (`measure_not_numeric`) and the widget silently falls back to the client
+ *  roll-up, leaving a doomed 422 in the console. Pre-checking the measure dtype
+ *  (from the bound query's resolved columns) lets the widget skip that request.
+ *  Conservative: an UNKNOWN dtype (measure absent from `resolvedColumns` — e.g.
+ *  a single-source query that resolves columns from its dataset) returns `true`,
+ *  preserving the prior attempt-it behaviour, so this only removes
+ *  provably-doomed requests. */
+export function serverAggregateSupportsMeasure(
+  agg: Agg,
+  measureCol: string | undefined,
+  resolvedColumns: readonly { name: string; dtype: string }[] | undefined,
+): boolean {
+  if (agg === 'count') return true;
+  const dtype = measureCol ? resolvedColumns?.find((c) => c.name === measureCol)?.dtype : undefined;
+  return dtype === undefined || NUMERIC_MEASURE_DTYPES.has(dtype);
+}
 
 /** role="img" + label so a screen reader announces the chart (not colour-only). */
 function ChartFigure({ label, children }: Readonly<{ label: string; children: React.ReactNode }>) {
@@ -339,7 +363,20 @@ export function useWidgetChartData(
   // directly. Detected from the bound query's definition (cheap, cached `get`).
   const boundQuery = useQueryQuery(widget.queryId);
   const preShaped = (boundQuery.data?.definition.steps?.length ?? 0) > 0;
-  const aggregateEnabled = usesAggregate && specValid && !preShaped;
+  // R151/F13 — the server `sum` aggregate 422s (`measure_not_numeric`) when the
+  // measure column ingested as a string (the F1/F2 CRM reality). The widget then
+  // silently fell back to the client roll-up and rendered — but the doomed
+  // request left a silent 422 in the console. Pre-check the measure dtype from
+  // the bound query's resolved columns: when we KNOW it's non-numeric, skip the
+  // server aggregate and take the raw-rows client path directly (same rendered
+  // result, no 422). Unknown dtype (measure not in resolvedColumns) → keep the
+  // prior behaviour (attempt it), so this only removes provably-doomed requests.
+  const measureNumericOk = serverAggregateSupportsMeasure(
+    widget.agg,
+    widget.measureCol,
+    boundQuery.data?.resolvedColumns,
+  );
+  const aggregateEnabled = usesAggregate && specValid && !preShaped && measureNumericOk;
   const directShaped = usesAggregate && specValid && preShaped;
 
   const measures: AggregateMeasure[] =
