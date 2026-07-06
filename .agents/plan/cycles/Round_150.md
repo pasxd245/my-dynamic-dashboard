@@ -1,11 +1,19 @@
-# Round 150: UI / diagnosability batch (F3 · F4 · F7 · F12 · F13 + R140 list)
+# Round 150: many_to_one relationship cardinality (F12) — UI/diagnosability batch, F12 slice
 
-**Status**: In Progress — F12 done; F3/F4/F13 next; F7 + R140 await two decisions (2026-07-06)
+**Status**: Complete — human-directed finish after F12; remainder → [R151](Round_151.md) (2026-07-06)
 **Date started**: 2026-07-06
+**Date completed**: 2026-07-06
 **Flow**: TBD — batch round; triage first. The small fixes run as a DCFBI C+B/F slice; F7 (if
 kept in scope) runs its own D-gate. Set per-item after triage.
 
 ## Goal
+
+> **Re-scoped (human-directed, 2026-07-06):** opened as the full rank-5 UI/diagnosability batch,
+> but the human directed completing R150 after the first item (**F12**, many_to_one cardinality)
+> shipped. So R150's delivery is **F12 only**; the rest of the batch — **F3, F4, F13** (diagnosability)
+> plus the still-open **F7** and **R140-list** decisions — rolls forward to **[R151](Round_151.md)**.
+> The batch framing, member definitions, and triage below stand as the record of what was scoped and
+> why F12 went first; they are the input to R151.
 
 **Inherits from ← [Round_149](Round_149.md)** (F8 complete). Per the signed-off
 [R142 dogfood ranking](../brainstorms/2026-07-03-r142-dogfood-findings.md) **rank 5** — the last
@@ -139,16 +147,46 @@ F7 + the R140 list still await the two round-shaping decisions (F7 split? R140 e
 
 ## Check
 
-- [ ] Round-shaping decisions recorded (R140 enumeration; F7 in-batch vs split).
-- [ ] Each in-scope finding fixed with a test; no silent-error regressions (F3/F13 surface truth).
-- [ ] Backend pytest + ruff green; FE tsc + vitest green; design/plan/markdown lints clean.
-- [ ] Human review of the batch.
+- [x] F12 (many_to_one) shipped with tests: BE declare-201 + round-trip; FE inferCardinality
+      left-only/right-only split; the 3-way schema-parity guard green after migration 0004.
+- [x] Backend pytest 351 + ruff green; FE tsc 0 + vitest 300 green; design/plan/markdown lints 0.
+- [~] Round-shaping decisions (R140 enumeration; F7 in-batch vs split) — **not decided; carried to
+      [R151](Round_151.md)** with the F3/F4/F13 remainder.
+- [~] Human review — the human directed completing R150 after F12 ("flip r150"); F12 itself is a
+      label/enum change verified by the parity guard + tests (no feel surface to walk, unlike F8).
+      F3/F4/F13's own review lands in R151.
 
 ## Act
 
-_(Learnings / promotions / prune check at close.)_
+**Learnings:**
 
-## Feeds into → Round_151 (TBD)
+1. **Checking "is this constant load-bearing?" before an enum add told us the true cost.** F12
+   looked like the smallest item, but the honest question — does the join engine *consume*
+   cardinality, or is it advisory? — was worth answering from code (`rows_reader` uses join-*type*
+   `kind`, not `cardinality`) before touching anything. Advisory → zero join-behavior risk, so the
+   directional `inferCardinality` change was safe. Had it been behavioral, F12 would have been a
+   different (bigger) round. (Instance of verify-against-the-real-repo; no new memory.)
+2. **A pinned vocabulary has a hidden tail: the schema-parity guard.** The visible change was "add
+   an enum value," but the DB CHECK is enforced 3 ways (legacy `_SCHEMA` == SQLModel == `alembic
+   upgrade head`), so the real work was a SQLite table-rebuild migration that leaves *exactly one*
+   widened CHECK. A subagent iterating against `test_schema_parity.py` is the right tool for that
+   fiddly-but-mechanical bit. Also: it caught a **second** cardinality `Literal` (the governed
+   alias) the brief's single line-number missed — grep-all beats point-edits for a vocabulary spread.
 
-If F7 splits out, R151 = F7 (column-visibility hint + column-metadata PATCH). Otherwise the next
-pull is re-ranked at open. **Carried**: R145 slice 1b + AI-propose-key. ④ export parked.
+**Promotions:** none — applies existing doctrine.
+
+**Prune check:** nothing added to the agent OS. Migration `0004` and the enum spread are product
+code earning their place (the F12 truthfulness need); no new skill/process.
+
+**Re-scope note:** R150 shipped F12 only, by human direction. F3/F4/F13 + the F7/R140 decisions
+were **rolled to R151, not dropped** — the batch's member definitions + triage above are R151's
+input, so nothing is lost.
+
+## Feeds into → Round_151 (UI/diagnosability batch, continued)
+
+[R151](Round_151.md) continues the rank-5 batch minus F12: **F3** (CORS-safe 500 envelope + backend
+logging — the higher-value core), **F4** (orphaned `uploads_tmp/` sweep), **F13** (silent
+dashboard-load 422s, F3-family). **Two decisions still open at R151:** enumerate the R140 UI/UX
+list or defer; and F7 (column-visibility hint + column-metadata PATCH) in-batch vs its own round
+(lean: split — it's design-gated). **Carried**: R145 slice 1b + AI-propose-key (parked, #2). ④
+export parked.
