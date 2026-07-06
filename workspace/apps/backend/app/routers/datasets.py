@@ -25,7 +25,7 @@ from typing import Annotated
 from fastapi import APIRouter, HTTPException, Query, Request, status
 from fastapi import Path as FastApiPath
 from fastapi.responses import JSONResponse, Response
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app._generated.constants import ID_PATTERNS, NAME_LENGTHS, PAGE_SIZES
 from app.db import get_conn
@@ -45,7 +45,9 @@ from app.models.common import (
     ApiErrorCoercionFailed,
     ApiErrorMergeDuplicateKeys,
     ApiErrorNameTaken,
+    ApiErrorNoVisibleColumns,
     ApiErrorNotFound,
+    ApiErrorUnknownColumn,
     CoercionFailedCell,
     Column,
     ColumnOverride,
@@ -68,6 +70,25 @@ class RenameDatasetBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     name: Annotated[str, Field(min_length=1, max_length=NAME_LENGTHS["dataset_max"])]
+
+
+class SetColumnVisibilityBody(BaseModel):
+    """PATCH /datasets/{id}/columns body — R152 (F7). The COMPLETE set of
+    column names to mark hidden (replace semantics; a name absent from the
+    list becomes visible). An empty list clears all hints."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    hidden: list[Annotated[str, Field(min_length=1)]]
+
+    @field_validator("hidden")
+    @classmethod
+    def _no_duplicates(cls, v: list[str]) -> list[str]:
+        # Contract: `hidden` has uniqueItems: true — a duplicate name is a
+        # malformed request (FastAPI {detail} 422), not a domain error.
+        if len(v) != len(set(v)):
+            raise ValueError("hidden must not contain duplicate column names")
+        return v
 
 
 # R29: pattern sourced from ID_PATTERNS (was hardcoded `^ds_[0-9a-f]{8}$`).
@@ -184,6 +205,19 @@ def _apply_exclusions(columns: list[dict[str, str]], excluded: list[str] | None)
             detail="excluded_columns leaves zero columns",
         )
     return kept
+
+
+def _carry_forward_hidden(
+    cols: list[dict[str, str]], prev_columns: list[dict[str, str]]
+) -> None:
+    """R152 — re-apply the `hidden` view-hint (in place) onto freshly re-parsed
+    `cols` after a refresh. Match by name: a column still present keeps its
+    hint, a column gone/renamed drops it, a new column stays visible. A dtype
+    change is not a mismatch. Presentation-only — never touches the parquet."""
+    prev_hidden = {c["name"] for c in prev_columns if c.get("hidden")}
+    for c in cols:
+        if c["name"] in prev_hidden:
+            c["hidden"] = True
 
 
 def _parse_and_target(item: _BatchItem, source_format: str, original_path: Path):  # type: ignore[no-untyped-def]
@@ -508,6 +542,11 @@ def _handle_refresh(
         _source_json_dict(body.temp_id, source_format, sheet_name, meta, commit_settings)
     )
 
+    # R152 — carry the `hidden` view-hint forward across a refresh (both replace
+    # and merge). Presentation-only: the parquet was already written above and is
+    # never touched here.
+    _carry_forward_hidden(cols, json.loads(row["columns_json"]))
+
     columns_json = json.dumps(cols, ensure_ascii=False)
     new_size = original_path.stat().st_size
     new_row_count = parsed.row_count if merge_stats is None else sum(merge_stats.values())
@@ -765,6 +804,58 @@ def rename_dataset(  # noqa: A002 — match contract path param name
         status_code=status.HTTP_200_OK,
         content=ds.model_dump(exclude_none=True),
     )
+
+
+@router.patch("/datasets/{id}/columns")
+def set_column_visibility(  # noqa: A002 — match contract path param name
+    id: DsIdPath,
+    body: SetColumnVisibilityBody,
+) -> JSONResponse:
+    """Set the dataset's hidden-column set — R152 (F7) presentation-only view-hint.
+
+    Writes `columns_json` ONLY: never the parquet, `column_count`, `row_count`,
+    or the storage directory (the presentation-vs-compute doctrine). Replace
+    semantics — `body.hidden` is the complete set to mark hidden; any column
+    absent becomes visible. The stored shape drops the `hidden` key when false
+    (matches the wire "omit when unset").
+    """
+    with get_conn() as con:
+        row = con.execute("SELECT * FROM datasets WHERE id = ?", (id,)).fetchone()
+        if row is None:
+            return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=ApiErrorNotFound().model_dump())
+
+        cols = json.loads(row["columns_json"])  # [{name, dtype, hidden?}, ...]
+        names = {c["name"] for c in cols}
+        hidden = set(body.hidden)
+
+        # 422 unknown_column — a requested name is not a column of this dataset.
+        unknown = next((n for n in body.hidden if n not in names), None)
+        if unknown is not None:
+            return JSONResponse(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                content=ApiErrorUnknownColumn(column=unknown).model_dump(),
+            )
+        # 422 no_visible_columns — the set would hide EVERY column.
+        if hidden == names:
+            return JSONResponse(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                content=ApiErrorNoVisibleColumns().model_dump(),
+            )
+
+        for c in cols:
+            if c["name"] in hidden:
+                c["hidden"] = True
+            else:
+                c.pop("hidden", None)
+        con.execute(
+            "UPDATE datasets SET columns_json = ? WHERE id = ?",
+            (json.dumps(cols, ensure_ascii=False), id),
+        )
+        con.commit()
+        updated = con.execute("SELECT * FROM datasets WHERE id = ?", (id,)).fetchone()
+
+    ds = _dataset_from_row(updated)
+    return JSONResponse(status_code=status.HTTP_200_OK, content=ds.model_dump(exclude_none=True))
 
 
 @router.delete("/datasets/{id}")

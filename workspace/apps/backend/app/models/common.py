@@ -241,6 +241,27 @@ class ApiErrorMergeDuplicateKeys(BaseModel):
     sampleKeys: Annotated[list[str], Field(min_length=1, max_length=5)]  # noqa: N815 — wire shape
 
 
+class ApiErrorUnknownColumn(BaseModel):
+    """R152 — the column-visibility PATCH named a column not in the dataset's
+    schema (422). `columns_json` is untouched. Mirrors
+    `_shared/api-error.yaml#/ApiErrorUnknownColumn`."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    code: Literal["unknown_column"] = ERROR_CODES["unknown_column"]  # type: ignore[assignment]
+    column: Annotated[str, Field(min_length=1)]
+
+
+class ApiErrorNoVisibleColumns(BaseModel):
+    """R152 — the column-visibility PATCH would hide EVERY column (422; the
+    at-least-one-visible guard). `columns_json` is untouched. Mirrors
+    `_shared/api-error.yaml#/ApiErrorNoVisibleColumns`."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    code: Literal["no_visible_columns"] = ERROR_CODES["no_visible_columns"]  # type: ignore[assignment]
+
+
 # ─── R69: Saved Query ────────────────────────────────────────────────
 # Mirrors packages/contracts/_shared/query.yaml + queries/*. The
 # `definition` reuses the EXACT predicate-atom shape the rows-GET `aq`

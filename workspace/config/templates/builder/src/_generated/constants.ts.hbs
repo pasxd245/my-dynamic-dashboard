@@ -51,6 +51,8 @@ export const ERROR_CODES = {
   SLUG_TAKEN: "{{constants.error_codes.slug_taken}}",
   COERCION_FAILED: "{{constants.error_codes.coercion_failed}}",
   MERGE_DUPLICATE_KEYS: "{{constants.error_codes.merge_duplicate_keys}}",
+  UNKNOWN_COLUMN: "{{constants.error_codes.unknown_column}}",
+  NO_VISIBLE_COLUMNS: "{{constants.error_codes.no_visible_columns}}",
 } as const;
 
 export type ErrorCode = (typeof ERROR_CODES)[keyof typeof ERROR_CODES];

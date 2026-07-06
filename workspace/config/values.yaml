@@ -94,6 +94,8 @@ constants:
     slug_taken: 'slug_taken' # R101 — dashboard slug collides within its workspace (per-workspace, like name)
     coercion_failed: 'coercion_failed' # R143 — commit-time dtype cast failed (batch aborts; names column + cells)
     merge_duplicate_keys: 'merge_duplicate_keys' # R147 — merge refresh: incoming file has >1 row per declared key (D2 loud stop)
+    unknown_column: 'unknown_column' # R152 — column-visibility PATCH named a column not in the dataset (422)
+    no_visible_columns: 'no_visible_columns' # R152 — column-visibility PATCH would hide every column (at-least-one-visible guard, 422)
 
   # R29: name-length bounds enforced by Pydantic on BE + AntD Form rules on
   # FE. Workspace names globally unique, max 80; dataset names per-workspace
