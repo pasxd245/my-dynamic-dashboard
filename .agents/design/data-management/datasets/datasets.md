@@ -224,6 +224,7 @@ type Dataset = {
 type Column = {
   name: string; // header cell, trimmed
   dtype: 'string' | 'integer' | 'float' | 'boolean' | 'date' | 'datetime';
+  hidden?: boolean; // R152 presentation-only view-hint; absent/false = visible. NEVER touches the parquet.
 };
 ```
 
@@ -254,7 +255,8 @@ needs it.
 
 The schema-of-record is **SQLModel** (`app/db_models.py`) with
 **Alembic** migrations (`0001_baseline`, `0002_dashboards`,
-`0003_workflows`); the Dataset table is defined in `0001_baseline`.
+`0003_workflows`, `0004_many_to_one_cardinality`); the Dataset table
+is defined in `0001_baseline`.
 The wire shape (camelCase) is mapped from the DB columns
 (snake_case): `workspaceId`↔`workspace_id`, `sizeBytes`↔`size_bytes`,
 `rowCount`↔`row_count`, `columnCount`↔`column_count`,
@@ -289,8 +291,8 @@ action beside rename/delete. It re-uploads a *new export of the same source* int
 existing dataset — forward-only, **replace** or (R147) **merge-on-key** — rather than
 creating a sibling. The real CRM cadence: month-2's export updates `monthly_calls` in place.
 
-- **Placement**: an item in the row's Actions menu (`Refresh` · `Rename` · `Delete`) and a
-  `[Refresh]` button on the dataset-detail header. Both `navigate('/data-management/datasets/:id/refresh')`
+- **Placement**: an item in the row's Actions menu (`Refresh` · `Rename` · `Delete`) and the same
+  item inside the dataset-detail header's `Actions ▾` menu. Both `navigate('/data-management/datasets/:id/refresh')`
   — the [upload wizard](upload.md) in refresh mode (a mode, not a new page; noun-vs-mode per
   [specious-model-lock-in](../../../memory/2026-06-13-specious-model-lock-in.md)).
 - **What the user sees**: the wizard opens pre-filled from the dataset's committed settings
@@ -311,6 +313,80 @@ creating a sibling. The real CRM cadence: month-2's export updates `monthly_call
   **No new placement**: the replace|merge choice + key picker live inside the wizard's Confirm
   step; the Datasets/detail surfaces are unchanged (the remembered key does NOT surface on the
   detail header in slice 1 — the wizard shows it where it's acted on).
+
+---
+
+## Column visibility (R152)
+
+> **Status: PROPOSED — R152 D-gate (pending human sign-off).** F7 from the
+> [R142 dogfood ranking](../../../plan/brainstorms/2026-07-03-r142-dogfood-findings.md).
+> The editing surface (the "Columns" manager) + the row-preview default are specified in
+> [dataset-detail.md § Column visibility](dataset-detail.md#column-visibility-r152); this
+> section owns the **model field + the contract + the honor/ignore surface split**.
+
+Wide tables are unreadable — real CRM exports carry many columns and the row-preview renders
+**all** of them in one horizontal scroll. F7 adds a per-column **`hidden`** view-hint so the
+user can focus the preview on what matters.
+
+**Doctrine — presentation-only, never a projection.** Unlike a dtype override (which
+rightly stops at the parse), a visibility hint **must** stay metadata-only: the `PATCH`
+writes `columns_json` and **never re-reads or rewrites the parquet**. It is the
+**presentation-level default**, complementary to — not a substitute for — the compute-level
+`select` step (R141) that actually narrows a query's output. A hidden column is still fully
+present in storage and in every compute path.
+
+### Honor / ignore split (Q1 — the load-bearing decision)
+
+`hidden` is an **overridable row-preview default, NOT a hard projection.** Because the
+row-preview and every picker read one shared column list today, the split is deliberate:
+
+| Surface | Behaviour on `hidden` |
+| --- | --- |
+| [dataset-detail](dataset-detail.md) **row-preview** (`PagedRowsView`) | **Honors** — default-hides `hidden` columns, with a **"show all columns"** escape |
+| Row filter / advanced-query pickers (dataset-detail) | **Ignores** — lists all columns |
+| Relationship key picker · query-builder · join · workflows | **Ignores** — a hidden column stays fully joinable / selectable / filterable |
+
+The query-detail row-preview is **out of scope** for R152 (the hint lives on dataset
+columns; mapping it onto a query's `resolvedColumns` is deferred until pulled).
+
+### Contract — `PATCH /datasets/{id}/columns`
+
+The first post-commit column mutation (rename is name-only; overrides are upload-time). It
+sets the **full visibility set** in one atomic, idempotent, order-independent call:
+
+- **Request body**: `{ hidden: string[] }` — the complete list of column names to mark hidden.
+  Replace semantics: names not in the list become visible. Client already holds the column
+  list, so a single toggle or a bulk edit is one call.
+- **Success**: `200 Dataset` (the updated dataset; `columns[].hidden` reflects the new set).
+- **Writes `columns_json` only** — never the parquet, `column_count`, `row_count`, or the
+  storage directory. Per-handler atomicity matches the existing dataset writes.
+- **Errors** (typed `{code}` envelope):
+  - `404 not_found` — no such dataset.
+  - `422 unknown_column` — a name in `hidden` is not a column of this dataset.
+  - `422 no_visible_columns` — the set would hide **every** column (at-least-one-visible
+    guard; an empty preview is not a valid state).
+- **FE**: a `useSetColumnVisibility` (or equivalent) mutation invalidating `['datasets', {id}]`.
+
+### Refresh interaction — `hidden` survives, mismatched columns drop
+
+A refresh (R145 replace / R147 merge) re-parses the source and **rewrites `columns_json`**
+from freshly-parsed `{name, dtype}` — so the `hidden` set would be silently wiped unless
+carried forward. It **must** survive: a hint that dies on the next data update is the exact
+papercut F7 removes, and it lives right beside the R145/R147 carry-forward doctrine.
+
+**Rule — reconcile the previous hidden set against the re-parsed columns by name:**
+
+| Case | Outcome |
+| --- | --- |
+| Column still present (name match) | **keep** its `hidden` |
+| Column gone / renamed (name mismatch) | **drop** the hint — the column no longer exists; a stale hint is meaningless |
+| New column | **visible** by default |
+
+Formally `new_hidden = previous_hidden ∩ {re-parsed column names}`. A dtype change is **not**
+a mismatch — a column is still the same column to hide. Applies to **both** replace and merge
+refresh. Implementation: the refresh handler already holds the prior `columns_json`
+(read for the merge guards) and rewrites the column list before the atomic swap; the
+intersection is re-applied there, before the write — no parquet re-read, still presentation-only.
 
 ---
 
@@ -355,7 +431,9 @@ creating a sibling. The real CRM cadence: month-2's export updates `monthly_call
 
 - **Re-parse** (re-run parser without re-uploading).
 - **Column-level affordances** (rename column, override dtype) —
-  see [upload.md](upload.md)'s deferral list.
+  see [upload.md](upload.md)'s deferral list. **Exception (R152):**
+  post-commit column **visibility** (hide/show) ships as a
+  presentation-only view-hint — see [§ Column visibility](#column-visibility-r152).
 - **Saved-filter / pinned-search**.
 - **Bulk operations** (multi-select, bulk delete).
 - **Virtualized scroll**. Lands when 1000+ datasets is a real

@@ -122,7 +122,7 @@ data table.
 Home ▸ … ▸ q1_pipeline_Deals        [Save filters as Query]   [Actions ▾]     │
 📊 q1_pipeline_Deals                                                                  │
 Excel · Sheet1 — 2,481 rows · 12 columns · 84 KB · Uploaded 14:02 today  ─────────────┘
-                                  Actions ▾ = Join with related dataset · Rename · Delete
+                                  Actions ▾ = Join with related dataset · Refresh · Rename · Delete
 
 ┌──────────────────────────────────────────────────────────────────────────────────┐
 │  PageCard                                                                         │
@@ -132,7 +132,7 @@ Excel · Sheet1 — 2,481 rows · 12 columns · 84 KB · Uploaded 14:02 today  �
 │   │ Marketing    2,481    12     84 KB     14:02 today      Excel · Sheet1  │   │
 │   └─────────────────────────────────────────────────────────────────────────┘   │
 │                                                                                   │
-│   [🔍 Search rows…                       ]  Matched 2,481 / 2,481                │
+│   [🔍 Search rows…                  ]  Matched 2,481 / 2,481   [⚙ Columns 9/12]│
 │                                                                                   │
 │   ┌──────────────────────────────────────────────────────────────────────────┐  │
 │   │ deal_id [str] │ amount [int]  │ won_at [date]  │ stage [str]  │ ...      │  │
@@ -171,8 +171,13 @@ Excel · Sheet1 — 2,481 rows · 12 columns · 84 KB · Uploaded 14:02 today  �
     cell. Same glyph regardless of dtype.
 - **Pagination**: AntD `<Pagination>` at the bottom — prev/next
   arrows, numbered pages with ellipsis, page-size selector
-  (25 / 50 / 100), jumper input. Always-visible when total > 0;
+  (10 / 25 / 50 / 100), jumper input. Always-visible when total > 0;
   hidden for zero-rows state.
+- **Columns control (R152)**: to the right of the "Matched X / Y"
+  counter, a `[⚙ Columns N/M]` button (N visible of M total) opens
+  the **Columns manager** — see [§ Column visibility](#column-visibility-r152).
+  The preview **default-hides** any `hidden` column; the manager
+  carries the "show all" escape.
 - **Search bar** above the table: AntD `<Input.Search>` with a
   search-icon prefix and `placeholder: "Search rows…"`. To the
   right of the input, a muted-text "Matched X / Y" counter
@@ -508,6 +513,59 @@ button.
 
 ---
 
+## Column visibility (R152)
+
+> **Status: PROPOSED — R152 D-gate (pending human sign-off).** The **model field, the
+> honor/ignore surface split, and the `PATCH` contract** live in
+> [datasets.md § Column visibility](datasets.md#column-visibility-r152); this section owns
+> the **editing surface** (the Columns manager) + how the row-preview honors the hint.
+
+Wide tables scroll off-screen. A per-column **`hidden`** view-hint (presentation-only —
+[never touches the parquet](datasets.md#column-visibility-r152)) lets the user focus the
+row-preview on what matters, while every query / join / relationship picker keeps **all**
+columns (Q1: an overridable default, not a projection).
+
+### Row-preview default
+
+`<PagedRowsView>` filters the rendered columns to `columns.filter(c => !c.hidden)` **by
+default**. The header count `[⚙ Columns N/M]` shows N visible of M total. When a "show all
+columns" toggle is on (manager-controlled, session-local — not persisted), the preview
+renders every column including hidden ones, so the hint is always an **overridable** default.
+Cell rendering, search, filter, and pagination are unchanged — they operate on whatever
+columns are currently rendered; search/filter pickers themselves still enumerate all columns.
+
+### Columns manager
+
+The `[⚙ Columns N/M]` button (in the table toolbar, right of the "Matched X / Y" counter)
+opens a **Columns manager** — an AntD drawer/popover:
+
+```text
+┌─ Columns ────────────────┐
+│ [ Show all columns ]  ⟳  │   ← toggle: preview shows hidden too (session-local)
+│ ─────────────────────    │
+│ ☑ deal_id                │   ← checked = visible; uncheck = hidden
+│ ☑ amount                 │
+│ ☐ internal_notes         │   ← hidden (default-hidden in the preview)
+│ ☑ won_at                 │
+│ …                        │
+│ ─────────────────────    │
+│           [ Cancel ] [ Apply ] │
+└──────────────────────────┘
+```
+
+- Lists **all** columns with a visible/hidden checkbox each. It is the only surface that can
+  **re-show** a hidden column (a header menu can't — the column isn't rendered).
+- **Apply** sends the full visible/hidden set via `PATCH /datasets/{id}/columns`
+  (`{ hidden: string[] }` — see [contract](datasets.md#column-visibility-r152)); on success the
+  `['datasets', { id }]` cache is invalidated and the preview re-renders.
+- **At-least-one-visible** is enforced client-side (Apply disabled if all unchecked) and
+  server-side (`422 no_visible_columns`).
+- Scope guard: this is a **visibility** editor only — not a general column editor (no rename /
+  reorder / dtype here).
+- i18n: `datasets.detail.columns.*` (en + vi).
+
+---
+
 ## Data contract
 
 > The OpenAPI 3.1 YAML files are authoritative. The prose YAML
@@ -671,6 +729,66 @@ export type RowsPage = {
   dataset delete (covered by the list-cache invalidation in
   `useDeleteDatasetMutation`); no separate invalidation needed on
   rename (rows don't change).
+- **Column visibility mutation (R152)** — `useSetColumnVisibility`
+  invalidates `['datasets', { id }]` so the detail GET (and its
+  `columns[].hidden`) re-fetches. Rows are **not** invalidated: the
+  parquet is untouched, only which columns the preview renders.
+
+### `PATCH /datasets/{id}/columns` (R152)
+
+```yaml
+paths:
+  /datasets/{id}/columns:
+    patch:
+      operationId: setColumnVisibility
+      summary: Set the full hidden-column set (presentation-only view-hint)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^ds_[0-9a-f]{8}$'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [hidden]
+              additionalProperties: false
+              properties:
+                hidden:
+                  type: array
+                  items: { type: string }
+                  description: |
+                    The complete set of column names to mark hidden.
+                    Replace semantics — names absent from this list
+                    become visible. Writes `columns_json` only; the
+                    parquet, counts, and storage dir are untouched.
+      responses:
+        '200':
+          description: The updated dataset (columns[].hidden reflects the new set).
+          content:
+            application/json:
+              schema:
+                $ref: '../_shared/dataset.yaml#/components/schemas/Dataset'
+        '404':
+          description: No dataset with the given id exists.
+          content:
+            application/json:
+              schema:
+                $ref: '../_shared/api-error.yaml#/components/schemas/ApiErrorNotFound'
+        '422':
+          description: |
+            `unknown_column` — a name in `hidden` is not a column of
+            this dataset; or `no_visible_columns` — the set would hide
+            every column (at-least-one-visible guard).
+          content:
+            application/json:
+              schema:
+                $ref: '../_shared/api-error.yaml#/components/schemas/ApiError'
+```
 
 ---
 
@@ -695,6 +813,21 @@ export type RowsPage = {
 - i18n keys: namespace `datasets.detail.*` for all user-facing
   strings; en + vi resource entries.
 
+**In scope (R152, building)** — column visibility (F7):
+
+- `PATCH /datasets/{id}/columns` BE route — writes `columns_json` only.
+- `datasetsApi.setColumnVisibility(id, hidden[])` + `useSetColumnVisibility`.
+- `<PagedRowsView>` default-hides `hidden` columns, with the manager's
+  "show all" escape.
+- The Columns manager surface (drawer/popover) + the `[⚙ Columns N/M]` toolbar button.
+- `hidden?: boolean` on the shared `Column` schema
+  ([`column.yaml`](../../../../workspace/packages/contracts/_shared/column.yaml)).
+- i18n keys `datasets.detail.columns.*` (en + vi).
+
+> The R145 refresh affordance also exposes `GET /datasets/{id}/refresh-settings`
+> (its `useRefreshSettingsQuery` hook lives in this feature) — the route's contract is
+> owned by [upload.md](upload.md).
+
 **Deferred**:
 
 - **Column sorting**. Parquet is column-oriented but sort-by-
@@ -707,8 +840,9 @@ export type RowsPage = {
 - **Virtualized scroll**. Offset pagination is sufficient
   through ~100k rows × 50 page-size. Promote when 100k+ row
   datasets become routine _and_ page-size-100 feels slow.
-- **Column hide / freeze / reorder**. Cosmetic; promote when a
-  user is actually blocked.
+- **Column freeze / reorder**. Cosmetic; promote when a user is
+  actually blocked. (**Column hide/show shipped R152** — see
+  [§ Column visibility](#column-visibility-r152).)
 - **Row-level CRUD** (edit / delete / insert). Datasets are
   immutable post-commit in this iteration.
 - **Row inspection drawer** (click row → full-cell-text drawer
