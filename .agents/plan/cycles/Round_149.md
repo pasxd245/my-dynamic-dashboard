@@ -176,6 +176,14 @@ Result: **Flow: DCFBI** (0 conditions fired). No F1/F2 gates; human verification
 `vitest` 299/299 (incl. 8 new F8 reducer tests) · `design:lint`/`design:tokens`/`plan:lint`/
 `md:lint` 0 · i18n parity OK.
 
+### Integration-walk fixes (human, 2026-07-06)
+
+- **Button-size consistency** (a6b3155): the human's in-app walk caught that the F8 range
+  controls (Add range / Remove this range) used `size="small"`, rendering smaller than every
+  other wizard action button (Cancel, Back, Next, Re-parse, parse-failed actions are all
+  default/middle size). Dropped `size="small"` (kept `danger` on Remove) so they match the
+  wizard chrome. `tsc` 0 · upload `vitest` 54/54.
+
 ## Check
 
 - [x] D signed off before C/B/F (incl. the slice boundary + naming/override/affordance
