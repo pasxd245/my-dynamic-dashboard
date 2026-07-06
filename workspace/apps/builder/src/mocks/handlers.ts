@@ -633,6 +633,40 @@ export const handlers = [
       name: body.name ?? MOCK_DATASET.name,
     });
   }),
+  // R152 — column-visibility PATCH. Mirrors the backend: 404, 422
+  // unknown_column / no_visible_columns, else the dataset with the new
+  // `hidden` set applied (visible columns omit the key). 200 body is
+  // contract-validated against columns-patch.contract.yaml.
+  withContractValidation(
+    'patch',
+    api('/datasets/:id/columns'),
+    'setDatasetColumnVisibility',
+    async ({ params, request }) => {
+      const ds = [MOCK_DATASET, MOCK_DATASET_2, MOCK_DATASET_3, MOCK_DATASET_4, MOCK_DATASET_5].find(
+        (d) => d.id === params.id,
+      );
+      if (!ds) {
+        return HttpResponse.json({ code: 'not_found' }, { status: 404 });
+      }
+      const body = (await request.json()) as { hidden?: string[] };
+      const hidden = body.hidden ?? [];
+      const names = new Set(ds.columns.map((c) => c.name));
+      const unknown = hidden.find((n) => !names.has(n));
+      if (unknown !== undefined) {
+        return HttpResponse.json({ code: 'unknown_column', column: unknown }, { status: 422 });
+      }
+      if (new Set(hidden).size === ds.columns.length) {
+        return HttpResponse.json({ code: 'no_visible_columns' }, { status: 422 });
+      }
+      const hiddenSet = new Set(hidden);
+      return HttpResponse.json({
+        ...ds,
+        columns: ds.columns.map((c) =>
+          hiddenSet.has(c.name) ? { name: c.name, dtype: c.dtype, hidden: true } : { name: c.name, dtype: c.dtype },
+        ),
+      });
+    },
+  ),
   http.delete(api('/datasets/:id'), () => new HttpResponse(null, { status: 204 })),
   withContractValidation('post', api('/workspaces/:id/datasets/batch'), 'commitDatasetsBatch', async ({ request }) => {
     const body = (await request.json()) as { items?: Array<{ name?: string }> };

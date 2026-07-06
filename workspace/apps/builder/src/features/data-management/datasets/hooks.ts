@@ -121,6 +121,19 @@ export function useRenameDatasetMutation() {
   });
 }
 
+/** R152 (F7): PATCH /datasets/{id}/columns — set the hidden-column set
+ *  (presentation-only view-hint). Invalidates the `['datasets']` prefix so both
+ *  the list and this dataset's detail re-read the updated `columns[].hidden`. */
+export function useSetColumnVisibilityMutation() {
+  const queryClient = useQueryClient();
+  return useMutation<Dataset, Error, { id: string; hidden: readonly string[] }>({
+    mutationFn: ({ id, hidden }) => datasetsApi.setColumnVisibility(id, hidden),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: DATASETS_QUERY_KEY });
+    },
+  });
+}
+
 /** R26: DELETE /datasets/{id} — atomic with BE-side parquet cleanup.
  *  No 409 path; just 204 success or 404 missing. */
 export function useDeleteDatasetMutation() {

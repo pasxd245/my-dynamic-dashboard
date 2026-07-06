@@ -31,7 +31,11 @@ export type ApiError =
       key: string[];
       duplicateKeyCount: number;
       sampleKeys: string[];
-    };
+    }
+  // R152 — column-visibility PATCH: a name is not a column of this dataset
+  | { code: 'unknown_column'; column: string }
+  // R152 — column-visibility PATCH would hide every column (guarded client-side too)
+  | { code: 'no_visible_columns' };
 
 /** The batch-commit endpoint's 409 carries a `oneOf` over the legacy
  *  `{ error, detail }` envelope and the new `ApiError` variants. The FE
@@ -58,7 +62,9 @@ export function isApiError(body: unknown): body is ApiError {
     code === ERROR_CODES.COMPOSITION_CYCLE ||
     code === ERROR_CODES.SLUG_TAKEN ||
     code === ERROR_CODES.COERCION_FAILED ||
-    code === ERROR_CODES.MERGE_DUPLICATE_KEYS
+    code === ERROR_CODES.MERGE_DUPLICATE_KEYS ||
+    code === ERROR_CODES.UNKNOWN_COLUMN ||
+    code === ERROR_CODES.NO_VISIBLE_COLUMNS
   );
 }
 

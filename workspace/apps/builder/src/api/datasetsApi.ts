@@ -153,6 +153,19 @@ export const datasetsApi = {
     return readJson<Dataset>(resp);
   },
 
+  /** R152 (F7): PATCH /datasets/{id}/columns — set the hidden-column set
+   *  (replace semantics; presentation-only view-hint). Returns the updated
+   *  Dataset; 404 / 422 unknown_column / 422 no_visible_columns throw
+   *  ApiErrorThrown. */
+  async setColumnVisibility(id: string, hidden: readonly string[]): Promise<Dataset> {
+    const resp = await fetch(`${API_BASE_URL}/datasets/${id}/columns`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ hidden }),
+    });
+    return readJson<Dataset>(resp);
+  },
+
   async delete(id: string): Promise<void> {
     const resp = await fetch(`${API_BASE_URL}/datasets/${id}`, {
       method: 'DELETE',

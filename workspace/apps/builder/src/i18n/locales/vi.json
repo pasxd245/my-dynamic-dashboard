@@ -247,6 +247,14 @@
       "searchPlaceholder": "Tìm trong các dòng…",
       "matchedOfTotal": "Khớp {{matched}} / {{total}}",
       "clear": "Xóa",
+      "columns": {
+        "button": "Cột {{visible}}/{{total}}",
+        "showAll": "Hiện tất cả cột",
+        "atLeastOne": "Phải giữ hiển thị ít nhất một cột.",
+        "apply": "Áp dụng",
+        "applied": "Đã cập nhật hiển thị cột.",
+        "applyFailed": "Không thể cập nhật hiển thị cột."
+      },
       "loadRowsCouldnt": "Không tải được các dòng",
       "notFoundTitle": "Tập dữ liệu này không còn tồn tại",
       "notFoundHint": "Có thể nó đã bị xóa ở một tab khác.",

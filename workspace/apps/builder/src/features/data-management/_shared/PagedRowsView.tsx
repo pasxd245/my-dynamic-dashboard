@@ -71,6 +71,16 @@ export type PagedRowsViewProps = Readonly<{
    *   preview** (a quick peek — "scroll to the end").
    */
   scrollMode?: 'contained' | 'flow';
+  /**
+   * R152 — when false (default), columns carrying `hidden: true` are NOT
+   * rendered (the dataset row-preview default). Hidden columns are skipped by
+   * name while their ORIGINAL index is preserved, so `row[ci]` cell alignment
+   * and `renderHeaderExtra(col, ci)` (the per-column filter key) stay intact.
+   * The Columns manager's session-local "show all" toggle passes `true` to
+   * reveal them. Consumers whose columns carry no `hidden` (query-detail) are
+   * unaffected regardless of this flag.
+   */
+  showHiddenColumns?: boolean;
 }>;
 
 export function PagedRowsView({
@@ -85,9 +95,14 @@ export function PagedRowsView({
   renderHeaderExtra,
   emptyState,
   scrollMode = 'contained',
+  showHiddenColumns = false,
 }: PagedRowsViewProps) {
   const contained = scrollMode === 'contained';
   const locale = i18n.language;
+  // R152 — a column is skipped iff it's a hidden view-hint and "show all" is off.
+  // By NAME/flag, not by filtering the array: the original index `ci` must stay
+  // stable for `row[ci]` and the per-column filter key.
+  const isSkipped = (col: Column) => !showHiddenColumns && col.hidden === true;
 
   // First paint of a page (no rows yet) → skeleton.
   if (loading && !rows) {
@@ -142,6 +157,7 @@ export function PagedRowsView({
           <thead>
             <tr>
               {columns.map((col, ci) => (
+                isSkipped(col) ? null : (
                 <th
                   key={col.name}
                   style={{
@@ -166,6 +182,7 @@ export function PagedRowsView({
                   <DtypeBadge dtype={col.dtype} />
                   {renderHeaderExtra?.(col, ci)}
                 </th>
+                )
               ))}
             </tr>
           </thead>
@@ -173,6 +190,7 @@ export function PagedRowsView({
             {(rows ?? []).map((row, ri) => (
               <tr key={ri} data-component="PagedRowsBodyRow" className="dataset-rows-body-row">
                 {columns.map((col, ci) => {
+                  if (isSkipped(col)) return null;
                   const cell = formatCell(row[ci] ?? null, col.dtype, locale);
                   return (
                     <td

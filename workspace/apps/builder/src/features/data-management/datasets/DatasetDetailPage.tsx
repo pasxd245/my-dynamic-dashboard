@@ -29,7 +29,14 @@ import { ApiErrorThrown } from '../_shared/types';
 import { DeleteConfirmModal } from '../_shared/DeleteConfirmModal';
 import { PagedRowsView } from '../_shared/PagedRowsView';
 import { RenameModal } from '../_shared/RenameModal';
-import { useDatasetQuery, useDatasetRowsQuery, useDeleteDatasetMutation, useRenameDatasetMutation } from './hooks';
+import {
+  useDatasetQuery,
+  useDatasetRowsQuery,
+  useDeleteDatasetMutation,
+  useRenameDatasetMutation,
+  useSetColumnVisibilityMutation,
+} from './hooks';
+import { ColumnsManager } from './ColumnsManager';
 import { ActiveFilterChips, formatChipText } from './filters/ActiveFilterChips';
 import { FilterPopover } from './filters/FilterPopover';
 import { useFiltersState } from './filters/useFiltersState';
@@ -133,6 +140,29 @@ export function DatasetDetailPage() {
     params.delete('page');
     setSearchParams(params, { replace: true });
   };
+
+  // R152 — apply the visible/hidden set (Columns manager Apply). Rethrows so the
+  // manager keeps its popover open to retry; the at-least-one-visible guard is
+  // enforced client-side too, so `no_visible_columns` shouldn't normally reach.
+  const handleApplyColumnVisibility = async (hidden: string[]) => {
+    if (!id) return;
+    try {
+      await setColumnVisibility.mutateAsync({ id, hidden });
+      message.success(t('datasets.detail.columns.applied'));
+    } catch (err) {
+      message.error(
+        err instanceof ApiErrorThrown
+          ? t('datasets.detail.columns.applyFailed')
+          : t('common.unknownError'),
+      );
+      throw err;
+    }
+  };
+
+  // R152 — session-local "show all" override (never persisted). When off, the
+  // row-preview default-hides `hidden` columns; the Columns manager toggles it.
+  const [showAllColumns, setShowAllColumns] = useState(false);
+  const setColumnVisibility = useSetColumnVisibilityMutation();
 
   const datasetQuery = useDatasetQuery(id);
   const datasetColumns = useMemo<Column[]>(() => datasetQuery.data?.columns ?? [], [datasetQuery.data?.columns]);
@@ -530,6 +560,15 @@ export function DatasetDetailPage() {
               })}
             </Typography.Text>
           ) : null}
+          <div style={{ marginInlineStart: 'auto' }}>
+            <ColumnsManager
+              columns={dataset.columns}
+              showAll={showAllColumns}
+              onShowAllChange={setShowAllColumns}
+              onApply={handleApplyColumnVisibility}
+              applying={setColumnVisibility.isPending}
+            />
+          </div>
         </div>
 
         <div style={{ flex: '0 0 auto' }}>
@@ -563,6 +602,7 @@ export function DatasetDetailPage() {
 
         <PagedRowsView
           columns={dataset.columns}
+          showHiddenColumns={showAllColumns}
           rows={rowsPage?.rows}
           loading={rowsQuery.isFetching}
           total={total}

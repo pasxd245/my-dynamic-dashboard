@@ -247,6 +247,14 @@
       "searchPlaceholder": "Search rows…",
       "matchedOfTotal": "Matched {{matched}} / {{total}}",
       "clear": "Clear",
+      "columns": {
+        "button": "Columns {{visible}}/{{total}}",
+        "showAll": "Show all columns",
+        "atLeastOne": "At least one column must stay visible.",
+        "apply": "Apply",
+        "applied": "Column visibility updated.",
+        "applyFailed": "Couldn't update column visibility."
+      },
       "loadRowsCouldnt": "Couldn't load rows",
       "notFoundTitle": "This dataset no longer exists",
       "notFoundHint": "It may have been deleted from another tab.",
