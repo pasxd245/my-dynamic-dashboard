@@ -1,6 +1,6 @@
 # Round 154: Full profiling + deeper metadata — the compute-backed Properties sections
 
-**Status**: In Progress — D signed off (Q1–Q4 2026-07-07); C+B done, F next
+**Status**: In Progress — D→C→B→F→I built + gated; Integration (human real-data walk) pending
 **Date started**: 2026-07-07
 **Flow**: **DCFBI** — set at the D-gate via flow-selector (0/5 conditions fired); recorded in the Do log.
 
@@ -58,10 +58,15 @@ date/datetime **`format`**) live off the `Column`, in `source.json` commitSettin
       `ColumnProfile` response models. Tests: exact stats, per-dtype min-max/sample split, format
       fold-in, sampling guard (monkeypatched threshold), 404, parquet byte-identical. ruff + pytest
       369 green.
-- [ ] **F**: the Profiling section in the Properties drawer (loading/error states), + the `format`
-      display; TanStack query for the profile (its own cache key, lazy on drawer-open).
-- [ ] **I**: i18n en+vi for the stat labels + states.
-- [ ] Tests: profile stats correct; cost guard holds; drawer renders the section + states; per D.
+- [x] **F**: `useDatasetProfileQuery(id, enabled=drawerOpen)` (lazy, own key `['datasets',{id},
+      'profile']`); PropertiesDrawer gained a 3rd read-only **Profiling** section (skeleton/error+
+      retry/populated states, `approx` note) + a `format` cell in the Columns section (folded from
+      the profile response). FE tests: renders a stat row per column + format cell (default mock →
+      contract-validated), laziness (0 calls before open), error→retry. tsc + vitest 312 green.
+- [x] **I**: i18n en+vi `datasets.detail.profile.*` + `properties.formatLabel` (VN: "Thống kê",
+      "trống"/"khác nhau", "lấy mẫu…ước tính"); i18n parity test green.
+- [x] Tests: BE stats correct + sampling guard + read-only (pytest 369); FE section + states +
+      laziness (vitest 312); contract-valid mock exercised end-to-end.
 
 ## Risks / unknowns
 

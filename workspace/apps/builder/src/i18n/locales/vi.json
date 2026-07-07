@@ -259,7 +259,18 @@
         "title": "Thuộc tính",
         "action": "Thuộc tính",
         "dataset": "Tập dữ liệu",
-        "columns": "Cột"
+        "columns": "Cột",
+        "formatLabel": "định dạng: {{format}}"
+      },
+      "profile": {
+        "title": "Thống kê",
+        "nullPct": "{{pct}}% trống",
+        "distinct": "{{count}} khác nhau",
+        "range": "{{min}} – {{max}}",
+        "sample": "vd: {{values}}",
+        "approxNote": "≈ lấy mẫu {{rows}} dòng (ước tính)",
+        "error": "Không thể tính thống kê.",
+        "retry": "Thử lại"
       },
       "loadRowsCouldnt": "Không tải được các dòng",
       "notFoundTitle": "Tập dữ liệu này không còn tồn tại",

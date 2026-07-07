@@ -30,6 +30,7 @@ import { DeleteConfirmModal } from '../_shared/DeleteConfirmModal';
 import { PagedRowsView } from '../_shared/PagedRowsView';
 import { RenameModal } from '../_shared/RenameModal';
 import {
+  useDatasetProfileQuery,
   useDatasetQuery,
   useDatasetRowsQuery,
   useDeleteDatasetMutation,
@@ -185,6 +186,8 @@ export function DatasetDetailPage() {
     advancedGroups,
   );
   const workspacesQuery = useWorkspacesQuery();
+  // R154 — the profile is LAZY: fetched only while the drawer is open.
+  const profileQuery = useDatasetProfileQuery(id, propertiesOpen);
 
   const dataset = datasetQuery.data;
   const rowsPage = rowsQuery.data;
@@ -683,6 +686,10 @@ export function DatasetDetailPage() {
         onShowAllChange={setShowAllColumns}
         onApply={handleApplyColumnVisibility}
         applying={setColumnVisibility.isPending}
+        profile={profileQuery.data}
+        profileLoading={profileQuery.isLoading}
+        profileError={profileQuery.isError}
+        onRetryProfile={() => void profileQuery.refetch()}
       />
     </PageContainer>
   );

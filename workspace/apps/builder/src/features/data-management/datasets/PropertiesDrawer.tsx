@@ -10,11 +10,11 @@
 // overridable default. Scope guard: schema view + visibility edit only — no
 // rename / reorder / dtype.
 
-import { Button, Checkbox, Drawer, Space, Switch, Tag, Typography } from 'antd';
+import { Button, Checkbox, Drawer, Skeleton, Space, Switch, Tag, Typography } from 'antd';
 import { type ReactNode, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import type { Column } from './types';
+import type { Column, ColumnProfile, DatasetProfile } from './types';
 
 function SectionHeader({ children }: Readonly<{ children: ReactNode }>) {
   return (
@@ -39,7 +39,28 @@ export type PropertiesDrawerProps = Readonly<{
   /** Apply the visible/hidden set. Rejects → the drawer stays open to retry. */
   onApply: (hidden: string[]) => Promise<void>;
   applying: boolean;
+  /** R154 — on-demand profile (lazy, fetched while the drawer is open). */
+  profile: DatasetProfile | undefined;
+  profileLoading: boolean;
+  profileError: boolean;
+  onRetryProfile: () => void;
 }>;
+
+/** One compact stat line per column: null% · distinct · min–max · sample —
+ *  only the parts that apply to the dtype (the contract's per-dtype shape). */
+function profileStatParts(cp: ColumnProfile, t: ReturnType<typeof useTranslation>['t']): string[] {
+  const parts = [
+    t('datasets.detail.profile.nullPct', { pct: cp.nullPct }),
+    t('datasets.detail.profile.distinct', { count: cp.distinctCount }),
+  ];
+  if (cp.min !== null && cp.max !== null) {
+    parts.push(t('datasets.detail.profile.range', { min: cp.min, max: cp.max }));
+  }
+  if (cp.sample && cp.sample.length > 0) {
+    parts.push(t('datasets.detail.profile.sample', { values: cp.sample.join(', ') }));
+  }
+  return parts;
+}
 
 export function PropertiesDrawer({
   open,
@@ -50,8 +71,16 @@ export function PropertiesDrawer({
   onShowAllChange,
   onApply,
   applying,
+  profile,
+  profileLoading,
+  profileError,
+  onRetryProfile,
 }: PropertiesDrawerProps) {
   const { t } = useTranslation();
+  // Per-column date/datetime format, folded in from the profile response —
+  // it lives in commitSettings, not the Column, so it appears once the (lazy)
+  // profile loads. null / absent → nothing rendered.
+  const formatByName = new Map((profile?.columns ?? []).map((c) => [c.name, c.format]));
   // Working copy of the HIDDEN set (by column name), re-seeded each time it opens.
   const [draftHidden, setDraftHidden] = useState<ReadonlySet<string>>(new Set());
 
@@ -155,13 +184,25 @@ export function PropertiesDrawer({
             >
               {col.name}
             </Checkbox>
-            <Tag
-              style={{ marginInlineEnd: 0, fontSize: 11 }}
-              data-component="PropertiesDrawerDtype"
-              data-dtype={col.dtype}
-            >
-              {t(`datasets.detail.dtype.${col.dtype}`)}
-            </Tag>
+            <Space size="small">
+              {formatByName.get(col.name) ? (
+                <Typography.Text
+                  type="secondary"
+                  style={{ fontSize: 11 }}
+                  data-component="PropertiesDrawerFormat"
+                  data-column={col.name}
+                >
+                  {t('datasets.detail.properties.formatLabel', { format: formatByName.get(col.name) })}
+                </Typography.Text>
+              ) : null}
+              <Tag
+                style={{ marginInlineEnd: 0, fontSize: 11 }}
+                data-component="PropertiesDrawerDtype"
+                data-dtype={col.dtype}
+              >
+                {t(`datasets.detail.dtype.${col.dtype}`)}
+              </Tag>
+            </Space>
           </div>
         ))}
       </div>
@@ -188,6 +229,57 @@ export function PropertiesDrawer({
           {t('datasets.detail.columns.apply')}
         </Button>
       </Space>
+
+      {/* Profiling section (R154) — read-only, lazy. Its own loading / error
+          states; the compute is isolated from the free sections above. */}
+      <div style={{ borderTop: '1px solid var(--ant-color-border-secondary, #f0f0f0)', marginTop: 20, paddingTop: 12 }}>
+        <SectionHeader>{t('datasets.detail.profile.title')}</SectionHeader>
+        <div data-component="PropertiesDrawerProfile" style={{ marginTop: 8 }}>
+          {profileLoading ? (
+            <Skeleton active paragraph={{ rows: 3 }} title={false} data-component="PropertiesDrawerProfileLoading" />
+          ) : null}
+
+          {!profileLoading && profileError ? (
+            <Space orientation="vertical" size={4} data-component="PropertiesDrawerProfileError">
+              <Typography.Text type="danger" style={{ fontSize: 12 }}>
+                {t('datasets.detail.profile.error')}
+              </Typography.Text>
+              <Button size="small" onClick={onRetryProfile} data-component="PropertiesDrawerProfileRetry">
+                {t('datasets.detail.profile.retry')}
+              </Button>
+            </Space>
+          ) : null}
+
+          {!profileLoading && !profileError && profile ? (
+            <>
+              {profile.approx ? (
+                <Typography.Text
+                  type="warning"
+                  style={{ fontSize: 11, display: 'block', marginBottom: 6 }}
+                  data-component="PropertiesDrawerProfileApprox"
+                >
+                  {t('datasets.detail.profile.approxNote', {
+                    rows: (profile.sampledRows ?? 0).toLocaleString(),
+                  })}
+                </Typography.Text>
+              ) : null}
+              {profile.columns.map((cp) => (
+                <div
+                  key={cp.name}
+                  data-component="PropertiesDrawerProfileRow"
+                  data-column={cp.name}
+                  style={{ padding: '5px 4px', borderBottom: '1px solid var(--ant-color-border-secondary, #f0f0f0)' }}
+                >
+                  <Typography.Text style={{ fontSize: 12 }}>{cp.name}</Typography.Text>
+                  <Typography.Text type="secondary" style={{ fontSize: 11, display: 'block' }}>
+                    {profileStatParts(cp, t).join(' · ')}
+                  </Typography.Text>
+                </div>
+              ))}
+            </>
+          ) : null}
+        </div>
+      </div>
     </Drawer>
   );
 }
