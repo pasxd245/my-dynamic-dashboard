@@ -143,12 +143,15 @@ Result: **Flow: DCFBI** (0 conditions fired — default).
 
 ## Check
 
-- [ ] D signed off before C/B/F (stat set · endpoint/cost · format source · rendering).
-- [ ] Profile stats are correct; the cost guard holds; the drawer renders the Profiling section with
-      loading/empty/error states; `format` shows where present.
-- [ ] Backend pytest + ruff green; FE tsc + vitest green; contract valid; design/plan/md lints clean;
-      i18n parity.
-- [ ] Human review of the profiling section (feel + real-data walk).
+- [x] D signed off before C/B/F (stat set · endpoint/cost · format source · rendering) — Q1–Q4 2026-07-07.
+- [x] Profile stats correct (exact full-scan asserted); cost guard holds (sampling+approx asserted via
+      monkeypatched threshold); drawer renders the Profiling section with loading/error+retry/populated
+      states; `format` shows where a commitSettings override exists (won_at asserted). Read-only doctrine
+      held (parquet byte-identical).
+- [x] Backend pytest 369 + ruff green; FE tsc + vitest 312 green; contract valid (mock exercised
+      end-to-end through withContractValidation); design/plan/md lints clean (pre-commit hooks); i18n parity green.
+- [ ] **Human review of the profiling section (feel + real-data walk)** — the DCFBI Integration gate.
+      Automated gates can't see real-app render / real-backend wiring / real-FM-scale compute cost.
 
 ## Act
 
