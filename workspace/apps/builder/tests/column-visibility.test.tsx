@@ -107,7 +107,7 @@ describe("PagedRowsView — hidden view-hint (R152)", () => {
   });
 });
 
-describe("DatasetDetailPage — Columns manager (R152)", () => {
+describe("DatasetDetailPage — Properties drawer (R153)", () => {
   it("default-hides the hidden column, shows N/M, lists all, and reveals via show-all", async () => {
     server.use(http.get("*/datasets/:id", () => HttpResponse.json(datasetWithHidden())));
     renderDetail();
@@ -119,20 +119,37 @@ describe("DatasetDetailPage — Columns manager (R152)", () => {
     expect(headerColumns()).not.toContain("amount");
     expect(headerColumns()).toContain("deal_id");
 
-    // The Columns button reads "6/7".
-    const button = document.querySelector('[data-component="ColumnsManagerButton"]') as HTMLElement;
+    // The toolbar Columns button reads "6/7".
+    const button = document.querySelector('[data-component="ColumnsToolbarButton"]') as HTMLElement;
     expect(button.textContent).toContain("6/7");
 
-    // Open the manager — it lists ALL 7 columns (the only re-show surface).
+    // Open the Properties drawer — it lists ALL 7 columns (the only re-show surface).
     fireEvent.click(button);
     await waitFor(() =>
-      expect(document.querySelector('[data-component="ColumnsManagerPanel"]')).toBeInTheDocument(),
+      expect(document.querySelector('[data-component="PropertiesDrawerList"]')).toBeInTheDocument(),
     );
-    expect(document.querySelectorAll('[data-component="ColumnsManagerItem"]')).toHaveLength(7);
+    expect(document.querySelectorAll('[data-component="PropertiesDrawerItem"]')).toHaveLength(7);
 
     // Flip the session-local "show all" — the hidden column now renders.
-    fireEvent.click(document.querySelector('[data-component="ColumnsManagerShowAll"]') as HTMLElement);
+    fireEvent.click(document.querySelector('[data-component="PropertiesDrawerShowAll"]') as HTMLElement);
     await waitFor(() => expect(headerColumns()).toContain("amount"));
+  });
+
+  it("opens the same drawer from the Actions ▾ → Properties menu item", async () => {
+    server.use(http.get("*/datasets/:id", () => HttpResponse.json(datasetWithHidden())));
+    renderDetail();
+
+    await waitFor(() =>
+      expect(document.querySelector('[data-component="DatasetDetailActionsTrigger"]')).toBeInTheDocument(),
+    );
+    // Open the Actions menu, then click "Properties".
+    fireEvent.click(document.querySelector('[data-component="DatasetDetailActionsTrigger"]') as HTMLElement);
+    const item = await screen.findByText("Properties");
+    fireEvent.click(item);
+
+    await waitFor(() =>
+      expect(document.querySelector('[data-component="PropertiesDrawerList"]')).toBeInTheDocument(),
+    );
   });
 
   it("Apply sends the full hidden set via PATCH /datasets/:id/columns", async () => {
@@ -147,21 +164,21 @@ describe("DatasetDetailPage — Columns manager (R152)", () => {
     renderDetail();
 
     await waitFor(() =>
-      expect(document.querySelector('[data-component="ColumnsManagerButton"]')).toBeInTheDocument(),
+      expect(document.querySelector('[data-component="ColumnsToolbarButton"]')).toBeInTheDocument(),
     );
-    fireEvent.click(document.querySelector('[data-component="ColumnsManagerButton"]') as HTMLElement);
+    fireEvent.click(document.querySelector('[data-component="ColumnsToolbarButton"]') as HTMLElement);
     await waitFor(() =>
-      expect(document.querySelector('[data-component="ColumnsManagerPanel"]')).toBeInTheDocument(),
+      expect(document.querySelector('[data-component="PropertiesDrawerList"]')).toBeInTheDocument(),
     );
 
     // `amount` starts hidden (unchecked). Also uncheck `stage` → hide it too.
-    const stageItem = [...document.querySelectorAll('[data-component="ColumnsManagerItem"]')].find(
+    const stageItem = [...document.querySelectorAll('[data-component="PropertiesDrawerItem"]')].find(
       (el) => el.getAttribute("data-column") === "stage",
     ) as HTMLElement;
     // AntD Checkbox: clicking the wrapper label toggles the input.
-    fireEvent.click(stageItem);
+    fireEvent.click(stageItem.querySelector('[data-component="PropertiesDrawerItemToggle"]') as HTMLElement);
 
-    fireEvent.click(document.querySelector('[data-component="ColumnsManagerApply"]') as HTMLElement);
+    fireEvent.click(document.querySelector('[data-component="PropertiesDrawerApply"]') as HTMLElement);
 
     await waitFor(() => expect(captured).not.toBeNull());
     expect(new Set(captured!.hidden)).toEqual(new Set(["amount", "stage"]));

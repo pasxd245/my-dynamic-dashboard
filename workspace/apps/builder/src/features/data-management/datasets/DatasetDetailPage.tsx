@@ -10,7 +10,7 @@ import {
   PlusOutlined,
   ReloadOutlined,
 } from '@ant-design/icons';
-import { XCircleIcon } from '@phosphor-icons/react';
+import { ColumnsIcon, XCircleIcon } from '@phosphor-icons/react';
 import { PageCard, PageContainer, PageHeader } from '@mdd/ui';
 import { Alert, App, Button, Dropdown, Input, Skeleton, Tag, Tooltip, Typography } from 'antd';
 import i18n from 'i18next';
@@ -36,7 +36,7 @@ import {
   useRenameDatasetMutation,
   useSetColumnVisibilityMutation,
 } from './hooks';
-import { ColumnsManager } from './ColumnsManager';
+import { PropertiesDrawer } from './PropertiesDrawer';
 import { ActiveFilterChips, formatChipText } from './filters/ActiveFilterChips';
 import { FilterPopover } from './filters/FilterPopover';
 import { useFiltersState } from './filters/useFiltersState';
@@ -160,8 +160,11 @@ export function DatasetDetailPage() {
   };
 
   // R152 — session-local "show all" override (never persisted). When off, the
-  // row-preview default-hides `hidden` columns; the Columns manager toggles it.
+  // row-preview default-hides `hidden` columns; the Properties panel toggles it.
   const [showAllColumns, setShowAllColumns] = useState(false);
+  // R153 — the Properties drawer (schema view + visibility editor), opened from
+  // the toolbar button AND the Actions ▾ menu.
+  const [propertiesOpen, setPropertiesOpen] = useState(false);
   const setColumnVisibility = useSetColumnVisibilityMutation();
 
   const datasetQuery = useDatasetQuery(id);
@@ -454,6 +457,12 @@ export function DatasetDetailPage() {
             },
             { type: 'divider' },
             {
+              key: 'properties',
+              label: t('datasets.detail.properties.action'),
+              icon: <ColumnsIcon size={14} />,
+              onClick: () => setPropertiesOpen(true),
+            },
+            {
               key: 'refresh',
               label: t('datasets.refresh'),
               icon: <ReloadOutlined />,
@@ -561,13 +570,17 @@ export function DatasetDetailPage() {
             </Typography.Text>
           ) : null}
           <div style={{ marginInlineStart: 'auto' }}>
-            <ColumnsManager
-              columns={dataset.columns}
-              showAll={showAllColumns}
-              onShowAllChange={setShowAllColumns}
-              onApply={handleApplyColumnVisibility}
-              applying={setColumnVisibility.isPending}
-            />
+            <Button
+              size="small"
+              icon={<ColumnsIcon size={16} />}
+              onClick={() => setPropertiesOpen(true)}
+              data-component="ColumnsToolbarButton"
+            >
+              {t('datasets.detail.columns.button', {
+                visible: dataset.columns.filter((c) => !c.hidden).length,
+                total: dataset.columns.length,
+              })}
+            </Button>
           </div>
         </div>
 
@@ -659,6 +672,16 @@ export function DatasetDetailPage() {
         datasetName={dataset.name}
         workspaceId={dataset.workspaceId}
         onClose={() => setJoinOpen(false)}
+      />
+
+      <PropertiesDrawer
+        open={propertiesOpen}
+        onClose={() => setPropertiesOpen(false)}
+        columns={dataset.columns}
+        showAll={showAllColumns}
+        onShowAllChange={setShowAllColumns}
+        onApply={handleApplyColumnVisibility}
+        applying={setColumnVisibility.isPending}
       />
     </PageContainer>
   );

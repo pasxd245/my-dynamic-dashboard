@@ -255,6 +255,10 @@
         "applied": "Đã cập nhật hiển thị cột.",
         "applyFailed": "Không thể cập nhật hiển thị cột."
       },
+      "properties": {
+        "title": "Thuộc tính",
+        "action": "Thuộc tính"
+      },
       "loadRowsCouldnt": "Không tải được các dòng",
       "notFoundTitle": "Tập dữ liệu này không còn tồn tại",
       "notFoundHint": "Có thể nó đã bị xóa ở một tab khác.",

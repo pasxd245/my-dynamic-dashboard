@@ -47,13 +47,15 @@ columns; add the schema fields. One surface for everything-about-columns, per no
       ✅ IN SYNC, no marker; surfaced the `Column`-has-no-`format` finding (bounds Q2). See Do log.
 - [x] **D**: design-corpus draft resolving Q1–Q3; flow-selector at D exit. **Human D sign-off.**
       ✅ Properties drawer; DCFBI 0/5; signed off 2026-07-07. See Do log.
-- [ ] **C**: contract only if new wire data is needed (likely **none** — dtype/format/hidden already
-      ride on `Column`; a pure read-view reuses `GET /datasets/{id}`). Confirm at D.
-- [ ] **B**: likely **zero backend** (read-only over existing `Column` fields). Confirm at D.
-- [ ] **F**: the surface (evolved manager or drawer) + the `Actions ▾` entry.
-- [ ] **I**: i18n en+vi for the metadata affordance + field labels.
-- [ ] Tests: the surface renders the full schema (incl. hidden-state + format); read-only where
-      declared; entry point opens it; per D decisions.
+- [x] **C**: **confirmed NONE** at D — dtype/hidden ride on `Column`, the read-view reuses
+      `GET /datasets/{id}`, and Apply reuses the R152 `PATCH /datasets/{id}/columns`. No contract change.
+- [x] **B**: **confirmed NONE** at D — read-only over existing `Column` fields; no backend.
+- [x] **F**: `PropertiesDrawer` (right-side Drawer, schema + visibility), opened from the
+      `[▦ Columns N/M]` toolbar button + the `Actions ▾ → Properties` entry. Replaced the R152
+      popover; reused the R152 mutation. See Do log.
+- [x] **I**: i18n `datasets.detail.properties.*` en+vi (parity clean).
+- [x] Tests: the surface renders the full schema (name·dtype + hidden checkbox); default-hides +
+      show-all; opens from BOTH entries; Apply PATCHes the full set. 5 FE tests.
 
 ## Risks / unknowns
 
@@ -122,14 +124,38 @@ surface-list references). **Human D sign-off: 2026-07-07.**
 
 Result: **Flow: DCFBI** (0/5 fired). Human-review of the drawer feel folds into the Integration walk.
 
+### F + I — Properties drawer built (2026-07-07)
+
+**C/B were empty** (confirmed at D): no contract change, no backend — the surface reads `Column`
+from `GET /datasets/{id}` and Apply reuses the R152 `PATCH /datasets/{id}/columns`.
+
+- **[`PropertiesDrawer`](../../../workspace/apps/builder/src/features/data-management/datasets/PropertiesDrawer.tsx)**
+  — a **controlled** right-side AntD `Drawer` (default size) that **replaces** the R152 toolbar
+  popover. One row per column (incl. hidden): a visibility **checkbox** (name) + a **dtype `Tag`**;
+  a "show all" `Switch` in the drawer `extra`; Apply/Cancel at the foot. At-least-one-visible guard
+  client-side; Apply reuses `useSetColumnVisibilityMutation` unchanged.
+- **Two entries, one surface** — `DatasetDetailPage` owns `propertiesOpen`; the
+  `[▦ Columns N/M]` toolbar button (still shows the live count) and a new `Actions ▾ → Properties`
+  menu item both open the drawer. The old `ColumnsManager.tsx` was deleted (evolved, not kept).
+- **i18n**: `datasets.detail.properties.{title,action}` en+vi (VN "Thuộc tính"); reuses
+  `datasets.detail.columns.*` for show-all/apply/guard.
+- **Dropped the `Drawer width` deprecation** (used the default size) — same discipline as R152's
+  `destroyTooltipOnHide` fix.
+
+Tests: [`column-visibility.test.tsx`](../../../workspace/apps/builder/tests/column-visibility.test.tsx)
+grew to **5** — the PagedRowsView pair (unchanged) + drawer default-hide/N-M/show-all, **opens from
+the Actions ▾ entry**, and Apply PATCHes the full hidden set. Gates: FE **tsc clean · vitest 309**;
+i18n parity clean; backend untouched (**pytest 362**).
+
 ## Check
 
 - [x] D signed off before C/B/F (Q1 evolve-vs-drawer · field set · entry point). ✅ 2026-07-07
       — Properties drawer, name·dtype·hidden, Actions ▾ + toolbar entries; DCFBI 0/5.
-- [ ] The surface shows the full per-column schema (name · dtype · format · hidden); read-only where
-      declared; opens from the `Actions ▾` entry.
-- [ ] Backend/FE gates green; design/plan/markdown lints clean; i18n parity.
-- [ ] Human review of the surface.
+- [x] The surface shows the per-column schema (name · dtype + visibility checkbox); `format` deferred
+      (not on `Column`); opens from BOTH the `Actions ▾` entry and the toolbar button. 5 FE tests.
+- [x] Backend/FE gates green; design/plan/markdown lints clean; i18n parity. FE tsc clean · vitest
+      309; backend pytest 362 (untouched); design/plan/md lints 0; i18n parity clean.
+- [ ] Human review of the surface. **← awaiting human (the DCFBI Integration walk)**
 
 ## Act
 

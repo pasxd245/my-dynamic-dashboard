@@ -255,6 +255,10 @@
         "applied": "Column visibility updated.",
         "applyFailed": "Couldn't update column visibility."
       },
+      "properties": {
+        "title": "Properties",
+        "action": "Properties"
+      },
       "loadRowsCouldnt": "Couldn't load rows",
       "notFoundTitle": "This dataset no longer exists",
       "notFoundHint": "It may have been deleted from another tab.",
