@@ -1,9 +1,8 @@
 # Round 154: Full profiling + deeper metadata — the compute-backed Properties sections
 
-**Status**: Planning — D-gate pending (design-sync pre-flight first)
+**Status**: In Progress — D signed off (Q1–Q4 2026-07-07); C done, B next
 **Date started**: 2026-07-07
-**Flow**: TBD — set at the D-gate via flow-selector. A real C+B round (new compute endpoint), so
-likely **DCFBI**; the selector decides at D exit.
+**Flow**: **DCFBI** — set at the D-gate via flow-selector (0/5 conditions fired); recorded in the Do log.
 
 ## Goal
 
@@ -42,11 +41,16 @@ date/datetime **`format`**) live off the `Column`, in `source.json` commitSettin
 
 ## Plan (draft — the D step refines; do NOT build before D sign-off)
 
-- [ ] **D-gate pre-flight** — `design-sync --check` the **dataset-detail** design corpus (R153 just
-      touched it; re-verify) before designing the profiling section on it.
-- [ ] **D**: design-corpus draft resolving Q1–Q4; flow-selector at D exit. **Human D sign-off.**
-- [ ] **C**: the profile contract — `GET /datasets/{id}/profile` response shape (per-column stats),
-      error/empty semantics; the `format` exposure if Q3 pulls it.
+- [x] **D-gate pre-flight** — `design-sync --check` the **dataset-detail** design corpus (R153 just
+      touched it; re-verify) before designing the profiling section on it. **Done 2026-07-07** →
+      report `.agents/tmp/design-sync/data-management-datasets.md`.
+- [x] **D**: design-corpus draft resolving Q1–Q4 (written into `dataset-detail.md`); flow-selector
+      at D exit → **DCFBI**. **Human D sign-off 2026-07-07** (Q1–Q4 via AskUserQuestion).
+- [x] **C**: profile contract — `profile-get.contract.yaml` (+ rationale `.md`), `operationId:
+      getDatasetProfile`, one-call-all-columns, predictable per-column shape (nullable-not-omitted),
+      `approx`/`sampledRows` cost-guard flags, `format` folded in (Q3). FE `DatasetProfile`/
+      `ColumnProfile` types + `datasetsApi.getProfile` + MSW handler (`profileColumnsMock` computes
+      truthful stats from the fixture → contract-validated). tsc + vitest 309 green.
 - [ ] **B**: DuckDB profiling over the parquet (the cost guard from Q2); the handler; tests
       (stats correctness, the cap/sample behaviour, empty/edge columns).
 - [ ] **F**: the Profiling section in the Properties drawer (loading/error states), + the `format`
@@ -68,7 +72,64 @@ date/datetime **`format`**) live off the `Column`, in `source.json` commitSettin
 
 ## Do
 
-_(D-gate pre-flight + D log land here.)_
+### D-gate pre-flight — `design-sync --check data-management/datasets` (2026-07-07)
+
+Ran `--check` on `dataset-detail.md` (the R153 Properties-drawer surface R154 designs onto).
+Code-truth read delegated to a subagent, scoped to the R154 build-on surface. Report:
+`.agents/tmp/design-sync/data-management-datasets.md`.
+
+**Verdict: OUT OF SYNC — 2 low-severity claims** (marker stamped on the doc):
+
+1. Stale hook name — doc says `useSetColumnVisibility`; code exports `useSetColumnVisibilityMutation`.
+2. Doc calls `SectionHeader` "shared"; it is a **file-private** helper inside `PropertiesDrawer.tsx`
+   (not exported). R154's Profiling section reuses that in-file helper, not an importable primitive.
+
+**Disposition:** both land inside the drawer section R154's D-phase rewrites → **fold into R154 D**,
+no separate sync round (contrast R148's 14 load-bearing findings). Marker clears when D reconciles.
+
+**Truths R154 must design against (from the code-truth map):**
+
+- `format` (date/datetime) lives at `source.json → commitSettings.column_overrides[<name>].format`
+  (field of `ColumnOverride`), NOT on the committed `Column` / `columns_json`. Date/datetime only.
+- `datasetMetaItems()` currently surfaces 6 items (workspace·rows·cols·size·uploaded·format-label).
+- No `GET /datasets/{id}/profile` or any stats route exists — R154 is net-new. `hidden` uses an
+  omit-when-unset `@model_serializer` on the shared `Column`; the parquet is never touched by view-hints.
+
+### D-gate decisions — human sign-off 2026-07-07 (AskUserQuestion)
+
+Q1–Q4 answered by the human; design written into `dataset-detail.md` (§ Properties panel + § Data
+contract + § Read/write boundary + acceptance criteria), which also **cleared the drift marker** by
+folding the 2 pre-flight fixes.
+
+- **Q1 stat set** → **the 4 named, per-dtype.** `null_count` + `null_pct` and `distinct_count` for
+  every column; `min`/`max` for numeric+date; `top_k` sample values for strings. Histograms/quantiles
+  are explicitly a later additive round (scope brake).
+- **Q2 endpoint + cost guard** (headline risk) → **on-demand + guard, single call, no persistence.**
+  `GET /datasets/{id}/profile` returns all columns in one response. Full scan when `rowCount <=
+  PROFILE_FULL_SCAN_MAX`; **sample** (DuckDB `USING SAMPLE n ROWS`) above it, response carries
+  `approx: true` + `sampledRows`. No sidecar/cache — cost is re-paid per open but **bounded**. (If a
+  real perf complaint lands later, caching is an additive round — echoes [[query-is-a-connection-not-a-load]].)
+- **Q3 `format`** → **surface it.** Read date/datetime `format` from
+  `source.json → commitSettings.column_overrides[<name>].format` and show it in the Columns section.
+  Completes metadata-half (b). No new persistence.
+- **Q4 rendering** → **own 3rd "Profiling" section** in the drawer, lazy on open (own TanStack query
+  key `['datasets',{id},'profile']`, `enabled` only while the drawer is open), with
+  loading/empty/error states isolated from the two free sections.
+
+**Threshold value** `PROFILE_FULL_SCAN_MAX` deferred to B (a config-value-home call — likely a
+backend const per [[config-value-home-heuristic]], single consumer; start ~200k rows, tune on real FM data).
+
+**Flow selector run** (per [R47](../../decisions/2026-05-28-hybrid-flow-governance.md)):
+
+| Condition                            | Fired? | Justification  |
+| ------------------------------------ | ------ | -------------- |
+| 1. >3 independent states/branches    | no     | Profiling's loading/empty/error/populated are independent render-states, not interactive branches; the only interaction is open-drawer (fires the lazy fetch). |
+| 2. New interaction pattern           | no     | Read-only lazy section inside the already-shipped R153 `Drawer` (AntD `Drawer` / `WidgetFilterDrawer` precedent); lazy TanStack-on-open is standard in-product. |
+| 3. High user-error risk              | no     | Read-only; no destructive/irreversible action. The one hazard (reading sampled stats as exact) is handled by the `approx` note, a design decision not a flow risk. |
+| 4. Contract depends on unresolved UI | no     | Profile response shape is fully fixed by Q1 (stat set) + Q2 (cost guard), both resolved at D; the YAML is already written. |
+| 5. UX confidence below threshold     | no     | Reuses the R153 drawer + a standard pattern; Q1–Q4 all signed off, no open UX questions. |
+
+Result: **Flow: DCFBI** (0 conditions fired — default).
 
 ## Check
 
