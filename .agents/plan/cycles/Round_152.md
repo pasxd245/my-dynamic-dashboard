@@ -1,7 +1,8 @@
 # Round 152: Column show/hide — a `hidden?` view-hint + column-metadata PATCH (F7)
 
-**Status**: Planning — D-gate pending; R140 an open input (2026-07-06)
+**Status**: Complete — column show/hide (F7) shipped; human signed off the visibility walk (2026-07-07)
 **Date started**: 2026-07-06
+**Date completed**: 2026-07-07
 **Flow**: **DCFBI** — set at the Design gate via flow-selector (0/5 fired); recorded in the Do log.
 
 ## Goal
@@ -249,19 +250,48 @@ Gates: FE **tsc clean · vitest 308** (304 + 4); backend **pytest 362**; contrac
 ## Check
 
 - [x] R140 decision recorded — **DROPPED** (see Do log; R142 dogfood ranking is the backlog).
-- [ ] D signed off before C/B/F (Q1 surface list + PATCH shape + editing surface). **← awaiting human**
-- [ ] `hidden` PATCH round-trips; parquet untouched; row-preview default-hides + show-all;
-      query-builder/join pickers still see hidden columns.
-- [ ] Backend pytest + ruff green; FE tsc + vitest green; design/plan/markdown lints clean.
-- [ ] Human review of the visibility walk.
+- [x] D signed off before C/B/F (Q1 surface list + PATCH shape + editing surface). Signed off 2026-07-06.
+- [x] `hidden` PATCH round-trips; parquet untouched; row-preview default-hides + show-all;
+      query-builder/join pickers still see hidden columns. (10 backend + 4 FE tests.)
+- [x] Backend pytest + ruff green; FE tsc + vitest green; design/plan/markdown lints clean.
+      Final: pytest 362 · ruff clean · tsc clean · vitest 308 · design/plan/md lints 0 · i18n parity clean.
+- [x] Human review of the visibility walk — signed off 2026-07-07 ("current looks ok").
 
 ## Act
 
-_(Learnings / promotions / prune check at close.)_
+**Learnings**
+
+- **Widening a *shared* wire model can silently break a bystander endpoint.** Adding optional
+  `hidden` to the shared `Column` made the uploads-preview response emit `hidden: null`, which the
+  contract's `type: boolean` (non-nullable) rejected — caught by the backend contract-validity test
+  (the R41 3-impl anti-drift net earning its place). Fix at the source: a `@model_serializer` that
+  omits the field when unset, so *every* wire path stays clean. Reusable → captured to memory.
+- **The cold-review pre-mortem paid for itself.** Anchor 2 surfaced the refresh-wipes-`hidden` gap
+  the D-draft had missed; folding carry-forward into R152 (not a follow-up) kept F7 whole. The
+  parquet-untouched byte-identical test turned the presentation-vs-compute doctrine into a guard.
+- **"Skip by flag, not by filtering the array"** — the row-preview default-hide preserved cell
+  alignment (`row[ci]`) + the per-column filter key by skipping hidden columns in place rather than
+  filtering the array. A filtered array would have silently misaligned cells.
+
+**Promotions**: none pending (learnings captured to `memory/`; no governance/skill change pulled).
+
+**Prune check**: no artifact retired. R140 UI/UX list formally **dropped** (never enumerated across
+many rounds; the signed-off R142 ranking is the concrete backlog) — a prune, per discipline.
 
 ## Feeds into → Round_153 (TBD)
 
-Re-rank at open. **Carried**: R140 list (if still open — R140 was dropped this round), R145 slice 1b,
-AI-propose-key. ④ export parked. **Declined this round (revisit only with evidence)**: upload-time
-column visibility — would need a unified keep/drop + show/hide per-column control (its own D-gate),
-not a second checkbox beside the existing include/exclude one.
+Re-rank at open. **Carried**: R145 slice 1b, AI-propose-key. ④ export parked. (R140 list was dropped
+this round.)
+
+**New candidate — "View metadata" surface (from the dataset-detail `Actions ▾` menu).** The page
+surfaces dataset-level meta (MetadataStrip) + per-column dtype badges + the R152 Columns manager
+(names + visibility), but no *consolidated read-only full-schema* view — every column's
+name · dtype · format · hidden at a glance, without horizontally scrolling a wide table (same
+pain family as F7). **Design lean (decide at its D-gate): EVOLVE the Columns manager into the
+columns/schema surface** (it already lists all columns; add dtype/format) rather than add a second
+"Metadata" drawer — one surface for everything-about-columns, per noun-vs-mode + reuse. Rank
+against the R142 dogfood backlog at R153 open.
+
+**Declined this round (revisit only with evidence)**: upload-time column visibility — would need a
+unified keep/drop + show/hide per-column control (its own D-gate), not a second checkbox beside the
+existing include/exclude one.
