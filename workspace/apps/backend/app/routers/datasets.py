@@ -40,7 +40,7 @@ from app.ingest.parquet_writer import (
     write_excel_to_parquet,
 )
 from app.ingest.merge import MergeCastError, MergeDuplicateKeysError, merge_parquets
-from app.ingest.rows_reader import profile_dataset_columns, query_dataset_rows
+from app.ingest.rows_reader import query_dataset_rows
 from app.models.common import (
     ApiErrorCoercionFailed,
     ApiErrorMergeDuplicateKeys,
@@ -54,14 +54,7 @@ from app.models.common import (
     Dataset,
     ParseOptions,
 )
-from app.routers._shared import (
-    ColumnProfile,
-    DatasetProfile,
-    RowsPage,
-    _is_unique_violation,
-    _load_meta,
-    _now_iso,
-)
+from app.routers._shared import RowsPage, _is_unique_violation, _load_meta, _now_iso
 from app.storage import dataset_dir, temp_upload_dir
 
 
@@ -952,66 +945,6 @@ def get_dataset_refresh_settings(id: DsIdPath) -> JSONResponse:  # noqa: A002
 
 
 _PAGE_SIZE_ALLOWED = PAGE_SIZES  # R72 — centralized (values.yaml → constants)
-
-# R154 — profiling cost guard. A profile is a full-scan aggregate; above this
-# row count the profile is computed on a `USING SAMPLE` reservoir sample of
-# this size and flagged `approx`. Backend-only tunable (single consumer, not a
-# cross-language contract) → a local const, not values.yaml. Start conservative;
-# tune on real FM-scale data.
-PROFILE_FULL_SCAN_MAX_ROWS = 200_000
-
-
-@router.get("/datasets/{id}/profile")
-def get_dataset_profile(id: DsIdPath) -> JSONResponse:  # noqa: A002 — match contract path param name
-    """R154 — on-demand per-column profile (null/distinct/min-max/sample)
-    computed from the parquet via DuckDB. Read-only: never writes columns_json
-    or the parquet (the R152/R153 view-hint doctrine). One call returns every
-    column. Above PROFILE_FULL_SCAN_MAX_ROWS the stats are sampled + flagged
-    `approx`; nothing is cached (cost re-paid per call but bounded). The
-    date/datetime `format` is folded in from the commitSettings snapshot."""
-    with get_conn() as con:
-        row = con.execute("SELECT * FROM datasets WHERE id = ?", (id,)).fetchone()
-    if row is None:
-        return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=ApiErrorNotFound().model_dump())
-
-    parquet_path = dataset_dir(row["workspace_id"], row["id"]) / "parsed.parquet"
-    columns_meta = json.loads(row["columns_json"])  # [{name, dtype, hidden?}] — profile ALL columns
-    row_count = int(row["row_count"])
-
-    stats, approx, sampled_rows = profile_dataset_columns(
-        parquet_path,
-        columns_meta,
-        row_count=row_count,
-        full_scan_max=PROFILE_FULL_SCAN_MAX_ROWS,
-    )
-
-    # `format` lives off the committed Column — in the commitSettings snapshot
-    # (date/datetime overrides only). Fold it onto each column; absent → None.
-    src = _load_source_json(row["workspace_id"], id)
-    overrides = (((src or {}).get("commitSettings")) or {}).get("column_overrides") or {}
-
-    columns_out = [
-        ColumnProfile(
-            name=s["name"],
-            dtype=s["dtype"],
-            format=(overrides.get(s["name"]) or {}).get("format"),
-            nullCount=s["null_count"],
-            nullPct=s["null_pct"],
-            distinctCount=s["distinct_count"],
-            min=s["min"],
-            max=s["max"],
-            sample=s["sample"],
-        )
-        for s in stats
-    ]
-    body = DatasetProfile(
-        datasetId=id,
-        rowCount=row_count,
-        approx=approx,
-        sampledRows=sampled_rows,
-        columns=columns_out,
-    )
-    return JSONResponse(status_code=status.HTTP_200_OK, content=body.model_dump())
 
 
 @router.get("/datasets/{id}/rows")

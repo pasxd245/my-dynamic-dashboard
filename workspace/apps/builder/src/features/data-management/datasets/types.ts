@@ -181,35 +181,6 @@ export type RowsPage = {
   total: number;
 };
 
-// R154 — GET /datasets/{id}/profile. On-demand DuckDB profile; read-only
-// compute (never touches the parquet). Mirrors profile-get.contract.yaml.
-export type ColumnProfile = {
-  name: string;
-  dtype: Dtype;
-  /** date/datetime display pattern from commitSettings; null if no override. */
-  format: string | null;
-  nullCount: number;
-  /** nullCount / rowCount * 100 (0 when rowCount is 0). */
-  nullPct: number;
-  distinctCount: number;
-  /** Stringified min for numeric/date/datetime; null for string/boolean. */
-  min: string | null;
-  /** Stringified max for numeric/date/datetime; null for string/boolean. */
-  max: string | null;
-  /** Top-k sample values for string columns; null for numeric/date/datetime/boolean. */
-  sample: (string | null)[] | null;
-};
-
-export type DatasetProfile = {
-  datasetId: string;
-  rowCount: number;
-  /** true when computed on a sample, not a full scan. */
-  approx: boolean;
-  /** Rows scanned when `approx`; null on a full scan. */
-  sampledRows: number | null;
-  columns: ColumnProfile[];
-};
-
 // Re-export per-column filter types so callers can import from the
 // datasets feature root without reaching into the filters/ subdir.
 export type { FilterPredicate, FilterSet, Operator } from './filters/types';

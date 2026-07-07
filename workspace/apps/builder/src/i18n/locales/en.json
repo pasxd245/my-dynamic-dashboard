@@ -259,18 +259,7 @@
         "title": "Properties",
         "action": "Properties",
         "dataset": "Dataset",
-        "columns": "Columns",
-        "formatLabel": "fmt: {{format}}"
-      },
-      "profile": {
-        "title": "Profiling",
-        "nullPct": "{{pct}}% null",
-        "distinct": "{{count}} distinct",
-        "range": "{{min}} – {{max}}",
-        "sample": "e.g. {{values}}",
-        "approxNote": "≈ sampled {{rows}} rows (approximate)",
-        "error": "Couldn't compute the profile.",
-        "retry": "Retry"
+        "columns": "Columns"
       },
       "loadRowsCouldnt": "Couldn't load rows",
       "notFoundTitle": "This dataset no longer exists",

@@ -1,8 +1,13 @@
 # Round 154: Full profiling + deeper metadata — the compute-backed Properties sections
 
-**Status**: In Progress — D→C→B→F→I built + gated; Integration (human real-data walk) pending
+**Status**: Complete — profiling built (D→C→B→F→I, all gates green) then **DROPPED at the
+Integration gate**: the human reviewed the real drawer and applied a scope brake ("we don't need
+profiling in properties"). **Full revert to the R153 state (1198b57)**; the drawer keeps its
+Dataset facts + Columns show/hide, no profiling, no `format` cell, no `/profile` endpoint.
 **Date started**: 2026-07-07
+**Date completed**: 2026-07-07
 **Flow**: **DCFBI** — set at the D-gate via flow-selector (0/5 conditions fired); recorded in the Do log.
+**Outcome**: reverted (feature not wanted). The build history + lesson are kept below as the record.
 
 ## Goal
 
@@ -40,6 +45,9 @@ date/datetime **`format`**) live off the `Column`, in `source.json` commitSettin
    Profiling section? Loading/empty/error states for the async compute.
 
 ## Plan (draft — the D step refines; do NOT build before D sign-off)
+
+> **⚠️ All build items below were completed and then REVERTED** at the Integration gate (see Status +
+> Act). The `[x]` marks record that the work was done; the feature is gone. Kept as the build history.
 
 - [x] **D-gate pre-flight** — `design-sync --check` the **dataset-detail** design corpus (R153 just
       touched it; re-verify) before designing the profiling section on it. **Done 2026-07-07** →
@@ -155,9 +163,44 @@ Result: **Flow: DCFBI** (0 conditions fired — default).
 
 ## Act
 
-_(Learnings / promotions / prune check at close.)_
+**Outcome: profiling REVERTED at the Integration gate (2026-07-07).** The build passed every
+automated gate (pytest 369, vitest 312, ruff/tsc clean, contract-valid end-to-end, i18n parity),
+but on the DCFBI human real-data walk the human decided profiling doesn't belong in Properties —
+the drawer should stay the Dataset facts + Columns show/hide. Full revert to `1198b57`:
+
+- **Deleted**: `profile-get.contract.{yaml,md}`, `test_datasets_profile_get.py`,
+  `profile_dataset_columns` + `GET /datasets/{id}/profile` + `DatasetProfile`/`ColumnProfile`
+  (BE), `useDatasetProfileQuery` + the drawer's Profiling section + the `format` cell (FE),
+  `datasetsApi.getProfile` + FE profile types, the MSW `getDatasetProfile` mock, the FE profiling
+  tests, and the `datasets.detail.profile.*` / `properties.formatLabel` i18n keys (en+vi).
+- **Verified restored**: backend ruff clean + pytest 362; FE tsc clean + vitest 309; zero dangling
+  profile references. The working tree is byte-for-byte R153 for all code.
+
+**Lesson (candidate for memory): probe DESIRABILITY before building additive depth.** The
+flow-selector's 5 conditions gate UX *clarity/complexity*, not whether the feature is *wanted* — so
+a low-risk, standard-pattern additive feature can sail to DCFBI and get fully built before the first
+"do we want this?" signal (which DCFBI only surfaces at the Integration walk). For an
+additive-**depth** round (here: the compute half the R153 split deferred), the desirability check
+belongs at the **D gate** — a one-line "is this worth a surface at all?" to the human, or a
+paper/mock, *before* C→B→F. The R153 "surface-first/compute-later" split made the compute cheap to
+*sever*, which is exactly why the revert was clean — but cheap-to-sever ≠ worth-building. See
+[[surface-first-compute-later]] (to write).
+
+**Pre-existing R153 doc drift (deferred, NOT reintroduced by this round):** the design-sync
+`--check` pre-flight found 2 low-severity drifts in `dataset-detail.md` (stale hook name
+`useSetColumnVisibility`; "shared `SectionHeader`" is file-local). The R154 D-phase had folded fixes
+in, but the revert restored the doc to `1198b57` where they persist. They are pre-R154 debt — pick
+up in a future `design-sync data-management/datasets` run; report at
+`.agents/tmp/design-sync/data-management-datasets.md`.
+
+**Prune check:** nothing new to prune — the revert *is* the prune (default = don't add; a feature
+that doesn't earn its place is removed, not preserved).
 
 ## Feeds into → Round_155 (TBD)
 
 Re-rank at open. **Carried**: Export ④ (unpark — loop is bright), AI-propose-key (#2 additive),
 R145 slice 1b. **Consider**: a 2nd dogfood probe now that the R142 backlog is exhausted.
+**New signal from R154**: the Properties drawer is at the altitude the human wants (Dataset facts +
+Columns show/hide) — do **not** re-pitch profiling into it; if profiling ever returns it needs its
+own surface + a real pull (a #3 heavy-DA screen), not the Properties panel. Also queued: a
+`design-sync data-management/datasets` pass for the 2 pre-existing doc drifts noted in Act.

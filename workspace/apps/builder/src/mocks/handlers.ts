@@ -15,7 +15,7 @@
 import { http, HttpResponse } from 'msw';
 
 import { OPS_BY_DTYPE, type FilterPredicate, type Operator } from '@/features/data-management/datasets/filters/types';
-import type { Column, DatasetProfile } from '@/features/data-management/datasets/types';
+import type { Column } from '@/features/data-management/datasets/types';
 import type {
   AggregateRequest,
   CreateQueryRequest,
@@ -544,52 +544,6 @@ function previewJson(
 // participate. DELETE handlers stay unwrapped — they return 204 and
 // bypass the validator by the content-type guard.
 
-// R154 — mock the on-demand column profile from a dataset's columns + rows.
-// Computes truthful null/distinct/min-max/sample so the 200 body validates
-// against profile-get.contract.yaml and the drawer renders real numbers. The
-// mock is always a full scan (MOCK datasets are tiny) → approx:false. Date/
-// datetime columns get a demo `format` so the FE format cell is exercised.
-const MOCK_PROFILE_FORMATS: Record<string, string> = {
-  won_at: 'dd/MM/yyyy',
-  created_at: 'yyyy-MM-dd HH:mm',
-};
-
-function profileColumnsMock(
-  columns: readonly Column[],
-  rows: readonly (readonly (string | null)[])[],
-): DatasetProfile['columns'] {
-  const rowCount = rows.length;
-  return columns.map((c, ci) => {
-    const cells = rows.map((r) => r[ci] ?? null);
-    const nonNull = cells.filter((v): v is string => v !== null);
-    const nullCount = rowCount - nonNull.length;
-    const distinct = new Set(nonNull);
-    const isNumeric = c.dtype === 'integer' || c.dtype === 'float';
-    const isTemporal = c.dtype === 'date' || c.dtype === 'datetime';
-    let min: string | null = null;
-    let max: string | null = null;
-    if (nonNull.length > 0 && (isNumeric || isTemporal)) {
-      const sorted = isNumeric
-        ? [...nonNull].sort((a, b) => Number(a) - Number(b))
-        : [...nonNull].sort(); // ISO date/datetime strings sort lexically
-      min = sorted[0];
-      max = sorted[sorted.length - 1];
-    }
-    const sample = c.dtype === 'string' ? [...distinct].slice(0, 3) : null;
-    return {
-      name: c.name,
-      dtype: c.dtype,
-      format: MOCK_PROFILE_FORMATS[c.name] ?? null,
-      nullCount,
-      nullPct: rowCount === 0 ? 0 : Math.round((nullCount / rowCount) * 10000) / 100,
-      distinctCount: distinct.size,
-      min,
-      max,
-      sample,
-    };
-  });
-}
-
 export const handlers = [
   // Workspaces
   withContractValidation('get', api('/workspaces'), 'listWorkspaces', () => HttpResponse.json([MOCK_WORKSPACE])),
@@ -713,22 +667,6 @@ export const handlers = [
       });
     },
   ),
-  // R154 — on-demand column profile. Mirrors the backend: 404 for an
-  // unknown id, else the per-column stats. 200 body is contract-validated
-  // against profile-get.contract.yaml. Only MOCK_DATASET has fixture rows;
-  // other seeded datasets 404 (no rows to profile in the mock).
-  withContractValidation('get', api('/datasets/:id/profile'), 'getDatasetProfile', ({ params }) => {
-    if (params.id !== MOCK_DATASET.id) {
-      return HttpResponse.json({ code: 'not_found' }, { status: 404 });
-    }
-    return HttpResponse.json({
-      datasetId: MOCK_DATASET.id,
-      rowCount: MOCK_ROWS.length,
-      approx: false,
-      sampledRows: null,
-      columns: profileColumnsMock(MOCK_DATASET.columns, MOCK_ROWS),
-    });
-  }),
   http.delete(api('/datasets/:id'), () => new HttpResponse(null, { status: 204 })),
   withContractValidation('post', api('/workspaces/:id/datasets/batch'), 'commitDatasetsBatch', async ({ request }) => {
     const body = (await request.json()) as { items?: Array<{ name?: string }> };

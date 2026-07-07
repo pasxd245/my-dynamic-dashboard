@@ -4,7 +4,6 @@ import type {
   CommitBatchRequest,
   CommitBatchResponse,
   Dataset,
-  DatasetProfile,
   FilterSet,
   RefreshSettings,
   RowsPage,
@@ -98,16 +97,6 @@ export const datasetsApi = {
   async getRefreshSettings(id: string): Promise<RefreshSettings> {
     const resp = await fetch(`${API_BASE_URL}/datasets/${id}/refresh-settings`);
     return readJson<RefreshSettings>(resp);
-  },
-
-  /** R154: GET /datasets/{id}/profile — on-demand per-column profile
-   *  (null/distinct/min-max/sample) computed from the parquet via DuckDB.
-   *  Read-only; never touches the parquet. `approx` flags a sampled scan.
-   *  Mirrors workspace/packages/contracts/datasets/profile-get.contract.yaml.
-   *  404 throws ApiErrorThrown. */
-  async getProfile(id: string): Promise<DatasetProfile> {
-    const resp = await fetch(`${API_BASE_URL}/datasets/${id}/profile`);
-    return readJson<DatasetProfile>(resp);
   },
 
   /** R36: GET /datasets/{id}/rows — paged rows with optional substring

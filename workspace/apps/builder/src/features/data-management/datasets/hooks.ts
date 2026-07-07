@@ -8,7 +8,6 @@ import type {
   CommitBatchRequest,
   CommitBatchResponse,
   Dataset,
-  DatasetProfile,
   FilterSet,
   ParseSheetsRequest,
   ParseSheetsResponse,
@@ -49,19 +48,6 @@ export function useRefreshSettingsQuery(id: string | undefined) {
     queryKey: [...DATASETS_QUERY_KEY, { id }, 'refresh-settings'] as const,
     queryFn: () => datasetsApi.getRefreshSettings(id as string),
     enabled: typeof id === 'string',
-  });
-}
-
-/** R154: GET /datasets/{id}/profile — on-demand per-column profile. Own cache
- *  key; LAZY — `enabled` is the drawer-open flag, so the (full-scan) compute
- *  fires only when the Properties drawer opens, not on every dataset view.
- *  Not invalidated by the visibility mutation (a view-hint doesn't change the
- *  stats); a refresh/delete reaches it via the `['datasets']`-prefix bump. */
-export function useDatasetProfileQuery(id: string | undefined, enabled: boolean) {
-  return useQuery<DatasetProfile>({
-    queryKey: [...DATASETS_QUERY_KEY, { id }, 'profile'] as const,
-    queryFn: () => datasetsApi.getProfile(id as string),
-    enabled: typeof id === 'string' && enabled,
   });
 }
 

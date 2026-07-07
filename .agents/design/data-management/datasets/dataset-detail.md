@@ -58,10 +58,6 @@ navigates here.
 | `GET /datasets/{id}` backend route                                    | `apps/backend/`                                               | backend      | feature            | (FastAPI — backend native)                                          |
 | `GET /datasets/{id}/rows` backend route                               | `apps/backend/`                                               | backend      | feature            | (FastAPI — backend native; DuckDB `read_parquet` for the paged read) |
 | `DatasetDetail` + `RowsPage` types (FE)                               | `apps/builder/src/features/data-management/datasets/types.ts` | feature      | data type          | none                                                                |
-| `GET /datasets/{id}/profile` backend route **(R154)**                 | `apps/backend/`                                               | backend      | feature            | (FastAPI — backend native; DuckDB aggregate over `read_parquet`, on-demand + sample-guard) |
-| `datasetsApi.getProfile(id)` **(R154)**                               | `apps/builder/src/api/`                                       | builder-only | glue               | (fetch — no extra peer dep)                                         |
-| `useDatasetProfileQuery(id, { enabled })` hook **(R154)**             | `apps/builder/src/features/data-management/datasets`          | feature      | glue (server-data) | @tanstack/react-query                                               |
-| `DatasetProfile` + `ColumnProfile` types (FE) **(R154)**              | `apps/builder/src/features/data-management/datasets/types.ts` | feature      | data type          | none                                                                |
 
 **Boundary check**: the metadata strip stays feature-local (inline in
 `DatasetDetailPage`). The paged data-table is **extracted** into a shared
@@ -547,15 +543,13 @@ filter / query pickers themselves still enumerate **all** columns.
 ### Properties panel (R153)
 
 A **right-side Drawer** — a **multi-section properties container** for everything-about-this-dataset,
-designed to grow one labelled section at a time. Each section is rendered with a `SectionHeader`
-helper that is **file-local to `PropertiesDrawer.tsx`** (not an exported / shared primitive); a new
-section reuses that in-file helper. Sections:
+designed to grow one labelled section at a time (shared `SectionHeader`). Sections:
 
 | Section | Content | Source | Status |
 | --- | --- | --- | --- |
 | **Dataset** | workspace · rows · cols · size · uploaded · format/sheet | `Dataset` (shared `datasetMetaItems`) | shipped (R153) |
-| **Columns** | per-column name · dtype · **format** (date/datetime) · show/hide checkbox + "show all" | `Column` on `GET /datasets/{id}` + `commitSettings` `format` | shipped (R153); **format building (R154)** |
-| **Profiling** | per-column null count/% · distinct · min–max (numeric/date) · top-k sample (string) | **computed** (DuckDB `GET /datasets/{id}/profile`, lazy) | **building (R154)** |
+| **Columns** | per-column name · dtype · show/hide checkbox + "show all" | `Column` on `GET /datasets/{id}` | shipped (R153) |
+| **Profiling** | per-column null % · distinct · min–max · sample | **computed** (DuckDB `profile` endpoint) | **deferred → R154** (compute round) |
 
 It **absorbs** the earlier toolbar-popover Columns manager (R152): the visibility checklist now
 lives in the Columns section. Opened from **two entries to one surface**: the
@@ -578,15 +572,9 @@ Actions ▾ → Properties      opens →   ┊ Properties               ✕ ┊
                                       ┊   ☑ deal_id        string     ┊
                                       ┊   ☑ amount         integer    ┊
                                       ┊   ☐ internal_notes string     ┊  ← hidden, re-showable
-                                      ┊   ☑ won_at    date DD/MM/YYYY  ┊  ← format (R154)
+                                      ┊   ☑ won_at         date        ┊
                                       ┊ ──────────────────────       ┊
                                       ┊               [ Apply ]       ┊
-                                      ┊ ──────────────────────       ┊
-                                      ┊ PROFILING          (R154)     ┊  ← lazy on open
-                                      ┊   deal_id   null 0%·distinct 7┊
-                                      ┊   amount    null 0%·1k–58k    ┊
-                                      ┊   won_at    null 14%·min..max ┊
-                                      ┊   (≈ sampled 50k rows)        ┊  ← approx:true banner
 ```
 
 - **Dataset section** — the dataset-level facts (workspace · rows · cols · size · uploaded ·
@@ -594,44 +582,23 @@ Actions ▾ → Properties      opens →   ┊ Properties               ✕ ┊
   helper as the inline `MetadataStrip`, so the two never diverge. **Intentionally repeated** — the
   always-visible strip is the glance; the Properties drawer is the full panel opened deliberately
   (standard for a Properties surface). Zero backend (all on the `Dataset`).
-- **Columns section — one row per column** (incl. hidden): **name · dtype · `format` (R154) · a
-  visible/hidden checkbox**. It is the only surface that can **re-show** a hidden column (a header
-  menu can't — the column isn't rendered). The dtype is the read-only schema; the checkbox is the
-  sole editable thing. Schema reads from the `Column` on `GET /datasets/{id}` — **no new backend for
-  the schema view**. **`format` (R154, Q3)** — the date/datetime display pattern — is **not** on the
-  committed `Column`; it lives at `source.json → commitSettings.column_overrides[<name>].format`
-  (date/datetime overrides only). It rides the profile response (below) as a per-column read-only
-  field so the Columns section needs no second fetch; where a column has no override, `format` is
-  absent and nothing renders.
-- **Profiling section (R154, Q1/Q2/Q4) — a 3rd section, read-only, lazy.** One row per column with
-  per-dtype stats: `null_count` + `null_pct` and `distinct_count` for **every** column; `min`/`max`
-  for **numeric + date**; `top_k` sample values for **string** (min–max is meaningless for strings,
-  distinct/top-k is the analogue). Fetched from `GET /datasets/{id}/profile` via
-  `useDatasetProfileQuery(id, { enabled: drawerOpen })` — **lazy: the query does not fire until the
-  drawer opens**, its own cache key so it never couples to the free Dataset/Columns sections. It
-  renders its own **loading** (skeleton rows), **empty** (a zero-column dataset — cannot occur given
-  `no_visible_columns`, but handled), and **error** (retry) states. **Cost guard (Q2):** the profile
-  is computed **on-demand, not cached** — full DuckDB scan when `rowCount <= PROFILE_FULL_SCAN_MAX`,
-  else a `USING SAMPLE n ROWS` approximate scan; the response carries `approx: true` + `sampledRows`
-  and the section shows an "≈ sampled N rows" note so approximate stats are never read as exact.
-  Cost is re-paid per drawer-open but **bounded**; a cache is a deferred additive if a real perf
-  complaint lands. The Properties panel is the consumer, so the compute cost lands on drawer-open —
-  consistent with the "the consumer pays" boundary the datasets domain already holds.
+- **Columns section — one row per column** (incl. hidden): **name · dtype · a visible/hidden
+  checkbox**. It is the only surface that can **re-show** a hidden column (a header menu can't —
+  the column isn't rendered). The dtype is the read-only schema; the checkbox is the sole editable
+  thing. All read from the `Column` on `GET /datasets/{id}` — **no new backend**. `format` is
+  deliberately **not** shown: it isn't on the committed `Column` (it lives only in `source.json`
+  commitSettings, for date/datetime overrides). Deeper per-column facts (null % · distinct ·
+  min–max) are **compute-only** (DuckDB profile) → a deferred round, not this surface.
 - **Apply** sends the full visible/hidden set via `PATCH /datasets/{id}/columns`
   (`{ hidden: string[] }` — see [contract](datasets.md#column-visibility-r152)); on success the
   `['datasets', { id }]` cache is invalidated and the preview re-renders. Reuses the R152 mutation
-  unchanged. Apply does **not** invalidate the profile (visibility is a view-hint; the parquet and
-  therefore the stats are unchanged).
+  unchanged.
 - **At-least-one-visible** is enforced client-side (Apply disabled if all unchecked) and
   server-side (`422 no_visible_columns`).
-- **Scope guard:** a **schema view + visibility editor + read-only profile** only — no rename /
-  reorder / dtype-edit (those are upload-time or deferred); **dataset-only** (query-detail's
-  `resolvedColumns` + provenance are a deferred generality). Profiling stats stay the four named —
-  histograms / quantiles / correlations are additive later rounds, not this one.
-- **Purity boundary (unchanged R152/R153 doctrine):** profiling **reads** the parquet (compute); it
-  **never** writes `columns_json` or the stored data. `format` is likewise read-only.
-- i18n: `datasets.detail.columns.*` + `datasets.detail.properties.*` + `datasets.detail.profile.*`
-  (en + vi) — stat labels, the sampled-approx note, and the loading/empty/error states.
+- **Scope guard:** a **schema view + visibility editor** only — no rename / reorder / dtype-edit
+  (those are upload-time or deferred); **dataset-only** (query-detail's `resolvedColumns` +
+  provenance are a deferred generality).
+- i18n: `datasets.detail.columns.*` + `datasets.detail.properties.*` (en + vi).
 
 ---
 
@@ -773,81 +740,6 @@ locale/format without round-tripping every change. The
 alternative (typed cells with `(string | number | boolean |
 null)[][]`) leaks BE's parser opinions; defer until a real need.
 
-### `GET /datasets/{id}/profile` (R154)
-
-On-demand per-column profile computed with DuckDB over the dataset's parquet. One call returns
-**all** columns. Cost guard: full scan when `rowCount <= PROFILE_FULL_SCAN_MAX`, else an approximate
-`USING SAMPLE` scan flagged by `approx`. No persistence — the response is not cached server-side.
-
-```yaml
-paths:
-  /datasets/{id}/profile:
-    get:
-      operationId: getDatasetProfile
-      summary: Per-column profile (null/distinct/min-max/sample), computed on demand
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            pattern: '^ds_[0-9a-f]{8}$'
-      responses:
-        '200':
-          description: Per-column stats for every column of the dataset.
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [datasetId, rowCount, approx, columns]
-                additionalProperties: false
-                properties:
-                  datasetId: { type: string, pattern: '^ds_[0-9a-f]{8}$' }
-                  rowCount: { type: integer, minimum: 0 }
-                  approx:
-                    type: boolean
-                    description: true when stats were computed on a sample, not a full scan.
-                  sampledRows:
-                    type: [integer, 'null']
-                    minimum: 0
-                    description: rows scanned when approx=true; null on a full scan.
-                  columns:
-                    type: array
-                    items:
-                      type: object
-                      required: [name, dtype, nullCount, nullPct, distinctCount]
-                      additionalProperties: false
-                      properties:
-                        name: { type: string }
-                        dtype: { type: string }
-                        format:
-                          type: [string, 'null']
-                          description: date/datetime display pattern from commitSettings; null if no override.
-                        nullCount: { type: integer, minimum: 0 }
-                        nullPct: { type: number, minimum: 0, maximum: 100 }
-                        distinctCount: { type: integer, minimum: 0 }
-                        min:
-                          type: [string, 'null']
-                          description: numeric/date columns only (stringified); null otherwise.
-                        max:
-                          type: [string, 'null']
-                          description: numeric/date columns only (stringified); null otherwise.
-                        sample:
-                          type: [array, 'null']
-                          items: { type: [string, 'null'] }
-                          description: top-k sample values for string columns; null otherwise.
-        '404':
-          description: No dataset with the given id exists.
-          content:
-            application/json:
-              schema:
-                $ref: '../_shared/api-error.yaml#/components/schemas/ApiErrorNotFound'
-```
-
-`min` / `max` / `sample` are `string | null` for the same reason as the rows payload (§ Cell
-stringification) — the wire stays schema-free; FE re-applies dtype-aware display via the column
-`dtype`. `format` rides this response so the Columns section needs no second fetch.
-
 ### FE types
 
 ```ts
@@ -859,32 +751,6 @@ export type RowsPage = {
   pageSize: number;
   /** Matched-row count when `q` is set; full dataset row count otherwise. */
   total: number;
-};
-
-// R154 — on-demand profile
-export type ColumnProfile = {
-  name: string;
-  dtype: string;
-  /** date/datetime display pattern from commitSettings; null if no override. */
-  format: string | null;
-  nullCount: number;
-  nullPct: number;
-  distinctCount: number;
-  /** numeric/date only (stringified); null otherwise. */
-  min: string | null;
-  max: string | null;
-  /** top-k sample values for string columns; null otherwise. */
-  sample: (string | null)[] | null;
-};
-
-export type DatasetProfile = {
-  datasetId: string;
-  rowCount: number;
-  /** true when computed on a sample, not a full scan. */
-  approx: boolean;
-  /** rows scanned when approx; null on a full scan. */
-  sampledRows: number | null;
-  columns: ColumnProfile[];
 };
 ```
 
@@ -899,16 +765,10 @@ export type DatasetProfile = {
   dataset delete (covered by the list-cache invalidation in
   `useDeleteDatasetMutation`); no separate invalidation needed on
   rename (rows don't change).
-- **Column visibility mutation (R152)** — `useSetColumnVisibilityMutation`
-  invalidates the `['datasets']` prefix so the detail GET (and its
+- **Column visibility mutation (R152)** — `useSetColumnVisibility`
+  invalidates `['datasets', { id }]` so the detail GET (and its
   `columns[].hidden`) re-fetches. Rows are **not** invalidated: the
   parquet is untouched, only which columns the preview renders.
-- `['datasets', { id }, 'profile']` **(R154)** — the on-demand profile
-  GET. `useDatasetProfileQuery(id, { enabled })` is **lazy**: `enabled`
-  is the drawer-open flag, so opening the Properties drawer is what
-  triggers the compute. Not invalidated by the visibility mutation
-  (stats don't change when only the view-hint does); a dataset refresh /
-  delete reaches it via the `['datasets']`-prefix invalidation.
 
 ### `PATCH /datasets/{id}/columns` (R152)
 
@@ -992,7 +852,7 @@ paths:
 **In scope (R152, building)** — column visibility (F7):
 
 - `PATCH /datasets/{id}/columns` BE route — writes `columns_json` only.
-- `datasetsApi.setColumnVisibility(id, hidden[])` + `useSetColumnVisibilityMutation`.
+- `datasetsApi.setColumnVisibility(id, hidden[])` + `useSetColumnVisibility`.
 - `<PagedRowsView>` default-hides `hidden` columns (via `showHiddenColumns`), with the
   Properties panel's "show all" escape.
 - The Properties panel (right-side `Drawer` — schema view + visibility editor), opened from
@@ -1000,21 +860,6 @@ paths:
 - `hidden?: boolean` on the shared `Column` schema
   ([`column.yaml`](../../../../workspace/packages/contracts/_shared/column.yaml)).
 - i18n keys `datasets.detail.columns.*` (en + vi).
-
-**In scope (R154, building)** — full profiling + deeper metadata:
-
-- `GET /datasets/{id}/profile` BE route — DuckDB aggregate over the parquet, **read-only**
-  (never writes `columns_json` or the parquet). On-demand cost guard: full scan when
-  `rowCount <= PROFILE_FULL_SCAN_MAX`, else `USING SAMPLE`, response flagged `approx`. Reads the
-  date/datetime `format` from `source.json` `commitSettings.column_overrides[<name>].format` and
-  folds it onto each `ColumnProfile`.
-- `datasetsApi.getProfile(id)` + `useDatasetProfileQuery(id, { enabled })` (lazy on drawer-open).
-- The drawer's **Profiling section** (per-column stats, loading/empty/error states) + the `format`
-  cell in the **Columns section**.
-- `profile-get.contract.yaml` (+ rationale) under `contracts/datasets/`.
-- i18n keys `datasets.detail.profile.*` (en + vi).
-- **No** persistence, **no** new `Dataset`/`Column` field, **no** parquet write — profiling and
-  `format` are both compute/read-only.
 
 > The R145 refresh affordance also exposes `GET /datasets/{id}/refresh-settings`
 > (its `useRefreshSettingsQuery` hook lives in this feature) — the route's contract is
@@ -1088,18 +933,6 @@ metadata, page through its rows, and search for a row by substring.
 8. **Cache keys** _(FE)_ — the rows query is keyed
    `['datasets', { id }, 'rows', { page, pageSize, q }]`; delete
    invalidation reaches it via the `['datasets', { id }]` prefix.
-9. **Profile stats** _(BE + contract, R154)_ — `GET /datasets/{id}/profile`
-   → 200 with `nullCount`/`nullPct`/`distinctCount` for every column,
-   `min`/`max` for numeric+date, `sample` (top-k) for string; 404 for an
-   unknown id. On a fixture with known nulls/distincts the counts are
-   exact; a dataset above `PROFILE_FULL_SCAN_MAX` returns `approx: true`
-   with a non-null `sampledRows` (the cost guard holds — no full scan).
-10. **Profiling section + format** _(FE, R154)_ — opening the Properties
-    drawer fires `useDatasetProfileQuery` (not before); the Profiling
-    section renders per-column stats with loading/empty/error states and
-    an "≈ sampled N rows" note when `approx`; the Columns section shows
-    the date/datetime `format` where a commitSettings override exists and
-    nothing where it doesn't.
 
 ---
 
