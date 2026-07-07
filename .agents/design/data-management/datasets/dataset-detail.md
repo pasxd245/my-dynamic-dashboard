@@ -173,11 +173,12 @@ Excel · Sheet1 — 2,481 rows · 12 columns · 84 KB · Uploaded 14:02 today  �
   arrows, numbered pages with ellipsis, page-size selector
   (10 / 25 / 50 / 100), jumper input. Always-visible when total > 0;
   hidden for zero-rows state.
-- **Columns control (R152)**: to the right of the "Matched X / Y"
+- **Columns control (R152/R153)**: to the right of the "Matched X / Y"
   counter, a `[▦ Columns N/M]` button (N visible of M total) opens
-  the **Columns manager** — see [§ Column visibility](#column-visibility-r152).
-  The preview **default-hides** any `hidden` column; the manager
-  carries the "show all" escape.
+  the **Properties panel** (also opened from `Actions ▾ → Properties`) —
+  see [§ Column visibility](#column-visibility-r152). The preview
+  **default-hides** any `hidden` column; the panel carries the "show all"
+  escape + the per-column schema.
 - **Search bar** above the table: AntD `<Input.Search>` with a
   search-icon prefix and `placeholder: "Search rows…"`. To the
   right of the input, a muted-text "Matched X / Y" counter
@@ -515,10 +516,12 @@ button.
 
 ## Column visibility (R152)
 
-> **Status: PROPOSED — R152 D-gate (pending human sign-off).** The **model field, the
-> honor/ignore surface split, and the `PATCH` contract** live in
-> [datasets.md § Column visibility](datasets.md#column-visibility-r152); this section owns
-> the **editing surface** (the Columns manager) + how the row-preview honors the hint.
+> **R152 shipped** the `hidden` view-hint + `PATCH /datasets/{id}/columns` + the row-preview
+> default; **R153** (D-gate signed off 2026-07-07) evolves the editing surface into the
+> **Properties panel** (right-side Drawer, schema view + visibility editor). The **model field,
+> the honor/ignore surface split, and the `PATCH` contract** live in
+> [datasets.md § Column visibility](datasets.md#column-visibility-r152); this section owns the
+> **editing surface** (the Properties panel) + how the row-preview honors the hint.
 
 Wide tables scroll off-screen. A per-column **`hidden`** view-hint (presentation-only —
 [never touches the parquet](datasets.md#column-visibility-r152)) lets the user focus the
@@ -527,42 +530,56 @@ columns (Q1: an overridable default, not a projection).
 
 ### Row-preview default
 
-`<PagedRowsView>` filters the rendered columns to `columns.filter(c => !c.hidden)` **by
-default**. The header count `[▦ Columns N/M]` shows N visible of M total. When a "show all
-columns" toggle is on (manager-controlled, session-local — not persisted), the preview
-renders every column including hidden ones, so the hint is always an **overridable** default.
-Cell rendering, search, filter, and pagination are unchanged — they operate on whatever
-columns are currently rendered; search/filter pickers themselves still enumerate all columns.
+`<PagedRowsView>` renders only the visible columns **by default** — it **skips** each column
+whose `hidden` is true **in place** (not by filtering the array), so every remaining column keeps
+its **original index**: `row[ci]` cell alignment and the per-column filter key
+(`renderHeaderExtra(col, ci)`) are unchanged. A `showHiddenColumns` prop overrides the skip. The
+header count `[▦ Columns N/M]` shows N visible of M total. When the "show all columns" toggle is
+on (Properties-panel-controlled, **session-local — not persisted**), the preview renders every
+column including hidden ones, so the hint is always an **overridable** default. Cell rendering,
+search, filter, and pagination operate on whatever columns are currently rendered; the search /
+filter / query pickers themselves still enumerate **all** columns.
 
-### Columns manager
+### Properties panel (R153)
 
-The `[▦ Columns N/M]` button (in the table toolbar, right of the "Matched X / Y" counter)
-opens a **Columns manager** — an AntD drawer/popover:
+A **right-side Drawer** — the dataset's read-only **schema view + the visibility editor** in one
+surface. It **absorbs** the earlier toolbar-popover Columns manager (R152): the visibility
+checklist now lives here alongside the per-column schema. Opened from **two entries to one
+surface**: the `Actions ▾ → Properties` menu item, and the `[▦ Columns N/M]` toolbar button
+(kept for the at-a-glance count + quick access). AntD `Drawer` (`placement="right"`) — a pattern
+already shipped (`WidgetFilterDrawer`).
 
 ```text
-┌─ Columns ────────────────┐
-│ [ Show all columns ]  ⟳  │   ← toggle: preview shows hidden too (session-local)
-│ ─────────────────────    │
-│ ☑ deal_id                │   ← checked = visible; uncheck = hidden
-│ ☑ amount                 │
-│ ☐ internal_notes         │   ← hidden (default-hidden in the preview)
-│ ☑ won_at                 │
-│ …                        │
-│ ─────────────────────    │
-│           [ Cancel ] [ Apply ] │
-└──────────────────────────┘
+Actions ▾ → Properties      opens →   ┊ Properties               ✕ ┊
+                                      ┊ [ Show all columns ]  ⟳     ┊
+                                      ┊ ──────────────────────      ┊
+                                      ┊ ☑ deal_id        string     ┊
+                                      ┊ ☑ amount         integer    ┊
+                                      ┊ ☐ internal_notes string     ┊  ← hidden, re-showable
+                                      ┊ ☑ won_at         date        ┊
+                                      ┊ …                            ┊
+                                      ┊ ──────────────────────      ┊
+                                      ┊               [ Apply ]      ┊
 ```
 
-- Lists **all** columns with a visible/hidden checkbox each. It is the only surface that can
-  **re-show** a hidden column (a header menu can't — the column isn't rendered).
+- **One row per column** (incl. hidden): **name · dtype · a visible/hidden checkbox**. It is the
+  only surface that can **re-show** a hidden column (a header menu can't — the column isn't
+  rendered). The dtype is the read-only schema; the checkbox is the sole editable thing.
+- **Fields shown = name · dtype · hidden**, all read from the `Column` on `GET /datasets/{id}` —
+  **no new backend**. `format` is deliberately **not** shown: it isn't on the committed `Column`
+  (it lives only in `source.json` commitSettings, for date/datetime overrides). Dataset-level
+  facts (rows · size · format · workspace · uploaded) stay in the always-visible metadata strip
+  (the `MetadataStrip` above the row-preview) — not duplicated here.
 - **Apply** sends the full visible/hidden set via `PATCH /datasets/{id}/columns`
   (`{ hidden: string[] }` — see [contract](datasets.md#column-visibility-r152)); on success the
-  `['datasets', { id }]` cache is invalidated and the preview re-renders.
+  `['datasets', { id }]` cache is invalidated and the preview re-renders. Reuses the R152 mutation
+  unchanged.
 - **At-least-one-visible** is enforced client-side (Apply disabled if all unchecked) and
   server-side (`422 no_visible_columns`).
-- Scope guard: this is a **visibility** editor only — not a general column editor (no rename /
-  reorder / dtype here).
-- i18n: `datasets.detail.columns.*` (en + vi).
+- **Scope guard:** a **schema view + visibility editor** only — no rename / reorder / dtype-edit
+  (those are upload-time or deferred); **dataset-only** (query-detail's `resolvedColumns` +
+  provenance are a deferred generality).
+- i18n: `datasets.detail.columns.*` + `datasets.detail.properties.*` (en + vi).
 
 ---
 
@@ -817,9 +834,10 @@ paths:
 
 - `PATCH /datasets/{id}/columns` BE route — writes `columns_json` only.
 - `datasetsApi.setColumnVisibility(id, hidden[])` + `useSetColumnVisibility`.
-- `<PagedRowsView>` default-hides `hidden` columns, with the manager's
-  "show all" escape.
-- The Columns manager surface (drawer/popover) + the `[▦ Columns N/M]` toolbar button.
+- `<PagedRowsView>` default-hides `hidden` columns (via `showHiddenColumns`), with the
+  Properties panel's "show all" escape.
+- The Properties panel (right-side `Drawer` — schema view + visibility editor), opened from
+  `Actions ▾ → Properties` and the `[▦ Columns N/M]` toolbar button.
 - `hidden?: boolean` on the shared `Column` schema
   ([`column.yaml`](../../../../workspace/packages/contracts/_shared/column.yaml)).
 - i18n keys `datasets.detail.columns.*` (en + vi).
