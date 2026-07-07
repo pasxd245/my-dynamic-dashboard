@@ -1,6 +1,6 @@
 # Round 154: Full profiling + deeper metadata — the compute-backed Properties sections
 
-**Status**: In Progress — D signed off (Q1–Q4 2026-07-07); C done, B next
+**Status**: In Progress — D signed off (Q1–Q4 2026-07-07); C+B done, F next
 **Date started**: 2026-07-07
 **Flow**: **DCFBI** — set at the D-gate via flow-selector (0/5 conditions fired); recorded in the Do log.
 
@@ -51,8 +51,13 @@ date/datetime **`format`**) live off the `Column`, in `source.json` commitSettin
       `approx`/`sampledRows` cost-guard flags, `format` folded in (Q3). FE `DatasetProfile`/
       `ColumnProfile` types + `datasetsApi.getProfile` + MSW handler (`profileColumnsMock` computes
       truthful stats from the fixture → contract-validated). tsc + vitest 309 green.
-- [ ] **B**: DuckDB profiling over the parquet (the cost guard from Q2); the handler; tests
-      (stats correctness, the cap/sample behaviour, empty/edge columns).
+- [x] **B**: `profile_dataset_columns` in `rows_reader.py` — one materialized source (`_prof` temp
+      table: full when `rowCount <= PROFILE_FULL_SCAN_MAX_ROWS`=200k, else `USING SAMPLE n ROWS`),
+      one aggregate select (null/distinct/min-max per-dtype) + a top-k query per string column;
+      `GET /datasets/{id}/profile` handler folds `format` from commitSettings; `DatasetProfile`/
+      `ColumnProfile` response models. Tests: exact stats, per-dtype min-max/sample split, format
+      fold-in, sampling guard (monkeypatched threshold), 404, parquet byte-identical. ruff + pytest
+      369 green.
 - [ ] **F**: the Profiling section in the Properties drawer (loading/error states), + the `format`
       display; TanStack query for the profile (its own cache key, lazy on drawer-open).
 - [ ] **I**: i18n en+vi for the stat labels + states.

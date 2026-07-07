@@ -122,6 +122,105 @@ def query_dataset_rows(
     return [list(r) for r in page_rows], int(total)
 
 
+# ─── R154: on-demand column profile ──────────────────────────────────
+#
+# Backs `GET /datasets/{id}/profile`. A read-only DuckDB aggregate over the
+# parquet — it never writes back. Cost guard (the round's headline risk): a
+# profile is a full-scan aggregate, so on a wide/deep parquet computing it on
+# every drawer-open would be a silent cost. When `row_count` exceeds
+# `full_scan_max` we materialize an approximate `USING SAMPLE n ROWS` reservoir
+# sample once and run every stat over that single sample (so the counts are
+# self-consistent), flagging the result `approx`. Otherwise we materialize the
+# full (bounded ≤ full_scan_max) table. Nothing is cached — the cost is
+# re-paid per call but bounded.
+
+_NUMERIC_DTYPES = frozenset({"integer", "float"})
+_TEMPORAL_DTYPES = frozenset({"date", "datetime"})
+
+
+def profile_dataset_columns(
+    parquet_path: Path,
+    columns: list[dict[str, str]],
+    *,
+    row_count: int,
+    full_scan_max: int,
+    top_k: int = 5,
+) -> tuple[list[dict[str, Any]], bool, int | None]:
+    """Return ``(column_profiles, approx, sampled_rows)``.
+
+    ``columns`` is the committed ``[{name, dtype}, …]`` list (canonical order).
+    Each profile dict carries: ``name``, ``dtype``, ``null_count``,
+    ``null_pct``, ``distinct_count``, ``min``, ``max``, ``sample`` — with
+    ``min``/``max`` set only for numeric/temporal dtypes, ``sample`` (top-k)
+    only for strings, and every other slot ``None`` (the predictable-shape
+    contract). ``format`` is folded in by the caller (it lives in
+    ``commitSettings``, not the parquet).
+    """
+    approx = row_count > full_scan_max
+    sample_n = full_scan_max
+
+    # Build the per-column aggregate select list against the materialized
+    # source table `_prof`. min/max are emitted for numeric/temporal only;
+    # a NULL::VARCHAR slot keeps the column offsets predictable otherwise.
+    agg_terms: list[str] = ["COUNT(*) AS __total"]
+    for i, col in enumerate(columns):
+        qc = _quote_ident(col["name"])
+        agg_terms.append(f"COUNT(*) - COUNT({qc}) AS n{i}")
+        agg_terms.append(f"COUNT(DISTINCT {qc}) AS d{i}")
+        if col["dtype"] in _NUMERIC_DTYPES or col["dtype"] in _TEMPORAL_DTYPES:
+            agg_terms.append(f"CAST(MIN({qc}) AS VARCHAR) AS mn{i}")
+            agg_terms.append(f"CAST(MAX({qc}) AS VARCHAR) AS mx{i}")
+        else:
+            agg_terms.append(f"CAST(NULL AS VARCHAR) AS mn{i}")
+            agg_terms.append(f"CAST(NULL AS VARCHAR) AS mx{i}")
+
+    with duckdb.connect(":memory:") as con:
+        # Materialize once so the aggregate and every top-k query read the SAME
+        # rows (a fresh `USING SAMPLE` per query would reservoir-sample
+        # differently). `sample_n` is a server-controlled int — safe to inline.
+        if approx:
+            con.execute(
+                f"CREATE TEMP TABLE _prof AS SELECT * FROM read_parquet(?) USING SAMPLE {sample_n} ROWS",
+                [str(parquet_path)],
+            )
+        else:
+            con.execute("CREATE TEMP TABLE _prof AS SELECT * FROM read_parquet(?)", [str(parquet_path)])
+
+        agg_row = con.execute(f"SELECT {', '.join(agg_terms)} FROM _prof").fetchone()
+        scanned_total = int(agg_row[0])
+
+        profiles: list[dict[str, Any]] = []
+        for i, col in enumerate(columns):
+            base = 1 + i * 4  # __total occupies slot 0; 4 slots per column
+            null_count = int(agg_row[base])
+            distinct_count = int(agg_row[base + 1])
+            mn = agg_row[base + 2]
+            mx = agg_row[base + 3]
+            sample: list[str | None] | None = None
+            if col["dtype"] == "string":
+                qc = _quote_ident(col["name"])
+                rows = con.execute(
+                    f"SELECT CAST({qc} AS VARCHAR) FROM _prof WHERE {qc} IS NOT NULL "
+                    f"GROUP BY 1 ORDER BY COUNT(*) DESC, 1 LIMIT ?",
+                    [top_k],
+                ).fetchall()
+                sample = [r[0] for r in rows]
+            profiles.append(
+                {
+                    "name": col["name"],
+                    "dtype": col["dtype"],
+                    "null_count": null_count,
+                    "null_pct": 0.0 if scanned_total == 0 else round(null_count / scanned_total * 100, 2),
+                    "distinct_count": distinct_count,
+                    "min": mn,
+                    "max": mx,
+                    "sample": sample,
+                }
+            )
+
+    return profiles, approx, (scanned_total if approx else None)
+
+
 # ─── R71: join execution ─────────────────────────────────────────────
 #
 # The single-source path above is `FROM read_parquet(?)` with unqualified
