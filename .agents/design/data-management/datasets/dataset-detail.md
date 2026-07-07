@@ -542,12 +542,21 @@ filter / query pickers themselves still enumerate **all** columns.
 
 ### Properties panel (R153)
 
-A **right-side Drawer** with two sections — a **Dataset** properties block + a **Columns**
-schema/visibility editor. It **absorbs** the earlier toolbar-popover Columns manager (R152): the
-visibility checklist now lives here alongside the per-column schema. Opened from **two entries to
-one surface**: the `Actions ▾ → Properties` menu item, and the `[▦ Columns N/M]` toolbar button
-(kept for the at-a-glance count + quick access). AntD `Drawer` (`placement="right"`) — a pattern
-already shipped (`WidgetFilterDrawer`).
+A **right-side Drawer** — a **multi-section properties container** for everything-about-this-dataset,
+designed to grow one labelled section at a time (shared `SectionHeader`). Sections:
+
+| Section | Content | Source | Status |
+| --- | --- | --- | --- |
+| **Dataset** | workspace · rows · cols · size · uploaded · format/sheet | `Dataset` (shared `datasetMetaItems`) | shipped (R153) |
+| **Columns** | per-column name · dtype · show/hide checkbox + "show all" | `Column` on `GET /datasets/{id}` | shipped (R153) |
+| **Profiling** | per-column null % · distinct · min–max · sample | **computed** (DuckDB `profile` endpoint) | **deferred → R154** (compute round) |
+
+It **absorbs** the earlier toolbar-popover Columns manager (R152): the visibility checklist now
+lives in the Columns section. Opened from **two entries to one surface**: the
+`Actions ▾ → Properties` menu item, and the `[▦ Columns N/M]` toolbar button (kept for the
+at-a-glance count + quick access). AntD `Drawer` (`placement="right"`) — a pattern already shipped
+(`WidgetFilterDrawer`). Each section is read-only except the Columns visibility checkbox; profiling
+will be read-only.
 
 ```text
 Actions ▾ → Properties      opens →   ┊ Properties               ✕ ┊
