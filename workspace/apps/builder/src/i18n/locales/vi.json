@@ -257,7 +257,9 @@
       },
       "properties": {
         "title": "Thuộc tính",
-        "action": "Thuộc tính"
+        "action": "Thuộc tính",
+        "dataset": "Tập dữ liệu",
+        "columns": "Cột"
       },
       "loadRowsCouldnt": "Không tải được các dòng",
       "notFoundTitle": "Tập dữ liệu này không còn tồn tại",

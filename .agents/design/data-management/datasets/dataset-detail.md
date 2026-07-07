@@ -542,34 +542,44 @@ filter / query pickers themselves still enumerate **all** columns.
 
 ### Properties panel (R153)
 
-A **right-side Drawer** — the dataset's read-only **schema view + the visibility editor** in one
-surface. It **absorbs** the earlier toolbar-popover Columns manager (R152): the visibility
-checklist now lives here alongside the per-column schema. Opened from **two entries to one
-surface**: the `Actions ▾ → Properties` menu item, and the `[▦ Columns N/M]` toolbar button
+A **right-side Drawer** with two sections — a **Dataset** properties block + a **Columns**
+schema/visibility editor. It **absorbs** the earlier toolbar-popover Columns manager (R152): the
+visibility checklist now lives here alongside the per-column schema. Opened from **two entries to
+one surface**: the `Actions ▾ → Properties` menu item, and the `[▦ Columns N/M]` toolbar button
 (kept for the at-a-glance count + quick access). AntD `Drawer` (`placement="right"`) — a pattern
 already shipped (`WidgetFilterDrawer`).
 
 ```text
 Actions ▾ → Properties      opens →   ┊ Properties               ✕ ┊
-                                      ┊ [ Show all columns ]  ⟳     ┊
-                                      ┊ ──────────────────────      ┊
-                                      ┊ ☑ deal_id        string     ┊
-                                      ┊ ☑ amount         integer    ┊
-                                      ┊ ☐ internal_notes string     ┊  ← hidden, re-showable
-                                      ┊ ☑ won_at         date        ┊
-                                      ┊ …                            ┊
-                                      ┊ ──────────────────────      ┊
-                                      ┊               [ Apply ]      ┊
+                                      ┊ DATASET                      ┊
+                                      ┊   Workspace   Weekly         ┊
+                                      ┊   Rows        7              ┊
+                                      ┊   Cols        2              ┊
+                                      ┊   Size        1.4 MB         ┊
+                                      ┊   Uploaded    2 days ago     ┊
+                                      ┊   Format      Excel · Master ┊
+                                      ┊ ──────────────────────       ┊
+                                      ┊ COLUMNS      [ show all ] ⟳   ┊
+                                      ┊   ☑ deal_id        string     ┊
+                                      ┊   ☑ amount         integer    ┊
+                                      ┊   ☐ internal_notes string     ┊  ← hidden, re-showable
+                                      ┊   ☑ won_at         date        ┊
+                                      ┊ ──────────────────────       ┊
+                                      ┊               [ Apply ]       ┊
 ```
 
-- **One row per column** (incl. hidden): **name · dtype · a visible/hidden checkbox**. It is the
-  only surface that can **re-show** a hidden column (a header menu can't — the column isn't
-  rendered). The dtype is the read-only schema; the checkbox is the sole editable thing.
-- **Fields shown = name · dtype · hidden**, all read from the `Column` on `GET /datasets/{id}` —
-  **no new backend**. `format` is deliberately **not** shown: it isn't on the committed `Column`
-  (it lives only in `source.json` commitSettings, for date/datetime overrides). Dataset-level
-  facts (rows · size · format · workspace · uploaded) stay in the always-visible metadata strip
-  (the `MetadataStrip` above the row-preview) — not duplicated here.
+- **Dataset section** — the dataset-level facts (workspace · rows · cols · size · uploaded ·
+  format/sheet), sourced from the same [`datasetMetaItems`](../../../../workspace/apps/builder/src/features/data-management/datasets/DatasetDetailPage.tsx)
+  helper as the inline `MetadataStrip`, so the two never diverge. **Intentionally repeated** — the
+  always-visible strip is the glance; the Properties drawer is the full panel opened deliberately
+  (standard for a Properties surface). Zero backend (all on the `Dataset`).
+- **Columns section — one row per column** (incl. hidden): **name · dtype · a visible/hidden
+  checkbox**. It is the only surface that can **re-show** a hidden column (a header menu can't —
+  the column isn't rendered). The dtype is the read-only schema; the checkbox is the sole editable
+  thing. All read from the `Column` on `GET /datasets/{id}` — **no new backend**. `format` is
+  deliberately **not** shown: it isn't on the committed `Column` (it lives only in `source.json`
+  commitSettings, for date/datetime overrides). Deeper per-column facts (null % · distinct ·
+  min–max) are **compute-only** (DuckDB profile) → a deferred round, not this surface.
 - **Apply** sends the full visible/hidden set via `PATCH /datasets/{id}/columns`
   (`{ hidden: string[] }` — see [contract](datasets.md#column-visibility-r152)); on success the
   `['datasets', { id }]` cache is invalidated and the preview re-renders. Reuses the R152 mutation

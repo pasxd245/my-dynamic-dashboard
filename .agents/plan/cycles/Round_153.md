@@ -147,6 +147,16 @@ grew to **5** — the PagedRowsView pair (unchanged) + drawer default-hide/N-M/s
 the Actions ▾ entry**, and Apply PATCHes the full hidden set. Gates: FE **tsc clean · vitest 309**;
 i18n parity clean; backend untouched (**pytest 362**).
 
+**Post-build enrichment (2026-07-07) — the drawer felt too thin for "metadata".** Human feedback at
+the Integration walk. Added a **Dataset section** at the top of the drawer (workspace · rows · cols ·
+size · uploaded · format) — extracted a shared `datasetMetaItems(dataset, workspaceName, t)` helper
+so the drawer and the inline `MetadataStrip` render **identical** values (single source; the repeat
+is intentional — strip = glance, drawer = full panel). Still **zero backend** (all on `Dataset`).
+The drawer body is now two labelled sections (Dataset / Columns), the "show all" toggle beside the
+Columns header. i18n `properties.{dataset,columns}` (en+vi). Test asserts the 6-field Dataset
+section renders. The **depth** half (per-column profiling) is a compute feature → **R154** (see
+Feeds-into). Gates re-green: vitest 309, tsc clean, i18n parity.
+
 ## Check
 
 - [x] D signed off before C/B/F (Q1 evolve-vs-drawer · field set · entry point). ✅ 2026-07-07
@@ -163,6 +173,13 @@ _(Learnings / promotions / prune check at close.)_
 
 ## Feeds into → Round_154 (TBD)
 
-Re-rank at open. **Carried candidates**: Export ④ (unpark — loop is bright), AI-propose-key (#2
-additive), R145 slice 1b (blast-radius preview). **Consider**: a 2nd dogfood probe to re-rank with
-fresh evidence now that the R142 backlog is exhausted.
+**Lead candidate — R154 = per-column profiling** (the "depth" the human chose during R153's
+Integration walk): null count/% · distinct · min–max · sample, **computed from the parquet via
+DuckDB** — a real `GET /datasets/{id}/profile`-class endpoint (new C+B), rendered as expandable
+rows in the Properties drawer (the R153 surface is its home). Its D-gate owns: which stats,
+endpoint shape (on-demand vs cached; one call vs per-column), and the cost guard (wide/deep parquet
+isn't free).
+
+Also carried: Export ④ (unpark — loop is bright), AI-propose-key (#2 additive), R145 slice 1b
+(blast-radius preview). **Consider**: a 2nd dogfood probe to re-rank with fresh evidence now that
+the R142 backlog is exhausted.

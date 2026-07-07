@@ -257,7 +257,9 @@
       },
       "properties": {
         "title": "Properties",
-        "action": "Properties"
+        "action": "Properties",
+        "dataset": "Dataset",
+        "columns": "Columns"
       },
       "loadRowsCouldnt": "Couldn't load rows",
       "notFoundTitle": "This dataset no longer exists",

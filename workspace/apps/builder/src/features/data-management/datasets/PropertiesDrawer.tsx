@@ -11,14 +11,27 @@
 // rename / reorder / dtype.
 
 import { Button, Checkbox, Drawer, Space, Switch, Tag, Typography } from 'antd';
-import { useEffect, useState } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import type { Column } from './types';
 
+function SectionHeader({ children }: Readonly<{ children: ReactNode }>) {
+  return (
+    <Typography.Text
+      type="secondary"
+      style={{ display: 'block', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.04em' }}
+    >
+      {children}
+    </Typography.Text>
+  );
+}
+
 export type PropertiesDrawerProps = Readonly<{
   open: boolean;
   onClose: () => void;
+  /** Dataset-level facts (label/value), shared with the inline MetadataStrip. */
+  datasetMeta: ReadonlyArray<{ label: string; value: string }>;
   columns: readonly Column[];
   /** Session-local preview override — show hidden columns without un-hiding. */
   showAll: boolean;
@@ -31,6 +44,7 @@ export type PropertiesDrawerProps = Readonly<{
 export function PropertiesDrawer({
   open,
   onClose,
+  datasetMeta,
   columns,
   showAll,
   onShowAllChange,
@@ -83,7 +97,30 @@ export function PropertiesDrawer({
       onClose={onClose}
       placement="right"
       title={t('datasets.detail.properties.title')}
-      extra={
+    >
+      {/* Dataset section — the dataset-level facts (shared with the inline strip). */}
+      <SectionHeader>{t('datasets.detail.properties.dataset')}</SectionHeader>
+      <div data-component="PropertiesDrawerDataset" style={{ marginBottom: 16 }}>
+        {datasetMeta.map((item) => (
+          <div
+            key={item.label}
+            style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '4px 4px' }}
+          >
+            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+              {item.label}
+            </Typography.Text>
+            <Typography.Text strong style={{ fontSize: 12, textAlign: 'right' }}>
+              {item.value}
+            </Typography.Text>
+          </div>
+        ))}
+      </div>
+
+      {/* Columns section — the schema + the visibility editor. */}
+      <div
+        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}
+      >
+        <SectionHeader>{t('datasets.detail.properties.columns')}</SectionHeader>
         <Space size="small">
           <Typography.Text type="secondary" style={{ fontSize: 12 }}>
             {t('datasets.detail.columns.showAll')}
@@ -95,8 +132,7 @@ export function PropertiesDrawer({
             data-component="PropertiesDrawerShowAll"
           />
         </Space>
-      }
-    >
+      </div>
       <div data-component="PropertiesDrawerList">
         {columns.map((col) => (
           <div

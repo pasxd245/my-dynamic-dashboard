@@ -677,6 +677,7 @@ export function DatasetDetailPage() {
       <PropertiesDrawer
         open={propertiesOpen}
         onClose={() => setPropertiesOpen(false)}
+        datasetMeta={datasetMetaItems(dataset, workspaceName, t)}
         columns={dataset.columns}
         showAll={showAllColumns}
         onShowAllChange={setShowAllColumns}
@@ -687,29 +688,20 @@ export function DatasetDetailPage() {
   );
 }
 
-function MetadataStrip({ dataset, workspaceName }: Readonly<{ dataset: Dataset; workspaceName: string | undefined }>) {
-  const { t } = useTranslation();
-  const items: ReadonlyArray<{ label: string; value: string }> = [
-    {
-      label: t('datasets.detail.meta.workspace'),
-      value: workspaceName ?? '—',
-    },
-    {
-      label: t('datasets.detail.meta.rows'),
-      value: dataset.rowCount.toLocaleString(i18n.language),
-    },
-    {
-      label: t('datasets.detail.meta.cols'),
-      value: String(dataset.columnCount),
-    },
-    {
-      label: t('datasets.detail.meta.size'),
-      value: formatBytes(dataset.sizeBytes),
-    },
-    {
-      label: t('datasets.detail.meta.uploaded'),
-      value: relativeTime(dataset.createdAt, t),
-    },
+/** The dataset-level metadata fields — the single source shared by the
+ *  always-visible MetadataStrip AND the Properties drawer's Dataset section
+ *  (R153), so both format identically. */
+function datasetMetaItems(
+  dataset: Dataset,
+  workspaceName: string | undefined,
+  t: ReturnType<typeof useTranslation>['t'],
+): ReadonlyArray<{ label: string; value: string }> {
+  return [
+    { label: t('datasets.detail.meta.workspace'), value: workspaceName ?? '—' },
+    { label: t('datasets.detail.meta.rows'), value: dataset.rowCount.toLocaleString(i18n.language) },
+    { label: t('datasets.detail.meta.cols'), value: String(dataset.columnCount) },
+    { label: t('datasets.detail.meta.size'), value: formatBytes(dataset.sizeBytes) },
+    { label: t('datasets.detail.meta.uploaded'), value: relativeTime(dataset.createdAt, t) },
     {
       label: t('datasets.detail.meta.format'),
       value:
@@ -718,6 +710,11 @@ function MetadataStrip({ dataset, workspaceName }: Readonly<{ dataset: Dataset; 
           : t('datasets.detail.formatCsv'),
     },
   ];
+}
+
+function MetadataStrip({ dataset, workspaceName }: Readonly<{ dataset: Dataset; workspaceName: string | undefined }>) {
+  const { t } = useTranslation();
+  const items = datasetMetaItems(dataset, workspaceName, t);
   return (
     <div
       data-component="DatasetMetadataStrip"
