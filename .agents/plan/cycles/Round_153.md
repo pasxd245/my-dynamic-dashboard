@@ -1,7 +1,9 @@
 # Round 153: "View metadata" — a consolidated read-only column/schema surface
 
-**Status**: In progress — D signed off (2026-07-07); building C/B/F
+**Status**: Complete — Properties UI + simple props shipped; human signed off (2026-07-07). Full
+profiling + deeper metadata split to [R154](Round_154.md).
 **Date started**: 2026-07-07
+**Date completed**: 2026-07-07
 **Flow**: **DCFBI** — set at the D-gate via flow-selector (0/5 fired); recorded in the Do log.
 
 ## Goal
@@ -165,20 +167,47 @@ Feeds-into). Gates re-green: vitest 309, tsc clean, i18n parity.
       (not on `Column`); opens from BOTH the `Actions ▾` entry and the toolbar button. 5 FE tests.
 - [x] Backend/FE gates green; design/plan/markdown lints clean; i18n parity. FE tsc clean · vitest
       309; backend pytest 362 (untouched); design/plan/md lints 0; i18n parity clean.
-- [ ] Human review of the surface. **← awaiting human (the DCFBI Integration walk)**
+- [x] Human review of the surface — signed off 2026-07-07 (walked live on real FM data — the human
+      referenced actual rendered values; drove the design via the Integration loop). Confirmed the
+      2-round split: R153 = UI + simple props; R154 = full profiling + deeper metadata.
 
 ## Act
 
-_(Learnings / promotions / prune check at close.)_
+**Learnings**
+
+- **Surface-first, compute-later is a clean seam.** The "view metadata" ask split naturally into a
+  **zero-backend container + free props** (R153: the drawer, Dataset facts, column schema/visibility
+  — all already on `Dataset`/`Column`) and a **compute round** (R154: DuckDB-computed profiling +
+  the metadata that isn't stored). Building the home first de-risks the compute round and shipped
+  value immediately. The multi-section `SectionHeader` container makes R154 a drop-in.
+- **The DCFBI Integration walk earned its gate.** Green tests said "done"; the human walk said "too
+  thin for its name." Two design turns followed (add the Dataset section; frame as a multi-section
+  container) that no automated gate would have prompted — the human-review gate is where a surface's
+  *sufficiency* (not just correctness) gets judged.
+- **One source for a repeated value.** The Dataset facts appear in both the inline `MetadataStrip`
+  and the drawer; a shared `datasetMetaItems()` helper keeps them identical rather than drifting —
+  the same discipline as the R41 3-impl contract net, at the component layer.
+- **Evolving beats discarding.** R152's just-shipped popover was rehoused into the R153 drawer (not
+  thrown away) — the visibility capability carried forward, the container grew.
+
+**Promotions**: none (no governance/skill/contract change pulled; learnings captured to `memory/`).
+
+**Prune check**: none retired. The R152 `ColumnsManager.tsx` was **deleted** (evolved into
+`PropertiesDrawer.tsx`) — a rehouse, not a prune.
 
 ## Feeds into → Round_154 (TBD)
 
-**Lead candidate — R154 = per-column profiling** (the "depth" the human chose during R153's
-Integration walk): null count/% · distinct · min–max · sample, **computed from the parquet via
-DuckDB** — a real `GET /datasets/{id}/profile`-class endpoint (new C+B), rendered as expandable
-rows in the Properties drawer (the R153 surface is its home). Its D-gate owns: which stats,
-endpoint shape (on-demand vs cached; one call vs per-column), and the cost guard (wide/deep parquet
-isn't free).
+**→ [R154](Round_154.md) = full profiling + deeper metadata** (the human's 2-round split; the
+"depth" half). The compute-backed sections the R153 simple version deferred:
+
+- **Profiling section** — per-column null count/% · distinct · min–max · sample, **computed from
+  the parquet via DuckDB** (a `GET /datasets/{id}/profile`-class endpoint; new C+B).
+- **Deeper metadata** — the facts not on the committed `Column`: the date/datetime **`format`**
+  (from `source.json` commitSettings) + anything else the D-gate pulls in.
+
+Both drop into the R153 multi-section Properties drawer (shared `SectionHeader`). R154's D-gate
+owns: which stats, endpoint shape (on-demand vs cached; one call vs per-column), and the **cost
+guard** (a wide/deep parquet isn't free — cap? async?).
 
 Also carried: Export ④ (unpark — loop is bright), AI-propose-key (#2 additive), R145 slice 1b
 (blast-radius preview). **Consider**: a 2nd dogfood probe to re-rank with fresh evidence now that
