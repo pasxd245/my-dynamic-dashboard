@@ -124,7 +124,7 @@ def test_preview_with_step_returns_shaped_rows_and_columns() -> None:
     assert body["resolvedColumns"] == [{"name": "region", "dtype": "string"}, {"name": "amount", "dtype": "integer"}]
     # R129 — the PRE-step (base) columns are reported too (the source dataset's,
     # here): the builder's editors author against these, not the shaped result.
-    assert {c["name"] for c in body["baseColumns"]} == {"region", "product", "amount"}
+    assert {c["name"] for c in body["baseColumns"]} == {"region", "product", "amount", "Source.Name"}
 
 
 @pytest.mark.unit

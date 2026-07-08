@@ -63,13 +63,15 @@ def test_week_bucket_appends_iso_monday_start_date() -> None:
         resolved = client.get(f"/queries/{qid}").json()["resolvedColumns"]
 
     # base ++ the new `date` column; source column stays available
+    # (`Source.Name` provenance rides through between the base and the bucket)
     assert resolved == [
         {"name": "agent", "dtype": "string"},
         {"name": "called_at", "dtype": "datetime"},
+        {"name": "Source.Name", "dtype": "string"},
         {"name": "week", "dtype": "date"},
     ]
     # Mon/Wed/Fri all truncate to their week's MONDAY (ISO-8601, DuckDB native)
-    assert [r[2] for r in body["rows"]] == ["2026-06-29", "2026-06-29", "2026-06-29", "2026-07-06"]
+    assert [r[3] for r in body["rows"]] == ["2026-06-29", "2026-06-29", "2026-06-29", "2026-07-06"]
 
 
 @pytest.mark.unit
@@ -80,7 +82,7 @@ def test_month_bucket_truncates_to_month_start() -> None:
         qid = _create(client, ws, ds_id, steps).json()["id"]
         body = client.get(f"/queries/{qid}/rows").json()
 
-    assert [r[2] for r in body["rows"]] == ["2026-06-01", "2026-07-01", "2026-07-01", "2026-07-01"]
+    assert [r[3] for r in body["rows"]] == ["2026-06-01", "2026-07-01", "2026-07-01", "2026-07-01"]
 
 
 @pytest.mark.unit
@@ -174,7 +176,7 @@ def test_stepped_preview_pages_and_keeps_resolved_and_base_columns() -> None:
 
     assert (len(body["rows"]), body["total"], body["pageSize"], body["page"]) == (10, 12, 10, 1)
     assert body["resolvedColumns"][-1] == {"name": "week", "dtype": "date"}
-    assert [c["name"] for c in body["baseColumns"]] == ["agent", "called_at"]
+    assert [c["name"] for c in body["baseColumns"]] == ["agent", "called_at", "Source.Name"]
 
 
 @pytest.mark.unit

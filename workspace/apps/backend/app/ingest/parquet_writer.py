@@ -335,6 +335,22 @@ def _quote_string_literal(s: str) -> str:
     return "'" + s.replace("'", "''") + "'"
 
 
+# R156 — the reserved provenance column: which source file each row came from
+# (Power Query's `Source.Name` convention). Synthetic — the ingest layer owns
+# it, it is never read from the source file. A source column already named this
+# wins (the caller skips injection; user's column is not clobbered). It is
+# injected into the SINGLE parquet write below (never a post-write rewrite,
+# which would re-encode every column and strip pandas' string extension dtype).
+PROVENANCE_COLUMN = "Source.Name"
+
+
+def _add_provenance_df(df: pd.DataFrame, value: str) -> None:
+    """Append the constant provenance column to a DataFrame (pandas write paths)
+    as a nullable-string column, in place. Only touches the new column, so every
+    source column keeps its coerced extension dtype."""
+    df[PROVENANCE_COLUMN] = pd.array([value] * len(df), dtype="string")
+
+
 # DuckDB physical type → the committed dtype it already satisfies. A DECIMAL
 # is float-conforming; every integer width is integer-conforming; VARCHAR is
 # string-conforming (str→str is the identity under `_cell_to_string`).
@@ -393,6 +409,7 @@ def write_csv_to_parquet(
     kept_columns: list[str],
     dtype_targets: dict[str, str] | None = None,
     dtype_formats: dict[str, str] | None = None,
+    provenance_value: str | None = None,
 ) -> None:
     """Read a CSV via DuckDB and write the full table to parquet.
 
@@ -430,6 +447,9 @@ def write_csv_to_parquet(
         reverse = {v: k for k, v in name_map.items()}
         select_items = [f"{_quote_ident(reverse[c])} AS {_quote_ident(c)}" for c in kept_columns]
         select_list = ", ".join(select_items)
+        # R156 — provenance is injected into THIS write (never a post-write
+        # rewrite). It is skipped when a source column already claims the name.
+        add_prov = provenance_value is not None and PROVENANCE_COLUMN not in kept_columns
         pending = _nonconforming_targets(schema_rows, name_map, dtype_targets)
         if pending:
             # R143 — detour through the shared pandas coercion so CSV and
@@ -438,10 +458,19 @@ def write_csv_to_parquet(
             # Reported rows = SOURCE-FILE line numbers: skipped lines + header.
             row_offset = int(skip_rows) + (1 if has_header else 0)
             df = _coerce_dataframe(df, pending, dtype_formats, row_offset)
+            if add_prov:
+                _add_provenance_df(df, provenance_value)  # type: ignore[arg-type]
             df.to_parquet(dst, index=False)
             return
+        prov_select = (
+            f", {_quote_string_literal(provenance_value)} AS {_quote_ident(PROVENANCE_COLUMN)}"
+            if add_prov
+            else ""
+        )
         dst_literal = _quote_string_literal(str(dst))
-        con.execute(f"COPY (SELECT {select_list} FROM tmp) TO {dst_literal} (FORMAT 'parquet')")
+        con.execute(
+            f"COPY (SELECT {select_list}{prov_select} FROM tmp) TO {dst_literal} (FORMAT 'parquet')"  # noqa: S608 — idents/literals quoted
+        )
 
 
 def write_excel_to_parquet(
@@ -454,6 +483,7 @@ def write_excel_to_parquet(
     kept_columns: list[str],
     dtype_targets: dict[str, str] | None = None,
     dtype_formats: dict[str, str] | None = None,
+    provenance_value: str | None = None,
 ) -> None:
     """Read an Excel sheet (full table) and write to parquet.
 
@@ -496,4 +526,7 @@ def write_excel_to_parquet(
         # Reported rows = SHEET rows: rows above the range start + the header.
         row_offset = (row_first - 1) + (1 if has_header else 0)
         df = _coerce_dataframe(df, dtype_targets, dtype_formats, row_offset)
+    # R156 — provenance injected into this write; skipped on a name collision.
+    if provenance_value is not None and PROVENANCE_COLUMN not in kept_columns:
+        _add_provenance_df(df, provenance_value)
     df.to_parquet(dst, index=False)

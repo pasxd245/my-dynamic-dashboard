@@ -58,7 +58,7 @@ def test_run_passthrough_no_steps_materializes_source_columns() -> None:
 
     assert run.status_code == 200
     # No steps → the materialized output IS the source query's columns.
-    assert [c["name"] for c in run.json()["resolvedColumns"]] == ["id", "name", "amount", "signed_up"]
+    assert [c["name"] for c in run.json()["resolvedColumns"]] == ["id", "name", "amount", "signed_up", "Source.Name"]
     assert rows.status_code == 200
     assert rows.json()["total"] == len(rows.json()["rows"]) >= 1
 

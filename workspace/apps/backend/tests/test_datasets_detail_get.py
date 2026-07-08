@@ -43,9 +43,9 @@ def test_get_dataset_returns_200_with_committed_shape() -> None:
     assert body["sourceFormat"] == "csv"
     assert "sheetName" not in body  # CSV has no sheet
     assert body["rowCount"] == 3  # sample.csv has 3 data rows
-    assert body["columnCount"] == 4
+    assert body["columnCount"] == 5  # 4 source columns + the `Source.Name` provenance column
     column_names = [c["name"] for c in body["columns"]]
-    assert column_names == ["id", "name", "amount", "signed_up"]
+    assert column_names == ["id", "name", "amount", "signed_up", "Source.Name"]
 
     validate_response("datasets/detail-get.contract.yaml", 200, body)
 

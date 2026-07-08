@@ -104,8 +104,9 @@ def test_two_ranges_from_one_sheet_commit_to_distinct_datasets() -> None:
     assert [d["sheetName"] for d in body] == ["Deals", "Deals"]
     assert body[0]["id"] != body[1]["id"]
     # Each honored its own range: full = all 3 columns; A1:B3 = the first two.
-    assert body[0]["columnCount"] == 3
-    assert [c["name"] for c in body[1]["columns"]] == ["deal_id", "amount"]
+    # (+1 for the auto-injected `Source.Name` provenance column, appended last.)
+    assert body[0]["columnCount"] == 4
+    assert [c["name"] for c in body[1]["columns"]] == ["deal_id", "amount", "Source.Name"]
     validate_response("datasets/batch-post.contract.yaml", 201, body)
 
 
@@ -188,7 +189,7 @@ def test_csv_commit_with_skip_rows_drops_leading_lines() -> None:
     body = resp.json()
     ds = body[0]
     assert ds["rowCount"] == 3
-    assert [c["name"] for c in ds["columns"]] == ["id", "name", "amount", "signed_up"]
+    assert [c["name"] for c in ds["columns"]] == ["id", "name", "amount", "signed_up", "Source.Name"]
     validate_response("datasets/batch-post.contract.yaml", 201, body)
 
 
@@ -216,6 +217,7 @@ def test_csv_commit_with_has_header_false_auto_names_columns() -> None:
         "column2",
         "column3",
         "column4",
+        "Source.Name",
     ]
     validate_response("datasets/batch-post.contract.yaml", 201, body)
 
@@ -248,6 +250,7 @@ def test_csv_commit_with_skip_rows_and_has_header_false_combine() -> None:
         "column2",
         "column3",
         "column4",
+        "Source.Name",
     ]
     validate_response("datasets/batch-post.contract.yaml", 201, body)
 

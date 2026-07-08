@@ -45,8 +45,8 @@ def test_derive_col_minus_col() -> None:
         assert client.get(f"/queries/{qid}").json()["resolvedColumns"][-1] == {"name": "profit", "dtype": "float"}
         body = client.get(f"/queries/{qid}/rows").json()
 
-    # rows: [region, revenue, cost, profit]; profit = revenue - cost.
-    profit = {r[0]: float(r[3]) for r in body["rows"]}
+    # rows: [region, revenue, cost, Source.Name, profit]; profit = revenue - cost.
+    profit = {r[0]: float(r[4]) for r in body["rows"]}
     assert profit == {"EMEA": 70.0, "APAC": 150.0, "Z": 10.0}
 
 
@@ -58,7 +58,7 @@ def test_derive_col_times_const() -> None:
         qid = _create(client, ws, ds_id, [step]).json()["id"]
         body = client.get(f"/queries/{qid}/rows").json()
 
-    assert {r[0]: float(r[3]) for r in body["rows"]} == {"EMEA": 200.0, "APAC": 400.0, "Z": 20.0}
+    assert {r[0]: float(r[4]) for r in body["rows"]} == {"EMEA": 200.0, "APAC": 400.0, "Z": 20.0}
 
 
 @pytest.mark.unit
@@ -69,7 +69,7 @@ def test_derive_divide_by_zero_is_null() -> None:
         qid = _create(client, ws, ds_id, [step]).json()["id"]
         rows = client.get(f"/queries/{qid}/rows").json()["rows"]
 
-    by_region = {r[0]: r[3] for r in rows}
+    by_region = {r[0]: r[4] for r in rows}
     assert by_region["Z"] is None  # 10 / 0 → NULL, not a crash
     assert round(float(by_region["APAC"]), 1) == 4.0  # 200 / 50
 

@@ -115,7 +115,9 @@ def test_set_visibility_hiding_every_column_returns_422() -> None:
         ds = _create_dataset(client, ws)
         resp = client.patch(
             f"/datasets/{ds['id']}/columns",
-            json={"hidden": ["id", "name", "amount", "signed_up"]},
+            # R156 — "Source.Name" is the auto-injected provenance column; hiding
+            # EVERY column now means the source columns AND provenance.
+            json={"hidden": ["id", "name", "amount", "signed_up", "Source.Name"]},
         )
 
     assert resp.status_code == 422

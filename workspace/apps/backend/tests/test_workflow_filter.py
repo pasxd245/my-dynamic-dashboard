@@ -68,8 +68,8 @@ def test_filter_multi_predicate_and() -> None:
         qid = _create(client, ws, ds_id, steps).json()["id"]
         body = client.get(f"/queries/{qid}/rows").json()
 
-    # EMEA AND amount>=80 → only EMEA/A/100.
-    assert body["rows"] == [["EMEA", "A", "100"]]
+    # EMEA AND amount>=80 → only EMEA/A/100 (++ the `Source.Name` provenance cell).
+    assert body["rows"] == [["EMEA", "A", "100", "d.csv"]]
 
 
 @pytest.mark.unit

@@ -1457,10 +1457,8 @@ The refresh item gains one optional field — presence selects the mode:
 
 _⑥ refresh theme, slice 3 — the keyless primitive replace and merge both lack._
 
-> **Status: D-gate — design pinned (human-confirmed 2026-07-08), F1 pending.** Flow **DFCFBI**
-> (flow-selector triggers 3, 4, 5): append mutates a dependent-bearing dataset and its safety is
-> a *soft warn*, so the warn UX gets an F1 feel-review before the contract. Pulled by
-> [Round_155](../../../plan/cycles/Round_155.md) ← the real 2025 call-log probe
+> **Status: shipped R155** (DFCFBI; the warn UX got its F1 feel-review before the contract). Pulled
+> by [Round_155](../../../plan/cycles/Round_155.md) ← the real 2025 call-log probe
 > (`memory/2026-07-08-append-mode-call-log-evidence.md`): disjoint months, no clean key.
 
 ### Concept: the case merge cannot serve
@@ -1572,9 +1570,9 @@ merge (present) do — it needs an **explicit mode discriminator**:
   only aborts are the pre-existing `coercion_failed` / `unknown_column`.
 - **Overlap heuristic honesty** — the check never asserts "no duplicates," only "no overlapping dates
   on `<field>`."
-- **No provenance column** — a per-append source tag (Power Query's `Source.Name`: "which batch did
-  this row come from / undo one append") is **not** slice 1; trigger: a lived need to attribute or
-  reverse a specific append.
+- **Provenance column** — a per-append source tag (Power Query's `Source.Name`: "which file did this
+  row come from") was **not** slice 1; its trigger fired immediately (after FM1…FM12 append, rows are
+  origin-blind) → **[§ Provenance column (R156)](#provenance-column-which-source-file-did-each-row-come-from-r156)**.
 - **Forward-only** — no un-append / version history (unchanged from R145 / R147).
 - **merge.py reuse** — the dup-key guard is merge-only and must not fire on append (asserted by test).
 
@@ -1591,6 +1589,108 @@ merge (present) do — it needs an **explicit mode discriminator**:
    `MergeDuplicateKeysError`).
 6. **Replace + merge unregressed**: omitting `refresh_mode` still infers replace (no key) / merge (key
    present) byte-for-byte; an explicit `refresh_mode` matching the inferred mode is a no-op.
+
+---
+
+## Provenance column: which source file did each row come from? (R156)
+
+_Append's companion — the origin tag that makes an accumulated dataset attributable._
+
+> **Status: DCFBI (0/5) — D+C+B+F built & green (pytest 379 · vitest 314), Integration walk pending.**
+> Pulled by [Round_156](../../../plan/cycles/Round_156.md) ← the R155 append boundary "No provenance
+> column" met its trigger immediately: after append unions FM1…FM12 the rows are origin-blind, so
+> per-file aggregation is impossible. Sequenced **before** the R157 FM1–12 dogfood so that walk
+> exercises append *with* provenance.
+
+### Concept: append made rows origin-blind
+
+R155's append keeps every row but drops the one fact needed to slice an accumulated dataset — **which
+export each row came from**. Power Query materializes this as a `Source.Name` column when it combines
+files from a folder; we do the same. Because it is a **real, materialized column** (not a view-hint) it
+is queryable: `GROUP BY "Source.Name"` in a widget answers "calls per month," and a stray re-append
+shows up as duplicate `Source.Name` values — a diagnosable companion to R155's overlap warn.
+
+### Build home: an ingest-owned synthetic column — automatic, hidden by default
+
+- **Automatic, every dataset** — injected at commit on initial upload AND every refresh mode
+  (replace / merge / append). No opt-in, no wizard control (the wizard skeleton is untouched). Every
+  dataset is append-ready and the "forgot to opt in → first append has null provenance" trap is gone.
+- **Value = the source filename** — `meta.originalName`, already captured and persisted in
+  `source.json` (datasets.py `_source_json_dict`). Incoming rows get the just-uploaded file's name;
+  kept committed rows keep their own stored value (already in the committed parquet).
+- **Hidden by default via the R152 `hidden` view-hint** — written into `columns_json` with
+  `hidden: true` so it stays out of the row-preview clutter. Per
+  [dataset-detail.md](dataset-detail.md) the `hidden` flag is a **preview default only** — every
+  picker / query / widget IGNORES it — so provenance is fully groupable while invisible in the
+  dataset-detail preview. The user can persistently unhide it via the Columns manager;
+  `_carry_forward_hidden` keeps the choice across refreshes.
+- **`hidden: true` is asserted only when the column is NEWLY introduced** (absent from the prior
+  `columns_json`). On a dataset that already carries it, the round defers to `_carry_forward_hidden`,
+  so a user's unhide is never re-overridden on the next refresh.
+
+### Injection seam
+
+The column is **synthetic** (not in the source file), so it is injected right after `_write_parquet`
+stages the coerced `parsed.parquet`: a DuckDB rewrite adds the constant `"Source.Name"` VARCHAR
+column, and `{name: "Source.Name", dtype: "string", hidden?: true}` is appended to `cols` — so it
+flows into `columns_json` and, for append/merge, into the `incoming_cols` schema reconciliation. The
+parquet-visibility `PATCH /datasets/{id}/columns` still never touches the parquet — the
+presentation-vs-compute doctrine holds (provenance is a compute-time *write*, the visibility toggle is
+not).
+
+### Backfill for pre-R156 datasets
+
+A dataset committed before R156 has no `Source.Name`. On its next refresh:
+
+- **replace** → the whole table is the incoming file → every row gets the new filename (no backfill).
+- **append / merge** → the reconciliation currently NULL-fills a column absent on the committed side
+  ([merge.py](../../../../workspace/apps/backend/app/ingest/merge.py)). For the provenance column
+  specifically, fill kept committed rows with the **committed dataset's stored `originalName`** (from
+  its `source.json`) instead of NULL — a `provenance_backfill` special-case in `append_parquets` /
+  `merge_parquets`. No null-provenance rows result. Backfill runs **once** (the transition commit);
+  thereafter `Source.Name` is an ordinary committed column carried through unchanged.
+
+### Collision
+
+If a kept source column is already named `Source.Name`, the **user's column wins**: skip injection
+(logged), never clobber user data. (Rare; the Excel persona recognizes the name from Power Query.)
+
+### Boundaries (named, R156)
+
+- **Filename only** — not sheet name, not a custom per-append label, not a timestamp (chosen at D; FM
+  filenames encode the month, so the filename is directly useful). A richer label is a future pull.
+- **No un-append / undo-by-provenance** — provenance makes an append *attributable* and *visible*, but
+  R155's forward-only boundary is unchanged; deleting rows by `Source.Name` is not this round.
+- **Reserved identifier, not localized** — `Source.Name` is a stable data identifier (Power Query
+  parity), not UI chrome; surrounding UI copy is localized, the column name is not.
+- **Column count shifts +1, and provenance flows through the compute layer** — every dataset gains one
+  column. Because `hidden` is a **preview-only** hint (R152), `Source.Name` is a real column that
+  flows into query / join / workflow output: groupable in a single-dataset query (the goal — `GROUP BY
+  "Source.Name"`), and present in a join's resolved columns **once per source** (`<src>.Source.Name`,
+  qualified). This is **accepted** (human, 2026-07-08): provenance is a genuine column everywhere, the
+  hidden hint only declutters the dataset-detail preview. Existing tests asserting an exact
+  `column_count` / resolved-column list gain `Source.Name` (mechanical churn across ingest/joins/
+  queries/workflows).
+- **No new wire field expected** — automatic ⇒ no request change; `GET /datasets/{id}` returns
+  `Source.Name` in the existing `Column {name, dtype, hidden?}` shape (verify the contract-validity
+  test at C).
+
+### Acceptance (R156, maps to Check)
+
+1. **Initial upload** → the dataset carries a hidden `Source.Name` = the uploaded filename on every
+   row; the row-preview hides it by default; the Columns manager can unhide it.
+2. **Append two months** → FM4 then FM5 → each row's `Source.Name` = its own source file; `GROUP BY
+   "Source.Name"` in a query/widget splits the counts per file.
+3. **Groupable while hidden** — a widget/query groups/filters on `Source.Name` even though it is hidden
+   in the dataset-detail preview (R152 pickers-ignore-hidden).
+4. **Backfill** — appending onto a pre-R156 dataset backfills old rows with that dataset's original
+   filename (no NULLs); new rows get the incoming filename.
+5. **Unhide survives refresh** — unhiding `Source.Name`, then refreshing, leaves it visible (not
+   re-hidden by the new-column default).
+6. **Collision** — a source file already containing a `Source.Name` column commits with the user's
+   column intact (no injection, no clobber).
+7. **No contract regression** — no new request field; the contract-validity test stays green with
+   `Source.Name` returned in the existing `Column` shape.
 
 ---
 

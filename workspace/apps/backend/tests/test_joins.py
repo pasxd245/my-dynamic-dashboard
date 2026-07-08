@@ -130,8 +130,8 @@ def test_create_and_run_joined_query() -> None:
     body = resp.json()
     # id ↔ id inner join over identical 3-row tables → 3 matched rows.
     assert body["total"] == 3
-    # Effective space = deals(4) ++ accounts(4) = 8 cells per row.
-    assert all(len(r) == 8 for r in body["rows"])
+    # Effective space = deals(4+Source.Name) ++ accounts(4+Source.Name) = 10 cells per row.
+    assert all(len(r) == 10 for r in body["rows"])
     validate_response("queries/rows-get.contract.yaml", 200, body)
 
 
@@ -153,10 +153,12 @@ def test_get_joined_query_exposes_collision_qualified_resolved_columns() -> None
         "deals.name",
         "deals.amount",
         "deals.signed_up",
+        "deals.Source.Name",
         "accounts.id",
         "accounts.name",
         "accounts.amount",
         "accounts.signed_up",
+        "accounts.Source.Name",
     ]
     validate_response("queries/detail-get.contract.yaml", 200, body)
 
@@ -276,7 +278,7 @@ def test_preview_joined_definition_runs_unsaved_with_resolved_columns() -> None:
     assert resp.status_code == 200, resp.text
     body = resp.json()
     assert body["total"] == 3
-    assert all(len(r) == 8 for r in body["rows"])
+    assert all(len(r) == 10 for r in body["rows"])
     assert [c["name"] for c in body["resolvedColumns"]][:1] == ["deals.id"]
     assert listed == []  # stateless — no persistence
     validate_response("queries/preview.contract.yaml", 200, body)
@@ -432,7 +434,7 @@ def _chain_def(rels: list[dict], *, filters=None, q=None) -> dict:
 @pytest.mark.unit
 def test_create_and_run_chain() -> None:
     # Deals ⋈ Accounts ⋈ Owners on id over three identical 3-row tables → 3 rows,
-    # 4+4+4 = 12 effective cells per row.
+    # (4+Source.Name)*3 = 15 effective cells per row.
     with TestClient(app) as client:
         ws, deals, accounts, owners = _seed3(client)
         rel1 = _declare_id_join(client, ws, deals, accounts)
@@ -449,7 +451,7 @@ def test_create_and_run_chain() -> None:
     assert resp.status_code == 200, resp.text
     body = resp.json()
     assert body["total"] == 3
-    assert all(len(r) == 12 for r in body["rows"])
+    assert all(len(r) == 15 for r in body["rows"])
     validate_response("queries/rows-get.contract.yaml", 200, body)
 
 
@@ -468,9 +470,9 @@ def test_chain_resolved_columns_qualified_across_all_sources() -> None:
     names = [c["name"] for c in body["resolvedColumns"]]
     # `id`/`name`/`amount`/`signed_up` each appear in all three sources → all qualified.
     assert names == [
-        "deals.id", "deals.name", "deals.amount", "deals.signed_up",
-        "accounts.id", "accounts.name", "accounts.amount", "accounts.signed_up",
-        "owners.id", "owners.name", "owners.amount", "owners.signed_up",
+        "deals.id", "deals.name", "deals.amount", "deals.signed_up", "deals.Source.Name",
+        "accounts.id", "accounts.name", "accounts.amount", "accounts.signed_up", "accounts.Source.Name",
+        "owners.id", "owners.name", "owners.amount", "owners.signed_up", "owners.Source.Name",
     ]
     validate_response("queries/detail-get.contract.yaml", 200, body)
 
@@ -480,7 +482,7 @@ def test_star_executes_a_non_tail_branch() -> None:
     # R74: a 2nd hop that branches from the SOURCE (deals→owners) while the tail is
     # accounts — a STAR (deals joined to both accounts and owners), not a path. R73
     # rejected this as nonlinear_chain; R74 runs it: the engine joins T2 (owners)
-    # against T0 (deals, the hop's own left), not T1. 4+4+4 = 12 effective cells.
+    # against T0 (deals, the hop's own left), not T1. (4+Source.Name)*3 = 15 effective cells.
     with TestClient(app) as client:
         ws, deals, accounts, owners = _seed3(client)
         rel1 = _declare_id_join(client, ws, deals, accounts)
@@ -496,7 +498,7 @@ def test_star_executes_a_non_tail_branch() -> None:
     assert resp.status_code == 200, resp.text
     body = resp.json()
     assert body["total"] == 3
-    assert all(len(r) == 12 for r in body["rows"])
+    assert all(len(r) == 15 for r in body["rows"])
     validate_response("queries/rows-get.contract.yaml", 200, body)
 
 
@@ -541,8 +543,8 @@ def test_preview_chain_is_stateless() -> None:
     assert resp.status_code == 200, resp.text
     body = resp.json()
     assert body["total"] == 3
-    assert all(len(r) == 12 for r in body["rows"])
-    assert len(body["resolvedColumns"]) == 12
+    assert all(len(r) == 15 for r in body["rows"])
+    assert len(body["resolvedColumns"]) == 15
     assert listed == []  # stateless — no persistence
     validate_response("queries/preview.contract.yaml", 200, body)
 
@@ -563,9 +565,9 @@ def test_put_grows_a_single_join_into_a_chain() -> None:
         rerun = client.get(f"/queries/{qid}/rows").json()
 
     assert put.status_code == 200, put.text
-    assert len(body["resolvedColumns"]) == 12
+    assert len(body["resolvedColumns"]) == 15
     validate_response("queries/put.contract.yaml", 200, body)
-    assert all(len(r) == 12 for r in rerun["rows"])
+    assert all(len(r) == 15 for r in rerun["rows"])
 
 
 @pytest.mark.unit
@@ -589,12 +591,12 @@ def test_put_grows_a_chain_into_a_star() -> None:
         rerun = client.get(f"/queries/{qid}/rows").json()
 
     assert preview.status_code == 200, preview.text
-    assert len(preview.json()["resolvedColumns"]) == 12
+    assert len(preview.json()["resolvedColumns"]) == 15
     assert put.status_code == 200, put.text
-    assert len(body["resolvedColumns"]) == 12
+    assert len(body["resolvedColumns"]) == 15
     validate_response("queries/put.contract.yaml", 200, body)
     assert rerun["total"] == 3
-    assert all(len(r) == 12 for r in rerun["rows"])
+    assert all(len(r) == 15 for r in rerun["rows"])
 
 
 @pytest.mark.unit
@@ -629,10 +631,10 @@ def test_outer_joins_keep_unmatched_rows() -> None:
     assert left["total"] == 3
     assert right["total"] == 3
     assert full["total"] == 6
-    # Left join: every row keeps its 4 deals cells; the 4 accounts cells are NULL
-    # (no match), and the RowsPage shape (8 cells) is unchanged.
-    assert all(len(r) == 8 for r in left["rows"])
-    assert all(all(c is None for c in r[4:]) for r in left["rows"])
+    # Left join: every row keeps its 5 deals cells (4 + deals.Source.Name); the 5
+    # accounts cells are NULL (no match), and the RowsPage shape (10 cells) holds.
+    assert all(len(r) == 10 for r in left["rows"])
+    assert all(all(c is None for c in r[5:]) for r in left["rows"])
     validate_response("queries/rows-get.contract.yaml", 200, left)
 
 

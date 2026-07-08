@@ -193,7 +193,7 @@ def test_merge_result_schema_is_incoming_d5() -> None:
         assert body["merge"] == {"updated": 1, "inserted": 0, "kept": 2}
 
         detail = client.get(f"/datasets/{ds['id']}").json()
-        assert [c["name"] for c in detail["columns"]] == ["phone", "status", "source"]
+        assert [c["name"] for c in detail["columns"]] == ["phone", "status", "source", "Source.Name"]
         rows, idx = _rows_by_phone(client, ds["id"])
         assert rows["200"][idx["source"]] == "web"
         assert rows["100"][idx["source"]] is None  # kept row NULL-fills the added column

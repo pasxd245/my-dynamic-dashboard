@@ -49,7 +49,7 @@ def test_single_dataset_source_resolves_to_a_single_plan() -> None:
     assert plan["kind"] == "single"
     assert plan["ds"]["id"] == ds_id
     # ``columns`` is the validation/effective space the callers read uniformly.
-    assert [c["name"] for c in plan["columns"]] == _COLUMNS
+    assert [c["name"] for c in plan["columns"]] == _COLUMNS + ["Source.Name"]
 
 
 @pytest.mark.unit
@@ -99,7 +99,7 @@ def test_composed_query_source_routes_to_the_join_branch() -> None:
     assert reason is None
     assert plan["kind"] == "join"
     assert plan["payload"]["effective"] is plan["columns"]
-    assert [c["name"] for c in plan["columns"]] == _COLUMNS
+    assert [c["name"] for c in plan["columns"]] == _COLUMNS + ["Source.Name"]
 
 
 @pytest.mark.unit

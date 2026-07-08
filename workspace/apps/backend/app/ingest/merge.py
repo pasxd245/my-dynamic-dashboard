@@ -58,6 +58,34 @@ def _q_path(p: Path) -> str:
     return "'" + str(p).replace("'", "''") + "'"
 
 
+def _q_lit(s: str) -> str:
+    """DuckDB string-literal quoting for a VALUE (vs `_q_path` for a path)."""
+    return "'" + s.replace("'", "''") + "'"
+
+
+def _cur_select_sql(
+    incoming_cols: list[dict[str, str]],
+    cur_names: set[str],
+    provenance_backfill: tuple[str, str] | None,
+) -> str:
+    """The committed-side (`cur`) projection reconciling kept rows to the incoming
+    schema (D5 incoming-wins): CAST an existing committed column into the incoming
+    dtype; NULL-fill a column the committed side lacks. R156 exception — the
+    provenance column, when absent from committed (a pre-R156 dataset's first
+    provenance-bearing refresh), is BACKFILLED with the committed dataset's own
+    source filename literal instead of NULL, so no kept row is left origin-null."""
+    parts: list[str] = []
+    for c in incoming_cols:
+        name = c["name"]
+        if name in cur_names:
+            parts.append(f"CAST(cur.{_q(name)} AS {_DTYPE_TO_DUCK[c['dtype']]}) AS {_q(name)}")
+        elif provenance_backfill is not None and name == provenance_backfill[0]:
+            parts.append(f"CAST({_q_lit(provenance_backfill[1])} AS VARCHAR) AS {_q(name)}")
+        else:
+            parts.append(f"CAST(NULL AS {_DTYPE_TO_DUCK[c['dtype']]}) AS {_q(name)}")
+    return ", ".join(parts)
+
+
 def merge_parquets(
     committed: Path,
     incoming: Path,
@@ -65,6 +93,7 @@ def merge_parquets(
     *,
     key: list[str],
     incoming_cols: list[dict[str, str]],
+    provenance_backfill: tuple[str, str] | None = None,
 ) -> dict[str, int]:
     """Write keep-latest-per-key(committed, incoming) to ``merged_out``.
 
@@ -72,7 +101,9 @@ def merge_parquets(
     incoming rows whose key superseded committed row(s), inserted = incoming
     rows with a new key, kept = committed rows untouched by the incoming
     file; their sum is the merged row count. Raises MergeDuplicateKeysError
-    (before any write) and MergeCastError.
+    (before any write) and MergeCastError. ``provenance_backfill`` (R156) =
+    ``(column, value)`` filling that column for kept committed rows when it is
+    absent from the committed schema (see ``_cur_select_sql``).
     """
     with duckdb.connect(":memory:") as con:
         # Paths come from dataset_dir()/temp staging (id-pattern segments);
@@ -98,12 +129,7 @@ def merge_parquets(
         match = " AND ".join(f"inc.{_q(k)} IS NOT DISTINCT FROM cur.{_q(k)}" for k in key)
 
         inc_select = ", ".join(f"inc.{_q(c['name'])}" for c in incoming_cols)
-        cur_select = ", ".join(
-            f"CAST(cur.{_q(c['name'])} AS {_DTYPE_TO_DUCK[c['dtype']]}) AS {_q(c['name'])}"
-            if c["name"] in cur_names
-            else f"CAST(NULL AS {_DTYPE_TO_DUCK[c['dtype']]}) AS {_q(c['name'])}"
-            for c in incoming_cols
-        )
+        cur_select = _cur_select_sql(incoming_cols, cur_names, provenance_backfill)
 
         updated = con.execute(
             f"SELECT count(*) FROM inc WHERE EXISTS (SELECT 1 FROM cur WHERE {match})"  # noqa: S608
@@ -132,6 +158,7 @@ def append_parquets(
     appended_out: Path,
     *,
     incoming_cols: list[dict[str, str]],
+    provenance_backfill: tuple[str, str] | None = None,
 ) -> dict[str, int]:
     """R155 — keyless UNION ALL(committed, incoming) into ``appended_out``.
 
@@ -151,12 +178,7 @@ def append_parquets(
 
         cur_names = {name for (name, *_rest) in con.execute("DESCRIBE cur").fetchall()}
         inc_select = ", ".join(f"inc.{_q(c['name'])}" for c in incoming_cols)
-        cur_select = ", ".join(
-            f"CAST(cur.{_q(c['name'])} AS {_DTYPE_TO_DUCK[c['dtype']]}) AS {_q(c['name'])}"
-            if c["name"] in cur_names
-            else f"CAST(NULL AS {_DTYPE_TO_DUCK[c['dtype']]}) AS {_q(c['name'])}"
-            for c in incoming_cols
-        )
+        cur_select = _cur_select_sql(incoming_cols, cur_names, provenance_backfill)
 
         incoming_total = con.execute("SELECT count(*) FROM inc").fetchone()[0]
         committed_total = con.execute("SELECT count(*) FROM cur").fetchone()[0]

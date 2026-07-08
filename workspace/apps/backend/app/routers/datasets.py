@@ -33,6 +33,7 @@ from app.ingest.csv_parser import CsvParseError, parse_csv
 from app.ingest.excel_parser import ExcelParseError, parse_sheet
 from app.ingest.filters import parse_advanced_from_query, parse_filters_from_query
 from app.ingest.parquet_writer import (
+    PROVENANCE_COLUMN,
     CoercionError,
     FormatUnsupportedError,
     translate_format,
@@ -232,6 +233,25 @@ def _carry_forward_hidden(
             c["hidden"] = True
 
 
+def _inject_provenance_col(cols: list[dict[str, str]], *, is_new: bool) -> bool:
+    """R156 — append the reserved provenance column (`Source.Name` = the source
+    filename) to ``cols`` (mutated in place). Returns True if injected — the
+    caller then materializes the matching constant column into the parquet with
+    ``add_provenance_column``. Returns False on a COLLISION (a source column
+    already claims the name): the user's column wins, nothing is injected.
+
+    ``is_new`` (the column is absent from the dataset's PRIOR ``columns_json``)
+    defaults it hidden; on a dataset that already carries it the hidden flag is
+    left to ``_carry_forward_hidden`` so a user's unhide is never re-overridden."""
+    if any(c["name"] == PROVENANCE_COLUMN for c in cols):
+        return False
+    col: dict[str, str] = {"name": PROVENANCE_COLUMN, "dtype": "string"}
+    if is_new:
+        col["hidden"] = True  # type: ignore[assignment]
+    cols.append(col)
+    return True
+
+
 def _parse_and_target(item: _BatchItem, source_format: str, original_path: Path):  # type: ignore[no-untyped-def]
     """Parse one item's source, apply overrides + exclusions, and derive the
     parquet writer's coercion targets. Shared by the create and refresh paths
@@ -287,9 +307,13 @@ def _write_parquet(  # type: ignore[no-untyped-def]
     dtype_targets: dict[str, str],
     dtype_formats: dict[str, str],
     sheet: str | None,
+    provenance_value: str | None = None,
 ) -> None:
     """Write the full coerced table to parquet. Raises CoercionError on an
-    uncastable cell (→ typed 422 by the callers). Shared by create + refresh."""
+    uncastable cell (→ typed 422 by the callers). Shared by create + refresh.
+    R156 — ``provenance_value`` (the source filename) is injected into this write
+    as the reserved provenance column, skipped when a source column claims the
+    name; None = no provenance (a name collision)."""
     if source_format == "csv":
         write_csv_to_parquet(
             original_path,
@@ -299,6 +323,7 @@ def _write_parquet(  # type: ignore[no-untyped-def]
             kept_columns=kept_names,
             dtype_targets=dtype_targets or None,
             dtype_formats=dtype_formats or None,
+            provenance_value=provenance_value,
         )
     else:
         write_excel_to_parquet(
@@ -310,6 +335,7 @@ def _write_parquet(  # type: ignore[no-untyped-def]
             kept_columns=kept_names,
             dtype_targets=dtype_targets or None,
             dtype_formats=dtype_formats or None,
+            provenance_value=provenance_value,
         )
 
 
@@ -392,13 +418,20 @@ def _merge_key_guards(
 
 
 def _run_merge(
-    staging_dir: Path, ds_dir: Path, merge_key: list[str], cols: list[dict[str, str]], target_id: str
+    staging_dir: Path,
+    ds_dir: Path,
+    merge_key: list[str],
+    cols: list[dict[str, str]],
+    target_id: str,
+    provenance_backfill: tuple[str, str] | None = None,
 ) -> dict[str, int] | JSONResponse:
     """R147 — run keep-latest-per-key against the STAGED incoming parquet and
     swap the merged result into staging. Any failure discards staging and the
     dataset is untouched: duplicate incoming keys → the typed
     `merge_duplicate_keys` 422 (D2 — loud stop); an uncastable kept committed
-    value → 422 detail (loud, never a silent TRY_CAST NULL)."""
+    value → 422 detail (loud, never a silent TRY_CAST NULL). ``provenance_backfill``
+    (R156) fills the provenance column for kept rows when the committed table
+    predates it."""
     staged_parquet = staging_dir / "parsed.parquet"
     merged_target = staging_dir / "merged.parquet"
     try:
@@ -408,6 +441,7 @@ def _run_merge(
             merged_target,
             key=merge_key,
             incoming_cols=cols,
+            provenance_backfill=provenance_backfill,
         )
     except MergeDuplicateKeysError as err:
         shutil.rmtree(staging_dir, ignore_errors=True)
@@ -438,13 +472,19 @@ def _run_merge(
 
 
 def _run_append(
-    staging_dir: Path, ds_dir: Path, cols: list[dict[str, str]], target_id: str
+    staging_dir: Path,
+    ds_dir: Path,
+    cols: list[dict[str, str]],
+    target_id: str,
+    provenance_backfill: tuple[str, str] | None = None,
 ) -> dict[str, int] | JSONResponse:
     """R155 — keyless UNION ALL against the STAGED incoming parquet, swapping the
     appended result into staging. No key, no dup-guard (append keeps all rows by
     design). The only failure is a kept committed value that can't cast into the
     incoming schema → 422 detail (loud, dataset untouched — the staging discard
-    keeps the R145 intact-on-failure invariant)."""
+    keeps the R145 intact-on-failure invariant). ``provenance_backfill`` (R156)
+    fills the provenance column for kept rows when the committed table predates
+    it."""
     staged_parquet = staging_dir / "parsed.parquet"
     appended_target = staging_dir / "appended.parquet"
     try:
@@ -453,6 +493,7 @@ def _run_append(
             staged_parquet,
             appended_target,
             incoming_cols=cols,
+            provenance_backfill=provenance_backfill,
         )
     except MergeCastError as err:
         shutil.rmtree(staging_dir, ignore_errors=True)
@@ -508,6 +549,20 @@ def _handle_refresh(
     )
     sheet_name = item.sheet if source_format == "excel" else None
 
+    # R156 — inject the provenance column into the refreshed schema. `is_new`
+    # (absent from the dataset's prior columns_json) defaults it hidden; else
+    # _carry_forward_hidden (below) preserves the user's show/hide choice.
+    prev_names = {c["name"] for c in json.loads(row["columns_json"])}
+    prov_injected = _inject_provenance_col(cols, is_new=PROVENANCE_COLUMN not in prev_names)
+    # Backfill: a pre-R156 dataset gains provenance on this refresh; fill its
+    # kept committed rows with the dataset's OWN source filename (source.json)
+    # rather than NULL. Only for append/merge (replace keeps no committed rows).
+    prov_backfill: tuple[str, str] | None = None
+    if prov_injected and PROVENANCE_COLUMN not in prev_names:
+        committed_name = (_load_source_json(ws_id, target_id) or {}).get("originalName")
+        if committed_name:
+            prov_backfill = (PROVENANCE_COLUMN, committed_name)
+
     # R155 — the effective refresh mode. Explicit `refresh_mode` wins; when
     # omitted it is inferred (merge iff merge_key, else replace) for back-compat.
     merge_key = list(dict.fromkeys(item.merge_key)) if item.merge_key else None
@@ -552,6 +607,7 @@ def _handle_refresh(
             dtype_targets=dtype_targets,
             dtype_formats=dtype_formats,
             sheet=sheet_name,
+            provenance_value=meta.get("originalName") or "",
         )
     except CoercionError as err:
         shutil.rmtree(staging_dir, ignore_errors=True)
@@ -574,19 +630,21 @@ def _handle_refresh(
                 totalFailed=err.total_failed,
             ).model_dump(exclude_none=True),
         )
+    # R156 — provenance was injected into the staged write above (skipped on a
+    # source-column name collision), so append/merge see it as an incoming column.
     # R147 — MERGE: reconcile the staged incoming table with the committed
     # parquet (keep-latest-per-key), still before any swap. A dup-key or
     # cast failure discards staging; the dataset is untouched.
     merge_stats: dict[str, int] | None = None
     append_stats: dict[str, int] | None = None
     if mode == "merge":
-        merge_result = _run_merge(staging_dir, ds_dir, merge_key, cols, target_id)
+        merge_result = _run_merge(staging_dir, ds_dir, merge_key, cols, target_id, prov_backfill)
         if isinstance(merge_result, JSONResponse):
             return merge_result
         merge_stats = merge_result
     elif mode == "append":
         # R155 — keyless UNION ALL against the staged incoming, before any swap.
-        append_stats = _run_append(staging_dir, ds_dir, cols, target_id)
+        append_stats = _run_append(staging_dir, ds_dir, cols, target_id, prov_backfill)
 
     shutil.copy2(original_path, staging_dir / f"original{meta['ext']}")
     commit_settings = _commit_settings_dict(item, sheet_name)
@@ -733,6 +791,10 @@ def commit_datasets_batch(id: str, body: _BatchRequest) -> list[Dataset] | JSONR
         parsed, cols, opts, kept_names, dtype_targets, dtype_formats = _parse_and_target(
             item, source_format, original_path
         )
+        # R156 — every dataset carries the provenance column; on a create it is
+        # always new → hidden by default. Materialized into the parquet below
+        # (gated on the same collision check via `kept_names`).
+        _inject_provenance_col(cols, is_new=True)
         ds = Dataset(
             id=_new_ds_id(),
             workspaceId=id,
@@ -768,6 +830,7 @@ def commit_datasets_batch(id: str, body: _BatchRequest) -> list[Dataset] | JSONR
                     dtype_targets=dtype_targets,
                     dtype_formats=dtype_formats,
                     sheet=ds.sheetName,
+                    provenance_value=meta.get("originalName") or "",
                 )
             except CoercionError as err:
                 # R143 — typed 422 instead of the pre-R143 ArrowInvalid 500.

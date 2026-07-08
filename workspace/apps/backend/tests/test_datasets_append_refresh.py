@@ -104,7 +104,7 @@ def test_append_result_schema_is_incoming_d5() -> None:
         assert resp.json()["append"] == {"appended": 1, "total": 3}
 
         detail = client.get(f"/datasets/{ds['id']}").json()
-        assert [c["name"] for c in detail["columns"]] == ["region", "source"]
+        assert [c["name"] for c in detail["columns"]] == ["region", "source", "Source.Name"]
         rows = _rows(client, ds["id"])
         by_region = {r[0]: r[1] for r in rows}
         assert by_region["East"] == "web"  # incoming row
