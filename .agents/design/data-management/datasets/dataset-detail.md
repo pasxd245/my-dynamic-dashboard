@@ -57,6 +57,10 @@ navigates here.
 | `datasetsApi.get(id)` + `datasetsApi.getRows(id, page, pageSize, q?)` | `apps/builder/src/api/`                                       | builder-only | glue               | (fetch — no extra peer dep)                                         |
 | `GET /datasets/{id}` backend route                                    | `apps/backend/`                                               | backend      | feature            | (FastAPI — backend native)                                          |
 | `GET /datasets/{id}/rows` backend route                               | `apps/backend/`                                               | backend      | feature            | (FastAPI — backend native; DuckDB `read_parquet` for the paged read) |
+| `PropertiesDrawer` (right-side properties `Drawer`: Dataset + Columns sections; file-private `SectionHeader` helper) | `apps/builder/src/features/data-management/datasets`          | feature      | feature            | react, antd, react-i18next                                          |
+| `useSetColumnVisibilityMutation` hook                                 | `apps/builder/src/features/data-management/datasets`          | feature      | glue (server-data) | @tanstack/react-query                                               |
+| `datasetsApi.setColumnVisibility(id, hidden[])`                       | `apps/builder/src/api/`                                       | builder-only | glue               | (fetch — no extra peer dep)                                         |
+| `PATCH /datasets/{id}/columns` backend route                          | `apps/backend/`                                               | backend      | feature            | (FastAPI — backend native)                                          |
 | `DatasetDetail` + `RowsPage` types (FE)                               | `apps/builder/src/features/data-management/datasets/types.ts` | feature      | data type          | none                                                                |
 
 **Boundary check**: the metadata strip stays feature-local (inline in
@@ -543,7 +547,8 @@ filter / query pickers themselves still enumerate **all** columns.
 ### Properties panel (R153)
 
 A **right-side Drawer** — a **multi-section properties container** for everything-about-this-dataset,
-designed to grow one labelled section at a time (shared `SectionHeader`). Sections:
+designed to grow one labelled section at a time (via a file-private `SectionHeader` helper in
+`PropertiesDrawer.tsx`). Sections:
 
 | Section | Content | Source | Status |
 | --- | --- | --- | --- |
@@ -765,7 +770,7 @@ export type RowsPage = {
   dataset delete (covered by the list-cache invalidation in
   `useDeleteDatasetMutation`); no separate invalidation needed on
   rename (rows don't change).
-- **Column visibility mutation (R152)** — `useSetColumnVisibility`
+- **Column visibility mutation (R152)** — `useSetColumnVisibilityMutation`
   invalidates `['datasets', { id }]` so the detail GET (and its
   `columns[].hidden`) re-fetches. Rows are **not** invalidated: the
   parquet is untouched, only which columns the preview renders.
@@ -852,7 +857,7 @@ paths:
 **In scope (R152, building)** — column visibility (F7):
 
 - `PATCH /datasets/{id}/columns` BE route — writes `columns_json` only.
-- `datasetsApi.setColumnVisibility(id, hidden[])` + `useSetColumnVisibility`.
+- `datasetsApi.setColumnVisibility(id, hidden[])` + `useSetColumnVisibilityMutation`.
 - `<PagedRowsView>` default-hides `hidden` columns (via `showHiddenColumns`), with the
   Properties panel's "show all" escape.
 - The Properties panel (right-side `Drawer` — schema view + visibility editor), opened from

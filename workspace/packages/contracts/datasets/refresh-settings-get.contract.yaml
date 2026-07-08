@@ -81,11 +81,19 @@ paths:
                       R147 — the identity key the last MERGE refresh declared
                       (D1: remembered per dataset). Pre-fills the key picker;
                       absent if the dataset has never merge-refreshed.
+                  overlap_check_field:
+                    type: string
+                    minLength: 1
+                    description: |
+                      R155 — the date/datetime column the last APPEND refresh's
+                      double-count check used (remembered per dataset; pre-fills
+                      the picker). Absent if the dataset has never append-refreshed
+                      or the user chose "None".
                   refresh_mode:
                     type: string
-                    enum: [replace, merge]
+                    enum: [replace, merge, append]
                     description: |
-                      R147 — the semantics the last refresh used (D4: the
+                      R147/R155 — the semantics the last refresh used (D4: the
                       per-refresh choice defaults to last-used). Absent on
                       datasets whose last commit was a create or pre-R147
                       refresh (the wizard then defaults to replace).

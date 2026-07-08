@@ -123,6 +123,10 @@ export type WizardState = {
   /** Refresh only — the declared identity-key columns for a merge (R147 D1;
    *  pre-filled from the remembered `merge_key` when available). */
   mergeKey: string[];
+  /** Refresh only (R155 append) — the date/datetime column the double-count
+   *  overlap check runs on; null = "None" (the always-warn state). FE state
+   *  only in F1; the wire field + the backend range compare land at C. */
+  overlapCheckField: string | null;
 };
 
 export const INITIAL_WIZARD_STATE: WizardState = {
@@ -146,6 +150,7 @@ export const INITIAL_WIZARD_STATE: WizardState = {
   refreshLegacy: false,
   refreshMode: "replace",
   mergeKey: [],
+  overlapCheckField: null,
 };
 
 function stemFromName(filename: string): string {
@@ -215,6 +220,7 @@ export type WizardAction =
   | { type: "SEED_REFRESH"; target: Dataset; settings?: RefreshSettings | null }
   | { type: "SET_REFRESH_MODE"; mode: RefreshMode }
   | { type: "SET_MERGE_KEY"; key: string[] }
+  | { type: "SET_OVERLAP_FIELD"; field: string | null }
   | { type: "SET_DRIFT_ACK"; acknowledged: boolean }
   | { type: "GOTO_STEP"; step: WizardStep }
   | { type: "RESET" };
@@ -379,8 +385,11 @@ function reduceSeedRefresh(target: Dataset, settings: RefreshSettings | null | u
   // falls back to replace rather than seeding an un-committable state.
   const committed = new Set(target.columns.map((c) => c.name));
   const mergeKey = (settings?.merge_key ?? []).filter((k) => committed.has(k));
-  const refreshMode: RefreshMode =
-    settings?.refresh_mode === "merge" && mergeKey.length > 0 ? "merge" : "replace";
+  // Merge needs a surviving key (else fall back to replace). Append (R155) is
+  // keyless, so a remembered append carries forward as-is.
+  let refreshMode: RefreshMode = "replace";
+  if (settings?.refresh_mode === "merge" && mergeKey.length > 0) refreshMode = "merge";
+  else if (settings?.refresh_mode === "append") refreshMode = "append";
   return {
     ...INITIAL_WIZARD_STATE,
     mode: "refresh",
@@ -589,6 +598,8 @@ export function wizardReducer(
       return { ...state, refreshMode: action.mode };
     case "SET_MERGE_KEY":
       return { ...state, mergeKey: action.key };
+    case "SET_OVERLAP_FIELD":
+      return { ...state, overlapCheckField: action.field };
     case "SET_DRIFT_ACK":
       return { ...state, driftAcknowledged: action.acknowledged };
     case "GOTO_STEP":
@@ -682,6 +693,19 @@ export function computeSchemaDrift(
 /** True when any drift kind is present (gates the Drift-review acknowledge). */
 export function hasSchemaDrift(d: SchemaDrift): boolean {
   return d.added.length > 0 || d.removed.length > 0 || d.dtypeChanged.length > 0;
+}
+
+/** R155 append — the incoming date/datetime columns eligible for the overlap
+ *  check (the picker's options; kept columns only, effective dtype =
+ *  override ?? parsed). Empty when the file has no temporal column → the picker
+ *  offers only "None" and the always-warn state stands. */
+export function dateFieldOptions(sheet: SheetState | undefined): { name: string; dtype: Dtype }[] {
+  if (sheet?.status !== "ok") return [];
+  const excluded = new Set(sheet.excludedColumns);
+  return sheet.columns
+    .filter((c) => !excluded.has(c.name))
+    .map((c) => ({ name: c.name, dtype: sheet.columnOverrides[c.name]?.dtype ?? c.dtype }))
+    .filter((c) => c.dtype === "date" || c.dtype === "datetime");
 }
 
 export type MergeKeyIssue =

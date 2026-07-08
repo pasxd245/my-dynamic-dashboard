@@ -318,7 +318,7 @@ creating a sibling. The real CRM cadence: month-2's export updates `monthly_call
 
 ## Column visibility (R152)
 
-> **Status: PROPOSED — R152 D-gate (pending human sign-off).** F7 from the
+> **Status: SHIPPED (R152).** F7 from the
 > [R142 dogfood ranking](../../../plan/brainstorms/2026-07-03-r142-dogfood-findings.md).
 > The editing surface (the "Columns" manager) + the row-preview default are specified in
 > [dataset-detail.md § Column visibility](dataset-detail.md#column-visibility-r152); this
@@ -365,7 +365,7 @@ sets the **full visibility set** in one atomic, idempotent, order-independent ca
   - `422 unknown_column` — a name in `hidden` is not a column of this dataset.
   - `422 no_visible_columns` — the set would hide **every** column (at-least-one-visible
     guard; an empty preview is not a valid state).
-- **FE**: a `useSetColumnVisibility` (or equivalent) mutation invalidating `['datasets', {id}]`.
+- **FE**: the `useSetColumnVisibilityMutation` hook invalidating `['datasets', {id}]`.
 
 ### Refresh interaction — `hidden` survives, mismatched columns drop
 

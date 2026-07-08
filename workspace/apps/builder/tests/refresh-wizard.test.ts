@@ -3,6 +3,7 @@ import type { Dataset } from "@/features/data-management/datasets/types";
 import {
   computeSchemaDrift,
   CSV_SHEET_KEY,
+  dateFieldOptions,
   hasSchemaDrift,
   INITIAL_WIZARD_STATE,
   mergeKeyIssues,
@@ -321,6 +322,76 @@ describe("mergeKeyIssues (R147 F5×F2 client guard)", () => {
 
   it("returns no issues while the sheet is not parsed yet (guard runs at Confirm)", () => {
     expect(mergeKeyIssues(baseline, undefined, ["a"])).toEqual([]);
+  });
+});
+
+describe("refresh append mode (R155)", () => {
+  it("SET_REFRESH_MODE 'append' + SET_OVERLAP_FIELD update the choice; None clears the field", () => {
+    let s = wizardReducer(INITIAL_WIZARD_STATE, { type: "SEED_REFRESH", target: excelTarget });
+    s = wizardReducer(s, { type: "SET_REFRESH_MODE", mode: "append" });
+    s = wizardReducer(s, { type: "SET_OVERLAP_FIELD", field: "c" });
+    expect(s.refreshMode).toBe("append");
+    expect(s.overlapCheckField).toBe("c");
+    s = wizardReducer(s, { type: "SET_OVERLAP_FIELD", field: null });
+    expect(s.overlapCheckField).toBeNull();
+  });
+
+  it("SEED_REFRESH carries a remembered append mode forward (keyless — no key required)", () => {
+    const s = wizardReducer(INITIAL_WIZARD_STATE, {
+      type: "SEED_REFRESH",
+      target: excelTarget,
+      settings: { available: true, sheet: "Worksheet", refresh_mode: "append" },
+    });
+    expect(s.refreshMode).toBe("append");
+    expect(s.mergeKey).toEqual([]);
+    expect(s.overlapCheckField).toBeNull();
+  });
+
+  it("dateFieldOptions returns only kept date/datetime columns", () => {
+    const sheet = {
+      status: "ok" as const,
+      columns: [
+        { name: "name", dtype: "string" as const },
+        { name: "calls", dtype: "integer" as const },
+        { name: "callDate", dtype: "datetime" as const },
+        { name: "day", dtype: "date" as const },
+        { name: "excludedDate", dtype: "date" as const },
+      ],
+      rowCount: 1,
+      sampleRows: [],
+      columnOverrides: {},
+      excludedColumns: ["excludedDate"],
+      parseOptions: {},
+      name: "x",
+      sheetName: "",
+    };
+    expect(dateFieldOptions(sheet)).toEqual([
+      { name: "callDate", dtype: "datetime" },
+      { name: "day", dtype: "date" },
+    ]);
+  });
+
+  it("dateFieldOptions honors the effective (override ?? parsed) dtype", () => {
+    const sheet = {
+      status: "ok" as const,
+      columns: [
+        { name: "ts", dtype: "string" as const },
+        { name: "n", dtype: "date" as const },
+      ],
+      rowCount: 1,
+      sampleRows: [],
+      columnOverrides: { ts: { dtype: "datetime" as const }, n: { dtype: "integer" as const } },
+      excludedColumns: [],
+      parseOptions: {},
+      name: "x",
+      sheetName: "",
+    };
+    // ts overridden string→datetime becomes eligible; n overridden date→integer drops out.
+    expect(dateFieldOptions(sheet)).toEqual([{ name: "ts", dtype: "datetime" }]);
+  });
+
+  it("dateFieldOptions returns [] while the sheet is not parsed yet", () => {
+    expect(dateFieldOptions(undefined)).toEqual([]);
   });
 });
 

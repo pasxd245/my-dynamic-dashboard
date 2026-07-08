@@ -1,6 +1,8 @@
 import { appConfig } from '../config';
 import { ApiErrorThrown, BatchApiErrorThrown, isApiError } from '@/features/data-management/_shared/types';
 import type {
+  AppendOverlapRequest,
+  AppendOverlapResult,
   CommitBatchRequest,
   CommitBatchResponse,
   Dataset,
@@ -97,6 +99,18 @@ export const datasetsApi = {
   async getRefreshSettings(id: string): Promise<RefreshSettings> {
     const resp = await fetch(`${API_BASE_URL}/datasets/${id}/refresh-settings`);
     return readJson<RefreshSettings>(resp);
+  },
+
+  /** R155: POST /datasets/{id}/append-overlap — the pre-commit double-count
+   *  advisory. Compares the staged upload's range on `field` against the
+   *  target dataset's committed range; the wizard warns (never blocks). */
+  async previewAppendOverlap(id: string, body: AppendOverlapRequest): Promise<AppendOverlapResult> {
+    const resp = await fetch(`${API_BASE_URL}/datasets/${id}/append-overlap`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    return readJson<AppendOverlapResult>(resp);
   },
 
   /** R36: GET /datasets/{id}/rows — paged rows with optional substring

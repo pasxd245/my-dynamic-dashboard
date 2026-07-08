@@ -514,7 +514,21 @@
       "confirmMergeTitle": "Thao tác này gộp tệp mới vào “{{name}}”",
       "confirmMergeBody": "Dòng trùng khóa ({{key}}) được cập nhật theo tệp mới; dòng chỉ có trong tập dữ liệu được giữ lại; khóa mới được thêm vào. Tập dữ liệu giữ nguyên tên và id, nên các truy vấn và dashboard dựa trên nó vẫn được kết nối.",
       "commitMergeLabel": "Gộp vào tập dữ liệu",
-      "mergeSuccess": "Đã gộp: {{updated}} cập nhật · {{inserted}} thêm mới · {{kept}} giữ nguyên."
+      "mergeSuccess": "Đã gộp: {{updated}} cập nhật · {{inserted}} thêm mới · {{kept}} giữ nguyên.",
+      "modeAppend": "Thêm dòng (nối thêm)",
+      "modeAppendHint": "Thêm tất cả dòng từ tệp mới và giữ nguyên mọi dòng đã có trong tập dữ liệu. Không loại bỏ dòng trùng.",
+      "commitAppendLabel": "Nối thêm vào tập dữ liệu",
+      "overlapFieldLabel": "Kiểm tra kỳ dữ liệu bị lặp theo ngày (tùy chọn)",
+      "overlapFieldPlaceholder": "Chọn một cột ngày để kiểm tra — hoặc để trống",
+      "overlapFieldNone": "Tệp này không có cột ngày để kiểm tra.",
+      "confirmAppendTitle": "Thao tác này thêm các dòng mới vào “{{name}}”",
+      "confirmAppendUncheckedBody": "Nối thêm giữ lại mọi dòng và không loại bỏ dòng trùng. Vì không có cột ngày để kiểm tra, chúng tôi không thể cảnh báo khi bạn thêm lại một kỳ đã có trong tập dữ liệu — nối thêm lần nữa sẽ nhân đôi các dòng đó.",
+      "appendSuccess": "Đã nối thêm {{appended}} dòng — tổng {{total}} dòng.",
+      "overlapChecking": "Đang kiểm tra “{{field}}” xem có ngày đã tồn tại trong tập dữ liệu…",
+      "overlapClean": "Không có ngày “{{field}}” bị trùng — đây là một kỳ mới. Nối thêm giữ lại mọi dòng.",
+      "overlapWarnTitle": "Các ngày này đã có trong tập dữ liệu",
+      "overlapWarnBody": "“{{field}}” của tệp mới trùng khoảng {{min}}–{{max}} mà “{{name}}” đã có. Nối thêm sẽ thêm lại các dòng đó (trùng lặp). Bạn vẫn có thể tiếp tục.",
+      "overlapCheckFailed": "Không kiểm tra được “{{field}}” — nối thêm vẫn thêm tất cả dòng."
     },
     "drift": {
       "noneTitle": "Không có thay đổi lược đồ",

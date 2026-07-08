@@ -514,7 +514,21 @@
       "confirmMergeTitle": "This merges the new file into “{{name}}”",
       "confirmMergeBody": "Rows sharing the key ({{key}}) are updated from the new file; rows only in the dataset are kept; new keys are added. The dataset keeps its name and id, so queries and dashboards built on it stay connected.",
       "commitMergeLabel": "Merge into dataset",
-      "mergeSuccess": "Merged: {{updated}} updated · {{inserted}} added · {{kept}} kept."
+      "mergeSuccess": "Merged: {{updated}} updated · {{inserted}} added · {{kept}} kept.",
+      "modeAppend": "Add rows (append)",
+      "modeAppendHint": "Adds all the new file’s rows and keeps everything already in the dataset. Does not remove duplicates.",
+      "commitAppendLabel": "Append to dataset",
+      "overlapFieldLabel": "Check for repeated periods by date (optional)",
+      "overlapFieldPlaceholder": "Pick a date column to check — or leave empty",
+      "overlapFieldNone": "This file has no date column to check.",
+      "confirmAppendTitle": "This adds the new rows to “{{name}}”",
+      "confirmAppendUncheckedBody": "Append keeps every row and doesn’t remove duplicates. With no date column to check, we can’t warn you about re-adding a period already in the dataset — appending it again will double those rows.",
+      "appendSuccess": "Appended {{appended}} rows — {{total}} total.",
+      "overlapChecking": "Checking “{{field}}” for dates already in the dataset…",
+      "overlapClean": "No overlapping “{{field}}” dates — this adds a new period. Append keeps all rows.",
+      "overlapWarnTitle": "These dates are already in the dataset",
+      "overlapWarnBody": "The new file’s “{{field}}” overlaps {{min}}–{{max}}, which “{{name}}” already covers. Appending will add those rows again (duplicates). You can still proceed.",
+      "overlapCheckFailed": "Couldn’t check “{{field}}” for overlaps — append will still add all rows."
     },
     "drift": {
       "noneTitle": "No schema drift",

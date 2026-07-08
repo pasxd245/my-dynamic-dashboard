@@ -669,8 +669,33 @@ export const handlers = [
   ),
   http.delete(api('/datasets/:id'), () => new HttpResponse(null, { status: 204 })),
   withContractValidation('post', api('/workspaces/:id/datasets/batch'), 'commitDatasetsBatch', async ({ request }) => {
-    const body = (await request.json()) as { items?: Array<{ name?: string }> };
+    const body = (await request.json()) as {
+      items?: Array<{
+        name?: string;
+        target_dataset_id?: string;
+        merge_key?: string[];
+        refresh_mode?: string;
+      }>;
+    };
     const items = body.items ?? [];
+    // R155 — a refresh item's mode drives the 201 shape (array | merge wrapper |
+    // append wrapper). `append` is explicit; `merge` is inferred from merge_key.
+    const first = items[0];
+    if (first?.target_dataset_id) {
+      const updated = { ...MOCK_DATASET, id: first.target_dataset_id };
+      if (first.refresh_mode === 'append') {
+        return HttpResponse.json(
+          { datasets: [updated], append: { appended: 100, total: 5147 } },
+          { status: 201 },
+        );
+      }
+      if (first.merge_key && first.merge_key.length > 0) {
+        return HttpResponse.json(
+          { datasets: [updated], merge: { updated: 40, inserted: 60, kept: 20 } },
+          { status: 201 },
+        );
+      }
+    }
     return HttpResponse.json(
       items.map((item, i) => ({
         ...MOCK_DATASET,
@@ -679,6 +704,24 @@ export const handlers = [
       })),
       { status: 201 },
     );
+  }),
+
+  // R155 — append-overlap advisory. Deterministic test affordance: a `field`
+  // whose name contains "overlap" returns the overlapping shape; otherwise a
+  // clean (disjoint) result. Both are contract-valid (see append-overlap-post).
+  withContractValidation('post', api('/datasets/:id/append-overlap'), 'previewAppendOverlap', async ({ request }) => {
+    const body = (await request.json()) as { field?: string };
+    const field = body.field ?? 'date';
+    const overlaps = field.toLowerCase().includes('overlap');
+    return HttpResponse.json({
+      field,
+      overlaps,
+      committedRange: { min: '2025-01-03', max: '2025-04-29' },
+      incomingRange: overlaps
+        ? { min: '2025-04-16', max: '2025-04-29' }
+        : { min: '2025-05-02', max: '2025-05-30' },
+      ...(overlaps ? { overlappingRange: { min: '2025-04-16', max: '2025-04-29' } } : {}),
+    });
   }),
 
   // Queries (R69 — Saved Query): create / list / get / run / delete.

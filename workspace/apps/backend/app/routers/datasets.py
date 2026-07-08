@@ -20,7 +20,7 @@ import secrets
 import shutil
 import sqlite3
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, HTTPException, Query, Request, status
 from fastapi import Path as FastApiPath
@@ -39,7 +39,13 @@ from app.ingest.parquet_writer import (
     write_csv_to_parquet,
     write_excel_to_parquet,
 )
-from app.ingest.merge import MergeCastError, MergeDuplicateKeysError, merge_parquets
+from app.ingest.merge import (
+    MergeCastError,
+    MergeDuplicateKeysError,
+    append_parquets,
+    column_min_max,
+    merge_parquets,
+)
 from app.ingest.rows_reader import query_dataset_rows
 from app.models.common import (
     ApiErrorCoercionFailed,
@@ -111,6 +117,12 @@ class _BatchItem(BaseModel):
     # R147 — merge refresh: names the target's committed identity-key
     # columns; requires target_dataset_id (422 on a create item).
     merge_key: Annotated[list[Annotated[str, Field(min_length=1)]], Field(min_length=1)] | None = None
+    # R155 — explicit refresh-semantics discriminator (refresh-only). Omitted →
+    # inferred (merge iff merge_key, else replace); `append` must be explicit.
+    refresh_mode: Literal["replace", "merge", "append"] | None = None
+    # R155 — the date/datetime column the append double-count check used;
+    # remembered for the next refresh (not acted on at commit).
+    overlap_check_field: Annotated[str, Field(min_length=1)] | None = None
 
 
 class _BatchRequest(BaseModel):
@@ -425,6 +437,34 @@ def _run_merge(
     return merge_stats
 
 
+def _run_append(
+    staging_dir: Path, ds_dir: Path, cols: list[dict[str, str]], target_id: str
+) -> dict[str, int] | JSONResponse:
+    """R155 — keyless UNION ALL against the STAGED incoming parquet, swapping the
+    appended result into staging. No key, no dup-guard (append keeps all rows by
+    design). The only failure is a kept committed value that can't cast into the
+    incoming schema → 422 detail (loud, dataset untouched — the staging discard
+    keeps the R145 intact-on-failure invariant)."""
+    staged_parquet = staging_dir / "parsed.parquet"
+    appended_target = staging_dir / "appended.parquet"
+    try:
+        append_stats = append_parquets(
+            ds_dir / "parsed.parquet",
+            staged_parquet,
+            appended_target,
+            incoming_cols=cols,
+        )
+    except MergeCastError as err:
+        shutil.rmtree(staging_dir, ignore_errors=True)
+        logger.warning("append_cast_failed (refresh): dataset=%r error=%s", target_id, err)
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"append failed casting existing rows to the incoming schema: {err}",
+        ) from err
+    appended_target.replace(staged_parquet)
+    return append_stats
+
+
 def _handle_refresh(
     body: _BatchRequest, meta: dict, original_path: Path, source_format: str
 ) -> list[Dataset] | JSONResponse:
@@ -468,10 +508,28 @@ def _handle_refresh(
     )
     sheet_name = item.sheet if source_format == "excel" else None
 
+    # R155 — the effective refresh mode. Explicit `refresh_mode` wins; when
+    # omitted it is inferred (merge iff merge_key, else replace) for back-compat.
+    merge_key = list(dict.fromkeys(item.merge_key)) if item.merge_key else None
+    mode = item.refresh_mode or ("merge" if merge_key is not None else "replace")
+    if mode == "append" and merge_key is not None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="append is keyless — do not send merge_key with refresh_mode=append",
+        )
+    if mode == "merge" and merge_key is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="merge requires merge_key",
+        )
+    if mode == "replace" and merge_key is not None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="replace does not take merge_key (omit it, or use refresh_mode=merge)",
+        )
     # R147 — merge guards run BEFORE any write (key must exist on both
     # sides with the committed dtype; the F5×F2 false-non-overlap stop).
-    merge_key = list(dict.fromkeys(item.merge_key)) if item.merge_key else None
-    if merge_key is not None:
+    if mode == "merge":
         committed_cols = {c["name"]: c["dtype"] for c in json.loads(row["columns_json"])}
         _merge_key_guards(merge_key, committed_cols, dtype_targets)
 
@@ -520,24 +578,32 @@ def _handle_refresh(
     # parquet (keep-latest-per-key), still before any swap. A dup-key or
     # cast failure discards staging; the dataset is untouched.
     merge_stats: dict[str, int] | None = None
-    if merge_key is not None:
+    append_stats: dict[str, int] | None = None
+    if mode == "merge":
         merge_result = _run_merge(staging_dir, ds_dir, merge_key, cols, target_id)
         if isinstance(merge_result, JSONResponse):
             return merge_result
         merge_stats = merge_result
+    elif mode == "append":
+        # R155 — keyless UNION ALL against the staged incoming, before any swap.
+        append_stats = _run_append(staging_dir, ds_dir, cols, target_id)
 
     shutil.copy2(original_path, staging_dir / f"original{meta['ext']}")
     commit_settings = _commit_settings_dict(item, sheet_name)
-    # R147 D1/D4 — remember the refresh semantics + declared key per dataset
-    # (the wizard's next-refresh defaults). A replace refresh carries the
-    # previously declared key forward so it isn't forgotten between merges.
-    commit_settings["refresh_mode"] = "merge" if merge_key is not None else "replace"
-    if merge_key is not None:
-        commit_settings["merge_key"] = merge_key
-    else:
-        prev_key = (((_load_source_json(ws_id, target_id) or {}).get("commitSettings")) or {}).get("merge_key")
-        if prev_key:
-            commit_settings["merge_key"] = prev_key
+    # R147 D1/D4 + R155 — remember the semantics per dataset (the wizard's
+    # next-refresh defaults). The OWNING mode sets its identity (merge → key,
+    # append → overlap field); a non-owning mode carries the previously declared
+    # value forward so a mode switch doesn't forget it.
+    prev_cs = ((_load_source_json(ws_id, target_id) or {}).get("commitSettings")) or {}
+    commit_settings["refresh_mode"] = mode
+    remembered_key = merge_key if mode == "merge" else prev_cs.get("merge_key")
+    if remembered_key:
+        commit_settings["merge_key"] = remembered_key
+    remembered_field = (item.overlap_check_field if mode == "append" else None) or prev_cs.get(
+        "overlap_check_field"
+    )
+    if remembered_field:
+        commit_settings["overlap_check_field"] = remembered_field
     (staging_dir / "source.json").write_text(
         _source_json_dict(body.temp_id, source_format, sheet_name, meta, commit_settings)
     )
@@ -549,7 +615,12 @@ def _handle_refresh(
 
     columns_json = json.dumps(cols, ensure_ascii=False)
     new_size = original_path.stat().st_size
-    new_row_count = parsed.row_count if merge_stats is None else sum(merge_stats.values())
+    if merge_stats is not None:
+        new_row_count = sum(merge_stats.values())
+    elif append_stats is not None:
+        new_row_count = append_stats["total"]
+    else:
+        new_row_count = parsed.row_count
 
     # Atomic swap: old dir → .bak, staging → live, then UPDATE the row. Any
     # failure restores the old directory so the dataset is never left broken.
@@ -584,6 +655,16 @@ def _handle_refresh(
             content={
                 "datasets": [updated_ds.model_dump(exclude_none=True, mode="json")],
                 "merge": merge_stats,
+            },
+        )
+    if append_stats is not None:
+        # R155 — the append report wrapper (contract 201 shape 3). Same
+        # JSONResponse bypass as merge; contract-verified via validate_response.
+        return JSONResponse(
+            status_code=status.HTTP_201_CREATED,
+            content={
+                "datasets": [updated_ds.model_dump(exclude_none=True, mode="json")],
+                "append": append_stats,
             },
         )
     return [updated_ds]
@@ -625,6 +706,12 @@ def commit_datasets_batch(id: str, body: _BatchRequest) -> list[Dataset] | JSONR
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail="merge_key requires target_dataset_id (merge is a refresh mode)",
+            )
+        if item.refresh_mode is not None or item.overlap_check_field is not None:
+            # R155 — refresh-semantics fields are meaningless on a create item.
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="refresh_mode / overlap_check_field require target_dataset_id (refresh-only)",
             )
         if source_format == "excel" and item.sheet is None:
             raise HTTPException(
@@ -942,6 +1029,121 @@ def get_dataset_refresh_settings(id: DsIdPath) -> JSONResponse:  # noqa: A002
     if not settings:
         return JSONResponse(status_code=status.HTTP_200_OK, content={"available": False})
     return JSONResponse(status_code=status.HTTP_200_OK, content={"available": True, **settings})
+
+
+class _AppendOverlapBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    temp_id: Annotated[str, Field(pattern=r"^tmp_[0-9a-f]{16}$")]
+    sheet: Annotated[str, Field(min_length=1)] | None = None
+    field: Annotated[str, Field(min_length=1)]
+
+
+def _iso(v: object) -> str:
+    return v.isoformat() if hasattr(v, "isoformat") else str(v)
+
+
+def _range_json(r: tuple | None) -> dict | None:
+    return None if r is None else {"min": _iso(r[0]), "max": _iso(r[1])}
+
+
+@router.post("/datasets/{id}/append-overlap")
+def preview_append_overlap(id: DsIdPath, body: _AppendOverlapBody) -> JSONResponse:  # noqa: A002
+    """R155 § Refresh append — the pre-commit double-count advisory. Compares the
+    staged upload's range on `field` against the target dataset's committed range
+    (both computed server-side; the FE holds neither). Advisory READ — never
+    mutates, never blocks; the append keeps all rows regardless (F10 lineage).
+    404 dataset/temp; 422 when the field can't be checked (not a committed
+    date/datetime column, absent from the incoming file, or unparseable)."""
+    with get_conn() as con:
+        row = con.execute("SELECT * FROM datasets WHERE id = ?", (id,)).fetchone()
+    if row is None:
+        return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=ApiErrorNotFound().model_dump())
+    committed_cols = {c["name"]: c["dtype"] for c in json.loads(row["columns_json"])}
+    dtype = committed_cols.get(body.field)
+    if dtype not in ("date", "datetime"):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"'{body.field}' is not a committed date/datetime column of this dataset",
+        )
+    meta = _load_meta(body.temp_id)
+    if meta is None:
+        return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=ApiErrorNotFound().model_dump())
+    source_format = meta["sourceFormat"]
+    original_path = temp_upload_dir(body.temp_id) / f"original{meta['ext']}"
+    if not original_path.exists():
+        return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=ApiErrorNotFound().model_dump())
+
+    committed_range = column_min_max(dataset_dir(row["workspace_id"], id) / "parsed.parquet", body.field)
+
+    # Parse the incoming `field` with the target's CARRIED format (the wizard's
+    # pre-fill default) so both sides are typed alike. An advisory — a parse /
+    # coercion failure is a 422 "couldn't check", not a hard error (the caller
+    # may append without the check).
+    prev_cs = ((_load_source_json(row["workspace_id"], id) or {}).get("commitSettings")) or {}
+    carried_fmt = ((prev_cs.get("column_overrides") or {}).get(body.field) or {}).get("format")
+    carried_parse = prev_cs.get("parse_options") or {}
+    # Only force the field's dtype when a format was carried (a date/datetime
+    # override always has one). A column committed by INFERENCE has no format —
+    # let the parser re-infer it (forcing dtype=date without a format is itself
+    # rejected, and the coercing write below is the real check anyway).
+    overrides = {body.field: ColumnOverride(dtype=dtype, format=carried_fmt)} if carried_fmt else None
+    probe = _BatchItem(
+        name="__overlap_probe__",
+        sheet=body.sheet,
+        parse_options=ParseOptions(**carried_parse) if carried_parse else None,
+        column_overrides=overrides,
+    )
+    try:
+        _parsed, cols, opts, _kept, _targets, dtype_formats = _parse_and_target(probe, source_format, original_path)
+    except HTTPException as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"couldn't read the incoming file to check overlap: {exc.detail}",
+        ) from exc
+    if body.field not in {c["name"] for c in cols}:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"'{body.field}' is not present in the incoming file",
+        )
+    probe_parquet = temp_upload_dir(body.temp_id) / "overlap-probe.parquet"
+    try:
+        _write_parquet(
+            source_format,
+            original_path,
+            probe_parquet,
+            opts=opts,
+            kept_names=[body.field],
+            dtype_targets={body.field: dtype},
+            dtype_formats={k: v for k, v in dtype_formats.items() if k == body.field},
+            sheet=body.sheet if source_format == "excel" else None,
+        )
+    except CoercionError as err:
+        probe_parquet.unlink(missing_ok=True)
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"couldn't parse '{body.field}' as {dtype} in the incoming file",
+        ) from err
+    incoming_range = column_min_max(probe_parquet, body.field)
+    probe_parquet.unlink(missing_ok=True)
+
+    overlaps = False
+    overlapping: tuple | None = None
+    if committed_range is not None and incoming_range is not None:
+        cmin, cmax = committed_range
+        imin, imax = incoming_range
+        if imin <= cmax and cmin <= imax:
+            overlaps = True
+            overlapping = (max(cmin, imin), min(cmax, imax))
+    content: dict = {
+        "field": body.field,
+        "overlaps": overlaps,
+        "committedRange": _range_json(committed_range),
+        "incomingRange": _range_json(incoming_range),
+    }
+    if overlapping is not None:
+        content["overlappingRange"] = _range_json(overlapping)
+    return JSONResponse(status_code=status.HTTP_200_OK, content=content)
 
 
 _PAGE_SIZE_ALLOWED = PAGE_SIZES  # R72 — centralized (values.yaml → constants)

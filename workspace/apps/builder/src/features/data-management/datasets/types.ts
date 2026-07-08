@@ -122,10 +122,18 @@ export type CommitBatchItem = {
    *  `target_dataset_id`. Presence selects merge (keep-latest-per-key)
    *  instead of replace. */
   merge_key?: string[];
+  /** R155 — explicit refresh-semantics discriminator (requires
+   *  `target_dataset_id`). Omitted ⇒ inferred (merge iff `merge_key`, else
+   *  replace); `append` must be explicit (keyless). */
+  refresh_mode?: RefreshMode;
+  /** R155 append — the date/datetime column the double-count check used,
+   *  remembered for next refresh (not acted on at commit). */
+  overlap_check_field?: string;
 };
 
-/** R147 refresh mode — replace (R145, whole-table) or merge-on-key. */
-export type RefreshMode = 'replace' | 'merge';
+/** Refresh mode — replace (R145, whole-table), merge-on-key (R147), or the
+ *  keyless append/union that accumulates periodic exports (R155). */
+export type RefreshMode = 'replace' | 'merge' | 'append';
 
 /** R145: GET /datasets/{id}/refresh-settings — the carry-forward snapshot a
  *  refresh wizard pre-fills from. Mirrors a commit item's settings shape.
@@ -138,6 +146,8 @@ export type RefreshSettings = {
   excluded_columns?: string[];
   /** R147 D1 — the key the last merge refresh declared (remembered per dataset). */
   merge_key?: string[];
+  /** R155 — the date/datetime column the last append refresh's overlap check used. */
+  overlap_check_field?: string;
   /** R147 D4 — the last refresh's semantics (the per-refresh choice defaults to it). */
   refresh_mode?: RefreshMode;
 };
@@ -163,7 +173,48 @@ export type CommitBatchMergeResponse = {
   merge: MergeReport;
 };
 
-export type CommitBatchResponse = Dataset[] | CommitBatchMergeResponse;
+/** R155 — what an append did: rows appended · the dataset's new total
+ *  (committed + appended). */
+export type AppendReport = {
+  appended: number;
+  total: number;
+};
+
+/** R155 — 201 shape 3: an append refresh wraps the updated dataset with the
+ *  append report. The FE branches on `Array.isArray` then on `merge`/`append`. */
+export type CommitBatchAppendResponse = {
+  datasets: Dataset[];
+  append: AppendReport;
+};
+
+export type CommitBatchResponse =
+  | Dataset[]
+  | CommitBatchMergeResponse
+  | CommitBatchAppendResponse;
+
+/** R155 — a min/max span on a date/datetime column. */
+export type DateRange = {
+  min: string;
+  max: string;
+};
+
+/** R155 — `POST /datasets/{id}/append-overlap` request: check the staged
+ *  upload's range on `field` against the target dataset. */
+export type AppendOverlapRequest = {
+  temp_id: string;
+  sheet?: string;
+  field: string;
+};
+
+/** R155 — the pre-commit double-count advisory. `overlaps` is the headline;
+ *  the ranges are the evidence. `overlappingRange` is present iff `overlaps`. */
+export type AppendOverlapResult = {
+  field: string;
+  overlaps: boolean;
+  committedRange: DateRange | null;
+  incomingRange: DateRange | null;
+  overlappingRange?: DateRange;
+};
 
 /** R36: response shape for GET /datasets/{id}/rows.
  *  Mirrors `workspace/packages/contracts/datasets/rows-get.contract.yaml`.

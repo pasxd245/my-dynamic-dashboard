@@ -6,7 +6,9 @@ import { ERROR_CODES, NAME_LENGTHS } from '@/_generated/constants';
 import { formatBytes } from '@/lib/formatBytes';
 import { BatchApiErrorThrown } from '@/features/data-management/_shared/types';
 import { useWorkspacesQuery } from '@/features/data-management/workspaces/hooks';
+import { useAppendOverlapQuery } from '../hooks';
 import {
+  dateFieldOptions,
   mergeKeyIssues,
   refreshSheetKey,
   units,
@@ -106,6 +108,17 @@ function RefreshSemantics({ state, dispatch }: Readonly<Pick<Props, 'state' | 'd
     state.mergeKey,
   );
   const mergeBlocked = state.refreshMode === 'merge' && (state.mergeKey.length === 0 || keyIssues.length > 0);
+  const dateOptions = dateFieldOptions(state.sheets[refreshSheetKey(state)]);
+  // R155 — the live overlap advisory (append + a date field picked). Advisory:
+  // a failed check falls back to a soft note; the append is never blocked.
+  const overlapField = state.overlapCheckField;
+  const overlap = useAppendOverlapQuery(
+    state.targetDatasetId ?? undefined,
+    state.tempId,
+    state.sourceFormat === 'csv' ? undefined : refreshSheetKey(state),
+    overlapField,
+    state.refreshMode === 'append' && overlapField !== null,
+  );
   const issueText =
     state.mergeKey.length === 0
       ? t('upload.refresh.mergeKeyRequired')
@@ -134,6 +147,10 @@ function RefreshSemantics({ state, dispatch }: Readonly<Pick<Props, 'state' | 'd
           <Radio value="merge" data-component="RefreshModeMerge">
             {t('upload.refresh.modeMerge')}{' '}
             <Typography.Text type="secondary">{t('upload.refresh.modeMergeHint')}</Typography.Text>
+          </Radio>
+          <Radio value="append" data-component="RefreshModeAppend">
+            {t('upload.refresh.modeAppend')}{' '}
+            <Typography.Text type="secondary">{t('upload.refresh.modeAppendHint')}</Typography.Text>
           </Radio>
         </Space>
       </Radio.Group>
@@ -180,6 +197,70 @@ function RefreshSemantics({ state, dispatch }: Readonly<Pick<Props, 'state' | 'd
           title={t('upload.refresh.confirmReplaceTitle', { name: state.refreshTargetName ?? '' })}
           description={t('upload.refresh.confirmReplaceBody')}
           data-component="RefreshConfirmNote"
+        />
+      ) : null}
+      {state.refreshMode === 'append' ? (
+        <div style={{ marginBottom: 8, maxWidth: 520 }} data-component="AppendOverlapPicker">
+          <Typography.Text>{t('upload.refresh.overlapFieldLabel')}</Typography.Text>
+          <Select
+            allowClear
+            style={{ width: '100%', marginTop: 4 }}
+            placeholder={t('upload.refresh.overlapFieldPlaceholder')}
+            value={state.overlapCheckField ?? undefined}
+            onChange={(field?: string) => dispatch({ type: 'SET_OVERLAP_FIELD', field: field ?? null })}
+            options={dateOptions.map((c) => ({ value: c.name, label: `${c.name} (${c.dtype})` }))}
+            notFoundContent={t('upload.refresh.overlapFieldNone')}
+            data-component="AppendOverlapSelect"
+          />
+        </div>
+      ) : null}
+      {state.refreshMode === 'append' && !overlapField ? (
+        <Alert
+          type="warning"
+          showIcon
+          title={t('upload.refresh.confirmAppendTitle', { name: state.refreshTargetName ?? '' })}
+          description={t('upload.refresh.confirmAppendUncheckedBody')}
+          data-component="AppendConfirmNote"
+        />
+      ) : null}
+      {state.refreshMode === 'append' && overlapField && overlap.isLoading ? (
+        <Alert
+          type="info"
+          showIcon
+          title={t('upload.refresh.overlapChecking', { field: overlapField })}
+          data-component="AppendOverlapChecking"
+        />
+      ) : null}
+      {state.refreshMode === 'append' && overlapField && overlap.isError ? (
+        <Alert
+          type="info"
+          showIcon
+          title={t('upload.refresh.confirmAppendTitle', { name: state.refreshTargetName ?? '' })}
+          description={t('upload.refresh.overlapCheckFailed', { field: overlapField })}
+          data-component="AppendOverlapNote"
+        />
+      ) : null}
+      {state.refreshMode === 'append' && overlapField && overlap.data && !overlap.data.overlaps ? (
+        <Alert
+          type="info"
+          showIcon
+          title={t('upload.refresh.confirmAppendTitle', { name: state.refreshTargetName ?? '' })}
+          description={t('upload.refresh.overlapClean', { field: overlapField })}
+          data-component="AppendOverlapNote"
+        />
+      ) : null}
+      {state.refreshMode === 'append' && overlapField && overlap.data?.overlaps ? (
+        <Alert
+          type="warning"
+          showIcon
+          title={t('upload.refresh.overlapWarnTitle')}
+          description={t('upload.refresh.overlapWarnBody', {
+            field: overlapField,
+            name: state.refreshTargetName ?? '',
+            min: overlap.data.overlappingRange?.min ?? overlap.data.incomingRange?.min ?? '',
+            max: overlap.data.overlappingRange?.max ?? overlap.data.incomingRange?.max ?? '',
+          })}
+          data-component="AppendOverlapWarn"
         />
       ) : null}
     </div>

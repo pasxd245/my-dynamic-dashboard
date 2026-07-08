@@ -124,3 +124,61 @@ def merge_parquets(
         except duckdb.Error as err:
             raise MergeCastError(str(err)) from err
         return {"updated": int(updated), "inserted": int(incoming_total - updated), "kept": int(kept)}
+
+
+def append_parquets(
+    committed: Path,
+    incoming: Path,
+    appended_out: Path,
+    *,
+    incoming_cols: list[dict[str, str]],
+) -> dict[str, int]:
+    """R155 — keyless UNION ALL(committed, incoming) into ``appended_out``.
+
+    Every committed row is KEPT and every incoming row is APPENDED — no key,
+    no dedup, duplicates preserved by design (append never picks a winner —
+    that is merge's job). Committed rows are reconciled to the incoming schema
+    with the SAME D5 rule as merge (CAST into the incoming dtype, NULL-fill an
+    added column, drop a removed one), so the result schema = the incoming
+    table's. Returns ``{"appended", "total"}``: appended = incoming row count,
+    total = committed + incoming (the new row count). Raises MergeCastError if
+    a kept committed value can't cast into the incoming schema (loud, never a
+    silent TRY_CAST NULL) — the one shared failure mode with merge.
+    """
+    with duckdb.connect(":memory:") as con:
+        con.execute(f"CREATE VIEW inc AS SELECT * FROM read_parquet({_q_path(incoming)})")
+        con.execute(f"CREATE VIEW cur AS SELECT * FROM read_parquet({_q_path(committed)})")
+
+        cur_names = {name for (name, *_rest) in con.execute("DESCRIBE cur").fetchall()}
+        inc_select = ", ".join(f"inc.{_q(c['name'])}" for c in incoming_cols)
+        cur_select = ", ".join(
+            f"CAST(cur.{_q(c['name'])} AS {_DTYPE_TO_DUCK[c['dtype']]}) AS {_q(c['name'])}"
+            if c["name"] in cur_names
+            else f"CAST(NULL AS {_DTYPE_TO_DUCK[c['dtype']]}) AS {_q(c['name'])}"
+            for c in incoming_cols
+        )
+
+        incoming_total = con.execute("SELECT count(*) FROM inc").fetchone()[0]
+        committed_total = con.execute("SELECT count(*) FROM cur").fetchone()[0]
+
+        try:
+            con.execute(
+                f"COPY (SELECT {cur_select} FROM cur "  # noqa: S608 — idents quoted via _q
+                f"UNION ALL "
+                f"SELECT {inc_select} FROM inc) "
+                f"TO {_q_path(appended_out)} (FORMAT 'parquet')"
+            )
+        except duckdb.Error as err:
+            raise MergeCastError(str(err)) from err
+        return {"appended": int(incoming_total), "total": int(committed_total + incoming_total)}
+
+
+def column_min_max(parquet: Path, field: str) -> tuple | None:
+    """R155 — ``(min, max)`` of ``field`` in ``parquet`` (typed date/datetime
+    objects), or ``None`` when the table is empty / the column is all-NULL. The
+    range primitive behind the append-overlap advisory."""
+    with duckdb.connect(":memory:") as con:
+        lo, hi = con.execute(
+            f"SELECT min({_q(field)}), max({_q(field)}) FROM read_parquet({_q_path(parquet)})"  # noqa: S608 — idents quoted
+        ).fetchone()
+    return None if lo is None or hi is None else (lo, hi)

@@ -118,11 +118,40 @@ paths:
                           warn-never-block drift); duplicate incoming rows per
                           key → `merge_duplicate_keys` (D2: loud stop, file
                           row order is not time).
+                      refresh_mode:
+                        type: string
+                        enum: [replace, merge, append]
+                        description: |
+                          R155 — the explicit refresh-semantics discriminator
+                          (requires `target_dataset_id`; 422 on a create item).
+                          Optional + back-compatible: when OMITTED the mode is
+                          inferred as before — `merge` iff `merge_key` is present,
+                          else `replace`. `append` MUST be set explicitly (it is
+                          keyless, so it cannot be inferred from `merge_key`);
+                          `refresh_mode: append` together with `merge_key` → 422
+                          (contradictory). APPEND semantics: keyless UNION ALL —
+                          every incoming row is appended and every committed row
+                          is KEPT (no dedup; duplicates preserved by design).
+                          Result schema = the incoming table's (D5: kept rows
+                          NULL-fill added columns, drop removed). No dup-key guard
+                          (that is merge-only).
+                      overlap_check_field:
+                        type: string
+                        minLength: 1
+                        description: |
+                          R155 APPEND only — the committed date/datetime column the
+                          wizard's double-count check ran on, remembered for the
+                          next refresh (F9 carry-forward, like `merge_key`). It is
+                          NOT acted on at commit: append keeps all rows regardless
+                          (warn-never-block). The advisory overlap preview is the
+                          separate `POST /datasets/{id}/append-overlap` read the
+                          wizard calls BEFORE commit. Omitted = the user declined
+                          the check ("None").
       responses:
         '201':
           description: |
-            All items committed atomically. Two shapes (the FE branches on
-            `Array.isArray`):
+            All items committed atomically. Three shapes (the FE branches on
+            `Array.isArray`, then on `merge` vs `append`):
 
             1. Create / replace-refresh — the created (or updated) Dataset
                rows in the same order as the request `items` array.
@@ -132,6 +161,9 @@ paths:
                rows superseded a committed key, `inserted` were new keys,
                `kept` committed rows had no incoming counterpart;
                updated + inserted + kept = the dataset's new row_count).
+            3. APPEND refresh (R155, item carried `refresh_mode: append`) — a
+               wrapper carrying the updated Dataset plus `{ appended, total }`
+               (rows appended; the new total row_count = committed + appended).
           content:
             application/json:
               schema:
@@ -167,6 +199,29 @@ paths:
                             type: integer
                             minimum: 0
                             description: Committed rows kept (key absent from the incoming file).
+                  - type: object
+                    required: [datasets, append]
+                    additionalProperties: false
+                    properties:
+                      datasets:
+                        type: array
+                        minItems: 1
+                        maxItems: 1
+                        items:
+                          $ref: '../_shared/dataset.yaml#/components/schemas/Dataset'
+                      append:
+                        type: object
+                        required: [appended, total]
+                        additionalProperties: false
+                        properties:
+                          appended:
+                            type: integer
+                            minimum: 0
+                            description: Incoming rows appended (R155 keyless union).
+                          total:
+                            type: integer
+                            minimum: 0
+                            description: The dataset's new row_count (committed + appended).
         '404':
           description: |
             Workspace `id` does not exist, OR `temp_id` is unknown / expired,
@@ -227,6 +282,10 @@ paths:
             column missing from the incoming kept columns; committed↔incoming
             key dtype mismatch; kept committed rows failing the cast to a
             drifted incoming column dtype.
+
+            R155 append guards using shape 1 (detail string): `refresh_mode`
+            (any value) on a create item — no `target_dataset_id`;
+            `refresh_mode: append` together with `merge_key` (contradictory).
 
             R147 also maps a commit-time SOURCE PARSE failure (an item's
             `sheet` not in the uploaded workbook — the renamed-sheet cadence —

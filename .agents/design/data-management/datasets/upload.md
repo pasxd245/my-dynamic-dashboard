@@ -1219,23 +1219,22 @@ dependents on next open (see below); the named blast-radius preview lands in **s
 
 ### Refresh semantics — atomic replace, existing dataset intact on failure
 
-The commit endpoint's `target_dataset_id` (already declared, currently **422-reserved** at
-[datasets.py:210-214](../../../../workspace/apps/backend/app/routers/datasets.py)) graduates
-to **real** and, when set on an item, is **mutually exclusive with `name`** (the target keeps
-its name). In refresh mode the commit path **UPDATEs in place** — same `ds_id` — rather than
-minting a new id:
+The commit endpoint's `target_dataset_id`, when set on an item, is **mutually exclusive with
+`name`** (the target keeps its name) and routes the whole batch to refresh
+([`_handle_refresh`](../../../../workspace/apps/backend/app/routers/datasets.py)). In refresh
+mode the commit path **UPDATEs in place** — same `ds_id` — rather than minting a new id:
 
 - Re-parse the new file (applying the item's parse options + overrides, same machinery as
   create), producing the new parquet + `columns_json` + counts + the fresh `commitSettings`.
 - **Stage** the new `original.<ext>` + `parsed.parquet` under temp names in the dataset dir,
   then **atomically swap** them over the old files and **UPDATE** the DB row
-  (`columns_json`, `row_count`, `column_count`, `size_bytes`; `created_at` unchanged, no
-  `updated_at` field in slice 1) inside one transaction; write the new `source.json` last.
+  (`columns_json`, `row_count`, `column_count`, `size_bytes`, `sheet_name`; `created_at`
+  unchanged, no `updated_at` field) inside one transaction; write the new `source.json` last.
   Forward-only — the previous parquet is **replaced**, not archived.
 - **Failure leaves the existing dataset fully intact** (R145 Check): a coercion failure or FS
   error rolls back the staged files and aborts the UPDATE — the old `original` / `parsed` /
   `columns_json` are untouched. This extends the R143/R144 staged/rollback discipline
-  ([datasets.py](../../../../workspace/apps/backend/app/routers/datasets.py) lines 280-389)
+  ([`_handle_refresh`](../../../../workspace/apps/backend/app/routers/datasets.py))
   from create-INSERT to refresh-UPDATE.
 
 **Coercion on refresh** reuses the existing typed **`coercion_failed` 422** unchanged (a
@@ -1245,8 +1244,8 @@ informational (FE acknowledge)**, and only coercion (existing) can abort.
 
 ### Wire shape (refresh)
 
-The commit request gains no new *item* field — `target_dataset_id` already exists; refresh
-just stops 422-ing it. A refresh batch carries **exactly one item** (a Dataset maps to one
+The commit request uses the existing `target_dataset_id` *item* field (no new field for a
+replace refresh). A refresh batch carries **exactly one item** (a Dataset maps to one
 source table), targeting one dataset:
 
 ```ts
@@ -1257,15 +1256,17 @@ source table), targeting one dataset:
 - 201 → the updated `Dataset` (same `id`). 404 if the target dataset is missing. 422
   `coercion_failed` (unchanged) on an uncoercible cell — dataset untouched. `name` +
   `target_dataset_id` both set → 422 (mutually exclusive).
-- **Drift report** is served by the preview read (`GET /datasets/:id/dependents` +
-  client-side column diff, or a dedicated drift-preview response), **not** the commit — the
-  wizard shows it *before* Confirm. Shape: `{ added: string[], removed: [{name, dependents}],
-  dtypeChanged: [{name, from, to, dependents}] }`.
+- **Drift report**: the Drift-review step diffs the incoming parsed columns against the
+  target's committed `columns_json` **client-side** (added / removed / dtype-changed) — no
+  dedicated backend route. The **named-dependents** blast-radius preview (which queries /
+  relationships each drifted column breaks) is **slice 1b, not built** (see the fat-seam
+  above); a `GET /datasets/:id/dependents` read is its natural home when 1b is pulled.
 
 ### Boundaries (named)
 
-- **Replace only** — merge-on-key / precedence (F5+F6) is
-  [§ Refresh merge mode (R147)](#refresh-merge-mode-merge-on-key-and-precedence-r147).
+- **Replace only (R145 slice 1a)** — the other refresh modes are
+  [§ Refresh merge mode (R147)](#refresh-merge-mode-merge-on-key-and-precedence-r147) and
+  [§ Refresh append mode (R155)](#refresh-append-mode-keyless-union-to-accumulate-periodic-exports-r155).
 - **Forward-only** — no version history / rollback-to-previous-parquet in slice 1.
 - **One dataset per refresh** — a refresh batch is length 1 (multi-dataset refresh has no
   lived pull; the create path stays multi-item for Excel multi-sheet).
@@ -1449,6 +1450,147 @@ The refresh item gains one optional field — presence selects the mode:
    the old behavior.
 6. **Carry-forward**: the declared key + mode are remembered; next month's refresh pre-fills
    both.
+
+---
+
+## Refresh append mode: keyless union to accumulate periodic exports (R155)
+
+_⑥ refresh theme, slice 3 — the keyless primitive replace and merge both lack._
+
+> **Status: D-gate — design pinned (human-confirmed 2026-07-08), F1 pending.** Flow **DFCFBI**
+> (flow-selector triggers 3, 4, 5): append mutates a dependent-bearing dataset and its safety is
+> a *soft warn*, so the warn UX gets an F1 feel-review before the contract. Pulled by
+> [Round_155](../../../plan/cycles/Round_155.md) ← the real 2025 call-log probe
+> (`memory/2026-07-08-append-mode-call-log-evidence.md`): disjoint months, no clean key.
+
+### Concept: the case merge cannot serve
+
+Replace supersedes; merge reconciles on a key. The **third** real shape is **disjoint periodic
+exports with no clean key** — the 2025 monthly call logs. April (`Worksheet`, 2,608 rows) and May
+share **zero** `ID` or recording-file values (disjoint months), and **no single column is a clean
+key**: the most-unique columns still carry within-month duplicates (`ID` 10 dup-keys, recording
+file 1) — **genuine distinct calls** (two calls in the same epoch-second collide on a coarse id),
+not a fiction. So:
+
+- **Replace** keeps only the latest month — loses history.
+- **Merge-on-key 422s** — the [D2 dup-key guard](#f6-the-identity-key-domain-decisions) rejects any
+  incoming file with >1 row per key, and every month has some.
+- **Append** — keyless **UNION ALL**, keep every row — is the only fit, and the standard operation
+  for combining periodic exports (Power Query *Append* / Tableau Prep *Union*: keyless, keep-all,
+  no auto-dedup; dedup is a separate explicit step).
+
+Framing note: our existing merge-on-key is the *advanced* upsert; append is the *basic* primitive it
+sits on top of — R155 fills the gap.
+
+### Build home: a third refresh semantics (`replace | merge | append`)
+
+Append is a **third refresh mode**, not a workflow step — the same noun-vs-mode argument as merge
+(the source itself must hold both months by construction; a per-consumer dedup/append step leaves
+the dataset single-rowed and every widget that forgets it under-counts). It **reuses the merge
+reconciliation** ([`merge_parquets`](../../../../workspace/apps/backend/app/ingest/merge.py))
+**minus the key predicate and the dup-key guard**: a plain `UNION ALL BY NAME` with the same
+D5 incoming-schema-wins column reconciliation (kept committed rows NULL-fill added columns, CAST
+into a drifted dtype, drop removed), written to a fresh parquet via the same staged/atomic-swap path
+— failure leaves the existing dataset intact (the R145 invariant extends unchanged).
+
+The wizard skeleton is untouched: append adds **no new step**. The **Confirm step**'s refresh-
+semantics block grows from `replace | merge` to `replace | merge | append`; choosing append reveals
+the **date-field picker** (for the overlap check, below) in place of merge's key picker.
+
+### Append semantics: keep-all union
+
+| Row source | Result |
+| ---------- | ------ |
+| committed | **kept** (every row) |
+| incoming | **appended** (every row) |
+
+- **No dedup, no key** — result row count = committed + incoming. Within- and cross-file duplicates
+  are **kept by design** (they are genuine distinct records; append never guesses a winner — that is
+  merge's job).
+- **Column reconciliation = D5 incoming-schema-wins** (identical to merge/replace): the incoming
+  export defines the current shape; kept committed rows NULL-fill added columns and drop removed
+  ones. The Drift-review step warns on that drift exactly as today.
+- **No dup-key guard** — merge's `MergeDuplicateKeysError` (a loud 422) is **merge-only** and must
+  not fire on the append path; append has no key to corrupt.
+
+### The double-count mitigation (append's one real hazard)
+
+Append **keeps all rows** and **UPDATEs a dataset with live dependents in place** — so re-uploading a
+period silently doubles rows and inflates every dependent widget, a **hard-to-reverse** data effect.
+Because the data has **no clean key**, key-idempotency cannot defend it (merge's defense is
+unavailable here). The mitigation is **keyless, explicit warn-only, never block**, mapped onto the
+existing **[F10 Drift-review step](#f10-schema-drift-gate-surface-loudly-never-silently-absorb)**
+(warn-loud / never-block precedent):
+
+| User's date-field choice | Incoming vs. committed range | Behavior |
+| ------------------------ | ---------------------------- | -------- |
+| picks a date field | ranges **disjoint** | **quiet** — *"no overlapping dates detected on `<field>`"* (a fact — **never** "no duplicates") |
+| picks a date field | ranges **overlap** | **warn** — names the overlapping range, *"appending will add these rows again"*; proceeds on acknowledge |
+| picks "None" / skips | not checked | **always warn** — *"can't check for overlaps; append keeps all rows"* |
+
+- Date-overlap is an **honest heuristic, not a proof** — overlap ≠ duplicates (legitimately-new rows
+  can fall on already-present days), and disjoint ≠ zero-duplicates (a wrong / coarse field). This is
+  exactly why it **warns, never blocks**: the tool surfaces a signal, the human (who knows re-upload
+  from new data) decides. The wording reports only what was checked ("no overlapping dates on
+  `<field>`"), never the claim it cannot make ("no duplicates").
+- The **Append mode label carries the baseline** (*"adds all rows; does not remove duplicates"*) so
+  the semantics are honest before a file is chosen.
+- **Ergonomics**: the date-field picker **pre-selects a detected date/datetime column** (dtype known
+  at parse), with **"None"** available — the common case is one confirm, not a blank pick.
+- **Open (deferred to F1 → C):** *where* overlap is computed — BE compares committed vs. incoming
+  `min`/`max` on the chosen column and returns a typed `append_overlap` warn on the drift/commit
+  response, vs. FE-computed from the parse preview. Shapes the contract (flow-selector cond-4); the
+  DFCFBI **F1** feel-review validates the warn UX *before* the contract locks it at C.
+
+### Wire shape (append)
+
+Append is **keyless**, so it cannot piggyback on `merge_key` presence the way replace (absent) and
+merge (present) do — it needs an **explicit mode discriminator**:
+
+```ts
+// append refresh: explicit refresh_mode; keyless; optional date field for the overlap check
+{ temp_id, items: [{ target_dataset_id, refresh_mode: 'append', overlap_check_field?: string,
+                     sheet?, parse_options?, column_overrides?, excluded_columns? }] }
+```
+
+- **`refresh_mode`** becomes an explicit item field (`'replace' | 'merge' | 'append'`). Replace and
+  merge stay **back-compatible** (inferred from `merge_key` absence / presence when `refresh_mode` is
+  omitted); `append` **requires** it. `merge_key` + `refresh_mode: 'append'` together → 422
+  (contradictory).
+- **`overlap_check_field?`** names a committed/incoming date-or-datetime column; unknown or
+  non-temporal → 422. Omitted = the "always warn" state.
+- 201 → the updated `Dataset` (same `id`) + append counts `{ appended, total }` (response addition,
+  lands at C). Any `append_overlap` warn-payload shape is resolved at C after F1 (the cond-4 open).
+- `commitSettings` extends: `refresh_mode: 'append'` + the chosen `overlap_check_field` (remembered
+  defaults; the F9 carry-forward pattern, like `merge_key`).
+
+### Boundaries (named, R155)
+
+- **Keep-all, no dedup** — a "latest-per-key / de-dup on append" step is presentation-level dedup,
+  open to a future pull (orthogonal, same note as merge); append's job is the *source* union.
+- **Warn-only, never block** — append has **no hard 422 of its own** (unlike merge's key guard); the
+  only aborts are the pre-existing `coercion_failed` / `unknown_column`.
+- **Overlap heuristic honesty** — the check never asserts "no duplicates," only "no overlapping dates
+  on `<field>`."
+- **No provenance column** — a per-append source tag (Power Query's `Source.Name`: "which batch did
+  this row come from / undo one append") is **not** slice 1; trigger: a lived need to attribute or
+  reverse a specific append.
+- **Forward-only** — no un-append / version history (unchanged from R145 / R147).
+- **merge.py reuse** — the dup-key guard is merge-only and must not fire on append (asserted by test).
+
+### Acceptance (R155, maps to Check)
+
+1. **Real month pair**: append May (FM5 `Worksheet`) onto an April-committed dataset → row count =
+   April + May, every row kept; disjoint date ranges → **no overlap warn**.
+2. **Double-count guard**: re-appending a month already present → the overlap warn names the range and
+   **never blocks**; on acknowledge the append proceeds (rows double — the user's informed call).
+3. **No field picked**: append with `overlap_check_field` omitted → the "always warn" state.
+4. **Column reconciliation**: appending an incoming file with a drifted schema NULL-fills added
+   columns / drops removed / casts a drifted dtype (D5 incoming-wins), same as merge / replace.
+5. **Dup-key guard does not fire**: a real file with within-month duplicate `ID`s appends cleanly (no
+   `MergeDuplicateKeysError`).
+6. **Replace + merge unregressed**: omitting `refresh_mode` still infers replace (no key) / merge (key
+   present) byte-for-byte; an explicit `refresh_mode` matching the inferred mode is a no-op.
 
 ---
 

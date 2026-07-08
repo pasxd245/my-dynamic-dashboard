@@ -178,13 +178,23 @@ export function DatasetNewPage() {
     if (state.refreshMode === 'merge' && state.mergeKey.length > 0) {
       item.merge_key = state.mergeKey;
     }
+    // R155 — append is keyless; the explicit discriminator + the remembered
+    // overlap field (advisory only server-side) ride on the item.
+    if (state.refreshMode === 'append') {
+      item.refresh_mode = 'append';
+      if (state.overlapCheckField) item.overlap_check_field = state.overlapCheckField;
+    }
     try {
       const result = await commitMutation.mutateAsync({
         workspaceId: state.workspaceId,
         body: { temp_id: state.tempId, items: [item] },
       });
-      if (!Array.isArray(result)) {
+      // R155 — the 201 is a 3-way union (array | merge wrapper | append wrapper);
+      // narrow on `merge` / `append` for the matching success toast.
+      if (!Array.isArray(result) && 'merge' in result) {
         message.success(t('upload.refresh.mergeSuccess', result.merge));
+      } else if (!Array.isArray(result) && 'append' in result) {
+        message.success(t('upload.refresh.appendSuccess', result.append));
       }
       navigate(`/data-management/datasets/${state.targetDatasetId}`);
     } catch {
@@ -263,8 +273,9 @@ export function DatasetNewPage() {
       mergeKeyIssues(state.refreshBaseline ?? [], state.sheets[refreshSheetKey(state)], state.mergeKey).length > 0);
   let commitLabel = t('upload.createDatasets');
   if (isRefresh) {
-    commitLabel =
-      state.refreshMode === 'merge' ? t('upload.refresh.commitMergeLabel') : t('upload.refresh.commitLabel');
+    if (state.refreshMode === 'merge') commitLabel = t('upload.refresh.commitMergeLabel');
+    else if (state.refreshMode === 'append') commitLabel = t('upload.refresh.commitAppendLabel');
+    else commitLabel = t('upload.refresh.commitLabel');
   }
 
   const header = (

@@ -5,6 +5,7 @@ import { cacheKeyForFilters } from './filters/serialize';
 import { groupsToParam } from './advanced-query/serialize';
 import type { PredicateGroups } from './advanced-query/types';
 import type {
+  AppendOverlapResult,
   CommitBatchRequest,
   CommitBatchResponse,
   Dataset,
@@ -48,6 +49,30 @@ export function useRefreshSettingsQuery(id: string | undefined) {
     queryKey: [...DATASETS_QUERY_KEY, { id }, 'refresh-settings'] as const,
     queryFn: () => datasetsApi.getRefreshSettings(id as string),
     enabled: typeof id === 'string',
+  });
+}
+
+/** R155 — the pre-commit append double-count advisory. Enabled only in append
+ *  mode with a date field picked; keyed by (dataset, temp upload, sheet, field)
+ *  so re-picking the field re-checks. Advisory: `retry: false` (a failed check
+ *  falls back to a soft "couldn't check" note, never blocks the append). */
+export function useAppendOverlapQuery(
+  id: string | undefined,
+  tempId: string | null,
+  sheet: string | undefined,
+  field: string | null,
+  enabled: boolean,
+) {
+  return useQuery<AppendOverlapResult>({
+    queryKey: [...DATASETS_QUERY_KEY, { id }, 'append-overlap', { tempId, sheet, field }] as const,
+    queryFn: () =>
+      datasetsApi.previewAppendOverlap(id as string, {
+        temp_id: tempId as string,
+        ...(sheet ? { sheet } : {}),
+        field: field as string,
+      }),
+    enabled: enabled && typeof id === 'string' && typeof tempId === 'string' && typeof field === 'string',
+    retry: false,
   });
 }
 

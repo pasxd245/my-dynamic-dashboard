@@ -1,0 +1,149 @@
+openapi: 3.1.0
+info:
+  title: my-dynamic-dashboard — POST /datasets/{id}/append-overlap
+  version: 0.1.0
+  description: |
+    R155 APPEND — the pre-commit double-count advisory. Given a staged temp
+    upload (`temp_id` + optional `sheet`) and a chosen date/datetime `field`,
+    compare the incoming file's value range on that field against what the
+    target dataset already holds, and report whether they OVERLAP.
+
+    Advisory only — this READ never mutates anything and never blocks. The
+    append commit keeps all rows regardless (warn-never-block, R145 F10
+    lineage); the wizard calls this before Confirm so the user can see they
+    are about to re-add a period already in the dataset. The overlap is a
+    heuristic, not a proof of duplication (a legitimately-new batch can fall
+    on already-present dates); the response reports only the ranges it
+    compared, never a "no duplicates" verdict.
+
+    Both ranges are computed server-side (the committed range from the
+    dataset's parquet, the incoming range from the staged parse) — the FE
+    holds neither full range, so the comparison lives here.
+
+paths:
+  /datasets/{id}/append-overlap:
+    post:
+      operationId: previewAppendOverlap
+      summary: Preview whether an append would re-add an already-present date range
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^ds_[0-9a-f]{8}$"
+          description: The target dataset the append would land in.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [temp_id, field]
+              additionalProperties: false
+              properties:
+                temp_id:
+                  type: string
+                  pattern: "^tmp_[0-9a-f]{16}$"
+                  description: The staged incoming upload to check.
+                sheet:
+                  type: string
+                  minLength: 1
+                  description: |
+                    Excel only — the sheet in the staged upload to read the
+                    incoming range from. Omitted on CSV.
+                field:
+                  type: string
+                  minLength: 1
+                  description: |
+                    The date/datetime column to compare on. Must be a committed
+                    column of the dataset AND present in the incoming file, and
+                    date/datetime-typed on the committed side.
+      responses:
+        "200":
+          description: |
+            The comparison result. `overlaps` is the headline; the ranges are
+            the evidence. A range is `null` only when that side has zero rows.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [field, overlaps]
+                additionalProperties: false
+                properties:
+                  field:
+                    type: string
+                    description: The column compared (echoes the request).
+                  overlaps:
+                    type: boolean
+                    description: |
+                      True when the incoming range intersects the committed
+                      range (inclusive) — i.e. appending would add rows dated
+                      within a span the dataset already covers.
+                  committedRange:
+                    type: [object, "null"]
+                    required: [min, max]
+                    additionalProperties: false
+                    properties:
+                      min: { type: string }
+                      max: { type: string }
+                    description: The dataset's current min/max on `field` (null if empty).
+                  incomingRange:
+                    type: [object, "null"]
+                    required: [min, max]
+                    additionalProperties: false
+                    properties:
+                      min: { type: string }
+                      max: { type: string }
+                    description: The staged file's min/max on `field` (null if empty).
+                  overlappingRange:
+                    type: object
+                    required: [min, max]
+                    additionalProperties: false
+                    properties:
+                      min: { type: string }
+                      max: { type: string }
+                    description: |
+                      Present only when `overlaps` is true — the intersected
+                      span (max(mins)…min(maxes)) the warn names to the user.
+              examples:
+                overlap:
+                  summary: Incoming April re-added onto Jan–April
+                  value:
+                    field: "Ngày gọi"
+                    overlaps: true
+                    committedRange: { min: "2025-01-03", max: "2025-04-29" }
+                    incomingRange: { min: "2025-04-16", max: "2025-04-29" }
+                    overlappingRange: { min: "2025-04-16", max: "2025-04-29" }
+                clean:
+                  summary: Incoming May onto Jan–April (disjoint)
+                  value:
+                    field: "Ngày gọi"
+                    overlaps: false
+                    committedRange: { min: "2025-01-03", max: "2025-04-29" }
+                    incomingRange: { min: "2025-05-02", max: "2025-05-30" }
+        "404":
+          description: |
+            No dataset with the given `id`, OR `temp_id` is unknown / expired.
+            The body does not distinguish (clients should not branch on which).
+          content:
+            application/json:
+              schema:
+                $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorNotFound"
+              examples:
+                missing:
+                  value: { "code": "not_found" }
+        "422":
+          description: |
+            The `field` cannot be checked (shape-1 `{ detail }` envelope): it is
+            not a committed column of the dataset, it is not date/datetime-typed
+            on the committed side, or it is absent from the incoming file /
+            sheet. Advisory — the caller may simply drop the check (send no
+            `overlap_check_field`) and append anyway.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [detail]
+                properties:
+                  detail: {}
