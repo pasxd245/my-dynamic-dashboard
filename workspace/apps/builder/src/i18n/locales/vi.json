@@ -527,7 +527,7 @@
       "overlapChecking": "Đang kiểm tra “{{field}}” xem có ngày đã tồn tại trong tập dữ liệu…",
       "overlapClean": "Không có ngày “{{field}}” bị trùng — đây là một kỳ mới. Nối thêm giữ lại mọi dòng.",
       "overlapWarnTitle": "Các ngày này đã có trong tập dữ liệu",
-      "overlapWarnBody": "“{{field}}” của tệp mới trùng khoảng {{min}}–{{max}} mà “{{name}}” đã có. Nối thêm sẽ thêm lại các dòng đó (trùng lặp). Bạn vẫn có thể tiếp tục.",
+      "overlapWarnBody": "“{{field}}” của tệp mới trùng khoảng từ {{min}} đến {{max}} mà “{{name}}” đã có. Nối thêm sẽ thêm lại các dòng đó (trùng lặp). Bạn vẫn có thể tiếp tục.",
       "overlapCheckFailed": "Không kiểm tra được “{{field}}” — nối thêm vẫn thêm tất cả dòng."
     },
     "drift": {

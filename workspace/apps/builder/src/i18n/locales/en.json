@@ -527,7 +527,7 @@
       "overlapChecking": "Checking “{{field}}” for dates already in the dataset…",
       "overlapClean": "No overlapping “{{field}}” dates — this adds a new period. Append keeps all rows.",
       "overlapWarnTitle": "These dates are already in the dataset",
-      "overlapWarnBody": "The new file’s “{{field}}” overlaps {{min}}–{{max}}, which “{{name}}” already covers. Appending will add those rows again (duplicates). You can still proceed.",
+      "overlapWarnBody": "The new file’s “{{field}}” overlaps from {{min}} to {{max}}, which “{{name}}” already covers. Appending will add those rows again (duplicates). You can still proceed.",
       "overlapCheckFailed": "Couldn’t check “{{field}}” for overlaps — append will still add all rows."
     },
     "drift": {
