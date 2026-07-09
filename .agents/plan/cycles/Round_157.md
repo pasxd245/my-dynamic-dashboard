@@ -1,9 +1,13 @@
 # Round 157: FM1–12 append dogfood — accumulate the real 12-month call logs
 
-**Status**: **OPEN — Planning / D gate**. Goal set at open (sequenced by the human at R156's open:
-provenance first, dogfood next). Flow not yet selected (flow-selector runs at D exit).
+**Status**: **COMPLETE** (2026-07-09) — validation/dogfood round. Append+provenance core VERIFIED
+(no append blocker; the "Extra inputs" error was a stale backend, not a bug). Surfaced a coherent
+R156 provenance×refresh seam + an upload-wizard UX polish cluster; chose the design direction for the
+fix round. No feature code shipped (findings + design are the deliverable).
 **Date started**: 2026-07-09
-**Flow**: _TBD — set at the D gate via flow-selector._
+**Date completed**: 2026-07-09
+**Flow**: **N/A — validation/dogfood round, no build** (D-gate open question #1 resolved: this was a
+validation round, thin/no code; no C/B/F build phases → flow-selector N/A).
 **Design source**: [`.agents/design/data-management/datasets/upload.md`](../../design/data-management/datasets/upload.md)
 § Refresh append mode + § Provenance column (R156) — this round exercises them, it does not add to them.
 
@@ -77,9 +81,13 @@ flow-selector at D exit.)_
     rejected → two identical messages, matching the symptom exactly. **To pin (needed before any
     fix):** (1) restart the backend on current code + retry; (2) read the 422 `detail[].loc` from the
     browser Network tab.
-  - **Severity HIGH if real** (blocks the FM1–12 dogfood), but **cause unconfirmed** — do NOT write a
-    fix until the `loc` / backend-freshness check identifies the actual rejected fields. No speculative
-    code change.
+  - **RESOLVED 2026-07-09 (human): stale backend — no code bug.** Restarting the backend on current
+    code cleared the "Extra inputs ×2" error; append commits fine. Confirms the lead hypothesis: the
+    running process predated R155, so its `_BatchItem` lacked `refresh_mode` + `overlap_check_field` →
+    both rejected. Current code accepts the full append payload (verified end-to-end above). No fix
+    needed. **Lesson: a dogfood "bug" can be a stale dev process — check backend freshness before
+    diagnosing FE↔contract drift.** (My initial Source.Name-409 repro was also unfaithful — retracted;
+    the FE's `applyPreset` guards it. Both a reminder to reproduce through the real code path.)
 
 - **[F-drift-provenance-phantom] CONFIRMED R156 × refresh regression: the Drift step falsely reports
   `Source.Name` as a REMOVED column on every refresh of a provenanced dataset.** `refreshBaseline =
@@ -242,16 +250,37 @@ flow-selector at D exit.)_
 
 ## Check
 
-- [ ] _(pending — filled at Check phase)_
+- [x] Append+provenance core WORKS on the real flow — no append blocker (the "Extra inputs ×2" was a
+      stale pre-R155 backend process, cleared by a restart; current code accepts the full payload).
+- [x] Dogfood surfaced its gaps (the round's deliverable): the R156 provenance×refresh seam
+      (drift phantom confirmed; identity-by-name design weakness) + an upload-wizard UX polish cluster.
+- [x] Fix-round design direction chosen + recorded (provenance = computed column in metadata).
+- [x] No feature code shipped (validation round); only fix landed = i18n range copy 03b5c67.
 
 ## Act
 
-**Learnings**: _(pending)_
+**Learnings**:
 
-**Promotions**: _(pending — likely none for a dogfood round unless a gap is found)_
+- A dogfood "bug" can be a **stale dev process** — the append 422 was a pre-R155 backend still running,
+  not FE↔contract drift. Check backend freshness before diagnosing. (And reproduce through the REAL
+  code path: my Source.Name-409 repro bypassed the FE `applyPreset` guard and was retracted.)
+- R156 shipped with a **refresh-interaction gap**: its Integration walk exercised only a FIRST append,
+  never a refresh of an already-provenanced dataset — where the drift phantom lives. A "COMPLETE" that
+  walks one direction of a bidirectional feature isn't complete.
+- Identifying a system-generated column by a **magic name** (`Source.Name`) is the shared root of the
+  drift phantom AND the collision ambiguity → recognize by a metadata registry / computed-column spec.
+
+**Promotions** _(none this round — findings live in the round + rolling memory; promote only if a
+pattern recurs)_:
+
+- Candidate (hold): "diff user-authored inputs only; exclude system-computed columns from both sides"
+  as a reusable design rule — promote if a second computed-at-ingest column appears.
 
 **Follow-ups (not promotions, just notes):**
 
+- **R158 = provenance×refresh hardening (the fix round):** implement the chosen design — provenance as
+  a computed column spec'd in `commitSettings` metadata; recompute on refresh; drift diffs SOURCE
+  columns only; collision → auto-suffix `Source.Name1`. Fixes [F-drift-provenance-phantom].
 - **[F-metadata-reset]** click-time `Popconfirm` (+ no undo) on the Metadata step's destructive
   override-clearing — both "Reset all to detected" (unguarded) and re-parse/range-edit (passive Alert
   only, easy to miss). See Do § Dogfood findings. Own slice or a rider on a future upload-UX round.
@@ -267,12 +296,12 @@ flow-selector at D exit.)_
 - **[F-append-copy]** align the unchecked-append warning to additive phrasing ("adds those rows again
   as duplicates") — drop "double" (wrong for 3rd+ re-adds); match the checked-path `overlapWarnBody`.
   EN + VN.
-- **[F-overlap-range-copy]** `overlapWarnBody` date range: en-dash between two ISO dates is dash-soup
-  (`2025-01-16–2025-01-29`) → "from {{min}} to {{max}}" (human hand-edited EN 2026-07-09, good). **VN
-  mirror pending** — `vi.json` still has `{{min}}–{{max}}` → `từ {{min}} đến {{max}}` (EN/VN diverged).
-  Only occurrence in the corpus. Cosmetic/low; Confirm-step, same cluster as [F-append-copy].
+- **[F-overlap-range-copy] SHIPPED 2026-07-09 (03b5c67)** — `overlapWarnBody` en-dash range between
+  two ISO dates was dash-soup (`2025-01-16–2025-01-29`) → "from {{min}} to {{max}}" (EN, human) /
+  "từ {{min}} đến {{max}}" (VN, mirrored). Only occurrence in the corpus. The one fix this round.
 
-## Feeds into → Round_158 (TBD)
+## Feeds into → Round_158 (provenance×refresh hardening)
 
-_(pending — either "accumulation loop confirmed end-to-end on the flagship dataset" or the specific
-gap the walk surfaced, which would define R158.)_
+Append+provenance is verified as a working accumulation loop; R158 hardens the refresh *interaction*
+per the design direction captured here (computed-column-in-metadata; SOURCE-only drift; auto-suffix
+collision). The upload-wizard UX polish cluster is queued behind it (own round or rider).
