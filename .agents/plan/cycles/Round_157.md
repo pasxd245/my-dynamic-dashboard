@@ -81,6 +81,54 @@ flow-selector at D exit.)_
     fix until the `loc` / backend-freshness check identifies the actual rejected fields. No speculative
     code change.
 
+- **[F-drift-provenance-phantom] CONFIRMED R156 × refresh regression: the Drift step falsely reports
+  `Source.Name` as a REMOVED column on every refresh of a provenanced dataset.** `refreshBaseline =
+  target.columns` includes the committed `Source.Name` (hidden but present); the incoming file never
+  contains it (auto-injected at commit); `computeSchemaDrift`'s
+  `removed = baseline.filter(c => !incoming.has(c.name))`
+  ([state.ts:682](../../../workspace/apps/builder/src/features/data-management/datasets/upload/state.ts#L682))
+  therefore always lists `Source.Name` under "removed" with the "dependents may go stale" hint — the
+  human's "warning as it already deleted." Spurious: commit re-injects it, nothing is lost.
+  **Confirmed faithfully** (deterministic from the code + verified `target.columns` carries
+  `Source.Name` in the detail read). **Fix:** exclude the reserved provenance column from the drift
+  diff (needs a FE-side reserved-name constant matching backend `PROVENANCE_COLUMN = "Source.Name"` —
+  a cross-language contract value, so source it from generated constants / values.yaml rather than a
+  literal). Severity **medium** (false warning every refresh → erodes trust in the drift gate; no data
+  loss). R156-interaction, higher confidence than [F-append-commit-fail]. Found 2026-07-09.
+  - **Collision concern (human) — no DUPLICATION risk, but exposes a design weakness:**
+    `_inject_provenance_col` ([datasets.py:246](../../../workspace/apps/backend/app/routers/datasets.py#L246))
+    skips injection when a source column already claims `Source.Name` (user's column wins) → at most
+    one such column, no duplication. BUT →
+  - **[DESIGN — anchors the hardening round] Provenance identity is NAME-ONLY (`Source.Name`), no
+    structural marker.** This is the shared root of the drift phantom AND the collision awkwardness.
+    Consequences: (a) can't distinguish system-injected provenance from a user column of the same
+    name; (b) the name can't change (it IS the identity); (c) downstream (drift diff, hidden
+    carry-forward) keys off the name. Human's Qs: *if the user's column wins, what do we name ours,
+    and how do we recognize it?* Today = we add nothing (correct for the Power Query case — PQ's
+    `Source.Name` already IS the source filename; wrong only for a coincidental non-provenance user
+    column, which then gets no provenance and is mistaken for ours).
+  - **CHOSEN DIRECTION (human, 2026-07-09) — model provenance as a COMPUTED column, spec saved in
+    metadata; recompute on refresh; auto-suffix on collision.** Supersedes the earlier
+    "structural flag on the `Column` wire model" idea. Three parts:
+    1. **Metadata registry, not name-matching.** `commitSettings` (the ingest recipe) records WHICH
+       column is the computed provenance one (a pointer + "value = source filename"). Recognition
+       reads the pointer, not the string `Source.Name`. Fixes the phantom-drift + collision-ambiguity
+       root. **Keeps the `Column` wire model unchanged** → sidesteps the R152 widen-shared-model /
+       `null`-on-bystander trap entirely ([[widening-shared-wire-model-omit-serializer]]) — the reason
+       to prefer this over the flag-on-Column idea.
+    2. **Recompute on refresh.** A computed column isn't part of the incoming file's schema, so the
+       clean rule: **drift compares SOURCE columns only; the computed column is excluded from both
+       sides and re-applied after the diff** (principled fix for [F-drift-provenance-phantom], not a
+       special-case).
+    3. **Collision → auto-suffix** `Source.Name` → `Source.Name1` (de-dup loop → `…2`), so provenance
+       always exists and the user's column is never clobbered. Caveat: in the PQ case (incoming
+       `Source.Name` already = source filename) this yields a mildly redundant second column — harmless
+       (hide/drop one); auto-suffix is the safe default since name alone can't distinguish PQ-provenance
+       from a coincidental user column.
+  - **SCOPE BRAKE:** record ONLY provenance in metadata now (a single pointer) — do NOT build a general
+    "computed columns" engine until a second computed-at-ingest column pulls it (evolution rule).
+    Design input for the hardening round, not built this round.
+
 - **[F-commit-error-opaque] The commit-error surface shows raw Pydantic messages with no field or
   guidance** (the human's "no info about what the error is"). `commitErrorDescription` returns
   `err.body.detail` verbatim for a non-coded 422
@@ -219,6 +267,10 @@ flow-selector at D exit.)_
 - **[F-append-copy]** align the unchecked-append warning to additive phrasing ("adds those rows again
   as duplicates") — drop "double" (wrong for 3rd+ re-adds); match the checked-path `overlapWarnBody`.
   EN + VN.
+- **[F-overlap-range-copy]** `overlapWarnBody` date range: en-dash between two ISO dates is dash-soup
+  (`2025-01-16–2025-01-29`) → "from {{min}} to {{max}}" (human hand-edited EN 2026-07-09, good). **VN
+  mirror pending** — `vi.json` still has `{{min}}–{{max}}` → `từ {{min}} đến {{max}}` (EN/VN diverged).
+  Only occurrence in the corpus. Cosmetic/low; Confirm-step, same cluster as [F-append-copy].
 
 ## Feeds into → Round_158 (TBD)
 
