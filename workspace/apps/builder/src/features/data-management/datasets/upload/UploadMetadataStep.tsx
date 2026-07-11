@@ -346,7 +346,14 @@ type OverrideProps = Readonly<{
 function OverrideCell({ row, override, onChange }: OverrideProps) {
   const dtype = override?.dtype ?? row.dtype;
   const showFormat = dtype === 'date' || dtype === 'datetime';
-  const isOverridden = override !== undefined;
+  // [F-metadata-highlight] (R157) — highlight only when the effective dtype
+  // DIFFERS from this file's freshly-detected dtype, not merely when an override
+  // ENTRY exists. On refresh the carry-forward seeds an override for every
+  // surviving column (rich path: real prior picks; lossy legacy path:
+  // presetFromDataset seeds all), so "entry exists" lit up every cell and buried
+  // the user's one real change. "Differs from detected" matches the Drift step's
+  // intent — a change is a change vs what we'd infer now.
+  const isOverridden = override !== undefined && override.dtype !== row.dtype;
   return (
     <Space orientation="vertical" size={4} style={{ width: '100%' }}>
       <Select

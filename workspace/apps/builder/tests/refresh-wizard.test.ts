@@ -231,6 +231,31 @@ describe("computeSchemaDrift (F10)", () => {
     const cols = [{ name: "a", dtype: "string" as const }];
     expect(hasSchemaDrift(computeSchemaDrift(cols, cols))).toBe(false);
   });
+
+  it("R158 — excludes a computed column so it is not a phantom 'removed'", () => {
+    // The committed baseline carries the computed provenance column; the
+    // incoming source file never does. Without the exclusion it would be
+    // falsely reported "removed" on every refresh (F-drift-provenance-phantom).
+    const baseline = [
+      { name: "region", dtype: "string" as const },
+      { name: "Source.Name", dtype: "string" as const },
+    ];
+    const incoming = [{ name: "region", dtype: "string" as const }];
+    const drift = computeSchemaDrift(baseline, incoming, ["Source.Name"]);
+    expect(drift.removed).toEqual([]);
+    expect(hasSchemaDrift(drift)).toBe(false);
+  });
+
+  it("R158 — a real removed source column still surfaces alongside a computed one", () => {
+    const baseline = [
+      { name: "region", dtype: "string" as const },
+      { name: "notes", dtype: "string" as const },
+      { name: "Source.Name", dtype: "string" as const },
+    ];
+    const incoming = [{ name: "region", dtype: "string" as const }];
+    const drift = computeSchemaDrift(baseline, incoming, ["Source.Name"]);
+    expect(drift.removed).toEqual([{ name: "notes", dtype: "string" }]);
+  });
 });
 
 describe("refresh merge mode (R147)", () => {
@@ -253,6 +278,18 @@ describe("refresh merge mode (R147)", () => {
     });
     expect(s.refreshMode).toBe("merge");
     expect(s.mergeKey).toEqual(["a", "b"]);
+  });
+
+  it("R158 — SEED_REFRESH captures the computed-column names from the registry", () => {
+    const s = wizardReducer(INITIAL_WIZARD_STATE, {
+      type: "SEED_REFRESH",
+      target: excelTarget,
+      settings: {
+        available: true,
+        computed_columns: [{ name: "Source.Name", kind: "source_filename" }],
+      },
+    });
+    expect(s.computedColumns).toEqual(["Source.Name"]);
   });
 
   it("drops a remembered key column no longer on the committed schema; merge with no surviving key falls back to replace", () => {

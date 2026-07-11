@@ -221,35 +221,85 @@ def _apply_exclusions(columns: list[dict[str, str]], excluded: list[str] | None)
 
 
 def _carry_forward_hidden(
-    cols: list[dict[str, str]], prev_columns: list[dict[str, str]]
+    cols: list[dict[str, str]], prev_columns: list[dict[str, str]], *, ignore: set[str] | None = None
 ) -> None:
     """R152 — re-apply the `hidden` view-hint (in place) onto freshly re-parsed
     `cols` after a refresh. Match by name: a column still present keeps its
     hint, a column gone/renamed drops it, a new column stays visible. A dtype
-    change is not a mismatch. Presentation-only — never touches the parquet."""
-    prev_hidden = {c["name"] for c in prev_columns if c.get("hidden")}
+    change is not a mismatch. Presentation-only — never touches the parquet.
+
+    R158 — ``ignore`` drops names whose prior hint must NOT carry forward: on a
+    provenance RENAME collision the old provenance name is now the incoming
+    file's USER column, so its (system) hidden hint should not stick to it (the
+    hint follows provenance to the new suffixed name, hidden-by-default there)."""
+    prev_hidden = {c["name"] for c in prev_columns if c.get("hidden")} - (ignore or set())
     for c in cols:
         if c["name"] in prev_hidden:
             c["hidden"] = True
 
 
-def _inject_provenance_col(cols: list[dict[str, str]], *, is_new: bool) -> bool:
-    """R156 — append the reserved provenance column (`Source.Name` = the source
-    filename) to ``cols`` (mutated in place). Returns True if injected — the
-    caller then materializes the matching constant column into the parquet with
-    ``add_provenance_column``. Returns False on a COLLISION (a source column
-    already claims the name): the user's column wins, nothing is injected.
+def _resolve_provenance_name(existing: set[str]) -> str:
+    """R158 — the provenance column name, auto-suffixed off a source-column
+    collision. `Source.Name` when free, else `Source.Name1`, `Source.Name2`, …
+    Provenance always exists (supersedes R156's skip-on-collision); the user's
+    same-named column is never clobbered."""
+    if PROVENANCE_COLUMN not in existing:
+        return PROVENANCE_COLUMN
+    i = 1
+    while f"{PROVENANCE_COLUMN}{i}" in existing:
+        i += 1
+    return f"{PROVENANCE_COLUMN}{i}"
+
+
+def _inject_provenance_col(cols: list[dict[str, str]], *, is_new: bool, name: str) -> None:
+    """R156/R158 — append the computed provenance column (value = the source
+    filename) to ``cols`` (mutated in place). ``name`` is the resolved,
+    collision-free column name (see ``_resolve_provenance_name``); the caller
+    materializes the matching constant column into the parquet and records
+    ``name`` in ``commitSettings.computed_columns``.
 
     ``is_new`` (the column is absent from the dataset's PRIOR ``columns_json``)
     defaults it hidden; on a dataset that already carries it the hidden flag is
     left to ``_carry_forward_hidden`` so a user's unhide is never re-overridden."""
-    if any(c["name"] == PROVENANCE_COLUMN for c in cols):
-        return False
-    col: dict[str, str] = {"name": PROVENANCE_COLUMN, "dtype": "string"}
+    col: dict[str, str] = {"name": name, "dtype": "string"}
     if is_new:
         col["hidden"] = True  # type: ignore[assignment]
     cols.append(col)
-    return True
+
+
+def _provenance_pointer(commit_settings: dict) -> str | None:
+    """R158 — the recorded computed-provenance column name from a dataset's
+    ``commitSettings.computed_columns`` registry, or None if unrecorded (a
+    pre-R158 dataset). Recognition is by this pointer, not by the magic name."""
+    for entry in commit_settings.get("computed_columns") or []:
+        if entry.get("kind") == "source_filename":
+            return entry.get("name")
+    return None
+
+
+def _resolve_refresh_provenance(
+    prev_names: set[str], prev_commit_settings: dict, incoming_names: set[str]
+) -> tuple[str, bool, tuple[str, str] | None]:
+    """R158 — on refresh, decide the provenance column's name, whether it is NEWLY
+    introduced this commit, and any RENAME. Recognizes the established column by
+    the registry pointer, else (legacy) by the reserved name, else introduces it
+    fresh (collision-free against the incoming source columns).
+
+    Returns ``(provenance_name, is_new, rename)``. ``rename = (old_committed_name,
+    new_name)`` when the incoming file now carries a source column named like the
+    established provenance column: the computed column AUTO-SUFFIXES (extends the
+    create-collision rule) and committed provenance is remapped from
+    ``old_committed_name`` to ``new_name``, so the incoming same-named column stays
+    intact as user data. ``None`` otherwise."""
+    established = _provenance_pointer(prev_commit_settings)
+    if established is None and PROVENANCE_COLUMN in prev_names:
+        established = PROVENANCE_COLUMN  # legacy: recognize by the reserved name
+    if established is None:
+        return _resolve_provenance_name(incoming_names), True, None  # pre-R156: introduce fresh
+    if established in incoming_names:
+        new_name = _resolve_provenance_name(incoming_names | prev_names)  # refresh collision → auto-suffix
+        return new_name, True, (established, new_name)
+    return established, established not in prev_names, None
 
 
 def _parse_and_target(item: _BatchItem, source_format: str, original_path: Path):  # type: ignore[no-untyped-def]
@@ -308,12 +358,13 @@ def _write_parquet(  # type: ignore[no-untyped-def]
     dtype_formats: dict[str, str],
     sheet: str | None,
     provenance_value: str | None = None,
+    provenance_name: str = PROVENANCE_COLUMN,
 ) -> None:
     """Write the full coerced table to parquet. Raises CoercionError on an
     uncastable cell (→ typed 422 by the callers). Shared by create + refresh.
-    R156 — ``provenance_value`` (the source filename) is injected into this write
-    as the reserved provenance column, skipped when a source column claims the
-    name; None = no provenance (a name collision)."""
+    R156/R158 — ``provenance_value`` (the source filename) is injected into this
+    write as the computed provenance column named ``provenance_name`` (resolved
+    collision-free by the caller); None value = no provenance."""
     if source_format == "csv":
         write_csv_to_parquet(
             original_path,
@@ -324,6 +375,7 @@ def _write_parquet(  # type: ignore[no-untyped-def]
             dtype_targets=dtype_targets or None,
             dtype_formats=dtype_formats or None,
             provenance_value=provenance_value,
+            provenance_name=provenance_name,
         )
     else:
         write_excel_to_parquet(
@@ -336,14 +388,19 @@ def _write_parquet(  # type: ignore[no-untyped-def]
             dtype_targets=dtype_targets or None,
             dtype_formats=dtype_formats or None,
             provenance_value=provenance_value,
+            provenance_name=provenance_name,
         )
 
 
-def _commit_settings_dict(item: _BatchItem, sheet_name: str | None) -> dict:
+def _commit_settings_dict(item: _BatchItem, sheet_name: str | None, *, provenance_name: str | None = None) -> dict:
     """The carry-forward snapshot persisted in source.json (R145 F9) — exactly
     what a future refresh wizard pre-fills. Stores the USER's overrides
     (Java-token formats intact), re-translated at the next commit. Mirrors a
-    commit item's settings shape so `GET .../refresh-settings` round-trips it."""
+    commit item's settings shape so `GET .../refresh-settings` round-trips it.
+
+    R158 — ``provenance_name`` records the computed provenance column in the
+    ``computed_columns`` registry (the recognition pointer; provenance-only for
+    now — see the Evolution-Rule scope brake)."""
     d: dict = {
         "parse_options": (item.parse_options or ParseOptions()).model_dump(exclude_none=True),
         "column_overrides": {
@@ -353,6 +410,8 @@ def _commit_settings_dict(item: _BatchItem, sheet_name: str | None) -> dict:
     }
     if sheet_name is not None:
         d["sheet"] = sheet_name
+    if provenance_name is not None:
+        d["computed_columns"] = [{"name": provenance_name, "kind": "source_filename"}]
     return d
 
 
@@ -424,6 +483,7 @@ def _run_merge(
     cols: list[dict[str, str]],
     target_id: str,
     provenance_backfill: tuple[str, str] | None = None,
+    provenance_rename: tuple[str, str] | None = None,
 ) -> dict[str, int] | JSONResponse:
     """R147 — run keep-latest-per-key against the STAGED incoming parquet and
     swap the merged result into staging. Any failure discards staging and the
@@ -431,7 +491,8 @@ def _run_merge(
     `merge_duplicate_keys` 422 (D2 — loud stop); an uncastable kept committed
     value → 422 detail (loud, never a silent TRY_CAST NULL). ``provenance_backfill``
     (R156) fills the provenance column for kept rows when the committed table
-    predates it."""
+    predates it; ``provenance_rename`` (R158) remaps committed provenance to a
+    new suffixed name on a refresh collision (see ``_cur_select_sql``)."""
     staged_parquet = staging_dir / "parsed.parquet"
     merged_target = staging_dir / "merged.parquet"
     try:
@@ -442,6 +503,7 @@ def _run_merge(
             key=merge_key,
             incoming_cols=cols,
             provenance_backfill=provenance_backfill,
+            provenance_rename=provenance_rename,
         )
     except MergeDuplicateKeysError as err:
         shutil.rmtree(staging_dir, ignore_errors=True)
@@ -477,6 +539,7 @@ def _run_append(
     cols: list[dict[str, str]],
     target_id: str,
     provenance_backfill: tuple[str, str] | None = None,
+    provenance_rename: tuple[str, str] | None = None,
 ) -> dict[str, int] | JSONResponse:
     """R155 — keyless UNION ALL against the STAGED incoming parquet, swapping the
     appended result into staging. No key, no dup-guard (append keeps all rows by
@@ -484,7 +547,8 @@ def _run_append(
     incoming schema → 422 detail (loud, dataset untouched — the staging discard
     keeps the R145 intact-on-failure invariant). ``provenance_backfill`` (R156)
     fills the provenance column for kept rows when the committed table predates
-    it."""
+    it; ``provenance_rename`` (R158) remaps committed provenance to a new suffixed
+    name on a refresh collision (see ``_cur_select_sql``)."""
     staged_parquet = staging_dir / "parsed.parquet"
     appended_target = staging_dir / "appended.parquet"
     try:
@@ -494,6 +558,7 @@ def _run_append(
             appended_target,
             incoming_cols=cols,
             provenance_backfill=provenance_backfill,
+            provenance_rename=provenance_rename,
         )
     except MergeCastError as err:
         shutil.rmtree(staging_dir, ignore_errors=True)
@@ -549,19 +614,31 @@ def _handle_refresh(
     )
     sheet_name = item.sheet if source_format == "excel" else None
 
-    # R156 — inject the provenance column into the refreshed schema. `is_new`
-    # (absent from the dataset's prior columns_json) defaults it hidden; else
-    # _carry_forward_hidden (below) preserves the user's show/hide choice.
+    # R156/R158 — recompute the computed provenance column on refresh. Recognize
+    # WHICH column is provenance from the `commitSettings.computed_columns`
+    # registry pointer (R158), not the magic name. Three cases:
+    #   • R158 dataset  → the pointer names it; carry the same name forward.
+    #   • pre-R158 legacy (has `Source.Name`, no pointer) → synthesize the pointer
+    #     by name ONCE this commit; registry-driven thereafter.
+    #   • pre-R156 (no provenance at all) → introduce it fresh, collision-free.
     prev_names = {c["name"] for c in json.loads(row["columns_json"])}
-    prov_injected = _inject_provenance_col(cols, is_new=PROVENANCE_COLUMN not in prev_names)
-    # Backfill: a pre-R156 dataset gains provenance on this refresh; fill its
-    # kept committed rows with the dataset's OWN source filename (source.json)
-    # rather than NULL. Only for append/merge (replace keeps no committed rows).
+    prev_cs = ((_load_source_json(ws_id, target_id) or {}).get("commitSettings")) or {}
+    prov_name, prov_is_new, prov_rename = _resolve_refresh_provenance(
+        prev_names, prev_cs, {c["name"] for c in cols}
+    )
+    # `is_new` defaults it hidden; else _carry_forward_hidden (below) preserves
+    # the user's show/hide choice.
+    _inject_provenance_col(cols, is_new=prov_is_new, name=prov_name)
+    # Backfill: only when provenance is NEWLY introduced (pre-R156) — fill kept
+    # committed rows with the dataset's OWN source filename (source.json) rather
+    # than NULL. Append/merge only (replace keeps no committed rows). A RENAME
+    # (refresh collision) does NOT backfill: committed provenance already exists
+    # and is remapped to the new name by the reconciliation (prov_rename).
     prov_backfill: tuple[str, str] | None = None
-    if prov_injected and PROVENANCE_COLUMN not in prev_names:
+    if prov_is_new and prov_rename is None:
         committed_name = (_load_source_json(ws_id, target_id) or {}).get("originalName")
         if committed_name:
-            prov_backfill = (PROVENANCE_COLUMN, committed_name)
+            prov_backfill = (prov_name, committed_name)
 
     # R155 — the effective refresh mode. Explicit `refresh_mode` wins; when
     # omitted it is inferred (merge iff merge_key, else replace) for back-compat.
@@ -608,6 +685,7 @@ def _handle_refresh(
             dtype_formats=dtype_formats,
             sheet=sheet_name,
             provenance_value=meta.get("originalName") or "",
+            provenance_name=prov_name,
         )
     except CoercionError as err:
         shutil.rmtree(staging_dir, ignore_errors=True)
@@ -638,21 +716,22 @@ def _handle_refresh(
     merge_stats: dict[str, int] | None = None
     append_stats: dict[str, int] | None = None
     if mode == "merge":
-        merge_result = _run_merge(staging_dir, ds_dir, merge_key, cols, target_id, prov_backfill)
+        merge_result = _run_merge(staging_dir, ds_dir, merge_key, cols, target_id, prov_backfill, prov_rename)
         if isinstance(merge_result, JSONResponse):
             return merge_result
         merge_stats = merge_result
     elif mode == "append":
         # R155 — keyless UNION ALL against the staged incoming, before any swap.
-        append_stats = _run_append(staging_dir, ds_dir, cols, target_id, prov_backfill)
+        append_stats = _run_append(staging_dir, ds_dir, cols, target_id, prov_backfill, prov_rename)
 
     shutil.copy2(original_path, staging_dir / f"original{meta['ext']}")
-    commit_settings = _commit_settings_dict(item, sheet_name)
+    # R158 — record the computed provenance column in the registry (recompute-on-
+    # refresh persists the pointer, synthesizing it for a legacy dataset).
+    commit_settings = _commit_settings_dict(item, sheet_name, provenance_name=prov_name)
     # R147 D1/D4 + R155 — remember the semantics per dataset (the wizard's
     # next-refresh defaults). The OWNING mode sets its identity (merge → key,
     # append → overlap field); a non-owning mode carries the previously declared
-    # value forward so a mode switch doesn't forget it.
-    prev_cs = ((_load_source_json(ws_id, target_id) or {}).get("commitSettings")) or {}
+    # value forward so a mode switch doesn't forget it. (`prev_cs` loaded above.)
     commit_settings["refresh_mode"] = mode
     remembered_key = merge_key if mode == "merge" else prev_cs.get("merge_key")
     if remembered_key:
@@ -668,8 +747,11 @@ def _handle_refresh(
 
     # R152 — carry the `hidden` view-hint forward across a refresh (both replace
     # and merge). Presentation-only: the parquet was already written above and is
-    # never touched here.
-    _carry_forward_hidden(cols, json.loads(row["columns_json"]))
+    # never touched here. R158 — on a provenance rename the old name is now the
+    # incoming file's user column; don't carry provenance's hidden hint onto it.
+    _carry_forward_hidden(
+        cols, json.loads(row["columns_json"]), ignore={prov_rename[0]} if prov_rename else None
+    )
 
     columns_json = json.dumps(cols, ensure_ascii=False)
     new_size = original_path.stat().st_size
@@ -791,10 +873,12 @@ def commit_datasets_batch(id: str, body: _BatchRequest) -> list[Dataset] | JSONR
         parsed, cols, opts, kept_names, dtype_targets, dtype_formats = _parse_and_target(
             item, source_format, original_path
         )
-        # R156 — every dataset carries the provenance column; on a create it is
-        # always new → hidden by default. Materialized into the parquet below
-        # (gated on the same collision check via `kept_names`).
-        _inject_provenance_col(cols, is_new=True)
+        # R156/R158 — every dataset carries the computed provenance column; on a
+        # create it is always new → hidden by default. The name auto-suffixes off
+        # a source-column collision (R158) and is recorded in commit_settings;
+        # the write loop reads it back from the registry pointer.
+        prov_name = _resolve_provenance_name({c["name"] for c in cols})
+        _inject_provenance_col(cols, is_new=True, name=prov_name)
         ds = Dataset(
             id=_new_ds_id(),
             workspaceId=id,
@@ -807,7 +891,7 @@ def commit_datasets_batch(id: str, body: _BatchRequest) -> list[Dataset] | JSONR
             sheetName=item.sheet if source_format == "excel" else None,
             createdAt=_now_iso(),
         )
-        commit_settings = _commit_settings_dict(item, ds.sheetName)
+        commit_settings = _commit_settings_dict(item, ds.sheetName, provenance_name=prov_name)
         staged.append((ds, opts, kept_names, dtype_targets, dtype_formats, commit_settings))
 
     # Write filesystem trees, then commit DB. Roll back files on DB failure.
@@ -831,6 +915,7 @@ def commit_datasets_batch(id: str, body: _BatchRequest) -> list[Dataset] | JSONR
                     dtype_formats=dtype_formats,
                     sheet=ds.sheetName,
                     provenance_value=meta.get("originalName") or "",
+                    provenance_name=_provenance_pointer(commit_settings) or PROVENANCE_COLUMN,
                 )
             except CoercionError as err:
                 # R143 — typed 422 instead of the pre-R143 ArrowInvalid 500.
@@ -1082,15 +1167,26 @@ def get_dataset_refresh_settings(id: DsIdPath) -> JSONResponse:  # noqa: A002
     pre-fills from. Reads the `commitSettings` snapshot the last commit
     persisted in source.json. `available: false` for pre-R145 datasets (no
     snapshot) → the wizard uses its lossy fallback. Kept off the hot
-    detail-get path."""
+    detail-get path.
+
+    R158 — synthesizes the `computed_columns` provenance pointer on READ for a
+    legacy dataset (has a `Source.Name` column but no recorded pointer), so the
+    FE can exclude the computed column from the drift diff even before the
+    transition commit persists the pointer. Name-matching stays server-side."""
     with get_conn() as con:
-        row = con.execute("SELECT id, workspace_id FROM datasets WHERE id = ?", (id,)).fetchone()
+        row = con.execute(
+            "SELECT id, workspace_id, columns_json FROM datasets WHERE id = ?", (id,)
+        ).fetchone()
     if row is None:
         return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=ApiErrorNotFound().model_dump())
     src = _load_source_json(row["workspace_id"], id)
     settings = (src or {}).get("commitSettings")
     if not settings:
         return JSONResponse(status_code=status.HTTP_200_OK, content={"available": False})
+    if _provenance_pointer(settings) is None:
+        col_names = {c["name"] for c in json.loads(row["columns_json"])}
+        if PROVENANCE_COLUMN in col_names:
+            settings = {**settings, "computed_columns": [{"name": PROVENANCE_COLUMN, "kind": "source_filename"}]}
     return JSONResponse(status_code=status.HTTP_200_OK, content={"available": True, **settings})
 
 

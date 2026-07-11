@@ -282,6 +282,7 @@ type RowData = {
 export function UploadConfirmStep({ state, dispatch, commitError }: Props) {
   const { t } = useTranslation();
   const isCsv = state.sourceFormat === 'csv';
+  const isRefresh = state.mode === 'refresh';
   const workspaces = useWorkspacesQuery();
   const workspaceName = workspaces.data?.find((w) => w.id === state.workspaceId)?.name ?? state.workspaceId ?? '—';
 
@@ -327,31 +328,48 @@ export function UploadConfirmStep({ state, dispatch, commitError }: Props) {
     {
       title: (
         <>
-          {t('upload.confirm.tableDatasetName')}{' '}
-          <Typography.Text type="danger" style={{ marginLeft: 2 }}>
-            *
-          </Typography.Text>
+          {t('upload.confirm.tableDatasetName')}
+          {isRefresh ? null : (
+            <>
+              {' '}
+              <Typography.Text type="danger" style={{ marginLeft: 2 }}>
+                *
+              </Typography.Text>
+            </>
+          )}
         </>
       ),
       dataIndex: 'name',
       key: 'name',
-      render: (name: string, row: RowData) => (
-        <Input
-          value={name}
-          onChange={(e) =>
-            dispatch({
-              type: 'SET_DATASET_NAME',
-              unit: row.unitKey,
-              name: e.target.value,
-            })
-          }
-          placeholder={t('upload.confirm.datasetNamePlaceholder')}
-          maxLength={NAME_LENGTHS.DATASET_MAX}
-          size="small"
-          data-component="DatasetNameInput"
-          data-unit={row.unitKey}
-        />
-      ),
+      // Refresh pins the dataset name (state.ts RefreshPreset.name — "refresh
+      // never renames"); the commit ignores any edit. Render it read-only so
+      // the affordance tells the truth instead of a no-op editable input.
+      render: (name: string, row: RowData) =>
+        isRefresh ? (
+          <Typography.Text
+            data-component="DatasetNameStatic"
+            data-unit={row.unitKey}
+            title={t('upload.confirm.namePinnedHint')}
+          >
+            {state.refreshTargetName ?? name}
+          </Typography.Text>
+        ) : (
+          <Input
+            value={name}
+            onChange={(e) =>
+              dispatch({
+                type: 'SET_DATASET_NAME',
+                unit: row.unitKey,
+                name: e.target.value,
+              })
+            }
+            placeholder={t('upload.confirm.datasetNamePlaceholder')}
+            maxLength={NAME_LENGTHS.DATASET_MAX}
+            size="small"
+            data-component="DatasetNameInput"
+            data-unit={row.unitKey}
+          />
+        ),
     },
     {
       title: t('upload.confirm.tableRows'),
@@ -377,8 +395,6 @@ export function UploadConfirmStep({ state, dispatch, commitError }: Props) {
         ),
     },
   ];
-
-  const isRefresh = state.mode === 'refresh';
 
   return (
     <div data-component="UploadConfirmStep">

@@ -27,7 +27,7 @@ export function UploadDriftStep({ state, dispatch }: Props) {
   const key = refreshSheetKey(state);
   const incoming = state.sheets[key]?.columns ?? [];
   const baseline = state.refreshBaseline ?? [];
-  const drift = computeSchemaDrift(baseline, incoming);
+  const drift = computeSchemaDrift(baseline, incoming, state.computedColumns);
   const dirty = hasSchemaDrift(drift);
 
   if (!dirty) {
@@ -149,7 +149,6 @@ function DriftGroup({
           {
             dataIndex: 'detail',
             key: 'detail',
-            align: 'right' as const,
             render: (detail: string) => (
               <Typography.Text type="secondary" style={{ fontSize: 12 }}>
                 {detail}

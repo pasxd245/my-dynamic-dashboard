@@ -256,7 +256,11 @@ export function DatasetNewPage() {
         // Warn-loud, never block (R145 D): clean schema advances freely; any
         // drift requires the explicit acknowledge.
         const key = refreshSheetKey(state);
-        const drift = computeSchemaDrift(state.refreshBaseline ?? [], state.sheets[key]?.columns ?? []);
+        const drift = computeSchemaDrift(
+          state.refreshBaseline ?? [],
+          state.sheets[key]?.columns ?? [],
+          state.computedColumns,
+        );
         return !hasSchemaDrift(drift) || state.driftAcknowledged;
       }
       case 'confirm':

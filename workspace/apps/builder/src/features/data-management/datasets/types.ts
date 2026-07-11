@@ -150,6 +150,11 @@ export type RefreshSettings = {
   overlap_check_field?: string;
   /** R147 D4 — the last refresh's semantics (the per-refresh choice defaults to it). */
   refresh_mode?: RefreshMode;
+  /** R158 — the computed columns (provenance-only for now) recorded in the ingest
+   *  registry. The FE reads the name to exclude the computed column from the
+   *  schema-drift diff (it exists committed but is absent from every source file).
+   *  Synthesized server-side for legacy datasets on read. */
+  computed_columns?: { name: string; kind: string }[];
 };
 
 export type CommitBatchRequest = {

@@ -1596,11 +1596,18 @@ merge (present) do — it needs an **explicit mode discriminator**:
 
 _Append's companion — the origin tag that makes an accumulated dataset attributable._
 
-> **Status: DCFBI (0/5) — D+C+B+F built & green (pytest 379 · vitest 314), Integration walk pending.**
-> Pulled by [Round_156](../../../plan/cycles/Round_156.md) ← the R155 append boundary "No provenance
-> column" met its trigger immediately: after append unions FM1…FM12 the rows are origin-blind, so
-> per-file aggregation is impossible. Sequenced **before** the R157 FM1–12 dogfood so that walk
-> exercises append *with* provenance.
+Provenance shipped in R156 as an ingest-owned column recognized by its **magic name** `Source.Name`.
+R158 keeps the column and its behaviour but changes **how it is recognized** — from name-matching to a
+**metadata pointer** — because name-only identity was the shared root of two flaws the R157 dogfood
+surfaced: a false "removed `Source.Name`" drift warning on every refresh, and an ambiguous collision
+with a coincidental user column of the same name. The current-state spec below is the R158 model.
+
+> **R158 in-flight** (DCFBI, 0/5 — no-UI/refactor round): recognition moves to a `commitSettings`
+> pointer; drift diffs SOURCE columns only; collision auto-suffixes. Pulled by [R157](../../../plan/cycles/Round_157.md)
+> — [F-drift-provenance-phantom] confirmed. R156 origin: the R155 append boundary "No provenance column"
+> met its trigger immediately (after append unions FM1…FM12 the rows are origin-blind). This section is
+> reconciled to the R158 target; the [Round_158](../../../plan/cycles/Round_158.md) file carries the
+> build ledger.
 
 ### Concept: append made rows origin-blind
 
@@ -1610,7 +1617,11 @@ files from a folder; we do the same. Because it is a **real, materialized column
 is queryable: `GROUP BY "Source.Name"` in a widget answers "calls per month," and a stray re-append
 shows up as duplicate `Source.Name` values — a diagnosable companion to R155's overlap warn.
 
-### Build home: an ingest-owned synthetic column — automatic, hidden by default
+### Build home: an ingest-owned COMPUTED column — automatic, hidden by default
+
+Provenance is a **computed column**: the ingest layer materializes its value (it is never read from the
+source file), and a **spec in `commitSettings` metadata records which column is the computed one** — so
+the system recognizes provenance by that pointer, not by matching the string `Source.Name`.
 
 - **Automatic, every dataset** — injected at commit on initial upload AND every refresh mode
   (replace / merge / append). No opt-in, no wizard control (the wizard skeleton is untouched). Every
@@ -1628,69 +1639,140 @@ shows up as duplicate `Source.Name` values — a diagnosable companion to R155's
   `columns_json`). On a dataset that already carries it, the round defers to `_carry_forward_hidden`,
   so a user's unhide is never re-overridden on the next refresh.
 
-### Injection seam
+### The metadata registry (R158) — recognition by pointer, not by name
 
-The column is **synthetic** (not in the source file), so it is injected right after `_write_parquet`
-stages the coerced `parsed.parquet`: a DuckDB rewrite adds the constant `"Source.Name"` VARCHAR
-column, and `{name: "Source.Name", dtype: "string", hidden?: true}` is appended to `cols` — so it
-flows into `columns_json` and, for append/merge, into the `incoming_cols` schema reconciliation. The
-parquet-visibility `PATCH /datasets/{id}/columns` still never touches the parquet — the
-presentation-vs-compute doctrine holds (provenance is a compute-time *write*, the visibility toggle is
-not).
+`commitSettings` (the ingest recipe persisted per-dataset in `source.json`) records the computed
+column:
 
-### Backfill for pre-R156 datasets
+```jsonc
+"commitSettings": {
+  "refresh_mode": "append",           // existing
+  "computed_columns": [               // R158 — the registry (provenance-only for now)
+    { "name": "Source.Name", "kind": "source_filename" }
+  ]
+}
+```
 
-A dataset committed before R156 has no `Source.Name`. On its next refresh:
+- **Backend-internal — no wire/contract change.** The pointer lives in `source.json`; `GET
+  /datasets/{id}` still returns provenance in the existing `Column {name, dtype, hidden?}` shape. This
+  is the deliberate reason to prefer a metadata registry over a structural flag on the `Column` wire
+  model — the latter reopens the R152 widen-shared-model / `null`-on-bystander trap
+  ([[widening-shared-wire-model-omit-serializer]]). The FE learns the computed column's **name** from
+  the metadata `GET /datasets/{id}/refresh-preset` already returns (it echoes `commitSettings`), and
+  uses it only to exclude that column from the drift diff (below).
+- **Recognition reads the pointer.** Every place that treated `Source.Name` as special — the injection
+  skip/collision check, the refresh recompute, the drift exclusion — keys off the registry entry, not
+  the literal string. The name is now just data.
+- **SCOPE BRAKE — provenance only.** The registry records exactly one `kind` (`source_filename`). It is
+  **not** a general computed-columns engine; a second computed-at-ingest column is what would pull the
+  generalization (Evolution Rule), and it has not.
 
-- **replace** → the whole table is the incoming file → every row gets the new filename (no backfill).
-- **append / merge** → the reconciliation currently NULL-fills a column absent on the committed side
-  ([merge.py](../../../../workspace/apps/backend/app/ingest/merge.py)). For the provenance column
-  specifically, fill kept committed rows with the **committed dataset's stored `originalName`** (from
-  its `source.json`) instead of NULL — a `provenance_backfill` special-case in `append_parquets` /
-  `merge_parquets`. No null-provenance rows result. Backfill runs **once** (the transition commit);
-  thereafter `Source.Name` is an ordinary committed column carried through unchanged.
+### Injection seam — into the single parquet write, recomputed on refresh
 
-### Collision
+The column is **synthetic**, and it is injected **into the single parquet write** (never a post-write
+rewrite, which would re-encode every column and strip pandas' string extension dtype —
+[parquet_writer.py](../../../../workspace/apps/backend/app/ingest/parquet_writer.py) module note):
 
-If a kept source column is already named `Source.Name`, the **user's column wins**: skip injection
-(logged), never clobber user data. (Rare; the Excel persona recognizes the name from Power Query.)
+- `write_csv_to_parquet` / `write_excel_to_parquet` take a `provenance_value`; the pure-DuckDB path adds
+  `, '<value>' AS "Source.Name"` inside the one `COPY`, and the pandas-coercion path calls
+  `_add_provenance_df` (a nullable-string column touching only the new column) before its one
+  `to_parquet`. `{name, dtype:"string", hidden?:true}` is appended to `cols` → flows into
+  `columns_json`.
+- **Recompute on refresh.** Because the computed column is not part of the incoming file's schema, each
+  refresh **re-materializes** it from the registry spec (value = the incoming filename for new rows;
+  kept committed rows retain their stored value). The parquet-visibility `PATCH /datasets/{id}/columns`
+  still never touches the parquet — the presentation-vs-compute doctrine holds (provenance is a
+  compute-time *write*, the visibility toggle is not).
 
-### Boundaries (named, R156)
+### Drift interaction (R158) — diff SOURCE columns only
 
-- **Filename only** — not sheet name, not a custom per-append label, not a timestamp (chosen at D; FM
-  filenames encode the month, so the filename is directly useful). A richer label is a future pull.
+The refresh Drift step compares the committed schema against the freshly-parsed incoming file
+(`computeSchemaDrift`, [state.ts](../../../../workspace/apps/builder/src/features/data-management/datasets/upload/state.ts)).
+A computed column exists on the committed (baseline) side but is **absent from every incoming file** —
+so a naïve name diff reports it "removed" on every refresh (R157 [F-drift-provenance-phantom]). The
+rule: **the diff compares SOURCE columns only — the computed column is excluded from both sides before
+the diff and re-applied after.** The FE identifies which name to exclude from the refresh-preset
+metadata. This is a principled fix (a computed column is not a source column, so it is not a source-drift
+event), not a special-case for `Source.Name`.
+
+### Legacy: pre-R158 (and pre-R156) datasets
+
+- **Pre-R156 (no `Source.Name` at all)** — on the next refresh the column is introduced. `replace`
+  rebuilds the whole table from the incoming file (every row gets the new filename). `append` / `merge`
+  would NULL-fill the column absent on the committed side ([merge.py](../../../../workspace/apps/backend/app/ingest/merge.py));
+  for provenance specifically, kept committed rows are filled with the **committed dataset's stored
+  `originalName`** (from its `source.json`) instead of NULL. No null-provenance rows result.
+- **Pre-R158 (has `Source.Name`, no registry pointer)** — the pointer is **synthesized once by name**
+  on the next refresh: the backend recognizes the legacy `Source.Name` column, writes the
+  `computed_columns` entry into `commitSettings` that commit, and is registry-driven from then on. A
+  one-time name-fallback bridges R156-era datasets — no migration script.
+
+### Collision → auto-suffix (R158)
+
+If a kept source column is already named `Source.Name`, provenance **auto-suffixes** to `Source.Name1`
+(de-dup loop → `…2`, …), and the registry pointer records the suffixed name. The user's column is never
+clobbered, and provenance always exists. This supersedes R156's *skip* (user-wins → provenance silently
+absent), which left an accumulated dataset origin-blind exactly when a coincidental same-named column
+appeared. Caveat: in the true Power-Query case (the incoming file's own `Source.Name` already *is* the
+source filename), auto-suffix yields a mildly redundant second column — harmless (hide or drop one);
+auto-suffix is the safe default because the name alone cannot distinguish PQ-provenance from a
+coincidental user column.
+
+**Collision on REFRESH (not just create) — auto-suffix + remap committed provenance.** The clash can
+also appear *after* provenance is established: a later refresh file introduces its own `Source.Name`
+column while the dataset's computed provenance is already `Source.Name`. The same rule applies, with one
+extra step for append/merge — the committed rows' provenance (stored under the old name) is **remapped**
+to the new suffixed name so no history is lost:
+
+- provenance auto-suffixes `Source.Name` → `Source.Name1`; the pointer updates to the new name;
+- the incoming file's `Source.Name` becomes an ordinary **user column** (NULL for committed rows, which
+  never had it); its hidden hint does NOT inherit the old provenance's (the hint follows provenance to
+  the suffixed column);
+- for append/merge, the committed-side projection reads committed `Source.Name` **as** `Source.Name1`
+  (`provenance_rename` in `merge.py`); for replace the whole table is rebuilt from the incoming file.
+
+Without this, a naïve inject would emit a **duplicate** `Source.Name` in `columns_json` (a corrupt
+schema) — the R158 build gate this case guards against.
+
+### Boundaries (named)
+
+- **Filename only** — not sheet name, not a custom per-append label, not a timestamp (FM filenames
+  encode the month, so the filename is directly useful). A richer label is a future pull.
 - **No un-append / undo-by-provenance** — provenance makes an append *attributable* and *visible*, but
   R155's forward-only boundary is unchanged; deleting rows by `Source.Name` is not this round.
-- **Reserved identifier, not localized** — `Source.Name` is a stable data identifier (Power Query
-  parity), not UI chrome; surrounding UI copy is localized, the column name is not.
+- **Reserved identifier, not localized** — the provenance column name is a stable data identifier (Power
+  Query parity), not UI chrome; surrounding UI copy is localized, the column name is not.
 - **Column count shifts +1, and provenance flows through the compute layer** — every dataset gains one
-  column. Because `hidden` is a **preview-only** hint (R152), `Source.Name` is a real column that
-  flows into query / join / workflow output: groupable in a single-dataset query (the goal — `GROUP BY
+  column. Because `hidden` is a **preview-only** hint (R152), provenance is a real column that flows into
+  query / join / workflow output: groupable in a single-dataset query (the goal — `GROUP BY
   "Source.Name"`), and present in a join's resolved columns **once per source** (`<src>.Source.Name`,
-  qualified). This is **accepted** (human, 2026-07-08): provenance is a genuine column everywhere, the
-  hidden hint only declutters the dataset-detail preview. Existing tests asserting an exact
-  `column_count` / resolved-column list gain `Source.Name` (mechanical churn across ingest/joins/
-  queries/workflows).
-- **No new wire field expected** — automatic ⇒ no request change; `GET /datasets/{id}` returns
-  `Source.Name` in the existing `Column {name, dtype, hidden?}` shape (verify the contract-validity
-  test at C).
+  qualified). Provenance is a genuine column everywhere; the hidden hint only declutters the
+  dataset-detail preview.
+- **No new REQUEST field, no shared-model change** — automatic ⇒ no request change; the registry is
+  persisted in `source.json` and surfaced only as an additive optional `computed_columns` on the
+  **refresh-settings response** (no bystander endpoint shares that schema → no widen-shared-model risk).
+  `GET /datasets/{id}` returns provenance in the existing `Column {name, dtype, hidden?}` shape.
 
-### Acceptance (R156, maps to Check)
+### Acceptance (R158, maps to Check)
 
-1. **Initial upload** → the dataset carries a hidden `Source.Name` = the uploaded filename on every
-   row; the row-preview hides it by default; the Columns manager can unhide it.
-2. **Append two months** → FM4 then FM5 → each row's `Source.Name` = its own source file; `GROUP BY
-   "Source.Name"` in a query/widget splits the counts per file.
-3. **Groupable while hidden** — a widget/query groups/filters on `Source.Name` even though it is hidden
-   in the dataset-detail preview (R152 pickers-ignore-hidden).
-4. **Backfill** — appending onto a pre-R156 dataset backfills old rows with that dataset's original
+1. **Initial upload** → the dataset carries a hidden provenance column = the uploaded filename on every
+   row; `commitSettings.computed_columns` records the pointer; the row-preview hides it by default.
+2. **Append months** → each row's provenance = its own source file; `GROUP BY "Source.Name"` in a
+   query/widget splits the counts per file.
+3. **Groupable while hidden** — a widget/query groups/filters on provenance even though it is hidden in
+   the dataset-detail preview (R152 pickers-ignore-hidden).
+4. **No phantom drift** — refreshing an already-provenanced dataset shows NO "removed `Source.Name`"
+   entry in the Drift step (the computed column is excluded from the source diff).
+5. **Unhide survives refresh** — unhiding provenance, then refreshing, leaves it visible.
+6. **Collision → auto-suffix** — a source file already containing `Source.Name` commits with the user's
+   column intact AND a `Source.Name1` provenance column; the pointer records the suffixed name. On a
+   REFRESH collision (incoming file brings `Source.Name` after provenance is established) the committed
+   provenance is remapped to `Source.Name1` — no duplicate column, committed history preserved.
+7. **Legacy synthesize-once** — refreshing a pre-R158 dataset (has `Source.Name`, no pointer) writes the
+   `computed_columns` pointer and thereafter is registry-driven (the phantom is gone from that commit on).
+8. **Backfill** — appending onto a pre-R156 dataset backfills old rows with that dataset's original
    filename (no NULLs); new rows get the incoming filename.
-5. **Unhide survives refresh** — unhiding `Source.Name`, then refreshing, leaves it visible (not
-   re-hidden by the new-column default).
-6. **Collision** — a source file already containing a `Source.Name` column commits with the user's
-   column intact (no injection, no clobber).
-7. **No contract regression** — no new request field; the contract-validity test stays green with
-   `Source.Name` returned in the existing `Column` shape.
+9. **No contract regression** — no new request field; the contract-validity test stays green.
 
 ---
 

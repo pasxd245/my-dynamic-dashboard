@@ -97,6 +97,29 @@ paths:
                       per-refresh choice defaults to last-used). Absent on
                       datasets whose last commit was a create or pre-R147
                       refresh (the wizard then defaults to replace).
+                  computed_columns:
+                    type: array
+                    items:
+                      type: object
+                      required: [name, kind]
+                      additionalProperties: false
+                      properties:
+                        name:
+                          type: string
+                          minLength: 1
+                          description: The computed column's name in the committed schema.
+                        kind:
+                          type: string
+                          description: What the value is computed from.
+                          enum: [source_filename]
+                    description: |
+                      R158 — the ingest registry: which committed columns are
+                      COMPUTED (provenance-only for now; `source_filename` = Power
+                      Query's `Source.Name`). The refresh wizard reads the name to
+                      EXCLUDE the computed column from the schema-drift diff (it is
+                      absent from every source file, so a naïve diff would falsely
+                      report it "removed" each refresh). Synthesized server-side for
+                      a legacy dataset (has the column, no recorded pointer) on read.
               examples:
                 excel_available:
                   summary: Excel dataset with a carried snapshot

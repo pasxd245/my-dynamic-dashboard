@@ -106,6 +106,11 @@ export type WizardState = {
   targetDatasetId: string | null;
   /** Refresh only — the target's committed columns, the drift-diff baseline. */
   refreshBaseline: Column[] | null;
+  /** Refresh only (R158) — names of computed columns (provenance) recorded in the
+   *  target's ingest registry. Excluded from the drift diff: a computed column
+   *  exists committed but is absent from every source file, so a naïve name diff
+   *  would falsely report it "removed" on every refresh. From refresh-settings. */
+  computedColumns: string[];
   /** Refresh only — target name (banner + pinned dataset name). */
   refreshTargetName: string | null;
   /** Refresh only (Excel) — the target's committed sheet, pre-selected. */
@@ -143,6 +148,7 @@ export const INITIAL_WIZARD_STATE: WizardState = {
   nextUnitSeq: 0,
   targetDatasetId: null,
   refreshBaseline: null,
+  computedColumns: [],
   refreshTargetName: null,
   refreshTargetSheet: null,
   pendingPreset: null,
@@ -397,6 +403,7 @@ function reduceSeedRefresh(target: Dataset, settings: RefreshSettings | null | u
     workspaceId: target.workspaceId,
     targetDatasetId: target.id,
     refreshBaseline: target.columns,
+    computedColumns: (settings?.computed_columns ?? []).map((c) => c.name),
     refreshTargetName: target.name,
     refreshTargetSheet: isCsv ? null : (target.sheetName ?? null),
     pendingPreset: { [sheetKey]: preset },
@@ -671,20 +678,28 @@ export type SchemaDrift = {
 
 /** F10 drift diff — the incoming file's parsed columns vs the target's
  *  committed columns, by name. Pure + client-side (F1); the dependent-artifact
- *  blast-radius is a backend read that lands at C/B (upload.md § Refresh F10). */
+ *  blast-radius is a backend read that lands at C/B (upload.md § Refresh F10).
+ *  R158 — `computed` names (provenance) are excluded from BOTH sides before the
+ *  diff: a computed column exists committed but is absent from every source
+ *  file, so a naïve diff would falsely report it "removed" every refresh. It is
+ *  re-materialized at commit regardless, so it is not a source-drift event. */
 export function computeSchemaDrift(
   baseline: Column[],
   incoming: Column[],
+  computed: Iterable<string> = [],
 ): SchemaDrift {
-  const baseByName = new Map(baseline.map((c) => [c.name, c]));
-  const incByName = new Map(incoming.map((c) => [c.name, c]));
-  const added = incoming.filter((c) => !baseByName.has(c.name));
-  const removed = baseline.filter((c) => !incByName.has(c.name));
+  const computedNames = new Set(computed);
+  const base = baseline.filter((c) => !computedNames.has(c.name));
+  const inc = incoming.filter((c) => !computedNames.has(c.name));
+  const baseByName = new Map(base.map((c) => [c.name, c]));
+  const incByName = new Map(inc.map((c) => [c.name, c]));
+  const added = inc.filter((c) => !baseByName.has(c.name));
+  const removed = base.filter((c) => !incByName.has(c.name));
   const dtypeChanged: SchemaDrift["dtypeChanged"] = [];
-  for (const col of baseline) {
-    const inc = incByName.get(col.name);
-    if (inc && inc.dtype !== col.dtype) {
-      dtypeChanged.push({ name: col.name, from: col.dtype, to: inc.dtype });
+  for (const col of base) {
+    const match = incByName.get(col.name);
+    if (match && match.dtype !== col.dtype) {
+      dtypeChanged.push({ name: col.name, from: col.dtype, to: match.dtype });
     }
   }
   return { added, removed, dtypeChanged };

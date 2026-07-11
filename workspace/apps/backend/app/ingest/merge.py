@@ -67,22 +67,38 @@ def _cur_select_sql(
     incoming_cols: list[dict[str, str]],
     cur_names: set[str],
     provenance_backfill: tuple[str, str] | None,
+    provenance_rename: tuple[str, str] | None = None,
 ) -> str:
     """The committed-side (`cur`) projection reconciling kept rows to the incoming
     schema (D5 incoming-wins): CAST an existing committed column into the incoming
-    dtype; NULL-fill a column the committed side lacks. R156 exception — the
-    provenance column, when absent from committed (a pre-R156 dataset's first
-    provenance-bearing refresh), is BACKFILLED with the committed dataset's own
-    source filename literal instead of NULL, so no kept row is left origin-null."""
+    dtype; NULL-fill a column the committed side lacks.
+
+    R156 exception — the provenance column, when absent from committed (a pre-R156
+    dataset's first provenance-bearing refresh), is BACKFILLED with the committed
+    dataset's own source filename literal instead of NULL, so no kept row is left
+    origin-null.
+
+    R158 exception — ``provenance_rename = (old, new)`` handles a refresh collision
+    where the incoming file carries a source column named like the committed
+    provenance column: the output ``new`` column reads committed ``old`` (the real
+    filenames are preserved under the suffixed name), and the output ``old`` column
+    (now the incoming file's user data) is NULL for committed rows, which never had
+    it. Checked BEFORE the name-match branch because ``old`` IS in ``cur_names``."""
+    rename_old, rename_new = provenance_rename if provenance_rename is not None else (None, None)
     parts: list[str] = []
     for c in incoming_cols:
         name = c["name"]
-        if name in cur_names:
-            parts.append(f"CAST(cur.{_q(name)} AS {_DTYPE_TO_DUCK[c['dtype']]}) AS {_q(name)}")
+        duck = _DTYPE_TO_DUCK[c["dtype"]]
+        if provenance_rename is not None and name == rename_new:
+            parts.append(f"CAST(cur.{_q(rename_old)} AS {duck}) AS {_q(rename_new)}")
+        elif provenance_rename is not None and name == rename_old:
+            parts.append(f"CAST(NULL AS {duck}) AS {_q(name)}")
+        elif name in cur_names:
+            parts.append(f"CAST(cur.{_q(name)} AS {duck}) AS {_q(name)}")
         elif provenance_backfill is not None and name == provenance_backfill[0]:
             parts.append(f"CAST({_q_lit(provenance_backfill[1])} AS VARCHAR) AS {_q(name)}")
         else:
-            parts.append(f"CAST(NULL AS {_DTYPE_TO_DUCK[c['dtype']]}) AS {_q(name)}")
+            parts.append(f"CAST(NULL AS {duck}) AS {_q(name)}")
     return ", ".join(parts)
 
 
@@ -94,6 +110,7 @@ def merge_parquets(
     key: list[str],
     incoming_cols: list[dict[str, str]],
     provenance_backfill: tuple[str, str] | None = None,
+    provenance_rename: tuple[str, str] | None = None,
 ) -> dict[str, int]:
     """Write keep-latest-per-key(committed, incoming) to ``merged_out``.
 
@@ -103,7 +120,8 @@ def merge_parquets(
     file; their sum is the merged row count. Raises MergeDuplicateKeysError
     (before any write) and MergeCastError. ``provenance_backfill`` (R156) =
     ``(column, value)`` filling that column for kept committed rows when it is
-    absent from the committed schema (see ``_cur_select_sql``).
+    absent from the committed schema; ``provenance_rename`` (R158) = ``(old, new)``
+    remapping committed provenance on a refresh collision (see ``_cur_select_sql``).
     """
     with duckdb.connect(":memory:") as con:
         # Paths come from dataset_dir()/temp staging (id-pattern segments);
@@ -129,7 +147,7 @@ def merge_parquets(
         match = " AND ".join(f"inc.{_q(k)} IS NOT DISTINCT FROM cur.{_q(k)}" for k in key)
 
         inc_select = ", ".join(f"inc.{_q(c['name'])}" for c in incoming_cols)
-        cur_select = _cur_select_sql(incoming_cols, cur_names, provenance_backfill)
+        cur_select = _cur_select_sql(incoming_cols, cur_names, provenance_backfill, provenance_rename)
 
         updated = con.execute(
             f"SELECT count(*) FROM inc WHERE EXISTS (SELECT 1 FROM cur WHERE {match})"  # noqa: S608
@@ -159,6 +177,7 @@ def append_parquets(
     *,
     incoming_cols: list[dict[str, str]],
     provenance_backfill: tuple[str, str] | None = None,
+    provenance_rename: tuple[str, str] | None = None,
 ) -> dict[str, int]:
     """R155 — keyless UNION ALL(committed, incoming) into ``appended_out``.
 
@@ -178,7 +197,7 @@ def append_parquets(
 
         cur_names = {name for (name, *_rest) in con.execute("DESCRIBE cur").fetchall()}
         inc_select = ", ".join(f"inc.{_q(c['name'])}" for c in incoming_cols)
-        cur_select = _cur_select_sql(incoming_cols, cur_names, provenance_backfill)
+        cur_select = _cur_select_sql(incoming_cols, cur_names, provenance_backfill, provenance_rename)
 
         incoming_total = con.execute("SELECT count(*) FROM inc").fetchone()[0]
         committed_total = con.execute("SELECT count(*) FROM cur").fetchone()[0]
