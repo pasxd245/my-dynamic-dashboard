@@ -36,6 +36,10 @@ Each round follows four phases:
 
 - Define the **goal** (what and why)
 - List concrete **steps** to achieve the goal
+- State the **expected outcome** — a one-line prediction of what will be true if
+  the round works. This is what the **Studied** line checks against later; without
+  a prediction the round can only be _verified_ (Check), never _studied_ (see below).
+  The **risks** below are the downside half of the same prediction.
 - Identify **risks** and unknowns
 - Status: `Planning`
 
@@ -47,7 +51,8 @@ Each round follows four phases:
 
 ### Check
 
-- Verify outcomes against the goal
+- Verify outcomes against the goal — a pass/fail **verdict**. The **Studied** line later
+  does the different job (revise the belief), per the Reader-layer note below.
 - Run tests, review output, gather feedback
 - **Visual verification gate (UI-bearing rounds): before flipping to
   `Review`, run the app and exercise the changed flow in a browser.**
@@ -90,6 +95,33 @@ Each round follows four phases:
 - Status: `Review` (work done, awaiting human approval) →
   `Complete` (human-approved; only humans flip this)
 
+### Reader-layer: Check (verify) vs Studied (learn)
+
+The four phases above are the **writer's** record — a log optimized for *doing* the
+round. A completed round also needs a **reader's** view: the storyboard a reviewer reads
+*instead of* the log. That is the **⟢ At a glance** block at the top of the Round Template.
+
+The framing follows PDCA→PDSA (Deming renamed "Check" to **Study** for exactly this reason):
+
+- **Check** (our `## Check` section) = _verify the work_ — gates green, human walk,
+  pass/fail. It leaves a **verdict**: did the implementation/test satisfy what the
+  Round specified?
+- **Studied** (the block's middle line) = _revise the belief_ — `predicted → saw → now
+  believe`. State what the round actually taught, using evidence-based **high / medium /
+  low confidence**, not a decorative percentage. A mechanical round with no theory to
+  revise writes `—`. It leaves a revised belief, not just a verdict.
+
+Author the block **at the Review→Complete flip**, not during Do — it's a close-out
+summary, and it mostly **relocates** content the round already wrote (Act learnings; the
+"watch" items scattered across Risks / deferrals / `Feeds into`). It is not a new section
+to maintain; if it ever stops earning its place, prune it.
+
+For now the block is a **manual** post-round audit item, **not** a lint gate — adopt it,
+write it by hand for a few rounds, and only mechanize (a `round-lint` `R-glance` rule) once
+hand-written blocks prove they are actually **read** (probe-before-theme, per the
+[R159](cycles/Round_159.md) cold-review). Rounds before R159 carry no block; a backfill, if
+ever wanted, is a separate opt-in sweep. Adopted in [Round_159](cycles/Round_159.md).
+
 ---
 
 ## Status lifecycle
@@ -126,6 +158,15 @@ Before flipping a round from `Review` to `Complete`, verify:
       text — leaving `[ ]` reads as an unfinished TODO.
 - [ ] `Status` field updated to `Complete` and `Date completed`
       filled.
+- [ ] **⟢ At a glance block authored** (rounds ≥ 159, **manual** check —
+      no lint gate yet): the top-of-file reader-layer carries
+      **Shipped / Studied / Watch**, written at this Review→Complete flip
+      (see [Round Template](#round-template) +
+      [Reader-layer](#reader-layer-check-verify-vs-studied-learn)): it
+      gives a reviewer the round's **Shipped / Studied / Watch** in one
+      ~20-second view, relocating the Act learnings + the "watch" items
+      already scattered across Risks / deferrals / `Feeds into` — not new
+      content. Adopted in [Round_159](cycles/Round_159.md).
 - [ ] **`pnpm plan:lint`** (or `node scripts/lint/round-lint.mjs`) returns 0.
       Enforces the Round Template mechanically: Status (+lifecycle
       vocab), Date fields, the five phase headings, an inbound
@@ -280,6 +321,25 @@ Worked example:
 **Date started**: YYYY-MM-DD
 **Date completed**: YYYY-MM-DD
 
+## ⟢ At a glance
+
+<!-- reader-layer: read THIS to review the round; the sections below are the working record.
+     Authored at the Review→Complete flip (NOT maintained during Do). Mostly relocates the
+     Act learnings + the "watch" items already scattered across Risks / "Explicitly NOT" /
+     Feeds-into — so it adds ~no net authoring. Keep it short; it scales with decisions made,
+     not words written (a 300-line round still gets a ~15-line block). -->
+
+**Shipped** — [what is now true: the capability/fix that landed + the verification that
+proves it (test counts, human walk). 1–3 lines.]
+
+**Studied** _(predicted → saw → now believe)_ — [what the round actually taught: the
+prediction from Plan, what you saw, and the revised belief, with **high / medium / low
+confidence + why**. A mechanical round with no theory to revise writes `—`.]
+
+**Watch** — [the open threads a reviewer must track, consolidated from Risks + deferrals +
+`Feeds into` + inline `[F-]` markers into ONE list: deferred follow-ups, behavior changes to
+watch, parked items, stale data to clean.]
+
 ## Goal
 
 **Inherits from ← [Round_NN](Round_NN.md)** — [what this round
@@ -293,6 +353,9 @@ _Track: 1 | 2 | 3. Pulled by: [round id | memory file | named
 product gap] — per [Evolution Rule](../../AGENTS.md)._
 
 ## Plan
+
+[Expected outcome + what observation would falsify it — a one-line prediction the
+**Studied** line checks against at close.]
 
 - [ ] Step 1
 - [ ] Step 2
@@ -308,8 +371,8 @@ product gap] — per [Evolution Rule](../../AGENTS.md)._
 
 ## Check
 
-- [ ] Verification item 1
-- [ ] Verification item 2
+- [ ] Verify outcomes against the goal (tests, lint, human walk) — the pass/fail verdict
+- [ ] ⟢ At a glance **Studied** line written: what the round taught (the revised belief)
 
 ## Act
 
