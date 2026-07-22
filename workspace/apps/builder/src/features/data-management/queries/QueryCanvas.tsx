@@ -275,7 +275,11 @@ function SourceNode({ data, id }: NodeProps<Node<SourceNodeData>>) {
         >
           {data.kind === 'query' ? <FilterOutlined /> : <TableOutlined />}
         </span>
-        <Typography.Text strong style={{ fontSize: 13, flex: 1, minWidth: 0 }} ellipsis>
+        <Typography.Text
+          strong
+          style={{ fontSize: 13, flex: 1, minWidth: 0 }}
+          ellipsis={{ tooltip: data.label }}
+        >
           {data.driving ? '◆ ' : ''}
           {data.label}
         </Typography.Text>
@@ -351,7 +355,9 @@ function SourceNode({ data, id }: NodeProps<Node<SourceNodeData>>) {
               ) : null}
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
                 <DtypeGlyph dtype={c.dtype} />
-                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</span>
+                <span title={c.name} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {c.name}
+                </span>
               </span>
             </div>
           ))}
