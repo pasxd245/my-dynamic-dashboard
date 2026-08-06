@@ -17,6 +17,15 @@ builder UX lives in the sibling [query-construction.md](query-construction.md); 
 visual source-graph editor is [canvas.md](canvas.md) (the Canvas tab — built).
 
 **Status**: Accepted (extended R120–R144 — transform `steps` / workflows / date_bucket).
+
+> **Read first — the domain noun-model.** [`../_noun-model.md`](../_noun-model.md) (R161) is the
+> canonical, cross-cluster definition of the five nouns (dataset · query · join · relationship ·
+> workflow) and the boundaries between them — **concepts locked R161**. It records **named debt**
+> where this doc/the engine diverge from those boundaries (D1 step-drop-in-composition · D2
+> shared-leaf `cyclic_join` · D3 workflow-as-noun) and keeps the **query⇄query composition fork
+> (model A vs B) OPEN** — model A leads but is not locked. When it and this doc conflict on a
+> *boundary*, the noun-model is the intent; this doc is current-state truth.
+
 **Sibling docs**:
 [query-construction.md](query-construction.md) (the editable builder surface: edit a
 Query's definition + preview before save; the create-mode "Build on this query"),

@@ -71,7 +71,79 @@ call; or the definitions leak Brick B into user-facing complexity.
 
 ## Do
 
-_(the definitions walk + reconciliation + decision accrue here)_
+### Canonical doc landed + reconciliation (2026-07-23)
+
+Authored the canonical concepts/boundaries doc:
+[`data-management/_noun-model.md`](../../design/data-management/_noun-model.md).
+
+- **Home + format decision.** Domain-level (`data-management/`, above every cluster, beside
+  `_TEMPLATE.md`), `_`-prefixed so the design-doc conformance lint
+  (`scripts/lint/design-doc-lint.mjs`) skips it — a **concepts/meta** doc has no
+  surfaces/tokens/layout/acceptance to declare, and forcing those sections is theater a
+  presence-lint can't make meaningful ([[adopt-artifact-defer-enforcement]]). Least-mechanism:
+  reuse the lint's existing `_`-file carve-out; **do not** add a new artifact-type to the lint
+  (Default = don't add). Adopted by hand-use (per-surface docs + load order point here).
+- **Five nouns defined (target model)** — dataset (leaf, owns rows) · query (live readable view,
+  own identity) · join (an *operation* in a query, not a noun) · relationship (governed `rel_`
+  *asset* vs query-owned `qrel_` *snapshot* — one word, two concepts) · workflow (frozen; target =
+  a materialization *mode* of a query, not a co-equal noun).
+- **Boundary table** drawn (5 load-bearing boundaries).
+- **Reconciled against code + per-surface docs**; divergence recorded as **named debt** (D1
+  step-drop · D2 shared-leaf `cyclic_join` · D3 workflow-as-noun · D4 error-at-wrong-time), each
+  with a current-code anchor verified this session (`query_engine.py:62-129` / `:212-218` / `:74-76`;
+  `rows_reader.py:373-407`).
+- **Validation** — mapped each R160 finding → the boundary/debt it resolves (the round's
+  falsification test); the 3 unrun live probes stay deferred to R162 as *its* acceptance checks.
+
+### The A/B decision — cold-reviewed, staged for human lock (2026-07-23)
+
+Defining "query" forced the fork. Doc records **model A** (query behaves like a dataset:
+full stepped output + own identity; relax shared-leaf `cyclic_join`, keep `composition_cycle`;
+steps compose live) as the **recommendation** — grounded in R160 #5/#6 + verified code:
+A is a **bug-fix, not a rewrite** (`resolve_source` already wraps `qr_` as a subrelation;
+`_apply_step` is already nested SQL), fan-out **largely pre-paid** by aggregate locality; the one
+real cost is deferring promote-to-governed-ER leaf provenance (unbuilt).
+
+Marked **PROPOSED, not Accepted** — ran `cold-reviewer [mix]` before lock (all six anchors
+grounded). Anchors 1/5 clear; **surfaced** for the human's lock:
+
+1. **Residual fan-out (anchor 2+4)** — A trades a *loud* `cyclic_join` for a *potentially silent*
+   double-count in the raw-join-then-top-aggregate case; backstop deferred + needs a per-source PK
+   we don't have. Decide: acceptable R162 deferral, or pair the lock with a loud guard?
+2. **Two-views vs genuine-self-join discriminator (anchor 3)** — "relax shared-leaf only" names no
+   engine mechanism to distinguish the two; R162 must own it.
+3. **Lock the decision, not the build (anchor 5)** — the doc is a two-way door; the R162
+   `cyclic_join` relaxation becomes one-way *after* users depend on shared-leaf joins — treat it as
+   its own commitment gate.
+4. **Confidence (anchor 6)** — n=1 dogfood + industry triangulation; 3 probes unrun. Being locked
+   before those validate.
+
+**Flow note:** design/decision round — no DCFBI/DFCFBI chain (no C/B/F/I), so `flow-selector`
+n-a; the only Hard Gate is the **Design/decision lock**, which is the human's, not a
+`gate-walker` doc-check ([[dfcfbi-f1-needs-human-review]]: Complete = signed-off, not gates-green).
+
+### Human call — lock concepts, hold the fork OPEN (2026-07-23)
+
+The human's decision at the A/B gate: **don't force the composition lock yet — lock the concepts
+first, keep them reopenable "when needed."** Rationale (agreed): the concept definitions are the
+robust half (validated against what R160 found, cheap to reopen); the A/B call is the one-way door
+(cold-review anchor 5 — only truly commits at the R162 build) resting on thin evidence (anchor 6 —
+n=1 dogfood, 3 probes unrun). Lock the vocabulary you're sure of; hold open the decision you're
+not. Consistent with [[query-is-a-connection-not-a-load]]'s "argue once, deliberately."
+
+Refactored [`_noun-model.md`](../../design/data-management/_noun-model.md) accordingly:
+
+- **Concepts Accepted — locked R161**: the five definitions + the settled boundaries (dataset owns
+  rows · query is a readable table-source with its own identity · join = operation not noun ·
+  governed `rel_` vs query-owned `qrel_` · Query⇄Workflow = live-vs-frozen).
+- **One boundary OPEN, not locked**: *query⇄query composition* (model A vs B). Model A recorded as
+  the leading candidate with the code-verified grounds + the two cold-review concerns, so a future
+  round reopens with the analysis done — but nothing downstream may assume A is settled.
+- **Named debt reframed**: D1 (step-drop) is a correctness bug **independent of the fork** (fix
+  regardless); D2/D3 are **fork-contingent** (resolve only when the fork closes toward A).
+
+**Round status → can close as a concept-lock** (fork deliberately open) once the human confirms the
+locked definitions read right. R162 is *not* auto-pulled — it fires only when the fork is reopened.
 
 ## Check
 

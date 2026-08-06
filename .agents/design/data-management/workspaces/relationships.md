@@ -25,6 +25,8 @@ step of the critical path (`data → relationships → dashboards`).
 [workspaces.md](workspaces.md), **not** a top-level catalog and **not** a
 dataset-detail section).
 **Sibling docs**:
+[`../_noun-model.md`](../_noun-model.md) (R161 — the domain noun-model; defines the
+**governed `rel_` (asset) vs query-owned `qrel_` (snapshot)** boundary this doc's entity sits on),
 [workspaces.md](workspaces.md) (the container that owns relationships; this view
 is reached from the workspace card),
 [datasets.md](../datasets/datasets.md) +

@@ -70,6 +70,8 @@ applied one layer up: **design the UI first, don't backfill it later**.
 │   └── <concept>.md                  (e.g. workspace-shell.md, .target.md)
 └── <domain>/                         (e.g. data-management/ — mirrors features/<domain>/)
     ├── _TEMPLATE.md                  (domain doc template)
+    ├── _<concept>.md                 (domain-level concepts/boundaries doc — see note below;
+    │                                   e.g. data-management/_noun-model.md)
     ├── _shared/                      (concepts reused across the domain's clusters)
     │   └── <concept>.md              (e.g. crud-hygiene.md)
     └── <cluster>/                    (e.g. datasets/, workspaces/ — mirrors features/<domain>/<cluster>/)
@@ -77,6 +79,14 @@ applied one layer up: **design the UI first, don't backfill it later**.
         └── <concept>.target.md       (horizon doc — optional)
 ```
 
+- **Domain-level concepts docs (`_<concept>.md`).** A `_`-prefixed markdown file at a domain
+  root (beside `_TEMPLATE.md`) is a **definitional/meta** artifact — it defines the domain's nouns
+  and the boundaries between clusters, sitting *above* any single UI surface. It has no
+  surfaces/tokens/layout/acceptance, so it is **not** a UI-surface concept doc and the
+  `design-doc-lint` skips it (leading-`_`); it is adopted by hand-use (the per-surface docs and the
+  round's load order point at it). First instance:
+  [`data-management/_noun-model.md`](data-management/_noun-model.md) (R161 — the query-domain
+  noun-model: concepts + boundaries locked; the query⇄query composition fork left OPEN).
 - **Mirror `apps/builder/src/features/`.** Domains and their feature
   clusters track the code layout
   (`data-management/{datasets,workspaces,_shared}`); `_platform/`

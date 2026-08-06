@@ -21,6 +21,14 @@ shipped R137; FE edit mode R139 — this doc reconciled to the built state
 **Round introduced**: [`Round_131`](../../../plan/cycles/Round_131.md) (Plan/Design
 gate); FE design gate [`Round_136`](../../../plan/cycles/Round_136.md).
 **Domain folder**: `workflows/`.
+
+> **Read first — the domain noun-model.** [`../_noun-model.md`](../_noun-model.md) (R161) defines
+> the five nouns (concepts locked R161) and flags the Workflow noun as **named debt D3**: the
+> Query⇄Workflow **live-vs-frozen** distinction is settled, but *whether* frozen collapses to a
+> **mode** of a query (dbt `table` vs `view`) is **fork-contingent + OPEN** — it only coheres if the
+> query-identity fork closes toward model A. This doc is the **current-state** (noun) truth. Do not
+> build *toward* a heavier Workflow noun without re-reading it.
+
 **Sibling docs**:
 [queries.md](../queries/queries.md) (the source a Workflow consolidates; the engine,
 `Step` union, catalog + detail layout, and `PagedRowsView` this domain reuses),
