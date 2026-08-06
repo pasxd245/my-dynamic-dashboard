@@ -1,9 +1,9 @@
 # Round 161: concepts & boundaries — the query-domain noun-model
 
-**Status**: **In Progress** — 2026-07-22 (definitions drafted in-conversation; canonical doc +
-model A/B decision land after we walk them)
+**Status**: **COMPLETE** — 2026-08-06 (concept-lock: the five definitions + settled boundaries
+Accepted; the query⇄query composition fork deliberately left OPEN; human-approved close)
 **Date started**: 2026-07-22
-**Date completed**:
+**Date completed**: 2026-08-06
 **Flow**: design/decision round — produces a canonical design-corpus concepts doc + the
 query-identity decision; **no product UI this round** (build deferred to a later round).
 
@@ -12,7 +12,43 @@ query-identity decision; **no product UI this round** (build deferred to a later
 <!-- reader-layer authored at close (R159 doctrine). Shipped = what's now true ·
      Studied = predicted→saw→now-believe · Watch = open threads / next bearing. -->
 
-_TBD — authored at close._
+**Shipped** — One canonical doc, no product code:
+[`data-management/_noun-model.md`](../../design/data-management/_noun-model.md) defines the domain's
+five nouns (dataset · query · join · relationship · workflow), draws 5 load-bearing boundaries, and
+records where today's code diverges as **named debt D1–D4** (each with a verified code anchor). It
+lands at the **domain root**, `_`-prefixed so `design-doc-lint` skips it — a concepts/meta doc has
+no surfaces/tokens/layout/acceptance to declare, so it reuses the existing `_` carve-out rather than
+teaching the lint a new artifact type. Adoption is by **hand-use**: queries.md · workflows.md ·
+relationships.md now open with a "read first" pointer, and [design/README.md](../../design/README.md)
+documents the artifact type. **Concepts are Accepted-locked; the query⇄query composition boundary is
+deliberately OPEN.**
+
+**Studied** _(predicted → saw → now believe)_ — Predicted that defining "query" would **force** the
+model A/B call, and that the round would close by *deciding* it. Saw the first half hold exactly:
+the definition did force the fork, and `cold-reviewer` found model A well-grounded (a bug-fix, not a
+rewrite — `resolve_source` already wraps `qr_` as a subrelation). But it also surfaced that A is a
+**one-way door on thin evidence** (n=1 dogfood, 3 probes unrun) whose commitment point is the R162
+build, not this doc. Now believe: **a definition round and a decision round are different rounds,
+and bundling them overpays.** The vocabulary was the robust, cheap-to-reopen half and was ready to
+lock; the composition call was neither. Splitting them let the concept-lock ship at full confidence
+instead of dragging a 60%-confidence decision along for the ride. The round's falsification test
+passed on all three arms: the doc resolved real conflicts (not a restatement), defining "query" did
+force the A/B call, and Brick B stayed under the floor.
+
+**Watch**
+
+- **The fork is OPEN, not settled** — model A leads with the analysis banked, but nothing downstream
+  may assume it. Reopening it is its own commitment gate (cold-review anchor 5).
+- **D1 (step-drop) is fixable now** — it's a correctness bug **independent** of the fork; D2/D3 are
+  fork-contingent. R162 is therefore *not* auto-pulled as a single "model A build".
+- **Two open engine questions** ride on any future A-lock: the silent raw-join-then-top-aggregate
+  double-count (needs a per-source PK we don't have) and the two-views-vs-genuine-self-join
+  discriminator (no named mechanism yet).
+- **3 live probes still unrun** (anti-join · messy/composite key · render) — inherited from R160,
+  still deferred; they validate the definitions against real data.
+- **Adoption is unenforced by design** — if a later round shows nobody reads the doc, that's the
+  signal to wire it into the load order harder, not to add a presence-lint
+  ([[adopt-artifact-defer-enforcement]]).
 
 ## Goal
 
@@ -43,19 +79,27 @@ round can build toward *one* north. Falsified if: the doc merely restates the sc
 docs without resolving a single conflict; or defining "query" does **not** actually force the A/B
 call; or the definitions leak Brick B into user-facing complexity.
 
-- [ ] Draft the concept definitions + boundary table (dataset · query · join · relationship ·
+- [x] Draft the concept definitions + boundary table (dataset · query · join · relationship ·
       workflow) — the in-conversation walk.
-- [ ] Reconcile each boundary against code (R160's traced lines) **and** the existing per-surface
+- [x] Reconcile each boundary against code (R160's traced lines) **and** the existing per-surface
       design docs ([queries.md](../../design/data-management/queries/queries.md),
       [workflows.md](../../design/data-management/workflows/workflows.md),
       [relationships.md](../../design/data-management/workspaces/relationships.md)); mark divergence
       as named debt.
-- [ ] Force the **query-identity decision (model A vs B)** from the "query" definition;
+- [x] Force the **query-identity decision (model A vs B)** from the "query" definition;
       run `cold-reviewer` before locking (engine + promote-to-ER provenance are at stake).
-- [ ] Land the canonical doc in the design corpus (pick home + lint conformance); link it from the
+      — Forced and cold-reviewed (all six anchors grounded); **outcome = hold OPEN**, model A
+      recorded as leading candidate. The lock itself was deliberately *not* taken — see Check.
+- [x] Land the canonical doc in the design corpus (pick home + lint conformance); link it from the
       per-surface docs and the load order so the next round reads it before touching queries.
-- [ ] Validation: confirm the definitions hold against R160's real-data cases (anti-join,
-      messy/composite key) — the deferred probes become the check.
+      — Landed at the domain root, `_`-prefixed (lint skips it); linked from the three per-surface
+      docs + the design index ([design/README.md](../../design/README.md)). **AGENTS.md Load Order
+      untouched** — the design corpus is reached via its own index, so no constitution edit was
+      needed (Default = don't add).
+- [x] Validation **(paper arm only)**: mapped each R160 finding → the boundary/debt it resolves;
+      all 6 land. ~~Live real-data cases (anti-join, messy/composite key, render)~~ — **still
+      deferred** (inherited unrun from R160); they become acceptance checks for whichever build
+      round reopens the fork, not a blocker on the concept-lock.
 
 ## Risks / unknowns
 
@@ -145,17 +189,73 @@ Refactored [`_noun-model.md`](../../design/data-management/_noun-model.md) accor
 **Round status → can close as a concept-lock** (fork deliberately open) once the human confirms the
 locked definitions read right. R162 is *not* auto-pulled — it fires only when the fork is reopened.
 
+### Human confirm → COMPLETE (2026-08-06)
+
+The human confirmed the locked definitions read right and called the flip. Round closed as a
+**concept-lock**: five nouns + settled boundaries Accepted, query⇄query composition OPEN. Reader
+layer, Check verdict, and Act authored at close (R159 doctrine). No successor round auto-pulled —
+see the **Feeds into** section below.
+
 ## Check
 
-- [ ] Verify outcomes against the goal (canonical doc exists, boundaries drawn, divergence named,
-      A/B decided) — the pass/fail verdict.
-- [ ] ⟢ At a glance **Studied** line written: what the round taught (the revised belief).
+**Verdict: PASS as a concept-lock** — with one goal clause deliberately re-scoped, not met.
+
+- [x] **Canonical doc exists** — [`_noun-model.md`](../../design/data-management/_noun-model.md) at
+      the domain root; `design:lint` 0/14 (skipped as `_`-prefixed, by design), `check_links` clean.
+- [x] **Boundaries drawn** — 5 load-bearing boundaries; the five nouns defined as a target model.
+- [x] **Divergence named** — D1 step-drop · D2 shared-leaf `cyclic_join` · D3 workflow-as-noun ·
+      D4 error-at-wrong-time, each anchored to current code and verified in-session.
+- [x] **Falsification test passed on all three arms** — the doc resolved real conflicts rather than
+      restating the per-surface docs; defining "query" *did* force the A/B call; Brick B stayed
+      under the floor (no user-facing vocabulary changed).
+- [ ] ~~A/B decided~~ — **deliberately not met.** The fork was forced, analysed, and cold-reviewed,
+      then held **OPEN** on the human's call: lock the vocabulary you're sure of, hold open the
+      one-way door you're not. This is a re-scope of the goal, **not** an unmet deliverable — the
+      analysis is banked in the doc so reopening starts warm.
+- [x] ⟢ At a glance **Studied** line written — the revised belief: a definition round and a
+      decision round are different rounds, and bundling them overpays.
 
 ## Act
 
-_(learnings + prune check at close)_
+**Learnings**:
 
-## Feeds into → Round_162 (TBD)
+- **Separate the robust half from the one-way door.** The round's real yield wasn't the doc — it was
+  noticing that its two deliverables had *very different* confidence and reversibility, and that
+  shipping them together would have dragged a 60%-confidence, one-way decision through a
+  high-confidence, two-way gate. Lock what's cheap to reopen; hold what isn't. Same shape as
+  [[adopt-artifact-defer-enforcement]] (adopt the artifact, defer the enforcement) — worth promoting
+  as a general pre-lock move, not a one-off.
+- **`cold-reviewer` earned its keep by *not* blocking.** All six anchors came back grounded and it
+  still changed the outcome — anchors 5 (two-way vs one-way door) and 6 (confidence: n=1, 3 probes
+  unrun) are what turned "lock A" into "hold A." A review that surfaces-but-never-decides fed the
+  human exactly the two facts the call needed. Consistent with [[fair-review-at-lockin]].
+- **A `_`-prefixed doc is the cheap home for a non-UI design artifact.** The design corpus is built
+  for UI-surface concept docs; a definitional/meta doc has no surfaces or tokens to declare.
+  Reusing the lint's existing `_` carve-out beat teaching the lint a second artifact type
+  ([[d-gate-artifact-in-design-corpus]] extended: the D-gate artifact is a design-corpus doc, but
+  not every design-corpus doc is a surface spec).
+- **Definition rounds are legitimately code-free.** No product code shipped and that was correct —
+  R160's diagnosis was definitional, so the fix was too. Guarded against the ontology rabbit-hole by
+  the round's own brake (success = fewer seams, not a beautiful ontology).
 
-_(the build round(s) toward the target model — e.g. the model-A step-dropping fix + scoped
-`cyclic_join` relaxation — if A is chosen; each a separate, bounded round.)_
+**Promotions**: candidate → `memory/` — "lock the concepts, hold the fork" as a reusable pre-lock
+move (the confidence×reversibility split). Log in [`promotions.md`](../promotions.md) if it survives
+a second use.
+
+**Prune check**: nothing pruned. No new skill, lint, orchestrator, or process artifact was added —
+the round's one addition is a design-corpus doc adopted by hand-use, and it reused an existing lint
+carve-out rather than growing the toolchain (Default = don't add, honoured).
+
+## Feeds into → (no auto-pulled successor)
+
+**R162 is not auto-pulled.** The fork is OPEN, so there is no "build model A" round queued. What
+exists instead, in priority order:
+
+- **D1 (step-drop) — fixable now, fork-independent.** A correctness bug: steps are dropped when a
+  query is composed. Can be scoped as its own bounded round without touching the fork.
+- **Reopening the fork is its own commitment gate** — not a build task. It should be triggered by
+  evidence (more dogfood, or a build that can't proceed without it), and it must resolve the two
+  open engine questions: the silent raw-join-then-top-aggregate double-count (needs a per-source PK)
+  and the two-views-vs-genuine-self-join discriminator. **D2/D3 resolve only here.**
+- **The 3 unrun live probes** (anti-join · messy/composite key · render) — acceptance checks for
+  whichever round reopens the fork.
