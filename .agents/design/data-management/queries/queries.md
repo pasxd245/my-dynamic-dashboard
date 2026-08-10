@@ -16,15 +16,23 @@ domain grows along, and the Query **model · routes + error codes · execution e
 builder UX lives in the sibling [query-construction.md](query-construction.md); the
 visual source-graph editor is [canvas.md](canvas.md) (the Canvas tab — built).
 
-**Status**: Accepted (extended R120–R144 — transform `steps` / workflows / date_bucket).
+**Status**: Accepted (extended R120–R144 — transform `steps` / workflows / date_bucket;
+R162 — the `group_column` operation).
 
-> **Read first — the domain noun-model.** [`../_noun-model.md`](../_noun-model.md) (R161) is the
+> **Read first — the domain noun-model.** [`../_noun-model.md`](../_noun-model.md) is the
 > canonical, cross-cluster definition of the five nouns (dataset · query · join · relationship ·
-> workflow) and the boundaries between them — **concepts locked R161**. It records **named debt**
-> where this doc/the engine diverge from those boundaries (D1 step-drop-in-composition · D2
-> shared-leaf `cyclic_join` · D3 workflow-as-noun) and keeps the **query⇄query composition fork
-> (model A vs B) OPEN** — model A leads but is not locked. When it and this doc conflict on a
-> *boundary*, the noun-model is the intent; this doc is current-state truth.
+> workflow) and the boundaries between them — **concepts locked R161, the Query concept re-locked
+> R162**. When it and this doc conflict on a *boundary*, the noun-model is the intent; **this doc
+> is current-state truth**.
+>
+> **The gap is now deliberate and large.** The re-locked concept is a live table over **datasets
+> only** — never composed. The engine below still ships composition **twice** (a `qr_` driving
+> base, and R91's `qr_` on the right of a hop): noun-model **D5**, scheduled for removal at
+> [program item 3](../../../plan/programs/query-shaping-surface.plan.md), **after** the
+> within-group family lands (replace-before-remove). Everything this doc says about composed
+> sources, `cyclic_join`, and `composition_cycle` is therefore **true today and scheduled for
+> deletion** — read it as current-state, not as intent. D1 (steps dropped in composition) is a
+> live correctness bug inside that same doomed path.
 
 **Sibling docs**:
 [query-construction.md](query-construction.md) (the editable builder surface: edit a
@@ -181,9 +189,12 @@ type QueryDefinition = {
 // rel never breaks it.
 type QueryRelationship = {
   id: string;                  // query-local, `^qrel_[0-9a-f]{8}$`
-  leftDatasetId: string;       // `ds_…` — the LEFT/driving dataset of this edge
+  leftSourceId: string;        // `ds_…` — the LEFT dataset of this edge (always in-graph)
   leftColumn: string;          // the join key on the left
-  rightDatasetId: string;      // `ds_…` — the RIGHT dataset joined in
+  // R91 — polymorphic `ds_ | qr_`: a Query may be joined IN on the right, resolved as a
+  // subquery. Concept-divergent (noun-model D5 — every operand must be a dataset);
+  // narrows back to `ds_` when composition is retired at program item 3.
+  rightSourceId: string;
   rightColumn: string;         // the join key on the right
   cardinality: 'one_to_one' | 'one_to_many' | 'many_to_many';
   originRelationshipId?: string | null; // `rel_…` provenance back-ref (null = free-form)
@@ -294,8 +305,9 @@ lives on the canvas ([canvas.md](canvas.md)); the model supports it via the null
 (not merely a linear chain). Resolution (`_resolve_chain` in `queries.py`):
 
 + The driving source (`sourceId`) is the root; for each hop `k`, the query-owned rel's
-  left dataset (`leftDatasetId`) must already be a member of **some source in the graph**
-  (else `disconnected_join`), and its right dataset (`rightDatasetId`) must be **new**
+  left dataset (`leftSourceId`) must already be a member of **some source in the graph**
+  (else `disconnected_join`), and its right source (`rightSourceId` — a `ds_`, or R91's `qr_`
+  which contributes its whole leaf SET) must be **new**
   (else `cyclic_join` — a diamond/self-join is rejected). So one dataset can drive **two
   or more** hops (a star).
 + Hops are stored in **topological order**; the builder produces this naturally by
@@ -441,6 +453,35 @@ with no steps is a plain select (unchanged). `steps` is a **`kind`-discriminated
   `resolvedColumns` — see the NEW names/order, so a rename is a real re-binding, not a
   display alias. Closes the R140 naming wart: `count_distinct(product)` (output col
   `product`) → `select {col: product, name: distinct_products}`.
+
++ **`group_column`** — R162 the **within-group column** _(D-gate signed off 2026-08-10)_:
+  **append** a column whose value is an aggregate over the **group of rows this row belongs
+  to**. The row count is **unchanged** — this is the *non-collapsing* half of the aggregate
+  family, and the reason `query⋈query` was ever needed (compare a row to its group).
+  Body: `{name, agg, col?, by[]}`.
+  + **`by`** — the group columns (≥1, each an effective column **at this step**; unknown →
+    `unknown_column`, repeats → `duplicate_group_column`). `by: []` (the whole table, i.e.
+    "% of total") is **deliberately not allowed** in R162 — same mechanism, program item 2.
+  + **`agg` / `col`** — the **same vocabulary and dtype rules as a collapsing measure**,
+    validated by the same `_validate_measure`: `sum`/`avg` need numeric, `min`/`max` need
+    numeric or date/datetime, `count_distinct` any, `count` omits `col` (→ the group's row
+    count).
+  + **`name`** — required, the `derive` naming vocabulary; collision → 422 `column_exists`.
+  + **Output dtype** — mirrors the collapsing measure rules exactly: `avg` → `float`;
+    `count`/`count_distinct` → `integer`; `sum`/`min`/`max` keep the col's dtype. `sum`/`avg`
+    coalesce an all-NULL group to `0` (parity with `aggregate`); `min`/`max` stay honest NULL.
+  + **Column space** folds like `derive`/`date_bucket` (base ++ the new column); the source
+    column stays available to later steps.
+  + Compiles to `SELECT *, <expr> OVER (PARTITION BY <by…>) AS name FROM (prev)` — **the same
+    shape as `derive`**, in the same fold, through the same planner. There is **no `ORDER BY`
+    inside the window**, so the frame is the whole partition and the result is
+    order-independent. Running total / rank / vs-prior-period all need an in-window `ORDER BY`
+    and a frame; that is why they are program item 2, not a widening of this step.
+  + **Position carries the meaning** (the ordered-operations rule). Placed **before** a
+    collapsing `aggregate`, it averages the *underlying rows* (pooled); placed **after**, it
+    averages the *already-grouped values*. Both are correct answers to different questions —
+    the surface makes which-one-you-get legible rather than asking for a `basis` parameter
+    ([query-construction.md § The within-group column](query-construction.md#the-within-group-column-r162)).
 
 **Engine** (`rows_reader.run_steps` / `_apply_step`): a **TYPED** relation is threaded
 through each step and stringified only at the end, so steps **chain** (a `top_n` after an
@@ -642,7 +683,13 @@ stateDiagram-v2
 7. **Stale is flagged, not crashed** — a drifted join column → `409 relationship_stale`;
    a drifted predicate atom → `409 query_stale`; a looping base → `409 composition_cycle`
    — each renders a guided state ([purpose.md](../../../context/purpose.md) #5).
-8. **Reuse, not duplication** — the catalog + detail **compose** the shared `@mdd/ui`
+8. **Within-group column (R162)** — a `group_column` step appends exactly one column and
+   **changes no row count**; its value equals the collapsing aggregate of the same
+   `(agg, col)` over the same `by` group, joined back to every row. Placing it **before** vs
+   **after** a collapsing `aggregate` yields the pooled vs the average-of-groups reading, and
+   both are reachable. A bad `by`/`col`/`name` → `422` at save with the same detail vocabulary
+   as the sibling steps; drift at run → `409 query_stale`.
+9. **Reuse, not duplication** — the catalog + detail **compose** the shared `@mdd/ui`
    shells + `<PagedRowsView>`; the engine reuses the predicate fragment builders; no
    copy-pasted dataset page, no re-implemented operator vocabulary.
 
@@ -690,9 +737,11 @@ Each step is **pulled, not pre-built** (the Evolution Rule + the
 
 ### OUT of scope (deferred with named triggers)
 
-+ **A `qr_` on the right of a join hop** (a Query joined *in* via a `rel_`) → defers a
-  governed-edge re-open (relationship endpoints `ds_ | qr_`). `rel_` endpoints stay
-  dataset↔dataset; the `qr_` source is the **base** only.
++ **The governed ER stays dataset↔dataset.** `rel_` endpoints are `ds_`-only, so R91's
+  `qr_`-on-the-right hop is always a **free-form** query-owned edge (no
+  `originRelationshipId`). Both `qr_` operand forms (driving base + right-of-hop) are
+  **concept-divergent** (noun-model D5) and retire at
+  [program item 3](../../../plan/programs/query-shaping-surface.plan.md).
 + **Free-form define + promote + the divergence-warn UX** are a **canvas** concern, built in
   [canvas.md](canvas.md); this model doc owns only the shape that supports them (the nullable
   `originRelationshipId` + the origin-agnostic resolver).

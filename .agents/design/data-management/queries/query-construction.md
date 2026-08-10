@@ -97,7 +97,9 @@ truth). **No new token is introduced**; the map reuses identifiers already cited
 | Builder panel card background                  | `colorBgBase`               | derived               |
 | `[Edit]` / `[Save]` / primary action           | `colorPrimary`              | `#1677ff`             |
 | Editable join / predicate `<Tag>` text         | `colorTextSecondary`        | derived               |
+| Step-card grain line + steps hint (advisory)   | `colorTextSecondary`        | derived               |
 | Builder section / table border                 | `colorBorderSecondary`      | `#f0f0f0`             |
+| Step-card border                               | `colorBorderSecondary`      | `#f0f0f0`             |
 | Dirty-state / unsaved-changes hint             | `colorWarning`              | `#faad14`             |
 | Invalid predicate / unavailable-edge `<Alert>` | `colorError`                | `#ff4d4f`             |
 | Border radius (card, table, tag, button)       | `borderRadius`              | `6`                   |
@@ -169,6 +171,115 @@ The `▾ Build` / `▾ Preview` bars are independently collapsible. `[Cancel] [S
 the page header; the preview re-runs the unsaved copy **debounced** (`[Preview]` flushes
 it). The `JoinEditor` renders a single-edge affordance for ≤1 hop and hop-rows with a
 left-source `<Select>` + per-hop type + add/leaf-remove for ≥2 (the spine's join tree).
+
+### Shape — the ordered operations editor (`StepsEditor`)
+
+> **Backfilled at the R162 D gate.** `StepsEditor` shipped across R120–R144 with **no
+> design-doc home** — this section is a design-sync-style reconciliation to the code
+> ([[design-docs-are-source-code]]), plus the one **new** affordance R162 adds. Everything
+> before "The within-group column" describes what is already built.
+
+A `▾ Shape` bar under `▾ Build` holds `definition.steps` — the **ordered** operations applied
+after the source/join/filter resolve ([queries.md § Transform steps](queries.md)). Each step is
+a card: `{n}. {kind label}` + `[↑] [↓] [🗑]` + a per-kind body. `[+ Add step]` is a `<Select>` of
+kinds. The column space is threaded client-side by `threadColumns` (`steps.ts`, a pure mirror of
+the backend `_step_plan`), so **each card's pickers offer exactly the columns that exist at that
+position** — the backend re-validates on preview/save and stays the source of truth.
+
+```text
+  ▾ Shape
+  ┌─ 1. Group & aggregate ──────────────────────────── [↑] [↓] [🗑] ┐
+  │  Group by [ agent × ] [ team × ]   Measure [ Count rows ▾ ]      │
+  └──────────────────────────────────────────────────────────────────┘
+  ┌─ 2. Group value ────────────────────────────────── [↑] [↓] [🗑] ┐
+  │  Value        Within each        New column name                 │
+  │  [ Average of ▾ ] [ rate ▾ ]   [ team × ]   [ team_rate      ]   │
+  │  ⓘ Each row here is one agent × team. This averages agents —     │
+  │     not the rows underneath them.                                │
+  └──────────────────────────────────────────────────────────────────┘
+  [ Add step ▾ ]
+```
+
+**Labels, not sentence chrome.** Every control carries a **visible `FieldLabel` above** it (the
+AntD Data-Entry label-above convention the sibling cards already use), not an inline reading
+sentence: `steps.measure` **Value** over the agg + column pair (reused verbatim from the
+`aggregate` card), a new `steps.withinEach` **Within each** / VN **Trong từng nhóm** over the
+group multi-`<Select>`, and the reused `steps.newColumn` **New column name** over the name
+`<Input>`. The card still *reads* as a sentence left-to-right; the labels are what make it
+navigable and screen-reader-addressable.
+
+#### The within-group column (R162)
+
+The step kind is **`group_column`** on the wire; the user never sees that word, nor "window
+function", nor "partition".
+
+| | EN | VN |
+| --- | --- | --- |
+| Kind label | **Group value** | **Giá trị theo nhóm** |
+| The sentence | `[Average of ▾] [rate ▾]` **within each** `[team ×]` | `[Trung bình của ▾] [rate ▾]` **trong từng nhóm** `[team ×]` |
+| New column | *New column name* (reused `steps.newColumn`) | *Tên cột mới* |
+
+- **The agg picker reuses the shipped measure vocabulary verbatim** — `sumOf` / `avgOf` /
+  `minOf` / `maxOf` / `countDistinct` / `countRows`, the same labels the `aggregate` card
+  uses, with the same dtype-gated column options (`isNumericCol` / `isOrderableCol`). One
+  vocabulary, two placements: **"Group & aggregate" collapses the rows; "Group value" keeps
+  them.**
+- **`within each` takes ≥1 column** (a multi-`<Select>` over the columns at this step). It is
+  **not optional** in R162 — "across everything" (`% of total`) is program item 2.
+- **Output** appends one column; the row count is visibly unchanged in the preview.
+
+#### How the surface answers "pooled or per-member?" — without asking
+
+The two readings of *"the team's average"* (all the underlying rows pooled, vs the average of
+the already-grouped values) differ by **where the step sits**, not by a parameter. The design
+choice at this gate is therefore: **no `basis` field.** A parameter would give two ways to say
+one thing, and would contradict the ordered-operations rule the whole concept rests on.
+
+What makes the choice legible instead is a **grain line** on every `group_column` card — one
+sentence naming *what one row means at this position*, derived from the step list alone (no
+data, no extra wire field):
+
+- If a collapsing `aggregate` precedes this step, one row is one of its `dimensions`:
+  **"Each row here is one `agent × team`. This averages agents — not the rows underneath
+  them."** (VN: *"Mỗi dòng ở đây là một `agent × team`. Phép này lấy trung bình theo agent —
+  không phải các dòng bên dưới."*)
+- If none does, one row is one source row: **"Each row here is one row of your source data."**
+  (VN: *"Mỗi dòng ở đây là một dòng dữ liệu gốc."*)
+
+Moving the card with `[↑]`/`[↓]` past an `aggregate` **rewrites the grain line**, so the two
+readings are one keystroke apart and each is named in business words at the moment of choosing.
+The column pickers reinforce it for free: before the aggregate only raw columns are offered,
+after it only the grouped ones.
+
+**This is the round's primary risk made testable** — if the human cannot tell which reading
+they got from the grain line alone, the round has moved the complexity rather than removed it,
+green gates notwithstanding ([Round_162 § Risks](../../../plan/cycles/Round_162.md)).
+
+#### Card states (declared so F builds them, not infers them)
+
+The reorder gesture is the affordance, so **its failure mode is part of the affordance.**
+
+| State | When | What the card shows |
+| --- | --- | --- |
+| **Normal** | every reference resolves at this position | the sentence + the grain line |
+| **Orphaned by a move** | `[↑]` past an `aggregate` would leave `col` / a `within each` column non-existent at the new position | the move still happens (never trap the user mid-thought); the card renders `<Alert role="alert">` naming the column — *"`rate` doesn't exist this early. Move this back down, or pick a column that does."* — and **`[Save]` is disabled** by the existing invalid-edit gate |
+| **Nothing to offer** | no column at this position satisfies the chosen agg's dtype rule | the column `<Select>` is disabled with a guiding tooltip naming why (the same shape as the join editor's no-eligible-edge control, acceptance #2) |
+| **Name collision** | `name` already exists at this position (`column_exists`) | inline field error on the name `<Input>`, tied to the field |
+| **Repeat group column** | the same column picked twice in `within each` (`duplicate_group_column`) | unreachable by construction — the multi-`<Select>` cannot repeat a value; the backend check stays as the wire-level backstop |
+
+The first two are the ones the reorder gesture creates; the last three mirror the 422 vocabulary
+[queries.md § Transform steps](queries.md) already declares, rendered **at the card**, never as a
+page-level error.
+
+#### The self-join boundary, in the Builder
+
+The same dataset may not appear twice in one Query (a locked boundary — [`_noun-model.md`](../_noun-model.md)).
+The form `JoinEditor` **already complies**: `addEligibleRels(rels, graphDatasets)` offers only
+edges whose right side is not yet in the graph, so the gesture is simply absent
+([JoinEditor.tsx:114](../../../../workspace/apps/builder/src/features/data-management/queries/JoinEditor.tsx#L114)).
+The **canvas** does not — its free-form draw is node-level, so it lets you draw an edge that
+fails later as `cyclic_join` (noun-model **D4**). Bringing the canvas to offer-nothing parity is
+**not** in R162; it is tracked as D4 and re-ranked after composition retires.
 
 ### Invalid-edit / preview-blocked states (flag-don't-crash)
 
@@ -308,6 +419,20 @@ if a base loops) — flag-don't-crash, mirroring the edit-mode and run-time gate
   live region; the **invalid-predicate**, **stale-edge**, and **base-unavailable** blocks
   are `<Alert role="alert">` whose reason is **text** (the offending column / base named),
   icon + text — not a colour swatch; `[Save]`-disabled state has an accessible reason.
+- The **`▾ Shape` step cards** (backfilled + extended R162): each card is a labelled group
+  (`{n}. {kind label}`); the reorder/remove buttons are icon-only and therefore carry
+  `aria-label`s (`steps.up` / `steps.down` / `steps.remove`, already shipped). Every step
+  control has a **visible `FieldLabel`** *and* an accessible name — including the R162
+  "Group value" card's **Value** / **Within each** / **New column name**; no control relies
+  on the reading-sentence order for its meaning.
+- The **grain line is a live region** (`role="status"`, `aria-live="polite"`). It is the one
+  thing that tells a user *which* reading a within-group column computes, and it **changes
+  when the card moves** — so a keyboard user pressing `[↑]` must hear the new grain, not
+  discover it in the result. It is **icon + text** (ⓘ + sentence), never colour alone, and it
+  is advisory: it is **not** an `<Alert>` and must not read as an error.
+- The **orphaned-by-a-move** state is `<Alert role="alert">` naming the offending column in
+  **text**, and `[Save]`-disabled carries an accessible reason — the same contract the
+  invalid-predicate and stale-edge blocks already keep.
 - The **name-capture modal** reuses `SaveQueryModal`'s shipped semantics: labelled
   `<Input>`, autofocus, an accessible `name_taken` error tied to the field.
 - The preview reuses `<PagedRowsView>`'s shipped table semantics; collision-qualified
@@ -341,7 +466,13 @@ if a base loops) — flag-don't-crash, mirroring the edit-mode and run-time gate
    definition }` → the new `qr_` detail (no `datasetId` in the body).
 8. **One create rhythm (no duplication)** — both "Save filters as Query" and "Build on
    this query" route through `SaveQueryModal` + `useCreateQueryMutation`.
-9. **Reuse, not duplication** — the builder composes the shipped predicate editors, the
+9. **The within-group column is authorable without engine words (R162)** — a "Group value"
+   card reads as a sentence (`Average of rate within each team → team_rate`), reuses the
+   `aggregate` card's agg labels and dtype-gated column options, and offers only columns
+   that exist at its position. Its **grain line** names what one row means there, and
+   **changes** when the card is moved past a `Group & aggregate` — so pooled vs
+   average-of-groups is chosen by placement, visibly, with no `basis` control anywhere.
+10. **Reuse, not duplication** — the builder composes the shipped predicate editors, the
    relationship/base `<Select>`s, and `<PagedRowsView>`; it re-implements no engine or page.
 
 ---
@@ -357,6 +488,9 @@ if a base loops) — flag-don't-crash, mirroring the edit-mode and run-time gate
 - A **Create mode** at `/queries/new?base=qr_…` (`QueryCreatePage`): no-id, **preset base**,
   the composed preview, name capture at Save (reused `SaveQueryModal`), Save = `POST`
   carrying `{ name, sourceId, definition }`.
+- The **`▾ Shape` steps editor** (`StepsEditor` + the pure `steps.ts` column threading):
+  ordered step cards with reorder/remove, per-kind bodies bound to the columns available
+  **at that position**, and — R162 — the **"Group value"** card with its grain line.
 - **Live preview** of the unsaved definition through `POST …/queries/preview` +
   `<PagedRowsView>`; in-builder invalid-predicate / stale-edge / base-unavailable blocking
   of Save (the existing gates, consumed pre-save).
@@ -368,9 +502,13 @@ if a base loops) — flag-don't-crash, mirroring the edit-mode and run-time gate
   empty-canvas create entry remains deferred ([canvas.md](canvas.md) Scope).
 - **Renaming a Query from the builder** → the builder edits the **definition** only; a
   separate rename affordance is its own pull.
-- **A `qr_` on the right of a join hop; composite keys; self-joins; cross-workspace
-  joins; null-aware predicate operators** → spine-level future triggers
-  ([queries.md § Scope](queries.md#scope-boundary)).
+- **Composite keys; cross-workspace joins; null-aware predicate operators** → spine-level
+  future triggers ([queries.md § Scope](queries.md#scope-boundary)). **Self-joins are not
+  deferred — they are a locked boundary** ([`_noun-model.md`](../_noun-model.md)); the form
+  editor already offers nothing, and canvas parity is D4.
+- **The rest of the within-group family** (% of total · running total · rank within group ·
+  vs prior period) → [program item 2](../../../plan/programs/query-shaping-surface.plan.md);
+  each needs an in-window `ORDER BY` + frame that `group_column` deliberately omits.
 - **Workflow / complex query (YAML + polars); result materialization; Excel export;
   dashboards** → downstream value-out; preview + save stay live re-run.
 

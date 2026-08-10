@@ -68,7 +68,7 @@ Each round is a **DCFBI slice** over one coherent capability:
 
 - **In** — the Query surface: within-group operations, the collapsing set, the ordered
   operation list, retiring composition.
-- **Deferred** — Workflow's definition (R165+, and only once Query is settled); the
+- **Deferred** — Workflow's definition (R166+, and only once Query is settled); the
   draw-time join-error UX (D4, largely mooted once composition is gone); the R157 UX
   cluster; `[F-prov-reimport-choice]`.
 - **Out** — materialization/scheduling semantics; presentation (charts, formatting,
@@ -87,15 +87,29 @@ Each round is a **DCFBI slice** over one coherent capability:
 
 | # | Item | Status | Round |
 | - | ---- | ------ | ----- |
-| 1 | **Within-group column** (aggregate within a group, as a column) + the Query concept rewritten into the design corpus | **in flight** | `Round_162` |
-| 2 | The rest of the within-group family — % of total · running total · rank within group · vs prior period | queued | — |
-| 3 | **Retire `query⋈query`** — remove composition, clean saved queries, delete the `cyclic_join` / `composition_cycle` / shared-leaf machinery | queued | — |
-| 4 | **Workflow** — settle what it is, now that Query is the single shaping surface | queued | — |
+| 1 | **Within-group column** (aggregate within a group, as a column) + the Query concept rewritten into the design corpus | **in flight** — split by the DFCFBI selector | `Round_162` (D + F1) → `Round_163` (C + B + F2 + I) |
+| 2 | The rest of the within-group family — % of total · running total · rank within group · vs prior period | queued | `Round_164` |
+| 3 | **Retire `query⋈query`** — remove composition (**both** forms — see D5), clean saved queries, delete the `cyclic_join` / `composition_cycle` / shared-leaf machinery | queued | `Round_165` |
+| 4 | **Workflow** — settle what it is, now that Query is the single shaping surface | queued | `Round_166` |
+
+> **Renumbered 2026-08-10.** Item 1's round ran the `flow-selector` at its Design exit and landed
+> **DFCFBI (triggers 1, 3, 5)**, so the standing [[dfcfbi-two-round-split]] applies: R162 stops at
+> the F1 feel-review, R163 finishes the capability, and every later item shifts by one. The
+> firewall holds — R162's F1 half ships FE code, not only documents.
 
 **Already complete — verified in code 2026-08-07, schedule no work for it**: the *collapsing*
 aggregate family. `count` · `count_distinct` · `sum` · `avg` · `min` · `max` all ship, with
 per-agg dtype rules ([query_engine.py:376-398](../../../workspace/apps/backend/app/query_engine.py#L376)).
-Conditional aggregate is redundant — a computed 0/1 column plus `avg` gives a rate.
+
+> **Correction (R162 D gate, 2026-08-10).** This paragraph originally closed with *"Conditional
+> aggregate is redundant — a computed 0/1 column plus `avg` gives a rate."* **That does not hold
+> on shipped code**: `derive` takes **numeric operands only**, so there is no way to turn
+> `outcome = 'connected'` into a 0/1 column — meaning *connect rate by agent*, the dogfood's own
+> example, is **not expressible today at all**. The route that does work arrives with item 1:
+> aggregate at a finer grain (`[agent, team, outcome] → count`), then roll it up with a
+> within-group column (`SUM(count) OVER (agent)`), filter, divide. So the within-group column
+> unblocks **T2 as well as T3** — one more tile than this plan claimed. Conditional aggregate
+> stays unscheduled, but for a different reason than the one written here.
 
 Round 1 also **calibrates this doc**: it is the first round to rewrite a design-corpus
 concept doc as its D gate, so its review pass hardens the repeatable unit before item 2.
@@ -105,16 +119,21 @@ concept doc as its D gate, so its review pass hardens the repeatable unit before
 | Entry | Axis/Kind | Seen in | Disposition |
 | ----- | --------- | ------- | ----------- |
 | Grain alignment needed by 3 of 5 dashboard tiles — load-bearing, not an edge case | evidence | R162 | open |
-| "Average within team" is ambiguous: pooled rows (71.4%) vs average of member rates (70.8%) — must be a user choice in plain words | UX trap | R162 | open |
+| "Average within team" is ambiguous: pooled rows (71.4%) vs average of member rates (70.8%) | UX trap | R162 | **settled at the R162 D gate** — it is an **ordering**, not a parameter. No `basis` field; a **grain line** on each card names what one row means at that position and rewrites itself when the card moves past an aggregate |
 | "Vs prior period" lies silently on gaps (Jan, Feb, **Apr** → Feb reads as April's previous) | correctness trap | — | open |
 | Order × within-group interact — a group column computed before vs after a filter averages over different groups | UX trap | — | open |
 | Join after aggregate requires the key to survive the group-by; impossible joins must be grey, not error | UX | — | open |
 | **Self-join is a BOUNDARY, not a gap** — the same dataset twice in one query is rejected ([query_engine.py:212](../../../workspace/apps/backend/app/query_engine.py#L212)) and stays rejected, **including in the Builder** (offer-nothing, not error-at-run). "Query only does BIZ, not everything" | boundary (human, 2026-08-07) | R162 | **settled** — state it in `_noun-model.md`; the need it leaves unserved is an input to item 4 (Workflow) |
-| Brainstorm's D-A row says pooled 71.4% is "not expressible". **Superseded** — once order carries meaning, placing the within-group column *before* the collapsing aggregate yields pooled, *after* yields 70.8%. So the pooled/per-member choice may be an **ordering**, not a parameter — the R162 design gate must settle which affordance it builds | superseded finding | R162 | open — decide at the R162 D gate |
+| Brainstorm's D-A row says pooled 71.4% is "not expressible". **Superseded** — once order carries meaning, placing the within-group column *before* the collapsing aggregate yields pooled, *after* yields 70.8% | superseded finding | R162 | **confirmed + settled** at the R162 D gate — the affordance built is the ordering, not a parameter |
 | **Derivable but undiscoverable** — top-N = rank + filter; anti-join = left join + `is_null` filter. Both work; both need a SQL trick to assemble. For a *player*, that means they don't exist | UX / persona | — | open — decide per item whether to name it as a first-class operation |
 | Join types shipped = `inner`/`left`/`right`/`full` ([common.py:330](../../../workspace/apps/backend/app/models/common.py#L330)). No anti-join or cross join as a **named** type, though anti-join is derivable | concept↔code gap | — | open |
-| `build_stepped_select` is cited by `_noun-model.md` but does not exist | doc↔code drift | R161 | fix in R162 |
+| `build_stepped_select` is cited by `_noun-model.md` but does not exist | doc↔code drift | R161 | **fixed** — R162 D gate |
 | D1 step-drop, D2 shared-leaf, D3 workflow-as-noun, D4 error-at-wrong-time | inherited debt | R161 | D1/D2 dissolved by item 3; D3 → item 4; D4 deferred |
+
+| **Composition is shipped TWICE** — a `qr_` driving base **and** R91's `qr_` on the right of a hop ([common.py:309](../../../workspace/apps/backend/app/models/common.py#L309)). Both design docs listed the latter as *out of scope* | concept↔code gap | R162 D gate | **raised to noun-model D5** — item 3 must retire both, not just the base |
+| `_MAX_STEPS = 8` ([query_engine.py:461](../../../workspace/apps/backend/app/query_engine.py#L461)). The **pooled** T3 path costs **exactly 8** steps; per-member costs 6 | ceiling | R162 D gate | open — **not pre-raised**; if the acceptance walk hits it, that is the evidence |
+| `StepsEditor` (R120–R144, 538 lines) had **no design-doc home at all** | doc↔code drift | R162 D gate | **backfilled** into `query-construction.md § Shape` |
+| R162 flow = **DFCFBI (triggers 1, 3, 5)** → F1 precedes Contract, and the standing split makes it [D+F1] then [C+B+F2+I] | process | R162 D gate | **settled (human, 2026-08-10)** — split; the program renumbers by one (item 2 → R164) rather than using an `R162a/b` form |
 
 ## Lifecycle
 

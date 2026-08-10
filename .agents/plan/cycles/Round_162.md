@@ -41,7 +41,7 @@ wall was not grain alignment); or the operation cannot be expressed in words a n
 manager understands, so it only moves the complexity rather than removing it; or ordering
 interactions make results unpredictable enough that the human doesn't trust the output.
 
-- [ ] **D gate — rewrite the design corpus to the closed Query concept.** Rewrite
+- [x] **D gate — rewrite the design corpus to the closed Query concept.** Rewrite
       [`_noun-model.md`](../../design/data-management/_noun-model.md): Query is a live table
       built from **datasets only**, an **ordered** list of operations (join anywhere · filter ·
       computed column · aggregate · within-group column), never composed, never frozen. Record **D1 as
@@ -53,22 +53,25 @@ interactions make results unpredictable enough that the human doesn't trust the 
       everything"*). Update
       [queries.md](../../design/data-management/queries/queries.md) to match. **Correct the
       dangling `build_stepped_select` reference — that function does not exist.**
-- [ ] **Design the operation in the user's words.** It must read as *"compare to the group"*,
+- [x] **Design the operation in the user's words.** It must read as *"compare to the group"*,
       not as a window function. **Must** let the user choose the ambiguous case explicitly:
       averaging the underlying **rows** (pooled) vs averaging the **already-grouped values** —
       for the sample data these give 71.4% and 70.8%, both defensible. Run
       [`ux-design`](../../skills/ux-design/SKILL.md) in design-spec mode at this gate.
-- [ ] Run [`flow-selector`](../../skills/flow-selector/SKILL.md) at the Design exit; record the
+- [x] Run [`flow-selector`](../../skills/flow-selector/SKILL.md) at the Design exit; record the
       chain in the Do log.
-- [ ] **C** — contract for the new operation (a step kind), plus FE types/api/MSW mock.
-- [ ] **B** — engine. The existing `derive` step already emits
-      `SELECT *, <expr> AS name FROM (…)`; a within-group column is
-      `SELECT *, AVG(x) OVER (PARTITION BY g) AS name FROM (…)` — the **same shape**, in the same
-      fold ([rows_reader.py:373](../../../workspace/apps/backend/app/ingest/rows_reader.py#L373)),
-      validated through the same planner. Additive; no existing step changes.
-- [ ] **F + I** — the builder surface for the operation, then the Integration walk.
-- [ ] **Acceptance — the human rebuilds the blocked dashboard on real data** and confirms the
-      numbers. Gates green is necessary, not sufficient ([[dfcfbi-f1-needs-human-review]]).
+- [ ] **F1 — the authoring affordance, FE-only, contract-safe.** Build the **Group value** card
+      in `StepsEditor` + its `steps.ts` column threading + the **grain line**, on MSW. Must stay
+      **request-only** ([[dfcfbi-f1-precedes-contract]]): `group_column` rides inside the existing
+      `definition.steps` request body and the new column surfaces through the existing
+      `resolvedColumns`, so **no response shape changes** and MSW's
+      `additionalProperties: false` stays satisfied.
+- [ ] **F1 hard stop — the human runs the app.** Does the sentence read? Does the grain line
+      change when the card moves past an aggregate? Do the VN labels work? Gates green is
+      necessary, not sufficient ([[dfcfbi-f1-needs-human-review]]).
+- [ ] Run [`design-sync`](../../skills/design-sync/SKILL.md) `--check` on `data-management/` at
+      the round close, so the F1 build and the D-gate docs are verified in sync before R163
+      touches the engine.
 
 ### Explicitly NOT in this round
 
@@ -78,6 +81,8 @@ interactions make results unpredictable enough that the human doesn't trust the 
   until the replacement is shipped and proven, or the human ends up more blocked than today.
 - **Workflow** — program item 4.
 - **D4 draw-time join-error UX** — largely mooted once composition is gone; re-rank later.
+- **The contract, the engine, and real numbers** — moved to **R163** by the DFCFBI split (below).
+  R162 ends at the F1 feel-review on mocked data; **71.4% vs 70.8% is not tested in this round.**
 
 ## Risks / unknowns
 
@@ -135,6 +140,117 @@ aggregate family is complete — `count` · `count_distinct` · `sum` · `avg` �
 ([query_engine.py:376-398](../../../workspace/apps/backend/app/query_engine.py#L376)); join types
 shipped are `inner`/`left`/`right`/`full` ([common.py:330](../../../workspace/apps/backend/app/models/common.py#L330)).
 
+### D gate — the design corpus rewritten to the closed Query concept (2026-08-10)
+
+Three docs rewritten/extended; **no product code touched**.
+
+- **[`_noun-model.md`](../../design/data-management/_noun-model.md)** — the Query concept
+  re-locked: a live table over **datasets only**, an **ordered** operation list (join · filter ·
+  computed column · aggregate · within-group column), never composed, never frozen. The R161
+  **fork is closed** in its own section, recording honestly that the human closed it a *third*
+  way — neither A nor B, but **rejecting the question**: composition existed only because the
+  within-group family was never shipped. What A's analysis genuinely offered (reusing a saved
+  shaping as an input) is named as the cost, not hidden. **Self-join stated as a locked
+  boundary**, Builder-side. Debt re-cut: **D1 dissolves with D5** (and stays a live bug until
+  then — stated, not spun), **D2 removed by decision, not fixed**, D3 → program item 4, D4
+  re-scoped onto the self-join gesture, **new D5** (composition is shipped **twice**) and
+  **D6** (the missing within-group column).
+- **[`queries.md`](../../design/data-management/queries/queries.md)** — the `group_column`
+  operation specced (body, dtype rules reusing `_validate_measure`, output dtypes, column-space
+  fold, the `OVER (PARTITION BY …)` compile with **no in-window `ORDER BY`** — which is exactly
+  why running-total/rank are item 2, not a widening). Acceptance criterion #8 added.
+- **[`query-construction.md`](../../design/data-management/queries/query-construction.md)** —
+  the builder affordance, plus a **backfill**: `StepsEditor` shipped across R120–R144 with **no
+  design-doc home at all**, so the D gate had nowhere to hang the new control
+  ([[design-docs-are-source-code]]).
+
+**Three doc↔code drifts corrected** (verified, not assumed):
+
+1. `build_stepped_select` — cited by `_noun-model.md`, **does not exist** anywhere in the repo.
+2. `QueryRelationship.leftDatasetId` / `rightDatasetId` — the shipped model is
+   `leftSourceId` / `rightSourceId` ([common.py:305-309](../../../workspace/apps/backend/app/models/common.py#L305)).
+3. `queries.md` and `query-construction.md` both listed "a `qr_` on the right of a join hop" as
+   **out of scope** — **R91 built it**. That makes composition shipped twice, which is why the
+   D gate raised it to its own debt row (D5) rather than folding it into D2.
+
+**The design decision the gate owed: pooled vs per-member is an ORDERING, not a parameter.**
+No `basis` field. A parameter would be a second way to say what step position already says, and
+would contradict the ordered-operations rule the whole concept rests on. What makes the choice
+legible is a **grain line** on every card — one sentence naming *what one row means at this
+position*, derived from the step list alone (no data, no new wire field), which **rewrites
+itself when the card is moved past an aggregate**. So the two readings are one keystroke apart
+and each is named in business words at the moment of choosing. This confirms the pre-commit
+cold-review's supersede of the brainstorm's D-A row.
+
+**Two findings banked during the gate** (neither schedules work):
+
+- **The within-group column also unblocks the connect rate itself**, which is inexpressible
+  today. `derive` needs numeric operands, so there is no 0/1 indicator from `outcome =
+  'connected'` — the program plan's "a computed 0/1 column plus `avg` gives a rate" **does not
+  hold on shipped code**. The route that does work is `aggregate [agent, team, outcome] → count`,
+  then roll the group up: `SUM(count) OVER (agent)`, filter to connected, divide. So "two
+  aggregates over the same rows" (brainstorm T2) reduces to *aggregate finer, then roll up
+  within group* — one more tile the round unblocks than the plan claimed.
+- **`_MAX_STEPS = 8`** ([query_engine.py:461](../../../workspace/apps/backend/app/query_engine.py#L461)).
+  The **pooled** T3 path costs **exactly 8 steps**; the per-member path costs 6. The cap is not
+  hit, but there is zero headroom on the harder reading. Not pre-raised — if the acceptance walk
+  hits it, that is the evidence to raise it.
+
+**`ux-design` [design-spec]** run on the new surface: **5 of 6 facets gapped** on the first pass
+(only Utility passed) — no declared labels for the sentence controls, no state for the
+*invalid* form of the reorder gesture that is the round's whole affordance, the grain line
+silent to assistive tech, card error states unspecced, no token row for a new visual element.
+All five remediated in-doc, re-run **PASS**. Worth noting: every gap was in the *new* affordance,
+and the sharpest (the grain line as a live region) was in the one control the round most depends
+on — the D-gate review earned its place here rather than being ceremony.
+
+**Flow selector run** (per [R47](../../decisions/2026-05-28-hybrid-flow-governance.md)):
+
+| Condition                            | Fired? | Justification  |
+| ------------------------------------ | ------ | -------------- |
+| 1. >3 independent states/branches    | **yes** | The card-states table declares 4 reachable branches — normal · orphaned-by-a-move · nothing-to-offer · name-collision — each with a different affordance, not a visual variant. |
+| 2. New interaction pattern           | no     | The card is the **shipped** `StepsEditor` pattern (ordered add/reorder/remove with dtype-gated selects, R120–R144); reorder-changes-meaning is already how `sort`/`aggregate` behave. The grain line is hint text, not a new pattern. |
+| 3. High user-error risk              | **yes** | The failure mode is a *confident wrong number* on a dashboard someone acts on (the brainstorm's T3 trap) — nothing errors, nothing is destroyed, and the mistake is invisible. |
+| 4. Contract depends on unresolved UI | no     | `{kind, name, agg, col?, by[]}` is fully written above, and the one open question (no `basis` field) was resolved **at D**, before C. The grain line needs no wire field. |
+| 5. UX confidence below threshold     | **yes** | The whole affordance rests on an untested claim — that a grain line makes pooled-vs-per-member legible. The round file names this as its primary risk and says green gates are insufficient; an honest author says "I'm not sure this is the right UX." |
+
+Result: **Flow: DFCFBI (triggers 1, 3, 5)**
+
+_(The round file carries no `**Flow**:` header field, so the skill's step-5 header sync is n/a;
+this Do-log block is the record.)_
+
+**Consequence the human owns.** DFCFBI puts **F1 before Contract**, and the standing call
+[[dfcfbi-two-round-split]] splits such a round into **[D + F1 + design-sync]** then
+**[C + B + F2 + Integration]**. Two things follow, neither of which an agent should settle:
+
+1. **F1 must be contract-safe** ([[dfcfbi-f1-precedes-contract]]) — MSW response-validation
+   (`additionalProperties: false`) blocks new wire fields before C. That is satisfiable here:
+   `group_column` rides inside the existing `definition.steps` **request** body, and the new
+   column surfaces through the existing `resolvedColumns` **response** field, so no response
+   shape changes. But a mocked preview cannot compute a real window, so **F1 tests whether the
+   affordance reads, not whether the numbers are right** — the 71.4/70.8 discrimination lands
+   at Integration.
+2. **The split collides with the program's numbering** — item 2 is already pencilled as R163.
+   Splitting R162 either renumbers the program or runs as R162a/R162b. The program firewall is
+   **not** breached either way (a D+F1 slice ships FE code, not only documents).
+
+### Flow split settled — R162 ends at F1 (human, 2026-08-10)
+
+The DFCFBI result was put to the human with its consequence. Their call: **split, keeping R162 as
+[D + F1]**, with **[C + B + F2 + Integration] as R163** and the within-group family shifting to
+**R164** — the program renumbers by one rather than inventing an `R162a/R162b` form the repo has
+never used. The F1 feel-review on mocked data was confirmed as worth running: *the affordance is
+the risk*, and it is precisely what MSW and pytest cannot see.
+
+**What this round can no longer claim.** R162's own "Expected outcome" — the human rebuilds the
+blocked dashboard and confirms the numbers — **moves to R163**. R162 proves the operation can be
+*authored* in business words, not that it computes the right value. The falsification test splits
+with it: *"only moves the complexity"* is testable here; *"the wall was not grain alignment"* is
+not testable until R163.
+
+**Firewall check** — the program's "no round ships only documents" rule holds: this slice ships
+`StepsEditor` + `steps.ts` FE code, not only the D-gate corpus.
+
 ## Check
 
 - [ ] Verify outcomes against the goal (tests, lint, human walk) — the pass/fail verdict
@@ -157,9 +273,24 @@ shipped are `inner`/`left`/`right`/`full` ([common.py:330](../../../workspace/ap
 
 - _(to be filled at close)_
 
-## Feeds into → Round_163 (the rest of the within-group family)
+## Feeds into → Round_163 (C + B + F2 + Integration — the same capability, finished)
 
-Per [the program](../programs/query-shaping-surface.plan.md) item 2: % of total · running total ·
-rank within group · vs prior period — the same mechanism, once this round proves the pattern and
-the naming. Carries forward the **prior-period gap trap** (Jan, Feb, **Apr** → February silently
-reads as April's previous) and whatever the design gate settles about naming and ambiguity.
+The DFCFBI split (human, 2026-08-10) puts the contract, the engine, the confirmed FE, and the
+Integration walk in **R163**, carrying:
+
+- the `group_column` wire body settled at this D gate — `{kind, name, agg, col?, by[]}`, `by`
+  min-length 1, dtype rules reusing `_validate_measure`, output dtypes mirroring
+  `_aggregate_output_columns`;
+- the engine one-liner: `SELECT *, <expr> OVER (PARTITION BY <by…>) AS name FROM (prev)` in the
+  same `_apply_step` fold as `derive`
+  ([rows_reader.py:373](../../../workspace/apps/backend/app/ingest/rows_reader.py#L373)) —
+  additive, no existing step changes;
+- **the acceptance that R162 cannot run**: the human rebuilds the blocked dashboard on real data
+  and confirms 71.4% vs 70.8% are both reachable and distinguishable;
+- the `_MAX_STEPS = 8` ceiling, to be raised only if the rebuild actually hits it;
+- whatever F1's feel-review changes about the naming, the grain line, or the VN copy.
+
+**Then → Round_164** — the rest of the within-group family (% of total · running total · rank
+within group · vs prior period), per [the program](../programs/query-shaping-surface.plan.md)
+item 2. Carries the **prior-period gap trap** (Jan, Feb, **Apr** → February silently reads as
+April's previous).
