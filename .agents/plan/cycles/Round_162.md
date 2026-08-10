@@ -251,6 +251,52 @@ not testable until R163.
 **Firewall check** — the program's "no round ships only documents" rule holds: this slice ships
 `StepsEditor` + `steps.ts` FE code, not only the D-gate corpus.
 
+### F1 built — the Group value card, FE-only on MSW (2026-08-10)
+
+**Contract-safe, verified not assumed.** The MSW decorator validates **response** bodies only
+(`withContractValidation` compiles the 2xx schemas —
+[contract-validator.ts](../../../workspace/apps/builder/src/mocks/contract-validator.ts)), and
+`group_column` rides inside the existing `definition.steps` **request** body while its output
+column surfaces through the existing `resolvedColumns`. **No contract YAML touched, no response
+shape changed** — exactly the [[dfcfbi-f1-precedes-contract]] discipline.
+
+Built:
+
+- **`types.ts`** — `GroupColumnStep` (`{kind, name, agg, col?, by[]}`) added to the `Step` union.
+- **`steps.ts`** — `stepOutput` appends one column with the collapsing measure's dtype rules;
+  `groupColumnPool` applies the same dtype gates as a measure; `blankStep` defaults to *average
+  of the first numeric, within the first categorical*; `STEP_KINDS` places it **next to
+  `aggregate`** — same vocabulary, opposite row-count effect. New pure **`grainAt(steps, i)`**
+  returns what one row means at a position, carrying dimension names through later `select`
+  renames/projections so the sentence names columns the user can actually see.
+- **`StepsEditor.tsx`** — the `GroupColumnBody` card: three `FieldLabel`ed controls, each with an
+  accessible name; the column picker disabled-with-a-reason when no column fits the agg; and the
+  **grain line** as a `role="status" aria-live="polite"` advisory (`colorTextSecondary`, never an
+  `<Alert>`).
+- **i18n** — 6 keys × EN + VN. Parity checked: **828 = 828**, zero missing either way.
+- **MSW** — `groupColumnStepMock` mirrors `OVER (PARTITION BY …)` over the mock rows, with the
+  backend's NULL conventions (`sum`/`avg` coalesce an all-NULL group to 0; `min`/`max` stay NULL).
+
+**Deliberately NOT built** (they belong to R163's C/B): the contract YAML, the backend
+`_plan_group_column` + `_apply_step` branch, and the orphaned-by-a-move `<Alert>` — that state
+needs the backend's `unknown_column` vocabulary to name the offending column honestly, and
+inventing an FE-only version now would be a second source of truth to delete later.
+
+**Verification**: `type-check` clean · builder suite **328 passed / 328** (317 before, +11 new) ·
+`design:lint` 0 · `plan:lint` 0 · markdownlint 0 · links resolve. The new tests pin the round's
+**central claim** rather than the plumbing: the same card in two positions must produce two
+different grain sentences, and the grain line must be a polite live region so the change is
+announced when the card moves. (`handlers.ts` fails `prettier --check` — **pre-existing**,
+confirmed against a clean stash; prettier is not wired for `.ts` in `.lintstagedrc.json`, so
+reformatting it would be a large unrelated diff.)
+
+One doc↔code correction folded back: the D-gate spec said the agg label reads **Value**, but
+reusing `steps.measure` verbatim renders **Measure** / **Giá trị đo**. The doc now says Measure —
+reuse of the sibling's vocabulary is the point, so the code was right and the doc was wrong.
+
+**Next: the F1 hard stop — the human runs the app.** Gates cannot see this
+([[dfcfbi-f1-needs-human-review]]).
+
 ## Check
 
 - [ ] Verify outcomes against the goal (tests, lint, human walk) — the pass/fail verdict

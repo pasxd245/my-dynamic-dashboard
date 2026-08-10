@@ -699,7 +699,13 @@
         "granularity_week": "Week (Mon)",
         "granularity_month": "Month",
         "granularity_quarter": "Quarter",
-        "granularity_year": "Year"
+        "granularity_year": "Year",
+        "kindGroupColumn": "Group value",
+        "withinEach": "Within each",
+        "noEligibleColumn": "No column here can be used with this calculation.",
+        "grainRows": "Each row here is one row of your source data — so this works over the underlying rows.",
+        "grainGrouped": "Each row here is one {{grain}} — so this works over {{grain}} rows, not the source rows underneath them.",
+        "grainGroupedAnon": "Each row here is one group from an earlier step — not a source row."
       },
       "buildActive": "{{count}} active",
       "baseSourceLabel": "Build on",

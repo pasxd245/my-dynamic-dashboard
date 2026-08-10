@@ -9,8 +9,14 @@ import { describe, expect, it, vi } from 'vitest';
 
 import type { Column } from '@/features/data-management/datasets/types';
 import { StepsEditor } from '@/features/data-management/queries/StepsEditor';
-import { blankStep, stepOutput, threadColumns } from '@/features/data-management/queries/steps';
-import type { Step } from '@/features/data-management/queries/types';
+import {
+  blankStep,
+  grainAt,
+  groupColumnPool,
+  stepOutput,
+  threadColumns,
+} from '@/features/data-management/queries/steps';
+import type { GroupColumnStep, Step } from '@/features/data-management/queries/types';
 
 const COLS: Column[] = [
   { name: 'region', dtype: 'string' },
@@ -149,6 +155,132 @@ describe('R125 StepsEditor', () => {
     expect(onChange).toHaveBeenCalledWith([
       blankStep('sort', COLS),
       { kind: 'select', cols: [{ col: 'region', name: 'area' }, { col: 'amount' }] },
+    ]);
+  });
+});
+
+// R162 — the within-group column ("Group value"). The round's central claim is
+// that POSITION, not a parameter, decides pooled vs average-of-groups, and that
+// the GRAIN LINE makes that legible. These pin both: the column threading, and
+// that the sentence actually changes when the card moves past an aggregate.
+const AGENT_COLS: Column[] = [
+  { name: 'agent', dtype: 'string' },
+  { name: 'team', dtype: 'string' },
+  { name: 'rate', dtype: 'float' },
+];
+
+const AGG_BY_AGENT: Step = {
+  kind: 'aggregate',
+  dimensions: ['agent', 'team'],
+  measures: [{ col: 'rate', agg: 'avg' }],
+};
+
+describe('R162 within-group column (steps.ts)', () => {
+  it('appends one column and does NOT reshape — the non-collapsing half of the family', () => {
+    const step: Step = { kind: 'group_column', name: 'team_rate', agg: 'avg', col: 'rate', by: ['team'] };
+    expect(stepOutput(step, AGENT_COLS)).toEqual([...AGENT_COLS, { name: 'team_rate', dtype: 'float' }]);
+  });
+
+  it('output dtype mirrors the collapsing measure rules exactly', () => {
+    const dtypeOf = (agg: GroupColumnStep['agg'], col?: string) =>
+      stepOutput({ kind: 'group_column', name: 'x', agg, col, by: ['team'] }, AGENT_COLS).at(-1)?.dtype;
+    expect(dtypeOf('avg', 'rate')).toBe('float');
+    expect(dtypeOf('count')).toBe('integer');
+    expect(dtypeOf('count_distinct', 'agent')).toBe('integer');
+    expect(dtypeOf('sum', 'rate')).toBe('float'); // keeps the source dtype
+  });
+
+  it('grainAt: null before any aggregate, the dimensions after one', () => {
+    const before: Step[] = [{ kind: 'group_column', name: 'g', agg: 'avg', col: 'rate', by: ['team'] }, AGG_BY_AGENT];
+    expect(grainAt(before, 0)).toBeNull(); // the group column runs over SOURCE rows → pooled
+    const after: Step[] = [AGG_BY_AGENT, { kind: 'group_column', name: 'g', agg: 'avg', col: 'rate', by: ['team'] }];
+    expect(grainAt(after, 1)).toEqual(['agent', 'team']); // → average of already-grouped values
+  });
+
+  it('grainAt carries dimension names through a later `select` rename/projection', () => {
+    const steps: Step[] = [
+      AGG_BY_AGENT,
+      { kind: 'select', cols: [{ col: 'agent', name: 'who' }, { col: 'rate' }] },
+      { kind: 'group_column', name: 'g', agg: 'avg', col: 'rate', by: ['who'] },
+    ];
+    // `team` was projected away, `agent` renamed — the sentence must name what the user can see.
+    expect(grainAt(steps, 2)).toEqual(['who']);
+  });
+
+  it('groupColumnPool applies the same dtype gates as a collapsing measure', () => {
+    expect(groupColumnPool('avg', AGENT_COLS).map((c) => c.name)).toEqual(['rate']);
+    expect(groupColumnPool('count_distinct', AGENT_COLS).map((c) => c.name)).toEqual(['agent', 'team', 'rate']);
+  });
+
+  it('blankStep defaults to "average of the first numeric, within the first categorical"', () => {
+    expect(blankStep('group_column', AGENT_COLS)).toEqual({
+      kind: 'group_column',
+      name: 'group_value',
+      agg: 'avg',
+      col: 'rate',
+      by: ['agent'],
+    });
+  });
+});
+
+describe('R162 within-group column (StepsEditor)', () => {
+  const renderAgents = (steps: Step[], onChange = vi.fn()) => {
+    render(
+      <AntdConfig>
+        <App>
+          <StepsEditor steps={steps} columns={AGENT_COLS} onChange={onChange} />
+        </App>
+      </AntdConfig>,
+    );
+    return onChange;
+  };
+
+  it('renders the card under its business-words label — never "window" or "partition"', () => {
+    renderAgents([blankStep('group_column', AGENT_COLS)]);
+    expect(screen.getByText(/1\. Group value/)).toBeInTheDocument();
+    expect(screen.queryByText(/window|partition/i)).not.toBeInTheDocument();
+  });
+
+  it('declares a visible label AND an accessible name for every control', () => {
+    renderAgents([blankStep('group_column', AGENT_COLS)]);
+    for (const name of ['Measure', 'Within each', 'New column name']) {
+      expect(screen.getByText(name)).toBeInTheDocument();
+      expect(screen.getByLabelText(name)).toBeInTheDocument();
+    }
+  });
+
+  // THE round's primary risk, made a test: the same card in two positions must
+  // say two different things, so the user can tell which reading they got.
+  it('the grain line names SOURCE rows before an aggregate and the GROUPED grain after it', () => {
+    const group: Step = { kind: 'group_column', name: 'team_rate', agg: 'avg', col: 'rate', by: ['team'] };
+    const { unmount } = render(
+      <AntdConfig>
+        <App>
+          <StepsEditor steps={[group, AGG_BY_AGENT]} columns={AGENT_COLS} onChange={vi.fn()} />
+        </App>
+      </AntdConfig>,
+    );
+    expect(screen.getByText(/one row of your source data/)).toBeInTheDocument();
+    unmount();
+
+    renderAgents([AGG_BY_AGENT, group]);
+    expect(screen.getByText(/one agent × team/)).toBeInTheDocument();
+    expect(screen.queryByText(/one row of your source data/)).not.toBeInTheDocument();
+  });
+
+  it('the grain line is a polite live region — moving the card announces the new reading', () => {
+    renderAgents([AGG_BY_AGENT, blankStep('group_column', AGENT_COLS)]);
+    const grain = screen.getByRole('status');
+    expect(grain).toHaveAttribute('aria-live', 'polite');
+    expect(grain).toHaveTextContent(/one agent × team/);
+  });
+
+  it('switching to `count` drops the column picker; switching back re-picks an eligible one', () => {
+    const onChange = renderAgents([blankStep('group_column', AGENT_COLS)]);
+    fireEvent.mouseDown(screen.getByLabelText('Measure'));
+    fireEvent.click(screen.getByText('Count rows'));
+    expect(onChange).toHaveBeenCalledWith([
+      { kind: 'group_column', name: 'group_value', agg: 'count', col: undefined, by: ['agent'] },
     ]);
   });
 });

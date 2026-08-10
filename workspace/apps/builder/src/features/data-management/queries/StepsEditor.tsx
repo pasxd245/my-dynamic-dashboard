@@ -13,12 +13,22 @@ import { useTranslation } from 'react-i18next';
 
 import { OPS_BY_DTYPE, type Operator } from '@/features/data-management/datasets/filters/types';
 import type { Column } from '@/features/data-management/datasets/types';
-import { STEP_KINDS, blankStep, isNumericCol, isOrderableCol, isTemporalCol, threadColumns } from './steps';
+import {
+  STEP_KINDS,
+  blankStep,
+  grainAt,
+  groupColumnPool,
+  isNumericCol,
+  isOrderableCol,
+  isTemporalCol,
+  threadColumns,
+} from './steps';
 import type {
   AggregateMeasure,
   AggregateStep,
   DateBucketStep,
   DeriveStep,
+  GroupColumnStep,
   FilterStep,
   SelectStep,
   SortStep,
@@ -59,6 +69,7 @@ export function StepsEditor({ steps, columns, onChange }: StepsEditorProps) {
       sort: t('queries.builder.steps.kindSort'),
       select: t('queries.builder.steps.kindSelect'),
       date_bucket: t('queries.builder.steps.kindDateBucket'),
+      group_column: t('queries.builder.steps.kindGroupColumn'),
     })[kind];
 
   return (
@@ -112,7 +123,12 @@ export function StepsEditor({ steps, columns, onChange }: StepsEditorProps) {
               />
             </Space>
           </div>
-          <StepBody step={step} cols={entering[i] ?? columns} onChange={(next) => replace(i, next)} />
+          <StepBody
+            step={step}
+            cols={entering[i] ?? columns}
+            grain={grainAt(steps, i)}
+            onChange={(next) => replace(i, next)}
+          />
         </div>
       ))}
 
@@ -133,8 +149,15 @@ export function StepsEditor({ steps, columns, onChange }: StepsEditorProps) {
 function StepBody({
   step,
   cols,
+  grain,
   onChange,
-}: Readonly<{ step: Step; cols: readonly Column[]; onChange: (s: Step) => void }>) {
+}: Readonly<{
+  step: Step;
+  cols: readonly Column[];
+  /** R162 — what one row means HERE (see `grainAt`); only the group-value card uses it. */
+  grain: readonly string[] | null;
+  onChange: (s: Step) => void;
+}>) {
   switch (step.kind) {
     case 'aggregate':
       return <AggregateBody step={step} cols={cols} onChange={onChange} />;
@@ -150,6 +173,8 @@ function StepBody({
       return <SelectBody step={step} cols={cols} onChange={onChange} />;
     case 'date_bucket':
       return <DateBucketBody step={step} cols={cols} onChange={onChange} />;
+    case 'group_column':
+      return <GroupColumnBody step={step} cols={cols} grain={grain} onChange={onChange} />;
   }
 }
 
@@ -197,6 +222,111 @@ function DateBucketBody({
         />
       </FieldLabel>
     </Space>
+  );
+}
+
+// R162 — the WITHIN-GROUP column ("Group value"). Deliberately the SAME
+// vocabulary as AggregateBody's measure picker, with the opposite effect on the
+// row count: aggregate collapses, this one keeps every row and appends the
+// group's value beside it. That is the whole point — comparing a row to its
+// group needed two shaped results only because this half was never shipped.
+//
+// There is NO `basis` control. Pooled-vs-average-of-groups is decided by WHERE
+// the card sits relative to a collapsing aggregate (R162 D gate); the grain line
+// below is what makes that choice legible instead of a parameter.
+function GroupColumnBody({
+  step,
+  cols,
+  grain,
+  onChange,
+}: Readonly<{
+  step: GroupColumnStep;
+  cols: readonly Column[];
+  grain: readonly string[] | null;
+  onChange: (s: Step) => void;
+}>) {
+  const { t } = useTranslation();
+  const pool = groupColumnPool(step.agg, cols);
+  const setAgg = (agg: AggregateMeasure['agg']) => {
+    if (agg === 'count') return onChange({ ...step, agg, col: undefined });
+    const next = groupColumnPool(agg, cols);
+    // Keep the current column when the new agg still accepts it; else the pool's first.
+    const col = next.some((c) => c.name === step.col) ? step.col : next[0]?.name;
+    onChange({ ...step, agg, col });
+  };
+  // The grain line: one sentence naming what a row means at THIS position. It
+  // rewrites itself when the card is moved past an aggregate, so the two readings
+  // are one keystroke apart and each is named in business words.
+  const grainText =
+    grain === null
+      ? t('queries.builder.steps.grainRows')
+      : grain.length > 0
+        ? t('queries.builder.steps.grainGrouped', { grain: grain.join(' × ') })
+        : t('queries.builder.steps.grainGroupedAnon');
+  return (
+    <>
+      <Space wrap size={[8, 6]}>
+        <FieldLabel text={t('queries.builder.steps.measure')}>
+          <Select
+            size="small"
+            style={{ width: 140 }}
+            aria-label={t('queries.builder.steps.measure')}
+            value={step.agg}
+            options={[
+              { label: t('queries.builder.steps.sumOf'), value: 'sum' },
+              { label: t('queries.builder.steps.avgOf'), value: 'avg' },
+              { label: t('queries.builder.steps.minOf'), value: 'min' },
+              { label: t('queries.builder.steps.maxOf'), value: 'max' },
+              { label: t('queries.builder.steps.countDistinct'), value: 'count_distinct' },
+              { label: t('queries.builder.steps.countRows'), value: 'count' },
+            ]}
+            onChange={setAgg}
+          />
+          {step.agg === 'count' ? null : (
+            <Select
+              size="small"
+              style={{ minWidth: 120 }}
+              value={step.col}
+              placeholder="—"
+              // Nothing to offer → disabled with a reason, never an empty open dropdown.
+              disabled={pool.length === 0}
+              title={pool.length === 0 ? t('queries.builder.steps.noEligibleColumn') : undefined}
+              options={nameOptions(pool)}
+              onChange={(col: string) => onChange({ ...step, col })}
+            />
+          )}
+        </FieldLabel>
+        <FieldLabel text={t('queries.builder.steps.withinEach')}>
+          <Select
+            mode="multiple"
+            size="small"
+            style={{ minWidth: 160 }}
+            aria-label={t('queries.builder.steps.withinEach')}
+            value={[...step.by]}
+            options={nameOptions(cols)}
+            onChange={(by: string[]) => onChange({ ...step, by })}
+          />
+        </FieldLabel>
+        <FieldLabel text={t('queries.builder.steps.newColumn')}>
+          <Input
+            size="small"
+            style={{ width: 140 }}
+            aria-label={t('queries.builder.steps.newColumn')}
+            value={step.name}
+            onChange={(e) => onChange({ ...step, name: e.target.value })}
+          />
+        </FieldLabel>
+      </Space>
+      <Typography.Text
+        type="secondary"
+        role="status"
+        aria-live="polite"
+        style={{ fontSize: 12 }}
+        data-component="GroupColumnGrain"
+      >
+        {`ⓘ ${grainText}`}
+      </Typography.Text>
+    </>
   );
 }
 

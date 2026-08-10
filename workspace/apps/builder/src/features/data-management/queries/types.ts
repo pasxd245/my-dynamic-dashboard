@@ -170,8 +170,39 @@ export type DateBucketStep = {
   name: string;
 };
 
-/** R121/R122/R123/R141/R144 — a transform step, discriminated by `kind`. */
-export type Step = AggregateStep | TopNStep | DeriveStep | FilterStep | SortStep | SelectStep | DateBucketStep;
+/** R162 — the WITHIN-GROUP column: append a column whose value is an aggregate
+ *  over the GROUP OF ROWS this row belongs to. The row count is UNCHANGED — the
+ *  non-collapsing half of the aggregate family, and the reason `query⋈query` was
+ *  ever needed (compare a row to its group). Compiles to
+ *  `<agg>(col) OVER (PARTITION BY by…)`; there is deliberately no in-window
+ *  `ORDER BY`, so the frame is the whole partition and the result is
+ *  order-independent (running total / rank need one — program item 2).
+ *
+ *  `by` is min-length 1: "across everything" (% of total) is item 2, not this.
+ *  `agg`/`col` reuse the collapsing measure vocabulary and dtype rules verbatim.
+ *  POOLED vs AVERAGE-OF-GROUPS is chosen by WHERE this step sits relative to a
+ *  collapsing `aggregate` — deliberately NOT a parameter (R162 D gate). */
+export type GroupColumnStep = {
+  kind: 'group_column';
+  /** The appended column's name (the `derive` naming vocabulary). */
+  name: string;
+  agg: AggregateMeasure['agg'];
+  /** Required for every agg but `count` (which tallies the group's rows). */
+  col?: string;
+  /** The group columns (PARTITION BY) — at least one. */
+  by: readonly string[];
+};
+
+/** R121/R122/R123/R141/R144/R162 — a transform step, discriminated by `kind`. */
+export type Step =
+  | AggregateStep
+  | TopNStep
+  | DeriveStep
+  | FilterStep
+  | SortStep
+  | SelectStep
+  | DateBucketStep
+  | GroupColumnStep;
 
 /** A single effective column of a Query result (name + dtype). For a join,
  *  duplicate names are collision-qualified (`Deals.id`). Mirrors the inline

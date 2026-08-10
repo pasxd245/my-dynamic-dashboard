@@ -5,7 +5,7 @@
 // re-validates on preview/save); this is just for the authoring UX.
 
 import type { Column } from '@/features/data-management/datasets/types';
-import type { AggregateStep, Step } from './types';
+import type { AggregateMeasure, AggregateStep, GroupColumnStep, Step } from './types';
 
 const NUMERIC = new Set(['integer', 'float']);
 export const isNumericCol = (c: Column): boolean => NUMERIC.has(c.dtype);
@@ -52,11 +52,55 @@ export function stepOutput(step: Step, cols: readonly Column[]): Column[] {
         dtype: byName.get(s.col)?.dtype ?? 'string',
       }));
     }
+    case 'group_column':
+      return [...cols, { name: step.name, dtype: groupColumnDtype(step, cols) }];
     case 'top_n':
     case 'sort':
     case 'filter':
       return [...cols];
   }
+}
+
+/** R162 — the appended column's dtype, mirroring the backend measure rules
+ *  exactly (`_aggregate_output_columns`): `avg` → float; `count`/`count_distinct`
+ *  → integer; `sum`/`min`/`max` keep the source column's dtype. */
+function groupColumnDtype(step: GroupColumnStep, cols: readonly Column[]): Column['dtype'] {
+  if (step.agg === 'count' || step.agg === 'count_distinct') return 'integer';
+  if (step.agg === 'avg') return 'float';
+  return cols.find((c) => c.name === step.col)?.dtype ?? 'float';
+}
+
+/** R162 — what ONE ROW means at step position `index`, derived from the step list
+ *  ALONE (no data, no wire field). This is what makes the pooled-vs-average-of-
+ *  groups choice legible: a within-group column placed BEFORE a collapsing
+ *  `aggregate` works over source rows, placed AFTER it works over grouped rows,
+ *  and the caller renders the difference in words.
+ *
+ *  Returns `null` when no collapsing aggregate precedes the position (one row =
+ *  one source row); otherwise the nearest preceding aggregate's dimensions,
+ *  carried through any later `select` renames and projections — so the sentence
+ *  names columns the user can actually see. An empty array means the rows ARE
+ *  grouped but every dimension was projected away. */
+export function grainAt(steps: readonly Step[], index: number): readonly string[] | null {
+  let grain: string[] | null = null;
+  for (const step of steps.slice(0, index)) {
+    if (step.kind === 'aggregate') {
+      grain = [...step.dimensions];
+    } else if (step.kind === 'select' && grain) {
+      const renamed = new Map(step.cols.map((c) => [c.col, c.name ?? c.col]));
+      grain = grain.map((g) => renamed.get(g)).filter((g): g is string => g !== undefined);
+    }
+  }
+  return grain;
+}
+
+/** R162 — the columns a `group_column`'s `col` picker may offer for a given agg.
+ *  The same dtype rules as a collapsing measure: `sum`/`avg` numeric,
+ *  `min`/`max` orderable, `count_distinct` anything, `count` no column at all. */
+export function groupColumnPool(agg: AggregateMeasure['agg'], cols: readonly Column[]): readonly Column[] {
+  if (agg === 'sum' || agg === 'avg') return cols.filter(isNumericCol);
+  if (agg === 'min' || agg === 'max') return cols.filter(isOrderableCol);
+  return cols;
 }
 
 /** Thread the column space through an ordered step list. Returns the columns
@@ -105,11 +149,23 @@ export function blankStep(kind: Step['kind'], cols: readonly Column[]): Step {
         granularity: 'week',
         name: 'bucket',
       };
+    case 'group_column':
+      // R162 — default to "average of the first numeric, within the first
+      // categorical": the shape of the question this step exists to answer.
+      return {
+        kind: 'group_column',
+        name: 'group_value',
+        agg: numeric[0] ? 'avg' : 'count',
+        col: numeric[0]?.name,
+        by: categorical[0] ? [categorical[0].name] : [],
+      };
   }
 }
 
 export const STEP_KINDS: readonly Step['kind'][] = [
   'aggregate',
+  // R162 — sits next to `aggregate`: same vocabulary, opposite row-count effect.
+  'group_column',
   'derive',
   'date_bucket',
   'filter',

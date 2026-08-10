@@ -479,6 +479,53 @@ function dateBucketStepMock(step: Extract<Step, { kind: 'date_bucket' }>, table:
   return { columns: [...table.columns, { name: step.name, dtype: 'date' }], rows };
 }
 
+function groupColumnStepMock(step: Extract<Step, { kind: 'group_column' }>, table: MockTable): MockTable {
+  // R162 mirror of `<agg>(col) OVER (PARTITION BY by…)`: append the group's value
+  // to EVERY row (the row count is unchanged — that is the whole point). No
+  // in-window ORDER BY, so the frame is the whole partition and row order is
+  // irrelevant. Approximate (JS vs DuckDB); the backend is the correctness gate
+  // and does not exist yet — F1 is the authoring surface, not the numbers.
+  const byIdx = step.by.map((b) => _aggColIdx(table.columns, b));
+  const ci = step.col ? _aggColIdx(table.columns, step.col) : -1;
+  const key = (row: (string | null)[]) => JSON.stringify(byIdx.map((i) => row[i] ?? null));
+  const groups = new Map<string, (string | null)[][]>();
+  for (const row of table.rows) {
+    const k = key(row);
+    const bucket = groups.get(k);
+    if (bucket) bucket.push(row);
+    else groups.set(k, [row]);
+  }
+  const value = (members: (string | null)[][]): string | null => {
+    if (step.agg === 'count') return String(members.length);
+    const cells = members.map((m) => m[ci] ?? null);
+    if (step.agg === 'count_distinct') return String(new Set(cells.filter((c) => c !== null)).size);
+    const nums = cells.map(Number).filter((n) => Number.isFinite(n));
+    if (step.agg === 'min' || step.agg === 'max') {
+      // min/max stay honest NULL on an all-NULL group (backend parity).
+      if (nums.length === 0) return null;
+      return String(step.agg === 'min' ? Math.min(...nums) : Math.max(...nums));
+    }
+    // sum/avg coalesce an all-NULL group to 0 (backend parity).
+    const sum = nums.reduce((a, b) => a + b, 0);
+    return String(step.agg === 'sum' ? sum : nums.length === 0 ? 0 : sum / nums.length);
+  };
+  const computed = new Map([...groups].map(([k, members]) => [k, value(members)]));
+  return {
+    columns: [...table.columns, { name: step.name, dtype: groupColumnMockDtype(step, table) }],
+    rows: table.rows.map((row) => [...row, computed.get(key(row)) ?? null]),
+  };
+}
+
+/** Mirrors the backend measure dtype rules (and the FE `steps.ts` twin). */
+function groupColumnMockDtype(
+  step: Extract<Step, { kind: 'group_column' }>,
+  table: MockTable,
+): Column['dtype'] {
+  if (step.agg === 'count' || step.agg === 'count_distinct') return 'integer';
+  if (step.agg === 'avg') return 'float';
+  return table.columns.find((c) => c.name === step.col)?.dtype ?? 'float';
+}
+
 function applyStepsMock(
   columns: readonly Column[],
   rows: readonly (readonly (string | null)[])[],
@@ -502,6 +549,8 @@ function applyStepsMock(
       table = selectStepMock(step, table);
     } else if (step.kind === 'date_bucket') {
       table = dateBucketStepMock(step, table);
+    } else if (step.kind === 'group_column') {
+      table = groupColumnStepMock(step, table);
     } else {
       table = topNStepMock(step, table);
     }

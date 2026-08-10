@@ -192,7 +192,7 @@ position** — the backend re-validates on preview/save and stays the source of 
   │  Group by [ agent × ] [ team × ]   Measure [ Count rows ▾ ]      │
   └──────────────────────────────────────────────────────────────────┘
   ┌─ 2. Group value ────────────────────────────────── [↑] [↓] [🗑] ┐
-  │  Value        Within each        New column name                 │
+  │  Measure      Within each        New column name                 │
   │  [ Average of ▾ ] [ rate ▾ ]   [ team × ]   [ team_rate      ]   │
   │  ⓘ Each row here is one agent × team. This averages agents —     │
   │     not the rows underneath them.                                │
@@ -202,10 +202,10 @@ position** — the backend re-validates on preview/save and stays the source of 
 
 **Labels, not sentence chrome.** Every control carries a **visible `FieldLabel` above** it (the
 AntD Data-Entry label-above convention the sibling cards already use), not an inline reading
-sentence: `steps.measure` **Value** over the agg + column pair (reused verbatim from the
-`aggregate` card), a new `steps.withinEach` **Within each** / VN **Trong từng nhóm** over the
-group multi-`<Select>`, and the reused `steps.newColumn` **New column name** over the name
-`<Input>`. The card still *reads* as a sentence left-to-right; the labels are what make it
+sentence: the reused `steps.measure` **Measure** / VN **Giá trị đo** over the agg + column pair
+(verbatim from the `aggregate` card — one vocabulary, not a lookalike), a new
+`steps.withinEach` **Within each** / VN **Trong từng nhóm** over the group multi-`<Select>`, and
+the reused `steps.newColumn` **New column name** / VN **Tên cột mới** over the name `<Input>`. The card still *reads* as a sentence left-to-right; the labels are what make it
 navigable and screen-reader-addressable.
 
 #### The within-group column (R162)
