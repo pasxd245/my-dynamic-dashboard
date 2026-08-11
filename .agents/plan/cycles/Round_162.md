@@ -372,6 +372,23 @@ Integration walk in **R163**, carrying:
 - the `_MAX_STEPS = 8` ceiling, to be raised only if the rebuild actually hits it;
 - whatever F1's feel-review changes about the naming, the grain line, or the VN copy.
 
+### Feeds into → the R157 UX cluster
+
+- **[F-join-label-qualify]** — **join option labels qualify BOTH sides**:
+  `Deals.account_id ↔ Accounts.id`, never a bare `account_id ↔ id`
+  ([JoinEditor.tsx:99](../../../workspace/apps/builder/src/features/data-management/queries/JoinEditor.tsx#L99),
+  all three call sites: the single-edge `<Select>`, the hop display row, the add-a-join picker).
+  Human's call, 2026-08-10 — **decided, spec'd, not built**
+  ([query-construction.md § Join option labels](../../design/data-management/queries/query-construction.md)).
+  A **fidelity drift**, not a new idea: the doc already declared right-side qualification and the
+  build shipped neither side. Both-sides wins because right-only only works where a row prefix
+  names the left — at the add-a-join picker the left-source `<Select>` appears only at 2+
+  branchable sources, so in the common case *neither* side is named and "join to what?" is
+  invisible; both-sides also matches what the canvas free-form modal already shows, giving one
+  rule across every surface. **Build note**: two qualifiers plus the cardinality suffix will
+  overflow a narrow `<Select>` — needs an explicit ellipsis/`title` decision.
+  Batched here rather than patched mid-feature ([[r-ui-bug-fixing-round]]).
+
 **Then → Round_164** — the rest of the within-group family (% of total · running total · rank
 within group · vs prior period), per [the program](../programs/query-shaping-surface.plan.md)
 item 2. Carries the **prior-period gap trap** (Jan, Feb, **Apr** → February silently reads as

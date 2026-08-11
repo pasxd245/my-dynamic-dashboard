@@ -151,8 +151,8 @@ Deals × Accounts × Owners                          🔎 Query · editing (unsa
   │  Build on:  [ Deals (dataset)                                          ▾ ]    │  ← base: ds_ or qr_
   └───────────────────────────────────────────────────────────────────────────────┘
   ┌─ Joins ──────────────────────────────────────────────────────────────────────┐
-  │  Deals  ⋈ [inner ▾]  [ account_id ↔ Accounts.id   (many:many)          ▾ ]    │
-  │  Accounts  ⋈ [left ▾]  [ owner_id ↔ Owners.id     (many:one)    ▾ ]  [Remove] │  ← leaf
+  │  Deals  ⋈ [inner ▾]  [ Deals.account_id ↔ Accounts.id  (many:many)     ▾ ]    │
+  │  Accounts ⋈ [left ▾] [ Accounts.owner_id ↔ Owners.id  (many:one) ▾ ]  [Remove]│  ← leaf
   │  [ + Add a join ]   from: [ Owners ▾ ]   (a left-source for 2+ in-graph nodes) │
   └───────────────────────────────────────────────────────────────────────────────┘
   (columns from all sources)
@@ -280,6 +280,29 @@ edges whose right side is not yet in the graph, so the gesture is simply absent
 The **canvas** does not — its free-form draw is node-level, so it lets you draw an edge that
 fails later as `cyclic_join` (noun-model **D4**). Bringing the canvas to offer-nothing parity is
 **not** in R162; it is tracked as D4 and re-ranked after composition retires.
+
+#### Join option labels — qualify BOTH sides (decided 2026-08-10, **not yet built**)
+
+Every relationship option and hop label reads **`<Dataset>.<column> ↔ <Dataset>.<column>`**, both
+sides qualified — `Deals.account_id ↔ Accounts.id`, never a bare `account_id ↔ id`. The
+cardinality suffix follows as today.
+
+**Why both, not just the right.** An earlier version of this doc qualified only the right side, on
+the reasoning that the hop row already prefixes the left (`Deals ⋈ …`). That reasoning holds for
+the hop *display* row and fails everywhere else: the single-edge `<Select>` has no left prefix,
+and at the **add-a-join** picker the left-source `<Select>` renders only when 2+ sources can
+branch — so in the common single-source case **neither** side is named and the actual decision,
+*join to what?*, is invisible. Both-sides is also what the canvas free-form modal already shows
+([canvas.md](canvas.md) — `Deals.owner_id ↔ Owners.id`), so one rule now covers every surface
+instead of three context-dependent ones. Human's call, 2026-08-10.
+
+**Current state**: the build renders `${leftColumn} ↔ ${rightColumn}` — unqualified on both sides
+([JoinEditor.tsx:99](../../../../workspace/apps/builder/src/features/data-management/queries/JoinEditor.tsx#L99)),
+a **fidelity drift** from this doc. Tracked as **`[F-join-label-qualify]`**
+([Round_162 § Feeds into](../../../plan/cycles/Round_162.md)), batched with the R157 UX cluster
+rather than patched mid-feature ([[r-ui-bug-fixing-round]]). **Build note**: with both qualifiers
+plus the cardinality suffix the label will overflow a narrow `<Select>` — it needs an explicit
+ellipsis/`title` decision, not a hope.
 
 ### Invalid-edit / preview-blocked states (flag-don't-crash)
 
