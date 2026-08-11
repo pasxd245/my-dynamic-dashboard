@@ -417,24 +417,29 @@ def _validate_aggregate(
     return [_validate_measure(m, by_name, [*loc, "measures", i]) for i, m in enumerate(measures)]
 
 
+def _measure_dtype(col: str | None, agg: str, by_name: dict) -> str:
+    """The output dtype of ONE measure (R140): ``count``/``count_distinct`` →
+    ``integer``; ``avg`` → ``float``; ``sum``/``min``/``max`` keep the col's dtype.
+    Shared by the collapsing aggregate's output columns and the R163 within-group
+    column, so the two families cannot drift into a lookalike."""
+    if agg in ("count", "count_distinct"):
+        return "integer"
+    if agg == "avg":
+        return "float"
+    return by_name[col]["dtype"]  # sum / min / max
+
+
 def _aggregate_output_columns(
     dimensions: list[str], measures_plan: list[tuple[str | None, str]], columns: list[dict]
 ) -> list[dict]:
     """The output columns of an aggregate (dimensions then measures): a dimension
-    keeps its source dtype. R140 measure dtypes — ``sum``/``min``/``max`` keep the
-    col's dtype; ``avg`` is ``float``; ``count``/``count_distinct`` are ``integer``.
-    ``count`` is named ``count``; every other measure keeps its col's name."""
+    keeps its source dtype, a measure takes ``_measure_dtype``. ``count`` is named
+    ``count``; every other measure keeps its col's name."""
     by_name = {c["name"]: c for c in columns}
     out = [{"name": d, "dtype": by_name[d]["dtype"]} for d in dimensions]
     for col, agg in measures_plan:
-        if agg == "count":
-            out.append({"name": "count", "dtype": "integer"})
-        elif agg == "count_distinct":
-            out.append({"name": col, "dtype": "integer"})
-        elif agg == "avg":
-            out.append({"name": col, "dtype": "float"})
-        else:  # sum / min / max — keep the col's dtype
-            out.append({"name": col, "dtype": by_name[col]["dtype"]})
+        name = "count" if agg == "count" else col
+        out.append({"name": name, "dtype": _measure_dtype(col, agg, by_name)})
     return out
 
 
@@ -534,6 +539,37 @@ def _plan_date_bucket(step: dict, cur_cols: list[dict], loc: list) -> tuple[dict
     return norm, [*cur_cols, {"name": name, "dtype": "date"}]
 
 
+def _plan_group_column(step: dict, cur_cols: list[dict], loc: list) -> tuple[dict, list[dict]]:
+    """R163 — validate a WITHIN-GROUP column: the measure vocabulary + dtype rules
+    come from ``_validate_measure`` verbatim (so ``sum``/``avg`` need numeric,
+    ``min``/``max`` orderable, ``count`` omits ``col``), the name must not collide,
+    and ``by`` must be ≥1 DISTINCT column present at this step. Returns the
+    normalized descriptor + column space (base ++ the new column, dtype by the SAME
+    ``_measure_dtype`` rule as a collapsing measure).
+
+    ``by`` is re-checked here rather than trusted from the model because a SAVED
+    definition is re-planned on every run and its column names are INLINED into the
+    window SQL (same discipline as ``_plan_date_bucket``'s granularity)."""
+    by_name = {c["name"]: c for c in cur_cols}
+    name = step.get("name")
+    if name in by_name:
+        raise _agg_422([*loc, "name"], f"column_exists: {name!r} is already a column")
+    col, agg = _validate_measure({"agg": step.get("agg"), "col": step.get("col")}, by_name, loc)
+    group_by: list[str] = []
+    for j, g in enumerate(step.get("by") or []):
+        if g not in by_name:
+            raise _agg_422([*loc, "by", j], f"unknown_column: {g!r} is not a column at this step")
+        if g in group_by:
+            raise _agg_422([*loc, "by", j], f"duplicate_group_column: {g!r} appears twice")
+        group_by.append(g)
+    if not group_by:
+        # `by: []` (the whole table — "% of total") is deliberately out of scope:
+        # same mechanism, a later round. Never a silent global window.
+        raise _agg_422([*loc, "by"], "group_by_required: at least one group column")
+    norm = {"kind": "group_column", "name": name, "agg": agg, "col": col, "by": group_by}
+    return norm, [*cur_cols, {"name": name, "dtype": _measure_dtype(col, agg, by_name)}]
+
+
 def _plan_sort(step: dict, cur_cols: list[dict], loc: list) -> tuple[dict, list[dict]]:
     """R141 — validate a sort step's keys against the CURRENT columns (any dtype
     orders). Returns the normalized descriptor + unchanged cols."""
@@ -572,8 +608,9 @@ def _plan_select(step: dict, cur_cols: list[dict], loc: list) -> tuple[dict, lis
 def _plan_one_step(step: dict, cur_cols: list[dict], loc: list) -> tuple[dict, list[dict]]:
     """Validate one step against the CURRENT column space; return its normalized
     descriptor (for the typed `run_steps` engine) + the column space AFTER it.
-    ``aggregate`` reshapes; ``top_n``/``sort`` preserve; ``derive``/``date_bucket``
-    append; ``filter`` narrows; ``select`` re-binds (projection + rename + reorder)."""
+    ``aggregate`` reshapes; ``top_n``/``sort`` preserve;
+    ``derive``/``date_bucket``/``group_column`` append; ``filter`` narrows;
+    ``select`` re-binds (projection + rename + reorder)."""
     kind = step.get("kind")
     if kind == "filter":
         return _plan_filter(step, cur_cols, loc)
@@ -596,6 +633,8 @@ def _plan_one_step(step: dict, cur_cols: list[dict], loc: list) -> tuple[dict, l
         return _plan_select(step, cur_cols, loc)
     if kind == "date_bucket":
         return _plan_date_bucket(step, cur_cols, loc)
+    if kind == "group_column":
+        return _plan_group_column(step, cur_cols, loc)
     raise _agg_422([*loc, "kind"], f"unknown_step_kind: {kind!r}")
 
 

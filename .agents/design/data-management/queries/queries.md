@@ -17,7 +17,7 @@ builder UX lives in the sibling [query-construction.md](query-construction.md); 
 visual source-graph editor is [canvas.md](canvas.md) (the Canvas tab — built).
 
 **Status**: Accepted (extended R120–R144 — transform `steps` / workflows / date_bucket;
-R162 — the `group_column` operation).
+R162–R163 — the `group_column` operation, specced and **shipped end-to-end**).
 
 > **Read first — the domain noun-model.** [`../_noun-model.md`](../_noun-model.md) is the
 > canonical, cross-cluster definition of the five nouns (dataset · query · join · relationship ·
@@ -454,14 +454,18 @@ with no steps is a plain select (unchanged). `steps` is a **`kind`-discriminated
   display alias. Closes the R140 naming wart: `count_distinct(product)` (output col
   `product`) → `select {col: product, name: distinct_products}`.
 
-+ **`group_column`** — R162 the **within-group column** _(D-gate signed off 2026-08-10)_:
++ **`group_column`** — R162/R163 the **within-group column** _(specced R162, engine shipped
+  R163-08-11)_:
   **append** a column whose value is an aggregate over the **group of rows this row belongs
   to**. The row count is **unchanged** — this is the *non-collapsing* half of the aggregate
   family, and the reason `query⋈query` was ever needed (compare a row to its group).
   Body: `{name, agg, col?, by[]}`.
   + **`by`** — the group columns (≥1, each an effective column **at this step**; unknown →
     `unknown_column`, repeats → `duplicate_group_column`). `by: []` (the whole table, i.e.
-    "% of total") is **deliberately not allowed** in R162 — same mechanism, program item 2.
+    "% of total") is **deliberately not allowed** — same mechanism, program item 2. The
+    planner re-checks it on every plan (→ `group_by_required`), not only at the model edge:
+    a saved definition's column names are INLINED into the window SQL, so an empty `by`
+    inserted behind the API must never silently become a whole-table window.
   + **`agg` / `col`** — the **same vocabulary and dtype rules as a collapsing measure**,
     validated by the same `_validate_measure`: `sum`/`avg` need numeric, `min`/`max` need
     numeric or date/datetime, `count_distinct` any, `count` omits `col` (→ the group's row

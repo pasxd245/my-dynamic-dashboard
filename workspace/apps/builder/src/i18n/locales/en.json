@@ -705,7 +705,9 @@
         "noEligibleColumn": "No column here can be used with this calculation.",
         "grainRows": "Each row here is one row of your source data — so this works over the underlying rows.",
         "grainGrouped": "Each row here is one {{grain}} — so this works over {{grain}} rows, not the source rows underneath them.",
-        "grainGroupedAnon": "Each row here is one group from an earlier step — not a source row."
+        "grainGroupedAnon": "Each row here is one group from an earlier step — not a source row.",
+        "orphanedColumn": "\"{{cols}}\" doesn't exist this early. Move this card back down, or pick a column that does.",
+        "nameCollision": "\"{{name}}\" is already a column here. Pick another name."
       },
       "buildActive": "{{count}} active",
       "baseSourceLabel": "Build on",

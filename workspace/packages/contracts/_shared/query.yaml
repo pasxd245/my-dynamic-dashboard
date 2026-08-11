@@ -411,6 +411,65 @@ components:
           minLength: 1
           description: The appended output column's name (must not collide).
 
+    GroupColumnStep:
+      type: object
+      description: |
+        R162/R163 — the WITHIN-GROUP column: APPEND a column whose value is an
+        aggregate over the group of rows THIS row belongs to. The row count is
+        UNCHANGED — the non-collapsing half of the aggregate family, and the
+        reason `query⋈query` was ever reached for (compare a row to its group).
+        `agg`/`col` reuse the collapsing measure's EXACT vocabulary and dtype
+        rules (`sum`/`avg` numeric; `min`/`max` numeric or date/datetime;
+        `count_distinct` any; `count` omits `col` and tallies the group's ROWS),
+        validated by the same `_validate_measure`. Output dtype mirrors an
+        aggregate measure: `avg` → float, `count`/`count_distinct` → integer,
+        `sum`/`min`/`max` keep the col's dtype; `sum`/`avg` coalesce an all-NULL
+        group to 0, `min`/`max` stay NULL. The column space folds like `derive`
+        (base ++ the new column; the source column stays available).
+
+        Compiles to `SELECT *, <expr> OVER (PARTITION BY <by…>) AS name FROM
+        (prev)` — there is NO in-window `ORDER BY`, so the frame is the whole
+        partition and the result is order-independent. Running total / rank /
+        vs-prior-period need an in-window ORDER BY + frame; that is why they are
+        a separate step family, not a widening of this one.
+
+        POSITION carries the meaning (the ordered-operations rule): placed
+        BEFORE a collapsing `aggregate` it averages the underlying ROWS
+        (pooled); placed AFTER, it averages the already-grouped VALUES. Both are
+        correct answers to different questions, so there is deliberately no
+        `basis` parameter — see
+        .agents/design/data-management/queries/query-construction.md.
+      required: [kind, name, agg, by]
+      additionalProperties: false
+      properties:
+        kind:
+          const: group_column
+        name:
+          type: string
+          minLength: 1
+          description: The appended output column's name (must not collide → `column_exists`).
+        agg:
+          type: string
+          enum: [sum, count, avg, min, max, count_distinct]
+          description: The aggregate, same vocabulary as a collapsing measure.
+        col:
+          type: string
+          minLength: 1
+          description: |
+            Column to aggregate (effective name, post prior steps). Required for
+            every agg except `count` (which tallies the group's rows and omits it).
+        by:
+          type: array
+          minItems: 1
+          description: |
+            The group columns (PARTITION BY), by effective name at this step.
+            Unknown → `unknown_column`; a repeat → `duplicate_group_column`.
+            An EMPTY `by` (the whole table, i.e. "% of total") is deliberately
+            not allowed here — same mechanism, a later round.
+          items:
+            type: string
+            minLength: 1
+
     QueryDefinition:
       type: object
       description: |
@@ -489,8 +548,10 @@ components:
             plain select query. R120 added the `aggregate` step; R121 makes steps
             CHAIN (a typed engine threads a typed relation through each, stringifying
             only the final output) and adds `top_n`; R141 adds the deliverable-shaping
-            `sort` + `select`. A query with steps exposes its POST-step columns as
-            `resolvedColumns`. `kind`-discriminated union.
+            `sort` + `select`; R144 the `date_bucket` time axis; R163 the
+            non-collapsing `group_column` (the within-group column). A query with
+            steps exposes its POST-step columns as `resolvedColumns`.
+            `kind`-discriminated union.
           items:
             oneOf:
               - $ref: "#/components/schemas/AggregateStep"
@@ -500,6 +561,7 @@ components:
               - $ref: "#/components/schemas/SortStep"
               - $ref: "#/components/schemas/SelectStep"
               - $ref: "#/components/schemas/DateBucketStep"
+              - $ref: "#/components/schemas/GroupColumnStep"
             discriminator:
               propertyName: kind
               mapping:
@@ -510,6 +572,7 @@ components:
                 sort: "#/components/schemas/SortStep"
                 select: "#/components/schemas/SelectStep"
                 date_bucket: "#/components/schemas/DateBucketStep"
+                group_column: "#/components/schemas/GroupColumnStep"
 
     Query:
       type: object

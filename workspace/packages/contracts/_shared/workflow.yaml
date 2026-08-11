@@ -27,7 +27,12 @@ components:
             pattern: "^(qr_|wf_)[0-9a-f]{8}$"
         steps:
           type: array
-          description: Ordered transforms (reuses `query.yaml` step kinds). Empty = passthrough.
+          description: |
+            Ordered transforms (reuses `query.yaml` step kinds). Empty = passthrough.
+            R163 — this list stays a MIRROR of `QueryDefinition.steps`: the Python
+            side shares ONE `Step` union across both nouns and both fold the same
+            `_apply_step`, so a kind added to the query union must be added here
+            too or the contract would forbid what the engine accepts.
           items:
             oneOf:
               - $ref: "query.yaml#/components/schemas/AggregateStep"
@@ -37,6 +42,7 @@ components:
               - $ref: "query.yaml#/components/schemas/SortStep"
               - $ref: "query.yaml#/components/schemas/SelectStep"
               - $ref: "query.yaml#/components/schemas/DateBucketStep"
+              - $ref: "query.yaml#/components/schemas/GroupColumnStep"
             discriminator:
               propertyName: kind
               mapping:
@@ -47,6 +53,7 @@ components:
                 sort: "query.yaml#/components/schemas/SortStep"
                 select: "query.yaml#/components/schemas/SelectStep"
                 date_bucket: "query.yaml#/components/schemas/DateBucketStep"
+                group_column: "query.yaml#/components/schemas/GroupColumnStep"
 
     Workflow:
       type: object

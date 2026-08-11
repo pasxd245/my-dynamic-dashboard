@@ -312,6 +312,32 @@ def _agg_term(expr: str, alias: str, stringify: bool) -> str:
     return f"CAST({expr} AS VARCHAR) AS {alias}" if stringify else f"{expr} AS {alias}"
 
 
+_MEASURE_CALLS = {
+    "sum": "SUM({c})",
+    "avg": "AVG({c})",
+    "min": "MIN({c})",
+    "max": "MAX({c})",
+    "count_distinct": "COUNT(DISTINCT {c})",
+}
+# sum/avg coalesce an all-NULL group to 0 (client `toNum` parity); min/max stay
+# honest NULL; the counts are never NULL.
+_COALESCING_AGGS = {"sum", "avg"}
+
+
+def _measure_expr(agg: str, col: str | None, *, over: str = "") -> str:
+    """One measure's SQL — COLLAPSING (``over=""``, a GROUP BY term) or WINDOWED
+    (``over="PARTITION BY …"``, R163's within-group column). ``count`` tallies
+    rows (``COUNT(*)``); every other agg reads a caller-validated, dtype-checked
+    ``col`` (R140). The COALESCE wraps the WHOLE windowed call because ``OVER``
+    binds to the aggregate itself — ``COALESCE(SUM(x), 0) OVER (…)`` is not valid
+    SQL. Shared by both families so their vocabulary and NULL policy cannot drift
+    into a lookalike."""
+    expr = "COUNT(*)" if agg == "count" else _MEASURE_CALLS[agg].format(c=_quote_ident(col or ""))
+    if over:
+        expr = f"{expr} OVER ({over})"
+    return f"COALESCE({expr}, 0)" if agg in _COALESCING_AGGS else expr
+
+
 def build_aggregate_select(
     inner_sql: str,
     inner_params: list[Any],
@@ -338,20 +364,10 @@ def build_aggregate_select(
         qd = _quote_ident(d)
         select_terms.append(_agg_term(qd, qd, stringify))
     for col, agg in measures:
-        if agg == "count":
-            select_terms.append(_agg_term("COUNT(*)", '"count"', stringify))
-        else:  # col is validated present + dtype-checked per agg by the caller (R140)
-            qc = _quote_ident(col or "")
-            # sum/avg coalesce an all-NULL group to 0 (client `toNum` parity);
-            # min/max stay honest NULL; count_distinct is never NULL.
-            expr = {
-                "sum": f"COALESCE(SUM({qc}), 0)",
-                "avg": f"COALESCE(AVG({qc}), 0)",
-                "min": f"MIN({qc})",
-                "max": f"MAX({qc})",
-                "count_distinct": f"COUNT(DISTINCT {qc})",
-            }[agg]
-            select_terms.append(_agg_term(expr, qc, stringify))
+        # col is validated present + dtype-checked per agg by the caller (R140);
+        # `count` has no col and is named `count`.
+        alias = '"count"' if agg == "count" else _quote_ident(col or "")
+        select_terms.append(_agg_term(_measure_expr(agg, col), alias, stringify))
     group_by = ("GROUP BY " + ", ".join(_quote_ident(d) for d in dimensions)) if dimensions else ""
     sql = f"SELECT {', '.join(select_terms)} FROM ({inner_sql}) AS _base {where_sql} {group_by}"
     return sql, [*inner_params, *where_params]
@@ -373,8 +389,10 @@ def _derive_expr(step: dict) -> str:
 def _apply_step(step: dict, sql: str, params: list[Any], cols: list[str]) -> tuple[str, list[Any], list[str]]:
     """Apply one TYPED step → ``(sql, params, columns)``. ``aggregate`` reshapes;
     ``top_n`` orders + caps; ``sort`` orders (R141, no limit); ``derive`` appends a
-    column; ``date_bucket`` appends a truncated date column (R144); ``filter``
-    narrows rows; ``select`` re-binds (projection + rename + reorder, R141)."""
+    column; ``date_bucket`` appends a truncated date column (R144);
+    ``group_column`` appends a within-group aggregate WITHOUT collapsing rows
+    (R163); ``filter`` narrows rows; ``select`` re-binds (projection + rename +
+    reorder, R141)."""
     kind = step["kind"]
     if kind == "aggregate":
         sql, params = build_aggregate_select(
@@ -395,6 +413,14 @@ def _apply_step(step: dict, sql: str, params: list[Any], cols: list[str]) -> tup
         return f"SELECT {select_list} FROM ({sql}) AS _p", params, step["output_cols"]
     if kind == "derive":
         return f"SELECT *, {_derive_expr(step)} AS {_quote_ident(step['name'])} FROM ({sql}) AS _d", params, [*cols, step["name"]]
+    if kind == "group_column":
+        # R163 — the WITHIN-GROUP column: the same measure expression as a
+        # collapsing aggregate, WINDOWED over the row's partition instead of
+        # collapsing it, so the row count is unchanged. No in-window ORDER BY →
+        # the frame is the whole partition and the value is order-independent.
+        over = "PARTITION BY " + ", ".join(_quote_ident(g) for g in step["by"])
+        expr = _measure_expr(step["agg"], step["col"], over=over)
+        return f"SELECT *, {expr} AS {_quote_ident(step['name'])} FROM ({sql}) AS _n", params, [*cols, step["name"]]
     if kind == "date_bucket":
         # R144 — append the period's START date (week = ISO Monday-start, DuckDB
         # native). granularity is enum-guarded by the planner → safe to inline.

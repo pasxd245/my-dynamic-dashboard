@@ -263,20 +263,27 @@ The reorder gesture is the affordance, so **its failure mode is part of the affo
 | State | Built? | When | What the card shows |
 | --- | --- | --- | --- |
 | **Normal** | ✅ R162 | every reference resolves at this position | the sentence + the grain line |
-| **Orphaned by a move** | ⛔ **not built** — R163 | `[↑]` past an `aggregate` would leave `col` / a `within each` column non-existent at the new position | the move still happens (never trap the user mid-thought); the card renders `<Alert role="alert">` naming the column — *"`rate` doesn't exist this early. Move this back down, or pick a column that does."* — and **`[Save]` is disabled** by the existing invalid-edit gate |
+| **Orphaned by a move** | ✅ R163 | `[↑]` past an `aggregate` would leave `col` / a `within each` column non-existent at the new position | the move still happens (never trap the user mid-thought); the card renders `<Alert role="alert">` naming the column(s) — *"`rate, team` doesn't exist this early. Move this card back down, or pick a column that does."* — and **`[Save]` is disabled** by the existing invalid-edit gate (the preview 422s, so `previewOk` is false) |
 | **Nothing to offer** | ✅ R162 | no column at this position satisfies the chosen agg's dtype rule | the column `<Select>` is disabled with a guiding tooltip naming why (the same shape as the join editor's no-eligible-edge control, acceptance #2) |
-| **Name collision** | ⛔ **not built** — R163 | `name` already exists at this position (`column_exists`) | inline field error on the name `<Input>`, tied to the field |
+| **Name collision** | ✅ R163 | `name` already exists at this position (`column_exists`) | inline field error on the name `<Input>`, tied to the field via `aria-invalid` + `aria-errormessage` — never a page-level alert |
 | **Repeat group column** | ✅ by construction | the same column picked twice in `within each` (`duplicate_group_column`) | unreachable by construction — the multi-`<Select>` cannot repeat a value; the backend check stays as the wire-level backstop |
 
 The first two are the ones the reorder gesture creates; the last three mirror the 422 vocabulary
 [queries.md § Transform steps](queries.md) already declares, rendered **at the card**, never as a
 page-level error.
 
-> **Two states are specified but NOT built** (marked ⛔). R162's F1 is FE-on-MSW and
-> contract-safe, so it has no backend error vocabulary to name the offending column with;
-> inventing an FE-only version would be a second source of truth to delete at R163. Both land
-> with the engine in **R163**. Until then a bad reference surfaces the same way every other step's
-> does — at preview/save, from the server.
+> **All five states are built.** The last two landed with the engine at **R163** (R162's F1 was
+> FE-on-MSW and contract-safe, with no backend error vocabulary to name the offending column
+> with). Both mirror a server guard rather than inventing a second vocabulary —
+> `groupColumnIssues()` in `steps.ts` computes them from the threaded column space, and the
+> backend re-validates on preview/save regardless.
+>
+> **Why the card-level alert earns its place**, confirmed on the live stack at R163's
+> Integration walk: the **preview** path maps *every* bad step to `409 query_stale` (uniform
+> across `derive` / `date_bucket` / `group_column` — not a `group_column` quirk). Only the
+> **save** path returns the precise 422 (`column_exists: 'agent' is already a column`). So
+> without the card state, a user who reorders into an invalid position sees only "stale" and is
+> never told *which* column moved out of reach.
 
 #### The self-join boundary, in the Builder
 

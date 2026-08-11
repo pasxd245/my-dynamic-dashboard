@@ -483,8 +483,9 @@ function groupColumnStepMock(step: Extract<Step, { kind: 'group_column' }>, tabl
   // R162 mirror of `<agg>(col) OVER (PARTITION BY by…)`: append the group's value
   // to EVERY row (the row count is unchanged — that is the whole point). No
   // in-window ORDER BY, so the frame is the whole partition and row order is
-  // irrelevant. Approximate (JS vs DuckDB); the backend is the correctness gate
-  // and does not exist yet — F1 is the authoring surface, not the numbers.
+  // irrelevant. Approximate (JS vs DuckDB): the shipped `_plan_group_column` +
+  // `_apply_step` window (R163) is the correctness gate — this mock exists so the
+  // authoring surface has something to render, not to be a second engine.
   const byIdx = step.by.map((b) => _aggColIdx(table.columns, b));
   const ci = step.col ? _aggColIdx(table.columns, step.col) : -1;
   const key = (row: (string | null)[]) => JSON.stringify(byIdx.map((i) => row[i] ?? null));

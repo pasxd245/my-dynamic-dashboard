@@ -705,7 +705,9 @@
         "noEligibleColumn": "Không có cột nào ở đây dùng được với phép tính này.",
         "grainRows": "Mỗi dòng ở đây là một dòng dữ liệu gốc — nên phép này tính trên các dòng gốc.",
         "grainGrouped": "Mỗi dòng ở đây là một {{grain}} — nên phép này tính trên các dòng {{grain}}, không phải dòng gốc bên dưới.",
-        "grainGroupedAnon": "Mỗi dòng ở đây là một nhóm từ bước trước — không phải dòng gốc."
+        "grainGroupedAnon": "Mỗi dòng ở đây là một nhóm từ bước trước — không phải dòng gốc.",
+        "orphanedColumn": "\"{{cols}}\" chưa có ở bước này. Hãy đưa thẻ này xuống lại, hoặc chọn cột khác đang có.",
+        "nameCollision": "\"{{name}}\" đã là một cột ở đây. Hãy đặt tên khác."
       },
       "buildActive": "{{count}} đang áp dụng",
       "baseSourceLabel": "Dựng trên",

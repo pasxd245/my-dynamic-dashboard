@@ -8,7 +8,8 @@
 // predicate per filter (chain steps for more). Backend re-validates on preview/save.
 
 import { ArrowDownOutlined, ArrowUpOutlined, DeleteOutlined } from '@ant-design/icons';
-import { Button, Input, InputNumber, Segmented, Select, Space, Switch, Typography } from 'antd';
+import { Alert, Button, Input, InputNumber, Segmented, Select, Space, Switch, Typography } from 'antd';
+import { useId } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { OPS_BY_DTYPE, type Operator } from '@/features/data-management/datasets/filters/types';
@@ -17,6 +18,7 @@ import {
   STEP_KINDS,
   blankStep,
   grainAt,
+  groupColumnIssues,
   groupColumnPool,
   isNumericCol,
   isOrderableCol,
@@ -246,7 +248,11 @@ function GroupColumnBody({
   onChange: (s: Step) => void;
 }>) {
   const { t } = useTranslation();
+  const nameErrorId = useId();
   const pool = groupColumnPool(step.agg, cols);
+  // R163 — the two states the REORDER gesture creates. The move is never blocked,
+  // so the card is where the consequence has to be visible.
+  const { orphaned, collision } = groupColumnIssues(step, cols);
   const setAgg = (agg: AggregateMeasure['agg']) => {
     if (agg === 'count') return onChange({ ...step, agg, col: undefined });
     const next = groupColumnPool(agg, cols);
@@ -313,10 +319,29 @@ function GroupColumnBody({
             style={{ width: 140 }}
             aria-label={t('queries.builder.steps.newColumn')}
             value={step.name}
+            // Name collision (the backend's `column_exists`) → an inline field
+            // error tied to the input, not a page-level alert.
+            status={collision ? 'error' : undefined}
+            aria-invalid={collision || undefined}
+            aria-errormessage={collision ? nameErrorId : undefined}
             onChange={(e) => onChange({ ...step, name: e.target.value })}
           />
         </FieldLabel>
       </Space>
+      {collision ? (
+        <Typography.Text type="danger" id={nameErrorId} style={{ fontSize: 12 }} data-component="GroupColumnNameError">
+          {t('queries.builder.steps.nameCollision', { name: step.name })}
+        </Typography.Text>
+      ) : null}
+      {orphaned.length > 0 ? (
+        <Alert
+          role="alert"
+          type="error"
+          showIcon
+          data-component="GroupColumnOrphaned"
+          title={t('queries.builder.steps.orphanedColumn', { cols: orphaned.join(', ') })}
+        />
+      ) : null}
       <Typography.Text
         type="secondary"
         role="status"

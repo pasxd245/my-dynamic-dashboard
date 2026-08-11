@@ -12,6 +12,7 @@ import { StepsEditor } from '@/features/data-management/queries/StepsEditor';
 import {
   blankStep,
   grainAt,
+  groupColumnIssues,
   groupColumnPool,
   stepOutput,
   threadColumns,
@@ -282,5 +283,66 @@ describe('R162 within-group column (StepsEditor)', () => {
     expect(onChange).toHaveBeenCalledWith([
       { kind: 'group_column', name: 'group_value', agg: 'count', col: undefined, by: ['agent'] },
     ]);
+  });
+});
+
+// R163 F2 — the two card states R162 deliberately deferred. They exist because
+// the REORDER gesture is the affordance: the move always happens, so its invalid
+// outcome has to be visible AT the card. Both mirror a backend guard
+// (`unknown_column` / `column_exists`) rather than inventing a second vocabulary.
+describe('R163 within-group column — orphaned + collision card states', () => {
+  const renderAgents = (steps: Step[], onChange = vi.fn()) => {
+    render(
+      <AntdConfig>
+        <App>
+          <StepsEditor steps={steps} columns={AGENT_COLS} onChange={onChange} />
+        </App>
+      </AntdConfig>,
+    );
+    return onChange;
+  };
+
+  it('groupColumnIssues: flags a missing measure column and a missing group column', () => {
+    const step: GroupColumnStep = { kind: 'group_column', name: 'g', agg: 'avg', col: 'rate', by: ['team'] };
+    expect(groupColumnIssues(step, AGENT_COLS)).toEqual({ orphaned: [], collision: false });
+    // the column space AFTER an aggregate that kept neither `rate` nor `team`
+    const narrowed: Column[] = [{ name: 'agent', dtype: 'string' }];
+    expect(groupColumnIssues(step, narrowed).orphaned).toEqual(['rate', 'team']);
+  });
+
+  it('groupColumnIssues: `count` has no measure column to orphan', () => {
+    const step: GroupColumnStep = { kind: 'group_column', name: 'g', agg: 'count', by: ['team'] };
+    expect(groupColumnIssues(step, [{ name: 'team', dtype: 'string' }]).orphaned).toEqual([]);
+  });
+
+  it('groupColumnIssues: the output name colliding with a current column is `column_exists`', () => {
+    const step: GroupColumnStep = { kind: 'group_column', name: 'rate', agg: 'count', by: ['team'] };
+    expect(groupColumnIssues(step, AGENT_COLS).collision).toBe(true);
+  });
+
+  // The move past an aggregate is the gesture that creates this state.
+  it('a card moved above an aggregate that drops its column renders an alert NAMING the column', () => {
+    const agg: Step = { kind: 'aggregate', dimensions: ['agent'], measures: [{ agg: 'count' }] };
+    const group: Step = { kind: 'group_column', name: 'team_rate', agg: 'avg', col: 'rate', by: ['team'] };
+    renderAgents([agg, group]); // after the aggregate, neither `rate` nor `team` exists
+    const alert = screen.getByRole('alert');
+    expect(alert).toHaveTextContent(/rate, team/);
+    expect(alert).toHaveTextContent(/Move this card back down/);
+  });
+
+  it('no alert while every reference resolves at the position', () => {
+    renderAgents([blankStep('group_column', AGENT_COLS)]);
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('a colliding output name is an INLINE field error tied to the input, not a page alert', () => {
+    const step: Step = { kind: 'group_column', name: 'rate', agg: 'count', by: ['team'] };
+    renderAgents([step]);
+    const input = screen.getByLabelText('New column name');
+    expect(input).toHaveAttribute('aria-invalid', 'true');
+    const errorId = input.getAttribute('aria-errormessage');
+    expect(errorId).toBeTruthy();
+    expect(document.getElementById(errorId as string)).toHaveTextContent(/already a column here/);
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 });

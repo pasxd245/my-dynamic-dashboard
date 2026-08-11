@@ -487,10 +487,33 @@ class FilterStep(BaseModel):
     predicates: Annotated[list[FilterStepPredicate], Field(min_length=1)]
 
 
-# R121/R122/R123/R141/R144 — a transform step is a `kind`-discriminated union (so a
-# bad `kind` is a clean 422, and each kind keeps its own required fields).
+class GroupColumnStep(BaseModel):
+    """R163 — the WITHIN-GROUP column: APPEND a column holding an aggregate over
+    the group of rows THIS row belongs to (row count unchanged — the
+    non-collapsing half of the aggregate family). `agg`/`col` reuse the
+    collapsing measure vocabulary + dtype rules verbatim (`_validate_measure`);
+    `by` is the PARTITION BY, ≥1 column, no repeats. Compiles to
+    `<expr> OVER (PARTITION BY by…)` with NO in-window ORDER BY, so the frame is
+    the whole partition and the result is order-independent. Mirrors
+    `_shared/query.yaml#/GroupColumnStep`."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["group_column"]
+    name: Annotated[str, Field(min_length=1)]
+    agg: Literal["sum", "count", "avg", "min", "max", "count_distinct"]
+    col: Annotated[str, Field(min_length=1)] | None = None
+    by: Annotated[list[Annotated[str, Field(min_length=1)]], Field(min_length=1)]
+
+
+# R121/R122/R123/R141/R144/R163 — a transform step is a `kind`-discriminated union
+# (so a bad `kind` is a clean 422, and each kind keeps its own required fields).
+# SHARED by `QueryDefinition.steps` and `WorkflowDefinition.steps` — both fold the
+# same `_apply_step`, so a new kind widens BOTH. Adding one here therefore requires
+# the matching widening in `_shared/workflow.yaml` (whose `oneOf` is duplicated,
+# not `$ref`-shared), or Python would accept what the contract forbids.
 Step = Annotated[
-    AggregateStep | TopNStep | DeriveStep | FilterStep | SortStep | SelectStep | DateBucketStep,
+    AggregateStep | TopNStep | DeriveStep | FilterStep | SortStep | SelectStep | DateBucketStep | GroupColumnStep,
     Field(discriminator="kind"),
 ]
 

@@ -103,6 +103,29 @@ export function groupColumnPool(agg: AggregateMeasure['agg'], cols: readonly Col
   return cols;
 }
 
+/** R163 — the two card states R162's F1 deferred, computed from the threaded
+ *  column space alone. They exist because the REORDER gesture is the affordance:
+ *  moving a Group value card up past an `aggregate` can leave its `col` / `within
+ *  each` columns non-existent at the new position, and the move is allowed to
+ *  happen (never trap the user mid-thought) — so the card has to say so.
+ *
+ *  `orphaned` lists every referenced column missing at this position;
+ *  `collision` is `name` already existing here (the backend's `column_exists`).
+ *  This MIRRORS the server's `_plan_group_column` guards rather than replacing
+ *  them — the backend still re-validates on preview/save, which is what keeps
+ *  `[Save]` disabled; this only names the offender at the card. */
+export function groupColumnIssues(
+  step: GroupColumnStep,
+  cols: readonly Column[],
+): { orphaned: readonly string[]; collision: boolean } {
+  const names = new Set(cols.map((c) => c.name));
+  const referenced = step.agg === 'count' ? [...step.by] : [step.col ?? '', ...step.by];
+  return {
+    orphaned: [...new Set(referenced.filter((c) => c !== '' && !names.has(c)))],
+    collision: names.has(step.name),
+  };
+}
+
 /** Thread the column space through an ordered step list. Returns the columns
  *  ENTERING each step (index-aligned with `steps`) + the FINAL output columns.
  *  `base` is the pre-step effective space. */

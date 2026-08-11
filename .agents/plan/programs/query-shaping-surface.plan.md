@@ -1,6 +1,6 @@
 # Program plan: Query as the single shaping surface
 
-**Status**: Active — `cycles/Round_162.md` at **Review**; `cycles/Round_163.md` at **Planning** (awaiting human review of its plan)
+**Status**: Active — `cycles/Round_162.md` **Complete** (2026-08-11); `cycles/Round_163.md` at **Review** (C+B+F2+I closed 2026-08-11; awaiting the human's acceptance walk)
 **Opened**: 2026-08-07
 **Closed**:
 
@@ -87,7 +87,7 @@ Each round is a **DCFBI slice** over one coherent capability:
 
 | # | Item | Status | Round |
 | - | ---- | ------ | ----- |
-| 1 | **Within-group column** (aggregate within a group, as a column) + the Query concept rewritten into the design corpus | **in flight** — split by the DFCFBI selector | `Round_162` (D + F1) → `Round_163` (C + B + F2 + I) |
+| 1 | **Within-group column** (aggregate within a group, as a column) + the Query concept rewritten into the design corpus | **built end-to-end 2026-08-11.** R162 (D+F1) **Complete**; R163 at Review, awaiting the human's acceptance walk | `Round_162` (D + F1) → `Round_163` (C + B + F2 + I) |
 | 2 | The rest of the within-group family — % of total · running total · rank within group · vs prior period | queued | `Round_164` |
 | 3 | **Retire `query⋈query`, replace it with Duplicate** — remove composition (**both** forms — see D5) and the surfaces that offer it, ship `Duplicate` in its place, clean saved queries, delete the `cyclic_join` / `composition_cycle` / shared-leaf machinery (§ Item 3 scope) | queued | `Round_165` |
 | 4 | **Workflow** — settle what it is, now that Query is the single shaping surface | queued | `Round_166` |
@@ -191,7 +191,7 @@ The bar is *retaining a modified form of something already built*, not adding so
 
 | Entry | Axis/Kind | Seen in | Disposition |
 | ----- | --------- | ------- | ----------- |
-| Grain alignment needed by 3 of 5 dashboard tiles — load-bearing, not an edge case | evidence | R162 | open |
+| Grain alignment needed by 3 of 5 dashboard tiles — load-bearing, not an edge case | evidence | R162 | **confirmed R163 acceptance walk** — the human rebuilt the blocked dashboard on their real 90 581-row call log; the 2026-08-07 blocking question really was compare-to-group |
 | "Average within team" is ambiguous: pooled rows (71.4%) vs average of member rates (70.8%) | UX trap | R162 | **settled at the R162 D gate** — it is an **ordering**, not a parameter. No `basis` field; a **grain line** on each card names what one row means at that position and rewrites itself when the card moves past an aggregate |
 | "Vs prior period" lies silently on gaps (Jan, Feb, **Apr** → Feb reads as April's previous) | correctness trap | — | open |
 | Order × within-group interact — a group column computed before vs after a filter averages over different groups | UX trap | — | open |
@@ -204,7 +204,7 @@ The bar is *retaining a modified form of something already built*, not adding so
 | D1 step-drop, D2 shared-leaf, D3 workflow-as-noun, D4 error-at-wrong-time | inherited debt | R161 | D1/D2 dissolved by item 3; D3 → item 4; D4 deferred |
 
 | **Composition is shipped TWICE** — a `qr_` driving base **and** R91's `qr_` on the right of a hop ([common.py:309](../../../workspace/apps/backend/app/models/common.py#L309)). Both design docs listed the latter as *out of scope* | concept↔code gap | R162 D gate | **raised to noun-model D5** — item 3 must retire both, not just the base |
-| `_MAX_STEPS = 8` ([query_engine.py:461](../../../workspace/apps/backend/app/query_engine.py#L461)). The **pooled** T3 path costs **exactly 8** steps; per-member costs 6 | ceiling | R162 D gate | open — **not pre-raised**; if the acceptance walk hits it, that is the evidence |
+| `_MAX_STEPS = 8` ([query_engine.py:461](../../../workspace/apps/backend/app/query_engine.py#L461)). The **pooled** T3 path costs **exactly 8** steps; per-member costs 6 | ceiling | R162 D gate | **arithmetic confirmed by execution** (R163 I gate: the pooled chain runs at exactly 8 on real seeded data). **Reached, never exceeded → not raised.** Still the trigger if the acceptance walk needs a 9th step |
 | `StepsEditor` (R120–R144, 538 lines) had **no design-doc home at all** | doc↔code drift | R162 D gate | **backfilled** into `query-construction.md § Shape` |
 | R162 flow = **DFCFBI (triggers 1, 3, 5)** → F1 precedes Contract, and the standing split makes it [D+F1] then [C+B+F2+I] | process | R162 D gate | **settled (human, 2026-08-10)** — split; the program renumbers by one (item 2 → R164) rather than using an `R162a/b` form |
 
@@ -213,6 +213,15 @@ The bar is *retaining a modified form of something already built*, not adding so
 
 | **Canvas offers `Promote` on an already-governed edge** — `promotable` tests only dataset-vs-`qr_` ([joinGraph.ts:144](../../../workspace/apps/builder/src/features/data-management/queries/joinGraph.ts#L144)); the `free` flag that should gate it drives styling only. Clicking can only 409 | D4-class (offer-nothing violated) | R162 hand-use | open — **[F-promote-gate]**, batched with the R157 UX cluster; `'changed'`-divergence behaviour is an open call |
 | **D4 is a recurring CLASS, not one bug** — the D gate called it "largely mooted by D5's removal"; a third instance unrelated to composition then surfaced. Standing rule: **unofferable at the gesture, never an error at run** | correction to a D-gate judgment | R162 hand-use | **corrected in `_noun-model.md` D4**; the rule outlives item 3 |
+| **The grain line WORKS** — moving a Group value card above/below a collapsing aggregate makes the pooled-vs-average reading legible | UX verdict (the question R162 carried unanswered) | R163 acceptance walk | **settled — yes** (human, 2026-08-11, *"seem all good"*). The round's primary risk did not materialise |
+| **Naming is the real legibility gap, not expressibility** — first hand-use produced `rate` holding a call count (1315) and `delta` holding an average (1344.33); the product agreed to a dashboard-ready table. The dtype tell (`rate` renders `int`) is already on screen and inert | UX trap (new axis) | R163 hand-use | **parked by the human** — *"post back, enhance later"*. Evidence banked, **no affordance proposed** (design-by-building brake). Needs ranking |
+| **Filter placement silently collapses the denominator** — a `filter` moved above a Group value card makes every rate read **100.0%**, and the grain line does NOT change (it tracks position vs `aggregate` only) | correctness trap | R163 (demonstrated on real data) | open — **the strongest un-actioned finding of the round**; supersedes the earlier predicted-only "Order × within-group" row |
+| The two new F2 card states (orphaned-by-a-move, name collision) shipped but **were never walked by a human** | unconfirmed build | R163 | open — carried to R164's walk |
+
+| **The shared `Step` union widened Workflow** — one Python union + one `_apply_step` serve both nouns, but `workflow.yaml` duplicates its `oneOf` | contract/impl split | R163 C gate | **settled — widen both.** `workflow.yaml` now carries a MIRROR note; the widening is tested end-to-end (workflow create → run → materialized within-group column) |
+| **`COALESCE(agg(x), 0)` cannot simply take `OVER (…)`** — `OVER` binds to the aggregate call, so the collapsing NULL policy had to be re-composed as `COALESCE(agg(x) OVER (…), 0)` | SQL correctness | R163 B gate | **caught by EXTRACTING the measure expression into one shared helper instead of copying it.** A copied expression map would have shipped this silently at the first `sum` |
+| **Preview reports every bad step as `409 query_stale`** — uniform across `derive`/`date_bucket`/`group_column`; only the SAVE path returns the precise 422 | error-surface finding | R163 I gate | **this is why the card-level orphaned/collision states earn their place** — without them a reorder into an invalid position says only "stale", never *which* column. Recorded in `query-construction.md` |
+| Brainstorm T3 ground truth lists **−4.1pt** for A2 (average-of-agents); full precision is **−4.2** (the table subtracted already-rounded rates) | rounding artifact | R163 B gate | **engine is right, hand table had the artifact** — noted in the test, brainstorm left untouched as a point-in-time record |
 
 ## Lifecycle
 
