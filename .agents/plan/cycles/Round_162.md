@@ -297,6 +297,42 @@ reuse of the sibling's vocabulary is the point, so the code was right and the do
 **Next: the F1 hard stop — the human runs the app.** Gates cannot see this
 ([[dfcfbi-f1-needs-human-review]]).
 
+### Hand-use finding — composition is still OFFERED, in three places (2026-08-10)
+
+The human, running the F1 build, asked whether **"Build on this query"** still creates a query
+from a query. **It does** — and that is correct for now (replace-before-remove: until R163 makes
+the within-group column work end-to-end, composition is the only way to attempt compare-to-group,
+so withdrawing it first would leave them *more* blocked than the dogfood that opened this
+program).
+
+**But the question exposed a real under-specification.** D5 was written as an *engine*
+divergence — the recursive `resolve_source`, the polymorphic `rightSourceId`. Hand-use found
+**three live surface entry points**, and #2 is a *different mechanism* from #1:
+
+1. `[Build on this query]` on the detail header → composition as the driving **base**
+   ([QueryDetailPage.tsx:242](../../../workspace/apps/builder/src/features/data-management/queries/QueryDetailPage.tsx#L242));
+2. the canvas **"Add a source"** picker's **"Saved queries"** group → a `qr_` on the **right of a
+   hop** (R91/R92)
+   ([QueryCanvas.tsx:1122](../../../workspace/apps/builder/src/features/data-management/queries/QueryCanvas.tsx#L1122));
+3. the `?base=` route itself, reachable by URL without #1
+   ([QueryCreatePage.tsx:34](../../../workspace/apps/builder/src/features/data-management/queries/QueryCreatePage.tsx#L34)).
+
+So **item 3's scope was under-counted**: not one resolver, but a resolver plus two prominent
+affordances plus everything #2 pulled in (`qr_` node rendering, wide-source effective-column
+expansion, `qr_`-column→leaf provenance, the non-promotable `qr_`-side edge rule, the
+unavailable-`qr_` state). D5 now enumerates them
+([`_noun-model.md` § D5's surface entry points](../../design/data-management/_noun-model.md)).
+
+**Named cost of leaving them lit**: `[Build on this query]` is the first thing a user reaches for
+when they want to compare two shaped results, so the product **keeps inviting the `cyclic_join`
+dead end that started R160** until item 3 lands. Whether to withdraw the *affordances* earlier
+than the *engine* — a cheap FE-only change, once R163 makes the replacement real — is left as an
+**open call for the human**.
+
+**Method note worth keeping**: this is the second time in two rounds that *hand-use*, not a lint
+or a gate, caught a doc↔code gap the gates rated green. The D gate verified the anchors it cited
+and missed the ones it didn't think to cite.
+
 ## Check
 
 - [ ] Verify outcomes against the goal (tests, lint, human walk) — the pass/fail verdict

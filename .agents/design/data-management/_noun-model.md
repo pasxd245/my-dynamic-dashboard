@@ -226,8 +226,35 @@ Dispositions are now program items, not forks.
 | **D2** | **Shared-leaf `cyclic_join`** — two queries derived from one dataset can't be joined. | Tree invariant rejects any leaf-overlap ([query_engine.py:212-218](../../../workspace/apps/backend/app/query_engine.py#L212)). | Not applicable — there are no query operands to overlap. | **Removed by decision, not fixed.** Joining two queries is out of scope; the capability is deliberately gone. A later reader must **not** read this as a bug that got solved. What replaces it is the within-group column (R162), not a relaxed invariant. |
 | **D3** | **Workflow as a separate noun** — full table + routes + 3 FE surfaces for what may be a live/frozen toggle. | [workflows/workflows.md](workflows/workflows.md); `wf_` model, `/workflows` routes, catalog/builder/detail. | Undecided — settled at program item 4, now that it no longer depends on the composition fork. | **Deferred to program item 4**, with the refused self-join need as one of its inputs. Name it; don't build it. |
 | **D4** | **Error surfaced at the wrong time, in engine vocabulary** — the FE lets you *draw* an edge that only fails later at preview/save with `cyclic_join`. | FE resolves left provenance to leaves but checks node-level ([joinGraph.ts](../../../workspace/apps/builder/src/features/data-management/queries/joinGraph.ts)); engine reasons surface at preview/save. | Unofferable at the gesture, in the user's words — never a run-time engine error. | **Largely mooted by D5's removal** (far fewer collisions to surface), but the *principle* is now load-bearing for the **self-join boundary**: the Builder must not offer the same dataset twice. Re-rank the remainder after item 3. |
-| **D5** | **The shipped engine exceeds the concept — composition is built, twice.** A Query may drive from another Query (`sourceId: qr_`) **and** join one in on the right (`rightSourceId: qr_`, R91). The concept allows neither. | `resolve_source` recurses on `qr_` ([query_engine.py:62-109](../../../workspace/apps/backend/app/query_engine.py#L62)); `QueryRelationship.rightSourceId` is `SourceId`, not `DsId` ([common.py:309](../../../workspace/apps/backend/app/models/common.py#L309)). | Both operands dataset-only; `composition_cycle` / `cyclic_join` / the `visited` guard / `dataset_id_sets` all deleted. | **Program item 3** — after the within-group family ships. Includes migrating or refusing saved queries that use it. |
+| **D5** | **The shipped product exceeds the concept — composition is built, twice, and actively OFFERED.** A Query may drive from another Query (`sourceId: qr_`) **and** join one in on the right (`rightSourceId: qr_`, R91). The concept allows neither, yet **three surfaces still invite it** (§ D5's surface entry points). | Engine: `resolve_source` recurses on `qr_` ([query_engine.py:62-109](../../../workspace/apps/backend/app/query_engine.py#L62)); `QueryRelationship.rightSourceId` is `SourceId`, not `DsId` ([common.py:309](../../../workspace/apps/backend/app/models/common.py#L309)). Surfaces: see below. | Both operands dataset-only; `composition_cycle` / `cyclic_join` / the `visited` guard / `dataset_id_sets` deleted, **and every entry point withdrawn**. | **Program item 3** — after the within-group family ships (replace-before-remove). Includes migrating or refusing saved queries that use it. |
 | **D6** | **The within-group column does not exist** — the collapsing aggregate family is complete, the windowed one is empty. | `_apply_step` has no window branch ([rows_reader.py:373](../../../workspace/apps/backend/app/ingest/rows_reader.py#L373)); the agg vocabulary is collapsing-only ([query_engine.py:376-398](../../../workspace/apps/backend/app/query_engine.py#L376)). | One appended column = an aggregate over the row's group. | **R162 — in flight.** The rest of the family (% of total · running total · rank within group · vs prior period) is program item 2. |
+
+### D5's surface entry points (the part an engine-only reading misses)
+
+Found by hand-use, 2026-08-10: the human asked whether *"Build on this query"* still creates a
+query from a query. **It does.** Listing the surfaces here because D5 originally named only the
+engine, which under-counts item 3's scope — the removal is not one resolver, it is a resolver
+plus two prominent affordances plus the canvas's whole `qr_`-as-a-source treatment.
+
+| # | Entry point | Mechanism | Anchor |
+| --- | --- | --- | --- |
+| 1 | **`[Build on this query]`** on the Query detail header → `/queries/new?base=<qr_>` | composition as the **driving base** | [QueryDetailPage.tsx:242](../../../workspace/apps/builder/src/features/data-management/queries/QueryDetailPage.tsx#L242) |
+| 2 | The canvas **"Add a source"** picker's **"Saved queries"** option group | a `qr_` joined in on the **right of a hop** (R91/R92) — a *different* mechanism from #1 | [QueryCanvas.tsx:1122](../../../workspace/apps/builder/src/features/data-management/queries/QueryCanvas.tsx#L1122) |
+| 3 | The `?base=` route itself, reachable by URL without #1 | same as #1 | [QueryCreatePage.tsx:34](../../../workspace/apps/builder/src/features/data-management/queries/QueryCreatePage.tsx#L34) |
+
+Item 3 must also unwind what #2 pulled in: `qr_` node rendering, effective-column expansion for a
+wide query source, the `qr_`-column→leaf provenance mapping, the non-promotable `qr_`-side edge
+rule, and the unavailable-`qr_` state.
+
+**Why they stay lit for now.** [Replace before you
+remove](../../plan/programs/query-shaping-surface.plan.md): until the within-group column works
+end-to-end (R163), composition is still the *only* way a user can attempt compare-to-group.
+Withdrawing it first would leave the human **more** blocked than the dogfood that opened this
+program. The cost of leaving it lit is real and named: **`[Build on this query]` is the first
+thing a user reaches for when they want to compare two shaped results, and it leads to the
+`cyclic_join` dead end that started R160** — so the product keeps inviting the failure until item
+3. Whether to withdraw the affordances *earlier* than the engine (a cheap FE-only change, once
+R163 makes the replacement real) is an **open call for the human**, not an agent's to make.
 
 ---
 
