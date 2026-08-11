@@ -1,10 +1,25 @@
 # Round 162: compare to the group — the within-group column
 
-**Status**: In Progress
+**Status**: Review — awaiting the human's flip to Complete
 **Date started**: 2026-08-07
-**Date completed**:
+**Date completed**: 2026-08-10 (Review)
 
 <!-- ⟢ At a glance is authored at the Review→Complete flip (R159 doctrine), not during Do. -->
+
+## ⟢ At a glance
+
+**Check** — R162 re-locked the Query concept to *datasets only, ordered operations, never
+composed*, and shipped the **authoring** half of the missing primitive: a **Group value** card
+that appends an aggregate over a row's group, with a **grain line** that rewrites itself when the
+card moves past an aggregate. FE-only on MSW; the engine and the real numbers are R163.
+
+**Studied** — **the D gate verifies the anchors it cites; hand-use finds the ones nobody thought
+to cite.** Every gate was green, and the human's walk still returned four findings — including
+**silent data loss** (`writeDef` had been destroying saved `steps` since R120) and **two
+corrections to judgments this round's own D gate had asserted** (that D4 was "largely mooted", and
+that composition's removal was engine-only). The D gate was not sloppy: it checked every claim it
+made. Its blind spot was *the claims it never thought to make* — and no lint can enumerate those.
+A cheap human walk out-yielded four green gates, which is the concrete case for why F1 exists.
 
 ## Goal
 
@@ -60,16 +75,16 @@ interactions make results unpredictable enough that the human doesn't trust the 
       [`ux-design`](../../skills/ux-design/SKILL.md) in design-spec mode at this gate.
 - [x] Run [`flow-selector`](../../skills/flow-selector/SKILL.md) at the Design exit; record the
       chain in the Do log.
-- [ ] **F1 — the authoring affordance, FE-only, contract-safe.** Build the **Group value** card
+- [x] **F1 — the authoring affordance, FE-only, contract-safe.** Build the **Group value** card
       in `StepsEditor` + its `steps.ts` column threading + the **grain line**, on MSW. Must stay
       **request-only** ([[dfcfbi-f1-precedes-contract]]): `group_column` rides inside the existing
       `definition.steps` request body and the new column surfaces through the existing
       `resolvedColumns`, so **no response shape changes** and MSW's
       `additionalProperties: false` stays satisfied.
-- [ ] **F1 hard stop — the human runs the app.** Does the sentence read? Does the grain line
+- [x] **F1 hard stop — the human runs the app.** Does the sentence read? Does the grain line
       change when the card moves past an aggregate? Do the VN labels work? Gates green is
       necessary, not sufficient ([[dfcfbi-f1-needs-human-review]]).
-- [ ] Run [`design-sync`](../../skills/design-sync/SKILL.md) `--check` on `data-management/` at
+- [x] Run [`design-sync`](../../skills/design-sync/SKILL.md) `--check` on `data-management/` at
       the round close, so the F1 build and the D-gate docs are verified in sync before R163
       touches the engine.
 
@@ -389,25 +404,85 @@ finds the ones nobody thought to cite.**
 
 ## Check
 
-- [ ] Verify outcomes against the goal (tests, lint, human walk) — the pass/fail verdict
-- [ ] **The blocked dashboard rebuilds end-to-end**, and the human confirms the numbers
-- [ ] The pooled-vs-per-member choice is expressible, and the user can tell which they got
-- [ ] `_noun-model.md` and `queries.md` match the shipped code (D gate honoured, no drift)
-- [ ] ⟢ At a glance **Studied** line written: what the round taught (the revised belief)
+- [x] **Verdict: PASS for a [D + F1] slice.** `type-check` clean · builder **334 passed / 334**
+      (317 at round start; +11 F1, +6 the `writeDef` regression guard) · `design:lint` 0 ·
+      `plan:lint` 0 · markdownlint 0 · links resolve. Human walked the app and returned **four**
+      findings; all four are dispositioned (one fixed in-round, one rescoped, two batched).
+- [~] **The blocked dashboard rebuilds end-to-end** — **not testable in this slice** and moved to
+      **R163** with the split. R162's F1 runs on MSW with no engine, so no real-data rebuild
+      happened. *Not a pass; not a failure — out of scope by construction.*
+- [~] **The pooled-vs-per-member choice is expressible, and the user can tell which they got** —
+      **half-verified.** *Expressible*: yes, proven by construction and pinned by test (the same
+      card in two positions yields two grain sentences). *"The user can tell"*: **NOT confirmed** —
+      the human's walk produced four findings, none of them about the Group value card or the grain
+      line, and they gave no verdict on it. **Absence of a complaint is not a sign-off**
+      ([[dfcfbi-f1-needs-human-review]]). Carried to R163's acceptance, where real numbers
+      (71.4% vs 70.8%) make the question answerable.
+- [x] `_noun-model.md` and `queries.md` match the shipped code — verified by the `design-sync`
+      `--check` below, which found and fixed 2 drifts this round's own D gate introduced.
+- [x] ⟢ At a glance **Studied** line written.
+
+### design-sync `--check` — 2 drifts, both authored by this round's D gate (2026-08-10)
+
+**Scope, stated honestly**: run against the three docs R162 touched (`_noun-model.md`,
+`queries/queries.md`, `queries/query-construction.md`) and the code F1 changed — **not** a sweep of
+all 14 `data-management/` docs. That matches the item's stated purpose ("the F1 build and the
+D-gate docs are verified in sync before R163 touches the engine"); a full-domain re-sync remains
+its own task. No `OUT OF SYNC` marker was stamped because both drifts were **fixed**, not deferred.
+
+1. **The section is called "Transform", not "Shape".** The D gate invented `▾ Shape`; the shipped
+   bar renders `steps.section` = **Transform** / VN **Biến đổi**, from `TransformSection`
+   ([QueryBuilderPanel.tsx:366](../../../workspace/apps/builder/src/features/data-management/queries/QueryBuilderPanel.tsx#L366)).
+   A name asserted from the doc rather than read from the code. **The human's own bug report used
+   the real word** — *"after add a Transform (aggregate)"* — while the doc said Shape; they were
+   reading the product, the D gate was reading itself. Fixed throughout.
+2. **The card-states table specified two states F1 never built.** Orphaned-by-a-move and the
+   name-collision inline error are R163 work (they need the backend's error vocabulary to name the
+   offending column), but the table presented all five as spec. Each row now carries a **Built?**
+   column, with a note on why the two wait.
+
+Neither is exotic: both are the D gate writing down what it *intended* and not re-reading what
+*exists*. That is the same failure the four hand-use findings share.
 
 ## Act
 
 **Learnings**:
 
-- _(to be filled at close)_
+- **A green gate certifies the claims it made, not the claims it should have made.** Four
+  hand-use findings against a fully green round, two of them overturning D-gate judgments, one of
+  them silent data loss. The generalizable half: when a gate's output is *"I verified every anchor
+  I cited"*, the residual risk is entirely in **uncited** territory, and the cheapest instrument
+  for that is a human touching the product. This is the concrete evidence for
+  [[dfcfbi-f1-needs-human-review]] that the memory previously asserted from R72 alone.
+- **A whitelist serializer is a silent-data-loss generator.** `writeDef` was correct at R73 and
+  became lossy at R120 without a single line changing, because it enumerates fields instead of
+  exhausting them. The durable fix was not the three-line patch but the **exhaustiveness test**
+  (`Object.keys(out)` must cover every `QueryDefinition` field), which fails when the *next* field
+  is added. Any hand-written model⇄wire bridge in this repo deserves that test.
+- **"Mooted" is a prediction, and predictions about debt should be re-tested, not recorded as
+  fact.** The D gate called D4 "largely mooted by D5's removal". Hand-use found a third instance
+  unrelated to composition, making D4 a recurring **class** with a standing rule
+  (*unofferable at the gesture, never an error at run*) rather than a bug awaiting cleanup.
+- **Closing a fork by rejecting its question is a real option.** R161 spent a round choosing
+  between models A and B for `query⋈query`; the human closed it by removing the *need* for
+  composition. Worth having in the toolkit: when two options both look costly, check whether an
+  upstream gap is manufacturing the choice.
 
-**Promotions** _(if none: write as plain text, not checkboxes)_:
-
-- _(to be decided at close)_
+**Promotions**: none proposed. The learnings are round-specific evidence for memory notes that
+already exist ([[dfcfbi-f1-needs-human-review]], [[design-docs-are-source-code]]) rather than a new
+skill or process; per the Evolution Rule's *default = don't add*, they strengthen existing
+artifacts instead of minting one. The exhaustiveness-test idea is a candidate if a **second**
+bridge needs it — one instance is not a pattern.
 
 **Follow-ups (not promotions, just notes):**
 
-- _(to be filled at close)_
+- **R163 inherits an unanswered acceptance question**: whether the grain line actually makes the
+  pooled-vs-per-member reading legible. The human walked the app and did not comment on it either
+  way; that is *not* a pass.
+- **A full `design-sync` of `data-management/`** (all 14 docs) was not run — only the three docs
+  this round touched. Worth its own pass before item 3 rewrites the domain.
+- `handlers.ts` fails `prettier --check` (pre-existing; prettier is not wired for `.ts` in
+  `.lintstagedrc.json`). Left alone — reformatting would be a large unrelated diff.
 
 ## Feeds into → Round_163 (C + B + F2 + Integration — the same capability, finished)
 

@@ -172,14 +172,15 @@ the page header; the preview re-runs the unsaved copy **debounced** (`[Preview]`
 it). The `JoinEditor` renders a single-edge affordance for ≤1 hop and hop-rows with a
 left-source `<Select>` + per-hop type + add/leaf-remove for ≥2 (the spine's join tree).
 
-### Shape — the ordered operations editor (`StepsEditor`)
+### Transform — the ordered operations editor (`StepsEditor`)
 
 > **Backfilled at the R162 D gate.** `StepsEditor` shipped across R120–R144 with **no
 > design-doc home** — this section is a design-sync-style reconciliation to the code
 > ([[design-docs-are-source-code]]), plus the one **new** affordance R162 adds. Everything
 > before "The within-group column" describes what is already built.
 
-A `▾ Shape` bar under `▾ Build` holds `definition.steps` — the **ordered** operations applied
+A **`▾ Transform`** bar under `▾ Build` (`steps.section` — VN **Biến đổi**; rendered by
+`TransformSection`) holds `definition.steps` — the **ordered** operations applied
 after the source/join/filter resolve ([queries.md § Transform steps](queries.md)). Each step is
 a card: `{n}. {kind label}` + `[↑] [↓] [🗑]` + a per-kind body. `[+ Add step]` is a `<Select>` of
 kinds. The column space is threaded client-side by `threadColumns` (`steps.ts`, a pure mirror of
@@ -187,7 +188,7 @@ the backend `_step_plan`), so **each card's pickers offer exactly the columns th
 position** — the backend re-validates on preview/save and stays the source of truth.
 
 ```text
-  ▾ Shape
+  ▾ Transform
   ┌─ 1. Group & aggregate ──────────────────────────── [↑] [↓] [🗑] ┐
   │  Group by [ agent × ] [ team × ]   Measure [ Count rows ▾ ]      │
   └──────────────────────────────────────────────────────────────────┘
@@ -259,17 +260,23 @@ green gates notwithstanding ([Round_162 § Risks](../../../plan/cycles/Round_162
 
 The reorder gesture is the affordance, so **its failure mode is part of the affordance.**
 
-| State | When | What the card shows |
-| --- | --- | --- |
-| **Normal** | every reference resolves at this position | the sentence + the grain line |
-| **Orphaned by a move** | `[↑]` past an `aggregate` would leave `col` / a `within each` column non-existent at the new position | the move still happens (never trap the user mid-thought); the card renders `<Alert role="alert">` naming the column — *"`rate` doesn't exist this early. Move this back down, or pick a column that does."* — and **`[Save]` is disabled** by the existing invalid-edit gate |
-| **Nothing to offer** | no column at this position satisfies the chosen agg's dtype rule | the column `<Select>` is disabled with a guiding tooltip naming why (the same shape as the join editor's no-eligible-edge control, acceptance #2) |
-| **Name collision** | `name` already exists at this position (`column_exists`) | inline field error on the name `<Input>`, tied to the field |
-| **Repeat group column** | the same column picked twice in `within each` (`duplicate_group_column`) | unreachable by construction — the multi-`<Select>` cannot repeat a value; the backend check stays as the wire-level backstop |
+| State | Built? | When | What the card shows |
+| --- | --- | --- | --- |
+| **Normal** | ✅ R162 | every reference resolves at this position | the sentence + the grain line |
+| **Orphaned by a move** | ⛔ **not built** — R163 | `[↑]` past an `aggregate` would leave `col` / a `within each` column non-existent at the new position | the move still happens (never trap the user mid-thought); the card renders `<Alert role="alert">` naming the column — *"`rate` doesn't exist this early. Move this back down, or pick a column that does."* — and **`[Save]` is disabled** by the existing invalid-edit gate |
+| **Nothing to offer** | ✅ R162 | no column at this position satisfies the chosen agg's dtype rule | the column `<Select>` is disabled with a guiding tooltip naming why (the same shape as the join editor's no-eligible-edge control, acceptance #2) |
+| **Name collision** | ⛔ **not built** — R163 | `name` already exists at this position (`column_exists`) | inline field error on the name `<Input>`, tied to the field |
+| **Repeat group column** | ✅ by construction | the same column picked twice in `within each` (`duplicate_group_column`) | unreachable by construction — the multi-`<Select>` cannot repeat a value; the backend check stays as the wire-level backstop |
 
 The first two are the ones the reorder gesture creates; the last three mirror the 422 vocabulary
 [queries.md § Transform steps](queries.md) already declares, rendered **at the card**, never as a
 page-level error.
+
+> **Two states are specified but NOT built** (marked ⛔). R162's F1 is FE-on-MSW and
+> contract-safe, so it has no backend error vocabulary to name the offending column with;
+> inventing an FE-only version would be a second source of truth to delete at R163. Both land
+> with the engine in **R163**. Until then a bad reference surfaces the same way every other step's
+> does — at preview/save, from the server.
 
 #### The self-join boundary, in the Builder
 
@@ -442,7 +449,7 @@ if a base loops) — flag-don't-crash, mirroring the edit-mode and run-time gate
   live region; the **invalid-predicate**, **stale-edge**, and **base-unavailable** blocks
   are `<Alert role="alert">` whose reason is **text** (the offending column / base named),
   icon + text — not a colour swatch; `[Save]`-disabled state has an accessible reason.
-- The **`▾ Shape` step cards** (backfilled + extended R162): each card is a labelled group
+- The **`▾ Transform` step cards** (backfilled + extended R162): each card is a labelled group
   (`{n}. {kind label}`); the reorder/remove buttons are icon-only and therefore carry
   `aria-label`s (`steps.up` / `steps.down` / `steps.remove`, already shipped). Every step
   control has a **visible `FieldLabel`** *and* an accessible name — including the R162
@@ -511,7 +518,7 @@ if a base loops) — flag-don't-crash, mirroring the edit-mode and run-time gate
 - A **Create mode** at `/queries/new?base=qr_…` (`QueryCreatePage`): no-id, **preset base**,
   the composed preview, name capture at Save (reused `SaveQueryModal`), Save = `POST`
   carrying `{ name, sourceId, definition }`.
-- The **`▾ Shape` steps editor** (`StepsEditor` + the pure `steps.ts` column threading):
+- The **`▾ Transform` steps editor** (`StepsEditor` + the pure `steps.ts` column threading):
   ordered step cards with reorder/remove, per-kind bodies bound to the columns available
   **at that position**, and — R162 — the **"Group value"** card with its grain line.
 - **Live preview** of the unsaved definition through `POST …/queries/preview` +
