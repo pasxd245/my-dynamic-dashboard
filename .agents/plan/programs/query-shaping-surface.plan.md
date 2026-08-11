@@ -89,7 +89,7 @@ Each round is a **DCFBI slice** over one coherent capability:
 | - | ---- | ------ | ----- |
 | 1 | **Within-group column** (aggregate within a group, as a column) + the Query concept rewritten into the design corpus | **in flight** — split by the DFCFBI selector | `Round_162` (D + F1) → `Round_163` (C + B + F2 + I) |
 | 2 | The rest of the within-group family — % of total · running total · rank within group · vs prior period | queued | `Round_164` |
-| 3 | **Retire `query⋈query`** — remove composition (**both** forms — see D5), clean saved queries, delete the `cyclic_join` / `composition_cycle` / shared-leaf machinery | queued | `Round_165` |
+| 3 | **Retire `query⋈query`, replace it with Duplicate** — remove composition (**both** forms — see D5) and the surfaces that offer it, ship `Duplicate` in its place, clean saved queries, delete the `cyclic_join` / `composition_cycle` / shared-leaf machinery (§ Item 3 scope) | queued | `Round_165` |
 | 4 | **Workflow** — settle what it is, now that Query is the single shaping surface | queued | `Round_166` |
 
 > **Renumbered 2026-08-10.** Item 1's round ran the `flow-selector` at its Design exit and landed
@@ -114,6 +114,79 @@ per-agg dtype rules ([query_engine.py:376-398](../../../workspace/apps/backend/a
 Round 1 also **calibrates this doc**: it is the first round to rewrite a design-corpus
 concept doc as its D gate, so its review pass hardens the repeatable unit before item 2.
 
+### Item 3 scope — retire composition, replace it with **Duplicate** (human, 2026-08-10)
+
+Settled in discussion after the F1 hand-use found composition still offered. Item 3 is **not**
+"delete the resolver" — it is a **replacement**, and the replacement is *smaller* than the thing
+it replaces.
+
+**Why Duplicate rather than nothing.** "Build on this query" today creates a query whose
+`sourceId` is the base (`qr_`). Under the closed concept that cannot exist. But the *need* it
+serves — make a variant of a query without rebuilding 8 operations by hand — is real, and is the
+report-maintenance treadmill the product exists to kill. **Duplicate** serves it by copying the
+**definition** into a new query over the same datasets: no link, no composition, concept-clean.
+
+**Duplicate is strictly MORE correct than what it replaces.** Composition bakes in the base's
+`q` + filters + advanced but **never runs its steps**
+([query_engine.py:87-100](../../../workspace/apps/backend/app/query_engine.py#L87) — no
+`run_steps` call), so today "Build on this query" over a *shaped* base silently builds on the
+base's **un-shaped** rows (that is D1). A duplicate copies the definition entire, steps included,
+so its rows are identical to the base's by construction. The bug leaves with the feature — and
+note it bites hardest on exactly the queries this program creates.
+
+**The one capability lost, and why it is acceptable.** Composition is a *live link* (fix the
+base, dependents follow); Duplicate is a *snapshot* (they drift). The product already made this
+exact trade and locked it: **copy-on-pick** gives a query a private `qrel_` snapshot so editing a
+governed edge can never break a saved query. Same question, same answer, already a boundary.
+Live composition was the outlier. (The grain-alignment brainstorm's fourth finding also warns
+that linked intermediates which desync are a silent-wrong-number risk; today's composition
+manages to look linked *and* return wrong rows.)
+
+**It deletes a page.** Composition needs a preset-base create mode — `QueryCreatePage`, the
+`?base=` route, a builder that previews against a base before the query exists — because the new
+query has no definition yet. A duplicate has a complete, runnable definition already, so it is:
+`[Duplicate]` → name modal → `POST {name, sourceId: <the base's OWN sourceId>, definition: <deep
+copy>}` → open it → Edit. That reuses `SaveQueryModal` + `useCreateQueryMutation` (the standing
+one-create-rhythm) and lets `QueryCreatePage` **and** the `?base=` route be deleted. Item 3 is
+net-negative code.
+
+**Labels** (per [[labels-context-and-locale-aware]]; corpus-checked, not just convention):
+
+| | EN | VN |
+| --- | --- | --- |
+| The verb (detail header · catalog ⋯) | **Duplicate** | **Tạo bản sao** |
+| Default name of the copy | `{{name}} (copy)` | `{{name}} (bản sao)` |
+
+- **`bản sao` is already this corpus's word for this concept** — the canvas divergence copy says
+  *"Truy vấn vẫn dùng bản sao riêng"* (the query's own copy of a relationship). Same concept,
+  different object → consistent, not colliding. **`nhân bản` is rejected**: it would be a *second*
+  VN word for a concept that already has one.
+- **`sao chép` is taken** by clipboard-copy (`dashboard.builder.jsonCopy`), so the family splits
+  cleanly: `sao chép` = the Ctrl+C verb, `bản sao` = a duplicated artifact.
+- **No numeral** — "Tạo bản sao", not "Tạo 1 bản sao"; the digit reads as chat register, is
+  redundant, and is longer beside `[Sửa] [Xóa]`.
+- **EN rejects** `Copy` (taken — clipboard), `Save as` (collides with *"Save filters as Query"*, a
+  genuinely different create), `Clone` (developer register). `Duplicate` also carries the semantic
+  freight: it says *independent*, where *Build on* said *dependent*.
+- **Still open**: the name-capture **modal title** is a third display context and needs its own
+  call — the header button and catalog item can both be the bare verb, the modal title should not
+  be. Settle at build time.
+
+**Entry points**: Duplicate replaces D5 **#1** (`[Build on this query]`) and **#3** (the `?base=`
+route). It does **not** replace **#2** (the canvas "Saved queries" group — a `qr_` on the right of
+a hop): that intent is *join my query to another query*, which the closed concept refuses
+outright, and whose replacement is the within-group column, later Workflow. **#2 is removed with
+no replacement, deliberately.**
+
+**Build detail to not guess**: `qrel_` ids are query-local, so the deep copy may reuse them
+verbatim (no collision) or mint fresh ones — pick one. The default name goes through the existing
+`409 name_taken` path.
+
+**Honest caveat**: the case for Duplicate rests on inference, not observation. R160's dogfood used
+composition to *join* two queries, not to clone one; no recorded instance of a clone need exists.
+The bar is *retaining a modified form of something already built*, not adding something new, so
+"default = don't add" does not bite — but this is reasoning, not evidence.
+
 ## Rolling log
 
 | Entry | Axis/Kind | Seen in | Disposition |
@@ -134,6 +207,9 @@ concept doc as its D gate, so its review pass hardens the repeatable unit before
 | `_MAX_STEPS = 8` ([query_engine.py:461](../../../workspace/apps/backend/app/query_engine.py#L461)). The **pooled** T3 path costs **exactly 8** steps; per-member costs 6 | ceiling | R162 D gate | open — **not pre-raised**; if the acceptance walk hits it, that is the evidence |
 | `StepsEditor` (R120–R144, 538 lines) had **no design-doc home at all** | doc↔code drift | R162 D gate | **backfilled** into `query-construction.md § Shape` |
 | R162 flow = **DFCFBI (triggers 1, 3, 5)** → F1 precedes Contract, and the standing split makes it [D+F1] then [C+B+F2+I] | process | R162 D gate | **settled (human, 2026-08-10)** — split; the program renumbers by one (item 2 → R164) rather than using an `R162a/b` form |
+
+| **Join dropdowns drop the dataset qualifier** — `optionLabel` renders `account_id ↔ id`, but the design declares `account_id ↔ Accounts.id` ([JoinEditor.tsx:99](../../../workspace/apps/builder/src/features/data-management/queries/JoinEditor.tsx#L99)). Worst at the **add-a-join** picker: the left-source select only renders at 2+ sources, so in the common case **neither side is named** and "join to what?" is invisible | **fidelity drift** (design declared it, build dropped it) | R162 hand-use | open — **not** an R162 fix; batch with the **R157 UX cluster** per [[r-ui-bug-fixing-round]] |
+| **Duplicate replaces composition** — semantics, EN/VN labels, default name, entry points #1/#3 (not #2), and the deletion of `QueryCreatePage` + `?base=` | decision (human, 2026-08-10) | R162 discussion | **settled** — folded into item 3 (§ Item 3 scope) |
 
 ## Lifecycle
 
