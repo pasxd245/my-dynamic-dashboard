@@ -333,6 +333,60 @@ than the *engine* — a cheap FE-only change, once R163 makes the replacement re
 or a gate, caught a doc↔code gap the gates rated green. The D gate verified the anchors it cited
 and missed the ones it didn't think to cite.
 
+### Hand-use finding #2 — saved `steps` were silently destroyed (FIXED, 2026-08-10)
+
+The human, walking F1: *"add a Transform (aggregate) → Save → Edit again: the added aggregation
+disappears?"* It does. **Root-caused and fixed in-round** — see the classification note below for
+why this one did **not** go to the UX-cluster batch.
+
+**Mechanism.** `writeDef` ([chain.ts](../../../workspace/apps/builder/src/features/data-management/queries/chain.ts))
+is a **whitelist** serializer written at R73 for `{q, filters, advanced} + joins`. `steps` joined
+`QueryDefinition` at **R120** and was never added to it, so every path that rebuilds a draft
+through the bridge dropped them:
+
+- **the edit-mode seed** — `normalize(query.definition)` at
+  [useQueryBuilder.ts:123](../../../workspace/apps/builder/src/features/data-management/queries/useQueryBuilder.ts#L123);
+- **every join edit** — `reDraft` at
+  [:253](../../../workspace/apps/builder/src/features/data-management/queries/useQueryBuilder.ts#L253)
+  (`setJoin`/`addJoin`/`removeJoin`/`setHopType`/`defineJoin`);
+- **promote** at [:322](../../../workspace/apps/builder/src/features/data-management/queries/useQueryBuilder.ts#L322).
+
+**Worse than the reported symptom.** What the human saw is the visible half — the step vanishing
+from the editor, while the server still had it (view mode still rendered shaped rows). But Save
+PUTs the draft **verbatim** ([:360-361](../../../workspace/apps/builder/src/features/data-management/queries/useQueryBuilder.ts#L360)),
+so **one edit from that state overwrote the saved definition with a step-less one** — silent,
+irreversible, no error, and the query still ran, just unshaped. Touching a join also wiped steps
+authored in the *same* session, before any reload.
+
+**Why no gate caught it in ~40 rounds.** The dirty check compares `draft` against
+`normalize(query.definition)` — **both** stripped — so the comparison was self-consistent and
+never flagged. And `chain.ts` had **no test file at all**: the one module that is explicitly "the
+one place that converts between the working chain and the wire definition" was the one module
+with no round-trip guard.
+
+**Fix**: `writeDef` carries `steps` (omitted when empty, mirroring `joins`); `normalize` threads
+them via a new `readSteps` sibling to `readChain`/`readRels`. `reDraft` and promote are fixed for
+free — they already route through `writeDef`.
+
+**Guard**: new `tests/chain.test.ts`, **verified to fail against the old code** (4 of 6 red before
+the fix, green after) — including an **exhaustiveness** test asserting `Object.keys(writeDef(…))`
+covers every `QueryDefinition` field, so the next field added to the definition goes red here
+instead of silently vanishing. That is the test that would have caught this at R120.
+
+**Classification — deliberately NOT batched.** The standing call is
+[[r-ui-bug-fixing-round]] (batch UI bugs, don't patch mid-feature), and the join-label finding
+above *was* batched. This one was not, for three reasons: it is **silent data loss**, not a UI
+defect; it **blocks R162's own acceptance** (a Group value card *is* a step, so the F1 walk hits
+it immediately and reads as "the new feature is broken"); and the fix is a three-line change to a
+bridge with a now-permanent guard. Flagging the override explicitly rather than letting it pass as
+routine.
+
+**Verification**: `type-check` clean · builder **334 passed / 334** (328 before, +6).
+
+**Method note.** Third hand-use finding in this round, and the most severe. The gates were green
+across all three. Pattern worth carrying: **the D gate verifies the anchors it cites; hand-use
+finds the ones nobody thought to cite.**
+
 ## Check
 
 - [ ] Verify outcomes against the goal (tests, lint, human walk) — the pass/fail verdict

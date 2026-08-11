@@ -15,7 +15,7 @@ import type { PredicateGroups } from '@/features/data-management/datasets/advanc
 import type { Column } from '@/features/data-management/datasets/types';
 import { useCreateRelationshipMutation, useRelationshipsQuery } from '@/features/data-management/relationships/hooks';
 import { ApiErrorThrown } from '../_shared/types';
-import { copyGovernedRel, freeFormRel, readChain, readRels, writeDef, type RelFields } from './chain';
+import { copyGovernedRel, freeFormRel, readChain, readRels, readSteps, writeDef, type RelFields } from './chain';
 import { useCreateQueryMutation, useQueryPreviewQuery, useUpdateQueryMutation } from './hooks';
 import type { JoinStep, Query, QueryDefinition, QueryRelationship, ResolvedColumn, Step } from './types';
 
@@ -45,7 +45,10 @@ function invalidAtomCount(def: QueryDefinition, columns: readonly Column[]): num
  *  serialization — a length-≤1 chain on `join`, a multi-hop chain on `joins`). */
 function normalize(def: QueryDefinition): QueryDefinition {
   return writeDef(
-    { q: def.q ?? null, filters: [...def.filters], advanced: def.advanced.map((g) => [...g]) },
+    // R162 — `steps` MUST be threaded: this normalize seeds the edit-mode draft
+    // (not just the dirty comparison), so dropping it erased a saved query's
+    // shaping the moment you clicked Edit, and the next Save persisted the loss.
+    { q: def.q ?? null, filters: [...def.filters], advanced: def.advanced.map((g) => [...g]), steps: readSteps(def) },
     readRels(def),
     readChain(def),
   );

@@ -8,7 +8,7 @@
 // are the one place that converts between the working chain and the wire
 // definition (multi-join.md § The model, J-3).
 
-import type { JoinStep, QueryDefinition, QueryRelationship } from './types';
+import type { JoinStep, QueryDefinition, QueryRelationship, Step } from './types';
 
 /** Read a definition's chain (empty when single-source). */
 export function readChain(def: QueryDefinition): JoinStep[] {
@@ -20,15 +20,34 @@ export function readRels(def: QueryDefinition): QueryRelationship[] {
   return def.relationships ? def.relationships.map((r) => ({ ...r })) : [];
 }
 
+/** R120 — read a definition's ordered transform steps (empty when unshaped). */
+export function readSteps(def: QueryDefinition): Step[] {
+  return def.steps ? def.steps.map((s) => ({ ...s })) : [];
+}
+
 /** Serialize a working copy back to the wire definition: `relationships` + `joins`
  *  are present only when joined (a single-source Query omits both). R88 — the two
- *  travel together; `joins[].queryRelId` indexes `relationships[]`. */
+ *  travel together; `joins[].queryRelId` indexes `relationships[]`. `steps` rides
+ *  through whenever the working copy has any (omitted when empty, like `joins`).
+ *
+ *  R162 — `steps` USED TO BE DROPPED HERE, and that was silent data loss. This
+ *  function is a WHITELIST serializer written at R73 for `{q, filters, advanced} +
+ *  joins`; `steps` joined `QueryDefinition` at R120 and was never added, so every
+ *  path that rebuilds a draft through this bridge — the edit-mode seed
+ *  (`normalize`), every join edit (`reDraft`), promote — quietly erased a query's
+ *  shaping. Save then PUT the step-less draft over the saved definition. Nothing
+ *  errored: the query still ran, just unshaped. The dirty check compared draft to
+ *  `normalize(saved)`, BOTH stripped, which is exactly why it never surfaced.
+ *
+ *  If a future round adds another `QueryDefinition` field, IT MUST BE ADDED HERE
+ *  TOO. The `chain.test.ts` round-trip guard fails when a field goes unhandled. */
 export function writeDef(
-  base: Pick<QueryDefinition, 'q' | 'filters' | 'advanced'>,
+  base: Pick<QueryDefinition, 'q' | 'filters' | 'advanced' | 'steps'>,
   relationships: readonly QueryRelationship[],
   joins: readonly JoinStep[],
 ): QueryDefinition {
   const core: QueryDefinition = { q: base.q ?? null, filters: base.filters, advanced: base.advanced };
+  if (base.steps?.length) core.steps = base.steps.map((s) => ({ ...s }));
   return joins.length === 0
     ? core
     : { ...core, relationships: relationships.map((r) => ({ ...r })), joins: joins.map((h) => ({ ...h })) };
