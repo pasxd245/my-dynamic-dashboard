@@ -1,17 +1,21 @@
 # Round 162: compare to the group — the within-group column
 
-**Status**: Review — awaiting the human's flip to Complete
+**Status**: Complete
 **Date started**: 2026-08-07
-**Date completed**: 2026-08-10 (Review)
+**Date completed**: 2026-08-11 (Do + Check closed 2026-08-10; the human's sign-off flip landed
+2026-08-11, after R163 had already opened — see the flip note in Check)
 
-<!-- ⟢ At a glance is authored at the Review→Complete flip (R159 doctrine), not during Do. -->
+<!-- reader-layer authored at close (R159 doctrine). Shipped = what's now true ·
+     Studied = predicted→saw→now-believe · Watch = open threads / next bearing. -->
 
 ## ⟢ At a glance
 
-**Check** — R162 re-locked the Query concept to *datasets only, ordered operations, never
+**Shipped** — R162 re-locked the Query concept to *datasets only, ordered operations, never
 composed*, and shipped the **authoring** half of the missing primitive: a **Group value** card
 that appends an aggregate over a row's group, with a **grain line** that rewrites itself when the
-card moves past an aggregate. FE-only on MSW; the engine and the real numbers are R163.
+card moves past an aggregate. FE-only on MSW; the engine and the real numbers are R163. One
+unrelated **silent data-loss bug** was root-caused and fixed in-round (`writeDef` had been
+destroying saved `steps` since R120), with a permanent exhaustiveness guard.
 
 **Studied** — **the D gate verifies the anchors it cites; hand-use finds the ones nobody thought
 to cite.** Every gate was green, and the human's walk still returned four findings — including
@@ -20,6 +24,24 @@ corrections to judgments this round's own D gate had asserted** (that D4 was "la
 that composition's removal was engine-only). The D gate was not sloppy: it checked every claim it
 made. Its blind spot was *the claims it never thought to make* — and no lint can enumerate those.
 A cheap human walk out-yielded four green gates, which is the concrete case for why F1 exists.
+
+**Watch**
+
+- **One question leaves this round unanswered, by construction**: whether the grain line actually
+  makes the pooled-vs-average-of-groups reading legible. The human's walk returned four findings,
+  **none of them about the Group value card or the grain line** — and absence of a complaint is
+  not a sign-off ([[dfcfbi-f1-needs-human-review]]). Carried to **R163's acceptance walk**, which
+  has since made it *answerable* (both numbers are real, reachable, and different on live data)
+  but has not yet been walked.
+- **Composition is still lit in three places** — `[Build on this query]`, the canvas "Saved
+  queries" picker, and the bare `?base=` route — so the product keeps inviting the `cyclic_join`
+  dead end until program item 3. Whether to withdraw the *affordances* earlier than the *engine*
+  is an **open call for the human**.
+- **Two UX-cluster items decided but not built**: `[F-join-label-qualify]` (join labels must
+  qualify BOTH sides) and `[F-promote-gate]` (Promote offered where it can only 409, and `free`
+  alone is the wrong fix). Batched per [[r-ui-bug-fixing-round]].
+- **A full `design-sync` of `data-management/`** (all 14 docs) was not run — only the three this
+  round touched. Worth its own pass before item 3 rewrites the domain.
 
 ## Goal
 
@@ -420,7 +442,29 @@ finds the ones nobody thought to cite.**
       (71.4% vs 70.8%) make the question answerable.
 - [x] `_noun-model.md` and `queries.md` match the shipped code — verified by the `design-sync`
       `--check` below, which found and fixed 2 drifts this round's own D gate introduced.
-- [x] ⟢ At a glance **Studied** line written.
+- [x] ⟢ At a glance authored (**Shipped / Studied / Watch**, per the R159 doctrine).
+
+### Flip to Complete — the human's sign-off (2026-08-11)
+
+**The flip was missed when R163 opened**, so this round sat at `Review` while its successor ran.
+Recording it rather than back-dating: Do + Check closed **2026-08-10**; the human confirmed the
+walk and authorised the flip on **2026-08-11**. No work changed at the flip — the sign-off
+ratifies the [D + F1] slice exactly as it stood.
+
+Two things the post-round audit caught and fixed at the flip:
+
+- The **At a glance** block led with *"Check —"* and had **no Watch section**, diverging from the
+  R159–R161 convention (**Shipped / Studied / Watch**). Corrected; the Watch items are relocated
+  from this round's own Follow-ups / Feeds into, not newly invented.
+- `**Date completed**` said `2026-08-10 (Review)` — a Review date in a completion field.
+
+**What the sign-off does NOT cover.** The two `[~]` items above stay `[~]`: they were out of this
+round's scope *by construction* when the DFCFBI split moved them to R163. In particular the
+grain-line legibility verdict is still unreturned, and **R163 cannot close without it**.
+
+_(Process note for the next round: an agent may flip `In Progress → Review`, but only a human
+flips to `Complete` ([governance.md](../../context/governance.md)). Opening a successor round
+does not close its predecessor — worth an explicit check at the next round's open.)_
 
 ### design-sync `--check` — 2 drifts, both authored by this round's D gate (2026-08-10)
 
