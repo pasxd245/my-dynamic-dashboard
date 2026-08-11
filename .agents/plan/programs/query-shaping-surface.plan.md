@@ -1,6 +1,6 @@
 # Program plan: Query as the single shaping surface
 
-**Status**: Active (current round — `cycles/Round_162.md`)
+**Status**: Active — `cycles/Round_162.md` at **Review**; `cycles/Round_163.md` at **Planning** (awaiting human review of its plan)
 **Opened**: 2026-08-07
 **Closed**:
 
