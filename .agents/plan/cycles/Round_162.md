@@ -443,6 +443,24 @@ Integration walk in **R163**, carrying:
   overflow a narrow `<Select>` — needs an explicit ellipsis/`title` decision.
   Batched here rather than patched mid-feature ([[r-ui-bug-fixing-round]]).
 
+- **[F-promote-gate]** — **Canvas shows `Promote` on an already-governed edge**, where it can only
+  fail. `promotable` asks only "are both sides datasets?"
+  ([joinGraph.ts:144](../../../workspace/apps/builder/src/features/data-management/queries/joinGraph.ts#L144))
+  and never consults `originRelationshipId`. The gate already exists one file over — `free =
+  !qrel.originRelationshipId`
+  ([QueryCanvas.tsx:947](../../../workspace/apps/builder/src/features/data-management/queries/QueryCanvas.tsx#L947))
+  — but is wired to **styling only** (dashed stroke, the Free-form/Governed tag, colour), never to
+  the button. Clicking POSTs → backend dedups → `409 relationship_exists` → a vague page-bottom
+  Alert. Found by hand-use, 2026-08-10.
+
+  **`free` alone is the WRONG fix.** `relDivergence` has three states and they want different
+  answers: `null` (copy matches origin) → Promote is pointless, hide it; `'removed'` (the governed
+  origin was **deleted**) → Promote is **genuinely useful**, so gating on `free` would hide it
+  exactly where it matters most; `'changed'` → debatable, since the pad already offers **Re-sync**
+  as the real answer and promoting a stale snapshot would mint a confusing second governed edge.
+  Proposed rule `bothSidesDatasets && (free || divergence === 'removed')`, with the `'changed'`
+  case an **open call for the human**. Batched per [[r-ui-bug-fixing-round]].
+
 **Then → Round_164** — the rest of the within-group family (% of total · running total · rank
 within group · vs prior period), per [the program](../programs/query-shaping-surface.plan.md)
 item 2. Carries the **prior-period gap trap** (Jan, Feb, **Apr** → February silently reads as
