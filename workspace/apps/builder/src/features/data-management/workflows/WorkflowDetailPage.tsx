@@ -124,6 +124,10 @@ export function WorkflowDetailPage() {
       onError: (err) => {
         if (err instanceof ApiErrorThrown && err.body.code === 'composition_cycle') {
           message.error(t('workflows.detail.runCycle'));
+        } else if (err instanceof ApiErrorThrown && err.body.code === 'step_invalid') {
+          // R165 W-8 — the STEPS are the problem, not a source. Saying "a source
+          // query drifted" here sent the user to the wrong place entirely.
+          message.error(t('workflows.detail.runStepInvalid'));
         } else if (err instanceof ApiErrorThrown && err.body.code === 'query_stale') {
           message.error(t('workflows.detail.runStale'));
         } else {

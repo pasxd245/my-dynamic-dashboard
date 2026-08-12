@@ -10,7 +10,8 @@ export type ApiError =
   | { code: 'not_found' }
   | { code: 'name_taken' }
   | { code: 'non_empty'; datasetCount: number }
-  | { code: 'query_stale' } // R69 — saved query def stale vs current schema
+  | { code: 'query_stale' } // R69 — saved query def stale vs current schema (a PREDICATE drifted)
+  | { code: 'step_invalid' } // R165 — a transform STEP can't run on the columns at its position
   | { code: 'relationship_exists' } // R70 — duplicate governed edge (workspace + column pair)
   | { code: 'relationship_stale' } // R71 — join over an edge whose key column drifted
   | { code: 'composition_cycle' } // R76 — Query × Query composition would loop (transitive self-reference)
@@ -57,6 +58,7 @@ export function isApiError(body: unknown): body is ApiError {
     code === ERROR_CODES.NAME_TAKEN ||
     code === ERROR_CODES.NON_EMPTY ||
     code === ERROR_CODES.QUERY_STALE ||
+    code === ERROR_CODES.STEP_INVALID ||
     code === ERROR_CODES.RELATIONSHIP_EXISTS ||
     code === ERROR_CODES.RELATIONSHIP_STALE ||
     code === ERROR_CODES.COMPOSITION_CYCLE ||

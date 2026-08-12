@@ -36,6 +36,7 @@ from app.models.common import (
     ApiErrorNameTaken,
     ApiErrorNotFound,
     ApiErrorQueryStale,
+    ApiErrorStepInvalid,
     ApiErrorRelationshipStale,
     CreateQueryBody,
     PreviewQueryBody,
@@ -236,12 +237,19 @@ def run_query(  # noqa: A002
         return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=ApiErrorNotFound().model_dump())
     if reason is not None:
         return JSONResponse(status_code=status.HTTP_409_CONFLICT, content=ApiErrorRelationshipStale().model_dump())
+    # R165 W-8 — a drifted PREDICATE and an unrunnable STEP are two different
+    # failures and now carry two codes: merged, the surface named the wrong one.
     try:
         filters, advanced = build_definition_predicates(definition, plan["columns"])
-        step_plan = _step_plan(definition.get("steps") or [], plan["columns"])
     except HTTPException as exc:
         if exc.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY:
             return JSONResponse(status_code=status.HTTP_409_CONFLICT, content=ApiErrorQueryStale().model_dump())
+        raise
+    try:
+        step_plan = _step_plan(definition.get("steps") or [], plan["columns"])
+    except HTTPException as exc:
+        if exc.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY:
+            return JSONResponse(status_code=status.HTTP_409_CONFLICT, content=ApiErrorStepInvalid().model_dump())
         raise
 
     q = definition.get("q")
@@ -388,12 +396,19 @@ def preview_query(  # noqa: A002
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=[{"loc": ["body", "definition", "joins"], "msg": reason, "type": "value_error"}],
         )
+    # R165 W-8 — a drifted PREDICATE and an unrunnable STEP are two different
+    # failures and now carry two codes: merged, the surface named the wrong one.
     try:
         filters, advanced = build_definition_predicates(definition, plan["columns"])
-        step_plan = _step_plan(definition.get("steps") or [], plan["columns"])
     except HTTPException as exc:
         if exc.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY:
             return JSONResponse(status_code=status.HTTP_409_CONFLICT, content=ApiErrorQueryStale().model_dump())
+        raise
+    try:
+        step_plan = _step_plan(definition.get("steps") or [], plan["columns"])
+    except HTTPException as exc:
+        if exc.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY:
+            return JSONResponse(status_code=status.HTTP_409_CONFLICT, content=ApiErrorStepInvalid().model_dump())
         raise
 
     q = definition.get("q")

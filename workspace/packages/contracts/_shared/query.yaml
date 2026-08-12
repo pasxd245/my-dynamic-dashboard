@@ -470,6 +470,113 @@ components:
             type: string
             minLength: 1
 
+    WindowColumnStep:
+      type: object
+      description: |
+        R164 — the ORDERED-WINDOW column: the same APPEND-a-column shape as
+        `GroupColumnStep`, plus the thing that step withholds — an in-window
+        `ORDER BY` and a frame. Row count UNCHANGED; the column space folds like
+        `derive` (base ++ the new column; sources stay available).
+
+        ONE kind, four business operations, chosen by `op`. The user never meets
+        this kind name: `[Add step ▾]` offers the four OPERATIONS as separate
+        entries, so a player looks for "running total", not for a category that
+        contains it (see
+        .agents/design/data-management/queries/query-construction.md).
+
+        Each `op` fixes which optional fields are REQUIRED and which are
+        REJECTED. A supplied-but-meaningless field is a 422, never silently
+        ignored — a silently-dropped control is how a user gets a column that
+        disregards a setting they made:
+
+        | op            | col              | orderBy                  | unit     |
+        | ------------- | ---------------- | ------------------------ | -------- |
+        | pct_of_total  | required numeric | rejected                 | rejected |
+        | running_total | required numeric | >=1 key, any dtype       | rejected |
+        | rank          | rejected         | >=1 key, any dtype       | rejected |
+        | prior_period  | required any     | exactly 1, date/datetime | required |
+
+        `prior_period` walks the CALENDAR, not the rows: it compiles to
+        `RANGE BETWEEN INTERVAL 1 <unit> PRECEDING AND INTERVAL 1 <unit>
+        PRECEDING`, so on a Jan/Feb/APR axis April reads NULL rather than
+        silently reporting February's value (a positional `LAG` does the latter).
+        It emits the previous period's VALUE, not a delta or a % change — the
+        comparison is one `derive` away, and `derive` is already the formula-free
+        binary op. A month-over-month tile is therefore TWO steps.
+
+        `rank` is `RANK` only: ties share a rank and the next rank skips.
+        `ROW_NUMBER` is refused on correctness grounds — it invents an order
+        between genuinely equal rows, so the same query can reshuffle a tie
+        between runs.
+
+        Output dtypes: `pct_of_total` -> `float` (a RATIO in 0..1 — percent
+        FORMATTING is presentation and belongs to the widget, which is why the
+        control is labelled "Share of total" and not "% of total");
+        `rank` -> `integer`; `running_total` / `prior_period` keep the col's dtype.
+      required: [kind, op, name, by]
+      additionalProperties: false
+      properties:
+        kind:
+          const: window_column
+        op:
+          type: string
+          enum: [pct_of_total, running_total, rank, prior_period]
+          description: The business operation; fixes which other fields are required/rejected.
+        name:
+          type: string
+          minLength: 1
+          description: |
+            The appended output column's name (must not collide -> `column_exists`).
+            The builder DEFAULTS it from the op (`<col>_share`, `<col>_running`,
+            `rank`, `prev_<col>`) so a blank card never starts with a name that
+            makes no claim — a default, not a rule.
+        col:
+          type: string
+          minLength: 1
+          description: |
+            The value column (effective name, post prior steps). Required for every
+            op but `rank`, which REJECTS it (`window_col_forbidden`).
+            `pct_of_total`/`running_total` need it numeric.
+        by:
+          type: array
+          minItems: 0
+          description: |
+            The partition (PARTITION BY), by effective name at this step. MAY be
+            EMPTY here — unlike `group_column` — because the builder renders the
+            empty case as an explicit "Across everything" state. That guard exists
+            against a SILENT whole-table window, and a named state is not silent.
+            Unknown -> `unknown_column`; a repeat -> `duplicate_group_column`.
+          items:
+            type: string
+            minLength: 1
+        orderBy:
+          type: array
+          minItems: 1
+          description: |
+            The in-window ordering — deliberately the SAME shape as `SortStep.keys`,
+            so ordering has one vocabulary in this domain. Rejected by
+            `pct_of_total` (`window_order_forbidden`); exactly one key, on a
+            date/datetime column, ascending, for `prior_period`.
+          items:
+            type: object
+            required: [col]
+            additionalProperties: false
+            properties:
+              col:
+                type: string
+                minLength: 1
+              descending:
+                type: boolean
+                default: false
+        unit:
+          type: string
+          enum: [day, week, month, quarter, year]
+          description: |
+            The period length — `prior_period` only (rejected otherwise ->
+            `window_unit_forbidden`). Reuses `DateBucketStep.granularity`'s enum
+            VERBATIM: one period vocabulary, two steps, and `date_bucket` is the
+            producer of the axis this op walks.
+
     QueryDefinition:
       type: object
       description: |
@@ -549,7 +656,9 @@ components:
             CHAIN (a typed engine threads a typed relation through each, stringifying
             only the final output) and adds `top_n`; R141 adds the deliverable-shaping
             `sort` + `select`; R144 the `date_bucket` time axis; R163 the
-            non-collapsing `group_column` (the within-group column). A query with
+            non-collapsing `group_column` (the within-group column); R164 the ordered-window
+            family (`window_column`: share of total / running total / rank / previous
+            period's value). A query with
             steps exposes its POST-step columns as `resolvedColumns`.
             `kind`-discriminated union.
           items:
@@ -562,6 +671,7 @@ components:
               - $ref: "#/components/schemas/SelectStep"
               - $ref: "#/components/schemas/DateBucketStep"
               - $ref: "#/components/schemas/GroupColumnStep"
+              - $ref: "#/components/schemas/WindowColumnStep"
             discriminator:
               propertyName: kind
               mapping:
@@ -573,6 +683,7 @@ components:
                 select: "#/components/schemas/SelectStep"
                 date_bucket: "#/components/schemas/DateBucketStep"
                 group_column: "#/components/schemas/GroupColumnStep"
+                window_column: "#/components/schemas/WindowColumnStep"
 
     Query:
       type: object

@@ -193,7 +193,57 @@ export type GroupColumnStep = {
   by: readonly string[];
 };
 
-/** R121/R122/R123/R141/R144/R162 — a transform step, discriminated by `kind`. */
+/** R164 — the ordered-window operations. One step kind, four business operations;
+ *  the user picks the OPERATION (in `[Add step ▾]`), never the kind. */
+export type WindowOp = 'pct_of_total' | 'running_total' | 'rank' | 'prior_period';
+
+/** R164 — one in-window ordering key. Deliberately the SAME shape as `SortKey`
+ *  so ordering has one vocabulary in this domain. */
+export type WindowOrderKey = {
+  col: string;
+  descending?: boolean;
+};
+
+/** R164 — the ORDERED-WINDOW column: the same append-a-column shape as
+ *  `GroupColumnStep`, plus the thing that step withholds — an in-window `ORDER BY`
+ *  and a frame. Row count unchanged; the column space folds like `derive`.
+ *
+ *  Each `op` fixes which of the optional fields are required and which are
+ *  REJECTED (a supplied-but-meaningless field is a 422, never silently ignored):
+ *
+ *  | op             | col              | orderBy                    | unit     |
+ *  | -------------- | ---------------- | -------------------------- | -------- |
+ *  | pct_of_total   | required numeric | rejected                   | rejected |
+ *  | running_total  | required numeric | ≥1 key, any dtype          | rejected |
+ *  | rank           | rejected         | ≥1 key, any dtype          | rejected |
+ *  | prior_period   | required any     | exactly 1, date/datetime   | required |
+ *
+ *  `by` MAY be empty here (unlike `group_column`) — the card renders the empty
+ *  case as an explicit "Across everything" state, so a whole-table window is a
+ *  visible choice rather than a blank field. `group_column`'s `group_by_required`
+ *  guard exists against SILENCE, not against emptiness, and is unchanged.
+ *
+ *  `prior_period` walks the CALENDAR, not the rows: it compiles to a
+ *  `RANGE … INTERVAL 1 <unit> PRECEDING` frame, so a missing period reads NULL
+ *  instead of reporting the wrong period's value. It emits the previous period's
+ *  VALUE — the comparison is one `derive` away (R164 D gate). */
+export type WindowColumnStep = {
+  kind: 'window_column';
+  op: WindowOp;
+  /** The appended column's name (the `derive` naming vocabulary). */
+  name: string;
+  /** The value column. Required for every op but `rank`. */
+  col?: string;
+  /** The partition. MAY be empty — "Across everything". */
+  by: readonly string[];
+  /** The in-window ordering. Required for `running_total` / `rank` /
+   *  `prior_period`; rejected for `pct_of_total`. */
+  orderBy?: readonly WindowOrderKey[];
+  /** The period length — `prior_period` only. Reuses `date_bucket`'s enum. */
+  unit?: DateBucketStep['granularity'];
+};
+
+/** R121/R122/R123/R141/R144/R162/R164 — a transform step, discriminated by `kind`. */
 export type Step =
   | AggregateStep
   | TopNStep
@@ -202,7 +252,8 @@ export type Step =
   | SortStep
   | SelectStep
   | DateBucketStep
-  | GroupColumnStep;
+  | GroupColumnStep
+  | WindowColumnStep;
 
 /** A single effective column of a Query result (name + dtype). For a join,
  *  duplicate names are collision-qualified (`Deals.id`). Mirrors the inline

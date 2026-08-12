@@ -324,16 +324,22 @@ _MEASURE_CALLS = {
 _COALESCING_AGGS = {"sum", "avg"}
 
 
-def _measure_expr(agg: str, col: str | None, *, over: str = "") -> str:
-    """One measure's SQL — COLLAPSING (``over=""``, a GROUP BY term) or WINDOWED
+def _measure_expr(agg: str, col: str | None, *, over: str | None = None) -> str:
+    """One measure's SQL — COLLAPSING (``over=None``, a GROUP BY term) or WINDOWED
     (``over="PARTITION BY …"``, R163's within-group column). ``count`` tallies
     rows (``COUNT(*)``); every other agg reads a caller-validated, dtype-checked
     ``col`` (R140). The COALESCE wraps the WHOLE windowed call because ``OVER``
     binds to the aggregate itself — ``COALESCE(SUM(x), 0) OVER (…)`` is not valid
     SQL. Shared by both families so their vocabulary and NULL policy cannot drift
-    into a lookalike."""
+    into a lookalike.
+
+    ``over`` is None-vs-str, NOT falsy-vs-truthy: R164's "across everything" is a
+    legitimately EMPTY window (``OVER ()``, the whole table), which is a different
+    thing from no window at all. Testing truthiness silently turned that case back
+    into a collapsing aggregate — and the difference is invisible until a caller
+    actually needs an empty partition."""
     expr = "COUNT(*)" if agg == "count" else _MEASURE_CALLS[agg].format(c=_quote_ident(col or ""))
-    if over:
+    if over is not None:
         expr = f"{expr} OVER ({over})"
     return f"COALESCE({expr}, 0)" if agg in _COALESCING_AGGS else expr
 
@@ -391,7 +397,8 @@ def _apply_step(step: dict, sql: str, params: list[Any], cols: list[str]) -> tup
     ``top_n`` orders + caps; ``sort`` orders (R141, no limit); ``derive`` appends a
     column; ``date_bucket`` appends a truncated date column (R144);
     ``group_column`` appends a within-group aggregate WITHOUT collapsing rows
-    (R163); ``filter`` narrows rows; ``select`` re-binds (projection + rename +
+    (R163); ``window_column`` appends an ORDERED-window column (R164);
+    ``filter`` narrows rows; ``select`` re-binds (projection + rename +
     reorder, R141)."""
     kind = step["kind"]
     if kind == "aggregate":
@@ -421,6 +428,12 @@ def _apply_step(step: dict, sql: str, params: list[Any], cols: list[str]) -> tup
         over = "PARTITION BY " + ", ".join(_quote_ident(g) for g in step["by"])
         expr = _measure_expr(step["agg"], step["col"], over=over)
         return f"SELECT *, {expr} AS {_quote_ident(step['name'])} FROM ({sql}) AS _n", params, [*cols, step["name"]]
+    if kind == "window_column":
+        # R164 — the ORDERED-WINDOW family. Same append-a-column shape as
+        # `group_column`, plus an in-window ORDER BY and a frame. The measure SQL
+        # still comes from `_measure_expr` (one vocabulary, one NULL policy) —
+        # only the OVER(...) body differs per op.
+        return _apply_window_column(step, sql, params, cols)
     if kind == "date_bucket":
         # R144 — append the period's START date (week = ISO Monday-start, DuckDB
         # native). granularity is enum-guarded by the planner → safe to inline.
@@ -431,6 +444,75 @@ def _apply_step(step: dict, sql: str, params: list[Any], cols: list[str]) -> tup
     if not frag:
         return sql, params, cols
     return f"SELECT * FROM ({sql}) AS _w WHERE {frag}", [*params, *fparams], cols
+
+
+def _window_over(step: dict, *, order: str = "", frame: str = "") -> str:
+    """The OVER(...) body shared by every ordered-window op: the partition (which
+    MAY be empty — "across everything"), plus the op's own ordering and frame."""
+    parts = []
+    if step["by"]:
+        parts.append("PARTITION BY " + ", ".join(_quote_ident(g) for g in step["by"]))
+    if order:
+        parts.append(order)
+    if frame:
+        parts.append(frame)
+    return " ".join(parts)
+
+
+def _window_order_sql(step: dict, *, nulls_last: bool) -> str:
+    """The in-window ORDER BY. `NULLS LAST` in both directions matches the `sort`
+    step's rule — a deliverable keeps blanks at the bottom — but it is OMITTED for
+    the RANGE-framed op, whose ordering is a calendar axis, not a presentation."""
+    suffix = " NULLS LAST" if nulls_last else ""
+    keys = ", ".join(
+        f"{_quote_ident(k['col'])} {'DESC' if k['descending'] else 'ASC'}{suffix}" for k in step["order_by"]
+    )
+    return f"ORDER BY {keys}"
+
+
+def _apply_window_column(
+    step: dict, sql: str, params: list[Any], cols: list[str]
+) -> tuple[str, list[Any], list[str]]:
+    """R164 — compile one ordered-window column to `SELECT *, <expr> AS name`.
+
+    Every form here was verified against the PINNED DuckDB before it was written
+    (R163's lesson: `COALESCE(agg(x), 0) OVER (…)` is a syntax error because
+    `OVER` binds to the aggregate call, so the COALESCE has to wrap the *windowed*
+    call — `_measure_expr` already does exactly that, which is why it is reused
+    rather than re-derived here).
+
+    `prior_period` is the one that carries a correctness decision rather than just
+    a shape: a `RANGE BETWEEN INTERVAL 1 <unit> PRECEDING AND …` frame walks the
+    CALENDAR, so on a Jan/Feb/APR axis April reads NULL. A positional `LAG` would
+    report February's number there — a confident wrong number, silently. The unit
+    and op are enum-guarded by the planner, so they are safe to inline."""
+    op, name = step["op"], step["name"]
+    col = step["col"]
+    if op == "pct_of_total":
+        # CAST the numerator: an integer/integer ratio must still read as a share.
+        total = _measure_expr("sum", col, over=_window_over(step))
+        expr = f"CAST({_quote_ident(col)} AS DOUBLE) / NULLIF({total}, 0)"
+    elif op == "running_total":
+        expr = _measure_expr(
+            "sum",
+            col,
+            over=_window_over(
+                step,
+                order=_window_order_sql(step, nulls_last=True),
+                frame="ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW",
+            ),
+        )
+    elif op == "rank":
+        # RANK, never ROW_NUMBER: ties SHARE a rank and the next rank SKIPS. Row
+        # numbering would invent an order between genuinely equal rows, so the same
+        # query could reshuffle a tie between runs (R164 D-7).
+        expr = f"RANK() OVER ({_window_over(step, order=_window_order_sql(step, nulls_last=True))})"
+    else:
+        unit = step["unit"]
+        frame = f"RANGE BETWEEN INTERVAL 1 {unit.upper()} PRECEDING AND INTERVAL 1 {unit.upper()} PRECEDING"
+        over = _window_over(step, order=_window_order_sql(step, nulls_last=False), frame=frame)
+        expr = f"FIRST_VALUE({_quote_ident(col)}) OVER ({over})"
+    return f"SELECT *, {expr} AS {_quote_ident(name)} FROM ({sql}) AS _v", params, [*cols, name]
 
 
 def run_steps(
@@ -459,6 +541,11 @@ def run_steps(
     quoted = [_quote_ident(c) for c in cols]
     select_list = ", ".join(f"CAST({c} AS VARCHAR)" for c in quoted)
     page_sql = f"SELECT {select_list} FROM ({sql}) AS _final"
+    # W-7 — a total order, so LIMIT/OFFSET actually partitions. Guarded because an
+    # empty column space would make `ORDER BY` a syntax error rather than a no-op.
+    order = _page_order_sql(steps, cols)
+    if order:
+        page_sql += f" ORDER BY {order}"
     page_params = list(params)
     if page_size is not None:
         page_sql += " LIMIT ? OFFSET ?"
@@ -467,6 +554,48 @@ def run_steps(
         total = con.execute(f"SELECT COUNT(*) FROM ({sql}) AS _c", params).fetchone()[0]  # noqa: S608 — composed from validated steps
         rows = con.execute(page_sql, page_params).fetchall()
     return [list(r) for r in rows], int(total)
+
+
+def _page_order_sql(steps: list[dict], cols: list[str]) -> str:
+    """R165 walk W-7 — a DETERMINISTIC TOTAL order for the paged read.
+
+    ``LIMIT/OFFSET`` over a relation with no total order does not partition it:
+    each page is an independent execution free to return rows in a different
+    order, so ``OFFSET`` slices a re-shuffled relation. Measured on the walk's own
+    96-row chain: pages 1-4 returned 96 rows but only **63 distinct** ones — 33
+    twice, 33 never. Latent since stepped queries shipped (R125); it is a property
+    of the pager, not of any one step.
+
+    The user's explicit ordering still WINS — the last ``sort``/``top_n`` supplies
+    the leading keys, with the same `NULLS LAST`-both-directions rule those steps
+    use — and every remaining column is appended as a **tiebreak** so the order is
+    total. Without such a step the order is every column ascending: arbitrary as a
+    presentation, but reproducible, which is the whole point. Ordering the TYPED
+    columns of ``_final`` (not the VARCHAR casts in the select list) keeps numbers
+    sorting numerically.
+    """
+    keys: list[str] = []
+    used: set[str] = set()
+
+    def add(col: str, *, descending: bool) -> None:
+        if col in used or col not in cols:
+            return
+        used.add(col)
+        keys.append(f"{_quote_ident(col)} {'DESC' if descending else 'ASC'} NULLS LAST")
+
+    # The LAST ordering step is the one the reader sees; anything before it was
+    # re-ordered by it, so only that one contributes leading keys.
+    for step in reversed(steps):
+        if step["kind"] == "sort":
+            for key in step["keys"]:
+                add(key["col"], descending=bool(key.get("descending")))
+            break
+        if step["kind"] == "top_n":
+            add(step["col"], descending=bool(step.get("descending")))
+            break
+    for col in cols:
+        add(col, descending=False)
+    return ", ".join(keys)
 
 
 def materialize_steps(

@@ -40,6 +40,13 @@ function isNotFound(err: unknown): boolean {
 function isStale(err: unknown): boolean {
   return err instanceof ApiErrorThrown && err.body.code === 'query_stale';
 }
+// R165 W-8 — a saved query whose TRANSFORM STEP can't run on the current columns.
+// Same "needs attention" panel, different reason: nothing about the source dataset
+// needs re-saving, the step chain needs opening. Split out of `query_stale`, which
+// covers a drifted PREDICATE.
+function isStepInvalid(err: unknown): boolean {
+  return err instanceof ApiErrorThrown && err.body.code === 'step_invalid';
+}
 // R71 — a joined query whose consumed edge's key column drifted: the join
 // is blocked (distinct from query_stale, which is a predicate-atom drift).
 function isRelStale(err: unknown): boolean {
@@ -108,6 +115,7 @@ export function QueryDetailPage() {
 
   const notFound = isNotFound(queryQuery.error) || isNotFound(rowsQuery.error);
   const stale = isStale(rowsQuery.error);
+  const stepInvalid = isStepInvalid(rowsQuery.error);
   const relStale = isRelStale(rowsQuery.error);
   // R76 — the composition guard fired (the base loops back); block the run.
   const cycle = isCompositionCycle(rowsQuery.error);
@@ -182,11 +190,11 @@ export function QueryDetailPage() {
   }
 
   const sourceName = dataset?.name ?? baseQueryName ?? query.sourceId;
-  const warn = stale || relStale || cycle;
+  const warn = stale || relStale || cycle || stepInvalid;
   let badgeKey = 'queries.detail.badgeLive';
   if (cycle) badgeKey = 'queries.detail.badgeCompositionUnavailable';
   else if (relStale) badgeKey = 'queries.detail.badgeJoinUnavailable';
-  else if (stale) badgeKey = 'queries.detail.badgeStale';
+  else if (stale || stepInvalid) badgeKey = 'queries.detail.badgeStale';
   const title = (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
       <span>{query.name}</span>
@@ -248,8 +256,8 @@ export function QueryDetailPage() {
     </span>
   );
 
-  // ─── Stale ─────────────────────────────────────────────────────────
-  if (stale) {
+  // ─── Stale (a drifted predicate) / an unrunnable step ──────────────
+  if (stale || stepInvalid) {
     return (
       <>
         <PageHeader breadcrumb={BREADCRUMB} title={title} actions={actions} onNavigate={(r) => navigate(r)} />
@@ -259,7 +267,11 @@ export function QueryDetailPage() {
             <Typography.Title level={5} style={{ marginTop: 0 }}>
               {t('queries.detail.staleTitle')}
             </Typography.Title>
-            <Typography.Text type="secondary">{t('queries.detail.staleHint', { dataset: sourceName })}</Typography.Text>
+            <Typography.Text type="secondary">
+              {stepInvalid
+                ? t('queries.detail.stepInvalidHint')
+                : t('queries.detail.staleHint', { dataset: sourceName })}
+            </Typography.Text>
             <div style={{ marginTop: 20, display: 'flex', gap: 8, justifyContent: 'center' }}>
               <Button
                 type="primary"

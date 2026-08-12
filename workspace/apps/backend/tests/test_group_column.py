@@ -9,7 +9,7 @@ Covers: the definitional invariant (row count unchanged; the value EQUALS the
 collapsing aggregate of the same `(agg, col)` over the same `by`, joined back),
 the shared NULL policy (`sum`/`avg` coalesce an all-NULL group to 0; `min`/`max`
 stay honest NULL), output dtypes mirroring a collapsing measure, the 422 save
-guards in the sibling steps' detail vocabulary, drift → 409 `query_stale`, the
+guards in the sibling steps' detail vocabulary, drift → 409 `step_invalid` (R165 W-8), the
 widened Workflow union, and the FLAGSHIP: the T3 trap — an agent's connect rate
 vs their TEAM's, where the two legitimate readings (pooled 71.4% vs
 average-of-agents 70.8%) are reachable from the SAME base and differ only by
@@ -253,11 +253,13 @@ def test_empty_by_in_a_saved_definition_is_re_rejected_at_run() -> None:
         resp = client.get("/queries/qr_beefbeef/rows")
 
     assert resp.status_code == 409
-    assert resp.json() == {"code": "query_stale"}
+    # R165 W-8 — a STEP the planner refuses is `step_invalid`; `query_stale` stayed
+    # with the drifted PREDICATE it was named for.
+    assert resp.json() == {"code": "step_invalid"}
 
 
 @pytest.mark.unit
-def test_drifted_group_column_returns_409_query_stale() -> None:
+def test_drifted_group_column_returns_409_step_invalid() -> None:
     """Post-save schema drift (the `by` column no longer exists) → the run path's
     409, the same as every sibling step."""
     drifted = {
@@ -279,7 +281,7 @@ def test_drifted_group_column_returns_409_query_stale() -> None:
         rows = client.get("/queries/qr_deadfeed/rows")
 
     assert rows.status_code == 409
-    assert rows.json() == {"code": "query_stale"}
+    assert rows.json() == {"code": "step_invalid"}  # R165 W-8 — a step, not a predicate
     # read paths never error — they just omit the post-step columns
     assert detail.status_code == 200
     assert "resolvedColumns" not in detail.json() or detail.json().get("resolvedColumns") is None

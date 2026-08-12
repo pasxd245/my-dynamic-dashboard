@@ -35,6 +35,7 @@ from app.models.common import (
     ApiErrorNameTaken,
     ApiErrorNotFound,
     ApiErrorQueryStale,
+    ApiErrorStepInvalid,
     Column,
     CreateWorkflowBody,
     UpdateWorkflowBody,
@@ -224,7 +225,9 @@ def run_workflow(id: WfIdPath) -> JSONResponse:  # noqa: A002
         step_plan = _step_plan(steps, columns)
     except HTTPException as exc:
         if exc.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY:
-            return JSONResponse(status_code=status.HTTP_409_CONFLICT, content=ApiErrorQueryStale().model_dump())
+            # R165 W-8 — a step the engine refuses is `step_invalid`, not `query_stale`
+            # (which stays the code for a drifted source/predicate above).
+            return JSONResponse(status_code=status.HTTP_409_CONFLICT, content=ApiErrorStepInvalid().model_dump())
         raise
 
     normalized = step_plan[0] if step_plan else []

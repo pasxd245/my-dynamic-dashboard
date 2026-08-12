@@ -95,7 +95,10 @@ def test_select_projects_renames_and_reorders() -> None:
         resolved = client.get(f"/queries/{qid}").json()["resolvedColumns"]
 
     assert resolved == [{"name": "total", "dtype": "integer"}, {"name": "region", "dtype": "string"}]
-    assert body["rows"][0] == ["100", "EMEA"]
+    # The claim is the COLUMN order (amount renamed to `total`, then region), so it
+    # is asserted over the whole set — R165 W-7 gave the pager a total order, and a
+    # positional row was never what this test was about.
+    assert sorted(body["rows"]) == [["100", "EMEA"], ["200", "APAC"], ["50", "EMEA"]]
     assert body["total"] == 3
 
 

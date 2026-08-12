@@ -43,6 +43,7 @@ components:
               - $ref: "query.yaml#/components/schemas/SelectStep"
               - $ref: "query.yaml#/components/schemas/DateBucketStep"
               - $ref: "query.yaml#/components/schemas/GroupColumnStep"
+              - $ref: "query.yaml#/components/schemas/WindowColumnStep"
             discriminator:
               propertyName: kind
               mapping:
@@ -54,6 +55,7 @@ components:
                 select: "query.yaml#/components/schemas/SelectStep"
                 date_bucket: "query.yaml#/components/schemas/DateBucketStep"
                 group_column: "query.yaml#/components/schemas/GroupColumnStep"
+                window_column: "query.yaml#/components/schemas/WindowColumnStep"
 
     Workflow:
       type: object

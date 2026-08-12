@@ -17,6 +17,9 @@
 #   - non_empty        — workspace delete blocked by N datasets (409)
 #   - query_stale      — saved query definition no longer validates against
 #                        the source dataset's current schema (409) — R69
+#   - step_invalid     — a TRANSFORM STEP cannot run on the columns available
+#                        at its position (409) — R165. Split out of
+#                        `query_stale`, which is about a PREDICATE.
 #
 # Each variant uses `additionalProperties: false` to mirror the BE's
 # `extra='forbid'` Pydantic discipline (per the R16 conformance pattern).
@@ -25,7 +28,7 @@ components:
   schemas:
     ApiErrorCode:
       type: string
-      enum: [not_found, name_taken, slug_taken, non_empty, query_stale, relationship_exists, relationship_stale, composition_cycle, coercion_failed, merge_duplicate_keys, unknown_column, no_visible_columns]
+      enum: [not_found, name_taken, slug_taken, non_empty, query_stale, step_invalid, relationship_exists, relationship_stale, composition_cycle, coercion_failed, merge_duplicate_keys, unknown_column, no_visible_columns]
       description: |
         Closed enum. Any new error class lands as a new code in a future
         round + contract update — never as a free-text message.
@@ -108,6 +111,32 @@ components:
             *request*): the request is well-formed, the stored definition
             drifted. The FE renders the query-mode "needs attention" state
             and points the user at the source dataset to re-save.
+
+    ApiErrorStepInvalid:
+      type: object
+      required: [code]
+      additionalProperties: false
+      properties:
+        code:
+          type: string
+          enum: [step_invalid]
+          description: |
+            A TRANSFORM STEP cannot run on the column space available at its
+            position — typically because the step was reordered above the step
+            that produces a column it references, or a source column it names
+            was removed or retyped. Returned by `GET /queries/{id}/rows` and
+            `POST /queries/preview` (409) instead of executing — R165.
+
+            Split out of `query_stale` at R165 because the two were merged and
+            the surface named the wrong one: the builder announced "1 filter
+            references a column that isn't in these results" for a query with no
+            filters at all, while the offending STEP CARD sat six lines above
+            saying the true thing. An error code that covers two causes forces
+            every consumer to guess which one it is, and this one guessed wrong
+            with full confidence.
+
+            The FE points the user at the step card, which already carries the
+            specific reason (which column, and the two ways out).
 
     ApiErrorRelationshipExists:
       type: object
@@ -305,6 +334,7 @@ components:
         - $ref: '#/components/schemas/ApiErrorSlugTaken'
         - $ref: '#/components/schemas/ApiErrorNonEmpty'
         - $ref: '#/components/schemas/ApiErrorQueryStale'
+        - $ref: '#/components/schemas/ApiErrorStepInvalid'
         - $ref: '#/components/schemas/ApiErrorRelationshipExists'
         - $ref: '#/components/schemas/ApiErrorRelationshipStale'
         - $ref: '#/components/schemas/ApiErrorCompositionCycle'
@@ -320,6 +350,7 @@ components:
           slug_taken: '#/components/schemas/ApiErrorSlugTaken'
           non_empty: '#/components/schemas/ApiErrorNonEmpty'
           query_stale: '#/components/schemas/ApiErrorQueryStale'
+          step_invalid: '#/components/schemas/ApiErrorStepInvalid'
           relationship_exists: '#/components/schemas/ApiErrorRelationshipExists'
           relationship_stale: '#/components/schemas/ApiErrorRelationshipStale'
           composition_cycle: '#/components/schemas/ApiErrorCompositionCycle'

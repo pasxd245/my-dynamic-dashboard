@@ -70,8 +70,17 @@ def test_week_bucket_appends_iso_monday_start_date() -> None:
         {"name": "Source.Name", "dtype": "string"},
         {"name": "week", "dtype": "date"},
     ]
-    # Mon/Wed/Fri all truncate to their week's MONDAY (ISO-8601, DuckDB native)
-    assert [r[3] for r in body["rows"]] == ["2026-06-29", "2026-06-29", "2026-06-29", "2026-07-06"]
+    # Mon/Wed/Fri all truncate to their week's MONDAY (ISO-8601, DuckDB native).
+    # Asserted as a MAPPING from the source timestamp: the claim is which week each
+    # call falls in, never which order the rows arrive in. (R165 W-7 gave the pager
+    # a deterministic total order, which changed the incidental order this line
+    # used to depend on — a claim about truncation should not have noticed.)
+    assert {r[1]: r[3] for r in body["rows"]} == {
+        "2026-06-29 09:15:00": "2026-06-29",  # Mon
+        "2026-07-01 10:30:00": "2026-06-29",  # Wed, same week
+        "2026-07-03 17:45:00": "2026-06-29",  # Fri, same week
+        "2026-07-06 08:00:00": "2026-07-06",  # Mon — the NEXT ISO week
+    }
 
 
 @pytest.mark.unit

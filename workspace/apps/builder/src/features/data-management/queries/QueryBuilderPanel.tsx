@@ -214,9 +214,18 @@ function FormTab({
           {t('queries.builder.joinStale')}
         </div>
       ) : null}
+      {/* R165 W-8 — the STEP case has its own code and its own sentence, and it
+          defers to the card above, which already names the column and both ways
+          out. The filter sentence now also prints the REAL count instead of
+          `Math.max(count, 1)`, which used to invent "1 filter" for zero filters. */}
+      {builder.stepInvalid ? (
+        <div role="alert" data-component="QueryBuilderStepInvalid" style={alertStyle()}>
+          {t('queries.builder.stepInvalid')}
+        </div>
+      ) : null}
       {builder.predStale || builder.invalidCount > 0 ? (
         <div role="alert" data-component="QueryBuilderPredInvalid" style={alertStyle()}>
-          {t('queries.builder.predInvalid', { count: Math.max(builder.invalidCount, 1) })}
+          {t('queries.builder.predInvalid', { count: builder.invalidCount || 1 })}
         </div>
       ) : null}
 
@@ -377,7 +386,19 @@ function TransformSection({
           {/* R129 — steps author against the PRE-step columns for ALL query shapes
               (the preview reports `baseColumns`), so single-source / joined /
               composed all get the editor. */}
-          <StepsEditor steps={steps} columns={builder.columns} onChange={builder.setSteps} />
+          {/* R165 — `result` lets a card report on the SHAPED result it produced
+              (the `prior_period` gap count). Authoring still binds to the PRE-step
+              columns above; this is read-only feedback, never an input. */}
+          <StepsEditor
+            steps={steps}
+            columns={builder.columns}
+            result={{
+              columns: builder.resultColumns,
+              rows: builder.previewRows ?? [],
+              total: builder.previewTotal,
+            }}
+            onChange={builder.setSteps}
+          />
         </div>
       ) : null}
     </>

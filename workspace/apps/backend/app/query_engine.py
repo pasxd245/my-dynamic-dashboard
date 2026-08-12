@@ -570,6 +570,127 @@ def _plan_group_column(step: dict, cur_cols: list[dict], loc: list) -> tuple[dic
     return norm, [*cur_cols, {"name": name, "dtype": _measure_dtype(col, agg, by_name)}]
 
 
+# R164 — per-op field REQUIREMENTS for the ordered-window family. A field an op
+# does not take is REFUSED, never silently ignored: a dropped control is how a
+# user gets a column that disregards a setting they made.
+#   (needs_col, needs_order, needs_unit)
+_WINDOW_OP_SHAPE = {
+    "pct_of_total": (True, False, False),
+    "running_total": (True, True, False),
+    "rank": (False, True, False),
+    "prior_period": (True, True, True),
+}
+_WINDOW_UNITS = ("day", "week", "month", "quarter", "year")
+
+
+def _plan_window_column(step: dict, cur_cols: list[dict], loc: list) -> tuple[dict, list[dict]]:
+    """R164 — validate an ORDERED-WINDOW column. Everything is re-checked HERE
+    rather than trusted from the model, because a saved definition is re-planned on
+    every run and its column names, the op, and the unit are all INLINED into the
+    window SQL (the same discipline as ``_plan_date_bucket``'s granularity and
+    ``_plan_group_column``'s ``by``).
+
+    The dtype vocabulary is ``_validate_measure``'s, reached by asking it about the
+    equivalent measure rather than re-implementing the rule: ``pct_of_total`` and
+    ``running_total`` sum, so they need what ``sum`` needs. One vocabulary, so a
+    future dtype change cannot drift between the two families.
+
+    Unlike ``group_column``, an EMPTY ``by`` is legal — the surface names that case
+    ("Across everything"), and the guard there exists against a *silent* whole-table
+    window."""
+    by_name = {c["name"]: c for c in cur_cols}
+    op = step.get("op")
+    if op not in _WINDOW_OP_SHAPE:
+        raise _agg_422([*loc, "op"], f"unknown_window_op: {op!r}")
+    needs_col, needs_order, needs_unit = _WINDOW_OP_SHAPE[op]
+
+    name = step.get("name")
+    if name in by_name:
+        raise _agg_422([*loc, "name"], f"column_exists: {name!r} is already a column")
+
+    # `col` — required or forbidden per op; when required, the dtype rule comes
+    # from the collapsing measure it corresponds to.
+    col = step.get("col")
+    if not needs_col:
+        if col is not None:
+            raise _agg_422([*loc, "col"], f"window_col_forbidden: op {op!r} must omit col")
+    elif col is None:
+        raise _agg_422([*loc, "col"], f"window_col_required: op {op!r} requires col")
+    elif op in ("pct_of_total", "running_total"):
+        # Both SUM, so both take `sum`'s rule — asked of the shared validator, not restated.
+        _validate_measure({"agg": "sum", "col": col}, by_name, loc)
+    elif col not in by_name:
+        raise _agg_422([*loc, "col"], f"unknown_column: {col!r} is not a column at this step")
+
+    # `orderBy` — the in-window ordering; `prior_period` needs exactly one
+    # ASCENDING key on a temporal column (it walks a calendar).
+    raw_order = step.get("orderBy") or []
+    order_by: list[dict] = []
+    if not needs_order:
+        if raw_order:
+            raise _agg_422([*loc, "orderBy"], f"window_order_forbidden: op {op!r} must omit orderBy")
+    elif not raw_order:
+        raise _agg_422([*loc, "orderBy"], f"window_order_required: op {op!r} requires orderBy")
+    else:
+        if op == "prior_period" and len(raw_order) != 1:
+            raise _agg_422([*loc, "orderBy"], "window_order_single: 'prior_period' takes exactly one key")
+        for j, key in enumerate(raw_order):
+            k_col = key.get("col")
+            if k_col not in by_name:
+                raise _agg_422([*loc, "orderBy", j, "col"], f"unknown_column: {k_col!r} is not a column at this step")
+            descending = bool(key.get("descending"))
+            if op == "prior_period":
+                if by_name[k_col]["dtype"] not in ("date", "datetime"):
+                    raise _agg_422(
+                        [*loc, "orderBy", j, "col"],
+                        f"window_order_not_date: {k_col!r} is {by_name[k_col]['dtype']}, not date/datetime",
+                    )
+                if descending:
+                    # Unreachable from the surface (no direction control is rendered);
+                    # kept as the wire-level backstop, like `duplicate_group_column`.
+                    raise _agg_422([*loc, "orderBy", j, "descending"], "window_order_desc: 'prior_period' orders ascending")
+            order_by.append({"col": k_col, "descending": descending})
+
+    # `unit` — the period length, `prior_period` only.
+    unit = step.get("unit")
+    if not needs_unit:
+        if unit is not None:
+            raise _agg_422([*loc, "unit"], f"window_unit_forbidden: op {op!r} must omit unit")
+    elif unit not in _WINDOW_UNITS:
+        raise _agg_422([*loc, "unit"], f"unknown_granularity: {unit!r}")
+
+    # `by` — MAY be empty here; entries must exist and not repeat.
+    group_by: list[str] = []
+    for j, g in enumerate(step.get("by") or []):
+        if g not in by_name:
+            raise _agg_422([*loc, "by", j], f"unknown_column: {g!r} is not a column at this step")
+        if g in group_by:
+            raise _agg_422([*loc, "by", j], f"duplicate_group_column: {g!r} appears twice")
+        group_by.append(g)
+
+    norm = {
+        "kind": "window_column",
+        "op": op,
+        "name": name,
+        "col": col,
+        "by": group_by,
+        "order_by": order_by,
+        "unit": unit,
+    }
+    return norm, [*cur_cols, {"name": name, "dtype": _window_output_dtype(op, col, by_name)}]
+
+
+def _window_output_dtype(op: str, col: str | None, by_name: dict) -> str:
+    """R164 — a SHARE is a ratio (always float, because percent FORMATTING is
+    presentation); a RANK is an ordinal integer; the other two carry the source
+    column's dtype forward, since they hand back a value of the same kind."""
+    if op == "pct_of_total":
+        return "float"
+    if op == "rank":
+        return "integer"
+    return by_name.get(col or "", {}).get("dtype", "float")
+
+
 def _plan_sort(step: dict, cur_cols: list[dict], loc: list) -> tuple[dict, list[dict]]:
     """R141 — validate a sort step's keys against the CURRENT columns (any dtype
     orders). Returns the normalized descriptor + unchanged cols."""
@@ -609,8 +730,8 @@ def _plan_one_step(step: dict, cur_cols: list[dict], loc: list) -> tuple[dict, l
     """Validate one step against the CURRENT column space; return its normalized
     descriptor (for the typed `run_steps` engine) + the column space AFTER it.
     ``aggregate`` reshapes; ``top_n``/``sort`` preserve;
-    ``derive``/``date_bucket``/``group_column`` append; ``filter`` narrows;
-    ``select`` re-binds (projection + rename + reorder)."""
+    ``derive``/``date_bucket``/``group_column``/``window_column`` append;
+    ``filter`` narrows; ``select`` re-binds (projection + rename + reorder)."""
     kind = step.get("kind")
     if kind == "filter":
         return _plan_filter(step, cur_cols, loc)
@@ -635,6 +756,8 @@ def _plan_one_step(step: dict, cur_cols: list[dict], loc: list) -> tuple[dict, l
         return _plan_date_bucket(step, cur_cols, loc)
     if kind == "group_column":
         return _plan_group_column(step, cur_cols, loc)
+    if kind == "window_column":
+        return _plan_window_column(step, cur_cols, loc)
     raise _agg_422([*loc, "kind"], f"unknown_step_kind: {kind!r}")
 
 

@@ -208,9 +208,11 @@ def test_bad_chain_rejected_on_save_422(steps: list[dict]) -> None:
 
 
 @pytest.mark.unit
-def test_drifted_step_returns_409_query_stale_on_run() -> None:
+def test_drifted_step_returns_409_step_invalid_on_run() -> None:
     # A saved step whose dimension column no longer exists (injected directly,
-    # bypassing the create-time guard) → 409 query_stale on run, like a drifted filter.
+    # bypassing the create-time guard) → 409 step_invalid on run. R165 W-8 split this
+    # from `query_stale`: it is NOT "like a drifted filter", and saying so is what put
+    # a filter sentence on a query with no filters.
     drifted = _defn([{"kind": "aggregate", "dimensions": ["ghost"], "measures": [{"agg": "count"}]}])
     with TestClient(app) as client:
         ws, ds_id = _commit_csv(client)
@@ -224,4 +226,4 @@ def test_drifted_step_returns_409_query_stale_on_run() -> None:
         resp = client.get("/queries/qr_5eeb0000/rows")
 
     assert resp.status_code == 409
-    assert resp.json() == {"code": "query_stale"}
+    assert resp.json() == {"code": "step_invalid"}

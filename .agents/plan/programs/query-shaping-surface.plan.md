@@ -1,6 +1,6 @@
 # Program plan: Query as the single shaping surface
 
-**Status**: Active — `cycles/Round_162.md` **Complete** (2026-08-11); `cycles/Round_163.md` at **Review** (C+B+F2+I closed 2026-08-11; awaiting the human's acceptance walk)
+**Status**: Active — items **1 and 2 are Complete**. `cycles/Round_162.md` + `cycles/Round_163.md` (item 1, signed off 2026-08-11) and `cycles/Round_164.md` + `cycles/Round_165.md` (item 2, signed off **2026-08-13** — walk closed 5 of 5, six defects found after green gates and all fixed). Next: **item 3**, retire `query⋈query` and ship Duplicate (`Round_166`)
 **Opened**: 2026-08-07
 **Closed**:
 
@@ -19,10 +19,10 @@ plus the Query concept-lock conversation of the same day. Decisions settled in
 
 ## Settled decisions (human, 2026-08-07)
 
-1. **Persona = "data player", not data diver.** Serve the fastest path from *"I
-   wonder…"* to *"oh, look at that"*, for a manager who knows Excel and owns the
+1. **Persona = "data player", not data diver.** Serve the fastest path from _"I
+   wonder…"_ to _"oh, look at that"_, for a manager who knows Excel and owns the
    business question. Not a warehouse. Not competing with Power BI on breadth — the
-   bar is *escaping the CRM/Excel complexity without first learning Power Query or DAX*.
+   bar is _escaping the CRM/Excel complexity without first learning Power Query or DAX_.
 2. **Query is closed** (supersedes the R161 definition — see § The Query concept).
 3. **No `query⋈query`.** Every join operand is a dataset: `ds ⋈ ds ⋈ ds …`.
 4. **Aggregate belongs to Query**, in two families — collapsing (group-by) and
@@ -30,11 +30,11 @@ plus the Query concept-lock conversation of the same day. Decisions settled in
 5. **Order carries meaning.** The operation list is genuinely ordered; filter-then-join
    and join-then-filter are different questions.
 6. **Join may appear anywhere in the order** (option ii), not only as a prelude — the
-   thing joined *in* is always a dataset, the left side is whatever has been built.
+   thing joined _in_ is always a dataset, the left side is whatever has been built.
 7. **Query stays live.** Never materialized; drift surfaces as a warning, never as
    silently wrong rows.
 8. **Stacking is not Query's job** — monthly exports combine at the dataset level via
-   upload + append. A workflow *can* do it, but that is a consequence, not its purpose.
+   upload + append. A workflow _can_ do it, but that is a consequence, not its purpose.
 
 ### The Query concept
 
@@ -45,7 +45,7 @@ plus the Query concept-lock conversation of the same day. Decisions settled in
 > present — charts, formatting, and sort-for-display belong to the widget.
 
 **Why this program exists, in one line**: the product shipped collapsing aggregates and
-never shipped within-group ones, so the only way to express *"compare this to its group"*
+never shipped within-group ones, so the only way to express _"compare this to its group"_
 was to join two results — which is `query⋈query`, which hits `cyclic_join`. Window
 functions are precisely the SQL feature that exists so you don't self-join aggregates.
 
@@ -53,7 +53,7 @@ functions are precisely the SQL feature that exists so you don't self-join aggre
 
 Each round is a **DCFBI slice** over one coherent capability:
 
-1. **D** — update the design corpus *first*, in-round. The D-gate artifact is the
+1. **D** — update the design corpus _first_, in-round. The D-gate artifact is the
    design-corpus spec ([[d-gate-artifact-in-design-corpus]]), so
    [`_noun-model.md`](../../design/data-management/_noun-model.md) and the affected
    per-surface docs are rewritten as part of the round, never as a round of their own.
@@ -68,7 +68,7 @@ Each round is a **DCFBI slice** over one coherent capability:
 
 - **In** — the Query surface: within-group operations, the collapsing set, the ordered
   operation list, retiring composition.
-- **Deferred** — Workflow's definition (R166+, and only once Query is settled); the
+- **Deferred** — Workflow's definition (R167, and only once Query is settled); the
   draw-time join-error UX (D4, largely mooted once composition is gone); the R157 UX
   cluster; `[F-prov-reimport-choice]`.
 - **Out** — materialization/scheduling semantics; presentation (charts, formatting,
@@ -77,7 +77,7 @@ Each round is a **DCFBI slice** over one coherent capability:
 **Firewall (anti-creep)** — two rules:
 
 - **Replace before you remove.** Composition is not retired until within-group columns
-  make it unnecessary. Reversing this order leaves the human *more* blocked than today.
+  make it unnecessary. Reversing this order leaves the human _more_ blocked than today.
 - **No round ships only documents.** The four-week stall of R159→R161 (three consecutive
   code-free rounds on the same untouched seam) is the named failure mode this program is
   built to avoid. If a round's scope collapses to analysis, it merges into its neighbour
@@ -85,26 +85,26 @@ Each round is a **DCFBI slice** over one coherent capability:
 
 ## Work items + order (suggestive, not binding)
 
-| # | Item | Status | Round |
-| - | ---- | ------ | ----- |
-| 1 | **Within-group column** (aggregate within a group, as a column) + the Query concept rewritten into the design corpus | **built end-to-end 2026-08-11.** R162 (D+F1) **Complete**; R163 at Review, awaiting the human's acceptance walk | `Round_162` (D + F1) → `Round_163` (C + B + F2 + I) |
-| 2 | The rest of the within-group family — % of total · running total · rank within group · vs prior period | queued | `Round_164` |
-| 3 | **Retire `query⋈query`, replace it with Duplicate** — remove composition (**both** forms — see D5) and the surfaces that offer it, ship `Duplicate` in its place, clean saved queries, delete the `cyclic_join` / `composition_cycle` / shared-leaf machinery (§ Item 3 scope) | queued | `Round_165` |
-| 4 | **Workflow** — settle what it is, now that Query is the single shaping surface | queued | `Round_166` |
+| #   | Item                                                                                                                                                                                                                                                                           | Status                                                                                                                                                                                                                        | Round                                               |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| 1   | **Within-group column** (aggregate within a group, as a column) + the Query concept rewritten into the design corpus                                                                                                                                                           | **DONE 2026-08-11** — both rounds **Complete**; acceptance walk confirmed on the human's real 90 581-row call log                                                                                                             | `Round_162` (D + F1) → `Round_163` (C + B + F2 + I) |
+| 2   | The rest of the within-group family — % of total · running total · rank within group · vs prior period                                                                                                                                                                         | **COMPLETE 2026-08-13** — end-to-end, gap-blank proven on the real 90 581-row log; the acceptance walk returned **5 of 5** and produced six fixes (incl. a pre-existing pager defect, and `step_invalid` as a new error code) | `Round_164` (D + F1) → `Round_165` (C + B + F2 + I) |
+| 3   | **Retire `query⋈query`, replace it with Duplicate** — remove composition (**both** forms — see D5) and the surfaces that offer it, ship `Duplicate` in its place, clean saved queries, delete the `cyclic_join` / `composition_cycle` / shared-leaf machinery (§ Item 3 scope) | queued                                                                                                                                                                                                                        | `Round_166`                                         |
+| 4   | **Workflow** — settle what it is, now that Query is the single shaping surface                                                                                                                                                                                                 | queued                                                                                                                                                                                                                        | `Round_167`                                         |
 
 > **Renumbered 2026-08-10.** Item 1's round ran the `flow-selector` at its Design exit and landed
 > **DFCFBI (triggers 1, 3, 5)**, so the standing [[dfcfbi-two-round-split]] applies: R162 stops at
 > the F1 feel-review, R163 finishes the capability, and every later item shifts by one. The
 > firewall holds — R162's F1 half ships FE code, not only documents.
 
-**Already complete — verified in code 2026-08-07, schedule no work for it**: the *collapsing*
+**Already complete — verified in code 2026-08-07, schedule no work for it**: the _collapsing_
 aggregate family. `count` · `count_distinct` · `sum` · `avg` · `min` · `max` all ship, with
 per-agg dtype rules ([query_engine.py:376-398](../../../workspace/apps/backend/app/query_engine.py#L376)).
 
-> **Correction (R162 D gate, 2026-08-10).** This paragraph originally closed with *"Conditional
-> aggregate is redundant — a computed 0/1 column plus `avg` gives a rate."* **That does not hold
+> **Correction (R162 D gate, 2026-08-10).** This paragraph originally closed with _"Conditional
+> aggregate is redundant — a computed 0/1 column plus `avg` gives a rate."_ **That does not hold
 > on shipped code**: `derive` takes **numeric operands only**, so there is no way to turn
-> `outcome = 'connected'` into a 0/1 column — meaning *connect rate by agent*, the dogfood's own
+> `outcome = 'connected'` into a 0/1 column — meaning _connect rate by agent_, the dogfood's own
 > example, is **not expressible today at all**. The route that does work arrives with item 1:
 > aggregate at a finer grain (`[agent, team, outcome] → count`), then roll it up with a
 > within-group column (`SUM(count) OVER (agent)`), filter, divide. So the within-group column
@@ -117,11 +117,11 @@ concept doc as its D gate, so its review pass hardens the repeatable unit before
 ### Item 3 scope — retire composition, replace it with **Duplicate** (human, 2026-08-10)
 
 Settled in discussion after the F1 hand-use found composition still offered. Item 3 is **not**
-"delete the resolver" — it is a **replacement**, and the replacement is *smaller* than the thing
+"delete the resolver" — it is a **replacement**, and the replacement is _smaller_ than the thing
 it replaces.
 
 **Why Duplicate rather than nothing.** "Build on this query" today creates a query whose
-`sourceId` is the base (`qr_`). Under the closed concept that cannot exist. But the *need* it
+`sourceId` is the base (`qr_`). Under the closed concept that cannot exist. But the _need_ it
 serves — make a variant of a query without rebuilding 8 operations by hand — is real, and is the
 report-maintenance treadmill the product exists to kill. **Duplicate** serves it by copying the
 **definition** into a new query over the same datasets: no link, no composition, concept-clean.
@@ -129,18 +129,18 @@ report-maintenance treadmill the product exists to kill. **Duplicate** serves it
 **Duplicate is strictly MORE correct than what it replaces.** Composition bakes in the base's
 `q` + filters + advanced but **never runs its steps**
 ([query_engine.py:87-100](../../../workspace/apps/backend/app/query_engine.py#L87) — no
-`run_steps` call), so today "Build on this query" over a *shaped* base silently builds on the
+`run_steps` call), so today "Build on this query" over a _shaped_ base silently builds on the
 base's **un-shaped** rows (that is D1). A duplicate copies the definition entire, steps included,
 so its rows are identical to the base's by construction. The bug leaves with the feature — and
 note it bites hardest on exactly the queries this program creates.
 
-**The one capability lost, and why it is acceptable.** Composition is a *live link* (fix the
-base, dependents follow); Duplicate is a *snapshot* (they drift). The product already made this
+**The one capability lost, and why it is acceptable.** Composition is a _live link_ (fix the
+base, dependents follow); Duplicate is a _snapshot_ (they drift). The product already made this
 exact trade and locked it: **copy-on-pick** gives a query a private `qrel_` snapshot so editing a
 governed edge can never break a saved query. Same question, same answer, already a boundary.
 Live composition was the outlier. (The grain-alignment brainstorm's fourth finding also warns
 that linked intermediates which desync are a silent-wrong-number risk; today's composition
-manages to look linked *and* return wrong rows.)
+manages to look linked _and_ return wrong rows.)
 
 **It deletes a page.** Composition needs a preset-base create mode — `QueryCreatePage`, the
 `?base=` route, a builder that previews against a base before the query exists — because the new
@@ -152,29 +152,29 @@ net-negative code.
 
 **Labels** (per [[labels-context-and-locale-aware]]; corpus-checked, not just convention):
 
-| | EN | VN |
-| --- | --- | --- |
-| The verb (detail header · catalog ⋯) | **Duplicate** | **Tạo bản sao** |
-| Default name of the copy | `{{name}} (copy)` | `{{name}} (bản sao)` |
+|                                      | EN                | VN                   |
+| ------------------------------------ | ----------------- | -------------------- |
+| The verb (detail header · catalog ⋯) | **Duplicate**     | **Tạo bản sao**      |
+| Default name of the copy             | `{{name}} (copy)` | `{{name}} (bản sao)` |
 
 - **`bản sao` is already this corpus's word for this concept** — the canvas divergence copy says
-  *"Truy vấn vẫn dùng bản sao riêng"* (the query's own copy of a relationship). Same concept,
-  different object → consistent, not colliding. **`nhân bản` is rejected**: it would be a *second*
+  _"Truy vấn vẫn dùng bản sao riêng"_ (the query's own copy of a relationship). Same concept,
+  different object → consistent, not colliding. **`nhân bản` is rejected**: it would be a _second_
   VN word for a concept that already has one.
 - **`sao chép` is taken** by clipboard-copy (`dashboard.builder.jsonCopy`), so the family splits
   cleanly: `sao chép` = the Ctrl+C verb, `bản sao` = a duplicated artifact.
 - **No numeral** — "Tạo bản sao", not "Tạo 1 bản sao"; the digit reads as chat register, is
   redundant, and is longer beside `[Sửa] [Xóa]`.
-- **EN rejects** `Copy` (taken — clipboard), `Save as` (collides with *"Save filters as Query"*, a
+- **EN rejects** `Copy` (taken — clipboard), `Save as` (collides with _"Save filters as Query"_, a
   genuinely different create), `Clone` (developer register). `Duplicate` also carries the semantic
-  freight: it says *independent*, where *Build on* said *dependent*.
+  freight: it says _independent_, where _Build on_ said _dependent_.
 - **Still open**: the name-capture **modal title** is a third display context and needs its own
   call — the header button and catalog item can both be the bare verb, the modal title should not
   be. Settle at build time.
 
 **Entry points**: Duplicate replaces D5 **#1** (`[Build on this query]`) and **#3** (the `?base=`
 route). It does **not** replace **#2** (the canvas "Saved queries" group — a `qr_` on the right of
-a hop): that intent is *join my query to another query*, which the closed concept refuses
+a hop): that intent is _join my query to another query_, which the closed concept refuses
 outright, and whose replacement is the within-group column, later Workflow. **#2 is removed with
 no replacement, deliberately.**
 
@@ -183,27 +183,41 @@ verbatim (no collision) or mint fresh ones — pick one. The default name goes t
 `409 name_taken` path.
 
 **Honest caveat**: the case for Duplicate rests on inference, not observation. R160's dogfood used
-composition to *join* two queries, not to clone one; no recorded instance of a clone need exists.
-The bar is *retaining a modified form of something already built*, not adding something new, so
+composition to _join_ two queries, not to clone one; no recorded instance of a clone need exists.
+The bar is _retaining a modified form of something already built_, not adding something new, so
 "default = don't add" does not bite — but this is reasoning, not evidence.
 
 ## Rolling log
 
-| Entry | Axis/Kind | Seen in | Disposition |
-| ----- | --------- | ------- | ----------- |
-| Grain alignment needed by 3 of 5 dashboard tiles — load-bearing, not an edge case | evidence | R162 | **confirmed R163 acceptance walk** — the human rebuilt the blocked dashboard on their real 90 581-row call log; the 2026-08-07 blocking question really was compare-to-group |
-| "Average within team" is ambiguous: pooled rows (71.4%) vs average of member rates (70.8%) | UX trap | R162 | **settled at the R162 D gate** — it is an **ordering**, not a parameter. No `basis` field; a **grain line** on each card names what one row means at that position and rewrites itself when the card moves past an aggregate |
-| "Vs prior period" lies silently on gaps (Jan, Feb, **Apr** → Feb reads as April's previous) | correctness trap | — | open |
-| Order × within-group interact — a group column computed before vs after a filter averages over different groups | UX trap | — | open |
-| Join after aggregate requires the key to survive the group-by; impossible joins must be grey, not error | UX | — | open |
-| **Self-join is a BOUNDARY, not a gap** — the same dataset twice in one query is rejected ([query_engine.py:212](../../../workspace/apps/backend/app/query_engine.py#L212)) and stays rejected, **including in the Builder** (offer-nothing, not error-at-run). "Query only does BIZ, not everything" | boundary (human, 2026-08-07) | R162 | **settled** — state it in `_noun-model.md`; the need it leaves unserved is an input to item 4 (Workflow) |
-| Brainstorm's D-A row says pooled 71.4% is "not expressible". **Superseded** — once order carries meaning, placing the within-group column *before* the collapsing aggregate yields pooled, *after* yields 70.8% | superseded finding | R162 | **confirmed + settled** at the R162 D gate — the affordance built is the ordering, not a parameter |
-| **Derivable but undiscoverable** — top-N = rank + filter; anti-join = left join + `is_null` filter. Both work; both need a SQL trick to assemble. For a *player*, that means they don't exist | UX / persona | — | open — decide per item whether to name it as a first-class operation |
-| Join types shipped = `inner`/`left`/`right`/`full` ([common.py:330](../../../workspace/apps/backend/app/models/common.py#L330)). No anti-join or cross join as a **named** type, though anti-join is derivable | concept↔code gap | — | open |
-| `build_stepped_select` is cited by `_noun-model.md` but does not exist | doc↔code drift | R161 | **fixed** — R162 D gate |
-| D1 step-drop, D2 shared-leaf, D3 workflow-as-noun, D4 error-at-wrong-time | inherited debt | R161 | D1/D2 dissolved by item 3; D3 → item 4; D4 deferred |
+| Entry                                                                                                                                                                                                                                                                                                | Axis/Kind                               | Seen in     | Disposition                                                                                                                                                                                                                                                                                      |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **The gap trap is CLOSED on real data** — January 2026 filtered out of the real 90 581-row log; February's previous-month reads **blank**, not December's 1816                                                                                                                                       | correctness, proven                     | R165 I gate | **done.** A positional `LAG` would have printed 1816 and looked entirely reasonable on a dashboard                                                                                                                                                                                               |
+| **A shared helper's ambiguity is a latent bug in every caller** — `_measure_expr(over="")` conflated _no window_ with _empty window_, so "across everything" silently emitted a collapsing aggregate                                                                                                 | SQL correctness                         | R165 B gate | **fixed by a TYPE (`str \| None`), not a branch.** R163 learned extraction _finds_ bugs; this is the other half — extraction concentrates risk into one contract, which must then be exact                                                                                                       |
+| **`prior_period` needs a period-ALIGNED axis** — the `RANGE … PRECEDING AND … PRECEDING` frame is a POINT; on raw dates every cell reads blank (correct, useless). `date_bucket` is the producer, and the coupling is load-bearing, not conventional                                                 | UX / correctness trap                   | R165 B gate | documented + pinned as a test; **no affordance built** — the card cannot tell two `date` columns apart. Candidate for the parked naming/legibility cluster                                                                                                                                       |
+| **`prior_period` at the wrong grain** (several rows per period) returns the FIRST of them, arbitrary among ties                                                                                                                                                                                      | boundary                                | R165 B gate | documented, not guarded — cannot be known statically. Well-defined downstream of an `aggregate`                                                                                                                                                                                                  |
+| **A MIRROR note left by the round that paid for the lesson turned a re-derivation into a 2-line edit** — R163 wrote it in `workflow.yaml`; R165's C gate simply followed it                                                                                                                          | method evidence                         | R165 C gate | **evidence for _least mechanism that works_** — the note did a lint's job at none of the cost                                                                                                                                                                                                    |
+| **`_MAX_STEPS` — verdict returned: NOT raised**                                                                                                                                                                                                                                                      | ceiling                                 | R165 I gate | the real month-over-month tile costs **4** of 8; the trigger did not fire. An answer, not an omission                                                                                                                                                                                            |
+| **`ux-design` at the D gate found two ABSENCES a build review could not** — a menu growing to a flat twelve, and an op handing back half an answer with nothing saying so                                                                                                                            | method evidence                         | R164 D gate | **the skill's preventive claim, earned.** A fidelity pass compares build to spec; it cannot flag what the spec never declared                                                                                                                                                                    |
+| **Verifying the engine BEFORE the design gate changed the DESIGN, not just the confidence** — checking `LAG` vs the interval frame at B would have found `LAG` already specced and built                                                                                                             | method evidence                         | R164 D gate | note; the trap is invisible unless the fixture has a gap in it                                                                                                                                                                                                                                   |
+| **A mock can encode a decision or quietly contradict it** — MSW's `prior_period` looks up by calendar value, not row position, so F1 cannot feel right while teaching the opposite of what R165 must build                                                                                           | method evidence                         | R164 F1     | note                                                                                                                                                                                                                                                                                             |
+| **`prior_period` must walk the CALENDAR, not the rows** — `RANGE BETWEEN INTERVAL 1 <unit> PRECEDING AND …` instead of `LAG`, so a missing period reads NULL rather than the wrong period's value                                                                                                    | correctness decision                    | R164 D gate | **settled** — both readings run on the pinned DuckDB 1.1.3; the wrong answer was reproduced, not theorised                                                                                                                                                                                       |
+| **Four ops, ONE step kind, and the MENU does the naming** — `window_column` + an `op` discriminator; `[Add step ▾]` gains four business-phrase entries and three `<OptGroup>`s, so no abstract kind label exists for the user to decode                                                              | design decision (human chose the scope) | R164 D gate | **settled** — a flat 12-option menu was the `ux-design` Findability gap that forced the grouping                                                                                                                                                                                                 |
+| **`prior_period` emits the VALUE, so a month-over-month tile is TWO steps** — and the card says so, in an advisory line naming the next step in the menu's own words                                                                                                                                 | UX mitigation, invented at the gate     | R164 D gate | open — **never seen by a human**; it is one of the two reasons condition 5 fired                                                                                                                                                                                                                 |
+| **Blank means two things** — "no previous period" vs "the previous value was empty" render identically; the card counts the gapped rows rather than marking cells (which would put presentation into a compute step)                                                                                 | `ux-design` Credibility gap             | R164 D gate | **settled at the gate**; a per-cell rendering is refused as a `<PagedRowsView>`-level concern                                                                                                                                                                                                    |
+| **`RANK` only — `ROW_NUMBER` refused on correctness grounds** — it invents an order between equal rows, so a tie can reshuffle between runs                                                                                                                                                          | boundary                                | R164 D gate | **settled**; named trigger to revisit = a real need for gapless numbering                                                                                                                                                                                                                        |
+| Grain alignment needed by 3 of 5 dashboard tiles — load-bearing, not an edge case                                                                                                                                                                                                                    | evidence                                | R162        | **confirmed R163 acceptance walk** — the human rebuilt the blocked dashboard on their real 90 581-row call log; the 2026-08-07 blocking question really was compare-to-group                                                                                                                     |
+| "Average within team" is ambiguous: pooled rows (71.4%) vs average of member rates (70.8%)                                                                                                                                                                                                           | UX trap                                 | R162        | **settled at the R162 D gate** — it is an **ordering**, not a parameter. No `basis` field; a **grain line** on each card names what one row means at that position and rewrites itself when the card moves past an aggregate                                                                     |
+| "Vs prior period" lies silently on gaps (Jan, Feb, **Apr** → Feb reads as April's previous)                                                                                                                                                                                                          | correctness trap                        | —           | **reproduced AND fixable — verified on the pinned DuckDB 1.1.3 before R164 opened.** Positional `LAG` makes April read **20** (February's value); `RANGE BETWEEN INTERVAL 1 MONTH PRECEDING AND INTERVAL 1 MONTH PRECEDING` returns **NULL**. R164's D gate adopts the interval frame, not `LAG` |
+| Order × within-group interact — a group column computed before vs after a filter averages over different groups                                                                                                                                                                                      | UX trap                                 | —           | open                                                                                                                                                                                                                                                                                             |
+| Join after aggregate requires the key to survive the group-by; impossible joins must be grey, not error                                                                                                                                                                                              | UX                                      | —           | open                                                                                                                                                                                                                                                                                             |
+| **Self-join is a BOUNDARY, not a gap** — the same dataset twice in one query is rejected ([query_engine.py:212](../../../workspace/apps/backend/app/query_engine.py#L212)) and stays rejected, **including in the Builder** (offer-nothing, not error-at-run). "Query only does BIZ, not everything" | boundary (human, 2026-08-07)            | R162        | **settled** — state it in `_noun-model.md`; the need it leaves unserved is an input to item 4 (Workflow)                                                                                                                                                                                         |
+| Brainstorm's D-A row says pooled 71.4% is "not expressible". **Superseded** — once order carries meaning, placing the within-group column _before_ the collapsing aggregate yields pooled, _after_ yields 70.8%                                                                                      | superseded finding                      | R162        | **confirmed + settled** at the R162 D gate — the affordance built is the ordering, not a parameter                                                                                                                                                                                               |
+| **Derivable but undiscoverable** — top-N = rank + filter; anti-join = left join + `is_null` filter. Both work; both need a SQL trick to assemble. For a _player_, that means they don't exist                                                                                                        | UX / persona                            | —           | open — decide per item whether to name it as a first-class operation                                                                                                                                                                                                                             |
+| Join types shipped = `inner`/`left`/`right`/`full` ([common.py:330](../../../workspace/apps/backend/app/models/common.py#L330)). No anti-join or cross join as a **named** type, though anti-join is derivable                                                                                       | concept↔code gap                        | —           | open                                                                                                                                                                                                                                                                                             |
+| `build_stepped_select` is cited by `_noun-model.md` but does not exist                                                                                                                                                                                                                               | doc↔code drift                          | R161        | **fixed** — R162 D gate                                                                                                                                                                                                                                                                          |
+| D1 step-drop, D2 shared-leaf, D3 workflow-as-noun, D4 error-at-wrong-time                                                                                                                                                                                                                            | inherited debt                          | R161        | D1/D2 dissolved by item 3; D3 → item 4; D4 deferred                                                                                                                                                                                                                                              |
 
-| **Composition is shipped TWICE** — a `qr_` driving base **and** R91's `qr_` on the right of a hop ([common.py:309](../../../workspace/apps/backend/app/models/common.py#L309)). Both design docs listed the latter as *out of scope* | concept↔code gap | R162 D gate | **raised to noun-model D5** — item 3 must retire both, not just the base |
+| **Composition is shipped TWICE** — a `qr_` driving base **and** R91's `qr_` on the right of a hop ([common.py:309](../../../workspace/apps/backend/app/models/common.py#L309)). Both design docs listed the latter as _out of scope_ | concept↔code gap | R162 D gate | **raised to noun-model D5** — item 3 must retire both, not just the base |
 | `_MAX_STEPS = 8` ([query_engine.py:461](../../../workspace/apps/backend/app/query_engine.py#L461)). The **pooled** T3 path costs **exactly 8** steps; per-member costs 6 | ceiling | R162 D gate | **arithmetic confirmed by execution** (R163 I gate: the pooled chain runs at exactly 8 on real seeded data). **Reached, never exceeded → not raised.** Still the trigger if the acceptance walk needs a 9th step |
 | `StepsEditor` (R120–R144, 538 lines) had **no design-doc home at all** | doc↔code drift | R162 D gate | **backfilled** into `query-construction.md § Shape` |
 | R162 flow = **DFCFBI (triggers 1, 3, 5)** → F1 precedes Contract, and the standing split makes it [D+F1] then [C+B+F2+I] | process | R162 D gate | **settled (human, 2026-08-10)** — split; the program renumbers by one (item 2 → R164) rather than using an `R162a/b` form |
@@ -213,14 +227,14 @@ The bar is *retaining a modified form of something already built*, not adding so
 
 | **Canvas offers `Promote` on an already-governed edge** — `promotable` tests only dataset-vs-`qr_` ([joinGraph.ts:144](../../../workspace/apps/builder/src/features/data-management/queries/joinGraph.ts#L144)); the `free` flag that should gate it drives styling only. Clicking can only 409 | D4-class (offer-nothing violated) | R162 hand-use | open — **[F-promote-gate]**, batched with the R157 UX cluster; `'changed'`-divergence behaviour is an open call |
 | **D4 is a recurring CLASS, not one bug** — the D gate called it "largely mooted by D5's removal"; a third instance unrelated to composition then surfaced. Standing rule: **unofferable at the gesture, never an error at run** | correction to a D-gate judgment | R162 hand-use | **corrected in `_noun-model.md` D4**; the rule outlives item 3 |
-| **The grain line WORKS** — moving a Group value card above/below a collapsing aggregate makes the pooled-vs-average reading legible | UX verdict (the question R162 carried unanswered) | R163 acceptance walk | **settled — yes** (human, 2026-08-11, *"seem all good"*). The round's primary risk did not materialise |
-| **Naming is the real legibility gap, not expressibility** — first hand-use produced `rate` holding a call count (1315) and `delta` holding an average (1344.33); the product agreed to a dashboard-ready table. The dtype tell (`rate` renders `int`) is already on screen and inert | UX trap (new axis) | R163 hand-use | **parked by the human** — *"post back, enhance later"*. Evidence banked, **no affordance proposed** (design-by-building brake). Needs ranking |
-| **Filter placement silently collapses the denominator** — a `filter` moved above a Group value card makes every rate read **100.0%**, and the grain line does NOT change (it tracks position vs `aggregate` only) | correctness trap | R163 (demonstrated on real data) | open — **the strongest un-actioned finding of the round**; supersedes the earlier predicted-only "Order × within-group" row |
+| **The grain line WORKS** — moving a Group value card above/below a collapsing aggregate makes the pooled-vs-average reading legible | UX verdict (the question R162 carried unanswered) | R163 acceptance walk | **settled — yes** (human, 2026-08-11, _"seem all good"_). The round's primary risk did not materialise |
+| **Naming is the real legibility gap, not expressibility** — first hand-use produced `rate` holding a call count (1315) and `delta` holding an average (1344.33); the product agreed to a dashboard-ready table. The dtype tell (`rate` renders `int`) is already on screen and inert | UX trap (new axis) | R163 hand-use | **parked by the human** — _"post back, enhance later"_. Evidence banked, **no affordance proposed** (design-by-building brake). Needs ranking |
+| **Filter placement silently collapses the denominator** — a `filter` moved above a Group value card makes every rate read **100.0%**, and the grain line does NOT change (it tracks position vs `aggregate` only) | correctness trap | R163 (demonstrated on real data) | **pulled into R164** (human, 2026-08-11) — the grain line gains a clause naming the row-narrowing steps (`filter`, `top_n`) that precede the card. Lands on **both** card families, so it repairs the shipped R163 card too |
 | The two new F2 card states (orphaned-by-a-move, name collision) shipped but **were never walked by a human** | unconfirmed build | R163 | open — carried to R164's walk |
 
 | **The shared `Step` union widened Workflow** — one Python union + one `_apply_step` serve both nouns, but `workflow.yaml` duplicates its `oneOf` | contract/impl split | R163 C gate | **settled — widen both.** `workflow.yaml` now carries a MIRROR note; the widening is tested end-to-end (workflow create → run → materialized within-group column) |
 | **`COALESCE(agg(x), 0)` cannot simply take `OVER (…)`** — `OVER` binds to the aggregate call, so the collapsing NULL policy had to be re-composed as `COALESCE(agg(x) OVER (…), 0)` | SQL correctness | R163 B gate | **caught by EXTRACTING the measure expression into one shared helper instead of copying it.** A copied expression map would have shipped this silently at the first `sum` |
-| **Preview reports every bad step as `409 query_stale`** — uniform across `derive`/`date_bucket`/`group_column`; only the SAVE path returns the precise 422 | error-surface finding | R163 I gate | **this is why the card-level orphaned/collision states earn their place** — without them a reorder into an invalid position says only "stale", never *which* column. Recorded in `query-construction.md` |
+| **Preview reports every bad step as `409 query_stale`** — uniform across `derive`/`date_bucket`/`group_column`; only the SAVE path returns the precise 422 | error-surface finding | R163 I gate | **this is why the card-level orphaned/collision states earn their place** — without them a reorder into an invalid position says only "stale", never _which_ column. Recorded in `query-construction.md` |
 | Brainstorm T3 ground truth lists **−4.1pt** for A2 (average-of-agents); full precision is **−4.2** (the table subtracted already-rounded rates) | rounding artifact | R163 B gate | **engine is right, hand table had the artifact** — noted in the test, brainstorm left untouched as a point-in-time record |
 
 ## Lifecycle

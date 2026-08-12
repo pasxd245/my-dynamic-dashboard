@@ -17,12 +17,13 @@ builder UX lives in the sibling [query-construction.md](query-construction.md); 
 visual source-graph editor is [canvas.md](canvas.md) (the Canvas tab — built).
 
 **Status**: Accepted (extended R120–R144 — transform `steps` / workflows / date_bucket;
-R162–R163 — the `group_column` operation, specced and **shipped end-to-end**).
+R162–R163 — the `group_column` operation, specced and **shipped end-to-end**; R164–R165 — the
+`window_column` ordered-window family, specced and **shipped end-to-end**).
 
 > **Read first — the domain noun-model.** [`../_noun-model.md`](../_noun-model.md) is the
 > canonical, cross-cluster definition of the five nouns (dataset · query · join · relationship ·
 > workflow) and the boundaries between them — **concepts locked R161, the Query concept re-locked
-> R162**. When it and this doc conflict on a *boundary*, the noun-model is the intent; **this doc
+> R162**. When it and this doc conflict on a _boundary_, the noun-model is the intent; **this doc
 > is current-state truth**.
 >
 > **The gap is now deliberate and large.** The re-locked concept is a live table over **datasets
@@ -62,9 +63,9 @@ a refresh and a deep-link, nothing more. A Query is the **persisted** view: the 
 predicate state (now possibly spanning joined sources), given a name and a `qr_`
 identity, listed in a catalog and reopenable.
 
-+ `dataset-detail.md` — the **ephemeral view**: build predicates, read rows, share via
+- `dataset-detail.md` — the **ephemeral view**: build predicates, read rows, share via
   URL. Predicates live in the URL.
-+ `queries.md` (this file) — the **persisted view + the engine that runs it**.
+- `queries.md` (this file) — the **persisted view + the engine that runs it**.
   The definition lives in a `queries` row; the run re-executes it live.
 
 A Query is **not** a Dataset (no Parquet of its own — see § Execution model) and
@@ -84,13 +85,13 @@ table. So the one rule every surface here obeys — every `queries/` surface is 
 from existing shared components/layouts**, never a parallel page or a re-invented engine
 ([specious-model-lock-in](../../../memory/2026-06-13-specious-model-lock-in.md)):
 
-| Concern                 | Reused from                                                                                                  |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Concern                 | Reused from                                                                                                                        |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
 | Row table               | `<PagedRowsView>` (`data-management/_shared/`, extracted from dataset-detail) — [dataset-detail.md](../datasets/dataset-detail.md) |
-| Catalog list            | the Page-List layout (`PageHeader` + `PageCard` + AntD `<Table>`)                                            |
-| Detail layout           | the standard detail layout (`PageHeader` + `PageCard` + `<PagedRowsView>`)                                   |
-| Predicate (de)serialize | the shipped `FilterAtom` / advanced-DNF serializers + validators, verbatim                                   |
-| Row execution           | `query_dataset_rows` (single source) — extended, never replaced, by `query_joined_rows`                      |
+| Catalog list            | the Page-List layout (`PageHeader` + `PageCard` + AntD `<Table>`)                                                                  |
+| Detail layout           | the standard detail layout (`PageHeader` + `PageCard` + `<PagedRowsView>`)                                                         |
+| Predicate (de)serialize | the shipped `FilterAtom` / advanced-DNF serializers + validators, verbatim                                                         |
+| Row execution           | `query_dataset_rows` (single source) — extended, never replaced, by `query_joined_rows`                                            |
 
 What is genuinely **new** to the Query archetype: persistence (the `queries` table),
 the `qr_` identity, the Save-as-Query / Build-on modals, the Queries catalog + detail
@@ -100,18 +101,18 @@ routes, and the multi-source / composed **execution engine**. Everything else is
 
 ## Surfaces — layer / reuse / purity declaration
 
-| Surface                                                       | Layer                                                                  | Reusability         | Purity             | Allowed peer deps                  |
-| ------------------------------------------------------------- | ---------------------------------------------------------------------- | ------------------- | ------------------ | ---------------------------------- |
-| `<PagedRowsView>` (reused; declared in dataset-detail.md)     | `apps/builder/src/features/data-management/_shared`                    | shared cross-domain | plain-UI           | react, antd, react-i18next         |
-| `SaveQueryModal` (name capture for save + create)             | `apps/builder/src/features/data-management/queries`                    | feature             | feature            | react, antd                        |
-| `QueriesPage` (Queries catalog; reuses Page-List layout)      | `apps/builder/src/features/data-management/queries`                    | feature             | feature            | react, antd, @tanstack/react-query |
-| `QueryDetailPage` (read-only summary + run + inline Edit)     | `apps/builder/src/features/data-management/queries`                    | feature             | feature            | react, antd, @tanstack/react-query |
-| `hooks.ts` (`useQueries` / `useQuery` / `useQueryRows` + create/update/delete mutations) | `apps/builder/src/features/data-management/queries` | feature             | glue (server-data) | @tanstack/react-query              |
-| `chain.ts` (`readChain` / `writeDef` — working-chain ↔ wire bridge) | `apps/builder/src/features/data-management/queries`             | feature             | pure               | none                               |
-| `POST/GET/PUT/DELETE …/queries` + `…/rows` + `…/preview` routes | `workspace/apps/backend/app/routers/queries.py`                      | backend             | feature            | (FastAPI — backend native)         |
-| `query_dataset_rows` / `query_joined_rows` / `resolve_source` (engine) | `workspace/apps/backend/app/ingest/rows_reader.py`            | backend             | feature            | (duckdb — backend native)          |
-| `Query` Pydantic models (`Query`, `*Body`)                    | `workspace/apps/backend/app/models/common.py`                          | backend             | data type          | pydantic                           |
-| `Query` / `QueryDefinition` / `JoinStep` types (frontend)     | `workspace/apps/builder/src/features/data-management/queries/types.ts` | feature             | data type          | none                               |
+| Surface                                                                                  | Layer                                                                  | Reusability         | Purity             | Allowed peer deps                  |
+| ---------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- | ------------------- | ------------------ | ---------------------------------- |
+| `<PagedRowsView>` (reused; declared in dataset-detail.md)                                | `apps/builder/src/features/data-management/_shared`                    | shared cross-domain | plain-UI           | react, antd, react-i18next         |
+| `SaveQueryModal` (name capture for save + create)                                        | `apps/builder/src/features/data-management/queries`                    | feature             | feature            | react, antd                        |
+| `QueriesPage` (Queries catalog; reuses Page-List layout)                                 | `apps/builder/src/features/data-management/queries`                    | feature             | feature            | react, antd, @tanstack/react-query |
+| `QueryDetailPage` (read-only summary + run + inline Edit)                                | `apps/builder/src/features/data-management/queries`                    | feature             | feature            | react, antd, @tanstack/react-query |
+| `hooks.ts` (`useQueries` / `useQuery` / `useQueryRows` + create/update/delete mutations) | `apps/builder/src/features/data-management/queries`                    | feature             | glue (server-data) | @tanstack/react-query              |
+| `chain.ts` (`readChain` / `writeDef` — working-chain ↔ wire bridge)                      | `apps/builder/src/features/data-management/queries`                    | feature             | pure               | none                               |
+| `POST/GET/PUT/DELETE …/queries` + `…/rows` + `…/preview` routes                          | `workspace/apps/backend/app/routers/queries.py`                        | backend             | feature            | (FastAPI — backend native)         |
+| `query_dataset_rows` / `query_joined_rows` / `resolve_source` (engine)                   | `workspace/apps/backend/app/ingest/rows_reader.py`                     | backend             | feature            | (duckdb — backend native)          |
+| `Query` Pydantic models (`Query`, `*Body`)                                               | `workspace/apps/backend/app/models/common.py`                          | backend             | data type          | pydantic                           |
+| `Query` / `QueryDefinition` / `JoinStep` types (frontend)                                | `workspace/apps/builder/src/features/data-management/queries/types.ts` | feature             | data type          | none                               |
 
 **Boundary check**: no query surface re-implements a dataset surface. The row table is
 the shared `data-management/_shared/` `<PagedRowsView>` (its boundary lives in
@@ -133,20 +134,20 @@ truth). **No new token is introduced**; the map reuses identifiers already cited
 [datasets.md](../datasets/datasets.md) and [dataset-detail.md](../datasets/dataset-detail.md).
 `Value` is informational (resolved via `theme.getDesignToken()`, antd 6.x).
 
-| Surface                                    | AntD token                     | Value (informational) |
-| ------------------------------------------ | ------------------------------ | --------------------- |
-| Page background                            | `colorBgLayout`                | `#f5f5f5`             |
-| Page card background                       | `colorBgBase`                  | derived               |
-| Table header background                    | `colorFillQuaternary`          | derived               |
-| Table row border                           | `colorBorderSecondary`         | `#f0f0f0`             |
-| Table row hover                            | `colorPrimaryBg`               | `#e6f4ff`             |
-| Cell text                                  | `colorText`                    | derived               |
-| Primary action (`[Save]`, `[Build on this query]`, base/relationship `<Select>`) | `colorPrimary` | `#1677ff`             |
-| Read-only predicate / join / cardinality `<Tag>` | `colorFillSecondary` / `colorTextSecondary` | derived    |
-| Stale / unavailable warning (`⚠`)          | `colorWarning`                 | `#faad14`             |
-| Invalid predicate / unrunnable `<Alert>`   | `colorError`                   | `#ff4d4f`             |
-| Border radius (card, table, modal, button) | `borderRadius`                 | `6`                   |
-| Font family                                | `fontFamily`                   | system stack          |
+| Surface                                                                          | AntD token                                  | Value (informational) |
+| -------------------------------------------------------------------------------- | ------------------------------------------- | --------------------- |
+| Page background                                                                  | `colorBgLayout`                             | `#f5f5f5`             |
+| Page card background                                                             | `colorBgBase`                               | derived               |
+| Table header background                                                          | `colorFillQuaternary`                       | derived               |
+| Table row border                                                                 | `colorBorderSecondary`                      | `#f0f0f0`             |
+| Table row hover                                                                  | `colorPrimaryBg`                            | `#e6f4ff`             |
+| Cell text                                                                        | `colorText`                                 | derived               |
+| Primary action (`[Save]`, `[Build on this query]`, base/relationship `<Select>`) | `colorPrimary`                              | `#1677ff`             |
+| Read-only predicate / join / cardinality `<Tag>`                                 | `colorFillSecondary` / `colorTextSecondary` | derived               |
+| Stale / unavailable warning (`⚠`)                                                | `colorWarning`                              | `#faad14`             |
+| Invalid predicate / unrunnable `<Alert>`                                         | `colorError`                                | `#ff4d4f`             |
+| Border radius (card, table, modal, button)                                       | `borderRadius`                              | `6`                   |
+| Font family                                                                      | `fontFamily`                                | system stack          |
 
 Identifier parity against the live AntD registry is enforced by
 [`design-token-parity.mjs`](../../../../scripts/lint/design-token-parity.mjs).
@@ -167,42 +168,42 @@ through **raw `sqlite3`** (`get_conn()`), not the ORM. The wire/FE shapes live i
 type SourceId = `ds_${string}` | `qr_${string}`; // polymorphic driving source
 
 type Query = {
-  id: string;                  // backend-generated, `^qr_[0-9a-f]{8}$`
-  workspaceId: string;         // the IA scope
-  sourceId: SourceId;          // the single canonical driving source — a Dataset OR a Query
-  name: string;                // user-supplied; unique per (workspaceId)
+  id: string; // backend-generated, `^qr_[0-9a-f]{8}$`
+  workspaceId: string; // the IA scope
+  sourceId: SourceId; // the single canonical driving source — a Dataset OR a Query
+  name: string; // user-supplied; unique per (workspaceId)
   definition: QueryDefinition; // the saved predicate + join state (below)
   resolvedColumns?: { name: string; dtype: string }[]; // effective columns, present when multi-source
-  createdAt: string;           // ISO-8601 UTC, backend commit time
+  createdAt: string; // ISO-8601 UTC, backend commit time
 };
 
 type QueryDefinition = {
-  q?: string | null;                  // the `?q=` row search (≤200 chars)
-  filters: FilterAtom[];              // chip filters (dataset-filters.md)
-  advanced: FilterAtom[][];           // advanced-query DNF (advanced-query.md)
+  q?: string | null; // the `?q=` row search (≤200 chars)
+  filters: FilterAtom[]; // chip filters (dataset-filters.md)
+  advanced: FilterAtom[][]; // advanced-query DNF (advanced-query.md)
   relationships: QueryRelationship[]; // the query's OWN join edges (default []); see § Joins
-  joins: JoinStep[];                  // ordered join tree (default []); each hop → a query-owned rel
+  joins: JoinStep[]; // ordered join tree (default []); each hop → a query-owned rel
 };
 
 // A query OWNS its join relationships (copy-on-pick from the governed ER, or — R89 —
 // defined free-form). The query runs on this snapshot, so editing/deleting the governed
 // rel never breaks it.
 type QueryRelationship = {
-  id: string;                  // query-local, `^qrel_[0-9a-f]{8}$`
-  leftSourceId: string;        // `ds_…` — the LEFT dataset of this edge (always in-graph)
-  leftColumn: string;          // the join key on the left
+  id: string; // query-local, `^qrel_[0-9a-f]{8}$`
+  leftSourceId: string; // `ds_…` — the LEFT dataset of this edge (always in-graph)
+  leftColumn: string; // the join key on the left
   // R91 — polymorphic `ds_ | qr_`: a Query may be joined IN on the right, resolved as a
   // subquery. Concept-divergent (noun-model D5 — every operand must be a dataset);
   // narrows back to `ds_` when composition is retired at program item 3.
   rightSourceId: string;
-  rightColumn: string;         // the join key on the right
+  rightColumn: string; // the join key on the right
   cardinality: 'one_to_one' | 'one_to_many' | 'many_to_many';
   originRelationshipId?: string | null; // `rel_…` provenance back-ref (null = free-form)
 };
 
 type JoinStep = {
-  queryRelId: string;                            // `qrel_…` — the query-owned rel this hop consumes
-  type: 'inner' | 'left' | 'right' | 'full';     // per-hop join type (default 'inner')
+  queryRelId: string; // `qrel_…` — the query-owned rel this hop consumes
+  type: 'inner' | 'left' | 'right' | 'full'; // per-hop join type (default 'inner')
 };
 
 // FilterAtom = { col: number; dtype; op; val?; min?; max? } — col is the 0-based index
@@ -304,16 +305,16 @@ lives on the canvas ([canvas.md](canvas.md)); the model supports it via the null
 `joins: JoinStep[]` is an ordered list of edges forming a **connected acyclic tree**
 (not merely a linear chain). Resolution (`_resolve_chain` in `queries.py`):
 
-+ The driving source (`sourceId`) is the root; for each hop `k`, the query-owned rel's
+- The driving source (`sourceId`) is the root; for each hop `k`, the query-owned rel's
   left dataset (`leftSourceId`) must already be a member of **some source in the graph**
   (else `disconnected_join`), and its right source (`rightSourceId` — a `ds_`, or R91's `qr_`
   which contributes its whole leaf SET) must be **new**
   (else `cyclic_join` — a diamond/self-join is rejected). So one dataset can drive **two
   or more** hops (a star).
-+ Hops are stored in **topological order**; the builder produces this naturally by
+- Hops are stored in **topological order**; the builder produces this naturally by
   appending a hop onto an existing source. The linear chain is the degenerate **path**
   case (each hop's left = the prior tail). A single join is a length-1 `joins`.
-+ `join_keys[k] = (left_idx, leftColumn, rightColumn, type)` — the engine joins source
+- `join_keys[k] = (left_idx, leftColumn, rightColumn, type)` — the engine joins source
   `T{k+1}` against `T{left_idx}` (its own left, **not** the previous source), so a star
   resolves correctly.
 
@@ -399,8 +400,8 @@ the resolution path. A Query that transitively composes itself is rejected
 **`composition_cycle`** — returned as **`409`** at create/update/preview (a
 `JSONResponse(status_code=409, ApiErrorCompositionCycle)`) **and** at run. Depth is not
 capped; the cycle guard alone guarantees termination. _(Relationship endpoints stay
-dataset↔dataset; a `qr_` on the **right** of a hop — joined in via a `rel_` — is not
-built, as it would re-open the governed edge.)_
+dataset↔dataset; a `qr_`on the **right** of a hop — joined in via a`rel*` — is not
+built, as it would re-open the governed edge.)*
 
 ---
 
@@ -410,27 +411,27 @@ A `QueryDefinition` carries an optional ordered **`steps`** list applied **after
 source/join/filter resolve — saved, reusable **data shaping** (the "workflow"). A query
 with no steps is a plain select (unchanged). `steps` is a **`kind`-discriminated union**:
 
-+ **`aggregate`** — `GROUP BY (dimensions) → measures`. R140 measure vocabulary:
+- **`aggregate`** — `GROUP BY (dimensions) → measures`. R140 measure vocabulary:
   `sum`/`avg` (numeric col), `min`/`max` (numeric or date/datetime col), `count_distinct`
   (any col), `count` (no col). Output dtypes: `avg` → `float`; `count`/`count_distinct` →
   `integer`; `sum`/`min`/`max` keep the col's dtype; `count` is named `count`, every other
   measure keeps the col's name. `sum`/`avg` coalesce an all-NULL group to `0` (client
   parity); `min`/`max` stay honest `NULL`.
-+ **`derive`** — a new `float` column from a **formula-free** binary op (`name = left <op>
-  right`, `op ∈ + − × ÷`, `right` a numeric column or a literal; `÷0 → NULL`).
-+ **`filter`** — keep rows matching name-referenced predicates (AND), a post-aggregate
+- **`derive`** — a new `float` column from a **formula-free** binary op (`name = left <op>
+right`, `op ∈ + − × ÷`, `right` a numeric column or a literal; `÷0 → NULL`).
+- **`filter`** — keep rows matching name-referenced predicates (AND), a post-aggregate
   `WHERE` (HAVING-like). Distinct from `definition.filters` (which filter the SOURCE rows).
-+ **`top_n`** — `ORDER BY col [DESC] LIMIT n` (= a single-key `sort` + limit).
-+ **`sort`** — R141 deliverable ordering: an ordered list of **`keys`**
+- **`top_n`** — `ORDER BY col [DESC] LIMIT n` (= a single-key `sort` + limit).
+- **`sort`** — R141 deliverable ordering: an ordered list of **`keys`**
   (`{col, descending}`, min 1 — later keys tie-break earlier ones), each `col` an
   effective column at this step, **any dtype** (strings sort lexically). Column space
   unchanged; no limit. Explicit **`NULLS LAST` in both directions** — a deliverable
   keeps blanks at the bottom, deterministically. **Order is an output property**: it is
-  meaningful when `sort` is the last *reshaping* step — a following `aggregate` discards
+  meaningful when `sort` is the last _reshaping_ step — a following `aggregate` discards
   it; the engine carries it through `derive`/`filter`/`select` wrappers and the final
   stringify. Two chained sorts do NOT compose into multi-key (the later one wins) —
   that's what `keys` is for.
-+ **`date_bucket`** — R144 time-axis bucketing _(D-gate signed off 2026-07-03)_:
+- **`date_bucket`** — R144 time-axis bucketing _(D-gate signed off 2026-07-03)_:
   **append** a new column holding `col` truncated to a **`granularity`**.
   Body: `{col, granularity, name}` — `col` must be `date`/`datetime` **at this step**
   (else 422 `bucket_col_not_date`; unknown col → `unknown_column`); `granularity` ∈
@@ -444,7 +445,7 @@ with no steps is a plain select (unchanged). `steps` is a **`kind`-discriminated
   the appended column is a **data value** (sortable, chart-axis-friendly), not a display
   label — week/month LABELS are presentation. THE weekly report's shape is
   `date_bucket(week) → aggregate(count_distinct/count per agent per bucket)`.
-+ **`select`** — R141 column shaping: **projection + rename + reorder in ONE body** —
+- **`select`** — R141 column shaping: **projection + rename + reorder in ONE body** —
   an ordered list of **`cols`** (`{col, name?}`, min 1). The output is EXACTLY these
   columns in THIS order, each keeping its source **dtype**, named **`name ?? col`**
   (`name` — the same rename vocabulary as `derive.name`; the wire avoids the Python
@@ -454,36 +455,83 @@ with no steps is a plain select (unchanged). `steps` is a **`kind`-discriminated
   display alias. Closes the R140 naming wart: `count_distinct(product)` (output col
   `product`) → `select {col: product, name: distinct_products}`.
 
-+ **`group_column`** — R162/R163 the **within-group column** _(specced R162, engine shipped
+- **`group_column`** — R162/R163 the **within-group column** _(specced R162, engine shipped
   R163-08-11)_:
   **append** a column whose value is an aggregate over the **group of rows this row belongs
-  to**. The row count is **unchanged** — this is the *non-collapsing* half of the aggregate
+  to**. The row count is **unchanged** — this is the _non-collapsing_ half of the aggregate
   family, and the reason `query⋈query` was ever needed (compare a row to its group).
   Body: `{name, agg, col?, by[]}`.
-  + **`by`** — the group columns (≥1, each an effective column **at this step**; unknown →
-    `unknown_column`, repeats → `duplicate_group_column`). `by: []` (the whole table, i.e.
-    "% of total") is **deliberately not allowed** — same mechanism, program item 2. The
+  - **`by`** — the group columns (≥1, each an effective column **at this step**; unknown →
+    `unknown_column`, repeats → `duplicate_group_column`). `by: []` (the whole table) is
+    **deliberately not allowed here** — the whole-table reading is `window_column`'s
+    `pct_of_total` (below), where the surface _names_ the empty case. The
     planner re-checks it on every plan (→ `group_by_required`), not only at the model edge:
     a saved definition's column names are INLINED into the window SQL, so an empty `by`
     inserted behind the API must never silently become a whole-table window.
-  + **`agg` / `col`** — the **same vocabulary and dtype rules as a collapsing measure**,
+  - **`agg` / `col`** — the **same vocabulary and dtype rules as a collapsing measure**,
     validated by the same `_validate_measure`: `sum`/`avg` need numeric, `min`/`max` need
     numeric or date/datetime, `count_distinct` any, `count` omits `col` (→ the group's row
     count).
-  + **`name`** — required, the `derive` naming vocabulary; collision → 422 `column_exists`.
-  + **Output dtype** — mirrors the collapsing measure rules exactly: `avg` → `float`;
+  - **`name`** — required, the `derive` naming vocabulary; collision → 422 `column_exists`.
+  - **Output dtype** — mirrors the collapsing measure rules exactly: `avg` → `float`;
     `count`/`count_distinct` → `integer`; `sum`/`min`/`max` keep the col's dtype. `sum`/`avg`
     coalesce an all-NULL group to `0` (parity with `aggregate`); `min`/`max` stay honest NULL.
-  + **Column space** folds like `derive`/`date_bucket` (base ++ the new column); the source
+  - **Column space** folds like `derive`/`date_bucket` (base ++ the new column); the source
     column stays available to later steps.
-  + Compiles to `SELECT *, <expr> OVER (PARTITION BY <by…>) AS name FROM (prev)` — **the same
+  - Compiles to `SELECT *, <expr> OVER (PARTITION BY <by…>) AS name FROM (prev)` — **the same
     shape as `derive`**, in the same fold, through the same planner. There is **no `ORDER BY`
     inside the window**, so the frame is the whole partition and the result is
     order-independent. Running total / rank / vs-prior-period all need an in-window `ORDER BY`
-    and a frame; that is why they are program item 2, not a widening of this step.
-  + **Position carries the meaning** (the ordered-operations rule). Placed **before** a
-    collapsing `aggregate`, it averages the *underlying rows* (pooled); placed **after**, it
-    averages the *already-grouped values*. Both are correct answers to different questions —
+    and a frame; that is why they are a **separate step family** (`window_column`, below), not a
+    widening of this step.
+
+- **`window_column`** — R164/R165 the **ordered-window family** _(specced R164, engine shipped
+  R165-08-11)_: the same
+  append-a-column shape as `group_column`, plus the thing `group_column` withholds — an **in-window
+  `ORDER BY` and a frame**. One kind, an **`op`** discriminator, four operations. Row count
+  unchanged; column space folds like `derive` (base ++ the new column).
+  Body: `{op, name, col?, by[], orderBy?[], unit?}`.
+  - **`op`** ∈ **`pct_of_total · running_total · rank · prior_period`**. Each op fixes which of
+    the remaining fields are required and which are **rejected** (a supplied-but-meaningless field
+    is a 422, never silently ignored):
+
+    | `op`            | `col`                 | `orderBy`                                           | `unit`   | compiles to                                                                                                                                                               |
+    | --------------- | --------------------- | --------------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+    | `pct_of_total`  | required, **numeric** | rejected                                            | rejected | `col / NULLIF(SUM(col) OVER (PARTITION BY …), 0)` → **`float`**, a ratio in 0..1                                                                                          |
+    | `running_total` | required, **numeric** | ≥1 key, any dtype                                   | rejected | `SUM(col) OVER (… ORDER BY k… ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)` → the col's dtype                                                                        |
+    | `rank`          | rejected              | ≥1 key, any dtype                                   | rejected | `RANK() OVER (… ORDER BY k…)` → **`integer`**                                                                                                                             |
+    | `prior_period`  | required, any dtype   | **exactly 1** key, **`date`/`datetime`**, ascending | required | `FIRST_VALUE(col) OVER (… ORDER BY d RANGE BETWEEN INTERVAL 1 <unit> PRECEDING AND INTERVAL 1 <unit> PRECEDING)` → the col's dtype, **NULL when that period has no rows** |
+
+  - **`by`** — the partition, **may be EMPTY** here (unlike `group_column`), because the builder
+    renders the empty case as an explicit **"Across everything"** state rather than a blank
+    control. `group_column`'s `group_by_required` guard exists so a whole-table window can never
+    arise _silently_; that reason is about silence, not emptiness, and it is unchanged. Each entry
+    must be an effective column at this step (`unknown_column`); repeats → `duplicate_group_column`.
+  - **`orderBy`** — the `sort` step's `keys` shape verbatim (`{col, descending}`), so ordering has
+    one vocabulary in this domain. `prior_period` rejects `descending: true`
+    (`prior_period_order_desc`) — unreachable from the surface, kept as the wire-level backstop.
+  - **`unit`** — reuses `date_bucket`'s granularity enum **verbatim** (`day · week · month ·
+quarter · year`; unknown → `unknown_granularity`). One period vocabulary, two steps.
+  - **`name`** — required, the `derive` naming vocabulary; collision → 422 `column_exists`.
+    Defaults are **op-derived** (`<col>_share`, `<col>_running`, `rank`, `prev_<col>`) rather than
+    generic, so a blank card starts with a name that already describes what it holds.
+  - **`prior_period` walks the CALENDAR, not the rows — deliberately.** A positional `LAG` reads
+    the previous _row_, so on a Jan / Feb / **Apr** axis April silently reports February's value.
+    The `RANGE … INTERVAL` frame reads the previous _period_, so a missing March makes April
+    **NULL**. Verified on the pinned DuckDB 1.1.3 (both readings run) before the D gate closed.
+  - **`prior_period` emits the previous period's VALUE**, not a delta or a % change — the
+    comparison is one `derive` away, and `derive` is already the formula-free binary op. A tile
+    comparing to last month is therefore **two steps**, which counts against `_MAX_STEPS`.
+  - **`rank` is `RANK` only** — ties share a rank, the next rank skips. `ROW_NUMBER` is refused on
+    correctness grounds (it invents an order between equal rows, so a tie can reshuffle between
+    runs); `DENSE_RANK` is unscheduled. Named trigger: a real need for gapless numbering.
+  - **Position carries the meaning**, exactly as for `group_column` — and, per
+    [query-construction.md](query-construction.md), the builder's **grain line** now also names the
+    **row-narrowing steps** (`filter`, `top_n`) that precede the card, because a filter above a
+    within-group column silently collapses its denominator.
+  - **Position carries the meaning** (the ordered-operations rule). Placed **before** a
+    collapsing `aggregate`, it averages the _underlying rows_ (pooled); placed **after**, it
+    averages the _already-grouped values_. Both are correct answers to different questions —
     the surface makes which-one-you-get legible rather than asking for a `basis` parameter
     ([query-construction.md § The within-group column](query-construction.md#the-within-group-column-r162)).
 
@@ -498,8 +546,8 @@ base while the steps editor + table use the result (see [query-construction.md](
 
 **Consumers.** A dashboard widget bound to a **pre-shaped** query (one with steps) renders
 its rows **directly** (no re-aggregation, R127). The stateless `POST /queries/{id}/aggregate`
-(R119) is the *ad-hoc* widget-driven aggregate over a raw query — the same DuckDB GROUP BY,
-not saved; steps are the *saved* equivalent.
+(R119) is the _ad-hoc_ widget-driven aggregate over a raw query — the same DuckDB GROUP BY,
+not saved; steps are the _saved_ equivalent.
 
 **The wall (deferred).** Steps cover every **static-schema, single-table, SQL** transform.
 A **pivot/crosstab** (data-dependent output columns), **multi-output**, or **non-SQL**
@@ -516,25 +564,25 @@ set **`10 / 25 / 50 / 100`**. Error `code` strings actually emitted as top-level
 envelopes: `not_found`, `name_taken`, `query_stale`, `relationship_stale`,
 `composition_cycle`.
 
-| Method | Path | Request body | Success | Error statuses + `code` |
-| --- | --- | --- | --- | --- |
-| `POST` | `/workspaces/{id}/queries` | `{ name, sourceId, definition }` | `201` → `Query` | `409 name_taken`; `409 composition_cycle`; `422` (unknown/cross-ws source, bad atom, or join reason in `detail[].msg`) |
-| `GET` | `/workspaces/{id}/queries` | — | `200` → `Query[]`, `ORDER BY created_at DESC, id DESC` | (none — per-row resolve failure simply omits `resolvedColumns`) |
-| `GET` | `/queries/{id}` | — | `200` → `Query` | `404 not_found` |
-| `GET` | `/queries/{id}/rows?page=&page_size=` | — | `200` → `RowsPage {rows, page, pageSize, total}`; a query with `steps` returns its **shaped** rows | `404 not_found`; `409 query_stale`; `409 relationship_stale`; `409 composition_cycle`; `422` (bad `page_size`) |
-| `POST` | `/workspaces/{id}/queries/preview?page=&page_size=` | `{ sourceId, definition }` | `200` → `RowsPage` **+ `resolvedColumns`** when multi-source; a stepped preview also returns **`baseColumns`** (pre-step) | `409 query_stale`; `409 relationship_stale`; `409 composition_cycle`; `422` (structurally-bad source/edge, bad `page_size`) |
-| `POST` | `/queries/{id}/aggregate` | `{ dimensions, measures, filters }` | `200` → `{ columns, rows, total }` (server GROUP BY; R119) | `404 not_found`; `409 query_stale`; `409 relationship_stale`; `409 composition_cycle`; `422` (bad aggregate spec) |
-| `PUT` | `/queries/{id}` | `{ definition }` only | `200` → updated `Query` | `404 not_found`; `409 composition_cycle`; `422` (bad atom / join reason). **No `name_taken`** (definition-only). |
-| `DELETE` | `/queries/{id}` | — | `204` (no body) | `404 not_found` |
+| Method   | Path                                                | Request body                        | Success                                                                                                                   | Error statuses + `code`                                                                                                     |
+| -------- | --------------------------------------------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `POST`   | `/workspaces/{id}/queries`                          | `{ name, sourceId, definition }`    | `201` → `Query`                                                                                                           | `409 name_taken`; `409 composition_cycle`; `422` (unknown/cross-ws source, bad atom, or join reason in `detail[].msg`)      |
+| `GET`    | `/workspaces/{id}/queries`                          | —                                   | `200` → `Query[]`, `ORDER BY created_at DESC, id DESC`                                                                    | (none — per-row resolve failure simply omits `resolvedColumns`)                                                             |
+| `GET`    | `/queries/{id}`                                     | —                                   | `200` → `Query`                                                                                                           | `404 not_found`                                                                                                             |
+| `GET`    | `/queries/{id}/rows?page=&page_size=`               | —                                   | `200` → `RowsPage {rows, page, pageSize, total}`; a query with `steps` returns its **shaped** rows                        | `404 not_found`; `409 query_stale`; `409 relationship_stale`; `409 composition_cycle`; `422` (bad `page_size`)              |
+| `POST`   | `/workspaces/{id}/queries/preview?page=&page_size=` | `{ sourceId, definition }`          | `200` → `RowsPage` **+ `resolvedColumns`** when multi-source; a stepped preview also returns **`baseColumns`** (pre-step) | `409 query_stale`; `409 relationship_stale`; `409 composition_cycle`; `422` (structurally-bad source/edge, bad `page_size`) |
+| `POST`   | `/queries/{id}/aggregate`                           | `{ dimensions, measures, filters }` | `200` → `{ columns, rows, total }` (server GROUP BY; R119)                                                                | `404 not_found`; `409 query_stale`; `409 relationship_stale`; `409 composition_cycle`; `422` (bad aggregate spec)           |
+| `PUT`    | `/queries/{id}`                                     | `{ definition }` only               | `200` → updated `Query`                                                                                                   | `404 not_found`; `409 composition_cycle`; `422` (bad atom / join reason). **No `name_taken`** (definition-only).            |
+| `DELETE` | `/queries/{id}`                                     | —                                   | `204` (no body)                                                                                                           | `404 not_found`                                                                                                             |
 
-+ **`preview` vs `rows-get`.** `GET /queries/{id}/rows` re-runs a **persisted**
+- **`preview` vs `rows-get`.** `GET /queries/{id}/rows` re-runs a **persisted**
   definition and returns a bare `RowsPage` (never `resolvedColumns`). `POST …/preview`
   runs an **unsaved** body and adds `resolvedColumns` only on the multi-source branch
   (single-source preview omits it). Both share `_execute_chain` / `query_dataset_rows`.
-+ **Create vs update.** Create takes `name` + `sourceId` + `definition` and validates
+- **Create vs update.** Create takes `name` + `sourceId` + `definition` and validates
   the source (exists, in-workspace, not a cycle) and every atom/edge at save time
   (`422` otherwise). Update is **definition-only** — name + source are unchanged, so no
-  `name_taken`. Run drift (a source schema that changed *after* save) surfaces as
+  `name_taken`. Run drift (a source schema that changed _after_ save) surfaces as
   `409 query_stale` / `409 relationship_stale` / `409 composition_cycle`.
 
 ---
@@ -544,10 +592,10 @@ envelopes: `not_found`, `name_taken`, `query_stale`, `relationship_stale`,
 A **Queries** sub-item under the "Data Management" nav group, peer to Workspaces and
 Datasets. Routes:
 
-+ `/data-management/queries` → `QueriesPage` (catalog).
-+ `/data-management/queries/:id` → `QueryDetailPage` (read-only summary + run + inline
+- `/data-management/queries` → `QueriesPage` (catalog).
+- `/data-management/queries/:id` → `QueryDetailPage` (read-only summary + run + inline
   Edit); `:id` matches `^qr_[0-9a-f]{8}$`.
-+ `/data-management/queries/new?base=qr_…` → create mode of the builder, reached **only**
+- `/data-management/queries/new?base=qr_…` → create mode of the builder, reached **only**
   via the "Build on this query" verb (no nav item) — [query-construction.md](query-construction.md).
 
 ### Build on this query (R77): the create entry
@@ -645,15 +693,15 @@ stateDiagram-v2
     Cycle --> Redirect: open base / delete query
 ```
 
-+ **Run / preview** are idempotent re-executions of the definition; pagination is the
+- **Run / preview** are idempotent re-executions of the definition; pagination is the
   only run param. Preview runs an unsaved body (the builder's live preview).
-+ **Caching (TanStack query keys, `hooks.ts`)**: `['queries', {workspaceId}]` (list) ·
+- **Caching (TanStack query keys, `hooks.ts`)**: `['queries', {workspaceId}]` (list) ·
   `['query', id]` (single) · `['query-rows', id, {page,pageSize}]` (run) ·
   `['query-preview', workspaceId, sourceId, defKey, {page,pageSize}]` (preview,
   `retry:false`). Create invalidates `['queries']`; update invalidates `['queries']` +
   `['query', id]` + `['query-rows', id]`; delete invalidates `['queries']` and removes
   `['query', id]` / `['query-rows', id]`.
-+ **Delete** reuses `<DeleteConfirmModal>` ([crud-hygiene.md](../_shared/crud-hygiene.md),
+- **Delete** reuses `<DeleteConfirmModal>` ([crud-hygiene.md](../_shared/crud-hygiene.md),
   `resourceLabel="query"`). Deleting the source dataset cascades its queries away (the
   app-layer cascade, since the `dataset_id` FK was dropped). A delete from another tab
   surfaces `404` on the next fetch → NotFound.
@@ -683,7 +731,7 @@ stateDiagram-v2
    join keeps unmatched rows (NULL → empty cell).
 6. **Composed source** — a `qr_`-driven Query runs the base through the recursive
    `resolve_source` + `query_joined_rows`; a self/transitive cycle → `409
-   composition_cycle` at save and run; back-compat: every `ds_`-driven Query is unchanged.
+composition_cycle` at save and run; back-compat: every `ds_`-driven Query is unchanged.
 7. **Stale is flagged, not crashed** — a drifted join column → `409 relationship_stale`;
    a drifted predicate atom → `409 query_stale`; a looping base → `409 composition_cycle`
    — each renders a guided state ([purpose.md](../../../context/purpose.md) #5).
@@ -693,9 +741,17 @@ stateDiagram-v2
    **after** a collapsing `aggregate` yields the pooled vs the average-of-groups reading, and
    both are reachable. A bad `by`/`col`/`name` → `422` at save with the same detail vocabulary
    as the sibling steps; drift at run → `409 query_stale`.
-9. **Reuse, not duplication** — the catalog + detail **compose** the shared `@mdd/ui`
-   shells + `<PagedRowsView>`; the engine reuses the predicate fragment builders; no
-   copy-pasted dataset page, no re-implemented operator vocabulary.
+9. **Ordered-window family (R164)** — a `window_column` step appends exactly one column and
+   **changes no row count**. `pct_of_total` sums to **1.0** across each partition (and across the
+   table when `by` is empty); `running_total`'s last row per partition equals the collapsing
+   `sum` of the same column over the same `by`; `rank` gives tied rows the **same** rank and skips
+   the next; `prior_period` on a **gapped** axis (Jan, Feb, **Apr**) returns **NULL** for April,
+   not February's value. A field supplied for an op that rejects it → `422` at save with the
+   sibling steps' detail vocabulary; drift at run → `409 query_stale`. The widened `Step` union is
+   exercised end-to-end through **Workflow** as well as Query.
+10. **Reuse, not duplication** — the catalog + detail **compose** the shared `@mdd/ui`
+    shells + `<PagedRowsView>`; the engine reuses the predicate fragment builders; no
+    copy-pasted dataset page, no re-implemented operator vocabulary.
 
 ---
 
@@ -729,57 +785,57 @@ Each step is **pulled, not pre-built** (the Evolution Rule + the
 
 ### IN scope
 
-+ The Query model (`sourceId` polymorphic `ds_|qr_`,
+- The Query model (`sourceId` polymorphic `ds_|qr_`,
   `definition{q,filters,advanced,relationships,joins}` with query-owned rels),
   the `queries` table, and the `qr_` identity + Queries catalog.
-+ The 7 routes (create / list / get / run / preview / update / delete) with the error
+- The 7 routes (create / list / get / run / preview / update / delete) with the error
   codes above; run/preview are **live re-runs**.
-+ The execution engine: single-source `query_dataset_rows`; the multi-source join-tree
+- The execution engine: single-source `query_dataset_rows`; the multi-source join-tree
   fold `query_joined_rows` (inner/left/right/full per hop); the recursive composed-source
   resolver `resolve_source` + the `composition_cycle` guard.
-+ The catalog, the read-only detail summary + run, and delete; nav + routes + i18n.
+- The catalog, the read-only detail summary + run, and delete; nav + routes + i18n.
 
 ### OUT of scope (deferred with named triggers)
 
-+ **The governed ER stays dataset↔dataset.** `rel_` endpoints are `ds_`-only, so R91's
+- **The governed ER stays dataset↔dataset.** `rel_` endpoints are `ds_`-only, so R91's
   `qr_`-on-the-right hop is always a **free-form** query-owned edge (no
   `originRelationshipId`). Both `qr_` operand forms (driving base + right-of-hop) are
   **concept-divergent** (noun-model D5) and retire at
   [program item 3](../../../plan/programs/query-shaping-surface.plan.md).
-+ **Free-form define + promote + the divergence-warn UX** are a **canvas** concern, built in
+- **Free-form define + promote + the divergence-warn UX** are a **canvas** concern, built in
   [canvas.md](canvas.md); this model doc owns only the shape that supports them (the nullable
   `originRelationshipId` + the origin-agnostic resolver).
-+ **Composite / multi-column join keys; self-joins / diamonds; cross-workspace joins;
+- **Composite / multi-column join keys; self-joins / diamonds; cross-workspace joins;
   null-aware predicate operators** → future; the engine joins single-column,
   within-workspace, tree (no diamond) hops.
-+ **Result materialization / pinned snapshots; a depth/cost cap on composition** → when
+- **Result materialization / pinned snapshots; a depth/cost cap on composition** → when
   live re-run is too slow at real scale.
-+ **A materialized `Workflow` noun** (R124's wall) → for transforms the live-query `steps`
+- **A materialized `Workflow` noun** (R124's wall) → for transforms the live-query `steps`
   model can't carry: **pivot/crosstab** (data-dependent output columns), **multi-output**, or
   **non-SQL** compute (stats/fuzzy → Polars). Trigger: a concrete pivot/multi-output pull.
-+ **Excel export of a Query result; dashboards** → downstream value-out.
-+ **An ORM data-access port** (handlers use raw `sqlite3`; the schema-of-record is
+- **Excel export of a Query result; dashboards** → downstream value-out.
+- **An ORM data-access port** (handlers use raw `sqlite3`; the schema-of-record is
   SQLModel + Alembic) → pulled only when schema churn needs it.
 
 ### This concept explicitly does NOT cover
 
-+ The interactive builder UX (edit/preview/save lifecycle, the `JoinEditor`, create
+- The interactive builder UX (edit/preview/save lifecycle, the `JoinEditor`, create
   mode) — [query-construction.md](query-construction.md).
-+ The dataset detail page's own states / contract — [dataset-detail.md](../datasets/dataset-detail.md);
+- The dataset detail page's own states / contract — [dataset-detail.md](../datasets/dataset-detail.md);
   this archetype only adds the `[Save filters as Query]` action there.
-+ The `<PagedRowsView>` component boundary — [dataset-detail.md](../datasets/dataset-detail.md).
-+ The governed-edge model (declare / validate / list / stale) —
+- The `<PagedRowsView>` component boundary — [dataset-detail.md](../datasets/dataset-detail.md).
+- The governed-edge model (declare / validate / list / stale) —
   [relationships.md](../workspaces/relationships.md); a join **consumes** one edge per hop.
-+ The predicate vocabulary internals — [dataset-filters.md](../datasets/dataset-filters.md)
-  + [advanced-query.md](../datasets/advanced-query.md).
+- The predicate vocabulary internals — [dataset-filters.md](../datasets/dataset-filters.md)
+  - [advanced-query.md](../datasets/advanced-query.md).
 
 ---
 
 ## Reference materials (read-only)
 
-+ [dataset-detail.md](../datasets/dataset-detail.md) — the `<PagedRowsView>` host + the
+- [dataset-detail.md](../datasets/dataset-detail.md) — the `<PagedRowsView>` host + the
   surface a Query is saved from.
-+ [relationships.md](../workspaces/relationships.md) — the governed edge copy-on-pick
+- [relationships.md](../workspaces/relationships.md) — the governed edge copy-on-pick
   copies from; the `relationship_stale` gate.
-+ [specious-model-lock-in](../../../memory/2026-06-13-specious-model-lock-in.md) — the
+- [specious-model-lock-in](../../../memory/2026-06-13-specious-model-lock-in.md) — the
   noun-vs-mode / reuse-not-duplicate discipline this archetype enforces.

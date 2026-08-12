@@ -214,11 +214,15 @@ export function useQueryBuilder({ query, createBase, datasetColumns, active, onD
   const err = previewQuery.error;
   const relStale = err instanceof ApiErrorThrown && err.body.code === 'relationship_stale';
   const predStale = err instanceof ApiErrorThrown && err.body.code === 'query_stale';
+  // R165 W-8 — a step the engine refuses is its OWN failure, not a filter's. The two
+  // shared `query_stale` and the panel had one sentence for both, so a reordered card
+  // was announced as "1 filter references a column…" on a query with zero filters.
+  const stepInvalid = err instanceof ApiErrorThrown && err.body.code === 'step_invalid';
   // R77 — the preset base (transitively) loops back: the composed preview is
   // blocked (the create page surfaces a guided base-unavailable state).
   const compositionCycle = err instanceof ApiErrorThrown && err.body.code === 'composition_cycle';
   const invalidCount = invalidAtomCount(draft, columns);
-  const previewOk = Boolean(preview) && !relStale && !predStale && !previewQuery.isError;
+  const previewOk = Boolean(preview) && !relStale && !predStale && !stepInvalid && !previewQuery.isError;
   // Save only once the preview reflects the CURRENT draft — you save what you previewed.
   // Edit needs a dirty change; create needs only a runnable preview (a base + zero
   // edits is a valid, if trivial, composed Query — there's no saved baseline).
@@ -450,6 +454,7 @@ export function useQueryBuilder({ query, createBase, datasetColumns, active, onD
     relStale,
     compositionCycle,
     predStale,
+    stepInvalid,
     invalidCount,
     dirty,
     canSave,

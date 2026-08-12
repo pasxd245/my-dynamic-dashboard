@@ -506,14 +506,71 @@ class GroupColumnStep(BaseModel):
     by: Annotated[list[Annotated[str, Field(min_length=1)]], Field(min_length=1)]
 
 
-# R121/R122/R123/R141/R144/R163 — a transform step is a `kind`-discriminated union
+class WindowOrderKey(BaseModel):
+    """R164 — one in-window ordering key. Deliberately the SAME shape as
+    `SortStep`'s key so ordering has one vocabulary in this domain."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    col: Annotated[str, Field(min_length=1)]
+    descending: bool = False
+
+
+class WindowColumnStep(BaseModel):
+    """R164 — the ORDERED-WINDOW column: the same APPEND-a-column shape as
+    `GroupColumnStep`, plus what that step withholds — an in-window ORDER BY and
+    a frame. Row count unchanged. ONE kind, four business operations via `op`;
+    the user never meets this kind name (the `[Add step ▾]` menu offers the four
+    OPERATIONS as separate entries).
+
+    Each `op` fixes which optional fields are required and which are REJECTED —
+    enforced in `_plan_window_column`, not here, because a SAVED definition is
+    re-planned on every run and its names are inlined into the window SQL::
+
+        op             col                orderBy                   unit
+        pct_of_total   required numeric   rejected                  rejected
+        running_total  required numeric   >=1 key, any dtype        rejected
+        rank           rejected           >=1 key, any dtype        rejected
+        prior_period   required any       exactly 1, temporal, asc  required
+
+    `by` MAY be empty (unlike `group_column`): the builder renders the empty case
+    as an explicit "Across everything" state, and `group_by_required` guards
+    against a SILENT whole-table window, not against emptiness.
+
+    `prior_period` walks the CALENDAR (a `RANGE … INTERVAL` frame), not the rows,
+    so a missing period reads NULL instead of reporting the wrong period's value.
+    Its value is well-defined only when `(by, orderBy)` identifies ONE row per
+    period — which is what an upstream `aggregate` produces; with several rows
+    sharing a period the frame returns the FIRST of them, in order. Mirrors
+    `_shared/query.yaml#/WindowColumnStep`."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["window_column"]
+    op: Literal["pct_of_total", "running_total", "rank", "prior_period"]
+    name: Annotated[str, Field(min_length=1)]
+    col: Annotated[str, Field(min_length=1)] | None = None
+    by: list[Annotated[str, Field(min_length=1)]]
+    orderBy: Annotated[list[WindowOrderKey], Field(min_length=1)] | None = None  # noqa: N815
+    unit: Literal["day", "week", "month", "quarter", "year"] | None = None
+
+
+# R121/R122/R123/R141/R144/R163/R164 — a transform step is a `kind`-discriminated union
 # (so a bad `kind` is a clean 422, and each kind keeps its own required fields).
 # SHARED by `QueryDefinition.steps` and `WorkflowDefinition.steps` — both fold the
 # same `_apply_step`, so a new kind widens BOTH. Adding one here therefore requires
 # the matching widening in `_shared/workflow.yaml` (whose `oneOf` is duplicated,
 # not `$ref`-shared), or Python would accept what the contract forbids.
 Step = Annotated[
-    AggregateStep | TopNStep | DeriveStep | FilterStep | SortStep | SelectStep | DateBucketStep | GroupColumnStep,
+    AggregateStep
+    | TopNStep
+    | DeriveStep
+    | FilterStep
+    | SortStep
+    | SelectStep
+    | DateBucketStep
+    | GroupColumnStep
+    | WindowColumnStep,
     Field(discriminator="kind"),
 ]
 
@@ -613,6 +670,23 @@ class ApiErrorQueryStale(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     code: Literal["query_stale"] = ERROR_CODES["query_stale"]  # type: ignore[assignment]
+
+
+class ApiErrorStepInvalid(BaseModel):
+    """R165 (walk T5 / W-8) — a TRANSFORM STEP cannot run on the columns available
+    at its position (reordered above the step that produces a column it names, or a
+    source column it names drifted).
+
+    Split out of ``query_stale``, which is about a PREDICATE. The two shared one code
+    and the builder rendered them through one sentence, so an invalid step announced
+    itself as "1 filter references a column that isn't in these results" on a query
+    with **no filters at all** — while the step card six lines above said the true
+    thing. One code for two causes forces every consumer to guess, and this one
+    guessed wrong with full confidence."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    code: Literal["step_invalid"] = ERROR_CODES["step_invalid"]  # type: ignore[assignment]
 
 
 # ─── R119: server-side aggregate (GROUP BY) ──────────────────────────

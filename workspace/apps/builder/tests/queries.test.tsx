@@ -131,6 +131,17 @@ describe('QueryDetailPage (query mode)', () => {
     expect(document.querySelector('[data-component="QueryDetailStale"]')).not.toBeNull();
   });
 
+  it('R165 W-8: an unrunnable STEP gets the step reason, not the re-save-the-dataset one', async () => {
+    // Before R165 this returned `query_stale` and the page told the user to re-save
+    // from the source dataset — where there is nothing to fix. The steps are the
+    // problem, so the panel says so.
+    server.use(http.get('*/queries/:id/rows', () => HttpResponse.json({ code: 'step_invalid' }, { status: 409 })));
+    renderApp(`/data-management/queries/${QR_ID}`);
+    expect(await screen.findByText('This query needs attention')).toBeInTheDocument();
+    expect(screen.getByText(/transform steps can.t run on the columns/)).toBeInTheDocument();
+    expect(screen.queryByText(/Re-save it from the dataset/)).not.toBeInTheDocument();
+  });
+
   it('R144: a single-source STEPPED query renders the POST-step columns (resolvedColumns)', async () => {
     // A query with steps returns SHAPED rows; the detail table must take its
     // headers from `resolvedColumns` (post-step), not the source dataset's
@@ -334,6 +345,25 @@ describe('Query construction (R72 — editable builder)', () => {
     expect(document.querySelector('[data-component="QueryBuilderPredInvalid"]')).not.toBeNull();
     const saveBtn = document.querySelector('[data-component="QueryBuilderSave"]') as HTMLButtonElement;
     expect(saveBtn).toBeDisabled();
+  });
+
+  it('R165 W-8: a refused STEP blocks Save with the STEP sentence and never claims a filter', async () => {
+    // T5's state: the step card already names the column and both ways out, so the
+    // panel points at it. What it must NOT do is what it used to — announce
+    // "1 filter references a column…" on a query whose filter count is zero.
+    server.use(
+      http.post('*/workspaces/:id/queries/preview', () =>
+        HttpResponse.json({ code: 'step_invalid' }, { status: 409 }),
+      ),
+    );
+    renderApp(`/data-management/queries/${QR_ID}`);
+    await waitFor(() => expect(screen.getAllByText(MOCK_QUERY.name).length).toBeGreaterThan(0));
+    clickEdit();
+    expect(await screen.findByText(/A step can.t run on the columns available where it sits/)).toBeInTheDocument();
+    expect(document.querySelector('[data-component="QueryBuilderStepInvalid"]')).not.toBeNull();
+    expect(document.querySelector('[data-component="QueryBuilderPredInvalid"]')).toBeNull();
+    const stepSave = document.querySelector('[data-component="QueryBuilderSave"]') as HTMLButtonElement;
+    expect(stepSave).toBeDisabled();
   });
 });
 

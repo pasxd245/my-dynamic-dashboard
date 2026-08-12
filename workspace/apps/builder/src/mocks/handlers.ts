@@ -24,6 +24,7 @@ import type {
   Step,
   UpdateQueryRequest,
 } from '@/features/data-management/queries/types';
+import { threadColumns } from '@/features/data-management/queries/steps';
 import type { CreateRelationshipRequest } from '@/features/data-management/relationships/types';
 import type { CreateWorkflowRequest } from '@/features/data-management/workflows/types';
 import type { CreateDashboardRequest, UpdateDashboardRequest } from '@/features/dashboard/wire';
@@ -517,11 +518,97 @@ function groupColumnStepMock(step: Extract<Step, { kind: 'group_column' }>, tabl
   };
 }
 
+/** R164 — the ORDERED-WINDOW family, mocked so F1 has real-ish numbers to feel.
+ *  Approximate (JS vs DuckDB) exactly as the `group_column` mock is: the engine
+ *  ships at R165 and is the correctness gate; this exists so the authoring surface
+ *  renders something honest rather than a placeholder.
+ *
+ *  `prior_period` mirrors the D-gate decision that matters most: it looks up the
+ *  PREVIOUS PERIOD BY VALUE, not the previous row, so a gap in the axis yields
+ *  null instead of the wrong period's number — the whole reason the engine will
+ *  use a `RANGE … INTERVAL` frame rather than `LAG`. */
+function windowColumnStepMock(step: Extract<Step, { kind: 'window_column' }>, table: MockTable): MockTable {
+  const byIdx = step.by.map((b) => _aggColIdx(table.columns, b));
+  const ci = step.col ? _aggColIdx(table.columns, step.col) : -1;
+  const oi = step.orderBy?.[0] ? _aggColIdx(table.columns, step.orderBy[0].col) : -1;
+  const key = (row: (string | null)[]) => JSON.stringify(byIdx.map((i) => row[i] ?? null));
+  const num = (row: (string | null)[]) => Number(row[ci] ?? NaN);
+
+  const groups = new Map<string, (string | null)[][]>();
+  for (const row of table.rows) {
+    const bucket = groups.get(key(row));
+    if (bucket) bucket.push(row);
+    else groups.set(key(row), [row]);
+  }
+
+  const out = new Map<(string | null)[], string | null>();
+  for (const members of groups.values()) {
+    const ordered =
+      oi >= 0 ? [...members].sort((a, b) => String(a[oi] ?? '').localeCompare(String(b[oi] ?? ''))) : members;
+    if (step.op === 'pct_of_total') {
+      const total = members.reduce((acc, r) => acc + (Number.isFinite(num(r)) ? num(r) : 0), 0);
+      for (const r of members) out.set(r, total === 0 ? null : String(num(r) / total));
+    } else if (step.op === 'running_total') {
+      let acc = 0;
+      for (const r of ordered) {
+        acc += Number.isFinite(num(r)) ? num(r) : 0;
+        out.set(r, String(acc));
+      }
+    } else if (step.op === 'rank') {
+      // RANK: ties SHARE a rank and the next rank SKIPS — never ROW_NUMBER,
+      // which would invent an order between equal rows (R164 D-7).
+      const desc = step.orderBy?.[0]?.descending ?? false;
+      const ranked = desc ? [...ordered].reverse() : ordered;
+      let rank = 0;
+      let seen = 0;
+      let prev: string | null | undefined;
+      for (const r of ranked) {
+        seen += 1;
+        const v = oi >= 0 ? (r[oi] ?? null) : null;
+        if (v !== prev) rank = seen;
+        prev = v;
+        out.set(r, String(rank));
+      }
+    } else {
+      // prior_period — by VALUE on the period axis, not by position. A missing
+      // period reads null; it never silently reports an earlier period's value.
+      const at = new Map(ordered.map((r) => [String(r[oi] ?? ''), r]));
+      for (const r of ordered) {
+        const prevKey = _priorPeriodKey(String(r[oi] ?? ''), step.unit ?? 'month');
+        const src = prevKey === null ? undefined : at.get(prevKey);
+        out.set(r, src ? (src[ci] ?? null) : null);
+      }
+    }
+  }
+  return {
+    columns: [...table.columns, { name: step.name, dtype: windowColumnMockDtype(step, table) }],
+    rows: table.rows.map((row) => [...row, out.get(row) ?? null]),
+  };
+}
+
+/** R164 — the previous period's KEY for an ISO date string, or null if the value
+ *  isn't a date the mock can step back. Calendar arithmetic, not row arithmetic. */
+function _priorPeriodKey(value: string, unit: 'day' | 'week' | 'month' | 'quarter' | 'year'): string | null {
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return null;
+  const step = { day: 1, week: 7, month: 0, quarter: 0, year: 0 }[unit];
+  if (step > 0) d.setUTCDate(d.getUTCDate() - step);
+  else if (unit === 'month') d.setUTCMonth(d.getUTCMonth() - 1);
+  else if (unit === 'quarter') d.setUTCMonth(d.getUTCMonth() - 3);
+  else d.setUTCFullYear(d.getUTCFullYear() - 1);
+  return `${d.toISOString().slice(0, 10)}${value.slice(10)}`;
+}
+
+/** R164 — mirrors the FE `steps.ts` twin: a share is a ratio (float), a rank is
+ *  an ordinal (integer), and the other two carry the source column's dtype. */
+function windowColumnMockDtype(step: Extract<Step, { kind: 'window_column' }>, table: MockTable): Column['dtype'] {
+  if (step.op === 'pct_of_total') return 'float';
+  if (step.op === 'rank') return 'integer';
+  return table.columns.find((c) => c.name === step.col)?.dtype ?? 'float';
+}
+
 /** Mirrors the backend measure dtype rules (and the FE `steps.ts` twin). */
-function groupColumnMockDtype(
-  step: Extract<Step, { kind: 'group_column' }>,
-  table: MockTable,
-): Column['dtype'] {
+function groupColumnMockDtype(step: Extract<Step, { kind: 'group_column' }>, table: MockTable): Column['dtype'] {
   if (step.agg === 'count' || step.agg === 'count_distinct') return 'integer';
   if (step.agg === 'avg') return 'float';
   return table.columns.find((c) => c.name === step.col)?.dtype ?? 'float';
@@ -552,6 +639,8 @@ function applyStepsMock(
       table = dateBucketStepMock(step, table);
     } else if (step.kind === 'group_column') {
       table = groupColumnStepMock(step, table);
+    } else if (step.kind === 'window_column') {
+      table = windowColumnStepMock(step, table);
     } else {
       table = topNStepMock(step, table);
     }
@@ -562,6 +651,44 @@ function applyStepsMock(
 /** Build a preview JSON response, applying any `steps` (shaped result + post-step
  *  `resolvedColumns`). `alwaysResolved` carries the joined/composed contract
  *  (resolvedColumns even with no steps); a stepped query always reports them. */
+
+// R165 W-8 — the columns a step NAMES, so the mock can refuse a step that cannot
+// run at its position the way the engine does (409 `step_invalid`). Before R165 the
+// backend answered that with `query_stale` — the predicate code — and the builder
+// duly announced a filter problem on a query with no filters.
+function stepRefs(step: Step): string[] {
+  switch (step.kind) {
+    case 'aggregate':
+      return [...step.dimensions, ...step.measures.map((m) => m.col ?? '')];
+    case 'derive':
+      return [step.left, step.right.kind === 'col' ? step.right.col : ''];
+    case 'filter':
+      return step.predicates.map((pr) => pr.col);
+    case 'top_n':
+      return [step.col];
+    case 'sort':
+      return step.keys.map((k) => k.col);
+    case 'select':
+      return step.cols.map((c) => c.col);
+    case 'date_bucket':
+      return [step.col];
+    case 'group_column':
+      return [step.col ?? '', ...step.by];
+    case 'window_column':
+      return [step.col ?? '', ...step.by, ...(step.orderBy ?? []).map((k) => k.col)];
+  }
+}
+
+/** True when some step names a column that does not exist where it sits — the
+ *  reordered-card case R163 found and R165's walk re-met at T5. */
+function hasOrphanStep(columns: readonly Column[], steps: readonly Step[]): boolean {
+  const { entering } = threadColumns(columns, steps);
+  return steps.some((step, i) => {
+    const names = new Set((entering[i] ?? columns).map((c) => c.name));
+    return stepRefs(step).some((ref) => ref !== '' && !names.has(ref));
+  });
+}
+
 function previewJson(
   columns: readonly Column[],
   matched: (string | null)[][],
@@ -570,6 +697,9 @@ function previewJson(
   steps: readonly Step[] | undefined,
   alwaysResolved: boolean,
 ) {
+  if (steps?.length && hasOrphanStep(columns, steps)) {
+    return HttpResponse.json({ code: 'step_invalid' }, { status: 409 });
+  }
   const shaped = steps?.length ? applyStepsMock(columns, matched, steps) : { columns: [...columns], rows: matched };
   const offset = (page - 1) * pageSize;
   const body: Record<string, unknown> = {
@@ -734,10 +864,7 @@ export const handlers = [
     if (first?.target_dataset_id) {
       const updated = { ...MOCK_DATASET, id: first.target_dataset_id };
       if (first.refresh_mode === 'append') {
-        return HttpResponse.json(
-          { datasets: [updated], append: { appended: 100, total: 5147 } },
-          { status: 201 },
-        );
+        return HttpResponse.json({ datasets: [updated], append: { appended: 100, total: 5147 } }, { status: 201 });
       }
       if (first.merge_key && first.merge_key.length > 0) {
         return HttpResponse.json(
@@ -767,9 +894,7 @@ export const handlers = [
       field,
       overlaps,
       committedRange: { min: '2025-01-03', max: '2025-04-29' },
-      incomingRange: overlaps
-        ? { min: '2025-04-16', max: '2025-04-29' }
-        : { min: '2025-05-02', max: '2025-05-30' },
+      incomingRange: overlaps ? { min: '2025-04-16', max: '2025-04-29' } : { min: '2025-05-02', max: '2025-05-30' },
       ...(overlaps ? { overlappingRange: { min: '2025-04-16', max: '2025-04-29' } } : {}),
     });
   }),
