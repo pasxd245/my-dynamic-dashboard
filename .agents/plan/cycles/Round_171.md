@@ -342,3 +342,41 @@ A cluster of eight papercuts, walked by a human, is an unusually good test of it
 returns something none of its questions asked about, the promotion fires — destination already
 decided: `.agents/memory/`, **not** `skills/gate-walker/`, because a skill can check that a walk
 was _recorded_ but not that its _return_ was read.
+
+### Also feeds into → the walk artifact graduates (Track 2, queued for AFTER this round closes)
+
+**Decided with the human 2026-08-15, execution deliberately deferred.** Two findings, one cause.
+
+- **The count was an anchor.** R165–R168 and this round's first draft all wrote exactly **five**
+  questions; nothing prescribes five. It cost item 3 a walk question — recovered as T6. See
+  § Check.
+- **The artifact has no repo home.** Its entire spec lives in an agent-private memory file, while
+  **four round files (R166 · R167 · R168 · R171) cite `[[walk-record-always-spec-on-ask]]`, a slug
+  the repo cannot resolve.** No linter validates `[[…]]`, so `check:links` — which R170 just made
+  honest — is structurally blind to the class. That is
+  [[a-wrong-validator-hides-breaks-both-ways]] one layer out: R170 fixed the checker's slug bug;
+  wikilinks were never in its scope at all.
+
+The cause is the same for both: **with no repo definition and no lint, the artifact travels round
+to round by imitation**, which transmits its accidents as faithfully as its intent and is
+detectable only when a human happens to ask.
+
+**The agreed shape** — the memory file's own pre-authorized graduation, whose trigger has now
+fired (5 rounds of hand-use; and the human corrected the artifact's _method_ in R167 and its
+_count_ here, which is stronger evidence of "read" than the criterion asked for):
+
+| What                                                                                                                                                                         | Where                                                              |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| **The rule** — `## Check` carries questions + ⬜ + `coverage: N of M`; relocate from acceptance criteria + Risks; drop what a test can close; **count follows the surfaces** | `.agents/plan/PDCA.md` § Round Template (minimal, ~4 lines)        |
+| **The why + dogfood ledger** — R165–R171 evidence, the six-defects-none-about-their-question pattern, the skip semantics                                                     | repo `.agents/memory/` (also resolves the four dangling citations) |
+
+Logged in [`promotions.md`](../promotions.md) for human sign-off when it lands.
+
+**Why after, not now**: R171 is Track 1 and this is Track 2 — _"if a task blurs tracks, pause and
+split it"_ (AGENTS.md). And the walk is still unrun, so the evidence is incomplete: it may supply
+the **fourth instance** the section above is waiting for, which belongs in the very
+`.agents/memory/` file this graduation creates. The two converge — one artifact, written once the
+walk has said what it has to say.
+
+_Track: 2 (agent-method). Pulled by: R171's count anchor + four round files citing an unresolvable
+slug._
