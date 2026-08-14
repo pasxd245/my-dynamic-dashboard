@@ -64,7 +64,7 @@ chip row deferred.
 
 **Boundary check**: no advanced-query surface lives in `@mdd/ui`.
 Same discipline as the chip filters
-([dataset-filters.md § Surfaces](dataset-filters.md#surfaces-layer-reuse-purity-declaration)):
+([dataset-filters.md § Surfaces](dataset-filters.md#surfaces--layer--reuse--purity-declaration)):
 feature-local until a second consumer (dashboards, a future
 query-results page) arrives with a concrete need. The **parser is
 deliberately pure** (no React, no router, no fetch) so it is the

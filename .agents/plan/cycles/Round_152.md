@@ -132,7 +132,7 @@ freshly-parsed `{name, dtype}`, so `hidden` would be **silently wiped on every r
 the design never mentioned refresh. Human decision (2026-07-06): `hidden` **must survive**
 refresh; reconcile by name (mismatched columns drop the hint) — **folded into R152**, not a
 separate round (it's the missing tail of F7, ~5–8 lines in a handler that already holds the
-prior `columns_json`). Design amended: new **[§ Refresh interaction](../../design/data-management/datasets/datasets.md#refresh-interaction-hidden-survives-mismatched-columns-drop)**
+prior `columns_json`). Design amended: new **[§ Refresh interaction](../../design/data-management/datasets/datasets.md#refresh-interaction--hidden-survives-mismatched-columns-drop)**
 in datasets.md. Anchor 4 (global vs per-user hint) surfaced, low weight — dataset-global is the
 intended framing. Could-not-verify carried to C: FE TS `Column` type + MSW strict fixtures.
 

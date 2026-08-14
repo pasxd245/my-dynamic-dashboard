@@ -644,4 +644,4 @@ rather than rewritten, per [PDCA § Governance](../PDCA.md)
 - **Close MVP query gaps → R54** (was R53), now the first _feature_
   round designed with `ui-design` applied at its Design gate.
 - The authoritative forward roadmap lives in
-  [`Round_52.md` § Feeds into](Round_52.md#feeds-into-round_53-apply-ui-design-the-r51-ui-fix).
+  [`Round_52.md` § Feeds into](Round_52.md#feeds-into--round_53--apply-ui-design-the-r51-ui-fix).

@@ -372,7 +372,7 @@ runs. _Named trigger to revisit_: a real user asking for gapless numbering.
 rather than the generic `new_column` / `bucket` / `group_value` the older steps default to. A
 default that already carries a claim is the cheapest push away from a user typing one that lies.
 It is a **default, not a rule**: any name is still allowed, and **no name validator is specced**
-here (parked — see [queries.md § Transform steps](queries.md#transform-steps-workflows-r120r141)).
+here (parked — see [queries.md § Transform steps](queries.md#transform-steps-workflows--r120r141)).
 
 **"Across everything" is a visible state, not a blank field.** `group_column` refuses an empty
 group (`group_by_required`) so a whole-table window can never arise _silently_. That reason is

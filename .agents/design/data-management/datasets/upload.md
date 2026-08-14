@@ -851,7 +851,7 @@ relabel. _Trigger to widen: a real file whose format needs a token outside the s
 
 - A **`date`** target's format must carry **date tokens only** (`yyyy`/`MM`/`dd`); a time
   token in a `date` format → `format_unsupported`. Day-level truncation of a timestamp is
-  the **bucket step's** job ([queries.md § Transform steps](../queries/queries.md#transform-steps-workflows-r120r141)),
+  the **bucket step's** job ([queries.md § Transform steps](../queries/queries.md#transform-steps-workflows--r120r141)),
   not ingest's — ingest never silently discards a time part.
 - A **`datetime`** target's format may use any subset tokens; absent time tokens parse as
   midnight (standard `strptime` default — honest, not lossy).

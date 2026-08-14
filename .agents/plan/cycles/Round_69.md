@@ -197,7 +197,7 @@ identity + the Queries catalog/detail routes** are new.
   states, scope boundary, 11 acceptance criteria.
 
 **Model check** (Design gate — per the
-[2026-06-13 governance amendment](../../decisions/2026-05-28-hybrid-flow-governance.md#amendment-2026-06-13-r69-post-mortem)):
+[2026-06-13 governance amendment](../../decisions/2026-05-28-hybrid-flow-governance.md#amendment--2026-06-13-r69-post-mortem)):
 
 - **Noun-vs-mode:** _mode of the existing dataset surfaces_ — a Query reuses
   the standard detail layout + `<PagedRowsView>` and the Page-List layout; it

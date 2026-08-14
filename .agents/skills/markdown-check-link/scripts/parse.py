@@ -152,12 +152,25 @@ def _strip_inline_code(line: str) -> str:  # NOSONAR
 
 
 def slugify(heading: str) -> str:
-    """Common kebab-case slug: lowercase, spaces → -, strip punctuation."""
+    """GitHub's heading slug: lowercase, drop punctuation, spaces → ``-``.
+
+    **Consecutive hyphens are NOT collapsed and edge hyphens are NOT stripped**
+    (R170). GitHub does neither, and the difference is not cosmetic: a heading
+    containing an em-dash *with spaces* — ``### R109 — line / time-series ✅`` —
+    loses the em-dash to the punctuation strip, leaving **two** spaces and
+    therefore **two** hyphens, plus a trailing hyphen where the emoji was::
+
+        r109--line--time-series-      # GitHub, markdownlint MD051, and the links
+        r109-line-time-series         # what collapsing produced — matched nothing
+
+    Collapsing made every anchor into such a heading report broken: 11 of the 24
+    breaks this repo carried as its baseline. `MD051` is enabled here and passes
+    on the same fragments, which is the proof that the checker was the defect
+    rather than the links.
+    """
     s = heading.strip().lower()
     s = re.sub(r"[^\w\s-]", "", s, flags=re.UNICODE)
-    s = re.sub(r"\s+", "-", s)
-    s = re.sub(r"-+", "-", s).strip("-")
-    return s
+    return re.sub(r"\s", "-", s)
 
 
 def headings(path: Path) -> set[str]:

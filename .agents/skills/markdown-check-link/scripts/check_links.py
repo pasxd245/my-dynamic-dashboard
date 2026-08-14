@@ -36,6 +36,14 @@ CONFIG_PATH = REPO_ROOT / ".markdownlint-cli2.jsonc"
 TMP_DIR = REPO_ROOT / ".agents" / "tmp" / "markdown-check-link"
 FALLBACK_GLOBS = [".agents/**/*.md"]
 
+# R170 — a LINE reference, not a heading: `#L42`, `#L115-L116`. It is the
+# convention CLAUDE.md mandates for pointing at code ("[filename.ts:42](
+# src/filename.ts#L42)"), GitHub and the IDE resolve it, and it can never match
+# a heading slug — so a heading-only fragment check must recognise the form
+# instead of reporting it. Deliberately narrow: this is not "a fragment I
+# cannot resolve is fine", which would turn the gate into a false negative.
+LINE_REF_RE = re.compile(r"^L\d+(?:-L\d+)?$")
+
 
 # --------------------------------------------------------------- config
 
@@ -501,7 +509,7 @@ def _verify_local(  # NOSONAR
         slug = unquote(target[1:])
         headings = headings_cache.setdefault(source_file, P.headings(source_file))
         rec.resolved_path = source_file.relative_to(REPO_ROOT).as_posix()
-        if slug in headings:
+        if slug in headings or LINE_REF_RE.match(slug):
             rec.status = "ok"
         else:
             rec.status = "broken"
@@ -532,7 +540,7 @@ def _verify_local(  # NOSONAR
 
     if frag and target_path.suffix == ".md":
         headings = headings_cache.setdefault(target_path, P.headings(target_path))
-        if frag in headings:
+        if frag in headings or LINE_REF_RE.match(frag):
             rec.status = "ok"
         else:
             rec.status = "broken"

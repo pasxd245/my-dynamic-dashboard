@@ -89,6 +89,29 @@ Stderr emits one line per broken link:
 
 Exit code: `0` clean, `1` if any links are broken.
 
+### Heading slugs follow GitHub exactly (R170)
+
+`slugify` reproduces GitHub's algorithm: lowercase → drop everything that is not
+alphanumeric / space / hyphen → spaces to hyphens. **Consecutive hyphens are not
+collapsed and edge hyphens are not stripped.**
+
+That matters because an em-dash **surrounded by spaces** leaves two spaces behind
+when the punctuation is dropped, and therefore two hyphens:
+
+| Heading | Slug |
+| ------- | ---- |
+| `### R109 — line / time-series ✅` | `r109--line--time-series-` |
+| `## Surfaces — layer / reuse / purity declaration` | `surfaces--layer--reuse--purity-declaration` |
+
+An earlier version collapsed them, which was wrong in **both** directions at once —
+it reported correct links as broken **and** accepted mis-slugged ones that do not
+resolve on GitHub. `markdownlint`'s `MD051` is the cross-check: it is enabled in this
+repo and agrees with GitHub, so a disagreement between the two tools means this one
+is wrong.
+
+**`#L<n>` / `#L<n>-L<m>` fragments are line references**, not headings — recognised
+and passed, per the convention `CLAUDE.md` mandates for pointing at code.
+
 ### 3. Triage findings
 
 Read `.agents/tmp/markdown-check-link/broken.md`. For each
@@ -189,7 +212,7 @@ When `resolution` is set, it takes precedence over `suggestions[]`
 | Value             | When applied          | Effect                                                                                                                        |
 | ----------------- | --------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
 | `null`            | —                     | Default. Fall through to `suggestions[]`.                                                                                     |
-| `"as-is"`         | **every run**         | Mark the link correct; flip status `broken` → `ok`. Use when the checker is wrong (e.g. `path.md:25` line-suffix convention). |
+| `"as-is"`         | **every run**         | Mark the link correct; flip status `broken` → `ok`. Use when the checker is wrong. _(R170: `#L42` / `#L115-L116` line references are recognised natively now and no longer need this.)_ |
 | `"as-is:<note>"`  | every run             | Same, with an audit note (free text after the colon). Surfaces in `links.json`.                                               |
 | `"unlink"`        | `--fix` / `--dry-run` | Rewrite `[text](target)` as `` `target` `` (broken URL becomes code-span).                                                    |
 | `"unlink:<text>"` | `--fix` / `--dry-run` | Rewrite as `` `<text>` `` — substitute any code-span content.                                                                 |

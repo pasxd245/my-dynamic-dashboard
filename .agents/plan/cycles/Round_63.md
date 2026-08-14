@@ -10,7 +10,7 @@
 the **program close** of the
 [design-corpus conformance audit](../programs/design-corpus-audit.plan.md).
 All 7 surfaces are audited (R56–R62); the
-[close-triage agenda](Round_62.md#close-triage-agenda-drafted-the-program-close-step-executes-it)
+[close-triage agenda](Round_62.md#close-triage-agenda-drafted--the-program-close-step-executes-it)
 is drafted. This round **decides + sequences** that agenda into a backlog of
 Track-2 rounds and **folds** the program plan — it does **not** execute the
 promoted work.

@@ -37,7 +37,7 @@ d-gate-artifact-in-design-corpus lesson._
       → pandas/DuckDB translation — name the tokens, e.g. `dd`/`MM`/`yyyy`/`HH`/`mm`/`ss`, and
       the rejection behavior for tokens outside it), failure = the existing `coercion_failed`
       422 envelope, F2 invariant (parquet dtype == `columns_json`) extends to dates.
-      [queries.md §Transform steps](../../design/data-management/queries/queries.md#transform-steps-workflows-r120r141)
+      [queries.md §Transform steps](../../design/data-management/queries/queries.md#transform-steps-workflows--r120r141)
       — new step kind: name, body (`col` + granularity), granularity vocabulary, output column
       name + dtype, week convention (ISO vs week-start — **domain decision, ask the human**),
       position in the evolving column space.
@@ -103,7 +103,7 @@ Two design-corpus sections written (both stamped DRAFT pending sign-off):
   time-part truncation — day-level truncation is the bucket step's job); string cells parse
   whole-cell strict; native cells pass through; failures reuse the R143 `coercion_failed`
   422; F2 invariant extends to DATE/TIMESTAMP; timezone out of scope (naive only).
-- [queries.md § Transform steps — `date_bucket`](../../design/data-management/queries/queries.md#transform-steps-workflows-r120r141)
+- [queries.md § Transform steps — `date_bucket`](../../design/data-management/queries/queries.md#transform-steps-workflows--r120r141)
   — body `{col, granularity, name}`; col must be date/datetime at this step; appends a
   `date` column (period start); compiles to `CAST(date_trunc(g, col) AS DATE)`; folds like
   `derive` in the column space.
