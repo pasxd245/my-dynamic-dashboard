@@ -26,18 +26,24 @@ R162–R163 — the `group_column` operation, specced and **shipped end-to-end**
 > R162**. When it and this doc conflict on a _boundary_, the noun-model is the intent; **this doc
 > is current-state truth**.
 >
-> **The gap is now deliberate and large.** The re-locked concept is a live table over **datasets
-> only** — never composed. The engine below still ships composition **twice** (a `qr_` driving
-> base, and R91's `qr_` on the right of a hop): noun-model **D5**, scheduled for removal at
-> [program item 3](../../../plan/programs/query-shaping-surface.plan.md), **after** the
-> within-group family lands (replace-before-remove). Everything this doc says about composed
-> sources, `cyclic_join`, and `composition_cycle` is therefore **true today and scheduled for
-> deletion** — read it as current-state, not as intent. D1 (steps dropped in composition) is a
-> live correctness bug inside that same doomed path.
+> **The gap is deliberate, and R166 halved it.** The re-locked concept is a live table over
+> **datasets only** — never composed. The engine below still ships composition **twice** (a `qr_`
+> driving base, and R91's `qr_` on the right of a hop): noun-model **D5**. **R166 withdrew every
+> surface that offered it**; **R167** removes the engine support
+> ([program item 3](../../../plan/programs/query-shaping-surface.plan.md), split by layer). So for
+> one round the engine accepts over the API what no UI offers — read § Composed source as
+> current-state code, not as intent.
+>
+> **Two corrections a later reader needs (2026-08-13).** `cyclic_join` is **not** composition
+> machinery and does **not** get deleted — it is the **self-join** boundary for a `ds_` right
+> already in the graph, which stays rejected. And **D1** (steps dropped in composition) does
+> **not** dissolve with the surfaces: the same resolver is how a **Workflow** reads its `qr_`
+> sources, so the bug **relocates** to `build_consolidated_relation`, where a run additionally
+> **freezes** the wrong rows into `output.parquet`.
 
 **Sibling docs**:
 [query-construction.md](query-construction.md) (the editable builder surface: edit a
-Query's definition + preview before save; the create-mode "Build on this query"),
+Query's definition + preview before save — **edit-only since R166**),
 [canvas.md](canvas.md) (the visual source-graph editor — the React Flow Canvas tab, built:
 draw-to-connect copy-on-pick + free-form define, promote, and the divergence warn),
 [dataset-detail.md](../datasets/dataset-detail.md) (the surface a Query is saved _from_,
@@ -70,8 +76,9 @@ identity, listed in a catalog and reopenable.
 
 A Query is **not** a Dataset (no Parquet of its own — see § Execution model) and
 **not** a new query language (it reuses the shipped `FilterAtom` / advanced-DNF
-vocabulary verbatim). Because a Query has a stable id, it can itself be a **source** of
-another Query (§ Composed source).
+vocabulary verbatim). A Query is built from **datasets only** and never reads another Query; the
+engine's residual `qr_`-source support is withdrawn from every surface at R166 and removed at
+R167 (§ Composed source).
 
 ---
 
@@ -94,8 +101,9 @@ from existing shared components/layouts**, never a parallel page or a re-invente
 | Row execution           | `query_dataset_rows` (single source) — extended, never replaced, by `query_joined_rows`                                            |
 
 What is genuinely **new** to the Query archetype: persistence (the `queries` table),
-the `qr_` identity, the Save-as-Query / Build-on modals, the Queries catalog + detail
-routes, and the multi-source / composed **execution engine**. Everything else is reuse.
+the `qr_` identity, the Save-as-Query / Duplicate name modals (one shared `SaveQueryModal`),
+the Queries catalog + detail routes, and the multi-source **execution engine**. Everything else
+is reuse.
 
 ---
 
@@ -134,20 +142,20 @@ truth). **No new token is introduced**; the map reuses identifiers already cited
 [datasets.md](../datasets/datasets.md) and [dataset-detail.md](../datasets/dataset-detail.md).
 `Value` is informational (resolved via `theme.getDesignToken()`, antd 6.x).
 
-| Surface                                                                          | AntD token                                  | Value (informational) |
-| -------------------------------------------------------------------------------- | ------------------------------------------- | --------------------- |
-| Page background                                                                  | `colorBgLayout`                             | `#f5f5f5`             |
-| Page card background                                                             | `colorBgBase`                               | derived               |
-| Table header background                                                          | `colorFillQuaternary`                       | derived               |
-| Table row border                                                                 | `colorBorderSecondary`                      | `#f0f0f0`             |
-| Table row hover                                                                  | `colorPrimaryBg`                            | `#e6f4ff`             |
-| Cell text                                                                        | `colorText`                                 | derived               |
-| Primary action (`[Save]`, `[Build on this query]`, base/relationship `<Select>`) | `colorPrimary`                              | `#1677ff`             |
-| Read-only predicate / join / cardinality `<Tag>`                                 | `colorFillSecondary` / `colorTextSecondary` | derived               |
-| Stale / unavailable warning (`⚠`)                                                | `colorWarning`                              | `#faad14`             |
-| Invalid predicate / unrunnable `<Alert>`                                         | `colorError`                                | `#ff4d4f`             |
-| Border radius (card, table, modal, button)                                       | `borderRadius`                              | `6`                   |
-| Font family                                                                      | `fontFamily`                                | system stack          |
+| Surface                                                                | AntD token                                  | Value (informational) |
+| ---------------------------------------------------------------------- | ------------------------------------------- | --------------------- |
+| Page background                                                        | `colorBgLayout`                             | `#f5f5f5`             |
+| Page card background                                                   | `colorBgBase`                               | derived               |
+| Table header background                                                | `colorFillQuaternary`                       | derived               |
+| Table row border                                                       | `colorBorderSecondary`                      | `#f0f0f0`             |
+| Table row hover                                                        | `colorPrimaryBg`                            | `#e6f4ff`             |
+| Cell text                                                              | `colorText`                                 | derived               |
+| Primary action (`[Save]`, `[Duplicate]`, base/relationship `<Select>`) | `colorPrimary`                              | `#1677ff`             |
+| Read-only predicate / join / cardinality `<Tag>`                       | `colorFillSecondary` / `colorTextSecondary` | derived               |
+| Stale / unavailable warning (`⚠`)                                      | `colorWarning`                              | `#faad14`             |
+| Invalid predicate / unrunnable `<Alert>`                               | `colorError`                                | `#ff4d4f`             |
+| Border radius (card, table, modal, button)                             | `borderRadius`                              | `6`                   |
+| Font family                                                            | `fontFamily`                                | system stack          |
 
 Identifier parity against the live AntD registry is enforced by
 [`design-token-parity.mjs`](../../../../scripts/lint/design-token-parity.mjs).
@@ -365,7 +373,28 @@ naming the hop and column — flag-don't-crash, never wrong or empty rows.
 
 ---
 
-## Composed source (`qr_`)
+## Composed source (`qr_`) — ENGINE-ONLY as of R166, retires at R167
+
+> **Read this section as a description of code, not of the product.** Under the closed Query
+> concept a Query is built from **datasets only** and never reads another Query
+> ([`_noun-model.md`](../_noun-model.md) § D5). As of **R166 no surface offers composition** —
+> `[Build on this query]`, the `?base=` route and the canvas's "Saved queries" source group are
+> all gone. The **engine still accepts it** over the API, and **R167** removes that. The gap is
+> deliberate and one round long: withdrawing an affordance is not retiring a capability, and
+> saying otherwise here would make this doc lie for a round. No saved query uses it (verified
+> against `data/app.sqlite`, 2026-08-13).
+>
+> **Two things a later reader must not conclude from this section.** First, its **step-drop bug**
+> (below) does **not** disappear with the surfaces — the same resolver is how a **Workflow** reads
+> its `qr_` sources, so the bug relocates rather than dissolving (`_noun-model.md` D1, corrected
+> 2026-08-13). Second, the parenthetical that used to close this section — _"a `qr_`on the right
+of a hop is not built"_ — was **wrong**: R91 built exactly that, and`QueryRelationship.rightSourceId`is a`SourceId`, not a `DsId`. Both forms shipped; both are withdrawn at R166.
+
+**The step-drop bug, stated plainly**: `resolve_source` bakes a composed base's own
+source + joins + filters into the sub-relation, but **never runs its `steps`**. So a Query
+composed on a _shaped_ base silently reads that base's **un-shaped** rows. This is why
+**Duplicate** (§ Duplicate) is strictly more correct than the composition it replaces: a
+copied definition carries its steps.
 
 A Query's driving `sourceId` may itself be a saved Query (`qr_`) rather than a raw
 dataset (`ds_`), so its run reads **another Query's virtual table as its base source**.
@@ -399,9 +428,12 @@ the base's source set resolves its ON key against the base's effective column.
 the resolution path. A Query that transitively composes itself is rejected
 **`composition_cycle`** — returned as **`409`** at create/update/preview (a
 `JSONResponse(status_code=409, ApiErrorCompositionCycle)`) **and** at run. Depth is not
-capped; the cycle guard alone guarantees termination. _(Relationship endpoints stay
-dataset↔dataset; a `qr_`on the **right** of a hop — joined in via a`rel*` — is not
-built, as it would re-open the governed edge.)*
+capped; the cycle guard alone guarantees termination.
+
+**Correction (R166 D gate, 2026-08-13).** This section used to close by claiming that _"a `qr_`on the **right** of a hop is not built"_. **It was built** — R91 made`QueryRelationship.rightSourceId`a`SourceId`, and the canvas offered saved queries in its source picker until R166 withdrew the
+group. Composition therefore shipped **twice**, in two different mechanisms, and both are the
+subject of R167. Relationship **endpoints** do stay dataset↔dataset (the governed ER is
+dataset-only), which is the true half of the sentence that made the false half plausible.
 
 ---
 
@@ -595,18 +627,119 @@ Datasets. Routes:
 - `/data-management/queries` → `QueriesPage` (catalog).
 - `/data-management/queries/:id` → `QueryDetailPage` (read-only summary + run + inline
   Edit); `:id` matches `^qr_[0-9a-f]{8}$`.
-- `/data-management/queries/new?base=qr_…` → create mode of the builder, reached **only**
-  via the "Build on this query" verb (no nav item) — [query-construction.md](query-construction.md).
 
-### Build on this query (R77): the create entry
+> **R166 — there is no `/queries/new` route.** The create-mode route `?base=qr_…` and its
+> `QueryCreatePage` were **deleted**, not disabled: the thing they existed to build (a Query
+> driven by another Query) is not a Query under the closed concept. What replaced them is
+> **Duplicate**, which needs no route of its own because a duplicate has a complete definition
+> the moment it is created.
 
-A **`[Build on this query]`** action on the runnable Query detail header (peer to
-`[Edit]` / `[Delete]`, absent on stale/unavailable states) opens the builder in **create
-mode** with this Query preset as the base (`sourceId = qr_…`) at
-`/data-management/queries/new?base=<qr_>`, then name + Save (`POST` carrying `sourceId`).
-It is the same create rhythm as "Save filters as Query" (a verb on the surface you're on
-→ name + `POST`). The full create lifecycle + states live in
-[query-construction.md § Create mode (R77)](query-construction.md#create-mode-r77-build-a-new-query-on-a-preset-base).
+### Duplicate (R166): make a variant without rebuilding it
+
+A **`[Duplicate]`** action on the runnable Query detail header (peer to `[Edit]` /
+`[Delete]`, absent on stale/unavailable states) — **and nowhere else**. It copies this Query's
+**definition** into a **new** Query over the **same** sources:
+
+```text
+[Duplicate] → name modal (pre-filled "{{name}} (copy)")
+           → POST /workspaces/{id}/queries { name, sourceId: <the base's OWN sourceId>, definition: <deep copy> }
+           → 201 → toast + navigate to /queries/{new id}
+```
+
+It is the same create rhythm as "Save filters as Query" (a verb on the surface you're on →
+name + `POST`) and routes through the **same** `SaveQueryModal` + `useCreateQueryMutation`,
+so create logic is never duplicated.
+
+**Duplicate is a snapshot, not a link — and that is the settled trade.** The copy has no
+back-reference to its origin; edit the original afterwards and the copy does not follow. The
+product already made this exact call and locked it: **copy-on-pick** gives a query a private
+`qrel_` snapshot precisely so editing a governed edge can never break a saved query
+([canvas.md](canvas.md)). Live composition was the outlier, not this.
+
+**Three rules, and one invariant that makes them checkable:**
+
+| Rule                                     | Decision (R166 D gate)                                                                                                                                                                                                                                  |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `sourceId`                               | the base's **own** `sourceId`, copied verbatim — never the base's `qr_`. A duplicate is a **sibling**, not a child.                                                                                                                                     |
+| `definition`                             | a **deep copy, entire** — `q`, `filters`, `advanced`, `relationships`, `joins` **and `steps`**.                                                                                                                                                         |
+| `relationships[].id` (`qrel_`)           | **reused verbatim, not re-minted.** `qrel_` ids are query-local (`joins[].queryRelId` resolves inside one definition, and nothing keys on them across queries), so re-minting would buy nothing and cost a rewrite pass over every `joins[]` reference. |
+| **Invariant** — _the copy is identical_. | `copy.sourceId == base.sourceId && copy.definition == base.definition`, a **deep equality** an acceptance test can assert directly. Re-minting ids would have destroyed exactly this property.                                                          |
+
+**Duplicate is strictly more correct than the `[Build on this query]` it replaces.**
+Composition baked in the base's `q` + filters + advanced but **never ran its steps** (§ Composed
+source), so building on a _shaped_ base silently built on the base's **un-shaped** rows. A
+duplicate copies the definition entire, steps included, so its rows are identical to the base's
+**by construction**. The bug leaves with the feature — and it bit hardest on exactly the shaped
+queries the within-group family (R163/R165) exists to create.
+
+**A base whose own `sourceId` is a `qr_`** (only a pre-R166 saved query; **none exist** — verified
+against `data/app.sqlite`, 2026-08-13) is duplicated **verbatim, with no special case**. The copy
+is composed because its base was; Duplicate is not the surface that fixes that, and adding a
+refusal state for zero rows would buy an explanation nobody needs. R167's migration stance covers
+base and copy uniformly.
+
+**Labels** ([[labels-context-and-locale-aware]] — per display context, corpus-checked):
+
+| Context                          | EN                     | VN                           |
+| -------------------------------- | ---------------------- | ---------------------------- |
+| The verb (detail header only)    | **Duplicate**          | **Tạo bản sao**              |
+| The name-capture **modal title** | **Duplicate {{name}}** | **Tạo bản sao của {{name}}** |
+| Default name of the copy         | `{{name}} (copy)`      | `{{name}} (bản sao)`         |
+
+- **The modal title is not the bare verb** — settled at this gate, the third display context the
+  human left open on 2026-08-10. It mirrors the register of the surface it replaces
+  (`queries.create.title` was `Build on {{name}}`) and **names the object**, which matters most in
+  the catalog, where `[Duplicate]` sits on a row and a mis-click is otherwise silent. The field
+  label (`Name`) already does the naming ask, so the title does not repeat it.
+- **`bản sao` is already this corpus's word for this concept** — the canvas divergence copy says
+  _"Truy vấn vẫn dùng bản sao riêng"_. Same concept, different object → consistent, not colliding.
+  **`nhân bản` is rejected**: a second VN word for a concept that already has one.
+- **`sao chép` is taken** by clipboard-copy (`dashboard.builder.jsonCopy`), so the family splits
+  cleanly: `sao chép` = the Ctrl+C verb, `bản sao` = a duplicated artifact.
+- **No numeral** — "Tạo bản sao", not "Tạo 1 bản sao"; the digit reads as chat register and is
+  longer beside `[Sửa] [Xóa]`.
+- **EN rejects** `Copy` (taken — clipboard), `Save as` (collides with _"Save filters as Query"_, a
+  genuinely different create), `Clone` (developer register). `Duplicate` also carries the semantic
+  freight: it says _independent_, where _Build on_ said _dependent_.
+
+**No catalog-row entry — decided, not overlooked (human, 2026-08-13).** The Queries catalog has
+**no per-row action column**: a row is entirely click-to-open
+([QueriesPage.tsx](../../../../workspace/apps/builder/src/features/data-management/queries/QueriesPage.tsx)).
+Adding `[Duplicate]` there would mean introducing that column, which buys discoverability at the
+cost of **click-target ambiguity** (row opens, button duplicates) and a per-row `aria-label` naming
+each query. Catalog row actions are a **cross-catalog** design question and belong with the R157 UX
+cluster, designed once for every catalog rather than invented here for one verb. If hand-use says
+duplicate-from-catalog is wanted, it is a small follow-up on a settled pattern.
+
+### The second duplicate collides — and that is accepted (human, 2026-08-13)
+
+Duplicating the same query twice offers `{{name}} (copy)` both times, so the second one **always**
+hits `409 name_taken`. The modal renders it as the **inline field error `SaveQueryModal` already
+has**, and the user renames.
+
+**This is the accepted cost of the cheapest option, named here so nobody later reads it as an
+oversight.** Two alternatives were specified and declined at this gate: pre-flighting the
+workspace's query list to offer the first free `(copy 2)` (no error on the common path, but a
+suffix rule that must be locale-correct in EN + VN and handle a base already ending in `(copy)`),
+and recovering on the `409` by offering the free name as a one-click fix (a new inline-error
+affordance for the same outcome). **Neither is wrong; both were judged not worth their copy and
+code for a second-use annoyance with an obvious manual escape.** `ux-design` flagged it at this
+gate as a Usability gap — recorded as **accepted**, not as closed. **Revisit trigger**: the
+acceptance walk (or later hand-use) finding that duplicating twice is common rather than
+incidental.
+
+### After a successful copy
+
+The **shipped create rhythm, verbatim** — `message.success` then `navigate` to the new query's
+detail
+([DatasetDetailPage.tsx](../../../../workspace/apps/builder/src/features/data-management/datasets/DatasetDetailPage.tsx)),
+the same pair "Save filters as Query" has always used. Inventing a different announcement for the
+product's second create verb would itself be the defect.
+
+**One thing the shipped path leaves implicit and this spec makes explicit**: the toast names the
+**copy's** name, not the base's, so the user learns which artifact now exists. The **navigation is
+the significant event** — the user is now on a different query — and the destination page announces
+itself through the standard detail heading; the toast confirms, it does not carry the news.
 
 ---
 
@@ -637,16 +770,13 @@ as Query**."_ — no drop zone.
 
 Standard detail layout + read-only summary sections (Based-on / Join / Applied
 predicates) + the shared `<PagedRowsView>`; an inline `[Edit]` switches to the builder
-([query-construction.md](query-construction.md)), `[Build on this query]` opens create
-mode on a runnable Query.
+([query-construction.md](query-construction.md)), `[Duplicate]` copies the definition into a
+new Query over the same sources (§ Duplicate) on a runnable Query.
 
 ```text
-Home ▸ … ▸ Won-deals × Accounts          [Build on this query] [Edit] [Delete]
-Won-deals × Accounts                       🔎 Query · live re-run · composed · join
+Home ▸ … ▸ Won-deals × Accounts                    [Duplicate] [Edit] [Delete]
+Won-deals × Accounts                                 🔎 Query · live re-run · join
 
-  ┌─ Based on (read-only) ─────────────────────────────────────────────────────┐
-  │  Query: "Won deals over $1k"  →  qr_9c2f10ab            [ Open base ↗ ]      │
-  └────────────────────────────────────────────────────────────────────────────┘
   ┌─ Joins (read-only) ────────────────────────────────────────────────────────┐
   │  Won-deals  ⋈ left ⋈  Accounts      on  account_id ↔ id      many:many       │
   └────────────────────────────────────────────────────────────────────────────┘
@@ -767,9 +897,8 @@ BUILT  → this doc (queries.md)
          · join execution + the multi-hop join TREE (connected acyclic; inner/left/right/full)
          · query-OWNED relationships (copy-on-pick): a query carries its own join edges,
            runs on its snapshot (the governed ER can't break a saved query)
-         · composition (a Query as the driving source; the unified ds_/qr_ resolver)
          · the interactive construction surface (query-construction.md):
-           edit + live-preview + the "Build on this query" create mode
+           edit + live-preview (edit-only since R166; Duplicate replaced create mode)
          · the visual source-graph canvas (canvas.md): the React Flow editor —
            draw-to-connect copy-on-pick + free-form define, promote, divergence warn
 NEXT   → consumer-save / dashboards (downstream value-out) — read the clean single-spine

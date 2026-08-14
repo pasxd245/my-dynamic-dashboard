@@ -19,17 +19,22 @@ live preview) and `Canvas` (graph + status chip) — over one working copy
 (`QueryBuilderPanel`, AntD `<Tabs>`). The Canvas tab is a **React Flow editor**
 (`QueryCanvas`): drag a column handle to another column handle to add a hop, an edge's
 toolbar promotes / re-syncs / deletes it, and `[+ Add a source]` stages any not-yet-joined
-**dataset _or_ saved query** to draw to — all bound to `useQueryBuilder`'s shipped ops over
-the same working copy. A source node is symmetric — a **dataset (`ds_`)** or a **saved query
-(`qr_`)** — so the canvas joins **any source to any source** (the source×source space); a
-query node exposes its **effective columns** as handles behind a **"+ N more"** disclosure
-and carries a node-header type **`<Tag>` (Dataset / Query)**. A query node's columns + the
-leaf each owns are **read off the wire** (`resolvedColumns[].ownerSourceId/sourceColumn`,
-the resolver-emitted [column provenance](#data-contract-consumes-the-resolvers-column-provenance)).
-The fidelity layer is built: **per-field column-type glyphs**, **rounded orthogonal edges**,
-a **draw-time dtype guard** (an incompatible key pair is rejected before it mints), **distinct
-action cursors** (pan / move-node / draw-join read differently), a **one-line top toolbar**,
-and an in-page **maximize** overlay.
+**dataset** to draw to — all bound to `useQueryBuilder`'s shipped ops over
+the same working copy. **Every source node is a dataset (`ds_`)**: the canvas joins datasets to
+datasets, and nothing else.
+
+> **R166 — the canvas no longer offers saved queries as sources.** It used to: a source node
+> could be a `qr_`, giving a symmetric "join anything to anything" space (R91/R92). That is
+> `query⋈query`, which the closed Query concept refuses
+> ([`_noun-model.md`](../_noun-model.md) § D5, entry point #2). The group is **removed with no
+> replacement, deliberately** — the intent it served (_compare two shaped results_) is answered by
+> the **within-group column** family (R163/R165), inside one query, not by joining two.
+> Sections below that describe `qr_` nodes are **retained as current-state code** until R167
+> deletes the engine support; they describe what the FE no longer draws.
+> The fidelity layer is built: **per-field column-type glyphs**, **rounded orthogonal edges**,
+> a **draw-time dtype guard** (an incompatible key pair is rejected before it mints), **distinct
+> action cursors** (pan / move-node / draw-join read differently), a **one-line top toolbar**,
+> and an in-page **maximize** overlay.
 
 **Domain folder**: `data-management/queries/` — a **mode** sibling of
 [query-construction.md](query-construction.md) (the hop-list builder this re-presents),
@@ -86,16 +91,16 @@ type JoinStep = {
 };
 
 type QueryRelationship = {
-  id: string;                  // `qrel_…` query-local id
-  leftSourceId: string;        // `ds_…` — the LEFT source; a hop's left is always a
-  leftColumn: string;          //   leaf dataset in-graph (the tree invariant)
-  rightSourceId: string;       // `ds_…` | `qr_…` — the RIGHT source joined in: a dataset
-  rightColumn: string;         //   OR a saved query (a query×query join, resolved as a
-                               //   subquery exposing its effective columns)
+  id: string; // `qrel_…` query-local id
+  leftSourceId: string; // `ds_…` — the LEFT source; a hop's left is always a
+  leftColumn: string; //   leaf dataset in-graph (the tree invariant)
+  rightSourceId: string; // `ds_…` | `qr_…` — the RIGHT source joined in: a dataset
+  rightColumn: string; //   OR a saved query (a query×query join, resolved as a
+  //   subquery exposing its effective columns)
   cardinality: 'one_to_one' | 'one_to_many' | 'many_to_many';
   originRelationshipId?: string | null; // `rel_…` provenance, or null = free-form
-                               //   (always null when rightSourceId is a `qr_` — the
-                               //   governed ER stays dataset-only, so no counterpart)
+  //   (always null when rightSourceId is a `qr_` — the
+  //   governed ER stays dataset-only, so no counterpart)
 };
 
 type QueryDefinition = {
@@ -103,7 +108,7 @@ type QueryDefinition = {
   filters: FilterAtom[];
   advanced: FilterAtom[][];
   relationships: QueryRelationship[]; // the query's OWN edges; see queries.md
-  joins: JoinStep[];                  // the tree: each hop → one query-owned rel
+  joins: JoinStep[]; // the tree: each hop → one query-owned rel
 };
 ```
 
@@ -138,12 +143,12 @@ column row carries a `target` handle on its left and a `source` handle on its ri
 drawn connection is routed by `resolveConnect` (`joinGraph.ts`, a pure function — no
 React, no I/O), which orients the in-graph endpoint as the hop's LEFT and decides:
 
-| Drawn pair | Routes to | Result |
-| --- | --- | --- |
-| Matches a `valid` governed `rel_` (in-graph → new dataset) | **copy-on-pick** → `addJoin(relId)` | snapshots the governed rel's fields into a query-owned `QueryRelationship` (`originRelationshipId` = the `rel_`) and appends a `JoinStep` |
-| No governed match (in-graph → new source) | **free-form define** → cardinality `<Modal>` (pre-set to an **inferred** default) → `defineJoin(fields)` | mints a query-owned rel with `originRelationshipId: null` (`freeFormRel`) and appends a `JoinStep` |
-| **Incompatible key pair** (text ↔ number) | **invalid** → `dtype_mismatch` | a warn `message`, mints nothing — rejected **before minting**, mirroring the backend `_compatible` rule (equal dtype, or both numeric); **FE-lenient on an unknown dtype** (a not-yet-loaded column isn't blocked — the backend stays the authoritative gate) |
-| Self / cyclic (both endpoints in-graph) / disconnected (neither) / incomplete / **derived** (a query column with no single owner) | **invalid** | a warn `message`, mints nothing |
+| Drawn pair                                                                                                                        | Routes to                                                                                                | Result                                                                                                                                                                                                                                                        |
+| --------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Matches a `valid` governed `rel_` (in-graph → new dataset)                                                                        | **copy-on-pick** → `addJoin(relId)`                                                                      | snapshots the governed rel's fields into a query-owned `QueryRelationship` (`originRelationshipId` = the `rel_`) and appends a `JoinStep`                                                                                                                     |
+| No governed match (in-graph → new source)                                                                                         | **free-form define** → cardinality `<Modal>` (pre-set to an **inferred** default) → `defineJoin(fields)` | mints a query-owned rel with `originRelationshipId: null` (`freeFormRel`) and appends a `JoinStep`                                                                                                                                                            |
+| **Incompatible key pair** (text ↔ number)                                                                                         | **invalid** → `dtype_mismatch`                                                                           | a warn `message`, mints nothing — rejected **before minting**, mirroring the backend `_compatible` rule (equal dtype, or both numeric); **FE-lenient on an unknown dtype** (a not-yet-loaded column isn't blocked — the backend stays the authoritative gate) |
+| Self / cyclic (both endpoints in-graph) / disconnected (neither) / incomplete / **derived** (a query column with no single owner) | **invalid**                                                                                              | a warn `message`, mints nothing                                                                                                                                                                                                                               |
 
 **A hop's LEFT must be a leaf dataset** (the resolver matches `leftSourceId` against leaf
 `ds_` ids). When the in-graph endpoint is a **query** node, `resolveConnect` rewrites its
@@ -156,15 +161,23 @@ the canvas reads it straight off `q.resolvedColumns` (a single-source query with
 `resolvedColumns` falls back to its driving dataset's columns, owned 1:1). The earlier
 frontend re-derivation (`provenance.ts`) is **retired** — the wire is the single source.
 
-**Drawing creates** is the load-bearing distinction: a pure pick gesture *selects* an
-existing governed edge, so it felt like the Form list; **define** makes the drag *produce*
+**Drawing creates** is the load-bearing distinction: a pure pick gesture _selects_ an
+existing governed edge, so it felt like the Form list; **define** makes the drag _produce_
 a new edge. That is why the canvas now carries a graph library (Scope boundary) — the
 gesture finally earns it.
 
-**`[+ Add a source]`** stages **any** not-in-graph **source** (free-form — not only the
-governed-reachable ones) so it can be drawn to: the picker is **grouped** into **Datasets**
-and **Saved queries**, the query under edit excluded (no self-join). It is disabled only when
-every source is already on the canvas. A staged node is FE-only and ephemeral — it enters
+**`[+ Add a source]`** stages **any** not-in-graph **dataset** (free-form — not only the
+governed-reachable ones) so it can be drawn to. **R166 — the picker is a flat list of datasets**:
+the "Saved queries" group is gone, and with one group left the "Datasets" heading labels a list
+that cannot contain anything else, so the `<OptGroup>`s go with it. A group of one is chrome, not
+structure. It is disabled only when every dataset is already on the canvas.
+
+**What a user who reaches for a saved query meets.** Nothing — no disabled group, no tooltip, no
+error. D4's standing rule is _unofferable at the gesture, never an error at run_, and the honest
+form of "we do not join queries" is a picker that only ever contained datasets, not a greyed row
+inviting the question. The **absence carries no explanation** because an explanation would
+advertise a capability the product does not have. Datasets already on the canvas remain excluded
+as before, so the picker's rule is now one rule, not two. A staged node is FE-only and ephemeral — it enters
 `joins[]` only when its column connection is drawn; the model stays a connected tree rooted
 at `sourceId`. An unconnected staged node carries a **`[×]` unstage** control (R97) that drops
 it from the canvas (pure FE state — no `joins[]` / save impact); without it the only escape was
@@ -184,7 +197,7 @@ background deselects), not React Flow's internal selection.
 
 **Action cursors read distinctly** (CSS-only, scoped to the canvas) so each gesture is
 self-evident on hover: the **pane** pans (`grab`, React Flow's default), a **node card**
-repositions (`move`, held *steady while dragging*), a **column row** is neutral (`default`),
+repositions (`move`, held _steady while dragging_), a **column row** is neutral (`default`),
 and a connect **handle** draws a join (`crosshair`) — the neutral-row → crosshair-dot contrast
 makes the draw-a-join affordance obvious as the pointer reaches the dot. The handle's
 **grab/hover area is enlarged** by a transparent `::before` (the event still targets the
@@ -223,10 +236,15 @@ hover grow + halo and a "drag to join" tooltip.
   backend run remains the authoritative gate (`409 relationship_stale`). A `qr_` side is not
   column-drift-flagged here (it has no flat dataset columns); the run stays its gate.
 
-### Query (`qr_`) source nodes — the symmetric "join anything to anything" canvas
+### Query (`qr_`) source nodes — WITHDRAWN at R166, code retires at R167
 
-A source node is a **dataset (`ds_`)** or a **saved query (`qr_`)**; the mental model is
-**two choices** — *(a)* the **root** is a table or a query; *(b)* what you **join in** is
+> **No surface reaches this any more.** `[+ Add a source]` offers datasets only, so a `qr_` node
+> can only appear for a **saved query that already had one** — of which **none exist** (verified
+> against `data/app.sqlite`, 2026-08-13). The rendering below is described because the code still
+> carries it; R167 deletes both. Read it as an inventory of what comes out, not as a feature.
+
+A source node was a **dataset (`ds_`)** or a **saved query (`qr_`)**; the mental model was
+**two choices** — _(a)_ the **root** is a table or a query; _(b)_ what you **join in** is
 tables or queries — same expressive power as the full source×source space, one fewer concept
 to teach. A query node differs from a dataset node only in how it sources columns and a few
 guards:
@@ -257,18 +275,18 @@ guards:
 
 ## Surfaces — layer / reuse / purity declaration
 
-| Surface | Layer | Reusability | Purity | Allowed peer deps |
-| --- | --- | --- | --- | --- |
-| `QueryCanvas` (the React Flow node-link render + drag-to-connect editor: copy-on-pick / free-form define / promote / re-sync / leaf delete; reads wire provenance off `resolvedColumns`; per-field dtype glyphs, rounded orthogonal edges, distinct action cursors, one-line toolbar, in-page maximize overlay) | `apps/builder/src/features/data-management/queries` | feature | feature | react, antd, @xyflow/react, @phosphor-icons/react |
-| `QueryBuilderPanel` (the `Form` / `Canvas` `<Tabs>` over one working copy; hosts the Canvas-tab status chip) | `apps/builder/src/features/data-management/queries` | feature | feature | react, antd |
-| `useQueryBuilder` (the canvas binds to its `addJoin` / `defineJoin` / `removeJoin` / `promoteRel` / `resyncRel` / Save) | `apps/builder/src/features/data-management/queries` | feature | glue (server-data) | @tanstack/react-query, antd |
-| `joinGraph.ts` (pure selectors shared by the list + canvas: `graphDatasetIds` / `buildSourceGraph` (the node/edge graph — root + rights, re-anchoring a leaf-left onto its owning in-graph `qr_`) / `addEligibleRels` / `isLeafHop` / `resolveConnect` (provenance-aware — rewrites a `qr_` left to its owning leaf via the injected `provenanceOf`; dtype-guards via the injected `dtypeOf` → `dtype_mismatch`) / `relDivergence` / `inferCardinality`) | `apps/builder/src/features/data-management/queries` | feature | pure | none |
-| `chain.ts` (working-chain ↔ wire bridge: `readChain` / `readRels` / `writeDef` + `copyGovernedRel` / `freeFormRel`) | `apps/builder/src/features/data-management/queries` | feature | pure | none |
-| `<PagedRowsView>` (reused, not owned — the Form-tab preview body) | `apps/builder/src/features/data-management/_shared` | shared cross-domain | plain-UI | react, antd, react-i18next |
-| `JoinStep[]` + `QueryRelationship[]` (the query-owned edges; frontend + contract type) | `.../features/data-management/queries/types.ts` | feature | data type | none |
+| Surface                                                                                                                                                                                                                                                                                                                                                                                                                                                  | Layer                                               | Reusability         | Purity             | Allowed peer deps                                 |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- | ------------------- | ------------------ | ------------------------------------------------- |
+| `QueryCanvas` (the React Flow node-link render + drag-to-connect editor: copy-on-pick / free-form define / promote / re-sync / leaf delete; reads wire provenance off `resolvedColumns`; per-field dtype glyphs, rounded orthogonal edges, distinct action cursors, one-line toolbar, in-page maximize overlay)                                                                                                                                          | `apps/builder/src/features/data-management/queries` | feature             | feature            | react, antd, @xyflow/react, @phosphor-icons/react |
+| `QueryBuilderPanel` (the `Form` / `Canvas` `<Tabs>` over one working copy; hosts the Canvas-tab status chip)                                                                                                                                                                                                                                                                                                                                             | `apps/builder/src/features/data-management/queries` | feature             | feature            | react, antd                                       |
+| `useQueryBuilder` (the canvas binds to its `addJoin` / `defineJoin` / `removeJoin` / `promoteRel` / `resyncRel` / Save)                                                                                                                                                                                                                                                                                                                                  | `apps/builder/src/features/data-management/queries` | feature             | glue (server-data) | @tanstack/react-query, antd                       |
+| `joinGraph.ts` (pure selectors shared by the list + canvas: `graphDatasetIds` / `buildSourceGraph` (the node/edge graph — root + rights, re-anchoring a leaf-left onto its owning in-graph `qr_`) / `addEligibleRels` / `isLeafHop` / `resolveConnect` (provenance-aware — rewrites a `qr_` left to its owning leaf via the injected `provenanceOf`; dtype-guards via the injected `dtypeOf` → `dtype_mismatch`) / `relDivergence` / `inferCardinality`) | `apps/builder/src/features/data-management/queries` | feature             | pure               | none                                              |
+| `chain.ts` (working-chain ↔ wire bridge: `readChain` / `readRels` / `writeDef` + `copyGovernedRel` / `freeFormRel`)                                                                                                                                                                                                                                                                                                                                      | `apps/builder/src/features/data-management/queries` | feature             | pure               | none                                              |
+| `<PagedRowsView>` (reused, not owned — the Form-tab preview body)                                                                                                                                                                                                                                                                                                                                                                                        | `apps/builder/src/features/data-management/_shared` | shared cross-domain | plain-UI           | react, antd, react-i18next                        |
+| `JoinStep[]` + `QueryRelationship[]` (the query-owned edges; frontend + contract type)                                                                                                                                                                                                                                                                                                                                                                   | `.../features/data-management/queries/types.ts`     | feature             | data type          | none                                              |
 
 > **Flagged peer-dep deviation.** `QueryCanvas`'s allowed peer deps are `react, antd,
-> @xyflow/react, @phosphor-icons/react`. `@xyflow/react` (React Flow v12) is a **deviation**
+@xyflow/react, @phosphor-icons/react`. `@xyflow/react` (React Flow v12) is a **deviation**
 > from the prior `react, antd`-only declaration, adopted because drawing now **creates**
 > (free-form define), which earns a graph library for literal column-drag + pan/zoom; a pure
 > pick gesture did not. `@phosphor-icons/react` supplies the per-field column-type glyphs (the
@@ -294,19 +312,19 @@ introduced**; the map reuses identifiers already cited by
 [queries.md](queries.md) and [query-construction.md](query-construction.md). `Value` is
 informational.
 
-| Surface | AntD token (themeTokens.ts) | Value (informational) |
-| --- | --- | --- |
-| Canvas pane background | `colorBgLayout` | `#f5f5f5` |
-| Node card background | `colorBgBase` | derived |
-| Driving-node border · free-form edge · source handle | `colorPrimary` | `#1677ff` |
-| Edge label / cardinality `<Tag>` text | `colorTextSecondary` | derived |
-| Node / governed-edge / non-driving border | `colorBorderSecondary` | `#f0f0f0` |
-| Stale-or-diverged edge · stale column · status chip warn | `colorWarning` | `#faad14` |
-| Canvas status chip — valid (`N rows ↗`) text | `colorTextSecondary` | derived |
-| Invalid / unrunnable `<Alert>` | `colorError` | `#ff4d4f` |
-| Per-field column-type glyph | `colorTextQuaternary` | `#bfbfbf` |
-| Border radius (node card, tag, button, modal) | `borderRadius` | `6` |
-| Font family | `fontFamily` | system stack |
+| Surface                                                  | AntD token (themeTokens.ts) | Value (informational) |
+| -------------------------------------------------------- | --------------------------- | --------------------- |
+| Canvas pane background                                   | `colorBgLayout`             | `#f5f5f5`             |
+| Node card background                                     | `colorBgBase`               | derived               |
+| Driving-node border · free-form edge · source handle     | `colorPrimary`              | `#1677ff`             |
+| Edge label / cardinality `<Tag>` text                    | `colorTextSecondary`        | derived               |
+| Node / governed-edge / non-driving border                | `colorBorderSecondary`      | `#f0f0f0`             |
+| Stale-or-diverged edge · stale column · status chip warn | `colorWarning`              | `#faad14`             |
+| Canvas status chip — valid (`N rows ↗`) text             | `colorTextSecondary`        | derived               |
+| Invalid / unrunnable `<Alert>`                           | `colorError`                | `#ff4d4f`             |
+| Per-field column-type glyph                              | `colorTextQuaternary`       | `#bfbfbf`             |
+| Border radius (node card, tag, button, modal)            | `borderRadius`              | `6`                   |
+| Font family                                              | `fontFamily`                | system stack          |
 
 Identifier parity is enforced by
 [`design-token-parity.mjs`](../../../../scripts/lint/design-token-parity.mjs).
@@ -542,17 +560,15 @@ orient a query-column draw onto its owning leaf:
    disabled with a text-reason tooltip.
 10. **Form tab stays AT-complete** — every capability is reachable on the keyboard/SR
     Form tab; the canvas is an additional, not a replacement, affordance.
-11. **A query source joins like a dataset** — a `qr_` node carries a `Query` type `<Tag>` +
-    a **filter** kind-icon (R97) and exposes its effective columns (each with a type glyph) as handles; `[+ Add a source]`
-    offers saved queries (grouped, self excluded); drawing off a query column resolves its leaf
-    owner via the **wire provenance** (`resolvedColumns[].ownerSourceId/sourceColumn`) so the
-    join is legal; a derived column is rejected (`derived`); an incompatible key pair is
-    rejected at draw time (`dtype_mismatch`).
-12. **"+ N more" keeps a wide query node legible and drawable** — columns past the threshold
-    collapse; the keyboard-reachable "+ N more" reveals them and a revealed column draws.
-13. **A `qr_`-side edge is non-promotable; an unresolvable `qr_` shows an unavailable node** —
-    the context pad omits Promote on a query×query edge; a deleted/cyclic `qr_` renders a
-    marked, handle-less card, not a crash.
+11. **`[+ Add a source]` offers datasets, and only datasets (R166)** — a **flat** list, no
+    `<OptGroup>`s, saved queries absent with no disabled row and no explanatory tooltip. A user
+    cannot construct `query⋈query` by any gesture on this surface.
+12. **Criteria 11–13 of R91/R92 are retired, not regressed** — the `qr_` source node, its
+    "+ N more" disclosure over an effective column space, its wire-provenance leaf resolution,
+    the non-promotable `qr_`-side edge and the unavailable-`qr_` card were **acceptance criteria
+    of a capability the closed concept refuses**. They are withdrawn at R166 and their code is
+    deleted at R167. A reader comparing this list to R92's should find them **absent by
+    decision** — this line is the record of that.
 
 ---
 
@@ -584,14 +600,15 @@ orient a query-column draw onto its owning leaf:
 
 - **Derived/aggregate-column left keys** — a column with no single leaf owner cannot anchor a
   join (rejected as `derived`). Trigger: only if aggregation arrives (no aggregation today).
-- **`qr_` on a hop's LEFT** — unneeded while every effective column traces 1:1 to a single
-  inner `(ds_, col)`; the left is always resolved to a leaf dataset via provenance.
-
-- **The standalone "New query" empty-canvas create entry** — a `[+ New query]` on the
-  Queries catalog opening the builder in create mode with **no preset base** (place the
-  first node on an empty graph). Not built: `QueryCreatePage` currently **requires** a
-  preset `?base=` (the R77 "Build on this query" path); the catalog has no `[+ New query]`
-  action. A still-deferred trajectory item ([[dont-mvp-rush-a-roadmap-home-surface]]).
+- **`qr_` on a hop's LEFT** — never built, and now **unreachable by decision**: after R166 no
+  hop has a `qr_` on either side.
+- **The standalone "New query" empty-canvas create entry** — a `[+ New query]` on the Queries
+  catalog opening the builder on an empty graph (place the first node yourself). **Still not
+  built, and R166 changed why**: the old blocker was that `QueryCreatePage` required a preset
+  `?base=`; that page is now **deleted**, so the entry no longer has a half-built path to inherit —
+  it would be built clean, from the catalog, when a round pulls it
+  ([[dont-mvp-rush-a-roadmap-home-surface]]). **Today a Query is created from a dataset
+  ("Save filters as Query") or by duplicating one**; neither needs an empty canvas.
 - **Further canvas polish** — the usability batch (edge-label / node overlap → context pad;
   cardinality-at-draw → inferred default; handle discoverability) and the fidelity pass
   (type glyphs, rounded edges, dtype guard, cursor scheme, maximize) are **built**; any

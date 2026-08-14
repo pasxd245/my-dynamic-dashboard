@@ -1,8 +1,8 @@
 # Query Construction — the interactive builder: edit a Query's definition + preview before save
 
 **Concept**: the **construction surface** is the editable builder for a
-[Query](queries.md): an **Edit mode** of the query detail (and a **Create mode**
-reached from "Build on this query") that lets a user build a Query's definition — pick its
+[Query](queries.md): an **Edit mode** of the query detail — **edit-only since R166** — that
+lets a user build a Query's definition: pick its
 driving source, edit its [join tree](queries.md#joins-reading-related-datasets-as-one),
 and compose **cross-source predicates** over the combined column space — and **preview**
 the resulting rows **before saving**. It is **not a new noun and not a new engine**: it
@@ -36,9 +36,9 @@ surfaces render inside).
 
 Building a Query introduces **no new readable-table-source kind** and **no new engine** —
 it edits the `QueryDefinition` the spine seals and runs the spine's engines through a
-stateless preview. So construction is an **Edit/Create mode** of the existing detail and
+stateless preview. So construction is an **Edit mode** of the existing detail and
 catalog rather than a `/builder` page or a `QueryBuilder` noun. What is genuinely this
-doc's: the **edit + preview + create UX**, named below — never laundered as new
+doc's: the **edit + preview UX**, named below — never laundered as new
 capability. The reuse invariant binds it: the builder **composes** the shipped predicate
 editors, the relationship/base `<Select>`s, and `<PagedRowsView>`; it re-implements no
 predicate engine, join engine, or detail page.
@@ -47,13 +47,13 @@ predicate engine, join engine, or detail page.
 
 ## What the builder edits (reused vs new)
 
-| Reused verbatim                                                                                                                                 | New (the edit + preview + create UX only)                                                                                    |
-| ----------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| The `QueryDefinition` (`q` / `filters` / `advanced` / `joins`) + the polymorphic `sourceId` — **edited, not extended**                          | An **Edit mode** on `/queries/:id` + a **Create mode** at `/queries/new?base=qr_…`                                           |
-| The chip-filter + advanced-DNF **editors** + their serializers/validators                                                                       | Those editors **bound to the effective columns** (the combined `joins`-tree space)                                           |
-| The base/relationship `<Select>`s + per-hop join-type `<Select>`                                                                                | The **`JoinEditor`** that mutates the `joins` tree (base source, add/remove hops, per-hop type) in place                     |
-| `query_joined_rows` / `query_dataset_rows` / `resolve_source`; the `409 query_stale` / `409 relationship_stale` / `409 composition_cycle` gates | A **stateless preview** of the **unsaved** definition (`POST …/queries/preview`)                                             |
-| `<PagedRowsView>`, the `RowsPage` shape, `SaveQueryModal`, `useCreateQueryMutation`, the `<DeleteConfirmModal>` confirm pattern                 | A **dirty / Save / discard** lifecycle on the detail, and a **no-id create** lifecycle (preset base → name capture → `POST`) |
+| Reused verbatim                                                                                                                                 | New (the edit + preview + create UX only)                                                                |
+| ----------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| The `QueryDefinition` (`q` / `filters` / `advanced` / `joins`) + its `sourceId` — **edited, not extended**                                      | An **Edit mode** on `/queries/:id` (R166 deleted the create mode)                                        |
+| The chip-filter + advanced-DNF **editors** + their serializers/validators                                                                       | Those editors **bound to the effective columns** (the combined `joins`-tree space)                       |
+| The base/relationship `<Select>`s + per-hop join-type `<Select>`                                                                                | The **`JoinEditor`** that mutates the `joins` tree (base source, add/remove hops, per-hop type) in place |
+| `query_joined_rows` / `query_dataset_rows` / `resolve_source`; the `409 query_stale` / `409 relationship_stale` / `409 composition_cycle` gates | A **stateless preview** of the **unsaved** definition (`POST …/queries/preview`)                         |
+| `<PagedRowsView>`, the `RowsPage` shape, `SaveQueryModal`, `useCreateQueryMutation`, the `<DeleteConfirmModal>` confirm pattern                 | A **dirty / Save / discard** lifecycle on the detail                                                     |
 
 **No new model. No new engine. No new route beyond the spine's `preview` + `update`.**
 
@@ -64,9 +64,8 @@ predicate engine, join engine, or detail page.
 | Surface                                                                                                | Layer                                                | Reusability         | Purity   | Allowed peer deps                  |
 | ------------------------------------------------------------------------------------------------------ | ---------------------------------------------------- | ------------------- | -------- | ---------------------------------- |
 | `QueryDetailPage` (Edit toggle; header `[Cancel] [Save]`)                                              | `apps/builder/src/features/data-management/queries`  | feature             | feature  | react, antd, @tanstack/react-query |
-| `QueryCreatePage` (create mode at `/queries/new?base=qr_…`)                                            | `apps/builder/src/features/data-management/queries`  | feature             | feature  | react, antd, @tanstack/react-query |
 | `QueryBuilderPanel` (presentational, collapsible Build + Preview)                                      | `apps/builder/src/features/data-management/queries`  | feature             | feature  | react, antd                        |
-| `useQueryBuilder` (builder state + debounced preview + Save lifecycle; edit + create modes)            | `apps/builder/src/features/data-management/queries`  | feature             | glue     | @tanstack/react-query, antd        |
+| `useQueryBuilder` (builder state + debounced preview + Save lifecycle; **edit mode only** since R166)  | `apps/builder/src/features/data-management/queries`  | feature             | glue     | @tanstack/react-query, antd        |
 | `JoinEditor` (base-source picker + join-tree editor: ≤1-hop single edit; hop-rows + add/remove for ≥2) | `apps/builder/src/features/data-management/queries`  | feature             | feature  | react, antd                        |
 | `JoinWithRelatedModal` (minimal join-create entry from a dataset)                                      | `apps/builder/src/features/data-management/queries`  | feature             | feature  | react, antd                        |
 | `SaveQueryModal` (reused — name capture for save + create)                                             | `apps/builder/src/features/data-management/queries`  | feature             | feature  | react, antd                        |
@@ -535,69 +534,44 @@ composition_cycle`). Success returns to Viewing.
 
 ---
 
-## Create mode (R77): build a new Query on a preset base
+## Create mode: deleted at R166
 
-The builder also runs in **create mode** to construct a **brand-new** Query whose driving
-source is preset to a saved Query you chose to build on (`sourceId = qr_…`). It is the
-same `QueryBuilderPanel` + `useQueryBuilder` rendered with a **mode** flag — never a
-parallel page. The entry verb **"Build on this query"** lives on the Query detail header
-([queries.md § IA](queries.md#ia-and-navigation)); its route is
-`/data-management/queries/new?base=qr_…` (`QueryCreatePage`), reached **only** via the verb
-(no nav item, no empty source picker — the standalone "New query" entry ships with the
-[canvas](canvas.md), built right: [[dont-mvp-rush-a-roadmap-home-surface]]).
+The builder used to run in a **create mode** at `/queries/new?base=qr_…` (`QueryCreatePage`),
+reached from `[Build on this query]`, to construct a new Query whose driving source was preset to
+another saved Query. **That page, that route and that mode are gone**, and nothing replaced them
+_in the builder_.
 
-How edit-only generalizes to edit + create (`useQueryBuilder` gains a mode):
+**Why a mode disappeared rather than being renamed.** Create mode existed because a
+composition-created query had **no definition yet** — so it needed a page that could preview
+against a base before the query existed. A **duplicate** has a complete, runnable definition the
+moment it is created, so the whole apparatus is unnecessary: `[Duplicate]` → name modal → `POST` →
+open the new query → `[Edit]` reaches the builder through the ordinary edit path. The replacement
+is **smaller than the thing it replaces**, which is why R166 is net-negative on the front end.
 
-| Concern        | Edit mode                                                                                                                                                                                                                                                                            | Create mode                                                                                                                                                       |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Identity       | an existing `query` (`qr_…`)                                                                                                                                                                                                                                                         | **no id** — a draft until Saved                                                                                                                                   |
-| Baseline       | `normalize(query.definition)`                                                                                                                                                                                                                                                        | the **empty definition** (`{ q: null, filters: [], advanced: [], relationships: [], joins: [] }`)                                                                 |
-| Driving source | seeded `query.sourceId`; **the base picker is disabled (read-only)** — the PUT is definition-only, so the base is fixed after create (R94 D6; R97 dropped the explanatory tooltip — the disabled state suffices); changing it is the deferred "Build on this query" / New-query path | **preset** `sourceId = the source Query's qr_`; the base picker is seeded to it                                                                                   |
-| Live preview   | the composed `POST …/preview`                                                                                                                                                                                                                                                        | the **same** composed preview, keyed on the preset base                                                                                                           |
-| Name           | unchanged (`PUT` is definition-only)                                                                                                                                                                                                                                                 | **captured at Save** via the reused `SaveQueryModal`                                                                                                              |
-| Save           | `PUT /queries/{id}` `{ definition }`                                                                                                                                                                                                                                                 | **`POST /workspaces/{id}/queries`** `{ name, sourceId, definition }` via `useCreateQueryMutation` → navigate to the new `qr_` detail                              |
-| Gate           | `canSave = dirty && previewOk && invalidCount === 0`                                                                                                                                                                                                                                 | `canSave = previewOk && !pending && invalidCount === 0` **+ a non-empty name** (no `dirty` baseline — a base + zero edits is a valid, if trivial, composed Query) |
+The Duplicate verb, its labels, and the copy invariant are specified in the spine —
+[queries.md § Duplicate](queries.md#duplicate-r166-make-a-variant-without-rebuilding-it) — because
+Duplicate never enters this surface. This section exists only so a reader who remembers create mode
+learns where it went instead of assuming a regression.
 
-The create `POST` carries **`{ name, sourceId, definition }`** — `sourceId` is the
-canonical (and only) source field; there is no `datasetId` (see
-[queries.md § Data model](queries.md#data-model)). Both "Save filters
-as Query" and "Build on this query" route through the **same** `SaveQueryModal` +
-`useCreateQueryMutation`, so create logic is never duplicated.
-
-### Create-mode states
-
-```mermaid
-stateDiagram-v2
-    [*] --> Editing: open /queries/new?base=qr_… (base preset, empty draft)
-    Editing --> PreviewLoading: add a join / predicate (debounced) or [Preview]
-    PreviewLoading --> PreviewPopulated: composed draft valid → preview rows
-    PreviewLoading --> BaseUnavailable: 409 (base deleted / unrunnable / composition_cycle / stale)
-    PreviewPopulated --> NameCapture: click [Save]
-    NameCapture --> Saving: submit (name valid)
-    Saving --> NewDetail: 201 → toast + navigate to /queries/{new id}
-    Saving --> NameTaken: 409 name_taken → inline field error (stay in modal)
-    Saving --> SaveRejected: 422 (bad atom / unknown source) → inline error
-    Editing --> Leave: [Cancel] (confirm if edited) → back to the base query
-    BaseUnavailable --> Leave: open base / back
-```
-
-A create draft has no id, so a **direct** cycle is structurally impossible at create; what
-the preview surfaces pre-save is the **base's own** resolve failure (deleted / unrunnable /
-transitively cyclic / drifted) → the guided base-unavailable state, with `[Save]` disabled.
-The server re-validates on `POST` (`422` bad atom / unknown source; `409 composition_cycle`
-if a base loops) — flag-don't-crash, mirroring the edit-mode and run-time gates.
+**What went with it**: the `?base=` route ([main.tsx](../../../../workspace/apps/builder/src/main.tsx)),
+`QueryCreatePage` (180 LOC), `useQueryBuilder`'s `mode` flag and its no-id/no-baseline branch, the
+`BaseUnavailable` create state, and the `queries.create.*` i18n block (EN + VN).
 
 ---
 
 ## Accessibility (declared so F builds it, not infers it)
 
-- `[Edit]` / `[Save]` / `[Cancel]` / **"Build on this query"** are keyboard-reachable with
+- `[Edit]` / `[Save]` / `[Cancel]` / **`[Duplicate]`** are keyboard-reachable with
   **visible text labels** (not icon-only); the editing state is announced
-  (`role="status"`); on "Build on this query", focus moves into the builder.
+  (`role="status"`). `[Duplicate]` opens the name modal, which takes focus on its **name field**
+  with the default `{{name}} (copy)` **selected**, so accepting it is one keystroke and renaming
+  needs no clearing gesture.
 - The **base `<Select>`** and **`JoinEditor` `<Select>`s** (relationship, left-source,
   per-hop type) carry visible labels (label-above per AntD Data-Entry guidance); options
   name the edge / source / type in **text** (`Deals.account_id ↔ Accounts.id`, `inner`),
-  never colour/glyph alone; `<OptGroup>` headings ("Datasets" / "Saved queries") stay text;
+  never colour/glyph alone. **R166 — the source picker's `<OptGroup>`s are gone**: with
+  "Saved queries" withdrawn, a lone "Datasets" heading labels a list that cannot contain anything
+  else, so the picker is a **flat** list of datasets. A group of one is chrome, not structure;
   a disabled non-leaf `[Remove]` keeps its label and exposes its reason via tooltip
   (`aria-disabled`), so the leaf rule is discoverable.
 - The **predicate editors** inherit the shipped chip/advanced accessibility; column options
@@ -627,9 +601,10 @@ if a base loops) — flag-don't-crash, mirroring the edit-mode and run-time gate
   cannot satisfy is `aria-disabled` with its reason in a tooltip, matching the shipped
   no-eligible-column control.
 - The **`[Add step ▾]` groups** are AntD `<OptGroup>`s with **text** headings (**Summarise** /
-  **Add a column** / **Shape the result**) — the same mechanism the base and join `<Select>`s
-  already use for "Datasets" / "Saved queries", so group membership is announced, never conveyed
-  by indentation or colour.
+  **Add a column** / **Shape the result**) — so group membership is announced, never conveyed
+  by indentation or colour. (This is now the **only** grouped `<Select>` in the builder: R166 flattened
+  the source picker, whose "Datasets" / "Saved queries" pairing this used to point at. The step menu
+  keeps its groups because it genuinely has three, not one.)
 - The **`prior_period` advisory line** shares the grain line's contract — `role="status"`,
   `aria-live="polite"`, ⓘ + text, `colorTextSecondary`, **never an `<Alert>`**. It names the next
   step using the menu's own label ("Computed column") so a screen-reader user can find that entry,
@@ -664,12 +639,13 @@ if a base loops) — flag-don't-crash, mirroring the edit-mode and run-time gate
    the server `422`s / `409`s a bad definition on save — never a saved-but-unrunnable query.
 6. **Save mutates the existing Query** — `[Save]` (edit) persists via `PUT /queries/{id}`
    (definition-only); reopening shows the new definition.
-7. **Create mode builds a new composed Query** — "Build on this query" opens the **same**
-   builder in create mode with `sourceId` preset to the base `qr_`; the composed preview
-   runs the unsaved draft; `[Save]` captures a name and `POST`s `{ name, sourceId,
-definition }` → the new `qr_` detail (no `datasetId` in the body).
-8. **One create rhythm (no duplication)** — both "Save filters as Query" and "Build on
-   this query" route through `SaveQueryModal` + `useCreateQueryMutation`.
+7. **The builder has no create mode (R166)** — a new Query is created from a **dataset**
+   ("Save filters as Query") or by **duplicating** an existing one
+   ([queries.md § Duplicate](queries.md#duplicate-r166-make-a-variant-without-rebuilding-it)).
+   Neither route enters the builder without an id, so `useQueryBuilder` is edit-only and its
+   `mode` flag is gone.
+8. **One create rhythm (no duplication)** — both "Save filters as Query" and **Duplicate**
+   route through `SaveQueryModal` + `useCreateQueryMutation`.
 9. **The within-group column is authorable without engine words (R162)** — a "Group value"
    card reads as a sentence (`Average of rate within each team → team_rate`), reuses the
    `aggregate` card's agg labels and dtype-gated column options, and offers only columns
@@ -700,9 +676,6 @@ definition }` → the new `qr_` detail (no `datasetId` in the body).
   tree: add from any source, remove any leaf, per-hop type) + the reused chip/advanced
   predicate editors bound to the effective columns; a dirty/Save/discard lifecycle via
   `PUT /queries/{id}`.
-- A **Create mode** at `/queries/new?base=qr_…` (`QueryCreatePage`): no-id, **preset base**,
-  the composed preview, name capture at Save (reused `SaveQueryModal`), Save = `POST`
-  carrying `{ name, sourceId, definition }`.
 - The **`▾ Transform` steps editor** (`StepsEditor` + the pure `steps.ts` column threading):
   ordered step cards with reorder/remove, per-kind bodies bound to the columns available
   **at that position**, — R162 — the **"Group value"** card with its grain line, and — R164 —

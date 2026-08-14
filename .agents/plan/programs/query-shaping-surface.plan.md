@@ -1,6 +1,6 @@
 # Program plan: Query as the single shaping surface
 
-**Status**: Active — items **1 and 2 are Complete**. `cycles/Round_162.md` + `cycles/Round_163.md` (item 1, signed off 2026-08-11) and `cycles/Round_164.md` + `cycles/Round_165.md` (item 2, signed off **2026-08-13** — walk closed 5 of 5, six defects found after green gates and all fixed). Next: **item 3**, retire `query⋈query` and ship Duplicate (`Round_166`)
+**Status**: Active — items **1 and 2 are Complete**. `cycles/Round_162.md` + `cycles/Round_163.md` (item 1, signed off 2026-08-11) and `cycles/Round_164.md` + `cycles/Round_165.md` (item 2, signed off **2026-08-13** — walk closed 5 of 5, six defects found after green gates and all fixed). Next: **item 3**, retire `query⋈query` and ship Duplicate — **split by layer into 3a + 3b** at the human's call 2026-08-13 (§ Item 3's layer split). [`Round_166`](../cycles/Round_166.md) (3a, FE-only) **opened 2026-08-13, Planning**; `Round_167` takes 3b, and Workflow shifts to `Round_168`
 **Opened**: 2026-08-07
 **Closed**:
 
@@ -68,7 +68,7 @@ Each round is a **DCFBI slice** over one coherent capability:
 
 - **In** — the Query surface: within-group operations, the collapsing set, the ordered
   operation list, retiring composition.
-- **Deferred** — Workflow's definition (R167, and only once Query is settled); the
+- **Deferred** — Workflow's definition (R168 after the 2026-08-13 layer split, and only once Query is settled); the
   draw-time join-error UX (D4, largely mooted once composition is gone); the R157 UX
   cluster; `[F-prov-reimport-choice]`.
 - **Out** — materialization/scheduling semantics; presentation (charts, formatting,
@@ -85,12 +85,13 @@ Each round is a **DCFBI slice** over one coherent capability:
 
 ## Work items + order (suggestive, not binding)
 
-| #   | Item                                                                                                                                                                                                                                                                           | Status                                                                                                                                                                                                                        | Round                                               |
-| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
-| 1   | **Within-group column** (aggregate within a group, as a column) + the Query concept rewritten into the design corpus                                                                                                                                                           | **DONE 2026-08-11** — both rounds **Complete**; acceptance walk confirmed on the human's real 90 581-row call log                                                                                                             | `Round_162` (D + F1) → `Round_163` (C + B + F2 + I) |
-| 2   | The rest of the within-group family — % of total · running total · rank within group · vs prior period                                                                                                                                                                         | **COMPLETE 2026-08-13** — end-to-end, gap-blank proven on the real 90 581-row log; the acceptance walk returned **5 of 5** and produced six fixes (incl. a pre-existing pager defect, and `step_invalid` as a new error code) | `Round_164` (D + F1) → `Round_165` (C + B + F2 + I) |
-| 3   | **Retire `query⋈query`, replace it with Duplicate** — remove composition (**both** forms — see D5) and the surfaces that offer it, ship `Duplicate` in its place, clean saved queries, delete the `cyclic_join` / `composition_cycle` / shared-leaf machinery (§ Item 3 scope) | queued                                                                                                                                                                                                                        | `Round_166`                                         |
-| 4   | **Workflow** — settle what it is, now that Query is the single shaping surface                                                                                                                                                                                                 | queued                                                                                                                                                                                                                        | `Round_167`                                         |
+| #   | Item                                                                                                                                                                                                                                                                            | Status                                                                                                                                                                                                                        | Round                                               |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| 1   | **Within-group column** (aggregate within a group, as a column) + the Query concept rewritten into the design corpus                                                                                                                                                            | **DONE 2026-08-11** — both rounds **Complete**; acceptance walk confirmed on the human's real 90 581-row call log                                                                                                             | `Round_162` (D + F1) → `Round_163` (C + B + F2 + I) |
+| 2   | The rest of the within-group family — % of total · running total · rank within group · vs prior period                                                                                                                                                                          | **COMPLETE 2026-08-13** — end-to-end, gap-blank proven on the real 90 581-row log; the acceptance walk returned **5 of 5** and produced six fixes (incl. a pre-existing pager defect, and `step_invalid` as a new error code) | `Round_164` (D + F1) → `Round_165` (C + B + F2 + I) |
+| 3a  | **Ship Duplicate + withdraw every entry point** — the FE half. `[Build on this query]`, the canvas "Saved queries" group and its whole `qr_`-as-a-source treatment, the `?base=` route and `QueryCreatePage`. **No engine, no contract.**                                       | **Planning 2026-08-13**                                                                                                                                                                                                       | [`Round_166`](../cycles/Round_166.md)               |
+| 3b  | **Retire composition in the engine** — `rightSourceId: SourceId → DsId`, narrow the `qr_` branch to Workflow's reader, retire `composition_cycle`, collapse D2's set-overlap check, **fix D1 in the workflow consolidation path**, migration stance, + the 14-doc `design-sync` | queued                                                                                                                                                                                                                        | `Round_167`                                         |
+| 4   | **Workflow** — settle what it is, now that Query is the single shaping surface                                                                                                                                                                                                  | queued                                                                                                                                                                                                                        | `Round_168`                                         |
 
 > **Renumbered 2026-08-10.** Item 1's round ran the `flow-selector` at its Design exit and landed
 > **DFCFBI (triggers 1, 3, 5)**, so the standing [[dfcfbi-two-round-split]] applies: R162 stops at
@@ -186,6 +187,47 @@ verbatim (no collision) or mint fresh ones — pick one. The default name goes t
 composition to _join_ two queries, not to clone one; no recorded instance of a clone need exists.
 The bar is _retaining a modified form of something already built_, not adding something new, so
 "default = don't add" does not bite — but this is reasoning, not evidence.
+
+> **Answered 2026-08-13 (human).** _"I want that feature, don't need to wait till pulled."_ The
+> caveat is not withdrawn — it is **overruled deliberately**, which is a different thing and should
+> read as one later. R166's acceptance walk is still the probe: it asks whether the built thing
+> lands, not whether to build it.
+
+### Item 3's layer split — and the five findings that forced it (2026-08-13)
+
+A D-gate code walk before `Round_166` was written found that **item 3's scope above is wrong in
+four places**. The scope text is left standing as authored (it is the human's settled scope); the
+corrections are recorded here rather than by editing it, so both readings survive.
+
+| #     | Finding                                                                                                                                                                                                                                                                                                                                                               | What it corrects above                                                                                                                                                                                |
+| ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **A** | **The `qr_` resolver is load-bearing for Workflow.** A Workflow's sources are `qr_`/`wf_` and **never** `ds_` ([common.py:905](../../../workspace/apps/backend/app/models/common.py#L905)); `build_consolidated_relation` resolves them through the same branch composition uses ([workflows.py:216](../../../workspace/apps/backend/app/routers/workflows.py#L216)). | "delete the machinery" — deleting it breaks Workflow outright. It is **narrowed to Workflow's reader**, and what a Workflow is stays item 4's question.                                               |
+| **B** | **`cyclic_join` is the self-join boundary**, not composition machinery — it rejects a `ds_` right already in the graph ([query_engine.py:213-218](../../../workspace/apps/backend/app/query_engine.py#L213)), which `_noun-model.md` says stays rejected.                                                                                                             | "delete the `cyclic_join` … machinery". Only the **set-overlap** form (D2) dies; it degenerates to a single-id membership test.                                                                       |
+| **C** | **`composition_cycle` becomes unreachable but `composition_base_missing` stays** — the same reason string is also the un-run-workflow case ([query_engine.py:142](../../../workspace/apps/backend/app/query_engine.py#L142)).                                                                                                                                         | "delete the `composition_cycle` … machinery". Removing the published enum member is a contract change with a hand-written FE allowlist on the other side (R165's `isApiError` lesson).                |
+| **D** | **D1 does not dissolve — it relocates.** `build_consolidated_relation` never calls `run_steps`, so a Workflow consolidating a _shaped_ query reads its **un-shaped** rows and **materializes them to parquet** ([query_engine.py:446](../../../workspace/apps/backend/app/query_engine.py#L446)).                                                                     | The rolling log's _"D1/D2 dissolved by item 3"_. `_noun-model.md` declines to fix D1 because the path is _"scheduled for deletion, not repair"_ — true of the query path, false of the workflow path. |
+| **E** | **The data cleanup costs nothing on this DB** — 10 saved queries, **zero** composed; the `workflows` table is empty (direct read of `data/app.sqlite`).                                                                                                                                                                                                               | "clean saved queries" is a **policy** call, not a data job.                                                                                                                                           |
+
+**The split, and why this order.** Findings A–D mean the engine half is neither a deletion nor
+net-negative; finding E means the FE half is safe to run alone. So item 3 cuts at the FE/engine
+seam, **replacement first**:
+
+- **3a (`Round_166`, FE-only, contract-safe)** — ship Duplicate, withdraw all three D5 entry
+  points, delete `QueryCreatePage` + the `?base=` route + the canvas `qr_` treatment.
+- **3b (`Round_167`, engine + contract)** — everything in findings A–D, the migration stance, and
+  the 14-doc `design-sync` of `data-management/` outstanding since R162, which then syncs the
+  **final** state once instead of twice.
+
+Three reasons for that order. **(i)** `_noun-model.md` pre-registered it: _"whether to withdraw the
+affordances **earlier** than the engine … is an open call for the human, not an agent's to make"_ —
+the human made it. **(ii)** It answers the honest caveat by hand, one round before anything is
+irreversible ([[probe-desirability-before-additive-depth]]). **(iii)** It keeps the program's own
+firewall honest at the affordance level, not just the capability level: the replacement ships, gets
+hand-used, and only then does the thing it replaces come out.
+
+**The cost, named rather than discovered**: for one round the engine still **accepts** `qr_`
+operands over the API that no UI offers. That is today's state exactly, so it is not a regression —
+but it is a documented gap, not a bug for a later reader to rediscover. And the program grows to
+five rounds; Workflow shifts to `Round_168`.
 
 ## Rolling log
 
