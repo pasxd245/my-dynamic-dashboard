@@ -423,6 +423,12 @@
       "detectedSchemaNoLabel": "Detected schema ({{rows}} rows · {{total}} columns). Override any column's dtype before previewing.",
       "detectedSchemaWithLabel": "Detected schema for <strong>{{sheet}}</strong> ({{rows}} rows · {{total}} columns). Override any column's dtype before previewing.",
       "resetAll": "Reset all to detected",
+      "resetAllConfirmTitle": "Reset overrides?",
+      "resetAllConfirm_one": "This reverts {{count}} column to its detected type. It can't be undone.",
+      "resetAllConfirm_other": "This reverts {{count}} columns to their detected types. It can't be undone.",
+      "resetAllConfirmWithSheet_one": "This reverts {{count}} column on {{sheet}} to its detected type — other sheets are untouched. It can't be undone.",
+      "resetAllConfirmWithSheet_other": "This reverts {{count}} columns on {{sheet}} to their detected types — other sheets are untouched. It can't be undone.",
+      "resetAllConfirmOk": "Reset",
       "includedCount": "{{kept}} of {{total}} columns included",
       "includedCountWithSheet": "{{sheet}} · {{kept}} of {{total}} columns included",
       "parseOptions": "Parse options",
@@ -470,7 +476,8 @@
       "errorMergeDuplicateKeysTitle": "The new file repeats the key",
       "errorMergeDuplicateKeysDescription": "{{count}} key value(s) ({{key}}) appear on more than one row in the new file, so merge can't tell which row wins. Examples: {{samples}}. Add another column to the key (e.g. a date) or clean the export, then try again. Nothing was changed.",
       "errorGenericTitle": "Couldn't commit datasets",
-      "errorServerCode": "Server returned code {{code}}."
+      "errorServerCode": "Server returned code {{code}}.",
+      "errorUnexpectedDescription": "The app sent something the server refused — a bug in the app, not something you did. Check the Datasets list before retrying. Details: {{detail}}"
     },
     "preview": {
       "title": "Preview",

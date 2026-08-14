@@ -3,6 +3,7 @@ import type { TFunction } from 'i18next';
 import type { Dispatch } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import { ERROR_CODES, NAME_LENGTHS } from '@/_generated/constants';
+import { VALIDATION_ERROR } from '@/api/datasetsApi';
 import { formatBytes } from '@/lib/formatBytes';
 import { BatchApiErrorThrown } from '@/features/data-management/_shared/types';
 import { useWorkspacesQuery } from '@/features/data-management/workspaces/hooks';
@@ -82,6 +83,15 @@ function commitErrorDescription(err: Error, t: TFunction): string {
         return mergeDuplicateKeysDescription(err.body, t);
       }
       return t('upload.confirm.errorServerCode', { code: err.body.code });
+    }
+    // R171 item 1 — the uncoded fallback, split in two. A pydantic body
+    // rejection ("Extra inputs are not permitted") used to render raw, naming
+    // no field and posing as advice; it is an app bug, and now says so —
+    // `datasetsApi` keeps each entry's `loc` path, so it also names the field.
+    // The router's OWN string messages are untouched: R144 wrote those to be
+    // read as guidance, and they are.
+    if (err.body.error === VALIDATION_ERROR) {
+      return t('upload.confirm.errorUnexpectedDescription', { detail: err.body.detail ?? err.body.error });
     }
     return err.body.detail ?? err.body.error;
   }

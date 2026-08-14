@@ -423,6 +423,12 @@
       "detectedSchemaNoLabel": "Đã nhận diện cấu trúc dữ liệu ({{rows}} dòng · {{total}} cột). Có thể chỉnh kiểu dữ liệu của từng cột trước khi xem trước.",
       "detectedSchemaWithLabel": "Đã nhận diện cấu trúc dữ liệu cho <strong>{{sheet}}</strong> ({{rows}} dòng · {{total}} cột). Có thể chỉnh kiểu dữ liệu của từng cột trước khi xem trước.",
       "resetAll": "Đặt lại theo giá trị nhận diện",
+      "resetAllConfirmTitle": "Đặt lại các kiểu đã chỉnh?",
+      "resetAllConfirm_one": "Sẽ đưa {{count}} cột về kiểu nhận diện tự động. Không thể hoàn tác.",
+      "resetAllConfirm_other": "Sẽ đưa {{count}} cột về kiểu nhận diện tự động. Không thể hoàn tác.",
+      "resetAllConfirmWithSheet_one": "Sẽ đưa {{count}} cột trong sheet {{sheet}} về kiểu nhận diện tự động — các sheet khác giữ nguyên. Không thể hoàn tác.",
+      "resetAllConfirmWithSheet_other": "Sẽ đưa {{count}} cột trong sheet {{sheet}} về kiểu nhận diện tự động — các sheet khác giữ nguyên. Không thể hoàn tác.",
+      "resetAllConfirmOk": "Đặt lại",
       "includedCount": "Nhập {{kept}}/{{total}} cột",
       "includedCountWithSheet": "{{sheet}} · Nhập {{kept}}/{{total}} cột",
       "parseOptions": "Tùy chọn phân tích",
@@ -470,7 +476,8 @@
       "errorMergeDuplicateKeysTitle": "Tệp mới có khóa bị trùng",
       "errorMergeDuplicateKeysDescription": "{{count}} giá trị khóa ({{key}}) xuất hiện trên nhiều dòng trong tệp mới, nên không thể xác định dòng nào được giữ. Ví dụ: {{samples}}. Hãy thêm một cột vào khóa (ví dụ: ngày) hoặc làm sạch tệp xuất rồi thử lại. Chưa có gì bị thay đổi.",
       "errorGenericTitle": "Không thể tạo tập dữ liệu",
-      "errorServerCode": "Máy chủ trả về mã {{code}}."
+      "errorServerCode": "Máy chủ trả về mã {{code}}.",
+      "errorUnexpectedDescription": "Ứng dụng đã gửi dữ liệu mà máy chủ từ chối — đây là lỗi của ứng dụng, không phải do bạn. Hãy kiểm tra danh sách Tập dữ liệu trước khi thử lại. Chi tiết: {{detail}}"
     },
     "preview": {
       "title": "Xem trước",

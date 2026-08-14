@@ -548,4 +548,106 @@ describe("Upload wizard — coercion_failed 422 renders the typed error (R143)",
     // Wizard stayed on Confirm (no navigation) so the user can adjust.
     expect(screen.getByRole("button", { name: /Create datasets/ })).toBeInTheDocument();
   });
+
+  // R171 item 1 — [F-commit-error-opaque]. The uncoded arm carries two
+  // different failures and used to render both raw. They are now told apart.
+  it("R171: a pydantic body rejection names the FIELD and reads as an app bug", async () => {
+    await walkToBatch422({
+      detail: [
+        { loc: ["body", "items", 0, "sheetName"], msg: "Extra inputs are not permitted", type: "extra_forbidden" },
+      ],
+    });
+    // The `loc` path survives — without it the message names nothing at all.
+    const desc = await screen.findByText(/items\.0\.sheetName/);
+    expect(desc.textContent).toContain("Extra inputs are not permitted");
+    // …and it is framed as OUR bug, not as advice the user can act on.
+    expect(desc.textContent).toContain("a bug in the app, not something you did");
+  });
+
+  it("R171: the router's OWN string guidance is NOT reframed as a bug (R144 regression)", async () => {
+    await walkToBatch422({
+      detail: "format_unsupported: dtype `date` accepts date tokens only (yyyy MM dd).",
+    });
+    const desc = await screen.findByText(/date tokens only/);
+    expect(desc.textContent).not.toContain("a bug in the app");
+  });
+});
+
+// R171 item 2 — [F-metadata-reset]. A destructive, un-undoable action that
+// used to fire on a single click, on a button whose enablement counted
+// override ENTRIES rather than actual overrides.
+describe("Upload wizard — [Reset all to detected] confirms before wiping (R171)", () => {
+  async function walkToMetadata() {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === "string" ? input : input.toString();
+      const method = (init?.method ?? "GET").toUpperCase();
+      if (url.endsWith("/workspaces") && method === "GET") {
+        return jsonResponse([WS_A]);
+      }
+      if (url.endsWith("/uploads") && method === "POST") {
+        return jsonResponse({
+          temp_id: "tmp_1234567890abcdef",
+          sourceFormat: "csv",
+          sizeBytes: 64,
+          csvPreview: {
+            columns: [
+              { name: "id", dtype: "integer" },
+              { name: "phone", dtype: "string" },
+            ],
+            rowCount: 2,
+            sampleRows: [
+              ["1", "0387353189"],
+              ["2", "0912223344"],
+            ],
+          },
+        });
+      }
+      return new Response("not found", { status: 404 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { container } = renderApp(`/data-management/datasets/new?workspace=${WS_A.id}`);
+    await screen.findByText("Data source");
+    fireEvent.click(screen.getByText("CSV"));
+    const fileInput = container.querySelector<HTMLInputElement>('input[type="file"]');
+    const file = new File(["id,phone\n1,0387353189"], "calls.csv", { type: "text/csv" });
+    fireEvent.change(fileInput!, { target: { files: [file] } });
+    await waitFor(() => {
+      expect(container.querySelector('[data-component="UploadMetadataStep"]')).not.toBeNull();
+    });
+    return container;
+  }
+
+  const resetButton = (container: HTMLElement) =>
+    container.querySelector<HTMLButtonElement>('[data-component="ResetOverrides"]')!;
+
+  it("is disabled until a real override exists, then confirms with the count before clearing", async () => {
+    const container = await walkToMetadata();
+    expect(resetButton(container).disabled).toBe(true);
+
+    // Override `phone` (string → integer, a real change vs detected). AntD v6
+    // forwards data-* to the `.ant-select` root; mousedown opens the dropdown.
+    const select = container.querySelector<HTMLElement>('[data-component="ColumnDtypeSelect"][data-column="phone"]')!;
+    fireEvent.mouseDown(select);
+    const option = await screen.findByText("integer", {
+      selector: ".ant-select-item-option-content,.ant-select-item-option-content *",
+    });
+    fireEvent.click(option);
+    await waitFor(() => {
+      expect(select.getAttribute("data-overridden")).toBe("true");
+    });
+    expect(resetButton(container).disabled).toBe(false);
+
+    // The click asks first — and names how many columns it would revert.
+    fireEvent.click(resetButton(container));
+    expect(await screen.findByText(/reverts 1 column to its detected type/)).toBeInTheDocument();
+    // Nothing cleared yet: the override survives an unconfirmed click.
+    expect(select.getAttribute("data-overridden")).toBe("true");
+
+    fireEvent.click(screen.getByRole("button", { name: /^Reset$/ }));
+    await waitFor(() => {
+      expect(select.getAttribute("data-overridden")).toBe("false");
+    });
+    expect(resetButton(container).disabled).toBe(true);
+  });
 });

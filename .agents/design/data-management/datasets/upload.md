@@ -51,25 +51,25 @@ their chosen source and mode.
 
 ## Surfaces — layer / reuse / purity declaration
 
-| Surface                                                | Layer                                                | Reusability  | Purity             | Allowed peer deps                                |
-| ------------------------------------------------------ | ---------------------------------------------------- | ------------ | ------------------ | ------------------------------------------------ |
+| Surface                                                                                   | Layer                                                | Reusability  | Purity             | Allowed peer deps                                |
+| ----------------------------------------------------------------------------------------- | ---------------------------------------------------- | ------------ | ------------------ | ------------------------------------------------ |
 | `DatasetNewPage` route component (owns the inline AntD `<Steps>` stepper + reducer state) | `apps/builder/src/features/data-management/datasets` | feature      | feature            | react, react-router-dom, antd, @ant-design/icons |
-| `UploadSourceStep` component                           | `apps/builder/src/features/data-management/datasets` | feature      | feature            | react, antd, @tanstack/react-query               |
-| `UploadSheetStep` component (Excel-only, checkboxes)   | `apps/builder/src/features/data-management/datasets` | feature      | feature            | react, antd                                      |
-| `UploadMetadataStep` component (per-sheet tabs)        | `apps/builder/src/features/data-management/datasets` | feature      | feature            | react, antd                                      |
-| `UploadPreviewStep` component (per-sheet tabs)         | `apps/builder/src/features/data-management/datasets` | feature      | feature            | react, antd                                      |
-| `UploadConfirmStep` component (N-dataset summary)      | `apps/builder/src/features/data-management/datasets` | feature      | feature            | react, antd                                      |
-| `useUploadInitMutation` hook                           | `apps/builder/src/features/data-management/datasets` | feature      | glue (server-data) | @tanstack/react-query                            |
-| `useUploadParseMutation` hook                          | `apps/builder/src/features/data-management/datasets` | feature      | glue (server-data) | @tanstack/react-query                            |
-| `useDatasetsCommitMutation` hook (atomic batch)        | `apps/builder/src/features/data-management/datasets` | feature      | glue (server-data) | @tanstack/react-query                            |
-| `uploadsApi` client                                    | `apps/builder/src/api/`                              | builder-only | glue               | (fetch — no extra peer dep)                      |
-| `POST /uploads` route (temp + light metadata)          | `apps/backend/`                                      | backend      | feature            | (FastAPI multipart — backend native)             |
-| `POST /uploads/<temp_id>/parse` route (per-sheet)      | `apps/backend/`                                      | backend      | feature            | (FastAPI — backend native)                       |
-| `POST /workspaces/<id>/datasets/batch` (atomic commit) | `apps/backend/`                                      | backend      | feature            | (FastAPI — backend native)                       |
-| `parse_csv()` ingestion helper (`ingest/csv_parser.py`) | `apps/backend/app/ingest/`                          | backend      | pure (data)        | duckdb                                           |
-| `parse_sheet()` + `enumerate_sheets()` (`ingest/excel_parser.py`) | `apps/backend/app/ingest/`                | backend      | pure (data)        | openpyxl / duckdb excel ext                      |
-| `write_csv_to_parquet()` + `write_excel_to_parquet()` (`ingest/parquet_writer.py`) | `apps/backend/app/ingest/`     | backend      | pure (data)        | duckdb                                           |
-| `WizardState` reducer state + `SheetState` (`upload/state.ts`, frontend in-memory) | `apps/builder/src/features/data-management/datasets` | feature      | data type          | none                                             |
+| `UploadSourceStep` component                                                              | `apps/builder/src/features/data-management/datasets` | feature      | feature            | react, antd, @tanstack/react-query               |
+| `UploadSheetStep` component (Excel-only, checkboxes)                                      | `apps/builder/src/features/data-management/datasets` | feature      | feature            | react, antd                                      |
+| `UploadMetadataStep` component (per-sheet tabs)                                           | `apps/builder/src/features/data-management/datasets` | feature      | feature            | react, antd                                      |
+| `UploadPreviewStep` component (per-sheet tabs)                                            | `apps/builder/src/features/data-management/datasets` | feature      | feature            | react, antd                                      |
+| `UploadConfirmStep` component (N-dataset summary)                                         | `apps/builder/src/features/data-management/datasets` | feature      | feature            | react, antd                                      |
+| `useUploadInitMutation` hook                                                              | `apps/builder/src/features/data-management/datasets` | feature      | glue (server-data) | @tanstack/react-query                            |
+| `useUploadParseMutation` hook                                                             | `apps/builder/src/features/data-management/datasets` | feature      | glue (server-data) | @tanstack/react-query                            |
+| `useDatasetsCommitMutation` hook (atomic batch)                                           | `apps/builder/src/features/data-management/datasets` | feature      | glue (server-data) | @tanstack/react-query                            |
+| `uploadsApi` client                                                                       | `apps/builder/src/api/`                              | builder-only | glue               | (fetch — no extra peer dep)                      |
+| `POST /uploads` route (temp + light metadata)                                             | `apps/backend/`                                      | backend      | feature            | (FastAPI multipart — backend native)             |
+| `POST /uploads/<temp_id>/parse` route (per-sheet)                                         | `apps/backend/`                                      | backend      | feature            | (FastAPI — backend native)                       |
+| `POST /workspaces/<id>/datasets/batch` (atomic commit)                                    | `apps/backend/`                                      | backend      | feature            | (FastAPI — backend native)                       |
+| `parse_csv()` ingestion helper (`ingest/csv_parser.py`)                                   | `apps/backend/app/ingest/`                           | backend      | pure (data)        | duckdb                                           |
+| `parse_sheet()` + `enumerate_sheets()` (`ingest/excel_parser.py`)                         | `apps/backend/app/ingest/`                           | backend      | pure (data)        | openpyxl / duckdb excel ext                      |
+| `write_csv_to_parquet()` + `write_excel_to_parquet()` (`ingest/parquet_writer.py`)        | `apps/backend/app/ingest/`                           | backend      | pure (data)        | duckdb                                           |
+| `WizardState` reducer state + `SheetState` (`upload/state.ts`, frontend in-memory)        | `apps/builder/src/features/data-management/datasets` | feature      | data type          | none                                             |
 
 **Boundary check**: no wizard surface lives in `@mdd/ui`. The
 stepper is an inline AntD `<Steps>` inside `DatasetNewPage`, not a
@@ -288,9 +288,9 @@ date · datetime`. See
   [§Commit dtype semantics](#commit-dtype-semantics-r143): every
   override is **applied for real** at the commit's parquet write —
   all six dtypes, with `date`/`datetime` parsed via the translated
-  `format`. *(An earlier build made every override relabel-only,
+  `format`. _(An earlier build made every override relabel-only,
   leaving the parquet on parser-inferred dtypes — metadata could
-  contradict stored data.)* A `date` / `datetime` override
+  contradict stored data.)_ A `date` / `datetime` override
   **requires** a `format` (422 otherwise).
 - **Format string** input appears under the dtype dropdown **only
   when the dtype is `date` or `datetime`**. CSV / Excel source
@@ -307,8 +307,25 @@ date · datetime`. See
   Step 2's preview JSON to help the user decide on the override
   (especially the format-string default for dates).
 - `[Reset all to detected]` clears all overrides on the active
-  tab. Per-row reset affordance is R∞ until a user has 50+
-  columns and needs targeted reverts.
+  tab, **behind a `Popconfirm` that names the count and the tab**
+  ("This reverts 4 columns on `Worksheet2` to their detected types
+  — other sheets are untouched. It can't be undone."). The action
+  is destructive and has no undo, and on a multi-sheet workbook it
+  looks file-wide when it is not: the scope is the part the confirm
+  exists to state. `Popconfirm` rather than the shared
+  `DeleteConfirmModal` — that modal's copy and chrome are built for
+  deleting a resource. Per-row reset affordance is R∞ until a user
+  has 50+ columns and needs targeted reverts.
+- **An override ENTRY is not an override.** One predicate —
+  `isRealOverride(row, override)` — decides both the per-cell
+  highlight and whether `[Reset all]` has anything to do: an entry
+  counts only when it **changes** something (a dtype differing from
+  the freshly-detected one, or a `format` on a date/datetime
+  column). The refresh carry-forward seeds `{ dtype }` for every
+  surviving column, so "an entry exists" is true for columns the
+  user never touched — which used to leave `[Reset all]` enabled
+  with nothing to reset, and (before R157's fix) lit the override
+  highlight on every row.
 - **Excel multi-sheet**: tabs at the top of the step body, one
   per selected sheet. Active tab is highlighted. Switching tabs
   preserves overrides per sheet (held in the `WizardState` reducer's
@@ -537,22 +554,22 @@ the six seeds in
 (the source of truth). No new token is introduced; values are
 informational (resolved via `theme.getDesignToken()`, antd 6.x).
 
-| Surface                                    | AntD token                       | Value (informational) |
-| ------------------------------------------ | -------------------------------- | --------------------- |
-| Page background                            | `colorBgLayout`                  | `#f5f5f5`             |
-| Page card background                       | `colorBgBase`                    | derived               |
-| Stepper active dot                         | `colorPrimary`                   | `#1677ff`             |
-| Stepper inactive dot                       | `colorBorderSecondary`           | `#f0f0f0`             |
-| Source-type card border (selected)        | `colorPrimary`                   | `#1677ff`             |
-| Drop-zone border (idle / hover)            | `colorBorder` → `colorPrimary`   | `#d9d9d9` / `#1677ff` |
-| Override / preview table header background | `colorFillQuaternary`            | derived               |
-| Table cell / column text                   | `colorText`                      | derived               |
-| Sheet-tab active text                      | `colorPrimary`                   | `#1677ff`             |
-| Parse-failed `✗` marker / error `<Alert>`  | `colorError`                     | `#ff4d4f`             |
-| Helper / hint text                         | `colorTextTertiary`              | derived               |
-| Primary `Next` / `Create datasets` button  | `colorPrimary`                   | `#1677ff`             |
-| Border radius (cards, table, buttons)      | `borderRadius`                   | `6`                   |
-| Font family                                | `fontFamily`                     | system stack          |
+| Surface                                    | AntD token                     | Value (informational) |
+| ------------------------------------------ | ------------------------------ | --------------------- |
+| Page background                            | `colorBgLayout`                | `#f5f5f5`             |
+| Page card background                       | `colorBgBase`                  | derived               |
+| Stepper active dot                         | `colorPrimary`                 | `#1677ff`             |
+| Stepper inactive dot                       | `colorBorderSecondary`         | `#f0f0f0`             |
+| Source-type card border (selected)         | `colorPrimary`                 | `#1677ff`             |
+| Drop-zone border (idle / hover)            | `colorBorder` → `colorPrimary` | `#d9d9d9` / `#1677ff` |
+| Override / preview table header background | `colorFillQuaternary`          | derived               |
+| Table cell / column text                   | `colorText`                    | derived               |
+| Sheet-tab active text                      | `colorPrimary`                 | `#1677ff`             |
+| Parse-failed `✗` marker / error `<Alert>`  | `colorError`                   | `#ff4d4f`             |
+| Helper / hint text                         | `colorTextTertiary`            | derived               |
+| Primary `Next` / `Create datasets` button  | `colorPrimary`                 | `#1677ff`             |
+| Border radius (cards, table, buttons)      | `borderRadius`                 | `6`                   |
+| Font family                                | `fontFamily`                   | system stack          |
 
 No new token is introduced. Identifier parity against the live AntD
 registry is enforced by
@@ -649,7 +666,7 @@ multi-sheet files where the user only wants one).
 ## Backend endpoint shape
 
 The wizard's own flow is **three endpoints** — upload, parse, commit. They are quoted below with
-the identifiers the code actually uses. Three further routes serve the *refresh/append* variants of
+the identifiers the code actually uses. Three further routes serve the _refresh/append_ variants of
 this surface and are specified in their own sections rather than here:
 `PATCH /datasets/{id}/columns` (column metadata), `GET /datasets/{id}/refresh-settings` (the
 carried-forward recipe), and `POST /datasets/{id}/append-overlap` (the pre-commit double-count
@@ -910,9 +927,25 @@ timezone tokens are outside the subset (rejected loudly like any other).
   Excel / a CSV editor and can jump straight to. _(Correction from real dogfood: the
   original data-row convention — header excluded — pointed the user one row off when
   locating the cell to fix; the FE copy reads "file row N".)_
+
 - FE: the Confirm step's existing inline `<Alert>` renders the typed payload (column + sample
   cells + count) instead of today's generic "Failed to fetch" — display only, no new
   interaction. i18n under `upload.confirm.coercionFailed.*` (en + vi).
+
+#### The uncoded arm — two failures, not one
+
+Below the coded errors sits the fallback for a body carrying no `code`, and it mixes two failures
+that need opposite copy:
+
+| `detail` shape                         | What it is                                                                                                                       | How Confirm renders it                                                                                                  |
+| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| **string** (`HTTPException(detail=…)`) | A message the **router wrote for this user** — `format_unsupported`, format-required, sheet-required. Real, actionable guidance. | Verbatim. This is R144's work and it stays untouched.                                                                   |
+| **list** (`[{loc, msg, type}, …]`)     | **pydantic refusing the body the app sent** — e.g. `extra='forbid'` → "Extra inputs are not permitted". No user action fixes it. | Framed as an app bug (_"a bug in the app, not something you did"_), with the `loc` path kept so it **names the field**. |
+
+`datasetsApi` tells them apart, tagging the list arm `error: VALIDATION_ERROR` (FE-synthesized —
+the server never sends it). Before R171 both arms rendered `detail` raw, so a pydantic rejection
+posed as advice and named no field: what the user actually saw was the five words _"Extra inputs
+are not permitted"_.
 
 ### Boundaries (named)
 
@@ -1029,7 +1062,7 @@ assumption) — if a gap appears there, the cheap-win rank is wrong and the roun
 - **In (slice 1):** N ranges within an already-selected sheet, typed A1, at dataset **creation**.
 - **Deferred, trigger named:** a range participating in **refresh** identity (refresh stays
   single-unit); **visual / derive-from-preview** range picking (units already support any range —
-  only the *entry* is typed); a dedicated **N-sheets × M-ranges matrix** UI (the unit model already
+  only the _entry_ is typed); a dedicated **N-sheets × M-ranges matrix** UI (the unit model already
   represents the cross-product; only the per-tab add-range affordance is scoped here).
 
 ### Domain / UX decisions — tabled for the human (D1–D3)
@@ -1042,8 +1075,8 @@ Each has a recommendation; **none decided**. Hard stop here.
   easier to type after seeing the sheet, and the Sheet step is pre-parse checkboxes.
 - **D2 — per-range dataset naming default.** `<stem>_<sheet>` is no longer unique across a sheet's
   units. _Rec: the sheet's **first** unit keeps `<stem>_<sheet>`; **additional** units default to
-  `<stem>_<sheet>_<range>` (sanitized A1, e.g. `H1-K40`); all editable; the existing
-  duplicate-name-within-batch validation catches residual collisions._
+`<stem>_<sheet>_<range>`(sanitized A1, e.g.`H1-K40`); all editable; the existing
+  duplicate-name-within-batch validation catches residual collisions.\_
 - **D3 — per-range override / column-selection ownership.** _Rec: **per-unit** — each range parses
   to its own schema, so overrides and excluded-columns are owned per unit by construction (the same
   way today's per-sheet tabs each own theirs). No sharing across a sheet's units._
@@ -1077,7 +1110,7 @@ _⑥ refresh theme, slice 1 — F9 (settings carry-forward) + F10 (schema-drift 
 
 ### Concept
 
-A **Refresh** brings a *new export of the same source* into an **existing** Dataset instead
+A **Refresh** brings a _new export of the same source_ into an **existing** Dataset instead
 of creating a sibling. The real CRM cadence: every month a fresh call-log / lead export
 lands, and it should update `monthly_calls` in place — not spawn a 12th near-duplicate row.
 
@@ -1087,7 +1120,7 @@ history). This is the lived case — the FM exports are **cumulative** (FM2.25 c
 rows that supersede the earlier 5,047-row commit), so replace is correct and sufficient.
 
 > **Not replace's job:** row **merge-on-key / precedence** (F5+F6) for
-> *overlapping, non-cumulative* re-exports (identity key + precedence are domain decisions).
+> _overlapping, non-cumulative_ re-exports (identity key + precedence are domain decisions).
 > Replace can't dedup overlapping partial exports; that wall pulled
 > [§ Refresh merge mode](#refresh-merge-mode-merge-on-key-and-precedence-r147).
 
@@ -1096,7 +1129,7 @@ rows that supersede the earlier 5,047-row commit), so replace is correct and suf
 Per the noun-vs-mode discipline
 ([specious-model-lock-in](../../../memory/2026-06-13-specious-model-lock-in.md)): **reuse the
 upload wizard in a refresh mode**, do not build a parallel "refresh page." Refresh is the
-same verb (file → parsed table) against a *known target*.
+same verb (file → parsed table) against a _known target_.
 
 - **Affordance**: a **Refresh** action on the Dataset row (Actions column, beside
   rename/delete) and on the dataset-detail header. See
@@ -1123,7 +1156,7 @@ same verb (file → parsed table) against a *known target*.
 > re-parse ([upload/state.ts](../../../../workspace/apps/builder/src/features/data-management/datasets/upload/state.ts)).
 > A refresh seeds those from carry-forward; the first parse must **replay the preset**, not
 > discard it. The build must preserve the preset across the initial parse (the design decision:
-> carry-forward is applied *after* the seeding parse, keyed by column name — columns that
+> carry-forward is applied _after_ the seeding parse, keyed by column name — columns that
 > still exist keep their override; columns that vanished drop theirs silently, columns that
 > appeared start at their inferred dtype).
 
@@ -1132,28 +1165,32 @@ same verb (file → parsed table) against a *known target*.
 **Problem**: committed datasets are **lossy** — `source.json` holds only
 `{temp_id, sourceFormat, sheet, originalName}` and `columns_json` holds only `{name, dtype}`
 per column. **Parse options** (`range` / `skip_rows` / `has_header`), the **date/datetime
-`format`** string, the **exclusion** list, and pre-override dtypes are all *discarded* after
+`format`** string, the **exclusion** list, and pre-override dtypes are all _discarded_ after
 commit (they survive only as their effect on the parquet). So the two things the human
 re-typed most — **dtype/format overrides and parse options** — cannot be re-derived from
 what's stored.
 
 **Decision — persist a commit-settings snapshot (no migration).** At **every** commit
-(create *and* refresh), extend the per-dataset `source.json` with a `commitSettings` block
+(create _and_ refresh), extend the per-dataset `source.json` with a `commitSettings` block
 capturing exactly what a future refresh needs to pre-fill:
 
 ```jsonc
 // data/datasets/<ws>/<ds>/source.json
 {
-  "temp_id": "…", "sourceFormat": "excel", "sheet": "Worksheet",
+  "temp_id": "…",
+  "sourceFormat": "excel",
+  "sheet": "Worksheet",
   "originalName": "FM2.25.xlsx",
-  "commitSettings": {                       // ← the refresh recipe
+  "commitSettings": {
+    // ← the refresh recipe
     "parseOptions": { "range": "A1:M6693", "has_header": true },
-    "columnOverrides": {                    // keyed by column name; format preserved
+    "columnOverrides": {
+      // keyed by column name; format preserved
       "Số gọi": { "dtype": "string" },
-      "Ngày gọi": { "dtype": "datetime", "format": "dd-MM-yyyy HH:mm:ss" }
+      "Ngày gọi": { "dtype": "datetime", "format": "dd-MM-yyyy HH:mm:ss" },
     },
-    "excludedColumns": ["Ghi chú nội bộ"]
-  }
+    "excludedColumns": ["Ghi chú nội bộ"],
+  },
 }
 ```
 
@@ -1177,7 +1214,7 @@ capturing exactly what a future refresh needs to pre-fill:
   fallback** — pre-fill `sheet` + each column's **final committed dtype** as an override
   (formats unavailable → the user re-enters date/datetime formats). Surfaced honestly with an
   inline note ("some settings couldn't be restored from an older upload"). The snapshot is
-  written on that dataset's *next* refresh, so the gap self-heals forward.
+  written on that dataset's _next_ refresh, so the gap self-heals forward.
 
 ### F10: schema-drift gate (surface loudly, never silently absorb)
 
@@ -1187,16 +1224,16 @@ version, flag, **adapt**: don't reject normal business drift, don't hide it eith
 
 **Drift kinds** (per column, by name):
 
-| Kind | Meaning | Severity |
-| ---- | ------- | --------------------------------- |
-| **Added** | in new file, not in committed schema | **warn** — informational (no dependent can reference it yet) |
-| **Removed** | in committed schema, absent from new file | **warn + blast-radius** (see below) |
-| **Dtype-changed** | same name, the carried-forward override no longer fits the new data | **warn** — the coercion path (below) is the hard net |
-| **Renamed** | indistinguishable from removed+added without a heuristic | surfaced as **both** a removal and an addition (no rename inference in slice 1) |
+| Kind              | Meaning                                                             | Severity                                                                        |
+| ----------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| **Added**         | in new file, not in committed schema                                | **warn** — informational (no dependent can reference it yet)                    |
+| **Removed**       | in committed schema, absent from new file                           | **warn + blast-radius** (see below)                                             |
+| **Dtype-changed** | same name, the carried-forward override no longer fits the new data | **warn** — the coercion path (below) is the hard net                            |
+| **Renamed**       | indistinguishable from removed+added without a heuristic            | surfaced as **both** a removal and an addition (no rename inference in slice 1) |
 
 **Severity policy — warn-loud, never block (human decision):** all drift is
 surfaced in a dedicated **Drift review** step the user must explicitly acknowledge, then the
-refresh **proceeds**. Nothing about column drift *blocks* the commit. Rationale: the runtime
+refresh **proceeds**. Nothing about column drift _blocks_ the commit. Rationale: the runtime
 `query_stale` / `relationship_stale` machinery already re-computes dependent-artifact validity
 **on read** (it is never stored —
 [relationships.py `_compute_status`](../../../../workspace/apps/backend/app/routers/relationships.py),
@@ -1208,7 +1245,7 @@ the runtime net.
 **Blast-radius preview** — **deferred, not built.**
 The ideal is: for **removed** / **dtype-changed** columns, the Drift review step names the
 dependent **queries** and **relationships** that reference those columns ("refreshing will
-break the *Weekly Call Report* query"). That needs a BE read resolving a dataset's dependents
+break the _Weekly Call Report_ query"). That needs a BE read resolving a dataset's dependents
 **by referenced column** — a per-column reference-extraction engine over query
 definitions/predicates/joins. Per the fat-seam below, **it is not built.**
 The Drift review step instead states plainly that the runtime staleness net re-checks
@@ -1216,10 +1253,10 @@ dependents on next open (see below); the named blast-radius preview lands in **s
 
 > **Round fat-seam (revert seam) — TAKEN at Plan.** The blast-radius dependents lookup was the
 > round's flagged fat point. Plan decision: **split**. Slice **1a** ships the drift
-> *columns* surfaced (added / removed / dtype-changed) with the acknowledge gate; the
-> *dependents* preview is slice **1b**. Safe because the runtime `query_stale` /
+> _columns_ surfaced (added / removed / dtype-changed) with the acknowledge gate; the
+> _dependents_ preview is slice **1b**. Safe because the runtime `query_stale` /
 > `relationship_stale` machinery (recomputed on read) still catches broken dependents the next
-> time they're opened — nothing goes silently wrong; 1a only lacks the *pre-commit* warning.
+> time they're opened — nothing goes silently wrong; 1a only lacks the _pre-commit_ warning.
 > _Trigger for 1b: dogfood shows refresh-then-discover-broken-query is too costly without the
 > pre-commit preview._
 
@@ -1250,7 +1287,7 @@ informational (FE acknowledge)**, and only coercion (existing) can abort.
 
 ### Wire shape (refresh)
 
-The commit request uses the existing `target_dataset_id` *item* field (no new field for a
+The commit request uses the existing `target_dataset_id` _item_ field (no new field for a
 replace refresh). A refresh batch carries **exactly one item** (a Dataset maps to one
 source table), targeting one dataset:
 
@@ -1334,19 +1371,19 @@ Two candidate homes, per the noun-vs-mode discipline — the rejected one named:
 - **Chosen: a second refresh semantics** (`replace | merge`) inside the existing refresh
   commit. The merge happens **once, at ingest**, and materializes into the dataset's parquet;
   the dataset stays the single source of truth every dependent reads, unchanged.
-- **Rejected: a workflow step** ("keep latest per key"). It is *expressible* — one DuckDB
+- **Rejected: a workflow step** ("keep latest per key"). It is _expressible_ — one DuckDB
   window/anti-join step, and the workflows doctrine
   ([queries-to-workflows brainstorm](../../../plan/brainstorms/2026-07-01-queries-to-workflows-module.md);
   "query gains steps", DuckDB-first) rightly biases shaping toward steps. But a step-home dedup is **opt-in per consumer**: the
-  dataset itself would stay double-rowed (it would also need a new *append* refresh semantics
+  dataset itself would stay double-rowed (it would also need a new _append_ refresh semantics
   to even hold both snapshots), and every query/widget that forgets the step is **silently
   wrong by default** — exactly the F5 correctness failure. F5 is not presentation shaping;
-  it is correctness of the *source*. Month-2 correctness must hold by construction.
+  it is correctness of the _source_. Month-2 correctness must hold by construction.
   _(A "latest per key" step for presentation-level dedup remains open to a future pull —
   orthogonal, not precluded.)_
 
 The wizard skeleton is untouched (strict on the skeleton): merge adds **no new step**. The
-**Confirm step** in refresh mode gains a *refresh semantics* block — `replace | merge` choice;
+**Confirm step** in refresh mode gains a _refresh semantics_ block — `replace | merge` choice;
 choosing merge reveals the **key picker** (select from the committed columns). Because the key
 is only DECLARED on Confirm (which follows the Drift-review step), the FE key-drift guard lives
 on Confirm too: `mergeKeyIssues` (`upload/state.ts`) feeds the picker's error state + blocking
@@ -1357,13 +1394,13 @@ enforces the same guards independently (the contract net), so key drift never si
 ### Merge semantics: keep-latest-per-key
 
 Inputs: the committed parquet (current rows) + the incoming staged table — the incoming side
-already coerced to the committed dtype contract, *before* any swap.
+already coerced to the committed dtype contract, _before_ any swap.
 
-| Key present in… | Result |
-| --------------- | ------ |
-| both | **incoming row wins** (whole row — no cell-level merge) |
-| incoming only | inserted |
-| committed only | **kept** (the clause replace lacks) |
+| Key present in… | Result                                                  |
+| --------------- | ------------------------------------------------------- |
+| both            | **incoming row wins** (whole row — no cell-level merge) |
+| incoming only   | inserted                                                |
+| committed only  | **kept** (the clause replace lacks)                     |
 
 - **Precedence = snapshot recency**: the incoming file wins, period (❓ D3). No precedence
   column, no per-cell reconciliation in slice 1.
@@ -1380,17 +1417,17 @@ The mechanism above is generic; **what a row IS is not inferable** — phone is 
 within one file (the source's own `TRÙNG` column counts 1..8+ occurrences per phone; 16,375
 in-file duplicate-phone rows). These are the human's calls:
 
-| ❓ | Decision | Options | Recommendation |
-| --- | -------- | ------- | -------------- |
-| **D1** | Key shape + persistence | (a) one or more committed columns, picked in the wizard, remembered per dataset in `commitSettings.mergeKey`; (b) single column only | **(a)** — composite keys are the *expected* real case ("lead = phone + creation-date"); a multi-select costs no extra skeleton. Remembered key pre-fills next month |
-| **D2** | Incoming file has duplicate rows per key | (a) **loud stop** — typed 422 naming the key, dup count, sample keys (evidence the declared key is wrong); (b) last-in-file wins, count surfaced; (c) keep all dup-key rows | **(a)** — file row order is not time, so "last" is fiction; a dup-key incoming file means the key doesn't mean what the user thinks. The 422 teaches the fix (pick a fuller key or clean the export) |
-| **D3** | Precedence rule | (a) incoming-wins (snapshot recency); (b) precedence column (e.g. max timestamp) | **(a)** for slice 1; (b) defers with trigger: a real pair where the older snapshot holds the newer truth |
-| **D4** | Mode selection | (a) per-refresh choice, defaulting to the last-used mode (remembered in `commitSettings`); (b) fixed per-dataset setting | **(a)** — the same dataset can plausibly get a cumulative export one month and a partial the next; the choice stays visible at every refresh |
-| **D5** | Result schema under column drift | (a) incoming schema wins (kept rows NULL-fill added columns, lose removed ones — consistent with replace; drift review already warns); (b) union of both schemas, NULL-filled | **(a)** — the incoming export defines the current shape; (b) accretes ghost columns forever |
+| ❓     | Decision                                 | Options                                                                                                                                                                       | Recommendation                                                                                                                                                                                       |
+| ------ | ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **D1** | Key shape + persistence                  | (a) one or more committed columns, picked in the wizard, remembered per dataset in `commitSettings.mergeKey`; (b) single column only                                          | **(a)** — composite keys are the _expected_ real case ("lead = phone + creation-date"); a multi-select costs no extra skeleton. Remembered key pre-fills next month                                  |
+| **D2** | Incoming file has duplicate rows per key | (a) **loud stop** — typed 422 naming the key, dup count, sample keys (evidence the declared key is wrong); (b) last-in-file wins, count surfaced; (c) keep all dup-key rows   | **(a)** — file row order is not time, so "last" is fiction; a dup-key incoming file means the key doesn't mean what the user thinks. The 422 teaches the fix (pick a fuller key or clean the export) |
+| **D3** | Precedence rule                          | (a) incoming-wins (snapshot recency); (b) precedence column (e.g. max timestamp)                                                                                              | **(a)** for slice 1; (b) defers with trigger: a real pair where the older snapshot holds the newer truth                                                                                             |
+| **D4** | Mode selection                           | (a) per-refresh choice, defaulting to the last-used mode (remembered in `commitSettings`); (b) fixed per-dataset setting                                                      | **(a)** — the same dataset can plausibly get a cumulative export one month and a partial the next; the choice stays visible at every refresh                                                         |
+| **D5** | Result schema under column drift         | (a) incoming schema wins (kept rows NULL-fill added columns, lose removed ones — consistent with replace; drift review already warns); (b) union of both schemas, NULL-filled | **(a)** — the incoming export defines the current shape; (b) accretes ghost columns forever                                                                                                          |
 
 Duplicates already inside the **committed** table (e.g. from a pre-merge replace commit) merge
 per the same rule — all committed rows whose key matches an incoming key are superseded by the
-one incoming row; committed dup-keys *not* touched by the incoming file are kept as-is
+one incoming row; committed dup-keys _not_ touched by the incoming file are kept as-is
 (cleaning history is not this slice's job). _Build deviation (flagged): the draft surfaced
 untouched committed dups as their own count; the build folds them into `kept` — a fourth
 count earned no wire field before a lived pull._
@@ -1480,10 +1517,10 @@ not a fiction. So:
 - **Merge-on-key 422s** — the [D2 dup-key guard](#f6-the-identity-key-domain-decisions) rejects any
   incoming file with >1 row per key, and every month has some.
 - **Append** — keyless **UNION ALL**, keep every row — is the only fit, and the standard operation
-  for combining periodic exports (Power Query *Append* / Tableau Prep *Union*: keyless, keep-all,
+  for combining periodic exports (Power Query _Append_ / Tableau Prep _Union_: keyless, keep-all,
   no auto-dedup; dedup is a separate explicit step).
 
-Framing note: our existing merge-on-key is the *advanced* upsert; append is the *basic* primitive it
+Framing note: our existing merge-on-key is the _advanced_ upsert; append is the _basic_ primitive it
 sits on top of — append fills the gap.
 
 ### Build home: a third refresh semantics (`replace | merge | append`)
@@ -1503,10 +1540,10 @@ the **date-field picker** (for the overlap check, below) in place of merge's key
 
 ### Append semantics: keep-all union
 
-| Row source | Result |
-| ---------- | ------ |
-| committed | **kept** (every row) |
-| incoming | **appended** (every row) |
+| Row source | Result                   |
+| ---------- | ------------------------ |
+| committed  | **kept** (every row)     |
+| incoming   | **appended** (every row) |
 
 - **No dedup, no key** — result row count = committed + incoming. Within- and cross-file duplicates
   are **kept by design** (they are genuine distinct records; append never guesses a winner — that is
@@ -1526,25 +1563,25 @@ unavailable here). The mitigation is **keyless, explicit warn-only, never block*
 existing **[F10 Drift-review step](#f10-schema-drift-gate-surface-loudly-never-silently-absorb)**
 (warn-loud / never-block precedent):
 
-| User's date-field choice | Incoming vs. committed range | Behavior |
-| ------------------------ | ---------------------------- | -------- |
-| picks a date field | ranges **disjoint** | **quiet** — *"no overlapping dates detected on `<field>`"* (a fact — **never** "no duplicates") |
-| picks a date field | ranges **overlap** | **warn** — names the overlapping range, *"appending will add these rows again"*; proceeds on acknowledge |
-| picks "None" / skips | not checked | **always warn** — *"can't check for overlaps; append keeps all rows"* |
+| User's date-field choice | Incoming vs. committed range | Behavior                                                                                                 |
+| ------------------------ | ---------------------------- | -------------------------------------------------------------------------------------------------------- |
+| picks a date field       | ranges **disjoint**          | **quiet** — _"no overlapping dates detected on `<field>`"_ (a fact — **never** "no duplicates")          |
+| picks a date field       | ranges **overlap**           | **warn** — names the overlapping range, _"appending will add these rows again"_; proceeds on acknowledge |
+| picks "None" / skips     | not checked                  | **always warn** — _"can't check for overlaps; append keeps all rows"_                                    |
 
 - Date-overlap is an **honest heuristic, not a proof** — overlap ≠ duplicates (legitimately-new rows
   can fall on already-present days), and disjoint ≠ zero-duplicates (a wrong / coarse field). This is
   exactly why it **warns, never blocks**: the tool surfaces a signal, the human (who knows re-upload
   from new data) decides. The wording reports only what was checked ("no overlapping dates on
   `<field>`"), never the claim it cannot make ("no duplicates").
-- The **Append mode label carries the baseline** (*"adds all rows; does not remove duplicates"*) so
+- The **Append mode label carries the baseline** (_"adds all rows; does not remove duplicates"_) so
   the semantics are honest before a file is chosen.
 - **Ergonomics**: the date-field picker **pre-selects a detected date/datetime column** (dtype known
   at parse), with **"None"** available — the common case is one confirm, not a blank pick.
-- **Open (deferred to F1 → C):** *where* overlap is computed — BE compares committed vs. incoming
+- **Open (deferred to F1 → C):** _where_ overlap is computed — BE compares committed vs. incoming
   `min`/`max` on the chosen column and returns a typed `append_overlap` warn on the drift/commit
   response, vs. FE-computed from the parse preview. Shapes the contract (flow-selector cond-4); the
-  DFCFBI **F1** feel-review validates the warn UX *before* the contract locks it at C.
+  DFCFBI **F1** feel-review validates the warn UX _before_ the contract locks it at C.
 
 ### Wire shape (append)
 
@@ -1571,7 +1608,7 @@ merge (present) do — it needs an **explicit mode discriminator**:
 ### Boundaries (named)
 
 - **Keep-all, no dedup** — a "latest-per-key / de-dup on append" step is presentation-level dedup,
-  open to a future pull (orthogonal, same note as merge); append's job is the *source* union.
+  open to a future pull (orthogonal, same note as merge); append's job is the _source_ union.
 - **Warn-only, never block** — append has **no hard 422 of its own** (unlike merge's key guard); the
   only aborts are the pre-existing `coercion_failed` / `unknown_column`.
 - **Overlap heuristic honesty** — the check never asserts "no duplicates," only "no overlapping dates
@@ -1660,7 +1697,7 @@ column:
 ```
 
 - **Backend-internal — no wire/contract change.** The pointer lives in `source.json`; `GET
-  /datasets/{id}` still returns provenance in the existing `Column {name, dtype, hidden?}` shape. This
+/datasets/{id}` still returns provenance in the existing `Column {name, dtype, hidden?}` shape. This
   is the deliberate reason to prefer a metadata registry over a structural flag on the `Column` wire
   model — the latter reopens the widen-shared-model / `null`-on-bystander trap
   ([[widening-shared-wire-model-omit-serializer]]). The FE learns the computed column's **name** from
@@ -1688,7 +1725,7 @@ rewrite, which would re-encode every column and strip pandas' string extension d
   refresh **re-materializes** it from the registry spec (value = the incoming filename for new rows;
   kept committed rows retain their stored value). The parquet-visibility `PATCH /datasets/{id}/columns`
   still never touches the parquet — the presentation-vs-compute doctrine holds (provenance is a
-  compute-time *write*, the visibility toggle is not).
+  compute-time _write_, the visibility toggle is not).
 
 ### Drift interaction — diff SOURCE columns only
 
@@ -1717,15 +1754,15 @@ event), not a special-case for `Source.Name`.
 
 If a kept source column is already named `Source.Name`, provenance **auto-suffixes** to `Source.Name1`
 (de-dup loop → `…2`, …), and the registry pointer records the suffixed name. The user's column is never
-clobbered, and provenance always exists. This supersedes the earlier *skip* (user-wins → provenance silently
+clobbered, and provenance always exists. This supersedes the earlier _skip_ (user-wins → provenance silently
 absent), which left an accumulated dataset origin-blind exactly when a coincidental same-named column
-appeared. Caveat: in the true Power-Query case (the incoming file's own `Source.Name` already *is* the
+appeared. Caveat: in the true Power-Query case (the incoming file's own `Source.Name` already _is_ the
 source filename), auto-suffix yields a mildly redundant second column — harmless (hide or drop one);
 auto-suffix is the safe default because the name alone cannot distinguish PQ-provenance from a
 coincidental user column.
 
 **Collision on REFRESH (not just create) — auto-suffix + remap committed provenance.** The clash can
-also appear *after* provenance is established: a later refresh file introduces its own `Source.Name`
+also appear _after_ provenance is established: a later refresh file introduces its own `Source.Name`
 column while the dataset's computed provenance is already `Source.Name`. The same rule applies, with one
 extra step for append/merge — the committed rows' provenance (stored under the old name) is **remapped**
 to the new suffixed name so no history is lost:
@@ -1744,14 +1781,14 @@ schema) — the build gate this case guards against.
 
 - **Filename only** — not sheet name, not a custom per-append label, not a timestamp (FM filenames
   encode the month, so the filename is directly useful). A richer label is a future pull.
-- **No un-append / undo-by-provenance** — provenance makes an append *attributable* and *visible*, but
+- **No un-append / undo-by-provenance** — provenance makes an append _attributable_ and _visible_, but
   Append's forward-only boundary is unchanged; deleting rows by `Source.Name` is out of scope.
 - **Reserved identifier, not localized** — the provenance column name is a stable data identifier (Power
   Query parity), not UI chrome; surrounding UI copy is localized, the column name is not.
 - **Column count shifts +1, and provenance flows through the compute layer** — every dataset gains one
   column. Because `hidden` is a **preview-only** hint, provenance is a real column that flows into
   query / join / workflow output: groupable in a single-dataset query (the goal — `GROUP BY
-  "Source.Name"`), and present in a join's resolved columns **once per source** (`<src>.Source.Name`,
+"Source.Name"`), and present in a join's resolved columns **once per source** (`<src>.Source.Name`,
   qualified). Provenance is a genuine column everywhere; the hidden hint only declutters the
   dataset-detail preview.
 - **No new REQUEST field, no shared-model change** — automatic ⇒ no request change; the registry is
@@ -1832,7 +1869,7 @@ function useDatasetsCommitMutation(workspaceId: string) {
         column_overrides?: Record<string, ColumnOverride>;
         excluded_columns?: string[];
         target_dataset_id?: string; // refresh-only (§ Refresh)
-        merge_key?: string[];       // merge-refresh-only (§ Refresh merge mode)
+        merge_key?: string[]; // merge-refresh-only (§ Refresh merge mode)
       }[];
     }) => uploadsApi.commitBatch(workspaceId, body),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['datasets'] }),

@@ -37,6 +37,35 @@ async function throwApiError(resp: Response): Promise<never> {
   throw new Error(`Request failed: ${resp.status} ${resp.statusText}`);
 }
 
+/** One entry of FastAPI's body-validation `detail` list. */
+type ValidationDetail = { loc?: unknown; msg?: unknown };
+
+/** R171 item 1 — the FE-synthesized `error` marking a pydantic body-validation
+ *  rejection (a request this app should never have sent), as opposed to
+ *  `unprocessable_request`, which carries guidance the router wrote FOR the
+ *  user. Never sent by the server; set here, read by `UploadConfirmStep`. */
+export const VALIDATION_ERROR = 'validation_error';
+
+/** R171 item 1 — render one validation entry as `field: message`.
+ *
+ *  `loc` is the path FastAPI walks to the offending value, always led by the
+ *  source (`"body"`), e.g. `["body", "items", 0, "sheetName"]`. The lead is
+ *  dropped (every entry here is a body) and the rest joined with `.`, so the
+ *  reader gets `items.0.sheetName: Extra inputs are not permitted` instead of
+ *  a message that names nothing. A `loc` of only `["body"]` — the whole body
+ *  rejected — leaves no path to name, so the message stands alone. */
+function validationDetailLine(d: ValidationDetail): string | null {
+  const msg = typeof d.msg === 'string' ? d.msg : null;
+  if (msg === null) return null;
+  const path = Array.isArray(d.loc)
+    ? d.loc
+        .filter((p, i) => !(i === 0 && p === 'body'))
+        .map(String)
+        .join('.')
+    : '';
+  return path ? `${path}: ${msg}` : msg;
+}
+
 /** Batch-commit 409 has a `oneOf` body: either `ApiErrorNameTaken` or the
  *  legacy `{ error, detail }` shape. Surface both via `BatchApiErrorThrown`
  *  so the wizard can branch on `body.code` vs `body.error`. */
@@ -67,12 +96,22 @@ async function throwBatchApiError(resp: Response): Promise<never> {
       throw new BatchApiErrorThrown(resp.status, { error: 'unprocessable_request', detail: legacy.detail });
     }
     if (Array.isArray(legacy.detail)) {
+      // R171 item 1 — keep the `loc` PATH, not just the `msg`. A pydantic
+      // `extra='forbid'` rejection reads "Extra inputs are not permitted",
+      // which without its `loc` names no field at all: the one thing the
+      // reader needs is the half that used to be dropped here.
       const msgs = legacy.detail
-        .map((d) => (d && typeof d === 'object' ? (d as { msg?: unknown }).msg : null))
-        .filter((m): m is string => typeof m === 'string')
+        .map((d) => (d && typeof d === 'object' ? validationDetailLine(d as ValidationDetail) : null))
+        .filter((m): m is string => m !== null)
         .join(' · ');
       if (msgs) {
-        throw new BatchApiErrorThrown(resp.status, { error: 'unprocessable_request', detail: msgs });
+        // `VALIDATION_ERROR`, not `unprocessable_request`: these two arms are
+        // NOT the same kind of failure, and R144's copy work depends on the
+        // difference. A string `detail` is a message the ROUTER wrote for the
+        // user ("…needs dtype `datetime`") — real guidance. A list `detail` is
+        // pydantic refusing the body this app sent — a bug in the app, which
+        // no amount of user action fixes. The wizard branches on this.
+        throw new BatchApiErrorThrown(resp.status, { error: VALIDATION_ERROR, detail: msgs });
       }
     }
   }

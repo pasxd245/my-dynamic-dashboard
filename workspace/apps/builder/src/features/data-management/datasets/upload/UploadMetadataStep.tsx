@@ -5,6 +5,7 @@ import {
   Collapse,
   Input,
   InputNumber,
+  Popconfirm,
   Select,
   Space,
   Spin,
@@ -27,6 +28,22 @@ import {
 } from './state';
 
 const DTYPES: Dtype[] = ['string', 'integer', 'float', 'boolean', 'date', 'datetime'];
+
+/** R171 item 2 — an override ENTRY is not an override. The refresh
+ *  carry-forward seeds `{ dtype }` for every surviving column, so
+ *  `columnOverrides[name]` exists for columns the user never touched. A real
+ *  override is one that CHANGES something: a different dtype, or a format on
+ *  a date/datetime column (which the seed never carries).
+ *
+ *  R157's `[F-metadata-highlight]` fix learned the first half of this rule for
+ *  the per-cell highlight; the `[Reset all]` button never did, and read
+ *  "enabled" on a refresh where nothing was overridden. Both now ask here, so
+ *  the highlight and the reset can no longer disagree — and the highlight
+ *  gains the format-only case it was missing. */
+export function isRealOverride(row: Column, override: ColumnOverride | undefined): boolean {
+  if (override === undefined) return false;
+  return override.dtype !== row.dtype || override.format !== undefined;
+}
 
 type Props = Readonly<{
   state: WizardState;
@@ -228,7 +245,13 @@ function SheetPane({ unit, state, dispatch, onReparse }: PaneProps) {
       }
     }
   };
-  const hasAnyOverride = Object.keys(sheet.columnOverrides).length > 0;
+  // R171 item 2 — count what the reset actually REVERTS, not what it clears.
+  // The seeded entries go too (they are no-ops), but they must not make the
+  // button look like it has work to do, and the confirm names this number.
+  const overriddenCount = sheet.columns.filter((col) =>
+    isRealOverride(col, sheet.columnOverrides[col.name]),
+  ).length;
+  const hasAnyOverride = overriddenCount > 0;
 
   const tableColumns = [
     {
@@ -324,9 +347,30 @@ function SheetPane({ unit, state, dispatch, onReparse }: PaneProps) {
           alignItems: 'center',
         }}
       >
-        <Button type="link" size="small" onClick={resetAll} disabled={!hasAnyOverride} data-component="ResetOverrides">
-          {t('upload.metadata.resetAll')}
-        </Button>
+        {/* R171 item 2 — a click-time confirm on a destructive, un-undoable
+            action. It names the COUNT and the TAB, because the failure mode
+            here is scope: on a multi-sheet Excel file the reset looks
+            file-wide and is not. `Popconfirm`, not the shared
+            `DeleteConfirmModal` — the modal's chrome and copy are built for
+            deleting a resource, and this needs its scope stated, not its
+            consequence dramatised. */}
+        <Popconfirm
+          title={t('upload.metadata.resetAllConfirmTitle')}
+          description={
+            sheetLabel
+              ? t('upload.metadata.resetAllConfirmWithSheet', { count: overriddenCount, sheet: sheetLabel })
+              : t('upload.metadata.resetAllConfirm', { count: overriddenCount })
+          }
+          okText={t('upload.metadata.resetAllConfirmOk')}
+          cancelText={t('common.cancel')}
+          okButtonProps={{ danger: true }}
+          onConfirm={resetAll}
+          data-component="ResetOverridesConfirm"
+        >
+          <Button type="link" size="small" disabled={!hasAnyOverride} data-component="ResetOverrides">
+            {t('upload.metadata.resetAll')}
+          </Button>
+        </Popconfirm>
         <Typography.Text type="secondary" data-component="MetadataIncludedCount">
           {sheetLabel
             ? t('upload.metadata.includedCountWithSheet', { sheet: sheetLabel, kept, total })
@@ -352,8 +396,9 @@ function OverrideCell({ row, override, onChange }: OverrideProps) {
   // surviving column (rich path: real prior picks; lossy legacy path:
   // presetFromDataset seeds all), so "entry exists" lit up every cell and buried
   // the user's one real change. "Differs from detected" matches the Drift step's
-  // intent — a change is a change vs what we'd infer now.
-  const isOverridden = override !== undefined && override.dtype !== row.dtype;
+  // intent — a change is a change vs what we'd infer now. R171 item 2 moved the
+  // rule into `isRealOverride` so `[Reset all]` asks the same question.
+  const isOverridden = isRealOverride(row, override);
   return (
     <Space orientation="vertical" size={4} style={{ width: '100%' }}>
       <Select
