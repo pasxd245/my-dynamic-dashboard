@@ -1,6 +1,6 @@
 # Program plan: Query as the single shaping surface
 
-**Status**: Active — items **1 and 2 are Complete**. `cycles/Round_162.md` + `cycles/Round_163.md` (item 1, signed off 2026-08-11) and `cycles/Round_164.md` + `cycles/Round_165.md` (item 2, signed off **2026-08-13** — walk closed 5 of 5, six defects found after green gates and all fixed). Next: **item 3**, retire `query⋈query` and ship Duplicate — **split by layer into 3a + 3b** at the human's call 2026-08-13 (§ Item 3's layer split). [`Round_166`](../cycles/Round_166.md) (3a, FE-only) **opened 2026-08-13, Planning**; `Round_167` takes 3b, and Workflow shifts to `Round_168`
+**Status**: Active — items **1, 2 and 3a are Complete**. `cycles/Round_162.md` + `cycles/Round_163.md` (item 1, signed off 2026-08-11), `cycles/Round_164.md` + `cycles/Round_165.md` (item 2, signed off **2026-08-13** — walk 5 of 5, six defects found after green gates and all fixed), and [`Round_166`](../cycles/Round_166.md) (**item 3a**, signed off **2026-08-14** — walk 5 of 5, **T5 = yes**: Duplicate serves the need, so 3b proceeds as planned rather than being rewritten). Next: [`Round_167`](../cycles/Round_167.md) (**item 3b**, the engine half — **opened 2026-08-14, Planning**), then Workflow as `Round_168`
 **Opened**: 2026-08-07
 **Closed**:
 
@@ -212,7 +212,11 @@ net-negative; finding E means the FE half is safe to run alone. So item 3 cuts a
 seam, **replacement first**:
 
 - **3a (`Round_166`, FE-only, contract-safe)** — ship Duplicate, withdraw all three D5 entry
-  points, delete `QueryCreatePage` + the `?base=` route + the canvas `qr_` treatment.
+  points, delete `QueryCreatePage` + the `?base=` route, and flatten both source pickers to
+  datasets-only. **Shipped 2026-08-14 (`bd42c6f`, `384c2ae`), −405/+150 LOC.** One correction to
+  this line: the canvas's `qr_` **rendering** did **not** come out here. The Plan and `canvas.md`
+  contradicted each other on it and the human ruled for the design doc (2026-08-14) — the rendering
+  retires **with** the engine in 3b, so the deletion happens once, in one place.
 - **3b (`Round_167`, engine + contract)** — everything in findings A–D, the migration stance, and
   the 14-doc `design-sync` of `data-management/` outstanding since R162, which then syncs the
   **final** state once instead of twice.

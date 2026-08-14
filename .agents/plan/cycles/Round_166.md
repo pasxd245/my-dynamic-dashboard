@@ -1,11 +1,51 @@
 # Round 166: Duplicate, and the affordances withdrawn
 
-**Status**: **Review** — D + F + I closed; walk 5 of 5, W-1 fixed in-round. Awaiting human sign-off to flip Complete.
+**Status**: Complete — human sign-off 2026-08-14
 **Flow**: **DCFBI** — set at the Design gate via `flow-selector`; recorded in the Do log
 **Date started**: 2026-08-13
-**Date completed**:
+**Date completed**: 2026-08-14
 
-<!-- ⟢ At a glance is authored at the Review→Complete flip (R159 doctrine), not during Do. -->
+## ⟢ At a glance
+
+**Shipped** — **no surface offers building a query on a query any more**, and the variant need that
+affordance served is met by **Duplicate**: a verb on the query detail header that copies the whole
+definition — `q`, filters, advanced, relationships, joins **and steps** — into a new Query over the
+**same** sources, with `qrel_` ids reused verbatim so `copy.definition == base.definition` is a deep
+equality a test can assert. It is **strictly more correct than the composition it replaces**, which
+baked in a base's predicates but **never ran its `steps`**, so building on a shaped query silently
+built on unshaped rows. The FE is **net-negative** — a page, a route, the builder's create mode and
+both source pickers' query halves leave; one button and one modal arrive. **No engine, no contract**:
+`CreateQueryBody` was already `{sourceId, name, definition}`, which is the premise the whole layer
+split rested on, so DCFBI's C and B were **empty by construction** rather than skipped.
+
+**Studied** — **the round's falsification test was the point, and it held.** The program plan's own
+honest caveat was that _no recorded instance of a clone need existed_; T5 answered it by hand
+(_"yes, that's what I think and expected"_), so R167 proceeds rather than being rewritten — the one
+thing the FE half could hand the engine half that no gate produces. Two forks were resolved by the
+human and neither by an agent: the Plan and `canvas.md` **contradicted each other** on whether the
+canvas's `qr_` rendering leaves here (the durable design doc won — it retires **with** the engine at
+R167), and item 3 was split by layer at all only because a D-gate code walk found the engine half is
+neither deletable nor net-negative the way the program plan assumed. The sharpest lesson is
+cheap and general: **an ASCII sketch carries a decision whether or not it was making one.** This
+round's own layout picture had drawn `[Duplicate] [Edit] [Delete]`, the build followed it faithfully,
+and that **regressed an ordering the shipped page already had right**. The walk caught it in one look.
+
+**Watch**
+
+- **For one round, shipped exceeds concept**: the engine still accepts `qr_` operands over the API
+  that no UI offers, and the canvas still carries `qr_` node rendering nothing can reach. Named, not
+  hidden — **R167 closes both**, and D5 in `_noun-model.md` stays open until it does. No saved query
+  uses it (finding E).
+- **Duplicate's collision cost is accepted, not solved.** The second duplicate of the same query
+  always hits `409 name_taken` (inline error, user renames), and duplicating a copy suffixes again
+  (`abc (copy) (copy)`). Both judged acceptable by hand; the revisit trigger did **not** fire.
+- **The ordering rule is local on purpose.** `[Edit] [Duplicate] [Delete]` is specified for this
+  header only; generalising it to every detail header is a cross-surface question parked with the
+  **R157 UX cluster**, next to the catalog-row-actions question the D gate sent there.
+- **The seed was two gaps behind the product** and nobody had noticed: it carried **no**
+  `group_column` / `window_column` example in either mode, three rounds after those families shipped.
+  Fixed here (`5a896f4`), but the class of miss — _the dogfooding surface silently lagging the
+  feature it exists to exercise_ — has no guard.
 
 ## Goal
 
