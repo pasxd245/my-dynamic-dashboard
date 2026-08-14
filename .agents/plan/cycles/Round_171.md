@@ -297,18 +297,30 @@ them)_
 
 ### Acceptance-walk questions (written at D, per [[walk-record-always-spec-on-ask]])
 
-Five questions, `coverage: 5 of 8` — items 3 and 7 are deliberately unwalked: item 3's outcome is a
-string a test asserts exactly, and item 7 ships no build to walk. The standing criterion applied
-throughout: **if a test can answer it, it is a test.** Each question names the card or control it
-acts on; grade the gesture, not the outcome.
+Six questions, `coverage: 6 of 8` — item 7 ships no build to walk, and item 8 is a test, not a
+gesture. The standing criterion applied throughout: **if a test can answer it, it is a test.** Each
+question names the card or control it acts on; grade the gesture, not the outcome.
 
-| #      | Question                                                                                                                                                                                                                                                                                                                  | Item(s) | Verdict |
-| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ------- |
-| **T1** | On the upload wizard's **Metadata** step, override two columns' dtypes, then click `[Reset all to detected]`. Does the confirm tell you **what you are about to lose** clearly enough that you'd be comfortable clicking through it — and on an Excel file with two sheets, is it obvious the reset is **this tab only**? | 2       | ⬜      |
-| **T2** | Commit an upload that the server rejects with something the FE has no code for (e.g. a body it refuses). Reading only the red box on **Confirm**, can you tell **which field** the server objected to, and do you know it is a bug rather than something you did?                                                         | 1       | ⬜      |
-| **T3** | On a query's **Canvas**, draw a join that matches an existing governed relationship, then click the edge. Does the actions row read as **honest** — is it clear why `Promote` is or isn't available on _this_ edge, without clicking it to find out?                                                                      | 4       | ⬜      |
-| **T4** | On the query builder's **Computed column** card, without touching anything: can you tell at a glance that the by-column / by-number control is a **switch you can press**, and which side is currently on?                                                                                                                | 5       | ⬜      |
-| **T5** | Stop the backend, then edit a step on a saved query. From the builder panel alone, can you tell **the server is unreachable** rather than that your step was rejected — and does the surface tell you what to do next?                                                                                                    | 6       | ⬜      |
+> **On the count — five was an anchor, and the human caught it (2026-08-15).** R165, R166, R167,
+> R168 and this round's first draft all wrote exactly **five** questions, and nothing prescribes
+> five: [[walk-record-always-spec-on-ask]] mandates questions + ⬜ + `coverage: N of M`, never a
+> number. R165 set the shape and four rounds copied it. **It cost a question here.** Item 3 was
+> dropped as _"a string a test asserts exactly"_ — true of the text, false of the thing that was
+> actually uncertain: `query-construction.md`'s binding build note says the qualified label
+> **overflows a narrow `<Select>`** and demands an explicit ellipsis/`title` decision. That
+> decision was made; whether it **reads** is perception, and JSDOM has no layout, so no test in
+> this repo can answer it. T6 below is that question. A batched cluster spans more surfaces than a
+> single-feature round, so this was the round where the count should have moved most — which is
+> exactly where the anchor held.
+
+| #      | Question                                                                                                                                                                                                                                                                                                                                                              | Item(s) | Verdict |
+| ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ------- |
+| **T1** | On the upload wizard's **Metadata** step, override two columns' dtypes, then click `[Reset all to detected]`. Does the confirm tell you **what you are about to lose** clearly enough that you'd be comfortable clicking through it — and on an Excel file with two sheets, is it obvious the reset is **this tab only**?                                             | 2       | ⬜      |
+| **T2** | Commit an upload that the server rejects with something the FE has no code for (e.g. a body it refuses). Reading only the red box on **Confirm**, can you tell **which field** the server objected to, and do you know it is a bug rather than something you did?                                                                                                     | 1       | ⬜      |
+| **T3** | On a query's **Canvas**, draw a join that matches an existing governed relationship, then click the edge. Does the actions row read as **honest** — is it clear why `Promote` is or isn't available on _this_ edge, without clicking it to find out?                                                                                                                  | 4       | ⬜      |
+| **T4** | On the query builder's **Computed column** card, without touching anything: can you tell at a glance that the by-column / by-number control is a **switch you can press**, and which side is currently on?                                                                                                                                                            | 5       | ⬜      |
+| **T5** | Stop the backend, then edit a step on a saved query. From the builder panel alone, can you tell **the server is unreachable** rather than that your step was rejected — and does the surface tell you what to do next?                                                                                                                                                | 6       | ⬜      |
+| **T6** | Open a query with 2+ hops and look at the **add-a-join** picker and the hop rows, where the labels are longest. Now that both sides are qualified (`accounts.account_id ↔ tiers.acct · many:one`), can you still **read** them — or does the `<Select>` cut them off somewhere that costs you the part you needed? Hover a truncated one: does the full label arrive? | 3       | ⬜      |
 
 Item 8 is not walked because it is a **test, not a gesture**: run a workflow whose source query
 carries a `sort` step, page its rows, and assert the sequence matches the query's own paged read.
