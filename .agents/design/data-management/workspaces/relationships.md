@@ -64,11 +64,13 @@ chrome all surfaces render inside).
 | `Relationship` Pydantic model                       | `apps/backend/app/models/common.py`                       | backend             | data type          | pydantic                           |
 | `Relationship` type (frontend)                      | `.../features/data-management/relationships/types.ts`     | feature             | data type          | none                               |
 | `<DeleteConfirmModal>` (reused)                     | `apps/builder/src/features/data-management/_shared`       | shared cross-domain | plain-UI           | react, antd                        |
-| Page-List shells `PageHeader` / `PageCard` (reused) | `apps/builder/src/features/data-management/_shared`       | shared cross-domain | plain-UI           | react, antd                        |
+| Page-List shells `PageHeader` / `PageCard` (reused) | `packages/ui` (`@mdd/ui`)                                 | shared cross-domain | plain-UI           | react, antd                        |
 
 **Boundary check**: the only shared-cross-domain rows (`<DeleteConfirmModal>`,
-the Page-List shells) are **reused, not owned** — their boundaries live in
-[crud-hygiene.md](../_shared/crud-hygiene.md) / [datasets.md](../datasets/datasets.md).
+the Page-List shells) are **reused, not owned** — `<DeleteConfirmModal>` from
+`features/data-management/_shared` ([crud-hygiene.md](../_shared/crud-hygiene.md)),
+`PageHeader` / `PageCard` from the `@mdd/ui` package
+([datasets.md](../datasets/datasets.md)).
 `WorkspaceRelationshipsPage` is feature-local and **composes** the shared
 Page-List layout, adding only its own column config + the declare action. No
 relationships surface re-implements a dataset/query surface; the dataset `dtype`

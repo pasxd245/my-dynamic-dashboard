@@ -650,7 +650,14 @@ multi-sheet files where the user only wants one).
 
 ## Backend endpoint shape
 
-R15+ ships **three endpoints**:
+The wizard's own flow is **three endpoints** — upload, parse, commit. They are quoted below with
+the identifiers the code actually uses. Three further routes serve the *refresh/append* variants of
+this surface and are specified in their own sections rather than here:
+`PATCH /datasets/{id}/columns` (column metadata), `GET /datasets/{id}/refresh-settings` (the
+carried-forward recipe), and `POST /datasets/{id}/append-overlap` (the pre-commit double-count
+advisory — § Refresh append mode).
+
+The wizard's three:
 
 ```python
 # apps/backend/app/routers/uploads.py  (router mounted under /uploads)
@@ -687,14 +694,15 @@ def parse_temp_upload(
 
 # apps/backend/app/routers/datasets.py
 @router.post(
-    "/workspaces/{workspace_id}/datasets/batch",
+    "/workspaces/{id}/datasets/batch",
     status_code=201,
     response_model=list[Dataset],
+    response_model_exclude_none=True,
 )
 def commit_datasets_batch(
-    workspace_id: str,
-    body: CommitBatch,
-) -> list[Dataset]:
+    id: str,
+    body: _BatchRequest,
+) -> list[Dataset] | JSONResponse:
     # body = { items: [{ temp_id, sheet?: str, name: str,
     #                     parse_options?: ParseOptions,
     #                     column_overrides?: dict[str, ColumnOverride],
@@ -1658,7 +1666,7 @@ column:
   is the deliberate reason to prefer a metadata registry over a structural flag on the `Column` wire
   model — the latter reopens the R152 widen-shared-model / `null`-on-bystander trap
   ([[widening-shared-wire-model-omit-serializer]]). The FE learns the computed column's **name** from
-  the metadata `GET /datasets/{id}/refresh-preset` already returns (it echoes `commitSettings`), and
+  the metadata `GET /datasets/{id}/refresh-settings` already returns (it echoes `commitSettings`), and
   uses it only to exclude that column from the drift diff (below).
 - **Recognition reads the pointer.** Every place that treated `Source.Name` as special — the injection
   skip/collision check, the refresh recompute, the drift exclusion — keys off the registry entry, not
@@ -1691,7 +1699,7 @@ The refresh Drift step compares the committed schema against the freshly-parsed 
 A computed column exists on the committed (baseline) side but is **absent from every incoming file** —
 so a naïve name diff reports it "removed" on every refresh (R157 [F-drift-provenance-phantom]). The
 rule: **the diff compares SOURCE columns only — the computed column is excluded from both sides before
-the diff and re-applied after.** The FE identifies which name to exclude from the refresh-preset
+the diff and re-applied after.** The FE identifies which name to exclude from the refresh-settings
 metadata. This is a principled fix (a computed column is not a source column, so it is not a source-drift
 event), not a special-case for `Source.Name`.
 

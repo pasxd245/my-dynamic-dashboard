@@ -1,8 +1,9 @@
 # Round 169: the design corpus re-synced — nine docs and the ledger they accreted
 
-**Status**: Planning — **scoped, not ranked** (see § Standing, not next)
+**Status**: In Progress — **ranked first by the human 2026-08-14**; step 1 (`--check`) is done and
+**§ Plan's _Falsified if_ FIRED** — see § Do. Awaiting the re-scope call.
 **Flow**: _(set at the Design exit via `flow-selector` — but see § This round ships only documents)_
-**Date started**:
+**Date started**: 2026-08-14
 **Date completed**:
 
 <!-- ⟢ At a glance is authored at the Review→Complete flip (R159 doctrine), not during Do. -->
@@ -155,7 +156,115 @@ first, this file **renumbers** — the precedent is the program plan's own renum
 
 ## Do
 
-_(empty — Planning)_
+### Ranked 2026-08-14 — the human's call: design-sync first
+
+Ranked ahead of the batched UI cluster at the program's close, so this file keeps the number **169**
+and § Standing, not next's renumbering clause never fired.
+
+### Step 1 — `design-sync --check`, 2026-08-14. **The _Falsified if_ fired.**
+
+§ Plan: _"Falsified if the `--check` pass finds the docs are largely **already code-true** and the
+backlog is purely cosmetic ledger accretion. That would not be nothing, but it is a **different and
+much smaller** round than this one is scoped as, and it should be re-scoped rather than executed at
+this size."_
+
+**That is what it found.** Four drifts across nine docs and 7 269 lines, concentrated in **two**
+files. Seven of the nine are code-true on every class checked.
+
+#### What was actually checked — stated as partial, because it is
+
+Three **code-checkable claim classes** swept across all nine docs, plus a full claim-by-claim read
+of the two smallest:
+
+| Class | How it was checked |
+| ----- | ------------------ |
+| **Component homes** | Every `PageHeader` / `PageCard` / `PageContainer` / `PagedRowsView` claim in a Surfaces table, against `packages/ui/src/index.ts` and the feature folders |
+| **Routes** | Every `METHOD /path` claim, against the full decorator inventory of all seven routers |
+| **Error codes** | Every `code` claim, against the `ApiError*` classes each router actually emits |
+| **Full read** | `workspaces.md` (216 lines) and `relationships.md` (455) claim-by-claim |
+
+**Not done: a line-by-line diff of the seven larger docs.** `upload.md` alone is 2 124 lines. What
+is below is high-signal, not exhaustive, and the re-scope should be read with that limit in mind.
+
+#### The drift — 4 findings, 2 docs
+
+| # | Doc | Finding | Class |
+| - | --- | ------- | ----- |
+| **1** | `workspaces/relationships.md` | The Surfaces table declares `PageHeader` / `PageCard` living in `apps/builder/src/features/data-management/_shared`, purity `plain-UI`. They are exported from **`@mdd/ui`** (`packages/ui/src/index.ts`) and the page imports them from there. | **surface that moved** — and it is the Surfaces table, which is the boundary declaration `design:lint` and the reuse invariant stand on |
+| **2** | `datasets/upload.md` | `GET /datasets/{id}/refresh-preset`, twice, stated as current fact. **No such route exists anywhere in the repo.** The real one is `GET /datasets/{id}/refresh-settings` — which the same doc also uses, twice. | **stale route name**, plus an **inter-section contradiction** |
+| **3** | `datasets/upload.md` | § Backend endpoint shape opens _"R15+ ships **three endpoints**"_ and is frozen there. The upload/refresh flow now also touches `PATCH /datasets/{id}/columns`, `GET /datasets/{id}/refresh-settings` and `POST /datasets/{id}/append-overlap`. | **behaviour frozen at an old round** |
+| **4** | `datasets/upload.md` | Same section quotes `commit_datasets_batch(workspace_id: str, body: CommitBatch)` at path `/workspaces/{workspace_id}/datasets/batch`. The code is `def commit_datasets_batch(id: str, body: _BatchRequest)` at `/workspaces/{id}/datasets/batch`. | **stale identifiers** (the skill's quote-exact-identifiers rule) |
+
+**Finding 2 is the one the § Risks table predicted.** `upload.md` contradicting itself across
+sections is the R143 signal ([[design-sync-can-canonize-defects]]), and the round's rule is to
+**classify rather than silently reconcile**. Classified: this is a **stale doc name**, not a shipped
+defect — `refresh-preset` was never built under that name, and `refresh-settings` is the shipped
+route with a passing contract. Nothing here documents a bug into spec.
+
+#### Three candidate findings REJECTED — recorded so they are not re-found
+
+Discipline matters as much as the hits; each of these looked like drift and is not:
+
+- **`POST /datasets/{id}/rows:search`** (`dataset-filters.md`, `advanced-query.md`) — no such route,
+  but both docs label it explicitly as a **parked fallback** with its trigger. Correctly documented
+  as not built. **Not drift.**
+- **`query_stale` / `relationship_stale` in `datasets.md`** — not emitted by the datasets router,
+  but the doc uses them as **cross-domain references** ("the runtime machinery re-computes dependent
+  validity on read"), not as claims about its own routes. **Not drift.**
+- **`WorkspaceCard` / `CreateWorkspaceModal` in `workspaces.md`** — no such files, but both are
+  module-local functions inside `WorkspacesPage.tsx`, and the Surfaces table declares the **folder**,
+  which is accurate. **Not drift.**
+
+#### The OUT-OF-SYNC marker was deliberately not stamped
+
+The skill's `--check` stamps a marker and stops, because its normal path is **detect now, sync
+later** — the marker warns a reader who might design on a stale doc in between. Here detect and sync
+are the same sitting and the drift is four lines, so stamping both docs and clearing them minutes
+later is churn that records nothing. Recorded as a deliberate deviation rather than an omission.
+
+### Step 2 — the re-scope
+
+**This is not a nine-doc reconciliation round.** It is **four factual corrections** in two docs, plus
+whatever is decided about **325 lines of ledger accretion** — which the `--check` confirms is the
+*only* axis with real volume, exactly as § Plan warned it might be.
+
+The two axes, re-measured against evidence rather than assumed:
+
+| Axis | Scoped as | Measured |
+| ---- | --------- | -------- |
+| **Doc↔code drift** | unmeasured, the round's premise | **4 findings, 2 docs** — small, and the fix is minutes |
+| **Ledger accretion** | 325 stamped lines, 9 docs | **unchanged** — still the whole body of work, and `upload.md` is still 51 % of it |
+
+### Step 3 — all four drifts FIXED, 2026-08-14
+
+Done in the same sitting, because four factual corrections do not need their own gate:
+
+- **`relationships.md`** — the Surfaces row now reads `packages/ui` (`@mdd/ui`), and the boundary
+  check below it now distinguishes the two shared homes instead of lumping them: `DeleteConfirmModal`
+  from `features/data-management/_shared`, `PageHeader`/`PageCard` from the package.
+- **`upload.md` ×2** — `refresh-preset` → `refresh-settings` in both places. The doc no longer
+  contradicts itself, and it no longer names a route that has never existed.
+- **`upload.md` § Backend endpoint shape** — no longer frozen at _"R15+ ships three endpoints"_. It
+  still quotes the wizard's three, and now names the three refresh/append routes that also serve this
+  surface, pointing at the sections that specify them (`PATCH /datasets/{id}/columns`,
+  `GET /datasets/{id}/refresh-settings`, `POST /datasets/{id}/append-overlap`).
+- **`upload.md` identifiers** — `commit_datasets_batch(workspace_id, body: CommitBatch)` →
+  `(id, body: _BatchRequest)`, path `{workspace_id}` → `{id}`, plus the `response_model_exclude_none`
+  and `| JSONResponse` the real signature carries.
+
+**Gates**: `md:lint` 0/313 · `design:lint` 0/14 · `design:tokens` 0/11 · `check:links` at parity (24,
+all pre-existing). **No product code touched** — the assertion § Plan asked to verify rather than
+assume, and it holds: this round has changed only markdown.
+
+### The remaining question — the ledger, and it is now the whole round
+
+Drift is closed. What is left is **325 stamped lines across nine docs**, which is the axis § Plan
+predicted would turn out to be the real body of work. It is a **compaction** pass, not a
+reconciliation, and it carries the risk § Risks names second: _stripping the ledger destroys
+rationale_ — a round-stamp sometimes carries the only surviving **why**.
+
+**Put to the human before executing**, because the round's size just changed materially and
+compaction is judgement-heavy in a way drift-fixing is not.
 
 ## Check
 
