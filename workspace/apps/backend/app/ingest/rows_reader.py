@@ -515,6 +515,27 @@ def _apply_window_column(
     return f"SELECT *, {expr} AS {_quote_ident(name)} FROM ({sql}) AS _v", params, [*cols, name]
 
 
+def build_steps_relation(
+    inner_sql: str,
+    inner_params: list[Any],
+    base_columns: list[str],
+    steps: list[dict],
+) -> tuple[str, list[Any], list[str]]:
+    """R168 — fold an ordered list of TYPED transform steps over an inner relation
+    and return the SHAPED relation ``(sql, params, columns)`` **without executing
+    it**, so the result composes as a sub-relation.
+
+    This fold is the one thing every step consumer shares. ``run_steps`` stringifies
+    it to rows, ``materialize_steps`` writes it to parquet, and ``resolve_source``'s
+    ``qr_`` branch stacks it into a workflow's ``UNION ALL BY NAME`` — which is why
+    it is extracted rather than repeated a third time. Steps are normalized dicts
+    (validated by the router); an empty list is the identity."""
+    sql, params, cols = inner_sql, inner_params, list(base_columns)
+    for step in steps:
+        sql, params, cols = _apply_step(step, sql, params, cols)
+    return sql, params, cols
+
+
 def run_steps(
     inner_sql: str,
     inner_params: list[Any],
@@ -535,9 +556,7 @@ def run_steps(
     "shaped results are small by construction" assumption died with the
     row-preserving steps (derive/filter/sort/date_bucket). ``page_size=None``
     returns everything (the callers' unpaged path is capped upstream)."""
-    sql, params, cols = inner_sql, inner_params, list(base_columns)
-    for step in steps:
-        sql, params, cols = _apply_step(step, sql, params, cols)
+    sql, params, cols = build_steps_relation(inner_sql, inner_params, base_columns, steps)
     quoted = [_quote_ident(c) for c in cols]
     select_list = ", ".join(f"CAST({c} AS VARCHAR)" for c in quoted)
     page_sql = f"SELECT {select_list} FROM ({sql}) AS _final"
@@ -611,9 +630,7 @@ def materialize_steps(
     response), this keeps native types — an integer stays integer — so the
     materialized output can later be read back as a typed table source (R135). An
     empty ``steps`` list writes the inner relation verbatim (passthrough)."""
-    sql, params, _cols = inner_sql, inner_params, list(base_columns)
-    for step in steps:
-        sql, params, _cols = _apply_step(step, sql, params, _cols)
+    sql, params, _cols = build_steps_relation(inner_sql, inner_params, base_columns, steps)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     target = str(out_path).replace("'", "''")
     with duckdb.connect(":memory:") as con:

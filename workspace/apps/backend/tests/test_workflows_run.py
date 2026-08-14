@@ -153,3 +153,102 @@ def test_create_with_unknown_workflow_source_returns_422() -> None:
         ws, _qid = _query_source(client)
         resp = _create_multi(client, ws, ["wf_00000000"], name="bad")
     assert resp.status_code == 422
+
+
+# ── R168 (D1): a source query is consolidated as WHAT IT RETURNS ────────────────
+#
+# `build_consolidated_relation` used to stack each source's resolved relation without
+# applying that source's OWN steps, so a Workflow over a SHAPED query read the
+# un-shaped rows — and, because a run materializes, FROZE them. R168 ruled that
+# consolidating a query means consolidating what the query returns, and repaired it in
+# `resolve_source`'s `qr_` branch (Workflow's reader, and nothing else's).
+#
+# These tests assert the RULING, not the call site: a workflow's view of a source and
+# that source's own `/rows` are the same table. They cannot pass while any layer drops
+# the steps, wherever the fold happens to live.
+
+
+def _shaped_query(client: TestClient, ws: str, ds_id: str, *, name: str, steps: list) -> str:
+    """A saved query that SHAPES — the case the pre-R168 consolidation flattened."""
+    return client.post(
+        f"/workspaces/{ws}/queries",
+        json={
+            "name": name,
+            "sourceId": ds_id,
+            "definition": {"q": None, "filters": [], "advanced": [], "relationships": [], "joins": [], "steps": steps},
+        },
+    ).json()["id"]
+
+
+def _dataset_of(client: TestClient, qid: str) -> tuple[str, str]:
+    q = client.get(f"/queries/{qid}").json()
+    return q["workspaceId"], q["sourceId"]
+
+
+@pytest.mark.unit
+def test_workflow_over_a_shaped_query_materializes_the_SHAPED_rows() -> None:
+    """The defect, inverted: the workflow's output IS the source query's answer.
+
+    Pre-R168 this materialized every raw row and every raw column instead — the seed's
+    demo was a 4-row aggregate query freezing 120 un-shaped rows."""
+    with TestClient(app) as client:
+        ws, plain_qid = _query_source(client)
+        _ws, ds_id = _dataset_of(client, plain_qid)
+        shaped = _shaped_query(client, ws, ds_id, name="revenue by name", steps=[_STEP])
+        # What the source query answers on its OWN detail page.
+        q_rows = client.get(f"/queries/{shaped}/rows?unpaged=true").json()
+
+        wid = _create(client, ws, shaped, steps=[]).json()["id"]  # no steps of its own
+        run = client.post(f"/workflows/{wid}/run")
+        w_rows = client.get(f"/workflows/{wid}/rows?unpaged=true").json()
+
+    assert run.status_code == 200
+    # The captured schema is the query's POST-step space, not the dataset's raw columns.
+    assert [c["name"] for c in run.json()["resolvedColumns"]] == ["name", "amount"]
+    assert w_rows["total"] == q_rows["total"]
+    assert sorted(w_rows["rows"]) == sorted(q_rows["rows"]), "same query, same answer, both readers"
+
+
+@pytest.mark.unit
+def test_a_workflow_step_can_use_a_column_the_source_query_derived() -> None:
+    """The builder's promise, made true.
+
+    `useSourceColumns` feeds the StepsEditor a `qr_` source's `resolvedColumns` — the
+    query's POST-step columns — so the UI offers a derived column to build a workflow
+    step on. Pre-R168 the run validated against the PRE-step space and refused it with
+    `step_invalid`: the UI offered a column the run rejected."""
+    with TestClient(app) as client:
+        ws, plain_qid = _query_source(client)
+        _ws, ds_id = _dataset_of(client, plain_qid)
+        derive = {"kind": "derive", "name": "double", "left": "amount", "op": "*", "right": {"kind": "const", "value": 2}}
+        shaped = _shaped_query(client, ws, ds_id, name="with a derived column", steps=[derive])
+        # `double` exists only AFTER the source query's step — and the builder lists it.
+        assert "double" in [c["name"] for c in client.get(f"/queries/{shaped}").json()["resolvedColumns"]]
+
+        wid = _create(
+            client, ws, shaped, steps=[{"kind": "top_n", "col": "double", "n": 2, "descending": True}]
+        ).json()["id"]
+        run = client.post(f"/workflows/{wid}/run")
+
+    assert run.status_code == 200, f"the run refused a column the builder offered: {run.text}"
+    assert "double" in [c["name"] for c in run.json()["resolvedColumns"]]
+
+
+@pytest.mark.unit
+def test_consolidating_two_shaped_queries_unions_their_ANSWERS() -> None:
+    """The noun, end to end: consolidate is a union of what the sources return, and the
+    workflow's own steps are POST-union shaping (R168 Q3)."""
+    with TestClient(app) as client:
+        ws, plain_qid = _query_source(client)
+        _ws, ds_id = _dataset_of(client, plain_qid)
+        a = _shaped_query(client, ws, ds_id, name="A shaped", steps=[_STEP])
+        b = _shaped_query(client, ws, ds_id, name="B shaped", steps=[_STEP])
+        n_one = client.get(f"/queries/{a}/rows?unpaged=true").json()["total"]
+
+        wid = _create_multi(client, ws, [a, b], name="both", steps=[]).json()["id"]
+        client.post(f"/workflows/{wid}/run")
+        both = client.get(f"/workflows/{wid}/rows?unpaged=true").json()
+
+    # Self-consolidation doubles the SHAPED row count — not the raw one.
+    assert both["total"] == n_one * 2
+    assert all(len(r) == 2 for r in both["rows"]), "the union carries the shaped column space"

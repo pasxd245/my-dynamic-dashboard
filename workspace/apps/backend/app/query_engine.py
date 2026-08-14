@@ -24,6 +24,7 @@ from app.ingest.rows_reader import (
     build_effective_columns,
     build_joined_select,
     build_single_inner,
+    build_steps_relation,
     query_joined_rows,
     run_steps,
 )
@@ -97,9 +98,9 @@ def resolve_source(
     ``{relation: (sql, params), columns, dataset_ids, name}``:
 
     - a Dataset (``ds_…``) → a ``read_parquet`` leaf. The QUERY path.
-    - a saved Query (``qr_…``) → its full typed SELECT (its own source + joins +
-      its OWN filters) wrapped ``( … )`` as a sub-relation, exposing its EFFECTIVE
-      columns. **R167 — this is WORKFLOW'S READER, and nothing else's.**
+    - a saved Query (``qr_…``) → **what that query RETURNS** — its own source +
+      joins + filters + **its own steps** — wrapped ``( … )`` as a sub-relation.
+      **R167 — this is WORKFLOW'S READER, and nothing else's.**
     - a workflow output (``wf_…``) → a frozen parquet leaf (R135).
 
     **Why the ``qr_`` branch survives a round that retires composition** (finding A):
@@ -109,51 +110,79 @@ def resolve_source(
     operand are ``ds_`` since R167, so the only way in is a Workflow supplying the
     driving source.
 
-    The ``visited`` cycle guard is therefore **DORMANT, not dead** — unreachable
-    through the API, retained because it is the guard a live-resolving Workflow source
-    would need (item 4). See ``api-error.yaml`` § ``composition_cycle`` for the proof
-    and the reactivating condition."""
+    The ``visited`` cycle guard is retained as a **structural invariant**, not as a
+    reachable path: R168 ruled a workflow source FROZEN for good, so with `ds_`-only
+    query sources no resolution can revisit an id. It costs one set membership and it
+    is what would catch a cycle if that ever stopped being true."""
     if source_id.startswith("qr_"):
-        if source_id in visited:
-            return None, "composition_cycle"
-        qrow = con.execute(_SELECT_QUERY, (source_id,)).fetchone()
-        if qrow is None or qrow["workspace_id"] != workspace_id:
-            return None, "composition_base_missing"
-        base_def = json.loads(qrow["definition_json"])
-        base_src = qrow["source_id"]
-        payload, reason = _resolve_chain(
-            con, base_src, _chain_of(base_def), _rels_of(base_def), workspace_id, visited | {source_id}
-        )
-        if reason is not None:
-            return None, reason
-        # The base's OWN filters define its virtual table (baked into the sub-relation).
-        try:
-            b_filters, b_advanced = build_definition_predicates(base_def, payload["effective"])
-        except HTTPException:
-            return None, "relationship_stale"
-        sql, params = build_joined_select(
-            payload["relations"],
-            join_keys=payload["join_keys"],
-            select_exprs=payload["select_exprs"],
-            effective_columns=[c["name"] for c in payload["effective"]],
-            q=base_def.get("q"),
-            filters=b_filters,
-            advanced=b_advanced,
-        )
-        return (
-            {
-                "relation": (f"({sql})", params),
-                "columns": payload["effective"],
-                "dataset_ids": payload["dataset_ids"],
-                "name": qrow["name"],
-            },
-            None,
-        )
+        return _resolve_query_source(con, source_id, workspace_id, visited)
 
     if source_id.startswith("wf_"):
         return _resolve_workflow_leaf(con, source_id, workspace_id)
 
     return _resolve_dataset_leaf(con, source_id, workspace_id)
+
+
+def _resolve_query_source(
+    con: sqlite3.Connection, source_id: str, workspace_id: str, visited: frozenset[str]
+) -> tuple[dict | None, str | None]:
+    """R168 — resolve a saved Query to **what it returns**: its source + joins, then
+    its own filters, then **its own steps** — the same three layers, in the same
+    order, that ``GET /queries/{id}/rows`` applies.
+
+    Applying the steps here is D1's repair. Without them a consolidating Workflow read
+    the query's UN-shaped rows and, because a run materializes, **froze them to
+    `output.parquet`** — while the builder had already offered the shaped columns
+    (``resolvedColumns``) to build workflow steps on. The effective column space this
+    returns is therefore the POST-step one, which is what a consumer validates its own
+    steps against.
+
+    Its one caller is Workflow's consolidation ([[query-shaping-surface]] item 4)."""
+    if source_id in visited:
+        return None, "composition_cycle"
+    qrow = con.execute(_SELECT_QUERY, (source_id,)).fetchone()
+    if qrow is None or qrow["workspace_id"] != workspace_id:
+        return None, "composition_base_missing"
+    base_def = json.loads(qrow["definition_json"])
+    payload, reason = _resolve_chain(
+        con, qrow["source_id"], _chain_of(base_def), _rels_of(base_def), workspace_id, visited | {source_id}
+    )
+    if reason is not None:
+        return None, reason
+    # The base's OWN filters define its virtual table (baked into the sub-relation).
+    try:
+        b_filters, b_advanced = build_definition_predicates(base_def, payload["effective"])
+    except HTTPException:
+        return None, "relationship_stale"
+    base_cols = payload["effective"]
+    sql, params = build_joined_select(
+        payload["relations"],
+        join_keys=payload["join_keys"],
+        select_exprs=payload["select_exprs"],
+        effective_columns=[c["name"] for c in base_cols],
+        q=base_def.get("q"),
+        filters=b_filters,
+        advanced=b_advanced,
+    )
+    columns = base_cols
+    steps = base_def.get("steps") or []
+    if steps:
+        try:
+            normalized, columns = _step_plan(steps, base_cols)
+        except HTTPException:
+            # A saved query whose steps no longer validate against its current columns
+            # is DRIFT, not a bad request — the consumer maps the reason to 409.
+            return None, "query_stale"
+        sql, params, _ = build_steps_relation(sql, params, [c["name"] for c in base_cols], normalized)
+    return (
+        {
+            "relation": (f"({sql})", params),
+            "columns": columns,
+            "dataset_ids": payload["dataset_ids"],
+            "name": qrow["name"],
+        },
+        None,
+    )
 
 
 def _resolve_workflow_leaf(
