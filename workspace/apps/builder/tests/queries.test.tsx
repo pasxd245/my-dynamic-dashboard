@@ -670,6 +670,20 @@ describe('Duplicate (R166 — the variant verb that replaced composition)', () =
     expect((document.querySelector('[data-component="SaveQueryNameInput"]') as HTMLInputElement).disabled).toBe(false);
   });
 
+  // R166 I-gate (T1) — the walk corrected the order the D gate's ASCII had drawn:
+  // [Edit] [Duplicate] [Delete], by descending use with the destructive verb last and
+  // furthest away, because distance is what protects Delete from a mis-click. Locked
+  // here because the defect's cause was a picture in a doc, and a picture regresses
+  // quietly.
+  it('orders the header [Edit] [Duplicate] [Delete] — by use, destructive last', async () => {
+    renderApp(`/data-management/queries/${QR_ID}`);
+    await waitFor(() => expect(document.querySelector('[data-component="QueryDetailDuplicate"]')).not.toBeNull());
+    const order = [...document.querySelectorAll('[data-component^="QueryDetail"]')]
+      .map((el) => el.getAttribute('data-component'))
+      .filter((c) => ['QueryDetailEdit', 'QueryDetailDuplicate', 'QueryDetailDelete'].includes(c as string));
+    expect(order).toEqual(['QueryDetailEdit', 'QueryDetailDuplicate', 'QueryDetailDelete']);
+  });
+
   // The verb is on the RUNNABLE detail header only — repair the source before making a
   // variant of something that can't run (the stale header keeps only Delete).
   it('is absent from the stale (unrunnable) header', async () => {

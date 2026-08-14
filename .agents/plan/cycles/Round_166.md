@@ -1,6 +1,6 @@
 # Round 166: Duplicate, and the affordances withdrawn
 
-**Status**: In Progress — **D + F gates closed**; I (the human's acceptance walk) next
+**Status**: **Review** — D + F + I closed; walk 5 of 5, W-1 fixed in-round. Awaiting human sign-off to flip Complete.
 **Flow**: **DCFBI** — set at the Design gate via `flow-selector`; recorded in the Do log
 **Date started**: 2026-08-13
 **Date completed**:
@@ -291,16 +291,64 @@ standing evidence: 5 of 5 walk questions passed and the walk still turned up **s
 every gate was green, one of them a **forty-round-old** pager bug. Vitest and MSW cannot see
 whether Duplicate is the thing the human wanted — which is this round's entire falsification test.
 
-**Acceptance walk — awaiting the human. `coverage: 0 of 5.`** Questions were written at D
-([[walk-record-always-spec-on-ask]]), not improvised here; exact steps on request.
+**Acceptance walk — run by the human 2026-08-14. `coverage: 5 of 5.`** Questions were written at
+D ([[walk-record-always-spec-on-ask]]), not improvised here; exact steps on request.
 
-| #      | Question                                                                                                                                         | Verdict |
-| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------- |
-| **T1** | Duplicate a **shaped** query (steps and all), modify the copy — is the original untouched, and do both return the rows they should?              | ⬜      |
-| **T2** | Does `[Duplicate]` read as _independent_ rather than _linked_ — i.e. does the copy behave the way the header button led you to expect?           | ⬜      |
-| **T3** | Duplicate the same query twice. Is the inline name-taken error a recoverable annoyance, or the thing that makes you stop using the feature?      | ⬜      |
-| **T4** | Go looking for a way to join two saved queries. Does the absence read as a boundary, or as something broken/missing?                             | ⬜      |
-| **T5** | Was Duplicate the thing you actually wanted? (the honest caveat — the program plan says no recorded clone need exists; this is where that lands) | ⬜      |
+| #      | Question                                                                                                                                         | Verdict                     |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------- |
+| **T1** | Duplicate a **shaped** query (steps and all), modify the copy — is the original untouched, and do both return the rows they should?              | ✅ **pass — 1 defect (W-1)** |
+| **T2** | Does `[Duplicate]` read as _independent_ rather than _linked_ — i.e. does the copy behave the way the header button led you to expect?           | ✅ pass                     |
+| **T3** | Duplicate the same query twice. Is the inline name-taken error a recoverable annoyance, or the thing that makes you stop using the feature?      | ✅ pass — **note N-1**      |
+| **T4** | Go looking for a way to join two saved queries. Does the absence read as a boundary, or as something broken/missing?                             | ✅ pass — _"don't see it from UI"_ |
+| **T5** | Was Duplicate the thing you actually wanted?                                                                                                    | ✅ **"yes, that's what I think and expected"** |
+
+**T5 is the round's falsification test and it held.** The program plan's _honest caveat_ — that no
+recorded instance of a clone need existed — is now answered by hand-use rather than inference, and
+**R167 proceeds as planned instead of being rewritten**. That answer is the one thing this half
+could hand the engine half that no gate could produce.
+
+**T4 read as a boundary, not a break.** The human went looking and reported simply that there is no
+way to it from the UI — no report of anything seeming broken or missing, which is what the
+absence-with-no-explanation call (D4) was betting on. Withdrawing the affordance did **not** re-block
+a real question: the within-group family covers the need it served.
+
+### W-1 — header action order (T1), fixed in-round
+
+**Found**: the header shipped `[Duplicate] [Edit] [Delete]`. **The human's rule**: `[Edit]`
+highest use → first; `[Duplicate]` less → second; `[Delete]` last so its **distance** guards
+against a wrong click. **Fixed** to `[Edit] [Duplicate] [Delete]`, with a test locking the order.
+
+**The cause is the instructive part, and it is a doc lesson, not a code one.** This round's own
+[`queries.md`](../../design/data-management/queries/queries.md) layout ASCII had drawn
+`[Duplicate] [Edit] [Delete]`. The build followed the picture — and in doing so **regressed an
+ordering the shipped page already had right** (`[Edit] [Build on this query] [Delete]`). Nobody
+decided to put Duplicate first; a sketch drawn to show _which buttons exist_ silently answered
+_in which order_, and the D gate reviewed the words beside it, not the picture. **An ASCII sketch
+carries a decision whether or not it was making one.** The rule now sits in prose next to the
+picture, where a reviewer can disagree with it.
+
+### N-1 — `abc (copy) (copy)` (T3), accepted
+
+Duplicating a **copy** suffixes again. It does not collide, it is the plain consequence of the one
+default-name rule, and the human judged it **acceptable**. Recorded in the spec so a later reader
+meets a decided behaviour rather than an unhandled edge — and so nobody "fixes" it into a
+`(copy 2)` parser, which is the same locale-correct-in-EN-and-VN complexity already rejected for
+the collision case, bought for a smaller annoyance. **T3's revisit trigger did not fire.**
+
+### The seed the walk ran on
+
+The human switched to the **light** seed first, to verify numbers by hand, and asked whether it
+covered enough — a good question that turned up **two real gaps**, fixed before the walk
+(`5a896f4`): the seed had **no** `group_column` / `window_column` example in _either_ mode (every
+shaped query in it collapsed rows), and light was too shallow to page. Light is now **15/120/80**,
+chosen at the knee of a measured curve. The measurement produced a finding worth keeping:
+
+> **"Bolder" is not monotonically better.** `prior_period` must return NULL for a **missing**
+> period rather than the wrong period's value — and a dense table has no missing periods to prove
+> it on. At the **full** volume, **zero** order statuses have an interior month gap; at light,
+> three of four do. Light detects *less* of anything volume-driven and **more** of anything
+> sparsity-driven, so it is **not a subset** of full and a green light run must not be read as
+> covering it.
 
 **How to read the outcomes**, decided in advance so the result cannot be rationalised after it
 arrives:
@@ -317,7 +365,35 @@ arrives:
 
 ## Act
 
-_(empty)_
+**The round's own claim held**: no surface offers building a query on a query, the variant need is
+met by Duplicate, and the FE is net-negative (~405 LOC out, ~150 in). No _Falsified if_ condition
+fired — Duplicate served the need (T5), the withdrawal re-blocked nothing (T4), and the removal
+needed no wire change, so the layer split was cut in the right place.
+
+**Kept for R167** (unchanged by the walk): findings **A–E**, the `qr_` rendering the human ruled
+stays until it retires **with** the engine, and the 14-doc `design-sync` outstanding since R162.
+R167 now starts knowing Duplicate lands — which is the only thing this half could tell it.
+
+**Two lessons, one candidate promotion.**
+
+1. **An ASCII sketch carries a decision whether or not it was making one** (W-1). Design docs here
+   are source code, and a picture is the part reviewers skim. Where a sketch shows an arrangement,
+   state the rule in prose beside it — otherwise the picture becomes the rule and a build that
+   follows the doc faithfully can regress something the code already had right. **Candidate for
+   `memory/`**, and the sharper cousin of [[design-docs-are-source-code]]: it is not enough for a
+   doc to be code-true, its _sketches_ must be reviewed as claims.
+2. **A dogfooding seed is not a volume knob** (the seed work). Sparsity and volume detect
+   **different** defect classes, so "smaller = weaker" is wrong — the full seed cannot exercise
+   `prior_period`'s gap contract at all. When a mode exists for hand-verification, say what it
+   detects **better**, not only what it gives up.
+
+**Deferred, deliberately.** Generalising W-1's ordering rule to every detail header is a
+cross-surface question and belongs with the **R157 UX cluster**, alongside the catalog-row-actions
+question the D gate sent there — not invented here for one page ([[batch-ui-bugs-into-one-round]]
+in spirit: don't fix a cross-cutting UI convention piecemeal mid-feature).
+
+**Still parked, untouched by this round**: R165's W-1/W-2, the R157 UX cluster, the naming
+/legibility cluster, `[F-prov-reimport-choice]`, AI-propose-key #2, R145 1b, Export ④.
 
 ## Feeds into → Round_167 (composition retired in the engine)
 

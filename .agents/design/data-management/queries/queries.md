@@ -636,9 +636,9 @@ Datasets. Routes:
 
 ### Duplicate (R166): make a variant without rebuilding it
 
-A **`[Duplicate]`** action on the runnable Query detail header (peer to `[Edit]` /
-`[Delete]`, absent on stale/unavailable states) — **and nowhere else**. It copies this Query's
-**definition** into a **new** Query over the **same** sources:
+A **`[Duplicate]`** action on the runnable Query detail header (absent on stale/unavailable
+states) — **and nowhere else**. It copies this Query's **definition** into a **new** Query over the
+**same** sources:
 
 ```text
 [Duplicate] → name modal (pre-filled "{{name}} (copy)")
@@ -649,6 +649,18 @@ A **`[Duplicate]`** action on the runnable Query detail header (peer to `[Edit]`
 It is the same create rhythm as "Save filters as Query" (a verb on the surface you're on →
 name + `POST`) and routes through the **same** `SaveQueryModal` + `useCreateQueryMutation`,
 so create logic is never duplicated.
+
+**Header order is `[Edit] [Duplicate] [Delete]` — by descending use, destructive last.**
+`[Edit]` is the most reached-for action on a saved query, `[Duplicate]` is occasional, and
+`[Delete]`'s job is to be **far from both**: distance is what protects it against a mis-click,
+which is why it is not merely styled `danger` but also positioned last. **This rule was corrected
+by the R166 acceptance walk (human, 2026-08-14)**, and the correction is recorded because the
+error is instructive: this doc's own layout ASCII had drawn `[Duplicate]` first, drawn without the
+frequency rationale, and the build followed the picture — **regressing an ordering the shipped page
+already had right** (`[Edit] [Build on this query] [Delete]`). An ASCII sketch carries a decision
+whether or not it was making one; state the rule beside the picture, or the picture becomes the
+rule. **Generalising this to every detail header is a cross-surface question** and belongs with the
+R157 UX cluster, alongside the catalog-row-actions question below — not invented here for one page.
 
 **Duplicate is a snapshot, not a link — and that is the settled trade.** The copy has no
 back-reference to its origin; edit the original afterwards and the copy does not follow. The
@@ -728,6 +740,14 @@ gate as a Usability gap — recorded as **accepted**, not as closed. **Revisit t
 acceptance walk (or later hand-use) finding that duplicating twice is common rather than
 incidental.
 
+**The walk did not fire that trigger, and it surfaced the neighbouring case (human,
+2026-08-14).** Duplicating a **copy** suffixes again: `abc (copy)` → `abc (copy) (copy)`. That is
+the plain consequence of applying the one default-name rule to whatever name it is given, it does
+**not** collide, and the human judged it **acceptable** — the modal is already open on the name.
+It is recorded so a later reader meets a **decided** behaviour rather than an unhandled edge, and
+so nobody "fixes" it into an `(copy 2)` suffix parser: that is the same locale-correct-in-EN-and-VN
+complexity already rejected for the collision case, bought for a smaller annoyance.
+
 ### After a successful copy
 
 The **shipped create rhythm, verbatim** — `message.success` then `navigate` to the new query's
@@ -771,10 +791,11 @@ as Query**."_ — no drop zone.
 Standard detail layout + read-only summary sections (Based-on / Join / Applied
 predicates) + the shared `<PagedRowsView>`; an inline `[Edit]` switches to the builder
 ([query-construction.md](query-construction.md)), `[Duplicate]` copies the definition into a
-new Query over the same sources (§ Duplicate) on a runnable Query.
+new Query over the same sources (§ Duplicate) on a runnable Query. **Header order is
+`[Edit] [Duplicate] [Delete]`** — see § Duplicate for why.
 
 ```text
-Home ▸ … ▸ Won-deals × Accounts                    [Duplicate] [Edit] [Delete]
+Home ▸ … ▸ Won-deals × Accounts                    [Edit] [Duplicate] [Delete]
 Won-deals × Accounts                                 🔎 Query · live re-run · join
 
   ┌─ Joins (read-only) ────────────────────────────────────────────────────────┐

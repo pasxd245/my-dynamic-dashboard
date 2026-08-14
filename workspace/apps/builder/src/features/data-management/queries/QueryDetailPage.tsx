@@ -281,19 +281,24 @@ export function QueryDetailPage() {
       </Button>
     </span>
   ) : (
+    // R166 I-gate (T1) — the header reads [Edit] [Duplicate] [Delete], ordered by
+    // DESCENDING USE with the destructive verb last and furthest from the other two:
+    // Edit is the most reached-for action, Duplicate is occasional, and Delete's distance
+    // is what protects against a mis-click. The D gate's ASCII had drawn Duplicate
+    // first; that was drawn without the frequency rationale, and following it
+    // regressed an ordering the page already had right. Corrected by the walk.
     <span style={{ display: 'inline-flex', gap: 8 }}>
-      {/* R166 — [Duplicate] copies this Query's definition into a new Query over the
-          SAME sources. It sits on the runnable (Populated) detail header only (these
-          actions are; the stale / unavailable headers use `actions`) — repair the
-          source or edge before making a variant of something that can't run. The
-          Queries catalog gets no per-row entry: that would mean introducing a row
-          action column, a cross-catalog question that belongs with the R157 UX
-          cluster (human, 2026-08-13). */}
-      <Button onClick={() => setDuplicateOpen(true)} data-component="QueryDetailDuplicate">
-        {t('queries.duplicate.action')}
-      </Button>
       <Button type="primary" onClick={() => setEditing(true)} data-component="QueryDetailEdit">
         {t('queries.builder.edit')}
+      </Button>
+      {/* [Duplicate] copies this Query's definition into a new Query over the SAME
+          sources. It sits on the runnable (Populated) detail header only (these actions
+          are; the stale / unavailable headers use `actions`) — repair the source or edge
+          before making a variant of something that can't run. The Queries catalog gets
+          no per-row entry: that would mean introducing a row action column, a
+          cross-catalog question that belongs with the R157 UX cluster (human, 2026-08-13). */}
+      <Button onClick={() => setDuplicateOpen(true)} data-component="QueryDetailDuplicate">
+        {t('queries.duplicate.action')}
       </Button>
       {actions}
     </span>
