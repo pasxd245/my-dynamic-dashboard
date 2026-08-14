@@ -536,7 +536,7 @@ The wizard is composed of AntD primitives (`<Steps>`, `<Card>`,
 `<Button>`) styled by the AntD `<ConfigProvider>` tokens derived from
 the six seeds in
 [`themeTokens.ts`](../../../../workspace/packages/ui/src/themeTokens.ts)
-(the source of truth — R66). No new token is introduced; values are
+(the source of truth). No new token is introduced; values are
 informational (resolved via `theme.getDesignToken()`, antd 6.x).
 
 | Surface                                    | AntD token                       | Value (informational) |
@@ -766,7 +766,7 @@ def commit_datasets_batch(
 
 ## Commit dtype semantics (R143)
 
-> **Status: SIGNED OFF (human, 2026-07-03) — R143 D-gate.** Restores the ORIGINAL intent of
+> Restores the ORIGINAL intent of
 > this doc's §Backend endpoint shape ("`cast_columns()` re-writes the Parquet with the override
 > dtypes; implausible casts raise CastError → 422") and acceptance criterion **C9** — which the
 > shipped implementation never honored: `_apply_overrides` relabels `columns_json` only, the
@@ -811,7 +811,7 @@ nothing guesses beyond the parser's existing inference.
 
 ### Date and datetime coercion (R144)
 
-> **Status: SIGNED OFF (human, 2026-07-03) — R144 D-gate.** Week convention accepted as
+> Week convention accepted as
 > ISO-8601 Monday-start (the product's convention). Extends the R143 machinery so
 > `date` / `datetime` overrides are applied for real at the parquet write; closes the
 > deliberate R143 defer (the Java-token translation decision). Pulled by R142-F11 (②):
@@ -942,7 +942,7 @@ timezone tokens are outside the subset (rejected loudly like any other).
 _Create-mode wizard feature — F8 (a single sheet can hold more than one table, but the wizard
 can only carve one)._
 
-> **Status: SIGNED OFF (human, 2026-07-06) — R149 D-gate.** Decisions **D1–D3 all resolved to
+> Decisions **D1–D3 all resolved to
 > the tabled recommendations** ("proceed"): D1 = add-range affordance on the **Metadata step** ·
 > D2 = first unit `<stem>_<sheet>`, additional units `<stem>_<sheet>_<range>` (editable,
 > dup-validation catches collisions) · D3 = per-unit override/column ownership. Slice locked at
@@ -1065,7 +1065,7 @@ Each has a recommendation; **none decided**. Hard stop here.
 
 _⑥ refresh theme, slice 1 — F9 (settings carry-forward) + F10 (schema-drift gate)._
 
-> **Status: SIGNED OFF (human, 2026-07-04) — R145 D-gate.** Drift-severity = warn-loud-never-block
+> Drift-severity = warn-loud-never-block
 > and the header-skip rider deferral are the human's domain calls; carry-forward home
 > (`commitSettings` on `source.json`, no migration) is the agent build-home call, accepted.
 > Graduates the R14-deferred
@@ -1284,7 +1284,7 @@ source table), targeting one dataset:
   repeats the header mid-table). Human decision, R145 D-gate.
 - **No rename inference** — a renamed column reads as removed + added.
 
-### Acceptance (R145, maps to Check)
+### Acceptance (maps to Check)
 
 1. **Carry-forward**: refreshing a dataset committed with overrides + a datetime format
    pre-fills the wizard with the committed sheet · parse options · dtype overrides + formats ·
@@ -1308,7 +1308,7 @@ source table), targeting one dataset:
 _⑥ refresh theme, slice 2 — F5 (merge needs a key + precedence; UNION cannot fake it) +
 F6 (the identity key is a domain decision)._
 
-> **Status: SIGNED OFF (human, 2026-07-04) — R147 D-gate.** Domain decisions **D1–D5 all
+> Domain decisions **D1–D5 all
 > resolved to the tabled recommendations** ("recs are fine"): D1 = ≥1 committed columns,
 > remembered in `commitSettings.mergeKey` · D2 = incoming dup-key rows → loud typed 422 ·
 > D3 = incoming-wins · D4 = per-refresh choice, last-used default · D5 = incoming schema wins.
@@ -1432,7 +1432,7 @@ The refresh item gains one optional field — presence selects the mode:
   per-dataset memory, not per-run).
 - `merge_key` on a **create** item (no `target_dataset_id`) → 422 (meaningless).
 
-### Boundaries (named, R147)
+### Boundaries (named)
 
 - **Whole-row wins** — no cell-level merge / per-column precedence.
 - **Incoming-wins only** — precedence columns defer with the ❓ D3 trigger.
@@ -1444,7 +1444,7 @@ The refresh item gains one optional field — presence selects the mode:
 - **Forward-only** — no unmerge / version history (unchanged).
 - **Committed-side dup cleanup** is out of scope (surfaced as a count, not repaired).
 
-### Acceptance (R147, maps to Check)
+### Acceptance (maps to Check)
 
 1. **Real CRM pair**: merge the two lead snapshots on the declared key → one row per key,
    incoming status wins on the ~3.4k changed keys, committed-only rows kept, counts surfaced.
@@ -1570,7 +1570,7 @@ merge (present) do — it needs an **explicit mode discriminator**:
 - `commitSettings` extends: `refresh_mode: 'append'` + the chosen `overlap_check_field` (remembered
   defaults; the F9 carry-forward pattern, like `merge_key`).
 
-### Boundaries (named, R155)
+### Boundaries (named)
 
 - **Keep-all, no dedup** — a "latest-per-key / de-dup on append" step is presentation-level dedup,
   open to a future pull (orthogonal, same note as merge); append's job is the *source* union.
@@ -1584,7 +1584,7 @@ merge (present) do — it needs an **explicit mode discriminator**:
 - **Forward-only** — no un-append / version history (unchanged from R145 / R147).
 - **merge.py reuse** — the dup-key guard is merge-only and must not fire on append (asserted by test).
 
-### Acceptance (R155, maps to Check)
+### Acceptance (maps to Check)
 
 1. **Real month pair**: append May (FM5 `Worksheet`) onto an April-committed dataset → row count =
    April + May, every row kept; disjoint date ranges → **no overlap warn**.
@@ -1647,7 +1647,7 @@ the system recognizes provenance by that pointer, not by matching the string `So
   `columns_json`). On a dataset that already carries it, the round defers to `_carry_forward_hidden`,
   so a user's unhide is never re-overridden on the next refresh.
 
-### The metadata registry (R158) — recognition by pointer, not by name
+### The metadata registry — recognition by pointer, not by name
 
 `commitSettings` (the ingest recipe persisted per-dataset in `source.json`) records the computed
 column:
@@ -1692,7 +1692,7 @@ rewrite, which would re-encode every column and strip pandas' string extension d
   still never touches the parquet — the presentation-vs-compute doctrine holds (provenance is a
   compute-time *write*, the visibility toggle is not).
 
-### Drift interaction (R158) — diff SOURCE columns only
+### Drift interaction — diff SOURCE columns only
 
 The refresh Drift step compares the committed schema against the freshly-parsed incoming file
 (`computeSchemaDrift`, [state.ts](../../../../workspace/apps/builder/src/features/data-management/datasets/upload/state.ts)).
@@ -1703,7 +1703,7 @@ the diff and re-applied after.** The FE identifies which name to exclude from th
 metadata. This is a principled fix (a computed column is not a source column, so it is not a source-drift
 event), not a special-case for `Source.Name`.
 
-### Legacy: pre-R158 (and pre-R156) datasets
+### Legacy: datasets committed before the provenance column
 
 - **Pre-R156 (no `Source.Name` at all)** — on the next refresh the column is introduced. `replace`
   rebuilds the whole table from the incoming file (every row gets the new filename). `append` / `merge`
@@ -1715,7 +1715,7 @@ event), not a special-case for `Source.Name`.
   `computed_columns` entry into `commitSettings` that commit, and is registry-driven from then on. A
   one-time name-fallback bridges R156-era datasets — no migration script.
 
-### Collision → auto-suffix (R158)
+### Collision → auto-suffix
 
 If a kept source column is already named `Source.Name`, provenance **auto-suffixes** to `Source.Name1`
 (de-dup loop → `…2`, …), and the registry pointer records the suffixed name. The user's column is never
@@ -1761,7 +1761,7 @@ schema) — the R158 build gate this case guards against.
   **refresh-settings response** (no bystander endpoint shares that schema → no widen-shared-model risk).
   `GET /datasets/{id}` returns provenance in the existing `Column {name, dtype, hidden?}` shape.
 
-### Acceptance (R158, maps to Check)
+### Acceptance (maps to Check)
 
 1. **Initial upload** → the dataset carries a hidden provenance column = the uploaded filename on every
    row; `commitSettings.computed_columns` records the pointer; the row-preview hides it by default.
@@ -1862,7 +1862,7 @@ Datasets reference `workspace_id` via a foreign key.
 
 ---
 
-## Read/write boundary (R15+ scope)
+## Read/write boundary
 
 **R15+ implements**:
 
@@ -2022,74 +2022,12 @@ This doc:
 
 ---
 
-## Open questions answered in R14
+## Open: Metadata-vs-Preview ordering
 
-| Q                                      | Decision                                                                          | Source                                       |
-| -------------------------------------- | --------------------------------------------------------------------------------- | -------------------------------------------- |
-| File storage backend                   | Filesystem + raw source + Parquet companion at `data/datasets/<ws>/<ds>/`         | R14 HIxAI Q1 (lean accepted)                 |
-| Parse-time                             | Server-side; light metadata in `POST /uploads`, sheet parse on demand             | R14 HIxAI Q2 (refined)                       |
-| Dataset data model                     | Includes sourceFormat + optional sheetName; see datasets.md                       | R14 HIxAI Q3 + Q15                           |
-| Server-side vs client-side parse       | Server-side via DuckDB (CSV) and openpyxl/pandas → Parquet (Excel)                | R14 HIxAI Q8 (refined)                       |
-| Upload as sub-menu peer to Workspaces? | No — Datasets is the noun; upload is a verb against datasets                      | R14 HIxAI Q9 (user-directed)                 |
-| Card grid or table list?               | Table list with sortable columns and workspace filter                             | R14 HIxAI Q10 (user-directed)                |
-| Workspace detail route?                | No detail route — workspace cards link to `/datasets?workspace=<id>`              | R14 HIxAI Q11 (user-directed)                |
-| Keep `status` field on Dataset?        | No — wizard validates pre-commit, every persisted Dataset is ready                | R14 HIxAI Q12 (lean accepted)                |
-| Upload UI surface                      | Full-page wizard at `/data-management/datasets/new`                               | R14 HIxAI Q13 (user-directed)                |
-| Wizard step count                      | Branching: 4 for CSV, 5 for Excel (Sheet + Metadata steps inserted)               | R14 HIxAI Q13a (refined twice)               |
-| Wizard column-dtype override?          | **Yes** — dedicated Metadata step with per-column dtype dropdown                  | R14 HIxAI Q14 (reversed; user-directed)      |
-| Format string for date / datetime?     | **Yes** — text input under the dtype dropdown when dtype is date/datetime         | R14 HIxAI Q14a (user-directed)               |
-| Table range / skip-rows override?      | **Yes** — Excel range + CSV skip-rows in a Parse-options disclosure on Metadata   | R14 HIxAI Q14b (drifted pull, user-directed) |
-| Auto-generate headers when no header?  | **Yes** — has-header toggle; auto-gen names `column1, column2, …` when off        | R14 HIxAI Q14c (drifted pull, user-directed) |
-| Column-selection (Include checkboxes)? | **Yes** — Include column on Metadata table; all-checked default; uncheck to drop  | R14 HIxAI Q14d (user-directed)               |
-| Append / update existing Dataset?      | R15 create-only (forward-compat); **R145 ships Refresh (replace); R147 = merge**  | R14 Q14e defer → R145 D (§ Refresh)          |
-| Column rename in Metadata step?        | No — dtype override only; column rename is R∞                                     | R14 HIxAI Q16 (lean accepted)                |
-| Primary data source?                   | Excel (CRM-export dominant); CSV as secondary                                     | R14 HIxAI Q15 (user-directed)                |
-| Multi-sheet selection per wizard run?  | **Yes** — checkboxes in Sheet step; one Dataset per selected sheet; atomic commit | R14 HIxAI Q17 (user-directed)                |
-| Multi-sheet UX for Metadata + Preview? | Tabs within step (one per selected sheet); overrides preserved per tab            | R14 HIxAI Q17a (lean accepted)               |
-| Multi-sheet ships in which round?      | R15 — multi-sheet from day one                                                    | R14 HIxAI Q17b (lean accepted)               |
-| Future source types?                   | None pre-baked in R14; wizard IA generalizes for R∞ additions                     | R14 HIxAI Q15 (user-directed)                |
-
-## Open questions answered in R19 (parse-options chain D-step)
-
-| Q                                             | Decision                                                                                                                                                                                                                                                                                                                                                                                              | Source                                                                                                           |
-| --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| CSV re-parse endpoint?                        | **No CSV re-parse**. CSV parse-options collected on Metadata, applied at commit time; preview shows sniffer's parse. `/parse` stays Excel-only                                                                                                                                                                                                                                                        | R19 HIxAI Q1 (user-directed against the lean)                                                                    |
-| Override-reset on re-parse?                   | Reconfirm R14: reset all column overrides + excluded-columns for the re-parsed sheet on a successful re-parse                                                                                                                                                                                                                                                                                         | R19 HIxAI Q2 (lean accepted)                                                                                     |
-| Preview-failed action buttons scope?          | All three (`Re-pick file`, `Deselect this sheet`, `Adjust parse options`) ship in the F-step of this chain                                                                                                                                                                                                                                                                                            | R19 HIxAI Q3 (lean accepted; closes R18's W2 defer)                                                              |
-| CSV parse-options edit vs existing overrides? | Reset overrides + excluded-columns for that file when CSV parse-options change; mirror Excel's behavior with an inline warning before the edit                                                                                                                                                                                                                                                        | R19 HIxAI Q4 (lean accepted; symmetric with Q2)                                                                  |
-| Chain shape for the parse-options feature?    | **D + B + F** (corrected mid-R19-Review). C is genuinely collapsed (R15's `ParseOptions` schema already covers all three fields). B is a real round: `parse_csv()` ignores all options, and the CSV branch of the commit handler at `routers/datasets.py:170` calls it with no `parse_options`. Q1=C's promise that "CSV options apply at commit" is not actually implemented today. R20 = B; R21 = F | R19 finding (methodology evidence; user-probed correction caught shape-vs-behavior conformance drift R16 missed) |
-
-> **Methodology notes for `context/contract-driven-feature.md`
-> evaluation** (two findings from R19 — both deferred to R∞
-> until R21 (F) closes and two instances exist):
->
-> 1. **D-step can output "no C needed" findings.** R19 confirmed
->    the contract surface is complete (`ParseOptions` already
->    covers `range`, `skip_rows`, `has_header`). The "Single-
->    layer changes — no contract surface, no chain" clause
->    already covered this case in principle; R19 is the first
->    deliberate output of that finding.
-> 2. **Shape-conformance is not behavior-conformance.** R19
->    initially claimed the chain compressed to D+F because
->    R16's BE accepts `parse_options` on CSV commits. User
->    probing forced a re-check: the BE **silently ignores** the
->    field — `parse_csv()` accepts no options. R16's conformance
->    tests verified response shape against the YAML but didn't
->    assert that accepted request fields produced an observable
->    effect. The methodology refinement candidate: every request
->    field whose contract semantics imply behavior change must
->    have at least one BE test asserting the change is
->    observable in the response. R16's gap is the worked anti-
->    example; the [BE round conformance memo](../../../memory/2026-05-24-be-round-conformance-pattern.md)
->    deserves this rule as an amendment.
-
-## R18 design reflection — Metadata-vs-Preview ordering (still open)
-
-R17 silently folded Preview into Metadata as a scroll-down. R18
-caught the divergence during user verification and restored the
-designed order (Metadata → Preview, separate steps). **But** the
-accidental combined view surfaced a real reframe candidate the user
-raised in the R18 Q&A:
+An accidental build once folded Preview into Metadata as a scroll-down.
+The designed order (Metadata → Preview, separate steps) was restored —
+**but** the accidental combined view surfaced a real reframe candidate
+the user raised:
 
 > "The current implement gave me an idea: I should _see/preview_ data
 > before I can decide the dtype?"
@@ -2103,11 +2041,10 @@ Metadata → Preview. The argument:
 - "Look at the data, then decide what to fix" is a more natural
   mental model than "configure the data, then check what you did."
 
-**Decision (R18)**: ship A (Metadata → Preview) per the original
-design. Do **not** flip to B on a hunch. The lean is to use A on the
+**Decision**: ship A (Metadata → Preview) per the original design. Do **not** flip to B on a hunch. The lean is to use A on the
 next real CRM export and decide afterwards whether the friction
-shows up. If it does, R∞ flips the order (cheap — one `stepsByFormat`
-edit plus the design doc).
+shows up. If it does, flipping is cheap — one `stepsByFormat` edit
+plus this doc.
 
 **Trigger to flip**: one real instance of "I changed a dtype, then
 saw the preview, then went Back and re-changed it because the
@@ -2116,7 +2053,7 @@ the order.
 
 ---
 
-## R32 stamp — i18n keying for the upload wizard
+## i18n keying for the upload wizard
 
 All 5 wizard step components (`UploadSourceStep`,
 `UploadSheetStep`, `UploadMetadataStep`, `UploadPreviewStep`,

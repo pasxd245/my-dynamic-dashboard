@@ -1,7 +1,7 @@
 # Round 169: the design corpus re-synced — nine docs and the ledger they accreted
 
-**Status**: In Progress — **ranked first by the human 2026-08-14**; step 1 (`--check`) is done and
-**§ Plan's _Falsified if_ FIRED** — see § Do. Awaiting the re-scope call.
+**Status**: In Progress — drift **closed** (4 findings fixed) and slice A **compacted** (8 docs,
+159 → 4). **`upload.md` is unfinished at 106 stamped lines** and is the only work left.
 **Flow**: _(set at the Design exit via `flow-selector` — but see § This round ships only documents)_
 **Date started**: 2026-08-14
 **Date completed**:
@@ -344,6 +344,70 @@ either by a **gitignored** `suggestions.fixed.json` (personal scratch pad — do
 CI or a teammate) or by **changing `parse.py`'s `slugify`**, which is a Track-2 skill change and
 needs its own pull. Held for the human with the evidence above.
 
+**Ranked by the human 2026-08-14 as a candidate next round** — see § Feeds into.
+
+### Steps 3–4 — the compaction
+
+**Slice A — the eight smaller docs: 159 stamped lines → 4. DONE.**
+
+The rule applied throughout: **keep the reason, drop the attribution.** What was deleted outright
+was never rationale — it was build-chain narration (_"R38 — OpenAPI extension; R39 — BE handler;
+R40 — FE"_), status blockquotes, and process notes about the doc's own authoring (_"R40's Act
+section confirms which lifecycle event applies"_).
+
+**The four survivors are deliberate**, and they are all heading anchors with inbound links:
+`datasets.md` § Refresh affordance (R145) + § Column visibility (R152), `dataset-detail.md`
+§ Column visibility (R152) + § Properties panel (R153).
+
+#### The heading rule — learned twice, both times by the gate catching me
+
+A heading stamp is not only ledger; it is an **anchor identity**. Removing one is a rename with
+inbound consequences, and renaming design-doc headings is precisely what **manufactures the rot
+this same round triaged as Group 3**.
+
+| Attempt | What broke | Fix |
+| ------- | ---------- | --- |
+| `### Properties panel (R153)` → `### Properties panel` | `Round_153.md:113`; `check:links` 24 → 25 | **Restored the stamp** — a Complete round is append-only, so the anchor is load-bearing |
+| `### FE types (target for R40)` → `### FE types` | `advanced-query.md:90`; 24 → 25 | **Kept the rename, repointed the link** — design-doc → design-doc, so both sides move in one commit |
+
+**The rule, stated precisely**: remove a heading stamp only when **every inbound link can be
+updated in the same commit**. True for in-corpus links; false for anything in append-only history.
+
+#### Two drift findings the `--check` structurally could not see
+
+Compaction reads every line; the `--check` swept three code-checkable **classes**. These two are
+in the classes it did not sweep — _a deferred item that has since shipped_ and _a resolved open
+question_ — which is the caveat § Step 1 flagged, doing real work:
+
+| Doc | Drift | Correction |
+| --- | ----- | ---------- |
+| `_shared/crud-hygiene.md` | Declared _"Dataset `columns[].name`, `dtype`, **or other per-column metadata**"_ out of scope and future. Per-column `hidden` **shipped** as `PATCH /datasets/{id}/columns`. | Scope statement corrected; the presentation-only boundary named, so the exclusion still reads true for `name`/`dtype`. |
+| `datasets/dataset-detail.md` | Listed Profiling as _"**deferred → R154** (compute round)"_. R154 **built it and the human reverted it in full** — the feature was not wanted. | Now reads **NOT BUILT — built once and reverted**, with "do not re-propose without a fresh pull". A reader would otherwise have read "deferred" as "coming". |
+
+**This corrects the impression § Step 1 left.** "Seven of nine code-true" held for the three
+classes swept, and the caveat attached to it was load-bearing rather than decorative.
+
+**Slice B — `upload.md`: 165 → 106 stamped lines. NOT FINISHED.**
+
+Split out deliberately ([[split-fragile-subphase]]) and worked in that order. What landed:
+
+- **Two Q&A ledger sections deleted** — § Open questions answered in R14 and § Open questions
+  answered in R19, **61 lines**. Verified safe before deleting rather than after: every decision
+  in the R14 table is already carried in the spec body (tabs, `column1, column2…`, has-header,
+  Include, atomic commit all present above), and R19's methodology blockquote points at
+  `context/contract-driven-feature.md`, **which does not exist**.
+- **Two sections kept because they are not ledger.** § R18 design reflection is a **live open
+  question with a named trigger** (Metadata→Preview vs Preview→Metadata) — deleting it is exactly
+  the § Risks failure of stripping rationale; it was renamed and de-attributed, not dropped.
+  § R32 stamp is a ledger *heading* over live i18n spec — heading renamed, content untouched.
+- **Status blockquotes and eleven unlinked heading stamps** stripped; the **six linked** anchors
+  keep theirs.
+
+**106 stamped lines remain in `upload.md`**, and they are the hard kind: prose de-attributions
+needing a judgement each (_"R145 ships whole-table replace"_ → whose reason survives, whose
+number does not). That is a second sitting, not a rounding error, and it is reported as unfinished
+rather than rounded up.
+
 ## Check
 
 _(empty — Planning)_
@@ -356,3 +420,14 @@ _(empty — Planning)_
 
 A corpus that answers as a spec is worth having for the round **after** it — whatever the human
 ranks next designs on these docs. That is the whole return.
+
+**Noted as a candidate for R170 (human, 2026-08-14): Track 2 — fix `markdown-check-link`.**
+
+_Track: 2 (agent-method — a repo gate that is two-thirds false). Pulled by: this round's
+`markdown-check-link` run, which found **16 of 24** reported breaks are not breaks._ The concrete
+defect is one line — [`parse.py:159`](../../skills/markdown-check-link/scripts/parse.py) collapses
+`-+` → `-`, which GitHub and this repo's own **MD051** do not — and the evidence that it is the
+checker rather than the links is that `md:lint` passes on the same fragments `check_links` fails.
+Fixing it turns the baseline from **24 → 8**, and the eight that remain are real. That is the
+argument for it: not tidiness, but making a standing gate mean something again, so a genuine break
+stops hiding in noise. Scoped, **not** committed — the human ranks it.
