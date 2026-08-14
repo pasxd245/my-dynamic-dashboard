@@ -47,13 +47,13 @@ predicate engine, join engine, or detail page.
 
 ## What the builder edits (reused vs new)
 
-| Reused verbatim                                                                                                                                 | New (the edit + preview + create UX only)                                                                |
-| ----------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| The `QueryDefinition` (`q` / `filters` / `advanced` / `joins`) + its `sourceId` — **edited, not extended**                                      | An **Edit mode** on `/queries/:id` (there is no create mode)                                             |
-| The chip-filter + advanced-DNF **editors** + their serializers/validators                                                                       | Those editors **bound to the effective columns** (the combined `joins`-tree space)                       |
-| The base/relationship `<Select>`s + per-hop join-type `<Select>`                                                                                | The **`JoinEditor`** that mutates the `joins` tree (base source, add/remove hops, per-hop type) in place |
-| `query_joined_rows` / `query_dataset_rows` / `resolve_source`; the `409 query_stale` / `409 relationship_stale` gates                            | A **stateless preview** of the **unsaved** definition (`POST …/queries/preview`)                         |
-| `<PagedRowsView>`, the `RowsPage` shape, `SaveQueryModal`, `useCreateQueryMutation`, the `<DeleteConfirmModal>` confirm pattern                 | A **dirty / Save / discard** lifecycle on the detail                                                     |
+| Reused verbatim                                                                                                                 | New (the edit + preview + create UX only)                                                                |
+| ------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| The `QueryDefinition` (`q` / `filters` / `advanced` / `joins`) + its `sourceId` — **edited, not extended**                      | An **Edit mode** on `/queries/:id` (there is no create mode)                                             |
+| The chip-filter + advanced-DNF **editors** + their serializers/validators                                                       | Those editors **bound to the effective columns** (the combined `joins`-tree space)                       |
+| The base/relationship `<Select>`s + per-hop join-type `<Select>`                                                                | The **`JoinEditor`** that mutates the `joins` tree (base source, add/remove hops, per-hop type) in place |
+| `query_joined_rows` / `query_dataset_rows` / `resolve_source`; the `409 query_stale` / `409 relationship_stale` gates           | A **stateless preview** of the **unsaved** definition (`POST …/queries/preview`)                         |
+| `<PagedRowsView>`, the `RowsPage` shape, `SaveQueryModal`, `useCreateQueryMutation`, the `<DeleteConfirmModal>` confirm pattern | A **dirty / Save / discard** lifecycle on the detail                                                     |
 
 **No new model. No new engine. No new route beyond the spine's `preview` + `update`.**
 
@@ -363,6 +363,15 @@ it does **not** auto-insert the `derive` step: silently adding an operation the 
 for is the opposite of the ordered-operations concept. This is the one op that gets such a line,
 because it is the one whose output is a _component of_ the answer rather than the answer.
 
+**The Computed column card's second operand is a labelled two-button radio group**
+(`Radio.Group optionType="button" buttonStyle="solid"`, under the `Second value` `FieldLabel`) —
+by-column or by-number. It took two rounds and both halves matter: R165 gave it the label, which
+made it **findable**; the re-walk still could not tell it was **pressable**, because antd's
+`Segmented` paints the selected item as a white raised thumb and the step card is white, so the
+only shaded half was the *un*selected one. Boxing both halves makes the control read as a switch
+from either state. _Worth generalising past this card: on a white surface, `Segmented`'s selected
+state is the one that disappears._
+
 **Rank offers exactly one ranking.** Ties share a rank and the next rank skips (what "ranked 2nd"
 means outside a database). Consecutive numbering is **refused on correctness grounds, not scope**:
 it invents an order between genuinely equal rows, so the same query can reshuffle a tie between
@@ -455,13 +464,12 @@ _join to what?_, is invisible. Both-sides is also what the canvas free-form moda
 ([canvas.md](canvas.md) — `Deals.owner_id ↔ Owners.id`), so one rule now covers every surface
 instead of three context-dependent ones. Human's call, 2026-08-10.
 
-**Current state**: the build renders `${leftColumn} ↔ ${rightColumn}` — unqualified on both sides
-([JoinEditor.tsx:99](../../../../workspace/apps/builder/src/features/data-management/queries/JoinEditor.tsx#L99)),
-a **fidelity drift** from this doc. Tracked as **`[F-join-label-qualify]`**
-([Round_162 § Feeds into](../../../plan/cycles/Round_162.md)), batched with the UX cluster
-rather than patched mid-feature ([[r-ui-bug-fixing-round]]). **Build note**: with both qualifiers
-plus the cardinality suffix the label will overflow a narrow `<Select>` — it needs an explicit
-ellipsis/`title` decision, not a hope.
+**Built** (R171, `[F-join-label-qualify]`). `optionLabel` takes the two dataset ids alongside the
+rel, so it serves both shapes — a governed `Relationship` (`…DatasetId`) in the pickers and a
+query-owned one (`…SourceId`) on the hop row. The overflow question the earlier build note left
+open is answered rather than hoped: each option carries an explicit `title` with the full label, so
+the visible text may ellipsize in a narrow `<Select>` while the whole label stays reachable on
+hover — in the dropdown **and** in the closed selection. No custom option renderer.
 
 ### Invalid-edit / preview-blocked states (flag-don't-crash)
 
@@ -477,6 +485,13 @@ ellipsis/`title` decision, not a hope.
 `[Save]` is **disabled** while any predicate is invalid, an edge is stale, or the base is
 unrunnable — the builder mirrors the server's validate-on-save guard, so a user can't save
 a definition that wouldn't run.
+
+**A failed preview is a fifth state, and it is not about the query** (R171, R165 W-2). An
+unreachable backend produces the same three symptoms as a rejected step — no rows, `Save` off, no
+message — so the panel used to let a dead server read as _"my step is wrong"_. It now carries its
+own sentence (_"Couldn't reach the server… Your query is unchanged — this isn't a problem with
+it"_) and, alone among these states, a **retry**: re-asking is the next action here and is useless
+for the other four, where the query itself is what needs the edit.
 
 ---
 

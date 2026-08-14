@@ -361,6 +361,24 @@ describe('Query construction (R72 — editable builder)', () => {
     const stepSave = document.querySelector('[data-component="QueryBuilderSave"]') as HTMLButtonElement;
     expect(stepSave).toBeDisabled();
   });
+
+  it('R171 (R165 W-2): an unreachable backend says so, and is NOT reported as a rejected step', async () => {
+    // The two failures share every symptom the panel had — no rows, Save off —
+    // so a dead server read as "my step is wrong". They now differ in the one
+    // place that matters: the sentence, and whether a retry is offered.
+    server.use(http.post('*/workspaces/:id/queries/preview', () => HttpResponse.error()));
+    renderApp(`/data-management/queries/${QR_ID}`);
+    await waitFor(() => expect(screen.getAllByText(MOCK_QUERY.name).length).toBeGreaterThan(0));
+    clickEdit();
+    expect(await screen.findByText(/Couldn.t reach the server/)).toBeInTheDocument();
+    expect(document.querySelector('[data-component="QueryBuilderPreviewRetry"]')).not.toBeNull();
+    // Not misattributed to the query's own contents.
+    expect(document.querySelector('[data-component="QueryBuilderStepInvalid"]')).toBeNull();
+    expect(document.querySelector('[data-component="QueryBuilderPredInvalid"]')).toBeNull();
+    expect(document.querySelector('[data-component="QueryBuilderJoinStale"]')).toBeNull();
+    const deadSave = document.querySelector('[data-component="QueryBuilderSave"]') as HTMLButtonElement;
+    expect(deadSave).toBeDisabled();
+  });
 });
 
 describe('Multi-join chain (R73 linear) + join graph (R74 tree)', () => {
@@ -390,7 +408,7 @@ describe('Multi-join chain (R73 linear) + join graph (R74 tree)', () => {
     // The single-edge affordance + the "[+ Add a join]" extending from the tail.
     expect(await screen.findByText('Preview · 2 rows')).toBeInTheDocument();
     await waitFor(() => expect(document.querySelector('[data-component="BuilderAddJoin"]')).not.toBeNull());
-    await pickFromSelect('BuilderAddJoin', /tier ↔ tier/);
+    await pickFromSelect('BuilderAddJoin', /accounts\.tier ↔ owners\.tier/);
   }
 
   // Click the last ENABLED [Remove] — a leaf hop (R74: a non-leaf's Remove is
@@ -473,8 +491,8 @@ describe('Multi-join chain (R73 linear) + join graph (R74 tree)', () => {
     // Two in-graph sources can be extended (Accounts, Owners) → the left-source
     // <Select> appears (it is hidden when only one source is eligible).
     await waitFor(() => expect(document.querySelector('[data-component="BuilderAddJoinSource"]')).not.toBeNull());
-    await pickFromSelect('BuilderAddJoinSource', /accounts/); // branch from the NON-tail
-    await pickFromSelect('BuilderAddJoin', /account_id ↔ acct/); // Accounts → tiers
+    await pickFromSelect('BuilderAddJoinSource', /^accounts$/); // branch from the NON-tail
+    await pickFromSelect('BuilderAddJoin', /accounts\.account_id ↔ tiers\.acct/); // Accounts → tiers
   }
 
   it('branches a third hop from a non-tail source via the left-source select', async () => {
@@ -715,11 +733,11 @@ describe('Query canvas view (R85 — Phase A, read-only source-graph)', () => {
     expect(await screen.findByText(/Matched 2 rows/)).toBeInTheDocument();
     clickEdit();
     await waitFor(() => expect(document.querySelector('[data-component="BuilderAddJoin"]')).not.toBeNull());
-    await pickFromSelect('BuilderAddJoin', /tier ↔ tier/); // hop 2: Accounts ⋈ Owners
+    await pickFromSelect('BuilderAddJoin', /accounts\.tier ↔ owners\.tier/); // hop 2: Accounts ⋈ Owners
     await waitFor(() => expect(document.querySelectorAll('[data-component="BuilderHopRow"]').length).toBe(2));
     await waitFor(() => expect(document.querySelector('[data-component="BuilderAddJoinSource"]')).not.toBeNull());
-    await pickFromSelect('BuilderAddJoinSource', /accounts/); // branch from the NON-tail
-    await pickFromSelect('BuilderAddJoin', /account_id ↔ acct/); // hop 3: Accounts ⋈ tiers
+    await pickFromSelect('BuilderAddJoinSource', /^accounts$/); // branch from the NON-tail
+    await pickFromSelect('BuilderAddJoin', /accounts\.account_id ↔ tiers\.acct/); // hop 3: Accounts ⋈ tiers
     await waitFor(() => expect(document.querySelectorAll('[data-component="BuilderHopRow"]').length).toBe(3));
   }
 
@@ -767,7 +785,7 @@ describe('Query canvas view (R85 — Phase A, read-only source-graph)', () => {
     expect(await screen.findByText(/Matched 2 rows/)).toBeInTheDocument();
     clickEdit();
     await waitFor(() => expect(document.querySelector('[data-component="BuilderAddJoin"]')).not.toBeNull());
-    await pickFromSelect('BuilderAddJoin', /tier ↔ tier/);
+    await pickFromSelect('BuilderAddJoin', /accounts\.tier ↔ owners\.tier/);
     await waitFor(() => expect(document.querySelectorAll('[data-component="BuilderHopRow"]').length).toBe(2));
     // Toggle to Canvas → it renders the EDITED copy (3 nodes: Deals/Accounts/Owners).
     switchTab('canvas');
@@ -1063,6 +1081,15 @@ describe('Query canvas EDITING (R89 — free-form, React Flow)', () => {
   it('promotes a query-owned rel up to the governed ER via POST /relationships', async () => {
     let posted: Record<string, unknown> | null = null;
     server.use(
+      // R171 item 4 — the governed ER holds a DIFFERENT column pair, so this
+      // edge has no counterpart there and promote is a real create. Before
+      // R171 this test promoted the default copy-on-picked edge, whose pair the
+      // governed ER already holds: a POST the real backend answers `409
+      // relationship_exists`. It passed only because this mock never modelled
+      // `idx_relationships_pair_unique` and returned 201 to anything.
+      http.get('*/workspaces/:id/relationships', () =>
+        HttpResponse.json([{ ...MOCK_RELATIONSHIP, leftColumn: 'stage', rightColumn: 'tier' }]),
+      ),
       http.post('*/workspaces/:id/relationships', async ({ request }) => {
         posted = (await request.json()) as Record<string, unknown>;
         return HttpResponse.json(
@@ -1078,10 +1105,30 @@ describe('Query canvas EDITING (R89 — free-form, React Flow)', () => {
       expect(el).not.toBeNull();
       return el;
     })) as HTMLButtonElement;
+    expect(promote).not.toBeDisabled();
     fireEvent.click(promote);
     // Success surfaces the message; the POST carried the query-owned rel's join fields.
     expect(await screen.findByText('Relationship promoted to the workspace.')).toBeInTheDocument();
     expect(posted).toMatchObject({ leftColumn: 'deal_id', rightColumn: 'account_id' });
+  });
+
+  it('R171: Promote is offered DISABLED, with the reason, when the pair is already governed', async () => {
+    // The default fixtures: an edge copy-on-picked from `rel_a1b2c3d4` and still
+    // in sync. Promoting it re-creates a pair the governed ER already holds →
+    // `409 relationship_exists` (the unique index is on the ordered column pair
+    // per workspace). R167 dropped the guard on the reasoning that no shape
+    // could be "offered and then rejected"; that was true of the `qr_`-side
+    // shape only. Disabled rather than hidden — the tooltip answers the
+    // question a vanishing button would raise.
+    await openCanvasEditor();
+    await selectEdge();
+    const promote = (await waitFor(() => {
+      const el = document.querySelector('[data-component="CanvasPromote"]') as HTMLButtonElement;
+      expect(el).not.toBeNull();
+      return el;
+    })) as HTMLButtonElement;
+    expect(promote).toBeDisabled();
+    expect(promote.getAttribute('data-blocked')).toBe('true');
   });
 
   it("warns when a copied rel diverged from its origin, and re-syncs on the user's opt-in", async () => {

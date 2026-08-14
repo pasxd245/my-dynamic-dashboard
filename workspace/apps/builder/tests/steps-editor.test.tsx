@@ -188,6 +188,30 @@ describe('R125 StepsEditor', () => {
     expect(screen.getByText('Second value')).toBeInTheDocument();
   });
 
+  it('R171: the operand-kind toggle is a two-button radio group, and switching swaps the operand', () => {
+    // R165 fixed the label (findable); the control still did not read as
+    // PRESSABLE — a white Segmented thumb on a white card leaves only the
+    // UNSELECTED half shaded. Radio.Group optionType="button" boxes both.
+    // What a test can check is the wiring and the shape; whether it now READS
+    // as a switch is the acceptance walk's question (T4), not this file's.
+    // Two numeric columns, so a blank derive starts on `col` and the switch to
+    // `Number` is a real change (with only one, it already starts on `const`).
+    const cols: Column[] = [...COLS, { name: 'prev_amount', dtype: 'integer' }];
+    const onChange = vi.fn();
+    render(
+      <AntdConfig>
+        <App>
+          <StepsEditor steps={[blankStep('derive', cols)]} columns={cols} onChange={onChange} />
+        </App>
+      </AntdConfig>,
+    );
+    const group = document.querySelector('[data-component="DeriveOperandKind"]')!;
+    expect(group.querySelectorAll('.ant-radio-button-wrapper')).toHaveLength(2);
+
+    fireEvent.click(screen.getByRole('radio', { name: 'Number' }));
+    expect(onChange).toHaveBeenCalledWith([expect.objectContaining({ right: { kind: 'const', value: 0 } })]);
+  });
+
   it('removes a step → onChange with the shorter list', () => {
     const onChange = renderEditor([blankStep('aggregate', COLS)]);
     fireEvent.click(screen.getByRole('button', { name: 'Remove step' }));

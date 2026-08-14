@@ -186,6 +186,12 @@ export function useQueryBuilder({ query, datasetColumns, active, onDone }: UseQu
   // was announced as "1 filter references a column…" on a query with zero filters.
   const stepInvalid = err instanceof ApiErrorThrown && err.body.code === 'step_invalid';
   const invalidCount = invalidAtomCount(draft, columns);
+  // R171 item 6 — R165 W-2. Every OTHER preview failure: an unreachable backend,
+  // a 500, a dropped connection. `previewOk` has always excluded it (Save is
+  // correctly off), but nothing ever SAID so, and the three symptoms it shares
+  // with a rejected step — no rows, Save off, no message — are the whole
+  // surface, so a dead server read as "my step is wrong".
+  const previewFailed = previewQuery.isError && !relStale && !predStale && !stepInvalid;
   const previewOk = Boolean(preview) && !relStale && !predStale && !stepInvalid && !previewQuery.isError;
   // Save only once the preview reflects the CURRENT draft — you save what you previewed.
   const canSave = dirty && previewOk && !previewPending && invalidCount === 0 && !updateMutation.isPending;
@@ -381,6 +387,8 @@ export function useQueryBuilder({ query, datasetColumns, active, onDone }: UseQu
     relStale,
     predStale,
     stepInvalid,
+    previewFailed,
+    retryPreview: () => void previewQuery.refetch(),
     invalidCount,
     dirty,
     canSave,

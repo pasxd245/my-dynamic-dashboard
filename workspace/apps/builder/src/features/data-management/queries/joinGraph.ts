@@ -35,6 +35,41 @@ export function relDivergence(qrel: QueryRelationship, governedById: ReadonlyMap
   return same ? null : 'changed';
 }
 
+/** R171 item 4 — is this edge's ordered pair ALREADY governed? Then `Promote`
+ *  can only fail, and the answer is the 409's own condition rather than a
+ *  guess at it: `idx_relationships_pair_unique` is
+ *  `(workspace_id, left_dataset_id, left_column, right_dataset_id, right_column)`,
+ *  so a POST repeating that pair hits the unique index → `409
+ *  relationship_exists`. Matching the same five fields here makes the gate
+ *  exactly as wide as the failure.
+ *
+ *  Note what this is NOT: "has an `originRelationshipId`". That predicate is
+ *  wrong in both directions — it misses a FREE-FORM edge drawn over a pair the
+ *  governed ER happens to hold, and it catches a `removed`-divergence edge,
+ *  whose origin is gone and which therefore promotes fine. `cardinality` is
+ *  deliberately absent: it is not in the index, so an edge that diverged ONLY
+ *  in cardinality still collides.
+ *
+ *  R167 removed the earlier `promotable` flag on the reasoning that "there is
+ *  no longer a shape this could be offered for and then rejected". That was
+ *  true of the `qr_`-side shape it was written about, and only that one. */
+export function promoteWouldCollide(
+  qrel: QueryRelationship,
+  governedById: ReadonlyMap<string, Relationship>,
+): boolean {
+  for (const gov of governedById.values()) {
+    if (
+      gov.leftDatasetId === qrel.leftSourceId &&
+      gov.leftColumn === qrel.leftColumn &&
+      gov.rightDatasetId === qrel.rightSourceId &&
+      gov.rightColumn === qrel.rightColumn
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
 /** The join endpoints of a query-owned `QueryRelationship` (R88). Both are datasets
  *  since R167; the graph math treats ids as opaque either way. */
 type Edge = Pick<QueryRelationship, 'leftSourceId' | 'rightSourceId'>;

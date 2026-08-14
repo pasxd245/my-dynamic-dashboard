@@ -8,7 +8,7 @@
 // predicate per filter (chain steps for more). Backend re-validates on preview/save.
 
 import { ArrowDownOutlined, ArrowUpOutlined, DeleteOutlined } from '@ant-design/icons';
-import { Alert, Button, Input, InputNumber, Segmented, Select, Space, Switch, Typography } from 'antd';
+import { Alert, Button, Input, InputNumber, Radio, Select, Space, Switch, Typography } from 'antd';
 import { useId } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -769,19 +769,32 @@ function DeriveBody({
           value picker among four. It carries its own label now, like every other
           field on the card. */}
       <FieldLabel text={t('queries.builder.steps.rightKind')}>
-        <Segmented
+        {/* R171 item 5 — R165 W-1's second half. The label made this control
+            FINDABLE; it still did not read as PRESSABLE, and the re-walk said
+            so ("vẫn chưa thật 'rõ' lắm để biết nó là 1 toggle"). Cause: antd's
+            `Segmented` paints its selected item as a white raised thumb, and
+            this card is white — so only the UNSELECTED half carried any grey,
+            i.e. the half that looks pressable is the one that isn't.
+            `Radio.Group optionType="button"` boxes BOTH halves, so the control
+            reads as a switch from either state, and the filled half reads as
+            the current one. */}
+        <Radio.Group
           size="small"
+          optionType="button"
+          buttonStyle="solid"
           value={right.kind}
           options={[
             { label: t('queries.builder.steps.byColumn'), value: 'col' },
             { label: t('queries.builder.steps.byNumber'), value: 'const' },
           ]}
-          onChange={(k) =>
+          onChange={(e) => {
+            const k = e.target.value as 'col' | 'const';
             onChange({
               ...step,
               right: k === 'col' ? { kind: 'col', col: otherNum?.name ?? '' } : { kind: 'const', value: 0 },
-            })
-          }
+            });
+          }}
+          data-component="DeriveOperandKind"
         />
       </FieldLabel>
       {right.kind === 'col' ? (

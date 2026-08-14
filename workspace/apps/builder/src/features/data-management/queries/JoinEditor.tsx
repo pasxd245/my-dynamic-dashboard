@@ -76,11 +76,36 @@ export function JoinEditor({
   const datasets = useMemo(() => datasetsQuery.data ?? [], [datasetsQuery.data]);
   const dsNameById = useMemo(() => new Map(datasets.map((d) => [d.id, d.name])), [datasets]);
 
-  // Works for a governed Relationship (the add library) OR a query-owned rel (a
-  // hop's display) — both carry the key pair + cardinality.
-  const optionLabel = (r: { leftColumn: string; rightColumn: string; cardinality: Relationship['cardinality'] }) =>
-    `${r.leftColumn} ↔ ${r.rightColumn} · ${t(`relationships.cardinality.${r.cardinality}`)}`;
   const dsName = (id: string) => dsNameById.get(id) ?? id;
+
+  // R171 item 3 — [F-join-label-qualify]. Both sides are qualified:
+  // `Deals.account_id ↔ Accounts.id · many:many`, never a bare
+  // `account_id ↔ id` (query-construction.md § Join option labels, decided
+  // 2026-08-10). The bare form reads fine on the hop row, which prefixes the
+  // left dataset — and nowhere else: the single-edge Select has no prefix, and
+  // in the common single-source case the add-a-join picker renders no
+  // left-source Select either, so NEITHER side was named and the actual
+  // decision (join to what?) was invisible.
+  //
+  // Works for a governed Relationship (the add library) OR a query-owned rel
+  // (a hop's display); the two shapes name their endpoints differently, so the
+  // ids come in as arguments rather than being read off `r`.
+  const optionLabel = (
+    r: { leftColumn: string; rightColumn: string; cardinality: Relationship['cardinality'] },
+    leftId: string,
+    rightId: string,
+  ) =>
+    `${dsName(leftId)}.${r.leftColumn} ↔ ${dsName(rightId)}.${r.rightColumn} · ` +
+    t(`relationships.cardinality.${r.cardinality}`);
+
+  const relOption = (r: Relationship) => {
+    const label = optionLabel(r, r.leftDatasetId, r.rightDatasetId);
+    // The doc's build note, answered rather than hoped: two qualifiers plus the
+    // cardinality overflow a narrow Select. The text ellipsizes (AntD's default
+    // for a string label) and `title` carries the full label on hover, in the
+    // dropdown AND in the closed selection — no custom option renderer.
+    return { value: r.id, label, title: label };
+  };
 
   // Valid edges that drive FROM a given dataset (the left/driving source).
   const eligibleFrom = (dsId: string) => rels.filter((r) => r.status === 'valid' && r.leftDatasetId === dsId);
@@ -162,7 +187,7 @@ export function JoinEditor({
             aria-labelledby="builder-join-label"
             placeholder={t('queries.builder.joinPlaceholder')}
             disabled={firstNone && joins.length === 0}
-            options={firstEligible.map((r) => ({ value: r.id, label: optionLabel(r) }))}
+            options={firstEligible.map(relOption)}
             data-component="BuilderJoinSelect"
           />
           {joins[0] ? typeSelect(joins[0]) : null}
@@ -186,7 +211,7 @@ export function JoinEditor({
                 style={{ display: 'flex', alignItems: 'center', gap: 8 }}
               >
                 <Typography.Text style={{ flex: 1, minWidth: 0 }}>
-                  {fromName ? `${fromName} ` : ''}⋈ {qrel ? optionLabel(qrel) : hop.queryRelId}
+                  {fromName ? `${fromName} ` : ''}⋈ {qrel ? optionLabel(qrel, qrel.leftSourceId, qrel.rightSourceId) : hop.queryRelId}
                 </Typography.Text>
                 {typeSelect(hop)}
                 {/* Default-size button (matches the header Cancel/Save) so short
@@ -232,7 +257,7 @@ export function JoinEditor({
               style={{ flex: 1, minWidth: 0 }}
               placeholder={t('queries.builder.addJoin')}
               aria-label={t('queries.builder.addJoin')}
-              options={addFromActive.map((r) => ({ value: r.id, label: optionLabel(r) }))}
+              options={addFromActive.map(relOption)}
               data-component="BuilderAddJoin"
             />
           </div>

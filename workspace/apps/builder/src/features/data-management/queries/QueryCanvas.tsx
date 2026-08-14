@@ -65,6 +65,7 @@ import {
   graphDatasetIds,
   inferCardinality,
   isLeafHop,
+  promoteWouldCollide,
   relDivergence,
   resolveConnect,
   type ConnectFields,
@@ -366,6 +367,9 @@ type RelEdgeData = {
   typeLabel: string;
   free: boolean;
   divergence: Divergence;
+  /** R171 item 4 — the governed ER already holds this ordered pair, so
+   *  promoting it could only return `409 relationship_exists`. */
+  promoteCollides: boolean;
   stale: boolean;
   leaf: boolean;
   /** Editor canvas — the context pad of actions is reachable. */
@@ -378,6 +382,7 @@ type RelEdgeData = {
     governed: string;
     promote: string;
     promoteTip: string;
+    promoteBlocked: string;
     resync: string;
     remove: string;
     removeBlocked: string;
@@ -555,17 +560,24 @@ function RelEdge(props: EdgeProps<Edge<RelEdgeData>>) {
                   marginTop: 2,
                 }}
               >
-                {/* Promote — a query-owned rel pushed up to the governed ER. R167 removed
-                    the `promotable` guard that hid this on a `qr_`-side edge: the governed
-                    ER is dataset-only and every edge now links two datasets, so there is
-                    no longer a shape this could be offered for and then rejected. */}
-                <Tooltip title={data.i18n.promoteTip}>
+                {/* Promote — a query-owned rel pushed up to the governed ER.
+                    R167 removed the `promotable` guard that hid this on a
+                    `qr_`-side edge; R171 restored a guard for the OTHER shape it
+                    left open. An edge whose ordered pair the governed ER already
+                    holds — a copy-on-picked one, most obviously — can only come
+                    back `409 relationship_exists`, so it is offered DISABLED
+                    with the reason rather than hidden: hiding it on some edges
+                    and not others raises the question the tooltip answers. D4
+                    (unofferable at the gesture, never an error at run). */}
+                <Tooltip title={data.promoteCollides ? data.i18n.promoteBlocked : data.i18n.promoteTip}>
                   <Button
                     size="small"
                     type="link"
                     loading={data.promoting}
+                    disabled={data.promoteCollides}
                     onClick={data.onPromote}
                     data-component="CanvasPromote"
+                    data-blocked={data.promoteCollides ? 'true' : 'false'}
                     style={{ margin: 0, padding: 0, height: 22 }}
                   >
                     {data.i18n.promote}
@@ -830,6 +842,7 @@ function QueryCanvasInner({
       governed: t('queries.builder.canvasGoverned'),
       promote: t('queries.builder.canvasPromote'),
       promoteTip: t('queries.builder.canvasPromoteTip'),
+      promoteBlocked: t('queries.builder.canvasPromoteBlocked'),
       resync: t('queries.builder.canvasResync'),
       remove: t('queries.builder.removeJoin'),
       removeBlocked: t('queries.builder.removeJoinBlocked'),
@@ -843,6 +856,8 @@ function QueryCanvasInner({
     return builtEdges.map(({ hop, qrel, stale, leftNode, leftHandle }) => {
       const free = !qrel.originRelationshipId;
       const divergence = relDivergence(qrel, governedById);
+      // R171 item 4 — Promote is offerable only when it can succeed.
+      const promoteCollides = promoteWouldCollide(qrel, governedById);
       return {
         id: hop.queryRelId,
         source: leftNode,
@@ -857,6 +872,7 @@ function QueryCanvasInner({
           typeLabel: t(`queries.builder.joinTypeShort.${hop.type}`),
           free,
           divergence,
+          promoteCollides,
           stale,
           leaf: isLeafHop(hop.queryRelId, joins, qrelById),
           editable,

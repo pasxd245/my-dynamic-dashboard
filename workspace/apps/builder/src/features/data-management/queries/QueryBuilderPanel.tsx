@@ -225,6 +225,20 @@ function FormTab({
           {t('queries.builder.predInvalid', { count: builder.invalidCount || 1 })}
         </div>
       ) : null}
+      {/* R171 item 6 — R165 W-2. The states above are all "your query needs a
+          fix"; this one is "the server didn't answer", and the two are told
+          apart by the sentence, not by the symptoms (which are identical: no
+          rows, Save off). It carries a retry because that IS the next action —
+          none of the others do, since re-asking a rejected query changes
+          nothing. */}
+      {builder.previewFailed ? (
+        <div role="alert" data-component="QueryBuilderPreviewFailed" style={alertStyle()}>
+          {t('queries.builder.previewFailed')}{' '}
+          <Button size="small" type="link" onClick={builder.retryPreview} data-component="QueryBuilderPreviewRetry">
+            {t('queries.builder.previewRetry')}
+          </Button>
+        </div>
+      ) : null}
 
       {/* ── Preview section ───────────────────────────────────────────── */}
       <SectionBar

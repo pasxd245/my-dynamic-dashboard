@@ -11,6 +11,7 @@ import { freeFormRel } from '@/features/data-management/queries/chain';
 import {
   buildSourceGraph,
   inferCardinality,
+  promoteWouldCollide,
   relDivergence,
   resolveConnect,
 } from '@/features/data-management/queries/joinGraph';
@@ -130,6 +131,63 @@ describe('relDivergence (R89 — copied rel vs. its origin governed rel)', () =>
 
   it("is 'changed' when the origin's join fields drifted from the snapshot", () => {
     expect(relDivergence({ ...copied, cardinality: 'one_to_one' }, byId)).toBe('changed');
+  });
+});
+
+// R171 item 4 — the promote gate. Its whole value is being exactly as wide as
+// `409 relationship_exists`, so each case below is one way the obvious-looking
+// predicate ("does it have an origin?") gets the answer wrong.
+describe('promoteWouldCollide (R171 — Promote is offerable only when it can succeed)', () => {
+  const byId = new Map(governed.map((r) => [r.id, r]));
+
+  const copied: QueryRelationship = {
+    id: 'qrel_a1b2c3d4',
+    leftSourceId: DEALS,
+    leftColumn: 'deal_id',
+    rightSourceId: ACCOUNTS,
+    rightColumn: 'account_id',
+    cardinality: 'one_to_many',
+    originRelationshipId: 'rel_a1b2c3d4',
+  };
+
+  it('collides for a copy-on-picked edge still in sync — the 409 R167 believed unreachable', () => {
+    expect(promoteWouldCollide(copied, byId)).toBe(true);
+  });
+
+  it('collides when ONLY the cardinality diverged — it is not part of the unique index', () => {
+    // divergence === 'changed', yet the ordered column pair is unchanged, so
+    // the POST still hits `idx_relationships_pair_unique`.
+    const drifted: QueryRelationship = { ...copied, cardinality: 'one_to_one' };
+    expect(relDivergence(drifted, byId)).toBe('changed');
+    expect(promoteWouldCollide(drifted, byId)).toBe(true);
+  });
+
+  it('collides for a FREE-FORM edge drawn over a pair the governed ER already holds', () => {
+    // No origin at all — "has an originRelationshipId" would call this
+    // promotable, and the backend would reject it.
+    expect(promoteWouldCollide({ ...copied, originRelationshipId: null }, byId)).toBe(true);
+  });
+
+  it('does NOT collide when the origin was removed — the pair is free again', () => {
+    // The mirror error: "has an origin" would block a promote that succeeds.
+    expect(relDivergence(copied, new Map())).toBe('removed');
+    expect(promoteWouldCollide(copied, new Map())).toBe(false);
+  });
+
+  it('does NOT collide on a different column pair between the same two datasets', () => {
+    const otherPair: QueryRelationship = { ...copied, leftColumn: 'stage', rightColumn: 'tier' };
+    expect(promoteWouldCollide(otherPair, byId)).toBe(false);
+  });
+
+  it('is ORDER-sensitive, exactly as the index is', () => {
+    const reversed: QueryRelationship = {
+      ...copied,
+      leftSourceId: ACCOUNTS,
+      leftColumn: 'account_id',
+      rightSourceId: DEALS,
+      rightColumn: 'deal_id',
+    };
+    expect(promoteWouldCollide(reversed, byId)).toBe(false);
   });
 });
 
