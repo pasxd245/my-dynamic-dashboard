@@ -1,7 +1,8 @@
 # Round 171: the batched UI cluster — the papercuts that were never worth a round alone
 
-**Status**: In Progress — opened 2026-08-14, **D gate active**
-**Flow**: _(set at the Design exit via `flow-selector`)_
+**Status**: In Progress — opened 2026-08-14, **D gate closed 2026-08-15; F1 active**
+**Flow**: **DFCFBI (triggers 3, 5)** — set at the Design gate via `flow-selector`; recorded in the
+Do log.
 **Date started**: 2026-08-14
 **Date completed**:
 
@@ -39,16 +40,16 @@ This matters: **two of the ten items on the standing list are already fixed**, a
 mechanism removed underneath its description. A cluster assembled from memory would have built
 work that no longer exists.
 
-| # | Item | Where | Verified state |
-| - | ---- | ----- | -------------- |
-| **1** | **`[F-commit-error-opaque]`** — a non-coded `422` renders the raw Pydantic string with no field named ("Extra inputs are not permitted") | [`UploadConfirmStep.tsx:86`](../../../workspace/apps/builder/src/features/data-management/datasets/upload/UploadConfirmStep.tsx) — `return err.body.detail ?? err.body.error;` | **OPEN** — coded errors are handled well (`name_taken`, `coercion_failed` with column + samples + hint, `merge_duplicate_keys`); the fallback is the gap |
-| **2** | **`[F-metadata-reset]`** — "Reset all to detected" wipes every dtype override with no click-time confirm and no undo | [`UploadMetadataStep.tsx:219`](../../../workspace/apps/builder/src/features/data-management/datasets/upload/UploadMetadataStep.tsx) + button `:327`, guarded only by `disabled={!hasAnyOverride}` | **OPEN** — no `Popconfirm` |
-| **3** | **`[F-join-label-qualify]`** — join options read `account_id ↔ id`; the design declares `Deals.account_id ↔ Accounts.id` | [`JoinEditor.tsx:81`](../../../workspace/apps/builder/src/features/data-management/queries/JoinEditor.tsx) — `` `${r.leftColumn} ↔ ${r.rightColumn} · …` `` | **OPEN** — decided 2026-08-10, spec'd in `query-construction.md`, never built |
-| **4** | **`[F-promote-gate]`** — `Promote` is offered on an edge copied from a governed rel, where it can only `409 relationship_exists` | [`QueryCanvas.tsx:562`](../../../workspace/apps/builder/src/features/data-management/queries/QueryCanvas.tsx) — rendered unconditionally; `Re-sync` beside it *is* gated on `divergence !== null` | **OPEN — and its description was stale.** See the note below. |
-| **5** | **R165 W-1, second half** — the `derive` operand toggle still doesn't *read* as a toggle: a white `Segmented` thumb on a white card | [`StepsEditor.tsx:772`](../../../workspace/apps/builder/src/features/data-management/queries/StepsEditor.tsx) | **OPEN** — R165 shipped the `FieldLabel` half; the visual affordance was deferred here |
-| **6** | **R165 W-2** — a dead backend is indistinguishable from a rejected step: no data, Save off, no message | [`QueryBuilderPanel.tsx`](../../../workspace/apps/builder/src/features/data-management/queries/QueryBuilderPanel.tsx) surfaces `stepInvalid` / `predStale` / `invalidCount` / `relStale` and **nothing for `previewQuery.isError`** | **OPEN** |
-| **7** | **R166 header-action ordering** — `[Edit] [Duplicate] [Delete]` is specified for the query detail header only; generalising it (and the catalog row-actions question) is cross-surface | query / dataset / workflow detail headers | **OPEN — a decision, not a defect** |
-| **8** | **R168 workflow row-order** — a workflow's rows come back in parquet file order; its source query applies R165 W-7's deterministic total order. Same rows, same values, different sequence | workflow rows path vs `_page_order_sql` | **OPEN, unjudged** — found by the agent, staged as R168's T1 candidate, never walked |
+| #     | Item                                                                                                                                                                                       | Where                                                                                                                                                                                                                               | Verified state                                                                                                                                           |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **1** | **`[F-commit-error-opaque]`** — a non-coded `422` renders the raw Pydantic string with no field named ("Extra inputs are not permitted")                                                   | [`UploadConfirmStep.tsx:86`](../../../workspace/apps/builder/src/features/data-management/datasets/upload/UploadConfirmStep.tsx) — `return err.body.detail ?? err.body.error;`                                                      | **OPEN** — coded errors are handled well (`name_taken`, `coercion_failed` with column + samples + hint, `merge_duplicate_keys`); the fallback is the gap |
+| **2** | **`[F-metadata-reset]`** — "Reset all to detected" wipes every dtype override with no click-time confirm and no undo                                                                       | [`UploadMetadataStep.tsx:219`](../../../workspace/apps/builder/src/features/data-management/datasets/upload/UploadMetadataStep.tsx) + button `:327`, guarded only by `disabled={!hasAnyOverride}`                                   | **OPEN** — no `Popconfirm`                                                                                                                               |
+| **3** | **`[F-join-label-qualify]`** — join options read `account_id ↔ id`; the design declares `Deals.account_id ↔ Accounts.id`                                                                   | [`JoinEditor.tsx:81`](../../../workspace/apps/builder/src/features/data-management/queries/JoinEditor.tsx) — `` `${r.leftColumn} ↔ ${r.rightColumn} · …` ``                                                                         | **OPEN** — decided 2026-08-10, spec'd in `query-construction.md`, never built                                                                            |
+| **4** | **`[F-promote-gate]`** — `Promote` is offered on an edge copied from a governed rel, where it can only `409 relationship_exists`                                                           | [`QueryCanvas.tsx:562`](../../../workspace/apps/builder/src/features/data-management/queries/QueryCanvas.tsx) — rendered unconditionally; `Re-sync` beside it _is_ gated on `divergence !== null`                                   | **OPEN — and its description was stale.** See the note below.                                                                                            |
+| **5** | **R165 W-1, second half** — the `derive` operand toggle still doesn't _read_ as a toggle: a white `Segmented` thumb on a white card                                                        | [`StepsEditor.tsx:772`](../../../workspace/apps/builder/src/features/data-management/queries/StepsEditor.tsx)                                                                                                                       | **OPEN** — R165 shipped the `FieldLabel` half; the visual affordance was deferred here                                                                   |
+| **6** | **R165 W-2** — a dead backend is indistinguishable from a rejected step: no data, Save off, no message                                                                                     | [`QueryBuilderPanel.tsx`](../../../workspace/apps/builder/src/features/data-management/queries/QueryBuilderPanel.tsx) surfaces `stepInvalid` / `predStale` / `invalidCount` / `relStale` and **nothing for `previewQuery.isError`** | **OPEN**                                                                                                                                                 |
+| **7** | **R166 header-action ordering** — `[Edit] [Duplicate] [Delete]` is specified for the query detail header only; generalising it (and the catalog row-actions question) is cross-surface     | query / dataset / workflow detail headers                                                                                                                                                                                           | **OPEN — a decision, not a defect**                                                                                                                      |
+| **8** | **R168 workflow row-order** — a workflow's rows come back in parquet file order; its source query applies R165 W-7's deterministic total order. Same rows, same values, different sequence | workflow rows path vs `_page_order_sql`                                                                                                                                                                                             | **OPEN, unjudged** — found by the agent, staged as R168's T1 candidate, never walked                                                                     |
 
 #### Already fixed — dropped from the cluster, recorded so they are not re-found
 
@@ -61,42 +62,39 @@ work that no longer exists.
 #### Item 4's description was stale, and the correction matters
 
 R162 recorded the cause as _"`promotable` tests only dataset-vs-`qr_`"_. **R167 deleted
-`promotable` entirely**, with a comment stating that _"there is no longer a shape this could be
+`promotable` entirely\*\*, with a comment stating that _"there is no longer a shape this could be
 offered for and then rejected."_
 
 **That comment addresses only half the shape.** It is true for the `qr_`-side edge it was written
 about. It is **not** true for an edge **copy-on-picked from a governed rel and still in sync** —
 promoting that re-creates a pair the governed ER already holds, which is `409
 relationship_exists`. The button is rendered with no gate at all; `Re-sync` two lines below it
-*is* gated. So the defect survives its own explanation, and the D gate should confirm the 409 by
+_is_ gated. So the defect survives its own explanation, and the D gate should confirm the 409 by
 hand before building against it.
 
 ### D — the design gate
 
-- [ ] **Confirm item 4 empirically** — copy-on-pick a governed rel onto the canvas, click
-      `Promote`, and observe the 409. The code reads that way; a shipped 409 is the proof.
-- [ ] **Decide item 7** — it is a *cross-surface convention*, not a bug. Either settle the order
-      for every detail header + the catalog row-actions question, or drop it from this round. It is
-      the one item that could pull the round into a design conversation ([[requirements-table-before-building-ui]]
-      applies: write the per-surface table **before** building).
-- [ ] **Decide item 8's home** — the workflow row-order is arguably an **engine** fix (order the
-      materialized read) rather than UI. If it is engine, it does not belong in a UI cluster.
-- [ ] **Decide item 5's option** — R165 costed three; pick one, or drop it as polish.
-- [ ] **Write the design into the corpus** where a decision is durable
-      ([[d-gate-artifact-in-design-corpus]]): `upload.md` (items 1–2), `query-construction.md`
-      (item 3, already spec'd), `canvas.md` (item 4).
-- [ ] **Run [`flow-selector`](../../skills/flow-selector/SKILL.md)** at the Design exit. This
-      round has real UX decisions (a destructive-action confirm, an affordance redesign), so
-      **DFCFBI is live** — unlike R168, do not assume the no-UI branch.
-- [ ] **Write the acceptance-walk questions at D**, applying the standing criterion: _if a test can
-      answer it, it is a test_ ([[walk-record-always-spec-on-ask]]). **This round's walk is the
-      fourth-instance test** for the category lesson R168 could not settle — see § Feeds into.
+- [x] **Confirm item 4** — confirmed by tracing the whole chain, not by a hand-run; see the D-gate
+      ruling in the Do log. The gate the ruling specifies is correct **by construction** (it is the
+      unique index's own predicate), so the hand-run is confirmation, not a dependency.
+- [x] **Decide item 7** — settled as a **written convention, no code**. Human's call 2026-08-15.
+- [x] **Decide item 8's home** — **engine, fixed minimally, kept in this round**. Human's call.
+- [x] **Decide item 5's option** — **`Radio.Group optionType="button"`**. Human's call.
+- [x] **Write the design into the corpus** — **deferred to the code commits, deliberately.**
+      [[fix-code-first-then-sync-doc]] (the human's R168 call) overrides the default here: a ruling
+      written into the corpus ahead of the code needs a current-state marker, and a marker narrates
+      the risk instead of removing it. The rulings live in this file's Do log; each corpus doc is
+      synced in the same commit as the code that makes it true. **Exception**: item 3 is already in
+      `query-construction.md` carrying an explicit `not yet built` marker — that one is a
+      marker-clear, not a new write.
+- [x] **Run [`flow-selector`](../../skills/flow-selector/SKILL.md)** — **DFCFBI (triggers 3, 5)**.
+- [x] **Write the acceptance-walk questions at D** — five questions, in § Check.
 
 ### Explicitly NOT in this round
 
 - **R167's W-1 (canvas layout not persisting)** — R168 recorded that the human **ignored it rather
-  than queuing it**, so it is *not* assumed into the cluster. **Raised for a yes/no**, not decided
-  here.
+  than queuing it**, so it is _not_ assumed into the cluster. Raised for a yes/no at the D gate and
+  **answered NO, 2026-08-15** — it stays out.
 - **R168's upstream staleness** (editing a source query does not invalidate a workflow's frozen
   output) — a **noun/mechanism gap**, not a papercut. It needs a design decision about what
   invalidation means, which is a different round.
@@ -107,20 +105,171 @@ hand before building against it.
 
 ## Risks / unknowns
 
-| Risk | Why it matters | Handling |
-| ---- | -------------- | -------- |
-| **A batched round has no single thesis**, so scope creeps item by item. | This is the failure mode of every "cleanup round". | The inventory is **closed at eight**, verified against code. Anything discovered mid-round is recorded, not absorbed. |
-| **Item 7 is a design conversation wearing a bug's clothes.** | It could consume the round and leave the seven real fixes unshipped. | The D gate either settles it with a per-surface table or **drops it**. It does not get to be "decided while building". |
-| **Two items were already fixed; more may be.** | Building work that no longer exists is worse than not building it. | Every item was re-verified against the code **before** this file was written. Re-verify at B for anything the D gate reshapes. |
-| **Fixes are individually small and collectively invisible.** | A round that ships eight papercuts can still fail to *feel* like anything. | The walk asks whether the surfaces feel different, not whether eight diffs landed. |
+| Risk                                                                    | Why it matters                                                             | Handling                                                                                                                       |
+| ----------------------------------------------------------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| **A batched round has no single thesis**, so scope creeps item by item. | This is the failure mode of every "cleanup round".                         | The inventory is **closed at eight**, verified against code. Anything discovered mid-round is recorded, not absorbed.          |
+| **Item 7 is a design conversation wearing a bug's clothes.**            | It could consume the round and leave the seven real fixes unshipped.       | The D gate either settles it with a per-surface table or **drops it**. It does not get to be "decided while building".         |
+| **Two items were already fixed; more may be.**                          | Building work that no longer exists is worse than not building it.         | Every item was re-verified against the code **before** this file was written. Re-verify at B for anything the D gate reshapes. |
+| **Fixes are individually small and collectively invisible.**            | A round that ships eight papercuts can still fail to _feel_ like anything. | The walk asks whether the surfaces feel different, not whether eight diffs landed.                                             |
 
 ## Do
 
-_(filled during the round)_
+**Flow selector run** (per [R47](../../decisions/2026-05-28-hybrid-flow-governance.md)), 2026-08-15:
+
+| Condition                            | Fired?  | Justification                                                                                                                                                                                                                                                            |
+| ------------------------------------ | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1. >3 independent states/branches    | no      | The items are independent single-state additions, not one state model. The largest, item 6, adds a **fifth** branch to a set of four that already exists (`stepInvalid` / `predStale` / `invalidCount` / `relStale`) — an addition to a shipped model, not a new one.    |
+| 2. New interaction pattern           | no      | `Popconfirm` is absent from the product today, but confirm-before-destructive is not — `DeleteConfirmModal` ships it. A lighter chrome for an existing pattern is "same pattern, new screen" by the skill's own bar. `Radio.Group` already ships in `UploadConfirmStep`. |
+| 3. High user-error risk              | **yes** | Item 2 is a genuinely destructive, un-undoable action (one click wipes every dtype override on the tab) reachable with no confirm, and item 4 offers an action that can only fail. Both are exactly this condition.                                                      |
+| 4. Contract depends on unresolved UI | no      | **Zero wire change in the round.** Item 1 renders a 422 that already ships; item 8 changes the order rows are written in, not the `RowsPage` shape. No `*.contract.yaml` is touched.                                                                                     |
+| 5. UX confidence below threshold     | **yes** | Item 5's affordance was **already fixed once and re-walked as still-unclear** — _"vẫn chưa thật 'rõ' lắm để biết nó là 1 toggle"_ (R165 W-1). A fix that failed the human's eye once is the definition of below-threshold confidence.                                    |
+
+Result: **Flow: DFCFBI (triggers 3, 5)**
+
+**Chain shape.** With condition 4 firing `no` and no contract touched, **C is empty this round** —
+`F1` is not a slice of the FE build, it _is_ the FE build (items 1–6 are FE-only), and `B` is item 8
+alone. So the chain runs **D → F1 (six FE items) → C (none) → B (item 8, engine) → F2 (none) → I**.
+Recorded rather than silently collapsed: an empty phase that is _reasoned_ empty is a different
+artifact from one that was skipped. The [[dfcfbi-two-round-split]] split is **not** invoked — its
+purpose is isolating F1 feel-risk from a large C+B, and there is no C and a ~10-line B.
+
+**Model check** (Design gate):
+
+- **Noun-vs-mode**: _neither_ — **no new noun and no new mode.** Every one of the eight items is a
+  correction to a surface that already ships in the mode it already has; the round adds no route, no
+  wizard step, no panel, and no wire field. That is an unusual answer, so it is worth stating rather
+  than leaving blank: this cluster's whole risk is the _opposite_ of R69's, and the check that
+  matters here is the scope brake (the inventory is closed at eight), not the model.
+- **Discovered-vs-imposed**: **discovered**, and unusually strongly — every item was found by a
+  **human standing in front of a running surface** (R157/R162/R165/R166/R168 walks), recorded at the
+  time, and deferred here on purpose. Nothing in the inventory was reasoned into existence. Two
+  entries were then found **already fixed** and dropped, and one (item 4) had its stated cause
+  **falsified** by re-reading the code — evidence that the inventory was re-derived from the build
+  rather than copied forward. Item 7's convention is likewise discovered: it was _read off_ the
+  three shipped headers, not invented for them.
+
+### D-gate rulings — what the build implements against
+
+Per [[fix-code-first-then-sync-doc]] these live here, not yet in the corpus; the named doc is
+synced in the same commit as the code.
+
+**Item 1 · `[F-commit-error-opaque]`** → the uncoded fallback names the field. Today
+`UploadConfirmStep.tsx:86` returns `err.body.detail ?? err.body.error` raw, which for a Pydantic
+`extra='forbid'` rejection reads _"Extra inputs are not permitted"_ with no field named — the one
+piece of information the user needs. The fallback renders the **`loc` path** the router's
+`_validation_error` family already sends (`{"loc": ["body", "rightDatasetId"], "msg": …}`), and
+when `detail` is a bare string it is shown **with a "this is unexpected" frame** rather than posing
+as guidance. → syncs `upload.md` § Failure semantics.
+
+**Item 2 · `[F-metadata-reset]`** → a `Popconfirm` on `[Reset all to detected]`, naming **the count
+and the tab**: _"Reset 4 overrides on `Worksheet2` to detected?"_ Two reasons for `Popconfirm` over
+the shipped `DeleteConfirmModal`: the action is scoped to one tab and needs its _scope_ stated more
+than its consequence, and `DeleteConfirmModal` encodes resource-deletion copy. **Also fix the
+enablement**: `hasAnyOverride` is `Object.keys(columnOverrides).length > 0`, which counts an
+override entry **equal to the detected dtype** — the same not-really-an-override that R157's
+highlight fix already learned to exclude (`override.dtype !== row.dtype`, `:356`). The button and
+the count must use that same predicate, or the confirm will offer to reset zero things. →
+syncs `upload.md` § Metadata step.
+
+**Item 3 · `[F-join-label-qualify]`** → build to the spec already written in
+[`query-construction.md` § Join option labels](../../design/data-management/queries/query-construction.md);
+that section's `Current state` / fidelity-drift note is cleared in the same commit. Its **build
+note is binding**: both qualifiers plus the cardinality suffix overflow a narrow `<Select>`, so the
+ellipsis/`title` behaviour is decided, not hoped.
+
+**Item 4 · `[F-promote-gate]`** → **confirmed, and the gate is the unique index's own predicate.**
+The chain: copy-on-pick snapshots the governed rel's exact fields
+([`chain.ts:82`](../../../workspace/apps/builder/src/features/data-management/queries/chain.ts)) →
+`promoteRel` POSTs those same fields
+([`useQueryBuilder.ts:268`](../../../workspace/apps/builder/src/features/data-management/queries/useQueryBuilder.ts)) →
+the index `idx_relationships_pair_unique` is
+`(workspace_id, left_dataset_id, left_column, right_dataset_id, right_column)`
+([`db_models.py:164`](../../../workspace/apps/backend/app/db_models.py)) →
+`IntegrityError` → `409 relationship_exists`
+([`relationships.py:147`](../../../workspace/apps/backend/app/routers/relationships.py)).
+
+Two things this trace settles that the item's own description did not:
+
+1. **`cardinality` is not in the key.** So a `divergence: 'changed'` edge whose _only_ change is
+   cardinality **also** 409s. The gate is therefore **not** "has an `originRelationshipId`" — that
+   predicate is both too narrow (it misses a free-form edge drawn over a pair the governed ER
+   already holds) and too wide (it catches a `removed`-divergence edge, which promotes fine).
+2. **The correct gate is: _some governed rel already holds this ordered pair_** — evaluated on the
+   FE against the `governedById` map the canvas already has. That is the 409 condition exactly,
+   which is why this ruling does not depend on the hand-run.
+
+This is [[error-code-is-not-the-guard]] read in the mirror: R167 was right that the `qr_`-side
+shape is gone, and wrong to conclude the button could no longer be rejected — _"unreachable" was
+relative to the layer it was reasoning about._ → syncs `canvas.md` § Editing, whose Promote
+paragraph currently asserts R167's claim as current-state and is **false today**.
+
+**Item 5 · R165 W-1** → `Radio.Group optionType="button"` at
+[`StepsEditor.tsx:772`](../../../workspace/apps/builder/src/features/data-management/queries/StepsEditor.tsx),
+keeping the `FieldLabel` R165 shipped. Both halves carry a border, so the control reads as pressable
+regardless of which half is selected — which is the precise failure of `Segmented` here (a white
+raised thumb on a white card leaves only the **un**selected half shaded).
+
+**Item 6 · R165 W-2** → `QueryBuilderPanel` gains a branch for `previewQuery.isError`, distinct in
+copy from a rejected step: a dead backend is _"couldn't reach the server"_ with a retry, not
+_"this step is invalid"_. The panel surfaces four conditions today and this one nowhere.
+
+**Item 7 · R166 header-action ordering** → **a written convention, no code.** The per-surface table
+[[requirements-table-before-building-ui]] asks for, read off the build:
+
+| Surface         | Header actions today                                                         | Form     |
+| --------------- | ---------------------------------------------------------------------------- | -------- |
+| Query detail    | `[Edit] [Duplicate] [Delete]` — primary Edit, danger Delete                  | inline   |
+| Workflow detail | `[Run] [Edit] [Delete]` — primary Run, danger Delete                         | inline   |
+| Dataset detail  | `Actions ▾` → Join with related · ─ · Properties · Refresh · Rename · Delete | dropdown |
+
+All three already obey one rule, so the round **writes it down rather than rebuilding anything**:
+_verbs ordered most-reached-for first, the destructive verb last; inline at ≤3 actions, collapsed
+into a single `Actions ▾` above that._ The **catalog row-actions** question is recorded as still
+open, not answered — a list row is not a detail header and no evidence in this cluster speaks to it.
+→ syncs `_shared/crud-hygiene.md`, which is where cross-surface CRUD affordances already live
+(and whose criterion 10 describes the dataset detail header as inline rename+delete — true when
+written, superseded by the dropdown; the sync corrects it).
+
+**Item 8 · R168 workflow row-order** → **minimal engine fix, and the trace found more than the item
+claimed.** `materialize_steps` writes the parquet from `build_steps_relation` with **no `ORDER BY`**
+([`rows_reader.py:633`](../../../workspace/apps/backend/app/ingest/rows_reader.py)), while the source
+query's paged read applies `_page_order_sql` (R165 W-7). The fix: **order the materialized write by
+the same `_page_order_sql` keys**, so the parquet's file order _is_ the query's order and the
+existing read agrees. Scoped to the workflow run path — the shared `query_dataset_rows` is not
+touched.
+
+**Recorded, not absorbed** (per the round's own scope-creep handling): `query_dataset_rows` itself
+has no `ORDER BY` either ([`rows_reader.py:105`](../../../workspace/apps/backend/app/ingest/rows_reader.py)),
+so the **dataset** rows path has no total order at all — the same class R165 W-7 measured at 33 rows
+twice and 33 never. Ordering the write makes the workflow read _agree with its query_; it does not
+make either read _contractually_ ordered. That is an engine round, and this round does not open it.
+
+**R167 W-1 (canvas layout not persisting)** → **stays out**, human's call 2026-08-15. R168 recorded
+it as ignored rather than queued, and it needs a storage decision (where does a per-query node
+position live?), which is not a papercut.
 
 ## Check
 
-_(filled at the gate)_
+_(verdicts filled at the I gate)_
+
+### Acceptance-walk questions (written at D, per [[walk-record-always-spec-on-ask]])
+
+Five questions, `coverage: 5 of 8` — items 3 and 7 are deliberately unwalked: item 3's outcome is a
+string a test asserts exactly, and item 7 ships no build to walk. The standing criterion applied
+throughout: **if a test can answer it, it is a test.** Each question names the card or control it
+acts on; grade the gesture, not the outcome.
+
+| #      | Question                                                                                                                                                                                                                                                                                                                  | Item(s) | Verdict |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ------- |
+| **T1** | On the upload wizard's **Metadata** step, override two columns' dtypes, then click `[Reset all to detected]`. Does the confirm tell you **what you are about to lose** clearly enough that you'd be comfortable clicking through it — and on an Excel file with two sheets, is it obvious the reset is **this tab only**? | 2       | ⬜      |
+| **T2** | Commit an upload that the server rejects with something the FE has no code for (e.g. a body it refuses). Reading only the red box on **Confirm**, can you tell **which field** the server objected to, and do you know it is a bug rather than something you did?                                                         | 1       | ⬜      |
+| **T3** | On a query's **Canvas**, draw a join that matches an existing governed relationship, then click the edge. Does the actions row read as **honest** — is it clear why `Promote` is or isn't available on _this_ edge, without clicking it to find out?                                                                      | 4       | ⬜      |
+| **T4** | On the query builder's **Computed column** card, without touching anything: can you tell at a glance that the by-column / by-number control is a **switch you can press**, and which side is currently on?                                                                                                                | 5       | ⬜      |
+| **T5** | Stop the backend, then edit a step on a saved query. From the builder panel alone, can you tell **the server is unreachable** rather than that your step was rejected — and does the surface tell you what to do next?                                                                                                    | 6       | ⬜      |
+
+Item 8 is not walked because it is a **test, not a gesture**: run a workflow whose source query
+carries a `sort` step, page its rows, and assert the sequence matches the query's own paged read.
+It goes to the B gate's suite.
 
 ## Act
 
@@ -137,4 +286,4 @@ and none refuted** ([[walk-record-always-spec-on-ask]]).
 A cluster of eight papercuts, walked by a human, is an unusually good test of it. If this walk
 returns something none of its questions asked about, the promotion fires — destination already
 decided: `.agents/memory/`, **not** `skills/gate-walker/`, because a skill can check that a walk
-was *recorded* but not that its *return* was read.
+was _recorded_ but not that its _return_ was read.
