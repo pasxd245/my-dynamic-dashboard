@@ -559,3 +559,36 @@ Program **item 4**, the last of the program. This round hands it **four** things
 4. **A dormant `composition_cycle`** — kept precisely because (3) may reactivate it. R168 either
    makes it live again or finally retires it, with Workflow's definition in hand rather than
    guessed at a round early.
+
+## Appending to Complete rounds
+
+### 2026-08-14 — the two open calls, dispositioned; and this round's backlog figure was low
+
+Both calls § Act left with the human were answered at [`Round_168`](Round_168.md)'s open, and one
+of them corrects a number published above.
+
+**1. The walk-question promotion → PROPOSED, not promoted.** The human deferred the decision to
+R168's D gate, on the reasoning that the D gate is where R168 writes its own walk questions — so
+that is the moment a **fourth instance** either arrives or does not, and the promotion gets evidence
+rather than a count. Recorded in R168 § Do, with the candidate destinations
+(`.agents/memory/` vs `skills/gate-walker/`) and the open question of whether a skill can enforce
+anything about what a walk *returns* at all.
+
+**2. The `design-sync` backlog → its own round**, [`Round_169`](Round_169.md), scoped 2026-08-14
+and deliberately kept out of R168 (the program's last round has no successor to absorb a doc-only
+tail).
+
+**Correction to § Not done and ⟢ At a glance § Watch — "8 docs · ~286 round-stamps" is low.**
+Re-measured with `rg -c '\bR[0-9]{2,3}\b'` (lines carrying at least one round stamp):
+
+- **Nine docs, not eight.** `data-management` holds 14; this round synced 4; `_TEMPLATE.md` is not
+  a surface doc. The missing one is `workspaces/workspaces.md` (2 stamped lines).
+- **325 stamped lines, not ~286.** The per-doc figure published above is reproducible
+  (`upload.md` = 166); the total is not.
+- **And the axis was conflated.** Round-stamps measure **ledger accretion**. `design-sync --check`
+  has **never been run** on those nine docs, so **doc↔code drift is unmeasured** — this round's
+  "not made untrue by R167" was a claim about its own blast radius, not a drift finding. R169 runs
+  `--check` first, because that measurement is what decides the round's size.
+
+Nothing above is rewritten — the history stands as it was signed off, and the corrected figures
+carry forward in R168 and R169.
