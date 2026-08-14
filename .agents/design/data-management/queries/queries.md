@@ -12,13 +12,14 @@ re-runs it against current data, so the result is always fresh.
 This doc is the **domain anchor + spine** of `queries/` — the single home for the
 Query **noun**, the **reuse invariant** every surface here obeys, the **trajectory** the
 domain grows along, and the Query **model · routes + error codes · execution engine**
-(single-source read, the join-tree fold, and composed `qr_` sources). The interactive
+(single-source read and the join-tree fold). The interactive
 builder UX lives in the sibling [query-construction.md](query-construction.md); the
 visual source-graph editor is [canvas.md](canvas.md) (the Canvas tab — built).
 
 **Status**: Accepted (extended R120–R144 — transform `steps` / workflows / date_bucket;
 R162–R163 — the `group_column` operation, specced and **shipped end-to-end**; R164–R165 — the
-`window_column` ordered-window family, specced and **shipped end-to-end**).
+`window_column` ordered-window family, specced and **shipped end-to-end**; R166–R167 —
+**Duplicate** shipped and **composition retired**, wire and engine).
 
 > **Read first — the domain noun-model.** [`../_noun-model.md`](../_noun-model.md) is the
 > canonical, cross-cluster definition of the five nouns (dataset · query · join · relationship ·
@@ -26,20 +27,12 @@ R162–R163 — the `group_column` operation, specced and **shipped end-to-end**
 > R162**. When it and this doc conflict on a _boundary_, the noun-model is the intent; **this doc
 > is current-state truth**.
 >
-> **The gap is deliberate, and R166 halved it.** The re-locked concept is a live table over
-> **datasets only** — never composed. The engine below still ships composition **twice** (a `qr_`
-> driving base, and R91's `qr_` on the right of a hop): noun-model **D5**. **R166 withdrew every
-> surface that offered it**; **R167** removes the engine support
-> ([program item 3](../../../plan/programs/query-shaping-surface.plan.md), split by layer). So for
-> one round the engine accepts over the API what no UI offers — read § Composed source as
-> current-state code, not as intent.
->
-> **Two corrections a later reader needs (2026-08-13).** `cyclic_join` is **not** composition
-> machinery and does **not** get deleted — it is the **self-join** boundary for a `ds_` right
-> already in the graph, which stays rejected. And **D1** (steps dropped in composition) does
-> **not** dissolve with the surfaces: the same resolver is how a **Workflow** reads its `qr_`
-> sources, so the bug **relocates** to `build_consolidated_relation`, where a run additionally
-> **freezes** the wrong rows into `output.parquet`.
+> **The gap is closed.** The re-locked concept is a live table over **datasets only** — never
+> composed — and as of **R167** the wire and the engine agree with it (noun-model **D5**, closed).
+> R166 withdrew every surface; R167 narrowed `sourceId` / `rightSourceId` to `^ds_…` and retired
+> the polymorphic `SourceId` type. See § Composed source for what was deliberately KEPT: the
+> `qr_` resolver branch (it is Workflow's reader), `cyclic_join` (it is the self-join boundary),
+> and a **dormant** `composition_cycle`.
 
 **Sibling docs**:
 [query-construction.md](query-construction.md) (the editable builder surface: edit a
@@ -77,7 +70,7 @@ identity, listed in a catalog and reopenable.
 A Query is **not** a Dataset (no Parquet of its own — see § Execution model) and
 **not** a new query language (it reuses the shipped `FilterAtom` / advanced-DNF
 vocabulary verbatim). A Query is built from **datasets only** and never reads another Query; the
-engine's residual `qr_`-source support is withdrawn from every surface at R166 and removed at
+engine's residual `qr_`-source support was withdrawn from every surface at R166 and removed at
 R167 (§ Composed source).
 
 ---
@@ -173,12 +166,12 @@ through **raw `sqlite3`** (`get_conn()`), not the ORM. The wire/FE shapes live i
 
 ```ts
 // frontend — features/data-management/queries/types.ts
-type SourceId = `ds_${string}` | `qr_${string}`; // polymorphic driving source
+type DsId = `ds_${string}`; // R167 — a query reads datasets only
 
 type Query = {
   id: string; // backend-generated, `^qr_[0-9a-f]{8}$`
   workspaceId: string; // the IA scope
-  sourceId: SourceId; // the single canonical driving source — a Dataset OR a Query
+  sourceId: DsId; // the single canonical driving source — always a Dataset
   name: string; // user-supplied; unique per (workspaceId)
   definition: QueryDefinition; // the saved predicate + join state (below)
   resolvedColumns?: { name: string; dtype: string }[]; // effective columns, present when multi-source
@@ -200,9 +193,8 @@ type QueryRelationship = {
   id: string; // query-local, `^qrel_[0-9a-f]{8}$`
   leftSourceId: string; // `ds_…` — the LEFT dataset of this edge (always in-graph)
   leftColumn: string; // the join key on the left
-  // R91 — polymorphic `ds_ | qr_`: a Query may be joined IN on the right, resolved as a
-  // subquery. Concept-divergent (noun-model D5 — every operand must be a dataset);
-  // narrows back to `ds_` when composition is retired at program item 3.
+  // R167 — a dataset, like the left. R91 had widened this to accept a saved Query
+  // (`query×query`); retired, so every edge has a governed counterpart it could promote to.
   rightSourceId: string;
   rightColumn: string; // the join key on the right
   cardinality: 'one_to_one' | 'one_to_many' | 'many_to_many';
@@ -219,9 +211,10 @@ type JoinStep = {
 ```
 
 **`sourceId` is the single canonical source field — there is no `datasetId`.** The
-`queries.source_id` column is `TEXT NOT NULL` with **no FK** (it is polymorphic
-`ds_ | qr_`). The dataset-delete → query cascade that a dataset FK would provide lives in
-the **app layer** (`routers/datasets.py`), since a polymorphic column can't carry one. A
+`queries.source_id` column is `TEXT NOT NULL` with **no FK** — a legacy of the retired
+polymorphic form, kept because dropping it is a migration for no behavioural gain. The
+dataset-delete → query cascade a real FK would provide therefore lives in the **app layer**
+(`routers/datasets.py`). A
 legacy persisted single `join` key is folded to a length-1 `joins` list on read by a
 `model_validator` (`_fold_legacy_join`); new writes always use `joins`.
 
@@ -238,7 +231,7 @@ was retired — a stale dev DB is re-created (`pnpm dev:seed --reset`), not migr
 CREATE TABLE queries (
     id TEXT PRIMARY KEY,                                   -- qr_xxxxxxxx
     workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
-    source_id TEXT NOT NULL,                               -- polymorphic ds_|qr_, NO FK
+    source_id TEXT NOT NULL,                               -- ds_ (R167); no FK, app-level cascade
     name TEXT NOT NULL CHECK (length(name) BETWEEN 1 AND 120),
     definition_json TEXT NOT NULL,                         -- QueryDefinition
     created_at TEXT NOT NULL
@@ -263,16 +256,17 @@ reflects the latest source rows. There is no Parquet of its own, no result cache
 execution log.
 
 The run path branches on whether the Query reads one source or many —
-`_is_multi_source(source_id, chain) = source_id.startswith("qr_") or bool(chain)`:
+`_is_multi_source(source_id, chain)` — for a Query this is simply `bool(chain)`; the
+`qr_`/`wf_` arm serves the shared **Workflow** consolidation path:
 
 ```text
 run path — routers/queries.py
   1. load the Query row (404 not_found if absent); parse definition_json
-  2. single-source (sourceId is ds_ AND joins == []):
+  2. single-source (joins == []):
        rows, total = query_dataset_rows(parquet_path, columns, page, page_size,
                                          q, filters, advanced)
-  3. multi-source (sourceId is qr_, OR joins is non-empty):
-       resolve the driving source + each hop (→ § Joins, § Composed source),
+  3. multi-source (joins is non-empty):
+       resolve the driving source + each hop (→ § Joins),
        gate per-hop / composition staleness, then:
        rows, total = query_joined_rows(sources, join_keys, columns=effective, …)
   4. return the SAME RowsPage shape as GET /datasets/{id}/rows
@@ -315,8 +309,7 @@ lives on the canvas ([canvas.md](canvas.md)); the model supports it via the null
 
 - The driving source (`sourceId`) is the root; for each hop `k`, the query-owned rel's
   left dataset (`leftSourceId`) must already be a member of **some source in the graph**
-  (else `disconnected_join`), and its right source (`rightSourceId` — a `ds_`, or R91's `qr_`
-  which contributes its whole leaf SET) must be **new**
+  (else `disconnected_join`), and its right dataset (`rightSourceId`) must be **new**
   (else `cyclic_join` — a diamond/self-join is rejected). So one dataset can drive **two
   or more** hops (a star).
 - Hops are stored in **topological order**; the builder produces this naturally by
@@ -373,69 +366,51 @@ naming the hop and column — flag-don't-crash, never wrong or empty rows.
 
 ---
 
-## Composed source (`qr_`) — ENGINE-ONLY as of R166, retires at R167
+## Composed source (`qr_`) — RETIRED at R167
 
-> **Read this section as a description of code, not of the product.** Under the closed Query
-> concept a Query is built from **datasets only** and never reads another Query
-> ([`_noun-model.md`](../_noun-model.md) § D5). As of **R166 no surface offers composition** —
-> `[Build on this query]`, the `?base=` route and the canvas's "Saved queries" source group are
-> all gone. The **engine still accepts it** over the API, and **R167** removes that. The gap is
-> deliberate and one round long: withdrawing an affordance is not retiring a capability, and
-> saying otherwise here would make this doc lie for a round. No saved query uses it (verified
-> against `data/app.sqlite`, 2026-08-13).
->
-> **Two things a later reader must not conclude from this section.** First, its **step-drop bug**
-> (below) does **not** disappear with the surfaces — the same resolver is how a **Workflow** reads
-> its `qr_` sources, so the bug relocates rather than dissolving (`_noun-model.md` D1, corrected
-> 2026-08-13). Second, the parenthetical that used to close this section — _"a `qr_`on the right
-of a hop is not built"_ — was **wrong**: R91 built exactly that, and`QueryRelationship.rightSourceId`is a`SourceId`, not a `DsId`. Both forms shipped; both are withdrawn at R166.
+A Query reads **datasets only**. Its driving `sourceId` and every join operand are `ds_`, in the
+wire (`^ds_[0-9a-f]{8}$`) and in the engine. Until R167 it could also be **composed** — driven by
+another saved Query, and (R91) join one in on the right — which the closed concept refuses
+([`_noun-model.md`](../_noun-model.md) § D5, **closed R167**). R166 withdrew every surface that
+offered it; R167 narrowed the wire and the engine. **The variant need it served is met by
+[Duplicate](#duplicate-r166-make-a-variant-without-rebuilding-it).**
 
-**The step-drop bug, stated plainly**: `resolve_source` bakes a composed base's own
-source + joins + filters into the sub-relation, but **never runs its `steps`**. So a Query
-composed on a _shaped_ base silently reads that base's **un-shaped** rows. This is why
-**Duplicate** (§ Duplicate) is strictly more correct than the composition it replaces: a
-copied definition carries its steps.
+**The refusal is structural, not a guard.** A `qr_` `sourceId` is a `422` from the request model,
+so create, update and preview agree by construction rather than by three branches kept in sync.
+The polymorphic `SourceId` type is **retired outright** — it existed only to say "a Query may read
+a Query".
 
-A Query's driving `sourceId` may itself be a saved Query (`qr_`) rather than a raw
-dataset (`ds_`), so its run reads **another Query's virtual table as its base source**.
-A composed Query is still a **virtual dataset** — no new noun; only the source reference
-is polymorphic and the resolver recursive.
+**Three things did NOT go with it**, each because the code says so rather than the plan:
 
-`resolve_source(con, source_id, *, visited)` returns a source's effective columns + its
-SQL relation:
+| Kept                                             | Why                                                                                                                                                                                                                                                                                                            |
+| ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `resolve_source`'s `qr_` branch                  | It is **Workflow's reader**. A Workflow's sources are `qr_`/`wf_` and never `ds_`, and it consolidates them through this resolver — deleting the branch would break Workflow outright. It is now reachable from exactly **one** call site (a driving source), because the join path resolves a dataset leaf directly. |
+| `cyclic_join`                                    | It is the **self-join boundary** — the same dataset twice in one query — which stays rejected. Only its _set-shaped_ form collapsed to a single-id membership test, since a `qr_` right used to bring a SET of leaf datasets and a dataset brings itself.                                                     |
+| `composition_cycle`                              | **Dormant, not retired.** See below.                                                                                                                                                                                                                                                                          |
 
-```text
-resolve_source(con, source_id, *, visited) -> { name, effective_columns, relation_sql, params }
-  ds_ : relation_sql = "read_parquet(?)"            # the leaf
-        params       = [dataset parsed.parquet path]
-        effective    = the dataset's columns
-  qr_ : if source_id in visited -> composition_cycle
-        inner = load Query(source_id); parse its definition
-        sub   = resolve_chain(con, inner, visited ∪ {source_id})   # RECURSE
-        relation_sql = "( <sub.sql> )"               # the base Query baked as a subquery
-        params       = sub.params
-        effective    = sub.effective_columns         # already collision-qualified
-```
+**`composition_cycle` is dormant.** It is raised in one place (a source already on the recursion
+path) and unreachable today: a query's operands are datasets, a Workflow's `wf_` source is a
+**frozen leaf** that never resolves that workflow's own definition, and the resolver's `visited`
+set is seeded fresh per source. But that unreachability rests entirely on workflow-source
+resolution being **frozen rather than live** — an open question for the Workflow noun, not a
+settled fact. If a source is ever resolved live, cycles return and this is the guard for them, so
+retiring it would mean re-deriving it a round later. It is documented as dormant in
+[api-error.yaml](../../../../workspace/packages/contracts/_shared/api-error.yaml) with its
+reactivating condition, and held under test on DB-crafted rows.
 
-`query_joined_rows`' fold is unchanged in shape — each `T{i}` is `read_parquet(?) AS Ti`
-for a dataset leaf or `(<subquery>) AS Ti` for a composed `qr_` base; DuckDB joins over a
-subquery natively. A composed Query's effective columns are `base.effective ++
-right₁.columns ++ …`. Joins onto a composed base extend from datasets **inside** the base
-(provenance tracked via `dataset_id_sets`), so a `rel_` whose left dataset is a member of
-the base's source set resolves its ON key against the base's effective column.
+**Dormancy is not uniform.** The guard survives for a **driving** source (Workflow's case) and is
+**gone** for right-of-hop: that path resolves a dataset leaf directly, so a crafted `qr_` there is
+`relationship_stale` — truthfully _"this edge does not name a dataset"_ — rather than a cycle that
+cannot happen. That half can never return: the operand is a `DsId` in the type system, not a policy.
 
-**Cycle guard.** Recursion is cycle-guarded via the `visited: frozenset` of `qr_` ids on
-the resolution path. A Query that transitively composes itself is rejected
-**`composition_cycle`** — returned as **`409`** at create/update/preview (a
-`JSONResponse(status_code=409, ApiErrorCompositionCycle)`) **and** at run. Depth is not
-capped; the cycle guard alone guarantees termination.
-
-**Correction (R166 D gate, 2026-08-13).** This section used to close by claiming that _"a `qr_`on the **right** of a hop is not built"_. **It was built** — R91 made`QueryRelationship.rightSourceId`a`SourceId`, and the canvas offered saved queries in its source picker until R166 withdrew the
-group. Composition therefore shipped **twice**, in two different mechanisms, and both are the
-subject of R167. Relationship **endpoints** do stay dataset↔dataset (the governed ER is
-dataset-only), which is the true half of the sentence that made the false half plausible.
-
----
+**The step-drop bug did NOT leave with the feature.** `resolve_source` bakes a resolved query's
+source + joins + filters into its sub-relation but **never runs its `steps`** — and that resolver
+is how a **Workflow** reads its sources, so the bug **relocated** rather than dissolving. It now
+lives in `build_consolidated_relation`, where a Workflow consolidating a _shaped_ query reads the
+base's **un-shaped** rows and **freezes them to `output.parquet`**
+([`_noun-model.md`](../_noun-model.md) D1). Deferred to the Workflow round by the human
+(2026-08-14) so the repair lands with the decision that governs it; the dev seed carries a
+workflow that demonstrates it.
 
 ## Transform steps (workflows) — R120–R141
 
@@ -593,18 +568,19 @@ Wire shapes live under
 error envelopes reuse [api-error.yaml](../../../../workspace/packages/contracts/_shared/api-error.yaml),
 and `page_size` ∈ the centralized [`PageSize`](../../../../workspace/packages/contracts/_shared/pagination.yaml)
 set **`10 / 25 / 50 / 100`**. Error `code` strings actually emitted as top-level
-envelopes: `not_found`, `name_taken`, `query_stale`, `relationship_stale`,
-`composition_cycle`.
+envelopes: `not_found`, `name_taken`, `query_stale`, `step_invalid`, `relationship_stale`.
+`composition_cycle` is **published but dormant** since R167 — no endpoint can emit it (§ Composed
+source); it is retained as the guard a live-resolving Workflow source would need.
 
 | Method   | Path                                                | Request body                        | Success                                                                                                                   | Error statuses + `code`                                                                                                     |
 | -------- | --------------------------------------------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `POST`   | `/workspaces/{id}/queries`                          | `{ name, sourceId, definition }`    | `201` → `Query`                                                                                                           | `409 name_taken`; `409 composition_cycle`; `422` (unknown/cross-ws source, bad atom, or join reason in `detail[].msg`)      |
+| `POST`   | `/workspaces/{id}/queries`                          | `{ name, sourceId, definition }`    | `201` → `Query`                                                                                                           | `409 name_taken`; `422` (a `qr_` sourceId, unknown/cross-ws source, bad atom, or join reason in `detail[].msg`)             |
 | `GET`    | `/workspaces/{id}/queries`                          | —                                   | `200` → `Query[]`, `ORDER BY created_at DESC, id DESC`                                                                    | (none — per-row resolve failure simply omits `resolvedColumns`)                                                             |
 | `GET`    | `/queries/{id}`                                     | —                                   | `200` → `Query`                                                                                                           | `404 not_found`                                                                                                             |
-| `GET`    | `/queries/{id}/rows?page=&page_size=`               | —                                   | `200` → `RowsPage {rows, page, pageSize, total}`; a query with `steps` returns its **shaped** rows                        | `404 not_found`; `409 query_stale`; `409 relationship_stale`; `409 composition_cycle`; `422` (bad `page_size`)              |
-| `POST`   | `/workspaces/{id}/queries/preview?page=&page_size=` | `{ sourceId, definition }`          | `200` → `RowsPage` **+ `resolvedColumns`** when multi-source; a stepped preview also returns **`baseColumns`** (pre-step) | `409 query_stale`; `409 relationship_stale`; `409 composition_cycle`; `422` (structurally-bad source/edge, bad `page_size`) |
-| `POST`   | `/queries/{id}/aggregate`                           | `{ dimensions, measures, filters }` | `200` → `{ columns, rows, total }` (server GROUP BY; R119)                                                                | `404 not_found`; `409 query_stale`; `409 relationship_stale`; `409 composition_cycle`; `422` (bad aggregate spec)           |
-| `PUT`    | `/queries/{id}`                                     | `{ definition }` only               | `200` → updated `Query`                                                                                                   | `404 not_found`; `409 composition_cycle`; `422` (bad atom / join reason). **No `name_taken`** (definition-only).            |
+| `GET`    | `/queries/{id}/rows?page=&page_size=`               | —                                   | `200` → `RowsPage {rows, page, pageSize, total}`; a query with `steps` returns its **shaped** rows                        | `404 not_found`; `409 query_stale`; `409 step_invalid`; `409 relationship_stale`; `422` (bad `page_size`)                   |
+| `POST`   | `/workspaces/{id}/queries/preview?page=&page_size=` | `{ sourceId, definition }`          | `200` → `RowsPage` **+ `resolvedColumns`** when multi-source; a stepped preview also returns **`baseColumns`** (pre-step) | `409 query_stale`; `409 step_invalid`; `409 relationship_stale`; `422` (a `qr_` sourceId, structurally-bad edge, bad `page_size`) |
+| `POST`   | `/queries/{id}/aggregate`                           | `{ dimensions, measures, filters }` | `200` → `{ columns, rows, total }` (server GROUP BY; R119)                                                                | `404 not_found`; `409 query_stale`; `409 relationship_stale`; `422` (bad aggregate spec)                                    |
+| `PUT`    | `/queries/{id}`                                     | `{ definition }` only               | `200` → updated `Query`                                                                                                   | `404 not_found`; `422` (bad atom / join reason). **No `name_taken`** (definition-only).                                     |
 | `DELETE` | `/queries/{id}`                                     | —                                   | `204` (no body)                                                                                                           | `404 not_found`                                                                                                             |
 
 - **`preview` vs `rows-get`.** `GET /queries/{id}/rows` re-runs a **persisted**
@@ -615,7 +591,7 @@ envelopes: `not_found`, `name_taken`, `query_stale`, `relationship_stale`,
   the source (exists, in-workspace, not a cycle) and every atom/edge at save time
   (`422` otherwise). Update is **definition-only** — name + source are unchanged, so no
   `name_taken`. Run drift (a source schema that changed _after_ save) surfaces as
-  `409 query_stale` / `409 relationship_stale` / `409 composition_cycle`.
+  `409 query_stale` / `409 step_invalid` / `409 relationship_stale`.
 
 ---
 
@@ -816,8 +792,6 @@ A run that can't execute renders a guided state, never a blank crash
 ```text
 🔎 Query · ⚠ join unavailable        409 relationship_stale — "account_id" no longer
                                      exists in Deals; fix the relationship or remove the join.
-🔎 Query · ⚠ composition unavailable 409 composition_cycle — the base (directly or
-                                     indirectly) builds on this query; pick a different base.
 🔎 Query · ⚠ needs attention         409 query_stale — a saved predicate references a
                                      column that no longer exists; re-save from the source.
 ```
@@ -833,7 +807,6 @@ stateDiagram-v2
     [*] --> Loading: enter /queries/:id
     Loading --> Populated: source + edges + predicates valid → rows
     Loading --> RelStale: 409 relationship_stale (a join column drifted)
-    Loading --> Cycle: 409 composition_cycle (the base loops back)
     Loading --> PredStale: 409 query_stale (a predicate atom drifted)
     Loading --> NotFound: 404 (query deleted)
     Populated --> Loading: page / page-size change
@@ -841,7 +814,6 @@ stateDiagram-v2
     Populated --> DeleteConfirmOpen: click Delete
     DeleteConfirmOpen --> Redirect: delete success → /queries
     RelStale --> Redirect: open relationships / delete query
-    Cycle --> Redirect: open base / delete query
 ```
 
 - **Run / preview** are idempotent re-executions of the definition; pagination is the
@@ -880,11 +852,12 @@ stateDiagram-v2
    `disconnected_join` / `cyclic_join` are rejected at save (`422`).
 5. **Join types** — each hop's `type` (inner/left/right/full) applies per hop; an outer
    join keeps unmatched rows (NULL → empty cell).
-6. **Composed source** — a `qr_`-driven Query runs the base through the recursive
-   `resolve_source` + `query_joined_rows`; a self/transitive cycle → `409
-composition_cycle` at save and run; back-compat: every `ds_`-driven Query is unchanged.
+6. **Composition is refused structurally (R167)** — a `qr_` `sourceId` or `rightSourceId` is a
+   `422` from the request model, so create / update / preview agree without three matching
+   branches; the polymorphic `SourceId` type is gone. `resolve_source`'s `qr_` branch survives as
+   **Workflow's reader** only, reachable from one call site.
 7. **Stale is flagged, not crashed** — a drifted join column → `409 relationship_stale`;
-   a drifted predicate atom → `409 query_stale`; a looping base → `409 composition_cycle`
+   a drifted predicate atom → `409 query_stale`; an unrunnable step → `409 step_invalid`
    — each renders a guided state ([purpose.md](../../../context/purpose.md) #5).
 8. **Within-group column (R162)** — a `group_column` step appends exactly one column and
    **changes no row count**; its value equals the collapsing aggregate of the same
@@ -935,31 +908,29 @@ Each step is **pulled, not pre-built** (the Evolution Rule + the
 
 ### IN scope
 
-- The Query model (`sourceId` polymorphic `ds_|qr_`,
-  `definition{q,filters,advanced,relationships,joins}` with query-owned rels),
+- The Query model (`sourceId` — a `ds_`,
+  `definition{q,filters,advanced,relationships,joins,steps}` with query-owned rels),
   the `queries` table, and the `qr_` identity + Queries catalog.
 - The 7 routes (create / list / get / run / preview / update / delete) with the error
   codes above; run/preview are **live re-runs**.
 - The execution engine: single-source `query_dataset_rows`; the multi-source join-tree
-  fold `query_joined_rows` (inner/left/right/full per hop); the recursive composed-source
-  resolver `resolve_source` + the `composition_cycle` guard.
+  fold `query_joined_rows` (inner/left/right/full per hop). `resolve_source`'s recursive
+  `qr_` branch is **not** this domain's any more — it is Workflow's reader (§ Composed source).
 - The catalog, the read-only detail summary + run, and delete; nav + routes + i18n.
 
 ### OUT of scope (deferred with named triggers)
 
-- **The governed ER stays dataset↔dataset.** `rel_` endpoints are `ds_`-only, so R91's
-  `qr_`-on-the-right hop is always a **free-form** query-owned edge (no
-  `originRelationshipId`). Both `qr_` operand forms (driving base + right-of-hop) are
-  **concept-divergent** (noun-model D5) and retire at
-  [program item 3](../../../plan/programs/query-shaping-surface.plan.md).
+- **The governed ER stays dataset↔dataset** — and since R167 so does every query-owned edge,
+  so the two now match. A free-form edge (no `originRelationshipId`) is still free-form because
+  the user drew it rather than picking a governed `rel_`, not because its operands were
+  un-governable; every edge is therefore **promotable**.
 - **Free-form define + promote + the divergence-warn UX** are a **canvas** concern, built in
   [canvas.md](canvas.md); this model doc owns only the shape that supports them (the nullable
   `originRelationshipId` + the origin-agnostic resolver).
 - **Composite / multi-column join keys; self-joins / diamonds; cross-workspace joins;
   null-aware predicate operators** → future; the engine joins single-column,
   within-workspace, tree (no diamond) hops.
-- **Result materialization / pinned snapshots; a depth/cost cap on composition** → when
-  live re-run is too slow at real scale.
+- **Result materialization / pinned snapshots** → when live re-run is too slow at real scale.
 - **A materialized `Workflow` noun** (R124's wall) → for transforms the live-query `steps`
   model can't carry: **pivot/crosstab** (data-dependent output columns), **multi-output**, or
   **non-SQL** compute (stats/fuzzy → Polars). Trigger: a concrete pivot/multi-output pull.

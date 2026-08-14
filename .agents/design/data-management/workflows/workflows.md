@@ -149,8 +149,9 @@ output — without writing a formula.
    a materialized-vs-never-run badge; row → detail. (`workflows.test.tsx`)
 2. **Create** _(backend + FE)_ — `POST` validates each source is a query/workflow in
    the workspace (422) and names unique per workspace (409). (`test_workflows.py`)
-3. **Run → materialize** _(backend)_ — consolidates sources, applies steps, writes
-   TYPED parquet, captures `resolvedColumns` + `materializedAt`. (`test_workflows_run.py`)
+3. **Run → materialize** _(backend)_ — consolidates sources, applies **the workflow's own**
+   steps, writes TYPED parquet, captures `resolvedColumns` + `materializedAt`.
+   (`test_workflows_run.py`) — **but see § Known defect: a source query's steps are dropped.**
 4. **Consolidation** _(backend)_ — ≥1 source stacked via union (self-consolidation
    doubles the row count). (`test_workflows_run.py`)
 5. **Output-as-source** _(backend)_ — a materialized `wf_` reads back as a source; an
@@ -165,6 +166,44 @@ output — without writing a formula.
    pre-filled with the current definition; [Save] `PUT`s and returns to view; after a
    definition change the view shows the never-run state (re-run to refresh).
    (`workflows.test.tsx`)
+
+---
+
+## Workflow owns the polymorphic source resolver (R167)
+
+`resolve_source`'s `qr_` branch — which resolves a saved query into a sub-relation — is
+**Workflow's, and nothing else's**. A Workflow's sources are `qr_`/`wf_` and **never** `ds_`
+([common.py](../../../../workspace/apps/backend/app/models/common.py)), and
+`build_consolidated_relation` resolves them through that branch.
+
+R167 retired `query⋈query` composition, which used the same branch, and **narrowed rather than
+deleted it** for exactly this reason: a Query's driving source and every join operand are now
+`ds_`, and the join path resolves a dataset leaf directly, so the branch is reachable from
+**exactly one call site** — a Workflow supplying a driving source. Workflow's boundary is
+therefore visible in the call graph. Two consequences a reader should carry:
+
+- **`composition_cycle` is dormant, not retired.** It is unreachable only because a `wf_` source
+  is a **frozen leaf** — `_resolve_workflow_leaf` reads the already-materialized parquet and
+  never resolves that workflow's own definition, so a self-reference reads stale rows rather than
+  looping. **If a workflow source is ever resolved LIVE, cycles return and that guard is what
+  catches them.** Frozen-or-live is an open question for this noun.
+- **`composition_base_missing` is alive and is this domain's**: it is the un-run-workflow case.
+
+### Known defect: a source query's steps are dropped
+
+`build_consolidated_relation` resolves each source and stacks it, but **never calls `run_steps`**
+([query_engine.py](../../../../workspace/apps/backend/app/query_engine.py)). So a Workflow
+consolidating a **shaped** query reads that query's **un-shaped** rows — and, because a run
+materializes, **freezes them to `output.parquet`**.
+
+The same query answers differently depending on who asks: `GET /queries/{id}/rows` runs its steps,
+this path does not. Inherited as noun-model **D1**, which did not dissolve when composition
+retired — it **relocated** here, into a path that additionally persists the wrong answer.
+
+**Deferred to the Workflow round by the human (2026-08-14)**, so the repair lands with the
+decision that governs what consolidation *means* rather than a round ahead of it. The dev seed
+carries a workflow that demonstrates it: its source query shows 4 shaped rows on its own detail
+page, the workflow's output has ~120 un-shaped ones.
 
 ---
 
