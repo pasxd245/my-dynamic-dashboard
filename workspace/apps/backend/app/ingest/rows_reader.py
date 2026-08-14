@@ -629,8 +629,24 @@ def materialize_steps(
     to ``out_path`` as parquet. Unlike ``run_steps`` (which stringifies to rows for a
     response), this keeps native types — an integer stays integer — so the
     materialized output can later be read back as a typed table source (R135). An
-    empty ``steps`` list writes the inner relation verbatim (passthrough)."""
-    sql, params, _cols = build_steps_relation(inner_sql, inner_params, base_columns, steps)
+    empty ``steps`` list writes the inner relation verbatim (passthrough).
+
+    R171 item 8 — the write is ORDERED, by the same ``_page_order_sql`` keys the
+    source query's paged read uses (R165 W-7). Without it the parquet came out in
+    whatever order DuckDB's plan emitted, and the workflow's rows path reads that
+    file order back verbatim: same rows, same values, a different sequence from the
+    query they came from. Ordering the WRITE fixes it at the one point where the
+    sequence is decided once, instead of re-sorting on every read.
+
+    What this does NOT do: make the READ contractually ordered. ``query_dataset_rows``
+    (which serves both the workflow rows path and every dataset read) still has no
+    ``ORDER BY``, so ``LIMIT/OFFSET`` over it is not a partition — the same class R165
+    W-7 measured at 33 rows twice and 33 never. That is an engine round; this makes the
+    workflow agree with its query, which is what R168 found."""
+    sql, params, cols = build_steps_relation(inner_sql, inner_params, base_columns, steps)
+    order = _page_order_sql(steps, cols)
+    if order:
+        sql = f"SELECT * FROM ({sql}) AS _ordered ORDER BY {order}"
     out_path.parent.mkdir(parents=True, exist_ok=True)
     target = str(out_path).replace("'", "''")
     with duckdb.connect(":memory:") as con:

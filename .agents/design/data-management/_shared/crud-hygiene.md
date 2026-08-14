@@ -45,7 +45,7 @@ source formats). CRUD hygiene is one feature (rename + delete +
 
 | Surface                                  | Layer                                                  | Reusability  | Purity             | Allowed peer deps              |
 | ---------------------------------------- | ------------------------------------------------------ | ------------ | ------------------ | ------------------------------ |
-| `WorkspaceCard`                          | `apps/builder/src/features/data-management/workspaces` | feature             | feature     | react, antd, @ant-design/icons |
+| `WorkspaceCard`                          | `apps/builder/src/features/data-management/workspaces` | feature      | feature            | react, antd, @ant-design/icons |
 | Card overflow `<Dropdown>` menu          | `apps/builder/src/features/data-management/workspaces` | feature      | feature            | react, antd                    |
 | `DatasetActionsCell` (new table column)  | `apps/builder/src/features/data-management/datasets`   | feature      | feature            | react, antd                    |
 | `RenameModal` (shared by both resources) | `apps/builder/src/features/data-management/_shared`    | feature      | feature            | react, antd                    |
@@ -279,20 +279,20 @@ tokens derived from the six seeds in
 (the source of truth). No new token is introduced; values are
 informational (resolved via `theme.getDesignToken()`, antd 6.x).
 
-| Surface                                   | AntD token                              | Value (informational) |
-| ----------------------------------------- | --------------------------------------- | --------------------- |
-| Overflow `⋮` trigger icon / hover         | `colorTextTertiary` → `colorTextSecondary` | derived            |
-| Dropdown menu background                  | `colorBgBase`                           | derived               |
-| `Delete` (danger) menu item text          | `colorError`                            | `#ff4d4f`             |
-| Modal title text                          | `colorText`                             | derived               |
-| Modal body text                           | `colorTextSecondary`                    | derived               |
-| Rename input border (idle / focus)        | `colorBorder` → `colorPrimary`          | `#d9d9d9` / `#1677ff` |
-| 409 inline error `<Alert>`                | `colorError`                            | `#ff4d4f`             |
-| Blocked-modal warning icon                | `colorWarning`                          | `#faad14`             |
-| Primary "Save" button                     | `colorPrimary`                          | `#1677ff`             |
-| Danger "Delete" button                    | `colorError`                            | `#ff4d4f`             |
-| Border radius (modal, buttons, dropdown)  | `borderRadius`                          | `6`                   |
-| Font family                               | `fontFamily`                            | system stack          |
+| Surface                                  | AntD token                                 | Value (informational) |
+| ---------------------------------------- | ------------------------------------------ | --------------------- |
+| Overflow `⋮` trigger icon / hover        | `colorTextTertiary` → `colorTextSecondary` | derived               |
+| Dropdown menu background                 | `colorBgBase`                              | derived               |
+| `Delete` (danger) menu item text         | `colorError`                               | `#ff4d4f`             |
+| Modal title text                         | `colorText`                                | derived               |
+| Modal body text                          | `colorTextSecondary`                       | derived               |
+| Rename input border (idle / focus)       | `colorBorder` → `colorPrimary`             | `#d9d9d9` / `#1677ff` |
+| 409 inline error `<Alert>`               | `colorError`                               | `#ff4d4f`             |
+| Blocked-modal warning icon               | `colorWarning`                             | `#faad14`             |
+| Primary "Save" button                    | `colorPrimary`                             | `#1677ff`             |
+| Danger "Delete" button                   | `colorError`                               | `#ff4d4f`             |
+| Border radius (modal, buttons, dropdown) | `borderRadius`                             | `6`                   |
+| Font family                              | `fontFamily`                               | system stack          |
 
 No new token is introduced; AntD's danger / warning button and alert
 chrome derive from `colorError` / `colorWarning`. Identifier parity is
@@ -348,10 +348,46 @@ workspace that still holds datasets.
 10. **Detail-page placement** _(FE)_ — the same rename + delete
     affordances render in the `/datasets/:id` page-header actions slot,
     reusing the shared modals + hooks unchanged; delete-success navigates
-    back to the Datasets list with `replace=true`.
+    back to the Datasets list with `replace=true`. As the dataset header
+    grew past three verbs they collapsed into a single `Actions ▾`
+    dropdown; see § Header actions below for the rule that governs which
+    form a header takes.
 11. **Integration** — renaming a workspace refreshes the Workspace
     column on the Datasets table (both `['workspaces']` and
     `['datasets']` invalidated).
+
+---
+
+## Header actions — the cross-surface rule (R171)
+
+R166 settled `[Edit] [Duplicate] [Delete]` for the **query** detail header and left open
+whether that ordering generalises. It does — and the rule below was **read off the three
+shipped headers rather than imposed on them**, so this section records a convention the
+build already keeps. No surface changed to adopt it.
+
+| Surface         | Header actions                                                               | Form     |
+| --------------- | ---------------------------------------------------------------------------- | -------- |
+| Query detail    | `[Edit] [Duplicate] [Delete]` — primary Edit, danger Delete                  | inline   |
+| Workflow detail | `[Run] [Edit] [Delete]` — primary Run, danger Delete                         | inline   |
+| Dataset detail  | `Actions ▾` → Join with related · ─ · Properties · Refresh · Rename · Delete | dropdown |
+
+**The rule.** Verbs are ordered **most-reached-for first**, and the **destructive verb is
+always last**. A header with **≤3 actions renders them inline**; past three they collapse
+into a single `Actions ▾` dropdown, keeping the same order inside it.
+
+Both halves are load-bearing:
+
+- **Frequency-first** is why `Edit` leads a query and `Run` leads a workflow. It is not one
+  fixed verb order across surfaces — it is one fixed _principle_, which resolves to a
+  different order wherever the primary action differs.
+- **Destructive-last** is a **distance** guarantee, not an aesthetic one: the gap between the
+  action a user reaches for constantly and the one they must not hit by accident is what
+  protects against the mis-click.
+
+**Still open — catalog row actions.** Whether a list row follows the same rule is _not_
+settled here. A row is not a header: it is one of many, it has far less space, and it already
+uses the `⋮` overflow pattern above. Nothing in the evidence this rule was drawn from speaks
+to rows, so extending it to them would be exactly the imposition this section avoided.
 
 ---
 

@@ -5,7 +5,7 @@
 `UNION ALL BY NAME`, applies **its own** transform `steps` — the same step union a query
 uses (aggregate · derive · filter · top_n · sort · select · date_bucket · group_column) —
 over that union, and **materializes a FROZEN typed output** on run. Unlike a
-[Query](../queries/queries.md) — which is a *live* re-run and stores only its
+[Query](../queries/queries.md) — which is a _live_ re-run and stores only its
 definition — a Workflow **freezes** its result (a committed parquet + captured
 schema), so it can be read back as a stable source and consolidates the recurring
 "many exports → one table" pain the `queries ⇒ workflows` module exists for.
@@ -34,10 +34,10 @@ gate); FE design gate [`Round_136`](../../../plan/cycles/Round_136.md).
 
 > **Read first — the domain noun-model.** [`../_noun-model.md`](../_noun-model.md) (R161) defines
 > the five nouns (concepts locked R161) and flags the Workflow noun as **named debt D3**: the
-> Query⇄Workflow **live-vs-frozen** distinction is settled, but *whether* frozen collapses to a
+> Query⇄Workflow **live-vs-frozen** distinction is settled, but _whether_ frozen collapses to a
 > **mode** of a query (dbt `table` vs `view`) is **fork-contingent + OPEN** — it only coheres if the
 > query-identity fork closes toward model A. This doc is the **current-state** (noun) truth. Do not
-> build *toward* a heavier Workflow noun without re-reading it.
+> build _toward_ a heavier Workflow noun without re-reading it.
 
 **Sibling docs**:
 [queries.md](../queries/queries.md) (the source a Workflow consolidates; the engine,
@@ -51,19 +51,19 @@ conventions), [crud-hygiene.md](../_shared/crud-hygiene.md) (the delete-confirm 
 
 ## Surfaces — layer / reuse / purity declaration
 
-| Surface | Layer | Reusability | Purity | Allowed peer deps |
-| --- | --- | --- | --- | --- |
-| `WorkflowsPage` (catalog) route | `apps/builder/src/features/data-management/workflows/` | feature | feature | react, antd, @tanstack/react-query, react-router-dom |
-| `WorkflowCreatePage` (builder) route | `.../features/data-management/workflows/` | feature | feature | react, antd, react-router-dom |
-| `WorkflowDetailPage` (detail + Run + **edit mode**) route | `.../features/data-management/workflows/` | feature | feature | react, antd, react-router-dom |
-| `WorkflowForm` component (R139 — name + sources + steps; shared by create + edit) | `.../features/data-management/workflows/` | feature | plain-UI (glue) | react, antd |
-| `WorkflowSourcePicker` component | `.../features/data-management/workflows/` | feature | plain-UI (glue) | react, antd |
-| `useWorkflows*`/`useSourceColumns` hooks | `.../features/data-management/workflows/` | feature | glue (server-data) | @tanstack/react-query |
-| `workflowsApi` client | `apps/builder/src/api/` | builder-only | glue | (fetch — no extra peer dep) |
-| `Workflow`/`WorkflowDefinition` type (FE) | `.../features/data-management/workflows/types.ts` | feature | data type | none |
-| `POST/GET/PUT/DELETE /workflows…` + `/run` + `/rows` | `apps/backend/app/routers/workflows.py` | backend | feature | (FastAPI — backend native) |
-| `Workflow` SQLModel + `0003_workflows` migration | `apps/backend/app/db_models.py` | backend | data type | (SQLModel/Alembic) |
-| `build_consolidated_relation` / `_resolve_workflow_leaf` | `apps/backend/app/query_engine.py` | backend | pure | (DuckDB SQL) |
+| Surface                                                                           | Layer                                                  | Reusability  | Purity             | Allowed peer deps                                    |
+| --------------------------------------------------------------------------------- | ------------------------------------------------------ | ------------ | ------------------ | ---------------------------------------------------- |
+| `WorkflowsPage` (catalog) route                                                   | `apps/builder/src/features/data-management/workflows/` | feature      | feature            | react, antd, @tanstack/react-query, react-router-dom |
+| `WorkflowCreatePage` (builder) route                                              | `.../features/data-management/workflows/`              | feature      | feature            | react, antd, react-router-dom                        |
+| `WorkflowDetailPage` (detail + Run + **edit mode**) route                         | `.../features/data-management/workflows/`              | feature      | feature            | react, antd, react-router-dom                        |
+| `WorkflowForm` component (R139 — name + sources + steps; shared by create + edit) | `.../features/data-management/workflows/`              | feature      | plain-UI (glue)    | react, antd                                          |
+| `WorkflowSourcePicker` component                                                  | `.../features/data-management/workflows/`              | feature      | plain-UI (glue)    | react, antd                                          |
+| `useWorkflows*`/`useSourceColumns` hooks                                          | `.../features/data-management/workflows/`              | feature      | glue (server-data) | @tanstack/react-query                                |
+| `workflowsApi` client                                                             | `apps/builder/src/api/`                                | builder-only | glue               | (fetch — no extra peer dep)                          |
+| `Workflow`/`WorkflowDefinition` type (FE)                                         | `.../features/data-management/workflows/types.ts`      | feature      | data type          | none                                                 |
+| `POST/GET/PUT/DELETE /workflows…` + `/run` + `/rows`                              | `apps/backend/app/routers/workflows.py`                | backend      | feature            | (FastAPI — backend native)                           |
+| `Workflow` SQLModel + `0003_workflows` migration                                  | `apps/backend/app/db_models.py`                        | backend      | data type          | (SQLModel/Alembic)                                   |
+| `build_consolidated_relation` / `_resolve_workflow_leaf`                          | `apps/backend/app/query_engine.py`                     | backend      | pure               | (DuckDB SQL)                                         |
 
 **Boundary check**: no new `@mdd/ui` primitive — the catalog/detail reuse the shipped
 `PageContainer`/`PageCard`/`PageHeader` + `PagedRowsView`, and the builder reuses the
@@ -75,14 +75,14 @@ not a `@mdd/ui` primitive (no cross-domain reuse yet). No router/query/zod leaks
 
 ## Token map
 
-| Surface | Source | Value (informational) |
-| --- | --- | --- |
-| Page background | AntD seed `colorBgLayout` (themeTokens.ts) | derived |
-| Primary action ([New workflow] · [Run] · [Save]) | AntD seed `colorPrimary` (themeTokens.ts) | `#1677ff` |
-| Border / summary panel | AntD seed `colorBorderSecondary` + `colorFillQuaternary` | derived |
-| "Materialized" badge | AntD `Tag color="processing"` (seed `colorPrimary`) | derived |
-| "Never run" badge | AntD `Tag color="default"` | derived |
-| Never-run / warning state icon | AntD seed `colorWarning` (themeTokens.ts) | `#faad14` |
+| Surface                                          | Source                                                   | Value (informational) |
+| ------------------------------------------------ | -------------------------------------------------------- | --------------------- |
+| Page background                                  | AntD seed `colorBgLayout` (themeTokens.ts)               | derived               |
+| Primary action ([New workflow] · [Run] · [Save]) | AntD seed `colorPrimary` (themeTokens.ts)                | `#1677ff`             |
+| Border / summary panel                           | AntD seed `colorBorderSecondary` + `colorFillQuaternary` | derived               |
+| "Materialized" badge                             | AntD `Tag color="processing"` (seed `colorPrimary`)      | derived               |
+| "Never run" badge                                | AntD `Tag color="default"`                               | derived               |
+| Never-run / warning state icon                   | AntD seed `colorWarning` (themeTokens.ts)                | `#faad14`             |
 
 Inherits the dataset/query surfaces' token map verbatim (same `PageCard`/`Table`/
 `PagedRowsView`); no invented inline values.
@@ -141,6 +141,16 @@ stateDiagram-v2
   (no recursion → no cycle). An un-run source → 409 on run.
 - **Run errors** map like the query run path: `query_stale` / `step_invalid` → 409.
 - **`GET /rows`** 404s until the first run (the output is the rows resource).
+- **The materialized write is ORDERED** (R171), by the same `_page_order_sql` keys the source
+  query's paged read uses (R165 W-7): the user's `sort`/`top_n` leads, every remaining column
+  breaks ties. Without it the parquet came out in whatever sequence DuckDB's plan emitted and
+  the rows path read that back verbatim, so a workflow and the query it was built from
+  disagreed about what the first row is — same rows, same values, different order (found in
+  R168). Ordering the **write** settles the sequence once, where it is decided, rather than
+  re-sorting on every read. **This is not a total order on the READ**: `query_dataset_rows`
+  still has no `ORDER BY`, so `LIMIT/OFFSET` over a materialized output — or over any dataset —
+  is not a partition. That is the same class W-7 measured (33 rows twice, 33 never) and it is
+  still open.
 - **Edit (R139)** — the detail page toggles an inline edit mode (mirroring the
   query detail's [Edit]) rendering the shared `WorkflowForm` over a working copy
   (name + sources + steps); [Save] `PUT`s. When the definition changed, the backend
@@ -225,7 +235,7 @@ is not merely less attractive, it is **not self-consistent as shipped**:
   measure the builder listed fails at run with `step_invalid`.
 - **The program's thesis forbids it.** [Query as the single shaping
   surface](../../../plan/programs/query-shaping-surface.plan.md): a path that reads a query's
-  un-shaped rows routes *around* the shaping surface.
+  un-shaped rows routes _around_ the shaping surface.
 
 So **D1 is a bug**, not the definition (noun-model
 [`_noun-model.md`](../_noun-model.md)) — see § D1 below.
@@ -250,13 +260,13 @@ through its generic "this source can't resolve" fallback.
 
 Two things, and only two — both of which a Query genuinely cannot express:
 
-| | The Workflow does | A Query cannot |
-| --- | --- | --- |
-| **Consolidate** | `UNION ALL BY NAME` over ≥1 saved query | There is no `query ∪ query`; a Query has one driving source + join hops |
-| **Materialize** | freeze a typed parquet + captured schema, readable as a stable source | A Query is live-only — it stores a definition and re-runs |
+|                 | The Workflow does                                                     | A Query cannot                                                          |
+| --------------- | --------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| **Consolidate** | `UNION ALL BY NAME` over ≥1 saved query                               | There is no `query ∪ query`; a Query has one driving source + join hops |
+| **Materialize** | freeze a typed parquet + captured schema, readable as a stable source | A Query is live-only — it stores a definition and re-runs               |
 
 Its `steps` are **not** a third thing. They are the same step union, borrowed, and their
-justification is narrow: **post-union shaping** (consolidate twelve monthly queries, *then*
+justification is narrow: **post-union shaping** (consolidate twelve monthly queries, _then_
 total them). Shaping expressible on one source belongs upstream, in the Query.
 
 ### D1 — the repair
@@ -269,10 +279,10 @@ path that additionally persists the wrong answer.
 
 **Reproduced from the dev DB, 2026-08-14** — the seeded demo still demonstrates it:
 
-| | Rows | Columns |
-| --- | ---: | --- |
-| Query `Revenue by order status` (one `aggregate` step) on its own detail page | 4 | `status`, the summed measure |
-| Workflow `Consolidated revenue by status` consolidating exactly that query | **120** | **the 9 raw order columns** |
+|                                                                               |    Rows | Columns                      |
+| ----------------------------------------------------------------------------- | ------: | ---------------------------- |
+| Query `Revenue by order status` (one `aggregate` step) on its own detail page |       4 | `status`, the summed measure |
+| Workflow `Consolidated revenue by status` consolidating exactly that query    | **120** | **the 9 raw order columns**  |
 
 **The repair**: each source's resolved relation is folded through its **own** steps before it is
 stacked, and the consolidation's declared column space becomes the first source's **post-step**
