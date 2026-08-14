@@ -43,11 +43,12 @@ def test_rows_default_page_returns_full_sample() -> None:
     assert body["pageSize"] == 50
     assert body["total"] == 3
     assert len(body["rows"]) == 3
-    # Row 0: id=1, name=Alice, amount=42.5, signed_up=2024-01-15.
-    assert body["rows"][0][0] == "1"  # int cast to VARCHAR
-    assert body["rows"][0][1] == "Alice"
-    assert body["rows"][0][2] == "42.5"
-    assert body["rows"][0][3] == "2024-01-15"  # date cast
+    # R167 sweep — assert the row SET, not a position. This read has no ORDER BY, so
+    # `rows[0] == Alice` would pass for a reason the test never states (R165's
+    # "incidental order is a latent failure"). What it is actually testing is the CAST
+    # contract: ints and dates arrive as VARCHAR.
+    # (`[:4]` skips the R156 `Source.Name` provenance column appended by the reader.)
+    assert any(r[:4] == ["1", "Alice", "42.5", "2024-01-15"] for r in body["rows"])  # int + date → VARCHAR
     validate_response("datasets/rows-get.contract.yaml", 200, body)
 
 
