@@ -266,6 +266,84 @@ rationale_ — a round-stamp sometimes carries the only surviving **why**.
 **Put to the human before executing**, because the round's size just changed materially and
 compaction is judgement-heavy in a way drift-fixing is not.
 
+### `markdown-check-link`, run on request 2026-08-14 — **16 of the 24 "broken" links are not broken**
+
+Run over the config-scoped corpus (313 files, 885-file candidate pool). 24 broken, exit 1 — the
+same 24 this repo has carried as its `check:links` baseline for many rounds. The script offered
+**zero** auto-applicable suggestions (every record's `suggestions: []`), which is itself the tell:
+these are not near-misses.
+
+Triaged against what actually happened to each target:
+
+| Group | Count | Verdict |
+| ----- | ----: | ------- |
+| **1 — the em-dash slug conflict** | **11** | **The links are correct; the checker is wrong.** |
+| **2 — the `#L<n>` line-reference convention** | **5** | **Correct; the checker cannot resolve them by design.** |
+| **3 — genuine rot** | **8** | Real. Targets deliberately deleted by R153 / R166 / R167. |
+
+#### Group 1 — `check_links` disagrees with GitHub **and with this repo's own markdownlint**
+
+[`parse.py:159`](../../skills/markdown-check-link/scripts/parse.py) collapses repeated hyphens:
+
+```python
+s = re.sub(r"-+", "-", s).strip("-")   # GitHub does NOT do this
+```
+
+A heading containing ` — ` (em-dash **with spaces**) strips to **two** spaces → **two** hyphens.
+GitHub keeps them; this collapses them. So every anchor into such a heading reads as broken:
+
+| | |
+| --- | --- |
+| Heading | `### R109 — line / time-series ✅` |
+| GitHub / MD051 slug | `r109--line--time-series-` ← **what the links use** |
+| `check_links` slug | `r109-line-time-series` |
+
+**Independent confirmation, from inside this repo**: `MD051` (link-fragments-should-be-valid) is
+**enabled** — `.markdownlint-cli2.jsonc` disables MD013/041/033/001/003/036/040/060/049/050 and not
+MD051 — and `pnpm md:lint` reports **0 errors across 313 files**. `Round_88.md:232`'s same-file
+`#acceptance-criteria-draft--sharpen-at-design` is therefore judged **valid by markdownlint** and
+**broken by `check_links`**, in the same repo, on the same line.
+
+This is [[markdown-anchor-slug-linter-conflict]] — but that memory's advice ("use `:` not ` — ` in
+same-file-linked headings") is a **workaround that distorts headings to satisfy the weaker tool**.
+The evidence now points the other way: **the checker's `slugify` is the defect.**
+
+The 11: `Round_109`–`Round_118` (ten ledger anchors into
+`2026-06-29-charts-probe-data-layer.md`, all verified resolvable under GitHub rules) and
+`Round_88.md:232`.
+
+#### Group 2 — `#L215`, `#L115-L116`, `#L135`, `#L321`, `#L52` (`Round_92` ×4, `Round_92` self ×1)
+
+Line references, not headings — the convention `CLAUDE.md` itself mandates
+(_"For specific lines: `[filename.ts:42](src/filename.ts#L42)`"_). They are correct as written and
+the checker has no way to resolve them. The skill's own `as-is` resolution documents exactly this
+case (_"Use when the checker is wrong (e.g. `path.md:25` line-suffix convention)"_).
+
+#### Group 3 — the 8 that are genuinely rotted
+
+| Links | Target | Why it is gone |
+| ----: | ------ | -------------- |
+| 3 | `queries.md#composed-source-qr_` (`Round_76` ×2, `Round_77` ×1) | Section deleted when **R167** retired composition |
+| 2 | `queries.md#build-on-this-query-r77-the-create-entry` (`Round_77` ×2) | Entry point withdrawn by **R166** |
+| 2 | `query-construction.md#create-mode-r77-…` (`Round_77` ×2) | Create mode deleted by **R166** |
+| 1 | `datasets/ColumnsManager.tsx` (`Round_152:216`) | File deleted at **R153** (`74f07b3`), replaced by `PropertiesDrawer.tsx` |
+
+All eight sit in **Complete, append-only rounds** and were accurate when written. The honest repair
+is the skill's `unlink` (demote `[text](target)` → `` `target` ``), which keeps the historical
+reference readable without asserting a link that cannot resolve — **not** repointing them at
+today's docs, which would make those rounds claim they cited something they did not.
+
+#### Why this matters beyond tidiness
+
+A gate that reports **24 broken, two-thirds of them false**, trains its readers to ignore it —
+and a real break would land in that noise unnoticed. That is the actual finding, and it is why
+the baseline has sat at 24 for rounds without anyone acting on it.
+
+**Not fixed in this round.** Group 3 means editing eight Complete rounds; Groups 1–2 are fixed
+either by a **gitignored** `suggestions.fixed.json` (personal scratch pad — does not persist for
+CI or a teammate) or by **changing `parse.py`'s `slugify`**, which is a Track-2 skill change and
+needs its own pull. Held for the human with the evidence above.
+
 ## Check
 
 _(empty — Planning)_
