@@ -1,6 +1,6 @@
 # Program plan: Query as the single shaping surface
 
-**Status**: Active — items **1, 2 and 3a are Complete**. `cycles/Round_162.md` + `cycles/Round_163.md` (item 1, signed off 2026-08-11), `cycles/Round_164.md` + `cycles/Round_165.md` (item 2, signed off **2026-08-13** — walk 5 of 5, six defects found after green gates and all fixed), and [`Round_166`](../cycles/Round_166.md) (**item 3a**, signed off **2026-08-14** — walk 5 of 5, **T5 = yes**: Duplicate serves the need, so 3b proceeds as planned rather than being rewritten). Next: [`Round_167`](../cycles/Round_167.md) (**item 3b**, the engine half — **opened 2026-08-14, Planning**), then Workflow as `Round_168`
+**Status**: Active — items **1, 2 and 3 are Complete**; only **item 4 (Workflow)** remains. `cycles/Round_162.md` + `cycles/Round_163.md` (item 1, signed off 2026-08-11), `cycles/Round_164.md` + `cycles/Round_165.md` (item 2, signed off **2026-08-13** — walk 5 of 5, six defects found after green gates and all fixed), and [`Round_166`](../cycles/Round_166.md) (**item 3a**, signed off **2026-08-14** — walk 5 of 5, **T5 = yes**: Duplicate serves the need, so 3b proceeds as planned rather than being rewritten). [`Round_167`](../cycles/Round_167.md) (**item 3b**, the engine half) signed off **2026-08-14** — walk 5 of 5, **D5 CLOSED**. Next and last: [`Round_168`](../cycles/Round_168.md) (**item 4**, what a Workflow is)
 **Opened**: 2026-08-07
 **Closed**:
 
@@ -217,9 +217,12 @@ seam, **replacement first**:
   this line: the canvas's `qr_` **rendering** did **not** come out here. The Plan and `canvas.md`
   contradicted each other on it and the human ruled for the design doc (2026-08-14) — the rendering
   retires **with** the engine in 3b, so the deletion happens once, in one place.
-- **3b (`Round_167`, engine + contract)** — everything in findings A–D, the migration stance, and
-  the 14-doc `design-sync` of `data-management/` outstanding since R162, which then syncs the
-  **final** state once instead of twice.
+- **3b (`Round_167`, engine + contract)** — **Complete 2026-08-14.** Findings A–C landed as
+  **narrow / collapse / keep-dormant** rather than delete; **finding D (D1) was deferred to item 4
+  by the human**, so the repair lands with the decision that governs it. The migration stance is
+  reject-at-write (zero composed rows). **The `design-sync` is 4 of 14** — the docs whose code
+  changed; the other eight are a real backlog (~286 round-stamps) left unscoped rather than
+  absorbed.
 
 Three reasons for that order. **(i)** `_noun-model.md` pre-registered it: _"whether to withdraw the
 affordances **earlier** than the engine … is an open call for the human, not an agent's to make"_ —

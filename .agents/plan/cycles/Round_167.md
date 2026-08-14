@@ -1,11 +1,46 @@
 # Round 167: composition retired in the engine — and the bug that outlives it
 
-**Status**: **Review** — D + C + B + I closed; walk 5 of 5, all pass. Awaiting human sign-off to flip Complete.
+**Status**: Complete — human sign-off 2026-08-14
 **Flow**: **DCFBI** — set at the Design exit via `flow-selector` (0 of 5); recorded in the Do log
 **Date started**: 2026-08-14
-**Date completed**:
+**Date completed**: 2026-08-14
 
-<!-- ⟢ At a glance is authored at the Review→Complete flip (R159 doctrine), not during Do. -->
+## ⟢ At a glance
+
+**Shipped** — **a Query is a live table over datasets only, in the engine as well as on every
+surface.** `sourceId` and every join operand narrow to `^ds_…` across contract, models and FE
+types, so composition is refused **structurally** — a `422` from the type, not a guard three
+endpoints must remember — and the polymorphic `SourceId` alias is **retired outright**. **D5
+closes**: the debt that opened this program, four rounds after `_noun-model.md` named it. The
+canvas loses the whole `qr_` treatment; net **−230 LOC** on the engine + canvas commit alone.
+
+**Studied** — **the round's value was in refusing its own plan.** The program said item 3 would
+"delete the machinery"; a code walk found three of the four named things must **stay**, and a round
+executed faithfully against that plan would have broken Workflow outright. `resolve_source`'s `qr_`
+branch is Workflow's reader; `cyclic_join` is the self-join boundary; `composition_cycle` is
+**dormant, not retired** — unreachable only because a workflow source resolves **frozen rather than
+live**, which is R168's question, so deleting it would mean re-deriving it a round later. That
+reframing was the human's. **"Narrowed" also had to be made checkable**: rather than documenting
+the boundary, `_resolve_dataset_leaf` was split out and the join path pointed at it, leaving
+`resolve_source` reachable from **exactly one call site** — the boundary now lives in the call
+graph, where a reader trips over it, not in prose they can skip.
+
+**Watch**
+
+- **D1 ships unrepaired, deliberately, and the free window is now shut.** A Workflow consolidating
+  a query with `steps` freezes **un-shaped** rows to `output.parquet`. The human deferred the fix
+  to R168 so it lands with the decision that governs it; the seed now carries a workflow that
+  **demonstrates** it (4 shaped rows on the query's page vs ~120 in its output). Finding E's empty
+  `workflows` table — the window in which this was free to fix — closed by that same choice.
+- **A latent pager risk is recorded, not fixed** (human's call). `query_dataset_rows` pages with no
+  `ORDER BY` — R165's W-7 shape — but does not reproduce across 500k rows / 8 threads in any of the
+  three shapes it runs. Closing it costs a sort on every dataset page read.
+- **The `design-sync` is 4 of 14.** The docs R167's code changed are true; the other eight carry
+  **~286 round-stamps** (`upload.md` alone 166) and are untouched. Not made untrue by this round —
+  but the backlog is real and still unscoped.
+- **A walk question was mis-specified, and the human caught the method not the build.** T4 asked
+  them to `curl` an endpoint this round had **already asserted in `pytest` at the C gate**. New
+  criterion: _if a test can answer it, it is a test._
 
 ## Goal
 
@@ -445,11 +480,16 @@ reload, and always has been. So the defect is not a missing dirty-flag — it is
 That is D4's rule from the other side: not _an error at run_, but _a gesture that quietly does
 nothing durable_.
 
-**Not an R167 regression** — `posOverride` dates to R89 (`39cc5e2`) and this round never touched
-it. **Not fixed here**: persisting layout is a model + contract change and a real design question
-(does a data definition own its picture?), which is not a composition-retirement round's to answer.
-**Batched to the R157 UX cluster** ([[batch-ui-bugs-into-one-round]]), where it joins R165's W-1/W-2
-and R166's header-ordering generalisation.
+**Not an R167 regression** — `posOverride` dates to R89 (`39cc5e2`) and this round never touched it.
+
+**Disposition: ACCEPTED — ignored, not batched (human, 2026-08-14).** Their words: _"I say it's not
+important -> mean can ignore."_ That is deliberately **not** the R157 UX cluster: batching would
+imply the work is queued, and a backlog item nobody intends to do is debt that reads as a promise.
+Persisting canvas layout is a model **and** contract change (a definition would have to carry its
+own picture) for a gesture whose loss costs a re-drag on a surface the user is already editing.
+**The record stays so the next reader meets a decided behaviour rather than rediscovering it as a
+bug**; the work is dropped. **Revisit trigger**: hand-use where an arrangement is worth keeping —
+a large graph laid out deliberately, or a canvas someone returns to rather than passes through.
 
 > **Third instance, and it is now a pattern worth promoting.** T3 asked about withdrawn `qr_`
 > traces and returned a **drag-persistence** defect. R165: five questions, six defects, none about
@@ -498,8 +538,8 @@ R166: T1 asked about rows, returned **button order**. R167: T3 asked about trace
 front of the surface, and what they notice is not bounded by what you asked._ Per the Evolution
 Rule's third-instance bar this is now a **proposal for the human**, not a note.
 
-**Handed to R168** (§ Feeds into) and **to the batched UI cluster** (W-1 canvas layout, joining
-R165's W-1/W-2 and R166's header-ordering generalisation).
+**Handed to R168** (§ Feeds into). **W-1 is ignored, not queued** (above) — the batched UI cluster
+still holds R165's W-1/W-2 and R166's header-ordering generalisation, and did not grow here.
 
 **Two open calls left with the human**, neither absorbed silently: the **latent pager risk**
 (measured, not fixed — § The pager finding) and the **8-doc `design-sync` backlog** (~286
