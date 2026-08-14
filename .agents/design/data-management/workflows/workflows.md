@@ -25,9 +25,9 @@ them.
 **Status**: Accepted (R131 design gate; backend shipped R132·R134·R135·R138; FE
 shipped R137; FE edit mode R139 — this doc reconciled to the built state
 2026-07-01, backfilling the missing D-gate artifact flagged in that session).
-**R168 settles the noun** (§ The noun, settled): consolidation reads what a source
-**returns**, a workflow source resolves **frozen**, and the noun is
-**consolidate + materialize**. One section there is a ruling ahead of the code and says so.
+**R168 settles the noun and ships it** (§ The noun, settled): consolidation reads what a source
+**returns** (D1 repaired), a workflow source resolves **frozen**, the noun is
+**consolidate + materialize**, and the `composition_cycle` error code is retired.
 **Round introduced**: [`Round_131`](../../../plan/cycles/Round_131.md) (Plan/Design
 gate); FE design gate [`Round_136`](../../../plan/cycles/Round_136.md).
 **Domain folder**: `workflows/`.
@@ -139,7 +139,7 @@ stateDiagram-v2
   tolerates order differences).
 - **Output-as-source**: a `wf_` resolves as a LEAF reading its frozen `output.parquet`
   (no recursion → no cycle). An un-run source → 409 on run.
-- **Run errors** map like the query run path: `query_stale` / `composition_cycle` → 409.
+- **Run errors** map like the query run path: `query_stale` / `step_invalid` → 409.
 - **`GET /rows`** 404s until the first run (the output is the rows resource).
 - **Edit (R139)** — the detail page toggles an inline edit mode (mirroring the
   query detail's [Edit]) rendering the shared `WorkflowForm` over a working copy
@@ -237,10 +237,14 @@ Workflow into one live noun and delete the reason this one exists (§ Concept; n
 It would also pull an upstream-re-run/DAG concept the product does not have — Evolution Rule
 default = don't add.
 
-**Consequence: `composition_cycle` is retired, not dormant.** With the sources of a Query
-constrained to `ds_` (R167) and a `wf_` source a frozen leaf, no resolution path can revisit an
-id: `resolve_source`'s `visited` set can never see a repeat. The guard is **unreachable by
-construction**, not by accident, and the frozen ruling is what makes that permanent.
+**Consequence: the `composition_cycle` ERROR CODE is retired — and the GUARD is kept.** They are
+different things. With a Query's sources constrained to `ds_` (R167) and a `wf_` source a frozen
+leaf, no request can make `resolve_source`'s `visited` set see a repeat, so the wire stopped
+advertising an error nothing can provoke. The `visited` check itself stays: deleting it would not
+make a cycle impossible, it would make one **fatal** — the API cannot express a self-referencing
+query, but a hand-crafted DB row can, and it would recurse until the stack gives out. The guard
+now returns an internal `source_cycle` reason with no code of its own, which each consumer maps
+through its generic "this source can't resolve" fallback.
 
 ### 3. What the noun is for, that a Query with `steps` is not
 
@@ -275,12 +279,17 @@ stacked, and the consolidation's declared column space becomes the first source'
 columns. `_apply_step` already folds SQL→SQL — both `run_steps` and `materialize_steps` do that
 fold and then execute — so the change is an extraction of that shared fold, not a new engine path.
 
-> **Current-state marker.** This section is the **ruling**, and the engine still carries the
-> defect until R168's B gate lands it. The behaviour above is what the code does today; the
-> ruling is what it must do. Remove this marker when the repair ships.
->
-> **Existing materialized outputs go stale on the fix** — the definition does not change, the
-> engine does, so nothing invalidates them. In dev, `pnpm dev:seed --reset` regenerates.
+**Shipped R168.** The fold lives in `resolve_source`'s `qr_` branch — extracted as
+`_resolve_query_source`, so the resolver's contract ("what the query returns") is true for every
+consumer of it, not just the consolidation path. `build_steps_relation` is the SQL→SQL fold
+`run_steps` and `materialize_steps` had each written inline. Three tests assert the ruling rather
+than the call site, each verified failing against the pre-fix engine.
+
+> **Existing materialized outputs went stale on the fix** — the definition did not change, the
+> engine did, so nothing invalidated them. Dev-only: `pnpm dev:seed --reset` regenerates. This is
+> a real gap in the noun rather than a migration artefact, and it is on R168's acceptance walk
+> (T3/T4) rather than pre-fixed: a change **upstream** of a workflow does not mark its frozen
+> output stale, and only a `PUT` on the workflow itself invalidates.
 
 ---
 

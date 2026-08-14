@@ -16,7 +16,7 @@ preview, and the in-builder validation — while the model, routes, and engine l
 **Sibling docs**:
 [queries.md](queries.md) (the domain spine — the `QueryDefinition` model, all routes +
 error codes (`POST …/preview` / `PUT /queries/{id}` / `POST …/queries`), the engines + the
-`query_stale` / `relationship_stale` / `composition_cycle` gates this builder edits against,
+`query_stale` / `relationship_stale` gates this builder edits against,
 and the [reuse invariant](queries.md#the-reuse-invariant-the-one-rule-this-domain-holds)
 this obeys),
 [canvas.md](canvas.md) (the visual editor that adds a canvas view/edit mode over this
@@ -52,7 +52,7 @@ predicate engine, join engine, or detail page.
 | The `QueryDefinition` (`q` / `filters` / `advanced` / `joins`) + its `sourceId` — **edited, not extended**                                      | An **Edit mode** on `/queries/:id` (R166 deleted the create mode)                                        |
 | The chip-filter + advanced-DNF **editors** + their serializers/validators                                                                       | Those editors **bound to the effective columns** (the combined `joins`-tree space)                       |
 | The base/relationship `<Select>`s + per-hop join-type `<Select>`                                                                                | The **`JoinEditor`** that mutates the `joins` tree (base source, add/remove hops, per-hop type) in place |
-| `query_joined_rows` / `query_dataset_rows` / `resolve_source`; the `409 query_stale` / `409 relationship_stale` / `409 composition_cycle` gates | A **stateless preview** of the **unsaved** definition (`POST …/queries/preview`)                         |
+| `query_joined_rows` / `query_dataset_rows` / `resolve_source`; the `409 query_stale` / `409 relationship_stale` gates                            | A **stateless preview** of the **unsaved** definition (`POST …/queries/preview`)                         |
 | `<PagedRowsView>`, the `RowsPage` shape, `SaveQueryModal`, `useCreateQueryMutation`, the `<DeleteConfirmModal>` confirm pattern                 | A **dirty / Save / discard** lifecycle on the detail                                                     |
 
 **No new model. No new engine. No new route beyond the spine's `preview` + `update`.**
@@ -477,7 +477,6 @@ ellipsis/`title` decision, not a hope.
   ⚠  This join is unavailable — "account_id" no longer exists in Deals.
      Pick a different relationship, or remove the join.       (relationship_stale)
 
-  ⚠  This base query loops back on itself. Pick a different base.   (composition_cycle)
 ```
 
 `[Save]` is **disabled** while any predicate is invalid, an edge is stale, or the base is
@@ -526,8 +525,7 @@ stateDiagram-v2
   Preview is paged (`10 / 25 / 50 / 100`).
 - **Save (edit mode)** — persists the working copy via `PUT /queries/{id}` (**definition
   only** — name + source unchanged, so no `name_taken`); the server re-validates (a bad
-  atom / unknown / cross-workspace / stale edge → `422`; a looping base → `409
-composition_cycle`). Success returns to Viewing.
+  atom / unknown / cross-workspace / stale edge → `422`). Success returns to Viewing.
 - **Discard** — `[Cancel]` with unsaved changes confirms (the
   [crud-hygiene](../_shared/crud-hygiene.md) pattern), then reverts to the saved
   definition — no partial writes.

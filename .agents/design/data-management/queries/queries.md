@@ -32,7 +32,8 @@ R162–R163 — the `group_column` operation, specced and **shipped end-to-end**
 > R166 withdrew every surface; R167 narrowed `sourceId` / `rightSourceId` to `^ds_…` and retired
 > the polymorphic `SourceId` type. See § Composed source for what was deliberately KEPT: the
 > `qr_` resolver branch (it is Workflow's reader), `cyclic_join` (it is the self-join boundary),
-> and a **dormant** `composition_cycle`.
+> and the `composition_cycle` **guard** — whose error CODE R168 retired once a workflow source was
+> ruled frozen for good.
 
 **Sibling docs**:
 [query-construction.md](query-construction.md) (the editable builder surface: edit a
@@ -386,19 +387,24 @@ a Query".
 | ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `resolve_source`'s `qr_` branch                  | It is **Workflow's reader**. A Workflow's sources are `qr_`/`wf_` and never `ds_`, and it consolidates them through this resolver — deleting the branch would break Workflow outright. It is now reachable from exactly **one** call site (a driving source), because the join path resolves a dataset leaf directly. |
 | `cyclic_join`                                    | It is the **self-join boundary** — the same dataset twice in one query — which stays rejected. Only its _set-shaped_ form collapsed to a single-id membership test, since a `qr_` right used to bring a SET of leaf datasets and a dataset brings itself.                                                     |
-| `composition_cycle`                              | **Dormant, not retired.** See below.                                                                                                                                                                                                                                                                          |
+| the `composition_cycle` **guard** (not its code) | The `visited` check stays; R168 retired the **error code**. See below.                                                                                                                                                                                                                                        |
 
-**`composition_cycle` is dormant.** It is raised in one place (a source already on the recursion
-path) and unreachable today: a query's operands are datasets, a Workflow's `wf_` source is a
-**frozen leaf** that never resolves that workflow's own definition, and the resolver's `visited`
-set is seeded fresh per source. But that unreachability rests entirely on workflow-source
-resolution being **frozen rather than live** — an open question for the Workflow noun, not a
-settled fact. If a source is ever resolved live, cycles return and this is the guard for them, so
-retiring it would mean re-deriving it a round later. It is documented as dormant in
-[api-error.yaml](../../../../workspace/packages/contracts/_shared/api-error.yaml) with its
-reactivating condition, and held under test on DB-crafted rows.
+**The `composition_cycle` CODE is retired (R168); the GUARD is not.** R167 left the code dormant
+against one open question — whether a workflow source resolves live, the only way cycles could
+return. R168 ruled it **frozen for good**, so the reactivating condition can never fire, and the
+code was removed from `values.yaml`, the generated constants, `api-error.yaml`, the two contracts
+that referenced it, the backend model and its router branches, and the FE.
 
-**Dormancy is not uniform.** The guard survives for a **driving** source (Workflow's case) and is
+**The `visited` check stays, and the distinction is the point.** Deleting it would not make a
+cycle impossible — it would make one **fatal**. A query's operands are datasets and a Workflow's
+`wf_` source is a frozen leaf, so no _request_ can build a cycle; but the DB does not enforce that,
+and a hand-crafted self-referencing row would recurse until the stack gives out. The guard now
+returns an internal `source_cycle` reason with no wire code of its own, which each consumer maps
+through its generic "this source can't resolve" fallback — `relationship_stale` on the rows path,
+`query_stale` on the workflow run path. Held under test on DB-crafted rows, asserting **409 rather
+than 500**.
+
+**The guard is not uniform.** It covers a **driving** source (Workflow's case) and is
 **gone** for right-of-hop: that path resolves a dataset leaf directly, so a crafted `qr_` there is
 `relationship_stale` — truthfully _"this edge does not name a dataset"_ — rather than a cycle that
 cannot happen. That half can never return: the operand is a `DsId` in the type system, not a policy.
@@ -569,8 +575,8 @@ error envelopes reuse [api-error.yaml](../../../../workspace/packages/contracts/
 and `page_size` ∈ the centralized [`PageSize`](../../../../workspace/packages/contracts/_shared/pagination.yaml)
 set **`10 / 25 / 50 / 100`**. Error `code` strings actually emitted as top-level
 envelopes: `not_found`, `name_taken`, `query_stale`, `step_invalid`, `relationship_stale`.
-`composition_cycle` is **published but dormant** since R167 — no endpoint can emit it (§ Composed
-source); it is retained as the guard a live-resolving Workflow source would need.
+R168 **retired `composition_cycle`** from the wire entirely — the guard behind it survives without
+a code of its own (§ Composed source).
 
 | Method   | Path                                                | Request body                        | Success                                                                                                                   | Error statuses + `code`                                                                                                     |
 | -------- | --------------------------------------------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
