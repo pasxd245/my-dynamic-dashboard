@@ -1,6 +1,7 @@
 # Round 171: the batched UI cluster — the papercuts that were never worth a round alone
 
-**Status**: In Progress — opened 2026-08-14, **D gate closed 2026-08-15; F1 active**
+**Status**: In Progress — opened 2026-08-14, **all eight items built 2026-08-15; awaiting the
+human's acceptance walk (I gate)**
 **Flow**: **DFCFBI (triggers 3, 5)** — set at the Design gate via `flow-selector`; recorded in the
 Do log.
 **Date started**: 2026-08-14
@@ -248,9 +249,51 @@ make either read _contractually_ ordered. That is an engine round, and this roun
 it as ignored rather than queued, and it needs a storage decision (where does a per-query node
 position live?), which is not a papercut.
 
+### Build record — what shipped, and what the building falsified
+
+| Item  | Commit                                                | Doc synced                                |
+| ----- | ----------------------------------------------------- | ----------------------------------------- |
+| 1 · 2 | `d18d451` — the upload wizard's two papercuts         | `upload.md`                               |
+| 3–6   | `00ccb07` — the query builder's four                  | `canvas.md`, `query-construction.md`      |
+| 7 · 8 | `dd3fe9d` — the ordered write + the header convention | `workflows.md`, `_shared/crud-hygiene.md` |
+
+**Gates**: builder 375 passed (25 files, +9), backend 440 passed (+3), `tsc --noEmit` clean,
+`design-doc-lint` 0 errors across 14 docs, i18n parity green (en + vi for every new key).
+
+**Three things the building falsified, each recorded because the round file said the opposite:**
+
+1. **The D-gate ruling on item 1 was backwards.** It said a bare-string `detail` should carry the
+   "unexpected" frame. That arm is exactly R144's `format_unsupported` family — guidance the
+   **router wrote for the user**. The pydantic **list** arm is the app-bug one, and it was also
+   the unreadable one, because `datasetsApi` kept `msg` and dropped `loc`. Framing both as
+   unexpected would have destroyed R144's work; a regression test now pins the distinction.
+2. **The shipped promote test was asserting the defect.** It promoted a copy-on-picked, in-sync
+   edge — the exact POST that returns `409 relationship_exists` — and passed, because the MSW
+   handler never modelled `idx_relationships_pair_unique` and returned `201` to anything. **The
+   FE suite could not have caught item 4 at any point.** A mock that answers more permissively
+   than the database turns a test into a description of the bug.
+3. **My first test for item 8 proved nothing.** It used an explicit `sort` step — but
+   `build_steps_relation` already emits that `ORDER BY` inside the relation, so it passed with
+   the fix disabled. The two orders diverge only where `_page_order_sql` adds keys the steps
+   relation lacks: **no ordering step at all**, and ties. Re-probed with the fix off, the
+   aggregate returned `Alice, Carol, Bob` from the workflow and `Alice, Bob, Carol` from the
+   query; the test is built on that case and **verified to fail without the fix**.
+
+**Two things found while building, recorded and NOT absorbed** (the inventory stayed closed):
+
+- **`query_dataset_rows` has no `ORDER BY` at all**, so the **dataset** rows path has no total
+  order either — the same class R165 W-7 measured. Ordering the materialized write makes a
+  workflow agree with its query; it does not make either read contractually partitioned. Named
+  in `workflows.md`, left for an engine round.
+- **Item 2's enablement bug had a sibling**: R157's highlight predicate misses a **format-only**
+  override (a `date` column whose dtype matches detected but whose format the user edited).
+  Folding both onto one `isRealOverride` fixed it as a side effect of not writing the predicate
+  twice.
+
 ## Check
 
-_(verdicts filled at the I gate)_
+_(verdicts filled at the I gate — the five questions below are unwalked; the build is ready for
+them)_
 
 ### Acceptance-walk questions (written at D, per [[walk-record-always-spec-on-ask]])
 
