@@ -1,7 +1,7 @@
 # Round 168: what a Workflow is — and the bug that has been waiting for the answer
 
-**Status**: Planning
-**Flow**: _(set at the Design exit via `flow-selector`)_
+**Status**: In Progress — opened 2026-08-14; **D gate closed 2026-08-14**, awaiting sign-off before C
+**Flow**: DCFBI (no-UI round — `flow-selector` at the Design exit, **0 of 5** conditions fired)
 **Date started**: 2026-08-14
 **Date completed**:
 
@@ -51,29 +51,49 @@ stacked. The D gate must pick a reading and say why; the FE says nothing about w
 
 ### D — the design gate
 
-- [ ] **Answer questions 1–3** and write the noun into
+> **Closed 2026-08-14** — every box below is ticked; the reasoning is § Do → _D gate_.
+
+- [x] **Answer questions 1–3** and write the noun into
       [`workflows.md`](../../design/data-management/workflows/workflows.md)
       ([[d-gate-artifact-in-design-corpus]]) — which already carries R167's § Known defect and the
       resolver-ownership section as the current-state starting point.
-- [ ] **Decide D1's repair or its principled deferral.** If it is a bug, the fix is small
+- [x] **Decide D1's repair or its principled deferral.** If it is a bug, the fix is small
       (`run_steps` in the consolidation path); the risk is that a run **materializes**, so a wrong
       answer persists. If it is the definition, the FE must **say so** — a workflow whose output
       does not match its source query is otherwise indistinguishable from a bug (R167's walk
       confirmed a human reads it as one).
-- [ ] **Settle `composition_cycle`** — live sources reactivate it, frozen retires it. Either way
+      → **A bug. Repaired at B**, and the FE needs no new copy: the builder's promise was already
+      the correct one.
+- [x] **Settle `composition_cycle`** — live sources reactivate it, frozen retires it. Either way
       it stops being dormant, which is the state R167 deliberately left it in
       ([api-error.yaml](../../../workspace/packages/contracts/_shared/api-error.yaml)).
-- [ ] **Re-confirm the seeded workflow still demonstrates the trap** before designing against it
+      → **Retired.** Frozen is ruled permanent, so the reactivating condition can never fire.
+      Deletion is cross-cutting and gets **its own C slice**.
+- [x] **Re-confirm the seeded workflow still demonstrates the trap** before designing against it
       (the seed is disposable; `--reset` regenerates it).
-- [ ] **Run [`flow-selector`](../../skills/flow-selector/SKILL.md)** at the Design exit.
-- [ ] **Write the acceptance-walk questions at D**, with how each outcome is read — **and apply
+      → **It does** — a 4-row shaped source query materializing 120 un-shaped rows, read from the
+      dev DB rather than the running app.
+- [x] **Run [`flow-selector`](../../skills/flow-selector/SKILL.md)** at the Design exit.
+      → **DCFBI**, 0 of 5 (no-UI branch).
+- [x] **Write the acceptance-walk questions at D**, with how each outcome is read — **and apply
       R167's new criterion**: _if a test can answer it, it is a test_ ([[walk-record-always-spec-on-ask]]).
       Every question must name a gesture on a surface a human can perceive.
+      → **T1–T5**, none of which asks "do the rows match?" — that one is a test.
+- [x] **Decide the walk-question promotion** carried from R167 (§ Two open calls carried in) — at
+      the same moment this round's own walk questions are written, because that is when a fourth
+      instance either arrives or does not. **Not** a Track-1 deliverable; the D gate only decides
+      whether it promotes, where to, and on what evidence.
+      → **Destination decided** (`.agents/memory/` — a skill cannot enforce what a walk *returns*);
+      **promotion itself fires at this round's I gate**, because writing questions is not what
+      produces an instance — running the walk is.
 
 ### Explicitly NOT in this round
 
-- **The 8-doc `design-sync` backlog** (~286 round-stamps) — unscoped since R162 and **still
-  unscoped**; it is its own work, not a tail-end.
+- **The `design-sync` backlog** — **no longer unscoped**: it is [`Round_169`](Round_169.md) as of
+  the human's call 2026-08-14, and **nine** docs / **325** stamped lines on re-measurement, not the
+  8 / ~286 R167 recorded. It stays **out of this round** for the reason that put it there: this is
+  the program's last round, so there is no successor to absorb a doc-only tail. R169 is scoped, not
+  ranked.
 - **The latent pager risk** — recorded at R167, measured as non-reproducing, fix deferred by the
   human.
 - **The batched UI cluster** — R165's W-1/W-2, R157's cluster, R166's header-ordering
@@ -91,7 +111,237 @@ stacked. The D gate must pick a reading and say why; the FE says nothing about w
 
 ## Do
 
-_(empty — Planning)_
+### Opened 2026-08-14 — two open calls carried in from R167, both dispositioned by the human
+
+R167's Act left exactly two calls with the human rather than absorbing them. Neither is folded into
+this round's build; both are recorded here so the round opens with them decided rather than
+carrying them as ambient debt.
+
+#### 1. The walk-question promotion — **PROPOSED, not promoted** (human, 2026-08-14)
+
+**The candidate**, three instances across three domains:
+
+| Round | The question asked about | What the human actually returned |
+| ----- | ------------------------ | -------------------------------- |
+| R165  | five questions on the ordered-window family | **six defects**, none about what any question asked (incl. a pre-existing pager bug) |
+| R166  | T1 — do the **rows** match? | **button order** in the detail header |
+| R167  | T3 — any trace of a `qr_` source on the canvas? | **canvas layout** not persisting (W-1) |
+
+The shape: _a walk question works by putting a human in front of a surface, and what they notice is
+not bounded by what you asked._ Three instances clears the Evolution Rule's third-instance bar,
+which is why R167 raised it as a proposal rather than a note.
+
+**The human's call: decide it at this round's D gate, not now.** The reasoning is that the D gate
+is where this round writes its own walk questions — so it is the moment a **fourth instance either
+arrives or does not**, and the decision gets evidence instead of a count. Promoting at the open
+would spend the bar's credibility on a round that has not yet run its own walk.
+
+**Which also keeps this round Track 1.** A promotion is a Track-2 artifact
+([[gates-dont-survive-self-modification]] territory); item 4 is product work. Deciding it at D, as
+a by-product of writing walk questions, is the narrowest way to touch it without blurring tracks.
+
+**Where it would go, when it goes** — noted so the D gate is not re-deriving this:
+
+- The doctrine has **no shared repo home today**. `skills/gate-walker/` verifies that a gate's exit
+  criterion is documented; it says nothing about how a walk's **return** is read. `context/` has no
+  walk artifact either. What exists is a personal-memory entry
+  ([[walk-record-always-spec-on-ask]]) plus the round files themselves.
+- So a promotion is genuinely **additive**, and the Evolution Rule's default is don't. The
+  candidate destinations are `.agents/memory/` (shared, version-controlled, cheap) or
+  `skills/gate-walker/SKILL.md` (operational, enforced). **They are not the same claim**: the first
+  says agents should know this, the second says the skill should check it.
+- **The open question the D gate must answer, and it is the real one**: this pattern is about
+  what a walk **returns**, and it is not clear a skill can enforce anything about it. It may be a
+  fact to know, not a rule to run — in which case `memory/` is the ceiling, not a waypoint.
+
+#### 2. The `design-sync` backlog — **scoped out, into [`Round_169`](Round_169.md)** (human, 2026-08-14)
+
+**Call**: it is its own work and gets its own round. Explicitly **not** folded in here — R168 is the
+last round of the program, so a doc-only tail has no successor to absorb it, which is the same
+reasoning R167 used to leave it out in the first place.
+
+**Scoped now rather than parked**, so it is ranked when the program closes instead of rediscovered.
+[`Round_169`](Round_169.md) holds the inventory, the two-axis measurement and the timebox; it is
+`Planning`, **scoped but not ranked** — the human ranks the successor set at the program's close.
+
+**Two corrections it makes to R167's figure**, both from re-measurement on 2026-08-14:
+
+- **Nine docs, not eight.** The domain holds 14; R167 synced 4; `_TEMPLATE.md` is not a surface
+  doc. `workspaces/workspaces.md` (2 stamped lines) was the one missing from the count.
+- **325 stamped lines, not ~286.** R167's per-doc figure is reproducible (`upload.md` = 166 lines
+  via `rg -c '\bR[0-9]{2,3}\b'`); its total is not. Appended to R167 rather than edited in — that
+  round is `Complete` and append-only.
+- **And one thing nobody has measured**: `--check` has never been run on those nine docs, so
+  **doc↔code drift is unknown**. "~286 round-stamps" measures **ledger accretion**, a different
+  axis. R169 runs `--check` first, because that is what decides the round's size.
+
+### D gate — 2026-08-14: the three questions, answered from the code
+
+Written into
+[`workflows.md` § The noun, settled](../../design/data-management/workflows/workflows.md)
+([[d-gate-artifact-in-design-corpus]]). What follows is the reasoning; the doc carries the
+ruling.
+
+#### The seed still demonstrates the trap — re-confirmed before designing against it
+
+Read straight out of the dev DB rather than by booting the stack, so the evidence is the
+committed artifact and not a screenshot:
+
+| | Rows | Columns |
+| --- | ---: | --- |
+| `qr_8c0d6e90` "Revenue by order status" — `ds_71b9d46a` + one `aggregate` step (`dimensions: [status]`, `measures: [sum(amount)]`) | **4** | `status` + the summed measure |
+| `wf_11af3fad` "Consolidated revenue by status" — sources `["qr_8c0d6e90"]`, no steps of its own | **120** | the **9 raw order columns** |
+
+`output_columns_json` on the workflow row lists `order_id, customer_id, product_id, amount,
+quantity, status, is_priority, ordered_at, Source.Name`, and the materialized
+`data/workflows/ws_19b9c71b/wf_11af3fad/output.parquet` holds 120 rows. The trap is live.
+
+#### Q1 — does consolidating a query mean consolidating what it RETURNS? **Yes. D1 is a bug.**
+
+The round opened saying this "is not rhetorical, and the answer is not obvious", and that the
+defensible counter-reading is _one shaping layer, not two stacked_. Reading the code closed it:
+**the counter-reading is not self-consistent as shipped.** Three findings, none of them a matter
+of taste.
+
+1. **A `wf_` source already resolves to what it RETURNS.**
+   [`_resolve_workflow_leaf`](../../../workspace/apps/backend/app/query_engine.py) reads
+   `output.parquet`, whose schema is `output_columns_json` — captured at
+   [`routers/workflows.py`](../../../workspace/apps/backend/app/routers/workflows.py) from
+   **`final_cols`**, the **post-step** columns. A `qr_` source resolves **pre-step**. So one
+   `UNION ALL BY NAME` can stack a shaped workflow on top of a raw query. **Two source kinds,
+   two contradictory readings, in the same union** — the "one shaping layer" rule is already
+   broken by the code that would have to defend it.
+2. **The builder already promises post-step columns.** `useSourceColumns`
+   ([hooks.ts](../../../workspace/apps/builder/src/features/data-management/workflows/hooks.ts))
+   hands the `StepsEditor` a `qr_` source's `resolvedColumns`, and `_resolved_columns` is
+   explicit that "a query with `steps` exposes its POST-step output columns here" (R120).
+   `build_consolidated_relation` then validates the workflow's steps against `plan["columns"]` —
+   **pre-step**. A user who builds a workflow step on the aggregate measure the builder listed
+   gets `step_invalid` at run, on a column the UI offered. That is not an ambiguity to be
+   resolved by choosing a reading; it is a contradiction that has to be repaired either way.
+3. **The program's thesis forbids it.** "Query is the single shaping surface." A path that reads
+   a query's un-shaped rows routes **around** the shaping surface — and this is the program's
+   last round, so it would close having built the exception it set out to remove.
+
+**Which means § Plan's _Falsified if_ did not fire, but its premise did not survive either.** The
+round predicted a genuine fork the D gate would have to *pick*. There was no fork: the noun
+question and the bug question are the same question, and the code answered it. The deferral from
+R167 still paid — the answer is written into the noun, not patched into a path.
+
+#### Q2 — frozen or live? **Frozen. And `composition_cycle` is retired, not dormant.**
+
+Frozen is not a default kept for want of a reason; it **is** the noun's distinction — Query is a
+live re-run that stores a definition, Workflow freezes a typed artifact
+([workflows.md § Concept](../../design/data-management/workflows/workflows.md), noun-model
+**D3**). Live resolution would collapse the two into one live noun and delete the reason this one
+exists, and it would pull an upstream-re-run/DAG concept the product does not have — Evolution
+Rule default = don't add.
+
+**So the guard's reactivating condition can never fire.** R167 kept `composition_cycle` dormant
+precisely against this decision. With a Query's driving source and every join operand `ds_`
+(R167) and a `wf_` source a frozen leaf, `resolve_source`'s `visited` set **cannot see a repeat
+by construction**. Verified at the type, not the branch: `sourceId` and `rightSourceId` are both
+`DsId` in [common.py](../../../workspace/apps/backend/app/models/common.py). Q1's repair does not
+change that: folding a source query's steps in adds no recursion — a query still resolves over
+dataset leaves.
+
+**And the DB path is closed too**, which is the half a type cannot prove. R167's stance is
+reject-at-write with **no migration**, resting on finding E — **zero composed rows in either
+form**, re-confirmed against the DB at that round's build. So no legacy `qr_`-sourced query can
+resolve recursively either. If that ever stops being true the retirement is wrong, which is why
+it is written down here rather than assumed.
+
+**Its retirement is cross-cutting and is therefore its own slice** ([[split-fragile-subphase]],
+[[round-bundling-revert-seams]]). It spans six layers — `values.yaml` → generated constants in
+**both** languages → `_shared/api-error.yaml` + two contract files → backend models/routers/engine
+→ FE `types.ts`, `WorkflowDetailPage`, two api clients → `tests/test_composition.py`, whose
+DB-crafted tests are explicitly documented as "not vestigial" because the guard was dormant. A
+bad sweep there must not be able to take the D1 repair with it.
+
+#### Q3 — what is the noun for, that a Query with `steps` is not? **Consolidate + materialize.**
+
+Two things, and only two, both genuinely inexpressible as a Query: `UNION ALL BY NAME` over ≥1
+saved query (there is no `query ∪ query` — a Query has one driving source plus join hops), and a
+**frozen** typed parquet with a captured schema that reads back as a stable source (a Query is
+live-only).
+
+Its `steps` are **not** a third thing — same step union, borrowed. Q1 narrows their
+justification to exactly one job: **post-union shaping** (consolidate twelve monthly queries,
+*then* total them). Anything expressible on a single source belongs upstream in the Query, and
+after the repair it *arrives* from upstream. That is the two-altitude rule now written into
+§ Concept.
+
+#### The flow — `flow-selector` at the Design exit
+
+Run against the D-gate artifact. This is a **feature round that changes the engine and the
+contract but adds no new UI surface**, so it takes the skill's explicit no-UI branch — the five
+conditions are UX-framed and read vacuously no. Recorded anyway; the audit trail is the point.
+
+| # | Condition | Verdict | Why |
+| - | --------- | ------- | --- |
+| 1 | >3 independent interactive states/branches | **no** | The `stateDiagram` (Draft ⇄ Materialized) is untouched — the repair changes what a run *produces*, not the states it moves through. |
+| 2 | New interaction pattern not previously used | **no** | No new surface, no new gesture. |
+| 3 | High user-error risk if the flow is unclear | **no** | Run already materializes irreversibly; the repair *reduces* error risk by making the output match what the builder promised. |
+| 4 | Contract shape depends on unresolved UI behaviour | **no** | The only contract move is *deleting* `composition_cycle`; no UI question governs it. |
+| 5 | UX confidence below threshold | **no** | The UX is unchanged, and Q1 removes the mismatch R167's walk showed a human reads as a bug. |
+
+**0 of 5 → `Flow: DCFBI`** (no-UI round → DCFBI by construction). The round's own § Risks flagged
+"the FE may need to say what a Workflow means" — **it does not**, and that is a consequence of
+Q1 rather than an oversight: the builder's promise was already right, so the repair makes the FE
+truthful without changing a pixel.
+
+#### The acceptance-walk questions, written at D
+
+R167's criterion applied: **if a test can answer it, it is a test**
+([[walk-record-always-spec-on-ask]]). "Do the rows match?" is a test — it is `test_workflows_run.py`,
+not a walk question — so none of these ask it.
+
+| # | The gesture, and the surface | How each outcome is read |
+| - | ---------------------------- | ------------------------ |
+| **T1** | Open the query `Revenue by order status`, then the workflow `Consolidated revenue by status`, and **read the two pages one after the other**. | **Pass** = they read as the same table seen twice. **Fail** = anything makes you check which page you are on — headers, row counts, ordering, a stale badge. |
+| **T2** | In the workflow builder, **add a step over the source query's aggregate measure** (the column the builder lists), Save, Run. | **Pass** = the step the builder offered is the step the run accepts. **Fail** = `step_invalid`, or the column is not offered. This is finding 2 from Q1, walked. |
+| **T3** | **Before** re-running, open the workflow that was materialized under the OLD engine. | **Pass** = it is evident the output predates the fix. **Fail** = a stale 120-row output looks current — nothing invalidates it, because the *definition* did not change, the *engine* did. |
+| **T4** | Edit the **source query's** steps, then return to the workflow **without touching it**. | **Pass** = the workflow makes its staleness legible. **Fail** = it presents a frozen output as current. `PUT` on the workflow invalidates; a change upstream does not. A genuine gap, deliberately walked rather than pre-fixed. |
+| **T5** | With the round's changes in, **say what a Workflow is for** while looking at the catalog. | **Pass** = "consolidate + freeze" is what the surface says. **Fail** = it still reads as "a Query, but saved differently" — which would mean Q3 is written in a doc and nowhere a user can see. |
+
+T3 and T4 are the two the D gate is least sure of, and both are **states the repair creates or
+exposes rather than fixes**. They are on the walk for that reason, not despite it.
+
+#### The walk-question promotion — destination decided, promotion deferred to this round's I gate
+
+The human routed this to the D gate "because that is when a fourth instance either arrives or
+does not". **One correction to that timing, and it changes the answer.** Writing walk questions
+does not produce an instance — the pattern is about what a walk **returns**, so the fourth
+instance can only arrive when the walk is **run**. Deciding it here would still be deciding it on
+a count of three.
+
+So the D gate decides the half that *is* decidable now, and it is the half the round called
+"the real one":
+
+- **Destination: `.agents/memory/`, not `skills/gate-walker/`.** `gate-walker` verifies that a
+  gate's **exit criterion is documented as met**. What a human notices at a surface is not a
+  criterion — it cannot be enumerated in advance, which is the entire content of the pattern. A
+  skill can check that a walk was **recorded**; it cannot check that its **return** was read
+  properly. **This is a fact to know, not a rule to run — so `memory/` is the ceiling, not a
+  waypoint.**
+- **Promotion fires at this round's I gate**, on whether T1–T5 return a fourth instance. If they
+  do, it is written as a shared `.agents/memory/` entry. If the walk returns only what it asked,
+  the third instance stands and the pattern stays personal — a bar met three times and then not
+  met is evidence too.
+
+**Track stays 1.** Nothing above is built; a destination is named and a trigger is set.
+
+### Next: C, then B — with the two slices kept apart
+
+DCFBI. The C gate carries **only** the `composition_cycle` deletion (contract + both generated
+constant sets); B carries the **D1 repair** — extract the shared `_apply_step` fold so
+`build_consolidated_relation` can stack each source **post-steps**, with the consolidation's
+declared column space becoming the first source's post-step columns. Kept as separate commits so
+the cross-cutting sweep cannot take the repair down with it.
+
+**Open for the human before C** — see the sign-off note raised at this gate: the Q1 ruling, the
+delete-vs-reserve call on `composition_cycle`, and the stale-output stance (dev-only
+`--reset`, no migration).
 
 ## Check
 
@@ -109,3 +359,9 @@ cannot express the shaping, and the wall that pulls a Workflow noun is consolida
 succeeds it is not pre-decided — the standing backlog (R157 UX cluster, naming/legibility, the
 `design-sync` backlog, Export ④, `[F-prov-reimport-choice]`, AI-propose-key #2, R145 1b) is ranked
 by the human when the program closes, not before.
+
+**One backlog item is now scoped, and that is not the same as ranked.** The `design-sync` backlog
+has a drafted round — [`Round_169`](Round_169.md), nine docs, timeboxed — written at this round's
+open so it could be kept **out** of R168 without being lost. It carries the next number because
+that is where it sits today; if the human ranks another item first, it renumbers. Scoping an item
+does not promote it above the six that are still one line each.

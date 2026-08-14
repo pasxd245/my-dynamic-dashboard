@@ -1,13 +1,20 @@
 # Workflows — the Workflow domain (noun · consolidation · materialize · surfaces)
 
 **Concept**: a **Workflow** (`wf_…`) is a named, workspace-scoped noun that
-**consolidates ≥1 saved query** (and/or another workflow's output) via `UNION ALL BY
-NAME`, applies the **same transform `steps`** a query uses (aggregate · derive ·
-filter · top_n · sort · select · date_bucket · group_column), and **materializes a FROZEN typed output** on run. Unlike a
+**consolidates what ≥1 saved query RETURNS** (and/or another workflow's output) via
+`UNION ALL BY NAME`, applies **its own** transform `steps` — the same step union a query
+uses (aggregate · derive · filter · top_n · sort · select · date_bucket · group_column) —
+over that union, and **materializes a FROZEN typed output** on run. Unlike a
 [Query](../queries/queries.md) — which is a *live* re-run and stores only its
 definition — a Workflow **freezes** its result (a committed parquet + captured
 schema), so it can be read back as a stable source and consolidates the recurring
 "many exports → one table" pain the `queries ⇒ workflows` module exists for.
+
+**Two shaping altitudes, one per noun** (ruled R168, § The noun, settled). Per-source
+shaping belongs to the **Query** and arrives already applied — a source contributes the
+rows its own detail page shows. Post-union shaping belongs to the **Workflow** and is the
+only shaping a Query cannot express, because a Query cannot union. They stack; they do not
+compete.
 
 This doc is the **domain anchor** of `workflows/` — the home for the Workflow
 **noun**, its **model · routes**, the **materialize/freeze** semantics, and its three
@@ -18,6 +25,9 @@ them.
 **Status**: Accepted (R131 design gate; backend shipped R132·R134·R135·R138; FE
 shipped R137; FE edit mode R139 — this doc reconciled to the built state
 2026-07-01, backfilling the missing D-gate artifact flagged in that session).
+**R168 settles the noun** (§ The noun, settled): consolidation reads what a source
+**returns**, a workflow source resolves **frozen**, and the noun is
+**consolidate + materialize**. One section there is a ruling ahead of the code and says so.
 **Round introduced**: [`Round_131`](../../../plan/cycles/Round_131.md) (Plan/Design
 gate); FE design gate [`Round_136`](../../../plan/cycles/Round_136.md).
 **Domain folder**: `workflows/`.
@@ -149,9 +159,10 @@ output — without writing a formula.
    a materialized-vs-never-run badge; row → detail. (`workflows.test.tsx`)
 2. **Create** _(backend + FE)_ — `POST` validates each source is a query/workflow in
    the workspace (422) and names unique per workspace (409). (`test_workflows.py`)
-3. **Run → materialize** _(backend)_ — consolidates sources, applies **the workflow's own**
-   steps, writes TYPED parquet, captures `resolvedColumns` + `materializedAt`.
-   (`test_workflows_run.py`) — **but see § Known defect: a source query's steps are dropped.**
+3. **Run → materialize** _(backend)_ — consolidates each source **as that source returns it**
+   (its own steps applied — R168), applies **the workflow's own** steps over the union, writes
+   TYPED parquet, captures `resolvedColumns` + `materializedAt`. (`test_workflows_run.py`) —
+   **the source-steps half is R168's D1 repair; see § The noun, settled → § D1.**
 4. **Consolidation** _(backend)_ — ≥1 source stacked via union (self-consolidation
    doubles the row count). (`test_workflows_run.py`)
 5. **Output-as-source** _(backend)_ — a materialized `wf_` reads back as a source; an
@@ -182,28 +193,94 @@ deleted it** for exactly this reason: a Query's driving source and every join op
 **exactly one call site** — a Workflow supplying a driving source. Workflow's boundary is
 therefore visible in the call graph. Two consequences a reader should carry:
 
-- **`composition_cycle` is dormant, not retired.** It is unreachable only because a `wf_` source
-  is a **frozen leaf** — `_resolve_workflow_leaf` reads the already-materialized parquet and
-  never resolves that workflow's own definition, so a self-reference reads stale rows rather than
-  looping. **If a workflow source is ever resolved LIVE, cycles return and that guard is what
-  catches them.** Frozen-or-live is an open question for this noun.
+- **A workflow source resolves FROZEN — permanently** (ruled R168, § The noun, settled). A `wf_`
+  source is a leaf: `_resolve_workflow_leaf` reads the already-materialized parquet and never
+  resolves that workflow's own definition, so a self-reference reads stale rows rather than
+  looping.
 - **`composition_base_missing` is alive and is this domain's**: it is the un-run-workflow case.
 
-### Known defect: a source query's steps are dropped
+---
 
-`build_consolidated_relation` resolves each source and stacks it, but **never calls `run_steps`**
-([query_engine.py](../../../../workspace/apps/backend/app/query_engine.py)). So a Workflow
-consolidating a **shaped** query reads that query's **un-shaped** rows — and, because a run
-materializes, **freezes them to `output.parquet`**.
+## The noun, settled (R168)
 
-The same query answers differently depending on who asks: `GET /queries/{id}/rows` runs its steps,
-this path does not. Inherited as noun-model **D1**, which did not dissolve when composition
-retired — it **relocated** here, into a path that additionally persists the wrong answer.
+Three questions arrived at this round with a shipped consequence each. All three are answered
+here; the reasoning that produced them is in
+[`Round_168`](../../../plan/cycles/Round_168.md) § Do.
 
-**Deferred to the Workflow round by the human (2026-08-14)**, so the repair lands with the
-decision that governs what consolidation *means* rather than a round ahead of it. The dev seed
-carries a workflow that demonstrates it: its source query shows 4 shaped rows on its own detail
-page, the workflow's output has ~120 un-shaped ones.
+### 1. Consolidating a query means consolidating what it RETURNS
+
+**Ruled: yes.** A source contributes the rows and columns its own detail page shows — its steps
+included. The competing reading ("one shaping layer: the workflow shapes the source's raw rows")
+is not merely less attractive, it is **not self-consistent as shipped**:
+
+- **A `wf_` source already resolves to what it RETURNS.** `_resolve_workflow_leaf` reads
+  `output.parquet`, whose schema is `output_columns_json` — captured from the **post-step**
+  `final_cols`. So in a single `UNION ALL BY NAME`, a workflow source contributes shaped rows
+  while a query source contributes raw ones. Two source kinds, two contradictory readings, one
+  union.
+- **The builder already promises post-step columns.** `useSourceColumns` feeds the `StepsEditor`
+  a `qr_` source's `resolvedColumns`, which are the query's **post-step** output columns
+  (R120). `build_consolidated_relation` then validates the workflow's steps against the
+  **pre-step** space. The UI offers a column the run rejects — a workflow step over an aggregate
+  measure the builder listed fails at run with `step_invalid`.
+- **The program's thesis forbids it.** [Query as the single shaping
+  surface](../../../plan/programs/query-shaping-surface.plan.md): a path that reads a query's
+  un-shaped rows routes *around* the shaping surface.
+
+So **D1 is a bug**, not the definition (noun-model
+[`_noun-model.md`](../_noun-model.md)) — see § D1 below.
+
+### 2. A workflow source is resolved FROZEN
+
+**Ruled: frozen, and it is the noun's distinction.** Live resolution would collapse Query and
+Workflow into one live noun and delete the reason this one exists (§ Concept; noun-model **D3**).
+It would also pull an upstream-re-run/DAG concept the product does not have — Evolution Rule
+default = don't add.
+
+**Consequence: `composition_cycle` is retired, not dormant.** With the sources of a Query
+constrained to `ds_` (R167) and a `wf_` source a frozen leaf, no resolution path can revisit an
+id: `resolve_source`'s `visited` set can never see a repeat. The guard is **unreachable by
+construction**, not by accident, and the frozen ruling is what makes that permanent.
+
+### 3. What the noun is for, that a Query with `steps` is not
+
+Two things, and only two — both of which a Query genuinely cannot express:
+
+| | The Workflow does | A Query cannot |
+| --- | --- | --- |
+| **Consolidate** | `UNION ALL BY NAME` over ≥1 saved query | There is no `query ∪ query`; a Query has one driving source + join hops |
+| **Materialize** | freeze a typed parquet + captured schema, readable as a stable source | A Query is live-only — it stores a definition and re-runs |
+
+Its `steps` are **not** a third thing. They are the same step union, borrowed, and their
+justification is narrow: **post-union shaping** (consolidate twelve monthly queries, *then*
+total them). Shaping expressible on one source belongs upstream, in the Query.
+
+### D1 — the repair
+
+`build_consolidated_relation` resolves each source and stacks it, but **never applies that
+source's steps** ([query_engine.py](../../../../workspace/apps/backend/app/query_engine.py)) —
+and, because a run materializes, **freezes the un-shaped rows to `output.parquet`**. Inherited as
+noun-model **D1**, which did not dissolve when composition retired; it **relocated** here, into a
+path that additionally persists the wrong answer.
+
+**Reproduced from the dev DB, 2026-08-14** — the seeded demo still demonstrates it:
+
+| | Rows | Columns |
+| --- | ---: | --- |
+| Query `Revenue by order status` (one `aggregate` step) on its own detail page | 4 | `status`, the summed measure |
+| Workflow `Consolidated revenue by status` consolidating exactly that query | **120** | **the 9 raw order columns** |
+
+**The repair**: each source's resolved relation is folded through its **own** steps before it is
+stacked, and the consolidation's declared column space becomes the first source's **post-step**
+columns. `_apply_step` already folds SQL→SQL — both `run_steps` and `materialize_steps` do that
+fold and then execute — so the change is an extraction of that shared fold, not a new engine path.
+
+> **Current-state marker.** This section is the **ruling**, and the engine still carries the
+> defect until R168's B gate lands it. The behaviour above is what the code does today; the
+> ruling is what it must do. Remove this marker when the repair ships.
+>
+> **Existing materialized outputs go stale on the fix** — the definition does not change, the
+> engine does, so nothing invalidates them. In dev, `pnpm dev:seed --reset` regenerates.
 
 ---
 
