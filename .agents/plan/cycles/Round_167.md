@@ -1,6 +1,6 @@
 # Round 167: composition retired in the engine — and the bug that outlives it
 
-**Status**: In Progress — **D gate closed**; C (contract narrowing) next
+**Status**: In Progress — **D + C + B closed**; I (the human's acceptance walk) next
 **Flow**: **DCFBI** — set at the Design exit via `flow-selector` (0 of 5); recorded in the Do log
 **Date started**: 2026-08-14
 **Date completed**:
@@ -268,9 +268,118 @@ unaskable and the round would have to admit that its riskiest change was tested 
 - **T4 = "reads as a bug"** reopens the API-stance call — a `422` from a type may be technically
   right and humanly opaque.
 
+### C + B — what shipped (2026-08-14)
+
+**C — the wire refuses composition structurally.** `sourceId` and `rightSourceId` narrow to
+`^ds_…` across the contract, the Pydantic models and the FE types, so a `qr_` is a **422 from the
+model** rather than a guard three endpoints must remember. The polymorphic **`SourceId` alias is
+retired outright** — it had exactly four users, all query-side, and existed only to say _"a Query
+may read a Query"_. `WorkflowSourceId` survives untouched, which is finding A visible in the type
+system. `tests/test_composition.py` was **rewritten, not deleted**: three tests assert the refusal
+at the wire (including a `qr_` right with a **legal** `ds_` driving source — narrowing only
+`sourceId` would let that form through), three craft cycles at the DB layer to prove the dormant
+guard still fires.
+
+**B1 — the engine narrowing, made structural.** "Narrowed to Workflow's reader" had to mean
+something checkable, so `_resolve_dataset_leaf` was split out and the **join path points at it
+directly**. That leaves `resolve_source` reachable from **exactly one call site** — a driving
+source — and a driving source is polymorphic only when a Workflow supplies it. D2's set-overlap
+collapsed to a single-id membership test; **`cyclic_join` survives** as the self-join boundary.
+
+> **One behaviour change taken deliberately rather than patched around.** A DB-crafted `qr_` on a
+> hop's right is now `relationship_stale`, not `composition_cycle`. Routing hop rights back through
+> the polymorphic resolver would have preserved the old code — at the cost of undoing the narrowing
+> to protect a test. The new answer is more honest (the edge does not name a dataset; nothing can
+> recurse), and it **sharpens what "dormant" means**: the guard survives for a **driving** source —
+> Workflow's case, the one item 4 could reactivate — and is gone for right-of-hop, which can never
+> return because that operand is a `DsId` in the type system, not a policy.
+
+**B1 (FE)** — `joinGraph` loses `EffectiveLookup` / `ProvenanceOf` / `ColumnProvenance`, the
+`displayLeft` re-anchoring, `promotable` and the `derived` reason; `QueryCanvas` loses the `qr_`
+node kind, card, icon, `effectiveByQr`, `provenanceOf`, `unavailableOf` and the unavailable state.
+Two props collapse into one (`rootSourceId`) — they could only differ when a base was composed.
+**`query-provenance.test.ts` was deleted but not wholesale**: it held R93's draw-time **dtype
+guard** beside the provenance rewrite, and that guard is not retired, so its four tests moved to
+`query-canvas-connect.test.ts` rather than going down with the file they happened to share.
+
+**B2 — a workflow is seeded, and it earns its place twice.** Writing the walk questions at D
+surfaced that finding A had **nothing to hand-use**. The seed now creates and RUNS one workflow,
+pointed at a **shaped** query on purpose. Verified live, not asserted:
+
+| | Result |
+| --- | --- |
+| **Does Workflow still resolve after the narrowing?** | **Yes** — it runs and returns its table. Finding A's reader survived, on a runnable artifact. |
+| **Does its output match its source query?** | **No, by design** — the query shows **4 shaped rows** (`status, amount`); the workflow materializes **120 un-shaped order rows**. |
+
+**B3 — the incidental-order sweep** (R165's follow-up, deferred here by R166) ran over all 30
+backend test files by script, not by eye. **One survivor**, hardened. It also turned up something
+larger, **measured and NOT fixed** — see § The pager finding.
+
+**B4 — `_noun-model.md` D5 is CLOSED**, and the four docs whose code changed are code-true again
+(`queries.md`, `canvas.md`, `workflows.md`, `_noun-model.md`). `canvas.md`'s `qr_` section was
+replaced by an **inventory of what the symmetric canvas cost** — six pieces of machinery, all
+deleted — so a future "join anything to anything" proposal has to re-fund them knowingly.
+
+**Gates**: pytest **434** · contracts **40** · builder **363 / 25 files** · `tsc` clean ·
+`design:lint` 0/14 · `design:tokens` 0/11 · `md:lint` 0/311 · `check:links` at parity with the
+pre-round baseline. The **7 consumer files** (dashboard, workflows) verified untouched against the
+staged diff at each commit, not by eye.
+
+### The pager finding — measured, not fixed (human's call, 2026-08-14)
+
+The sweep found `query_dataset_rows` pages with `LIMIT/OFFSET` and **no `ORDER BY`** —
+structurally the same shape as R165's W-7 bug, which returned 33 of 96 rows twice and 33 never.
+
+**It does not reproduce.** Measured on 500k rows / 2048-row row groups / 8 threads, in the three
+shapes this path actually runs — bare scan, `WHERE` filter, and the `?q=` LIKE — every one
+returned **zero duplicates across 10 pages** and agreed with itself on a repeated page. The
+stepped path reshuffled because joins/aggregates/windows genuinely reorder under parallelism; a
+parquet scan preserves file order.
+
+So it is a **latent** risk (SQL guarantees nothing without `ORDER BY`) with no observed failure,
+and closing it means a sort on **every** dataset page read — on a 90k-row table, for a bug that
+has never fired. **Recorded rather than fixed**, so it is a decision with evidence rather than a
+silent widening of a composition-retirement round.
+
+### Not done, and stated rather than implied
+
+**The 14-doc `design-sync` is half done.** The four docs R167's code changed are synced; the other
+**eight are untouched**. R167 changed nothing they describe, so they are not made untrue by this
+round — but they carry **~286 round-stamps** (`upload.md` alone 166), which is the ledger accretion
+`design-sync` exists to strip. That is its own piece of work, raised for a scope call rather than
+absorbed here.
+
 ## Check
 
-_(empty — Planning)_
+**Gates are green and that settles nothing about finding A.** Every gate passed before the walk —
+pytest 434, contracts 40, builder 363, four linters — and the walk is 2-for-2 across R165/R166 on
+finding defects every green gate missed.
+
+**Acceptance walk — awaiting the human. `coverage: 0 of 5.`** Questions written at D
+([[walk-record-always-spec-on-ask]]); the seeded artifacts they act on are named below, because
+this round's questions need specific objects rather than any query.
+
+| #      | Question                                                                                                                                        | Act on                                                    | Verdict |
+| ------ | ----------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- | ------- |
+| **T1** | Open a saved query with **joins and steps** — same rows as before the round?                                                                    | `Monthly revenue by status` · `Customers with orders`      | ⬜      |
+| **T2** | Run the seeded **workflow**. Does it still resolve and produce its table — did narrowing the resolver leave Workflow's reader intact?           | `Consolidated revenue by status`                           | ⬜      |
+| **T3** | Go to a query's **Canvas** tab and look for any trace of a saved query as a source — a node, a column list, a stale label, a grouped picker.    | `Customers with orders` → Edit → Canvas                    | ⬜      |
+| **T4** | Ask the API to build a query on a query. Is the refusal legible, or does it read as a bug?                                                      | `POST` a `qr_` `sourceId` (curl)                           | ⬜      |
+| **T5** | Compare the workflow's output against its source query's own detail page. Do they match?                                                       | the workflow **vs** `Revenue by order status`              | ⬜      |
+
+**How each outcome is read** — decided in advance, so a result cannot be rationalised after it
+arrives:
+
+- **T2 = no is the round's falsification**, and it fires finding A directly: the resolver was
+  narrowed past Workflow's reader. Not a bug to patch at I — the narrowing gets re-cut.
+- **T5 is EXPECTED to say "no", and that is CORRECT.** The query shows **4 shaped rows**; the
+  workflow shows **~120 un-shaped** ones. That is the **deferred D1 trap**, seeded deliberately so
+  R168 argues from a screen rather than a paragraph. A "no" here is **evidence handed forward**,
+  not a defect in R167. If it unexpectedly says **yes**, something else already runs the steps and
+  D1's diagnosis is wrong — which R168 needs to know more than it needs a confirmation.
+- **T3 = "I found something"** means the removal list missed a site — a build defect, fixed in-round.
+- **T4 = "reads as a bug"** reopens the API-stance call: a `422` from a type can be technically
+  right and humanly opaque.
 
 ## Act
 
