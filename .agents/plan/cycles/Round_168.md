@@ -1,6 +1,6 @@
 # Round 168: what a Workflow is — and the bug that has been waiting for the answer
 
-**Status**: In Progress — opened 2026-08-14; **D gate closed 2026-08-14**, awaiting sign-off before C
+**Status**: In Progress — opened 2026-08-14; **D · C · B closed**; **I gate open**, walk staged (0 of 5)
 **Flow**: DCFBI (no-UI round — `flow-selector` at the Design exit, **0 of 5** conditions fired)
 **Date started**: 2026-08-14
 **Date completed**:
@@ -331,21 +331,124 @@ So the D gate decides the half that *is* decidable now, and it is the half the r
 
 **Track stays 1.** Nothing above is built; a destination is named and a trigger is set.
 
-### Next: C, then B — with the two slices kept apart
+### The build — 2026-08-14, and the human re-ordered it
 
-DCFBI. The C gate carries **only** the `composition_cycle` deletion (contract + both generated
-constant sets); B carries the **D1 repair** — extract the shared `_apply_step` fold so
-`build_consolidated_relation` can stack each source **post-steps**, with the consolidation's
-declared column space becoming the first source's post-step columns. Kept as separate commits so
-the cross-cutting sweep cannot take the repair down with it.
+**The human's call at the D gate: fix the bug FIRST, then sync the docs to it, then run the
+chain uninterrupted.** That inverts DCFBI's doc-then-code habit, and it is the better order here
+for a reason worth recording: the D-gate ruling had been written into `workflows.md` ahead of the
+code, carrying an explicit *current-state marker* saying so. A design doc describing behaviour the
+code does not have is the exact failure [[design-docs-are-source-code]] names, and a marker only
+narrates the risk rather than removing it. Fixing first makes the sync a **description** instead
+of a promise. The Q1 ruling was confirmed by that instruction rather than answered separately;
+the `composition_cycle` and stale-output calls both followed from it, with the human adding
+**"only seed data, just remove them all"**.
 
-**Open for the human before C** — see the sign-off note raised at this gate: the Q1 ruling, the
-delete-vs-reserve call on `composition_cycle`, and the stale-output stance (dev-only
-`--reset`, no migration).
+**C ran after B1, not before it.** The D1 repair touches no contract, and the only C work — the
+`composition_cycle` retirement — is independent of it. Recorded as a deliberate deviation rather
+than an oversight.
+
+#### B1 — the repair, and where it belongs
+
+The fix went into `resolve_source`'s `qr_` branch, **not** `build_consolidated_relation`. The
+round's plan named the latter, and the code argued for the former: that branch is Workflow's
+reader and nothing else's (R167), so repairing it there makes the resolver's own contract — *what
+the query returns* — true for every consumer, rather than patching one caller into agreement with
+it. Split out as `_resolve_query_source`, mirroring `_resolve_workflow_leaf`; the branch had grown
+past what a polymorphic dispatcher should hold.
+
+`build_steps_relation` is the SQL→SQL fold `run_steps` and `materialize_steps` each carried
+inline. A third repetition is what made extracting it right, not the extraction being tidy.
+
+A source query whose steps no longer validate is `query_stale` — drift, mapped by the consumer to
+409, not a 422 from a path with no request to blame.
+
+**Three tests, each asserting the RULING rather than the call site**, and all three verified
+failing against the pre-fix engine before being kept:
+
+| Test | What it pins |
+| ---- | ------------ |
+| `test_workflow_over_a_shaped_query_materializes_the_SHAPED_rows` | The workflow's rows **equal** the source query's own `/rows` — same total, same rows. |
+| `test_a_workflow_step_can_use_a_column_the_source_query_derived` | Finding 2, walked as a test: a workflow step over a column the source query DERIVED. The builder already offered it; the run used to refuse it with `step_invalid`. |
+| `test_consolidating_two_shaped_queries_unions_their_ANSWERS` | Self-consolidation doubles the **shaped** count, and the union carries the shaped column space. |
+
+#### C — the retirement, and a distinction the sweep produced
+
+The sweep found that **the error code and the guard are not the same thing**, which the round file
+had been treating as one decision. The code is retired across all six layers. The `visited` check
+is **kept**.
+
+Deleting the guard would not make a cycle impossible — it would make one **fatal**. The API cannot
+express a self-referencing query since R167, but the DB does not enforce that, and a hand-crafted
+row would recurse until the stack gives out. One set membership buys a refusal instead of a
+`RecursionError`. The guard now returns an internal `source_cycle` reason with no code of its own,
+which each consumer maps through its generic "this source can't resolve" fallback.
+
+**One correction to what the D gate wrote**: that fallback is *not* uniformly `query_stale`. It is
+`relationship_stale` on the queries rows path and `query_stale` on the workflow run path — the
+tests caught the over-claim. What the DB-crafted tests in `test_composition.py` now assert is
+**409 rather than 500**, which is the property actually worth holding.
+
+#### B2 — four docs, and only four
+
+`workflows.md` (marker removed; the ruling shipped), `queries.md` (its "dormant" claim was false
+in both halves), `_noun-model.md` (**D1 and D3 both CLOSED**), and `query-construction.md` — which
+carried a *"this base query loops back on itself"* builder warning that was **already doubly dead**
+before this round: R166 deleted create mode and R167 made a `qr_` base unwritable. The nine-doc
+`design-sync` backlog stays out, in [`Round_169`](Round_169.md).
+
+#### The seed — reset, per the human's call
+
+`pnpm dev:seed --light --reset`. Verified through the **running app**, not the test client:
+
+| | Before R168 | After |
+| --- | --- | --- |
+| `Revenue by order status` (the source query) | 4 rows × 2 cols | 4 rows × 2 cols |
+| `Consolidated revenue by status` (the workflow) | **120 rows × 9 raw cols** | **4 rows × 2 cols, values identical** |
+
+**Gates**: 437 backend · 363 builder · 40 contract · `type-check` clean · `md:lint` 0/313 ·
+`design:lint` 0/14 · `design:tokens` 0/11 · `check:links` at parity (24, all pre-existing in
+rounds 76–152).
+
+**One thing found while verifying, not fixed** — the workflow's rows come back in a **different
+order** than the source query's (`completed, refunded, cancelled, pending` vs alphabetical). The
+query rows path applies R165 W-7's deterministic total order; the workflow rows path reads the
+materialized parquet in file order. It is left for **T1** to judge rather than pre-fixed, because
+T1 asks whether anything makes you check which page you are on — and this is a candidate answer
+that should come from a human reading both pages, not from the agent that found it.
+
+### Next: the I gate — the walk is staged
+
+The stack is running (`:8000` / `:3000`) and freshly seeded. § Check carries T1–T5.
 
 ## Check
 
-_(empty — Planning)_
+### Acceptance walk — staged 2026-08-14, **coverage: 0 of 5**
+
+Written at the D gate before the build, and unchanged by it. R167's criterion holds throughout:
+**if a test can answer it, it is a test** ([[walk-record-always-spec-on-ask]]) — so none of these
+asks "do the rows match?", which is `test_workflows_run.py`.
+
+The app is running and seeded. The two nouns the walk turns on:
+
+- Query **`Revenue by order status`** — one `aggregate` step, 4 rows.
+- Workflow **`Consolidated revenue by status`** — consolidates exactly that query, no steps of
+  its own.
+
+| # | Verdict | The gesture, and the surface | How each outcome is read |
+| - | ------- | ---------------------------- | ------------------------ |
+| **T1** | ⬜ | Open the query, then the workflow, and **read the two pages one after the other**. | **Pass** = they read as the same table seen twice. **Fail** = anything makes you check which page you are on. _Known candidate: the row ORDER differs — the workflow reads its parquet in file order, the query applies R165 W-7's total order. Deliberately not pre-fixed._ |
+| **T2** | ⬜ | In the workflow builder, **add a step over a column the source query produced** (one the builder lists but the dataset does not have), Save, Run. | **Pass** = the step the builder offered is the step the run accepts. **Fail** = `step_invalid`, or the column is not offered. |
+| **T3** | ⬜ | Judge whether a workflow materialized under the **old** engine would have announced itself as stale. | **Pass** = it would be evident the output predates the fix. **Fail** = a stale output looks current. _The seed was reset per the human's call, so this is a judgement about the mechanism, not a state the walk can now reach._ |
+| **T4** | ⬜ | Edit the **source query's** steps, then return to the workflow **without touching it**. | **Pass** = the workflow makes its staleness legible. **Fail** = it presents a frozen output as current. `PUT` on the workflow invalidates; a change upstream does not. |
+| **T5** | ⬜ | With the round's changes in, **say what a Workflow is for** while looking at the catalog. | **Pass** = "consolidate + freeze" is what the surface says. **Fail** = it still reads as "a Query, but saved differently" — Q3 written in a doc and nowhere a user can see. |
+
+**T3 and T4 are the two the D gate was least sure of, and both are states the repair creates or
+exposes rather than fixes.** They are on the walk for that reason, not despite it.
+
+**T3 changed shape when the seed was reset.** The human's "just remove them all" was the right
+call for dev data and it costs T3 its live state — a stale-output workflow no longer exists to
+open. It stays on the walk as a judgement about whether the mechanism *would* announce itself,
+which is weaker evidence than a surface, and is recorded as weaker rather than quietly dropped.
 
 ## Act
 
