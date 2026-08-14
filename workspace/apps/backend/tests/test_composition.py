@@ -10,21 +10,27 @@ rather than a guard some endpoint remembers to run. That is why the tests below 
 the SHAPE being rejected and not on a hand-written branch — there is no branch left to
 regress.
 
-**The DB-crafted tests are not vestigial.** The ``composition_cycle`` guard is DORMANT,
-not dead (R167 D gate, human's call): it is unreachable through the API only because a
-Query's operands are datasets and a Workflow's ``wf_`` source is a frozen LEAF. If the
-Workflow noun ever resolves a source LIVE (item 4), cycles return and this guard is what
-catches them. So those tests craft their state at the DB layer — the API cannot express it
-any more — and prove the guard still fires. Without them it reads as dead code, gets
-deleted, and the next round that needs it re-derives it from scratch.
+**R168 retired the ``composition_cycle`` ERROR CODE — and kept the GUARD.** R167 left the
+code dormant against one open question: whether a Workflow source resolves LIVE, the only
+way cycles could return. R168 ruled it FROZEN for good, so the reactivating condition can
+never fire and the wire stopped advertising an error no request can provoke.
 
-**Dormancy is not uniform, which the last test pins down.** The guard survives for the
-DRIVING source (Workflow's case — the one item 4 could reactivate) and is GONE for the
-right-of-hop case: R167 resolves a hop's right through ``_resolve_dataset_leaf``
-directly, so that path never reaches the composition machinery and a crafted ``qr_``
-there is `relationship_stale` — truthfully "this edge does not name a dataset" — rather
-than a cycle that cannot happen. That half can never come back: a hop's right is a
-``DsId`` in the type system, not a policy someone could relax.
+**The DB-crafted tests below are what survived that, and they are not vestigial.**
+Deleting the guard would not make a cycle impossible — it would make one FATAL. The API
+cannot express a self-referencing query since R167, but the DB does not know that, and a
+crafted row would recurse until the stack gives out. So these tests craft the state at the
+DB layer and prove the guard still returns a REFUSAL rather than a stack overflow. The
+internal ``source_cycle`` reason has no dedicated code any more, so each consumer maps it
+through its own generic "this source can't resolve" fallback — ``relationship_stale`` on
+the queries rows path, ``query_stale`` on the workflow run path. Which code it is matters
+far less than that there IS one: the assertion worth keeping is 409, not 500.
+
+**The guard is not uniform, which the last test pins down.** It covers the DRIVING source
+and is GONE for the right-of-hop case: R167 resolves a hop's right through
+``_resolve_dataset_leaf`` directly, so that path never reaches the composition machinery
+and a crafted ``qr_`` there is `relationship_stale` — truthfully "this edge does not name
+a dataset". That half can never come back: a hop's right is a ``DsId`` in the type system,
+not a policy someone could relax.
 
 Seeds a workspace with two CSVs (both sample.csv: id,name,amount,signed_up; ids 1/2/3).
 """
@@ -147,15 +153,16 @@ def test_preview_refuses_a_composed_source_too() -> None:
         assert resp.status_code == 422, resp.text
 
 
-# ── The DORMANT guard — kept under test so it is not mistaken for dead code ──────
+# ── The guard — kept under test so it is not mistaken for dead code ─────────────
 
 
 @pytest.mark.unit
-def test_dormant_cycle_guard_still_fires_on_a_direct_self_reference() -> None:
-    """A query whose source is ITSELF is blocked on run with 409 composition_cycle
-    rather than recursing forever. Unreachable through the API since R167 (the
-    pattern refuses it), so it is crafted at the DB layer — the guard is retained
-    for a live-resolving Workflow source (item 4), not deleted as unreachable."""
+def test_cycle_guard_still_fires_on_a_direct_self_reference() -> None:
+    """A query whose source is ITSELF is REFUSED on run (409) rather than recursing
+    forever. Unreachable through the API since R167 (the pattern refuses it), so it is
+    crafted at the DB layer. R168 — the refusal carries this path's generic drift code
+    rather than a dedicated one: what matters is that the guard turns a stack overflow
+    into an answer."""
     with TestClient(app) as client:
         ws, deals, _accounts = _seed(client)
         aid = _plain_query(client, ws, name="A", dataset_id=deals).json()["id"]
@@ -166,11 +173,11 @@ def test_dormant_cycle_guard_still_fires_on_a_direct_self_reference() -> None:
         run = client.get(f"/queries/{aid}/rows")
 
         assert run.status_code == 409, run.text
-        assert run.json()["code"] == "composition_cycle"
+        assert run.json()["code"] == "relationship_stale"
 
 
 @pytest.mark.unit
-def test_dormant_cycle_guard_still_fires_on_a_transitive_loop() -> None:
+def test_cycle_guard_still_fires_on_a_transitive_loop() -> None:
     """A → B → A is blocked on run. Both legs are crafted at the DB layer now: since
     R167 neither can be created through the API, which is the point."""
     with TestClient(app) as client:
@@ -185,23 +192,23 @@ def test_dormant_cycle_guard_still_fires_on_a_transitive_loop() -> None:
         run = client.get(f"/queries/{aid}/rows")
 
         assert run.status_code == 409, run.text
-        assert run.json()["code"] == "composition_cycle"
+        assert run.json()["code"] == "relationship_stale"
 
 
 @pytest.mark.unit
 def test_a_crafted_query_on_the_right_is_stale_not_a_cycle() -> None:
-    """A crafted `qr_` on a hop's RIGHT is now `relationship_stale`, NOT
-    `composition_cycle` — and that is the correct answer, not a regression.
+    """A crafted `qr_` on a hop's RIGHT is `relationship_stale`, NOT a cycle — and
+    that is the correct answer, not a regression.
 
     R167 resolves a hop's right through `_resolve_dataset_leaf` directly, so the join
     path never reaches the composition machinery: a `qr_` there is simply not a
     dataset, the edge cannot be used, and nothing can recurse. Flag-don't-crash still
     holds (409, a guided state), the reason is just truthful about what is wrong.
 
-    **This sharpens what "dormant" means.** The cycle guard survives for the DRIVING
-    source — the case a live-resolving Workflow could reactivate (item 4) — and is
-    gone for the right-of-hop case, which can never return: a hop's right is a `DsId`
-    in the type system now, not a policy someone could relax."""
+    **This sharpens where the guard applies.** It covers the DRIVING source, where a
+    crafted row could otherwise recurse, and is absent for the right-of-hop case,
+    which can never need it: a hop's right is a `DsId` in the type system now, not a
+    policy someone could relax."""
     import json
 
     with TestClient(app) as client:

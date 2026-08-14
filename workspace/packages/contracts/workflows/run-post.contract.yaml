@@ -37,14 +37,11 @@ paths:
           description: |
             The workflow can't run against current data — one of:
             - `query_stale` — the source query drifted (a filtered/derived column
-              was removed or retyped), or a workflow step no longer validates.
-            - `composition_cycle` — the source query composes back onto itself.
+              was removed or retyped), a workflow step no longer validates, or the
+              source can no longer resolve at all.
           content:
             application/json:
               schema:
-                oneOf:
-                  - $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorQueryStale"
-                  - $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorCompositionCycle"
+                $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorQueryStale"
               examples:
                 source_stale: { summary: The source query drifted, value: { code: "query_stale" } }
-                cycle: { summary: The source query cycles, value: { code: "composition_cycle" } }

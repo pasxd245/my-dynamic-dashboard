@@ -946,7 +946,6 @@
       "neverRunTitle": "Not run yet",
       "neverRunHint": "Run the workflow to materialize its output, then view it here.",
       "runSuccess": "Workflow materialized",
-      "runCycle": "Can't run — a source composes back onto itself.",
       "runStale": "Can't run — a source query drifted or hasn't been run yet.",
       "runStepInvalid": "Can’t run — a transform step can’t run on the columns available where it sits.",
       "runFailed": "Couldn't run the workflow. Please try again.",

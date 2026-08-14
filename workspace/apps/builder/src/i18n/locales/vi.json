@@ -946,7 +946,6 @@
       "neverRunTitle": "Chưa chạy",
       "neverRunHint": "Chạy quy trình để tạo kết quả, rồi xem tại đây.",
       "runSuccess": "Đã chạy quy trình và lưu kết quả",
-      "runCycle": "Không chạy được — một nguồn tự tham chiếu vòng lại chính nó.",
       "runStale": "Không chạy được — một truy vấn nguồn đã thay đổi hoặc chưa được chạy.",
       "runStepInvalid": "Không chạy được — một bước biến đổi không dùng được các cột có ở vị trí đó.",
       "runFailed": "Không chạy được quy trình. Vui lòng thử lại.",

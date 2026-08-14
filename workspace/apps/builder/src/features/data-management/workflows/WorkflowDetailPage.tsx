@@ -2,8 +2,9 @@
 // /data-management/workflows/:id. Shows the definition summary + a [Run] that
 // MATERIALIZES the output, then pages the frozen result via <PagedRowsView>
 // (the same shell query/dataset detail use). No live preview — Run is explicit
-// (the frozen-output model). 409 query_stale / composition_cycle surface as a
-// re-run-blocked message (a source drifted or wasn't run yet).
+// (the frozen-output model). 409 query_stale surfaces as a re-run-blocked
+// message (a source drifted, wasn't run yet, or can no longer resolve).
+// R168 retired `composition_cycle` — no request can provoke it any more.
 
 import { ArrowLeftOutlined, PartitionOutlined, PlayCircleOutlined, WarningOutlined } from '@ant-design/icons';
 import { PageCard, PageContainer, PageHeader } from '@mdd/ui';
@@ -122,9 +123,7 @@ export function WorkflowDetailPage() {
     runMutation.mutate(workflow.id, {
       onSuccess: () => message.success(t('workflows.detail.runSuccess')),
       onError: (err) => {
-        if (err instanceof ApiErrorThrown && err.body.code === 'composition_cycle') {
-          message.error(t('workflows.detail.runCycle'));
-        } else if (err instanceof ApiErrorThrown && err.body.code === 'step_invalid') {
+        if (err instanceof ApiErrorThrown && err.body.code === 'step_invalid') {
           // R165 W-8 — the STEPS are the problem, not a source. Saying "a source
           // query drifted" here sent the user to the wrong place entirely.
           message.error(t('workflows.detail.runStepInvalid'));

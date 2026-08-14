@@ -14,7 +14,6 @@ export type ApiError =
   | { code: 'step_invalid' } // R165 — a transform STEP can't run on the columns at its position
   | { code: 'relationship_exists' } // R70 — duplicate governed edge (workspace + column pair)
   | { code: 'relationship_stale' } // R71 — join over an edge whose key column drifted
-  | { code: 'composition_cycle' } // R76 — Query × Query composition would loop (transitive self-reference)
   | { code: 'slug_taken' } // R101 — dashboard slug collides within its workspace
   | {
       // R143 — commit-time dtype cast failed (batch aborted; first-5 cells)
@@ -61,7 +60,6 @@ export function isApiError(body: unknown): body is ApiError {
     code === ERROR_CODES.STEP_INVALID ||
     code === ERROR_CODES.RELATIONSHIP_EXISTS ||
     code === ERROR_CODES.RELATIONSHIP_STALE ||
-    code === ERROR_CODES.COMPOSITION_CYCLE ||
     code === ERROR_CODES.SLUG_TAKEN ||
     code === ERROR_CODES.COERCION_FAILED ||
     code === ERROR_CODES.MERGE_DUPLICATE_KEYS ||

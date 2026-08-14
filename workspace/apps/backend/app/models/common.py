@@ -773,17 +773,6 @@ class ApiErrorRelationshipStale(BaseModel):
     code: Literal["relationship_stale"] = ERROR_CODES["relationship_stale"]  # type: ignore[assignment]
 
 
-class ApiErrorCompositionCycle(BaseModel):
-    """R76 — a Query × Query composition would loop: the driving source (`sourceId`)
-    is, directly or transitively, the query itself. Blocks the save (save-time guard)
-    and the run (409) instead of recursing forever. The composition analogue of
-    `cyclic_join` (which guards dataset re-entry within one join tree)."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    code: Literal["composition_cycle"] = ERROR_CODES["composition_cycle"]  # type: ignore[assignment]
-
-
 # ─── R101: Dashboard (persisted noun) ────────────────────────────────
 # Mirrors packages/contracts/_shared/dashboard.yaml + dashboards/*. A Dashboard
 # is workspace-scoped; its widgets live in an embedded-JSON `definition` (no

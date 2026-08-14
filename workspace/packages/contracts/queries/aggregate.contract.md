@@ -29,7 +29,7 @@ is a GROUP BY projection over the existing relation — DuckDB, not a new engine
   column names (`dimensionCol` / `measureCol`), so `dimensions[]` and
   `measures[].col` are names — unlike a `FilterAtom`'s 0-based `col` index.
 - **Errors mirror the saved run** verbatim — `404` absent query; `409`
-  `query_stale` / `relationship_stale` / `composition_cycle` for drift; `422`
+  `query_stale` / `relationship_stale` for drift; `422`
   for a bad aggregate spec (unknown column, `sum` without a numeric `col`, a
   `count` carrying one). It resolves the plan with the SAME engine as
   `GET /queries/{id}/rows`, so drift is detected identically.

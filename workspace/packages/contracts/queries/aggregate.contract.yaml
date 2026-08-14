@@ -22,7 +22,7 @@ info:
     (`GET /queries/{id}/rows`), then composes a GROUP BY over the resulting
     relation. Drift semantics are inherited verbatim: a drifted predicate
     atom → 409 `query_stale`; a drifted join key → 409 `relationship_stale`;
-    a composition loop → 409 `composition_cycle`; an absent query → 404.
+    an absent query → 404.
 
     `filters` carries the runtime dashboard filters (R103) — a categorical
     one-of per column, BY effective-column NAME — pushed server-side so an
@@ -150,23 +150,19 @@ paths:
         "409":
           description: |
             The saved query can't execute against current data —
-            `query_stale` (a predicate atom drifted), `relationship_stale`
-            (a join key drifted) or `composition_cycle` (a composed base
-            loops back). Mirrors `GET /queries/{id}/rows` exactly.
+            `query_stale` (a predicate atom drifted) or `relationship_stale`
+            (a join key drifted). Mirrors `GET /queries/{id}/rows` exactly.
           content:
             application/json:
               schema:
                 oneOf:
                   - $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorQueryStale"
                   - $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorRelationshipStale"
-                  - $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorCompositionCycle"
               examples:
                 predicate_stale:
                   value: { "code": "query_stale" }
                 join_key_stale:
                   value: { "code": "relationship_stale" }
-                composed_loop:
-                  value: { "code": "composition_cycle" }
         "422":
           description: |
             The aggregate spec is structurally invalid against the query's

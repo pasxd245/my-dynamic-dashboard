@@ -85,7 +85,7 @@ export const queriesApi = {
   /** R119 — POST /queries/{id}/aggregate — server-side GROUP BY over a saved
    *  query (the dashboard aggregate path). Returns grouped rows + output columns,
    *  computed over the whole result (no row cap). 404 / 409 query_stale /
-   *  relationship_stale / composition_cycle (all throw ApiErrorThrown); 422 on a
+   *  relationship_stale (all throw ApiErrorThrown); 422 on a
    *  bad aggregate spec. */
   async aggregate(id: string, body: AggregateRequest): Promise<AggregateResult> {
     const resp = await fetch(`${API_BASE_URL}/queries/${id}/aggregate`, {

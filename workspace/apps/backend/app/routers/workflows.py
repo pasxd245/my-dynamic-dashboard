@@ -31,7 +31,6 @@ from app._generated.constants import DASHBOARD_MAX_ROWS, ID_PATTERNS, PAGE_SIZES
 from app.db import get_conn
 from app.ingest.rows_reader import materialize_steps, query_dataset_rows
 from app.models.common import (
-    ApiErrorCompositionCycle,
     ApiErrorNameTaken,
     ApiErrorNotFound,
     ApiErrorQueryStale,
@@ -215,8 +214,6 @@ def run_workflow(id: WfIdPath) -> JSONResponse:  # noqa: A002
         steps = definition.get("steps") or []
         consolidated, reason = build_consolidated_relation(con, sources, workspace_id)
 
-    if reason == "composition_cycle":
-        return JSONResponse(status_code=status.HTTP_409_CONFLICT, content=ApiErrorCompositionCycle().model_dump())
     if reason is not None:
         # A source query/workflow deleted / drifted / not-yet-run → can't run.
         return JSONResponse(status_code=status.HTTP_409_CONFLICT, content=ApiErrorQueryStale().model_dump())

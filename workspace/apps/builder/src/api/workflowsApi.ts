@@ -17,7 +17,7 @@ async function readJson<T>(resp: Response): Promise<T> {
 }
 
 /** Parse a 4xx body as `ApiError` when shaped that way; otherwise a generic
- *  Error. `query_stale`/`composition_cycle` (409) and `not_found` (404) all
+ *  Error. `query_stale` (409) and `not_found` (404) all
  *  surface here as `ApiErrorThrown`, so callers branch on `err.body.code`. */
 async function throwApiError(resp: Response): Promise<never> {
   let parsed: unknown = null;
@@ -58,7 +58,7 @@ export const workflowsApi = {
   /** POST /workflows/{id}/run — MATERIALIZE: resolve + consolidate the sources,
    *  apply steps, write the frozen output. Returns the workflow with
    *  `resolvedColumns` + `materializedAt` populated. 404 / 409 query_stale /
-   *  composition_cycle (all throw ApiErrorThrown). */
+   *  step_invalid (all throw ApiErrorThrown). */
   async run(id: string): Promise<Workflow> {
     const resp = await fetch(`${API_BASE_URL}/workflows/${id}/run`, { method: 'POST' });
     return readJson<Workflow>(resp);

@@ -32,7 +32,6 @@ from app.ingest.filters import build_definition_predicates
 from app.ingest.rows_reader import query_aggregate_rows, query_dataset_rows
 from app.models.common import (
     AggregateBody,
-    ApiErrorCompositionCycle,
     ApiErrorNameTaken,
     ApiErrorNotFound,
     ApiErrorQueryStale,
@@ -99,18 +98,15 @@ def create_query(id: WsIdPath, body: CreateQueryBody) -> JSONResponse:  # noqa: 
     per workspace."""
     definition_dict = body.definition.model_dump()
     chain = _chain_of(definition_dict)
-    # R79 — the driving source is the single, canonical `sourceId` (a `ds_` dataset
-    # or a `qr_` composed base).
+    # R79 — the driving source is the single, canonical `sourceId`; R167 narrowed it
+    # to a `ds_` dataset.
     source_id = body.sourceId
-    # R71/R73/R76 — a joined OR composed query's atoms index the EFFECTIVE space;
-    # the driving source + every hop must resolve at save time (resolve_source
-    # checks the base dataset/query exists + is in-workspace). A cycle (a query
-    # built transitively on itself) is rejected as composition_cycle. A bare
-    # single-dataset query validates against its one dataset's columns.
+    # R71/R73 — a joined query's atoms index the EFFECTIVE space; the driving source
+    # + every hop must resolve at save time (resolve_source checks the dataset exists
+    # + is in-workspace). A bare single-dataset query validates against its one
+    # dataset's columns.
     with get_conn() as con:
         plan, reason = _resolve_plan(con, source_id, chain, _rels_of(definition_dict), id)
-    if reason == "composition_cycle":
-        return JSONResponse(status_code=status.HTTP_409_CONFLICT, content=ApiErrorCompositionCycle().model_dump())
     if reason == "source_missing":
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -217,10 +213,8 @@ def run_query(  # noqa: A002
 
     # Gather the run plan under the sqlite connection; execute the (duckdb) read
     # after it closes — the existing single-source discipline, extended for join.
-    # R71/R73/R76 — a joined OR composed run resolves the driving source + every
-    # hop with valid keys; a drift BLOCKS the run (409 relationship_stale), and a
-    # base that loops back → 409 composition_cycle — never silently wrong, never an
-    # infinite recursion.
+    # R71/R73 — a joined run resolves the driving source + every hop with valid
+    # keys; a drift BLOCKS the run (409 relationship_stale) — never silently wrong.
     with get_conn() as con:
         qrow = con.execute(_SELECT_QUERY, (id,)).fetchone()
         if qrow is None:
@@ -229,8 +223,6 @@ def run_query(  # noqa: A002
         chain = _chain_of(definition)
         plan, reason = _resolve_plan(con, qrow["source_id"], chain, _rels_of(definition), qrow["workspace_id"])
 
-    if reason == "composition_cycle":
-        return JSONResponse(status_code=status.HTTP_409_CONFLICT, content=ApiErrorCompositionCycle().model_dump())
     if reason == "source_missing":
         # Defensive: the app-level cascade (R79) removes queries when their source
         # dataset is deleted, so this is a belt-and-braces 404.
@@ -299,8 +291,7 @@ def aggregate_query(id: QueryIdPath, body: AggregateBody) -> JSONResponse:  # no
 
     Resolves the saved query's plan with the SAME engine as the run path
     (driving source + joins + its OWN definition filters), so drift semantics
-    are inherited verbatim: 404 absent · 409 composition_cycle /
-    relationship_stale / query_stale. The aggregate spec is re-validated against
+    are inherited verbatim: 404 absent · 409 relationship_stale / query_stale. The aggregate spec is re-validated against
     the EFFECTIVE columns (422). ``filters`` are the runtime dashboard filters
     (R103), pushed server-side as a name-based one-of so an aggregated widget
     honours an active filter; a filter on a column this query lacks is skipped
@@ -313,8 +304,6 @@ def aggregate_query(id: QueryIdPath, body: AggregateBody) -> JSONResponse:  # no
         chain = _chain_of(definition)
         plan, reason = _resolve_plan(con, qrow["source_id"], chain, _rels_of(definition), qrow["workspace_id"])
 
-    if reason == "composition_cycle":
-        return JSONResponse(status_code=status.HTTP_409_CONFLICT, content=ApiErrorCompositionCycle().model_dump())
     if reason == "source_missing":
         return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=ApiErrorNotFound().model_dump())
     if reason is not None:
@@ -374,8 +363,6 @@ def preview_query(  # noqa: A002
     with get_conn() as con:
         plan, reason = _resolve_plan(con, source_id, chain, _rels_of(definition), id)
 
-    if reason == "composition_cycle":
-        return JSONResponse(status_code=status.HTTP_409_CONFLICT, content=ApiErrorCompositionCycle().model_dump())
     if reason == "relationship_stale":
         return JSONResponse(status_code=status.HTTP_409_CONFLICT, content=ApiErrorRelationshipStale().model_dump())
     if reason == "source_missing":
@@ -469,8 +456,6 @@ def update_query(id: QueryIdPath, body: UpdateQueryBody) -> JSONResponse:  # noq
         # composed query keeps its `qr_` base, a dataset-rooted one its `ds_`.
         plan, reason = _resolve_plan(con, qrow["source_id"], chain, _rels_of(definition), qrow["workspace_id"])
 
-    if reason == "composition_cycle":
-        return JSONResponse(status_code=status.HTTP_409_CONFLICT, content=ApiErrorCompositionCycle().model_dump())
     if reason == "source_missing":
         return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=ApiErrorNotFound().model_dump())
     if reason is not None:

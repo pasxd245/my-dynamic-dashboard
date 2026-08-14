@@ -28,7 +28,7 @@ components:
   schemas:
     ApiErrorCode:
       type: string
-      enum: [not_found, name_taken, slug_taken, non_empty, query_stale, step_invalid, relationship_exists, relationship_stale, composition_cycle, coercion_failed, merge_duplicate_keys, unknown_column, no_visible_columns]
+      enum: [not_found, name_taken, slug_taken, non_empty, query_stale, step_invalid, relationship_exists, relationship_stale, coercion_failed, merge_duplicate_keys, unknown_column, no_visible_columns]
       description: |
         Closed enum. Any new error class lands as a new code in a future
         round + contract update — never as a free-text message.
@@ -170,40 +170,6 @@ components:
             Distinct from `query_stale` (a *predicate* atom drifted): this is
             the *join key* drifting. The FE renders the "join unavailable"
             state and points the user at the workspace Relationships view.
-
-    ApiErrorCompositionCycle:
-      type: object
-      required: [code]
-      additionalProperties: false
-      properties:
-        code:
-          type: string
-          enum: [composition_cycle]
-          description: |
-            **DORMANT since R167 — retained, not deprecated.** A source would form a
-            cycle by re-entering its own resolution path. It guarded `query × query`
-            composition (R76): a query whose driving source was, directly or
-            transitively, itself.
-
-            **Why it is currently unreachable.** R167 narrowed a Query's `sourceId`
-            and every join operand to `ds_`, so resolving a query never recurses into
-            a second query; a Workflow's `wf_` source is a LEAF (it reads the
-            already-materialized parquet and never resolves that workflow's own
-            definition, so a self-reference reads stale rows rather than looping); and
-            the resolver's `visited` set is seeded fresh per source, so even a
-            workflow consolidating the same query twice cannot cycle.
-
-            **Why it is KEPT rather than removed.** That unreachability rests entirely
-            on workflow-source resolution being **frozen** rather than **live** — which
-            is an open question for the Workflow noun, not a settled fact. If a
-            workflow source is ever resolved live, cycles become possible again and
-            this is exactly the code for them. Deleting it now would mean deleting a
-            guard and re-deriving it a round later. **Reactivating condition**: a
-            recursively-resolved source of any kind. Revisit when the Workflow noun is
-            settled; until then no endpoint can emit it, and the guard costs nothing.
-
-            The dataset analogue, `cyclic_join`, is NOT dormant — it remains the
-            self-join boundary for a dataset already in one tree.
 
     CoercionFailedCell:
       type: object
@@ -351,7 +317,6 @@ components:
         - $ref: '#/components/schemas/ApiErrorStepInvalid'
         - $ref: '#/components/schemas/ApiErrorRelationshipExists'
         - $ref: '#/components/schemas/ApiErrorRelationshipStale'
-        - $ref: '#/components/schemas/ApiErrorCompositionCycle'
         - $ref: '#/components/schemas/ApiErrorCoercionFailed'
         - $ref: '#/components/schemas/ApiErrorMergeDuplicateKeys'
         - $ref: '#/components/schemas/ApiErrorUnknownColumn'
@@ -367,7 +332,6 @@ components:
           step_invalid: '#/components/schemas/ApiErrorStepInvalid'
           relationship_exists: '#/components/schemas/ApiErrorRelationshipExists'
           relationship_stale: '#/components/schemas/ApiErrorRelationshipStale'
-          composition_cycle: '#/components/schemas/ApiErrorCompositionCycle'
           coercion_failed: '#/components/schemas/ApiErrorCoercionFailed'
           merge_duplicate_keys: '#/components/schemas/ApiErrorMergeDuplicateKeys'
           unknown_column: '#/components/schemas/ApiErrorUnknownColumn'

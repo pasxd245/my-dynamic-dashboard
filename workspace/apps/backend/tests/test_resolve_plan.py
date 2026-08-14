@@ -103,9 +103,13 @@ def test_composed_query_source_routes_to_the_join_branch() -> None:
 
 
 @pytest.mark.unit
-def test_composition_cycle_surfaces_as_reason() -> None:
-    """A query whose definition composes on ITSELF resolves to the
-    ``composition_cycle`` reason (the chain's cycle guard, surfaced unmapped)."""
+def test_a_self_referencing_source_surfaces_as_a_reason_not_a_crash() -> None:
+    """A query whose persisted source is ITSELF resolves to the ``source_cycle``
+    reason — the guard, surfaced unmapped.
+
+    R168 retired the ``composition_cycle`` WIRE CODE (no request can provoke it) but
+    kept the guard, because without it this crafted state recurses until the stack
+    gives out. The reason is now internal and consumers map it to ``query_stale``."""
     with TestClient(app) as client:
         ws, ds_id = _commit_csv(client)
         q = client.post(
@@ -122,4 +126,4 @@ def test_composition_cycle_surfaces_as_reason() -> None:
         plan, reason = _resolve_plan(con, qid, [], {}, ws)
 
     assert plan is None
-    assert reason == "composition_cycle"
+    assert reason == "source_cycle"

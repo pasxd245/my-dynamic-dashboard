@@ -110,10 +110,19 @@ def resolve_source(
     operand are ``ds_`` since R167, so the only way in is a Workflow supplying the
     driving source.
 
-    The ``visited`` cycle guard is retained as a **structural invariant**, not as a
-    reachable path: R168 ruled a workflow source FROZEN for good, so with `ds_`-only
-    query sources no resolution can revisit an id. It costs one set membership and it
-    is what would catch a cycle if that ever stopped being true."""
+    **The ``composition_cycle`` ERROR CODE is retired (R168); the GUARD is not.** They
+    are different things, and R168 separated them. The code is gone from the wire
+    because no request can provoke it: R168 ruled a workflow source FROZEN for good —
+    the condition R167 named as the only way to reactivate it — and with `ds_`-only
+    query sources no resolution can revisit an id. Advertising an error the API cannot
+    return is the untruth that was worth removing.
+
+    The ``visited`` guard stays, because deleting it does not make a cycle impossible,
+    it makes one **fatal**: a hand-crafted DB row (a query whose `source_id` is itself
+    — unreachable through the API since R167, but the DB does not know that) would
+    recurse until the stack gives out. One set membership buys a refusal instead of a
+    `RecursionError`; each consumer maps it through its own generic "this source can't
+    resolve" fallback. See ``tests/test_composition.py``."""
     if source_id.startswith("qr_"):
         return _resolve_query_source(con, source_id, workspace_id, visited)
 
@@ -139,7 +148,10 @@ def _resolve_query_source(
 
     Its one caller is Workflow's consolidation ([[query-shaping-surface]] item 4)."""
     if source_id in visited:
-        return None, "composition_cycle"
+        # R168 — an internal reason, no longer a wire code. Consumers have no
+        # `composition_cycle` branch left, so it falls through to their generic
+        # "this source can't resolve" mapping (a 409 either way).
+        return None, "source_cycle"
     qrow = con.execute(_SELECT_QUERY, (source_id,)).fetchone()
     if qrow is None or qrow["workspace_id"] != workspace_id:
         return None, "composition_base_missing"
@@ -220,8 +232,8 @@ def _resolve_chain(
 ) -> tuple[dict | None, str | None]:
     """Resolve a join GRAPH (driving source + hops) against current schemas.
     Returns ``(payload, None)`` when runnable, else ``(None, reason)`` — callers map
-    the reason to their status (create/update → 422 / 409 composition_cycle; run →
-    409 relationship_stale / composition_cycle). R71's single join is length-1.
+    the reason to their status (create/update → 422; run → 409 relationship_stale /
+    query_stale). R71's single join is length-1.
 
     The DRIVING source (``T0``) is a Dataset for a QUERY (R167). It stays polymorphic
     in the signature because ``build_consolidated_relation`` reuses this path to
@@ -401,7 +413,7 @@ def _resolve_plan(
     - **multi-source** (composed ``qr_`` base or ≥1 join hop) → delegates to
       ``_resolve_chain``; ``plan = {"kind": "join", "payload": …, "columns":
       payload["effective"]}``; ``reason`` is the chain's failure reason
-      (``composition_cycle`` / ``relationship_stale`` / ``unknown_relationship`` …).
+      (``relationship_stale`` / ``unknown_relationship`` / ``source_cycle`` …).
     - **single dataset** → ``plan = {"kind": "single", "ds": <row>, "columns":
       <columns_meta>}``; an absent OR cross-workspace dataset → reason
       ``"source_missing"`` (callers map it to 404 or 422 per their contract).
