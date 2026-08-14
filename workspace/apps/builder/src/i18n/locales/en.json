@@ -772,10 +772,8 @@
       "canvasHelpAddSource": "“Add a source” brings in another dataset or saved query to draw to.",
       "canvasHelpEdges": "Click a join to promote, re-sync, or remove it.",
       "canvasNodeTypeDataset": "Dataset",
-      "canvasNodeTypeQuery": "Query",
       "canvasColumnsMore": "+ {{count}} more",
       "canvasColumnsFewer": "Show fewer",
-      "canvasQueryUnavailable": "This query can't be resolved — it may have been deleted or its base loops back.",
       "canvasConnectHint": "Click a column on a joined node, then a matching column on \"{{name}}\" — or pick a pair below.",
       "canvasConnectHintTarget": "Now click a matching column on \"{{name}}\" to connect.",
       "canvasConnectLabel": "Connect via",
@@ -828,7 +826,6 @@
       "canvasConnect_self": "Pick two different columns to join.",
       "canvasConnect_cyclic": "Those sources are already joined — drag to a source that isn’t on the canvas yet.",
       "canvasConnect_disconnected": "Start the join from a source already in the graph.",
-      "canvasConnect_derived": "That column is computed from more than one source, so it can’t anchor a join. Draw from a column that maps to a single source.",
       "canvasConnect_dtype_mismatch": "Those columns have different data types, so they can’t be joined. Pick columns of the same type (numbers can join numbers)."
     },
     "duplicate": {

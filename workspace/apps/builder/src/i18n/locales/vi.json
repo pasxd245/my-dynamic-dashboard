@@ -772,10 +772,8 @@
       "canvasHelpAddSource": "“Thêm nguồn” đưa thêm một tập dữ liệu hoặc truy vấn đã lưu vào để vẽ nối.",
       "canvasHelpEdges": "Nhấp vào một phép nối để đưa lên, đồng bộ lại, hoặc xóa.",
       "canvasNodeTypeDataset": "Tập dữ liệu",
-      "canvasNodeTypeQuery": "Truy vấn",
       "canvasColumnsMore": "+ {{count}} cột nữa",
       "canvasColumnsFewer": "Thu gọn",
-      "canvasQueryUnavailable": "Không thể phân giải truy vấn này — có thể nó đã bị xóa hoặc nguồn của nó tạo vòng lặp.",
       "canvasConnectHint": "Nhấp vào một cột trên nút đã nối, rồi nhấp cột tương ứng trên \"{{name}}\" — hoặc chọn cặp bên dưới.",
       "canvasConnectHintTarget": "Bây giờ nhấp vào một cột tương ứng trên \"{{name}}\" để nối.",
       "canvasConnectLabel": "Nối qua",
@@ -828,7 +826,6 @@
       "canvasConnect_self": "Chọn hai cột khác nhau để nối.",
       "canvasConnect_cyclic": "Các nguồn đó đã được nối — kéo tới một nguồn chưa có trên sơ đồ.",
       "canvasConnect_disconnected": "Bắt đầu phép nối từ một nguồn đã có trong đồ thị.",
-      "canvasConnect_derived": "Cột đó được tính từ nhiều nguồn nên không thể làm khóa nối. Hãy kéo từ một cột thuộc về một nguồn duy nhất.",
       "canvasConnect_dtype_mismatch": "Hai cột có kiểu dữ liệu khác nhau nên không thể nối. Hãy chọn các cột cùng kiểu (số có thể nối với số)."
     },
     "duplicate": {

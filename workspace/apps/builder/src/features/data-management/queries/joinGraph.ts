@@ -24,8 +24,8 @@ export function relDivergence(qrel: QueryRelationship, governedById: ReadonlyMap
   const gov = governedById.get(qrel.originRelationshipId);
   if (!gov) return 'removed';
   // The governed rel keeps dataset-only names (`…DatasetId`); the query-owned copy uses
-  // the polymorphic `…SourceId` names (R91). A `qr_`-right edge is always free-form, so
-  // it never reaches here (it has no `originRelationshipId`).
+  // the `…SourceId` names. Both sides are datasets since R167, so every query-owned edge
+  // now HAS a governed counterpart it could be promoted to.
   const same =
     gov.leftDatasetId === qrel.leftSourceId &&
     gov.leftColumn === qrel.leftColumn &&
@@ -35,8 +35,8 @@ export function relDivergence(qrel: QueryRelationship, governedById: ReadonlyMap
   return same ? null : 'changed';
 }
 
-/** The join endpoints of a query-owned `QueryRelationship` (R88; R91 — polymorphic
- *  `…SourceId`: the right side may be a `qr_`). The graph math treats ids as opaque. */
+/** The join endpoints of a query-owned `QueryRelationship` (R88). Both are datasets
+ *  since R167; the graph math treats ids as opaque either way. */
 type Edge = Pick<QueryRelationship, 'leftSourceId' | 'rightSourceId'>;
 
 /** The datasets currently in the graph: the driving root + each hop's right
@@ -56,25 +56,15 @@ export function graphDatasetIds(
   return ids;
 }
 
-/** A `qr_` source's effective columns + the leaf each traces to (read off
- *  `resolvedColumns`). Supplied by the canvas so `buildSourceGraph` can re-anchor a
- *  stored leaf-left onto the in-graph query node that visually owns it. */
-export type EffectiveLookup = (qrId: string) => ReadonlyArray<{ name: string; owner: ColumnProvenance | null }>;
-
 /** An edge of the rendered source graph: the hop + its query-owned rel, plus the
- *  in-graph (node, column-handle) its LEFT visually anchors to, and whether it is
- *  promotable to the governed ER. */
+ *  in-graph (node, column-handle) its LEFT anchors to. R167 dropped `promotable`: it
+ *  existed to mark an edge anchored on a QUERY node as having no governed counterpart,
+ *  and every node is a dataset now, so every edge is promotable. */
 export type SourceGraphEdge = {
   hop: JoinStep;
   qrel: QueryRelationship;
   leftNode: string;
   leftHandle: string;
-  /** R94 (D5) — promotable ONLY when the edge VISUALLY links two datasets. The governed
-   *  ER is dataset-only, so an edge anchored on a query node has no governed counterpart.
-   *  Tests the DISPLAY node (`leftNode`), not the stored leaf — the provenance rewrite
-   *  makes `qrel.leftSourceId` always a leaf `ds_` even when drawn off a `qr_`, so the
-   *  stored value would wrongly pass. */
-  promotable: boolean;
 };
 
 export type SourceGraph = {
@@ -84,22 +74,19 @@ export type SourceGraph = {
   unresolved: JoinStep[];
 };
 
-/** Build the canvas node/edge graph from a query's join tree (R93 I-phase).
+/** Build the canvas node/edge graph from a query's join tree.
  *
  *  The node set is the driving **root + each hop's RIGHT source** — a hop's LEFT is
- *  **never its own node**. The resolver requires a hop's `leftSourceId` to be a LEAF
- *  dataset (it matches against the base's inner leaf ids, never a `qr_`), so drawing off
- *  a `qr_` node stores the qr_'s OWNING LEAF as the left (`resolveConnect`'s provenance
- *  rewrite). That leaf lives INSIDE an in-graph query (the build-on-query root, or a
- *  joined-in `qr_`), so the edge must render FROM that query node — not spawn the leaf as
- *  a separate, orphaned card. `displayLeft` maps a stored leaf-left back to the in-graph
- *  (node, handle) that owns it via wire provenance; a leaf that IS itself an in-graph node
- *  (dataset×dataset) renders as-is, unchanged. */
+ *  **never its own node**, because the tree invariant guarantees it is already in the
+ *  graph. R167 simplified this considerably: while a source could be a saved query, a
+ *  hop drawn off a `qr_` node stored that query's OWNING LEAF as the left, so the edge
+ *  had to be re-anchored back onto the query node that visually contained it (via wire
+ *  provenance) or it would spawn an orphaned card. Every node is a dataset now, so a
+ *  stored left IS a rendered node and the re-anchoring is gone. */
 export function buildSourceGraph(
   rootId: string,
   joins: readonly JoinStep[],
   qrelById: ReadonlyMap<string, QueryRelationship>,
-  effectiveOf: EffectiveLookup,
 ): SourceGraph {
   const nodeIds: string[] = [];
   const push = (id: string) => {
@@ -107,7 +94,8 @@ export function buildSourceGraph(
   };
   push(rootId);
   const unresolved: JoinStep[] = [];
-  // Pass 1 — the canonical node set: driving root + each hop's right source.
+  const parentOf = new Map<string, string>();
+  const edges: SourceGraphEdge[] = [];
   for (const hop of joins) {
     const qrel = qrelById.get(hop.queryRelId);
     if (!qrel) {
@@ -115,34 +103,11 @@ export function buildSourceGraph(
       continue;
     }
     push(qrel.rightSourceId);
-  }
-  // The in-graph (node id, column handle) a stored leaf-left anchors to: the leaf itself
-  // when it's a rendered node, else the in-graph `qr_` whose effective column owns that
-  // leaf `(ds_, column)` via wire provenance (the effective column name is the handle).
-  const displayLeft = (leftSourceId: string, leftColumn: string): { node: string; handle: string } => {
-    if (nodeIds.includes(leftSourceId)) return { node: leftSourceId, handle: leftColumn };
-    for (const id of nodeIds) {
-      if (!id.startsWith('qr_')) continue;
-      const match = effectiveOf(id).find(
-        (c) => c.owner?.ownerSourceId === leftSourceId && c.owner?.sourceColumn === leftColumn,
-      );
-      if (match) return { node: id, handle: match.name };
-    }
-    // Fallback (a leaf with no in-graph owner — a degenerate/disconnected state): keep the
-    // edge attached by rendering the leaf as its own node, preserving the prior behaviour.
-    push(leftSourceId);
-    return { node: leftSourceId, handle: leftColumn };
-  };
-  const parentOf = new Map<string, string>();
-  const edges: SourceGraphEdge[] = [];
-  // Pass 2 — resolve each hop's visual left against the full node set, build edges + parent.
-  for (const hop of joins) {
-    const qrel = qrelById.get(hop.queryRelId);
-    if (!qrel) continue;
-    const left = displayLeft(qrel.leftSourceId, qrel.leftColumn);
-    if (!parentOf.has(qrel.rightSourceId)) parentOf.set(qrel.rightSourceId, left.node);
-    const promotable = !left.node.startsWith('qr_') && !qrel.rightSourceId.startsWith('qr_');
-    edges.push({ hop, qrel, leftNode: left.node, leftHandle: left.handle, promotable });
+    // A degenerate/disconnected left (not already in the graph) still renders as its
+    // own node, preserving the prior fallback — the edge stays attached either way.
+    push(qrel.leftSourceId);
+    if (!parentOf.has(qrel.rightSourceId)) parentOf.set(qrel.rightSourceId, qrel.leftSourceId);
+    edges.push({ hop, qrel, leftNode: qrel.leftSourceId, leftHandle: qrel.leftColumn });
   }
   return { nodeIds, parentOf, edges, unresolved };
 }
@@ -164,19 +129,6 @@ export type ConnectFields = {
   rightSourceId: string;
   rightColumn: string;
 };
-
-/** R92 (F1) — where an effective column traces to: the LEAF dataset that owns it
- *  (`ownerSourceId`, always a `ds_`) and the pre-qualification name on that leaf
- *  (`sourceColumn`). This is the single enabler that lets a drag OFF a query node's
- *  effective column become a legal hop left key — the resolver matches `leftSourceId`
- *  against leaf `ds_` ids (queries.py membership), never a `qr_`. A 1:1-owned column
- *  has provenance; a derived/aggregate column has none (`null`) and cannot be a left
- *  key (the documented boundary). Mocked FE-side at F1, wired at R93 (Round_92.md). */
-export type ColumnProvenance = { ownerSourceId: string; sourceColumn: string };
-
-/** Resolve an effective column to its owning leaf, or `null` when it has no single
- *  owner (derived/aggregate, or not yet known). A `ds_` column always owns itself. */
-export type ProvenanceOf = (sourceId: string, column: string) => ColumnProvenance | null;
 
 /** R93 — resolve a drawn endpoint's column dtype, or `null` when unknown (data not yet
  *  loaded). Supplied by the canvas so a drawn join key can be dtype-checked at draw time. */
@@ -205,7 +157,7 @@ function dtypeIncompatible(a: string | null, b: string | null): boolean {
 export type ConnectResult =
   | { kind: 'copy'; relId: string }
   | { kind: 'define'; fields: ConnectFields }
-  | { kind: 'invalid'; reason: 'self' | 'cyclic' | 'disconnected' | 'incomplete' | 'derived' | 'dtype_mismatch' };
+  | { kind: 'invalid'; reason: 'self' | 'cyclic' | 'disconnected' | 'incomplete' | 'dtype_mismatch' };
 
 export function resolveConnect(
   conn: {
@@ -216,11 +168,6 @@ export function resolveConnect(
   },
   graphIds: readonly string[],
   governedRels: readonly Relationship[],
-  // R92 (F1) — resolve a drawn endpoint's effective column to its owning leaf `ds_`.
-  // Defaults to identity (every column owns itself) so the dataset↔dataset path and
-  // the existing unit tests are unchanged; supplied by the canvas so a drag OFF a
-  // `qr_` node's effective column rewrites the hop's LEFT to the owning leaf.
-  provenanceOf: ProvenanceOf = (sourceId, column) => ({ ownerSourceId: sourceId, sourceColumn: column }),
   // R93 — resolve a drawn column's dtype for the draw-time compatibility guard.
   // Defaults to unknown (no guard) so the existing unit tests are unchanged; the canvas
   // supplies it so an incompatible pair (e.g. text ↔ number) is rejected before minting.
@@ -243,25 +190,20 @@ export function resolveConnect(
         { ds: target, col: targetHandle },
         { ds: source, col: sourceHandle },
       ];
-  // R92 — the LEFT (in-graph) endpoint must name a LEAF `ds_` for the resolver's
-  // membership match. A `qr_` left's effective column is rewritten to its owning leaf
-  // via provenance; a derived/aggregate column (no single owner) can't be a left key.
   // R93 — draw-time dtype guard: reject an incompatible key pair (e.g. text ↔ number)
   // BEFORE minting, mirroring the backend's `_compatible` rule. Lenient on unknown
-  // dtypes (the backend re-checks on preview/run regardless).
+  // dtypes (the backend re-checks on preview/run regardless). R167 — the provenance
+  // rewrite that used to sit here is gone: both endpoints are datasets, so a drawn
+  // column already names its own leaf and there is no `derived` (no-single-owner) case.
   if (dtypeIncompatible(dtypeOf(left.ds, left.col), dtypeOf(right.ds, right.col)))
     return { kind: 'invalid', reason: 'dtype_mismatch' };
-  const leftProv = provenanceOf(left.ds, left.col);
-  if (!leftProv) return { kind: 'invalid', reason: 'derived' };
   const fields: ConnectFields = {
-    leftSourceId: leftProv.ownerSourceId,
-    leftColumn: leftProv.sourceColumn,
+    leftSourceId: left.ds,
+    leftColumn: left.col,
     rightSourceId: right.ds,
     rightColumn: right.col,
   };
-  // A governed rel match (→ copy-on-pick) is only possible dataset↔dataset; a `qr_`
-  // right side never matches a governed `rel_`, so it always routes to `define`
-  // (free-form) — R91 query×query edges have no governed counterpart.
+  // A governed rel match routes to copy-on-pick; no match routes to free-form define.
   const match = governedRels.find(
     (r) =>
       r.status === 'valid' &&

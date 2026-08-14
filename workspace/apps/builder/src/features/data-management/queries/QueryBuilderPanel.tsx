@@ -336,8 +336,7 @@ function CanvasTab({
           fills the tab area and scrolls if the pane exceeds it (R97 Item 1). */}
       <div style={{ flex: '1 1 auto', minHeight: 0, overflow: 'auto' }}>
         <QueryCanvas
-          datasetId={builder.datasetId}
-          baseSourceId={builder.baseSourceId}
+          rootSourceId={builder.baseSourceId}
           workspaceId={builder.workspaceId}
           relationships={builder.queryRels}
           joins={builder.joins}

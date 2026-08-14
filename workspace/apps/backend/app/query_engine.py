@@ -59,18 +59,60 @@ def _parquet_of(row: sqlite3.Row) -> str:
     return str(dataset_dir(row["workspace_id"], row["id"]) / "parsed.parquet")
 
 
+def _resolve_dataset_leaf(
+    con: sqlite3.Connection, source_id: str, workspace_id: str
+) -> tuple[dict | None, str | None]:
+    """Resolve a DATASET (``ds_…``) to a ``read_parquet`` leaf — the only kind of
+    source a QUERY reads since R167.
+
+    Split out of ``resolve_source`` so the join path can call it DIRECTLY: a hop's
+    right is a ``DsId`` now, so resolving one must not route through the polymorphic
+    resolver and its composition machinery. That leaves ``resolve_source`` reachable
+    from exactly ONE call site (a DRIVING source), which is the narrowing finding A
+    asked for — Workflow's boundary is now visible in the call graph instead of
+    tangled with a capability the product no longer has."""
+    ds = con.execute(_SELECT_DATASET, (source_id,)).fetchone()
+    if ds is None or ds["workspace_id"] != workspace_id:
+        return None, "relationship_dataset_missing"
+    # R93 — a leaf dataset's columns own themselves 1:1: each carries its
+    # ownerSourceId (this `ds_`) + sourceColumn (its own bare name). build_effective_columns
+    # rides this through.
+    cols = [{**c, "ownerSourceId": ds["id"], "sourceColumn": c["name"]} for c in json.loads(ds["columns_json"])]
+    return (
+        {
+            "relation": ("read_parquet(?)", [_parquet_of(ds)]),
+            "columns": cols,
+            "dataset_ids": {ds["id"]},
+            "name": ds["name"],
+        },
+        None,
+    )
+
+
 def resolve_source(
     con: sqlite3.Connection, source_id: str, workspace_id: str, visited: frozenset[str]
 ) -> tuple[dict | None, str | None]:
-    """Resolve a DRIVING table-source to a SQL relation (R76 — the unified
-    ``ds_``/``qr_`` resolver, J-2′). Returns ``(info, None)`` or ``(None, reason)``,
-    where ``info`` is ``{relation: (sql, params), columns, dataset_ids, name}``:
+    """Resolve a DRIVING table-source to a SQL relation. Returns ``(info, None)`` or
+    ``(None, reason)``, where ``info`` is
+    ``{relation: (sql, params), columns, dataset_ids, name}``:
 
-    - a Dataset (``ds_…``) → ``read_parquet(?)`` over its parquet, raw columns.
-    - a saved Query (``qr_…``) → its full typed SELECT (its own driving source +
-      joins + its OWN filters) wrapped ``( … )`` as a sub-relation, exposing its
-      EFFECTIVE columns. RECURSES (its base may itself be composed); a ``qr_``
-      already on the recursion path is a **composition cycle** (``visited``)."""
+    - a Dataset (``ds_…``) → a ``read_parquet`` leaf. The QUERY path.
+    - a saved Query (``qr_…``) → its full typed SELECT (its own source + joins +
+      its OWN filters) wrapped ``( … )`` as a sub-relation, exposing its EFFECTIVE
+      columns. **R167 — this is WORKFLOW'S READER, and nothing else's.**
+    - a workflow output (``wf_…``) → a frozen parquet leaf (R135).
+
+    **Why the ``qr_`` branch survives a round that retires composition** (finding A):
+    a Workflow's sources are ``qr_``/``wf_`` and NEVER ``ds_``, and it consolidates
+    them through this same resolver. Deleting the branch would break Workflow
+    outright. What changed is who can reach it: a Query's ``sourceId`` and every join
+    operand are ``ds_`` since R167, so the only way in is a Workflow supplying the
+    driving source.
+
+    The ``visited`` cycle guard is therefore **DORMANT, not dead** — unreachable
+    through the API, retained because it is the guard a live-resolving Workflow source
+    would need (item 4). See ``api-error.yaml`` § ``composition_cycle`` for the proof
+    and the reactivating condition."""
     if source_id.startswith("qr_"):
         if source_id in visited:
             return None, "composition_cycle"
@@ -111,22 +153,7 @@ def resolve_source(
     if source_id.startswith("wf_"):
         return _resolve_workflow_leaf(con, source_id, workspace_id)
 
-    ds = con.execute(_SELECT_DATASET, (source_id,)).fetchone()
-    if ds is None or ds["workspace_id"] != workspace_id:
-        return None, "relationship_dataset_missing"
-    # R93 — a leaf dataset's columns own themselves 1:1: each carries its
-    # ownerSourceId (this `ds_`) + sourceColumn (its own bare name). build_effective_columns
-    # rides this through (a `qr_` source passes its sub-query's provenance up instead).
-    cols = [{**c, "ownerSourceId": ds["id"], "sourceColumn": c["name"]} for c in json.loads(ds["columns_json"])]
-    return (
-        {
-            "relation": ("read_parquet(?)", [_parquet_of(ds)]),
-            "columns": cols,
-            "dataset_ids": {ds["id"]},
-            "name": ds["name"],
-        },
-        None,
-    )
+    return _resolve_dataset_leaf(con, source_id, workspace_id)
 
 
 def _resolve_workflow_leaf(
@@ -167,15 +194,16 @@ def _resolve_chain(
     the reason to their status (create/update → 422 / 409 composition_cycle; run →
     409 relationship_stale / composition_cycle). R71's single join is length-1.
 
-    The DRIVING source (``T0``) is polymorphic (R76): a Dataset, or a composed Query
-    sub-relation (via ``resolve_source``, which recurses + cycle-guards). R88 — each
-    hop joins DATASETS via the query's OWN relationship (``query_rels`` keyed by
-    ``queryRelId``), not a live workspace ``rel_`` lookup, so editing/deleting a
-    governed rel can't break a saved query (it runs on its embedded snapshot). The
-    TREE invariant (R74) generalizes: a hop's left dataset must be a member of some
-    source already in the graph — including a dataset INSIDE a composed base
-    (provenance) — else ``disconnected_join``; its right must be new, else
-    ``cyclic_join``. The join key must still exist with compatible dtypes on both
+    The DRIVING source (``T0``) is a Dataset for a QUERY (R167). It stays polymorphic
+    in the signature because ``build_consolidated_relation`` reuses this path to
+    resolve a WORKFLOW's ``qr_``/``wf_`` sources — the one remaining way into
+    ``resolve_source``'s composition branch. R88 — each hop joins DATASETS via the
+    query's OWN relationship (``query_rels`` keyed by ``queryRelId``), not a live
+    workspace ``rel_`` lookup, so editing/deleting a governed rel can't break a saved
+    query (it runs on its embedded snapshot). The TREE invariant (R74): a hop's left
+    dataset must be a member of some source already in the graph — including a dataset
+    inside a workflow-resolved base (provenance) — else ``disconnected_join``; its
+    right must be new, else ``cyclic_join``. The join key must still exist with compatible dtypes on both
     sides, re-checked against CURRENT dataset columns (R70's check); a drift, or a
     base that doesn't expose the left key under its effective name, →
     ``relationship_stale``."""
@@ -200,21 +228,24 @@ def _resolve_chain(
         left_idx = next((i for i, ids in enumerate(dataset_id_sets) if qrel["leftSourceId"] in ids), None)
         if left_idx is None:
             return None, "disconnected_join"
-        # R91 — the RIGHT side is polymorphic: a dataset (`ds_`) OR a saved Query
-        # (`qr_…`, a query×query join), resolved through the SAME unified
-        # ``resolve_source`` the driving base uses — a ``read_parquet`` leaf for a
-        # dataset, or the joined-in query baked as a ``( … )`` sub-relation exposing its
-        # EFFECTIVE (collision-qualified) columns. ``visited`` threads through, so a
-        # query that joins itself in (directly or transitively) → ``composition_cycle``.
-        right, reason = resolve_source(con, qrel["rightSourceId"], workspace_id, visited)
+        # R167 — the RIGHT side is a DATASET, resolved through the dataset leaf
+        # DIRECTLY. R91 had made it polymorphic (a saved Query joined in as a
+        # sub-relation), which is `query×query` — retired with composition. Calling
+        # `_resolve_dataset_leaf` rather than `resolve_source` is the structural half
+        # of that retirement: the join path no longer reaches the composition
+        # machinery at all, so nothing here can recurse or need a cycle guard.
+        right_id = qrel["rightSourceId"]
+        right, reason = _resolve_dataset_leaf(con, right_id, workspace_id)
         if reason is not None:
             return None, reason
         right_ids = set(right["dataset_ids"])
-        # The right must be NEW — the tree invariant. A `qr_` right brings a SET of
-        # leaf datasets, so any overlap with the graph (the same dataset appearing
-        # twice → ambiguous columns) → `cyclic_join`. For a `ds_` right this is the
-        # original "right dataset already present" check.
-        if any(right_ids & ids for ids in dataset_id_sets):
+        # The right must be NEW — the tree invariant, and this is the SELF-JOIN
+        # BOUNDARY, which stays rejected (`_noun-model.md`). R167 collapsed it from a
+        # set-overlap to a single-id membership test (noun-model D2): a `qr_` right
+        # used to bring a SET of leaf datasets that could overlap the graph, and a
+        # dataset brings exactly itself. `cyclic_join` is NOT retired — only the
+        # set-shaped form of the check is.
+        if any(right_id in ids for ids in dataset_id_sets):
             return None, "cyclic_join"
         left_cols = source_cols[left_idx][1]
         right_cols = right["columns"]
@@ -244,9 +275,11 @@ def _resolve_chain(
 
 
 def _is_multi_source(source_id: str, chain: list[dict]) -> bool:
-    """True when the run needs the join engine: a composed (`qr_`) driving source, a
-    workflow-output (`wf_`) leaf (R135), OR at least one join hop. A bare dataset
-    with no hops is single-source (the plain ``read_parquet`` path)."""
+    """True when the run needs the join engine: at least one join hop, or a WORKFLOW
+    source (`qr_` / `wf_`) being consolidated. A bare dataset with no hops is
+    single-source (the plain ``read_parquet`` path). R167 — for a QUERY the `qr_` arm
+    is now unreachable (`sourceId` is a `ds_`); it is kept for the workflow path,
+    which shares this predicate."""
     return source_id.startswith(("qr_", "wf_")) or bool(chain)
 
 

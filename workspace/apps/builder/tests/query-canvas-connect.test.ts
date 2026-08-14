@@ -10,7 +10,6 @@ import { describe, expect, it } from 'vitest';
 import { freeFormRel } from '@/features/data-management/queries/chain';
 import {
   buildSourceGraph,
-  type EffectiveLookup,
   inferCardinality,
   relDivergence,
   resolveConnect,
@@ -183,22 +182,10 @@ describe('freeFormRel (R89 — mint a query-owned rel with no provenance)', () =
 // own node. The resolver stores a LEAF as the left (inside a `qr_` when drawn off a query
 // node), so the edge must anchor on that in-graph query node — NOT spawn an orphaned leaf
 // card (the reported build-on-query bug: query + its underlying dataset + the added source).
-describe('buildSourceGraph (R93 — render-only left re-anchor)', () => {
-  const QR_BASE = 'qr_aaaaaaaa'; // a build-on base (single-source query on DEALS)
-  const QR_RIGHT = 'qr_bbbbbbbb'; // a joined-in query (effective space owned by ACCOUNTS)
+describe('buildSourceGraph (R167 — datasets only, no re-anchoring)', () => {
   const hop = (queryRelId: string): JoinStep => ({ queryRelId, type: 'inner' });
-  // Each query's effective space + the leaf each column traces to (a single-source query
-  // owns its driving dataset's columns 1:1).
-  const EFFECTIVE: Record<
-    string,
-    ReadonlyArray<{ name: string; owner: { ownerSourceId: string; sourceColumn: string } }>
-  > = {
-    [QR_BASE]: [{ name: 'deal_id', owner: { ownerSourceId: DEALS, sourceColumn: 'deal_id' } }],
-    [QR_RIGHT]: [{ name: 'account_id', owner: { ownerSourceId: ACCOUNTS, sourceColumn: 'account_id' } }],
-  };
-  const effectiveOf: EffectiveLookup = (id) => EFFECTIVE[id] ?? [];
 
-  it('dataset×dataset is unchanged — left is the in-graph root, no extra node', () => {
+  it('renders the two endpoints as nodes, the edge anchored on the stored left', () => {
     const qrel: QueryRelationship = {
       id: 'qrel_11111111',
       leftSourceId: DEALS,
@@ -208,52 +195,29 @@ describe('buildSourceGraph (R93 — render-only left re-anchor)', () => {
       cardinality: 'one_to_many',
       originRelationshipId: 'rel_a1b2c3d4',
     };
-    const g = buildSourceGraph(DEALS, [hop(qrel.id)], new Map([[qrel.id, qrel]]), effectiveOf);
-    expect(g.nodeIds).toEqual([DEALS, ACCOUNTS]); // exactly the two endpoints
+    const g = buildSourceGraph(DEALS, [hop(qrel.id)], new Map([[qrel.id, qrel]]));
+    expect(g.nodeIds).toEqual([DEALS, ACCOUNTS]);
     expect(g.edges[0]).toMatchObject({ leftNode: DEALS, leftHandle: 'deal_id' });
     expect(g.parentOf.get(ACCOUNTS)).toBe(DEALS);
-    // D5 — both visual endpoints are datasets → promotable.
-    expect(g.edges[0].promotable).toBe(true);
   });
 
-  it('build-on-query — drawing off the qr_ ROOT anchors the edge on the query node, no orphaned leaf', () => {
-    // The model stores the qr_'s OWNING LEAF (DEALS) as the left (provenance rewrite).
-    const qrel: QueryRelationship = {
-      id: 'qrel_22222222',
-      leftSourceId: DEALS, // the leaf inside QR_BASE — NOT the qr_ id
+  it('builds a 2-hop star without re-anchoring — a stored left IS a rendered node', () => {
+    // Before R167 a hop drawn off a `qr_` node stored that query's OWNING LEAF as the
+    // left, so the edge had to be mapped back onto the query node containing it or it
+    // would spawn an orphaned card. Every node is a dataset now, so the stored left is
+    // the node, and the whole `displayLeft` / wire-provenance apparatus is gone.
+    const h1: QueryRelationship = {
+      id: 'qrel_33333333',
+      leftSourceId: DEALS,
       leftColumn: 'deal_id',
       rightSourceId: ACCOUNTS,
       rightColumn: 'account_id',
       cardinality: 'one_to_many',
       originRelationshipId: null,
     };
-    const g = buildSourceGraph(QR_BASE, [hop(qrel.id)], new Map([[qrel.id, qrel]]), effectiveOf);
-    // Two nodes only — the query root + the added source. The leaf DEALS is NOT a node.
-    expect(g.nodeIds).toEqual([QR_BASE, ACCOUNTS]);
-    expect(g.nodeIds).not.toContain(DEALS);
-    // The edge anchors on the qr_ root node + its effective column handle.
-    expect(g.edges[0]).toMatchObject({ leftNode: QR_BASE, leftHandle: 'deal_id' });
-    expect(g.parentOf.get(ACCOUNTS)).toBe(QR_BASE);
-    // D5 — the edge VISUALLY touches a query node → NOT promotable (even though the stored
-    // leftSourceId is a leaf ds_; promotability tests the display node, not the stored leaf).
-    expect(g.edges[0].promotable).toBe(false);
-  });
-
-  it('query×query — drawing off a joined-in qr_ anchors on that query node, not its leaf', () => {
-    // Drive on a dataset, join in QR_RIGHT, then draw OFF QR_RIGHT to OWNERS — the second
-    // hop's left is stored as ACCOUNTS (QR_RIGHT's leaf), and must render on QR_RIGHT.
-    const h1: QueryRelationship = {
-      id: 'qrel_33333333',
-      leftSourceId: DEALS,
-      leftColumn: 'deal_id',
-      rightSourceId: QR_RIGHT,
-      rightColumn: 'account_id',
-      cardinality: 'one_to_many',
-      originRelationshipId: null,
-    };
     const h2: QueryRelationship = {
       id: 'qrel_44444444',
-      leftSourceId: ACCOUNTS, // QR_RIGHT's owning leaf — must re-anchor onto QR_RIGHT
+      leftSourceId: ACCOUNTS,
       leftColumn: 'account_id',
       rightSourceId: OWNERS,
       rightColumn: 'account_id',
@@ -267,21 +231,79 @@ describe('buildSourceGraph (R93 — render-only left re-anchor)', () => {
         [h1.id, h1],
         [h2.id, h2],
       ]),
-      effectiveOf,
     );
-    expect(g.nodeIds).toEqual([DEALS, QR_RIGHT, OWNERS]); // ACCOUNTS leaf is not its own node
-    expect(g.edges[1]).toMatchObject({ leftNode: QR_RIGHT, leftHandle: 'account_id' });
-    expect(g.parentOf.get(OWNERS)).toBe(QR_RIGHT);
-    // D5 — edge 0 (DEALS → QR_RIGHT) has a qr_ RIGHT → not promotable; edge 1 is anchored
-    // on the QR_RIGHT query node → not promotable. Neither links two datasets visually.
-    expect(g.edges[0].promotable).toBe(false);
-    expect(g.edges[1].promotable).toBe(false);
+    expect(g.nodeIds).toEqual([DEALS, ACCOUNTS, OWNERS]);
+    expect(g.edges[1]).toMatchObject({ leftNode: ACCOUNTS, leftHandle: 'account_id' });
+    expect(g.parentOf.get(OWNERS)).toBe(ACCOUNTS);
   });
 
   it('a hop with no matching query-owned rel is reported unresolved, not rendered', () => {
-    const g = buildSourceGraph(DEALS, [hop('qrel_99999999')], new Map(), effectiveOf);
+    const g = buildSourceGraph(DEALS, [hop('qrel_99999999')], new Map());
     expect(g.nodeIds).toEqual([DEALS]);
     expect(g.edges).toHaveLength(0);
     expect(g.unresolved).toHaveLength(1);
+  });
+});
+
+// R93's draw-time dtype guard, rehomed here by R167. It used to live in
+// `query-provenance.test.ts` beside the `qr_`-left provenance rewrite that made a drag
+// off a query node legal; that rewrite is retired with composition (both endpoints are
+// datasets now, so a drawn column already names its own leaf). The dtype guard is NOT
+// retired — it mirrors the backend's `_compatible` rule at draw time — so it moved
+// rather than going down with the file it happened to share.
+describe('resolveConnect — draw-time dtype guard (R93)', () => {
+  const DEALS_D = 'ds_11111111';
+  const ACCOUNTS_D = 'ds_22222222';
+  const none: Relationship[] = [];
+  // DEALS.amount = integer, DEALS.deal_id = string; ACCOUNTS.tier = string,
+  // ACCOUNTS.score = float. Mirrors the backend rule: equal, or both numeric.
+  const dtype = (sourceId: string, column: string): string | null => {
+    const m: Record<string, string> = {
+      [`${DEALS_D}.amount`]: 'integer',
+      [`${DEALS_D}.deal_id`]: 'string',
+      [`${ACCOUNTS_D}.tier`]: 'string',
+      [`${ACCOUNTS_D}.score`]: 'float',
+    };
+    return m[`${sourceId}.${column}`] ?? null;
+  };
+
+  it('rejects an incompatible pair (text ↔ number) before minting', () => {
+    const res = resolveConnect(
+      { source: DEALS_D, sourceHandle: 'deal_id', target: ACCOUNTS_D, targetHandle: 'score' },
+      [DEALS_D],
+      none,
+      dtype,
+    );
+    expect(res).toEqual({ kind: 'invalid', reason: 'dtype_mismatch' });
+  });
+
+  it('allows a numeric cross-type pair (integer ↔ float), mirroring the backend', () => {
+    const res = resolveConnect(
+      { source: DEALS_D, sourceHandle: 'amount', target: ACCOUNTS_D, targetHandle: 'score' },
+      [DEALS_D],
+      none,
+      dtype,
+    );
+    expect(res.kind).toBe('define');
+  });
+
+  it('allows equal dtypes (string ↔ string)', () => {
+    const res = resolveConnect(
+      { source: DEALS_D, sourceHandle: 'deal_id', target: ACCOUNTS_D, targetHandle: 'tier' },
+      [DEALS_D],
+      none,
+      dtype,
+    );
+    expect(res.kind).toBe('define');
+  });
+
+  it('is lenient on unknown dtypes — does NOT block (the backend stays the gate)', () => {
+    const res = resolveConnect(
+      { source: DEALS_D, sourceHandle: 'deal_id', target: ACCOUNTS_D, targetHandle: 'unknown_col' },
+      [DEALS_D],
+      none,
+      dtype,
+    );
+    expect(res.kind).toBe('define');
   });
 });
