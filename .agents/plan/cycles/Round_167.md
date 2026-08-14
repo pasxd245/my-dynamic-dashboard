@@ -364,7 +364,7 @@ this round's questions need specific objects rather than any query.
 | **T1** | Open a saved query with **joins and steps** — same rows as before the round?                                                                    | `Monthly revenue by status` · `Customers with orders`      | ✅ pass |
 | **T2** | Run the seeded **workflow**. Does it still resolve and produce its table — did narrowing the resolver leave Workflow's reader intact?           | `Consolidated revenue by status`                           | ✅ **pass — finding A did NOT fire** |
 | **T3** | Go to a query's **Canvas** tab and look for any trace of a saved query as a source — a node, a column list, a stale label, a grouped picker.    | `Customers with orders` → Edit → Canvas                    | ✅ pass — **no trace**; 1 unrelated defect (**W-1**) |
-| **T4** | Ask the API to build a query on a query. Is the refusal legible, or does it read as a bug?                                                      | `POST` a `qr_` `sourceId` (curl)                           | ✅ pass — _"correct and as expected"_ |
+| **T4** | Ask the API to build a query on a query. Is the refusal legible, or does it read as a bug?                                                      | `POST` a `qr_` `sourceId` (curl)                           | ✅ returned — _"correct and as expected"_ — but **should not have been a walk question** (below) |
 | **T5** | Compare the workflow's output against its source query's own detail page. Do they match?                                                       | the workflow **vs** `Revenue by order status`              | ✅ **NO — as predicted** |
 
 **How each outcome is read** — decided in advance, so a result cannot be rationalised after it
@@ -397,7 +397,31 @@ right way round: the base's **shaping** is what goes missing, not its rows.
 is a `422` naming the field, the offending value and the expected shape:
 `{"loc":["body","sourceId"],"msg":"String should match pattern '^ds_[0-9a-f]{8}$'"}`.
 
-**The tradeoff underneath it is worth recording, because it will look like an oversight later.**
+**T4 was a mis-specified walk question, and the human caught it (2026-08-14).** Their words: _"I
+think T4 is run as unit-test (code test) is better than verify by User (do action on UI)."_ They are
+right, and the reason is sharper than "a test is cheaper":
+
+- **A walk question earns a human only if answering it needs judgment or perception.** T4 nominally
+  asked for judgment — _is the refusal legible?_ — but pointed at a JSON blob from `curl`. The
+  analysis below concludes the message is legible _for its only possible audience: someone writing
+  against the API directly_. **If the audience is an API caller, the human is not the audience**,
+  so the human should not be the verifier. The question asked for a judgment about a surface that
+  does not exist — R166 withdrew every gesture that could produce this error.
+- **It was already automated, in this round, before the walk.**
+  `tests/test_composition.py::test_a_query_cannot_be_built_on_another_query` asserts the same
+  `422` and the same `sourceId` in the response, written at the **C gate**. The walk spent the
+  scarce resource — a human's attention at the end of a long round — re-running an assertion that
+  had been green for hours.
+- **The trigger that would make it a legitimate walk item**: if the API ever becomes a **product
+  surface** (the BYO-AI / plugin direction), its error ergonomics become user-facing and a human
+  judging them is exactly right. It is not one today.
+
+**Criterion adopted for future walks**: _if a test can answer it, it is a test._ A walk question
+must name a **gesture on a surface a human can perceive**. T1/T2/T3/T5 all did; T4 did not, and
+the coverage line should read **4 real questions + 1 that belonged in `pytest`**.
+
+**The tradeoff underneath the message is still worth recording, because it will look like an
+oversight later.**
 That message states a **regex, not a reason** — Pydantic's raw pattern vocabulary. A friendlier one
 (_"a query's source must be a dataset; to make a variant, use Duplicate"_) needs a **custom
 validator**, which is exactly the hand-written branch the C gate removed to make create / update /
@@ -456,7 +480,13 @@ round executed faithfully against that plan would have broken Workflow outright.
    site** — so the boundary is in the **call graph**, where a future reader trips over it, rather
    than in prose they can skip. **Candidate for `memory/`**: _a boundary asserted in a comment is
    not a boundary; move a call site instead._
-2. **Seed the artifact a walk needs, or the walk cannot ask the question.** Writing T2/T5 at D
+2. **If a test can answer it, it is a test** (the human's T4 correction). A walk question must
+   name a gesture on a surface a human can **perceive**; T4 asked for a judgment about a `curl`
+   response whose only audience is an API caller — and which this round had **already asserted in
+   `pytest` at the C gate**. Writing walk questions at D is right; the D gate now also owes each
+   one the check _"could a test close this?"_. **Candidate for `memory/`**, refining
+   [[walk-record-always-spec-on-ask]].
+3. **Seed the artifact a walk needs, or the walk cannot ask the question.** Writing T2/T5 at D
    surfaced that finding A had **nothing to hand-use** — the `workflows` table was empty, so this
    round's riskiest change would have been tested only by tests while the round implied otherwise.
    Seeding one workflow made T2 answerable **and** made the deferred D1 trap visible on a screen.
