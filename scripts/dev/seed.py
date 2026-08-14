@@ -7,9 +7,10 @@ Loads a small sales star:
     regions (1:N) → customers (1:N) → orders
     products (1:N) → orders
 
-plus governed relationships and two base Queries on ``customers`` to exercise
-R77's "Build on this query" from (each can add the customers ⋈ orders join → a
-composed Query).
+plus governed relationships, twelve base Queries (each exercising a different
+query-builder flow, including the R163 within-group column and the R164/R165
+ordered-window family), and — R167 — one materialized Workflow consolidating a
+shaped query.
 
 UPSERT by default — re-running CONVERGES instead of duplicating:
   • workspace  : reused if one with WS_NAME exists, else created
@@ -18,6 +19,7 @@ UPSERT by default — re-running CONVERGES instead of duplicating:
   • relationship: reused if the same column-pair exists (unique per workspace);
                  else declared
   • query      : found by name → PUT its definition (UPDATE); else POST (create)
+  • workflow   : found by name → PUT; else POST — then RUN, so it is materialized
 
   --reset : delete the whole workspace first, then a clean fresh seed (mirrors
             scripts/dev/seed.sh). Use when a CSV's CONTENT changed — a reused
@@ -32,7 +34,7 @@ R99 — the FACT tables (orders, telesale) are GENERATED to a target volume
 
 LIGHT IS NOT A SUBSET OF FULL — it trades in BOTH directions (R166, measured):
   • The two modes are STRUCTURALLY IDENTICAL — same 5 datasets, same 5 relationships,
-    same 12 saved queries, same inferred column dtypes, and all four edge cases (which
+    same 12 saved queries + 1 workflow, same inferred dtypes, and all four edge cases (which
     live in the committed base CSVs, not the generated volume, and are enforced for both
     by ``validate_data``). Nothing is *missing* from light.
   • Light detects LESS of anything volume-driven: paging depth, query cost, wide results.
@@ -243,6 +245,37 @@ def upsert_query(ws: str, name: str, dataset_id: str, definition: dict) -> str:
         die(f"create query({name}) [{status}]: {data}")
     ok("create", f'query {data["id"]} ("{name}")')
     return data["id"]
+
+
+def upsert_workflow(ws: str, name: str, sources: list[str], steps: list | None = None) -> str:
+    """R167 — seed ONE workflow, and RUN it so it is materialized.
+
+    The acceptance walk needs a workflow to exist at all: narrowing the `qr_` resolver
+    to Workflow's reader is R167's riskiest change, and with an empty `workflows` table
+    it would be verified only by tests. This is also the artifact that makes the
+    DEFERRED D1 trap visible by hand — see the note at the call site."""
+    _, flows = get(f"/workspaces/{ws}/workflows")
+    body = {"name": name, "definition": {"sources": sources, "steps": steps or []}}
+    existing = next((w["id"] for w in (flows or []) if w["name"] == name), None)
+    if existing:
+        status, data = put(f"/workflows/{existing}", body)
+        if status != 200:
+            die(f"update workflow({name}) [{status}]: {data}")
+        ok("update", f'workflow {existing} ("{name}")')
+        wid = existing
+    else:
+        status, data = post(f"/workspaces/{ws}/workflows", body)
+        if status not in (200, 201):
+            die(f"create workflow({name}) [{status}]: {data}")
+        ok("create", f'workflow {data["id"]} ("{name}")')
+        wid = data["id"]
+    # Materialize it — an un-run workflow has no output, which reads as
+    # `composition_base_missing` to anything that consumes it.
+    status, data = post(f"/workflows/{wid}/run", {})
+    if status not in (200, 201):
+        die(f"run workflow({name}) [{status}]: {data}")
+    ok("update", f'workflow {wid} materialized')
+    return wid
 
 
 # --- data generator ----------------------------------------------------------
@@ -590,6 +623,20 @@ def main() -> None:
     ]
     seeded = [(name, upsert_query(ws, name, ds[source], definition), blurb)
               for name, source, definition, blurb in base_queries]
+    by_name = {name: qid for name, qid, _ in seeded}
+
+    # R167 — one workflow, consolidating a SHAPED query on purpose.
+    #
+    # It serves the acceptance walk twice. (1) It is the only way to hand-verify that
+    # narrowing `resolve_source` to Workflow's reader left that reader intact — the
+    # round's riskiest change, otherwise covered by tests alone. (2) It makes the
+    # DEFERRED D1 bug VISIBLE: `build_consolidated_relation` never runs a source
+    # query's `steps`, so this workflow materializes the ~120 UN-SHAPED order rows
+    # instead of the 4 shaped rows "Revenue by order status" shows on its own detail
+    # page. That mismatch is expected until item 4 repairs it (Round_167 § D-gate
+    # calls); it is seeded rather than described so the next round argues from a
+    # screen instead of from a paragraph.
+    wf_id = upsert_workflow(ws, "Consolidated revenue by status", [by_name["Revenue by order status"]])
 
     print()
     say(f"seed complete — workspace \"{WS_NAME}\" ({ws})")
@@ -600,6 +647,9 @@ def main() -> None:
     print("  Unmatched rows (for left/right/full joins): region 'Africa' (no customers),")
     print("    customer 'Lonely Co' (no orders, but receives telesale calls), product")
     print("    'Legacy Tool' (never ordered); non-converted telesale calls (no order_id).")
+    print(f"\n  Workflow:      Consolidated revenue by status   {FRONTEND_URL}/data-management/workflows/{wf_id}")
+    print(f"    {C_DIM}R167 — consolidates a SHAPED query. Its output is the base's UN-SHAPED rows"
+          f" (the deferred D1 bug, made visible on purpose).{C_RESET}")
     print("\n  Base queries — each exercises a different query-builder flow:")
     for name, qid, blurb in seeded:
         print(f"    • {name:<22} {FRONTEND_URL}/data-management/queries/{qid}")
