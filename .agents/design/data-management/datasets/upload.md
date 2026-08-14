@@ -133,7 +133,7 @@ Upload a file and turn it into a queryable dataset.                      ──�
 - Data-source selector renders as **two cards** (Excel + CSV) — a
   segmented control would also work, but cards leave room for an
   icon + format hint. Excel is the default selection because it's
-  the primary R15 source; CSV is the fallback.
+  the primary source; CSV is the fallback.
 - Workspace picker required. Pre-filled from `?workspace=<id>`
   when entered from a filtered Datasets view.
 - File required. The drop zone's accept-types and "Up to 100 MB"
@@ -259,7 +259,7 @@ the active sheet with the new options. The Metadata column list
 refreshes (different columns may appear or disappear). **Any
 dtype overrides the user made on the previous parse for this
 sheet are reset** — column names may no longer match — with an
-inline warning in the disclosure. Conservative R15 behavior;
+inline warning in the disclosure. Conservative behavior;
 smarter override-merge can land in a later round if real users
 hit friction.
 
@@ -282,16 +282,14 @@ the Dataset, and overriding each kept column's dtype.
   checked or the wizard's `Next` button is disabled with an
   inline message.
 - One row per inferred column. **Override** is the editable
-  dtype field — column **name** is read-only in R15+ (renaming
-  deferred to R∞).
+  dtype field — column **name** is read-only (renaming deferred).
 - Override dropdown values: `string · integer · float · boolean ·
-date · datetime`. **R143+R144 semantics** (see
-  [§Commit dtype semantics](#commit-dtype-semantics-r143)): every
+date · datetime`. See
+  [§Commit dtype semantics](#commit-dtype-semantics-r143): every
   override is **applied for real** at the commit's parquet write —
-  `string`/`integer`/`float`/`boolean` since R143, `date`/`datetime`
-  since R144 (parsed via the translated `format`). *(Pre-R143
-  shipped behavior — all overrides relabel-only, parquet keeps
-  parser-inferred dtypes — was the R142-F2 defect: metadata could
+  all six dtypes, with `date`/`datetime` parsed via the translated
+  `format`. *(An earlier build made every override relabel-only,
+  leaving the parquet on parser-inferred dtypes — metadata could
   contradict stored data.)* A `date` / `datetime` override
   **requires** a `format` (422 otherwise).
 - **Format string** input appears under the dtype dropdown **only
@@ -303,7 +301,7 @@ date · datetime`. **R143+R144 semantics** (see
   values); the user can edit. Format syntax follows the
   Java/`DateTimeFormatter`-style pattern (`yyyy-MM-dd`,
   `dd/MM/yyyy HH:mm`, …) — the same conventions pandas and
-  DuckDB both understand. R15 ships the input; R∞ adds format
+  DuckDB both understand. The input ships; a format
   autocomplete + a "Use detected" reset if user friction surfaces.
 - **Sample values** column shows up to 3 distinct values from
   Step 2's preview JSON to help the user decide on the override
@@ -629,7 +627,7 @@ Larger files defer to a future chunked-upload round.
    the response body — **nothing is persisted** (no per-sheet
    Parquet/preview files; each parse re-reads `original.<ext>`). CSV
    already got its schema + sample rows in step 1 but can also
-   re-parse here (R26 extended `/parse` to CSV for parse-option edits).
+   re-parse here (`/parse` covers CSV for parse-option edits).
 
 This split keeps Step 1's wait short for Excel workbooks (sheet
 enumeration is fast; parsing all sheets eagerly would be slow for
@@ -642,7 +640,7 @@ multi-sheet files where the user only wants one).
 - **Excel**: lead choice is `openpyxl` for sheet enumeration +
   `pandas.read_excel` (engine='openpyxl') for parse-to-DataFrame
   → DuckDB Parquet write. DuckDB has an `excel` extension too;
-  the R15 Plan decides between them based on robustness
+  the Plan decides between them based on robustness
   (openpyxl is the more battle-tested path; DuckDB excel is
   newer and the round can benchmark).
 
@@ -760,7 +758,7 @@ def commit_datasets_batch(
   for both create and refresh). The whole batch is atomic — partial
   commits never happen.
 
-**CORS**: already configured by R13 for `http://localhost:3000`.
+**CORS**: already configured for `http://localhost:3000`.
 
 ---
 
@@ -771,7 +769,7 @@ def commit_datasets_batch(
 > dtypes; implausible casts raise CastError → 422") and acceptance criterion **C9** — which the
 > shipped implementation never honored: `_apply_overrides` relabels `columns_json` only, the
 > writers receive only `kept_columns`, and an uncastable mixed-type column dies as an unhandled
-> `ArrowInvalid` **500**, not a 422 (R142 findings **F1+F2**, verified on real files:
+> `ArrowInvalid` **500**, not a 422 (findings **F1+F2**, verified on real files:
 > `.agents/plan/brainstorms/2026-07-03-r142-dogfood-findings.md`).
 
 ### Invariant (the round's exit condition)
@@ -784,12 +782,12 @@ For every dtype in the **coerced set**, a committed dataset's `parsed.parquet` p
 - **Coerced set (this round): `string · integer · float · boolean`** — the formatless dtypes.
   The verified F1/F2 need is `→string` (leading-zero phones in mixed-type columns); the other
   three ride the same one-seam cast machinery at zero marginal design cost.
-- **`date` / `datetime`: joined the coerced set in R144** — see
-  [§ Date and datetime coercion (R144)](#date-and-datetime-coercion-r144) for the
-  format-token subset, the date-vs-datetime split, and the rejection behavior. _(R143 had
-  left them relabel-only because the wizard's `format` field speaks
+- **`date` / `datetime` are coerced too** — see
+  [§ Date and datetime coercion](#date-and-datetime-coercion-r144) for the
+  format-token subset, the date-vs-datetime split, and the rejection behavior. _(They were
+  relabel-only at first because the wizard's `format` field speaks
   Java-`DateTimeFormatter` tokens, which neither pandas nor DuckDB `strptime` accept
-  natively; R144's token translation closes that gap.)_
+  natively; the token translation closes that gap.)_
 
 ### Where coercion runs
 
@@ -800,7 +798,7 @@ source paths; columns whose physical type already conforms skip without a scan �
 no-override commits keep the pure-DuckDB COPY path). Parse/preview steps are untouched —
 coercion is a commit-time contract, exactly where the F2 defect lives.
 
-**Build deviation from the signed-off draft (flagged, R141-style):** targets are **every
+**Build deviation from the signed-off draft (flagged):** targets are **every
 kept column's committed formatless dtype** (parser-inferred or overridden), not
 overrides-only. Discovered at B: the parser infers `string` for a MIXED-type column, so an
 overrides-only cast would leave the no-override commit of such a column dying as the same
@@ -812,9 +810,9 @@ nothing guesses beyond the parser's existing inference.
 ### Date and datetime coercion (R144)
 
 > Week convention accepted as
-> ISO-8601 Monday-start (the product's convention). Extends the R143 machinery so
+> ISO-8601 Monday-start (the product's convention). Extends the coercion machinery so
 > `date` / `datetime` overrides are applied for real at the parquet write; closes the
-> deliberate R143 defer (the Java-token translation decision). Pulled by R142-F11 (②):
+> deliberate defer (the Java-token translation decision). Pulled by F11 (②):
 > THE weekly report needs `Ngày gọi` (`dd-MM-yyyy HH:mm:ss`) as a real datetime, not a
 > 5,015-group timestamp string.
 
@@ -858,7 +856,7 @@ relabel. _Trigger to widen: a real file whose format needs a token outside the s
 - A **`datetime`** target's format may use any subset tokens; absent time tokens parse as
   midnight (standard `strptime` default — honest, not lossy).
 
-**Cell semantics** (same lexicon rules as the R143 casters):
+**Cell semantics** (same lexicon rules as the other casters):
 
 - NULL cells pass through as NULL.
 - A cell that is already a **native** date/datetime (pandas parses real Excel date cells
@@ -868,7 +866,7 @@ relabel. _Trigger to widen: a real file whose format needs a token outside the s
   trailing garbage fails).
 - Any failing non-NULL cell → the same `CoercionError` → `coercion_failed` 422 envelope
   (`dtype: "date" | "datetime"`, first 5 cells, 1-indexed data rows); the whole batch
-  aborts. The Confirm step's R143 alert renders it unchanged — verify-only at F.
+  aborts. The Confirm step's coercion alert renders it unchanged — verify-only at F.
 - Conformance fast-paths extend: a column already physically datetime64 conforms to
   `datetime` without a scan; `_DUCK_CONFORMS` gains `DATE → date`, `TIMESTAMP → datetime`
   (CSV columns DuckDB already inferred as temporal skip the pandas detour).
@@ -876,7 +874,7 @@ relabel. _Trigger to widen: a real file whose format needs a token outside the s
 **Timezone: out of scope.** Naive datetimes only — the CRM exports carry no offsets;
 timezone tokens are outside the subset (rejected loudly like any other).
 
-**Acceptance (R144, maps to Check).**
+**Acceptance — date/datetime coercion (maps to Check).**
 
 1. Real FM1 `Ngày gọi` (`dd-MM-yyyy HH:mm:ss` + `datetime` override) → parquet TIMESTAMP
    == `columns_json` `datetime`.
@@ -884,7 +882,7 @@ timezone tokens are outside the subset (rejected loudly like any other).
    datasets created.
 3. An unsupported format token → 422 `format_unsupported` at validation, before any
    write.
-4. The R143 invariant regression extends to `date` / `datetime` commits.
+4. The invariant regression extends to `date` / `datetime` commits.
 
 ### Failure semantics — the typed 422 (replaces the F1 500)
 
@@ -909,7 +907,7 @@ timezone tokens are outside the subset (rejected loudly like any other).
 
   `cells` carries the **first 5** offending cells; `row` is the 1-indexed **source-file
   row** — header and skipped/range rows INCLUDED, so it is the row number the user sees in
-  Excel / a CSV editor and can jump straight to. _(R144 correction from real dogfood: the
+  Excel / a CSV editor and can jump straight to. _(Correction from real dogfood: the
   original data-row convention — header excluded — pointed the user one row off when
   locating the cell to fix; the FE copy reads "file row N".)_
 - FE: the Confirm step's existing inline `<Alert>` renders the typed payload (column + sample
@@ -1068,12 +1066,12 @@ _⑥ refresh theme, slice 1 — F9 (settings carry-forward) + F10 (schema-drift 
 > Drift-severity = warn-loud-never-block
 > and the header-skip rider deferral are the human's domain calls; carry-forward home
 > (`commitSettings` on `source.json`, no migration) is the agent build-home call, accepted.
-> Graduates the R14-deferred
+> Graduates the long-deferred
 > "Append / update an existing Dataset" bullet (§Read/write boundary) from `R∞` to shipped,
 > in its first slice. Pulled by [Round_144](../../../plan/cycles/Round_144.md) Feeds-into +
 > the signed-off ⑥ ranking in
 > [2026-07-03-r142-dogfood-findings](../../../plan/brainstorms/2026-07-03-r142-dogfood-findings.md)
-> (rank 3, month-2 blocker) + R144 Act learning #4 — the F9 pain was **lived, not predicted**
+> (rank 3, month-2 blocker) — the F9 pain was **lived, not predicted**
 > (the human re-uploaded the FM family four times in one session, re-choosing sheet, dtype
 > overrides, and format each time).
 
@@ -1083,12 +1081,12 @@ A **Refresh** brings a *new export of the same source* into an **existing** Data
 of creating a sibling. The real CRM cadence: every month a fresh call-log / lead export
 lands, and it should update `monthly_calls` in place — not spawn a 12th near-duplicate row.
 
-R145 ships **whole-table replace** semantics: the new file's parsed table **replaces** the
+Refresh ships **whole-table replace** semantics: the new file's parsed table **replaces** the
 dataset's contents (original + parquet + `columns_json` + counts), forward-only (no version
 history). This is the lived case — the FM exports are **cumulative** (FM2.25 carried 6,692
 rows that supersede the earlier 5,047-row commit), so replace is correct and sufficient.
 
-> **Not this round (revert seam → R147):** row **merge-on-key / precedence** (F5+F6) for
+> **Not replace's job:** row **merge-on-key / precedence** (F5+F6) for
 > *overlapping, non-cumulative* re-exports (identity key + precedence are domain decisions).
 > Replace can't dedup overlapping partial exports; that wall pulled
 > [§ Refresh merge mode](#refresh-merge-mode-merge-on-key-and-precedence-r147).
@@ -1110,7 +1108,7 @@ same verb (file → parsed table) against a *known target*.
   (a) **seeds** the reducer with a carry-forward preset, (b) fixes the workspace + target
   (Source step's workspace picker is read-only, pre-set to the dataset's workspace), and
   (c) has `commit` populate `target_dataset_id`.
-- **Sheet step in refresh is SINGLE-select** (R147, human finding): a refresh maps one new
+- **Sheet step in refresh is SINGLE-select** (human finding): a refresh maps one new
   table into one dataset (the wire's one-item invariant), so selecting a sheet REPLACES the
   selection (radio semantics; Select all/Clear hidden; advance requires exactly one).
   The committed sheet is a **default, not a lock** — monthly exports rename sheets
@@ -1135,7 +1133,7 @@ same verb (file → parsed table) against a *known target*.
 `{temp_id, sourceFormat, sheet, originalName}` and `columns_json` holds only `{name, dtype}`
 per column. **Parse options** (`range` / `skip_rows` / `has_header`), the **date/datetime
 `format`** string, the **exclusion** list, and pre-override dtypes are all *discarded* after
-commit (they survive only as their effect on the parquet). So the two things the R144 human
+commit (they survive only as their effect on the parquet). So the two things the human
 re-typed most — **dtype/format overrides and parse options** — cannot be re-derived from
 what's stored.
 
@@ -1144,11 +1142,11 @@ what's stored.
 capturing exactly what a future refresh needs to pre-fill:
 
 ```jsonc
-// data/datasets/<ws>/<ds>/source.json  (R145 extends)
+// data/datasets/<ws>/<ds>/source.json
 {
   "temp_id": "…", "sourceFormat": "excel", "sheet": "Worksheet",
   "originalName": "FM2.25.xlsx",
-  "commitSettings": {                       // ← new (R145)
+  "commitSettings": {                       // ← the refresh recipe
     "parseOptions": { "range": "A1:M6693", "has_header": true },
     "columnOverrides": {                    // keyed by column name; format preserved
       "Số gọi": { "dtype": "string" },
@@ -1175,7 +1173,7 @@ capturing exactly what a future refresh needs to pre-fill:
   **parse options** · **dtype overrides + formats** · **exclusions** (all from
   `commitSettings`). The user re-picks only the **file**; everything else arrives pre-set and
   editable.
-- **Legacy datasets** (committed before R145, no `commitSettings`): **lossy-pre-fill
+- **Legacy datasets** (committed before refresh shipped, no `commitSettings`): **lossy-pre-fill
   fallback** — pre-fill `sheet` + each column's **final committed dtype** as an override
   (formats unavailable → the user re-enters date/datetime formats). Surfaced honestly with an
   inline note ("some settings couldn't be restored from an older upload"). The snapshot is
@@ -1189,14 +1187,14 @@ version, flag, **adapt**: don't reject normal business drift, don't hide it eith
 
 **Drift kinds** (per column, by name):
 
-| Kind | Meaning | Severity (human decision, R145 D) |
+| Kind | Meaning | Severity |
 | ---- | ------- | --------------------------------- |
 | **Added** | in new file, not in committed schema | **warn** — informational (no dependent can reference it yet) |
 | **Removed** | in committed schema, absent from new file | **warn + blast-radius** (see below) |
 | **Dtype-changed** | same name, the carried-forward override no longer fits the new data | **warn** — the coercion path (below) is the hard net |
 | **Renamed** | indistinguishable from removed+added without a heuristic | surfaced as **both** a removal and an addition (no rename inference in slice 1) |
 
-**Severity policy — warn-loud, never block (human decision, R145 D-gate):** all drift is
+**Severity policy — warn-loud, never block (human decision):** all drift is
 surfaced in a dedicated **Drift review** step the user must explicitly acknowledge, then the
 refresh **proceeds**. Nothing about column drift *blocks* the commit. Rationale: the runtime
 `query_stale` / `relationship_stale` machinery already re-computes dependent-artifact validity
@@ -1207,17 +1205,17 @@ drops/changes a column auto-flips its dependents to stale on their next open. Th
 job is to **preview that blast radius before the user commits**, not to duplicate or replace
 the runtime net.
 
-**Blast-radius preview** — **split to slice 1b (deferred, R145 Plan decision, 2026-07-04).**
+**Blast-radius preview** — **deferred, not built.**
 The ideal is: for **removed** / **dtype-changed** columns, the Drift review step names the
 dependent **queries** and **relationships** that reference those columns ("refreshing will
 break the *Weekly Call Report* query"). That needs a BE read resolving a dataset's dependents
 **by referenced column** — a per-column reference-extraction engine over query
-definitions/predicates/joins. Per the fat-seam below, **R145 (slice 1a) does not build it.**
+definitions/predicates/joins. Per the fat-seam below, **it is not built.**
 The Drift review step instead states plainly that the runtime staleness net re-checks
 dependents on next open (see below); the named blast-radius preview lands in **slice 1b**.
 
 > **Round fat-seam (revert seam) — TAKEN at Plan.** The blast-radius dependents lookup was the
-> round's flagged fat point. Plan decision: **split**. Slice **1a** (R145) ships the drift
+> round's flagged fat point. Plan decision: **split**. Slice **1a** ships the drift
 > *columns* surfaced (added / removed / dtype-changed) with the acknowledge gate; the
 > *dependents* preview is slice **1b**. Safe because the runtime `query_stale` /
 > `relationship_stale` machinery (recomputed on read) still catches broken dependents the next
@@ -1239,9 +1237,9 @@ mode the commit path **UPDATEs in place** — same `ds_id` — rather than minti
   (`columns_json`, `row_count`, `column_count`, `size_bytes`, `sheet_name`; `created_at`
   unchanged, no `updated_at` field) inside one transaction; write the new `source.json` last.
   Forward-only — the previous parquet is **replaced**, not archived.
-- **Failure leaves the existing dataset fully intact** (R145 Check): a coercion failure or FS
+- **Failure leaves the existing dataset fully intact**: a coercion failure or FS
   error rolls back the staged files and aborts the UPDATE — the old `original` / `parsed` /
-  `columns_json` are untouched. This extends the R143/R144 staged/rollback discipline
+  `columns_json` are untouched. This extends the staged/rollback discipline
   ([`_handle_refresh`](../../../../workspace/apps/backend/app/routers/datasets.py))
   from create-INSERT to refresh-UPDATE.
 
@@ -1272,16 +1270,16 @@ source table), targeting one dataset:
 
 ### Boundaries (named)
 
-- **Replace only (R145 slice 1a)** — the other refresh modes are
-  [§ Refresh merge mode (R147)](#refresh-merge-mode-merge-on-key-and-precedence-r147) and
-  [§ Refresh append mode (R155)](#refresh-append-mode-keyless-union-to-accumulate-periodic-exports-r155).
+- **Replace only** — the other refresh modes are
+  [§ Refresh merge mode](#refresh-merge-mode-merge-on-key-and-precedence-r147) and
+  [§ Refresh append mode](#refresh-append-mode-keyless-union-to-accumulate-periodic-exports-r155).
 - **Forward-only** — no version history / rollback-to-previous-parquet in slice 1.
 - **One dataset per refresh** — a refresh batch is length 1 (multi-dataset refresh has no
   lived pull; the create path stays multi-item for Excel multi-sheet).
-- **Header-skip rider deferred (R144 finding #3)** — a "skip rows that exactly repeat the
+- **Header-skip rider deferred** — a "skip rows that exactly repeat the
   header" parse option (the real FM append-seam) is **not** this round; it defers to the
   parse-options / UI-batch round with its trigger named (a real file whose append seam
-  repeats the header mid-table). Human decision, R145 D-gate.
+  repeats the header mid-table). Human decision.
 - **No rename inference** — a renamed column reads as removed + added.
 
 ### Acceptance (maps to Check)
@@ -1297,7 +1295,7 @@ source table), targeting one dataset:
    the user acknowledges and the refresh proceeds (never blocked).
 4. **Atomicity**: a refresh whose new data fails coercion → 422 `coercion_failed`, and the
    existing dataset (original + parquet + columns_json) is **fully intact**.
-5. **Legacy fallback**: refreshing a pre-R145 dataset (no `commitSettings`) pre-fills
+5. **Legacy fallback**: refreshing a dataset with no `commitSettings` pre-fills
    sheet + final dtypes, notes the un-restorable settings, and writes a fresh snapshot on
    commit.
 
@@ -1316,11 +1314,11 @@ F6 (the identity key is a domain decision)._
 > sign-off. Pulled by
 > [Round_147](../../../plan/cycles/Round_147.md) ←
 > [2026-07-03-r142-dogfood-findings](../../../plan/brainstorms/2026-07-03-r142-dogfood-findings.md)
-> (rank 3, ⑥ month-2 blocker; F5 upgraded to correctness risk) + the R145 revert seam above.
+> (rank 3, ⑥ month-2 blocker; F5 upgraded to correctness risk) + the replace-mode revert seam above.
 
 ### Concept: the case replace cannot serve
 
-R145's refresh **replaces** the whole table — correct when each export supersedes the last
+Replace-mode refresh **replaces** the whole table — correct when each export supersedes the last
 (the cumulative FM files). The second real export shape is **overlapping and non-cumulative**:
 the two CRM lead snapshots share **6,960 phone values**, and under every counting policy
 roughly **half changed** their call-status between snapshots. Set arithmetic cannot reconcile
@@ -1359,7 +1357,7 @@ enforces the same guards independently (the contract net), so key drift never si
 ### Merge semantics: keep-latest-per-key
 
 Inputs: the committed parquet (current rows) + the incoming staged table — the incoming side
-already coerced to the committed dtype contract by the R143/R145 machinery, *before* any swap.
+already coerced to the committed dtype contract, *before* any swap.
 
 | Key present in… | Result |
 | --------------- | ------ |
@@ -1371,7 +1369,7 @@ already coerced to the committed dtype contract by the R143/R145 machinery, *bef
   column, no per-cell reconciliation in slice 1.
 - One DuckDB statement over the two tables (anti-join committed-minus-incoming ∪ incoming),
   writing a fresh parquet via the same staged/atomic-swap path as replace — failure at any
-  point leaves the existing dataset fully intact (the R145 invariant extends).
+  point leaves the existing dataset fully intact (the replace invariant extends).
 - **Merge report**: the commit response carries `{ updated, inserted, kept }` counts; the
   Confirm step shows them post-commit (toast/result), and the FE cannot precompute them
   (it never holds the full committed table).
@@ -1401,7 +1399,7 @@ count earned no wire field before a lived pull._
 
 A silently drifted **key** dtype = the same phone failing to match its own prior row =
 **false non-overlap** — dedup silently misses, the exact F5 corruption. General drift stays
-**warn-never-block** (R145 human decision, unchanged); the **key columns are the exception**,
+**warn-never-block** (unchanged); the **key columns are the exception**,
 because a corrupt merge is a different severity class than a stale dependent:
 
 - Key column **removed** from the incoming file, or its **dtype changed** → the **Confirm
@@ -1417,7 +1415,7 @@ because a corrupt merge is a different severity class than a stale dependent:
 The refresh item gains one optional field — presence selects the mode:
 
 ```ts
-// merge refresh: target_dataset_id + merge_key; absence of merge_key = replace (R145, unchanged)
+// merge refresh: target_dataset_id + merge_key; absence of merge_key = replace
 { temp_id, items: [{ target_dataset_id, merge_key?: string[], sheet?, parse_options?, column_overrides?, excluded_columns? }] }
 ```
 
@@ -1436,7 +1434,7 @@ The refresh item gains one optional field — presence selects the mode:
 
 - **Whole-row wins** — no cell-level merge / per-column precedence.
 - **Incoming-wins only** — precedence columns defer with the ❓ D3 trigger.
-- **No rename inference** (unchanged from R145) — a renamed key column reads as
+- **No rename inference** — a renamed key column reads as
   removed → blocks merge.
 - **No AI-propose-key** — the F6 "agent proposes, human verifies meaning" moment is a natural
   #2 AI-loop slice, and #2 is additive, never load-bearing: the manual pick ships and lives
@@ -1454,7 +1452,7 @@ The refresh item gains one optional field — presence selects the mode:
    422s at the backend; the dataset is untouched.
 4. **Dup-key policy** (per ❓ D2): the real dup-heavy file behaves per the signed-off rule,
    loudly.
-5. **Replace unregressed**: an R145-style replace refresh (no `merge_key`) is byte-for-byte
+5. **Replace unregressed**: a replace refresh (no `merge_key`) is byte-for-byte
    the old behavior.
 6. **Carry-forward**: the declared key + mode are remembered; next month's refresh pre-fills
    both.
@@ -1465,7 +1463,7 @@ The refresh item gains one optional field — presence selects the mode:
 
 _⑥ refresh theme, slice 3 — the keyless primitive replace and merge both lack._
 
-> **Status: shipped R155** (DFCFBI; the warn UX got its F1 feel-review before the contract). Pulled
+> Shipped with the warn UX getting its feel-review before the contract. Pulled
 > by [Round_155](../../../plan/cycles/Round_155.md) ← the real 2025 call-log probe
 > (`memory/2026-07-08-append-mode-call-log-evidence.md`): disjoint months, no clean key.
 
@@ -1486,7 +1484,7 @@ not a fiction. So:
   no auto-dedup; dedup is a separate explicit step).
 
 Framing note: our existing merge-on-key is the *advanced* upsert; append is the *basic* primitive it
-sits on top of — R155 fills the gap.
+sits on top of — append fills the gap.
 
 ### Build home: a third refresh semantics (`replace | merge | append`)
 
@@ -1497,7 +1495,7 @@ reconciliation** ([`merge_parquets`](../../../../workspace/apps/backend/app/inge
 **minus the key predicate and the dup-key guard**: a plain `UNION ALL BY NAME` with the same
 D5 incoming-schema-wins column reconciliation (kept committed rows NULL-fill added columns, CAST
 into a drifted dtype, drop removed), written to a fresh parquet via the same staged/atomic-swap path
-— failure leaves the existing dataset intact (the R145 invariant extends unchanged).
+— failure leaves the existing dataset intact (the replace invariant extends unchanged).
 
 The wizard skeleton is untouched: append adds **no new step**. The **Confirm step**'s refresh-
 semantics block grows from `replace | merge` to `replace | merge | append`; choosing append reveals
@@ -1580,8 +1578,8 @@ merge (present) do — it needs an **explicit mode discriminator**:
   on `<field>`."
 - **Provenance column** — a per-append source tag (Power Query's `Source.Name`: "which file did this
   row come from") was **not** slice 1; its trigger fired immediately (after FM1…FM12 append, rows are
-  origin-blind) → **[§ Provenance column (R156)](#provenance-column-which-source-file-did-each-row-come-from-r156)**.
-- **Forward-only** — no un-append / version history (unchanged from R145 / R147).
+  origin-blind) → **[§ Provenance column](#provenance-column-which-source-file-did-each-row-come-from-r156)**.
+- **Forward-only** — no un-append / version history.
 - **merge.py reuse** — the dup-key guard is merge-only and must not fire on append (asserted by test).
 
 ### Acceptance (maps to Check)
@@ -1604,26 +1602,26 @@ merge (present) do — it needs an **explicit mode discriminator**:
 
 _Append's companion — the origin tag that makes an accumulated dataset attributable._
 
-Provenance shipped in R156 as an ingest-owned column recognized by its **magic name** `Source.Name`.
-R158 keeps the column and its behaviour but changes **how it is recognized** — from name-matching to a
-**metadata pointer** — because name-only identity was the shared root of two flaws the R157 dogfood
+Provenance is an ingest-owned column. It was first recognized by its **magic name** `Source.Name`;
+the column and its behaviour are unchanged, but **how it is recognized** moved from name-matching to a
+**metadata pointer** — because name-only identity was the shared root of two flaws a dogfood round
 surfaced: a false "removed `Source.Name`" drift warning on every refresh, and an ambiguous collision
-with a coincidental user column of the same name. The current-state spec below is the R158 model.
+with a coincidental user column of the same name. The spec below is the current model.
 
-> **R158 in-flight** (DCFBI, 0/5 — no-UI/refactor round): recognition moves to a `commitSettings`
-> pointer; drift diffs SOURCE columns only; collision auto-suffixes. Pulled by [R157](../../../plan/cycles/Round_157.md)
-> — [F-drift-provenance-phantom] confirmed. R156 origin: the R155 append boundary "No provenance column"
+> Recognition is a `commitSettings` pointer; drift diffs SOURCE columns only; collision
+> auto-suffixes. Pulled by a [dogfood round](../../../plan/cycles/Round_157.md)
+> — [F-drift-provenance-phantom] confirmed. Origin: the append boundary "No provenance column"
 > met its trigger immediately (after append unions FM1…FM12 the rows are origin-blind). This section is
-> reconciled to the R158 target; the [Round_158](../../../plan/cycles/Round_158.md) file carries the
+> reconciled to it; the [Round_158](../../../plan/cycles/Round_158.md) file carries the
 > build ledger.
 
 ### Concept: append made rows origin-blind
 
-R155's append keeps every row but drops the one fact needed to slice an accumulated dataset — **which
+Append keeps every row but drops the one fact needed to slice an accumulated dataset — **which
 export each row came from**. Power Query materializes this as a `Source.Name` column when it combines
 files from a folder; we do the same. Because it is a **real, materialized column** (not a view-hint) it
 is queryable: `GROUP BY "Source.Name"` in a widget answers "calls per month," and a stray re-append
-shows up as duplicate `Source.Name` values — a diagnosable companion to R155's overlap warn.
+shows up as duplicate `Source.Name` values — a diagnosable companion to the overlap warn.
 
 ### Build home: an ingest-owned COMPUTED column — automatic, hidden by default
 
@@ -1637,7 +1635,7 @@ the system recognizes provenance by that pointer, not by matching the string `So
 - **Value = the source filename** — `meta.originalName`, already captured and persisted in
   `source.json` (datasets.py `_source_json_dict`). Incoming rows get the just-uploaded file's name;
   kept committed rows keep their own stored value (already in the committed parquet).
-- **Hidden by default via the R152 `hidden` view-hint** — written into `columns_json` with
+- **Hidden by default via the `hidden` view-hint** — written into `columns_json` with
   `hidden: true` so it stays out of the row-preview clutter. Per
   [dataset-detail.md](dataset-detail.md) the `hidden` flag is a **preview default only** — every
   picker / query / widget IGNORES it — so provenance is fully groupable while invisible in the
@@ -1655,7 +1653,7 @@ column:
 ```jsonc
 "commitSettings": {
   "refresh_mode": "append",           // existing
-  "computed_columns": [               // R158 — the registry (provenance-only for now)
+  "computed_columns": [               // the registry (provenance-only for now)
     { "name": "Source.Name", "kind": "source_filename" }
   ]
 }
@@ -1664,7 +1662,7 @@ column:
 - **Backend-internal — no wire/contract change.** The pointer lives in `source.json`; `GET
   /datasets/{id}` still returns provenance in the existing `Column {name, dtype, hidden?}` shape. This
   is the deliberate reason to prefer a metadata registry over a structural flag on the `Column` wire
-  model — the latter reopens the R152 widen-shared-model / `null`-on-bystander trap
+  model — the latter reopens the widen-shared-model / `null`-on-bystander trap
   ([[widening-shared-wire-model-omit-serializer]]). The FE learns the computed column's **name** from
   the metadata `GET /datasets/{id}/refresh-settings` already returns (it echoes `commitSettings`), and
   uses it only to exclude that column from the drift diff (below).
@@ -1697,7 +1695,7 @@ rewrite, which would re-encode every column and strip pandas' string extension d
 The refresh Drift step compares the committed schema against the freshly-parsed incoming file
 (`computeSchemaDrift`, [state.ts](../../../../workspace/apps/builder/src/features/data-management/datasets/upload/state.ts)).
 A computed column exists on the committed (baseline) side but is **absent from every incoming file** —
-so a naïve name diff reports it "removed" on every refresh (R157 [F-drift-provenance-phantom]). The
+so a naïve name diff reports it "removed" on every refresh ([F-drift-provenance-phantom]). The
 rule: **the diff compares SOURCE columns only — the computed column is excluded from both sides before
 the diff and re-applied after.** The FE identifies which name to exclude from the refresh-settings
 metadata. This is a principled fix (a computed column is not a source column, so it is not a source-drift
@@ -1705,21 +1703,21 @@ event), not a special-case for `Source.Name`.
 
 ### Legacy: datasets committed before the provenance column
 
-- **Pre-R156 (no `Source.Name` at all)** — on the next refresh the column is introduced. `replace`
+- **No `Source.Name` at all** — on the next refresh the column is introduced. `replace`
   rebuilds the whole table from the incoming file (every row gets the new filename). `append` / `merge`
   would NULL-fill the column absent on the committed side ([merge.py](../../../../workspace/apps/backend/app/ingest/merge.py));
   for provenance specifically, kept committed rows are filled with the **committed dataset's stored
   `originalName`** (from its `source.json`) instead of NULL. No null-provenance rows result.
-- **Pre-R158 (has `Source.Name`, no registry pointer)** — the pointer is **synthesized once by name**
+- **Has `Source.Name`, no registry pointer** — the pointer is **synthesized once by name**
   on the next refresh: the backend recognizes the legacy `Source.Name` column, writes the
   `computed_columns` entry into `commitSettings` that commit, and is registry-driven from then on. A
-  one-time name-fallback bridges R156-era datasets — no migration script.
+  one-time name-fallback bridges those datasets — no migration script.
 
 ### Collision → auto-suffix
 
 If a kept source column is already named `Source.Name`, provenance **auto-suffixes** to `Source.Name1`
 (de-dup loop → `…2`, …), and the registry pointer records the suffixed name. The user's column is never
-clobbered, and provenance always exists. This supersedes R156's *skip* (user-wins → provenance silently
+clobbered, and provenance always exists. This supersedes the earlier *skip* (user-wins → provenance silently
 absent), which left an accumulated dataset origin-blind exactly when a coincidental same-named column
 appeared. Caveat: in the true Power-Query case (the incoming file's own `Source.Name` already *is* the
 source filename), auto-suffix yields a mildly redundant second column — harmless (hide or drop one);
@@ -1740,18 +1738,18 @@ to the new suffixed name so no history is lost:
   (`provenance_rename` in `merge.py`); for replace the whole table is rebuilt from the incoming file.
 
 Without this, a naïve inject would emit a **duplicate** `Source.Name` in `columns_json` (a corrupt
-schema) — the R158 build gate this case guards against.
+schema) — the build gate this case guards against.
 
 ### Boundaries (named)
 
 - **Filename only** — not sheet name, not a custom per-append label, not a timestamp (FM filenames
   encode the month, so the filename is directly useful). A richer label is a future pull.
 - **No un-append / undo-by-provenance** — provenance makes an append *attributable* and *visible*, but
-  R155's forward-only boundary is unchanged; deleting rows by `Source.Name` is not this round.
+  Append's forward-only boundary is unchanged; deleting rows by `Source.Name` is out of scope.
 - **Reserved identifier, not localized** — the provenance column name is a stable data identifier (Power
   Query parity), not UI chrome; surrounding UI copy is localized, the column name is not.
 - **Column count shifts +1, and provenance flows through the compute layer** — every dataset gains one
-  column. Because `hidden` is a **preview-only** hint (R152), provenance is a real column that flows into
+  column. Because `hidden` is a **preview-only** hint, provenance is a real column that flows into
   query / join / workflow output: groupable in a single-dataset query (the goal — `GROUP BY
   "Source.Name"`), and present in a join's resolved columns **once per source** (`<src>.Source.Name`,
   qualified). Provenance is a genuine column everywhere; the hidden hint only declutters the
@@ -1768,7 +1766,7 @@ schema) — the R158 build gate this case guards against.
 2. **Append months** → each row's provenance = its own source file; `GROUP BY "Source.Name"` in a
    query/widget splits the counts per file.
 3. **Groupable while hidden** — a widget/query groups/filters on provenance even though it is hidden in
-   the dataset-detail preview (R152 pickers-ignore-hidden).
+   the dataset-detail preview (pickers ignore `hidden`).
 4. **No phantom drift** — refreshing an already-provenanced dataset shows NO "removed `Source.Name`"
    entry in the Drift step (the computed column is excluded from the source diff).
 5. **Unhide survives refresh** — unhiding provenance, then refreshing, leaves it visible.
@@ -1776,9 +1774,9 @@ schema) — the R158 build gate this case guards against.
    column intact AND a `Source.Name1` provenance column; the pointer records the suffixed name. On a
    REFRESH collision (incoming file brings `Source.Name` after provenance is established) the committed
    provenance is remapped to `Source.Name1` — no duplicate column, committed history preserved.
-7. **Legacy synthesize-once** — refreshing a pre-R158 dataset (has `Source.Name`, no pointer) writes the
+7. **Legacy synthesize-once** — refreshing a dataset with `Source.Name` but no pointer writes the
    `computed_columns` pointer and thereafter is registry-driven (the phantom is gone from that commit on).
-8. **Backfill** — appending onto a pre-R156 dataset backfills old rows with that dataset's original
+8. **Backfill** — appending onto a dataset with no provenance column backfills old rows with its original
    filename (no NULLs); new rows get the incoming filename.
 9. **No contract regression** — no new request field; the contract-validity test stays green.
 
@@ -1856,15 +1854,14 @@ column_overrides }, …]` (length N = selected-sheets count).
 
 ## Workspace-persistence dependency
 
-Unchanged from earlier R14 framings: R15's first impl round must
-swap R13's in-memory workspace store to real persistence because
-Datasets reference `workspace_id` via a foreign key.
+Datasets reference `workspace_id` via a foreign key, so the workspace store must be really
+persisted — an in-memory one cannot back it.
 
 ---
 
 ## Read/write boundary
 
-**R15+ implements**:
+**Implemented**:
 
 - `/data-management/datasets/new` route with the dynamic wizard
   (create mode: 4 steps for CSV, 5 for Excel).
@@ -1879,30 +1876,30 @@ Datasets reference `workspace_id` via a foreign key.
 - `parse_csv()` + `parse_excel()` ingestion helpers.
 - Pytest coverage for all three endpoints (success + parse-
   failure + validation paths, both source types).
-- 24h temp-upload sweep — R15 shipped the one-shot bootstrap;
-  R30 replaced it with a lifespan-spawned periodic loop
+- 24h temp-upload sweep — a lifespan-spawned periodic loop
+  replaced the original one-shot bootstrap
   (`app.jobs.tmp_sweep`).
 
 **Deferred**:
 
-- **Adjust parse options (extended)** — R15 ships table range
+- **Adjust parse options (extended)** — the wizard ships table range
   (Excel), skip-rows (CSV), and has-header toggle (auto-gen
   names when off). Delimiter, encoding, and header-row offset
   beyond the first row remain R∞ until a real user is blocked.
 - **Column rename** in the Metadata step. R∞ per HIxAI Q16 —
   dtype override only. Rename triggers when a user is blocked by
   an ugly auto-extracted column name.
-- **Append / update an existing Dataset** — **R145 ships the first slice (Refresh, replace
+- **Append / update an existing Dataset** — **the first slice ships (Refresh, replace
   semantics)** — see [§ Refresh](#refresh-re-upload-into-an-existing-dataset-r145).
-  R15 shipped create-only with the commit endpoint's shape **forward-compatible**
-  (`target_dataset_id?` per item, mutually exclusive with `name`); R145 graduates that field
+  The wizard shipped create-only with the commit endpoint's shape **forward-compatible**
+  (`target_dataset_id?` per item, mutually exclusive with `name`); Refresh graduates that field
   from 422-reserved to real for whole-table replace + settings carry-forward + a schema-drift
   gate. **Row merge-on-key / precedence** (overlapping non-cumulative re-exports) shipped — see
-  [§ Refresh merge mode](#refresh-merge-mode-merge-on-key-and-precedence-r147). Pulled by: user reference + CRM-export reality + the R142 dogfood ⑥
+  [§ Refresh merge mode](#refresh-merge-mode-merge-on-key-and-precedence-r147). Pulled by: user reference + CRM-export reality + the dogfood ⑥
   ranking.
 - **Draft persistence** (resume wizard after reload). R∞.
 - **Browser back/forward** inside the wizard. R∞.
-- **Optimistic dataset row** during commit. R15+ Plan decides.
+- **Optimistic dataset row** during commit. Deferred.
 - **Background parsing** (queue + worker). R∞.
 - **Chunked / resumable upload**. R∞.
 - **Additional source types** (API, Website, SQL, …). R∞ — the
@@ -1913,7 +1910,7 @@ Datasets reference `workspace_id` via a foreign key.
 
 ## Acceptance criteria (Design gate exit)
 
-Testable criteria the R15–R17 chain satisfies (extended R19/R21/R30/R32),
+Testable criteria the wizard satisfies,
 each mapping to at least one automated test across F / B / I. Numbered
 `C1`–`C11`; they describe the **shipped** wizard behaviour.
 
@@ -1943,8 +1940,8 @@ preview the rows, and commit one or more datasets.
    CSV exposes skip-rows + has-header in the Metadata disclosure;
    editing them and clicking `[Re-parse]` re-parses and **resets** that
    sheet's dtype overrides + exclusions with an inline warning
-   (R19 Q2 / Q4). CSV has no re-parse — its options apply at commit
-   (R19 Q1) and the BE honours them observably (R20).
+   CSV has no re-parse — its options apply at commit, and the BE
+   honours them observably.
 6. **Preview step** _(FE + BE)_ — shows each column's name + dtype and
    10 sample rows from the inline `POST /uploads/{temp_id}/parse`
    response (held in client state — nothing is persisted per sheet);
@@ -1969,8 +1966,8 @@ preview the rows, and commit one or more datasets.
    `422` `parse_failed`.
 10. **File guards** _(pytest)_ — a 100 MB size cap with `413` / `415`
     on size / mime violation; temp uploads are swept on a 24 h TTL by
-    the R30 periodic sweep (`app.jobs.tmp_sweep`), disabled in tests.
-11. **i18n (R32)** _(FE)_ — all five step components and the page shell
+    the periodic sweep (`app.jobs.tmp_sweep`), disabled in tests.
+11. **i18n** _(FE)_ — all five step components and the page shell
     are keyed under `upload.*` namespaces; en + vi resources resolve.
 
 ---
@@ -2012,7 +2009,7 @@ This concept explicitly does NOT cover:
 
 This doc:
 
-- **Amended in place** during R15+ if implementation surfaces a
+- **Amended in place** if implementation surfaces a
   decision not pre-baked here.
 - **Superseded** by `upload-v2.md` if a third+ source type
   arrives that doesn't fit the current wizard pattern (unlikely

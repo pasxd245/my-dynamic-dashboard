@@ -1,12 +1,44 @@
 # Round 169: the design corpus re-synced — nine docs and the ledger they accreted
 
-**Status**: In Progress — drift **closed** (4 findings fixed) and slice A **compacted** (8 docs,
-159 → 4). **`upload.md` is unfinished at 106 stamped lines** and is the only work left.
+**Status**: Complete — 2026-08-14. Drift closed (4 findings), the corpus compacted
+**324 → 10 stamped lines**, and **three further drifts** surfaced by the compaction itself.
 **Flow**: _(set at the Design exit via `flow-selector` — but see § This round ships only documents)_
 **Date started**: 2026-08-14
-**Date completed**:
+**Date completed**: 2026-08-14
 
-<!-- ⟢ At a glance is authored at the Review→Complete flip (R159 doctrine), not during Do. -->
+## ⟢ At a glance
+
+**Shipped** — **nine design docs now answer as current-state specs.** The ledger went from **324
+stamped lines to 10**, and all ten are heading anchors kept deliberately because links depend on
+them; **zero prose attribution remains in the domain**. Seven drift findings were fixed along the
+way — four from the measurement, three from the compaction.
+
+**Studied** — **the round's `_Falsified if_` fired, and that was the round's main product.**
+`design-sync --check` had **never been run** on these docs, so "the corpus has drifted" was an
+assumption. Measured, it was four findings across 7 269 lines: the docs were already largely
+code-true, and the backlog was **ledger, not drift** — a much smaller round than the one scoped,
+exactly as the falsification clause predicted. **Then the compaction found three more drifts the
+`--check` structurally could not**, because reading every line catches what sweeping three
+classes cannot: a scope statement invalidated by a shipped verb, a reverted feature still labelled
+"deferred", and a Complete round still described as "in-flight". That is the honest limit of a
+class-based sweep, and it is now on the record next to the sweep that claimed seven-of-nine clean.
+
+**Watch**
+
+- **Compacting a design doc can manufacture link rot — the gate caught it twice.** Renaming a
+  stamped heading breaks inbound anchors, which is precisely how the eight genuinely-rotted links
+  this round triaged came to exist. **Rule: remove a heading stamp only when every inbound link
+  can move in the same commit** — true for in-corpus links, false for append-only rounds.
+- **`markdown-check-link` reports 24 broken links and 16 of them are not broken.** The checker's
+  `slugify` collapses `-+` → `-`; GitHub and this repo's own **MD051** do not, and `md:lint`
+  passes on the same fragments `check_links` fails. Noted as an **R170 candidate** (Track 2). Until
+  it is fixed the gate is two-thirds noise, which is why its baseline sat at 24 unexamined.
+- **`Lifecycle` sections survive in three docs** though the skill's delete list names them. Not
+  round-stamps, and they carry real triggers — flagged for the human rather than deleted on the
+  round's own authority.
+- **No acceptance walk, and no surface to walk one on.** Two rounds running (R168 skipped its own).
+  The proposed acceptance stands: **a human reads one re-synced doc and says whether it now answers
+  as a spec.**
 
 ## Goal
 
@@ -403,10 +435,37 @@ Split out deliberately ([[split-fragile-subphase]]) and worked in that order. Wh
 - **Status blockquotes and eleven unlinked heading stamps** stripped; the **six linked** anchors
   keep theirs.
 
-**106 stamped lines remain in `upload.md`**, and they are the hard kind: prose de-attributions
-needing a judgement each (_"R145 ships whole-table replace"_ → whose reason survives, whose
-number does not). That is a second sitting, not a rounding error, and it is reported as unfinished
-rather than rounded up.
+**`upload.md` finished in the second sitting: 165 → 6.** The six survivors are the **linked**
+heading anchors (§ Commit dtype semantics · § Date and datetime coercion · § Refresh · § Refresh
+merge mode · § Refresh append mode · § Provenance column) — every one verified to carry inbound
+links, so the rule keeps them. The doc lost **66 lines** net and reads present-tense throughout:
+_"R145 ships whole-table replace"_ → _"Refresh ships whole-table replace"_, _"Pre-R158 (has
+`Source.Name`, no registry pointer)"_ → _"Has `Source.Name`, no registry pointer"_.
+
+**One stale status caught while compacting**: the § Provenance column section still opened
+_"**R158 in-flight** (DCFBI, 0/5 — no-UI/refactor round)"_. R158 is long Complete, so a reader was
+being told the current model was still being built. A third drift finding, again in a class the
+`--check` did not sweep.
+
+### The final count
+
+| | Stamped lines | Now |
+| --- | ---: | ---: |
+| Slice A — eight docs | 159 | **4** |
+| Slice B — `upload.md` | 165 | **6** |
+| **Total** | **324** | **10** |
+
+**All ten are linked heading anchors, kept on purpose.** Zero prose attribution remains in the
+domain.
+
+### Not done, and named rather than absorbed
+
+- **The `Lifecycle` sections** (`upload.md`, `dataset-filters.md`, `advanced-query.md`) — the
+  skill's delete list names "the Lifecycle section", and these survive. They are **not
+  round-stamps**, they carry named supersede/fold triggers in the same style as the Scope
+  boundary, and deleting them is an editorial call beyond the axis this round measured. Flagged
+  for the human, not taken unilaterally.
+- **`_platform`** — untouched as scoped, and `workspace-shell.target.md` must **never** be synced.
 
 ## Check
 
