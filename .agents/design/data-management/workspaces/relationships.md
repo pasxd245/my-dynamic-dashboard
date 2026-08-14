@@ -25,14 +25,14 @@ step of the critical path (`data → relationships → dashboards`).
 [workspaces.md](workspaces.md), **not** a top-level catalog and **not** a
 dataset-detail section).
 **Sibling docs**:
-[`../_noun-model.md`](../_noun-model.md) (R161 — the domain noun-model; defines the
+[`../_noun-model.md`](../_noun-model.md) (the domain noun-model; defines the
 **governed `rel_` (asset) vs query-owned `qrel_` (snapshot)** boundary this doc's entity sits on),
 [workspaces.md](workspaces.md) (the container that owns relationships; this view
 is reached from the workspace card),
 [datasets.md](../datasets/datasets.md) +
 [dataset-detail.md](../datasets/dataset-detail.md) (the datasets + the column /
 `dtype` metadata the compatibility rule reads),
-[joins.md](../queries/queries.md#joins-reading-related-datasets-as-one) (the **consumer** — R71 join execution resolves a
+[joins.md](../queries/queries.md#joins-reading-related-datasets-as-one) (the **consumer** — join execution resolves a
 declared Relationship to produce joined rows) +
 [query-builder.md](../queries/queries.md) (the queries domain anchor),
 [crud-hygiene.md](../_shared/crud-hygiene.md) (the delete-confirm modal reused
@@ -84,7 +84,7 @@ The relationships surfaces are AntD primitives (`<Table>`, `<Modal>`, `<Select>`
 `<Segmented>`, `<Tag>`, `<Empty>`, `<Button>`, `<Alert>`) styled by the
 `<ConfigProvider>` tokens derived from the six seeds in
 [`themeTokens.ts`](../../../../workspace/packages/ui/src/themeTokens.ts) (the
-source of truth — R66). **No new token is introduced**; the map reuses the
+source of truth). **No new token is introduced**; the map reuses the
 identifiers already cited by [datasets.md](../datasets/datasets.md) and
 [saved-query.md](../queries/queries.md). `Value` is informational.
 
@@ -301,8 +301,8 @@ stateDiagram-v2
 - **Delete** reuses `<DeleteConfirmModal>`
   ([crud-hygiene.md](../_shared/crud-hygiene.md), `resourceLabel="relationship"`).
   Deleting a **dataset** or **workspace** cascades its relationships away
-  (FK `ON DELETE CASCADE`). No dependents this round (R71's joins will add a
-  dependency check before delete).
+  (FK `ON DELETE CASCADE`). A query embeds its own snapshot of an edge at save
+  time, so deleting a governed edge cannot break a saved query.
 
 ### Accessibility (declared here so F builds it, not infers it)
 
@@ -338,15 +338,14 @@ the **design intent** the YAML must satisfy.
 | `POST /workspaces/{id}/relationships` | declare | body `{ leftDatasetId, leftColumn, rightDatasetId, rightColumn, cardinality }`; 201 → `Relationship`; 409 duplicate pair; 422 unknown column / incompatible dtype / cross-workspace / self-pair. |
 | `GET /workspaces/{id}/relationships`  | list    | `Relationship[]`, `created_at` desc, each with **computed `status`**; scoped to the workspace.                                                                                                   |
 | `GET /relationships/{id}`             | get     | one `Relationship` (computed `status`); 404 if absent.                                                                                                                                           |
-| `DELETE /relationships/{id}`          | delete  | 204; 404 if absent. **No `/rows` route** — governance only (joins are R71).                                                                                                                      |
+| `DELETE /relationships/{id}`          | delete  | 204; 404 if absent. **No `/rows` route** — governance only; joining is the Query's job.                                                                                                           |
 
 - **`status` is computed, not stored** — list/get re-validate the columns vs the
   current dataset schemas, returning `valid | stale`. Governance reads **never
-  error on stale** (they annotate); a **`409 relationship_stale`** is reserved
-  for **R71** join execution, where a stale edge must block the join. _(This
-  refines J-4, which named `relationship_stale`: in R70 stale is a non-erroring
-  status; the 409 variant lands with its first consumer.)_ **R71 consumes it** —
-  a join over a stale edge returns `409 relationship_stale`
+  error on stale** (they annotate) — governance surfaces a stale edge, it does
+  not refuse to show it. The **`409 relationship_stale`** belongs to **join
+  execution**, where a stale edge must block the run: a join over a stale edge
+  returns `409 relationship_stale`
   ([saved-query.md § Execution model](../queries/queries.md#execution-model-live-re-run-no-materialization)).
 - **Error envelopes.** The duplicate-pair conflict is a code-first envelope —
   `409 { code: "relationship_exists" }` (reusing the shared
@@ -400,15 +399,14 @@ Each criterion maps to ≥1 automated test across F / B / I:
    card; it **composes** the shared Page-List layout + `<DeleteConfirmModal>` (no
    copy-pasted `DatasetsPage` / parallel page) — the noun-vs-mode check
    ([specious-model-lock-in](../../../memory/2026-06-13-specious-model-lock-in.md)).
-10. **Governance only** _(scope assertion)_ — no joined rows, no `/rows` route, no
-    table-source resolver this round; the edge is metadata the Query Builder
-    consumes in R71.
+10. **Governance only** _(scope assertion)_ — no joined rows, no `/rows` route and
+    no table-source resolver here; the edge is metadata the Query Builder consumes.
 
 ---
 
 ## Scope boundary
 
-### IN scope (R70)
+### IN scope
 
 - Declaring a single-column edge `(left.col ↔ right.col)` between two datasets in
   one workspace, with a declared cardinality and server-side dtype-compatibility
@@ -423,9 +421,8 @@ Each criterion maps to ≥1 automated test across F / B / I:
 ### OUT of scope (deferred with named triggers)
 
 - **Join execution** — producing joined rows from a declared edge; the unified
-  table-source resolver; the `409 relationship_stale` error → **R71**
-  ([query-builder.md](../queries/queries.md)). _Trigger: a query/report
-  must read two related datasets as one._
+  table-source resolver; the `409 relationship_stale` error. All of it is the
+  **Query's**, and it is built ([queries.md](../queries/queries.md)).
 - **Composite / multi-column join keys** (`(a,b) ↔ (c,d)`) → future. _Trigger: a
   real CRM export needs a two-column key._
 - **Self-joins** (same dataset, different columns) → future. _Trigger: a
@@ -443,14 +440,14 @@ Each criterion maps to ≥1 automated test across F / B / I:
   [datasets.md](../datasets/datasets.md) / [dataset-detail.md](../datasets/dataset-detail.md);
   this doc only **reads** it).
 - How a Query consumes a Relationship to join (lives in
-  [query-builder.md](../queries/queries.md), R71).
+  [queries.md](../queries/queries.md)).
 
 ---
 
 ## Reference materials (read-only)
 
-- [query-builder.md](../queries/queries.md) — the R71 consumer that joins
-  by resolving a declared Relationship.
+- [queries.md](../queries/queries.md) — the consumer that joins by resolving a
+  declared Relationship.
 - [saved-query.md](../queries/queries.md) — the `query_stale` precedent this
   doc mirrors for `status: stale` / the deferred `relationship_stale`.
 - [specious-model-lock-in](../../../memory/2026-06-13-specious-model-lock-in.md)

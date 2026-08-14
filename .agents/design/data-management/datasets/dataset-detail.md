@@ -83,7 +83,7 @@ because it depends on the builder-domain `formatCell` helper + the dataset
 `Column`/`Dtype` types and `@mdd/ui` is dependency-free.
 
 The **standard detail layout** is therefore: `<PageContainer fill width="data">`
-(R95) + `PageHeader` (title / info / actions) + `PageCard variant="fill"` +
+`PageContainer` + `PageHeader` (title / info / actions) + `PageCard variant="fill"` +
 `<PagedRowsView>`. Dataset-detail and query-detail both instantiate it; each
 adds its own sections (this page a metadata strip; query-detail a read-only
 predicate summary).
@@ -177,7 +177,7 @@ Excel · Sheet1 — 2,481 rows · 12 columns · 84 KB · Uploaded 14:02 today  �
   arrows, numbered pages with ellipsis, page-size selector
   (10 / 25 / 50 / 100), jumper input. Always-visible when total > 0;
   hidden for zero-rows state.
-- **Columns control (R152/R153)**: to the right of the "Matched X / Y"
+- **Columns control**: to the right of the "Matched X / Y"
   counter, a `[▦ Columns N/M]` button (N visible of M total) opens
   the **Properties panel** (also opened from `Actions ▾ → Properties`) —
   see [§ Column visibility](#column-visibility-r152). The preview
@@ -310,20 +310,20 @@ Excel · Sheet1 — 2,481 rows · 12 columns · 84 KB · Uploaded 14:02 today
 
 ## Layout shell
 
-This page is a **bounded view table** (R96): the card is capped at the
+This page is a **bounded view table**: the card is capped at the
 viewport, the table body owns the vertical scroll (so the sticky `<th>` has a
 real scroll container), and the pager pins at the **viewport bottom** at every
-realistic height. Use the shared `PageContainer fill="bounded"` (R96) + the
+realistic height. Use the shared `PageContainer fill="bounded"` + the
 `PageCard variant="fill"` recipe:
 
 - Outer page wrapper: `<PageContainer fill="bounded" width="data">`
   (`@mdd/ui`). `fill="bounded"` applies **`height: calc(100svh - 88px)`**
   (WorkspaceShell chrome math = Layout.Header 56 + Content padding 16×2) + flex
-  column — a **hard cap** (R96), so a short viewport is absorbed by the table
+  column — a **hard cap**, so a short viewport is absorbed by the table
   body's inner scroll (it shrinks) rather than growing the page and pushing the
   pager below the fold. (Contrast: forms/wizard/builder use `fill` = grow /
-  `min-height`, R95 D2 — they have content below the fold, not an inner
-  scroll.) `width="data"` caps + centers on wide screens (R95 D3), gutters on
+  `min-height` — they have content below the fold, not an inner
+  scroll.) `width="data"` caps + centers on wide screens, gutters on
   the shell `colorBgLayout`.
 - `<PageCard variant="fill">` — fills the rest as a flex column.
 - Metadata strip + search bar + (optional) error alert — each `flex: 0 0
@@ -332,7 +332,7 @@ realistic height. Use the shared `PageContainer fill="bounded"` (R96) + the
   `flex: 1 1 auto; minHeight: 0; overflow: auto` (the sticky `<th>` sticks
   here) + pagination bar `flex: 0 0 auto`, pinned at the bottom = viewport
   bottom. **Not** CSS `position: sticky; bottom: 0` (which occludes rows).
-- **Known limit** (R96, accepted): a *genuinely tiny* viewport where the fixed
+- **Known limit** (accepted): a *genuinely tiny* viewport where the fixed
   chrome alone exceeds the screen overflows the bounded card — fine for a
   desktop analytics app.
 
@@ -520,9 +520,8 @@ button.
 
 ## Column visibility (R152)
 
-> **R152 shipped** the `hidden` view-hint + `PATCH /datasets/{id}/columns` + the row-preview
-> default; **R153** (D-gate signed off 2026-07-07) evolves the editing surface into the
-> **Properties panel** (right-side Drawer, schema view + visibility editor). The **model field,
+> The editing surface is the **Properties panel** (right-side Drawer, schema view + visibility
+> editor). The **model field,
 > the honor/ignore surface split, and the `PATCH` contract** live in
 > [datasets.md § Column visibility](datasets.md#column-visibility-r152); this section owns the
 > **editing surface** (the Properties panel) + how the row-preview honors the hint.
@@ -552,11 +551,11 @@ designed to grow one labelled section at a time (via a file-private `SectionHead
 
 | Section | Content | Source | Status |
 | --- | --- | --- | --- |
-| **Dataset** | workspace · rows · cols · size · uploaded · format/sheet | `Dataset` (shared `datasetMetaItems`) | shipped (R153) |
-| **Columns** | per-column name · dtype · show/hide checkbox + "show all" | `Column` on `GET /datasets/{id}` | shipped (R153) |
-| **Profiling** | per-column null % · distinct · min–max · sample | **computed** (DuckDB `profile` endpoint) | **deferred → R154** (compute round) |
+| **Dataset** | workspace · rows · cols · size · uploaded · format/sheet | `Dataset` (shared `datasetMetaItems`) | shipped |
+| **Columns** | per-column name · dtype · show/hide checkbox + "show all" | `Column` on `GET /datasets/{id}` | shipped |
+| **Profiling** | per-column null % · distinct · min–max · sample | **computed** (DuckDB `profile` endpoint) | **NOT BUILT — built once and reverted**, the feature was not wanted; do not re-propose without a fresh pull |
 
-It **absorbs** the earlier toolbar-popover Columns manager (R152): the visibility checklist now
+It **absorbs** the earlier toolbar-popover Columns manager: the visibility checklist now
 lives in the Columns section. Opened from **two entries to one surface**: the
 `Actions ▾ → Properties` menu item, and the `[▦ Columns N/M]` toolbar button (kept for the
 at-a-glance count + quick access). AntD `Drawer` (`placement="right"`) — a pattern already shipped
@@ -596,8 +595,7 @@ Actions ▾ → Properties      opens →   ┊ Properties               ✕ ┊
   min–max) are **compute-only** (DuckDB profile) → a deferred round, not this surface.
 - **Apply** sends the full visible/hidden set via `PATCH /datasets/{id}/columns`
   (`{ hidden: string[] }` — see [contract](datasets.md#column-visibility-r152)); on success the
-  `['datasets', { id }]` cache is invalidated and the preview re-renders. Reuses the R152 mutation
-  unchanged.
+  `['datasets', { id }]` cache is invalidated and the preview re-renders.
 - **At-least-one-visible** is enforced client-side (Apply disabled if all unchecked) and
   server-side (`422 no_visible_columns`).
 - **Scope guard:** a **schema view + visibility editor** only — no rename / reorder / dtype-edit
@@ -770,12 +768,12 @@ export type RowsPage = {
   dataset delete (covered by the list-cache invalidation in
   `useDeleteDatasetMutation`); no separate invalidation needed on
   rename (rows don't change).
-- **Column visibility mutation (R152)** — `useSetColumnVisibilityMutation`
+- **Column visibility mutation** — `useSetColumnVisibilityMutation`
   invalidates `['datasets', { id }]` so the detail GET (and its
   `columns[].hidden`) re-fetches. Rows are **not** invalidated: the
   parquet is untouched, only which columns the preview renders.
 
-### `PATCH /datasets/{id}/columns` (R152)
+### `PATCH /datasets/{id}/columns`
 
 ```yaml
 paths:
@@ -854,7 +852,7 @@ paths:
 - i18n keys: namespace `datasets.detail.*` for all user-facing
   strings; en + vi resource entries.
 
-**In scope (R152, building)** — column visibility (F7):
+**In scope** — column visibility:
 
 - `PATCH /datasets/{id}/columns` BE route — writes `columns_json` only.
 - `datasetsApi.setColumnVisibility(id, hidden[])` + `useSetColumnVisibilityMutation`.
@@ -866,7 +864,7 @@ paths:
   ([`column.yaml`](../../../../workspace/packages/contracts/_shared/column.yaml)).
 - i18n keys `datasets.detail.columns.*` (en + vi).
 
-> The R145 refresh affordance also exposes `GET /datasets/{id}/refresh-settings`
+> The refresh affordance also exposes `GET /datasets/{id}/refresh-settings`
 > (its `useRefreshSettingsQuery` hook lives in this feature) — the route's contract is
 > owned by [upload.md](upload.md).
 
@@ -883,7 +881,7 @@ paths:
   through ~100k rows × 50 page-size. Promote when 100k+ row
   datasets become routine _and_ page-size-100 feels slow.
 - **Column freeze / reorder**. Cosmetic; promote when a user is
-  actually blocked. (**Column hide/show shipped R152** — see
+  actually blocked. (**Column hide/show is shipped** — see
   [§ Column visibility](#column-visibility-r152).)
 - **Row-level CRUD** (edit / delete / insert). Datasets are
   immutable post-commit in this iteration.

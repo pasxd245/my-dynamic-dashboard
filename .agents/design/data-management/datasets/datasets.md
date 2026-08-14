@@ -179,7 +179,7 @@ The Datasets page is AntD primitives (`<Table>`, `<Select>`,
 `<Input>`, `<Empty>`, `<Button>`) styled by the AntD `<ConfigProvider>`
 tokens derived from the six seeds in
 [`themeTokens.ts`](../../../../workspace/packages/ui/src/themeTokens.ts)
-(the source of truth — R66). The source-format prefix (`📊` / `📄`) is
+(the source of truth). The source-format prefix (`📊` / `📄`) is
 an emoji glyph, not a themed token. No new token is introduced; values
 are informational (resolved via `theme.getDesignToken()`, antd 6.x).
 
@@ -224,7 +224,7 @@ type Dataset = {
 type Column = {
   name: string; // header cell, trimmed
   dtype: 'string' | 'integer' | 'float' | 'boolean' | 'date' | 'datetime';
-  hidden?: boolean; // R152 presentation-only view-hint; absent/false = visible. NEVER touches the parquet.
+  hidden?: boolean; // presentation-only view-hint; absent/false = visible. NEVER touches the parquet.
 };
 ```
 
@@ -280,15 +280,14 @@ FE-facing contract is unchanged.
 
 ## Refresh affordance (R145)
 
-> **Status: SIGNED OFF (human, 2026-07-04) — R145 D-gate.** The Refresh *verb* — carry-forward,
-> the drift gate, and atomic replace — is specified in
+> The Refresh *verb* — carry-forward, the drift gate, and atomic replace — is specified in
 > [upload.md § Refresh](upload.md#refresh-re-upload-into-an-existing-dataset-r145); this
 > section covers only its **placement** on the Datasets surfaces + the dependent-artifact
 > consequence.
 
 A Dataset row (and the [dataset-detail](dataset-detail.md) header) gains a **Refresh**
 action beside rename/delete. It re-uploads a *new export of the same source* into the
-existing dataset — forward-only, **replace** or (R147) **merge-on-key** — rather than
+existing dataset — forward-only, **replace** or **merge-on-key** — rather than
 creating a sibling. The real CRM cadence: month-2's export updates `monthly_calls` in place.
 
 - **Placement**: an item in the row's Actions menu (`Refresh` · `Rename` · `Delete`) and the same
@@ -300,14 +299,14 @@ creating a sibling. The real CRM cadence: month-2's export updates `monthly_call
   [upload.md § F9](upload.md#refresh-re-upload-into-an-existing-dataset-r145)); they re-pick
   only the file. A **Drift review** step surfaces any added / removed / dtype-changed columns
   and (for removed / changed) the dependent queries + relationships they'll affect; the user
-  acknowledges and proceeds — **drift never blocks** (R145 D decision).
+  acknowledges and proceeds — **drift never blocks**.
 - **Dependent artifacts on drift**: staleness is **not stored** — the runtime
   `query_stale` / `relationship_stale` machinery re-computes dependent validity on read
   ([dataset-detail.md](dataset-detail.md), the query/relationship surfaces), so a refresh that
   drops or retypes a column auto-flips its dependents to stale on their next open. The Drift
   review step **previews** that blast radius before commit; it does not rebuild the runtime
   net. No new persisted status field is added.
-- **Merge mode (R147, signed off 2026-07-04)**: row merge-on-key / precedence for overlapping non-cumulative
+- **Merge mode**: row merge-on-key / precedence for overlapping non-cumulative
   re-exports — specified in
   [upload.md § Refresh merge mode](upload.md#refresh-merge-mode-merge-on-key-and-precedence-r147).
   **No new placement**: the replace|merge choice + key picker live inside the wizard's Confirm
@@ -318,8 +317,6 @@ creating a sibling. The real CRM cadence: month-2's export updates `monthly_call
 
 ## Column visibility (R152)
 
-> **Status: SHIPPED (R152).** F7 from the
-> [R142 dogfood ranking](../../../plan/brainstorms/2026-07-03-r142-dogfood-findings.md).
 > The editing surface (the "Columns" manager) + the row-preview default are specified in
 > [dataset-detail.md § Column visibility](dataset-detail.md#column-visibility-r152); this
 > section owns the **model field + the contract + the honor/ignore surface split**.
@@ -332,7 +329,7 @@ user can focus the preview on what matters.
 rightly stops at the parse), a visibility hint **must** stay metadata-only: the `PATCH`
 writes `columns_json` and **never re-reads or rewrites the parquet**. It is the
 **presentation-level default**, complementary to — not a substitute for — the compute-level
-`select` step (R141) that actually narrows a query's output. A hidden column is still fully
+`select` step that actually narrows a query's output. A hidden column is still fully
 present in storage and in every compute path.
 
 ### Honor / ignore split (Q1 — the load-bearing decision)
@@ -346,8 +343,8 @@ row-preview and every picker read one shared column list today, the split is del
 | Row filter / advanced-query pickers (dataset-detail) | **Ignores** — lists all columns |
 | Relationship key picker · query-builder · join · workflows | **Ignores** — a hidden column stays fully joinable / selectable / filterable |
 
-The query-detail row-preview is **out of scope** for R152 (the hint lives on dataset
-columns; mapping it onto a query's `resolvedColumns` is deferred until pulled).
+The query-detail row-preview is **out of scope** (the hint lives on dataset columns;
+mapping it onto a query's `resolvedColumns` is deferred until pulled).
 
 ### Contract — `PATCH /datasets/{id}/columns`
 
@@ -369,10 +366,10 @@ sets the **full visibility set** in one atomic, idempotent, order-independent ca
 
 ### Refresh interaction — `hidden` survives, mismatched columns drop
 
-A refresh (R145 replace / R147 merge) re-parses the source and **rewrites `columns_json`**
+A refresh (replace or merge) re-parses the source and **rewrites `columns_json`**
 from freshly-parsed `{name, dtype}` — so the `hidden` set would be silently wiped unless
 carried forward. It **must** survive: a hint that dies on the next data update is the exact
-papercut F7 removes, and it lives right beside the R145/R147 carry-forward doctrine.
+papercut this removes, and it lives right beside the carry-forward doctrine.
 
 **Rule — reconcile the previous hidden set against the re-parsed columns by name:**
 
@@ -431,7 +428,7 @@ intersection is re-applied there, before the write — no parquet re-read, still
 
 - **Re-parse** (re-run parser without re-uploading).
 - **Column-level affordances** (rename column, override dtype) —
-  see [upload.md](upload.md)'s deferral list. **Exception (R152):**
+  see [upload.md](upload.md)'s deferral list. **Exception:**
   post-commit column **visibility** (hide/show) ships as a
   presentation-only view-hint — see [§ Column visibility](#column-visibility-r152).
 - **Saved-filter / pinned-search**.

@@ -171,7 +171,7 @@ All tables across your workspaces.                              ─────�
   auto-selected on open. Helper text under the input states the
   length range and uniqueness requirement.
 - Submit button shows `loading` while the PATCH is in flight
-  (pessimistic UX, per R23 design resolution Q4).
+  (pessimistic UX).
 - 409 `name_taken` from the server → inline error below the
   input: _"A workspace named 'Marketing' already exists."_ Modal
   stays open; user edits and re-submits.
@@ -253,7 +253,7 @@ All tables across your workspaces.                              ─────�
 Same as modal state 1, with the `Save` button replaced by a
 spinner and disabled state, and the input + Cancel button
 disabled. Helps the user trust that the click registered without
-double-submitting. Pessimistic UX per R23 Q4.
+double-submitting. Pessimistic UX.
 
 ### Modal state 6: Rename failure (409 name_taken)
 
@@ -276,7 +276,7 @@ The CRUD affordances are AntD primitives (`<Dropdown>`, `<Modal>`,
 `<Input>`, `<Alert>`, `<Button>`) styled by the AntD `<ConfigProvider>`
 tokens derived from the six seeds in
 [`themeTokens.ts`](../../../../workspace/packages/ui/src/themeTokens.ts)
-(the source of truth — R66). No new token is introduced; values are
+(the source of truth). No new token is introduced; values are
 informational (resolved via `theme.getDesignToken()`, antd 6.x).
 
 | Surface                                   | AntD token                              | Value (informational) |
@@ -357,18 +357,19 @@ workspace that still holds datasets.
 
 ## Resource scope of "rename"
 
-PATCH body is **`{ name: string }`** for both resources.
-**No other fields are mutable in R23.** Specifically out of
-scope:
+PATCH body is **`{ name: string }`** for both resources — this
+verb renames, and nothing else. Specifically out of scope:
 
 - Workspace `description`, `metadata`, `ownerId`. Each lands as
   a separate verb when concrete need surfaces.
 - Dataset `name` editing during upload remains a wizard-step
   affordance (existing behavior, unchanged). Renaming an
-  already-committed dataset is the new R23 affordance.
-- Dataset `columns[].name`, `dtype`, or other per-column
-  metadata. Lives entirely in the future "schema editing" round
-  ([upload.md](../datasets/upload.md)'s deferral list).
+  already-committed dataset is this verb's affordance.
+- Dataset `columns[].name` and `dtype`. Both live in the future
+  "schema editing" round ([upload.md](../datasets/upload.md)'s
+  deferral list). Per-column **visibility** is a separate, shipped
+  verb — `PATCH /datasets/{id}/columns` writes the `hidden` set as a
+  presentation-only view hint, never the parquet or the dtypes.
 
 Uniqueness constraints (the source of 409 `name_taken`):
 
@@ -377,15 +378,14 @@ Uniqueness constraints (the source of 409 `name_taken`):
 - Dataset `name` is **unique within its workspace** (the same
   name in two different workspaces is allowed).
 
-These constraints exist in R23 — the BE enforces them; the FE
-surfaces the 409 as an inline error in the rename modal.
+The BE enforces these constraints; the FE surfaces the 409 as an
+inline error in the rename modal.
 
 ---
 
 ## Wire shape — four endpoints
 
-The C-round formalizes these into `*.contract.{yaml,md}` pairs;
-R23 locks the shape so the C-round is mechanical.
+The shipped `*.contract.{yaml,md}` pairs formalize these.
 
 ```text
 PATCH  /workspaces/{id}      body: { name: string }
@@ -468,7 +468,7 @@ const useDeleteWorkspaceMutation = () => {
   `['datasets']` (the Workspace column on the datasets table
   may now show the new name; safer to refresh than to do
   surgery on cached entries).
-- All four use **pessimistic UX** (R23 Q4): no `onMutate`
+- All four use **pessimistic UX**: no `onMutate`
   optimistic update, no `onError` rollback. Mutation pending →
   button loading state; success → invalidate; error → surface
   via the consumer's catch.
@@ -477,7 +477,7 @@ const useDeleteWorkspaceMutation = () => {
 
 ## Backend endpoint shape
 
-R24+ implements:
+The routers implement:
 
 ```python
 # apps/backend/app/routers/workspaces.py  (router prefix="/workspaces")

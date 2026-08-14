@@ -1,7 +1,7 @@
 # Advanced query on datasets — feature design
 
 **Concept**: a single-line typed query input layered on top of the
-[dataset detail page](dataset-detail.md), peer to the R37
+[dataset detail page](dataset-detail.md), peer to the
 [per-column chip filters](dataset-filters.md). The chip row stays
 for discoverable per-column predicates; the advanced input handles
 **boolean composition** (`AND` / `OR`) and direct `key:value` entry
@@ -11,8 +11,7 @@ the only new capability is **OR** across predicates — which the flat
 `f<N>_*` per-column param shape cannot carry.
 **Status**: Draft (Round 51 design; DCFBI implementation in the
 same round).
-**Round introduced**: [Round_51](../../../plan/cycles/Round_51.md);
-first product feature round under R47 hybrid-flow doctrine.
+**Round introduced**: [Round_51](../../../plan/cycles/Round_51.md).
 **Sibling docs**:
 [dataset-filters.md](dataset-filters.md) (the predicate vocabulary
 this reuses verbatim; the chip UI this composes with),
@@ -127,8 +126,8 @@ operand := bare-token | quoted-string
 - **Unicode operator aliases** — the `?` help shows each operator's
   math glyph (the shared `datasets.filters.op.*` label: `≠` `≥`
   `≤`), so those glyphs are accepted as typeable aliases for `!=`
-  `>=` `<=` — `id:≠1` works exactly like `id:!=1`. (R54 bug fix: a
-  user who copies the displayed symbol must get a working query.)
+  `>=` `<=` — `id:≠1` works exactly like `id:!=1`. (A user who copies
+  the displayed symbol must get a working query.)
 - `AND` / `OR` are **case-insensitive** keywords (`and`, `And`,
   `OR`, `or` all accepted). They must be whitespace-delimited
   tokens — `stage:android` is one atom whose value is `android`,
@@ -185,8 +184,8 @@ BE) plus the parser prefix map. `won_at:>=2026-01-01` is now valid;
 documented MVP gap). `ne` is now in the `string` vocabulary, so
 `stage:!=won` is valid; the BE adds a case-insensitive
 `lower(col) != lower(?)` branch (matching the `equals`/`contains`
-string semantics). R55 also re-words the `ne` **label** from the
-glyph `≠` to "not equals" / "khác" (vi), restoring symmetry with
+string semantics). The `ne` **label** reads "not equals" / "khác"
+(vi) rather than the glyph `≠`, restoring symmetry with
 `equals` ("equals" / "bằng") across every dtype that offers it.
 
 **Operand-less operators** (`is_null`, `is_not_null`, `is_empty`,
@@ -225,7 +224,7 @@ in increasing specificity: free-text find (`?q=`) → typed query
 (`aq`) → discoverable per-column chips (`f<N>_*`). All three
 AND-compose (§ Composition).
 
-> **R53 implementation note.** The "Advanced query" label is
+> **Implementation note.** The "Advanced query" label is
 > realized as a **header row** above the input (AntD label-above
 > for readability) with `[Clear]` as a text link on its right —
 > the `┌─ Advanced query ─┐` boxes below are _illustrative of the
@@ -339,7 +338,7 @@ The advanced-query input is placed on the
 [dataset detail page](dataset-detail.md) and reuses that page's theme
 surface: the AntD `<ConfigProvider>` tokens derived from the six seeds
 in [`themeTokens.ts`](../../../../workspace/packages/ui/src/themeTokens.ts)
-(the source of truth — R66). It is an AntD `<Input>` re-skinned only by
+(the source of truth). It is an AntD `<Input>` re-skinned only by
 state, so it introduces **no new token** (additive J-2 backfill — the
 C1–C17 acceptance list and grammar tables above are untouched). Values
 are informational (resolved via `theme.getDesignToken()`, antd 6.x).
@@ -456,15 +455,14 @@ deleted-dataset state; the query in the URL is irrelevant then.
 
 ---
 
-## Discoverability + low-effort clear (R54)
+## Discoverability + low-effort clear
 
-R51's MVP shipped the input with only a placeholder + one-line
-hint — a user could not **discover the operators** (`:` equals,
-`~` contains, `>` / `<` greater/less / after/before, `!=` not-equal,
-`AND` / `OR`, AND-binds-tighter precedence) or **which columns**
-exist. And R53's Clear was a far top-right link — discoverable but
-high-effort (Fitts). R54 closes both as a **holistic redesign of
-the label row**, decided here at the Design gate.
+A placeholder plus a one-line hint left a user unable to **discover
+the operators** (`:` equals, `~` contains, `>` / `<` greater/less /
+after/before, `!=` not-equal, `AND` / `OR`, AND-binds-tighter
+precedence) or **which columns** exist — and a far top-right Clear
+link was discoverable but high-effort (Fitts). The label row is a
+**holistic redesign** closing both.
 
 ### Help affordance — the `?` reference popover
 
@@ -485,14 +483,13 @@ dataset's schema:
   `name [dtype]` so the user knows the valid keys. (This is why
   the popover is per-dataset, not static.)
 
-Rendering from the vocabulary means **R55's new operators
-(`on_or_after` etc.) appear in the popover automatically** with no
+Rendering from the vocabulary means **a new operator
+(`on_or_after` etc.) appears in the popover automatically** with no
 extra work.
 
 ### Low-effort clear (Fitts + accelerators)
 
-The R53 top-right Clear link is replaced by a clear that is **both
-discoverable and low-effort**:
+The clear affordance is **both discoverable and low-effort**:
 
 - **Always-visible in-field × suffix** — shown whenever the input
   is non-empty (not the hover-only AntD `allowClear`, whose
@@ -528,7 +525,7 @@ Advanced query  ⓘ                                              (label row)
 | Empty | available | hidden (no value) | no-op |
 | Typing / Parsed / Errored | available | visible | clears → Empty, focus retained |
 
-### Acceptance criteria (R54)
+### Acceptance criteria — discoverability + clear
 
 Continuing the C1–C17 numbering from § Acceptance criteria
 (bulleted to keep a separate list lint-clean):
@@ -618,8 +615,7 @@ the BE free of grammar-coupling and means a future second grammar
 
 ## Read/write boundary
 
-**R51 implements** (this design's full MVP scope, DCFBI in one
-round):
+The shipped MVP scope:
 
 - **Contract** — additive `aq` param on the rows-GET contract YAML
   plus rationale; MSW handler decodes/validates/evaluates `aq`;
@@ -638,7 +634,7 @@ groups } | { ok: false, message, position }`.
   - vitest: parser unit tests (grammar + every error path),
     component test (empty/typing/parsed/errored), MSW-backed
     handler test for a fixture query.
-- **Backend** — decode `aq` JSON, validate each atom (reuse R39
+- **Backend** — decode `aq` JSON, validate each atom (reusing the
   `filters.py` checks), build `(g1) OR (g2) …` SQL (reuse
   `_predicate_sql` per atom), AND-compose with chip + `?q=`
   fragments in `rows_reader.py`; pytest per parse/SQL/compose path.
@@ -762,9 +758,6 @@ test suites. Grouped by phase via bold lead-ins.
 
 This doc:
 
-- **Amended in place** during R51 implementation if a decision not
-  pre-baked here surfaces (exact debounce constant, exact success-
-  readback wording, exact error-message templates).
 - **Superseded** by a `dataset-query-v2.md` if the grammar grows
   parentheses/negation into a full query language — that is a
   different concept (a real expression tree, not single-level DNF)
@@ -773,5 +766,3 @@ This doc:
   data-management spine (workspaces, datasets, detail, filters,
   advanced query, dashboards) coheres as one cross-feature
   design.
-
-R51's Act section confirms which lifecycle event applies.
