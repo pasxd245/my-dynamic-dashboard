@@ -286,7 +286,34 @@ wanted; that is T5.)_
 
 ## Check
 
-_(empty)_
+**Gates are green and that settles nothing about this round's question.** R165's dogfood is the
+standing evidence: 5 of 5 walk questions passed and the walk still turned up **six** defects after
+every gate was green, one of them a **forty-round-old** pager bug. Vitest and MSW cannot see
+whether Duplicate is the thing the human wanted — which is this round's entire falsification test.
+
+**Acceptance walk — awaiting the human. `coverage: 0 of 5.`** Questions were written at D
+([[walk-record-always-spec-on-ask]]), not improvised here; exact steps on request.
+
+| #      | Question                                                                                                                                         | Verdict |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------- |
+| **T1** | Duplicate a **shaped** query (steps and all), modify the copy — is the original untouched, and do both return the rows they should?              | ⬜      |
+| **T2** | Does `[Duplicate]` read as _independent_ rather than _linked_ — i.e. does the copy behave the way the header button led you to expect?           | ⬜      |
+| **T3** | Duplicate the same query twice. Is the inline name-taken error a recoverable annoyance, or the thing that makes you stop using the feature?      | ⬜      |
+| **T4** | Go looking for a way to join two saved queries. Does the absence read as a boundary, or as something broken/missing?                             | ⬜      |
+| **T5** | Was Duplicate the thing you actually wanted? (the honest caveat — the program plan says no recorded clone need exists; this is where that lands) | ⬜      |
+
+**How to read the outcomes**, decided in advance so the result cannot be rationalised after it
+arrives:
+
+- **T5 = no is a SUCCESS**, not a failed round. It means R167 gets **rewritten before the engine is
+  touched** — which is the whole reason this half went first ([[probe-desirability-before-additive-depth]]).
+- **T3 = "makes me stop using it"** fires the revisit trigger the D gate recorded when it accepted
+  the collision. The two declined alternatives (pre-flight suffix · recover-on-409) are already
+  specified in [queries.md § The second duplicate collides](../../design/data-management/queries/queries.md).
+- **T4 = "broken/missing"** falsifies the _absence-with-no-explanation_ call, and D4's rule needs
+  re-opening rather than the copy being patched.
+- **T1 is the only question a test could have answered**, and it is here anyway because the
+  invariant holding on MSW fixtures is not the same claim as it holding on the human's real data.
 
 ## Act
 
