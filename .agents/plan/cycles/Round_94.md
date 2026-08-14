@@ -78,7 +78,7 @@ render and the bottom-left controls — closed, not re-listed.)
   squeezed into a cramped region (controls/content fall below the fold). Bad UX/UI.
 + **Where** — every fixed-height detail/builder page:
   [`QueryDetailPage`](../../../workspace/apps/builder/src/features/data-management/queries/QueryDetailPage.tsx#L496),
-  [`QueryCreatePage`](../../../workspace/apps/builder/src/features/data-management/queries/QueryCreatePage.tsx),
+  `QueryCreatePage` (deleted at R166 — composition withdrawn),
   [`DatasetDetailPage`](../../../workspace/apps/builder/src/features/data-management/datasets/DatasetDetailPage.tsx#L450),
   [`DatasetNewPage`](../../../workspace/apps/builder/src/features/data-management/datasets/upload/DatasetNewPage.tsx).
 + **Expected** — a better small-viewport experience: the page should stay usable (no cramping, no

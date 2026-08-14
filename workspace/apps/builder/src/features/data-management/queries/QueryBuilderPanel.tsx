@@ -134,9 +134,6 @@ function FormTab({
             datasetId={builder.datasetId}
             workspaceId={builder.workspaceId}
             baseSourceId={builder.baseSourceId}
-            baseEditable={builder.isCreate}
-            queryId={builder.queryId}
-            onSetBaseSource={builder.setBaseSource}
             relationships={builder.queryRels}
             joins={builder.joins}
             onSetJoin={builder.setJoin}

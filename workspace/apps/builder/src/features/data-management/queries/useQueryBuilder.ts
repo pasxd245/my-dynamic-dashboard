@@ -16,7 +16,7 @@ import type { Column } from '@/features/data-management/datasets/types';
 import { useCreateRelationshipMutation, useRelationshipsQuery } from '@/features/data-management/relationships/hooks';
 import { ApiErrorThrown } from '../_shared/types';
 import { copyGovernedRel, freeFormRel, readChain, readRels, readSteps, writeDef, type RelFields } from './chain';
-import { useCreateQueryMutation, useQueryPreviewQuery, useUpdateQueryMutation } from './hooks';
+import { useQueryPreviewQuery, useUpdateQueryMutation } from './hooks';
 import type { JoinStep, Query, QueryDefinition, QueryRelationship, ResolvedColumn, Step } from './types';
 
 export const PREVIEW_PAGE_SIZE = 25;
@@ -56,41 +56,29 @@ function normalize(def: QueryDefinition): QueryDefinition {
 
 const EMPTY_DEF: QueryDefinition = { q: null, filters: [], advanced: [] };
 
-/** R77 create mode — build a brand-new Query on a PRESET base (a saved Query).
- *  R79 — the base supplies its workspace + its own `qr_` id as the canonical
- *  driving `sourceId` (the legacy `datasetId` is retired). */
-export type CreateBase = Readonly<{
-  workspaceId: string;
-  sourceId: string;
-}>;
-
 export type UseQueryBuilderArgs = Readonly<{
-  /** The saved Query being edited (undefined while the page is still loading,
-   *  or in create mode). */
+  /** The saved Query being edited (undefined while the page is still loading). */
   query?: Query;
-  /** R77 — create mode: build a NEW Query on this preset base. Mutually
-   *  exclusive with `query` (edit mode). */
-  createBase?: CreateBase;
-  /** The source (LEFT) dataset's columns — the effective space when single-source.
-   *  Unused in create mode (the base is a `qr_` → columns come from the preview). */
+  /** The source (LEFT) dataset's columns — the effective space when single-source. */
   datasetColumns: readonly Column[];
   /** True only while the builder is open — gates the preview (no POSTs when idle). */
   active: boolean;
-  /** Leave the builder (edit: back to the read-only detail; create: navigate away). */
+  /** Leave the builder — back to the read-only detail. */
   onDone: () => void;
-  /** R77 create mode — called with the newly-created Query after a successful POST
-   *  (the page navigates to its detail). */
-  onCreated?: (created: Query) => void;
 }>;
 
-export function useQueryBuilder({ query, createBase, datasetColumns, active, onDone, onCreated }: UseQueryBuilderArgs) {
+/** R166 — the builder is EDIT-ONLY. It used to carry a create mode too, for
+ *  "Build on this query": a no-id draft on a preset `qr_` base, saved with POST
+ *  instead of PUT. That mode existed only because a composition-created query had
+ *  no definition yet, so it needed a page that could preview against a base before
+ *  the query existed. **Duplicate** has a complete, runnable definition the moment
+ *  it is created, so the whole apparatus is unnecessary — the replacement is
+ *  smaller than the thing it replaced (query-construction.md § Create mode). */
+export function useQueryBuilder({ query, datasetColumns, active, onDone }: UseQueryBuilderArgs) {
   const { t } = useTranslation();
   const { message, modal } = App.useApp();
 
-  // R77 — create vs edit. Create mode has no saved `query`; it builds a NEW Query
-  // on `createBase` and Saves with POST (not PUT).
-  const isCreate = !query && Boolean(createBase);
-  const workspaceId = query?.workspaceId ?? createBase?.workspaceId ?? '';
+  const workspaceId = query?.workspaceId ?? '';
 
   const [draft, setDraft] = useState<QueryDefinition>(EMPTY_DEF);
   const [debouncedDraft, setDebouncedDraft] = useState<QueryDefinition>(EMPTY_DEF);
@@ -103,12 +91,12 @@ export function useQueryBuilder({ query, createBase, datasetColumns, active, onD
     setPageSize(nextPageSize);
   };
 
-  // R76 (composition, F1) — the DRIVING source: a dataset (`ds_…`, the unchanged
-  // R69→R75 path) or a saved Query (`qr_…`) the query is built ON. Seeded from
-  // the saved source; editable in-builder via the "Build on" picker (the preview
-  // re-runs composed). Persisting a changed base is the Contract gate's job (the
-  // PUT is definition-only this round), so F1 prototypes the construction UX.
-  const [baseSourceId, setBaseSourceId] = useState<string>('');
+  // The DRIVING source. R166 — this is no longer editable STATE, just the saved
+  // value: the builder is edit-only and the PUT is definition-only, so a query's
+  // source is fixed at create and the picker that used to change it is withdrawn.
+  // It can still read `qr_` for a pre-R166 composed query (none exist; the engine
+  // retires the support at R167).
+  const baseSourceId = query?.sourceId ?? '';
   const isComposed = baseSourceId.startsWith('qr_');
   // R79 — the JoinEditor's graph root is a DATASET. When the driving source is a
   // `ds_` that IS the root; when it is a `qr_` (composed) there is no single root
@@ -121,21 +109,12 @@ export function useQueryBuilder({ query, createBase, datasetColumns, active, onD
   // mode opens — so re-entering after a discard starts clean. Read-only mode
   // never touches the draft (the panel is only mounted while editing).
   useEffect(() => {
-    if (!active) return;
-    if (query) {
-      const seeded = normalize(query.definition);
-      setDraft(seeded);
-      setDebouncedDraft(seeded);
-      setBaseSourceId(query.sourceId);
-      setPage(1);
-    } else if (createBase) {
-      // R77 create mode — start from an empty definition on the preset base.
-      setDraft(EMPTY_DEF);
-      setDebouncedDraft(EMPTY_DEF);
-      setBaseSourceId(createBase.sourceId);
-      setPage(1);
-    }
-  }, [active, query?.id, createBase?.sourceId]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (!active || !query) return;
+    const seeded = normalize(query.definition);
+    setDraft(seeded);
+    setDebouncedDraft(seeded);
+    setPage(1);
+  }, [active, query?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Preview keys on a DEBOUNCED copy; the live draft drives the editors/validation.
   const debounceRef = useRef<number | undefined>(undefined);
@@ -166,7 +145,7 @@ export function useQueryBuilder({ query, createBase, datasetColumns, active, onD
     debouncedDraft,
     page,
     pageSize,
-    active && (Boolean(query) || isCreate),
+    active && Boolean(query),
     baseSourceId || undefined,
   );
   const preview = previewQuery.data;
@@ -198,18 +177,15 @@ export function useQueryBuilder({ query, createBase, datasetColumns, active, onD
   );
 
   const updateMutation = useUpdateQueryMutation();
-  const createMutation = useCreateQueryMutation();
   // R89 — promote a query-owned rel up into the governed ER (reuses the existing
   // POST /workspaces/{id}/relationships; the endpoint already dedups via 409 and
   // dtype-validates via 422).
   const promoteMutation = useCreateRelationshipMutation();
 
-  const dirty = useMemo(() => {
-    if (query) return JSON.stringify(draft) !== JSON.stringify(normalize(query.definition));
-    // R77 create mode — "dirty" = any edit away from the empty starting
-    // definition (drives the discard-confirm on cancel; not a save gate).
-    return JSON.stringify(draft) !== JSON.stringify(EMPTY_DEF);
-  }, [draft, query]);
+  const dirty = useMemo(
+    () => (query ? JSON.stringify(draft) !== JSON.stringify(normalize(query.definition)) : false),
+    [draft, query],
+  );
 
   const err = previewQuery.error;
   const relStale = err instanceof ApiErrorThrown && err.body.code === 'relationship_stale';
@@ -218,17 +194,14 @@ export function useQueryBuilder({ query, createBase, datasetColumns, active, onD
   // shared `query_stale` and the panel had one sentence for both, so a reordered card
   // was announced as "1 filter references a column…" on a query with zero filters.
   const stepInvalid = err instanceof ApiErrorThrown && err.body.code === 'step_invalid';
-  // R77 — the preset base (transitively) loops back: the composed preview is
-  // blocked (the create page surfaces a guided base-unavailable state).
+  // A pre-R166 composed query whose base (transitively) loops back: the preview is
+  // blocked. Reachable only for a query that already had a `qr_` source (none exist);
+  // the engine retires the guard at R167.
   const compositionCycle = err instanceof ApiErrorThrown && err.body.code === 'composition_cycle';
   const invalidCount = invalidAtomCount(draft, columns);
   const previewOk = Boolean(preview) && !relStale && !predStale && !stepInvalid && !previewQuery.isError;
   // Save only once the preview reflects the CURRENT draft — you save what you previewed.
-  // Edit needs a dirty change; create needs only a runnable preview (a base + zero
-  // edits is a valid, if trivial, composed Query — there's no saved baseline).
-  const canSave = isCreate
-    ? previewOk && !previewPending && invalidCount === 0 && !createMutation.isPending
-    : dirty && previewOk && !previewPending && invalidCount === 0 && !updateMutation.isPending;
+  const canSave = dirty && previewOk && !previewPending && invalidCount === 0 && !updateMutation.isPending;
 
   const setDraftField = (patch: Partial<QueryDefinition>) => {
     setPage(1);
@@ -375,26 +348,6 @@ export function useQueryBuilder({ query, createBase, datasetColumns, active, onD
     );
   };
 
-  /** R77 create mode — persist the working copy as a NEW Query under the captured
-   *  name, carrying the preset `sourceId` (the qr_ base; R79 — the single canonical
-   *  driving source). On success the page navigates to the new detail. `name_taken`
-   *  surfaces via `createError` in the modal. */
-  const createWithName = (name: string) => {
-    if (!isCreate || !createBase || !canSave) return;
-    createMutation.mutate(
-      {
-        workspaceId: createBase.workspaceId,
-        body: { name, sourceId: createBase.sourceId, definition: draft },
-      },
-      {
-        onSuccess: (created) => {
-          message.success(t('queries.builder.saved', { name }));
-          onCreated?.(created);
-        },
-      },
-    );
-  };
-
   const cancel = () => {
     if (!dirty) {
       onDone();
@@ -410,26 +363,14 @@ export function useQueryBuilder({ query, createBase, datasetColumns, active, onD
     });
   };
 
-  /** R76 (composition, F1) — pick the driving source (a dataset or a saved
-   *  Query). Changing it re-runs the preview composed; reset the page window. */
-  const setBaseSource = (sourceId: string) => {
-    setPage(1);
-    setBaseSourceId(sourceId);
-  };
-
   return {
     // identity (for the JoinEditor — the graph-root DATASET, empty when composed)
     queryId: query?.id ?? '',
     datasetId: joinRootDatasetId,
     workspaceId,
-    // R77 — create vs edit mode + the create-with-name lifecycle
-    isCreate,
-    createWithName,
-    createError: createMutation.error,
-    // R76 (composition) — the driving source + its setter for the "Build on" picker
+    // The saved driving source (read-only since R166 — the picker that set it is withdrawn)
     baseSourceId,
     isComposed,
-    setBaseSource,
     // working state
     draft,
     columns,
@@ -458,7 +399,7 @@ export function useQueryBuilder({ query, createBase, datasetColumns, active, onD
     invalidCount,
     dirty,
     canSave,
-    isSaving: isCreate ? createMutation.isPending : updateMutation.isPending,
+    isSaving: updateMutation.isPending,
     // editor handlers
     setJoin,
     addJoin,

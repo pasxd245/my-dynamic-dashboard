@@ -14,17 +14,19 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
-import { DEFAULT_PAGE_SIZE, PAGE_SIZES } from '@/_generated/constants';
+import { DEFAULT_PAGE_SIZE, NAME_LENGTHS, PAGE_SIZES } from '@/_generated/constants';
 import { useDatasetQuery } from '@/features/data-management/datasets/hooks';
 import { formatChipText } from '@/features/data-management/datasets/filters/ActiveFilterChips';
 import { groupsToText } from '@/features/data-management/datasets/advanced-query/serialize';
+import { useWorkspacesQuery } from '@/features/data-management/workspaces/hooks';
 import { ApiErrorThrown } from '../_shared/types';
 import { readChain, readRels } from './chain';
 import { DeleteConfirmModal } from '../_shared/DeleteConfirmModal';
 import { PagedRowsView } from '../_shared/PagedRowsView';
 import { QueryBuilderPanel } from './QueryBuilderPanel';
+import { SaveQueryModal } from './SaveQueryModal';
 import { useQueryBuilder } from './useQueryBuilder';
-import { useDeleteQueryMutation, useQueryQuery, useQueryRowsQuery } from './hooks';
+import { useCreateQueryMutation, useDeleteQueryMutation, useQueryQuery, useQueryRowsQuery } from './hooks';
 
 function clampPageSize(raw: string | null): number {
   const n = Number(raw);
@@ -104,6 +106,18 @@ export function QueryDetailPage() {
   const [editing, setEditing] = useState(false);
   const deleteMutation = useDeleteQueryMutation();
 
+  // R166 — Duplicate. The SECOND create verb in the product, and it routes through
+  // the SAME `SaveQueryModal` + `useCreateQueryMutation` as "Save filters as Query"
+  // (queries.md § Duplicate), so create logic is never duplicated. It replaces
+  // `[Build on this query]`, whose composition the closed Query concept refuses —
+  // and it is strictly MORE correct than what it replaces: composition baked in the
+  // base's predicates but never ran its `steps`, while a copied definition carries
+  // its shaping entire.
+  const [duplicateOpen, setDuplicateOpen] = useState(false);
+  const createMutation = useCreateQueryMutation();
+  const workspacesQuery = useWorkspacesQuery();
+  const workspaceName = workspacesQuery.data?.find((w) => w.id === query?.workspaceId)?.name;
+
   // R72 — the construction surface's state lives here (not in the panel) so the
   // page header can drive Save/Cancel. Inactive (no preview) until edit mode.
   const builder = useQueryBuilder({
@@ -138,6 +152,34 @@ export function QueryDetailPage() {
       params.set('page', String(nextPage));
     }
     setSearchParams(params);
+  };
+
+  // The copy is IDENTICAL by construction: the base's own `sourceId` (a sibling,
+  // never a child) + a deep copy of the whole definition — `q`, filters, advanced,
+  // relationships, joins AND steps, with `qrel_` ids reused verbatim (they are
+  // query-local, and re-minting would break exactly this deep-equality invariant).
+  const submitDuplicate = (name: string) => {
+    if (!query) return;
+    createMutation.mutate(
+      {
+        workspaceId: query.workspaceId,
+        body: {
+          name,
+          sourceId: query.sourceId,
+          definition: JSON.parse(JSON.stringify(query.definition)) as typeof query.definition,
+        },
+      },
+      {
+        onSuccess: (created) => {
+          setDuplicateOpen(false);
+          // The shipped create rhythm, verbatim: toast then navigate. The toast names
+          // the COPY (so the user learns which artifact now exists); the navigation is
+          // the significant event — they are now on a different query.
+          message.success(t('queries.duplicate.success', { name: created.name }));
+          navigate(`/data-management/queries/${created.id}`);
+        },
+      },
+    );
   };
 
   const confirmDelete = () => {
@@ -240,17 +282,18 @@ export function QueryDetailPage() {
     </span>
   ) : (
     <span style={{ display: 'inline-flex', gap: 8 }}>
+      {/* R166 — [Duplicate] copies this Query's definition into a new Query over the
+          SAME sources. It sits on the runnable (Populated) detail header only (these
+          actions are; the stale / unavailable headers use `actions`) — repair the
+          source or edge before making a variant of something that can't run. The
+          Queries catalog gets no per-row entry: that would mean introducing a row
+          action column, a cross-catalog question that belongs with the R157 UX
+          cluster (human, 2026-08-13). */}
+      <Button onClick={() => setDuplicateOpen(true)} data-component="QueryDetailDuplicate">
+        {t('queries.duplicate.action')}
+      </Button>
       <Button type="primary" onClick={() => setEditing(true)} data-component="QueryDetailEdit">
         {t('queries.builder.edit')}
-      </Button>
-      {/* R77 — "Build on this query": open the builder in CREATE mode with this
-          Query preset as the base. Present only on the runnable (Populated)
-          detail (these actions are; the stale / unavailable headers use `actions`). */}
-      <Button
-        onClick={() => navigate(`/data-management/queries/new?base=${query.id}`)}
-        data-component="QueryDetailBuildOn"
-      >
-        {t('queries.detail.buildOnThis')}
       </Button>
       {actions}
     </span>
@@ -575,6 +618,25 @@ export function QueryDetailPage() {
         isPending={deleteMutation.isPending}
         onConfirm={confirmDelete}
         onClose={() => !deleteMutation.isPending && setDeleteOpen(false)}
+      />
+      {/* R166 — Duplicate's name capture: the shipped modal, two presentational
+          overrides. Duplicating the same query twice offers `(copy)` both times and
+          so ALWAYS 409s — rendered as the modal's existing inline field error, an
+          ACCEPTED cost (human, 2026-08-13; revisit if the walk finds it common). */}
+      <SaveQueryModal
+        open={duplicateOpen}
+        title={t('queries.duplicate.title', { name: query.name })}
+        suggestedName={t('queries.duplicate.defaultName', { name: query.name }).slice(0, NAME_LENGTHS.QUERY_MAX)}
+        selectNameOnOpen
+        sourceDatasetName={sourceName}
+        workspaceName={workspaceName}
+        filterCount={def.filters.length}
+        advancedCount={def.advanced.length}
+        hasSearch={Boolean(def.q)}
+        isPending={createMutation.isPending}
+        error={createMutation.error}
+        onSubmit={submitDuplicate}
+        onClose={() => !createMutation.isPending && setDuplicateOpen(false)}
       />
     </PageContainer>
   );

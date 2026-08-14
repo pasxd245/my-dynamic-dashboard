@@ -1,6 +1,6 @@
 # Round 166: Duplicate, and the affordances withdrawn
 
-**Status**: In Progress — **D gate closed**; F next
+**Status**: In Progress — **D + F gates closed**; I (the human's acceptance walk) next
 **Flow**: **DCFBI** — set at the Design gate via `flow-selector`; recorded in the Do log
 **Date started**: 2026-08-13
 **Date completed**:
@@ -230,7 +230,59 @@ now; exact steps only if asked. **`coverage: 0 of 5`** until the walk runs.
 it means R167 gets rewritten before the engine is touched, which is exactly why this half went
 first.
 
-_(F gate next — the build.)_
+### F gate — the build (2026-08-14)
+
+**One fork the round's own artifacts disagreed on, resolved by the human before any code moved.**
+The Plan's removal table reads as though the canvas's **whole** `qr_` treatment leaves here (29
+sites); [`canvas.md`](../../design/data-management/queries/canvas.md) — the **durable** D-gate
+artifact — says the opposite three times (_"WITHDRAWN at R166, code retires at R167"_, _"retained
+as current-state code"_, _"described because the code still carries it"_). **Human's call
+(2026-08-14): follow `canvas.md`.** R166 withdraws the **offering**; R167 deletes the rendering
+**with** the engine, in one place. So a pre-R166 `qr_`-sourced query still renders while the
+engine still runs it — shipped and concept stay in step for the one round the split costs.
+
+**What left, what arrived** — the FE is net-negative as the round promised:
+
+| Out                                                                            | LOC   |
+| ------------------------------------------------------------------------------ | ----- |
+| `QueryCreatePage.tsx`, deleted whole + its `/data-management/queries/new` route | ~181  |
+| `useQueryBuilder`'s create mode (`isCreate` · `createBase` · `createWithName` · `onCreated` · `createError`) and the **`baseSourceId` state**, now a derived read of `query.sourceId` | ~55   |
+| `JoinEditor`'s `qr_` base options + the `queryId` / `onSetBaseSource` / `baseEditable` props | ~25   |
+| `QueryCanvas`'s `stageableQueries` + both `<OptGroup>`s                        | ~20   |
+| `queries.create.*` (11 keys) · `detail.buildOnThis` · the four group labels — **EN and VN** | ~28   |
+| the R77 create-mode test block                                                 | ~96   |
+| **In**: `[Duplicate]` + `submitDuplicate` + the modal mount; `SaveQueryModal`'s `title` + `selectNameOnOpen`; `queries.duplicate.*` (4 keys × 2 locales); 4 tests | **~150** |
+
+**Three build decisions worth the record**:
+
+- **The deep copy is `JSON.parse(JSON.stringify(...))`**, not a hand-walked clone. It is the wire
+  shape by construction, which is exactly what makes the **deep-equality invariant** assertable —
+  and the test asserts it directly (`posted.definition` `toEqual` the base's), rather than
+  spot-checking fields a hand-walk could miss.
+- **The base picker stayed, disabled and flat** rather than being deleted. It still tells the user
+  what a query reads from; what it no longer does is offer to change it — which it hadn't since
+  R94 (D6) in edit mode anyway. With create mode gone there is no mode in which it is editable.
+- **`selectNameOnOpen` is a new prop, not new behaviour for everyone.** `autoFocus` leaves the
+  caret at the end; the spec asks for the default **selected** so accepting is one keystroke and
+  overtyping needs no clearing gesture. Making that universal would have changed "Save filters as
+  Query" as a side effect, so it is opt-in.
+
+**Gates**: `tsc --noEmit` clean (and clean again under `--noUnusedLocals --noUnusedParameters`,
+so nothing was orphaned) · **vitest 368/368 across 26 files** — including the i18n EN/VN parity
+suite and the contract validator · `design:lint` 0/0 across 14 docs · `design:tokens` 0 across
+11 maps · `plan:lint` 0 across 166 rounds · `md:lint` 0 across 310 files · `check:links` at
+**exact parity with the pre-build baseline** (which is itself non-zero — 25 stale links in
+historical round docs, pre-existing). Deleting `QueryCreatePage.tsx` broke two of those historical
+citations (R94, R162); both were de-linked to plain text naming where the file went, so the round
+adds **no** new breakage.
+
+**No C and no B ran** — the layer split held. `CreateQueryBody` was already
+`{sourceId, name, definition}`, so Duplicate needed no contract change and no engine change, which
+was the premise the whole split rested on. **The design corpus needed no re-sync**: the four docs
+rewritten at D describe what shipped.
+
+_(I gate next — the human runs the app. Gates cannot see whether Duplicate is the thing they
+wanted; that is T5.)_
 
 ## Check
 

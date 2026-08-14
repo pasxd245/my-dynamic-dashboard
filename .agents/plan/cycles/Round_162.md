@@ -352,7 +352,7 @@ divergence — the recursive `resolve_source`, the polymorphic `rightSourceId`. 
    hop** (R91/R92)
    ([QueryCanvas.tsx:1122](../../../workspace/apps/builder/src/features/data-management/queries/QueryCanvas.tsx#L1122));
 3. the `?base=` route itself, reachable by URL without #1
-   ([QueryCreatePage.tsx:34](../../../workspace/apps/builder/src/features/data-management/queries/QueryCreatePage.tsx#L34)).
+   (`QueryCreatePage.tsx:34` — the file was deleted at R166 when composition was withdrawn).
 
 So **item 3's scope was under-counted**: not one resolver, but a resolver plus two prominent
 affordances plus everything #2 pulled in (`qr_` node rendering, wide-source effective-column

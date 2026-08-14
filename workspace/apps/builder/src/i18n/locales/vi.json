@@ -638,8 +638,7 @@
       "openRelationships": "Mở mối quan hệ",
       "openSourceDataset": "Mở tập dữ liệu nguồn",
       "deleteQuery": "Xóa truy vấn",
-      "deleteSuccess": "Đã xóa truy vấn \"{{name}}\"",
-      "buildOnThis": "Tạo truy vấn từ truy vấn này"
+      "deleteSuccess": "Đã xóa truy vấn \"{{name}}\""
     },
     "join": {
       "title": "Nối với tập dữ liệu liên quan",
@@ -730,8 +729,6 @@
       "buildActive": "{{count}} đang áp dụng",
       "baseSourceLabel": "Dựng trên",
       "baseSourcePlaceholder": "Một tập dữ liệu hoặc một truy vấn đã lưu",
-      "baseSourceDatasets": "Tập dữ liệu",
-      "baseSourceQueries": "Truy vấn đã lưu",
       "joinLabel": "Phép nối",
       "joinsLabel": "Các phép nối",
       "joinPlaceholder": "Nối với một tập dữ liệu liên quan",
@@ -780,8 +777,6 @@
       "canvasHelpTitle": "Tạo phép nối trên sơ đồ",
       "canvasHelpAddSource": "“Thêm nguồn” đưa thêm một tập dữ liệu hoặc truy vấn đã lưu vào để vẽ nối.",
       "canvasHelpEdges": "Nhấp vào một phép nối để đưa lên, đồng bộ lại, hoặc xóa.",
-      "canvasAddSourceGroupDatasets": "Tập dữ liệu",
-      "canvasAddSourceGroupQueries": "Truy vấn đã lưu",
       "canvasNodeTypeDataset": "Tập dữ liệu",
       "canvasNodeTypeQuery": "Truy vấn",
       "canvasColumnsMore": "+ {{count}} cột nữa",
@@ -842,18 +837,11 @@
       "canvasConnect_derived": "Cột đó được tính từ nhiều nguồn nên không thể làm khóa nối. Hãy kéo từ một cột thuộc về một nguồn duy nhất.",
       "canvasConnect_dtype_mismatch": "Hai cột có kiểu dữ liệu khác nhau nên không thể nối. Hãy chọn các cột cùng kiểu (số có thể nối với số)."
     },
-    "create": {
-      "title": "Tạo truy vấn từ {{name}}",
-      "subtitle": "Tạo một truy vấn mới dựa trên truy vấn đã lưu này. Thêm phép nối và bộ lọc, xem trước, rồi lưu.",
-      "buildingOn": "Dựa trên",
-      "save": "Lưu truy vấn",
-      "loadingTitle": "Đang tải…",
-      "notFoundTitle": "Không tìm thấy truy vấn gốc",
-      "notFoundHint": "Truy vấn bạn muốn dựa vào không còn tồn tại. Hãy chọn truy vấn khác từ danh mục.",
-      "baseUnavailableTitle": "Không thể dựa trên truy vấn gốc này",
-      "baseUnavailableHint": "Truy vấn gốc đã bị xóa, không chạy được, hoặc sẽ tạo vòng lặp. Mở để sửa, hoặc chọn truy vấn gốc khác.",
-      "openBase": "Mở truy vấn gốc",
-      "back": "Quay lại Truy vấn"
+    "duplicate": {
+      "action": "Tạo bản sao",
+      "title": "Tạo bản sao của {{name}}",
+      "defaultName": "{{name}} (bản sao)",
+      "success": "Đã tạo truy vấn \"{{name}}\""
     }
   },
   "relationships": {

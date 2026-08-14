@@ -904,8 +904,11 @@ export const handlers = [
   // the SAME engine as getDatasetRows (live re-run, no materialization).
   withContractValidation('post', api('/workspaces/:id/queries'), 'createQuery', async ({ params, request }) => {
     const body = (await request.json()) as Partial<CreateQueryRequest>;
-    // R79 — the body carries the canonical, required `sourceId` (a `ds_` for a
-    // plain save, a `qr_` for a composed "Build on this query"); echo it back.
+    // R79 — the body carries the canonical, required `sourceId`; echo it back.
+    // R166 — the two create verbs that reach here both send a `ds_`: "Save filters
+    // as Query" and Duplicate (which copies the base's OWN sourceId — a sibling,
+    // never a child). The `qr_` case is a pre-R166 composed query; the engine still
+    // accepts it over the API until R167, so the echo stays polymorphic.
     return HttpResponse.json(
       {
         id: `qr_${Math.random().toString(16).slice(2, 10).padEnd(8, '0')}`,

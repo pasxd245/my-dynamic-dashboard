@@ -25,7 +25,6 @@ import { useTranslation } from 'react-i18next';
 import { useDatasetsQuery } from '@/features/data-management/datasets/hooks';
 import { useRelationshipsQuery } from '@/features/data-management/relationships/hooks';
 import type { Relationship } from '@/features/data-management/relationships/types';
-import { useQueriesQuery } from './hooks';
 import { addEligibleRels, graphDatasetIds, isLeafHop } from './joinGraph';
 import type { JoinStep, JoinType, QueryRelationship } from './types';
 
@@ -36,17 +35,11 @@ export type JoinEditorProps = Readonly<{
   /** The query's source (LEFT/driving) dataset — the root of the graph. */
   datasetId: string;
   workspaceId: string;
-  /** R76 (composition, F1) — the driving source id (a `ds_…` dataset or a
-   *  `qr_…` saved Query the query is built ON) + its setter, for the "Build on"
-   *  picker. The current query is excluded from the Query options (self-base is
-   *  the trivial cycle the Backend guard rejects). */
+  /** The driving source id — a `ds_…` dataset (or, for a pre-R166 composed query, a
+   *  `qr_…`). R166 — READ-ONLY: the picker renders the saved source and never sets it.
+   *  The base was already fixed after create (the PUT is definition-only, R94 D6); with
+   *  create mode gone there is no longer any mode in which it is editable. */
   baseSourceId: string;
-  queryId: string;
-  onSetBaseSource: (sourceId: string) => void;
-  /** R94 (D6) — the base is mutable only in CREATE mode. On an existing query the PUT is
-   *  definition-only (the driving source is fixed at create), so in edit mode the picker is
-   *  disabled with a hint rather than silently dropping the change on save. */
-  baseEditable: boolean;
   /** R88 — the query's OWN relationships (copy-on-pick snapshots); hops resolve
    *  through these by `queryRelId`, not the governed store. */
   relationships: readonly QueryRelationship[];
@@ -66,9 +59,6 @@ export function JoinEditor({
   datasetId,
   workspaceId,
   baseSourceId,
-  baseEditable,
-  queryId,
-  onSetBaseSource,
   relationships,
   joins,
   onSetJoin,
@@ -85,14 +75,6 @@ export function JoinEditor({
   const datasetsQuery = useDatasetsQuery(workspaceId);
   const datasets = useMemo(() => datasetsQuery.data ?? [], [datasetsQuery.data]);
   const dsNameById = useMemo(() => new Map(datasets.map((d) => [d.id, d.name])), [datasets]);
-  // R76 — the saved Queries in this workspace are also selectable as the base
-  // source (a Query is the same readable-table-source kind as a Dataset). The
-  // current query is excluded (a query can't be built on itself).
-  const queriesQuery = useQueriesQuery(workspaceId);
-  const baseQueries = useMemo(
-    () => (queriesQuery.data ?? []).filter((q) => q.id !== queryId),
-    [queriesQuery.data, queryId],
-  );
 
   // Works for a governed Relationship (the add library) OR a query-owned rel (a
   // hop's display) — both carry the key pair + cardinality.
@@ -146,30 +128,23 @@ export function JoinEditor({
 
   return (
     <div data-component="JoinEditor" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      {/* ── Build on: the driving source — a Dataset or a saved Query (R76) ──── */}
+      {/* ── The driving source — a Dataset. ────────────────────────────────────
+          R166: the "Saved queries" group is withdrawn, and with one group left the
+          "Datasets" heading would label a list that cannot contain anything else —
+          a group of one is chrome, not structure — so the picker is FLAT. It stays
+          disabled: the base was already fixed after create (R94 D6, the PUT is
+          definition-only), and with create mode gone it is never editable. R97
+          dropped the explanatory tooltip; the disabled state already reads "fixed". */}
       <Typography.Text strong style={{ fontSize: 12 }} id="builder-base-label">
         {t('queries.builder.baseSourceLabel')}
       </Typography.Text>
-      {/* R94 (D6) — editable only in CREATE; on an existing query the base is fixed (the PUT
-          is definition-only), so the picker is disabled. R97: the explanatory tooltip was
-          dropped (not useful — the disabled state already conveys "fixed"). */}
       <Select
         value={baseSourceId || undefined}
-        onChange={(v: string) => onSetBaseSource(v)}
-        disabled={!baseEditable}
+        disabled
         style={{ width: '100%' }}
         aria-labelledby="builder-base-label"
         placeholder={t('queries.builder.baseSourcePlaceholder')}
-        options={[
-          {
-            label: t('queries.builder.baseSourceDatasets'),
-            options: datasets.map((d) => ({ value: d.id, label: d.name })),
-          },
-          {
-            label: t('queries.builder.baseSourceQueries'),
-            options: baseQueries.map((q) => ({ value: q.id, label: q.name })),
-          },
-        ]}
+        options={datasets.map((d) => ({ value: d.id, label: d.name }))}
         data-component="BuilderBaseSource"
       />
 

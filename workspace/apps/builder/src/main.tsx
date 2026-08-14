@@ -25,7 +25,6 @@ import { DatasetsPage } from '@/features/data-management/datasets/DatasetsPage';
 import { DatasetNewPage } from '@/features/data-management/datasets/upload/DatasetNewPage';
 import { QueriesPage } from '@/features/data-management/queries/QueriesPage';
 import { QueryDetailPage } from '@/features/data-management/queries/QueryDetailPage';
-import { QueryCreatePage } from '@/features/data-management/queries/QueryCreatePage';
 import { WorkflowsPage } from '@/features/data-management/workflows/WorkflowsPage';
 import { WorkflowCreatePage } from '@/features/data-management/workflows/WorkflowCreatePage';
 import { WorkflowDetailPage } from '@/features/data-management/workflows/WorkflowDetailPage';
@@ -107,7 +106,6 @@ const appTree = (
                 <Route path="/data-management/datasets/:id/refresh" element={<DatasetNewPage />} />
                 <Route path="/data-management/datasets/:id" element={<DatasetDetailPage />} />
                 <Route path="/data-management/queries" element={<QueriesPage />} />
-                <Route path="/data-management/queries/new" element={<QueryCreatePage />} />
                 <Route path="/data-management/queries/:id" element={<QueryDetailPage />} />
                 <Route path="/data-management/workflows" element={<WorkflowsPage />} />
                 <Route path="/data-management/workflows/new" element={<WorkflowCreatePage />} />

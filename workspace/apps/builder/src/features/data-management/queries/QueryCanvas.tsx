@@ -836,23 +836,23 @@ function QueryCanvasInner({
   const graphIds = useMemo(() => graphDatasetIds(rootId, joins, qrelById), [rootId, joins, qrelById]);
   // Staged nodes that haven't been joined yet (drop any that became in-graph).
   const liveStaged = useMemo(() => staged.filter((id) => !graphIds.includes(id)), [staged, graphIds]);
-  // Free-form lets you add ANY not-in-graph source (not only ones with a governed
-  // rel — that was R87's pick-only constraint). R92 — the stage list now spans BOTH
-  // datasets AND saved queries (the symmetric "join anything to anything" canvas);
-  // a query can't be joined to itself, so the query under edit is excluded.
-  const editingQueryId = baseSourceId.startsWith('qr_') ? baseSourceId : '';
-  const stageableDatasets = useMemo(
+  // Free-form lets you add ANY not-in-graph DATASET (not only ones with a governed
+  // rel — that was R87's pick-only constraint).
+  //
+  // R166 — saved queries are no longer stageable. R92 had made the list symmetric
+  // (datasets AND queries, "join anything to anything"), which is `query⋈query` —
+  // what the closed Query concept refuses (_noun-model.md § D5, entry point #2).
+  // The group is removed with NO replacement, deliberately: the intent it served —
+  // compare two shaped results — is answered by the within-group column family
+  // (R163/R165), inside one query, not by joining two. So the picker's rule is now
+  // ONE rule (not on the canvas yet), and a user reaching for a saved query meets
+  // an absence carrying no explanation — an explanation would advertise a
+  // capability the product does not have (D4: unofferable at the gesture, never an
+  // error at run).
+  const stageable = useMemo(
     () => datasets.map((d) => d.id).filter((id) => !graphIds.includes(id) && !liveStaged.includes(id)),
     [datasets, graphIds, liveStaged],
   );
-  const stageableQueries = useMemo(
-    () =>
-      queries
-        .map((q) => q.id)
-        .filter((id) => id !== editingQueryId && !graphIds.includes(id) && !liveStaged.includes(id)),
-    [queries, editingQueryId, graphIds, liveStaged],
-  );
-  const stageable = useMemo(() => [...stageableDatasets, ...stageableQueries], [stageableDatasets, stageableQueries]);
   const addEligible = useMemo(() => addEligibleRels(rels, graphIds), [rels, graphIds]);
 
   const heightOf = useCallback(
@@ -1110,18 +1110,11 @@ function QueryCanvasInner({
                 style={{ width: 280 }}
                 placeholder={t('queries.builder.canvasAddSourcePlaceholder')}
                 aria-label={t('queries.builder.canvasAddSource')}
-                // R92 — grouped so a saved query (`qr_`) is disambiguated from a dataset
-                // (`ds_`) at the point of choosing; both can be joined in (Dec 9/10).
-                options={[
-                  {
-                    label: t('queries.builder.canvasAddSourceGroupDatasets'),
-                    options: stageableDatasets.map((id) => ({ value: id, label: sourceName(id) })),
-                  },
-                  {
-                    label: t('queries.builder.canvasAddSourceGroupQueries'),
-                    options: stageableQueries.map((id) => ({ value: id, label: `🔎 ${sourceName(id)}` })),
-                  },
-                ].filter((g) => g.options.length > 0)}
+                // R166 — a FLAT list of datasets. It was grouped (Datasets / Saved
+                // queries) so the two kinds were told apart at the point of choosing;
+                // with queries withdrawn there is one kind left, and a lone heading
+                // labelling a list that can hold nothing else is chrome, not structure.
+                options={stageable.map((id) => ({ value: id, label: sourceName(id) }))}
                 data-component="CanvasAddSourceSelect"
               />
             ) : (

@@ -14,7 +14,6 @@ import { AppLayout } from '@/components/AppLayout';
 import { DatasetDetailPage } from '@/features/data-management/datasets/DatasetDetailPage';
 import { QueriesPage } from '@/features/data-management/queries/QueriesPage';
 import { QueryDetailPage } from '@/features/data-management/queries/QueryDetailPage';
-import { QueryCreatePage } from '@/features/data-management/queries/QueryCreatePage';
 import {
   MOCK_COMPOSED_QUERY,
   MOCK_CYCLE_QUERY_ID,
@@ -81,7 +80,6 @@ function renderApp(initialPath: string) {
               <Routes>
                 <Route path="/data-management/datasets/:id" element={<DatasetDetailPage />} />
                 <Route path="/data-management/queries" element={<QueriesPage />} />
-                <Route path="/data-management/queries/new" element={<QueryCreatePage />} />
                 <Route path="/data-management/queries/:id" element={<QueryDetailPage />} />
               </Routes>
             </AppLayout>
@@ -553,12 +551,12 @@ describe('Query × Query composition (R76 F1 — builder)', () => {
     fireEvent.click(document.querySelector('[data-component="QueryDetailEdit"]') as HTMLButtonElement);
   }
 
-  // R94 (D6) — the "Build on" picker is editable only in CREATE; on an existing query the
-  // PUT is definition-only (the base is fixed at create), so in edit mode it's disabled with
-  // a hint rather than silently dropping the change on save. (Composed-preview-on-a-base is
-  // covered by the R77 create test "previews COMPOSED on the preset base" + the composed-query
-  // render test below — both unchanged.)
-  it('disables the "Build on" base-source picker in edit mode (the base is fixed after create)', async () => {
+  // R94 (D6) — the base-source picker is disabled: the PUT is definition-only, so a
+  // query's driving source is fixed at create. R166 — it is also DATASETS-ONLY and FLAT:
+  // the "Saved queries" group is withdrawn (entry point #1 of noun-model D5), and with
+  // one group left the "Datasets" heading would label a list that can hold nothing else.
+  // This assertion is the withdrawal's regression guard on the builder side.
+  it('renders the base-source picker disabled, datasets-only and ungrouped (R166 withdrawal)', async () => {
     renderApp(`/data-management/queries/${JOIN_ID}`);
     expect(await screen.findByText(/Matched 2 rows/)).toBeInTheDocument();
     clickEdit();
@@ -567,10 +565,11 @@ describe('Query × Query composition (R76 F1 — builder)', () => {
       expect(el).not.toBeNull();
       return el;
     })) as HTMLElement;
-    // Disabled — and opening it does nothing (no option group renders).
     expect(base.className).toContain('ant-select-disabled');
     fireEvent.mouseDown(base);
-    expect(screen.queryByText('Saved queries', { selector: '.ant-select-item-group' })).toBeNull();
+    // Neither group heading renders — not "Saved queries" (withdrawn) and not
+    // "Datasets" (a group of one is chrome, not structure).
+    expect(document.querySelector('.ant-select-item-group')).toBeNull();
   });
 
   // F2 (detail surfaces): a saved composed query (sourceId = qr_) renders the
@@ -601,99 +600,92 @@ describe('Query × Query composition (R76 F1 — builder)', () => {
   });
 });
 
-// R77 (composition CREATE — "Build on this query"). R76 shipped the composed
-// model + engine + read + the builder's base picker, but the FE create path never
-// sent `sourceId`, so a composed query was only buildable once it existed. R77's
-// create mode closes that: a verb on a saved Query opens the builder with that
-// Query preset as the base, name + Save = POST carrying `sourceId` → a new query.
-describe('Build on this query (R77 — composition create)', () => {
-  it('offers the "Build on this query" verb on a saved query and opens the create page preset on it', async () => {
-    renderApp(`/data-management/queries/${QR_ID}`);
-    const verb = await waitFor(() => {
-      const el = document.querySelector('[data-component="QueryDetailBuildOn"]') as HTMLButtonElement;
-      expect(el).not.toBeNull();
-      return el;
-    });
-    fireEvent.click(verb);
-    // Lands on the create page, preset on the base query (the "Building on" link).
-    await waitFor(() => expect(document.querySelector('[data-component="QueryCreatePage"]')).not.toBeNull());
-    const baseLink = document.querySelector('[data-component="QueryCreateBaseLink"]') as HTMLElement;
-    expect(baseLink).not.toBeNull();
-    expect(baseLink.textContent).toContain(MOCK_QUERY.name);
-  });
+// R166 — Duplicate replaces "Build on this query". Composition is withdrawn from
+// every surface (the create page, its route, the canvas + builder source groups);
+// what lands instead is a verb on the detail header that copies a Query's whole
+// definition into a NEW Query over the SAME sources. It routes through the shipped
+// SaveQueryModal + useCreateQueryMutation, so there is one create rhythm, not two.
+describe('Duplicate (R166 — the variant verb that replaced composition)', () => {
+  function clickDuplicate() {
+    fireEvent.click(document.querySelector('[data-component="QueryDetailDuplicate"]') as HTMLButtonElement);
+  }
 
-  it('previews COMPOSED on the preset base and Save POSTs sourceId → navigates to the new query', async () => {
-    let posted: { name?: string; sourceId?: string } | null = null;
+  // THE invariant the spec names, asserted directly: the copy is IDENTICAL. Same
+  // `sourceId` (a sibling, never a child — never the base's own `qr_`) and a deep-equal
+  // definition, `qrel_` ids included (they are query-local; re-minting would have
+  // destroyed exactly this property).
+  it('POSTs the base’s own sourceId + a deep-equal definition, then navigates to the copy', async () => {
+    let posted: { name?: string; sourceId?: string; definition?: unknown } | null = null;
     server.use(
       http.post('*/workspaces/:id/queries', async ({ request }) => {
         posted = (await request.json()) as typeof posted;
         return HttpResponse.json(
           {
-            id: 'qr_new00001',
+            id: 'qr_copy0001',
             workspaceId: MOCK_QUERY.workspaceId,
             sourceId: posted?.sourceId,
             name: posted?.name,
-            definition: { q: null, filters: [], advanced: [] },
+            definition: posted?.definition,
             createdAt: new Date().toISOString(),
           },
           { status: 201 },
         );
       }),
     );
-    renderApp(`/data-management/queries/new?base=${QR_ID}`);
-    // The composed preview renders the combined effective space — a column only a
-    // composed/joined source exposes (the base fed through the join tree).
-    expect(await screen.findByText('accounts.tier')).toBeInTheDocument();
-    // [Save query] becomes enabled (a base + zero edits is a valid composed query).
-    const saveBtn = await waitFor(() => {
-      const b = document.querySelector('[data-component="QueryCreateSave"]') as HTMLButtonElement;
-      expect(b.disabled).toBe(false);
-      return b;
-    });
-    fireEvent.click(saveBtn);
-    // Name capture reuses SaveQueryModal — type a name, submit.
-    const nameInput = await waitFor(() => {
-      const el = document.querySelector('[data-component="SaveQueryNameInput"]') as HTMLInputElement;
-      expect(el).not.toBeNull();
-      return el;
-    });
-    fireEvent.change(nameInput, { target: { value: 'Won deals × Accounts' } });
-    fireEvent.click(within(screen.getByRole('dialog')).getByText('Save'));
+    renderApp(`/data-management/queries/${QR_ID}`);
+    await waitFor(() => expect(document.querySelector('[data-component="QueryDetailDuplicate"]')).not.toBeNull());
+    clickDuplicate();
+
+    // The modal names the OBJECT, not the bare verb (the third display context) and
+    // pre-fills a ready-to-accept default.
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText(`Duplicate ${MOCK_QUERY.name}`)).toBeInTheDocument();
+    const nameInput = document.querySelector('[data-component="SaveQueryNameInput"]') as HTMLInputElement;
+    expect(nameInput.value).toBe(`${MOCK_QUERY.name} (copy)`);
+
+    fireEvent.click(within(dialog).getByText('Save'));
     await waitFor(() => expect(posted).not.toBeNull());
-    // The POST carried the composed source ref as the canonical sourceId (R79).
-    expect(posted!.sourceId).toBe(QR_ID);
-    expect(posted!.name).toBe('Won deals × Accounts');
-    // Navigated away from the create page (to the new query's detail).
-    await waitFor(() => expect(document.querySelector('[data-component="QueryCreatePage"]')).toBeNull());
+    expect(posted!.sourceId).toBe(MOCK_QUERY.sourceId); // a SIBLING, not a child
+    expect(posted!.definition).toEqual(MOCK_QUERY.definition); // deep-equal, entire
+    expect(posted!.name).toBe(`${MOCK_QUERY.name} (copy)`);
+    // The navigation is the significant event — the user is now on a different query.
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   });
 
-  it('flags an unrunnable / cyclic base pre-save and blocks Save', async () => {
+  // Duplicating the same query twice offers `(copy)` both times, so the second ALWAYS
+  // collides. Accepted at the D gate (human, 2026-08-13) on the condition that it is a
+  // recoverable annoyance: the modal's existing inline field error, and the user renames.
+  it('renders a colliding name as the modal’s inline error and stays open to recover', async () => {
     server.use(
-      http.post('*/workspaces/:id/queries/preview', () =>
-        HttpResponse.json({ code: 'composition_cycle' }, { status: 409 }),
-      ),
+      http.post('*/workspaces/:id/queries', () => HttpResponse.json({ code: 'name_taken' }, { status: 409 })),
     );
-    renderApp(`/data-management/queries/new?base=${QR_ID}`);
-    const alert = (await waitFor(() => {
-      const el = document.querySelector('[data-component="QueryCreateBaseUnavailable"]');
-      expect(el).not.toBeNull();
-      return el;
-    })) as HTMLElement;
-    expect(alert.textContent).toMatch(/can.t be built on/);
-    // Save stays disabled (the preview is blocked).
-    const saveBtn = document.querySelector('[data-component="QueryCreateSave"]') as HTMLButtonElement;
-    expect(saveBtn.disabled).toBe(true);
+    renderApp(`/data-management/queries/${QR_ID}`);
+    await waitFor(() => expect(document.querySelector('[data-component="QueryDetailDuplicate"]')).not.toBeNull());
+    clickDuplicate();
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.click(within(dialog).getByText('Save'));
+    await waitFor(() => expect(document.querySelector('[data-component="SaveQueryNameTaken"]')).not.toBeNull());
+    // Recoverable: the modal is still up with the name still editable.
+    expect(screen.queryByRole('dialog')).not.toBeNull();
+    expect((document.querySelector('[data-component="SaveQueryNameInput"]') as HTMLInputElement).disabled).toBe(false);
   });
 
-  it('shows the base-not-found state for a missing ?base=', async () => {
-    server.use(http.get('*/queries/:id', () => HttpResponse.json({ code: 'not_found' }, { status: 404 })));
-    renderApp('/data-management/queries/new?base=qr_deadbeef');
-    const nf = await waitFor(() => {
-      const el = document.querySelector('[data-component="QueryCreateNotFound"]');
-      expect(el).not.toBeNull();
-      return el as HTMLElement;
-    });
-    expect(nf.textContent).toContain('Base query not found');
+  // The verb is on the RUNNABLE detail header only — repair the source before making a
+  // variant of something that can't run (the stale header keeps only Delete).
+  it('is absent from the stale (unrunnable) header', async () => {
+    server.use(http.get('*/queries/:id/rows', () => HttpResponse.json({ code: 'query_stale' }, { status: 409 })));
+    renderApp(`/data-management/queries/${QR_ID}`);
+    await waitFor(() => expect(document.querySelector('[data-component="QueryDetailStale"]')).not.toBeNull());
+    expect(document.querySelector('[data-component="QueryDetailDuplicate"]')).toBeNull();
+  });
+
+  // The withdrawal, asserted where a user last reached for it (R160's dogfood opened
+  // the program by clicking exactly this).
+  it('no longer offers "Build on this query" anywhere on the detail', async () => {
+    renderApp(`/data-management/queries/${QR_ID}`);
+    await waitFor(() => expect(document.querySelector('[data-component="QueryDetailDuplicate"]')).not.toBeNull());
+    expect(document.querySelector('[data-component="QueryDetailBuildOn"]')).toBeNull();
+    expect(screen.queryByText('Build on this query')).toBeNull();
   });
 });
 
