@@ -1,6 +1,6 @@
 # Round 167: composition retired in the engine — and the bug that outlives it
 
-**Status**: In Progress — **D + C + B closed**; I (the human's acceptance walk) next
+**Status**: **Review** — D + C + B + I closed; walk 5 of 5, all pass. Awaiting human sign-off to flip Complete.
 **Flow**: **DCFBI** — set at the Design exit via `flow-selector` (0 of 5); recorded in the Do log
 **Date started**: 2026-08-14
 **Date completed**:
@@ -355,17 +355,17 @@ absorbed here.
 pytest 434, contracts 40, builder 363, four linters — and the walk is 2-for-2 across R165/R166 on
 finding defects every green gate missed.
 
-**Acceptance walk — awaiting the human. `coverage: 0 of 5.`** Questions written at D
+**Acceptance walk — run by the human 2026-08-14. `coverage: 5 of 5`, all pass, one defect (W-1).** Questions written at D
 ([[walk-record-always-spec-on-ask]]); the seeded artifacts they act on are named below, because
 this round's questions need specific objects rather than any query.
 
 | #      | Question                                                                                                                                        | Act on                                                    | Verdict |
 | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- | ------- |
-| **T1** | Open a saved query with **joins and steps** — same rows as before the round?                                                                    | `Monthly revenue by status` · `Customers with orders`      | ⬜      |
-| **T2** | Run the seeded **workflow**. Does it still resolve and produce its table — did narrowing the resolver leave Workflow's reader intact?           | `Consolidated revenue by status`                           | ⬜      |
-| **T3** | Go to a query's **Canvas** tab and look for any trace of a saved query as a source — a node, a column list, a stale label, a grouped picker.    | `Customers with orders` → Edit → Canvas                    | ⬜      |
-| **T4** | Ask the API to build a query on a query. Is the refusal legible, or does it read as a bug?                                                      | `POST` a `qr_` `sourceId` (curl)                           | ⬜      |
-| **T5** | Compare the workflow's output against its source query's own detail page. Do they match?                                                       | the workflow **vs** `Revenue by order status`              | ⬜      |
+| **T1** | Open a saved query with **joins and steps** — same rows as before the round?                                                                    | `Monthly revenue by status` · `Customers with orders`      | ✅ pass |
+| **T2** | Run the seeded **workflow**. Does it still resolve and produce its table — did narrowing the resolver leave Workflow's reader intact?           | `Consolidated revenue by status`                           | ✅ **pass — finding A did NOT fire** |
+| **T3** | Go to a query's **Canvas** tab and look for any trace of a saved query as a source — a node, a column list, a stale label, a grouped picker.    | `Customers with orders` → Edit → Canvas                    | ✅ pass — **no trace**; 1 unrelated defect (**W-1**) |
+| **T4** | Ask the API to build a query on a query. Is the refusal legible, or does it read as a bug?                                                      | `POST` a `qr_` `sourceId` (curl)                           | ✅ pass — _"correct and as expected"_ |
+| **T5** | Compare the workflow's output against its source query's own detail page. Do they match?                                                       | the workflow **vs** `Revenue by order status`              | ✅ **NO — as predicted** |
 
 **How each outcome is read** — decided in advance, so a result cannot be rationalised after it
 arrives:
@@ -381,9 +381,99 @@ arrives:
 - **T4 = "reads as a bug"** reopens the API-stance call: a `422` from a type can be technically
   right and humanly opaque.
 
+### What the walk returned (2026-08-14)
+
+**T2 is the headline: finding A did not fire.** The seeded workflow resolves and produces its
+table, so narrowing `resolve_source` to one call site left Workflow's reader intact — verified by
+hand, which is the thing tests could not do for this round.
+
+**T5 confirmed the deferred trap on the surface**, exactly as pre-committed: the workflow's output
+is **120 rows** where its base query `Revenue by order status` shows **4**. R168 now inherits a
+screen rather than a paragraph. The human's phrasing is worth keeping verbatim — _"the workflow
+output is 120 rows, but the base query is 4 (having filter)"_ — because it names the mechanism the
+right way round: the base's **shaping** is what goes missing, not its rows.
+
+**T4 read as a boundary** — the human ran it and returned _"correct and as expected"_. The refusal
+is a `422` naming the field, the offending value and the expected shape:
+`{"loc":["body","sourceId"],"msg":"String should match pattern '^ds_[0-9a-f]{8}$'"}`.
+
+**The tradeoff underneath it is worth recording, because it will look like an oversight later.**
+That message states a **regex, not a reason** — Pydantic's raw pattern vocabulary. A friendlier one
+(_"a query's source must be a dataset; to make a variant, use Duplicate"_) needs a **custom
+validator**, which is exactly the hand-written branch the C gate removed to make create / update /
+preview agree **by construction**. So legibility here is bought by giving that guarantee back.
+It stays as-is because the message is legible **for its only possible audience**: no gesture can
+produce it — R166 withdrew every one — so the only caller is someone writing against the API
+directly, for whom `loc` + the expected shape is the useful answer. D4's rule (_in the user's
+words, never a run-time engine error_) governs **gestures**, and there is no gesture left.
+
+### W-1 — a canvas drag looks like an edit and isn't (T3)
+
+**Found**: re-arranging a node on the canvas does not mark the builder dirty, so `[Save]` stays
+disabled. The human graded it _"very small issue as of now"_.
+
+**Diagnosed, and the diagnosis inverts the report.** `Save` is **correctly** disabled — there is
+genuinely nothing to save. Node positions live in `posOverride`, component-local `useState`, and
+`position` / `layout` appear **nowhere** in `QueryDefinition` (`types.ts`, `chain.ts`). Canvas
+layout is **not a persisted concept at all**: an arrangement is lost on tab-switch, remount or
+reload, and always has been. So the defect is not a missing dirty-flag — it is that the canvas
+**offers a gesture whose result silently does not last**, and a disabled Save is the only hint.
+That is D4's rule from the other side: not _an error at run_, but _a gesture that quietly does
+nothing durable_.
+
+**Not an R167 regression** — `posOverride` dates to R89 (`39cc5e2`) and this round never touched
+it. **Not fixed here**: persisting layout is a model + contract change and a real design question
+(does a data definition own its picture?), which is not a composition-retirement round's to answer.
+**Batched to the R157 UX cluster** ([[batch-ui-bugs-into-one-round]]), where it joins R165's W-1/W-2
+and R166's header-ordering generalisation.
+
+> **Third instance, and it is now a pattern worth promoting.** T3 asked about withdrawn `qr_`
+> traces and returned a **drag-persistence** defect. R165: five questions, six defects, none about
+> what its question asked. R166: T1 asked about rows, returned **button order**. R167: T3 asked
+> about `qr_` traces, returned **canvas layout**. Three rounds, three domains, same shape — _a walk
+> question works by putting a human in front of the surface, and what they notice is not bounded by
+> what you asked_. Per the Evolution Rule's third-instance bar, this is now a **promotion
+> candidate** rather than a note.
+
 ## Act
 
-_(empty — Planning)_
+**The round's claim held.** A Query is a live table over datasets only — in the wire, in the engine
+and on every surface — and **D5 is closed**, the debt that opened this program. Neither _Falsified
+if_ fired: T2 proved the narrowing left Workflow's reader intact (finding A's whole risk), and the
+narrowing needed no answer to _what a Workflow is_, so the FE/engine seam was the right second cut.
+
+**What R167 got right by refusing the plan.** The program said item 3 would "delete the machinery".
+Three of the four things it named were **not deleted**, each because a code walk said so before a
+line moved: `resolve_source`'s `qr_` branch (Workflow's reader), `cyclic_join` (the self-join
+boundary), and `composition_cycle` (dormant, retained for a live-resolving Workflow source). A
+round executed faithfully against that plan would have broken Workflow outright.
+
+**Two lessons.**
+
+1. **"Narrowed" has to be checkable or it is just a comment.** The round could have satisfied
+   finding A by documenting that the `qr_` branch is Workflow's. Instead the dataset leaf was split
+   out and the join path pointed at it, leaving `resolve_source` reachable from **exactly one call
+   site** — so the boundary is in the **call graph**, where a future reader trips over it, rather
+   than in prose they can skip. **Candidate for `memory/`**: _a boundary asserted in a comment is
+   not a boundary; move a call site instead._
+2. **Seed the artifact a walk needs, or the walk cannot ask the question.** Writing T2/T5 at D
+   surfaced that finding A had **nothing to hand-use** — the `workflows` table was empty, so this
+   round's riskiest change would have been tested only by tests while the round implied otherwise.
+   Seeding one workflow made T2 answerable **and** made the deferred D1 trap visible on a screen.
+
+**Promotion candidate — third instance, now over the bar.** T3 asked about withdrawn `qr_` traces
+and returned a **canvas drag-persistence** defect. R165: six defects, none about their question.
+R166: T1 asked about rows, returned **button order**. R167: T3 asked about traces, returned
+**layout**. Three rounds, three domains, one shape — _a walk question works by putting a human in
+front of the surface, and what they notice is not bounded by what you asked._ Per the Evolution
+Rule's third-instance bar this is now a **proposal for the human**, not a note.
+
+**Handed to R168** (§ Feeds into) and **to the batched UI cluster** (W-1 canvas layout, joining
+R165's W-1/W-2 and R166's header-ordering generalisation).
+
+**Two open calls left with the human**, neither absorbed silently: the **latent pager risk**
+(measured, not fixed — § The pager finding) and the **8-doc `design-sync` backlog** (~286
+round-stamps; R167 synced only the four its code changed).
 
 ## Feeds into → Round_168 (what a Workflow is)
 
