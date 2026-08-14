@@ -46,13 +46,15 @@ paths:
                   description: Human label; unique within the workspace.
                 sourceId:
                   type: string
-                  pattern: "^(ds_|qr_)[0-9a-f]{8}$"
+                  pattern: "^ds_[0-9a-f]{8}$"
                   description: |
-                    The polymorphic driving source (R79 — canonical, required):
-                    a Dataset (`ds_…`) or a saved Query (`qr_…`) to build ON.
-                    Save-time validation resolves the base (exists, in-workspace,
-                    runnable) and runs the `composition_cycle` guard (409 when a
-                    `qr_` base loops back to this query).
+                    The driving source (R79 — canonical, required): a **Dataset**.
+                    R167 narrowed this from `^(ds_|qr_)…` — a Query built ON another
+                    Query is retired (`_noun-model.md` § D5); make a variant with
+                    **Duplicate** instead, which POSTs the base's OWN `sourceId`.
+                    Save-time validation resolves the dataset (exists, in-workspace).
+                    A `qr_` here is now a **422 from the pattern**, not a runtime
+                    guard — the refusal is structural and needs no branch.
                 definition:
                   $ref: "../_shared/query.yaml#/components/schemas/QueryDefinition"
             examples:

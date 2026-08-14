@@ -24,11 +24,11 @@ SourceFormat = Literal["excel", "csv"]
 # source of truth.
 WsId = Annotated[str, Field(pattern=ID_PATTERNS["workspace"])]
 DsId = Annotated[str, Field(pattern=ID_PATTERNS["dataset"])]
-# R76/R79/R91 — the polymorphic table-source id: a Dataset (`ds_…`) or a saved Query
-# (`qr_…`). Used by the driving `sourceId` (R79) and, R91, by a join edge's
-# `rightSourceId` (query×query). Hoisted here so the QueryRelationship model can use it.
-# Mirrors the contract's `^(ds_|qr_)[0-9a-f]{8}$`; the unified resolver reads either.
-SourceId = Annotated[str, Field(pattern=r"^(ds_|qr_)[0-9a-f]{8}$")]
+# R167 — the polymorphic `SourceId` (`^(ds_|qr_)…`) is RETIRED. It existed to say
+# "a Query may read another Query"; the closed Query concept says it may not
+# (`_noun-model.md` § D5), so every query-side source is now a plain `DsId` and the
+# type that expressed the capability is gone with it. `WorkflowSourceId` (below) is
+# the surviving polymorphic id — a Workflow still reads `qr_`/`wf_` sources.
 # R93 — a LEAF dataset id (`ds_…` only); used by a ResolvedColumn's `ownerSourceId`,
 # which is always a leaf (the join resolver matches a hop's left by leaf membership).
 DatasetId = Annotated[str, Field(pattern=r"^ds_[0-9a-f]{8}$")]
@@ -303,10 +303,10 @@ class QueryRelationship(BaseModel):
     # R91 — right-side-first: a hop's left is always an in-graph dataset (`ds_`).
     leftSourceId: DsId  # noqa: N815
     leftColumn: Annotated[str, Field(min_length=1)]  # noqa: N815
-    # R91 — the right source may be a dataset OR a saved Query (`qr_`, query×query),
-    # resolved as a subquery exposing its effective columns. The governed ER stays
-    # dataset-only, so a `qr_`-right edge is always free-form (no originRelationshipId).
-    rightSourceId: SourceId  # noqa: N815
+    # R167 — a dataset, like the left. R91 had widened this to accept a saved Query
+    # on the right (`query×query`); that is retired, so both operands of an edge are
+    # datasets and the governed ER's dataset-only shape finally matches the query's.
+    rightSourceId: DsId  # noqa: N815
     rightColumn: Annotated[str, Field(min_length=1)]  # noqa: N815
     cardinality: Literal["one_to_one", "one_to_many", "many_to_one", "many_to_many"]
     # Provenance back-ref to the governed rel copied from (copy-on-pick); null /
@@ -613,8 +613,6 @@ class QueryDefinition(BaseModel):
         return data
 
 
-# `SourceId` (the polymorphic `ds_|qr_` driving-source id) is defined near `DsId`
-# above so the QueryRelationship model (R91 `rightSourceId`) can reference it too.
 
 
 class Query(BaseModel):
@@ -625,7 +623,8 @@ class Query(BaseModel):
     # R79 — the single, canonical polymorphic driving source (required); a `ds_`
     # for a dataset-rooted query or a `qr_` for a composed one. The legacy
     # `datasetId` was retired here (backfilled into `sourceId`).
-    sourceId: SourceId  # noqa: N815
+    # R167 — always a dataset; the COMPOSED form (a Query built on a Query) is retired.
+    sourceId: DsId  # noqa: N815
     name: Annotated[str, Field(min_length=1, max_length=NAME_LENGTHS["query_max"])]
     definition: QueryDefinition
     # R71/R73 — the effective (combined, collision-qualified) columns; present
@@ -641,7 +640,7 @@ class CreateQueryBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     name: Annotated[str, Field(min_length=1, max_length=NAME_LENGTHS["query_max"])]
-    sourceId: SourceId  # noqa: N815 — R79: the required, canonical qr_/ds_ driving source
+    sourceId: DsId  # noqa: N815 — R79 canonical driving source; R167 narrowed to ds_ only
     definition: QueryDefinition
 
 
@@ -662,7 +661,7 @@ class PreviewQueryBody(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    sourceId: SourceId  # noqa: N815 — R79: the required, canonical qr_/ds_ driving source
+    sourceId: DsId  # noqa: N815 — R79 canonical driving source; R167 narrowed to ds_ only
     definition: QueryDefinition
 
 

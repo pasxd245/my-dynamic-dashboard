@@ -15,8 +15,6 @@ import { DatasetDetailPage } from '@/features/data-management/datasets/DatasetDe
 import { QueriesPage } from '@/features/data-management/queries/QueriesPage';
 import { QueryDetailPage } from '@/features/data-management/queries/QueryDetailPage';
 import {
-  MOCK_COMPOSED_QUERY,
-  MOCK_CYCLE_QUERY_ID,
   MOCK_DATASET,
   MOCK_DATASET_2,
   MOCK_DATASET_3,
@@ -538,13 +536,13 @@ describe('Multi-join chain (R73 linear) + join graph (R74 tree)', () => {
   });
 });
 
-// R76 F1 (composition — builder prototype, FE-on-MSW). The "Build on" base-source
-// picker lists Datasets AND saved Queries; picking a Query re-runs the preview
-// COMPOSED (built on that Query → the composed effective space). The wire field
-// (`sourceId`) + persistence + the detail-page composition summary land at the
-// Contract → F2 gates (F1 is contract-safe: the picker is FE state, the preview
-// body carries the base, and the response stays the unchanged RowsPage shape).
-describe('Query × Query composition (R76 F1 — builder)', () => {
+// R166 withdrew every surface that offered `query⋈query`; R167 narrowed the wire so
+// the shape is refused structurally (`sourceId` / `rightSourceId` are `^ds_…`). What
+// survives here is the REGRESSION GUARD: the builder's source picker must stay
+// datasets-only and ungrouped. The composed-detail tests went with the fixtures they
+// needed — a mock that keeps serving a withdrawn shape lets the FE pass tests for a
+// surface the product no longer has (the MSW contract anchor caught exactly that).
+describe('Composition withdrawn (R166 surfaces, R167 wire)', () => {
   const JOIN_ID = MOCK_JOINED_QUERY.id;
 
   function clickEdit() {
@@ -572,32 +570,6 @@ describe('Query × Query composition (R76 F1 — builder)', () => {
     expect(document.querySelector('.ant-select-item-group')).toBeNull();
   });
 
-  // F2 (detail surfaces): a saved composed query (sourceId = qr_) renders the
-  // read-only "Built on" summary + the composed badge + its composed rows.
-  it('renders the read-only "Built on" composition summary for a composed query', async () => {
-    renderApp(`/data-management/queries/${MOCK_COMPOSED_QUERY.id}`);
-    await waitFor(() => expect(document.querySelector('[data-component="QueryCompositionSummary"]')).not.toBeNull());
-    // Names the base query (resolved async from its own GET) + an open-base link.
-    expect(await screen.findByText('Won deals over $1k')).toBeInTheDocument();
-    expect(document.querySelector('[data-component="QueryBaseSourceLink"]')).not.toBeNull();
-    // The composed rows run (the composed effective space).
-    expect(await screen.findByText('Dana Lee')).toBeInTheDocument();
-  });
-
-  // F2 (flag-don't-crash): a composed query whose base loops back → the run
-  // returns 409 composition_cycle and the detail renders the cycle state, not a
-  // crash or an infinite spinner.
-  it('blocks a cyclic composition with a guided "would loop" state', async () => {
-    renderApp(`/data-management/queries/${MOCK_CYCLE_QUERY_ID}`);
-    const alert = (await waitFor(() => {
-      const el = document.querySelector('[data-component="QueryDetailCompositionUnavailable"]');
-      expect(el).not.toBeNull();
-      return el;
-    })) as HTMLElement;
-    // The guided "would loop" copy + an action pointing at the base query.
-    expect(alert.textContent).toContain('This composition would loop');
-    expect(alert.textContent).toContain('Open base query');
-  });
 });
 
 // R166 — Duplicate replaces "Build on this query". Composition is withdrawn from

@@ -32,8 +32,6 @@ import { withContractValidation } from './contract-validator';
 import {
   MOCK_CHAIN_COLUMNS,
   MOCK_CHAIN_ROWS,
-  MOCK_COMPOSED_QUERY,
-  MOCK_CYCLE_QUERY_ID,
   MOCK_DASHBOARD,
   MOCK_DASHBOARDS,
   MOCK_DATASET,
@@ -930,15 +928,6 @@ export const handlers = [
     if (params.id === MOCK_JOINED_QUERY.id) {
       return HttpResponse.json(MOCK_JOINED_QUERY);
     }
-    // R76: a composed query carries `sourceId` (a `qr_` base) + resolvedColumns.
-    if (params.id === MOCK_COMPOSED_QUERY.id) {
-      return HttpResponse.json(MOCK_COMPOSED_QUERY);
-    }
-    // R76: a composed query whose base loops back — still resolvable as metadata
-    // (the cycle is caught on RUN), so it gets the composed shape here.
-    if (params.id === MOCK_CYCLE_QUERY_ID) {
-      return HttpResponse.json({ ...MOCK_COMPOSED_QUERY, id: MOCK_CYCLE_QUERY_ID });
-    }
     if (params.id !== MOCK_QUERY.id) {
       return HttpResponse.json({ code: 'not_found' }, { status: 404 });
     }
@@ -952,10 +941,6 @@ export const handlers = [
     if (params.id === MOCK_STALE_JOIN_QUERY_ID) {
       return HttpResponse.json({ code: 'relationship_stale' }, { status: 409 });
     }
-    // R76: a composed query whose base loops back → the run is blocked.
-    if (params.id === MOCK_CYCLE_QUERY_ID) {
-      return HttpResponse.json({ code: 'composition_cycle' }, { status: 409 });
-    }
     // R107 — `unpaged=true` returns the full result in one response (page=1,
     // pageSize=row count); otherwise a page slice. Shared across the valid-run
     // branches below.
@@ -968,11 +953,6 @@ export const handlers = [
       const offset = (page - 1) * pageSize;
       return { rows: allRows.slice(offset, offset + pageSize), page, pageSize, total };
     };
-    // R76: a valid composed query returns its composed rows (the base's rows
-    // fed through the join → the composed effective space).
-    if (params.id === MOCK_COMPOSED_QUERY.id) {
-      return HttpResponse.json(pageOf(MOCK_CHAIN_ROWS.rows, MOCK_CHAIN_ROWS.total));
-    }
     // R71: a valid joined query returns its joined rows (effective columns).
     if (params.id === MOCK_JOINED_QUERY.id) {
       return HttpResponse.json(pageOf(MOCK_JOINED_ROWS.rows, MOCK_JOINED_ROWS.total));
@@ -998,13 +978,7 @@ export const handlers = [
     if (params.id === MOCK_STALE_JOIN_QUERY_ID) {
       return HttpResponse.json({ code: 'relationship_stale' }, { status: 409 });
     }
-    if (params.id === MOCK_CYCLE_QUERY_ID) {
-      return HttpResponse.json({ code: 'composition_cycle' }, { status: 409 });
-    }
     const body = (await request.json()) as AggregateRequest;
-    if (params.id === MOCK_COMPOSED_QUERY.id) {
-      return HttpResponse.json(computeAggregate(MOCK_CHAIN_COLUMNS, MOCK_CHAIN_ROWS.rows, body));
-    }
     if (params.id === MOCK_JOINED_QUERY.id) {
       return HttpResponse.json(computeAggregate(MOCK_JOINED_QUERY.resolvedColumns ?? [], MOCK_JOINED_ROWS.rows, body));
     }
@@ -1028,19 +1002,6 @@ export const handlers = [
     const url = new URL(request.url);
     const page = Math.max(1, Number(url.searchParams.get('page') ?? 1));
     const pageSize = Math.max(1, Number(url.searchParams.get('page_size') ?? 25));
-
-    // R76 (composition, F1) — a `qr_` driving source: the preview is COMPOSED
-    // (built ON that saved Query), so it returns the composed effective space.
-    // The base Query's own rows + the working-copy joins fold into one virtual
-    // table; F1 mocks that with the chain fixture (the wire field `sourceId` and
-    // the real recursive resolver land at the Contract / Backend gates).
-    if (typeof body.sourceId === 'string' && body.sourceId.startsWith('qr_')) {
-      const columns = MOCK_CHAIN_COLUMNS;
-      const preds = def.filters.map(predFromAtom);
-      const aqGroups = def.advanced.map((g) => g.map(predFromAtom));
-      const matched = applyFiltersAndQ(MOCK_CHAIN_ROWS.rows, columns, preds, def.q ?? null, aqGroups);
-      return previewJson(columns, matched, page, pageSize, def.steps, true);
-    }
 
     const chain = def.joins ?? [];
     if (chain.length > 0) {

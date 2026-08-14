@@ -24,20 +24,18 @@ export type JoinType = 'inner' | 'left' | 'right' | 'full';
 export type QueryRelationship = {
   /** Query-local id, `^qrel_[0-9a-f]{8}$`. Referenced by `JoinStep.queryRelId`. */
   id: string;
-  /** R91 — the LEFT source. A hop's left is always in-graph (the tree invariant), so
-   *  it is a dataset (`ds_…`) this round; `qr_` on the left is deferred (right-side-first).
-   *  Renamed from `leftDatasetId` when the right side became polymorphic. */
+  /** The LEFT source — a dataset (`ds_…`). A hop's left is always in-graph (the tree
+   *  invariant). Renamed from `leftDatasetId` when the right side was briefly polymorphic. */
   leftSourceId: string;
   leftColumn: string;
-  /** R91 — the RIGHT source joined in: a dataset (`ds_…`) OR a saved Query (`qr_…`, a
-   *  query×query join — resolved as a subquery exposing its effective columns). Renamed
-   *  from `rightDatasetId` and widened to polymorphic. A `qr_` right side is always
-   *  free-form (no governed origin — the governed ER stays dataset-only). */
+  /** The RIGHT source joined in — a dataset (`ds_…`). R167 narrowed this: R91 had widened
+   *  it to accept a saved Query (`query×query`), which the closed Query concept refuses, so
+   *  both operands of an edge are datasets again and every edge has a governed counterpart
+   *  it COULD be promoted to. */
   rightSourceId: string;
   rightColumn: string;
   cardinality: 'one_to_one' | 'one_to_many' | 'many_to_one' | 'many_to_many';
-  /** Provenance back-ref to the governed `rel_` copied from (null = free-form, R89; always
-   *  null when `rightSourceId` is a `qr_` — no governed counterpart). */
+  /** Provenance back-ref to the governed `rel_` copied from (null = free-form, R89). */
   originRelationshipId?: string | null;
 };
 
@@ -278,9 +276,9 @@ export type Query = {
   id: string;
   /** FK → Workspace.id (the IA scope). */
   workspaceId: string;
-  /** R79 — the single, canonical polymorphic DRIVING source: `ds_…` (a Dataset;
-   *  the LEFT source when joined) or `qr_…` (a saved Query the Query is built ON).
-   *  Completed the `datasetId → sourceId` rename; the legacy `datasetId` is gone. */
+  /** R79 — the single, canonical DRIVING source: `ds_…` (a Dataset; the LEFT source
+   *  when joined). R167 narrowed it from the polymorphic `ds_ | qr_` — a Query built ON
+   *  another Query is retired; make a variant with **Duplicate** instead. */
   sourceId: string;
   /** User-supplied; unique per workspace; 1–120 chars. */
   name: string;
@@ -294,12 +292,13 @@ export type Query = {
 };
 
 /** POST /workspaces/{id}/queries request body.
- *  R79 — the driving source is the single, required, canonical `sourceId`
- *  (`ds_ | qr_`): a `ds_` for "Save filters as Query", a `qr_` base for
- *  "Build on this query". Mirrors `queries/post.contract.yaml`. */
+ *  R79 — the driving source is the single, required, canonical `sourceId`. R167
+ *  narrowed it to `ds_` only: both create verbs send a dataset — "Save filters as
+ *  Query" sends the dataset being filtered, and **Duplicate** sends the base's OWN
+ *  `sourceId` (a sibling, never a child). Mirrors `queries/post.contract.yaml`. */
 export type CreateQueryRequest = {
   name: string;
-  /** The polymorphic driving source: `ds_…` (a dataset) or `qr_…` (a base query). */
+  /** The driving source: `ds_…` (a dataset). */
   sourceId: string;
   definition: QueryDefinition;
 };
@@ -315,8 +314,8 @@ export type UpdateQueryRequest = {
  *  working-copy definition (the live preview), never persisted. Mirrors
  *  `queries/preview.contract.yaml`. */
 export type PreviewQueryRequest = {
-  /** R79 — the polymorphic driving source (required): `ds_…` (a dataset) or
-   *  `qr_…` (a base query). Mirrors `queries/preview.contract.yaml`. */
+  /** R79 — the driving source (required): `ds_…` (a dataset). R167 narrowed it in
+   *  step with the create body. Mirrors `queries/preview.contract.yaml`. */
   sourceId: string;
   definition: QueryDefinition;
 };

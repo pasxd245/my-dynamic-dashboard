@@ -68,14 +68,14 @@ paths:
               properties:
                 sourceId:
                   type: string
-                  pattern: "^(ds_|qr_)[0-9a-f]{8}$"
+                  pattern: "^ds_[0-9a-f]{8}$"
                   description: |
-                    The polymorphic driving source for the preview (R79 —
-                    canonical, required): a Dataset (`ds_…`) or a saved Query
-                    (`qr_…`) to build ON. For a joined definition the `ds_`
-                    source is the edge's left/driving dataset (unchanged by
-                    editing — R72 edits the definition, not the source); a `qr_`
-                    runs the preview COMPOSED via the unified `ds_`/`qr_` resolver.
+                    The driving source for the preview (R79 — canonical, required):
+                    a **Dataset**. R167 narrowed this from `^(ds_|qr_)…` in step with
+                    the create body, so preview and create agree BY CONSTRUCTION
+                    rather than by two matching branches. For a joined definition it
+                    is the edge's left/driving dataset (unchanged by editing — R72
+                    edits the definition, not the source).
                 definition:
                   $ref: "../_shared/query.yaml#/components/schemas/QueryDefinition"
             examples:

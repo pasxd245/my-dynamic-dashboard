@@ -91,19 +91,11 @@ export function useQueryBuilder({ query, datasetColumns, active, onDone }: UseQu
     setPageSize(nextPageSize);
   };
 
-  // The DRIVING source. R166 — this is no longer editable STATE, just the saved
-  // value: the builder is edit-only and the PUT is definition-only, so a query's
-  // source is fixed at create and the picker that used to change it is withdrawn.
-  // It can still read `qr_` for a pre-R166 composed query (none exist; the engine
-  // retires the support at R167).
+  // The DRIVING source. R166 — no longer editable STATE, just the saved value: the
+  // builder is edit-only and the PUT is definition-only, so a query's source is fixed
+  // at create. R167 narrowed it to a dataset, so the graph root is always this id.
   const baseSourceId = query?.sourceId ?? '';
-  const isComposed = baseSourceId.startsWith('qr_');
-  // R79 — the JoinEditor's graph root is a DATASET. When the driving source is a
-  // `ds_` that IS the root; when it is a `qr_` (composed) there is no single root
-  // dataset on the wire, so first-hop-from-root isn't offered (joins onto a
-  // composed base extend from its already-joined datasets; the backend validates
-  // provenance regardless). Dataset-rooted queries are unchanged.
-  const joinRootDatasetId = baseSourceId.startsWith('ds_') ? baseSourceId : '';
+  const joinRootDatasetId = baseSourceId;
 
   // Seed (and re-seed) the working copy from the saved definition each time edit
   // mode opens — so re-entering after a discard starts clean. Read-only mode
@@ -154,18 +146,17 @@ export function useQueryBuilder({ query, datasetColumns, active, onDone }: UseQu
     [debouncedDraft, draft],
   );
 
-  // Effective columns: the server-computed combined space when joined OR composed
-  // (R76 — a `qr_` base has its own effective space from the preview), else the
+  // Effective columns: the server-computed combined space when joined, else the
   // source dataset's.
   const columns: Column[] = useMemo(() => {
     // R129 — when the previewed definition has steps, the preview reports the
     // PRE-step (base) columns; the editors author against those (not the post-step
     // result the preview table shows).
     if (preview?.baseColumns) return asColumns(preview.baseColumns);
-    if (!isJoined && !isComposed) return [...datasetColumns];
+    if (!isJoined) return [...datasetColumns];
     const resolved = preview?.resolvedColumns ?? query?.resolvedColumns;
     return resolved ? asColumns(resolved) : [];
-  }, [isJoined, isComposed, datasetColumns, preview?.baseColumns, preview?.resolvedColumns, query?.resolvedColumns]);
+  }, [isJoined, datasetColumns, preview?.baseColumns, preview?.resolvedColumns, query?.resolvedColumns]);
 
   // R125 — the RESULT columns matching `previewRows`: a stepped query's preview
   // returns its POST-step columns, so the preview TABLE renders the shaped shape;
@@ -194,10 +185,6 @@ export function useQueryBuilder({ query, datasetColumns, active, onDone }: UseQu
   // shared `query_stale` and the panel had one sentence for both, so a reordered card
   // was announced as "1 filter references a column…" on a query with zero filters.
   const stepInvalid = err instanceof ApiErrorThrown && err.body.code === 'step_invalid';
-  // A pre-R166 composed query whose base (transitively) loops back: the preview is
-  // blocked. Reachable only for a query that already had a `qr_` source (none exist);
-  // the engine retires the guard at R167.
-  const compositionCycle = err instanceof ApiErrorThrown && err.body.code === 'composition_cycle';
   const invalidCount = invalidAtomCount(draft, columns);
   const previewOk = Boolean(preview) && !relStale && !predStale && !stepInvalid && !previewQuery.isError;
   // Save only once the preview reflects the CURRENT draft — you save what you previewed.
@@ -370,7 +357,6 @@ export function useQueryBuilder({ query, datasetColumns, active, onDone }: UseQu
     workspaceId,
     // The saved driving source (read-only since R166 — the picker that set it is withdrawn)
     baseSourceId,
-    isComposed,
     // working state
     draft,
     columns,
@@ -393,7 +379,6 @@ export function useQueryBuilder({ query, datasetColumns, active, onDone }: UseQu
     flushPreview,
     // gating / states
     relStale,
-    compositionCycle,
     predStale,
     stepInvalid,
     invalidCount,
