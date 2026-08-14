@@ -2,16 +2,15 @@
 
 **Concept**: per-column typed filters layered on top of the
 [dataset detail page](dataset-detail.md). The dataset's
-`Dataset.columns[].dtype` (already used to drive R36's cell
+`Dataset.columns[].dtype` (already used to drive the cell
 rendering) now also drives which operator set each column
 offers; the FE composes per-column predicates AND together with
 the existing `?q=` substring search; the BE evaluates the full
 predicate set server-side so `total` reflects matched-row count
 and pagination stays correct. The natural discoverable entry
 point that precedes a real query language.
-**Status**: Accepted (R37 design; shipped R38–R40; amended R55).
-**Round introduced**: [Round_37](../../../plan/cycles/Round_37.md);
-implementation chain begins R38 (contract), R39 (BE), R40 (FE).
+**Status**: Accepted — shipped.
+**Round introduced**: [Round_37](../../../plan/cycles/Round_37.md).
 **Sibling docs**:
 [dataset-detail.md](dataset-detail.md) (the page this extends),
 [datasets.md](datasets.md) (where the `Dataset.columns[].dtype`
@@ -27,7 +26,7 @@ field is defined),
 style `?q=` substring search. It explicitly deferred per-column
 filtering to R∞ "Per-column search / typed-filter language."
 
-R37 promotes that deferral because filters are the natural
+That deferral was promoted because filters are the natural
 discoverable predicate entry point: a user who wants to see only
 won deals over $10k can reach that view through clicking column
 headers, without learning a query syntax. The next step _after_
@@ -60,7 +59,7 @@ dashboards) that also evaluate against the same dataset rows.
 **Boundary check**: no filter surface lives in `@mdd/ui`. Per
 [memory/2026-05-22-ui-boundary-build-first.md](../../../memory/2026-05-22-ui-boundary-build-first.md)
 ("build `@mdd/ui` first, don't extract later") and the same
-discipline R33 applied to detail-page surfaces — feature-local
+discipline applied to detail-page surfaces — feature-local
 until a second consumer arrives. If a future round adds filters
 on a second surface (e.g. an audit-log page or a query-results
 page), the extraction question gets re-opened with two concrete
@@ -148,7 +147,7 @@ Excel · Sheet1 — 2,481 rows · 12 columns · 84 KB · Uploaded 14:02 today  �
   range, `{column_name} is null` / `is not null` for null ops.
 - "Matched X / Y" counter: `X` is the rows-GET `total`
   (filtered + searched matched count), `Y` is
-  `Dataset.rowCount` (unchanged from R36; always full).
+  `Dataset.rowCount` (always full).
 
 ### Popover open — string column (`stage`)
 
@@ -168,7 +167,7 @@ Excel · Sheet1 — 2,481 rows · 12 columns · 84 KB · Uploaded 14:02 today  �
 ```
 
 - Operator dropdown options for `string` dtype: `contains`
-  (default), `equals`, `not equals` (R55), `starts with`,
+  (default), `equals`, `not equals`, `starts with`,
   `ends with`, `is empty`, `is not empty`.
 - `is empty` / `is not empty` hide the value input.
 - `Clear filter` removes the filter for this column entirely
@@ -222,10 +221,10 @@ null`, `is not null`.
 ```
 
 - Operator dropdown for `date` / `datetime` dtypes: `equals`,
-  `not equals`, `before`, `after`, `≥`, `≤` (R55, inclusive),
+  `not equals`, `before`, `after`, `≥`, `≤` (inclusive),
   `between`, `is null`, `is not null`.
 - Inputs use AntD `<DatePicker>` (already in the bundle from the
-  R17 wizard parse-options panel). For `datetime` columns the
+  the wizard parse-options panel). For `datetime` columns the
   picker includes a time component; for `date` columns it's
   date-only.
 - The BE accepts ISO 8601 (`YYYY-MM-DD` or
@@ -276,7 +275,7 @@ Excel · Sheet1 — 2,481 rows · 12 columns · 84 KB · Uploaded 14:02 today
 ```
 
 - Triggered when the rows-GET returns `total: 0` and at least
-  one filter is active. Distinct from R36's "no rows match
+  one filter is active. Distinct from the "no rows match
   `<q>`" state — copy mentions filters explicitly.
 - If `?q=` is also set, the placeholder copy becomes "No rows
   match `<q>` with these filters" so the user knows both
@@ -295,7 +294,7 @@ the right of each column header's dtype badge:
 deal_id [str] ▾
         ↑     ↑
         |     filter trigger (button)
-        dtype badge (R36)
+        dtype badge
 ```
 
 - Visual: a single `▾` chevron icon (`@ant-design/icons`
@@ -330,7 +329,7 @@ renders between the search bar and the table:
   - `{column_name} between {min} and {max}` for range ops.
   - `{column_name} is null` / `{column_name} is not null` for
     null ops.
-  - Value formatting uses `formatCell` (R36) so 10000 renders as
+  - Value formatting uses `formatCell` so 10000 renders as
     `10,000`, 2026-04-08 as the locale's date, etc.
 - Long-value truncation: each chip caps at ~200px; full value in
   a `title` tooltip.
@@ -346,7 +345,7 @@ renders between the search bar and the table:
 
 This concept does not change the
 [fixed-viewport-height shell](dataset-detail.md#layout-shell)
-established in R33. The new elements (chip row + column-header
+established for the detail page. The new elements (chip row + column-header
 triggers + AntD popovers) all live _inside_ the existing
 PageCard, with one extra `flex: 0 0 auto` row inserted between
 the search bar and the table scroll container.
@@ -366,7 +365,7 @@ PageCard's `overflow` is irrelevant.
 
 All cells are AntD `<ConfigProvider>` tokens derived from the six seeds
 in [`themeTokens.ts`](../../../../workspace/packages/ui/src/themeTokens.ts)
-(the source of truth — R66; re-cited off the archived CSS-variable
+(the source of truth; re-cited off the archived CSS-variable
 mirror). Values are informational (resolved via
 `theme.getDesignToken()`, antd 6.x).
 
@@ -422,7 +421,7 @@ stateDiagram-v2
   column's **index** in `Dataset.columns[]` (not the column
   name — names can contain spaces, slashes, unicode; indices are
   stable across rename which isn't a feature here, and they
-  match the `col_0`, `col_1`, … convention R36 already uses for
+  match the `col_0`, `col_1`, … convention already used for
   AntD `<Table>` dataIndex collision avoidance).
 - Param shapes:
 
@@ -495,9 +494,9 @@ filters }]`.
   by column index, each entry `{ col, op, val | min, max }`).
   Sorting by index gives stable equality across different
   param-write orders.
-- `placeholderData: (prev) => prev` stays from R36 so the
+- `placeholderData: (prev) => prev` keeps the
   previous filtered page is visible during transitions.
-- Invalidation on dataset delete (existing R26 cascade) covers
+- Invalidation on dataset delete (the existing cascade) covers
   filter variants because the prefix `['datasets', { id }]`
   matches.
 
@@ -505,8 +504,7 @@ filters }]`.
 
 ## Data contract
 
-> **R38 update**: the OpenAPI 3.1 YAML extension is now
-> authoritative for the wire shape. The prose YAML and
+> The OpenAPI 3.1 YAML extension is **authoritative** for the wire shape. The prose YAML and
 > predicate-vocabulary table below stay as reading aids, but
 > if the two ever drift, the YAML wins.
 >
@@ -517,10 +515,9 @@ filters }]`.
 >   — rationale (per-column filter section + filter-related
 >   422 cases).
 
-### Committed shape (R38): encoded params
+### Committed shape: encoded params
 
-R37 named encoded params as primary; R38 committed. The
-fallback `POST :search` JSON body stays parked here for future
+Encoded params are the committed shape. The fallback `POST :search` JSON body stays parked here for future
 promotion if URL bloat becomes routine (≥ 8 active filters
 typical):
 
@@ -576,17 +573,17 @@ paths:
             type: string
       responses:
         '200':
-          # …unchanged from R34 contract…
+          # …unchanged from the base rows-GET contract…
         '422':
           description: |
             Filter operator incompatible with the column dtype,
             or filter value fails dtype-parse (e.g. f0_val=foo
             on an integer column). Body is the request-level
-            validation shape (R34's shared shape).
+            validation shape (the shared shape).
 ```
 
 OpenAPI 3.1 does not natively express "this query-param key is
-parameterized by N." R38 mechanized via four illustrative
+parameterized by N." It is mechanized via four illustrative
 `f0_*` parameter entries (concrete `name: f0_op`,
 `name: f0_val`, `name: f0_min`, `name: f0_max`) with detailed
 `description` blocks naming the N-parameterization convention.
@@ -596,8 +593,8 @@ operator and value-shape constraints at request time.
 #### Fallback: JSON body via `POST /datasets/{id}/rows:search`
 
 If the encoded-params shape proves clumsy (e.g. ≥ 8 active
-filters at once becomes routine and URLs balloon), R38 has the
-option to land a parallel `POST /datasets/{id}/rows:search`
+filters at once becomes routine and URLs balloon), the option
+stays open to land a parallel `POST /datasets/{id}/rows:search`
 endpoint that accepts the filter set as a JSON request body.
 The GET endpoint stays for the simple cases (no filters, just
 `?q=` + pagination); POST is the escape valve.
@@ -606,9 +603,8 @@ Naming: `:search` (colon-suffix RPC-style action) keeps it out
 of the noun namespace while signaling "this is still a read,
 just a complex one." Idempotent + cacheable via TanStack's key.
 
-R37 does not pre-commit to either shape; R38 mechanizes the
-chosen path based on contract-validity testing and the
-operator-set spec below.
+The chosen path is mechanized against contract-validity testing
+and the operator-set spec below.
 
 ### Predicate vocabulary table
 
@@ -616,7 +612,7 @@ operator-set spec below.
 | --------------- | ------------------ | ----------------------------- | ------------------- | ------------------------------------------------ |
 | string          | contains           | `contains`                    | string              | `WHERE col ILIKE '%val%'`                        |
 | string          | equals             | `equals`                      | string              | `WHERE col = 'val'` (case-insensitive collation) |
-| string          | not equals         | `ne`                          | string              | `WHERE lower(col) <> lower('val')` (R55)         |
+| string          | not equals         | `ne`                          | string              | `WHERE lower(col) <> lower('val')`              |
 | string          | starts with        | `starts_with`                 | string              | `WHERE col ILIKE 'val%'`                         |
 | string          | ends with          | `ends_with`                   | string              | `WHERE col ILIKE '%val'`                         |
 | string          | is empty           | `is_empty`                    | —                   | `WHERE col = '' OR col IS NULL`                  |
@@ -636,8 +632,8 @@ operator-set spec below.
 | date / datetime | not equals         | `ne`                          | ISO date / datetime | `WHERE col <> 'val'::DATE`                       |
 | date / datetime | before             | `before`                      | ISO date / datetime | `WHERE col < 'val'::DATE`                        |
 | date / datetime | after              | `after`                       | ISO date / datetime | `WHERE col > 'val'::DATE`                        |
-| date / datetime | ≥                  | `gte`                         | ISO date / datetime | `WHERE col >= 'val'::DATE` (R55, inclusive)      |
-| date / datetime | ≤                  | `lte`                         | ISO date / datetime | `WHERE col <= 'val'::DATE` (R55, inclusive)      |
+| date / datetime | ≥                  | `gte`                         | ISO date / datetime | `WHERE col >= 'val'::DATE` (inclusive)          |
+| date / datetime | ≤                  | `lte`                         | ISO date / datetime | `WHERE col <= 'val'::DATE` (inclusive)          |
 | date / datetime | between            | `between`                     | min, max (ISO)      | `WHERE col BETWEEN 'min' AND 'max'`              |
 | date / datetime | is null            | `is_null`                     | —                   | `WHERE col IS NULL`                              |
 | date / datetime | is not null        | `is_not_null`                 | —                   | `WHERE col IS NOT NULL`                          |
@@ -647,7 +643,7 @@ operator-set spec below.
 | boolean         | is not null        | `is_not_null`                 | —                   | `WHERE col IS NOT NULL`                          |
 
 **Note on `string.equals`**: case-insensitive by default to
-match R36's `?q=` semantics (LIKE LOWER). Promote
+match the `?q=` semantics (LIKE LOWER). Promote
 case-sensitive variant only when a user asks for it.
 
 **Note on `null` semantics**: SQL's three-valued logic means
@@ -656,7 +652,7 @@ case-sensitive variant only when a user asks for it.
 `is_not_null` operators are how users include / exclude null
 rows deliberately.
 
-### FE types (target for R40)
+### FE types
 
 ```ts
 /**
@@ -689,18 +685,18 @@ clearFilters]`; the URL is the source of truth, the in-memory
 
 ## Read/write boundary
 
-**R38+ implements** (this design's full scope):
+**Shipped** (this design's full scope):
 
-- **R38** — OpenAPI 3.1 extension to the rows-GET contract;
+- **Contract** — OpenAPI 3.1 extension to the rows-GET contract;
   sibling rationale doc; contract-validity tests stay green.
-- **R39** — BE rows handler parses the filter params, validates
+- **Backend** — the rows handler parses the filter params, validates
   against `Dataset.columns[].dtype`, builds the DuckDB WHERE
-  clause, applies before pagination. BE unit tests cover each
+  clause, applies before pagination. Unit tests cover each
   operator + the dtype-mismatch 422 path.
-- **R40** — FE:
+- **Frontend**:
   - `datasetsApi.getRows(id, page, pageSize, q?, filters?)`.
   - `useFiltersState` URL ↔ predicate-set hook.
-  - `FilterTrigger` column-header button (R36 hand-rolled table
+  - `FilterTrigger` column-header button (the hand-rolled table
     gains a per-column header trigger).
   - `FilterPopover` + per-dtype editors.
   - `ActiveFilterChips` row.
@@ -708,7 +704,7 @@ clearFilters]`; the URL is the source of truth, the in-memory
     key.
   - i18n keys: namespace `datasets.filters.*` for operator
     labels, popover chrome copy, chip-row copy, no-match copy.
-  - en + vi resource entries (follows R32 / R36 pattern).
+  - en + vi resource entries (follows the established pattern).
   - vitest cases per dtype + combined `q + filters` + no-match.
 
 **Deferred** (not in this implementation chain):
@@ -743,8 +739,7 @@ clearFilters]`; the URL is the source of truth, the in-memory
 
 ## Acceptance criteria (Design gate exit)
 
-Testable criteria the R38–R40 chain satisfies (amended R55), each
-mapping to at least one automated test across F / B / I. Numbered
+Testable criteria, each mapping to at least one automated test across F / B / I. Numbered
 `C1`–`C9`; they describe the **shipped** per-column-filter behaviour.
 
 **User journey** — as a user I filter a dataset's rows by typed
@@ -756,7 +751,7 @@ chips, and combine them with the substring search.
    with a redundant dot.
 2. **Per-dtype popover** _(FE)_ — the popover's operator set matches the
    column dtype per the predicate-vocabulary table (string / numeric /
-   date / boolean, including R55's `ne` and inclusive `gte` / `lte`);
+   date / boolean, including `ne` and inclusive `gte` / `lte`);
    the value editor shape varies (single input / between / date-picker /
    none); `Apply` is disabled when the operator needs a value and the
    input is empty.
@@ -792,8 +787,8 @@ This concept covers:
 - The per-column filter UI on the dataset detail page
   (`/data-management/datasets/:id`), the predicate vocabulary
   per dtype, the URL state model, the AND-compose with `?q=`,
-  and the no-match state copy. Plus the target rows-GET
-  contract extension for R38.
+  and the no-match state copy. Plus the rows-GET contract
+  extension.
 
 This concept defers:
 
@@ -806,7 +801,7 @@ This concept explicitly does NOT cover:
 - Filtering on the datasets list page (cross-dataset catalog
   filtering). The workspace-filter on the list page is its own
   affordance, unchanged.
-- The R36 `?q=` substring search internals. This doc only
+- The `?q=` substring search internals. This doc only
   references how filters compose with `?q=`; the `?q=`
   semantics stay in
   [dataset-detail.md](dataset-detail.md#row-search-q).
@@ -823,9 +818,6 @@ This concept explicitly does NOT cover:
 
 This doc:
 
-- **Amended in place** during R38→R40 if implementation
-  surfaces a decision not pre-baked here (exact popover width,
-  exact chip max-width, exact operator-symbol unicode glyphs).
 - **Superseded** by `dataset-query.md` (or
   `advanced-query.md`) if the filter UI gets folded into a
   query language surface that subsumes it — that's a different
@@ -835,5 +827,3 @@ This doc:
   data-management spine (workspaces + datasets + detail +
   filters + queries + dashboards) coheres as one cross-feature
   design.
-
-R40's Act section confirms which lifecycle event applies.

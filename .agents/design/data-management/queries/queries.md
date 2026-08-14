@@ -546,7 +546,7 @@ quarter · year`; unknown → `unknown_granularity`). One period vocabulary, two
     collapsing `aggregate`, it averages the _underlying rows_ (pooled); placed **after**, it
     averages the _already-grouped values_. Both are correct answers to different questions —
     the surface makes which-one-you-get legible rather than asking for a `basis` parameter
-    ([query-construction.md § The within-group column](query-construction.md#the-within-group-column-r162)).
+    ([query-construction.md § The within-group column](query-construction.md#the-within-group-column)).
 
 **Engine** (`rows_reader.run_steps` / `_apply_step`): a **TYPED** relation is threaded
 through each step and stringified only at the end, so steps **chain** (a `top_n` after an

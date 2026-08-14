@@ -87,7 +87,7 @@ and composition_, not in the predicate shape.
   — the authoritative per-dtype operator/value/SQL spec. The
   advanced-query grammar maps onto **exactly** this set; no new
   operator is added.
-- [dataset-filters.md § FE types](dataset-filters.md#fe-types-target-for-r40)
+- [dataset-filters.md § FE types](dataset-filters.md#fe-types)
   — the `FilterPredicate` discriminated union the parser emits.
 - [dataset-detail.md § Row search (`?q=`)](dataset-detail.md#row-search-q)
   — the substring search the advanced query AND-composes with.

@@ -1,7 +1,7 @@
 # Query Construction — the interactive builder: edit a Query's definition + preview before save
 
 **Concept**: the **construction surface** is the editable builder for a
-[Query](queries.md): an **Edit mode** of the query detail — **edit-only since R166** — that
+[Query](queries.md): an **Edit mode** of the query detail — **edit-only** — that
 lets a user build a Query's definition: pick its
 driving source, edit its [join tree](queries.md#joins-reading-related-datasets-as-one),
 and compose **cross-source predicates** over the combined column space — and **preview**
@@ -49,7 +49,7 @@ predicate engine, join engine, or detail page.
 
 | Reused verbatim                                                                                                                                 | New (the edit + preview + create UX only)                                                                |
 | ----------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| The `QueryDefinition` (`q` / `filters` / `advanced` / `joins`) + its `sourceId` — **edited, not extended**                                      | An **Edit mode** on `/queries/:id` (R166 deleted the create mode)                                        |
+| The `QueryDefinition` (`q` / `filters` / `advanced` / `joins`) + its `sourceId` — **edited, not extended**                                      | An **Edit mode** on `/queries/:id` (there is no create mode)                                             |
 | The chip-filter + advanced-DNF **editors** + their serializers/validators                                                                       | Those editors **bound to the effective columns** (the combined `joins`-tree space)                       |
 | The base/relationship `<Select>`s + per-hop join-type `<Select>`                                                                                | The **`JoinEditor`** that mutates the `joins` tree (base source, add/remove hops, per-hop type) in place |
 | `query_joined_rows` / `query_dataset_rows` / `resolve_source`; the `409 query_stale` / `409 relationship_stale` gates                            | A **stateless preview** of the **unsaved** definition (`POST …/queries/preview`)                         |
@@ -65,7 +65,7 @@ predicate engine, join engine, or detail page.
 | ------------------------------------------------------------------------------------------------------ | ---------------------------------------------------- | ------------------- | -------- | ---------------------------------- |
 | `QueryDetailPage` (Edit toggle; header `[Cancel] [Save]`)                                              | `apps/builder/src/features/data-management/queries`  | feature             | feature  | react, antd, @tanstack/react-query |
 | `QueryBuilderPanel` (presentational, collapsible Build + Preview)                                      | `apps/builder/src/features/data-management/queries`  | feature             | feature  | react, antd                        |
-| `useQueryBuilder` (builder state + debounced preview + Save lifecycle; **edit mode only** since R166)  | `apps/builder/src/features/data-management/queries`  | feature             | glue     | @tanstack/react-query, antd        |
+| `useQueryBuilder` (builder state + debounced preview + Save lifecycle; **edit mode only**)             | `apps/builder/src/features/data-management/queries`  | feature             | glue     | @tanstack/react-query, antd        |
 | `JoinEditor` (base-source picker + join-tree editor: ≤1-hop single edit; hop-rows + add/remove for ≥2) | `apps/builder/src/features/data-management/queries`  | feature             | feature  | react, antd                        |
 | `JoinWithRelatedModal` (minimal join-create entry from a dataset)                                      | `apps/builder/src/features/data-management/queries`  | feature             | feature  | react, antd                        |
 | `SaveQueryModal` (reused — name capture for save + create)                                             | `apps/builder/src/features/data-management/queries`  | feature             | feature  | react, antd                        |
@@ -118,7 +118,7 @@ The builder is an **Edit mode** of the query detail — the same standard detail
 default; collapse Build to give the preview full height on a short screen. Per-column
 filters live in the **preview table headers** (filter where you see the data).
 
-The preview renders `<PagedRowsView scrollMode="flow">` (R96) — a **peek**: the table flows
+The preview renders `<PagedRowsView scrollMode="flow">` — a **peek**: the table flows
 (no inner scroll), the page scrolls, and the pager sits at the natural end ("scroll to the
 end"). This is the deliberate opposite of the **view tables** (dataset detail / query view),
 which use `scrollMode="contained"` + `PageContainer fill="bounded"` for a fixed header and a
@@ -173,10 +173,8 @@ left-source `<Select>` + per-hop type + add/leaf-remove for ≥2 (the spine's jo
 
 ### Transform — the ordered operations editor (`StepsEditor`)
 
-> **Backfilled at the R162 D gate.** `StepsEditor` shipped across R120–R144 with **no
-> design-doc home** — this section is a design-sync-style reconciliation to the code
-> ([[design-docs-are-source-code]]), plus the one **new** affordance R162 adds. Everything
-> before "The within-group column" describes what is already built.
+> This section is a reconciliation to the code ([[design-docs-are-source-code]]) — the
+> `StepsEditor` shipped over many rounds with no design-doc home until it was backfilled here.
 
 A **`▾ Transform`** bar under `▾ Build` (`steps.section` — VN **Biến đổi**; rendered by
 `TransformSection`) holds `definition.steps` — the **ordered** operations applied
@@ -208,7 +206,7 @@ sentence: the reused `steps.measure` **Measure** / VN **Giá trị đo** over th
 the reused `steps.newColumn` **New column name** / VN **Tên cột mới** over the name `<Input>`. The card still _reads_ as a sentence left-to-right; the labels are what make it
 navigable and screen-reader-addressable.
 
-#### The within-group column (R162)
+#### The within-group column
 
 The step kind is **`group_column`** on the wire; the user never sees that word, nor "window
 function", nor "partition".
@@ -225,7 +223,7 @@ function", nor "partition".
   vocabulary, two placements: **"Group & aggregate" collapses the rows; "Group value" keeps
   them.**
 - **`within each` takes ≥1 column** (a multi-`<Select>` over the columns at this step). It is
-  **not optional** in R162 — "across everything" (`% of total`) is program item 2.
+  **not optional** — "across everything" (`% of total`) is the ordered-window family's.
 - **Output** appends one column; the row count is visibly unchanged in the preview.
 
 #### How the surface answers "pooled or per-member?" — without asking
@@ -261,30 +259,28 @@ The reorder gesture is the affordance, so **its failure mode is part of the affo
 
 | State                   | Built?             | When                                                                                                  | What the card shows                                                                                                                                                                                                                                                                                                                    |
 | ----------------------- | ------------------ | ----------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Normal**              | ✅ R162            | every reference resolves at this position                                                             | the sentence + the grain line                                                                                                                                                                                                                                                                                                          |
-| **Orphaned by a move**  | ✅ R163            | `[↑]` past an `aggregate` would leave `col` / a `within each` column non-existent at the new position | the move still happens (never trap the user mid-thought); the card renders `<Alert role="alert">` naming the column(s) — _"`rate, team` doesn't exist this early. Move this card back down, or pick a column that does."_ — and **`[Save]` is disabled** by the existing invalid-edit gate (the preview 422s, so `previewOk` is false) |
-| **Nothing to offer**    | ✅ R162            | no column at this position satisfies the chosen agg's dtype rule                                      | the column `<Select>` is disabled with a guiding tooltip naming why (the same shape as the join editor's no-eligible-edge control, acceptance #2)                                                                                                                                                                                      |
-| **Name collision**      | ✅ R163            | `name` already exists at this position (`column_exists`)                                              | inline field error on the name `<Input>`, tied to the field via `aria-invalid` + `aria-errormessage` — never a page-level alert                                                                                                                                                                                                        |
+| **Normal**              | ✅ built           | every reference resolves at this position                                                             | the sentence + the grain line                                                                                                                                                                                                                                                                                                          |
+| **Orphaned by a move**  | ✅ built           | `[↑]` past an `aggregate` would leave `col` / a `within each` column non-existent at the new position | the move still happens (never trap the user mid-thought); the card renders `<Alert role="alert">` naming the column(s) — _"`rate, team` doesn't exist this early. Move this card back down, or pick a column that does."_ — and **`[Save]` is disabled** by the existing invalid-edit gate (the preview 422s, so `previewOk` is false) |
+| **Nothing to offer**    | ✅ built           | no column at this position satisfies the chosen agg's dtype rule                                      | the column `<Select>` is disabled with a guiding tooltip naming why (the same shape as the join editor's no-eligible-edge control, acceptance #2)                                                                                                                                                                                      |
+| **Name collision**      | ✅ built           | `name` already exists at this position (`column_exists`)                                              | inline field error on the name `<Input>`, tied to the field via `aria-invalid` + `aria-errormessage` — never a page-level alert                                                                                                                                                                                                        |
 | **Repeat group column** | ✅ by construction | the same column picked twice in `within each` (`duplicate_group_column`)                              | unreachable by construction — the multi-`<Select>` cannot repeat a value; the backend check stays as the wire-level backstop                                                                                                                                                                                                           |
 
 The first two are the ones the reorder gesture creates; the last three mirror the 422 vocabulary
 [queries.md § Transform steps](queries.md) already declares, rendered **at the card**, never as a
 page-level error.
 
-> **All five states are built.** The last two landed with the engine at **R163** (R162's F1 was
-> FE-on-MSW and contract-safe, with no backend error vocabulary to name the offending column
-> with). Both mirror a server guard rather than inventing a second vocabulary —
-> `groupColumnIssues()` in `steps.ts` computes them from the threaded column space, and the
-> backend re-validates on preview/save regardless.
+> **All five states are built.** Each mirrors a server guard rather than inventing a second
+> vocabulary — `groupColumnIssues()` in `steps.ts` computes them from the threaded column space,
+> and the backend re-validates on preview/save regardless.
 >
-> **Why the card-level alert earns its place**, confirmed on the live stack at R163's
-> Integration walk: the **preview** path maps _every_ bad step to `409 query_stale` (uniform
+> **Why the card-level alert earns its place**, confirmed on the live stack: the **preview**
+> path maps _every_ bad step to `409 query_stale` (uniform
 > across `derive` / `date_bucket` / `group_column` — not a `group_column` quirk). Only the
 > **save** path returns the precise 422 (`column_exists: 'agent' is already a column`). So
 > without the card state, a user who reorders into an invalid position sees only "stale" and is
 > never told _which_ column moved out of reach.
 
-### The ordered-window family (R164) — share · running total · rank · previous period
+### The ordered-window family — share · running total · rank · previous period
 
 The wire kind is **`window_column`** with an **`op`** discriminator. **The user never picks the
 kind.** `[Add step ▾]` gains **four entries**, one per op, each a business phrase; the card's
@@ -318,7 +314,7 @@ already the corpus's word for "the whole" — cf. `rangeFull` = _"(toàn bộ)"_
 reuses `date_bucket`'s `granularity_*` labels **verbatim** — one period vocabulary, two steps.
 
 **`[Add step ▾]` gains groups, because four new entries break a flat list.** The menu is a flat
-8-option `<Select>` today; R164 makes it **12**, of which **five append a column**. A flat twelve
+8-option `<Select>` would become **12**, of which **five append a column**. A flat twelve
 is a scan, not a choice. The options become three AntD `<OptGroup>`s — the same `<OptGroup>`
 mechanism the base/join `<Select>`s already use, so this is reuse, not a new pattern:
 
@@ -335,7 +331,7 @@ looking for; `derive` and `date_bucket` follow as the older, more mechanical mem
 **Share of total emits a ratio (0..1), and is therefore not called "% of total".** Percent
 _formatting_ is presentation and belongs to the widget. A control labelled _"% of total"_ that
 produced `0.19` would be the product itself shipping a name that lies about its contents — the
-exact failure R164 inherits from [R163's hand-use](../../../plan/cycles/Round_163.md). **Tỷ trọng**
+exact failure this family inherits from [hand-use](../../../plan/cycles/Round_163.md). **Tỷ trọng**
 names the ratio truthfully in both languages.
 
 **Previous period walks the CALENDAR, not the rows.** On a Jan / Feb / **Apr** axis, a
@@ -351,7 +347,7 @@ month-over-month tile is two steps, not one**.
 
 **And the card says so — the second step is offered, not assumed.** A user who wants _"vs last
 month"_ and gets _"last month's value"_ has half a tile and no signal that a half is what they
-have. R163's realised failure was exactly this shape: a human built a plausible chain with two
+have. The realised failure was exactly this shape: a human built a plausible chain with two
 `derive` steps missing, and the product agreed all the way to a dashboard-ready table. So the
 `prior_period` card carries **one advisory line under the grain line**, styled like it
 (`colorTextSecondary`, ⓘ + text, `role="status"`, **not** an `<Alert>` — nothing is wrong):
@@ -384,11 +380,11 @@ about silence, not emptiness — so here the group control renders an explicit *
 state when empty, making the whole-table reading a choice the user can see and a screen reader can
 announce. **`group_column`'s guard is unchanged**: one way to say a thing.
 
-#### The grain line learns that filters narrow groups (R164)
+#### The grain line learns that filters narrow groups
 
 The grain line shipped tracking one thing: the nearest preceding collapsing `aggregate`. That is
 why a `filter` moved _above_ a Group value card changed no words on screen while making every rate
-read **100.0%** — demonstrated on real data at R163. It now also names the **row-narrowing steps**
+read **100.0%** — demonstrated on real data. It now also names the **row-narrowing steps**
 (`filter`, `top_n`) that precede this position, by the columns they narrow on:
 
 > EN — _"Each row here is one `agent × month`. Rows were already filtered by `status`, so this
@@ -401,7 +397,7 @@ new one. **Deliberately not added: a clause about ordering.** `running_total` an
 are order-dependent, but the card already shows an **In order of** control, so the order is
 visible; a sentence about it would be ceremony. One new clause, for the one invisible thing.
 
-#### Offer-nothing at the gesture (R164)
+#### Offer-nothing at the gesture
 
 Per the standing **D4 rule** ([`_noun-model.md`](../_noun-model.md)), an op the columns at this
 position cannot satisfy is **disabled in `[Add step ▾]` and in `[What ▾]`, with a tooltip naming
@@ -423,8 +419,7 @@ why** — never an error at run. `prior_period` needs a **date/datetime** column
 
 The first three mirror `group_column`'s states verbatim rather than inventing a second vocabulary;
 the last three are this family's own. The gap COUNT needed real result rows, so it landed one
-round after the rest — the same reason R162 deferred two card states to R163 (an FE-on-MSW half
-has no real result to count).
+round after the rest, because an FE-on-MSW half has no real result to count.
 
 **Why the gap state earns a row of its own — blank means two things.** _"There was no previous
 period"_ and _"the previous period's value was itself empty"_ render identically, and the first is
@@ -443,7 +438,7 @@ edges whose right side is not yet in the graph, so the gesture is simply absent
 ([JoinEditor.tsx:114](../../../../workspace/apps/builder/src/features/data-management/queries/JoinEditor.tsx#L114)).
 The **canvas** does not — its free-form draw is node-level, so it lets you draw an edge that
 fails later as `cyclic_join` (noun-model **D4**). Bringing the canvas to offer-nothing parity is
-**not** in R162; it is tracked as D4 and re-ranked after composition retires.
+**not** built; it is tracked as D4.
 
 #### Join option labels — qualify BOTH sides (decided 2026-08-10, **not yet built**)
 
@@ -463,7 +458,7 @@ instead of three context-dependent ones. Human's call, 2026-08-10.
 **Current state**: the build renders `${leftColumn} ↔ ${rightColumn}` — unqualified on both sides
 ([JoinEditor.tsx:99](../../../../workspace/apps/builder/src/features/data-management/queries/JoinEditor.tsx#L99)),
 a **fidelity drift** from this doc. Tracked as **`[F-join-label-qualify]`**
-([Round_162 § Feeds into](../../../plan/cycles/Round_162.md)), batched with the R157 UX cluster
+([Round_162 § Feeds into](../../../plan/cycles/Round_162.md)), batched with the UX cluster
 rather than patched mid-feature ([[r-ui-bug-fixing-round]]). **Build note**: with both qualifiers
 plus the cardinality suffix the label will overflow a narrow `<Select>` — it needs an explicit
 ellipsis/`title` decision, not a hope.
@@ -532,7 +527,7 @@ stateDiagram-v2
 
 ---
 
-## Create mode: deleted at R166
+## Create mode: deleted
 
 The builder used to run in a **create mode** at `/queries/new?base=qr_…` (`QueryCreatePage`),
 reached from `[Build on this query]`, to construct a new Query whose driving source was preset to
@@ -544,7 +539,7 @@ composition-created query had **no definition yet** — so it needed a page that
 against a base before the query existed. A **duplicate** has a complete, runnable definition the
 moment it is created, so the whole apparatus is unnecessary: `[Duplicate]` → name modal → `POST` →
 open the new query → `[Edit]` reaches the builder through the ordinary edit path. The replacement
-is **smaller than the thing it replaces**, which is why R166 is net-negative on the front end.
+is **smaller than the thing it replaces**, which is why its removal was net-negative on the front end.
 
 The Duplicate verb, its labels, and the copy invariant are specified in the spine —
 [queries.md § Duplicate](queries.md#duplicate-r166-make-a-variant-without-rebuilding-it) — because
@@ -567,7 +562,7 @@ learns where it went instead of assuming a regression.
 - The **base `<Select>`** and **`JoinEditor` `<Select>`s** (relationship, left-source,
   per-hop type) carry visible labels (label-above per AntD Data-Entry guidance); options
   name the edge / source / type in **text** (`Deals.account_id ↔ Accounts.id`, `inner`),
-  never colour/glyph alone. **R166 — the source picker's `<OptGroup>`s are gone**: with
+  never colour/glyph alone. **The source picker's `<OptGroup>`s are gone**: with
   "Saved queries" withdrawn, a lone "Datasets" heading labels a list that cannot contain anything
   else, so the picker is a **flat** list of datasets. A group of one is chrome, not structure;
   a disabled non-leaf `[Remove]` keeps its label and exposes its reason via tooltip
@@ -579,20 +574,20 @@ learns where it went instead of assuming a regression.
   live region; the **invalid-predicate**, **stale-edge**, and **base-unavailable** blocks
   are `<Alert role="alert">` whose reason is **text** (the offending column / base named),
   icon + text — not a colour swatch; `[Save]`-disabled state has an accessible reason.
-- The **`▾ Transform` step cards** (backfilled + extended R162): each card is a labelled group
+- The **`▾ Transform` step cards**: each card is a labelled group
   (`{n}. {kind label}`); the reorder/remove buttons are icon-only and therefore carry
   `aria-label`s (`steps.up` / `steps.down` / `steps.remove`, already shipped). Every step
-  control has a **visible `FieldLabel`** _and_ an accessible name — including the R162
+  control has a **visible `FieldLabel`** _and_ an accessible name — including the
   "Group value" card's **Value** / **Within each** / **New column name**; no control relies
   on the reading-sentence order for its meaning.
 - The **grain line is a live region** (`role="status"`, `aria-live="polite"`). It is the one
   thing that tells a user _which_ reading a within-group column computes, and it **changes
   when the card moves** — so a keyboard user pressing `[↑]` must hear the new grain, not
   discover it in the result. It is **icon + text** (ⓘ + sentence), never colour alone, and it
-  is advisory: it is **not** an `<Alert>` and must not read as an error. R164 adds the
+  is advisory: it is **not** an `<Alert>` and must not read as an error. There is also the
   **filter clause** to the same live region, so moving a `filter` past the card is announced by
   the same mechanism that already announces moving an `aggregate` past it.
-- The **ordered-window cards (R164)** keep the same contract: every control carries a visible
+- The **ordered-window cards** keep the same contract: every control carries a visible
   `FieldLabel` (**What** / **Value** / **In order of** / **per** / **Within each** / **New column
   name**), and the empty-group state renders the **text** "Across everything" rather than an empty
   control — a blank multi-select cannot be announced, a named state can. An op the current columns
@@ -600,7 +595,7 @@ learns where it went instead of assuming a regression.
   no-eligible-column control.
 - The **`[Add step ▾]` groups** are AntD `<OptGroup>`s with **text** headings (**Summarise** /
   **Add a column** / **Shape the result**) — so group membership is announced, never conveyed
-  by indentation or colour. (This is now the **only** grouped `<Select>` in the builder: R166 flattened
+  by indentation or colour. (This is the **only** grouped `<Select>` in the builder — flattening
   the source picker, whose "Datasets" / "Saved queries" pairing this used to point at. The step menu
   keeps its groups because it genuinely has three, not one.)
 - The **`prior_period` advisory line** shares the grain line's contract — `role="status"`,
@@ -637,30 +632,30 @@ learns where it went instead of assuming a regression.
    the server `422`s / `409`s a bad definition on save — never a saved-but-unrunnable query.
 6. **Save mutates the existing Query** — `[Save]` (edit) persists via `PUT /queries/{id}`
    (definition-only); reopening shows the new definition.
-7. **The builder has no create mode (R166)** — a new Query is created from a **dataset**
+7. **The builder has no create mode** — a new Query is created from a **dataset**
    ("Save filters as Query") or by **duplicating** an existing one
    ([queries.md § Duplicate](queries.md#duplicate-r166-make-a-variant-without-rebuilding-it)).
    Neither route enters the builder without an id, so `useQueryBuilder` is edit-only and its
    `mode` flag is gone.
 8. **One create rhythm (no duplication)** — both "Save filters as Query" and **Duplicate**
    route through `SaveQueryModal` + `useCreateQueryMutation`.
-9. **The within-group column is authorable without engine words (R162)** — a "Group value"
+9. **The within-group column is authorable without engine words** — a "Group value"
    card reads as a sentence (`Average of rate within each team → team_rate`), reuses the
    `aggregate` card's agg labels and dtype-gated column options, and offers only columns
    that exist at its position. Its **grain line** names what one row means there, and
    **changes** when the card is moved past a `Group & aggregate` — so pooled vs
    average-of-groups is chosen by placement, visibly, with no `basis` control anywhere.
-10. **The ordered-window family is authorable in business words (R164)** — `[Add step ▾]` lists
+10. **The ordered-window family is authorable in business words** — `[Add step ▾]` lists
     **Share of total · Running total · Rank in group · Previous period's value** as four entries;
     no control anywhere reads "window", "partition", "frame", `rank`/`dense_rank`, or the wire kind
     `window_column`. An op whose columns don't exist at this position is **absent/disabled with a
     reason**, never an error at run.
-11. **"Previous period" is blank on a gap, never the wrong period (R164)** — on a Jan / Feb / Apr
+11. **"Previous period" is blank on a gap, never the wrong period** — on a Jan / Feb / Apr
     axis, April's previous-month column reads **blank**. This is the round's correctness
     acceptance and is testable on both a fixture and the real 2025 call log.
-12. **A mis-placed filter is legible (R164)** — moving a `filter` above a within-group card
+12. **A mis-placed filter is legible** — moving a `filter` above a within-group card
     changes the **grain line**, which names the filtered column; the sentence is announced through
-    the existing live region. Verified on the case that produced 100.0% rates at R163.
+    the existing live region. Verified on the case that produced 100.0% rates.
 13. **Reuse, not duplication** — the builder composes the shipped predicate editors, the
     relationship/base `<Select>`s, and `<PagedRowsView>`; it re-implements no engine or page.
 
@@ -676,7 +671,7 @@ learns where it went instead of assuming a regression.
   `PUT /queries/{id}`.
 - The **`▾ Transform` steps editor** (`StepsEditor` + the pure `steps.ts` column threading):
   ordered step cards with reorder/remove, per-kind bodies bound to the columns available
-  **at that position**, — R162 — the **"Group value"** card with its grain line, and — R164 —
+  **at that position**, the **"Group value"** card with its grain line, and
   the **ordered-window family** (Share of total · Running total · Rank in group · Previous
   period's value) plus the grain line's **filter clause**.
 - **Live preview** of the unsaved definition through `POST …/queries/preview` +
