@@ -30,6 +30,20 @@ R99 — the FACT tables (orders, telesale) are GENERATED to a target volume
   • ``pnpm dev:seed:full``  — the full Sales scenario (default 2000/2000/50), for
                               the dashboard / volume work. Tune: --orders/--telesale/--customers.
 
+LIGHT IS NOT A SUBSET OF FULL — it trades in BOTH directions (R166, measured):
+  • The two modes are STRUCTURALLY IDENTICAL — same 5 datasets, same 5 relationships,
+    same 12 saved queries, same inferred column dtypes, and all four edge cases (which
+    live in the committed base CSVs, not the generated volume, and are enforced for both
+    by ``validate_data``). Nothing is *missing* from light.
+  • Light detects LESS of anything volume-driven: paging depth, query cost, wide results.
+  • Light detects MORE of anything sparsity-driven. Chiefly ``window_column``'s
+    ``prior_period``, whose contract is that a MISSING period reads NULL rather than the
+    wrong period's value — a dense table has no missing periods to prove it on. At the
+    full volume ZERO order statuses have an interior month gap; at light, three of four
+    do. See ``parse_args`` for the measured curve behind light's counts.
+So: reach for full when the question is "does it hold at scale", light when the question
+is "is the number right" — and do not read a green light run as covering the other.
+
 Pure stdlib (urllib) — no extra deps. Prereq: dev backend up (pnpm dev:local:up).
 (Dataset content is immutable once committed — re-seed at a new volume with --reset.)
 
@@ -389,13 +403,32 @@ def parse_args() -> argparse.Namespace:
     argv = [a for a in sys.argv[1:] if a != "--"]
     args = ap.parse_args(argv)
     # --light: a quick, structurally-complete seed — small counts, overridable by explicit flags.
+    #
+    # R166 — raised from 12/40/25 to 15/120/80 ("a bit bolder"), chosen at the knee of a
+    # measured curve rather than by feel. The trade the human accepted is real but NOT
+    # uniform: light detects LESS of anything volume-driven (paging depth, perf, wide
+    # result sets) and MORE of anything sparsity-driven. Measured over `orders`:
+    #
+    #   cust/ord/tele | pages@25 | orders/customer | statuses with an interior MONTH gap
+    #   12/  40/  25  |    2     |      1–7        | 4 of 4   ← today: paging too shallow
+    #   15/ 120/  80  |    5     |      4–11       | 3 of 4   ← chosen
+    #   20/ 200/ 120  |    8     |      4–16       | 2 of 4
+    #   25/ 300/ 150  |   12     |      7–23       | 1 of 4
+    #   50/2000/2000  |   80     |     25–55       | 0 of 4   ← full: gap case UNREACHABLE
+    #
+    # That last column is why "bolder" is not monotonically better. `window_column`'s
+    # `prior_period` must return NULL for a MISSING period instead of the wrong period's
+    # value (R164/R165 acceptance) — and a dense table has no missing periods to prove it
+    # on. 15/120/80 buys real paging while KEEPING the gap observable; 20/200 starts
+    # spending it. Group sizes stay countable by hand (4–11 orders per customer), which is
+    # what makes a within-group column verifiable without a spreadsheet.
     if args.light:
         if "--orders" not in argv:
-            args.orders = 40
+            args.orders = 120
         if "--telesale" not in argv:
-            args.telesale = 25
+            args.telesale = 80
         if "--customers" not in argv:
-            args.customers = 12
+            args.customers = 15
     return args
 
 
@@ -527,6 +560,33 @@ def main() -> None:
          defn(steps=[{"kind": "aggregate", "dimensions": ["status"],
                       "measures": [{"col": "amount", "agg": "sum"}]}]),
          "R128 workflow — a saved aggregate STEP (pre-shaped: revenue by status)"),
+        # R166 — the seed never caught up with R163/R165, so the two step families the
+        # `query-shaping-surface` program exists to deliver had NO seeded example: every
+        # shaped query here COLLAPSED rows (`aggregate`). Both families below keep the
+        # row count, which is the whole point of them — and they are what makes a
+        # "duplicate a SHAPED query" walk mean anything.
+        #
+        # The WITHIN-GROUP column (R163): every order row carries its own customer's
+        # average, so a row can be read against its group without a second query — the
+        # need that `query⋈query` was reached for before R166 withdrew it.
+        ("Order vs customer average", "orders",
+         defn(steps=[{"kind": "group_column", "name": "customer_avg_amount",
+                      "agg": "avg", "col": "amount", "by": ["customer_id"]}]),
+         "R163 within-group column — each order carries its customer's average; row count UNCHANGED"),
+        # The ORDERED-WINDOW family (R164/R165). Partitioned BY STATUS deliberately: a
+        # status's months are sparse at light volume, so `prior_period` has a real gap to
+        # read BLANK on — the acceptance criterion that a dense table cannot demonstrate.
+        ("Monthly revenue by status", "orders",
+         defn(steps=[
+             {"kind": "date_bucket", "col": "ordered_at", "granularity": "month", "name": "month"},
+             {"kind": "aggregate", "dimensions": ["status", "month"],
+              "measures": [{"col": "amount", "agg": "sum"}]},
+             {"kind": "window_column", "op": "prior_period", "name": "prev_month",
+              "col": "amount", "by": ["status"], "orderBy": [{"col": "month"}], "unit": "month"},
+             {"kind": "window_column", "op": "running_total", "name": "cumulative",
+              "col": "amount", "by": ["status"], "orderBy": [{"col": "month"}]},
+         ]),
+         "R164/R165 ordered window — prior_period reads BLANK on a skipped month (not the wrong one) + a running total"),
     ]
     seeded = [(name, upsert_query(ws, name, ds[source], definition), blurb)
               for name, source, definition, blurb in base_queries]
