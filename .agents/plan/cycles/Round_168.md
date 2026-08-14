@@ -1,11 +1,52 @@
 # Round 168: what a Workflow is — and the bug that has been waiting for the answer
 
-**Status**: In Progress — opened 2026-08-14; **D · C · B closed**; **I gate open**, walk staged (0 of 5)
+**Status**: Complete — human sign-off 2026-08-14 (**walk skipped at the human's call — 0 of 5, unrun**)
 **Flow**: DCFBI (no-UI round — `flow-selector` at the Design exit, **0 of 5** conditions fired)
 **Date started**: 2026-08-14
-**Date completed**:
+**Date completed**: 2026-08-14
 
-<!-- ⟢ At a glance is authored at the Review→Complete flip (R159 doctrine), not during Do. -->
+## ⟢ At a glance
+
+**Shipped** — **the Workflow noun is settled, and the bug that was waiting for it is fixed.**
+Consolidating a query means consolidating **what that query returns** — its own steps included —
+so a Workflow over a shaped query no longer freezes un-shaped rows to `output.parquet`
+(noun-model **D1**, closed). A workflow source is **frozen, permanently**, which is the noun's
+distinction from a Query and which retired the `composition_cycle` **error code** across six
+layers. And the noun is exactly two things a Query cannot express: **consolidate** (`UNION ALL BY
+NAME`) and **materialize** (**D3**, closed). Its `steps` are borrowed, not a third thing.
+
+**Studied** — **the fork the round was built around did not exist.** § Plan warned that Q1 "is not
+rhetorical, and the answer is not obvious", and named a defensible counter-reading: one shaping
+layer, not two stacked. Reading the code dissolved it — **that reading was not self-consistent as
+shipped.** A `wf_` source already resolved POST-steps while a `qr_` source resolved PRE-steps, so
+one union could stack a shaped source on a raw one; and the builder already offered a query's
+post-step `resolvedColumns` to build workflow steps the run then refused with `step_invalid`. The
+noun question and the bug question were the same question. **Two further distinctions came out of
+doing the work**: the repair belongs in `resolve_source`'s `qr_` branch, not the consolidation path
+— repairing the resolver's contract rather than patching one caller into agreement with it; and
+**an error code is not a guard**. Retiring `composition_cycle` from the wire is right because no
+request can provoke it; deleting the `visited` check would not make a cycle impossible, it would
+make one **fatal**, because the DB does not enforce what the type system does.
+
+**Watch**
+
+- **The acceptance walk was SKIPPED (human's call) — coverage 0 of 5, unrun.** This round is signed
+  off on green gates plus a quick human check, **not** on a walk. The three rounds before it each
+  ran one and each returned something no gate saw (R165: six defects; R166: header order; R167:
+  canvas layout). A legitimate call on an engine-side round with no new surface — with a known cost.
+- **The walk-question promotion did NOT fire, and that is absence of evidence, not evidence of
+  absence.** The bar stands at three instances. The D gate settled the destination on reasoning
+  rather than a count — **`.agents/memory/` is the ceiling, not `skills/gate-walker/`**, because a
+  skill can check that a walk was recorded but not that its **return** was read. The next round
+  that runs a walk is where a fourth instance can arrive.
+- **A row-ORDER difference is open and unjudged.** The workflow reads its parquet in file order;
+  the query rows path applies R165 W-7's total order. Same rows, same values, different sequence.
+  Staged as T1's candidate answer and never walked.
+- **Upstream staleness is named, unfixed, unwalked.** Editing a source query does not invalidate a
+  workflow's frozen output — only a `PUT` on the workflow does. It predates the round; the round
+  found it and left it.
+- **The nine-doc `design-sync` backlog is scoped, not ranked** ([`Round_169`](Round_169.md)), and
+  **`--check` has still never run** on those docs, so doc↔code drift stays unmeasured.
 
 ## Goal
 
@@ -450,9 +491,80 @@ call for dev data and it costs T3 its live state — a stale-output workflow no 
 open. It stays on the walk as a judgement about whether the mechanism *would* announce itself,
 which is weaker evidence than a surface, and is recorded as weaker rather than quietly dropped.
 
+### The walk was SKIPPED — human's call, 2026-08-14. **coverage: 0 of 5, unrun.**
+
+> _"I have do a quick check. Please skip the walk-through for this r168."_
+
+**All five stay ⬜ and the count stays 0 of 5.** Unrun is not the same as passed, and this round
+does not get to report 5 of 5 or quietly drop the section. What R168 is signed off on is **green
+gates plus the human's own quick check** — not a walk.
+
+**What that costs, stated rather than implied.** The last three rounds each ran this walk and each
+time it returned something no gate saw: R165 found **six** defects after every gate was green
+(including a pre-existing pager bug), R166 found a header ordering, R167 found the canvas layout
+not persisting. The mechanism's whole track record is that green gates do not predict what a human
+notices ([[dfcfbi-f1-needs-human-review]]). Skipping it is a legitimate call on a round whose
+change is engine-side with no new surface — which is exactly what `flow-selector` said at 0 of 5 —
+but it is a call with a known cost, and the cost is that **three specific questions go unanswered**
+rather than answered negatively:
+
+| Left open | Why it matters that nobody looked |
+| --------- | --------------------------------- |
+| **T1's row-order candidate** | Found by the agent while verifying, deliberately not pre-fixed so a human could judge it. Nobody judged it — so it is carried below as an observation, not a defect and not a non-issue. |
+| **T4 — upstream staleness** | A change to a source query does not mark a workflow's frozen output stale; only a `PUT` on the workflow itself invalidates. This is a real gap in the noun, discovered at the D gate, and it remains unwalked. |
+| **T5 — does the surface say what the noun is for?** | Q3 is settled in the design corpus. Whether a user can see it anywhere is now untested. |
+
+**And it settles the promotion by not settling it** — see § Act.
+
 ## Act
 
-_(empty — Planning)_
+### The round — Complete, on gates and a human check rather than a walk (2026-08-14)
+
+Item 4 landed: the noun is defined in the corpus, **D1 is repaired**, frozen is ruled
+**permanent**, and the `composition_cycle` error code is retired. § Plan's _Falsified if_ did not
+fire — but its premise did not survive either. It predicted a genuine fork the D gate would have
+to *pick*; there was no fork. The noun question and the bug question were the same question, and
+reading the code answered it. The deferral from R167 still paid: the answer is written into the
+noun rather than patched into a path.
+
+### The walk-question promotion — **NOT promoted**; the bar stands at three
+
+The D gate set the trigger precisely: the promotion fires at the I gate **if this round's walk
+returns a fourth instance**. No walk ran, so no fourth instance arrived — and, importantly, **none
+was refuted either**. This is absence of evidence, not evidence of absence, and the two must not be
+recorded as the same thing.
+
+So the pattern stays where it was: a personal-memory entry ([[walk-record-always-spec-on-ask]]),
+three instances, no shared repo home. **The Evolution Rule's default holds — don't add.** What the
+D gate *did* settle stands and is worth carrying forward, because it was decided on evidence
+available now rather than on a count:
+
+> **The destination, if it ever promotes, is `.agents/memory/` — not `skills/gate-walker/`.**
+> `gate-walker` verifies that a gate's **exit criterion is documented as met**. What a human
+> notices at a surface is not a criterion; it cannot be enumerated in advance, which is the entire
+> content of the pattern. A skill can check that a walk was **recorded**. It cannot check that its
+> **return** was read properly. This is a fact to know, not a rule to run — so `memory/` is the
+> **ceiling**, not a waypoint.
+
+**The next round that runs a walk is where the fourth instance can arrive.** Recorded here so it is
+not re-derived.
+
+### Carried out of this round
+
+| Item | Status |
+| ---- | ------ |
+| **Workflow row ORDER differs from its source query's** — the workflow reads its materialized parquet in file order; the query rows path applies R165 W-7's deterministic total order. | **Open observation, unjudged.** Found by the agent, staged as T1's candidate answer, never walked. Cheap to fix (order the read) but it is a **presentation** call, not a correctness one — the rows and values are identical. Belongs with the batched UI cluster if the human ranks it a defect. |
+| **Upstream staleness (T4's question)** — editing a source query does not invalidate a workflow's frozen output. | **Named, unfixed, unwalked.** A real gap in the noun, discovered at the D gate. Not a regression: it predates the round. |
+| **The latent pager risk** | Unchanged — recorded at R167, non-reproducing, fix deferred by the human. The workflow rows path is the same `query_dataset_rows` shape. |
+| **The nine-doc `design-sync` backlog** | [`Round_169`](Round_169.md) — scoped, **not ranked**. |
+| **The standing product backlog** | R157 UX cluster · naming/legibility · Export ④ · `[F-prov-reimport-choice]` · AI-propose-key #2 · R145 1b · the batched UI cluster. Ranked by the human now that the program closes. |
+
+### The program closes
+
+[`query-shaping-surface`](../programs/query-shaping-surface.plan.md) is **Complete** — four items,
+seven rounds, 2026-08-07 → 2026-08-14. Its thesis held end to end: **a Query gains operations until
+it cannot express the shaping, and the wall that pulls a Workflow noun is consolidation.** The
+successor is not pre-decided.
 
 ## Feeds into → the program closes
 

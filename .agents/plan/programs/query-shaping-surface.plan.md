@@ -1,8 +1,8 @@
 # Program plan: Query as the single shaping surface
 
-**Status**: Active — items **1, 2 and 3 are Complete**; only **item 4 (Workflow)** remains. `cycles/Round_162.md` + `cycles/Round_163.md` (item 1, signed off 2026-08-11), `cycles/Round_164.md` + `cycles/Round_165.md` (item 2, signed off **2026-08-13** — walk 5 of 5, six defects found after green gates and all fixed), and [`Round_166`](../cycles/Round_166.md) (**item 3a**, signed off **2026-08-14** — walk 5 of 5, **T5 = yes**: Duplicate serves the need, so 3b proceeds as planned rather than being rewritten). [`Round_167`](../cycles/Round_167.md) (**item 3b**, the engine half) signed off **2026-08-14** — walk 5 of 5, **D5 CLOSED**. Last and now **OPEN**: [`Round_168`](../cycles/Round_168.md) (**item 4**, what a Workflow is) — In Progress since **2026-08-14**, D gate active
+**Status**: **COMPLETE — closed 2026-08-14.** All four items shipped in seven rounds. `cycles/Round_162.md` + `cycles/Round_163.md` (item 1, signed off 2026-08-11), `cycles/Round_164.md` + `cycles/Round_165.md` (item 2, signed off **2026-08-13** — walk 5 of 5, six defects found after green gates and all fixed), [`Round_166`](../cycles/Round_166.md) (**item 3a**, signed off **2026-08-14** — walk 5 of 5, **T5 = yes**), [`Round_167`](../cycles/Round_167.md) (**item 3b**, the engine half — walk 5 of 5, **D5 CLOSED**), and [`Round_168`](../cycles/Round_168.md) (**item 4**, what a Workflow is — signed off **2026-08-14** on green gates and a human check; **the walk was skipped at the human's call, 0 of 5 unrun**, the only round of the seven without one). **D1 and D3 both CLOSED.**
 **Opened**: 2026-08-07
-**Closed**:
+**Closed**: 2026-08-14
 
 Make **Query** the one place where data is shaped, then shrink everything that
 duplicates it. The program runs four rounds: land the missing primitive that made
@@ -91,7 +91,7 @@ Each round is a **DCFBI slice** over one coherent capability:
 | 2   | The rest of the within-group family — % of total · running total · rank within group · vs prior period                                                                                                                                                                          | **COMPLETE 2026-08-13** — end-to-end, gap-blank proven on the real 90 581-row log; the acceptance walk returned **5 of 5** and produced six fixes (incl. a pre-existing pager defect, and `step_invalid` as a new error code) | `Round_164` (D + F1) → `Round_165` (C + B + F2 + I) |
 | 3a  | **Ship Duplicate + withdraw every entry point** — the FE half. `[Build on this query]`, the canvas "Saved queries" group and its whole `qr_`-as-a-source treatment, the `?base=` route and `QueryCreatePage`. **No engine, no contract.**                                       | **Planning 2026-08-13**                                                                                                                                                                                                       | [`Round_166`](../cycles/Round_166.md)               |
 | 3b  | **Retire composition in the engine** — `rightSourceId: SourceId → DsId`, narrow the `qr_` branch to Workflow's reader, retire `composition_cycle`, collapse D2's set-overlap check, **fix D1 in the workflow consolidation path**, migration stance, + the 14-doc `design-sync` | queued                                                                                                                                                                                                                        | `Round_167`                                         |
-| 4   | **Workflow** — settle what it is, now that Query is the single shaping surface                                                                                                                                                                                                  | **In Progress 2026-08-14** — opened with R167's two open calls dispositioned (promotion → decided at the D gate; `design-sync` backlog → out, scoped as `Round_169`); the three inherited questions are the round's work         | `Round_168`                                         |
+| 4   | **Workflow** — settle what it is, now that Query is the single shaping surface                                                                                                                                                                                                  | **COMPLETE 2026-08-14** — the noun is **consolidate + materialize**; consolidation reads what a source **returns** (**D1** repaired); a workflow source is **frozen permanently** (**D3** closed), which retired the `composition_cycle` error code. Walk **skipped** by the human, 0 of 5 unrun | `Round_168`                                         |
 
 > **Renumbered 2026-08-10.** Item 1's round ran the `flow-selector` at its Design exit and landed
 > **DFCFBI (triggers 1, 3, 5)**, so the standing [[dfcfbi-two-round-split]] applies: R162 stops at
@@ -292,3 +292,37 @@ Active until Query is the single shaping surface — composition retired, the wi
 family shipped, and Workflow's boundary settled against it. At close, the rolling log's
 recurring entries promote to their own rounds or a decision artifact, and this file folds
 into a closing note.
+
+---
+
+## Closing note (2026-08-14)
+
+**The thesis held end to end.** _A Query gains operations until it cannot express the shaping, and
+the wall that pulls a Workflow noun is consolidation._ Items 1 and 2 shipped the operations
+(within-group columns, then the ordered-window family); item 3 retired `query⋈query` once those
+operations made it unnecessary; item 4 found the wall exactly where the thesis predicted —
+`UNION ALL BY NAME` is the one shaping a Query cannot express, and **materializing** is the one
+thing it cannot be. The Workflow noun survives on those two grounds and no others.
+
+**What the program actually cost, and what unblocked it.** It opened against a four-week stall
+(R159→R161: three consecutive code-free rounds on the same untouched seam), and the firewall it was
+built with — _no round ships only documents_ — held for all seven. The stall's root cause turned
+out to be a missing primitive, not a missing decision.
+
+**Three findings the program produced that outlive it:**
+
+1. **A plan can be wrong about its own deletions.** Item 3 was written as "delete the machinery";
+   R167's code walk found three of the four named things must **stay**, and executing the plan
+   faithfully would have broken Workflow outright. The round's value was in refusing its plan.
+2. **Green gates do not predict what a human notices.** Five of the six walks returned defects
+   none of the questions asked about — six of them in R165 alone, including a pre-existing pager
+   bug. The one round that skipped its walk (R168) is the one whose surface-level questions stay
+   unanswered.
+3. **Naming, not expressibility, is the live legibility gap** (R163) — a column called `rate`
+   holding a count reached a dashboard-ready table unchallenged. Parked by the human, still unranked.
+
+**Carried out, unranked:** the row-order and upstream-staleness observations from R168, the latent
+pager risk (R167), the nine-doc `design-sync` backlog ([`Round_169`](../cycles/Round_169.md),
+scoped not ranked), the naming/legibility cluster (R163), and the batched UI cluster
+(`[F-join-label-qualify]`, `[F-promote-gate]`, R157's cluster, R166's header ordering). **The
+successor is not pre-decided** — the human ranks the standing backlog now that this closes.
