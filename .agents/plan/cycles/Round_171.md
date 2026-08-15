@@ -349,20 +349,38 @@ question names the card or control it acts on; grade the gesture, not the outcom
 > single-feature round, so this was the round where the count should have moved most — which is
 > exactly where the anchor held.
 
-| #      | Question                                                                                                                                                                                                                                                                                                                                                              | Item(s) | Verdict     |
-| ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ----------- |
-| **T1** | On the upload wizard's **Metadata** step, override two columns' dtypes, then click `[Reset all to detected]`. Does the confirm tell you **what you are about to lose** clearly enough that you'd be comfortable clicking through it — and on an Excel file with two sheets, is it obvious the reset is **this tab only**?                                             | 2       | ✅ **PASS** |
-| **T2** | Commit an upload that the server rejects with something the FE has no code for (e.g. a body it refuses). Reading only the red box on **Confirm**, can you tell **which field** the server objected to, and do you know it is a bug rather than something you did?                                                                                                     | 1       | ✅ **PASS** |
-| **T3** | On a query's **Canvas**, draw a join that matches an existing governed relationship, then click the edge. Does the actions row read as **honest** — is it clear why `Promote` is or isn't available on _this_ edge, without clicking it to find out?                                                                                                                  | 4       | ❌ **W-1**  |
-| **T4** | On the query builder's **Computed column** card, without touching anything: can you tell at a glance that the by-column / by-number control is a **switch you can press**, and which side is currently on?                                                                                                                                                            | 5       | ✅ **PASS** |
-| **T5** | Stop the backend, then edit a step on a saved query. From the builder panel alone, can you tell **the server is unreachable** rather than that your step was rejected — and does the surface tell you what to do next?                                                                                                                                                | 6       | ❌ **W-2**  |
-| **T6** | Open a query with 2+ hops and look at the **add-a-join** picker and the hop rows, where the labels are longest. Now that both sides are qualified (`accounts.account_id ↔ tiers.acct · many:one`), can you still **read** them — or does the `<Select>` cut them off somewhere that costs you the part you needed? Hover a truncated one: does the full label arrive? | 3       | ⚠️ **W-3**  |
+| #      | Question                                                                                                                                                                                                                                                                                                                                                              | Item(s) | Verdict                         |
+| ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ------------------------------- |
+| **T1** | On the upload wizard's **Metadata** step, override two columns' dtypes, then click `[Reset all to detected]`. Does the confirm tell you **what you are about to lose** clearly enough that you'd be comfortable clicking through it — and on an Excel file with two sheets, is it obvious the reset is **this tab only**?                                             | 2       | ✅ **PASS**                     |
+| **T2** | Commit an upload that the server rejects with something the FE has no code for (e.g. a body it refuses). Reading only the red box on **Confirm**, can you tell **which field** the server objected to, and do you know it is a bug rather than something you did?                                                                                                     | 1       | ✅ **PASS**                     |
+| **T3** | On a query's **Canvas**, draw a join that matches an existing governed relationship, then click the edge. Does the actions row read as **honest** — is it clear why `Promote` is or isn't available on _this_ edge, without clicking it to find out?                                                                                                                  | 4       | ❌ → 🔧 **W-1 fixed, UNWALKED** |
+| **T4** | On the query builder's **Computed column** card, without touching anything: can you tell at a glance that the by-column / by-number control is a **switch you can press**, and which side is currently on?                                                                                                                                                            | 5       | ✅ **PASS**                     |
+| **T5** | Stop the backend, then edit a step on a saved query. From the builder panel alone, can you tell **the server is unreachable** rather than that your step was rejected — and does the surface tell you what to do next?                                                                                                                                                | 6       | ❌ → 🔧 **W-2 fixed, UNWALKED** |
+| **T6** | Open a query with 2+ hops and look at the **add-a-join** picker and the hop rows, where the labels are longest. Now that both sides are qualified (`accounts.account_id ↔ tiers.acct · many:one`), can you still **read** them — or does the `<Select>` cut them off somewhere that costs you the part you needed? Hover a truncated one: does the full label arrive? | 3       | ⚠️ → 🔧 **W-3 fixed, UNWALKED** |
 
 Item 8 is not walked because it is a **test, not a gesture**: run a workflow whose source query
 carries a `sort` step, page its rows, and assert the sequence matches the query's own paged read.
 It goes to the B gate's suite.
 
 ### Walk result — run by the human 2026-08-15. **`coverage: 6 of 6 returned`**, three findings
+
+> **On the three `🔧 fixed, UNWALKED` verdicts.** The verdict column records what the **walk
+> returned**, and R165's convention flips it to ✅ only after a **re-walk** (its T2 reads _"PASS
+> after two in-round fixes … Re-walked … Both halves verified by hand"_). W-1/W-2/W-3 were fixed in
+> this round but **nobody looked again**, so ✅ would claim a verification that did not happen and a
+> bare ❌ would claim the defect is still live. Neither is true; the artifact had no notation for
+> the middle state, and this is it. **What actually covers each fix**:
+>
+> - **W-1** — a test asserts `Promote` is absent and the pad still reads "Governed". Covered.
+> - **W-2** — a test asserts the toast and that edit mode stays open with the draft; **verified to
+>   fail without the fix**. Covered.
+> - **W-3** — **nothing.** The change is `width: 160 → 200` chosen from an arithmetic estimate
+>   (~184px for the longest label). JSDOM has no layout, so no test in this repo can see it. This is
+>   the same reason T6 needed a human in the first place, which makes it the one fix here resting on
+>   an unverified guess.
+>
+> **Carry this into the graduation**: a walk needs a third verdict state, and a round should not
+> read as closed on a fix whose only evidence is the reasoning that produced it.
 
 Their words, hedges intact:
 
