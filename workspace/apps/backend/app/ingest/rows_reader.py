@@ -27,7 +27,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-import duckdb
+
+from app import duck
 
 from app.ingest.filters import (
     FilterPredicate,
@@ -103,7 +104,7 @@ def query_dataset_rows(
 
     offset = (page - 1) * page_size
 
-    with duckdb.connect(":memory:") as con:
+    with duck.connect() as con:
         rows_sql = f"SELECT {select_list} FROM read_parquet(?) {where_clause} LIMIT ? OFFSET ?"
         rows_params: list[Any] = [
             str(parquet_path),
@@ -569,7 +570,7 @@ def run_steps(
     if page_size is not None:
         page_sql += " LIMIT ? OFFSET ?"
         page_params += [page_size, (page - 1) * page_size]
-    with duckdb.connect(":memory:") as con:
+    with duck.connect() as con:
         total = con.execute(f"SELECT COUNT(*) FROM ({sql}) AS _c", params).fetchone()[0]  # noqa: S608 — composed from validated steps
         rows = con.execute(page_sql, page_params).fetchall()
     return [list(r) for r in rows], int(total)
@@ -659,7 +660,7 @@ def materialize_steps(
         sql = f"SELECT * FROM ({sql}) AS _ordered ORDER BY {order}"
     out_path.parent.mkdir(parents=True, exist_ok=True)
     target = str(out_path).replace("'", "''")
-    with duckdb.connect(":memory:") as con:
+    with duck.connect() as con:
         # CREATE-then-COPY: the subquery binds `?` params; COPY's target must be a
         # SQL literal (DuckDB won't parameterize a COPY path). The path is server-
         # generated from validated ids, so the escaped literal is safe.
@@ -686,7 +687,7 @@ def query_aggregate_rows(
         measures=measures,
         dashboard_filters=dashboard_filters,
     )
-    with duckdb.connect(":memory:") as con:
+    with duck.connect() as con:
         rows = con.execute(sql, params).fetchall()
     return [list(r) for r in rows]
 
@@ -724,7 +725,7 @@ def query_joined_rows(
     select_list = ", ".join(f"CAST({c} AS VARCHAR)" for c in quoted_eff)
     offset = (page - 1) * page_size
 
-    with duckdb.connect(":memory:") as con:
+    with duck.connect() as con:
         rows_sql = f"WITH joined AS ({inner_sql}) SELECT {select_list} FROM joined LIMIT ? OFFSET ?"
         page_rows = con.execute(rows_sql, [*inner_params, page_size, offset]).fetchall()
 

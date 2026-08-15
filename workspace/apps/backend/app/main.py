@@ -3,7 +3,8 @@ import logging
 from contextlib import asynccontextmanager
 from typing import AsyncIterator
 
-import duckdb
+
+from app import duck
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -113,6 +114,6 @@ app.include_router(workflows.router)
 
 @app.get("/health")
 def health() -> dict[str, str]:
-    with duckdb.connect(":memory:") as con:
+    with duck.connect() as con:
         version = con.execute("SELECT version()").fetchone()[0]
     return {"status": "ok", "duckdb": version}

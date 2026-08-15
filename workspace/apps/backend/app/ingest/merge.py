@@ -18,6 +18,8 @@ from pathlib import Path
 
 import duckdb
 
+from app import duck
+
 # Committed dtype → the canonical DuckDB physical type, for casting kept
 # committed rows into the incoming schema and typed NULL-fill of added
 # columns. The inverse direction of parquet_writer._DUCK_CONFORMS.
@@ -123,7 +125,7 @@ def merge_parquets(
     absent from the committed schema; ``provenance_rename`` (R158) = ``(old, new)``
     remapping committed provenance on a refresh collision (see ``_cur_select_sql``).
     """
-    with duckdb.connect(":memory:") as con:
+    with duck.connect() as con:
         # Paths come from dataset_dir()/temp staging (id-pattern segments);
         # literal-quoting mirrors parquet_writer's COPY defense.
         con.execute(f"CREATE VIEW inc AS SELECT * FROM read_parquet({_q_path(incoming)})")
@@ -191,7 +193,7 @@ def append_parquets(
     a kept committed value can't cast into the incoming schema (loud, never a
     silent TRY_CAST NULL) — the one shared failure mode with merge.
     """
-    with duckdb.connect(":memory:") as con:
+    with duck.connect() as con:
         con.execute(f"CREATE VIEW inc AS SELECT * FROM read_parquet({_q_path(incoming)})")
         con.execute(f"CREATE VIEW cur AS SELECT * FROM read_parquet({_q_path(committed)})")
 
@@ -218,7 +220,7 @@ def column_min_max(parquet: Path, field: str) -> tuple | None:
     """R155 — ``(min, max)`` of ``field`` in ``parquet`` (typed date/datetime
     objects), or ``None`` when the table is empty / the column is all-NULL. The
     range primitive behind the append-overlap advisory."""
-    with duckdb.connect(":memory:") as con:
+    with duck.connect() as con:
         lo, hi = con.execute(
             f"SELECT min({_q(field)}), max({_q(field)}) FROM read_parquet({_q_path(parquet)})"  # noqa: S608 — idents quoted
         ).fetchone()

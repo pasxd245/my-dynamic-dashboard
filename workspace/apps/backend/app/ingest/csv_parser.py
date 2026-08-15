@@ -14,6 +14,8 @@ from typing import Literal
 
 import duckdb
 
+from app import duck
+
 
 SAMPLE_LIMIT = 10
 
@@ -77,7 +79,7 @@ def parse_csv(
         raise CsvParseError("empty file")
 
     try:
-        with duckdb.connect(":memory:") as con:
+        with duck.connect() as con:
             con.execute(
                 "CREATE TABLE tmp AS SELECT * FROM read_csv_auto(?, skip = ?, header = ?)",
                 [str(path), int(skip_rows), bool(has_header)],

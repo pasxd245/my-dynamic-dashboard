@@ -46,7 +46,8 @@ from datetime import datetime as dt_datetime
 from datetime import time as dt_time
 from pathlib import Path
 
-import duckdb
+
+from app import duck
 import pandas as pd
 import pyarrow as pa
 
@@ -429,7 +430,7 @@ def write_csv_to_parquet(
     no-override case — DuckDB columns are single-typed), the original
     pure-DuckDB COPY path runs unchanged.
     """
-    with duckdb.connect(":memory:") as con:
+    with duck.connect() as con:
         con.execute(
             "CREATE TABLE tmp AS SELECT * FROM read_csv_auto(?, skip = ?, header = ?)",
             [str(src), int(skip_rows), bool(has_header)],
