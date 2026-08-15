@@ -68,13 +68,95 @@ join** once DuckDB parallelises past a row group (~122 880 rows) — which is th
 | 200 000 | OK   | **21 344 rows lost** |
 | 400 000 | OK   | **95 936 rows lost** |
 
+## The mechanism, concretely
+
+Three layers, because the ordering key has to be produced _below_ the join, survive the projection,
+and be usable _above_ it — while never reaching the caller.
+
+**1. The driving relation gains an ordering column** — `_driving_relation_with_order`
+([`rows_reader.py`](../../../workspace/apps/backend/app/ingest/rows_reader.py)). It branches on the
+relation's SQL shape, because only one of them has a file to read positions from:
+
+```sql
+-- a parquet leaf (a Dataset, or a workflow's frozen output): ask the SCANNER
+read_parquet(?, file_row_number=true)          -- order key: T0.file_row_number
+
+-- anything else (a composed `qr_` sub-relation): number it as it emits
+(SELECT *, row_number() OVER () AS _mdd_row_ord FROM <sub-relation>)
+```
+
+The branch is not defensive padding: `resolve_source` genuinely returns a sub-SELECT for the `qr_`
+shape. A Query cannot reach it since R167 made every operand a `ds_` — but **nothing enforces that**,
+and silently returning unordered pages for an unexpected shape is exactly how this bug shipped.
+
+**2. The projection carries it through.** `build_joined_select` takes an optional `order_expr` and
+appends it to the select list under a reserved alias. The filter wrapper above it is
+`SELECT * FROM (…) AS _q WHERE …`, so the column survives that too:
+
+```sql
+SELECT <effective columns…>, T0.file_row_number AS _mdd_row_ord
+FROM read_parquet(?, file_row_number=true) AS T0
+INNER JOIN read_parquet(?) AS T1 ON T0."acct" = T1."acct"
+```
+
+**3. The paged read orders by it, and never returns it.** `query_joined_rows` casts only the
+effective columns into the output, so the key is invisible on the wire:
+
+```sql
+WITH joined AS ( <the SELECT above> )
+SELECT CAST("deal_id" AS VARCHAR), CAST("amount" AS VARCHAR), …
+FROM joined
+ORDER BY _mdd_row_ord          -- ← what makes LIMIT/OFFSET a partition
+LIMIT ? OFFSET ?
+```
+
+The `COUNT(*)` companion query needs no order and does not get one.
+
+### Why a key in the file beats a key computed at runtime
+
+`file_row_number` and `row_number() OVER ()` produce the **same order** and cost the **same**
+(14.5–15.0 ms/page at 200k — the cost is the sort, not the key). They differ in what they depend on:
+
+|                        | where the key comes from                                    | stable across a restart?                       |
+| ---------------------- | ----------------------------------------------------------- | ---------------------------------------------- |
+| `file_row_number`      | the **stored parquet** — a row's byte position in the file  | **yes, by construction**                       |
+| `row_number() OVER ()` | the order rows **reach the operator** during this execution | only while the scan happens to emit file order |
+
+The second is file-order _because_ `preserve_insertion_order` holds — which is the exact assumption
+this round exists to stop depending on silently. Same price, so there is no trade: **prefer the key
+that lives in the data.**
+
+### Measured, before and after
+
+200k-row join, every page walked twice in **fresh connections** (one per request, as the app runs):
+
+|                    | pages whose content changed between visits | rows duplicated / never shown |
+| ------------------ | ------------------------------------------ | ----------------------------- |
+| unordered (before) | **21 of 100**                              | 19 984 / 19 984               |
+| ordered (now)      | **0 of 100**                               | 0 / 0                         |
+
+**What it costs**: 2.4 → 13.5 ms per page at 90 000 rows, 2.7 → 30.0 at 200 000. Correctness is not
+free on this path; it is bounded, it is well under a perceptible page load, and it grows with the
+data. The alternative was a read that silently lied.
+
+### What the user sees: nothing
+
+The chosen key **is** the order a joined query already presented — driving-dataset file order, "my
+deals, with account columns attached". That was the acceptance criterion for picking it over
+`ORDER BY <every column>`, which is equally correct, equally priced, and would have silently
+re-sorted every joined result alphabetically.
+
 ## The contract
 
 **For a consumer of any paged endpoint**:
 
 1. **Walking every page returns every row exactly once.** No duplicates, no omissions.
 2. **The paged walk equals the unpaged read**, row for row.
-3. **The same page requested twice returns the same rows.**
+3. **The same page returns the same rows on a later visit** — across connections, processes and
+   restarts, not merely twice in a row. The app opens a **fresh DuckDB connection per request**, so
+   every page load is already a separate execution; an order that is only stable within one
+   execution would not satisfy this. _(This is the clause that separated the candidate fixes in
+   R172: before it, 21 of 100 pages returned different content on a second visit.)_
 4. **`total` is the count of the full matched relation**, so `total > len(rows)` is the only
    correct test for "there is more".
 
@@ -110,26 +192,3 @@ Do not infer safety from an existing path. `query_joined_rows` looked exactly li
 **Scale is load-bearing in all three.** DuckDB is single-threaded and order-stable on small inputs,
 so a guard written against a 20-row fixture passes whether or not the guarantee holds. A paging
 test that has never seen a parallel plan has not tested paging.
-
-## How the joined path was fixed (R172)
-
-A hash join has no insertion order of its own, so `preserve_insertion_order` does not reach it. The
-paged join now orders on the **driving source's position in its parquet** —
-`read_parquet(?, file_row_number=true)` on `T0`, carried through the projection and used as the
-paged `ORDER BY`.
-
-**Why that key and not another**: it is the order a joined query already presented, so nothing a
-user sees moved; it costs the same as any other correct choice (the cost is the sort, not the key —
-14.5–15.0 ms/page at 200k for all three candidates); and it is **a property of the stored file
-rather than of the execution**, so a page is identical across connections, processes and restarts.
-Numbering rows as they emit (`row_number() OVER ()`) would have been right today for the wrong
-reason — file-order only because the scan happens to emit file order, which is the fragility this
-round exists to remove. A driving relation that is _not_ a parquet leaf (the `qr_` sub-relation
-shape — unreachable for a query since R167, but permitted by the type) falls back to that weaker
-numbering rather than silently returning unordered pages.
-
-**Measured before → after**, 200k-row join, every page walked twice in fresh connections:
-21 of 100 pages changed content between visits and 19 984 rows were duplicated → **0 and 0**.
-
-**What it costs**: 2.4 ms → 13.5 ms per page at 90k rows, 2.7 → 30.0 at 200k. Correctness is not
-free here; it is bounded, and it buys a page that is the same page tomorrow.
