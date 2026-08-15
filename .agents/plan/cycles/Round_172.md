@@ -165,9 +165,47 @@ deals, with account columns attached" — and that is what users see below the t
 | **(b)** Number the driving relation, order by that  | yes      | **Unchanged** — exactly today's presentation, made deterministic                                                                                      | a `row_number()` over the driving side, carried through the join                     |
 | **(c)** Order by the driving source's columns only  | **no**   | approximately unchanged                                                                                                                               | cheap — but only deterministic if those columns are unique, which nothing guarantees |
 
-_Recommendation: **(b)**._ It preserves the presentation users already have and is the only option
-that is both correct and non-visible. Its cost lands on the product's core read path, which is why
-the trade is the human's to make rather than mine.
+**Measured 2026-08-15 — the recommendation changed from (b) to (d).** Two questions the human asked
+turned the fork, and both needed measurement rather than reasoning:
+
+**1. "Which is cheapest with no end-user impact?"** All three correct options cost **the same**
+(14.5–15.0 ms/page at 200k, median, warm) — because the cost is **the sort**, not how the sort key
+is produced. That removes (a)'s only advantage: it was the cheap-but-visible option and it is not
+cheaper. _(A first benchmark showed the broken version as the SLOWEST; it was measuring cold file
+cache on the first variant run. Re-run with per-query warm-up and reversed ordering.)_
+
+| Rows                       | today  | with (d) | correctness today |
+| -------------------------- | ------ | -------- | ----------------- |
+| 10 000                     | 1.3 ms | 2.9 ms   | correct           |
+| **90 000** (real call log) | 2.4 ms | 13.5 ms  | correct           |
+| 200 000                    | 2.7 ms | 30.0 ms  | **loses rows**    |
+| 500 000                    | 3.2 ms | 65.0 ms  | **loses rows**    |
+
+**2. "Is the order retained whenever I visit the pages?"** — the deciding question, and a different
+property from "pages partition within one walk". Every page walked twice in **fresh connections**
+(the app opens one per request, so each page load is already a separate execution):
+
+|         | pages whose content changed between visit 1 and 2 | duplicated / never shown |
+| ------- | ------------------------------------------------- | ------------------------ |
+| today   | **21 of 100**                                     | 19 984 / 19 984          |
+| **(d)** | **0 of 100**                                      | 0 / 0                    |
+
+_(A first, SAMPLED version of this check reported "SAME" for the broken build — it happened to pick
+stable pages. The instability is not uniform. Third time in two rounds that a sample or a mechanism
+argument gave the wrong answer and exhaustive measurement corrected it.)_
+
+_Recommendation: **(d)**, `file_row_number` on the driving source._ Tied for cheapest, invisible to
+the user (it **is** driving-dataset file order), and — the deciding property — its sort key is a
+**property of the stored parquet, not of the execution**, so the order is identical across
+connections, processes and restarts by construction. **(b) would inherit the very fragility this
+round exists to remove**: `row_number() OVER ()` is file-order only because the scan happens to emit
+file order.
+
+**Unverified before building** (2 items): that every join source is a parquet leaf — `query_engine`
+builds `("read_parquet(?)", …)` at both sites and R167 removed query-as-source, but `file_row_number`
+exists only on a parquet scan, so a sub-SELECT relation would need a fallback; and that a dataset is
+always ONE parquet file, since `file_row_number` is per-file and a multi-file dataset would make it
+non-total.
 
 ## Check
 
