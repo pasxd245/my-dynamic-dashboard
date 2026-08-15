@@ -1,11 +1,11 @@
 # Round 172: the undeclared dependency — paging is correct because of a DuckDB default nobody set
 
-**Status**: Review — opened and built 2026-08-15. The round's `Falsified if` fired and turned it
-from a robustness round into a **data-correctness fix**: joined-query paging lost rows above ~120k.
-Fixed via option (d), the human's call. Act drafted; **awaiting sign-off to flip Complete**.
-**Flow**: _(set at the Design exit via `flow-selector`)_
+**Status**: Complete — signed off by the human 2026-08-15 (_"ok, I sign-off."_). The round's
+`Falsified if` fired and turned it from a robustness round into a **data-correctness fix**:
+joined-query paging lost rows above ~120k. Fixed via option (d), the human's call.
+**Flow**: **DCFBI** (no-UI branch — no new UI surface). Run at the close, not the Design exit; recorded as a deviation in the D gate.
 **Date started**: 2026-08-15
-**Date completed**:
+**Date completed**: 2026-08-15
 
 ## ⟢ At a glance
 
@@ -102,22 +102,24 @@ There are **11 `duckdb.connect(":memory:")` sites** across `rows_reader` · `mer
 
 ### D — the design gate
 
-- [ ] **Declare vs assert.** The connections are ephemeral `:memory:` ones this code creates and
-      owns — there is no user configuration to respect — so **set it explicitly** rather than
-      asserting a global. An assert would fail a running server over a setting we are entitled to
-      control. _Ruling drafted; confirm at the gate._
-- [ ] **Where.** A single connection helper the paged reads share, rather than 11 edited call
-      sites. Decide whether the helper covers **all 11** (uniform, but touches ingest/merge/write
-      paths that have no ordering stake) or **only the reads that depend on it** (narrow, but
-      leaves two constructors in the file looking arbitrarily different).
-- [ ] **Confirm the falsification cheaply** — measure the paged reads before/after the explicit
-      set. If the setting is already the default, this must be a no-op; a measurable difference
-      means the premise is wrong.
-- [ ] **Decide the guard tests' shape**: assert paging **partitions** (every row once, paged ==
-      unpaged) for the dataset + joined paths, at a scale that would actually reshuffle if the
-      setting were off. A guard that passes on 20 rows guards nothing.
-- [ ] **Run [`flow-selector`](../../skills/flow-selector/SKILL.md)** — no new UI surface, so the
-      no-UI branch applies and this lands **DCFBI** by construction. Record the run anyway.
+- [x] **Declare vs assert** → **declare.** The connections are ephemeral `:memory:` ones this code
+      creates and owns, so there is no user configuration to respect and an assert would fail a
+      running server over a setting we are entitled to control. Set in `app/duck.py`.
+- [x] **Where** → **all 11 sites**, one helper. Two constructors in one file would have needed a
+      comment explaining why they differ, which is more code than having one.
+- [x] **Confirm the falsification cheaply** → **it fired, in a way the round did not predict.** The
+      explicit `SET` is indeed a no-op (it was already the default), but writing the guard tests
+      refuted the premise underneath it: the join path was never protected at all. See § Do.
+- [x] **Guard tests' shape** → paging **partitions** (every row once) + **survives a revisit**
+      (fresh connection per page), at 400k rows, driven at the reader functions because the API caps
+      `page_size` at 100. Negative-controlled. A 120k probe run during the investigation said the
+      join path was fine, which is precisely why the scale is written into the tests.
+- [x] **`flow-selector`** — **run late, at the close rather than the Design exit** (recorded as a
+      deviation rather than backdated). No-UI branch: this round adds no UI surface, so the five
+      conditions read vacuously **no** and it lands **DCFBI by construction**. Nothing turned on it —
+      the round shipped D → B → I with no C (no contract change: `RowsPage` is untouched, the
+      ordering key never reaches the wire) — but the gate existed to be run, and running it after
+      the work is worth less than running it before.
 
 ### Explicitly NOT in this round
 
