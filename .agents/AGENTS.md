@@ -81,6 +81,7 @@ This work is an **HIxAI co-spiral** — Human Intelligence and AI taking turns l
 - **Small steps, frequent checks.** Incremental edits with verification over large rewrites. One feature per round.
 - **Respect scope brakes.** When a design or task exceeds a stated boundary (route counts, feature scope, round scope), flag the divergence and stop — don't faithfully build past the brief.
 - **Stay in track.** If a task blurs tracks, pause and split it.
+- **Reply in EN by default.** The human writes EN or VI, code-switching freely; answer in English, keep VI terms in VI, and reply fully in Vietnamese only when asked. _Track: 2. Pulled by: human's 2026-08-15 call._
 
 ---
 
