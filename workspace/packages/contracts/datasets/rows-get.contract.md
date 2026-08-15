@@ -214,6 +214,24 @@ Content-Type: application/json
 }
 ```
 
+## Row order + the paging guarantee (R172)
+
+Full mechanism + per-path table:
+[`_paging-and-order.md`](../../../../.agents/design/data-management/_paging-and-order.md).
+
+**What a consumer may rely on**:
+
+1. Walking every page returns **every row exactly once** — no duplicate, no omission.
+2. The paged walk equals the unpaged read, row for row.
+3. The same page requested twice returns the same rows.
+4. `total` is the full matched count, so `total > rows.length` is the correct "there is more" test.
+
+**The order is the dataset's FILE order** — the row order of the sheet the user uploaded. That is
+deliberate and is the view-table "Excel" model, not an accident of implementation: this endpoint
+must never re-sort a user's rows. `LIMIT/OFFSET` partitions it correctly because the read is a bare
+parquet scan and `preserve_insertion_order` is set (`app/duck.py`); guarded at 400k rows by
+`test_paging_partitions.py`, with a negative control proving the guard can fail.
+
 ## Cell stringification
 
 Cells are transported as `string | null`. The BE renders each
