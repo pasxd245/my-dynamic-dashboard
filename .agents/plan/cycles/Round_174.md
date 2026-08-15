@@ -96,7 +96,7 @@ run, read, and **deleted at the close**; the one seed mutation attempted (a `PUT
 `qr_fd38fa21`) **422'd on a wrong step shape and never landed**, so the seed is as it was.
 
 **`Falsified if` did NOT fire.** The round expected to find nothing beyond upstream staleness. It
-found **six**, three of them severe, and the severest is not staleness.
+found **seven**, four of them severe, and the severest is not staleness.
 
 ### W-1 — a Workflow's output has no consumer _(severe; the headline)_
 
@@ -182,6 +182,36 @@ naming/legibility gap the human parked, still live and now feeding workflow sour
 findings are mechanical and reproduce on seed data, so W-1/W-2/W-3/W-5 are structural and do not
 need real data to confirm. W-4's *severity* does — how much a stale number costs depends on
 whether a person would notice.
+
+### W-7 — a workflow outlives its sources and still presents as healthy _(severe)_
+
+Added 2026-08-15 after the human asked whether a Workflow is a materialized view. It is — and the
+experiment that confirmed it found the noun is **weaker than a real one**. Created a query, built
+a workflow on it, ran it, then deleted the source query:
+
+```text
+BEFORE : HTTP 200  total=4  [cancelled 574.25, completed 4735.0]
+DELETE source query -> HTTP 204
+AFTER  : HTTP 200  total=4  [cancelled 574.25, completed 4735.0]   ← still serving
+RE-RUN : HTTP 409  {"code":"query_stale"}                          ← only refresh breaks
+GET    : definition.sources = ['qr_51beaeb6'] (deleted) · materializedAt unchanged
+```
+
+**The output fully outlives its sources**, which is a real capability — but nothing marks the
+workflow as orphaned. It lists a source that does not exist and shows an unchanged
+`materializedAt`, so it reads as healthy. A materialized view in Postgres/Oracle knows its
+dependencies: `DROP` cascades or is refused. Here the dependency is a string in a JSON blob that
+nobody validates after create.
+
+**The noun-map this settles** — Dataset = base table · **Query = view** (live, never materialized,
+settled 2026-08-07) · **Workflow = materialized view with manual refresh only**. Every R174
+correctness finding is a known materialized-view problem: W-4 is MV staleness, W-7 is dependency
+tracking. Neither has the machinery (no `updated_at`, no dependency validation after create).
+
+**This reframes item 1** and is recorded in the program: the question is not only *"does
+consolidate earn its place"* but *"does a **frozen snapshot that outlives its sources** earn its
+place"*. That second thing is a capability Dataset + Query genuinely cannot provide — an archive.
+Whether it is wanted is still the human's ruling.
 
 ### Pass 2 — the human's real-data walk _(OPEN — this round continues)_
 

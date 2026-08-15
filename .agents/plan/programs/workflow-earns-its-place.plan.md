@@ -10,7 +10,7 @@ program runs the noun-level decision **first** and treats every repair as condit
 Cadence: one slice per round, each independently useful. The goal is that a Workflow is either
 something a person can finish a job with, or something the repo no longer carries.
 
-_Track: 1 (product). Pulled by: [R174](../cycles/Round_174.md)'s six findings, three severe — and
+_Track: 1 (product). Pulled by: [R174](../cycles/Round_174.md)'s seven findings, four severe — and
 by the [Evolution Rule](../../AGENTS.md)'s pruning discipline: an artifact that no longer shows
 evidence of value is pruned, not preserved._
 
@@ -66,7 +66,7 @@ Each round is a **DCFBI slice** over one item, with two program-specific rules:
 
 | #   | Item                                                                                       | Status                    | Round     |
 | ----- | -------------------------------------------------------------------------------------------- | --------------------------- | ----------- |
-| **1** | **Does the noun survive? — give it a consumer, or prune it.** The one-way door.            | **the human's call — open** | `Round_175` |
+| **1** | **Does the noun survive? — give it a consumer, or prune it.** The one-way door. **Reframed by W-7**: the noun is a *materialized view*, so the question is whether a **frozen snapshot that outlives its sources** earns its place — not only whether consolidate does. | **the human's call — open** | `Round_175` |
 | 2   | **Provenance on consolidate** (W-3). Port R156's `Source.Name` pattern to the union.        | conditional on 1            | —         |
 | 3   | **Same-shape: enforce or widen** (W-2). `422` on divergent sources, or capture the union schema. | conditional on 1        | —         |
 | 4   | **Staleness: detect it** (W-4). Needs a schema decision first — `updated_at` vs a definition-hash captured at run vs re-resolve on read. | conditional on 1 | — |
@@ -94,6 +94,7 @@ is either an item, deferred to a named home, or void-if-pruned. Evidence stays i
 | W-2 | Consolidate narrows schema to the FIRST source       | correctness | severe   | R174        | item 3 _(void if pruned)_              |
 | W-3 | Consolidate double-counts; no provenance             | correctness | severe   | R174        | item 2 _(void if pruned)_              |
 | W-4 | Upstream staleness, undiagnosable (no `updated_at`)  | correctness | severe   | R168 · R174 | item 4 _(void if pruned)_              |
+| W-7 | Workflow **outlives its sources**, still presents as healthy | noun/correctness | severe | R174 | **reframes item 1** + dependency validation |
 | W-5 | Workflow accepted over a never-resolved query → `201` | validation  | minor    | R174        | deferred → the human's UI round        |
 | W-6 | A query named for an aggregate returns raw rows      | naming      | minor    | R163 · R174 | deferred → the parked naming theme     |
 
