@@ -322,3 +322,45 @@ artifact-only — within the R99 evo-horizon, not Track-3 system-building).
 **Promoted by**: pasxd245 (2026-06-14, "I reviewed. Please commit
 changes" — after iterative review incl. a code-review pass that
 reclassified Track 3→2 and restored two review-caught drops).
+
+## 2026-08-15: The acceptance walk artifact → `plan/PDCA.md` § Round Template + `.agents/memory/`
+
+**Source**: [Round_173](cycles/Round_173.md), executing the graduation
+pre-authorized with the human at [Round_171 § Feeds into](cycles/Round_171.md).
+The artifact had been hand-used for five rounds (R165–R171) with **no repo
+definition and no lint**, so it travelled round to round by imitation —
+which transmitted its accidents as faithfully as its intent. Two of those
+accidents were caught by the human, not by any gate: the **five-question
+count** was an unexamined anchor (it cost R171's item 3 a walk question),
+and the artifact's whole spec lived in an agent-private memory file while
+four round files cited a slug the repo could not resolve.
+Logged per [governance § Explicit Human Instructions](../context/governance.md).
+**Change**: (1) `plan/PDCA.md` § Round Template `## Check` gains a **6-line**
+acceptance-walk item — it **applies to rounds that change something a human can
+exercise** (a UI surface or observable product behaviour) and otherwise requires
+an explicit **skip + reason**, mirroring the phrasing the visual-verification
+gate in the same file already uses; when it applies, always record questions +
+⬜ + `coverage: N of M`, spec exact steps only on ask, **count follows the
+surfaces** (no prescribed number), relocate from acceptance criteria / Risks,
+drop what a test closes. _The trigger condition was added mid-round, after the
+human read the unconditional first draft and challenged it; R173 itself then
+became the first logged skip._ (2) new
+`.agents/memory/2026-08-15-walk-record-always-spec-on-ask.md` carrying the why
+and the four-instance dogfood ledger (R165 · R166 · R167 · R171, four domains,
+**none refuted**; R168's skip kept as the counter-example), plus R171's two
+late findings — the count anchor, and that a verdict can arrive globally and
+has a third state ("fixed, UNWALKED" is neither PASS nor FAIL). The file's
+name resolves the 16 dangling `[[walk-record-always-spec-on-ask]]` citations
+in R166/R167/R168/R171.
+**Rationale**: the trigger the memory file set for itself had fired — five
+rounds of hand-use, and the human corrected the artifact's *method* (R167) and
+its *count* (R171), which is stronger evidence of "read" than the criterion
+asked for. **Deliberately no lint** and deliberately **not** a skill: a check
+can verify a walk was *recorded* but not that its *return* was read, and that
+return is the entire value (per `adopt-artifact-defer-enforcement`; same call
+as the R159 ⟢ At a glance block). Track 2 (agent-method), artifact-only.
+**Promoted by**: pasxd245 (2026-08-15, "Sign-off, please proceed" — after
+scoping the round to "ship as specced, record the 42", then **reading the
+shipped rule and refusing its first draft**: they asked whether an acceptance
+walk is always required, which added the trigger condition above. Graduation
+pre-approved 2026-08-15 at R171, sequenced at R172 § Feeds into).

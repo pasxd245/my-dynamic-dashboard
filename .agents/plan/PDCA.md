@@ -373,6 +373,12 @@ product gap] — per [Evolution Rule](../../AGENTS.md)._
 
 - [ ] Verify outcomes against the goal (tests, lint, human walk) — the pass/fail verdict
 - [ ] ⟢ At a glance **Studied** line written: what the round taught (the revised belief)
+- [ ] **Acceptance walk** _(rounds that change something a human can exercise — a UI surface or
+      observable product behaviour; otherwise log an explicit skip + reason)_: record the
+      questions here with ⬜ verdicts and a `coverage: N of M` line. **Always record; spec the
+      exact steps only when asked.** The **count follows the surfaces** this round touched — no
+      prescribed number. Relocate from acceptance criteria / Risks; drop any a test closes.
+      Why + ledger: `.agents/memory/2026-08-15-walk-record-always-spec-on-ask.md`
 
 ## Act
 
