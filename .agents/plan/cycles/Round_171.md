@@ -1,15 +1,48 @@
 # Round 171: the batched UI cluster — the papercuts that were never worth a round alone
 
-**Status**: Review — opened 2026-08-14; eight items built and the acceptance walk returned
-**6 of 6** with three findings, all fixed in-round (2026-08-15). Act drafted; **awaiting human
-sign-off to flip Complete** ([[dfcfbi-f1-needs-human-review]] — "Complete" means signed-off, not
-gates-green).
+**Status**: Complete — signed off by the human 2026-08-15 (_"okay bro, I sign-off r171"_). Eight
+items shipped; the acceptance walk returned **6 of 6** with three findings, all fixed in-round.
 **Flow**: **DFCFBI (triggers 3, 5)** — set at the Design gate via `flow-selector`; recorded in the
 Do log.
 **Date started**: 2026-08-14
-**Date completed**:
+**Date completed**: 2026-08-15
 
-<!-- ⟢ At a glance is authored at the Review→Complete flip (R159 doctrine), not during Do. -->
+## ⟢ At a glance
+
+**Shipped** — **eight papercuts across three surfaces, and product code again after two
+document-only rounds.** Items 1–6 are FE (a `422` that names its field; a destructive reset behind a
+scoped confirm; both-sides-qualified join labels; a `Promote` that is only offered when it can
+succeed; an operand toggle that reads as pressable; a dead backend that says so), item 7 is a
+written convention with no code, item 8 orders the materialized write so a workflow stops
+contradicting its own query. The acceptance walk then returned **6 of 6** with three more findings,
+all fixed in-round — including a **silent failed Save**, the only defect here that loses data.
+Gates: builder **376** passed, backend **440** passed, `tsc` clean, five linters green (re-run at
+the sign-off flip, not quoted from memory).
+
+**Studied** — **the round's real product was three refuted claims, two of them my own.** The D-gate
+ruling on item 1 was backwards about which `detail` arm carries guidance. The shipped promote test
+was asserting the defect, passing only because MSW answers more permissively than the unique index —
+**the FE suite could not have caught item 4 at any point**. The first item-8 test passed with the fix
+disabled. And at close, a fourth: `query_dataset_rows`'s missing `ORDER BY` had been recorded in
+three files as "the same class as W-7" and a measurement refuted it (200k rows, 20 threads, zero
+duplicates — `preserve_insertion_order` makes a scan deterministic; W-7 was a hash aggregate). The
+common shape: **a claim about runtime behaviour is not established by reading the code.** Two were
+caught by building, one by the walk, one by the human asking.
+
+**Watch**
+
+- **A silent mutation is invisible to every gate we own.** `save()` had `onSuccess` and no
+  `onError`, so a failed `PUT` looked exactly like a success — and because `onSuccess` closes edit
+  mode, the _successful_ case is the one that visibly changes. `tsc`, 375 tests and five linters were
+  green over it. **Sibling mutations (query delete, Duplicate's create) still have none**; both are
+  recoverable by observation, which is the only reason they were not swept in.
+- **Paging on the dataset path is correct because of a DuckDB default, not because of our SQL.**
+  `preserve_insertion_order` is never set and never asserted. Turning it off, a changed default, or
+  an aggregate entering that read path breaks paging **silently**. Wants a guard test, not a round.
+- **The walk's count was an anchor for five rounds.** Nothing prescribes five questions; the artifact
+  has no repo home and no lint, so it travels by imitation — which transmits accidents as faithfully
+  as intent. Graduation queued (§ Feeds into).
+- **`coverage: 6 of 6`** — this Studied line is walked-backed, not gate-backed.
 
 ## Goal
 
