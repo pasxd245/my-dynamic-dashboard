@@ -563,26 +563,32 @@ function RelEdge(props: EdgeProps<Edge<RelEdgeData>>) {
                 {/* Promote — a query-owned rel pushed up to the governed ER.
                     R167 removed the `promotable` guard that hid this on a
                     `qr_`-side edge; R171 restored a guard for the OTHER shape it
-                    left open. An edge whose ordered pair the governed ER already
-                    holds — a copy-on-picked one, most obviously — can only come
-                    back `409 relationship_exists`, so it is offered DISABLED
-                    with the reason rather than hidden: hiding it on some edges
-                    and not others raises the question the tooltip answers. D4
-                    (unofferable at the gesture, never an error at run). */}
-                <Tooltip title={data.promoteCollides ? data.i18n.promoteBlocked : data.i18n.promoteTip}>
-                  <Button
-                    size="small"
-                    type="link"
-                    loading={data.promoting}
-                    disabled={data.promoteCollides}
-                    onClick={data.onPromote}
-                    data-component="CanvasPromote"
-                    data-blocked={data.promoteCollides ? 'true' : 'false'}
-                    style={{ margin: 0, padding: 0, height: 22 }}
-                  >
-                    {data.i18n.promote}
-                  </Button>
-                </Tooltip>
+                    left open — an edge whose ordered pair the governed ER
+                    already holds can only come back `409 relationship_exists`.
+
+                    HIDDEN, not disabled (walk W-1). The build first offered it
+                    disabled-with-a-tooltip, reasoning that a vanishing button
+                    raises a question the tooltip answers. The walk overturned
+                    that: the info-box already prints **Relationship type:
+                    Governed** two rows above, so the absence is ALREADY
+                    explained — a disabled button plus a tooltip re-explains what
+                    the box just said. It also matches `Re-sync` directly below,
+                    which is likewise absent rather than disabled when it does
+                    not apply. */}
+                {data.promoteCollides ? null : (
+                  <Tooltip title={data.i18n.promoteTip}>
+                    <Button
+                      size="small"
+                      type="link"
+                      loading={data.promoting}
+                      onClick={data.onPromote}
+                      data-component="CanvasPromote"
+                      style={{ margin: 0, padding: 0, height: 22 }}
+                    >
+                      {data.i18n.promote}
+                    </Button>
+                  </Tooltip>
+                )}
                 {/* Re-sync — only when a copied rel has diverged from its origin. */}
                 {data.divergence !== null ? (
                   <Button

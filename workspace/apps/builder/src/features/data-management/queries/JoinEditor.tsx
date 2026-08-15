@@ -140,11 +140,18 @@ export function JoinEditor({
   const firstNone = firstEligible.length === 0;
 
   // R75 — the per-hop join-type picker (inner default + left/right/full outer).
+  // R171 walk W-3 — 160px clipped the longest label to "Inner (matches o…", and
+  // the walk's objection was the right one: the full string is "Inner (matches
+  // only)" — short enough to show, so truncating it buys nothing and costs the
+  // parenthetical that explains what the join type DOES. Sized to the longest
+  // option in either locale (EN "Inner (matches only)", 20 chars, ~184px with
+  // padding + arrow); the hop's label column absorbs the difference, since it
+  // is the `flex: 1, minWidth: 0` neighbour.
   const typeSelect = (hop: JoinStep) => (
     <Select<JoinType>
       value={hop.type}
       onChange={(v) => onSetHopType(hop.queryRelId, v)}
-      style={{ flexShrink: 0, width: 160 }}
+      style={{ flexShrink: 0, width: 200 }}
       aria-label={t('queries.builder.joinTypeLabel')}
       options={JOIN_TYPES.map((jt) => ({ value: jt, label: t(`queries.builder.joinType.${jt}`) }))}
       data-component="BuilderHopType"

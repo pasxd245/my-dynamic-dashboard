@@ -1,7 +1,9 @@
 # Round 171: the batched UI cluster — the papercuts that were never worth a round alone
 
-**Status**: In Progress — opened 2026-08-14, **all eight items built 2026-08-15; awaiting the
-human's acceptance walk (I gate)**
+**Status**: Review — opened 2026-08-14; eight items built and the acceptance walk returned
+**6 of 6** with three findings, all fixed in-round (2026-08-15). Act drafted; **awaiting human
+sign-off to flip Complete** ([[dfcfbi-f1-needs-human-review]] — "Complete" means signed-off, not
+gates-green).
 **Flow**: **DFCFBI (triggers 3, 5)** — set at the Design gate via `flow-selector`; recorded in the
 Do log.
 **Date started**: 2026-08-14
@@ -313,22 +315,111 @@ question names the card or control it acts on; grade the gesture, not the outcom
 > single-feature round, so this was the round where the count should have moved most — which is
 > exactly where the anchor held.
 
-| #      | Question                                                                                                                                                                                                                                                                                                                                                              | Item(s) | Verdict |
-| ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ------- |
-| **T1** | On the upload wizard's **Metadata** step, override two columns' dtypes, then click `[Reset all to detected]`. Does the confirm tell you **what you are about to lose** clearly enough that you'd be comfortable clicking through it — and on an Excel file with two sheets, is it obvious the reset is **this tab only**?                                             | 2       | ⬜      |
-| **T2** | Commit an upload that the server rejects with something the FE has no code for (e.g. a body it refuses). Reading only the red box on **Confirm**, can you tell **which field** the server objected to, and do you know it is a bug rather than something you did?                                                                                                     | 1       | ⬜      |
-| **T3** | On a query's **Canvas**, draw a join that matches an existing governed relationship, then click the edge. Does the actions row read as **honest** — is it clear why `Promote` is or isn't available on _this_ edge, without clicking it to find out?                                                                                                                  | 4       | ⬜      |
-| **T4** | On the query builder's **Computed column** card, without touching anything: can you tell at a glance that the by-column / by-number control is a **switch you can press**, and which side is currently on?                                                                                                                                                            | 5       | ⬜      |
-| **T5** | Stop the backend, then edit a step on a saved query. From the builder panel alone, can you tell **the server is unreachable** rather than that your step was rejected — and does the surface tell you what to do next?                                                                                                                                                | 6       | ⬜      |
-| **T6** | Open a query with 2+ hops and look at the **add-a-join** picker and the hop rows, where the labels are longest. Now that both sides are qualified (`accounts.account_id ↔ tiers.acct · many:one`), can you still **read** them — or does the `<Select>` cut them off somewhere that costs you the part you needed? Hover a truncated one: does the full label arrive? | 3       | ⬜      |
+| #      | Question                                                                                                                                                                                                                                                                                                                                                              | Item(s) | Verdict     |
+| ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ----------- |
+| **T1** | On the upload wizard's **Metadata** step, override two columns' dtypes, then click `[Reset all to detected]`. Does the confirm tell you **what you are about to lose** clearly enough that you'd be comfortable clicking through it — and on an Excel file with two sheets, is it obvious the reset is **this tab only**?                                             | 2       | ✅ **PASS** |
+| **T2** | Commit an upload that the server rejects with something the FE has no code for (e.g. a body it refuses). Reading only the red box on **Confirm**, can you tell **which field** the server objected to, and do you know it is a bug rather than something you did?                                                                                                     | 1       | ✅ **PASS** |
+| **T3** | On a query's **Canvas**, draw a join that matches an existing governed relationship, then click the edge. Does the actions row read as **honest** — is it clear why `Promote` is or isn't available on _this_ edge, without clicking it to find out?                                                                                                                  | 4       | ❌ **W-1**  |
+| **T4** | On the query builder's **Computed column** card, without touching anything: can you tell at a glance that the by-column / by-number control is a **switch you can press**, and which side is currently on?                                                                                                                                                            | 5       | ✅ **PASS** |
+| **T5** | Stop the backend, then edit a step on a saved query. From the builder panel alone, can you tell **the server is unreachable** rather than that your step was rejected — and does the surface tell you what to do next?                                                                                                                                                | 6       | ❌ **W-2**  |
+| **T6** | Open a query with 2+ hops and look at the **add-a-join** picker and the hop rows, where the labels are longest. Now that both sides are qualified (`accounts.account_id ↔ tiers.acct · many:one`), can you still **read** them — or does the `<Select>` cut them off somewhere that costs you the part you needed? Hover a truncated one: does the full label arrive? | 3       | ⚠️ **W-3**  |
 
 Item 8 is not walked because it is a **test, not a gesture**: run a workflow whose source query
 carries a `sort` step, page its rows, and assert the sequence matches the query's own paged read.
 It goes to the B gate's suite.
 
+### Walk result — run by the human 2026-08-15. **`coverage: 6 of 6 returned`**, three findings
+
+Their words, hedges intact:
+
+- **T1 — PASS.** _"ok"_
+- **T2 — PASS, with an observation.** _"ok, it will tell the first column giving the issue (resolve
+  one by one, expected behavior)"_ — the typed `coercion_failed` names one column at a time and the
+  human read that as correct, not as a gap. Recorded rather than actioned.
+- **T3 — FAIL → W-1.** _"not good. I think better we just 'hide' the promote button. Why? base on
+  rel type is governed ore free form, we got to know."_
+- **T4 — PASS.** _"ok, it'is highlighted as a normal toggle, easy to 'regconize'"_ — the second
+  attempt at this affordance (R165 shipped the label, R171 the boxed radio) is the one that landed.
+- **T5 — FAIL → W-2.** _"not good, if I stop server, then click on 'Save' button on FE, nothing will
+  be show. The error only when something be fetched."_
+- **T6 — PARTIAL → W-3.** _"partial ok. The 'rel' dropdown is ok, but the `<Select>` of join type,
+  'Inner (matches o...' => this is now fully show, full is 'Inner (matches only)', not too long and
+  we can show full?"_ — the qualified labels the question was **about** read fine; the defect is in
+  the neighbouring control.
+
+#### W-1 — `Promote` is hidden, not disabled (T3, fixed in-round)
+
+The build offered it **disabled with a tooltip**, reasoning that a vanishing button raises the
+question the tooltip answers. The walk overturned that on better grounds: **the info-box already
+prints `Relationship type: Governed` two rows above**, so the absence is explained before the user
+looks for the button — a disabled button re-explains what the box just said. It also brings
+`Promote` into line with `Re-sync` directly below it, which is absent rather than disabled when it
+does not apply. The gate predicate is unchanged (`promoteWouldCollide` — still the unique index's
+own); only the presentation moved. One case is now unnarrated and is recorded in `canvas.md`: a
+_free-form_ edge over an already-governed pair hides the button while the box reads "Free-form".
+
+#### W-2 — a failed **Save** was completely silent (T5, fixed in-round) — the round's most serious find
+
+The human's diagnosis was exact: _"the error only when something be fetched."_ The builder surfaced
+**fetch** failures and not **mutation** failures. `save()` carried an `onSuccess` and **no
+`onError`**, so a `PUT` that never landed was indistinguishable from one that did — and since
+`onSuccess` closes edit mode, the _successful_ case is the one that visibly changes. **The user's
+next move is to navigate away believing the work is stored.** That is the only failure on this
+surface that loses data, and no gate caught it: `tsc`, 375 builder tests and five linters were all
+green.
+
+Note this is **not** the same defect as item 6 (R165 W-2), fixed earlier in this round: that one is
+the preview, a fetch, on the read path. The two share a name and nothing else. Fixed: an error toast
+that says nothing was written, and edit mode **stays open with the draft**, so retrying is one click.
+
+**Recorded, not swept**: query delete and Duplicate's create have no `onError` either. Both are
+recoverable by observation — the list refresh contradicts them — where a silent Save is not. Named
+in `query-construction.md`.
+
+#### W-3 — the join-type `<Select>` truncated a label that fits (T6, fixed in-round)
+
+`width: 160` clipped `Inner (matches only)` to `Inner (matches o…`. The objection is the right one:
+the string is short, so the truncation buys nothing and costs the parenthetical that explains what
+the join type _does_. Widened to 200 (the longest option in either locale, ~184px with padding and
+arrow); the hop's label column is the `flex: 1, minWidth: 0` neighbour and absorbs it.
+
+**What T6 says about T6**: the question asked whether the labels **this round qualified** still fit,
+and they do — the human confirmed the `rel` dropdown reads fine. The defect is in a control R171
+never touched, noticed because the question put someone in front of the row.
+
 ## Act
 
-_(filled at close)_
+**Learnings**:
+
+- **A batched cluster held together.** The round's `Falsified if` was _"the items need three
+  different design conversations rather than one build pass"_ — it did not fire. Eight items across
+  three surfaces shipped as one round, and the only item that threatened to become a design
+  conversation (item 7) was settled by **reading the rule off the build** instead of imposing one.
+  The brake that made it work was verifying the inventory against the code **before** writing the
+  round file: two items were already fixed and one had its stated cause falsified.
+- **The most valuable finding came from the gesture nobody specified.** W-2 — a silent failed Save,
+  the round's only data-losing defect — was found by a human doing something adjacent to what the
+  question asked, after `tsc`, 375 builder tests, 440 backend tests and five linters were green.
+  Fourth instance of the category lesson, and the sharpest.
+- **"Unreachable" is relative to a layer, and so is "already handled".** Item 4's guard had been
+  removed on reasoning true for one shape only. Item 6 fixed dead-backend legibility for **fetches**
+  while the identical gap sat open on **mutations** one file away. Both are the same error: a fix
+  scoped to the layer that was being looked at, described as if it were general.
+- **A test can assert the right string and still prove nothing.** Three times this round: the
+  promote test asserted a 201 the real backend answers 409 (MSW never modelled the unique index);
+  the first item-8 test passed with the fix disabled; and item 3's label test would have "covered"
+  a label the user cannot read. **Ask what the test would still pass on.**
+- **A recurring format becomes an anchor.** Five rounds wrote five walk questions with nobody
+  choosing five. The artifact has no repo home and no lint, so it travels by imitation — which
+  transmits accidents as faithfully as intent. Queued for graduation (§ Feeds into).
+
+**Kept**: the inventory-closed-at-eight discipline. Three findings arrived mid-round
+(`query_dataset_rows` has no total order; R157's highlight missed format-only overrides; query
+delete/create have no `onError`) and each was **recorded rather than absorbed**. Only the one that
+was a two-line consequence of not writing a predicate twice was folded in.
+
+**Changed**: nothing in the process. This round used the shipped flow as-is; the one process change
+it produced is deliberately deferred to its own Track-2 successor.
 
 ## Feeds into → the fourth instance
 
@@ -342,6 +433,30 @@ A cluster of eight papercuts, walked by a human, is an unusually good test of it
 returns something none of its questions asked about, the promotion fires — destination already
 decided: `.agents/memory/`, **not** `skills/gate-walker/`, because a skill can check that a walk
 was _recorded_ but not that its _return_ was read.
+
+**It fired — twice, 2026-08-15, and neither was refuted.**
+
+- **T5 → W-2.** The question asked whether the **builder panel** names an unreachable server after
+  you _edit a step_. The human stopped the server and pressed **Save** instead — a different
+  gesture on a different code path (mutation, not fetch) — and found that a failed save was
+  **completely silent**. The fix T5 was nominally testing (the preview's dead-backend message) does
+  not touch it. This is the round's most serious defect and the only one that loses data.
+- **T6 → W-3.** The question asked whether the join labels **this round qualified** still fit. They
+  do — that half passed. The defect was in the **join-type `<Select>` beside them**, a control R171
+  never touched.
+
+**Four instances, four rounds, four domains, none refuted** — R165 (asked about numbers → six
+defects incl. a latent pager bug), R166 (asked about rows → button order), R167 (asked about `qr_`
+traces → canvas layout), R171 (asked about a preview panel → a silent Save; asked about labels → a
+neighbouring control). The pattern is now over the Evolution Rule's bar with the fourth instance
+R168's skip left missing.
+
+**What that means for the queued graduation below**: the `.agents/memory/` file it creates now has
+its fourth instance to carry, and W-2 is the sharpest evidence yet for _why_ the artifact earns its
+keep — **every automated gate was green** (`tsc`, 375 builder tests, 440 backend tests, five
+linters) and none of them could see a mutation with no error branch. This is also the round that
+supplies the counter-example the memory needs: the human's T5 gesture was **not the one the
+question specified**, which is exactly the property no test and no lint can reproduce.
 
 ### Also feeds into → the walk artifact graduates (Track 2, queued for AFTER this round closes)
 

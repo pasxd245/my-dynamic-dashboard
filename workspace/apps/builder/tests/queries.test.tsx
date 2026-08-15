@@ -287,6 +287,31 @@ describe('Query construction (R72 — editable builder)', () => {
     expect(document.querySelector('[data-component="QueryBuilderPanel"]')).toBeNull();
   });
 
+  it('R171 (walk W-2): a FAILED save says so and keeps you in edit mode with the draft', async () => {
+    // The walk's gesture: server down, press Save. Found by a human who did
+    // something adjacent to what T5 asked — T5 was about the preview panel (a
+    // FETCH); this is the mutation, a different code path, and it had no
+    // `onError` at all. A save that never landed was indistinguishable from one
+    // that did: same silence, and `onSuccess` would have closed edit mode. The
+    // user's next move is to leave, believing the work is stored.
+    server.use(http.put('*/queries/:id', () => HttpResponse.error()));
+    renderApp(`/data-management/queries/${JOIN_ID}`);
+    expect(await screen.findByText(/Matched 2 rows/)).toBeInTheDocument();
+    clickEdit();
+    const searchInput = (await screen.findByPlaceholderText('Match any cell…')) as HTMLInputElement;
+    const saveBtn = document.querySelector('[data-component="QueryBuilderSave"]') as HTMLButtonElement;
+    fireEvent.change(searchInput, { target: { value: 'D-0001' } });
+    await waitFor(() => expect(saveBtn).not.toBeDisabled());
+    fireEvent.click(saveBtn);
+
+    // It says so…
+    expect(await screen.findByText(/Couldn.t save/)).toBeInTheDocument();
+    // …and the editor is STILL OPEN with the draft, so retrying is one click.
+    expect(document.querySelector('[data-component="QueryBuilderPanel"]')).not.toBeNull();
+    expect(document.querySelector('[data-component="QueryDetailEdit"]')).toBeNull();
+    expect(searchInput.value).toBe('D-0001');
+  });
+
   it('blocks save with the join-unavailable state when the previewed edge is stale', async () => {
     server.use(
       http.post('*/workspaces/:id/queries/preview', () =>
@@ -1112,23 +1137,32 @@ describe('Query canvas EDITING (R89 — free-form, React Flow)', () => {
     expect(posted).toMatchObject({ leftColumn: 'deal_id', rightColumn: 'account_id' });
   });
 
-  it('R171: Promote is offered DISABLED, with the reason, when the pair is already governed', async () => {
+  it('R171 (walk W-1): Promote is ABSENT when the pair is already governed, and the box says why', async () => {
     // The default fixtures: an edge copy-on-picked from `rel_a1b2c3d4` and still
     // in sync. Promoting it re-creates a pair the governed ER already holds →
     // `409 relationship_exists` (the unique index is on the ordered column pair
     // per workspace). R167 dropped the guard on the reasoning that no shape
     // could be "offered and then rejected"; that was true of the `qr_`-side
-    // shape only. Disabled rather than hidden — the tooltip answers the
-    // question a vanishing button would raise.
+    // shape only.
+    //
+    // HIDDEN, not disabled — the walk's call. The pad already prints
+    // "Governed" as the relationship type, so the absence is explained by the
+    // row above rather than by a tooltip on a dead button. The assertion pairs
+    // the two: a vanished button AND the label that accounts for it, because
+    // the button alone disappearing is what the first build was worried about.
     await openCanvasEditor();
     await selectEdge();
-    const promote = (await waitFor(() => {
-      const el = document.querySelector('[data-component="CanvasPromote"]') as HTMLButtonElement;
+    const pad = (await waitFor(() => {
+      const el = document.querySelector('[data-component="CanvasEdgePad"]');
       expect(el).not.toBeNull();
-      return el;
-    })) as HTMLButtonElement;
-    expect(promote).toBeDisabled();
-    expect(promote.getAttribute('data-blocked')).toBe('true');
+      return el as HTMLElement;
+    })) as HTMLElement;
+    expect(pad.querySelector('[data-component="CanvasPromote"]')).toBeNull();
+    expect(pad.textContent).toContain('Governed');
+    // Re-sync is absent for the same reason (in sync) — Promote now matches it.
+    expect(pad.querySelector('[data-component="CanvasResync"]')).toBeNull();
+    // The edge is still fully operable: Remove is offered on this leaf.
+    expect(pad.querySelector('[data-component="CanvasEdgeDelete"]')).not.toBeNull();
   });
 
   it("warns when a copied rel diverged from its origin, and re-syncs on the user's opt-in", async () => {

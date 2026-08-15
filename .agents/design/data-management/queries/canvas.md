@@ -198,17 +198,23 @@ hover grow + halo and a "drag to join" tooltip.
   The endpoint already dedups (`409 relationship_exists`) and dtype-validates (`422`); on
   `201` the query-owned rel keeps running on its own snapshot but gains the new `rel_` id
   as its `originRelationshipId` (provenance closes the loop, and divergence now tracks it).
-  - **Offered only when it can succeed** (R171). `Promote` renders **disabled, carrying its
-    reason**, when a governed rel already holds this edge's **ordered column pair** —
-    `promoteWouldCollide(qrel, governedById)`. That predicate is the unique index's own
+  - **Offered only when it can succeed** (R171). `Promote` is **absent** when a governed rel
+    already holds this edge's **ordered column pair** — `promoteWouldCollide(qrel, governedById)`.
+    _(The build first offered it disabled-with-a-tooltip, on the reasoning that a vanishing button
+    raises a question the tooltip answers. The acceptance walk overturned it: the info-box prints
+    **Relationship type: Governed** two rows above, so the absence is already explained, and a
+    disabled button re-explains what the box just said. It now matches `Re-sync` directly below,
+    absent rather than disabled when it does not apply.)_ That predicate is the unique index's own
     (`idx_relationships_pair_unique` = workspace + left dataset + left column + right dataset +
     right column), so the gate is exactly as wide as the `409`, no wider. It is deliberately
     **not** "does this edge have an `originRelationshipId`", which is wrong twice over: it misses
     a **free-form** edge drawn across a pair the governed ER already holds, and it blocks a
     `removed`-divergence edge, whose origin is gone and which promotes cleanly. `cardinality` is
     excluded because the index excludes it — an edge that diverged **only** in cardinality still
-    collides. Disabled rather than hidden: a button that vanishes on some edges raises the very
-    question the tooltip answers.
+    collides. **The one case the hiding does not narrate**: a _free-form_ edge drawn across an
+    already-governed pair hides `Promote` while the box reads "Free-form", so the absence has no
+    explanation on screen. Left as-is — nothing lies, and the action was impossible anyway — but
+    recorded, because it is the case the disabled-with-tooltip form would have covered.
   - **R167 removed an EARLIER guard, for a different shape.** The old `promotable` flag existed
     because an edge anchored on a **query** node had no governed counterpart (the governed ER is
     dataset-only). Both operands are datasets now, so that shape is genuinely gone — but the

@@ -805,6 +805,7 @@
       "previewEmptyHint": "Điều chỉnh phép nối hoặc bộ lọc để xem các dòng.",
       "save": "Lưu",
       "saved": "Đã cập nhật truy vấn \"{{name}}\"",
+      "saveFailed": "Chưa lưu được — các thay đổi của bạn vẫn còn và chưa có gì được ghi. Hãy kiểm tra máy chủ rồi bấm Lưu lại.",
       "discardTitle": "Bỏ các thay đổi?",
       "discardBody": "Các chỉnh sửa cho truy vấn này chưa được lưu. Bỏ chúng?",
       "discardConfirm": "Bỏ",

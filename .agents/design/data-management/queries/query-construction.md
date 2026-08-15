@@ -493,6 +493,20 @@ own sentence (_"Couldn't reach the server… Your query is unchanged — this is
 it"_) and, alone among these states, a **retry**: re-asking is the next action here and is useless
 for the other four, where the query itself is what needs the edit.
 
+**A failed SAVE is a sixth, on the other side of the fetch/mutate line** (R171 walk W-2). The five
+states above are all read paths; `Save` is a mutation, and it had **no error branch at all** — a
+`PUT` that never landed produced the same silence as one that succeeded, while `onSuccess` would
+have closed edit mode. The user's next move is to navigate away believing the work is stored, which
+makes this the one failure here that loses data. It now toasts _"Couldn't save — your changes are
+still here, and nothing was written"_ and **stays in edit mode with the draft intact**, so retrying
+is one click. Found by a human who stopped the server and pressed `Save` — a gesture the preview
+question never asked for.
+
+**The general rule this exposes**: the builder surfaced **fetch** failures and not **mutation**
+failures. Sibling mutations on this surface — query delete, and Duplicate's create — still have no
+`onError`; both are recoverable-by-observation (the list refresh contradicts them) rather than
+data-losing, so they are **recorded here, not swept into R171**.
+
 ---
 
 ## Behaviour — states

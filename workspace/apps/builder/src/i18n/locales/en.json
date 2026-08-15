@@ -805,6 +805,7 @@
       "previewEmptyHint": "Adjust the join or the filters to see rows.",
       "save": "Save",
       "saved": "Query \"{{name}}\" updated",
+      "saveFailed": "Couldn’t save — your changes are still here, and nothing was written. Check the server and press Save again.",
       "discardTitle": "Discard changes?",
       "discardBody": "Your edits to this query haven't been saved. Discard them?",
       "discardConfirm": "Discard",

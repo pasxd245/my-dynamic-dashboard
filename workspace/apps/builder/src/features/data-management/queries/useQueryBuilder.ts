@@ -337,6 +337,21 @@ export function useQueryBuilder({ query, datasetColumns, active, onDone }: UseQu
           message.success(t('queries.builder.saved', { name: query.name }));
           onDone();
         },
+        // R171 walk W-2 — a failed save was SILENT. `onSuccess` toasts and
+        // leaves edit mode; `onError` did not exist, so a save that never
+        // landed looked exactly like one that did, and the editor stayed open
+        // with no signal. The user's next move is to navigate away believing
+        // the work is stored — the one failure mode here that loses data.
+        //
+        // Note this is NOT the preview's dead-backend state (R165 W-2, also
+        // this round): that one covers a *fetch*, and only fetches were ever
+        // surfaced. The save is a MUTATION, on a different code path, and the
+        // human found it by stopping the server and pressing Save rather than
+        // editing a step. Stay in edit mode — the draft is still in hand and
+        // retrying is one click.
+        onError: () => {
+          message.error(t('queries.builder.saveFailed'));
+        },
       },
     );
   };
