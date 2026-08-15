@@ -639,10 +639,20 @@ def materialize_steps(
     sequence is decided once, instead of re-sorting on every read.
 
     What this does NOT do: make the READ contractually ordered. ``query_dataset_rows``
-    (which serves both the workflow rows path and every dataset read) still has no
-    ``ORDER BY``, so ``LIMIT/OFFSET`` over it is not a partition — the same class R165
-    W-7 measured at 33 rows twice and 33 never. That is an engine round; this makes the
-    workflow agree with its query, which is what R168 found."""
+    (which serves the workflow rows path and every dataset read) still has no
+    ``ORDER BY``. That read is nonetheless STABLE in practice — and not by luck:
+    DuckDB's ``preserve_insertion_order`` (default ``true``) makes a parquet SCAN emit
+    file order even under a parallel scan. Measured 2026-08-15 on 200k rows / 20
+    threads: 60 pages, zero duplicates, exact file order, stable across repeat requests
+    and under a filter.
+
+    So this is NOT the R165 W-7 case, and an earlier version of this comment said it
+    was. W-7 reshuffled because ``build_steps_relation`` carries hash aggregates and
+    window functions, where there is no insertion order to preserve. The residue here
+    is a real but different thing: paging correctness on the dataset path rests on an
+    engine DEFAULT we never set and never assert. It breaks if that setting is turned
+    off (a normal bulk-load tuning), if the default changes, or if an aggregate/join is
+    ever introduced into this read path."""
     sql, params, cols = build_steps_relation(inner_sql, inner_params, base_columns, steps)
     order = _page_order_sql(steps, cols)
     if order:

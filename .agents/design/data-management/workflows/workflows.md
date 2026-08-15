@@ -3,9 +3,9 @@
 **Concept**: a **Workflow** (`wf_…`) is a named, workspace-scoped noun that
 **consolidates what ≥1 saved query RETURNS** (and/or another workflow's output) via
 `UNION ALL BY NAME`, applies **its own** transform `steps` — the same step union a query
-uses (aggregate · derive · filter · top_n · sort · select · date_bucket · group_column) —
+uses (aggregate · derive · filter · top*n · sort · select · date_bucket · group_column) —
 over that union, and **materializes a FROZEN typed output** on run. Unlike a
-[Query](../queries/queries.md) — which is a _live_ re-run and stores only its
+[Query](../queries/queries.md) — which is a \_live* re-run and stores only its
 definition — a Workflow **freezes** its result (a committed parquet + captured
 schema), so it can be read back as a stable source and consolidates the recurring
 "many exports → one table" pain the `queries ⇒ workflows` module exists for.
@@ -147,10 +147,14 @@ stateDiagram-v2
   the rows path read that back verbatim, so a workflow and the query it was built from
   disagreed about what the first row is — same rows, same values, different order (found in
   R168). Ordering the **write** settles the sequence once, where it is decided, rather than
-  re-sorting on every read. **This is not a total order on the READ**: `query_dataset_rows`
-  still has no `ORDER BY`, so `LIMIT/OFFSET` over a materialized output — or over any dataset —
-  is not a partition. That is the same class W-7 measured (33 rows twice, 33 never) and it is
-  still open.
+  re-sorting on every read. **This is not a total order on the READ**: `query_dataset_rows` still
+  has no `ORDER BY`. That read is nonetheless **stable in practice, and not by luck** — DuckDB's
+  `preserve_insertion_order` (default `true`) makes a parquet **scan** emit file order even under
+  parallel execution (measured 2026-08-15: 200k rows, 20 threads, 60 pages — zero duplicates, exact
+  file order, stable on repeat and under a filter). **It is therefore _not_ the R165 W-7 case**,
+  which reshuffled because `build_steps_relation` carries hash aggregates and window functions with
+  no insertion order to preserve. What remains is narrower and still true: paging correctness on
+  this path rests on an **engine default the code never sets and never asserts**.
 - **Edit (R139)** — the detail page toggles an inline edit mode (mirroring the
   query detail's [Edit]) rendering the shared `WorkflowForm` over a working copy
   (name + sources + steps); [Save] `PUT`s. When the definition changed, the backend

@@ -243,9 +243,10 @@ touched.
 
 **Recorded, not absorbed** (per the round's own scope-creep handling): `query_dataset_rows` itself
 has no `ORDER BY` either ([`rows_reader.py:105`](../../../workspace/apps/backend/app/ingest/rows_reader.py)),
-so the **dataset** rows path has no total order at all — the same class R165 W-7 measured at 33 rows
-twice and 33 never. Ordering the write makes the workflow read _agree with its query_; it does not
-make either read _contractually_ ordered. That is an engine round, and this round does not open it.
+so the **dataset** rows path has no total order in the SQL. Ordering the write makes the workflow
+read _agree with its query_; it does not make either read _contractually_ ordered.
+**Corrected 2026-08-15 — this was first written as "the same class R165 W-7 measured", and a
+measurement refuted that.** See § Act.
 
 **R167 W-1 (canvas layout not persisting)** → **stays out**, human's call 2026-08-15. R168 recorded
 it as ignored rather than queued, and it needs a storage decision (where does a per-query node
@@ -284,9 +285,9 @@ position live?), which is not a papercut.
 **Two things found while building, recorded and NOT absorbed** (the inventory stayed closed):
 
 - **`query_dataset_rows` has no `ORDER BY` at all**, so the **dataset** rows path has no total
-  order either — the same class R165 W-7 measured. Ordering the materialized write makes a
-  workflow agree with its query; it does not make either read contractually partitioned. Named
-  in `workflows.md`, left for an engine round.
+  order in the SQL. Ordering the materialized write makes a workflow agree with its query; it does
+  not make either read contractually partitioned. Named in `workflows.md`. **First recorded as
+  "the same class R165 W-7 measured" — refuted by measurement at the round's close; see § Act.**
 - **Item 2's enablement bug had a sibling**: R157's highlight predicate misses a **format-only**
   override (a `date` column whose dtype matches detected but whose format the user edited).
   Folding both onto one `isRealOverride` fixed it as a side effect of not writing the predicate
@@ -420,6 +421,40 @@ was a two-line consequence of not writing a predicate twice was folded in.
 
 **Changed**: nothing in the process. This round used the shipped flow as-is; the one process change
 it produced is deliberately deferred to its own Track-2 successor.
+
+### Correction at close — "the same class as W-7" was wrong, and a measurement said so
+
+The round recorded, three times, that `query_dataset_rows`'s missing `ORDER BY` put the **dataset**
+rows path in "the same class R165 W-7 measured (33 rows twice, 33 never)". **The human asked whether
+it was a real bug. It is not, and the claim was never measured before being written down.**
+
+Measured 2026-08-15 — 200 000 rows, DuckDB 1.1.3, 20 threads, 60 pages of 100:
+
+| Check                       | Result                  |
+| --------------------------- | ----------------------- |
+| Duplicates across pages     | **0**                   |
+| Rows returned in file order | **yes**                 |
+| Same page requested twice   | **identical**           |
+| Same, with a `?q=` filter   | **identical**           |
+| `preserve_insertion_order`  | `true` (DuckDB default) |
+
+**Why it is stable, and why W-7 was not.** `preserve_insertion_order` makes a parquet **scan** emit
+file order even under a parallel scan. W-7 reshuffled because `build_steps_relation` carries hash
+aggregates and window functions — there is no insertion order to preserve through a hash aggregate,
+so each execution is free to emit differently. A plain scan is simply not that shape. Reasoning
+"no `ORDER BY` ⇒ no total order ⇒ W-7" skipped the step where the plan decides.
+
+**What is actually true, and stays open**: paging correctness on this path rests on an **engine
+default the code never sets and never asserts**. It breaks if `preserve_insertion_order` is turned
+off (a normal bulk-load tuning), if the default changes, or if an aggregate/join enters this read
+path. That is a **guard test**, not an engine round — assert that paging partitions the dataset
+read, so the day the assumption stops holding is the day a test says so.
+
+**The lesson, which is this round's third instance of the same shape**: the promote test asserted a
+201 the real backend answers 409; the first item-8 test passed with the fix disabled; and here a
+defect was recorded in three files without anyone running it. **A claim about runtime behaviour is
+not established by reading the SQL.** Two of the three were caught by building; this one needed the
+human to ask _"is it a real bug?"_.
 
 ## Feeds into → the fourth instance
 
