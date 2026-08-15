@@ -1,13 +1,46 @@
 # Round 172: the undeclared dependency — paging is correct because of a DuckDB default nobody set
 
-**Status**: In Progress — opened 2026-08-15. **D gate PAUSED — the round's `Falsified if` fired
-and found a real bug.** Joined-query paging loses rows above ~120k. Awaiting the human's call on
-the fix's design fork.
+**Status**: Review — opened and built 2026-08-15. The round's `Falsified if` fired and turned it
+from a robustness round into a **data-correctness fix**: joined-query paging lost rows above ~120k.
+Fixed via option (d), the human's call. Act drafted; **awaiting sign-off to flip Complete**.
 **Flow**: _(set at the Design exit via `flow-selector`)_
 **Date started**: 2026-08-15
 **Date completed**:
 
-<!-- ⟢ At a glance is authored at the Review→Complete flip (R159 doctrine), not during Do. -->
+## ⟢ At a glance
+
+**Shipped** — **a data-correctness bug nobody knew about, found by writing a guard for something
+else.** Joined-query paging returned some rows twice and never returned others above ~120k rows
+(200k → 21 344 each way), and 21 of 100 pages changed content between visits. Fixed by ordering the
+paged join on the driving source's position in its parquet (`file_row_number`) — the order the
+surface already presented, so **nothing a user sees moved**. Also: `app/duck.py`, the one place a
+DuckDB connection is made, with `preserve_insertion_order` set explicitly (11 call sites); a
+`_paging-and-order.md` engine contract; both `rows-get` contracts carrying the guarantee; and five
+guards at 400k rows including a negative control. Backend **445 passed**, `ruff` clean.
+
+**Studied** — **the round's premise was wrong, and so was the round before it.** R171 recorded that
+the DATASET path was broken (it is not — `preserve_insertion_order` holds a scan). R172's Plan
+recorded that the JOIN path was safe (it is not — that setting does not survive a parallel hash
+join), on the strength of a 120k probe that sat just under the threshold. Both were reasoned from a
+mechanism instead of measured at scale. The guard tests were written to document a benign
+dependency and instead **failed on their first run**, which is the only reason the bug was found at
+all. Every subsequent question needed two attempts: the first benchmark timed cold file cache and
+made the broken build look SLOWEST; the first cross-visit check sampled pages and reported the
+broken build as STABLE. **Sampling and mechanism arguments were wrong four times in this round; the
+exhaustive measurement was right every time.**
+
+**Watch**
+
+- **The fix costs ~5× on the joined read** — 2.4 → 13.5 ms/page at 90k rows, 2.7 → 30.0 at 200k.
+  Bounded and well under perceptible, but it grows with data and it is a real trade for correctness.
+- **The `qr_` fallback is weaker than the main path.** A non-parquet driving relation gets
+  `row_number() OVER ()`, which is file-order only insofar as the sub-relation emits stably. It is
+  unreachable for a query since R167 — but the type permits it, and the reachability is not enforced
+  anywhere.
+- **`query_aggregate_rows` is unpaged and unordered.** No partitioning bug exists, but a chart's
+  category order may vary run to run. A presentation question for the dashboard domain, untouched.
+- **Scale is load-bearing in every test here.** DuckDB is order-stable on small inputs, so a paging
+  test that has never seen a parallel plan has not tested paging.
 
 ## Goal
 
@@ -209,11 +242,45 @@ non-total.
 
 ## Check
 
-_(filled at the gate)_
+- [x] **The bug is fixed, and the test that proves it is the one that found it.** The finding was
+      held as a strict `xfail`; the fix turned it into an `XPASS(strict)` failure, which is the
+      artifact announcing itself rather than a human remembering to look. Marker removed.
+- [x] **Cross-visit consistency guarded** — the property the human asked for before deciding. Every
+      page walked twice **in fresh connections** (the app opens one per request): 21 of 100 pages
+      changed before, **0 of 100** after.
+- [x] **Backend suite 445 passed**, `ruff check` clean on `app/` + `tests/`.
+- [x] **`design-doc-lint` 0 errors across 14 docs**; the `KNOWN GAP` warning is removed from the
+      queries contract now that it is closed.
+- [x] **No user-visible change** — the fix orders by the order the surface already presented. This
+      was the acceptance criterion for choosing (d) over (a).
 
 ## Act
 
-_(filled at close)_
+**Learnings**:
+
+- **A guard written for a benign assumption found a real bug.** The round's whole thesis was "this
+  is correct, let us prove it stays correct". Writing the proof is what disproved it. That is an
+  argument for writing guards on things you believe are fine — the belief is the part that goes
+  untested.
+- **"Same class as X" is a claim, not a shorthand.** It was made twice about this subject, in
+  opposite directions, and was wrong both times. The plan shape decides — a scan, a hash join and a
+  hash aggregate behave differently under the same setting — and the plan is not visible in the code
+  that builds the SQL.
+- **A measurement can be wrong in the same way an argument can.** The first benchmark and the first
+  cross-visit check both produced confident, plausible, wrong answers (cold cache; a lucky sample).
+  Measuring is not enough; the measurement needs its own control.
+- **The cheapest correct option was not the visible one.** (a) was carried through three messages as
+  "cheapest but re-sorts the data" and turned out to cost the same as the others, because the cost
+  is the sort, not the sort key. The trade everyone assumed existed did not.
+- **Prefer a key that lives in the data over one computed at runtime.** `file_row_number` and
+  `row_number() OVER ()` are identical in cost and behaviour today; only one of them stays correct
+  when execution order changes.
+
+**Kept**: the round's scope brake. Three adjacent things were found and recorded rather than
+absorbed — the `qr_` fallback's weakness, `query_aggregate_rows`' unordered groups, and the
+unenforced reachability of the sub-relation shape.
+
+**Changed**: nothing in the process.
 
 ## Feeds into
 

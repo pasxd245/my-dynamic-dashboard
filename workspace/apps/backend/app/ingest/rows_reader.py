@@ -51,6 +51,44 @@ def _quote_ident(name: str) -> str:
     return '"' + name.replace('"', '""') + '"'
 
 
+# R172 — the paged join's ordering key. Named so it cannot collide with a user
+# column (effective names come from uploaded headers).
+_ORD = "_mdd_row_ord"
+
+
+def _driving_relation_with_order(relation: "Relation") -> tuple["Relation", str]:
+    """Give the DRIVING source (``T0``) a stable ordering column, and say how to
+    read it. Returns ``(relation, order_expr)``.
+
+    R172 — a paged join needs a total order or ``LIMIT/OFFSET`` does not
+    partition it (measured: 200k rows → 21 344 returned twice, 21 344 never).
+    The order must be the **driving dataset's own row order**, because that is
+    what a joined query already presents — "my deals, with account columns
+    attached" — and re-sorting it would change what the user sees.
+
+    **A parquet leaf carries that order in the file.** ``file_row_number=true``
+    asks the scanner for each row's position, which is a property of the STORED
+    FILE rather than of the execution: identical across connections, processes
+    and restarts, by construction. That is what makes page 4 still page 4 on a
+    later visit — measured 0 of 100 pages changing across visits, against 21 of
+    100 before.
+
+    **Anything else gets numbered as it emits.** A composed sub-relation (the
+    ``qr_`` branch of ``resolve_source``) has no file to read positions from, so
+    it is wrapped with ``row_number() OVER ()`` — applied to the DRIVING
+    relation, before the join, never to the join's output (the join's output
+    order is the unstable thing being fixed). That fallback is weaker: it is
+    file-order only insofar as the sub-relation emits stably. It is here because
+    the type allows this shape, not because a query can reach it — R167 made a
+    query's operands ``ds_``-only — and silently returning unordered pages for a
+    shape we did not expect is exactly how this bug shipped in the first place.
+    """
+    sql, params = relation
+    if sql == "read_parquet(?)":
+        return ("read_parquet(?, file_row_number=true)", params), "T0.file_row_number"
+    return (f"(SELECT *, row_number() OVER () AS {_ORD} FROM {sql})", params), f"T0.{_ORD}"
+
+
 def query_dataset_rows(
     parquet_path: Path,
     columns: list[str],
@@ -218,6 +256,7 @@ def build_joined_select(
     q: str | None,
     filters: list[FilterPredicate] | None = None,
     advanced: list[list[FilterPredicate]] | None = None,
+    order_expr: str | None = None,
 ) -> tuple[str, list[Any]]:
     """Build the TYPED relational SELECT (no CAST, no pagination) producing a
     (possibly joined) query's rows under their EFFECTIVE column names, with the
@@ -244,7 +283,12 @@ def build_joined_select(
 
     quoted_eff = [_quote_ident(c) for c in effective_columns]
     where_clause, where_params = _build_where(quoted_eff, q, filters, advanced)
-    projected = f"SELECT {', '.join(select_exprs)} FROM {from_clause}"
+    # R172 — carry the driving source's ordering column through the projection
+    # (and through the filter wrapper's `SELECT *`) so the PAGED caller can
+    # `ORDER BY` it. It is never cast into the output: `query_joined_rows`
+    # projects only the effective columns.
+    projected_exprs = [*select_exprs, f"{order_expr} AS {_ORD}"] if order_expr else list(select_exprs)
+    projected = f"SELECT {', '.join(projected_exprs)} FROM {from_clause}"
     # Apply the query's own filters at a level ABOVE the projection so they
     # reference the effective (collision-qualified) names the select_exprs alias.
     if where_clause:
@@ -712,6 +756,12 @@ def query_joined_rows(
     ``build_joined_select``, then CASTs to VARCHAR + paginates here. The CTE
     ``joined`` exposes the effective names; ``total`` reflects the filtered count.
     """
+    # R172 — the driving source gains a stable ordering column, and the paged
+    # SELECT orders by it. Without this, `LIMIT/OFFSET` over a hash join does not
+    # partition: above ~120k rows DuckDB parallelises the join and each page is a
+    # slice of a differently-ordered relation.
+    ordered_driving, order_expr = _driving_relation_with_order(relations[0])
+    relations = [ordered_driving, *relations[1:]]
     inner_sql, inner_params = build_joined_select(
         relations,
         join_keys=join_keys,
@@ -720,13 +770,17 @@ def query_joined_rows(
         q=q,
         filters=filters,
         advanced=advanced,
+        order_expr=order_expr,
     )
     quoted_eff = [_quote_ident(c) for c in effective_columns]
     select_list = ", ".join(f"CAST({c} AS VARCHAR)" for c in quoted_eff)
     offset = (page - 1) * page_size
 
     with duck.connect() as con:
-        rows_sql = f"WITH joined AS ({inner_sql}) SELECT {select_list} FROM joined LIMIT ? OFFSET ?"
+        rows_sql = (
+            f"WITH joined AS ({inner_sql}) SELECT {select_list} FROM joined "
+            f"ORDER BY {_ORD} LIMIT ? OFFSET ?"
+        )
         page_rows = con.execute(rows_sql, [*inner_params, page_size, offset]).fetchall()
 
         count_sql = f"WITH joined AS ({inner_sql}) SELECT COUNT(*) FROM joined"

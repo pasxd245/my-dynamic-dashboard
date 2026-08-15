@@ -48,12 +48,11 @@ for**: a `sort`/`top_n` step leads, with the remaining columns as tiebreaks (`_p
 R165 W-7); with no ordering step the order is arbitrary as a presentation but **reproducible**,
 which is the only property paging needs. A **joined** query reads in driving-dataset order.
 
-> **KNOWN GAP — a joined query above ~120k rows does NOT satisfy this.** `query_joined_rows` pages
-> a hash join with no `ORDER BY`; `preserve_insertion_order` protects a scan but not a parallel
-> join. Measured: 200k rows → 21 344 returned twice and 21 344 never returned, while `total` and
-> the page sizes all look correct. Recorded as a strict `xfail` in `test_paging_partitions.py` and
-> open in [Round_172](../../../../.agents/plan/cycles/Round_172.md). **Do not build a consumer
-> that assumes a stable page over a large joined query until this closes.**
+**A joined query reads in driving-dataset order** — each row's position in the driving dataset's
+parquet (`file_row_number`), which is a property of the stored file rather than of the execution, so
+the same page returns the same rows across connections, processes and restarts. _(Until R172 this
+path carried no order at all: at 200k rows, 21 344 rows came back twice, 21 344 never came back, and
+21 of 100 pages changed content between visits. Guarded by `test_paging_partitions.py` at 400k.)_
 
 ## Errors
 

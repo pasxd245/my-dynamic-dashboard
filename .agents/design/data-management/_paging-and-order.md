@@ -52,7 +52,7 @@ first rows — `D0150271`, `D0015103`, `D0154367`.
 | Read path              | Plan shape             | Order guaranteed by                                   | Safe at scale?                   |
 | ---------------------- | ---------------------- | ----------------------------------------------------- | -------------------------------- |
 | `query_dataset_rows`   | parquet **scan**       | `preserve_insertion_order` → file order               | **yes** — measured clean to 400k |
-| `query_joined_rows`    | **hash join**          | _nothing_                                             | **NO** — loses rows above ~120k  |
+| `query_joined_rows`    | **hash join**          | explicit `ORDER BY` driving `file_row_number` (R172)  | **yes** — measured clean to 400k |
 | `run_steps`            | steps relation         | explicit `ORDER BY _page_order_sql` (R165 W-7)        | yes                              |
 | `materialize_steps`    | steps relation → write | explicit `ORDER BY _page_order_sql` (R171 item 8)     | yes                              |
 | `query_aggregate_rows` | GROUP BY, **unpaged**  | n/a — no `LIMIT/OFFSET`, the whole result is returned | n/a                              |
@@ -111,9 +111,25 @@ Do not infer safety from an existing path. `query_joined_rows` looked exactly li
 so a guard written against a 20-row fixture passes whether or not the guarantee holds. A paging
 test that has never seen a parallel plan has not tested paging.
 
-## Known gap
+## How the joined path was fixed (R172)
 
-**`query_joined_rows` does not satisfy clause 1** above 120k rows. Recorded as a strict `xfail` in
-`test_paging_partitions.py` (it flips to a failure the moment it is fixed) and open in
-[Round_172](../../plan/cycles/Round_172.md), where the fix's design fork — **which** order a paged
-join takes — is the open decision.
+A hash join has no insertion order of its own, so `preserve_insertion_order` does not reach it. The
+paged join now orders on the **driving source's position in its parquet** —
+`read_parquet(?, file_row_number=true)` on `T0`, carried through the projection and used as the
+paged `ORDER BY`.
+
+**Why that key and not another**: it is the order a joined query already presented, so nothing a
+user sees moved; it costs the same as any other correct choice (the cost is the sort, not the key —
+14.5–15.0 ms/page at 200k for all three candidates); and it is **a property of the stored file
+rather than of the execution**, so a page is identical across connections, processes and restarts.
+Numbering rows as they emit (`row_number() OVER ()`) would have been right today for the wrong
+reason — file-order only because the scan happens to emit file order, which is the fragility this
+round exists to remove. A driving relation that is _not_ a parquet leaf (the `qr_` sub-relation
+shape — unreachable for a query since R167, but permitted by the type) falls back to that weaker
+numbering rather than silently returning unordered pages.
+
+**Measured before → after**, 200k-row join, every page walked twice in fresh connections:
+21 of 100 pages changed content between visits and 19 984 rows were duplicated → **0 and 0**.
+
+**What it costs**: 2.4 ms → 13.5 ms per page at 90k rows, 2.7 → 30.0 at 200k. Correctness is not
+free here; it is bounded, and it buys a page that is the same page tomorrow.

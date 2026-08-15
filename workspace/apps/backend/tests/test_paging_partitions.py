@@ -1,29 +1,32 @@
-"""R172: paging PARTITIONS the unordered read paths — the guard on a default.
+"""R172: paging PARTITIONS the paged read paths, and the order survives a revisit.
 
-``query_dataset_rows`` and ``query_joined_rows`` page with ``LIMIT/OFFSET`` and
-no ``ORDER BY``. That is correct only because DuckDB's
-``preserve_insertion_order`` makes a scan emit file order, and carries
-probe-side order through a hash join, even under parallel execution. Nothing in
-this app set that setting until ``app/duck.py``, and nothing asserted it.
+``query_dataset_rows`` and ``query_joined_rows`` page with ``LIMIT/OFFSET``.
+That partitions a relation only if the relation has a total order — otherwise
+each page is an independent execution slicing a differently-ordered relation,
+and the result is rows returned twice while others are never returned at all,
+with ``total`` and the page sizes all still looking correct.
 
-These tests are the assertion. They are **not** here to catch a bug — both paths
-were measured clean before the round started (200k rows / 20 threads / 60 pages,
-and a 120k × 500 join / 40 pages). They are here so that the day the assumption
-stops holding — the setting turned off for a bulk load, a changed DuckDB
-default, a non-order-preserving operator introduced into one of these reads — a
-test says so instead of a user seeing one row twice and another never.
+**The two paths were correct for different reasons, and one of them was not
+correct.** The dataset read is a parquet SCAN, held in file order by DuckDB's
+``preserve_insertion_order`` (now set explicitly in ``app/duck.py``). The joined
+read is a HASH JOIN, which that setting does **not** protect once DuckDB
+parallelises past a row group: measured at 200k rows, 21 344 rows came back
+twice and 21 344 never came back, and 21 of 100 pages returned different content
+on a second visit. R172 fixed it by ordering on the driving source's position in
+its parquet (``file_row_number``) — the order a joined query already presented,
+so nothing a user sees moved.
 
 **Driven at the reader functions, not through HTTP, on purpose.** The API caps
 ``page_size`` at 100 (``PAGE_SIZES``), so an endpoint-level guard would need
 hundreds of requests to reach a scale where DuckDB parallelises at all — and
-below that scale it is single-threaded and stable regardless, so the guard would
-pass with the setting off and prove nothing. Scale is what makes these mean
-something; ``test_paging_total_order.py`` already covers the endpoint wiring.
+below that scale it is single-threaded and stable regardless, so a small-fixture
+guard passes whether or not the guarantee holds. **Scale is load-bearing here**:
+a 120k probe run while investigating this said the join path was fine. It was
+not; the threshold is just above it.
 
 **Negative-controlled**: ``test_the_guard_has_teeth`` builds the same paging
-shape with ``preserve_insertion_order=false`` and shows it reshuffling. R171
-shipped a guard that passed either way and had to rewrite it; this is that
-lesson applied up front.
+shape without the guarantee. R171 shipped a guard that passed either way and had
+to rewrite it; this is that lesson applied up front.
 """
 
 from __future__ import annotations
@@ -71,23 +74,17 @@ def test_dataset_paging_returns_every_row_exactly_once(tmp_path: Path) -> None:
 
 
 @pytest.mark.unit
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "R172 FINDING — joined-query paging LOSES ROWS above ~120k. `query_joined_rows` pages a "
-        "hash join with LIMIT/OFFSET and no ORDER BY; `preserve_insertion_order` protects a scan "
-        "but does NOT survive the join once DuckDB parallelises it past a row group. Measured: "
-        "200k → 21 344 rows lost, 300k → 44 224, 400k → 95 936, and page 500 of a 200k joined "
-        "query returns a different first row on every request. This is R165 W-7's class on the "
-        "joined path. The fix is a design fork (which order?) raised to the human, so the bug is "
-        "recorded here rather than silently fixed or silently ignored. Flip to passing when fixed."
-    ),
-)
 def test_joined_paging_returns_every_row_exactly_once(tmp_path: Path) -> None:
-    """The joined read — a hash join, paged. This is the one that looked most
-    likely to reshuffle (a join has no insertion order of its own), and it does:
-    DuckDB carries the probe side's order through only while the join stays
-    single-threaded. Above ~120k rows it does not."""
+    """The joined read — a hash join, paged. This is the one that DID reshuffle:
+    a join has no insertion order of its own, and `preserve_insertion_order`
+    carries the probe side through only while the join stays single-threaded.
+    Above ~120k rows it did not, and this test failed — 200k rows → 21 344
+    returned twice and 21 344 never returned.
+
+    Fixed in R172 by ordering the paged read on the DRIVING source's position in
+    its parquet (`file_row_number`), which is the order a joined query already
+    presented, so nothing a user sees moved. Held as a strict `xfail` between the
+    finding and the fix; the `XPASS(strict)` is what announced the fix landed."""
     left = _parquet(tmp_path / "deals.parquet", _ROWS)
     right = _parquet(tmp_path / "accounts.parquet", 41, mod=41)
 
@@ -161,3 +158,53 @@ def test_the_guard_has_teeth(tmp_path: Path) -> None:
     # the test documents the difference rather than asserting a flaky sequence.
     print(f"\npreserve_insertion_order=false → in file order: {in_order} · partitions: {partitions}")
     assert len(seen) == _ROWS
+
+
+@pytest.mark.unit
+def test_a_page_is_the_same_page_on_a_later_visit(tmp_path: Path) -> None:
+    """The property a user actually depends on: come back to page 4 tomorrow and
+    it is still page 4.
+
+    This is NOT the same as "pages partition within one walk", and the two came
+    apart here — before the fix, 21 of 100 pages returned different content on a
+    second visit. Each page below is fetched in its own connection, which is what
+    the app really does (``duck.connect()`` per request), so a passing run means
+    the order survives process state rather than merely being stable inside one
+    execution.
+
+    It holds because ``file_row_number`` is a property of the STORED FILE, not of
+    the execution — identical across connections, processes and restarts by
+    construction, which is the reason this fix beats numbering rows as they
+    happen to emit.
+    """
+    left = _parquet(tmp_path / "visit_deals.parquet", _ROWS)
+    right = _parquet(tmp_path / "visit_accounts.parquet", 41, mod=41)
+    effective, select_exprs = build_effective_columns(
+        [
+            ("deals", [{"name": "row_id", "dtype": "integer"}, {"name": "acct", "dtype": "integer"}]),
+            ("accounts", [{"name": "acct", "dtype": "integer"}]),
+        ]
+    )
+    eff_names = [c["name"] for c in effective]
+
+    def visit() -> list[tuple[str, ...]]:
+        """Walk every page, each in its own connection — one request apiece."""
+        return [
+            tuple(
+                r[0]
+                for r in query_joined_rows(
+                    [("read_parquet(?)", [str(left)]), ("read_parquet(?)", [str(right)])],
+                    join_keys=[(0, "acct", "acct", "inner")],
+                    select_exprs=select_exprs,
+                    effective_columns=eff_names,
+                    page=page,
+                    page_size=_PAGE,
+                    q=None,
+                )[0]
+            )
+            for page in range(1, _ROWS // _PAGE + 1)
+        ]
+
+    first, second = visit(), visit()
+    changed = [i + 1 for i, (a, b) in enumerate(zip(first, second)) if a != b]
+    assert not changed, f"pages {changed[:8]} returned different rows on a second visit"
