@@ -1,7 +1,8 @@
 # Round 171: the batched UI cluster — the papercuts that were never worth a round alone
 
 **Status**: Complete — signed off by the human 2026-08-15 (_"okay bro, I sign-off r171"_). Eight
-items shipped; the acceptance walk returned **6 of 6** with three findings, all fixed in-round.
+items shipped; the acceptance walk returned **6 of 6, all PASS** — three findings, fixed in-round
+and re-walked (_"All issues are settled"_).
 **Flow**: **DFCFBI (triggers 3, 5)** — set at the Design gate via `flow-selector`; recorded in the
 Do log.
 **Date started**: 2026-08-14
@@ -42,7 +43,8 @@ caught by building, one by the walk, one by the human asking.
 - **The walk's count was an anchor for five rounds.** Nothing prescribes five questions; the artifact
   has no repo home and no lint, so it travels by imitation — which transmits accidents as faithfully
   as intent. Graduation queued (§ Feeds into).
-- **`coverage: 6 of 6`** — this Studied line is walked-backed, not gate-backed.
+- **`coverage: 6 of 6`, all PASS** — three on the first look, three after their in-round fixes were
+  re-walked. This Studied line is walked-backed, not gate-backed.
 
 ## Goal
 
@@ -349,14 +351,14 @@ question names the card or control it acts on; grade the gesture, not the outcom
 > single-feature round, so this was the round where the count should have moved most — which is
 > exactly where the anchor held.
 
-| #      | Question                                                                                                                                                                                                                                                                                                                                                              | Item(s) | Verdict                         |
-| ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ------------------------------- |
-| **T1** | On the upload wizard's **Metadata** step, override two columns' dtypes, then click `[Reset all to detected]`. Does the confirm tell you **what you are about to lose** clearly enough that you'd be comfortable clicking through it — and on an Excel file with two sheets, is it obvious the reset is **this tab only**?                                             | 2       | ✅ **PASS**                     |
-| **T2** | Commit an upload that the server rejects with something the FE has no code for (e.g. a body it refuses). Reading only the red box on **Confirm**, can you tell **which field** the server objected to, and do you know it is a bug rather than something you did?                                                                                                     | 1       | ✅ **PASS**                     |
-| **T3** | On a query's **Canvas**, draw a join that matches an existing governed relationship, then click the edge. Does the actions row read as **honest** — is it clear why `Promote` is or isn't available on _this_ edge, without clicking it to find out?                                                                                                                  | 4       | ❌ → 🔧 **W-1 fixed, UNWALKED** |
-| **T4** | On the query builder's **Computed column** card, without touching anything: can you tell at a glance that the by-column / by-number control is a **switch you can press**, and which side is currently on?                                                                                                                                                            | 5       | ✅ **PASS**                     |
-| **T5** | Stop the backend, then edit a step on a saved query. From the builder panel alone, can you tell **the server is unreachable** rather than that your step was rejected — and does the surface tell you what to do next?                                                                                                                                                | 6       | ❌ → 🔧 **W-2 fixed, UNWALKED** |
-| **T6** | Open a query with 2+ hops and look at the **add-a-join** picker and the hop rows, where the labels are longest. Now that both sides are qualified (`accounts.account_id ↔ tiers.acct · many:one`), can you still **read** them — or does the `<Select>` cut them off somewhere that costs you the part you needed? Hover a truncated one: does the full label arrive? | 3       | ⚠️ → 🔧 **W-3 fixed, UNWALKED** |
+| #      | Question                                                                                                                                                                                                                                                                                                                                                              | Item(s) | Verdict               |
+| ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | --------------------- |
+| **T1** | On the upload wizard's **Metadata** step, override two columns' dtypes, then click `[Reset all to detected]`. Does the confirm tell you **what you are about to lose** clearly enough that you'd be comfortable clicking through it — and on an Excel file with two sheets, is it obvious the reset is **this tab only**?                                             | 2       | ✅ **PASS**           |
+| **T2** | Commit an upload that the server rejects with something the FE has no code for (e.g. a body it refuses). Reading only the red box on **Confirm**, can you tell **which field** the server objected to, and do you know it is a bug rather than something you did?                                                                                                     | 1       | ✅ **PASS**           |
+| **T3** | On a query's **Canvas**, draw a join that matches an existing governed relationship, then click the edge. Does the actions row read as **honest** — is it clear why `Promote` is or isn't available on _this_ edge, without clicking it to find out?                                                                                                                  | 4       | ✅ **PASS** after W-1 |
+| **T4** | On the query builder's **Computed column** card, without touching anything: can you tell at a glance that the by-column / by-number control is a **switch you can press**, and which side is currently on?                                                                                                                                                            | 5       | ✅ **PASS**           |
+| **T5** | Stop the backend, then edit a step on a saved query. From the builder panel alone, can you tell **the server is unreachable** rather than that your step was rejected — and does the surface tell you what to do next?                                                                                                                                                | 6       | ✅ **PASS** after W-2 |
+| **T6** | Open a query with 2+ hops and look at the **add-a-join** picker and the hop rows, where the labels are longest. Now that both sides are qualified (`accounts.account_id ↔ tiers.acct · many:one`), can you still **read** them — or does the `<Select>` cut them off somewhere that costs you the part you needed? Hover a truncated one: does the full label arrive? | 3       | ✅ **PASS** after W-3 |
 
 Item 8 is not walked because it is a **test, not a gesture**: run a workflow whose source query
 carries a `sort` step, page its rows, and assert the sequence matches the query's own paged read.
@@ -364,23 +366,24 @@ It goes to the B gate's suite.
 
 ### Walk result — run by the human 2026-08-15. **`coverage: 6 of 6 returned`**, three findings
 
-> **On the three `🔧 fixed, UNWALKED` verdicts.** The verdict column records what the **walk
-> returned**, and R165's convention flips it to ✅ only after a **re-walk** (its T2 reads _"PASS
-> after two in-round fixes … Re-walked … Both halves verified by hand"_). W-1/W-2/W-3 were fixed in
-> this round but **nobody looked again**, so ✅ would claim a verification that did not happen and a
-> bare ❌ would claim the defect is still live. Neither is true; the artifact had no notation for
-> the middle state, and this is it. **What actually covers each fix**:
+> **All six PASS — the three fixes were RE-WALKED by the human**, per R165's convention (a verdict
+> flips to ✅ only when someone looks again). Their confirmation: _"All issues are settled"_
+> (2026-08-15), given after the three fixes landed and before the sign-off, then restated: _"which
+> mean I already double check and confirm"_. W-3 matters most here — `width: 160 → 200` was chosen
+> from an arithmetic estimate, and **JSDOM has no layout**, so a human's eye is the only instrument
+> that can confirm it. W-1 and W-2 additionally carry tests (W-2's verified to fail without the fix).
 >
-> - **W-1** — a test asserts `Promote` is absent and the pad still reads "Governed". Covered.
-> - **W-2** — a test asserts the toast and that edit mode stays open with the draft; **verified to
->   fail without the fix**. Covered.
-> - **W-3** — **nothing.** The change is `width: 160 → 200` chosen from an arithmetic estimate
->   (~184px for the longest label). JSDOM has no layout, so no test in this repo can see it. This is
->   the same reason T6 needed a human in the first place, which makes it the one fix here resting on
->   an unverified guess.
+> **A miss worth recording, because the artifact caused it.** _"All issues are settled"_ was read as
+> a conversational transition rather than as a verdict, and the three rows sat at ❌/⚠️ through the
+> sign-off until the human asked why. Two gaps, both for the graduation:
 >
-> **Carry this into the graduation**: a walk needs a third verdict state, and a round should not
-> read as closed on a fix whose only evidence is the reasoning that produced it.
+> - **A walk verdict can arrive globally and in passing.** The table assumes one verdict per row,
+>   delivered per row. Nothing told the reader that a blanket _"all settled"_ discharges six rows at
+>   once, so a real confirmation was left unrecorded — the exact failure the artifact exists to
+>   prevent, in the opposite direction (a returned item reading as unreturned).
+> - **The third state is still worth keeping.** _Fixed-but-not-re-walked_ is a real state that just
+>   did not apply here; leaving a bare ❌ on a fixed defect, or promoting it to ✅ unverified, are
+>   both wrong. Keep the notation, and keep the rule that **only a human's look flips it**.
 
 Their words, hedges intact:
 
