@@ -51,7 +51,7 @@ jobs:
           add-paths: |
             openwiki
             AGENTS.md
-            .claude/CLAUDE.md
+            CLAUDE.md
             .github/workflows/openwiki-update.yml
           branch: openwiki/update
           commit-message: "docs: update OpenWiki"

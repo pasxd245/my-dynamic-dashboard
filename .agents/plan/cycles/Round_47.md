@@ -226,7 +226,7 @@ sub-section), commit the number:
   The decision file is the committed form. If the recommendation
   is later revised, a new dated decision supersedes — not by editing
   either the decision or the brainstorm.
-- **No CLAUDE.md edit.** [CLAUDE.md](../../../.claude/CLAUDE.md)
+- **No CLAUDE.md edit.** [CLAUDE.md](../../../CLAUDE.md)
   already points at AGENTS.md as the shared knowledge base; the
   AGENTS.md horizon-bullet is the propagation path.
 - **No skill creation.** A "design-and-delivery flow runner" skill
