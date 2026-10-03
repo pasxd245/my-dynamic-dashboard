@@ -299,9 +299,10 @@ function StatView({ value, label, fmt }: Readonly<{ value: number; label: string
 }
 
 /** R175 — a table cell, by its column dtype: integers grouped (3,926), floats
- *  rounded (0.08) or — on a `percent` widget — shown as a percentage (7.9%), dates
- *  as the date part. The wire stringifies every cell, so a raw ratio used to read
- *  `0.07945736434108527`. */
+ *  rounded (0.08) or — on a `percent` widget, for a RATIO column — shown as a
+ *  percentage (7.9%), dates as the date part. The wire stringifies every cell, so
+ *  a raw ratio used to read `0.07945736434108527`. `percent` means "this column is
+ *  a ratio"; the table decides that per column (`isRatioColumn`). */
 export function formatTableCell(cell: string | null, dtype: string | undefined, percent: boolean): string {
   if (cell === null || cell === undefined) return '';
   if (dtype === 'integer' || dtype === 'float') {
@@ -312,6 +313,22 @@ export function formatTableCell(cell: string | null, dtype: string | undefined, 
   }
   if (dtype === 'date') return cell.slice(0, 10);
   return cell;
+}
+
+/** R175 — a float column is a RATIO when every value lies in [-1, 1]. A table
+ *  mixes kinds of float (a conversion rate beside an average premium of 6.6M), so
+ *  a `percent` table formats only the ratio columns — the dogfood rendered an
+ *  average fee as "669,539,028.7%". */
+export function isRatioColumn(rows: readonly (readonly (string | null)[])[], ci: number): boolean {
+  let seen = false;
+  for (const r of rows) {
+    const cell = r[ci];
+    if (cell === null || cell === undefined || cell === '') continue;
+    const n = Number(cell);
+    if (!Number.isFinite(n) || Math.abs(n) > 1) return false;
+    seen = true;
+  }
+  return seen;
 }
 
 function TableView({
@@ -330,10 +347,11 @@ function TableView({
     ellipsis: true,
     align: c.dtype === 'integer' || c.dtype === 'float' ? ('right' as const) : undefined,
   }));
+  const ratio = columns.map((c, ci) => percent && c.dtype === 'float' && isRatioColumn(rows, ci));
   const dataSource = rows.map((r, ri) => {
     const o: Record<string, string> = { key: String(ri) };
     r.forEach((cell, ci) => {
-      o[String(ci)] = formatTableCell(cell, columns[ci]?.dtype, percent);
+      o[String(ci)] = formatTableCell(cell, columns[ci]?.dtype, ratio[ci] ?? false);
     });
     return o;
   });

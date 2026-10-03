@@ -137,3 +137,16 @@ describe('R175 dashboard table cells', () => {
     expect(formatTableCell(null, 'float', true)).toBe('');
   });
 });
+
+describe('R175 ratio columns', () => {
+  it('a float column is a ratio only when every value lies in [-1, 1]', async () => {
+    const { isRatioColumn } = await import('@/features/dashboard/WidgetView');
+    const rows = [
+      ['0.05', '6608670.14', null],
+      ['0.12', '5873613.71', null],
+    ];
+    expect(isRatioColumn(rows, 0)).toBe(true);
+    expect(isRatioColumn(rows, 1)).toBe(false);
+    expect(isRatioColumn(rows, 2)).toBe(false);
+  });
+});
