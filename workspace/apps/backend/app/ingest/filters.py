@@ -329,6 +329,12 @@ def _duckdb_cast(dtype: str) -> str:
     }.get(dtype, "VARCHAR")  # string falls through (no CAST needed in practice)
 
 
+def _like_literal(val: Any) -> str:
+    """Escape LIKE metacharacters so the operand matches literally (``\\`` is
+    the declared ESCAPE character)."""
+    return str(val).replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
 def _predicate_sql(p: FilterPredicate) -> tuple[str, list[Any]]:
     """Return `(sql_fragment, params)` for one predicate.
 
@@ -355,16 +361,19 @@ def _predicate_sql(p: FilterPredicate) -> tuple[str, list[Any]]:
 
     # String ops (case-insensitive — matches R36 `?q=` semantics).
     if dtype == "string":
+        # R175 — the LIKE ops match the operand LITERALLY: `_` and `%` in the
+        # value are escaped. Dogfood: `starts_with "web_"` (a CRM service-code
+        # prefix) also matched `webX…`, because `_` is LIKE's one-char wildcard.
         if op == "contains":
-            return f"lower({col}) LIKE lower(?)", [f"%{p.val}%"]
+            return f"lower({col}) LIKE lower(?) ESCAPE '\\'", [f"%{_like_literal(p.val)}%"]
         if op == "equals":
             return f"lower({col}) = lower(?)", [p.val]
         if op == "ne":  # R55: case-insensitive, mirrors string `equals`
             return f"lower({col}) != lower(?)", [p.val]
         if op == "starts_with":
-            return f"lower({col}) LIKE lower(?)", [f"{p.val}%"]
+            return f"lower({col}) LIKE lower(?) ESCAPE '\\'", [f"{_like_literal(p.val)}%"]
         if op == "ends_with":
-            return f"lower({col}) LIKE lower(?)", [f"%{p.val}"]
+            return f"lower({col}) LIKE lower(?) ESCAPE '\\'", [f"%{_like_literal(p.val)}"]
         # Defense-in-depth: dtype-mismatch was already caught at parse.
         raise RuntimeError(f"unhandled string op: {op}")
 

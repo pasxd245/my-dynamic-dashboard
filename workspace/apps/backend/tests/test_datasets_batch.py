@@ -608,6 +608,45 @@ def test_unparseable_date_cell_returns_coercion_failed(caplog: pytest.LogCapture
 
 
 @pytest.mark.unit
+def test_whitespace_only_cells_read_as_null_under_typed_overrides() -> None:
+    """R175 — a whitespace-only TEXT cell is NULL for a typed target (datetime,
+    float) instead of a whole-batch `coercion_failed`; a `string` target keeps the
+    text verbatim. Pulled by the weekly-report dogfood: one `" "` in a 31k-row CRM
+    export blocked the datetime override on `Ngày khởi tạo`."""
+    from tests._excel import blank_cell_workbook
+
+    with TestClient(app) as client:
+        ws = _make_workspace(client)
+        temp = client.post(
+            "/uploads",
+            data={"sourceFormat": "excel"},
+            files={"file": ("blank.xlsx", blank_cell_workbook(), "application/octet-stream")},
+        ).json()["temp_id"]
+        resp = client.post(
+            f"/workspaces/{ws}/datasets/batch",
+            json={
+                "temp_id": temp,
+                "items": [
+                    {
+                        "sheet": "Leads",
+                        "name": "leads",
+                        "column_overrides": {
+                            "called_at": {"dtype": "datetime", "format": "dd-MM-yyyy HH:mm:ss"},
+                            "amount": {"dtype": "float"},
+                            "note": {"dtype": "string"},
+                        },
+                    }
+                ],
+            },
+        )
+        assert resp.status_code == 201, resp.text
+        df = _parquet_of(resp.json()[0])
+    assert df["called_at"].isna().tolist() == [False, True, False]
+    assert df["amount"].isna().tolist() == [False, True, True]
+    assert df["note"].tolist() == ["a", " ", "b"]
+
+
+@pytest.mark.unit
 @pytest.mark.parametrize(
     "override",
     [

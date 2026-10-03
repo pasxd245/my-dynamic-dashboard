@@ -158,6 +158,15 @@ def _is_null_cell(v: object) -> bool:
     return v is None or v is pd.NaT or (isinstance(v, float) and math.isnan(v))
 
 
+def _is_blank_text(v: object) -> bool:
+    """R175 — a whitespace-only TEXT cell (`" "`, `"\\t"`) carries no value, so a
+    typed (non-string) target reads it as NULL instead of failing the whole commit.
+    Dogfood: one stray space in 31k CRM rows aborted a datetime override with
+    `coercion_failed`. A `string` target keeps the text verbatim (blank is data
+    there), and any NON-blank unparseable cell still fails loudly."""
+    return isinstance(v, str) and not v.strip()
+
+
 def _cast_integer(v: object) -> int:
     if isinstance(v, bool):
         return int(v)
@@ -280,7 +289,7 @@ def _coerce_column(
     failed: list[tuple[int, str]] = []
     total_failed = 0
     for pos, v in enumerate(series.tolist()):
-        if _is_null_cell(v):
+        if _is_null_cell(v) or (dtype != "string" and _is_blank_text(v)):
             casted.append(None)
             continue
         try:

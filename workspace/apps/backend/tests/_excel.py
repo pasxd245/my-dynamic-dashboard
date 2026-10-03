@@ -75,3 +75,20 @@ def mixed_type_workbook() -> bytes:
     buf = BytesIO()
     wb.save(buf)
     return buf.getvalue()
+
+
+def blank_cell_workbook() -> bytes:
+    """R175 — the CRM-export shape: a TEXT `dd-MM-yyyy HH:mm:ss` timestamp and a
+    numeric column, each carrying a WHITESPACE-ONLY cell (the real export had one
+    `" "` in 31k rows that aborted the whole commit), plus a string column whose
+    blank text must survive verbatim."""
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Leads"
+    ws.append(["called_at", "amount", "note"])
+    ws.append(["29-06-2026 09:15:00", "100", "a"])
+    ws.append([" ", "  ", " "])
+    ws.append(["01-07-2026 10:30:00", "\t", "b"])
+    buf = BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
