@@ -82,6 +82,34 @@ def _dtype_from_series(series: pd.Series) -> Dtype:
     return "string"
 
 
+_LEADING_ZERO = re.compile(r"^0\d+$")
+_ZERO_SNIFF_ROWS = 200  # rows re-read as text to spot a leading zero
+
+
+def _leading_zero_text_to_string(path: Path, kwargs: dict, df: pd.DataFrame, columns: list[dict]) -> None:
+    """R175 — a column of digit TEXT with a leading zero (a phone `0968733440`, a
+    code `00123`) is a STRING, not a number. pandas' Excel reader converts
+    numeric-looking text to int64, so inference said `integer` and the commit
+    wrote `968733440`; a join on the phone then matched almost nothing (dogfood:
+    2 of 1,676 policies found their TNDS contract instead of 484). Re-read only the
+    SAMPLE as text for the numeric-inferred columns and flip any column whose text
+    carries a leading zero. Mutates ``columns`` in place."""
+    numeric = [i for i, c in enumerate(columns) if c["dtype"] in ("integer", "float")]
+    if not numeric:
+        return
+    sample_kwargs = {**kwargs, "dtype": str, "nrows": min(int(kwargs.get("nrows") or _ZERO_SNIFF_ROWS), _ZERO_SNIFF_ROWS)}
+    try:
+        text = pd.read_excel(path, **sample_kwargs)
+    except Exception:  # pragma: no cover — the full read already succeeded
+        return
+    for i in numeric:
+        if i >= text.shape[1]:
+            continue
+        cells = text.iloc[:, i].dropna().astype(str).str.strip()
+        if cells.str.match(_LEADING_ZERO).any():
+            columns[i]["dtype"] = "string"
+
+
 def _parse_range(rng: str) -> tuple[str, str, int, int] | None:
     m = _RANGE_RE.match(rng)
     if not m:
@@ -131,6 +159,7 @@ def parse_sheet(
         df.columns = [str(c).strip() for c in df.columns]
 
     columns = [{"name": str(name), "dtype": _dtype_from_series(df[name])} for name in df.columns]
+    _leading_zero_text_to_string(path, kwargs, df, columns)
     sample = df.head(SAMPLE_LIMIT)
     sample_rows: list[list[str | None]] = []
     for _, row in sample.iterrows():

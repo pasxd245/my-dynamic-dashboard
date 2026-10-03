@@ -92,3 +92,17 @@ def blank_cell_workbook() -> bytes:
     buf = BytesIO()
     wb.save(buf)
     return buf.getvalue()
+
+
+def leading_zero_text_workbook() -> bytes:
+    """R175 — a phone column stored as TEXT with a leading zero in every cell
+    (the TNDS export shape). pandas' reader turns the whole column into int64."""
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "TNDS"
+    ws.append(["phone", "contract"])
+    for phone, contract in (("0968733440", "C1"), ("0915034727", "C2"), ("0378932776", "C3")):
+        ws.append([phone, contract])
+    buf = BytesIO()
+    wb.save(buf)
+    return buf.getvalue()

@@ -327,6 +327,21 @@ def _coerce_dataframe(
     return df
 
 
+def _string_target_labels(
+    src: Path, kwargs: dict[str, object], has_header: bool, dtype_targets: dict[str, str] | None
+) -> list[object]:
+    """R175 — the RAW header labels (as pandas will see them, before the strip)
+    of the columns committed as `string`, so the read can keep them as text.
+    Header-only read (``nrows=0``). Headerless sheets key by position."""
+    wanted = {name for name, dt in (dtype_targets or {}).items() if dt == "string"}
+    if not wanted:
+        return []
+    if not has_header:
+        return [i for i in range(10_000) if f"column{i + 1}" in wanted]
+    head = pd.read_excel(src, **{**kwargs, "nrows": 0})
+    return [label for label in head.columns if str(label).strip() in wanted]
+
+
 def _quote_ident(name: str) -> str:
     """DuckDB SQL identifier quoting — double any embedded `"`."""
     return '"' + name.replace('"', '""') + '"'
@@ -532,6 +547,12 @@ def write_excel_to_parquet(
         kwargs["usecols"] = f"{col_first}:{col_last}"
         kwargs["skiprows"] = max(0, row_first - 1)
         kwargs["nrows"] = max(0, row_last - row_first + (0 if has_header else 1))
+    text_cols = _string_target_labels(src, kwargs, has_header, dtype_targets)
+    if text_cols:
+        # R175 — a `string` target is read AS TEXT: pandas otherwise converts
+        # digit text to int64 before any cast, and `0968733440` commits as
+        # `968733440` (the leading zero a phone join depends on is gone).
+        kwargs["dtype"] = dict.fromkeys(text_cols, str)
     df = pd.read_excel(src, **kwargs)
     if not has_header:
         df.columns = [f"column{i + 1}" for i in range(len(df.columns))]

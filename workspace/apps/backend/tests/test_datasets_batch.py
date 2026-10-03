@@ -608,6 +608,33 @@ def test_unparseable_date_cell_returns_coercion_failed(caplog: pytest.LogCapture
 
 
 @pytest.mark.unit
+@pytest.mark.parametrize("override", [None, {"phone": {"dtype": "string"}}])
+def test_leading_zero_digit_text_stays_text(override: dict | None) -> None:
+    """R175 — digit TEXT with a leading zero is inferred `string` and committed
+    verbatim, with or without an explicit override. Dogfood: pandas read the TNDS
+    phones as int64, so `0968733440` committed as `968733440` and a phone join
+    found 2 of 1,676 policies instead of 484."""
+    from tests._excel import leading_zero_text_workbook
+
+    with TestClient(app) as client:
+        ws = _make_workspace(client)
+        up = client.post(
+            "/uploads",
+            data={"sourceFormat": "excel"},
+            files={"file": ("tnds.xlsx", leading_zero_text_workbook(), "application/octet-stream")},
+        ).json()
+        parsed = client.post(f"/uploads/{up['temp_id']}/parse", json={"items": [{"sheet": "TNDS"}]}).json()
+        assert {"name": "phone", "dtype": "string"} in parsed["results"][0]["columns"]
+        item = {"sheet": "TNDS", "name": "tnds"}
+        if override:
+            item["column_overrides"] = override
+        resp = client.post(f"/workspaces/{ws}/datasets/batch", json={"temp_id": up["temp_id"], "items": [item]})
+        assert resp.status_code == 201, resp.text
+        df = _parquet_of(resp.json()[0])
+    assert df["phone"].tolist() == ["0968733440", "0915034727", "0378932776"]
+
+
+@pytest.mark.unit
 def test_whitespace_only_cells_read_as_null_under_typed_overrides() -> None:
     """R175 — a whitespace-only TEXT cell is NULL for a typed target (datetime,
     float) instead of a whole-batch `coercion_failed`; a `string` target keeps the
