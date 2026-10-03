@@ -187,7 +187,8 @@ export type GroupColumnStep = {
   agg: AggregateMeasure['agg'];
   /** Required for every agg but `count` (which tallies the group's rows). */
   col?: string;
-  /** The group columns (PARTITION BY) — at least one. */
+  /** The group columns (PARTITION BY). R175 — EMPTY = the whole table, shown as
+   *  the named "Across everything" state (the `window_column` precedent). */
   by: readonly string[];
 };
 
@@ -241,7 +242,45 @@ export type WindowColumnStep = {
   unit?: DateBucketStep['granularity'];
 };
 
-/** R121/R122/R123/R141/R144/R162/R164 — a transform step, discriminated by `kind`. */
+/** R175 — append an `integer` holding one calendar part of a date/datetime
+ *  column (`dow` = ISO, Monday = 1). Mirrors `_shared/query.yaml#/DatePartStep`. */
+export type DatePartStep = {
+  kind: 'date_part';
+  col: string;
+  part: 'year' | 'quarter' | 'month' | 'week' | 'day' | 'dow';
+  name: string;
+};
+
+/** R175 — append an `integer`: calendar `unit` boundaries crossed from `start` to
+ *  `end` (DuckDB `datediff`). Mirrors `_shared/query.yaml#/DateDiffStep`. */
+export type DateDiffStep = {
+  kind: 'date_diff';
+  start: string;
+  end: string;
+  unit: DateBucketStep['granularity'];
+  name: string;
+};
+
+/** R175 — what a `case` arm yields: a literal or another column. */
+export type CaseValue = { kind: 'const'; value: string | number } | { kind: 'col'; col: string };
+
+/** R175 — one WHEN (AND of filter-vocabulary predicates) … THEN arm. */
+export type CaseBranch = {
+  when: readonly FilterStepPredicate[];
+  then: CaseValue;
+};
+
+/** R175 — the CONDITIONAL COLUMN (formula-free IF/IFS): the first matching
+ *  branch's value, else `otherwise` (absent → blank). Output dtype unified across
+ *  every value. Mirrors `_shared/query.yaml#/CaseStep`. */
+export type CaseStep = {
+  kind: 'case';
+  name: string;
+  branches: readonly CaseBranch[];
+  otherwise?: CaseValue;
+};
+
+/** R121/R122/R123/R141/R144/R162/R164/R175 — a transform step, discriminated by `kind`. */
 export type Step =
   | AggregateStep
   | TopNStep
@@ -251,7 +290,10 @@ export type Step =
   | SelectStep
   | DateBucketStep
   | GroupColumnStep
-  | WindowColumnStep;
+  | WindowColumnStep
+  | DatePartStep
+  | DateDiffStep
+  | CaseStep;
 
 /** A single effective column of a Query result (name + dtype). For a join,
  *  duplicate names are collision-qualified (`Deals.id`). Mirrors the inline

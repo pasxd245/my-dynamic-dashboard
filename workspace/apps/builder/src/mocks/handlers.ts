@@ -24,7 +24,7 @@ import type {
   Step,
   UpdateQueryRequest,
 } from '@/features/data-management/queries/types';
-import { threadColumns } from '@/features/data-management/queries/steps';
+import { caseDtype, threadColumns } from '@/features/data-management/queries/steps';
 import type { CreateRelationshipRequest } from '@/features/data-management/relationships/types';
 import type { CreateWorkflowRequest } from '@/features/data-management/workflows/types';
 import type { CreateDashboardRequest, UpdateDashboardRequest } from '@/features/dashboard/wire';
@@ -412,6 +412,84 @@ function filterStepMock(step: Extract<Step, { kind: 'filter' }>, table: MockTabl
   return { columns: table.columns, rows };
 }
 
+// R175 — the conditional column, mocked so the authoring surface has rows to
+// show. Each WHEN reuses `cellMatches` (the filter mock's own matcher); the dtype
+// comes from the FE `caseDtype` twin. Approximate — the backend is the gate.
+function caseStepMock(step: Extract<Step, { kind: 'case' }>, table: MockTable): MockTable {
+  const valueOf = (v: Extract<Step, { kind: 'case' }>['otherwise'], row: (string | null)[]): string | null => {
+    if (!v) return null;
+    if (v.kind === 'col') return row[_aggColIdx(table.columns, v.col)] ?? null;
+    return String(v.value);
+  };
+  const matches = (when: Extract<Step, { kind: 'case' }>['branches'][number]['when'], row: (string | null)[]) =>
+    when.every((p) => {
+      const idx = _aggColIdx(table.columns, p.col);
+      return cellMatches(
+        row[idx] ?? null,
+        {
+          col: idx,
+          op: p.op as Operator,
+          val: p.val != null ? String(p.val) : undefined,
+          min: p.min != null ? String(p.min) : undefined,
+          max: p.max != null ? String(p.max) : undefined,
+        },
+        table.columns[idx]?.dtype ?? 'string',
+      );
+    });
+  const rows = table.rows.map((row) => {
+    const hit = step.branches.find((b) => matches(b.when, row));
+    return [...row, hit ? valueOf(hit.then, row) : valueOf(step.otherwise, row)];
+  });
+  return { columns: [...table.columns, { name: step.name, dtype: caseDtype(step, table.columns) ?? 'string' }], rows };
+}
+
+// R175 — a calendar part as an integer (ISO week / ISO day of week). Approximate.
+function datePartStepMock(step: Extract<Step, { kind: 'date_part' }>, table: MockTable): MockTable {
+  const ci = _aggColIdx(table.columns, step.col);
+  const rows = table.rows.map((row) => {
+    const d = row[ci] ? new Date(row[ci] as string) : null;
+    if (!d || Number.isNaN(d.getTime())) return [...row, null];
+    const isoDow = ((d.getDay() + 6) % 7) + 1;
+    const thursday = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 4 - isoDow);
+    const week = Math.ceil(
+      ((thursday.getTime() - new Date(thursday.getFullYear(), 0, 1).getTime()) / 86400000 + 1) / 7,
+    );
+    const part = {
+      year: d.getFullYear(),
+      quarter: Math.floor(d.getMonth() / 3) + 1,
+      month: d.getMonth() + 1,
+      week,
+      day: d.getDate(),
+      dow: isoDow,
+    }[step.part];
+    return [...row, String(part)];
+  });
+  return { columns: [...table.columns, { name: step.name, dtype: 'integer' }], rows };
+}
+
+// R175 — calendar boundaries crossed (DuckDB `datediff`). Approximate.
+function dateDiffStepMock(step: Extract<Step, { kind: 'date_diff' }>, table: MockTable): MockTable {
+  const si = _aggColIdx(table.columns, step.start);
+  const ei = _aggColIdx(table.columns, step.end);
+  const rows = table.rows.map((row) => {
+    const a = row[si] ? new Date(row[si] as string) : null;
+    const b = row[ei] ? new Date(row[ei] as string) : null;
+    if (!a || !b || Number.isNaN(a.getTime()) || Number.isNaN(b.getTime())) return [...row, null];
+    const months = (b.getFullYear() - a.getFullYear()) * 12 + (b.getMonth() - a.getMonth());
+    const dayA = Date.UTC(a.getFullYear(), a.getMonth(), a.getDate());
+    const dayB = Date.UTC(b.getFullYear(), b.getMonth(), b.getDate());
+    const diff = {
+      day: Math.round((dayB - dayA) / 86400000),
+      week: Math.floor((dayB - dayA) / (7 * 86400000)),
+      month: months,
+      quarter: (b.getFullYear() - a.getFullYear()) * 4 + (Math.floor(b.getMonth() / 3) - Math.floor(a.getMonth() / 3)),
+      year: b.getFullYear() - a.getFullYear(),
+    }[step.unit];
+    return [...row, String(diff)];
+  });
+  return { columns: [...table.columns, { name: step.name, dtype: 'integer' }], rows };
+}
+
 function topNStepMock(step: Extract<Step, { kind: 'top_n' }>, table: MockTable): MockTable {
   const ci = _aggColIdx(table.columns, step.col);
   const num = (cell: string | null) => (Number.isFinite(Number(cell)) ? Number(cell) : 0);
@@ -639,6 +717,12 @@ function applyStepsMock(
       table = groupColumnStepMock(step, table);
     } else if (step.kind === 'window_column') {
       table = windowColumnStepMock(step, table);
+    } else if (step.kind === 'case') {
+      table = caseStepMock(step, table);
+    } else if (step.kind === 'date_part') {
+      table = datePartStepMock(step, table);
+    } else if (step.kind === 'date_diff') {
+      table = dateDiffStepMock(step, table);
     } else {
       table = topNStepMock(step, table);
     }
@@ -674,6 +758,15 @@ function stepRefs(step: Step): string[] {
       return [step.col ?? '', ...step.by];
     case 'window_column':
       return [step.col ?? '', ...step.by, ...(step.orderBy ?? []).map((k) => k.col)];
+    case 'date_part':
+      return [step.col];
+    case 'date_diff':
+      return [step.start, step.end];
+    case 'case':
+      return [
+        ...step.branches.flatMap((b) => [...b.when.map((p) => p.col), b.then.kind === 'col' ? b.then.col : '']),
+        step.otherwise?.kind === 'col' ? step.otherwise.col : '',
+      ];
   }
 }
 

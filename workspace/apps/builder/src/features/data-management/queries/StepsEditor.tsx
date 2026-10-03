@@ -4,10 +4,12 @@
 // available AT that point. Edits call `onChange` with the next step list; the
 // live preview (which sends the steps) shows the shaped result. R129 — works for
 // ALL query shapes (single-source / joined / composed): the preview reports the
-// PRE-step `baseColumns` the builder feeds here. One measure per aggregate / one
-// predicate per filter (chain steps for more). Backend re-validates on preview/save.
+// PRE-step `baseColumns` the builder feeds here. R175 — an aggregate carries a
+// LIST of measures and a filter a LIST of predicates (AND), so a definition saved
+// through the API round-trips through this editor without losing any of them.
+// Backend re-validates on preview/save.
 
-import { ArrowDownOutlined, ArrowUpOutlined, DeleteOutlined } from '@ant-design/icons';
+import { ArrowDownOutlined, ArrowUpOutlined, DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import { Alert, Button, Input, InputNumber, Radio, Select, Space, Switch, Typography } from 'antd';
 import { useId } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -17,6 +19,7 @@ import type { Column } from '@/features/data-management/datasets/types';
 import {
   STEP_MENU,
   blankStep,
+  caseDtype,
   consumedByDerive,
   defaultWindowName,
   grainAt,
@@ -36,10 +39,15 @@ import {
 import type {
   AggregateMeasure,
   AggregateStep,
+  CaseStep,
+  CaseValue,
   DateBucketStep,
+  DateDiffStep,
+  DatePartStep,
   DeriveStep,
   GroupColumnStep,
   FilterStep,
+  FilterStepPredicate,
   SelectStep,
   SortStep,
   Step,
@@ -94,6 +102,9 @@ export function StepsEditor({ steps, columns, result, onChange }: StepsEditorPro
       date_bucket: t('queries.builder.steps.kindDateBucket'),
       group_column: t('queries.builder.steps.kindGroupColumn'),
       window_column: '',
+      date_part: t('queries.builder.steps.kindDatePart'),
+      date_diff: t('queries.builder.steps.kindDateDiff'),
+      case: t('queries.builder.steps.kindCase'),
     })[kind];
   const stepLabel = (step: Step) => (step.kind === 'window_column' ? opLabel(t, step.op) : kindLabel(step.kind));
 
@@ -224,6 +235,12 @@ function StepBody({
       return <SelectBody step={step} cols={cols} onChange={onChange} />;
     case 'date_bucket':
       return <DateBucketBody step={step} cols={cols} onChange={onChange} />;
+    case 'date_part':
+      return <DatePartBody step={step} cols={cols} onChange={onChange} />;
+    case 'date_diff':
+      return <DateDiffBody step={step} cols={cols} onChange={onChange} />;
+    case 'case':
+      return <CaseBody step={step} cols={cols} onChange={onChange} />;
     case 'group_column':
       return <GroupColumnBody step={step} cols={cols} grain={grain} narrowed={narrowed} onChange={onChange} />;
     case 'window_column':
@@ -285,6 +302,261 @@ function DateBucketBody({
         />
       </FieldLabel>
     </Space>
+  );
+}
+
+// R175 — one calendar PART of a date as a number (year, month, day of month…).
+// The numeric companion of the bucket card: a bucket keeps a date for an axis, a
+// part is a number to compare or subtract (vehicle age = lead year − model year).
+function DatePartBody({
+  step,
+  cols,
+  onChange,
+}: Readonly<{ step: DatePartStep; cols: readonly Column[]; onChange: (s: Step) => void }>) {
+  const { t } = useTranslation();
+  const parts: DatePartStep['part'][] = ['year', 'quarter', 'month', 'week', 'day', 'dow'];
+  return (
+    <Space wrap size={[8, 6]}>
+      <FieldLabel text={t('queries.builder.steps.newColumn')}>
+        <Input
+          size="small"
+          style={{ width: 140 }}
+          value={step.name}
+          onChange={(e) => onChange({ ...step, name: e.target.value })}
+        />
+      </FieldLabel>
+      <FieldLabel text={t('queries.builder.steps.partOf')}>
+        <Select
+          size="small"
+          style={{ width: 130 }}
+          value={step.part}
+          options={parts.map((p) => ({ label: t(`queries.builder.steps.part_${p}`), value: p }))}
+          onChange={(part: DatePartStep['part']) => onChange({ ...step, part })}
+        />
+        <Select
+          size="small"
+          style={{ minWidth: 120 }}
+          value={step.col || undefined}
+          placeholder="—"
+          options={nameOptions(cols.filter(isTemporalCol))}
+          onChange={(col: string) => onChange({ ...step, col })}
+        />
+      </FieldLabel>
+    </Space>
+  );
+}
+
+// R175 — "how many months/days/years from A to B", counted on the CALENDAR
+// (31 Aug → 1 Sep is one month). This is what lets a report say "this month" and
+// "last month" relative to the data's own cut-off, with no hard-coded date.
+function DateDiffBody({
+  step,
+  cols,
+  onChange,
+}: Readonly<{ step: DateDiffStep; cols: readonly Column[]; onChange: (s: Step) => void }>) {
+  const { t } = useTranslation();
+  const temporal = nameOptions(cols.filter(isTemporalCol));
+  const units: DateDiffStep['unit'][] = ['day', 'week', 'month', 'quarter', 'year'];
+  return (
+    <Space wrap size={[8, 6]}>
+      <FieldLabel text={t('queries.builder.steps.newColumn')}>
+        <Input
+          size="small"
+          style={{ width: 140 }}
+          value={step.name}
+          onChange={(e) => onChange({ ...step, name: e.target.value })}
+        />
+      </FieldLabel>
+      <FieldLabel text={t('queries.builder.steps.diffUnit')}>
+        <Select
+          size="small"
+          style={{ width: 110 }}
+          value={step.unit}
+          options={units.map((u) => ({ label: t(`queries.builder.steps.granularity_${u}`), value: u }))}
+          onChange={(unit: DateDiffStep['unit']) => onChange({ ...step, unit })}
+        />
+      </FieldLabel>
+      <FieldLabel text={t('queries.builder.steps.diffFrom')}>
+        <Select
+          size="small"
+          style={{ minWidth: 120 }}
+          value={step.start || undefined}
+          placeholder="—"
+          options={temporal}
+          onChange={(start: string) => onChange({ ...step, start })}
+        />
+      </FieldLabel>
+      <FieldLabel text={t('queries.builder.steps.diffTo')}>
+        <Select
+          size="small"
+          style={{ minWidth: 120 }}
+          value={step.end || undefined}
+          placeholder="—"
+          options={temporal}
+          onChange={(end: string) => onChange({ ...step, end })}
+        />
+      </FieldLabel>
+    </Space>
+  );
+}
+
+/** R175 — a THEN / OTHERWISE value: a literal (number when it parses as one) or
+ *  a column. The toggle mirrors the derive card's operand-kind switch. */
+function CaseValueInput({
+  value,
+  cols,
+  allowBlank,
+  onChange,
+}: Readonly<{
+  value: CaseValue | undefined;
+  cols: readonly Column[];
+  allowBlank?: boolean;
+  onChange: (v: CaseValue | undefined) => void;
+}>) {
+  const { t } = useTranslation();
+  const mode = value === undefined ? 'blank' : value.kind;
+  const options = [
+    { label: t('queries.builder.steps.valueLiteral'), value: 'const' },
+    { label: t('queries.builder.steps.valueColumn'), value: 'col' },
+    ...(allowBlank ? [{ label: t('queries.builder.steps.valueBlank'), value: 'blank' }] : []),
+  ];
+  const parse = (raw: string): string | number =>
+    raw.trim() !== '' && Number.isFinite(Number(raw)) ? Number(raw) : raw;
+  return (
+    <Space size={4}>
+      <Select
+        size="small"
+        style={{ width: 96 }}
+        value={mode}
+        options={options}
+        onChange={(m: string) => {
+          if (m === 'blank') onChange(undefined);
+          else if (m === 'col') onChange({ kind: 'col', col: cols[0]?.name ?? '' });
+          else onChange({ kind: 'const', value: '' });
+        }}
+      />
+      {value?.kind === 'col' ? (
+        <Select
+          size="small"
+          style={{ minWidth: 120 }}
+          value={value.col}
+          options={nameOptions(cols)}
+          onChange={(col: string) => onChange({ kind: 'col', col })}
+        />
+      ) : value?.kind === 'const' ? (
+        <Input
+          size="small"
+          style={{ width: 140 }}
+          placeholder={t('queries.builder.steps.value')}
+          value={String(value.value)}
+          onChange={(e) => onChange({ kind: 'const', value: parse(e.target.value) })}
+        />
+      ) : null}
+    </Space>
+  );
+}
+
+// R175 — the CONDITIONAL COLUMN: Excel's IF/IFS without a formula. Each row is
+// "when <conditions, AND> then <value>"; the first matching row wins, else the
+// otherwise value. Buckets, 0/1 flags (sum them for a conditional count) and
+// "column A unless it is blank" fallbacks are all this one card.
+function CaseBody({
+  step,
+  cols,
+  onChange,
+}: Readonly<{ step: CaseStep; cols: readonly Column[]; onChange: (s: Step) => void }>) {
+  const { t } = useTranslation();
+  const nameErrorId = useId();
+  const collision = cols.some((c) => c.name === step.name);
+  const mismatch = caseDtype(step, cols) === null && step.branches.length > 0;
+  const setBranch = (i: number, patch: Partial<CaseStep['branches'][number]>) =>
+    onChange({ ...step, branches: step.branches.map((b, j) => (j === i ? { ...b, ...patch } : b)) });
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <FieldLabel text={t('queries.builder.steps.newColumn')}>
+        <Input
+          size="small"
+          style={{ width: 160 }}
+          value={step.name}
+          status={collision ? 'error' : undefined}
+          aria-invalid={collision || undefined}
+          aria-errormessage={collision ? nameErrorId : undefined}
+          onChange={(e) => onChange({ ...step, name: e.target.value })}
+        />
+      </FieldLabel>
+      {collision ? (
+        <Typography.Text type="danger" id={nameErrorId} style={{ fontSize: 12 }}>
+          {t('queries.builder.steps.nameCollision', { name: step.name })}
+        </Typography.Text>
+      ) : null}
+      {step.branches.map((branch, i) => (
+        <div
+          key={i}
+          data-component="CaseBranch"
+          style={{ borderInlineStart: '2px solid var(--ant-color-border, #d9d9d9)', paddingInlineStart: 8 }}
+        >
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+            <div style={{ flex: 1 }}>
+              <PredicateList
+                predicates={branch.when}
+                cols={cols}
+                firstLabel={t('queries.builder.steps.caseWhen')}
+                onChange={(when) => setBranch(i, { when })}
+              />
+            </div>
+            {step.branches.length > 1 ? (
+              <Button
+                type="text"
+                size="small"
+                danger
+                icon={<DeleteOutlined />}
+                aria-label={t('queries.builder.steps.removeBranch')}
+                onClick={() => onChange({ ...step, branches: step.branches.filter((_, j) => j !== i) })}
+              />
+            ) : null}
+          </div>
+          <FieldLabel text={t('queries.builder.steps.caseThen')}>
+            <CaseValueInput value={branch.then} cols={cols} onChange={(v) => v && setBranch(i, { then: v })} />
+          </FieldLabel>
+        </div>
+      ))}
+      <Button
+        type="link"
+        size="small"
+        icon={<PlusOutlined />}
+        style={{ alignSelf: 'flex-start', padding: 0 }}
+        disabled={step.branches.length >= 20}
+        onClick={() =>
+          onChange({
+            ...step,
+            branches: [
+              ...step.branches,
+              { when: [{ col: cols[0]?.name ?? '', op: 'equals', val: '' }], then: { kind: 'const', value: '' } },
+            ],
+          })
+        }
+        data-component="CaseAddBranch"
+      >
+        {t('queries.builder.steps.addBranch')}
+      </Button>
+      <FieldLabel text={t('queries.builder.steps.caseOtherwise')}>
+        <CaseValueInput
+          value={step.otherwise}
+          cols={cols}
+          allowBlank
+          onChange={(otherwise) => onChange({ ...step, otherwise })}
+        />
+      </FieldLabel>
+      {mismatch ? (
+        <Alert
+          role="alert"
+          type="error"
+          showIcon
+          data-component="CaseTypeMismatch"
+          title={t('queries.builder.steps.caseMismatch')}
+        />
+      ) : null}
+    </div>
   );
 }
 
@@ -538,9 +810,7 @@ function WindowColumnBody({
               The count is read off the shaped preview, so it needs no wire field. */}
           {gaps?.count
             ? ` ${t(
-                gaps.partial
-                  ? 'queries.builder.steps.priorPeriodGapsPage'
-                  : 'queries.builder.steps.priorPeriodGaps',
+                gaps.partial ? 'queries.builder.steps.priorPeriodGapsPage' : 'queries.builder.steps.priorPeriodGaps',
                 { count: gaps.count, col: step.orderBy?.[0]?.col ?? '' },
               )}`
             : ''}
@@ -627,6 +897,9 @@ function GroupColumnBody({
             style={{ minWidth: 160 }}
             aria-label={t('queries.builder.steps.withinEach')}
             value={[...step.by]}
+            // R175 — empty is legal (the whole table) and NAMED, never blank: the
+            // same "Across everything" state the ordered-window card renders.
+            placeholder={t('queries.builder.steps.acrossEverything')}
             options={nameOptions(cols)}
             onChange={(by: string[]) => onChange({ ...step, by })}
           />
@@ -671,7 +944,6 @@ function AggregateBody({
   onChange,
 }: Readonly<{ step: AggregateStep; cols: readonly Column[]; onChange: (s: Step) => void }>) {
   const { t } = useTranslation();
-  const measure = step.measures[0] ?? { agg: 'count' as const };
   const numeric = cols.filter(isNumericCol);
   const orderable = cols.filter(isOrderableCol);
   // R140 — the column pool each agg draws from (mirrors the backend dtype rules).
@@ -680,15 +952,24 @@ function AggregateBody({
     if (agg === 'min' || agg === 'max') return orderable;
     return cols; // count_distinct — any column
   };
-  const setAgg = (agg: AggregateMeasure['agg']) => {
-    if (agg === 'count') return onChange({ ...step, measures: [{ agg }] });
+  const measures = step.measures.length > 0 ? step.measures : [{ agg: 'count' as const }];
+  const setMeasures = (next: AggregateMeasure[]) => onChange({ ...step, measures: next });
+  const setAgg = (i: number, agg: AggregateMeasure['agg']) => {
+    const m = measures[i];
+    if (agg === 'count') return setMeasures(measures.map((x, j) => (j === i ? { agg } : x)));
     const pool = poolFor(agg);
     // Keep the current col when the new agg still accepts it; else the pool's first.
-    const col = pool.some((c) => c.name === measure.col) ? measure.col : pool[0]?.name;
-    onChange({ ...step, measures: [{ agg, col }] });
+    const col = pool.some((c) => c.name === m.col) ? m.col : pool[0]?.name;
+    setMeasures(measures.map((x, j) => (j === i ? { agg, col } : x)));
+  };
+  // R175 — a new measure defaults to the next numeric column not yet summed.
+  const addMeasure = () => {
+    const used = new Set(measures.map((m) => m.col));
+    const next = numeric.find((c) => !used.has(c.name));
+    setMeasures([...measures, next ? { agg: 'sum', col: next.name } : { agg: 'count' }]);
   };
   return (
-    <Space wrap size={[8, 6]}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
       <FieldLabel text={t('queries.builder.steps.groupBy')}>
         <Select
           mode="multiple"
@@ -699,33 +980,56 @@ function AggregateBody({
           onChange={(dimensions: string[]) => onChange({ ...step, dimensions })}
         />
       </FieldLabel>
-      <FieldLabel text={t('queries.builder.steps.measure')}>
-        <Select
-          size="small"
-          style={{ width: 140 }}
-          value={measure.agg}
-          options={[
-            { label: t('queries.builder.steps.sumOf'), value: 'sum' },
-            { label: t('queries.builder.steps.avgOf'), value: 'avg' },
-            { label: t('queries.builder.steps.minOf'), value: 'min' },
-            { label: t('queries.builder.steps.maxOf'), value: 'max' },
-            { label: t('queries.builder.steps.countDistinct'), value: 'count_distinct' },
-            { label: t('queries.builder.steps.countRows'), value: 'count' },
-          ]}
-          onChange={setAgg}
-        />
-        {measure.agg === 'count' ? null : (
-          <Select
-            size="small"
-            style={{ minWidth: 120 }}
-            value={measure.col}
-            placeholder="—"
-            options={nameOptions(poolFor(measure.agg))}
-            onChange={(col: string) => onChange({ ...step, measures: [{ agg: measure.agg, col }] })}
-          />
-        )}
-      </FieldLabel>
-    </Space>
+      {measures.map((measure, i) => (
+        <Space key={i} wrap size={[8, 6]} data-component="AggregateMeasureRow">
+          <FieldLabel text={i === 0 ? t('queries.builder.steps.measure') : t('queries.builder.steps.andMeasure')}>
+            <Select
+              size="small"
+              style={{ width: 140 }}
+              value={measure.agg}
+              options={[
+                { label: t('queries.builder.steps.sumOf'), value: 'sum' },
+                { label: t('queries.builder.steps.avgOf'), value: 'avg' },
+                { label: t('queries.builder.steps.minOf'), value: 'min' },
+                { label: t('queries.builder.steps.maxOf'), value: 'max' },
+                { label: t('queries.builder.steps.countDistinct'), value: 'count_distinct' },
+                { label: t('queries.builder.steps.countRows'), value: 'count' },
+              ]}
+              onChange={(agg: AggregateMeasure['agg']) => setAgg(i, agg)}
+            />
+            {measure.agg === 'count' ? null : (
+              <Select
+                size="small"
+                style={{ minWidth: 120 }}
+                value={measure.col}
+                placeholder="—"
+                options={nameOptions(poolFor(measure.agg))}
+                onChange={(col: string) => setMeasures(measures.map((x, j) => (j === i ? { agg: x.agg, col } : x)))}
+              />
+            )}
+          </FieldLabel>
+          {measures.length > 1 ? (
+            <Button
+              type="text"
+              size="small"
+              icon={<DeleteOutlined />}
+              aria-label={t('queries.builder.steps.removeMeasure')}
+              onClick={() => setMeasures(measures.filter((_, j) => j !== i))}
+            />
+          ) : null}
+        </Space>
+      ))}
+      <Button
+        type="link"
+        size="small"
+        icon={<PlusOutlined />}
+        style={{ alignSelf: 'flex-start', padding: 0 }}
+        onClick={addMeasure}
+        data-component="AggregateAddMeasure"
+      >
+        {t('queries.builder.steps.addMeasure')}
+      </Button>
+    </div>
   );
 }
 
@@ -822,36 +1126,122 @@ function FilterBody({
   onChange,
 }: Readonly<{ step: FilterStep; cols: readonly Column[]; onChange: (s: Step) => void }>) {
   const { t } = useTranslation();
-  const pred = step.predicates[0] ?? { col: cols[0]?.name ?? '', op: 'equals' };
-  const dtype = cols.find((c) => c.name === pred.col)?.dtype ?? 'string';
-  const ops = [...(OPS_BY_DTYPE[dtype] ?? [])];
-  const setPred = (patch: Partial<typeof pred>) => onChange({ ...step, predicates: [{ ...pred, ...patch }] });
   return (
-    <Space wrap size={[8, 6]}>
-      <FieldLabel text={t('queries.builder.steps.where')}>
-        <Select
-          size="small"
-          style={{ minWidth: 120 }}
-          value={pred.col}
-          options={nameOptions(cols)}
-          onChange={(col: string) => setPred({ col })}
-        />
-      </FieldLabel>
-      <Select
+    <PredicateList
+      predicates={step.predicates}
+      cols={cols}
+      firstLabel={t('queries.builder.steps.where')}
+      onChange={(predicates) => onChange({ ...step, predicates })}
+    />
+  );
+}
+
+/** R175 — operators that take no operand (mirrors the backend `_NO_VALUE_OPS`). */
+const NO_VALUE_OPS = new Set(['is_empty', 'is_not_empty', 'is_null', 'is_not_null', 'is_true', 'is_false']);
+
+/** R175 — an AND-list of predicates in the filter vocabulary, shared by the
+ *  filter card and each WHEN of the conditional column. It used to edit only
+ *  `predicates[0]`, which silently dropped the rest of a definition saved through
+ *  the API on the first keystroke; every predicate is now a row. A numeric or
+ *  date column takes its operand as typed text and the backend parses it — the
+ *  same contract as the source chip filters. `between` shows min/max. */
+function PredicateList({
+  predicates,
+  cols,
+  firstLabel,
+  onChange,
+}: Readonly<{
+  predicates: readonly FilterStepPredicate[];
+  cols: readonly Column[];
+  firstLabel: string;
+  onChange: (next: FilterStepPredicate[]) => void;
+}>) {
+  const { t } = useTranslation();
+  const rows = predicates.length > 0 ? predicates : [{ col: cols[0]?.name ?? '', op: 'equals' }];
+  const setRow = (i: number, patch: Partial<FilterStepPredicate>) =>
+    onChange(rows.map((p, j) => (j === i ? { ...p, ...patch } : p)));
+  const numericOperand = (col: string) => {
+    const dt = cols.find((c) => c.name === col)?.dtype;
+    return dt === 'integer' || dt === 'float';
+  };
+  const asOperand = (col: string, raw: string): string | number => {
+    if (numericOperand(col) && raw.trim() !== '' && Number.isFinite(Number(raw))) return Number(raw);
+    return raw;
+  };
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }} data-component="PredicateList">
+      {rows.map((pred, i) => {
+        const dtype = cols.find((c) => c.name === pred.col)?.dtype ?? 'string';
+        const ops = [...(OPS_BY_DTYPE[dtype] ?? [])];
+        return (
+          <Space key={i} wrap size={[8, 6]} data-component="PredicateRow">
+            <FieldLabel text={i === 0 ? firstLabel : t('queries.builder.steps.and')}>
+              <Select
+                size="small"
+                style={{ minWidth: 120 }}
+                value={pred.col}
+                options={nameOptions(cols)}
+                onChange={(col: string) => setRow(i, { col })}
+              />
+            </FieldLabel>
+            <Select
+              size="small"
+              style={{ minWidth: 110 }}
+              value={pred.op}
+              options={ops.map((o: Operator) => ({ label: o, value: o }))}
+              onChange={(op: string) =>
+                setRow(i, NO_VALUE_OPS.has(op) ? { op, val: undefined, min: undefined, max: undefined } : { op })
+              }
+            />
+            {pred.op === 'between' ? (
+              <>
+                <Input
+                  size="small"
+                  style={{ width: 100 }}
+                  placeholder={t('queries.builder.steps.min')}
+                  value={(pred.min as string | number | undefined) ?? ''}
+                  onChange={(e) => setRow(i, { min: asOperand(pred.col, e.target.value) })}
+                />
+                <Input
+                  size="small"
+                  style={{ width: 100 }}
+                  placeholder={t('queries.builder.steps.max')}
+                  value={(pred.max as string | number | undefined) ?? ''}
+                  onChange={(e) => setRow(i, { max: asOperand(pred.col, e.target.value) })}
+                />
+              </>
+            ) : NO_VALUE_OPS.has(pred.op) ? null : (
+              <Input
+                size="small"
+                style={{ width: 120 }}
+                placeholder={t('queries.builder.steps.value')}
+                value={(pred.val as string | number | undefined) ?? ''}
+                onChange={(e) => setRow(i, { val: asOperand(pred.col, e.target.value) })}
+              />
+            )}
+            {rows.length > 1 ? (
+              <Button
+                type="text"
+                size="small"
+                icon={<DeleteOutlined />}
+                aria-label={t('queries.builder.steps.removeCondition')}
+                onClick={() => onChange(rows.filter((_, j) => j !== i))}
+              />
+            ) : null}
+          </Space>
+        );
+      })}
+      <Button
+        type="link"
         size="small"
-        style={{ minWidth: 110 }}
-        value={pred.op}
-        options={ops.map((o: Operator) => ({ label: o, value: o }))}
-        onChange={(op: string) => setPred({ op })}
-      />
-      <Input
-        size="small"
-        style={{ width: 120 }}
-        placeholder={t('queries.builder.steps.value')}
-        value={(pred.val as string | number | undefined) ?? ''}
-        onChange={(e) => setPred({ val: e.target.value })}
-      />
-    </Space>
+        icon={<PlusOutlined />}
+        style={{ alignSelf: 'flex-start', padding: 0 }}
+        onClick={() => onChange([...rows, { col: cols[0]?.name ?? '', op: 'equals', val: '' }])}
+        data-component="PredicateAdd"
+      >
+        {t('queries.builder.steps.addCondition')}
+      </Button>
+    </div>
   );
 }
 

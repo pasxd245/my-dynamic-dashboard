@@ -5,7 +5,16 @@
 // re-validates on preview/save); this is just for the authoring UX.
 
 import type { Column } from '@/features/data-management/datasets/types';
-import type { AggregateMeasure, AggregateStep, GroupColumnStep, Step, WindowColumnStep, WindowOp } from './types';
+import type {
+  AggregateMeasure,
+  AggregateStep,
+  CaseStep,
+  CaseValue,
+  GroupColumnStep,
+  Step,
+  WindowColumnStep,
+  WindowOp,
+} from './types';
 
 const NUMERIC = new Set(['integer', 'float']);
 export const isNumericCol = (c: Column): boolean => NUMERIC.has(c.dtype);
@@ -56,11 +65,38 @@ export function stepOutput(step: Step, cols: readonly Column[]): Column[] {
       return [...cols, { name: step.name, dtype: groupColumnDtype(step, cols) }];
     case 'window_column':
       return [...cols, { name: step.name, dtype: windowColumnDtype(step, cols) }];
+    case 'date_part':
+    case 'date_diff':
+      return [...cols, { name: step.name, dtype: 'integer' }];
+    case 'case':
+      return [...cols, { name: step.name, dtype: caseDtype(step, cols) ?? 'string' }];
     case 'top_n':
     case 'sort':
     case 'filter':
       return [...cols];
   }
+}
+
+/** R175 — the dtype ONE case value contributes (mirrors `_case_value_dtype`). */
+function caseValueDtype(v: CaseValue | undefined, cols: readonly Column[]): Column['dtype'] | null {
+  if (!v) return null;
+  if (v.kind === 'col') return cols.find((c) => c.name === v.col)?.dtype ?? null;
+  if (typeof v.value === 'string') return 'string';
+  return Number.isInteger(v.value) ? 'integer' : 'float';
+}
+
+/** R175 — the conditional column's UNIFIED dtype, mirroring the backend's
+ *  `_unify_case_dtype`: numbers widen integer → float; anything else must agree.
+ *  `null` = the values disagree (the backend's `case_type_mismatch`), which the
+ *  card names instead of letting [Save] 422. */
+export function caseDtype(step: CaseStep, cols: readonly Column[]): Column['dtype'] | null {
+  const dts = [...step.branches.map((b) => b.then), step.otherwise]
+    .map((v) => caseValueDtype(v, cols))
+    .filter((d): d is Column['dtype'] => d !== null);
+  if (dts.length === 0) return null;
+  const distinct = new Set(dts);
+  if ([...distinct].every((d) => NUMERIC.has(d))) return distinct.has('float') ? 'float' : 'integer';
+  return distinct.size === 1 ? dts[0] : null;
 }
 
 /** R162 — the appended column's dtype, mirroring the backend measure rules
@@ -283,6 +319,27 @@ export function blankStep(kind: Step['kind'], cols: readonly Column[], op?: Wind
         granularity: 'week',
         name: 'bucket',
       };
+    case 'date_part':
+      return { kind: 'date_part', col: cols.find(isTemporalCol)?.name ?? '', part: 'year', name: 'year' };
+    case 'date_diff': {
+      const temporal = cols.filter(isTemporalCol);
+      return {
+        kind: 'date_diff',
+        start: temporal[0]?.name ?? '',
+        end: (temporal[1] ?? temporal[0])?.name ?? '',
+        unit: 'month',
+        name: 'months_between',
+      };
+    }
+    case 'case':
+      // R175 — a fresh card reads as a complete IF: "when <first col> equals …
+      // then 1, otherwise 0" — the flag shape this step is reached for most.
+      return {
+        kind: 'case',
+        name: 'flag',
+        branches: [{ when: [{ col: cols[0]?.name ?? '', op: 'equals', val: '' }], then: { kind: 'const', value: 1 } }],
+        otherwise: { kind: 'const', value: 0 },
+      };
     case 'group_column':
       // R162 — default to "average of the first numeric, within the first
       // categorical": the shape of the question this step exists to answer.
@@ -359,9 +416,7 @@ export function defaultWindowName(op: WindowOp, col: string | undefined): string
  *  count keeps one helper with one contract: a caller cannot forget to ask. */
 export function nullCountOf(
   name: string,
-  result:
-    | { columns: readonly Column[]; rows: readonly (readonly (string | null)[])[]; total?: number }
-    | undefined,
+  result: { columns: readonly Column[]; rows: readonly (readonly (string | null)[])[]; total?: number } | undefined,
 ): { count: number; partial: boolean } | null {
   if (!result) return null;
   const idx = result.columns.findIndex((c) => c.name === name);
@@ -410,7 +465,11 @@ export const STEP_MENU: readonly Readonly<{ group: string; items: readonly StepC
       { value: 'window_column:rank', kind: 'window_column', op: 'rank' },
       { value: 'window_column:prior_period', kind: 'window_column', op: 'prior_period' },
       { value: 'derive', kind: 'derive' },
+      // R175 — the formula-free IF/IFS, then the two numeric date helpers.
+      { value: 'case', kind: 'case' },
       { value: 'date_bucket', kind: 'date_bucket' },
+      { value: 'date_part', kind: 'date_part' },
+      { value: 'date_diff', kind: 'date_diff' },
     ],
   },
   {
