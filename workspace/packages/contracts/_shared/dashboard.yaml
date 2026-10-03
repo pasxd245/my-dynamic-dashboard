@@ -124,11 +124,14 @@ components:
           examples: [100, 1000000]
         numberFormat:
           type: string
-          enum: [plain, compact]
+          enum: [plain, compact, percent]
           description: |
             R116 — OPTIONAL per-widget number format (presentation, not data):
             `plain` (1,234) or `compact` (1.2K). Absent → `plain`. The first
             display-only option; the seed of a wider display-options bag.
+            R175 — `percent` renders a RATIO (0.0548 → 5.5%): conversion rates
+            (CR1/CR2, % QL) are stored as 0..1 floats, the product's ratio
+            convention (`pct_of_total`), and only their display is a percent.
           examples: ["compact"]
         agg:
           type: string

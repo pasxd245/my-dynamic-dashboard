@@ -12,7 +12,8 @@ export type Agg = 'sum' | 'count';
 
 /** R116 — per-widget number formatting (a presentation option, not data):
  *  `plain` = 1,234 · `compact` = 1.2K. The seed of a wider display-options bag. */
-export type NumberFormat = 'plain' | 'compact';
+/** R116 plain/compact; R175 `percent` renders a 0..1 ratio as a percentage. */
+export type NumberFormat = 'plain' | 'compact' | 'percent';
 
 /** How many columns (of a 3-column grid) a widget occupies: 1 = third,
  *  2 = two-thirds, 3 = full row. A per-widget size (Tableau-style arranging). */

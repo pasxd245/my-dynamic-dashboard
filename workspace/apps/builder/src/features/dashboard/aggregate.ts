@@ -202,6 +202,7 @@ export function sumTwoMeasures(
   groupIdx: number,
   m1Idx: number,
   m2Idx: number,
+  dimDtype?: string,
 ): ComboDatum[] {
   const acc = new Map<string, { v1: number; v2: number }>();
   for (const row of rows) {
@@ -211,7 +212,19 @@ export function sumTwoMeasures(
     cur.v2 += toNum(row[m2Idx]);
     acc.set(key, cur);
   }
-  return [...acc.entries()].map(([label, { v1, v2 }]) => ({ label, v1, v2 })).sort((a, b) => b.v1 - a.v1);
+  const out = [...acc.entries()].map(([label, { v1, v2 }]) => ({ label, v1, v2 }));
+  // R175 — a TIME dimension reads left→right as a trend (the line half of a combo
+  // is a trend line), so it orders chronologically like `sortByDimension`; a
+  // category keeps the largest-bar-first order. Dogfood: a monthly UL-vs-success
+  // combo came out ordered by UL, scrambling the months.
+  if (dimDtype === 'date' || dimDtype === 'datetime') {
+    const order = sortByDimension(
+      out.map((d) => ({ label: d.label, value: d.v1 })),
+      dimDtype,
+    ).map((d) => d.label);
+    return order.map((label) => out.find((d) => d.label === label) as ComboDatum);
+  }
+  return out.sort((a, b) => b.v1 - a.v1);
 }
 
 /** R113 — a scatter point: one row, two numeric axes (NOT aggregated). */

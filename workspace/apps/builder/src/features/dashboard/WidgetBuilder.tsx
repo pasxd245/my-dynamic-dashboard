@@ -117,10 +117,7 @@ export function WidgetBuilder({ open, workspaceId, initial, onSubmit, onCancel }
     () => columns.filter(isNumeric).map((c) => ({ value: c.name, label: c.name })),
     [columns],
   );
-  const queryOptions = useMemo(
-    () => (queries.data ?? []).map((q) => ({ value: q.id, label: q.name })),
-    [queries.data],
-  );
+  const queryOptions = useMemo(() => (queries.data ?? []).map((q) => ({ value: q.id, label: q.name })), [queries.data]);
 
   // `table` shows the raw rows — no dimension/measure/agg at all.
   const isTable = draft.chartType === 'table';
@@ -160,7 +157,10 @@ export function WidgetBuilder({ open, workspaceId, initial, onSubmit, onCancel }
   // Build the preview from the SAME draftToConfig the submit uses (so preview ==
   // saved shape), with a fallback title; the field conditionals live there.
   const previewWidget: Widget | null = previewReady
-    ? { id: 'preview', ...draftToConfig({ ...draft, title: draft.title.trim() || t('dashboard.builder.previewTitle') }) }
+    ? {
+        id: 'preview',
+        ...draftToConfig({ ...draft, title: draft.title.trim() || t('dashboard.builder.previewTitle') }),
+      }
     : null;
 
   // R108 — read-only transparency view: the persisted widget shape as live
@@ -319,6 +319,7 @@ export function WidgetBuilder({ open, workspaceId, initial, onSubmit, onCancel }
                 options={[
                   { value: 'plain', label: t('dashboard.builder.fmtPlain') },
                   { value: 'compact', label: t('dashboard.builder.fmtCompact') },
+                  { value: 'percent', label: t('dashboard.builder.fmtPercent') },
                 ]}
                 data-component="WidgetBuilderNumberFormat"
               />

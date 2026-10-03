@@ -8,22 +8,25 @@ import { useEffect, useRef } from 'react';
 
 const plainFmt = new Intl.NumberFormat();
 const compactFmt = new Intl.NumberFormat(undefined, { notation: 'compact', maximumFractionDigits: 1 });
+const percentFmt = new Intl.NumberFormat(undefined, { style: 'percent', maximumFractionDigits: 1 });
 
 /** Render a scalar value as an ECharts gauge against `max` (the target).
- *  R116 — `compact` switches the number format (1.2K vs 1,234). */
+ *  R116 — `compact` switches the number format (1.2K vs 1,234); R175 — `percent`
+ *  reads the value (and target) as a 0..1 ratio. */
 export default function GaugeView({
   value,
   max,
   label,
   palette,
   compact = false,
-}: Readonly<{ value: number; max: number; label: string; palette: string[]; compact?: boolean }>) {
+  percent = false,
+}: Readonly<{ value: number; max: number; label: string; palette: string[]; compact?: boolean; percent?: boolean }>) {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const el = ref.current;
     if (!el) return undefined;
-    const numberFmt = compact ? compactFmt : plainFmt;
+    const numberFmt = percent ? percentFmt : compact ? compactFmt : plainFmt;
     const chart = echarts.init(el);
     chart.setOption({
       series: [
@@ -52,7 +55,7 @@ export default function GaugeView({
       ro.disconnect();
       chart.dispose();
     };
-  }, [value, max, label, palette, compact]);
+  }, [value, max, label, palette, compact, percent]);
 
   return <div ref={ref} style={{ width: '100%', height: '100%' }} data-component="GaugeView" />;
 }

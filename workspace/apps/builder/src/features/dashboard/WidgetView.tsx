@@ -58,6 +58,9 @@ import type { Agg, Widget } from './types';
 
 const numberFmt = new Intl.NumberFormat();
 const compactFmt = new Intl.NumberFormat(undefined, { notation: 'compact', maximumFractionDigits: 1 });
+// R175 — a ratio (0..1) shown as a percentage: CR1/CR2 are stored as floats.
+const percentFmt = new Intl.NumberFormat(undefined, { style: 'percent', maximumFractionDigits: 1 });
+const ratioFmt = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 });
 
 // R151/F13 — the dtypes the server `sum` aggregate accepts as a measure; a
 // non-numeric measure 422s (`measure_not_numeric`), so the widget takes the
@@ -92,7 +95,14 @@ function ChartFigure({ label, children }: Readonly<{ label: string; children: Re
   );
 }
 
-function BarView({ data, valueName, palette }: Readonly<{ data: Datum[]; valueName: string; palette: string[] }>) {
+function BarView({
+  data,
+  valueName,
+  palette,
+  percent = false,
+}: Readonly<{ data: Datum[]; valueName: string; palette: string[]; percent?: boolean }>) {
+  const axisFmt = percent ? percentFmt : compactFmt;
+  const tipFmt = percent ? percentFmt : numberFmt;
   return (
     <ResponsiveContainer width="100%" height="100%">
       <BarChart data={data} margin={{ top: 8, right: 16, bottom: 8, left: 8 }} accessibilityLayer>
@@ -109,7 +119,7 @@ function BarView({ data, valueName, palette }: Readonly<{ data: Datum[]; valueNa
         <YAxis
           width={52}
           tick={{ fontSize: 11 }}
-          tickFormatter={(v: number) => compactFmt.format(v)}
+          tickFormatter={(v: number) => axisFmt.format(v)}
           label={{
             value: valueName,
             angle: -90,
@@ -117,7 +127,7 @@ function BarView({ data, valueName, palette }: Readonly<{ data: Datum[]; valueNa
             style: { fontSize: 12, textAnchor: 'middle' },
           }}
         />
-        <Tooltip formatter={(v) => numberFmt.format(Number(v))} />
+        <Tooltip formatter={(v) => tipFmt.format(Number(v))} />
         <Legend />
         <Bar dataKey="value" name={valueName} fill={palette[0]} radius={[4, 4, 0, 0]} />
       </BarChart>
@@ -232,7 +242,14 @@ function ComboView({
   );
 }
 
-function LineView({ data, valueName, palette }: Readonly<{ data: Datum[]; valueName: string; palette: string[] }>) {
+function LineView({
+  data,
+  valueName,
+  palette,
+  percent = false,
+}: Readonly<{ data: Datum[]; valueName: string; palette: string[]; percent?: boolean }>) {
+  const axisFmt = percent ? percentFmt : compactFmt;
+  const tipFmt = percent ? percentFmt : numberFmt;
   return (
     <ResponsiveContainer width="100%" height="100%">
       <LineChart data={data} margin={{ top: 8, right: 16, bottom: 8, left: 8 }} accessibilityLayer>
@@ -249,7 +266,7 @@ function LineView({ data, valueName, palette }: Readonly<{ data: Datum[]; valueN
         <YAxis
           width={52}
           tick={{ fontSize: 11 }}
-          tickFormatter={(v: number) => compactFmt.format(v)}
+          tickFormatter={(v: number) => axisFmt.format(v)}
           label={{
             value: valueName,
             angle: -90,
@@ -257,7 +274,7 @@ function LineView({ data, valueName, palette }: Readonly<{ data: Datum[]; valueN
             style: { fontSize: 12, textAnchor: 'middle' },
           }}
         />
-        <Tooltip formatter={(v) => numberFmt.format(Number(v))} />
+        <Tooltip formatter={(v) => tipFmt.format(Number(v))} />
         <Legend />
         <Line
           type="monotone"
@@ -281,15 +298,42 @@ function StatView({ value, label, fmt }: Readonly<{ value: number; label: string
   );
 }
 
+/** R175 — a table cell, by its column dtype: integers grouped (3,926), floats
+ *  rounded (0.08) or — on a `percent` widget — shown as a percentage (7.9%), dates
+ *  as the date part. The wire stringifies every cell, so a raw ratio used to read
+ *  `0.07945736434108527`. */
+export function formatTableCell(cell: string | null, dtype: string | undefined, percent: boolean): string {
+  if (cell === null || cell === undefined) return '';
+  if (dtype === 'integer' || dtype === 'float') {
+    const n = Number(cell);
+    if (!Number.isFinite(n)) return cell;
+    if (dtype === 'integer') return numberFmt.format(n);
+    return (percent ? percentFmt : ratioFmt).format(n);
+  }
+  if (dtype === 'date') return cell.slice(0, 10);
+  return cell;
+}
+
 function TableView({
   columns,
   rows,
-}: Readonly<{ columns: readonly { name: string }[]; rows: readonly (readonly (string | null)[])[] }>) {
-  const cols = columns.map((c, i) => ({ title: c.name, dataIndex: String(i), key: String(i), ellipsis: true }));
+  percent = false,
+}: Readonly<{
+  columns: readonly { name: string; dtype?: string }[];
+  rows: readonly (readonly (string | null)[])[];
+  percent?: boolean;
+}>) {
+  const cols = columns.map((c, i) => ({
+    title: c.name,
+    dataIndex: String(i),
+    key: String(i),
+    ellipsis: true,
+    align: c.dtype === 'integer' || c.dtype === 'float' ? ('right' as const) : undefined,
+  }));
   const dataSource = rows.map((r, ri) => {
     const o: Record<string, string> = { key: String(ri) };
     r.forEach((cell, ci) => {
-      o[String(ci)] = cell ?? '';
+      o[String(ci)] = formatTableCell(cell, columns[ci]?.dtype, percent);
     });
     return o;
   });
@@ -376,7 +420,11 @@ export function useWidgetChartData(
     widget.measureCol,
     boundQuery.data?.resolvedColumns,
   );
-  const aggregateEnabled = usesAggregate && specValid && !preShaped && measureNumericOk;
+  // R175 — decide only once the bound query is KNOWN: while its definition is
+  // loading `preShaped` reads false, so a stepped query fired a server aggregate
+  // that 422'd (its measure is a post-step column) before the widget switched to
+  // the direct path — five doomed requests on the weekly-report dashboard.
+  const aggregateEnabled = usesAggregate && specValid && boundQuery.isSuccess && !preShaped && measureNumericOk;
   const directShaped = usesAggregate && specValid && preShaped;
 
   const measures: AggregateMeasure[] =
@@ -415,7 +463,7 @@ export function useWidgetChartData(
   // R112 — combo: two summed measures over the dimension (bar + line).
   const comboData =
     widget.chartType === 'combo' && dimIdx !== -1 && measureIdx !== -1 && measure2Idx !== -1
-      ? sumTwoMeasures(rows, dimIdx, measureIdx, measure2Idx)
+      ? sumTwoMeasures(rows, dimIdx, measureIdx, measure2Idx, data.columns[dimIdx]?.dtype)
       : null;
 
   // R113 — scatter: raw (x, y) points, no aggregation.
@@ -512,7 +560,9 @@ export function WidgetView({ widget, extra, filters }: WidgetViewProps) {
   const valueName = widget.agg === 'count' ? t('dashboard.builder.countLabel') : (widget.measureCol ?? '');
   // R116 — per-widget number format (presentation). Applied to the headline
   // value displays (stat, gauge); charts keep their compact-axis defaults.
-  const fmt = widget.numberFormat === 'compact' ? compactFmt : numberFmt;
+  const fmt =
+    widget.numberFormat === 'compact' ? compactFmt : widget.numberFormat === 'percent' ? percentFmt : numberFmt;
+  const percent = widget.numberFormat === 'percent';
   const ariaKey = {
     bar: 'dashboard.ariaBar',
     pie: 'dashboard.ariaPie',
@@ -596,17 +646,22 @@ export function WidgetView({ widget, extra, filters }: WidgetViewProps) {
               label={valueName}
               palette={palette}
               compact={widget.numberFormat === 'compact'}
+              percent={percent}
             />
           </Suspense>
         )}
-        {widget.chartType === 'table' && tableData && <TableView columns={tableData.columns} rows={tableData.rows} />}
+        {widget.chartType === 'table' && tableData && (
+          <TableView columns={tableData.columns} rows={tableData.rows} percent={percent} />
+        )}
         {widget.chartType === 'pie' && <PieView data={chartData} palette={palette} />}
-        {widget.chartType === 'line' && <LineView data={chartData} valueName={valueName} palette={palette} />}
+        {widget.chartType === 'line' && (
+          <LineView data={chartData} valueName={valueName} palette={palette} percent={percent} />
+        )}
         {widget.chartType === 'bar' && multiSeries && (
           <MultiBarView data={multiSeries.data} seriesKeys={multiSeries.seriesKeys} palette={palette} />
         )}
         {widget.chartType === 'bar' && !multiSeries && (
-          <BarView data={chartData} valueName={valueName} palette={palette} />
+          <BarView data={chartData} valueName={valueName} palette={palette} percent={percent} />
         )}
       </ChartFigure>
     </ChartCard>
