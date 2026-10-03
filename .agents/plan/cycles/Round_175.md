@@ -1,0 +1,81 @@
+# Round 175: the weekly-report dogfood — can MDD replace the CRM-funnel Excel?
+
+**Status**: Review — agent pass done on the real 30/09 export; the human's review of the branch is OPEN.
+**Flow**: probe + fix — walk the real report, rank what blocks it, close the blockers in-round.
+**Date started**: 2026-10-04
+**Date completed**: —
+
+## Goal
+
+**Pulled by ←** the product's own purpose (README: _"Replaces a broken CRM → Excel reporting
+workflow"_) and a concrete pull: the Digiin weekly report (`bao_cao_tuan/`), whose four Excel
+workbooks were reverse-engineered on 2026-10-03 (`ai_analysis/01_bao_cao_tuan_patterns_workflow.md`,
+verified against the hand-made `phân tích` sheet for 01–06/2026).
+
+**Question**: can the CRM **lead funnel** — Excel's 8 helper columns + the pivot filter + the KPI
+ratios + "this month vs the same period last month" — be built as MDD saved queries and one
+dashboard, matching the hand-made numbers, with no logic outside MDD?
+
+_Track: 1 (product). Pulled by: a named product gap (the weekly report) — per the Evolution Rule._
+
+## Plan
+
+**Expected outcome**: every lead-funnel KPI from the report reproduced by saved queries on the raw
+CRM export + the policy workbook, number-for-number; every blocker either fixed here or recorded.
+
+**Falsified if**: the funnel can be expressed with the existing steps. Then MDD already serves the
+report and the round collapses into a pack of saved queries.
+
+### Explicitly NOT in this round
+
+- Policy / Renewal / YTD flows (same pattern, next rounds).
+- An `in`-list operator — the funnel uses one `case` branch per value instead (see Act).
+- Workflow output as a dashboard source (R174 W-1 stays open).
+
+## Do
+
+The walk, on the real 30/09 export (31,584 leads) + `Report-Policy.xlsx` (5,048 contracts):
+
+| # | Blocker met on the walk | Severity | Fix in this round |
+|---|---|---|---|
+| G1 | One whitespace-only cell (`" "`) in 31k rows aborted the datetime override with `coercion_failed` | blocker | Whitespace-only text reads as NULL for typed targets; `string` keeps it verbatim |
+| G2 | No formula-free IF/IFS: buckets (`Cỡ xe`), 0/1 flags for conditional counts, a date fallback | blocker | New `case` step (first matching branch wins; filter vocabulary in `when`; unified dtype) |
+| G3 | "This month / last month" needed a hard-coded date; vehicle age needed the year | blocker | New `date_part` and `date_diff` steps + `group_column` with `by: []` (the export's cut-off on every row) |
+| G4 | The funnel needs ~20 steps in ONE query; cap was 8, and a query cannot read a query (R167) | blocker | `_MAX_STEPS` 8 → 24 |
+| G5 | `starts_with "web_"` matched `webXtra` — `_` was a LIKE wildcard | correctness bug | LIKE operands are escaped (literal match) |
+| G6 | The builder edited only `measures[0]` / `predicates[0]` — opening an API-saved query and touching it dropped the rest | data loss in UI | Aggregate and filter cards edit every measure / predicate |
+| G7 | Ratios showed as `0.07945736434108527` | presentation | Dashboard `numberFormat: percent`; table cells format by dtype |
+| G8 | A combo over months was ordered by bar height | presentation | Combo orders a date dimension chronologically |
+| G9 | Widgets on stepped queries fired a server aggregate (422) before the bound query loaded | console noise | Wait for the bound query before choosing the path |
+
+## Check
+
+- **Numbers**: the saved query _Lead funnel – theo tháng_ matches `ai_analysis/tools/weekly_funnel.py`
+  for every month 01–09/2026 (UL, Đã gọi, QL, Thành công, Digiin, Organic, CR1, CR2); 01–06 are the
+  hand-made `phân tích` values. _Lũy kế vs cùng kỳ_ matches the KPI sheet (3,926 / 1,548 / 123 / 79
+  vs 3,379 / 1,702 / 157 / 93). Months 07–09 differ from the stale Excel by design: MDD joins the
+  current policy file, the workbook still carries a pasted-value `new hay ko` (148 renewals unflagged).
+- **Tests**: backend 463 passed (+18 in `test_case_and_date_steps.py`, +1 whitespace, group_column
+  whole-table); builder 384 passed + `tests/steps-r175.test.tsx` (9); contracts 40 passed; builder
+  production build OK. The one failing builder test (`datasets.test.tsx` R171 reset-all) fails
+  identically on the untouched branch — a timeout in a slow sandbox, not this round.
+- **Acceptance walk** — `coverage: agent pass only`. The dashboard was rendered in the builder
+  against the real data and screenshot-checked; the human pass is the review of this branch.
+
+## Act
+
+- **Lesson**: the report did not need a new noun — it needed IF, a calendar difference and a higher
+  ceiling. Every Excel helper column in the funnel maps to one formula-free step.
+- **Recorded, not fixed**: an `in` / `not in` list operator would turn 7-branch `case` steps into one
+  predicate (the pivot filter is literally a checklist) — it touches the source-filter URL grammar,
+  so it is its own round. A chart widget draws a stepped query's rows as-is (R127), so chart queries
+  must be shaped to the chart's grain.
+
+## Feeds into → Round_176 (TBD)
+
+Policy + Renewal flows on the same pattern, or the `in`-list operator — the human's call at review.
+
+## Governance
+
+Contract-first: `_shared/query.yaml` (CaseStep, DatePartStep, DateDiffStep, GroupColumnStep `by`,
+step ceiling), `_shared/workflow.yaml` (union widened), `_shared/dashboard.yaml` (`percent`).
