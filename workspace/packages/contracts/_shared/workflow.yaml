@@ -44,6 +44,9 @@ components:
               - $ref: "query.yaml#/components/schemas/DateBucketStep"
               - $ref: "query.yaml#/components/schemas/GroupColumnStep"
               - $ref: "query.yaml#/components/schemas/WindowColumnStep"
+              - $ref: "query.yaml#/components/schemas/DatePartStep"
+              - $ref: "query.yaml#/components/schemas/CaseStep"
+              - $ref: "query.yaml#/components/schemas/DateDiffStep"
             discriminator:
               propertyName: kind
               mapping:
@@ -56,6 +59,9 @@ components:
                 date_bucket: "query.yaml#/components/schemas/DateBucketStep"
                 group_column: "query.yaml#/components/schemas/GroupColumnStep"
                 window_column: "query.yaml#/components/schemas/WindowColumnStep"
+                date_part: "query.yaml#/components/schemas/DatePartStep"
+                case: "query.yaml#/components/schemas/CaseStep"
+                date_diff: "query.yaml#/components/schemas/DateDiffStep"
 
     Workflow:
       type: object

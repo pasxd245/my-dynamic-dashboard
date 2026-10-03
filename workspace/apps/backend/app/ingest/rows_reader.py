@@ -437,6 +437,45 @@ def _derive_expr(step: dict) -> str:
     return f"({left} / NULLIF({right}, 0))" if step["op"] == "/" else f"({left} {step['op']} {right})"
 
 
+_CASE_SQL_TYPES = {
+    "string": "VARCHAR",
+    "integer": "BIGINT",
+    "float": "DOUBLE",
+    "boolean": "BOOLEAN",
+    "date": "DATE",
+    "datetime": "TIMESTAMP",
+}
+
+
+def _case_value_sql(value: dict | None, sql_type: str) -> tuple[str, list[Any]]:
+    """One `case` value → typed SQL: a column reference, a bound literal, or NULL."""
+    if value is None:
+        return f"CAST(NULL AS {sql_type})", []
+    if value.get("kind") == "col":
+        return f"CAST({_quote_ident(value['col'])} AS {sql_type})", []
+    return f"CAST(? AS {sql_type})", [value["value"]]
+
+
+def _case_expr(step: dict) -> tuple[str, list[Any]]:
+    """R175 — compile a CONDITIONAL COLUMN to ``CASE WHEN … THEN … ELSE … END``.
+    Each `when` is the filter step's own predicate SQL (``build_filter_sql`` —
+    one vocabulary); every value is CAST to the planner's unified dtype so the
+    branches can never disagree at runtime. First match wins (SQL CASE order)."""
+    sql_type = _CASE_SQL_TYPES[step["dtype"]]
+    parts: list[str] = ["CASE"]
+    params: list[Any] = []
+    for br in step["branches"]:
+        frag, fparams = build_filter_sql(br["predicates_fp"])
+        val_sql, val_params = _case_value_sql(br["then"], sql_type)
+        parts.append(f"WHEN {frag} THEN {val_sql}")
+        params.extend(fparams)
+        params.extend(val_params)
+    else_sql, else_params = _case_value_sql(step.get("otherwise"), sql_type)
+    parts.append(f"ELSE {else_sql} END")
+    params.extend(else_params)
+    return " ".join(parts), params
+
+
 def _apply_step(step: dict, sql: str, params: list[Any], cols: list[str]) -> tuple[str, list[Any], list[str]]:
     """Apply one TYPED step → ``(sql, params, columns)``. ``aggregate`` reshapes;
     ``top_n`` orders + caps; ``sort`` orders (R141, no limit); ``derive`` appends a
@@ -470,7 +509,9 @@ def _apply_step(step: dict, sql: str, params: list[Any], cols: list[str]) -> tup
         # collapsing aggregate, WINDOWED over the row's partition instead of
         # collapsing it, so the row count is unchanged. No in-window ORDER BY →
         # the frame is the whole partition and the value is order-independent.
-        over = "PARTITION BY " + ", ".join(_quote_ident(g) for g in step["by"])
+        # R175 — an empty `by` is the whole table: `OVER ()` (still a window — the
+        # None-vs-"" distinction `_measure_expr` documents).
+        over = ("PARTITION BY " + ", ".join(_quote_ident(g) for g in step["by"])) if step["by"] else ""
         expr = _measure_expr(step["agg"], step["col"], over=over)
         return f"SELECT *, {expr} AS {_quote_ident(step['name'])} FROM ({sql}) AS _n", params, [*cols, step["name"]]
     if kind == "window_column":
@@ -479,6 +520,29 @@ def _apply_step(step: dict, sql: str, params: list[Any], cols: list[str]) -> tup
         # still comes from `_measure_expr` (one vocabulary, one NULL policy) —
         # only the OVER(...) body differs per op.
         return _apply_window_column(step, sql, params, cols)
+    if kind == "date_part":
+        # R175 — the calendar part as BIGINT; the specifier is enum-guarded by the
+        # planner (mapped from the wire vocabulary) → safe to inline.
+        expr = f"CAST(date_part('{step['part']}', {_quote_ident(step['col'])}) AS BIGINT)"
+        return f"SELECT *, {expr} AS {_quote_ident(step['name'])} FROM ({sql}) AS _dp", params, [*cols, step["name"]]
+    if kind == "date_diff":
+        # R175 — calendar boundaries crossed (DuckDB datediff); the unit is
+        # enum-guarded by the planner → safe to inline. Both sides CAST to DATE
+        # so a datetime's time part never shifts a day/month count.
+        expr = (
+            f"CAST(datediff('{step['unit']}', CAST({_quote_ident(step['start'])} AS DATE), "
+            f"CAST({_quote_ident(step['end'])} AS DATE)) AS BIGINT)"
+        )
+        return f"SELECT *, {expr} AS {_quote_ident(step['name'])} FROM ({sql}) AS _dd", params, [*cols, step["name"]]
+    if kind == "case":
+        case_sql, case_params = _case_expr(step)
+        # The CASE sits in the SELECT list, textually BEFORE the inner relation,
+        # so its bind params come first (param order = textual order).
+        return (
+            f"SELECT *, {case_sql} AS {_quote_ident(step['name'])} FROM ({sql}) AS _c",
+            [*case_params, *params],
+            [*cols, step["name"]],
+        )
     if kind == "date_bucket":
         # R144 — append the period's START date (week = ISO Monday-start, DuckDB
         # native). granularity is enum-guarded by the planner → safe to inline.

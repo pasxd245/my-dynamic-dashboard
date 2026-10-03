@@ -537,7 +537,12 @@ def _build_inner_relation(plan: dict, q: str | None, filters: list, advanced: li
     )
 
 
-_MAX_STEPS = 8
+# R175 — raised 8 → 24. A real weekly report (the CRM lead funnel) needs ~20
+# formula-free steps in ONE query: Excel's 8 helper columns + the pivot filter +
+# the KPI ratios. A query cannot be built on another query (R167) and a workflow
+# output has no consumer yet (R174 W-1), so the cap was the only thing standing
+# between a saved query and the report. Still a cap: a definition stays bounded.
+_MAX_STEPS = 24
 
 
 def _require_numeric(col: str | None, by_name: dict, loc: list) -> None:
@@ -636,12 +641,129 @@ def _plan_group_column(step: dict, cur_cols: list[dict], loc: list) -> tuple[dic
         if g in group_by:
             raise _agg_422([*loc, "by", j], f"duplicate_group_column: {g!r} appears twice")
         group_by.append(g)
-    if not group_by:
-        # `by: []` (the whole table — "% of total") is deliberately out of scope:
-        # same mechanism, a later round. Never a silent global window.
-        raise _agg_422([*loc, "by"], "group_by_required: at least one group column")
+    # R175 — an EMPTY `by` is the whole table (`OVER ()`). It is not a SILENT
+    # global window: the builder names it "Across everything", exactly as it does
+    # for the `window_column` family (the R164 precedent this widens to match).
     norm = {"kind": "group_column", "name": name, "agg": agg, "col": col, "by": group_by}
     return norm, [*cur_cols, {"name": name, "dtype": _measure_dtype(col, agg, by_name)}]
+
+
+# R175 — the date_part vocabulary → the DuckDB `date_part` specifier. Guarded
+# here (not trusted from the model) because the specifier is INLINED into the
+# step SQL; `dow` is ISO (Monday = 1), DuckDB's `isodow`.
+_DATE_PARTS = {"year": "year", "quarter": "quarter", "month": "month", "week": "week", "day": "day", "dow": "isodow"}
+
+
+def _plan_date_part(step: dict, cur_cols: list[dict], loc: list) -> tuple[dict, list[dict]]:
+    """R175 — validate a date_part step (date/datetime col, known part, no name
+    collision) → its normalized descriptor + column space (base ++ an `integer`)."""
+    by_name = {c["name"]: c for c in cur_cols}
+    name = step.get("name")
+    if name in by_name:
+        raise _agg_422([*loc, "name"], f"column_exists: {name!r} is already a column")
+    col = by_name.get(step.get("col"))
+    if col is None:
+        raise _agg_422([*loc, "col"], f"unknown_column: {step.get('col')!r} is not a column at this step")
+    if col["dtype"] not in ("date", "datetime"):
+        raise _agg_422([*loc, "col"], f"part_col_not_date: {step.get('col')!r} is {col['dtype']}, not date/datetime")
+    part = step.get("part")
+    if part not in _DATE_PARTS:
+        raise _agg_422([*loc, "part"], f"unknown_date_part: {part!r}")
+    norm = {"kind": "date_part", "col": step.get("col"), "part": _DATE_PARTS[part], "name": name}
+    return norm, [*cur_cols, {"name": name, "dtype": "integer"}]
+
+
+_DIFF_UNITS = frozenset({"day", "week", "month", "quarter", "year"})
+
+
+def _plan_date_diff(step: dict, cur_cols: list[dict], loc: list) -> tuple[dict, list[dict]]:
+    """R175 — validate a date_diff step (both sides date/datetime, known unit, no
+    name collision) → its normalized descriptor + column space (base ++ integer)."""
+    by_name = {c["name"]: c for c in cur_cols}
+    name = step.get("name")
+    if name in by_name:
+        raise _agg_422([*loc, "name"], f"column_exists: {name!r} is already a column")
+    for side in ("start", "end"):
+        c = by_name.get(step.get(side))
+        if c is None:
+            raise _agg_422([*loc, side], f"unknown_column: {step.get(side)!r} is not a column at this step")
+        if c["dtype"] not in ("date", "datetime"):
+            raise _agg_422([*loc, side], f"diff_col_not_date: {step.get(side)!r} is {c['dtype']}, not date/datetime")
+    unit = step.get("unit")
+    if unit not in _DIFF_UNITS:
+        raise _agg_422([*loc, "unit"], f"unknown_granularity: {unit!r}")
+    norm = {"kind": "date_diff", "start": step.get("start"), "end": step.get("end"), "unit": unit, "name": name}
+    return norm, [*cur_cols, {"name": name, "dtype": "integer"}]
+
+
+_MAX_CASE_BRANCHES = 20
+
+
+def _case_value_dtype(value: dict | None, by_name: dict, loc: list) -> str | None:
+    """R175 — the dtype ONE case value contributes to the unified output dtype:
+    a literal string → string; a whole number → integer; a fractional → float; a
+    column → its dtype. ``None`` (no `otherwise`) contributes nothing (NULL)."""
+    if value is None:
+        return None
+    if value.get("kind") == "col":
+        c = by_name.get(value.get("col"))
+        if c is None:
+            raise _agg_422([*loc, "col"], f"unknown_column: {value.get('col')!r} is not a column at this step")
+        return c["dtype"]
+    v = value.get("value")
+    if isinstance(v, bool) or v is None:
+        raise _agg_422([*loc, "value"], "case_value_invalid: a literal is a string or a number")
+    if isinstance(v, str):
+        return "string"
+    return "integer" if float(v).is_integer() else "float"
+
+
+def _unify_case_dtype(dtypes: list[str], loc: list) -> str:
+    """R175 — one output dtype for every then/otherwise. Numbers widen
+    integer → float; anything else must agree exactly (a string beside a number
+    is the classic silent-coercion bug a formula tool hides — refused here)."""
+    distinct = set(dtypes)
+    if distinct <= _NUMERIC_DTYPES:
+        return "float" if "float" in distinct else "integer"
+    if len(distinct) == 1:
+        return dtypes[0]
+    raise _agg_422(loc, f"case_type_mismatch: values mix {sorted(distinct)}")
+
+
+def _plan_case(step: dict, cur_cols: list[dict], loc: list) -> tuple[dict, list[dict]]:
+    """R175 — validate a CONDITIONAL COLUMN: each branch's `when` is planned by the
+    filter step's own validator (same operator vocabulary, dtype checks, operand
+    parsing), every value resolves to a dtype, and the dtypes unify. Returns the
+    normalized descriptor (branches carry built ``FilterPredicate``s) + the column
+    space (base ++ the new column)."""
+    by_name = {c["name"]: c for c in cur_cols}
+    name = step.get("name")
+    if name in by_name:
+        raise _agg_422([*loc, "name"], f"column_exists: {name!r} is already a column")
+    raw_branches = step.get("branches") or []
+    if not raw_branches:
+        raise _agg_422([*loc, "branches"], "case_branches_required: at least one branch")
+    if len(raw_branches) > _MAX_CASE_BRANCHES:
+        raise _agg_422([*loc, "branches"], f"too_many_branches: at most {_MAX_CASE_BRANCHES}")
+    branches: list[dict] = []
+    dtypes: list[str] = []
+    for j, br in enumerate(raw_branches):
+        bloc = [*loc, "branches", j]
+        when = br.get("when") or []
+        if not when:
+            raise _agg_422([*bloc, "when"], "case_when_required: at least one predicate")
+        planned, _ = _plan_filter({"predicates": when}, cur_cols, [*bloc, "when"])
+        then = br.get("then")
+        dt = _case_value_dtype(then, by_name, [*bloc, "then"])
+        dtypes.append(dt)  # type: ignore[arg-type]
+        branches.append({"predicates_fp": planned["predicates_fp"], "then": then})
+    otherwise = step.get("otherwise")
+    other_dt = _case_value_dtype(otherwise, by_name, [*loc, "otherwise"])
+    if other_dt is not None:
+        dtypes.append(other_dt)
+    out_dtype = _unify_case_dtype(dtypes, loc)
+    norm = {"kind": "case", "name": name, "branches": branches, "otherwise": otherwise, "dtype": out_dtype}
+    return norm, [*cur_cols, {"name": name, "dtype": out_dtype}]
 
 
 # R164 — per-op field REQUIREMENTS for the ordered-window family. A field an op
@@ -832,6 +954,12 @@ def _plan_one_step(step: dict, cur_cols: list[dict], loc: list) -> tuple[dict, l
         return _plan_group_column(step, cur_cols, loc)
     if kind == "window_column":
         return _plan_window_column(step, cur_cols, loc)
+    if kind == "date_part":
+        return _plan_date_part(step, cur_cols, loc)
+    if kind == "case":
+        return _plan_case(step, cur_cols, loc)
+    if kind == "date_diff":
+        return _plan_date_diff(step, cur_cols, loc)
     raise _agg_422([*loc, "kind"], f"unknown_step_kind: {kind!r}")
 
 

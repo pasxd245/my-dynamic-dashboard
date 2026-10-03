@@ -196,7 +196,7 @@ def test_top_n_only_over_raw_rows() -> None:
     [
         [{"kind": "top_n", "col": "ghost", "n": 1}],  # unknown order column
         [_AGG_BY_REGION, {"kind": "top_n", "col": "product", "n": 1}],  # col dropped by the aggregate
-        [{"kind": "top_n", "col": "amount", "n": 1}] * 9,  # > _MAX_STEPS (8)
+        [{"kind": "top_n", "col": "amount", "n": 1}] * 25,  # > _MAX_STEPS (24, R175)
     ],
 )
 def test_bad_chain_rejected_on_save_422(steps: list[dict]) -> None:

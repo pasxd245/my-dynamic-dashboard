@@ -213,9 +213,7 @@ def test_bad_group_column_rejected_on_save_422(step: dict, expected_detail: str)
 @pytest.mark.parametrize(
     "step",
     [
-        # `by: []` — the whole table ("% of total") is deliberately out of scope
-        {"kind": "group_column", "name": "g", "agg": "count", "by": []},
-        # `by` missing entirely
+        # `by` missing entirely (R175: an EMPTY list is the whole table — see below)
         {"kind": "group_column", "name": "g", "agg": "count"},
         # a blank output name
         {"kind": "group_column", "name": "", "agg": "count", "by": ["team"]},
@@ -230,32 +228,21 @@ def test_malformed_group_column_body_rejected_422(step: dict) -> None:
 
 
 @pytest.mark.unit
-def test_empty_by_in_a_saved_definition_is_re_rejected_at_run() -> None:
-    """A saved definition is RE-PLANNED on every run and its column names are
-    INLINED into the window SQL, so the planner re-checks `by` rather than
-    trusting the model — an empty `by` inserted behind the API must never
-    silently become a whole-table window."""
-    drifted = {
-        "q": None,
-        "filters": [],
-        "advanced": [],
-        "steps": [{"kind": "group_column", "name": "g", "agg": "count", "by": []}],
-    }
+def test_empty_by_is_the_whole_table() -> None:
+    """R175 — `by: []` is the WHOLE TABLE (`OVER ()`), the same explicit state the
+    `window_column` family has carried since R164 ("Across everything" in the
+    builder). Pulled by the weekly report: every row needs the export's cut-off
+    (the newest date) to say "this month" without a hard-coded date. The row count
+    is unchanged and every row carries the same value."""
+    steps = [{"kind": "group_column", "name": "max_sec", "agg": "max", "col": "sec", "by": []},
+             {"kind": "group_column", "name": "n", "agg": "count", "by": []}]
     with TestClient(app) as client:
         ws, ds_id = _commit(client, _T3_CSV)
-        with db.get_conn() as con:
-            con.execute(
-                "INSERT INTO queries (id, workspace_id, source_id, name, definition_json, created_at) "
-                "VALUES (?, ?, ?, ?, ?, ?)",
-                ("qr_beefbeef", ws, ds_id, "Empty by", json.dumps(drifted), "2026-08-11T00:00:00Z"),
-            )
-            con.commit()
-        resp = client.get("/queries/qr_beefbeef/rows")
+        rows = _rows(client, ws, ds_id, steps, "whole table")
 
-    assert resp.status_code == 409
-    # R165 W-8 — a STEP the planner refuses is `step_invalid`; `query_stale` stayed
-    # with the drifted PREDICATE it was named for.
-    assert resp.json() == {"code": "step_invalid"}
+    assert len(rows) == 10
+    assert {r[-2] for r in rows} == {"600"}
+    assert {r[-1] for r in rows} == {"10"}
 
 
 @pytest.mark.unit
@@ -355,8 +342,8 @@ def test_t3_average_of_agents_reading_is_reachable_after_the_aggregate() -> None
 def test_t3_pooled_reading_is_reachable_by_rolling_the_underlying_rows_up() -> None:
     """The other legitimate reading — all of North's ROWS pooled: 5/7 =
     **71.4%** — reached by rolling the underlying tallies up within the team
-    instead of averaging the per-agent rates. Costs exactly 8 steps, which is
-    `_MAX_STEPS` with zero headroom (R162's D-gate arithmetic, now executed)."""
+    instead of averaging the per-agent rates. Costs exactly 8 steps — R162's
+    ceiling with zero headroom (its D-gate arithmetic); R175 raised the cap to 24."""
     steps = [
         *_T3_BASE,
         # each agent's row carries its own tally + its own total, so summing them
@@ -366,7 +353,7 @@ def test_t3_pooled_reading_is_reachable_by_rolling_the_underlying_rows_up() -> N
         {"kind": "derive", "name": "team_rate", "left": "team_connected", "op": "/", "right": {"kind": "col", "col": "team_calls"}},
         {"kind": "derive", "name": "vs_team", "left": "agent_rate", "op": "-", "right": {"kind": "col", "col": "team_rate"}},
     ]
-    assert len(steps) == 8  # the ceiling, exactly
+    assert len(steps) == 8  # R162's ceiling, exactly (the cap is 24 since R175)
     with TestClient(app) as client:
         ws, ds_id = _commit(client, _T3_CSV)
         rows = _rows(client, ws, ds_id, steps, "pooled")

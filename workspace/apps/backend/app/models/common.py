@@ -503,7 +503,9 @@ class GroupColumnStep(BaseModel):
     name: Annotated[str, Field(min_length=1)]
     agg: Literal["sum", "count", "avg", "min", "max", "count_distinct"]
     col: Annotated[str, Field(min_length=1)] | None = None
-    by: Annotated[list[Annotated[str, Field(min_length=1)]], Field(min_length=1)]
+    # R175 — `by` MAY be empty: the whole table (`OVER ()`), named "Across
+    # everything" by the builder (the `window_column` precedent).
+    by: list[Annotated[str, Field(min_length=1)]]
 
 
 class WindowOrderKey(BaseModel):
@@ -555,6 +557,70 @@ class WindowColumnStep(BaseModel):
     unit: Literal["day", "week", "month", "quarter", "year"] | None = None
 
 
+class DatePartStep(BaseModel):
+    """R175 — APPEND an `integer` column holding one calendar PART of ``col``
+    (year · quarter · month · ISO week · day of month · ISO day of week). The
+    numeric companion of ``date_bucket``. Mirrors `_shared/query.yaml#/DatePartStep`."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["date_part"]
+    col: Annotated[str, Field(min_length=1)]
+    part: Literal["year", "quarter", "month", "week", "day", "dow"]
+    name: Annotated[str, Field(min_length=1)]
+
+
+class DateDiffStep(BaseModel):
+    """R175 — APPEND an `integer` column: the count of ``unit`` calendar
+    boundaries crossed from ``start`` to ``end`` (DuckDB ``datediff``). Mirrors
+    `_shared/query.yaml#/DateDiffStep`."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["date_diff"]
+    start: Annotated[str, Field(min_length=1)]
+    end: Annotated[str, Field(min_length=1)]
+    unit: Literal["day", "week", "month", "quarter", "year"]
+    name: Annotated[str, Field(min_length=1)]
+
+
+class CaseConst(BaseModel):
+    """R175 — a literal `case` value (string or number)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["const"]
+    value: int | float | str
+
+
+CaseValue = Annotated[ColOperand | CaseConst, Field(discriminator="kind")]
+
+
+class CaseBranch(BaseModel):
+    """R175 — one WHEN (AND of filter-vocabulary predicates) … THEN arm."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    when: Annotated[list[FilterStepPredicate], Field(min_length=1)]
+    then: CaseValue
+
+
+class CaseStep(BaseModel):
+    """R175 — the CONDITIONAL COLUMN (formula-free IF/IFS): append a column whose
+    value is the first matching branch's ``then``, else ``else`` (absent → NULL).
+    Output dtype unified across every value (`case_type_mismatch` otherwise).
+    Mirrors `_shared/query.yaml#/CaseStep`."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["case"]
+    name: Annotated[str, Field(min_length=1)]
+    branches: Annotated[list[CaseBranch], Field(min_length=1, max_length=20)]
+    # The wire says `otherwise`, not `else` — it avoids the Python keyword, the
+    # `SelectCol.name`-not-`as` precedent.
+    otherwise: CaseValue | None = None
+
+
 # R121/R122/R123/R141/R144/R163/R164 — a transform step is a `kind`-discriminated union
 # (so a bad `kind` is a clean 422, and each kind keeps its own required fields).
 # SHARED by `QueryDefinition.steps` and `WorkflowDefinition.steps` — both fold the
@@ -570,7 +636,10 @@ Step = Annotated[
     | SelectStep
     | DateBucketStep
     | GroupColumnStep
-    | WindowColumnStep,
+    | WindowColumnStep
+    | DatePartStep
+    | CaseStep
+    | DateDiffStep,
     Field(discriminator="kind"),
 ]
 
@@ -790,7 +859,7 @@ SlugStr = Annotated[
 ]
 ChartType = Literal["bar", "pie", "line", "stat", "combo", "scatter", "heatmap", "gauge", "table"]
 Agg = Literal["sum", "count"]
-NumberFormat = Literal["plain", "compact"]
+NumberFormat = Literal["plain", "compact", "percent"]
 
 
 class Widget(BaseModel):

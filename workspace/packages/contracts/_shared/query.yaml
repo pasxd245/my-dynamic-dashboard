@@ -412,6 +412,149 @@ components:
           minLength: 1
           description: The appended output column's name (must not collide).
 
+    DatePartStep:
+      type: object
+      description: |
+        R175 — a TRANSFORM STEP that APPENDS an `integer` column holding one
+        calendar PART of `col` (the companion of `date_bucket`: a bucket keeps a
+        date, a part is a number you can compare or subtract). `col` must be
+        `date`/`datetime` at this step (`part_col_not_date`); `name` follows the
+        `DeriveStep.name` vocabulary (`column_exists`). Parts: `year`, `quarter`
+        (1–4), `month` (1–12), `week` (ISO-8601 week number), `day` (day of
+        month), `dow` (ISO day of week, Monday = 1 … Sunday = 7). NULL in → NULL
+        out. Compiles to `CAST(date_part('<part>', col) AS BIGINT)` (`isodow` for
+        `dow`). Pulled by the weekly report: vehicle age = lead year − model year,
+        and "same period last month" = day-of-month ≤ the cut-off day.
+      required: [kind, col, part, name]
+      additionalProperties: false
+      properties:
+        kind:
+          const: date_part
+        col:
+          type: string
+          minLength: 1
+          description: Column to read (effective name, post prior steps); must be date/datetime.
+        part:
+          type: string
+          enum: [year, quarter, month, week, day, dow]
+          description: The calendar part to extract; week is ISO-8601, dow is ISO (Mon=1).
+        name:
+          type: string
+          minLength: 1
+          description: The appended output column's name (must not collide).
+
+    DateDiffStep:
+      type: object
+      description: |
+        R175 — a TRANSFORM STEP that APPENDS an `integer` column: the number of
+        `unit` BOUNDARIES crossed going from `start` to `end` (calendar
+        difference, DuckDB `datediff`): `2026-08-31 → 2026-09-01` is 1 month,
+        `2026-09-01 → 2026-09-30` is 0. Negative when `end` is earlier; NULL if
+        either side is NULL. Both columns must be `date`/`datetime`
+        (`diff_col_not_date`). This is how a report says "this month vs last
+        month" without a hard-coded date: `datediff(month, lead month, cut-off)`
+        is 0 for the current month and 1 for the previous one, whatever the
+        export date. `name` follows the `DeriveStep.name` vocabulary.
+      required: [kind, start, end, unit, name]
+      additionalProperties: false
+      properties:
+        kind:
+          const: date_diff
+        start:
+          type: string
+          minLength: 1
+          description: The earlier column (effective name); date/datetime.
+        end:
+          type: string
+          minLength: 1
+          description: The later column (effective name); date/datetime.
+        unit:
+          type: string
+          enum: [day, week, month, quarter, year]
+          description: The calendar unit whose boundaries are counted.
+        name:
+          type: string
+          minLength: 1
+          description: The appended output column's name (must not collide).
+
+    CaseValue:
+      type: object
+      description: |
+        R175 — the value a `case` branch (or its `otherwise`) yields: a LITERAL
+        (`{kind: const, value}` — a string or a number) or another COLUMN at this
+        step (`{kind: col, col}`). Same `kind` discriminator as a derive operand.
+      oneOf:
+        - type: object
+          required: [kind, value]
+          additionalProperties: false
+          properties:
+            kind:
+              const: const
+            value:
+              type: [string, number]
+        - type: object
+          required: [kind, col]
+          additionalProperties: false
+          properties:
+            kind:
+              const: col
+            col:
+              type: string
+              minLength: 1
+
+    CaseBranch:
+      type: object
+      description: |
+        R175 — one WHEN … THEN arm of a `case` step: `when` is an AND of
+        predicates in the `FilterStep` vocabulary (by effective name, dtype-checked
+        operator, `val`/`min`/`max` operands), `then` the value for a matching row.
+      required: [when, then]
+      additionalProperties: false
+      properties:
+        when:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/FilterStepPredicate"
+        then:
+          $ref: "#/components/schemas/CaseValue"
+
+    CaseStep:
+      type: object
+      description: |
+        R175 — the CONDITIONAL COLUMN: APPEND a column whose value is the `then`
+        of the FIRST branch whose `when` matches the row, else `otherwise`
+        (absent → NULL; the wire avoids the keyword `else`, the `SelectCol.name`
+        precedent). Row count unchanged; the column space folds like `derive`. It is
+        the product's formula-free IF/IFS: buckets (`GIÁ TRỊ XE < 500tr → "xe
+        nhỏ"`), flags (`TRẠNG THÁI = "Thành công" → 1 else 0`, summed by a later
+        `aggregate` into a conditional count), and fallbacks (`a` if it is in
+        range else column `b`). Predicates reuse the filter vocabulary exactly, so
+        an `in`-list is several branches with the same `then`.
+
+        Output dtype is UNIFIED across every `then` and `otherwise`: all strings →
+        `string`; all numbers → `integer` when every literal is whole and every
+        column is integer, else `float`; columns of one temporal dtype keep it. A
+        string mixed with a number (or any other disagreement) is
+        `case_type_mismatch` (422). At most 20 branches (`too_many_branches`).
+      required: [kind, name, branches]
+      additionalProperties: false
+      properties:
+        kind:
+          const: case
+        name:
+          type: string
+          minLength: 1
+          description: The appended output column's name (must not collide → `column_exists`).
+        branches:
+          type: array
+          minItems: 1
+          maxItems: 20
+          items:
+            $ref: "#/components/schemas/CaseBranch"
+        otherwise:
+          $ref: "#/components/schemas/CaseValue"
+
     GroupColumnStep:
       type: object
       description: |
@@ -461,12 +604,14 @@ components:
             every agg except `count` (which tallies the group's rows and omits it).
         by:
           type: array
-          minItems: 1
           description: |
             The group columns (PARTITION BY), by effective name at this step.
             Unknown → `unknown_column`; a repeat → `duplicate_group_column`.
-            An EMPTY `by` (the whole table, i.e. "% of total") is deliberately
-            not allowed here — same mechanism, a later round.
+            R175 — an EMPTY `by` is the WHOLE TABLE (`OVER ()`): the builder
+            names it "Across everything", the same explicit state the
+            `window_column` family already renders, so it is never a silent
+            global window. Pulled by the weekly report: the data's cut-off
+            (latest lead date / its day of month) compared on every row.
           items:
             type: string
             minLength: 1
@@ -659,7 +804,9 @@ components:
             `sort` + `select`; R144 the `date_bucket` time axis; R163 the
             non-collapsing `group_column` (the within-group column); R164 the ordered-window
             family (`window_column`: share of total / running total / rank / previous
-            period's value). A query with
+            period's value); R175 the formula-free `case` (conditional column), the
+            numeric `date_part` and the calendar `date_diff`. At most 24 steps (`too_many_steps`; R175 raised
+            it from 8 — a real weekly funnel needs ~20). A query with
             steps exposes its POST-step columns as `resolvedColumns`.
             `kind`-discriminated union.
           items:
@@ -673,6 +820,9 @@ components:
               - $ref: "#/components/schemas/DateBucketStep"
               - $ref: "#/components/schemas/GroupColumnStep"
               - $ref: "#/components/schemas/WindowColumnStep"
+              - $ref: "#/components/schemas/DatePartStep"
+              - $ref: "#/components/schemas/CaseStep"
+              - $ref: "#/components/schemas/DateDiffStep"
             discriminator:
               propertyName: kind
               mapping:
@@ -685,6 +835,9 @@ components:
                 date_bucket: "#/components/schemas/DateBucketStep"
                 group_column: "#/components/schemas/GroupColumnStep"
                 window_column: "#/components/schemas/WindowColumnStep"
+                date_part: "#/components/schemas/DatePartStep"
+                case: "#/components/schemas/CaseStep"
+                date_diff: "#/components/schemas/DateDiffStep"
 
     Query:
       type: object
