@@ -28,7 +28,8 @@ report and the round collapses into a pack of saved queries.
 
 ### Explicitly NOT in this round
 
-- Policy / Renewal / YTD flows (same pattern, next rounds).
+- ~~Policy / Renewal / YTD flows~~ — pulled into this round after the funnel closed (owner:
+  "làm tương tự cho các loại còn lại"); see _Do — part 2_.
 - An `in`-list operator — the funnel uses one `case` branch per value instead (see Act).
 - Workflow output as a dashboard source (R174 W-1 stays open).
 
@@ -48,6 +49,17 @@ The walk, on the real 30/09 export (31,584 leads) + `Report-Policy.xlsx` (5,048 
 | G8 | A combo over months was ordered by bar height | presentation | Combo orders a date dimension chronologically |
 | G9 | Widgets on stepped queries fired a server aggregate (422) before the bound query loaded | console noise | Wait for the bound query before choosing the path |
 
+### Do — part 2: Cấp đơn (Policy + TNDS), Tái tục (Renewal + BGTT), Lead YTD
+
+Same walk on `Report-Policy.xlsx` (Data + TNDS), `Renewal_ Tổng hợp Final.xlsx` (3,319 rows +
+BGTT 1,544) and `YTD 2025 to 2026 - Data Count.xlsx` (84,644 leads):
+
+| # | Blocker met on the walk | Severity | Fix in this round |
+|---|---|---|---|
+| G10 | Phone numbers stored as text (`0982…`) were inferred as integers, losing the leading zero — the TNDS cross-sell join matched 2 rows instead of 484 | correctness bug | Digit text with a leading zero stays `string` at inference and under a `string` override |
+| G11 | `numberFormat: percent` on a table formatted every float — averages and fees too | presentation | A percent table formats only ratio columns (all values in [-1, 1]) |
+| G12 | Series of 6 call statuses / 15 failure reasons repeated colours: the palette had four distinct hues (`colorInfo` = `colorPrimary`) | presentation | Palette extended with the AntD preset hues to twelve, de-duplicated |
+
 ## Check
 
 - **Numbers**: the saved query _Lead funnel – theo tháng_ matches `ai_analysis/tools/weekly_funnel.py`
@@ -59,6 +71,15 @@ The walk, on the real 30/09 export (31,584 leads) + `Report-Policy.xlsx` (5,048 
   whole-table); builder 384 passed + `tests/steps-r175.test.tsx` (9); contracts 40 passed; builder
   production build OK. The one failing builder test (`datasets.test.tsx` R171 reset-all) fails
   identically on the untouched branch — a timeout in a slow sandbox, not this round.
+- **Numbers, part 2**: _Cấp đơn – theo tháng × luồng_ matches sheet `Total pv` (e.g. 09/2026:
+  189 + 55 = 244 HĐ, 1,473,887,799đ, 53.5% of the 456 target); New / Có / Không, insurer of the month,
+  `Gói Cơ bản` share and the TNDS cross-sell (68/48/62/52/43/50/59/53) match. _Tái tục – theo tháng
+  hết hạn_ matches `ReportN` PRP/RP for 01–09/2026 except one contract counted in 09 instead of 04:
+  the workbook holds a real date 2026-09-04 where the text column says `04/2026` (a dd/mm swap made
+  by Excel) — surfaced by the pack's data-quality query, not hidden. Failure reasons match sheet
+  `fail` for 01–08 (09 and later: the pivot cache is stale). _Lead YTD_ month totals and the
+  service × month split match the data; the last-two-months service table matches sheet `Pivot`
+  (981 / 867 / 757 / 609 / 268 …). Working days come from a calendar dataset joined by date.
 - **Acceptance walk** — `coverage: agent pass only`. The dashboard was rendered in the builder
   against the real data and screenshot-checked; the human pass is the review of this branch.
 
@@ -66,6 +87,13 @@ The walk, on the real 30/09 export (31,584 leads) + `Report-Policy.xlsx` (5,048 
 
 - **Lesson**: the report did not need a new noun — it needed IF, a calendar difference and a higher
   ceiling. Every Excel helper column in the funnel maps to one formula-free step.
+- **Lesson, part 2**: the other three flows needed no new step — only three ingest/presentation
+  fixes. Hand-maintained helpers (`Tháng hết hạn`, working days, `Renew`) become either a
+  cross-check query or a small reference dataset joined by key.
+- **Recorded, not fixed**: no text `trim` step — CS names `Ly` / `Ly` count as two people in the
+  renewal table (fix belongs in the source, or a `trim` step in a later round). A `case` over a
+  date-typed `when` cannot compare two columns, so "same day last year" goes through `date_part` +
+  `derive`; a column-vs-column predicate would shorten it.
 - **Recorded, not fixed**: an `in` / `not in` list operator would turn 7-branch `case` steps into one
   predicate (the pivot filter is literally a checklist) — it touches the source-filter URL grammar,
   so it is its own round. A chart widget draws a stepped query's rows as-is (R127), so chart queries
@@ -73,7 +101,8 @@ The walk, on the real 30/09 export (31,584 leads) + `Report-Policy.xlsx` (5,048 
 
 ## Feeds into → Round_176 (TBD)
 
-Policy + Renewal flows on the same pattern, or the `in`-list operator — the human's call at review.
+The `in`-list operator and a `trim` step, or workflow output as a dashboard source (R174 W-1) —
+the human's call at review.
 
 ## Governance
 

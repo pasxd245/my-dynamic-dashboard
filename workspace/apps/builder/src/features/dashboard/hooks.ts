@@ -160,11 +160,27 @@ export function useWidgetFilterOptions(queryId: string | undefined): { options: 
 }
 
 /** Categorical chart palette drawn from the AntD theme tokens (Desirability:
- *  no ad-hoc hex — colours track the theme). Five hues cover the widest widget
- *  (the five telesale outcomes). */
+ *  no ad-hoc hex — colours track the theme). R175: the semantic tokens alone
+ *  give four distinct hues (`colorInfo` equals `colorPrimary` in the default
+ *  theme), so a 6-status or 15-reason series repeated colours; the AntD preset
+ *  hues extend it to twelve, de-duplicated so a custom theme never repeats. */
 export function useChartPalette(): string[] {
   const { token } = theme.useToken();
-  return [token.colorPrimary, token.colorSuccess, token.colorWarning, token.colorError, token.colorInfo];
+  const hues = [
+    token.colorPrimary,
+    token.colorSuccess,
+    token.colorWarning,
+    token.colorError,
+    token.purple,
+    token.cyan,
+    token.magenta,
+    token.gold,
+    token.geekblue,
+    token.lime,
+    token.volcano,
+    token.colorInfo,
+  ];
+  return [...new Set(hues.filter((h): h is string => typeof h === 'string' && h.length > 0))];
 }
 
 // ─── R101 — dashboard CRUD (persisted noun, real API) ────────────────

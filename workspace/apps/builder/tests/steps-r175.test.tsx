@@ -150,3 +150,13 @@ describe('R175 ratio columns', () => {
     expect(isRatioColumn(rows, 2)).toBe(false);
   });
 });
+
+describe('R175 — chart palette', () => {
+  it('gives at least ten distinct hues so a status or reason series does not repeat colours', async () => {
+    const { renderHook } = await import('@testing-library/react');
+    const { useChartPalette } = await import('@/features/dashboard/hooks');
+    const { result } = renderHook(() => useChartPalette());
+    expect(result.current.length).toBeGreaterThanOrEqual(10);
+    expect(new Set(result.current).size).toBe(result.current.length);
+  });
+});
