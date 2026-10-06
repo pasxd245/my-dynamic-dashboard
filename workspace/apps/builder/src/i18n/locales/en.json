@@ -756,7 +756,12 @@
         "removeMeasure": "Remove measure",
         "valueBlank": "blank",
         "valueColumn": "column",
-        "valueLiteral": "value"
+        "valueLiteral": "value",
+        "values": "Values (Enter or comma to add)",
+        "operandKind": "Compare with",
+        "operandValue": "Value",
+        "operandColumn": "Column",
+        "pickColumn": "Pick a column"
       },
       "buildActive": "{{count}} active",
       "baseSourceLabel": "Build on",

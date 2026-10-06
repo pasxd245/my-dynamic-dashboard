@@ -583,7 +583,18 @@ def _plan_filter(step: dict, cur_cols: list[dict], loc: list) -> tuple[dict, lis
         idx = name_to_idx.get(pred.get("col"))
         if idx is None:
             raise _agg_422([*loc, "predicates", j, "col"], f"unknown_column: {pred.get('col')!r} is not a column at this step")
-        atoms.append({"col": idx, "op": pred.get("op"), "val": pred.get("val"), "min": pred.get("min"), "max": pred.get("max")})
+        atom = {"col": idx, "op": pred.get("op"), "val": pred.get("val"), "min": pred.get("min"), "max": pred.get("max")}
+        if pred.get("vals") is not None:  # R176 — in / not_in
+            atom["vals"] = pred.get("vals")
+        if pred.get("refCol") is not None:  # R176 — column operand, by effective name
+            ref_idx = name_to_idx.get(pred.get("refCol"))
+            if ref_idx is None:
+                raise _agg_422(
+                    [*loc, "predicates", j, "refCol"],
+                    f"unknown_column: {pred.get('refCol')!r} is not a column at this step",
+                )
+            atom["refCol"] = ref_idx
+        atoms.append(atom)
     predicates_fp, _ = build_definition_predicates({"filters": atoms, "advanced": []}, cur_cols)
     return {"kind": "filter", "predicates_fp": predicates_fp}, cur_cols
 

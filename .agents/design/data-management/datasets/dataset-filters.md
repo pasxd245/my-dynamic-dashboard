@@ -652,6 +652,42 @@ case-sensitive variant only when a user asks for it.
 `is_not_null` operators are how users include / exclude null
 rows deliberately.
 
+### Atom-only operators: list membership + a column operand (R176)
+
+Two extensions reach **every predicate that travels as an atom**: the rows-GET `aq` DNF, a
+saved Query's `filters`/`advanced`, a `filter` step and each `case` branch's `when`. **The
+chip grammar (`f<N>_*`) does not change.** `OPS_BY_DTYPE` above stays the chip vocabulary;
+the list ops are layered on top only in the atom path.
+
+| Dtype | Operator (UI) | Key | Operand | SQL |
+| --- | --- | --- | --- | --- |
+| string | is one of | `in` | `vals: [string, …]` | `lower(col) IN (lower(?), …)` |
+| string | is not one of | `not_in` | `vals: [string, …]` | `lower(col) NOT IN (lower(?), …)` |
+| integer / float | is one of / is not one of | `in` / `not_in` | `vals: [number, …]` | `col IN (CAST(? AS T), …)` |
+| date / datetime | is one of / is not one of | `in` / `not_in` | `vals: [ISO, …]` | `col IN (CAST(? AS T), …)` |
+| any comparable | equals · ne · gt · lt · gte · lte · before · after | (existing key) | `refCol` instead of `val` | `col <op> other_col` |
+
+- **`vals`** holds 1–500 values. Each one is parsed per dtype exactly like `val` (an
+  unparseable value is a `filter_value_unparseable` 422). Strings compare case-insensitively,
+  the same as `string.equals`. Booleans have no list ops: `is_true` / `is_false` already cover
+  them.
+- **NULL semantics follow `ne`.** `not_in` excludes NULL rows (SQL three-valued logic), so a
+  user who also wants the NULLs adds an `is_null` group. The rule is the one the `null` note
+  above already states.
+- **`refCol`** compares two columns of the **same dtype family**: number with number, date
+  with datetime (cast to TIMESTAMP), string with string (only `equals` / `ne`, which are the
+  only string comparisons, case-insensitive). In an index-keyed atom (`aq`, `FilterAtom`) it is
+  the other column's **index**; in a name-keyed predicate (`FilterStepPredicate`, `case.when`)
+  it is the other column's **effective name**. `refCol` and `val` are mutually exclusive.
+  Anything else is `filter_operand_shape` / `filter_op_dtype_mismatch` (422).
+- **Chips are untouched by design.** A chip is one value typed into one popover; a checklist
+  of values is a different control and would change the URL grammar. `in` sent as `f<N>_op` is
+  a 422 that points to the advanced query. _Trigger to widen: a real ask for a multi-select
+  chip._
+- **The advanced-query text language is not extended this round.** The atom accepts `in`, but
+  the FE parser does not yet have a `col in (a, b)` syntax. _Trigger: the first time someone
+  types it._
+
 ### FE types
 
 ```ts

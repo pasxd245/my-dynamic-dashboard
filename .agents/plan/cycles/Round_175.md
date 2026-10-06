@@ -1,16 +1,38 @@
 # Round 175: the weekly-report dogfood — can MDD replace the CRM-funnel Excel?
 
-**Status**: Review — agent pass done on the real 30/09 export; the human's review of the branch is OPEN.
+**Status**: Complete — the human signed off 2026-10-04 ("flip r175 to complete"), after the 5-pack weekly report ran on this branch for week 39 on the 04/10 export.
 **Flow**: probe + fix — walk the real report, rank what blocks it, close the blockers in-round.
 **Date started**: 2026-10-04
-**Date completed**: —
+**Date completed**: 2026-10-04
+
+## ⟢ At a glance
+
+**Shipped** — a real CRM-export weekly report (external dogfood user; its data and packs live outside this repo) runs end-to-end on MDD: four flows from this round (lead
+funnel, policy, renewal, YTD) plus a fifth — call productivity — built on the same steps outside
+the repo. Twelve blockers (G1–G12) are closed in-round. The headline additions are the `case` /
+`date_part` / `date_diff` steps, `group_column` with `by: []`, a 24-step ceiling, literal LIKE,
+leading-zero text and percent tables. Backend 463 · builder 384 + 9 · contracts 40, all green. On
+the dogfood export, the report reproduced the hand-made numbers for every flow (figures kept with
+the user, not in this repo).
+
+**Studied** _(predicted → saw → now believe)_ — **predicted** the funnel would need a new noun or
+a formula language. **Saw** that every Excel helper column maps to one formula-free step. The other
+three flows needed only ingest/presentation fixes. **Now believe (high confidence — four real
+flows, number-for-number)** that the step vocabulary is close to sufficient for CRM reporting. The
+next walls are small ergonomics (`in`, column-vs-column, `trim`) and, separately, record-linkage
+across sources. Linkage stays outside MDD (2026-10-04).
+
+**Watch** — `in`/`not in` + column-vs-column → R176. `compute` + `trim` (fork B, owner-locked) →
+R177. Workflow item 1 is ruled (a′) by the owner — "publish as a derived dataset" — and lands in
+R180. A chart widget draws a stepped query's rows as-is, so chart queries must be shaped to the
+chart's grain.
 
 ## Goal
 
 **Pulled by ←** the product's own purpose (README: _"Replaces a broken CRM → Excel reporting
-workflow"_) and a concrete pull: the Digiin weekly report (`bao_cao_tuan/`), whose four Excel
-workbooks were reverse-engineered on 2026-10-03 (`ai_analysis/01_bao_cao_tuan_patterns_workflow.md`,
-verified against the hand-made `phân tích` sheet for 01–06/2026).
+workflow"_) and a concrete pull: an external dogfood user's CRM weekly report, whose four Excel
+workbooks were reverse-engineered on 2026-10-03 (analysis kept outside this repo, verified
+against the hand-made analysis sheet for six months).
 
 **Question**: can the CRM **lead funnel** — Excel's 8 helper columns + the pivot filter + the KPI
 ratios + "this month vs the same period last month" — be built as MDD saved queries and one
@@ -62,26 +84,25 @@ BGTT 1,544) and `YTD 2025 to 2026 - Data Count.xlsx` (84,644 leads):
 
 ## Check
 
-- **Numbers**: the saved query _Lead funnel – theo tháng_ matches `ai_analysis/tools/weekly_funnel.py`
-  for every month 01–09/2026 (UL, Đã gọi, QL, Thành công, Digiin, Organic, CR1, CR2); 01–06 are the
-  hand-made `phân tích` values. _Lũy kế vs cùng kỳ_ matches the KPI sheet (3,926 / 1,548 / 123 / 79
-  vs 3,379 / 1,702 / 157 / 93). Months 07–09 differ from the stale Excel by design: MDD joins the
-  current policy file, the workbook still carries a pasted-value `new hay ko` (148 renewals unflagged).
+- **Numbers**: the lead-funnel saved query matches the user's reference script for every month
+  (all funnel stages and ratios); the first six months match the hand-made analysis values, and the
+  period-vs-same-period table matches the KPI sheet. Later months differ from the stale workbook by
+  design: MDD joins the current source file, the workbook still carries a pasted-value helper column.
 - **Tests**: backend 463 passed (+18 in `test_case_and_date_steps.py`, +1 whitespace, group_column
   whole-table); builder 384 passed + `tests/steps-r175.test.tsx` (9); contracts 40 passed; builder
   production build OK. The one failing builder test (`datasets.test.tsx` R171 reset-all) fails
   identically on the untouched branch — a timeout in a slow sandbox, not this round.
-- **Numbers, part 2**: _Cấp đơn – theo tháng × luồng_ matches sheet `Total pv` (e.g. 09/2026:
-  189 + 55 = 244 HĐ, 1,473,887,799đ, 53.5% of the 456 target); New / Có / Không, insurer of the month,
-  `Gói Cơ bản` share and the TNDS cross-sell (68/48/62/52/43/50/59/53) match. _Tái tục – theo tháng
-  hết hạn_ matches `ReportN` PRP/RP for 01–09/2026 except one contract counted in 09 instead of 04:
-  the workbook holds a real date 2026-09-04 where the text column says `04/2026` (a dd/mm swap made
-  by Excel) — surfaced by the pack's data-quality query, not hidden. Failure reasons match sheet
-  `fail` for 01–08 (09 and later: the pivot cache is stale). _Lead YTD_ month totals and the
-  service × month split match the data; the last-two-months service table matches sheet `Pivot`
-  (981 / 867 / 757 / 609 / 268 …). Working days come from a calendar dataset joined by date.
+- **Numbers, part 2**: the policy flow (month × channel, new/renewal, insurer, plan share,
+  cross-sell) matches the user's summary sheet. The renewal flow matches the hand-made PRP/RP sheet
+  except one contract whose real date was a dd/mm swap made by Excel — surfaced by the pack's
+  data-quality query, not hidden. Failure reasons match up to the month where the pivot cache went
+  stale. YTD month totals and the service × month split match. Working days come from a calendar
+  dataset joined by date.
 - **Acceptance walk** — `coverage: agent pass only`. The dashboard was rendered in the builder
   against the real data and screenshot-checked; the human pass is the review of this branch.
+- **Human review — ✅ signed off 2026-10-04.** The human reviewer ran the five dashboards on a real
+  export and approved the flip. Business KPI definitions belong to the dogfood user and are not
+  recorded here.
 
 ## Act
 
@@ -90,8 +111,8 @@ BGTT 1,544) and `YTD 2025 to 2026 - Data Count.xlsx` (84,644 leads):
 - **Lesson, part 2**: the other three flows needed no new step — only three ingest/presentation
   fixes. Hand-maintained helpers (`Tháng hết hạn`, working days, `Renew`) become either a
   cross-check query or a small reference dataset joined by key.
-- **Recorded, not fixed**: no text `trim` step — CS names `Ly` / `Ly` count as two people in the
-  renewal table (fix belongs in the source, or a `trim` step in a later round). A `case` over a
+- **Recorded, not fixed**: no text `trim` step — text values that differ only by trailing whitespace
+  (e.g. a person name with a trailing space) count as two in a grouped table (fix belongs in the source, or a `trim` step in a later round). A `case` over a
   date-typed `when` cannot compare two columns, so "same day last year" goes through `date_part` +
   `derive`; a column-vs-column predicate would shorten it.
 - **Recorded, not fixed**: an `in` / `not in` list operator would turn 7-branch `case` steps into one
@@ -99,10 +120,18 @@ BGTT 1,544) and `YTD 2025 to 2026 - Data Count.xlsx` (84,644 leads):
   so it is its own round. A chart widget draws a stepped query's rows as-is (R127), so chart queries
   must be shaped to the chart's grain.
 
-## Feeds into → Round_176 (TBD)
+## Feeds into → Round_176
 
-The `in`-list operator and a `trim` step, or workflow output as a dashboard source (R174 W-1) —
-the human's call at review.
+The human's call at review (2026-10-04) picked an ordered program; this round's outputs are its
+starting point:
+
+- **R176** — `in` / `not in` list operators + column-vs-column predicates.
+- **R177** — fork (B) `compute` step + the first string catalog (`trim` first).
+- **R178–R179** — refresh: multi-file merge and `replace_period`.
+- **R180** — Workflow item 1 ruled **(a′)**: publish the output as a derived dataset.
+
+Record-linkage (as-of / OR joins) is ruled **out of MDD** — it stays in the owner's Python
+standardization layer, which hands MDD row-level tables only.
 
 ## Governance
 

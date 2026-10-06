@@ -49,6 +49,12 @@ info:
     [advanced-query.md § Data contract](../../../../.agents/design/data-management/advanced-query.md#data-contract-target-for-the-contract-phase)
     for the transport rationale.
 
+    R176 — an `aq` atom may also carry `vals` (a 1–500 value list for
+    the atom-only `in` / `not_in` operators) or `refCol` (another
+    column's index, compared instead of `val`). The `f<N>_*` chip
+    params do not accept either; `f<N>_op=in` is a 422 pointing to `aq`.
+    See dataset-filters.md § Atom-only operators.
+
 paths:
   /datasets/{id}/rows:
     get:

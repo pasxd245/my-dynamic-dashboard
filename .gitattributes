@@ -1,0 +1,18 @@
+# Line endings: LF everywhere, on every OS (owner's call 2026-10-04 — the PC
+# checkout had 698 files that differed only by CRLF, which made every git
+# status on Windows vs the Cowork VM disagree). Overrides core.autocrlf.
+* text=auto eol=lf
+
+# Binary — never touch.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.xlsx binary
+*.xls binary
+*.pdf binary
+*.sqlite binary
+*.duckdb binary

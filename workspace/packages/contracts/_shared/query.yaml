@@ -46,6 +46,25 @@ components:
         max:
           type: [string, number]
           description: Upper bound for `between` (inclusive).
+        vals:
+          type: array
+          minItems: 1
+          maxItems: 500
+          items:
+            type: [string, number]
+          description: |
+            R176 — the value list for `in` / `not_in` (every dtype but boolean), each
+            parsed per dtype like `val`. Strings compare case-insensitively; `not_in`
+            excludes NULL rows (the `ne` rule). Atom-only: the chip grammar
+            (`f<N>_*`) does not carry list ops.
+        refCol:
+          type: integer
+          minimum: 0
+          description: |
+            R176 — compare against ANOTHER column (its 0-based index) instead of a
+            literal `val`, for `equals` / `ne` / `gt` / `lt` / `gte` / `lte` /
+            `before` / `after`. Same dtype family only (number·number,
+            date·datetime, string·string for equals/ne). Mutually exclusive with `val`.
 
     JoinStep:
       type: object
@@ -290,6 +309,19 @@ components:
           type: [string, number]
         max:
           type: [string, number]
+        vals:
+          type: array
+          minItems: 1
+          maxItems: 500
+          items:
+            type: [string, number]
+          description: R176 — value list for `in` / `not_in` (see `FilterAtom.vals`).
+        refCol:
+          type: string
+          minLength: 1
+          description: |
+            R176 — compare against another column at this step, by effective NAME,
+            instead of a literal `val` (see `FilterAtom.refCol`).
 
     FilterStep:
       type: object

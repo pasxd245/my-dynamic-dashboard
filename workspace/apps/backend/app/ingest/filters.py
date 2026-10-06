@@ -95,6 +95,35 @@ _RANGE_OPS: frozenset[str] = frozenset({"between"})
 # Operators that take zero operands.
 _NO_VALUE_OPS: frozenset[str] = frozenset({"is_empty", "is_not_empty", "is_null", "is_not_null", "is_true", "is_false"})
 
+# R176 — ATOM-ONLY operators. `OPS_BY_DTYPE` above stays the chip (`f<N>_*`)
+# vocabulary; list membership is layered on top only where predicates travel as
+# atoms (`aq`, saved-query filters/advanced, filter steps, case WHEN). Booleans
+# have no list ops (`is_true` / `is_false` cover them).
+_LIST_OPS: frozenset[str] = frozenset({"in", "not_in"})
+_LIST_DTYPES: frozenset[str] = frozenset({"string", "integer", "float", "date", "datetime"})
+MAX_LIST_VALUES = 500
+
+# R176 — comparison ops that may take another column (`refCol`) instead of `val`.
+_REF_OPS: frozenset[str] = frozenset({"equals", "ne", "gt", "lt", "gte", "lte", "before", "after"})
+_DTYPE_FAMILY: dict[str, str] = {
+    "integer": "number",
+    "float": "number",
+    "date": "time",
+    "datetime": "time",
+    "string": "string",
+    "boolean": "boolean",
+}
+_REF_SQL_OP: dict[str, str] = {
+    "equals": "=",
+    "ne": "!=",
+    "gt": ">",
+    "lt": "<",
+    "gte": ">=",
+    "lte": "<=",
+    "before": "<",
+    "after": ">",
+}
+
 
 # ─── Predicate model ────────────────────────────────────────────────
 
@@ -112,6 +141,11 @@ class FilterPredicate:
     val: Any = None
     min_val: Any = None
     max_val: Any = None
+    # R176 — `in` / `not_in` value list (parsed per dtype) …
+    vals: tuple[Any, ...] | None = None
+    # … or another column compared instead of `val`.
+    ref_col_name: str | None = None
+    ref_dtype: str | None = None
 
 
 # ─── Parsing ────────────────────────────────────────────────────────
@@ -277,6 +311,16 @@ def parse_filters_from_query(query_params: QueryParams, columns: list[dict[str, 
         dtype = col["dtype"]
         col_name = col["name"]
 
+        if op in _LIST_OPS:
+            # R176 — a chip is one value in one popover; list membership travels
+            # only as an atom.
+            raise _http_422(
+                loc=["query", f"f{n}_op"],
+                msg=(
+                    f"filter_operand_shape: op {op!r} takes a value list and is only available "
+                    "in the advanced query (aq) or a saved query, not as a chip"
+                ),
+            )
         _validate_op_for_dtype(op, dtype, n)
         _validate_operand_shape(op, fields.get("val"), fields.get("min"), fields.get("max"), n)
 
@@ -344,6 +388,29 @@ def _predicate_sql(p: FilterPredicate) -> tuple[str, list[Any]]:
     col = _quote_ident(p.col_name)
     op = p.op
     dtype = p.dtype
+
+    # R176 — column operand: `col <op> other_col`, no parameters.
+    if p.ref_col_name is not None:
+        ref = _quote_ident(p.ref_col_name)
+        sym = _REF_SQL_OP[op]
+        if dtype == "string":
+            return f"lower({col}) {sym} lower({ref})", []
+        if dtype != p.ref_dtype and _DTYPE_FAMILY[dtype] == "time":
+            # date vs datetime: compare on the TIMESTAMP axis.
+            return f"CAST({col} AS TIMESTAMP) {sym} CAST({ref} AS TIMESTAMP)", []
+        return f"{col} {sym} {ref}", []
+
+    # R176 — list membership. NOT IN excludes NULL rows (three-valued logic),
+    # the same rule `ne` already follows.
+    if op in _LIST_OPS:
+        neg = "NOT " if op == "not_in" else ""
+        vals = list(p.vals or ())
+        if dtype == "string":
+            marks = ", ".join("lower(?)" for _ in vals)
+            return f"lower({col}) {neg}IN ({marks})", vals
+        cast = _duckdb_cast(dtype)
+        marks = ", ".join(f"CAST(? AS {cast})" for _ in vals)
+        return f"{col} {neg}IN ({marks})", vals
 
     # No-operand ops.
     if op == "is_null":
@@ -464,8 +531,60 @@ def _build_aq_atom(atom: object, columns: list[dict[str, str]]) -> FilterPredica
     dtype = columns[col]["dtype"]
     col_name = columns[col]["name"]
 
-    if op not in OPS_BY_DTYPE.get(dtype, frozenset()):
+    is_list_op = op in _LIST_OPS and dtype in _LIST_DTYPES
+    if op not in OPS_BY_DTYPE.get(dtype, frozenset()) and not is_list_op:
         raise _http_422(loc=_AQ_LOC, msg=f"filter_op_dtype_mismatch: op {op!r} is not valid for dtype {dtype!r}")
+
+    # R176 — another column instead of a literal.
+    ref = atom.get("refCol")
+    if ref is not None:
+        if not isinstance(ref, int) or isinstance(ref, bool):
+            raise _aq_malformed("refCol must be an integer column index")
+        if op not in _REF_OPS:
+            raise _http_422(loc=_AQ_LOC, msg=f"filter_operand_shape: column {col} op {op!r} cannot take refCol")
+        if atom.get("val") is not None or atom.get("vals") is not None:
+            raise _http_422(loc=_AQ_LOC, msg=f"filter_operand_shape: column {col} has both refCol and a value")
+        if ref < 0 or ref >= len(columns):
+            raise _http_422(
+                loc=_AQ_LOC,
+                msg=f"filter_col_out_of_range: column {ref} does not exist (columnCount = {len(columns)})",
+            )
+        ref_dtype = columns[ref]["dtype"]
+        if _DTYPE_FAMILY.get(ref_dtype) != _DTYPE_FAMILY.get(dtype):
+            raise _http_422(
+                loc=_AQ_LOC,
+                msg=(
+                    f"filter_op_dtype_mismatch: cannot compare column {col} ({dtype}) with column {ref} ({ref_dtype})"
+                ),
+            )
+        return FilterPredicate(
+            col_index=col,
+            col_name=col_name,
+            dtype=dtype,
+            op=op,
+            ref_col_name=columns[ref]["name"],
+            ref_dtype=ref_dtype,
+        )
+
+    # R176 — value list.
+    if is_list_op:
+        raw_vals = atom.get("vals")
+        if not isinstance(raw_vals, list) or not raw_vals:
+            raise _http_422(
+                loc=_AQ_LOC, msg=f"filter_operand_shape: column {col} op {op!r} expects a non-empty vals list"
+            )
+        if len(raw_vals) > MAX_LIST_VALUES:
+            raise _http_422(
+                loc=_AQ_LOC,
+                msg=f"filter_operand_shape: column {col} op {op!r} takes at most {MAX_LIST_VALUES} values",
+            )
+        if any(v is None for v in raw_vals):
+            raise _http_422(
+                loc=_AQ_LOC,
+                msg=f"filter_operand_shape: column {col} vals cannot contain null (use is_null)",
+            )
+        parsed = tuple(_parse_value(str(v), dtype, col, _AQ_LOC) for v in raw_vals)
+        return FilterPredicate(col_index=col, col_name=col_name, dtype=dtype, op=op, vals=parsed)
 
     val_native: Any = None
     min_native: Any = None

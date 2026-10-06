@@ -283,6 +283,9 @@ class FilterAtom(BaseModel):
     val: int | float | str | None = None
     min: int | float | str | None = None
     max: int | float | str | None = None
+    # R176 — `in` / `not_in` value list, or another column (index) instead of `val`.
+    vals: Annotated[list[int | float | str], Field(min_length=1, max_length=500)] | None = None
+    refCol: Annotated[int, Field(ge=0)] | None = None  # noqa: N815
 
 
 QueryRelationshipId = Annotated[str, Field(pattern=ID_PATTERNS["query_relationship"])]
@@ -474,6 +477,9 @@ class FilterStepPredicate(BaseModel):
     val: int | float | str | None = None
     min: int | float | str | None = None
     max: int | float | str | None = None
+    # R176 — `in` / `not_in` value list, or another column (effective name) instead of `val`.
+    vals: Annotated[list[int | float | str], Field(min_length=1, max_length=500)] | None = None
+    refCol: Annotated[str, Field(min_length=1)] | None = None  # noqa: N815
 
 
 class FilterStep(BaseModel):

@@ -63,10 +63,12 @@ function api(path: string): string {
 
 type Pred = {
   col: number;
-  op: Operator;
+  op: Operator | 'in' | 'not_in';
   val?: string;
   min?: string;
   max?: string;
+  /** R176 — the value list of the atom-only `in` / `not_in` (never a chip). */
+  vals?: string[];
 };
 
 function parsePredicates(searchParams: URLSearchParams): Pred[] {
@@ -86,6 +88,14 @@ function parsePredicates(searchParams: URLSearchParams): Pred[] {
 
 function cellMatches(cell: string | null, p: Pred, dtype: string): boolean {
   const op = p.op;
+  if (op === 'in' || op === 'not_in') {
+    // R176 — mirrors the backend: case-insensitive for strings, NULL never matches.
+    if (cell === null) return false;
+    const norm = (v: string) =>
+      dtype === 'string' ? v.toLowerCase() : dtype === 'integer' || dtype === 'float' ? String(Number(v)) : v;
+    const hit = (p.vals ?? []).some((v) => norm(v) === norm(cell));
+    return op === 'in' ? hit : !hit;
+  }
   if (op === 'is_null') return cell === null;
   if (op === 'is_not_null') return cell !== null;
   if (dtype === 'string') {
@@ -255,7 +265,8 @@ function validateFiltersOr422(
       };
     }
     const col = columns[p.col];
-    if (!OPS_BY_DTYPE[col.dtype].includes(p.op)) {
+    const listOk = (p.op === 'in' || p.op === 'not_in') && col.dtype !== 'boolean'; // R176 atom-only
+    if (!listOk && !OPS_BY_DTYPE[col.dtype].includes(p.op as Operator)) {
       return {
         ok: false,
         loc: ['query', `f${p.col}_op`],
@@ -278,6 +289,8 @@ function predFromAtom(atom: FilterPredicate): Pred {
   if ('val' in atom && atom.val != null) p.val = String(atom.val);
   if ('min' in atom && atom.min != null) p.min = String(atom.min);
   if ('max' in atom && atom.max != null) p.max = String(atom.max);
+  const list = (atom as { vals?: readonly (string | number)[] }).vals;
+  if (list) p.vals = list.map(String);
   return p;
 }
 
@@ -392,21 +405,30 @@ function deriveStepMock(step: Extract<Step, { kind: 'derive' }>, table: MockTabl
   return { columns: [...table.columns, { name: step.name, dtype: 'float' }], rows };
 }
 
+// R176 — a step predicate as a mock `Pred`. `refCol` reads the other column on
+// the same row (a NULL operand never matches); `vals` carries the `in` list.
+function stepPred(
+  p: Extract<Step, { kind: 'filter' }>['predicates'][number],
+  idx: number,
+  row: readonly (string | null)[],
+  table: MockTable,
+): Pred {
+  const ref = p.refCol != null ? (row[_aggColIdx(table.columns, p.refCol)] ?? null) : undefined;
+  return {
+    col: idx,
+    op: p.op as Pred['op'],
+    val: ref !== undefined ? (ref ?? '\u0000') : p.val != null ? String(p.val) : undefined,
+    min: p.min != null ? String(p.min) : undefined,
+    max: p.max != null ? String(p.max) : undefined,
+    vals: p.vals?.map(String),
+  };
+}
+
 function filterStepMock(step: Extract<Step, { kind: 'filter' }>, table: MockTable): MockTable {
   const preds = step.predicates.map((p) => ({ idx: _aggColIdx(table.columns, p.col), p }));
   const rows = table.rows.filter((row) =>
     preds.every(({ idx, p }) =>
-      cellMatches(
-        row[idx] ?? null,
-        {
-          col: idx,
-          op: p.op as Operator,
-          val: p.val != null ? String(p.val) : undefined,
-          min: p.min != null ? String(p.min) : undefined,
-          max: p.max != null ? String(p.max) : undefined,
-        },
-        table.columns[idx]?.dtype ?? 'string',
-      ),
+      cellMatches(row[idx] ?? null, stepPred(p, idx, row, table), table.columns[idx]?.dtype ?? 'string'),
     ),
   );
   return { columns: table.columns, rows };
@@ -424,17 +446,7 @@ function caseStepMock(step: Extract<Step, { kind: 'case' }>, table: MockTable): 
   const matches = (when: Extract<Step, { kind: 'case' }>['branches'][number]['when'], row: (string | null)[]) =>
     when.every((p) => {
       const idx = _aggColIdx(table.columns, p.col);
-      return cellMatches(
-        row[idx] ?? null,
-        {
-          col: idx,
-          op: p.op as Operator,
-          val: p.val != null ? String(p.val) : undefined,
-          min: p.min != null ? String(p.min) : undefined,
-          max: p.max != null ? String(p.max) : undefined,
-        },
-        table.columns[idx]?.dtype ?? 'string',
-      );
+      return cellMatches(row[idx] ?? null, stepPred(p, idx, row, table), table.columns[idx]?.dtype ?? 'string');
     });
   const rows = table.rows.map((row) => {
     const hit = step.branches.find((b) => matches(b.when, row));

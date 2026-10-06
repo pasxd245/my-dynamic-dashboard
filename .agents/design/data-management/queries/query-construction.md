@@ -690,6 +690,22 @@ learns where it went instead of assuming a regression.
 
 ---
 
+### Predicate rows: a value list or another column (R176)
+
+Every `PredicateList` row (the `filter` card and each `case` WHEN) offers two extra operators,
+**`in` / `not_in`**, on every dtype except boolean. For these the operand input becomes a
+**tag select**: type a value and press Enter, or paste a comma-separated list. Numbers are
+coerced the same way a single operand is.
+
+The comparison operators (`equals` … `lte`, `before` / `after`) gain an operand-kind switch,
+**`[ Value ▾ | Column ▾ ]`**. Column mode replaces the text input with a picker that offers
+only the columns of a compatible dtype **at that position**. The backend re-validates both.
+
+```text
+  WHERE [ TRẠNG THÁI CUỘC GỌI ▾ ] [ in ▾ ] [ Chưa kết nối được × ][ Quan tâm × ][ … ]
+  AND   [ Ngày hết hạn ▾ ]        [ gte ▾ ] [ Column ▾ ] [ Ngày hiệu lực ▾ ]
+```
+
 ## Scope boundary
 
 ### IN scope

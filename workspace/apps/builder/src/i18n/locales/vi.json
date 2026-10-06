@@ -756,7 +756,12 @@
         "removeMeasure": "Xoá phép tính",
         "valueBlank": "để trống",
         "valueColumn": "cột",
-        "valueLiteral": "giá trị"
+        "valueLiteral": "giá trị",
+        "values": "Các giá trị (Enter hoặc dấu phẩy để thêm)",
+        "operandKind": "So sánh với",
+        "operandValue": "Giá trị",
+        "operandColumn": "Cột",
+        "pickColumn": "Chọn cột"
       },
       "buildActive": "{{count}} đang áp dụng",
       "baseSourceLabel": "Dựng trên",

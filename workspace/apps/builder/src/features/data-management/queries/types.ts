@@ -118,6 +118,10 @@ export type FilterStepPredicate = {
   val?: string | number;
   min?: string | number;
   max?: string | number;
+  /** R176 — the value list of `in` / `not_in` (atom-only operators). */
+  vals?: readonly (string | number)[];
+  /** R176 — compare against another column (effective name) instead of `val`. */
+  refCol?: string;
 };
 
 /** R123 — keep rows matching ALL predicates (AND) over the current columns — a

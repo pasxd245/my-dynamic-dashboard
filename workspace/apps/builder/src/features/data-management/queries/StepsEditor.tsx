@@ -14,7 +14,7 @@ import { Alert, Button, Input, InputNumber, Radio, Select, Space, Switch, Typogr
 import { useId } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { OPS_BY_DTYPE, type Operator } from '@/features/data-management/datasets/filters/types';
+import { OPS_BY_DTYPE } from '@/features/data-management/datasets/filters/types';
 import type { Column } from '@/features/data-management/datasets/types';
 import {
   STEP_MENU,
@@ -1139,6 +1139,21 @@ function FilterBody({
 /** R175 — operators that take no operand (mirrors the backend `_NO_VALUE_OPS`). */
 const NO_VALUE_OPS = new Set(['is_empty', 'is_not_empty', 'is_null', 'is_not_null', 'is_true', 'is_false']);
 
+/** R176 — atom-only list operators (mirrors the backend `_LIST_OPS`); not on booleans. */
+const LIST_OPS = ['in', 'not_in'] as const;
+const isListOp = (op: string) => (LIST_OPS as readonly string[]).includes(op);
+/** R176 — comparison ops that may take another column instead of a value (backend `_REF_OPS`). */
+const REF_OPS = new Set(['equals', 'ne', 'gt', 'lt', 'gte', 'lte', 'before', 'after']);
+/** R176 — dtype families a column operand must share (backend `_DTYPE_FAMILY`). */
+const dtypeFamily = (dt: string | undefined) =>
+  dt === 'integer' || dt === 'float' ? 'number' : dt === 'date' || dt === 'datetime' ? 'time' : dt;
+
+/** R176 — the operators a predicate row offers for `dtype`: the chip vocabulary plus the list ops. */
+export function predicateOps(dtype: string): string[] {
+  const base = [...(OPS_BY_DTYPE[dtype as keyof typeof OPS_BY_DTYPE] ?? [])] as string[];
+  return dtype === 'boolean' ? base : [...base, ...LIST_OPS];
+}
+
 /** R175 — an AND-list of predicates in the filter vocabulary, shared by the
  *  filter card and each WHEN of the conditional column. It used to edit only
  *  `predicates[0]`, which silently dropped the rest of a definition saved through
@@ -1172,7 +1187,12 @@ function PredicateList({
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }} data-component="PredicateList">
       {rows.map((pred, i) => {
         const dtype = cols.find((c) => c.name === pred.col)?.dtype ?? 'string';
-        const ops = [...(OPS_BY_DTYPE[dtype] ?? [])];
+        const ops = predicateOps(dtype);
+        const refable = REF_OPS.has(pred.op);
+        const refMode = refable && pred.refCol !== undefined;
+        const refOptions = cols
+          .filter((c) => c.name !== pred.col && dtypeFamily(c.dtype) === dtypeFamily(dtype))
+          .map((c) => ({ label: c.name, value: c.name }));
         return (
           <Space key={i} wrap size={[8, 6]} data-component="PredicateRow">
             <FieldLabel text={i === 0 ? firstLabel : t('queries.builder.steps.and')}>
@@ -1188,12 +1208,65 @@ function PredicateList({
               size="small"
               style={{ minWidth: 110 }}
               value={pred.op}
-              options={ops.map((o: Operator) => ({ label: o, value: o }))}
-              onChange={(op: string) =>
-                setRow(i, NO_VALUE_OPS.has(op) ? { op, val: undefined, min: undefined, max: undefined } : { op })
-              }
+              options={ops.map((o) => ({ label: o, value: o }))}
+              onChange={(op: string) => {
+                const cleared = { val: undefined, min: undefined, max: undefined, vals: undefined, refCol: undefined };
+                if (NO_VALUE_OPS.has(op)) setRow(i, { op, ...cleared });
+                else if (isListOp(op)) setRow(i, { ...cleared, op, vals: pred.vals ?? [] });
+                else
+                  setRow(i, {
+                    op,
+                    vals: undefined,
+                    refCol: REF_OPS.has(op) ? pred.refCol : undefined,
+                  });
+              }}
+              data-component="PredicateOp"
             />
-            {pred.op === 'between' ? (
+            {refable ? (
+              <Select
+                size="small"
+                style={{ minWidth: 90 }}
+                value={refMode ? 'column' : 'value'}
+                aria-label={t('queries.builder.steps.operandKind')}
+                options={[
+                  { label: t('queries.builder.steps.operandValue'), value: 'value' },
+                  { label: t('queries.builder.steps.operandColumn'), value: 'column' },
+                ]}
+                onChange={(kind: string) =>
+                  setRow(
+                    i,
+                    kind === 'column'
+                      ? { val: undefined, refCol: refOptions[0]?.value ?? '' }
+                      : { refCol: undefined, val: '' },
+                  )
+                }
+                data-component="PredicateOperandKind"
+              />
+            ) : null}
+            {refMode ? (
+              <Select
+                size="small"
+                style={{ minWidth: 140 }}
+                value={pred.refCol || undefined}
+                placeholder={t('queries.builder.steps.pickColumn')}
+                options={refOptions}
+                onChange={(refCol: string) => setRow(i, { refCol })}
+                data-component="PredicateRefCol"
+              />
+            ) : isListOp(pred.op) ? (
+              <Select
+                size="small"
+                mode="tags"
+                style={{ minWidth: 220 }}
+                tokenSeparators={[',']}
+                placeholder={t('queries.builder.steps.values')}
+                aria-label={t('queries.builder.steps.values')}
+                value={(pred.vals ?? []).map(String)}
+                open={false}
+                onChange={(next: string[]) => setRow(i, { vals: next.map((v) => asOperand(pred.col, v)) })}
+                data-component="PredicateValues"
+              />
+            ) : pred.op === 'between' ? (
               <>
                 <Input
                   size="small"
