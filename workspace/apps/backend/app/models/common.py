@@ -469,6 +469,21 @@ class DeriveStep(BaseModel):
     right: Annotated[ColOperand | ConstOperand, Field(discriminator="kind")]
 
 
+class ComputeStep(BaseModel):
+    """R184 — add a column by applying ONE function from a closed catalog to an
+    existing column: ``name = fn(col)``. ``trim`` (strip leading / trailing
+    whitespace incl. U+00A0; string → string) is the whole catalog today; a
+    function joins only when a round pulls it. Mirrors
+    `_shared/query.yaml#/ComputeStep`."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["compute"]
+    name: Annotated[str, Field(min_length=1)]
+    fn: Literal["trim"]
+    col: Annotated[str, Field(min_length=1)]
+
+
 class SortKey(BaseModel):
     """R141 — one ordering key of a sort step. ``col`` is by effective name (post
     prior steps), ANY dtype; ``descending`` flips direction. NULLs sort last in
@@ -710,7 +725,8 @@ Step = Annotated[
     | WindowColumnStep
     | DatePartStep
     | CaseStep
-    | DateDiffStep,
+    | DateDiffStep
+    | ComputeStep,
     Field(discriminator="kind"),
 ]
 

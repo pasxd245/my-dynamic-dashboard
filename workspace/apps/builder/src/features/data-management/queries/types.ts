@@ -265,6 +265,17 @@ export type DateDiffStep = {
   name: string;
 };
 
+/** R184 — append a `string` column computed by a function from a CLOSED catalog
+ *  (v1: `trim` — edge whitespace incl. U+00A0 stripped; blank → null). The source
+ *  column is never changed. Mirrors `_shared/query.yaml#/ComputeStep`. */
+export type ComputeFn = 'trim';
+export type ComputeStep = {
+  kind: 'compute';
+  name: string;
+  fn: ComputeFn;
+  col: string;
+};
+
 /** R175 — what a `case` arm yields: a literal or another column. */
 export type CaseValue = { kind: 'const'; value: string | number } | { kind: 'col'; col: string };
 
@@ -284,7 +295,7 @@ export type CaseStep = {
   otherwise?: CaseValue;
 };
 
-/** R121/R122/R123/R141/R144/R162/R164/R175 — a transform step, discriminated by `kind`. */
+/** R121/R122/R123/R141/R144/R162/R164/R175/R184 — a transform step, discriminated by `kind`. */
 export type Step =
   | AggregateStep
   | TopNStep
@@ -297,7 +308,8 @@ export type Step =
   | WindowColumnStep
   | DatePartStep
   | DateDiffStep
-  | CaseStep;
+  | CaseStep
+  | ComputeStep;
 
 /** A single effective column of a Query result (name + dtype). For a join,
  *  duplicate names are collision-qualified (`Deals.id`). Mirrors the inline

@@ -130,7 +130,7 @@ returns.
 
 _(at close)_
 
-## Feeds into → Round_184 (TBD)
+## Feeds into → [Round_184](Round_184.md)
 
 rc.2's seven rounds (R177–R183) are done; the branch awaits the G-rc2 gate (every round
 Complete, the dogfood before/after check, the repo grep, the tag). R184 opens rc.3 with the

@@ -572,6 +572,30 @@ def _plan_derive(step: dict, cur_cols: list[dict], loc: list) -> tuple[dict, lis
     return norm, [*cur_cols, {"name": name, "dtype": "float"}]
 
 
+_COMPUTE_INPUT_DTYPES = {"trim": {"string"}}
+_COMPUTE_OUTPUT_DTYPE = {"trim": "string"}
+
+
+def _plan_compute(step: dict, cur_cols: list[dict], loc: list) -> tuple[dict, list[dict]]:
+    """R184 — validate a compute step (catalog function, input dtype, no name
+    collision) → its normalized descriptor + column space (base ++ the output)."""
+    by_name = {c["name"]: c for c in cur_cols}
+    name, fn, col = step.get("name"), step.get("fn"), step.get("col")
+    if name in by_name:
+        raise _agg_422([*loc, "name"], f"column_exists: {name!r} is already a column")
+    if fn not in _COMPUTE_INPUT_DTYPES:
+        raise _agg_422([*loc, "fn"], f"unknown_function: {fn!r} is not in the compute catalog")
+    if col not in by_name:
+        raise _agg_422([*loc, "col"], f"unknown_column: {col!r} is not a column at this step")
+    if by_name[col]["dtype"] not in _COMPUTE_INPUT_DTYPES[fn]:
+        raise _agg_422(
+            [*loc, "col"],
+            f"wrong_dtype: {fn} needs a {'/'.join(sorted(_COMPUTE_INPUT_DTYPES[fn]))} column; {col!r} is {by_name[col]['dtype']}",
+        )
+    norm = {"kind": "compute", "name": name, "fn": fn, "col": col}
+    return norm, [*cur_cols, {"name": name, "dtype": _COMPUTE_OUTPUT_DTYPE[fn]}]
+
+
 def _plan_filter(step: dict, cur_cols: list[dict], loc: list) -> tuple[dict, list[dict]]:
     """R123 — validate a filter step's predicates against the CURRENT columns. Maps
     each predicate's col NAME → its index, then reuses ``build_definition_predicates``
@@ -955,6 +979,8 @@ def _plan_one_step(step: dict, cur_cols: list[dict], loc: list) -> tuple[dict, l
         return {"kind": "top_n", "col": col, "descending": bool(step.get("descending")), "n": step.get("n")}, cur_cols
     if kind == "derive":
         return _plan_derive(step, cur_cols, loc)
+    if kind == "compute":
+        return _plan_compute(step, cur_cols, loc)
     if kind == "sort":
         return _plan_sort(step, cur_cols, loc)
     if kind == "select":

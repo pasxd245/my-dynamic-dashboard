@@ -41,6 +41,7 @@ import type {
   AggregateStep,
   CaseStep,
   CaseValue,
+  ComputeStep,
   DateBucketStep,
   DateDiffStep,
   DatePartStep,
@@ -105,6 +106,7 @@ export function StepsEditor({ steps, columns, result, onChange }: StepsEditorPro
       date_part: t('queries.builder.steps.kindDatePart'),
       date_diff: t('queries.builder.steps.kindDateDiff'),
       case: t('queries.builder.steps.kindCase'),
+      compute: t('queries.builder.steps.kindCompute'),
     })[kind];
   const stepLabel = (step: Step) => (step.kind === 'window_column' ? opLabel(t, step.op) : kindLabel(step.kind));
 
@@ -241,6 +243,8 @@ function StepBody({
       return <DateDiffBody step={step} cols={cols} onChange={onChange} />;
     case 'case':
       return <CaseBody step={step} cols={cols} onChange={onChange} />;
+    case 'compute':
+      return <ComputeBody step={step} cols={cols} onChange={onChange} />;
     case 'group_column':
       return <GroupColumnBody step={step} cols={cols} grain={grain} narrowed={narrowed} onChange={onChange} />;
     case 'window_column':
@@ -342,6 +346,55 @@ function DatePartBody({
           onChange={(col: string) => onChange({ ...step, col })}
         />
       </FieldLabel>
+    </Space>
+  );
+}
+
+// R184 — a function from a CLOSED catalog (v1: trim) applied to one text column,
+// written to a NEW column; the source stays as ingested so the difference is
+// visible side by side. Only string columns are offered (the server 422s others).
+function ComputeBody({
+  step,
+  cols,
+  onChange,
+}: Readonly<{ step: ComputeStep; cols: readonly Column[]; onChange: (s: Step) => void }>) {
+  const { t } = useTranslation();
+  const text = nameOptions(cols.filter((c) => c.dtype === 'string'));
+  const fns: ComputeStep['fn'][] = ['trim'];
+  return (
+    <Space direction="vertical" size={4} style={{ width: '100%' }}>
+      <Space wrap size={[8, 6]}>
+        <FieldLabel text={t('queries.builder.steps.newColumn')}>
+          <Input
+            size="small"
+            style={{ width: 140 }}
+            value={step.name}
+            onChange={(e) => onChange({ ...step, name: e.target.value })}
+          />
+        </FieldLabel>
+        <FieldLabel text={t('queries.builder.steps.computeFn')}>
+          <Select
+            size="small"
+            style={{ width: 170 }}
+            value={step.fn}
+            options={fns.map((f) => ({ label: t(`queries.builder.steps.fn_${f}`), value: f }))}
+            onChange={(fn: ComputeStep['fn']) => onChange({ ...step, fn })}
+          />
+        </FieldLabel>
+        <FieldLabel text={t('queries.builder.steps.computeOf')}>
+          <Select
+            size="small"
+            style={{ minWidth: 140 }}
+            value={step.col || undefined}
+            placeholder="—"
+            options={text}
+            onChange={(col: string) => onChange({ ...step, col })}
+          />
+        </FieldLabel>
+      </Space>
+      <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+        {t(`queries.builder.steps.fn_${step.fn}_hint`)}
+      </Typography.Text>
     </Space>
   );
 }

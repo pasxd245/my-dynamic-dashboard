@@ -47,6 +47,7 @@ components:
               - $ref: "query.yaml#/components/schemas/DatePartStep"
               - $ref: "query.yaml#/components/schemas/CaseStep"
               - $ref: "query.yaml#/components/schemas/DateDiffStep"
+              - $ref: "query.yaml#/components/schemas/ComputeStep"
             discriminator:
               propertyName: kind
               mapping:
@@ -62,6 +63,7 @@ components:
                 date_part: "query.yaml#/components/schemas/DatePartStep"
                 case: "query.yaml#/components/schemas/CaseStep"
                 date_diff: "query.yaml#/components/schemas/DateDiffStep"
+                compute: "query.yaml#/components/schemas/ComputeStep"
 
     Workflow:
       type: object

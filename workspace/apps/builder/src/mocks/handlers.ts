@@ -505,6 +505,20 @@ function dateDiffStepMock(step: Extract<Step, { kind: 'date_diff' }>, table: Moc
   return { columns: [...table.columns, { name: step.name, dtype: 'integer' }], rows };
 }
 
+// R184 — `compute` over the closed catalog (v1: trim). Same semantics as the
+// engine: edge whitespace incl. U+00A0 stripped, a blank result is null, the
+// source column untouched; the new column is appended as a string.
+function computeStepMock(step: Extract<Step, { kind: 'compute' }>, table: MockTable): MockTable {
+  const ci = _aggColIdx(table.columns, step.col);
+  const rows = table.rows.map((row) => {
+    const cell = row[ci];
+    if (cell == null) return [...row, null];
+    const out = String(cell).replace(/^[\s\u00a0]+|[\s\u00a0]+$/g, '');
+    return [...row, out === '' ? null : out];
+  });
+  return { columns: [...table.columns, { name: step.name, dtype: 'string' }], rows };
+}
+
 function topNStepMock(step: Extract<Step, { kind: 'top_n' }>, table: MockTable): MockTable {
   const ci = _aggColIdx(table.columns, step.col);
   const num = (cell: string | null) => (Number.isFinite(Number(cell)) ? Number(cell) : 0);
@@ -738,6 +752,8 @@ function applyStepsMock(
       table = datePartStepMock(step, table);
     } else if (step.kind === 'date_diff') {
       table = dateDiffStepMock(step, table);
+    } else if (step.kind === 'compute') {
+      table = computeStepMock(step, table);
     } else {
       table = topNStepMock(step, table);
     }
@@ -777,6 +793,8 @@ function stepRefs(step: Step): string[] {
       return [step.col];
     case 'date_diff':
       return [step.start, step.end];
+    case 'compute':
+      return [step.col];
     case 'case':
       return [
         ...step.branches.flatMap((b) => [...b.when.map((p) => p.col), b.then.kind === 'col' ? b.then.col : '']),

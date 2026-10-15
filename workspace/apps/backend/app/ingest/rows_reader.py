@@ -424,6 +424,17 @@ def build_aggregate_select(
     return sql, [*inner_params, *where_params]
 
 
+def _compute_expr(step: dict) -> str:
+    """R184 — one catalog function as SQL. ``trim`` strips leading / trailing
+    whitespace incl. U+00A0 (``\\s`` in DuckDB's RE2 does not match it); a cell
+    that trims to empty is NULL, the product's blank (`(blank)` in filters)."""
+    col = _quote_ident(step["col"])
+    if step["fn"] == "trim":
+        stripped = f"regexp_replace(CAST({col} AS VARCHAR), '^[\\s\\x{{00A0}}]+|[\\s\\x{{00A0}}]+$', '', 'g')"
+        return f"NULLIF({stripped}, '')"
+    raise ValueError(f"unknown compute fn {step['fn']!r}")  # unreachable: validated at plan time
+
+
 def _derive_expr(step: dict) -> str:
     """The R122 derive expression. The constant is a validated float (pydantic) →
     safe to inline, keeping ``?`` out of the SELECT clause (param-order sanity);
@@ -504,6 +515,8 @@ def _apply_step(step: dict, sql: str, params: list[Any], cols: list[str]) -> tup
         return f"SELECT {select_list} FROM ({sql}) AS _p", params, step["output_cols"]
     if kind == "derive":
         return f"SELECT *, {_derive_expr(step)} AS {_quote_ident(step['name'])} FROM ({sql}) AS _d", params, [*cols, step["name"]]
+    if kind == "compute":
+        return f"SELECT *, {_compute_expr(step)} AS {_quote_ident(step['name'])} FROM ({sql}) AS _c", params, [*cols, step["name"]]
     if kind == "group_column":
         # R163 — the WITHIN-GROUP column: the same measure expression as a
         # collapsing aggregate, WINDOWED over the row's partition instead of

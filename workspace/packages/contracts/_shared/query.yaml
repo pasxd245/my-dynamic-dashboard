@@ -285,6 +285,39 @@ components:
                 value:
                   type: number
 
+    ComputeStep:
+      type: object
+      description: |
+        R184 — a TRANSFORM STEP that adds a new column by applying ONE function
+        from a CLOSED CATALOG to an existing column, row by row:
+        `name = fn(col)`. Not a formula string (the product's no-formula rule):
+        `fn` is an enum, and the catalog grows only when a round pulls a new
+        function in. The source column is never changed (append-only, like
+        `derive` / `case`); use `select` to rename or drop.
+
+        Catalog:
+        - `trim` — the text with leading and trailing whitespace removed,
+          including the non-breaking space (U+00A0) that spreadsheet exports
+          carry; inner spaces are kept. `col` must be a `string` column; the
+          output is `string`; a blank / NULL cell stays NULL. Makes values that
+          differ only by edge whitespace group as one.
+      required: [kind, name, fn, col]
+      additionalProperties: false
+      properties:
+        kind:
+          const: compute
+        name:
+          type: string
+          minLength: 1
+          description: New column name; must not collide with an existing column.
+        fn:
+          type: string
+          enum: [trim]
+        col:
+          type: string
+          minLength: 1
+          description: The input column (effective name at this step).
+
     FilterStepPredicate:
       type: object
       description: |
@@ -837,7 +870,8 @@ components:
             non-collapsing `group_column` (the within-group column); R164 the ordered-window
             family (`window_column`: share of total / running total / rank / previous
             period's value); R175 the formula-free `case` (conditional column), the
-            numeric `date_part` and the calendar `date_diff`. At most 24 steps (`too_many_steps`; R175 raised
+            numeric `date_part` and the calendar `date_diff`; R184 `compute` (one
+            function from a closed catalog — `trim` first). At most 24 steps (`too_many_steps`; R175 raised
             it from 8 — a real weekly funnel needs ~20). A query with
             steps exposes its POST-step columns as `resolvedColumns`.
             `kind`-discriminated union.
@@ -855,6 +889,7 @@ components:
               - $ref: "#/components/schemas/DatePartStep"
               - $ref: "#/components/schemas/CaseStep"
               - $ref: "#/components/schemas/DateDiffStep"
+              - $ref: "#/components/schemas/ComputeStep"
             discriminator:
               propertyName: kind
               mapping:
@@ -870,6 +905,7 @@ components:
                 date_part: "#/components/schemas/DatePartStep"
                 case: "#/components/schemas/CaseStep"
                 date_diff: "#/components/schemas/DateDiffStep"
+                compute: "#/components/schemas/ComputeStep"
 
     Query:
       type: object

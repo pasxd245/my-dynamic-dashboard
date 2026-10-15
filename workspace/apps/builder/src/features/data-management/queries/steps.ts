@@ -68,6 +68,8 @@ export function stepOutput(step: Step, cols: readonly Column[]): Column[] {
     case 'date_part':
     case 'date_diff':
       return [...cols, { name: step.name, dtype: 'integer' }];
+    case 'compute':
+      return [...cols, { name: step.name, dtype: 'string' }];
     case 'case':
       return [...cols, { name: step.name, dtype: caseDtype(step, cols) ?? 'string' }];
     case 'top_n':
@@ -331,6 +333,12 @@ export function blankStep(kind: Step['kind'], cols: readonly Column[], op?: Wind
         name: 'months_between',
       };
     }
+    case 'compute': {
+      // R184 — a fresh card cleans the first text column into `<col>_clean`, so
+      // the card already reads as the claim it makes ("Ly" and "Ly " are one).
+      const text = cols.find((c) => c.dtype === 'string')?.name ?? '';
+      return { kind: 'compute', fn: 'trim', col: text, name: text ? `${text}_clean` : 'clean' };
+    }
     case 'case':
       // R175 — a fresh card reads as a complete IF: "when <first col> equals …
       // then 1, otherwise 0" — the flag shape this step is reached for most.
@@ -467,6 +475,8 @@ export const STEP_MENU: readonly Readonly<{ group: string; items: readonly StepC
       { value: 'derive', kind: 'derive' },
       // R175 — the formula-free IF/IFS, then the two numeric date helpers.
       { value: 'case', kind: 'case' },
+      // R184 — the closed-catalog function step (v1: trim).
+      { value: 'compute', kind: 'compute' },
       { value: 'date_bucket', kind: 'date_bucket' },
       { value: 'date_part', kind: 'date_part' },
       { value: 'date_diff', kind: 'date_diff' },
