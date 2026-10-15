@@ -74,6 +74,8 @@ export const MOCK_DATASET: Dataset = {
   ],
   sourceFormat: 'csv',
   createdAt: '2026-05-22T12:00:00Z',
+  refreshedAt: '2026-05-22T12:00:00Z',
+  dataVersion: 1,
 };
 
 /** Row-major; cell order matches `MOCK_DATASET.columns`. Cells are
@@ -198,6 +200,8 @@ export const MOCK_DATASET_2: Dataset = {
   ],
   sourceFormat: 'csv',
   createdAt: '2026-05-23T12:00:00Z',
+  refreshedAt: '2026-05-23T12:00:00Z',
+  dataVersion: 1,
 };
 
 export const MOCK_RELATIONSHIP: Relationship = {
@@ -306,6 +310,8 @@ export const MOCK_DATASET_3: Dataset = {
   ],
   sourceFormat: 'csv',
   createdAt: '2026-05-24T12:00:00Z',
+  refreshedAt: '2026-05-24T12:00:00Z',
+  dataVersion: 1,
 };
 
 /** The second hop: accounts.tier ↔ owners.tier (drives FROM accounts, the
@@ -343,6 +349,8 @@ export const MOCK_DATASET_4: Dataset = {
   ],
   sourceFormat: 'csv',
   createdAt: '2026-05-25T12:00:00Z',
+  refreshedAt: '2026-05-25T12:00:00Z',
+  dataVersion: 1,
 };
 
 export const MOCK_DATASET_5: Dataset = {
@@ -358,6 +366,8 @@ export const MOCK_DATASET_5: Dataset = {
   ],
   sourceFormat: 'csv',
   createdAt: '2026-05-25T13:00:00Z',
+  refreshedAt: '2026-05-25T13:00:00Z',
+  dataVersion: 1,
 };
 
 /** Accounts → tiers (accounts.account_id ↔ tiers.acct). Drives FROM Accounts —

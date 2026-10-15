@@ -26,6 +26,8 @@ const excelTarget: Dataset = {
   sourceFormat: "excel",
   sheetName: "Worksheet",
   createdAt: "2026-07-01T00:00:00Z",
+  refreshedAt: "2026-07-01T00:00:00Z",
+  dataVersion: 1,
 };
 
 describe("refresh mode — SEED_REFRESH", () => {

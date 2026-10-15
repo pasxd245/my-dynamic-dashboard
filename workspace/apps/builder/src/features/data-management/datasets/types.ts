@@ -40,6 +40,11 @@ export type Dataset = {
   /** Present iff sourceFormat === 'excel'. */
   sheetName?: string;
   createdAt: string;
+  /** R185 (W-4) — when the rows last changed (commit, then each refresh).
+   *  Server-stamped, read-only. */
+  refreshedAt: string;
+  /** R185 (W-4) — 1 at commit, +1 per successful refresh. Server-stamped. */
+  dataVersion: number;
 };
 
 export type ParseOptions = {

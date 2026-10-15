@@ -52,7 +52,9 @@ CREATE TABLE IF NOT EXISTS datasets (
     columns_json TEXT NOT NULL,
     source_format TEXT NOT NULL CHECK (source_format IN ('csv', 'excel')),
     sheet_name TEXT,
-    created_at TEXT NOT NULL
+    created_at TEXT NOT NULL,
+    refreshed_at TEXT,
+    data_version INTEGER NOT NULL DEFAULT 1
 );
 
 CREATE INDEX IF NOT EXISTS idx_datasets_workspace_id
@@ -287,8 +289,8 @@ def _introspect_models(tmp_path: Path) -> dict:
 
 def test_migration_leaves_alembic_version(tmp_path: Path, _restore_db_path):
     """The migrated DB is genuinely versioned (so subsequent boots take the
-    fast versioned path). R88 collapsed history to `0001_baseline`; F12's
-    `0005_metadata_entries` (R180) is the additive head."""
+    fast versioned path). R88 collapsed history to `0001_baseline`; R185's
+    `0006_dataset_data_version` is the additive head."""
     migrated_path = tmp_path / "versioned.sqlite"
     db.set_db_path(migrated_path)
     db.run_startup_migrations()
@@ -298,4 +300,4 @@ def test_migration_leaves_alembic_version(tmp_path: Path, _restore_db_path):
         version = con.execute("SELECT version_num FROM alembic_version").fetchone()
     finally:
         con.close()
-    assert version is not None and version[0] == "0005_metadata_entries"
+    assert version is not None and version[0] == "0006_dataset_data_version"

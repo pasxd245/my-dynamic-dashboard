@@ -308,6 +308,8 @@
         "cols": "Số cột",
         "size": "Kích thước",
         "uploaded": "Đã tải lên",
+        "dataVersion": "Phiên bản dữ liệu",
+        "dataVersionValue": "v{{version}} · {{when}}",
         "format": "Định dạng"
       },
       "dtype": {

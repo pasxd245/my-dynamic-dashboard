@@ -69,6 +69,8 @@ paths:
                     sourceFormat: "excel"
                     sheetName: "Deals"
                     createdAt: "2026-05-26T14:02:00Z"
+                    refreshedAt: "2026-05-26T14:02:00Z"
+                    dataVersion: 1
                 csv_commission:
                   summary: CSV dataset (no sheetName)
                   value:
@@ -86,6 +88,8 @@ paths:
                       ]
                     sourceFormat: "csv"
                     createdAt: "2026-05-19T09:30:00Z"
+                    refreshedAt: "2026-05-19T09:30:00Z"
+                    dataVersion: 1
         "404":
           description: |
             No dataset with the given `id` exists (or it was

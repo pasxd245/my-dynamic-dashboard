@@ -1002,8 +1002,16 @@ export const handlers = [
     // R155 — a refresh item's mode drives the 201 shape (array | merge wrapper |
     // append wrapper). `append` is explicit; `merge` is inferred from merge_key.
     const first = items[0];
+    // R185 — the server stamps the data identity: a commit is version 1 at its
+    // created time; a refresh bumps the version and restamps `refreshedAt`.
+    const nowIso = new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
     if (first?.target_dataset_id) {
-      const updated = { ...MOCK_DATASET, id: first.target_dataset_id };
+      const updated = {
+        ...MOCK_DATASET,
+        id: first.target_dataset_id,
+        refreshedAt: nowIso,
+        dataVersion: MOCK_DATASET.dataVersion + 1,
+      };
       if (first.refresh_mode === 'append') {
         return HttpResponse.json({ datasets: [updated], append: { appended: 100, total: 5147 } }, { status: 201 });
       }
@@ -1013,12 +1021,16 @@ export const handlers = [
           { status: 201 },
         );
       }
+      return HttpResponse.json([updated], { status: 201 });
     }
     return HttpResponse.json(
       items.map((item, i) => ({
         ...MOCK_DATASET,
         id: `ds_${(i + 1).toString().padStart(8, '0')}`,
         name: item.name ?? `dataset_${i + 1}`,
+        createdAt: nowIso,
+        refreshedAt: nowIso,
+        dataVersion: 1,
       })),
       { status: 201 },
     );

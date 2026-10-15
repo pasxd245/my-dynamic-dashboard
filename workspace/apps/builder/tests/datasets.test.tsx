@@ -35,6 +35,8 @@ const DS_LEADS: Dataset = {
   ],
   sourceFormat: "csv",
   createdAt: "2026-05-22T12:00:00Z",
+  refreshedAt: "2026-05-22T12:00:00Z",
+  dataVersion: 1,
 };
 
 const DS_DEALS: Dataset = {
@@ -53,6 +55,8 @@ const DS_DEALS: Dataset = {
   sourceFormat: "excel",
   sheetName: "Deals",
   createdAt: "2026-05-23T14:30:00Z",
+  refreshedAt: "2026-05-23T14:30:00Z",
+  dataVersion: 1,
 };
 
 function jsonResponse(body: unknown, status = 200): Response {

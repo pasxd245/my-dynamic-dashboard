@@ -126,6 +126,9 @@ class Dataset(BaseModel):
     sourceFormat: SourceFormat  # noqa: N815
     sheetName: str | None = None  # noqa: N815
     createdAt: IsoUtc  # noqa: N815
+    # R185 (W-4) — server-stamped data identity, read-only on the wire.
+    refreshedAt: IsoUtc  # noqa: N815
+    dataVersion: Annotated[int, Field(ge=1)]  # noqa: N815
 
 
 class ParseOptions(BaseModel):

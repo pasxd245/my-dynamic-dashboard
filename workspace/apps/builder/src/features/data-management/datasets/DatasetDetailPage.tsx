@@ -706,6 +706,15 @@ function datasetMetaItems(
     { label: t('datasets.detail.meta.cols'), value: String(dataset.columnCount) },
     { label: t('datasets.detail.meta.size'), value: formatBytes(dataset.sizeBytes) },
     { label: t('datasets.detail.meta.uploaded'), value: relativeTime(dataset.createdAt, t) },
+    // R185 (W-4) — the server's stamp for the rows: which version, and when the
+    // rows last changed (= uploaded until the first refresh).
+    {
+      label: t('datasets.detail.meta.dataVersion'),
+      value: t('datasets.detail.meta.dataVersionValue', {
+        version: dataset.dataVersion,
+        when: relativeTime(dataset.refreshedAt, t),
+      }),
+    },
     {
       label: t('datasets.detail.meta.format'),
       value:

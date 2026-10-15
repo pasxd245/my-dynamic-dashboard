@@ -130,10 +130,11 @@ describe("DatasetDetailPage — Properties drawer (R153)", () => {
     );
     expect(document.querySelectorAll('[data-component="PropertiesDrawerItem"]')).toHaveLength(7);
 
-    // Dataset section (breadth): the 6 dataset-level facts render above the columns.
+    // Dataset section (breadth): the 7 dataset-level facts render above the columns
+    // (R185 added the data version).
     const datasetSection = document.querySelector('[data-component="PropertiesDrawerDataset"]') as HTMLElement;
     expect(datasetSection).toBeInTheDocument();
-    expect(datasetSection.children).toHaveLength(6);
+    expect(datasetSection.children).toHaveLength(7);
 
     // Flip the session-local "show all" — the hidden column now renders.
     fireEvent.click(document.querySelector('[data-component="PropertiesDrawerShowAll"]') as HTMLElement);

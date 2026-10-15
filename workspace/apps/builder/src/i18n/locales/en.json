@@ -308,6 +308,8 @@
         "cols": "Cols",
         "size": "Size",
         "uploaded": "Uploaded",
+        "dataVersion": "Data version",
+        "dataVersionValue": "v{{version}} · {{when}}",
         "format": "Format"
       },
       "dtype": {

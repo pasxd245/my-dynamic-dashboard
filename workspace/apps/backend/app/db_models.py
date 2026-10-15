@@ -21,7 +21,7 @@ same columns, types, nullability, FKs + ``ON DELETE CASCADE``, ``CHECK``s, index
 
 from __future__ import annotations
 
-from sqlalchemy import CheckConstraint, Column, ForeignKey, Index, Integer, Text
+from sqlalchemy import CheckConstraint, Column, ForeignKey, Index, Integer, Text, text
 from sqlmodel import Field, SQLModel
 
 
@@ -65,6 +65,15 @@ class Dataset(SQLModel, table=True):
     source_format: str = Field(sa_column=Column(Text, nullable=False))
     sheet_name: str | None = Field(default=None, sa_column=Column(Text, nullable=True))
     created_at: str = Field(sa_column=Column(Text, nullable=False))
+    # R185 (W-4) — server-stamped data identity: when the rows last changed
+    # (create or refresh) and a counter bumped by every refresh. Never written by
+    # a client. `refreshed_at` is nullable only because SQLite's ADD COLUMN cannot
+    # add a NOT NULL column without a default; 0006 backfills it and every write
+    # path sets it.
+    refreshed_at: str | None = Field(default=None, sa_column=Column(Text, nullable=True))
+    data_version: int = Field(
+        default=1, sa_column=Column(Integer, nullable=False, server_default=text("1"))
+    )
 
 
 class Query(SQLModel, table=True):

@@ -56,6 +56,8 @@ paths:
                       sourceFormat: "excel"
                       sheetName: "Contacts"
                       createdAt: "2026-05-24T11:30:01Z"
+                      refreshedAt: "2026-05-24T11:30:01Z"
+                      dataVersion: 1
                     - id: "ds_71a4e2f0"
                       workspaceId: "ws_3f8a2c91"
                       name: "q1_pipeline_Deals"
@@ -70,3 +72,5 @@ paths:
                       sourceFormat: "excel"
                       sheetName: "Deals"
                       createdAt: "2026-05-24T11:30:01Z"
+                      refreshedAt: "2026-05-24T11:30:01Z"
+                      dataVersion: 1

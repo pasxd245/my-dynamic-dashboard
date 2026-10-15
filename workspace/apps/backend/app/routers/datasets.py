@@ -763,9 +763,12 @@ def _handle_refresh(
         with get_conn() as con:
             con.execute("BEGIN")
             con.execute(
+                # R185 (W-4) — the rows changed: bump the version and stamp the
+                # time in the same UPDATE that commits the swap, so a reader
+                # never sees new rows under the old version.
                 "UPDATE datasets SET row_count=?, column_count=?, columns_json=?, "
-                "size_bytes=?, sheet_name=? WHERE id=?",
-                (new_row_count, len(cols), columns_json, new_size, sheet_name, target_id),
+                "size_bytes=?, sheet_name=?, refreshed_at=?, data_version=data_version+1 WHERE id=?",
+                (new_row_count, len(cols), columns_json, new_size, sheet_name, _now_iso(), target_id),
             )
             con.commit()
     except Exception:
@@ -870,6 +873,7 @@ def commit_datasets_batch(id: str, body: _BatchRequest) -> list[Dataset] | JSONR
         # the write loop reads it back from the registry pointer.
         prov_name = _resolve_provenance_name({c["name"] for c in cols})
         _inject_provenance_col(cols, is_new=True, name=prov_name)
+        now = _now_iso()
         ds = Dataset(
             id=_new_ds_id(),
             workspaceId=id,
@@ -880,7 +884,10 @@ def commit_datasets_batch(id: str, body: _BatchRequest) -> list[Dataset] | JSONR
             columns=[Column(**c) for c in cols],
             sourceFormat=source_format,
             sheetName=item.sheet if source_format == "excel" else None,
-            createdAt=_now_iso(),
+            createdAt=now,
+            # R185 (W-4) — a new dataset's rows are version 1, stamped now.
+            refreshedAt=now,
+            dataVersion=1,
         )
         commit_settings = _commit_settings_dict(item, ds.sheetName, provenance_name=prov_name)
         staged.append((ds, opts, kept_names, dtype_targets, dtype_formats, commit_settings))
@@ -950,8 +957,8 @@ def commit_datasets_batch(id: str, body: _BatchRequest) -> list[Dataset] | JSONR
                     """INSERT INTO datasets (
                         id, workspace_id, name, size_bytes, row_count,
                         column_count, columns_json, source_format, sheet_name,
-                        created_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                        created_at, refreshed_at, data_version
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                     (
                         ds.id,
                         ds.workspaceId,
@@ -963,6 +970,8 @@ def commit_datasets_batch(id: str, body: _BatchRequest) -> list[Dataset] | JSONR
                         ds.sourceFormat,
                         ds.sheetName,
                         ds.createdAt,
+                        ds.refreshedAt,
+                        ds.dataVersion,
                     ),
                 )
             con.commit()
@@ -1019,18 +1028,7 @@ def rename_dataset(  # noqa: A002 — match contract path param name
         # stays). Simpler than synthesizing the dict from the prior row.
         updated = con.execute("SELECT * FROM datasets WHERE id = ?", (id,)).fetchone()
 
-    ds = Dataset(
-        id=updated["id"],
-        workspaceId=updated["workspace_id"],
-        name=updated["name"],
-        sizeBytes=updated["size_bytes"],
-        rowCount=updated["row_count"],
-        columnCount=updated["column_count"],
-        columns=[Column(**c) for c in json.loads(updated["columns_json"])],
-        sourceFormat=updated["source_format"],
-        sheetName=updated["sheet_name"],
-        createdAt=updated["created_at"],
-    )
+    ds = _dataset_from_row(updated)
     return JSONResponse(
         status_code=status.HTTP_200_OK,
         content=ds.model_dump(exclude_none=True),
@@ -1143,6 +1141,10 @@ def _dataset_from_row(row) -> Dataset:  # type: ignore[no-untyped-def]
         sourceFormat=row["source_format"],
         sheetName=row["sheet_name"],
         createdAt=row["created_at"],
+        # R185 — `refreshed_at` is backfilled by 0006 and set on every write;
+        # the fallback only covers a row written between the two.
+        refreshedAt=row["refreshed_at"] or row["created_at"],
+        dataVersion=row["data_version"],
     )
 
 
@@ -1370,20 +1372,4 @@ def list_datasets(
                 (workspace_id,),
             ).fetchall()
 
-    out: list[Dataset] = []
-    for r in rows:
-        out.append(
-            Dataset(
-                id=r["id"],
-                workspaceId=r["workspace_id"],
-                name=r["name"],
-                sizeBytes=r["size_bytes"],
-                rowCount=r["row_count"],
-                columnCount=r["column_count"],
-                columns=[Column(**c) for c in json.loads(r["columns_json"])],
-                sourceFormat=r["source_format"],
-                sheetName=r["sheet_name"],
-                createdAt=r["created_at"],
-            )
-        )
-    return out
+    return [_dataset_from_row(r) for r in rows]
