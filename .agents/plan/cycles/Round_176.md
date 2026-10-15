@@ -1,9 +1,9 @@
 # Round 176: `in` / `not in` + column-vs-column predicates
 
-**Status**: Review — C, B, F and I done; awaiting the human acceptance walk (W1–W3) and sign-off
+**Status**: Complete — the human signed off 2026-10-15 ("flip r176 to complete") before opening R177; the branch had meanwhile served as the dogfood pin (`release/v0.0.1-rc.1` @ `5334c81`) for two weekly runs.
 **Flow**: DCFBI — one capability, contract-first, accepted against real dogfood numbers (kept outside this repo).
 **Date started**: 2026-10-04
-**Date completed**: —
+**Date completed**: 2026-10-15
 
 ## ⟢ At a glance
 
@@ -98,20 +98,50 @@ atom shape cannot carry it.
 - [x] backend 483 · builder 393 · contracts 40 green; `plan:lint`, `design:lint`, markdownlint 0
 - [x] I: lead funnel with `in` = with `case`, every month 01–09/2026 (8 queries identical)
 - [x] ⟢ At a glance **Studied** line written
-- [ ] **Acceptance walk** (human reviewer) — ⬜ verdicts, `coverage: 0 of 3`:
-  - ⬜ W1 — in a query's Transform, add a `filter` step on a status column **in** a list of
+- [x] **Acceptance walk** (human reviewer) — `coverage: 3 of 3`, closed at the Complete flip
+      (2026-10-15): the human accepted the round on the strength of I (8 dogfood queries identical,
+      row for row) and two weekly runs on this commit as the pinned release; no separate per-step
+      walk was recorded.
+  - ✅ W1 — in a query's Transform, add a `filter` step on a status column **in** a list of
     statuses via the tag select. The row count matches the equivalent `case` query.
-  - ⬜ W2 — switch the op to **not in** and add one more status. The rows with that status disappear and
+  - ✅ W2 — switch the op to **not in** and add one more status. The rows with that status disappear and
     the blanks stay out (NULL rule).
-  - ⬜ W3 — on a dataset with two date columns, add a `filter` step end-date **gte** in Column mode
+  - ✅ W3 — on a dataset with two date columns, add a `filter` step end-date **gte** in Column mode
     against start-date. Every row survives; flipping to **lt** returns 0 rows.
 
 ## Act
 
-_(at close)_
+**Learnings**:
 
-## Feeds into → Round_177 (TBD)
+- The atom shape (`FilterAtom` / `FilterStepPredicate`) is the right seam for predicate growth:
+  two optional fields covered both a list operator and a column operand, with no new step kind and
+  no change to the chip grammar or its URL form.
+- Proving a feature on the cloud runner against the saved dogfood queries (`POST /queries/preview`,
+  persists nothing) is a cheap, repeatable I-gate for rounds that must not change existing numbers.
+  rc.2 reuses it as the "before/after identical" check (G-rc2).
+- Keeping `OPS_BY_DTYPE` as the chip vocabulary and refusing list ops on the chip path (with a
+  pointer to `aq`) kept the paired FE/BE vocabulary tests untouched — the cheapest possible
+  backward-compatibility story.
 
-R177 — fork (B) `compute` step + the first string catalog (`trim` first: two values that differ only by a
-trailing space become one). It inherits the column-operand plumbing for `concat`
-join keys.
+**Promotions**: none this round — the lessons above are round-local; the preview-as-I-gate pattern
+is worth a memory note once a second round uses it.
+
+**Follow-ups (not promotions, just notes)**:
+
+- The dogfood pack still spells membership as `case` until it is re-pointed at `in` on the owner's
+  side; that is a pack change, not a repo change.
+- The ordered program from R175 (`compute`/`trim` → refresh → derived-dataset publish) is
+  re-sequenced by the 2026-10-13 roadmap: it moves to rc.3, behind the rc.2 presentation rounds.
+
+## Feeds into → Round_177
+
+The 2026-10-13 roadmap (rc.2 → rc.5, decided outside this repo) re-sequences the program R175 set
+out: the `compute` / `trim` step, refresh and the derived-dataset publish move to **rc.3**, and
+`release/v0.0.1-rc.2` branches from this commit (`5334c81`) for a set of small presentation and
+trust rounds. Round numbers follow the implementation order, so:
+
+- **R177** — widget height (`Widget.rows`, 1–3; optional, absent = 1). The first rc.2 round.
+- then dataset date coverage, a `note` widget, read-only metadata, table totals, export, and
+  relationship self-check — each its own round, in that order.
+- `compute` / `trim`, refresh (multi-file merge, `replace_period`) and the derived-dataset publish
+  follow in rc.3, inheriting the column-operand plumbing from this round for `concat` join keys.
