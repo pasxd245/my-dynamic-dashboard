@@ -36,6 +36,30 @@ export type Relationship = {
   createdAt: string;
 };
 
+/** R183 — the relationship measured against its data (`GET
+ *  /relationships/{id}/check`). Mirrors `relationships/check-get.contract.yaml`. */
+export type RelationshipCheck = {
+  leftRows: number;
+  rightRows: number;
+  leftMatchedRows: number;
+  rightMatchedRows: number;
+  leftUnmatchedRows: number;
+  rightUnmatchedRows: number;
+  leftCoverage: number;
+  rightCoverage: number;
+  leftDistinctKeys: number;
+  rightDistinctKeys: number;
+  leftMaxPerKey: number;
+  rightMaxPerKey: number;
+  observedCardinality: Cardinality;
+  declaredCardinality: Cardinality;
+  cardinalityMatches: boolean;
+  /** A join left → right can multiply left rows (a key repeats on the right). */
+  multipliesLeft: boolean;
+  multipliesRight: boolean;
+  checkedAt: string;
+};
+
 /** POST /workspaces/{id}/relationships request body. */
 export type CreateRelationshipRequest = {
   leftDatasetId: string;

@@ -50,3 +50,15 @@ export function useDeleteRelationshipMutation() {
     },
   });
 }
+
+/** R183 — the edge measured against its data; fresh per open (short cache),
+ *  never blocking: a 409 (stale) or 404 reads as an error the UI explains. */
+export function useRelationshipCheckQuery(id: string | undefined, enabled = true) {
+  return useQuery({
+    queryKey: ['relationship-check', id] as const,
+    queryFn: () => relationshipsApi.check(id as string),
+    enabled: enabled && Boolean(id),
+    retry: false,
+    staleTime: 15_000,
+  });
+}

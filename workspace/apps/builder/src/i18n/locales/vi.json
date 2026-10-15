@@ -958,6 +958,20 @@
     },
     "delete": {
       "success": "Đã xóa mối quan hệ"
+    },
+    "check": {
+      "action": "Kiểm",
+      "side": "{{matched}}/{{rows}} dòng có đối ứng · {{unmatched}} dòng không",
+      "keys": "{{keys}} khoá, tối đa {{max}} dòng/khoá",
+      "declared": "Khai báo",
+      "observed": "Quan sát",
+      "mismatch": "khác khai báo — gắn cờ, không chặn",
+      "multiplies": "Join từ {{from}} sang {{to}} có thể nhân dòng: một khoá có tới {{max}} dòng ở {{to}}.",
+      "clean": "Đúng như khai báo: mọi dòng đều có đối ứng, khoá không trùng.",
+      "checkedAt": "Đo lúc {{when}} trên dữ liệu đã commit; mở lại để đo mới.",
+      "stale": "Cột khoá đã mất hoặc không join được — sửa relationship trước.",
+      "failed": "Không đo được relationship này.",
+      "joinWarning": "Join này có thể nhân dòng: một khoá có tới {{max}} dòng ở phía kia ({{observed}} quan sát, {{declared}} khai báo)."
     }
   },
   "notFound": {

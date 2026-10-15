@@ -7,7 +7,7 @@
 // only: declare / list / delete + the computed valid|stale status. No joined
 // rows (that is the Query Builder, R71).
 
-import { DeleteOutlined, PlusOutlined, WarningFilled } from '@ant-design/icons';
+import { DeleteOutlined, ExperimentOutlined, PlusOutlined, WarningFilled } from '@ant-design/icons';
 import { PageCard, PageHeader } from '@mdd/ui';
 import { App, Alert, Button, Empty, Skeleton, Table, Tag, Tooltip, Typography, theme } from 'antd';
 import { useMemo, useState } from 'react';
@@ -19,6 +19,7 @@ import { useWorkspacesQuery } from '@/features/data-management/workspaces/hooks'
 import { DeleteConfirmModal } from '../_shared/DeleteConfirmModal';
 import { ApiErrorThrown } from '../_shared/types';
 import { DeclareRelationshipModal } from './DeclareRelationshipModal';
+import { RelationshipCheckDrawer } from './RelationshipCheckDrawer';
 import { useCreateRelationshipMutation, useDeleteRelationshipMutation, useRelationshipsQuery } from './hooks';
 import type { CreateRelationshipRequest, Relationship } from './types';
 
@@ -37,6 +38,8 @@ export function WorkspaceRelationshipsPage() {
 
   const [declareOpen, setDeclareOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Relationship | null>(null);
+  // R183 — the self-check drawer (measured on open; flags, never blocks).
+  const [checkTarget, setCheckTarget] = useState<Relationship | null>(null);
 
   const workspaceName = useMemo(
     () => workspaces.data?.find((w) => w.id === workspaceId)?.name,
@@ -163,6 +166,22 @@ export function WorkspaceRelationshipsPage() {
           },
           {
             title: '',
+            key: 'check',
+            width: 90,
+            render: (_v, r) => (
+              <Button
+                size="small"
+                icon={<ExperimentOutlined />}
+                disabled={r.status === 'stale'}
+                onClick={() => setCheckTarget(r)}
+                data-component="RelationshipCheckButton"
+              >
+                {t('relationships.check.action')}
+              </Button>
+            ),
+          },
+          {
+            title: '',
             key: 'actions',
             width: 48,
             render: (_v, r) => (
@@ -219,6 +238,7 @@ export function WorkspaceRelationshipsPage() {
           setDeclareOpen(false);
         }}
       />
+      <RelationshipCheckDrawer rel={checkTarget} datasetName={dsName} onClose={() => setCheckTarget(null)} />
       <DeleteConfirmModal
         resourceLabel="relationship"
         resourceName={deleteTarget ? `${deleteTarget.leftColumn} ↔ ${deleteTarget.rightColumn}` : ''}

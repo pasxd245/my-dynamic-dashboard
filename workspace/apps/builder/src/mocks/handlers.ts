@@ -45,6 +45,7 @@ import {
   MOCK_QUERIES,
   MOCK_QUERY,
   MOCK_RELATIONSHIPS_CHAIN,
+  MOCK_RELATIONSHIP_CHECK,
   MOCK_ROWS,
   MOCK_STALE_JOIN_QUERY_ID,
   MOCK_STALE_QUERY_ID,
@@ -869,6 +870,15 @@ export const handlers = [
     const found = MOCK_METADATA[key];
     if (found) return HttpResponse.json(found);
     return HttpResponse.json({ entries: {} });
+  }),
+  // R183 — relationship self-check: the governed edge measured against the
+  // data. The fixture's edge reads as declared except that the right side
+  // repeats a key, so a join from the left multiplies.
+  withContractValidation('get', api('/relationships/:id/check'), 'checkRelationship', ({ params }) => {
+    const rel = MOCK_RELATIONSHIPS_CHAIN.find((r) => r.id === params.id);
+    if (!rel) return HttpResponse.json({ code: 'not_found' }, { status: 404 });
+    if (rel.status === 'stale') return HttpResponse.json({ code: 'relationship_stale' }, { status: 409 });
+    return HttpResponse.json(MOCK_RELATIONSHIP_CHECK);
   }),
   withContractValidation('get', api('/datasets/:id'), 'getDataset', ({ params }) => {
     const ds = [MOCK_DATASET, MOCK_DATASET_2, MOCK_DATASET_3, MOCK_DATASET_4, MOCK_DATASET_5].find(

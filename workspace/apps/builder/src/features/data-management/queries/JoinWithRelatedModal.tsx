@@ -14,7 +14,7 @@ import { useNavigate } from 'react-router-dom';
 
 import { NAME_LENGTHS } from '@/_generated/constants';
 import { ApiErrorThrown } from '@/features/data-management/_shared/types';
-import { useRelationshipsQuery } from '@/features/data-management/relationships/hooks';
+import { useRelationshipCheckQuery, useRelationshipsQuery } from '@/features/data-management/relationships/hooks';
 import { copyGovernedRel } from './chain';
 import { useCreateQueryMutation } from './hooks';
 
@@ -62,6 +62,12 @@ export function JoinWithRelatedModal({
   }, [open, joinable.length]);
 
   const selected = joinable.find((r) => r.id === relId);
+  // R183 — warn before the join is saved when it will multiply rows: the hop
+  // starts from THIS dataset, so the relevant side is the other one.
+  const check = useRelationshipCheckQuery(selected?.id, open && Boolean(selected));
+  const fromLeft = selected?.leftDatasetId === datasetId;
+  const multiplies = check.data ? (fromLeft ? check.data.multipliesLeft : check.data.multipliesRight) : false;
+  const otherMax = check.data ? (fromLeft ? check.data.rightMaxPerKey : check.data.leftMaxPerKey) : 0;
   const trimmed = name.trim();
   const canSave = Boolean(selected) && trimmed.length > 0 && !createMutation.isPending;
   const nameTaken = createMutation.error instanceof ApiErrorThrown && createMutation.error.body.code === 'name_taken';
@@ -131,6 +137,19 @@ export function JoinWithRelatedModal({
             data-component="JoinRelationshipSelect"
           />
         </div>
+
+        {multiplies && check.data ? (
+          <Alert
+            type="warning"
+            showIcon
+            data-component="JoinMultipliesWarning"
+            title={t('relationships.check.joinWarning', {
+              max: otherMax,
+              observed: t(`relationships.cardinality.${check.data.observedCardinality}`),
+              declared: t(`relationships.cardinality.${check.data.declaredCardinality}`),
+            })}
+          />
+        ) : null}
 
         <div>
           <Typography.Text strong style={{ display: 'block', marginBottom: 4 }}>

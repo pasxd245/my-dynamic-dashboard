@@ -29,13 +29,16 @@ from fastapi.responses import JSONResponse, Response
 
 from app._generated.constants import ID_PATTERNS
 from app.db import get_conn
+from app.ingest.relationship_check import check_relationship
 from app.models.common import (
     ApiErrorNotFound,
     ApiErrorRelationshipExists,
+    ApiErrorRelationshipStale,
     CreateRelationshipBody,
     Relationship,
 )
 from app.routers._shared import _compatible, _dtype_of, _now_iso
+from app.storage import dataset_dir
 
 
 router = APIRouter(tags=["relationships"])
@@ -107,9 +110,7 @@ def create_relationship(id: WsIdPath, body: CreateRelationshipBody) -> JSONRespo
         ("rightDatasetId", right, body.rightDatasetId),
     ):
         if ds is None or ds["workspace_id"] != id:
-            raise _validation_error(
-                field, f"unknown_dataset: {ds_id} is not a dataset in workspace {id}"
-            )
+            raise _validation_error(field, f"unknown_dataset: {ds_id} is not a dataset in workspace {id}")
 
     left_dtype = _dtype_of(json.loads(left["columns_json"]), body.leftColumn)
     right_dtype = _dtype_of(json.loads(right["columns_json"]), body.rightColumn)
@@ -187,6 +188,33 @@ def get_relationship(id: RelIdPath) -> JSONResponse:  # noqa: A002
             return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=ApiErrorNotFound().model_dump())
         rel = _relationship_from_row(con, row)
     return JSONResponse(status_code=status.HTTP_200_OK, content=rel.model_dump())
+
+
+@router.get("/relationships/{id}/check")
+def check_relationship_route(id: RelIdPath) -> JSONResponse:  # noqa: A002
+    """R183 — measure the relationship against the data: coverage both ways,
+    unmatched rows, keys per side, the OBSERVED cardinality next to the
+    declared one, and whether a join in either direction multiplies rows.
+    Computed fresh on every read (no store); a flag, never a block. 404 absent;
+    409 `relationship_stale` when a key column is gone or incompatible (the
+    same condition that blocks the join)."""
+    with get_conn() as con:
+        row = con.execute("SELECT * FROM relationships WHERE id = ?", (id,)).fetchone()
+        if row is None:
+            return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=ApiErrorNotFound().model_dump())
+        rel = _relationship_from_row(con, row)
+    if rel.status == "stale":
+        return JSONResponse(status_code=status.HTTP_409_CONFLICT, content=ApiErrorRelationshipStale().model_dump())
+    result = check_relationship(
+        dataset_dir(rel.workspaceId, rel.leftDatasetId) / "parsed.parquet",
+        rel.leftColumn,
+        dataset_dir(rel.workspaceId, rel.rightDatasetId) / "parsed.parquet",
+        rel.rightColumn,
+    )
+    result["declaredCardinality"] = rel.cardinality
+    result["cardinalityMatches"] = result["observedCardinality"] == rel.cardinality
+    result["checkedAt"] = _now_iso()
+    return JSONResponse(status_code=status.HTTP_200_OK, content=result)
 
 
 @router.delete("/relationships/{id}")

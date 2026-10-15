@@ -19,7 +19,7 @@
 import type { Column, Dataset, Dtype, RowsPage } from '@/features/data-management/datasets/types';
 import type { Query, ResolvedColumn } from '@/features/data-management/queries/types';
 import type { Workflow } from '@/features/data-management/workflows/types';
-import type { Relationship } from '@/features/data-management/relationships/types';
+import type { Relationship, RelationshipCheck } from '@/features/data-management/relationships/types';
 import type { DashboardWire } from '@/features/dashboard/wire';
 import type { MetadataRead } from '@/features/metadata/types';
 import type { Workspace } from '@/features/data-management/workspaces/types';
@@ -503,4 +503,26 @@ export const MOCK_METADATA: Record<string, MetadataRead> = {
       },
     },
   },
+};
+
+// ─── R183 relationship check ────────────────────────────────────────────
+export const MOCK_RELATIONSHIP_CHECK: RelationshipCheck = {
+  leftRows: 8,
+  rightRows: 5,
+  leftMatchedRows: 8,
+  rightMatchedRows: 4,
+  leftUnmatchedRows: 0,
+  rightUnmatchedRows: 1,
+  leftCoverage: 1,
+  rightCoverage: 0.8,
+  leftDistinctKeys: 8,
+  rightDistinctKeys: 4,
+  leftMaxPerKey: 1,
+  rightMaxPerKey: 2,
+  observedCardinality: 'one_to_many',
+  declaredCardinality: 'one_to_one',
+  cardinalityMatches: false,
+  multipliesLeft: true,
+  multipliesRight: false,
+  checkedAt: '2026-10-15T09:00:00Z',
 };

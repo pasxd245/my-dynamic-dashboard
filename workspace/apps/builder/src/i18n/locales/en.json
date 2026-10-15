@@ -958,6 +958,20 @@
     },
     "delete": {
       "success": "Relationship deleted"
+    },
+    "check": {
+      "action": "Check",
+      "side": "{{matched}} of {{rows}} rows have a partner · {{unmatched}} without",
+      "keys": "{{keys}} keys, up to {{max}} rows per key",
+      "declared": "Declared",
+      "observed": "Observed",
+      "mismatch": "differs from the declaration — flagged, not blocked",
+      "multiplies": "Joining from {{from}} to {{to}} can multiply rows: a key has up to {{max}} rows on {{to}}.",
+      "clean": "As declared: every row has a partner, no key repeats.",
+      "checkedAt": "Measured {{when}} over the committed data; read again to refresh.",
+      "stale": "A key column is gone or no longer joins — fix the relationship first.",
+      "failed": "Could not measure this relationship.",
+      "joinWarning": "This join can multiply rows: a key has up to {{max}} rows on the other side ({{observed}} observed, {{declared}} declared)."
     }
   },
   "notFound": {

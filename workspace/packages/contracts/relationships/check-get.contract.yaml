@@ -1,0 +1,147 @@
+openapi: 3.1.0
+info:
+  title: my-dynamic-dashboard — GET /relationships/{id}/check
+  version: 0.1.0
+  description: |
+    R183 — the relationship measured against the data. A relationship is
+    DECLARED (left.col ↔ right.col, a cardinality); this says what the keys
+    actually do, over both committed datasets, fresh on every read: how many
+    rows on each side find a partner (coverage), how many do not, how many
+    distinct keys each side has and how often a key repeats, the OBSERVED
+    cardinality next to the declared one, and whether a join in either
+    direction multiplies rows. A mismatch is a FLAG, never a block — the join
+    still runs; the reader knows. Keys compare as text, the way the join
+    compares them; a blank key never matches.
+
+paths:
+  /relationships/{id}/check:
+    get:
+      operationId: checkRelationship
+      summary: Measure a relationship against its data
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^rel_[0-9a-f]{8}$"
+      responses:
+        "200":
+          description: The measurement.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RelationshipCheck"
+              examples:
+                partial:
+                  summary: Left rows partly unmatched; the right side repeats keys
+                  value:
+                    leftRows: 1200
+                    rightRows: 340
+                    leftMatchedRows: 1130
+                    rightMatchedRows: 300
+                    leftUnmatchedRows: 70
+                    rightUnmatchedRows: 40
+                    leftCoverage: 0.941667
+                    rightCoverage: 0.882353
+                    leftDistinctKeys: 1130
+                    rightDistinctKeys: 300
+                    leftMaxPerKey: 1
+                    rightMaxPerKey: 3
+                    observedCardinality: one_to_many
+                    declaredCardinality: one_to_one
+                    cardinalityMatches: false
+                    multipliesLeft: true
+                    multipliesRight: false
+                    checkedAt: "2026-10-15T09:00:00Z"
+        "404":
+          description: No such relationship.
+          content:
+            application/json:
+              schema:
+                $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorNotFound"
+        "409":
+          description: A key column is gone or its dtype no longer joins (`relationship_stale`) — the same condition that blocks the join.
+          content:
+            application/json:
+              schema:
+                $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorRelationshipStale"
+
+components:
+  schemas:
+    RelationshipCheck:
+      type: object
+      required:
+        [
+          leftRows,
+          rightRows,
+          leftMatchedRows,
+          rightMatchedRows,
+          leftUnmatchedRows,
+          rightUnmatchedRows,
+          leftCoverage,
+          rightCoverage,
+          leftDistinctKeys,
+          rightDistinctKeys,
+          leftMaxPerKey,
+          rightMaxPerKey,
+          observedCardinality,
+          declaredCardinality,
+          cardinalityMatches,
+          multipliesLeft,
+          multipliesRight,
+          checkedAt,
+        ]
+      additionalProperties: false
+      properties:
+        leftRows: { type: integer, minimum: 0 }
+        rightRows: { type: integer, minimum: 0 }
+        leftMatchedRows:
+          type: integer
+          minimum: 0
+          description: Left rows whose key exists on the right.
+        rightMatchedRows:
+          type: integer
+          minimum: 0
+          description: Right rows whose key exists on the left.
+        leftUnmatchedRows: { type: integer, minimum: 0 }
+        rightUnmatchedRows: { type: integer, minimum: 0 }
+        leftCoverage:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: leftMatchedRows / leftRows (0 when the left is empty).
+        rightCoverage:
+          type: number
+          minimum: 0
+          maximum: 1
+        leftDistinctKeys: { type: integer, minimum: 0 }
+        rightDistinctKeys: { type: integer, minimum: 0 }
+        leftMaxPerKey:
+          type: integer
+          minimum: 0
+          description: The most rows one key has on the left (1 = unique keys).
+        rightMaxPerKey: { type: integer, minimum: 0 }
+        observedCardinality:
+          type: string
+          enum: [one_to_one, one_to_many, many_to_one, many_to_many]
+          description: |
+            `one` on a side whose keys are unique (max rows per key ≤ 1),
+            `many` otherwise.
+        declaredCardinality:
+          type: string
+          enum: [one_to_one, one_to_many, many_to_one, many_to_many]
+        cardinalityMatches:
+          type: boolean
+          description: observedCardinality equals declaredCardinality.
+        multipliesLeft:
+          type: boolean
+          description: |
+            A join left → right (a query hop from the left dataset) can
+            multiply left rows: some key repeats on the right.
+        multipliesRight:
+          type: boolean
+          description: The reverse — some key repeats on the left.
+        checkedAt:
+          type: string
+          pattern: "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"

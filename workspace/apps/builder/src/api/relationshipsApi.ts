@@ -3,6 +3,7 @@ import { ApiErrorThrown, isApiError } from '@/features/data-management/_shared/t
 import type {
   CreateRelationshipRequest,
   Relationship,
+  RelationshipCheck,
 } from '@/features/data-management/relationships/types';
 
 // R70 — relationship governance API client. Mirrors queriesApi conventions
@@ -55,6 +56,13 @@ export const relationshipsApi = {
   async get(id: string): Promise<Relationship> {
     const resp = await fetch(`${API_BASE_URL}/relationships/${id}`);
     return readJson<Relationship>(resp);
+  },
+
+  /** R183 — GET /relationships/{id}/check: the edge measured against the data.
+   *  409 `relationship_stale` / 404 throw. */
+  async check(id: string): Promise<RelationshipCheck> {
+    const resp = await fetch(`${API_BASE_URL}/relationships/${id}/check`);
+    return readJson<RelationshipCheck>(resp);
   },
 
   /** DELETE /relationships/{id} — 204 / 404. */
