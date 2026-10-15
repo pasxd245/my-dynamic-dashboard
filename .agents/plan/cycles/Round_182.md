@@ -55,9 +55,9 @@ the footer.
 
 - [x] **D** — the file is the table (rows + totals) plus provenance (the Filters sheet); the
       server writes it because only the server has the typed, unpaged relation.
-- [x] **C** — `queries/export.contract.yaml` (`exportQuery`: `{format, filters, totals, percent,
-    title}` → file); `_shared/api-error.yaml` + `values.yaml` + both constants templates gain
-      `export_too_large`.
+- [x] **C** — `queries/export.contract.yaml` (`exportQuery`: format, filters, totals, percent
+      and title → a file); `_shared/api-error.yaml` + `values.yaml` + both constants templates
+      gain `export_too_large`.
 - [x] **B** — `ingest/export.py` (`build_csv`, `build_xlsx`, `EXPORT_MAX_ROWS`);
       `models.ExportBody` / `ApiErrorExportTooLarge`; `routers/queries.export_query` on
       `_final_relation` + `_totals_over` (extracted from R181's route); CORS exposes

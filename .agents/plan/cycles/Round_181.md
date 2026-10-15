@@ -53,9 +53,9 @@ totalled.
 - [x] **D** — totals are a presentation spec on the widget (which columns, how), computed by the
       server on read; nothing is stored but the spec. `ratio` is a rate re-derived from its
       parts, by definition.
-- [x] **C** — `_shared/dashboard.yaml`: `Widget.totals` (map → `TotalSpec {agg: sum|ratio, num?,
-    den?}`, ≤ 64); `queries/totals.contract.yaml` (`totalsQuery`: `{columns, filters}` →
-      `{sums, rowCount}`).
+- [x] **C** — `_shared/dashboard.yaml`: `Widget.totals`, a map of column name to
+      `TotalSpec` (`agg` sum | ratio, `num?`, `den?`; ≤ 64 entries);
+      `queries/totals.contract.yaml` (`totalsQuery`: columns + filters → sums + rowCount).
 - [x] **B** — `models.TotalSpec` (+ validator) and `Widget.totals` (table-only rule);
       `models.TotalsBody`; `routers/queries.totals_query`: plan → predicates → `_step_plan` →
       `build_steps_relation` when stepped → `_validate_aggregate` against the FINAL columns →
