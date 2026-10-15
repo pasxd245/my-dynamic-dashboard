@@ -106,6 +106,19 @@ on the dogfood copy runs before the batch bundle.
   schema landed (as they should). 8 tests. Backend 565.
 - 2026-10-15 — F: types, tag, warning, i18n, MSW, 3 tests. Builder 444.
 - 2026-10-15 — visual gate (above). Nothing written under `workspace/apps/backend/data/`.
+- 2026-10-15 — **rc.3 batch-1 evidence: dogfood before / after parity** (release-level, logged on
+  the last round of the batch). On the owner's machine, against two COPIES of the external
+  dogfood data (kept outside this repo; never left the machine; deleted after), the rc.2 code
+  (`5649834`) and `release/v0.0.1-rc.3` (`93e18c2`, from the transfer bundle) each ran the G-rc2
+  probe, recording only sha256 prefixes and counts:
+  - **119 / 119 items identical** — workspaces, 8 datasets × (meta without the new
+    `refreshedAt` / `dataVersion`, schema, every row), 40 saved queries × (definition + resolved
+    columns, unpaged result), 5 dashboards, 9 widget aggregates.
+  - **Migrations on the real database copy**: `0004 → 0005 → 0006 → 0007` applied cleanly (the
+    dogfood database is still at the rc.1 pin's head).
+  - **R185 on real data**: all 8 datasets read `dataVersion` 1 with `refreshedAt = createdAt`.
+  - Not exercised: R184 (no saved definition uses `compute`), R186 / R187 (the dogfood workspace
+    has no workflows).
 
 ## Check
 
