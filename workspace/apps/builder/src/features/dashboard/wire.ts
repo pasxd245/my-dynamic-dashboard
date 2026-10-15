@@ -17,9 +17,12 @@ import type { ChartType, Agg, NumberFormat, WidgetSpan, WidgetRows, Dashboard, W
  *  (./types.ts) — columns by logical NAME, `dsh_`/`wdg_`/`qr_` id shapes. */
 export type WidgetWire = {
   id: string;
-  queryId: string;
+  /** R179 — absent on a `note` widget. */
+  queryId?: string;
   title: string;
   chartType: ChartType;
+  /** R179 — `note` only: safe-subset markdown, ≤ 4000 chars. */
+  md?: string;
   /** Omitted for a `stat` (KPI) widget — no grouping (R110). */
   dimensionCol?: string;
   /** R111 — optional second grouping ("split by") → multi-series bar. */
@@ -32,7 +35,8 @@ export type WidgetWire = {
   measureCol?: string;
   /** R112 — combo only: the second measure, drawn as a line. */
   measureCol2?: string;
-  agg: Agg;
+  /** R179 — absent on a `note`. */
+  agg?: Agg;
   span: WidgetSpan;
   /** R177 — optional grid height in widget-rows (1–3); absent = 1. */
   rows?: WidgetRows;

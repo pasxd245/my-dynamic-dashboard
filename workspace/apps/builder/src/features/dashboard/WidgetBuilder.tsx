@@ -5,6 +5,8 @@
 // the Widget contract shape freezes.
 
 import { Alert, Col, Collapse, Form, Input, InputNumber, Modal, Row, Segmented, Select, theme, Typography } from 'antd';
+
+import { MARKDOWN_MAX_CHARS, markdownProblems } from './SafeMarkdown';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -18,6 +20,8 @@ export type Draft = {
   queryId?: string;
   title: string;
   chartType: ChartType;
+  /** R179 — `note` only: the text (safe markdown subset). */
+  md?: string;
   dimensionCol?: string;
   /** R111 — optional second grouping ("split by") for a multi-series bar. */
   seriesCol?: string;
@@ -52,6 +56,16 @@ function usesSeries(draft: Pick<Draft, 'chartType'>): boolean {
  *  dropped for `count` (meaningless there); unset fields drop out under
  *  JSON.stringify. R108. */
 export function draftToConfig(draft: Draft): Omit<Widget, 'id'> {
+  // R179 — a note is title + text + size; it carries no query or data field.
+  if (draft.chartType === 'note') {
+    return {
+      title: draft.title.trim(),
+      chartType: 'note',
+      md: draft.md ?? '',
+      span: draft.span,
+      ...(draft.rows && draft.rows !== 1 ? { rows: draft.rows } : {}),
+    };
+  }
   return {
     queryId: draft.queryId as string,
     title: draft.title.trim(),
@@ -101,7 +115,7 @@ export function WidgetBuilder({ open, workspaceId, initial, onSubmit, onCancel }
   // Reset the draft each time the modal opens (seed from `initial`).
   useEffect(() => {
     if (!open) return;
-    setDraft(initial ? { ...initial } : EMPTY);
+    setDraft(initial ? { ...initial, agg: initial.agg ?? 'sum' } : EMPTY);
   }, [open, initial]);
 
   const data = useWidgetData(draft.queryId);
@@ -124,16 +138,19 @@ export function WidgetBuilder({ open, workspaceId, initial, onSubmit, onCancel }
   );
   const queryOptions = useMemo(() => (queries.data ?? []).map((q) => ({ value: q.id, label: q.name })), [queries.data]);
 
+  // R179 — `note` is text: no query, no data fields; just title + markdown.
+  const isNote = draft.chartType === 'note';
+  const mdProblems = isNote ? markdownProblems(draft.md ?? '') : [];
   // `table` shows the raw rows — no dimension/measure/agg at all.
   const isTable = draft.chartType === 'table';
   // `stat`, `gauge`, `scatter`, `table` have no grouping dimension.
   const noDimension =
-    isTable || draft.chartType === 'stat' || draft.chartType === 'gauge' || draft.chartType === 'scatter';
+    isNote || isTable || draft.chartType === 'stat' || draft.chartType === 'gauge' || draft.chartType === 'scatter';
   const needsDimension = !noDimension;
   // Combo (bar+line) and scatter (x/y) both use two measures.
   const isTwoMeasures = twoMeasures(draft);
-  const showMeasure1 = !isTable && (draft.agg === 'sum' || isTwoMeasures);
-  const showAgg = !isTable && !isTwoMeasures;
+  const showMeasure1 = !isNote && !isTable && (draft.agg === 'sum' || isTwoMeasures);
+  const showAgg = !isNote && !isTable && !isTwoMeasures;
 
   const showSeries = usesSeries(draft);
   const seriesRequired = draft.chartType === 'heatmap'; // bar's split is optional
@@ -151,14 +168,18 @@ export function WidgetBuilder({ open, workspaceId, initial, onSubmit, onCancel }
   const measure2Label =
     draft.chartType === 'scatter' ? t('dashboard.builder.measureY') : t('dashboard.builder.measureLine');
 
-  const canSubmit =
-    Boolean(draft.queryId) &&
-    (!needsDimension || Boolean(draft.dimensionCol)) &&
-    draft.title.trim().length > 0 &&
-    measureOk &&
-    seriesOk;
+  const noteOk = (draft.md ?? '').trim().length > 0 && (draft.md ?? '').length <= MARKDOWN_MAX_CHARS && mdProblems.length === 0;
+  const canSubmit = isNote
+    ? draft.title.trim().length > 0 && noteOk
+    : Boolean(draft.queryId) &&
+      (!needsDimension || Boolean(draft.dimensionCol)) &&
+      draft.title.trim().length > 0 &&
+      measureOk &&
+      seriesOk;
 
-  const previewReady = Boolean(draft.queryId) && (!needsDimension || Boolean(draft.dimensionCol));
+  const previewReady = isNote
+    ? (draft.md ?? '').trim().length > 0
+    : Boolean(draft.queryId) && (!needsDimension || Boolean(draft.dimensionCol));
   // Build the preview from the SAME draftToConfig the submit uses (so preview ==
   // saved shape), with a fallback title; the field conditionals live there.
   const previewWidget: Widget | null = previewReady
@@ -193,6 +214,7 @@ export function WidgetBuilder({ open, workspaceId, initial, onSubmit, onCancel }
       <Row gutter={20}>
         <Col xs={24} md={10}>
           <Form layout="vertical">
+            {isNote ? null : (
             <Form.Item label={t('dashboard.builder.query')} required>
               <Select
                 showSearch
@@ -205,6 +227,7 @@ export function WidgetBuilder({ open, workspaceId, initial, onSubmit, onCancel }
                 data-component="WidgetBuilderQuery"
               />
             </Form.Item>
+            )}
 
             <Form.Item label={t('dashboard.builder.title')} required>
               <Input
@@ -214,6 +237,25 @@ export function WidgetBuilder({ open, workspaceId, initial, onSubmit, onCancel }
                 onChange={(e) => setDraft((p) => ({ ...p, title: e.target.value }))}
               />
             </Form.Item>
+
+            {isNote ? (
+              <Form.Item
+                label={t('dashboard.builder.md')}
+                required
+                help={mdProblems.length > 0 ? t('dashboard.builder.mdUnsafe') : t('dashboard.builder.mdHelp')}
+                validateStatus={mdProblems.length > 0 ? 'error' : undefined}
+              >
+                <Input.TextArea
+                  value={draft.md ?? ''}
+                  maxLength={MARKDOWN_MAX_CHARS}
+                  showCount
+                  autoSize={{ minRows: 6, maxRows: 14 }}
+                  placeholder={t('dashboard.builder.mdPlaceholder')}
+                  onChange={(e) => setDraft((p) => ({ ...p, md: e.target.value }))}
+                  data-component="WidgetBuilderMarkdown"
+                />
+              </Form.Item>
+            ) : null}
 
             {needsDimension ? (
               <Form.Item label={t('dashboard.builder.dimension')} required>
@@ -301,6 +343,7 @@ export function WidgetBuilder({ open, workspaceId, initial, onSubmit, onCancel }
                   { value: 'gauge', label: t('dashboard.builder.chartGauge') },
                   { value: 'stat', label: t('dashboard.builder.chartStat') },
                   { value: 'table', label: t('dashboard.builder.chartTable') },
+                  { value: 'note', label: t('dashboard.builder.chartNote') },
                 ]}
               />
             </Form.Item>
@@ -317,6 +360,7 @@ export function WidgetBuilder({ open, workspaceId, initial, onSubmit, onCancel }
               </Form.Item>
             ) : null}
 
+            {isNote ? null : (
             <Form.Item label={t('dashboard.builder.numberFormat')}>
               <Select<NumberFormat>
                 value={draft.numberFormat ?? 'plain'}
@@ -329,6 +373,7 @@ export function WidgetBuilder({ open, workspaceId, initial, onSubmit, onCancel }
                 data-component="WidgetBuilderNumberFormat"
               />
             </Form.Item>
+            )}
 
             <Form.Item label={t('dashboard.builder.width')} help={t('dashboard.builder.widthHelp')}>
               <Segmented<WidgetSpan>

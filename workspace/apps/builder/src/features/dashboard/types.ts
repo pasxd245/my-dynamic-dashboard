@@ -5,7 +5,7 @@
 // ([[dfcfbi-f1-precedes-contract]]). The fields here are the F1 hypothesis for
 // what a persisted Widget/Dashboard needs — the thing F1 exists to confirm.
 
-export type ChartType = 'bar' | 'pie' | 'line' | 'stat' | 'combo' | 'scatter' | 'heatmap' | 'gauge' | 'table';
+export type ChartType = 'bar' | 'pie' | 'line' | 'stat' | 'combo' | 'scatter' | 'heatmap' | 'gauge' | 'table' | 'note';
 
 /** sum needs a numeric `measureCol`; count tallies rows (no measure). */
 export type Agg = 'sum' | 'count';
@@ -29,10 +29,14 @@ export type WidgetRows = 1 | 2 | 3;
  *  chart it. Bound to the Query by id (a deleted query → "unavailable"). */
 export type Widget = {
   id: string;
-  /** FK → Query.id. */
-  queryId: string;
+  /** FK → Query.id. R179: absent on a `note` widget (it binds no query);
+   *  required for every other kind. */
+  queryId?: string;
   title: string;
   chartType: ChartType;
+  /** R179 — `note` only: the text, in the safe markdown subset (see
+   *  `SafeMarkdown`), at most 4000 characters. */
+  md?: string;
   /** The grouping column (logical name; resolved against the query's columns).
    *  R110: optional — a `stat` (KPI) widget has no grouping. */
   dimensionCol?: string;
@@ -48,7 +52,8 @@ export type Widget = {
   /** Second numeric column. R112 combo: the line measure (summed). R113
    *  scatter: the Y axis (raw, with `measureCol` as X — no aggregation). */
   measureCol2?: string;
-  agg: Agg;
+  /** R179: absent on a `note`; required otherwise. */
+  agg?: Agg;
   /** Grid width: 1–3 columns of a 3-col grid (default 1). */
   span: WidgetSpan;
   /** R177 — grid height in widget-rows (1–3). Absent → 1; omitted on the

@@ -51,6 +51,7 @@ import {
 const HeatmapView = lazy(() => import('./HeatmapView'));
 const GaugeView = lazy(() => import('./GaugeView'));
 import { ChartCard } from './ChartCard';
+import { SafeMarkdown } from './SafeMarkdown';
 import { useQueryQuery } from '@/features/data-management/queries/hooks';
 import { useChartPalette, useWidgetAggregate, useWidgetData } from './hooks';
 import type { AggregateMeasure, AggregateRequest } from '@/features/data-management/queries/types';
@@ -418,6 +419,9 @@ export function useWidgetChartData(
   widget: Pick<Widget, 'queryId' | 'chartType' | 'dimensionCol' | 'seriesCol' | 'measureCol' | 'measureCol2' | 'agg'>,
   filters: readonly DashboardFilter[] = [],
 ) {
+  // R179 — a `note` never reaches this hook (WidgetView dispatches it to
+  // NoteWidgetView); `agg` is typed optional only for the note's sake.
+  const aggKind: Agg = widget.agg ?? 'count';
   // R119 — which kinds aggregate server-side, and whether the spec can run.
   const isScalar = widget.chartType === 'stat';
   const usesAggregate =
@@ -425,8 +429,7 @@ export function useWidgetChartData(
     widget.chartType === 'pie' ||
     widget.chartType === 'line' ||
     (widget.chartType === 'bar' && !widget.seriesCol);
-  const specValid =
-    (widget.agg === 'count' || Boolean(widget.measureCol)) && (isScalar || Boolean(widget.dimensionCol));
+  const specValid = (aggKind === 'count' || Boolean(widget.measureCol)) && (isScalar || Boolean(widget.dimensionCol));
   // R127 — a PRE-SHAPED query (one that already aggregates via transform steps)
   // must NOT be re-aggregated: the widget renders its (already-shaped) rows
   // directly. Detected from the bound query's definition (cheap, cached `get`).
@@ -441,7 +444,7 @@ export function useWidgetChartData(
   // result, no 422). Unknown dtype (measure not in resolvedColumns) → keep the
   // prior behaviour (attempt it), so this only removes provably-doomed requests.
   const measureNumericOk = serverAggregateSupportsMeasure(
-    widget.agg,
+    aggKind,
     widget.measureCol,
     boundQuery.data?.resolvedColumns,
   );
@@ -452,8 +455,7 @@ export function useWidgetChartData(
   const aggregateEnabled = usesAggregate && specValid && boundQuery.isSuccess && !preShaped && measureNumericOk;
   const directShaped = usesAggregate && specValid && preShaped;
 
-  const measures: AggregateMeasure[] =
-    widget.agg === 'count' ? [{ agg: 'count' }] : [{ col: widget.measureCol, agg: 'sum' }];
+  const measures: AggregateMeasure[] = aggKind === 'count' ? [{ agg: 'count' }] : [{ col: widget.measureCol, agg: 'sum' }];
   const aggBody: AggregateRequest = {
     dimensions: isScalar || !widget.dimensionCol ? [] : [widget.dimensionCol],
     measures,
@@ -476,13 +478,13 @@ export function useWidgetChartData(
   // gauge stays client-side (a scalar over raw rows); stat is overridden below.
   let statValue: number | null = null;
   if (widget.chartType === 'gauge') {
-    statValue = rows.length === 0 ? null : aggregateScalar(rows, measureIdx, widget.agg);
+    statValue = rows.length === 0 ? null : aggregateScalar(rows, measureIdx, aggKind);
   }
 
   // R111 — multi-series (grouped bar): a 2-D roll-up by dimension × series.
   const multiSeries =
     widget.chartType === 'bar' && dimIdx !== -1 && seriesIdx !== -1
-      ? aggregateByGroupSeries(rows, dimIdx, seriesIdx, measureIdx, widget.agg)
+      ? aggregateByGroupSeries(rows, dimIdx, seriesIdx, measureIdx, aggKind)
       : null;
 
   // R112 — combo: two summed measures over the dimension (bar + line).
@@ -500,7 +502,7 @@ export function useWidgetChartData(
   // R114 — heatmap: a 2-D matrix (dimension × series → agg).
   const matrixData =
     widget.chartType === 'heatmap' && dimIdx !== -1 && seriesIdx !== -1
-      ? aggregateMatrix(rows, dimIdx, seriesIdx, measureIdx, widget.agg)
+      ? aggregateMatrix(rows, dimIdx, seriesIdx, measureIdx, aggKind)
       : null;
 
   // R117 — table: the raw (filtered) rows + columns, no transform.
@@ -564,7 +566,32 @@ type WidgetViewProps = Readonly<{
   filters?: readonly DashboardFilter[];
 }>;
 
-export function WidgetView({ widget, extra, filters }: WidgetViewProps) {
+/** R179 — a `note` is text, not a chart: no query, no fetch, no filters. It
+ *  shares the card shell (height, states) and nothing else. */
+function NoteWidgetView({ widget, extra }: WidgetViewProps) {
+  const md = widget.md ?? '';
+  return (
+    <ChartCard
+      title={widget.title}
+      isLoading={false}
+      isError={false}
+      isMissingQuery={false}
+      isEmpty={md.trim().length === 0}
+      extra={extra}
+      rows={widget.rows}
+    >
+      <div style={{ height: '100%', overflow: 'auto', paddingRight: 4 }} data-component="NoteWidget">
+        <SafeMarkdown md={md} />
+      </div>
+    </ChartCard>
+  );
+}
+
+export function WidgetView(props: WidgetViewProps) {
+  return props.widget.chartType === 'note' ? <NoteWidgetView {...props} /> : <ChartWidgetView {...props} />;
+}
+
+function ChartWidgetView({ widget, extra, filters }: WidgetViewProps) {
   const { t } = useTranslation();
   const { token } = theme.useToken();
   const palette = useChartPalette();
@@ -598,6 +625,7 @@ export function WidgetView({ widget, extra, filters }: WidgetViewProps) {
     heatmap: 'dashboard.ariaHeatmap',
     gauge: 'dashboard.ariaGauge',
     table: 'dashboard.ariaTable',
+    note: 'dashboard.ariaNote',
   }[widget.chartType];
   // Empty depends on the active render path.
   const computeEmpty = () => {

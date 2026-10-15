@@ -321,3 +321,76 @@ def test_r177_widget_without_rows_is_not_backfilled() -> None:
     assert "rows" not in created["definition"]["widgets"][0]
     assert "rows" not in refetched["definition"]["widgets"][0]
     assert refetched == created
+
+
+# ─── R179: the `note` widget (markdown text, no query) ──────────────────────
+
+
+def _note(**over) -> dict:
+    w = {"id": "wdg_00000179", "title": "Read me", "chartType": "note", "md": "# Hello\n\nA **note**.", "span": 1}
+    w.update(over)
+    return w
+
+
+@pytest.mark.unit
+def test_r179_note_round_trips_without_query() -> None:
+    with TestClient(app) as client:
+        ws, _ = _seed_query(client)
+        created = _create(client, ws, widgets=[_note()])
+        refetched = client.get(f"/dashboards/{created.json()['id']}")
+
+    assert created.status_code == 201, created.text
+    w = refetched.json()["definition"]["widgets"][0]
+    assert w["chartType"] == "note" and w["md"] == "# Hello\n\nA **note**."
+    assert "queryId" not in w and "agg" not in w
+    validate_response("dashboards/detail-get.contract.yaml", 200, refetched.json())
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "md",
+    [
+        "<script>alert(1)</script>",
+        "safe <b>bold</b>",
+        "<!-- c -->",
+        "![pixel](https://example.com/p.png)",
+        "[x](javascript:alert(1))",
+        "[x](data:text/html;base64,AA==)",
+        "[x]: ftp://example.com\n\n[x]",
+        "<https://example.com>",
+        "",
+        "   ",
+        "x" * 4_001,
+    ],
+)
+def test_r179_note_rejects_unsafe_or_oversized_markdown(md: str) -> None:
+    with TestClient(app) as client:
+        ws, _ = _seed_query(client)
+        resp = _create(client, ws, widgets=[_note(md=md)])
+
+    assert resp.status_code == 422, resp.text
+
+
+@pytest.mark.unit
+def test_r179_note_accepts_the_safe_subset() -> None:
+    md = "## Title\n\n- a\n- b\n\n1. one\n\n> quote\n\n`code` and **bold** and [link](https://example.com/x?y=1)\n\n```\nfenced\n```\n\n---\n"
+    with TestClient(app) as client:
+        ws, _ = _seed_query(client)
+        resp = _create(client, ws, widgets=[_note(md=md)])
+
+    assert resp.status_code == 201, resp.text
+
+
+@pytest.mark.unit
+def test_r179_note_forbids_data_fields_and_other_kinds_still_need_a_query() -> None:
+    with TestClient(app) as client:
+        ws, qid = _seed_query(client)
+        with_query = _create(client, ws, widgets=[_note(queryId=qid)])
+        with_agg = _create(client, ws, widgets=[_note(agg="count")])
+        bar_no_query = _create(client, ws, widgets=[{**_widget(qid), "queryId": None}])
+        bar_with_md = _create(client, ws, widgets=[_widget(qid, md="hi")])
+
+    assert with_query.status_code == 422
+    assert with_agg.status_code == 422
+    assert bar_no_query.status_code == 422
+    assert bar_with_md.status_code == 422

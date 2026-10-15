@@ -145,7 +145,8 @@ function SortableWidget({
   ) : null;
   // Filter affordance: filled + primary-coloured when this widget has an active
   // filter, outline otherwise (an honest active/inactive status).
-  const filterButton = (
+  // R179 — a note binds no query, so it has nothing to filter.
+  const filterButton = widget.chartType === 'note' ? null : (
     <Tooltip title={filterLabel}>
       <Button
         type="text"

@@ -34,8 +34,11 @@ components:
         decision #2) — a dangling `queryId` is tolerated at RENDER, never a
         crash. (At SAVE time the `queryId` must resolve to a query in the
         dashboard's own workspace — see dashboards/post.contract.yaml §422.)
-      required: [id, queryId, title, chartType, agg, span]
+      required: [id, title, chartType, span]
       additionalProperties: false
+      # R179 — `queryId` and `agg` are REQUIRED for every chartType except
+      # `note`, which binds no query and carries `md` instead (per-field rule,
+      # like `measureCol`; the backend enforces it as 422).
       properties:
         id:
           type: string
@@ -50,8 +53,23 @@ components:
             save time it must reference a query in the DASHBOARD'S workspace
             (cross-workspace widgets are constrained out — Contract decision,
             human 2026-06-27); a later delete of that query is tolerated and
-            renders the per-widget "unavailable" state.
+            renders the per-widget "unavailable" state. R179 — REQUIRED for
+            every chartType except `note`, where it must be absent.
           examples: ["qr_9c2f10ab"]
+        md:
+          type: string
+          minLength: 1
+          maxLength: 4000
+          description: |
+            R179 — `note` only (absent on every other kind): the widget's text
+            in the SAFE MARKDOWN SUBSET — headings, paragraphs, emphasis,
+            inline / fenced code, bullet and numbered lists, block quotes,
+            horizontal rules, `[text](https://…)` links. The server REJECTS
+            (422) raw HTML or anything tag-shaped, images, and links whose
+            target is not http(s); nothing is silently stripped. The builder
+            renders it with its own parser into React nodes (never injected as
+            HTML), so the stored text is exactly what is shown.
+          examples: ["## Week 41\n\n- Calls up **12%**\n- See [the sheet](https://example.com)"]
         title:
           type: string
           minLength: 1
@@ -59,14 +77,15 @@ components:
           description: Widget heading, user-supplied (defaulted from the query name).
         chartType:
           type: string
-          enum: [bar, pie, line, stat, combo, scatter, heatmap, gauge, table]
+          enum: [bar, pie, line, stat, combo, scatter, heatmap, gauge, table, note]
           description: |
             The chart kind. `bar` + `pie` + `line` (R109) + `stat` (R110 — a
             single-number KPI) + `combo` (R112) + `scatter` (R113 — raw points)
             + `heatmap` (R114 — 2-D matrix: `dimensionCol` × `seriesCol` → agg,
             the first ECharts-rendered chart) + `gauge` (R115 — a scalar value
             shown against a literal `target`, ECharts) + `table` (R117 — the
-            raw query rows as a paged table, no aggregation). The chart-lib
+            raw query rows as a paged table, no aggregation) + `note` (R179 —
+            markdown text, no query: `md` instead of `queryId`). The chart-lib
             ladder (recharts + ECharts) is a PRESENTATION detail behind
             `WidgetView` (lib chosen by chartType; ECharts lazy-loaded), not a
             contract field.
@@ -138,7 +157,8 @@ components:
           enum: [sum, count]
           description: |
             How the measure is aggregated within each dimension group. `sum`
-            totals `measureCol`; `count` tallies rows (no `measureCol`).
+            totals `measureCol`; `count` tallies rows (no `measureCol`). R179 —
+            REQUIRED for every chartType except `note`, where it must be absent.
         span:
           type: integer
           minimum: 1

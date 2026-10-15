@@ -12,6 +12,7 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, ConfigDict, Field, model_serializer, model_validator
 
 from app._generated.constants import ERROR_CODES, ID_PATTERNS, NAME_LENGTHS
+from app.markdown_safe import MARKDOWN_MAX_CHARS, markdown_problems
 
 
 Dtype = Literal["string", "integer", "float", "boolean", "date", "datetime"]
@@ -888,7 +889,7 @@ SlugStr = Annotated[
     str,
     Field(pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$", max_length=NAME_LENGTHS["dashboard_max"]),
 ]
-ChartType = Literal["bar", "pie", "line", "stat", "combo", "scatter", "heatmap", "gauge", "table"]
+ChartType = Literal["bar", "pie", "line", "stat", "combo", "scatter", "heatmap", "gauge", "table", "note"]
 Agg = Literal["sum", "count"]
 NumberFormat = Literal["plain", "compact", "percent"]
 
@@ -902,9 +903,14 @@ class Widget(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     id: WidgetId
-    queryId: QueryId  # noqa: N815 — FK → Query.id (must be a query in the dashboard's workspace)
+    # FK → Query.id (must be a query in the dashboard's workspace). R179: absent
+    # on a `note` widget, which binds no query; required for every other kind.
+    queryId: QueryId | None = None  # noqa: N815
     title: Annotated[str, Field(min_length=1, max_length=NAME_LENGTHS["dashboard_max"])]
     chartType: ChartType  # noqa: N815
+    # R179 — `note` only: the text, in the safe markdown subset (markdown_safe),
+    # at most MARKDOWN_MAX_CHARS. Never on any other kind.
+    md: str | None = None
     # R110: optional — a `stat` (KPI) widget has no grouping; breakdown charts
     # (bar/pie/line) still carry it. (No model_validator ties it to chartType:
     # a dimensionless bar simply renders empty, like a missing column does.)
@@ -918,7 +924,8 @@ class Widget(BaseModel):
     target: float | None = None
     # R116: per-widget number format (presentation; default plain when absent).
     numberFormat: NumberFormat | None = None  # noqa: N815
-    agg: Agg
+    # R179: absent on a `note` (nothing to aggregate); required otherwise.
+    agg: Agg | None = None
     span: Annotated[int, Field(ge=1, le=3)]
     # R177: optional grid height in widget-rows (1–3). Absent → 1; never
     # backfilled, so a pre-R177 dashboard re-fetches unchanged.
@@ -928,7 +935,29 @@ class Widget(BaseModel):
     def _check_measure(self) -> Widget:
         """`sum` totals `measureCol` (required); `count` tallies rows (no
         measure). Mirrors the contract's per-field rule — a `sum` without a
-        measure, or a `count` carrying one, is 422."""
+        measure, or a `count` carrying one, is 422.
+
+        R179 — a `note` is the one kind with no query: it requires `md` (safe
+        markdown, ≤ MARKDOWN_MAX_CHARS) and forbids every data field; every
+        other kind requires `queryId` + `agg` and forbids `md`."""
+        if self.chartType == "note":
+            if self.md is None or not self.md.strip():
+                raise ValueError("md is required on a note widget")
+            if len(self.md) > MARKDOWN_MAX_CHARS:
+                raise ValueError(f"md exceeds {MARKDOWN_MAX_CHARS} characters")
+            problems = markdown_problems(self.md)
+            if problems:
+                raise ValueError("markdown_unsafe: " + ", ".join(problems))
+            for f in ("queryId", "agg", "dimensionCol", "seriesCol", "measureCol", "measureCol2", "target"):
+                if getattr(self, f) is not None:
+                    raise ValueError(f"{f} must be omitted on a note widget")
+            return self
+        if self.queryId is None:
+            raise ValueError("queryId is required")
+        if self.agg is None:
+            raise ValueError("agg is required")
+        if self.md is not None:
+            raise ValueError("md is only allowed on a note widget")
         if self.agg == "sum" and self.measureCol is None:
             raise ValueError("measureCol is required when agg='sum'")
         if self.agg == "count" and self.measureCol is not None:

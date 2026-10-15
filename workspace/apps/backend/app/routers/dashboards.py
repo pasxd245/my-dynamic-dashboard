@@ -67,19 +67,17 @@ def _collision_code(err: sqlite3.IntegrityError) -> str | None:
     return None
 
 
-def _validate_widget_queries(
-    con: sqlite3.Connection, workspace_id: str, definition: dict
-) -> None:
+def _validate_widget_queries(con: sqlite3.Connection, workspace_id: str, definition: dict) -> None:
     """Every widget's ``queryId`` must reference a saved query in THIS workspace
     (cross-workspace widgets are constrained out). A dangling / cross-workspace
     id is a malformed definition → 422 (you can't save a widget pointing at a
     query that isn't here). A query deleted AFTER save is tolerated at render —
     that's the FE's per-widget "unavailable" state, not a save-time block."""
     for widget in definition.get("widgets", []):
-        qid = widget["queryId"]
-        row = con.execute(
-            "SELECT workspace_id FROM queries WHERE id = ?", (qid,)
-        ).fetchone()
+        qid = widget.get("queryId")
+        if qid is None:  # R179 — a `note` binds no query (the model enforced the kind).
+            continue
+        row = con.execute("SELECT workspace_id FROM queries WHERE id = ?", (qid,)).fetchone()
         if row is None or row["workspace_id"] != workspace_id:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
