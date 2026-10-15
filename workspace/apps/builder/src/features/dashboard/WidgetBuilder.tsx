@@ -13,7 +13,7 @@ import { useTranslation } from 'react-i18next';
 import { isNumeric, pickWidgetDefaults } from './aggregate';
 import { useQueriesQuery } from '@/features/data-management/queries/hooks';
 import { useWidgetData } from './hooks';
-import type { Agg, ChartType, NumberFormat, Widget, WidgetRows, WidgetSpan } from './types';
+import type { Agg, ChartType, NumberFormat, TotalSpec, Widget, WidgetRows, WidgetSpan } from './types';
 import { WidgetView } from './WidgetView';
 
 export type Draft = {
@@ -37,6 +37,8 @@ export type Draft = {
   span: WidgetSpan;
   /** R177 — height in widget-rows (default 1; omitted from the config when 1). */
   rows?: WidgetRows;
+  /** R181 — `table` only: footer totals by column (omitted when empty). */
+  totals?: Record<string, TotalSpec>;
 };
 
 const EMPTY: Draft = { title: '', chartType: 'bar', agg: 'sum', span: 1 };
@@ -91,6 +93,10 @@ export function draftToConfig(draft: Draft): Omit<Widget, 'id'> {
     // R177 — height in widget-rows; the default 1 is omitted so a widget
     // edited without touching its height saves back unchanged.
     ...(draft.rows && draft.rows !== 1 ? { rows: draft.rows } : {}),
+    // R181 — footer totals, table only; an empty map is omitted.
+    ...(draft.chartType === 'table' && draft.totals && Object.keys(draft.totals).length > 0
+      ? { totals: draft.totals }
+      : {}),
   };
 }
 
@@ -123,13 +129,17 @@ export function WidgetBuilder({ open, workspaceId, initial, onSubmit, onCancel }
 
   // Auto-default dimension/measure/agg/chart once the picked query's columns
   // load — unless the current dimension is already valid (edit mode / manual).
+  // R181 — a kind with no grouping (table / stat / gauge / scatter / note) is
+  // never "missing" its dimension: editing such a widget used to reset it to a
+  // bar chart here (the dogfood table came back as a bar with Group by set).
   useEffect(() => {
     if (!draft.queryId || columns.length === 0) return;
+    if (['table', 'stat', 'gauge', 'scatter', 'note'].includes(draft.chartType)) return;
     const dimValid = draft.dimensionCol && columns.some((c) => c.name === draft.dimensionCol);
     if (dimValid) return;
     const d = pickWidgetDefaults(columns);
     setDraft((prev) => ({ ...prev, ...d }));
-  }, [draft.queryId, draft.dimensionCol, columns]);
+  }, [draft.queryId, draft.chartType, draft.dimensionCol, columns]);
 
   const colOptions = useMemo(() => columns.map((c) => ({ value: c.name, label: c.name })), [columns]);
   const numericOptions = useMemo(
@@ -400,6 +410,73 @@ export function WidgetBuilder({ open, workspaceId, initial, onSubmit, onCancel }
                 data-component="WidgetBuilderHeight"
               />
             </Form.Item>
+
+            {isTable && draft.queryId && numericOptions.length > 0 ? (
+              <Form.Item label={t('dashboard.builder.totals')} help={t('dashboard.builder.totalsHelp')}>
+                <div data-component="WidgetBuilderTotals" style={{ display: 'grid', gap: 6 }}>
+                  {numericOptions.map((opt) => {
+                    const spec = draft.totals?.[opt.value];
+                    const setSpec = (next: TotalSpec | undefined) =>
+                      setDraft((p) => {
+                        const totals = { ...(p.totals ?? {}) };
+                        if (next) totals[opt.value] = next;
+                        else delete totals[opt.value];
+                        return { ...p, totals };
+                      });
+                    return (
+                      <div
+                        key={opt.value}
+                        data-column={opt.value}
+                        style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 110px', gap: 6, alignItems: 'center' }}
+                      >
+                        <Typography.Text ellipsis style={{ fontSize: 12 }}>
+                          {opt.label}
+                        </Typography.Text>
+                        <Select<'none' | 'sum' | 'ratio'>
+                          size="small"
+                          value={spec?.agg ?? 'none'}
+                          onChange={(agg) =>
+                            setSpec(
+                              agg === 'none'
+                                ? undefined
+                                : agg === 'sum'
+                                  ? { agg: 'sum' }
+                                  : { agg: 'ratio', num: opt.value, den: numericOptions[0]?.value ?? opt.value },
+                            )
+                          }
+                          options={[
+                            { value: 'none', label: t('dashboard.builder.totalNone') },
+                            { value: 'sum', label: t('dashboard.builder.totalSum') },
+                            { value: 'ratio', label: t('dashboard.builder.totalRatio') },
+                          ]}
+                          data-component="WidgetBuilderTotalAgg"
+                        />
+                        {spec?.agg === 'ratio' ? (
+                          <div style={{ gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+                            <Select
+                              size="small"
+                              value={spec.num}
+                              options={numericOptions}
+                              onChange={(numCol) => setSpec({ agg: 'ratio', num: numCol, den: spec.den })}
+                              placeholder={t('dashboard.builder.totalNum')}
+                              data-component="WidgetBuilderTotalNum"
+                            />
+                            <Select
+                              size="small"
+                              value={spec.den}
+                              options={numericOptions}
+                              onChange={(denCol) => setSpec({ agg: 'ratio', num: spec.num, den: denCol })}
+                              placeholder={t('dashboard.builder.totalDen')}
+                              data-component="WidgetBuilderTotalDen"
+                            />
+                          </div>
+                        ) : null}
+                      </div>
+                    );
+                  })}
+                </div>
+              </Form.Item>
+            ) : null}
           </Form>
         </Col>
 

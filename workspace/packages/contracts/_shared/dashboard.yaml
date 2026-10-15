@@ -184,6 +184,38 @@ components:
             proportionally more rows per page. Presentation only — the
             widget's data and aggregation are untouched by `rows`.
           examples: [2]
+        totals:
+          type: object
+          description: |
+            R181 — `table` only: the footer totals, keyed by result column
+            name. A column with no entry has no total. `sum` = Σ of the
+            column; `ratio` = Σ`num` / Σ`den` — a rate re-derived from its
+            parts (the conversion-rate convention), NOT the mean of the rows'
+            rates. Computed by the SERVER over the WHOLE result under the
+            active filters (`POST /queries/{id}/totals`), so it is right even
+            when the visible rows are paged or capped. At most 64 entries.
+          maxProperties: 64
+          additionalProperties:
+            $ref: "#/components/schemas/TotalSpec"
+          examples:
+            - { calls: { agg: sum }, cr2: { agg: ratio, num: quotes, den: calls } }
+
+    TotalSpec:
+      type: object
+      required: [agg]
+      additionalProperties: false
+      properties:
+        agg:
+          type: string
+          enum: [sum, ratio]
+        num:
+          type: string
+          minLength: 1
+          description: Ratio only — the numerator column (by result name).
+        den:
+          type: string
+          minLength: 1
+          description: Ratio only — the denominator column (by result name).
 
     DashboardDefinition:
       type: object

@@ -3,6 +3,8 @@ import { ApiErrorThrown, isApiError } from '@/features/data-management/_shared/t
 import type { RowsPage } from '@/features/data-management/datasets/types';
 import type {
   AggregateRequest,
+  TotalsRequest,
+  TotalsResult,
   AggregateResult,
   CreateQueryRequest,
   PreviewQueryRequest,
@@ -87,6 +89,17 @@ export const queriesApi = {
    *  computed over the whole result (no row cap). 404 / 409 query_stale /
    *  relationship_stale (all throw ApiErrorThrown); 422 on a
    *  bad aggregate spec. */
+  /** R181 — POST /queries/{id}/totals: Σ of numeric columns over the WHOLE
+   *  (post-step, filtered) result; the table footer's source of truth. */
+  async totals(id: string, body: TotalsRequest): Promise<TotalsResult> {
+    const resp = await fetch(`${API_BASE_URL}/queries/${id}/totals`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    return readJson<TotalsResult>(resp);
+  },
+
   async aggregate(id: string, body: AggregateRequest): Promise<AggregateResult> {
     const resp = await fetch(`${API_BASE_URL}/queries/${id}/aggregate`, {
       method: 'POST',

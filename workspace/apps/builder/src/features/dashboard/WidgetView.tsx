@@ -53,7 +53,8 @@ const GaugeView = lazy(() => import('./GaugeView'));
 import { ChartCard } from './ChartCard';
 import { SafeMarkdown } from './SafeMarkdown';
 import { useQueryQuery } from '@/features/data-management/queries/hooks';
-import { useChartPalette, useWidgetAggregate, useWidgetData } from './hooks';
+import { useChartPalette, useWidgetAggregate, useWidgetData, useWidgetTotals } from './hooks';
+import { computeTotals, totalsColumns } from './totals';
 import type { AggregateMeasure, AggregateRequest } from '@/features/data-management/queries/types';
 import type { Agg, Widget } from './types';
 
@@ -341,12 +342,18 @@ function TableView({
   rows,
   percent = false,
   pageSize = TABLE_PAGE_ROWS,
+  totals,
+  totalLabel = 'Total',
 }: Readonly<{
   columns: readonly { name: string; dtype?: string }[];
   rows: readonly (readonly (string | null)[])[];
   percent?: boolean;
   /** R177 — rows per page, scaled with the widget's height. */
   pageSize?: number;
+  /** R181 — footer values by column name (server sums / derived ratios);
+   *  absent → no footer. A spec'd column still loading shows `…`. */
+  totals?: Readonly<Record<string, number | null>>;
+  totalLabel?: string;
 }>) {
   const cols = columns.map((c, i) => ({
     title: c.name,
@@ -363,6 +370,33 @@ function TableView({
     });
     return o;
   });
+  // R181 — the footer: a ratio total is a ratio whatever the column's dtype, so
+  // it formats as a percent under `percent`; a sum follows its column.
+  const summary =
+    totals && Object.keys(totals).length > 0
+      ? () => (
+          <Table.Summary fixed>
+            <Table.Summary.Row data-component="TableTotalsRow">
+              {columns.map((c, ci) => {
+                const has = Object.prototype.hasOwnProperty.call(totals, c.name);
+                const v = has ? totals[c.name] : undefined;
+                let text = '';
+                if (ci === 0 && !has) text = totalLabel;
+                else if (has) text = v === null || v === undefined ? '' : formatTotal(v, c.dtype, percent, ratio[ci] ?? false);
+                return (
+                  <Table.Summary.Cell
+                    key={String(ci)}
+                    index={ci}
+                    align={c.dtype === 'integer' || c.dtype === 'float' ? 'right' : undefined}
+                  >
+                    <strong data-total={has ? c.name : undefined}>{text}</strong>
+                  </Table.Summary.Cell>
+                );
+              })}
+            </Table.Summary.Row>
+          </Table.Summary>
+        )
+      : undefined;
   return (
     <div style={{ width: '100%', height: '100%', overflow: 'auto' }}>
       <Table
@@ -371,9 +405,18 @@ function TableView({
         dataSource={dataSource}
         pagination={{ pageSize, size: 'small' }}
         scroll={{ x: 'max-content' }}
+        summary={summary}
       />
     </div>
   );
+}
+
+/** R181 — a footer number: integers grouped; a ratio (|v| ≤ 1 float, or any
+ *  `ratio` total) as a percent under `percent`, else with up to 3 decimals. */
+export function formatTotal(v: number, dtype: string | undefined, percent: boolean, isRatioColumn: boolean): string {
+  if (dtype === 'integer' && Number.isInteger(v)) return numberFmt.format(v);
+  if (percent && (isRatioColumn || Math.abs(v) <= 1)) return percentFmt.format(v);
+  return ratioFmt.format(v);
 }
 
 function PieView({ data, palette }: Readonly<{ data: Datum[]; palette: string[] }>) {
@@ -609,6 +652,15 @@ function ChartWidgetView({ widget, extra, filters }: WidgetViewProps) {
     total,
   } = useWidgetChartData(widget, filters);
 
+  // R181 — table footer totals: the server sums over the whole filtered result.
+  const totalsEnabled = widget.chartType === 'table' && Boolean(widget.totals && Object.keys(widget.totals).length > 0);
+  const totalsQ = useWidgetTotals(
+    widget.queryId,
+    { columns: totalsColumns(widget.totals), filters: toWireFilters(filters ?? []) },
+    totalsEnabled,
+  );
+  const footerTotals = totalsEnabled ? computeTotals(widget.totals, totalsQ.sums) : undefined;
+
   const valueName = widget.agg === 'count' ? t('dashboard.builder.countLabel') : (widget.measureCol ?? '');
   // R116 — per-widget number format (presentation). Applied to the headline
   // value displays (stat, gauge); charts keep their compact-axis defaults.
@@ -710,6 +762,8 @@ function ChartWidgetView({ widget, extra, filters }: WidgetViewProps) {
             rows={tableData.rows}
             percent={percent}
             pageSize={TABLE_PAGE_ROWS * (widget.rows ?? 1)}
+            totals={footerTotals}
+            totalLabel={t('dashboard.table.total')}
           />
         )}
         {widget.chartType === 'pie' && <PieView data={chartData} palette={palette} />}

@@ -404,6 +404,19 @@ export type AggregateResult = {
   total: number;
 };
 
+/** R181 — `POST /queries/{id}/totals` request: numeric result columns to sum
+ *  (by effective name) under the active dashboard filters. */
+export type TotalsRequest = {
+  columns: readonly string[];
+  filters?: readonly AggregateFilter[];
+};
+
+/** R181 — one stringified sum per requested column + the filtered row count. */
+export type TotalsResult = {
+  sums: Record<string, string | null>;
+  rowCount: number;
+};
+
 /** R72 — the preview run result: the same `RowsPage` shape as a saved run,
  *  plus the server-computed `resolvedColumns` when the working copy joins
  *  (the builder needs the combined headers to render the preview table). */

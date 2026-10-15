@@ -29,9 +29,10 @@ from fastapi.responses import JSONResponse, Response
 from app._generated.constants import DASHBOARD_MAX_ROWS, ID_PATTERNS, PAGE_SIZES
 from app.db import get_conn
 from app.ingest.filters import build_definition_predicates
-from app.ingest.rows_reader import query_aggregate_rows, query_dataset_rows
+from app.ingest.rows_reader import build_steps_relation, query_aggregate_rows, query_dataset_rows
 from app.models.common import (
     AggregateBody,
+    TotalsBody,
     ApiErrorNameTaken,
     ApiErrorNotFound,
     ApiErrorQueryStale,
@@ -337,6 +338,64 @@ def aggregate_query(id: QueryIdPath, body: AggregateBody) -> JSONResponse:  # no
     return JSONResponse(status_code=status.HTTP_200_OK, content=content)
 
 
+@router.post("/queries/{id}/totals")
+def totals_query(id: QueryIdPath, body: TotalsBody) -> JSONResponse:  # noqa: A002
+    """R181 — the SUM of each requested numeric column over the saved query's
+    WHOLE result — the post-step relation when the query has transform steps,
+    which the `/aggregate` route cannot see — under the runtime dashboard
+    `filters` (name-based one-of, a filter on a column the result lacks is
+    skipped). One DuckDB query; no row cap, so a table widget's footer is right
+    even when its rows are capped. Non-numeric or unknown columns → 422.
+    Drift semantics follow the run path: 404 absent · 409 stale."""
+    with get_conn() as con:
+        qrow = con.execute(_SELECT_QUERY, (id,)).fetchone()
+        if qrow is None:
+            return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=ApiErrorNotFound().model_dump())
+        definition = json.loads(qrow["definition_json"])
+        chain = _chain_of(definition)
+        plan, reason = _resolve_plan(con, qrow["source_id"], chain, _rels_of(definition), qrow["workspace_id"])
+
+    if reason == "source_missing":
+        return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=ApiErrorNotFound().model_dump())
+    if reason is not None:
+        return JSONResponse(status_code=status.HTTP_409_CONFLICT, content=ApiErrorRelationshipStale().model_dump())
+
+    try:
+        filters, advanced = build_definition_predicates(definition, plan["columns"])
+        step_plan = _step_plan(definition.get("steps") or [], plan["columns"])
+    except HTTPException as exc:
+        if exc.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY:
+            return JSONResponse(status_code=status.HTTP_409_CONFLICT, content=ApiErrorQueryStale().model_dump())
+        raise
+
+    inner_sql, inner_params = _build_inner_relation(plan, definition.get("q"), filters, advanced)
+    if step_plan is not None:
+        normalized, final_cols = step_plan
+        relation_sql, relation_params, _names = build_steps_relation(
+            inner_sql, inner_params, [c["name"] for c in plan["columns"]], normalized
+        )
+    else:
+        final_cols = plan["columns"]
+        relation_sql, relation_params = inner_sql, inner_params
+
+    # The same per-measure check the aggregate route runs (unknown column /
+    # non-numeric sum → 422 with a `loc`), against the FINAL columns.
+    measures = _validate_aggregate([], [{"col": c, "agg": "sum"} for c in body.columns], final_cols, ["body"])
+    col_names = {c["name"] for c in final_cols}
+    dashboard_filters = [(f.column, f.values) for f in body.filters if f.column in col_names]
+    rows = query_aggregate_rows(
+        relation_sql,
+        relation_params,
+        dimensions=[],
+        measures=[*measures, (None, "count")],
+        dashboard_filters=dashboard_filters,
+    )
+    cells = rows[0] if rows else [None] * (len(body.columns) + 1)
+    sums = {c: cells[i] for i, c in enumerate(body.columns)}
+    row_count = int(cells[len(body.columns)] or 0)
+    return JSONResponse(status_code=status.HTTP_200_OK, content={"sums": sums, "rowCount": row_count})
+
+
 @router.post("/workspaces/{id}/queries/preview")
 def preview_query(  # noqa: A002
     id: WsIdPath,
@@ -410,8 +469,12 @@ def preview_query(  # noqa: A002
         # author against the base while the steps editor + table use the result.
         base = [{"name": c["name"], "dtype": c["dtype"]} for c in plan["columns"]]
         content = {
-            "rows": rows, "page": page, "pageSize": page_size, "total": total,
-            "resolvedColumns": resolved, "baseColumns": base,
+            "rows": rows,
+            "page": page,
+            "pageSize": page_size,
+            "total": total,
+            "resolvedColumns": resolved,
+            "baseColumns": base,
         }
         return JSONResponse(status_code=status.HTTP_200_OK, content=content)
 

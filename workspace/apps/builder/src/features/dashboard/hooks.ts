@@ -16,7 +16,7 @@ import { queriesApi } from '@/api/queriesApi';
 import { useQueriesQuery } from '@/features/data-management/queries/hooks';
 import { useWorkspacesQuery } from '@/features/data-management/workspaces/hooks';
 import { distinctValues, isNumeric, type DataColumn } from './aggregate';
-import type { AggregateRequest } from '@/features/data-management/queries/types';
+import type { AggregateRequest, TotalsRequest } from '@/features/data-management/queries/types';
 import type { Dashboard } from './types';
 import { wireToDashboard, type CreateDashboardRequest, type UpdateDashboardRequest } from './wire';
 
@@ -118,6 +118,21 @@ export type WidgetAggregate = {
   isLoading: boolean;
   isError: boolean;
 };
+
+/** R181 — the server sums for a table widget's footer (whole filtered result).
+ *  Disabled when the widget has no `totals`; one request per distinct column set. */
+export function useWidgetTotals(
+  queryId: string | undefined,
+  body: TotalsRequest,
+  enabled: boolean,
+): { sums: Record<string, string | null> | undefined; rowCount: number | undefined; isError: boolean } {
+  const q = useQuery({
+    queryKey: ['dashboard-widget-totals', queryId, body] as const,
+    queryFn: () => queriesApi.totals(queryId as string, body),
+    enabled: enabled && typeof queryId === 'string' && queryId.length > 0 && body.columns.length > 0,
+  });
+  return { sums: q.data?.sums, rowCount: q.data?.rowCount, isError: q.isError };
+}
 
 export function useWidgetAggregate(
   queryId: string | undefined,

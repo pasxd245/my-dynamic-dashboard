@@ -24,6 +24,11 @@ export type WidgetSpan = 1 | 2 | 3;
  *  Optional on the wire; absent = 1. Presentation only. */
 export type WidgetRows = 1 | 2 | 3;
 
+/** R181 — a table column's footer total: `sum` (Σ column) or `ratio`
+ *  (Σ`num` / Σ`den` — a rate re-derived from its parts). Computed by the
+ *  server over the whole filtered result (`POST /queries/{id}/totals`). */
+export type TotalSpec = { agg: 'sum' } | { agg: 'ratio'; num: string; den: string };
+
 /** One chart on a dashboard, defined formula-free: a saved Query + which
  *  column is the dimension, which is the measure, how to aggregate, how to
  *  chart it. Bound to the Query by id (a deleted query → "unavailable"). */
@@ -59,6 +64,8 @@ export type Widget = {
   /** R177 — grid height in widget-rows (1–3). Absent → 1; omitted on the
    *  wire when 1 so pre-R177 dashboards save back unchanged. */
   rows?: WidgetRows;
+  /** R181 — `table` only: footer totals keyed by result column name. */
+  totals?: Record<string, TotalSpec>;
 };
 
 /** A named, workspace-scoped dashboard: an ordered set of widgets. */

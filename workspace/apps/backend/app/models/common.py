@@ -837,6 +837,17 @@ class AggregateFilter(BaseModel):
     values: list[str | None]
 
 
+class TotalsBody(BaseModel):
+    """R181 — POST /queries/{id}/totals: Σ of each named numeric column over the
+    query's WHOLE result (post-step when the query has transform steps), under
+    the runtime dashboard `filters`. The client derives ratios from the sums."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    columns: Annotated[list[Annotated[str, Field(min_length=1)]], Field(min_length=1, max_length=64)]
+    filters: list[AggregateFilter] = Field(default_factory=list)
+
+
 class AggregateBody(BaseModel):
     """POST /queries/{id}/aggregate request body. R119 scope: 0-or-1
     `dimensions` + exactly 1 `measures` (validated in the router; the model
@@ -921,6 +932,28 @@ Agg = Literal["sum", "count"]
 NumberFormat = Literal["plain", "compact", "percent"]
 
 
+class TotalSpec(BaseModel):
+    """R181 — how a `table` widget totals one column in its footer row:
+    `sum` (Σ of the column) or `ratio` (Σ`num` / Σ`den` — a rate re-derived from
+    its parts, NOT the mean of the rows' rates). A column with no spec has no
+    total. Computed by the server over the WHOLE result under the active
+    filters (`POST /queries/{id}/totals`), never over the visible page."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    agg: Literal["sum", "ratio"]
+    num: Annotated[str, Field(min_length=1)] | None = None
+    den: Annotated[str, Field(min_length=1)] | None = None
+
+    @model_validator(mode="after")
+    def _check(self) -> TotalSpec:
+        if self.agg == "ratio" and (self.num is None or self.den is None):
+            raise ValueError("a ratio total needs num and den")
+        if self.agg == "sum" and (self.num is not None or self.den is not None):
+            raise ValueError("a sum total has no num / den")
+        return self
+
+
 class Widget(BaseModel):
     """One formula-free chart on a dashboard: a saved Query (`queryId`) + which
     column is the dimension / measure, how to aggregate, how to chart it, and its
@@ -957,6 +990,8 @@ class Widget(BaseModel):
     # R177: optional grid height in widget-rows (1–3). Absent → 1; never
     # backfilled, so a pre-R177 dashboard re-fetches unchanged.
     rows: Annotated[int, Field(ge=1, le=3)] | None = None
+    # R181: `table` only — footer totals per column (by effective name).
+    totals: dict[Annotated[str, Field(min_length=1)], TotalSpec] | None = None
 
     @model_validator(mode="after")
     def _check_measure(self) -> Widget:
@@ -985,6 +1020,11 @@ class Widget(BaseModel):
             raise ValueError("agg is required")
         if self.md is not None:
             raise ValueError("md is only allowed on a note widget")
+        if self.totals is not None:
+            if self.chartType != "table":
+                raise ValueError("totals is only allowed on a table widget")
+            if len(self.totals) > 64:
+                raise ValueError("totals: at most 64 columns")
         if self.agg == "sum" and self.measureCol is None:
             raise ValueError("measureCol is required when agg='sum'")
         if self.agg == "count" and self.measureCol is not None:

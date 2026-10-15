@@ -1,0 +1,104 @@
+openapi: 3.1.0
+info:
+  title: my-dynamic-dashboard — POST /queries/{id}/totals
+  version: 0.1.0
+  description: |
+    R181 — the SUM of each named numeric column over a saved query's WHOLE
+    result, under the runtime dashboard filters. Backs a `table` widget's
+    footer row (`Widget.totals`): a `sum` total is the sum itself; a `ratio`
+    total is Σnum / Σden, derived by the client from two sums (a rate
+    re-derived from its parts, never the mean of the rows' rates).
+
+    Unlike `/aggregate`, this runs over the POST-STEP relation when the query
+    has transform steps — the result the table actually shows — and it never
+    sees the dashboard fetch cap: the footer is right when the rows are not.
+    One DuckDB query; `rowCount` is the filtered row count.
+
+paths:
+  /queries/{id}/totals:
+    post:
+      operationId: totalsQuery
+      summary: Sum numeric columns over the whole (filtered) result
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^qr_[0-9a-f]{8}$"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [columns]
+              additionalProperties: false
+              properties:
+                columns:
+                  type: array
+                  minItems: 1
+                  maxItems: 64
+                  items:
+                    type: string
+                    minLength: 1
+                  description: Numeric result columns to sum, by effective name.
+                filters:
+                  type: array
+                  default: []
+                  description: The active dashboard filters (same shape and semantics as `/aggregate`).
+                  items:
+                    type: object
+                    required: [column, values]
+                    additionalProperties: false
+                    properties:
+                      column:
+                        type: string
+                        minLength: 1
+                      values:
+                        type: array
+                        items:
+                          type: [string, "null"]
+            examples:
+              footer:
+                value:
+                  columns: ["calls", "answered", "amount"]
+                  filters: [{ column: "region", values: ["EMEA"] }]
+      responses:
+        "200":
+          description: One sum per requested column (stringified, like `/aggregate`; `null` never — an all-NULL column reads `"0"`), plus the row count.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [sums, rowCount]
+                additionalProperties: false
+                properties:
+                  sums:
+                    type: object
+                    additionalProperties:
+                      type: [string, "null"]
+                  rowCount:
+                    type: integer
+                    minimum: 0
+              examples:
+                footer:
+                  value:
+                    sums: { calls: "1284", answered: "901", amount: "5587000" }
+                    rowCount: 37
+        "404":
+          description: No such query, or its source is gone.
+          content:
+            application/json:
+              schema:
+                $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorNotFound"
+        "409":
+          description: The query no longer validates against its source (`query_stale`) or a join edge drifted (`relationship_stale`).
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorQueryStale"
+                  - $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorRelationshipStale"
+        "422":
+          description: A column is not in the result, or is not numeric. FastAPI validation envelope.

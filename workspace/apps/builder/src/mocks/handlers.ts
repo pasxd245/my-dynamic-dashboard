@@ -1086,6 +1086,30 @@ export const handlers = [
   // then computes the aggregate over the query's matched rows + the pushed
   // dashboard filters. The aggregate result is small (one row per group) — no
   // cap. Contract-validated against queries/aggregate.contract.yaml.
+  // R181 — totals: Σ of numeric columns over the query's WHOLE matched rows
+  // under the pushed dashboard filters (the table footer). Mock-side it reuses
+  // the aggregate roll-up with no dimensions and one `sum` per column.
+  withContractValidation('post', api('/queries/:id/totals'), 'totalsQuery', async ({ params, request }) => {
+    const body = (await request.json()) as { columns: string[]; filters?: AggregateRequest['filters'] };
+    if (params.id !== MOCK_QUERY.id) {
+      return HttpResponse.json({ code: 'not_found' }, { status: 404 });
+    }
+    const def = MOCK_QUERY.definition;
+    const preds = def.filters.map(predFromAtom);
+    const aqGroups = def.advanced.map((g) => g.map(predFromAtom));
+    const matched = applyFiltersAndQ(MOCK_ROWS, MOCK_DATASET.columns, preds, def.q ?? null, aqGroups);
+    const agg = computeAggregate(MOCK_DATASET.columns, matched, {
+      dimensions: [],
+      measures: [...body.columns.map((col) => ({ col, agg: 'sum' as const })), { agg: 'count' as const }],
+      filters: body.filters ?? [],
+    });
+    const cells = agg.rows[0] ?? [];
+    const sums: Record<string, string | null> = {};
+    body.columns.forEach((col, i) => {
+      sums[col] = cells[i] ?? null;
+    });
+    return HttpResponse.json({ sums, rowCount: Number(cells[body.columns.length] ?? 0) });
+  }),
   withContractValidation('post', api('/queries/:id/aggregate'), 'aggregateQuery', async ({ params, request }) => {
     if (params.id === MOCK_STALE_QUERY_ID) {
       return HttpResponse.json({ code: 'query_stale' }, { status: 409 });
