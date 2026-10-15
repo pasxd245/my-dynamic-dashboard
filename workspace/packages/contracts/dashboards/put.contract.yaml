@@ -75,6 +75,7 @@ paths:
                         dimensionCol: "owner"
                         agg: count
                         span: 2
+                        rows: 2
       responses:
         "200":
           description: Dashboard updated. The full `Dashboard` with the new state.

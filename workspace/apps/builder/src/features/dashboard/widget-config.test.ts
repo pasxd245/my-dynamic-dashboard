@@ -74,3 +74,18 @@ describe('draftToConfig', () => {
     expect(JSON.parse(json)).toMatchObject({ chartType: 'bar', agg: 'sum', span: 1, title: '' });
   });
 });
+
+// R177 — `rows` (grid height) travels through the config only when it is not
+// the default, so a widget edited without touching its height saves back
+// byte-for-byte (pre-R177 dashboards stay unchanged on the wire).
+describe('draftToConfig — R177 rows', () => {
+  it('omits rows when absent or 1 (the default)', () => {
+    expect('rows' in draftToConfig(sumDraft)).toBe(false);
+    expect('rows' in draftToConfig({ ...sumDraft, rows: 1 })).toBe(false);
+  });
+
+  it('carries rows 2 and 3 through unchanged, next to span', () => {
+    expect(draftToConfig({ ...sumDraft, rows: 2 })).toMatchObject({ span: 2, rows: 2 });
+    expect(draftToConfig({ ...sumDraft, rows: 3 }).rows).toBe(3);
+  });
+});

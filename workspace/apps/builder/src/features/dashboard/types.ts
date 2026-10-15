@@ -19,6 +19,11 @@ export type NumberFormat = 'plain' | 'compact' | 'percent';
  *  2 = two-thirds, 3 = full row. A per-widget size (Tableau-style arranging). */
 export type WidgetSpan = 1 | 2 | 3;
 
+/** R177 — how many widget-rows tall a widget is: 1 = the standard 300 px
+ *  body; 2 / 3 = as tall as two / three stacked widgets (gaps included).
+ *  Optional on the wire; absent = 1. Presentation only. */
+export type WidgetRows = 1 | 2 | 3;
+
 /** One chart on a dashboard, defined formula-free: a saved Query + which
  *  column is the dimension, which is the measure, how to aggregate, how to
  *  chart it. Bound to the Query by id (a deleted query → "unavailable"). */
@@ -46,6 +51,9 @@ export type Widget = {
   agg: Agg;
   /** Grid width: 1–3 columns of a 3-col grid (default 1). */
   span: WidgetSpan;
+  /** R177 — grid height in widget-rows (1–3). Absent → 1; omitted on the
+   *  wire when 1 so pre-R177 dashboards save back unchanged. */
+  rows?: WidgetRows;
 };
 
 /** A named, workspace-scoped dashboard: an ordered set of widgets. */

@@ -90,6 +90,8 @@
       "removeTitle": "Xóa “{{title}}”?",
       "width": "Chiều rộng",
       "widthHelp": "Số cột widget chiếm (trên 3).",
+      "height": "Chiều cao",
+      "heightHelp": "Số hàng widget chiếm (tính theo chiều cao widget chuẩn).",
       "viewJson": "Xem dạng JSON",
       "jsonHint": "Chỉ đọc — cấu hình đã lưu của widget.",
       "jsonCopy": "Sao chép",

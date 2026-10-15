@@ -150,6 +150,20 @@ components:
             option (default 1). Reorder/drag-arrange is DEFERRED to the
             dynamic-widgets round (not in this contract).
           examples: [1]
+        rows:
+          type: integer
+          minimum: 1
+          maximum: 3
+          description: |
+            R177 — OPTIONAL grid height: how many widget-rows tall the widget
+            is (1 = the standard 300 px body; 2 / 3 = two / three stacked
+            widgets tall, gaps included, so a `rows: 2` widget lines up with
+            two `rows: 1` widgets stacked beside it). Absent → 1, and the
+            server does NOT backfill it: a dashboard saved before this field
+            existed re-fetches byte-for-byte as before. A `table` widget shows
+            proportionally more rows per page. Presentation only — the
+            widget's data and aggregation are untouched by `rows`.
+          examples: [2]
 
     DashboardDefinition:
       type: object

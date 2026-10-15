@@ -895,6 +895,9 @@ class Widget(BaseModel):
     numberFormat: NumberFormat | None = None  # noqa: N815
     agg: Agg
     span: Annotated[int, Field(ge=1, le=3)]
+    # R177: optional grid height in widget-rows (1–3). Absent → 1; never
+    # backfilled, so a pre-R177 dashboard re-fetches unchanged.
+    rows: Annotated[int, Field(ge=1, le=3)] | None = None
 
     @model_validator(mode="after")
     def _check_measure(self) -> Widget:

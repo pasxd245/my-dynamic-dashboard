@@ -11,7 +11,7 @@
 // for the real API; this module is the contract-faithful boundary type used by
 // the API client + the MSW handlers.
 
-import type { ChartType, Agg, NumberFormat, WidgetSpan, Dashboard, Widget } from './types';
+import type { ChartType, Agg, NumberFormat, WidgetSpan, WidgetRows, Dashboard, Widget } from './types';
 
 /** A widget as carried on the wire. Same fields as the FE-state `Widget`
  *  (./types.ts) — columns by logical NAME, `dsh_`/`wdg_`/`qr_` id shapes. */
@@ -34,6 +34,8 @@ export type WidgetWire = {
   measureCol2?: string;
   agg: Agg;
   span: WidgetSpan;
+  /** R177 — optional grid height in widget-rows (1–3); absent = 1. */
+  rows?: WidgetRows;
 };
 
 /** The embedded dashboard body: the ordered widget set. */

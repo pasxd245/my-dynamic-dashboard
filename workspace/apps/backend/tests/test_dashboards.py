@@ -277,3 +277,47 @@ def test_delete_then_404() -> None:
     assert first.status_code == 204
     assert again.status_code == 404
     assert again.json() == {"code": "not_found"}
+
+
+# ─── R177: `Widget.rows` (grid height, 1–3, optional) ───────────────────────
+
+
+@pytest.mark.unit
+def test_r177_widget_rows_round_trips() -> None:
+    """`rows: 3` persists and re-fetches as sent, on both the create and the
+    detail contract."""
+    with TestClient(app) as client:
+        ws, qid = _seed_query(client)
+        created = _create(client, ws, widgets=[_widget(qid, rows=3)])
+        refetched = client.get(f"/dashboards/{created.json()['id']}")
+
+    assert created.status_code == 201
+    assert created.json()["definition"]["widgets"][0]["rows"] == 3
+    assert refetched.json()["definition"]["widgets"][0]["rows"] == 3
+    validate_response("dashboards/post.contract.yaml", 201, created.json())
+    validate_response("dashboards/detail-get.contract.yaml", 200, refetched.json())
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("rows", [0, 4, 1.5])
+def test_r177_widget_rows_outside_1_3_is_422(rows: object) -> None:
+    with TestClient(app) as client:
+        ws, qid = _seed_query(client)
+        resp = _create(client, ws, widgets=[_widget(qid, rows=rows)])
+
+    assert resp.status_code == 422
+
+
+@pytest.mark.unit
+def test_r177_widget_without_rows_is_not_backfilled() -> None:
+    """Absent means 1 at render time, but the wire stays as it was: a widget
+    saved without `rows` re-fetches without a `rows` key (pre-R177 dashboards
+    are byte-for-byte unchanged)."""
+    with TestClient(app) as client:
+        ws, qid = _seed_query(client)
+        created = _create(client, ws, widgets=[_widget(qid)]).json()
+        refetched = client.get(f"/dashboards/{created['id']}").json()
+
+    assert "rows" not in created["definition"]["widgets"][0]
+    assert "rows" not in refetched["definition"]["widgets"][0]
+    assert refetched == created

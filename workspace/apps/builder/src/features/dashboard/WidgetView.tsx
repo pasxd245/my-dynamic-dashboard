@@ -331,14 +331,21 @@ export function isRatioColumn(rows: readonly (readonly (string | null)[])[], ci:
   return seen;
 }
 
+/** R175/R177 — rows per page for a one-row-tall table; a taller widget shows
+ *  `TABLE_PAGE_ROWS × rows` (8 / 16 / 24). */
+export const TABLE_PAGE_ROWS = 8;
+
 function TableView({
   columns,
   rows,
   percent = false,
+  pageSize = TABLE_PAGE_ROWS,
 }: Readonly<{
   columns: readonly { name: string; dtype?: string }[];
   rows: readonly (readonly (string | null)[])[];
   percent?: boolean;
+  /** R177 — rows per page, scaled with the widget's height. */
+  pageSize?: number;
 }>) {
   const cols = columns.map((c, i) => ({
     title: c.name,
@@ -361,7 +368,7 @@ function TableView({
         size="small"
         columns={cols}
         dataSource={dataSource}
-        pagination={{ pageSize: 8, size: 'small' }}
+        pagination={{ pageSize, size: 'small' }}
         scroll={{ x: 'max-content' }}
       />
     </div>
@@ -632,6 +639,7 @@ export function WidgetView({ widget, extra, filters }: WidgetViewProps) {
       isEmpty={isEmpty}
       extra={extra}
       warning={capWarning}
+      rows={widget.rows}
     >
       <ChartFigure label={t(ariaKey, { title: widget.title })}>
         {widget.chartType === 'stat' && <StatView value={statValue ?? 0} label={valueName} fmt={fmt} />}
@@ -669,7 +677,12 @@ export function WidgetView({ widget, extra, filters }: WidgetViewProps) {
           </Suspense>
         )}
         {widget.chartType === 'table' && tableData && (
-          <TableView columns={tableData.columns} rows={tableData.rows} percent={percent} />
+          <TableView
+            columns={tableData.columns}
+            rows={tableData.rows}
+            percent={percent}
+            pageSize={TABLE_PAGE_ROWS * (widget.rows ?? 1)}
+          />
         )}
         {widget.chartType === 'pie' && <PieView data={chartData} palette={palette} />}
         {widget.chartType === 'line' && (

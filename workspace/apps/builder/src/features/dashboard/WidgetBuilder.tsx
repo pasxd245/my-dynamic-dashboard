@@ -11,7 +11,7 @@ import { useTranslation } from 'react-i18next';
 import { isNumeric, pickWidgetDefaults } from './aggregate';
 import { useQueriesQuery } from '@/features/data-management/queries/hooks';
 import { useWidgetData } from './hooks';
-import type { Agg, ChartType, NumberFormat, Widget, WidgetSpan } from './types';
+import type { Agg, ChartType, NumberFormat, Widget, WidgetRows, WidgetSpan } from './types';
 import { WidgetView } from './WidgetView';
 
 export type Draft = {
@@ -31,6 +31,8 @@ export type Draft = {
   agg: Agg;
   /** Width carried through the builder; arranged on the dashboard (default 1). */
   span: WidgetSpan;
+  /** R177 — height in widget-rows (default 1; omitted from the config when 1). */
+  rows?: WidgetRows;
 };
 
 const EMPTY: Draft = { title: '', chartType: 'bar', agg: 'sum', span: 1 };
@@ -72,6 +74,9 @@ export function draftToConfig(draft: Draft): Omit<Widget, 'id'> {
     ...(draft.numberFormat ? { numberFormat: draft.numberFormat } : {}),
     agg: draft.agg,
     span: draft.span,
+    // R177 — height in widget-rows; the default 1 is omitted so a widget
+    // edited without touching its height saves back unchanged.
+    ...(draft.rows && draft.rows !== 1 ? { rows: draft.rows } : {}),
   };
 }
 
@@ -335,6 +340,19 @@ export function WidgetBuilder({ open, workspaceId, initial, onSubmit, onCancel }
                   { label: '3', value: 3 },
                 ]}
                 data-component="WidgetBuilderWidth"
+              />
+            </Form.Item>
+
+            <Form.Item label={t('dashboard.builder.height')} help={t('dashboard.builder.heightHelp')}>
+              <Segmented<WidgetRows>
+                value={draft.rows ?? 1}
+                onChange={(rows) => setDraft((p) => ({ ...p, rows }))}
+                options={[
+                  { label: '1', value: 1 },
+                  { label: '2', value: 2 },
+                  { label: '3', value: 3 },
+                ]}
+                data-component="WidgetBuilderHeight"
               />
             </Form.Item>
           </Form>

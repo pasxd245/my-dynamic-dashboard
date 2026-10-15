@@ -42,7 +42,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { PageContainer, PageHeader } from '@mdd/ui';
-import { App, Button, Card, Col, Dropdown, Empty, Row, Space, Spin, Tooltip, theme } from 'antd';
+import { App, Button, Card, Dropdown, Empty, Grid, Space, Spin, Tooltip, theme } from 'antd';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -51,19 +51,35 @@ import { NotFoundPage } from '@/components/NotFoundPage';
 import { useWorkspacesQuery } from '@/features/data-management/workspaces/hooks';
 import type { DashboardFilter } from './aggregate';
 import { useDashboardsQuery, useUpdateDashboardMutation } from './hooks';
-import type { Widget, WidgetSpan } from './types';
+import type { Widget } from './types';
 import { WidgetBuilder } from './WidgetBuilder';
 import { WidgetFilterDrawer } from './WidgetFilterDrawer';
 import { WidgetView } from './WidgetView';
 import { widgetsToDefinition } from './wire';
 
-// Per-widget span (of a 3-col grid) → responsive Col span (collapses on
-// smaller screens): 1 = third, 2 = two-thirds, 3 = full row.
-const COL_SPANS: Record<WidgetSpan, Record<string, number>> = {
-  1: { xs: 24, md: 12, xl: 8 },
-  2: { xs: 24, xl: 16 },
-  3: { xs: 24 },
-};
+// R177 — the dashboard is a CSS grid (was an AntD flex-wrap Row/Col). A flex
+// row can only be as tall as its tallest card, so a widget two rows tall left
+// empty space under its one-row neighbours; in a 2-D grid the next widgets
+// flow into that space, so `Widget.rows` is a layout, not just a bigger box.
+// Column count keeps the old responsive collapse: 3 at `xl`, 2 at `md`, else 1.
+// Auto-placement is sparse (no `dense`), so a dashboard whose widgets are all
+// one row tall keeps exactly the positions the flex grid gave it.
+const GRID_GAP = 16;
+
+/** Columns in the grid for the current breakpoints (AntD `useBreakpoint`).
+ *  Nothing known yet (first render, or no `matchMedia`) → the desktop 3. */
+export function gridColumns(screens: Readonly<Partial<Record<string, boolean>>>): 1 | 2 | 3 {
+  if (screens.xl) return 3;
+  if (screens.md) return 2;
+  if (screens.xs || screens.sm || screens.lg) return 1;
+  return 3;
+}
+
+/** A widget's cell: its `span` clipped to the grid's columns (a 2-wide widget
+ *  on a 2-column grid is a full row, as before), by its `rows` (absent → 1). */
+export function gridCell(widget: Pick<Widget, 'span' | 'rows'>, cols: 1 | 2 | 3): { cols: number; rows: number } {
+  return { cols: Math.min(widget.span, cols), rows: widget.rows ?? 1 };
+}
 
 /** Client-generated widget id (`wdg_<8 hex>`). The widget is an embedded
  *  sub-object the builder manipulates before any save, so the FE owns its id. */
@@ -76,6 +92,7 @@ function newWidgetId(): string {
  *  clicks; the handle is keyboard-focusable (dnd-kit keyboard sensor). */
 function SortableWidget({
   widget,
+  gridCols,
   canReorder,
   handleLabel,
   handleTooltip,
@@ -86,6 +103,7 @@ function SortableWidget({
   filters,
 }: Readonly<{
   widget: Widget;
+  gridCols: 1 | 2 | 3;
   canReorder: boolean;
   handleLabel: string;
   handleTooltip: string;
@@ -98,11 +116,15 @@ function SortableWidget({
   const { token } = theme.useToken();
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } =
     useSortable({ id: widget.id });
+  const cell = gridCell(widget, gridCols);
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.4 : 1,
     zIndex: isDragging ? 1 : undefined,
+    gridColumn: `span ${cell.cols}`,
+    gridRow: `span ${cell.rows}`,
+    minWidth: 0,
   };
   const handle = canReorder ? (
     <Tooltip title={handleTooltip}>
@@ -138,9 +160,9 @@ function SortableWidget({
     </Tooltip>
   );
   return (
-    <Col ref={setNodeRef} style={style} {...COL_SPANS[widget.span]}>
+    <div ref={setNodeRef} style={style} data-component="DashboardGridCell" data-span={cell.cols} data-rows={cell.rows}>
       <WidgetView widget={widget} filters={filters} extra={<Space size={0}>{handle}{filterButton}{menu}</Space>} />
-    </Col>
+    </div>
   );
 }
 
@@ -149,6 +171,8 @@ export function DashboardDetailPage() {
   const navigate = useNavigate();
   const { workspaceId, slug } = useParams<{ workspaceId: string; slug: string }>();
   const { modal, message } = App.useApp();
+  // R177 — grid columns follow the breakpoint (3 / 2 / 1), as the Col spans did.
+  const gridCols = gridColumns(Grid.useBreakpoint());
 
   const dashboardsQ = useDashboardsQuery(workspaceId);
   const dashboard = dashboardsQ.data?.find((d) => d.slug === slug);
@@ -333,11 +357,19 @@ export function DashboardDetailPage() {
           accessibility={{ announcements }}
         >
           <SortableContext items={displayIds} strategy={rectSortingStrategy}>
-            <Row gutter={[16, 16]}>
+            <div
+              data-component="DashboardGrid"
+              style={{
+                display: 'grid',
+                gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))`,
+                gap: GRID_GAP,
+              }}
+            >
               {ordered.map((w) => (
                 <SortableWidget
                   key={w.id}
                   widget={w}
+                  gridCols={gridCols}
                   canReorder={canReorder}
                   handleLabel={t('dashboard.reorder.handle', { title: w.title })}
                   handleTooltip={t('dashboard.reorder.tooltip')}
@@ -351,7 +383,7 @@ export function DashboardDetailPage() {
                   filters={filtersFor(w.id)}
                 />
               ))}
-            </Row>
+            </div>
           </SortableContext>
         </DndContext>
       )}
