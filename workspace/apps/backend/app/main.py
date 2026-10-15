@@ -50,7 +50,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             sweep_task.cancel()
             try:
                 await sweep_task
-            except asyncio.CancelledError: # NOSONAR
+            except asyncio.CancelledError:  # NOSONAR
                 # We cancelled it ourselves at shutdown — swallowing is
                 # intentional; don't re-raise into the lifespan.
                 pass  # noqa: S7497
@@ -101,6 +101,9 @@ app.add_middleware(
     allow_origins=CONFIG.settings.backend.cors_allow_origins,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
     allow_headers=["*"],
+    # R182 — the export's server-chosen file name rides in Content-Disposition,
+    # which a cross-origin fetch cannot read unless exposed.
+    expose_headers=["Content-Disposition"],
 )
 
 app.include_router(workspaces.router)

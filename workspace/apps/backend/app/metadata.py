@@ -46,8 +46,21 @@ class Noun:
     definition_version: str
 
 
+def _strip_none(v: object) -> object:
+    """Drop `None` members recursively. A stored definition is a plain
+    `model_dump()` — every optional field the model has ever gained appears as
+    `null` — so the hash must see the SHAPE the writer saw, not the model's
+    field list at save time (a widget untouched since R179 re-saved under
+    R181's model must not read as changed)."""
+    if isinstance(v, dict):
+        return {k: _strip_none(x) for k, x in v.items() if x is not None}
+    if isinstance(v, list):
+        return [_strip_none(x) for x in v]
+    return v
+
+
 def _version(payload: object) -> str:
-    raw = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    raw = json.dumps(_strip_none(payload), sort_keys=True, separators=(",", ":"), ensure_ascii=False)
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:12]
 
 

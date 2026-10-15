@@ -145,6 +145,14 @@
     },
     "table": {
       "total": "Total"
+    },
+    "export": {
+      "label": "Export the table",
+      "xlsx": "Download as Excel (.xlsx)",
+      "csv": "Download as CSV",
+      "done": "Saved {{name}}",
+      "failed": "Could not export this table.",
+      "tooLarge": "Too many rows to export ({{rows}}; the limit is {{max}}). Narrow the filters or the query."
     }
   },
   "common": {

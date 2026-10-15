@@ -56,6 +56,7 @@ export const ERROR_CODES = {
   UNAUTHORIZED: "{{constants.error_codes.unauthorized}}",
   FORBIDDEN: "{{constants.error_codes.forbidden}}",
   METADATA_INVALID: "{{constants.error_codes.metadata_invalid}}",
+  EXPORT_TOO_LARGE: "{{constants.error_codes.export_too_large}}",
 } as const;
 
 export type ErrorCode = (typeof ERROR_CODES)[keyof typeof ERROR_CODES];

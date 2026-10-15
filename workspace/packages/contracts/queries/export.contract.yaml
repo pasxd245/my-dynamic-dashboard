@@ -1,0 +1,118 @@
+openapi: 3.1.0
+info:
+  title: my-dynamic-dashboard — POST /queries/{id}/export
+  version: 0.1.0
+  description: |
+    R182 — a table widget's numbers as a file (CSV or XLSX): EVERY row of the
+    saved query's final result — the post-step relation when it has transform
+    steps — under the active dashboard filters, with typed cells (numbers are
+    numbers, dates are dates, a ratio column is a number formatted as a
+    percent), the R181 totals row last when the widget has one, and, in XLSX,
+    a second sheet `Filters` naming the query, the widget, the export time, the
+    row count and the filters the numbers were exported under.
+
+    Capped at 100 000 rows: over it the server answers 422 `export_too_large`
+    with the count instead of writing a file nobody can open.
+
+paths:
+  /queries/{id}/export:
+    post:
+      operationId: exportQuery
+      summary: Download the table's rows (+ totals) as CSV / XLSX
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^qr_[0-9a-f]{8}$"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [format]
+              additionalProperties: false
+              properties:
+                format:
+                  type: string
+                  enum: [csv, xlsx]
+                filters:
+                  type: array
+                  default: []
+                  description: The active dashboard filters (same shape and semantics as `/aggregate`).
+                  items:
+                    type: object
+                    required: [column, values]
+                    additionalProperties: false
+                    properties:
+                      column:
+                        type: string
+                        minLength: 1
+                      values:
+                        type: array
+                        items:
+                          type: [string, "null"]
+                totals:
+                  type: object
+                  description: The widget's `Widget.totals` spec, to append the totals row.
+                  additionalProperties:
+                    $ref: "../_shared/dashboard.yaml#/components/schemas/TotalSpec"
+                percent:
+                  type: boolean
+                  default: false
+                  description: |
+                    The widget's `numberFormat: percent`. The server then
+                    formats the RATIO columns as percentages: a float column
+                    whose values all lie in [-1, 1] (the table's own rule) and
+                    every `ratio` total's column.
+                title:
+                  type: string
+                  minLength: 1
+                  maxLength: 120
+                  description: The widget title — names the data sheet and the file.
+            examples:
+              xlsx:
+                value:
+                  format: xlsx
+                  filters: [{ column: "region", values: ["EMEA"] }]
+                  totals: { calls: { agg: sum }, cr2: { agg: ratio, num: quotes, den: calls } }
+                  percent: true
+                  title: "Lead funnel"
+      responses:
+        "200":
+          description: |
+            The file, as an attachment —
+            `Content-Disposition: attachment; filename="<title>.csv|xlsx"`.
+          content:
+            text/csv:
+              schema:
+                type: string
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: No such query, or its source is gone.
+          content:
+            application/json:
+              schema:
+                $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorNotFound"
+        "409":
+          description: The query no longer validates against its source, or a join edge drifted.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorQueryStale"
+                  - $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorRelationshipStale"
+        "422":
+          description: Over the row cap (`export_too_large`, with `rows` and `max`), or a bad totals column (FastAPI envelope).
+          content:
+            application/json:
+              schema:
+                $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorExportTooLarge"
+              examples:
+                big:
+                  value: { code: export_too_large, rows: 240511, max: 100000 }

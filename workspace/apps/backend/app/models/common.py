@@ -307,6 +307,16 @@ class ApiErrorMetadataInvalid(BaseModel):
     problems: list[Literal["html", "image", "link_scheme"]] | None = None
 
 
+class ApiErrorExportTooLarge(BaseModel):
+    """R182 — the result has more rows than an export may carry (422)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    code: Literal["export_too_large"] = ERROR_CODES["export_too_large"]  # type: ignore[assignment]
+    rows: int
+    max: int
+
+
 class ApiErrorNoVisibleColumns(BaseModel):
     """R152 — the column-visibility PATCH would hide EVERY column (422; the
     at-least-one-visible guard). `columns_json` is untouched. Mirrors
@@ -846,6 +856,24 @@ class TotalsBody(BaseModel):
 
     columns: Annotated[list[Annotated[str, Field(min_length=1)]], Field(min_length=1, max_length=64)]
     filters: list[AggregateFilter] = Field(default_factory=list)
+
+
+class ExportBody(BaseModel):
+    """R182 — POST /queries/{id}/export: the table widget's numbers as a file.
+    `totals` is the widget's R181 spec (by result column); `percent` is the
+    widget's `numberFormat: percent` — the server then formats its RATIO
+    columns (a float column whose values all lie in [-1, 1] — the R175 table
+    rule — and every `ratio` total) as percentages; `filters` are the active
+    dashboard filters, written into the file's Filters sheet; `title` names
+    the data sheet."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    format: Literal["csv", "xlsx"]
+    filters: list[AggregateFilter] = Field(default_factory=list)
+    totals: dict[Annotated[str, Field(min_length=1)], TotalSpec] | None = None
+    percent: bool = False
+    title: Annotated[str, Field(min_length=1, max_length=120)] | None = None
 
 
 class AggregateBody(BaseModel):

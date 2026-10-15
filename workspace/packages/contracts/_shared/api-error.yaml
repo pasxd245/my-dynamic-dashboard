@@ -28,7 +28,7 @@ components:
   schemas:
     ApiErrorCode:
       type: string
-      enum: [not_found, name_taken, slug_taken, non_empty, query_stale, step_invalid, relationship_exists, relationship_stale, coercion_failed, merge_duplicate_keys, unknown_column, no_visible_columns, unauthorized, forbidden, metadata_invalid]
+      enum: [not_found, name_taken, slug_taken, non_empty, query_stale, step_invalid, relationship_exists, relationship_stale, coercion_failed, merge_duplicate_keys, unknown_column, no_visible_columns, unauthorized, forbidden, metadata_invalid, export_too_large]
       description: |
         Closed enum. Any new error class lands as a new code in a future
         round + contract update — never as a free-text message.
@@ -385,3 +385,21 @@ components:
           items:
             type: string
             enum: [html, image, link_scheme]
+
+    ApiErrorExportTooLarge:
+      type: object
+      required: [code, rows, max]
+      additionalProperties: false
+      description: |
+        R182 — the table's result has more rows than an export may carry.
+        Nothing is written; `rows` is the filtered row count, `max` the cap.
+      properties:
+        code:
+          type: string
+          enum: [export_too_large]
+        rows:
+          type: integer
+          minimum: 0
+        max:
+          type: integer
+          minimum: 1

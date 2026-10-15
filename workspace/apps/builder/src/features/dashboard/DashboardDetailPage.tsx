@@ -19,6 +19,7 @@ import {
   EditOutlined,
   FilterFilled,
   FilterOutlined,
+  DownloadOutlined,
   HolderOutlined,
   InfoCircleOutlined,
   MoreOutlined,
@@ -50,6 +51,8 @@ import { useNavigate, useParams } from 'react-router-dom';
 
 import { NotFoundPage } from '@/components/NotFoundPage';
 import { useMetadataQuery } from '@/features/metadata/hooks';
+import { ApiErrorThrown } from '@/features/data-management/_shared/types';
+import { downloadWidgetExport } from './exportWidget';
 import { MetadataEntriesList, MetadataPanel } from '@/features/metadata/MetadataPanel';
 import type { MetadataEntries } from '@/features/metadata/types';
 import { useWorkspacesQuery } from '@/features/data-management/workspaces/hooks';
@@ -195,9 +198,53 @@ function SortableWidget({
         </Tooltip>
       </Popover>
     ) : null;
+  // R182 — a table's numbers go out as a file: every row of the same filtered
+  // result the table reads, with its totals row; the server names the file.
+  const { message } = App.useApp();
+  const exportLabel = t('dashboard.export.label');
+  const exportButton =
+    widget.chartType === 'table' ? (
+      <Dropdown
+        trigger={['click']}
+        menu={{
+          items: [
+            { key: 'xlsx', label: t('dashboard.export.xlsx') },
+            { key: 'csv', label: t('dashboard.export.csv') },
+          ],
+          onClick: ({ key }) => {
+            downloadWidgetExport(widget, filters, key as 'csv' | 'xlsx')
+              .then((name) => message.success(t('dashboard.export.done', { name })))
+              .catch((err: unknown) => {
+                const body = err instanceof ApiErrorThrown ? (err.body as { code?: string; rows?: number; max?: number }) : null;
+                message.error(
+                  body?.code === 'export_too_large'
+                    ? t('dashboard.export.tooLarge', { rows: body.rows ?? 0, max: body.max ?? 0 })
+                    : t('dashboard.export.failed'),
+                );
+              });
+          },
+        }}
+      >
+        <Tooltip title={exportLabel}>
+          <Button type="text" size="small" icon={<DownloadOutlined />} aria-label={exportLabel} data-component="WidgetExportButton" />
+        </Tooltip>
+      </Dropdown>
+    ) : null;
   return (
     <div ref={setNodeRef} style={style} data-component="DashboardGridCell" data-span={cell.cols} data-rows={cell.rows}>
-      <WidgetView widget={widget} filters={filters} extra={<Space size={0}>{handle}{metaButton}{filterButton}{menu}</Space>} />
+      <WidgetView
+        widget={widget}
+        filters={filters}
+        extra={
+          <Space size={0}>
+            {handle}
+            {metaButton}
+            {exportButton}
+            {filterButton}
+            {menu}
+          </Space>
+        }
+      />
     </div>
   );
 }

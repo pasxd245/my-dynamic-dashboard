@@ -411,6 +411,17 @@ export type TotalsRequest = {
   filters?: readonly AggregateFilter[];
 };
 
+/** R182 — `POST /queries/{id}/export` request: the table widget's numbers as a
+ *  file over the whole filtered result, with its totals row and a Filters sheet. */
+export type ExportRequest = {
+  format: 'csv' | 'xlsx';
+  filters?: readonly AggregateFilter[];
+  totals?: Record<string, import('@/features/dashboard/types').TotalSpec>;
+  /** The widget's `numberFormat: percent` — the server formats its ratio columns. */
+  percent?: boolean;
+  title?: string;
+};
+
 /** R181 — one stringified sum per requested column + the filtered row count. */
 export type TotalsResult = {
   sums: Record<string, string | null>;

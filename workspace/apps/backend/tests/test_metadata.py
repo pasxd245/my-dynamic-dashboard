@@ -271,3 +271,49 @@ def test_namespace_cap_per_noun(tokens: None, monkeypatch: pytest.MonkeyPatch) -
 
     assert codes == [201, 201, 201, 422]
     assert rewrite.status_code == 201  # replacing an existing namespace never hits the cap
+
+
+@pytest.mark.unit
+def test_resaving_an_unchanged_noun_does_not_flag_stale(tokens: None) -> None:
+    """A dashboard PUT stores a plain model_dump (optional fields as null); the
+    version hash ignores nulls, so re-saving the same widgets — or adding a
+    sibling widget — leaves a widget's entry fresh; changing the widget's own
+    config flags it."""
+    with TestClient(app) as client:
+        ids = _seed(client)
+        dsh = client.get(f"/dashboards/{ids['dsh']}").json()
+        wid = f"{ids['dsh']}:wdg_00000180"
+        client.put(f"/metadata/widget/{wid}/aicowork", json={"md": "about the table"}, headers=_auth(_AI))
+        same = client.put(
+            f"/dashboards/{ids['dsh']}",
+            json={"name": dsh["name"], "slug": dsh["slug"], "definition": dsh["definition"]},
+        )
+        assert same.status_code == 200, same.text
+        after_same = client.get(f"/metadata/widget/{wid}").json()["entries"]["aicowork"]["stale"]
+        widgets = dsh["definition"]["widgets"] + [
+            {
+                "id": "wdg_00000181",
+                "queryId": ids["q"],
+                "title": "Sibling",
+                "chartType": "stat",
+                "agg": "count",
+                "span": 1,
+            }
+        ]
+        client.put(
+            f"/dashboards/{ids['dsh']}",
+            json={"name": dsh["name"], "slug": dsh["slug"], "definition": {"widgets": widgets}},
+        )
+        after_sibling = client.get(f"/metadata/widget/{wid}").json()["entries"]["aicowork"]["stale"]
+        dash_level = client.get(f"/metadata/dashboard/{ids['dsh']}").json()
+        widgets[0] = {**widgets[0], "span": 2}
+        client.put(
+            f"/dashboards/{ids['dsh']}",
+            json={"name": dsh["name"], "slug": dsh["slug"], "definition": {"widgets": widgets}},
+        )
+        after_change = client.get(f"/metadata/widget/{wid}").json()["entries"]["aicowork"]["stale"]
+
+    assert after_same is False
+    assert after_sibling is False
+    assert "wdg_00000180" in dash_level["children"]
+    assert after_change is True

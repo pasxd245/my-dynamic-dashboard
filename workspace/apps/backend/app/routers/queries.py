@@ -29,9 +29,13 @@ from fastapi.responses import JSONResponse, Response
 from app._generated.constants import DASHBOARD_MAX_ROWS, ID_PATTERNS, PAGE_SIZES
 from app.db import get_conn
 from app.ingest.filters import build_definition_predicates
-from app.ingest.rows_reader import build_steps_relation, query_aggregate_rows, query_dataset_rows
+from app import duck
+from app.ingest.export import EXPORT_MAX_ROWS, build_csv, build_xlsx
+from app.ingest.rows_reader import _name_in_sql, build_steps_relation, query_aggregate_rows, query_dataset_rows
 from app.models.common import (
     AggregateBody,
+    ApiErrorExportTooLarge,
+    ExportBody,
     TotalsBody,
     ApiErrorNameTaken,
     ApiErrorNotFound,
@@ -338,34 +342,34 @@ def aggregate_query(id: QueryIdPath, body: AggregateBody) -> JSONResponse:  # no
     return JSONResponse(status_code=status.HTTP_200_OK, content=content)
 
 
-@router.post("/queries/{id}/totals")
-def totals_query(id: QueryIdPath, body: TotalsBody) -> JSONResponse:  # noqa: A002
-    """R181 — the SUM of each requested numeric column over the saved query's
-    WHOLE result — the post-step relation when the query has transform steps,
-    which the `/aggregate` route cannot see — under the runtime dashboard
-    `filters` (name-based one-of, a filter on a column the result lacks is
-    skipped). One DuckDB query; no row cap, so a table widget's footer is right
-    even when its rows are capped. Non-numeric or unknown columns → 422.
-    Drift semantics follow the run path: 404 absent · 409 stale."""
+def _final_relation(id: str) -> tuple[dict | None, JSONResponse | None]:  # noqa: A002
+    """R181/R182 — the saved query's FINAL relation: its resolved plan + own
+    predicates, then its transform steps when it has any (the rows a table
+    widget shows). Returns ``({sql, params, columns, name}, None)`` or
+    ``(None, error)`` with the run path's drift semantics: 404 absent · 409
+    `relationship_stale` / `query_stale`."""
     with get_conn() as con:
         qrow = con.execute(_SELECT_QUERY, (id,)).fetchone()
         if qrow is None:
-            return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=ApiErrorNotFound().model_dump())
+            return None, JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=ApiErrorNotFound().model_dump())
         definition = json.loads(qrow["definition_json"])
         chain = _chain_of(definition)
         plan, reason = _resolve_plan(con, qrow["source_id"], chain, _rels_of(definition), qrow["workspace_id"])
+        name = qrow["name"]
 
     if reason == "source_missing":
-        return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=ApiErrorNotFound().model_dump())
+        return None, JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=ApiErrorNotFound().model_dump())
     if reason is not None:
-        return JSONResponse(status_code=status.HTTP_409_CONFLICT, content=ApiErrorRelationshipStale().model_dump())
+        return None, JSONResponse(
+            status_code=status.HTTP_409_CONFLICT, content=ApiErrorRelationshipStale().model_dump()
+        )
 
     try:
         filters, advanced = build_definition_predicates(definition, plan["columns"])
         step_plan = _step_plan(definition.get("steps") or [], plan["columns"])
     except HTTPException as exc:
         if exc.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY:
-            return JSONResponse(status_code=status.HTTP_409_CONFLICT, content=ApiErrorQueryStale().model_dump())
+            return None, JSONResponse(status_code=status.HTTP_409_CONFLICT, content=ApiErrorQueryStale().model_dump())
         raise
 
     inner_sql, inner_params = _build_inner_relation(plan, definition.get("q"), filters, advanced)
@@ -377,23 +381,138 @@ def totals_query(id: QueryIdPath, body: TotalsBody) -> JSONResponse:  # noqa: A0
     else:
         final_cols = plan["columns"]
         relation_sql, relation_params = inner_sql, inner_params
+    return {"sql": relation_sql, "params": relation_params, "columns": final_cols, "name": name}, None
 
-    # The same per-measure check the aggregate route runs (unknown column /
-    # non-numeric sum → 422 with a `loc`), against the FINAL columns.
-    measures = _validate_aggregate([], [{"col": c, "agg": "sum"} for c in body.columns], final_cols, ["body"])
-    col_names = {c["name"] for c in final_cols}
-    dashboard_filters = [(f.column, f.values) for f in body.filters if f.column in col_names]
+
+def _totals_over(relation: dict, columns: list[str], filters: list) -> tuple[dict[str, str | None], int]:
+    """Σ of `columns` + the row count over `relation` under the dashboard
+    `filters` (a filter on a column the result lacks is skipped). 422 on an
+    unknown / non-numeric column."""
+    measures = _validate_aggregate([], [{"col": c, "agg": "sum"} for c in columns], relation["columns"], ["body"])
+    col_names = {c["name"] for c in relation["columns"]}
+    dashboard_filters = [(f.column, f.values) for f in filters if f.column in col_names]
     rows = query_aggregate_rows(
-        relation_sql,
-        relation_params,
+        relation["sql"],
+        relation["params"],
         dimensions=[],
         measures=[*measures, (None, "count")],
         dashboard_filters=dashboard_filters,
     )
-    cells = rows[0] if rows else [None] * (len(body.columns) + 1)
-    sums = {c: cells[i] for i, c in enumerate(body.columns)}
-    row_count = int(cells[len(body.columns)] or 0)
+    cells = rows[0] if rows else [None] * (len(columns) + 1)
+    sums = {c: cells[i] for i, c in enumerate(columns)}
+    return sums, int(cells[len(columns)] or 0)
+
+
+@router.post("/queries/{id}/totals")
+def totals_query(id: QueryIdPath, body: TotalsBody) -> JSONResponse:  # noqa: A002
+    """R181 — the SUM of each requested numeric column over the saved query's
+    WHOLE result — the post-step relation when the query has transform steps,
+    which the `/aggregate` route cannot see — under the runtime dashboard
+    `filters` (name-based one-of, a filter on a column the result lacks is
+    skipped). One DuckDB query; no row cap, so a table widget's footer is right
+    even when its rows are capped. Non-numeric or unknown columns → 422.
+    Drift semantics follow the run path: 404 absent · 409 stale."""
+    relation, err = _final_relation(id)
+    if err is not None:
+        return err
+    assert relation is not None  # noqa: S101 — the pair is exclusive
+    sums, row_count = _totals_over(relation, body.columns, body.filters)
     return JSONResponse(status_code=status.HTTP_200_OK, content={"sums": sums, "rowCount": row_count})
+
+
+@router.post("/queries/{id}/export")
+def export_query(id: QueryIdPath, body: ExportBody) -> Response:  # noqa: A002
+    """R182 — the table widget's numbers as a file: EVERY row of the final
+    (post-step, dashboard-filtered) relation, typed cells, the R181 totals row
+    when the widget has one, and (XLSX) a Filters sheet. Over
+    `EXPORT_MAX_ROWS` → 422 `export_too_large`, nothing written. Drift
+    semantics follow the run path: 404 absent · 409 stale."""
+    relation, err = _final_relation(id)
+    if err is not None:
+        return err
+    assert relation is not None  # noqa: S101 — the pair is exclusive
+    columns: list[dict] = relation["columns"]
+    col_names = {c["name"] for c in columns}
+    dashboard_filters = [(f.column, f.values) for f in body.filters if f.column in col_names]
+    where_sql, where_params = _name_in_sql(dashboard_filters)
+    sql = f"SELECT * FROM ({relation['sql']}) AS _final {where_sql}"  # noqa: S608 — composed from validated parts
+    params = [*relation["params"], *where_params]
+    with duck.connect() as con:
+        total = int(con.execute(f"SELECT COUNT(*) FROM ({sql}) AS _c", params).fetchone()[0])  # noqa: S608
+        if total > EXPORT_MAX_ROWS:
+            return JSONResponse(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                content=ApiErrorExportTooLarge(rows=total, max=EXPORT_MAX_ROWS).model_dump(),
+            )
+        rows = [list(r) for r in con.execute(sql, params).fetchall()]
+
+    totals_row: list[object] | None = None
+    if body.totals:
+        # The same sums the footer shows (R181), then the ratios derived from them.
+        need = sorted(
+            {c for spec in body.totals.values() for c in ([spec.num, spec.den] if spec.agg == "ratio" else [])}
+            | {c for c, spec in body.totals.items() if spec.agg == "sum"}
+        )
+        sums, _count = _totals_over(relation, need, body.filters)
+
+        def num(v: str | None) -> float | None:
+            try:
+                return None if v is None else float(v)
+            except ValueError:
+                return None
+
+        totals_row = [None] * len(columns)
+        for ci, c in enumerate(columns):
+            spec = body.totals.get(c["name"])
+            if spec is None:
+                continue
+            if spec.agg == "sum":
+                v = num(sums.get(c["name"]))
+                totals_row[ci] = int(v) if v is not None and c.get("dtype") == "integer" and v.is_integer() else v
+            else:
+                n, d = num(sums.get(spec.num or "")), num(sums.get(spec.den or ""))
+                totals_row[ci] = None if n is None or d in (None, 0) else n / d  # type: ignore[operator]
+
+    title = body.title or relation["name"]
+    # R175's table rule, server-side: under `percent`, a float column whose
+    # values all lie in [-1, 1] is a ratio, as is every `ratio` total's column.
+    percent_columns: set[str] = set()
+    if body.percent:
+        for ci, c in enumerate(columns):
+            if c.get("dtype") != "float":
+                continue
+            vals = [r[ci] for r in rows if r[ci] is not None]
+            if vals and all(isinstance(v, (int, float)) and -1 <= v <= 1 for v in vals):
+                percent_columns.add(c["name"])
+        for name, spec in (body.totals or {}).items():
+            if spec.agg == "ratio" and name in col_names:
+                percent_columns.add(name)
+    stem = (
+        "".join(ch if ch.isalnum() or ch in "-_ " else "_" for ch in title).strip().replace(" ", "_")[:60] or "export"
+    )
+    if body.format == "csv":
+        data = build_csv(columns, rows, totals_row, "Total")
+        return Response(
+            content=data,
+            media_type="text/csv; charset=utf-8",
+            headers={"Content-Disposition": f'attachment; filename="{stem}.csv"'},
+        )
+    data = build_xlsx(
+        columns,
+        rows,
+        totals_row,
+        "Total",
+        percent_columns=percent_columns,
+        sheet_title=title,
+        filters=dashboard_filters,
+        meta=[("query", relation["name"]), ("widget", title), ("exported_at", _now_iso()), ("rows", str(total))],
+        filters_sheet_title="Filters",
+    )
+    return Response(
+        content=data,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{stem}.xlsx"'},
+    )
 
 
 @router.post("/workspaces/{id}/queries/preview")

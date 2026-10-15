@@ -3,6 +3,7 @@ import { ApiErrorThrown, isApiError } from '@/features/data-management/_shared/t
 import type { RowsPage } from '@/features/data-management/datasets/types';
 import type {
   AggregateRequest,
+  ExportRequest,
   TotalsRequest,
   TotalsResult,
   AggregateResult,
@@ -89,6 +90,23 @@ export const queriesApi = {
    *  computed over the whole result (no row cap). 404 / 409 query_stale /
    *  relationship_stale (all throw ApiErrorThrown); 422 on a
    *  bad aggregate spec. */
+  /** R182 — POST /queries/{id}/export: the file as a Blob + the server's file
+   *  name (from Content-Disposition). 422 `export_too_large` / 404 / 409 throw. */
+  async exportFile(id: string, body: ExportRequest): Promise<{ blob: Blob; filename: string }> {
+    const resp = await fetch(`${API_BASE_URL}/queries/${id}/export`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!resp.ok) {
+      await throwApiError(resp);
+    }
+    const disposition = resp.headers.get('content-disposition') ?? '';
+    const m = /filename="([^"]+)"/.exec(disposition);
+    const filename = m?.[1] ?? `export.${body.format}`;
+    return { blob: await resp.blob(), filename };
+  },
+
   /** R181 — POST /queries/{id}/totals: Σ of numeric columns over the WHOLE
    *  (post-step, filtered) result; the table footer's source of truth. */
   async totals(id: string, body: TotalsRequest): Promise<TotalsResult> {

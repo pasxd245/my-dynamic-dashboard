@@ -145,6 +145,14 @@
     },
     "table": {
       "total": "Tổng"
+    },
+    "export": {
+      "label": "Xuất bảng",
+      "xlsx": "Tải Excel (.xlsx)",
+      "csv": "Tải CSV",
+      "done": "Đã lưu {{name}}",
+      "failed": "Không xuất được bảng này.",
+      "tooLarge": "Quá nhiều dòng để xuất ({{rows}}; giới hạn {{max}}). Thu hẹp bộ lọc hoặc query."
     }
   },
   "common": {
