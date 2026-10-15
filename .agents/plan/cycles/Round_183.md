@@ -87,6 +87,24 @@ returns.
 - 2026-10-15 — visual gate on the cloud runner (fixture above): the drawer's flags read
   `cardinality multipliesLeft multipliesRight leftUnmatched rightUnmatched`; metadata panel
   present (0 entries). Nothing written under `workspace/apps/backend/data/`.
+- 2026-10-15 — **G-rc2 evidence: dogfood before / after parity** (release-level, logged on the
+  last rc.2 round). On the owner's machine, against two COPIES of the external dogfood data
+  (kept outside this repo; never left the machine; deleted after), `release/v0.0.1-rc.1`
+  (`5334c81`) and `release/v0.0.1-rc.2` (`5649834`) each ran an in-process probe that recorded
+  only sha256 prefixes and counts:
+  - **119 / 119 items identical** — 1 workspace list; 8 datasets × (meta, schema without the new
+    `coverage`, every row: 178 557 rows); 40 saved queries × (definition + resolved columns,
+    unpaged result: 1 000 rows, none capped); 5 dashboards (the wire body, byte-for-byte — no
+    `rows` / `totals` backfilled); 9 widget aggregates (the same 9 answer 422 on both: the probe
+    asked `/aggregate` of pre-shaped queries, which the widget itself never does — R127 / R175).
+  - **Migration `0005_metadata_entries`** applied cleanly on the real database copy.
+  - **R181 on real data**: 27 table widgets (all over stepped queries), 133 numeric columns —
+    `/totals` equals a Python sum of the same rows for **133 / 133**.
+  - **R178 on real data**: `profile_date_coverage` over all 8 parquets — 18 temporal columns
+    profiled, every one with a range and a blank share in [0, 1]. Existing datasets carry no
+    `coverage` until their next refresh, as designed.
+  - Not exercised: R183 (the dogfood workspace declares no relationship), R180 writes (no token
+    configured — the default).
 
 ## Check
 
