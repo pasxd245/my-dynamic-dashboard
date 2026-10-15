@@ -36,7 +36,32 @@ export type Workflow = {
   resolvedColumns?: readonly Column[];
   /** ISO-8601 UTC of the last materialize (run); present only once run. */
   materializedAt?: string;
+  /** R187 — the server's stamp of the last run (absent before a stamped run). */
+  run?: WorkflowRun;
+  /** R187 — sources that moved since the run; absent when none did. */
+  staleSources?: readonly WorkflowStaleSource[];
   createdAt: string;
+};
+
+/** R187 (W-7) — mirrors `_shared/workflow.yaml#/WorkflowRun`. */
+export type WorkflowRun = {
+  id: string;
+  number: number;
+  definitionHash: string;
+  sources: readonly {
+    id: string;
+    definitionHash?: string;
+    dataVersions?: Readonly<Record<string, number>>;
+    runId?: string;
+  }[];
+};
+
+export type WorkflowStaleReason = 'source_missing' | 'definition_changed' | 'data_refreshed' | 'source_rerun';
+
+export type WorkflowStaleSource = {
+  sourceId: string;
+  name?: string;
+  reason: WorkflowStaleReason;
 };
 
 /** POST /workspaces/{id}/workflows request body. Mirrors

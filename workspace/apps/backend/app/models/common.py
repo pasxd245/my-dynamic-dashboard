@@ -1150,6 +1150,39 @@ class WorkflowDefinition(BaseModel):
     steps: list[Step] = []
 
 
+class WorkflowRunSource(BaseModel):
+    """R187 — what one source WAS when the run read it: a query's definition hash +
+    its leaf datasets' `dataVersion`s, or a workflow source's `runId`."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: WorkflowSourceId
+    definitionHash: str | None = None  # noqa: N815
+    dataVersions: dict[str, Annotated[int, Field(ge=1)]] | None = None  # noqa: N815
+    runId: str | None = None  # noqa: N815
+
+
+class WorkflowRun(BaseModel):
+    """R187 (W-7) — the server's stamp of the last run. Read-only."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: Annotated[str, Field(pattern=r"^run_[0-9a-f]{8}$")]
+    number: Annotated[int, Field(ge=1)]
+    definitionHash: str  # noqa: N815
+    sources: list[WorkflowRunSource]
+
+
+class WorkflowStaleSource(BaseModel):
+    """R187 — a source that moved since the run, and how."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    sourceId: WorkflowSourceId  # noqa: N815
+    name: str | None = None
+    reason: Literal["source_missing", "definition_changed", "data_refreshed", "source_rerun"]
+
+
 class Workflow(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -1161,6 +1194,10 @@ class Workflow(BaseModel):
     # the workflow has been RUN (its output materialized). Null before the first run.
     resolvedColumns: list[Column] | None = None  # noqa: N815
     materializedAt: IsoUtc | None = None  # noqa: N815
+    # R187 — the last run's stamp (absent before a stamped run), and the sources
+    # that moved since (absent when none did — or when there is no stamp to judge).
+    run: WorkflowRun | None = None
+    staleSources: list[WorkflowStaleSource] | None = None  # noqa: N815
     createdAt: IsoUtc  # noqa: N815
 
 

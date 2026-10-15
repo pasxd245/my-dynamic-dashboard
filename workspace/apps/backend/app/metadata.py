@@ -64,6 +64,13 @@ def _version(payload: object) -> str:
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:12]
 
 
+def definition_version(definition: object) -> str:
+    """R187 — the public name for a definition's version hash, so a workflow run's
+    `definitionHash` (and its sources') is the very value a metadata entry anchors
+    to as `definitionVersion` (T-e)."""
+    return _version(definition)
+
+
 def _schema_of(columns_json: str) -> list[dict]:
     return [{"name": c["name"], "dtype": c["dtype"]} for c in json.loads(columns_json)]
 

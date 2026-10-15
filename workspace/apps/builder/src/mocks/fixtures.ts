@@ -139,6 +139,13 @@ export const MOCK_WORKFLOW: Workflow = {
   definition: { sources: [MOCK_QUERY.id], steps: [] },
   resolvedColumns: schemaOf(MOCK_DATASET.columns),
   materializedAt: '2026-07-01T12:00:00Z',
+  // R187 — the server's run stamp (one query source over MOCK_DATASET at v1).
+  run: {
+    id: 'run_1a2b3c4d',
+    number: 3,
+    definitionHash: 'a1b2c3d4e5f6',
+    sources: [{ id: MOCK_QUERY.id, definitionHash: '0f1e2d3c4b5a', dataVersions: { [MOCK_DATASET.id]: 1 } }],
+  },
   createdAt: '2026-07-01T10:00:00Z',
 };
 

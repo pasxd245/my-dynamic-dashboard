@@ -41,7 +41,11 @@ from app.models.common import (
     UpdateWorkflowBody,
     Workflow as WorkflowModel,
     WorkflowDefinition,
+    WorkflowRun,
+    WorkflowStaleSource,
 )
+from app.metadata import definition_version
+from app.workflow_runs import new_run_id, stale_sources, stamp_sources
 from app.query_engine import _step_plan, build_consolidated_relation
 from app.routers._shared import RowsPage, _is_unique_violation, _now_iso
 from app.storage import workflow_dir
@@ -59,10 +63,17 @@ def _new_wf_id() -> str:
     return f"wf_{secrets.token_hex(4)}"
 
 
-def _workflow_from_row(row: sqlite3.Row) -> WorkflowModel:
+def _workflow_from_row(row: sqlite3.Row, con: sqlite3.Connection | None = None) -> WorkflowModel:
     definition = json.loads(row["definition_json"])
     out_cols = row["output_columns_json"]
     resolved = [Column(**c) for c in json.loads(out_cols)] if out_cols else None
+    run = stale = None
+    if row["run_json"] is not None and row["run_id"] is not None:
+        # R187 — the stamp, and (with a connection) the sources that moved since.
+        stamp = json.loads(row["run_json"])
+        run = WorkflowRun(id=row["run_id"], number=row["run_number"], **stamp)
+        if con is not None:
+            stale = [WorkflowStaleSource(**s) for s in stale_sources(con, stamp)] or None
     return WorkflowModel(
         id=row["id"],
         workspaceId=row["workspace_id"],
@@ -70,6 +81,8 @@ def _workflow_from_row(row: sqlite3.Row) -> WorkflowModel:
         definition=WorkflowDefinition(**definition),
         resolvedColumns=resolved,
         materializedAt=row["materialized_at"],
+        run=run,
+        staleSources=stale,
         createdAt=row["created_at"],
     )
 
@@ -151,7 +164,7 @@ def list_workflows(id: WsIdPath) -> JSONResponse:  # noqa: A002
             "SELECT * FROM workflows WHERE workspace_id = ? ORDER BY created_at DESC, id DESC",
             (id,),
         ).fetchall()
-        items = [_workflow_from_row(r).model_dump(exclude_none=True) for r in rows]
+        items = [_workflow_from_row(r, con).model_dump(exclude_none=True) for r in rows]
     return JSONResponse(status_code=status.HTTP_200_OK, content=items)
 
 
@@ -162,7 +175,7 @@ def get_workflow(id: WfIdPath) -> JSONResponse:  # noqa: A002
         row = con.execute(_SELECT_WORKFLOW, (id,)).fetchone()
         if row is None:
             return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=ApiErrorNotFound().model_dump())
-        content = _workflow_from_row(row).model_dump(exclude_none=True)
+        content = _workflow_from_row(row, con).model_dump(exclude_none=True)
     return JSONResponse(status_code=status.HTTP_200_OK, content=content)
 
 
@@ -186,9 +199,11 @@ def update_workflow(id: WfIdPath, body: UpdateWorkflowBody) -> JSONResponse:  # 
         try:
             if definition_changed:
                 # Invalidate the stale materialized output — must re-run.
+                # R187 — the run stamp goes with the output; the counter stays.
                 con.execute(
                     "UPDATE workflows SET name = ?, definition_json = ?, "
-                    "output_columns_json = NULL, materialized_at = NULL WHERE id = ?",
+                    "output_columns_json = NULL, materialized_at = NULL, run_id = NULL, run_json = NULL "
+                    "WHERE id = ?",
                     (body.name, definition_json, id),
                 )
             else:
@@ -202,7 +217,8 @@ def update_workflow(id: WfIdPath, body: UpdateWorkflowBody) -> JSONResponse:  # 
                 return JSONResponse(status_code=status.HTTP_409_CONFLICT, content=ApiErrorNameTaken().model_dump())
             raise
         row = con.execute(_SELECT_WORKFLOW, (id,)).fetchone()
-    return JSONResponse(status_code=status.HTTP_200_OK, content=_workflow_from_row(row).model_dump(exclude_none=True))
+        content = _workflow_from_row(row, con).model_dump(exclude_none=True)
+    return JSONResponse(status_code=status.HTTP_200_OK, content=content)
 
 
 @router.delete("/workflows/{id}")
@@ -236,6 +252,12 @@ def run_workflow(id: WfIdPath) -> JSONResponse:  # noqa: A002
         sources = definition["sources"]  # R135 — ≥1; consolidated via UNION ALL BY NAME
         steps = definition.get("steps") or []
         consolidated, reason = build_consolidated_relation(con, sources, workspace_id)
+        # R187 — stamp what this run reads, from the same connection that resolved it.
+        stamp = (
+            {"definitionHash": definition_version(definition), "sources": stamp_sources(con, sources, workspace_id)}
+            if reason is None
+            else None
+        )
 
     if reason is not None:
         # A source query/workflow deleted / drifted / not-yet-run, or (R186) the
@@ -262,12 +284,13 @@ def run_workflow(id: WfIdPath) -> JSONResponse:  # noqa: A002
     materialized_at = _now_iso()
     with get_conn() as con:
         con.execute(
-            "UPDATE workflows SET output_columns_json = ?, materialized_at = ? WHERE id = ?",
-            (json.dumps(output_columns), materialized_at, id),
+            "UPDATE workflows SET output_columns_json = ?, materialized_at = ?, "
+            "run_id = ?, run_number = run_number + 1, run_json = ? WHERE id = ?",
+            (json.dumps(output_columns), materialized_at, new_run_id(), json.dumps(stamp), id),
         )
         con.commit()
         row = con.execute(_SELECT_WORKFLOW, (id,)).fetchone()
-    content = _workflow_from_row(row).model_dump(exclude_none=True)
+        content = _workflow_from_row(row, con).model_dump(exclude_none=True)
     return JSONResponse(status_code=status.HTTP_200_OK, content=content)
 
 

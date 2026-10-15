@@ -1293,8 +1293,16 @@ export const handlers = [
     if (params.id !== MOCK_WORKFLOW.id) {
       return HttpResponse.json({ code: 'not_found' }, { status: 404 });
     }
-    // Materialize → echo the workflow with resolvedColumns + materializedAt.
-    return HttpResponse.json({ ...MOCK_WORKFLOW, materializedAt: new Date().toISOString() });
+    // Materialize → echo the workflow with resolvedColumns + materializedAt, and
+    // (R187) the next run stamp: a new run id, the number counted up.
+    const runNumber = (MOCK_WORKFLOW.run?.number ?? 0) + 1;
+    return HttpResponse.json({
+      ...MOCK_WORKFLOW,
+      materializedAt: new Date().toISOString().replace(/\.\d{3}Z$/, 'Z'),
+      ...(MOCK_WORKFLOW.run
+        ? { run: { ...MOCK_WORKFLOW.run, id: `run_${runNumber.toString(16).padStart(8, '0')}`, number: runNumber } }
+        : {}),
+    });
   }),
   withContractValidation('get', api('/workflows/:id/rows'), 'workflowRows', ({ params, request }) => {
     if (params.id !== MOCK_WORKFLOW.id) {

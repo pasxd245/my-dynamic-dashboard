@@ -10,7 +10,7 @@ import { ArrowLeftOutlined, PartitionOutlined, PlayCircleOutlined, WarningOutlin
 import { PageCard, PageContainer, PageHeader } from '@mdd/ui';
 
 import { MetadataPanel } from '@/features/metadata/MetadataPanel';
-import { App, Button, Skeleton, Tag, Typography } from 'antd';
+import { Alert, App, Button, Skeleton, Tag, Typography } from 'antd';
 import i18n from 'i18next';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -267,6 +267,12 @@ export function WorkflowDetailPage() {
       </Typography.Text>
       <Tag color="default">{t('workflows.detail.sourcesCount', { count: workflow.definition.sources.length })}</Tag>
       <Tag color="default">{t('workflows.detail.stepsCount', { count: workflow.definition.steps?.length ?? 0 })}</Tag>
+      {workflow.run ? (
+        // R187 — the run's number, the reference a frozen copy (T-c) will cite.
+        <Tag color="default" data-component="WorkflowRunNumber">
+          {t('workflows.detail.runNumber', { n: workflow.run.number })}
+        </Tag>
+      ) : null}
       {workflow.materializedAt ? (
         <Typography.Text type="secondary" style={{ fontSize: 12 }}>
           {t('workflows.detail.materializedAt', { at: new Date(workflow.materializedAt).toLocaleString(locale) })}
@@ -274,6 +280,26 @@ export function WorkflowDetailPage() {
       ) : null}
     </div>
   );
+
+  // R187 (W-7) — a flag, never a block: the frozen output stays on screen below.
+  const staleAlert = workflow.staleSources?.length ? (
+    <Alert
+      type="warning"
+      showIcon
+      data-component="WorkflowStale"
+      style={{ marginBottom: 12, flex: '0 0 auto' }}
+      message={t('workflows.detail.staleTitle')}
+      description={
+        <ul style={{ margin: 0, paddingInlineStart: 18 }}>
+          {workflow.staleSources.map((s) => (
+            <li key={s.sourceId} data-reason={s.reason}>
+              {t(`workflows.detail.stale_${s.reason}`, { name: s.name ?? s.sourceId })}
+            </li>
+          ))}
+        </ul>
+      }
+    />
+  ) : null;
 
   return (
     <PageContainer
@@ -304,6 +330,7 @@ export function WorkflowDetailPage() {
           <>
             <MetadataPanel kind="workflow" nounId={workflow.id} />
             {summary}
+            {staleAlert}
             {materialized ? (
           <PagedRowsView
             columns={columns}

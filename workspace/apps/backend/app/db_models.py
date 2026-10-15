@@ -161,6 +161,14 @@ class Workflow(SQLModel, table=True):
     output_columns_json: str | None = Field(default=None, sa_column=Column(Text, nullable=True))
     materialized_at: str | None = Field(default=None, sa_column=Column(Text, nullable=True))
     created_at: str = Field(sa_column=Column(Text, nullable=False))
+    # R187 (W-7) — the run stamp, server-written by POST /workflows/{id}/run: a run
+    # id, a per-workflow run counter (never reset), and the JSON of what the run
+    # read (the workflow's definition hash + each source's definition hash / data
+    # versions / run id). NULL id/json before the first run and after a definition
+    # change (which clears the materialized output).
+    run_id: str | None = Field(default=None, sa_column=Column(Text, nullable=True))
+    run_number: int = Field(default=0, sa_column=Column(Integer, nullable=False, server_default=text("0")))
+    run_json: str | None = Field(default=None, sa_column=Column(Text, nullable=True))
 
 
 class Relationship(SQLModel, table=True):

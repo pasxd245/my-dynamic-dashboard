@@ -114,7 +114,10 @@ CREATE TABLE IF NOT EXISTS workflows (
     definition_json TEXT NOT NULL,
     output_columns_json TEXT,
     materialized_at TEXT,
-    created_at TEXT NOT NULL
+    created_at TEXT NOT NULL,
+    run_id TEXT,
+    run_number INTEGER NOT NULL DEFAULT 0,
+    run_json TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_workflows_workspace_id
@@ -289,8 +292,8 @@ def _introspect_models(tmp_path: Path) -> dict:
 
 def test_migration_leaves_alembic_version(tmp_path: Path, _restore_db_path):
     """The migrated DB is genuinely versioned (so subsequent boots take the
-    fast versioned path). R88 collapsed history to `0001_baseline`; R185's
-    `0006_dataset_data_version` is the additive head."""
+    fast versioned path). R88 collapsed history to `0001_baseline`; R187's
+    `0007_workflow_runs` is the additive head."""
     migrated_path = tmp_path / "versioned.sqlite"
     db.set_db_path(migrated_path)
     db.run_startup_migrations()
@@ -300,4 +303,4 @@ def test_migration_leaves_alembic_version(tmp_path: Path, _restore_db_path):
         version = con.execute("SELECT version_num FROM alembic_version").fetchone()
     finally:
         con.close()
-    assert version is not None and version[0] == "0006_dataset_data_version"
+    assert version is not None and version[0] == "0007_workflow_runs"

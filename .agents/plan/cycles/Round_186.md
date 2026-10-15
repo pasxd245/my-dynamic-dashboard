@@ -119,7 +119,7 @@ run with the last output intact.
 
 _(at close)_
 
-## Feeds into → Round_187 (TBD)
+## Feeds into → [Round_187](Round_187.md)
 
 R187 — run stamps (W-7): each run records `runId`, the workflow's `definitionHash` and each
 source's `dataVersion` (R185); when a source moves after the run the output is flagged stale.

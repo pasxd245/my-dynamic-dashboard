@@ -71,6 +71,51 @@ components:
                 date_diff: "query.yaml#/components/schemas/DateDiffStep"
                 compute: "query.yaml#/components/schemas/ComputeStep"
 
+    WorkflowRun:
+      type: object
+      required: [id, number, definitionHash, sources]
+      additionalProperties: false
+      readOnly: true
+      description: |
+        R187 (W-7) — the server's stamp of the last run, written only by
+        `POST /workflows/{id}/run`; absent before a stamped run and after a
+        definition change (which clears the output). Workflows last run before
+        R187 carry none until their next run.
+      properties:
+        id:
+          type: string
+          pattern: "^run_[0-9a-f]{8}$"
+          description: New on every run.
+        number:
+          type: integer
+          minimum: 1
+          description: Per-workflow run counter — 1, 2, 3 … never reset.
+        definitionHash:
+          type: string
+          description: |
+            The workflow definition's version at run time — the same value a
+            metadata entry on this workflow records as `definitionVersion`.
+        sources:
+          type: array
+          items:
+            type: object
+            required: [id]
+            additionalProperties: false
+            properties:
+              id:
+                type: string
+                pattern: "^(qr_|wf_)[0-9a-f]{8}$"
+              definitionHash:
+                type: string
+                description: A query source — its definition's version at run time.
+              dataVersions:
+                type: object
+                additionalProperties: { type: integer, minimum: 1 }
+                description: A query source — `dataVersion` of each dataset it reads, by dataset id.
+              runId:
+                type: string
+                pattern: "^run_[0-9a-f]{8}$"
+                description: A workflow source — the run of it this run read.
     Workflow:
       type: object
       required: [id, workspaceId, name, definition, createdAt]
@@ -109,6 +154,38 @@ components:
           type: string
           pattern: "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
           description: R133 — ISO-8601 UTC of the last materialize (run). Omitted before first run.
+        run:
+          $ref: "#/components/schemas/WorkflowRun"
+        staleSources:
+          type: array
+          minItems: 1
+          readOnly: true
+          description: |
+            R187 (W-7) — the sources that moved since the last run, computed on every
+            read by comparing `run.sources` with the database now (metadata only, no
+            data scanned). Omitted when none moved, and when there is no stamp to
+            judge (never run, or last run before R187). A flag, never a block: the
+            output stays readable; re-running clears it.
+          items:
+            type: object
+            required: [sourceId, reason]
+            additionalProperties: false
+            properties:
+              sourceId:
+                type: string
+                pattern: "^(qr_|wf_)[0-9a-f]{8}$"
+              name:
+                type: string
+                description: The source's current name (omitted when it no longer exists).
+              reason:
+                type: string
+                enum: [source_missing, definition_changed, data_refreshed, source_rerun]
+                description: |
+                  `source_missing` — the source, or a dataset it reads, is gone, or a
+                  workflow source has no output any more. `definition_changed` — the
+                  source query was edited. `data_refreshed` — a dataset it reads was
+                  refreshed (its `dataVersion` moved). `source_rerun` — a workflow
+                  source was run again.
         createdAt:
           type: string
           pattern: "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
