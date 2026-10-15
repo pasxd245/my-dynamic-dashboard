@@ -8,6 +8,8 @@
 
 import { ArrowLeftOutlined, DatabaseOutlined, WarningOutlined } from '@ant-design/icons';
 import { PageCard, PageContainer, PageHeader } from '@mdd/ui';
+
+import { MetadataPanel } from '@/features/metadata/MetadataPanel';
 import { App, Button, Skeleton, Tag, Typography } from 'antd';
 import i18n from 'i18next';
 import { useState } from 'react';
@@ -471,6 +473,7 @@ export function QueryDetailPage() {
             </Typography.Text>
           </div>
         ) : null}
+        {editing ? null : <MetadataPanel kind="query" nounId={query.id} />}
         {editing ? (
           <QueryBuilderPanel builder={builder} />
         ) : (

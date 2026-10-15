@@ -21,6 +21,7 @@ import type { Query, ResolvedColumn } from '@/features/data-management/queries/t
 import type { Workflow } from '@/features/data-management/workflows/types';
 import type { Relationship } from '@/features/data-management/relationships/types';
 import type { DashboardWire } from '@/features/dashboard/wire';
+import type { MetadataRead } from '@/features/metadata/types';
 import type { Workspace } from '@/features/data-management/workspaces/types';
 
 import { CONTRACTS_ROOT } from './contracts-root';
@@ -457,3 +458,49 @@ export function loadYamlExampleRows(
   }
   return [];
 }
+
+// ─── R180 metadata ──────────────────────────────────────────────────────
+// Read-only entries as the server stores them: one AI entry (with a
+// frontmatter block) on MOCK_DATASET and one on its `won_at` column; one
+// human entry on MOCK_DASHBOARD's widget. Every other noun reads as empty.
+export const MOCK_METADATA: Record<string, MetadataRead> = {
+  [`dataset/${MOCK_DATASET.id}`]: {
+    entries: {
+      aicowork: {
+        md: '---\nsource: q1 export\nexported_on: 2026-05-26\n---\n\n## What this is\n\nOne row per **deal**, as exported.',
+        source: 'ai',
+        author: 'agent',
+        writtenAt: '2026-10-15T08:00:00Z',
+        definitionVersion: '3f1c9a0b7d2e',
+        stale: false,
+      },
+    },
+    children: {
+      won_at: {
+        aicowork: {
+          md: 'Blank while the deal is open.',
+          source: 'ai',
+          author: 'agent',
+          writtenAt: '2026-10-15T08:00:00Z',
+          definitionVersion: '9a0b7d2e3f1c',
+          stale: true,
+        },
+      },
+    },
+  },
+  [`dashboard/${MOCK_DASHBOARD.id}`]: {
+    entries: {},
+    children: {
+      wdg_4d7b91ce: {
+        notes: {
+          md: 'Won deals only — see the query filter.',
+          source: 'human',
+          author: 'analyst',
+          writtenAt: '2026-10-14T09:30:00Z',
+          definitionVersion: '0b7d2e3f1c9a',
+          stale: false,
+        },
+      },
+    },
+  },
+};

@@ -1,0 +1,109 @@
+openapi: 3.1.0
+info:
+  title: my-dynamic-dashboard — PUT /metadata/{kind}/{noun_id}/{namespace}
+  version: 0.1.0
+  description: |
+    R180 — write (create or replace) one namespace's entry on one noun. Needs
+    `Authorization: Bearer <token>` matching an entry of the server's
+    `backend.metadata_tokens` (401 otherwise — a fresh install has none, so
+    writes are OFF until an operator adds one). The token's closed namespace
+    list decides what it may write (403 otherwise; `system` is never writable).
+    The server stamps `author`, `source`, `writtenAt` and `definitionVersion`;
+    the body carries ONLY the text, so a client cannot claim an author.
+
+    The text follows the `note` widget's safe markdown subset and may open
+    with a YAML frontmatter block the product does not interpret; it is
+    rejected (422 `metadata_invalid`), never silently cleaned.
+
+paths:
+  /metadata/{kind}/{noun_id}/{namespace}:
+    put:
+      operationId: putMetadata
+      summary: Write a namespace's entry (token required)
+      parameters:
+        - $ref: "./get.contract.yaml#/components/parameters/Kind"
+        - $ref: "./get.contract.yaml#/components/parameters/NounId"
+        - name: namespace
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^[a-z][a-z0-9_]{0,31}$"
+          description: A free-form writer-chosen name; `system` is reserved.
+          examples:
+            agent:
+              value: "aicowork"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [md]
+              additionalProperties: false
+              properties:
+                md:
+                  type: string
+                  minLength: 1
+                  description: The entry text (safe markdown subset, ≤ 65536 UTF-8 bytes).
+            examples:
+              dataset:
+                value:
+                  md: "---\nsource: export 2026-10-12\n---\n\n## Leads\n\nOne row per lead."
+      responses:
+        "201":
+          description: Stored. The entry as it will be read, stamped by the server.
+          content:
+            application/json:
+              schema:
+                $ref: "../_shared/metadata.yaml#/components/schemas/MetadataEntry"
+              examples:
+                stored:
+                  value:
+                    md: "---\nsource: export 2026-10-12\n---\n\n## Leads\n\nOne row per lead."
+                    source: ai
+                    author: aicowork
+                    writtenAt: "2026-10-15T08:00:00Z"
+                    definitionVersion: "3f1c9a0b7d2e"
+                    stale: false
+        "401":
+          description: No bearer token, or one the server does not know.
+          content:
+            application/json:
+              schema:
+                $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorUnauthorized"
+              examples:
+                none:
+                  value: { "code": "unauthorized" }
+        "403":
+          description: The token may not write this namespace, or the namespace is `system`.
+          content:
+            application/json:
+              schema:
+                $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorForbidden"
+              examples:
+                other_namespace:
+                  value: { "code": "forbidden" }
+        "404":
+          description: No such noun.
+          content:
+            application/json:
+              schema:
+                $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorNotFound"
+              examples:
+                missing:
+                  value: { "code": "not_found" }
+        "422":
+          description: |
+            The entry was refused: bad namespace, empty text, over the size
+            cap, unsafe markdown, or the noun already carries the maximum
+            number of namespaces. Nothing is stored.
+          content:
+            application/json:
+              schema:
+                $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorMetadataInvalid"
+              examples:
+                unsafe:
+                  value: { "code": "metadata_invalid", "reason": "markdown_unsafe", "problems": ["html"] }
+                big:
+                  value: { "code": "metadata_invalid", "reason": "too_large" }

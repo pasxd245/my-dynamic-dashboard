@@ -24,7 +24,7 @@ fallback.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, ClassVar
+from typing import Any, ClassVar, Literal
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field
@@ -55,10 +55,31 @@ class TmpSweepSettings(BaseModel):
     ttl_seconds: int = Field(default=86400, ge=60)
 
 
+class MetadataToken(BaseModel):
+    """R180 — one writer of metadata entries. The server stamps every entry it
+    writes with this token's `author` and `source`; the client's say is never
+    trusted. `namespaces` is the closed list it may write (`system` can never
+    be granted — the server reserves it). Tokens are configuration, not data:
+    `backend.metadata_tokens` in values.yaml / MDD_CONFIG_FILE, or the JSON
+    env `MDD_BACKEND__METADATA_TOKENS='[{"token": …, "author": …, "source":
+    "ai", "namespaces": ["…"]}]'`. Empty (the default) = metadata writes are
+    OFF: every write is 401."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    token: str = Field(min_length=16)
+    author: str = Field(min_length=1, max_length=120)
+    source: Literal["ai", "human", "system"] = "human"
+    namespaces: list[str] = Field(default_factory=list)
+
+
 class BackendSettings(BaseModel):
     """Inner settings for the backend service."""
 
     model_config = ConfigDict(extra="forbid")
+
+    # R180 — metadata writers; empty = writes disabled.
+    metadata_tokens: list[MetadataToken] = Field(default_factory=list)
 
     host: str = "127.0.0.1"
     port: int = Field(default=8000, ge=1, le=65535)

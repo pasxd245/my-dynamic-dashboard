@@ -20,6 +20,7 @@ import {
   FilterFilled,
   FilterOutlined,
   HolderOutlined,
+  InfoCircleOutlined,
   MoreOutlined,
   PlusOutlined,
 } from '@ant-design/icons';
@@ -42,12 +43,15 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { PageContainer, PageHeader } from '@mdd/ui';
-import { App, Button, Card, Dropdown, Empty, Grid, Space, Spin, Tooltip, theme } from 'antd';
+import { App, Button, Card, Dropdown, Empty, Grid, Popover, Space, Spin, Tooltip, theme } from 'antd';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
 
 import { NotFoundPage } from '@/components/NotFoundPage';
+import { useMetadataQuery } from '@/features/metadata/hooks';
+import { MetadataEntriesList, MetadataPanel } from '@/features/metadata/MetadataPanel';
+import type { MetadataEntries } from '@/features/metadata/types';
 import { useWorkspacesQuery } from '@/features/data-management/workspaces/hooks';
 import type { DashboardFilter } from './aggregate';
 import { useDashboardsQuery, useUpdateDashboardMutation } from './hooks';
@@ -101,6 +105,7 @@ function SortableWidget({
   onOpenFilter,
   menu,
   filters,
+  metadata,
 }: Readonly<{
   widget: Widget;
   gridCols: 1 | 2 | 3;
@@ -112,8 +117,12 @@ function SortableWidget({
   onOpenFilter: () => void;
   menu: React.ReactNode;
   filters: readonly DashboardFilter[];
+  /** R180 — this widget's metadata entries (from the dashboard's one read). */
+  metadata?: MetadataEntries;
 }>) {
   const { token } = theme.useToken();
+  const { t } = useTranslation();
+  const metaTooltip = t('metadata.widgetTooltip');
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } =
     useSortable({ id: widget.id });
   const cell = gridCell(widget, gridCols);
@@ -160,9 +169,35 @@ function SortableWidget({
       />
     </Tooltip>
   );
+  // R180 — an info affordance when something is written about this widget;
+  // the popover shows the entries read-only (AI badge, stale flag), nothing to edit.
+  const metaCount = metadata ? Object.keys(metadata).length : 0;
+  const metaButton =
+    metaCount > 0 && metadata ? (
+      <Popover
+        trigger="click"
+        placement="bottomRight"
+        content={
+          <div style={{ maxWidth: 420, maxHeight: 360, overflow: 'auto' }} data-component="WidgetMetadataPopover">
+            <MetadataEntriesList entries={metadata} />
+          </div>
+        }
+      >
+        <Tooltip title={metaTooltip}>
+          <Button
+            type="text"
+            size="small"
+            icon={<InfoCircleOutlined />}
+            aria-label={metaTooltip}
+            data-component="WidgetMetadataButton"
+            data-count={metaCount}
+          />
+        </Tooltip>
+      </Popover>
+    ) : null;
   return (
     <div ref={setNodeRef} style={style} data-component="DashboardGridCell" data-span={cell.cols} data-rows={cell.rows}>
-      <WidgetView widget={widget} filters={filters} extra={<Space size={0}>{handle}{filterButton}{menu}</Space>} />
+      <WidgetView widget={widget} filters={filters} extra={<Space size={0}>{handle}{metaButton}{filterButton}{menu}</Space>} />
     </div>
   );
 }
@@ -179,6 +214,8 @@ export function DashboardDetailPage() {
   const dashboard = dashboardsQ.data?.find((d) => d.slug === slug);
   const workspaces = useWorkspacesQuery();
   const updateMutation = useUpdateDashboardMutation();
+  // R180 — one read serves the dashboard's own entries and every widget's.
+  const metadataQ = useMetadataQuery('dashboard', dashboard?.id);
 
   const [builder, setBuilder] = useState<{ initial?: Widget } | null>(null);
 
@@ -342,6 +379,12 @@ export function DashboardDetailPage() {
         onNavigate={(r) => navigate(r)}
       />
 
+      <MetadataPanel
+        kind="dashboard"
+        nounId={dash.id}
+        childLabel={(id) => dash.widgets.find((w) => w.id === id)?.title ?? id}
+      />
+
       {ordered.length === 0 ? (
         <Card data-component="DashboardNoWidgets">
           <Empty description={t('dashboard.noWidgets')}>
@@ -381,6 +424,7 @@ export function DashboardDetailPage() {
                     setFilterDrawerOpen(true);
                   }}
                   menu={widgetMenu(w)}
+                  metadata={metadataQ.data?.children?.[w.id]}
                   filters={filtersFor(w.id)}
                 />
               ))}

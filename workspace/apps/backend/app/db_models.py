@@ -157,9 +157,7 @@ class Workflow(SQLModel, table=True):
 class Relationship(SQLModel, table=True):
     __tablename__ = "relationships"
     __table_args__ = (
-        CheckConstraint(
-            "cardinality IN ('one_to_one', 'one_to_many', 'many_to_one', 'many_to_many')"
-        ),
+        CheckConstraint("cardinality IN ('one_to_one', 'one_to_many', 'many_to_one', 'many_to_many')"),
         Index("idx_relationships_workspace_id", "workspace_id"),
         Index(
             "idx_relationships_pair_unique",
@@ -198,3 +196,34 @@ class Relationship(SQLModel, table=True):
     right_column: str = Field(sa_column=Column(Text, nullable=False))
     cardinality: str = Field(sa_column=Column(Text, nullable=False))
     created_at: str = Field(sa_column=Column(Text, nullable=False))
+
+
+class MetadataEntry(SQLModel, table=True):
+    """R180 — a read-only (to the UI) annotation on one noun, in one namespace.
+    ``kind`` names the noun kind; ``noun_id`` is the noun's id (``<ds_id>:<col>``
+    for a column, ``<dsh_id>:<wdg_id>`` for a widget); ``namespace`` is the
+    writer's free-form string (``^[a-z][a-z0-9_]{0,31}$``, ``system`` reserved).
+    ``md`` is the safe-subset markdown (≤ 64 KiB, may open with YAML
+    frontmatter the server does not interpret); ``source`` / ``author`` /
+    ``written_at`` are stamped by the server from the writing token;
+    ``definition_version`` is the noun's definition hash at write time, so a
+    reader can flag an entry whose subject has since changed. No FK: the noun
+    kinds live in five tables, and a deleted noun's entries are swept by the
+    write path (an orphan is harmless and unreadable)."""
+
+    __tablename__ = "metadata_entries"
+    __table_args__ = (
+        CheckConstraint("kind IN ('dataset', 'column', 'relationship', 'query', 'workflow', 'dashboard', 'widget')"),
+        CheckConstraint("source IN ('ai', 'human', 'system')"),
+        CheckConstraint("length(namespace) BETWEEN 1 AND 32"),
+        Index("idx_metadata_entries_noun", "kind", "noun_id"),
+    )
+
+    kind: str = Field(sa_column=Column(Text, primary_key=True))
+    noun_id: str = Field(sa_column=Column(Text, primary_key=True))
+    namespace: str = Field(sa_column=Column(Text, primary_key=True))
+    md: str = Field(sa_column=Column(Text, nullable=False))
+    source: str = Field(sa_column=Column(Text, nullable=False))
+    author: str = Field(sa_column=Column(Text, nullable=False))
+    written_at: str = Field(sa_column=Column(Text, nullable=False))
+    definition_version: str = Field(sa_column=Column(Text, nullable=False))

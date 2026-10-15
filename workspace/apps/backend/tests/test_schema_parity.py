@@ -119,6 +119,21 @@ CREATE INDEX IF NOT EXISTS idx_workflows_workspace_id
     ON workflows(workspace_id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_workflows_name_unique
     ON workflows(workspace_id, name);
+
+CREATE TABLE IF NOT EXISTS metadata_entries (
+    kind TEXT NOT NULL CHECK (kind IN ('dataset', 'column', 'relationship', 'query', 'workflow', 'dashboard', 'widget')),
+    noun_id TEXT NOT NULL,
+    namespace TEXT NOT NULL CHECK (length(namespace) BETWEEN 1 AND 32),
+    md TEXT NOT NULL,
+    source TEXT NOT NULL CHECK (source IN ('ai', 'human', 'system')),
+    author TEXT NOT NULL,
+    written_at TEXT NOT NULL,
+    definition_version TEXT NOT NULL,
+    PRIMARY KEY (kind, noun_id, namespace)
+);
+
+CREATE INDEX IF NOT EXISTS idx_metadata_entries_noun
+    ON metadata_entries(kind, noun_id);
 """
 
 _R25_UNIQUE_INDEXES = """
@@ -129,7 +144,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_datasets_name_unique
     ON datasets(workspace_id, name);
 """
 
-_TABLES = ("workspaces", "datasets", "queries", "relationships", "dashboards", "workflows")
+_TABLES = ("workspaces", "datasets", "queries", "relationships", "dashboards", "workflows", "metadata_entries")
 _IGNORED_TABLES = {"alembic_version", "sqlite_sequence"}
 
 
@@ -273,7 +288,7 @@ def _introspect_models(tmp_path: Path) -> dict:
 def test_migration_leaves_alembic_version(tmp_path: Path, _restore_db_path):
     """The migrated DB is genuinely versioned (so subsequent boots take the
     fast versioned path). R88 collapsed history to `0001_baseline`; F12's
-    `0004_many_to_one_cardinality` is the additive head."""
+    `0005_metadata_entries` (R180) is the additive head."""
     migrated_path = tmp_path / "versioned.sqlite"
     db.set_db_path(migrated_path)
     db.run_startup_migrations()
@@ -283,4 +298,4 @@ def test_migration_leaves_alembic_version(tmp_path: Path, _restore_db_path):
         version = con.execute("SELECT version_num FROM alembic_version").fetchone()
     finally:
         con.close()
-    assert version is not None and version[0] == "0004_many_to_one_cardinality"
+    assert version is not None and version[0] == "0005_metadata_entries"

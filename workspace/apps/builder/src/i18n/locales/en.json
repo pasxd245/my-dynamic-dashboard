@@ -1013,5 +1013,18 @@
       "deleteSuccess": "Workflow \"{{name}}\" deleted",
       "edit": "Edit"
     }
+  },
+  "metadata": {
+    "title": "Metadata",
+    "count_one": "{{count}} entry",
+    "count_other": "{{count}} entries",
+    "aiCount_one": "{{count}} by AI",
+    "aiCount_other": "{{count}} by AI",
+    "ai": "AI",
+    "stale": "May be out of date",
+    "by": "{{author}} · {{when}}",
+    "empty": "Nothing written here yet.",
+    "readOnlyHint": "Read-only — written through the API; the author changes it by writing again.",
+    "widgetTooltip": "Metadata on this widget"
   }
 }

@@ -53,6 +53,9 @@ export const ERROR_CODES = {
   MERGE_DUPLICATE_KEYS: "{{constants.error_codes.merge_duplicate_keys}}",
   UNKNOWN_COLUMN: "{{constants.error_codes.unknown_column}}",
   NO_VISIBLE_COLUMNS: "{{constants.error_codes.no_visible_columns}}",
+  UNAUTHORIZED: "{{constants.error_codes.unauthorized}}",
+  FORBIDDEN: "{{constants.error_codes.forbidden}}",
+  METADATA_INVALID: "{{constants.error_codes.metadata_invalid}}",
 } as const;
 
 export type ErrorCode = (typeof ERROR_CODES)[keyof typeof ERROR_CODES];

@@ -36,6 +36,7 @@ import {
   useRenameDatasetMutation,
   useSetColumnVisibilityMutation,
 } from './hooks';
+import { MetadataPanel } from '@/features/metadata/MetadataPanel';
 import { DateCoverageStrip } from './DateCoverage';
 import { PropertiesDrawer } from './PropertiesDrawer';
 import { ActiveFilterChips, formatChipText } from './filters/ActiveFilterChips';
@@ -509,6 +510,7 @@ export function DatasetDetailPage() {
         <div style={{ flex: '0 0 auto' }}>
           <MetadataStrip dataset={dataset} workspaceName={workspaceName} />
           <DateCoverageStrip columns={dataset.columns} />
+          <MetadataPanel kind="dataset" nounId={dataset.id} />
         </div>
 
         <div

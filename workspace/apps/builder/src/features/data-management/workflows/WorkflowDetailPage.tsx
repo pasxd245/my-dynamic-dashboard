@@ -8,6 +8,8 @@
 
 import { ArrowLeftOutlined, PartitionOutlined, PlayCircleOutlined, WarningOutlined } from '@ant-design/icons';
 import { PageCard, PageContainer, PageHeader } from '@mdd/ui';
+
+import { MetadataPanel } from '@/features/metadata/MetadataPanel';
 import { App, Button, Skeleton, Tag, Typography } from 'antd';
 import i18n from 'i18next';
 import { useState } from 'react';
@@ -295,6 +297,7 @@ export function WorkflowDetailPage() {
           />
         ) : (
           <>
+            <MetadataPanel kind="workflow" nounId={workflow.id} />
             {summary}
             {materialized ? (
           <PagedRowsView

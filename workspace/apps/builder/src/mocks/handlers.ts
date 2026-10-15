@@ -41,6 +41,7 @@ import {
   MOCK_DATASET_5,
   MOCK_JOINED_QUERY,
   MOCK_JOINED_ROWS,
+  MOCK_METADATA,
   MOCK_QUERIES,
   MOCK_QUERY,
   MOCK_RELATIONSHIPS_CHAIN,
@@ -860,6 +861,14 @@ export const handlers = [
     // The datasets in the workspace: Deals + accounts (R70), owners (R73 chain),
     // and tiers + regions (R74 branch leaves) — so a join graph has its sources.
     return HttpResponse.json([MOCK_DATASET, MOCK_DATASET_2, MOCK_DATASET_3, MOCK_DATASET_4, MOCK_DATASET_5]);
+  }),
+  // R180 — metadata read: a noun's entries (+ children). Unknown noun → the
+  // empty shape (the panel renders nothing); the fixture carries a few.
+  withContractValidation('get', api('/metadata/:kind/:id'), 'getMetadata', ({ params }) => {
+    const key = `${String(params.kind)}/${decodeURIComponent(String(params.id))}`;
+    const found = MOCK_METADATA[key];
+    if (found) return HttpResponse.json(found);
+    return HttpResponse.json({ entries: {} });
   }),
   withContractValidation('get', api('/datasets/:id'), 'getDataset', ({ params }) => {
     const ds = [MOCK_DATASET, MOCK_DATASET_2, MOCK_DATASET_3, MOCK_DATASET_4, MOCK_DATASET_5].find(

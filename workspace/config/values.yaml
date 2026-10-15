@@ -96,6 +96,9 @@ constants:
     merge_duplicate_keys: 'merge_duplicate_keys' # R147 — merge refresh: incoming file has >1 row per declared key (D2 loud stop)
     unknown_column: 'unknown_column' # R152 — column-visibility PATCH named a column not in the dataset (422)
     no_visible_columns: 'no_visible_columns' # R152 — column-visibility PATCH would hide every column (at-least-one-visible guard, 422)
+    unauthorized: 'unauthorized' # R180 — metadata write with no / unknown token (401; writes are off until a token is configured)
+    forbidden: 'forbidden' # R180 — metadata write to a namespace the token may not write, or to `system` (403)
+    metadata_invalid: 'metadata_invalid' # R180 — metadata entry rejected: unsafe markdown, over the size cap, bad namespace, or the noun's namespace cap (422; `reason` says which)
 
   # R29: name-length bounds enforced by Pydantic on BE + AntD Form rules on
   # FE. Workspace names globally unique, max 80; dataset names per-workspace

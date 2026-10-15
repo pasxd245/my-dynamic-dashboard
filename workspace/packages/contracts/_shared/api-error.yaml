@@ -28,7 +28,7 @@ components:
   schemas:
     ApiErrorCode:
       type: string
-      enum: [not_found, name_taken, slug_taken, non_empty, query_stale, step_invalid, relationship_exists, relationship_stale, coercion_failed, merge_duplicate_keys, unknown_column, no_visible_columns]
+      enum: [not_found, name_taken, slug_taken, non_empty, query_stale, step_invalid, relationship_exists, relationship_stale, coercion_failed, merge_duplicate_keys, unknown_column, no_visible_columns, unauthorized, forbidden, metadata_invalid]
       description: |
         Closed enum. Any new error class lands as a new code in a future
         round + contract update — never as a free-text message.
@@ -336,3 +336,52 @@ components:
           merge_duplicate_keys: '#/components/schemas/ApiErrorMergeDuplicateKeys'
           unknown_column: '#/components/schemas/ApiErrorUnknownColumn'
           no_visible_columns: '#/components/schemas/ApiErrorNoVisibleColumns'
+
+    ApiErrorUnauthorized:
+      type: object
+      required: [code]
+      additionalProperties: false
+      description: |
+        R180 — a metadata write carried no bearer token, or one the server does
+        not know. Metadata writes are OFF until `backend.metadata_tokens` is
+        configured, so a fresh install answers every write with this (401).
+      properties:
+        code:
+          type: string
+          enum: [unauthorized]
+
+    ApiErrorForbidden:
+      type: object
+      required: [code]
+      additionalProperties: false
+      description: |
+        R180 — the token is known but may not write this namespace (its
+        `namespaces` list is closed), or the namespace is `system`, which the
+        server reserves for itself (403).
+      properties:
+        code:
+          type: string
+          enum: [forbidden]
+
+    ApiErrorMetadataInvalid:
+      type: object
+      required: [code, reason]
+      additionalProperties: false
+      description: |
+        R180 — the entry was rejected (422). `reason` is one of: `namespace`
+        (not `^[a-z][a-z0-9_]{0,31}$`), `empty`, `too_large` (over 65536 UTF-8
+        bytes), `markdown_unsafe` (raw HTML, an image, or a non-http(s) link —
+        `problems` lists which), `namespace_cap` (the noun already carries the
+        maximum number of namespaces).
+      properties:
+        code:
+          type: string
+          enum: [metadata_invalid]
+        reason:
+          type: string
+          enum: [namespace, empty, too_large, markdown_unsafe, namespace_cap]
+        problems:
+          type: array
+          items:
+            type: string
+            enum: [html, image, link_scheme]

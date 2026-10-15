@@ -1,0 +1,43 @@
+openapi: 3.1.0
+info:
+  title: my-dynamic-dashboard — DELETE /metadata/{kind}/{noun_id}/{namespace}
+  version: 0.1.0
+  description: |
+    R180 — a writer retracts one namespace's entry. Same token rules as a
+    write (401 / 403). The UI never calls this: it only reads.
+
+paths:
+  /metadata/{kind}/{noun_id}/{namespace}:
+    delete:
+      operationId: deleteMetadata
+      summary: Remove a namespace's entry (token required)
+      parameters:
+        - $ref: "./get.contract.yaml#/components/parameters/Kind"
+        - $ref: "./get.contract.yaml#/components/parameters/NounId"
+        - name: namespace
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^[a-z][a-z0-9_]{0,31}$"
+      responses:
+        "204":
+          description: Removed. No body.
+        "401":
+          description: No bearer token, or one the server does not know.
+          content:
+            application/json:
+              schema:
+                $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorUnauthorized"
+        "403":
+          description: The token may not write this namespace.
+          content:
+            application/json:
+              schema:
+                $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorForbidden"
+        "404":
+          description: No such entry.
+          content:
+            application/json:
+              schema:
+                $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorNotFound"

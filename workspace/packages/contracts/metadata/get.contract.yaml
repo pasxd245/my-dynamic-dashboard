@@ -1,0 +1,87 @@
+openapi: 3.1.0
+info:
+  title: my-dynamic-dashboard — GET /metadata/{kind}/{noun_id}
+  version: 0.1.0
+  description: |
+    R180 — read every metadata entry on one noun, keyed by namespace, with
+    `stale` computed against the noun's current definition. A `dataset` also
+    returns its columns' entries and a `dashboard` its widgets' entries under
+    `children`, so a detail page needs one request. No authentication: reading
+    is for everyone who can read the noun.
+
+paths:
+  /metadata/{kind}/{noun_id}:
+    get:
+      operationId: getMetadata
+      summary: Read a noun's metadata entries
+      parameters:
+        - $ref: "#/components/parameters/Kind"
+        - $ref: "#/components/parameters/NounId"
+      responses:
+        "200":
+          description: The entries (possibly empty) and, for a dataset / dashboard, the children's.
+          content:
+            application/json:
+              schema:
+                $ref: "../_shared/metadata.yaml#/components/schemas/MetadataRead"
+              examples:
+                dataset:
+                  value:
+                    entries:
+                      aicowork:
+                        md: "---\nsource: export\n---\n\n## Leads\n\nOne row per lead."
+                        source: ai
+                        author: aicowork
+                        writtenAt: "2026-10-15T08:00:00Z"
+                        definitionVersion: "3f1c9a0b7d2e"
+                        stale: false
+                    children:
+                      won_at:
+                        aicowork:
+                          md: "Date the deal closed; blank while open."
+                          source: ai
+                          author: aicowork
+                          writtenAt: "2026-10-15T08:00:00Z"
+                          definitionVersion: "9a0b7d2e3f1c"
+                          stale: false
+                none:
+                  value: { entries: {} }
+        "404":
+          description: No such noun (unknown id, or a column / widget no longer in its parent).
+          content:
+            application/json:
+              schema:
+                $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorNotFound"
+              examples:
+                missing:
+                  value: { "code": "not_found" }
+
+components:
+  parameters:
+    Kind:
+      name: kind
+      in: path
+      required: true
+      schema:
+        type: string
+        enum: [dataset, column, relationship, query, workflow, dashboard, widget]
+      description: The noun kind.
+    NounId:
+      name: noun_id
+      in: path
+      required: true
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 400
+      description: |
+        The noun's id. A column is `<ds_id>:<column name>` and a widget is
+        `<dsh_id>:<wdg_id>` — a colon, because ids never contain one and it
+        keeps the id a single path segment (URL-encode the column name).
+      examples:
+        dataset:
+          value: "ds_71a4e2f0"
+        column:
+          value: "ds_71a4e2f0:won_at"
+        widget:
+          value: "dsh_71a4e2f0:wdg_4d7b91ce"

@@ -1,0 +1,91 @@
+# Shared schema: Metadata (R180 — read-only metadata on seven noun kinds)
+# Used by: metadata/get (response), metadata/put (response).
+#
+# A metadata ENTRY is what a writer (a person, an agent, the system) says
+# about one noun — dataset, column, relationship, query, workflow, dashboard,
+# widget — in one NAMESPACE. The product does not interpret it: `md` is shown
+# as text (the same safe markdown subset as a `note` widget); when it opens
+# with a YAML frontmatter block, the builder shows that block as a key/value
+# table and nothing more. The UI never edits an entry — a writer changes it
+# by writing it again through the API, so every line keeps its author.
+#
+# Who wrote it is STAMPED BY THE SERVER from the writing token (`author`,
+# `source`, `writtenAt`); the client cannot claim an author. `source: ai`
+# entries carry an "AI" badge wherever they are shown, so nobody reads an
+# agent's note as the official definition.
+#
+# `definitionVersion` is a short hash of the part of the noun the entry is
+# about (a dataset's schema, a column's dtype, a relationship's ends, a
+# query's / workflow's / dashboard's definition, a widget's config) at write
+# time; `stale` is true when the noun has since changed — "may be out of
+# date". Anchoring to data version / run and view parameters is a later
+# round.
+components:
+  schemas:
+    MetadataSource:
+      type: string
+      enum: [ai, human, system]
+      description: |
+        Who kind of writer the entry came from — from the token, never the
+        client. `system` is the server's own namespace and no token can write
+        it.
+
+    MetadataEntry:
+      type: object
+      required: [md, source, author, writtenAt, definitionVersion, stale]
+      additionalProperties: false
+      properties:
+        md:
+          type: string
+          minLength: 1
+          description: |
+            The text, in the safe markdown subset (see `Widget.md`), at most
+            65536 UTF-8 bytes. May open with a `---` YAML frontmatter block,
+            which the product does not interpret.
+          examples: ["---\nsource: export 2026-10-12\n---\n\n## What this is\n\nRows per lead, one per call."]
+        source:
+          $ref: "#/components/schemas/MetadataSource"
+        author:
+          type: string
+          minLength: 1
+          maxLength: 120
+          description: The writing token's `author` — server-stamped.
+          examples: ["aicowork"]
+        writtenAt:
+          type: string
+          pattern: "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+          description: ISO-8601 UTC, `Z`-suffixed — server-stamped at write.
+        definitionVersion:
+          type: string
+          minLength: 1
+          maxLength: 32
+          description: The noun's definition hash when the entry was written.
+          examples: ["3f1c9a0b7d2e"]
+        stale:
+          type: boolean
+          description: |
+            True when the noun's definition no longer matches
+            `definitionVersion` — the entry may describe something that has
+            since changed. Computed on every read.
+
+    MetadataEntries:
+      type: object
+      description: Entries keyed by namespace (`^[a-z][a-z0-9_]{0,31}$`).
+      additionalProperties:
+        $ref: "#/components/schemas/MetadataEntry"
+
+    MetadataRead:
+      type: object
+      required: [entries]
+      additionalProperties: false
+      properties:
+        entries:
+          $ref: "#/components/schemas/MetadataEntries"
+        children:
+          type: object
+          description: |
+            Present for a `dataset` (keyed by column NAME) and a `dashboard`
+            (keyed by widget id): the children's entries, so one request serves
+            a page. Children with no entries are absent.
+          additionalProperties:
+            $ref: "#/components/schemas/MetadataEntries"

@@ -280,6 +280,33 @@ class ApiErrorUnknownColumn(BaseModel):
     column: Annotated[str, Field(min_length=1)]
 
 
+class ApiErrorUnauthorized(BaseModel):
+    """R180 — a metadata write with no / unknown bearer token (401)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    code: Literal["unauthorized"] = ERROR_CODES["unauthorized"]  # type: ignore[assignment]
+
+
+class ApiErrorForbidden(BaseModel):
+    """R180 — the token may not write this namespace, or it is `system` (403)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    code: Literal["forbidden"] = ERROR_CODES["forbidden"]  # type: ignore[assignment]
+
+
+class ApiErrorMetadataInvalid(BaseModel):
+    """R180 — a metadata entry was refused (422); `reason` says why and
+    `problems` lists the markdown findings for `markdown_unsafe`."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    code: Literal["metadata_invalid"] = ERROR_CODES["metadata_invalid"]  # type: ignore[assignment]
+    reason: Literal["namespace", "empty", "too_large", "markdown_unsafe", "namespace_cap"]
+    problems: list[Literal["html", "image", "link_scheme"]] | None = None
+
+
 class ApiErrorNoVisibleColumns(BaseModel):
     """R152 — the column-visibility PATCH would hide EVERY column (422; the
     at-least-one-visible guard). `columns_json` is untouched. Mirrors
