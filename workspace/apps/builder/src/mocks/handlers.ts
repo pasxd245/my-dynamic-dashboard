@@ -50,6 +50,7 @@ import {
   MOCK_WORKFLOW,
   MOCK_WORKFLOWS,
   MOCK_WORKSPACE,
+  schemaOf,
 } from './fixtures';
 
 // Match either the configured API base (production / dev) or any
@@ -811,7 +812,7 @@ function previewJson(
     pageSize,
     total: shaped.rows.length,
   };
-  if (alwaysResolved || steps?.length) body.resolvedColumns = shaped.columns;
+  if (alwaysResolved || steps?.length) body.resolvedColumns = schemaOf(shaped.columns);
   // R129 — a stepped preview reports the PRE-step (base) columns too.
   if (steps?.length) body.baseColumns = columns.map((c) => ({ name: c.name, dtype: c.dtype }));
   return HttpResponse.json(body);
@@ -1131,7 +1132,7 @@ export const handlers = [
       }
       // 1 hop → Deals ⋈ Accounts (R71); ≥2 hops → Deals ⋈ Accounts ⋈ Owners (R73).
       const isChain = chain.length >= 2;
-      const columns = isChain ? MOCK_CHAIN_COLUMNS : [...MOCK_DATASET.columns, ...MOCK_DATASET_2.columns];
+      const columns = isChain ? MOCK_CHAIN_COLUMNS : schemaOf([...MOCK_DATASET.columns, ...MOCK_DATASET_2.columns]);
       const sourceRows = isChain ? MOCK_CHAIN_ROWS.rows : MOCK_JOINED_ROWS.rows;
       const preds = def.filters.map(predFromAtom);
       const aqGroups = def.advanced.map((g) => g.map(predFromAtom));
@@ -1156,7 +1157,7 @@ export const handlers = [
     const chain = body.definition?.joins ?? [];
     let resolvedColumns: typeof MOCK_CHAIN_COLUMNS | undefined;
     if (chain.length >= 2) resolvedColumns = MOCK_CHAIN_COLUMNS;
-    else if (chain.length === 1) resolvedColumns = [...MOCK_DATASET.columns, ...MOCK_DATASET_2.columns];
+    else if (chain.length === 1) resolvedColumns = schemaOf([...MOCK_DATASET.columns, ...MOCK_DATASET_2.columns]);
     return HttpResponse.json({
       ...base,
       id: String(params.id),
@@ -1314,7 +1315,7 @@ export const handlers = [
         sourceFormat: 'csv',
         sizeBytes: 86_016,
         csvPreview: {
-          columns: MOCK_DATASET.columns,
+          columns: schemaOf(MOCK_DATASET.columns),
           rowCount: MOCK_ROWS.length,
           sampleRows: MOCK_ROWS.slice(0, 3).map((r) => [...r]),
         },
@@ -1327,7 +1328,7 @@ export const handlers = [
       results: [
         {
           status: 'ok',
-          columns: MOCK_DATASET.columns,
+          columns: schemaOf(MOCK_DATASET.columns),
           rowCount: MOCK_ROWS.length,
           sampleRows: MOCK_ROWS.slice(0, 3).map((r) => [...r]),
         },

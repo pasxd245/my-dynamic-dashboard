@@ -39,6 +39,27 @@ IsoUtc = Annotated[
 ]
 
 
+class ColumnCoverage(BaseModel):
+    """R178 — a `date` / `datetime` column's coverage, profiled by the server
+    over the committed parquet at commit and at every refresh: the earliest and
+    latest non-blank value (ISO strings; both absent when the column is all
+    blank) and the share of blank rows (0..1)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    min: str | None = None
+    max: str | None = None
+    blankShare: Annotated[float, Field(ge=0, le=1)]  # noqa: N815
+
+    @model_serializer(mode="wrap")
+    def _serialize(self, handler):  # type: ignore[no-untyped-def]
+        data = handler(self)
+        for k in ("min", "max"):
+            if data.get(k) is None:
+                data.pop(k, None)
+        return data
+
+
 class Column(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -48,6 +69,9 @@ class Column(BaseModel):
     # columns_json only (never the parquet); set via PATCH /datasets/{id}/columns.
     # The row-preview default-hides hidden columns; every picker ignores it.
     hidden: bool | None = None
+    # R178 — present only on committed date/datetime columns (never on an
+    # upload-parse preview); lives in columns_json, recomputed on refresh.
+    coverage: ColumnCoverage | None = None
 
     @model_serializer(mode="wrap")
     def _serialize(self, handler):  # type: ignore[no-untyped-def]
@@ -55,9 +79,12 @@ class Column(BaseModel):
         # visible), never emitted as null. Applies on every wire path — a
         # direct FastAPI return or an explicit model_dump — so a widened shared
         # model never leaks `hidden: null` into an existing endpoint's response.
+        # R178 — `coverage` likewise: omitted when the column has none.
         data = handler(self)
         if not data.get("hidden"):
             data.pop("hidden", None)
+        if data.get("coverage") is None:
+            data.pop("coverage", None)
         return data
 
 
@@ -686,8 +713,6 @@ class QueryDefinition(BaseModel):
             if legacy is not None and not data.get("joins"):
                 data["joins"] = [legacy]
         return data
-
-
 
 
 class Query(BaseModel):

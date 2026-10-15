@@ -258,6 +258,12 @@
         "applied": "Column visibility updated.",
         "applyFailed": "Couldn't update column visibility."
       },
+      "coverage": {
+        "title": "Date coverage",
+        "range": "{{min}} → {{max}}",
+        "blank": "{{share}}% blank",
+        "allBlank": "all blank"
+      },
       "properties": {
         "title": "Properties",
         "action": "Properties",

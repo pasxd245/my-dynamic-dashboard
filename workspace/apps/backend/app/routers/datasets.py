@@ -47,6 +47,7 @@ from app.ingest.merge import (
     column_min_max,
     merge_parquets,
 )
+from app.ingest.profile import profile_date_coverage
 from app.ingest.rows_reader import query_dataset_rows
 from app.models.common import (
     ApiErrorCoercionFailed,
@@ -191,9 +192,7 @@ def _apply_overrides(
                             f"format_unsupported: column_overrides[{col['name']}] token "
                             f"{err.token!r} is outside the supported subset (yyyy MM dd HH mm ss)"
                         )
-                    raise HTTPException(
-                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=detail
-                    ) from err
+                    raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=detail) from err
             out.append({"name": col["name"], "dtype": ov.dtype})
     return out
 
@@ -438,9 +437,7 @@ def _load_source_json(workspace_id: str, ds_id: str) -> dict | None:
         return None
 
 
-def _merge_key_guards(
-    merge_key: list[str], committed_cols: dict[str, str], dtype_targets: dict[str, str]
-) -> None:
+def _merge_key_guards(merge_key: list[str], committed_cols: dict[str, str], dtype_targets: dict[str, str]) -> None:
     """R147 F5×F2 — the key columns are the ONE loud stop in the otherwise
     warn-never-block drift policy: a silently drifted key dtype = the same
     value failing to match its own prior row (false non-overlap). All three
@@ -461,9 +458,7 @@ def _merge_key_guards(
             ),
         )
     drifted = [
-        f"{k} ({committed_cols[k]} → {dtype_targets[k]})"
-        for k in merge_key
-        if committed_cols[k] != dtype_targets[k]
+        f"{k} ({committed_cols[k]} → {dtype_targets[k]})" for k in merge_key if committed_cols[k] != dtype_targets[k]
     ]
     if drifted:
         raise HTTPException(
@@ -609,9 +604,7 @@ def _handle_refresh(
             detail="refresh source format must match the existing dataset",
         )
 
-    parsed, cols, opts, kept_names, dtype_targets, dtype_formats = _parse_and_target(
-        item, source_format, original_path
-    )
+    parsed, cols, opts, kept_names, dtype_targets, dtype_formats = _parse_and_target(item, source_format, original_path)
     sheet_name = item.sheet if source_format == "excel" else None
 
     # R156/R158 — recompute the computed provenance column on refresh. Recognize
@@ -623,9 +616,7 @@ def _handle_refresh(
     #   • pre-R156 (no provenance at all) → introduce it fresh, collision-free.
     prev_names = {c["name"] for c in json.loads(row["columns_json"])}
     prev_cs = ((_load_source_json(ws_id, target_id) or {}).get("commitSettings")) or {}
-    prov_name, prov_is_new, prov_rename = _resolve_refresh_provenance(
-        prev_names, prev_cs, {c["name"] for c in cols}
-    )
+    prov_name, prov_is_new, prov_rename = _resolve_refresh_provenance(prev_names, prev_cs, {c["name"] for c in cols})
     # `is_new` defaults it hidden; else _carry_forward_hidden (below) preserves
     # the user's show/hide choice.
     _inject_provenance_col(cols, is_new=prov_is_new, name=prov_name)
@@ -736,9 +727,7 @@ def _handle_refresh(
     remembered_key = merge_key if mode == "merge" else prev_cs.get("merge_key")
     if remembered_key:
         commit_settings["merge_key"] = remembered_key
-    remembered_field = (item.overlap_check_field if mode == "append" else None) or prev_cs.get(
-        "overlap_check_field"
-    )
+    remembered_field = (item.overlap_check_field if mode == "append" else None) or prev_cs.get("overlap_check_field")
     if remembered_field:
         commit_settings["overlap_check_field"] = remembered_field
     (staging_dir / "source.json").write_text(
@@ -749,9 +738,11 @@ def _handle_refresh(
     # and merge). Presentation-only: the parquet was already written above and is
     # never touched here. R158 — on a provenance rename the old name is now the
     # incoming file's user column; don't carry provenance's hidden hint onto it.
-    _carry_forward_hidden(
-        cols, json.loads(row["columns_json"]), ignore={prov_rename[0]} if prov_rename else None
-    )
+    _carry_forward_hidden(cols, json.loads(row["columns_json"]), ignore={prov_rename[0]} if prov_rename else None)
+    # R178 — re-profile date coverage over the final staged parquet (replace,
+    # merge and append all end in staging_dir/parsed.parquet). Before the swap:
+    # a failure here leaves the dataset untouched.
+    profile_date_coverage(staging_dir / "parsed.parquet", cols)
 
     columns_json = json.dumps(cols, ensure_ascii=False)
     new_size = original_path.stat().st_size
@@ -943,6 +934,11 @@ def commit_datasets_batch(id: str, body: _BatchRequest) -> list[Dataset] | JSONR
                         totalFailed=err.total_failed,
                     ).model_dump(exclude_none=True),
                 )
+            # R178 — profile date coverage over the parquet just written; the
+            # result rides in columns_json (persisted by the INSERT below).
+            col_dicts = [c.model_dump() for c in ds.columns]
+            profile_date_coverage(target / "parsed.parquet", col_dicts)
+            ds.columns = [Column(**c) for c in col_dicts]
             (target / "source.json").write_text(
                 _source_json_dict(body.temp_id, source_format, ds.sheetName, meta, commit_settings)
             )
@@ -1174,9 +1170,7 @@ def get_dataset_refresh_settings(id: DsIdPath) -> JSONResponse:  # noqa: A002
     FE can exclude the computed column from the drift diff even before the
     transition commit persists the pointer. Name-matching stays server-side."""
     with get_conn() as con:
-        row = con.execute(
-            "SELECT id, workspace_id, columns_json FROM datasets WHERE id = ?", (id,)
-        ).fetchone()
+        row = con.execute("SELECT id, workspace_id, columns_json FROM datasets WHERE id = ?", (id,)).fetchone()
     if row is None:
         return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=ApiErrorNotFound().model_dump())
     src = _load_source_json(row["workspace_id"], id)

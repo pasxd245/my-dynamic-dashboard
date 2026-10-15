@@ -258,6 +258,12 @@
         "applied": "Đã cập nhật hiển thị cột.",
         "applyFailed": "Không thể cập nhật hiển thị cột."
       },
+      "coverage": {
+        "title": "Độ phủ ngày",
+        "range": "{{min}} → {{max}}",
+        "blank": "{{share}}% trống",
+        "allBlank": "trống toàn bộ"
+      },
       "properties": {
         "title": "Thuộc tính",
         "action": "Thuộc tính",

@@ -530,7 +530,7 @@ def test_datetime_override_with_format_commits_real_timestamps() -> None:
         )
         assert resp.status_code == 201, resp.text
         ds = resp.json()[0]
-        assert {"name": "called_at", "dtype": "datetime"} in ds["columns"]
+        assert {"name": "called_at", "dtype": "datetime"} in [{"name": c["name"], "dtype": c["dtype"]} for c in ds["columns"]]  # R178: temporal columns also carry `coverage`
         df = _parquet_of(ds)
     assert pd.api.types.is_datetime64_any_dtype(df["called_at"])
     assert df["called_at"].tolist()[0] == pd.Timestamp("2026-06-29 09:15:00")
@@ -561,7 +561,7 @@ def test_date_override_commits_physical_date() -> None:
         )
         assert resp.status_code == 201, resp.text
         ds = resp.json()[0]
-        assert {"name": "call_date", "dtype": "date"} in ds["columns"]
+        assert {"name": "call_date", "dtype": "date"} in [{"name": c["name"], "dtype": c["dtype"]} for c in ds["columns"]]  # R178: temporal columns also carry `coverage`
         df = _parquet_of(ds)
     assert df["call_date"].tolist()[0] == dt.date(2026, 6, 29)
     assert pd.isna(df["call_date"].tolist()[4])  # NULL passes through

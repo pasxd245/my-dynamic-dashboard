@@ -42,7 +42,7 @@ def _commit_csv(client: TestClient) -> tuple[str, str]:
     ds = client.post(
         f"/workspaces/{ws}/datasets/batch", json={"temp_id": up["temp_id"], "items": [{"name": "calls"}]}
     ).json()[0]
-    assert {"name": "called_at", "dtype": "datetime"} in ds["columns"]  # inferred, no override
+    assert {"name": "called_at", "dtype": "datetime"} in [{"name": c["name"], "dtype": c["dtype"]} for c in ds["columns"]]  # R178: temporal columns also carry `coverage`  # inferred, no override
     return ws, ds["id"]
 
 
@@ -214,7 +214,7 @@ def test_fm1_end_to_end_override_ingest_then_weekly_grouping() -> None:
                 ],
             },
         ).json()[0]
-        assert {"name": "called_at", "dtype": "datetime"} in ds["columns"]
+        assert {"name": "called_at", "dtype": "datetime"} in [{"name": c["name"], "dtype": c["dtype"]} for c in ds["columns"]]  # R178: temporal columns also carry `coverage`
 
         steps = [
             _WEEK_BUCKET,

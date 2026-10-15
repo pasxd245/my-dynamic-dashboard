@@ -38,3 +38,32 @@ components:
             parquet: it lives only in `columns_json`, set via
             `PATCH /datasets/{id}/columns`. A refresh carries it forward by
             name (a column no longer present drops its hint).
+        coverage:
+          $ref: "#/components/schemas/ColumnCoverage"
+
+    ColumnCoverage:
+      type: object
+      required: [blankShare]
+      additionalProperties: false
+      description: |
+        R178 — what period a `date` / `datetime` column covers, profiled by
+        the SERVER over the committed parquet at commit and again at every
+        refresh (replace / merge / append). Present only on committed temporal
+        columns of a Dataset (never on an upload-parse preview, never on other
+        dtypes); absent on datasets committed before R178 until their next
+        refresh. Read-only: the user cannot set it. `min` / `max` are the
+        earliest and latest non-blank value as ISO-8601 strings (`YYYY-MM-DD`
+        for `date`, `YYYY-MM-DDTHH:MM:SS` for `datetime`); both are absent when
+        every row is blank. `blankShare` is the share of blank rows, 0..1.
+      properties:
+        min:
+          type: string
+          examples: ["2026-03-01", "2026-02-28T14:02:00"]
+        max:
+          type: string
+          examples: ["2026-05-14", "2026-05-08T15:22:00"]
+        blankShare:
+          type: number
+          minimum: 0
+          maximum: 1
+          examples: [0.25]

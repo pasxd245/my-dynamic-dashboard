@@ -7,9 +7,20 @@ export type Dtype = 'string' | 'integer' | 'float' | 'boolean' | 'date' | 'datet
 
 export type SourceFormat = 'excel' | 'csv';
 
+/** R178 — a temporal column's coverage, profiled by the server at commit and
+ *  every refresh: earliest / latest non-blank value (ISO strings; both absent
+ *  when all rows are blank) and the share of blank rows (0..1). Read-only. */
+export type ColumnCoverage = {
+  min?: string;
+  max?: string;
+  blankShare: number;
+};
+
 export type Column = {
   name: string;
   dtype: Dtype;
+  /** R178 — present only on committed `date` / `datetime` columns. */
+  coverage?: ColumnCoverage;
   /** R152 presentation-only view-hint. Absent/false = visible. When true,
    *  the dataset-detail row-preview default-hides it (with a "show all"
    *  escape); every picker ignores it. Set via PATCH /datasets/{id}/columns;

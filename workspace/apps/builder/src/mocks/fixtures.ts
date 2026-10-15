@@ -16,7 +16,7 @@
 // they are (test-stable), but the convention applies forward —
 // "YAML examples are the canonical reference; fixtures conform."
 
-import type { Column, Dataset, RowsPage } from '@/features/data-management/datasets/types';
+import type { Column, Dataset, Dtype, RowsPage } from '@/features/data-management/datasets/types';
 import type { Query, ResolvedColumn } from '@/features/data-management/queries/types';
 import type { Workflow } from '@/features/data-management/workflows/types';
 import type { Relationship } from '@/features/data-management/relationships/types';
@@ -59,11 +59,17 @@ export const MOCK_DATASET: Dataset = {
   columns: [
     { name: 'deal_id', dtype: 'string' },
     { name: 'amount', dtype: 'integer' },
-    { name: 'won_at', dtype: 'date' },
+    // R178 — coverage as the server would profile MOCK_ROWS: won_at blank in
+    // 2 of 8 rows; created_at never blank.
+    { name: 'won_at', dtype: 'date', coverage: { min: '2026-03-01', max: '2026-05-14', blankShare: 0.25 } },
     { name: 'stage', dtype: 'string' },
     { name: 'probability', dtype: 'float' },
     { name: 'is_priority', dtype: 'boolean' },
-    { name: 'created_at', dtype: 'datetime' },
+    {
+      name: 'created_at',
+      dtype: 'datetime',
+      coverage: { min: '2026-02-28T14:02:00', max: '2026-05-08T15:22:00', blankShare: 0 },
+    },
   ],
   sourceFormat: 'csv',
   createdAt: '2026-05-22T12:00:00Z',
@@ -71,6 +77,16 @@ export const MOCK_DATASET: Dataset = {
 
 /** Row-major; cell order matches `MOCK_DATASET.columns`. Cells are
  *  stringified BE-side per the rows-get contract. */
+/** R178 — a dataset column's SCHEMA part (name / dtype / hidden), without the
+ *  server-profiled `coverage`. Everything that re-uses dataset columns as the
+ *  columns of something else (a query's resolved columns, a parse preview)
+ *  takes this shape — coverage describes one dataset's rows, nothing else. */
+export function schemaOf<T extends { name: string; dtype: Dtype; hidden?: boolean }>(
+  columns: readonly T[],
+): { name: string; dtype: Dtype; hidden?: boolean }[] {
+  return columns.map(({ name, dtype, hidden }) => (hidden ? { name, dtype, hidden } : { name, dtype }));
+}
+
 export const MOCK_ROWS: readonly (readonly (string | null)[])[] = [
   ['D-0001', '12400', '2026-03-01', 'won', '0.95', 'true', '2026-02-28 14:02:00'],
   ['D-0002', null, null, 'open', '0.45', 'false', '2026-03-15 09:18:00'],
@@ -118,7 +134,7 @@ export const MOCK_WORKFLOW: Workflow = {
   workspaceId: MOCK_WORKSPACE.id,
   name: 'Consolidated leads',
   definition: { sources: [MOCK_QUERY.id], steps: [] },
-  resolvedColumns: MOCK_DATASET.columns,
+  resolvedColumns: schemaOf(MOCK_DATASET.columns),
   materializedAt: '2026-07-01T12:00:00Z',
   createdAt: '2026-07-01T10:00:00Z',
 };
@@ -245,8 +261,8 @@ export const MOCK_JOINED_QUERY: Query = {
     joins: [{ queryRelId: 'qrel_a1b2c3d4', type: 'inner' }],
   },
   resolvedColumns: [
-    ...withProvenance(MOCK_DATASET.columns, MOCK_DATASET.id),
-    ...withProvenance(MOCK_DATASET_2.columns, MOCK_DATASET_2.id),
+    ...withProvenance(schemaOf(MOCK_DATASET.columns), MOCK_DATASET.id),
+    ...withProvenance(schemaOf(MOCK_DATASET_2.columns), MOCK_DATASET_2.id),
   ],
   createdAt: '2026-06-13T10:00:00Z',
 };

@@ -52,11 +52,19 @@ paths:
                       [
                         { name: "deal_id", dtype: "string" },
                         { name: "amount", dtype: "integer" },
-                        { name: "won_at", dtype: "date" },
+                        {
+                          name: "won_at",
+                          dtype: "date",
+                          coverage: { min: "2026-03-01", max: "2026-05-14", blankShare: 0.25 },
+                        },
                         { name: "stage", dtype: "string" },
                         { name: "probability", dtype: "float" },
                         { name: "is_priority", dtype: "boolean" },
-                        { name: "created_at", dtype: "datetime" },
+                        {
+                          name: "created_at",
+                          dtype: "datetime",
+                          coverage: { min: "2026-02-28T14:02:00", max: "2026-05-08T15:22:00", blankShare: 0 },
+                        },
                       ]
                     sourceFormat: "excel"
                     sheetName: "Deals"

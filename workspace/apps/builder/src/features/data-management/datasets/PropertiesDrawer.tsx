@@ -14,6 +14,7 @@ import { Button, Checkbox, Drawer, Space, Switch, Tag, Typography } from 'antd';
 import { type ReactNode, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { formatCoverage } from './DateCoverage';
 import type { Column } from './types';
 
 function SectionHeader({ children }: Readonly<{ children: ReactNode }>) {
@@ -154,6 +155,15 @@ export function PropertiesDrawer({
               data-component="PropertiesDrawerItemToggle"
             >
               {col.name}
+              {col.coverage ? (
+                <Typography.Text
+                  type="secondary"
+                  style={{ display: 'block', fontSize: 11 }}
+                  data-component="PropertiesDrawerCoverage"
+                >
+                  {formatCoverage(col.coverage, t)}
+                </Typography.Text>
+              ) : null}
             </Checkbox>
             <Tag
               style={{ marginInlineEnd: 0, fontSize: 11 }}
