@@ -22,6 +22,12 @@ components:
           description: |
             The source ids this workflow consolidates: saved queries (`qr_…`) and/or
             another workflow's materialized output (`wf_…`, output-as-source, R135).
+            R186 — each id at most once; every source must resolve when saved (a
+            `wf_` source must have been run) and have the FIRST source's shape: the
+            same column names (any order) with equal dtypes, except that integer and
+            float widen to float. With 2+ sources the output gains a final string
+            column `Source.Query` (suffixed `Source.Query1`, … off a collision) whose
+            value is the name of the source each row came from.
           items:
             type: string
             pattern: "^(qr_|wf_)[0-9a-f]{8}$"

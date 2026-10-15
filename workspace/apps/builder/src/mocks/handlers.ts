@@ -519,6 +519,25 @@ function computeStepMock(step: Extract<Step, { kind: 'compute' }>, table: MockTa
   return { columns: [...table.columns, { name: step.name, dtype: 'string' }], rows };
 }
 
+// R186 (W-3) — the one save-time source check a stateless mock can make: a source
+// listed twice (the server also checks resolve + shape, which need real state).
+function duplicateSourceError(sources: readonly string[]) {
+  const i = sources.findIndex((src, k) => sources.indexOf(src) !== k);
+  if (i < 0) return null;
+  return HttpResponse.json(
+    {
+      detail: [
+        {
+          loc: ['body', 'definition', 'sources', i],
+          msg: `duplicate_source: ${sources[i]} is already source ${sources.indexOf(sources[i] ?? '') + 1}; listing it twice doubles every row`,
+          type: 'value_error',
+        },
+      ],
+    },
+    { status: 422 },
+  );
+}
+
 function topNStepMock(step: Extract<Step, { kind: 'top_n' }>, table: MockTable): MockTable {
   const ci = _aggColIdx(table.columns, step.col);
   const num = (cell: string | null) => (Number.isFinite(Number(cell)) ? Number(cell) : 0);
@@ -1247,6 +1266,8 @@ export const handlers = [
   // shows its output; `workflowRows` pages MOCK_ROWS (the materialized output).
   withContractValidation('post', api('/workspaces/:id/workflows'), 'createWorkflow', async ({ params, request }) => {
     const body = (await request.json()) as Partial<CreateWorkflowRequest>;
+    const dup = duplicateSourceError(body.definition?.sources ?? []);
+    if (dup) return dup;
     return HttpResponse.json(
       {
         id: `wf_${Math.random().toString(16).slice(2, 10).padEnd(8, '0')}`,
@@ -1293,6 +1314,8 @@ export const handlers = [
       return HttpResponse.json({ code: 'not_found' }, { status: 404 });
     }
     const body = (await request.json()) as Partial<CreateWorkflowRequest>;
+    const dup = duplicateSourceError(body.definition?.sources ?? []);
+    if (dup) return dup;
     return HttpResponse.json({
       ...MOCK_WORKFLOW,
       name: body.name ?? MOCK_WORKFLOW.name,

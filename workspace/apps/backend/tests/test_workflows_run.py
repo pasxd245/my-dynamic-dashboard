@@ -106,16 +106,35 @@ def _create_multi(client: TestClient, ws: str, sources: list[str], name: str, st
 def test_consolidate_stacks_rows_via_union() -> None:
     with TestClient(app) as client:
         ws, qid = _query_source(client)
+        _ws, ds_id = _dataset_of(client, qid)
+        other = _shaped_query(client, ws, ds_id, name="all leads again", steps=[])
         one = _create(client, ws, qid, name="one", steps=[]).json()["id"]
         client.post(f"/workflows/{one}/run")
         n1 = client.get(f"/workflows/{one}/rows?unpaged=true").json()["total"]
-        # Consolidating the SAME query twice unions its rows → 2× the single count.
-        two = _create_multi(client, ws, [qid, qid], name="two", steps=[]).json()["id"]
-        client.post(f"/workflows/{two}/run")
-        n2 = client.get(f"/workflows/{two}/rows?unpaged=true").json()["total"]
+        # Two same-shape queries over the same rows union → 2× the single count,
+        # and (R186 W-3) every row says which source it came from.
+        two = _create_multi(client, ws, [qid, other], name="two", steps=[]).json()["id"]
+        run = client.post(f"/workflows/{two}/run")
+        rows = client.get(f"/workflows/{two}/rows?unpaged=true").json()
 
     assert n1 >= 1
-    assert n2 == 2 * n1
+    assert rows["total"] == 2 * n1
+    assert run.json()["resolvedColumns"][-1] == {"name": "Source.Query", "dtype": "string"}
+    by_source: dict[str, int] = {}
+    for r in rows["rows"]:
+        by_source[r[-1]] = by_source.get(r[-1], 0) + 1
+    assert by_source == {"all leads": n1, "all leads again": n1}
+
+
+@pytest.mark.unit
+def test_the_same_source_twice_is_refused_on_save() -> None:
+    """R186 (W-3) — listing a source twice can only double every row."""
+    with TestClient(app) as client:
+        ws, qid = _query_source(client)
+        resp = _create_multi(client, ws, [qid, qid], name="twice")
+    assert resp.status_code == 422
+    assert resp.json()["detail"][0]["loc"] == ["body", "definition", "sources", 1]
+    assert resp.json()["detail"][0]["msg"].startswith("duplicate_source")
 
 
 @pytest.mark.unit
@@ -137,11 +156,27 @@ def test_workflow_output_used_as_source() -> None:
 
 
 @pytest.mark.unit
-def test_run_with_unrun_workflow_source_returns_409() -> None:
+def test_create_over_an_unrun_workflow_source_returns_422() -> None:
+    """R186 (W-5) — a source that does not resolve is refused when saved, not first
+    found out at run (before R186: 201, then 409 on run)."""
     with TestClient(app) as client:
         ws, qid = _query_source(client)
         a = _create(client, ws, qid, name="A").json()["id"]  # created but NOT run → no output
+        resp = _create_multi(client, ws, [a], name="B")
+    assert resp.status_code == 422
+    assert resp.json()["detail"][0]["msg"].startswith("unresolved_source")
+
+
+@pytest.mark.unit
+def test_run_with_a_source_unrun_since_save_returns_409() -> None:
+    """A source that resolved at save and stopped resolving (its definition edited,
+    so its output was cleared) is drift → 409 `query_stale` at run."""
+    with TestClient(app) as client:
+        ws, qid = _query_source(client)
+        a = _create(client, ws, qid, name="A").json()["id"]
+        client.post(f"/workflows/{a}/run")
         bid = _create_multi(client, ws, [a], name="B").json()["id"]
+        client.put(f"/workflows/{a}", json={"name": "A", "definition": {"sources": [qid], "steps": []}})
         resp = client.post(f"/workflows/{bid}/run")
     assert resp.status_code == 409
     assert resp.json() == {"code": "query_stale"}
@@ -251,4 +286,6 @@ def test_consolidating_two_shaped_queries_unions_their_ANSWERS() -> None:
 
     # Self-consolidation doubles the SHAPED row count — not the raw one.
     assert both["total"] == n_one * 2
-    assert all(len(r) == 2 for r in both["rows"]), "the union carries the shaped column space"
+    # The shaped column space + (R186 W-3) the provenance column.
+    assert all(len(r) == 3 for r in both["rows"]), "the union carries the shaped column space"
+    assert {r[-1] for r in both["rows"]} == {"A shaped", "B shaped"}

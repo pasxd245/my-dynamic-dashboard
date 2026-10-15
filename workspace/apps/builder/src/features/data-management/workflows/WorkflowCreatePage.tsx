@@ -16,6 +16,8 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import type { Step } from '@/features/data-management/queries/types';
 import { useWorkspacesQuery } from '@/features/data-management/workspaces/hooks';
 import { ApiErrorThrown } from '../_shared/types';
+import { WorkflowSourceError } from '@/api/workflowsApi';
+import { sourceErrorText } from './sourceErrors';
 import { WorkflowForm } from './WorkflowForm';
 import { useCreateWorkflowMutation } from './hooks';
 
@@ -47,6 +49,9 @@ export function WorkflowCreatePage() {
         onError: (err) => {
           if (err instanceof ApiErrorThrown && err.body.code === 'name_taken') {
             message.error(t('workflows.builder.nameTaken'));
+          } else if (err instanceof WorkflowSourceError) {
+            // R186 — say which source and why, in the user's words + the server's detail.
+            message.error(sourceErrorText(err, t));
           } else {
             message.error(t('workflows.builder.createFailed'));
           }

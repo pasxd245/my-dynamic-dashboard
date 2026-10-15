@@ -13,7 +13,8 @@ MATERIALIZED output:
 
 Run REUSES the shared ``app.query_engine`` (R133 extraction) — no router→router
 import. Persistence is raw-SQLite + Pydantic. Step validation is deferred to RUN
-(the output materializes on run, not live), so create only checks sources exist.
+(the output materializes on run, not live). R186: save checks that every source
+exists, resolves now, is listed once, and has the first source's shape.
 """
 
 from __future__ import annotations
@@ -92,12 +93,33 @@ def _validate_sources(con: sqlite3.Connection, sources: list[str], workspace_id:
             )
 
 
+def _validate_consolidation(con: sqlite3.Connection, sources: list[str], workspace_id: str) -> None:
+    """R186 (W-2 / W-3 / W-5) — validate on SAVE what the run would otherwise find
+    out later: every source resolves NOW (a workflow source has been run), no source
+    is listed twice, and every source has the first one's shape. 422 with the
+    offending source's index; the codes lead the `msg` (`unresolved_source`,
+    `duplicate_source`, `sources_diverge`)."""
+    _consolidated, problem = build_consolidated_relation(con, sources, workspace_id)
+    if problem is not None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=[
+                {
+                    "loc": ["body", "definition", "sources", problem["index"]],
+                    "msg": f"{problem['reason']}: {problem['msg']}",
+                    "type": "value_error",
+                }
+            ],
+        )
+
+
 @router.post("/workspaces/{id}/workflows", status_code=status.HTTP_201_CREATED)
 def create_workflow(id: WsIdPath, body: CreateWorkflowBody) -> JSONResponse:  # noqa: A002
     """Save a workflow. Every source query must exist AND belong to this
     workspace (else 422). Names are unique per workspace."""
     with get_conn() as con:
         _validate_sources(con, list(body.definition.sources), id)
+        _validate_consolidation(con, list(body.definition.sources), id)
 
     wid = _new_wf_id()
     created_at = _now_iso()
@@ -156,6 +178,7 @@ def update_workflow(id: WfIdPath, body: UpdateWorkflowBody) -> JSONResponse:  # 
         if row is None:
             return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=ApiErrorNotFound().model_dump())
         _validate_sources(con, list(body.definition.sources), row["workspace_id"])
+        _validate_consolidation(con, list(body.definition.sources), row["workspace_id"])
 
         new_definition = body.definition.model_dump()
         definition_changed = new_definition != json.loads(row["definition_json"])
@@ -215,7 +238,8 @@ def run_workflow(id: WfIdPath) -> JSONResponse:  # noqa: A002
         consolidated, reason = build_consolidated_relation(con, sources, workspace_id)
 
     if reason is not None:
-        # A source query/workflow deleted / drifted / not-yet-run → can't run.
+        # A source query/workflow deleted / drifted / not-yet-run, or (R186) the
+        # sources' shapes diverged since save → can't run.
         return JSONResponse(status_code=status.HTTP_409_CONFLICT, content=ApiErrorQueryStale().model_dump())
     columns = consolidated["columns"]
     try:

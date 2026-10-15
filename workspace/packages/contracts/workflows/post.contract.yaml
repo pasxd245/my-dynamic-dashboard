@@ -5,7 +5,8 @@ info:
   description: |
     R132 — save a Workflow (the `queries ⇒ workflows` module). A workflow
     consolidates + transforms saved queries into a materialized output.
-    Validate-on-save: every source must be a query in this workspace (else 422);
+    Validate-on-save: every source must be a query or workflow in this workspace,
+    resolve now, appear once and share the first source's shape (else 422, R186);
     names are unique per workspace (409 name_taken).
 paths:
   /workspaces/{id}/workflows:
@@ -52,7 +53,13 @@ paths:
               schema: { $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorNameTaken" }
               examples: { name_taken: { value: { code: "name_taken" } } }
         "422":
-          description: A source is not a query in this workspace (FastAPI validation envelope).
+          description: |
+            A source is invalid (FastAPI validation envelope; `loc` ends at the
+            source's index and `msg` starts with the code): not a query/workflow in
+            this workspace (`unknown_source`), does not resolve now — deleted,
+            drifted, or a workflow never run (`unresolved_source`, R186 W-5), listed
+            twice (`duplicate_source`, R186 W-3), or not the first source's shape
+            (`sources_diverge`, R186 W-2).
           content:
             application/json:
               schema:

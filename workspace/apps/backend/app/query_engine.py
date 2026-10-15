@@ -21,6 +21,7 @@ from fastapi import HTTPException, status
 
 from app.ingest.filters import build_definition_predicates
 from app.ingest.rows_reader import (
+    _quote_ident,
     build_effective_columns,
     build_joined_select,
     build_single_inner,
@@ -1048,32 +1049,130 @@ def _run_steps(
     )
 
 
+# R186 (W-3) — the column a multi-source workflow adds to say which source each row
+# came from (value = the source query's / workflow's name at run time). Datasets
+# carry `Source.Name` (the file, R156); this is the same idea one level up.
+CONSOLIDATION_PROVENANCE_COLUMN = "Source.Query"
+
+
+def _consolidation_provenance_name(existing: set[str]) -> str:
+    """`Source.Query`, or `Source.Query1`, `Source.Query2`, … off a collision with a
+    source column (the R158 rule — a user's same-named column is never clobbered)."""
+    if CONSOLIDATION_PROVENANCE_COLUMN not in existing:
+        return CONSOLIDATION_PROVENANCE_COLUMN
+    i = 1
+    while f"{CONSOLIDATION_PROVENANCE_COLUMN}{i}" in existing:
+        i += 1
+    return f"{CONSOLIDATION_PROVENANCE_COLUMN}{i}"
+
+
+def _source_name(con: sqlite3.Connection, src: str) -> str:
+    table = "queries" if src.startswith("qr_") else "workflows"
+    row = con.execute(f"SELECT name FROM {table} WHERE id = ?", (src,)).fetchone()  # noqa: S608 — fixed table names
+    return row["name"] if row is not None else src
+
+
+def _shape_mismatch(first: list[dict], other: list[dict]) -> str | None:
+    """R186 (W-2) — same shape = the same column NAMES (order may differ: the union
+    aligns by name) with compatible dtypes (equal, or both numeric — integer and float
+    widen to float). Returns a human-readable difference, or None."""
+    a = {c["name"]: c["dtype"] for c in first}
+    b = {c["name"]: c["dtype"] for c in other}
+    missing = [n for n in a if n not in b]
+    extra = [n for n in b if n not in a]
+    if missing or extra:
+        parts = []
+        if missing:
+            parts.append(f"missing {missing}")
+        if extra:
+            parts.append(f"extra {extra}")
+        return "; ".join(parts)
+    clashes = [
+        f"{n!r} is {a[n]} vs {b[n]}"
+        for n in a
+        if a[n] != b[n] and not (a[n] in _NUMERIC_DTYPES and b[n] in _NUMERIC_DTYPES)
+    ]
+    return "; ".join(clashes) if clashes else None
+
+
 def build_consolidated_relation(
     con: sqlite3.Connection, sources: list[str], workspace_id: str
-) -> tuple[dict | None, str | None]:
+) -> tuple[dict | None, dict | None]:
     """R135 — CONSOLIDATE ≥1 source (saved query ``qr_`` or workflow-output ``wf_``)
     into ONE typed relation by stacking them with ``UNION ALL BY NAME`` — the
     same-schema consolidation the ``queries ⇒ workflows`` module exists for (many
-    period/provider exports → one table). ``BY NAME`` aligns columns by name, so a
-    column-order difference between sources is tolerated; a genuinely divergent
-    schema is best-effort (missing columns read NULL) — v1 assumes same-shape
-    sources. Each source's OWN filters are already baked into its resolved
-    sub-relation, so no extra predicate is applied here.
+    period/provider exports → one table). Each source's OWN filters and steps are
+    already baked into its resolved sub-relation (R168).
 
-    Returns ``({"sql", "params", "columns"}, None)`` — ``columns`` is the FIRST
-    source's column space (the declared consolidation schema, used for step
-    validation + output capture) — or ``(None, reason)`` from the first source that
-    fails to resolve (callers map the reason to their status)."""
-    parts: list[str] = []
-    params: list = []
-    columns: list[dict] | None = None
-    for src in sources:
+    R186 makes the v1 assumptions guards instead of comments:
+
+    - **W-3** — a source listed twice is refused (``duplicate_source``: it can only
+      double every row), and with ≥2 sources every row carries a provenance column
+      (``Source.Query`` = the source's name) so a stacked total can be split by
+      source instead of silently double-counting overlapping sources.
+    - **W-2** — every source must have the first source's shape (``_shape_mismatch``)
+      or the consolidation is refused (``sources_diverge``) — before R186 the
+      output schema silently narrowed to the first source.
+    - **W-5** — a source that does not resolve (deleted, drifted, a workflow not yet
+      run) is reported with its index, so save can refuse it (422) and run can
+      report drift (409).
+
+    Returns ``({"sql", "params", "columns"}, None)`` — ``columns`` = the first
+    source's order with numeric dtypes widened, + the provenance column — or
+    ``(None, {"reason", "index", "msg"})`` for the first problem found."""
+    seen: dict[str, int] = {}
+    for i, src in enumerate(sources):
+        if src in seen:
+            return None, {
+                "reason": "duplicate_source",
+                "index": i,
+                "msg": f"'{_source_name(con, src)}' is already source {seen[src] + 1}; listing it twice doubles every row",
+            }
+        seen[src] = i
+
+    plans: list[dict] = []
+    for i, src in enumerate(sources):
         plan, reason = _resolve_plan(con, src, [], {}, workspace_id)
         if reason is not None:
-            return None, reason
+            return None, {
+                "reason": "unresolved_source",
+                "index": i,
+                "msg": f"'{_source_name(con, src)}' does not resolve ({reason})",
+            }
+        plans.append(plan)
+
+    first_cols = plans[0]["columns"]
+    for i, plan in enumerate(plans[1:], start=1):
+        diff = _shape_mismatch(first_cols, plan["columns"])
+        if diff is not None:
+            return None, {
+                "reason": "sources_diverge",
+                "index": i,
+                "msg": (
+                    f"'{_source_name(con, sources[i])}' does not have the shape of "
+                    f"'{_source_name(con, sources[0])}': {diff}"
+                ),
+            }
+
+    widened: dict[str, str] = {c["name"]: c["dtype"] for c in first_cols}
+    for plan in plans[1:]:
+        for c in plan["columns"]:
+            if widened[c["name"]] != c["dtype"]:
+                widened[c["name"]] = "float"  # only numeric pairs reach here
+    columns = [{**c, "dtype": widened[c["name"]]} for c in first_cols]
+
+    multi = len(sources) > 1
+    prov = _consolidation_provenance_name(set(widened)) if multi else None
+    parts: list[str] = []
+    params: list = []
+    for src, plan in zip(sources, plans, strict=True):
         sql, p = _build_inner_relation(plan, None, [], [])
-        parts.append(f"SELECT * FROM ({sql})")
+        if prov is not None:
+            parts.append(f"SELECT *, ? AS {_quote_ident(prov)} FROM ({sql})")
+            params.append(_source_name(con, src))
+        else:
+            parts.append(f"SELECT * FROM ({sql})")
         params.extend(p)
-        if columns is None:
-            columns = plan["columns"]
+    if prov is not None:
+        columns = [*columns, {"name": prov, "dtype": "string"}]
     return {"sql": " UNION ALL BY NAME ".join(parts), "params": params, "columns": columns}, None

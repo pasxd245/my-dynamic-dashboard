@@ -37,8 +37,10 @@ paths:
           description: |
             The workflow can't run against current data — one of:
             - `query_stale` — the source query drifted (a filtered/derived column
-              was removed or retyped), a workflow step no longer validates, or the
-              source can no longer resolve at all.
+              was removed or retyped), a workflow step no longer validates, the
+              source can no longer resolve at all, or (R186) the sources no longer
+              share one shape because one was edited after the workflow was saved.
+              The last materialized output is kept as it was.
           content:
             application/json:
               schema:

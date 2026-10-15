@@ -1023,6 +1023,10 @@
       "pickSourceFirst": "Pick a source above to author steps against its columns.",
       "createSuccess": "Workflow \"{{name}}\" created",
       "nameTaken": "A workflow with that name already exists in this workspace.",
+      "source_unknown_source": "Source {{n}} is not a query or workflow in this workspace.",
+      "source_unresolved_source": "Source {{n}} can't be read right now (a workflow must be run first).",
+      "source_duplicate_source": "Source {{n}} is already in the list — it would count every row twice.",
+      "source_sources_diverge": "Source {{n}} doesn't have the same columns as source 1, so they can't be stacked.",
       "createFailed": "Couldn't create the workflow. Please try again.",
       "editSuccess": "Workflow updated",
       "editFailed": "Couldn't save changes. Please try again."

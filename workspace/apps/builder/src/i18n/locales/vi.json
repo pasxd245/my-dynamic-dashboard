@@ -1023,6 +1023,10 @@
       "pickSourceFirst": "Chọn nguồn ở trên để soạn bước theo các cột của nó.",
       "createSuccess": "Đã tạo quy trình \"{{name}}\"",
       "nameTaken": "Đã có quy trình trùng tên trong không gian này.",
+      "source_unknown_source": "Nguồn {{n}} không phải truy vấn hay quy trình trong không gian này.",
+      "source_unresolved_source": "Chưa đọc được nguồn {{n}} (quy trình phải được chạy trước).",
+      "source_duplicate_source": "Nguồn {{n}} đã có trong danh sách — mọi dòng sẽ bị đếm hai lần.",
+      "source_sources_diverge": "Nguồn {{n}} không cùng các cột với nguồn 1 nên không gộp chồng được.",
       "createFailed": "Không tạo được quy trình. Vui lòng thử lại.",
       "editSuccess": "Đã cập nhật quy trình",
       "editFailed": "Không lưu được thay đổi. Vui lòng thử lại."
