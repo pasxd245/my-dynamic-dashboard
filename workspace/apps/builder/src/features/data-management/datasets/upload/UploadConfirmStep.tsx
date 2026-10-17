@@ -14,6 +14,8 @@ import { useAppendOverlapQuery } from '../hooks';
 import {
   dateFieldOptions,
   mergeKeyIssues,
+  periodBlocked,
+  periodColumnOptions,
   refreshSheetKey,
   units,
   type WizardAction,
@@ -124,6 +126,9 @@ function RefreshSemantics({ state, dispatch }: Readonly<Pick<Props, 'state' | 'd
   );
   const mergeBlocked = state.refreshMode === 'merge' && (state.mergeKey.length === 0 || keyIssues.length > 0);
   const dateOptions = dateFieldOptions(state.sheets[refreshSheetKey(state)]);
+  // R189 — replace_period needs a date column on both the file and the dataset.
+  const periodOptions = periodColumnOptions(state);
+  const periodIsBlocked = periodBlocked(state);
   // R155 — the live overlap advisory (append + a date field picked). Advisory:
   // a failed check falls back to a soft note; the append is never blocked.
   const overlapField = state.overlapCheckField;
@@ -166,6 +171,10 @@ function RefreshSemantics({ state, dispatch }: Readonly<Pick<Props, 'state' | 'd
           <Radio value="append" data-component="RefreshModeAppend">
             {t('upload.refresh.modeAppend')}{' '}
             <Typography.Text type="secondary">{t('upload.refresh.modeAppendHint')}</Typography.Text>
+          </Radio>
+          <Radio value="replace_period" data-component="RefreshModePeriod">
+            {t('upload.refresh.modePeriod')}{' '}
+            <Typography.Text type="secondary">{t('upload.refresh.modePeriodHint')}</Typography.Text>
           </Radio>
         </Space>
       </Radio.Group>
@@ -275,7 +284,56 @@ function RefreshSemantics({ state, dispatch }: Readonly<Pick<Props, 'state' | 'd
             min: overlap.data.overlappingRange?.min ?? overlap.data.incomingRange?.min ?? '',
             max: overlap.data.overlappingRange?.max ?? overlap.data.incomingRange?.max ?? '',
           })}
+          action={
+            periodOptions.some((c) => c.name === overlapField) ? (
+              <Button
+                size="small"
+                onClick={() => {
+                  dispatch({ type: 'SET_REFRESH_MODE', mode: 'replace_period' });
+                  dispatch({ type: 'SET_PERIOD_COLUMN', column: overlapField });
+                }}
+                data-component="AppendOverlapSwitchToPeriod"
+              >
+                {t('upload.refresh.overlapSwitchToPeriod')}
+              </Button>
+            ) : undefined
+          }
           data-component="AppendOverlapWarn"
+        />
+      ) : null}
+      {state.refreshMode === 'replace_period' ? (
+        <div style={{ marginBottom: 8, maxWidth: 520 }} data-component="PeriodColumnPicker">
+          <Typography.Text>{t('upload.refresh.periodColumnLabel')}</Typography.Text>
+          <Select
+            style={{ width: '100%', marginTop: 4 }}
+            placeholder={t('upload.refresh.periodColumnPlaceholder')}
+            value={state.periodColumn ?? undefined}
+            onChange={(column: string) => dispatch({ type: 'SET_PERIOD_COLUMN', column })}
+            options={periodOptions.map((c) => ({ value: c.name, label: `${c.name} (${c.dtype})` }))}
+            notFoundContent={t('upload.refresh.periodColumnNone')}
+            status={periodIsBlocked ? 'error' : undefined}
+            data-component="PeriodColumnSelect"
+          />
+        </div>
+      ) : null}
+      {state.refreshMode === 'replace_period' && periodIsBlocked ? (
+        <Alert
+          type="error"
+          showIcon
+          title={t('upload.refresh.periodBlockedTitle')}
+          description={
+            periodOptions.length === 0 ? t('upload.refresh.periodColumnNone') : t('upload.refresh.periodColumnRequired')
+          }
+          data-component="PeriodBlocked"
+        />
+      ) : null}
+      {state.refreshMode === 'replace_period' && !periodIsBlocked ? (
+        <Alert
+          type="warning"
+          showIcon
+          title={t('upload.refresh.confirmPeriodTitle', { name: state.refreshTargetName ?? '' })}
+          description={t('upload.refresh.confirmPeriodBody', { field: state.periodColumn ?? '' })}
+          data-component="RefreshConfirmNote"
         />
       ) : null}
     </div>

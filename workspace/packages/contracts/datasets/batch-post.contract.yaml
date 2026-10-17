@@ -141,7 +141,7 @@ paths:
                           row order is not time).
                       refresh_mode:
                         type: string
-                        enum: [replace, merge, append]
+                        enum: [replace, merge, append, replace_period]
                         description: |
                           R155 — the explicit refresh-semantics discriminator
                           (requires `target_dataset_id`; 422 on a create item).
@@ -156,6 +156,23 @@ paths:
                           Result schema = the incoming table's (D5: kept rows
                           NULL-fill added columns, drop removed). No dup-key guard
                           (that is merge-only).
+                          R189 `replace_period` (requires `period_column`):
+                          the period is `[min, max]` of `period_column` over
+                          the incoming rows — the whole stack with
+                          `extra_temp_ids` — inclusive; committed rows inside
+                          it are removed, every incoming row inserted, committed
+                          rows outside it (or with no value) kept, reconciled to
+                          the incoming schema like merge / append. With
+                          `merge_key` → 422.
+                      period_column:
+                        type: string
+                        minLength: 1
+                        description: |
+                          R189 — `replace_period` only (else 422). A column that
+                          is date / datetime on BOTH sides — the incoming file
+                          and the dataset — else 422. An incoming row with no
+                          value in it → 422 (never silently dropped). Remembered
+                          for the next refresh like `merge_key`.
                       overlap_check_field:
                         type: string
                         minLength: 1
@@ -185,6 +202,10 @@ paths:
             3. APPEND refresh (R155, item carried `refresh_mode: append`) — a
                wrapper carrying the updated Dataset plus `{ appended, total }`
                (rows appended; the new total row_count = committed + appended).
+            4. REPLACE_PERIOD refresh (R189) — a wrapper carrying the updated
+               Dataset plus `period { column, from, to, removed, inserted,
+               kept }` (`from` / `to` omitted when no row came in;
+               inserted + kept = the new row_count).
           content:
             application/json:
               schema:
@@ -243,6 +264,42 @@ paths:
                             type: integer
                             minimum: 0
                             description: The dataset's new row_count (committed + appended).
+                  - type: object
+                    required: [datasets, period]
+                    additionalProperties: false
+                    properties:
+                      datasets:
+                        type: array
+                        minItems: 1
+                        maxItems: 1
+                        items:
+                          $ref: '../_shared/dataset.yaml#/components/schemas/Dataset'
+                      period:
+                        type: object
+                        required: [column, removed, inserted, kept]
+                        additionalProperties: false
+                        properties:
+                          column:
+                            type: string
+                            minLength: 1
+                          from:
+                            type: string
+                            description: The period's first value (ISO date / datetime), inclusive.
+                          to:
+                            type: string
+                            description: The period's last value (ISO date / datetime), inclusive.
+                          removed:
+                            type: integer
+                            minimum: 0
+                            description: Committed rows inside the period, replaced.
+                          inserted:
+                            type: integer
+                            minimum: 0
+                            description: Incoming rows.
+                          kept:
+                            type: integer
+                            minimum: 0
+                            description: Committed rows outside the period (or with no value), kept.
         '404':
           description: |
             Workspace `id` does not exist, OR `temp_id` is unknown / expired,

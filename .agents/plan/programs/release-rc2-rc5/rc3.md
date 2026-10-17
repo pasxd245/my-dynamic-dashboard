@@ -16,8 +16,8 @@ The version shapes are now partly fixed by what shipped (decision 14).
 done   3.1 compute (R184)
 done   3.2a dataset dataVersion + refreshedAt (R185) ── 3.3 W-2/W-3/W-5 (R186) ── 3.2b + W-4/W-7 run stamps (R187)
 gate   G-wf (owner) ──────────────────────────────────────────────────────────────┐
-done   3.4 multi-file refresh (R188)
-next   3.5 replace_period ─> 3.6 publish + saved copies <────────────────────────────┘
+done   3.4 multi-file refresh (R188) ── 3.5 replace_period (R189)
+next   3.6 publish + saved copies (after walk B confirms G-wf) <─────────────────────┘
 then   2.7 design (params, date range, shared filters) ─> 3.7 typed parameters
        ─> 3.2c remaining stamps on read paths ─> 3.8 metadata triple anchor
 ```
@@ -140,7 +140,7 @@ on the agent's recommendation; [walk pack](walk-rc2-rc3a.md) session B confirms 
   version bump; Confirm-step "More files in this refresh" block. A key repeated across files under
   merge → `merge_duplicate_keys`.
 
-## 3.5 `replace_period` refresh mode (label R179)
+## 3.5 `replace_period` refresh mode (label R179) — `Round_189`
 
 |          |                                                                                                  |
 | -------- | ------------------------------------------------------------------------------------------------ |
@@ -160,6 +160,13 @@ on the agent's recommendation; [walk pack](walk-rc2-rc3a.md) session B confirms 
 - **Tests:** overlap window replaced; rows before the window kept; a gap inside the window removes
   committed rows there (documented — that is what "replace the period" means); null period 422;
   version +1 once.
+- **As built (R189, review):** item fields `refresh_mode: replace_period` + `period_column` (snake
+  case, like `merge_key`); 201 shape 4 `{datasets, period: {column, from, to, removed, inserted,
+kept}}` (named like the merge / append reports, with `kept` so it sums to the row count) instead of
+  the sketched `replacedFrom…insertedRows`; committed rows with no period value are kept; an empty
+  incoming stack replaces nothing. Confirm-step "Replace a period" with a date-column picker (a date
+  on both sides; commit disabled until picked); append's overlap warning offers "Replace this period
+  instead". Remembered as `commitSettings.period_column`.
 
 ## 3.6 Publish a derived dataset + saved copies (label R180) — only after G-wf
 

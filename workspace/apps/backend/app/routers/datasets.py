@@ -46,6 +46,8 @@ from app.ingest.merge import (
     append_parquets,
     column_min_max,
     merge_parquets,
+    PeriodNullError,
+    replace_period_parquets,
     stack_parquets,
 )
 from app.ingest.profile import profile_date_coverage
@@ -122,7 +124,10 @@ class _BatchItem(BaseModel):
     merge_key: Annotated[list[Annotated[str, Field(min_length=1)]], Field(min_length=1)] | None = None
     # R155 — explicit refresh-semantics discriminator (refresh-only). Omitted →
     # inferred (merge iff merge_key, else replace); `append` must be explicit.
-    refresh_mode: Literal["replace", "merge", "append"] | None = None
+    refresh_mode: Literal["replace", "merge", "append", "replace_period"] | None = None
+    # R189 — replace_period: the date/datetime column whose incoming [min, max]
+    # is the period replaced (requires refresh_mode=replace_period).
+    period_column: Annotated[str, Field(min_length=1)] | None = None
     # R155 — the date/datetime column the append double-count check used;
     # remembered for the next refresh (not acted on at commit).
     overlap_check_field: Annotated[str, Field(min_length=1)] | None = None
@@ -545,6 +550,49 @@ def _run_merge(
     return merge_stats
 
 
+def _run_replace_period(
+    staging_dir: Path,
+    ds_dir: Path,
+    period_column: str,
+    cols: list[dict[str, str]],
+    target_id: str,
+    provenance_backfill: tuple[str, str] | None = None,
+    provenance_rename: tuple[str, str] | None = None,
+) -> dict:
+    """R189 — replace the incoming period against the STAGED incoming parquet,
+    swapping the result into staging. An incoming row with no period value, or a
+    kept committed value that cannot cast into the incoming schema → 422 detail;
+    staging discarded, dataset untouched (the R145 invariant)."""
+    staged_parquet = staging_dir / "parsed.parquet"
+    target = staging_dir / "period.parquet"
+    try:
+        stats = replace_period_parquets(
+            ds_dir / "parsed.parquet",
+            staged_parquet,
+            target,
+            period_column=period_column,
+            incoming_cols=cols,
+            provenance_backfill=provenance_backfill,
+            provenance_rename=provenance_rename,
+        )
+    except PeriodNullError as err:
+        shutil.rmtree(staging_dir, ignore_errors=True)
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"{err.count} incoming row(s) have no value in {period_column!r}; "
+            "replace_period needs a date on every incoming row (nothing was dropped)",
+        ) from err
+    except MergeCastError as err:
+        shutil.rmtree(staging_dir, ignore_errors=True)
+        logger.warning("replace_period_cast_failed (refresh): dataset=%r error=%s", target_id, err)
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"replace_period failed casting existing rows to the incoming schema: {err}",
+        ) from err
+    target.replace(staged_parquet)
+    return stats
+
+
 def _run_append(
     staging_dir: Path,
     ds_dir: Path,
@@ -726,6 +774,38 @@ def _handle_refresh(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="replace does not take merge_key (omit it, or use refresh_mode=merge)",
         )
+    # R189 — replace_period: one date column names the period; checked on both
+    # sides before any write (the incoming dtype is the committed-to-be dtype).
+    if item.period_column is not None and mode != "replace_period":
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="period_column requires refresh_mode=replace_period",
+        )
+    if mode == "replace_period":
+        if merge_key is not None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="replace_period does not take merge_key",
+            )
+        if item.period_column is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="replace_period requires period_column (a date or datetime column)",
+            )
+        committed_cols = {c["name"]: c["dtype"] for c in json.loads(row["columns_json"])}
+        pc = item.period_column
+        if dtype_targets.get(pc) not in ("date", "datetime"):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"period_column {pc!r} must be a date or datetime column of the incoming file"
+                + ("" if pc in dtype_targets else " (it is not one of its columns)"),
+            )
+        if committed_cols.get(pc) not in ("date", "datetime"):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"period_column {pc!r} must be a date or datetime column of the dataset"
+                + ("" if pc in committed_cols else " (the dataset has no such column)"),
+            )
     # R147 — merge guards run BEFORE any write (key must exist on both
     # sides with the committed dtype; the F5×F2 false-non-overlap stop).
     if mode == "merge":
@@ -785,6 +865,7 @@ def _handle_refresh(
     # cast failure discards staging; the dataset is untouched.
     merge_stats: dict[str, int] | None = None
     append_stats: dict[str, int] | None = None
+    period_stats: dict | None = None
     if mode == "merge":
         merge_result = _run_merge(staging_dir, ds_dir, merge_key, cols, target_id, prov_backfill, prov_rename)
         if isinstance(merge_result, JSONResponse):
@@ -793,6 +874,11 @@ def _handle_refresh(
     elif mode == "append":
         # R155 — keyless UNION ALL against the staged incoming, before any swap.
         append_stats = _run_append(staging_dir, ds_dir, cols, target_id, prov_backfill, prov_rename)
+    elif mode == "replace_period":
+        # R189 — replace the incoming period, keep the rest, before any swap.
+        period_stats = _run_replace_period(
+            staging_dir, ds_dir, item.period_column, cols, target_id, prov_backfill, prov_rename
+        )
 
     shutil.copy2(original_path, staging_dir / f"original{meta['ext']}")
     for i, (_tid, xmeta, xpath) in enumerate(extras, start=2):
@@ -811,6 +897,9 @@ def _handle_refresh(
     remembered_field = (item.overlap_check_field if mode == "append" else None) or prev_cs.get("overlap_check_field")
     if remembered_field:
         commit_settings["overlap_check_field"] = remembered_field
+    remembered_period = (item.period_column if mode == "replace_period" else None) or prev_cs.get("period_column")
+    if remembered_period:
+        commit_settings["period_column"] = remembered_period
     source = json.loads(_source_json_dict(body.temp_id, source_format, sheet_name, meta, commit_settings))
     if extras:
         # R188 — the stacked files beside the primary, in order (provenance values).
@@ -833,6 +922,8 @@ def _handle_refresh(
         new_row_count = sum(merge_stats.values())
     elif append_stats is not None:
         new_row_count = append_stats["total"]
+    elif period_stats is not None:
+        new_row_count = period_stats["inserted"] + period_stats["kept"]
     else:
         new_row_count = incoming_rows
 
@@ -872,6 +963,15 @@ def _handle_refresh(
             content={
                 "datasets": [updated_ds.model_dump(exclude_none=True, mode="json")],
                 "merge": merge_stats,
+            },
+        )
+    if period_stats is not None:
+        # R189 — the replace_period report wrapper (contract 201 shape 4).
+        return JSONResponse(
+            status_code=status.HTTP_201_CREATED,
+            content={
+                "datasets": [updated_ds.model_dump(exclude_none=True, mode="json")],
+                "period": {k: v for k, v in period_stats.items() if v is not None},
             },
         )
     if append_stats is not None:
@@ -931,11 +1031,11 @@ def commit_datasets_batch(id: str, body: _BatchRequest) -> list[Dataset] | JSONR
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail="merge_key requires target_dataset_id (merge is a refresh mode)",
             )
-        if item.refresh_mode is not None or item.overlap_check_field is not None:
-            # R155 — refresh-semantics fields are meaningless on a create item.
+        if item.refresh_mode is not None or item.overlap_check_field is not None or item.period_column is not None:
+            # R155 / R189 — refresh-semantics fields are meaningless on a create item.
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="refresh_mode / overlap_check_field require target_dataset_id (refresh-only)",
+                detail="refresh_mode / overlap_check_field / period_column require target_dataset_id (refresh-only)",
             )
         if source_format == "excel" and item.sheet is None:
             raise HTTPException(

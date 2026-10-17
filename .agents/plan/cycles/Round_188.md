@@ -115,7 +115,7 @@ once per refresh.
 
 _(at close)_
 
-## Feeds into → Round_189 (TBD)
+## Feeds into → [Round_189](Round_189.md)
 
 Item 3.5 — `replace_period` refresh mode: the period is the incoming file(s)' `[min, max]` of a
 date column (over the whole stack when several files arrive), committed rows inside it are replaced,

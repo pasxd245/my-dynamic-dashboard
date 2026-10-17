@@ -61,6 +61,7 @@ their chosen source and mode.
 | `UploadConfirmStep` component (N-dataset summary)                                         | `apps/builder/src/features/data-management/datasets` | feature      | feature            | react, antd                                      |
 | `UploadDriftStep` component (refresh only: schema-drift review + acknowledge)             | `apps/builder/src/features/data-management/datasets` | feature      | feature            | react, antd                                      |
 | `RefreshExtraFiles` block in `UploadConfirmStep` (refresh only: stacked files)            | `apps/builder/src/features/data-management/datasets` | feature      | feature            | react, antd                                      |
+| `PeriodColumnPicker` block in `UploadConfirmStep` (refresh only: replace_period)          | `apps/builder/src/features/data-management/datasets` | feature      | feature            | react, antd                                      |
 | `useUploadInitMutation` hook                                                              | `apps/builder/src/features/data-management/datasets` | feature      | glue (server-data) | @tanstack/react-query                            |
 | `useUploadParseMutation` hook                                                             | `apps/builder/src/features/data-management/datasets` | feature      | glue (server-data) | @tanstack/react-query                            |
 | `useDatasetsCommitMutation` hook (atomic batch)                                           | `apps/builder/src/features/data-management/datasets` | feature      | glue (server-data) | @tanstack/react-query                            |
@@ -72,6 +73,7 @@ their chosen source and mode.
 | `parse_sheet()` + `enumerate_sheets()` (`ingest/excel_parser.py`)                         | `apps/backend/app/ingest/`                           | backend      | pure (data)        | openpyxl / duckdb excel ext                      |
 | `write_csv_to_parquet()` + `write_excel_to_parquet()` (`ingest/parquet_writer.py`)        | `apps/backend/app/ingest/`                           | backend      | pure (data)        | duckdb                                           |
 | `stack_parquets()` (`ingest/merge.py`, multi-file refresh)                                | `apps/backend/app/ingest/`                           | backend      | pure (data)        | duckdb                                           |
+| `replace_period_parquets()` (`ingest/merge.py`, replace_period refresh)                   | `apps/backend/app/ingest/`                           | backend      | pure (data)        | duckdb                                           |
 | `WizardState` reducer state + `SheetState` (`upload/state.ts`, frontend in-memory)        | `apps/builder/src/features/data-management/datasets` | feature      | data type          | none                                             |
 
 **Boundary check**: no wizard surface lives in `@mdd/ui`. The
@@ -757,8 +759,9 @@ def commit_datasets_batch(
     # 5. Commit. The temp directory is NOT deleted here — the TTL sweep is the
     #    sole reaper (filesystem trees roll back on DB failure).
     # 6. Return the created Datasets — a plain list for create/replace, a
-    #    {datasets, merge} wrapper for a merge refresh, or a {datasets, append}
-    #    wrapper for an append refresh (201 oneOf; see below).
+    #    {datasets, merge} wrapper for a merge refresh, a {datasets, append}
+    #    wrapper for an append refresh, or a {datasets, period} wrapper for a
+    #    replace_period refresh (201 oneOf; see below).
 ```
 
 **HTTP semantics**:
@@ -777,8 +780,10 @@ def commit_datasets_batch(
   `{ datasets: [Dataset], merge: { updated, inserted, kept } }`
   wrapper for a merge refresh, or a
   `{ datasets: [Dataset], append: { appended, total } }` wrapper for an
-  append refresh (FE branches on `Array.isArray`, then on `merge` vs
-  `append`).
+  append refresh, or a
+  `{ datasets: [Dataset], period: { column, from, to, removed, inserted, kept } }`
+  wrapper for a replace_period refresh (FE branches on `Array.isArray`, then on
+  `merge` / `append` / `period`).
   `404` if workspace or temp_id missing; `409` `unknown_column`
   (bad `excluded_columns` / `column_overrides` name) or `name_taken`
   (duplicate name in the workspace) — the only 409s emitted; `422`
@@ -1704,6 +1709,65 @@ that read the dataset reports `data_refreshed` afterwards.
 `POST /workspaces/{id}/datasets/batch` gains `extra_temp_ids` (request body, beside `temp_id`); the
 `coercion_failed` error gains an optional `file`. Contract: `datasets/batch-post.contract.yaml`,
 `_shared/api-error.yaml`.
+
+## Refresh replace_period mode: replace the period the new export covers
+
+### Concept
+
+A weekly export often re-covers the last few days or weeks: the rows of that window may have
+changed (late calls logged, a status corrected, a row removed), while older rows are final. Append
+would double the window; replace would drop everything older; merge needs a clean key the export
+may not have. **Replace a period** fits: the period is the incoming file(s)' earliest to latest value
+of a date column, inclusive; every committed row inside it is removed and the incoming rows are
+added; committed rows outside it are kept. A committed row inside the window that the new export no
+longer has is removed — that is what "replace the period" means.
+
+### Surface
+
+- **Confirm step, refresh mode only** — a fourth choice in the refresh-mode radio, "Replace a
+  period" (`RefreshModePeriod`). Choosing it reveals the **date-column picker**
+  (`PeriodColumnPicker`), which offers only columns that are a date or datetime **both** in the
+  incoming file (after overrides and exclusions) and on the committed dataset. Until one is picked —
+  or when the picked one stops qualifying — an error alert explains why and the commit button is
+  disabled (`periodBlocked`); with one picked, a warning note states the rule (the window, removal of
+  rows the export no longer has, rows without a date kept, every incoming row needs a date). The
+  commit button reads "Replace this period".
+- **Append's overlap warning** offers "Replace this period instead" when the overlapping date
+  column qualifies — the switch to this mode with that column pre-picked.
+- The mode and its column are remembered (`commitSettings.period_column`) and pre-filled on the
+  next refresh; a remembered column that is gone or no longer a date falls back to replace.
+- Works with several files (the period spans the whole stack).
+
+### Rules (enforced by the backend)
+
+| Rule                                                                    | Outcome                                                                  |
+| ----------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `replace_period` needs `period_column`; `period_column` needs that mode | else 422                                                                 |
+| No `merge_key` with `replace_period`                                    | else 422                                                                 |
+| `period_column` is a date / datetime column of the incoming file        | else 422 (not one of its columns / not a date or datetime)               |
+| `period_column` is a column of the committed dataset                    | else 422                                                                 |
+| Every incoming row has a value in `period_column`                       | else 422 "N incoming row(s) have no value in 'col'" — nothing is dropped |
+| A committed row with no value in `period_column`                        | kept (it is in no period)                                                |
+| A committed value that does not cast to the incoming dtype              | the merge's cast stop (422) — nothing committed                          |
+
+### Mechanism
+
+The incoming rows (one file or the stack) are staged as for any refresh.
+`ingest/merge.replace_period_parquets` reads `[min, max]` of the column over them, reconciles the committed rows to
+the incoming schema (the same D5 rules as merge and append: incoming wins, added columns NULL-filled,
+drifted dtypes cast, removed columns dropped), keeps those outside the window or with a NULL period,
+and writes `kept UNION ALL BY NAME incoming` to the staged parquet; the swap and the single
+`dataVersion` bump run unchanged. The comparison is on the incoming column's dtype (a datetime
+window compares datetimes). An incoming stack with no rows has no period: nothing is removed and the
+report omits `from` / `to`.
+
+### Wire
+
+`POST /workspaces/{id}/datasets/batch` item: `refresh_mode: "replace_period"` + `period_column`.
+201 shape 4: `{ datasets: [Dataset], period: { column, from, to, removed, inserted, kept } }` —
+`from` / `to` are the window as ISO text; `inserted + kept` is the new row count.
+`GET /datasets/{id}/refresh-settings` returns `period_column`. Contracts:
+`datasets/batch-post.contract.yaml`, `datasets/refresh-settings-get.contract.yaml`.
 
 ## Provenance column: which source file did each row come from? (R156)
 

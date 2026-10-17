@@ -2,7 +2,7 @@
 
 **Status**: Active — rc.2 built (R177–R183, all in Review, awaiting walk session A + tag); rc.3 batch 1 built
 (R184–R187, in Review, walks pending; G-wf accepted 2026-10-17, walk B to confirm); 3.4 built (R188,
-in Review); **next: 3.5** (`replace_period`)
+in Review); 3.5 built (R189, in Review); **next: 3.6** — waits for walk session B to confirm G-wf
 **Opened**: 2026-10-17 (re-baselined the same day against what had already shipped)
 
 Take the product from `release/v0.0.1-rc.1` (`5334c81`) to rc.5 as four gated release candidates.
@@ -137,17 +137,17 @@ Dogfood parity rc.1 → rc.2: 119 / 119 items identical (logged in `Round_183`).
 
 ### rc.3 — definitions over numbers
 
-| #   | Item                                                                                                                                | Status   | Round                    |
-| --- | ----------------------------------------------------------------------------------------------------------------------------------- | -------- | ------------------------ |
-| 3.1 | `compute` step + closed function catalog (`trim` only)                                                                              | review   | `Round_184`              |
-| 3.2 | Version stamps — dataset `dataVersion` + `refreshedAt` (R185), workflow `run` (R187); rest Remaining                                | partial  | `Round_185`, `Round_187` |
-| 3.3 | Workflow repairs W-2, W-3, W-5 (R186); W-4, W-7 (R185 + R187) → gate **G-wf**                                                       | review   | `Round_186`, `Round_187` |
-| 3.4 | Refresh with several files at once (label R178)                                                                                     | review   | `Round_188`              |
-| 3.5 | `replace_period` refresh mode (label R179)                                                                                          | **next** | —                        |
-| 3.6 | Publish a workflow output as a derived dataset with lineage; saved copies in `<workspace>-saved` (label R180) — **only after G-wf** | queued   | —                        |
-| 2.7 | _Moved from rc.2:_ design only — parameter model, view-time date range, shared filters                                              | queued   | —                        |
-| 3.7 | Typed parameters, starting with `as_of`                                                                                             | queued   | —                        |
-| 3.8 | Metadata triple anchor {definitionVersion, dataVersions / runId, params}                                                            | queued   | —                        |
+| #   | Item                                                                                                                                | Status                  | Round                    |
+| --- | ----------------------------------------------------------------------------------------------------------------------------------- | ----------------------- | ------------------------ |
+| 3.1 | `compute` step + closed function catalog (`trim` only)                                                                              | review                  | `Round_184`              |
+| 3.2 | Version stamps — dataset `dataVersion` + `refreshedAt` (R185), workflow `run` (R187); rest Remaining                                | partial                 | `Round_185`, `Round_187` |
+| 3.3 | Workflow repairs W-2, W-3, W-5 (R186); W-4, W-7 (R185 + R187) → gate **G-wf**                                                       | review                  | `Round_186`, `Round_187` |
+| 3.4 | Refresh with several files at once (label R178)                                                                                     | review                  | `Round_188`              |
+| 3.5 | `replace_period` refresh mode (label R179)                                                                                          | review                  | `Round_189`              |
+| 3.6 | Publish a workflow output as a derived dataset with lineage; saved copies in `<workspace>-saved` (label R180) — **only after G-wf** | **next** (after walk B) | —                        |
+| 2.7 | _Moved from rc.2:_ design only — parameter model, view-time date range, shared filters                                              | queued                  | —                        |
+| 3.7 | Typed parameters, starting with `as_of`                                                                                             | queued                  | —                        |
+| 3.8 | Metadata triple anchor {definitionVersion, dataVersions / runId, params}                                                            | queued                  | —                        |
 
 Dogfood parity rc.2 → rc.3 batch 1: 119 / 119 items identical; migrations 0004 → 0007 clean on a
 copy of the real database (logged in `Round_187`).

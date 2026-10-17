@@ -579,7 +579,19 @@
       "overlapClean": "Không có ngày “{{field}}” bị trùng — đây là một kỳ mới. Nối thêm giữ lại mọi dòng.",
       "overlapWarnTitle": "Các ngày này đã có trong tập dữ liệu",
       "overlapWarnBody": "“{{field}}” của tệp mới trùng khoảng từ {{min}} đến {{max}} mà “{{name}}” đã có. Nối thêm sẽ thêm lại các dòng đó (trùng lặp). Bạn vẫn có thể tiếp tục.",
-      "overlapCheckFailed": "Không kiểm tra được “{{field}}” — nối thêm vẫn thêm tất cả dòng."
+      "overlapCheckFailed": "Không kiểm tra được “{{field}}” — nối thêm vẫn thêm tất cả dòng.",
+      "modePeriod": "Thay một kỳ",
+      "modePeriodHint": "Thay các dòng có ngày nằm trong khoảng ngày của tệp mới và giữ nguyên mọi dòng cũ hơn hoặc mới hơn. Dành cho tệp xuất phủ lại vài ngày hoặc vài tuần gần nhất.",
+      "commitPeriodLabel": "Thay kỳ này",
+      "periodSuccess": "Đã thay {{from}} – {{to}}: {{removed}} xoá · {{inserted}} thêm mới · {{kept}} giữ nguyên.",
+      "periodColumnLabel": "Cột ngày xác định kỳ",
+      "periodColumnPlaceholder": "Chọn một cột ngày",
+      "periodColumnNone": "Không có cột nào là ngày ở cả tệp này và tập dữ liệu — chế độ này cần một cột như vậy.",
+      "periodColumnRequired": "Chọn cột ngày có khoảng giá trị là kỳ cần thay.",
+      "periodBlockedTitle": "Chọn một cột ngày để thay kỳ",
+      "confirmPeriodTitle": "Thao tác này thay một kỳ của “{{name}}”",
+      "confirmPeriodBody": "Kỳ là từ “{{field}}” sớm nhất đến muộn nhất trong (các) tệp mới, tính cả hai đầu. Mọi dòng của tập dữ liệu nằm trong kỳ đều bị xoá — kể cả dòng tệp mới không còn — và các dòng mới được thêm vào. Dòng ngoài kỳ, hoặc không có “{{field}}”, được giữ nguyên. Mọi dòng mới phải có “{{field}}”.",
+      "overlapSwitchToPeriod": "Thay kỳ này thay vì nối thêm"
     },
     "drift": {
       "noneTitle": "Không có thay đổi lược đồ",

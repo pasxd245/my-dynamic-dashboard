@@ -17,6 +17,8 @@ import {
   hasSchemaDrift,
   INITIAL_WIZARD_STATE,
   mergeKeyIssues,
+  periodBlocked,
+  refreshCommitItem,
   refreshSheetKey,
   units,
   wizardReducer,
@@ -164,26 +166,8 @@ export function DatasetNewPage() {
   // (the user may have edited the carried-forward preset).
   const commitRefresh = async () => {
     if (!state.tempId || !state.workspaceId || !state.targetDatasetId) return;
-    const key = refreshSheetKey(state);
-    const s = state.sheets[key];
-    if (!s) return;
-    const item: CommitBatchItem = {
-      name: state.refreshTargetName ?? 'dataset',
-      target_dataset_id: state.targetDatasetId,
-    };
-    if (state.sourceFormat !== 'csv') item.sheet = key;
-    if (hasParseOptionsSet(s.parseOptions)) item.parse_options = s.parseOptions;
-    if (Object.keys(s.columnOverrides).length > 0) item.column_overrides = s.columnOverrides;
-    if (s.excludedColumns.length > 0) item.excluded_columns = s.excludedColumns;
-    if (state.refreshMode === 'merge' && state.mergeKey.length > 0) {
-      item.merge_key = state.mergeKey;
-    }
-    // R155 — append is keyless; the explicit discriminator + the remembered
-    // overlap field (advisory only server-side) ride on the item.
-    if (state.refreshMode === 'append') {
-      item.refresh_mode = 'append';
-      if (state.overlapCheckField) item.overlap_check_field = state.overlapCheckField;
-    }
+    const item = refreshCommitItem(state);
+    if (!item) return;
     try {
       const result = await commitMutation.mutateAsync({
         workspaceId: state.workspaceId,
@@ -194,12 +178,20 @@ export function DatasetNewPage() {
           ...(state.extraFiles.length > 0 ? { extra_temp_ids: state.extraFiles.map((f) => f.tempId) } : {}),
         },
       });
-      // R155 — the 201 is a 3-way union (array | merge wrapper | append wrapper);
-      // narrow on `merge` / `append` for the matching success toast.
+      // R155/R189 — the 201 is a 4-way union (array | merge | append | period
+      // wrapper); narrow on the wrapper key for the matching success toast.
       if (!Array.isArray(result) && 'merge' in result) {
         message.success(t('upload.refresh.mergeSuccess', result.merge));
       } else if (!Array.isArray(result) && 'append' in result) {
         message.success(t('upload.refresh.appendSuccess', result.append));
+      } else if (!Array.isArray(result) && 'period' in result) {
+        message.success(
+          t('upload.refresh.periodSuccess', {
+            ...result.period,
+            from: result.period.from ?? '',
+            to: result.period.to ?? '',
+          }),
+        );
       }
       navigate(`/data-management/datasets/${state.targetDatasetId}`);
     } catch {
@@ -280,10 +272,12 @@ export function DatasetNewPage() {
     state.refreshMode === 'merge' &&
     (state.mergeKey.length === 0 ||
       mergeKeyIssues(state.refreshBaseline ?? [], state.sheets[refreshSheetKey(state)], state.mergeKey).length > 0);
+  const commitBlocked = mergeBlocked || periodBlocked(state);
   let commitLabel = t('upload.createDatasets');
   if (isRefresh) {
     if (state.refreshMode === 'merge') commitLabel = t('upload.refresh.commitMergeLabel');
     else if (state.refreshMode === 'append') commitLabel = t('upload.refresh.commitAppendLabel');
+    else if (state.refreshMode === 'replace_period') commitLabel = t('upload.refresh.commitPeriodLabel');
     else commitLabel = t('upload.refresh.commitLabel');
   }
 
@@ -370,7 +364,7 @@ export function DatasetNewPage() {
                 type="primary"
                 onClick={commit}
                 loading={commitMutation.isPending}
-                disabled={!state.workspaceId || mergeBlocked}
+                disabled={!state.workspaceId || commitBlocked}
                 data-component="WizardCommitButton"
               >
                 {commitLabel}

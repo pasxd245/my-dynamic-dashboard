@@ -579,7 +579,19 @@
       "overlapClean": "No overlapping “{{field}}” dates — this adds a new period. Append keeps all rows.",
       "overlapWarnTitle": "These dates are already in the dataset",
       "overlapWarnBody": "The new file’s “{{field}}” overlaps from {{min}} to {{max}}, which “{{name}}” already covers. Appending will add those rows again (duplicates). You can still proceed.",
-      "overlapCheckFailed": "Couldn’t check “{{field}}” for overlaps — append will still add all rows."
+      "overlapCheckFailed": "Couldn’t check “{{field}}” for overlaps — append will still add all rows.",
+      "modePeriod": "Replace a period",
+      "modePeriodHint": "Replaces the rows whose date falls in the new file’s date range and keeps everything older or newer. For exports that re-cover the last few days or weeks.",
+      "commitPeriodLabel": "Replace this period",
+      "periodSuccess": "Replaced {{from}} – {{to}}: {{removed}} removed · {{inserted}} added · {{kept}} kept.",
+      "periodColumnLabel": "Date column that defines the period",
+      "periodColumnPlaceholder": "Pick a date column",
+      "periodColumnNone": "No column is a date in both this file and the dataset — this mode needs one.",
+      "periodColumnRequired": "Pick the date column whose range is the period to replace.",
+      "periodBlockedTitle": "Pick a date column to replace a period",
+      "confirmPeriodTitle": "This replaces a period of “{{name}}”",
+      "confirmPeriodBody": "The period is the earliest to the latest “{{field}}” in the new file(s), inclusive. Every row of the dataset inside it is removed — even one the new file no longer has — and the new rows are added. Rows outside it, or with no “{{field}}”, are kept. Every new row must have a “{{field}}”.",
+      "overlapSwitchToPeriod": "Replace this period instead"
     },
     "drift": {
       "noneTitle": "No schema drift",

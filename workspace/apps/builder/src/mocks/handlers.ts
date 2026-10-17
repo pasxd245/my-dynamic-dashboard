@@ -1015,11 +1015,12 @@ export const handlers = [
         target_dataset_id?: string;
         merge_key?: string[];
         refresh_mode?: string;
+        period_column?: string;
       }>;
     };
     const items = body.items ?? [];
-    // R155 — a refresh item's mode drives the 201 shape (array | merge wrapper |
-    // append wrapper). `append` is explicit; `merge` is inferred from merge_key.
+    // R155/R189 — a refresh item's mode drives the 201 shape (array | merge |
+    // append | period wrapper). `append` is explicit; `merge` is inferred from merge_key.
     const first = items[0];
     // R185 — the server stamps the data identity: a commit is version 1 at its
     // created time; a refresh bumps the version and restamps `refreshedAt`.
@@ -1033,6 +1034,23 @@ export const handlers = [
       };
       if (first.refresh_mode === 'append') {
         return HttpResponse.json({ datasets: [updated], append: { appended: 100, total: 5147 } }, { status: 201 });
+      }
+      // R189 — replace_period: 201 shape 4, the period report.
+      if (first.refresh_mode === 'replace_period' && first.period_column) {
+        return HttpResponse.json(
+          {
+            datasets: [updated],
+            period: {
+              column: first.period_column,
+              from: '2026-09-01',
+              to: '2026-09-07',
+              removed: 90,
+              inserted: 100,
+              kept: 5047,
+            },
+          },
+          { status: 201 },
+        );
       }
       if (first.merge_key && first.merge_key.length > 0) {
         return HttpResponse.json(

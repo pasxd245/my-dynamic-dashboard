@@ -1,6 +1,7 @@
 import type {
   Column,
   ColumnOverride,
+  CommitBatchItem,
   CsvParsePreview,
   Dataset,
   Dtype,
@@ -132,6 +133,9 @@ export type WizardState = {
    *  overlap check runs on; null = "None" (the always-warn state). FE state
    *  only in F1; the wire field + the backend range compare land at C. */
   overlapCheckField: string | null;
+  /** Refresh only (R189 replace_period) — the date/datetime column whose
+   *  incoming [min, max] is the period replaced; null until picked. */
+  periodColumn: string | null;
   /** Refresh only (R188) — further uploads stacked under the first file into
    *  ONE refresh (same columns; the refresh mode applies to the stack). Each is
    *  uploaded when added; the commit sends their temp ids as `extra_temp_ids`. */
@@ -164,6 +168,7 @@ export const INITIAL_WIZARD_STATE: WizardState = {
   refreshMode: "replace",
   mergeKey: [],
   overlapCheckField: null,
+  periodColumn: null,
   extraFiles: [],
 };
 
@@ -235,6 +240,7 @@ export type WizardAction =
   | { type: "SET_REFRESH_MODE"; mode: RefreshMode }
   | { type: "SET_MERGE_KEY"; key: string[] }
   | { type: "SET_OVERLAP_FIELD"; field: string | null }
+  | { type: "SET_PERIOD_COLUMN"; column: string | null }
   | { type: "SET_DRIFT_ACK"; acknowledged: boolean }
   | { type: "ADD_EXTRA_FILE"; file: ExtraFile }
   | { type: "REMOVE_EXTRA_FILE"; tempId: string }
@@ -406,6 +412,13 @@ function reduceSeedRefresh(target: Dataset, settings: RefreshSettings | null | u
   let refreshMode: RefreshMode = "replace";
   if (settings?.refresh_mode === "merge" && mergeKey.length > 0) refreshMode = "merge";
   else if (settings?.refresh_mode === "append") refreshMode = "append";
+  // R189 — replace_period needs its date column to survive on the committed
+  // schema as a date; otherwise fall back to replace (the safe default).
+  const periodCol = settings?.period_column;
+  const periodSurvives =
+    periodCol !== undefined &&
+    target.columns.some((c) => c.name === periodCol && (c.dtype === "date" || c.dtype === "datetime"));
+  if (settings?.refresh_mode === "replace_period" && periodSurvives) refreshMode = "replace_period";
   return {
     ...INITIAL_WIZARD_STATE,
     mode: "refresh",
@@ -420,6 +433,7 @@ function reduceSeedRefresh(target: Dataset, settings: RefreshSettings | null | u
     refreshLegacy: !settings?.available,
     refreshMode,
     mergeKey,
+    periodColumn: periodSurvives ? (periodCol ?? null) : null,
   };
 }
 
@@ -623,6 +637,8 @@ export function wizardReducer(
       return { ...state, mergeKey: action.key };
     case "SET_OVERLAP_FIELD":
       return { ...state, overlapCheckField: action.field };
+    case "SET_PERIOD_COLUMN":
+      return { ...state, periodColumn: action.column };
     case "SET_DRIFT_ACK":
       return { ...state, driftAcknowledged: action.acknowledged };
     case "GOTO_STEP":
@@ -737,6 +753,57 @@ export function dateFieldOptions(sheet: SheetState | undefined): { name: string;
     .filter((c) => !excluded.has(c.name))
     .map((c) => ({ name: c.name, dtype: sheet.columnOverrides[c.name]?.dtype ?? c.dtype }))
     .filter((c) => c.dtype === "date" || c.dtype === "datetime");
+}
+
+/** The refresh commit item (one target): the carried-forward settings plus
+ *  the mode's own fields — merge key (R147), append discriminator + overlap
+ *  field (R155), replace_period discriminator + period column (R189). Null
+ *  when the wizard has no parsed sheet for the target. */
+export function refreshCommitItem(state: WizardState): CommitBatchItem | null {
+  if (!state.targetDatasetId) return null;
+  const key = refreshSheetKey(state);
+  const s = state.sheets[key];
+  if (!s) return null;
+  const item: CommitBatchItem = {
+    name: state.refreshTargetName ?? "dataset",
+    target_dataset_id: state.targetDatasetId,
+  };
+  if (state.sourceFormat !== "csv") item.sheet = key;
+  if (hasParseOptionsSet(s.parseOptions)) item.parse_options = s.parseOptions;
+  if (Object.keys(s.columnOverrides).length > 0) item.column_overrides = s.columnOverrides;
+  if (s.excludedColumns.length > 0) item.excluded_columns = s.excludedColumns;
+  if (state.refreshMode === "merge" && state.mergeKey.length > 0) item.merge_key = state.mergeKey;
+  // R155 — append is keyless; the explicit discriminator + the remembered
+  // overlap field (advisory only server-side) ride on the item.
+  if (state.refreshMode === "append") {
+    item.refresh_mode = "append";
+    if (state.overlapCheckField) item.overlap_check_field = state.overlapCheckField;
+  }
+  // R189 — replace the incoming files' period on the picked date column.
+  if (state.refreshMode === "replace_period" && state.periodColumn) {
+    item.refresh_mode = "replace_period";
+    item.period_column = state.periodColumn;
+  }
+  return item;
+}
+
+/** R189 — the replace_period date columns: date/datetime in the incoming file
+ *  (after overrides and exclusions) AND on the committed schema — the backend
+ *  refuses either side otherwise. */
+export function periodColumnOptions(state: WizardState): { name: string; dtype: Dtype }[] {
+  const committed = new Map((state.refreshBaseline ?? []).map((c) => [c.name, c.dtype]));
+  return dateFieldOptions(state.sheets[refreshSheetKey(state)]).filter((c) => {
+    const d = committed.get(c.name);
+    return d === "date" || d === "datetime";
+  });
+}
+
+/** R189 — client mirror of the backend's replace_period guards: no column
+ *  picked, or the picked one is no longer a date on both sides. */
+export function periodBlocked(state: WizardState): boolean {
+  if (state.mode !== "refresh" || state.refreshMode !== "replace_period") return false;
+  if (!state.periodColumn) return true;
+  return !periodColumnOptions(state).some((c) => c.name === state.periodColumn);
 }
 
 export type MergeKeyIssue =

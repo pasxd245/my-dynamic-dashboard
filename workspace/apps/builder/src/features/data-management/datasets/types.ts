@@ -145,11 +145,15 @@ export type CommitBatchItem = {
   /** R155 append — the date/datetime column the double-count check used,
    *  remembered for next refresh (not acted on at commit). */
   overlap_check_field?: string;
+  /** R189 — replace_period only: the date/datetime column whose incoming
+   *  [min, max] is the period replaced (required with that mode). */
+  period_column?: string;
 };
 
-/** Refresh mode — replace (R145, whole-table), merge-on-key (R147), or the
- *  keyless append/union that accumulates periodic exports (R155). */
-export type RefreshMode = 'replace' | 'merge' | 'append';
+/** Refresh mode — replace (R145, whole-table), merge-on-key (R147), the
+ *  keyless append/union that accumulates periodic exports (R155), or replace
+ *  the incoming files' period on a date column, keeping older rows (R189). */
+export type RefreshMode = 'replace' | 'merge' | 'append' | 'replace_period';
 
 /** R145: GET /datasets/{id}/refresh-settings — the carry-forward snapshot a
  *  refresh wizard pre-fills from. Mirrors a commit item's settings shape.
@@ -166,6 +170,8 @@ export type RefreshSettings = {
   overlap_check_field?: string;
   /** R147 D4 — the last refresh's semantics (the per-refresh choice defaults to it). */
   refresh_mode?: RefreshMode;
+  /** R189 — the date column the last replace_period refresh used. */
+  period_column?: string;
   /** R158 — the computed columns (provenance-only for now) recorded in the ingest
    *  registry. The FE reads the name to exclude the computed column from the
    *  schema-drift diff (it exists committed but is absent from every source file).
@@ -210,10 +216,30 @@ export type CommitBatchAppendResponse = {
   append: AppendReport;
 };
 
+/** R189 — what a replace_period refresh did: the period (incoming [min, max]
+ *  of `column`, absent when it could not be read) · committed rows inside it
+ *  removed · incoming rows inserted · committed rows outside it kept. */
+export type PeriodReport = {
+  column: string;
+  from?: string;
+  to?: string;
+  removed: number;
+  inserted: number;
+  kept: number;
+};
+
+/** R189 — 201 shape 4: a replace_period refresh wraps the updated dataset with
+ *  the period report. */
+export type CommitBatchPeriodResponse = {
+  datasets: Dataset[];
+  period: PeriodReport;
+};
+
 export type CommitBatchResponse =
   | Dataset[]
   | CommitBatchMergeResponse
-  | CommitBatchAppendResponse;
+  | CommitBatchAppendResponse
+  | CommitBatchPeriodResponse;
 
 /** R155 — a min/max span on a date/datetime column. */
 export type DateRange = {

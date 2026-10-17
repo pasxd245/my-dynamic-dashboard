@@ -242,3 +242,71 @@ def stack_parquets(parts: list[Path], out: Path) -> int:
             f"ORDER BY __mdd_f, file_row_number) TO {_q_path(out)} (FORMAT 'parquet')"
         )
         return con.execute(f"SELECT count(*) FROM read_parquet({_q_path(out)})").fetchone()[0]
+
+
+class PeriodNullError(ValueError):
+    """R189 — incoming rows with no value in the period column (the period cannot
+    say whether they belong to it; never silently dropped)."""
+
+    def __init__(self, count: int) -> None:
+        super().__init__(f"{count} incoming row(s) have no value in the period column")
+        self.count = count
+
+
+def replace_period_parquets(
+    committed: Path,
+    incoming: Path,
+    out: Path,
+    *,
+    period_column: str,
+    incoming_cols: list[dict[str, str]],
+    provenance_backfill: tuple[str, str] | None = None,
+    provenance_rename: tuple[str, str] | None = None,
+) -> dict:
+    """R189 — replace one period: the period is ``[min, max]`` of
+    ``period_column`` over the incoming rows (inclusive). Committed rows inside it
+    are removed, every incoming row is inserted, committed rows outside it — and
+    committed rows with no value in the column — are kept. Kept rows are reconciled
+    to the incoming schema exactly as merge / append do (``_cur_select_sql``); the
+    comparison runs on the reconciled (incoming-typed) value. Committed rows first,
+    then incoming, each in its own order.
+
+    Returns ``{"column", "from", "to", "removed", "inserted", "kept"}``
+    (``inserted + kept`` = the new row count; ``from`` / ``to`` ISO strings).
+    Raises PeriodNullError (an incoming row without a period value) and
+    MergeCastError (a kept value that cannot cast)."""
+    with duck.connect() as con:
+        con.execute(f"CREATE VIEW inc AS SELECT * FROM read_parquet({_q_path(incoming)})")
+        con.execute(f"CREATE VIEW cur AS SELECT * FROM read_parquet({_q_path(committed)})")
+        col = _q(period_column)
+        nulls = con.execute(f"SELECT count(*) FROM inc WHERE {col} IS NULL").fetchone()[0]  # noqa: S608
+        if nulls:
+            raise PeriodNullError(int(nulls))
+        lo, hi, inserted = con.execute(f"SELECT min({col}), max({col}), count(*) FROM inc").fetchone()  # noqa: S608
+        cur_names = {name for (name, *_rest) in con.execute("DESCRIBE cur").fetchall()}
+        inc_select = ", ".join(f"inc.{_q(c['name'])}" for c in incoming_cols)
+        cur_select = _cur_select_sql(incoming_cols, cur_names, provenance_backfill, provenance_rename)
+        try:
+            con.execute(f"CREATE TEMP TABLE kept_cur AS SELECT {cur_select} FROM cur")  # noqa: S608
+        except duckdb.Error as err:
+            raise MergeCastError(str(err)) from err
+        if lo is None:  # no incoming rows: nothing to replace
+            outside = "TRUE"
+        else:
+            outside = f"({col} IS NULL OR {col} < $lo OR {col} > $hi)"
+        params = {} if lo is None else {"lo": lo, "hi": hi}
+        total_cur = con.execute("SELECT count(*) FROM kept_cur").fetchone()[0]
+        kept = con.execute(f"SELECT count(*) FROM kept_cur WHERE {outside}", params).fetchone()[0]  # noqa: S608
+        con.execute(
+            f"COPY (SELECT * FROM kept_cur WHERE {outside} "  # noqa: S608 — idents quoted via _q
+            f"UNION ALL BY NAME SELECT {inc_select} FROM inc) TO {_q_path(out)} (FORMAT 'parquet')",
+            params,
+        )
+    return {
+        "column": period_column,
+        "from": None if lo is None else lo.isoformat(),
+        "to": None if hi is None else hi.isoformat(),
+        "removed": int(total_cur - kept),
+        "inserted": int(inserted),
+        "kept": int(kept),
+    }
