@@ -59,6 +59,8 @@ their chosen source and mode.
 | `UploadMetadataStep` component (per-sheet tabs)                                           | `apps/builder/src/features/data-management/datasets` | feature      | feature            | react, antd                                      |
 | `UploadPreviewStep` component (per-sheet tabs)                                            | `apps/builder/src/features/data-management/datasets` | feature      | feature            | react, antd                                      |
 | `UploadConfirmStep` component (N-dataset summary)                                         | `apps/builder/src/features/data-management/datasets` | feature      | feature            | react, antd                                      |
+| `UploadDriftStep` component (refresh only: schema-drift review + acknowledge)             | `apps/builder/src/features/data-management/datasets` | feature      | feature            | react, antd                                      |
+| `RefreshExtraFiles` block in `UploadConfirmStep` (refresh only: stacked files)            | `apps/builder/src/features/data-management/datasets` | feature      | feature            | react, antd                                      |
 | `useUploadInitMutation` hook                                                              | `apps/builder/src/features/data-management/datasets` | feature      | glue (server-data) | @tanstack/react-query                            |
 | `useUploadParseMutation` hook                                                             | `apps/builder/src/features/data-management/datasets` | feature      | glue (server-data) | @tanstack/react-query                            |
 | `useDatasetsCommitMutation` hook (atomic batch)                                           | `apps/builder/src/features/data-management/datasets` | feature      | glue (server-data) | @tanstack/react-query                            |
@@ -69,6 +71,7 @@ their chosen source and mode.
 | `parse_csv()` ingestion helper (`ingest/csv_parser.py`)                                   | `apps/backend/app/ingest/`                           | backend      | pure (data)        | duckdb                                           |
 | `parse_sheet()` + `enumerate_sheets()` (`ingest/excel_parser.py`)                         | `apps/backend/app/ingest/`                           | backend      | pure (data)        | openpyxl / duckdb excel ext                      |
 | `write_csv_to_parquet()` + `write_excel_to_parquet()` (`ingest/parquet_writer.py`)        | `apps/backend/app/ingest/`                           | backend      | pure (data)        | duckdb                                           |
+| `stack_parquets()` (`ingest/merge.py`, multi-file refresh)                                | `apps/backend/app/ingest/`                           | backend      | pure (data)        | duckdb                                           |
 | `WizardState` reducer state + `SheetState` (`upload/state.ts`, frontend in-memory)        | `apps/builder/src/features/data-management/datasets` | feature      | data type          | none                                             |
 
 **Boundary check**: no wizard surface lives in `@mdd/ui`. The
@@ -1652,6 +1655,55 @@ merge (present) do — it needs an **explicit mode discriminator**:
    present) byte-for-byte; an explicit `refresh_mode` matching the inferred mode is a no-op.
 
 ---
+
+## Refresh with several files: stack them, then apply the mode
+
+### Concept
+
+A new period often arrives as several exports that together are the dataset's new state (one file
+per month, per branch, per agent). A refresh accepts them as **one** refresh: the files are stacked in
+the order given, and the chosen refresh mode — replace, merge or append — applies to the stack as if
+it were one file. The dataset gets one `dataVersion` bump, one coverage profile, one swap.
+
+### Surface
+
+- **Confirm step, refresh mode only** — a "More files in this refresh" block under the refresh-mode
+  choice (`RefreshExtraFiles` in `UploadConfirmStep.tsx`): the numbered list (the first file, then each
+  added file with its size and a remove button), an **Add files** button (multiple; same format as the
+  first file), and a note that the row counts below are the first file's. Each file is uploaded to
+  `POST /uploads` when added; the wizard state keeps `extraFiles: {tempId, name, size}[]`
+  (`ADD_EXTRA_FILE` ignores the same upload twice, `REMOVE_EXTRA_FILE`).
+- The other steps (Source, Metadata, Preview, Drift) work on the first file only: its settings —
+  sheet, parse options, overrides, exclusions — apply to every file.
+- A create never shows the block; the backend refuses `extra_temp_ids` without `target_dataset_id`.
+
+### Rules (enforced by the backend, before any staging write unless noted)
+
+| Rule                                                                          | Outcome                                                                                               |
+| ----------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| Every extra upload exists                                                     | else 404 (the primary's envelope)                                                                     |
+| Same source format as the first                                               | else 422 naming the file                                                                              |
+| Not the first upload repeated; no upload twice                                | else 422                                                                                              |
+| At most 20 files in all (`extra_temp_ids` 1–19)                               | else 422                                                                                              |
+| Same columns as the first after the item's overrides / exclusions — any order | else 422: `file 'x.csv' does not have the columns of 'y.csv': missing [...]; extra [...]`             |
+| Every value fits the **first** file's committed dtypes (staged write)         | else 422 `coercion_failed` with `file` — nothing committed                                            |
+| Merge: a key repeated across files                                            | the merge's duplicate-incoming-key stop (`merge_duplicate_keys`) — which file should win is ambiguous |
+
+### Mechanism
+
+Each file is written to its own staged part (`part<i>.parquet`) with the same kept columns and
+coercion targets and its **own** name as the provenance value (`Source.Name`); the parts are stacked
+into the staged `parsed.parquet` by file index and in-file row number (`ingest/merge.stack_parquets`),
+then replace / merge / append and the swap run exactly as for one file. A single-file refresh takes
+the unchanged direct path. The extra originals are kept beside the first (`original_<n>.<ext>`) and
+listed in `source.json` as `extraFiles`. The response shapes are those of the chosen mode; a workflow
+that read the dataset reports `data_refreshed` afterwards.
+
+### Wire
+
+`POST /workspaces/{id}/datasets/batch` gains `extra_temp_ids` (request body, beside `temp_id`); the
+`coercion_failed` error gains an optional `file`. Contract: `datasets/batch-post.contract.yaml`,
+`_shared/api-error.yaml`.
 
 ## Provenance column: which source file did each row come from? (R156)
 

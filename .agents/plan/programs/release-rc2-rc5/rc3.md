@@ -16,13 +16,14 @@ The version shapes are now partly fixed by what shipped (decision 14).
 done   3.1 compute (R184)
 done   3.2a dataset dataVersion + refreshedAt (R185) ── 3.3 W-2/W-3/W-5 (R186) ── 3.2b + W-4/W-7 run stamps (R187)
 gate   G-wf (owner) ──────────────────────────────────────────────────────────────┐
-next   3.4 multi-file refresh ─> 3.5 replace_period ─> 3.6 publish + saved copies <┘
+done   3.4 multi-file refresh (R188)
+next   3.5 replace_period ─> 3.6 publish + saved copies <────────────────────────────┘
 then   2.7 design (params, date range, shared filters) ─> 3.7 typed parameters
        ─> 3.2c remaining stamps on read paths ─> 3.8 metadata triple anchor
 ```
 
 Labels from `Round_175 § Feeds into`: **R177** = 3.1, **R178–R179** = 3.4–3.5, **R180** = 3.6. They
-are names; real round numbers are assigned when a round opens (next free: `Round_188`).
+are names; real round numbers are assigned when a round opens (next free: `Round_189`).
 
 Gate commands as in [rc2.md](rc2.md); counts at the batch-1 head `a682f14`: backend 565 · builder
 444 · contracts 46. Dogfood dual-run rc.2 → rc.3 batch 1: 119 / 119 identical; migrations
@@ -109,10 +110,10 @@ definitionHash, sources[]}` — per source what the run read: a query's `definit
 
 Double-count, shape divergence and source change are all caught; `dataVersion` / `run` written by
 the server only. Evidence table: `Round_187` § G-wf (two close-out tests added 2026-10-17: a
-joined-in dataset refreshed, the source dataset deleted). **Agent recommends pass; the owner's
-call**, together with [walk pack](walk-rc2-rc3a.md) session B.
+joined-in dataset refreshed, the source dataset deleted). **Accepted by the owner on 2026-10-17**
+on the agent's recommendation; [walk pack](walk-rc2-rc3a.md) session B confirms it before 3.6 opens.
 
-## 3.4 Refresh with several files at once (label R178) — next
+## 3.4 Refresh with several files at once (label R178) — `Round_188`
 
 |          |                                                                        |
 | -------- | ---------------------------------------------------------------------- |
@@ -132,6 +133,12 @@ call**, together with [walk pack](walk-rc2-rc3a.md) session B.
   dataset reads `data_refreshed` afterwards (R187).
 - **Walk:** refresh a dataset with two monthly files; the row count is their sum, the version moved
   once.
+- **As built (R188, review):** `extra_temp_ids` (1–19) beside `temp_id` on the batch request,
+  refresh-only (422 on a create); the first file's settings and committed dtypes apply to every
+  file; other columns → 422 naming the file; a value that does not fit → `coercion_failed` with the
+  new optional `file`; parts stacked by file index + in-file row number (`stack_parquets`); one
+  version bump; Confirm-step "More files in this refresh" block. A key repeated across files under
+  merge → `merge_duplicate_keys`.
 
 ## 3.5 `replace_period` refresh mode (label R179)
 
@@ -142,7 +149,8 @@ call**, together with [walk pack](walk-rc2-rc3a.md) session B.
 | Evidence | a weekly export re-covers the last N days; rows in that window must be replaced, older rows kept |
 
 - **Contract:** `refresh_mode += replace_period`, with `periodColumn` (date / datetime). The period
-  = `[min, max]` of `periodColumn` in the incoming file(s), inclusive. Remembered in the refresh
+  = `[min, max]` of `periodColumn` in the incoming file(s) — the whole stack when 3.4's several files
+  arrive — inclusive. Remembered in the refresh
   settings like `merge_key` (R147).
 - **Semantics:** committed rows inside the period are deleted; incoming rows inserted; committed rows
   outside kept. Response reports `{replacedFrom, replacedTo, removedRows, insertedRows}` (a fourth

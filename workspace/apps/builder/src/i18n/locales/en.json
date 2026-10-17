@@ -530,6 +530,14 @@
       "showing_other": "Showing {{shown}} of {{total}} rows · {{cols}} columns (scroll horizontally for more)"
     },
     "refresh": {
+      "extraFilesTitle": "More files in this refresh",
+      "extraFilesHint": "Add the other files that make up the new data (e.g. one per month). Each must have the same columns as {{first}}; the rows of all files are stacked, then the refresh mode above applies to them together.",
+      "extraFilesRowsNote_one": "The row count below is the first file's; the other file's rows are added when you refresh.",
+      "extraFilesRowsNote_other": "The row count below is the first file's; the other {{count}} files' rows are added when you refresh.",
+      "extraFilesFirst": "first file",
+      "extraFilesAdd": "Add files",
+      "extraFilesRemove": "Remove {{name}}",
+      "extraFilesUploadFailed": "Could not upload {{name}}. Try again.",
       "crumb": "Refresh",
       "title": "Refresh dataset",
       "subtitle": "Re-upload a new export into “{{name}}”.",

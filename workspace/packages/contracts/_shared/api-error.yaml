@@ -216,6 +216,13 @@ components:
           type: string
           minLength: 1
           description: Excel only — the failing item's sheet. Omitted on CSV.
+        file:
+          type: string
+          minLength: 1
+          description: |
+            R188 — a multi-file refresh only: the uploaded file (its original
+            name) whose values did not fit the committed dtype. Omitted for a
+            single-file commit.
         column:
           type: string
           minLength: 1

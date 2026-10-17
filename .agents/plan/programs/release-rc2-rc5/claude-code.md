@@ -20,8 +20,8 @@ Claude Code never pushes, never tags, never flips `Complete`.
 
 **Where things stand (2026-10-17):** rc.2 built on `release/v0.0.1-rc.2` (R177–R183); rc.3 batch 1
 built on `release/v0.0.1-rc.3` (R184–R187); design corpus synced; walks pending —
-[walk pack](walk-rc2-rc3a.md) sessions A and B. Next kickoff: item **3.4** on `release/v0.0.1-rc.3`
-(it may start before the walks; 3.6 waits for G-wf). In a cloud session the branches arrive by
+[walk pack](walk-rc2-rc3a.md) sessions A and B. 3.4 built (R188); next kickoff: item **3.5** on
+`release/v0.0.1-rc.3` (3.6 waits for walk session B to confirm G-wf). In a cloud session the branches arrive by
 bundle (`99_git_bundles/`) and leave the same way; the owner pushes with `sync.ps1`.
 
 ## Kickoff prompt (one per item)

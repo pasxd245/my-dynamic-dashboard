@@ -132,7 +132,14 @@ export type WizardState = {
    *  overlap check runs on; null = "None" (the always-warn state). FE state
    *  only in F1; the wire field + the backend range compare land at C. */
   overlapCheckField: string | null;
+  /** Refresh only (R188) — further uploads stacked under the first file into
+   *  ONE refresh (same columns; the refresh mode applies to the stack). Each is
+   *  uploaded when added; the commit sends their temp ids as `extra_temp_ids`. */
+  extraFiles: ExtraFile[];
 };
+
+/** R188 — one additional file of a multi-file refresh. */
+export type ExtraFile = { tempId: string; name: string; size: number };
 
 export const INITIAL_WIZARD_STATE: WizardState = {
   step: "source",
@@ -157,6 +164,7 @@ export const INITIAL_WIZARD_STATE: WizardState = {
   refreshMode: "replace",
   mergeKey: [],
   overlapCheckField: null,
+  extraFiles: [],
 };
 
 function stemFromName(filename: string): string {
@@ -228,6 +236,8 @@ export type WizardAction =
   | { type: "SET_MERGE_KEY"; key: string[] }
   | { type: "SET_OVERLAP_FIELD"; field: string | null }
   | { type: "SET_DRIFT_ACK"; acknowledged: boolean }
+  | { type: "ADD_EXTRA_FILE"; file: ExtraFile }
+  | { type: "REMOVE_EXTRA_FILE"; tempId: string }
   | { type: "GOTO_STEP"; step: WizardStep }
   | { type: "RESET" };
 
@@ -601,6 +611,12 @@ export function wizardReducer(
       return setSheet(state, action.unit, { name: action.name, nameEdited: true });
     case "SEED_REFRESH":
       return reduceSeedRefresh(action.target, action.settings);
+    case "ADD_EXTRA_FILE":
+      // R188 — the same upload twice would double its rows; ignore a repeat.
+      if (state.extraFiles.some((f) => f.tempId === action.file.tempId)) return state;
+      return { ...state, extraFiles: [...state.extraFiles, action.file] };
+    case "REMOVE_EXTRA_FILE":
+      return { ...state, extraFiles: state.extraFiles.filter((f) => f.tempId !== action.tempId) };
     case "SET_REFRESH_MODE":
       return { ...state, refreshMode: action.mode };
     case "SET_MERGE_KEY":

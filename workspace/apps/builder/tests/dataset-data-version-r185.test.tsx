@@ -48,7 +48,7 @@ describe('R185 data version on the dataset page', () => {
 describe('R185 MSW stamps like the server', () => {
   it('a commit is version 1 and a refresh bumps the version', async () => {
     const created = await datasetsApi.commitBatch(MOCK_DATASET.workspaceId, {
-      temp_id: 'tmp_aaaaaaaa',
+      temp_id: 'tmp_aaaaaaaaaaaaaaaa',
       items: [{ name: 'fresh' }],
     });
     const first = Array.isArray(created) ? created[0] : created.datasets[0];
@@ -56,7 +56,7 @@ describe('R185 MSW stamps like the server', () => {
     expect(first?.refreshedAt).toBe(first?.createdAt);
 
     const refreshed = await datasetsApi.commitBatch(MOCK_DATASET.workspaceId, {
-      temp_id: 'tmp_aaaaaaaa',
+      temp_id: 'tmp_aaaaaaaaaaaaaaaa',
       items: [{ name: 'IGNORED', target_dataset_id: MOCK_DATASET.id }],
     });
     const again = Array.isArray(refreshed) ? refreshed[0] : refreshed.datasets[0];

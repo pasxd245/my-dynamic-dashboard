@@ -251,6 +251,8 @@ class ApiErrorCoercionFailed(BaseModel):
 
     code: Literal["coercion_failed"] = ERROR_CODES["coercion_failed"]  # type: ignore[assignment]
     sheet: str | None = None
+    # R188 — on a multi-file refresh, the file whose values did not fit.
+    file: str | None = None
     column: str
     dtype: Dtype
     cells: Annotated[list[CoercionFailedCell], Field(min_length=1, max_length=5)]

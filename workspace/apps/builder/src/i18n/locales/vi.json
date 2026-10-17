@@ -530,6 +530,14 @@
       "showing_other": "Hiển thị {{shown}}/{{total}} dòng · {{cols}} cột (cuộn ngang để xem thêm)"
     },
     "refresh": {
+      "extraFilesTitle": "Thêm file cho lần cập nhật này",
+      "extraFilesHint": "Thêm các file còn lại tạo nên dữ liệu mới (ví dụ mỗi tháng một file). Mỗi file phải có cùng các cột với {{first}}; các dòng của mọi file được xếp chồng, rồi chế độ cập nhật ở trên áp dụng cho tất cả.",
+      "extraFilesRowsNote_one": "Số dòng bên dưới là của file đầu tiên; các dòng của file còn lại được thêm khi cập nhật.",
+      "extraFilesRowsNote_other": "Số dòng bên dưới là của file đầu tiên; các dòng của {{count}} file còn lại được thêm khi cập nhật.",
+      "extraFilesFirst": "file đầu tiên",
+      "extraFilesAdd": "Thêm file",
+      "extraFilesRemove": "Bỏ {{name}}",
+      "extraFilesUploadFailed": "Không tải lên được {{name}}. Vui lòng thử lại.",
       "crumb": "Cập nhật",
       "title": "Cập nhật tập dữ liệu",
       "subtitle": "Tải lên bản xuất mới vào “{{name}}”.",

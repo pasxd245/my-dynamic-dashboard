@@ -19,6 +19,8 @@ export type ApiError =
       // R143 — commit-time dtype cast failed (batch aborted; first-5 cells)
       code: 'coercion_failed';
       sheet?: string;
+      /** R188 — multi-file refresh: the file whose values did not fit. */
+      file?: string;
       column: string;
       dtype: string;
       cells: { row: number; value: string }[];

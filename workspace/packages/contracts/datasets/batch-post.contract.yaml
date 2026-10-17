@@ -34,6 +34,27 @@ paths:
                 temp_id:
                   type: string
                   pattern: '^tmp_[0-9a-f]{16}$'
+                extra_temp_ids:
+                  type: array
+                  minItems: 1
+                  maxItems: 19
+                  uniqueItems: true
+                  items:
+                    type: string
+                    pattern: '^tmp_[0-9a-f]{16}$'
+                  description: |
+                    R188 — refresh only (the item carries `target_dataset_id`;
+                    on a create → 422). Further uploads stacked, in order,
+                    under `temp_id`'s file into ONE refresh: each is parsed
+                    with the item's settings and must have the same columns
+                    (any order; a mismatch → 422 naming the file); the first
+                    file's committed dtypes are the coercion targets for all
+                    (a value that does not fit → 422 `coercion_failed` with
+                    `file`); each row's provenance column names its own file.
+                    The refresh mode (replace / merge / append) then applies to
+                    the stack; one `dataVersion` bump, one coverage profile.
+                    Every upload must exist (404) and share the source format
+                    (422). At most 20 files in all.
                 items:
                   type: array
                   minItems: 1

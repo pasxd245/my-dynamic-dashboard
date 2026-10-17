@@ -187,7 +187,12 @@ export function DatasetNewPage() {
     try {
       const result = await commitMutation.mutateAsync({
         workspaceId: state.workspaceId,
-        body: { temp_id: state.tempId, items: [item] },
+        body: {
+          temp_id: state.tempId,
+          items: [item],
+          // R188 — the stacked files, in the order they were added.
+          ...(state.extraFiles.length > 0 ? { extra_temp_ids: state.extraFiles.map((f) => f.tempId) } : {}),
+        },
       });
       // R155 — the 201 is a 3-way union (array | merge wrapper | append wrapper);
       // narrow on `merge` / `append` for the matching success toast.

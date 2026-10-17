@@ -1,4 +1,7 @@
-import { Alert, Input, Radio, Select, Space, Table, Tag, Typography } from 'antd';
+import { Alert, Button, Input, Radio, Select, Space, Table, Tag, Typography, Upload } from 'antd';
+import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
+import { useState } from 'react';
+import { uploadsApi } from '@/api/uploadsApi';
 import type { TFunction } from 'i18next';
 import type { Dispatch } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
@@ -55,12 +58,14 @@ function commitErrorDescription(err: Error, t: TFunction): string {
       }
       if (err.body.code === ERROR_CODES.COERCION_FAILED) {
         // R143 — name the column, target dtype, sample cells, total count.
-        const { sheet, column, dtype, cells, totalFailed } = err.body;
+        const { sheet, file, column, dtype, cells, totalFailed } = err.body;
         const samples = cells
           .map((c) => t('upload.confirm.errorCoercionFailedCell', { row: c.row, value: c.value }))
           .join(SAMPLE_SEP);
+        // R188 — on a multi-file refresh the file comes first: "march.csv › calls".
+        const where = [file, sheet, column].filter(Boolean).join(' \u203a ');
         const base = t('upload.confirm.errorCoercionFailedDescription', {
-          column: sheet ? `${sheet} \u203a ${column}` : column,
+          column: where,
           dtype,
           count: totalFailed,
           samples,
@@ -289,6 +294,83 @@ type RowData = {
   overrideCount: number;
 };
 
+/** R188 — more files in the same refresh. Each is uploaded when added (so the
+ *  commit only sends ids); the server checks columns and values at commit and
+ *  names the file that does not fit. Order = the order added. */
+function RefreshExtraFiles({ state, dispatch }: Readonly<Pick<Props, 'state' | 'dispatch'>>) {
+  const { t } = useTranslation();
+  const [busy, setBusy] = useState(0);
+  const [failed, setFailed] = useState<string | null>(null);
+  const first = state.file?.name ?? '—';
+  const full = 1 + state.extraFiles.length >= 20;
+  const add = async (file: File) => {
+    setBusy((n) => n + 1);
+    setFailed(null);
+    try {
+      const res = await uploadsApi.createTemp(file, state.sourceFormat);
+      dispatch({ type: 'ADD_EXTRA_FILE', file: { tempId: res.temp_id, name: file.name, size: file.size } });
+    } catch {
+      setFailed(file.name);
+    } finally {
+      setBusy((n) => n - 1);
+    }
+  };
+  return (
+    <div data-component="RefreshExtraFiles" style={{ marginBottom: 16 }}>
+      <Typography.Text strong>{t('upload.refresh.extraFilesTitle')}</Typography.Text>
+      <Typography.Paragraph type="secondary" style={{ margin: '4px 0 8px' }}>
+        {t('upload.refresh.extraFilesHint', { first })}
+      </Typography.Paragraph>
+      {state.extraFiles.length > 0 ? (
+        <ol style={{ margin: '0 0 8px', paddingInlineStart: 20 }} data-component="RefreshExtraFileList">
+          <li>
+            {first} <Typography.Text type="secondary">({t('upload.refresh.extraFilesFirst')})</Typography.Text>
+          </li>
+          {state.extraFiles.map((f) => (
+            <li key={f.tempId}>
+              {f.name} <Typography.Text type="secondary">({formatBytes(f.size)})</Typography.Text>{' '}
+              <Button
+                type="text"
+                size="small"
+                icon={<DeleteOutlined />}
+                aria-label={t('upload.refresh.extraFilesRemove', { name: f.name })}
+                onClick={() => dispatch({ type: 'REMOVE_EXTRA_FILE', tempId: f.tempId })}
+              />
+            </li>
+          ))}
+        </ol>
+      ) : null}
+      {state.extraFiles.length > 0 ? (
+        <Typography.Paragraph type="secondary" style={{ margin: '0 0 8px' }}>
+          {t('upload.refresh.extraFilesRowsNote', { count: state.extraFiles.length })}
+        </Typography.Paragraph>
+      ) : null}
+      <Upload
+        multiple
+        accept={state.sourceFormat === 'csv' ? '.csv,text/csv' : '.xlsx,.xls'}
+        showUploadList={false}
+        disabled={full}
+        beforeUpload={(file) => {
+          void add(file as File);
+          return false;
+        }}
+      >
+        <Button icon={<PlusOutlined />} loading={busy > 0} disabled={full} data-component="RefreshAddFiles">
+          {t('upload.refresh.extraFilesAdd')}
+        </Button>
+      </Upload>
+      {failed ? (
+        <Alert
+          type="error"
+          showIcon
+          style={{ marginTop: 8 }}
+          title={t('upload.refresh.extraFilesUploadFailed', { name: failed })}
+        />
+      ) : null}
+    </div>
+  );
+}
+
 export function UploadConfirmStep({ state, dispatch, commitError }: Props) {
   const { t } = useTranslation();
   const isCsv = state.sourceFormat === 'csv';
@@ -409,6 +491,7 @@ export function UploadConfirmStep({ state, dispatch, commitError }: Props) {
   return (
     <div data-component="UploadConfirmStep">
       {isRefresh ? <RefreshSemantics state={state} dispatch={dispatch} /> : null}
+      {isRefresh ? <RefreshExtraFiles state={state} dispatch={dispatch} /> : null}
       <div
         style={{
           marginBottom: 12,

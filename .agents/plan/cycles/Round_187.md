@@ -137,7 +137,7 @@ together with walk session B ([walk pack](../programs/release-rc2-rc5/walk-rc2-r
       the numbers below are labelled as the last run's; Utility — "can I trust this table?";
       Desirability — one warning, gone after a re-run.
 - [x] ⟢ At a glance **Studied** line written
-- [ ] **G-wf** (owner) — the evidence table above
+- [x] **G-wf** (owner) — accepted on the agent's recommendation 2026-10-17 ("ok với đề xuất, go ahead"); walk session B confirms it before item 3.6 opens
 - [ ] **Acceptance walk** (human reviewer) — ⬜ verdicts, `coverage: 0 of 4`:
   - ⬜ W1 — run a workflow: the summary shows Run #1; run again: Run #2.
   - ⬜ W2 — refresh a dataset one of its source queries reads: the workflow page warns, naming
@@ -150,7 +150,7 @@ together with walk session B ([walk pack](../programs/release-rc2-rc5/walk-rc2-r
 
 _(at close)_
 
-## Feeds into → Round_188 (TBD)
+## Feeds into → [Round_188](Round_188.md)
 
 **Stop for review.** Re-baselined 2026-10-17 by the program
 [release-rc2-rc5](../programs/release-rc2-rc5/rc3.md): R188 is item **3.4 — refresh with several

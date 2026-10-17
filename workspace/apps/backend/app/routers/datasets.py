@@ -46,6 +46,7 @@ from app.ingest.merge import (
     append_parquets,
     column_min_max,
     merge_parquets,
+    stack_parquets,
 )
 from app.ingest.profile import profile_date_coverage
 from app.ingest.rows_reader import query_dataset_rows
@@ -127,11 +128,27 @@ class _BatchItem(BaseModel):
     overlap_check_field: Annotated[str, Field(min_length=1)] | None = None
 
 
+_TEMP_ID = Annotated[str, Field(pattern=r"^tmp_[0-9a-f]{16}$")]
+# R188 — a refresh may stack this many files (the primary `temp_id` + extras).
+MAX_REFRESH_FILES = 20
+
+
 class _BatchRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    temp_id: Annotated[str, Field(pattern=r"^tmp_[0-9a-f]{16}$")]
+    temp_id: _TEMP_ID
     items: Annotated[list[_BatchItem], Field(min_length=1)]
+    # R188 — refresh only: further uploads stacked under `temp_id`'s file, in
+    # order, into ONE refresh (same columns; the refresh mode then applies to the
+    # stack). Each file's rows carry its own name in the provenance column.
+    extra_temp_ids: Annotated[list[_TEMP_ID], Field(min_length=1, max_length=MAX_REFRESH_FILES - 1)] | None = None
+
+    @field_validator("extra_temp_ids")
+    @classmethod
+    def _distinct_extras(cls, v: list[str] | None) -> list[str] | None:
+        if v is not None and len(v) != len(set(v)):
+            raise ValueError("extra_temp_ids must not repeat an upload")
+        return v
 
 
 def _apply_overrides(
@@ -566,6 +583,44 @@ def _run_append(
     return append_stats
 
 
+def _extra_uploads(body: _BatchRequest, source_format: str) -> list[tuple[str, dict, Path]]:
+    """R188 — resolve a refresh's extra uploads to ``(temp_id, meta, original
+    path)`` in request order. An unknown / expired upload → 404 (the same envelope
+    as the primary); another source format → 422; the primary repeated → 422."""
+    out: list[tuple[str, dict, Path]] = []
+    for tid in body.extra_temp_ids or []:
+        if tid == body.temp_id:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="extra_temp_ids must not repeat temp_id",
+            )
+        m = _load_meta(tid)
+        path = temp_upload_dir(tid) / f"original{m['ext']}" if m is not None else None
+        if m is None or path is None or not path.exists():
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="workspace or temp_id not found")
+        if m["sourceFormat"] != source_format:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"file {m.get('originalName') or tid!r} is {m['sourceFormat']}; every file of a refresh must be {source_format}",
+            )
+        out.append((tid, m, path))
+    return out
+
+
+def _coercion_response(err: CoercionError, sheet_name: str | None, file_name: str | None) -> JSONResponse:
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        content=ApiErrorCoercionFailed(
+            sheet=sheet_name,
+            file=file_name,
+            column=err.column,
+            dtype=err.dtype,  # type: ignore[arg-type]
+            cells=[CoercionFailedCell(row=r, value=v) for r, v in err.cells],
+            totalFailed=err.total_failed,
+        ).model_dump(exclude_none=True),
+    )
+
+
 def _handle_refresh(
     body: _BatchRequest, meta: dict, original_path: Path, source_format: str
 ) -> list[Dataset] | JSONResponse:
@@ -606,6 +661,27 @@ def _handle_refresh(
 
     parsed, cols, opts, kept_names, dtype_targets, dtype_formats = _parse_and_target(item, source_format, original_path)
     sheet_name = item.sheet if source_format == "excel" else None
+
+    # R188 — further files stacked under the first. Each is parsed with the SAME
+    # item settings (sheet, parse options, overrides, exclusions) and must keep the
+    # same columns (any order); the FIRST file's committed dtypes are the coercion
+    # targets for all of them, so a file whose values do not fit fails the whole
+    # refresh with the file named. Checked before any staging write.
+    extras = _extra_uploads(body, source_format)
+    first_name = meta.get("originalName") or body.temp_id
+    incoming_rows = parsed.row_count
+    for tid, xmeta, xpath in extras:
+        xparsed, _xcols, _o, x_kept, _t, _f = _parse_and_target(item, source_format, xpath)
+        missing = [c for c in kept_names if c not in set(x_kept)]
+        extra_cols = [c for c in x_kept if c not in set(kept_names)]
+        if missing or extra_cols:
+            parts = ([f"missing {missing}"] if missing else []) + ([f"extra {extra_cols}"] if extra_cols else [])
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"file {xmeta.get('originalName') or tid!r} does not have the columns of {first_name!r}: "
+                + "; ".join(parts),
+            )
+        incoming_rows += xparsed.row_count
 
     # R156/R158 — recompute the computed provenance column on refresh. Recognize
     # WHICH column is provenance from the `commitSettings.computed_columns`
@@ -665,40 +741,43 @@ def _handle_refresh(
 
     # Coercion is validated HERE, on the staging copy, BEFORE any swap → the
     # existing dataset is untouched on failure (acceptance #4).
-    try:
-        _write_parquet(
-            source_format,
-            original_path,
-            staging_dir / "parsed.parquet",
-            opts=opts,
-            kept_names=kept_names,
-            dtype_targets=dtype_targets,
-            dtype_formats=dtype_formats,
-            sheet=sheet_name,
-            provenance_value=meta.get("originalName") or "",
-            provenance_name=prov_name,
-        )
-    except CoercionError as err:
-        shutil.rmtree(staging_dir, ignore_errors=True)
-        logger.warning(
-            "coercion_failed (refresh): dataset=%r column=%r dtype=%s total_failed=%d first_cell=(row %d, %r)",
-            target_id,
-            err.column,
-            err.dtype,
-            err.total_failed,
-            err.cells[0][0],
-            err.cells[0][1],
-        )
-        return JSONResponse(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            content=ApiErrorCoercionFailed(
+    # R188 — one file writes `parsed.parquet` directly (unchanged path); several
+    # write one part each (own provenance value) and are stacked in request order.
+    files = [(original_path, meta.get("originalName") or "")] + [(p, m.get("originalName") or "") for _t, m, p in extras]
+    parts = [staging_dir / "parsed.parquet"] if len(files) == 1 else [
+        staging_dir / f"part{i}.parquet" for i in range(len(files))
+    ]
+    for (src_path, src_name), part in zip(files, parts, strict=True):
+        try:
+            _write_parquet(
+                source_format,
+                src_path,
+                part,
+                opts=opts,
+                kept_names=kept_names,
+                dtype_targets=dtype_targets,
+                dtype_formats=dtype_formats,
                 sheet=sheet_name,
-                column=err.column,
-                dtype=err.dtype,  # type: ignore[arg-type]
-                cells=[CoercionFailedCell(row=r, value=v) for r, v in err.cells],
-                totalFailed=err.total_failed,
-            ).model_dump(exclude_none=True),
-        )
+                provenance_value=src_name,
+                provenance_name=prov_name,
+            )
+        except CoercionError as err:
+            shutil.rmtree(staging_dir, ignore_errors=True)
+            logger.warning(
+                "coercion_failed (refresh): dataset=%r file=%r column=%r dtype=%s total_failed=%d first_cell=(row %d, %r)",
+                target_id,
+                src_name,
+                err.column,
+                err.dtype,
+                err.total_failed,
+                err.cells[0][0],
+                err.cells[0][1],
+            )
+            return _coercion_response(err, sheet_name, (src_name or None) if len(files) > 1 else None)
+    if len(parts) > 1:
+        stack_parquets(parts, staging_dir / "parsed.parquet")
+        for part in parts:
+            part.unlink(missing_ok=True)
     # R156 — provenance was injected into the staged write above (skipped on a
     # source-column name collision), so append/merge see it as an incoming column.
     # R147 — MERGE: reconcile the staged incoming table with the committed
@@ -716,6 +795,8 @@ def _handle_refresh(
         append_stats = _run_append(staging_dir, ds_dir, cols, target_id, prov_backfill, prov_rename)
 
     shutil.copy2(original_path, staging_dir / f"original{meta['ext']}")
+    for i, (_tid, xmeta, xpath) in enumerate(extras, start=2):
+        shutil.copy2(xpath, staging_dir / f"original_{i}{xmeta['ext']}")
     # R158 — record the computed provenance column in the registry (recompute-on-
     # refresh persists the pointer, synthesizing it for a legacy dataset).
     commit_settings = _commit_settings_dict(item, sheet_name, provenance_name=prov_name)
@@ -730,9 +811,11 @@ def _handle_refresh(
     remembered_field = (item.overlap_check_field if mode == "append" else None) or prev_cs.get("overlap_check_field")
     if remembered_field:
         commit_settings["overlap_check_field"] = remembered_field
-    (staging_dir / "source.json").write_text(
-        _source_json_dict(body.temp_id, source_format, sheet_name, meta, commit_settings)
-    )
+    source = json.loads(_source_json_dict(body.temp_id, source_format, sheet_name, meta, commit_settings))
+    if extras:
+        # R188 — the stacked files beside the primary, in order (provenance values).
+        source["extraFiles"] = [{"temp_id": t, "originalName": m.get("originalName")} for t, m, _p in extras]
+    (staging_dir / "source.json").write_text(json.dumps(source, ensure_ascii=False))
 
     # R152 — carry the `hidden` view-hint forward across a refresh (both replace
     # and merge). Presentation-only: the parquet was already written above and is
@@ -751,7 +834,7 @@ def _handle_refresh(
     elif append_stats is not None:
         new_row_count = append_stats["total"]
     else:
-        new_row_count = parsed.row_count
+        new_row_count = incoming_rows
 
     # Atomic swap: old dir → .bak, staging → live, then UPDATE the row. Any
     # failure restores the old directory so the dataset is never left broken.
@@ -832,6 +915,13 @@ def commit_datasets_batch(id: str, body: _BatchRequest) -> list[Dataset] | JSONR
     # handler, which enforces single-item + atomic in-place swap.
     if any(it.target_dataset_id is not None for it in body.items):
         return _handle_refresh(body, meta, original_path, source_format)
+    if body.extra_temp_ids:
+        # R188 — stacking several files is a refresh semantics (one dataset, one
+        # version bump); a create commits one upload's sheets as datasets.
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="extra_temp_ids requires target_dataset_id (multi-file is a refresh)",
+        )
 
     # Validate items up front. Any failure rejects the whole batch.
     for item in body.items:

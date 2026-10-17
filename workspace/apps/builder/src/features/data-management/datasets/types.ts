@@ -176,6 +176,8 @@ export type RefreshSettings = {
 export type CommitBatchRequest = {
   temp_id: string;
   items: CommitBatchItem[];
+  /** R188 — refresh only: further uploads stacked under `temp_id` (1–19). */
+  extra_temp_ids?: string[];
 };
 
 /** R147 — what the merge did: incoming rows that superseded a committed key ·

@@ -225,3 +225,20 @@ def column_min_max(parquet: Path, field: str) -> tuple | None:
             f"SELECT min({_q(field)}), max({_q(field)}) FROM read_parquet({_q_path(parquet)})"  # noqa: S608 — idents quoted
         ).fetchone()
     return None if lo is None or hi is None else (lo, hi)
+
+
+def stack_parquets(parts: list[Path], out: Path) -> int:
+    """R188 — stack the per-file parquets of a multi-file refresh into ``out``, in
+    the given file order and each file's own row order (an explicit sort on file
+    index + ``file_row_number``, not an engine ordering guarantee). Columns align
+    by name — every part was written from the same kept columns and coercion
+    targets, so the types agree. Returns the stacked row count."""
+    selects = " UNION ALL BY NAME ".join(
+        f"SELECT *, {i} AS __mdd_f FROM read_parquet({_q_path(p)}, file_row_number = true)" for i, p in enumerate(parts)
+    )
+    with duck.connect() as con:
+        con.execute(
+            f"COPY (SELECT * EXCLUDE (__mdd_f, file_row_number) FROM ({selects}) "  # noqa: S608 — paths quoted
+            f"ORDER BY __mdd_f, file_row_number) TO {_q_path(out)} (FORMAT 'parquet')"
+        )
+        return con.execute(f"SELECT count(*) FROM read_parquet({_q_path(out)})").fetchone()[0]
