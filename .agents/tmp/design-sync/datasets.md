@@ -1,141 +1,133 @@
-# Detect — datasets (CODE-TRUTH + drift)
+# Design-sync — datasets (CODE-TRUTH + drift)
 
-Date: 2026-06-17
-Domain: `.agents/design/data-management/datasets/` (+ the dataset CRUD claims in `_shared/crud-hygiene.md`)
-Rule: THE CODE IS THE SOURCE OF TRUTH. Every divergence below is doc-says-X / code-does-Y.
+Date: 2026-10-17
+Mode: sync (full) — branch `release/v0.0.1-rc.3`
+Domain: `.agents/design/data-management/datasets/`
+Rule: THE CODE IS THE SOURCE OF TRUTH. Every item is doc-says-X / code-does-Y.
+Docs last synced before R177; this pass covers R177–R187 plus pre-existing drift found
+while reading the code.
 
----
-
-## 1. CODE-TRUTH map
-
-### 1.1 Routes
-
-Backend files read: `app/routers/datasets.py`, `app/routers/uploads.py`.
-
-| Method | Path | Request body / params (exact field names) | Success | Error statuses + codes/details |
-| --- | --- | --- | --- | --- |
-| POST | `/uploads` | multipart: `file` (UploadFile), `sourceFormat` (Form, `Literal["csv","excel"]`) | 200 `TempUploadCsv` or `TempUploadExcel` (NOT 201) | 413 `"file too large"`; 415 `"sourceFormat/extension mismatch"` / `"excel read failed: …"` / `"excel workbook has no sheets"`; 422 `"unknown sourceFormat"`; 422 CSV parse failure (str(exc)) |
-| POST | `/uploads/{temp_id}/parse` | JSON `_ParseRequest`: `items: [{ sheet?: str, parse_options?: ParseOptions }]` (min_length 1) | 200 `{ "results": [ … ] }` (per-item `status` ok/failed) | 404 `"temp_id unknown"` / `"temp file missing"` / `"temp_id has unknown sourceFormat"`; 422 missing/unknown sheet (excel), `"CSV uploads accept exactly one item"`, `"CSV items must not carry sheet"` |
-| POST | `/workspaces/{id}/datasets/batch` | JSON `_BatchRequest`: `temp_id` (`^tmp_[0-9a-f]{16}$`), `items: [_BatchItem]` (min 1). `_BatchItem`: `sheet?`, `name` (1–120), `parse_options?`, `column_overrides?: dict[str,ColumnOverride]`, `excluded_columns?: list[str]`, `target_dataset_id?` (`^ds_[0-9a-f]{8}$`) | 201 `list[Dataset]` (`response_model_exclude_none`) | 404 `"workspace or temp_id not found"`; 422 `target_dataset_id` reserved, excel-needs-sheet, override date/datetime needs `format`, excluded leaves zero cols; 409 `unknown_column` (overrides/exclusions ref missing col), 409 `name_taken` (unique index) |
-| PATCH | `/datasets/{id}` (`id` ~ `ID_PATTERNS["dataset"]`) | JSON `RenameDatasetBody`: `name` (1–`NAME_LENGTHS["dataset_max"]`) | 200 `Dataset` (exclude_none) | 404 `not_found`; 409 `name_taken` |
-| DELETE | `/datasets/{id}` | — | 204 (no body) | 404 `not_found`. **App-level cascade: deletes `queries WHERE source_id = <ds>` then the dataset, then rmtree the dir** (R79) |
-| GET | `/datasets/{id}` | — | 200 `Dataset` (exclude_none) | 404 `not_found` |
-| GET | `/datasets/{id}/rows` | query: `page` (≥1, def 1), `page_size` (def 50; validated against `PAGE_SIZES`), `q` (1–200), per-column `f<N>_op/_val/_min/_max`, `aq` (DNF JSON) | 200 `RowsPage` = `{ rows: (str\|null)[][], page, pageSize, total }` | 404 `not_found`; 422 off-enum page_size, `filter_*` codes, `advanced_query_malformed`. Out-of-range page → 200 empty rows |
-| GET | `/datasets` | query: `workspace_id?` (`ID_PATTERNS["workspace"]`) | 200 `list[Dataset]` ordered `created_at DESC, id DESC` | — |
-
-### 1.2 Model / columns / persistence
-
-- ORM reality: **mixed**. Schema-of-record is **SQLModel** (`app/db_models.py`) + **Alembic** migrations (`0001_baseline`, `0002_query_source_id`). But every router handler uses **raw `sqlite3`** via `get_conn()` (`con.execute(...)`), NOT the ORM session. R78 (persistence foundation) + R79 (source_id cleanup) landed AFTER all five design docs were last written.
-- `datasets` table columns (snake_case, all `TEXT`/`INTEGER`): `id` PK, `workspace_id` (FK→workspaces, ON DELETE CASCADE), `name`, `size_bytes`, `row_count`, `column_count`, `columns_json`, `source_format`, `sheet_name?`, `created_at`. CHECKs: name 1–120, size_bytes≥0, row_count≥0, column_count≥1, source_format IN (csv,excel). Indexes: `idx_datasets_workspace_id`, `idx_datasets_name_unique` (workspace_id,name UNIQUE).
-- Wire (camelCase) vs DB (snake_case): `workspaceId`↔`workspace_id`, `sizeBytes`↔`size_bytes`, `rowCount`↔`row_count`, `columnCount`↔`column_count`, `columns`↔`columns_json` (JSON), `sourceFormat`↔`source_format`, `sheetName`↔`sheet_name`, `createdAt`↔`created_at`.
-- Row storage: **DuckDB over Parquet**, not pyarrow. FS layout (`app/storage.py`): committed = `data/datasets/<ws>/<ds>/{original.<ext>, parsed.parquet, source.json}`; temp = `data/uploads_tmp/<temp_id>/{original.<ext>, meta.json}`. **`meta.json`** (not `metadata.json`). No per-sheet `parsed.<sheetkey>.parquet` / `preview.<sheetkey>.json` files — the temp dir holds only the single `original.<ext>` + `meta.json`; sheet parse is re-read on demand, never persisted to per-sheet files.
-- Rows reader (`app/ingest/rows_reader.py`): ephemeral `duckdb.connect(":memory:")` per call over `read_parquet(?)`; cells stringified via `CAST(col AS VARCHAR)`. Also contains the R71+ join execution path (`build_joined_select`, `query_joined_rows`, `build_effective_columns`) — out of datasets-doc scope but lives in this domain's code.
-
-### 1.3 FE components + homes (per surface)
-
-All under `apps/builder/src/features/data-management/datasets/`. **No dataset surface in `@mdd/ui`** EXCEPT `<PagedRowsView>` (lives in `@mdd/ui`, imported from `../_shared/PagedRowsView`).
-
-- List: `DatasetsPage.tsx` (contains `DatasetTable`, `EmptyDropZone`, `SourceIcon`, `relativeTime` inline — `DatasetTable`/`WorkspaceFilter` are NOT separate files).
-- Detail: `DatasetDetailPage.tsx` (contains `MetadataStrip`, `SourceIcon` inline; no separate `DatasetMetadataStrip` / `RowSearchBar` files). Uses `<PagedRowsView>` from `@mdd/ui`.
-- Hooks: `hooks.ts` — `useDatasetsQuery`, `useDatasetQuery`, `useDatasetRowsQuery`, `useUploadInitMutation`, `useUploadParseMutation`, `useDatasetsCommitMutation`, `useRenameDatasetMutation`, `useDeleteDatasetMutation`.
-- Types: `types.ts`.
-- Upload wizard (`upload/`): `DatasetNewPage.tsx`, `UploadSourceStep.tsx`, `UploadSheetStep.tsx`, `UploadMetadataStep.tsx`, `UploadPreviewStep.tsx`, `UploadConfirmStep.tsx`, `state.ts`. **No `UploadStepper.tsx`** — the stepper is an inline AntD `<Steps>` in `DatasetNewPage`.
-- Filters (`filters/`): `types.ts`, `serialize.ts`, `useFiltersState.ts`, `FilterPopover.tsx`, `ActiveFilterChips.tsx`. (No separate `FilterTrigger` / per-dtype `*FilterEditor` files / `_filter-editors/` dir — the trigger + editors are inside `FilterPopover.tsx`.)
-- Advanced query (`advanced-query/`): `parser.ts`, `serialize.ts`, `types.ts`, `reference.ts`, `AdvancedQueryInput.tsx`, `AdvancedQueryHelp.tsx`, `useAdvancedQueryState.ts`.
-
-### 1.4 Hooks / query keys / invalidations
-
-- `DATASETS_QUERY_KEY = ['datasets']`; list key `['datasets', { workspaceId }]` or `['datasets']`.
-- Detail key `['datasets', { id }]`.
-- Rows key `['datasets', { id }, 'rows', { page, pageSize, q, filters, aq }]` (filters = `cacheKeyForFilters`, aq = `groupsToParam`). `placeholderData: (prev)=>prev`.
-- Commit mutation invalidates `['datasets']`. Rename invalidates `['datasets']` + `['workspaces']`. Delete invalidates `['datasets']`.
-
-### 1.5 Advanced-query grammar actually accepted (`advanced-query/parser.ts`)
-
-- `query := group (OR group)*`, `group := atom (AND atom)*`, `atom := key ':' op-prefix? operand`. AND binds tighter than OR → emits DNF `FilterPredicate[][]`.
-- Keys: quoted (`"customer number":…`) or bare; case-insensitive column match.
-- Prefixes accepted: `>=`, `<=`, `!=`, `>`, `<`, `~` (+ unicode aliases `≠`→`!=`, `≥`→`>=`, `≤`→`<=`). Empty prefix = equals.
-- Per-dtype maps: numeric `''→equals, !=→ne, >→gt, <→lt, >=→gte, <=→lte`; string `''→equals, ~→contains, !=→ne` (others error); date `''→equals, !=→ne, >→after, <→before, >=→gte, <=→lte`; boolean: operand `true`/`false`→`is_true`/`is_false` (no prefix allowed).
-- Error codes: `missing_colon, missing_column_name, unknown_column, empty_value, unsupported_operator, unparseable_value, invalid_boolean, expected_predicate, expected_operator, dangling_operator, unterminated_quote`.
-- Operand-less ops (`is_null`/`is_empty`/…) and `between` have NO grammar surface (matches doc).
-
-### 1.6 Filter operators actually serialized (`filters/types.ts`, `serialize.ts`, BE `ingest/filters.py`)
-
-`OPS_BY_DTYPE` (FE and BE identical):
-- string: `contains, equals, ne, starts_with, ends_with, is_empty, is_not_empty, is_null, is_not_null`
-- integer/float: `equals, ne, gt, lt, gte, lte, between, is_null, is_not_null`
-- date/datetime: `equals, ne, before, after, gte, lte, between, is_null, is_not_null`
-- boolean: `is_true, is_false, is_null, is_not_null`
-
-URL params `f<N>_op/_val/_min/_max`. BE 422 codes: `filter_col_out_of_range`, `filter_op_dtype_mismatch`, `filter_operand_shape`, `filter_value_unparseable`, `advanced_query_malformed`.
-
-### 1.7 Upload wizard steps actually wired (`upload/state.ts`, `DatasetNewPage.tsx`)
-
-- CSV path: `source → metadata → preview → confirm` (4 steps).
-- Excel path: `source → sheet → metadata → preview → confirm` (5 steps).
-- `POST /uploads` on leaving source; Excel `POST /uploads/{temp_id}/parse` (batch over selected sheets) on leaving sheet; CSV re-parse also goes through `/uploads/{temp_id}/parse` (R26 — CSV re-parse IS implemented, `reparseSheet` works for both). Commit = `POST /workspaces/{id}/datasets/batch` with top-level `temp_id` + per-item `{ name, sheet?, parse_options?, column_overrides?, excluded_columns? }`.
-
-### 1.8 Field inventory (Dataset wire shape)
-
-`id, workspaceId, name, sizeBytes, rowCount, columnCount, columns[{name,dtype}], sourceFormat, sheetName?, createdAt`. `Dtype = string|integer|float|boolean|date|datetime`. Matches FE `types.ts` and BE `models/common.py` exactly.
+Code read: `apps/backend/app/routers/datasets.py`, `app/models/common.py`, `app/db_models.py`,
+`app/ingest/profile.py`, `alembic/versions/0006_dataset_data_version.py`,
+`app/workflow_runs.py` (consumer), `packages/contracts/_shared/{dataset,column}.yaml`,
+`packages/contracts/datasets/*`, `apps/builder/src/features/data-management/datasets/{DatasetsPage,DatasetDetailPage,DateCoverage,PropertiesDrawer}.tsx`,
+`hooks.ts`, `types.ts`, `_shared/PagedRowsView.tsx`, `lib/formatCell.ts`,
+`features/metadata/MetadataPanel.tsx`, `components/AppLayout.tsx`, `main.tsx`, `i18n/locales/en.json`.
 
 ---
 
-## 2. Drift report (per doc)
+## 1. CODE-TRUTH highlights (new since last sync)
 
-### 2.1 `datasets.md` — DRIFTED (low; 4 claims)
+- **`Column.coverage {min?, max?, blankShare}`** (R178) — `profile_date_coverage(parquet, cols)`
+  in `ingest/profile.py`; one DuckDB query (`min`, `max`, NULL count per date/datetime column +
+  `count(*)`). Called at commit (per item, over the written parquet, before INSERT) and in
+  `_handle_refresh` over the staged parquet before the swap (replace / merge / append). Non-temporal
+  columns get `coverage` popped. All-blank → `{blankShare: 1.0}`; empty table → `{blankShare: 0.0}`;
+  `blankShare` rounded to 6 places. Stored in `columns_json`; wire omits `min`/`max`/`coverage` when
+  None (`model_serializer`). Contract `_shared/column.yaml` `ColumnCoverage`.
+- **`Dataset.refreshedAt` + `Dataset.dataVersion`** (R185) — `0006_dataset_data_version`
+  (`refreshed_at TEXT NULL` backfilled from `created_at`; `data_version INTEGER NOT NULL DEFAULT 1`).
+  Commit: `refreshedAt = createdAt = now`, `dataVersion = 1`. Refresh: `UPDATE … refreshed_at=?,
+  data_version=data_version+1` in the same statement as the row swap. Rename / PATCH columns do not
+  touch them. `_dataset_from_row` falls back `refreshed_at or created_at`. Read-only in
+  `_shared/dataset.yaml`. Consumer: `workflow_runs.py` records leaf `dataVersions`, stale reason
+  `data_refreshed`.
+- **FE**: `DatasetDetailPage.datasetMetaItems` adds `Data version` → `v{{version}} · {{when}}`
+  (`relativeTime(refreshedAt)`); `DateCoverageStrip` under `MetadataStrip`; `MetadataPanel
+  kind="dataset"` under that (R180); `PropertiesDrawer` shows `formatCoverage` under each column name.
+- `_dataset_from_row` now hydrates list / detail / rename / columns-patch / refresh responses.
 
-1. **stale/behaviour** — § Read/write boundary "Pagination / virtualization … AntD `<Table>`'s default pagination kicks in at **10 rows per page**". CODE: `DatasetsPage` `DatasetTable` sets `pagination={{ pageSize: 20, hideOnSinglePage: true }}` — list page size is **20**, not 10. (stale field)
-2. **surface moved (minor)** — Surfaces table lists `DatasetTable` and `WorkspaceFilter` as standalone component surfaces. CODE: both are inline within `DatasetsPage.tsx` (no separate files / `data-component="WorkspaceFilter"` is a `<Select>` inside the page). (surface moved)
-3. **resolved-but-restated deferral** — § Read/write boundary still carries "Row click: R∞ … R15 ships row click as a no-op or a tooltip" in the layout prose, even though the same doc's C9 + the strikethrough resolve it to R33. CODE: row click navigates to `/data-management/datasets/:id` (`onRowClick`). The layout-prose bullet is stale relative to the resolved state. (deferred-since-shipped)
-4. **stale model framing** — § Dataset data model "Deferred fields: `updatedAt`, `parsedAt`, `parseDurationMs` …". `source.json` on disk does NOT carry `parsedAt` (it carries `temp_id, sourceFormat, sheet, originalName`); not wire-facing, minor. (stale field)
+## 2. Drift — `datasets.md` (DRIFTED; 23 claims) → rewritten
 
-### 2.2 `upload.md` — DRIFTED (high; 9 claims)
+1. Model lacked `refreshedAt`, `dataVersion` / code has both (server-stamped, read-only).
+2. `Column` lacked `coverage` / code has `ColumnCoverage` on committed temporal columns.
+3. Persistence listed migrations 0001–0004 / code has 0001–0007; 0006 adds the two columns.
+4. Wire↔DB map missing `refreshed_at`, `data_version` / present.
+5. Surface table: `Dataset` Pydantic model in `routers/datasets.py` / it lives in `app/models/common.py`.
+6. Surface table missing `profile_date_coverage`, `Dataset` SQLModel table, `ColumnCoverage`.
+7. Table column order Name…Uploaded / actual: Uploaded, Name, Workspace, Rows, Cols, Size, actions.
+8. Source icon is emoji `📊`/`📄` / actual `FileExcelOutlined` (green) / `FileTextOutlined` (blue) + `· <sheet>` suffix.
+9. Workspace column "sortable, links to filtered view" / not sortable; link applies filter in place.
+10. Breadcrumb shows workspace name when filtered / breadcrumb static `Home ▸ Data Management ▸ Datasets`.
+11. "Clear filter ×" next to the dropdown / no such affordance; "All workspaces" option resets.
+12. Empty-state copy "Upload your first dataset to get started · Up to 100 MB" / title "Upload your first file to get started", hint "Excel or CSV · up to {maxSize}" from `appConfig.uploadMaxBytes()`, CTA "Upload your first dataset".
+13. Filtered empty "No datasets in Marketing yet" + `[+ Upload to Marketing]` / "No datasets in this workspace"; same CTA, which opens the wizard with `?workspace=<id>`.
+14. Loading / error / search no-match states undocumented / exist (8-row skeleton, `Alert`, "No datasets match “q”" + clear link).
+15. Row Actions menu undocumented in layout / `⋯` menu Refresh · Rename · Delete.
+16. Query key `['datasets', { workspaceId }]` always / unfiltered list key is `['datasets']`.
+17. Nav snippet `NAV_GROUPS` with 2 items / `dataManagementGroup` built in `AppLayout` with 4 items (workspaces, datasets, queries, workflows), i18n labels.
+18. Column-visibility FE hook "invalidating `['datasets', {id}]`" / invalidates the `['datasets']` prefix.
+19. Column-visibility 422 list incomplete / also FastAPI `detail[]` 422 for duplicate names (`uniqueItems`) / extra fields.
+20. Refresh affordance: replace|merge only / replace, merge, append; refresh now also writes `refreshedAt`, `dataVersion`, re-profiles coverage.
+21. Deferred list: `updatedAt`, "column-level affordances" / `refreshedAt` covers row-change time; visibility is the one post-commit column edit; profiling beyond date coverage still not built.
+22. Relative-time formatter undocumented (falls back to ISO date after 5 weeks).
+23. Refresh affordance: drift review "names the dependent queries + relationships" and "previews that blast radius" / `UploadDriftStep` only diffs columns client-side; no dependents read exists.
 
-1. **vanished helpers** — Surfaces/endpoint-shape name `parse_excel()`, `read_excel_sheets()`, `cast_columns()` ingestion helpers. CODE: none exist. Real helpers are `parse_csv` (`ingest/csv_parser.py`), `parse_sheet` + `enumerate_sheets` (`ingest/excel_parser.py`), `write_csv_to_parquet` + `write_excel_to_parquet` (`ingest/parquet_writer.py`). There is **no `cast_columns` re-cast step** — overrides are applied as a dtype relabel on `columns_json` (`_apply_overrides`), the parquet is written with the parsed dtypes, not re-cast. (vanished code)
-2. **vanished component** — `UploadStepper` listed as a surface. CODE: no such file; inline `<Steps>` in `DatasetNewPage`. (surface moved)
-3. **stale FS layout** — § File storage: temp tree shows `metadata.json`, `parsed.<sheetkey>.parquet`, `preview.<sheetkey>.json`; CSV `<sheetkey>` = `default`, Excel = sanitized sheet name. CODE: temp dir holds only `original.<ext>` + **`meta.json`**; NO per-sheet parsed/preview files are persisted at all. Committed `source.json` keys are `{temp_id, sourceFormat, sheet, originalName}`, not `{sourceFormat, sheetName?, parsedAt}`. (stale field / vanished code)
-4. **stale endpoint status** — § Backend endpoint shape + HTTP semantics: `POST /uploads` → **201**. CODE: handler returns **200** (no `status_code=201`; default 200). (behaviour frozen / stale)
-5. **stale commit-body shape** — Confirm step shows commit payload `{ items: [{ temp_id, sheet, name, column_overrides? }] }` (per-item `temp_id`). CODE: `temp_id` is a **top-level** field of `_BatchRequest`, NOT per item; items carry `sheet?/name/parse_options?/column_overrides?/excluded_columns?`. (stale field)
-6. **vanished 409 semantics** — Endpoint-shape comment + C9: "a commit whose `parse_options` differ from the last `/parse` returns **409**"; "ensure parsed.<sheetkey>.parquet exists; 409 otherwise". CODE: the batch handler **re-parses from `original.<ext>` at commit time** (parse_options are applied fresh in `commit_datasets_batch`); there is NO parsed-parquet-existence check and NO parse_options-mismatch 409. The only 409s are `unknown_column` and `name_taken`. (behaviour frozen — design describes the R15 "move pre-parsed parquet" model that R35 replaced with re-parse-at-commit)
-7. **stale commit FS verb** — § File storage "copies … `parsed.<sheetkey>.parquet` → … parsed.parquet … deletes the temp directory". CODE: commit `shutil.copy2`s `original.<ext>` and **writes a fresh `parsed.parquet`** via the parquet writer; it does **not** delete the temp dir (TTL sweep handles it). (behaviour frozen)
-8. **stale name validation** — C8 / Confirm "validation is **1–80 chars** (same as Workspace name)". CODE: `_BatchItem.name` is **1–120**; rename path uses `NAME_LENGTHS["dataset_max"]` (=120). The doc's own C8 flags this as a known inconsistency, but the BE batch bound is 120, not 80. (stale field — partially self-flagged)
-9. **stale parse-init return shapes** — § Parse-time: CSV init returns `{ …, schema, sampleRows, rowCount, sizeBytes }`; Excel `{ …, sheets:[{name,rowCount,columnCount}], sizeBytes }`. CODE: CSV returns `TempUploadCsv{temp_id, sourceFormat, sizeBytes, csvPreview:{columns, rowCount, sampleRows}}` (field is `csvPreview.columns`, not `schema`); Excel `TempUploadExcel{… sheets:[SheetSummary{sheet, rowCount, columnCount, usedRange?}]}` (key is `sheet`, not `name`; adds `usedRange`). (stale field)
+## 3. Drift — `dataset-detail.md` (DRIFTED; 24 claims) → rewritten
 
-### 2.3 `dataset-detail.md` — DRIFTED (low; 3 claims)
+1. Metadata strip lacks Data version / has `Data version · v<N> · <relative refreshedAt>`.
+2. No coverage strip / `DateCoverageStrip` (renders nothing when no column has coverage).
+3. No MetadataPanel / `MetadataPanel kind="dataset"` rendered (cross-linked to `_shared/metadata.md`).
+4. Properties drawer table: "Profiling NOT BUILT" row / date coverage line now shown per column; broader profile still not built.
+5. Properties drawer Dataset section lacks data version / includes it (shared `datasetMetaItems`).
+6. Header title emoji + subtitle "Excel · Sheet1 — rows…" / icon + name + format `<Tag>`; subtitle `rows · columns · size · Uploaded <rel>` (no format).
+7. 404 state: `history.back()` fallback + "Dataset deleted" toast / button always `navigate('/data-management/datasets')`; no toast.
+8. Loading: table-header skeleton + AntD `<Table loading>` overlay on page change / page-level 10-row skeleton, then `PagedRowsView` skeleton; previous rows kept via `placeholderData`, no overlay (native `<table>`, not AntD `<Table>`).
+9. Search clear: `[Clear]` text link beside counter / in-field clear icon + Escape; Clear buttons live in the empty states.
+10. No-match states: one / four variants (q+filters, filters, q, none); advanced-query-only zero match falls through to "No rows in this dataset" (code quirk — flagged, documented as deferred).
+11. Rows-error state undocumented / `Alert` "Couldn't load rows".
+12. Header actions `Actions ▾ = Join · Refresh · Rename · Delete` / Join · divider · Properties · Refresh · Rename · Delete; Save button has `PlusOutlined`.
+13. Cells: floats "no rounding"; date "ISO-ish `2026-03-01`" / floats max 6 fraction digits; dates via `Intl.DateTimeFormat` 2-digit (locale order, not ISO).
+14. Token map: metadata strip label `colorTextTertiary` / `Typography` secondary (`colorTextSecondary`); table header bg `colorFillQuaternary` / solid `#fafafa` literal.
+15. Inline YAML copies of three contracts (drift magnet) / replaced by a route table pointing at the authoritative YAML.
+16. `DatasetDetail = Dataset` type / no such type; page uses `Dataset`.
+17. Rows query key `{ page, pageSize, q }` / `{ page, pageSize, q, filters, aq }`.
+18. "Rows are not invalidated" by the visibility mutation / the `['datasets']` prefix invalidation reaches rows too.
+19. `useDatasetRowsQuery(id, page, pageSize, q?)` / adds `filters?, advanced?`.
+20. Surface table missing `DateCoverageStrip`, `formatCoverage`/`temporalColumns`; peer deps missing `@phosphor-icons/react`, `@ant-design/icons`, `i18next`, `@mdd/ui`.
+21. Deferred "Append / re-upload from this page" / Refresh (replace/merge/append) is in `Actions ▾`.
+22. Deferred "Row-level CRUD — datasets immutable post-commit" / rows change via refresh.
+23. Acceptance C1 lacked data version / coverage; C6 lacked Properties / Refresh.
+24. Mermaid diagram lacked RowsError, Empty-by-predicate, Properties, Refresh edges / synced.
 
-1. **stale page_size enum (URL state)** — § URL state: "page_size ∈ {10, 25, 50, 100}". This matches `PAGE_SIZES = [10,25,50,100]` ✓. NO drift there. (Earlier suspicion cleared.)
-2. **surface moved** — Surfaces table names `DatasetMetadataStrip` and `RowSearchBar` as standalone components. CODE: `MetadataStrip` is inline in `DatasetDetailPage.tsx`; there is no `RowSearchBar` component — the search is an inline `<Input.Search>` in the page. (surface moved)
-3. **stale BE dep note** — Surfaces table: rows route "FastAPI native, **pyarrow** for paged Parquet read". CODE: paged read uses **DuckDB** (`duckdb.connect(":memory:")` + `read_parquet`), not pyarrow. (stale field)
-4. **resolved-open-question not folded** — header actions: doc describes `[+ Save as Query]` left of `[Rename]` and (R72 amend prose) "Join with related dataset moved into Actions ▾". CODE matches the R72 state (Save-as-Query button + Actions ▾ dropdown with Join/Rename/Delete), BUT the ASCII "Loading/404/zero-rows" mini-headers still draw `[Rename] [Delete]` as separate buttons (pre-R72 two-button header). Illustrative-only, minor. (mermaid/ascii branch stale)
+## 4. Drift — `upload.md` (DRIFTED) → targeted sync only
 
-### 2.4 `dataset-filters.md` — NOT DRIFTED (0 material; 1 nit)
+Fixed:
 
-- Predicate vocabulary, URL param shapes, per-dtype operator sets, `ne`/`gte`/`lte` (R55), no-match copy, cache key, `replace:true` policy, popover lifecycle — all match `filters/*` + `ingest/filters.py` exactly.
-- Nit (surface naming, not behaviour): Surfaces table lists `FilterTrigger`, `StringFilterEditor`/`NumericFilterEditor`/`DateFilterEditor`/`BooleanFilterEditor` in a `_filter-editors/` dir. CODE: these are all inside `filters/FilterPopover.tsx`; no `_filter-editors/` dir. Counts as surface-moved but immaterial to contract/behaviour. (1 surface-moved nit)
+1. Commit block: body shown as `items: [{ temp_id, … }]` / `{ temp_id, items: [...] }`; refresh item fields listed.
+2. Commit block: no coverage profiling or data-identity stamps / both documented.
+3. 201 oneOf listed list|merge / list|merge|append.
+4. Refresh UPDATE set lacked `refreshed_at`, `data_version`; "stage under temp names in the dataset dir, write source.json last" / whole staging dir (incl. `source.json`) swapped via `.bak`; coverage re-profiled + `hidden` carried before the swap.
+5. Merge / append wire 201 "lands at C" ledger / actual wrapper shapes.
+6. "Dataset model implications" (emoji icons, "gains two fields") / rewritten to what create/refresh write.
+7. TanStack snippet (`uploadsApi.init`, `parseSheet`, per-item `temp_id`, `useDatasetsCommitMutation(workspaceId)`) / real hook signatures.
+8. Lifecycle section / deleted (ledger per skill).
 
-### 2.5 `advanced-query.md` — NOT DRIFTED (0)
+Residual pre-existing drift NOT addressed (needs a dedicated upload.md pass; outside the
+R177–R187 change set): surface table omits `UploadDriftStep` and the `upload/` subfolder; round
+attribution in body text (`slice 1`, `slice 1b`, "this round", "before R157's fix", "Before R171");
+stamped headings kept for inbound anchors (`(R143)`, `(R144)`, `(R145)`, `(R147)`, `(R155)`,
+`(R156)`). (upload.md's "named-dependents blast radius — not built" is correct per
+`UploadDriftStep.tsx`; `datasets.md` was aligned to it.)
 
-- Grammar, prefix→op maps (incl. R55 `gte`/`lte`/`ne` and unicode aliases), DNF emission, error codes, `aq` JSON transport, 300ms debounce + Enter, apply-on-valid / no-apply-on-error, URL canonical re-serialization, malformed-drop-to-`[]`, `?` help popover (C18–C22), in-field × + Esc, cache key — all verified against `parser.ts` / `serialize.ts` / `reference.ts` / `useAdvancedQueryState.ts` / `ingest/filters.py`. This doc is the cleanest in the domain.
+## 5. Drift — `dataset-filters.md` (DRIFTED; 2 claims) → targeted fix
 
-### 2.6 `_shared/crud-hygiene.md` (dataset CRUD claims only) — DRIFTED (1 claim)
+1. Page-chrome ASCII header `[Rename] [Delete]`, emoji title, old subtitle / Save-as-Query + `Actions ▾`, icon + format tag.
+2. Metadata-strip ASCII without Data version / replaced with a pointer to dataset-detail's strips.
 
-- Match: `PATCH /datasets/{id}` body `{name}` → 200 / 404 `not_found` / 409 `name_taken`; `DELETE /datasets/{id}` → 204 (parquet deleted) / 404 `not_found`; error-code union `not_found|name_taken|non_empty`; per-workspace name uniqueness. All ✓.
-1. **behaviour frozen** — "`DELETE /datasets/{id}` … R23 design has **no 409 path because datasets have no dependents**" / cascade section frames datasets as terminal. CODE (R79): `delete_dataset` now runs an **app-level cascade** — `DELETE FROM queries WHERE source_id = <ds>` before deleting the dataset (a dataset-rooted Query is a dependent). Delete still returns 204 (no 409), so the FE-facing contract is unchanged, but the "no dependents" rationale is now false. (deferred-since-shipped / behaviour frozen)
+No filter code (`filters/*`, `ingest/filters.py`) changed since the R176 sync.
 
----
+## 6. `advanced-query.md` — NOT DRIFTED for R177–R187
 
-## 3. Per-doc verdict table
+No `advanced-query/*` or `aq` parsing change since R176. Not rewritten.
 
-| Doc | DRIFTED? | Claim count | One-line summary |
-| --- | --- | --- | --- |
-| datasets.md | yes (low) | 4 | List page size is 20 not 10; row-click resolved; inline components |
-| upload.md | yes (high) | 9 | Vanished helpers (cast_columns/parse_excel), wrong FS layout (meta.json, no per-sheet files), 201→200, top-level temp_id, no parse_options-409, re-parse-at-commit not move-parquet, 1–120 not 1–80 |
-| dataset-detail.md | yes (low) | 3 | pyarrow→DuckDB; inline MetadataStrip/no RowSearchBar; stale 2-button ASCII |
-| dataset-filters.md | no (1 nit) | 1 | Only surface-file naming nit (editors inside FilterPopover) |
-| advanced-query.md | no | 0 | Fully in sync incl. R55 + R54 help affordances |
-| crud-hygiene.md (dataset claims) | yes | 1 | "datasets have no dependents" false post-R79 (query cascade in app) |
+## 7. Notes
 
-### De-fragmentation note
-
-The dataset **rows-GET predicate stack** (the `f<N>_*` vocabulary, the `aq` DNF, the `?q=` substring, their AND/OR composition, the `total` semantics, the PAGE_SIZES enum) is split across **≥3 docs**: `dataset-detail.md` (`?q=`, paging, RowsPage), `dataset-filters.md` (per-column predicate vocabulary — declared authoritative), and `advanced-query.md` (grammar + `aq` transport), all pointing at the single `rows-get.contract.yaml` + `ingest/filters.py` + `ingest/rows_reader.py`. One implementation surface, three design homes that constantly cross-reference each other → **de-fragmentation candidate** (a single "dataset rows query" doc, or making `dataset-filters.md` the lone predicate-vocabulary home with the other two linking in). The biggest systemic drift driver is the **R78/R79 persistence rewrite** (SQLModel+Alembic schema-of-record, raw-sqlite handlers, `dataset_id→source_id`, app-level delete cascade) landing after every doc here was last touched — none of the five datasets docs mention SQLModel/Alembic or the dataset→query delete cascade.
+- Stamped headings kept on purpose (anchor stability for locked round files / contract `.md`):
+  `datasets.md` "Refresh affordance (R145)", "Column visibility (R152)", "Refresh interaction — …";
+  `dataset-detail.md` "Column visibility (R152)", "Properties panel (R153)"; plus `datasets.md`
+  gained a `## Read/write boundary` section so `Round_82`'s anchor keeps resolving.
+- Code finding (not a doc issue): advanced-query-only zero match shows the zero-rows copy
+  ("No rows in this dataset · Re-upload the file") — `DatasetDetailPage.rowsEmptyState` has no
+  `hasAdvanced` branch.
+- No OUT-OF-SYNC markers present in the domain.

@@ -1,91 +1,82 @@
 # Workflows — the Workflow domain (noun · consolidation · materialize · surfaces)
 
-**Concept**: a **Workflow** (`wf_…`) is a named, workspace-scoped noun that
-**consolidates what ≥1 saved query RETURNS** (and/or another workflow's output) via
-`UNION ALL BY NAME`, applies **its own** transform `steps` — the same step union a query
-uses (aggregate · derive · filter · top*n · sort · select · date_bucket · group_column) —
-over that union, and **materializes a FROZEN typed output** on run. Unlike a
-[Query](../queries/queries.md) — which is a \_live* re-run and stores only its
-definition — a Workflow **freezes** its result (a committed parquet + captured
-schema), so it can be read back as a stable source and consolidates the recurring
-"many exports → one table" pain the `queries ⇒ workflows` module exists for.
+**Concept**: a **Workflow** (`wf_…`) is a named, workspace-scoped noun that **consolidates what ≥1
+saved query RETURNS** (and/or another workflow's output) via `UNION ALL BY NAME`, applies **its
+own** transform `steps` — the same step union a query uses — over that union, and **materializes a
+FROZEN typed output** on run. Unlike a [Query](../queries/queries.md) — which is a _live_ re-run and
+stores only its definition — a Workflow **freezes** its result (a committed parquet + captured
+schema), so it can be read back as a stable source; each run is **stamped** with what it read, so
+the frozen output can say when its sources have moved since. It consolidates the recurring "many
+exports → one table" pain the `queries ⇒ workflows` module exists for.
 
-**Two shaping altitudes, one per noun** (ruled R168, § The noun, settled). Per-source
-shaping belongs to the **Query** and arrives already applied — a source contributes the
-rows its own detail page shows. Post-union shaping belongs to the **Workflow** and is the
-only shaping a Query cannot express, because a Query cannot union. They stack; they do not
-compete.
+**Two shaping altitudes, one per noun.** Per-source shaping belongs to the **Query** and arrives
+already applied — a source contributes the rows its own detail page shows. Post-union shaping
+belongs to the **Workflow** and is the only shaping a Query cannot express, because a Query cannot
+union. They stack; they do not compete.
 
-This doc is the **domain anchor** of `workflows/` — the home for the Workflow
-**noun**, its **model · routes**, the **materialize/freeze** semantics, and its three
-**FE surfaces** (catalog · builder · detail/Run). It reuses the shipped query engine
-(`app/query_engine.py`) and the query/dataset FE components rather than duplicating
-them.
+This doc is the **domain anchor** of `workflows/` — the home for the Workflow **noun**, its **model
+· routes**, the **consolidation + materialize + staleness** semantics, and its three **FE surfaces**
+(catalog · builder · detail/Run). It reuses the query engine (`app/query_engine.py`) and the
+query/dataset FE components rather than duplicating them.
 
-**Status**: Accepted (R131 design gate; backend shipped R132·R134·R135·R138; FE
-shipped R137; FE edit mode R139 — this doc reconciled to the built state
-2026-07-01, backfilling the missing D-gate artifact flagged in that session).
-**R168 settles the noun and ships it** (§ The noun, settled): consolidation reads what a source
-**returns** (D1 repaired), a workflow source resolves **frozen**, the noun is
-**consolidate + materialize**, and the `composition_cycle` error code is retired.
-**Round introduced**: [`Round_131`](../../../plan/cycles/Round_131.md) (Plan/Design
-gate); FE design gate [`Round_136`](../../../plan/cycles/Round_136.md).
-**Domain folder**: `workflows/`.
+**Status**: Accepted.
 
-> **Read first — the domain noun-model.** [`../_noun-model.md`](../_noun-model.md) (R161) defines
-> the five nouns (concepts locked R161) and flags the Workflow noun as **named debt D3**: the
-> Query⇄Workflow **live-vs-frozen** distinction is settled, but _whether_ frozen collapses to a
-> **mode** of a query (dbt `table` vs `view`) is **fork-contingent + OPEN** — it only coheres if the
-> query-identity fork closes toward model A. This doc is the **current-state** (noun) truth. Do not
-> build _toward_ a heavier Workflow noun without re-reading it.
+> **Read first — the domain noun-model.** [`../_noun-model.md`](../_noun-model.md) defines the five
+> nouns and the boundaries between them. Its Workflow debt (**D3**) is closed: the noun stands, it
+> is **not** a live/frozen toggle on a Query, and it exists for exactly two things a Query cannot
+> express (§ The noun, settled). This doc is the **current-state** truth.
 
 **Sibling docs**:
-[queries.md](../queries/queries.md) (the source a Workflow consolidates; the engine,
-`Step` union, catalog + detail layout, and `PagedRowsView` this domain reuses),
-[query-construction.md](../queries/query-construction.md) (the `StepsEditor` reused in
-the builder), [datasets.md](../datasets/datasets.md) (leaf table-source; catalog
-conventions), [crud-hygiene.md](../_shared/crud-hygiene.md) (the delete-confirm modal),
+[queries.md](../queries/queries.md) (the source a Workflow consolidates; the resolver, the `Step`
+union, the catalog + detail layout, and `PagedRowsView` this domain reuses),
+[query-construction.md](../queries/query-construction.md) (the `StepsEditor` reused in the builder),
+[\_paging-and-order.md](../_paging-and-order.md) (the row-order contract the materialized write
+follows), [datasets.md](../datasets/datasets.md) (leaf table-source; the `dataVersion` a run stamps;
+catalog conventions), [crud-hygiene.md](../_shared/crud-hygiene.md) (the delete-confirm modal),
 [workspaces.md](../workspaces/workspaces.md) (the container a Workflow is scoped to).
 
 ---
 
 ## Surfaces — layer / reuse / purity declaration
 
-| Surface                                                                           | Layer                                                  | Reusability  | Purity             | Allowed peer deps                                    |
-| --------------------------------------------------------------------------------- | ------------------------------------------------------ | ------------ | ------------------ | ---------------------------------------------------- |
-| `WorkflowsPage` (catalog) route                                                   | `apps/builder/src/features/data-management/workflows/` | feature      | feature            | react, antd, @tanstack/react-query, react-router-dom |
-| `WorkflowCreatePage` (builder) route                                              | `.../features/data-management/workflows/`              | feature      | feature            | react, antd, react-router-dom                        |
-| `WorkflowDetailPage` (detail + Run + **edit mode**) route                         | `.../features/data-management/workflows/`              | feature      | feature            | react, antd, react-router-dom                        |
-| `WorkflowForm` component (R139 — name + sources + steps; shared by create + edit) | `.../features/data-management/workflows/`              | feature      | plain-UI (glue)    | react, antd                                          |
-| `WorkflowSourcePicker` component                                                  | `.../features/data-management/workflows/`              | feature      | plain-UI (glue)    | react, antd                                          |
-| `useWorkflows*`/`useSourceColumns` hooks                                          | `.../features/data-management/workflows/`              | feature      | glue (server-data) | @tanstack/react-query                                |
-| `workflowsApi` client                                                             | `apps/builder/src/api/`                                | builder-only | glue               | (fetch — no extra peer dep)                          |
-| `Workflow`/`WorkflowDefinition` type (FE)                                         | `.../features/data-management/workflows/types.ts`      | feature      | data type          | none                                                 |
-| `POST/GET/PUT/DELETE /workflows…` + `/run` + `/rows`                              | `apps/backend/app/routers/workflows.py`                | backend      | feature            | (FastAPI — backend native)                           |
-| `Workflow` SQLModel + `0003_workflows` migration                                  | `apps/backend/app/db_models.py`                        | backend      | data type          | (SQLModel/Alembic)                                   |
-| `build_consolidated_relation` / `_resolve_workflow_leaf`                          | `apps/backend/app/query_engine.py`                     | backend      | pure               | (DuckDB SQL)                                         |
+| Surface                                                                              | Layer                                                  | Reusability  | Purity             | Allowed peer deps                                    |
+| ------------------------------------------------------------------------------------ | ------------------------------------------------------ | ------------ | ------------------ | ---------------------------------------------------- |
+| `WorkflowsPage` (catalog) route                                                      | `apps/builder/src/features/data-management/workflows/` | feature      | feature            | react, antd, @tanstack/react-query, react-router-dom |
+| `WorkflowCreatePage` (builder) route                                                 | `.../features/data-management/workflows/`              | feature      | feature            | react, antd, react-router-dom                        |
+| `WorkflowDetailPage` (detail + Run + run tag + stale alert + edit mode) route        | `.../features/data-management/workflows/`              | feature      | feature            | react, antd, react-router-dom                        |
+| `WorkflowForm` component (name + sources + steps; shared by create + edit)           | `.../features/data-management/workflows/`              | feature      | plain-UI (glue)    | react, antd                                          |
+| `WorkflowSourcePicker` component                                                     | `.../features/data-management/workflows/`              | feature      | plain-UI (glue)    | react, antd                                          |
+| `sourceErrorText` (`sourceErrors.ts` — a save-time source refusal as one sentence)   | `.../features/data-management/workflows/`              | feature      | pure               | i18next (type only)                                  |
+| `useWorkflows*` / `useSourceColumns` hooks                                           | `.../features/data-management/workflows/`              | feature      | glue (server-data) | @tanstack/react-query                                |
+| `workflowsApi` client + `WorkflowSourceError`                                        | `apps/builder/src/api/`                                | builder-only | glue               | (fetch — no extra peer dep)                          |
+| `Workflow` / `WorkflowDefinition` / `WorkflowRun` / `WorkflowStaleSource` types (FE) | `.../features/data-management/workflows/types.ts`      | feature      | data type          | none                                                 |
+| `MetadataPanel` (reused; read-only metadata on the detail view)                      | `apps/builder/src/features/metadata`                   | feature      | feature            | react, antd, react-i18next                           |
+| `POST/GET/PUT/DELETE /workflows…` + `/run` + `/rows`                                 | `apps/backend/app/routers/workflows.py`                | backend      | feature            | (FastAPI — backend native)                           |
+| `build_consolidated_relation` / `_resolve_query_source` / `_resolve_workflow_leaf`   | `apps/backend/app/query_engine.py`                     | backend      | pure               | (DuckDB SQL)                                         |
+| `stamp_sources` / `stale_sources` / `new_run_id` (run stamps)                        | `apps/backend/app/workflow_runs.py`                    | backend      | feature            | (sqlite3 — backend native)                           |
+| `Workflow` SQLModel + `0003_workflows` / `0007_workflow_runs` migrations             | `apps/backend/app/db_models.py`                        | backend      | data type          | (SQLModel/Alembic)                                   |
 
-**Boundary check**: no new `@mdd/ui` primitive — the catalog/detail reuse the shipped
-`PageContainer`/`PageCard`/`PageHeader` + `PagedRowsView`, and the builder reuses the
-query `StepsEditor`. `WorkflowSourcePicker` is a feature-local AntD `Select` wrapper,
-not a `@mdd/ui` primitive (no cross-domain reuse yet). No router/query/zod leaks into
-`@mdd/ui`.
+**Boundary check**: no new `@mdd/ui` primitive — the catalog/detail reuse the
+`PageContainer`/`PageCard`/`PageHeader` shells + `PagedRowsView`, and the builder reuses the query
+`StepsEditor`. `WorkflowSourcePicker` is a feature-local AntD `Select` wrapper (no cross-domain reuse
+yet). No router/query/zod leaks into `@mdd/ui`.
 
 ---
 
 ## Token map
 
-| Surface                                          | Source                                                   | Value (informational) |
-| ------------------------------------------------ | -------------------------------------------------------- | --------------------- |
-| Page background                                  | AntD seed `colorBgLayout` (themeTokens.ts)               | derived               |
-| Primary action ([New workflow] · [Run] · [Save]) | AntD seed `colorPrimary` (themeTokens.ts)                | `#1677ff`             |
-| Border / summary panel                           | AntD seed `colorBorderSecondary` + `colorFillQuaternary` | derived               |
-| "Materialized" badge                             | AntD `Tag color="processing"` (seed `colorPrimary`)      | derived               |
-| "Never run" badge                                | AntD `Tag color="default"`                               | derived               |
-| Never-run / warning state icon                   | AntD seed `colorWarning` (themeTokens.ts)                | `#faad14`             |
+| Surface                                               | Source                                                   | Value (informational) |
+| ----------------------------------------------------- | -------------------------------------------------------- | --------------------- |
+| Page background                                       | AntD seed `colorBgLayout` (themeTokens.ts)               | derived               |
+| Primary action ([New workflow] · [Run] · [Save])      | AntD seed `colorPrimary` (themeTokens.ts)                | `#1677ff`             |
+| Border / summary panel                                | AntD seed `colorBorderSecondary` + `colorFillQuaternary` | derived               |
+| "Materialized" badge                                  | AntD `Tag color="processing"` (seed `colorPrimary`)      | derived               |
+| "Never run" badge · source/step counts · "Run #N" tag | AntD `Tag color="default"`                               | derived               |
+| Never-run icon · out-of-date `<Alert type="warning">` | AntD seed `colorWarning` (themeTokens.ts)                | `#faad14`             |
 
-Inherits the dataset/query surfaces' token map verbatim (same `PageCard`/`Table`/
-`PagedRowsView`); no invented inline values.
+Values come from [`themeTokens.ts`](../../../../workspace/packages/ui/src/themeTokens.ts); the
+dataset/query surfaces' token map is inherited verbatim (same `PageCard`/`Table`/`PagedRowsView`); no
+invented inline values.
 
 ---
 
@@ -93,217 +84,309 @@ Inherits the dataset/query surfaces' token map verbatim (same `PageCard`/`Table`
 
 ```text
 CATALOG  /data-management/workflows
-┌──────────────────────────────────────────────────────────┐
-│ Workspaces ▸ Data Management ▸ Workflows   [ + New workflow ]│
-│ [Workspace ▾]  [Search name…]                               │
-│  Name              Sources  Steps  Workspace  Last run      │
-│  Consolidated leads   1        0      Marketing  never run   │
-└──────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│ Home ▸ Data Management ▸ Workflows          [ + New workflow ] │
+│ [Workspace ▾]  [Search name…]                                   │
+│  Name                  Sources  Steps  Workspace  Last run      │
+│  Consolidated leads       2        3     Marketing  never run   │
+└──────────────────────────────────────────────────────────────┘
 
-BUILDER  /data-management/workflows/new  (edit: R139, via PUT)
-┌──────────────────────────────────────────────────────────┐
-│ ▸ Workflows ▸ New            [Workspace ▾] name:[…] [Cancel][Save]│
-│ SOURCES (consolidated by union)  ── WorkflowSourcePicker ── │
-│ STEPS  ── reused StepsEditor over the first source's cols ──│
-└──────────────────────────────────────────────────────────┘   (NO live preview)
+BUILDER  /data-management/workflows/new  (edit mode reuses the same WorkflowForm)
+┌──────────────────────────────────────────────────────────────┐
+│ ▸ Workflows ▸ New workflow                      [Cancel] [Save] │
+│ Workspace [ Marketing ▾ ]                                       │
+│ Name      [ Consolidated leads            ]                     │
+│ SOURCES (stacked by union, in pick order) ── WorkflowSourcePicker│
+│ STEPS ── reused StepsEditor over the FIRST source's columns ──  │
+└──────────────────────────────────────────────────────────────┘   (NO live preview)
 
 DETAIL / OUTPUT  /data-management/workflows/:id
-┌──────────────────────────────────────────────────────────┐
-│ ▸ Workflows ▸ Consolidated leads   [Run] [Delete]          │
-│ Definition: 1 source · 0 steps · Materialized 2026-07-01…  │
-│  ── PagedRowsView (materialized output) ──                 │
-│  (never-run state + [Run] before the first materialize)    │
-└──────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│ ▸ Workflows ▸ Consolidated leads [Materialized]                 │
+│                                        [Re-run] [Edit] [Delete] │
+│ ┌ Metadata (read-only) ┐                                        │
+│ DEFINITION [2 source(s)] [3 step(s)] [Run #4] Materialized …   │
+│ ⚠ This output is out of date — re-run to refresh it. It still  │
+│   shows the numbers from the last run.                          │
+│   • “Leads Q3” was edited after this run.                       │
+│ ── PagedRowsView (the frozen output) ──                         │
+│ (never-run state + [Run] before the first materialize)          │
+└──────────────────────────────────────────────────────────────┘
 ```
+
+The header's run action reads **Run** before the first materialize and **Re-run** after. The stale
+alert renders only when `staleSources` is present, one line per moved source, **above** the frozen
+rows — which stay on screen.
+
+---
+
+## Model + persistence
+
+```ts
+// frontend — features/data-management/workflows/types.ts (abridged)
+type WorkflowDefinition = {
+  sources: string[]; // ≥1 `qr_…` / `wf_…`, each at most once; consolidation order = list order
+  steps?: Step[]; // the query step union, verbatim; empty = passthrough
+};
+
+type Workflow = {
+  id: string; // `^wf_[0-9a-f]{8}$`
+  workspaceId: string;
+  name: string; // 1–120 chars, unique per workspace
+  definition: WorkflowDefinition;
+  resolvedColumns?: Column[]; // the frozen output's captured columns — once run
+  materializedAt?: string; // ISO-8601 UTC of the last run — once run
+  run?: WorkflowRun; // the last run's stamp — absent before a stamped run / after a definition change
+  staleSources?: WorkflowStaleSource[]; // computed on every read; absent when nothing moved
+  createdAt: string;
+};
+
+type WorkflowRun = {
+  id: string; // `run_<8 hex>`, new on every run
+  number: number; // per-workflow counter 1, 2, 3 … — never reset
+  definitionHash: string; // the workflow definition's version at run time
+  sources: { id: string; definitionHash?: string; dataVersions?: Record<string, number>; runId?: string }[];
+};
+
+type WorkflowStaleSource = {
+  sourceId: string;
+  name?: string; // current name; omitted when the source no longer exists
+  reason: 'source_missing' | 'definition_changed' | 'data_refreshed' | 'source_rerun';
+};
+```
+
+**The `workflows` table** (SQLModel `Workflow` in
+[db_models.py](../../../../workspace/apps/backend/app/db_models.py); raw `sqlite3` in the handlers):
+`id` (PK), `workspace_id` (FK → workspaces, `ON DELETE CASCADE`), `name`
+(`CHECK length 1–120`, `UNIQUE (workspace_id, name)`), `definition_json`, `output_columns_json` +
+`materialized_at` (NULL until the first run), `created_at`, and the run stamp — `run_id` (NULL
+before the first run and after a definition change), `run_number` (`INTEGER NOT NULL DEFAULT 0`,
++1 per run, never reset) and `run_json` (what the run read). Created by `0003_workflows`; the stamp
+columns are added by `0007_workflow_runs` (workflows materialized before it carry no stamp until
+their next run — their freshness cannot be judged retroactively). The frozen output is
+`output.parquet` under the workflow's storage directory (`workflow_dir`).
+
+---
+
+## Routes (data contract)
+
+Wire shapes live under
+[`workspace/packages/contracts/workflows/`](../../../../workspace/packages/contracts/workflows/) and
+[`_shared/workflow.yaml`](../../../../workspace/packages/contracts/_shared/workflow.yaml).
+
+| Method   | Path                                             | Request body           | Success                                                                                | Error statuses + `code`                                                                                                  |
+| -------- | ------------------------------------------------ | ---------------------- | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `POST`   | `/workspaces/{id}/workflows`                     | `{ name, definition }` | `201` → `Workflow` (never run)                                                         | `409 name_taken`; `422` source refusal (`unknown_source` / `unresolved_source` / `duplicate_source` / `sources_diverge`) |
+| `GET`    | `/workspaces/{id}/workflows`                     | —                      | `200` → `Workflow[]`, `ORDER BY created_at DESC, id DESC` (each with `staleSources`)   | —                                                                                                                        |
+| `GET`    | `/workflows/{id}`                                | —                      | `200` → `Workflow` (`run` + `staleSources` computed on read)                           | `404 not_found`                                                                                                          |
+| `PUT`    | `/workflows/{id}`                                | `{ name, definition }` | `200` → `Workflow` — a **definition** change clears the output and the stamp           | `404 not_found`; `409 name_taken`; `422` source refusal (as on create)                                                   |
+| `DELETE` | `/workflows/{id}`                                | —                      | `204`                                                                                  | `404 not_found`                                                                                                          |
+| `POST`   | `/workflows/{id}/run`                            | —                      | `200` → `Workflow` with `resolvedColumns` + `materializedAt` + a new `run`             | `404 not_found`; `409 query_stale` (a source no longer resolves or the shapes diverged); `409 step_invalid` (a step)     |
+| `GET`    | `/workflows/{id}/rows?page=&page_size=&unpaged=` | —                      | `200` → `RowsPage` over the frozen output; `unpaged=true` → one response ≤ 10 000 rows | `404 not_found` (absent **or never run**); `422` (bad `page_size`)                                                       |
+
+- **Save-time refusals use the validation envelope.** `detail[0].loc` ends at the offending
+  source's **index** (`["body", "definition", "sources", i]`) and `msg` **starts with the code**:
+  `unknown_source` (not a query/workflow in this workspace), `unresolved_source` (deleted, drifted,
+  or a workflow never run), `duplicate_source` (listed twice), `sources_diverge` (not the first
+  source's shape — the msg names the missing / extra / clashing columns). The client lifts these
+  into a typed `WorkflowSourceError {code, index, detail}`.
+- **Steps are not validated on save** — they are validated at **run** against the consolidated
+  column space (the output materializes on run, not live), so a bad step saves and fails the run
+  with `409 step_invalid`. The last materialized output is kept as it was on any run failure.
+- **Run failures collapse to two codes.** Any consolidation problem at run time — a source deleted
+  or drifted, a workflow source with no output, a shape that diverged after save, an internal
+  `source_cycle` — is `409 query_stale`; a step the engine refuses is `409 step_invalid`.
+
+---
+
+## Consolidation
+
+`build_consolidated_relation` resolves each source through `resolve_source` and stacks the results
+with `UNION ALL BY NAME`:
+
+- **A query source contributes what it returns** — `_resolve_query_source` bakes its source + joins +
+  own filters **and its own steps** into a sub-relation, so the consolidation's column space is each
+  source's **post-step** columns (the same `resolvedColumns` the builder offers).
+- **A workflow source is a frozen leaf** — `_resolve_workflow_leaf` reads that workflow's
+  already-materialized `output.parquet` and never resolves its definition, so a self-reference reads
+  the prior frozen rows rather than looping. A workflow with no output cannot be a source
+  (`unresolved_source` on save, `409 query_stale` on run). The builder's picker excludes the workflow
+  being edited.
+- **Each source at most once** (`duplicate_source`) — listing one twice can only double every row.
+- **Every source has the first source's shape** (`sources_diverge`) — the same column **names** (any
+  order; the union aligns by name) with equal dtypes, except that `integer` and `float` **widen to
+  `float`**. Heterogeneous schemas are refused, not silently narrowed to the first source.
+- **Provenance with ≥2 sources** — every row gains a final `string` column **`Source.Query`** whose
+  value is the name of the source it came from (suffixed `Source.Query1`, `Source.Query2`, … off a
+  collision with a source column — a user's same-named column is never clobbered). A stacked total
+  can then be split by source instead of silently double-counting overlapping sources. A
+  single-source workflow gets no provenance column.
+- **Validated twice.** Save runs the same consolidation check (422 with the index); run re-runs it,
+  because a source edited after save can diverge (409).
+
+The declared column space is the first source's columns in order, numeric dtypes widened, plus the
+provenance column. The workflow's own steps are then planned against it (`_step_plan`) and folded by
+the same typed engine a query uses.
+
+---
+
+## Materialize + the run stamp
+
+**Run materializes explicitly** — editing defines, Run produces; there is no live preview. On a
+successful run the router:
+
+1. consolidates the sources and plans the steps (above);
+2. writes the **typed** final relation to `output.parquet` (`materialize_steps` — an integer stays
+   integer, so the output reads back as a typed source). The write is **ordered** by the same
+   `_page_order_sql` keys a stepped query read uses (the last `sort`/`top_n` leads, every column
+   breaks ties), so a workflow and the query it was built from agree on what the first row is; the
+   rows path then reads file order back verbatim — see
+   [\_paging-and-order.md](../_paging-and-order.md) for why that read is stable;
+3. records `output_columns_json` (post-step columns) + `materialized_at`;
+4. writes the **run stamp**: a new `run_id` (`run_<8 hex>`), `run_number + 1`, and `run_json` =
+   `{definitionHash, sources}`, captured from the same connection that resolved the sources
+   (`stamp_sources`). Per source: a **query** records its definition hash and the `dataVersion` of
+   every leaf dataset it reads; a **workflow** records the `runId` it read. The definition hash is
+   `definition_version` — the same value a metadata entry on the noun anchors to as
+   `definitionVersion`.
+
+**Staleness is computed on every read** (`stale_sources`) — metadata lookups only, no data scanned —
+by comparing the stamp with the database now. Each moved source gets the **first** reason that
+applies, in order:
+
+| Reason               | When                                                                                                  |
+| -------------------- | ----------------------------------------------------------------------------------------------------- |
+| `source_missing`     | the source, or a leaf dataset it reads, no longer exists; or a workflow source has no output any more |
+| `definition_changed` | the source query's definition hash moved                                                              |
+| `data_refreshed`     | a leaf dataset's `dataVersion` moved (it was refreshed)                                               |
+| `source_rerun`       | a workflow source was run again (its `run_id` moved)                                                  |
+
+**A flag, never a block.** The stale output stays readable — an archive is a feature — and
+re-running is the remedy. `staleSources` is omitted when nothing moved and when there is no stamp to
+judge.
+
+**A definition change invalidates; a rename does not.** `PUT` with a changed definition clears
+`output_columns_json`, `materialized_at`, `run_id` and `run_json` (the view returns to the never-run
+state) but **keeps `run_number`**, so the next run continues the count. A name-only `PUT` keeps the
+output and the stamp.
 
 ---
 
 ## Behaviour
 
-Materialize is **explicit and frozen** — editing defines, Run produces; there is no
-live preview (signed off R136). A definition change **invalidates** the frozen output.
-
 ```mermaid
 stateDiagram-v2
-    [*] --> Draft: create (sources + steps)
-    Draft --> Materialized: POST /run (consolidate → steps → parquet + schema)
-    Materialized --> Materialized: re-run (refresh against current sources)
-    Materialized --> Draft: PUT (definition changed → output invalidated)
-    Materialized --> Materialized: PUT (name only → output kept)
+    [*] --> Draft: POST (sources validated; steps not)
+    Draft --> Materialized: POST /run (consolidate → steps → parquet + schema + stamp)
+    Draft --> Draft: POST /run → 409 query_stale / step_invalid
+    Materialized --> Materialized: re-run (new run id, number + 1)
+    Materialized --> Stale: a source moved (staleSources on read)
+    Stale --> Materialized: re-run
+    Materialized --> Materialized: PUT name only (output + stamp kept)
+    Stale --> Stale: PUT name only
+    Materialized --> Draft: PUT definition changed (output + stamp cleared, counter kept)
+    Stale --> Draft: PUT definition changed
     Draft --> [*]: DELETE
     Materialized --> [*]: DELETE
+    Stale --> [*]: DELETE
 ```
 
-- **Consolidation** = `UNION ALL BY NAME` over each source's resolved+filtered
-  relation; `columns` = the first source's schema (same-shape assumption; BY NAME
-  tolerates order differences).
-- **Output-as-source**: a `wf_` resolves as a LEAF reading its frozen `output.parquet`
-  (no recursion → no cycle). An un-run source → 409 on run.
-- **Run errors** map like the query run path: `query_stale` / `step_invalid` → 409.
-- **`GET /rows`** 404s until the first run (the output is the rows resource).
-- **The materialized write is ORDERED** (R171), by the same `_page_order_sql` keys the source
-  query's paged read uses (R165 W-7): the user's `sort`/`top_n` leads, every remaining column
-  breaks ties. Without it the parquet came out in whatever sequence DuckDB's plan emitted and
-  the rows path read that back verbatim, so a workflow and the query it was built from
-  disagreed about what the first row is — same rows, same values, different order (found in
-  R168). Ordering the **write** settles the sequence once, where it is decided, rather than
-  re-sorting on every read. **This is not a total order on the READ**: `query_dataset_rows` still
-  has no `ORDER BY`. That read is nonetheless **stable in practice, and not by luck** — DuckDB's
-  `preserve_insertion_order` (default `true`) makes a parquet **scan** emit file order even under
-  parallel execution (measured 2026-08-15: 200k rows, 20 threads, 60 pages — zero duplicates, exact
-  file order, stable on repeat and under a filter). **It is therefore _not_ the R165 W-7 case**,
-  which reshuffled because `build_steps_relation` carries hash aggregates and window functions with
-  no insertion order to preserve. What remains is narrower and still true: paging correctness on
-  this path rests on an **engine default the code never sets and never asserts**.
-- **Edit (R139)** — the detail page toggles an inline edit mode (mirroring the
-  query detail's [Edit]) rendering the shared `WorkflowForm` over a working copy
-  (name + sources + steps); [Save] `PUT`s. When the definition changed, the backend
-  invalidates the frozen output → the view returns to the never-run state with a
-  **"re-run to refresh"** cue; a name-only edit leaves the output intact.
+- **Builder** — the workspace `<Select>` (create only; changing it clears sources and steps), the
+  name, the multi-select `WorkflowSourcePicker` (saved queries, then other workflows' outputs, in two
+  option groups; selection order = consolidation order) and the reused `StepsEditor`. Steps author
+  against the **first** source's columns (`useSourceColumns`: a query's `resolvedColumns`, else its
+  dataset's columns; a workflow's materialized `resolvedColumns`). Save is enabled with a name and
+  ≥1 source; a refusal toasts one sentence naming the source by its 1-based position and the reason
+  (`sourceErrorText`, e.g. _"Source 2 doesn't have the same columns as source 1, so they can't be
+  stacked."_ + the server's detail), or the `name_taken` message.
+- **Detail** — `[Run]`/`[Re-run]` · `[Edit]` · `[Delete]`; the summary shows the source/step counts,
+  **`Run #N`** when stamped, and the materialize time; the stale `<Alert>` lists each moved source
+  (_"“{name}” was edited after this run."_ …); the frozen rows render in `PagedRowsView`, or the
+  never-run state with its own `[Run]`. A run error toasts `step_invalid` (_"a transform step can't
+  run on the columns available where it sits"_) distinctly from `query_stale` (_"a source query
+  drifted or hasn't been run yet"_).
+- **Edit** — `[Edit]` swaps the view for the shared `WorkflowForm` over a working copy (name +
+  sources + steps); `[Save]` `PUT`s and returns to view; after a definition change the view shows the
+  never-run state.
+- **Caching (`hooks.ts`)** — `['workflows', {workspaceId}]` · `['workflow', id]` ·
+  `['workflow-rows', id, {page, pageSize}]` (enabled only once materialized). Create invalidates the
+  lists; run and update invalidate the lists + the single + its rows; delete invalidates the lists
+  and removes the single + rows.
 
 ---
 
-## Acceptance criteria (Design gate exit)
+## The noun, settled
 
-**User journey** — as a basic-Excel leader, I consolidate several saved queries into
-one table, shape it with steps, run it to freeze the result, and read/refresh the
-output — without writing a formula.
+### Consolidating a query means consolidating what it RETURNS
 
-1. **Catalog** _(FE test)_ — lists a workspace's workflows with source/step counts and
-   a materialized-vs-never-run badge; row → detail. (`workflows.test.tsx`)
-2. **Create** _(backend + FE)_ — `POST` validates each source is a query/workflow in
-   the workspace (422) and names unique per workspace (409). (`test_workflows.py`)
-3. **Run → materialize** _(backend)_ — consolidates each source **as that source returns it**
-   (its own steps applied — R168), applies **the workflow's own** steps over the union, writes
-   TYPED parquet, captures `resolvedColumns` + `materializedAt`. (`test_workflows_run.py`) —
-   **the source-steps half is R168's D1 repair; see § The noun, settled → § D1.**
-4. **Consolidation** _(backend)_ — ≥1 source stacked via union (self-consolidation
-   doubles the row count). (`test_workflows_run.py`)
-5. **Output-as-source** _(backend)_ — a materialized `wf_` reads back as a source; an
-   un-run source → 409. (`test_workflows_run.py`)
-6. **Rows** _(backend + FE)_ — `GET /rows` pages the materialized output; 404 before
-   first run. (`test_workflows_run.py`, `workflows.test.tsx`)
-7. **Edit** _(backend)_ — `PUT` edits name + definition; a definition change clears the
-   materialized output (rows→404, must re-run); a name-only edit keeps it.
-   (`test_workflows.py`)
-8. **Delete** _(backend)_ — `DELETE` → 204; subsequent `GET` → 404. (`test_workflows.py`)
-9. **Edit mode** _(FE, R139)_ — the detail page's [Edit] reveals `WorkflowForm`
-   pre-filled with the current definition; [Save] `PUT`s and returns to view; after a
-   definition change the view shows the never-run state (re-run to refresh).
-   (`workflows.test.tsx`)
+A source contributes the rows and columns its own detail page shows — its steps included. The
+competing reading ("the workflow shapes the source's raw rows") is not self-consistent: a `wf_`
+source already resolves to its post-step output, the builder already offers a query's post-step
+`resolvedColumns` to author workflow steps, and reading a query's un-shaped rows would route
+_around_ the query as the single shaping surface. The resolver's `qr_` branch therefore applies the
+source's own steps (`_resolve_query_source`), so the contract _"what the query returns"_ is true for
+every consumer of it.
 
----
+### A workflow source is resolved FROZEN
 
-## Workflow owns the polymorphic source resolver (R167)
+Frozen is the noun's distinction: live resolution would collapse Query and Workflow into one live
+noun and pull an upstream-re-run / DAG concept the product does not have. The run stamp is how a
+frozen output stays honest about it — it does not re-resolve upstream, it **says** upstream moved.
 
-`resolve_source`'s `qr_` branch — which resolves a saved query into a sub-relation — is
-**Workflow's, and nothing else's**. A Workflow's sources are `qr_`/`wf_` and **never** `ds_`
-([common.py](../../../../workspace/apps/backend/app/models/common.py)), and
-`build_consolidated_relation` resolves them through that branch.
-
-R167 retired `query⋈query` composition, which used the same branch, and **narrowed rather than
-deleted it** for exactly this reason: a Query's driving source and every join operand are now
-`ds_`, and the join path resolves a dataset leaf directly, so the branch is reachable from
-**exactly one call site** — a Workflow supplying a driving source. Workflow's boundary is
-therefore visible in the call graph. Two consequences a reader should carry:
-
-- **A workflow source resolves FROZEN — permanently** (ruled R168, § The noun, settled). A `wf_`
-  source is a leaf: `_resolve_workflow_leaf` reads the already-materialized parquet and never
-  resolves that workflow's own definition, so a self-reference reads stale rows rather than
-  looping.
-- **`composition_base_missing` is alive and is this domain's**: it is the un-run-workflow case.
-
----
-
-## The noun, settled (R168)
-
-Three questions arrived at this round with a shipped consequence each. All three are answered
-here; the reasoning that produced them is in
-[`Round_168`](../../../plan/cycles/Round_168.md) § Do.
-
-### 1. Consolidating a query means consolidating what it RETURNS
-
-**Ruled: yes.** A source contributes the rows and columns its own detail page shows — its steps
-included. The competing reading ("one shaping layer: the workflow shapes the source's raw rows")
-is not merely less attractive, it is **not self-consistent as shipped**:
-
-- **A `wf_` source already resolves to what it RETURNS.** `_resolve_workflow_leaf` reads
-  `output.parquet`, whose schema is `output_columns_json` — captured from the **post-step**
-  `final_cols`. So in a single `UNION ALL BY NAME`, a workflow source contributes shaped rows
-  while a query source contributes raw ones. Two source kinds, two contradictory readings, one
-  union.
-- **The builder already promises post-step columns.** `useSourceColumns` feeds the `StepsEditor`
-  a `qr_` source's `resolvedColumns`, which are the query's **post-step** output columns
-  (R120). `build_consolidated_relation` then validates the workflow's steps against the
-  **pre-step** space. The UI offers a column the run rejects — a workflow step over an aggregate
-  measure the builder listed fails at run with `step_invalid`.
-- **The program's thesis forbids it.** [Query as the single shaping
-  surface](../../../plan/programs/query-shaping-surface.plan.md): a path that reads a query's
-  un-shaped rows routes _around_ the shaping surface.
-
-So **D1 is a bug**, not the definition (noun-model
-[`_noun-model.md`](../_noun-model.md)) — see § D1 below.
-
-### 2. A workflow source is resolved FROZEN
-
-**Ruled: frozen, and it is the noun's distinction.** Live resolution would collapse Query and
-Workflow into one live noun and delete the reason this one exists (§ Concept; noun-model **D3**).
-It would also pull an upstream-re-run/DAG concept the product does not have — Evolution Rule
-default = don't add.
-
-**Consequence: the `composition_cycle` ERROR CODE is retired — and the GUARD is kept.** They are
-different things. With a Query's sources constrained to `ds_` (R167) and a `wf_` source a frozen
-leaf, no request can make `resolve_source`'s `visited` set see a repeat, so the wire stopped
-advertising an error nothing can provoke. The `visited` check itself stays: deleting it would not
-make a cycle impossible, it would make one **fatal** — the API cannot express a self-referencing
-query, but a hand-crafted DB row can, and it would recurse until the stack gives out. The guard
-now returns an internal `source_cycle` reason with no code of its own, which each consumer maps
-through its generic "this source can't resolve" fallback.
-
-### 3. What the noun is for, that a Query with `steps` is not
-
-Two things, and only two — both of which a Query genuinely cannot express:
+### What the noun is for, that a Query with `steps` is not
 
 |                 | The Workflow does                                                     | A Query cannot                                                          |
 | --------------- | --------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| **Consolidate** | `UNION ALL BY NAME` over ≥1 saved query                               | There is no `query ∪ query`; a Query has one driving source + join hops |
+| **Consolidate** | `UNION ALL BY NAME` over ≥1 saved query / workflow output             | There is no `query ∪ query`; a Query has one driving source + join hops |
 | **Materialize** | freeze a typed parquet + captured schema, readable as a stable source | A Query is live-only — it stores a definition and re-runs               |
 
-Its `steps` are **not** a third thing. They are the same step union, borrowed, and their
-justification is narrow: **post-union shaping** (consolidate twelve monthly queries, _then_
-total them). Shaping expressible on one source belongs upstream, in the Query.
+Its `steps` are **not** a third thing — the same union, borrowed, justified by **post-union
+shaping** (consolidate twelve monthly queries, _then_ total them). Shaping expressible on one source
+belongs upstream, in the Query.
 
-### D1 — the repair
+### Workflow owns the polymorphic source resolver
 
-`build_consolidated_relation` resolves each source and stacks it, but **never applies that
-source's steps** ([query_engine.py](../../../../workspace/apps/backend/app/query_engine.py)) —
-and, because a run materializes, **freezes the un-shaped rows to `output.parquet`**. Inherited as
-noun-model **D1**, which did not dissolve when composition retired; it **relocated** here, into a
-path that additionally persists the wrong answer.
+`resolve_source`'s `qr_` branch is **Workflow's, and nothing else's**: a Query's driving source and
+every join operand are `ds_`, so the branch is reachable only from a Workflow supplying a driving
+source. Its `visited` guard turns a hand-crafted self-referencing row into an internal
+`source_cycle` reason (no wire code), which the run maps to `409 query_stale`
+([queries.md § Composed source](../queries/queries.md#composed-source-qr_)).
 
-**Reproduced from the dev DB, 2026-08-14** — the seeded demo still demonstrates it:
+---
 
-|                                                                               |    Rows | Columns                      |
-| ----------------------------------------------------------------------------- | ------: | ---------------------------- |
-| Query `Revenue by order status` (one `aggregate` step) on its own detail page |       4 | `status`, the summed measure |
-| Workflow `Consolidated revenue by status` consolidating exactly that query    | **120** | **the 9 raw order columns**  |
+## Acceptance criteria
 
-**The repair**: each source's resolved relation is folded through its **own** steps before it is
-stacked, and the consolidation's declared column space becomes the first source's **post-step**
-columns. `_apply_step` already folds SQL→SQL — both `run_steps` and `materialize_steps` do that
-fold and then execute — so the change is an extraction of that shared fold, not a new engine path.
+**User journey** — as a basic-Excel leader, I consolidate several saved queries into one table,
+shape it with steps, run it to freeze the result, read the output, and see when it has gone out of
+date — without writing a formula.
 
-**Shipped R168.** The fold lives in `resolve_source`'s `qr_` branch — extracted as
-`_resolve_query_source`, so the resolver's contract ("what the query returns") is true for every
-consumer of it, not just the consolidation path. `build_steps_relation` is the SQL→SQL fold
-`run_steps` and `materialize_steps` had each written inline. Three tests assert the ruling rather
-than the call site, each verified failing against the pre-fix engine.
-
-> **Existing materialized outputs went stale on the fix** — the definition did not change, the
-> engine did, so nothing invalidated them. Dev-only: `pnpm dev:seed --reset` regenerates. This is
-> a real gap in the noun rather than a migration artefact, and it is on R168's acceptance walk
-> (T3/T4) rather than pre-fixed: a change **upstream** of a workflow does not mark its frozen
-> output stale, and only a `PUT` on the workflow itself invalidates.
+1. **Catalog** — lists a workspace's workflows with source/step counts and a last-run time or a
+   "never run" tag; row → detail.
+2. **Create** — `POST` refuses a source that is not a query/workflow in the workspace, does not
+   resolve now, is listed twice, or differs in shape from the first source (`422`, `loc` ending at
+   its index, `msg` led by the code); duplicate names → `409 name_taken`. The builder names the
+   source by position and the reason.
+3. **Run → materialize** — consolidates each source **as that source returns it** (its own steps
+   applied), applies the workflow's own steps over the union, writes TYPED, ordered parquet, captures
+   `resolvedColumns` + `materializedAt`, and stamps `run` (`run_<8hex>`, number + 1, definition hash,
+   per-source hashes / data versions / run ids).
+4. **Consolidation** — ≥2 same-shaped sources stack via union with a final `Source.Query` column
+   naming each row's source (suffixed off a collision); integer + float widen to float; a single
+   source adds no provenance column.
+5. **Run-time drift** — a source deleted / drifted / diverged after save → `409 query_stale`; a bad
+   step → `409 step_invalid`; the previous output is untouched either way.
+6. **Output-as-source** — a materialized `wf_` reads back as a source from its frozen parquet; an
+   un-run one is refused on save.
+7. **Rows** — `GET /rows` pages the materialized output; `404` before the first run; `unpaged=true`
+   returns one capped response.
+8. **Staleness** — after a run, editing a source query → `definition_changed`; refreshing a dataset
+   it reads → `data_refreshed`; deleting it → `source_missing`; re-running a workflow source →
+   `source_rerun`; the detail shows the out-of-date alert above the still-visible rows; re-running
+   clears it.
+9. **Edit** — `PUT` edits name + definition; a definition change clears the output and the stamp
+   (rows → 404, must re-run) but the next run's number continues the count; a name-only edit keeps
+   both.
+10. **Delete** — `DELETE` → 204; subsequent `GET` → 404.
 
 ---
 
@@ -311,29 +394,42 @@ than the call site, each verified failing against the pre-fix engine.
 
 ### IN scope
 
-- The Workflow noun (CRUD + run/rows + update), consolidation via union, transform
-  steps (reused), materialize/freeze, output-as-source, the three FE surfaces, and the
-  detail-page **edit mode** (R139 — inline `WorkflowForm` over a working copy → `PUT`).
+- The Workflow noun (CRUD + run/rows + update), consolidation via union with its save/run guards and
+  provenance column, transform steps (reused), materialize/freeze, the run stamp + computed
+  staleness, output-as-source, the three FE surfaces, and the detail-page **edit mode**.
 
 ### OUT of scope (deferred with named triggers)
 
-- **Value-out deliverable** (Excel/CSV download of the materialized output) — deferred
-  at R136; decide once the in-app output is proven (a real value-out pull).
-- **YAML import/edit of the spec** — PARKED. A raw-spec editor cuts against the #1 ease
-  value ("Excel-with-extra-steps"); pull only on a real #2 AI-loop or power-user need.
-- **Heterogeneous-schema consolidation** (a column mapper) — v1 assumes same-shape
-  sources; pull when a real divergent-schema consolidation appears.
-- **Join-based consolidation** — v1 is union only; a join across sources is a later
-  pull if union can't express a real consolidation.
+- **Value-out deliverable** (CSV/XLSX download of the materialized output) — the export route is a
+  query route today; pull once a real value-out need for a workflow output appears.
+- **A dashboard bound to a workflow output** — `rows?unpaged=true` exists, but no widget consumes a
+  workflow; pull with a real dashboard need.
+- **Automatic refresh** — staleness is a flag; re-running is manual. An upstream-triggered re-run is
+  a DAG concept the product does not have.
+- **Authoring a step over the provenance column** — the builder's `StepsEditor` offers the first
+  source's columns, so `Source.Query` (added at run) is not offered while authoring; pull when a
+  split-by-source step is needed.
+- **YAML import/edit of the spec** — PARKED; a raw-spec editor cuts against the "Excel-with-extra-
+  steps" ease value. Pull only on a real power-user or AI-loop need.
+- **Heterogeneous-schema consolidation** (a column mapper) — refused today (`sources_diverge`); pull
+  when a real divergent-schema consolidation appears.
+- **Join-based consolidation** — union only; a join across sources is a later pull if union can't
+  express a real consolidation.
+
+### This concept explicitly does NOT cover
+
+- The step semantics and the query resolver internals — [queries.md](../queries/queries.md).
+- The `StepsEditor` card UX — [query-construction.md](../queries/query-construction.md).
+- Dataset refresh and `dataVersion` — [datasets.md](../datasets/datasets.md).
+- The metadata entries shown by `MetadataPanel` — [metadata.md](../_shared/metadata.md).
 
 ---
 
 ## Reference materials (read-only)
 
-- [Round_131](../../../plan/cycles/Round_131.md) (noun design gate),
-  [Round_136](../../../plan/cycles/Round_136.md) (FE design gate) — the intent-before-code
-  reasoning this doc distils.
+- [`_noun-model.md`](../_noun-model.md) — the five nouns; D1 / D3 (closed) explain why a source
+  contributes what it returns and why the noun is consolidate + materialize.
+- [\_paging-and-order.md](../_paging-and-order.md) — the ordered materialized write and the stable
+  frozen read.
 - Brainstorm: [2026-07-01-queries-to-workflows-module](../../../plan/brainstorms/2026-07-01-queries-to-workflows-module.md)
-  (the `hg_code` reframing that pulled the module).
-- Memory: `2026-06-30-workflows-extend-query-duckdb-first` (workflows = query gains
-  steps, DuckDB-first) — the doctrine the noun realizes.
+  (the reframing that pulled the module).

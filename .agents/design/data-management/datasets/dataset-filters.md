@@ -93,7 +93,10 @@ needed at this stage).
 ## Layout — ASCII intent
 
 The filter UI renders inside the existing dataset detail page
-chrome. The new visual elements are:
+chrome (abbreviated in the sketches below — the header, metadata and
+date-coverage strips, and toolbar are owned by
+[dataset-detail.md](dataset-detail.md#layout--ascii-intent)). The filter
+elements are:
 
 1. A small `▾` filter-trigger icon next to each column header's
    dtype badge. Active filters style the trigger primary-colored.
@@ -106,18 +109,15 @@ chrome. The new visual elements are:
 ### Populated state — filters applied (≥1 filter, ≥1 matched row)
 
 ```text
-                                                            ┌── PageHeader.actions ──┐
-Home ▸ Data Management ▸ Datasets ▸ q1_pipeline_Deals             [Rename]  [Delete] │
-📊 q1_pipeline_Deals                                                                  │
-Excel · Sheet1 — 2,481 rows · 12 columns · 84 KB · Uploaded 14:02 today  ─────────────┘
+                                                  ┌──────── PageHeader.actions ────────┐
+Home ▸ Data Management ▸ Datasets ▸ q1_pipeline_Deals  [+ Save filters as Query] [Actions ▾]
+▣ q1_pipeline_Deals  [Excel · Deals]                                                  │
+2,481 rows · 12 columns · 84 KB · Uploaded 14:02  ─────────────────────────────────────┘
 
 ┌──────────────────────────────────────────────────────────────────────────────────┐
 │  PageCard                                                                         │
 │  ─────────────────────────────────────────────────────────────────────────────  │
-│   ┌─ Metadata strip ────────────────────────────────────────────────────────┐   │
-│   │ Workspace    Rows     Cols   Size      Uploaded         Format          │   │
-│   │ Marketing    2,481    12     84 KB     14:02 today      Excel · Sheet1  │   │
-│   └─────────────────────────────────────────────────────────────────────────┘   │
+│   (metadata strip · date-coverage strip — see dataset-detail.md)                 │
 │                                                                                   │
 │   [🔍 Search rows…                       ]  Matched 47 / 2,481                   │
 │                                                                                   │
@@ -253,9 +253,9 @@ null`, `is not null`. All four are operand-less.
 ### No-match state — filters return zero rows
 
 ```text
-Home ▸ Data Management ▸ Datasets ▸ q1_pipeline_Deals             [Rename]  [Delete]
-📊 q1_pipeline_Deals
-Excel · Sheet1 — 2,481 rows · 12 columns · 84 KB · Uploaded 14:02 today
+Home ▸ Data Management ▸ Datasets ▸ q1_pipeline_Deals  [+ Save filters as Query] [Actions ▾]
+▣ q1_pipeline_Deals  [Excel · Deals]
+2,481 rows · 12 columns · 84 KB · Uploaded 14:02
 
 [🔍 Search rows…                       ]  Matched 0 / 2,481
 
@@ -369,28 +369,28 @@ in [`themeTokens.ts`](../../../../workspace/packages/ui/src/themeTokens.ts)
 mirror). Values are informational (resolved via
 `theme.getDesignToken()`, antd 6.x).
 
-| Surface                                      | AntD token                                | Value (informational) |
-| -------------------------------------------- | ----------------------------------------- | --------------------- |
-| Filter trigger (default)                     | `colorTextTertiary`                       | derived               |
-| Filter trigger (hover)                       | `colorTextSecondary` on `colorFillQuaternary` | derived           |
-| Filter trigger (active)                      | `colorPrimary`                            | `#1677ff`             |
-| Filter trigger active-dot                    | `colorPrimary`                            | `#1677ff`             |
-| Chip background                              | `colorPrimaryBg`                          | `#e6f4ff`             |
-| Chip text + border                           | `colorPrimary`                            | `#1677ff`             |
-| Chip close icon (idle / hover)               | `colorPrimary` → `colorPrimaryHover`      | `#1677ff` / `#4096ff` |
-| Chip row background                          | `colorFillQuaternary`                     | derived               |
-| Chip row border                              | `colorBorderSecondary` + `borderRadius`   | derived               |
-| Chip row "Clear all" link                    | `colorPrimary`                            | `#1677ff`             |
-| Popover background                           | `colorBgBase`                             | derived               |
-| Popover border / shadow                      | `colorBorderSecondary` + `boxShadowTertiary` | derived            |
-| Popover title text                           | `colorText`                               | derived               |
-| Popover label text                           | `colorTextSecondary`                      | derived               |
-| Popover divider                              | `colorBorderSecondary`                    | `#f0f0f0`             |
-| Popover "Clear filter" link                  | `colorError` (muted)                      | `#ff4d4f`             |
-| Popover Apply button                         | `colorPrimary` (AntD primary `<Button>`)  | `#1677ff`             |
-| Popover Cancel button                        | `colorBgContainer` / `colorText` (AntD default) | derived         |
-| Numeric input alignment                      | _(local CSS `tabular-nums` — not a themed token)_ | n-a           |
-| Border radius (chip, popover, trigger hover) | `borderRadius`                            | `6`                   |
+| Surface                                      | AntD token                                        | Value (informational) |
+| -------------------------------------------- | ------------------------------------------------- | --------------------- |
+| Filter trigger (default)                     | `colorTextTertiary`                               | derived               |
+| Filter trigger (hover)                       | `colorTextSecondary` on `colorFillQuaternary`     | derived               |
+| Filter trigger (active)                      | `colorPrimary`                                    | `#1677ff`             |
+| Filter trigger active-dot                    | `colorPrimary`                                    | `#1677ff`             |
+| Chip background                              | `colorPrimaryBg`                                  | `#e6f4ff`             |
+| Chip text + border                           | `colorPrimary`                                    | `#1677ff`             |
+| Chip close icon (idle / hover)               | `colorPrimary` → `colorPrimaryHover`              | `#1677ff` / `#4096ff` |
+| Chip row background                          | `colorFillQuaternary`                             | derived               |
+| Chip row border                              | `colorBorderSecondary` + `borderRadius`           | derived               |
+| Chip row "Clear all" link                    | `colorPrimary`                                    | `#1677ff`             |
+| Popover background                           | `colorBgBase`                                     | derived               |
+| Popover border / shadow                      | `colorBorderSecondary` + `boxShadowTertiary`      | derived               |
+| Popover title text                           | `colorText`                                       | derived               |
+| Popover label text                           | `colorTextSecondary`                              | derived               |
+| Popover divider                              | `colorBorderSecondary`                            | `#f0f0f0`             |
+| Popover "Clear filter" link                  | `colorError` (muted)                              | `#ff4d4f`             |
+| Popover Apply button                         | `colorPrimary` (AntD primary `<Button>`)          | `#1677ff`             |
+| Popover Cancel button                        | `colorBgContainer` / `colorText` (AntD default)   | derived               |
+| Numeric input alignment                      | _(local CSS `tabular-nums` — not a themed token)_ | n-a                   |
+| Border radius (chip, popover, trigger hover) | `borderRadius`                                    | `6`                   |
 
 No new token is introduced. Identifier parity against the live AntD
 registry is enforced by
@@ -612,7 +612,7 @@ and the operator-set spec below.
 | --------------- | ------------------ | ----------------------------- | ------------------- | ------------------------------------------------ |
 | string          | contains           | `contains`                    | string              | `WHERE col ILIKE '%val%'`                        |
 | string          | equals             | `equals`                      | string              | `WHERE col = 'val'` (case-insensitive collation) |
-| string          | not equals         | `ne`                          | string              | `WHERE lower(col) <> lower('val')`              |
+| string          | not equals         | `ne`                          | string              | `WHERE lower(col) <> lower('val')`               |
 | string          | starts with        | `starts_with`                 | string              | `WHERE col ILIKE 'val%'`                         |
 | string          | ends with          | `ends_with`                   | string              | `WHERE col ILIKE '%val'`                         |
 | string          | is empty           | `is_empty`                    | —                   | `WHERE col = '' OR col IS NULL`                  |
@@ -632,8 +632,8 @@ and the operator-set spec below.
 | date / datetime | not equals         | `ne`                          | ISO date / datetime | `WHERE col <> 'val'::DATE`                       |
 | date / datetime | before             | `before`                      | ISO date / datetime | `WHERE col < 'val'::DATE`                        |
 | date / datetime | after              | `after`                       | ISO date / datetime | `WHERE col > 'val'::DATE`                        |
-| date / datetime | ≥                  | `gte`                         | ISO date / datetime | `WHERE col >= 'val'::DATE` (inclusive)          |
-| date / datetime | ≤                  | `lte`                         | ISO date / datetime | `WHERE col <= 'val'::DATE` (inclusive)          |
+| date / datetime | ≥                  | `gte`                         | ISO date / datetime | `WHERE col >= 'val'::DATE` (inclusive)           |
+| date / datetime | ≤                  | `lte`                         | ISO date / datetime | `WHERE col <= 'val'::DATE` (inclusive)           |
 | date / datetime | between            | `between`                     | min, max (ISO)      | `WHERE col BETWEEN 'min' AND 'max'`              |
 | date / datetime | is null            | `is_null`                     | —                   | `WHERE col IS NULL`                              |
 | date / datetime | is not null        | `is_not_null`                 | —                   | `WHERE col IS NOT NULL`                          |
@@ -659,13 +659,13 @@ saved Query's `filters`/`advanced`, a `filter` step and each `case` branch's `wh
 chip grammar (`f<N>_*`) does not change.** `OPS_BY_DTYPE` above stays the chip vocabulary;
 the list ops are layered on top only in the atom path.
 
-| Dtype | Operator (UI) | Key | Operand | SQL |
-| --- | --- | --- | --- | --- |
-| string | is one of | `in` | `vals: [string, …]` | `lower(col) IN (lower(?), …)` |
-| string | is not one of | `not_in` | `vals: [string, …]` | `lower(col) NOT IN (lower(?), …)` |
-| integer / float | is one of / is not one of | `in` / `not_in` | `vals: [number, …]` | `col IN (CAST(? AS T), …)` |
-| date / datetime | is one of / is not one of | `in` / `not_in` | `vals: [ISO, …]` | `col IN (CAST(? AS T), …)` |
-| any comparable | equals · ne · gt · lt · gte · lte · before · after | (existing key) | `refCol` instead of `val` | `col <op> other_col` |
+| Dtype           | Operator (UI)                                      | Key             | Operand                   | SQL                               |
+| --------------- | -------------------------------------------------- | --------------- | ------------------------- | --------------------------------- |
+| string          | is one of                                          | `in`            | `vals: [string, …]`       | `lower(col) IN (lower(?), …)`     |
+| string          | is not one of                                      | `not_in`        | `vals: [string, …]`       | `lower(col) NOT IN (lower(?), …)` |
+| integer / float | is one of / is not one of                          | `in` / `not_in` | `vals: [number, …]`       | `col IN (CAST(? AS T), …)`        |
+| date / datetime | is one of / is not one of                          | `in` / `not_in` | `vals: [ISO, …]`          | `col IN (CAST(? AS T), …)`        |
+| any comparable  | equals · ne · gt · lt · gte · lte · before · after | (existing key)  | `refCol` instead of `val` | `col <op> other_col`              |
 
 - **`vals`** holds 1–500 values. Each one is parsed per dtype exactly like `val` (an
   unparseable value is a `filter_value_unparseable` 422). Strings compare case-insensitively,

@@ -108,7 +108,9 @@ definitionHash, sources[]}` — per source what the run read: a query's `definit
 ### Gate G-wf — before 3.6 opens
 
 Double-count, shape divergence and source change are all caught; `dataVersion` / `run` written by
-the server only. Evidence table: `Round_187` § G-wf. **The owner's call.**
+the server only. Evidence table: `Round_187` § G-wf (two close-out tests added 2026-10-17: a
+joined-in dataset refreshed, the source dataset deleted). **Agent recommends pass; the owner's
+call**, together with [walk pack](walk-rc2-rc3a.md) session B.
 
 ## 3.4 Refresh with several files at once (label R178) — next
 

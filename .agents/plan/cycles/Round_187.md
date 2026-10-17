@@ -77,19 +77,24 @@ workflow edit → stamp cleared, next run number 3; a body carrying `run` → 42
 The gate: _"double-count, shape divergence and source change are all caught; `data_version` /
 `run_id` written by the server, not writable by a client. No pass, no publish."_
 
-| Condition                                    | Caught by                                                                                                                                             | Round |
-| -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ----- |
-| Double-count — the same source twice         | 422 `duplicate_source` — `test_the_same_source_twice_is_refused_on_save`                                                                              | R186  |
-| Double-count — overlapping sources           | `Source.Query` splits the total (35 / 30) — `test_overlapping_sources_are_separable_by_provenance`                                                    | R186  |
-| Shape divergence on save                     | 422 `sources_diverge` — `test_divergent_sources_are_refused_on_save_instead_of_narrowing`, `test_a_type_clash_is_refused_but_integer_and_float_widen` | R186  |
-| Shape divergence after save                  | 409 at run, last output kept — `test_shapes_that_diverge_after_save_make_the_run_stale`                                                               | R186  |
-| Source never resolved                        | 422 `unresolved_source` — `test_create_over_an_unrun_workflow_source_returns_422`                                                                     | R186  |
-| Source refreshed / edited / deleted / re-run | `staleSources` reasons — the four `test_workflow_run_stamps.py` cases                                                                                 | R187  |
-| `dataVersion` server-only                    | `test_no_request_body_can_set_the_data_identity`, `test_every_refresh_mode_bumps_the_version_and_restamps`                                            | R185  |
-| `run` stamp server-only                      | `test_no_request_body_can_write_a_stamp`                                                                                                              | R187  |
+| Condition                                    | Caught by                                                                                                                                             | Round     |
+| -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| Double-count — the same source twice         | 422 `duplicate_source` — `test_the_same_source_twice_is_refused_on_save`                                                                              | R186      |
+| Double-count — overlapping sources           | `Source.Query` splits the total (35 / 30) — `test_overlapping_sources_are_separable_by_provenance`                                                    | R186      |
+| Shape divergence on save                     | 422 `sources_diverge` — `test_divergent_sources_are_refused_on_save_instead_of_narrowing`, `test_a_type_clash_is_refused_but_integer_and_float_widen` | R186      |
+| Shape divergence after save                  | 409 at run, last output kept — `test_shapes_that_diverge_after_save_make_the_run_stale`                                                               | R186      |
+| Source never resolved                        | 422 `unresolved_source` — `test_create_over_an_unrun_workflow_source_returns_422`                                                                     | R186      |
+| Source refreshed / edited / deleted / re-run | `staleSources` reasons — the four `test_workflow_run_stamps.py` cases                                                                                 | R187      |
+| `dataVersion` server-only                    | `test_no_request_body_can_set_the_data_identity`, `test_every_refresh_mode_bumps_the_version_and_restamps`                                            | R185      |
+| `run` stamp server-only                      | `test_no_request_body_can_write_a_stamp`                                                                                                              | R187      |
+| A joined dimension refreshed                 | `data_refreshed` — `test_refreshing_a_joined_dimension_flags_the_workflow` (the stamp keeps every leaf dataset)                                       | close-out |
+| The source **dataset** deleted               | `source_missing`, rows still served — `test_deleting_the_source_dataset_flags_missing_and_the_output_survives`                                        | close-out |
 
-**Agent's read: green on the cloud runner.** The gate is the owner's call; the rc.3 parity check
-on the dogfood copy runs before the batch bundle.
+**Agent's recommendation (2026-10-17): pass.** Every condition has a test that fails without the
+guard; the dogfood parity (below, § Do) shows nothing else moved; the two gaps a pre-lock read
+found — a refresh of a joined-in dataset and the deletion of the dataset under a source query — are
+pinned by the two close-out tests and passed without a code change. Still the owner's call, taken
+together with walk session B ([walk pack](../programs/release-rc2-rc5/walk-rc2-rc3a.md)).
 
 ## Risks / unknowns
 

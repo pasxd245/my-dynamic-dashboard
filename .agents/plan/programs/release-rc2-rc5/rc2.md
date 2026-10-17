@@ -52,8 +52,7 @@ rc.3.
   widgets beside a tall one); a taller widget is exactly as tall as the widgets stacked beside it
   (card chrome measured at 93 px). Tables page more rows per page with height. Size select next to
   width in `WidgetBuilder.tsx`.
-- **Remaining:** design doc — create `.agents/design/dashboards/dashboard-layout.md` § Widget size
-  (design-corpus debt).
+- **Design doc:** `dashboards/dashboard-layout.md` § grid (synced 2026-10-17).
 
 ## 2.8 Date coverage per dataset — `Round_178` _(R-b; missing from the first draft)_
 
@@ -67,7 +66,7 @@ rc.3.
   strip on the dataset page and a line per column in the Properties drawer. Datasets committed
   before R178 carry none until their next refresh (by design). On the dogfood: 18 temporal columns
   profiled across 8 datasets.
-- **Remaining:** design doc — `data-management/datasets/…` § Coverage (design-corpus debt).
+- **Design doc:** `data-management/datasets/datasets.md`, `dataset-detail.md` (synced 2026-10-17).
 
 ## 2.2 Annotation widget (`note`) — `Round_179`
 
@@ -85,7 +84,7 @@ rc.3.
   - Builder: `SafeMarkdown.tsx` renders the allowed subset to React nodes (headings, emphasis,
     lists, links with `rel="noopener noreferrer"`, inline code with a monospace style, tables) —
     **no markdown dependency was added**.
-- **Remaining:** design doc `dashboards/dashboard-layout.md` § Notes (design-corpus debt).
+- **Design doc:** `dashboards/widgets.md` § Notes (2026-10-17).
 
 ## 2.6 Metadata — view-only, written by token — `Round_180`
 
@@ -111,7 +110,7 @@ rc.3.
   - Entries are **not** removed when their noun is deleted (no cascade, no sweep) → logged; pulled
     into 3.8.
   - `alembic downgrade` of 0005 on a copy of a real database (only `upgrade` was run on the copy).
-  - Design doc `data-management/_shared/metadata.md` (design-corpus debt).
+  - Design doc: `data-management/_shared/metadata.md` (written 2026-10-17).
 
 ## 2.3 Table total row — `Round_181`
 
@@ -164,7 +163,7 @@ percent, title}` → file with a server-chosen name in `Content-Disposition` (ex
   metadata panel); the join modal warns before saving a hop that will multiply rows. A flag, never a
   block.
 - **Remaining:** measure on a large pair before showing it on a list page; design doc
-  `data-management/workspaces/relationships.md` § Self-check (design-corpus debt). Not exercised on
+  `data-management/workspaces/relationships.md` (synced 2026-10-17). Not exercised on
   the dogfood (no relationship declared there yet).
 
 ---
@@ -176,9 +175,10 @@ percent, title}` → file with a server-chosen name in `Content-Disposition` (ex
 - [x] Metadata with HTML or an image is rejected (test, R180) — walk pending
 - [x] An rc.1 dashboard JSON loads unchanged (dogfood parity, 5 dashboards byte-identical)
 - [x] Dogfood dual-run rc.1 → rc.2: 119 / 119 items identical (R183 § Do)
-- [ ] Acceptance walk logged for R177–R183 (human)
+- [ ] Acceptance walk logged for R177–R183 (human) — [walk pack](walk-rc2-rc3a.md) session A
 - [ ] R177–R183 `Complete` (human flips)
 - [ ] `alembic downgrade -1 && alembic upgrade head` clean on a copy of a real database (0005)
-- [ ] Design-corpus debt for 2.1–2.6, 2.8 paid (`design-sync` per domain)
+- [x] Design-corpus debt paid — `design-sync` 2026-10-17 (landed on `release/v0.0.1-rc.3`; the rc.2 tag carries the pre-sync docs)
+- [x] Walk blocker fixed before the walk: table widget save (`ff9647a`)
 - [ ] Release note lists every contract addition
 - [ ] Boundary scan clean (`sync.ps1` M3) and tag `v0.0.1-rc.2` (human)

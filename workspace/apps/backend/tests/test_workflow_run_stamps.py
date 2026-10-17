@@ -8,6 +8,8 @@ serving its frozen rows with nothing to say so."""
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -176,3 +178,52 @@ def test_no_request_body_can_write_a_stamp() -> None:
 
     assert create.status_code == 422
     assert update.status_code == 422
+
+
+# ── G-wf evidence (added at the rc.3 batch-1 close-out) ─────────────────────────
+
+
+@pytest.mark.unit
+def test_refreshing_a_joined_dimension_flags_the_workflow() -> None:
+    """A query source reads every dataset on its join path, not only its driving
+    one: the stamp keeps all leaves, so refreshing the joined-in dataset moves the
+    workflow too (R187's Studied claim, pinned)."""
+    from tests.test_joins import _declare_id_join, _joined_def, _seed as _seed_join
+
+    with TestClient(app) as client:
+        ws, deals, accounts = _seed_join(client)
+        rel = _declare_id_join(client, ws, deals, accounts)
+        q = client.post(
+            f"/workspaces/{ws}/queries", json={"name": "deals x accounts", "sourceId": deals, "definition": _joined_def(rel)}
+        )
+        assert q.status_code == 201, q.text
+        qid = q.json()["id"]
+        wid = client.post(f"/workspaces/{ws}/workflows", json={"name": "J", "definition": {"sources": [qid], "steps": []}})
+        run = client.post(f"/workflows/{wid.json()['id']}/run").json()
+        sample = (Path(__file__).parent / "fixtures" / "sample.csv").read_bytes()
+        up = client.post("/uploads", data={"sourceFormat": "csv"}, files={"file": ("s.csv", sample, "text/csv")})
+        r = client.post(
+            f"/workspaces/{ws}/datasets/batch",
+            json={"temp_id": up.json()["temp_id"], "items": [{"name": "x", "target_dataset_id": accounts}]},
+        )
+        assert r.status_code == 201, r.text
+        stale = client.get(f"/workflows/{wid.json()['id']}").json()
+
+    assert run["run"]["sources"][0]["dataVersions"] == {deals: 1, accounts: 1}
+    assert stale["staleSources"] == [{"sourceId": qid, "name": "deals x accounts", "reason": "data_refreshed"}]
+
+
+@pytest.mark.unit
+def test_deleting_the_source_dataset_flags_missing_and_the_output_survives() -> None:
+    """Deleting a dataset cascades to the queries rooted on it; the workflow over
+    such a query reads `source_missing` and still serves its frozen rows (W-7)."""
+    with TestClient(app) as client:
+        _ws, ds, qid, wid = _seed(client)
+        client.post(f"/workflows/{wid}/run")
+        gone = client.delete(f"/datasets/{ds}")
+        stale = client.get(f"/workflows/{wid}").json()
+        rows = client.get(f"/workflows/{wid}/rows")
+
+    assert gone.status_code == 204
+    assert stale["staleSources"] == [{"sourceId": qid, "reason": "source_missing"}]
+    assert rows.status_code == 200 and rows.json()["total"] == 2

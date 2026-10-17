@@ -718,10 +718,13 @@ def commit_datasets_batch(
     id: str,
     body: _BatchRequest,
 ) -> list[Dataset] | JSONResponse:
-    # body = { items: [{ temp_id, sheet?: str, name: str,
-    #                     parse_options?: ParseOptions,
-    #                     column_overrides?: dict[str, ColumnOverride],
-    #                     excluded_columns?: list[str] }] }
+    # body = { temp_id, items: [{ sheet?: str, name: str,
+    #                             parse_options?: ParseOptions,
+    #                             column_overrides?: dict[str, ColumnOverride],
+    #                             excluded_columns?: list[str],
+    #                             # refresh-only (§ Refresh): target_dataset_id,
+    #                             # merge_key, refresh_mode, overlap_check_field
+    #                           }] }
     # ParseOptions = { range?: str, skip_rows?: int, has_header?: bool }
     # ColumnOverride = { dtype: str, format?: str }  # `format` only meaningful for date/datetime
     # excluded_columns: names the user unchecked in the Metadata step;
@@ -743,12 +746,16 @@ def commit_datasets_batch(
     #      column to its committed dtype. An uncastable cell raises
     #      CoercionError → 422 `coercion_failed` (row-pointing); the batch aborts.
     # 3. Write the fresh parsed.parquet + copy original + write source.json
-    #    per item under data/datasets/<workspace_id>/<dataset_id>/.
-    # 4. Open a single DB transaction; insert every Dataset row.
+    #    per item under data/datasets/<workspace_id>/<dataset_id>/, and
+    #    profile date coverage over the written parquet (profile_date_coverage →
+    #    Column.coverage on every date/datetime column; see datasets.md).
+    # 4. Open a single DB transaction; insert every Dataset row, stamped
+    #    refreshed_at = created_at and data_version = 1.
     # 5. Commit. The temp directory is NOT deleted here — the TTL sweep is the
     #    sole reaper (filesystem trees roll back on DB failure).
-    # 6. Return the created Datasets — a plain list for create/replace, or a
-    #    {datasets, merge} wrapper for a merge refresh (201 oneOf; see below).
+    # 6. Return the created Datasets — a plain list for create/replace, a
+    #    {datasets, merge} wrapper for a merge refresh, or a {datasets, append}
+    #    wrapper for an append refresh (201 oneOf; see below).
 ```
 
 **HTTP semantics**:
@@ -763,9 +770,12 @@ def commit_datasets_batch(
   carried in the response body, not a 4xx — the wizard surfaces
   them as per-tab `✗` markers.
 - `POST /workspaces/<id>/datasets/batch` → `201` on success with a
-  **oneOf** body: a plain `list[Dataset]` for create / replace, or a
+  **oneOf** body: a plain `list[Dataset]` for create / replace, a
   `{ datasets: [Dataset], merge: { updated, inserted, kept } }`
-  wrapper for a merge refresh (FE branches on `Array.isArray`).
+  wrapper for a merge refresh, or a
+  `{ datasets: [Dataset], append: { appended, total } }` wrapper for an
+  append refresh (FE branches on `Array.isArray`, then on `merge` vs
+  `append`).
   `404` if workspace or temp_id missing; `409` `unknown_column`
   (bad `excluded_columns` / `column_overrides` name) or `name_taken`
   (duplicate name in the workspace) — the only 409s emitted; `422`
@@ -1116,7 +1126,8 @@ lands, and it should update `monthly_calls` in place — not spawn a 12th near-d
 
 Refresh ships **whole-table replace** semantics: the new file's parsed table **replaces** the
 dataset's contents (original + parquet + `columns_json` + counts), forward-only (no version
-history). This is the lived case — the FM exports are **cumulative** (FM2.25 carried 6,692
+history — the dataset's `dataVersion` counts refreshes, it does not keep the previous rows).
+This is the lived case — the FM exports are **cumulative** (FM2.25 carried 6,692
 rows that supersede the earlier 5,047-row commit), so replace is correct and sufficient.
 
 > **Not replace's job:** row **merge-on-key / precedence** (F5+F6) for
@@ -1269,10 +1280,14 @@ mode the commit path **UPDATEs in place** — same `ds_id` — rather than minti
 
 - Re-parse the new file (applying the item's parse options + overrides, same machinery as
   create), producing the new parquet + `columns_json` + counts + the fresh `commitSettings`.
-- **Stage** the new `original.<ext>` + `parsed.parquet` under temp names in the dataset dir,
-  then **atomically swap** them over the old files and **UPDATE** the DB row
-  (`columns_json`, `row_count`, `column_count`, `size_bytes`, `sheet_name`; `created_at`
-  unchanged, no `updated_at` field) inside one transaction; write the new `source.json` last.
+- Before the swap, carry the `hidden` view-hint forward by name and **re-profile date
+  coverage** over the final staged parquet (`profile_date_coverage` — replace, merge and
+  append all end in one staged `parsed.parquet`); a failure here leaves the dataset untouched.
+- **Stage** the new `original.<ext>` + `parsed.parquet` + `source.json` in a staging dir, then
+  **atomically swap** it over the dataset dir and **UPDATE** the DB row in one transaction:
+  `columns_json`, `row_count`, `column_count`, `size_bytes`, `sheet_name`, **`refreshed_at` =
+  now and `data_version = data_version + 1`** — in the same `UPDATE`, so a reader never sees
+  new rows under the old version. `id`, `name` and `created_at` are unchanged.
   Forward-only — the previous parquet is **replaced**, not archived.
 - **Failure leaves the existing dataset fully intact**: a coercion failure or FS
   error rolls back the staged files and aborts the UPDATE — the old `original` / `parsed` /
@@ -1296,7 +1311,8 @@ source table), targeting one dataset:
 { temp_id, items: [{ target_dataset_id, sheet?, parse_options?, column_overrides?, excluded_columns? }] }
 ```
 
-- 201 → the updated `Dataset` (same `id`). 404 if the target dataset is missing. 422
+- 201 → the updated `Dataset` (same `id`, `dataVersion` + 1, new `refreshedAt`). 404 if the
+  target dataset is missing. 422
   `coercion_failed` (unchanged) on an uncoercible cell — dataset untouched. `name` +
   `target_dataset_id` both set → 422 (mutually exclusive).
 - **Drift report**: the Drift-review step diffs the incoming parsed columns against the
@@ -1310,7 +1326,8 @@ source table), targeting one dataset:
 - **Replace only** — the other refresh modes are
   [§ Refresh merge mode](#refresh-merge-mode-merge-on-key-and-precedence-r147) and
   [§ Refresh append mode](#refresh-append-mode-keyless-union-to-accumulate-periodic-exports-r155).
-- **Forward-only** — no version history / rollback-to-previous-parquet in slice 1.
+- **Forward-only** — no version history / rollback-to-previous-parquet; `dataVersion` is a
+  counter, not an archive.
 - **One dataset per refresh** — a refresh batch is length 1 (multi-dataset refresh has no
   lived pull; the create path stays multi-item for Excel multi-sheet).
 - **Header-skip rider deferred** — a "skip rows that exactly repeat the
@@ -1459,8 +1476,8 @@ The refresh item gains one optional field — presence selects the mode:
 - `merge_key` names committed columns (≥1). Unknown column → 422. Key column missing/
   dtype-drifted in the incoming parse → 422 (the F5×F2 guard). Incoming dup-key rows → per
   ❓ D2 (recommended: typed 422 naming key + count + sample).
-- 201 → the updated `Dataset` (same `id`) **plus merge counts** `{ updated, inserted, kept }`
-  (response-shape addition — lands at C with the contract update).
+- 201 → `{ datasets: [Dataset], merge: { updated, inserted, kept } }` — the updated dataset
+  (same `id`, `dataVersion` + 1) plus the merge counts.
 - `commitSettings` extends with `merge_key` + `refresh_mode` (remembered defaults; F9 pattern —
   snake_case like the rest of the snapshot, which mirrors a commit item's shape). A later
   REPLACE refresh flips `refresh_mode` but **carries the declared key forward** (the key is
@@ -1600,8 +1617,9 @@ merge (present) do — it needs an **explicit mode discriminator**:
   (contradictory).
 - **`overlap_check_field?`** names a committed/incoming date-or-datetime column; unknown or
   non-temporal → 422. Omitted = the "always warn" state.
-- 201 → the updated `Dataset` (same `id`) + append counts `{ appended, total }` (response addition,
-  lands at C). Any `append_overlap` warn-payload shape is resolved at C after F1 (the cond-4 open).
+- 201 → `{ datasets: [Dataset], append: { appended, total } }` — the updated dataset (same `id`,
+  `dataVersion` + 1) plus the append counts. The double-count check is not part of the commit: it
+  is the separate pre-commit `POST /datasets/{id}/append-overlap` advisory.
 - `commitSettings` extends: `refresh_mode: 'append'` + the chosen `overlap_check_field` (remembered
   defaults; the F9 carry-forward pattern, like `merge_key`).
 
@@ -1821,58 +1839,44 @@ schema) — the build gate this case guards against.
 
 ## Dataset model implications
 
-The Dataset model gains two fields (see
-[datasets.md](datasets.md) for the full schema):
+What a commit or refresh writes onto the [Dataset](datasets.md#dataset-data-model) (the full
+schema lives there):
 
-```ts
-type Dataset = {
-  // …existing fields…
-  sourceFormat: 'csv' | 'excel';
-  sheetName?: string; // present iff sourceFormat === 'excel'
-};
-```
+- **Create** — `sourceFormat` (which wizard path), `sheetName` (Excel only), the counts,
+  `columns` (with the computed provenance column hidden, and `coverage` on every
+  `date` / `datetime` column), `createdAt` = `refreshedAt` = commit time, `dataVersion: 1`.
+- **Refresh** (replace / merge / append) — rewrites the counts, `columns` (`hidden` carried
+  forward by name, `coverage` re-profiled), `sizeBytes`, `sheetName`, sets `refreshedAt` to now
+  and bumps `dataVersion` by 1; `id`, `name`, `workspaceId`, `createdAt` stay.
 
-These let the Datasets table surface a small source-format icon
-prefix (`📊` for Excel, `📄` for CSV) next to the dataset name,
-and a future "Re-upload from source" affordance has the metadata
-it needs.
+`sourceFormat` + `sheetName` drive the Datasets table's source-format icon and the detail
+header's format tag; the stored commit settings in `source.json` are what a refresh carries
+forward.
 
 ---
 
 ## TanStack Query patterns
 
 ```ts
+// features/data-management/datasets/hooks.ts
 function useUploadInitMutation() {
-  return useMutation({
-    mutationFn: ({ source, file }: { source: 'csv' | 'excel'; file: File }) => uploadsApi.init(source, file),
+  return useMutation<TempUploadResponse, Error, { file: File; sourceFormat: 'csv' | 'excel' }>({
+    mutationFn: ({ file, sourceFormat }) => uploadsApi.createTemp(file, sourceFormat),
   });
 }
 
 function useUploadParseMutation() {
-  return useMutation({
-    mutationFn: ({ tempId, sheet }: { tempId: string; sheet: string }) => uploadsApi.parseSheet(tempId, sheet),
+  return useMutation<ParseSheetsResponse, Error, { tempId: string; body: ParseSheetsRequest }>({
+    mutationFn: ({ tempId, body }) => uploadsApi.parseSheets(tempId, body),
   });
 }
 
-type ParseOptions = { range?: string; skip_rows?: number; has_header?: boolean };
-type ColumnOverride = { dtype: Dtype; format?: string };
-
-function useDatasetsCommitMutation(workspaceId: string) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (body: {
-      items: {
-        temp_id: string;
-        sheet?: string;
-        name: string;
-        parse_options?: ParseOptions;
-        column_overrides?: Record<string, ColumnOverride>;
-        excluded_columns?: string[];
-        target_dataset_id?: string; // refresh-only (§ Refresh)
-        merge_key?: string[]; // merge-refresh-only (§ Refresh merge mode)
-      }[];
-    }) => uploadsApi.commitBatch(workspaceId, body),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['datasets'] }),
+function useDatasetsCommitMutation() {
+  const queryClient = useQueryClient();
+  return useMutation<CommitBatchResponse, Error, { workspaceId: string; body: CommitBatchRequest }>({
+    // body = { temp_id, items: CommitBatchItem[] } — see § Backend endpoint shape
+    mutationFn: ({ workspaceId, body }) => datasetsApi.commitBatch(workspaceId, body),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['datasets'] }),
   });
 }
 ```
@@ -1883,9 +1887,10 @@ function useDatasetsCommitMutation(workspaceId: string) {
   → `useUploadParseMutation` (Step 2 → Step 3, called with the
   array of selected sheets, returns per-sheet parse results).
 - Both paths use `useDatasetsCommitMutation` for the atomic batch
-  commit. CSV sends `items: [{ temp_id, name, column_overrides }]`
-  (length 1); Excel sends `items: [{ temp_id, sheet, name,
-column_overrides }, …]` (length N = selected-sheets count).
+  commit, with one top-level `temp_id`. CSV sends
+  `items: [{ name, column_overrides? }]` (length 1); Excel sends
+  `items: [{ sheet, name, column_overrides? }, …]` (one per selected
+  sheet or range).
 
 ---
 
@@ -2039,20 +2044,6 @@ This concept explicitly does NOT cover:
   [crud-hygiene.md](../_shared/crud-hygiene.md)).
 - The Workspace container an upload targets (lives in
   [workspaces.md](../workspaces/workspaces.md)).
-
----
-
-## Lifecycle
-
-This doc:
-
-- **Amended in place** if implementation surfaces a
-  decision not pre-baked here.
-- **Superseded** by `upload-v2.md` if a third+ source type
-  arrives that doesn't fit the current wizard pattern (unlikely
-  — the selector + branching steps generalize cleanly).
-- **Folded back** into [datasets.md](datasets.md) if the verb
-  shrinks (unlikely with multi-source).
 
 ---
 
