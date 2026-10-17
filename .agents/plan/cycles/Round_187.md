@@ -147,7 +147,9 @@ _(at close)_
 
 ## Feeds into → Round_188 (TBD)
 
-**Stop for review before T-c.** R188 — publish a workflow's output as a derived dataset with
-lineage MDD writes itself (workflow, `runId`, the sources' `dataVersion`s), and the frozen copy
-("bản lưu") in the workspace's `<workspace>-luu` sibling: no refresh, no re-run, read-only, with
-the banner "frozen at run #N on …, not the current numbers". Opens only after G-wf.
+**Stop for review.** Re-baselined 2026-10-17 by the program
+[release-rc2-rc5](../programs/release-rc2-rc5/rc3.md): R188 is item **3.4 — refresh with several
+files at once** (then 3.5 `replace_period`), which the 2026-10-17 decision places before publish.
+Publish + saved copies in `<workspace>-saved` (item 3.6: lineage from this round's run stamp, no
+refresh, no re-run, read-only, banner "frozen at run #N on …, not the current numbers") opens only
+after G-wf.
