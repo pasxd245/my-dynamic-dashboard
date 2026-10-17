@@ -1,6 +1,6 @@
 # Program plan: Workflow earns its place
 
-**Status**: **Draft — awaiting the human's ranking at item 1.** (opening round — `cycles/Round_175.md`, not yet created)
+**Status**: Active — item 1 **ruled (a′)** at [R175](../cycles/Round_175.md) (2026-10-04; workflow mandatory, 2026-10-13); items 2–4 built in `Round_185`–`Round_187` on `release/v0.0.1-rc.3` (in Review); the exit (W-1, publish) is item 3.6 of [release-rc2-rc5](release-rc2-rc5/rc3.md)
 **Opened**: 2026-08-15
 
 Settle whether the **Workflow** noun survives, and if it does, make it honest. [R174](../cycles/Round_174.md)'s
@@ -34,7 +34,7 @@ Two prior decisions make this sharper than it looks:
 
 **The evidence is not restated here.** [`Round_174` § Do](../cycles/Round_174.md) holds each
 finding with its measurement, commands, and code anchors — it is the append-only record and the
-single source of truth for *what was observed*. This file owns only *what we do about it*, tracked
+single source of truth for _what was observed_. This file owns only _what we do about it_, tracked
 in [§ Rolling log](#rolling-log) below. One finding, one home, one link.
 
 ## The repeatable unit (what each round does)
@@ -64,20 +64,22 @@ Each round is a **DCFBI slice** over one item, with two program-specific rules:
 
 ## Work items + order
 
-| #   | Item                                                                                       | Status                    | Round     |
-| ----- | -------------------------------------------------------------------------------------------- | --------------------------- | ----------- |
-| **1** | **Does the noun survive? — give it a consumer, or prune it.** The one-way door. **Reframed by W-7**: the noun is a *materialized view*, so the question is whether a **frozen snapshot that outlives its sources** earns its place — not only whether consolidate does. | **the human's call — open** | `Round_175` |
-| 2   | **Provenance on consolidate** (W-3). Port R156's `Source.Name` pattern to the union.        | conditional on 1            | —         |
-| 3   | **Same-shape: enforce or widen** (W-2). `422` on divergent sources, or capture the union schema. | conditional on 1        | —         |
-| 4   | **Staleness: detect it** (W-4). Needs a schema decision first — `updated_at` vs a definition-hash captured at run vs re-resolve on read. | conditional on 1 | — |
+| #     | Item                                                                                                                                                                                                                                                                    | Status                                                                                             | Round                    |
+| ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- | ------------------------ |
+| **1** | **Does the noun survive? — give it a consumer, or prune it.** The one-way door. **Reframed by W-7**: the noun is a _materialized view_, so the question is whether a **frozen snapshot that outlives its sources** earns its place — not only whether consolidate does. | **ruled (a′) — publish the output as a derived dataset** (built as rc.3 item 3.6, after gate G-wf) | `Round_175`              |
+| 2     | **Provenance on consolidate** (W-3). Port R156's `Source.Name` pattern to the union.                                                                                                                                                                                    | **done** — `Source.Query` column with ≥ 2 sources; the same source twice → 422 `duplicate_source`  | `Round_186`              |
+| 3     | **Same-shape: enforce or widen** (W-2). `422` on divergent sources, or capture the union schema.                                                                                                                                                                        | **done — enforce**: 422 `sources_diverge` on save, 409 at run if shapes diverge later              | `Round_186`              |
+| 4     | **Staleness: detect it** (W-4). Needs a schema decision first — `updated_at` vs a definition-hash captured at run vs re-resolve on read.                                                                                                                                | **done** — dataset `dataVersion` (R185) + a run stamp compared on read → `staleSources` (R187)     | `Round_185`, `Round_187` |
+
+_Ruled 2026-10-04 at R175: (a′). The analysis below is kept as the record of the choice._
 
 **Item 1 is a one-way door and is deliberately NOT pre-decided here**
 ([[lock-concepts-hold-one-way-door]]). The two honest directions, with what each costs:
 
-| Direction                     | What it means                                                                                                             | Cost                                                                     |
-| ------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| **(a) Give it an exit**       | Widen `Widget.queryId` to accept `wf_`. The backend rows path exists and already documents itself as the widget load path. | Small — a contract widen + a picker that lists both. Then items 2–4 follow. |
-| **(b) Prune the noun**        | Remove Workflow. Dataset Append already stacks; Query already shapes. Materialization becomes a performance answer to a question nobody asked. | Large deletion, but it removes 3 severe defects instead of fixing them. |
+| Direction               | What it means                                                                                                                                  | Cost                                                                        |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| **(a) Give it an exit** | Widen `Widget.queryId` to accept `wf_`. The backend rows path exists and already documents itself as the widget load path.                     | Small — a contract widen + a picker that lists both. Then items 2–4 follow. |
+| **(b) Prune the noun**  | Remove Workflow. Dataset Append already stacks; Query already shapes. Materialization becomes a performance answer to a question nobody asked. | Large deletion, but it removes 3 severe defects instead of fixing them.     |
 
 **What would settle it**: a real job the human has that (a) unblocks and (b) does not. R174 could
 not produce one from seed data — which is evidence, not proof.
@@ -88,15 +90,15 @@ Every R174 finding appears here exactly once, with a disposition. **Nothing is d
 is either an item, deferred to a named home, or void-if-pruned. Evidence stays in
 [`Round_174` § Do](../cycles/Round_174.md).
 
-| ID  | Entry                                                | Kind        | Severity | Seen in     | Disposition                            |
-| ----- | ------------------------------------------------------ | ------------- | ---------- | ------------- | ---------------------------------------- |
-| W-1 | Workflow output has **no consumer**                  | noun/exit   | severe   | R174        | **item 1 — the one-way door**          |
-| W-2 | Consolidate narrows schema to the FIRST source       | correctness | severe   | R174        | item 3 _(void if pruned)_              |
-| W-3 | Consolidate double-counts; no provenance             | correctness | severe   | R174        | item 2 _(void if pruned)_              |
-| W-4 | Upstream staleness, undiagnosable (no `updated_at`)  | correctness | severe   | R168 · R174 | item 4 _(void if pruned)_              |
-| W-7 | Workflow **outlives its sources**, still presents as healthy | noun/correctness | severe | R174 | **reframes item 1** + dependency validation |
-| W-5 | Workflow accepted over a never-resolved query → `201` | validation  | minor    | R174        | deferred → the human's UI round        |
-| W-6 | A query named for an aggregate returns raw rows      | naming      | minor    | R163 · R174 | deferred → the parked naming theme     |
+| ID  | Entry                                                        | Kind             | Severity | Seen in     | Disposition                                                  |
+| --- | ------------------------------------------------------------ | ---------------- | -------- | ----------- | ------------------------------------------------------------ |
+| W-1 | Workflow output has **no consumer**                          | noun/exit        | severe   | R174        | ruled (a′) → rc.3 item 3.6 (publish)                         |
+| W-2 | Consolidate narrows schema to the FIRST source               | correctness      | severe   | R174        | **fixed** R186                                               |
+| W-3 | Consolidate double-counts; no provenance                     | correctness      | severe   | R174        | **fixed** R186                                               |
+| W-4 | Upstream staleness, undiagnosable (no `updated_at`)          | correctness      | severe   | R168 · R174 | **fixed** R185 + R187                                        |
+| W-7 | Workflow **outlives its sources**, still presents as healthy | noun/correctness | severe   | R174        | **fixed** R187 — `source_missing`; the output stays readable |
+| W-5 | Workflow accepted over a never-resolved query → `201`        | validation       | minor    | R174        | **fixed** R186 — 422 `unresolved_source`                     |
+| W-6 | A query named for an aggregate returns raw rows              | naming           | minor    | R163 · R174 | deferred → the parked naming theme                           |
 
 _`updated_at` is absent product-wide, not only for workflows — if item 1 prunes the noun, W-4's
 underlying gap survives it and must be re-homed rather than voided._
