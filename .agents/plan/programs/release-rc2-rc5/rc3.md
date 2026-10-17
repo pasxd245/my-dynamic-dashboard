@@ -2,7 +2,8 @@
 
 Parent: [release-rc2-rc5.plan.md](release-rc2-rc5.plan.md). Branch: `release/v0.0.1-rc.3`, cut from
 the rc.2 head `6c679c5` and opened **before** the rc.2 tag on the owner's call (decision 12).
-Batch 1 (3.1, most of 3.2, 3.3) is built as R184–R187; **stop for review + gate G-wf before 3.6**.
+Built so far: 3.1, most of 3.2, 3.3 (R184–R187), 3.4 (R188), 3.5 (R189); 2.7 designed (R190).
+**3.6 opens only after walk session B confirms G-wf.**
 
 **Why this rc is the careful one:** typed parameters, version stamps and the triple anchor are
 **one-way doors** — once dashboards and external writers depend on their shape, changing it breaks
@@ -17,16 +18,17 @@ done   3.1 compute (R184)
 done   3.2a dataset dataVersion + refreshedAt (R185) ── 3.3 W-2/W-3/W-5 (R186) ── 3.2b + W-4/W-7 run stamps (R187)
 gate   G-wf (owner) ──────────────────────────────────────────────────────────────┐
 done   3.4 multi-file refresh (R188) ── 3.5 replace_period (R189)
+review 2.7 design: params, date range, shared filters (R190 — pulled forward while 3.6 waits)
 next   3.6 publish + saved copies (after walk B confirms G-wf) <─────────────────────┘
-then   2.7 design (params, date range, shared filters) ─> 3.7 typed parameters
-       ─> 3.2c remaining stamps on read paths ─> 3.8 metadata triple anchor
+then   3.7 typed parameters (from 2.7) ─> 3.2c remaining stamps on read paths
+       ─> 3.8 metadata triple anchor
 ```
 
 Labels from `Round_175 § Feeds into`: **R177** = 3.1, **R178–R179** = 3.4–3.5, **R180** = 3.6. They
-are names; real round numbers are assigned when a round opens (next free: `Round_189`).
+are names; real round numbers are assigned when a round opens (next free: `Round_191`).
 
 Gate commands as in [rc2.md](rc2.md); counts at the batch-1 head `a682f14`: backend 565 · builder
-444 · contracts 46. Dogfood dual-run rc.2 → rc.3 batch 1: 119 / 119 identical; migrations
+444 · contracts 46; at `45cae9f` (R189): backend 580 · builder 461 · contracts 46. Dogfood dual-run rc.2 → rc.3 batch 1: 119 / 119 identical; migrations
 0004 → 0007 clean on a real-database copy (`Round_187` § Do).
 
 ---
@@ -218,6 +220,16 @@ kept}}` (named like the merge / append reports, with `kept` so it sums to the ro
      cannot yet be observed for its full window is flagged (input to 4.5).
 - **Done when:** design gate criteria met (journeys + testable acceptance criteria), `ux-design`
   design-spec mode run and logged.
+- **As built (R190, review — design only):**
+  [`dashboards/dashboard-filters.md`](../../../design/dashboards/dashboard-filters.md) (Draft).
+  Scalar typed params with a server-resolved relative `today` (`backend.time_zone`). Allowed only in
+  filter operands. Three precedence levels (viewer → dashboard saved → query default) then
+  `422 param_unbound`; the program's "parameter default" and "value saved in the query" are one
+  field. Every read echoes `resolvedParams`. Dashboard `controls` (`param` / `date_range` /
+  `values`) carry editor-picked targets; viewer values live in the URL (`p.*`, `f.*`). A control
+  that cannot apply is skipped and badged. Workflow sources run on defaults and the stamp records
+  them. Totals and export record what was applied. Criteria 1–10 are each tagged with the round
+  that builds them. **Waits for the owner's decisions D1–D7.**
 
 ## 3.7 Typed parameters
 

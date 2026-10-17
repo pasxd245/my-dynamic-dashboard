@@ -74,7 +74,7 @@ the version moves more than once.
       refreshed with a 3-row export (3, 4, 6 Sept). Choosing "Replace a period" disables the commit
       until `day (date)` is picked; the request carries `refresh_mode: replace_period`,
       `period_column: day`; 201 with `period {from 2026-09-03, to 2026-09-06, removed 3, inserted 3,
-    kept 2}`; toast "Replaced 2026-09-03 – 2026-09-06: 3 removed · 3 added · 2 kept."; rows now
+  kept 2}`; toast "Replaced 2026-09-03 – 2026-09-06: 3 removed · 3 added · 2 kept."; rows now
       ids 1, 2, 30, 40, 60; version 1 → 2; refresh settings remember the mode and column.
 
 ## Risks / unknowns
@@ -122,8 +122,9 @@ the version moves more than once.
 
 _(at close)_
 
-## Feeds into → Round_190 (TBD)
+## Feeds into → [Round_190](Round_190.md)
 
 Item 3.6 — publish a workflow output as a derived dataset with lineage; saved copies in
-`<workspace>-saved` (label R180). **Opens only after walk session B confirms G-wf** (owner-accepted
-2026-10-17 on the agent's recommendation).
+`<workspace>-saved` (label R180) — **opens only after walk session B confirms G-wf** (owner-accepted
+2026-10-17 on the agent's recommendation), so the owner pulled item **2.7** (design only:
+parameters, view-time date range, shared filters) forward into Round_190; 3.6 moves to Round_191.

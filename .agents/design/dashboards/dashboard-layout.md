@@ -370,8 +370,9 @@ to see the same widgets re-run on the new upload.
 ### OUT of scope (deferred with named triggers)
 
 - **Saved / shared filters** (persisting a widget's filter, or one filter driving several
-  widgets) — filters are deliberately per-visit FE state; pull when a user needs a filtered view
-  to survive reload or be shared.
+  widgets) — filters are deliberately per-visit FE state here. Pulled: designed in
+  [dashboard-filters.md](dashboard-filters.md) (dashboard controls, URL-held viewer values),
+  built by items 3.7 / 4.2 / 4.3 of the release program; the per-widget drawer stays.
 - **Dense packing / free-form placement** (`grid-auto-flow: dense`, x/y coordinates) — order is
   the only placement; pull when sparse auto-placement leaves holes users complain about.
 - **Wiring the `missingQuery` card state** — a deleted query currently reads as the generic error

@@ -174,8 +174,8 @@ read-only with a copy button.
   (hidden for `note`), Width 1 / 2 / 3, Height 1 / 2 / 3, and Totals (`table` only).
 - **Submit** is enabled when the title is non-empty and the kind's requirements hold (query,
   dimension where needed, measures, heatmap series; for a `note`, non-blank safe text ≤ 4000).
-  `draftToConfig` drops fields the kind does not use, and omits `rows` when 1 and `numberFormat`
-  when unset, so editing a widget without touching them saves it back unchanged.
+  `draftToConfig` drops fields the kind does not use (a `table` always saves as `agg: count`
+  with no measure — since `ff9647a`), and omits `rows` when 1 and `numberFormat` when unset, so editing a widget without touching them saves it back unchanged.
 
 ---
 
@@ -327,11 +327,6 @@ totals row on the dashboard, and download that table to Excel with the filters I
 - **Totals other than sum / ratio** (average, min / max, count distinct) — pull with a concrete
   report that needs one; anything formula-like belongs in query steps.
 - **Formulas in widgets** — out by product principle; use query transform steps.
-- **Known code gap — table with `agg: sum`**: `draftToConfig` keeps the draft's `agg` on a
-  `table` while dropping `measureCol`, and the builder's default `agg` is `sum`, so a table
-  created after a sum default fails save-time validation
-  (`measureCol is required when agg='sum'`) and the builder shows only `common.error`. Fix trigger: the next round touching the
-  builder (send `agg: 'count'` for `table`, or relax the server rule for tables).
 
 ### This concept explicitly does NOT cover
 

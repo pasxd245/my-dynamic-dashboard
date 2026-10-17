@@ -180,5 +180,5 @@ percent, title}` → file with a server-chosen name in `Content-Disposition` (ex
 - [ ] `alembic downgrade -1 && alembic upgrade head` clean on a copy of a real database (0005)
 - [x] Design-corpus debt paid — `design-sync` 2026-10-17 (landed on `release/v0.0.1-rc.3`; the rc.2 tag carries the pre-sync docs)
 - [x] Walk blocker fixed before the walk: table widget save (`ff9647a`)
-- [ ] Release note lists every contract addition
+- [x] Release note lists every contract addition — drafted in `CHANGELOG.md` (`82a95c3`, on rc.2); owner reviews at the tag
 - [ ] Boundary scan clean (`sync.ps1` M3) and tag `v0.0.1-rc.2` (human)
