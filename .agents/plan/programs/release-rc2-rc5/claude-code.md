@@ -6,17 +6,22 @@ gates) always win over this file.
 
 ## Who does what
 
-| Step                  | Claude Code                                                                | Human                                                     |
-| --------------------- | -------------------------------------------------------------------------- | --------------------------------------------------------- |
-| Open round            | creates `Round_NN.md` seeded from the item spec, runs `flow-selector`      | approves the plan section                                 |
-| Design gate           | writes/updates the design doc, runs `ux-design` (design-spec) for UI items | reads; answers open questions                             |
-| Contract gate         | edits `_shared/*.yaml` + contract files + MSW handlers + types; commits    | reviews the diff (one-way doors: 2.6, 3.2, 3.6, 3.7, 3.8) |
-| Backend / Integration | implements, tests, commits per gate                                        | —                                                         |
-| Check                 | runs all gate commands, writes the walk script                             | **runs the walk**, reports what they saw                  |
-| Act / close           | writes At a glance, Feeds into, prune check                                | flips `Complete`                                          |
-| Tag rc                | runs the rc exit gate checklist, drafts the release note                   | tags; decides any pin change elsewhere                    |
+| Step                  | Claude Code                                                                | Human                                                                                   |
+| --------------------- | -------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| Open round            | creates `Round_NN.md` seeded from the item spec, runs `flow-selector`      | approves the plan section                                                               |
+| Design gate           | writes/updates the design doc, runs `ux-design` (design-spec) for UI items | reads; answers open questions                                                           |
+| Contract gate         | edits `_shared/*.yaml` + contract files + MSW handlers + types; commits    | reviews the diff (one-way doors still open: 3.6, 3.7, 3.8; 2.6 and 3.2a/b have shipped) |
+| Backend / Integration | implements, tests, commits per gate                                        | —                                                                                       |
+| Check                 | runs all gate commands, writes the walk script                             | **runs the walk**, reports what they saw                                                |
+| Act / close           | writes At a glance, Feeds into, prune check                                | flips `Complete`                                                                        |
+| Tag rc                | runs the rc exit gate checklist, drafts the release note                   | tags; decides any pin change elsewhere                                                  |
 
 Claude Code never pushes, never tags, never flips `Complete`.
+
+**Where things stand (2026-10-17):** rc.2 built on `release/v0.0.1-rc.2` (R177–R183, walks pending);
+rc.3 batch 1 built on `release/v0.0.1-rc.3` (R184–R187, walks + G-wf pending). The next kickoff is
+item **3.4** on `release/v0.0.1-rc.3`, after the owner passes G-wf. In a cloud session the branches
+arrive by bundle (`99_git_bundles/`), and leave the same way; the owner pushes with `sync.ps1`.
 
 ## Kickoff prompt (one per item)
 

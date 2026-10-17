@@ -55,13 +55,13 @@ deployed, which is the least settled question.
 
 ## 4.4 Definition history
 
-|            |                         |
-| ---------- | ----------------------- |
-| Track      | 1                       |
-| Flow       | DCFBI                   |
-| Depends on | 3.2 `definitionVersion` |
+|            |                                                                                                      |
+| ---------- | ---------------------------------------------------------------------------------------------------- |
+| Track      | 1                                                                                                    |
+| Flow       | DCFBI                                                                                                |
+| Depends on | 3.2 — a definition's version is its hash (decision 14); history rows carry their own sequence number |
 
-- **Migration** `0008_definition_history`: `(kind, id, version, definition_json, changed_at,
+- **Migration** (next free number) `…_definition_history`: `(kind, id, version, definition_json, changed_at,
 changed_by)`; written in the same transaction as the definition update.
 - **Contract:** `GET /{kind}/{id}/history` (list), `GET /{kind}/{id}/history/{version}` (read-only
   definition). Restore = a normal PUT of an old definition (new version), no special endpoint.
@@ -82,4 +82,4 @@ changed_by)`; written in the same transaction as the definition update.
 - [ ] Shared filters and date range survive a URL round trip
 - [ ] Every conditional item that opened has its measurement in the rolling log; those that didn't
       are listed as "not opened"
-- [ ] Migration 0008 downgrades cleanly
+- [ ] The definition-history migration downgrades cleanly
