@@ -93,6 +93,16 @@ totalled.
   `WidgetBuilder` (skip dimensionless kinds), +1 test. Builder 425. Nothing written under
   `workspace/apps/backend/data/`.
 
+- 2026-10-17 — **walk-prep fix** (found by the design-corpus sync, before the walk): a table
+  widget drafted in the builder over a query with a numeric column kept the default `agg: 'sum'`
+  but dropped `measureCol`, so the dashboard save answered 422 with the builder already closed and
+  the widget was lost (pre-existing since R117; every table widget on the dogfood was written
+  through the API, which is why parity never met it). `draftToConfig` now saves a table as a
+  `count` with no measure (a table renders rows; its `agg` is never shown). Pinned by
+  `tests/widget-totals.test.tsx` (every table draft satisfies the backend's sum-needs-a-measure
+  rule) and the R117 config test now asserts `agg: 'count'`. W1 of this round walks straight into
+  it, so it lands before the walk.
+
 ## Check
 
 - [x] backend 526 · builder 425 · contracts 44 green; `tsc --noEmit` clean; `ruff check` clean;
