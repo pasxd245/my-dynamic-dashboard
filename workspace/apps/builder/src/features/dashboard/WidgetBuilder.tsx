@@ -68,6 +68,12 @@ export function draftToConfig(draft: Draft): Omit<Widget, 'id'> {
       ...(draft.rows && draft.rows !== 1 ? { rows: draft.rows } : {}),
     };
   }
+  // A table shows raw rows (R117): it has no measure, and its `agg` is never
+  // rendered. The backend still pairs `sum` with a required `measureCol`, so a
+  // table is always saved as a `count` — before this, a table drafted over a query
+  // with a numeric column kept the default `sum`, dropped the measure, and the save
+  // answered 422 with the builder already closed (the widget was lost).
+  const agg = draft.chartType === 'table' ? 'count' : draft.agg;
   return {
     queryId: draft.queryId as string,
     title: draft.title.trim(),
@@ -78,17 +84,15 @@ export function draftToConfig(draft: Draft): Omit<Widget, 'id'> {
       : { dimensionCol: draft.dimensionCol }),
     // R111/R114 — `seriesCol` on a multi-series bar (optional) or a heatmap (Y).
     ...(usesSeries(draft) && draft.seriesCol ? { seriesCol: draft.seriesCol } : {}),
-    // measureCol: a sum's measure, combo's bar, or scatter's X (never for table). measureCol2:
-    // combo's line / scatter's Y (R112/R113).
-    ...((draft.agg === 'sum' || twoMeasures(draft)) && draft.chartType !== 'table'
-      ? { measureCol: draft.measureCol }
-      : {}),
+    // measureCol: a sum's measure, combo's bar, or scatter's X (never for a table — it
+    // is a count, above). measureCol2: combo's line / scatter's Y (R112/R113).
+    ...(agg === 'sum' || twoMeasures(draft) ? { measureCol: draft.measureCol } : {}),
     ...(twoMeasures(draft) ? { measureCol2: draft.measureCol2 } : {}),
     // R115 — gauge's literal target/max.
     ...(draft.chartType === 'gauge' && draft.target != null ? { target: draft.target } : {}),
     // R116 — per-widget number format (omit the `plain` default).
     ...(draft.numberFormat ? { numberFormat: draft.numberFormat } : {}),
-    agg: draft.agg,
+    agg,
     span: draft.span,
     // R177 — height in widget-rows; the default 1 is omitted so a widget
     // edited without touching its height saves back unchanged.

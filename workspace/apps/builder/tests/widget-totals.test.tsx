@@ -30,7 +30,14 @@ describe('R181 totals helpers', () => {
 
   it('derives a ratio from the two sums and nulls a zero denominator', () => {
     const sums = { calls: '600', quotes: '175', zero: '0' };
-    const out = computeTotals({ calls: { agg: 'sum' }, cr: { agg: 'ratio', num: 'quotes', den: 'calls' }, bad: { agg: 'ratio', num: 'quotes', den: 'zero' } }, sums);
+    const out = computeTotals(
+      {
+        calls: { agg: 'sum' },
+        cr: { agg: 'ratio', num: 'quotes', den: 'calls' },
+        bad: { agg: 'ratio', num: 'quotes', den: 'zero' },
+      },
+      sums,
+    );
     expect(out.calls).toBe(600);
     expect(out.cr).toBeCloseTo(175 / 600, 9);
     expect(out.bad).toBeNull();
@@ -43,10 +50,39 @@ describe('R181 totals helpers', () => {
   });
 
   it('draftToConfig carries totals on a table and drops an empty map', () => {
-    const base = { queryId: 'qr_12345678', title: 'T', chartType: 'table' as const, agg: 'count' as const, span: 3 as const };
+    const base = {
+      queryId: 'qr_12345678',
+      title: 'T',
+      chartType: 'table' as const,
+      agg: 'count' as const,
+      span: 3 as const,
+    };
     expect(draftToConfig({ ...base, totals: { amount: { agg: 'sum' } } }).totals).toEqual({ amount: { agg: 'sum' } });
     expect('totals' in draftToConfig({ ...base, totals: {} })).toBe(false);
-    expect('totals' in draftToConfig({ ...base, chartType: 'bar', dimensionCol: 'x', totals: { amount: { agg: 'sum' } } })).toBe(false);
+    expect(
+      'totals' in draftToConfig({ ...base, chartType: 'bar', dimensionCol: 'x', totals: { amount: { agg: 'sum' } } }),
+    ).toBe(false);
+  });
+});
+
+describe('table widget save shape (walk-prep fix)', () => {
+  // The backend's Widget rule: `sum` needs `measureCol`, `count` forbids it — for
+  // every chartType. Before the fix a table dropped `measureCol` but kept the
+  // default `agg: 'sum'`, so saving a new table over a numeric query answered 422.
+  const valid = (w: ReturnType<typeof draftToConfig>) =>
+    w.agg === 'sum' ? typeof w.measureCol === 'string' : !('measureCol' in w);
+  const base = { queryId: 'qr_12345678', title: 'T', chartType: 'table' as const, span: 3 as const };
+
+  it('a table drafted with the numeric default (sum + measure) saves as a valid count', () => {
+    const w = draftToConfig({ ...base, agg: 'sum', measureCol: 'amount', dimensionCol: 'stage' });
+    expect(w.agg).toBe('count');
+    expect('measureCol' in w).toBe(false);
+    expect('dimensionCol' in w).toBe(false);
+    expect(valid(w)).toBe(true);
+  });
+
+  it('every table draft satisfies the backend rule', () => {
+    for (const agg of ['sum', 'count'] as const) expect(valid(draftToConfig({ ...base, agg }))).toBe(true);
   });
 });
 
@@ -91,7 +127,14 @@ describe('R181 editing a table widget keeps it a table', async () => {
   const { App } = await import('antd');
 
   it('does not auto-default a dimensionless kind to a bar chart once the columns load', async () => {
-    const table: Widget = { id: 'wdg_00000181', queryId: MOCK_QUERY.id, title: 'Deals', chartType: 'table', agg: 'count', span: 3 };
+    const table: Widget = {
+      id: 'wdg_00000181',
+      queryId: MOCK_QUERY.id,
+      title: 'Deals',
+      chartType: 'table',
+      agg: 'count',
+      span: 3,
+    };
     const { container } = render(
       <Providers>
         <App>

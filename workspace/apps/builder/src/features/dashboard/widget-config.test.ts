@@ -52,6 +52,8 @@ describe('draftToConfig', () => {
     expect(config.chartType).toBe('table');
     expect('dimensionCol' in config).toBe(false);
     expect('measureCol' in config).toBe(false);
+    // …and is saved as a count, so the backend's sum-needs-a-measure rule holds.
+    expect(config.agg).toBe('count');
   });
 
   it('carries numberFormat when set, omits the plain default', () => {
