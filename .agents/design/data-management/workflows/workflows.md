@@ -295,7 +295,9 @@ stateDiagram-v2
   name, the multi-select `WorkflowSourcePicker` (saved queries, then other workflows' outputs, in two
   option groups; selection order = consolidation order) and the reused `StepsEditor`. Steps author
   against the **first** source's columns (`useSourceColumns`: a query's `resolvedColumns`, else its
-  dataset's columns; a workflow's materialized `resolvedColumns`). Save is enabled with a name and
+  dataset's columns; a workflow's materialized `resolvedColumns`), plus — with ≥2 sources — the
+  provenance column `Source.Query` (`string`; `Source.Query1`, … off a collision, as the backend
+  names it) via `withProvenanceColumn`, so a step can split by source (R191). Save is enabled with a name and
   ≥1 source; a refusal toasts one sentence naming the source by its 1-based position and the reason
   (`sourceErrorText`, e.g. _"Source 2 doesn't have the same columns as source 1, so they can't be
   stacked."_ + the server's detail), or the `name_taken` message.
@@ -406,9 +408,6 @@ date — without writing a formula.
   workflow; pull with a real dashboard need.
 - **Automatic refresh** — staleness is a flag; re-running is manual. An upstream-triggered re-run is
   a DAG concept the product does not have.
-- **Authoring a step over the provenance column** — the builder's `StepsEditor` offers the first
-  source's columns, so `Source.Query` (added at run) is not offered while authoring; pull when a
-  split-by-source step is needed.
 - **YAML import/edit of the spec** — PARKED; a raw-spec editor cuts against the "Excel-with-extra-
   steps" ease value. Pull only on a real power-user or AI-loop need.
 - **Heterogeneous-schema consolidation** (a column mapper) — refused today (`sources_diverge`); pull

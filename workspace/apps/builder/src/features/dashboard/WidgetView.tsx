@@ -91,6 +91,17 @@ export function serverAggregateSupportsMeasure(
   return dtype === undefined || NUMERIC_MEASURE_DTYPES.has(dtype);
 }
 
+/** R191 — true when every non-blank cell of the column reads as a finite
+ *  number (blank / null are allowed: they sum as 0, like the server's coalesce). */
+export function allCellsNumeric(rows: readonly (readonly (string | null)[])[], idx: number): boolean {
+  for (const r of rows) {
+    const v = r[idx];
+    if (v == null || v.trim() === '') continue;
+    if (!Number.isFinite(Number(v))) return false;
+  }
+  return true;
+}
+
 /** role="img" + label so a screen reader announces the chart (not colour-only). */
 function ChartFigure({ label, children }: Readonly<{ label: string; children: React.ReactNode }>) {
   return (
@@ -582,10 +593,20 @@ export function useWidgetChartData(
       const datums: Datum[] = rows.map((r) => ({ label: labelOf(r[dimIdx]), value: toNum(r[valueIdx]) }));
       chartData = widget.chartType === 'line' ? sortByDimension(datums, dimDtype) : sortDesc(datums);
     }
-  } else if (usesAggregate && specValid && boundQuery.isSuccess && !measureNumericOk) {
-    // R191 — the measure is known to be non-numeric, so the server `sum` was
-    // skipped (R151/F13). Roll the raw rows up on the client — the fallback the
-    // comments above always promised; without it the card read "empty".
+  } else if (
+    usesAggregate &&
+    specValid &&
+    boundQuery.isSuccess &&
+    !measureNumericOk &&
+    measureIdx !== -1 &&
+    allCellsNumeric(rows, measureIdx)
+  ) {
+    // R191 — the measure is typed text, so the server `sum` was skipped
+    // (R151/F13). When every non-blank cell still reads as a number (digits
+    // stored as text), roll the raw rows up on the client — the fallback the
+    // comments above promised. When ANY cell is not a number ("1,200", "n/a"),
+    // no sum is honest: the card keeps its empty state rather than counting
+    // those cells as 0 (the server refuses the same sum, `measure_not_numeric`).
     if (isScalar) {
       statValue = rows.length === 0 ? null : aggregateScalar(rows, measureIdx, aggKind);
     } else if (dimIdx !== -1) {

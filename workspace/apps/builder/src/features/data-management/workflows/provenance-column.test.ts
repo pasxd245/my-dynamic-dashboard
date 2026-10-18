@@ -27,3 +27,17 @@ describe('withProvenanceColumn', () => {
     expect(withProvenanceColumn(taken, 3).at(-1)?.name).toBe('Source.Query2');
   });
 });
+
+describe('withProvenanceColumn — R191 QA edges', () => {
+  it('takes the bare name when only a suffixed one is taken (backend: first free of Source.Query, 1, 2…)', () => {
+    const cols = [{ name: 'Source.Query1', dtype: 'string' as const }];
+    expect(withProvenanceColumn(cols, 2).at(-1)?.name).toBe('Source.Query');
+  });
+
+  it('does not mutate the input and adds nothing for zero sources', () => {
+    const cols = [{ name: 'Source.Query', dtype: 'string' as const }];
+    expect(withProvenanceColumn(cols, 0)).toEqual(cols);
+    withProvenanceColumn(cols, 2);
+    expect(cols).toHaveLength(1);
+  });
+});

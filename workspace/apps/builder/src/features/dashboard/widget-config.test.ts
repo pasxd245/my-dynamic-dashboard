@@ -106,3 +106,10 @@ describe('draftToConfig — R177 rows', () => {
     expect(cfg.measureCol2).toBe('cost');
   });
 });
+
+describe('draftToConfig — R191 QA', () => {
+  it.each(['bar', 'stat', 'pie'] as const)('keeps a count draft on %s as count', (chartType) => {
+    const cfg = draftToConfig({ ...sumDraft, chartType, agg: 'count' });
+    expect(cfg.agg).toBe('count');
+  });
+});

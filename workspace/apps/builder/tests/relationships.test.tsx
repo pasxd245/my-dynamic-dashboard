@@ -196,9 +196,64 @@ describe('R191 declare refusal reason', () => {
         </App>
       </AntdConfig>,
     );
-    expect(
-      await screen.findByText(/These columns can't be joined \(integer and date cannot join\)/),
-    ).toBeInTheDocument();
+    expect(await screen.findByText(/These keys can't join \(integer ↔ date\)/)).toBeInTheDocument();
     expect(screen.queryByText(/Request failed/)).toBeNull();
+  });
+});
+
+describe('R191 QA — declare 422 edges', () => {
+  const body = {
+    leftDatasetId: 'ds_1',
+    leftColumn: 'a',
+    rightDatasetId: 'ds_2',
+    rightColumn: 'b',
+    cardinality: 'one_to_many' as const,
+  };
+
+  it('a 422 whose msg has no code stays a generic error', async () => {
+    const { relationshipsApi, RelationshipDeclareError } = await import('@/api/relationshipsApi');
+    server.use(
+      http.post('*/workspaces/:id/relationships', () =>
+        HttpResponse.json(
+          { detail: [{ loc: ['body', 'leftColumn'], msg: 'Field required', type: 'missing' }] },
+          { status: 422 },
+        ),
+      ),
+    );
+    const err = await relationshipsApi.create(MOCK_WORKSPACE.id, body).catch((e: unknown) => e);
+    expect(err).not.toBeInstanceOf(RelationshipDeclareError);
+    expect((err as Error).message).toMatch(/^Request failed: 422/);
+  });
+
+  it('a 422 with a string detail (not the list envelope) stays a generic error', async () => {
+    const { relationshipsApi, RelationshipDeclareError } = await import('@/api/relationshipsApi');
+    server.use(
+      http.post('*/workspaces/:id/relationships', () =>
+        HttpResponse.json({ detail: 'incompatible_join_keys: integer and date cannot join' }, { status: 422 }),
+      ),
+    );
+    const err = await relationshipsApi.create(MOCK_WORKSPACE.id, body).catch((e: unknown) => e);
+    expect(err).not.toBeInstanceOf(RelationshipDeclareError);
+  });
+
+  it('unknown_column names the column in the reason', async () => {
+    const { RelationshipDeclareError } = await import('@/api/relationshipsApi');
+    const { DeclareRelationshipModal } =
+      await import('@/features/data-management/relationships/DeclareRelationshipModal');
+    render(
+      <AntdConfig>
+        <App>
+          <DeclareRelationshipModal
+            open
+            datasets={[]}
+            isPending={false}
+            error={new RelationshipDeclareError('unknown_column', 'agent_id')}
+            onSubmit={() => {}}
+            onClose={() => {}}
+          />
+        </App>
+      </AntdConfig>,
+    );
+    expect(await screen.findByText(/The column agent_id is not in the dataset any more/)).toBeInTheDocument();
   });
 });

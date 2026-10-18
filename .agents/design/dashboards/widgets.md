@@ -139,9 +139,11 @@ labelled `(blank)`.
   over the **whole** result, so no row cap applies and the filters are pushed server-side. It
   fires only once the bound query is loaded, is not pre-shaped, and the measure is not provably
   non-numeric (`serverAggregateSupportsMeasure` — a non-numeric `sum` measure would be a `422`
-  with `measure_not_numeric`, so the request is skipped). These kinds have **no client roll-up**:
-  when the aggregate cannot run (non-numeric measure, missing dimension) the widget shows the
-  empty state.
+  with `measure_not_numeric`, so the request is skipped). When the measure is typed text but
+  every non-blank measure cell reads as a number (digits stored as text), the widget rolls the
+  raw rows up on the client (`allCellsNumeric`); when any cell is not a number (`"1,200"`,
+  `"n/a"`), or the dimension is missing, the widget keeps the empty state — never a silent 0
+  (R191).
 - **Pre-shaped query** (the bound query has transform `steps`): the aggregating kinds map the
   query's rows to chart data **directly**, never re-aggregating (value = `measureCol`, else a
   `count` column, else the last column).
@@ -281,8 +283,9 @@ A `table` widget's numbers can be downloaded (header **⤓** menu: `Download as 
   `exported_at`, `rows`, then a `column` / `values` table of the active filters (`(blank)` for
   null; `— / no filter` when none).
 - **Totals row** — the same sums as the footer (ratio = Σnum / Σden; zero denominator → empty),
-  bold in XLSX, labelled as the page's footer is: `Total` in the first column when that column
-  has no total, otherwise no label — the label never overwrites a total (R191).
+  bold in XLSX, with `Total` in the first column that has no totals spec (every column totalled →
+  no label). A totalled cell keeps its value even when empty (a ratio over 0): the label never
+  overwrites a total (R191). The page labels column 0 only; its footer row is styled, a file's is not.
 
 ---
 
@@ -299,8 +302,9 @@ totals row on the dashboard, and download that table to Excel with the filters I
    the preview and the JSON panel equal the submitted config (`draftToConfig`); `rows: 1` and an
    unset `numberFormat` are omitted.
 3. **Data paths** _(FE)_ — bar (no split) / pie / line / stat call `/aggregate` with the filters;
-   a pre-shaped query is not re-aggregated; a non-numeric sum measure skips `/aggregate` (empty
-   state, no `422` in the console); raw-row kinds flag partial data above 10 000 rows.
+   a pre-shaped query is not re-aggregated; a non-numeric sum measure skips `/aggregate` (no
+   `422` in the console) and rolls up on the client when every cell reads as a number, else
+   shows the empty state (R191); raw-row kinds flag partial data above 10 000 rows.
 4. **Note** _(FE + BE)_ — the allowed subset renders as elements; HTML, images and non-http(s)
    links are flagged in the builder and rejected by the server with `markdown_unsafe`; text over
    4000 characters cannot be saved.

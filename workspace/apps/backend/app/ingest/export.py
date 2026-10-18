@@ -47,7 +47,7 @@ def build_csv(
     totalled: frozenset[str] = frozenset(),
 ) -> bytes:
     """UTF-8 with a BOM (so Excel opens it as UTF-8), header + rows + the
-    totals row last when given (labelled as on the page — see `_label_totals`)."""
+    totals row last when given (labelled — see `_label_totals`)."""
     buf = io.StringIO()
     w = csv.writer(buf, lineterminator="\r\n")
     w.writerow([c["name"] for c in columns])
@@ -61,13 +61,16 @@ def build_csv(
 def _label_totals(
     columns: list[dict], totals: list[Any], label: str, totalled: frozenset[str], *, as_text: bool
 ) -> list[Any]:
-    """The page's rule (TableView footer): the label sits in the FIRST column,
-    and only when that column is not itself totalled — otherwise the row has no
-    label. A totalled column whose value is empty (a ratio over 0) stays empty;
-    the label never overwrites a total (R191)."""
+    """`Total` goes in the first column that has NO totals spec, so a file's
+    totals row always says what it is (a CSV has no bold to tell it from a data
+    row). A totalled column keeps its value even when it is empty (a ratio over
+    0) — the label never overwrites a total (R191). Every column totalled → no
+    label. (The page labels column 0 only; its footer row is styled, a file's is
+    not.)"""
     out = list(totals)
-    if columns and columns[0]["name"] not in totalled:
-        out[0] = label
+    slot = next((i for i, c in enumerate(columns) if c["name"] not in totalled), None)
+    if slot is not None:
+        out[slot] = label
     return [(_csv_cell(v) if as_text else v) for v in out]
 
 

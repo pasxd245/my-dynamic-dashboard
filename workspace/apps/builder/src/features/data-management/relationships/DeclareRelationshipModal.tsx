@@ -20,6 +20,14 @@ export function dtypeCompatible(a: Dtype, b: Dtype): boolean {
   return numeric(a) && numeric(b);
 }
 
+/** R191 — values for a declare refusal's reason. `incompatible_join_keys`
+ *  details read `<left> and <right> cannot join`; the reason shows the two
+ *  types the way the modal's own check does (`left ↔ right`). */
+function declareReasonValues(detail: string): { detail: string; left: string; right: string } {
+  const m = /^(\S+) and (\S+) cannot join$/.exec(detail);
+  return { detail, left: m?.[1] ?? '', right: m?.[2] ?? '' };
+}
+
 const CARDINALITIES: readonly Cardinality[] = ['one_to_one', 'one_to_many', 'many_to_one', 'many_to_many'];
 
 export type DeclareRelationshipModalProps = Readonly<{
@@ -197,7 +205,7 @@ export function DeclareRelationshipModal({
             title={t('relationships.declare.failed')}
             description={
               error instanceof RelationshipDeclareError
-                ? t(`relationships.declare.reason.${error.code}`, { detail: error.detail })
+                ? t(`relationships.declare.reason.${error.code}`, declareReasonValues(error.detail))
                 : error.message
             }
             data-component="DeclareError"

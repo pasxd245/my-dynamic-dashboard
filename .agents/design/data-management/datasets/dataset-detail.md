@@ -266,14 +266,15 @@ above the table; the header and strips stay.
 
 `<PagedRowsView>` renders the page's `emptyState` centered in the table
 area and hides the pagination. The copy depends on which predicates are
-active:
+active; an active advanced query is checked first (R191):
 
-| Active predicates               | Title                                                                  | Recovery                                     |
-| ------------------------------- | ---------------------------------------------------------------------- | -------------------------------------------- |
-| row search **and** chip filters | "No rows match “<q>” with these filters"                               | `[Clear]` (search) + `[Clear all]` (filters) |
-| chip filters only               | "No rows match these filters"                                          | `[Clear all]`                                |
-| row search only                 | "No rows match “<q>”" + "Try a shorter substring or clear the search." | `[Clear]`                                    |
-| none (or advanced query only)   | "No rows in this dataset" + "Re-upload the file to replace the data."  | —                                            |
+| Active predicates               | Title                                                                                          | Recovery                                     |
+| ------------------------------- | ---------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| advanced query (± any others)   | "No rows match the advanced query" + "Change or clear the advanced query to see more results." | `[Clear advanced query]`                     |
+| row search **and** chip filters | "No rows match “<q>” with these filters"                                                       | `[Clear]` (search) + `[Clear all]` (filters) |
+| chip filters only               | "No rows match these filters"                                                                  | `[Clear all]`                                |
+| row search only                 | "No rows match “<q>”" + "Try a shorter substring or clear the search."                         | `[Clear]`                                    |
+| none                            | "No rows in this dataset" + "Re-upload the file to replace the data."                          | —                                            |
 
 A dataset with 0 rows is legitimate (every parsed row empty after parse
 options); its schema (column headers) is still meaningful and the
@@ -700,8 +701,6 @@ detail type).
   long-string blobs). Truncate-with-tooltip is the affordance today.
 - **Export from this page**. Table export exists for dashboard widgets
   only; a dataset export is a separate feature.
-- **A distinct empty state for an advanced-query-only zero match** — it
-  currently falls through to the "No rows in this dataset" copy.
 
 ---
 

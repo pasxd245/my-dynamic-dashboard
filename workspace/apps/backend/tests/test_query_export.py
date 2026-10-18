@@ -114,9 +114,9 @@ def test_stepped_query_exports_the_shaped_rows_and_404_409_follow_the_run_path()
 
 
 @pytest.mark.unit
-def test_a_totalled_first_column_keeps_its_total_and_the_row_has_no_label() -> None:
-    """R191 — the page's footer rule: the label sits in column 0 only when that
-    column is not totalled. Before, the label overwrote the first total."""
+def test_a_lone_totalled_column_keeps_its_total_and_the_row_has_no_label() -> None:
+    """R191 — the label never overwrites a total: with every column totalled the
+    row carries the totals only. Before, the label replaced the first total."""
     definition = {
         **_EMPTY_DEF,
         "steps": [{"kind": "aggregate", "dimensions": [], "measures": [{"col": "quotes", "agg": "sum"}]}],
@@ -134,19 +134,28 @@ def test_a_totalled_first_column_keeps_its_total_and_the_row_has_no_label() -> N
 
 
 @pytest.mark.unit
-def test_an_empty_ratio_total_is_not_overwritten_by_the_label() -> None:
-    """R191 — a ratio over a zero denominator stays empty; the label goes to
-    column 0 (not totalled), never into the empty total."""
-    totals = {"rate": {"agg": "ratio", "num": "quotes", "den": "calls"}}
-    definition = {**_EMPTY_DEF, "filters": [{"col": 0, "dtype": "string", "op": "equals", "val": "nowhere"}]}
+def test_the_label_goes_to_the_first_untotalled_column_not_into_an_empty_total() -> None:
+    """R191 — column 0 carries a ratio that is empty (no rows → Σden is 0);
+    column 1 has no totals spec. The label goes to column 1; column 0 stays
+    empty. Before, the label went into the first EMPTY cell — the ratio's."""
+    definition = {
+        **_EMPTY_DEF,
+        "filters": [{"col": 0, "dtype": "string", "op": "equals", "val": "nowhere"}],
+        "steps": [
+            {
+                "kind": "aggregate",
+                "dimensions": [],
+                "measures": [{"col": "quotes", "agg": "sum"}, {"col": "calls", "agg": "sum"}],
+            }
+        ],
+    }
+    totals = {"quotes": {"agg": "ratio", "num": "quotes", "den": "calls"}}
     with TestClient(app) as client:
         qid = _seed(client, definition)
         resp = client.post(f"/queries/{qid}/export", json={"format": "csv", "totals": totals})
 
     assert resp.status_code == 200, resp.text
-    total = resp.content.decode("utf-8-sig").strip().split("\r\n")[-1].split(",")
-    assert total[0] == "Total"
-    assert total[3] == ""
+    assert resp.content.decode("utf-8-sig").strip().split("\r\n")[-1].split(",") == ["", "Total"]
 
 
 @pytest.mark.unit
@@ -162,3 +171,56 @@ def test_row_cap_refuses_with_the_count(monkeypatch: pytest.MonkeyPatch) -> None
     assert resp.status_code == 422
     assert resp.json() == {"code": "export_too_large", "rows": 4, "max": 3}
     assert filtered.status_code == 200  # under the cap once filtered
+
+
+@pytest.mark.unit
+def test_r191_qa_every_column_totalled_xlsx_and_csv_carry_no_label() -> None:
+    """R191 QA — two measures, both totalled: no cell is free, so no label; the
+    totals are the column sums, untouched (CSV and XLSX agree)."""
+    definition = {
+        **_EMPTY_DEF,
+        "steps": [
+            {
+                "kind": "aggregate",
+                "dimensions": [],
+                "measures": [{"col": "quotes", "agg": "sum"}, {"col": "calls", "agg": "sum"}],
+            }
+        ],
+    }
+    totals = {"quotes": {"agg": "sum"}, "calls": {"agg": "sum"}}
+    with TestClient(app) as client:
+        qid = _seed(client, definition)
+        csv_resp = client.post(f"/queries/{qid}/export", json={"format": "csv", "totals": totals})
+        xlsx_resp = client.post(f"/queries/{qid}/export", json={"format": "xlsx", "totals": totals})
+
+    assert csv_resp.status_code == 200, csv_resp.text
+    lines = csv_resp.content.decode("utf-8-sig").strip().split("\r\n")
+    assert lines[-1] == "175,600"
+    ws = load_workbook(io.BytesIO(xlsx_resp.content)).worksheets[0]
+    assert [c.value for c in ws[ws.max_row]] == [175, 600]
+
+
+@pytest.mark.unit
+def test_r191_qa_totalled_first_column_with_an_empty_ratio_leaves_both_blank() -> None:
+    """R191 QA — the old bug's exact shape: column 0 totalled, a later ratio
+    total empty (Σden = 0). The old code dropped the label into the first empty
+    total; now neither cell carries the label."""
+    definition = {
+        **_EMPTY_DEF,
+        "filters": [{"col": 0, "dtype": "string", "op": "equals", "val": "nowhere"}],
+        "steps": [
+            {
+                "kind": "aggregate",
+                "dimensions": [],
+                "measures": [{"col": "quotes", "agg": "sum"}, {"col": "calls", "agg": "sum"}],
+            }
+        ],
+    }
+    totals = {"quotes": {"agg": "sum"}, "calls": {"agg": "ratio", "num": "quotes", "den": "calls"}}
+    with TestClient(app) as client:
+        qid = _seed(client, definition)
+        resp = client.post(f"/queries/{qid}/export", json={"format": "csv", "totals": totals})
+
+    assert resp.status_code == 200, resp.text
+    last = resp.content.decode("utf-8-sig").strip().split("\r\n")[-1]
+    assert "Total" not in last

@@ -34,7 +34,7 @@
       "retry": "Retry",
       "empty": "No data to chart",
       "missingQuery": "Saved query unavailable",
-      "missingQueryHint": "The query this widget points to is missing or failed."
+      "missingQueryHint": "The query this widget used was deleted. Edit the widget to pick another query."
     },
     "ariaBar": "Bar chart: {{title}}",
     "ariaPie": "Pie chart: {{title}}",
@@ -337,7 +337,7 @@
       "noMatchFiltersTitle": "No rows match these filters",
       "noMatchFiltersHint": "Adjust or clear a filter to see more results.",
       "noMatchAdvancedTitle": "No rows match the advanced query",
-      "noMatchAdvancedHint": "Change the advanced query, or clear it to see more rows.",
+      "noMatchAdvancedHint": "Change or clear the advanced query to see more results.",
       "clearAdvanced": "Clear advanced query",
       "noMatchBothTitle": "No rows match “{{query}}” with these filters",
       "noMatchBothHint": "Adjust the search or a filter to see more results.",
@@ -986,10 +986,10 @@
       "duplicate": "This relationship already exists in this workspace.",
       "failed": "Couldn't declare the relationship",
       "reason": {
-        "self_join": "Pick two different datasets — a dataset can't be related to itself.",
+        "self_join": "Pick two different datasets (self-joins come later).",
         "unknown_dataset": "One of the datasets is not in this workspace any more. Reload and pick again.",
         "unknown_column": "The column {{detail}} is not in the dataset any more. Reload and pick again.",
-        "incompatible_join_keys": "These columns can't be joined ({{detail}}). Pick columns of the same kind (text with text, numbers with numbers, dates with dates)."
+        "incompatible_join_keys": "These keys can't join ({{left}} ↔ {{right}}). Pick columns of the same kind: text with text, numbers with numbers, dates with dates."
       },
       "success": "Relationship declared"
     },
@@ -1008,7 +1008,7 @@
       "checkedAt": "Measured {{when}} over the committed data; read again to refresh.",
       "stale": "A key column is gone or no longer joins — fix the relationship first.",
       "failed": "Could not measure this relationship.",
-      "joinWarning": "This join can multiply rows: a key has up to {{max}} rows on the other side ({{observed}} observed, {{declared}} declared)."
+      "joinWarning": "Joining from {{from}} to {{to}} can multiply rows: a key has up to {{max}} rows on {{to}} ({{observed}} observed, {{declared}} declared)."
     }
   },
   "notFound": {

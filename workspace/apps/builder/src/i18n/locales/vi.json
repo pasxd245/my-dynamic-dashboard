@@ -34,7 +34,7 @@
       "retry": "Thử lại",
       "empty": "Không có dữ liệu để vẽ biểu đồ",
       "missingQuery": "Truy vấn không khả dụng",
-      "missingQueryHint": "Truy vấn mà widget này trỏ tới bị thiếu hoặc lỗi."
+      "missingQueryHint": "Truy vấn của widget này đã bị xóa. Sửa widget để chọn truy vấn khác."
     },
     "ariaBar": "Biểu đồ cột: {{title}}",
     "ariaPie": "Biểu đồ tròn: {{title}}",
@@ -337,7 +337,7 @@
       "noMatchFiltersTitle": "Không có dòng nào khớp với các bộ lọc này",
       "noMatchFiltersHint": "Điều chỉnh hoặc xóa một bộ lọc để xem thêm kết quả.",
       "noMatchAdvancedTitle": "Không có dòng nào khớp với truy vấn nâng cao",
-      "noMatchAdvancedHint": "Sửa truy vấn nâng cao, hoặc xóa nó để xem thêm dòng.",
+      "noMatchAdvancedHint": "Sửa hoặc xóa truy vấn nâng cao để xem thêm kết quả.",
       "clearAdvanced": "Xóa truy vấn nâng cao",
       "noMatchBothTitle": "Không có dòng nào khớp với “{{query}}” và các bộ lọc này",
       "noMatchBothHint": "Điều chỉnh từ khóa hoặc một bộ lọc để xem thêm kết quả.",
@@ -986,10 +986,10 @@
       "duplicate": "Mối quan hệ này đã tồn tại trong không gian làm việc này.",
       "failed": "Không thể khai báo mối quan hệ",
       "reason": {
-        "self_join": "Chọn hai tập dữ liệu khác nhau — một tập dữ liệu không thể liên kết với chính nó.",
+        "self_join": "Chọn hai tập dữ liệu khác nhau (tự kết nối sẽ có sau).",
         "unknown_dataset": "Một trong hai tập dữ liệu không còn trong không gian làm việc này. Tải lại rồi chọn lại.",
         "unknown_column": "Cột {{detail}} không còn trong tập dữ liệu. Tải lại rồi chọn lại.",
-        "incompatible_join_keys": "Không thể nối hai cột này ({{detail}}). Hãy chọn hai cột cùng loại (văn bản với văn bản, số với số, ngày với ngày)."
+        "incompatible_join_keys": "Các khóa này không thể kết nối ({{left}} ↔ {{right}}). Hãy chọn hai cột cùng loại: văn bản với văn bản, số với số, ngày với ngày."
       },
       "success": "Đã khai báo mối quan hệ"
     },
@@ -1008,7 +1008,7 @@
       "checkedAt": "Đo lúc {{when}} trên dữ liệu đã commit; mở lại để đo mới.",
       "stale": "Cột khoá đã mất hoặc không join được — sửa relationship trước.",
       "failed": "Không đo được relationship này.",
-      "joinWarning": "Join này có thể nhân dòng: một khoá có tới {{max}} dòng ở phía kia ({{observed}} quan sát, {{declared}} khai báo)."
+      "joinWarning": "Join từ {{from}} sang {{to}} có thể nhân dòng: một khoá có tới {{max}} dòng ở {{to}} ({{observed}} quan sát, {{declared}} khai báo)."
     }
   },
   "notFound": {

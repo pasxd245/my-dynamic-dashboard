@@ -313,9 +313,10 @@ stateDiagram-v2
   dataset on both sides (`self_join`) → each dataset exists **in this workspace**
   (`unknown_dataset`) → each column exists (`unknown_column`) → dtypes join
   (`incompatible_join_keys`). Each is a `422` whose reason is a text prefix in `msg`.
-- The `422` body is FastAPI's `detail[]` (no `code`), which the client does not parse — the
-  error `<Alert>` shows a generic _"Request failed: 422 …"_ description, not the server's
-  reason. Only `relationship_exists` is special-cased.
+- The `422` body is FastAPI's `detail[]` (no `code`); the client parses the `msg` prefix into a
+  `RelationshipDeclareError` (`api/relationshipsApi.ts`) and the error `<Alert>` shows that
+  reason in words (`relationships.declare.reason.<code>`, EN/VI) instead of _"Request failed:
+  422 …"_ (R191). `relationship_exists` (`409`) stays the inline "already exists".
 - Self-joins (same dataset, any columns) are refused; see Scope.
 - **Promote target.** The same `POST …/relationships` is the **promote** endpoint for a
   query-owned relationship: the query canvas ([canvas.md](../queries/canvas.md)) posts a

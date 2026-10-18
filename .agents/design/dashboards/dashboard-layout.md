@@ -192,7 +192,7 @@ box.
   `bodyHeight(rows) = ROW_HEIGHT × n + ROW_GAP × (n − 1)` with `ROW_HEIGHT = 300` and
   `ROW_GAP = 16 + (56 + 12 + 24 + 1)` (the grid gap plus one card's chrome: header, body
   padding top/bottom, border). So a `rows: 2` card is exactly as tall as two stacked `rows: 1`
-  cards (393 + 16 + 393 = 802). All four card states use the same height.
+  cards (393 + 16 + 393 = 802). All card states use the same height.
 - `span` and `rows` are both 1–3 and are presentation only — neither changes a widget's data.
 
 ---
@@ -208,12 +208,14 @@ widget's full body height:
 - **Loading** — AntD `Skeleton` (6 rows).
 - **Error** — warning icon, `dashboard.state.error` + `errorHint`, and a Retry button when the
   widget supplies `onRetry`.
+- **Missing query** — `dashboard.state.missingQuery` ("Saved query unavailable") +
+  `missingQueryHint`; shown when the bound query returns `404` (R191).
 - **Empty** — `dashboard.state.empty` ("No data to chart"); a note with blank text is also empty.
 - **Ready** — the chart, table or note.
 
-A widget whose saved query was deleted after save does not crash the page: its fetch fails and
-the card shows the **error** state. (`ChartCard` also has a `missingQuery` branch —
-`dashboard.state.missingQuery` — that `WidgetView` currently never selects; see Scope boundary.)
+A widget whose saved query was deleted after save does not crash the page: the bound-query fetch
+returns `404 not_found`, which is not retried, and the card shows the **missing query** state
+(`WidgetView` `isMissingQuery`), not the generic error (R191).
 A data widget whose raw-row fetch hit the dashboard row cap shows a **⚠ partial data** icon next
 to the title (tooltip: first `DASHBOARD_MAX_ROWS` = 10 000 of N rows); see
 [widgets.md § Data paths](widgets.md#data-paths).
@@ -344,8 +346,9 @@ to see the same widgets re-run on the new upload.
 6. **Grid** _(FE)_ — 3 / 2 / 1 columns at `xl` / `md` / smaller; each cell spans
    `min(span, columns)` columns and `rows ?? 1` rows; a `rows: 2` card is as tall as two stacked
    `rows: 1` cards (`bodyHeight`).
-7. **Card states** _(FE)_ — loading, error (with retry where offered), empty and ready render at
-   the same height; a deleted bound query shows the error state, not a crash.
+7. **Card states** _(FE)_ — loading, error (with retry where offered), missing query, empty and
+   ready render at the same height; a deleted bound query shows the missing-query state, not a
+   crash (R191).
 8. **Reorder** _(FE)_ — dragging by the handle (pointer or keyboard) persists the new order via
    `PUT`; a failed save reverts; the handle is hidden with fewer than two widgets.
 9. **Filter drawer** _(FE)_ — offers the widget's non-numeric columns and their distinct values;
@@ -375,9 +378,6 @@ to see the same widgets re-run on the new upload.
   built by items 3.7 / 4.2 / 4.3 of the release program; the per-widget drawer stays.
 - **Dense packing / free-form placement** (`grid-auto-flow: dense`, x/y coordinates) — order is
   the only placement; pull when sparse auto-placement leaves holes users complain about.
-- **Wiring the `missingQuery` card state** — a deleted query currently reads as the generic error
-  state ("Couldn't load this widget"); pull when users confuse a deleted query with a backend
-  outage.
 - **`updatedAt` / audit fields on the dashboard** — not modelled; metadata entries carry their
   own author and time.
 

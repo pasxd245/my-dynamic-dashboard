@@ -242,3 +242,17 @@ describe('R191 advanced query — no match', () => {
     expect(await screen.findByText('D-0001')).toBeInTheDocument();
   });
 });
+
+describe('R191 QA — advanced + chip no-match', () => {
+  it('advanced wins the empty state; clearing it hands over to the chip no-match state', async () => {
+    // chip: amount > 10,000,000 matches nothing; aq: stage:nowhere matches nothing.
+    const NONE: PredicateGroups = [[{ col: 3, dtype: 'string', op: 'equals', val: 'nowhere' }]];
+    renderApp(
+      `/data-management/datasets/${DS_ID}?f1_op=gt&f1_val=10000000&aq=${encodeURIComponent(JSON.stringify(NONE))}`,
+    );
+    expect(await screen.findByText('No rows match the advanced query')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Clear advanced query' }));
+    expect(await screen.findByText('No rows match these filters')).toBeInTheDocument();
+    expect(document.querySelector('[data-component="DatasetRowsZeroRows"]')).toBeNull();
+  });
+});

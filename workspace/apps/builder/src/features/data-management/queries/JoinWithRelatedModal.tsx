@@ -14,6 +14,7 @@ import { useNavigate } from 'react-router-dom';
 
 import { NAME_LENGTHS } from '@/_generated/constants';
 import { ApiErrorThrown } from '@/features/data-management/_shared/types';
+import { useDatasetsQuery } from '@/features/data-management/datasets/hooks';
 import { useRelationshipCheckQuery, useRelationshipsQuery } from '@/features/data-management/relationships/hooks';
 import { copyGovernedRel } from './chain';
 import { useCreateQueryMutation } from './hooks';
@@ -70,6 +71,10 @@ export function JoinWithRelatedModal({
   const check = useRelationshipCheckQuery(selected?.id, open && Boolean(selected));
   const multiplies = check.data ? check.data.multipliesLeft : false;
   const otherMax = check.data ? check.data.rightMaxPerKey : 0;
+  // The warning names both datasets (R191 BA): "the other side" read wrong when
+  // the modal was opened from the right-hand dataset.
+  const datasetsQuery = useDatasetsQuery(open ? workspaceId : undefined);
+  const nameOf = (id: string | undefined) => datasetsQuery.data?.find((d) => d.id === id)?.name ?? id ?? '';
   const trimmed = name.trim();
   const canSave = Boolean(selected) && trimmed.length > 0 && !createMutation.isPending;
   const nameTaken = createMutation.error instanceof ApiErrorThrown && createMutation.error.body.code === 'name_taken';
@@ -146,6 +151,8 @@ export function JoinWithRelatedModal({
             showIcon
             data-component="JoinMultipliesWarning"
             title={t('relationships.check.joinWarning', {
+              from: nameOf(selected?.leftDatasetId),
+              to: nameOf(selected?.rightDatasetId),
               max: otherMax,
               observed: t(`relationships.cardinality.${check.data.observedCardinality}`),
               declared: t(`relationships.cardinality.${check.data.declaredCardinality}`),

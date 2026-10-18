@@ -195,9 +195,12 @@ so the gesture is absent. The canvas's free-form draw is node-level and can stil
 `JoinWithRelatedModal`, opened from dataset detail, is the minimal create path for a joined query:
 pick a governed relationship from this dataset, name the query, `POST`. Before saving it reads the
 relationship's self-check (`useRelationshipCheckQuery`) and, when the hop **will multiply rows**
-(the other side has more than one row per key), shows a warning `<Alert>` naming the observed max
-rows per key and the observed vs declared cardinality — the engine has no row-explosion guard, so
-the warning lives at the gesture. It is advisory; Save stays enabled.
+(the right dataset has more than one row per key), shows a warning `<Alert>` naming both datasets,
+the observed max rows per key and the observed vs declared cardinality (_"Joining from A to B can
+multiply rows: a key has up to N rows on B"_). The direction is always left → right, because the
+saved query starts from the relationship's **left** dataset whichever side the modal was opened
+from (R191). The engine has no row-explosion guard, so the warning lives at the gesture. It is
+advisory; Save stays enabled.
 
 ### Transform — the ordered operations editor (`StepsEditor`)
 
@@ -568,7 +571,8 @@ through the ordinary edit path. `useQueryBuilder` is therefore edit-only.
 7. **One create rhythm** — "Save filters as Query", "Join with related" and Duplicate all route
    through `useCreateQueryMutation` (the first and last through `SaveQueryModal`).
 8. **The join warns before it multiplies** — "Join with related" shows the multiplication warning
-   when the chosen relationship's self-check says the hop multiplies rows from this dataset's side.
+   when the chosen relationship's self-check says the hop multiplies rows left → right (the saved
+   query's direction, whichever dataset the modal was opened from) (R191).
 9. **Steps author in business words** — `[Add step ▾]` lists the sixteen entries in three text
    groups; no control reads "window", "partition", "frame", "compute", or a wire kind; an op whose
    columns don't exist at this position is disabled with a reason.

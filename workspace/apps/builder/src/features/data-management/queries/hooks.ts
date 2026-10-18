@@ -1,14 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { queriesApi } from '@/api/queriesApi';
+import { ApiErrorThrown } from '@/features/data-management/_shared/types';
 import type { RowsPage } from '@/features/data-management/datasets/types';
-import type {
-  CreateQueryRequest,
-  Query,
-  QueryDefinition,
-  QueryPreview,
-  UpdateQueryRequest,
-} from './types';
+import type { CreateQueryRequest, Query, QueryDefinition, QueryPreview, UpdateQueryRequest } from './types';
 
 // R69 — Saved Query TanStack hooks. Key shapes mirror datasets:
 //   ['queries', { workspaceId }] — list (scoped to a workspace)
@@ -33,6 +28,9 @@ export function useQueryQuery(id: string | undefined) {
     queryKey: ['query', id] as const,
     queryFn: () => queriesApi.get(id as string),
     enabled: typeof id === 'string',
+    // R191 — a deleted query (404) won't come back on retry: fail at once, so a
+    // dashboard card reads "query unavailable" instead of loading for seconds.
+    retry: (count, err) => !(err instanceof ApiErrorThrown && err.status === 404) && count < 3,
   });
 }
 
@@ -78,11 +76,7 @@ export function useQueryPreviewQuery(
     queryKey: ['query-preview', workspaceId, sourceId, defKey, { page, pageSize }] as const,
     queryFn: () =>
       queriesApi.preview(workspaceId as string, { sourceId: sourceId as string, definition }, page, pageSize),
-    enabled:
-      enabled &&
-      typeof workspaceId === 'string' &&
-      typeof sourceId === 'string' &&
-      sourceId.length > 0,
+    enabled: enabled && typeof workspaceId === 'string' && typeof sourceId === 'string' && sourceId.length > 0,
     placeholderData: (prev) => prev,
     retry: false,
   });
