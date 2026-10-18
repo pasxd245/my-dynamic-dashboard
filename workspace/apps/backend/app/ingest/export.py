@@ -118,6 +118,11 @@ def build_xlsx(
         cell.font = bold
     for r in rows:
         ws.append([_xlsx_cell(v) for v in r])
+        # R196 — openpyxl stores text starting with "=" as a formula: a raw CRM
+        # note like "=abc" would open as #NAME? (or a live formula). Keep it text.
+        for cell in ws[ws.max_row]:
+            if isinstance(cell.value, str) and cell.value.startswith("="):
+                cell.data_type = "s"
     if totals is not None:
         ws.append(_label_totals(columns, totals, total_label, totalled, as_text=False))
         for cell in ws[ws.max_row]:

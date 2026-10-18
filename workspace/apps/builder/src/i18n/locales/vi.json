@@ -457,8 +457,9 @@
       "xlsx": "Xuất toàn bộ dòng (.xlsx)",
       "csv": "Xuất toàn bộ dòng (.csv)",
       "done": "Đã lưu {{name}}",
-      "failed": "Không xuất được dataset này.",
-      "tooLarge": "Quá nhiều dòng để xuất ({{rows}}; giới hạn {{max}}). Lưu một query có bộ lọc rồi xuất query đó."
+      "failed": "Không xuất được tập dữ liệu này.",
+      "tooLarge": "Quá nhiều dòng để xuất ({{rows}}; giới hạn {{max}}). Lưu một truy vấn có bộ lọc rồi xuất truy vấn đó.",
+      "tooLargeCopy": "Bản sao này quá lớn để xuất ({{rows}} dòng; giới hạn {{max}})."
     }
   },
   "upload": {

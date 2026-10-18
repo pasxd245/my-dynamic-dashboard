@@ -1595,7 +1595,8 @@ def export_dataset(id: DsIdPath, body: _DatasetExportBody) -> Response:  # noqa:
 
     versions = {id: row["data_version"]}
     headers = {"X-MDD-Data-Versions": json.dumps(versions, separators=(",", ":"))}
-    stem = file_stem(row["name"])
+    # The version rides in the file name too: a saved CSV has no header to keep it.
+    stem = f"{file_stem(row['name'])}_v{row['data_version']}"
     if body.format == "csv":
         return Response(
             content=build_csv(columns, rows, None, "Total"),
@@ -1609,11 +1610,16 @@ def export_dataset(id: DsIdPath, body: _DatasetExportBody) -> Response:  # noqa:
     ]
     if row["saved_from_json"]:
         frozen = json.loads(row["saved_from_json"])
+        with get_conn() as con:
+            live = con.execute("SELECT data_version FROM datasets WHERE id = ?", (frozen["datasetId"],)).fetchone()
         meta += [
             (
                 "frozen_copy_of",
-                f"{frozen['datasetName']} (data version {frozen['dataVersion']}) — not the current numbers",
+                f"{frozen['datasetName']} (data version {frozen['dataVersion']})"
+                " — frozen; the live dataset may have been refreshed since",
             ),
+            ("original_id", frozen["datasetId"]),
+            ("original_data_version_now", str(live["data_version"]) if live else "deleted"),
             ("saved_at", frozen["savedAt"]),
             ("label", frozen["label"]),
         ]

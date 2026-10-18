@@ -479,7 +479,11 @@ export function DatasetDetailPage() {
             err instanceof ApiErrorThrown ? (err.body as { code?: string; rows?: number; max?: number }) : null;
           message.error(
             body?.code === 'export_too_large'
-              ? t('datasets.export.tooLarge', { rows: body.rows ?? 0, max: body.max ?? 0 })
+              ? // A copy cannot carry a query (R193): no "save a query" advice there.
+                t(isCopy ? 'datasets.export.tooLargeCopy' : 'datasets.export.tooLarge', {
+                  rows: body.rows ?? 0,
+                  max: body.max ?? 0,
+                })
               : t('datasets.export.failed'),
           );
         });

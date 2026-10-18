@@ -98,6 +98,19 @@ describe('R196 export a dataset', () => {
     expect(await screen.findByText(/Too many rows to export \(300000; the limit is 200000\)/)).toBeInTheDocument();
     expect(clicked).toEqual([]);
   });
+
+  it('gives a copy no "save a query" advice (a copy cannot carry one)', async () => {
+    server.use(
+      http.post('*/datasets/:id/export', () =>
+        HttpResponse.json({ code: 'export_too_large', rows: 300000, max: 200000 }, { status: 422 }),
+      ),
+    );
+    renderAt(MOCK_SAVED_COPY.id);
+    await openActions();
+    fireEvent.click(await screen.findByText('Export all rows (.csv)'));
+    expect(await screen.findByText(/This copy is too large to export/)).toBeInTheDocument();
+    expect(screen.queryByText(/Save a query/)).toBeNull();
+  });
 });
 
 describe('R196 export_too_large is a structured error', () => {

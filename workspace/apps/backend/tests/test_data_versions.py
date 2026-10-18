@@ -119,7 +119,7 @@ def test_a_dataset_exports_its_visible_columns_and_its_version() -> None:
     header = csv.content.decode("utf-8-sig").splitlines()[0].split(",")
     assert "amount" not in header and "id" in header
     assert json.loads(csv.headers["x-mdd-data-versions"]) == {deals: 2}
-    assert csv.headers["content-disposition"] == 'attachment; filename="deals.csv"'
+    assert csv.headers["content-disposition"] == 'attachment; filename="deals_v2.csv"'
     wb = load_workbook(io.BytesIO(xlsx.content))
     meta = _meta(wb)
     assert meta["dataset"] == "deals" and meta["data_version"] == "2"
@@ -145,5 +145,39 @@ def test_a_saved_copy_exports_as_frozen() -> None:
         r[0].value: r[1].value for r in load_workbook(io.BytesIO(xlsx.content))["Filters"].iter_rows() if r[0].value
     }
     assert meta["data_version"] == "2"
-    assert "not the current numbers" in meta["frozen_copy_of"] and "deals" in meta["frozen_copy_of"]
+    assert "may have been refreshed since" in meta["frozen_copy_of"] and "deals" in meta["frozen_copy_of"]
+    assert meta["original_id"] == deals and meta["original_data_version_now"] == "3"
     assert meta["label"] == "wk42"
+    assert 'filename="deals' in xlsx.headers["content-disposition"]
+
+
+@pytest.mark.unit
+def test_a_dataset_over_the_cap_is_refused(monkeypatch: pytest.MonkeyPatch) -> None:
+    import app.ingest.export as export
+
+    monkeypatch.setattr(export, "EXPORT_MAX_ROWS", 1)
+    with TestClient(app) as client:
+        _ws, deals, _accounts = _seed(client)
+        r = client.post(f"/datasets/{deals}/export", json={"format": "csv"})
+    assert r.status_code == 422
+    assert r.json()["code"] == "export_too_large" and r.json()["max"] == 1
+    validate_response("datasets/export-post.contract.yaml", 422, r.json())
+
+
+@pytest.mark.unit
+def test_text_that_looks_like_a_formula_stays_text() -> None:
+    from app.ingest.export import build_xlsx
+
+    data = build_xlsx(
+        [{"name": "note", "dtype": "string"}],
+        [['=HYPERLINK("x")'], ["plain"]],
+        None,
+        "Total",
+        percent_columns=set(),
+        sheet_title="t",
+        filters=[],
+        meta=[],
+        filters_sheet_title="Filters",
+    )
+    cell = load_workbook(io.BytesIO(data))["t"]["A2"]
+    assert cell.data_type == "s" and cell.value == '=HYPERLINK("x")'

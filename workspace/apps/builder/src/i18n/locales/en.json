@@ -458,7 +458,8 @@
       "csv": "Export all rows (.csv)",
       "done": "Saved {{name}}",
       "failed": "Could not export this dataset.",
-      "tooLarge": "Too many rows to export ({{rows}}; the limit is {{max}}). Save a query with filters and export that instead."
+      "tooLarge": "Too many rows to export ({{rows}}; the limit is {{max}}). Save a query with filters and export that instead.",
+      "tooLargeCopy": "This copy is too large to export ({{rows}} rows; the limit is {{max}})."
     }
   },
   "upload": {
