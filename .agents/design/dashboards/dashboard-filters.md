@@ -13,7 +13,8 @@ design input of items 3.7 (typed parameters), 3.8 (metadata triple anchor), 4.2 
 range) and 4.3 (shared filters) of the release program.
 **Status**: Accepted — the owner accepted D1–D7 as drafted on 2026-10-18 (design gate of item
 2.7, `Round_190`), with the view-time range as two date parameters and `backend.time_zone`
-defaulting to `UTC`. Built by 3.7, 3.8 (rc.3) and 4.2, 4.3 (rc.4).
+defaulting to `UTC`. Built by 3.7, 3.8 (rc.3) and 4.2, 4.3 (rc.4). 3.7 built (Round_194–195,
+see § As built).
 **Domain folder**: `dashboards/` — code will land in
 [`apps/builder/src/features/dashboard/`](../../../workspace/apps/builder/src/features/dashboard/)
 (controls), the query engine
@@ -247,6 +248,25 @@ use. A query without parameters reads exactly as in rc.2 (no `resolvedParams` ke
 - **Incomplete window** (input to item 4.5): when a resolved date parameter or range end is later
   than the dataset's coverage `max` (R178) on the column it filters, the widget shows "Data only
   through <max>". It is a note, not a block; the cohort-specific rule stays in 4.5.
+
+### As built (3.7 — Round_194 engine, Round_195 builder)
+
+- **D3 level 2 is read by the server.** A widget read names its dashboard + widget
+  (`dashboard`/`widget` on `GET /rows`, `dashboard: {id, widgetId}` on the POST reads); the server
+  reads that dashboard's saved control values that reach the widget. A client never asserts a
+  "dashboard" value.
+- **Only USED parameters** (referenced by an operand) are resolved, required and echoed; a
+  declared but unused parameter never claims to have been applied. `param_unbound` lists every
+  missing one (`missing[]`); `param_invalid` names the expected type and the level, and
+  `reason: range_reversed` for a `between` whose bound came from a parameter and ends before it
+  starts. A number on an integer column must be whole.
+- **A date parameter on a datetime column is a calendar day**: lower bounds start at 00:00, upper
+  bounds end at 23:59:59.999999; `equals` / `ne` / `in` / `not_in` there are refused at save.
+- **A viewer value reaches only the widgets its control targets** (the builder sends each widget
+  only those values). Copy link pins every control as an absolute value (the server-resolved one
+  where the viewer set none).
+- Not built yet (rolling log): a parameter in the advanced (DNF) text, on `between` / one list item
+  in the steps editor; the `date_range` and `values` controls (4.2, 4.3).
 
 ---
 

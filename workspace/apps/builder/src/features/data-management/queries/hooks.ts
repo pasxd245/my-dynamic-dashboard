@@ -46,6 +46,8 @@ export function useQueryRowsQuery(
   return useQuery<RowsPage>({
     queryKey: ['query-rows', id, { page, pageSize }, params] as const,
     queryFn: () => queriesApi.getRows(id as string, page, pageSize, params),
+    // R195 — a refused read (e.g. `param_unbound`) is an answer: don't retry it (QA P2-R1).
+    retry: (failures: number, err: unknown) => !(err instanceof ApiErrorThrown && err.status < 500) && failures < 3,
     enabled: typeof id === 'string',
     placeholderData: (prev) => prev,
   });
