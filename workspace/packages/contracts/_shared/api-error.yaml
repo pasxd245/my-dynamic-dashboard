@@ -20,6 +20,9 @@
 #   - step_invalid     — a TRANSFORM STEP cannot run on the columns available
 #                        at its position (409) — R165. Split out of
 #                        `query_stale`, which is about a PREDICATE.
+#   - not_publishable  — a workflow's output cannot be published now: never
+#                        run, out of date, or it reads the dataset it would
+#                        replace (409) — R192.
 #
 # Each variant uses `additionalProperties: false` to mirror the BE's
 # `extra='forbid'` Pydantic discipline (per the R16 conformance pattern).
@@ -28,7 +31,26 @@ components:
   schemas:
     ApiErrorCode:
       type: string
-      enum: [not_found, name_taken, slug_taken, non_empty, query_stale, step_invalid, relationship_exists, relationship_stale, coercion_failed, merge_duplicate_keys, unknown_column, no_visible_columns, unauthorized, forbidden, metadata_invalid, export_too_large]
+      enum:
+        [
+          not_found,
+          name_taken,
+          slug_taken,
+          non_empty,
+          query_stale,
+          step_invalid,
+          relationship_exists,
+          relationship_stale,
+          coercion_failed,
+          merge_duplicate_keys,
+          unknown_column,
+          no_visible_columns,
+          unauthorized,
+          forbidden,
+          metadata_invalid,
+          export_too_large,
+          not_publishable,
+        ]
       description: |
         Closed enum. Any new error class lands as a new code in a future
         round + contract update — never as a free-text message.
@@ -410,3 +432,26 @@ components:
         max:
           type: integer
           minimum: 1
+
+    ApiErrorNotPublishable:
+      type: object
+      required: [code, reason]
+      additionalProperties: false
+      description: |
+        R192 — `POST /workflows/{id}/publish` refused; nothing is written.
+        `never_run` — the workflow has no output (never run, or its definition
+        changed since). `stale` — its output is out of date (`staleSources` lists
+        why, as on the workflow). `reads_itself` — a source of the run reads the
+        dataset this publish would replace.
+      properties:
+        code:
+          type: string
+          enum: [not_publishable]
+        reason:
+          type: string
+          enum: [never_run, stale, reads_itself]
+        staleSources:
+          type: array
+          minItems: 1
+          items:
+            $ref: '../_shared/workflow.yaml#/components/schemas/WorkflowStaleSource'

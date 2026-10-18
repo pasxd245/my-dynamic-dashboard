@@ -174,15 +174,16 @@ Wire shapes live under
 [`workspace/packages/contracts/workflows/`](../../../../workspace/packages/contracts/workflows/) and
 [`_shared/workflow.yaml`](../../../../workspace/packages/contracts/_shared/workflow.yaml).
 
-| Method   | Path                                             | Request body           | Success                                                                                | Error statuses + `code`                                                                                                  |
-| -------- | ------------------------------------------------ | ---------------------- | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `POST`   | `/workspaces/{id}/workflows`                     | `{ name, definition }` | `201` → `Workflow` (never run)                                                         | `409 name_taken`; `422` source refusal (`unknown_source` / `unresolved_source` / `duplicate_source` / `sources_diverge`) |
-| `GET`    | `/workspaces/{id}/workflows`                     | —                      | `200` → `Workflow[]`, `ORDER BY created_at DESC, id DESC` (each with `staleSources`)   | —                                                                                                                        |
-| `GET`    | `/workflows/{id}`                                | —                      | `200` → `Workflow` (`run` + `staleSources` computed on read)                           | `404 not_found`                                                                                                          |
-| `PUT`    | `/workflows/{id}`                                | `{ name, definition }` | `200` → `Workflow` — a **definition** change clears the output and the stamp           | `404 not_found`; `409 name_taken`; `422` source refusal (as on create)                                                   |
-| `DELETE` | `/workflows/{id}`                                | —                      | `204`                                                                                  | `404 not_found`                                                                                                          |
-| `POST`   | `/workflows/{id}/run`                            | —                      | `200` → `Workflow` with `resolvedColumns` + `materializedAt` + a new `run`             | `404 not_found`; `409 query_stale` (a source no longer resolves or the shapes diverged); `409 step_invalid` (a step)     |
-| `GET`    | `/workflows/{id}/rows?page=&page_size=&unpaged=` | —                      | `200` → `RowsPage` over the frozen output; `unpaged=true` → one response ≤ 10 000 rows | `404 not_found` (absent **or never run**); `422` (bad `page_size`)                                                       |
+| Method   | Path                                             | Request body           | Success                                                                                              | Error statuses + `code`                                                                                                  |
+| -------- | ------------------------------------------------ | ---------------------- | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `POST`   | `/workspaces/{id}/workflows`                     | `{ name, definition }` | `201` → `Workflow` (never run)                                                                       | `409 name_taken`; `422` source refusal (`unknown_source` / `unresolved_source` / `duplicate_source` / `sources_diverge`) |
+| `GET`    | `/workspaces/{id}/workflows`                     | —                      | `200` → `Workflow[]`, `ORDER BY created_at DESC, id DESC` (each with `staleSources`)                 | —                                                                                                                        |
+| `GET`    | `/workflows/{id}`                                | —                      | `200` → `Workflow` (`run` + `staleSources` computed on read)                                         | `404 not_found`                                                                                                          |
+| `PUT`    | `/workflows/{id}`                                | `{ name, definition }` | `200` → `Workflow` — a **definition** change clears the output and the stamp                         | `404 not_found`; `409 name_taken`; `422` source refusal (as on create)                                                   |
+| `DELETE` | `/workflows/{id}`                                | —                      | `204`                                                                                                | `404 not_found`                                                                                                          |
+| `POST`   | `/workflows/{id}/run`                            | —                      | `200` → `Workflow` with `resolvedColumns` + `materializedAt` + a new `run`                           | `404 not_found`; `409 query_stale` (a source no longer resolves or the shapes diverged); `409 step_invalid` (a step)     |
+| `GET`    | `/workflows/{id}/rows?page=&page_size=&unpaged=` | —                      | `200` → `RowsPage` over the frozen output; `unpaged=true` → one response ≤ 10 000 rows               | `404 not_found` (absent **or never run**); `422` (bad `page_size`)                                                       |
+| `POST`   | `/workflows/{id}/publish` (R192)                 | `{ name? }`            | `201` → `Dataset` (first publish) · `200` → `Dataset` (re-publish: rows replaced, `dataVersion` + 1) | `404 not_found`; `409 not_publishable` (`never_run` / `stale` / `reads_itself`); `409 name_taken`                        |
 
 - **Save-time refusals use the validation envelope.** `detail[0].loc` ends at the offending
   source's **index** (`["body", "definition", "sources", i]`) and `msg` **starts with the code**:
@@ -269,6 +270,83 @@ judge.
 `output_columns_json`, `materialized_at`, `run_id` and `run_json` (the view returns to the never-run
 state) but **keeps `run_number`**, so the next run continues the count. A name-only `PUT` keeps the
 output and the stamp.
+
+---
+
+## Publish — the output as a dataset (item 3.6a, R192)
+
+A workflow's frozen output stays readable only on the workflow page; a dashboard reads **datasets**
+and **queries**. **Publish** copies the output into a **dataset** in the same workspace, so a query
+or a widget reads it like any upload — the program's ruling (a′) on Workflow item 1.
+
+- **`POST /workflows/{id}/publish`**, body `{name?}`.
+  - **First publish** creates the dataset (`201`): `name` (trimmed, 1–120 — the dataset rename
+    rule) defaults to the workflow's name; a taken name → `409 name_taken`.
+  - **Re-publish** replaces the rows of **the dataset in the workflow's own workspace that this
+    workflow published** (`200`) — one per workflow, held by an internal
+    `published_workflow_id` column, `UNIQUE (workspace_id, published_workflow_id)`, so neither a
+    race nor a copy elsewhere (3.6b) can be the target. `name` is ignored (rename the dataset
+    itself). The new parquet is swapped in and `dataVersion` + 1 / `refreshedAt` = now are written
+    in **one** update, as a refresh does — a reader never sees new rows under the old version. To
+    every reader it _is_ a refresh: a workflow reading the dataset flags `data_refreshed` (R187).
+  - **Columns on a re-publish** — the dataset takes the output's columns as they are now; a column
+    that keeps its name keeps its `hidden` flag (as refresh does), and date coverage is profiled
+    again. A re-publish whose columns differ is **not** refused — the builder's confirm lists the
+    added, removed and retyped columns first (below).
+  - The published dataset was deleted → the next publish creates a new one.
+- **Refusals** — `409 not_publishable` with a `reason`; nothing is written:
+  - `never_run` — the workflow has no output (never run, or its definition changed since), **or its
+    last run carries no stamp** (run before R187 — there is no lineage to write);
+  - `stale` — `staleSources` is non-empty (the reasons are in the body: publishing numbers the
+    workflow page itself calls out of date would hide the warning behind a dataset);
+  - `reads_itself` — a **direct** source of the run reads the dataset this publish would replace (a
+    publish ↔ run loop). An indirect loop (A reads workflow B, whose query reads A's dataset) is not
+    refused: it shows as out of date (`source_rerun` / `data_refreshed`) after each re-publish.
+- **What the dataset carries.** `sourceFormat: workflow`; its rows are the output's rows in the
+  output's order; its columns are the output's columns (date coverage profiled, R178), including
+  `Source.Query` when the workflow has ≥2 sources (visible — it is the split a reader needs). No
+  `Source.Name` (no file). `sizeBytes` is the parquet's size. **`lineage`** — written by the server
+  only, copied from the run stamp at publish time: `{workflowId, workflowName, runId, runNumber,
+runAt, definitionHash, sources, publishedAt}` (`runAt` = the run's materialize time, kept because
+  the next run overwrites it on the workflow).
+- **A published dataset is not refreshed by upload** — Refresh is absent from its detail page and
+  from its row menu in the Datasets list; `refresh-settings` answers `available: false`; an upload
+  refresh sent anyway fails the source-format check (`422`). Re-publishing is its refresh. Rename
+  and column visibility work as on any dataset. The list shows it with a workflow icon and
+  "Workflow" where an upload shows CSV / Excel.
+- **Deleting the workflow keeps the dataset** (an archive; its lineage still names the run). The
+  dataset page then reads "Published from a workflow that no longer exists".
+- **The workflow names its dataset.** `Workflow.published` (read-only, computed on read):
+  `{datasetId, datasetName, dataVersion, runId, runNumber}` of the dataset it published, absent
+  when none exists.
+
+**Surfaces.**
+
+- **Workflow detail** — **[Publish]** (first) / **[Re-publish]** beside [Re-run]; disabled, with
+  the reason as its tooltip, when publishing would be refused: _"Run this workflow first."_
+  (`never_run`; _"Run this workflow again to publish it."_ for an unstamped run), _"The results
+  are out of date — re-run first."_ (`stale`), _"This workflow reads the dataset it would
+  replace."_ (`reads_itself`, known before the click: a `run.sources[].dataVersions` key is the
+  published dataset's id). Under the summary: _"Published as **<dataset>** · data version 3 · from
+  run #7"_ (linked); when `published.runId` ≠ `run.id`: _"The workflow was re-run after this was
+  published. Re-publish to update <dataset>."_; when the workflow has no output since an edit:
+  _"The workflow was edited after this was published — run it, then re-publish."_
+- **First publish** opens a small modal for the dataset name (pre-filled with the workflow's).
+- **Re-publish** opens a confirm: _"Replace the data in <dataset> (data version 3, run #7) with run
+  #9? Dashboards using it will show the new numbers."_ — plus, when the columns differ, a list of
+  the columns added, removed and retyped (compared in the browser: the workflow's
+  `resolvedColumns` against the dataset's `columns`).
+- **Dataset detail** — for a published dataset, _"Published from workflow **<name>** · run #7 ·
+  <when>"_ where an upload shows its file: the workflow's **current** name and a link while it
+  exists, `lineage.workflowName` + _"(deleted)"_ once it does not. No Refresh action.
+
+**Acceptance (3.6a).** (a) publish twice → one dataset, `dataVersion` 1 then 2, lineage = the
+second run; (b) a never-run, an unstamped, a stale and a self-reading workflow each refuse with
+their reason and write nothing; (c) a query and a widget read the published dataset; (d) a workflow
+reading the dataset flags `data_refreshed` after a re-publish; (e) deleting the workflow keeps the
+dataset; (f) a refresh upload into it is refused and its refresh settings say unavailable; (g) only
+the server writes `lineage`; (h) a re-publish keeps `hidden` on surviving columns and takes the new
+columns; (i) `Workflow.published` names the dataset.
 
 ---
 
@@ -404,8 +482,8 @@ date — without writing a formula.
 
 - **Value-out deliverable** (CSV/XLSX download of the materialized output) — the export route is a
   query route today; pull once a real value-out need for a workflow output appears.
-- **A dashboard bound to a workflow output** — `rows?unpaged=true` exists, but no widget consumes a
-  workflow; pull with a real dashboard need.
+- **A widget bound to a workflow directly** — not needed: a widget reads the workflow's output
+  through the **published dataset** (§ Publish, R192).
 - **Automatic refresh** — staleness is a flag; re-running is manual. An upstream-triggered re-run is
   a DAG concept the product does not have.
 - **YAML import/edit of the spec** — PARKED; a raw-spec editor cuts against the "Excel-with-extra-

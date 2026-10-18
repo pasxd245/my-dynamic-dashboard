@@ -98,24 +98,50 @@ components:
         sources:
           type: array
           items:
-            type: object
-            required: [id]
-            additionalProperties: false
-            properties:
-              id:
-                type: string
-                pattern: "^(qr_|wf_)[0-9a-f]{8}$"
-              definitionHash:
-                type: string
-                description: A query source — its definition's version at run time.
-              dataVersions:
-                type: object
-                additionalProperties: { type: integer, minimum: 1 }
-                description: A query source — `dataVersion` of each dataset it reads, by dataset id.
-              runId:
-                type: string
-                pattern: "^run_[0-9a-f]{8}$"
-                description: A workflow source — the run of it this run read.
+            $ref: "#/components/schemas/WorkflowRunSource"
+    WorkflowRunSource:
+      type: object
+      required: [id]
+      additionalProperties: false
+      description: |
+        One source as a run read it (R187). Shared by `WorkflowRun.sources` and
+        a published dataset's `lineage.sources` (R192).
+      properties:
+        id:
+          type: string
+          pattern: "^(qr_|wf_)[0-9a-f]{8}$"
+        definitionHash:
+          type: string
+          description: A query source — its definition's version at run time.
+        dataVersions:
+          type: object
+          additionalProperties: { type: integer, minimum: 1 }
+          description: A query source — `dataVersion` of each dataset it reads, by dataset id.
+        runId:
+          type: string
+          pattern: "^run_[0-9a-f]{8}$"
+          description: A workflow source — the run of it this run read.
+    WorkflowStaleSource:
+      description: One source that moved since the last run (R187); shared with a `not_publishable` refusal (R192).
+      type: object
+      required: [sourceId, reason]
+      additionalProperties: false
+      properties:
+        sourceId:
+          type: string
+          pattern: "^(qr_|wf_)[0-9a-f]{8}$"
+        name:
+          type: string
+          description: The source's current name (omitted when it no longer exists).
+        reason:
+          type: string
+          enum: [source_missing, definition_changed, data_refreshed, source_rerun]
+          description: |
+            `source_missing` — the source, or a dataset it reads, is gone, or a
+            workflow source has no output any more. `definition_changed` — the
+            source query was edited. `data_refreshed` — a dataset it reads was
+            refreshed (its `dataVersion` moved). `source_rerun` — a workflow
+            source was run again.
     Workflow:
       type: object
       required: [id, workspaceId, name, definition, createdAt]
@@ -167,25 +193,23 @@ components:
             judge (never run, or last run before R187). A flag, never a block: the
             output stays readable; re-running clears it.
           items:
-            type: object
-            required: [sourceId, reason]
-            additionalProperties: false
-            properties:
-              sourceId:
-                type: string
-                pattern: "^(qr_|wf_)[0-9a-f]{8}$"
-              name:
-                type: string
-                description: The source's current name (omitted when it no longer exists).
-              reason:
-                type: string
-                enum: [source_missing, definition_changed, data_refreshed, source_rerun]
-                description: |
-                  `source_missing` — the source, or a dataset it reads, is gone, or a
-                  workflow source has no output any more. `definition_changed` — the
-                  source query was edited. `data_refreshed` — a dataset it reads was
-                  refreshed (its `dataVersion` moved). `source_rerun` — a workflow
-                  source was run again.
+            $ref: "#/components/schemas/WorkflowStaleSource"
+        published:
+          type: object
+          readOnly: true
+          required: [datasetId, datasetName, dataVersion, runId, runNumber]
+          additionalProperties: false
+          description: |
+            R192 — the dataset this workflow published in its workspace (one per
+            workflow), computed on read; omitted when there is none. `runId` /
+            `runNumber` are the run it was published from — when `runId` differs
+            from `run.id`, the workflow has run since.
+          properties:
+            datasetId: { type: string, pattern: "^ds_[0-9a-f]{8}$" }
+            datasetName: { type: string, minLength: 1 }
+            dataVersion: { type: integer, minimum: 1 }
+            runId: { type: string, pattern: "^run_[0-9a-f]{8}$" }
+            runNumber: { type: integer, minimum: 1 }
         createdAt:
           type: string
           pattern: "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"

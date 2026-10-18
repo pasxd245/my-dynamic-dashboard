@@ -232,11 +232,24 @@ type Dataset = {
   rowCount: number; // ≥ 0, never null
   columnCount: number; // ≥ 1, never null
   columns: Column[]; // ≥ 1
-  sourceFormat: 'excel' | 'csv'; // which wizard path created this Dataset
+  sourceFormat: 'excel' | 'csv' | 'workflow'; // the wizard path that created it — or `workflow` (published, R192)
   sheetName?: string; // present iff sourceFormat === 'excel'
   createdAt: string; // ISO-8601 UTC `Z`; commit time, never changes
   refreshedAt: string; // read-only; when the rows last changed (commit, then each refresh)
-  dataVersion: number; // read-only; 1 at commit, +1 per successful refresh
+  dataVersion: number; // read-only; 1 at commit, +1 per successful refresh (or re-publish)
+  lineage?: DatasetLineage; // read-only; only on a published dataset (sourceFormat `workflow`)
+};
+
+type DatasetLineage = {
+  // written by the server at publish time, copied from the workflow's run stamp (R187)
+  workflowId: string;
+  workflowName: string; // at publish time
+  runId: string; // `run_<8 hex>`
+  runNumber: number;
+  runAt: string; // when that run materialized
+  definitionHash: string; // the workflow definition's version at that run
+  sources: WorkflowRun['sources']; // what that run read
+  publishedAt: string;
 };
 
 type Column = {
@@ -333,6 +346,21 @@ column:
   under the metadata strip and as a secondary line per column in the
   Properties drawer.
 
+### Published datasets — `sourceFormat: workflow` (R192)
+
+A dataset can also come from **publishing a workflow's output** (`POST /workflows/{id}/publish`,
+[workflows.md § Publish](../workflows/workflows.md)). It is a dataset in every reading sense —
+queries, widgets, relationships and workflows read its `parsed.parquet` — with three differences:
+`sourceFormat` is `workflow`; it carries a server-written `lineage` (which workflow, which run,
+what that run read); and it is **not refreshed by upload** (the source-format check refuses it,
+`422`; `refresh-settings` answers `available: false`) — re-publishing is its refresh, moving
+`dataVersion` by one. Its storage directory holds `parsed.parquet` and `source.json`
+(`{"sourceFormat": "workflow"}`) — no original file; `sizeBytes` is the parquet's size. The
+detail page shows the lineage line where an upload shows its file; neither the detail page nor the
+list row menu offers Refresh; the list marks it "Workflow". One published dataset per workflow and
+workspace — the internal `published_workflow_id` column, `UNIQUE (workspace_id,
+published_workflow_id)` (not on the wire).
+
 ### Persistence
 
 The schema-of-record is **SQLModel** (`app/db_models.py`) with
@@ -345,13 +373,15 @@ columns (snake_case): `workspaceId`↔`workspace_id`,
 also carries each column's `hidden` and `coverage`),
 `sourceFormat`↔`source_format`, `sheetName`↔`sheet_name`,
 `createdAt`↔`created_at`, `refreshedAt`↔`refreshed_at`,
-`dataVersion`↔`data_version`. Every router handler reads/writes through
+`dataVersion`↔`data_version`, `lineage`↔`lineage_json` (NULL except on a published dataset;
+added by `0008_dataset_lineage`, R192, with the internal `published_workflow_id`). Every router handler reads/writes through
 raw `sqlite3` (`get_conn()`), not the ORM session — SQLModel + Alembic
 own the DDL; the handlers own the queries (one `_dataset_from_row`
 hydrates every row read back from the table).
 
 Constraints: CHECKs name length 1–120, `size_bytes ≥ 0`,
-`row_count ≥ 0`, `column_count ≥ 1`, `source_format IN ('csv','excel')`;
+`row_count ≥ 0`, `column_count ≥ 1`, `source_format IN ('csv','excel','workflow')` (`workflow`
+from `0008`, a table rebuild);
 `(workspace_id, name)` is UNIQUE (`idx_datasets_name_unique`);
 `workspace_id` is an `ON DELETE CASCADE` FK to `workspaces`.
 `data_version` is `INTEGER NOT NULL DEFAULT 1`; `refreshed_at` is a

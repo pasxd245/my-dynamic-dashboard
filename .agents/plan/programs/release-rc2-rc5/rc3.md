@@ -21,9 +21,9 @@ passed G-wf (owner, confirmed after walk B 2026-10-18) ────────�
 done   3.4 multi-file refresh (R188) ── 3.5 replace_period (R189)
 done   2.7 design: params, date range, shared filters (R190 — D1–D7 accepted 2026-10-18)
 first  fix round for the rolling log's small findings (R191)
-next   3.6 publish + saved copies (R192) <─────────────────────────────────────────────┘
-then   3.7a parameter engine (R193) ─> 3.7b builder (R194) ─> 3.2c read-path stamps (R195)
-       ─> 3.8 metadata triple anchor (R196) ─> rc.3 exit gate
+next   3.6a publish (R192) ─> 3.6b saved copies (R193) <───────────────────────────────┘
+then   3.7a parameter engine (R194) ─> 3.7b builder (R195) ─> 3.2c read-path stamps (R196)
+       ─> 3.8 metadata triple anchor (R197) ─> rc.3 exit gate
 ```
 
 Labels from `Round_175 § Feeds into`: **R177** = 3.1, **R178–R179** = 3.4–3.5, **R180** = 3.6. They
@@ -41,16 +41,18 @@ verifying (the coder grading its own work) and building past the brief (a one-wa
 drifting from the accepted design). Prune it if two rounds pass with no finding from the
 reviewers._
 
-| Round | Item                                      | Flow   | Migration | UI  |
-| ----- | ----------------------------------------- | ------ | --------- | --- |
-| R191  | fix round — rolling-log small findings    | DCFBI  | —         | yes |
-| R192  | 3.6 publish + saved copies                | DFCFBI | `0008`    | yes |
-| R193  | 3.7a parameter engine                     | DCFBI  | —         | no  |
-| R194  | 3.7b parameters in the builder            | DCFBI  | —         | yes |
-| R195  | 3.2c data versions on read paths + export | DCFBI  | —         | no  |
-| R196  | 3.8 metadata triple anchor + cascade      | DCFBI  | `0009`    | yes |
+| Round | Item                                      | Flow  | Migration | UI  |
+| ----- | ----------------------------------------- | ----- | --------- | --- |
+| R191  | fix round — rolling-log small findings    | DCFBI | —         | yes |
+| R192  | 3.6a publish a workflow output (lineage)  | DCFBI | `0008`    | yes |
+| R193  | 3.6b saved copies (read-only workspace)   | tbd   | `0009`    | yes |
+| R194  | 3.7a parameter engine                     | DCFBI | —         | no  |
+| R195  | 3.7b parameters in the builder            | DCFBI | —         | yes |
+| R196  | 3.2c data versions on read paths + export | DCFBI | —         | no  |
+| R197  | 3.8 metadata triple anchor + cascade      | DCFBI | `0010`    | yes |
 
-Then the rc.3 exit gate: release note, gate checklist, walk pack for R191–R196.
+Then the rc.3 exit gate: release note, gate checklist, walk pack for R191–R197. _(3.6 split into
+3.6a / 3.6b on 2026-10-18 — two features, two migrations; one feature per round.)_
 
 **Roles per round** (the coder is the main session; the three others are fresh sub-agents that
 see only the repo and the round file, never the coder's reasoning):

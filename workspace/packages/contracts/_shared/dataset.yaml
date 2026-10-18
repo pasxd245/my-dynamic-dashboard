@@ -5,10 +5,13 @@ components:
   schemas:
     SourceFormat:
       type: string
-      enum: [excel, csv]
+      enum: [excel, csv, workflow]
       description: |
-        Wizard path that produced this dataset. Closed enum for R15+;
-        future sources (api, sql, website) require a contract change.
+        Wizard path that produced this dataset — or `workflow` (R192): the
+        dataset is a workflow's output published by `POST /workflows/{id}/publish`
+        (it carries `lineage`, and is refreshed by re-publishing, never by
+        upload). Closed enum; future sources (api, sql, website) require a
+        contract change.
 
     Dataset:
       type: object
@@ -94,3 +97,45 @@ components:
             reads with the same `dataVersion` saw the same rows; a run or a note
             that records it can later tell whether the data moved since.
           examples: [1, 4]
+        lineage:
+          $ref: '#/components/schemas/DatasetLineage'
+
+    DatasetLineage:
+      type: object
+      readOnly: true
+      required: [workflowId, workflowName, runId, runNumber, runAt, definitionHash, sources, publishedAt]
+      additionalProperties: false
+      description: |
+        R192 — where a published dataset (`sourceFormat: workflow`) came from:
+        written by the server only, copied from the workflow's run stamp
+        (R187) at publish time; absent on every uploaded dataset. It keeps
+        naming the run after the workflow is deleted or runs again.
+      properties:
+        workflowId:
+          type: string
+          pattern: '^wf_[0-9a-f]{8}$'
+        workflowName:
+          type: string
+          minLength: 1
+          description: The workflow's name at publish time.
+        runId:
+          type: string
+          pattern: '^run_[0-9a-f]{8}$'
+        runNumber:
+          type: integer
+          minimum: 1
+        runAt:
+          type: string
+          pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$'
+          description: When that run materialized (the workflow's `materializedAt` then — its next run overwrites it there).
+        definitionHash:
+          type: string
+          description: The workflow definition's version at that run.
+        sources:
+          type: array
+          items:
+            $ref: '../_shared/workflow.yaml#/components/schemas/WorkflowRunSource'
+          description: What that run read, per source.
+        publishedAt:
+          type: string
+          pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$'

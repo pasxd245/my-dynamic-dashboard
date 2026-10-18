@@ -2,8 +2,8 @@
 
 **Status**: Active — rc.2 walked and `Complete` (R177–R183, 2026-10-18); the 0005 downgrade check
 and the tag are the owner's. rc.3: 3.1, 3.3, 3.4, 3.5 and 3.2a/b walked and `Complete` (R184–R189);
-2.7 designed and accepted (R190). G-wf confirmed. **Running now:** R191 (fix round) → R192 (3.6) →
-R193–R194 (3.7) → R195 (3.2c) → R196 (3.8), four-role loop ([rc3.md § Execution](rc3.md)).
+2.7 designed and accepted (R190). G-wf confirmed. **Running now:** R191 (fix round, Review) → R192 (3.6a) → R193 (3.6b) →
+R194–R195 (3.7) → R196 (3.2c) → R197 (3.8), four-role loop ([rc3.md § Execution](rc3.md)).
 **Opened**: 2026-10-17 (re-baselined the same day against what had already shipped)
 
 Take the product from `release/v0.0.1-rc.1` (`5334c81`) to rc.5 as four gated release candidates.
@@ -32,7 +32,7 @@ test — "would a second user, with a different CRM export, want exactly this wi
 - Counts at the rc.3 head: backend 580 · builder 461 · contracts 46 (re-run 2026-10-18, all green).
 - **Waiting on the owner:** `alembic downgrade -1 && upgrade head` on a copy of the real database
   (0005) → tag `v0.0.1-rc.2` → fast-forward `dev` to the tag; the R190 `Complete` flip.
-- **Agent work now:** rc.3 to its exit gate, R191–R196 ([rc3.md § Execution](rc3.md)); stops for
+- **Agent work now:** rc.3 to its exit gate, R191–R197 ([rc3.md § Execution](rc3.md)); stops for
   the owner at the rc.3 walks, the dogfood dual-run and the tag.
 
 ## Re-baseline (2026-10-17)
@@ -154,17 +154,17 @@ Dogfood parity rc.1 → rc.2: 119 / 119 items identical (logged in `Round_183`).
 
 ### rc.3 — definitions over numbers
 
-| #   | Item                                                                                                                        | Status                       | Round                    |
-| --- | --------------------------------------------------------------------------------------------------------------------------- | ---------------------------- | ------------------------ |
-| 3.1 | `compute` step + closed function catalog (`trim` only)                                                                      | complete                     | `Round_184`              |
-| 3.2 | Version stamps — dataset `dataVersion` + `refreshedAt` (R185), workflow `run` (R187); rest Remaining                        | partial (3.2c → R195)        | `Round_185`, `Round_187` |
-| 3.3 | Workflow repairs W-2, W-3, W-5 (R186); W-4, W-7 (R185 + R187) → gate **G-wf**                                               | complete                     | `Round_186`, `Round_187` |
-| 3.4 | Refresh with several files at once (label R178)                                                                             | complete                     | `Round_188`              |
-| 3.5 | `replace_period` refresh mode (label R179)                                                                                  | complete                     | `Round_189`              |
-| 2.7 | _Moved from rc.2:_ design only — parameter model, view-time date range, shared filters (pulled before 3.6 while it waits)   | accepted (D1–D7, 2026-10-18) | `Round_190`              |
-| 3.6 | Publish a workflow output as a derived dataset with lineage; saved copies in `<workspace>-saved` (label R180) — G-wf passed | **next** — R192              | —                        |
-| 3.7 | Typed parameters, starting with `as_of`                                                                                     | queued — R193, R194          | —                        |
-| 3.8 | Metadata triple anchor {definitionVersion, dataVersions / runId, params}                                                    | queued — R196                | —                        |
+| #   | Item                                                                                                                        | Status                              | Round                    |
+| --- | --------------------------------------------------------------------------------------------------------------------------- | ----------------------------------- | ------------------------ |
+| 3.1 | `compute` step + closed function catalog (`trim` only)                                                                      | complete                            | `Round_184`              |
+| 3.2 | Version stamps — dataset `dataVersion` + `refreshedAt` (R185), workflow `run` (R187); rest Remaining                        | partial (3.2c → R196)               | `Round_185`, `Round_187` |
+| 3.3 | Workflow repairs W-2, W-3, W-5 (R186); W-4, W-7 (R185 + R187) → gate **G-wf**                                               | complete                            | `Round_186`, `Round_187` |
+| 3.4 | Refresh with several files at once (label R178)                                                                             | complete                            | `Round_188`              |
+| 3.5 | `replace_period` refresh mode (label R179)                                                                                  | complete                            | `Round_189`              |
+| 2.7 | _Moved from rc.2:_ design only — parameter model, view-time date range, shared filters (pulled before 3.6 while it waits)   | accepted (D1–D7, 2026-10-18)        | `Round_190`              |
+| 3.6 | Publish a workflow output as a derived dataset with lineage; saved copies in `<workspace>-saved` (label R180) — G-wf passed | **next** — R192 (3.6a), R193 (3.6b) | —                        |
+| 3.7 | Typed parameters, starting with `as_of`                                                                                     | queued — R194, R195                 | —                        |
+| 3.8 | Metadata triple anchor {definitionVersion, dataVersions / runId, params}                                                    | queued — R197                       | —                        |
 
 Dogfood parity rc.2 → rc.3 batch 1: 119 / 119 items identical; migrations 0004 → 0007 clean on a
 copy of the real database (logged in `Round_187`).
@@ -188,7 +188,7 @@ copy of the real database (logged in `Round_187`).
 | 5.1 | Tags on data representations, filterable across workspaces — opens only with logged evidence that naming conventions + search fail | conditional | —     |
 
 Forecast (in rounds, from here): rc.2 — 0 code rounds (the release note is drafted; the rest of
-its gate is the owner's); rc.3 — 6 rounds, numbered R191–R196 (fix round, 3.6, 3.7 ×2, 3.2c, 3.8;
+its gate is the owner's); rc.3 — 7 rounds, numbered R191–R197 (fix round, 3.6 ×2, 3.7 ×2, 3.2c, 3.8;
 [rc3.md § Execution](rc3.md)); rc.4 — 4–7 rounds.
 
 ## Exit gates

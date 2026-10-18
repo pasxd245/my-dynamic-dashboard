@@ -1,0 +1,91 @@
+openapi: 3.1.0
+info:
+  title: my-dynamic-dashboard — POST /workflows/{id}/publish
+  version: 0.1.0
+  description: |
+    R192 (item 3.6a) — PUBLISH a workflow's frozen output as a dataset in the
+    workflow's workspace, so queries and dashboard widgets read it like any
+    dataset. The dataset's `sourceFormat` is `workflow` and its `lineage`
+    (server-written) names the workflow, the run published and what that run
+    read.
+
+    First publish creates the dataset (201). A re-publish replaces the rows of
+    the dataset this workflow published before — found by its lineage — and
+    moves its `dataVersion` by one (200): to everything reading it, a
+    re-publish is a refresh. If that dataset was deleted, the next publish
+    creates a new one. Rationale: publish-post.contract.md.
+paths:
+  /workflows/{id}/publish:
+    post:
+      operationId: publishWorkflow
+      summary: Publish a workflow's output as a dataset (create, or replace its rows)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, pattern: '^wf_[0-9a-f]{8}$' }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 120
+                  description: |
+                    The new dataset's name on a FIRST publish (default: the
+                    workflow's name). Ignored on a re-publish — rename the
+                    dataset itself.
+      responses:
+        '201':
+          description: First publish — the new dataset (`dataVersion` 1, `lineage` set).
+          content:
+            application/json:
+              schema: { $ref: '../_shared/dataset.yaml#/components/schemas/Dataset' }
+        '200':
+          description: Re-publish — the same dataset, rows replaced, `dataVersion` + 1, `lineage` = this run.
+          content:
+            application/json:
+              schema: { $ref: '../_shared/dataset.yaml#/components/schemas/Dataset' }
+        '404':
+          description: No workflow with this id.
+          content:
+            application/json:
+              schema: { $ref: '../_shared/api-error.yaml#/components/schemas/ApiErrorNotFound' }
+              examples: { not_found: { value: { code: 'not_found' } } }
+        '409':
+          description: |
+            Nothing is written:
+            - `not_publishable` — `never_run` (no output), `stale` (the output is
+              out of date; `staleSources` says why) or `reads_itself` (a source of
+              the run reads the dataset this publish would replace);
+            - `name_taken` — on a first publish, a dataset of that name already
+              exists in the workspace.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '../_shared/api-error.yaml#/components/schemas/ApiErrorNotPublishable'
+                  - $ref: '../_shared/api-error.yaml#/components/schemas/ApiErrorNameTaken'
+              examples:
+                never_run: { value: { code: 'not_publishable', reason: 'never_run' } }
+                stale:
+                  value:
+                    code: 'not_publishable'
+                    reason: 'stale'
+                    staleSources: [{ sourceId: 'qr_9c2f10ab', name: 'Leads Q3', reason: 'data_refreshed' }]
+                reads_itself: { value: { code: 'not_publishable', reason: 'reads_itself' } }
+                name_taken: { value: { code: 'name_taken' } }
+        '422':
+          description: Malformed request (FastAPI validation envelope) — e.g. an empty or over-long `name`.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [detail]
+                properties:
+                  detail: { type: array, items: { type: object } }
