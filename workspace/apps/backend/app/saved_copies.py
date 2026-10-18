@@ -16,6 +16,7 @@ import json
 import secrets
 import shutil
 import sqlite3
+import time
 from collections.abc import Iterable, Sequence
 from pathlib import Path
 
@@ -141,21 +142,23 @@ def copy_name(original: str, label: str, taken: set[str]) -> str:
 # --- the saved workspace -----------------------------------------------------
 
 
-def saved_workspace_for(main: sqlite3.Row) -> sqlite3.Row:
-    """The main workspace's saved workspace — created on first use. Found by its
-    parent, so renames of either workspace change nothing. A racing first save
-    loses the UNIQUE parent index and reads the winner's row."""
+def saved_workspace_for(main: sqlite3.Row) -> tuple[sqlite3.Row, bool]:
+    """The main workspace's saved workspace, and whether this call created it —
+    created on first use. Found by its parent, so renames of either workspace
+    change nothing. A racing first save loses the UNIQUE parent index and reads
+    the winner's row."""
     with get_conn() as con:
         row = con.execute("SELECT * FROM workspaces WHERE parent_workspace_id = ?", (main["id"],)).fetchone()
         if row is not None:
-            return row
+            return row, False
+        new_id = f"ws_{secrets.token_hex(4)}"
         for _ in range(5):
             name = _saved_workspace_name(con, main["name"])
             try:
                 con.execute(
                     "INSERT INTO workspaces (id, name, created_at, kind, parent_workspace_id) "
                     "VALUES (?, ?, ?, 'saved', ?)",
-                    (f"ws_{secrets.token_hex(4)}", name, _now_iso(), main["id"]),
+                    (new_id, name, _now_iso(), main["id"]),
                 )
                 con.commit()
             except sqlite3.IntegrityError as err:
@@ -164,7 +167,7 @@ def saved_workspace_for(main: sqlite3.Row) -> sqlite3.Row:
                     continue  # a name taken in between — try the next suffix
             row = con.execute("SELECT * FROM workspaces WHERE parent_workspace_id = ?", (main["id"],)).fetchone()
             if row is not None:
-                return row
+                return row, row["id"] == new_id
         raise RuntimeError(f"could not create the saved workspace of {main['id']}")
 
 
@@ -174,29 +177,55 @@ def saved_workspace_for(main: sqlite3.Row) -> sqlite3.Row:
 def _copy_files(src: Path, dst: Path) -> None:
     if dst.exists():
         shutil.rmtree(dst)
-    if src.exists():
-        shutil.copytree(src, dst)
-    else:  # a dataset whose tree is gone still copies its (empty) place
-        dst.mkdir(parents=True)
+    shutil.copytree(src, dst)
+
+
+def _in_flux(src: Path) -> bool:
+    """A refresh / re-publish swap is in progress (or the tree is missing): the
+    swap renames the live tree to a ``<id>.bak*`` sibling, moves the staged tree
+    in, commits the new version, and only then removes the backup — so while a
+    backup exists, the files and the row's version may disagree."""
+    return not src.exists() or any(src.parent.glob(f"{src.name}.bak*"))
+
+
+_SNAPSHOT_ATTEMPTS = 20
 
 
 def _snapshot(original_id: str, dst: Path) -> sqlite3.Row:
-    """Copy the original's files and return the row whose version they hold.
-    The version is read before and after the copy; a refresh that slipped in
-    between triggers one more copy (design S2 — one snapshot)."""
-    row: sqlite3.Row | None = None
-    for _ in range(2):
+    """Copy the original's files and return the row whose version they hold
+    (design S2 — one snapshot). A copy counts only if no swap was in flux
+    before or after it, the version did not move across it, and the parquet is
+    the same file it was when the copy began; otherwise it is taken again.
+    A tree that stays missing (no swap in sight) is refused as unknown."""
+    for attempt in range(_SNAPSHOT_ATTEMPTS):
         with get_conn() as con:
             row = con.execute("SELECT * FROM datasets WHERE id = ?", (original_id,)).fetchone()
         if row is None:
             raise LookupError(original_id)
-        _copy_files(dataset_dir(row["workspace_id"], row["id"]), dst)
+        src = dataset_dir(row["workspace_id"], row["id"])
+        if _in_flux(src):
+            if not src.parent.exists() or not any(src.parent.glob(f"{src.name}*")):
+                raise LookupError(original_id)  # no rows stored and no swap coming
+            time.sleep(0.05 * (attempt + 1))
+            continue
+        parquet = src / "parsed.parquet"
+        before = parquet.stat() if parquet.exists() else None
+        try:
+            _copy_files(src, dst)
+        except (FileNotFoundError, shutil.Error):
+            continue  # the tree moved under the copy — take it again
+        after_stat = parquet.stat() if parquet.exists() else None
         with get_conn() as con:
             after = con.execute("SELECT data_version FROM datasets WHERE id = ?", (original_id,)).fetchone()
-        if after is not None and after["data_version"] == row["data_version"]:
+        same_file = (before is None and after_stat is None) or (
+            before is not None
+            and after_stat is not None
+            and (before.st_ino, before.st_mtime_ns, before.st_size)
+            == (after_stat.st_ino, after_stat.st_mtime_ns, after_stat.st_size)
+        )
+        if after is not None and after["data_version"] == row["data_version"] and same_file and not _in_flux(src):
             return row
-    assert row is not None  # noqa: S101 — the loop ran
-    return row
+    raise RuntimeError(f"could not take a consistent snapshot of {original_id}")
 
 
 def save_copies(main: sqlite3.Row, label: str, dataset_ids: Sequence[str]) -> tuple[Workspace, list[sqlite3.Row]]:
@@ -204,7 +233,7 @@ def save_copies(main: sqlite3.Row, label: str, dataset_ids: Sequence[str]) -> tu
     saved workspace. All copies or none: files are staged first, then one DB
     transaction inserts every copy and its metadata; any failure removes the
     staged trees."""
-    saved = saved_workspace_for(main)
+    saved, created_saved = saved_workspace_for(main)
     saved_at = _now_iso()
     staged: list[tuple[str, sqlite3.Row]] = []
     created: list[Path] = []
@@ -217,7 +246,9 @@ def save_copies(main: sqlite3.Row, label: str, dataset_ids: Sequence[str]) -> tu
             staged.append((copy_id, _snapshot(ds_id, dst)))
 
         with get_conn() as con:
-            con.execute("BEGIN")
+            # IMMEDIATE: the names in use are read under the write lock, so two
+            # saves at once queue instead of racing to the same `@label`.
+            con.execute("BEGIN IMMEDIATE")
             taken = {r["name"] for r in con.execute("SELECT name FROM datasets WHERE workspace_id = ?", (saved["id"],))}
             for copy_id, orig in staged:
                 name = copy_name(orig["name"], label, taken)
@@ -273,5 +304,13 @@ def save_copies(main: sqlite3.Row, label: str, dataset_ids: Sequence[str]) -> tu
     except Exception:
         for d in created:
             shutil.rmtree(d, ignore_errors=True)
+        if created_saved:  # a refused first save leaves no empty saved workspace behind
+            with get_conn() as con:
+                con.execute(
+                    "DELETE FROM workspaces WHERE id = ? AND NOT EXISTS "
+                    "(SELECT 1 FROM datasets WHERE workspace_id = ?)",
+                    (saved["id"], saved["id"]),
+                )
+                con.commit()
         raise
     return workspace_from_row(saved), rows

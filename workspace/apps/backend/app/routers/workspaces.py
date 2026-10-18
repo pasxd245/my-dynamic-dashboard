@@ -73,12 +73,16 @@ class SaveCopiesBody(BaseModel):
         list[Annotated[str, Field(pattern=ID_PATTERNS["dataset"])]], Field(min_length=1, max_length=20)
     ]
 
-    @field_validator("label")
+    @field_validator("label", mode="before")
     @classmethod
-    def _not_blank(cls, v: str) -> str:
-        if not v.strip():
-            raise ValueError("label must not be blank")
-        return v.strip()
+    def _trimmed(cls, v: object) -> object:
+        # Trimmed BEFORE the length check (contract: "Trimmed"); a blank label
+        # then fails min_length, a control character is refused outright.
+        if isinstance(v, str):
+            v = v.strip()
+            if any(ord(ch) < 32 or ord(ch) == 127 for ch in v):
+                raise ValueError("label must not contain control characters")
+        return v
 
     @field_validator("datasetIds")
     @classmethod
@@ -237,7 +241,7 @@ def save_frozen_copies(id: WsIdPath, body: SaveCopiesBody) -> JSONResponse:  # n
         )
     try:
         saved, rows = save_copies(main, body.label, body.datasetIds)
-    except LookupError:  # an original deleted mid-save — nothing was written
+    except LookupError:  # an original deleted mid-save, or with no stored rows — nothing was written
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=[{"loc": ["body", "datasetIds"], "msg": "unknown_dataset", "type": "unknown_dataset"}],

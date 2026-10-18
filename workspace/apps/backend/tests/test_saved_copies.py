@@ -134,12 +134,17 @@ def test_a_published_dataset_can_be_saved_twice_without_a_publisher_link() -> No
         pub = client.post(f"/workflows/{wid}/publish").json()
         a = _save(client, ws, [pub["id"]]).json()["datasets"][0]
         b = _save(client, ws, [pub["id"]]).json()["datasets"][0]
+        rows_a = client.get(f"/datasets/{a['id']}/rows?page_size=100").json()
         client.post(f"/workflows/{wid}/run")
         republish = client.post(f"/workflows/{wid}/publish")
+        a_after = client.get(f"/datasets/{a['id']}").json()
+        rows_a_after = client.get(f"/datasets/{a['id']}/rows?page_size=100").json()
 
     assert a["lineage"] == pub["lineage"] and a["sourceFormat"] == "workflow"
     assert b["name"].endswith(" v2")
     assert republish.status_code == 200 and republish.json()["id"] == pub["id"]  # the original, not a copy
+    assert republish.json()["dataVersion"] == 2
+    assert a_after == a and rows_a_after == rows_a  # the copy did not move
     with db.get_conn() as con:
         links = con.execute(
             "SELECT published_workflow_id FROM datasets WHERE id IN (?, ?)", (a["id"], b["id"])
@@ -190,6 +195,53 @@ def test_the_snapshot_copies_again_when_a_refresh_slips_in(monkeypatch: pytest.M
 
     assert calls["n"] == 2
     assert copy["savedFrom"]["dataVersion"] == copy["dataVersion"] == 2
+
+
+@pytest.mark.unit
+def test_the_snapshot_waits_out_a_swap_in_flux(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A refresh swap leaves a `<id>.bak` sibling until its new version commits;
+    the save waits instead of copying files that may not match the version."""
+    slept: list[float] = []
+
+    def fake_sleep(sec: float) -> None:
+        slept.append(sec)
+        for bak in datasets_dir().glob("*/*.bak"):
+            bak.rmdir()  # the swap completes
+
+    monkeypatch.setattr(saved_copies.time, "sleep", fake_sleep)
+    with TestClient(app) as client:
+        ids = _seed(client)
+        (datasets_dir() / ids["ws"] / f"{ids['ds']}.bak").mkdir()
+        r = _save(client, ids["ws"], [ids["ds"]])
+
+    assert r.status_code == 201, r.text
+    assert len(slept) == 1
+
+
+@pytest.mark.unit
+def test_a_dataset_without_stored_rows_is_refused_and_leaves_nothing() -> None:
+    import shutil
+
+    with TestClient(app) as client:
+        ids = _seed(client)
+        shutil.rmtree(datasets_dir() / ids["ws"] / ids["ds"])
+        before = _dump()
+        r = _save(client, ids["ws"], [ids["ds2"], ids["ds"]])
+        after = _dump()
+
+    assert r.status_code == 422 and r.json()["detail"][0]["type"] == "unknown_dataset"
+    assert after == before  # no copy, and no (empty) saved workspace left behind
+
+
+@pytest.mark.unit
+def test_the_label_is_trimmed_before_its_length_is_checked() -> None:
+    with TestClient(app) as client:
+        ids = _seed(client)
+        ok = _save(client, ids["ws"], [ids["ds"]], label="  " + "P" * 40 + "  ")
+        ctrl = _save(client, ids["ws"], [ids["ds"]], label="a\nb")
+
+    assert ok.status_code == 201 and ok.json()["datasets"][0]["savedFrom"]["label"] == "P" * 40
+    assert ctrl.status_code == 422
 
 
 # --- 4 · read-only -----------------------------------------------------------

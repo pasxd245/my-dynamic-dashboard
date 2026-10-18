@@ -43,6 +43,7 @@ export function SaveCopyModal({
         onSuccess: ({ datasets }) => {
           const copy = datasets[0];
           message.success({
+            duration: 6,
             content: (
               <span data-component="SaveCopyToast">
                 {t('datasets.savedCopy.saved', { name: copy.name })}{' '}

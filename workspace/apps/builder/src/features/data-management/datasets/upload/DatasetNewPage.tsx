@@ -4,12 +4,7 @@ import { App, Button, Space, Steps } from 'antd';
 import { useEffect, useReducer } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import {
-  useDatasetQuery,
-  useDatasetsCommitMutation,
-  useRefreshSettingsQuery,
-  useUploadParseMutation,
-} from '../hooks';
+import { useDatasetQuery, useDatasetsCommitMutation, useRefreshSettingsQuery, useUploadParseMutation } from '../hooks';
 import type { CommitBatchItem } from '../types';
 import {
   computeSchemaDrift,
@@ -30,6 +25,7 @@ import { UploadMetadataStep } from './UploadMetadataStep';
 import { UploadPreviewStep } from './UploadPreviewStep';
 import { UploadSheetStep } from './UploadSheetStep';
 import { UploadSourceStep } from './UploadSourceStep';
+import { useWritableWorkspaces } from '@/features/data-management/workspaces/hooks';
 
 export function DatasetNewPage() {
   const { t } = useTranslation();
@@ -59,13 +55,23 @@ export function DatasetNewPage() {
     }
   }, [isRefresh, target, settingsSettled, settingsQuery.data, state.targetDatasetId]);
 
-  // Pre-fill the workspace from `?workspace=<ws_id>` (create mode only).
+  // Pre-fill the workspace from `?workspace=<ws_id>` (create mode only) — R193:
+  // only a writable (main) workspace; a saved workspace's id is ignored.
   const workspaceQs = searchParams.get('workspace');
+  const writable = useWritableWorkspaces();
+  const qsWritable = Boolean(workspaceQs && writable.data?.some((w) => w.id === workspaceQs));
   useEffect(() => {
-    if (!isRefresh && workspaceQs && !state.workspaceId) {
+    if (!isRefresh && workspaceQs && qsWritable && !state.workspaceId) {
       dispatch({ type: 'SET_WORKSPACE', workspaceId: workspaceQs });
     }
-  }, [isRefresh, workspaceQs, state.workspaceId]);
+  }, [isRefresh, workspaceQs, qsWritable, state.workspaceId]);
+
+  // R193 — a saved copy is never refreshed: a direct URL goes back to its page.
+  useEffect(() => {
+    if (isRefresh && target?.savedFrom) {
+      navigate(`/data-management/datasets/${encodeURIComponent(target.id)}`, { replace: true });
+    }
+  }, [isRefresh, target, navigate]);
 
   const refreshName = state.refreshTargetName ?? target?.name ?? '';
   const BREADCRUMB = isRefresh
@@ -242,9 +248,7 @@ export function DatasetNewPage() {
       case 'sheet':
         // R147 — refresh is single-table: exactly one sheet (the reducer
         // enforces radio semantics; this keeps the gate explicit).
-        return state.mode === 'refresh'
-          ? state.selectedSheets.length === 1
-          : state.selectedSheets.length > 0;
+        return state.mode === 'refresh' ? state.selectedSheets.length === 1 : state.selectedSheets.length > 0;
       case 'metadata':
       case 'preview':
         // F8 — every dataset-unit must have parsed OK to advance.

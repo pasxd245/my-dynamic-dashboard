@@ -45,6 +45,8 @@ export function DatasetsPage() {
   const datasets = useDatasetsQuery(workspaceParam);
   const workspaces = useWorkspacesQuery();
   const workspaceById = new Map((workspaces.data ?? []).map((w) => [w.id, w.name]));
+  // R193 — a saved workspace holds frozen copies only: nothing is uploaded into it.
+  const savedFilter = (workspaces.data ?? []).some((w) => w.id === workspaceParam && w.kind === 'saved');
 
   const [query, setQuery] = useState('');
   const [modalState, setModalState] = useState<ModalState>({ kind: 'idle' });
@@ -118,9 +120,11 @@ export function DatasetsPage() {
       subtitle={t('datasets.subtitle')}
       onNavigate={(route) => navigate(route)}
       actions={
-        <Button type="primary" icon={<PlusOutlined />} onClick={goNew}>
-          {t('datasets.upload')}
-        </Button>
+        savedFilter ? undefined : (
+          <Button type="primary" icon={<PlusOutlined />} onClick={goNew}>
+            {t('datasets.upload')}
+          </Button>
+        )
       }
     />
   );
@@ -142,7 +146,7 @@ export function DatasetsPage() {
       />
     );
   } else if (allRows.length === 0) {
-    body = <DatasetsEmpty onClick={goNew} hasWorkspaceFilter={!!workspaceParam} />;
+    body = <DatasetsEmpty onClick={savedFilter ? undefined : goNew} hasWorkspaceFilter={!!workspaceParam} />;
   } else if (visibleRows.length === 0) {
     body = (
       <div data-component="DatasetsNoMatch" style={{ padding: '32px 0', textAlign: 'center' }}>
@@ -239,7 +243,8 @@ export function DatasetsPage() {
 }
 
 type EmptyProps = Readonly<{
-  onClick: () => void;
+  /** Absent in a saved workspace (R193) — nothing is uploaded there. */
+  onClick?: () => void;
   hasWorkspaceFilter: boolean;
 }>;
 
@@ -272,9 +277,11 @@ function DatasetsEmpty({ onClick, hasWorkspaceFilter }: EmptyProps) {
       style={{ padding: '48px 0' }}
       data-component="DatasetsEmpty"
     >
-      <Button type="primary" icon={<PlusOutlined />} size="large" onClick={onClick}>
-        {t('datasets.uploadFirst')}
-      </Button>
+      {onClick ? (
+        <Button type="primary" icon={<PlusOutlined />} size="large" onClick={onClick}>
+          {t('datasets.uploadFirst')}
+        </Button>
+      ) : null}
     </Empty>
   );
 }

@@ -12,6 +12,8 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
 
 import { DatasetDetailPage } from '@/features/data-management/datasets/DatasetDetailPage';
+import { DatasetsPage } from '@/features/data-management/datasets/DatasetsPage';
+import { DatasetNewPage } from '@/features/data-management/datasets/upload/DatasetNewPage';
 import { WorkspaceRelationshipsPage } from '@/features/data-management/relationships/WorkspaceRelationshipsPage';
 import { WorkflowCreatePage } from '@/features/data-management/workflows/WorkflowCreatePage';
 import { WorkspacesPage } from '@/features/data-management/workspaces/WorkspacesPage';
@@ -26,6 +28,9 @@ function renderAt(path: string) {
         <App>
           <MemoryRouter initialEntries={[path]}>
             <Routes>
+              <Route path="/data-management/datasets" element={<DatasetsPage />} />
+              <Route path="/data-management/datasets/new" element={<DatasetNewPage />} />
+              <Route path="/data-management/datasets/:id/refresh" element={<DatasetNewPage />} />
               <Route path="/data-management/datasets/:id" element={<DatasetDetailPage />} />
               <Route path="/data-management/workspaces" element={<WorkspacesPage />} />
               <Route path="/data-management/workspaces/:id/relationships" element={<WorkspaceRelationshipsPage />} />
@@ -156,5 +161,38 @@ describe('R193 the saved workspace', () => {
     fireEvent.mouseDown(select);
     await screen.findAllByText(MOCK_WORKSPACE.name);
     expect(screen.queryByText(MOCK_SAVED_WORKSPACE.name)).toBeNull();
+  });
+});
+
+describe('R193 nothing is uploaded into a saved workspace', () => {
+  it('offers no Upload on the saved workspace’s datasets list', async () => {
+    serveBothWorkspaces();
+    renderAt(`/data-management/datasets?workspace=${MOCK_SAVED_WORKSPACE.id}`);
+    await waitFor(() => expect(document.querySelector('[data-component="DatasetsEmpty"]')).not.toBeNull());
+    expect(screen.queryByRole('button', { name: /upload/i })).toBeNull();
+  });
+
+  it('still offers Upload on a main workspace', async () => {
+    serveBothWorkspaces();
+    renderAt(`/data-management/datasets?workspace=${MOCK_WORKSPACE.id}`);
+    expect(await screen.findByRole('button', { name: /upload/i })).toBeInTheDocument();
+  });
+
+  it('ignores a saved workspace passed to the upload wizard', async () => {
+    serveBothWorkspaces();
+    renderAt(`/data-management/datasets/new?workspace=${MOCK_SAVED_WORKSPACE.id}`);
+    await waitFor(() => expect(document.querySelector('[data-component="DatasetNewPage"]')).not.toBeNull());
+    // Give the workspace list time to settle, then the saved id must not be selected.
+    await screen.findAllByText(/workspace/i);
+    expect(screen.queryByText(MOCK_SAVED_WORKSPACE.id)).toBeNull();
+    expect(screen.queryByText(MOCK_SAVED_WORKSPACE.name)).toBeNull();
+  });
+
+  it('sends a refresh URL for a copy back to the copy’s page', async () => {
+    server.use(
+      http.get('*/datasets/:id/refresh-settings', () => HttpResponse.json({ code: 'not_found' }, { status: 404 })),
+    );
+    renderAt(`/data-management/datasets/${MOCK_SAVED_COPY.id}/refresh`);
+    await waitFor(() => expect(document.querySelector('[data-component="FrozenCopyBand"]')).not.toBeNull());
   });
 });

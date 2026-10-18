@@ -90,7 +90,7 @@ DATASET (a saved copy)  calls @2026-10-18   [CSV]          Actions ▾ (Delete o
 ### S2 — Saving
 
 - **`POST /workspaces/{id}/saved-copies`**, body `{label, datasetIds}` — `label` 1–40 characters
-  (trimmed); `datasetIds` 1–20 datasets **of that (main) workspace**. `201` →
+  (trimmed first; no control characters); `datasetIds` 1–20 datasets **of that (main) workspace**. `201` →
   `{workspace, datasets}` (the saved workspace and the new copies, in request order).
 - Refusals: the workspace is itself a saved one → `409 read_only_workspace`; a dataset not in that
   workspace → `422` naming its index (the validation envelope, `unknown_dataset`); a blank label →
@@ -112,8 +112,11 @@ dataVersion, refreshedAt, label, savedAt}` — which dataset, at which version (
   the copy; since the copy can never change, no entry can go out of date on it later. (3.8 computes
   its anchor states against `savedFrom`'s version for a copy.)
 - **One snapshot.** The save reads the original's version, copies the rows, and checks the version
-  again; if a refresh slipped in between, it copies again (once), so `savedFrom` always names the
-  version of the rows the copy holds.
+  again; a copy counts only if the version did not move, the rows file is the one the copy began
+  with, and no refresh / re-publish swap was in progress before or after it (a swap keeps the old
+  rows as a `<id>.bak*` backup until its new version commits) — otherwise it waits and copies again.
+  So `savedFrom` always names the version of the rows the copy holds. A dataset with no stored rows
+  (and no swap coming) is refused as `unknown_dataset`. _(R193 code review F1.)_
 
 ### S3 — Read-only
 
@@ -128,9 +131,11 @@ saved workspace that still holds copies stays `409 non_empty` (as for any worksp
 Reading works as everywhere: the copy's page, its rows, filters, search, advanced query; the routes
 that only compute (preview, aggregate, totals, export, append-overlap) stay open. The guard lives in
 the write layer, so any future writer — scheduled refresh (4.1) included — can never touch a saved
-workspace. **Deleting a main workspace that has a saved workspace** answers `409 non_empty` (the
-saved workspace's copies counted) — delete the copies and the saved workspace first, so no saved
-workspace is ever left without its main one.
+workspace. **Deleting a main workspace whose saved workspace holds copies** answers `409 non_empty`
+(`datasetCount` = its own datasets plus the copies) — delete the copies first; an **empty** saved
+workspace is deleted together with its main one (nothing is lost). So no saved workspace is ever
+left without its main one. _(R193 QA Q-1 / BA P2-1 — settles the empty case; a 409 with no dataset
+to count would tell the user nothing.)_
 
 ### S4 — Surfaces
 
@@ -159,18 +164,19 @@ read_only_workspace` there; a note about a decision belongs on the original (it 
 
 ## Behaviour
 
-| Situation                                             | Result                                                      |
-| ----------------------------------------------------- | ----------------------------------------------------------- |
-| First save in a workspace                             | the saved workspace is created; copies `<name> @<label>`    |
-| Same label again                                      | `<name> @<label> v2`                                        |
-| The original is refreshed / re-published after a save | the copy's rows, version and band are unchanged             |
-| The original is deleted                               | the copy stays; the band says the original no longer exists |
-| Any write inside the saved workspace (S3)             | `409 read_only_workspace`, nothing changed                  |
-| Delete a copy                                         | `204`                                                       |
-| Delete the saved workspace with copies / empty        | `409 non_empty` / `204`                                     |
-| Delete a main workspace that has a saved workspace    | `409 non_empty`                                             |
-| Refresh a copy through its main workspace's path      | `409 read_only_workspace`                                   |
-| Save from inside the saved workspace                  | `409 read_only_workspace`                                   |
+| Situation                                                | Result                                                      |
+| -------------------------------------------------------- | ----------------------------------------------------------- |
+| First save in a workspace                                | the saved workspace is created; copies `<name> @<label>`    |
+| Same label again                                         | `<name> @<label> v2`                                        |
+| The original is refreshed / re-published after a save    | the copy's rows, version and band are unchanged             |
+| The original is deleted                                  | the copy stays; the band says the original no longer exists |
+| Any write inside the saved workspace (S3)                | `409 read_only_workspace`, nothing changed                  |
+| Delete a copy                                            | `204`                                                       |
+| Delete the saved workspace with copies / empty           | `409 non_empty` / `204`                                     |
+| Delete a main workspace whose saved workspace has copies | `409 non_empty` (own datasets + copies counted)             |
+| Delete a main workspace whose saved workspace is empty   | `204` — both go                                             |
+| Refresh a copy through its main workspace's path         | `409 read_only_workspace`                                   |
+| Save from inside the saved workspace                     | `409 read_only_workspace`                                   |
 
 ---
 
@@ -193,7 +199,8 @@ needs a query or a frozen dashboard — OUT below; exporting a copy's rows to Ex
 4. _(pytest)_ every write route in S3 answers `409 read_only_workspace` on a saved workspace and
    changes nothing — including a refresh of a copy sent through its main workspace's path; deleting
    a copy works; deleting the saved workspace with copies → `409 non_empty`; deleting a main
-   workspace that has a saved workspace → `409 non_empty`.
+   workspace whose saved workspace holds copies → `409 non_empty`; with an empty saved workspace →
+   `204`, both gone.
 5. _(pytest)_ the original's metadata entries are on the copy; each entry's state on the copy
    equals its state on the original at save time and never changes after.
 6. _(pytest)_ refusals write nothing (a dataset from another workspace, a blank label, saving from a

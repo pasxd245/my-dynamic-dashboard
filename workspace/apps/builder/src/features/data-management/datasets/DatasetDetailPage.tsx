@@ -448,9 +448,13 @@ export function DatasetDetailPage() {
     </span>
   );
 
-  // R192 — a published dataset was published, not uploaded.
+  // R192 — a published dataset was published, not uploaded; R193 — a copy was saved.
   const subtitle = t(
-    dataset.sourceFormat === 'workflow' ? 'datasets.detail.subtitlePublished' : 'datasets.detail.subtitle',
+    dataset.savedFrom
+      ? 'datasets.detail.subtitleSaved'
+      : dataset.sourceFormat === 'workflow'
+        ? 'datasets.detail.subtitlePublished'
+        : 'datasets.detail.subtitle',
     {
       rows: dataset.rowCount.toLocaleString(i18n.language),
       cols: dataset.columnCount,
@@ -772,7 +776,11 @@ function datasetMetaItems(
     { label: t('datasets.detail.meta.size'), value: formatBytes(dataset.sizeBytes) },
     {
       label: t(
-        dataset.sourceFormat === 'workflow' ? 'datasets.detail.meta.published' : 'datasets.detail.meta.uploaded',
+        dataset.savedFrom
+          ? 'datasets.detail.meta.saved'
+          : dataset.sourceFormat === 'workflow'
+            ? 'datasets.detail.meta.published'
+            : 'datasets.detail.meta.uploaded',
       ),
       value: relativeTime(dataset.createdAt, t),
     },
