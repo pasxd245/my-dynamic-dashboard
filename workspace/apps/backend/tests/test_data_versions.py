@@ -98,7 +98,7 @@ def test_the_query_export_carries_the_versions() -> None:
     assert json.loads(xlsx.headers["x-mdd-data-versions"]) == both
     cells = [[c.value for c in r] for r in load_workbook(io.BytesIO(xlsx.content))["Filters"].iter_rows()]
     i = next(k for k, r in enumerate(cells) if r[0] == "Data versions")
-    assert cells[i + 1][:3] == ["dataset", "id", "version"]
+    assert cells[i + 1][:3] == ["dataset name", "id", "version"]
     assert sorted(tuple(r[:3]) for r in cells[i + 2 : i + 4]) == sorted(
         [("deals", deals, 2), ("accounts", accounts, 1)]
     )
@@ -181,3 +181,30 @@ def test_text_that_looks_like_a_formula_stays_text() -> None:
     )
     cell = load_workbook(io.BytesIO(data))["t"]["A2"]
     assert cell.data_type == "s" and cell.value == '=HYPERLINK("x")'
+
+
+@pytest.mark.unit
+def test_a_formula_like_name_stays_text_on_the_filters_sheet() -> None:
+    with TestClient(app) as client:
+        ws, deals, _accounts = _seed(client)
+        client.patch(f"/datasets/{deals}", json={"name": "=HYPERLINK(1)"})
+        q = client.post(
+            f"/workspaces/{ws}/queries", json={"name": "q", "sourceId": deals, "definition": _EMPTY}
+        ).json()["id"]
+        files = [
+            client.post(f"/datasets/{deals}/export", json={"format": "xlsx"}),
+            client.post(f"/queries/{q}/export", json={"format": "xlsx"}),
+        ]
+    for r in files:
+        assert r.status_code == 200, r.text
+        wb = load_workbook(io.BytesIO(r.content))
+        texts = [c for s in wb.worksheets for row in s.iter_rows() for c in row if c.value == "=HYPERLINK(1)"]
+        assert texts and all(c.data_type == "s" for c in texts)
+
+
+@pytest.mark.unit
+def test_file_stem_collapses_underscores() -> None:
+    from app.ingest.export import file_stem
+
+    assert file_stem("Sales @wk42") == "Sales_wk42"
+    assert file_stem("@@@") == "export"

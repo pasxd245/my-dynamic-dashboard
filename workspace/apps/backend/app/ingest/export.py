@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import csv
 import io
+import re
 from datetime import date, datetime
 from typing import Any
 
@@ -41,7 +42,10 @@ def _csv_cell(v: Any) -> str:
 def file_stem(title: str) -> str:
     """A file-name stem from a title (letters, digits, `-_`; spaces → `_`)."""
     return (
-        "".join(ch if ch.isalnum() or ch in "-_ " else "_" for ch in title).strip().replace(" ", "_")[:60] or "export"
+        re.sub(
+            "_{2,}", "_", "".join(ch if ch.isalnum() or ch in "-_ " else "_" for ch in title).strip().replace(" ", "_")
+        ).strip("_")[:60]
+        or "export"
     )
 
 
@@ -118,11 +122,6 @@ def build_xlsx(
         cell.font = bold
     for r in rows:
         ws.append([_xlsx_cell(v) for v in r])
-        # R196 — openpyxl stores text starting with "=" as a formula: a raw CRM
-        # note like "=abc" would open as #NAME? (or a live formula). Keep it text.
-        for cell in ws[ws.max_row]:
-            if isinstance(cell.value, str) and cell.value.startswith("="):
-                cell.data_type = "s"
     if totals is not None:
         ws.append(_label_totals(columns, totals, total_label, totalled, as_text=False))
         for cell in ws[ws.max_row]:
@@ -172,7 +171,7 @@ def build_xlsx(
         fs.append([])
         fs.append(["Data versions"])
         fs[fs.max_row][0].font = bold
-        fs.append(["dataset", "id", "version"])
+        fs.append(["dataset name", "id", "version"])
         for cell in fs[fs.max_row]:
             cell.font = bold
         for name, ds_id, version in data_versions:
@@ -181,9 +180,21 @@ def build_xlsx(
     fs.column_dimensions["A"].width = 24
     fs.column_dimensions["B"].width = 60
 
+    _keep_text(wb)
     out = io.BytesIO()
     wb.save(out)
     return out.getvalue()
+
+
+def _keep_text(wb: Workbook) -> None:
+    """R196 — openpyxl stores any text starting with "=" as a formula, so a CRM
+    note, a column or dataset name, a label or a parameter value like "=abc"
+    would open as #NAME? or a live formula. Every sheet, every cell: keep it text."""
+    for sheet in wb.worksheets:
+        for row in sheet.iter_rows():
+            for cell in row:
+                if isinstance(cell.value, str) and cell.value.startswith("="):
+                    cell.data_type = "s"
 
 
 def _xlsx_cell(v: Any) -> Any:
