@@ -12,9 +12,11 @@ info:
     `unpaged=true` fetch) is a query param. R194 — plus one
     `p.<name>=<value>` query parameter per declared query parameter (the
     viewer value, dashboard-filters.md D3; the same spelling as the dashboard
-    URL). A `p.` name the query does not declare is ignored. The response then
-    carries `resolvedParams`; a query without parameters answers exactly as
-    before. The response is the SAME
+    URL). A `p.` name the query does not use is ignored. `dashboard=<dsh_id>`
+    + `widget=<wdg_id>` (both or neither) name the dashboard widget the read is
+    for, so the server applies that dashboard's saved control values (D3 level
+    2; see `DashboardRef`). The response then carries `resolvedParams`; a query
+    without parameters answers exactly as before. The response is the SAME
     `RowsPage` shape as `GET /datasets/{id}/rows` (the BE delegates to the
     shipped `query_dataset_rows` path after hydrating the definition).
 

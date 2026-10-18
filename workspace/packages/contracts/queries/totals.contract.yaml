@@ -61,8 +61,8 @@ paths:
                           type: [string, "null"]
                 params:
                   $ref: "../_shared/query.yaml#/components/schemas/ParamValues"
-                dashboardParams:
-                  $ref: "../_shared/query.yaml#/components/schemas/DashboardParamValues"
+                dashboard:
+                  $ref: "../_shared/query.yaml#/components/schemas/DashboardRef"
             examples:
               footer:
                 value:

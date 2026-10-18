@@ -56,8 +56,8 @@ paths:
                           type: [string, "null"]
                 params:
                   $ref: "../_shared/query.yaml#/components/schemas/ParamValues"
-                dashboardParams:
-                  $ref: "../_shared/query.yaml#/components/schemas/DashboardParamValues"
+                dashboard:
+                  $ref: "../_shared/query.yaml#/components/schemas/DashboardRef"
                 totals:
                   type: object
                   description: The widget's `Widget.totals` spec, to append the totals row.
@@ -90,12 +90,13 @@ paths:
             The file, as an attachment —
             `Content-Disposition: attachment; filename="<title>.csv|xlsx"`.
             R194 (D7) — when the read resolved parameters, the XLSX Filters sheet
-            gains a `Parameters` block (`name | value | source`) and a CSV answer
-            carries the `X-MDD-Params` header (the `resolvedParams` object as
-            JSON, exposed through CORS). Without parameters both are as before.
+            gains a `Parameters` block (`name | value | source`), and both CSV
+            and XLSX answers carry the `X-MDD-Params` header — the
+            `resolvedParams` object as ASCII JSON (non-ASCII as `\uXXXX`),
+            exposed through CORS. Without parameters both are as before.
           headers:
             X-MDD-Params:
-              description: R194 — `ResolvedParams` as compact JSON; present only when parameters were resolved.
+              description: R194 — `ResolvedParams` as compact ASCII JSON; present only when parameters were resolved.
               schema:
                 type: string
           content:

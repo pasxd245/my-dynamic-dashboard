@@ -31,7 +31,7 @@ and the accepted design `dashboards/dashboard-filters.md` D1–D3, D6, D7 — pe
 - Reads resolve values in this order: viewer, then dashboard, then default, otherwise
   `422 param_unbound`. A wrong-typed value gives `422 param_invalid`.
   - `GET /rows` takes `p.<name>`.
-  - `/aggregate`, `/totals`, `/export` and preview take `params` (and `dashboardParams`).
+  - `/aggregate`, `/totals`, `/export` and preview take `params` (and `dashboard`).
   - Every read that resolved a parameter answers `resolvedParams`. A query without params answers
     exactly as before.
 - `backend.time_zone` resolves `today`.
@@ -47,8 +47,8 @@ and the accepted design `dashboards/dashboard-filters.md` D1–D3, D6, D7 — pe
 - a reference is accepted outside D2;
 - a read guesses a value.
 
-- [x] **D** — no new design doc. `dashboard-filters.md` (Accepted) is the design; one wire choice
-      is recorded in Do (`dashboardParams`).
+- [x] **D** — no new design doc. `dashboard-filters.md` (Accepted) is the design; wire choices
+      are recorded in Do.
 - [x] **C** — contracts: `_shared/query.yaml`, `_shared/api-error.yaml`, `_shared/workflow.yaml`,
       `queries/{rows-get, aggregate, totals, export, preview}`, `workflows/{run-post, post, put}`.
       BA review at Contract exit.
@@ -71,37 +71,33 @@ and the accepted design `dashboards/dashboard-filters.md` D1–D3, D6, D7 — pe
 
 - 2026-10-18 — D: none new; `dashboard-filters.md` D1–D7 accepted 2026-10-18.
 
-### Wire choice: `dashboardParams`
-
-D3 level 2 ("dashboard saved value") needs the saved control values to reach the backend. The
-controls (`DashboardDefinition.controls`) land in 3.7b. Until then, the dashboard sends them with
-each read as `dashboardParams: {name: value}` beside `params`.
-
-- The server still does all resolution and stamps the source.
-- The builder never substitutes a value into a definition.
-- The alternative was to pass `dashboardId` + `widgetId` and let the server read the controls.
-  That would pull 3.7b's schema into this round, so it was not taken.
-
-### Judgement: parameters that are declared but not used
-
-- A parameter that is **declared and used** must resolve, or the read answers `param_unbound`.
-- A parameter that is **declared but unused** resolves when a value exists. When none exists it is
-  silently left out of `resolvedParams`. D1 allows declaring a parameter before using it.
+- **BA review at Contract exit: CHANGES** (P1 ×3, P2 ×4). Folded in before code:
+  - **F1** — the client-asserted `dashboardParams` is replaced by `dashboard: {id, widgetId}`
+    (`dashboard=` + `widget=` on `GET /rows`, the widget load path). The server reads that
+    dashboard's saved control values itself. That level is empty until 3.7b adds `controls`, so a
+    "dashboard" source can never be a client's say-so.
+  - **F2** — only parameters the definition **uses** are resolved, required and echoed (and stamped
+    on a run). A declared but unused parameter never claims to have been applied.
+  - **F3** — a `date` parameter on a `datetime` column compares by calendar day (lower bounds 00:00,
+    upper bounds end of day). `equals` / `ne` / `in` / `not_in` there are refused at save.
+  - P2s folded: `label`, `expected`, `source` on the errors; ≤ 24 values; `X-MDD-Params` as ASCII
+    JSON on both formats; workflow notes (refs refused, `today` never makes a run stale).
+  - Kept: an undeclared `p.` value is ignored silently (D5).
 
 ### C — what changed in the contracts
 
 - `_shared/query.yaml`:
   - new `Operand` (literal or `ParamRef`), `ParamRef`, `RelativeDate`, `QueryParam`,
-    `ParamValues`, `DashboardParamValues`, `ResolvedParams`;
+    `ParamValues`, `DashboardRef`, `ResolvedParams`;
   - atom and filter-step operands are now `Operand`;
   - `QueryDefinition.params` (≤ 8);
-  - `AggregateRequest.params` / `dashboardParams`.
+  - `AggregateRequest.params` / `dashboard` (`DashboardRef`).
 - `_shared/api-error.yaml`: `ApiErrorParamUnbound` (`param`, and `sourceId` on a run) and
   `ApiErrorParamInvalid`. The closed code enum gains `read_only_workspace` (missed in R193),
   `param_unbound` and `param_invalid`.
 - `_shared/workflow.yaml`: `WorkflowRunSource.params`.
 - `rows-get`: `p.<name>`, `resolvedParams`, 422 `oneOf`.
-- `aggregate`, `totals`, `export`, `preview`: `params` (+ `dashboardParams` except preview), and
+- `aggregate`, `totals`, `export`, `preview`: `params` (+ `dashboard` except preview), and
   `resolvedParams` (for export: the `X-MDD-Params` header).
 - `run-post`: 422 `param_unbound`.
 - `post` / `put` workflows: a step reference is refused.

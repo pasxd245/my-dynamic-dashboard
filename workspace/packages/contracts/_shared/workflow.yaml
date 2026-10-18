@@ -35,6 +35,9 @@ components:
           type: array
           description: |
             Ordered transforms (reuses `query.yaml` step kinds). Empty = passthrough.
+            R194 — the shared `filter` / `case` operands accept a `ParamRef` in the
+            schema, but a workflow declares no parameters (D6): a step operand that
+            references one is refused at save (422).
             R163 — this list stays a MIRROR of `QueryDefinition.steps`: the Python
             side shares ONE `Step` union across both nouns and both fold the same
             `_apply_step`, so a kind added to the query union must be added here
@@ -128,7 +131,10 @@ components:
             parameters: the value each was run with (a run uses defaults only;
             relative dates resolved at run time). Omitted when it declares none.
             A re-run on another day with a `today` default is a new run with a
-            new value, not a stale one.
+            new value, not a stale one — and a `today` default moving after the
+            run does not make the run stale for publish (staleness is the
+            definition hash and data versions only). Only parameters the source
+            uses are recorded.
           additionalProperties:
             type: [string, number]
     WorkflowStaleSource:

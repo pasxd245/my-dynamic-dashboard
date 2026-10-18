@@ -494,13 +494,16 @@ components:
         param:
           type: string
           pattern: '^[a-z][a-z0-9_]{0,31}$'
+        label:
+          type: string
+          description: The parameter's declared label, when it has one ("Pick a value for <label>").
         sourceId:
           type: string
           pattern: '^qr_[0-9a-f]{8}$'
 
     ApiErrorParamInvalid:
       type: object
-      required: [code, param]
+      required: [code, param, expected, source]
       additionalProperties: false
       description: |
         R194 (D3) — a supplied value (viewer or dashboard) does not fit the
@@ -513,3 +516,12 @@ components:
         param:
           type: string
           pattern: '^[a-z][a-z0-9_]{0,31}$'
+        label:
+          type: string
+        expected:
+          type: string
+          enum: [date, number, string]
+        source:
+          type: string
+          enum: [viewer, dashboard]
+          description: Which level supplied the value that does not fit.

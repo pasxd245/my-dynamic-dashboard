@@ -18,6 +18,12 @@ components:
         ONLY here — filter atom / filter-step / `case` WHEN operands
         (dashboard-filters.md D2) — never `refCol`, never an output constant,
         never in a workflow step.
+
+        A `date` parameter on a `datetime` column compares by calendar day (BA
+        contract-exit F3): `gte` / `before` / the lower bound of `between` start
+        at 00:00:00; `lte` / `after` / the upper bound of `between` end at
+        23:59:59.999999 of that day. `equals`, `ne`, `in`, `not_in` with a date
+        parameter on a datetime column are refused at save (use `between`).
       oneOf:
         - type: [string, number]
         - $ref: '#/components/schemas/ParamRef'
@@ -82,33 +88,44 @@ components:
       type: object
       description: |
         R194 (D3 level 1, "viewer") — values for the query's parameters, by name.
-        A date is `YYYY-MM-DD`. An entry the query does not declare is ignored
-        (and not echoed).
-      maxProperties: 16
+        A date is `YYYY-MM-DD`; a number may be sent as a numeric string (the
+        GET form `p.n=5`). An entry the query does not declare — or declares but
+        does not use — is ignored (and not echoed): one dashboard URL's values
+        reach widgets whose queries use different parameters (D5).
+      maxProperties: 24
       additionalProperties:
         type: [string, number]
 
-    DashboardParamValues:
+    DashboardRef:
       type: object
+      required: [id, widgetId]
+      additionalProperties: false
       description: |
-        R194 (D3 level 2, "dashboard") — the values saved on the dashboard's
-        controls bound to these parameter names, sent by the dashboard with each
-        read (the controls themselves land in 3.7b). A date may be relative.
-        Used only where no viewer value is given.
-      maxProperties: 16
-      additionalProperties:
-        oneOf:
-          - type: [string, number]
-          - $ref: '#/components/schemas/RelativeDate'
+        R194 (D3 level 2, "dashboard"; BA contract-exit F1) — the dashboard and
+        widget a read is made for. The SERVER reads the values saved on that
+        dashboard's controls that reach the widget (`controls`, kind `param`,
+        3.7b) — a client never asserts a "dashboard" value itself. Until 3.7b
+        adds controls the level is empty. A dashboard that does not exist or is
+        in another workspace than the query → 422 (validation envelope).
+      properties:
+        id:
+          type: string
+          pattern: '^dsh_[0-9a-f]{8}$'
+        widgetId:
+          type: string
+          pattern: '^wdg_[0-9a-f]{8}$'
 
     ResolvedParams:
       type: object
       description: |
         R194 (D3, D7) — what a read used, by parameter name: the value (a date as
         `YYYY-MM-DD`, relative defaults already resolved) and which level it came
-        from. Present only when the query declares parameters and the read
-        resolved at least one; a query without parameters answers without this
-        key, exactly as before.
+        from. Only parameters the definition actually USES (references) are
+        resolved, required and echoed — a declared but unused parameter is never
+        required and never echoed, so nothing says a value was applied when it
+        filtered nothing (BA contract-exit F2). Present only when at least one
+        was resolved; a query without parameters answers without this key,
+        exactly as before.
       additionalProperties:
         type: object
         required: [value, source]
@@ -1192,5 +1209,5 @@ components:
 
         params:
           $ref: '#/components/schemas/ParamValues'
-        dashboardParams:
-          $ref: '#/components/schemas/DashboardParamValues'
+        dashboard:
+          $ref: '#/components/schemas/DashboardRef'
