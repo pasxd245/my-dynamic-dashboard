@@ -142,6 +142,14 @@ components:
         filtered nothing (BA contract-exit F2). Present only when at least one
         was resolved; a query without parameters answers without this key,
         exactly as before.
+
+        R198 (D7) — `dataThrough`: set when the value is a date used as an
+        UPPER bound (`lte`, `lt`, `before`, `between.max`) on a dataset column
+        whose coverage `max` (R178) is earlier than it — the data ends before
+        the period does. Its value is that `max` (a date, `YYYY-MM-DD`; the
+        earliest when several sites qualify). The read still answers; the
+        widget shows "Data only through <max>" as a note. Absent otherwise, and
+        absent on a joined query (effective columns carry no coverage).
       additionalProperties:
         type: object
         required: [value, source]
@@ -152,6 +160,9 @@ components:
           source:
             type: string
             enum: [viewer, dashboard, default]
+          dataThrough:
+            type: string
+            pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
 
     FilterAtom:
       type: object

@@ -239,16 +239,31 @@ components:
           type: array
           maxItems: 12
           description: |
-            R195 (dashboard-filters.md D4, `kind: param` only — `date_range` is
-            item 4.2, `values` 4.3) — the controls in the bar above the grid.
-            Omitted when none. One control per parameter name; every listed
-            target must be a widget of this dashboard. A control reaches a widget
-            when the widget is targeted AND its query USES the parameter (else it
-            is skipped there, and the card's badge says why — D5).
+            R195 (dashboard-filters.md D4, `kind: param`) and R198 (item 4.2,
+            `kind: date_range`; `values` is item 4.3) — the controls in the bar
+            above the grid. Omitted when none. One control per parameter name
+            (a `date_range` control owns two); every listed target must be a
+            widget of this dashboard. A control reaches a widget when the widget
+            is targeted AND its query USES the parameter (a range: `from` or
+            `to`); otherwise it is skipped there, and the card's badge says why
+            (D5).
           items:
             $ref: "#/components/schemas/DashboardControl"
 
     DashboardControl:
+      description: |
+        A dashboard control, by `kind`. R195 `param` binds one query parameter;
+        R198 `date_range` binds two date parameters driven by one control.
+      oneOf:
+        - $ref: "#/components/schemas/ParamControl"
+        - $ref: "#/components/schemas/DateRangeControl"
+      discriminator:
+        propertyName: kind
+        mapping:
+          param: "#/components/schemas/ParamControl"
+          date_range: "#/components/schemas/DateRangeControl"
+
+    ParamControl:
       type: object
       required: [id, kind, label, param, targets]
       additionalProperties: false
@@ -274,15 +289,7 @@ components:
           type: string
           pattern: "^[a-z][a-z0-9_]{0,31}$"
         targets:
-          oneOf:
-            - type: string
-              enum: [all]
-            - type: array
-              minItems: 1
-              uniqueItems: true
-              items:
-                type: string
-                pattern: "^wdg_[0-9a-f]{8}$"
+          $ref: "#/components/schemas/ControlTargets"
         saved:
           description: |
             The saved value — a literal (a date as `YYYY-MM-DD`) or, for a date,
@@ -291,6 +298,106 @@ components:
           oneOf:
             - type: [string, number]
             - $ref: "./query.yaml#/components/schemas/RelativeDate"
+
+    DateRangeControl:
+      type: object
+      required: [id, kind, label, from, to, targets]
+      additionalProperties: false
+      description: |
+        R198 (item 4.2, dashboard-filters.md D4) — the view-time date range: one
+        control that sets TWO date parameters, `from` and `to`, which the
+        targeted queries declare (type `date`) and use — typically `between`
+        with `min: {param: from}, max: {param: to}`, or `gte` / `lte`. The two
+        names differ, and no other control binds either of them.
+
+        `saved` (D3 level 2) is a preset or a fixed pair; the SERVER resolves it
+        in `backend.time_zone` on every read, so "last 7 days" saved today still
+        reads "last 7 days" next month. A viewer's period lives in the URL only,
+        always as absolute dates (`?p.<from>=YYYY-MM-DD&p.<to>=YYYY-MM-DD`);
+        Copy link pins the server-resolved pair. On a datetime column the `to`
+        bound covers its whole day (R194 F3).
+
+        A targeted widget whose query uses `from` or `to` is reached; one whose
+        query uses neither is skipped and badged, never an error (D5). A `to`
+        value later than the filtered column's coverage `max` (R178) is echoed
+        as `resolvedParams[to].dataThrough` (D7): "Data only through <max>".
+      properties:
+        id:
+          type: string
+          pattern: "^ctl_[0-9a-f]{8}$"
+          description: Client-generated, like widget ids.
+        kind:
+          type: string
+          enum: [date_range]
+        label:
+          type: string
+          minLength: 1
+          maxLength: 60
+        from:
+          type: string
+          pattern: "^[a-z][a-z0-9_]{0,31}$"
+          description: The parameter that takes the period's first day.
+        to:
+          type: string
+          pattern: "^[a-z][a-z0-9_]{0,31}$"
+          description: The parameter that takes the period's last day (≠ `from`).
+        targets:
+          $ref: "#/components/schemas/ControlTargets"
+        saved:
+          $ref: "#/components/schemas/DateRangeValue"
+
+    ControlTargets:
+      description: '`"all"` or the widgets the control reaches (the editor picks).'
+      oneOf:
+        - type: string
+          enum: [all]
+        - type: array
+          minItems: 1
+          uniqueItems: true
+          items:
+            type: string
+            pattern: "^wdg_[0-9a-f]{8}$"
+
+    DateRangeValue:
+      description: |
+        R198 — a saved period: a preset, resolved by the server in
+        `backend.time_zone` at read time, or a fixed pair of bounds (each an
+        absolute date or `RelativeDate`), inclusive on both ends. Presets, with
+        weeks starting on Monday and `today` in the configured zone:
+
+        | preset        | from                           | to                            |
+        | ------------- | ------------------------------ | ----------------------------- |
+        | `this_week`   | Monday of this week            | Sunday of this week           |
+        | `last_week`   | Monday of last week            | Sunday of last week           |
+        | `last_7_days` | today − 6 days                 | today                         |
+        | `this_month`  | the 1st of this month          | the last day of this month    |
+        | `last_month`  | the 1st of last month          | the last day of last month    |
+
+        A fixed pair whose `to` resolves before its `from` is refused at save
+        (422 naming `saved`).
+      oneOf:
+        - type: object
+          required: [preset]
+          additionalProperties: false
+          properties:
+            preset:
+              type: string
+              enum: [this_week, last_week, last_7_days, this_month, last_month]
+        - type: object
+          required: [from, to]
+          additionalProperties: false
+          properties:
+            from:
+              $ref: "#/components/schemas/DateOrRelative"
+            to:
+              $ref: "#/components/schemas/DateOrRelative"
+
+    DateOrRelative:
+      description: An absolute date (`YYYY-MM-DD`) or "today ± n days".
+      oneOf:
+        - type: string
+          pattern: "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+        - $ref: "./query.yaml#/components/schemas/RelativeDate"
 
     Dashboard:
       type: object
