@@ -68,7 +68,7 @@ export type WidgetData = {
 /** R195 — a structured 4xx (e.g. `param_unbound`) is an answer, not a hiccup:
  *  retrying it only delays the message (QA P2-2). */
 export function retryUnlessRefused(failures: number, err: unknown): boolean {
-  return !(err instanceof ApiErrorThrown) && failures < 3;
+  return !(err instanceof ApiErrorThrown && err.status < 500) && failures < 3;
 }
 
 /**

@@ -16,6 +16,7 @@ import { DashboardDetailPage } from '@/features/dashboard/DashboardDetailPage';
 import {
   DashboardParamsContext,
   controlReach,
+  controlValuesFrom,
   shareUrl,
   useWidgetParamContext,
 } from '@/features/dashboard/DashboardParams';
@@ -321,16 +322,24 @@ describe('R195 review round', () => {
     expect(seen).toEqual({ params: { a: '1' }, dashboard: { id: 'dsh_00000001', widgetId: 'wdg_00000002' } });
   });
 
+  it('takes a control value only from a targeted widget, and only a viewer or dashboard value', () => {
+    const a = ctl('a', ['wdg_00000001']);
+    const r = { a: { value: 'D', source: 'default' as const } };
+    expect(controlValuesFrom([a], 'wdg_00000002', { a: { value: 'S', source: 'dashboard' } })).toEqual({});
+    expect(controlValuesFrom([a], 'wdg_00000001', r)).toEqual({});
+    expect(controlValuesFrom([a], 'wdg_00000001', { a: { value: 'S', source: 'dashboard' } })).toEqual({ [a.id]: 'S' });
+  });
+
   it('pins every control as an absolute value in the shared link', () => {
     const url = shareUrl(
       'http://x/dashboards/ws/d?p.a=2026-10-12',
-      [ctl('a', 'all'), ctl('rel', 'all', { kind: 'today', offsetDays: -1 }), ctl('fix', 'all', '2026-01-01')],
+      [ctl('a', 'all'), ctl('rel', 'all', { kind: 'today', offsetDays: -1 }), ctl('fixd', 'all', '2026-01-01')],
       { a: '2026-10-12' },
-      { rel: '2026-10-17' },
+      { ctl_00000003: '2026-10-17' },
     );
     const q = new URL(url).searchParams;
     expect(q.get('p.a')).toBe('2026-10-12');
     expect(q.get('p.rel')).toBe('2026-10-17');
-    expect(q.get('p.fix')).toBe('2026-01-01');
+    expect(q.get('p.fixd')).toBe('2026-01-01');
   });
 });

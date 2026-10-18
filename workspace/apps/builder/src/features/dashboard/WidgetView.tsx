@@ -709,7 +709,7 @@ function ChartWidgetView({ widget, extra, filters, badge }: WidgetViewProps) {
     capped,
     total,
   } = useWidgetChartData(widget, filters, ctx);
-  useReportResolved(resolvedParams);
+  useReportResolved(widget.id, resolvedParams);
   const paramTitle = paramError
     ? ((paramError as { label?: string }).label ?? (paramError as { param: string }).param)
     : '';

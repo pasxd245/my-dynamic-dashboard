@@ -29,8 +29,8 @@ export type DashboardParamsState = {
   /** The controls — a viewer value reaches only the widgets its control targets. */
   controls?: readonly DashboardControl[];
   /** Each widget reports what its read used (the bar shows, and the link pins,
-   *  the server-resolved values). */
-  report?: (resolved: ResolvedParams) => void;
+   *  the server-resolved values of the controls that target it). */
+  report?: (widgetId: string, resolved: ResolvedParams | undefined) => void;
 };
 export const DashboardParamsContext = createContext<DashboardParamsState>({ viewer: {} });
 
@@ -52,12 +52,30 @@ export function useWidgetParamContext(widgetId: string | undefined): ParamContex
 }
 
 /** Report a read's `resolvedParams` to the page (no-op off a dashboard). */
-export function useReportResolved(resolved: ResolvedParams | undefined): void {
+export function useReportResolved(widgetId: string | undefined, resolved: ResolvedParams | undefined): void {
   const { report } = useContext(DashboardParamsContext);
   const key = resolved ? JSON.stringify(resolved) : '';
   useEffect(() => {
-    if (resolved && report) report(resolved);
-  }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (report && widgetId) report(widgetId, resolved);
+  }, [key, widgetId]); // eslint-disable-line react-hooks/exhaustive-deps
+}
+
+/** The values a widget's read reports that belong to the dashboard's controls:
+ *  only controls that TARGET the widget, and only a viewer or dashboard value
+ *  (a widget on its own default says nothing about the control — code review
+ *  N-1). Keyed by control id. */
+export function controlValuesFrom(
+  controls: readonly DashboardControl[],
+  widgetId: string,
+  resolved: ResolvedParams,
+): Record<string, string | number> {
+  const out: Record<string, string | number> = {};
+  for (const c of controls) {
+    if (c.targets !== 'all' && !c.targets.includes(widgetId)) continue;
+    const r = resolved[c.param];
+    if (r && (r.source === 'viewer' || r.source === 'dashboard')) out[c.id] = r.value;
+  }
+  return out;
 }
 
 /** The URL to share: the current one with every control's value pinned as an
@@ -68,12 +86,13 @@ export function shareUrl(
   href: string,
   controls: readonly DashboardControl[],
   viewer: Record<string, string>,
+  /** Server-resolved values by control id. */
   resolved: Record<string, string | number>,
 ): string {
   const url = new URL(href);
   for (const c of controls) {
     if (viewer[c.param] !== undefined) continue;
-    const v = resolved[c.param] ?? (c.saved !== undefined && !isRelative(c.saved) ? c.saved : undefined);
+    const v = resolved[c.id] ?? (c.saved !== undefined && !isRelative(c.saved) ? c.saved : undefined);
     if (v !== undefined && v !== '') url.searchParams.set(`p.${c.param}`, String(v));
   }
   return url.toString();
@@ -198,7 +217,7 @@ export function DashboardControlBar({
   controls: readonly DashboardControl[];
   params: ReadonlyMap<string, { decl: QueryParam; usedBy: string[] }>;
   viewer: Record<string, string>;
-  /** What the widgets' reads used, by parameter (the server's resolution). */
+  /** What the targeted widgets' reads used, by control id (the server's resolution). */
   resolved: Record<string, string | number>;
   onChange: (param: string, value: string) => void;
   onReset: () => void;
@@ -229,7 +248,7 @@ export function DashboardControlBar({
         // The server's resolution first (a relative saved value resolves in
         // `backend.time_zone`, not the browser's — BA-3); the browser date only
         // until a read has answered.
-        const resolvedValue = resolved[c.param];
+        const resolvedValue = resolved[c.id];
         const shown =
           own ??
           (resolvedValue !== undefined
@@ -353,6 +372,9 @@ export function ControlsEditor({
                 draft.map((c) => {
                   const out = { ...c, label: c.label.trim() };
                   if (out.saved === '' || out.saved === undefined) delete out.saved;
+                  // A number is typed as text (so "1." can become "1.5") and saved as a number.
+                  else if (params.get(c.param)?.decl.type === 'number' && typeof out.saved === 'string')
+                    out.saved = Number(out.saved);
                   return out;
                 }),
               )
@@ -465,9 +487,7 @@ export function ControlsEditor({
                   <ValueInput
                     type={type}
                     value={c.saved === undefined ? '' : String(c.saved)}
-                    onChange={(v) =>
-                      set(i, { saved: type === 'number' && v !== '' && valueFits('number', v) ? Number(v) : v })
-                    }
+                    onChange={(v) => set(i, { saved: v })}
                     ariaLabel={t('dashboard.params.saved')}
                     dataName={c.param}
                   />

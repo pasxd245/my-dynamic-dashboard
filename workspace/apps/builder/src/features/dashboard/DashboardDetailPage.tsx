@@ -71,6 +71,7 @@ import {
   ReachBadge,
   bindableParams,
   controlReach,
+  controlValuesFrom,
   useWidgetParamContext,
 } from './DashboardParams';
 import { paramsFromSearch, withParam, withoutParams } from '@/features/data-management/queries/params';
@@ -298,20 +299,18 @@ export function DashboardDetailPage() {
   const viewer = paramsFromSearch(searchParams);
   const workspaceQueries = useQueriesQuery(workspaceId);
   const [controlsOpen, setControlsOpen] = useState(false);
-  // What the widgets' reads used, by parameter — the bar shows it and Copy link
-  // pins it (the server resolves relative values in its own zone).
-  const [resolvedByParam, setResolvedByParam] = useState<Record<string, string | number>>({});
-  const reportResolved = useCallback((r: ResolvedParams) => {
-    setResolvedByParam((prev) => {
+  // What each widget's latest read used (by widget id; dropped when a read
+  // answers nothing, e.g. a refusal). The bar shows, and Copy link pins, the
+  // values of the controls that target a widget — derived below, so only a
+  // targeted widget's viewer/dashboard value counts (code review N-1).
+  const [resolvedByWidget, setResolvedByWidget] = useState<Record<string, ResolvedParams>>({});
+  const reportResolved = useCallback((widgetId: string, r: ResolvedParams | undefined) => {
+    setResolvedByWidget((prev) => {
+      if (JSON.stringify(prev[widgetId]) === JSON.stringify(r)) return prev;
       const next = { ...prev };
-      let changed = false;
-      for (const [k, v] of Object.entries(r)) {
-        if (next[k] !== v.value) {
-          next[k] = v.value;
-          changed = true;
-        }
-      }
-      return changed ? next : prev;
+      if (r) next[widgetId] = r;
+      else delete next[widgetId];
+      return next;
     });
   }, []);
 
@@ -365,6 +364,14 @@ export function DashboardDetailPage() {
   const widgetsById = new Map(dash.widgets.map((w) => [w.id, w]));
   const queriesById = new Map((workspaceQueries.data ?? []).map((q) => [q.id, q]));
   const controls = dash.controls ?? [];
+  const resolvedByControl: Record<string, string | number> = {};
+  for (const w of dash.widgets) {
+    const r = resolvedByWidget[w.id];
+    if (!r) continue;
+    for (const [id, v] of Object.entries(controlValuesFrom(controls, w.id, r))) {
+      if (resolvedByControl[id] === undefined) resolvedByControl[id] = v;
+    }
+  }
   const bindable = bindableParams(dash.widgets, queriesById);
   const saveControls = (next: DashboardControl[]) =>
     updateMutation
@@ -510,7 +517,7 @@ export function DashboardDetailPage() {
         controls={controls}
         params={bindable}
         viewer={viewer}
-        resolved={resolvedByParam}
+        resolved={resolvedByControl}
         onChange={(param, value) => setSearchParams(withParam(searchParams, param, value), { replace: true })}
         onReset={() => setSearchParams(withoutParams(searchParams))}
       />
@@ -598,7 +605,16 @@ export function DashboardDetailPage() {
           (the bar's), not as a dashboard widget: a new widget has no saved id yet. */}
       <DashboardParamsContext.Provider
         value={{
-          viewer: { ...Object.fromEntries(Object.entries(resolvedByParam).map(([k, v]) => [k, String(v)])), ...viewer },
+          // Only the values of controls reaching every widget (a new widget has no
+          // targets yet), plus the URL's (code review N-2).
+          viewer: {
+            ...Object.fromEntries(
+              controls
+                .filter((c) => c.targets === 'all' && resolvedByControl[c.id] !== undefined)
+                .map((c) => [c.param, String(resolvedByControl[c.id])]),
+            ),
+            ...viewer,
+          },
         }}
       >
         <WidgetBuilder
