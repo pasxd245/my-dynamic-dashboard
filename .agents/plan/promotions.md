@@ -364,3 +364,49 @@ scoping the round to "ship as specced, record the 42", then **reading the
 shipped rule and refusing its first draft**: they asked whether an acceptance
 walk is always required, which added the trigger condition above. Graduation
 pre-approved 2026-08-15 at R171, sequenced at R172 § Feeds into).
+
+## 2026-10-18: Four lessons of R191–R197 → `.agents/memory/` + `skills/review-*` checklists
+
+**Source**: the `## Act` candidate lessons of
+[Round_192](cycles/Round_192.md), [Round_194](cycles/Round_194.md),
+[Round_196](cycles/Round_196.md) and [Round_197](cycles/Round_197.md), each
+written "memory, if it recurs" — and each had already recurred by the
+2026-10-18 audit of R191–R197 (8 P0 / ~27 P1 raised across seven rounds,
+recurring in six finding types; nothing promoted since R173). Four memory
+files, in the template's format, each carrying its instance table:
+
+- [`2026-10-18-missing-side-matrix.md`](../memory/2026-10-18-missing-side-matrix.md)
+  — a comparison label needs a test per absent input (R197; recurred from
+  R192 and R195) → `review-ba` § Contract-exit item 3.
+- [`2026-10-18-error-code-ships-with-client-union.md`](../memory/2026-10-18-error-code-ships-with-client-union.md)
+  — a new error code ships with its client union, MSW and types in the same
+  commit (R192; R193 `oneOf`; R196 `export_too_large`) → `review-cr` item 4.
+- [`2026-10-18-bind-time-validation-vs-drift.md`](../memory/2026-10-18-bind-time-validation-vs-drift.md)
+  — a bad late-bound value is `param_invalid`, never `query_stale` / 500
+  (R194 ×3; R191 P0) → `review-cr` item 5.
+- [`2026-10-18-file-outlives-its-headers.md`](../memory/2026-10-18-file-outlives-its-headers.md)
+  — anything a saved export must say goes in the file (R196; R194) →
+  `review-ba` item 7, `review-qa` item 8.
+
+Shipped with them, same commit (milestone M1.1–M1.2): the four roles of the
+loop as Claude Code agent definitions (`.claude/agents/{coder,ba,code-reviewer,qa}.md`),
+the three reviewer checklists as skills
+([`review-ba`](../skills/review-ba/SKILL.md), [`review-cr`](../skills/review-cr/SKILL.md),
+[`review-qa`](../skills/review-qa/SKILL.md), indexed in
+[`skills/README.md`](../skills/README.md)), the per-round counts in
+[`.agents/metrics/agents.csv`](../metrics/agents.csv), and two lines in
+[rc3.md § Execution](programs/release-rc2-rc5/rc3.md#execution--the-four-role-loop-from-2026-10-18):
+the per-role prune rule (no P0/P1 for two consecutive rounds → dropped,
+re-added when a P0 escapes) and "a candidate lesson that recurs a second time
+is promoted in that round, not deferred".
+**Rationale**: the loop ran seven rounds from a hand-written brief, and the
+brief did not carry what the rounds learned — the same finding types came back
+(R195 and R196 ran without the contract-exit pass; R195 shipped the P0 that
+pass asks about). Each lesson has two or more instances in different domains,
+which meets the memory bar; the checklist item is the smallest mechanism that
+makes the next reviewer ask the question. No lint, on purpose — the dogfood
+first (per `2026-08-15-walk-record-always-spec-on-ask`). Track 2
+(agent-method), artifact-only.
+**Promoted by**: Vien Pham Quang (2026-10-18, the M1.1–M1.2 brief: "the lessons
+of R191–R197 get promoted to memory"; files drafted by the coding agent, human
+review on merge to `main`).

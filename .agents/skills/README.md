@@ -34,7 +34,9 @@ recognize arbitrary metadata keys):
 
 - **Primary skills** — workflow-specific, operate on round files in
   [`.agents/plan/cycles/`](../plan/cycles/), carry doctrine
-  enforcement for R47's DCFBI/DFCFBI hybrid flow.
+  enforcement for R47's DCFBI/DFCFBI hybrid flow or for the release
+  program's four-role review loop
+  ([rc3.md § Execution](../plan/programs/release-rc2-rc5/rc3.md#execution--the-four-role-loop-from-2026-10-18)).
 - **Dependent skills** — generic utility, domain-agnostic, callable
   by any primary skill or task that needs the capability.
 
@@ -55,6 +57,32 @@ before phase advance. Blocks with a remediation pointer if open.
 DCFBI/DFCFBI branching reads the round's recorded `Flow:` line to
 decide whether F1/F2 gates apply. Cited clause:
 [R47 § Hard gates (non-negotiable)](../decisions/2026-05-28-hybrid-flow-governance.md).
+
+### [`review-ba`](review-ba/SKILL.md) · [`review-cr`](review-cr/SKILL.md) · [`review-qa`](review-qa/SKILL.md)
+
+The three reviewer checklists of the **four-role loop** (coder · BA ·
+code reviewer · QA), each pointed at by its agent definition under
+[`.claude/agents/`](../../.claude/agents/) (`ba.md`, `code-reviewer.md`,
+`qa.md`; the coder is `coder.md`). Inputs are only the round file and
+`git diff <base>..HEAD` — never the coder's reasoning. Each grades
+**P0** (wrong numbers, data loss, security, a shape off the accepted
+design) · **P1** (a criterion unmet, a broken state — fixed in the
+round) · **P2** (rolling log), cites an earlier role's finding id
+instead of re-raising it, and ends `PASS` / `CHANGES`. `review-ba` runs
+twice (Contract exit, after build) and carries the **missing-side
+matrix** (every new state × no run · no default · rc.2 rows · deleted
+noun · empty list) and the second-user test; `review-cr` carries the
+error-code parity chain, migration both ways, cache invalidation,
+swap/version races, formula injection, EN/VI parity; `review-qa`
+re-runs the gates from clean, walks the migration up → down → up on a
+populated fake database, probes every criterion live and inspects the
+visual-gate screenshots. Per-round counts:
+[`.agents/metrics/agents.csv`](../metrics/agents.csv); prune rule in
+rc3.md § Execution. Cited clause:
+[rc3.md § Execution — the four-role loop](../plan/programs/release-rc2-rc5/rc3.md#execution--the-four-role-loop-from-2026-10-18).
+_Track 2 (agent-method). Pulled by: the R191–R197 audit (2026-10-18) —
+seven rounds ran the loop from a hand-written brief; the finding types
+recurred (six kinds) and nothing had been promoted since R173._
 
 ## Dependent skills
 

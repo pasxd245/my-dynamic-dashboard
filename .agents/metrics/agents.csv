@@ -1,0 +1,8 @@
+round,p0_total,p0_found_at_contract_exit,p0_escaped_to_qa,p1_total,p1_duplicates_between_roles,p2_total,review_rounds,notes
+R191,1,0,0,0,0,10,1,"fix round, no contract-exit pass; P0-1 by BA after build (""1,200""/n/a counted as 0); CR PASS 3 P2; QA PASS; BA 7 P2"
+R192,0,0,0,5,1,28,1,"BA contract exit 4 P1 + 8 P2; CR 1 P1 (R1 ApiError union) + 7 P2; QA PASS 5 P2 (one = R1); BA after build PASS 8 P2 (F-5 = R8); 2 of the 28 P2 are cross-role duplicates"
+R193,1,1,0,9,1,25,1,"BA contract exit P0-1 (scripted edit broke a 409 oneOf) + 6 P1 + 10 P2; CR 2 P1 + 5 P2; QA 1 P1 + 4 P2; BA after build 1 P1 (= CR F2 Upload path) + 6 P2"
+R194,0,0,0,6,1,21,1,"BA contract exit 3 P1 + 4 P2; CR 3 P1 + 6 P2; QA 1 P1 (= one of CR's) + 3 P2 + 1 pre-existing bug; BA after build PASS 7 P2"
+R195,1,0,0,7,0,19,2,"no contract-exit pass recorded; P0 (list rename wiped controls) raised by both CR and BA; CR 2 P1 + 10 P2; QA 3 P1 (P2 count not itemised; 1 named); BA 1 P1 + 8 P2; CR re-check found N-1 (P1) -> fix 2"
+R196,0,0,0,1,0,12,1,"no contract-exit pass recorded; CR PASS 4 P2; BA PASS 6 P2 (version read order = CR); QA 1 P1 (formula guard missed the Filters sheet) + 2 P2 after fold 1"
+R197,3,3,0,5,1,15,2,"BA contract exit 3 P0 + 2 P1 + 4 P2; CR 2 P1 + 4 P2; BA after build 1 P1 (= CR stuck-closed) + 5 P2; QA 1 P1 (query_versions on a param without default) + 2 P2"

@@ -2,6 +2,12 @@
 
 Parent: [release-rc2-rc5.plan.md](release-rc2-rc5.plan.md). Starts only after rc.3 is tagged.
 
+**Execution:** the four-role loop of
+[rc3.md § Execution](rc3.md#execution--the-four-role-loop-from-2026-10-18) — agents under
+`.claude/agents/`, checklists `review-ba` / `review-cr` / `review-qa`, one row per round in
+`.agents/metrics/agents.csv`, the prune rule and "a lesson that recurs a second time is promoted in
+that round".
+
 **Order:** 4.2 → 4.3 → 4.4 → 4.1, then conditional items 4.5–4.7 only if their entry condition is
 met in the rolling log. 4.1 (scheduled refresh) goes last because it depends on how the product is
 deployed, which is the least settled question.

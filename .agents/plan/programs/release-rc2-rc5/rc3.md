@@ -57,6 +57,14 @@ checklist (below), walk pack for R191–R197 ([walk-rc3b.md](walk-rc3b.md)). All
 built and reviewed with no open P0/P1 (2026-10-18); each awaits its walk. _(3.6 split into
 3.6a / 3.6b on 2026-10-18 — two features, two migrations; one feature per round.)_
 
+**Roles as files (from 2026-10-18, after R197).** The four roles are Claude Code agent
+definitions under [`.claude/agents/`](../../../../.claude/agents/) — `coder.md`, `ba.md`,
+`code-reviewer.md`, `qa.md` — and the reviewers' checklists are the skills
+[`review-ba`](../../../skills/review-ba/SKILL.md), [`review-cr`](../../../skills/review-cr/SKILL.md),
+[`review-qa`](../../../skills/review-qa/SKILL.md). The next round (R198) runs from them, without a
+hand-written brief. _Track: 2. Pulled by: the 2026-10-18 audit of R191–R197 — six recurring finding
+types and no promotion since R173._
+
 **Roles per round** (the coder is the main session; the three others are fresh sub-agents that
 see only the repo and the round file, never the coder's reasoning):
 
@@ -81,6 +89,25 @@ Findings are graded **P0** (wrong numbers, data loss, security, contract off the
 the round and re-reviewed by the agent that raised them; P2 go to the rolling log. The round
 moves to `Review` only when every reviewer reports no open P0/P1. Each round ends with a bundle
 (`.archive/_transfer/` → sha256 → `99_git_bundles/`).
+
+**Metrics and the prune rule.** Every round appends one row to
+[`.agents/metrics/agents.csv`](../../../metrics/agents.csv) — `p0_total` / `p1_total` / `p2_total`
+count **distinct** findings across the roles (a finding two roles raise counts once);
+`p0_found_at_contract_exit` the P0s the BA found before code; `p0_escaped_to_qa` the P0s first
+found by QA (missed by the BA's first pass and the code review); `p1_duplicates_between_roles` the
+P1s raised by more than one role (the dedup rule exists to drive this to 0: cite the earlier id);
+`review_rounds` the fix commits that needed a re-review; `?` where the round file does not say.
+**Prune:** a role that produces no P0/P1 for **two consecutive rounds** is dropped for the next
+round and **re-added the moment a P0 escapes** to a later role or to the owner's walk. Applied
+backwards: QA reported no P0/P1 in R191 and R192, so the rule would have dropped it for R193 —
+where it found a P1 (an empty saved workspace deleted with its main one) that the BA then judged
+acceptable. The rule is kept as written; that case is the reason the re-add trigger includes the
+owner's walk, and the first drop is to be logged in the round's `## Act` with this row cited.
+
+**Promotion inside the loop.** A candidate lesson a round's `## Act` names is promoted (a memory
+file plus the checklist item it belongs to) **the round it recurs a second time, not deferred** —
+R191–R197 named one candidate per round and promoted none until the audit, by which time four had
+recurred (see [`promotions.md` 2026-10-18](../../promotions.md)).
 
 **Hard stops** (the run halts and reports): a gate that stays red after one fix attempt; a P0 the
 round cannot fix inside its item; any change to an accepted shape (design D1–D7, decisions 1–14);
