@@ -1,15 +1,29 @@
 # Round 197: metadata triple anchor and cascade (item 3.8)
 
-**Status**: Do — built; reviews after build pending
+**Status**: Review — built and reviewed (BA ×2, code review ×2, QA + visual gate ×2: no open P0/P1); awaiting the human acceptance walk (W1–W6) and sign-off
 **Flow**: **DCFBI** — set at the Design gate via `flow-selector` (see Do).
 **Date started**: 2026-10-18
 **Date completed**: —
 
 ## ⟢ At a glance
 
-**Shipped** — _(pending)_
+**Shipped** — a note knows what it was written for.
 
-**Studied** — _(pending)_
+- Every metadata entry is stamped by the server with the triple anchor: the definition (and the
+  queries behind a widget or dashboard), the data (dataset versions, a workflow's run) and the
+  parameter values; a value the writer did not give is named (`assumedParams`).
+- A read under the page's values says per entry: the same, data refreshed since, another period,
+  an earlier definition. The panel and the widget popover show the flag or collapse the entry to
+  "Written for As of 2026-10-11 · viewing As of 2026-10-17", opened on click.
+- Deleting a noun moves its notes to an archive table (`metadata_entries_swept`); migration
+  `0010` archives today's orphans and its downgrade restores them.
+- A widget's footer says "Data: refreshed <when> · run #N" for the data it read.
+
+**Studied** — "which period" is easy to get wrong in three directions. The BA contract-exit review
+caught three ways a note would read `current` next to different numbers before any code existed
+(query edits behind a widget, a dashboard's period taken from the wrong widget, copies forced
+`current`). After the build, QA's live run caught a fourth (a parameter without a default hid the
+data) and both reviewers caught an entry that could get stuck closed.
 
 ## Goal
 
@@ -141,15 +155,59 @@ Result: **Flow: DCFBI** — one condition fired (below the 2-of-5 threshold).
 
 ### F, the reviews and the fixes
 
-_(pending)_
+- Build `4de665f`.
+- **Reviews after build:**
+  - code review **CHANGES** — P1: an entry back to `current` stayed collapsed with no toggle; P1: a
+    workflow note written before the first run never read `refreshed`; P2: a vanished query read
+    `current`, uncapped param values, race lookups, footer from a newer version;
+  - BA **CHANGES** — the same stuck-closed P1; contract-exit findings all resolved as built; P2:
+    dashboard layout edits read "earlier definition", labels, footer, filters not anchored,
+    wording; proposed the walk below.
+- **Fix 1 (`d7e298f`)** — entries keyed by namespace + state; R197 entries compare the run (rc.2
+  ones do not); a vanished query → `other_definition`; values ≤ 256; guards; the footer speaks only
+  for datasets at the version read; labels; wording.
+- QA **CHANGES** — P1: `query_versions` planned the query as a composed base, which fails on a
+  parameter without a default, so such a note never read `refreshed`. P2: a reader's invalid
+  value fell back to the default; VI wording.
+- **Fix 2 (`5cac7fd`)** — plan from the query's own source, joins and relationships (as `/rows`;
+  the run stamp shares it); a reader's bad value is left out. QA re-check **PASS**; code review
+  re-check **PASS**.
 
 ## Check
 
-_(pending)_
+- [x] backend 670 · builder 540 · contracts 49 green; `tsc --noEmit`; `ruff check`; lints 0
+- [x] Visual gate: light (EN + VI) twice; dark N/A (no dark theme — owner)
+- [x] BA (contract exit + after build) · code review · QA — no open P0/P1
+- [x] ⟢ At a glance **Studied** line written
+- [ ] **Acceptance walk** (human reviewer) — ⬜ verdicts, `coverage: 0 of 6`. Setup (fake data):
+      dataset `calls_demo` (id, team, day, amount); query **Calls by week** with a date parameter
+      `as_of` (label "As of", default 2026-10-10) filtering `day ≤ as_of`; dashboard **Demo** with
+      two table widgets on it and an As of control targeting the first only, saved 2026-10-04; a
+      metadata token in the settings. Notes are written with `PUT /metadata/...` and the token.
+  - ⬜ W1 — current: write a note on the query with `params {as_of: 2026-10-11}`. Open the query
+    page with `?p.as_of=2026-10-11`: the note is open, no flag. Switch to VI and back.
+  - ⬜ W2 — another period: change the URL to 2026-10-17. The note collapses: "Written for As of
+    2026-10-11 · viewing As of 2026-10-17". Show, then Hide.
+  - ⬜ W3 — on **Demo**, write a note on the first widget under 2026-10-11. Switch the control to
+    10-04 and back to 10-11 within 30 s: the note (widget info popover) is open again.
+  - ⬜ W4 — refreshed: re-upload `calls_demo` with one row changed. The query note at 10-11 shows
+    the blue flag and stays open; the widget footer reads "Data: refreshed <now>".
+  - ⬜ W5 — earlier definition: add a filter to the query. The query, widget and dashboard notes
+    collapse; opening one warns. Write a dashboard note with `md` only: it reads "Written under
+    the saved or default value of: As of".
+  - ⬜ W6 — delete **Demo**, then the query: their notes are gone from the app. On a copy of the
+    database, `metadata_entries_swept` holds them with `swept_at`.
 
 ## Act
 
-_(pending)_
+- **Rolling log:** closed — metadata entries surviving their noun (R180). New P2 rows: dashboard
+  layout or saved-value edits read "earlier definition"; dashboard filters not anchored; evergreen
+  notes ageing with a relative default; a workflow note not carrying its sources' params; widget
+  footer cost (one dataset read per dataset, cached).
+- **Promotion:** none. Candidate lesson (memory, if it recurs): a label that compares two states
+  needs a test for every way one side can be missing — rc.2 rows, no run yet, no default, a
+  deleted query; each one surfaced here as "current" by default.
+- **Prune check:** the contract-exit BA review earned its place — three P0s fixed before code.
 
 ## Feeds into → rc.3 exit gate
 

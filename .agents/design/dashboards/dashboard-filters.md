@@ -249,6 +249,14 @@ use. A query without parameters reads exactly as in rc.2 (no `resolvedParams` ke
   than the dataset's coverage `max` (R178) on the column it filters, the widget shows "Data only
   through <max>". It is a note, not a block; the cohort-specific rule stays in 4.5.
 
+### As built (3.8 — Round_197)
+
+- A metadata entry anchors to the parameter values it was written under; a dashboard's are its
+  param controls as the bar shows them (viewer → saved → default), a widget's as it reads. A read
+  under other values marks the entry `other_period` and the panel collapses it to "Written for As
+  of 2026-10-11 · viewing As of 2026-10-17". Full rule: [metadata.md § The triple
+  anchor](../data-management/_shared/metadata.md).
+
 ### As built (3.7 — Round_194 engine, Round_195 builder)
 
 - **D3 level 2 is read by the server.** A widget read names its dashboard + widget
