@@ -1,13 +1,15 @@
-# Walk pack — rc.2 (R177–R183) and rc.3 batch 1 (R184–R187)
+# Walk pack — rc.2 (R177–R183) and rc.3 (R184–R189)
 
-Parent: [release-rc2-rc5.plan.md](release-rc2-rc5.plan.md). One sitting, about 60–75 minutes, for the
-human reviewer. It strings the eleven rounds' acceptance walks (37 items) into one route over a
+Parent: [release-rc2-rc5.plan.md](release-rc2-rc5.plan.md). One sitting, about 75–90 minutes, for the
+human reviewer. It strings the thirteen rounds' acceptance walks (45 items) into one route over a
 throw-away dev install with **fake data only**, so nothing touches a real data folder. Each item is
 copied from its round's § Check; the verdict goes back into that round (the agent records it).
 
 **Session A** (R177–R183) closes rc.2: after it, the human flips those rounds `Complete` and tags
 `v0.0.1-rc.2` (which also satisfies G-start3). **Session B** (R184–R187) closes rc.3 batch 1 and is
-the evidence for gate **G-wf** (opens item 3.6). The two can run on different days; A first.
+the evidence for gate **G-wf** (opens item 3.6). **Session C** (R188–R189) walks the two refresh
+rounds; it needs B done first (it reuses workspace **Walk**). The sessions can run on different days;
+A first.
 
 ## Setup (Windows, PowerShell) — a separate worktree, its own data folder
 
@@ -141,9 +143,79 @@ R177–R183 `Complete`, and runs the rc.2 tag checklist in [rc2.md](rc2.md) § e
 **After session B:** report the verdicts; the agent records them in R184–R187. Then the owner's call on
 **G-wf** (evidence table in `Round_187` § G-wf); passing it opens item 3.6.
 
+## Session C — rc.3 refresh (R188, R189)
+
+Runs after session B, in the same workspace **Walk**. It uses its own dataset **weekly**, so the
+versions of **calls** from sessions A–B are not touched.
+
+**Walk files for C** — save these six beside the others (made up; same columns as `walk_calls.csv`
+unless said):
+
+`walk_week_1.csv` and `walk_week_2.csv` (two weeks, no overlap):
+
+```text
+agent,team,called_at,calls
+Ly,North,2026-09-01,1
+Minh Anh,East,2026-09-03,2
+Ly,East,2026-09-05,3
+```
+
+```text
+agent,team,called_at,calls
+Ly,North,2026-09-08,4
+Minh Anh,East,2026-09-10,5
+```
+
+`walk_week_3.csv` (a later week, for Add rows):
+
+```text
+agent,team,called_at,calls
+Ly,North,2026-09-15,6
+Minh Anh,East,2026-09-17,7
+```
+
+`walk_week_bad.csv` (one extra column, `channel`):
+
+```text
+agent,team,called_at,calls,channel
+Ly,North,2026-09-02,1,phone
+```
+
+`walk_week_2_redo.csv` (re-covers the second week: 2026-09-08 → 2026-09-14) and
+`walk_week_blank.csv` (one row with no date):
+
+```text
+agent,team,called_at,calls
+Ly,North,2026-09-08,9
+Minh Anh,East,2026-09-12,8
+Ly,East,2026-09-14,7
+```
+
+```text
+agent,team,called_at,calls
+Ly,North,2026-09-09,1
+Minh Anh,East,,2
+```
+
+**C0 (setup, no verdict):** upload `walk_week_1.csv` as dataset **weekly** in **Walk** → 3 rows,
+`Data version · v1`.
+
+| #   | Round · W | Do                                                                                                                                                                                                         | Expect                                                                                                                                    | Verdict |
+| --- | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| C1  | R188 · W1 | Refresh **weekly** › **Replace** with `walk_week_1.csv`; on Confirm › "More files in this refresh" add `walk_week_2.csv`; commit.                                                                          | 5 rows (3 + 2); `v2` — moved by one; the `Source.Name` column (hidden by default — un-hide it in Properties) names each row's file.       | ⬜      |
+| C2  | R188 · W2 | Refresh **weekly** › **Add rows** with `walk_week_3.csv` + more files `walk_calls_more.csv`; check repeated periods by `called_at`.                                                                        | No overlap reported; 9 rows (5 kept + 2 + 2); `v3`.                                                                                       | ⬜      |
+| C3  | R188 · W3 | Refresh **weekly** (Replace) with `walk_week_1.csv` + more files `walk_week_bad.csv`.                                                                                                                      | Refused, naming `walk_week_bad.csv`; still 9 rows, still `v3`.                                                                            | ⬜      |
+| C4  | R188 · W4 | Refresh the **teams** dataset (renamed in B5) with Replace and `walk_teams.csv` alone — no "More files".                                                                                                   | Looks and behaves as a refresh did before R188; the version moves by one.                                                                 | ⬜      |
+| C5  | R189 · W1 | Refresh **weekly** › **Replace a period**, column `called_at`, file `walk_week_2_redo.csv`.                                                                                                                | Toast: window 2026-09-08 → 2026-09-14, 2 removed, 3 inserted, 7 kept; 10 rows; the rows before 09-08 and after 09-14 are untouched; `v4`. | ⬜      |
+| C6  | R189 · W2 | Open Refresh on **weekly** again (cancel after looking).                                                                                                                                                   | "Replace a period" and `called_at` are pre-selected.                                                                                      | ⬜      |
+| C7  | R189 · W3 | Refresh **weekly** › Replace a period (`called_at`) with `walk_week_blank.csv`.                                                                                                                            | Refused with the count of rows with no date (1); still 10 rows, `v4`.                                                                     | ⬜      |
+| C8  | R189 · W4 | Refresh **weekly** › **Add rows** with `walk_week_2_redo.csv` (overlaps the committed 09-08 → 09-14), checking repeated periods by `called_at`; click the warning's "Replace this period instead"; cancel. | The overlap warning offers "Replace this period instead"; clicking it switches the mode to Replace a period with `called_at` picked.      | ⬜      |
+
+**After session C:** report the verdicts; the agent records them in R188–R189 (`coverage: n of 4`).
+
 ## What to watch beyond the script
 
 - Any wording that made you hesitate — a label, a warning, an error — is a finding even if the item
   passes.
 - Anything that needed a reload to show up.
-- Dark mode (Settings): one look at A5, A8, A21's drawer and B12's warning.
+- Dark mode (Settings): one look at A5, A8, A21's drawer, B12's warning and C1's "More files" block.
