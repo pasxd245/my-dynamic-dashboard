@@ -10,10 +10,12 @@ info:
     read.
 
     First publish creates the dataset (201). A re-publish replaces the rows of
-    the dataset this workflow published before — found by its lineage — and
-    moves its `dataVersion` by one (200): to everything reading it, a
-    re-publish is a refresh. If that dataset was deleted, the next publish
-    creates a new one. Rationale: publish-post.contract.md.
+    the dataset this workflow published in its own workspace (one per
+    workflow, held server-side) and moves its `dataVersion` by one (200): to
+    everything reading it, a re-publish is a refresh. Re-publishing the run
+    that is already published answers the dataset unchanged (200, no version
+    bump). If the dataset was deleted, the next publish creates a new one.
+    Rationale: publish-post.contract.md.
 paths:
   /workflows/{id}/publish:
     post:
@@ -47,7 +49,10 @@ paths:
             application/json:
               schema: { $ref: '../_shared/dataset.yaml#/components/schemas/Dataset' }
         '200':
-          description: Re-publish — the same dataset, rows replaced, `dataVersion` + 1, `lineage` = this run.
+          description: |
+            Re-publish — the same dataset, rows replaced, `dataVersion` + 1,
+            `lineage` = this run; or, when this run is already the published
+            one, the dataset unchanged.
           content:
             application/json:
               schema: { $ref: '../_shared/dataset.yaml#/components/schemas/Dataset' }
@@ -60,9 +65,11 @@ paths:
         '409':
           description: |
             Nothing is written:
-            - `not_publishable` — `never_run` (no output), `stale` (the output is
-              out of date; `staleSources` says why) or `reads_itself` (a source of
-              the run reads the dataset this publish would replace);
+            - `not_publishable` — `never_run` (no output, or a run without a
+              stamp), `stale` (the output is out of date — `staleSources` says
+              why — or the workflow ran again while this publish copied it) or
+              `reads_itself` (a direct source of the run reads the dataset this
+              publish would replace);
             - `name_taken` — on a first publish, a dataset of that name already
               exists in the workspace.
           content:

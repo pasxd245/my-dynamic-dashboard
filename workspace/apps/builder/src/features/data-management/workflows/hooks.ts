@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { workflowsApi } from '@/api/workflowsApi';
+import { ApiErrorThrown } from '@/features/data-management/_shared/types';
 import type { Column, Dataset, RowsPage } from '@/features/data-management/datasets/types';
 import { useDatasetQuery } from '@/features/data-management/datasets/hooks';
 import { useQueryQuery } from '@/features/data-management/queries/hooks';
@@ -29,6 +30,9 @@ export function useWorkflowQuery(id: string | undefined) {
     queryKey: ['workflow', id] as const,
     queryFn: () => workflowsApi.get(id as string),
     enabled: typeof id === 'string' && id.length > 0,
+    // A deleted workflow (404) won't come back on retry: fail at once (R192 —
+    // the published dataset's "(deleted)" line shows without a 7 s wait).
+    retry: (count, err) => !(err instanceof ApiErrorThrown && err.status === 404) && count < 3,
   });
 }
 
@@ -70,8 +74,6 @@ export function useRunWorkflowMutation() {
   });
 }
 
-/** PUT /workflows/{id} — edit name + definition. Invalidates the single (definition/
- *  materialized state may have changed) + rows caches, and the lists. */
 /** R192 — publish the frozen output as a dataset. Refreshes the workflow (its
  *  `published` line), every dataset list / detail (the dataset is new or its rows
  *  and version moved) and any query rows reading it. */
@@ -79,15 +81,22 @@ export function usePublishWorkflowMutation() {
   const queryClient = useQueryClient();
   return useMutation<{ dataset: Dataset; created: boolean }, Error, { id: string; name?: string }>({
     mutationFn: ({ id, name }) => workflowsApi.publish(id, name === undefined ? {} : { name }),
-    onSuccess: (_res, { id }) => {
+    onSuccess: () => {
+      // Every workflow (a downstream one may now be out of date), every dataset,
+      // and everything that reads rows: query pages and dashboard widgets.
       queryClient.invalidateQueries({ queryKey: WORKFLOWS_QUERY_KEY });
-      queryClient.invalidateQueries({ queryKey: ['workflow', id] });
+      queryClient.invalidateQueries({ queryKey: ['workflow'] });
       queryClient.invalidateQueries({ queryKey: ['datasets'] });
       queryClient.invalidateQueries({ queryKey: ['query-rows'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-widget-data'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-widget-totals'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-widget-aggregate'] });
     },
   });
 }
 
+/** PUT /workflows/{id} — edit name + definition. Invalidates the single (definition/
+ *  materialized state may have changed) + rows caches, and the lists. */
 export function useUpdateWorkflowMutation() {
   const queryClient = useQueryClient();
   return useMutation<Workflow, Error, { id: string; body: CreateWorkflowRequest }>({

@@ -13,6 +13,7 @@ import {
 } from '@ant-design/icons';
 import { PageCard, PageContainer, PageHeader } from '@mdd/ui';
 import { Alert, App, Button, Dropdown, Empty, Input, Select, Skeleton, Table, Typography } from 'antd';
+import i18n from 'i18next';
 import { useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -456,7 +457,7 @@ type SourceIconProps = Readonly<{
 
 function SourceIcon({ format, sheetName, style }: SourceIconProps) {
   const title =
-    format === 'excel' ? `Excel${sheetName ? ` · ${sheetName}` : ''}` : format === 'workflow' ? 'Workflow' : 'CSV';
+    format === 'excel' ? `Excel${sheetName ? ` · ${sheetName}` : ''}` : format === 'workflow' ? i18n.t('datasets.detail.formatWorkflow') : 'CSV';
   if (format === 'workflow') {
     // R192 — published from a workflow (the workflows nav icon).
     return (

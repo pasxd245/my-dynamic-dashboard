@@ -36,6 +36,7 @@ from fastapi.responses import JSONResponse, Response
 from app._generated.constants import DASHBOARD_MAX_ROWS, ID_PATTERNS, PAGE_SIZES
 from app.db import get_conn
 from app.ingest.rows_reader import materialize_steps, query_dataset_rows
+from app.ingest.parquet_writer import PROVENANCE_COLUMN
 from app.ingest.profile import profile_date_coverage
 from app.models.common import (
     ApiErrorNameTaken,
@@ -387,6 +388,13 @@ def publish_workflow(id: WfIdPath, body: PublishWorkflowBody | None = None) -> J
         return _not_publishable("stale", wf.staleSources)
     if target is not None and any(target["id"] in (s.dataVersions or {}) for s in wf.run.sources):
         return _not_publishable("reads_itself")
+    if target is not None and json.loads(target["lineage_json"] or "{}").get("runId") == wf.run.id:
+        # This run is already the published one: nothing to replace. Answer the
+        # dataset as it is — no version bump, so nothing downstream reads as
+        # "refreshed" when no row changed.
+        return JSONResponse(
+            status_code=status.HTTP_200_OK, content=_dataset_from_row(target).model_dump(exclude_none=True)
+        )
 
     now = _now_iso()
     lineage = {
@@ -400,15 +408,29 @@ def publish_workflow(id: WfIdPath, body: PublishWorkflowBody | None = None) -> J
         "publishedAt": now,
     }
     cols = [{"name": c.name, "dtype": c.dtype} for c in wf.resolvedColumns or []]
+    run_id = wf.run.id
     if target is None:
+        # An upload's file-name column (`Source.Name`, R156) passing through the
+        # workflow stays hidden by default, as it is on the upload.
+        for c in cols:
+            if c["name"] == PROVENANCE_COLUMN:
+                c["hidden"] = True
         name = ((body.name if body else None) or wf.name).strip()
         if not name:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail=[{"loc": ["body", "name"], "msg": "name is blank", "type": "value_error"}],
             )
-        return _publish_new(ws_id, id, name, output, cols, lineage, now)
-    return _republish(target, output, cols, lineage, now)
+        return _publish_new(ws_id, id, name, output, cols, lineage, now, run_id)
+    return _republish(target, output, cols, lineage, now, run_id)
+
+
+def _run_moved(workflow_id: str, run_id: str) -> bool:
+    """True when the workflow ran again (or was edited, or deleted) since the
+    publish read its stamp — the copied output may belong to another run."""
+    with get_conn() as con:
+        row = con.execute("SELECT run_id FROM workflows WHERE id = ?", (workflow_id,)).fetchone()
+    return row is None or row["run_id"] != run_id
 
 
 def _stage(dest_dir, output, cols: list[dict]) -> int:  # type: ignore[no-untyped-def]
@@ -422,11 +444,18 @@ def _stage(dest_dir, output, cols: list[dict]) -> int:  # type: ignore[no-untype
     return pq.ParquetFile(parquet).metadata.num_rows
 
 
-def _publish_new(ws_id: str, wf_id: str, name: str, output, cols: list[dict], lineage: dict, now: str) -> JSONResponse:  # type: ignore[no-untyped-def]
+def _publish_new(  # type: ignore[no-untyped-def]
+    ws_id: str, wf_id: str, name: str, output, cols: list[dict], lineage: dict, now: str, run_id: str
+) -> JSONResponse:
     ds_id = f"ds_{secrets.token_hex(4)}"
     ds_dir = dataset_dir(ws_id, ds_id)
     try:
         row_count = _stage(ds_dir, output, cols)
+        if _run_moved(wf_id, run_id):
+            # A run finished while the output was copied: the rows may be the new
+            # run's under the old stamp. Publish nothing; the page reloads.
+            shutil.rmtree(ds_dir, ignore_errors=True)
+            return _not_publishable("stale")
         with get_conn() as con:
             con.execute(
                 "INSERT INTO datasets (id, workspace_id, name, size_bytes, row_count, column_count, columns_json, "
@@ -455,7 +484,7 @@ def _publish_new(ws_id: str, wf_id: str, name: str, output, cols: list[dict], li
             with get_conn() as con:
                 target = _published_row(con, ws_id, wf_id)
             if target is not None:
-                return _republish(target, output, cols, lineage, now)
+                return _republish(target, output, cols, lineage, now, run_id)
         if _is_unique_violation(exc, "datasets.name") or "idx_datasets_name_unique" in str(exc):
             return JSONResponse(status_code=status.HTTP_409_CONFLICT, content=ApiErrorNameTaken().model_dump())
         raise
@@ -467,26 +496,33 @@ def _publish_new(ws_id: str, wf_id: str, name: str, output, cols: list[dict], li
     )
 
 
-def _republish(target: sqlite3.Row, output, cols: list[dict], lineage: dict, now: str) -> JSONResponse:  # type: ignore[no-untyped-def]
+def _republish(  # type: ignore[no-untyped-def]
+    target: sqlite3.Row, output, cols: list[dict], lineage: dict, now: str, run_id: str
+) -> JSONResponse:
     """Replace the published dataset's rows — a refresh to every reader: stage,
     swap the directory, then bump `data_version` and stamp `refreshed_at` in the
     same UPDATE that records the new columns and lineage (R185's invariant). Any
     failure restores the previous directory."""
     ds_id = target["id"]
     ds_dir = dataset_dir(target["workspace_id"], ds_id)
-    staging_dir = ds_dir.parent / f"{ds_id}.staging"
-    bak_dir = ds_dir.parent / f"{ds_id}.bak"
-    shutil.rmtree(staging_dir, ignore_errors=True)
+    # Per-request names: two publishes at once never share (or delete) each
+    # other's staging or backup directory.
+    token = secrets.token_hex(4)
+    staging_dir = ds_dir.parent / f"{ds_id}.staging-{token}"
+    bak_dir = ds_dir.parent / f"{ds_id}.bak-{token}"
     _carry_forward_hidden(cols, json.loads(target["columns_json"]))
     try:
         row_count = _stage(staging_dir, output, cols)
     except Exception:
         shutil.rmtree(staging_dir, ignore_errors=True)
         raise
+    if _run_moved(lineage["workflowId"], run_id):
+        shutil.rmtree(staging_dir, ignore_errors=True)
+        return _not_publishable("stale")
     size = (staging_dir / "parsed.parquet").stat().st_size
-    if bak_dir.exists():
-        shutil.rmtree(bak_dir, ignore_errors=True)
-    ds_dir.replace(bak_dir)
+    had_dir = ds_dir.exists()  # a dataset directory lost on disk is replaced, not backed up
+    if had_dir:
+        ds_dir.replace(bak_dir)
     try:
         staging_dir.replace(ds_dir)
         with get_conn() as con:
@@ -507,7 +543,8 @@ def _republish(target: sqlite3.Row, output, cols: list[dict], lineage: dict, now
             updated = con.execute("SELECT * FROM datasets WHERE id = ?", (ds_id,)).fetchone()
     except Exception:
         shutil.rmtree(ds_dir, ignore_errors=True)
-        bak_dir.replace(ds_dir)
+        if had_dir:
+            bak_dir.replace(ds_dir)
         shutil.rmtree(staging_dir, ignore_errors=True)
         raise
     shutil.rmtree(bak_dir, ignore_errors=True)

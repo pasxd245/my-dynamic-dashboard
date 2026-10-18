@@ -6,6 +6,7 @@ import {
   EditOutlined,
   FileExcelOutlined,
   FileTextOutlined,
+  PartitionOutlined,
   MergeCellsOutlined,
   PlusOutlined,
   ReloadOutlined,
@@ -79,6 +80,9 @@ function isNotFound(err: unknown): boolean {
 }
 
 function SourceIcon({ format }: { format: Dataset['sourceFormat'] }) {
+  if (format === 'workflow') {
+    return <PartitionOutlined style={{ color: '#722ed1' }} />;
+  }
   if (format === 'excel') {
     return <FileExcelOutlined style={{ color: '#117a3a' }} />;
   }
@@ -431,12 +435,15 @@ export function DatasetDetailPage() {
       <Tag style={{ marginInlineStart: 4 }}>
         {dataset.sourceFormat === 'excel'
           ? t('datasets.detail.formatExcelSheet', { sheet: dataset.sheetName ?? '' })
-          : t('datasets.detail.formatCsv')}
+          : dataset.sourceFormat === 'workflow'
+            ? t('datasets.detail.formatWorkflow')
+            : t('datasets.detail.formatCsv')}
       </Tag>
     </span>
   );
 
-  const subtitle = t('datasets.detail.subtitle', {
+  // R192 — a published dataset was published, not uploaded.
+  const subtitle = t(dataset.sourceFormat === 'workflow' ? 'datasets.detail.subtitlePublished' : 'datasets.detail.subtitle', {
     rows: dataset.rowCount.toLocaleString(i18n.language),
     cols: dataset.columnCount,
     size: formatBytes(dataset.sizeBytes),
@@ -724,7 +731,10 @@ function datasetMetaItems(
     { label: t('datasets.detail.meta.rows'), value: dataset.rowCount.toLocaleString(i18n.language) },
     { label: t('datasets.detail.meta.cols'), value: String(dataset.columnCount) },
     { label: t('datasets.detail.meta.size'), value: formatBytes(dataset.sizeBytes) },
-    { label: t('datasets.detail.meta.uploaded'), value: relativeTime(dataset.createdAt, t) },
+    {
+      label: t(dataset.sourceFormat === 'workflow' ? 'datasets.detail.meta.published' : 'datasets.detail.meta.uploaded'),
+      value: relativeTime(dataset.createdAt, t),
+    },
     // R185 (W-4) — the server's stamp for the rows: which version, and when the
     // rows last changed (= uploaded until the first refresh).
     {

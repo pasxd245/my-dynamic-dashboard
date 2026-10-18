@@ -269,6 +269,7 @@
       "loadingTitle": "Loading dataset…",
       "actions": "Actions",
       "subtitle": "{{rows}} rows · {{cols}} columns · {{size}} · Uploaded {{uploaded}}",
+      "subtitlePublished": "{{rows}} rows · {{cols}} columns · {{size}} · Published {{uploaded}}",
       "formatCsv": "CSV",
       "formatWorkflow": "Workflow",
       "publishedFrom": "Published from workflow",
@@ -312,6 +313,7 @@
         "cols": "Cols",
         "size": "Size",
         "uploaded": "Uploaded",
+        "published": "Published",
         "dataVersion": "Data version",
         "dataVersionValue": "v{{version}} · {{when}}",
         "format": "Format"
@@ -1022,6 +1024,9 @@
   },
   "workflows": {
     "publish": {
+      "block_up_to_date": "This run is already published.",
+      "columnsUnknown": "Couldn't load the dataset's current columns to compare.",
+      "dtype": {"string": "text", "integer": "whole number", "float": "decimal number", "boolean": "true/false", "date": "date", "datetime": "date and time"},
       "publish": "Publish",
       "republish": "Re-publish",
       "block_never_run": "Run this workflow first.",
@@ -1041,7 +1046,7 @@
       "columnAdded": "{{name}} — new",
       "columnRemoved": "{{name}} — removed (queries and widgets that use it will stop working)",
       "columnRetyped": "{{name}} — type changes from {{from}} to {{to}}",
-      "publishedAs": "Published as",
+      "publishedAs": "Published as dataset",
       "publishedMeta": "data version {{version}} · from run #{{run}}",
       "rerunSince": "The workflow was re-run after this was published. Re-publish to update {{name}}.",
       "editedSince": "The workflow was edited after this was published — run it, then re-publish."

@@ -293,6 +293,11 @@ or a widget reads it like any upload — the program's ruling (a′) on Workflow
     that keeps its name keeps its `hidden` flag (as refresh does), and date coverage is profiled
     again. A re-publish whose columns differ is **not** refused — the builder's confirm lists the
     added, removed and retyped columns first (below).
+  - **Re-publishing the run already published changes nothing** — `200` with the dataset as it is,
+    no version bump (nothing downstream reads "refreshed" when no row changed); the builder blocks it
+    with _"This run is already published."_
+  - **A run finishing during the publish** (the output is copied after the stamp was read) →
+    `409 not_publishable` / `stale`, nothing written.
   - The published dataset was deleted → the next publish creates a new one.
 - **Refusals** — `409 not_publishable` with a `reason`; nothing is written:
   - `never_run` — the workflow has no output (never run, or its definition changed since), **or its
@@ -304,8 +309,9 @@ or a widget reads it like any upload — the program's ruling (a′) on Workflow
     refused: it shows as out of date (`source_rerun` / `data_refreshed`) after each re-publish.
 - **What the dataset carries.** `sourceFormat: workflow`; its rows are the output's rows in the
   output's order; its columns are the output's columns (date coverage profiled, R178), including
-  `Source.Query` when the workflow has ≥2 sources (visible — it is the split a reader needs). No
-  `Source.Name` (no file). `sizeBytes` is the parquet's size. **`lineage`** — written by the server
+  `Source.Query` when the workflow has ≥2 sources (visible — it is the split a reader needs). An
+  upload's `Source.Name` that passes through the workflow is **hidden by default** on the first
+  publish, as on the upload (the column was the source file's, not this dataset's). `sizeBytes` is the parquet's size. **`lineage`** — written by the server
   only, copied from the run stamp at publish time: `{workflowId, workflowName, runId, runNumber,
 runAt, definitionHash, sources, publishedAt}` (`runAt` = the run's materialize time, kept because
   the next run overwrites it on the workflow).

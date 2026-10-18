@@ -9,6 +9,7 @@
 
 import { CloudUploadOutlined } from '@ant-design/icons';
 import { Alert, App, Button, Input, Modal, Tooltip, Typography } from 'antd';
+import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
@@ -20,8 +21,10 @@ import { usePublishWorkflowMutation } from './hooks';
 import type { NotPublishableReason, Workflow } from './types';
 
 /** Why publishing would be refused now, or null. `unstamped` is the client's
- *  name for a run before R187: the server answers `never_run` for it. */
-export type PublishBlock = NotPublishableReason | 'unstamped';
+ *  name for a run before R187 (the server answers `never_run`); `up_to_date`
+ *  means this run is already the published one (the server would answer 200
+ *  and change nothing). */
+export type PublishBlock = NotPublishableReason | 'unstamped' | 'up_to_date';
 
 export function publishBlock(workflow: Workflow): PublishBlock | null {
   if (!workflow.materializedAt) return 'never_run';
@@ -29,6 +32,7 @@ export function publishBlock(workflow: Workflow): PublishBlock | null {
   if (workflow.staleSources?.length) return 'stale';
   const target = workflow.published?.datasetId;
   if (target && workflow.run.sources.some((s) => s.dataVersions && target in s.dataVersions)) return 'reads_itself';
+  if (workflow.published && workflow.published.runId === workflow.run.id) return 'up_to_date';
   return null;
 }
 
@@ -58,6 +62,7 @@ function isDiffEmpty(d: ColumnDiff): boolean {
 export function PublishButton({ workflow }: Readonly<{ workflow: Workflow }>) {
   const { t } = useTranslation();
   const { message } = App.useApp();
+  const queryClient = useQueryClient();
   const mutation = usePublishWorkflowMutation();
   const published = workflow.published;
   const block = publishBlock(workflow);
@@ -73,9 +78,14 @@ export function PublishButton({ workflow }: Readonly<{ workflow: Workflow }>) {
       setNameTaken(true);
       return;
     }
-    const reason = err instanceof ApiErrorThrown ? (err.body as { reason?: string }).reason : undefined;
+    const reason = err instanceof ApiErrorThrown && err.body.code === 'not_publishable' ? err.body.reason : undefined;
     message.error(reason ? t(`workflows.publish.block_${reason}`) : t('workflows.publish.failed'));
+    setNameOpen(false);
     setConfirmOpen(false);
+    // The page judged the workflow publishable from data the server just
+    // contradicted (e.g. a source refreshed meanwhile): reload it, so the
+    // button shows the real state and its reason.
+    queryClient.invalidateQueries({ queryKey: ['workflow', workflow.id] });
   };
 
   const publish = (body: { name?: string }) =>
@@ -126,9 +136,12 @@ export function PublishButton({ workflow }: Readonly<{ workflow: Workflow }>) {
   return (
     <>
       {block ? (
-        <Tooltip title={t(`workflows.publish.block_${block}`)}>
-          {/* a disabled button swallows hover — the span carries the tooltip */}
-          <span style={{ display: 'inline-block' }}>{button}</span>
+        <Tooltip title={t(`workflows.publish.block_${block}`)} trigger={['hover', 'focus']}>
+          {/* a disabled button swallows hover and focus — the span carries the
+              tooltip and is focusable, so keyboard users can read the reason */}
+          <span style={{ display: 'inline-block' }} tabIndex={0} aria-label={t(`workflows.publish.block_${block}`)}>
+            {button}
+          </span>
         </Tooltip>
       ) : (
         button
@@ -171,7 +184,8 @@ export function PublishButton({ workflow }: Readonly<{ workflow: Workflow }>) {
         title={t('workflows.publish.confirmTitle')}
         okText={t('workflows.publish.republish')}
         onOk={() => publish({})}
-        okButtonProps={{ loading: mutation.isPending }}
+        // Wait for the dataset's columns, so the column changes are never skipped.
+        okButtonProps={{ loading: mutation.isPending, disabled: !target.data && !target.isError }}
         onCancel={() => !mutation.isPending && setConfirmOpen(false)}
         destroyOnHidden
       >
@@ -200,11 +214,22 @@ export function PublishButton({ workflow }: Readonly<{ workflow: Workflow }>) {
                       <li key={`r-${c}`}>{t('workflows.publish.columnRemoved', { name: c })}</li>
                     ))}
                     {diff.retyped.map((c) => (
-                      <li key={`t-${c.name}`}>{t('workflows.publish.columnRetyped', c)}</li>
+                      <li key={`t-${c.name}`}>
+                        {t('workflows.publish.columnRetyped', {
+                          name: c.name,
+                          from: t(`workflows.publish.dtype.${c.from}`),
+                          to: t(`workflows.publish.dtype.${c.to}`),
+                        })}
+                      </li>
                     ))}
                   </ul>
                 }
               />
+            ) : null}
+            {target.isError ? (
+              <Typography.Text type="warning" data-component="WorkflowRepublishColumnsUnknown">
+                {t('workflows.publish.columnsUnknown')}
+              </Typography.Text>
             ) : null}
           </div>
         ) : null}

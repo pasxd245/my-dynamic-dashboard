@@ -269,3 +269,255 @@ def test_published_dataset_stores_no_original_file() -> None:
     files = sorted(p.name for p in dataset_dir(ws, ds["id"]).iterdir())
     assert files == ["parsed.parquet", "source.json"]
     assert json.loads((dataset_dir(ws, ds["id"]) / "source.json").read_text()) == {"sourceFormat": "workflow"}
+
+
+# --- R192 QA — adversarial ---------------------------------------------------
+
+
+def _two_source(client: TestClient) -> tuple[str, str]:
+    """A workspace with two saved queries over two datasets; a workflow over both, run."""
+    ws, q1 = _query_source(client)
+    up = client.post(
+        "/uploads",
+        data={"sourceFormat": "csv"},
+        files={"file": ("more.csv", b"id,name,amount,signed_up\n9,Zed,10.5,2024-05-01\n", "text/csv")},
+    ).json()
+    ds2 = client.post(
+        f"/workspaces/{ws}/datasets/batch", json={"temp_id": up["temp_id"], "items": [{"name": "more"}]}
+    ).json()[0]["id"]
+    q2 = client.post(
+        f"/workspaces/{ws}/queries",
+        json={"name": "more", "sourceId": ds2, "definition": {"q": None, "filters": [], "advanced": []}},
+    ).json()["id"]
+    wid = client.post(
+        f"/workspaces/{ws}/workflows", json={"name": "two", "definition": {"sources": [q1, q2], "steps": []}}
+    ).json()["id"]
+    assert client.post(f"/workflows/{wid}/run").status_code == 200
+    return ws, wid
+
+
+@pytest.mark.unit
+def test_qa_publish_with_the_output_parquet_missing_on_disk_is_never_run_and_writes_nothing() -> None:
+    from app.storage import workflow_dir
+
+    with TestClient(app) as client:
+        ws, qid, wid = _ran(client)
+        (workflow_dir(ws, wid) / "output.parquet").unlink()
+        resp = client.post(f"/workflows/{wid}/publish")
+        n = _dataset_count(client, ws)
+
+    assert resp.status_code == 409 and resp.json() == {"code": "not_publishable", "reason": "never_run"}
+    assert n == 1
+
+
+@pytest.mark.unit
+def test_qa_two_source_workflow_publishes_its_source_query_column_visible() -> None:
+    with TestClient(app) as client:
+        ws, wid = _two_source(client)
+        wf_rows = client.get(f"/workflows/{wid}/rows?unpaged=true").json()
+        ds = client.post(f"/workflows/{wid}/publish").json()
+        ds_rows = client.get(f"/datasets/{ds['id']}/rows?page_size=100").json()
+
+    cols = {c["name"]: c for c in ds["columns"]}
+    assert "Source.Query" in cols and not cols["Source.Query"].get("hidden")
+    assert ds["rowCount"] == wf_rows["total"] == ds_rows["total"] == 4  # 3 + 1
+    assert len(ds["lineage"]["sources"]) == 2
+
+
+@pytest.mark.unit
+def test_qa_republish_after_rename_targets_the_same_dataset_and_after_delete_creates_a_new_one() -> None:
+    with TestClient(app) as client:
+        ws, qid, wid = _ran(client)
+        first = client.post(f"/workflows/{wid}/publish").json()
+        assert client.patch(f"/datasets/{first['id']}", json={"name": "renamed"}).status_code == 200
+        client.post(f"/workflows/{wid}/run")
+        again = client.post(f"/workflows/{wid}/publish", json={"name": "ignored"})
+        published = client.get(f"/workflows/{wid}").json()["published"]
+        assert client.delete(f"/datasets/{first['id']}").status_code == 204
+        fresh = client.post(f"/workflows/{wid}/publish", json={"name": "fresh"})
+        n = _dataset_count(client, ws)
+
+    assert again.status_code == 200
+    assert again.json()["id"] == first["id"] and again.json()["name"] == "renamed"
+    assert again.json()["dataVersion"] == 2
+    assert published["datasetName"] == "renamed"
+    assert fresh.status_code == 201
+    assert fresh.json()["id"] != first["id"] and fresh.json()["dataVersion"] == 1
+    assert n == 2
+
+
+@pytest.mark.unit
+def test_qa_two_workflows_publish_two_datasets_in_one_workspace() -> None:
+    with TestClient(app) as client:
+        ws, qid = _query_source(client)
+        a = _create(client, ws, qid, name="a", steps=_NO_STEPS).json()["id"]
+        b = _create(client, ws, qid, name="b", steps=[_STEP]).json()["id"]
+        client.post(f"/workflows/{a}/run")
+        client.post(f"/workflows/{b}/run")
+        ra = client.post(f"/workflows/{a}/publish")
+        rb = client.post(f"/workflows/{b}/publish")
+        ra2 = client.post(f"/workflows/{a}/publish")
+        pa = client.get(f"/workflows/{a}").json()["published"]
+        pb = client.get(f"/workflows/{b}").json()["published"]
+        n = _dataset_count(client, ws)
+
+    assert (ra.status_code, rb.status_code, ra2.status_code) == (201, 201, 200)
+    assert ra.json()["id"] != rb.json()["id"]
+    assert ra2.json()["id"] == ra.json()["id"]
+    assert pa["datasetId"] == ra.json()["id"] and pb["datasetId"] == rb.json()["id"]
+    assert pb["dataVersion"] == 1  # a's re-publish did not touch b's dataset
+    assert n == 3
+
+
+@pytest.mark.unit
+def test_qa_publish_name_case_collision_behaves_like_an_upload_commit() -> None:
+    with TestClient(app) as client:
+        ws, qid, wid = _ran(client)  # the upload is named "leads"
+        up = client.post(
+            "/uploads", data={"sourceFormat": "csv"}, files={"file": ("x.csv", b"a\n1\n", "text/csv")}
+        ).json()
+        upload_case = client.post(
+            f"/workspaces/{ws}/datasets/batch", json={"temp_id": up["temp_id"], "items": [{"name": "LEADS"}]}
+        )
+        publish_case = client.post(f"/workflows/{wid}/publish", json={"name": "Leads"})
+
+    # Whatever the upload commit does with a case-different name, publish does the same.
+    assert (upload_case.status_code == 409) == (publish_case.status_code == 409), (
+        upload_case.status_code,
+        publish_case.status_code,
+    )
+
+
+@pytest.mark.unit
+def test_qa_aggregate_over_the_published_dataset_matches_the_workflow_rows() -> None:
+    with TestClient(app) as client:
+        ws, qid, wid = _ran(client, steps=[_STEP])
+        wf_rows = client.get(f"/workflows/{wid}/rows?unpaged=true").json()
+        ds = client.post(f"/workflows/{wid}/publish").json()
+        q = client.post(
+            f"/workspaces/{ws}/queries",
+            json={"name": "pub", "sourceId": ds["id"], "definition": {"q": None, "filters": [], "advanced": []}},
+        ).json()["id"]
+        agg = client.post(
+            f"/queries/{q}/aggregate", json={"dimensions": [], "measures": [{"col": "amount", "agg": "sum"}]}
+        )
+        by = client.post(
+            f"/queries/{q}/aggregate", json={"dimensions": ["name"], "measures": [{"col": "amount", "agg": "sum"}]}
+        )
+
+    assert agg.status_code == 200, agg.text
+    validate_response("queries/aggregate.contract.yaml", 200, agg.json())
+    wf_total = sum(float(r[1]) for r in wf_rows["rows"])  # [name, amount]
+    assert abs(float(agg.json()["rows"][0][0]) - wf_total) < 1e-9
+    assert {r[0]: float(r[1]) for r in by.json()["rows"]} == {r[0]: float(r[1]) for r in wf_rows["rows"]}
+
+
+@pytest.mark.unit
+def test_qa_dataset_list_with_a_published_dataset_validates_against_its_contract() -> None:
+    with TestClient(app) as client:
+        ws, qid, wid = _ran(client)
+        client.post(f"/workflows/{wid}/publish")
+        client.post(f"/workflows/{wid}/run")
+        client.post(f"/workflows/{wid}/publish")
+        listed = client.get(f"/datasets?workspace_id={ws}")
+        detail = client.get(f"/datasets/{[d for d in listed.json() if d['sourceFormat'] == 'workflow'][0]['id']}")
+
+    assert listed.status_code == 200
+    validate_response("datasets/get.contract.yaml", 200, listed.json())
+    validate_response("datasets/detail-get.contract.yaml", 200, detail.json())
+    pub = [d for d in listed.json() if d["sourceFormat"] == "workflow"]
+    assert len(pub) == 1 and pub[0]["lineage"]["runNumber"] == 2 and pub[0]["dataVersion"] == 2
+    assert "publishedWorkflowId" not in pub[0] and "published_workflow_id" not in pub[0]
+
+
+@pytest.mark.unit
+def test_qa_a_workflow_over_another_workflow_publishes_with_the_upstream_in_lineage() -> None:
+    with TestClient(app) as client:
+        ws, qid, up_wid = _ran(client)
+        down = client.post(
+            f"/workspaces/{ws}/workflows", json={"name": "down", "definition": {"sources": [up_wid], "steps": []}}
+        ).json()["id"]
+        assert client.post(f"/workflows/{down}/run").status_code == 200
+        ds = client.post(f"/workflows/{down}/publish")
+        client.post(f"/workflows/{up_wid}/run")  # upstream re-ran → downstream is out of date
+        stale = client.post(f"/workflows/{down}/publish")
+        version = client.get(f"/datasets/{ds.json()['id']}").json()["dataVersion"]
+
+    assert ds.status_code == 201, ds.text
+    assert [s["id"] for s in ds.json()["lineage"]["sources"]] == [up_wid]
+    assert stale.status_code == 409 and stale.json()["reason"] == "stale"
+    assert stale.json()["staleSources"][0]["reason"] == "source_rerun"
+    assert version == 1
+
+
+@pytest.mark.unit
+def test_republishing_the_same_run_changes_nothing() -> None:
+    """R192 review — re-publishing the run that is already published answers the
+    dataset as it is: no version bump, so nothing downstream reads "refreshed"."""
+    with TestClient(app) as client:
+        ws, qid, wid = _ran(client)
+        first = client.post(f"/workflows/{wid}/publish").json()
+        again = client.post(f"/workflows/{wid}/publish")
+
+    assert again.status_code == 200
+    assert again.json()["dataVersion"] == first["dataVersion"] == 1
+    assert again.json()["refreshedAt"] == first["refreshedAt"]
+
+
+@pytest.mark.unit
+def test_an_uploads_file_name_column_stays_hidden_when_published() -> None:
+    """R192 review (BA F-2) — `Source.Name` passing through the workflow is hidden
+    on the published dataset, as on the upload."""
+    with TestClient(app) as client:
+        ws, qid, wid = _ran(client)
+        ds = client.post(f"/workflows/{wid}/publish").json()
+
+    cols = {c["name"]: c for c in ds["columns"]}
+    assert cols["Source.Name"].get("hidden") is True
+    assert not cols["name"].get("hidden")
+
+
+@pytest.mark.unit
+def test_a_run_finishing_during_the_publish_refuses_it(monkeypatch: pytest.MonkeyPatch) -> None:
+    """R192 review (R2) — the output is copied after the stamp was read; if the
+    workflow ran again meanwhile, the copy may be the new run's rows under the old
+    stamp. The publish is refused as stale and writes nothing."""
+    import app.routers.workflows as wf_router
+
+    with TestClient(app) as client:
+        ws, qid, wid = _ran(client)
+        real_stage = wf_router._stage
+
+        def stage_then_rerun(dest_dir, output, cols):  # type: ignore[no-untyped-def]
+            n = real_stage(dest_dir, output, cols)
+            with db.get_conn() as con:
+                con.execute("UPDATE workflows SET run_id = 'run_99999999' WHERE id = ?", (wid,))
+                con.commit()
+            return n
+
+        monkeypatch.setattr(wf_router, "_stage", stage_then_rerun)
+        resp = client.post(f"/workflows/{wid}/publish")
+        n = _dataset_count(client, ws)
+
+    assert resp.status_code == 409 and resp.json() == {"code": "not_publishable", "reason": "stale"}
+    assert n == 1
+
+
+@pytest.mark.unit
+def test_republish_replaces_a_dataset_whose_directory_was_lost() -> None:
+    """R192 review (QA P2-3) — a published dataset whose files vanished from disk
+    is re-published into place instead of failing with a 500."""
+    import shutil
+
+    from app.storage import dataset_dir
+
+    with TestClient(app) as client:
+        ws, qid, wid = _ran(client)
+        ds = client.post(f"/workflows/{wid}/publish").json()
+        shutil.rmtree(dataset_dir(ws, ds["id"]))
+        client.post(f"/workflows/{wid}/run")
+        again = client.post(f"/workflows/{wid}/publish")
+        rows = client.get(f"/datasets/{ds['id']}/rows").json()
+
+    assert again.status_code == 200 and again.json()["dataVersion"] == 2
+    assert rows["total"] == ds["rowCount"]
