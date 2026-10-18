@@ -102,8 +102,10 @@ export const queriesApi = {
       await throwApiError(resp);
     }
     const disposition = resp.headers.get('content-disposition') ?? '';
+    // R194 — a non-ASCII title rides in RFC 5987 `filename*=UTF-8''…`; prefer it.
+    const utf8 = /filename\*=UTF-8''([^;]+)/i.exec(disposition);
     const m = /filename="([^"]+)"/.exec(disposition);
-    const filename = m?.[1] ?? `export.${body.format}`;
+    const filename = (utf8 ? decodeURIComponent(utf8[1]) : m?.[1]) ?? `export.${body.format}`;
     return { blob: await resp.blob(), filename };
   },
 

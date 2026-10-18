@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_serializer, model_validator
+from pydantic import StrictFloat, StrictInt, StrictStr, BaseModel, ConfigDict, Field, model_serializer, model_validator
 
 from app._generated.constants import ERROR_CODES, ID_PATTERNS, NAME_LENGTHS
 from app.markdown_safe import MARKDOWN_MAX_CHARS, markdown_problems
@@ -399,7 +399,9 @@ class DashboardRef(BaseModel):
     widgetId: Annotated[str, Field(pattern=ID_PATTERNS["widget"])]  # noqa: N815
 
 
-ParamValues = Annotated[dict[ParamName, int | float | str], Field(max_length=24)]
+# Keys are free (an undeclared name is ignored, D5); values strictly a JSON
+# string or number — `true` is not 1 (code review P2-2).
+ParamValues = Annotated[dict[str, StrictInt | StrictFloat | StrictStr], Field(max_length=24)]
 
 
 class FilterAtom(BaseModel):

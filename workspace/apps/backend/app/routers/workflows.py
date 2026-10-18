@@ -56,7 +56,7 @@ from app.models.common import (
 )
 from app.metadata import definition_version
 from app.workflow_runs import new_run_id, stale_sources, stamp_sources
-from app.params import ParamError, check_workflow_steps
+from app.params import ParamError, check_workflow_steps, one_today
 from app.query_engine import _step_plan, build_consolidated_relation
 from app.saved_copies import read_only_refusal
 from app.routers._shared import RowsPage, _carry_forward_hidden, _dataset_from_row, _is_unique_violation, _now_iso
@@ -299,13 +299,16 @@ def run_workflow(id: WfIdPath) -> JSONResponse:  # noqa: A002
         definition = json.loads(row["definition_json"])
         sources = definition["sources"]  # R135 — ≥1; consolidated via UNION ALL BY NAME
         steps = definition.get("steps") or []
-        consolidated, reason = build_consolidated_relation(con, sources, workspace_id)
-        # R187 — stamp what this run reads, from the same connection that resolved it.
-        stamp = (
-            {"definitionHash": definition_version(definition), "sources": stamp_sources(con, sources, workspace_id)}
-            if reason is None
-            else None
-        )
+        # R194 — one "today" for the whole run: the sources resolve their defaults and
+        # the stamp records them on the same day.
+        with one_today():
+            consolidated, reason = build_consolidated_relation(con, sources, workspace_id)
+            # R187 — stamp what this run reads, from the same connection that resolved it.
+            stamp = (
+                {"definitionHash": definition_version(definition), "sources": stamp_sources(con, sources, workspace_id)}
+                if reason is None
+                else None
+            )
 
     if reason is not None and reason.get("param_unbound") is not None:
         # R194 (D6) — a source uses a parameter with no default: a run uses defaults

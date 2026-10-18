@@ -91,7 +91,11 @@ components:
         A date is `YYYY-MM-DD`; a number may be sent as a numeric string (the
         GET form `p.n=5`). An entry the query does not declare — or declares but
         does not use — is ignored (and not echoed): one dashboard URL's values
-        reach widgets whose queries use different parameters (D5).
+        reach widgets whose queries use different parameters (D5). An empty value
+        counts as none (the next level applies). On `GET /rows` a repeated `p.`
+        key takes its last value. Values are strictly a JSON string or number
+        (`true` is not `1`); a number is ASCII decimal within ±2^63, and on an
+        integer column it must be whole (`param_invalid` otherwise).
       maxProperties: 24
       additionalProperties:
         type: [string, number]

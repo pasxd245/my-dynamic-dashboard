@@ -27,7 +27,7 @@ from pathlib import Path
 from typing import Any, ClassVar, Literal
 
 import yaml
-from pydantic import BaseModel, field_validator, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from pydantic_settings import (
     BaseSettings,
     PydanticBaseSettingsSource,

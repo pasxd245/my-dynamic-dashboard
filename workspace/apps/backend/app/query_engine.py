@@ -176,7 +176,7 @@ def _resolve_query_source(
     # R194 (D6) — a query read as a workflow source runs on its DEFAULTS only; a
     # used parameter without one refuses the source, naming it and the source.
     try:
-        param_values, _resolved = qparams.resolve(base_def)
+        param_values, resolved_params = qparams.resolve(base_def)
     except qparams.ParamError as err:
         return None, ParamUnbound(err.body["param"], source_id, err.body.get("label"))
     payload, reason = _resolve_chain(
@@ -184,7 +184,10 @@ def _resolve_query_source(
     )
     if reason is not None:
         return None, reason
-    base_def = qparams.bind(base_def, param_values, payload["effective"])
+    try:
+        base_def = qparams.bind(base_def, param_values, payload["effective"], resolved_params)
+    except qparams.ParamError:
+        return None, "query_stale"  # a saved default no longer fits (drift)
     # The base's OWN filters define its virtual table (baked into the sub-relation).
     try:
         b_filters, b_advanced = build_definition_predicates(base_def, payload["effective"])

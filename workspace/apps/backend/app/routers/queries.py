@@ -20,6 +20,7 @@ from __future__ import annotations
 import json
 import secrets
 import sqlite3
+from urllib.parse import quote
 from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Query, Request, status
@@ -87,7 +88,7 @@ def _bound(definition: dict, viewer: dict | None, dashboard: dict | None, column
     """R194 — resolve the used parameters (viewer → dashboard → default) and bind a
     copy of the definition; raises ``qparams.ParamError`` (→ 422)."""
     values, resolved = qparams.resolve(definition, viewer=viewer, dashboard=dashboard)
-    return qparams.bind(definition, values, columns), resolved
+    return qparams.bind(definition, values, columns, resolved), resolved
 
 
 def _with_resolved(content: dict, resolved: dict) -> dict:
@@ -270,7 +271,7 @@ def run_query(  # noqa: A002
         definition = json.loads(qrow["definition_json"])
         chain = _chain_of(definition)
         plan, reason = _resolve_plan(con, qrow["source_id"], chain, _rels_of(definition), qrow["workspace_id"])
-        dash_values = qparams.dashboard_values(con, dash_ref, qrow["workspace_id"], ["query", "dashboard"])
+        dash_values = qparams.dashboard_values(con, dash_ref, qrow, ["query", "dashboard"])
 
     if reason == "source_missing":
         # Defensive: the app-level cascade (R79) removes queries when their source
@@ -357,7 +358,7 @@ def aggregate_query(id: QueryIdPath, body: AggregateBody) -> JSONResponse:  # no
         chain = _chain_of(definition)
         plan, reason = _resolve_plan(con, qrow["source_id"], chain, _rels_of(definition), qrow["workspace_id"])
         dash_values = qparams.dashboard_values(
-            con, body.dashboard.model_dump() if body.dashboard else None, qrow["workspace_id"], ["body", "dashboard"]
+            con, body.dashboard.model_dump() if body.dashboard else None, qrow, ["body", "dashboard"]
         )
 
     if reason == "source_missing":
@@ -415,7 +416,7 @@ def _final_relation(
         chain = _chain_of(definition)
         plan, reason = _resolve_plan(con, qrow["source_id"], chain, _rels_of(definition), qrow["workspace_id"])
         name = qrow["name"]
-        dash_values = qparams.dashboard_values(con, dashboard, qrow["workspace_id"], ["body", "dashboard"])
+        dash_values = qparams.dashboard_values(con, dashboard, qrow, ["body", "dashboard"])
 
     if reason == "source_missing":
         return None, JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=ApiErrorNotFound().model_dump())
@@ -572,12 +573,22 @@ def export_query(id: QueryIdPath, body: ExportBody) -> Response:  # noqa: A002
     stem = (
         "".join(ch if ch.isalnum() or ch in "-_ " else "_" for ch in title).strip().replace(" ", "_")[:60] or "export"
     )
+    # A non-Latin title (e.g. Vietnamese) cannot ride in a plain header: an ASCII
+    # fallback name plus the RFC 5987 UTF-8 one (QA R194 — pre-existing 500).
+    ascii_stem = stem.encode("ascii", "replace").decode("ascii").replace("?", "_")
+
+    def disposition(ext: str) -> str:
+        plain = f'attachment; filename="{ascii_stem}.{ext}"'
+        if ascii_stem == stem:
+            return plain
+        return f"{plain}; filename*=UTF-8''{quote(f'{stem}.{ext}', safe='')}"
+
     if body.format == "csv":
         data = build_csv(columns, rows, totals_row, "Total", totalled=totalled)
         return Response(
             content=data,
             media_type="text/csv; charset=utf-8",
-            headers={"Content-Disposition": f'attachment; filename="{stem}.csv"', **param_headers},
+            headers={"Content-Disposition": disposition("csv"), **param_headers},
         )
     data = build_xlsx(
         columns,
@@ -595,7 +606,7 @@ def export_query(id: QueryIdPath, body: ExportBody) -> Response:  # noqa: A002
     return Response(
         content=data,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f'attachment; filename="{stem}.xlsx"', **param_headers},
+        headers={"Content-Disposition": disposition("xlsx"), **param_headers},
     )
 
 

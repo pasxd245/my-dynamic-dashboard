@@ -20,6 +20,8 @@ calendar day: lower bounds start at 00:00, upper bounds end at 23:59:59.999999
 
 from __future__ import annotations
 
+import contextlib
+import contextvars
 import copy
 import math
 import re
@@ -51,6 +53,10 @@ _FIT = {"date": "date", "datetime": "date", "integer": "number", "float": "numbe
 _END_OF_DAY = {("lte", "val"), ("after", "val"), ("between", "max")}
 _DAY_ONLY_REFUSED = frozenset({"equals", "ne", "in", "not_in"})
 _ISO_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+# A decimal number, ASCII only (no `_` separators, no other scripts' digits).
+_NUMBER = re.compile(r"^[+-]?(\d+(\.\d*)?|\.\d+)([eE][+-]?\d+)?$", re.ASCII)
+_INT_RE = re.compile(r"^[+-]?\d+$", re.ASCII)
+_INT64 = 2**63
 _PLACEHOLDER = {"date": "2000-01-01", "number": 0, "string": "x"}
 
 # The clock "today" is read from — replaced in tests.
@@ -138,8 +144,25 @@ def _save_422(loc: tuple, msg: str) -> HTTPException:
 # --- values -----------------------------------------------------------------
 
 
+_today_override: contextvars.ContextVar[date | None] = contextvars.ContextVar("mdd_param_today", default=None)
+
+
 def today() -> date:
+    pinned = _today_override.get()
+    if pinned is not None:
+        return pinned
     return _clock().astimezone(ZoneInfo(CONFIG.settings.backend.time_zone)).date()
+
+
+@contextlib.contextmanager
+def one_today() -> Iterator[None]:
+    """Pin "today" for the duration of one operation (a workflow run resolves its
+    sources and then stamps them: both must see the same day — code review P2-4)."""
+    token = _today_override.set(today())
+    try:
+        yield
+    finally:
+        _today_override.reset(token)
 
 
 def _is_relative(v: object) -> bool:
@@ -163,11 +186,13 @@ def coerce(ptype: str, raw: object, *, allow_relative: bool) -> str | int | floa
             raise ValueError("number")
         if isinstance(raw, int | float):
             n = raw
-        elif isinstance(raw, str):
-            n = int(raw) if raw.strip().lstrip("+-").isdigit() else float(raw)
+        elif isinstance(raw, str) and _NUMBER.match(raw):
+            n = int(raw) if _INT_RE.match(raw) else float(raw)
         else:
             raise ValueError("number")
         if isinstance(n, float) and not math.isfinite(n):
+            raise ValueError("number")
+        if abs(n) >= _INT64:  # beyond what a column can hold (code review P1-2)
             raise ValueError("number")
         return n
     if not isinstance(raw, str):
@@ -187,16 +212,19 @@ def resolve(
     dashboard = dashboard or {}
     values: dict[str, Any] = {}
     resolved: dict[str, dict] = {}
+    missing: list[dict] = []
     for name in sorted(used(definition)):
         decl = decls.get(name)
         if decl is None:  # an undeclared reference — refused at save; drift on read
-            raise ParamError("param_unbound", name)
+            missing.append({"param": name})
+            continue
         ptype, label = decl["type"], decl.get("label")
         for source, raw, relative in (
             ("viewer", viewer.get(name), False),
             ("dashboard", dashboard.get(name), True),
         ):
-            if raw is None:
+            # An empty value is no value (a cleared control falls back — BA P2-3).
+            if raw is None or raw == "":
                 continue
             try:
                 values[name] = coerce(ptype, raw, allow_relative=relative)
@@ -207,9 +235,16 @@ def resolve(
         else:
             default = decl.get("default")
             if default is None:
-                raise ParamError("param_unbound", name, label=label)
+                missing.append({"param": name, **({"label": label} if label else {})})
+                continue
             values[name] = coerce(ptype, default, allow_relative=True)  # checked at save
             resolved[name] = {"value": values[name], "source": "default"}
+    if missing:
+        # Name the first, and list every one still needing a value (BA P2-2).
+        first = missing[0]
+        raise ParamError(
+            "param_unbound", first["param"], label=first.get("label"), missing=missing if len(missing) > 1 else None
+        )
     return values, resolved
 
 
@@ -238,7 +273,7 @@ def site_dtypes(definition: dict, base_columns: list[dict]) -> dict[tuple, str]:
         else:
             by_step.setdefault(s.step, []).append(s)
     if by_step:
-        steps = bind(definition, placeholders(definition)).get("steps") or []
+        steps = bind_placeholders(definition).get("steps") or []
         cur = base_columns
         for k, step in enumerate(steps):
             by_name = {c["name"]: c["dtype"] for c in cur}
@@ -252,7 +287,12 @@ def site_dtypes(definition: dict, base_columns: list[dict]) -> dict[tuple, str]:
     return out
 
 
-def bind(definition: dict, values: dict[str, Any], base_columns: list[dict] | None = None) -> dict:
+def bind(
+    definition: dict,
+    values: dict[str, Any],
+    base_columns: list[dict] | None = None,
+    resolved: dict[str, dict] | None = None,
+) -> dict:
     """A copy of ``definition`` with every reference replaced by its value. With
     ``base_columns``, a date on a datetime column becomes its day's start or end
     (F3). Without them (column-shape-only paths) the plain value is used. A
@@ -265,10 +305,16 @@ def bind(definition: dict, values: dict[str, Any], base_columns: list[dict] | No
     decls = declared(definition)
     for s in _sites(out):
         op = s.pred.get("op")
+        dtype = dtypes.get(s.loc)
         for suffix, name in list(_refs(s)):
             v = values.get(name)
             if v is None:
                 continue
+            if dtype == "integer" and isinstance(v, float):
+                # A number on an integer column must be a whole one (code review P1-1).
+                if not v.is_integer():
+                    raise _invalid(name, decls, resolved)
+                v = int(v)
             if (
                 dtypes.get(s.loc) == "datetime"
                 and decls.get(name, {}).get("type") == "date"
@@ -279,7 +325,44 @@ def bind(definition: dict, values: dict[str, Any], base_columns: list[dict] | No
                 s.pred["vals"][suffix[1]] = v
             else:
                 s.pred[suffix[0]] = v
+        if op == "between" and resolved is not None:
+            _check_order(s, definition_site(definition, s.loc), values, decls, resolved)
     return out
+
+
+def definition_site(definition: dict, loc: tuple) -> dict:
+    node: Any = definition
+    for part in loc:
+        node = node[part]
+    return node
+
+
+def _invalid(name: str, decls: dict, resolved: dict | None, reason: str | None = None) -> ParamError:
+    decl = decls.get(name, {})
+    source = (resolved or {}).get(name, {}).get("source")
+    return ParamError(
+        "param_invalid",
+        name,
+        label=decl.get("label"),
+        expected=decl.get("type", "number"),
+        source=source if source in ("viewer", "dashboard") else "viewer",
+        reason=reason,
+    )
+
+
+def _check_order(bound: Site, original: dict, values: dict, decls: dict, resolved: dict) -> None:
+    """A ``between`` whose bound came from a parameter must keep ``min <= max`` —
+    a reversed range is the value's fault, not drift (code review P1-3)."""
+    lo, hi = bound.pred.get("min"), bound.pred.get("max")
+    if lo is None or hi is None or not (is_ref(original.get("min")) or is_ref(original.get("max"))):
+        return
+    try:
+        reversed_ = str(lo)[:10] > str(hi)[:10] if isinstance(lo, str) and isinstance(hi, str) else lo > hi
+    except TypeError:
+        return
+    if reversed_:
+        name = original["min"][REF_KEY] if is_ref(original.get("min")) else original["max"][REF_KEY]
+        raise _invalid(name, decls, resolved, reason="range_reversed")
 
 
 def bind_placeholders(definition: dict) -> dict:
@@ -345,6 +428,9 @@ def check(definition: dict, base_columns: list[dict]) -> None:
                 continue  # the column does not resolve — the engine's check names it
             if _FIT.get(dtype) != decl["type"]:
                 raise _save_422(loc, f"param_type: {name!r} ({decl['type']}) does not fit a {dtype} column")
+            default = decl.get("default")
+            if dtype == "integer" and isinstance(default, float) and not default.is_integer():
+                raise _save_422(loc, f"param_default: {name!r} has a default that is not a whole number")
             if dtype == "datetime" and op in _DAY_ONLY_REFUSED:
                 raise _save_422(
                     loc,
@@ -362,7 +448,7 @@ def check_workflow_steps(steps: list[dict]) -> None:
 # --- the dashboard level (D3 level 2) --------------------------------------------
 
 
-def dashboard_values(con: sqlite3.Connection, ref: dict | None, workspace_id: str, loc: list) -> dict[str, Any]:
+def dashboard_values(con: sqlite3.Connection, ref: dict | None, query: sqlite3.Row, loc: list) -> dict[str, Any]:
     """The values saved on ``ref``'s dashboard controls (kind ``param``) that reach
     its widget — read by the server, never asserted by a client (BA contract-exit
     F1). Empty until 3.7b adds ``controls``. An unknown dashboard or widget, or one
@@ -371,6 +457,7 @@ def dashboard_values(con: sqlite3.Connection, ref: dict | None, workspace_id: st
         return {}
     import json
 
+    workspace_id = query["workspace_id"]
     row = con.execute("SELECT workspace_id, definition_json FROM dashboards WHERE id = ?", (ref["id"],)).fetchone()
     definition = json.loads(row["definition_json"]) if row is not None else None
     if row is None or row["workspace_id"] != workspace_id:
@@ -384,13 +471,16 @@ def dashboard_values(con: sqlite3.Connection, ref: dict | None, workspace_id: st
                 }
             ],
         )
-    if not any(w.get("id") == ref["widgetId"] for w in definition.get("widgets") or []):
+    # The widget must show THIS query, or "dashboard" would be a borrowed label (BA/CR P2).
+    if not any(
+        w.get("id") == ref["widgetId"] and w.get("queryId") == query["id"] for w in definition.get("widgets") or []
+    ):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=[
                 {
                     "loc": [*loc, "widgetId"],
-                    "msg": "unknown_widget: not a widget of this dashboard",
+                    "msg": "unknown_widget: no widget of this dashboard shows this query",
                     "type": "value_error",
                 }
             ],

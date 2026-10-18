@@ -500,6 +500,21 @@ components:
         sourceId:
           type: string
           pattern: '^qr_[0-9a-f]{8}$'
+        missing:
+          type: array
+          minItems: 2
+          description: |
+            When more than one used parameter has no value: every one of them
+            (`param` names the first), so a caller can ask for all at once.
+          items:
+            type: object
+            required: [param]
+            additionalProperties: false
+            properties:
+              param:
+                type: string
+              label:
+                type: string
 
     ApiErrorParamInvalid:
       type: object
@@ -525,3 +540,10 @@ components:
           type: string
           enum: [viewer, dashboard]
           description: Which level supplied the value that does not fit.
+        reason:
+          type: string
+          enum: [range_reversed]
+          description: |
+            Present when the value has the right type but cannot be used:
+            `range_reversed` — a `between` whose bound came from this parameter
+            ends before it starts. A number on an integer column must be whole.

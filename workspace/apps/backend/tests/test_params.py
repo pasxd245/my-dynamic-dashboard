@@ -515,3 +515,149 @@ def test_a_workflow_runs_its_sources_on_defaults_and_stamps_them() -> None:
     validate_response("workflows/run-post.contract.yaml", 422, refused.json())
     assert save_bare.status_code == 422 and "as_of" in save_bare.text
     assert step_ref.status_code == 422 and "param_in_workflow" in step_ref.text
+
+
+# --- review round ------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+def test_numbers_on_an_integer_column_must_be_whole_and_in_range() -> None:
+    with TestClient(app) as client:
+        ws, ds, cols = _dataset(client)
+        assert cols[_col(cols, "amount")]["dtype"] == "integer"
+        n_atom = {"col": _col(cols, "amount"), "dtype": "integer", "op": "gte", "val": {"param": "n"}}
+        q = _query(client, ws, ds, {**_EMPTY, "params": [{"name": "n", "type": "number"}], "filters": [n_atom]}).json()[
+            "id"
+        ]
+        whole_float = client.get(f"/queries/{q}/rows?p.n=1e1")
+        half = client.get(f"/queries/{q}/rows?p.n=5.5")
+        huge = client.get(f"/queries/{q}/rows?p.n=" + "9" * 40)
+        underscore = client.get(f"/queries/{q}/rows?p.n=1_0")
+        boolean = client.post(f"/queries/{q}/totals", json={"columns": ["amount"], "params": {"n": True}})
+        bad_default = _query(
+            client,
+            ws,
+            ds,
+            {**_EMPTY, "params": [{"name": "n", "type": "number", "default": 2.5}], "filters": [n_atom]},
+            "bad default",
+        )
+
+    assert whole_float.status_code == 200 and whole_float.json()["total"] == 2
+    for r in (half, huge, underscore):
+        assert r.status_code == 422 and r.json()["code"] == "param_invalid", r.text
+    assert boolean.status_code == 422  # `true` is not 1
+    assert bad_default.status_code == 422 and "param_default" in bad_default.text
+
+
+@pytest.mark.unit
+def test_a_reversed_range_is_the_values_fault() -> None:
+    with TestClient(app) as client:
+        ws, ds, cols = _dataset(client)
+        d = {
+            **_EMPTY,
+            "params": [{"name": "a", "type": "date", "label": "From"}, {"name": "b", "type": "date", "label": "To"}],
+            "filters": [
+                {
+                    "col": _col(cols, "day"),
+                    "dtype": "date",
+                    "op": "between",
+                    "min": {"param": "a"},
+                    "max": {"param": "b"},
+                }
+            ],
+        }
+        q = _query(client, ws, ds, d).json()["id"]
+        reversed_ = client.get(f"/queries/{q}/rows?p.a=2026-10-12&p.b=2026-10-10")
+        both_missing = client.get(f"/queries/{q}/rows")
+        cleared = client.get(f"/queries/{q}/rows?p.a=&p.b=2026-10-10")
+
+    assert reversed_.status_code == 422
+    assert reversed_.json() == {
+        "code": "param_invalid",
+        "param": "a",
+        "label": "From",
+        "expected": "date",
+        "source": "viewer",
+        "reason": "range_reversed",
+    }
+    validate_response("queries/rows-get.contract.yaml", 422, reversed_.json())
+    assert both_missing.json() == {
+        "code": "param_unbound",
+        "param": "a",
+        "label": "From",
+        "missing": [{"param": "a", "label": "From"}, {"param": "b", "label": "To"}],
+    }
+    validate_response("queries/rows-get.contract.yaml", 422, both_missing.json())
+    assert cleared.status_code == 422 and cleared.json()["param"] == "a"  # empty = no value
+
+
+@pytest.mark.unit
+def test_the_dashboard_level_needs_a_widget_showing_this_query_and_beats_the_default() -> None:
+    with TestClient(app) as client:
+        ws, ds, cols = _dataset(client)
+        q = _query(client, ws, ds, _as_of_query(cols, default="2026-10-10")).json()["id"]
+        other = _query(client, ws, ds, _as_of_query(cols, default="2026-10-10"), "other").json()["id"]
+        dsh = client.post(
+            f"/workspaces/{ws}/dashboards",
+            json={
+                "name": "D",
+                "slug": "d",
+                "definition": {
+                    "widgets": [
+                        {
+                            "id": "wdg_00000001",
+                            "queryId": q,
+                            "title": "T",
+                            "chartType": "table",
+                            "agg": "count",
+                            "span": 3,
+                        }
+                    ]
+                },
+            },
+        ).json()["id"]
+        with db.get_conn() as con:
+            d = json.loads(con.execute("SELECT definition_json FROM dashboards WHERE id = ?", (dsh,)).fetchone()[0])
+            d["controls"] = [
+                {
+                    "id": "ctl_00000001",
+                    "kind": "param",
+                    "param": "as_of",
+                    "targets": ["wdg_00000001"],
+                    "saved": {"kind": "today", "offsetDays": 0},
+                }
+            ]
+            con.execute("UPDATE dashboards SET definition_json = ? WHERE id = ?", (json.dumps(d), dsh))
+            con.commit()
+        mine = client.get(f"/queries/{q}/rows?dashboard={dsh}&widget=wdg_00000001")
+        borrowed = client.get(f"/queries/{other}/rows?dashboard={dsh}&widget=wdg_00000001")
+
+    assert mine.json()["resolvedParams"]["as_of"]["source"] == "dashboard"  # beats the default
+    assert borrowed.status_code == 422 and "unknown_widget" in borrowed.text
+
+
+@pytest.mark.unit
+def test_a_published_dataset_carries_the_values_in_its_lineage() -> None:
+    with TestClient(app) as client:
+        ws, ds, cols = _dataset(client)
+        q = _query(client, ws, ds, _as_of_query(cols, default="2026-10-11")).json()["id"]
+        wf = client.post(
+            f"/workspaces/{ws}/workflows", json={"name": "wf", "definition": {"sources": [q], "steps": []}}
+        )
+        client.post(f"/workflows/{wf.json()['id']}/run")
+        pub = client.post(f"/workflows/{wf.json()['id']}/publish")
+
+    assert pub.status_code == 201, pub.text
+    assert pub.json()["lineage"]["sources"][0]["params"] == {"as_of": "2026-10-11"}
+
+
+@pytest.mark.unit
+def test_an_export_title_in_vietnamese_downloads() -> None:
+    with TestClient(app) as client:
+        ws, ds, cols = _dataset(client)
+        q = _query(client, ws, ds, _EMPTY).json()["id"]
+        r = client.post(f"/queries/{q}/export", json={"format": "csv", "title": "Đơn hàng"})
+
+    assert r.status_code == 200
+    disp = r.headers["content-disposition"]
+    assert disp.startswith('attachment; filename="') and "filename*=UTF-8''" in disp
