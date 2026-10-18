@@ -473,6 +473,7 @@ def export_query(id: QueryIdPath, body: ExportBody) -> Response:  # noqa: A002
                 n, d = num(sums.get(spec.num or "")), num(sums.get(spec.den or ""))
                 totals_row[ci] = None if n is None or d in (None, 0) else n / d  # type: ignore[operator]
 
+    totalled = frozenset(body.totals or {})
     title = body.title or relation["name"]
     # R175's table rule, server-side: under `percent`, a float column whose
     # values all lie in [-1, 1] is a ratio, as is every `ratio` total's column.
@@ -491,7 +492,7 @@ def export_query(id: QueryIdPath, body: ExportBody) -> Response:  # noqa: A002
         "".join(ch if ch.isalnum() or ch in "-_ " else "_" for ch in title).strip().replace(" ", "_")[:60] or "export"
     )
     if body.format == "csv":
-        data = build_csv(columns, rows, totals_row, "Total")
+        data = build_csv(columns, rows, totals_row, "Total", totalled=totalled)
         return Response(
             content=data,
             media_type="text/csv; charset=utf-8",
@@ -507,6 +508,7 @@ def export_query(id: QueryIdPath, body: ExportBody) -> Response:  # noqa: A002
         filters=dashboard_filters,
         meta=[("query", relation["name"]), ("widget", title), ("exported_at", _now_iso()), ("rows", str(total))],
         filters_sheet_title="Filters",
+        totalled=totalled,
     )
     return Response(
         content=data,

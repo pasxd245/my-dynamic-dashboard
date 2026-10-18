@@ -34,10 +34,12 @@ import {
   aggregateScalar,
   applyFilters,
   BLANK_LABEL,
+  countByGroup,
   findColIndex,
   labelOf,
   sortByDimension,
   sortDesc,
+  sumByGroup,
   sumTwoMeasures,
   toNum,
   toScatterPoints,
@@ -53,6 +55,7 @@ const GaugeView = lazy(() => import('./GaugeView'));
 import { ChartCard } from './ChartCard';
 import { SafeMarkdown } from './SafeMarkdown';
 import { useQueryQuery } from '@/features/data-management/queries/hooks';
+import { ApiErrorThrown } from '@/features/data-management/_shared/types';
 import { useChartPalette, useWidgetAggregate, useWidgetData, useWidgetTotals } from './hooks';
 import { computeTotals, totalsColumns } from './totals';
 import type { AggregateMeasure, AggregateRequest } from '@/features/data-management/queries/types';
@@ -351,7 +354,8 @@ function TableView({
   /** R177 — rows per page, scaled with the widget's height. */
   pageSize?: number;
   /** R181 — footer values by column name (server sums / derived ratios);
-   *  absent → no footer. A spec'd column still loading shows `…`. */
+   *  absent → no footer. A spec'd column with no value yet (loading, or a
+   *  ratio over 0) renders blank. */
   totals?: Readonly<Record<string, number | null>>;
   totalLabel?: string;
 }>) {
@@ -382,7 +386,8 @@ function TableView({
                 const v = has ? totals[c.name] : undefined;
                 let text = '';
                 if (ci === 0 && !has) text = totalLabel;
-                else if (has) text = v === null || v === undefined ? '' : formatTotal(v, c.dtype, percent, ratio[ci] ?? false);
+                else if (has)
+                  text = v === null || v === undefined ? '' : formatTotal(v, c.dtype, percent, ratio[ci] ?? false);
                 return (
                   <Table.Summary.Cell
                     key={String(ci)}
@@ -486,11 +491,7 @@ export function useWidgetChartData(
   // server aggregate and take the raw-rows client path directly (same rendered
   // result, no 422). Unknown dtype (measure not in resolvedColumns) → keep the
   // prior behaviour (attempt it), so this only removes provably-doomed requests.
-  const measureNumericOk = serverAggregateSupportsMeasure(
-    aggKind,
-    widget.measureCol,
-    boundQuery.data?.resolvedColumns,
-  );
+  const measureNumericOk = serverAggregateSupportsMeasure(aggKind, widget.measureCol, boundQuery.data?.resolvedColumns);
   // R175 — decide only once the bound query is KNOWN: while its definition is
   // loading `preShaped` reads false, so a stepped query fired a server aggregate
   // that 422'd (its measure is a post-step column) before the widget switched to
@@ -498,7 +499,8 @@ export function useWidgetChartData(
   const aggregateEnabled = usesAggregate && specValid && boundQuery.isSuccess && !preShaped && measureNumericOk;
   const directShaped = usesAggregate && specValid && preShaped;
 
-  const measures: AggregateMeasure[] = aggKind === 'count' ? [{ agg: 'count' }] : [{ col: widget.measureCol, agg: 'sum' }];
+  const measures: AggregateMeasure[] =
+    aggKind === 'count' ? [{ agg: 'count' }] : [{ col: widget.measureCol, agg: 'sum' }];
   const aggBody: AggregateRequest = {
     dimensions: isScalar || !widget.dimensionCol ? [] : [widget.dimensionCol],
     measures,
@@ -580,7 +582,22 @@ export function useWidgetChartData(
       const datums: Datum[] = rows.map((r) => ({ label: labelOf(r[dimIdx]), value: toNum(r[valueIdx]) }));
       chartData = widget.chartType === 'line' ? sortByDimension(datums, dimDtype) : sortDesc(datums);
     }
+  } else if (usesAggregate && specValid && boundQuery.isSuccess && !measureNumericOk) {
+    // R191 — the measure is known to be non-numeric, so the server `sum` was
+    // skipped (R151/F13). Roll the raw rows up on the client — the fallback the
+    // comments above always promised; without it the card read "empty".
+    if (isScalar) {
+      statValue = rows.length === 0 ? null : aggregateScalar(rows, measureIdx, aggKind);
+    } else if (dimIdx !== -1) {
+      const dimDtype = data.columns[dimIdx]?.dtype ?? 'string';
+      const datums = aggKind === 'count' ? countByGroup(rows, dimIdx) : sumByGroup(rows, dimIdx, measureIdx);
+      chartData = widget.chartType === 'line' ? sortByDimension(datums, dimDtype) : sortDesc(datums);
+    }
   }
+
+  // R191 — a bound query that no longer exists (404) is its own state, not a
+  // generic error: the card says "query unavailable".
+  const isMissingQuery = boundQuery.error instanceof ApiErrorThrown && boundQuery.error.body.code === 'not_found';
 
   return {
     ...data,
@@ -590,6 +607,7 @@ export function useWidgetChartData(
     isLoading: (aggregateEnabled ? agg.isLoading : data.isLoading) || boundQuery.isLoading,
     isError: aggregateEnabled ? agg.isError : data.isError,
     capped: aggregateEnabled ? false : data.capped,
+    isMissingQuery,
     chartData,
     statValue,
     multiSeries,
@@ -648,6 +666,7 @@ function ChartWidgetView({ widget, extra, filters }: WidgetViewProps) {
     tableData,
     isLoading,
     isError,
+    isMissingQuery,
     capped,
     total,
   } = useWidgetChartData(widget, filters);
@@ -715,7 +734,7 @@ function ChartWidgetView({ widget, extra, filters }: WidgetViewProps) {
       title={widget.title}
       isLoading={isLoading}
       isError={isError}
-      isMissingQuery={false}
+      isMissingQuery={isMissingQuery}
       isEmpty={isEmpty}
       extra={extra}
       warning={capWarning}

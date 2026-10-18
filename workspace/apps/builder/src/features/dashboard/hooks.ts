@@ -158,8 +158,8 @@ export type FilterOption = { column: string; values: string[] };
 
 /**
  * R103 — ONE widget's filterable columns + distinct values (categorical only,
- * v1), read from its own `useWidgetData` (shared cache with the widget's
- * render). Powers the per-widget filter drawer: each widget filters on its OWN
+ * v1), read from its own raw `useWidgetData` fetch (an aggregating widget
+ * renders from the server aggregate, so this is a fetch of its own). Powers the per-widget filter drawer: each widget filters on its OWN
  * columns, so there's no cross-widget column-matching ambiguity. Empty until
  * the widget's data has loaded (or when it has no categorical columns).
  */

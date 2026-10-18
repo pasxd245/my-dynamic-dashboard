@@ -49,8 +49,9 @@ export type DashboardDefinitionWire = {
   widgets: readonly WidgetWire[];
 };
 
-/** A dashboard as returned by the API. `name` unique per-workspace; `slug`
- *  unique globally (the URL routing key); `createdAt` server-stamped. */
+/** A dashboard as returned by the API. `name` and `slug` are each unique
+ *  per workspace (the route is `/dashboards/<workspaceId>/<slug>`);
+ *  `createdAt` server-stamped. */
 export type DashboardWire = {
   id: string;
   workspaceId: string;

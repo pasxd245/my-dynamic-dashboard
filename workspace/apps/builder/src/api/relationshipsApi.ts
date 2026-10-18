@@ -7,8 +7,8 @@ import type {
 } from '@/features/data-management/relationships/types';
 
 // R70 — relationship governance API client. Mirrors queriesApi conventions
-// (single appConfig base, ApiErrorThrown on structured 4xx). Four routes:
-// declare / list / get / delete — governance only, no /rows (joins are R71).
+// (single appConfig base, ApiErrorThrown on structured 4xx). Five routes:
+// declare / list / get / delete / check (R183) — no /rows (joins are R71).
 // See workspace/packages/contracts/relationships/*.
 const API_BASE_URL = appConfig.apiBaseUrl();
 
@@ -19,6 +19,33 @@ async function readJson<T>(resp: Response): Promise<T> {
   return (await resp.json()) as T;
 }
 
+/** R191 — the declare route refuses a bad edge with the FastAPI 422 envelope,
+ *  its `msg` led by a code (`routers/relationships.py`). Lifted into a typed
+ *  error so the modal can say WHY instead of "Request failed: 422". */
+export type RelationshipDeclareCode = 'self_join' | 'unknown_dataset' | 'unknown_column' | 'incompatible_join_keys';
+
+export class RelationshipDeclareError extends Error {
+  readonly code: RelationshipDeclareCode;
+  readonly detail: string;
+
+  constructor(code: RelationshipDeclareCode, detail: string) {
+    super(`${code}: ${detail}`);
+    this.name = 'RelationshipDeclareError';
+    this.code = code;
+    this.detail = detail;
+  }
+}
+
+const DECLARE_MSG = /^(self_join|unknown_dataset|unknown_column|incompatible_join_keys): (.*)$/s;
+
+function declareError(parsed: unknown): RelationshipDeclareError | null {
+  const detail = (parsed as { detail?: unknown } | null)?.detail;
+  if (!Array.isArray(detail) || detail.length === 0) return null;
+  const msg = (detail[0] as { msg?: unknown }).msg;
+  const m = typeof msg === 'string' ? DECLARE_MSG.exec(msg) : null;
+  return m ? new RelationshipDeclareError(m[1] as RelationshipDeclareCode, m[2] ?? '') : null;
+}
+
 /** Parse a 4xx body as `ApiError` when shaped that way; otherwise a generic
  *  Error. `relationship_exists` (409) and `not_found` (404) both surface here
  *  as `ApiErrorThrown`, so callers branch on `err.body.code`. */
@@ -27,11 +54,13 @@ async function throwApiError(resp: Response): Promise<never> {
   try {
     parsed = await resp.json();
   } catch {
-    // Non-JSON 4xx (e.g. the FastAPI 422 envelope) — generic throw.
+    // Non-JSON 4xx — generic throw.
   }
   if (isApiError(parsed)) {
     throw new ApiErrorThrown(resp.status, parsed);
   }
+  const declare = resp.status === 422 ? declareError(parsed) : null;
+  if (declare) throw declare;
   throw new Error(`Request failed: ${resp.status} ${resp.statusText}`);
 }
 

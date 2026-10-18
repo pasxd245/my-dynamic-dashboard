@@ -90,4 +90,19 @@ describe('draftToConfig — R177 rows', () => {
     expect(draftToConfig({ ...sumDraft, rows: 2 })).toMatchObject({ span: 2, rows: 2 });
     expect(draftToConfig({ ...sumDraft, rows: 3 }).rows).toBe(3);
   });
+
+  // R191 — combo / scatter carry `measureCol`, which the backend refuses with
+  // `count`: a count draft switched to either kind must save as `sum`.
+  it.each(['combo', 'scatter'] as const)('saves a count draft switched to %s as sum', (chartType) => {
+    const cfg = draftToConfig({
+      ...sumDraft,
+      chartType,
+      agg: 'count',
+      measureCol: 'amount',
+      measureCol2: 'cost',
+    });
+    expect(cfg.agg).toBe('sum');
+    expect(cfg.measureCol).toBe('amount');
+    expect(cfg.measureCol2).toBe('cost');
+  });
 });

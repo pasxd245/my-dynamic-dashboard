@@ -1,6 +1,6 @@
 # Shared schema: Dataset
 # Used by: datasets/batch-post (response), datasets/get (response items)
-# Matches the data model in .agents/design/data-management/datasets.md.
+# Matches the data model in .agents/design/data-management/datasets/datasets.md.
 components:
   schemas:
     SourceFormat:
@@ -30,12 +30,12 @@ components:
       properties:
         id:
           type: string
-          pattern: "^ds_[0-9a-f]{8}$"
+          pattern: '^ds_[0-9a-f]{8}$'
           description: Server-generated. Format `ds_<8 lowercase hex>`.
-          examples: ["ds_71a4e2f0"]
+          examples: ['ds_71a4e2f0']
         workspaceId:
           type: string
-          pattern: "^ws_[0-9a-f]{8}$"
+          pattern: '^ws_[0-9a-f]{8}$'
           description: Foreign key to the containing workspace.
         name:
           type: string
@@ -44,7 +44,7 @@ components:
           description: |
             User-supplied in the wizard's Confirm step. Defaults to the
             filename stem; for Excel multi-sheet uploads, `<stem>_<sheet>`.
-          examples: ["q1_pipeline_Deals"]
+          examples: ['q1_pipeline_Deals']
         sizeBytes:
           type: integer
           minimum: 0
@@ -61,22 +61,22 @@ components:
           type: array
           minItems: 1
           items:
-            $ref: "../_shared/column.yaml#/components/schemas/Column"
+            $ref: '../_shared/column.yaml#/components/schemas/Column'
         sourceFormat:
-          $ref: "#/components/schemas/SourceFormat"
+          $ref: '#/components/schemas/SourceFormat'
         sheetName:
           type: string
           description: |
             Present iff `sourceFormat === 'excel'`. The original sheet name
             from the uploaded workbook.
-          examples: ["Deals", "Contacts"]
+          examples: ['Deals', 'Contacts']
         createdAt:
           type: string
-          pattern: "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+          pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$'
           description: ISO-8601 UTC, `Z`-suffixed. Set at commit time.
         refreshedAt:
           type: string
-          pattern: "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+          pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$'
           readOnly: true
           description: |
             R185 (W-4) — when the dataset's rows last changed: the commit time

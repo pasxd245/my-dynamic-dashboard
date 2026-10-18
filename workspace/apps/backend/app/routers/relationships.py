@@ -1,11 +1,12 @@
 """Relationships router — R70 relationship governance.
 
-Four endpoints (see workspace/packages/contracts/relationships/*):
+Five endpoints (see workspace/packages/contracts/relationships/*):
 
 - ``POST   /workspaces/{id}/relationships`` — declare a governed edge.
 - ``GET    /workspaces/{id}/relationships`` — list, most-recent-first.
 - ``GET    /relationships/{id}``            — one edge (computed status).
 - ``DELETE /relationships/{id}``            — delete (204).
+- ``GET    /relationships/{id}/check``      — measure the edge against its data (R183).
 
 Governance only — there is NO ``/rows`` route; producing joined rows is R71.
 Persistence is raw-SQLite + Pydantic (the established backend standard). A
@@ -13,7 +14,7 @@ Relationship's ``status`` (valid|stale) is NOT stored — it is recomputed on
 every read by validating both columns against the datasets' CURRENT schemas
 (always-fresh, mirroring ``query_stale``). A drifted edge is flagged, never
 errored on read (purpose.md principle 5); the ``409 relationship_stale``
-envelope is reserved for R71 join execution.
+envelope is for join execution (R71) and for ``/check`` on a drifted edge.
 """
 
 from __future__ import annotations

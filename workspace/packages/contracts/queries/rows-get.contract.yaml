@@ -34,11 +34,11 @@ paths:
           required: true
           schema:
             type: string
-            pattern: "^qr_[0-9a-f]{8}$"
+            pattern: '^qr_[0-9a-f]{8}$'
           description: Query id.
           examples:
             won_deals:
-              value: "qr_9c2f10ab"
+              value: 'qr_9c2f10ab'
         - name: page
           in: query
           required: false
@@ -55,7 +55,7 @@ paths:
           required: false
           schema:
             allOf:
-              - $ref: "../_shared/pagination.yaml#/components/schemas/PageSize"
+              - $ref: '../_shared/pagination.yaml#/components/schemas/PageSize'
             default: 50
           description: Rows per page. Closed enum; other values return 422.
         - name: unpaged
@@ -77,7 +77,7 @@ paths:
             exceed the `PageSize` enum, since the unpaged response is not a
             "page" in the pager sense).
       responses:
-        "200":
+        '200':
           description: |
             Paged row slice of the live-re-run result. Identical shape
             to `GET /datasets/{id}/rows`. `total` reflects the matched
@@ -98,7 +98,7 @@ paths:
                     items:
                       type: array
                       items:
-                        type: [string, "null"]
+                        type: [string, 'null']
                   page:
                     type: integer
                     minimum: 1
@@ -126,8 +126,8 @@ paths:
                   value:
                     rows:
                       [
-                        ["D-0001", "12400", "2026-03-01", "won", "0.95", "true", "2026-02-28T14:02:00Z"],
-                        ["D-0005", "24500", "2026-05-02", "won", "1.00", "true", "2026-04-22T08:11:00Z"],
+                        ['D-0001', '12400', '2026-03-01', 'won', '0.95', 'true', '2026-02-28T14:02:00Z'],
+                        ['D-0005', '24500', '2026-05-02', 'won', '1.00', 'true', '2026-04-22T08:11:00Z'],
                       ]
                     page: 1
                     pageSize: 50
@@ -139,16 +139,16 @@ paths:
                     page: 1
                     pageSize: 50
                     total: 0
-        "404":
+        '404':
           description: No query with the given `id` exists.
           content:
             application/json:
               schema:
-                $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorNotFound"
+                $ref: '../_shared/api-error.yaml#/components/schemas/ApiErrorNotFound'
               examples:
                 missing:
-                  value: { "code": "not_found" }
-        "409":
+                  value: { 'code': 'not_found' }
+        '409':
           description: |
             The saved query can't execute against current data — one of:
             - `query_stale` — a saved *predicate* atom no longer validates
@@ -158,20 +158,26 @@ paths:
               FE renders the matching "needs attention" / "join unavailable"
               state and points the user at the source dataset or the
               workspace Relationships view to repair.
+            - `step_invalid` — a transform step cannot run on the columns available
+              at its position (R165).
           content:
             application/json:
               schema:
                 oneOf:
-                  - $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorQueryStale"
-                  - $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorRelationshipStale"
+                  - $ref: '../_shared/api-error.yaml#/components/schemas/ApiErrorQueryStale'
+                  - $ref: '../_shared/api-error.yaml#/components/schemas/ApiErrorRelationshipStale'
+                  - $ref: '../_shared/api-error.yaml#/components/schemas/ApiErrorStepInvalid'
               examples:
                 predicate_stale:
                   summary: A saved filter column drifted (R69)
-                  value: { "code": "query_stale" }
+                  value: { 'code': 'query_stale' }
                 join_key_stale:
                   summary: A joined query's relationship key drifted (R71)
-                  value: { "code": "relationship_stale" }
-        "422":
+                  value: { 'code': 'relationship_stale' }
+                step_invalid:
+                  summary: A transform step cannot run on the columns at its position (R165)
+                  value: { 'code': 'step_invalid' }
+        '422':
           description: |
             Malformed request — `page < 1`, `page_size` not in
             {10, 25, 50, 100}, or `id` not matching `^qr_[0-9a-f]{8}$`.

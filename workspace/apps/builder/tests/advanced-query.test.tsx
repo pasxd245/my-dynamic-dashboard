@@ -126,9 +126,7 @@ describe('R53 ui-design fix — label + explicit Clear', () => {
     const { container } = renderApp(`/data-management/datasets/${DS_ID}`);
     await screen.findByText('D-0001');
     // Visible label (not just the input's aria-label).
-    expect(container.querySelector('[data-component="AdvancedQueryLabel"]')).toHaveTextContent(
-      'Advanced query',
-    );
+    expect(container.querySelector('[data-component="AdvancedQueryLabel"]')).toHaveTextContent('Advanced query');
   });
 
   it('hides the explicit Clear until a query is active', async () => {
@@ -228,5 +226,19 @@ describe('Integration — chip + advanced + ?q= three-way composition (criterion
     expect(advancedInput().value).toBe('stage:won OR stage:lost'); // advanced box
     expect(screen.getByDisplayValue('24500')).toBeInTheDocument(); // ?q= search box
     expect(screen.getByText(/10,000/)).toBeInTheDocument(); // chip row (amount > 10,000)
+  });
+});
+
+// R191 — an advanced query that matches nothing used to fall through to the
+// "this dataset has no rows" state; it now says the advanced query matched
+// nothing and offers its clear.
+describe('R191 advanced query — no match', () => {
+  it('shows the advanced no-match state, and its button clears the advanced query', async () => {
+    const NONE: PredicateGroups = [[{ col: 3, dtype: 'string', op: 'equals', val: 'nowhere' }]];
+    renderApp(aqPath(NONE));
+    expect(await screen.findByText('No rows match the advanced query')).toBeInTheDocument();
+    expect(document.querySelector('[data-component="DatasetRowsZeroRows"]')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Clear advanced query' }));
+    expect(await screen.findByText('D-0001')).toBeInTheDocument();
   });
 });

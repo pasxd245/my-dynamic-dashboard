@@ -281,7 +281,8 @@ A `table` widget's numbers can be downloaded (header **⤓** menu: `Download as 
   `exported_at`, `rows`, then a `column` / `values` table of the active filters (`(blank)` for
   null; `— / no filter` when none).
 - **Totals row** — the same sums as the footer (ratio = Σnum / Σden; zero denominator → empty),
-  bold in XLSX, with the label `Total` placed in the first column that has no total.
+  bold in XLSX, labelled as the page's footer is: `Total` in the first column when that column
+  has no total, otherwise no label — the label never overwrites a total (R191).
 
 ---
 

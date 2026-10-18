@@ -1,7 +1,7 @@
 # Shared schema: Query (R69 — Saved Query MVP)
 # Used by: queries/post (response), queries/get (response items),
 #          queries/detail-get (response).
-# Matches the data model in .agents/design/data-management/datasets/saved-query.md
+# Matches the data model in .agents/design/data-management/queries/queries.md (§ Data model)
 # and the backend Query SQLModel entity.
 #
 # A Query is a named, saved definition that produces a virtual dataset by
@@ -19,7 +19,7 @@ components:
         `col` is the 0-based index into the source Dataset.columns[];
         `dtype` must equal that column's dtype; `op` + operand fields
         (`val` / `min` / `max`) follow the per-dtype vocabulary in
-        .agents/design/data-management/dataset-filters.md.
+        .agents/design/data-management/datasets/dataset-filters.md.
       required: [col, dtype, op]
       additionalProperties: false
       properties:
@@ -78,14 +78,14 @@ components:
         (`queryRelId` → a `QueryRelationship` in this definition's
         `relationships[]`), not a governed `rel_` by id; the keys + datasets come
         from that QueryRelationship, only `type` is a query-time choice. See
-        .agents/design/data-management/queries/multi-join.md and the
+        .agents/design/data-management/queries/queries.md (§ Joins) and the
         query-owned-relationships brainstorm.
       required: [queryRelId, type]
       additionalProperties: false
       properties:
         queryRelId:
           type: string
-          pattern: "^qrel_[0-9a-f]{8}$"
+          pattern: '^qrel_[0-9a-f]{8}$'
           description: |
             R88 — the QUERY-OWNED relationship this hop consumes: an id into this
             definition's `relationships[]`. Replaces R71–R87's `relationshipId`
@@ -93,7 +93,7 @@ components:
             or, R89, free-form), so a hop references a local `QueryRelationship`,
             not the workspace store. Its left/right datasets + validated key pair
             are the join's sources + ON clause.
-          examples: ["qrel_4d7b91ce"]
+          examples: ['qrel_4d7b91ce']
         type:
           type: string
           enum: [inner, left, right, full]
@@ -124,12 +124,12 @@ components:
       properties:
         id:
           type: string
-          pattern: "^qrel_[0-9a-f]{8}$"
+          pattern: '^qrel_[0-9a-f]{8}$'
           description: Query-local id, referenced by `JoinStep.queryRelId`.
-          examples: ["qrel_4d7b91ce"]
+          examples: ['qrel_4d7b91ce']
         leftSourceId:
           type: string
-          pattern: "^ds_[0-9a-f]{8}$"
+          pattern: '^ds_[0-9a-f]{8}$'
           description: |
             R91 — the LEFT source of this edge. A hop's left is always already in
             the graph (the tree invariant), so it is a dataset (`ds_…`) this round
@@ -141,7 +141,7 @@ components:
           description: The join key on the left source.
         rightSourceId:
           type: string
-          pattern: "^ds_[0-9a-f]{8}$"
+          pattern: '^ds_[0-9a-f]{8}$'
           description: |
             The RIGHT source joined in by this edge — a **dataset** (`ds_…`).
             R167 NARROWED this from the polymorphic `^(ds_|qr_)…`: R91 had widened it
@@ -161,14 +161,14 @@ components:
           enum: [one_to_one, one_to_many, many_to_one, many_to_many]
           description: Declared multiplicity (mirrors the governed Relationship).
         originRelationshipId:
-          type: [string, "null"]
-          pattern: "^rel_[0-9a-f]{8}$"
+          type: [string, 'null']
+          pattern: '^rel_[0-9a-f]{8}$'
           description: |
             Provenance back-ref to the governed Relationship this was copied from
             (copy-on-pick). Null/omitted when defined free-form (R89). On divergence
             (the governed rel later changes or is removed) the builder WARNS only —
             the query keeps its copy; re-syncing is the user's choice (R89).
-          examples: ["rel_4d7b91ce"]
+          examples: ['rel_4d7b91ce']
 
     AggregateStep:
       type: object
@@ -263,7 +263,7 @@ components:
           description: Left operand — an existing numeric column (effective name).
         op:
           type: string
-          enum: ["+", "-", "*", "/"]
+          enum: ['+', '-', '*', '/']
         right:
           description: Right operand — a numeric column OR a literal number.
           oneOf:
@@ -309,14 +309,19 @@ components:
         name:
           type: string
           minLength: 1
-          description: New column name; must not collide with an existing column.
+          description: New column name; must not collide with an existing column (`column_exists`).
         fn:
           type: string
           enum: [trim]
+          description: A function of the catalog; anything else is a 422 from the request
+            validator (the engine's own guard for the same rule is `unknown_function`).
         col:
           type: string
           minLength: 1
-          description: The input column (effective name at this step).
+          description: |
+            The input column (effective name at this step). It must exist here
+            (`unknown_column` otherwise) and have the function's input dtype
+            (`wrong_dtype` otherwise — `trim` needs a `string`).
 
     FilterStepPredicate:
       type: object
@@ -372,7 +377,7 @@ components:
           type: array
           minItems: 1
           items:
-            $ref: "#/components/schemas/FilterStepPredicate"
+            $ref: '#/components/schemas/FilterStepPredicate'
 
     SortStep:
       type: object
@@ -580,9 +585,9 @@ components:
           type: array
           minItems: 1
           items:
-            $ref: "#/components/schemas/FilterStepPredicate"
+            $ref: '#/components/schemas/FilterStepPredicate'
         then:
-          $ref: "#/components/schemas/CaseValue"
+          $ref: '#/components/schemas/CaseValue'
 
     CaseStep:
       type: object
@@ -616,9 +621,9 @@ components:
           minItems: 1
           maxItems: 20
           items:
-            $ref: "#/components/schemas/CaseBranch"
+            $ref: '#/components/schemas/CaseBranch'
         otherwise:
-          $ref: "#/components/schemas/CaseValue"
+          $ref: '#/components/schemas/CaseValue'
 
     GroupColumnStep:
       type: object
@@ -810,7 +815,7 @@ components:
       additionalProperties: false
       properties:
         q:
-          type: [string, "null"]
+          type: [string, 'null']
           description: |
             The `?q=` case-insensitive substring search, if the saved
             view had one. Null / omitted when no search was active.
@@ -821,7 +826,7 @@ components:
             Chip filters — implicit AND across atoms (dataset-filters.md).
             At most one predicate per column, mirroring `f<N>_*`.
           items:
-            $ref: "#/components/schemas/FilterAtom"
+            $ref: '#/components/schemas/FilterAtom'
         advanced:
           type: array
           description: |
@@ -831,7 +836,7 @@ components:
           items:
             type: array
             items:
-              $ref: "#/components/schemas/FilterAtom"
+              $ref: '#/components/schemas/FilterAtom'
         relationships:
           type: array
           description: |
@@ -842,7 +847,7 @@ components:
             (R89). The query runs on these copies, so it never breaks when a
             governed rel changes (query-owned-relationships brainstorm).
           items:
-            $ref: "#/components/schemas/QueryRelationship"
+            $ref: '#/components/schemas/QueryRelationship'
         joins:
           type: array
           description: |
@@ -857,7 +862,7 @@ components:
             query-owned `relationships[]` entry via `queryRelId` (was a governed
             `relationshipId`).
           items:
-            $ref: "#/components/schemas/JoinStep"
+            $ref: '#/components/schemas/JoinStep'
         steps:
           type: array
           description: |
@@ -877,35 +882,35 @@ components:
             `kind`-discriminated union.
           items:
             oneOf:
-              - $ref: "#/components/schemas/AggregateStep"
-              - $ref: "#/components/schemas/TopNStep"
-              - $ref: "#/components/schemas/DeriveStep"
-              - $ref: "#/components/schemas/FilterStep"
-              - $ref: "#/components/schemas/SortStep"
-              - $ref: "#/components/schemas/SelectStep"
-              - $ref: "#/components/schemas/DateBucketStep"
-              - $ref: "#/components/schemas/GroupColumnStep"
-              - $ref: "#/components/schemas/WindowColumnStep"
-              - $ref: "#/components/schemas/DatePartStep"
-              - $ref: "#/components/schemas/CaseStep"
-              - $ref: "#/components/schemas/DateDiffStep"
-              - $ref: "#/components/schemas/ComputeStep"
+              - $ref: '#/components/schemas/AggregateStep'
+              - $ref: '#/components/schemas/TopNStep'
+              - $ref: '#/components/schemas/DeriveStep'
+              - $ref: '#/components/schemas/FilterStep'
+              - $ref: '#/components/schemas/SortStep'
+              - $ref: '#/components/schemas/SelectStep'
+              - $ref: '#/components/schemas/DateBucketStep'
+              - $ref: '#/components/schemas/GroupColumnStep'
+              - $ref: '#/components/schemas/WindowColumnStep'
+              - $ref: '#/components/schemas/DatePartStep'
+              - $ref: '#/components/schemas/CaseStep'
+              - $ref: '#/components/schemas/DateDiffStep'
+              - $ref: '#/components/schemas/ComputeStep'
             discriminator:
               propertyName: kind
               mapping:
-                aggregate: "#/components/schemas/AggregateStep"
-                top_n: "#/components/schemas/TopNStep"
-                derive: "#/components/schemas/DeriveStep"
-                filter: "#/components/schemas/FilterStep"
-                sort: "#/components/schemas/SortStep"
-                select: "#/components/schemas/SelectStep"
-                date_bucket: "#/components/schemas/DateBucketStep"
-                group_column: "#/components/schemas/GroupColumnStep"
-                window_column: "#/components/schemas/WindowColumnStep"
-                date_part: "#/components/schemas/DatePartStep"
-                case: "#/components/schemas/CaseStep"
-                date_diff: "#/components/schemas/DateDiffStep"
-                compute: "#/components/schemas/ComputeStep"
+                aggregate: '#/components/schemas/AggregateStep'
+                top_n: '#/components/schemas/TopNStep'
+                derive: '#/components/schemas/DeriveStep'
+                filter: '#/components/schemas/FilterStep'
+                sort: '#/components/schemas/SortStep'
+                select: '#/components/schemas/SelectStep'
+                date_bucket: '#/components/schemas/DateBucketStep'
+                group_column: '#/components/schemas/GroupColumnStep'
+                window_column: '#/components/schemas/WindowColumnStep'
+                date_part: '#/components/schemas/DatePartStep'
+                case: '#/components/schemas/CaseStep'
+                date_diff: '#/components/schemas/DateDiffStep'
+                compute: '#/components/schemas/ComputeStep'
 
     Query:
       type: object
@@ -914,16 +919,16 @@ components:
       properties:
         id:
           type: string
-          pattern: "^qr_[0-9a-f]{8}$"
+          pattern: '^qr_[0-9a-f]{8}$'
           description: Server-generated. Format `qr_<8 lowercase hex>`.
-          examples: ["qr_9c2f10ab"]
+          examples: ['qr_9c2f10ab']
         workspaceId:
           type: string
-          pattern: "^ws_[0-9a-f]{8}$"
+          pattern: '^ws_[0-9a-f]{8}$'
           description: Foreign key to the containing workspace (the IA scope).
         sourceId:
           type: string
-          pattern: "^ds_[0-9a-f]{8}$"
+          pattern: '^ds_[0-9a-f]{8}$'
           description: |
             The DRIVING source — the single, canonical source-of-record field
             (R79 completed the `datasetId → sourceId` rename R76 designed). Always a
@@ -933,7 +938,7 @@ components:
             (`_noun-model.md`, concept locked R161); the variant need composition
             served is met by **Duplicate** (R166). On delete of the source dataset its
             queries cascade away (app-level — the column carries no FK).
-          examples: ["ds_71a4e2f0"]
+          examples: ['ds_71a4e2f0']
         name:
           type: string
           minLength: 1
@@ -941,9 +946,9 @@ components:
           description: |
             User-supplied at save time. Unique per workspace (mirrors the
             dataset name-uniqueness rule).
-          examples: ["Won deals over $1k (2026)"]
+          examples: ['Won deals over $1k (2026)']
         definition:
-          $ref: "#/components/schemas/QueryDefinition"
+          $ref: '#/components/schemas/QueryDefinition'
         resolvedColumns:
           type: array
           description: |
@@ -977,7 +982,7 @@ components:
                 enum: [string, integer, float, boolean, date, datetime]
               ownerSourceId:
                 type: string
-                pattern: "^ds_[0-9a-f]{8}$"
+                pattern: '^ds_[0-9a-f]{8}$'
                 description: |
                   R93 — the LEAF dataset that owns this effective column (always
                   a `ds_`, never a `qr_`; it matches the join resolver's
@@ -992,9 +997,9 @@ components:
                   join key uses this; `name` stays the display/header.
         createdAt:
           type: string
-          pattern: "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+          pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$'
           description: ISO-8601 UTC, `Z`-suffixed. Server-stamped at save time.
-          examples: ["2026-06-12T14:02:00Z"]
+          examples: ['2026-06-12T14:02:00Z']
 
     AggregateRequest:
       type: object
@@ -1060,4 +1065,4 @@ components:
               values:
                 type: array
                 items:
-                  type: [string, "null"]
+                  type: [string, 'null']

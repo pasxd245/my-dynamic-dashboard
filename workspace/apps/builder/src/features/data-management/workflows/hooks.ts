@@ -125,3 +125,18 @@ export function useSourceColumns(sourceId: string | undefined): { columns: Colum
   }
   return { columns: [], loading: false };
 }
+
+/** R191 — the column a multi-source workflow appends at run (R186 W-3,
+ *  `query_engine.CONSOLIDATION_PROVENANCE_COLUMN`): each row's source name.
+ *  `Source.Query`, or `Source.Query1`, `Source.Query2`, … off a collision with a
+ *  source column — the backend's naming rule. Offered to the steps editor so a
+ *  step can split a stacked total by source; a one-source workflow has none. */
+export const CONSOLIDATION_PROVENANCE_COLUMN = 'Source.Query';
+
+export function withProvenanceColumn(columns: readonly Column[], sourceCount: number): Column[] {
+  if (sourceCount < 2) return [...columns];
+  const existing = new Set(columns.map((c) => c.name));
+  let name = CONSOLIDATION_PROVENANCE_COLUMN;
+  for (let i = 1; existing.has(name); i += 1) name = `${CONSOLIDATION_PROVENANCE_COLUMN}${i}`;
+  return [...columns, { name, dtype: 'string' }];
+}

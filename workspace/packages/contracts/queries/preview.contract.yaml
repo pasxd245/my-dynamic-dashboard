@@ -36,11 +36,11 @@ paths:
           required: true
           schema:
             type: string
-            pattern: "^ws_[0-9a-f]{8}$"
+            pattern: '^ws_[0-9a-f]{8}$'
           description: Workspace id (the IA scope; the edge must be in it).
           examples:
             marketing:
-              value: "ws_3f8a2c91"
+              value: 'ws_3f8a2c91'
         - name: page
           in: query
           required: false
@@ -54,7 +54,7 @@ paths:
           required: false
           schema:
             allOf:
-              - $ref: "../_shared/pagination.yaml#/components/schemas/PageSize"
+              - $ref: '../_shared/pagination.yaml#/components/schemas/PageSize'
             default: 50
           description: Rows per page. Closed enum; other values → 422.
       requestBody:
@@ -68,7 +68,7 @@ paths:
               properties:
                 sourceId:
                   type: string
-                  pattern: "^ds_[0-9a-f]{8}$"
+                  pattern: '^ds_[0-9a-f]{8}$'
                   description: |
                     The driving source for the preview (R79 — canonical, required):
                     a **Dataset**. R167 narrowed this from `^(ds_|qr_)…` in step with
@@ -77,28 +77,28 @@ paths:
                     is the edge's left/driving dataset (unchanged by editing — R72
                     edits the definition, not the source).
                 definition:
-                  $ref: "../_shared/query.yaml#/components/schemas/QueryDefinition"
+                  $ref: '../_shared/query.yaml#/components/schemas/QueryDefinition'
             examples:
               joined_with_filter:
                 summary: Preview a join with a cross-source filter
                 value:
-                  sourceId: "ds_71a4e2f0"
+                  sourceId: 'ds_71a4e2f0'
                   definition:
                     q: null
                     filters:
-                      - { col: 3, dtype: string, op: equals, val: "won" }
+                      - { col: 3, dtype: string, op: equals, val: 'won' }
                     advanced: []
                     relationships:
-                      - id: "qrel_4d7b91ce"
-                        leftSourceId: "ds_71a4e2f0"
-                        leftColumn: "deal_id"
-                        rightSourceId: "ds_8c2a1b40"
-                        rightColumn: "account_id"
+                      - id: 'qrel_4d7b91ce'
+                        leftSourceId: 'ds_71a4e2f0'
+                        leftColumn: 'deal_id'
+                        rightSourceId: 'ds_8c2a1b40'
+                        rightColumn: 'account_id'
                         cardinality: one_to_many
-                        originRelationshipId: "rel_4d7b91ce"
-                    joins: [{ queryRelId: "qrel_4d7b91ce", type: inner }]
+                        originRelationshipId: 'rel_4d7b91ce'
+                    joins: [{ queryRelId: 'qrel_4d7b91ce', type: inner }]
       responses:
-        "200":
+        '200':
           description: |
             Paged row slice of the live preview. Same shape as
             `GET /queries/{id}/rows`, plus `resolvedColumns` when the
@@ -116,13 +116,13 @@ paths:
                     items:
                       type: array
                       items:
-                        type: [string, "null"]
+                        type: [string, 'null']
                   page:
                     type: integer
                     minimum: 1
                   pageSize:
                     allOf:
-                      - $ref: "../_shared/pagination.yaml#/components/schemas/PageSize"
+                      - $ref: '../_shared/pagination.yaml#/components/schemas/PageSize'
                   total:
                     type: integer
                     minimum: 0
@@ -147,7 +147,7 @@ paths:
                           enum: [string, integer, float, boolean, date, datetime]
                         ownerSourceId:
                           type: string
-                          pattern: "^ds_[0-9a-f]{8}$"
+                          pattern: '^ds_[0-9a-f]{8}$'
                           description: |
                             R93 — the leaf dataset owning this column (a `ds_`).
                             Present for a 1:1-owned column; omitted for derived.
@@ -180,15 +180,26 @@ paths:
                   value:
                     rows:
                       [
-                        ["D-0001", "12400", "2026-03-01", "won", "0.95", "true", "2026-02-28 14:02:00", "D-0001", "Acme", "gold"],
+                        [
+                          'D-0001',
+                          '12400',
+                          '2026-03-01',
+                          'won',
+                          '0.95',
+                          'true',
+                          '2026-02-28 14:02:00',
+                          'D-0001',
+                          'Acme',
+                          'gold',
+                        ],
                       ]
                     page: 1
                     pageSize: 25
                     total: 1
                     resolvedColumns:
-                      - { name: "deal_id", dtype: string, ownerSourceId: "ds_71a4e2f0", sourceColumn: "deal_id" }
-                      - { name: "amount", dtype: integer, ownerSourceId: "ds_71a4e2f0", sourceColumn: "amount" }
-        "409":
+                      - { name: 'deal_id', dtype: string, ownerSourceId: 'ds_71a4e2f0', sourceColumn: 'deal_id' }
+                      - { name: 'amount', dtype: integer, ownerSourceId: 'ds_71a4e2f0', sourceColumn: 'amount' }
+        '409':
           description: |
             The previewed definition can't execute against current data —
             `query_stale` (a predicate atom drifted) or `relationship_stale`
@@ -199,14 +210,18 @@ paths:
             application/json:
               schema:
                 oneOf:
-                  - $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorQueryStale"
-                  - $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorRelationshipStale"
+                  - $ref: '../_shared/api-error.yaml#/components/schemas/ApiErrorQueryStale'
+                  - $ref: '../_shared/api-error.yaml#/components/schemas/ApiErrorRelationshipStale'
+                  - $ref: '../_shared/api-error.yaml#/components/schemas/ApiErrorStepInvalid'
               examples:
                 predicate_stale:
-                  value: { "code": "query_stale" }
+                  value: { 'code': 'query_stale' }
                 join_key_stale:
-                  value: { "code": "relationship_stale" }
-        "422":
+                  value: { 'code': 'relationship_stale' }
+                step_invalid:
+                  summary: A transform step cannot run on the columns at its position (R165)
+                  value: { 'code': 'step_invalid' }
+        '422':
           description: |
             The request is structurally unpreviewable — `sourceId`
             malformed / unknown / not in this workspace; a hop in

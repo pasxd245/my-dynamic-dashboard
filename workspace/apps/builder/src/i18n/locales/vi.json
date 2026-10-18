@@ -336,6 +336,9 @@
       "boolValueHint": "Phép so sánh này không cần giá trị",
       "noMatchFiltersTitle": "Không có dòng nào khớp với các bộ lọc này",
       "noMatchFiltersHint": "Điều chỉnh hoặc xóa một bộ lọc để xem thêm kết quả.",
+      "noMatchAdvancedTitle": "Không có dòng nào khớp với truy vấn nâng cao",
+      "noMatchAdvancedHint": "Sửa truy vấn nâng cao, hoặc xóa nó để xem thêm dòng.",
+      "clearAdvanced": "Xóa truy vấn nâng cao",
       "noMatchBothTitle": "Không có dòng nào khớp với “{{query}}” và các bộ lọc này",
       "noMatchBothHint": "Điều chỉnh từ khóa hoặc một bộ lọc để xem thêm kết quả.",
       "op": {
@@ -500,6 +503,7 @@
       "noOverrides": "không có",
       "footer_one": "Tạo <strong>{{count}}</strong> tập dữ liệu trong <strong>{{workspace}}</strong>.",
       "footer_other": "Tạo <strong>{{count}}</strong> tập dữ liệu trong <strong>{{workspace}}</strong>.",
+      "footerRefresh": "Làm mới <strong>{{name}}</strong> trong <strong>{{workspace}}</strong>.",
       "errorNameTakenTitle": "Đã có tập dữ liệu cùng tên trong không gian này",
       "errorNameTakenDescription": "Đổi tên một mục trong bảng trên để mỗi tập dữ liệu có tên duy nhất trong không gian này, rồi thử lại.",
       "errorCoercionFailedTitle": "Một số giá trị không khớp kiểu dữ liệu đã chọn",
@@ -824,7 +828,7 @@
       },
       "buildActive": "{{count}} đang áp dụng",
       "baseSourceLabel": "Dựng trên",
-      "baseSourcePlaceholder": "Một tập dữ liệu hoặc một truy vấn đã lưu",
+      "baseSourcePlaceholder": "Một tập dữ liệu",
       "joinLabel": "Phép nối",
       "joinsLabel": "Các phép nối",
       "joinPlaceholder": "Nối với một tập dữ liệu liên quan",
@@ -871,7 +875,7 @@
       "canvasMaximize": "Phóng to",
       "canvasExitMaximize": "Thu nhỏ",
       "canvasHelpTitle": "Tạo phép nối trên sơ đồ",
-      "canvasHelpAddSource": "“Thêm nguồn” đưa thêm một tập dữ liệu hoặc truy vấn đã lưu vào để vẽ nối.",
+      "canvasHelpAddSource": "“Thêm nguồn” đưa thêm một tập dữ liệu vào để vẽ nối.",
       "canvasHelpEdges": "Nhấp vào một phép nối để đưa lên, đồng bộ lại, hoặc xóa.",
       "canvasNodeTypeDataset": "Tập dữ liệu",
       "canvasColumnsMore": "+ {{count}} cột nữa",
@@ -981,6 +985,12 @@
       "sameDataset": "Chọn hai tập dữ liệu khác nhau (tự kết nối sẽ có sau).",
       "duplicate": "Mối quan hệ này đã tồn tại trong không gian làm việc này.",
       "failed": "Không thể khai báo mối quan hệ",
+      "reason": {
+        "self_join": "Chọn hai tập dữ liệu khác nhau — một tập dữ liệu không thể liên kết với chính nó.",
+        "unknown_dataset": "Một trong hai tập dữ liệu không còn trong không gian làm việc này. Tải lại rồi chọn lại.",
+        "unknown_column": "Cột {{detail}} không còn trong tập dữ liệu. Tải lại rồi chọn lại.",
+        "incompatible_join_keys": "Không thể nối hai cột này ({{detail}}). Hãy chọn hai cột cùng loại (văn bản với văn bản, số với số, ngày với ngày)."
+      },
       "success": "Đã khai báo mối quan hệ"
     },
     "delete": {

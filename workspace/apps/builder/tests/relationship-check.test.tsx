@@ -13,7 +13,7 @@ import { AppLayout } from '@/components/AppLayout';
 import { JoinWithRelatedModal } from '@/features/data-management/queries/JoinWithRelatedModal';
 import { RelationshipCheckView, checkFlags } from '@/features/data-management/relationships/RelationshipCheckDrawer';
 import { WorkspaceRelationshipsPage } from '@/features/data-management/relationships/WorkspaceRelationshipsPage';
-import { MOCK_DATASET, MOCK_RELATIONSHIP_CHECK, MOCK_WORKSPACE } from '@/mocks/fixtures';
+import { MOCK_DATASET, MOCK_DATASET_2, MOCK_RELATIONSHIP_CHECK, MOCK_WORKSPACE } from '@/mocks/fixtures';
 
 function wrap(ui: React.ReactNode, path = '/') {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -46,8 +46,12 @@ describe('R183 checkFlags', () => {
 
 describe('R183 RelationshipCheckView', () => {
   it('shows coverage per side, observed vs declared, and the multiplication warning', () => {
-    const { container } = wrap(<RelationshipCheckView check={MOCK_RELATIONSHIP_CHECK} leftName="Deals" rightName="Accounts" />);
-    expect(container.querySelector('[data-component="RelationshipCheck"]')?.getAttribute('data-flags')).toBe('cardinality multipliesLeft rightUnmatched');
+    const { container } = wrap(
+      <RelationshipCheckView check={MOCK_RELATIONSHIP_CHECK} leftName="Deals" rightName="Accounts" />,
+    );
+    expect(container.querySelector('[data-component="RelationshipCheck"]')?.getAttribute('data-flags')).toBe(
+      'cardinality multipliesLeft rightUnmatched',
+    );
     expect(container.querySelectorAll('[data-component="RelationshipCheckSide"]').length).toBe(2);
     expect(screen.getByText(/differs from the declaration/)).toBeInTheDocument();
     expect(container.querySelectorAll('[data-component="RelationshipCheckMultiplies"]').length).toBe(1);
@@ -77,8 +81,38 @@ describe('R183 relationships page', () => {
 describe('R183 join modal warning', () => {
   it('warns when the hop from this dataset multiplies rows', async () => {
     wrap(
-      <JoinWithRelatedModal open workspaceId={MOCK_WORKSPACE.id} datasetId={MOCK_DATASET.id} datasetName={MOCK_DATASET.name} onClose={() => {}} />,
+      <JoinWithRelatedModal
+        open
+        workspaceId={MOCK_WORKSPACE.id}
+        datasetId={MOCK_DATASET.id}
+        datasetName={MOCK_DATASET.name}
+        onClose={() => {}}
+      />,
     );
-    await waitFor(() => expect(document.body.querySelector('[data-component="JoinMultipliesWarning"]')).not.toBeNull(), { timeout: 4000 });
+    await waitFor(
+      () => expect(document.body.querySelector('[data-component="JoinMultipliesWarning"]')).not.toBeNull(),
+      { timeout: 4000 },
+    );
+  });
+});
+
+// R191 — the saved join always starts from the edge's LEFT dataset, so opening
+// the modal from the RIGHT dataset must warn about the same (left → right)
+// multiplication; it used to read `multipliesRight` and stay silent.
+describe('R191 join modal warning direction', () => {
+  it('warns about the left → right hop even when opened from the right dataset', async () => {
+    wrap(
+      <JoinWithRelatedModal
+        open
+        workspaceId={MOCK_WORKSPACE.id}
+        datasetId={MOCK_DATASET_2.id}
+        datasetName={MOCK_DATASET_2.name}
+        onClose={() => {}}
+      />,
+    );
+    await waitFor(
+      () => expect(document.body.querySelector('[data-component="JoinMultipliesWarning"]')).not.toBeNull(),
+      { timeout: 4000 },
+    );
   });
 });

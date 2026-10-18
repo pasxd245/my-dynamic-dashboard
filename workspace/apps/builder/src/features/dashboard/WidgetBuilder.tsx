@@ -73,7 +73,10 @@ export function draftToConfig(draft: Draft): Omit<Widget, 'id'> {
   // table is always saved as a `count` — before this, a table drafted over a query
   // with a numeric column kept the default `sum`, dropped the measure, and the save
   // answered 422 with the builder already closed (the widget was lost).
-  const agg = draft.chartType === 'table' ? 'count' : draft.agg;
+  // R191 — combo and scatter always carry two measures, which the backend pairs
+  // with `sum` only (`measureCol` is forbidden with `count`): a `count` draft
+  // switched to either kind saves as `sum` (its `agg` is hidden there anyway).
+  const agg = draft.chartType === 'table' ? 'count' : twoMeasures(draft) ? 'sum' : draft.agg;
   return {
     queryId: draft.queryId as string,
     title: draft.title.trim(),
@@ -182,7 +185,8 @@ export function WidgetBuilder({ open, workspaceId, initial, onSubmit, onCancel }
   const measure2Label =
     draft.chartType === 'scatter' ? t('dashboard.builder.measureY') : t('dashboard.builder.measureLine');
 
-  const noteOk = (draft.md ?? '').trim().length > 0 && (draft.md ?? '').length <= MARKDOWN_MAX_CHARS && mdProblems.length === 0;
+  const noteOk =
+    (draft.md ?? '').trim().length > 0 && (draft.md ?? '').length <= MARKDOWN_MAX_CHARS && mdProblems.length === 0;
   const canSubmit = isNote
     ? draft.title.trim().length > 0 && noteOk
     : Boolean(draft.queryId) &&
@@ -229,18 +233,18 @@ export function WidgetBuilder({ open, workspaceId, initial, onSubmit, onCancel }
         <Col xs={24} md={10}>
           <Form layout="vertical">
             {isNote ? null : (
-            <Form.Item label={t('dashboard.builder.query')} required>
-              <Select
-                showSearch
-                optionFilterProp="label"
-                placeholder={t('dashboard.builder.queryPlaceholder')}
-                value={draft.queryId}
-                options={queryOptions}
-                loading={queries.isLoading}
-                onChange={(queryId) => setDraft((p) => ({ ...p, queryId, dimensionCol: undefined }))}
-                data-component="WidgetBuilderQuery"
-              />
-            </Form.Item>
+              <Form.Item label={t('dashboard.builder.query')} required>
+                <Select
+                  showSearch
+                  optionFilterProp="label"
+                  placeholder={t('dashboard.builder.queryPlaceholder')}
+                  value={draft.queryId}
+                  options={queryOptions}
+                  loading={queries.isLoading}
+                  onChange={(queryId) => setDraft((p) => ({ ...p, queryId, dimensionCol: undefined }))}
+                  data-component="WidgetBuilderQuery"
+                />
+              </Form.Item>
             )}
 
             <Form.Item label={t('dashboard.builder.title')} required>
@@ -375,18 +379,18 @@ export function WidgetBuilder({ open, workspaceId, initial, onSubmit, onCancel }
             ) : null}
 
             {isNote ? null : (
-            <Form.Item label={t('dashboard.builder.numberFormat')}>
-              <Select<NumberFormat>
-                value={draft.numberFormat ?? 'plain'}
-                onChange={(numberFormat) => setDraft((p) => ({ ...p, numberFormat }))}
-                options={[
-                  { value: 'plain', label: t('dashboard.builder.fmtPlain') },
-                  { value: 'compact', label: t('dashboard.builder.fmtCompact') },
-                  { value: 'percent', label: t('dashboard.builder.fmtPercent') },
-                ]}
-                data-component="WidgetBuilderNumberFormat"
-              />
-            </Form.Item>
+              <Form.Item label={t('dashboard.builder.numberFormat')}>
+                <Select<NumberFormat>
+                  value={draft.numberFormat ?? 'plain'}
+                  onChange={(numberFormat) => setDraft((p) => ({ ...p, numberFormat }))}
+                  options={[
+                    { value: 'plain', label: t('dashboard.builder.fmtPlain') },
+                    { value: 'compact', label: t('dashboard.builder.fmtCompact') },
+                    { value: 'percent', label: t('dashboard.builder.fmtPercent') },
+                  ]}
+                  data-component="WidgetBuilderNumberFormat"
+                />
+              </Form.Item>
             )}
 
             <Form.Item label={t('dashboard.builder.width')} help={t('dashboard.builder.widthHelp')}>
@@ -431,7 +435,12 @@ export function WidgetBuilder({ open, workspaceId, initial, onSubmit, onCancel }
                       <div
                         key={opt.value}
                         data-column={opt.value}
-                        style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 110px', gap: 6, alignItems: 'center' }}
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'minmax(0, 1fr) 110px',
+                          gap: 6,
+                          alignItems: 'center',
+                        }}
                       >
                         <Typography.Text ellipsis style={{ fontSize: 12 }}>
                           {opt.label}
@@ -456,7 +465,9 @@ export function WidgetBuilder({ open, workspaceId, initial, onSubmit, onCancel }
                           data-component="WidgetBuilderTotalAgg"
                         />
                         {spec?.agg === 'ratio' ? (
-                          <div style={{ gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+                          <div
+                            style={{ gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}
+                          >
                             <Select
                               size="small"
                               value={spec.num}

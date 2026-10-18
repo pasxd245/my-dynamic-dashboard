@@ -114,6 +114,42 @@ def test_stepped_query_exports_the_shaped_rows_and_404_409_follow_the_run_path()
 
 
 @pytest.mark.unit
+def test_a_totalled_first_column_keeps_its_total_and_the_row_has_no_label() -> None:
+    """R191 — the page's footer rule: the label sits in column 0 only when that
+    column is not totalled. Before, the label overwrote the first total."""
+    definition = {
+        **_EMPTY_DEF,
+        "steps": [{"kind": "aggregate", "dimensions": [], "measures": [{"col": "quotes", "agg": "sum"}]}],
+    }
+    with TestClient(app) as client:
+        qid = _seed(client, definition)
+        csv_resp = client.post(f"/queries/{qid}/export", json={"format": "csv", "totals": {"quotes": {"agg": "sum"}}})
+        xlsx_resp = client.post(f"/queries/{qid}/export", json={"format": "xlsx", "totals": {"quotes": {"agg": "sum"}}})
+
+    assert csv_resp.status_code == 200, csv_resp.text
+    lines = csv_resp.content.decode("utf-8-sig").strip().split("\r\n")
+    assert lines == ["quotes", "175", "175"]
+    ws = load_workbook(io.BytesIO(xlsx_resp.content)).worksheets[0]
+    assert [c.value for c in ws[ws.max_row]] == [175]
+
+
+@pytest.mark.unit
+def test_an_empty_ratio_total_is_not_overwritten_by_the_label() -> None:
+    """R191 — a ratio over a zero denominator stays empty; the label goes to
+    column 0 (not totalled), never into the empty total."""
+    totals = {"rate": {"agg": "ratio", "num": "quotes", "den": "calls"}}
+    definition = {**_EMPTY_DEF, "filters": [{"col": 0, "dtype": "string", "op": "equals", "val": "nowhere"}]}
+    with TestClient(app) as client:
+        qid = _seed(client, definition)
+        resp = client.post(f"/queries/{qid}/export", json={"format": "csv", "totals": totals})
+
+    assert resp.status_code == 200, resp.text
+    total = resp.content.decode("utf-8-sig").strip().split("\r\n")[-1].split(",")
+    assert total[0] == "Total"
+    assert total[3] == ""
+
+
+@pytest.mark.unit
 def test_row_cap_refuses_with_the_count(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("app.routers.queries.EXPORT_MAX_ROWS", 3)
     with TestClient(app) as client:

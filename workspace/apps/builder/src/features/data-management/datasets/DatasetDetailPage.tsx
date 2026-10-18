@@ -153,9 +153,7 @@ export function DatasetDetailPage() {
       message.success(t('datasets.detail.columns.applied'));
     } catch (err) {
       message.error(
-        err instanceof ApiErrorThrown
-          ? t('datasets.detail.columns.applyFailed')
-          : t('common.unknownError'),
+        err instanceof ApiErrorThrown ? t('datasets.detail.columns.applyFailed') : t('common.unknownError'),
       );
       throw err;
     }
@@ -371,46 +369,59 @@ export function DatasetDetailPage() {
 
   // Zero-match empty state — the four variants depend on which predicate(s)
   // are active. PagedRowsView centers whatever we pass here.
-  const rowsEmptyState =
-    hasQuery && hasFilters ? (
-      <div data-component="DatasetRowsNoMatchBoth">
-        <Typography.Title level={5} style={{ marginTop: 0 }}>
-          {t('datasets.filters.noMatchBothTitle', { query: qParam })}
-        </Typography.Title>
-        <Typography.Text type="secondary">{t('datasets.filters.noMatchBothHint')}</Typography.Text>
-        <div style={{ marginTop: 16, display: 'flex', gap: 8 }}>
-          <Button onClick={onClearSearch}>{t('datasets.detail.clear')}</Button>
-          <Button onClick={clearAll}>{t('datasets.filters.clearAll')}</Button>
-        </div>
+  // R191 — an advanced query that matches nothing is its own case (it used to
+  // fall through to "this dataset has no rows"). Its clear lives on the
+  // advanced input, so the block offers exactly that; any other active
+  // predicate then shows its own no-match state if it still matches nothing.
+  const rowsEmptyState = hasAdvanced ? (
+    <div data-component="DatasetRowsNoMatchAdvanced">
+      <Typography.Title level={5} style={{ marginTop: 0 }}>
+        {t('datasets.filters.noMatchAdvancedTitle')}
+      </Typography.Title>
+      <Typography.Text type="secondary">{t('datasets.filters.noMatchAdvancedHint')}</Typography.Text>
+      <div style={{ marginTop: 16 }}>
+        <Button onClick={clearAdvanced}>{t('datasets.filters.clearAdvanced')}</Button>
       </div>
-    ) : hasFilters ? (
-      <div data-component="DatasetRowsNoMatchFilters">
-        <Typography.Title level={5} style={{ marginTop: 0 }}>
-          {t('datasets.filters.noMatchFiltersTitle')}
-        </Typography.Title>
-        <Typography.Text type="secondary">{t('datasets.filters.noMatchFiltersHint')}</Typography.Text>
-        <div style={{ marginTop: 16 }}>
-          <Button onClick={clearAll}>{t('datasets.filters.clearAll')}</Button>
-        </div>
+    </div>
+  ) : hasQuery && hasFilters ? (
+    <div data-component="DatasetRowsNoMatchBoth">
+      <Typography.Title level={5} style={{ marginTop: 0 }}>
+        {t('datasets.filters.noMatchBothTitle', { query: qParam })}
+      </Typography.Title>
+      <Typography.Text type="secondary">{t('datasets.filters.noMatchBothHint')}</Typography.Text>
+      <div style={{ marginTop: 16, display: 'flex', gap: 8 }}>
+        <Button onClick={onClearSearch}>{t('datasets.detail.clear')}</Button>
+        <Button onClick={clearAll}>{t('datasets.filters.clearAll')}</Button>
       </div>
-    ) : hasQuery ? (
-      <div data-component="DatasetRowsNoMatch">
-        <Typography.Title level={5} style={{ marginTop: 0 }}>
-          {t('datasets.detail.noMatchTitle', { query: qParam })}
-        </Typography.Title>
-        <Typography.Text type="secondary">{t('datasets.detail.noMatchHint')}</Typography.Text>
-        <div style={{ marginTop: 16 }}>
-          <Button onClick={onClearSearch}>{t('datasets.detail.clear')}</Button>
-        </div>
+    </div>
+  ) : hasFilters ? (
+    <div data-component="DatasetRowsNoMatchFilters">
+      <Typography.Title level={5} style={{ marginTop: 0 }}>
+        {t('datasets.filters.noMatchFiltersTitle')}
+      </Typography.Title>
+      <Typography.Text type="secondary">{t('datasets.filters.noMatchFiltersHint')}</Typography.Text>
+      <div style={{ marginTop: 16 }}>
+        <Button onClick={clearAll}>{t('datasets.filters.clearAll')}</Button>
       </div>
-    ) : (
-      <div data-component="DatasetRowsZeroRows">
-        <Typography.Title level={5} style={{ marginTop: 0 }}>
-          {t('datasets.detail.zeroRowsTitle')}
-        </Typography.Title>
-        <Typography.Text type="secondary">{t('datasets.detail.zeroRowsHint')}</Typography.Text>
+    </div>
+  ) : hasQuery ? (
+    <div data-component="DatasetRowsNoMatch">
+      <Typography.Title level={5} style={{ marginTop: 0 }}>
+        {t('datasets.detail.noMatchTitle', { query: qParam })}
+      </Typography.Title>
+      <Typography.Text type="secondary">{t('datasets.detail.noMatchHint')}</Typography.Text>
+      <div style={{ marginTop: 16 }}>
+        <Button onClick={onClearSearch}>{t('datasets.detail.clear')}</Button>
       </div>
-    );
+    </div>
+  ) : (
+    <div data-component="DatasetRowsZeroRows">
+      <Typography.Title level={5} style={{ marginTop: 0 }}>
+        {t('datasets.detail.zeroRowsTitle')}
+      </Typography.Title>
+      <Typography.Text type="secondary">{t('datasets.detail.zeroRowsHint')}</Typography.Text>
+    </div>
+  );
 
   const title = (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>

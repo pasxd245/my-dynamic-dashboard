@@ -28,10 +28,7 @@ function renderApp(initialPath: string) {
           <MemoryRouter initialEntries={[initialPath]}>
             <AppLayout>
               <Routes>
-                <Route
-                  path="/data-management/workspaces/:id/relationships"
-                  element={<WorkspaceRelationshipsPage />}
-                />
+                <Route path="/data-management/workspaces/:id/relationships" element={<WorkspaceRelationshipsPage />} />
               </Routes>
             </AppLayout>
           </MemoryRouter>
@@ -146,5 +143,62 @@ describe('Delete relationship', () => {
     });
     fireEvent.click(within(modal).getByText('Delete').closest('button') as HTMLButtonElement);
     await waitFor(() => expect(deleted).toBe(true));
+  });
+});
+
+// R191 — a declare the backend refuses (FastAPI 422 envelope, `msg` led by a
+// code) used to read "Request failed: 422 …"; the API lifts the code and the
+// modal says why.
+describe('R191 declare refusal reason', () => {
+  it('the API lifts the 422 code; the modal renders the reason, not the status line', async () => {
+    const { relationshipsApi, RelationshipDeclareError } = await import('@/api/relationshipsApi');
+    server.use(
+      http.post('*/workspaces/:id/relationships', () =>
+        HttpResponse.json(
+          {
+            detail: [
+              {
+                loc: ['body', 'rightColumn'],
+                msg: 'incompatible_join_keys: integer and date cannot join',
+                type: 'value_error',
+              },
+            ],
+          },
+          { status: 422 },
+        ),
+      ),
+    );
+    const err = await relationshipsApi
+      .create(MOCK_WORKSPACE.id, {
+        leftDatasetId: 'ds_1',
+        leftColumn: 'a',
+        rightDatasetId: 'ds_2',
+        rightColumn: 'b',
+        cardinality: 'one_to_many',
+      })
+      .catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(RelationshipDeclareError);
+    expect((err as InstanceType<typeof RelationshipDeclareError>).code).toBe('incompatible_join_keys');
+
+    const { DeclareRelationshipModal } =
+      await import('@/features/data-management/relationships/DeclareRelationshipModal');
+    render(
+      <AntdConfig>
+        <App>
+          <DeclareRelationshipModal
+            open
+            datasets={[]}
+            isPending={false}
+            error={err as Error}
+            onSubmit={() => {}}
+            onClose={() => {}}
+          />
+        </App>
+      </AntdConfig>,
+    );
+    expect(
+      await screen.findByText(/These columns can't be joined \(integer and date cannot join\)/),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Request failed/)).toBeNull();
   });
 });

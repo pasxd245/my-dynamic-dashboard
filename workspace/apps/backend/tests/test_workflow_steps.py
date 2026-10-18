@@ -17,6 +17,7 @@ from fastapi.testclient import TestClient
 
 from app import db
 from app.main import app
+from tests._conformance import validate_response
 
 
 # region (REPEATED), product, amount → SUM(amount) by region = EMEA 150, APAC 200.
@@ -227,3 +228,4 @@ def test_drifted_step_returns_409_step_invalid_on_run() -> None:
 
     assert resp.status_code == 409
     assert resp.json() == {"code": "step_invalid"}
+    validate_response("queries/rows-get.contract.yaml", 409, resp.json())  # R191 — now in the contract

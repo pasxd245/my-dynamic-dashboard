@@ -62,12 +62,14 @@ export function JoinWithRelatedModal({
   }, [open, joinable.length]);
 
   const selected = joinable.find((r) => r.id === relId);
-  // R183 — warn before the join is saved when it will multiply rows: the hop
-  // starts from THIS dataset, so the relevant side is the other one.
+  // R183 — warn before the join is saved when it will multiply rows. R191: the
+  // saved query always starts from the edge's LEFT dataset (`sourceId` below),
+  // whichever side this modal was opened from — so the direction that matters is
+  // always left → right (it used to follow the page's dataset and could warn for
+  // the wrong side, or miss the real multiplication).
   const check = useRelationshipCheckQuery(selected?.id, open && Boolean(selected));
-  const fromLeft = selected?.leftDatasetId === datasetId;
-  const multiplies = check.data ? (fromLeft ? check.data.multipliesLeft : check.data.multipliesRight) : false;
-  const otherMax = check.data ? (fromLeft ? check.data.rightMaxPerKey : check.data.leftMaxPerKey) : 0;
+  const multiplies = check.data ? check.data.multipliesLeft : false;
+  const otherMax = check.data ? check.data.rightMaxPerKey : 0;
   const trimmed = name.trim();
   const canSave = Boolean(selected) && trimmed.length > 0 && !createMutation.isPending;
   const nameTaken = createMutation.error instanceof ApiErrorThrown && createMutation.error.body.code === 'name_taken';

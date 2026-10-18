@@ -6,12 +6,14 @@
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react';
+import { HttpResponse, http } from 'msw';
 import type { ReactNode } from 'react';
 import { describe, expect, it } from 'vitest';
 
 import { useWidgetChartData } from '@/features/dashboard/WidgetView';
 import type { Widget } from '@/features/dashboard/types';
-import { MOCK_QUERY } from '@/mocks/fixtures';
+import { MOCK_DATASET, MOCK_QUERY } from '@/mocks/fixtures';
+import { server } from '@/mocks/server';
 
 type WidgetConfig = Pick<
   Widget,
@@ -61,5 +63,48 @@ describe('R119 widget aggregate binding', () => {
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
     expect(result.current.chartData).toEqual([]);
+  });
+});
+
+// R191 — the two states the round fixed: a string measure (server `sum` skipped,
+// R151) must roll up on the client instead of reading "empty", and a deleted
+// bound query must surface as "query unavailable", not a generic error.
+// The query's columns as the server resolves them, with `amount` ingested as text.
+const STRING_AMOUNT = MOCK_DATASET.columns.map((c) => ({
+  name: c.name,
+  dtype: c.name === 'amount' ? 'string' : c.dtype,
+}));
+
+describe('R191 widget fallbacks', () => {
+  it('a sum over a measure the query resolves as string rolls up client-side (same total)', async () => {
+    let aggregateCalls = 0;
+    server.use(
+      http.get('*/queries/:id', () =>
+        HttpResponse.json({
+          ...MOCK_QUERY,
+          resolvedColumns: STRING_AMOUNT,
+        }),
+      ),
+      http.post('*/queries/:id/aggregate', () => {
+        aggregateCalls += 1;
+        return HttpResponse.json({ code: 'measure_not_numeric' }, { status: 422 });
+      }),
+    );
+    const { result } = renderHook(() => useWidgetChartData(BAR), { wrapper: wrapper() });
+    await waitFor(() => expect(result.current.chartData).toEqual([{ label: 'won', value: 95650 }]));
+    expect(aggregateCalls).toBe(0);
+  });
+
+  it('a stat over a string measure sums client-side too', async () => {
+    server.use(http.get('*/queries/:id', () => HttpResponse.json({ ...MOCK_QUERY, resolvedColumns: STRING_AMOUNT })));
+    const stat: WidgetConfig = { queryId: MOCK_QUERY.id, chartType: 'stat', measureCol: 'amount', agg: 'sum' };
+    const { result } = renderHook(() => useWidgetChartData(stat), { wrapper: wrapper() });
+    await waitFor(() => expect(result.current.statValue).toBe(95650));
+  });
+
+  it('a bound query that 404s reads as missing, not as a generic error', async () => {
+    const gone: WidgetConfig = { ...BAR, queryId: 'qr_0dead404' };
+    const { result } = renderHook(() => useWidgetChartData(gone), { wrapper: wrapper() });
+    await waitFor(() => expect(result.current.isMissingQuery).toBe(true));
   });
 });

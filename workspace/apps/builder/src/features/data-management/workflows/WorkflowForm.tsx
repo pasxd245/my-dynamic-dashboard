@@ -11,7 +11,7 @@ import { NAME_LENGTHS } from '@/_generated/constants';
 import { StepsEditor } from '@/features/data-management/queries/StepsEditor';
 import type { Step } from '@/features/data-management/queries/types';
 import { WorkflowSourcePicker } from './WorkflowSourcePicker';
-import { useSourceColumns } from './hooks';
+import { useSourceColumns, withProvenanceColumn } from './hooks';
 
 type WorkflowFormProps = Readonly<{
   workspaceId: string | undefined;
@@ -36,8 +36,11 @@ export function WorkflowForm({
   excludeWorkflowId,
 }: WorkflowFormProps) {
   const { t } = useTranslation();
-  // Steps author against the FIRST source's columns (the consolidation schema).
-  const { columns, loading: columnsLoading } = useSourceColumns(sources[0]);
+  // Steps author against the FIRST source's columns (the consolidation schema),
+  // plus — with two or more sources — the provenance column the run appends
+  // (R191: the editor could not offer it before).
+  const { columns: sourceColumns, loading: columnsLoading } = useSourceColumns(sources[0]);
+  const columns = withProvenanceColumn(sourceColumns, sources.length);
 
   return (
     <div data-component="WorkflowForm">

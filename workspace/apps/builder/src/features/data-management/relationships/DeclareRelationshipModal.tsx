@@ -8,6 +8,7 @@ import { Alert, Modal, Segmented, Select, Typography, theme } from 'antd';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { RelationshipDeclareError } from '@/api/relationshipsApi';
 import { ApiErrorThrown } from '@/features/data-management/_shared/types';
 import type { Column, Dataset, Dtype } from '@/features/data-management/datasets/types';
 import type { Cardinality, CreateRelationshipRequest } from './types';
@@ -86,8 +87,7 @@ export function DeclareRelationshipModal({
   const duplicate = error instanceof ApiErrorThrown && error.body.code === 'relationship_exists';
 
   const datasetOptions = datasets.map((d) => ({ value: d.id, label: d.name }));
-  const colOptions = (cols: readonly Column[]) =>
-    cols.map((c) => ({ value: c.name, label: `${c.name} (${c.dtype})` }));
+  const colOptions = (cols: readonly Column[]) => cols.map((c) => ({ value: c.name, label: `${c.name} (${c.dtype})` }));
 
   const submit = () => {
     if (!canDeclare || !leftDatasetId || !leftColumn || !rightDatasetId || !rightColumn) return;
@@ -195,7 +195,11 @@ export function DeclareRelationshipModal({
             type="error"
             showIcon
             title={t('relationships.declare.failed')}
-            description={error.message}
+            description={
+              error instanceof RelationshipDeclareError
+                ? t(`relationships.declare.reason.${error.code}`, { detail: error.detail })
+                : error.message
+            }
             data-component="DeclareError"
           />
         ) : null}

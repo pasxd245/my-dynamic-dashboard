@@ -175,3 +175,14 @@ describe('R189 replace_period — Confirm step', () => {
     expect(dispatch).toHaveBeenCalledWith({ type: 'SET_PERIOD_COLUMN', column: 'overlap_day' });
   });
 });
+
+// R191 — the Confirm footer said "Creating 1 dataset in …" in refresh mode
+// (seen in R189's visual gate): a refresh creates nothing.
+describe('R191 refresh Confirm footer', () => {
+  it('names the dataset being refreshed instead of "Creating 1 dataset"', () => {
+    renderConfirm(seeded());
+    const footer = document.querySelector('[data-component="ConfirmFooter"]');
+    expect(footer?.textContent).toContain('Refreshing daily_calls');
+    expect(footer?.textContent).not.toContain('Creating');
+  });
+});

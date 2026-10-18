@@ -225,8 +225,9 @@ class MetadataEntry(SQLModel, table=True):
     ``written_at`` are stamped by the server from the writing token;
     ``definition_version`` is the noun's definition hash at write time, so a
     reader can flag an entry whose subject has since changed. No FK: the noun
-    kinds live in five tables, and a deleted noun's entries are swept by the
-    write path (an orphan is harmless and unreadable)."""
+    kinds live in five tables. Nothing sweeps a deleted noun's entries yet — an
+    orphan stays in the table, harmless and unreadable (no read path resolves
+    it); the cascade is item 3.8's (R191 corrected this docstring)."""
 
     __tablename__ = "metadata_entries"
     __table_args__ = (

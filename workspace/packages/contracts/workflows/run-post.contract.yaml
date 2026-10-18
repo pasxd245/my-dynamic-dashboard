@@ -20,30 +20,35 @@ paths:
         - name: id
           in: path
           required: true
-          schema: { type: string, pattern: "^wf_[0-9a-f]{8}$" }
+          schema: { type: string, pattern: '^wf_[0-9a-f]{8}$' }
       responses:
-        "200":
+        '200':
           description: The workflow, now materialized (`resolvedColumns` + `materializedAt` present).
           content:
             application/json:
-              schema: { $ref: "../_shared/workflow.yaml#/components/schemas/Workflow" }
-        "404":
+              schema: { $ref: '../_shared/workflow.yaml#/components/schemas/Workflow' }
+        '404':
           description: No workflow with this id.
           content:
             application/json:
-              schema: { $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorNotFound" }
-              examples: { not_found: { value: { code: "not_found" } } }
-        "409":
+              schema: { $ref: '../_shared/api-error.yaml#/components/schemas/ApiErrorNotFound' }
+              examples: { not_found: { value: { code: 'not_found' } } }
+        '409':
           description: |
             The workflow can't run against current data — one of:
             - `query_stale` — the source query drifted (a filtered/derived column
-              was removed or retyped), a workflow step no longer validates, the
-              source can no longer resolve at all, or (R186) the sources no longer
-              share one shape because one was edited after the workflow was saved.
-              The last materialized output is kept as it was.
+              was removed or retyped), the source can no longer resolve at all,
+              or (R186) the sources no longer share one shape because one was
+              edited after the workflow was saved.
+            - `step_invalid` — a workflow step no longer validates against the
+              consolidated columns (R191: the code the run has emitted since R165).
+            The last materialized output is kept as it was.
           content:
             application/json:
               schema:
-                $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorQueryStale"
+                oneOf:
+                  - $ref: '../_shared/api-error.yaml#/components/schemas/ApiErrorQueryStale'
+                  - $ref: '../_shared/api-error.yaml#/components/schemas/ApiErrorStepInvalid'
               examples:
-                source_stale: { summary: The source query drifted, value: { code: "query_stale" } }
+                source_stale: { summary: The source query drifted, value: { code: 'query_stale' } }
+                step_invalid: { summary: A workflow step no longer validates, value: { code: 'step_invalid' } }

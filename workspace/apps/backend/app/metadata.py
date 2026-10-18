@@ -178,6 +178,6 @@ def children_for(con: sqlite3.Connection, noun: Noun) -> dict[str, dict[str, dic
         child_id = r["noun_id"][len(prefix) :]
         child = resolve_noun(con, child_kind, r["noun_id"])
         if child is None:
-            continue  # the column / widget is gone; its entries are unreadable until swept
+            continue  # the column / widget is gone; its entries stay unreadable (no sweep yet — 3.8)
         out.setdefault(child_id, {})[r["namespace"]] = entry_dict(r, child.definition_version)
     return out

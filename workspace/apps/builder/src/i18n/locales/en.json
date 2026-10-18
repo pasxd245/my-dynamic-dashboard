@@ -336,6 +336,9 @@
       "boolValueHint": "No value needed for this operator",
       "noMatchFiltersTitle": "No rows match these filters",
       "noMatchFiltersHint": "Adjust or clear a filter to see more results.",
+      "noMatchAdvancedTitle": "No rows match the advanced query",
+      "noMatchAdvancedHint": "Change the advanced query, or clear it to see more rows.",
+      "clearAdvanced": "Clear advanced query",
       "noMatchBothTitle": "No rows match “{{query}}” with these filters",
       "noMatchBothHint": "Adjust the search or a filter to see more results.",
       "op": {
@@ -500,6 +503,7 @@
       "noOverrides": "none",
       "footer_one": "Creating <strong>{{count}}</strong> dataset in <strong>{{workspace}}</strong>.",
       "footer_other": "Creating <strong>{{count}}</strong> datasets in <strong>{{workspace}}</strong>.",
+      "footerRefresh": "Refreshing <strong>{{name}}</strong> in <strong>{{workspace}}</strong>.",
       "errorNameTakenTitle": "A dataset with that name already exists in this workspace",
       "errorNameTakenDescription": "Rename one of the items in the table above (the wizard's Confirm step) so each dataset name is unique within this workspace, then try again.",
       "errorCoercionFailedTitle": "Some values don't fit the chosen column type",
@@ -824,7 +828,7 @@
       },
       "buildActive": "{{count}} active",
       "baseSourceLabel": "Build on",
-      "baseSourcePlaceholder": "A dataset or a saved query",
+      "baseSourcePlaceholder": "A dataset",
       "joinLabel": "Join",
       "joinsLabel": "Joins",
       "joinPlaceholder": "Join with a related dataset",
@@ -871,7 +875,7 @@
       "canvasMaximize": "Maximize",
       "canvasExitMaximize": "Exit maximize",
       "canvasHelpTitle": "Building joins on the canvas",
-      "canvasHelpAddSource": "“Add a source” brings in another dataset or saved query to draw to.",
+      "canvasHelpAddSource": "“Add a source” brings in another dataset to draw to.",
       "canvasHelpEdges": "Click a join to promote, re-sync, or remove it.",
       "canvasNodeTypeDataset": "Dataset",
       "canvasColumnsMore": "+ {{count}} more",
@@ -981,6 +985,12 @@
       "sameDataset": "Pick two different datasets (self-joins come later).",
       "duplicate": "This relationship already exists in this workspace.",
       "failed": "Couldn't declare the relationship",
+      "reason": {
+        "self_join": "Pick two different datasets — a dataset can't be related to itself.",
+        "unknown_dataset": "One of the datasets is not in this workspace any more. Reload and pick again.",
+        "unknown_column": "The column {{detail}} is not in the dataset any more. Reload and pick again.",
+        "incompatible_join_keys": "These columns can't be joined ({{detail}}). Pick columns of the same kind (text with text, numbers with numbers, dates with dates)."
+      },
       "success": "Relationship declared"
     },
     "delete": {

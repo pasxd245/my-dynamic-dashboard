@@ -38,25 +38,36 @@ def _csv_cell(v: Any) -> str:
     return str(v)
 
 
-def build_csv(columns: list[dict], rows: list[list[Any]], totals: list[Any] | None, total_label: str) -> bytes:
+def build_csv(
+    columns: list[dict],
+    rows: list[list[Any]],
+    totals: list[Any] | None,
+    total_label: str,
+    *,
+    totalled: frozenset[str] = frozenset(),
+) -> bytes:
     """UTF-8 with a BOM (so Excel opens it as UTF-8), header + rows + the
-    totals row last when given (its first non-totalled cell is the label)."""
+    totals row last when given (labelled as on the page — see `_label_totals`)."""
     buf = io.StringIO()
     w = csv.writer(buf, lineterminator="\r\n")
     w.writerow([c["name"] for c in columns])
     for r in rows:
         w.writerow([_csv_cell(v) for v in r])
     if totals is not None:
-        w.writerow(_label_totals(columns, totals, total_label, as_text=True))
+        w.writerow(_label_totals(columns, totals, total_label, totalled, as_text=True))
     return ("﻿" + buf.getvalue()).encode("utf-8")
 
 
-def _label_totals(columns: list[dict], totals: list[Any], label: str, *, as_text: bool) -> list[Any]:
-    """Put the label in the first column that has no total (or the first
-    column) so the row reads `Total · 1,284 · …`."""
+def _label_totals(
+    columns: list[dict], totals: list[Any], label: str, totalled: frozenset[str], *, as_text: bool
+) -> list[Any]:
+    """The page's rule (TableView footer): the label sits in the FIRST column,
+    and only when that column is not itself totalled — otherwise the row has no
+    label. A totalled column whose value is empty (a ratio over 0) stays empty;
+    the label never overwrites a total (R191)."""
     out = list(totals)
-    slot = next((i for i, v in enumerate(out) if v is None), 0)
-    out[slot] = label
+    if columns and columns[0]["name"] not in totalled:
+        out[0] = label
     return [(_csv_cell(v) if as_text else v) for v in out]
 
 
@@ -71,6 +82,7 @@ def build_xlsx(
     filters: list[tuple[str, list[str | None]]],
     meta: list[tuple[str, str]],
     filters_sheet_title: str,
+    totalled: frozenset[str] = frozenset(),
 ) -> bytes:
     wb = Workbook()
     ws = wb.active
@@ -82,7 +94,7 @@ def build_xlsx(
     for r in rows:
         ws.append([_xlsx_cell(v) for v in r])
     if totals is not None:
-        ws.append(_label_totals(columns, totals, total_label, as_text=False))
+        ws.append(_label_totals(columns, totals, total_label, totalled, as_text=False))
         for cell in ws[ws.max_row]:
             cell.font = bold
     # Number formats per column: percent for ratio columns, dates as dates.

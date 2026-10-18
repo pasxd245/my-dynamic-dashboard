@@ -1,7 +1,8 @@
 // WidgetFilterDrawer (R103) — a right-side panel to filter ONE widget at
-// runtime. Each widget filters on its OWN categorical columns (one-of values),
-// client-side over its already-fetched rows — no cross-widget ambiguity, no
-// contract/backend change, and the selection resets on reload. Formula-free:
+// runtime. Each widget filters on its OWN categorical columns (one-of values)
+// — no cross-widget ambiguity, and the selection resets on reload. The raw-row
+// kinds apply it client-side; the aggregating kinds (bar without series, pie,
+// line, stat) push it to the server aggregate (R119). Formula-free:
 // every control is a select. Opened from the per-card filter icon.
 //
 // Progressive disclosure: rather than list every column up front (a wall of
@@ -33,14 +34,7 @@ type WidgetFilterDrawerProps = Readonly<{
   afterClose: () => void;
 }>;
 
-export function WidgetFilterDrawer({
-  open,
-  widget,
-  filters,
-  onChange,
-  onClose,
-  afterClose,
-}: WidgetFilterDrawerProps) {
+export function WidgetFilterDrawer({ open, widget, filters, onChange, onClose, afterClose }: WidgetFilterDrawerProps) {
   const { t } = useTranslation();
   const { options, capped } = useWidgetFilterOptions(widget?.queryId);
 

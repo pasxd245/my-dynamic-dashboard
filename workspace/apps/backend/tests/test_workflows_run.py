@@ -289,3 +289,18 @@ def test_consolidating_two_shaped_queries_unions_their_ANSWERS() -> None:
     # The shaped column space + (R186 W-3) the provenance column.
     assert all(len(r) == 3 for r in both["rows"]), "the union carries the shaped column space"
     assert {r[-1] for r in both["rows"]} == {"A shaped", "B shaped"}
+
+
+@pytest.mark.unit
+def test_a_step_that_no_longer_validates_answers_409_step_invalid_per_contract() -> None:
+    """R191 — the run has emitted `step_invalid` (409) since R165, but the run
+    contract listed only `query_stale`. A step on a column the consolidated
+    output lacks is refused at run, in the contract's shape."""
+    with TestClient(app) as client:
+        ws, qid = _query_source(client)
+        wid = _create(client, ws, qid, steps=[{"kind": "top_n", "col": "ghost", "n": 1}]).json()["id"]
+        run = client.post(f"/workflows/{wid}/run")
+
+    assert run.status_code == 409, run.text
+    assert run.json() == {"code": "step_invalid"}
+    validate_response("workflows/run-post.contract.yaml", 409, run.json())

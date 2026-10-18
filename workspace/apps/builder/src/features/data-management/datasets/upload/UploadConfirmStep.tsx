@@ -119,11 +119,7 @@ type Props = Readonly<{
  *  `mergeKeyIssues` helper. */
 function RefreshSemantics({ state, dispatch }: Readonly<Pick<Props, 'state' | 'dispatch'>>) {
   const { t } = useTranslation();
-  const keyIssues = mergeKeyIssues(
-    state.refreshBaseline ?? [],
-    state.sheets[refreshSheetKey(state)],
-    state.mergeKey,
-  );
+  const keyIssues = mergeKeyIssues(state.refreshBaseline ?? [], state.sheets[refreshSheetKey(state)], state.mergeKey);
   const mergeBlocked = state.refreshMode === 'merge' && (state.mergeKey.length === 0 || keyIssues.length > 0);
   const dateOptions = dateFieldOptions(state.sheets[refreshSheetKey(state)]);
   // R189 — replace_period needs a date column on both the file and the dataset.
@@ -564,7 +560,8 @@ export function UploadConfirmStep({ state, dispatch, commitError }: Props) {
           <strong>{workspaceName}</strong>
         </span>
         <span>
-          <Typography.Text type="secondary">{t('upload.confirm.sourceLabel')}</Typography.Text> {sourceLabel} · {fileName}
+          <Typography.Text type="secondary">{t('upload.confirm.sourceLabel')}</Typography.Text> {sourceLabel} ·{' '}
+          {fileName}
           {fileSize ? ` (${fileSize})` : ''}
         </span>
       </div>
@@ -577,12 +574,21 @@ export function UploadConfirmStep({ state, dispatch, commitError }: Props) {
         data-component="ConfirmTable"
       />
       <Typography.Paragraph type="secondary" style={{ marginTop: 12 }} data-component="ConfirmFooter">
-        <Trans
-          i18nKey="upload.confirm.footer"
-          count={rows.length}
-          values={{ count: rows.length, workspace: workspaceName }}
-          components={{ strong: <strong /> }}
-        />
+        {isRefresh ? (
+          // R191 — a refresh creates nothing: name the dataset it refreshes.
+          <Trans
+            i18nKey="upload.confirm.footerRefresh"
+            values={{ name: state.refreshTargetName ?? '', workspace: workspaceName }}
+            components={{ strong: <strong /> }}
+          />
+        ) : (
+          <Trans
+            i18nKey="upload.confirm.footer"
+            count={rows.length}
+            values={{ count: rows.length, workspace: workspaceName }}
+            components={{ strong: <strong /> }}
+          />
+        )}
       </Typography.Paragraph>
 
       {commitError ? (
@@ -598,4 +604,3 @@ export function UploadConfirmStep({ state, dispatch, commitError }: Props) {
     </div>
   );
 }
-
