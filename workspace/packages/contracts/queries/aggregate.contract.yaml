@@ -123,6 +123,8 @@ paths:
                     type: integer
                     minimum: 0
                     description: Group count (= `rows.length`; no cap applies).
+                  resolvedParams:
+                    $ref: "../_shared/query.yaml#/components/schemas/ResolvedParams"
               examples:
                 revenue_by_region:
                   value:
@@ -170,14 +172,18 @@ paths:
             / `filters[].column` name; a `sum` measure missing its `col`, or
             a `count` measure carrying one; a `sum` over a non-numeric
             column; or the request shape itself is malformed (FastAPI
-            validation envelope).
+            validation envelope). R194 — or a parameter has no value
+            (`param_unbound`) or a wrong-typed one (`param_invalid`).
           content:
             application/json:
               schema:
-                type: object
-                required: [detail]
-                properties:
-                  detail:
-                    type: array
-                    items:
-                      type: object
+                oneOf:
+                  - type: object
+                    required: [detail]
+                    properties:
+                      detail:
+                        type: array
+                        items:
+                          type: object
+                  - $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorParamUnbound"
+                  - $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorParamInvalid"

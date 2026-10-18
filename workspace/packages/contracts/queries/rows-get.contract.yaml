@@ -9,7 +9,12 @@ info:
 
     The endpoint takes NO predicate params of its own — the saved
     `definition` is the source of truth; only pagination (or the R107
-    `unpaged=true` fetch) is a query param. The response is the SAME
+    `unpaged=true` fetch) is a query param. R194 — plus one
+    `p.<name>=<value>` query parameter per declared query parameter (the
+    viewer value, dashboard-filters.md D3; the same spelling as the dashboard
+    URL). A `p.` name the query does not declare is ignored. The response then
+    carries `resolvedParams`; a query without parameters answers exactly as
+    before. The response is the SAME
     `RowsPage` shape as `GET /datasets/{id}/rows` (the BE delegates to the
     shipped `query_dataset_rows` path after hydrating the definition).
 
@@ -120,6 +125,8 @@ paths:
                       Matched-row count under the saved definition. The
                       FE pairs this with the dataset's `rowCount` to
                       render the "Matched X / Y" counter.
+                  resolvedParams:
+                    $ref: '../_shared/query.yaml#/components/schemas/ResolvedParams' 
               examples:
                 first_page:
                   summary: First page of a query that matched 312 rows
@@ -181,14 +188,19 @@ paths:
           description: |
             Malformed request — `page < 1`, `page_size` not in
             {10, 25, 50, 100}, or `id` not matching `^qr_[0-9a-f]{8}$`.
-            FastAPI validation-error envelope.
+            FastAPI validation-error envelope. R194 — or a parameter the
+            definition uses has no value (`param_unbound`) or a `p.` value of
+            the wrong type (`param_invalid`).
           content:
             application/json:
               schema:
-                type: object
-                required: [detail]
-                properties:
-                  detail:
-                    type: array
-                    items:
-                      type: object
+                oneOf:
+                  - type: object
+                    required: [detail]
+                    properties:
+                      detail:
+                        type: array
+                        items:
+                          type: object
+                  - $ref: '../_shared/api-error.yaml#/components/schemas/ApiErrorParamUnbound'
+                  - $ref: '../_shared/api-error.yaml#/components/schemas/ApiErrorParamInvalid'

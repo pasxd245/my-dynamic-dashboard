@@ -11,6 +11,115 @@
 # vocabulary, just persistence.
 components:
   schemas:
+    Operand:
+      description: |
+        R194 — a literal operand (string or number), or a reference to one of
+        the query's declared parameters (`ParamRef`). A reference is allowed
+        ONLY here — filter atom / filter-step / `case` WHEN operands
+        (dashboard-filters.md D2) — never `refCol`, never an output constant,
+        never in a workflow step.
+      oneOf:
+        - type: [string, number]
+        - $ref: '#/components/schemas/ParamRef'
+
+    ParamRef:
+      type: object
+      required: [param]
+      additionalProperties: false
+      description: |
+        R194 (D1) — `{"param": "<name>"}` written exactly where a literal operand
+        would be. The value is chosen at read time (D3); it is never written into
+        the definition, so reads with different values share one
+        `definitionVersion`.
+      properties:
+        param:
+          type: string
+          pattern: '^[a-z][a-z0-9_]{0,31}$'
+
+    RelativeDate:
+      type: object
+      required: [kind, offsetDays]
+      additionalProperties: false
+      description: |
+        R194 (D1) — "today ± n days", resolved by the server in
+        `backend.time_zone` (IANA, default `UTC`) at read time. Yesterday is
+        `{"kind": "today", "offsetDays": -1}`.
+      properties:
+        kind:
+          type: string
+          enum: [today]
+        offsetDays:
+          type: integer
+          minimum: -366
+          maximum: 366
+
+    QueryParam:
+      type: object
+      required: [name, type]
+      additionalProperties: false
+      description: |
+        R194 (D1) — a typed parameter the query declares. Part of the definition
+        and its hash. `default` is a literal of the type (a `date` as
+        `YYYY-MM-DD`); a `date` default may instead be relative (`RelativeDate`).
+      properties:
+        name:
+          type: string
+          pattern: '^[a-z][a-z0-9_]{0,31}$'
+          description: Unique in the query.
+        type:
+          type: string
+          enum: [date, number, string]
+        label:
+          type: string
+          minLength: 1
+          maxLength: 60
+        default:
+          oneOf:
+            - type: [string, number]
+            - $ref: '#/components/schemas/RelativeDate'
+
+    ParamValues:
+      type: object
+      description: |
+        R194 (D3 level 1, "viewer") — values for the query's parameters, by name.
+        A date is `YYYY-MM-DD`. An entry the query does not declare is ignored
+        (and not echoed).
+      maxProperties: 16
+      additionalProperties:
+        type: [string, number]
+
+    DashboardParamValues:
+      type: object
+      description: |
+        R194 (D3 level 2, "dashboard") — the values saved on the dashboard's
+        controls bound to these parameter names, sent by the dashboard with each
+        read (the controls themselves land in 3.7b). A date may be relative.
+        Used only where no viewer value is given.
+      maxProperties: 16
+      additionalProperties:
+        oneOf:
+          - type: [string, number]
+          - $ref: '#/components/schemas/RelativeDate'
+
+    ResolvedParams:
+      type: object
+      description: |
+        R194 (D3, D7) — what a read used, by parameter name: the value (a date as
+        `YYYY-MM-DD`, relative defaults already resolved) and which level it came
+        from. Present only when the query declares parameters and the read
+        resolved at least one; a query without parameters answers without this
+        key, exactly as before.
+      additionalProperties:
+        type: object
+        required: [value, source]
+        additionalProperties: false
+        properties:
+          value:
+            type: [string, number]
+          source:
+            type: string
+            enum: [viewer, dashboard, default]
+
     FilterAtom:
       type: object
       description: |
@@ -38,20 +147,20 @@ components:
             enum) and re-checked by the BE on save and on run, exactly
             as the rows-GET `aq` atoms are checked.
         val:
-          type: [string, number]
-          description: Single-operand value (ops that take one value).
+          $ref: '#/components/schemas/Operand'
+          description: Single-operand value (ops that take one value), or a parameter (R194).
         min:
-          type: [string, number]
-          description: Lower bound for `between` (inclusive).
+          $ref: '#/components/schemas/Operand'
+          description: Lower bound for `between` (inclusive), or a parameter (R194).
         max:
-          type: [string, number]
-          description: Upper bound for `between` (inclusive).
+          $ref: '#/components/schemas/Operand'
+          description: Upper bound for `between` (inclusive), or a parameter (R194).
         vals:
           type: array
           minItems: 1
           maxItems: 500
           items:
-            type: [string, number]
+            $ref: '#/components/schemas/Operand'
           description: |
             R176 — the value list for `in` / `not_in` (every dtype but boolean), each
             parsed per dtype like `val`. Strings compare case-insensitively; `not_in`
@@ -64,7 +173,8 @@ components:
             R176 — compare against ANOTHER column (its 0-based index) instead of a
             literal `val`, for `equals` / `ne` / `gt` / `lt` / `gte` / `lte` /
             `before` / `after`. Same dtype family only (number·number,
-            date·datetime, string·string for equals/ne). Mutually exclusive with `val`.
+            date·datetime, string·string for equals/ne). Mutually exclusive with `val`
+            and with any parameter reference on the atom (R194).
 
     JoinStep:
       type: object
@@ -342,17 +452,17 @@ components:
           type: string
           description: Operator key (validity is dtype-dependent, like `FilterAtom.op`).
         val:
-          type: [string, number]
+          $ref: '#/components/schemas/Operand'
         min:
-          type: [string, number]
+          $ref: '#/components/schemas/Operand'
         max:
-          type: [string, number]
+          $ref: '#/components/schemas/Operand'
         vals:
           type: array
           minItems: 1
           maxItems: 500
           items:
-            type: [string, number]
+            $ref: '#/components/schemas/Operand'
           description: R176 — value list for `in` / `not_in` (see `FilterAtom.vals`).
         refCol:
           type: string
@@ -814,6 +924,19 @@ components:
       required: [filters, advanced]
       additionalProperties: false
       properties:
+        params:
+          type: array
+          maxItems: 8
+          description: |
+            R194 (dashboard-filters.md D1) — the typed parameters this query
+            declares; operands use them as `{"param": "<name>"}` (D2 places only).
+            Omitted when none. Save-time checks (422 naming the field): a reference
+            to an undeclared name, a type that does not fit the column (date ⇄
+            date/datetime, number ⇄ integer/float, string ⇄ string), a reference on
+            an operator without an operand, a reference beside `refCol`, a default
+            that is not of the type. A declared but unused parameter is allowed.
+          items:
+            $ref: '#/components/schemas/QueryParam'
         q:
           type: [string, 'null']
           description: |
@@ -1066,3 +1189,8 @@ components:
                 type: array
                 items:
                   type: [string, 'null']
+
+        params:
+          $ref: '#/components/schemas/ParamValues'
+        dashboardParams:
+          $ref: '#/components/schemas/DashboardParamValues'

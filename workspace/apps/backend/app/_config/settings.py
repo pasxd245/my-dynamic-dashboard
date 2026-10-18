@@ -27,7 +27,7 @@ from pathlib import Path
 from typing import Any, ClassVar, Literal
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, field_validator, ConfigDict, Field
 from pydantic_settings import (
     BaseSettings,
     PydanticBaseSettingsSource,
@@ -93,6 +93,20 @@ class BackendSettings(BaseModel):
     # to `paths.DEFAULT_DATA_DIR` (`<BACKEND_ROOT>/data`). Set via
     # values.yaml or `MDD_BACKEND__DATA_DIR=/var/lib/mdd`.
     data_dir: str | None = None
+    # R194 (dashboard-filters.md D1) — the IANA zone a parameter's relative date
+    # default ("today ± n days") resolves in. Data stays naive; only "today" uses it.
+    time_zone: str = "UTC"
+
+    @field_validator("time_zone")
+    @classmethod
+    def _known_zone(cls, v: str) -> str:
+        from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+        try:
+            ZoneInfo(v)
+        except (ZoneInfoNotFoundError, ValueError) as err:
+            raise ValueError(f"backend.time_zone: unknown IANA zone {v!r}") from err
+        return v
 
 
 class _YamlConfigSource(PydanticBaseSettingsSource):

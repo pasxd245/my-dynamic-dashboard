@@ -32,6 +32,11 @@ backend:
   # Override via MDD_BACKEND__DATA_DIR=/var/lib/mdd for production deploys.
   data_dir: null
 
+  # R194 (dashboard-filters.md D1): the IANA time zone in which a parameter's
+  # relative date default ("today ± n days") is resolved. Stored data stays
+  # naive — only "today" uses the zone. Override via MDD_BACKEND__TIME_ZONE.
+  time_zone: 'UTC'
+
   # R30: tmp-upload sweep job — runtime safety net. Lifespan-spawned
   # asyncio task that hard-deletes uploads_tmp/<temp_id>/ dirs older
   # than the TTL. Disabled in tests via MDD_BACKEND__TMP_SWEEP__ENABLED=false.
@@ -102,6 +107,8 @@ constants:
     export_too_large: 'export_too_large' # R182 — a table export over the row cap (422; carries rows + max)
     not_publishable: 'not_publishable' # R192 — a workflow publish refused: never_run | stale | reads_itself (409)
     read_only_workspace: 'read_only_workspace' # R193 — a write inside a saved (frozen-copies) workspace (409)
+    param_unbound: 'param_unbound' # R194 — a query parameter has no value at any level (422; names `param`, a run also `sourceId`)
+    param_invalid: 'param_invalid' # R194 — a supplied parameter value has the wrong type (422; names `param`)
 
   # R29: name-length bounds enforced by Pydantic on BE + AntD Form rules on
   # FE. Workspace names globally unique, max 80; dataset names per-workspace

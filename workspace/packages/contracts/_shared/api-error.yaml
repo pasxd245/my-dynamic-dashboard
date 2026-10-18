@@ -25,6 +25,10 @@
 #                        replace (409) — R192.
 #   - read_only_workspace — a write inside a saved (frozen) workspace (409)
 #                        — R193.
+#   - param_unbound    — a query parameter has no value at any level (422) —
+#                        R194 (dashboard-filters.md D3/D6).
+#   - param_invalid    — a supplied parameter value has the wrong type (422)
+#                        — R194.
 #
 # Each variant uses `additionalProperties: false` to mirror the BE's
 # `extra='forbid'` Pydantic discipline (per the R16 conformance pattern).
@@ -52,6 +56,9 @@ components:
           metadata_invalid,
           export_too_large,
           not_publishable,
+          read_only_workspace,
+          param_unbound,
+          param_invalid,
         ]
       description: |
         Closed enum. Any new error class lands as a new code in a future
@@ -470,3 +477,39 @@ components:
         code:
           type: string
           enum: [read_only_workspace]
+
+    ApiErrorParamUnbound:
+      type: object
+      required: [code, param]
+      additionalProperties: false
+      description: |
+        R194 (dashboard-filters.md D3, D6) — a parameter the read needs has no
+        value at any level (viewer → dashboard → query default). `param` names
+        it; on a workflow run `sourceId` names the source query whose parameter
+        has no default (a run uses defaults only). Nothing is guessed.
+      properties:
+        code:
+          type: string
+          enum: [param_unbound]
+        param:
+          type: string
+          pattern: '^[a-z][a-z0-9_]{0,31}$'
+        sourceId:
+          type: string
+          pattern: '^qr_[0-9a-f]{8}$'
+
+    ApiErrorParamInvalid:
+      type: object
+      required: [code, param]
+      additionalProperties: false
+      description: |
+        R194 (D3) — a supplied value (viewer or dashboard) does not fit the
+        parameter's type: a date that is not `YYYY-MM-DD`, a number that is
+        not a number. `param` names it.
+      properties:
+        code:
+          type: string
+          enum: [param_invalid]
+        param:
+          type: string
+          pattern: '^[a-z][a-z0-9_]{0,31}$'

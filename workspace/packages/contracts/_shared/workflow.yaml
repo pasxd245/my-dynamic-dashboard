@@ -121,6 +121,16 @@ components:
           type: string
           pattern: "^run_[0-9a-f]{8}$"
           description: A workflow source — the run of it this run read.
+        params:
+          type: object
+          description: |
+            R194 (dashboard-filters.md D6) — a query source that declares
+            parameters: the value each was run with (a run uses defaults only;
+            relative dates resolved at run time). Omitted when it declares none.
+            A re-run on another day with a `today` default is a new run with a
+            new value, not a stale one.
+          additionalProperties:
+            type: [string, number]
     WorkflowStaleSource:
       description: One source that moved since the last run (R187); shared with a `not_publishable` refusal (R192).
       type: object

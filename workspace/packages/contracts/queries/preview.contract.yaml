@@ -78,6 +78,8 @@ paths:
                     edits the definition, not the source).
                 definition:
                   $ref: '../_shared/query.yaml#/components/schemas/QueryDefinition'
+                params:
+                  $ref: '../_shared/query.yaml#/components/schemas/ParamValues'
             examples:
               joined_with_filter:
                 summary: Preview a join with a cross-source filter
@@ -127,6 +129,8 @@ paths:
                     type: integer
                     minimum: 0
                     description: Matched-row count under the previewed definition.
+                  resolvedParams:
+                    $ref: '../_shared/query.yaml#/components/schemas/ResolvedParams'
                   resolvedColumns:
                     type: array
                     description: |
@@ -223,6 +227,9 @@ paths:
                   value: { 'code': 'step_invalid' }
         '422':
           description: |
+            R194 — a parameter the definition uses without a value or default
+            (`param_unbound`) or with a wrong-typed value (`param_invalid`), or a
+            parameter declaration / reference the save would refuse.
             The request is structurally unpreviewable — `sourceId`
             malformed / unknown / not in this workspace; a hop in
             `definition.joins` references an unknown or cross-workspace edge,
@@ -235,10 +242,13 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required: [detail]
-                properties:
-                  detail:
-                    type: array
-                    items:
-                      type: object
+                oneOf:
+                  - type: object
+                    required: [detail]
+                    properties:
+                      detail:
+                        type: array
+                        items:
+                          type: object
+                  - $ref: '../_shared/api-error.yaml#/components/schemas/ApiErrorParamUnbound'
+                  - $ref: '../_shared/api-error.yaml#/components/schemas/ApiErrorParamInvalid'

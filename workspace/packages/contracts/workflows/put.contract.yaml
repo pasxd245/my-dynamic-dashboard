@@ -64,7 +64,8 @@ paths:
             this workspace (`unknown_source`), does not resolve now — deleted,
             drifted, or a workflow never run (`unresolved_source`, R186 W-5), listed
             twice (`duplicate_source`, R186 W-3), or not the first source's shape
-            (`sources_diverge`, R186 W-2).
+            (`sources_diverge`, R186 W-2). R194 — a step operand that references a
+            parameter (`{"param": …}`): a workflow declares none (D6).
           content:
             application/json:
               schema:

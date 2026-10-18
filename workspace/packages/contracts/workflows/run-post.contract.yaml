@@ -53,3 +53,13 @@ paths:
               examples:
                 source_stale: { summary: The source query drifted, value: { code: 'query_stale' } }
                 step_invalid: { summary: A workflow step no longer validates, value: { code: 'step_invalid' } }
+        '422':
+          description: |
+            R194 (dashboard-filters.md D6) — a source query uses a parameter that
+            has no default (a run uses defaults only): `param_unbound` naming the
+            parameter and the source. Nothing is materialized.
+          content:
+            application/json:
+              schema: { $ref: '../_shared/api-error.yaml#/components/schemas/ApiErrorParamUnbound' }
+              examples:
+                unbound: { value: { code: 'param_unbound', param: 'as_of', sourceId: 'qr_9c2f10ab' } }

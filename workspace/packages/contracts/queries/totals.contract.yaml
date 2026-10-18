@@ -59,6 +59,10 @@ paths:
                         type: array
                         items:
                           type: [string, "null"]
+                params:
+                  $ref: "../_shared/query.yaml#/components/schemas/ParamValues"
+                dashboardParams:
+                  $ref: "../_shared/query.yaml#/components/schemas/DashboardParamValues"
             examples:
               footer:
                 value:
@@ -81,6 +85,8 @@ paths:
                   rowCount:
                     type: integer
                     minimum: 0
+                  resolvedParams:
+                    $ref: "../_shared/query.yaml#/components/schemas/ResolvedParams"
               examples:
                 footer:
                   value:
@@ -101,4 +107,20 @@ paths:
                   - $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorQueryStale"
                   - $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorRelationshipStale"
         "422":
-          description: A column is not in the result, or is not numeric. FastAPI validation envelope.
+          description: |
+            A column is not in the result, or is not numeric (FastAPI validation
+            envelope); R194 — or a parameter has no value (`param_unbound`) or a
+            wrong-typed one (`param_invalid`).
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: object
+                    required: [detail]
+                    properties:
+                      detail:
+                        type: array
+                        items:
+                          type: object
+                  - $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorParamUnbound"
+                  - $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorParamInvalid"

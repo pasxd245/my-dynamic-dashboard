@@ -54,6 +54,10 @@ paths:
                         type: array
                         items:
                           type: [string, "null"]
+                params:
+                  $ref: "../_shared/query.yaml#/components/schemas/ParamValues"
+                dashboardParams:
+                  $ref: "../_shared/query.yaml#/components/schemas/DashboardParamValues"
                 totals:
                   type: object
                   description: The widget's `Widget.totals` spec, to append the totals row.
@@ -85,6 +89,15 @@ paths:
           description: |
             The file, as an attachment —
             `Content-Disposition: attachment; filename="<title>.csv|xlsx"`.
+            R194 (D7) — when the read resolved parameters, the XLSX Filters sheet
+            gains a `Parameters` block (`name | value | source`) and a CSV answer
+            carries the `X-MDD-Params` header (the `resolvedParams` object as
+            JSON, exposed through CORS). Without parameters both are as before.
+          headers:
+            X-MDD-Params:
+              description: R194 — `ResolvedParams` as compact JSON; present only when parameters were resolved.
+              schema:
+                type: string
           content:
             text/csv:
               schema:
@@ -108,11 +121,17 @@ paths:
                   - $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorQueryStale"
                   - $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorRelationshipStale"
         "422":
-          description: Over the row cap (`export_too_large`, with `rows` and `max`), or a bad totals column (FastAPI envelope).
+          description: |
+            Over the row cap (`export_too_large`, with `rows` and `max`), or a bad
+            totals column (FastAPI envelope); R194 — or a parameter has no value
+            (`param_unbound`) or a wrong-typed one (`param_invalid`).
           content:
             application/json:
               schema:
-                $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorExportTooLarge"
+                oneOf:
+                  - $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorExportTooLarge"
+                  - $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorParamUnbound"
+                  - $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorParamInvalid"
               examples:
                 big:
                   value: { code: export_too_large, rows: 240511, max: 100000 }
