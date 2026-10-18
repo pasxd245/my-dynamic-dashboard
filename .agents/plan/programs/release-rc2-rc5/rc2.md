@@ -44,7 +44,7 @@ rc.3.
 
 |          |                                                         |
 | -------- | ------------------------------------------------------- |
-| Status   | review — walk W1–W4 pending                             |
+| Status   | done — `Complete` 2026-10-18                            |
 | Evidence | long tables (30–70 rows) clipped in a fixed 300 px body |
 
 - **As built:** `Widget.rows` 1–3, optional, absent = 1, mirrors `span`. The dashboard became a
@@ -58,7 +58,7 @@ rc.3.
 
 |          |                                                                                           |
 | -------- | ----------------------------------------------------------------------------------------- |
-| Status   | review — walk pending                                                                     |
+| Status   | done — `Complete` 2026-10-18                                                              |
 | Evidence | a reader cannot tell which period an export covers, or how much of a date column is blank |
 
 - **As built:** `Column.coverage {min, max, blankShare}` on every `date` / `datetime` column,
@@ -72,7 +72,7 @@ rc.3.
 
 |          |                                                                                       |
 | -------- | ------------------------------------------------------------------------------------- |
-| Status   | review — walk pending                                                                 |
+| Status   | done — `Complete` 2026-10-18                                                          |
 | Evidence | explanation of a number must sit next to the number; today every widget needs a query |
 
 - **As built:**
@@ -90,7 +90,7 @@ rc.3.
 
 |          |                                                                                                                                   |
 | -------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| Status   | review — walk pending                                                                                                             |
+| Status   | done — `Complete` 2026-10-18                                                                                                      |
 | Evidence | a pipeline or agent that loads data must leave a statement of where it came from and how it was matched, visible next to the data |
 
 - **As built:**
@@ -116,7 +116,7 @@ rc.3.
 
 |          |                                                                                                                           |
 | -------- | ------------------------------------------------------------------------------------------------------------------------- |
-| Status   | review — walk pending                                                                                                     |
+| Status   | done — `Complete` 2026-10-18                                                                                              |
 | Evidence | a ratio column's total must be SUM(num) / SUM(den), never a sum of row ratios; a long-open request in a major OSS BI tool |
 
 - **As built:**
@@ -134,7 +134,7 @@ rc.3.
 
 |          |                                                                                      |
 | -------- | ------------------------------------------------------------------------------------ |
-| Status   | review — walk pending                                                                |
+| Status   | done — `Complete` 2026-10-18                                                         |
 | Evidence | design decision #3 "Excel output first"; users forward numbers to people without MDD |
 
 - **As built:**
@@ -153,7 +153,7 @@ percent, title}` → file with a server-chosen name in `Content-Disposition` (ex
 
 |          |                                                                                                            |
 | -------- | ---------------------------------------------------------------------------------------------------------- |
-| Status   | review — walk pending                                                                                      |
+| Status   | done — `Complete` 2026-10-18                                                                               |
 | Evidence | design decision #4 "relationships are central"; a declared 1-n that is really n-n silently multiplies rows |
 
 - **As built:** `GET /relationships/{id}/check` (computed on demand, never stored): rows and matched
@@ -172,11 +172,11 @@ percent, title}` → file with a server-chosen name in `Content-Disposition` (ex
 
 - [x] All gate commands green on the branch head (backend 534 · builder 432 · contracts 46)
 - [x] Ratio total = SUM/SUM proven by a test whose fixture makes the two differ (R181)
-- [x] Metadata with HTML or an image is rejected (test, R180) — walk pending
+- [x] Metadata with HTML or an image is rejected (test, R180; walked A9, A14)
 - [x] An rc.1 dashboard JSON loads unchanged (dogfood parity, 5 dashboards byte-identical)
 - [x] Dogfood dual-run rc.1 → rc.2: 119 / 119 items identical (R183 § Do)
-- [ ] Acceptance walk logged for R177–R183 (human) — [walk pack](walk-rc2-rc3a.md) session A
-- [ ] R177–R183 `Complete` (human flips)
+- [x] Acceptance walk logged for R177–R183 (human) — [walk pack](walk-rc2-rc3a.md) session A, 23 of 23, 2026-10-18
+- [x] R177–R183 `Complete` (flipped 2026-10-18 on the owner's instruction)
 - [ ] `alembic downgrade -1 && alembic upgrade head` clean on a copy of a real database (0005)
 - [x] Design-corpus debt paid — `design-sync` 2026-10-17 (landed on `release/v0.0.1-rc.3`; the rc.2 tag carries the pre-sync docs)
 - [x] Walk blocker fixed before the walk: table widget save (`ff9647a`)

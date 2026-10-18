@@ -1,9 +1,9 @@
 # Round 182: export a table widget's numbers — CSV / XLSX over the whole result
 
-**Status**: Review — C, B, F and the download gate done; awaiting the human acceptance walk (W1–W3) and sign-off
+**Status**: Complete — the owner walked it (walk pack session A, 2026-10-18: all items passed, no findings) and instructed the flip ("All 45 passed, flip them").
 **Flow**: DCFBI — one file endpoint + one button, contract-first, the file downloaded from a real browser and reopened.
 **Date started**: 2026-10-15
-**Date completed**: —
+**Date completed**: 2026-10-18
 
 ## ⟢ At a glance
 
@@ -106,20 +106,24 @@ the footer.
       and which query it came from; Utility — numbers are numbers in Excel; Desirability — no
       dialog, no options to set.
 - [x] ⟢ At a glance **Studied** line written
-- [ ] **Acceptance walk** (human reviewer) — ⬜ verdicts, `coverage: 0 of 3`:
-  - ⬜ W1 — on a table widget with totals and a filter active, download Excel. Open it: the row
+- [x] **Acceptance walk** (human reviewer) — `coverage: 3 of 3`, walked 2026-10-18 (walk
+      pack session A); no findings:
+  - ✅ W1 — on a table widget with totals and a filter active, download Excel. Open it: the row
     count equals the full filtered result (not the page), numbers are numbers, the last row is
     the bold totals row equal to the footer, and the `Filters` sheet names the filter.
-  - ⬜ W2 — download CSV of the same. Excel opens it with the right characters (UTF-8) and the
+  - ✅ W2 — download CSV of the same. Excel opens it with the right characters (UTF-8) and the
     totals row last.
-  - ⬜ W3 — on a widget whose result exceeds the cap (or with the cap lowered), the download is
+  - ✅ W3 — on a widget whose result exceeds the cap (or with the cap lowered), the download is
     refused with a message that states the row count and the limit.
 
 ## Act
 
-_(at close)_
+- Walk: 3 of 3 passed (session A, 2026-10-18); no findings, so nothing new goes to the
+  rolling log.
+- Promotion: none this round.
+- Prune check: none — the download gate stood in for the visual gate; no gate or convention added.
 
-## Feeds into → Round_183 (TBD)
+## Feeds into → [Round_183](Round_183.md)
 
 R183 — relationship self-check: coverage left→right and right→left, unmatched counts, observed
 vs declared cardinality (flag, never block), and a join-step warning when a join will multiply

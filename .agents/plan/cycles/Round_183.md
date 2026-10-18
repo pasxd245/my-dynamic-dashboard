@@ -1,9 +1,9 @@
 # Round 183: relationship self-check — coverage, observed cardinality, join multiplication
 
-**Status**: Review — C, B, F and the visual gate done; awaiting the human acceptance walk (W1–W3) and sign-off
+**Status**: Complete — the owner walked it (walk pack session A, 2026-10-18: all items passed, no findings) and instructed the flip ("All 45 passed, flip them").
 **Flow**: DCFBI — one read endpoint + one drawer + one warning, contract-first, verified on a fixture with a repeated and a missing key.
 **Date started**: 2026-10-15
-**Date completed**: —
+**Date completed**: 2026-10-18
 
 ## ⟢ At a glance
 
@@ -117,18 +117,22 @@ returns.
       numbers are the join's own comparison; Utility — "will this join double my rows?"
       answered before saving; Desirability — flags with plain sentences, no red X on the list.
 - [x] ⟢ At a glance **Studied** line written
-- [ ] **Acceptance walk** (human reviewer) — ⬜ verdicts, `coverage: 0 of 3`:
-  - ⬜ W1 — on a relationship whose "one" side has a repeated key, press Check. The drawer shows
+- [x] **Acceptance walk** (human reviewer) — `coverage: 3 of 3`, walked 2026-10-18 (walk
+      pack session A); no findings:
+  - ✅ W1 — on a relationship whose "one" side has a repeated key, press Check. The drawer shows
     the coverage of both sides, the observed cardinality flagged against the declared one, and
     which direction multiplies rows.
-  - ⬜ W2 — from the "many" side's dataset, open Join with related and pick that edge. The
+  - ✅ W2 — from the "many" side's dataset, open Join with related and pick that edge. The
     warning names the multiplication before you save; the save still works.
-  - ⬜ W3 — on a clean edge (unique keys, every row matched), Check reads "as declared" with no
+  - ✅ W3 — on a clean edge (unique keys, every row matched), Check reads "as declared" with no
     warning.
 
 ## Act
 
-_(at close)_
+- Walk: 3 of 3 passed (session A, 2026-10-18); no findings, so nothing new goes to the
+  rolling log.
+- Promotion: none this round.
+- Prune check: none — the round added no gate or convention; the G-rc2 parity is logged in § Do.
 
 ## Feeds into → [Round_184](Round_184.md)
 

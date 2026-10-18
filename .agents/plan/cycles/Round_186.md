@@ -1,9 +1,9 @@
 # Round 186: consolidation guards — same shape (W-2), provenance (W-3), validate on save (W-5)
 
-**Status**: Review — B, F, C-docs and the visual gate done; awaiting the human acceptance walk (W1–W4) and sign-off
+**Status**: Complete — the owner walked it (walk pack session B, 2026-10-18: all items passed, no findings) and instructed the flip ("All 45 passed, flip them").
 **Flow**: DCFBI — three guards on one function (`build_consolidated_relation`), refused on save, drift on run; reproduced on the R174 shapes.
 **Date started**: 2026-10-15
-**Date completed**: —
+**Date completed**: 2026-10-18
 
 ## ⟢ At a glance
 
@@ -106,18 +106,22 @@ run with the last output intact.
       stacked row says where it came from; Utility — a total can be split by source; Desirability
       — one sentence, no dialog.
 - [x] ⟢ At a glance **Studied** line written
-- [ ] **Acceptance walk** (human reviewer) — ⬜ verdicts, `coverage: 0 of 4`:
-  - ⬜ W1 — make a workflow from two queries with different columns. Save is refused, and the
+- [x] **Acceptance walk** (human reviewer) — `coverage: 4 of 4`, walked 2026-10-18 (walk
+      pack session B); no findings:
+  - ✅ W1 — make a workflow from two queries with different columns. Save is refused, and the
     message says which source and which columns differ.
-  - ⬜ W2 — make one from two same-shape queries and run it. Every row has `Source.Query` with
+  - ✅ W2 — make one from two same-shape queries and run it. Every row has `Source.Query` with
     the source's name; grouping by it splits the total.
-  - ⬜ W3 — pick a workflow that was never run as a source. Save is refused (run it first).
-  - ⬜ W4 — open an existing one-source workflow and re-run it: same columns and numbers as
+  - ✅ W3 — pick a workflow that was never run as a source. Save is refused (run it first).
+  - ✅ W4 — open an existing one-source workflow and re-run it: same columns and numbers as
     before.
 
 ## Act
 
-_(at close)_
+- Walk: 4 of 4 passed (session B, 2026-10-18); no findings, so nothing new goes to the
+  rolling log.
+- Promotion: none this round.
+- Prune check: none — the round added no gate or convention.
 
 ## Feeds into → [Round_187](Round_187.md)
 

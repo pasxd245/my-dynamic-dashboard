@@ -1,9 +1,9 @@
 # Round 185: dataset data identity — `refreshedAt` + `dataVersion`, stamped by the server
 
-**Status**: Review — C, B, F and the visual gate done; awaiting the human acceptance walk (W1–W3) and sign-off
+**Status**: Complete — the owner walked it (walk pack session B, 2026-10-18: all items passed, no findings) and instructed the flip ("All 45 passed, flip them").
 **Flow**: DCFBI — two read-only fields + one migration, contract-first, verified by migrating a database that already held datasets.
 **Date started**: 2026-10-15
-**Date completed**: —
+**Date completed**: 2026-10-18
 
 ## ⟢ At a glance
 
@@ -100,16 +100,20 @@ changing.
       the server's own counter; Utility — "did these rows change since?"; Desirability — one
       short line.
 - [x] ⟢ At a glance **Studied** line written
-- [ ] **Acceptance walk** (human reviewer) — ⬜ verdicts, `coverage: 0 of 3`:
-  - ⬜ W1 — open a dataset: the strip reads `Data version · v1 · <when uploaded>`. Refresh it
+- [x] **Acceptance walk** (human reviewer) — `coverage: 3 of 3`, walked 2026-10-18 (walk
+      pack session B); no findings:
+  - ✅ W1 — open a dataset: the strip reads `Data version · v1 · <when uploaded>`. Refresh it
     (any mode): it reads v2 and a fresh time.
-  - ⬜ W2 — rename the dataset and hide a column: the version does not move.
-  - ⬜ W3 — start the app on a copy of an existing database: it starts, every dataset reads v1,
+  - ✅ W2 — rename the dataset and hide a column: the version does not move.
+  - ✅ W3 — start the app on a copy of an existing database: it starts, every dataset reads v1,
     and every number on every dashboard is unchanged.
 
 ## Act
 
-_(at close)_
+- Walk: 3 of 3 passed (session B, 2026-10-18); no findings, so nothing new goes to the
+  rolling log.
+- Promotion: none this round.
+- Prune check: none — the round added no gate or convention.
 
 ## Feeds into → [Round_186](Round_186.md)
 

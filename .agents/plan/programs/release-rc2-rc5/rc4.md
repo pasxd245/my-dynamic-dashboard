@@ -24,34 +24,47 @@ deployed, which is the least settled question.
 
 ## 4.2 View-time date range
 
-|            |                            |
-| ---------- | -------------------------- |
-| Track      | 1                          |
-| Flow       | DCFBI                      |
-| Depends on | 3.7 parameters, 2.7 design |
+|            |                                                                                                        |
+| ---------- | ------------------------------------------------------------------------------------------------------ |
+| Track      | 1                                                                                                      |
+| Flow       | DCFBI                                                                                                  |
+| Depends on | 3.7 parameters                                                                                         |
+| Design     | [`dashboards/dashboard-filters.md`](../../../design/dashboards/dashboard-filters.md) D4, D7 (Accepted) |
 
-- A dashboard declares `dateRange: {from: {param}, to: {param}}` bound to two date parameters;
-  the dashboard header shows a range picker with presets (this week, last week, this month, last
-  month, custom). Values flow through 3.7 resolution and live in the URL.
-- **Tests:** presets resolve against the configured time zone; widgets whose queries don't use the
-  params show "not affected".
+_Re-based on the accepted design 2026-10-18._
+
+- A `date_range` **control** (`DashboardDefinition.controls`, from 3.7b) binds **two date
+  parameters** (`from`, `to`) the targeted queries declare and use (`between`, `gte` / `lte`).
+  Presets (this week, last week, last 7 days, this month, last month, custom) are saved as
+  relative values and resolved by the server in `backend.time_zone`; the URL always holds
+  absolute dates (`?p.from=…&p.to=…`).
+- **Incomplete window (D7):** when a resolved range end is later than the dataset's coverage
+  `max` (R178) on the filtered column, the widget shows "Data only through <max>" — a note, not a
+  block.
+- **Tests:** design criterion 9; presets resolve in the configured zone; a targeted widget whose
+  query lacks the parameters is skipped and badged (D5).
 
 ## 4.3 Shared filters for a group of widgets
 
-|            |            |
-| ---------- | ---------- |
-| Track      | 1          |
-| Flow       | DCFBI      |
-| Depends on | 2.7 design |
+|            |                                                                                                            |
+| ---------- | ---------------------------------------------------------------------------------------------------------- |
+| Track      | 1                                                                                                          |
+| Flow       | DCFBI                                                                                                      |
+| Depends on | 3.7b (controls bar)                                                                                        |
+| Design     | [`dashboards/dashboard-filters.md`](../../../design/dashboards/dashboard-filters.md) D4, D5, D7 (Accepted) |
 
-- **Contract:** `DashboardDefinition.filters: [{id, column, op, values, scope: [widgetId] | "all"}]`.
-  Saved by editors; viewers' temporary values in the URL (`?f.<id>=…`).
-- **Behaviour:** a widget whose query lacks the column is skipped and shows a "filter not applied"
-  badge — never an error. Each widget shows which shared filters reached it.
-- **Backend:** shared filters are merged into the same filter path `/rows`, `/aggregate`, `/totals`,
-  `/export` already accept (no second filter engine).
-- **Tests:** scope respected; missing column skipped with badge; URL round trip; export carries the
-  shared filter in its About sheet.
+_Re-based on the accepted design 2026-10-18._
+
+- **Contract:** a `values` control (`kind: values`, `column`, `targets: "all" | [widgetId]`,
+  `saved?`) in `DashboardDefinition.controls`; options from the new `GET
+/queries/{id}/values?column=` (distinct, capped at 1 000, flagged partial). Viewer values in
+  the URL (`?f.<controlId>=North,South`, `~blank` for `(blank)`).
+- **Behaviour:** sent in the existing `filters` list (no second filter engine); ANDed with the
+  per-widget drawer; a targeted widget whose result lacks the column is skipped and badged —
+  never an error (D5).
+- **Export (D7):** the Filters sheet splits `dashboard filter <label>` from `widget filter` rows.
+- **Tests:** design criteria 6 and 7 (filters part); scope respected; URL round trip; values
+  endpoint cap.
 
 ## 4.4 Definition history
 

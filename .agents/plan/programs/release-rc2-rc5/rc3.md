@@ -2,8 +2,9 @@
 
 Parent: [release-rc2-rc5.plan.md](release-rc2-rc5.plan.md). Branch: `release/v0.0.1-rc.3`, cut from
 the rc.2 head `6c679c5` and opened **before** the rc.2 tag on the owner's call (decision 12).
-Built so far: 3.1, most of 3.2, 3.3 (R184–R187), 3.4 (R188), 3.5 (R189); 2.7 designed (R190).
-**3.6 opens only after walk session B confirms G-wf.**
+Built and walked: 3.1, most of 3.2, 3.3 (R184–R187), 3.4 (R188), 3.5 (R189) — all `Complete`
+2026-10-18; 2.7 designed (R190, D1–D7 accepted 2026-10-18). **G-wf confirmed 2026-10-18 → 3.6 is
+open.** Execution of the rest: § Execution (four-role loop) below.
 
 **Why this rc is the careful one:** typed parameters, version stamps and the triple anchor are
 **one-way doors** — once dashboards and external writers depend on their shape, changing it breaks
@@ -16,12 +17,13 @@ The version shapes are now partly fixed by what shipped (decision 14).
 ```text
 done   3.1 compute (R184)
 done   3.2a dataset dataVersion + refreshedAt (R185) ── 3.3 W-2/W-3/W-5 (R186) ── 3.2b + W-4/W-7 run stamps (R187)
-gate   G-wf (owner) ──────────────────────────────────────────────────────────────┐
+passed G-wf (owner, confirmed after walk B 2026-10-18) ─────────────────────────────┐
 done   3.4 multi-file refresh (R188) ── 3.5 replace_period (R189)
-review 2.7 design: params, date range, shared filters (R190 — pulled forward while 3.6 waits)
-next   3.6 publish + saved copies (after walk B confirms G-wf) <─────────────────────┘
-then   3.7 typed parameters (from 2.7) ─> 3.2c remaining stamps on read paths
-       ─> 3.8 metadata triple anchor
+done   2.7 design: params, date range, shared filters (R190 — D1–D7 accepted 2026-10-18)
+first  fix round for the rolling log's small findings (R191)
+next   3.6 publish + saved copies (R192) <─────────────────────────────────────────────┘
+then   3.7a parameter engine (R193) ─> 3.7b builder (R194) ─> 3.2c read-path stamps (R195)
+       ─> 3.8 metadata triple anchor (R196) ─> rc.3 exit gate
 ```
 
 Labels from `Round_175 § Feeds into`: **R177** = 3.1, **R178–R179** = 3.4–3.5, **R180** = 3.6. They
@@ -31,13 +33,63 @@ Gate commands as in [rc2.md](rc2.md); counts at the batch-1 head `a682f14`: back
 444 · contracts 46; at `45cae9f` (R189): backend 580 · builder 461 · contracts 46. Dogfood dual-run rc.2 → rc.3 batch 1: 119 / 119 identical; migrations
 0004 → 0007 clean on a real-database copy (`Round_187` § Do).
 
+## Execution — the four-role loop (from 2026-10-18)
+
+_Track: 2. Pulled by: the owner's 2026-10-18 call to run the rest of rc.3 with a coding, a
+code-review, a BA and a QA agent. Counters two named failure modes: claiming done without
+verifying (the coder grading its own work) and building past the brief (a one-way-door contract
+drifting from the accepted design). Prune it if two rounds pass with no finding from the
+reviewers._
+
+| Round | Item                                      | Flow   | Migration | UI  |
+| ----- | ----------------------------------------- | ------ | --------- | --- |
+| R191  | fix round — rolling-log small findings    | DCFBI  | —         | yes |
+| R192  | 3.6 publish + saved copies                | DFCFBI | `0008`    | yes |
+| R193  | 3.7a parameter engine                     | DCFBI  | —         | no  |
+| R194  | 3.7b parameters in the builder            | DCFBI  | —         | yes |
+| R195  | 3.2c data versions on read paths + export | DCFBI  | —         | no  |
+| R196  | 3.8 metadata triple anchor + cascade      | DCFBI  | `0009`    | yes |
+
+Then the rc.3 exit gate: release note, gate checklist, walk pack for R191–R196.
+
+**Roles per round** (the coder is the main session; the three others are fresh sub-agents that
+see only the repo and the round file, never the coder's reasoning):
+
+1. **Coding agent** — opens `Round_NN.md` from the item spec, runs `flow-selector`, then D → C →
+   B → F gates, committing per gate (`<type>(R<NN>): …`), each gate's commands green before the
+   next.
+2. **BA agent** (business review) — twice: at **Contract exit** (before B) it reviews the spec,
+   design and contract diff for business fit — the second-user test, the settled decisions 1–14,
+   the firewall (nothing from the next rc), the accepted design's D-points, no user data or names
+   (M3 words); after **F** it reviews the built behaviour against the acceptance criteria and
+   writes the walk script.
+3. **Code-review agent** — after F, on `git diff <round base>..HEAD`: correctness, SQL identifier
+   quoting and injection, file paths (parquet copies), migration both ways, contract ↔ backend ↔
+   MSW ↔ types parity, error envelopes, test quality.
+4. **QA agent** — after F, in parallel with the review: re-runs every gate command from a clean
+   state, migrations `upgrade head → downgrade -1 → upgrade head` on a seeded database, writes
+   adversarial tests for the acceptance criteria (kept only when they pass on the fixed code), and
+   the visual gate in a headless browser, light and dark, for UI rounds.
+
+Findings are graded **P0** (wrong numbers, data loss, security, contract off the accepted design)
+· **P1** (a criterion unmet, a broken state) · **P2** (copy, polish, debt). P0 and P1 are fixed in
+the round and re-reviewed by the agent that raised them; P2 go to the rolling log. The round
+moves to `Review` only when every reviewer reports no open P0/P1. Each round ends with a bundle
+(`.archive/_transfer/` → sha256 → `99_git_bundles/`).
+
+**Hard stops** (the run halts and reports): a gate that stays red after one fix attempt; a P0 the
+round cannot fix inside its item; any change to an accepted shape (design D1–D7, decisions 1–14);
+an M3 word or a file under `workspace/apps/backend/data/`; a migration that does not downgrade.
+**The owner's steps stay the owner's:** walks, `Complete` flips, the dogfood dual-run on the real
+export (data never leaves the owner's machine), push and tags.
+
 ---
 
 ## 3.1 `compute` step + closed function catalog — `Round_184`
 
 |          |                                                                                             |
 | -------- | ------------------------------------------------------------------------------------------- |
-| Status   | review — walk W1–W3 pending                                                                 |
+| Status   | **done** — `Complete` 2026-10-18 (walk 3 of 3)                                              |
 | Evidence | text values that differ only by edge spaces group as two (R175); fork (B) locked 2026-10-04 |
 
 - **As built:** `ComputeStep {kind: compute, name, fn, col}` in `_shared/query.yaml` (mirrored in
@@ -58,13 +110,13 @@ Gate commands as in [rc2.md](rc2.md); counts at the batch-1 head `a682f14`: back
 | -------- | ----------------------------------------------------------------------------------- |
 | Evidence | `updated_at` is absent product-wide (R168, R174); W-4 cannot be detected without it |
 
-**3.2a — dataset data identity, `Round_185` (review).** `Dataset.refreshedAt` + `Dataset.dataVersion`
+**3.2a — dataset data identity, `Round_185` (complete).** `Dataset.refreshedAt` + `Dataset.dataVersion`
 (1 at commit, +1 on every successful refresh — replace, merge, append — in the same UPDATE that
 swaps the rows in); read-only; rename, column visibility and a failed refresh leave both alone.
 Migration `0006_dataset_data_version` (backfill `refreshedAt = createdAt`, every dataset v1). Shown
 as "Data version · vN · when" on the dataset page.
 
-**3.2b — workflow run stamp, `Round_187` (review).** `Workflow.run {id: run_<8 hex>, number,
+**3.2b — workflow run stamp, `Round_187` (complete).** `Workflow.run {id: run_<8 hex>, number,
 definitionHash, sources[]}` — per source what the run read: a query's `definitionHash` + the
 `dataVersion` of every dataset it reads, or a workflow source's `runId`. Migration
 `0007_workflow_runs`. `definitionHash` is the same value metadata records as `definitionVersion`.
@@ -85,7 +137,7 @@ definitionHash, sources[]}` — per source what the run read: a query's `definit
 
 |          |                                                                  |
 | -------- | ---------------------------------------------------------------- |
-| Status   | review — walks pending; evidence for G-wf assembled              |
+| Status   | **done** — `Complete` 2026-10-18; G-wf confirmed                 |
 | Evidence | `Round_174 § Do`; program `workflow-earns-its-place` (items 2–4) |
 
 - **As built (R186):** save (create and edit) refuses in the 422 validation envelope, `loc` ending at
@@ -113,7 +165,8 @@ definitionHash, sources[]}` — per source what the run read: a query's `definit
 Double-count, shape divergence and source change are all caught; `dataVersion` / `run` written by
 the server only. Evidence table: `Round_187` § G-wf (two close-out tests added 2026-10-17: a
 joined-in dataset refreshed, the source dataset deleted). **Accepted by the owner on 2026-10-17**
-on the agent's recommendation; [walk pack](walk-rc2-rc3a.md) session B confirms it before 3.6 opens.
+on the agent's recommendation; **confirmed 2026-10-18** after [walk pack](walk-rc2-rc3a.md) session B
+(14 of 14 passed). 3.6 is open.
 
 ## 3.4 Refresh with several files at once (label R178) — `Round_188`
 
@@ -135,7 +188,7 @@ on the agent's recommendation; [walk pack](walk-rc2-rc3a.md) session B confirms 
   dataset reads `data_refreshed` afterwards (R187).
 - **Walk:** refresh a dataset with two monthly files; the row count is their sum, the version moved
   once.
-- **As built (R188, review):** `extra_temp_ids` (1–19) beside `temp_id` on the batch request,
+- **As built (R188, complete):** `extra_temp_ids` (1–19) beside `temp_id` on the batch request,
   refresh-only (422 on a create); the first file's settings and committed dtypes apply to every
   file; other columns → 422 naming the file; a value that does not fit → `coercion_failed` with the
   new optional `file`; parts stacked by file index + in-file row number (`stack_parquets`); one
@@ -162,7 +215,7 @@ on the agent's recommendation; [walk pack](walk-rc2-rc3a.md) session B confirms 
 - **Tests:** overlap window replaced; rows before the window kept; a gap inside the window removes
   committed rows there (documented — that is what "replace the period" means); null period 422;
   version +1 once.
-- **As built (R189, review):** item fields `refresh_mode: replace_period` + `period_column` (snake
+- **As built (R189, complete):** item fields `refresh_mode: replace_period` + `period_column` (snake
   case, like `merge_key`); 201 shape 4 `{datasets, period: {column, from, to, removed, inserted,
 kept}}` (named like the merge / append reports, with `kept` so it sums to the row count) instead of
   the sketched `replacedFrom…insertedRows`; committed rows with no period value are kept; an empty
@@ -170,7 +223,7 @@ kept}}` (named like the merge / append reports, with `kept` so it sums to the ro
   on both sides; commit disabled until picked); append's overlap warning offers "Replace this period
   instead". Remembered as `commitSettings.period_column`.
 
-## 3.6 Publish a derived dataset + saved copies (label R180) — only after G-wf
+## 3.6 Publish a derived dataset + saved copies (label R180) — G-wf passed
 
 |          |                                                                                                                                             |
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -220,8 +273,8 @@ kept}}` (named like the merge / append reports, with `kept` so it sums to the ro
      cannot yet be observed for its full window is flagged (input to 4.5).
 - **Done when:** design gate criteria met (journeys + testable acceptance criteria), `ux-design`
   design-spec mode run and logged.
-- **As built (R190, review — design only):**
-  [`dashboards/dashboard-filters.md`](../../../design/dashboards/dashboard-filters.md) (Draft).
+- **As built (R190 — design only, accepted 2026-10-18):**
+  [`dashboards/dashboard-filters.md`](../../../design/dashboards/dashboard-filters.md) (Accepted 2026-10-18).
   Scalar typed params with a server-resolved relative `today` (`backend.time_zone`). Allowed only in
   filter operands. Three precedence levels (viewer → dashboard saved → query default) then
   `422 param_unbound`; the program's "parameter default" and "value saved in the query" are one
@@ -233,22 +286,47 @@ kept}}` (named like the merge / append reports, with `kept` so it sums to the ro
 
 ## 3.7 Typed parameters
 
-|          |                                                                             |
-| -------- | --------------------------------------------------------------------------- |
-| Track    | 1                                                                           |
-| Flow     | DCFBI (design from 2.7); may take two rounds (engine, then dashboard bar)   |
-| Evidence | the same report is re-read for a different period without rewriting queries |
+|          |                                                                                                                   |
+| -------- | ----------------------------------------------------------------------------------------------------------------- |
+| Track    | 1                                                                                                                 |
+| Flow     | DCFBI, two rounds: **3.7a** engine (contract + backend + MSW), **3.7b** builder (query page + dashboard bar)      |
+| Design   | [`dashboards/dashboard-filters.md`](../../../design/dashboards/dashboard-filters.md) — D1–D7, Accepted 2026-10-18 |
+| Evidence | the same report is re-read for a different period without rewriting queries                                       |
+
+_Re-based on the accepted design 2026-10-18; the design doc wins where this summary is shorter._
+
+**3.7a — engine.**
 
 - **Contract** (`_shared/query.yaml`): `QueryDefinition.params: [{name, type: date | number |
-string, default?}]`; wherever a literal operand is accepted, `{"param": "<name>"}` is accepted too
-  (per 2.7). `/rows`, `/aggregate`, `/totals`, `/export` accept `params: {name: value}`.
-- **Resolution:** per 2.7's precedence → else `422 param_unbound` naming the parameter. Values
-  type-checked at save (declared type) and at read (supplied value).
-- **Builder:** a parameter bar on the dashboard, viewer values in the URL (`?p.as_of=2026-10-12`),
-  saving a value requires edit mode.
-- **Tests:** precedence order (4 cases); type mismatch 422; unbound 422 names it; URL round trip;
-  same query with two `as_of` values → different numbers and an unchanged `definitionHash`; a query
-  without parameters returns exactly what it did in rc.2.
+string, label?, default?}]`, ≤ 8, name `^[a-z][a-z0-9_]{0,31}$`; a date default may be
+  `{"kind": "today", "offsetDays": n}` (−366…366). `{"param": "<name>"}` is accepted **only** in
+  the D2 places: filter atom `val` / `min` / `max`, one item of `vals`, filter-step predicates,
+  `case` WHEN predicates — never `refCol`, never an output constant, never in a workflow step.
+- **Resolution (D3):** request value → dashboard saved value → query default → `422
+param_unbound`; a wrong-typed value → `422 param_invalid`. `GET /rows` takes `p.<name>=`; `POST
+/aggregate`, `/totals`, `/export` take `params: {}` beside `filters`. A read that resolved any
+  parameter answers `resolvedParams: {name: {value, source}}`; a query without params answers
+  exactly as in rc.2. An undeclared `params` entry is ignored.
+- **Config:** `backend.time_zone` (IANA, default `UTC`) resolves `today`.
+- **Save checks (D1):** undeclared name, type vs column family, a reference on a no-operand
+  operator, a reference outside D2 → 422 naming the field; a workflow step with a reference → 422.
+- **Workflows (D6):** sources run on defaults only; no default → the run refuses, naming source
+  and parameter; the run stamp gains `sources[].params`.
+- **What leaves the app (D7, this part):** totals echo `resolvedParams`; the XLSX Filters sheet
+  gains a `Parameters` block (`name | value | source`); CSV gets `X-MDD-Params` (CORS-exposed).
+- **Tests:** design criteria 1–4, 7 (params part) and 8.
+
+**3.7b — builder.**
+
+- Query page: a **Parameters** panel (declare name, type, label, default; "today ± n days" for
+  dates) and a **Use parameter** switch on every D2-allowed value field; preview asks for values
+  without a default; chips read `as_of (parameter)`.
+- Dashboard: `DashboardDefinition.controls` with `kind: param` only (≤ 12; `date_range` is 4.2,
+  `values` is 4.3); a bar above the grid; viewer values in the URL (`?p.<name>=`), **Reset to
+  saved**, **Copy link**; saving a value only in edit mode; `FilterReachBadge` on each card lists
+  the parameters that reached it and the ones skipped with the reason (D5). MSW mirrors.
+- **Tests:** design criterion 5 (FE), the D5 skip-and-badge case, URL round trip; visual gate in
+  light and dark (rc.3 exit gate line).
 
 ## 3.8 Metadata triple anchor
 
@@ -278,10 +356,10 @@ current | refreshed | other_period | other_definition`. Entries written in rc.2 
 ## rc.3 exit gate
 
 - [ ] 3.1–3.8 and 2.7 rounds `Complete`, walks logged (no round closes without its walk)
-- [ ] G-wf recorded as passed before 3.6 opened
+- [x] G-wf recorded as passed before 3.6 opened (confirmed 2026-10-18, `Round_187` § Act)
 - [ ] Dual-run against rc.2 on a real dogfood export: every saved query identical cell for cell,
       except changes a round declared (batch 1: 119 / 119 ✓)
-- [ ] Deleting a workflow source marks the workflow `source_missing` (W-7) — built in R187, walk pending
+- [x] Deleting a workflow source marks the workflow `source_missing` (W-7) — built in R187, walked B13
 - [ ] A saved copy is read-only; deleting its workspace while it has data returns 409
 - [ ] An annotation written for another period renders collapsed
 - [ ] Visual gate for a parameterised dashboard in light and dark themes

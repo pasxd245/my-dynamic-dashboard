@@ -1,9 +1,9 @@
 # Round 188: refresh with several files at once — stack, then apply the mode
 
-**Status**: Review — D, C, B, F and the visual gate done; awaiting the human acceptance walk (W1–W4) and sign-off
+**Status**: Complete — the owner walked it (walk pack session C, 2026-10-18: all items passed, no findings) and instructed the flip ("All 45 passed, flip them").
 **Flow**: DCFBI — one request field + one wizard block, contract-first; verified through the real wizard against a dataset that a workflow reads.
 **Date started**: 2026-10-17
-**Date completed**: —
+**Date completed**: 2026-10-18
 
 ## ⟢ At a glance
 
@@ -103,17 +103,21 @@ once per refresh.
       first file's, each row keeps its file name; Utility — a period's files in one refresh;
       Desirability — no new step.
 - [x] ⟢ At a glance **Studied** line written
-- [ ] **Acceptance walk** (human reviewer) — ⬜ verdicts, `coverage: 0 of 4`:
-  - ⬜ W1 — refresh a dataset (Replace) with two monthly files: the dataset holds both files' rows,
+- [x] **Acceptance walk** (human reviewer) — `coverage: 4 of 4`, walked 2026-10-18 (walk
+      pack session C); no findings:
+  - ✅ W1 — refresh a dataset (Replace) with two monthly files: the dataset holds both files' rows,
     the data version moved by one, and the hidden `Source.Name` column names each row's file.
-  - ⬜ W2 — the same with Add rows (append): the committed rows stay and both files are added.
-  - ⬜ W3 — add a file with a different column: the refresh is refused naming that file; the dataset
+  - ✅ W2 — the same with Add rows (append): the committed rows stay and both files are added.
+  - ✅ W3 — add a file with a different column: the refresh is refused naming that file; the dataset
     is unchanged.
-  - ⬜ W4 — refresh with one file only: nothing looks or behaves differently from before.
+  - ✅ W4 — refresh with one file only: nothing looks or behaves differently from before.
 
 ## Act
 
-_(at close)_
+- Walk: 4 of 4 passed (session C, 2026-10-18); no findings, so nothing new goes to the
+  rolling log.
+- Promotion: none this round.
+- Prune check: none — the round added no gate or convention.
 
 ## Feeds into → [Round_189](Round_189.md)
 

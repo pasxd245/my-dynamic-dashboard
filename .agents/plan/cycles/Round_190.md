@@ -1,6 +1,6 @@
 # Round 190: design — typed parameters, the view-time date range and shared filters
 
-**Status**: Review — design doc written, `ux-design` design-spec run; awaiting the owner's decisions (D1–D7) and sign-off
+**Status**: Review — design gate passed 2026-10-18: the owner accepted D1–D7 as drafted (range = two date parameters, `backend.time_zone` default `UTC`); the Complete flip stays the owner's
 **Flow**: Design gate only (item 2.7) — no contract, backend or builder change.
 **Date started**: 2026-10-17
 **Date completed**: —
@@ -105,11 +105,18 @@ criterion cannot be tested as written.
     beyond-coverage states.
   - Utility **pass**: J1–J3 map to criteria 1–10.
   - Desirability **pass**: the token map adds no new token.
-- [ ] **Design gate** (owner): D1–D7 accepted or amended; the doc's Status flips to Accepted.
+- [x] **Design gate** (owner): D1–D7 accepted as drafted on 2026-10-18 ("Accept as drafted";
+      date range "Two date params"); the doc's Status flipped to Accepted.
 
 ## Act
 
-_(at close)_
+- Decisions: D1–D7 accepted unchanged. The two open points named in Risks resolved to the
+  drafted side: the range is two scalar date parameters; the default zone stays `UTC`
+  (configurable per install).
+- The three item specs that predated this design (rc3 3.7, rc4 4.2, 4.3) were re-based on it the
+  same day (rolling-log row closed).
+- Promotion: none this round.
+- Prune check: none — a design-only round added no gate or convention.
 
 ## Feeds into → Round_191 (TBD)
 

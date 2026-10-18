@@ -1,9 +1,9 @@
 # Round 179: the `note` widget — markdown text on a dashboard
 
-**Status**: Review — C, B, F and the visual gate done; awaiting the human acceptance walk (W1–W3) and sign-off
+**Status**: Complete — the owner walked it (walk pack session A, 2026-10-18: all items passed, no findings) and instructed the flip ("All 45 passed, flip them").
 **Flow**: DCFBI — one widget kind, contract-first, the safety rule enforced on both sides and verified in a browser.
 **Date started**: 2026-10-15
-**Date completed**: —
+**Date completed**: 2026-10-18
 
 ## ⟢ At a glance
 
@@ -104,17 +104,21 @@ path injects HTML.
       preview is the same renderer as the dashboard; Utility — a place to write next to numbers;
       Desirability — card chrome identical to the charts.
 - [x] ⟢ At a glance **Studied** line written
-- [ ] **Acceptance walk** (human reviewer) — ⬜ verdicts, `coverage: 0 of 3`:
-  - ⬜ W1 — add a widget, choose Note, write a heading, a list and a link; save. It renders beside
+- [x] **Acceptance walk** (human reviewer) — `coverage: 3 of 3`, walked 2026-10-18 (walk
+      pack session A); no findings:
+  - ✅ W1 — add a widget, choose Note, write a heading, a list and a link; save. It renders beside
     the charts, resizes with Width / Height, and has no filter icon.
-  - ⬜ W2 — edit the note and paste `<b>hi</b>`. OK is disabled and the form says why.
-  - ⬜ W3 — open a pre-R179 dashboard. Every chart unchanged; the Chart select now also lists Note.
+  - ✅ W2 — edit the note and paste `<b>hi</b>`. OK is disabled and the form says why.
+  - ✅ W3 — open a pre-R179 dashboard. Every chart unchanged; the Chart select now also lists Note.
 
 ## Act
 
-_(at close)_
+- Walk: 3 of 3 passed (session A, 2026-10-18); no findings, so nothing new goes to the
+  rolling log.
+- Promotion: none this round.
+- Prune check: none — the round added no gate or convention.
 
-## Feeds into → Round_180 (TBD)
+## Feeds into → [Round_180](Round_180.md)
 
 R180 — read-only metadata on seven nouns (dataset, column, relationship, query, workflow,
 dashboard, widget): namespaced markdown entries written through a token, author / time / source

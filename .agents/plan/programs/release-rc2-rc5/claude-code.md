@@ -18,12 +18,11 @@ gates) always win over this file.
 
 Claude Code never pushes, never tags, never flips `Complete`.
 
-**Where things stand (2026-10-17):** rc.2 built on `release/v0.0.1-rc.2` (R177–R183); rc.3 batch 1
-built on `release/v0.0.1-rc.3` (R184–R187); design corpus synced; walks pending —
-[walk pack](walk-rc2-rc3a.md) sessions A–C. 3.4 built (R188), 3.5 built (R189), 2.7 designed (R190, owner decisions pending); rc.2 release
-note drafted (`CHANGELOG.md`). Next kickoff: item **3.6** on `release/v0.0.1-rc.3`, only after walk
-session B confirms G-wf; then 3.7 from R190's design. In a cloud session the branches arrive by
-bundle (`99_git_bundles/`) and leave the same way; the owner pushes with `sync.ps1`.
+**Where things stand (2026-10-18):** rc.2 and rc.3 batch 1 + refresh (R177–R189) walked and
+`Complete`; 2.7 accepted (R190). The rest of rc.3 runs as R191–R196 under the four-role loop in
+[rc3.md § Execution](rc3.md) — coding, code-review, BA and QA agents, with hard stops. In a cloud
+session the branches arrive by bundle (`99_git_bundles/`) and leave the same way; the owner pushes
+with `sync.ps1`.
 
 ## Kickoff prompt (one per item)
 

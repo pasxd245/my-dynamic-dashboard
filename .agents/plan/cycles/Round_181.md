@@ -1,9 +1,9 @@
 # Round 181: table totals — `Widget.totals`, summed by the server over the whole result
 
-**Status**: Review — C, B, F and the visual gate done; awaiting the human acceptance walk (W1–W3) and sign-off
+**Status**: Complete — the owner walked it (walk pack session A, 2026-10-18: all items passed, no findings) and instructed the flip ("All 45 passed, flip them").
 **Flow**: DCFBI — one widget field + one read endpoint, contract-first, verified on a stepped query in a real browser.
 **Date started**: 2026-10-15
-**Date completed**: —
+**Date completed**: 2026-10-18
 
 ## ⟢ At a glance
 
@@ -115,19 +115,23 @@ totalled.
       Credibility — the footer comes from the server, never the page; Utility — the number a
       report needs; Desirability — reads like a spreadsheet total row.
 - [x] ⟢ At a glance **Studied** line written
-- [ ] **Acceptance walk** (human reviewer) — ⬜ verdicts, `coverage: 0 of 3`:
-  - ⬜ W1 — on a table widget over a query with more rows than one page, set Sum on a numeric
+- [x] **Acceptance walk** (human reviewer) — `coverage: 3 of 3`, walked 2026-10-18 (walk
+      pack session A); no findings:
+  - ✅ W1 — on a table widget over a query with more rows than one page, set Sum on a numeric
     column. The footer equals the column's total over all rows (check against the query's
     rows / an aggregate).
-  - ⬜ W2 — set Ratio with numerator / denominator on two columns. The footer equals Σnum / Σden
+  - ✅ W2 — set Ratio with numerator / denominator on two columns. The footer equals Σnum / Σden
     (not the average of the rows' ratios); with `percent` format it reads as a percent.
-  - ⬜ W3 — apply a dashboard filter on the widget. The footer changes with the filter.
+  - ✅ W3 — apply a dashboard filter on the widget. The footer changes with the filter.
 
 ## Act
 
-_(at close)_
+- Walk: 3 of 3 passed (session A, 2026-10-18); no findings, so nothing new goes to the
+  rolling log.
+- Promotion: none this round.
+- Prune check: none — the round added no gate or convention; the walk-prep fix is pinned by a test.
 
-## Feeds into → Round_182 (TBD)
+## Feeds into → [Round_182](Round_182.md)
 
 R182 — export a table widget's numbers (CSV / XLSX): all rows, the totals row from this round's
 path, a "Filters" sheet with the active filters, typed cells. It must build the file over the same

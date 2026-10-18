@@ -1,9 +1,9 @@
 # Round 177: widget height — `Widget.rows`
 
-**Status**: Review — C, B, F and the visual gate done; awaiting the human acceptance walk (W1–W4) and sign-off
+**Status**: Complete — the owner walked it (walk pack session A, 2026-10-18: all items passed, no findings) and instructed the flip ("All 45 passed, flip them").
 **Flow**: DCFBI — one presentation field, contract-first, verified on a generic fixture dashboard in a real browser.
 **Date started**: 2026-10-15
-**Date completed**: —
+**Date completed**: 2026-10-18
 
 ## ⟢ At a glance
 
@@ -118,19 +118,23 @@ override instead of one formula.
       height; Utility — long tables page 16 / 24 rows; Desirability — a tall chart no longer wastes
       the space beside it.
 - [x] ⟢ At a glance **Studied** line written
-- [ ] **Acceptance walk** (human reviewer) — ⬜ verdicts, `coverage: 0 of 4`:
-  - ⬜ W1 — open an existing dashboard (saved before this round). Nothing moved; every widget is
+- [x] **Acceptance walk** (human reviewer) — `coverage: 4 of 4`, walked 2026-10-18 (walk
+      pack session A); no findings:
+  - ✅ W1 — open an existing dashboard (saved before this round). Nothing moved; every widget is
     the same size; the ⋯ › Edit form shows Height = 1.
-  - ⬜ W2 — set one widget's Height to 2 and save. It is as tall as two one-row widgets, and the
+  - ✅ W2 — set one widget's Height to 2 and save. It is as tall as two one-row widgets, and the
     widgets after it fill the space beside it.
-  - ⬜ W3 — set a `table` widget to Height 2. The page shows 16 rows; the pager counts match.
-  - ⬜ W4 — edit a widget without touching Height and save. The saved JSON has no `rows` key.
+  - ✅ W3 — set a `table` widget to Height 2. The page shows 16 rows; the pager counts match.
+  - ✅ W4 — edit a widget without touching Height and save. The saved JSON has no `rows` key.
 
 ## Act
 
-_(at close)_
+- Walk: 4 of 4 passed (session A, 2026-10-18); no findings, so nothing new goes to the
+  rolling log.
+- Promotion: none this round.
+- Prune check: none — the round added no gate or convention (the grid layout is code, not process).
 
-## Feeds into → Round_178 (TBD)
+## Feeds into → [Round_178](Round_178.md)
 
 R178 — dataset date coverage (the second rc.2 round): per `date` / `datetime` column, min, max and
 blank share, computed on refresh and shown on the dataset page. Nothing from this round is a

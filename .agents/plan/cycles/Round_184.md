@@ -1,9 +1,9 @@
 # Round 184: `compute` step — a closed function catalog, first function `trim`
 
-**Status**: Review — C, B, F and the visual gate done; awaiting the human acceptance walk (W1–W3) and sign-off
+**Status**: Complete — the owner walked it (walk pack session B, 2026-10-18: all items passed, no findings) and instructed the flip ("All 45 passed, flip them").
 **Flow**: DCFBI — one new step kind, contract-first, verified on a fixture where the same person is typed five ways.
 **Date started**: 2026-10-15
-**Date completed**: —
+**Date completed**: 2026-10-18
 
 ## ⟢ At a glance
 
@@ -93,16 +93,20 @@ missing column, a name that collides and an unknown function each answer 422.
       Accessibility — labelled fields; Credibility — the raw column stays beside the clean one;
       Utility — one person, one row; Desirability — no formula to write.
 - [x] ⟢ At a glance **Studied** line written
-- [ ] **Acceptance walk** (human reviewer) — ⬜ verdicts, `coverage: 0 of 3`:
-  - ⬜ W1 — on a dataset where a name appears with a trailing space, add **Clean text** on that
+- [x] **Acceptance walk** (human reviewer) — `coverage: 3 of 3`, walked 2026-10-18 (walk
+      pack session B); no findings:
+  - ✅ W1 — on a dataset where a name appears with a trailing space, add **Clean text** on that
     column, then group by the new column. The variants are one row and the sum is their total.
-  - ⬜ W2 — the original column is still in the result, unchanged, beside the new one.
-  - ⬜ W3 — the card offers only text columns; a cell of only spaces shows as blank in the new
+  - ✅ W2 — the original column is still in the result, unchanged, beside the new one.
+  - ✅ W3 — the card offers only text columns; a cell of only spaces shows as blank in the new
     column.
 
 ## Act
 
-_(at close)_
+- Walk: 3 of 3 passed (session B, 2026-10-18); no findings, so nothing new goes to the
+  rolling log.
+- Promotion: none this round.
+- Prune check: none — the round added no gate or convention.
 
 ## Feeds into → [Round_185](Round_185.md)
 

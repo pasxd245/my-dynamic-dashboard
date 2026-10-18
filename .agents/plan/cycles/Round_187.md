@@ -1,9 +1,9 @@
 # Round 187: workflow run stamps + stale flag (W-7) — and the G-wf evidence
 
-**Status**: Review — B, F, C and the visual gate done; G-wf evidence assembled; awaiting the human acceptance walk (W1–W4), the G-wf call, and sign-off
+**Status**: Complete — the owner walked it (walk pack session B, 2026-10-18: all items passed, no findings) and instructed the flip ("All 45 passed, flip them").
 **Flow**: DCFBI — one stamp written at run, one comparison on read, contract-first; each staleness cause reproduced and pinned.
 **Date started**: 2026-10-15
-**Date completed**: —
+**Date completed**: 2026-10-18
 
 ## ⟢ At a glance
 
@@ -95,6 +95,7 @@ guard; the dogfood parity (below, § Do) shows nothing else moved; the two gaps 
 found — a refresh of a joined-in dataset and the deletion of the dataset under a source query — are
 pinned by the two close-out tests and passed without a code change. Still the owner's call, taken
 together with walk session B ([walk pack](../programs/release-rc2-rc5/walk-rc2-rc3a.md)).
+Confirmed 2026-10-18 after walk session B.
 
 ## Risks / unknowns
 
@@ -138,17 +139,23 @@ together with walk session B ([walk pack](../programs/release-rc2-rc5/walk-rc2-r
       Desirability — one warning, gone after a re-run.
 - [x] ⟢ At a glance **Studied** line written
 - [x] **G-wf** (owner) — accepted on the agent's recommendation 2026-10-17 ("ok với đề xuất, go ahead"); walk session B confirms it before item 3.6 opens
-- [ ] **Acceptance walk** (human reviewer) — ⬜ verdicts, `coverage: 0 of 4`:
-  - ⬜ W1 — run a workflow: the summary shows Run #1; run again: Run #2.
-  - ⬜ W2 — refresh a dataset one of its source queries reads: the workflow page warns, naming
+- [x] **Acceptance walk** (human reviewer) — `coverage: 4 of 4`, walked 2026-10-18 (walk
+      pack session B); no findings:
+  - ✅ W1 — run a workflow: the summary shows Run #1; run again: Run #2.
+  - ✅ W2 — refresh a dataset one of its source queries reads: the workflow page warns, naming
     that source; the table below still shows the last run's numbers. Re-run: the warning goes.
-  - ⬜ W3 — edit, then delete, a source query: the warning names the cause each time; after the
+  - ✅ W3 — edit, then delete, a source query: the warning names the cause each time; after the
     delete the output is still readable.
-  - ⬜ W4 — a workflow built on another workflow: re-run the inner one; the outer one warns.
+  - ✅ W4 — a workflow built on another workflow: re-run the inner one; the outer one warns.
 
 ## Act
 
-_(at close)_
+- Walk: 4 of 4 passed (session B, 2026-10-18); no findings, so nothing new goes to the
+  rolling log.
+- Promotion: none this round.
+- Prune check: none — G-wf is the program's gate, not one this round added; no convention added.
+- G-wf: confirmed by the owner on 2026-10-18 after walk session B (accepted 2026-10-17 on
+  the evidence table above); item 3.6 opens.
 
 ## Feeds into → [Round_188](Round_188.md)
 

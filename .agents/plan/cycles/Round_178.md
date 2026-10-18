@@ -1,9 +1,9 @@
 # Round 178: dataset date coverage — `Column.coverage`
 
-**Status**: Review — C, B, F and the visual gate done; awaiting the human acceptance walk (W1–W3) and sign-off
+**Status**: Complete — the owner walked it (walk pack session A, 2026-10-18: all items passed, no findings) and instructed the flip ("All 45 passed, flip them").
 **Flow**: DCFBI — one read-only profile field, contract-first, verified on a generic fixture in a real browser.
 **Date started**: 2026-10-15
-**Date completed**: —
+**Date completed**: 2026-10-18
 
 ## ⟢ At a glance
 
@@ -104,18 +104,22 @@ consumer of `Column` breaks on the new key.
       rows come from; Utility — answers "which period" without opening the rows; Desirability — one
       line per column, no chart.
 - [x] ⟢ At a glance **Studied** line written
-- [ ] **Acceptance walk** (human reviewer) — ⬜ verdicts, `coverage: 0 of 3`:
-  - ⬜ W1 — upload a CSV with a date column that has a few blank cells. The dataset page shows the
+- [x] **Acceptance walk** (human reviewer) — `coverage: 3 of 3`, walked 2026-10-18 (walk
+      pack session A); no findings:
+  - ✅ W1 — upload a CSV with a date column that has a few blank cells. The dataset page shows the
     column's range and the blank share; the drawer repeats it under the column.
-  - ⬜ W2 — refresh the dataset with a file that adds later dates. The `max` moves; the blank share
+  - ✅ W2 — refresh the dataset with a file that adds later dates. The `max` moves; the blank share
     changes accordingly.
-  - ⬜ W3 — open a dataset uploaded before this round. No strip; everything else unchanged.
+  - ✅ W3 — open a dataset uploaded before this round. No strip; everything else unchanged.
 
 ## Act
 
-_(at close)_
+- Walk: 3 of 3 passed (session A, 2026-10-18); no findings, so nothing new goes to the
+  rolling log.
+- Promotion: none this round.
+- Prune check: none — the round added no gate or convention.
 
-## Feeds into → Round_179 (TBD)
+## Feeds into → [Round_179](Round_179.md)
 
 R179 — the `note` widget (third rc.2 round): a widget kind with markdown text and no `queryId`,
 sanitised on both sides. It inherits nothing from this round; R180 (metadata) will reuse R179's

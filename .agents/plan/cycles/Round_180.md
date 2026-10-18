@@ -1,9 +1,9 @@
 # Round 180: read-only metadata — namespaced entries on seven nouns, written by token
 
-**Status**: Review — C, B, F and the visual gate done; awaiting the human acceptance walk (W1–W4) and sign-off
+**Status**: Complete — the owner walked it (walk pack session A, 2026-10-18: all items passed, no findings) and instructed the flip ("All 45 passed, flip them").
 **Flow**: DCFBI — one noun-less capability (entries hang off existing nouns), contract-first, both halves verified against a real browser and a real token.
 **Date started**: 2026-10-15
-**Date completed**: —
+**Date completed**: 2026-10-18
 
 ## ⟢ At a glance
 
@@ -119,21 +119,25 @@ is a typed error.
       this, who said so, does it still hold" on the page; Desirability — reads like a note,
       not a form.
 - [x] ⟢ At a glance **Studied** line written
-- [ ] **Acceptance walk** (human reviewer) — ⬜ verdicts, `coverage: 0 of 4`:
-  - ⬜ W1 — with no token configured, `PUT /metadata/dataset/<id>/aicowork` → 401; the dataset
+- [x] **Acceptance walk** (human reviewer) — `coverage: 4 of 4`, walked 2026-10-18 (walk
+      pack session A); no findings:
+  - ✅ W1 — with no token configured, `PUT /metadata/dataset/<id>/aicowork` → 401; the dataset
     page shows no panel.
-  - ⬜ W2 — configure a token with `namespaces: [aicowork]`, write an entry with frontmatter on a
+  - ✅ W2 — configure a token with `namespaces: [aicowork]`, write an entry with frontmatter on a
     dataset and one on a column. The page shows both under **Metadata**, the AI badge on each,
     the frontmatter as a table; there is nothing to edit.
-  - ⬜ W3 — write on a query, then change the query's filter. The entry shows **May be out of
+  - ✅ W3 — write on a query, then change the query's filter. The entry shows **May be out of
     date**; writing it again clears the flag.
-  - ⬜ W4 — write to a namespace outside the token's list → 403; send `author` in the body → 422.
+  - ✅ W4 — write to a namespace outside the token's list → 403; send `author` in the body → 422.
 
 ## Act
 
-_(at close)_
+- Walk: 4 of 4 passed (session A, 2026-10-18); no findings, so nothing new goes to the
+  rolling log.
+- Promotion: none this round.
+- Prune check: none — the round added no gate or convention.
 
-## Feeds into → Round_181 (TBD)
+## Feeds into → [Round_181](Round_181.md)
 
 R181 — table totals (`Widget.totals`, sum / ratio per column, computed by the backend over the
 full filtered result): the first rc.2 "đợt 2" round. Nothing here is a dependency; R182 (export)

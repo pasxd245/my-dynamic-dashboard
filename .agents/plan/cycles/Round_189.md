@@ -1,9 +1,9 @@
 # Round 189: replace_period — replace the period a new export covers, keep older rows
 
-**Status**: Review — D, C, B, F and the visual gate done; awaiting the human acceptance walk (W1–W4) and sign-off
+**Status**: Complete — the owner walked it (walk pack session C, 2026-10-18: all items passed, no findings) and instructed the flip ("All 45 passed, flip them").
 **Flow**: DCFBI — one refresh mode end to end, contract-first; verified through the real wizard.
 **Date started**: 2026-10-17
-**Date completed**: —
+**Date completed**: 2026-10-18
 
 ## ⟢ At a glance
 
@@ -74,7 +74,7 @@ the version moves more than once.
       refreshed with a 3-row export (3, 4, 6 Sept). Choosing "Replace a period" disables the commit
       until `day (date)` is picked; the request carries `refresh_mode: replace_period`,
       `period_column: day`; 201 with `period {from 2026-09-03, to 2026-09-06, removed 3, inserted 3,
-  kept 2}`; toast "Replaced 2026-09-03 – 2026-09-06: 3 removed · 3 added · 2 kept."; rows now
+kept 2}`; toast "Replaced 2026-09-03 – 2026-09-06: 3 removed · 3 added · 2 kept."; rows now
       ids 1, 2, 30, 40, 60; version 1 → 2; refresh settings remember the mode and column.
 
 ## Risks / unknowns
@@ -108,19 +108,23 @@ the version moves more than once.
       export no longer has, and the toast reports the window and counts; Utility — weekly re-covering
       exports without doubles or loss; Desirability — no new step.
 - [x] ⟢ At a glance **Studied** line written
-- [ ] **Acceptance walk** (human reviewer) — ⬜ verdicts, `coverage: 0 of 4`:
-  - ⬜ W1 — refresh a dataset with a file that re-covers its last days using "Replace a period" on
+- [x] **Acceptance walk** (human reviewer) — `coverage: 4 of 4`, walked 2026-10-18 (walk
+      pack session C); no findings:
+  - ✅ W1 — refresh a dataset with a file that re-covers its last days using "Replace a period" on
     its date column: the older rows stay, the window holds exactly the new file's rows, the toast
     shows the window and counts, the data version moved by one.
-  - ⬜ W2 — open the refresh again: "Replace a period" and the same column are pre-selected.
-  - ⬜ W3 — refresh with a file that has a row with an empty date: refused with the count of such
+  - ✅ W2 — open the refresh again: "Replace a period" and the same column are pre-selected.
+  - ✅ W3 — refresh with a file that has a row with an empty date: refused with the count of such
     rows; the dataset is unchanged.
-  - ⬜ W4 — choose "Add rows" with a date column that overlaps: the warning offers "Replace this
+  - ✅ W4 — choose "Add rows" with a date column that overlaps: the warning offers "Replace this
     period instead", which switches the mode with that column picked.
 
 ## Act
 
-_(at close)_
+- Walk: 4 of 4 passed (session C, 2026-10-18); no findings, so nothing new goes to the
+  rolling log.
+- Promotion: none this round.
+- Prune check: none — the round added no gate or convention.
 
 ## Feeds into → [Round_190](Round_190.md)
 

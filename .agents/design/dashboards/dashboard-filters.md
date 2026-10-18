@@ -10,9 +10,10 @@ query. Three pieces, one model:
 This doc settles the model, where parameters may appear, how a value is chosen, what a viewer may
 change, and how totals, export, workflow runs and metadata record what was applied. It is the
 design input of items 3.7 (typed parameters), 3.8 (metadata triple anchor), 4.2 (view-time date
-range) and 4.3 (shared filters) of the release program; nothing in it is built yet.
-**Status**: Draft — design gate for item 2.7 (`Round_190`); the decisions below wait for the
-owner's acceptance.
+range) and 4.3 (shared filters) of the release program.
+**Status**: Accepted — the owner accepted D1–D7 as drafted on 2026-10-18 (design gate of item
+2.7, `Round_190`), with the view-time range as two date parameters and `backend.time_zone`
+defaulting to `UTC`. Built by 3.7, 3.8 (rc.3) and 4.2, 4.3 (rc.4).
 **Domain folder**: `dashboards/` — code will land in
 [`apps/builder/src/features/dashboard/`](../../../workspace/apps/builder/src/features/dashboard/)
 (controls), the query engine

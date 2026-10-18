@@ -1,9 +1,9 @@
 # Program plan: Release v0.0.1-rc.2 → rc.5
 
-**Status**: Active — rc.2 built (R177–R183, Review; walk session A, flips, the 0005 downgrade
-check and the tag are the owner's; release note drafted in `CHANGELOG.md`). rc.3: 3.1, 3.3, 3.4, 3.5
-built and 3.2 partly (R184–R189, Review); 2.7 designed (R190, Review — owner decisions D1–D7).
-**Next: 3.6**, opening only when walk session B confirms G-wf. See § State.
+**Status**: Active — rc.2 walked and `Complete` (R177–R183, 2026-10-18); the 0005 downgrade check
+and the tag are the owner's. rc.3: 3.1, 3.3, 3.4, 3.5 and 3.2a/b walked and `Complete` (R184–R189);
+2.7 designed and accepted (R190). G-wf confirmed. **Running now:** R191 (fix round) → R192 (3.6) →
+R193–R194 (3.7) → R195 (3.2c) → R196 (3.8), four-role loop ([rc3.md § Execution](rc3.md)).
 **Opened**: 2026-10-17 (re-baselined the same day against what had already shipped)
 
 Take the product from `release/v0.0.1-rc.1` (`5334c81`) to rc.5 as four gated release candidates.
@@ -19,23 +19,21 @@ R174's Workflow findings, R175's ordered program (R176 → R180), and the human'
 split. The dogfood is **one user's evidence**: every item below must also pass the second-user
 test — "would a second user, with a different CRM export, want exactly this with no change?"_
 
-## State (2026-10-18, after the owner's sync)
+## State (2026-10-18, walks done)
 
-| Branch                | Head on origin                           | Rounds                          |
-| --------------------- | ---------------------------------------- | ------------------------------- |
-| `release/v0.0.1-rc.1` | `5334c81`                                | (pin)                           |
-| `release/v0.0.1-rc.2` | `82a95c3` (release note)                 | R176 Complete; R177–R183 Review |
-| `release/v0.0.1-rc.3` | `0e194f0` (R190) + plan check 2026-10-18 | R184–R190 Review                |
+| Branch                | Head on origin           | Rounds                                               |
+| --------------------- | ------------------------ | ---------------------------------------------------- |
+| `release/v0.0.1-rc.1` | `5334c81`                | (pin)                                                |
+| `release/v0.0.1-rc.2` | `82a95c3` (release note) | R176–R183 Complete                                   |
+| `release/v0.0.1-rc.3` | `9827fcb` (plan check)   | R184–R189 Complete; R190 Review (design gate passed) |
 
-- No tag yet. Fourteen rounds (R177–R190) sit in **Review**: code, tests and visual gates are done;
-  what remains is human — the walks, the flips to `Complete`, the R190 design decisions.
+- Walks A–C: 45 of 45 passed 2026-10-18, no findings; R177–R189 flipped `Complete` on the owner's
+  instruction. G-wf confirmed. D1–D7 accepted as drafted (two date parameters; zone `UTC`).
 - Counts at the rc.3 head: backend 580 · builder 461 · contracts 46 (re-run 2026-10-18, all green).
-- **Waiting on the owner, in this order:** walk session A ([walk pack](walk-rc2-rc3a.md)) → flip
-  R177–R183 → `alembic downgrade -1 && upgrade head` on a copy of the real database (0005) → tag
-  `v0.0.1-rc.2`; walk session B → confirms G-wf → opens 3.6; walk session C (R188–R189); decide
-  R190's D1–D7.
-- **Agent work that does not wait:** the one fix round for the rolling log's small code findings
-  is held until after the walks, so their findings land in the same round.
+- **Waiting on the owner:** `alembic downgrade -1 && upgrade head` on a copy of the real database
+  (0005) → tag `v0.0.1-rc.2` → fast-forward `dev` to the tag; the R190 `Complete` flip.
+- **Agent work now:** rc.3 to its exit gate, R191–R196 ([rc3.md § Execution](rc3.md)); stops for
+  the owner at the rc.3 walks, the dogfood dual-run and the tag.
 
 ## Re-baseline (2026-10-17)
 
@@ -143,30 +141,30 @@ rest listed as Remaining in the detail file; **queued**; **conditional**.
 | #   | Item                                                                                 | Status                                    | Round       | Commit    |
 | --- | ------------------------------------------------------------------------------------ | ----------------------------------------- | ----------- | --------- |
 | 2.0 | Close R176; fix the Workflow program drift                                           | R176 **Complete**; drift fixed 2026-10-17 | `Round_176` | `cc0f4fe` |
-| 2.1 | Widget height 1–3 rows (`Widget.rows`)                                               | review                                    | `Round_177` | `935f748` |
-| 2.8 | Date coverage per dataset (`Column.coverage`: min, max, blank share)                 | review                                    | `Round_178` | `1637fa7` |
-| 2.2 | Annotation widget `note`: sanitized markdown, no query                               | review                                    | `Round_179` | `24b9939` |
-| 2.6 | Metadata, view-only, written by token (decision 9)                                   | review                                    | `Round_180` | `67adfbc` |
-| 2.3 | Table total row computed by the backend (`sum` / `ratio`)                            | review                                    | `Round_181` | `11f425a` |
-| 2.4 | Export a table widget to CSV/XLSX (typed cells, totals row, Filters sheet)           | review                                    | `Round_182` | `d8061f0` |
-| 2.5 | Relationship self-check: coverage, observed cardinality, join-multiplication warning | review                                    | `Round_183` | `cdc46da` |
+| 2.1 | Widget height 1–3 rows (`Widget.rows`)                                               | complete                                  | `Round_177` | `935f748` |
+| 2.8 | Date coverage per dataset (`Column.coverage`: min, max, blank share)                 | complete                                  | `Round_178` | `1637fa7` |
+| 2.2 | Annotation widget `note`: sanitized markdown, no query                               | complete                                  | `Round_179` | `24b9939` |
+| 2.6 | Metadata, view-only, written by token (decision 9)                                   | complete                                  | `Round_180` | `67adfbc` |
+| 2.3 | Table total row computed by the backend (`sum` / `ratio`)                            | complete                                  | `Round_181` | `11f425a` |
+| 2.4 | Export a table widget to CSV/XLSX (typed cells, totals row, Filters sheet)           | complete                                  | `Round_182` | `d8061f0` |
+| 2.5 | Relationship self-check: coverage, observed cardinality, join-multiplication warning | complete                                  | `Round_183` | `cdc46da` |
 
 2.6 ran before 2.3 (as the 2026-10-13 plan ordered) because it reuses 2.2's markdown sanitizer.
 Dogfood parity rc.1 → rc.2: 119 / 119 items identical (logged in `Round_183`).
 
 ### rc.3 — definitions over numbers
 
-| #   | Item                                                                                                                                | Status                  | Round                    |
-| --- | ----------------------------------------------------------------------------------------------------------------------------------- | ----------------------- | ------------------------ |
-| 3.1 | `compute` step + closed function catalog (`trim` only)                                                                              | review                  | `Round_184`              |
-| 3.2 | Version stamps — dataset `dataVersion` + `refreshedAt` (R185), workflow `run` (R187); rest Remaining                                | partial                 | `Round_185`, `Round_187` |
-| 3.3 | Workflow repairs W-2, W-3, W-5 (R186); W-4, W-7 (R185 + R187) → gate **G-wf**                                                       | review                  | `Round_186`, `Round_187` |
-| 3.4 | Refresh with several files at once (label R178)                                                                                     | review                  | `Round_188`              |
-| 3.5 | `replace_period` refresh mode (label R179)                                                                                          | review                  | `Round_189`              |
-| 2.7 | _Moved from rc.2:_ design only — parameter model, view-time date range, shared filters (pulled before 3.6 while it waits)           | review                  | `Round_190`              |
-| 3.6 | Publish a workflow output as a derived dataset with lineage; saved copies in `<workspace>-saved` (label R180) — **only after G-wf** | **next** (after walk B) | —                        |
-| 3.7 | Typed parameters, starting with `as_of`                                                                                             | queued                  | —                        |
-| 3.8 | Metadata triple anchor {definitionVersion, dataVersions / runId, params}                                                            | queued                  | —                        |
+| #   | Item                                                                                                                        | Status                       | Round                    |
+| --- | --------------------------------------------------------------------------------------------------------------------------- | ---------------------------- | ------------------------ |
+| 3.1 | `compute` step + closed function catalog (`trim` only)                                                                      | complete                     | `Round_184`              |
+| 3.2 | Version stamps — dataset `dataVersion` + `refreshedAt` (R185), workflow `run` (R187); rest Remaining                        | partial (3.2c → R195)        | `Round_185`, `Round_187` |
+| 3.3 | Workflow repairs W-2, W-3, W-5 (R186); W-4, W-7 (R185 + R187) → gate **G-wf**                                               | complete                     | `Round_186`, `Round_187` |
+| 3.4 | Refresh with several files at once (label R178)                                                                             | complete                     | `Round_188`              |
+| 3.5 | `replace_period` refresh mode (label R179)                                                                                  | complete                     | `Round_189`              |
+| 2.7 | _Moved from rc.2:_ design only — parameter model, view-time date range, shared filters (pulled before 3.6 while it waits)   | accepted (D1–D7, 2026-10-18) | `Round_190`              |
+| 3.6 | Publish a workflow output as a derived dataset with lineage; saved copies in `<workspace>-saved` (label R180) — G-wf passed | **next** — R192              | —                        |
+| 3.7 | Typed parameters, starting with `as_of`                                                                                     | queued — R193, R194          | —                        |
+| 3.8 | Metadata triple anchor {definitionVersion, dataVersions / runId, params}                                                    | queued — R196                | —                        |
 
 Dogfood parity rc.2 → rc.3 batch 1: 119 / 119 items identical; migrations 0004 → 0007 clean on a
 copy of the real database (logged in `Round_187`).
@@ -190,8 +188,8 @@ copy of the real database (logged in `Round_187`).
 | 5.1 | Tags on data representations, filterable across workspaces — opens only with logged evidence that naming conventions + search fail | conditional | —     |
 
 Forecast (in rounds, from here): rc.2 — 0 code rounds (the release note is drafted; the rest of
-its gate is the owner's); rc.3 — 5–7 rounds (3.6, 3.7 likely ×2, 3.2c, 3.8, plus one fix round
-after the walks); rc.4 — 4–7 rounds.
+its gate is the owner's); rc.3 — 6 rounds, numbered R191–R196 (fix round, 3.6, 3.7 ×2, 3.2c, 3.8;
+[rc3.md § Execution](rc3.md)); rc.4 — 4–7 rounds.
 
 ## Exit gates
 
@@ -226,7 +224,7 @@ rc mode). The checklists live in the detail files; summary:
 | A `count` draft switched to scatter / combo keeps a measure the backend forbids with `count`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | correctness        | design sync 2026-10-17 | open — same fix round                                                                                                                                                                                                                                                                                                                                            |
 | Refresh wizard's Confirm footer reads "Creating 1 dataset in …" in refresh mode                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | UI copy            | R189 visual gate       | open — pre-existing; for the fix round after the walks                                                                                                                                                                                                                                                                                                           |
 | `_shared/query.yaml` cites two design-doc paths that moved (`datasets/saved-query.md`, `data-management/dataset-filters.md`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | doc gap            | R190 survey            | open — for the fix round after the walks                                                                                                                                                                                                                                                                                                                         |
-| Item specs written before R190 contradict its design: rc3 **3.7** allows a parameter "wherever a literal operand is accepted" (D2: filter operands only) and lacks D1's `label`, ≤ 8, `today` default, `param_invalid`, `resolvedParams` and the query-page Parameters panel; rc4 **4.2** uses `dateRange: {from, to}` (D4: a `date_range` control); rc4 **4.3** uses `DashboardDefinition.filters` + `scope` and an "About sheet" (D4/D7: `controls` + `targets`, the Filters sheet)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | spec drift         | plan check 2026-10-18  | open — re-base 3.7, 4.2, 4.3 on [`dashboard-filters.md`](../../../design/dashboards/dashboard-filters.md) in the commit that flips it to Accepted (after D1–D7); no round opens from the old text                                                                                                                                                                |
+| Item specs written before R190 contradict its design: rc3 **3.7** allows a parameter "wherever a literal operand is accepted" (D2: filter operands only) and lacks D1's `label`, ≤ 8, `today` default, `param_invalid`, `resolvedParams` and the query-page Parameters panel; rc4 **4.2** uses `dateRange: {from, to}` (D4: a `date_range` control); rc4 **4.3** uses `DashboardDefinition.filters` + `scope` and an "About sheet" (D4/D7: `controls` + `targets`, the Filters sheet)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | spec drift         | plan check 2026-10-18  | **fixed** 2026-10-18 — D1–D7 accepted; 3.7 (rc3), 4.2 and 4.3 (rc4) re-based on the Accepted `dashboard-filters.md`                                                                                                                                                                                                                                              |
 | `widgets.md` still listed the table-save bug as a known gap after `ff9647a` fixed it                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | doc gap            | R190                   | **fixed** 2026-10-17 (R190)                                                                                                                                                                                                                                                                                                                                      |
 | Market check (2026-10): table totals beyond pivot are a long-open request in a major OSS BI tool; parameter precedence and URL-held viewer values are an established pattern; OpenLineage separates run / job version / dataset version                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | research           | —                      | informs 2.3, 3.2, 3.6, 3.7, 4.3                                                                                                                                                                                                                                                                                                                                  |
 
