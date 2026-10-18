@@ -235,6 +235,62 @@ components:
             the render order.
           items:
             $ref: "#/components/schemas/Widget"
+        controls:
+          type: array
+          maxItems: 12
+          description: |
+            R195 (dashboard-filters.md D4, `kind: param` only — `date_range` is
+            item 4.2, `values` 4.3) — the controls in the bar above the grid.
+            Omitted when none. One control per parameter name; every listed
+            target must be a widget of this dashboard. A control reaches a widget
+            when the widget is targeted AND its query USES the parameter (else it
+            is skipped there, and the card's badge says why — D5).
+          items:
+            $ref: "#/components/schemas/DashboardControl"
+
+    DashboardControl:
+      type: object
+      required: [id, kind, label, param, targets]
+      additionalProperties: false
+      description: |
+        R195 — one dashboard control bound to a query parameter by name.
+        `saved` is the dashboard's value (D3 level 2, applied by the server
+        when a read names this dashboard + widget); a viewer's value lives in
+        the URL (`?p.<name>=`) and is never saved — saving a value is an edit
+        (a dashboard PUT).
+      properties:
+        id:
+          type: string
+          pattern: "^ctl_[0-9a-f]{8}$"
+          description: Client-generated, like widget ids.
+        kind:
+          type: string
+          enum: [param]
+        label:
+          type: string
+          minLength: 1
+          maxLength: 60
+        param:
+          type: string
+          pattern: "^[a-z][a-z0-9_]{0,31}$"
+        targets:
+          oneOf:
+            - type: string
+              enum: [all]
+            - type: array
+              minItems: 1
+              uniqueItems: true
+              items:
+                type: string
+                pattern: "^wdg_[0-9a-f]{8}$"
+        saved:
+          description: |
+            The saved value — a literal (a date as `YYYY-MM-DD`) or, for a date,
+            "today ± n days" (resolved by the server at read time). Checked at
+            save against the parameter's type in the targeted queries that use it.
+          oneOf:
+            - type: [string, number]
+            - $ref: "./query.yaml#/components/schemas/RelativeDate"
 
     Dashboard:
       type: object

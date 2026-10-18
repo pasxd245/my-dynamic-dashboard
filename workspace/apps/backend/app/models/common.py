@@ -1164,6 +1164,21 @@ class Widget(BaseModel):
         return self
 
 
+class DashboardControl(BaseModel):
+    """R195 (dashboard-filters.md D4) — a dashboard control bound to one query
+    parameter (`kind: param`; `date_range` is 4.2, `values` 4.3). Mirrors
+    `_shared/dashboard.yaml#/DashboardControl`."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: Annotated[str, Field(pattern=r"^ctl_[0-9a-f]{8}$")]
+    kind: Literal["param"]
+    label: Annotated[str, Field(min_length=1, max_length=60)]
+    param: ParamName
+    targets: Literal["all"] | Annotated[list[Annotated[str, Field(pattern=ID_PATTERNS["widget"])]], Field(min_length=1)]
+    saved: StrictInt | StrictFloat | StrictStr | RelativeDate | None = None
+
+
 class DashboardDefinition(BaseModel):
     """The embedded dashboard body — its ordered widget set. Empty `widgets` is
     valid (a freshly-created dashboard before its first widget)."""
@@ -1171,6 +1186,9 @@ class DashboardDefinition(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     widgets: list[Widget]
+    # R195 — the bar's controls; `None` when there are none (stored `null`, which
+    # the definition hash drops; omitted on the wire).
+    controls: Annotated[list[DashboardControl], Field(max_length=12)] | None = None
 
 
 class Dashboard(BaseModel):

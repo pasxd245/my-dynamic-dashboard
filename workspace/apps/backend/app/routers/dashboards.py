@@ -30,6 +30,7 @@ from fastapi import Path as FastApiPath
 from fastapi.responses import JSONResponse, Response
 
 from app._generated.constants import ID_PATTERNS
+from app import params as qparams
 from app.db import get_conn
 from app.models.common import (
     ApiErrorNameTaken,
@@ -92,6 +93,53 @@ def _validate_widget_queries(con: sqlite3.Connection, workspace_id: str, definit
             )
 
 
+def _validate_controls(con: sqlite3.Connection, workspace_id: str, definition: dict) -> None:
+    """R195 (D4) — the controls a save may hold: unique ids and parameter names,
+    targets that are widgets of this dashboard (no note), and a saved value of the
+    parameter's type in the targeted queries that use it (422 naming the field)."""
+    controls = definition.get("controls") or []
+    widgets = {w["id"]: w for w in definition.get("widgets", [])}
+
+    def bad(i: int, field: str, msg: str) -> HTTPException:
+        return HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=[{"loc": ["body", "definition", "controls", i, field], "msg": msg, "type": "value_error"}],
+        )
+
+    seen_ids: set[str] = set()
+    seen_params: set[str] = set()
+    for i, c in enumerate(controls):
+        if c["id"] in seen_ids:
+            raise bad(i, "id", f"duplicate_control: {c['id']} appears twice")
+        seen_ids.add(c["id"])
+        if c["param"] in seen_params:
+            raise bad(i, "param", f"duplicate_param: one control per parameter ({c['param']!r})")
+        seen_params.add(c["param"])
+        targets = list(widgets) if c["targets"] == "all" else c["targets"]
+        for wid in targets:
+            if wid not in widgets:
+                raise bad(i, "targets", f"unknown_widget: {wid} is not a widget of this dashboard")
+        if c.get("saved") is None:
+            continue
+        for wid in targets:
+            qid = widgets[wid].get("queryId")
+            if qid is None:
+                continue
+            row = con.execute("SELECT workspace_id, definition_json FROM queries WHERE id = ?", (qid,)).fetchone()
+            if row is None or row["workspace_id"] != workspace_id:
+                continue
+            qdef = json.loads(row["definition_json"])
+            decl = qparams.declared(qdef).get(c["param"])
+            if decl is None or c["param"] not in qparams.used(qdef):
+                continue
+            try:
+                qparams.coerce(decl["type"], c["saved"], allow_relative=True)
+            except (ValueError, TypeError):
+                raise bad(i, "saved", f"param_type: the saved value is not a {decl['type']}") from None
+            if qparams._is_relative(c["saved"]) and decl["type"] != "date":
+                raise bad(i, "saved", "param_type: a relative value is for date parameters")
+
+
 def _dashboard_from_row(row: sqlite3.Row) -> DashboardModel:
     return DashboardModel(
         id=row["id"],
@@ -113,6 +161,7 @@ def create_dashboard(id: WsIdPath, body: CreateDashboardBody) -> JSONResponse:  
     definition_dict = body.definition.model_dump()
     with get_conn() as con:
         _validate_widget_queries(con, id, definition_dict)
+        _validate_controls(con, id, definition_dict)  # R195
 
     dsh_id = _new_dsh_id()
     created_at = _now_iso()
@@ -182,6 +231,7 @@ def update_dashboard(id: DashboardIdPath, body: UpdateDashboardBody) -> JSONResp
         if row is None:
             return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=ApiErrorNotFound().model_dump())
         _validate_widget_queries(con, row["workspace_id"], definition_dict)
+        _validate_controls(con, row["workspace_id"], definition_dict)  # R195
 
     definition_json = json.dumps(definition_dict)
     try:
