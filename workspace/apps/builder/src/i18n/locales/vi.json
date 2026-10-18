@@ -177,7 +177,9 @@
       "copyFailed": "Không sao chép được liên kết.",
       "skipped": "Bỏ qua {{label}}",
       "skippedWhy": "Truy vấn của widget này không dùng tham số {{param}}, nên điều khiển không thay đổi nó."
-    }
+    },
+    "dataFooter": "Dữ liệu: làm mới {{when}}",
+    "dataFooterRun": "lần chạy #{{n}}"
   },
   "common": {
     "create": "Tạo",
@@ -1233,6 +1235,19 @@
     "by": "{{author}} · {{when}}",
     "empty": "Chưa có gì được ghi.",
     "readOnlyHint": "Chỉ xem — ghi qua API; người ghi muốn sửa thì ghi lại.",
-    "widgetTooltip": "Chú giải của widget này"
+    "widgetTooltip": "Chú giải của widget này",
+    "state": {
+      "refreshed": "Dữ liệu đã làm mới",
+      "otherPeriod": "Kỳ khác",
+      "otherDefinition": "Định nghĩa cũ"
+    },
+    "writtenFor": "Viết cho {{written}} · đang xem {{viewing}}",
+    "noValue": "chưa có giá trị",
+    "writtenForDefinition": "Viết cho một định nghĩa cũ hơn.",
+    "show": "Xem",
+    "hide": "Ẩn",
+    "definitionWarning": "Định nghĩa đã đổi sau khi ghi chú này được viết; nội dung có thể không còn đúng với những gì bạn thấy.",
+    "assumed": "Viết theo giá trị đã lưu hoặc mặc định của: {{names}}",
+    "beforePeriods": "Viết trước khi ghi nhận kỳ."
   }
 }

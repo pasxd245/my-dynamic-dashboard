@@ -201,12 +201,14 @@ def coerce(ptype: str, raw: object, *, allow_relative: bool) -> str | int | floa
 
 
 def resolve(
-    definition: dict, *, viewer: dict | None = None, dashboard: dict | None = None
+    definition: dict, *, viewer: dict | None = None, dashboard: dict | None = None, strict: bool = True
 ) -> tuple[dict[str, Any], dict[str, dict]]:
     """For each USED parameter: viewer value → dashboard saved value → default →
     ``param_unbound`` (D3). Returns ``(values, resolvedParams)``; raises
     ``ParamError``. Undeclared or unused names in ``viewer`` / ``dashboard`` are
-    ignored."""
+    ignored. R197 — ``strict=False`` (a metadata read, which informs and never
+    refuses): a wrong-typed value falls through to the next level and a
+    parameter with no value is left out instead of raising."""
     decls = declared(definition)
     viewer = viewer or {}
     dashboard = dashboard or {}
@@ -229,6 +231,8 @@ def resolve(
             try:
                 values[name] = coerce(ptype, raw, allow_relative=relative)
             except (ValueError, TypeError):
+                if not strict:
+                    continue
                 raise ParamError("param_invalid", name, label=label, expected=ptype, source=source) from None
             resolved[name] = {"value": values[name], "source": source}
             break
@@ -239,7 +243,7 @@ def resolve(
                 continue
             values[name] = coerce(ptype, default, allow_relative=True)  # checked at save
             resolved[name] = {"value": values[name], "source": "default"}
-    if missing:
+    if missing and strict:
         # Name the first, and list every one still needing a value (BA P2-2).
         first = missing[0]
         raise ParamError(

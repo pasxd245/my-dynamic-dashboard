@@ -9,6 +9,14 @@ info:
     `children`, so a detail page needs one request. No authentication: reading
     is for everyone who can read the noun.
 
+    R197 (item 3.8) — the read is made under the reader's parameter values,
+    `p.<name>=<value>` exactly as `/queries/{id}/rows` takes them (a dashboard:
+    the viewer values of its controls; each widget gets only those of the
+    controls that target it). The response carries the reader's anchor
+    (`current`, and `childrenCurrent` per child) and a `state` per entry. A
+    `p.` value that is missing or of the wrong type is not compared — the
+    panel informs, it never refuses.
+
 paths:
   /metadata/{kind}/{noun_id}:
     get:
@@ -35,6 +43,9 @@ paths:
                         writtenAt: "2026-10-15T08:00:00Z"
                         definitionVersion: "3f1c9a0b7d2e"
                         stale: false
+                        anchor: { definitionVersion: "3f1c9a0b7d2e", dataVersions: { "ds_71a4e2f0": 3 } }
+                        state: refreshed
+                    current: { definitionVersion: "3f1c9a0b7d2e", dataVersions: { "ds_71a4e2f0": 4 } }
                     children:
                       won_at:
                         aicowork:
@@ -44,8 +55,31 @@ paths:
                           writtenAt: "2026-10-15T08:00:00Z"
                           definitionVersion: "9a0b7d2e3f1c"
                           stale: false
+                          anchor: { definitionVersion: "9a0b7d2e3f1c" }
+                          state: current
+                    childrenCurrent:
+                      won_at: { definitionVersion: "9a0b7d2e3f1c", dataVersions: { "ds_71a4e2f0": 4 } }
+                query_other_period:
+                  value:
+                    entries:
+                      aicowork:
+                        md: "Week 41 dipped: two reps were out."
+                        source: ai
+                        author: aicowork
+                        writtenAt: "2026-10-12T08:00:00Z"
+                        definitionVersion: "7d2e3f1c9a0b"
+                        stale: false
+                        anchor:
+                          definitionVersion: "7d2e3f1c9a0b"
+                          dataVersions: { "ds_71a4e2f0": 3 }
+                          params: { as_of: "2026-10-11" }
+                        state: other_period
+                    current:
+                      definitionVersion: "7d2e3f1c9a0b"
+                      dataVersions: { "ds_71a4e2f0": 4 }
+                      params: { as_of: "2026-10-17" }
                 none:
-                  value: { entries: {} }
+                  value: { entries: {}, current: { definitionVersion: "3f1c9a0b7d2e" } }
         "404":
           description: No such noun (unknown id, or a column / widget no longer in its parent).
           content:

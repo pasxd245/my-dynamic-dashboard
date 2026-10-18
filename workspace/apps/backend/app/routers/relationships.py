@@ -39,6 +39,7 @@ from app.models.common import (
     Relationship,
 )
 from app.saved_copies import read_only_refusal
+from app.metadata import sweep as metadata_sweep
 from app.routers._shared import _compatible, _dtype_of, _now_iso
 from app.storage import dataset_dir
 
@@ -233,5 +234,7 @@ def delete_relationship(id: RelIdPath) -> Response:  # noqa: A002
         if row is None:
             return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=ApiErrorNotFound().model_dump())
         con.execute("DELETE FROM relationships WHERE id = ?", (id,))
+        # R197 (3.8) — its metadata entries go with it (archived in metadata_entries_swept).
+        metadata_sweep(con, _now_iso())
         con.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)

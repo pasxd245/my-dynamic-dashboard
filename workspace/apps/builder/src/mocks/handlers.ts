@@ -934,7 +934,7 @@ export const handlers = [
     const key = `${String(params.kind)}/${decodeURIComponent(String(params.id))}`;
     const found = MOCK_METADATA[key];
     if (found) return HttpResponse.json(found);
-    return HttpResponse.json({ entries: {} });
+    return HttpResponse.json({ entries: {}, current: { definitionVersion: '000000000000' } });
   }),
   // R183 — relationship self-check: the governed edge measured against the
   // data. The fixture's edge reads as declared except that the right side

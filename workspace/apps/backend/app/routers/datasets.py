@@ -66,6 +66,7 @@ from app.models.common import (
     ParseOptions,
 )
 from app.saved_copies import read_only_refusal
+from app.metadata import sweep as metadata_sweep
 from app.routers._shared import (
     RowsPage,
     _carry_forward_hidden,
@@ -1309,6 +1310,8 @@ def delete_dataset(id: DsIdPath) -> Response:  # noqa: A002
         # first, then the dataset itself. Same connection (PRAGMA foreign_keys=ON).
         con.execute("DELETE FROM queries WHERE source_id = ?", (id,))
         con.execute("DELETE FROM datasets WHERE id = ?", (id,))
+        # R197 (3.8) — its metadata entries go with it (archived in metadata_entries_swept).
+        metadata_sweep(con, _now_iso())
         con.commit()
 
     # Filesystem cleanup AFTER the DB commit. A failure here leaks a

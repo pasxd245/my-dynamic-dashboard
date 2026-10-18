@@ -15,6 +15,18 @@ info:
     with a YAML frontmatter block the product does not interpret; it is
     rejected (422 `metadata_invalid`), never silently cleaned.
 
+    R197 (item 3.8) — the server also stamps the ANCHOR: the noun's definition,
+    data versions / run and, for a query, widget or dashboard, the parameter
+    values the writer read under. The writer names those values in `params`
+    (the same as a reader's `p.<name>`); the server resolves them like a read
+    (viewer → dashboard → default). A used parameter with no value at any
+    level → 422 `param_unbound` (every missing one in `missing[]`); a
+    wrong-typed value → 422 `param_invalid`. A writer that sends no `params`
+    writes for "the saved / default values now", and the entry says so
+    (`anchor.assumedParams`). A dashboard note needs no value for a control
+    nothing sets — that control is left out. Versions and run ids are never
+    taken from the client.
+
 paths:
   /metadata/{kind}/{noun_id}/{namespace}:
     put:
@@ -46,6 +58,15 @@ paths:
                   type: string
                   minLength: 1
                   description: The entry text (safe markdown subset, ≤ 65536 UTF-8 bytes).
+                params:
+                  type: object
+                  description: |
+                    R197 — the parameter values the writer read under, by name
+                    (a date `YYYY-MM-DD`). Ignored on a noun without parameters.
+                  additionalProperties:
+                    oneOf:
+                      - type: string
+                      - type: number
             examples:
               dataset:
                 value:
@@ -66,6 +87,10 @@ paths:
                     writtenAt: "2026-10-15T08:00:00Z"
                     definitionVersion: "3f1c9a0b7d2e"
                     stale: false
+                    anchor:
+                      definitionVersion: "3f1c9a0b7d2e"
+                      dataVersions: { "ds_71a4e2f0": 4 }
+                    state: current
         "401":
           description: No bearer token, or one the server does not know.
           content:
@@ -103,12 +128,23 @@ paths:
           description: |
             The entry was refused: bad namespace, empty text, over the size
             cap, unsafe markdown, or the noun already carries the maximum
-            number of namespaces. Nothing is stored.
+            number of namespaces (`metadata_invalid`); or, R197, a parameter
+            the noun uses has no value or a wrong-typed one. Nothing is stored.
           content:
             application/json:
               schema:
-                $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorMetadataInvalid"
+                oneOf:
+                  - $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorMetadataInvalid"
+                  - $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorParamUnbound"
+                  - $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorParamInvalid"
               examples:
+                unbound:
+                  value:
+                    {
+                      "code": "param_unbound",
+                      "param": "as_of",
+                      "missing": [{ "param": "as_of" }, { "param": "team" }],
+                    }
                 unsafe:
                   value: { "code": "metadata_invalid", "reason": "markdown_unsafe", "problems": ["html"] }
                 big:

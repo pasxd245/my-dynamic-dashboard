@@ -142,11 +142,26 @@ CREATE TABLE IF NOT EXISTS metadata_entries (
     author TEXT NOT NULL,
     written_at TEXT NOT NULL,
     definition_version TEXT NOT NULL,
+    anchor_json TEXT,
     PRIMARY KEY (kind, noun_id, namespace)
 );
 
 CREATE INDEX IF NOT EXISTS idx_metadata_entries_noun
     ON metadata_entries(kind, noun_id);
+
+CREATE TABLE IF NOT EXISTS metadata_entries_swept (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    kind TEXT NOT NULL,
+    noun_id TEXT NOT NULL,
+    namespace TEXT NOT NULL,
+    md TEXT NOT NULL,
+    source TEXT NOT NULL,
+    author TEXT NOT NULL,
+    written_at TEXT NOT NULL,
+    definition_version TEXT NOT NULL,
+    anchor_json TEXT,
+    swept_at TEXT NOT NULL
+);
 """
 
 _R25_UNIQUE_INDEXES = """
@@ -302,8 +317,8 @@ def _introspect_models(tmp_path: Path) -> dict:
 
 def test_migration_leaves_alembic_version(tmp_path: Path, _restore_db_path):
     """The migrated DB is genuinely versioned (so subsequent boots take the
-    fast versioned path). R88 collapsed history to `0001_baseline`; R193's
-    `0009_saved_copies` is the head."""
+    fast versioned path). R88 collapsed history to `0001_baseline`; R197's
+    `0010_metadata_anchor` is the head."""
     migrated_path = tmp_path / "versioned.sqlite"
     db.set_db_path(migrated_path)
     db.run_startup_migrations()
@@ -313,4 +328,4 @@ def test_migration_leaves_alembic_version(tmp_path: Path, _restore_db_path):
         version = con.execute("SELECT version_num FROM alembic_version").fetchone()
     finally:
         con.close()
-    assert version is not None and version[0] == "0009_saved_copies"
+    assert version is not None and version[0] == "0010_metadata_anchor"

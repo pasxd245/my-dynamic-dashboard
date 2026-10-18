@@ -285,19 +285,23 @@ def save_copies(main: sqlite3.Row, label: str, dataset_ids: Sequence[str]) -> tu
                     ),
                 )
                 # Metadata goes with it, as it is (S2): the dataset's entries and
-                # its columns' (`<ds_id>:<column>` → `<copy_id>:<column>`).
+                # its columns' (`<ds_id>:<column>` → `<copy_id>:<column>`). R197 —
+                # with its anchor, the data version keyed to the copy (ids are
+                # `ds_<8 hex>`, so the quoted id is unique in the JSON).
+                remap = ('"' + orig["id"] + '"', '"' + copy_id + '"')
                 con.execute(
                     "INSERT INTO metadata_entries (kind, noun_id, namespace, md, source, author, written_at, "
-                    "definition_version) SELECT kind, ?, namespace, md, source, author, written_at, "
-                    "definition_version FROM metadata_entries WHERE kind = 'dataset' AND noun_id = ?",
-                    (copy_id, orig["id"]),
+                    "definition_version, anchor_json) SELECT kind, ?, namespace, md, source, author, written_at, "
+                    "definition_version, replace(anchor_json, ?, ?) FROM metadata_entries "
+                    "WHERE kind = 'dataset' AND noun_id = ?",
+                    (copy_id, *remap, orig["id"]),
                 )
                 con.execute(
                     "INSERT INTO metadata_entries (kind, noun_id, namespace, md, source, author, written_at, "
-                    "definition_version) SELECT kind, ? || substr(noun_id, ?), namespace, md, source, author, "
-                    "written_at, definition_version FROM metadata_entries "
+                    "definition_version, anchor_json) SELECT kind, ? || substr(noun_id, ?), namespace, md, source, "
+                    "author, written_at, definition_version, replace(anchor_json, ?, ?) FROM metadata_entries "
                     "WHERE kind = 'column' AND substr(noun_id, 1, ?) = ?",
-                    (copy_id, len(orig["id"]) + 1, len(orig["id"]) + 1, orig["id"] + ":"),
+                    (copy_id, len(orig["id"]) + 1, *remap, len(orig["id"]) + 1, orig["id"] + ":"),
                 )
             con.commit()
             rows = [con.execute("SELECT * FROM datasets WHERE id = ?", (cid,)).fetchone() for cid, _ in staged]

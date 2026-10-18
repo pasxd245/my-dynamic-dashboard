@@ -245,9 +245,9 @@ class MetadataEntry(SQLModel, table=True):
     ``written_at`` are stamped by the server from the writing token;
     ``definition_version`` is the noun's definition hash at write time, so a
     reader can flag an entry whose subject has since changed. No FK: the noun
-    kinds live in five tables. Nothing sweeps a deleted noun's entries yet — an
-    orphan stays in the table, harmless and unreadable (no read path resolves
-    it); the cascade is item 3.8's (R191 corrected this docstring)."""
+    kinds live in five tables. R197 (3.8): ``anchor_json`` is the server-built
+    triple anchor (NULL on rc.2 entries); a deleted noun's entries move to
+    ``metadata_entries_swept`` (``app.metadata.sweep``)."""
 
     __tablename__ = "metadata_entries"
     __table_args__ = (
@@ -265,3 +265,23 @@ class MetadataEntry(SQLModel, table=True):
     author: str = Field(sa_column=Column(Text, nullable=False))
     written_at: str = Field(sa_column=Column(Text, nullable=False))
     definition_version: str = Field(sa_column=Column(Text, nullable=False))
+    anchor_json: str | None = Field(default=None, sa_column=Column(Text, nullable=True))
+
+
+class MetadataEntrySwept(SQLModel, table=True):
+    """R197 (3.8) — an entry whose noun was deleted, archived with the time it
+    was swept. Never read by the API; the migration's downgrade restores it."""
+
+    __tablename__ = "metadata_entries_swept"
+
+    id: int | None = Field(default=None, sa_column=Column(Integer, primary_key=True, autoincrement=True))
+    kind: str = Field(sa_column=Column(Text, nullable=False))
+    noun_id: str = Field(sa_column=Column(Text, nullable=False))
+    namespace: str = Field(sa_column=Column(Text, nullable=False))
+    md: str = Field(sa_column=Column(Text, nullable=False))
+    source: str = Field(sa_column=Column(Text, nullable=False))
+    author: str = Field(sa_column=Column(Text, nullable=False))
+    written_at: str = Field(sa_column=Column(Text, nullable=False))
+    definition_version: str = Field(sa_column=Column(Text, nullable=False))
+    anchor_json: str | None = Field(default=None, sa_column=Column(Text, nullable=True))
+    swept_at: str = Field(sa_column=Column(Text, nullable=False))

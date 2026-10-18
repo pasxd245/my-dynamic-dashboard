@@ -54,7 +54,7 @@ import { useMetadataQuery } from '@/features/metadata/hooks';
 import { ApiErrorThrown } from '@/features/data-management/_shared/types';
 import { downloadWidgetExport } from './exportWidget';
 import { MetadataEntriesList, MetadataPanel } from '@/features/metadata/MetadataPanel';
-import type { MetadataEntries } from '@/features/metadata/types';
+import type { MetadataAnchor, MetadataEntries } from '@/features/metadata/types';
 import { useWorkspacesQuery } from '@/features/data-management/workspaces/hooks';
 import type { DashboardFilter } from './aggregate';
 import { useDashboardsQuery, useUpdateDashboardMutation } from './hooks';
@@ -123,6 +123,7 @@ function SortableWidget({
   menu,
   filters,
   metadata,
+  metadataCurrent,
   badge,
 }: Readonly<{
   widget: Widget;
@@ -137,6 +138,8 @@ function SortableWidget({
   filters: readonly DashboardFilter[];
   /** R180 — this widget's metadata entries (from the dashboard's one read). */
   metadata?: MetadataEntries;
+  /** R197 — this widget's anchor for the reader (what its entries are compared with). */
+  metadataCurrent?: MetadataAnchor;
   /** R195 — which parameter controls reached this widget. */
   badge?: React.ReactNode;
 }>) {
@@ -201,7 +204,7 @@ function SortableWidget({
         placement="bottomRight"
         content={
           <div style={{ maxWidth: 420, maxHeight: 360, overflow: 'auto' }} data-component="WidgetMetadataPopover">
-            <MetadataEntriesList entries={metadata} />
+            <MetadataEntriesList entries={metadata} current={metadataCurrent} />
           </div>
         }
       >
@@ -289,14 +292,15 @@ export function DashboardDetailPage() {
   const dashboard = dashboardsQ.data?.find((d) => d.slug === slug);
   const workspaces = useWorkspacesQuery();
   const updateMutation = useUpdateDashboardMutation();
-  // R180 — one read serves the dashboard's own entries and every widget's.
-  const metadataQ = useMetadataQuery('dashboard', dashboard?.id);
 
   const [builder, setBuilder] = useState<{ initial?: Widget } | null>(null);
   // R195 — parameter controls: viewer values in the URL (`?p.<name>=`), the
   // queries' declarations for types and reach, and the controls editor.
   const [searchParams, setSearchParams] = useSearchParams();
   const viewer = paramsFromSearch(searchParams);
+  // R180 — one read serves the dashboard's own entries and every widget's;
+  // R197 — under the viewer's values (the panel below shares this read).
+  const metadataQ = useMetadataQuery('dashboard', dashboard?.id, viewer);
   const workspaceQueries = useQueriesQuery(workspaceId);
   const [controlsOpen, setControlsOpen] = useState(false);
   // What each widget's latest read used (by widget id; dropped when a read
@@ -526,6 +530,7 @@ export function DashboardDetailPage() {
         <MetadataPanel
           kind="dashboard"
           nounId={dash.id}
+          params={viewer}
           childLabel={(id) => dash.widgets.find((w) => w.id === id)?.title ?? id}
         />
 
@@ -569,6 +574,7 @@ export function DashboardDetailPage() {
                     }}
                     menu={widgetMenu(w)}
                     metadata={metadataQ.data?.children?.[w.id]}
+                    metadataCurrent={metadataQ.data?.childrenCurrent?.[w.id]}
                     filters={filtersFor(w.id)}
                     badge={
                       <ReachBadge

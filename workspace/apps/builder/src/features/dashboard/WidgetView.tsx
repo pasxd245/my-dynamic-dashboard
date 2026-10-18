@@ -52,6 +52,7 @@ import {
 
 const HeatmapView = lazy(() => import('./HeatmapView'));
 const GaugeView = lazy(() => import('./GaugeView'));
+import { WidgetDataFooter } from './WidgetDataFooter';
 import { ChartCard } from './ChartCard';
 import { SafeMarkdown } from './SafeMarkdown';
 import { useQueryQuery } from '@/features/data-management/queries/hooks';
@@ -642,6 +643,7 @@ export function useWidgetChartData(
     isMissingQuery,
     paramError,
     resolvedParams: aggregateEnabled ? agg.resolvedParams : data.resolvedParams,
+    dataVersions: aggregateEnabled ? agg.dataVersions : data.dataVersions,
     chartData,
     statValue,
     multiSeries,
@@ -706,6 +708,7 @@ function ChartWidgetView({ widget, extra, filters, badge }: WidgetViewProps) {
     isMissingQuery,
     paramError,
     resolvedParams,
+    dataVersions,
     capped,
     total,
   } = useWidgetChartData(widget, filters, ctx);
@@ -794,6 +797,7 @@ function ChartWidgetView({ widget, extra, filters, badge }: WidgetViewProps) {
       rows={widget.rows}
       paramMessage={paramMessage}
       badge={badge}
+      footer={<WidgetDataFooter versions={dataVersions} />}
     >
       <ChartFigure label={t(ariaKey, { title: widget.title })}>
         {widget.chartType === 'stat' && <StatView value={statValue ?? 0} label={valueName} fmt={fmt} />}

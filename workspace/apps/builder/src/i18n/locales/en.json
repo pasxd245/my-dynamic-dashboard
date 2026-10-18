@@ -177,7 +177,9 @@
       "copyFailed": "Couldn't copy the link.",
       "skipped": "{{label}} skipped",
       "skippedWhy": "This widget's query does not use parameter {{param}}, so the control does not change it."
-    }
+    },
+    "dataFooter": "Data: refreshed {{when}}",
+    "dataFooterRun": "run #{{n}}"
   },
   "common": {
     "create": "Create",
@@ -1233,6 +1235,19 @@
     "by": "{{author}} · {{when}}",
     "empty": "Nothing written here yet.",
     "readOnlyHint": "Read-only — written through the API; the author changes it by writing again.",
-    "widgetTooltip": "Metadata on this widget"
+    "widgetTooltip": "Metadata on this widget",
+    "state": {
+      "refreshed": "Data refreshed since",
+      "otherPeriod": "Another period",
+      "otherDefinition": "Earlier definition"
+    },
+    "writtenFor": "Written for {{written}} · viewing {{viewing}}",
+    "noValue": "no value",
+    "writtenForDefinition": "Written for an earlier definition of this.",
+    "show": "Show",
+    "hide": "Hide",
+    "definitionWarning": "The definition changed after this was written; it may not describe what you see.",
+    "assumed": "Written under the saved or default value of: {{names}}",
+    "beforePeriods": "Written before periods were recorded."
   }
 }

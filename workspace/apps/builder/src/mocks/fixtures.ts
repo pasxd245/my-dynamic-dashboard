@@ -574,8 +574,12 @@ export const MOCK_METADATA: Record<string, MetadataRead> = {
         writtenAt: '2026-10-15T08:00:00Z',
         definitionVersion: '3f1c9a0b7d2e',
         stale: false,
+        anchor: { definitionVersion: '3f1c9a0b7d2e', dataVersions: { [MOCK_DATASET.id]: 1 } },
+        state: 'current',
       },
     },
+    current: { definitionVersion: '3f1c9a0b7d2e', dataVersions: { [MOCK_DATASET.id]: 1 } },
+    childrenCurrent: { won_at: { definitionVersion: '1c9a0b7d2e3f', dataVersions: { [MOCK_DATASET.id]: 1 } } },
     children: {
       won_at: {
         aicowork: {
@@ -585,12 +589,16 @@ export const MOCK_METADATA: Record<string, MetadataRead> = {
           writtenAt: '2026-10-15T08:00:00Z',
           definitionVersion: '9a0b7d2e3f1c',
           stale: true,
+          anchor: { definitionVersion: '9a0b7d2e3f1c' },
+          state: 'other_definition',
         },
       },
     },
   },
   [`dashboard/${MOCK_DASHBOARD.id}`]: {
     entries: {},
+    current: { definitionVersion: '7d2e3f1c9a0b' },
+    childrenCurrent: { wdg_4d7b91ce: { definitionVersion: '0b7d2e3f1c9a' } },
     children: {
       wdg_4d7b91ce: {
         notes: {
@@ -600,6 +608,8 @@ export const MOCK_METADATA: Record<string, MetadataRead> = {
           writtenAt: '2026-10-14T09:30:00Z',
           definitionVersion: '0b7d2e3f1c9a',
           stale: false,
+          anchor: { definitionVersion: '0b7d2e3f1c9a' },
+          state: 'current',
         },
       },
     },

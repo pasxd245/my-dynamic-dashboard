@@ -18,8 +18,12 @@
 # about (a dataset's schema, a column's dtype, a relationship's ends, a
 # query's / workflow's / dashboard's definition, a widget's config) at write
 # time; `stale` is true when the noun has since changed — "may be out of
-# date". Anchoring to data version / run and view parameters is a later
-# round.
+# date".
+#
+# R197 (item 3.8) — the TRIPLE ANCHOR. An entry also records the data
+# (`dataVersions` / `runId`) and the parameter values (`params`) the noun had
+# for the writer, stamped by the server. A read is made under the reader's
+# own values and answers, per entry, how the two views relate (`state`).
 components:
   schemas:
     MetadataSource:
@@ -30,9 +34,74 @@ components:
         client. `system` is the server's own namespace and no token can write
         it.
 
+    MetadataParams:
+      type: object
+      description: |
+        R197 — parameter values by name, as resolved (a date `YYYY-MM-DD`; a
+        relative default already turned into the date it meant).
+      additionalProperties:
+        oneOf:
+          - type: string
+          - type: number
+
+    MetadataAnchor:
+      type: object
+      required: [definitionVersion]
+      additionalProperties: false
+      description: |
+        R197 (item 3.8) — what the noun WAS for a writer (an entry's `anchor`)
+        or IS for a reader (`current`). Server-built, never client-sent.
+        `dataVersions`: the datasets behind the noun (a dataset or column: its
+        own; a relationship: both ends; a query: its plan's; a widget: its
+        query's; a dashboard: all its widgets'). `runId`: a workflow's current
+        run. `params`: a query's or widget's resolved values; a dashboard's are
+        its param controls' values as the bar shows them. An entry written
+        before R197 carries `definitionVersion` only.
+      properties:
+        definitionVersion:
+          type: string
+          minLength: 1
+          maxLength: 32
+        dataVersions:
+          $ref: "./query.yaml#/components/schemas/DataVersions"
+        runId:
+          type: string
+          pattern: "^run_[0-9a-f]{8}$"
+        queryVersions:
+          type: object
+          description: |
+            A widget's or dashboard's queries, by id → their definition hash: a
+            note on a widget sees an edit to its query (BA contract-exit P0-1).
+          additionalProperties:
+            type: string
+            minLength: 1
+            maxLength: 32
+        params:
+          $ref: "#/components/schemas/MetadataParams"
+        assumedParams:
+          type: array
+          description: |
+            On an entry only: the parameters the WRITER did not give a value for
+            — they were stamped with the saved or default value at write time
+            (a writer that sends only `md` reads "the defaults now").
+          items:
+            type: string
+
+    MetadataState:
+      type: string
+      enum: [current, refreshed, other_period, other_definition]
+      description: |
+        R197 — how the reader's view relates to the writer's, the first rule
+        that applies: the definition (or a query behind a widget / dashboard)
+        differs → `other_definition`; a parameter both carry differs →
+        `other_period`; a dataset version both carry, or the run, differs →
+        `refreshed`; else `current`. A saved copy keeps its original's version
+        and its entries' anchors, so its notes compare like any other. A parameter the reader has no value for is
+        not compared. An entry written before R197 compares the definition only.
+
     MetadataEntry:
       type: object
-      required: [md, source, author, writtenAt, definitionVersion, stale]
+      required: [md, source, author, writtenAt, definitionVersion, stale, anchor, state]
       additionalProperties: false
       properties:
         md:
@@ -66,7 +135,12 @@ components:
           description: |
             True when the noun's definition no longer matches
             `definitionVersion` — the entry may describe something that has
-            since changed. Computed on every read.
+            since changed. Computed on every read. Kept with its rc.2 meaning;
+            `state` is the R197 reading.
+        anchor:
+          $ref: "#/components/schemas/MetadataAnchor"
+        state:
+          $ref: "#/components/schemas/MetadataState"
 
     MetadataEntries:
       type: object
@@ -76,7 +150,7 @@ components:
 
     MetadataRead:
       type: object
-      required: [entries]
+      required: [entries, current]
       additionalProperties: false
       properties:
         entries:
@@ -89,3 +163,12 @@ components:
             a page. Children with no entries are absent.
           additionalProperties:
             $ref: "#/components/schemas/MetadataEntries"
+        current:
+          $ref: "#/components/schemas/MetadataAnchor"
+        childrenCurrent:
+          type: object
+          description: |
+            R197 — each child's (in `children`) anchor for this reader: a widget
+            reads under its own values.
+          additionalProperties:
+            $ref: "#/components/schemas/MetadataAnchor"

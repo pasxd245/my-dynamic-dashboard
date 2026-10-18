@@ -55,6 +55,7 @@ from app.models.common import (
     WorkflowStaleSource,
 )
 from app.metadata import definition_version
+from app.metadata import sweep as metadata_sweep
 from app.workflow_runs import new_run_id, stale_sources, stamp_sources
 from app.params import ParamError, check_workflow_steps, one_today
 from app.query_engine import _step_plan, build_consolidated_relation
@@ -274,6 +275,8 @@ def delete_workflow(id: WfIdPath) -> Response:  # noqa: A002
         if row is None:
             return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=ApiErrorNotFound().model_dump())
         con.execute("DELETE FROM workflows WHERE id = ?", (id,))
+        # R197 (3.8) — its metadata entries go with it (archived in metadata_entries_swept).
+        metadata_sweep(con, _now_iso())
         con.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 

@@ -32,7 +32,7 @@ import sqlite3
 
 from app import params as qparams
 from app.metadata import definition_version
-from app.query_engine import _resolve_plan
+from app import data_versions
 
 
 def new_run_id() -> str:
@@ -52,13 +52,7 @@ def stamp_sources(con: sqlite3.Connection, sources: list[str], workspace_id: str
             out.append(entry)
             continue
         qrow = con.execute("SELECT definition_json FROM queries WHERE id = ?", (src,)).fetchone()
-        plan, _reason = _resolve_plan(con, src, [], {}, workspace_id)
-        ds_ids = sorted(i for i in (plan or {}).get("payload", {}).get("dataset_ids", set()) if i.startswith("ds_"))
-        versions = {}
-        for ds_id in ds_ids:
-            drow = con.execute("SELECT data_version FROM datasets WHERE id = ?", (ds_id,)).fetchone()
-            if drow is not None:
-                versions[ds_id] = drow["data_version"]
+        versions = data_versions.query_versions(con, src, workspace_id)
         entry = {
             "id": src,
             "definitionHash": definition_version(json.loads(qrow["definition_json"])) if qrow else "",

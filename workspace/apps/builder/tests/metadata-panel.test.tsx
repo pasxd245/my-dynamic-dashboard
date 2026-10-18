@@ -1,6 +1,6 @@
 // R180 — read-only metadata. The panel shows every namespace's entry with the
-// server's stamps (author, when), an AI badge for `source: ai`, a stale flag
-// when the noun's definition moved, the frontmatter as a key/value table and
+// server's stamps (author, when), an AI badge for `source: ai`, a state flag
+// when the noun moved (R197; rc.2's `stale` → "earlier definition"), the frontmatter as a key/value table and
 // the body as safe markdown — and nothing that edits.
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -45,7 +45,7 @@ describe('R180 splitFrontmatter', () => {
 });
 
 describe('R180 MetadataEntryView', () => {
-  it('shows the AI badge, the stale flag, the author and the frontmatter table', () => {
+  it('shows the AI badge, the author and the frontmatter table', () => {
     const { container } = withProviders(
       <MetadataEntryView
         namespace="aicowork"
@@ -55,12 +55,13 @@ describe('R180 MetadataEntryView', () => {
           author: 'agent',
           writtenAt: '2026-10-15T08:00:00Z',
           definitionVersion: 'abc',
-          stale: true,
+          stale: false,
         }}
       />,
     );
     expect(container.querySelector('[data-component="MetadataAiBadge"]')).not.toBeNull();
-    expect(container.querySelector('[data-component="MetadataStale"]')).not.toBeNull();
+    // R197 — a current entry carries no state tag.
+    expect(container.querySelector('[data-component="MetadataState"]')).toBeNull();
     expect(screen.getByText(/agent ·/)).toBeInTheDocument();
     const table = container.querySelector('[data-component="MetadataFrontmatter"]');
     expect(table?.textContent).toContain('source');
@@ -74,11 +75,18 @@ describe('R180 MetadataEntryView', () => {
     const { container } = withProviders(
       <MetadataEntryView
         namespace="notes"
-        entry={{ md: 'hi', source: 'human', author: 'analyst', writtenAt: '2026-10-14T09:30:00Z', definitionVersion: 'x', stale: false }}
+        entry={{
+          md: 'hi',
+          source: 'human',
+          author: 'analyst',
+          writtenAt: '2026-10-14T09:30:00Z',
+          definitionVersion: 'x',
+          stale: false,
+        }}
       />,
     );
     expect(container.querySelector('[data-component="MetadataAiBadge"]')).toBeNull();
-    expect(container.querySelector('[data-component="MetadataStale"]')).toBeNull();
+    expect(container.querySelector('[data-component="MetadataState"]')).toBeNull();
   });
 });
 
@@ -103,7 +111,10 @@ describe('R180 MetadataPanel', () => {
     expect(container.querySelector('[data-component="MetadataChild"]')?.getAttribute('data-child')).toBe('won_at');
     expect(screen.getByText('What this is')).toBeInTheDocument();
     expect(container.querySelectorAll('[data-component="MetadataAiBadge"]').length).toBe(2);
-    expect(container.querySelectorAll('[data-component="MetadataStale"]').length).toBe(1);
+    // R197 — the column's entry was written for an earlier definition (rc.2 `stale`).
+    expect(container.querySelectorAll('[data-component="MetadataState"][data-state="other_definition"]').length).toBe(
+      1,
+    );
     // The panel has no edit control.
     expect(container.querySelector('[data-component="MetadataPanel"] textarea')).toBeNull();
   });

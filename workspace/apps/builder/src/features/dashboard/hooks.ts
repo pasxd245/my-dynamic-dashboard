@@ -62,6 +62,8 @@ export type WidgetData = {
   error: unknown;
   /** R195 — the parameter values the read used. */
   resolvedParams?: ResolvedParams;
+  /** R197 — the datasets (and versions) the read read (R196). */
+  dataVersions?: Readonly<Record<string, number>>;
   refetch: () => void;
 };
 
@@ -114,6 +116,7 @@ async function fetchWidgetData(
   total: number;
   capped: boolean;
   resolvedParams?: ResolvedParams;
+  dataVersions?: Readonly<Record<string, number>>;
 }> {
   const query = await queriesApi.get(queryId);
   const joined = (query.resolvedColumns?.length ?? 0) > 0;
@@ -127,8 +130,8 @@ async function fetchWidgetData(
   }
   // R107 — one unpaged request; the server caps rows at `dashboard_max_rows`
   // and returns the full `total`, so a partial (capped) result is `total > len`.
-  const { rows, total, resolvedParams } = await queriesApi.getUnpagedRows(queryId, ctx);
-  return { columns, rows, total, capped: total > rows.length, resolvedParams };
+  const { rows, total, resolvedParams, dataVersions } = await queriesApi.getUnpagedRows(queryId, ctx);
+  return { columns, rows, total, capped: total > rows.length, resolvedParams, dataVersions };
 }
 
 function widgetDataKey(queryId: string | undefined, ctx?: ParamContext) {
@@ -155,6 +158,7 @@ export function useWidgetData(queryId: string | undefined, enabled = true, ctx?:
     isError: q.isError,
     error: q.error,
     resolvedParams: q.data?.resolvedParams,
+    dataVersions: q.data?.dataVersions,
     refetch: () => {
       q.refetch().catch(() => undefined);
     },
@@ -172,6 +176,7 @@ export type WidgetAggregate = {
   isError: boolean;
   error: unknown;
   resolvedParams?: ResolvedParams;
+  dataVersions?: Readonly<Record<string, number>>;
 };
 
 /** R181 — the server sums for a table widget's footer (whole filtered result).
@@ -209,6 +214,7 @@ export function useWidgetAggregate(
     isError: q.isError,
     error: q.error,
     resolvedParams: q.data?.resolvedParams,
+    dataVersions: q.data?.dataVersions,
   };
 }
 

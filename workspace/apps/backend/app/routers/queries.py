@@ -64,6 +64,7 @@ from app.query_engine import (
     _validate_aggregate,
 )
 from app.saved_copies import read_only_refusal
+from app.metadata import sweep as metadata_sweep
 from app.routers._shared import RowsPage, _is_unique_violation, _now_iso
 from app.storage import dataset_dir
 
@@ -92,22 +93,11 @@ def _bound(definition: dict, viewer: dict | None, dashboard: dict | None, column
 
 def _data_versions(plan: dict | None) -> dict[str, int]:
     """R196 (3.2c) — the `dataVersion` of every dataset this plan reads (a join:
-    every dataset of it), read now."""
-    if not plan:
-        return {}
-    if plan.get("kind") == "single":
-        ids = [plan["ds"]["id"]]
-    else:
-        ids = sorted(i for i in plan.get("payload", {}).get("dataset_ids", set()) if str(i).startswith("ds_"))
-    if not ids:
-        return {}
-    marks = ",".join("?" * len(ids))
+    every dataset of it), read now (R197: the shared `app.data_versions`)."""
+    from app import data_versions
+
     with get_conn() as con:
-        rows = con.execute(
-            f"SELECT id, data_version FROM datasets WHERE id IN ({marks})",  # noqa: S608 — placeholders only
-            ids,
-        ).fetchall()
-    return {r["id"]: r["data_version"] for r in sorted(rows, key=lambda r: r["id"])}
+        return data_versions.versions(con, data_versions.plan_dataset_ids(plan))
 
 
 def _stamped(content: dict, resolved: dict, versions: dict[str, int]) -> dict:
@@ -825,5 +815,7 @@ def delete_query(id: QueryIdPath) -> Response:  # noqa: A002
         if row is None:
             return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=ApiErrorNotFound().model_dump())
         con.execute("DELETE FROM queries WHERE id = ?", (id,))
+        # R197 (3.8) — its metadata entries go with it (archived in metadata_entries_swept).
+        metadata_sweep(con, _now_iso())
         con.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)

@@ -493,7 +493,7 @@ export function QueryDetailPage() {
             </Typography.Text>
           </div>
         ) : null}
-        {editing ? null : <MetadataPanel kind="query" nounId={query.id} />}
+        {editing ? null : <MetadataPanel kind="query" nounId={query.id} params={urlParams} />}
         {editing ? (
           <QueryBuilderPanel builder={builder} />
         ) : (

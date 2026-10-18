@@ -51,6 +51,8 @@ type ChartCardProps = Readonly<{
   paramMessage?: string;
   /** R195 — under the header: which dashboard controls reached this widget. */
   badge?: ReactNode;
+  /** R197 — under the body once it shows data: which data it is. */
+  footer?: ReactNode;
   children: ReactNode;
 }>;
 
@@ -84,6 +86,7 @@ export function ChartCard({
   rows,
   paramMessage,
   badge,
+  footer,
   children,
 }: ChartCardProps) {
   const { t } = useTranslation();
@@ -154,6 +157,7 @@ export function ChartCard({
     >
       {badge ? <div style={{ marginBottom: 8 }}>{badge}</div> : null}
       {body}
+      {isLoading || isError || isMissingQuery || paramMessage ? null : footer}
     </Card>
   );
 }

@@ -15,22 +15,30 @@ is never writable). The server stamps `author` / `source` / `writtenAt` /
 field — `extra=forbid`). The entry text is validated like a note widget's (safe
 markdown subset) with a 64 KiB cap and a per-noun namespace cap (422
 `metadata_invalid` + `reason`).
+
+R197 (item 3.8) — the server stamps the triple anchor at write (`params` in the
+body: the values the writer read under) and a read under `p.<name>=` answers
+`current` plus a `state` per entry. Deletes elsewhere sweep orphans
+(`app.metadata.sweep`).
 """
 
 from __future__ import annotations
 
+import json
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Header, Path, status
+from fastapi import APIRouter, Header, Path, Request, status
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, ConfigDict, Field
 
 from app._config import CONFIG
 from app.db import get_conn
+from app import params as qparams
 from app.metadata import (
     KINDS,
     MAX_NAMESPACES_PER_NOUN,
     RESERVED_NAMESPACE,
+    anchor_for,
     children_for,
     entries_for,
     entry_dict,
@@ -52,6 +60,8 @@ class MetadataWriteBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     md: str = Field(max_length=70_000)  # the byte cap (64 KiB) is checked in validate_entry
+    # R197 — the values the writer read under (a reader's `p.<name>`); resolved by the server.
+    params: dict[Annotated[str, Field(max_length=32)], str | int | float] | None = Field(default=None, max_length=8)
 
 
 def _token_for(authorization: str | None):
@@ -69,19 +79,24 @@ def _not_found() -> JSONResponse:
 
 
 @router.get("/metadata/{kind}/{noun_id}")
-def read_metadata(kind: Kind, noun_id: NounIdPath) -> JSONResponse:
-    """Every entry on the noun, keyed by namespace, each with `stale` computed
-    against the noun's current definition; a dataset / dashboard also returns
-    its columns' / widgets' entries under `children`."""
+def read_metadata(kind: Kind, noun_id: NounIdPath, request: Request) -> JSONResponse:
+    """Every entry on the noun, keyed by namespace, each with `stale` and, R197,
+    `state` computed against the reader's anchor (`current`, built under the
+    `p.<name>=` values); a dataset / dashboard also returns its columns' /
+    widgets' entries under `children` and their anchors under `childrenCurrent`."""
     assert kind in KINDS  # noqa: S101 — the Literal already narrows; keeps the map honest
+    viewer = {k[2:]: v for k, v in request.query_params.items() if k.startswith("p.") and len(k) > 2}
     with get_conn() as con:
         noun = resolve_noun(con, kind, noun_id)
         if noun is None:
             return _not_found()
-        body: dict = {"entries": entries_for(con, noun)}
-        children = children_for(con, noun)
-        if children is not None:
-            body["children"] = children
+        current, _assumed = anchor_for(con, noun, viewer, strict=False)
+        body: dict = {"entries": entries_for(con, noun, current), "current": current}
+        kids = children_for(con, noun, viewer)
+        if kids is not None:
+            body["children"], currents = kids
+            if currents:
+                body["childrenCurrent"] = currents
     return JSONResponse(status_code=status.HTTP_200_OK, content=body)
 
 
@@ -121,21 +136,40 @@ def write_metadata(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 content=ApiErrorMetadataInvalid(reason="namespace_cap").model_dump(exclude_none=True),
             )
+        # R197 — the anchor, from the noun's state now under the writer's values.
+        try:
+            anchor, assumed = anchor_for(con, noun, body.params, strict=True)
+        except qparams.ParamError as err:
+            return err.response()
+        if assumed:
+            anchor["assumedParams"] = assumed
         now = _now_iso()
         con.execute(
-            """INSERT INTO metadata_entries (kind, noun_id, namespace, md, source, author, written_at, definition_version)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """INSERT INTO metadata_entries
+                 (kind, noun_id, namespace, md, source, author, written_at, definition_version, anchor_json)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                ON CONFLICT(kind, noun_id, namespace) DO UPDATE SET
                  md = excluded.md, source = excluded.source, author = excluded.author,
-                 written_at = excluded.written_at, definition_version = excluded.definition_version""",
-            (kind, noun_id, namespace, body.md, tok.source, tok.author, now, noun.definition_version),
+                 written_at = excluded.written_at, definition_version = excluded.definition_version,
+                 anchor_json = excluded.anchor_json""",
+            (
+                kind,
+                noun_id,
+                namespace,
+                body.md,
+                tok.source,
+                tok.author,
+                now,
+                noun.definition_version,
+                json.dumps(anchor, ensure_ascii=False, separators=(",", ":")),
+            ),
         )
         con.commit()
         row = con.execute(
             "SELECT * FROM metadata_entries WHERE kind = ? AND noun_id = ? AND namespace = ?",
             (kind, noun_id, namespace),
         ).fetchone()
-        content = entry_dict(row, noun.definition_version)
+        content = entry_dict(row, {k: v for k, v in anchor.items() if k != "assumedParams"})
     return JSONResponse(status_code=status.HTTP_201_CREATED, content=content)
 
 

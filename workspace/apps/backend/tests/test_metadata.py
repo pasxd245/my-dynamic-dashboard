@@ -89,7 +89,7 @@ def test_writes_are_off_without_a_configured_token() -> None:
 
     assert no_header.status_code == 401 and no_header.json() == {"code": "unauthorized"}
     assert bad.status_code == 401
-    assert read.status_code == 200 and read.json() == {"entries": {}, "children": {}}
+    assert read.status_code == 200 and read.json()["entries"] == {} and read.json()["children"] == {}
     validate_response("metadata/get.contract.yaml", 200, read.json())
 
 

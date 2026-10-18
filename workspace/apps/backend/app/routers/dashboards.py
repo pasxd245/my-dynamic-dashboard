@@ -42,6 +42,7 @@ from app.models.common import (
     UpdateDashboardBody,
 )
 from app.saved_copies import read_only_refusal
+from app.metadata import sweep as metadata_sweep
 from app.routers._shared import _now_iso
 
 
@@ -263,6 +264,8 @@ def update_dashboard(id: DashboardIdPath, body: UpdateDashboardBody) -> JSONResp
                 "UPDATE dashboards SET name = ?, slug = ?, definition_json = ? WHERE id = ?",
                 (body.name, body.slug, definition_json, id),
             )
+            # R197 (3.8) — a widget removed here takes its metadata entries with it.
+            metadata_sweep(con, _now_iso())
             con.commit()
             updated = _dashboard_from_row(con.execute(_SELECT_DASHBOARD, (id,)).fetchone())
     except sqlite3.IntegrityError as err:
@@ -288,5 +291,7 @@ def delete_dashboard(id: DashboardIdPath) -> Response:  # noqa: A002
         if row is None:
             return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=ApiErrorNotFound().model_dump())
         con.execute("DELETE FROM dashboards WHERE id = ?", (id,))
+        # R197 (3.8) — its metadata entries go with it (archived in metadata_entries_swept).
+        metadata_sweep(con, _now_iso())
         con.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
