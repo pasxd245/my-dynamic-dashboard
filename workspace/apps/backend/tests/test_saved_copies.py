@@ -231,6 +231,7 @@ def test_a_dataset_without_stored_rows_is_refused_and_leaves_nothing() -> None:
 
     assert r.status_code == 422 and r.json()["detail"][0]["type"] == "unknown_dataset"
     assert after == before  # no copy, and no (empty) saved workspace left behind
+    assert sorted(p.name for p in datasets_dir().iterdir()) == [ids["ws"]]  # nor its folder
 
 
 @pytest.mark.unit

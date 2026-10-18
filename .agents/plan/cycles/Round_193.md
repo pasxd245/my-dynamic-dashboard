@@ -1,13 +1,24 @@
 # Round 193: saved copies — frozen, read-only copies in a `<workspace>-saved` workspace (item 3.6b)
 
-**Status**: In Progress
+**Status**: Review — built and reviewed (BA twice, code review, QA + visual gate: no open P0/P1); awaiting the human acceptance walk (W1–W8) and sign-off
 **Flow**: **DFCFBI (triggers 1, 2, 3)** — set at the Design gate via `flow-selector` (see Do).
 **Date started**: 2026-10-18
 **Date completed**: —
 
 ## ⟢ At a glance
 
-_(at close)_
+**Shipped** — `POST /workspaces/{id}/saved-copies` freezes 1–20 datasets of a main workspace into
+its saved workspace (`kind: saved`, created on first save, found by its parent, `<name>-saved`):
+copies `<name> @<label>` (`v2`…) keep the original's rows, columns, format, lineage, `dataVersion`
+and `refreshedAt`, carry a server-written `savedFrom`, and take the original's metadata as it is.
+Every write inside a saved workspace — 19 routes, checking every object touched — answers `409
+read_only_workspace`; deleting a copy or the empty workspace works. Builder: **Save frozen copy…**,
+the frozen band ("Not the current numbers — …"), a copy page with Properties + Delete only, the
+tagged saved workspace, create flows offering main workspaces only. Migration `0009` is additive.
+
+**Studied** — the reviewers' best catch was the snapshot: a version re-check alone could freeze
+the new rows under the old version during a refresh swap; the fix waits for the swap's backup to
+clear and checks the rows file itself (QA: 60 saves against 38 live refreshes, 0 mismatches).
 
 ## Goal
 
@@ -39,12 +50,12 @@ create target.
       (`kind`, `parentWorkspaceId`); `_shared/dataset.yaml` (`DatasetSavedFrom`);
       `_shared/api-error.yaml` (`read_only_workspace`); `409 read_only_workspace` on the 19 write
       routes' contracts; BA review at Contract exit
-- [ ] **B** — migration `0009_saved_copies`; the guard on every write route; the save route; metadata
+- [x] **B** — migration `0009_saved_copies`; the guard on every write route; the save route; metadata
       copy + never-stale; tests
-- [ ] **F** — types; Save a copy… modal; the band; read-only dataset page; main-only pickers;
+- [x] **F** — types; Save a copy… modal; the band; read-only dataset page; main-only pickers;
       workspaces card tag; EN/VI; MSW
-- [ ] **I** — visual gate in a real browser
-- [ ] Reviews: code review, QA (BA twice) — rc3.md § Execution
+- [x] **I** — visual gate in a real browser
+- [x] Reviews: code review, QA (BA twice) — rc3.md § Execution
 
 ## Risks / unknowns
 
@@ -80,6 +91,26 @@ create target.
   wording, metadata on copies read-only (owner to confirm). Logged: duplicate-label hint, delete
   confirm wording.
 
+- F1 (`7e6e281`): `SaveCopyModal` + toast, `FrozenCopyBand`, copy page (Properties read-only +
+  Delete), copy rows Delete-only, saved workspace card (tag, "of <main>", Delete only), relationships
+  page declares nothing, `useWritableWorkspaces` in the create flows; `read_only_workspace` in the
+  generated codes and the client union; MSW `saveCopies`; 7 vitest.
+- B (`23f0e76`): `0009_saved_copies` (ADD COLUMN only — no parent-table rebuild; no FK on the parent
+  link so downgrade can drop it); `app/saved_copies.py` (`read_only_refusal`, `saved_workspace_for`,
+  `save_copies`); the save route; the guard on the 19 routes; delete rules; 12 pytest including one
+  walking every write route against a saved workspace with a whole-database before/after compare.
+- **Reviews after build** — code review **CHANGES** (P1 ×2: the snapshot race F1; Upload still
+  reachable in a saved workspace F2; P2 ×5), QA **CHANGES** (P1: an empty saved workspace deleted
+  with its main one, against the design text; P2 ×4), BA **CHANGES** (P1: the same Upload path; P2 ×6
+  — the empty-saved-workspace deviation judged acceptable, docs to follow).
+- Fix (`7544b4c` + close-out): snapshot waits out a swap and checks the rows file; a dataset with no
+  stored rows → 422; `BEGIN IMMEDIATE`; a refused first save removes its empty saved workspace (row
+  and folder); label trimmed before its length, control characters refused; no Upload in a saved
+  workspace and the wizard ignores a saved `?workspace`; a copy's refresh URL returns to its page;
+  "Saved" on a copy, the band leads with "Not the current numbers", "rows as of", toast 6 s; design
+  S2/S3/behaviour/AC4 and `workspaces/delete` updated for the empty case. QA re-check **PASS**
+  (6 parallel saves all 201; 60 saves vs 38 live refreshes, 0 mismatches) + visual gate 9/9.
+
 **Flow selector run** (per [R47](../../decisions/2026-05-28-hybrid-flow-governance.md)):
 
 | Condition                            | Fired? | Justification                                                                                               |
@@ -94,15 +125,42 @@ Result: **Flow: DFCFBI (triggers 1, 2, 3)** — the builder (F1) against MSW bef
 
 ## Check
 
-- [ ] backend · builder · contracts green; `tsc --noEmit`; `ruff check`; lints 0
-- [ ] migration `0009` up → down → up
-- [ ] Visual gate (UI-bearing round)
-- [ ] BA · code review · QA — no open P0/P1
+- [x] backend 626 · builder 513 · contracts 48 green; `tsc --noEmit`; `ruff check`; lints 0
+- [x] migration `0009` up → down → up (`test_saved_copies.py` + QA on an alembic-built database with
+      relationships: no row lost, `foreign_key_check` clean)
+- [x] Visual gate (UI-bearing round): QA, real backend + headless Chromium, 9 screens, EN + VI band
+- [x] BA · code review · QA — no open P0/P1
+- [x] ⟢ At a glance **Studied** line written
+- [ ] **Acceptance walk** (human reviewer) — ⬜ verdicts, `coverage: 0 of 8`. Setup: a new
+      workspace **Freeze**; `walk_calls.csv` uploaded as **calls**; a note on it is optional.
+  - ⬜ W1 — open **calls** › Actions: **Save frozen copy…**; the modal's label is today's date and the
+    preview reads "calls @<today>"; Save → toast "Saved “calls @<today>”." with **Open the copy**.
+  - ⬜ W2 — open the copy: the band "Not the current numbers — frozen copy of “calls”: data version
+    1, rows as of …; saved … (label <today>)" and **Open the current dataset**; subtitle "Saved …";
+    Actions = Properties (no toggles) + Delete; no Save as query.
+  - ⬜ W3 — Workspaces: a **Freeze-saved** card tagged "Saved copies" · "of Freeze", menu Delete
+    only; open it: no Upload; its Relationships page has no Declare.
+  - ⬜ W4 — refresh **calls** with `walk_calls_more.csv` (Add rows): **calls** is v2 with more rows;
+    the copy still v1, same rows. Save again with the same label → "calls @<today> v2", v2's rows.
+  - ⬜ W5 — Upload, new query, new workflow, new dashboard: the workspace pickers list **Freeze**,
+    not **Freeze-saved**.
+  - ⬜ W6 — Workspaces › delete **Freeze** → refused ("has N datasets…", N counting the copies).
+  - ⬜ W7 — delete **calls** (the original): the copy's band now says "The original dataset no longer
+    exists"; its rows still open.
+  - ⬜ W8 — VI: the band reads "Không phải số liệu hiện tại — bản sao cố định của “calls”: …"; the
+    card tag "Bản sao đã lưu" · "của Freeze".
 
 ## Act
 
-_(at close)_
+- Rolling log: five rows (copy metadata orphaned on delete → 3.8; a stale `.bak` makes a save 500
+  after ~10 s → with the per-dataset lock; the workspace-delete message counting copies; saved-copies
+  polish; the owner's call on metadata writers over copies).
+- Promotion: none. Candidate lesson (memory, if it recurs): a "re-check the version" consistency
+  guard must also cover the window between a file swap and its version bump — check the file, not
+  only the counter.
+- Prune check: the BA's two passes each found a P1 the coder missed (Contract exit: five; after
+  build: the Upload path) — the loop earns its place.
 
-## Feeds into → Round_194 (TBD)
+## Feeds into → Round_194
 
 Item 3.7a — the parameter engine (contract + backend + MSW), per `dashboard-filters.md` D1–D7.

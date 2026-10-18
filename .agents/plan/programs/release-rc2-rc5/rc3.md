@@ -41,15 +41,15 @@ verifying (the coder grading its own work) and building past the brief (a one-wa
 drifting from the accepted design). Prune it if two rounds pass with no finding from the
 reviewers._
 
-| Round | Item                                      | Flow  | Migration | UI  |
-| ----- | ----------------------------------------- | ----- | --------- | --- |
-| R191  | fix round — rolling-log small findings    | DCFBI | —         | yes |
-| R192  | 3.6a publish a workflow output (lineage)  | DCFBI | `0008`    | yes |
-| R193  | 3.6b saved copies (read-only workspace)   | tbd   | `0009`    | yes |
-| R194  | 3.7a parameter engine                     | DCFBI | —         | no  |
-| R195  | 3.7b parameters in the builder            | DCFBI | —         | yes |
-| R196  | 3.2c data versions on read paths + export | DCFBI | —         | no  |
-| R197  | 3.8 metadata triple anchor + cascade      | DCFBI | `0010`    | yes |
+| Round | Item                                      | Flow   | Migration | UI  |
+| ----- | ----------------------------------------- | ------ | --------- | --- |
+| R191  | fix round — rolling-log small findings    | DCFBI  | —         | yes |
+| R192  | 3.6a publish a workflow output (lineage)  | DCFBI  | `0008`    | yes |
+| R193  | 3.6b saved copies (read-only workspace)   | DFCFBI | `0009`    | yes |
+| R194  | 3.7a parameter engine                     | DCFBI  | —         | no  |
+| R195  | 3.7b parameters in the builder            | DCFBI  | —         | yes |
+| R196  | 3.2c data versions on read paths + export | DCFBI  | —         | no  |
+| R197  | 3.8 metadata triple anchor + cascade      | DCFBI  | `0010`    | yes |
 
 Then the rc.3 exit gate: release note, gate checklist, walk pack for R191–R197. _(3.6 split into
 3.6a / 3.6b on 2026-10-18 — two features, two migrations; one feature per round.)_

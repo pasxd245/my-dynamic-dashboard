@@ -305,6 +305,10 @@ def save_copies(main: sqlite3.Row, label: str, dataset_ids: Sequence[str]) -> tu
         for d in created:
             shutil.rmtree(d, ignore_errors=True)
         if created_saved:  # a refused first save leaves no empty saved workspace behind
+            try:
+                dataset_dir(saved["id"], "_").parent.rmdir()  # its (empty) tree too
+            except OSError:
+                pass
             with get_conn() as con:
                 con.execute(
                     "DELETE FROM workspaces WHERE id = ? AND NOT EXISTS "
