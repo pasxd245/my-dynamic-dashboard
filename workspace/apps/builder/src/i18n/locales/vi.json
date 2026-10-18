@@ -153,6 +153,30 @@
       "done": "Đã lưu {{name}}",
       "failed": "Không xuất được bảng này.",
       "tooLarge": "Quá nhiều dòng để xuất ({{rows}}; giới hạn {{max}}). Thu hẹp bộ lọc hoặc query."
+    },
+    "params": {
+      "edit": "Tham số",
+      "editorTitle": "Tham số của bảng điều khiển",
+      "editorHint": "Mỗi điều khiển đặt một tham số truy vấn cho các widget nó áp dụng. Giá trị đã lưu là giá trị mọi người thấy cho đến khi họ đổi — thay đổi của họ chỉ nằm trong liên kết và không bao giờ được lưu.",
+      "noParams": "Chưa có truy vấn nào trên bảng điều khiển này khai báo tham số. Hãy khai báo trên trang truy vấn trước.",
+      "label": "Nhãn",
+      "bindsTo": "đặt tham số {{param}}",
+      "remove": "Xóa điều khiển {{label}}",
+      "targets": "Áp dụng cho",
+      "allWidgets": "Tất cả widget",
+      "someWidgets": "Widget được chọn",
+      "saved": "Giá trị đã lưu",
+      "fixed": "Ngày cố định",
+      "relativeOption": "Hôm nay ± ngày",
+      "relative": "hôm nay {{n}} ngày",
+      "add": "Thêm điều khiển cho…",
+      "savedToast": "Đã lưu tham số.",
+      "reset": "Về giá trị đã lưu",
+      "copyLink": "Sao chép liên kết",
+      "copied": "Đã sao chép liên kết — nó mở đúng chế độ xem này.",
+      "copyFailed": "Không sao chép được liên kết.",
+      "skipped": "Bỏ qua {{label}}",
+      "skippedWhy": "Truy vấn của widget này không có tham số {{param}}, nên điều khiển không thay đổi nó."
     }
   },
   "common": {
@@ -970,6 +994,41 @@
       "title": "Tạo bản sao của {{name}}",
       "defaultName": "{{name}} (bản sao)",
       "success": "Đã tạo truy vấn \"{{name}}\""
+    },
+    "params": {
+      "section": "Tham số",
+      "count": "{{count}} tham số",
+      "hint": "Tham số là một giá trị có kiểu được chọn khi đọc — cùng một truy vấn trả lời cho bất kỳ kỳ nào. Dùng trong bộ lọc bằng “Dùng tham số”.",
+      "chip": "{{name}} (tham số)",
+      "use": "Dùng tham số",
+      "operand": "tham số",
+      "name": "Tên",
+      "nameRule": "Chữ thường, chữ số và _; bắt đầu bằng chữ; không trùng.",
+      "type": "Kiểu",
+      "types": {
+        "date": "ngày",
+        "number": "số",
+        "string": "văn bản"
+      },
+      "label": "Nhãn (hiển thị cho người xem)",
+      "default": "Mặc định",
+      "noDefault": "Không có mặc định",
+      "fixedDefault": "Giá trị cố định",
+      "todayDefault": "Hôm nay ± ngày",
+      "today": "hôm nay",
+      "offset": "Số ngày tính từ hôm nay",
+      "days": "ngày",
+      "remove": "Xóa tham số {{name}}",
+      "add": "Thêm tham số",
+      "pick": "Hãy chọn giá trị cho {{label}}.",
+      "reversed": "{{label}}: khoảng kết thúc trước khi bắt đầu.",
+      "invalid": "{{label}}: không phải {{type}} hợp lệ.",
+      "usedValue": "{{name}} = {{value}} ({{source}})",
+      "source": {
+        "viewer": "giá trị của bạn",
+        "dashboard": "bảng điều khiển",
+        "default": "mặc định"
+      }
     }
   },
   "relationships": {

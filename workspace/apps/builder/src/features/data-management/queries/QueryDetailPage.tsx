@@ -26,6 +26,8 @@ import { readChain, readRels } from './chain';
 import { DeleteConfirmModal } from '../_shared/DeleteConfirmModal';
 import { PagedRowsView } from '../_shared/PagedRowsView';
 import { QueryBuilderPanel } from './QueryBuilderPanel';
+import { paramsFromSearch, usedParams, withParam } from './params';
+import { ParamValueInputs } from './QueryParamsPanel';
 import { SaveQueryModal } from './SaveQueryModal';
 import { useQueryBuilder } from './useQueryBuilder';
 import { useCreateQueryMutation, useDeleteQueryMutation, useQueryQuery, useQueryRowsQuery } from './hooks';
@@ -73,7 +75,19 @@ export function QueryDetailPage() {
   const sourceDatasetId = query?.sourceId;
   const datasetQuery = useDatasetQuery(sourceDatasetId);
   const dataset = datasetQuery.data;
-  const rowsQuery = useQueryRowsQuery(id, page, pageSize);
+  // R195 — parameter values live in the URL (`?p.<name>=`), so a link reopens the view.
+  const urlParams = paramsFromSearch(searchParams);
+  const rowsQuery = useQueryRowsQuery(id, page, pageSize, urlParams);
+  const paramError =
+    rowsQuery.error instanceof ApiErrorThrown &&
+    (rowsQuery.error.body.code === 'param_unbound' || rowsQuery.error.body.code === 'param_invalid')
+      ? rowsQuery.error.body
+      : undefined;
+  const setUrlParam = (name: string, value: string) => {
+    const next = withParam(searchParams, name, value);
+    next.delete('page');
+    setSearchParams(next);
+  };
 
   // R71 — a joined query consumes a Relationship; fetch it (+ the right
   // dataset) to render the read-only join summary. Hooks run unconditionally;
@@ -378,6 +392,12 @@ export function QueryDetailPage() {
   const columns = query.resolvedColumns?.length ? [...query.resolvedColumns] : isJoined ? [] : (dataset?.columns ?? []);
   const locale = i18n.language;
   const def = query.definition;
+  const used = usedParams(def);
+  const usedDecls = (def.params ?? []).filter((p) => used.has(p.name));
+  // Inputs show what the last run used until the viewer types their own value.
+  const resolvedValues = Object.fromEntries(
+    Object.entries(rowsQuery.data?.resolvedParams ?? {}).map(([n, r]) => [n, String(r.value)]),
+  );
 
   // R71 — read-only join summary (above the predicate summary).
   const joinSummary =
@@ -480,6 +500,30 @@ export function QueryDetailPage() {
           <>
             {joinSummary}
             {def.q || def.filters.length > 0 || def.advanced.length > 0 ? predicateTags : null}
+            {/* R195 — the used parameters: their values (URL), and what the run used. */}
+            {usedDecls.length > 0 ? (
+              <div style={{ flex: '0 0 auto', marginBottom: 12 }} data-component="QueryParamValues">
+                <ParamValueInputs
+                  params={usedDecls}
+                  values={{ ...resolvedValues, ...urlParams }}
+                  onChange={setUrlParam}
+                  error={paramError as Parameters<typeof ParamValueInputs>[0]['error']}
+                />
+                {rowsQuery.data?.resolvedParams ? (
+                  <Typography.Text type="secondary" style={{ fontSize: 12 }} data-component="QueryResolvedParams">
+                    {Object.entries(rowsQuery.data.resolvedParams)
+                      .map(([n, r]) =>
+                        t('queries.params.usedValue', {
+                          name: n,
+                          value: r.value,
+                          source: t(`queries.params.source.${r.source}`),
+                        }),
+                      )
+                      .join(' · ')}
+                  </Typography.Text>
+                ) : null}
+              </div>
+            ) : null}
             <div style={{ flex: '0 0 auto', marginBottom: 12 }}>
               <Typography.Text type="secondary" style={{ fontSize: 12 }}>
                 {isJoined

@@ -36,10 +36,16 @@ export function useQueryQuery(id: string | undefined) {
 
 /** GET /queries/{id}/rows — the live re-run. Keyed independently of the
  *  query metadata so paging doesn't refetch the definition. */
-export function useQueryRowsQuery(id: string | undefined, page: number, pageSize: number) {
+export function useQueryRowsQuery(
+  id: string | undefined,
+  page: number,
+  pageSize: number,
+  // R195 — the viewer's parameter values (the URL's `p.*`).
+  params: Record<string, string> = {},
+) {
   return useQuery<RowsPage>({
-    queryKey: ['query-rows', id, { page, pageSize }] as const,
-    queryFn: () => queriesApi.getRows(id as string, page, pageSize),
+    queryKey: ['query-rows', id, { page, pageSize }, params] as const,
+    queryFn: () => queriesApi.getRows(id as string, page, pageSize, params),
     enabled: typeof id === 'string',
     placeholderData: (prev) => prev,
   });
@@ -70,12 +76,20 @@ export function useQueryPreviewQuery(
   // R79 — the canonical driving source: a `ds_` dataset (the R69→R75 path) or a
   // `qr_` saved Query (the preview is then COMPOSED, built on that Query).
   sourceId: string | undefined,
+  // R195 — the preview's own parameter values (empty values dropped).
+  params: Record<string, string> = {},
 ) {
   const defKey = JSON.stringify(definition);
+  const values = Object.fromEntries(Object.entries(params).filter(([, v]) => v !== ''));
   return useQuery<QueryPreview>({
-    queryKey: ['query-preview', workspaceId, sourceId, defKey, { page, pageSize }] as const,
+    queryKey: ['query-preview', workspaceId, sourceId, defKey, values, { page, pageSize }] as const,
     queryFn: () =>
-      queriesApi.preview(workspaceId as string, { sourceId: sourceId as string, definition }, page, pageSize),
+      queriesApi.preview(
+        workspaceId as string,
+        { sourceId: sourceId as string, definition, ...(Object.keys(values).length ? { params: values } : {}) },
+        page,
+        pageSize,
+      ),
     enabled: enabled && typeof workspaceId === 'string' && typeof sourceId === 'string' && sourceId.length > 0,
     placeholderData: (prev) => prev,
     retry: false,

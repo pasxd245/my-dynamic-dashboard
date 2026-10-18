@@ -16,7 +16,7 @@ import { queriesApi } from '@/api/queriesApi';
 import { useQueriesQuery } from '@/features/data-management/queries/hooks';
 import { useWorkspacesQuery } from '@/features/data-management/workspaces/hooks';
 import { distinctValues, isNumeric, type DataColumn } from './aggregate';
-import type { AggregateRequest, TotalsRequest } from '@/features/data-management/queries/types';
+import type { AggregateRequest, ParamContext, TotalsRequest } from '@/features/data-management/queries/types';
 import type { Dashboard } from './types';
 import { wireToDashboard, type CreateDashboardRequest, type UpdateDashboardRequest } from './wire';
 
@@ -52,6 +52,8 @@ export type WidgetData = {
   capped: boolean;
   isLoading: boolean;
   isError: boolean;
+  /** R195 — the failure, so a card can name a parameter that needs a value. */
+  error: unknown;
   refetch: () => void;
 };
 
@@ -64,6 +66,7 @@ export type WidgetData = {
  */
 async function fetchWidgetData(
   queryId: string,
+  ctx?: ParamContext,
 ): Promise<{ columns: readonly DataColumn[]; rows: (string | null)[][]; total: number; capped: boolean }> {
   const query = await queriesApi.get(queryId);
   const joined = (query.resolvedColumns?.length ?? 0) > 0;
@@ -77,22 +80,22 @@ async function fetchWidgetData(
   }
   // R107 — one unpaged request; the server caps rows at `dashboard_max_rows`
   // and returns the full `total`, so a partial (capped) result is `total > len`.
-  const { rows, total } = await queriesApi.getUnpagedRows(queryId);
+  const { rows, total } = await queriesApi.getUnpagedRows(queryId, ctx);
   return { columns, rows, total, capped: total > rows.length };
 }
 
-function widgetDataKey(queryId: string | undefined) {
-  return ['dashboard-widget-data', queryId] as const;
+function widgetDataKey(queryId: string | undefined, ctx?: ParamContext) {
+  return ['dashboard-widget-data', queryId, ctx ?? null] as const;
 }
 
-export function useWidgetData(queryId: string | undefined, enabled = true): WidgetData {
+export function useWidgetData(queryId: string | undefined, enabled = true, ctx?: ParamContext): WidgetData {
   // R119 — `enabled` lets an aggregating widget (bar/pie/line/stat) SKIP the raw
   // fetch: it binds to the server aggregate instead, so it never pulls (capped)
   // rows. The filter-options drawer still calls this with the default `enabled`,
   // so the raw rows are fetched lazily only when a filter drawer opens.
   const q = useQuery({
-    queryKey: widgetDataKey(queryId),
-    queryFn: () => fetchWidgetData(queryId as string),
+    queryKey: widgetDataKey(queryId, ctx),
+    queryFn: () => fetchWidgetData(queryId as string, ctx),
     enabled: enabled && typeof queryId === 'string' && queryId.length > 0,
   });
   return {
@@ -102,6 +105,7 @@ export function useWidgetData(queryId: string | undefined, enabled = true): Widg
     capped: q.data?.capped ?? false,
     isLoading: q.isLoading,
     isError: q.isError,
+    error: q.error,
     refetch: () => {
       q.refetch().catch(() => undefined);
     },
@@ -117,6 +121,7 @@ export type WidgetAggregate = {
   total: number;
   isLoading: boolean;
   isError: boolean;
+  error: unknown;
 };
 
 /** R181 — the server sums for a table widget's footer (whole filtered result).
@@ -150,6 +155,7 @@ export function useWidgetAggregate(
     total: q.data?.total ?? 0,
     isLoading: q.isLoading,
     isError: q.isError,
+    error: q.error,
   };
 }
 

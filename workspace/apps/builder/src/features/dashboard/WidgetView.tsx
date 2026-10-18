@@ -58,7 +58,8 @@ import { useQueryQuery } from '@/features/data-management/queries/hooks';
 import { ApiErrorThrown } from '@/features/data-management/_shared/types';
 import { useChartPalette, useWidgetAggregate, useWidgetData, useWidgetTotals } from './hooks';
 import { computeTotals, totalsColumns } from './totals';
-import type { AggregateMeasure, AggregateRequest } from '@/features/data-management/queries/types';
+import type { AggregateMeasure, AggregateRequest, ParamContext } from '@/features/data-management/queries/types';
+import { useWidgetParamContext } from './DashboardParams';
 import type { Agg, Widget } from './types';
 
 const numberFmt = new Intl.NumberFormat();
@@ -477,6 +478,8 @@ function toWireFilters(filters: readonly DashboardFilter[]): AggregateRequest['f
 export function useWidgetChartData(
   widget: Pick<Widget, 'queryId' | 'chartType' | 'dimensionCol' | 'seriesCol' | 'measureCol' | 'measureCol2' | 'agg'>,
   filters: readonly DashboardFilter[] = [],
+  // R195 — the dashboard's parameter context (viewer values + this widget).
+  ctx?: ParamContext,
 ) {
   // R179 — a `note` never reaches this hook (WidgetView dispatches it to
   // NoteWidgetView); `agg` is typed optional only for the note's sake.
@@ -516,10 +519,11 @@ export function useWidgetChartData(
     dimensions: isScalar || !widget.dimensionCol ? [] : [widget.dimensionCol],
     measures,
     filters: toWireFilters(filters),
+    ...(ctx ?? {}),
   };
 
   // The aggregating widget skips the raw fetch; the rest fetch raw rows.
-  const data = useWidgetData(widget.queryId, !aggregateEnabled);
+  const data = useWidgetData(widget.queryId, !aggregateEnabled, ctx);
   const agg = useWidgetAggregate(widget.queryId, aggBody, aggregateEnabled);
 
   const dimIdx = widget.dimensionCol ? findColIndex(data.columns, widget.dimensionCol) : -1;
@@ -619,6 +623,13 @@ export function useWidgetChartData(
   // R191 — a bound query that no longer exists (404) is its own state, not a
   // generic error: the card says "query unavailable".
   const isMissingQuery = boundQuery.error instanceof ApiErrorThrown && boundQuery.error.body.code === 'not_found';
+  // R195 — a read refused for a parameter (no value / a bad one) names it.
+  const failure = aggregateEnabled ? agg.error : data.error;
+  const paramError =
+    failure instanceof ApiErrorThrown &&
+    (failure.body.code === 'param_unbound' || failure.body.code === 'param_invalid')
+      ? failure.body
+      : undefined;
 
   return {
     ...data,
@@ -629,6 +640,7 @@ export function useWidgetChartData(
     isError: aggregateEnabled ? agg.isError : data.isError,
     capped: aggregateEnabled ? false : data.capped,
     isMissingQuery,
+    paramError,
     chartData,
     statValue,
     multiSeries,
@@ -646,6 +658,8 @@ type WidgetViewProps = Readonly<{
   /** R103 — active dashboard filters; applied to this widget's rows before the
    *  roll-up (skipped for any filter whose column the widget lacks). */
   filters?: readonly DashboardFilter[];
+  /** R195 — the card's reach badge (which controls reached this widget). */
+  badge?: React.ReactNode;
 }>;
 
 /** R179 — a `note` is text, not a chart: no query, no fetch, no filters. It
@@ -673,8 +687,9 @@ export function WidgetView(props: WidgetViewProps) {
   return props.widget.chartType === 'note' ? <NoteWidgetView {...props} /> : <ChartWidgetView {...props} />;
 }
 
-function ChartWidgetView({ widget, extra, filters }: WidgetViewProps) {
+function ChartWidgetView({ widget, extra, filters, badge }: WidgetViewProps) {
   const { t } = useTranslation();
+  const ctx = useWidgetParamContext(widget.id);
   const { token } = theme.useToken();
   const palette = useChartPalette();
   const {
@@ -688,15 +703,29 @@ function ChartWidgetView({ widget, extra, filters }: WidgetViewProps) {
     isLoading,
     isError,
     isMissingQuery,
+    paramError,
     capped,
     total,
-  } = useWidgetChartData(widget, filters);
+  } = useWidgetChartData(widget, filters, ctx);
+  const paramTitle = paramError
+    ? ((paramError as { label?: string }).label ?? (paramError as { param: string }).param)
+    : '';
+  const paramMessage = !paramError
+    ? undefined
+    : paramError.code === 'param_unbound'
+      ? t('queries.params.pick', { label: paramTitle })
+      : (paramError as { reason?: string }).reason === 'range_reversed'
+        ? t('queries.params.reversed', { label: paramTitle })
+        : t('queries.params.invalid', {
+            label: paramTitle,
+            type: t(`queries.params.types.${(paramError as { expected?: string }).expected ?? 'string'}`),
+          });
 
   // R181 — table footer totals: the server sums over the whole filtered result.
   const totalsEnabled = widget.chartType === 'table' && Boolean(widget.totals && Object.keys(widget.totals).length > 0);
   const totalsQ = useWidgetTotals(
     widget.queryId,
-    { columns: totalsColumns(widget.totals), filters: toWireFilters(filters ?? []) },
+    { columns: totalsColumns(widget.totals), filters: toWireFilters(filters ?? []), ...(ctx ?? {}) },
     totalsEnabled,
   );
   const footerTotals = totalsEnabled ? computeTotals(widget.totals, totalsQ.sums) : undefined;
@@ -760,6 +789,8 @@ function ChartWidgetView({ widget, extra, filters }: WidgetViewProps) {
       extra={extra}
       warning={capWarning}
       rows={widget.rows}
+      paramMessage={paramMessage}
+      badge={badge}
     >
       <ChartFigure label={t(ariaKey, { title: widget.title })}>
         {widget.chartType === 'stat' && <StatView value={statValue ?? 0} label={valueName} fmt={fmt} />}

@@ -46,6 +46,11 @@ type ChartCardProps = Readonly<{
   warning?: ReactNode;
   /** R177 — grid height in widget-rows (1–3); absent → 1. */
   rows?: WidgetRows;
+  /** R195 — a parameter needs a value or got a bad one: says which, instead of
+   *  the generic error. */
+  paramMessage?: string;
+  /** R195 — under the header: which dashboard controls reached this widget. */
+  badge?: ReactNode;
   children: ReactNode;
 }>;
 
@@ -77,6 +82,8 @@ export function ChartCard({
   extra,
   warning,
   rows,
+  paramMessage,
+  badge,
   children,
 }: ChartCardProps) {
   const { t } = useTranslation();
@@ -94,6 +101,14 @@ export function ChartCard({
       <Centered height={height}>
         <Typography.Text strong>{t('dashboard.state.missingQuery')}</Typography.Text>
         <Typography.Text type="secondary">{t('dashboard.state.missingQueryHint')}</Typography.Text>
+      </Centered>
+    );
+  } else if (paramMessage) {
+    body = (
+      <Centered height={height}>
+        <Typography.Text strong data-component="WidgetParamMessage">
+          {paramMessage}
+        </Typography.Text>
       </Centered>
     );
   } else if (isError) {
@@ -137,6 +152,7 @@ export function ChartCard({
       data-rows={rows ?? 1}
       styles={{ body: { paddingTop: 12 } }}
     >
+      {badge ? <div style={{ marginBottom: 8 }}>{badge}</div> : null}
       {body}
     </Card>
   );

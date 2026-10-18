@@ -141,11 +141,11 @@ export type DeriveStep = {
 export type FilterStepPredicate = {
   col: string;
   op: string;
-  val?: string | number;
-  min?: string | number;
-  max?: string | number;
+  val?: string | number | ParamRef;
+  min?: string | number | ParamRef;
+  max?: string | number | ParamRef;
   /** R176 — the value list of `in` / `not_in` (atom-only operators). */
-  vals?: readonly (string | number)[];
+  vals?: readonly (string | number | ParamRef)[];
   /** R176 — compare against another column (effective name) instead of `val`. */
   refCol?: string;
 };
@@ -385,6 +385,8 @@ export type CreateQueryRequest = {
   /** The driving source: `ds_…` (a dataset). */
   sourceId: string;
   definition: QueryDefinition;
+  /** R195 — viewer values for the preview's parameters. */
+  params?: Record<string, string | number>;
 };
 
 /** R72 — PUT /queries/{id} request body. The construction surface edits a
@@ -431,6 +433,13 @@ export type AggregateRequest = {
   measures: readonly AggregateMeasure[];
   /** R103 dashboard filters; omitted/empty when none active. */
   filters?: readonly AggregateFilter[];
+} & ParamContext;
+
+/** R195 — what a dashboard read carries for parameters: the viewer's values
+ *  (URL `p.*`) and the widget, whose dashboard's saved values the server applies. */
+export type ParamContext = {
+  params?: Record<string, string | number>;
+  dashboard?: DashboardRef;
 };
 
 /** R119 — the grouped result: output columns (dimensions then measures) +
@@ -440,6 +449,7 @@ export type AggregateResult = {
   columns: readonly { name: string; dtype: ResolvedColumn['dtype'] }[];
   rows: readonly (readonly (string | null)[])[];
   total: number;
+  resolvedParams?: ResolvedParams;
 };
 
 /** R181 — `POST /queries/{id}/totals` request: numeric result columns to sum
@@ -447,7 +457,7 @@ export type AggregateResult = {
 export type TotalsRequest = {
   columns: readonly string[];
   filters?: readonly AggregateFilter[];
-};
+} & ParamContext;
 
 /** R182 — `POST /queries/{id}/export` request: the table widget's numbers as a
  *  file over the whole filtered result, with its totals row and a Filters sheet. */
@@ -458,12 +468,13 @@ export type ExportRequest = {
   /** The widget's `numberFormat: percent` — the server formats its ratio columns. */
   percent?: boolean;
   title?: string;
-};
+} & ParamContext;
 
 /** R181 — one stringified sum per requested column + the filtered row count. */
 export type TotalsResult = {
   sums: Record<string, string | null>;
   rowCount: number;
+  resolvedParams?: ResolvedParams;
 };
 
 /** R72 — the preview run result: the same `RowsPage` shape as a saved run,
@@ -479,4 +490,5 @@ export type QueryPreview = {
    *  definition has `steps`; then `resolvedColumns` are the POST-step result).
    *  The builder's join/filter editors author against these. */
   baseColumns?: readonly { name: string; dtype: ResolvedColumn['dtype'] }[];
+  resolvedParams?: ResolvedParams;
 };

@@ -11,7 +11,17 @@
 // for the real API; this module is the contract-faithful boundary type used by
 // the API client + the MSW handlers.
 
-import type { ChartType, Agg, NumberFormat, WidgetSpan, WidgetRows, TotalSpec, Dashboard, Widget } from './types';
+import type {
+  ChartType,
+  Agg,
+  NumberFormat,
+  WidgetSpan,
+  WidgetRows,
+  TotalSpec,
+  Dashboard,
+  DashboardControl,
+  Widget,
+} from './types';
 
 /** A widget as carried on the wire. Same fields as the FE-state `Widget`
  *  (./types.ts) — columns by logical NAME, `dsh_`/`wdg_`/`qr_` id shapes. */
@@ -47,6 +57,8 @@ export type WidgetWire = {
 /** The embedded dashboard body: the ordered widget set. */
 export type DashboardDefinitionWire = {
   widgets: readonly WidgetWire[];
+  /** R195 — parameter controls; omitted when none. */
+  controls?: readonly DashboardControl[];
 };
 
 /** A dashboard as returned by the API. `name` and `slug` are each unique
@@ -86,10 +98,20 @@ export function wireToDashboard(w: DashboardWire): Dashboard {
     name: w.name,
     slug: w.slug,
     widgets: [...w.definition.widgets],
+    ...(w.definition.controls?.length ? { controls: [...w.definition.controls] } : {}),
   };
 }
 
 /** A widget list → the wire `definition` body (nest under `widgets`). */
-export function widgetsToDefinition(widgets: readonly Widget[]): DashboardDefinitionWire {
-  return { widgets: [...widgets] };
+export function widgetsToDefinition(
+  widgets: readonly Widget[],
+  controls: readonly DashboardControl[] = [],
+): DashboardDefinitionWire {
+  // R195 — a control keeps only targets that are still widgets (a removed widget
+  // would make the save fail); a control left with none is dropped.
+  const ids = new Set(widgets.map((w) => w.id));
+  const kept = controls
+    .map((c) => (c.targets === 'all' ? c : { ...c, targets: c.targets.filter((id) => ids.has(id)) }))
+    .filter((c) => c.targets === 'all' || c.targets.length > 0);
+  return kept.length ? { widgets: [...widgets], controls: kept } : { widgets: [...widgets] };
 }

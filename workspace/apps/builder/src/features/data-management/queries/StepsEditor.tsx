@@ -11,10 +11,13 @@
 
 import { ArrowDownOutlined, ArrowUpOutlined, DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import { Alert, Button, Input, InputNumber, Radio, Select, Space, Switch, Typography } from 'antd';
-import { useId } from 'react';
+import { useContext, useId } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { OPS_BY_DTYPE } from '@/features/data-management/datasets/filters/types';
+import { fittingParams } from '@/features/data-management/datasets/filters/FilterPopover';
+import { OPS_BY_DTYPE, type Operator } from '@/features/data-management/datasets/filters/types';
+import { isRef } from './params';
+import { QueryParamsContext } from './QueryParamsPanel';
 import type { Column } from '@/features/data-management/datasets/types';
 import {
   STEP_MENU,
@@ -1225,6 +1228,8 @@ function PredicateList({
   onChange: (next: FilterStepPredicate[]) => void;
 }>) {
   const { t } = useTranslation();
+  // R195 — the query's declared parameters ("Use parameter" on a value operand).
+  const declared = useContext(QueryParamsContext);
   const rows = predicates.length > 0 ? predicates : [{ col: cols[0]?.name ?? '', op: 'equals' }];
   const setRow = (i: number, patch: Partial<FilterStepPredicate>) =>
     onChange(rows.map((p, j) => (j === i ? { ...p, ...patch } : p)));
@@ -1243,6 +1248,11 @@ function PredicateList({
         const ops = predicateOps(dtype);
         const refable = REF_OPS.has(pred.op);
         const refMode = refable && pred.refCol !== undefined;
+        // R195 — a single-value operator may take a parameter of a fitting type.
+        const single = !NO_VALUE_OPS.has(pred.op) && !isListOp(pred.op) && pred.op !== 'between';
+        const fit = single ? fittingParams(declared, dtype as Column['dtype'], pred.op as Operator) : [];
+        const paramMode = isRef(pred.val);
+        const kind = refMode ? 'column' : paramMode ? 'param' : 'value';
         const refOptions = cols
           .filter((c) => c.name !== pred.col && dtypeFamily(c.dtype) === dtypeFamily(dtype))
           .map((c) => ({ label: c.name, value: c.name }));
@@ -1275,28 +1285,41 @@ function PredicateList({
               }}
               data-component="PredicateOp"
             />
-            {refable ? (
+            {refable || fit.length > 0 || paramMode ? (
               <Select
                 size="small"
                 style={{ minWidth: 90 }}
-                value={refMode ? 'column' : 'value'}
+                value={kind}
                 aria-label={t('queries.builder.steps.operandKind')}
                 options={[
                   { label: t('queries.builder.steps.operandValue'), value: 'value' },
-                  { label: t('queries.builder.steps.operandColumn'), value: 'column' },
+                  ...(refable ? [{ label: t('queries.builder.steps.operandColumn'), value: 'column' }] : []),
+                  ...(fit.length > 0 || paramMode ? [{ label: t('queries.params.operand'), value: 'param' }] : []),
                 ]}
-                onChange={(kind: string) =>
+                onChange={(next: string) =>
                   setRow(
                     i,
-                    kind === 'column'
+                    next === 'column'
                       ? { val: undefined, refCol: refOptions[0]?.value ?? '' }
-                      : { refCol: undefined, val: '' },
+                      : next === 'param'
+                        ? { refCol: undefined, val: { param: fit[0]?.name ?? '' } }
+                        : { refCol: undefined, val: '' },
                   )
                 }
                 data-component="PredicateOperandKind"
               />
             ) : null}
-            {refMode ? (
+            {paramMode ? (
+              <Select
+                size="small"
+                style={{ minWidth: 140 }}
+                value={isRef(pred.val) ? pred.val.param : undefined}
+                options={fit.map((p) => ({ label: p.label ? `${p.label} (${p.name})` : p.name, value: p.name }))}
+                onChange={(name: string) => setRow(i, { val: { param: name } })}
+                aria-label={t('queries.params.use')}
+                data-component="PredicateParam"
+              />
+            ) : refMode ? (
               <Select
                 size="small"
                 style={{ minWidth: 140 }}

@@ -47,7 +47,7 @@ import { PageContainer, PageHeader } from '@mdd/ui';
 import { App, Button, Card, Dropdown, Empty, Grid, Popover, Space, Spin, Tooltip, theme } from 'antd';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 import { NotFoundPage } from '@/components/NotFoundPage';
 import { useMetadataQuery } from '@/features/metadata/hooks';
@@ -58,10 +58,22 @@ import type { MetadataEntries } from '@/features/metadata/types';
 import { useWorkspacesQuery } from '@/features/data-management/workspaces/hooks';
 import type { DashboardFilter } from './aggregate';
 import { useDashboardsQuery, useUpdateDashboardMutation } from './hooks';
-import type { Widget } from './types';
+import type { DashboardControl, Widget } from './types';
 import { WidgetBuilder } from './WidgetBuilder';
 import { WidgetFilterDrawer } from './WidgetFilterDrawer';
 import { WidgetView } from './WidgetView';
+import {
+  ControlsEditor,
+  ControlsIcon,
+  DashboardControlBar,
+  DashboardParamsContext,
+  ReachBadge,
+  bindableParams,
+  controlReach,
+  useWidgetParamContext,
+} from './DashboardParams';
+import { paramsFromSearch, withParam, withoutParams } from '@/features/data-management/queries/params';
+import { useQueriesQuery } from '@/features/data-management/queries/hooks';
 import { widgetsToDefinition } from './wire';
 
 // R177 — the dashboard is a CSS grid (was an AntD flex-wrap Row/Col). A flex
@@ -109,6 +121,7 @@ function SortableWidget({
   menu,
   filters,
   metadata,
+  badge,
 }: Readonly<{
   widget: Widget;
   gridCols: 1 | 2 | 3;
@@ -122,12 +135,15 @@ function SortableWidget({
   filters: readonly DashboardFilter[];
   /** R180 — this widget's metadata entries (from the dashboard's one read). */
   metadata?: MetadataEntries;
+  /** R195 — which parameter controls reached this widget. */
+  badge?: React.ReactNode;
 }>) {
   const { token } = theme.useToken();
   const { t } = useTranslation();
   const metaTooltip = t('metadata.widgetTooltip');
-  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } =
-    useSortable({ id: widget.id });
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({
+    id: widget.id,
+  });
   const cell = gridCell(widget, gridCols);
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
@@ -158,20 +174,21 @@ function SortableWidget({
   // Filter affordance: filled + primary-coloured when this widget has an active
   // filter, outline otherwise (an honest active/inactive status).
   // R179 — a note binds no query, so it has nothing to filter.
-  const filterButton = widget.chartType === 'note' ? null : (
-    <Tooltip title={filterLabel}>
-      <Button
-        type="text"
-        size="small"
-        icon={filterActive ? <FilterFilled /> : <FilterOutlined />}
-        onClick={onOpenFilter}
-        aria-label={filterLabel}
-        aria-pressed={filterActive}
-        style={filterActive ? { color: token.colorPrimary } : undefined}
-        data-component="WidgetFilterButton"
-      />
-    </Tooltip>
-  );
+  const filterButton =
+    widget.chartType === 'note' ? null : (
+      <Tooltip title={filterLabel}>
+        <Button
+          type="text"
+          size="small"
+          icon={filterActive ? <FilterFilled /> : <FilterOutlined />}
+          onClick={onOpenFilter}
+          aria-label={filterLabel}
+          aria-pressed={filterActive}
+          style={filterActive ? { color: token.colorPrimary } : undefined}
+          data-component="WidgetFilterButton"
+        />
+      </Tooltip>
+    );
   // R180 — an info affordance when something is written about this widget;
   // the popover shows the entries read-only (AI badge, stale flag), nothing to edit.
   const metaCount = metadata ? Object.keys(metadata).length : 0;
@@ -201,6 +218,7 @@ function SortableWidget({
   // R182 — a table's numbers go out as a file: every row of the same filtered
   // result the table reads, with its totals row; the server names the file.
   const { message } = App.useApp();
+  const paramCtx = useWidgetParamContext(widget.id);
   const exportLabel = t('dashboard.export.label');
   const exportButton =
     widget.chartType === 'table' ? (
@@ -212,10 +230,11 @@ function SortableWidget({
             { key: 'csv', label: t('dashboard.export.csv') },
           ],
           onClick: ({ key }) => {
-            downloadWidgetExport(widget, filters, key as 'csv' | 'xlsx')
+            downloadWidgetExport(widget, filters, key as 'csv' | 'xlsx', paramCtx)
               .then((name) => message.success(t('dashboard.export.done', { name })))
               .catch((err: unknown) => {
-                const body = err instanceof ApiErrorThrown ? (err.body as { code?: string; rows?: number; max?: number }) : null;
+                const body =
+                  err instanceof ApiErrorThrown ? (err.body as { code?: string; rows?: number; max?: number }) : null;
                 message.error(
                   body?.code === 'export_too_large'
                     ? t('dashboard.export.tooLarge', { rows: body.rows ?? 0, max: body.max ?? 0 })
@@ -226,7 +245,13 @@ function SortableWidget({
         }}
       >
         <Tooltip title={exportLabel}>
-          <Button type="text" size="small" icon={<DownloadOutlined />} aria-label={exportLabel} data-component="WidgetExportButton" />
+          <Button
+            type="text"
+            size="small"
+            icon={<DownloadOutlined />}
+            aria-label={exportLabel}
+            data-component="WidgetExportButton"
+          />
         </Tooltip>
       </Dropdown>
     ) : null;
@@ -235,6 +260,7 @@ function SortableWidget({
       <WidgetView
         widget={widget}
         filters={filters}
+        badge={badge}
         extra={
           <Space size={0}>
             {handle}
@@ -265,6 +291,12 @@ export function DashboardDetailPage() {
   const metadataQ = useMetadataQuery('dashboard', dashboard?.id);
 
   const [builder, setBuilder] = useState<{ initial?: Widget } | null>(null);
+  // R195 — parameter controls: viewer values in the URL (`?p.<name>=`), the
+  // queries' declarations for types and reach, and the controls editor.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const viewer = paramsFromSearch(searchParams);
+  const workspaceQueries = useQueriesQuery(workspaceId);
+  const [controlsOpen, setControlsOpen] = useState(false);
 
   // R102 reorder — display order (widget ids). Kept local for an optimistic
   // reorder on drop; resynced whenever the server order/set changes (so a
@@ -314,6 +346,20 @@ export function DashboardDetailPage() {
   ];
 
   const widgetsById = new Map(dash.widgets.map((w) => [w.id, w]));
+  const queriesById = new Map((workspaceQueries.data ?? []).map((q) => [q.id, q]));
+  const controls = dash.controls ?? [];
+  const bindable = bindableParams(dash.widgets, queriesById);
+  const saveControls = (next: DashboardControl[]) =>
+    updateMutation
+      .mutateAsync({
+        id: dash.id,
+        body: { name: dash.name, slug: dash.slug, definition: widgetsToDefinition(dash.widgets, next) },
+      })
+      .then(() => {
+        setControlsOpen(false);
+        message.success(t('dashboard.params.savedToast'));
+      })
+      .catch(() => message.error(t('common.error')));
   // Display widgets in the local order; fall back to server order, and drop any
   // ids the optimistic order hasn't caught up on (e.g. just-removed widget).
   const displayIds = orderIds.filter((id) => widgetsById.has(id));
@@ -324,7 +370,10 @@ export function DashboardDetailPage() {
   // build the next widget list, send name + slug (unchanged) + the new widgets.
   const persistWidgets = (widgets: Widget[]) =>
     updateMutation
-      .mutateAsync({ id: dash.id, body: { name: dash.name, slug: dash.slug, definition: widgetsToDefinition(widgets) } })
+      .mutateAsync({
+        id: dash.id,
+        body: { name: dash.name, slug: dash.slug, definition: widgetsToDefinition(widgets, dash.controls) },
+      })
       .catch(() => message.error(t('common.error')));
 
   const onDragEnd = ({ active, over }: DragEndEvent) => {
@@ -339,7 +388,7 @@ export function DashboardDetailPage() {
     updateMutation
       .mutateAsync({
         id: dash.id,
-        body: { name: dash.name, slug: dash.slug, definition: widgetsToDefinition(nextWidgets) },
+        body: { name: dash.name, slug: dash.slug, definition: widgetsToDefinition(nextWidgets, dash.controls) },
       })
       .catch(() => {
         setOrderIds(prev); // revert the optimistic reorder
@@ -419,66 +468,105 @@ export function DashboardDetailPage() {
         breadcrumb={breadcrumb}
         title={dash.name}
         actions={
-          <Button type="primary" icon={<PlusOutlined />} onClick={() => setBuilder({})} data-component="DashboardAddWidget">
-            {t('dashboard.builder.add')}
-          </Button>
+          <Space>
+            <Button
+              icon={<ControlsIcon />}
+              onClick={() => setControlsOpen(true)}
+              data-component="DashboardEditControls"
+            >
+              {t('dashboard.params.edit')}
+            </Button>
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={() => setBuilder({})}
+              data-component="DashboardAddWidget"
+            >
+              {t('dashboard.builder.add')}
+            </Button>
+          </Space>
         }
         onNavigate={(r) => navigate(r)}
       />
 
-      <MetadataPanel
-        kind="dashboard"
-        nounId={dash.id}
-        childLabel={(id) => dash.widgets.find((w) => w.id === id)?.title ?? id}
+      <DashboardControlBar
+        controls={controls}
+        params={bindable}
+        viewer={viewer}
+        onChange={(param, value) => setSearchParams(withParam(searchParams, param, value), { replace: true })}
+        onReset={() => setSearchParams(withoutParams(searchParams))}
       />
 
-      {ordered.length === 0 ? (
-        <Card data-component="DashboardNoWidgets">
-          <Empty description={t('dashboard.noWidgets')}>
-            <Button type="primary" icon={<PlusOutlined />} onClick={() => setBuilder({})}>
-              {t('dashboard.builder.addFirst')}
-            </Button>
-          </Empty>
-        </Card>
-      ) : (
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragEnd={onDragEnd}
-          accessibility={{ announcements }}
-        >
-          <SortableContext items={displayIds} strategy={rectSortingStrategy}>
-            <div
-              data-component="DashboardGrid"
-              style={{
-                display: 'grid',
-                gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))`,
-                gap: GRID_GAP,
-              }}
-            >
-              {ordered.map((w) => (
-                <SortableWidget
-                  key={w.id}
-                  widget={w}
-                  gridCols={gridCols}
-                  canReorder={canReorder}
-                  handleLabel={t('dashboard.reorder.handle', { title: w.title })}
-                  handleTooltip={t('dashboard.reorder.tooltip')}
-                  filterActive={filtersFor(w.id).some((f) => f.values.length > 0)}
-                  filterLabel={t('dashboard.filter.iconLabel', { title: w.title })}
-                  onOpenFilter={() => {
-                    setFilterWidget(w);
-                    setFilterDrawerOpen(true);
-                  }}
-                  menu={widgetMenu(w)}
-                  metadata={metadataQ.data?.children?.[w.id]}
-                  filters={filtersFor(w.id)}
-                />
-              ))}
-            </div>
-          </SortableContext>
-        </DndContext>
-      )}
+      <DashboardParamsContext.Provider value={{ viewer, dashboardId: dash.id }}>
+        <MetadataPanel
+          kind="dashboard"
+          nounId={dash.id}
+          childLabel={(id) => dash.widgets.find((w) => w.id === id)?.title ?? id}
+        />
+
+        {ordered.length === 0 ? (
+          <Card data-component="DashboardNoWidgets">
+            <Empty description={t('dashboard.noWidgets')}>
+              <Button type="primary" icon={<PlusOutlined />} onClick={() => setBuilder({})}>
+                {t('dashboard.builder.addFirst')}
+              </Button>
+            </Empty>
+          </Card>
+        ) : (
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={onDragEnd}
+            accessibility={{ announcements }}
+          >
+            <SortableContext items={displayIds} strategy={rectSortingStrategy}>
+              <div
+                data-component="DashboardGrid"
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))`,
+                  gap: GRID_GAP,
+                }}
+              >
+                {ordered.map((w) => (
+                  <SortableWidget
+                    key={w.id}
+                    widget={w}
+                    gridCols={gridCols}
+                    canReorder={canReorder}
+                    handleLabel={t('dashboard.reorder.handle', { title: w.title })}
+                    handleTooltip={t('dashboard.reorder.tooltip')}
+                    filterActive={filtersFor(w.id).some((f) => f.values.length > 0)}
+                    filterLabel={t('dashboard.filter.iconLabel', { title: w.title })}
+                    onOpenFilter={() => {
+                      setFilterWidget(w);
+                      setFilterDrawerOpen(true);
+                    }}
+                    menu={widgetMenu(w)}
+                    metadata={metadataQ.data?.children?.[w.id]}
+                    filters={filtersFor(w.id)}
+                    badge={
+                      <ReachBadge
+                        reach={controlReach(controls, w, w.queryId ? queriesById.get(w.queryId) : undefined)}
+                      />
+                    }
+                  />
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
+        )}
+      </DashboardParamsContext.Provider>
+
+      <ControlsEditor
+        open={controlsOpen}
+        controls={controls}
+        widgets={dash.widgets}
+        params={bindable}
+        saving={updateMutation.isPending}
+        onSave={(next) => void saveControls(next)}
+        onClose={() => setControlsOpen(false)}
+      />
 
       <WidgetBuilder
         open={builder !== null}
@@ -492,9 +580,7 @@ export function DashboardDetailPage() {
         open={filterDrawerOpen}
         widget={filterWidget}
         filters={filterWidget ? filtersFor(filterWidget.id) : []}
-        onChange={(next) =>
-          filterWidget && setFiltersByWidget((prev) => ({ ...prev, [filterWidget.id]: next }))
-        }
+        onChange={(next) => filterWidget && setFiltersByWidget((prev) => ({ ...prev, [filterWidget.id]: next }))}
         onClose={() => setFilterDrawerOpen(false)}
         afterClose={() => setFilterWidget(null)}
       />

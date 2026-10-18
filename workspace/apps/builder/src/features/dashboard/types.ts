@@ -77,4 +77,18 @@ export type Dashboard = {
    *  Uniqueness is enforced at the Contract/Backend gate. */
   slug: string;
   widgets: Widget[];
+  /** R195 — the bar's parameter controls (absent when none). */
+  controls?: DashboardControl[];
+};
+
+/** R195 (dashboard-filters.md D4, `kind: param`) — a control bound to one query
+ *  parameter by name. `saved` is the dashboard's value (applied by the server);
+ *  a viewer's value lives in the URL only. Mirrors `_shared/dashboard.yaml`. */
+export type DashboardControl = {
+  id: string;
+  kind: 'param';
+  label: string;
+  param: string;
+  targets: 'all' | string[];
+  saved?: string | number | { kind: 'today'; offsetDays: number };
 };

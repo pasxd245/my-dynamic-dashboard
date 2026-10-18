@@ -12,13 +12,28 @@
 //                     text is NOT round-tripped, the parsed JSON is).
 
 import type { Column, Dtype } from '../types';
-import { OPS_BY_DTYPE, type FilterPredicate, type Operator } from '../filters/types';
+import { OPS_BY_DTYPE, isParamRef, type FilterPredicate, type Operator } from '../filters/types';
 import type { PredicateGroups } from './types';
 
 const KNOWN_OPS: ReadonlySet<Operator> = new Set<Operator>([
-  'contains', 'equals', 'ne', 'gt', 'lt', 'gte', 'lte', 'between',
-  'starts_with', 'ends_with', 'before', 'after', 'is_empty',
-  'is_not_empty', 'is_null', 'is_not_null', 'is_true', 'is_false',
+  'contains',
+  'equals',
+  'ne',
+  'gt',
+  'lt',
+  'gte',
+  'lte',
+  'between',
+  'starts_with',
+  'ends_with',
+  'before',
+  'after',
+  'is_empty',
+  'is_not_empty',
+  'is_null',
+  'is_not_null',
+  'is_true',
+  'is_false',
 ]);
 
 /** DNF → JSON string for the `?aq=` param and the cache key. Empty
@@ -110,7 +125,9 @@ function atomToText(p: FilterPredicate, columns: readonly Column[]): string {
     return `${key}:${p.op === 'is_true' ? 'true' : 'false'}`;
   }
   const prefix = prefixForOp(p.op);
-  const val = 'val' in p ? String(p.val) : '';
+  // R195 — a parameter operand shows as `{name}` (display only: the advanced
+  // grammar has no parameter form; parameters are set in the filter popover).
+  const val = 'val' in p ? (isParamRef(p.val) ? `{${p.val.param}}` : String(p.val)) : '';
   return `${key}:${prefix}${quoteIfNeeded(val)}`;
 }
 
@@ -118,7 +135,5 @@ function atomToText(p: FilterPredicate, columns: readonly Column[]): string {
  *  ` AND `. Deterministic — used to repopulate the input from the
  *  URL `aq` param (not the raw user text). */
 export function groupsToText(groups: PredicateGroups, columns: readonly Column[]): string {
-  return groups
-    .map((group) => group.map((p) => atomToText(p, columns)).join(' AND '))
-    .join(' OR ');
+  return groups.map((group) => group.map((p) => atomToText(p, columns)).join(' AND ')).join(' OR ');
 }

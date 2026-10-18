@@ -318,6 +318,8 @@ export type RowsPage = {
   /** Matched-row count under the active predicate set; equals
    *  `Dataset.rowCount` when no predicates are active. */
   total: number;
+  /** R195 — a saved query's run: the parameter values it used (by name). */
+  resolvedParams?: Record<string, { value: string | number; source: 'viewer' | 'dashboard' | 'default' }>;
 };
 
 // Re-export per-column filter types so callers can import from the

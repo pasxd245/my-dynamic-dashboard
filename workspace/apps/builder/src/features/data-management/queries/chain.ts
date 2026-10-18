@@ -42,11 +42,13 @@ export function readSteps(def: QueryDefinition): Step[] {
  *  If a future round adds another `QueryDefinition` field, IT MUST BE ADDED HERE
  *  TOO. The `chain.test.ts` round-trip guard fails when a field goes unhandled. */
 export function writeDef(
-  base: Pick<QueryDefinition, 'q' | 'filters' | 'advanced' | 'steps'>,
+  base: Pick<QueryDefinition, 'q' | 'filters' | 'advanced' | 'steps' | 'params'>,
   relationships: readonly QueryRelationship[],
   joins: readonly JoinStep[],
 ): QueryDefinition {
   const core: QueryDefinition = { q: base.q ?? null, filters: base.filters, advanced: base.advanced };
+  // R195 — declared parameters first (the wire's field order), omitted when none.
+  if (base.params?.length) Object.assign(core, { params: base.params.map((p) => ({ ...p })) });
   if (base.steps?.length) core.steps = base.steps.map((s) => ({ ...s }));
   return joins.length === 0
     ? core

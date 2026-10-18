@@ -17,7 +17,8 @@ import { useCreateRelationshipMutation, useRelationshipsQuery } from '@/features
 import { ApiErrorThrown } from '../_shared/types';
 import { copyGovernedRel, freeFormRel, readChain, readRels, readSteps, writeDef, type RelFields } from './chain';
 import { useQueryPreviewQuery, useUpdateQueryMutation } from './hooks';
-import type { JoinStep, Query, QueryDefinition, QueryRelationship, ResolvedColumn, Step } from './types';
+import { invalidParams } from './QueryParamsPanel';
+import type { JoinStep, Query, QueryDefinition, QueryParam, QueryRelationship, ResolvedColumn, Step } from './types';
 
 export const PREVIEW_PAGE_SIZE = 25;
 // Debounce the preview so editing fires one POST after the user settles, not
@@ -48,7 +49,15 @@ function normalize(def: QueryDefinition): QueryDefinition {
     // R162 — `steps` MUST be threaded: this normalize seeds the edit-mode draft
     // (not just the dirty comparison), so dropping it erased a saved query's
     // shaping the moment you clicked Edit, and the next Save persisted the loss.
-    { q: def.q ?? null, filters: [...def.filters], advanced: def.advanced.map((g) => [...g]), steps: readSteps(def) },
+    // R195 — `params` rides along (dropping it here would erase the declarations
+    // on Edit — the R162 lesson for `steps`).
+    {
+      q: def.q ?? null,
+      filters: [...def.filters],
+      advanced: def.advanced.map((g) => [...g]),
+      steps: readSteps(def),
+      params: def.params,
+    },
     readRels(def),
     readChain(def),
   );
@@ -132,6 +141,9 @@ export function useQueryBuilder({ query, datasetColumns, active, onDone }: UseQu
     [relationshipsQuery.data],
   );
   const isJoined = joins.length > 0;
+  // R195 — the preview's own values for parameters (asked for when a used one has
+  // no default); never saved.
+  const [previewParams, setPreviewParams] = useState<Record<string, string>>({});
   const previewQuery = useQueryPreviewQuery(
     workspaceId || undefined,
     debouncedDraft,
@@ -139,6 +151,7 @@ export function useQueryBuilder({ query, datasetColumns, active, onDone }: UseQu
     pageSize,
     active && Boolean(query),
     baseSourceId || undefined,
+    previewParams,
   );
   const preview = previewQuery.data;
   const previewPending = useMemo(
@@ -185,16 +198,30 @@ export function useQueryBuilder({ query, datasetColumns, active, onDone }: UseQu
   // shared `query_stale` and the panel had one sentence for both, so a reordered card
   // was announced as "1 filter references a column…" on a query with zero filters.
   const stepInvalid = err instanceof ApiErrorThrown && err.body.code === 'step_invalid';
+  // R195 — the preview needs a value (or got a bad one): asked for inline, not a failure.
+  const paramError =
+    err instanceof ApiErrorThrown && (err.body.code === 'param_unbound' || err.body.code === 'param_invalid')
+      ? err.body
+      : undefined;
+  const paramsInvalid = invalidParams(draft.params ?? []);
   const invalidCount = invalidAtomCount(draft, columns);
   // R171 item 6 — R165 W-2. Every OTHER preview failure: an unreachable backend,
   // a 500, a dropped connection. `previewOk` has always excluded it (Save is
   // correctly off), but nothing ever SAID so, and the three symptoms it shares
   // with a rejected step — no rows, Save off, no message — are the whole
   // surface, so a dead server read as "my step is wrong".
-  const previewFailed = previewQuery.isError && !relStale && !predStale && !stepInvalid;
+  const previewFailed = previewQuery.isError && !relStale && !predStale && !stepInvalid && !paramError;
   const previewOk = Boolean(preview) && !relStale && !predStale && !stepInvalid && !previewQuery.isError;
   // Save only once the preview reflects the CURRENT draft — you save what you previewed.
-  const canSave = dirty && previewOk && !previewPending && invalidCount === 0 && !updateMutation.isPending;
+  // R195 — a query whose used parameter has no default can be saved without a
+  // preview value: the preview just asks for one.
+  const canSave =
+    dirty &&
+    (previewOk || paramError?.code === 'param_unbound') &&
+    !previewPending &&
+    invalidCount === 0 &&
+    !paramsInvalid &&
+    !updateMutation.isPending;
 
   const setDraftField = (patch: Partial<QueryDefinition>) => {
     setPage(1);
@@ -212,6 +239,9 @@ export function useQueryBuilder({ query, datasetColumns, active, onDone }: UseQu
   const setQ = (q: string | null) => setDraftField({ q });
   // R125 — set the ordered transform steps (empty = a plain select query).
   const setSteps = (steps: readonly Step[]) => setDraftField({ steps: [...steps] });
+  // R195 — declare / edit / remove parameters (empty → omitted from the definition).
+  const setParams = (params: readonly QueryParam[]) =>
+    setDraftField({ params: params.length ? [...params] : undefined });
 
   // Chain ops (R73). The draft IS the wire definition; each op folds the current
   // chain through the bridge, mutates it, and re-serializes. A hop is always
@@ -403,6 +433,12 @@ export function useQueryBuilder({ query, datasetColumns, active, onDone }: UseQu
     predStale,
     stepInvalid,
     previewFailed,
+    // R195 — parameters
+    setParams,
+    previewParams,
+    setPreviewParams,
+    paramError,
+    paramsInvalid,
     retryPreview: () => void previewQuery.refetch(),
     invalidCount,
     dirty,

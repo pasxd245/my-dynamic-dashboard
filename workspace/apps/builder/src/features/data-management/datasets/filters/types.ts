@@ -42,13 +42,23 @@ export type Operator =
  * The shared `is_null` / `is_not_null` variant accepts any dtype (the
  * BE evaluates `IS NULL` for all dtypes).
  */
+/** R195 — `{ param: name }` where a literal operand would be (a saved query's
+ *  filters only — dashboard-filters.md D2). The dataset page never writes one. */
+export type ParamRef = { param: string };
+type Op<T> = T | ParamRef;
+
 export type FilterPredicate =
-  | { col: number; dtype: 'string'; op: 'contains' | 'equals' | 'ne' | 'starts_with' | 'ends_with'; val: string }
+  | { col: number; dtype: 'string'; op: 'contains' | 'equals' | 'ne' | 'starts_with' | 'ends_with'; val: Op<string> }
   | { col: number; dtype: 'string'; op: 'is_empty' | 'is_not_empty' }
-  | { col: number; dtype: 'integer' | 'float'; op: 'equals' | 'ne' | 'gt' | 'lt' | 'gte' | 'lte'; val: number }
-  | { col: number; dtype: 'integer' | 'float'; op: 'between'; min: number; max: number }
-  | { col: number; dtype: 'date' | 'datetime'; op: 'equals' | 'ne' | 'before' | 'after' | 'gte' | 'lte'; val: string }
-  | { col: number; dtype: 'date' | 'datetime'; op: 'between'; min: string; max: string }
+  | { col: number; dtype: 'integer' | 'float'; op: 'equals' | 'ne' | 'gt' | 'lt' | 'gte' | 'lte'; val: Op<number> }
+  | { col: number; dtype: 'integer' | 'float'; op: 'between'; min: Op<number>; max: Op<number> }
+  | {
+      col: number;
+      dtype: 'date' | 'datetime';
+      op: 'equals' | 'ne' | 'before' | 'after' | 'gte' | 'lte';
+      val: Op<string>;
+    }
+  | { col: number; dtype: 'date' | 'datetime'; op: 'between'; min: Op<string>; max: Op<string> }
   | { col: number; dtype: 'boolean'; op: 'is_true' | 'is_false' }
   | { col: number; dtype: Dtype; op: 'is_null' | 'is_not_null' };
 
@@ -101,4 +111,9 @@ export const OPERAND_SHAPE: Readonly<Record<Operator, 'single' | 'range' | 'none
 /** Default operator for a fresh popover-open on a column of `dtype`. */
 export function defaultOperator(dtype: Dtype): Operator {
   return OPS_BY_DTYPE[dtype][0];
+}
+
+/** R195 — is this operand a parameter reference? */
+export function isParamRef(v: unknown): v is ParamRef {
+  return typeof v === 'object' && v !== null && typeof (v as { param?: unknown }).param === 'string';
 }

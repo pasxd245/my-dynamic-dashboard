@@ -13,6 +13,7 @@ import { useTranslation } from 'react-i18next';
 import { formatCell } from '@/lib/formatCell';
 import type { Column } from '../types';
 import type { FilterPredicate, FilterSet } from './types';
+import { isParamRef } from './types';
 
 export type ActiveFilterChipsProps = Readonly<{
   filters: FilterSet;
@@ -31,25 +32,20 @@ export function formatChipText(
   const name = col?.name ?? `col_${p.col}`;
   const opLabel = t(`datasets.filters.op.${p.op}`);
 
+  // R195 — a parameter operand reads `as_of (parameter)`, never a value.
+  const text = (v: unknown) =>
+    isParamRef(v) ? t('queries.params.chip', { name: v.param }) : formatCell(String(v), p.dtype, locale).text;
   if ('val' in p) {
-    const formatted = formatCell(String(p.val), p.dtype, locale);
-    return `${name} ${opLabel} ${formatted.text}`;
+    return `${name} ${opLabel} ${text(p.val)}`;
   }
   if ('min' in p) {
-    const lo = formatCell(String(p.min), p.dtype, locale).text;
-    const hi = formatCell(String(p.max), p.dtype, locale).text;
-    return `${name} ${opLabel} ${lo} — ${hi}`;
+    return `${name} ${opLabel} ${text(p.min)} — ${text(p.max)}`;
   }
   // No-operand op
   return `${name} ${opLabel}`;
 }
 
-export function ActiveFilterChips({
-  filters,
-  columns,
-  onRemove,
-  onClearAll,
-}: ActiveFilterChipsProps) {
+export function ActiveFilterChips({ filters, columns, onRemove, onClearAll }: ActiveFilterChipsProps) {
   const { t } = useTranslation();
   const locale = i18n.language;
 
@@ -70,10 +66,7 @@ export function ActiveFilterChips({
         marginBottom: 12,
       }}
     >
-      <Typography.Text
-        type="secondary"
-        style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.04em' }}
-      >
+      <Typography.Text type="secondary" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
         {t('datasets.filters.chipsLabel')}
       </Typography.Text>
       {filters.map((p) => {

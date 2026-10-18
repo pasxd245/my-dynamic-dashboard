@@ -23,6 +23,8 @@ import { AdvancedQueryInput } from '@/features/data-management/datasets/advanced
 import { groupsToText } from '@/features/data-management/datasets/advanced-query/serialize';
 import { PagedRowsView } from '../_shared/PagedRowsView';
 import { JoinEditor } from './JoinEditor';
+import { usedParams } from './params';
+import { ParamValueInputs, QueryParamsContext, QueryParamsPanel } from './QueryParamsPanel';
 import { QueryCanvas } from './QueryCanvas';
 import { StepsEditor } from './StepsEditor';
 import { type QueryBuilderState } from './useQueryBuilder';
@@ -103,6 +105,11 @@ function FormTab({
   const { draft, columns, isJoined } = builder;
   // R125 — the Transform (steps) section state.
   const [stepsOpen, setStepsOpen] = useState(true);
+  // R195 — the Parameters section (open when the query declares any).
+  const [paramsOpen, setParamsOpen] = useState((draft.params?.length ?? 0) > 0);
+  const declared = draft.params ?? [];
+  const used = usedParams(draft);
+  const askFor = declared.filter((p) => used.has(p.name));
   // When the query shapes (has steps), the preview rows are the SHAPED result, so
   // the table uses the post-step result columns + the per-column source filter
   // popover (a source-index filter) no longer applies.
@@ -203,7 +210,24 @@ function FormTab({
         </div>
       ) : null}
 
-      <TransformSection builder={builder} open={stepsOpen} setOpen={setStepsOpen} />
+      {/* ── Parameters section (R195) ─────────────────────────────────── */}
+      <SectionBar
+        open={paramsOpen}
+        onToggle={() => setParamsOpen((o) => !o)}
+        title={t('queries.params.section')}
+        dataComponent="QueryParamsHeader"
+      >
+        {!paramsOpen && declared.length > 0 ? (
+          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+            {t('queries.params.count', { count: declared.length })}
+          </Typography.Text>
+        ) : null}
+      </SectionBar>
+      {paramsOpen ? <QueryParamsPanel params={declared} onChange={builder.setParams} /> : null}
+
+      <QueryParamsContext.Provider value={declared}>
+        <TransformSection builder={builder} open={stepsOpen} setOpen={setStepsOpen} />
+      </QueryParamsContext.Provider>
 
       {/* Blocked states — flag-don't-crash; they disable Save in the header. */}
       {builder.relStale ? (
@@ -272,7 +296,14 @@ function FormTab({
         </Button>
       </SectionBar>
       {previewOpen ? (
-        <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+        <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {/* R195 — values for the preview's used parameters (never saved). */}
+          <ParamValueInputs
+            params={askFor}
+            values={builder.previewParams}
+            onChange={(name, value) => builder.setPreviewParams({ ...builder.previewParams, [name]: value })}
+            error={builder.paramError as Parameters<typeof ParamValueInputs>[0]['error']}
+          />
           <PagedRowsView
             columns={previewColumns}
             rows={builder.previewRows}
@@ -298,6 +329,7 @@ function FormTab({
                       existing={draft.filters.find((p) => p.col === colIndex)}
                       onApply={builder.applyFilter}
                       onClear={() => builder.removeFilter(colIndex)}
+                      params={declared}
                     />
                   )
             }

@@ -153,6 +153,30 @@
       "done": "Saved {{name}}",
       "failed": "Could not export this table.",
       "tooLarge": "Too many rows to export ({{rows}}; the limit is {{max}}). Narrow the filters or the query."
+    },
+    "params": {
+      "edit": "Parameters",
+      "editorTitle": "Dashboard parameters",
+      "editorHint": "Each control sets one query parameter for the widgets it targets. The saved value is what everyone sees until they change it — their change stays in the link and is never saved.",
+      "noParams": "No query on this dashboard declares a parameter yet. Declare one on a query page first.",
+      "label": "Label",
+      "bindsTo": "sets parameter {{param}}",
+      "remove": "Remove control {{label}}",
+      "targets": "Applies to",
+      "allWidgets": "All widgets",
+      "someWidgets": "Chosen widgets",
+      "saved": "Saved value",
+      "fixed": "Fixed date",
+      "relativeOption": "Today ± days",
+      "relative": "today {{n}} d",
+      "add": "Add a control for…",
+      "savedToast": "Parameters saved.",
+      "reset": "Reset to saved",
+      "copyLink": "Copy link",
+      "copied": "Link copied — it opens this view.",
+      "copyFailed": "Couldn't copy the link.",
+      "skipped": "{{label}} skipped",
+      "skippedWhy": "This widget's query has no parameter {{param}}, so the control does not change it."
     }
   },
   "common": {
@@ -970,6 +994,41 @@
       "title": "Duplicate {{name}}",
       "defaultName": "{{name}} (copy)",
       "success": "Query \"{{name}}\" created"
+    },
+    "params": {
+      "section": "Parameters",
+      "count": "{{count}} declared",
+      "hint": "A parameter is a typed value a read chooses — the same query answers for any period. Use one in a filter with “Use parameter”.",
+      "chip": "{{name}} (parameter)",
+      "use": "Use parameter",
+      "operand": "parameter",
+      "name": "Name",
+      "nameRule": "Lowercase letters, digits and _; starts with a letter; unique.",
+      "type": "Type",
+      "types": {
+        "date": "date",
+        "number": "number",
+        "string": "text"
+      },
+      "label": "Label (shown to viewers)",
+      "default": "Default",
+      "noDefault": "No default",
+      "fixedDefault": "Fixed value",
+      "todayDefault": "Today ± days",
+      "today": "today",
+      "offset": "Days from today",
+      "days": "days",
+      "remove": "Remove parameter {{name}}",
+      "add": "Add parameter",
+      "pick": "Pick a value for {{label}}.",
+      "reversed": "{{label}}: the range ends before it starts.",
+      "invalid": "{{label}}: not a valid {{type}}.",
+      "usedValue": "{{name}} = {{value}} ({{source}})",
+      "source": {
+        "viewer": "your value",
+        "dashboard": "dashboard",
+        "default": "default"
+      }
     }
   },
   "relationships": {

@@ -8,6 +8,7 @@ import type {
   TotalsResult,
   AggregateResult,
   CreateQueryRequest,
+  ParamContext,
   PreviewQueryRequest,
   Query,
   QueryPreview,
@@ -69,8 +70,10 @@ export const queriesApi = {
   /** GET /queries/{id}/rows — RUN: live re-run of the saved definition,
    *  paged. Same `RowsPage` shape as the dataset rows-GET. 404 / 409
    *  query_stale (both throw ApiErrorThrown). */
-  async getRows(id: string, page: number, pageSize: number): Promise<RowsPage> {
+  async getRows(id: string, page: number, pageSize: number, values?: Record<string, string>): Promise<RowsPage> {
     const params = new URLSearchParams({ page: String(page), page_size: String(pageSize) });
+    // R195 — viewer parameter values as `p.<name>` (dashboard-filters.md D3).
+    for (const [k, v] of Object.entries(values ?? {})) params.set(`p.${k}`, v);
     const resp = await fetch(`${API_BASE_URL}/queries/${id}/rows?${params.toString()}`);
     return readJson<RowsPage>(resp);
   },
@@ -80,8 +83,14 @@ export const queriesApi = {
    *  `dashboard_max_rows`. `pageSize` echoes the returned row count; `total` is
    *  the full matched count (so `total > rows.length` ⇒ partial). Replaces the
    *  paged-at-100 fetch-all loop. 404 / 409 query_stale (both throw). */
-  async getUnpagedRows(id: string): Promise<RowsPage> {
-    const resp = await fetch(`${API_BASE_URL}/queries/${id}/rows?unpaged=true`);
+  async getUnpagedRows(id: string, ctx?: ParamContext): Promise<RowsPage> {
+    const params = new URLSearchParams({ unpaged: 'true' });
+    for (const [k, v] of Object.entries(ctx?.params ?? {})) params.set(`p.${k}`, String(v));
+    if (ctx?.dashboard) {
+      params.set('dashboard', ctx.dashboard.id);
+      params.set('widget', ctx.dashboard.widgetId);
+    }
+    const resp = await fetch(`${API_BASE_URL}/queries/${id}/rows?${params.toString()}`);
     return readJson<RowsPage>(resp);
   },
 
