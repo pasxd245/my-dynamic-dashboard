@@ -99,6 +99,8 @@ components:
           examples: [1, 4]
         lineage:
           $ref: '#/components/schemas/DatasetLineage'
+        savedFrom:
+          $ref: '#/components/schemas/DatasetSavedFrom'
 
     DatasetLineage:
       type: object
@@ -137,5 +139,44 @@ components:
             $ref: '../_shared/workflow.yaml#/components/schemas/WorkflowRunSource'
           description: What that run read, per source.
         publishedAt:
+          type: string
+          pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$'
+
+    DatasetSavedFrom:
+      type: object
+      readOnly: true
+      required: [datasetId, datasetName, workspaceId, dataVersion, refreshedAt, label, savedAt]
+      additionalProperties: false
+      description: |
+        R193 (item 3.6b) — on a saved copy only (a dataset in a `saved`
+        workspace): which dataset it froze, at which version (and when that
+        version's rows arrived), under which label, when. Server-written. The
+        copy keeps the original's `dataVersion` and `refreshedAt` as they were
+        at the save — one version number for one set of rows — and they never
+        move.
+      properties:
+        datasetId:
+          type: string
+          pattern: '^ds_[0-9a-f]{8}$'
+        datasetName:
+          type: string
+          minLength: 1
+          description: The original's name at save time.
+        workspaceId:
+          type: string
+          pattern: '^ws_[0-9a-f]{8}$'
+        dataVersion:
+          type: integer
+          minimum: 1
+          description: The original's `dataVersion` when it was saved.
+        refreshedAt:
+          type: string
+          pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$'
+          description: The original's `refreshedAt` then — when the frozen rows arrived.
+        label:
+          type: string
+          minLength: 1
+          maxLength: 40
+        savedAt:
           type: string
           pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$'

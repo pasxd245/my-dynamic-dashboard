@@ -1,0 +1,81 @@
+openapi: 3.1.0
+info:
+  title: my-dynamic-dashboard — POST /workspaces/{id}/saved-copies
+  version: 0.1.0
+  description: |
+    R193 (item 3.6b) — FREEZE datasets of a main workspace: copy each into the
+    workspace's read-only `saved` workspace (created on first use, one per main
+    workspace, named `<workspace>-saved`). A copy is named `<name> @<label>`
+    (`… v2`, `v3` on a repeated label), carries the original's rows, columns,
+    format, lineage (display only), `dataVersion` and `refreshedAt` as they are
+    now, and a server-written `savedFrom`; nothing on it ever moves. All copies or none. Rationale:
+    saved-copies-post.contract.md.
+paths:
+  /workspaces/{id}/saved-copies:
+    post:
+      operationId: saveCopies
+      summary: Save frozen copies of datasets into the workspace's saved workspace
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, pattern: '^ws_[0-9a-f]{8}$' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [label, datasetIds]
+              additionalProperties: false
+              properties:
+                label:
+                  type: string
+                  minLength: 1
+                  maxLength: 40
+                  description: Trimmed; blank → 422. Becomes the copies' name suffix `@<label>`.
+                datasetIds:
+                  type: array
+                  minItems: 1
+                  maxItems: 20
+                  uniqueItems: true
+                  items: { type: string, pattern: '^ds_[0-9a-f]{8}$' }
+      responses:
+        '201':
+          description: The saved workspace and the new copies, in request order.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [workspace, datasets]
+                additionalProperties: false
+                properties:
+                  workspace: { $ref: '../_shared/workspace.yaml#/components/schemas/Workspace' }
+                  datasets:
+                    type: array
+                    minItems: 1
+                    items: { $ref: '../_shared/dataset.yaml#/components/schemas/Dataset' }
+        '404':
+          description: No workspace with this id.
+          content:
+            application/json:
+              schema: { $ref: '../_shared/api-error.yaml#/components/schemas/ApiErrorNotFound' }
+              examples: { not_found: { value: { code: 'not_found' } } }
+        '409':
+          description: The workspace is itself a saved one — copies are saved FROM a main workspace.
+          content:
+            application/json:
+              schema: { $ref: '../_shared/api-error.yaml#/components/schemas/ApiErrorReadOnlyWorkspace' }
+              examples: { read_only: { value: { code: 'read_only_workspace' } } }
+        '422':
+          description: |
+            A dataset that is not in this workspace (`unknown_dataset`, `loc`
+            ending at its index), a blank label, or a malformed request —
+            FastAPI validation envelope. Nothing written.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [detail]
+                properties:
+                  detail: { type: array, items: { type: object } }

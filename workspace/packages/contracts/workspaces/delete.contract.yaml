@@ -11,6 +11,12 @@ info:
     or move datasets first. No `?cascade=true` opt-in in this
     round (deferred per crud-hygiene.md § Out of scope).
 
+    R193 — a MAIN workspace that has a saved (frozen-copies) workspace is
+    also `409 non_empty` (`datasetCount` = the saved workspace's copies):
+    delete the copies and the saved workspace first, so a saved workspace
+    never outlives its main one. A saved workspace itself is deleted like
+    any other (empty → 204, with copies → 409 non_empty).
+
 paths:
   /workspaces/{id}:
     delete:

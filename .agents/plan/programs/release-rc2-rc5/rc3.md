@@ -253,6 +253,13 @@ kept}}` (named like the merge / append reports, with `kept` so it sums to the ro
 - **Walk:** build a workflow, publish, put a widget on it, save a copy labelled with a week, refresh
   the source, confirm the copy did not change and carries the band.
 
+> **3.6 as built (2026-10-18).** Split into **3.6a** publish (`Round_192`, migration `0008`) and
+> **3.6b** saved copies (`Round_193`, migration `0009`). 3.6b deviates from the sketch above: the body
+> is `{label, datasetIds}`; a copy keeps the original's `dataVersion` and `refreshedAt` (one version
+> for one set of rows) and carries `savedFrom`; deleting a copy and the empty saved workspace are
+> allowed; a main workspace with a saved workspace cannot be deleted. Design:
+> [`workspaces/saved-copies.md`](../../../design/data-management/workspaces/saved-copies.md).
+
 ## 2.7 Design only — parameter model, view-time date range, shared filters _(moved from rc.2)_
 
 |        |                                                                                  |

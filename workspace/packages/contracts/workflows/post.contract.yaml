@@ -50,7 +50,10 @@ paths:
           description: A workflow with this name already exists in the workspace.
           content:
             application/json:
-              schema: { $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorNameTaken" }
+              schema:
+                oneOf:
+                  - $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorNameTaken"
+                  - $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorReadOnlyWorkspace"
               examples: { name_taken: { value: { code: "name_taken" } } }
         "422":
           description: |

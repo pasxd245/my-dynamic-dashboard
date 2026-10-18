@@ -5,7 +5,7 @@ components:
   schemas:
     Workspace:
       type: object
-      required: [id, name, createdAt]
+      required: [id, name, kind, createdAt]
       additionalProperties: false
       properties:
         id:
@@ -25,6 +25,24 @@ components:
             returning 409 `name_taken` on collision. (Unlike datasets / queries
             / dashboards, whose names are unique only per-workspace.)
           examples: ["Marketing"]
+        kind:
+          type: string
+          enum: [main, saved]
+          readOnly: true
+          description: |
+            R193 (item 3.6b) — `main` for every workspace a user creates;
+            `saved` for the read-only workspace that holds frozen copies of a
+            main workspace's datasets (one per main workspace, created on the
+            first save). Every write inside a `saved` workspace answers
+            `409 read_only_workspace`, except deleting a copy and deleting the
+            empty workspace.
+        parentWorkspaceId:
+          type: string
+          pattern: "^ws_[0-9a-f]{8}$"
+          readOnly: true
+          description: |
+            R193 — present if and only if `kind` is `saved`: the main workspace
+            its copies come from.
         createdAt:
           type: string
           description: |

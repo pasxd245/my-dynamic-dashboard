@@ -78,6 +78,7 @@ paths:
                 oneOf:
                   - $ref: '../_shared/api-error.yaml#/components/schemas/ApiErrorNotPublishable'
                   - $ref: '../_shared/api-error.yaml#/components/schemas/ApiErrorNameTaken'
+                  - $ref: '../_shared/api-error.yaml#/components/schemas/ApiErrorReadOnlyWorkspace'
               examples:
                 never_run: { value: { code: 'not_publishable', reason: 'never_run' } }
                 stale:

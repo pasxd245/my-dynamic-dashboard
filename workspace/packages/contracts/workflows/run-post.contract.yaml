@@ -49,6 +49,7 @@ paths:
                 oneOf:
                   - $ref: '../_shared/api-error.yaml#/components/schemas/ApiErrorQueryStale'
                   - $ref: '../_shared/api-error.yaml#/components/schemas/ApiErrorStepInvalid'
+                  - $ref: '../_shared/api-error.yaml#/components/schemas/ApiErrorReadOnlyWorkspace'
               examples:
                 source_stale: { summary: The source query drifted, value: { code: 'query_stale' } }
                 step_invalid: { summary: A workflow step no longer validates, value: { code: 'step_invalid' } }

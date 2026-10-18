@@ -99,6 +99,12 @@ paths:
               examples:
                 missing:
                   value: { 'code': 'not_found' }
+        '409':
+          description: R193 — the target is in a saved (frozen) workspace; nothing was changed.
+          content:
+            application/json:
+              schema: { $ref: '../_shared/api-error.yaml#/components/schemas/ApiErrorReadOnlyWorkspace' }
+              examples: { read_only: { value: { code: 'read_only_workspace' } } }
         '422':
           description: |
             Two body shapes (the FE branches on the `code` field, same rule as

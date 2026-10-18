@@ -23,6 +23,8 @@
 #   - not_publishable  — a workflow's output cannot be published now: never
 #                        run, out of date, or it reads the dataset it would
 #                        replace (409) — R192.
+#   - read_only_workspace — a write inside a saved (frozen) workspace (409)
+#                        — R193.
 #
 # Each variant uses `additionalProperties: false` to mirror the BE's
 # `extra='forbid'` Pydantic discipline (per the R16 conformance pattern).
@@ -455,3 +457,16 @@ components:
           minItems: 1
           items:
             $ref: '../_shared/workflow.yaml#/components/schemas/WorkflowStaleSource'
+
+    ApiErrorReadOnlyWorkspace:
+      type: object
+      required: [code]
+      additionalProperties: false
+      description: |
+        R193 — the target lives in a `saved` workspace, whose copies are
+        frozen: nothing was changed. Only deleting a copy and deleting the
+        empty workspace are allowed there.
+      properties:
+        code:
+          type: string
+          enum: [read_only_workspace]

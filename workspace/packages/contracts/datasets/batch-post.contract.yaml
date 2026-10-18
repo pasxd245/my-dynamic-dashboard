@@ -308,7 +308,7 @@ paths:
             on which is missing).
         '409':
           description: |
-            Commit-time conflict. Two body shapes are possible:
+            Commit-time conflict. Three body shapes are possible:
 
             1. The legacy `{ error, detail }` shape — covers
                parse_options mismatches, unknown columns referenced
@@ -317,6 +317,9 @@ paths:
                — returned when any item's `name` collides with an
                existing dataset in the same workspace (the new
                unique index on `datasets(workspace_id, name)`).
+            3. R193 `{ code: "read_only_workspace" }` — the workspace in the
+               path, or a refresh target's own workspace, is a saved
+               (frozen) one; nothing is written.
 
             The FE branches on whether a `code` field is present:
             if yes, narrow to the new envelope; otherwise treat as
@@ -333,6 +336,7 @@ paths:
                       detail:
                         type: string
                   - $ref: '../_shared/api-error.yaml#/components/schemas/ApiErrorNameTaken'
+                  - $ref: '../_shared/api-error.yaml#/components/schemas/ApiErrorReadOnlyWorkspace'
         '422':
           description: |
             Two body shapes are possible (the FE branches on whether a

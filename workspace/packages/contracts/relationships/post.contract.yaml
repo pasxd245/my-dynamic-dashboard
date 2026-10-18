@@ -90,7 +90,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorRelationshipExists"
+                oneOf:
+                  - $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorRelationshipExists"
+                  - $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorReadOnlyWorkspace"
               examples:
                 duplicate:
                   value: { "code": "relationship_exists" }
