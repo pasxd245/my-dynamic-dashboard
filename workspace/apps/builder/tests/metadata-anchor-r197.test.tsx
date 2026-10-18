@@ -14,7 +14,7 @@ import { describe, expect, it } from 'vitest';
 import { AntdConfig } from '@mdd/ui';
 import { WidgetDataFooter, dataFooterParts } from '@/features/dashboard/WidgetDataFooter';
 import type { Dataset } from '@/features/data-management/datasets/types';
-import { MetadataEntryView, MetadataPanel } from '@/features/metadata/MetadataPanel';
+import { MetadataEntriesList, MetadataEntryView, MetadataPanel } from '@/features/metadata/MetadataPanel';
 import type { MetadataEntry } from '@/features/metadata/types';
 import { MOCK_DATASET } from '@/mocks/fixtures';
 import { server } from '@/mocks/server';
@@ -58,7 +58,7 @@ describe('R197 an entry by state', () => {
       <MetadataEntryView namespace="aicowork" entry={{ ...base, state: 'refreshed' }} />,
     );
     expect(container.querySelector('[data-component="MetadataState"]')?.getAttribute('data-state')).toBe('refreshed');
-    expect(screen.getByText('Data refreshed since')).toBeInTheDocument();
+    expect(screen.getByText('Data refreshed since this was written')).toBeInTheDocument();
     expect(screen.getByText(/Week 41 dipped/)).toBeInTheDocument();
   });
 
@@ -85,7 +85,7 @@ describe('R197 an entry by state', () => {
     const { container } = withProviders(
       <MetadataEntryView namespace="aicowork" entry={{ ...base, stale: true, state: 'other_definition' }} />,
     );
-    expect(screen.getByText('Written for an earlier definition of this.')).toBeInTheDocument();
+    expect(screen.getByText('Written for an earlier definition.')).toBeInTheDocument();
     expect(screen.queryByText(/Week 41 dipped/)).toBeNull();
     fireEvent.click(screen.getByText('Show'));
     expect(container.querySelector('[data-component="MetadataDefinitionWarning"]')).not.toBeNull();
@@ -120,6 +120,38 @@ describe('R197 an entry by state', () => {
     expect(container.querySelector('[data-component="MetadataEntry"]')?.getAttribute('data-state')).toBe(
       'other_definition',
     );
+  });
+});
+
+describe('R197 another reading of the same entry', () => {
+  it('a note back to current is open again (keyed by state — review P1)', () => {
+    const entry = (state: MetadataEntry['state']): MetadataEntry => ({ ...base, state });
+    const r = withProviders(<MetadataEntriesList entries={{ aicowork: entry('other_period') }} />);
+    expect(screen.queryByText(/Week 41 dipped/)).toBeNull();
+    r.rerender(
+      <QueryClientProvider client={new QueryClient()}>
+        <AntdConfig>
+          <App>
+            <MemoryRouter>
+              <MetadataEntriesList entries={{ aicowork: entry('current') }} />
+            </MemoryRouter>
+          </App>
+        </AntdConfig>
+      </QueryClientProvider>,
+    );
+    expect(screen.getByText(/Week 41 dipped/)).toBeInTheDocument();
+  });
+
+  it('names a parameter by its label', () => {
+    withProviders(
+      <MetadataEntryView
+        namespace="a"
+        entry={{ ...base, anchor: { definitionVersion: 'a', params: { as_of: '2026-10-11' } }, state: 'other_period' }}
+        current={{ definitionVersion: 'a', params: { as_of: '2026-10-17' } }}
+        paramLabels={{ as_of: 'As of' }}
+      />,
+    );
+    expect(screen.getByText('Written for As of 2026-10-11 · viewing As of 2026-10-17')).toBeInTheDocument();
   });
 });
 
@@ -164,8 +196,14 @@ describe('R197 widget data footer', () => {
     expect(dataFooterParts([])).toBeNull();
   });
 
-  it('reads the datasets the widget read', async () => {
-    const { container } = withProviders(<WidgetDataFooter versions={{ [MOCK_DATASET.id]: 1 }} />);
+  it('reads the datasets the widget read — at the version it read', async () => {
+    const stale = withProviders(<WidgetDataFooter versions={{ [MOCK_DATASET.id]: MOCK_DATASET.dataVersion + 1 }} />);
+    await new Promise((r) => setTimeout(r, 50));
+    expect(stale.container.querySelector('[data-component="WidgetDataFooter"]')).toBeNull();
+    stale.unmount();
+    const { container } = withProviders(
+      <WidgetDataFooter versions={{ [MOCK_DATASET.id]: MOCK_DATASET.dataVersion }} />,
+    );
     await waitFor(() => expect(container.querySelector('[data-component="WidgetDataFooter"]')).not.toBeNull());
     expect(container.querySelector('[data-component="WidgetDataFooter"]')?.textContent).toMatch(/^Data: refreshed /);
   });

@@ -493,7 +493,14 @@ export function QueryDetailPage() {
             </Typography.Text>
           </div>
         ) : null}
-        {editing ? null : <MetadataPanel kind="query" nounId={query.id} params={urlParams} />}
+        {editing ? null : (
+          <MetadataPanel
+            kind="query"
+            nounId={query.id}
+            params={urlParams}
+            paramLabels={Object.fromEntries((query.definition.params ?? []).map((p) => [p.name, p.label ?? p.name]))}
+          />
+        )}
         {editing ? (
           <QueryBuilderPanel builder={builder} />
         ) : (

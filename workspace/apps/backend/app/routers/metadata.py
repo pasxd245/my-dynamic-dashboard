@@ -61,7 +61,9 @@ class MetadataWriteBody(BaseModel):
 
     md: str = Field(max_length=70_000)  # the byte cap (64 KiB) is checked in validate_entry
     # R197 — the values the writer read under (a reader's `p.<name>`); resolved by the server.
-    params: dict[Annotated[str, Field(max_length=32)], str | int | float] | None = Field(default=None, max_length=8)
+    params: dict[Annotated[str, Field(max_length=32)], Annotated[str, Field(max_length=256)] | int | float] | None = (
+        Field(default=None, max_length=8)
+    )
 
 
 def _token_for(authorization: str | None):

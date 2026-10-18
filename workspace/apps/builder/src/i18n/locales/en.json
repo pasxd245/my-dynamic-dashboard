@@ -1237,13 +1237,13 @@
     "readOnlyHint": "Read-only — written through the API; the author changes it by writing again.",
     "widgetTooltip": "Metadata on this widget",
     "state": {
-      "refreshed": "Data refreshed since",
+      "refreshed": "Data refreshed since this was written",
       "otherPeriod": "Another period",
       "otherDefinition": "Earlier definition"
     },
     "writtenFor": "Written for {{written}} · viewing {{viewing}}",
     "noValue": "no value",
-    "writtenForDefinition": "Written for an earlier definition of this.",
+    "writtenForDefinition": "Written for an earlier definition.",
     "show": "Show",
     "hide": "Hide",
     "definitionWarning": "The definition changed after this was written; it may not describe what you see.",

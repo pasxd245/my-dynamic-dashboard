@@ -38,7 +38,11 @@ export function WidgetDataFooter({ versions }: Readonly<{ versions?: Readonly<Re
       retry: false,
     })),
   });
-  const parts = dataFooterParts(results.map((r) => r.data).filter((d): d is Dataset => d !== undefined));
+  // Only a dataset at the version the widget READ speaks for its numbers: a
+  // newer one in the cache (refreshed since) would claim a later refresh (R197 P2).
+  const parts = dataFooterParts(
+    results.map((r) => r.data).filter((d): d is Dataset => d !== undefined && d.dataVersion === versions?.[d.id]),
+  );
   if (!parts) return null;
   const text =
     t('dashboard.dataFooter', { when: when(parts.refreshedAt, i18n.language) }) +

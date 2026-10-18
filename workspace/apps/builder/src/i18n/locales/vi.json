@@ -178,7 +178,7 @@
       "skipped": "Bỏ qua {{label}}",
       "skippedWhy": "Truy vấn của widget này không dùng tham số {{param}}, nên điều khiển không thay đổi nó."
     },
-    "dataFooter": "Dữ liệu: làm mới {{when}}",
+    "dataFooter": "Dữ liệu: làm mới lúc {{when}}",
     "dataFooterRun": "lần chạy #{{n}}"
   },
   "common": {
@@ -1247,7 +1247,7 @@
     "show": "Xem",
     "hide": "Ẩn",
     "definitionWarning": "Định nghĩa đã đổi sau khi ghi chú này được viết; nội dung có thể không còn đúng với những gì bạn thấy.",
-    "assumed": "Viết theo giá trị đã lưu hoặc mặc định của: {{names}}",
-    "beforePeriods": "Viết trước khi ghi nhận kỳ."
+    "assumed": "Viết theo giá trị đã lưu hoặc mặc định của tham số: {{names}}",
+    "beforePeriods": "Ghi chú này được viết trước khi có tham số kỳ."
   }
 }

@@ -40,9 +40,13 @@ export function entryState(entry: MetadataEntry): MetadataState {
 
 /** `as_of 2026-10-11, team North` — only the names whose values differ between
  *  the two anchors (all of `a`'s when `b` has none). */
-function differing(a: MetadataAnchor['params'], b: MetadataAnchor['params']): string {
+function differing(
+  a: MetadataAnchor['params'],
+  b: MetadataAnchor['params'],
+  labels?: Readonly<Record<string, string>>,
+): string {
   const names = Object.keys(a ?? {}).filter((n) => !b || !(n in b) || b[n] !== a?.[n]);
-  return names.map((n) => `${n} ${String(a?.[n])}`).join(', ');
+  return names.map((n) => `${labels?.[n] ?? n} ${String(a?.[n])}`).join(', ');
 }
 
 function stateTag(state: MetadataState, t: TFunction) {
@@ -92,7 +96,14 @@ export function MetadataEntryView({
   namespace,
   entry,
   current,
-}: Readonly<{ namespace: string; entry: MetadataEntry; current?: MetadataAnchor }>) {
+  paramLabels,
+}: Readonly<{
+  namespace: string;
+  entry: MetadataEntry;
+  current?: MetadataAnchor;
+  /** Parameter labels by name (the query's declarations / the dashboard's controls). */
+  paramLabels?: Readonly<Record<string, string>>;
+}>) {
   const { t, i18n } = useTranslation();
   const state = entryState(entry);
   const collapsible = state === 'other_period' || state === 'other_definition';
@@ -102,8 +113,8 @@ export function MetadataEntryView({
   const summary =
     state === 'other_period'
       ? t('metadata.writtenFor', {
-          written: differing(anchor?.params, current?.params),
-          viewing: differing(current?.params, anchor?.params) || t('metadata.noValue'),
+          written: differing(anchor?.params, current?.params, paramLabels),
+          viewing: differing(current?.params, anchor?.params, paramLabels) || t('metadata.noValue'),
         })
       : state === 'other_definition'
         ? t('metadata.writtenForDefinition')
@@ -166,7 +177,7 @@ export function MetadataEntryView({
               style={{ fontSize: 11, display: 'block', marginBottom: 6 }}
               data-component="MetadataAssumed"
             >
-              {t('metadata.assumed', { names: assumed.join(', ') })}
+              {t('metadata.assumed', { names: assumed.map((n) => paramLabels?.[n] ?? n).join(', ') })}
             </Typography.Text>
           ) : beforePeriods ? (
             <Typography.Text
@@ -210,13 +221,29 @@ export function MetadataEntryView({
 export function MetadataEntriesList({
   entries,
   current,
-}: Readonly<{ entries: MetadataEntries; current?: MetadataAnchor }>) {
+  paramLabels,
+}: Readonly<{
+  entries: MetadataEntries;
+  current?: MetadataAnchor;
+  paramLabels?: Readonly<Record<string, string>>;
+}>) {
   const names = Object.keys(entries).sort();
   return (
     <>
-      {names.map((ns) => (
-        <MetadataEntryView key={ns} namespace={ns} entry={entries[ns] as MetadataEntry} current={current} />
-      ))}
+      {names.map((ns) => {
+        const entry = entries[ns] as MetadataEntry;
+        // Keyed by state too: another reading of the same entry (the viewer moved
+        // to another period and back) starts open or collapsed afresh (R197 P1).
+        return (
+          <MetadataEntryView
+            key={`${ns}:${entryState(entry)}`}
+            namespace={ns}
+            entry={entry}
+            current={current}
+            paramLabels={paramLabels}
+          />
+        );
+      })}
     </>
   );
 }
@@ -231,11 +258,20 @@ type MetadataPanelProps = Readonly<{
   alwaysShow?: boolean;
   /** R197 — the page's parameter values (query page URL, dashboard viewer values). */
   params?: MetadataParams;
+  /** R197 — parameter labels by name, for "written for …". */
+  paramLabels?: Readonly<Record<string, string>>;
 }>;
 
 /** The page-level panel: the noun's own entries, then each child's. Renders
  *  nothing while loading or when nothing is written (unless `alwaysShow`). */
-export function MetadataPanel({ kind, nounId, childLabel, alwaysShow = false, params }: MetadataPanelProps) {
+export function MetadataPanel({
+  kind,
+  nounId,
+  childLabel,
+  alwaysShow = false,
+  params,
+  paramLabels,
+}: MetadataPanelProps) {
   const { t } = useTranslation();
   const q = useMetadataQuery(kind, nounId, params);
   const entries = q.data?.entries ?? {};
@@ -272,7 +308,7 @@ export function MetadataPanel({ kind, nounId, childLabel, alwaysShow = false, pa
               <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('metadata.empty')} />
             ) : (
               <>
-                <MetadataEntriesList entries={entries} current={q.data?.current} />
+                <MetadataEntriesList entries={entries} current={q.data?.current} paramLabels={paramLabels} />
                 {Object.keys(children)
                   .sort()
                   .map((childId) => (
@@ -283,6 +319,7 @@ export function MetadataPanel({ kind, nounId, childLabel, alwaysShow = false, pa
                       <MetadataEntriesList
                         entries={children[childId] as MetadataEntries}
                         current={q.data?.childrenCurrent?.[childId]}
+                        paramLabels={paramLabels}
                       />
                     </div>
                   ))}

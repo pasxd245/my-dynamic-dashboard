@@ -193,8 +193,9 @@ def test_the_anchor_takes_nothing_from_the_client() -> None:
         _ws, ds, _cols = _dataset(client)
         forged = _put(client, "dataset", ds, anchor={"definitionVersion": "x", "dataVersions": {ds: 99}})
         sneaky = _put(client, "dataset", ds, params={"dataVersions": "99"})
+        huge = _put(client, "dataset", ds, params={"who": "x" * 257})
 
-    assert forged.status_code == 422
+    assert forged.status_code == 422 and huge.status_code == 422
     assert sneaky.status_code == 201 and sneaky.json()["anchor"]["dataVersions"] == {ds: 1}
     assert "params" not in sneaky.json()["anchor"]  # a dataset has no parameters
 
@@ -220,7 +221,10 @@ def test_state_rules_cover_the_run() -> None:
     base = {"definitionVersion": "a"}
     assert state_of({**base, "runId": "run_00000001"}, {**base, "runId": "run_00000002"}) == "refreshed"
     assert state_of({**base, "runId": "run_00000001"}, {**base, "runId": "run_00000001"}) == "current"
-    assert state_of(base, {**base, "runId": "run_00000002"}) == "current"  # rc.2 / pre-run entry
+    assert state_of(base, {**base, "runId": "run_00000002"}, legacy=True) == "current"  # rc.2 entry
+    assert state_of(base, {**base, "runId": "run_00000002"}) == "refreshed"  # written before the first run
+    # A query the entry was about is no longer behind the widget (CR P2-2).
+    assert state_of({**base, "queryVersions": {"q": "h"}}, base) == "other_definition"
     assert (
         state_of(
             {**base, "params": {"x": 1}, "dataVersions": {"d": 1}},

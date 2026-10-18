@@ -63,9 +63,11 @@ paths:
                   description: |
                     R197 — the parameter values the writer read under, by name
                     (a date `YYYY-MM-DD`). Ignored on a noun without parameters.
+                  maxProperties: 8
                   additionalProperties:
                     oneOf:
                       - type: string
+                        maxLength: 256
                       - type: number
             examples:
               dataset:

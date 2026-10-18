@@ -124,6 +124,7 @@ function SortableWidget({
   filters,
   metadata,
   metadataCurrent,
+  paramLabels,
   badge,
 }: Readonly<{
   widget: Widget;
@@ -140,6 +141,7 @@ function SortableWidget({
   metadata?: MetadataEntries;
   /** R197 — this widget's anchor for the reader (what its entries are compared with). */
   metadataCurrent?: MetadataAnchor;
+  paramLabels?: Readonly<Record<string, string>>;
   /** R195 — which parameter controls reached this widget. */
   badge?: React.ReactNode;
 }>) {
@@ -204,7 +206,7 @@ function SortableWidget({
         placement="bottomRight"
         content={
           <div style={{ maxWidth: 420, maxHeight: 360, overflow: 'auto' }} data-component="WidgetMetadataPopover">
-            <MetadataEntriesList entries={metadata} current={metadataCurrent} />
+            <MetadataEntriesList entries={metadata} current={metadataCurrent} paramLabels={paramLabels} />
           </div>
         }
       >
@@ -368,6 +370,8 @@ export function DashboardDetailPage() {
   const widgetsById = new Map(dash.widgets.map((w) => [w.id, w]));
   const queriesById = new Map((workspaceQueries.data ?? []).map((q) => [q.id, q]));
   const controls = dash.controls ?? [];
+  // R197 — "written for As of 2026-10-11": a control's label names its parameter.
+  const controlLabels = Object.fromEntries(controls.map((c) => [c.param, c.label]));
   const resolvedByControl: Record<string, string | number> = {};
   for (const w of dash.widgets) {
     const r = resolvedByWidget[w.id];
@@ -531,6 +535,7 @@ export function DashboardDetailPage() {
           kind="dashboard"
           nounId={dash.id}
           params={viewer}
+          paramLabels={controlLabels}
           childLabel={(id) => dash.widgets.find((w) => w.id === id)?.title ?? id}
         />
 
@@ -575,6 +580,7 @@ export function DashboardDetailPage() {
                     menu={widgetMenu(w)}
                     metadata={metadataQ.data?.children?.[w.id]}
                     metadataCurrent={metadataQ.data?.childrenCurrent?.[w.id]}
+                    paramLabels={controlLabels}
                     filters={filtersFor(w.id)}
                     badge={
                       <ReachBadge

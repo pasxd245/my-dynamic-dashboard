@@ -162,16 +162,25 @@ def _differs(a: dict | None, b: dict | None) -> bool:
     return any(k in b and b[k] != v for k, v in a.items())
 
 
-def state_of(written: dict, current: dict) -> str:
-    """D4 — how the reader's view relates to the writer's (first rule wins)."""
-    if written.get("definitionVersion") != current.get("definitionVersion") or _differs(
-        written.get("queryVersions"), current.get("queryVersions")
+def state_of(written: dict, current: dict, *, legacy: bool = False) -> str:
+    """D4 — how the reader's view relates to the writer's (first rule wins). A
+    ``legacy`` (rc.2) entry recorded the definition only, so nothing else of it
+    is compared; an R197 entry without a run (written before the first run)
+    reads ``refreshed`` once there is one (code review P1-2)."""
+    wq, cq = written.get("queryVersions"), current.get("queryVersions")
+    if (
+        written.get("definitionVersion") != current.get("definitionVersion")
+        or _differs(wq, cq)
+        # A query the entry was about is gone from the reader's view (P2-2).
+        or (wq is not None and any(k not in (cq or {}) for k in wq))
     ):
         return "other_definition"
+    if legacy:
+        return "current"
     if _differs(written.get("params"), current.get("params")):
         return "other_period"
     if _differs(written.get("dataVersions"), current.get("dataVersions")) or (
-        written.get("runId") is not None and written.get("runId") != current.get("runId")
+        written.get("runId") != current.get("runId")
     ):
         return "refreshed"
     return "current"
@@ -181,6 +190,7 @@ def entry_dict(row: sqlite3.Row, current: dict) -> dict:
     """A stored entry as the API returns it (camelCase; `stale` and `state`
     computed now against the reader's anchor `current`)."""
     anchor = stored_anchor(row)
+    legacy = not ("anchor_json" in row.keys() and row["anchor_json"])
     return {
         "md": row["md"],
         "source": row["source"],
@@ -189,7 +199,7 @@ def entry_dict(row: sqlite3.Row, current: dict) -> dict:
         "definitionVersion": row["definition_version"],
         "stale": row["definition_version"] != current["definitionVersion"],
         "anchor": anchor,
-        "state": state_of(anchor, current),
+        "state": state_of(anchor, current, legacy=legacy),
     }
 
 
@@ -294,7 +304,10 @@ def anchor_for(con: sqlite3.Connection, noun: Noun, viewer: dict | None, *, stri
         row = con.execute(
             "SELECT left_dataset_id, right_dataset_id FROM relationships WHERE id = ?", (noun.noun_id,)
         ).fetchone()
-        anchor["dataVersions"] = data_versions.versions(con, sorted({row["left_dataset_id"], row["right_dataset_id"]}))
+        if row is not None:  # deleted since it resolved: the bare anchor (CR P2-4)
+            anchor["dataVersions"] = data_versions.versions(
+                con, sorted({row["left_dataset_id"], row["right_dataset_id"]})
+            )
     elif kind == "workflow":
         row = con.execute("SELECT run_id FROM workflows WHERE id = ?", (noun.noun_id,)).fetchone()
         if row is not None and row["run_id"]:
@@ -309,8 +322,8 @@ def anchor_for(con: sqlite3.Connection, noun: Noun, viewer: dict | None, *, stri
     elif kind == "widget":
         dsh_id, _sep, wdg_id = noun.noun_id.partition(":")
         drow = con.execute("SELECT definition_json FROM dashboards WHERE id = ?", (dsh_id,)).fetchone()
-        definition = json.loads(drow["definition_json"])
-        widget = next(w for w in definition.get("widgets") or [] if w.get("id") == wdg_id)
+        definition = json.loads(drow["definition_json"]) if drow is not None else {}
+        widget = next((w for w in definition.get("widgets") or [] if w.get("id") == wdg_id), {})
         if widget.get("queryId"):
             part = _query_part(
                 con,
@@ -341,6 +354,8 @@ def _dashboard_anchor(
     declaration. A control with no value at any level is left out — a
     dashboard note does not need every widget bound (P2-1)."""
     drow = con.execute("SELECT definition_json FROM dashboards WHERE id = ?", (dsh_id,)).fetchone()
+    if drow is None:  # deleted since it resolved (CR P2-4)
+        return {}
     definition = json.loads(drow["definition_json"])
     widgets = definition.get("widgets") or []
     qvers: dict[str, str] = {}
