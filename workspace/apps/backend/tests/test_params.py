@@ -300,8 +300,9 @@ def test_a_query_without_parameters_answers_as_before() -> None:
 
     assert "params" not in detail["definition"]
     assert stored["params"] is None  # stored as null: the hash drops it
-    assert set(rows) == {"rows", "page", "pageSize", "total"}
-    assert totals == {"sums": {"amount": "30"}, "rowCount": 2}
+    # No parameter keys; R196 adds only the data versions.
+    assert set(rows) == {"rows", "page", "pageSize", "total", "dataVersions"}
+    assert totals == {"sums": {"amount": "30"}, "rowCount": 2, "dataVersions": {ds: 1}}
     assert "x-mdd-params" not in {k.lower() for k in csv.headers}
 
 
@@ -441,6 +442,7 @@ def test_totals_and_export_carry_the_values() -> None:
     assert totals.json() == {
         "sums": {"amount": "30"},
         "rowCount": 2,
+        "dataVersions": {ds: 1},
         "resolvedParams": {"as_of": {"value": "2026-10-11", "source": "viewer"}},
     }
     validate_response("queries/totals.contract.yaml", 200, totals.json())

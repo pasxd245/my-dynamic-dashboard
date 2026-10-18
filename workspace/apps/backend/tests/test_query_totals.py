@@ -61,6 +61,8 @@ def test_filters_change_the_totals() -> None:
             json={"columns": ["calls"], "filters": [{"column": "nope", "values": ["x"]}]},
         ).json()
 
+    # R196 — every read also says which data it read (`dataVersions`).
+    assert emea.pop("dataVersions") == blank.pop("dataVersions")
     assert emea == {"sums": {"calls": "400"}, "rowCount": 2}
     assert blank == {"sums": {"calls": "0"}, "rowCount": 1}  # the all-NULL group reads 0 (aggregate parity)
     assert unknown_col_filter["rowCount"] == 4  # a filter on a column the result lacks is skipped
@@ -80,7 +82,9 @@ def test_stepped_query_totals_the_post_step_result() -> None:
         base_col = client.post(f"/queries/{qid}/totals", json={"columns": ["calls"]})
 
     assert resp.status_code == 200, resp.text
-    assert resp.json() == {"sums": {"quotes": "175"}, "rowCount": 2}
+    body = resp.json()
+    assert len(body.pop("dataVersions")) == 1  # R196
+    assert body == {"sums": {"quotes": "175"}, "rowCount": 2}
     assert base_col.status_code == 422  # `calls` is not a post-step column
 
 

@@ -85,6 +85,8 @@ paths:
                   rowCount:
                     type: integer
                     minimum: 0
+                  dataVersions:
+                    $ref: "../_shared/query.yaml#/components/schemas/DataVersions"
                   resolvedParams:
                     $ref: "../_shared/query.yaml#/components/schemas/ResolvedParams"
               examples:

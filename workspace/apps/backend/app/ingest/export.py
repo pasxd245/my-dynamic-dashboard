@@ -38,6 +38,26 @@ def _csv_cell(v: Any) -> str:
     return str(v)
 
 
+def file_stem(title: str) -> str:
+    """A file-name stem from a title (letters, digits, `-_`; spaces → `_`)."""
+    return (
+        "".join(ch if ch.isalnum() or ch in "-_ " else "_" for ch in title).strip().replace(" ", "_")[:60] or "export"
+    )
+
+
+def attachment_disposition(stem: str, ext: str) -> str:
+    """`Content-Disposition` for a download. A non-Latin stem (e.g. Vietnamese)
+    cannot ride in a plain header: an ASCII fallback plus RFC 5987 `filename*`.
+    An ASCII stem gets exactly the plain form (R194)."""
+    from urllib.parse import quote
+
+    ascii_stem = stem.encode("ascii", "replace").decode("ascii").replace("?", "_")
+    plain = f'attachment; filename="{ascii_stem}.{ext}"'
+    if ascii_stem == stem:
+        return plain
+    return f"{plain}; filename*=UTF-8''{quote(f'{stem}.{ext}', safe='')}"
+
+
 def build_csv(
     columns: list[dict],
     rows: list[list[Any]],
@@ -87,6 +107,7 @@ def build_xlsx(
     filters_sheet_title: str,
     totalled: frozenset[str] = frozenset(),
     params: list[tuple[str, object, str]] | None = None,
+    data_versions: list[tuple[str, str, int]] | None = None,
 ) -> bytes:
     wb = Workbook()
     ws = wb.active
@@ -140,6 +161,17 @@ def build_xlsx(
             cell.font = bold
         for name, value, source in params:
             fs.append([name, value, source])
+        fs.column_dimensions["C"].width = 12
+    # R196 (3.2c) — the data the rows were read from: each dataset's version.
+    if data_versions:
+        fs.append([])
+        fs.append(["Data versions"])
+        fs[fs.max_row][0].font = bold
+        fs.append(["dataset", "id", "version"])
+        for cell in fs[fs.max_row]:
+            cell.font = bold
+        for name, ds_id, version in data_versions:
+            fs.append([name, ds_id, version])
         fs.column_dimensions["C"].width = 12
     fs.column_dimensions["A"].width = 24
     fs.column_dimensions["B"].width = 60

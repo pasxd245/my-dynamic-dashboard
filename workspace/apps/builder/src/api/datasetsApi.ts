@@ -127,6 +127,22 @@ export const datasetsApi = {
     return readJson<Dataset[]>(resp);
   },
 
+  /** R196 — POST /datasets/{id}/export: the dataset's (or a saved copy's) rows as
+   *  a file + the server's file name. 404 / 422 `export_too_large` throw. */
+  async exportFile(id: string, format: 'csv' | 'xlsx'): Promise<{ blob: Blob; filename: string }> {
+    const resp = await fetch(`${API_BASE_URL}/datasets/${id}/export`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ format }),
+    });
+    if (!resp.ok) await readJson<never>(resp);
+    const disposition = resp.headers.get('content-disposition') ?? '';
+    const utf8 = /filename\*=UTF-8''([^;]+)/i.exec(disposition);
+    const m = /filename="([^"]+)"/.exec(disposition);
+    const filename = (utf8 ? decodeURIComponent(utf8[1]) : m?.[1]) ?? `export.${format}`;
+    return { blob: await resp.blob(), filename };
+  },
+
   /** R36: GET /datasets/{id} — single dataset by id. 404 throws ApiErrorThrown. */
   async get(id: string): Promise<Dataset> {
     const resp = await fetch(`${API_BASE_URL}/datasets/${id}`);

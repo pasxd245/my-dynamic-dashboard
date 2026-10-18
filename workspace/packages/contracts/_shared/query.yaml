@@ -119,6 +119,18 @@ components:
           type: string
           pattern: '^wdg_[0-9a-f]{8}$'
 
+    DataVersions:
+      type: object
+      description: |
+        R196 (item 3.2c) — the `dataVersion` of every dataset the read actually
+        read, by dataset id (a joined query: every dataset of the join). With
+        `resolvedParams` it answers "which data, under which values, did I
+        see". Read at the time of the read; a copy (R193) reports its own id and
+        the frozen version.
+      additionalProperties:
+        type: integer
+        minimum: 1
+
     ResolvedParams:
       type: object
       description: |

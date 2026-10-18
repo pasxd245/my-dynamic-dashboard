@@ -94,7 +94,14 @@ paths:
             and XLSX answers carry the `X-MDD-Params` header — the
             `resolvedParams` object as ASCII JSON (non-ASCII as `\uXXXX`),
             exposed through CORS. Without parameters both are as before.
+            R196 (3.2c) — the Filters sheet gains a `Data versions` block
+            (`dataset | id | version`) and both formats carry `X-MDD-Data-Versions`
+            (`DataVersions` as compact JSON): the data the file was read from.
           headers:
+            X-MDD-Data-Versions:
+              description: R196 — `DataVersions` as compact JSON.
+              schema:
+                type: string
             X-MDD-Params:
               description: R194 — `ResolvedParams` as compact ASCII JSON; present only when parameters were resolved.
               schema:

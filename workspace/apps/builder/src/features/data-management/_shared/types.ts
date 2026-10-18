@@ -46,6 +46,7 @@ export type ApiError =
     }
   // R193 — a write inside a saved (frozen) workspace; nothing was changed
   | { code: 'read_only_workspace' }
+  | { code: 'export_too_large'; rows: number; max: number } // R182 / R196 — over EXPORT_MAX_ROWS
   // R194 — a query parameter with no value at any level (a workflow run also names the source)…
   | {
       code: 'param_unbound';
@@ -95,7 +96,8 @@ export function isApiError(body: unknown): body is ApiError {
     code === ERROR_CODES.NOT_PUBLISHABLE ||
     code === ERROR_CODES.READ_ONLY_WORKSPACE ||
     code === ERROR_CODES.PARAM_UNBOUND ||
-    code === ERROR_CODES.PARAM_INVALID
+    code === ERROR_CODES.PARAM_INVALID ||
+    code === ERROR_CODES.EXPORT_TOO_LARGE
   );
 }
 

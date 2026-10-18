@@ -123,6 +123,8 @@ paths:
                     type: integer
                     minimum: 0
                     description: Group count (= `rows.length`; no cap applies).
+                  dataVersions:
+                    $ref: "../_shared/query.yaml#/components/schemas/DataVersions"
                   resolvedParams:
                     $ref: "../_shared/query.yaml#/components/schemas/ResolvedParams"
               examples:

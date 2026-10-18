@@ -452,7 +452,14 @@
         "unterminated_quote": "Unterminated quoted value"
       }
     },
-    "refresh": "Refresh"
+    "refresh": "Refresh",
+    "export": {
+      "xlsx": "Export all rows (.xlsx)",
+      "csv": "Export all rows (.csv)",
+      "done": "Saved {{name}}",
+      "failed": "Could not export this dataset.",
+      "tooLarge": "Too many rows to export ({{rows}}; the limit is {{max}}). Save a query with filters and export that instead."
+    }
   },
   "upload": {
     "title": "New dataset",

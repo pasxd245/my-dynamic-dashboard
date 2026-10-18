@@ -449,6 +449,8 @@ export type AggregateResult = {
   columns: readonly { name: string; dtype: ResolvedColumn['dtype'] }[];
   rows: readonly (readonly (string | null)[])[];
   total: number;
+  /** R196 — the `dataVersion` of every dataset the read read. */
+  dataVersions?: Record<string, number>;
   resolvedParams?: ResolvedParams;
 };
 
@@ -474,6 +476,7 @@ export type ExportRequest = {
 export type TotalsResult = {
   sums: Record<string, string | null>;
   rowCount: number;
+  dataVersions?: Record<string, number>;
   resolvedParams?: ResolvedParams;
 };
 
@@ -490,5 +493,6 @@ export type QueryPreview = {
    *  definition has `steps`; then `resolvedColumns` are the POST-step result).
    *  The builder's join/filter editors author against these. */
   baseColumns?: readonly { name: string; dtype: ResolvedColumn['dtype'] }[];
+  dataVersions?: Record<string, number>;
   resolvedParams?: ResolvedParams;
 };

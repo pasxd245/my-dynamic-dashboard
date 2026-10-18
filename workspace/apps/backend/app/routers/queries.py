@@ -20,7 +20,6 @@ from __future__ import annotations
 import json
 import secrets
 import sqlite3
-from urllib.parse import quote
 from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Query, Request, status
@@ -32,7 +31,7 @@ from app import params as qparams
 from app.db import get_conn
 from app.ingest.filters import build_definition_predicates
 from app import duck
-from app.ingest.export import EXPORT_MAX_ROWS, build_csv, build_xlsx
+from app.ingest.export import EXPORT_MAX_ROWS, attachment_disposition, build_csv, build_xlsx, file_stem
 from app.ingest.rows_reader import _name_in_sql, build_steps_relation, query_aggregate_rows, query_dataset_rows
 from app.models.common import (
     AggregateBody,
@@ -89,6 +88,34 @@ def _bound(definition: dict, viewer: dict | None, dashboard: dict | None, column
     copy of the definition; raises ``qparams.ParamError`` (→ 422)."""
     values, resolved = qparams.resolve(definition, viewer=viewer, dashboard=dashboard)
     return qparams.bind(definition, values, columns, resolved), resolved
+
+
+def _data_versions(plan: dict | None) -> dict[str, int]:
+    """R196 (3.2c) — the `dataVersion` of every dataset this plan reads (a join:
+    every dataset of it), read now."""
+    if not plan:
+        return {}
+    if plan.get("kind") == "single":
+        ids = [plan["ds"]["id"]]
+    else:
+        ids = sorted(i for i in plan.get("payload", {}).get("dataset_ids", set()) if str(i).startswith("ds_"))
+    if not ids:
+        return {}
+    marks = ",".join("?" * len(ids))
+    with get_conn() as con:
+        rows = con.execute(
+            f"SELECT id, data_version FROM datasets WHERE id IN ({marks})",  # noqa: S608 — placeholders only
+            ids,
+        ).fetchall()
+    return {r["id"]: r["data_version"] for r in sorted(rows, key=lambda r: r["id"])}
+
+
+def _stamped(content: dict, resolved: dict, versions: dict[str, int]) -> dict:
+    """R196 — which data (`dataVersions`) and, R194, under which values
+    (`resolvedParams`) the read was made."""
+    if versions:
+        content["dataVersions"] = versions
+    return _with_resolved(content, resolved)
 
 
 def _with_resolved(content: dict, resolved: dict) -> dict:
@@ -309,7 +336,9 @@ def run_query(  # noqa: A002
         rows, total = _run_steps(plan, q, filters, advanced, step_plan, page=eff_page, page_size=eff_page_size)
         echoed_page_size = len(rows) if unpaged else eff_page_size
         body = RowsPage(rows=rows, page=eff_page, pageSize=echoed_page_size, total=total)
-        return JSONResponse(status_code=status.HTTP_200_OK, content=_with_resolved(body.model_dump(), resolved_params))
+        return JSONResponse(
+            status_code=status.HTTP_200_OK, content=_stamped(body.model_dump(), resolved_params, _data_versions(plan))
+        )
 
     if plan["kind"] == "join":
         rows, total = _execute_chain(
@@ -332,7 +361,9 @@ def run_query(  # noqa: A002
     # "page" in the pager sense); paged response echoes the requested size.
     echoed_page_size = len(rows) if unpaged else eff_page_size
     body = RowsPage(rows=rows, page=eff_page, pageSize=echoed_page_size, total=total)
-    return JSONResponse(status_code=status.HTTP_200_OK, content=_with_resolved(body.model_dump(), resolved_params))
+    return JSONResponse(
+        status_code=status.HTTP_200_OK, content=_stamped(body.model_dump(), resolved_params, _data_versions(plan))
+    )
 
 
 @router.post("/queries/{id}/aggregate")
@@ -395,7 +426,9 @@ def aggregate_query(id: QueryIdPath, body: AggregateBody) -> JSONResponse:  # no
     )
     out_columns = _aggregate_output_columns(body.dimensions, measures, plan["columns"])
     content = {"columns": out_columns, "rows": rows, "total": len(rows)}
-    return JSONResponse(status_code=status.HTTP_200_OK, content=_with_resolved(content, resolved_params))
+    return JSONResponse(
+        status_code=status.HTTP_200_OK, content=_stamped(content, resolved_params, _data_versions(plan))
+    )
 
 
 def _final_relation(
@@ -452,7 +485,24 @@ def _final_relation(
         "columns": final_cols,
         "name": name,
         "resolvedParams": resolved_params,
+        "dataVersions": _data_versions(plan),
     }, None
+
+
+def _version_rows(versions: dict[str, int]) -> list[tuple[str, str, int]]:
+    """`(dataset name, id, version)` rows for the export's Data versions block."""
+    if not versions:
+        return []
+    marks = ",".join("?" * len(versions))
+    with get_conn() as con:
+        names = {
+            r["id"]: r["name"]
+            for r in con.execute(
+                f"SELECT id, name FROM datasets WHERE id IN ({marks})",  # noqa: S608 — placeholders only
+                list(versions),
+            )
+        }
+    return [(names.get(i, i), i, v) for i, v in versions.items()]
 
 
 def _totals_over(relation: dict, columns: list[str], filters: list) -> tuple[dict[str, str | None], int]:
@@ -488,7 +538,7 @@ def totals_query(id: QueryIdPath, body: TotalsBody) -> JSONResponse:  # noqa: A0
         return err
     assert relation is not None  # noqa: S101 — the pair is exclusive
     sums, row_count = _totals_over(relation, body.columns, body.filters)
-    content = _with_resolved({"sums": sums, "rowCount": row_count}, relation["resolvedParams"])
+    content = _stamped({"sums": sums, "rowCount": row_count}, relation["resolvedParams"], relation["dataVersions"])
     return JSONResponse(status_code=status.HTTP_200_OK, content=content)
 
 
@@ -513,6 +563,10 @@ def export_query(id: QueryIdPath, body: ExportBody) -> Response:  # noqa: A002
         if resolved_params
         else {}
     )
+    # R196 (3.2c) — which data the file holds.
+    versions: dict[str, int] = relation["dataVersions"]
+    if versions:
+        param_headers["X-MDD-Data-Versions"] = json.dumps(versions, separators=(",", ":"))
     columns: list[dict] = relation["columns"]
     col_names = {c["name"] for c in columns}
     dashboard_filters = [(f.column, f.values) for f in body.filters if f.column in col_names]
@@ -570,18 +624,10 @@ def export_query(id: QueryIdPath, body: ExportBody) -> Response:  # noqa: A002
         for name, spec in (body.totals or {}).items():
             if spec.agg == "ratio" and name in col_names:
                 percent_columns.add(name)
-    stem = (
-        "".join(ch if ch.isalnum() or ch in "-_ " else "_" for ch in title).strip().replace(" ", "_")[:60] or "export"
-    )
-    # A non-Latin title (e.g. Vietnamese) cannot ride in a plain header: an ASCII
-    # fallback name plus the RFC 5987 UTF-8 one (QA R194 — pre-existing 500).
-    ascii_stem = stem.encode("ascii", "replace").decode("ascii").replace("?", "_")
+    stem = file_stem(title)
 
     def disposition(ext: str) -> str:
-        plain = f'attachment; filename="{ascii_stem}.{ext}"'
-        if ascii_stem == stem:
-            return plain
-        return f"{plain}; filename*=UTF-8''{quote(f'{stem}.{ext}', safe='')}"
+        return attachment_disposition(stem, ext)
 
     if body.format == "csv":
         data = build_csv(columns, rows, totals_row, "Total", totalled=totalled)
@@ -602,6 +648,7 @@ def export_query(id: QueryIdPath, body: ExportBody) -> Response:  # noqa: A002
         filters_sheet_title="Filters",
         totalled=totalled,
         params=[(n, r["value"], r["source"]) for n, r in sorted(resolved_params.items())],
+        data_versions=_version_rows(versions),
     )
     return Response(
         content=data,
@@ -697,7 +744,9 @@ def preview_query(  # noqa: A002
             "resolvedColumns": resolved,
             "baseColumns": base,
         }
-        return JSONResponse(status_code=status.HTTP_200_OK, content=_with_resolved(content, resolved_params))
+        return JSONResponse(
+            status_code=status.HTTP_200_OK, content=_stamped(content, resolved_params, _data_versions(plan))
+        )
 
     if plan["kind"] == "join":
         rows, total = _execute_chain(
@@ -719,7 +768,9 @@ def preview_query(  # noqa: A002
         )
         content = {"rows": rows, "page": page, "pageSize": page_size, "total": total}
 
-    return JSONResponse(status_code=status.HTTP_200_OK, content=_with_resolved(content, resolved_params))
+    return JSONResponse(
+        status_code=status.HTTP_200_OK, content=_stamped(content, resolved_params, _data_versions(plan))
+    )
 
 
 @router.put("/queries/{id}")

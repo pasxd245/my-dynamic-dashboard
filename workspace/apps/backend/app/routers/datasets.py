@@ -1546,3 +1546,92 @@ def list_datasets(
             ).fetchall()
 
     return [_dataset_from_row(r) for r in rows]
+
+
+# ─── R196 (item 3.2c) — a dataset's rows as a file ─────────────────────────
+
+
+class _DatasetExportBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    format: Literal["csv", "xlsx"]
+
+
+@router.post("/datasets/{id}/export")
+def export_dataset(id: DsIdPath, body: _DatasetExportBody) -> Response:  # noqa: A002
+    """Every row of a dataset, its VISIBLE columns in order, typed cells. The
+    Filters sheet names the dataset, its data version and when those rows
+    arrived — and, for a saved copy, what it froze. Both formats carry
+    `X-MDD-Data-Versions`. Over `EXPORT_MAX_ROWS` → 422 `export_too_large`."""
+    from app import duck
+    from app.ingest.export import (
+        EXPORT_MAX_ROWS,
+        attachment_disposition,
+        build_csv,
+        build_xlsx,
+        file_stem,
+    )
+    from app.ingest.filters import _quote_ident
+    from app.models.common import ApiErrorExportTooLarge
+
+    with get_conn() as con:
+        row = con.execute("SELECT * FROM datasets WHERE id = ?", (id,)).fetchone()
+    if row is None:
+        return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=ApiErrorNotFound().model_dump())
+    parquet = dataset_dir(row["workspace_id"], id) / "parsed.parquet"
+    if not parquet.exists():
+        return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=ApiErrorNotFound().model_dump())
+    columns = [c for c in json.loads(row["columns_json"]) if not c.get("hidden")] or json.loads(row["columns_json"])
+    select = ", ".join(_quote_ident(c["name"]) for c in columns)
+    sql = f"SELECT {select} FROM read_parquet(?)"  # noqa: S608 — quoted identifiers of this dataset's columns
+    with duck.connect() as dcon:
+        total = int(dcon.execute(f"SELECT COUNT(*) FROM ({sql}) AS _c", [str(parquet)]).fetchone()[0])  # noqa: S608
+        if total > EXPORT_MAX_ROWS:
+            return JSONResponse(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                content=ApiErrorExportTooLarge(rows=total, max=EXPORT_MAX_ROWS).model_dump(),
+            )
+        rows = [list(r) for r in dcon.execute(sql, [str(parquet)]).fetchall()]
+
+    versions = {id: row["data_version"]}
+    headers = {"X-MDD-Data-Versions": json.dumps(versions, separators=(",", ":"))}
+    stem = file_stem(row["name"])
+    if body.format == "csv":
+        return Response(
+            content=build_csv(columns, rows, None, "Total"),
+            media_type="text/csv; charset=utf-8",
+            headers={"Content-Disposition": attachment_disposition(stem, "csv"), **headers},
+        )
+    meta: list[tuple[str, str]] = [
+        ("dataset", row["name"]),
+        ("data_version", str(row["data_version"])),
+        ("rows_as_of", row["refreshed_at"] or row["created_at"]),
+    ]
+    if row["saved_from_json"]:
+        frozen = json.loads(row["saved_from_json"])
+        meta += [
+            (
+                "frozen_copy_of",
+                f"{frozen['datasetName']} (data version {frozen['dataVersion']}) — not the current numbers",
+            ),
+            ("saved_at", frozen["savedAt"]),
+            ("label", frozen["label"]),
+        ]
+    meta += [("exported_at", _now_iso()), ("rows", str(total))]
+    data = build_xlsx(
+        columns,
+        rows,
+        None,
+        "Total",
+        percent_columns=set(),
+        sheet_title=row["name"],
+        filters=[],
+        meta=meta,
+        filters_sheet_title="Filters",
+        data_versions=[(row["name"], id, row["data_version"])],
+    )
+    return Response(
+        content=data,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": attachment_disposition(stem, "xlsx"), **headers},
+    )

@@ -129,6 +129,8 @@ paths:
                     type: integer
                     minimum: 0
                     description: Matched-row count under the previewed definition.
+                  dataVersions:
+                    $ref: '../_shared/query.yaml#/components/schemas/DataVersions'
                   resolvedParams:
                     $ref: '../_shared/query.yaml#/components/schemas/ResolvedParams'
                   resolvedColumns:

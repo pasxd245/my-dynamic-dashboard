@@ -1,0 +1,80 @@
+openapi: 3.1.0
+info:
+  title: my-dynamic-dashboard — POST /datasets/{id}/export
+  version: 0.1.0
+  description: |
+    R196 (item 3.2c; saved-copies.md S2) — a dataset's rows as a file (CSV or
+    XLSX): every row, its visible columns in order, typed cells. The XLSX
+    `Filters` sheet names the dataset, its data version and when those rows
+    arrived, the export time and the row count — and for a saved copy (R193)
+    what it froze ("frozen copy of … — not the current numbers"). Both formats
+    carry `X-MDD-Data-Versions` (`{<datasetId>: n}`).
+
+    Capped at 100 000 rows: over it the server answers 422 `export_too_large`
+    with the count, as the query export does.
+paths:
+  /datasets/{id}/export:
+    post:
+      operationId: exportDataset
+      summary: Download a dataset's rows as CSV / XLSX
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^ds_[0-9a-f]{8}$"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [format]
+              additionalProperties: false
+              properties:
+                format:
+                  type: string
+                  enum: [csv, xlsx]
+            examples:
+              xlsx:
+                value: { format: xlsx }
+      responses:
+        "200":
+          description: |
+            The file, as an attachment — `Content-Disposition: attachment;
+            filename="<dataset name>.csv|xlsx"` (RFC 5987 `filename*` added for a
+            non-ASCII name).
+          headers:
+            X-MDD-Data-Versions:
+              description: "`DataVersions` as compact JSON — this dataset's id and version."
+              schema:
+                type: string
+          content:
+            text/csv:
+              schema:
+                type: string
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: No such dataset (or its stored rows are gone).
+          content:
+            application/json:
+              schema:
+                $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorNotFound"
+        "422":
+          description: Over the row cap (`export_too_large`), or a malformed request (FastAPI envelope).
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "../_shared/api-error.yaml#/components/schemas/ApiErrorExportTooLarge"
+                  - type: object
+                    required: [detail]
+                    properties:
+                      detail:
+                        type: array
+                        items:
+                          type: object

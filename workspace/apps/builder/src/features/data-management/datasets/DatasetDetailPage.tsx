@@ -2,6 +2,7 @@ import {
   ArrowLeftOutlined,
   DatabaseOutlined,
   DeleteOutlined,
+  DownloadOutlined,
   DownOutlined,
   EditOutlined,
   FileExcelOutlined,
@@ -41,6 +42,7 @@ import {
 import { MetadataPanel } from '@/features/metadata/MetadataPanel';
 import { useWorkflowQuery } from '@/features/data-management/workflows/hooks';
 import { DateCoverageStrip } from './DateCoverage';
+import { downloadDatasetExport } from './exportDataset';
 import { PropertiesDrawer } from './PropertiesDrawer';
 import { FrozenCopyBand, SaveCopyModal } from './SavedCopy';
 import { ActiveFilterChips, formatChipText } from './filters/ActiveFilterChips';
@@ -463,6 +465,27 @@ export function DatasetDetailPage() {
     },
   );
 
+  // R196 (item 3.2c) — every row of the dataset (or the saved copy) as a file,
+  // stamped with its data version. Filters on screen are not applied.
+  const exportItems = (['xlsx', 'csv'] as const).map((fmt) => ({
+    key: `export-${fmt}`,
+    label: t(`datasets.export.${fmt}`),
+    icon: <DownloadOutlined />,
+    onClick: () => {
+      downloadDatasetExport(dataset.id, fmt)
+        .then((name) => message.success(t('datasets.export.done', { name })))
+        .catch((err: unknown) => {
+          const body =
+            err instanceof ApiErrorThrown ? (err.body as { code?: string; rows?: number; max?: number }) : null;
+          message.error(
+            body?.code === 'export_too_large'
+              ? t('datasets.export.tooLarge', { rows: body.rows ?? 0, max: body.max ?? 0 })
+              : t('datasets.export.failed'),
+          );
+        });
+    },
+  }));
+
   const actions = (
     <span style={{ display: 'inline-flex', gap: 8 }}>
       {/* R193 — a saved copy is read-only: no query can be created over it there. */}
@@ -490,6 +513,7 @@ export function DatasetDetailPage() {
                   icon: <ColumnsIcon size={14} />,
                   onClick: () => setPropertiesOpen(true),
                 },
+                ...exportItems,
                 {
                   key: 'delete',
                   label: t('common.delete'),
@@ -535,6 +559,7 @@ export function DatasetDetailPage() {
                   icon: <LockOutlined />,
                   onClick: () => setSaveCopyOpen(true),
                 },
+                ...exportItems,
                 {
                   key: 'rename',
                   label: t('common.rename'),

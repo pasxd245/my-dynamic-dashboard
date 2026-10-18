@@ -452,7 +452,14 @@
         "unterminated_quote": "Dấu nháy kép chưa đóng"
       }
     },
-    "refresh": "Cập nhật dữ liệu"
+    "refresh": "Cập nhật dữ liệu",
+    "export": {
+      "xlsx": "Xuất toàn bộ dòng (.xlsx)",
+      "csv": "Xuất toàn bộ dòng (.csv)",
+      "done": "Đã lưu {{name}}",
+      "failed": "Không xuất được dataset này.",
+      "tooLarge": "Quá nhiều dòng để xuất ({{rows}}; giới hạn {{max}}). Lưu một query có bộ lọc rồi xuất query đó."
+    }
   },
   "upload": {
     "title": "Tập dữ liệu mới",

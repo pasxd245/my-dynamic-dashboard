@@ -127,6 +127,8 @@ paths:
                       Matched-row count under the saved definition. The
                       FE pairs this with the dataset's `rowCount` to
                       render the "Matched X / Y" counter.
+                  dataVersions:
+                    $ref: '../_shared/query.yaml#/components/schemas/DataVersions'
                   resolvedParams:
                     $ref: '../_shared/query.yaml#/components/schemas/ResolvedParams' 
               examples:

@@ -89,7 +89,9 @@ def test_xlsx_cells_keep_their_types_and_the_filters_sheet_names_the_filter() ->
     assert total[0] == "Total" and total[1] == 400 and total[3] == pytest.approx(70 / 400)
     assert ws.cell(row=ws.max_row, column=2).font.bold
     fs = wb["Filters"]
-    cells = [[c.value for c in r] for r in fs.iter_rows()]
+    # R196 — the sheet now also has a 3-column Data versions block; compare the
+    # first two cells of each row.
+    cells = [[c.value for c in r][:2] for r in fs.iter_rows()]
     assert ["query", "Calls"] in cells and ["widget", "Calls table"] in cells and ["rows", "2"] in cells
     assert ["region", "EMEA"] in cells
 
