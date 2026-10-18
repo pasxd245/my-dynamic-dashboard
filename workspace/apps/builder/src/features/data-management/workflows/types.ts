@@ -40,8 +40,24 @@ export type Workflow = {
   run?: WorkflowRun;
   /** R187 — sources that moved since the run; absent when none did. */
   staleSources?: readonly WorkflowStaleSource[];
+  /** R192 — the dataset this workflow published in its workspace (computed on
+   *  read); absent when there is none. */
+  published?: WorkflowPublished;
   createdAt: string;
 };
+
+/** R192 — mirrors `_shared/workflow.yaml#/Workflow.published`. */
+export type WorkflowPublished = {
+  datasetId: string;
+  datasetName: string;
+  dataVersion: number;
+  /** The run it was published from; ≠ `run.id` once the workflow ran again. */
+  runId: string;
+  runNumber: number;
+};
+
+/** R192 — `409 not_publishable` reasons. */
+export type NotPublishableReason = 'never_run' | 'stale' | 'reads_itself';
 
 /** R187 (W-7) — mirrors `_shared/workflow.yaml#/WorkflowRun`. */
 export type WorkflowRun = {

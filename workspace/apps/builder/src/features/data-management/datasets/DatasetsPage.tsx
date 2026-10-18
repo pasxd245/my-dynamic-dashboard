@@ -5,6 +5,7 @@ import {
   FileTextOutlined,
   InboxOutlined,
   MoreOutlined,
+  PartitionOutlined,
   PlusOutlined,
   ReloadOutlined,
   SearchOutlined,
@@ -289,7 +290,15 @@ type TableProps = Readonly<{
   onRowClick: (ds: Dataset) => void;
 }>;
 
-function DatasetTable({ rows, workspaceById, onWorkspaceClick, onRename, onDelete, onRefresh, onRowClick }: TableProps) {
+function DatasetTable({
+  rows,
+  workspaceById,
+  onWorkspaceClick,
+  onRename,
+  onDelete,
+  onRefresh,
+  onRowClick,
+}: TableProps) {
   const { t } = useTranslation();
   const data = rows.map((r) => ({ ...r, key: r.id }));
   return (
@@ -383,15 +392,20 @@ function DatasetTable({ rows, workspaceById, onWorkspaceClick, onRename, onDelet
             <Dropdown
               menu={{
                 items: [
-                  {
-                    key: 'refresh',
-                    icon: <ReloadOutlined />,
-                    label: t('datasets.refresh'),
-                    onClick: ({ domEvent }) => {
-                      domEvent.stopPropagation();
-                      onRefresh(row);
-                    },
-                  },
+                  // R192 — a published dataset is refreshed by re-publishing.
+                  ...(row.sourceFormat === 'workflow'
+                    ? []
+                    : [
+                        {
+                          key: 'refresh',
+                          icon: <ReloadOutlined />,
+                          label: t('datasets.refresh'),
+                          onClick: ({ domEvent }: { domEvent: React.MouseEvent | React.KeyboardEvent }) => {
+                            domEvent.stopPropagation();
+                            onRefresh(row);
+                          },
+                        },
+                      ]),
                   {
                     key: 'rename',
                     icon: <EditOutlined />,
@@ -441,7 +455,19 @@ type SourceIconProps = Readonly<{
 }>;
 
 function SourceIcon({ format, sheetName, style }: SourceIconProps) {
-  const title = format === 'excel' ? `Excel${sheetName ? ` · ${sheetName}` : ''}` : 'CSV';
+  const title =
+    format === 'excel' ? `Excel${sheetName ? ` · ${sheetName}` : ''}` : format === 'workflow' ? 'Workflow' : 'CSV';
+  if (format === 'workflow') {
+    // R192 — published from a workflow (the workflows nav icon).
+    return (
+      <PartitionOutlined
+        title={title}
+        style={{ color: '#722ed1', ...style }}
+        data-component="DatasetSourceIcon"
+        data-format="workflow"
+      />
+    );
+  }
   if (format === 'excel') {
     return (
       <FileExcelOutlined
@@ -461,7 +487,6 @@ function SourceIcon({ format, sheetName, style }: SourceIconProps) {
     />
   );
 }
-
 
 type TFunc = (key: string, opts?: Record<string, unknown>) => string;
 

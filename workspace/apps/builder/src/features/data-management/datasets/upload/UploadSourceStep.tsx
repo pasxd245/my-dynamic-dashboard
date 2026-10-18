@@ -9,11 +9,11 @@ import { useTranslation } from "react-i18next";
 import { appConfig } from "@/config";
 import { formatBytesCoarse } from "@/lib/formatBytes";
 import { useWorkspacesQuery } from '@/features/data-management/workspaces/hooks';
-import type { SourceFormat } from "../types";
+import type { UploadFormat } from "../types";
 import { useUploadInitMutation } from "../hooks";
 import type { WizardAction, WizardState } from "./state";
 
-const ACCEPT: Record<SourceFormat, string> = {
+const ACCEPT: Record<UploadFormat, string> = {
   csv: ".csv",
   excel: ".xlsx,.xls",
 };

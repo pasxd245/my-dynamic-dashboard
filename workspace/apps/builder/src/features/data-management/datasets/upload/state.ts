@@ -11,7 +11,7 @@ import type {
   RefreshMode,
   RefreshSettings,
   SheetSummary,
-  SourceFormat,
+  UploadFormat,
   TempUploadResponse,
 } from "../types";
 
@@ -86,7 +86,7 @@ export function hasParseOptionsSet(opts: ParseOptions | undefined): boolean {
 export type WizardState = {
   step: WizardStep;
   mode: WizardMode;
-  sourceFormat: SourceFormat;
+  sourceFormat: UploadFormat;
   workspaceId: string | null;
   file: File | null;
   tempId: string | null;
@@ -217,7 +217,7 @@ function defaultSheetState(state: WizardState, key: string): SheetState {
 }
 
 export type WizardAction =
-  | { type: "SET_SOURCE_FORMAT"; sourceFormat: SourceFormat }
+  | { type: "SET_SOURCE_FORMAT"; sourceFormat: UploadFormat }
   | { type: "SET_WORKSPACE"; workspaceId: string }
   | { type: "SET_FILE"; file: File }
   | { type: "UPLOAD_INIT_SUCCESS"; response: TempUploadResponse }
@@ -422,7 +422,9 @@ function reduceSeedRefresh(target: Dataset, settings: RefreshSettings | null | u
   return {
     ...INITIAL_WIZARD_STATE,
     mode: "refresh",
-    sourceFormat: target.sourceFormat,
+    // A published dataset (R192) is never refreshed by upload — its Refresh is
+    // hidden and the server refuses the format; the wizard only knows uploads.
+    sourceFormat: target.sourceFormat === "excel" ? "excel" : "csv",
     workspaceId: target.workspaceId,
     targetDatasetId: target.id,
     refreshBaseline: target.columns,

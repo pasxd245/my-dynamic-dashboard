@@ -48,7 +48,9 @@ import {
   MOCK_RELATIONSHIP_CHECK,
   MOCK_ROWS,
   MOCK_STALE_JOIN_QUERY_ID,
+  MOCK_PUBLISHED_DATASET,
   MOCK_STALE_QUERY_ID,
+  MOCK_STALE_WORKFLOW_ID,
   MOCK_WORKFLOW,
   MOCK_WORKFLOWS,
   MOCK_WORKSPACE,
@@ -918,9 +920,14 @@ export const handlers = [
     return HttpResponse.json(MOCK_RELATIONSHIP_CHECK);
   }),
   withContractValidation('get', api('/datasets/:id'), 'getDataset', ({ params }) => {
-    const ds = [MOCK_DATASET, MOCK_DATASET_2, MOCK_DATASET_3, MOCK_DATASET_4, MOCK_DATASET_5].find(
-      (d) => d.id === params.id,
-    );
+    const ds = [
+      MOCK_DATASET,
+      MOCK_DATASET_2,
+      MOCK_DATASET_3,
+      MOCK_DATASET_4,
+      MOCK_DATASET_5,
+      MOCK_PUBLISHED_DATASET,
+    ].find((d) => d.id === params.id);
     if (!ds) {
       return HttpResponse.json({ code: 'not_found' }, { status: 404 });
     }
@@ -933,7 +940,8 @@ export const handlers = [
   // Drift between this handler and the contract throws a
   // ContractDriftError in tests (loud) and warns in dev (visible).
   withContractValidation('get', api('/datasets/:id/rows'), 'getDatasetRows', ({ params, request }) => {
-    if (params.id !== MOCK_DATASET.id) {
+    // R192 — the published dataset holds the same rows as MOCK_DATASET.
+    if (params.id !== MOCK_DATASET.id && params.id !== MOCK_PUBLISHED_DATASET.id) {
       return HttpResponse.json({ code: 'not_found' }, { status: 404 });
     }
     const url = new URL(request.url);
@@ -1321,6 +1329,29 @@ export const handlers = [
         ? { run: { ...MOCK_WORKFLOW.run, id: `run_${runNumber.toString(16).padStart(8, '0')}`, number: runNumber } }
         : {}),
     });
+  }),
+  // R192 — publish: MOCK_WORKFLOW publishes (201 when it has no published
+  // dataset yet, else 200 with the version moved); MOCK_STALE_WORKFLOW_ID is
+  // refused as out of date; anything else is 404.
+  withContractValidation('post', api('/workflows/:id/publish'), 'publishWorkflow', async ({ params, request }) => {
+    if (params.id === MOCK_STALE_WORKFLOW_ID) {
+      return HttpResponse.json(
+        {
+          code: 'not_publishable',
+          reason: 'stale',
+          staleSources: [{ sourceId: MOCK_QUERY.id, name: MOCK_QUERY.name, reason: 'data_refreshed' }],
+        },
+        { status: 409 },
+      );
+    }
+    if (params.id !== MOCK_WORKFLOW.id) {
+      return HttpResponse.json({ code: 'not_found' }, { status: 404 });
+    }
+    const body = (await request.json().catch(() => ({}))) as { name?: string };
+    if (MOCK_WORKFLOW.published) {
+      return HttpResponse.json({ ...MOCK_PUBLISHED_DATASET, dataVersion: MOCK_WORKFLOW.published.dataVersion + 1 });
+    }
+    return HttpResponse.json({ ...MOCK_PUBLISHED_DATASET, name: body.name ?? MOCK_WORKFLOW.name }, { status: 201 });
   }),
   withContractValidation('get', api('/workflows/:id/rows'), 'workflowRows', ({ params, request }) => {
     if (params.id !== MOCK_WORKFLOW.id) {

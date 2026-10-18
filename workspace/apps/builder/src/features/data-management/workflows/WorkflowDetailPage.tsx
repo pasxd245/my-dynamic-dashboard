@@ -23,6 +23,7 @@ import { WorkflowSourceError } from '@/api/workflowsApi';
 import { sourceErrorText } from './sourceErrors';
 import { DeleteConfirmModal } from '../_shared/DeleteConfirmModal';
 import { PagedRowsView } from '../_shared/PagedRowsView';
+import { PublishButton, PublishedLine } from './PublishControls';
 import { WorkflowForm } from './WorkflowForm';
 import {
   useDeleteWorkflowMutation,
@@ -188,7 +189,11 @@ export function WorkflowDetailPage() {
   if (!workflow) {
     return (
       <>
-        <PageHeader breadcrumb={BREADCRUMB} title={t('workflows.detail.loadingTitle')} onNavigate={(r) => navigate(r)} />
+        <PageHeader
+          breadcrumb={BREADCRUMB}
+          title={t('workflows.detail.loadingTitle')}
+          onNavigate={(r) => navigate(r)}
+        />
         <PageCard>
           <Skeleton active paragraph={{ rows: 8 }} data-component="WorkflowDetailLoading" />
         </PageCard>
@@ -237,6 +242,7 @@ export function WorkflowDetailPage() {
       >
         {materialized ? t('workflows.detail.rerun') : t('workflows.detail.run')}
       </Button>
+      <PublishButton workflow={workflow} />
       <Button onClick={startEdit} data-component="WorkflowDetailEdit">
         {t('workflows.detail.edit')}
       </Button>
@@ -330,44 +336,47 @@ export function WorkflowDetailPage() {
           <>
             <MetadataPanel kind="workflow" nounId={workflow.id} />
             {summary}
+            <PublishedLine workflow={workflow} />
             {staleAlert}
             {materialized ? (
-          <PagedRowsView
-            columns={columns}
-            rows={rowsQuery.data?.rows}
-            loading={rowsQuery.isFetching}
-            total={total}
-            page={page}
-            pageSize={pageSize}
-            onPageChange={handlePageChange}
-            emptyState={
-              <>
+              <PagedRowsView
+                columns={columns}
+                rows={rowsQuery.data?.rows}
+                loading={rowsQuery.isFetching}
+                total={total}
+                page={page}
+                pageSize={pageSize}
+                onPageChange={handlePageChange}
+                emptyState={
+                  <>
+                    <Typography.Title level={5} style={{ marginTop: 0 }}>
+                      {t('workflows.detail.zeroRowsTitle')}
+                    </Typography.Title>
+                    <Typography.Text type="secondary">{t('workflows.detail.zeroRowsHint')}</Typography.Text>
+                  </>
+                }
+              />
+            ) : (
+              <div data-component="WorkflowNeverRun" style={{ padding: '40px 24px', textAlign: 'center' }}>
+                <WarningOutlined
+                  style={{ fontSize: 36, color: 'var(--ant-color-warning, #faad14)', marginBottom: 12 }}
+                />
                 <Typography.Title level={5} style={{ marginTop: 0 }}>
-                  {t('workflows.detail.zeroRowsTitle')}
+                  {t('workflows.detail.neverRunTitle')}
                 </Typography.Title>
-                <Typography.Text type="secondary">{t('workflows.detail.zeroRowsHint')}</Typography.Text>
-              </>
-            }
-          />
-        ) : (
-          <div data-component="WorkflowNeverRun" style={{ padding: '40px 24px', textAlign: 'center' }}>
-            <WarningOutlined style={{ fontSize: 36, color: 'var(--ant-color-warning, #faad14)', marginBottom: 12 }} />
-            <Typography.Title level={5} style={{ marginTop: 0 }}>
-              {t('workflows.detail.neverRunTitle')}
-            </Typography.Title>
-            <Typography.Text type="secondary">{t('workflows.detail.neverRunHint')}</Typography.Text>
-            <div style={{ marginTop: 20 }}>
-              <Button
-                type="primary"
-                icon={<PlayCircleOutlined />}
-                onClick={run}
-                loading={runMutation.isPending}
-                data-component="WorkflowNeverRunRun"
-              >
-                {t('workflows.detail.run')}
-              </Button>
-            </div>
-          </div>
+                <Typography.Text type="secondary">{t('workflows.detail.neverRunHint')}</Typography.Text>
+                <div style={{ marginTop: 20 }}>
+                  <Button
+                    type="primary"
+                    icon={<PlayCircleOutlined />}
+                    onClick={run}
+                    loading={runMutation.isPending}
+                    data-component="WorkflowNeverRunRun"
+                  >
+                    {t('workflows.detail.run')}
+                  </Button>
+                </div>
+              </div>
             )}
           </>
         )}

@@ -151,6 +151,36 @@ export const MOCK_WORKFLOW: Workflow = {
 
 export const MOCK_WORKFLOWS: readonly Workflow[] = [MOCK_WORKFLOW];
 
+// R192 — MOCK_WORKFLOW's output published as a dataset: `sourceFormat:
+// workflow`, its lineage copied from the run stamp above. Not in the datasets
+// list fixture (list tests count rows); reachable by id.
+export const MOCK_PUBLISHED_DATASET: Dataset = {
+  id: 'ds_9b11c0de',
+  workspaceId: MOCK_WORKSPACE.id,
+  name: 'Consolidated leads',
+  sizeBytes: 2048,
+  rowCount: MOCK_ROWS.length,
+  columnCount: MOCK_DATASET.columns.length,
+  columns: MOCK_DATASET.columns.map((c) => ({ ...c })),
+  sourceFormat: 'workflow',
+  createdAt: '2026-07-01T12:05:00Z',
+  refreshedAt: '2026-07-01T12:05:00Z',
+  dataVersion: 1,
+  lineage: {
+    workflowId: MOCK_WORKFLOW.id,
+    workflowName: MOCK_WORKFLOW.name,
+    runId: MOCK_WORKFLOW.run!.id,
+    runNumber: MOCK_WORKFLOW.run!.number,
+    runAt: MOCK_WORKFLOW.materializedAt!,
+    definitionHash: MOCK_WORKFLOW.run!.definitionHash,
+    sources: MOCK_WORKFLOW.run!.sources,
+    publishedAt: '2026-07-01T12:05:00Z',
+  },
+};
+
+/** R192 — a workflow id the publish handler refuses as out of date. */
+export const MOCK_STALE_WORKFLOW_ID = 'wf_57a1e000';
+
 /** A query id whose run returns 409 query_stale (the source dataset's
  *  schema drifted). Lets the FE/integration exercise the stale state
  *  deterministically without mutating a dataset. */
@@ -236,10 +266,7 @@ export const MOCK_STALE_RELATIONSHIP: Relationship = {
   createdAt: '2026-06-13T08:00:00Z',
 };
 
-export const MOCK_RELATIONSHIPS: readonly Relationship[] = [
-  MOCK_RELATIONSHIP,
-  MOCK_STALE_RELATIONSHIP,
-];
+export const MOCK_RELATIONSHIPS: readonly Relationship[] = [MOCK_RELATIONSHIP, MOCK_STALE_RELATIONSHIP];
 
 // ─── Joined Query fixtures (R71 — join execution) ────────────────────
 //
@@ -422,8 +449,36 @@ export const MOCK_RELATIONSHIPS_CHAIN: readonly Relationship[] = [
  *  tier (gold/silver) yields 2 rows. */
 export const MOCK_CHAIN_ROWS: RowsPage = {
   rows: [
-    ['D-0001', '12400', '2026-03-01', 'won', '0.95', 'true', '2026-02-28 14:02:00', 'D-0001', 'Acme', 'gold', 'gold', 'Dana Lee', 'APAC'],
-    ['D-0005', '24500', '2026-05-02', 'won', '1.00', 'true', '2026-04-22 08:11:00', 'D-0005', 'Globex', 'silver', 'silver', 'Sam Ruiz', 'EMEA'],
+    [
+      'D-0001',
+      '12400',
+      '2026-03-01',
+      'won',
+      '0.95',
+      'true',
+      '2026-02-28 14:02:00',
+      'D-0001',
+      'Acme',
+      'gold',
+      'gold',
+      'Dana Lee',
+      'APAC',
+    ],
+    [
+      'D-0005',
+      '24500',
+      '2026-05-02',
+      'won',
+      '1.00',
+      'true',
+      '2026-04-22 08:11:00',
+      'D-0005',
+      'Globex',
+      'silver',
+      'silver',
+      'Sam Ruiz',
+      'EMEA',
+    ],
   ],
   page: 1,
   pageSize: 50,
@@ -445,10 +500,7 @@ export const MOCK_CHAIN_COLUMNS: ResolvedColumn[] = [
 // .content["application/json"].examples[exampleName].value.rows`
 // from a contract YAML so a fixture mirrors the spec verbatim.
 // Node-only; returns [] in browser.
-export function loadYamlExampleRows(
-  yamlPath: string,
-  exampleName: string,
-): (string | null)[][] {
+export function loadYamlExampleRows(yamlPath: string, exampleName: string): (string | null)[][] {
   if (globalThis.window !== undefined) return [];
   // Lazy-require so the browser bundle doesn't see fs/path/js-yaml.
   // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -466,9 +518,13 @@ export function loadYamlExampleRows(
   for (const methods of Object.values(paths)) {
     for (const op of Object.values(methods as Record<string, unknown>)) {
       const examples = (
-        (op as { responses?: Record<string, { content?: Record<string, { examples?: Record<string, { value?: { rows?: (string | null)[][] } }> }> }> })
-          .responses?.['200']?.content?.['application/json']?.examples
-      );
+        op as {
+          responses?: Record<
+            string,
+            { content?: Record<string, { examples?: Record<string, { value?: { rows?: (string | null)[][] } }> }> }
+          >;
+        }
+      ).responses?.['200']?.content?.['application/json']?.examples;
       const candidate = examples?.[exampleName]?.value?.rows;
       if (candidate) return candidate;
     }

@@ -1,6 +1,6 @@
 import { appConfig } from '../config';
 import { ApiErrorThrown, isApiError } from '@/features/data-management/_shared/types';
-import type { RowsPage } from '@/features/data-management/datasets/types';
+import type { Dataset, RowsPage } from '@/features/data-management/datasets/types';
 import type { CreateWorkflowRequest, Workflow } from '@/features/data-management/workflows/types';
 
 // R132–R135 — Workflow API client. Mirrors queriesApi conventions (single
@@ -115,6 +115,19 @@ export const workflowsApi = {
       body: JSON.stringify(body),
     });
     return readJson<Workflow>(resp);
+  },
+
+  /** R192 — POST /workflows/{id}/publish: publish the frozen output as a dataset.
+   *  `created` is true on the first publish (201), false on a re-publish (200).
+   *  404 / 409 not_publishable / 409 name_taken throw ApiErrorThrown. */
+  async publish(id: string, body: { name?: string } = {}): Promise<{ dataset: Dataset; created: boolean }> {
+    const resp = await fetch(`${API_BASE_URL}/workflows/${id}/publish`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const created = resp.status === 201;
+    return { dataset: await readJson<Dataset>(resp), created };
   },
 
   /** DELETE /workflows/{id} — 204 / 404. */

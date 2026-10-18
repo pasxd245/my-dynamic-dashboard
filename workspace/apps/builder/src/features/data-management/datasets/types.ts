@@ -5,7 +5,10 @@
 
 export type Dtype = 'string' | 'integer' | 'float' | 'boolean' | 'date' | 'datetime';
 
-export type SourceFormat = 'excel' | 'csv';
+/** What an UPLOAD can be — the wizard's two paths. */
+export type UploadFormat = 'excel' | 'csv';
+/** What produced a dataset: an upload, or (R192) a published workflow. */
+export type SourceFormat = UploadFormat | 'workflow';
 
 /** R178 — a temporal column's coverage, profiled by the server at commit and
  *  every refresh: earliest / latest non-blank value (ISO strings; both absent
@@ -45,6 +48,28 @@ export type Dataset = {
   refreshedAt: string;
   /** R185 (W-4) — 1 at commit, +1 per successful refresh. Server-stamped. */
   dataVersion: number;
+  /** R192 — only on a published dataset (`sourceFormat: 'workflow'`): the
+   *  workflow run it came from. Server-written, read-only. */
+  lineage?: DatasetLineage;
+};
+
+/** R192 — mirrors `_shared/dataset.yaml#/DatasetLineage`. */
+export type DatasetLineage = {
+  workflowId: string;
+  /** The workflow's name at publish time. */
+  workflowName: string;
+  runId: string;
+  runNumber: number;
+  /** When that run materialized. */
+  runAt: string;
+  definitionHash: string;
+  sources: readonly {
+    id: string;
+    definitionHash?: string;
+    dataVersions?: Readonly<Record<string, number>>;
+    runId?: string;
+  }[];
+  publishedAt: string;
 };
 
 export type ParseOptions = {

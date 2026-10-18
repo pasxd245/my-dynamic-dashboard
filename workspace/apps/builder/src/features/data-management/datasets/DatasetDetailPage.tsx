@@ -16,7 +16,7 @@ import { Alert, App, Button, Dropdown, Input, Skeleton, Tag, Tooltip, Typography
 import i18n from 'i18next';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 import { DEFAULT_PAGE_SIZE, NAME_LENGTHS, PAGE_SIZES } from '@/_generated/constants';
 import { formatBytes } from '@/lib/formatBytes';
@@ -37,6 +37,7 @@ import {
   useSetColumnVisibilityMutation,
 } from './hooks';
 import { MetadataPanel } from '@/features/metadata/MetadataPanel';
+import { useWorkflowQuery } from '@/features/data-management/workflows/hooks';
 import { DateCoverageStrip } from './DateCoverage';
 import { PropertiesDrawer } from './PropertiesDrawer';
 import { ActiveFilterChips, formatChipText } from './filters/ActiveFilterChips';
@@ -44,7 +45,7 @@ import { FilterPopover } from './filters/FilterPopover';
 import { useFiltersState } from './filters/useFiltersState';
 import { AdvancedQueryInput } from './advanced-query/AdvancedQueryInput';
 import { useAdvancedQueryState } from './advanced-query/useAdvancedQueryState';
-import type { Column, Dataset } from './types';
+import type { Column, Dataset, DatasetLineage } from './types';
 
 const DEBOUNCE_MS = 300;
 
@@ -475,12 +476,18 @@ export function DatasetDetailPage() {
               icon: <ColumnsIcon size={14} />,
               onClick: () => setPropertiesOpen(true),
             },
-            {
-              key: 'refresh',
-              label: t('datasets.refresh'),
-              icon: <ReloadOutlined />,
-              onClick: () => navigate(`/data-management/datasets/${dataset.id}/refresh`),
-            },
+            // R192 — a published dataset is refreshed by re-publishing its
+            // workflow, never by upload: no Refresh here.
+            ...(dataset.sourceFormat === 'workflow'
+              ? []
+              : [
+                  {
+                    key: 'refresh',
+                    label: t('datasets.refresh'),
+                    icon: <ReloadOutlined />,
+                    onClick: () => navigate(`/data-management/datasets/${dataset.id}/refresh`),
+                  },
+                ]),
             {
               key: 'rename',
               label: t('common.rename'),
@@ -520,6 +527,7 @@ export function DatasetDetailPage() {
       <PageCard variant="fill">
         <div style={{ flex: '0 0 auto' }}>
           <MetadataStrip dataset={dataset} workspaceName={workspaceName} />
+          {dataset.lineage ? <PublishedFrom lineage={dataset.lineage} /> : null}
           <DateCoverageStrip columns={dataset.columns} />
           <MetadataPanel kind="dataset" nounId={dataset.id} />
         </div>
@@ -731,9 +739,34 @@ function datasetMetaItems(
       value:
         dataset.sourceFormat === 'excel'
           ? t('datasets.detail.formatExcelSheet', { sheet: dataset.sheetName ?? '' })
-          : t('datasets.detail.formatCsv'),
+          : dataset.sourceFormat === 'workflow'
+            ? t('datasets.detail.formatWorkflow')
+            : t('datasets.detail.formatCsv'),
     },
   ];
+}
+
+/** R192 — where a published dataset came from: the workflow's CURRENT name and a
+ *  link while it exists; its name at publish time + "(deleted)" once it does not. */
+function PublishedFrom({ lineage }: Readonly<{ lineage: DatasetLineage }>) {
+  const { t } = useTranslation();
+  const wf = useWorkflowQuery(lineage.workflowId);
+  const gone = wf.error instanceof ApiErrorThrown && wf.error.status === 404;
+  const when = new Date(lineage.runAt).toLocaleString(i18n.language);
+  return (
+    <Typography.Paragraph type="secondary" data-component="DatasetPublishedFrom" style={{ marginTop: -8 }}>
+      {t('datasets.detail.publishedFrom')}{' '}
+      {gone ? (
+        <>
+          <strong>{lineage.workflowName}</strong> {t('datasets.detail.publishedFromDeleted')}
+        </>
+      ) : (
+        <Link to={`/data-management/workflows/${lineage.workflowId}`}>{wf.data?.name ?? lineage.workflowName}</Link>
+      )}
+      {' · '}
+      {t('datasets.detail.publishedFromRun', { run: lineage.runNumber, when })}
+    </Typography.Paragraph>
+  );
 }
 
 function MetadataStrip({ dataset, workspaceName }: Readonly<{ dataset: Dataset; workspaceName: string | undefined }>) {

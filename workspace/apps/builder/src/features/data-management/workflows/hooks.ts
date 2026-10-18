@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { workflowsApi } from '@/api/workflowsApi';
-import type { Column, RowsPage } from '@/features/data-management/datasets/types';
+import type { Column, Dataset, RowsPage } from '@/features/data-management/datasets/types';
 import { useDatasetQuery } from '@/features/data-management/datasets/hooks';
 import { useQueryQuery } from '@/features/data-management/queries/hooks';
 import type { CreateWorkflowRequest, Workflow } from './types';
@@ -72,6 +72,22 @@ export function useRunWorkflowMutation() {
 
 /** PUT /workflows/{id} — edit name + definition. Invalidates the single (definition/
  *  materialized state may have changed) + rows caches, and the lists. */
+/** R192 — publish the frozen output as a dataset. Refreshes the workflow (its
+ *  `published` line), every dataset list / detail (the dataset is new or its rows
+ *  and version moved) and any query rows reading it. */
+export function usePublishWorkflowMutation() {
+  const queryClient = useQueryClient();
+  return useMutation<{ dataset: Dataset; created: boolean }, Error, { id: string; name?: string }>({
+    mutationFn: ({ id, name }) => workflowsApi.publish(id, name === undefined ? {} : { name }),
+    onSuccess: (_res, { id }) => {
+      queryClient.invalidateQueries({ queryKey: WORKFLOWS_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: ['workflow', id] });
+      queryClient.invalidateQueries({ queryKey: ['datasets'] });
+      queryClient.invalidateQueries({ queryKey: ['query-rows'] });
+    },
+  });
+}
+
 export function useUpdateWorkflowMutation() {
   const queryClient = useQueryClient();
   return useMutation<Workflow, Error, { id: string; body: CreateWorkflowRequest }>({
