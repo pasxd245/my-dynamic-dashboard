@@ -21,11 +21,13 @@ def _widget(wid: str, qid: str) -> dict:
     return {"id": wid, "queryId": qid, "title": wid, "chartType": "table", "agg": "count", "span": 1}
 
 
-def _dashboard(client: TestClient, ws: str, widgets: list[dict], controls: list[dict] | None = None):
+def _dashboard(client: TestClient, ws: str, widgets: list[dict], controls: list[dict] | None = None, name: str = "D"):
     definition: dict = {"widgets": widgets}
     if controls is not None:
         definition["controls"] = controls
-    return client.post(f"/workspaces/{ws}/dashboards", json={"name": "D", "slug": "d", "definition": definition})
+    return client.post(
+        f"/workspaces/{ws}/dashboards", json={"name": name, "slug": name.lower(), "definition": definition}
+    )
 
 
 def _control(**over) -> dict:
@@ -90,6 +92,21 @@ def test_control_save_checks() -> None:
         too_many = _dashboard(
             client, ws, widgets, [_control(id=f"ctl_000000{i:02x}", param=f"p{i}") for i in range(13)]
         )
+        dup_target = _dashboard(client, ws, widgets, [_control(targets=[_W1, _W1])])
+        n_query = _query(
+            client,
+            ws,
+            ds,
+            {
+                "q": None,
+                "advanced": [],
+                "params": [{"name": "n", "type": "number"}],
+                "filters": [{"col": 2, "dtype": "integer", "op": "gte", "val": {"param": "n"}}],
+            },
+            "n",
+        ).json()["id"]
+        half = _dashboard(client, ws, [_widget(_W2, n_query)], [_control(param="n", saved=2.5)])
+        whole = _dashboard(client, ws, [_widget(_W2, n_query)], [_control(param="n", saved=2.0)], name="Whole")
         unused_ok = _dashboard(client, ws, widgets, [_control(param="nothing_uses_me", saved=5)])
 
     for r, needle in (
@@ -100,6 +117,9 @@ def test_control_save_checks() -> None:
         (bad_date, "param_type"),
         (bad_kind, ""),
         (too_many, ""),
+        (dup_target, "duplicate_target"),
+        (half, "whole number"),
     ):
         assert r.status_code == 422 and needle in r.text, r.text
+    assert whole.status_code == 201, whole.text
     assert unused_ok.status_code == 201  # a control no query uses is skipped there, not refused (D5)

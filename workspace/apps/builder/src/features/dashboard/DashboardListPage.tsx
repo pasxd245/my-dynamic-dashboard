@@ -156,7 +156,7 @@ export function DashboardListPage() {
     try {
       await updateMutation.mutateAsync({
         id: d.id,
-        body: { name, slug: d.slug, definition: widgetsToDefinition(d.widgets) },
+        body: { name, slug: d.slug, definition: widgetsToDefinition(d.widgets, d.controls ?? []) },
       });
     } catch (err) {
       const code = err instanceof ApiErrorThrown ? err.body.code : undefined;

@@ -156,9 +156,9 @@
     },
     "params": {
       "edit": "Tham số",
-      "editorTitle": "Tham số của bảng điều khiển",
+      "editorTitle": "Tham số của dashboard",
       "editorHint": "Mỗi điều khiển đặt một tham số truy vấn cho các widget nó áp dụng. Giá trị đã lưu là giá trị mọi người thấy cho đến khi họ đổi — thay đổi của họ chỉ nằm trong liên kết và không bao giờ được lưu.",
-      "noParams": "Chưa có truy vấn nào trên bảng điều khiển này khai báo tham số. Hãy khai báo trên trang truy vấn trước.",
+      "noParams": "Chưa có truy vấn nào trên dashboard này khai báo tham số. Hãy khai báo trên trang truy vấn trước.",
       "label": "Nhãn",
       "bindsTo": "đặt tham số {{param}}",
       "remove": "Xóa điều khiển {{label}}",
@@ -176,7 +176,7 @@
       "copied": "Đã sao chép liên kết — nó mở đúng chế độ xem này.",
       "copyFailed": "Không sao chép được liên kết.",
       "skipped": "Bỏ qua {{label}}",
-      "skippedWhy": "Truy vấn của widget này không có tham số {{param}}, nên điều khiển không thay đổi nó."
+      "skippedWhy": "Truy vấn của widget này không dùng tham số {{param}}, nên điều khiển không thay đổi nó."
     }
   },
   "common": {
@@ -1026,7 +1026,7 @@
       "usedValue": "{{name}} = {{value}} ({{source}})",
       "source": {
         "viewer": "giá trị của bạn",
-        "dashboard": "bảng điều khiển",
+        "dashboard": "dashboard",
         "default": "mặc định"
       }
     }

@@ -45,7 +45,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { PageContainer, PageHeader } from '@mdd/ui';
 import { App, Button, Card, Dropdown, Empty, Grid, Popover, Space, Spin, Tooltip, theme } from 'antd';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
@@ -59,6 +59,7 @@ import { useWorkspacesQuery } from '@/features/data-management/workspaces/hooks'
 import type { DashboardFilter } from './aggregate';
 import { useDashboardsQuery, useUpdateDashboardMutation } from './hooks';
 import type { DashboardControl, Widget } from './types';
+import type { ResolvedParams } from '@/features/data-management/queries/types';
 import { WidgetBuilder } from './WidgetBuilder';
 import { WidgetFilterDrawer } from './WidgetFilterDrawer';
 import { WidgetView } from './WidgetView';
@@ -297,6 +298,22 @@ export function DashboardDetailPage() {
   const viewer = paramsFromSearch(searchParams);
   const workspaceQueries = useQueriesQuery(workspaceId);
   const [controlsOpen, setControlsOpen] = useState(false);
+  // What the widgets' reads used, by parameter — the bar shows it and Copy link
+  // pins it (the server resolves relative values in its own zone).
+  const [resolvedByParam, setResolvedByParam] = useState<Record<string, string | number>>({});
+  const reportResolved = useCallback((r: ResolvedParams) => {
+    setResolvedByParam((prev) => {
+      const next = { ...prev };
+      let changed = false;
+      for (const [k, v] of Object.entries(r)) {
+        if (next[k] !== v.value) {
+          next[k] = v.value;
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, []);
 
   // R102 reorder — display order (widget ids). Kept local for an optimistic
   // reorder on drop; resynced whenever the server order/set changes (so a
@@ -493,11 +510,12 @@ export function DashboardDetailPage() {
         controls={controls}
         params={bindable}
         viewer={viewer}
+        resolved={resolvedByParam}
         onChange={(param, value) => setSearchParams(withParam(searchParams, param, value), { replace: true })}
         onReset={() => setSearchParams(withoutParams(searchParams))}
       />
 
-      <DashboardParamsContext.Provider value={{ viewer, dashboardId: dash.id }}>
+      <DashboardParamsContext.Provider value={{ viewer, dashboardId: dash.id, controls, report: reportResolved }}>
         <MetadataPanel
           kind="dashboard"
           nounId={dash.id}
@@ -556,6 +574,14 @@ export function DashboardDetailPage() {
             </SortableContext>
           </DndContext>
         )}
+        <WidgetFilterDrawer
+          open={filterDrawerOpen}
+          widget={filterWidget}
+          filters={filterWidget ? filtersFor(filterWidget.id) : []}
+          onChange={(next) => filterWidget && setFiltersByWidget((prev) => ({ ...prev, [filterWidget.id]: next }))}
+          onClose={() => setFilterDrawerOpen(false)}
+          afterClose={() => setFilterWidget(null)}
+        />
       </DashboardParamsContext.Provider>
 
       <ControlsEditor
@@ -568,22 +594,21 @@ export function DashboardDetailPage() {
         onClose={() => setControlsOpen(false)}
       />
 
-      <WidgetBuilder
-        open={builder !== null}
-        workspaceId={dash.workspaceId}
-        initial={builder?.initial}
-        onSubmit={submitWidget}
-        onCancel={() => setBuilder(null)}
-      />
-
-      <WidgetFilterDrawer
-        open={filterDrawerOpen}
-        widget={filterWidget}
-        filters={filterWidget ? filtersFor(filterWidget.id) : []}
-        onChange={(next) => filterWidget && setFiltersByWidget((prev) => ({ ...prev, [filterWidget.id]: next }))}
-        onClose={() => setFilterDrawerOpen(false)}
-        afterClose={() => setFilterWidget(null)}
-      />
+      {/* R195 — the builder's preview reads with the values the dashboard shows
+          (the bar's), not as a dashboard widget: a new widget has no saved id yet. */}
+      <DashboardParamsContext.Provider
+        value={{
+          viewer: { ...Object.fromEntries(Object.entries(resolvedByParam).map(([k, v]) => [k, String(v)])), ...viewer },
+        }}
+      >
+        <WidgetBuilder
+          open={builder !== null}
+          workspaceId={dash.workspaceId}
+          initial={builder?.initial}
+          onSubmit={submitWidget}
+          onCancel={() => setBuilder(null)}
+        />
+      </DashboardParamsContext.Provider>
     </PageContainer>
   );
 }

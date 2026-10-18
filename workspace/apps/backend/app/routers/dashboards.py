@@ -116,6 +116,8 @@ def _validate_controls(con: sqlite3.Connection, workspace_id: str, definition: d
             raise bad(i, "param", f"duplicate_param: one control per parameter ({c['param']!r})")
         seen_params.add(c["param"])
         targets = list(widgets) if c["targets"] == "all" else c["targets"]
+        if c["targets"] != "all" and len(set(targets)) != len(targets):
+            raise bad(i, "targets", "duplicate_target: a widget is listed twice")
         for wid in targets:
             if wid not in widgets:
                 raise bad(i, "targets", f"unknown_widget: {wid} is not a widget of this dashboard")
@@ -125,7 +127,9 @@ def _validate_controls(con: sqlite3.Connection, workspace_id: str, definition: d
             qid = widgets[wid].get("queryId")
             if qid is None:
                 continue
-            row = con.execute("SELECT workspace_id, definition_json FROM queries WHERE id = ?", (qid,)).fetchone()
+            row = con.execute(
+                "SELECT workspace_id, source_id, definition_json FROM queries WHERE id = ?", (qid,)
+            ).fetchone()
             if row is None or row["workspace_id"] != workspace_id:
                 continue
             qdef = json.loads(row["definition_json"])
@@ -133,11 +137,30 @@ def _validate_controls(con: sqlite3.Connection, workspace_id: str, definition: d
             if decl is None or c["param"] not in qparams.used(qdef):
                 continue
             try:
-                qparams.coerce(decl["type"], c["saved"], allow_relative=True)
+                value = qparams.coerce(decl["type"], c["saved"], allow_relative=True)
             except (ValueError, TypeError):
                 raise bad(i, "saved", f"param_type: the saved value is not a {decl['type']}") from None
+            # A number on an integer column must be whole (R194's read rule, checked at save).
+            if isinstance(value, float) and not value.is_integer():
+                if _integer_site(con, row, qdef, c["param"]):
+                    raise bad(i, "saved", "param_type: the saved value must be a whole number here")
             if qparams._is_relative(c["saved"]) and decl["type"] != "date":
                 raise bad(i, "saved", "param_type: a relative value is for date parameters")
+
+
+def _integer_site(con: sqlite3.Connection, qrow: sqlite3.Row, qdef: dict, name: str) -> bool:
+    """Does the query use ``name`` on an integer column? (Resolved against its
+    current columns; a query that no longer resolves answers no.)"""
+    from app.query_engine import _chain_of, _rels_of, _resolve_plan  # local: avoid an import cycle
+
+    plan, reason = _resolve_plan(con, qrow["source_id"], _chain_of(qdef), _rels_of(qdef), qrow["workspace_id"])
+    if reason is not None or plan is None:
+        return False
+    dtypes = qparams.site_dtypes(qdef, plan["columns"])
+    for site in qparams._sites(qdef):
+        if any(n == name for _, n in qparams._refs(site)) and dtypes.get(site.loc) == "integer":
+            return True
+    return False
 
 
 def _dashboard_from_row(row: sqlite3.Row) -> DashboardModel:

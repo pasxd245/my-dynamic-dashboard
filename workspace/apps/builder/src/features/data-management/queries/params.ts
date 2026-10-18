@@ -96,7 +96,12 @@ export function nextParamName(existing: readonly QueryParam[]): string {
 /** Client-side check that a raw value fits a parameter type (mirrors the
  *  server's: a date is `YYYY-MM-DD`, a number ASCII decimal). */
 export function valueFits(type: QueryParam['type'], raw: string): boolean {
-  if (type === 'date') return /^\d{4}-\d{2}-\d{2}$/.test(raw) && !Number.isNaN(Date.parse(raw));
+  if (type === 'date') {
+    // Strict: `Date.parse` rolls 2026-02-30 over to March; the server refuses it.
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return false;
+    const d = new Date(`${raw}T00:00:00Z`);
+    return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === raw;
+  }
   if (type === 'number') return /^[+-]?(\d+(\.\d*)?|\.\d+)([eE][+-]?\d+)?$/.test(raw);
   return true;
 }

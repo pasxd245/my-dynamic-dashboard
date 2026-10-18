@@ -18,22 +18,65 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { isRelative, isoToday, usedParams, valueFits } from '@/features/data-management/queries/params';
-import type { ParamContext, Query, QueryParam } from '@/features/data-management/queries/types';
+import type { ParamContext, Query, QueryParam, ResolvedParams } from '@/features/data-management/queries/types';
 import type { DashboardControl, Widget } from './types';
 
 export const MAX_CONTROLS = 12;
 
-export type DashboardParamsState = { viewer: Record<string, string>; dashboardId?: string };
+export type DashboardParamsState = {
+  viewer: Record<string, string>;
+  dashboardId?: string;
+  /** The controls — a viewer value reaches only the widgets its control targets. */
+  controls?: readonly DashboardControl[];
+  /** Each widget reports what its read used (the bar shows, and the link pins,
+   *  the server-resolved values). */
+  report?: (resolved: ResolvedParams) => void;
+};
 export const DashboardParamsContext = createContext<DashboardParamsState>({ viewer: {} });
 
-/** The parameter context one widget's reads carry (`undefined` off a dashboard). */
+/** The parameter context one widget's reads carry. On a dashboard: the viewer
+ *  values of the controls that TARGET this widget (D4 — code review P1-2) and
+ *  the widget, whose saved values the server applies. Off a dashboard (the
+ *  widget builder's preview): the viewer values as given. */
 export function useWidgetParamContext(widgetId: string | undefined): ParamContext | undefined {
-  const { viewer, dashboardId } = useContext(DashboardParamsContext);
-  if (!dashboardId || !widgetId) return undefined;
+  const { viewer, dashboardId, controls } = useContext(DashboardParamsContext);
+  if (!dashboardId || !widgetId) return Object.keys(viewer).length ? { params: viewer } : undefined;
+  const allowed = new Set(
+    (controls ?? []).filter((c) => c.targets === 'all' || c.targets.includes(widgetId)).map((c) => c.param),
+  );
+  const params = Object.fromEntries(Object.entries(viewer).filter(([k]) => allowed.has(k)));
   return {
-    ...(Object.keys(viewer).length ? { params: viewer } : {}),
+    ...(Object.keys(params).length ? { params } : {}),
     dashboard: { id: dashboardId, widgetId },
   };
+}
+
+/** Report a read's `resolvedParams` to the page (no-op off a dashboard). */
+export function useReportResolved(resolved: ResolvedParams | undefined): void {
+  const { report } = useContext(DashboardParamsContext);
+  const key = resolved ? JSON.stringify(resolved) : '';
+  useEffect(() => {
+    if (resolved && report) report(resolved);
+  }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
+}
+
+/** The URL to share: the current one with every control's value pinned as an
+ *  absolute `p.<name>` (the server-resolved value where the viewer set none), so
+ *  a relative saved value cannot drift by tomorrow (BA-2; D4: the URL holds
+ *  absolute dates). */
+export function shareUrl(
+  href: string,
+  controls: readonly DashboardControl[],
+  viewer: Record<string, string>,
+  resolved: Record<string, string | number>,
+): string {
+  const url = new URL(href);
+  for (const c of controls) {
+    if (viewer[c.param] !== undefined) continue;
+    const v = resolved[c.param] ?? (c.saved !== undefined && !isRelative(c.saved) ? c.saved : undefined);
+    if (v !== undefined && v !== '') url.searchParams.set(`p.${c.param}`, String(v));
+  }
+  return url.toString();
 }
 
 function newControlId(): string {
@@ -93,7 +136,12 @@ export function ReachBadge({ reach }: Readonly<{ reach: Reach }>) {
       ))}
       {reach.skipped.map(({ control, reason }) => (
         <Tooltip key={control.id} title={t('dashboard.params.skippedWhy', { param: reason })}>
-          <Tag color="warning" style={{ marginInlineEnd: 0 }} data-component="ReachSkippedTag">
+          <Tag
+            color="warning"
+            style={{ marginInlineEnd: 0 }}
+            aria-label={`${t('dashboard.params.skipped', { label: control.label })} — ${t('dashboard.params.skippedWhy', { param: reason })}`}
+            data-component="ReachSkippedTag"
+          >
             {t('dashboard.params.skipped', { label: control.label })}
           </Tag>
         </Tooltip>
@@ -143,12 +191,15 @@ export function DashboardControlBar({
   controls,
   params,
   viewer,
+  resolved,
   onChange,
   onReset,
 }: Readonly<{
   controls: readonly DashboardControl[];
   params: ReadonlyMap<string, { decl: QueryParam; usedBy: string[] }>;
   viewer: Record<string, string>;
+  /** What the widgets' reads used, by parameter (the server's resolution). */
+  resolved: Record<string, string | number>;
   onChange: (param: string, value: string) => void;
   onReset: () => void;
 }>) {
@@ -175,7 +226,17 @@ export function DashboardControlBar({
       {controls.map((c) => {
         const type = params.get(c.param)?.decl.type ?? 'string';
         const own = viewer[c.param];
-        const shown = own ?? (isRelative(c.saved) ? isoToday(c.saved.offsetDays) : savedText(c.saved, t));
+        // The server's resolution first (a relative saved value resolves in
+        // `backend.time_zone`, not the browser's — BA-3); the browser date only
+        // until a read has answered.
+        const resolvedValue = resolved[c.param];
+        const shown =
+          own ??
+          (resolvedValue !== undefined
+            ? String(resolvedValue)
+            : isRelative(c.saved)
+              ? isoToday(c.saved.offsetDays)
+              : savedText(c.saved, t));
         const invalid = own !== undefined && !valueFits(type, own);
         return (
           <label
@@ -217,8 +278,13 @@ export function DashboardControlBar({
           size="small"
           icon={<LinkOutlined />}
           onClick={() => {
-            const url = window.location.href;
-            Promise.resolve(navigator.clipboard?.writeText(url))
+            const url = shareUrl(window.location.href, controls, viewer, resolved);
+            if (!navigator.clipboard) {
+              message.error(t('dashboard.params.copyFailed'));
+              return;
+            }
+            navigator.clipboard
+              .writeText(url)
               .then(() => message.success(t('dashboard.params.copied')))
               .catch(() => message.error(t('dashboard.params.copyFailed')));
           }}
@@ -254,7 +320,7 @@ export function ControlsEditor({
   const [draft, setDraft] = useState<DashboardControl[]>([...controls]);
   useEffect(() => {
     if (open) setDraft([...controls]);
-  }, [open, controls]);
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps — seed on open only (code review P2-2)
   const free = [...params.keys()].filter((p) => !draft.some((c) => c.param === p));
   const set = (i: number, patch: Partial<DashboardControl>) =>
     setDraft(draft.map((c, k) => (k === i ? ({ ...c, ...patch } as DashboardControl) : c)));

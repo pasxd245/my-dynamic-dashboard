@@ -16,7 +16,13 @@ import { queriesApi } from '@/api/queriesApi';
 import { useQueriesQuery } from '@/features/data-management/queries/hooks';
 import { useWorkspacesQuery } from '@/features/data-management/workspaces/hooks';
 import { distinctValues, isNumeric, type DataColumn } from './aggregate';
-import type { AggregateRequest, ParamContext, TotalsRequest } from '@/features/data-management/queries/types';
+import { ApiErrorThrown } from '@/features/data-management/_shared/types';
+import type {
+  AggregateRequest,
+  ParamContext,
+  ResolvedParams,
+  TotalsRequest,
+} from '@/features/data-management/queries/types';
 import type { Dashboard } from './types';
 import { wireToDashboard, type CreateDashboardRequest, type UpdateDashboardRequest } from './wire';
 
@@ -54,8 +60,16 @@ export type WidgetData = {
   isError: boolean;
   /** R195 — the failure, so a card can name a parameter that needs a value. */
   error: unknown;
+  /** R195 — the parameter values the read used. */
+  resolvedParams?: ResolvedParams;
   refetch: () => void;
 };
+
+/** R195 — a structured 4xx (e.g. `param_unbound`) is an answer, not a hiccup:
+ *  retrying it only delays the message (QA P2-2). */
+export function retryUnlessRefused(failures: number, err: unknown): boolean {
+  return !(err instanceof ApiErrorThrown) && failures < 3;
+}
 
 /**
  * One widget's effective columns + full row set, as a SINGLE cache entry so the
@@ -64,10 +78,9 @@ export type WidgetData = {
  * joined/composed query uses its server `resolvedColumns`; a single-source query
  * uses its source dataset's columns.
  */
-async function fetchWidgetData(
-  queryId: string,
-  ctx?: ParamContext,
-): Promise<{ columns: readonly DataColumn[]; rows: (string | null)[][]; total: number; capped: boolean }> {
+/** R195 — a query's chartable columns alone (no row read): the widget builder
+ *  needs them even when a read would refuse for a missing parameter (QA P1-2). */
+async function fetchWidgetColumns(queryId: string): Promise<readonly DataColumn[]> {
   const query = await queriesApi.get(queryId);
   const joined = (query.resolvedColumns?.length ?? 0) > 0;
   let columns: readonly DataColumn[];
@@ -80,8 +93,42 @@ async function fetchWidgetData(
   }
   // R107 — one unpaged request; the server caps rows at `dashboard_max_rows`
   // and returns the full `total`, so a partial (capped) result is `total > len`.
-  const { rows, total } = await queriesApi.getUnpagedRows(queryId, ctx);
-  return { columns, rows, total, capped: total > rows.length };
+  return columns;
+}
+
+export function useWidgetColumns(queryId: string | undefined): { columns: readonly DataColumn[]; isLoading: boolean } {
+  const q = useQuery({
+    queryKey: ['dashboard-widget-columns', queryId] as const,
+    queryFn: () => fetchWidgetColumns(queryId as string),
+    enabled: typeof queryId === 'string' && queryId.length > 0,
+  });
+  return { columns: q.data ?? [], isLoading: q.isLoading };
+}
+
+async function fetchWidgetData(
+  queryId: string,
+  ctx?: ParamContext,
+): Promise<{
+  columns: readonly DataColumn[];
+  rows: (string | null)[][];
+  total: number;
+  capped: boolean;
+  resolvedParams?: ResolvedParams;
+}> {
+  const query = await queriesApi.get(queryId);
+  const joined = (query.resolvedColumns?.length ?? 0) > 0;
+  let columns: readonly DataColumn[];
+  if (joined) {
+    columns = query.resolvedColumns ?? [];
+  } else if (query.sourceId.startsWith('ds_')) {
+    columns = (await datasetsApi.get(query.sourceId)).columns;
+  } else {
+    columns = []; // composed (qr_) single-source without resolvedColumns — rare; no columns to chart
+  }
+  // R107 — one unpaged request; the server caps rows at `dashboard_max_rows`
+  // and returns the full `total`, so a partial (capped) result is `total > len`.
+  const { rows, total, resolvedParams } = await queriesApi.getUnpagedRows(queryId, ctx);
+  return { columns, rows, total, capped: total > rows.length, resolvedParams };
 }
 
 function widgetDataKey(queryId: string | undefined, ctx?: ParamContext) {
@@ -96,6 +143,7 @@ export function useWidgetData(queryId: string | undefined, enabled = true, ctx?:
   const q = useQuery({
     queryKey: widgetDataKey(queryId, ctx),
     queryFn: () => fetchWidgetData(queryId as string, ctx),
+    retry: retryUnlessRefused,
     enabled: enabled && typeof queryId === 'string' && queryId.length > 0,
   });
   return {
@@ -106,6 +154,7 @@ export function useWidgetData(queryId: string | undefined, enabled = true, ctx?:
     isLoading: q.isLoading,
     isError: q.isError,
     error: q.error,
+    resolvedParams: q.data?.resolvedParams,
     refetch: () => {
       q.refetch().catch(() => undefined);
     },
@@ -122,6 +171,7 @@ export type WidgetAggregate = {
   isLoading: boolean;
   isError: boolean;
   error: unknown;
+  resolvedParams?: ResolvedParams;
 };
 
 /** R181 — the server sums for a table widget's footer (whole filtered result).
@@ -134,6 +184,7 @@ export function useWidgetTotals(
   const q = useQuery({
     queryKey: ['dashboard-widget-totals', queryId, body] as const,
     queryFn: () => queriesApi.totals(queryId as string, body),
+    retry: retryUnlessRefused,
     enabled: enabled && typeof queryId === 'string' && queryId.length > 0 && body.columns.length > 0,
   });
   return { sums: q.data?.sums, rowCount: q.data?.rowCount, isError: q.isError };
@@ -147,6 +198,7 @@ export function useWidgetAggregate(
   const q = useQuery({
     queryKey: ['dashboard-widget-aggregate', queryId, body] as const,
     queryFn: () => queriesApi.aggregate(queryId as string, body),
+    retry: retryUnlessRefused,
     enabled: enabled && typeof queryId === 'string' && queryId.length > 0,
   });
   return {
@@ -156,6 +208,7 @@ export function useWidgetAggregate(
     isLoading: q.isLoading,
     isError: q.isError,
     error: q.error,
+    resolvedParams: q.data?.resolvedParams,
   };
 }
 
@@ -169,8 +222,12 @@ export type FilterOption = { column: string; values: string[] };
  * columns, so there's no cross-widget column-matching ambiguity. Empty until
  * the widget's data has loaded (or when it has no categorical columns).
  */
-export function useWidgetFilterOptions(queryId: string | undefined): { options: FilterOption[]; capped: boolean } {
-  const { columns, rows, capped } = useWidgetData(queryId);
+export function useWidgetFilterOptions(
+  queryId: string | undefined,
+  // R195 — the same parameter context as the card, so the options are the card's values.
+  ctx?: ParamContext,
+): { options: FilterOption[]; capped: boolean } {
+  const { columns, rows, capped } = useWidgetData(queryId, true, ctx);
   const options: FilterOption[] = [];
   columns.forEach((c, i) => {
     if (isNumeric(c)) return; // categorical only (v1)
@@ -278,6 +335,11 @@ export function useUpdateDashboardMutation() {
     onSuccess: (updated) => {
       queryClient.invalidateQueries({ queryKey: DASHBOARDS_QUERY_KEY });
       queryClient.invalidateQueries({ queryKey: ['dashboard', updated.id] });
+      // R195 — a saved control value changes what every widget reads, under the
+      // same keys (code review P1-1): re-read them.
+      queryClient.invalidateQueries({ queryKey: ['dashboard-widget-data'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-widget-aggregate'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-widget-totals'] });
     },
   });
 }

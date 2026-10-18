@@ -59,7 +59,7 @@ import { ApiErrorThrown } from '@/features/data-management/_shared/types';
 import { useChartPalette, useWidgetAggregate, useWidgetData, useWidgetTotals } from './hooks';
 import { computeTotals, totalsColumns } from './totals';
 import type { AggregateMeasure, AggregateRequest, ParamContext } from '@/features/data-management/queries/types';
-import { useWidgetParamContext } from './DashboardParams';
+import { useReportResolved, useWidgetParamContext } from './DashboardParams';
 import type { Agg, Widget } from './types';
 
 const numberFmt = new Intl.NumberFormat();
@@ -641,6 +641,7 @@ export function useWidgetChartData(
     capped: aggregateEnabled ? false : data.capped,
     isMissingQuery,
     paramError,
+    resolvedParams: aggregateEnabled ? agg.resolvedParams : data.resolvedParams,
     chartData,
     statValue,
     multiSeries,
@@ -704,9 +705,11 @@ function ChartWidgetView({ widget, extra, filters, badge }: WidgetViewProps) {
     isError,
     isMissingQuery,
     paramError,
+    resolvedParams,
     capped,
     total,
   } = useWidgetChartData(widget, filters, ctx);
+  useReportResolved(resolvedParams);
   const paramTitle = paramError
     ? ((paramError as { label?: string }).label ?? (paramError as { param: string }).param)
     : '';

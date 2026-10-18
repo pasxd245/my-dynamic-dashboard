@@ -105,12 +105,13 @@ export function wireToDashboard(w: DashboardWire): Dashboard {
 /** A widget list → the wire `definition` body (nest under `widgets`). */
 export function widgetsToDefinition(
   widgets: readonly Widget[],
-  controls: readonly DashboardControl[] = [],
+  // Required: a caller that forgot it would wipe the controls (BA-1 / CR P0-1).
+  controls: readonly DashboardControl[] | undefined,
 ): DashboardDefinitionWire {
   // R195 — a control keeps only targets that are still widgets (a removed widget
   // would make the save fail); a control left with none is dropped.
   const ids = new Set(widgets.map((w) => w.id));
-  const kept = controls
+  const kept = (controls ?? [])
     .map((c) => (c.targets === 'all' ? c : { ...c, targets: c.targets.filter((id) => ids.has(id)) }))
     .filter((c) => c.targets === 'all' || c.targets.length > 0);
   return kept.length ? { widgets: [...widgets], controls: kept } : { widgets: [...widgets] };

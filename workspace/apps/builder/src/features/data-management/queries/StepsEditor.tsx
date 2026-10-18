@@ -1281,6 +1281,8 @@ function PredicateList({
                     op,
                     vals: undefined,
                     refCol: REF_OPS.has(op) ? pred.refCol : undefined,
+                    // R195 — a parameter stays only on an operator that takes one value.
+                    ...(isRef(pred.val) && op === 'between' ? { val: undefined } : {}),
                   });
               }}
               data-component="PredicateOp"

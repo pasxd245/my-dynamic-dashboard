@@ -12,7 +12,7 @@ import { useTranslation } from 'react-i18next';
 
 import { isNumeric, pickWidgetDefaults } from './aggregate';
 import { useQueriesQuery } from '@/features/data-management/queries/hooks';
-import { useWidgetData } from './hooks';
+import { useWidgetColumns } from './hooks';
 import type { Agg, ChartType, NumberFormat, TotalSpec, Widget, WidgetRows, WidgetSpan } from './types';
 import { WidgetView } from './WidgetView';
 
@@ -131,7 +131,9 @@ export function WidgetBuilder({ open, workspaceId, initial, onSubmit, onCancel }
     setDraft(initial ? { ...initial, agg: initial.agg ?? 'sum' } : EMPTY);
   }, [open, initial]);
 
-  const data = useWidgetData(draft.queryId);
+  // R195 — the columns come without a row read, so a query whose parameter has
+  // no value still offers its columns (the preview card says what is missing).
+  const data = useWidgetColumns(draft.queryId);
   const columns = data.columns;
 
   // Auto-default dimension/measure/agg/chart once the picked query's columns

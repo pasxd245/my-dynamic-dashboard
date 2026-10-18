@@ -524,33 +524,38 @@ export function QueryDetailPage() {
                 ) : null}
               </div>
             ) : null}
-            <div style={{ flex: '0 0 auto', marginBottom: 12 }}>
-              <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                {isJoined
-                  ? t('queries.detail.matchedRows', { matched: total.toLocaleString(locale) })
-                  : t('queries.detail.matchedOfTotal', {
-                      matched: total.toLocaleString(locale),
-                      total: (dataset?.rowCount ?? 0).toLocaleString(locale),
-                    })}
-              </Typography.Text>
-            </div>
-            <PagedRowsView
-              columns={columns}
-              rows={rowsQuery.data?.rows}
-              loading={rowsQuery.isFetching || datasetQuery.isLoading}
-              total={total}
-              page={page}
-              pageSize={pageSize}
-              onPageChange={handlePageChange}
-              emptyState={
-                <>
-                  <Typography.Title level={5} style={{ marginTop: 0 }}>
-                    {t('queries.detail.zeroRowsTitle')}
-                  </Typography.Title>
-                  <Typography.Text type="secondary">{t('queries.detail.zeroRowsHint')}</Typography.Text>
-                </>
-              }
-            />
+            {/* R195 — a read refused for a parameter never ran: no count, no table. */}
+            {paramError ? null : (
+              <>
+                <div style={{ flex: '0 0 auto', marginBottom: 12 }}>
+                  <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                    {isJoined
+                      ? t('queries.detail.matchedRows', { matched: total.toLocaleString(locale) })
+                      : t('queries.detail.matchedOfTotal', {
+                          matched: total.toLocaleString(locale),
+                          total: (dataset?.rowCount ?? 0).toLocaleString(locale),
+                        })}
+                  </Typography.Text>
+                </div>
+                <PagedRowsView
+                  columns={columns}
+                  rows={rowsQuery.data?.rows}
+                  loading={rowsQuery.isFetching || datasetQuery.isLoading}
+                  total={total}
+                  page={page}
+                  pageSize={pageSize}
+                  onPageChange={handlePageChange}
+                  emptyState={
+                    <>
+                      <Typography.Title level={5} style={{ marginTop: 0 }}>
+                        {t('queries.detail.zeroRowsTitle')}
+                      </Typography.Title>
+                      <Typography.Text type="secondary">{t('queries.detail.zeroRowsHint')}</Typography.Text>
+                    </>
+                  }
+                />
+              </>
+            )}
           </>
         )}
       </PageCard>

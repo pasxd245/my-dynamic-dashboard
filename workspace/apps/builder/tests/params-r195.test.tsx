@@ -13,7 +13,12 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
 
 import { DashboardDetailPage } from '@/features/dashboard/DashboardDetailPage';
-import { controlReach } from '@/features/dashboard/DashboardParams';
+import {
+  DashboardParamsContext,
+  controlReach,
+  shareUrl,
+  useWidgetParamContext,
+} from '@/features/dashboard/DashboardParams';
 import type { DashboardControl, Widget } from '@/features/dashboard/types';
 import { widgetsToDefinition } from '@/features/dashboard/wire';
 import { FilterPopover } from '@/features/data-management/datasets/filters/FilterPopover';
@@ -125,7 +130,7 @@ describe('R195 pure rules', () => {
       widgets: [w],
       controls: [{ ...keep, targets: ['wdg_00000001'] }],
     });
-    expect(widgetsToDefinition([w])).toEqual({ widgets: [w] });
+    expect(widgetsToDefinition([w], undefined)).toEqual({ widgets: [w] });
   });
 });
 
@@ -279,5 +284,53 @@ describe('R195 dashboard bar', () => {
       ),
     );
     expect(document.querySelector('[data-component="ParamResetToSaved"]')).toBeNull();
+  });
+});
+
+describe('R195 review round', () => {
+  const ctl = (
+    param: string,
+    targets: DashboardControl['targets'],
+    saved?: DashboardControl['saved'],
+  ): DashboardControl => ({
+    id: `ctl_0000000${param.length}`,
+    kind: 'param',
+    label: param,
+    param,
+    targets,
+    ...(saved !== undefined ? { saved } : {}),
+  });
+
+  it('sends a viewer value only to the widgets its control targets', () => {
+    let seen: unknown;
+    function Probe() {
+      seen = useWidgetParamContext('wdg_00000002');
+      return null;
+    }
+    render(
+      <DashboardParamsContext.Provider
+        value={{
+          viewer: { a: '1', b: '2', stray: '3' },
+          dashboardId: 'dsh_00000001',
+          controls: [ctl('a', 'all'), ctl('b', ['wdg_00000001'])],
+        }}
+      >
+        <Probe />
+      </DashboardParamsContext.Provider>,
+    );
+    expect(seen).toEqual({ params: { a: '1' }, dashboard: { id: 'dsh_00000001', widgetId: 'wdg_00000002' } });
+  });
+
+  it('pins every control as an absolute value in the shared link', () => {
+    const url = shareUrl(
+      'http://x/dashboards/ws/d?p.a=2026-10-12',
+      [ctl('a', 'all'), ctl('rel', 'all', { kind: 'today', offsetDays: -1 }), ctl('fix', 'all', '2026-01-01')],
+      { a: '2026-10-12' },
+      { rel: '2026-10-17' },
+    );
+    const q = new URL(url).searchParams;
+    expect(q.get('p.a')).toBe('2026-10-12');
+    expect(q.get('p.rel')).toBe('2026-10-17');
+    expect(q.get('p.fix')).toBe('2026-01-01');
   });
 });

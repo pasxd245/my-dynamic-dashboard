@@ -176,7 +176,7 @@
       "copied": "Link copied — it opens this view.",
       "copyFailed": "Couldn't copy the link.",
       "skipped": "{{label}} skipped",
-      "skippedWhy": "This widget's query has no parameter {{param}}, so the control does not change it."
+      "skippedWhy": "This widget's query does not use parameter {{param}}, so the control does not change it."
     }
   },
   "common": {
