@@ -207,8 +207,9 @@ def resolve(
     ``param_unbound`` (D3). Returns ``(values, resolvedParams)``; raises
     ``ParamError``. Undeclared or unused names in ``viewer`` / ``dashboard`` are
     ignored. R197 — ``strict=False`` (a metadata read, which informs and never
-    refuses): a wrong-typed value falls through to the next level and a
-    parameter with no value is left out instead of raising."""
+    refuses): a wrong-typed viewer value leaves the parameter out (a bad saved
+    value falls through to the default) and a parameter with no value is left
+    out, instead of raising."""
     decls = declared(definition)
     viewer = viewer or {}
     dashboard = dashboard or {}
@@ -232,6 +233,10 @@ def resolve(
                 values[name] = coerce(ptype, raw, allow_relative=relative)
             except (ValueError, TypeError):
                 if not strict:
+                    # A reader's bad value is no value — not the default in its
+                    # place (QA P2-1); a bad saved value falls through.
+                    if source == "viewer":
+                        break
                     continue
                 raise ParamError("param_invalid", name, label=label, expected=ptype, source=source) from None
             resolved[name] = {"value": values[name], "source": source}

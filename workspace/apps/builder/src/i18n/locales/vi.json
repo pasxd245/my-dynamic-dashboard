@@ -1237,7 +1237,7 @@
     "readOnlyHint": "Chỉ xem — ghi qua API; người ghi muốn sửa thì ghi lại.",
     "widgetTooltip": "Chú giải của widget này",
     "state": {
-      "refreshed": "Dữ liệu đã làm mới",
+      "refreshed": "Dữ liệu đã làm mới từ khi viết",
       "otherPeriod": "Kỳ khác",
       "otherDefinition": "Định nghĩa cũ"
     },

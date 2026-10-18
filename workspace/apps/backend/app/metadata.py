@@ -398,10 +398,12 @@ def _dashboard_anchor(
             try:
                 values[name] = qparams.coerce(ptype, raw, allow_relative=relative)
             except (ValueError, TypeError):
-                if strict and source == "viewer":
-                    raise qparams.ParamError(
-                        "param_invalid", name, label=decl.get("label"), expected=ptype, source="viewer"
-                    ) from None
+                if source == "viewer":
+                    if strict:
+                        raise qparams.ParamError(
+                            "param_invalid", name, label=decl.get("label"), expected=ptype, source="viewer"
+                        ) from None
+                    break  # a reader's bad value: not compared (QA P2-1)
                 continue
             if source != "viewer":
                 assumed.append(name)

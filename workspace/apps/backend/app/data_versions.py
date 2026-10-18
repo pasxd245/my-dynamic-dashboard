@@ -32,8 +32,16 @@ def versions(con: sqlite3.Connection, ids: list[str]) -> dict[str, int]:
 
 def query_versions(con: sqlite3.Connection, query_id: str, workspace_id: str) -> dict[str, int]:
     """The versions of every dataset a saved query reads now ({} when it no longer
-    resolves — a drifted query reads nothing)."""
-    from app.query_engine import _resolve_plan  # local: query_engine is heavy and imports routers
+    resolves — a drifted query reads nothing). Resolved from the query's own
+    source, joins and relationships — exactly as `/rows` plans it — so a parameter
+    without a value does not hide its data (R197 QA P1-1)."""
+    import json
 
-    plan, _reason = _resolve_plan(con, query_id, [], {}, workspace_id)
+    from app.query_engine import _chain_of, _rels_of, _resolve_plan  # local: heavy, imports routers
+
+    row = con.execute("SELECT source_id, definition_json FROM queries WHERE id = ?", (query_id,)).fetchone()
+    if row is None:
+        return {}
+    definition = json.loads(row["definition_json"])
+    plan, _reason = _resolve_plan(con, row["source_id"], _chain_of(definition), _rels_of(definition), workspace_id)
     return versions(con, plan_dataset_ids(plan))

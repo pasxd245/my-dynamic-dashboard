@@ -284,10 +284,34 @@ their parent.
 - **Re-saving an unchanged definition** does not flag it: `null` members are dropped before
   hashing, so a definition re-serialized under a newer model with more optional fields hashes
   the same.
-- **The noun is deleted**: its entries are **not** removed. They stay in `metadata_entries`,
-  unreadable (the read `404`s on the missing noun; a parent read skips the missing child) and
-  harmless. A column entry **reappears** if a column of the same name returns to that dataset
-  (e.g. after a refresh), flagged stale if its dtype differs.
+- **The noun is deleted** (R197): its entries move to `metadata_entries_swept` in the same
+  transaction (`app.metadata.sweep` — archived, not dropped): a dataset (with its columns'),
+  query, workflow, dashboard, relationship, workspace or saved copy, and a widget removed from its
+  dashboard. A **column that leaves** its dataset in a refresh is kept, unreadable while absent,
+  and **reappears** if a column of the same name returns (flagged if its dtype differs).
+
+### The triple anchor (R197, item 3.8)
+
+- **Stamped at write** by the server: `anchor {definitionVersion, dataVersions?, queryVersions?,
+  runId?, params?, assumedParams?}` — the noun's definition, the data behind it (a dataset /
+  column: its own version; a relationship: both ends; a query: its plan's; a widget: its query's;
+  a dashboard: all its widgets'), the queries behind a widget or dashboard, a workflow's current
+  run, and the parameter values (a query / widget: as it reads; a dashboard: its controls as the
+  bar shows them). The writer may name the values it read under (`params`); a used parameter with
+  no value at any level is refused (`param_unbound`); a value it did not give is stamped from the
+  saved / default value and listed in `assumedParams`. A relative default is stamped as the date
+  it meant.
+- **Read** under the reader's `p.<name>` values: `current` (and `childrenCurrent`) is the reader's
+  anchor; each entry gets `state` — `other_definition` (the definition or a query behind it
+  changed, or that query is gone) → `other_period` (a parameter both carry differs) → `refreshed`
+  (a dataset version both carry, or the run, differs; an R197 entry written before the first run
+  counts) → `current`. A reader without a value for a parameter is not compared on it. An rc.2
+  entry (no anchor) compares the definition only. `stale` keeps its rc.2 meaning.
+- **Panel**: `refreshed` carries a small flag; `other_period` and `other_definition` collapse to
+  "Written for <label value> · viewing <label value>" / "Written for an earlier definition.",
+  opened on click (a definition change warns); "written under the saved or default value of …"
+  and "written before periods were recorded" when they apply. A dashboard widget's footer reads
+  "Data: refreshed <when> · run #N" for the datasets at the versions it read.
 
 ---
 
@@ -360,12 +384,11 @@ namespace_cap`.
 
 - **Editing in the UI** — out by design (authorship must stay true). _Trigger: none planned;
   a writer re-writes through the API._
-- **Removing a deleted noun's entries** — not done today (see § Lifecycle). _Trigger: orphan
-  rows become a measurable size or privacy concern, or a re-created column name surfaces a
-  misleading old note._
-- **Anchoring an entry to a data version / workflow run or to view parameters** — an entry
-  anchors only to the definition today. _Trigger: a writer needs to say "true of the data as
-  of version N"._
+- **Anchoring to dashboard filters** (not parameters) — a note written while filtered to one team
+  reads `current` next to another team's numbers. _Trigger: a writer anchors notes to filtered
+  views (R197 BA P2-5)._
+- **A note that is about no period** (how to read a dashboard) still ages with a relative default.
+  _Trigger: writers complain of evergreen notes folding daily (R197 BA P2-2)._
 - **Read authorization / workspace scoping of reads** — reads are open to anyone who can call
   the API, like the nouns themselves.
 - **Column- or widget-level panels outside their parent** — children are shown only inside

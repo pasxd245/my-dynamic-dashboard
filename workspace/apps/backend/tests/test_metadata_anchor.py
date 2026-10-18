@@ -234,6 +234,32 @@ def test_state_rules_cover_the_run() -> None:
     )
 
 
+@pytest.mark.unit
+def test_a_note_on_a_query_without_defaults_sees_a_refresh() -> None:
+    """QA P1-1: the anchor's data must not depend on a parameter having a default."""
+    with TestClient(app) as client:
+        ws, ds, cols = _dataset(client)
+        q = _query(client, ws, ds, _as_of_query(cols)).json()["id"]
+        w = _put(client, "query", q, params={"as_of": "2026-10-11"})
+        _refresh(client, ws, ds)
+        after = _state(client, "query", q, "?p.as_of=2026-10-11")
+
+    assert w.json()["anchor"]["dataVersions"] == {ds: 1}
+    assert after == "refreshed"
+
+
+@pytest.mark.unit
+def test_a_bad_reader_value_is_not_replaced_by_the_default() -> None:
+    with TestClient(app) as client:
+        ws, ds, cols = _dataset(client)
+        q = _query(client, ws, ds, _as_of_query(cols, default="2026-10-10")).json()["id"]
+        _put(client, "query", q, params={"as_of": "2026-10-11"})
+        read = client.get(f"/metadata/query/{q}?p.as_of=junk").json()
+
+    assert "params" not in read["current"]
+    assert read["entries"]["aicowork"]["state"] == "current"
+
+
 # --- saved copies ---------------------------------------------------------------
 
 
