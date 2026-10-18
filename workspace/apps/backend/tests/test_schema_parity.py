@@ -39,8 +39,13 @@ _LEGACY_SCHEMA = """
 CREATE TABLE IF NOT EXISTS workspaces (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL CHECK (length(name) BETWEEN 1 AND 80),
-    created_at TEXT NOT NULL
+    created_at TEXT NOT NULL,
+    kind TEXT NOT NULL DEFAULT 'main' CHECK (kind IN ('main', 'saved')),
+    parent_workspace_id TEXT
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_workspaces_parent_unique
+    ON workspaces(parent_workspace_id);
 
 CREATE TABLE IF NOT EXISTS datasets (
     id TEXT PRIMARY KEY,
@@ -56,7 +61,8 @@ CREATE TABLE IF NOT EXISTS datasets (
     refreshed_at TEXT,
     data_version INTEGER NOT NULL DEFAULT 1,
     lineage_json TEXT,
-    published_workflow_id TEXT
+    published_workflow_id TEXT,
+    saved_from_json TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_datasets_workspace_id
@@ -296,8 +302,8 @@ def _introspect_models(tmp_path: Path) -> dict:
 
 def test_migration_leaves_alembic_version(tmp_path: Path, _restore_db_path):
     """The migrated DB is genuinely versioned (so subsequent boots take the
-    fast versioned path). R88 collapsed history to `0001_baseline`; R192's
-    `0008_dataset_lineage` is the head."""
+    fast versioned path). R88 collapsed history to `0001_baseline`; R193's
+    `0009_saved_copies` is the head."""
     migrated_path = tmp_path / "versioned.sqlite"
     db.set_db_path(migrated_path)
     db.run_startup_migrations()
@@ -307,4 +313,4 @@ def test_migration_leaves_alembic_version(tmp_path: Path, _restore_db_path):
         version = con.execute("SELECT version_num FROM alembic_version").fetchone()
     finally:
         con.close()
-    assert version is not None and version[0] == "0008_dataset_lineage"
+    assert version is not None and version[0] == "0009_saved_copies"

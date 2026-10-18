@@ -40,6 +40,7 @@ from app.models.common import (
     DashboardDefinition,
     UpdateDashboardBody,
 )
+from app.saved_copies import read_only_refusal
 from app.routers._shared import _now_iso
 
 
@@ -106,6 +107,9 @@ def _dashboard_from_row(row: sqlite3.Row) -> DashboardModel:
 def create_dashboard(id: WsIdPath, body: CreateDashboardBody) -> JSONResponse:  # noqa: A002
     """Create a dashboard. Every widget's query must exist in this workspace
     (422 otherwise). Name + slug are unique per-workspace (409 on collision)."""
+    # R193 — nothing inside a saved workspace can be changed.
+    if (ro := read_only_refusal(workspaces=[id])) is not None:
+        return ro
     definition_dict = body.definition.model_dump()
     with get_conn() as con:
         _validate_widget_queries(con, id, definition_dict)
@@ -169,6 +173,9 @@ def update_dashboard(id: DashboardIdPath, body: UpdateDashboardBody) -> JSONResp
     """Full-representation update of name + slug + definition (every FE mutation
     resends the whole dashboard). Same guards as create: widget queries must be
     in-workspace (422); name + slug unique per-workspace (409)."""
+    # R193 — nothing inside a saved workspace can be changed.
+    if (ro := read_only_refusal(dashboards=[id])) is not None:
+        return ro
     definition_dict = body.definition.model_dump()
     with get_conn() as con:
         row = con.execute(_SELECT_DASHBOARD, (id,)).fetchone()
@@ -200,6 +207,9 @@ def update_dashboard(id: DashboardIdPath, body: UpdateDashboardBody) -> JSONResp
 def delete_dashboard(id: DashboardIdPath) -> Response:  # noqa: A002
     """Delete a dashboard. 404 if already absent. The referenced queries are
     untouched (a widget points AT a query; the query has no back-reference)."""
+    # R193 — nothing inside a saved workspace can be changed.
+    if (ro := read_only_refusal(dashboards=[id])) is not None:
+        return ro
     with get_conn() as con:
         row = con.execute("SELECT id FROM dashboards WHERE id = ?", (id,)).fetchone()
         if row is None:

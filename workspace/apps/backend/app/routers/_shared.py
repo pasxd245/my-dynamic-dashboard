@@ -19,7 +19,7 @@ from datetime import datetime, timezone
 
 from pydantic import BaseModel, ConfigDict
 
-from app.models.common import Column, Dataset, DatasetLineage
+from app.models.common import Column, Dataset, DatasetLineage, DatasetSavedFrom
 from app.storage import temp_upload_dir
 
 # --- UTC timestamp (was duplicated across all CRUD routers) ----------------
@@ -109,6 +109,8 @@ def _dataset_from_row(row) -> Dataset:  # type: ignore[no-untyped-def]
         dataVersion=row["data_version"],
         # R192 — a published dataset's server-written lineage (NULL on uploads).
         lineage=DatasetLineage(**json.loads(row["lineage_json"])) if row["lineage_json"] else None,
+        # R193 — a saved copy's frozen origin (NULL on every other dataset).
+        savedFrom=DatasetSavedFrom(**json.loads(row["saved_from_json"])) if row["saved_from_json"] else None,
     )
 
 

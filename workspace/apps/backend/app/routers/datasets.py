@@ -65,6 +65,7 @@ from app.models.common import (
     Dataset,
     ParseOptions,
 )
+from app.saved_copies import read_only_refusal
 from app.routers._shared import (
     RowsPage,
     _carry_forward_hidden,
@@ -987,6 +988,9 @@ def _handle_refresh(
     response_model_exclude_none=True,
 )
 def commit_datasets_batch(id: str, body: _BatchRequest) -> list[Dataset] | JSONResponse:  # noqa: A002
+    # R193 — nothing inside a saved workspace can be changed.
+    if (ro := read_only_refusal(workspaces=[id], datasets=[it.target_dataset_id for it in body.items])) is not None:
+        return ro
     with get_conn() as con:
         ws_row = con.execute("SELECT id FROM workspaces WHERE id = ?", (id,)).fetchone()
     if ws_row is None:
@@ -1189,6 +1193,9 @@ def rename_dataset(  # noqa: A002 — match contract path param name
     Pre-checks existence (404); UPDATE may violate the unique index
     (409 `name_taken`).
     """
+    # R193 — nothing inside a saved workspace can be changed.
+    if (ro := read_only_refusal(datasets=[id])) is not None:
+        return ro
     with get_conn() as con:
         row = con.execute("SELECT * FROM datasets WHERE id = ?", (id,)).fetchone()
         if row is None:
@@ -1231,6 +1238,9 @@ def set_column_visibility(  # noqa: A002 — match contract path param name
     absent becomes visible. The stored shape drops the `hidden` key when false
     (matches the wire "omit when unset").
     """
+    # R193 — nothing inside a saved workspace can be changed.
+    if (ro := read_only_refusal(datasets=[id])) is not None:
+        return ro
     with get_conn() as con:
         row = con.execute("SELECT * FROM datasets WHERE id = ?", (id,)).fetchone()
         if row is None:

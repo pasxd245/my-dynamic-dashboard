@@ -29,12 +29,22 @@ class Workspace(SQLModel, table=True):
     __tablename__ = "workspaces"
     __table_args__ = (
         CheckConstraint("length(name) BETWEEN 1 AND 80"),
+        CheckConstraint("kind IN ('main', 'saved')"),
         Index("idx_workspaces_name_unique", "name", unique=True),
+        # R193 — at most one saved workspace per main workspace (NULLs are distinct).
+        Index("idx_workspaces_parent_unique", "parent_workspace_id", unique=True),
     )
 
     id: str = Field(sa_column=Column(Text, primary_key=True))
     name: str = Field(sa_column=Column(Text, nullable=False))
     created_at: str = Field(sa_column=Column(Text, nullable=False))
+    # R193 (item 3.6b) — `saved`: the read-only workspace holding frozen copies
+    # of its parent (main) workspace's datasets. No FK on the parent: the app
+    # refuses to delete a main workspace that has a saved one.
+    kind: str = Field(
+        default="main", sa_column=Column(Text, nullable=False, server_default=text("'main'"))
+    )
+    parent_workspace_id: str | None = Field(default=None, sa_column=Column(Text, nullable=True))
 
 
 class Dataset(SQLModel, table=True):
@@ -81,6 +91,9 @@ class Dataset(SQLModel, table=True):
     # (UNIQUE per workspace above — the re-publish target). NULL on uploads.
     lineage_json: str | None = Field(default=None, sa_column=Column(Text, nullable=True))
     published_workflow_id: str | None = Field(default=None, sa_column=Column(Text, nullable=True))
+    # R193 (item 3.6b) — a saved copy's server-written `savedFrom` (JSON). NULL
+    # on every other dataset.
+    saved_from_json: str | None = Field(default=None, sa_column=Column(Text, nullable=True))
 
 
 class Query(SQLModel, table=True):

@@ -57,6 +57,7 @@ from app.models.common import (
 from app.metadata import definition_version
 from app.workflow_runs import new_run_id, stale_sources, stamp_sources
 from app.query_engine import _step_plan, build_consolidated_relation
+from app.saved_copies import read_only_refusal
 from app.routers._shared import RowsPage, _carry_forward_hidden, _dataset_from_row, _is_unique_violation, _now_iso
 from app.storage import dataset_dir, workflow_dir
 
@@ -165,6 +166,9 @@ def _validate_consolidation(con: sqlite3.Connection, sources: list[str], workspa
 def create_workflow(id: WsIdPath, body: CreateWorkflowBody) -> JSONResponse:  # noqa: A002
     """Save a workflow. Every source query must exist AND belong to this
     workspace (else 422). Names are unique per workspace."""
+    # R193 — nothing inside a saved workspace can be changed.
+    if (ro := read_only_refusal(workspaces=[id])) is not None:
+        return ro
     with get_conn() as con:
         _validate_sources(con, list(body.definition.sources), id)
         _validate_consolidation(con, list(body.definition.sources), id)
@@ -218,6 +222,9 @@ def update_workflow(id: WfIdPath, body: UpdateWorkflowBody) -> JSONResponse:  # 
     DEFINITION invalidates the materialized output (the frozen result no longer
     matches the definition) → `resolvedColumns`/`materializedAt` are cleared and
     the workflow must be re-run. A name-only edit keeps the materialized output."""
+    # R193 — nothing inside a saved workspace can be changed.
+    if (ro := read_only_refusal(workflows=[id])) is not None:
+        return ro
     with get_conn() as con:
         row = con.execute(_SELECT_WORKFLOW, (id,)).fetchone()
         if row is None:
@@ -256,6 +263,9 @@ def update_workflow(id: WfIdPath, body: UpdateWorkflowBody) -> JSONResponse:  # 
 @router.delete("/workflows/{id}")
 def delete_workflow(id: WfIdPath) -> Response:  # noqa: A002
     """Delete a saved workflow. 404 if already absent."""
+    # R193 — nothing inside a saved workspace can be changed.
+    if (ro := read_only_refusal(workflows=[id])) is not None:
+        return ro
     with get_conn() as con:
         row = con.execute("SELECT id FROM workflows WHERE id = ?", (id,)).fetchone()
         if row is None:
@@ -275,6 +285,9 @@ def run_workflow(id: WfIdPath) -> JSONResponse:  # noqa: A002
 
     The source query already bakes ITS own filters into the sub-relation the engine
     resolves, so the workflow layer runs with no extra predicates — only its steps."""
+    # R193 — nothing inside a saved workspace can be changed.
+    if (ro := read_only_refusal(workflows=[id])) is not None:
+        return ro
     with get_conn() as con:
         row = con.execute(_SELECT_WORKFLOW, (id,)).fetchone()
         if row is None:
@@ -374,6 +387,9 @@ def publish_workflow(id: WfIdPath, body: PublishWorkflowBody | None = None) -> J
     has no stamped output (`never_run`), its output is out of date (`stale`),
     or a direct source of the run reads the dataset this publish would replace
     (`reads_itself`). A first publish onto a taken name is `409 name_taken`."""
+    # R193 — nothing inside a saved workspace can be changed.
+    if (ro := read_only_refusal(workflows=[id])) is not None:
+        return ro
     with get_conn() as con:
         row = con.execute(_SELECT_WORKFLOW, (id,)).fetchone()
         if row is None:

@@ -15,9 +15,9 @@ import secrets
 import sqlite3
 from typing import Annotated
 
-from fastapi import APIRouter, Path, status
+from fastapi import APIRouter, HTTPException, Path, status
 from fastapi.responses import JSONResponse, Response
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app._generated.constants import ID_PATTERNS, NAME_LENGTHS
 from app.db import get_conn
@@ -27,7 +27,14 @@ from app.models.common import (
     ApiErrorNotFound,
     Workspace,
 )
-from app.routers._shared import _is_unique_violation, _now_iso
+from app.routers._shared import _dataset_from_row, _is_unique_violation, _now_iso
+from app.saved_copies import (
+    LABEL_MAX,
+    read_only_refusal,
+    save_copies,
+    workspace_from_row,
+    workspace_json,
+)
 
 router = APIRouter(prefix="/workspaces", tags=["workspaces"])
 
@@ -56,11 +63,36 @@ def _new_id() -> str:
     return f"ws_{secrets.token_hex(4)}"
 
 
-@router.get("", response_model=list[Workspace])
+class SaveCopiesBody(BaseModel):
+    """R193 — POST /workspaces/{id}/saved-copies."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    label: Annotated[str, Field(min_length=1, max_length=LABEL_MAX)]
+    datasetIds: Annotated[  # noqa: N815 — wire shape
+        list[Annotated[str, Field(pattern=ID_PATTERNS["dataset"])]], Field(min_length=1, max_length=20)
+    ]
+
+    @field_validator("label")
+    @classmethod
+    def _not_blank(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("label must not be blank")
+        return v.strip()
+
+    @field_validator("datasetIds")
+    @classmethod
+    def _unique(cls, v: list[str]) -> list[str]:
+        if len(v) != len(set(v)):
+            raise ValueError("datasetIds must not repeat a dataset")
+        return v
+
+
+@router.get("", response_model=list[Workspace], response_model_exclude_none=True)
 def list_workspaces() -> list[Workspace]:
     with get_conn() as con:
-        rows = con.execute("SELECT id, name, created_at FROM workspaces ORDER BY created_at DESC, id DESC").fetchall()
-    return [Workspace(id=r["id"], name=r["name"], createdAt=r["created_at"]) for r in rows]
+        rows = con.execute("SELECT * FROM workspaces ORDER BY created_at DESC, id DESC").fetchall()
+    return [workspace_from_row(r) for r in rows]
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
@@ -90,7 +122,7 @@ def create_workspace(body: CreateWorkspace) -> JSONResponse:
         raise
     return JSONResponse(
         status_code=status.HTTP_201_CREATED,
-        content=ws.model_dump(),
+        content=workspace_json(ws),
     )
 
 
@@ -104,8 +136,10 @@ def rename_workspace(  # noqa: A002 — match contract path param name
     R23 design + R24 contract. Pre-checks existence (404 if missing);
     UPDATE may still violate the unique-name index (409 `name_taken`).
     """
+    if (ro := read_only_refusal(workspaces=[id])) is not None:
+        return ro
     with get_conn() as con:
-        row = con.execute("SELECT id, name, created_at FROM workspaces WHERE id = ?", (id,)).fetchone()
+        row = con.execute("SELECT * FROM workspaces WHERE id = ?", (id,)).fetchone()
         if row is None:
             return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=ApiErrorNotFound().model_dump())
         try:
@@ -122,8 +156,8 @@ def rename_workspace(  # noqa: A002 — match contract path param name
                 )
             raise
 
-    ws = Workspace(id=id, name=body.name, createdAt=row["created_at"])
-    return JSONResponse(status_code=status.HTTP_200_OK, content=ws.model_dump())
+        updated = con.execute("SELECT * FROM workspaces WHERE id = ?", (id,)).fetchone()
+    return JSONResponse(status_code=status.HTTP_200_OK, content=workspace_json(workspace_from_row(updated)))
 
 
 @router.delete("/{id}")
@@ -139,20 +173,79 @@ def delete_workspace(id: WsIdPath) -> Response:  # noqa: A002
     On success: 204 No Content. On already-absent: 404
     `not_found` (lets the FE distinguish "you did this" from
     "someone else did").
+
+    R193 — a saved workspace is deleted like any other once empty (its copies
+    are deleted one by one). A main workspace's saved copies count as its own:
+    while it has any, the main workspace is `non_empty` — no saved workspace is
+    ever left without its main one. An EMPTY saved workspace goes with its main
+    workspace (nothing is lost).
     """
     with get_conn() as con:
         ws_row = con.execute("SELECT id FROM workspaces WHERE id = ?", (id,)).fetchone()
         if ws_row is None:
             return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=ApiErrorNotFound().model_dump())
 
-        (count,) = con.execute("SELECT COUNT(*) FROM datasets WHERE workspace_id = ?", (id,)).fetchone()
+        saved = con.execute("SELECT id FROM workspaces WHERE parent_workspace_id = ?", (id,)).fetchone()
+        scope = [id] if saved is None else [id, saved["id"]]
+        marks = ",".join("?" * len(scope))
+        (count,) = con.execute(
+            f"SELECT COUNT(*) FROM datasets WHERE workspace_id IN ({marks})",  # noqa: S608 — placeholders only
+            scope,
+        ).fetchone()
         if count > 0:
             return JSONResponse(
                 status_code=status.HTTP_409_CONFLICT,
                 content=ApiErrorNonEmpty(datasetCount=count).model_dump(),
             )
 
-        con.execute("DELETE FROM workspaces WHERE id = ?", (id,))
+        con.execute(f"DELETE FROM workspaces WHERE id IN ({marks})", scope)  # noqa: S608 — placeholders only
         con.commit()
 
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/{id}/saved-copies", status_code=status.HTTP_201_CREATED)
+def save_frozen_copies(id: WsIdPath, body: SaveCopiesBody) -> JSONResponse:  # noqa: A002
+    """R193 (item 3.6b) — freeze datasets of this main workspace into its saved
+    workspace (created on first use). All copies or none."""
+    with get_conn() as con:
+        main = con.execute("SELECT * FROM workspaces WHERE id = ?", (id,)).fetchone()
+        if main is None:
+            return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=ApiErrorNotFound().model_dump())
+        if main["kind"] == "saved":
+            return read_only_refusal(workspaces=[id], con=con)  # type: ignore[return-value]
+        marks = ",".join("?" * len(body.datasetIds))
+        mine = {
+            r["id"]
+            for r in con.execute(
+                f"SELECT id FROM datasets WHERE workspace_id = ? AND id IN ({marks})",  # noqa: S608 — placeholders only
+                [id, *body.datasetIds],
+            )
+        }
+    missing = [i for i, ds in enumerate(body.datasetIds) if ds not in mine]
+    if missing:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=[
+                {
+                    "loc": ["body", "datasetIds", i],
+                    "msg": f"unknown_dataset: {body.datasetIds[i]} is not a dataset in workspace {id}",
+                    "type": "unknown_dataset",
+                }
+                for i in missing
+            ],
+        )
+    try:
+        saved, rows = save_copies(main, body.label, body.datasetIds)
+    except LookupError:  # an original deleted mid-save — nothing was written
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=[{"loc": ["body", "datasetIds"], "msg": "unknown_dataset", "type": "unknown_dataset"}],
+        ) from None
+    return JSONResponse(
+        status_code=status.HTTP_201_CREATED,
+        content={
+            "workspace": workspace_json(saved),
+            "datasets": [_dataset_from_row(r).model_dump(exclude_none=True) for r in rows],
+        },
+    )

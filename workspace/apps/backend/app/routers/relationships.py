@@ -38,6 +38,7 @@ from app.models.common import (
     CreateRelationshipBody,
     Relationship,
 )
+from app.saved_copies import read_only_refusal
 from app.routers._shared import _compatible, _dtype_of, _now_iso
 from app.storage import dataset_dir
 
@@ -95,6 +96,9 @@ def create_relationship(id: WsIdPath, body: CreateRelationshipBody) -> JSONRespo
     workspace; both columns must exist; their dtypes must be join-compatible.
     Self-joins (same dataset on both sides) are out this round → 422. A
     duplicate ordered column-pair → 409 relationship_exists."""
+    # R193 — nothing inside a saved workspace can be changed.
+    if (ro := read_only_refusal(workspaces=[id])) is not None:
+        return ro
     if body.leftDatasetId == body.rightDatasetId:
         # Includes the degenerate self-pair; self-joins are deferred (Scope).
         raise _validation_error(
@@ -221,6 +225,9 @@ def check_relationship_route(id: RelIdPath) -> JSONResponse:  # noqa: A002
 @router.delete("/relationships/{id}")
 def delete_relationship(id: RelIdPath) -> Response:  # noqa: A002
     """Delete a relationship. 404 if already absent."""
+    # R193 — nothing inside a saved workspace can be changed.
+    if (ro := read_only_refusal(relationships=[id])) is not None:
+        return ro
     with get_conn() as con:
         row = con.execute("SELECT id FROM relationships WHERE id = ?", (id,)).fetchone()
         if row is None:

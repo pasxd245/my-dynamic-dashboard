@@ -112,6 +112,9 @@ class Workspace(BaseModel):
 
     id: WsId
     name: Annotated[str, Field(min_length=1, max_length=NAME_LENGTHS["workspace_max"])]
+    # R193 — `saved`: read-only, holds frozen copies of `parentWorkspaceId`'s datasets.
+    kind: Literal["main", "saved"] = "main"
+    parentWorkspaceId: WsId | None = None  # noqa: N815 — only on a saved workspace
     createdAt: IsoUtc  # noqa: N815 — wire shape
 
 
@@ -133,6 +136,8 @@ class Dataset(BaseModel):
     dataVersion: Annotated[int, Field(ge=1)]  # noqa: N815
     # R192 — only on a published dataset (sourceFormat `workflow`); server-written.
     lineage: "DatasetLineage | None" = None
+    # R193 — only on a saved copy; server-written, never moves.
+    savedFrom: "DatasetSavedFrom | None" = None  # noqa: N815
 
 
 class ParseOptions(BaseModel):
@@ -1280,4 +1285,28 @@ class UpdateWorkflowBody(BaseModel):
 
 # R192 — `Dataset.lineage` refers forward to DatasetLineage (defined with the
 # workflow models it is copied from).
+class DatasetSavedFrom(BaseModel):
+    """R193 (item 3.6b) — what a saved copy froze: the original, its version and
+    `refreshedAt` at the save, the label, when. Server-written (`Dataset.savedFrom`)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    datasetId: DsId  # noqa: N815
+    datasetName: Annotated[str, Field(min_length=1)]  # noqa: N815
+    workspaceId: WsId  # noqa: N815
+    dataVersion: Annotated[int, Field(ge=1)]  # noqa: N815
+    refreshedAt: IsoUtc  # noqa: N815
+    label: Annotated[str, Field(min_length=1, max_length=40)]
+    savedAt: IsoUtc  # noqa: N815
+
+
+class ApiErrorReadOnlyWorkspace(BaseModel):
+    """R193 — a write on anything inside a saved workspace (409); nothing changed.
+    Mirrors `_shared/api-error.yaml#/ApiErrorReadOnlyWorkspace`."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    code: Literal["read_only_workspace"] = ERROR_CODES["read_only_workspace"]  # type: ignore[assignment]
+
+
 Dataset.model_rebuild()

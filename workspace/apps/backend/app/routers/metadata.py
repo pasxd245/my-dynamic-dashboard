@@ -39,6 +39,7 @@ from app.metadata import (
 )
 from app.models.common import ApiErrorForbidden, ApiErrorMetadataInvalid, ApiErrorNotFound, ApiErrorUnauthorized
 from app.routers._shared import _now_iso
+from app.saved_copies import read_only_refusal
 
 router = APIRouter(tags=["metadata"])
 
@@ -108,6 +109,9 @@ def write_metadata(
         noun = resolve_noun(con, kind, noun_id)
         if noun is None:
             return _not_found()
+        # R193 — a saved copy's notes are frozen with it.
+        if (ro := read_only_refusal(workspaces=[noun.workspace_id], con=con)) is not None:
+            return ro
         existing = con.execute(
             "SELECT namespace FROM metadata_entries WHERE kind = ? AND noun_id = ?", (kind, noun_id)
         ).fetchall()
@@ -149,6 +153,9 @@ def delete_metadata(
     if namespace == RESERVED_NAMESPACE or namespace not in tok.namespaces:
         return JSONResponse(status_code=status.HTTP_403_FORBIDDEN, content=ApiErrorForbidden().model_dump())
     with get_conn() as con:
+        noun = resolve_noun(con, kind, noun_id)
+        if noun is not None and (ro := read_only_refusal(workspaces=[noun.workspace_id], con=con)) is not None:
+            return ro
         cur = con.execute(
             "DELETE FROM metadata_entries WHERE kind = ? AND noun_id = ? AND namespace = ?",
             (kind, noun_id, namespace),

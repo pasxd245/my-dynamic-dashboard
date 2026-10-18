@@ -62,6 +62,7 @@ from app.query_engine import (
     _to_resolved,
     _validate_aggregate,
 )
+from app.saved_copies import read_only_refusal
 from app.routers._shared import RowsPage, _is_unique_violation, _now_iso
 from app.storage import dataset_dir
 
@@ -101,6 +102,9 @@ def create_query(id: WsIdPath, body: CreateQueryBody) -> JSONResponse:  # noqa: 
     workspace; the definition is validated against its current columns
     (a definition that can't run is rejected 422). Names are unique
     per workspace."""
+    # R193 — nothing inside a saved workspace can be changed.
+    if (ro := read_only_refusal(workspaces=[id])) is not None:
+        return ro
     definition_dict = body.definition.model_dump()
     chain = _chain_of(definition_dict)
     # R79 — the driving source is the single, canonical `sourceId`; R167 narrowed it
@@ -630,6 +634,9 @@ def update_query(id: QueryIdPath, body: UpdateQueryBody) -> JSONResponse:  # noq
     still exist, be in-workspace, and have valid keys), and a definition that
     can't run is rejected 422. The Query's name + source are unchanged this
     round. Returns the updated Query (resolvedColumns recomputed when joined)."""
+    # R193 — nothing inside a saved workspace can be changed.
+    if (ro := read_only_refusal(queries=[id])) is not None:
+        return ro
     definition = body.definition.model_dump()
     chain = _chain_of(definition)
     with get_conn() as con:
@@ -664,6 +671,9 @@ def update_query(id: QueryIdPath, body: UpdateQueryBody) -> JSONResponse:  # noq
 @router.delete("/queries/{id}")
 def delete_query(id: QueryIdPath) -> Response:  # noqa: A002
     """Delete a saved query. 404 if already absent."""
+    # R193 — nothing inside a saved workspace can be changed.
+    if (ro := read_only_refusal(queries=[id])) is not None:
+        return ro
     with get_conn() as con:
         row = con.execute("SELECT id FROM queries WHERE id = ?", (id,)).fetchone()
         if row is None:
