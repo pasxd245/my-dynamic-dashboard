@@ -538,8 +538,11 @@ components:
           enum: [date, number, string]
         source:
           type: string
-          enum: [viewer, dashboard]
-          description: Which level supplied the value that does not fit.
+          enum: [viewer, dashboard, default]
+          description: |
+            Which level supplied the value that does not fit. `default` only with
+            `reason: range_reversed` (a `today` default that moved past a literal
+            bound).
         reason:
           type: string
           enum: [range_reversed]

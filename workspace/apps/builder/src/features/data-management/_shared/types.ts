@@ -47,14 +47,21 @@ export type ApiError =
   // R193 — a write inside a saved (frozen) workspace; nothing was changed
   | { code: 'read_only_workspace' }
   // R194 — a query parameter with no value at any level (a workflow run also names the source)…
-  | { code: 'param_unbound'; param: string; label?: string; sourceId?: string }
+  | {
+      code: 'param_unbound';
+      param: string;
+      label?: string;
+      sourceId?: string;
+      missing?: readonly { param: string; label?: string }[];
+    }
   // …or a supplied value of the wrong type, and which level supplied it.
   | {
       code: 'param_invalid';
       param: string;
       label?: string;
       expected: 'date' | 'number' | 'string';
-      source: 'viewer' | 'dashboard';
+      source: 'viewer' | 'dashboard' | 'default';
+      reason?: 'range_reversed';
     };
 
 /** The batch-commit endpoint's 409 carries a `oneOf` over the legacy

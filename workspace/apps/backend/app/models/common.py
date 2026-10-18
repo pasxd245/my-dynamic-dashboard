@@ -9,7 +9,16 @@ from __future__ import annotations
 
 from typing import Annotated, Literal
 
-from pydantic import StrictFloat, StrictInt, StrictStr, BaseModel, ConfigDict, Field, model_serializer, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StrictFloat,
+    StrictInt,
+    StrictStr,
+    model_serializer,
+    model_validator,
+)
 
 from app._generated.constants import ERROR_CODES, ID_PATTERNS, NAME_LENGTHS
 from app.markdown_safe import MARKDOWN_MAX_CHARS, markdown_problems

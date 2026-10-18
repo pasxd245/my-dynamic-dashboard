@@ -661,3 +661,38 @@ def test_an_export_title_in_vietnamese_downloads() -> None:
     assert r.status_code == 200
     disp = r.headers["content-disposition"]
     assert disp.startswith('attachment; filename="') and "filename*=UTF-8''" in disp
+
+
+@pytest.mark.unit
+def test_reversed_ranges_with_a_string_literal_or_from_a_default_are_named() -> None:
+    with TestClient(app) as client:
+        ws, ds, cols = _dataset(client)
+        amount, day = _col(cols, "amount"), _col(cols, "day")
+        q_num = _query(
+            client,
+            ws,
+            ds,
+            {
+                **_EMPTY,
+                "params": [{"name": "n", "type": "number"}],
+                "filters": [{"col": amount, "dtype": "integer", "op": "between", "min": {"param": "n"}, "max": "10"}],
+            },
+            "num",
+        ).json()["id"]
+        q_def = _query(
+            client,
+            ws,
+            ds,
+            {
+                **_EMPTY,
+                "params": [{"name": "a", "type": "date", "default": "2026-12-01"}],
+                "filters": [{"col": day, "dtype": "date", "op": "between", "min": {"param": "a"}, "max": "2026-10-11"}],
+            },
+            "def",
+        ).json()["id"]
+        num = client.get(f"/queries/{q_num}/rows?p.n=20")
+        dflt = client.get(f"/queries/{q_def}/rows")
+
+    assert num.status_code == 422 and num.json()["reason"] == "range_reversed"
+    assert dflt.status_code == 422 and dflt.json()["source"] == "default"
+    validate_response("queries/rows-get.contract.yaml", 422, dflt.json())

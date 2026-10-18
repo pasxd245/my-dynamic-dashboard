@@ -339,13 +339,13 @@ def definition_site(definition: dict, loc: tuple) -> dict:
 
 def _invalid(name: str, decls: dict, resolved: dict | None, reason: str | None = None) -> ParamError:
     decl = decls.get(name, {})
-    source = (resolved or {}).get(name, {}).get("source")
+    source = (resolved or {}).get(name, {}).get("source") or "viewer"
     return ParamError(
         "param_invalid",
         name,
         label=decl.get("label"),
         expected=decl.get("type", "number"),
-        source=source if source in ("viewer", "dashboard") else "viewer",
+        source=source,
         reason=reason,
     )
 
@@ -357,8 +357,11 @@ def _check_order(bound: Site, original: dict, values: dict, decls: dict, resolve
     if lo is None or hi is None or not (is_ref(original.get("min")) or is_ref(original.get("max"))):
         return
     try:
-        reversed_ = str(lo)[:10] > str(hi)[:10] if isinstance(lo, str) and isinstance(hi, str) else lo > hi
-    except TypeError:
+        if isinstance(lo, int | float) or isinstance(hi, int | float):
+            reversed_ = float(lo) > float(hi)  # a number site, either bound may be a string literal
+        else:
+            reversed_ = str(lo)[:10] > str(hi)[:10]  # dates / datetimes: by calendar day
+    except (TypeError, ValueError):
         return
     if reversed_:
         name = original["min"][REF_KEY] if is_ref(original.get("min")) else original["max"][REF_KEY]
