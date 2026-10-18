@@ -1,6 +1,6 @@
 # Round 196: data versions on the read paths and in exports (item 3.2c)
 
-**Status**: Do — built; reviews pending
+**Status**: Review — built and reviewed (code review, BA, QA + visual gate: no open P0/P1); awaiting the human acceptance walk (W1–W5) and sign-off
 **Flow**: **DCFBI** — set at the Design gate via `flow-selector` (see Do).
 **Date started**: 2026-10-18
 **Date completed**: —
@@ -17,7 +17,9 @@
   version; a copy's Filters sheet says what it froze and that it is not the current numbers. The
   dataset page's Actions menu offers **Export all rows (.xlsx / .csv)**, also on a copy.
 
-**Studied** — the "too many rows" message of the R182 widget export never showed: the builder's
+**Studied** — a file outlives its HTTP headers. The version had to go into the file itself (sheet
+block, file name), and every text cell had to stay text: a dataset name or label starting with `=`
+opened as a live formula in Excel until QA caught it on the Filters sheet. Also: the "too many rows" message of the R182 widget export never showed: the builder's
 error guard did not know `export_too_large`, so the card fell back to "Could not export". Fixed at
 the guard; one test pins it.
 
@@ -85,15 +87,56 @@ Result: **Flow: DCFBI** — no condition fired.
 
 ### F, the reviews and the fixes
 
-_(pending)_
+- Build (`30f9ca2`): contracts, backend, builder, tests as above.
+- **Reviews after build:**
+  - code review **PASS** — P2: version read before or after the rows (refresh window); XLSX
+    formula text (pre-existing since R182); test gaps (cap, steps); column change mid-export.
+  - BA **PASS** — P2: CSV carries the version only in a header; frozen-copy wording false when the
+    original was not refreshed, and no link to the original; "save a query" advice impossible on a
+    copy; VI terms ("tập dữ liệu", "truy vấn"); version read order; filters on screen vs all rows.
+- **Fold 1 (`14d0530`)** — `_v<n>` in the dataset export's file name; copy meta reads "frozen; the
+  live dataset may have been refreshed since" with `original_id` and `original_data_version_now`
+  (`deleted` when gone); a copy's too-large message without the query advice; VI terms; `=` text
+  kept as text on the data sheet; tests for the cap and the guard.
+- QA **CHANGES** — P1: the guard missed the Filters sheet (dataset name, label, parameter value
+  → live formula). P2: `__` in file names; duplicate `dataset` key in column A.
+- **Fix (`f75a535`)** — `_keep_text` over every sheet before save; runs of `_` collapse; the block
+  header reads `dataset name`. QA re-check **PASS** (no `<f>` in any workbook part, 4 API checks).
+- **Not folded, by judgement:** the version/rows race needs the bump moved into the refresh swap
+  (or a shared read-consistent helper) — R197 owns it, since 3.8 anchors on this value; reading the
+  version twice does not close it (a read between swap and bump sees the old version both times).
 
 ## Check
 
-_(pending)_
+- [x] backend 656 · builder 529 (3 upload-wizard timeouts under load; the file passes alone, 15/15)
+      · contracts 49 green; `tsc --noEmit`; `ruff check`; lints 0
+- [x] Visual gate: light (EN + VI), normal dataset and saved copy; dark N/A (no dark theme — owner)
+- [x] BA · code review · QA — no open P0/P1
+- [x] ⟢ At a glance **Studied** line written
+- [ ] **Acceptance walk** (human reviewer) — ⬜ verdicts, `coverage: 0 of 5`. Setup: a workspace
+      with `walk_deals.csv` (**deals**) and `walk_accounts.csv` (**accounts**), a relationship on
+      the account id, a joined query **Deals × accounts**.
+  - ⬜ W1 — Refresh **accounts** once. Export **Deals × accounts** (XLSX): the Filters sheet has a
+    Data versions block — deals v1, accounts v2.
+  - ⬜ W2 — On **deals**, hide one column, then Actions › **Export all rows (.csv)**: the file is
+    `deals_v1.csv`, without the hidden column.
+  - ⬜ W3 — Save a frozen copy of **deals**, refresh **deals**, export the copy (XLSX): the Filters
+    sheet says "frozen; the live dataset may have been refreshed since", `original_data_version_now`
+    2, and the rows are the frozen ones.
+  - ⬜ W4 — Rename **deals** to `=SUM(1,2)` and export it (XLSX): Excel shows the text `=SUM(1,2)`,
+    not 3. Rename it back.
+  - ⬜ W5 — VI: the Actions menu reads "Xuất toàn bộ dòng (.xlsx)" / "(.csv)".
 
 ## Act
 
-_(pending)_
+- **Rolling log:** closed — Filters sheet without a data version; `updated_at` (skipped, reason
+  logged). New P2 rows: version/rows race (→ R197); shared `_data_versions` helper (→ R197); CSV
+  formula prefixes; query export file name without a version; on-screen version on the query view;
+  all-rows vs filters on screen; ASCII fallback `__`; upload-wizard test timeouts under load.
+- **Promotion:** none. Candidate lesson (memory, if it recurs): an export is read long after the
+  request — anything only in a response header is lost once the file is saved.
+- **Prune check:** QA's live-backend probe found the one P1 that both read-only reviews missed;
+  the loop keeps earning its place.
 
 ## Feeds into → Round_197
 

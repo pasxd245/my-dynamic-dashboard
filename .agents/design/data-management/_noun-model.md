@@ -197,6 +197,13 @@ and is a flag, never a block**.
 | **Definition version** | any noun with a stored definition — computed, not a column                                      | 12 hex: the first 12 of a sha256 over the definition's canonical JSON (sorted keys, compact separators) **with `null` members dropped**               | the definition changes                                                                                                           | a re-save of an unchanged definition (even under a model with more optional fields); a data refresh that keeps the schema    |
 | **Run stamp**          | a Workflow — `run` on the wire; `workflows.run_id` / `run_number` / `run_json`                  | `{ id: run_<8hex>, number, definitionHash, sources[] }`; each source is `{ id, definitionHash, dataVersions }` (a `qr_`) or `{ id, runId }` (a `wf_`) | every successful run: a new `id`, `number + 1`                                                                                   | a failed run (nothing is written); a definition change **clears** `id` and the stamp (with the output) but keeps the counter |
 
+- **Every read names its data (3.2c, R196).** `/rows`, `/aggregate`, `/totals` and the preview
+  return `dataVersions: {<datasetId>: n}` — exactly the datasets the read touched (a join: each
+  side). A query export carries the same map as a **Data versions** block on its Filters sheet and
+  in `X-MDD-Data-Versions`; a dataset or saved-copy export (`POST /datasets/{id}/export`) carries
+  its own version in the sheet, the header and the file name (`<name>_v<n>`). The version is read
+  next to the rows, not under the same lock: a read in the refresh window can be labelled one
+  version off (rolling log → R197).
 - **Data version ⇄ definition version.** The rows and the definition move independently. A
   note about a query does not go "out of date" when its datasets refresh; a workflow run
   records **both**, because its frozen output depends on both.

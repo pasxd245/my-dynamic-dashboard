@@ -185,8 +185,8 @@ read_only_workspace` there; a note about a decision belongs on the original (it 
 **User journey** — as a manager I freeze this week's data under a label before the meeting; next
 week, after the data has been refreshed, I can still open exactly the rows and the data version
 behind what we decided, clearly marked as not current. (Re-computing a widget's number over a copy
-needs a query or a frozen dashboard — OUT below; exporting a copy's rows to Excel lands with 3.2c,
-`Round_196`.)
+needs a query or a frozen dashboard — OUT below; exporting a copy's rows: Actions › **Export all rows**,
+`Round_196` — the Filters sheet names the original, its version now, and that the copy is frozen.)
 
 1. _(pytest)_ save → `201`; the saved workspace exists once per main workspace (`kind: saved`,
    `parentWorkspaceId`); a second save reuses it; a name collision gets `-saved-2`.

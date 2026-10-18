@@ -699,8 +699,9 @@ detail type).
   through a refresh.
 - **Row inspection drawer** (click row → full-cell-text drawer for
   long-string blobs). Truncate-with-tooltip is the affordance today.
-- **Export from this page**. Table export exists for dashboard widgets
-  only; a dataset export is a separate feature.
+- **Export the filtered view from this page.** Actions › **Export all rows (.xlsx / .csv)**
+  (R196) exports every row and the visible columns, stamped with the data version; on-screen
+  filters are not applied — save a query and export that for a filtered file.
 
 ---
 
