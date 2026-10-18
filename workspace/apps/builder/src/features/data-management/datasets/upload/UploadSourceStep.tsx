@@ -1,21 +1,17 @@
-import {
-  FileExcelOutlined,
-  FileTextOutlined,
-  InboxOutlined,
-} from "@ant-design/icons";
-import { Alert, Card, Col, Form, Row, Select, Tag, Typography, Upload } from "antd";
-import type { Dispatch } from "react";
-import { useTranslation } from "react-i18next";
-import { appConfig } from "@/config";
-import { formatBytesCoarse } from "@/lib/formatBytes";
-import { useWorkspacesQuery } from '@/features/data-management/workspaces/hooks';
-import type { UploadFormat } from "../types";
-import { useUploadInitMutation } from "../hooks";
-import type { WizardAction, WizardState } from "./state";
+import { FileExcelOutlined, FileTextOutlined, InboxOutlined } from '@ant-design/icons';
+import { Alert, Card, Col, Form, Row, Select, Tag, Typography, Upload } from 'antd';
+import type { Dispatch } from 'react';
+import { useTranslation } from 'react-i18next';
+import { appConfig } from '@/config';
+import { formatBytesCoarse } from '@/lib/formatBytes';
+import { useWritableWorkspaces } from '@/features/data-management/workspaces/hooks';
+import type { UploadFormat } from '../types';
+import { useUploadInitMutation } from '../hooks';
+import type { WizardAction, WizardState } from './state';
 
 const ACCEPT: Record<UploadFormat, string> = {
-  csv: ".csv",
-  excel: ".xlsx,.xls",
+  csv: '.csv',
+  excel: '.xlsx,.xls',
 };
 
 type Props = Readonly<{
@@ -25,21 +21,20 @@ type Props = Readonly<{
 
 export function UploadSourceStep({ state, dispatch }: Props) {
   const { t } = useTranslation();
-  const workspaces = useWorkspacesQuery();
+  const workspaces = useWritableWorkspaces();
   const initMutation = useUploadInitMutation();
   // Refresh mode: source + workspace are FIXED to the target dataset; the user
   // only re-picks the new export file (R145 § Refresh).
   const isRefresh = state.mode === 'refresh';
-  const workspaceName =
-    workspaces.data?.find((w) => w.id === state.workspaceId)?.name ?? state.workspaceId ?? '—';
+  const workspaceName = workspaces.data?.find((w) => w.id === state.workspaceId)?.name ?? state.workspaceId ?? '—';
 
   const startUpload = (file: File) => {
-    dispatch({ type: "SET_FILE", file });
+    dispatch({ type: 'SET_FILE', file });
     initMutation.mutate(
       { file, sourceFormat: state.sourceFormat },
       {
         onSuccess: (response) => {
-          dispatch({ type: "UPLOAD_INIT_SUCCESS", response });
+          dispatch({ type: 'UPLOAD_INIT_SUCCESS', response });
         },
       },
     );
@@ -78,12 +73,10 @@ export function UploadSourceStep({ state, dispatch }: Props) {
                 label="Excel"
                 meta={t('upload.source.excelMeta')}
                 primaryLabel={t('upload.source.primary')}
-                icon={<FileExcelOutlined style={{ color: "#117a3a" }} />}
+                icon={<FileExcelOutlined style={{ color: '#117a3a' }} />}
                 primary
-                selected={state.sourceFormat === "excel"}
-                onClick={() =>
-                  dispatch({ type: "SET_SOURCE_FORMAT", sourceFormat: "excel" })
-                }
+                selected={state.sourceFormat === 'excel'}
+                onClick={() => dispatch({ type: 'SET_SOURCE_FORMAT', sourceFormat: 'excel' })}
               />
             </Col>
             <Col xs={24} sm={12}>
@@ -91,12 +84,10 @@ export function UploadSourceStep({ state, dispatch }: Props) {
                 label="CSV"
                 meta={t('upload.source.csvMeta')}
                 primaryLabel={t('upload.source.primary')}
-                icon={<FileTextOutlined style={{ color: "#1677ff" }} />}
+                icon={<FileTextOutlined style={{ color: '#1677ff' }} />}
                 primary={false}
-                selected={state.sourceFormat === "csv"}
-                onClick={() =>
-                  dispatch({ type: "SET_SOURCE_FORMAT", sourceFormat: "csv" })
-                }
+                selected={state.sourceFormat === 'csv'}
+                onClick={() => dispatch({ type: 'SET_SOURCE_FORMAT', sourceFormat: 'csv' })}
               />
             </Col>
           </Row>
@@ -122,11 +113,9 @@ export function UploadSourceStep({ state, dispatch }: Props) {
                   value: w.id,
                   label: w.name,
                 }))}
-                onChange={(value) =>
-                  dispatch({ type: "SET_WORKSPACE", workspaceId: value })
-                }
+                onChange={(value) => dispatch({ type: 'SET_WORKSPACE', workspaceId: value })}
                 loading={workspaces.isLoading}
-                style={{ width: "100%" }}
+                style={{ width: '100%' }}
               />
             </div>
           )}
@@ -147,16 +136,10 @@ export function UploadSourceStep({ state, dispatch }: Props) {
             <p className="ant-upload-drag-icon">
               <InboxOutlined style={{ fontSize: 32, opacity: 1 }} />
             </p>
-            <p
-              className="ant-upload-text"
-              style={{ fontSize: 14, fontWeight: 500 }}
-            >
+            <p className="ant-upload-text" style={{ fontSize: 14, fontWeight: 500 }}>
               {t('upload.source.dropHere')}
             </p>
-            <p
-              className="ant-upload-hint"
-              style={{ fontSize: 12, opacity: 0.7 }}
-            >
+            <p className="ant-upload-hint" style={{ fontSize: 12, opacity: 0.7 }}>
               {dropHint}
             </p>
           </Upload.Dragger>
@@ -195,15 +178,7 @@ type SourceCardProps = Readonly<{
   onClick: () => void;
 }>;
 
-function SourceCard({
-  label,
-  meta,
-  primaryLabel,
-  icon,
-  primary,
-  selected,
-  onClick,
-}: SourceCardProps) {
+function SourceCard({ label, meta, primaryLabel, icon, primary, selected, onClick }: SourceCardProps) {
   return (
     <Card
       hoverable
@@ -213,15 +188,13 @@ function SourceCard({
       data-format={label.toLowerCase()}
       styles={{ body: { padding: 16 } }}
       style={{
-        borderColor: selected ? "var(--ant-color-primary)" : undefined,
+        borderColor: selected ? 'var(--ant-color-primary)' : undefined,
         borderWidth: selected ? 2 : 1,
-        background: selected ? "var(--ant-color-primary-bg, #e6f4ff)" : undefined,
+        background: selected ? 'var(--ant-color-primary-bg, #e6f4ff)' : undefined,
       }}
     >
-      <div style={{ fontSize: 28, lineHeight: 1, marginBottom: 8 }}>
-        {icon}
-      </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+      <div style={{ fontSize: 28, lineHeight: 1, marginBottom: 8 }}>{icon}</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
         <Typography.Title level={5} style={{ margin: 0 }}>
           {label}
         </Typography.Title>

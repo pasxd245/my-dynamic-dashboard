@@ -18,7 +18,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import { queriesApi } from '@/api/queriesApi';
 import { useDatasetsQuery } from '@/features/data-management/datasets/hooks';
-import { useWorkspacesQuery } from '@/features/data-management/workspaces/hooks';
+import { useWritableWorkspaces } from '@/features/data-management/workspaces/hooks';
 import type { Query } from './types';
 
 const ALL_VALUE = '__all__';
@@ -40,16 +40,10 @@ export function QueriesPage() {
   const workspaceParam = searchParams.get('workspace') ?? undefined;
   const [nameQuery, setNameQuery] = useState('');
 
-  const workspaces = useWorkspacesQuery();
+  const workspaces = useWritableWorkspaces();
   const datasets = useDatasetsQuery();
-  const datasetById = useMemo(
-    () => new Map((datasets.data ?? []).map((d) => [d.id, d.name])),
-    [datasets.data],
-  );
-  const workspaceById = useMemo(
-    () => new Map((workspaces.data ?? []).map((w) => [w.id, w.name])),
-    [workspaces.data],
-  );
+  const datasetById = useMemo(() => new Map((datasets.data ?? []).map((d) => [d.id, d.name])), [datasets.data]);
+  const workspaceById = useMemo(() => new Map((workspaces.data ?? []).map((w) => [w.id, w.name])), [workspaces.data]);
 
   // The set of workspaces to query: one when filtered, all when "All".
   const wsIds = useMemo(() => {
@@ -72,16 +66,11 @@ export function QueriesPage() {
   }, [queryResults]);
   // R79 — a Query's source is the polymorphic `sourceId`: a `ds_` dataset or a
   // `qr_` base query. Resolve a base-query name from the loaded list.
-  const queryNameById = useMemo(
-    () => new Map(allQueries.map((q) => [q.id, q.name])),
-    [allQueries],
-  );
+  const queryNameById = useMemo(() => new Map(allQueries.map((q) => [q.id, q.name])), [allQueries]);
 
   const normalised = nameQuery.trim().toLowerCase();
   const visible =
-    normalised.length === 0
-      ? allQueries
-      : allQueries.filter((q) => q.name.toLowerCase().includes(normalised));
+    normalised.length === 0 ? allQueries : allQueries.filter((q) => q.name.toLowerCase().includes(normalised));
 
   const onFilterChange = (value: string) => {
     if (value === ALL_VALUE) setSearchParams({});
@@ -98,14 +87,7 @@ export function QueriesPage() {
   if (isLoading) {
     body = <Skeleton active paragraph={{ rows: 8 }} data-component="QueriesLoading" />;
   } else if (isError) {
-    body = (
-      <Alert
-        type="error"
-        showIcon
-        title={t('queries.list.loadCouldnt')}
-        data-component="QueriesError"
-      />
-    );
+    body = <Alert type="error" showIcon title={t('queries.list.loadCouldnt')} data-component="QueriesError" />;
   } else if (allQueries.length === 0) {
     body = (
       <div data-component="QueriesEmpty" style={{ padding: '40px 0', textAlign: 'center' }}>
@@ -190,17 +172,13 @@ export function QueriesPage() {
             dataIndex: 'workspaceId',
             key: 'workspaceId',
             sorter: (a, b) =>
-              (workspaceById.get(a.workspaceId) ?? '').localeCompare(
-                workspaceById.get(b.workspaceId) ?? '',
-              ),
+              (workspaceById.get(a.workspaceId) ?? '').localeCompare(workspaceById.get(b.workspaceId) ?? ''),
             render: (workspaceId: string) => workspaceById.get(workspaceId) ?? workspaceId,
           },
           {
             title: t('queries.list.colPredicates'),
             key: 'predicates',
-            render: (_v, row) => (
-              <Typography.Text type="secondary">{predicateSummary(row, t)}</Typography.Text>
-            ),
+            render: (_v, row) => <Typography.Text type="secondary">{predicateSummary(row, t)}</Typography.Text>,
           },
           {
             title: t('queries.list.colSaved'),

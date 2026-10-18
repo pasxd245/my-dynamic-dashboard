@@ -43,7 +43,9 @@ export type ApiError =
       code: 'not_publishable';
       reason: 'never_run' | 'stale' | 'reads_itself';
       staleSources?: { sourceId: string; name?: string; reason: string }[];
-    };
+    }
+  // R193 — a write inside a saved (frozen) workspace; nothing was changed
+  | { code: 'read_only_workspace' };
 
 /** The batch-commit endpoint's 409 carries a `oneOf` over the legacy
  *  `{ error, detail }` envelope and the new `ApiError` variants. The FE
@@ -73,7 +75,8 @@ export function isApiError(body: unknown): body is ApiError {
     code === ERROR_CODES.MERGE_DUPLICATE_KEYS ||
     code === ERROR_CODES.UNKNOWN_COLUMN ||
     code === ERROR_CODES.NO_VISIBLE_COLUMNS ||
-    code === ERROR_CODES.NOT_PUBLISHABLE
+    code === ERROR_CODES.NOT_PUBLISHABLE ||
+    code === ERROR_CODES.READ_ONLY_WORKSPACE
   );
 }
 

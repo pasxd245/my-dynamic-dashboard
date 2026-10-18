@@ -217,6 +217,25 @@
     "blockedDeleteHint": "Hãy xóa hoặc chuyển các tập dữ liệu đó sang không gian khác trước."
   },
   "datasets": {
+    "savedCopy": {
+      "action": "Lưu bản sao cố định…",
+      "title": "Lưu bản sao cố định",
+      "save": "Lưu bản sao",
+      "hint": "Bản sao được cố định: các lần làm mới hoặc xuất bản lại “{{name}}” sau này sẽ không thay đổi nó. Bản sao được lưu vào mục bản sao của không gian làm việc này và chỉ có thể xem hoặc xoá.",
+      "labelLabel": "Nhãn",
+      "labelHint": "Bản sao sẽ có tên “{{name}}”.",
+      "saved": "Đã lưu “{{name}}”.",
+      "openCopy": "Mở bản sao",
+      "failed": "Không lưu được bản sao.",
+      "readOnly": "Đây là một bản sao đã lưu — hãy tạo bản sao từ tập dữ liệu gốc.",
+      "band": "Bản sao cố định của “{{name}}” — phiên bản dữ liệu {{version}}, dữ liệu từ {{rowsAt}}; lưu lúc {{savedAt}} (nhãn {{label}}). Không phải số liệu hiện tại.",
+      "bandPublished": "Bản sao cố định của “{{name}}” — lần chạy #{{run}}, phiên bản dữ liệu {{version}}, dữ liệu từ {{rowsAt}}; lưu lúc {{savedAt}} (nhãn {{label}}). Không phải số liệu hiện tại.",
+      "openOriginal": "Mở tập dữ liệu hiện tại",
+      "originalGone": "Tập dữ liệu gốc không còn tồn tại.",
+      "workspaceTag": "Bản sao đã lưu",
+      "workspaceOf": "của {{name}}",
+      "declareReadOnly": "Không gian chứa bản sao đã lưu chỉ để xem: hãy khai báo mối quan hệ trong không gian làm việc chính."
+    },
     "title": "Tập dữ liệu",
     "subtitle": "Tất cả bảng dữ liệu trong các không gian làm việc. Nhấp vào một dòng để xem chi tiết, hoặc sắp xếp theo cột.",
     "upload": "Tải lên",
@@ -1026,7 +1045,14 @@
     "publish": {
       "block_up_to_date": "Lần chạy này đã được xuất bản.",
       "columnsUnknown": "Không tải được các cột hiện tại của tập dữ liệu để so sánh.",
-      "dtype": {"string": "văn bản", "integer": "số nguyên", "float": "số thập phân", "boolean": "đúng/sai", "date": "ngày", "datetime": "ngày giờ"},
+      "dtype": {
+        "string": "văn bản",
+        "integer": "số nguyên",
+        "float": "số thập phân",
+        "boolean": "đúng/sai",
+        "date": "ngày",
+        "datetime": "ngày giờ"
+      },
       "publish": "Xuất bản",
       "republish": "Xuất bản lại",
       "block_never_run": "Hãy chạy quy trình này trước.",

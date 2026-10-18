@@ -14,7 +14,7 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import type { Step } from '@/features/data-management/queries/types';
-import { useWorkspacesQuery } from '@/features/data-management/workspaces/hooks';
+import { useWritableWorkspaces } from '@/features/data-management/workspaces/hooks';
 import { ApiErrorThrown } from '../_shared/types';
 import { WorkflowSourceError } from '@/api/workflowsApi';
 import { sourceErrorText } from './sourceErrors';
@@ -27,7 +27,7 @@ export function WorkflowCreatePage() {
   const { message } = App.useApp();
   const [searchParams] = useSearchParams();
 
-  const workspaces = useWorkspacesQuery();
+  const workspaces = useWritableWorkspaces();
   const [workspaceId, setWorkspaceId] = useState<string | undefined>(searchParams.get('workspace') ?? undefined);
   const [name, setName] = useState('');
   const [sources, setSources] = useState<string[]>([]);

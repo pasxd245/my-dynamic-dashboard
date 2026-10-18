@@ -20,6 +20,7 @@ import {
   Modal,
   Row,
   Skeleton,
+  Tag,
   Typography,
   theme,
 } from 'antd';
@@ -62,8 +63,11 @@ function WorkspaceCard({
   onRelationships,
   onRename,
   onDelete,
+  parentName,
 }: Readonly<{
   workspace: Workspace;
+  /** R193 — a saved workspace's main workspace name. */
+  parentName?: string;
   onOpen: (id: string) => void;
   onRelationships: (id: string) => void;
   onRename: (ws: Workspace) => void;
@@ -101,36 +105,51 @@ function WorkspaceCard({
       <div style={{ position: 'absolute', top: 12, right: 12, zIndex: 1 }}>
         <Dropdown
           menu={{
-            items: [
-              {
-                key: 'relationships',
-                icon: <ShareAltOutlined />,
-                label: t('nav.relationships'),
-                onClick: ({ domEvent }) => {
-                  domEvent.stopPropagation();
-                  onRelationships(workspace.id);
-                },
-              },
-              {
-                key: 'rename',
-                icon: <EditOutlined />,
-                label: t('common.rename'),
-                onClick: ({ domEvent }) => {
-                  domEvent.stopPropagation();
-                  onRename(workspace);
-                },
-              },
-              {
-                key: 'delete',
-                icon: <DeleteOutlined />,
-                label: t('common.delete'),
-                danger: true,
-                onClick: ({ domEvent }) => {
-                  domEvent.stopPropagation();
-                  onDelete(workspace);
-                },
-              },
-            ],
+            // R193 — a saved (frozen-copies) workspace is read-only: Delete only.
+            items:
+              workspace.kind === 'saved'
+                ? [
+                    {
+                      key: 'delete',
+                      icon: <DeleteOutlined />,
+                      label: t('common.delete'),
+                      danger: true,
+                      onClick: ({ domEvent }) => {
+                        domEvent.stopPropagation();
+                        onDelete(workspace);
+                      },
+                    },
+                  ]
+                : [
+                    {
+                      key: 'relationships',
+                      icon: <ShareAltOutlined />,
+                      label: t('nav.relationships'),
+                      onClick: ({ domEvent }) => {
+                        domEvent.stopPropagation();
+                        onRelationships(workspace.id);
+                      },
+                    },
+                    {
+                      key: 'rename',
+                      icon: <EditOutlined />,
+                      label: t('common.rename'),
+                      onClick: ({ domEvent }) => {
+                        domEvent.stopPropagation();
+                        onRename(workspace);
+                      },
+                    },
+                    {
+                      key: 'delete',
+                      icon: <DeleteOutlined />,
+                      label: t('common.delete'),
+                      danger: true,
+                      onClick: ({ domEvent }) => {
+                        domEvent.stopPropagation();
+                        onDelete(workspace);
+                      },
+                    },
+                  ],
           }}
           trigger={['click']}
         >
@@ -153,6 +172,16 @@ function WorkspaceCard({
       <Typography.Title level={5} style={{ marginTop: 0, marginBottom: 8 }}>
         {workspace.name}
       </Typography.Title>
+      {workspace.kind === 'saved' ? (
+        <div style={{ marginBottom: 6 }} data-component="WorkspaceSavedTag">
+          <Tag>{t('datasets.savedCopy.workspaceTag')}</Tag>
+          {parentName ? (
+            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+              {t('datasets.savedCopy.workspaceOf', { name: parentName })}
+            </Typography.Text>
+          ) : null}
+        </div>
+      ) : null}
       <Typography.Text type="secondary" style={{ fontSize: 12 }}>
         {t('workspaces.createdAt', { date: createdDate })}
       </Typography.Text>
@@ -217,12 +246,7 @@ function CreateWorkspaceModal({ open, onClose }: Readonly<CreateModalProps>) {
           <Input placeholder={t('workspaces.namePlaceholder')} autoFocus />
         </Form.Item>
         {nameTaken ? (
-          <Alert
-            type="error"
-            showIcon
-            title={t('workspaces.nameTaken')}
-            data-component="CreateNameTaken"
-          />
+          <Alert type="error" showIcon title={t('workspaces.nameTaken')} data-component="CreateNameTaken" />
         ) : null}
         {genericError ? (
           <Alert type="error" showIcon title={t('workspaces.createCouldnt')} description={genericError} />
@@ -400,6 +424,7 @@ export function WorkspacesPage() {
           <Col key={ws.id} xs={24} md={12} xl={8} xxl={6}>
             <WorkspaceCard
               workspace={ws}
+              parentName={ws.kind === 'saved' ? workspaces.find((w) => w.id === ws.parentWorkspaceId)?.name : undefined}
               onOpen={(id) => navigate(`/data-management/datasets?workspace=${encodeURIComponent(id)}`)}
               onRelationships={(id) => navigate(`/data-management/workspaces/${encodeURIComponent(id)}/relationships`)}
               onRename={onRename}

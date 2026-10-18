@@ -41,14 +41,11 @@ export function WorkspaceRelationshipsPage() {
   // R183 — the self-check drawer (measured on open; flags, never blocks).
   const [checkTarget, setCheckTarget] = useState<Relationship | null>(null);
 
-  const workspaceName = useMemo(
-    () => workspaces.data?.find((w) => w.id === workspaceId)?.name,
-    [workspaces.data, workspaceId],
-  );
-  const datasetById = useMemo(
-    () => new Map((datasets.data ?? []).map((d) => [d.id, d.name])),
-    [datasets.data],
-  );
+  const workspace = useMemo(() => workspaces.data?.find((w) => w.id === workspaceId), [workspaces.data, workspaceId]);
+  const workspaceName = workspace?.name;
+  // R193 — a saved workspace is read-only: it declares nothing.
+  const readOnly = workspace?.kind === 'saved';
+  const datasetById = useMemo(() => new Map((datasets.data ?? []).map((d) => [d.id, d.name])), [datasets.data]);
   const dsName = (id: string) => datasetById.get(id) ?? id;
 
   const BREADCRUMB = [
@@ -83,7 +80,7 @@ export function WorkspaceRelationshipsPage() {
   };
 
   const rels = relationships.data ?? [];
-  const showActions = !relationships.isLoading && !relationships.isError;
+  const showActions = !relationships.isLoading && !relationships.isError && !readOnly;
 
   let body: React.ReactNode;
   if (relationships.isLoading) {
@@ -106,9 +103,15 @@ export function WorkspaceRelationshipsPage() {
         style={{ padding: '48px 0' }}
         data-component="RelationshipsEmpty"
       >
-        <Button type="primary" icon={<PlusOutlined />} onClick={() => setDeclareOpen(true)}>
-          {t('relationships.list.declareAction')}
-        </Button>
+        {readOnly ? (
+          <Typography.Text type="secondary" data-component="RelationshipsReadOnly">
+            {t('datasets.savedCopy.declareReadOnly')}
+          </Typography.Text>
+        ) : (
+          <Button type="primary" icon={<PlusOutlined />} onClick={() => setDeclareOpen(true)}>
+            {t('relationships.list.declareAction')}
+          </Button>
+        )}
       </Empty>
     );
   } else {

@@ -1,5 +1,6 @@
 import { appConfig } from '../config';
 import { ApiErrorThrown, isApiError } from '@/features/data-management/_shared/types';
+import type { Dataset } from '@/features/data-management/datasets/types';
 import type { CreateWorkspaceInput, Workspace } from '@/features/data-management/workspaces/types';
 
 // R28: single config source — appConfig reads from the rendered
@@ -31,6 +32,19 @@ async function throwApiError(resp: Response): Promise<never> {
 }
 
 export const workspacesApi = {
+  /** R193 — POST /workspaces/{id}/saved-copies: freeze datasets into the
+   *  workspace's saved workspace. 404 / 409 read_only_workspace / 422. */
+  async saveCopies(
+    workspaceId: string,
+    body: { label: string; datasetIds: string[] },
+  ): Promise<{ workspace: Workspace; datasets: Dataset[] }> {
+    const resp = await fetch(`${API_BASE_URL}/workspaces/${workspaceId}/saved-copies`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    return readJson<{ workspace: Workspace; datasets: Dataset[] }>(resp);
+  },
   async list(): Promise<Workspace[]> {
     const resp = await fetch(`${API_BASE_URL}/workspaces`);
     return readJson<Workspace[]>(resp);

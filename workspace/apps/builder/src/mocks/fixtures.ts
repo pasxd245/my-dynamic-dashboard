@@ -29,6 +29,7 @@ import { CONTRACTS_ROOT } from './contracts-root';
 export const MOCK_WORKSPACE: Workspace = {
   id: 'ws_aaaaaaa1',
   name: 'Marketing',
+  kind: 'main',
   createdAt: '2026-05-21T10:00:00Z',
 };
 
@@ -175,6 +176,33 @@ export const MOCK_PUBLISHED_DATASET: Dataset = {
     definitionHash: MOCK_WORKFLOW.run!.definitionHash,
     sources: MOCK_WORKFLOW.run!.sources,
     publishedAt: '2026-07-01T12:05:00Z',
+  },
+};
+
+// R193 — MOCK_WORKSPACE's saved (frozen-copies) workspace and one copy of
+// MOCK_DATASET in it, frozen at data version 1. Reachable by id (not in the
+// list fixtures, which list tests count).
+export const MOCK_SAVED_WORKSPACE: Workspace = {
+  id: 'ws_5a7ed001',
+  name: `${MOCK_WORKSPACE.name}-saved`,
+  kind: 'saved',
+  parentWorkspaceId: MOCK_WORKSPACE.id,
+  createdAt: '2026-10-18T09:00:00Z',
+};
+
+export const MOCK_SAVED_COPY: Dataset = {
+  ...MOCK_DATASET,
+  id: 'ds_5a7ed0c1',
+  workspaceId: MOCK_SAVED_WORKSPACE.id,
+  name: `${MOCK_DATASET.name} @2026-10-18`,
+  savedFrom: {
+    datasetId: MOCK_DATASET.id,
+    datasetName: MOCK_DATASET.name,
+    workspaceId: MOCK_WORKSPACE.id,
+    dataVersion: MOCK_DATASET.dataVersion,
+    refreshedAt: MOCK_DATASET.refreshedAt,
+    label: '2026-10-18',
+    savedAt: '2026-10-18T09:12:00Z',
   },
 };
 

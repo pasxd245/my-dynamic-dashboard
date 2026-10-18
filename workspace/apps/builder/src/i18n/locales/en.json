@@ -217,6 +217,25 @@
     "blockedDeleteHint": "Delete or move them to another workspace first."
   },
   "datasets": {
+    "savedCopy": {
+      "action": "Save frozen copy…",
+      "title": "Save a frozen copy",
+      "save": "Save copy",
+      "hint": "The copy is frozen: later refreshes or re-publishes of “{{name}}” will not change it. It is saved to this workspace's saved copies and can only be read or deleted.",
+      "labelLabel": "Label",
+      "labelHint": "The copy will be named “{{name}}”.",
+      "saved": "Saved “{{name}}”.",
+      "openCopy": "Open the copy",
+      "failed": "Couldn't save the copy.",
+      "readOnly": "This is a saved copy — copies are made from the original dataset.",
+      "band": "Frozen copy of “{{name}}” — data version {{version}}, rows from {{rowsAt}}; saved {{savedAt}} (label {{label}}). Not the current numbers.",
+      "bandPublished": "Frozen copy of “{{name}}” — run #{{run}}, data version {{version}}, rows from {{rowsAt}}; saved {{savedAt}} (label {{label}}). Not the current numbers.",
+      "openOriginal": "Open the current dataset",
+      "originalGone": "The original dataset no longer exists.",
+      "workspaceTag": "Saved copies",
+      "workspaceOf": "of {{name}}",
+      "declareReadOnly": "A saved-copies workspace is read-only: relationships are declared in the main workspace."
+    },
     "title": "Datasets",
     "subtitle": "All tables across your workspaces. Click a row to inspect, sort by any column.",
     "upload": "Upload",
@@ -1026,7 +1045,14 @@
     "publish": {
       "block_up_to_date": "This run is already published.",
       "columnsUnknown": "Couldn't load the dataset's current columns to compare.",
-      "dtype": {"string": "text", "integer": "whole number", "float": "decimal number", "boolean": "true/false", "date": "date", "datetime": "date and time"},
+      "dtype": {
+        "string": "text",
+        "integer": "whole number",
+        "float": "decimal number",
+        "boolean": "true/false",
+        "date": "date",
+        "datetime": "date and time"
+      },
       "publish": "Publish",
       "republish": "Re-publish",
       "block_never_run": "Run this workflow first.",

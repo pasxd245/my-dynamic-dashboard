@@ -6,6 +6,7 @@ import {
   EditOutlined,
   FileExcelOutlined,
   FileTextOutlined,
+  LockOutlined,
   PartitionOutlined,
   MergeCellsOutlined,
   PlusOutlined,
@@ -41,6 +42,7 @@ import { MetadataPanel } from '@/features/metadata/MetadataPanel';
 import { useWorkflowQuery } from '@/features/data-management/workflows/hooks';
 import { DateCoverageStrip } from './DateCoverage';
 import { PropertiesDrawer } from './PropertiesDrawer';
+import { FrozenCopyBand, SaveCopyModal } from './SavedCopy';
 import { ActiveFilterChips, formatChipText } from './filters/ActiveFilterChips';
 import { FilterPopover } from './filters/FilterPopover';
 import { useFiltersState } from './filters/useFiltersState';
@@ -167,6 +169,7 @@ export function DatasetDetailPage() {
   // R152 — session-local "show all" override (never persisted). When off, the
   // row-preview default-hides `hidden` columns; the Properties panel toggles it.
   const [showAllColumns, setShowAllColumns] = useState(false);
+  const [saveCopyOpen, setSaveCopyOpen] = useState(false);
   // R153 — the Properties drawer (schema view + visibility editor), opened from
   // the toolbar button AND the Actions ▾ menu.
   const [propertiesOpen, setPropertiesOpen] = useState(false);
@@ -428,6 +431,9 @@ export function DatasetDetailPage() {
     </div>
   );
 
+  // R193 — a saved (frozen) copy is read-only on every surface.
+  const isCopy = Boolean(dataset.savedFrom);
+
   const title = (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
       <SourceIcon format={dataset.sourceFormat} />
@@ -443,72 +449,102 @@ export function DatasetDetailPage() {
   );
 
   // R192 — a published dataset was published, not uploaded.
-  const subtitle = t(dataset.sourceFormat === 'workflow' ? 'datasets.detail.subtitlePublished' : 'datasets.detail.subtitle', {
-    rows: dataset.rowCount.toLocaleString(i18n.language),
-    cols: dataset.columnCount,
-    size: formatBytes(dataset.sizeBytes),
-    uploaded: relativeTime(dataset.createdAt, t),
-  });
+  const subtitle = t(
+    dataset.sourceFormat === 'workflow' ? 'datasets.detail.subtitlePublished' : 'datasets.detail.subtitle',
+    {
+      rows: dataset.rowCount.toLocaleString(i18n.language),
+      cols: dataset.columnCount,
+      size: formatBytes(dataset.sizeBytes),
+      uploaded: relativeTime(dataset.createdAt, t),
+    },
+  );
 
   const actions = (
     <span style={{ display: 'inline-flex', gap: 8 }}>
-      <Tooltip title={hasPredicates ? undefined : t('queries.save.disabledTooltip')}>
-        <Button
-          icon={<PlusOutlined />}
-          disabled={!hasPredicates}
-          onClick={openSaveQuery}
-          data-component="SaveAsQueryAction"
-        >
-          {t('queries.save.action')}
-        </Button>
-      </Tooltip>
+      {/* R193 — a saved copy is read-only: no query can be created over it there. */}
+      {isCopy ? null : (
+        <Tooltip title={hasPredicates ? undefined : t('queries.save.disabledTooltip')}>
+          <Button
+            icon={<PlusOutlined />}
+            disabled={!hasPredicates}
+            onClick={openSaveQuery}
+            data-component="SaveAsQueryAction"
+          >
+            {t('queries.save.action')}
+          </Button>
+        </Tooltip>
+      )}
       <Dropdown
         trigger={['click']}
         menu={{
-          items: [
-            {
-              key: 'join',
-              label: t('queries.join.action'),
-              icon: <MergeCellsOutlined />,
-              // Disabled when the dataset has no valid relationship to join on
-              // (the same gate the standalone button had — now folded into the
-              // Actions menu so the header isn't a row of competing buttons).
-              disabled: joinableRelCount === 0,
-              onClick: () => setJoinOpen(true),
-            },
-            { type: 'divider' },
-            {
-              key: 'properties',
-              label: t('datasets.detail.properties.action'),
-              icon: <ColumnsIcon size={14} />,
-              onClick: () => setPropertiesOpen(true),
-            },
-            // R192 — a published dataset is refreshed by re-publishing its
-            // workflow, never by upload: no Refresh here.
-            ...(dataset.sourceFormat === 'workflow'
-              ? []
-              : [
-                  {
-                    key: 'refresh',
-                    label: t('datasets.refresh'),
-                    icon: <ReloadOutlined />,
-                    onClick: () => navigate(`/data-management/datasets/${dataset.id}/refresh`),
-                  },
-                ]),
-            {
-              key: 'rename',
-              label: t('common.rename'),
-              icon: <EditOutlined />,
-              onClick: () => setModalState({ kind: 'rename' }),
-            },
-            {
-              key: 'delete',
-              label: t('common.delete'),
-              icon: <DeleteOutlined />,
-              danger: true,
-              onClick: () => setModalState({ kind: 'delete' }),
-            },
-          ],
+          items: isCopy
+            ? [
+                // R193 — a saved copy: view its columns, or delete it; nothing else.
+                {
+                  key: 'properties',
+                  label: t('datasets.detail.properties.action'),
+                  icon: <ColumnsIcon size={14} />,
+                  onClick: () => setPropertiesOpen(true),
+                },
+                {
+                  key: 'delete',
+                  label: t('common.delete'),
+                  icon: <DeleteOutlined />,
+                  danger: true,
+                  onClick: () => setModalState({ kind: 'delete' }),
+                },
+              ]
+            : [
+                {
+                  key: 'join',
+                  label: t('queries.join.action'),
+                  icon: <MergeCellsOutlined />,
+                  // Disabled when the dataset has no valid relationship to join on
+                  // (the same gate the standalone button had — now folded into the
+                  // Actions menu so the header isn't a row of competing buttons).
+                  disabled: joinableRelCount === 0,
+                  onClick: () => setJoinOpen(true),
+                },
+                { type: 'divider' },
+                {
+                  key: 'properties',
+                  label: t('datasets.detail.properties.action'),
+                  icon: <ColumnsIcon size={14} />,
+                  onClick: () => setPropertiesOpen(true),
+                },
+                // R192 — a published dataset is refreshed by re-publishing its
+                // workflow, never by upload: no Refresh here.
+                ...(dataset.sourceFormat === 'workflow'
+                  ? []
+                  : [
+                      {
+                        key: 'refresh',
+                        label: t('datasets.refresh'),
+                        icon: <ReloadOutlined />,
+                        onClick: () => navigate(`/data-management/datasets/${dataset.id}/refresh`),
+                      },
+                    ]),
+                // R193 — freeze this dataset as a labelled, read-only copy.
+                {
+                  key: 'saveCopy',
+                  label: t('datasets.savedCopy.action'),
+                  icon: <LockOutlined />,
+                  onClick: () => setSaveCopyOpen(true),
+                },
+                {
+                  key: 'rename',
+                  label: t('common.rename'),
+                  icon: <EditOutlined />,
+                  onClick: () => setModalState({ kind: 'rename' }),
+                },
+                {
+                  key: 'delete',
+                  label: t('common.delete'),
+                  icon: <DeleteOutlined />,
+                  danger: true,
+                  onClick: () => setModalState({ kind: 'delete' }),
+                },
+              ],
         }}
       >
         <Button data-component="DatasetDetailActionsTrigger">
@@ -533,6 +569,7 @@ export function DatasetDetailPage() {
       />
       <PageCard variant="fill">
         <div style={{ flex: '0 0 auto' }}>
+          <FrozenCopyBand dataset={dataset} />
           <MetadataStrip dataset={dataset} workspaceName={workspaceName} />
           {dataset.lineage ? <PublishedFrom lineage={dataset.lineage} /> : null}
           <DateCoverageStrip columns={dataset.columns} />
@@ -713,7 +750,9 @@ export function DatasetDetailPage() {
         onShowAllChange={setShowAllColumns}
         onApply={handleApplyColumnVisibility}
         applying={setColumnVisibility.isPending}
+        readOnly={isCopy}
       />
+      {isCopy ? null : <SaveCopyModal dataset={dataset} open={saveCopyOpen} onClose={() => setSaveCopyOpen(false)} />}
     </PageContainer>
   );
 }
@@ -732,7 +771,9 @@ function datasetMetaItems(
     { label: t('datasets.detail.meta.cols'), value: String(dataset.columnCount) },
     { label: t('datasets.detail.meta.size'), value: formatBytes(dataset.sizeBytes) },
     {
-      label: t(dataset.sourceFormat === 'workflow' ? 'datasets.detail.meta.published' : 'datasets.detail.meta.uploaded'),
+      label: t(
+        dataset.sourceFormat === 'workflow' ? 'datasets.detail.meta.published' : 'datasets.detail.meta.uploaded',
+      ),
       value: relativeTime(dataset.createdAt, t),
     },
     // R185 (W-4) — the server's stamp for the rows: which version, and when the

@@ -10,13 +10,7 @@
 // detail view is for viewing + building widgets). Create picks the workspace
 // (project) once; widgets then inherit it.
 
-import {
-  BarChartOutlined,
-  DeleteOutlined,
-  EditOutlined,
-  MoreOutlined,
-  PlusOutlined,
-} from '@ant-design/icons';
+import { BarChartOutlined, DeleteOutlined, EditOutlined, MoreOutlined, PlusOutlined } from '@ant-design/icons';
 import { PageCard, PageContainer, PageHeader } from '@mdd/ui';
 import { App, Button, Card, Col, Dropdown, Empty, Row, Spin, Typography, theme } from 'antd';
 import { useState } from 'react';
@@ -24,7 +18,7 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 
 import { ApiErrorThrown } from '@/features/data-management/_shared/types';
-import { useWorkspacesQuery } from '@/features/data-management/workspaces/hooks';
+import { useWritableWorkspaces } from '@/features/data-management/workspaces/hooks';
 import {
   useAllDashboards,
   useCreateDashboardMutation,
@@ -69,12 +63,7 @@ function DashboardCard({
   const stop = (e: React.MouseEvent) => e.stopPropagation();
 
   return (
-    <Card
-      hoverable
-      onClick={() => onOpen(dashboard)}
-      data-component="DashboardCard"
-      style={{ position: 'relative' }}
-    >
+    <Card hoverable onClick={() => onOpen(dashboard)} data-component="DashboardCard" style={{ position: 'relative' }}>
       <div style={{ position: 'absolute', top: 12, right: 12, zIndex: 1 }}>
         <Dropdown
           trigger={['click']}
@@ -132,7 +121,7 @@ export function DashboardListPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { modal, message } = App.useApp();
-  const workspaces = useWorkspacesQuery();
+  const workspaces = useWritableWorkspaces();
   const { items, isLoading } = useAllDashboards();
   const createMutation = useCreateDashboardMutation();
   const updateMutation = useUpdateDashboardMutation();

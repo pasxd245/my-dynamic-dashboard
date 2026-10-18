@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { datasetsApi } from '@/api/datasetsApi';
+import { ApiErrorThrown } from '@/features/data-management/_shared/types';
 import { uploadsApi } from '@/api/uploadsApi';
 import { cacheKeyForFilters } from './filters/serialize';
 import { groupsToParam } from './advanced-query/serialize';
@@ -38,6 +39,9 @@ export function useDatasetQuery(id: string | undefined) {
     queryKey: [...DATASETS_QUERY_KEY, { id }] as const,
     queryFn: () => datasetsApi.get(id as string),
     enabled: typeof id === 'string',
+    // A deleted dataset (404) won't come back on retry (R193 — a copy's band
+    // says "the original no longer exists" without a wait).
+    retry: (count, err) => !(err instanceof ApiErrorThrown && err.status === 404) && count < 3,
   });
 }
 
@@ -93,12 +97,7 @@ export function useDatasetRowsQuery(
   const filtersKey = cacheKeyForFilters(filters);
   const aqKey = groupsToParam(advanced);
   return useQuery<RowsPage>({
-    queryKey: [
-      ...DATASETS_QUERY_KEY,
-      { id },
-      'rows',
-      { page, pageSize, q, filters: filtersKey, aq: aqKey },
-    ] as const,
+    queryKey: [...DATASETS_QUERY_KEY, { id }, 'rows', { page, pageSize, q, filters: filtersKey, aq: aqKey }] as const,
     queryFn: () => datasetsApi.getRows(id as string, page, pageSize, q, filters, advanced),
     enabled: typeof id === 'string',
     // Keep the previous page visible while a new query loads (AntD

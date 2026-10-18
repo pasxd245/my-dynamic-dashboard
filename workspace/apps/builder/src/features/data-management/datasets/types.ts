@@ -51,6 +51,20 @@ export type Dataset = {
   /** R192 — only on a published dataset (`sourceFormat: 'workflow'`): the
    *  workflow run it came from. Server-written, read-only. */
   lineage?: DatasetLineage;
+  /** R193 — only on a saved (frozen) copy: what it froze, at which version, when. */
+  savedFrom?: DatasetSavedFrom;
+};
+
+/** R193 — mirrors `_shared/dataset.yaml#/DatasetSavedFrom`. */
+export type DatasetSavedFrom = {
+  datasetId: string;
+  datasetName: string;
+  workspaceId: string;
+  dataVersion: number;
+  /** When the frozen rows arrived on the original. */
+  refreshedAt: string;
+  label: string;
+  savedAt: string;
 };
 
 /** R192 — mirrors `_shared/dataset.yaml#/DatasetLineage`. */

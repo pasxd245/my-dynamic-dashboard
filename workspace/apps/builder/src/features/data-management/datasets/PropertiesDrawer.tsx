@@ -40,6 +40,9 @@ export type PropertiesDrawerProps = Readonly<{
   /** Apply the visible/hidden set. Rejects → the drawer stays open to retry. */
   onApply: (hidden: string[]) => Promise<void>;
   applying: boolean;
+  /** R193 — a saved (frozen) copy: the column list is shown, nothing can be
+   *  changed (no visibility toggles, no Apply). "Show all" stays: it is a view. */
+  readOnly?: boolean;
 }>;
 
 export function PropertiesDrawer({
@@ -51,6 +54,7 @@ export function PropertiesDrawer({
   onShowAllChange,
   onApply,
   applying,
+  readOnly = false,
 }: PropertiesDrawerProps) {
   const { t } = useTranslation();
   // Working copy of the HIDDEN set (by column name), re-seeded each time it opens.
@@ -78,9 +82,7 @@ export function PropertiesDrawer({
   };
 
   const draftVisibleCount = total - draftHidden.size;
-  const dirty =
-    draftHidden.size !== persistedHidden.size ||
-    [...draftHidden].some((n) => !persistedHidden.has(n));
+  const dirty = draftHidden.size !== persistedHidden.size || [...draftHidden].some((n) => !persistedHidden.has(n));
   const canApply = draftVisibleCount >= 1 && dirty && !applying;
 
   const apply = async () => {
@@ -93,12 +95,7 @@ export function PropertiesDrawer({
   };
 
   return (
-    <Drawer
-      open={open}
-      onClose={onClose}
-      placement="right"
-      title={t('datasets.detail.properties.title')}
-    >
+    <Drawer open={open} onClose={onClose} placement="right" title={t('datasets.detail.properties.title')}>
       {/* Dataset section — the dataset-level facts (shared with the inline strip). */}
       <SectionHeader>{t('datasets.detail.properties.dataset')}</SectionHeader>
       <div data-component="PropertiesDrawerDataset" style={{ marginBottom: 16 }}>
@@ -118,20 +115,13 @@ export function PropertiesDrawer({
       </div>
 
       {/* Columns section — the schema + the visibility editor. */}
-      <div
-        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}
-      >
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
         <SectionHeader>{t('datasets.detail.properties.columns')}</SectionHeader>
         <Space size="small">
           <Typography.Text type="secondary" style={{ fontSize: 12 }}>
             {t('datasets.detail.columns.showAll')}
           </Typography.Text>
-          <Switch
-            size="small"
-            checked={showAll}
-            onChange={onShowAllChange}
-            data-component="PropertiesDrawerShowAll"
-          />
+          <Switch size="small" checked={showAll} onChange={onShowAllChange} data-component="PropertiesDrawerShowAll" />
         </Space>
       </div>
       <div data-component="PropertiesDrawerList">
@@ -151,6 +141,7 @@ export function PropertiesDrawer({
           >
             <Checkbox
               checked={!draftHidden.has(col.name)}
+              disabled={readOnly}
               onChange={(e) => toggle(col.name, e.target.checked)}
               data-component="PropertiesDrawerItemToggle"
             >
@@ -186,18 +177,20 @@ export function PropertiesDrawer({
         </Typography.Text>
       ) : null}
 
-      <Space style={{ width: '100%', justifyContent: 'flex-end', marginTop: 16 }}>
-        <Button onClick={onClose}>{t('common.cancel')}</Button>
-        <Button
-          type="primary"
-          loading={applying}
-          disabled={!canApply}
-          onClick={apply}
-          data-component="PropertiesDrawerApply"
-        >
-          {t('datasets.detail.columns.apply')}
-        </Button>
-      </Space>
+      {readOnly ? null : (
+        <Space style={{ width: '100%', justifyContent: 'flex-end', marginTop: 16 }}>
+          <Button onClick={onClose}>{t('common.cancel')}</Button>
+          <Button
+            type="primary"
+            loading={applying}
+            disabled={!canApply}
+            onClick={apply}
+            data-component="PropertiesDrawerApply"
+          >
+            {t('datasets.detail.columns.apply')}
+          </Button>
+        </Space>
+      )}
     </Drawer>
   );
 }

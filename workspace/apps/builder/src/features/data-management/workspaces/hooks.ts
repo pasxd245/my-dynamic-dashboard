@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { workspacesApi } from '@/api/workspacesApi';
+import type { Dataset } from '@/features/data-management/datasets/types';
 import type { CreateWorkspaceInput, Workspace } from './types';
 
 export const WORKSPACES_QUERY_KEY = ['workspaces'] as const;
@@ -9,6 +10,30 @@ export function useWorkspacesQuery() {
   return useQuery<Workspace[]>({
     queryKey: WORKSPACES_QUERY_KEY,
     queryFn: () => workspacesApi.list(),
+  });
+}
+
+/** R193 — the workspaces a user can create things in (upload, query, workflow,
+ *  dashboard): `main` only. A `saved` workspace is read-only — offering it as a
+ *  target would only end in `409 read_only_workspace`. */
+export function useWritableWorkspaces() {
+  const query = useWorkspacesQuery();
+  return { ...query, data: query.data?.filter((w) => w.kind !== 'saved') };
+}
+
+/** R193 — freeze datasets of a main workspace into its saved workspace. */
+export function useSaveCopiesMutation() {
+  const queryClient = useQueryClient();
+  return useMutation<
+    { workspace: Workspace; datasets: Dataset[] },
+    Error,
+    { workspaceId: string; label: string; datasetIds: string[] }
+  >({
+    mutationFn: ({ workspaceId, label, datasetIds }) => workspacesApi.saveCopies(workspaceId, { label, datasetIds }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: WORKSPACES_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: DATASETS_QUERY_KEY });
+    },
   });
 }
 

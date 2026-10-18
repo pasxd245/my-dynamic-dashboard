@@ -394,7 +394,8 @@ function DatasetTable({
               menu={{
                 items: [
                   // R192 — a published dataset is refreshed by re-publishing.
-                  ...(row.sourceFormat === 'workflow'
+                  // R193 — a saved copy is frozen: Delete only.
+                  ...(row.sourceFormat === 'workflow' || row.savedFrom
                     ? []
                     : [
                         {
@@ -407,15 +408,19 @@ function DatasetTable({
                           },
                         },
                       ]),
-                  {
-                    key: 'rename',
-                    icon: <EditOutlined />,
-                    label: t('common.rename'),
-                    onClick: ({ domEvent }) => {
-                      domEvent.stopPropagation();
-                      onRename(row);
-                    },
-                  },
+                  ...(row.savedFrom
+                    ? []
+                    : [
+                        {
+                          key: 'rename',
+                          icon: <EditOutlined />,
+                          label: t('common.rename'),
+                          onClick: ({ domEvent }: { domEvent: React.MouseEvent | React.KeyboardEvent }) => {
+                            domEvent.stopPropagation();
+                            onRename(row);
+                          },
+                        },
+                      ]),
                   {
                     key: 'delete',
                     icon: <DeleteOutlined />,
@@ -457,7 +462,11 @@ type SourceIconProps = Readonly<{
 
 function SourceIcon({ format, sheetName, style }: SourceIconProps) {
   const title =
-    format === 'excel' ? `Excel${sheetName ? ` · ${sheetName}` : ''}` : format === 'workflow' ? i18n.t('datasets.detail.formatWorkflow') : 'CSV';
+    format === 'excel'
+      ? `Excel${sheetName ? ` · ${sheetName}` : ''}`
+      : format === 'workflow'
+        ? i18n.t('datasets.detail.formatWorkflow')
+        : 'CSV';
   if (format === 'workflow') {
     // R192 — published from a workflow (the workflows nav icon).
     return (

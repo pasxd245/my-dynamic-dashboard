@@ -15,7 +15,7 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import { workflowsApi } from '@/api/workflowsApi';
-import { useWorkspacesQuery } from '@/features/data-management/workspaces/hooks';
+import { useWritableWorkspaces } from '@/features/data-management/workspaces/hooks';
 import type { Workflow } from './types';
 
 const ALL_VALUE = '__all__';
@@ -27,11 +27,8 @@ export function WorkflowsPage() {
   const workspaceParam = searchParams.get('workspace') ?? undefined;
   const [nameQuery, setNameQuery] = useState('');
 
-  const workspaces = useWorkspacesQuery();
-  const workspaceById = useMemo(
-    () => new Map((workspaces.data ?? []).map((w) => [w.id, w.name])),
-    [workspaces.data],
-  );
+  const workspaces = useWritableWorkspaces();
+  const workspaceById = useMemo(() => new Map((workspaces.data ?? []).map((w) => [w.id, w.name])), [workspaces.data]);
 
   const wsIds = useMemo(() => {
     if (workspaceParam) return [workspaceParam];
@@ -54,9 +51,7 @@ export function WorkflowsPage() {
 
   const normalised = nameQuery.trim().toLowerCase();
   const visible =
-    normalised.length === 0
-      ? allWorkflows
-      : allWorkflows.filter((w) => w.name.toLowerCase().includes(normalised));
+    normalised.length === 0 ? allWorkflows : allWorkflows.filter((w) => w.name.toLowerCase().includes(normalised));
 
   const onFilterChange = (value: string) => {
     if (value === ALL_VALUE) setSearchParams({});

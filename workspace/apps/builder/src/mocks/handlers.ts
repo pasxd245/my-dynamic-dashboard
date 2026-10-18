@@ -49,6 +49,8 @@ import {
   MOCK_ROWS,
   MOCK_STALE_JOIN_QUERY_ID,
   MOCK_PUBLISHED_DATASET,
+  MOCK_SAVED_COPY,
+  MOCK_SAVED_WORKSPACE,
   MOCK_STALE_QUERY_ID,
   MOCK_STALE_WORKFLOW_ID,
   MOCK_WORKFLOW,
@@ -878,6 +880,7 @@ export const handlers = [
       {
         id: `ws_${Math.random().toString(16).slice(2, 10)}`,
         name: body.name ?? 'untitled',
+        kind: 'main',
         createdAt: new Date().toISOString(),
       },
       { status: 201 },
@@ -892,6 +895,29 @@ export const handlers = [
     });
   }),
   http.delete(api('/workspaces/:id'), () => new HttpResponse(null, { status: 204 })),
+  // R193 — save frozen copies: from MOCK_WORKSPACE into MOCK_SAVED_WORKSPACE;
+  // saving FROM the saved workspace is refused; unknown workspace 404.
+  withContractValidation('post', api('/workspaces/:id/saved-copies'), 'saveCopies', async ({ params, request }) => {
+    if (params.id === MOCK_SAVED_WORKSPACE.id) {
+      return HttpResponse.json({ code: 'read_only_workspace' }, { status: 409 });
+    }
+    if (params.id !== MOCK_WORKSPACE.id) {
+      return HttpResponse.json({ code: 'not_found' }, { status: 404 });
+    }
+    const body = (await request.json()) as { label: string; datasetIds: string[] };
+    const label = body.label.trim();
+    return HttpResponse.json(
+      {
+        workspace: MOCK_SAVED_WORKSPACE,
+        datasets: body.datasetIds.map(() => ({
+          ...MOCK_SAVED_COPY,
+          name: `${MOCK_DATASET.name} @${label}`,
+          savedFrom: { ...MOCK_SAVED_COPY.savedFrom!, label },
+        })),
+      },
+      { status: 201 },
+    );
+  }),
 
   // Datasets list / detail
   withContractValidation('get', api('/datasets'), 'listDatasets', ({ request }) => {
@@ -927,6 +953,7 @@ export const handlers = [
       MOCK_DATASET_4,
       MOCK_DATASET_5,
       MOCK_PUBLISHED_DATASET,
+      MOCK_SAVED_COPY,
     ].find((d) => d.id === params.id);
     if (!ds) {
       return HttpResponse.json({ code: 'not_found' }, { status: 404 });
@@ -941,7 +968,7 @@ export const handlers = [
   // ContractDriftError in tests (loud) and warns in dev (visible).
   withContractValidation('get', api('/datasets/:id/rows'), 'getDatasetRows', ({ params, request }) => {
     // R192 — the published dataset holds the same rows as MOCK_DATASET.
-    if (params.id !== MOCK_DATASET.id && params.id !== MOCK_PUBLISHED_DATASET.id) {
+    if (params.id !== MOCK_DATASET.id && params.id !== MOCK_PUBLISHED_DATASET.id && params.id !== MOCK_SAVED_COPY.id) {
       return HttpResponse.json({ code: 'not_found' }, { status: 404 });
     }
     const url = new URL(request.url);
