@@ -20,10 +20,11 @@ done   3.2a dataset dataVersion + refreshedAt (R185) ── 3.3 W-2/W-3/W-5 (R18
 passed G-wf (owner, confirmed after walk B 2026-10-18) ─────────────────────────────┐
 done   3.4 multi-file refresh (R188) ── 3.5 replace_period (R189)
 done   2.7 design: params, date range, shared filters (R190 — D1–D7 accepted 2026-10-18)
-first  fix round for the rolling log's small findings (R191)
-next   3.6a publish (R192) ─> 3.6b saved copies (R193) <───────────────────────────────┘
-then   3.7a parameter engine (R194) ─> 3.7b builder (R195) ─> 3.2c read-path stamps (R196)
-       ─> 3.8 metadata triple anchor (R197) ─> rc.3 exit gate
+built  fix round for the rolling log's small findings (R191)
+built  3.6a publish (R192) ─> 3.6b saved copies (R193) <───────────────────────────────┘
+built  3.7a parameter engine (R194) ─> 3.7b builder (R195) ─> 3.2c read-path stamps (R196)
+built  ─> 3.8 metadata triple anchor (R197)
+now    rc.3 exit gate — owner walks (walk-rc3b.md), Complete flips, dual-run, tag
 ```
 
 Labels from `Round_175 § Feeds into`: **R177** = 3.1, **R178–R179** = 3.4–3.5, **R180** = 3.6. They
@@ -51,7 +52,9 @@ reviewers._
 | R196  | 3.2c data versions on read paths + export | DCFBI  | —         | no  |
 | R197  | 3.8 metadata triple anchor + cascade      | DCFBI  | `0010`    | yes |
 
-Then the rc.3 exit gate: release note, gate checklist, walk pack for R191–R197. _(3.6 split into
+Then the rc.3 exit gate: release note ([`CHANGELOG.md`](../../../../CHANGELOG.md) § rc.3), gate
+checklist (below), walk pack for R191–R197 ([walk-rc3b.md](walk-rc3b.md)). All seven rounds are
+built and reviewed with no open P0/P1 (2026-10-18); each awaits its walk. _(3.6 split into
 3.6a / 3.6b on 2026-10-18 — two features, two migrations; one feature per round.)_
 
 **Roles per round** (the coder is the main session; the three others are fresh sub-agents that
@@ -364,14 +367,24 @@ current | refreshed | other_period | other_definition`. Entries written in rc.2 
 
 ## rc.3 exit gate
 
-- [ ] 3.1–3.8 and 2.7 rounds `Complete`, walks logged (no round closes without its walk)
+Status 2026-10-18 (agent): everything an agent can verify is green; the open lines need the owner.
+
+- [ ] 3.1–3.8 and 2.7 rounds `Complete`, walks logged (no round closes without its walk) —
+      R184–R190 `Complete`; **R191–R197 built, reviewed, in Review** — walk pack
+      [walk-rc3b.md](walk-rc3b.md) (Sessions D–F, 44 items, about 2 h 15 min)
 - [x] G-wf recorded as passed before 3.6 opened (confirmed 2026-10-18, `Round_187` § Act)
 - [ ] Dual-run against rc.2 on a real dogfood export: every saved query identical cell for cell,
-      except changes a round declared (batch 1: 119 / 119 ✓)
+      except changes a round declared (batch 1: 119 / 119 ✓) — **owner**, batch 2 after the walks
 - [x] Deleting a workflow source marks the workflow `source_missing` (W-7) — built in R187, walked B13
-- [ ] A saved copy is read-only; deleting its workspace while it has data returns 409
-- [ ] An annotation written for another period renders collapsed
-- [ ] Visual gate for a parameterised dashboard in light and dark themes
-- [ ] Migrations 0006 → latest downgrade cleanly on a real-database copy
-- [ ] Repo boundary scan clean; release note lists every contract addition
-- [ ] `workflow-earns-its-place` closed or its remaining rows re-homed
+- [ ] A saved copy is read-only; deleting its workspace while it has data returns 409 — built R193
+      (pytest `test_saved_copies.py`); walk D20–D25
+- [ ] An annotation written for another period renders collapsed — built R197 (pytest + vitest; QA
+      live run PASS); walk F8
+- [ ] Visual gate for a parameterised dashboard in light and dark themes — light PASS (R195, R197
+      QA, EN + VI); **dark N/A: the app has no dark theme — owner to confirm N/A or schedule one**
+- [ ] Migrations 0006 → latest downgrade cleanly on a real-database copy — on a populated fake DB
+      head → `0005` → head keeps every row (2026-10-18, agent); **owner: the real-database copy**
+- [x] Repo boundary scan clean; release note lists every contract addition — no customer name in
+      the tree (one test fixture neutralised, 2026-10-18); `CHANGELOG.md` § rc.3
+- [x] `workflow-earns-its-place` closed or its remaining rows re-homed — W-1 built (R192), W-6
+      re-homed to the parked naming theme; the program closes with R192's walk

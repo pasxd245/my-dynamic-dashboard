@@ -20,12 +20,12 @@ from app.main import app
 # vehicle value, service code. Two months, one row in the previous year.
 _LEADS_CSV = (
     "created,status,detail,value,service\n"
-    "2026-08-03 09:00:00,Thành công,Digiin,450000000,voluntary_car_a\n"
+    "2026-08-03 09:00:00,Thành công,Acme,450000000,voluntary_car_a\n"
     "2026-08-20 10:00:00,Thất bại,,650000000,web_lp\n"
     "2026-08-31 23:00:00,Mới,,1200000000,webXtra\n"
     "2026-09-01 08:00:00,Thành công,Organic,900000000,voluntary_car_b\n"
     "2026-09-15 08:00:00,Chưa kết nối được,,,compulsory_car\n"
-    "2025-12-30 08:00:00,Thành công,Digiin,500000000,web_old\n"
+    "2025-12-30 08:00:00,Thành công,Acme,500000000,web_old\n"
 ).encode()
 
 
@@ -115,12 +115,12 @@ def test_case_flags_sum_into_conditional_counts() -> None:
         },
         {
             "kind": "case",
-            "name": "digiin",
+            "name": "acme",
             "branches": [
                 {
                     "when": [
                         {"col": "status", "op": "equals", "val": "Thành công"},
-                        {"col": "detail", "op": "equals", "val": "Digiin"},
+                        {"col": "detail", "op": "equals", "val": "Acme"},
                     ],
                     "then": _c(1),
                 }
@@ -130,7 +130,7 @@ def test_case_flags_sum_into_conditional_counts() -> None:
         {
             "kind": "aggregate",
             "dimensions": ["month"],
-            "measures": [{"agg": "count"}, {"agg": "sum", "col": "success"}, {"agg": "sum", "col": "digiin"}],
+            "measures": [{"agg": "count"}, {"agg": "sum", "col": "success"}, {"agg": "sum", "col": "acme"}],
         },
         {"kind": "derive", "name": "cr", "left": "success", "op": "/", "right": {"kind": "col", "col": "count"}},
         {"kind": "sort", "keys": [{"col": "month"}]},
@@ -158,7 +158,7 @@ def test_case_column_value_fallback_and_null_otherwise() -> None:
         ws, ds = _commit(client)
         cols, rows = _run(client, ws, ds, [step, _BY_CREATED])
     assert cols[-1]["dtype"] == "string"
-    assert _col(cols, rows, "who") == ["Digiin", "Digiin", None, None, "Organic", None]
+    assert _col(cols, rows, "who") == ["Acme", "Acme", None, None, "Organic", None]
 
 
 @pytest.mark.unit

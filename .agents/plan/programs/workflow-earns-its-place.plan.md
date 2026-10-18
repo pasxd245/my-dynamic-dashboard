@@ -1,6 +1,6 @@
 # Program plan: Workflow earns its place
 
-**Status**: Active — item 1 **ruled (a′)** at [R175](../cycles/Round_175.md) (2026-10-04; workflow mandatory, 2026-10-13); items 2–4 built in `Round_185`–`Round_187` on `release/v0.0.1-rc.3` (in Review); the exit (W-1, publish) is item 3.6 of [release-rc2-rc5](release-rc2-rc5/rc3.md)
+**Status**: Closing — item 1 **ruled (a′)** at [R175](../cycles/Round_175.md) and its exit **built** in `Round_192` (publish a workflow output as a dataset; in Review); items 2–4 `Complete` (`Round_185`–`Round_187`). Closes `Complete` when R192 is walked ([rc.3 exit gate](release-rc2-rc5/rc3.md#rc3-exit-gate)); W-6 re-homed to the parked naming theme
 **Opened**: 2026-08-15
 
 Settle whether the **Workflow** noun survives, and if it does, make it honest. [R174](../cycles/Round_174.md)'s
@@ -92,7 +92,7 @@ is either an item, deferred to a named home, or void-if-pruned. Evidence stays i
 
 | ID  | Entry                                                        | Kind             | Severity | Seen in     | Disposition                                                  |
 | --- | ------------------------------------------------------------ | ---------------- | -------- | ----------- | ------------------------------------------------------------ |
-| W-1 | Workflow output has **no consumer**                          | noun/exit        | severe   | R174        | ruled (a′) → rc.3 item 3.6 (publish)                         |
+| W-1 | Workflow output has **no consumer**                          | noun/exit        | severe   | R174        | **built** R192 — publish as a derived dataset (in Review)    |
 | W-2 | Consolidate narrows schema to the FIRST source               | correctness      | severe   | R174        | **fixed** R186                                               |
 | W-3 | Consolidate double-counts; no provenance                     | correctness      | severe   | R174        | **fixed** R186                                               |
 | W-4 | Upstream staleness, undiagnosable (no `updated_at`)          | correctness      | severe   | R168 · R174 | **fixed** R185 + R187                                        |

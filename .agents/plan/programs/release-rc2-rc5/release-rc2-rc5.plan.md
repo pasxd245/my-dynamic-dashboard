@@ -3,7 +3,7 @@
 **Status**: Active — rc.2 walked and `Complete` (R177–R183, 2026-10-18); the 0005 downgrade check
 and the tag are the owner's. rc.3: 3.1, 3.3, 3.4, 3.5 and 3.2a/b walked and `Complete` (R184–R189);
 2.7 designed and accepted (R190). G-wf confirmed. **Running now:** R191 (fix round, Review) → R192 (3.6a) → R193 (3.6b) →
-R194–R195 (3.7) → R196 (3.2c) → R197 (3.8), four-role loop ([rc3.md § Execution](rc3.md)).
+R194–R195 (3.7) → R196 (3.2c) → R197 (3.8), four-role loop ([rc3.md § Execution](rc3.md)) — all built and reviewed 2026-10-18; the owner walks [walk-rc3b.md](walk-rc3b.md), then the [rc.3 exit gate](rc3.md#rc3-exit-gate).
 **Opened**: 2026-10-17 (re-baselined the same day against what had already shipped)
 
 Take the product from `release/v0.0.1-rc.1` (`5334c81`) to rc.5 as four gated release candidates.

@@ -188,13 +188,14 @@ Result: **Flow: DCFBI** — one condition fired (below the 2-of-5 threshold).
     page with `?p.as_of=2026-10-11`: the note is open, no flag. Switch to VI and back.
   - ⬜ W2 — another period: change the URL to 2026-10-17. The note collapses: "Written for As of
     2026-10-11 · viewing As of 2026-10-17". Show, then Hide.
-  - ⬜ W3 — on **Demo**, write a note on the first widget under 2026-10-11. Switch the control to
+  - ⬜ W3 — on **Demo**, write a note on the first widget under 2026-10-11, and one on the
+    dashboard (`md` only — W5 needs it). Switch the control to
     10-04 and back to 10-11 within 30 s: the note (widget info popover) is open again.
   - ⬜ W4 — refreshed: re-upload `calls_demo` with one row changed. The query note at 10-11 shows
     the blue flag and stays open; the widget footer reads "Data: refreshed <now>".
   - ⬜ W5 — earlier definition: add a filter to the query. The query, widget and dashboard notes
-    collapse; opening one warns. Write a dashboard note with `md` only: it reads "Written under
-    the saved or default value of: As of".
+    collapse; opening one warns. The dashboard note from W3, opened, reads "Written under the
+    saved or default value of: As of".
   - ⬜ W6 — delete **Demo**, then the query: their notes are gone from the app. On a copy of the
     database, `metadata_entries_swept` holds them with `swept_at`.
 
