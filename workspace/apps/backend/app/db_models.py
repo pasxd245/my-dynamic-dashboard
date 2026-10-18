@@ -44,9 +44,11 @@ class Dataset(SQLModel, table=True):
         CheckConstraint("size_bytes >= 0"),
         CheckConstraint("row_count >= 0"),
         CheckConstraint("column_count >= 1"),
-        CheckConstraint("source_format IN ('csv', 'excel')"),
+        CheckConstraint("source_format IN ('csv', 'excel', 'workflow')"),
         Index("idx_datasets_workspace_id", "workspace_id"),
         Index("idx_datasets_name_unique", "workspace_id", "name", unique=True),
+        # R192 — one published dataset per workflow per workspace (NULLs are distinct).
+        Index("idx_datasets_published_unique", "workspace_id", "published_workflow_id", unique=True),
     )
 
     id: str = Field(sa_column=Column(Text, primary_key=True))
@@ -74,6 +76,11 @@ class Dataset(SQLModel, table=True):
     data_version: int = Field(
         default=1, sa_column=Column(Integer, nullable=False, server_default=text("1"))
     )
+    # R192 (item 3.6a) — a dataset published from a workflow's output: the
+    # server-written lineage (JSON) and, internal only, the publishing workflow
+    # (UNIQUE per workspace above — the re-publish target). NULL on uploads.
+    lineage_json: str | None = Field(default=None, sa_column=Column(Text, nullable=True))
+    published_workflow_id: str | None = Field(default=None, sa_column=Column(Text, nullable=True))
 
 
 class Query(SQLModel, table=True):

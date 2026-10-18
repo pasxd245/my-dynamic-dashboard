@@ -65,7 +65,14 @@ from app.models.common import (
     Dataset,
     ParseOptions,
 )
-from app.routers._shared import RowsPage, _is_unique_violation, _load_meta, _now_iso
+from app.routers._shared import (
+    RowsPage,
+    _carry_forward_hidden,
+    _dataset_from_row,
+    _is_unique_violation,
+    _load_meta,
+    _now_iso,
+)
 from app.storage import dataset_dir, temp_upload_dir
 
 
@@ -239,24 +246,6 @@ def _apply_exclusions(columns: list[dict[str, str]], excluded: list[str] | None)
             detail="excluded_columns leaves zero columns",
         )
     return kept
-
-
-def _carry_forward_hidden(
-    cols: list[dict[str, str]], prev_columns: list[dict[str, str]], *, ignore: set[str] | None = None
-) -> None:
-    """R152 — re-apply the `hidden` view-hint (in place) onto freshly re-parsed
-    `cols` after a refresh. Match by name: a column still present keeps its
-    hint, a column gone/renamed drops it, a new column stays visible. A dtype
-    change is not a mismatch. Presentation-only — never touches the parquet.
-
-    R158 — ``ignore`` drops names whose prior hint must NOT carry forward: on a
-    provenance RENAME collision the old provenance name is now the incoming
-    file's USER column, so its (system) hidden hint should not stick to it (the
-    hint follows provenance to the new suffixed name, hidden-by-default there)."""
-    prev_hidden = {c["name"] for c in prev_columns if c.get("hidden")} - (ignore or set())
-    for c in cols:
-        if c["name"] in prev_hidden:
-            c["hidden"] = True
 
 
 def _resolve_provenance_name(existing: set[str]) -> str:
@@ -823,10 +812,14 @@ def _handle_refresh(
     # existing dataset is untouched on failure (acceptance #4).
     # R188 — one file writes `parsed.parquet` directly (unchanged path); several
     # write one part each (own provenance value) and are stacked in request order.
-    files = [(original_path, meta.get("originalName") or "")] + [(p, m.get("originalName") or "") for _t, m, p in extras]
-    parts = [staging_dir / "parsed.parquet"] if len(files) == 1 else [
-        staging_dir / f"part{i}.parquet" for i in range(len(files))
+    files = [(original_path, meta.get("originalName") or "")] + [
+        (p, m.get("originalName") or "") for _t, m, p in extras
     ]
+    parts = (
+        [staging_dir / "parsed.parquet"]
+        if len(files) == 1
+        else [staging_dir / f"part{i}.parquet" for i in range(len(files))]
+    )
     for (src_path, src_name), part in zip(files, parts, strict=True):
         try:
             _write_parquet(
@@ -1316,26 +1309,6 @@ def delete_dataset(id: DsIdPath) -> Response:  # noqa: A002
         shutil.rmtree(target, ignore_errors=True)
 
     return Response(status_code=status.HTTP_204_NO_CONTENT)
-
-
-def _dataset_from_row(row) -> Dataset:  # type: ignore[no-untyped-def]
-    """Hydrate a Dataset from a SQLite row — used by list + detail GETs."""
-    return Dataset(
-        id=row["id"],
-        workspaceId=row["workspace_id"],
-        name=row["name"],
-        sizeBytes=row["size_bytes"],
-        rowCount=row["row_count"],
-        columnCount=row["column_count"],
-        columns=[Column(**c) for c in json.loads(row["columns_json"])],
-        sourceFormat=row["source_format"],
-        sheetName=row["sheet_name"],
-        createdAt=row["created_at"],
-        # R185 — `refreshed_at` is backfilled by 0006 and set on every write;
-        # the fallback only covers a row written between the two.
-        refreshedAt=row["refreshed_at"] or row["created_at"],
-        dataVersion=row["data_version"],
-    )
 
 
 @router.get("/datasets/{id}", response_model_exclude_none=True)

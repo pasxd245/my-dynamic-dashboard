@@ -16,7 +16,9 @@ from app.markdown_safe import MARKDOWN_MAX_CHARS, markdown_problems
 
 
 Dtype = Literal["string", "integer", "float", "boolean", "date", "datetime"]
-SourceFormat = Literal["excel", "csv"]
+# What produced a dataset: the upload wizard's two paths, or (R192) a workflow
+# publish. Uploads never accept `workflow` (their own parsers take csv / excel).
+SourceFormat = Literal["excel", "csv", "workflow"]
 
 
 # R29: pattern strings sourced from app/_generated/constants.py (rendered from
@@ -129,6 +131,8 @@ class Dataset(BaseModel):
     # R185 (W-4) — server-stamped data identity, read-only on the wire.
     refreshedAt: IsoUtc  # noqa: N815
     dataVersion: Annotated[int, Field(ge=1)]  # noqa: N815
+    # R192 — only on a published dataset (sourceFormat `workflow`); server-written.
+    lineage: "DatasetLineage | None" = None
 
 
 class ParseOptions(BaseModel):
@@ -1185,6 +1189,54 @@ class WorkflowStaleSource(BaseModel):
     reason: Literal["source_missing", "definition_changed", "data_refreshed", "source_rerun"]
 
 
+class DatasetLineage(BaseModel):
+    """R192 — where a published dataset came from, copied from the workflow's run
+    stamp at publish time. Server-written only (`Dataset.lineage`)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    workflowId: WorkflowId  # noqa: N815
+    workflowName: Annotated[str, Field(min_length=1)]  # noqa: N815
+    runId: Annotated[str, Field(pattern=r"^run_[0-9a-f]{8}$")]  # noqa: N815
+    runNumber: Annotated[int, Field(ge=1)]  # noqa: N815
+    runAt: IsoUtc  # noqa: N815
+    definitionHash: str  # noqa: N815
+    sources: list[WorkflowRunSource]
+    publishedAt: IsoUtc  # noqa: N815
+
+
+class WorkflowPublished(BaseModel):
+    """R192 — the dataset a workflow published in its workspace (computed on read)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    datasetId: DsId  # noqa: N815
+    datasetName: Annotated[str, Field(min_length=1)]  # noqa: N815
+    dataVersion: Annotated[int, Field(ge=1)]  # noqa: N815
+    runId: Annotated[str, Field(pattern=r"^run_[0-9a-f]{8}$")]  # noqa: N815
+    runNumber: Annotated[int, Field(ge=1)]  # noqa: N815
+
+
+class PublishWorkflowBody(BaseModel):
+    """POST /workflows/{id}/publish request body (R192). `name` names the dataset
+    on a first publish; a re-publish ignores it."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: Annotated[str | None, Field(min_length=1, max_length=NAME_LENGTHS["dataset_max"])] = None
+
+
+class ApiErrorNotPublishable(BaseModel):
+    """R192 — a publish refused (409); nothing written. Mirrors
+    `_shared/api-error.yaml#/ApiErrorNotPublishable`."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    code: Literal["not_publishable"] = ERROR_CODES["not_publishable"]  # type: ignore[assignment]
+    reason: Literal["never_run", "stale", "reads_itself"]
+    staleSources: list[WorkflowStaleSource] | None = None  # noqa: N815
+
+
 class Workflow(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -1200,6 +1252,8 @@ class Workflow(BaseModel):
     # that moved since (absent when none did — or when there is no stamp to judge).
     run: WorkflowRun | None = None
     staleSources: list[WorkflowStaleSource] | None = None  # noqa: N815
+    # R192 — the dataset this workflow published (absent when none exists).
+    published: WorkflowPublished | None = None
     createdAt: IsoUtc  # noqa: N815
 
 
@@ -1222,3 +1276,8 @@ class UpdateWorkflowBody(BaseModel):
 
     name: Annotated[str, Field(min_length=1, max_length=NAME_LENGTHS["query_max"])]
     definition: WorkflowDefinition
+
+
+# R192 — `Dataset.lineage` refers forward to DatasetLineage (defined with the
+# workflow models it is copied from).
+Dataset.model_rebuild()

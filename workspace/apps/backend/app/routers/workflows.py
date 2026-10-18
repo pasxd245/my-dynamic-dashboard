@@ -10,6 +10,8 @@ MATERIALIZED output:
 - ``POST   /workflows/{id}/run``        — resolve the source query, apply steps,
   write the TYPED output to parquet + capture its schema (R134).
 - ``GET    /workflows/{id}/rows``       — page the materialized output (R134).
+- ``POST   /workflows/{id}/publish``    — publish the output as a dataset with
+  lineage (R192, item 3.6a): create it, or replace its rows.
 
 Run REUSES the shared ``app.query_engine`` (R133 extraction) — no router→router
 import. Persistence is raw-SQLite + Pydantic. Step validation is deferred to RUN
@@ -21,8 +23,11 @@ from __future__ import annotations
 
 import json
 import secrets
+import shutil
 import sqlite3
 from typing import Annotated
+
+import pyarrow.parquet as pq
 
 from fastapi import APIRouter, HTTPException, Query, status
 from fastapi import Path as FastApiPath
@@ -31,24 +36,28 @@ from fastapi.responses import JSONResponse, Response
 from app._generated.constants import DASHBOARD_MAX_ROWS, ID_PATTERNS, PAGE_SIZES
 from app.db import get_conn
 from app.ingest.rows_reader import materialize_steps, query_dataset_rows
+from app.ingest.profile import profile_date_coverage
 from app.models.common import (
     ApiErrorNameTaken,
     ApiErrorNotFound,
+    ApiErrorNotPublishable,
     ApiErrorQueryStale,
     ApiErrorStepInvalid,
     Column,
     CreateWorkflowBody,
+    PublishWorkflowBody,
     UpdateWorkflowBody,
     Workflow as WorkflowModel,
     WorkflowDefinition,
+    WorkflowPublished,
     WorkflowRun,
     WorkflowStaleSource,
 )
 from app.metadata import definition_version
 from app.workflow_runs import new_run_id, stale_sources, stamp_sources
 from app.query_engine import _step_plan, build_consolidated_relation
-from app.routers._shared import RowsPage, _is_unique_violation, _now_iso
-from app.storage import workflow_dir
+from app.routers._shared import RowsPage, _carry_forward_hidden, _dataset_from_row, _is_unique_violation, _now_iso
+from app.storage import dataset_dir, workflow_dir
 
 
 router = APIRouter(tags=["workflows"])
@@ -74,6 +83,7 @@ def _workflow_from_row(row: sqlite3.Row, con: sqlite3.Connection | None = None) 
         run = WorkflowRun(id=row["run_id"], number=row["run_number"], **stamp)
         if con is not None:
             stale = [WorkflowStaleSource(**s) for s in stale_sources(con, stamp)] or None
+    published = _published_of(con, row) if con is not None else None
     return WorkflowModel(
         id=row["id"],
         workspaceId=row["workspace_id"],
@@ -83,7 +93,31 @@ def _workflow_from_row(row: sqlite3.Row, con: sqlite3.Connection | None = None) 
         materializedAt=row["materialized_at"],
         run=run,
         staleSources=stale,
+        published=published,
         createdAt=row["created_at"],
+    )
+
+
+def _published_row(con: sqlite3.Connection, workspace_id: str, workflow_id: str) -> sqlite3.Row | None:
+    """R192 — the dataset this workflow publishes into, in its own workspace
+    (at most one: `idx_datasets_published_unique`)."""
+    return con.execute(
+        "SELECT * FROM datasets WHERE workspace_id = ? AND published_workflow_id = ?",
+        (workspace_id, workflow_id),
+    ).fetchone()
+
+
+def _published_of(con: sqlite3.Connection, row: sqlite3.Row) -> WorkflowPublished | None:
+    ds = _published_row(con, row["workspace_id"], row["id"])
+    if ds is None or not ds["lineage_json"]:
+        return None
+    lineage = json.loads(ds["lineage_json"])
+    return WorkflowPublished(
+        datasetId=ds["id"],
+        datasetName=ds["name"],
+        dataVersion=ds["data_version"],
+        runId=lineage["runId"],
+        runNumber=lineage["runNumber"],
     )
 
 
@@ -140,8 +174,7 @@ def create_workflow(id: WsIdPath, body: CreateWorkflowBody) -> JSONResponse:  # 
     try:
         with get_conn() as con:
             con.execute(
-                "INSERT INTO workflows (id, workspace_id, name, definition_json, created_at) "
-                "VALUES (?, ?, ?, ?, ?)",
+                "INSERT INTO workflows (id, workspace_id, name, definition_json, created_at) VALUES (?, ?, ?, ?, ?)",
                 (wid, id, body.name, definition_json, created_at),
             )
             con.commit()
@@ -150,9 +183,7 @@ def create_workflow(id: WsIdPath, body: CreateWorkflowBody) -> JSONResponse:  # 
             return JSONResponse(status_code=status.HTTP_409_CONFLICT, content=ApiErrorNameTaken().model_dump())
         raise
 
-    created = WorkflowModel(
-        id=wid, workspaceId=id, name=body.name, definition=body.definition, createdAt=created_at
-    )
+    created = WorkflowModel(id=wid, workspaceId=id, name=body.name, definition=body.definition, createdAt=created_at)
     return JSONResponse(status_code=status.HTTP_201_CREATED, content=created.model_dump(exclude_none=True))
 
 
@@ -276,9 +307,7 @@ def run_workflow(id: WfIdPath) -> JSONResponse:  # noqa: A002
     normalized = step_plan[0] if step_plan else []
     final_cols = step_plan[1] if step_plan else columns
     out_path = workflow_dir(workspace_id, id) / "output.parquet"
-    materialize_steps(
-        consolidated["sql"], consolidated["params"], [c["name"] for c in columns], normalized, out_path
-    )
+    materialize_steps(consolidated["sql"], consolidated["params"], [c["name"] for c in columns], normalized, out_path)
 
     output_columns = [{"name": c["name"], "dtype": c["dtype"]} for c in final_cols]
     materialized_at = _now_iso()
@@ -326,3 +355,162 @@ def workflow_rows(
     echoed_page_size = len(rows) if unpaged else eff_page_size
     body = RowsPage(rows=rows, page=eff_page, pageSize=echoed_page_size, total=total)
     return JSONResponse(status_code=status.HTTP_200_OK, content=body.model_dump())
+
+
+def _not_publishable(reason: str, stale: list[WorkflowStaleSource] | None = None) -> JSONResponse:
+    body = ApiErrorNotPublishable(reason=reason, staleSources=stale)  # type: ignore[arg-type]
+    return JSONResponse(status_code=status.HTTP_409_CONFLICT, content=body.model_dump(exclude_none=True))
+
+
+@router.post("/workflows/{id}/publish")
+def publish_workflow(id: WfIdPath, body: PublishWorkflowBody | None = None) -> JSONResponse:  # noqa: A002
+    """R192 (item 3.6a) — publish the frozen output as a dataset in the
+    workflow's workspace. First publish → 201 (a new dataset, `dataVersion` 1);
+    re-publish → 200 (the same dataset, rows replaced, `dataVersion` + 1). The
+    lineage is copied from the run stamp; nothing a client sends can set it.
+
+    Refused with `409 not_publishable` — and nothing written — when the workflow
+    has no stamped output (`never_run`), its output is out of date (`stale`),
+    or a direct source of the run reads the dataset this publish would replace
+    (`reads_itself`). A first publish onto a taken name is `409 name_taken`."""
+    with get_conn() as con:
+        row = con.execute(_SELECT_WORKFLOW, (id,)).fetchone()
+        if row is None:
+            return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=ApiErrorNotFound().model_dump())
+        wf = _workflow_from_row(row, con)
+        target = _published_row(con, row["workspace_id"], id)
+    ws_id = row["workspace_id"]
+    output = workflow_dir(ws_id, id) / "output.parquet"
+    if wf.materializedAt is None or wf.run is None or not output.exists():
+        return _not_publishable("never_run")
+    if wf.staleSources:
+        return _not_publishable("stale", wf.staleSources)
+    if target is not None and any(target["id"] in (s.dataVersions or {}) for s in wf.run.sources):
+        return _not_publishable("reads_itself")
+
+    now = _now_iso()
+    lineage = {
+        "workflowId": id,
+        "workflowName": wf.name,
+        "runId": wf.run.id,
+        "runNumber": wf.run.number,
+        "runAt": wf.materializedAt,
+        "definitionHash": wf.run.definitionHash,
+        "sources": [s.model_dump(exclude_none=True) for s in wf.run.sources],
+        "publishedAt": now,
+    }
+    cols = [{"name": c.name, "dtype": c.dtype} for c in wf.resolvedColumns or []]
+    if target is None:
+        name = ((body.name if body else None) or wf.name).strip()
+        if not name:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=[{"loc": ["body", "name"], "msg": "name is blank", "type": "value_error"}],
+            )
+        return _publish_new(ws_id, id, name, output, cols, lineage, now)
+    return _republish(target, output, cols, lineage, now)
+
+
+def _stage(dest_dir, output, cols: list[dict]) -> int:  # type: ignore[no-untyped-def]
+    """Copy the output parquet into `dest_dir/parsed.parquet`, write source.json,
+    profile date coverage into `cols` (in place); return the row count."""
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    parquet = dest_dir / "parsed.parquet"
+    shutil.copyfile(output, parquet)
+    (dest_dir / "source.json").write_text(json.dumps({"sourceFormat": "workflow"}))
+    profile_date_coverage(parquet, cols)
+    return pq.ParquetFile(parquet).metadata.num_rows
+
+
+def _publish_new(ws_id: str, wf_id: str, name: str, output, cols: list[dict], lineage: dict, now: str) -> JSONResponse:  # type: ignore[no-untyped-def]
+    ds_id = f"ds_{secrets.token_hex(4)}"
+    ds_dir = dataset_dir(ws_id, ds_id)
+    try:
+        row_count = _stage(ds_dir, output, cols)
+        with get_conn() as con:
+            con.execute(
+                "INSERT INTO datasets (id, workspace_id, name, size_bytes, row_count, column_count, columns_json, "
+                "source_format, sheet_name, created_at, refreshed_at, data_version, lineage_json, "
+                "published_workflow_id) VALUES (?, ?, ?, ?, ?, ?, ?, 'workflow', NULL, ?, ?, 1, ?, ?)",
+                (
+                    ds_id,
+                    ws_id,
+                    name,
+                    (ds_dir / "parsed.parquet").stat().st_size,
+                    row_count,
+                    len(cols),
+                    json.dumps(cols, ensure_ascii=False),
+                    now,
+                    now,
+                    json.dumps(lineage, ensure_ascii=False),
+                    wf_id,
+                ),
+            )
+            con.commit()
+            created = con.execute("SELECT * FROM datasets WHERE id = ?", (ds_id,)).fetchone()
+    except sqlite3.IntegrityError as exc:
+        shutil.rmtree(ds_dir, ignore_errors=True)
+        if "published_workflow_id" in str(exc):
+            # A concurrent first publish won the race: this one is a re-publish.
+            with get_conn() as con:
+                target = _published_row(con, ws_id, wf_id)
+            if target is not None:
+                return _republish(target, output, cols, lineage, now)
+        if _is_unique_violation(exc, "datasets.name") or "idx_datasets_name_unique" in str(exc):
+            return JSONResponse(status_code=status.HTTP_409_CONFLICT, content=ApiErrorNameTaken().model_dump())
+        raise
+    except Exception:
+        shutil.rmtree(ds_dir, ignore_errors=True)
+        raise
+    return JSONResponse(
+        status_code=status.HTTP_201_CREATED, content=_dataset_from_row(created).model_dump(exclude_none=True)
+    )
+
+
+def _republish(target: sqlite3.Row, output, cols: list[dict], lineage: dict, now: str) -> JSONResponse:  # type: ignore[no-untyped-def]
+    """Replace the published dataset's rows — a refresh to every reader: stage,
+    swap the directory, then bump `data_version` and stamp `refreshed_at` in the
+    same UPDATE that records the new columns and lineage (R185's invariant). Any
+    failure restores the previous directory."""
+    ds_id = target["id"]
+    ds_dir = dataset_dir(target["workspace_id"], ds_id)
+    staging_dir = ds_dir.parent / f"{ds_id}.staging"
+    bak_dir = ds_dir.parent / f"{ds_id}.bak"
+    shutil.rmtree(staging_dir, ignore_errors=True)
+    _carry_forward_hidden(cols, json.loads(target["columns_json"]))
+    try:
+        row_count = _stage(staging_dir, output, cols)
+    except Exception:
+        shutil.rmtree(staging_dir, ignore_errors=True)
+        raise
+    size = (staging_dir / "parsed.parquet").stat().st_size
+    if bak_dir.exists():
+        shutil.rmtree(bak_dir, ignore_errors=True)
+    ds_dir.replace(bak_dir)
+    try:
+        staging_dir.replace(ds_dir)
+        with get_conn() as con:
+            con.execute(
+                "UPDATE datasets SET row_count=?, column_count=?, columns_json=?, size_bytes=?, refreshed_at=?, "
+                "data_version=data_version+1, lineage_json=? WHERE id=?",
+                (
+                    row_count,
+                    len(cols),
+                    json.dumps(cols, ensure_ascii=False),
+                    size,
+                    now,
+                    json.dumps(lineage, ensure_ascii=False),
+                    ds_id,
+                ),
+            )
+            con.commit()
+            updated = con.execute("SELECT * FROM datasets WHERE id = ?", (ds_id,)).fetchone()
+    except Exception:
+        shutil.rmtree(ds_dir, ignore_errors=True)
+        bak_dir.replace(ds_dir)
+        shutil.rmtree(staging_dir, ignore_errors=True)
+        raise
+    shutil.rmtree(bak_dir, ignore_errors=True)
+    return JSONResponse(
+        status_code=status.HTTP_200_OK, content=_dataset_from_row(updated).model_dump(exclude_none=True)
+    )

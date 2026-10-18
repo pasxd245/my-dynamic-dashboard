@@ -50,11 +50,13 @@ CREATE TABLE IF NOT EXISTS datasets (
     row_count INTEGER NOT NULL CHECK (row_count >= 0),
     column_count INTEGER NOT NULL CHECK (column_count >= 1),
     columns_json TEXT NOT NULL,
-    source_format TEXT NOT NULL CHECK (source_format IN ('csv', 'excel')),
+    source_format TEXT NOT NULL CHECK (source_format IN ('csv', 'excel', 'workflow')),
     sheet_name TEXT,
     created_at TEXT NOT NULL,
     refreshed_at TEXT,
-    data_version INTEGER NOT NULL DEFAULT 1
+    data_version INTEGER NOT NULL DEFAULT 1,
+    lineage_json TEXT,
+    published_workflow_id TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_datasets_workspace_id
@@ -147,6 +149,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_workspaces_name_unique
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_datasets_name_unique
     ON datasets(workspace_id, name);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_datasets_published_unique
+    ON datasets(workspace_id, published_workflow_id);
 """
 
 _TABLES = ("workspaces", "datasets", "queries", "relationships", "dashboards", "workflows", "metadata_entries")
@@ -292,8 +296,8 @@ def _introspect_models(tmp_path: Path) -> dict:
 
 def test_migration_leaves_alembic_version(tmp_path: Path, _restore_db_path):
     """The migrated DB is genuinely versioned (so subsequent boots take the
-    fast versioned path). R88 collapsed history to `0001_baseline`; R187's
-    `0007_workflow_runs` is the additive head."""
+    fast versioned path). R88 collapsed history to `0001_baseline`; R192's
+    `0008_dataset_lineage` is the head."""
     migrated_path = tmp_path / "versioned.sqlite"
     db.set_db_path(migrated_path)
     db.run_startup_migrations()
@@ -303,4 +307,4 @@ def test_migration_leaves_alembic_version(tmp_path: Path, _restore_db_path):
         version = con.execute("SELECT version_num FROM alembic_version").fetchone()
     finally:
         con.close()
-    assert version is not None and version[0] == "0007_workflow_runs"
+    assert version is not None and version[0] == "0008_dataset_lineage"
