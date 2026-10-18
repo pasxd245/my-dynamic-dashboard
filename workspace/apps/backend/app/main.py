@@ -103,7 +103,8 @@ app.add_middleware(
     allow_headers=["*"],
     # R182 — the export's server-chosen file name rides in Content-Disposition,
     # which a cross-origin fetch cannot read unless exposed.
-    expose_headers=["Content-Disposition"],
+    # R194 — and the parameter values an export was read under (D7).
+    expose_headers=["Content-Disposition", "X-MDD-Params"],
 )
 
 app.include_router(workspaces.router)

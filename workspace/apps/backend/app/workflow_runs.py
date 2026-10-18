@@ -30,6 +30,7 @@ import json
 import secrets
 import sqlite3
 
+from app import params as qparams
 from app.metadata import definition_version
 from app.query_engine import _resolve_plan
 
@@ -58,13 +59,21 @@ def stamp_sources(con: sqlite3.Connection, sources: list[str], workspace_id: str
             drow = con.execute("SELECT data_version FROM datasets WHERE id = ?", (ds_id,)).fetchone()
             if drow is not None:
                 versions[ds_id] = drow["data_version"]
-        out.append(
-            {
-                "id": src,
-                "definitionHash": definition_version(json.loads(qrow["definition_json"])) if qrow else "",
-                "dataVersions": versions,
-            }
-        )
+        entry = {
+            "id": src,
+            "definitionHash": definition_version(json.loads(qrow["definition_json"])) if qrow else "",
+            "dataVersions": versions,
+        }
+        # R194 (D6) — the values the source's used parameters ran with (defaults;
+        # resolution already succeeded in the consolidation this stamp follows).
+        if qrow:
+            try:
+                used_params, _resolved = qparams.resolve(json.loads(qrow["definition_json"]))
+            except qparams.ParamError:
+                used_params = {}
+            if used_params:
+                entry["params"] = used_params
+        out.append(entry)
     return out
 
 

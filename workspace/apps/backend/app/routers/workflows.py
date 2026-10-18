@@ -56,6 +56,7 @@ from app.models.common import (
 )
 from app.metadata import definition_version
 from app.workflow_runs import new_run_id, stale_sources, stamp_sources
+from app.params import ParamError, check_workflow_steps
 from app.query_engine import _step_plan, build_consolidated_relation
 from app.saved_copies import read_only_refusal
 from app.routers._shared import RowsPage, _carry_forward_hidden, _dataset_from_row, _is_unique_violation, _now_iso
@@ -169,6 +170,7 @@ def create_workflow(id: WsIdPath, body: CreateWorkflowBody) -> JSONResponse:  # 
     # R193 — nothing inside a saved workspace can be changed.
     if (ro := read_only_refusal(workspaces=[id])) is not None:
         return ro
+    check_workflow_steps(body.definition.model_dump()["steps"])  # R194 (D6) — no parameter refs
     with get_conn() as con:
         _validate_sources(con, list(body.definition.sources), id)
         _validate_consolidation(con, list(body.definition.sources), id)
@@ -225,6 +227,7 @@ def update_workflow(id: WfIdPath, body: UpdateWorkflowBody) -> JSONResponse:  # 
     # R193 — nothing inside a saved workspace can be changed.
     if (ro := read_only_refusal(workflows=[id])) is not None:
         return ro
+    check_workflow_steps(body.definition.model_dump()["steps"])  # R194 (D6) — no parameter refs
     with get_conn() as con:
         row = con.execute(_SELECT_WORKFLOW, (id,)).fetchone()
         if row is None:
@@ -304,6 +307,11 @@ def run_workflow(id: WfIdPath) -> JSONResponse:  # noqa: A002
             else None
         )
 
+    if reason is not None and reason.get("param_unbound") is not None:
+        # R194 (D6) — a source uses a parameter with no default: a run uses defaults
+        # only, so it refuses, naming the parameter and the source.
+        unbound = reason["param_unbound"]
+        return ParamError("param_unbound", unbound.param, label=unbound.label, sourceId=unbound.source_id).response()
     if reason is not None:
         # A source query/workflow deleted / drifted / not-yet-run, or (R186) the
         # sources' shapes diverged since save → can't run.

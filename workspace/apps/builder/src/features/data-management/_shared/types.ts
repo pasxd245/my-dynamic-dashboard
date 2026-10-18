@@ -45,7 +45,17 @@ export type ApiError =
       staleSources?: { sourceId: string; name?: string; reason: string }[];
     }
   // R193 — a write inside a saved (frozen) workspace; nothing was changed
-  | { code: 'read_only_workspace' };
+  | { code: 'read_only_workspace' }
+  // R194 — a query parameter with no value at any level (a workflow run also names the source)…
+  | { code: 'param_unbound'; param: string; label?: string; sourceId?: string }
+  // …or a supplied value of the wrong type, and which level supplied it.
+  | {
+      code: 'param_invalid';
+      param: string;
+      label?: string;
+      expected: 'date' | 'number' | 'string';
+      source: 'viewer' | 'dashboard';
+    };
 
 /** The batch-commit endpoint's 409 carries a `oneOf` over the legacy
  *  `{ error, detail }` envelope and the new `ApiError` variants. The FE
@@ -76,7 +86,9 @@ export function isApiError(body: unknown): body is ApiError {
     code === ERROR_CODES.UNKNOWN_COLUMN ||
     code === ERROR_CODES.NO_VISIBLE_COLUMNS ||
     code === ERROR_CODES.NOT_PUBLISHABLE ||
-    code === ERROR_CODES.READ_ONLY_WORKSPACE
+    code === ERROR_CODES.READ_ONLY_WORKSPACE ||
+    code === ERROR_CODES.PARAM_UNBOUND ||
+    code === ERROR_CODES.PARAM_INVALID
   );
 }
 

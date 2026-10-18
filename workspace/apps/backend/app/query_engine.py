@@ -32,6 +32,22 @@ from app.ingest.rows_reader import (
 from app.models.common import ResolvedColumn
 from app.routers._shared import _compatible, _dtype_of
 from app.storage import dataset_dir, workflow_dir
+from app import params as qparams
+
+
+class ParamUnbound(str):
+    """R194 (D6) — a resolve reason (`"param_unbound"`) that carries which
+    parameter of which source query had no default."""
+
+    param: str
+    source_id: str
+    label: str | None
+
+    def __new__(cls, param: str, source_id: str, label: str | None = None) -> ParamUnbound:
+        obj = super().__new__(cls, "param_unbound")
+        obj.param, obj.source_id, obj.label = param, source_id, label
+        return obj
+
 
 
 _SELECT_DATASET = "SELECT * FROM datasets WHERE id = ?"
@@ -157,11 +173,18 @@ def _resolve_query_source(
     if qrow is None or qrow["workspace_id"] != workspace_id:
         return None, "composition_base_missing"
     base_def = json.loads(qrow["definition_json"])
+    # R194 (D6) — a query read as a workflow source runs on its DEFAULTS only; a
+    # used parameter without one refuses the source, naming it and the source.
+    try:
+        param_values, _resolved = qparams.resolve(base_def)
+    except qparams.ParamError as err:
+        return None, ParamUnbound(err.body["param"], source_id, err.body.get("label"))
     payload, reason = _resolve_chain(
         con, qrow["source_id"], _chain_of(base_def), _rels_of(base_def), workspace_id, visited | {source_id}
     )
     if reason is not None:
         return None, reason
+    base_def = qparams.bind(base_def, param_values, payload["effective"])
     # The base's OWN filters define its virtual table (baked into the sub-relation).
     try:
         b_filters, b_advanced = build_definition_predicates(base_def, payload["effective"])
@@ -1133,6 +1156,13 @@ def build_consolidated_relation(
     plans: list[dict] = []
     for i, src in enumerate(sources):
         plan, reason = _resolve_plan(con, src, [], {}, workspace_id)
+        if isinstance(reason, ParamUnbound):  # R194 — no default for a used parameter
+            return None, {
+                "reason": "unresolved_source",
+                "index": i,
+                "msg": f"'{_source_name(con, src)}' uses parameter '{reason.param}', which has no default",
+                "param_unbound": reason,
+            }
         if reason is not None:
             return None, {
                 "reason": "unresolved_source",

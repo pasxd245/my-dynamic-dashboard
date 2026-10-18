@@ -55,6 +55,9 @@ export type JoinStep = {
  *  R71: an optional `join` makes the Query multi-source; a FilterPredicate's
  *  column index then refers to the EFFECTIVE (left ++ right) column space. */
 export type QueryDefinition = {
+  /** R194 (dashboard-filters.md D1) — the typed parameters operands may reference
+   *  as `{ param: name }`. Omitted when none. Authoring UI lands in 3.7b. */
+  params?: readonly QueryParam[];
   /** The `?q=` substring search, if the saved view had one. */
   q?: string | null;
   /** Chip filters — implicit AND, at most one per column. */
@@ -77,6 +80,29 @@ export type QueryDefinition = {
    *  `_shared/query.yaml#/QueryDefinition.steps`. */
   steps?: readonly Step[];
 };
+
+/** R194 — `{"param": "<name>"}` where a literal operand would be (D2 places only:
+ *  filter atoms, filter-step and `case` WHEN operands). Mirrors `_shared/query.yaml#/ParamRef`.
+ *  The operand fields' types widen to include it in 3.7b, with the UI that writes it. */
+export type ParamRef = { param: string };
+
+/** R194 — "today ± n days", resolved by the server in `backend.time_zone`. */
+export type RelativeDate = { kind: 'today'; offsetDays: number };
+
+/** R194 — a declared parameter. Mirrors `_shared/query.yaml#/QueryParam`. */
+export type QueryParam = {
+  name: string;
+  type: 'date' | 'number' | 'string';
+  label?: string;
+  default?: string | number | RelativeDate;
+};
+
+/** R194 — the dashboard widget a read is for; the server applies that dashboard's
+ *  saved control values (D3 level 2). Mirrors `_shared/query.yaml#/DashboardRef`. */
+export type DashboardRef = { id: string; widgetId: string };
+
+/** R194 — what a read used, per used parameter. Mirrors `_shared/query.yaml#/ResolvedParams`. */
+export type ResolvedParams = Record<string, { value: string | number; source: 'viewer' | 'dashboard' | 'default' }>;
 
 /** R120 — a saved aggregate transform step on a query (`GROUP BY → measures`).
  *  Mirrors `_shared/query.yaml#/AggregateStep`. */

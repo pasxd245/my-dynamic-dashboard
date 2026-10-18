@@ -86,6 +86,7 @@ def build_xlsx(
     meta: list[tuple[str, str]],
     filters_sheet_title: str,
     totalled: frozenset[str] = frozenset(),
+    params: list[tuple[str, object, str]] | None = None,
 ) -> bytes:
     wb = Workbook()
     ws = wb.active
@@ -128,6 +129,18 @@ def build_xlsx(
             fs.append([col, ", ".join("(blank)" if v is None else str(v) for v in values)])
     else:
         fs.append(["—", "no filter"])
+    # R194 (D7) — the parameter values the rows were read under, and where each
+    # came from (viewer · dashboard · default). Only when the read resolved any.
+    if params:
+        fs.append([])
+        fs.append(["Parameters"])
+        fs[fs.max_row][0].font = bold
+        fs.append(["name", "value", "source"])
+        for cell in fs[fs.max_row]:
+            cell.font = bold
+        for name, value, source in params:
+            fs.append([name, value, source])
+        fs.column_dimensions["C"].width = 12
     fs.column_dimensions["A"].width = 24
     fs.column_dimensions["B"].width = 60
 

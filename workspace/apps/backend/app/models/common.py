@@ -350,6 +350,58 @@ class ApiErrorNoVisibleColumns(BaseModel):
 QueryId = Annotated[str, Field(pattern=ID_PATTERNS["query"])]
 
 
+ParamName = Annotated[str, Field(pattern=r"^[a-z][a-z0-9_]{0,31}$")]
+
+
+class ParamRef(BaseModel):
+    """R194 (dashboard-filters.md D1/D2) — `{"param": "<name>"}` where a literal
+    operand would be. Admitted only by filter-atom / filter-step / `case` WHEN
+    operands (this model's only uses), so a reference anywhere else is a 422."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    param: ParamName
+
+
+# A literal operand, or a parameter reference (R194). `str` is tried before the
+# object form, and the object form is the only dict — no ambiguity.
+Operand = int | float | str | ParamRef
+
+
+class RelativeDate(BaseModel):
+    """R194 — "today ± n days", resolved by the server in `backend.time_zone`."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["today"]
+    offsetDays: Annotated[int, Field(ge=-366, le=366)]  # noqa: N815
+
+
+class QueryParam(BaseModel):
+    """R194 (D1) — a typed parameter a query declares (part of its definition
+    and hash). Mirrors `_shared/query.yaml#/QueryParam`."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: ParamName
+    type: Literal["date", "number", "string"]
+    label: Annotated[str, Field(min_length=1, max_length=60)] | None = None
+    default: int | float | str | RelativeDate | None = None
+
+
+class DashboardRef(BaseModel):
+    """R194 (D3 level 2) — the dashboard widget a read is made for; the server
+    reads that dashboard's saved control values itself."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: Annotated[str, Field(pattern=ID_PATTERNS["dashboard"])]
+    widgetId: Annotated[str, Field(pattern=ID_PATTERNS["widget"])]  # noqa: N815
+
+
+ParamValues = Annotated[dict[ParamName, int | float | str], Field(max_length=24)]
+
+
 class FilterAtom(BaseModel):
     """One predicate atom — the same shape the rows-GET `aq` param carries.
     `col` is the 0-based index into the source Dataset.columns[]."""
@@ -359,11 +411,11 @@ class FilterAtom(BaseModel):
     col: Annotated[int, Field(ge=0)]
     dtype: Dtype
     op: Annotated[str, Field(min_length=1)]
-    val: int | float | str | None = None
-    min: int | float | str | None = None
-    max: int | float | str | None = None
+    val: Operand | None = None
+    min: Operand | None = None
+    max: Operand | None = None
     # R176 — `in` / `not_in` value list, or another column (index) instead of `val`.
-    vals: Annotated[list[int | float | str], Field(min_length=1, max_length=500)] | None = None
+    vals: Annotated[list[Operand], Field(min_length=1, max_length=500)] | None = None
     refCol: Annotated[int, Field(ge=0)] | None = None  # noqa: N815
 
 
@@ -568,11 +620,11 @@ class FilterStepPredicate(BaseModel):
 
     col: Annotated[str, Field(min_length=1)]
     op: Annotated[str, Field(min_length=1)]
-    val: int | float | str | None = None
-    min: int | float | str | None = None
-    max: int | float | str | None = None
+    val: Operand | None = None
+    min: Operand | None = None
+    max: Operand | None = None
     # R176 — `in` / `not_in` value list, or another column (effective name) instead of `val`.
-    vals: Annotated[list[int | float | str], Field(min_length=1, max_length=500)] | None = None
+    vals: Annotated[list[Operand], Field(min_length=1, max_length=500)] | None = None
     refCol: Annotated[str, Field(min_length=1)] | None = None  # noqa: N815
 
 
@@ -755,6 +807,10 @@ class QueryDefinition(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
+    # R194 (D1) — the typed parameters operands may reference. `None` when the
+    # query declares none: stored as `null` (the definition hash drops nulls) and
+    # omitted on the wire, so a query without parameters is unchanged.
+    params: Annotated[list[QueryParam], Field(max_length=8)] | None = None
     q: Annotated[str | None, Field(max_length=200)] = None
     filters: list[FilterAtom]
     advanced: list[list[FilterAtom]]
@@ -831,6 +887,7 @@ class PreviewQueryBody(BaseModel):
 
     sourceId: DsId  # noqa: N815 — R79 canonical driving source; R167 narrowed to ds_ only
     definition: QueryDefinition
+    params: ParamValues | None = None  # R194 — viewer values for the preview
 
 
 class ApiErrorQueryStale(BaseModel):
@@ -886,6 +943,8 @@ class TotalsBody(BaseModel):
 
     columns: Annotated[list[Annotated[str, Field(min_length=1)]], Field(min_length=1, max_length=64)]
     filters: list[AggregateFilter] = Field(default_factory=list)
+    params: ParamValues | None = None  # R194 — viewer values (D3 level 1)
+    dashboard: DashboardRef | None = None  # R194 — the widget whose saved values apply (level 2)
 
 
 class ExportBody(BaseModel):
@@ -901,6 +960,8 @@ class ExportBody(BaseModel):
 
     format: Literal["csv", "xlsx"]
     filters: list[AggregateFilter] = Field(default_factory=list)
+    params: ParamValues | None = None  # R194
+    dashboard: DashboardRef | None = None  # R194
     totals: dict[Annotated[str, Field(min_length=1)], TotalSpec] | None = None
     percent: bool = False
     title: Annotated[str, Field(min_length=1, max_length=120)] | None = None
@@ -916,6 +977,8 @@ class AggregateBody(BaseModel):
     dimensions: list[Annotated[str, Field(min_length=1)]]
     measures: Annotated[list[AggregateMeasure], Field(min_length=1)]
     filters: list[AggregateFilter] = []
+    params: ParamValues | None = None  # R194
+    dashboard: DashboardRef | None = None  # R194
 
 
 # ─── R70: relationship governance ────────────────────────────────────
@@ -1171,6 +1234,8 @@ class WorkflowRunSource(BaseModel):
     definitionHash: str | None = None  # noqa: N815
     dataVersions: dict[str, Annotated[int, Field(ge=1)]] | None = None  # noqa: N815
     runId: str | None = None  # noqa: N815
+    # R194 (D6) — a query source's used parameters, as the run resolved them (defaults).
+    params: dict[str, int | float | str] | None = None
 
 
 class WorkflowRun(BaseModel):

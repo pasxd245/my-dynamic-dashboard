@@ -22,11 +22,12 @@ import secrets
 import sqlite3
 from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, HTTPException, Query, Request, status
 from fastapi import Path as FastApiPath
 from fastapi.responses import JSONResponse, Response
 
 from app._generated.constants import DASHBOARD_MAX_ROWS, ID_PATTERNS, PAGE_SIZES
+from app import params as qparams
 from app.db import get_conn
 from app.ingest.filters import build_definition_predicates
 from app import duck
@@ -82,6 +83,30 @@ def _new_qr_id() -> str:
     return f"qr_{secrets.token_hex(4)}"
 
 
+def _bound(definition: dict, viewer: dict | None, dashboard: dict | None, columns: list[dict]) -> tuple[dict, dict]:
+    """R194 — resolve the used parameters (viewer → dashboard → default) and bind a
+    copy of the definition; raises ``qparams.ParamError`` (→ 422)."""
+    values, resolved = qparams.resolve(definition, viewer=viewer, dashboard=dashboard)
+    return qparams.bind(definition, values, columns), resolved
+
+
+def _with_resolved(content: dict, resolved: dict) -> dict:
+    """R194 — `resolvedParams` only when something was resolved (a query without
+    parameters answers exactly as before)."""
+    if resolved:
+        content["resolvedParams"] = resolved
+    return content
+
+
+def _check_definition(definition: dict, columns: list[dict]) -> None:
+    """Save / preview checks: the parameter rules (D1), then every atom and step
+    against the columns, with placeholders bound for the references (→ 422)."""
+    qparams.check(definition, columns)
+    bound = qparams.bind_placeholders(definition)
+    build_definition_predicates(bound, columns)
+    _step_plan(bound.get("steps") or [], columns)
+
+
 def _query_from_row(con: sqlite3.Connection, row: sqlite3.Row) -> QueryModel:
     definition = json.loads(row["definition_json"])
     source_id = row["source_id"]
@@ -91,7 +116,8 @@ def _query_from_row(con: sqlite3.Connection, row: sqlite3.Row) -> QueryModel:
         sourceId=source_id,
         name=row["name"],
         definition=QueryDefinition(**definition),
-        resolvedColumns=_resolved_columns(con, definition, source_id, row["workspace_id"]),
+        # R194 — column shapes do not depend on parameter values: placeholders.
+        resolvedColumns=_resolved_columns(con, qparams.bind_placeholders(definition), source_id, row["workspace_id"]),
         createdAt=row["created_at"],
     )
 
@@ -134,10 +160,9 @@ def create_query(id: WsIdPath, body: CreateQueryBody) -> JSONResponse:  # noqa: 
         )
 
     # Validate every atom against the relevant column space → 422 on a bad atom
-    # (you cannot persist a query that can't run).
-    build_definition_predicates(definition_dict, plan["columns"])
-    # R120 — transform steps validate against the same (pre-step) column space → 422.
-    _step_plan(definition_dict.get("steps") or [], plan["columns"])
+    # (you cannot persist a query that can't run). R120 — steps too; R194 — the
+    # parameter rules first, then atoms/steps with placeholders bound.
+    _check_definition(definition_dict, plan["columns"])
 
     qid = _new_qr_id()
     created_at = _now_iso()
@@ -193,9 +218,12 @@ def get_query(id: QueryIdPath) -> JSONResponse:  # noqa: A002
 @router.get("/queries/{id}/rows")
 def run_query(  # noqa: A002
     id: QueryIdPath,
+    request: Request,
     page: Annotated[int, Query(ge=1)] = 1,
     page_size: Annotated[int, Query()] = 50,
     unpaged: Annotated[bool, Query()] = False,
+    dashboard: Annotated[str | None, Query(pattern=ID_PATTERNS["dashboard"])] = None,
+    widget: Annotated[str | None, Query(pattern=ID_PATTERNS["widget"])] = None,
 ) -> JSONResponse:
     """RUN the saved query: re-execute its definition against CURRENT data,
     paged. For a JOINED query (R71) the two related datasets are read as one;
@@ -207,7 +235,18 @@ def run_query(  # noqa: A002
     server-side at ``DASHBOARD_MAX_ROWS`` (the name is the mechanism, not a
     completeness promise — an oversized result is still capped). ``total`` still
     carries the full matched count, so a capped/partial result is detectable via
-    ``total > len(rows)``."""
+    ``total > len(rows)``.
+
+    R194 — ``p.<name>=`` query parameters are the viewer's parameter values;
+    ``dashboard`` + ``widget`` name the dashboard widget whose saved control values
+    apply (D3)."""
+    if (dashboard is None) != (widget is None):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=[{"loc": ["query", "dashboard"], "msg": "dashboard and widget go together", "type": "value_error"}],
+        )
+    viewer = {k[2:]: v for k, v in request.query_params.items() if k.startswith("p.") and len(k) > 2}
+    dash_ref = {"id": dashboard, "widgetId": widget} if dashboard else None
     if unpaged:
         # Unpaged: read the first page sized to the cap. `total` (computed
         # separately) stays the full matched count, preserving the over-cap warning.
@@ -231,6 +270,7 @@ def run_query(  # noqa: A002
         definition = json.loads(qrow["definition_json"])
         chain = _chain_of(definition)
         plan, reason = _resolve_plan(con, qrow["source_id"], chain, _rels_of(definition), qrow["workspace_id"])
+        dash_values = qparams.dashboard_values(con, dash_ref, qrow["workspace_id"], ["query", "dashboard"])
 
     if reason == "source_missing":
         # Defensive: the app-level cascade (R79) removes queries when their source
@@ -238,6 +278,10 @@ def run_query(  # noqa: A002
         return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=ApiErrorNotFound().model_dump())
     if reason is not None:
         return JSONResponse(status_code=status.HTTP_409_CONFLICT, content=ApiErrorRelationshipStale().model_dump())
+    try:
+        definition, resolved_params = _bound(definition, viewer, dash_values, plan["columns"])
+    except qparams.ParamError as err:
+        return err.response()
     # R165 W-8 — a drifted PREDICATE and an unrunnable STEP are two different
     # failures and now carry two codes: merged, the surface named the wrong one.
     try:
@@ -264,7 +308,7 @@ def run_query(  # noqa: A002
         rows, total = _run_steps(plan, q, filters, advanced, step_plan, page=eff_page, page_size=eff_page_size)
         echoed_page_size = len(rows) if unpaged else eff_page_size
         body = RowsPage(rows=rows, page=eff_page, pageSize=echoed_page_size, total=total)
-        return JSONResponse(status_code=status.HTTP_200_OK, content=body.model_dump())
+        return JSONResponse(status_code=status.HTTP_200_OK, content=_with_resolved(body.model_dump(), resolved_params))
 
     if plan["kind"] == "join":
         rows, total = _execute_chain(
@@ -287,7 +331,7 @@ def run_query(  # noqa: A002
     # "page" in the pager sense); paged response echoes the requested size.
     echoed_page_size = len(rows) if unpaged else eff_page_size
     body = RowsPage(rows=rows, page=eff_page, pageSize=echoed_page_size, total=total)
-    return JSONResponse(status_code=status.HTTP_200_OK, content=body.model_dump())
+    return JSONResponse(status_code=status.HTTP_200_OK, content=_with_resolved(body.model_dump(), resolved_params))
 
 
 @router.post("/queries/{id}/aggregate")
@@ -312,11 +356,18 @@ def aggregate_query(id: QueryIdPath, body: AggregateBody) -> JSONResponse:  # no
         definition = json.loads(qrow["definition_json"])
         chain = _chain_of(definition)
         plan, reason = _resolve_plan(con, qrow["source_id"], chain, _rels_of(definition), qrow["workspace_id"])
+        dash_values = qparams.dashboard_values(
+            con, body.dashboard.model_dump() if body.dashboard else None, qrow["workspace_id"], ["body", "dashboard"]
+        )
 
     if reason == "source_missing":
         return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=ApiErrorNotFound().model_dump())
     if reason is not None:
         return JSONResponse(status_code=status.HTTP_409_CONFLICT, content=ApiErrorRelationshipStale().model_dump())
+    try:
+        definition, resolved_params = _bound(definition, body.params, dash_values, plan["columns"])
+    except qparams.ParamError as err:
+        return err.response()
 
     # Validate the aggregate spec against the effective columns (422) BEFORE the
     # predicate re-check, so a malformed request 422s regardless of query state.
@@ -343,10 +394,14 @@ def aggregate_query(id: QueryIdPath, body: AggregateBody) -> JSONResponse:  # no
     )
     out_columns = _aggregate_output_columns(body.dimensions, measures, plan["columns"])
     content = {"columns": out_columns, "rows": rows, "total": len(rows)}
-    return JSONResponse(status_code=status.HTTP_200_OK, content=content)
+    return JSONResponse(status_code=status.HTTP_200_OK, content=_with_resolved(content, resolved_params))
 
 
-def _final_relation(id: str) -> tuple[dict | None, JSONResponse | None]:  # noqa: A002
+def _final_relation(
+    id: str,  # noqa: A002
+    viewer: dict | None = None,
+    dashboard: dict | None = None,
+) -> tuple[dict | None, JSONResponse | None]:
     """R181/R182 — the saved query's FINAL relation: its resolved plan + own
     predicates, then its transform steps when it has any (the rows a table
     widget shows). Returns ``({sql, params, columns, name}, None)`` or
@@ -360,6 +415,7 @@ def _final_relation(id: str) -> tuple[dict | None, JSONResponse | None]:  # noqa
         chain = _chain_of(definition)
         plan, reason = _resolve_plan(con, qrow["source_id"], chain, _rels_of(definition), qrow["workspace_id"])
         name = qrow["name"]
+        dash_values = qparams.dashboard_values(con, dashboard, qrow["workspace_id"], ["body", "dashboard"])
 
     if reason == "source_missing":
         return None, JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=ApiErrorNotFound().model_dump())
@@ -367,6 +423,10 @@ def _final_relation(id: str) -> tuple[dict | None, JSONResponse | None]:  # noqa
         return None, JSONResponse(
             status_code=status.HTTP_409_CONFLICT, content=ApiErrorRelationshipStale().model_dump()
         )
+    try:
+        definition, resolved_params = _bound(definition, viewer, dash_values, plan["columns"])
+    except qparams.ParamError as err:
+        return None, err.response()
 
     try:
         filters, advanced = build_definition_predicates(definition, plan["columns"])
@@ -385,7 +445,13 @@ def _final_relation(id: str) -> tuple[dict | None, JSONResponse | None]:  # noqa
     else:
         final_cols = plan["columns"]
         relation_sql, relation_params = inner_sql, inner_params
-    return {"sql": relation_sql, "params": relation_params, "columns": final_cols, "name": name}, None
+    return {
+        "sql": relation_sql,
+        "params": relation_params,
+        "columns": final_cols,
+        "name": name,
+        "resolvedParams": resolved_params,
+    }, None
 
 
 def _totals_over(relation: dict, columns: list[str], filters: list) -> tuple[dict[str, str | None], int]:
@@ -416,12 +482,13 @@ def totals_query(id: QueryIdPath, body: TotalsBody) -> JSONResponse:  # noqa: A0
     skipped). One DuckDB query; no row cap, so a table widget's footer is right
     even when its rows are capped. Non-numeric or unknown columns → 422.
     Drift semantics follow the run path: 404 absent · 409 stale."""
-    relation, err = _final_relation(id)
+    relation, err = _final_relation(id, body.params, body.dashboard.model_dump() if body.dashboard else None)
     if err is not None:
         return err
     assert relation is not None  # noqa: S101 — the pair is exclusive
     sums, row_count = _totals_over(relation, body.columns, body.filters)
-    return JSONResponse(status_code=status.HTTP_200_OK, content={"sums": sums, "rowCount": row_count})
+    content = _with_resolved({"sums": sums, "rowCount": row_count}, relation["resolvedParams"])
+    return JSONResponse(status_code=status.HTTP_200_OK, content=content)
 
 
 @router.post("/queries/{id}/export")
@@ -430,11 +497,21 @@ def export_query(id: QueryIdPath, body: ExportBody) -> Response:  # noqa: A002
     (post-step, dashboard-filtered) relation, typed cells, the R181 totals row
     when the widget has one, and (XLSX) a Filters sheet. Over
     `EXPORT_MAX_ROWS` → 422 `export_too_large`, nothing written. Drift
-    semantics follow the run path: 404 absent · 409 stale."""
-    relation, err = _final_relation(id)
+    semantics follow the run path: 404 absent · 409 stale.
+
+    R194 (D7) — parameters resolved for the read go into the XLSX Filters sheet's
+    `Parameters` block and, on both formats, the `X-MDD-Params` header (ASCII
+    JSON)."""
+    relation, err = _final_relation(id, body.params, body.dashboard.model_dump() if body.dashboard else None)
     if err is not None:
         return err
     assert relation is not None  # noqa: S101 — the pair is exclusive
+    resolved_params: dict = relation["resolvedParams"]
+    param_headers = (
+        {"X-MDD-Params": json.dumps(resolved_params, ensure_ascii=True, separators=(",", ":"))}
+        if resolved_params
+        else {}
+    )
     columns: list[dict] = relation["columns"]
     col_names = {c["name"] for c in columns}
     dashboard_filters = [(f.column, f.values) for f in body.filters if f.column in col_names]
@@ -500,7 +577,7 @@ def export_query(id: QueryIdPath, body: ExportBody) -> Response:  # noqa: A002
         return Response(
             content=data,
             media_type="text/csv; charset=utf-8",
-            headers={"Content-Disposition": f'attachment; filename="{stem}.csv"'},
+            headers={"Content-Disposition": f'attachment; filename="{stem}.csv"', **param_headers},
         )
     data = build_xlsx(
         columns,
@@ -513,11 +590,12 @@ def export_query(id: QueryIdPath, body: ExportBody) -> Response:  # noqa: A002
         meta=[("query", relation["name"]), ("widget", title), ("exported_at", _now_iso()), ("rows", str(total))],
         filters_sheet_title="Filters",
         totalled=totalled,
+        params=[(n, r["value"], r["source"]) for n, r in sorted(resolved_params.items())],
     )
     return Response(
         content=data,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f'attachment; filename="{stem}.xlsx"'},
+        headers={"Content-Disposition": f'attachment; filename="{stem}.xlsx"', **param_headers},
     )
 
 
@@ -567,6 +645,13 @@ def preview_query(  # noqa: A002
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=[{"loc": ["body", "definition", "joins"], "msg": reason, "type": "value_error"}],
         )
+    # R194 — the parameter rules a save would apply (422), then the preview's own
+    # values (viewer only) resolved and bound.
+    qparams.check(definition, plan["columns"])
+    try:
+        definition, resolved_params = _bound(definition, body.params, None, plan["columns"])
+    except qparams.ParamError as err:
+        return err.response()
     # R165 W-8 — a drifted PREDICATE and an unrunnable STEP are two different
     # failures and now carry two codes: merged, the surface named the wrong one.
     try:
@@ -601,7 +686,7 @@ def preview_query(  # noqa: A002
             "resolvedColumns": resolved,
             "baseColumns": base,
         }
-        return JSONResponse(status_code=status.HTTP_200_OK, content=content)
+        return JSONResponse(status_code=status.HTTP_200_OK, content=_with_resolved(content, resolved_params))
 
     if plan["kind"] == "join":
         rows, total = _execute_chain(
@@ -623,7 +708,7 @@ def preview_query(  # noqa: A002
         )
         content = {"rows": rows, "page": page, "pageSize": page_size, "total": total}
 
-    return JSONResponse(status_code=status.HTTP_200_OK, content=content)
+    return JSONResponse(status_code=status.HTTP_200_OK, content=_with_resolved(content, resolved_params))
 
 
 @router.put("/queries/{id}")
@@ -657,8 +742,7 @@ def update_query(id: QueryIdPath, body: UpdateQueryBody) -> JSONResponse:  # noq
 
     # Validate every atom against the relevant column space → 422 on a bad atom
     # (you cannot save a definition that can't run) — the create-time semantics.
-    build_definition_predicates(definition, plan["columns"])
-    _step_plan(definition.get("steps") or [], plan["columns"])  # R120 — steps validate too
+    _check_definition(definition, plan["columns"])  # R120 steps + R194 params too
 
     definition_json = json.dumps(body.definition.model_dump())
     with get_conn() as con:

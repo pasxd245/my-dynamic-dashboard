@@ -164,13 +164,16 @@ components:
             enum) and re-checked by the BE on save and on run, exactly
             as the rows-GET `aq` atoms are checked.
         val:
-          $ref: '#/components/schemas/Operand'
+          allOf:
+            - $ref: '#/components/schemas/Operand'
           description: Single-operand value (ops that take one value), or a parameter (R194).
         min:
-          $ref: '#/components/schemas/Operand'
+          allOf:
+            - $ref: '#/components/schemas/Operand'
           description: Lower bound for `between` (inclusive), or a parameter (R194).
         max:
-          $ref: '#/components/schemas/Operand'
+          allOf:
+            - $ref: '#/components/schemas/Operand'
           description: Upper bound for `between` (inclusive), or a parameter (R194).
         vals:
           type: array
