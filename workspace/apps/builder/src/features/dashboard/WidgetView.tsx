@@ -5,7 +5,7 @@
 // R100; the config now comes from the builder instead of hardcoded props.
 
 import { WarningOutlined } from '@ant-design/icons';
-import { Spin, Table, Tooltip as AntTooltip, Statistic, theme } from 'antd';
+import { Spin, Table, Tooltip as AntTooltip, Statistic, Typography, theme } from 'antd';
 import { lazy, Suspense } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -736,6 +736,19 @@ function ChartWidgetView({ widget, extra, filters, badge }: WidgetViewProps) {
   );
   const footerTotals = totalsEnabled ? computeTotals(widget.totals, totalsQ.sums) : undefined;
 
+  // R198 (D7) — the period runs past the data: say where the data ends (the
+  // earliest `dataThrough` any resolved parameter reports). A note, not a block.
+  const dataThrough = Object.values(resolvedParams ?? {})
+    .map((r) => r.dataThrough)
+    .filter((d): d is string => typeof d === 'string')
+    .sort()[0];
+  const dataThroughNote = dataThrough ? (
+    <Typography.Text type="secondary" style={{ fontSize: token.fontSizeSM }} data-component="WidgetDataThrough">
+      <WarningOutlined style={{ color: token.colorWarning, marginInlineEnd: 4 }} aria-hidden />
+      {t('dashboard.params.range.dataThrough', { date: dataThrough })}
+    </Typography.Text>
+  ) : undefined;
+
   const valueName = widget.agg === 'count' ? t('dashboard.builder.countLabel') : (widget.measureCol ?? '');
   // R116 — per-widget number format (presentation). Applied to the headline
   // value displays (stat, gauge); charts keep their compact-axis defaults.
@@ -797,6 +810,7 @@ function ChartWidgetView({ widget, extra, filters, badge }: WidgetViewProps) {
       rows={widget.rows}
       paramMessage={paramMessage}
       badge={badge}
+      note={dataThroughNote}
       footer={<WidgetDataFooter versions={dataVersions} />}
     >
       <ChartFigure label={t(ariaKey, { title: widget.title })}>

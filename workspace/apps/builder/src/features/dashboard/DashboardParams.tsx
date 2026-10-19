@@ -1,16 +1,20 @@
 // R195 (item 3.7b) — dashboard parameter controls (dashboard-filters.md D3–D5).
+// R198 (item 4.2) — the `date_range` control: one control, two date parameters.
 //
 // - `DashboardParamsContext` — the viewer's values (URL `p.*`) and the dashboard
 //   id; every widget read sends both, so the SERVER applies viewer → dashboard
 //   saved value → query default, and says what it used.
 // - `DashboardControlBar` — one input per control above the grid. A change goes
 //   to the URL only (never saved); **Reset to saved** drops the URL values;
-//   **Copy link** copies the URL that reopens this view.
+//   **Copy link** copies the URL that reopens this view. A date-range control is
+//   a preset select plus two date inputs; a preset picked here is computed in
+//   the browser and written as two absolute dates (a SAVED preset is the
+//   server's to resolve, in `backend.time_zone`).
 // - `ControlsEditor` — the edit affordance: add / label / bind / target / saved
 //   value / remove, saved with the dashboard (a PUT).
 // - `controlReach` + `ReachBadge` — which controls reached a widget and which
 //   were skipped and why (D5): a control reaches a targeted widget only when its
-//   query USES the parameter.
+//   query USES the parameter (a range: `from` or `to`).
 
 import { ControlOutlined, DeleteOutlined, LinkOutlined, PlusOutlined, UndoOutlined } from '@ant-design/icons';
 import { App, Button, Drawer, Input, InputNumber, Select, Space, Tag, Tooltip, Typography, theme } from 'antd';
@@ -19,9 +23,20 @@ import { useTranslation } from 'react-i18next';
 
 import { isRelative, isoToday, usedParams, valueFits } from '@/features/data-management/queries/params';
 import type { ParamContext, Query, QueryParam, ResolvedParams } from '@/features/data-management/queries/types';
-import type { DashboardControl, Widget } from './types';
+import { presetOf, resolvePreset } from './dateRange';
+import {
+  DATE_RANGE_PRESETS,
+  controlParams,
+  type DashboardControl,
+  type DateRangeControl,
+  type DateRangePreset,
+  type DateRangeValue,
+  type RelativeDay,
+  type Widget,
+} from './types';
 
 export const MAX_CONTROLS = 12;
+const RANGE_OPTION = '__date_range__';
 
 export type DashboardParamsState = {
   viewer: Record<string, string>;
@@ -34,6 +49,10 @@ export type DashboardParamsState = {
 };
 export const DashboardParamsContext = createContext<DashboardParamsState>({ viewer: {} });
 
+function targetsWidget(c: DashboardControl, widgetId: string): boolean {
+  return c.targets === 'all' || c.targets.includes(widgetId);
+}
+
 /** The parameter context one widget's reads carry. On a dashboard: the viewer
  *  values of the controls that TARGET this widget (D4 — code review P1-2) and
  *  the widget, whose saved values the server applies. Off a dashboard (the
@@ -41,9 +60,7 @@ export const DashboardParamsContext = createContext<DashboardParamsState>({ view
 export function useWidgetParamContext(widgetId: string | undefined): ParamContext | undefined {
   const { viewer, dashboardId, controls } = useContext(DashboardParamsContext);
   if (!dashboardId || !widgetId) return Object.keys(viewer).length ? { params: viewer } : undefined;
-  const allowed = new Set(
-    (controls ?? []).filter((c) => c.targets === 'all' || c.targets.includes(widgetId)).map((c) => c.param),
-  );
+  const allowed = new Set((controls ?? []).filter((c) => targetsWidget(c, widgetId)).flatMap(controlParams));
   const params = Object.fromEntries(Object.entries(viewer).filter(([k]) => allowed.has(k)));
   return {
     ...(Object.keys(params).length ? { params } : {}),
@@ -63,7 +80,7 @@ export function useReportResolved(widgetId: string | undefined, resolved: Resolv
 /** The values a widget's read reports that belong to the dashboard's controls:
  *  only controls that TARGET the widget, and only a viewer or dashboard value
  *  (a widget on its own default says nothing about the control — code review
- *  N-1). Keyed by control id. */
+ *  N-1). Keyed by parameter name (one control per name; a range owns two). */
 export function controlValuesFrom(
   controls: readonly DashboardControl[],
   widgetId: string,
@@ -71,11 +88,22 @@ export function controlValuesFrom(
 ): Record<string, string | number> {
   const out: Record<string, string | number> = {};
   for (const c of controls) {
-    if (c.targets !== 'all' && !c.targets.includes(widgetId)) continue;
-    const r = resolved[c.param];
-    if (r && (r.source === 'viewer' || r.source === 'dashboard')) out[c.id] = r.value;
+    if (!targetsWidget(c, widgetId)) continue;
+    for (const name of controlParams(c)) {
+      const r = resolved[name];
+      if (r && (r.source === 'viewer' || r.source === 'dashboard')) out[name] = r.value;
+    }
   }
   return out;
+}
+
+/** A control's saved value for one of its parameters when it is already an
+ *  absolute literal (a relative one is the server's to resolve). */
+function savedAbsolute(c: DashboardControl, name: string): string | number | undefined {
+  if (c.kind === 'param') return c.saved !== undefined && !isRelative(c.saved) ? c.saved : undefined;
+  if (!c.saved || !('from' in c.saved)) return undefined;
+  const v = name === c.from ? c.saved.from : c.saved.to;
+  return typeof v === 'string' ? v : undefined;
 }
 
 /** The URL to share: the current one with every control's value pinned as an
@@ -86,14 +114,16 @@ export function shareUrl(
   href: string,
   controls: readonly DashboardControl[],
   viewer: Record<string, string>,
-  /** Server-resolved values by control id. */
+  /** Server-resolved values by parameter name. */
   resolved: Record<string, string | number>,
 ): string {
   const url = new URL(href);
   for (const c of controls) {
-    if (viewer[c.param] !== undefined) continue;
-    const v = resolved[c.id] ?? (c.saved !== undefined && !isRelative(c.saved) ? c.saved : undefined);
-    if (v !== undefined && v !== '') url.searchParams.set(`p.${c.param}`, String(v));
+    for (const name of controlParams(c)) {
+      if (viewer[name] !== undefined) continue;
+      const v = resolved[name] ?? savedAbsolute(c, name);
+      if (v !== undefined && v !== '') url.searchParams.set(`p.${name}`, String(v));
+    }
   }
   return url.toString();
 }
@@ -127,17 +157,18 @@ export function bindableParams(
 export type Reach = { reached: DashboardControl[]; skipped: { control: DashboardControl; reason: string }[] };
 
 /** D4/D5 — a control reaches a widget when the widget is targeted AND its query
- *  uses the parameter; a targeted widget whose query does not is skipped. A note
- *  is never reached (and never badged). */
+ *  uses the parameter (a range: `from` or `to`); a targeted widget whose query
+ *  does not is skipped, the reason naming the parameter(s). A note is never
+ *  reached (and never badged). */
 export function controlReach(controls: readonly DashboardControl[], widget: Widget, query: Query | undefined): Reach {
   const reach: Reach = { reached: [], skipped: [] };
   if (widget.chartType === 'note' || !widget.queryId) return reach;
   const used = usedParams(query?.definition);
   for (const c of controls) {
-    const targeted = c.targets === 'all' || c.targets.includes(widget.id);
-    if (!targeted) continue;
-    if (used.has(c.param)) reach.reached.push(c);
-    else reach.skipped.push({ control: c, reason: c.param });
+    if (!targetsWidget(c, widget.id)) continue;
+    const names = controlParams(c);
+    if (names.some((n) => used.has(n))) reach.reached.push(c);
+    else reach.skipped.push({ control: c, reason: names.join(', ') });
   }
   return reach;
 }
@@ -170,10 +201,20 @@ export function ReachBadge({ reach }: Readonly<{ reach: Reach }>) {
 }
 
 /** A saved value as text (relative dates as "today ± n"). */
-function savedText(v: DashboardControl['saved'], t: (k: string, o?: Record<string, unknown>) => string): string {
+function savedText(
+  v: string | number | RelativeDay | undefined,
+  t: (k: string, o?: Record<string, unknown>) => string,
+) {
   if (v === undefined) return '';
   if (isRelative(v)) return t('dashboard.params.relative', { n: v.offsetDays });
   return String(v);
+}
+
+/** The date a saved bound shows before any read has answered (a relative one
+ *  in the browser's zone — display only; the server resolves it). */
+function boundPreview(v: string | RelativeDay | undefined): string {
+  if (v === undefined) return '';
+  return isRelative(v) ? isoToday(v.offsetDays) : v;
 }
 
 function ValueInput({
@@ -206,6 +247,101 @@ function ValueInput({
   );
 }
 
+/** R198 — the bar's period control: a preset select and two date inputs. The
+ *  shown dates are the server's resolution where a read has answered (the saved
+ *  preset is resolved in `backend.time_zone`), the browser's preview before. */
+function DateRangeInput({
+  control,
+  viewer,
+  resolved,
+  onChange,
+}: Readonly<{
+  control: DateRangeControl;
+  viewer: Record<string, string>;
+  resolved: Record<string, string | number>;
+  onChange: (values: Record<string, string>) => void;
+}>) {
+  const { t } = useTranslation();
+  const { token } = theme.useToken();
+  const own = { from: viewer[control.from], to: viewer[control.to] };
+  const savedPreview =
+    control.saved && 'preset' in control.saved
+      ? resolvePreset(control.saved.preset)
+      : { from: boundPreview(control.saved?.from), to: boundPreview(control.saved?.to) };
+  const shown = {
+    from: own.from ?? (resolved[control.from] !== undefined ? String(resolved[control.from]) : savedPreview.from),
+    to: own.to ?? (resolved[control.to] !== undefined ? String(resolved[control.to]) : savedPreview.to),
+  };
+  const changed = own.from !== undefined || own.to !== undefined;
+  const fits = { from: valueFits('date', shown.from), to: valueFits('date', shown.to) };
+  const reversed = fits.from && fits.to && shown.from > shown.to;
+  const preset = presetOf(shown.from, shown.to, DATE_RANGE_PRESETS);
+  const presetLabel = (p: DateRangePreset) => t(`dashboard.params.range.presets.${p}`);
+  return (
+    <label
+      style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+      data-component="DateRangeControl"
+      data-from={control.from}
+      data-to={control.to}
+      data-viewer={changed || undefined}
+    >
+      <Typography.Text type="secondary" style={{ fontSize: token.fontSizeSM }}>
+        {control.label}
+      </Typography.Text>
+      <span
+        style={
+          changed
+            ? {
+                outline: `1px solid ${token.colorPrimary}`,
+                borderRadius: token.borderRadius,
+                display: 'inline-flex',
+                gap: 4,
+              }
+            : { display: 'inline-flex', gap: 4 }
+        }
+      >
+        <Select
+          value={preset ?? 'custom'}
+          onChange={(p: DateRangePreset | 'custom') => {
+            if (p === 'custom') return;
+            const r = resolvePreset(p);
+            onChange({ [control.from]: r.from, [control.to]: r.to });
+          }}
+          options={[
+            ...DATE_RANGE_PRESETS.map((p) => ({ value: p, label: presetLabel(p) })),
+            { value: 'custom', label: t('dashboard.params.range.custom') },
+          ]}
+          style={{ width: 150 }}
+          aria-label={`${control.label} — ${t('dashboard.params.range.preset')}`}
+          data-component="DateRangePreset"
+        />
+        <ValueInput
+          type="date"
+          value={shown.from}
+          onChange={(v) => onChange({ [control.from]: v })}
+          ariaLabel={`${control.label} — ${t('dashboard.params.range.from')}`}
+          status={(own.from !== undefined && !fits.from) || reversed ? 'warning' : undefined}
+          dataName={control.from}
+        />
+        <Typography.Text type="secondary">→</Typography.Text>
+        <ValueInput
+          type="date"
+          value={shown.to}
+          onChange={(v) => onChange({ [control.to]: v })}
+          ariaLabel={`${control.label} — ${t('dashboard.params.range.to')}`}
+          status={(own.to !== undefined && !fits.to) || reversed ? 'warning' : undefined}
+          dataName={control.to}
+        />
+      </span>
+      {reversed ? (
+        <Typography.Text type="warning" style={{ fontSize: token.fontSizeSM }} data-component="DateRangeReversed">
+          {t('dashboard.params.range.reversed')}
+        </Typography.Text>
+      ) : null}
+    </label>
+  );
+}
+
 export function DashboardControlBar({
   controls,
   params,
@@ -217,16 +353,17 @@ export function DashboardControlBar({
   controls: readonly DashboardControl[];
   params: ReadonlyMap<string, { decl: QueryParam; usedBy: string[] }>;
   viewer: Record<string, string>;
-  /** What the targeted widgets' reads used, by control id (the server's resolution). */
+  /** What the targeted widgets' reads used, by parameter name (the server's resolution). */
   resolved: Record<string, string | number>;
-  onChange: (param: string, value: string) => void;
+  /** Viewer values to set in the URL (empty = remove), several at once. */
+  onChange: (values: Record<string, string>) => void;
   onReset: () => void;
 }>) {
   const { t } = useTranslation();
   const { token } = theme.useToken();
   const { message } = App.useApp();
   if (controls.length === 0) return null;
-  const changed = controls.some((c) => viewer[c.param] !== undefined);
+  const changed = controls.some((c) => controlParams(c).some((n) => viewer[n] !== undefined));
   return (
     <div
       data-component="DashboardControlBar"
@@ -243,12 +380,15 @@ export function DashboardControlBar({
       }}
     >
       {controls.map((c) => {
+        if (c.kind === 'date_range') {
+          return <DateRangeInput key={c.id} control={c} viewer={viewer} resolved={resolved} onChange={onChange} />;
+        }
         const type = params.get(c.param)?.decl.type ?? 'string';
         const own = viewer[c.param];
         // The server's resolution first (a relative saved value resolves in
         // `backend.time_zone`, not the browser's — BA-3); the browser date only
         // until a read has answered.
-        const resolvedValue = resolved[c.id];
+        const resolvedValue = resolved[c.param];
         const shown =
           own ??
           (resolvedValue !== undefined
@@ -278,7 +418,7 @@ export function DashboardControlBar({
               <ValueInput
                 type={type}
                 value={shown}
-                onChange={(v) => onChange(c.param, v)}
+                onChange={(v) => onChange({ [c.param]: v })}
                 ariaLabel={c.label}
                 status={invalid ? 'warning' : undefined}
                 dataName={c.param}
@@ -316,6 +456,56 @@ export function DashboardControlBar({
   );
 }
 
+/** A range control's saved period is complete and runs forwards. */
+function rangeSavedValid(saved: DateRangeValue | undefined): boolean {
+  if (!saved || 'preset' in saved) return true;
+  const from = typeof saved.from === 'string' ? saved.from : undefined;
+  const to = typeof saved.to === 'string' ? saved.to : undefined;
+  if (from === undefined || to === undefined) return true; // relative bounds: the server checks
+  return valueFits('date', from) && valueFits('date', to) && from <= to;
+}
+
+/** The editor's fixed pair: two date inputs (a relative bound shows its
+ *  browser-side preview and becomes the typed date when edited). */
+function FixedPairInputs({
+  pair,
+  onChange,
+  names,
+  fromLabel,
+  toLabel,
+}: Readonly<{
+  pair: { from: string | RelativeDay; to: string | RelativeDay };
+  onChange: (pair: { from: string; to: string }) => void;
+  names: [string, string];
+  fromLabel: string;
+  toLabel: string;
+}>) {
+  const from = typeof pair.from === 'string' ? pair.from : boundPreview(pair.from);
+  const to = typeof pair.to === 'string' ? pair.to : boundPreview(pair.to);
+  const status = !rangeSavedValid(pair) ? 'warning' : undefined;
+  return (
+    <Space size={4}>
+      <ValueInput
+        type="date"
+        value={from}
+        onChange={(v) => onChange({ from: v, to })}
+        ariaLabel={fromLabel}
+        status={status}
+        dataName={names[0]}
+      />
+      <Typography.Text type="secondary">→</Typography.Text>
+      <ValueInput
+        type="date"
+        value={to}
+        onChange={(v) => onChange({ from, to: v })}
+        ariaLabel={toLabel}
+        status={status}
+        dataName={names[1]}
+      />
+    </Space>
+  );
+}
+
 /** The controls editor (the "edit mode" for controls): changes are saved with
  *  the dashboard; viewers never save. */
 export function ControlsEditor({
@@ -340,18 +530,21 @@ export function ControlsEditor({
   useEffect(() => {
     if (open) setDraft([...controls]);
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps — seed on open only (code review P2-2)
-  const free = [...params.keys()].filter((p) => !draft.some((c) => c.param === p));
+  const bound = new Set(draft.flatMap(controlParams));
+  const free = [...params.keys()].filter((p) => !bound.has(p));
+  const freeDates = free.filter((p) => params.get(p)?.decl.type === 'date');
+  const dateParams = [...params.keys()].filter((p) => params.get(p)?.decl.type === 'date');
   const set = (i: number, patch: Partial<DashboardControl>) =>
     setDraft(draft.map((c, k) => (k === i ? ({ ...c, ...patch } as DashboardControl) : c)));
   const widgetOptions = widgets.filter((w) => w.chartType !== 'note').map((w) => ({ value: w.id, label: w.title }));
   const invalid = draft.some((c) => {
+    if (!c.label.trim() || (c.targets !== 'all' && c.targets.length === 0)) return true;
+    if (c.kind === 'date_range') return c.from === c.to || !rangeSavedValid(c.saved);
     const type = params.get(c.param)?.decl.type;
-    return (
-      !c.label.trim() ||
-      (c.targets !== 'all' && c.targets.length === 0) ||
-      (type !== undefined && typeof c.saved === 'string' && c.saved !== '' && !valueFits(type, c.saved))
-    );
+    return type !== undefined && typeof c.saved === 'string' && c.saved !== '' && !valueFits(type, c.saved);
   });
+  const usedBy = (names: string[]) => [...new Set(names.flatMap((n) => params.get(n)?.usedBy ?? []))];
+  const paramOption = (p: string) => (params.get(p)?.decl.label ? `${params.get(p)?.decl.label} (${p})` : p);
 
   return (
     <Drawer
@@ -370,6 +563,11 @@ export function ControlsEditor({
             onClick={() =>
               onSave(
                 draft.map((c) => {
+                  if (c.kind === 'date_range') {
+                    const out: DateRangeControl = { ...c, label: c.label.trim() };
+                    if (!out.saved) delete out.saved;
+                    return out;
+                  }
                   const out = { ...c, label: c.label.trim() };
                   if (out.saved === '' || out.saved === undefined) delete out.saved;
                   // A number is typed as text (so "1." can become "1.5") and saved as a number.
@@ -393,14 +591,21 @@ export function ControlsEditor({
       ) : null}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         {draft.map((c, i) => {
-          const entry = params.get(c.param);
+          const names = controlParams(c);
+          const entry = c.kind === 'param' ? params.get(c.param) : undefined;
           const type = entry?.decl.type ?? 'string';
-          const relative = isRelative(c.saved);
+          const relative = c.kind === 'param' && isRelative(c.saved);
+          // A range binds its own two names plus any free date parameter.
+          const rangeOptions = (own: string) =>
+            dateParams.filter((p) => p === own || !bound.has(p)).map((p) => ({ value: p, label: paramOption(p) }));
+          const savedMode =
+            c.kind !== 'date_range' ? undefined : !c.saved ? 'none' : 'preset' in c.saved ? c.saved.preset : 'fixed';
           return (
             <div
               key={c.id}
               data-component="ControlRow"
-              data-param={c.param}
+              data-kind={c.kind}
+              data-param={names.join(',')}
               style={{
                 display: 'flex',
                 flexDirection: 'column',
@@ -418,7 +623,33 @@ export function ControlsEditor({
                   style={{ width: 180 }}
                   data-component="ControlLabel"
                 />
-                <Typography.Text type="secondary">{t('dashboard.params.bindsTo', { param: c.param })}</Typography.Text>
+                {c.kind === 'date_range' ? (
+                  <Space size={4} wrap>
+                    <Typography.Text type="secondary">{t('dashboard.params.range.binds')}</Typography.Text>
+                    <Select
+                      value={c.from}
+                      onChange={(p: string) => set(i, { from: p })}
+                      options={rangeOptions(c.from)}
+                      style={{ width: 160 }}
+                      aria-label={t('dashboard.params.range.from')}
+                      data-component="RangeFromParam"
+                    />
+                    <Typography.Text type="secondary">→</Typography.Text>
+                    <Select
+                      value={c.to}
+                      onChange={(p: string) => set(i, { to: p })}
+                      options={rangeOptions(c.to)}
+                      status={c.from === c.to ? 'error' : undefined}
+                      style={{ width: 160 }}
+                      aria-label={t('dashboard.params.range.to')}
+                      data-component="RangeToParam"
+                    />
+                  </Space>
+                ) : (
+                  <Typography.Text type="secondary">
+                    {t('dashboard.params.bindsTo', { param: c.param })}
+                  </Typography.Text>
+                )}
                 <Button
                   type="text"
                   danger
@@ -432,9 +663,7 @@ export function ControlsEditor({
                 <Typography.Text>{t('dashboard.params.targets')}</Typography.Text>
                 <Select
                   value={c.targets === 'all' ? 'all' : 'some'}
-                  onChange={(v: 'all' | 'some') =>
-                    set(i, { targets: v === 'all' ? 'all' : entry?.usedBy.length ? [...entry.usedBy] : [] })
-                  }
+                  onChange={(v: 'all' | 'some') => set(i, { targets: v === 'all' ? 'all' : usedBy(names) })}
                   options={[
                     { value: 'all', label: t('dashboard.params.allWidgets') },
                     { value: 'some', label: t('dashboard.params.someWidgets') },
@@ -456,41 +685,80 @@ export function ControlsEditor({
               </Space>
               <Space wrap>
                 <Typography.Text>{t('dashboard.params.saved')}</Typography.Text>
-                {type === 'date' ? (
-                  <Select
-                    value={relative ? 'today' : 'value'}
-                    onChange={(m: 'value' | 'today') =>
-                      set(i, { saved: m === 'today' ? { kind: 'today', offsetDays: 0 } : undefined })
-                    }
-                    options={[
-                      { value: 'value', label: t('dashboard.params.fixed') },
-                      { value: 'today', label: t('dashboard.params.relativeOption') },
-                    ]}
-                    style={{ width: 150 }}
-                    data-component="ControlSavedMode"
-                  />
-                ) : null}
-                {relative && isRelative(c.saved) ? (
-                  <Space size={4}>
-                    <Typography.Text>{t('queries.params.today')}</Typography.Text>
-                    <InputNumber
-                      value={c.saved.offsetDays}
-                      min={-366}
-                      max={366}
-                      onChange={(n) => set(i, { saved: { kind: 'today', offsetDays: n ?? 0 } })}
-                      style={{ width: 80 }}
-                      aria-label={t('queries.params.offset')}
+                {c.kind === 'date_range' ? (
+                  <>
+                    <Select
+                      value={savedMode}
+                      onChange={(m: string) =>
+                        set(i, {
+                          saved:
+                            m === 'none'
+                              ? undefined
+                              : m === 'fixed'
+                                ? { from: '', to: '' }
+                                : { preset: m as DateRangePreset },
+                        })
+                      }
+                      options={[
+                        { value: 'none', label: t('dashboard.params.range.noSaved') },
+                        ...DATE_RANGE_PRESETS.map((p) => ({
+                          value: p,
+                          label: t(`dashboard.params.range.presets.${p}`),
+                        })),
+                        { value: 'fixed', label: t('dashboard.params.range.fixed') },
+                      ]}
+                      style={{ width: 180 }}
+                      data-component="RangeSavedMode"
                     />
-                    <Typography.Text type="secondary">{t('queries.params.days')}</Typography.Text>
-                  </Space>
+                    {c.saved && 'from' in c.saved ? (
+                      <FixedPairInputs
+                        pair={c.saved}
+                        onChange={(pair) => set(i, { saved: pair })}
+                        names={[c.from, c.to]}
+                        fromLabel={t('dashboard.params.range.from')}
+                        toLabel={t('dashboard.params.range.to')}
+                      />
+                    ) : null}
+                  </>
                 ) : (
-                  <ValueInput
-                    type={type}
-                    value={c.saved === undefined ? '' : String(c.saved)}
-                    onChange={(v) => set(i, { saved: v })}
-                    ariaLabel={t('dashboard.params.saved')}
-                    dataName={c.param}
-                  />
+                  <>
+                    {type === 'date' ? (
+                      <Select
+                        value={relative ? 'today' : 'value'}
+                        onChange={(m: 'value' | 'today') =>
+                          set(i, { saved: m === 'today' ? { kind: 'today', offsetDays: 0 } : undefined })
+                        }
+                        options={[
+                          { value: 'value', label: t('dashboard.params.fixed') },
+                          { value: 'today', label: t('dashboard.params.relativeOption') },
+                        ]}
+                        style={{ width: 150 }}
+                        data-component="ControlSavedMode"
+                      />
+                    ) : null}
+                    {relative && isRelative(c.saved) ? (
+                      <Space size={4}>
+                        <Typography.Text>{t('queries.params.today')}</Typography.Text>
+                        <InputNumber
+                          value={c.saved.offsetDays}
+                          min={-366}
+                          max={366}
+                          onChange={(n) => set(i, { saved: { kind: 'today', offsetDays: n ?? 0 } })}
+                          style={{ width: 80 }}
+                          aria-label={t('queries.params.offset')}
+                        />
+                        <Typography.Text type="secondary">{t('queries.params.days')}</Typography.Text>
+                      </Space>
+                    ) : (
+                      <ValueInput
+                        type={type}
+                        value={c.saved === undefined ? '' : String(c.saved)}
+                        onChange={(v) => set(i, { saved: v })}
+                        ariaLabel={t('dashboard.params.saved')}
+                        dataName={c.param}
+                      />
+                    )}
+                  </>
                 )}
               </Space>
             </div>
@@ -501,18 +769,32 @@ export function ControlsEditor({
         <Select
           placeholder={t('dashboard.params.add')}
           value={null}
-          disabled={free.length === 0 || draft.length >= MAX_CONTROLS}
+          disabled={(free.length === 0 && freeDates.length < 2) || draft.length >= MAX_CONTROLS}
           onChange={(param: string) => {
+            if (param === RANGE_OPTION) {
+              setDraft([
+                ...draft,
+                {
+                  id: newControlId(),
+                  kind: 'date_range',
+                  label: t('dashboard.params.range.defaultLabel'),
+                  from: freeDates[0] as string,
+                  to: freeDates[1] as string,
+                  targets: 'all',
+                },
+              ]);
+              return;
+            }
             const decl = params.get(param)?.decl;
             setDraft([
               ...draft,
               { id: newControlId(), kind: 'param', label: decl?.label ?? param, param, targets: 'all' },
             ]);
           }}
-          options={free.map((p) => ({
-            value: p,
-            label: params.get(p)?.decl.label ? `${params.get(p)?.decl.label} (${p})` : p,
-          }))}
+          options={[
+            ...(freeDates.length >= 2 ? [{ value: RANGE_OPTION, label: t('dashboard.params.range.add') }] : []),
+            ...free.map((p) => ({ value: p, label: paramOption(p) })),
+          ]}
           style={{ width: 260 }}
           suffixIcon={<PlusOutlined />}
           data-component="ControlAdd"

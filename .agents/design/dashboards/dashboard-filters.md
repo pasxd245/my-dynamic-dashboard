@@ -13,8 +13,8 @@ design input of items 3.7 (typed parameters), 3.8 (metadata triple anchor), 4.2 
 range) and 4.3 (shared filters) of the release program.
 **Status**: Accepted — the owner accepted D1–D7 as drafted on 2026-10-18 (design gate of item
 2.7, `Round_190`), with the view-time range as two date parameters and `backend.time_zone`
-defaulting to `UTC`. Built by 3.7, 3.8 (rc.3) and 4.2, 4.3 (rc.4). 3.7 built (Round_194–195,
-see § As built).
+defaulting to `UTC`. Built by 3.7, 3.8 (rc.3) and 4.2, 4.3 (rc.4). 3.7 built (Round_194–195),
+3.8 (Round_197), 4.2 (Round_198) — see § As built.
 **Domain folder**: `dashboards/` — code will land in
 [`apps/builder/src/features/dashboard/`](../../../workspace/apps/builder/src/features/dashboard/)
 (controls), the query engine
@@ -248,6 +248,30 @@ use. A query without parameters reads exactly as in rc.2 (no `resolvedParams` ke
 - **Incomplete window** (input to item 4.5): when a resolved date parameter or range end is later
   than the dataset's coverage `max` (R178) on the column it filters, the widget shows "Data only
   through <max>". It is a note, not a block; the cohort-specific rule stays in 4.5.
+
+### As built (4.2 — Round_198)
+
+- **The `date_range` control** is a `kind`-keyed sibling of the R195 `param` control:
+  `{id, kind: date_range, label, from, to, targets, saved?}` — `from` / `to` name two date
+  parameters (distinct; no other control binds either). `saved` is a **preset**
+  (`this_week | last_week | last_7_days | this_month | last_month`) or a fixed pair
+  (`{from, to}`, each absolute or `today ± n`). The **server** resolves it in `backend.time_zone`
+  on every read (weeks start Monday; `last_7_days` = today − 6 … today; calendar months) and
+  applies the two values as the dashboard level to the targeted widgets whose queries use them.
+- **The URL holds absolute dates** (`?p.<from>=…&p.<to>=…`). In the bar a preset the viewer picks
+  is computed in the browser's zone and written as two dates at once; a typed bound writes one.
+  Copy link pins the server-resolved pair. Reset to saved drops both.
+- **Reach** (D5): a targeted widget whose query uses `from` or `to` is reached; one whose query
+  uses neither is skipped and badged with both names. Save checks (422 naming the field):
+  `from` = `to`, a name bound twice, a targeted query using the name as a non-date, a saved pair
+  that runs backwards, a malformed preset.
+- **Incomplete window** (D7): `resolvedParams[name].dataThrough` = the filtered dataset column's
+  coverage `max` when a date value is an **upper** bound (`lte`, `lt`, `before`, `between.max`)
+  past it; the widget shows "Data only through <max>" under its badge. A joined query's columns
+  carry no coverage, so no note there. A lower bound never notes.
+- **Metadata (3.8)** anchors a dashboard or widget note to the two resolved dates (not the preset).
+- Not built (rolling log): an endpoint for "today" (a viewer's preset is browser-side); coverage on
+  joined effective columns; the `values` control (4.3).
 
 ### As built (3.8 — Round_197)
 

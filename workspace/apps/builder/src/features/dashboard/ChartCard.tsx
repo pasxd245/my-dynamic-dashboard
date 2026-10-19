@@ -53,6 +53,9 @@ type ChartCardProps = Readonly<{
   badge?: ReactNode;
   /** R197 — under the body once it shows data: which data it is. */
   footer?: ReactNode;
+  /** R198 (D7) — a note about the data shown (e.g. "Data only through …"),
+   *  rendered under the badge, above the body; never a block. */
+  note?: ReactNode;
   children: ReactNode;
 }>;
 
@@ -87,6 +90,7 @@ export function ChartCard({
   paramMessage,
   badge,
   footer,
+  note,
   children,
 }: ChartCardProps) {
   const { t } = useTranslation();
@@ -156,6 +160,9 @@ export function ChartCard({
       styles={{ body: { paddingTop: 12 } }}
     >
       {badge ? <div style={{ marginBottom: 8 }}>{badge}</div> : null}
+      {note && !isLoading && !isError && !isMissingQuery && !paramMessage ? (
+        <div style={{ marginBottom: 8 }}>{note}</div>
+      ) : null}
       {body}
       {isLoading || isError || isMissingQuery || paramMessage ? null : footer}
     </Card>

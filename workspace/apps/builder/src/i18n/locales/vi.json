@@ -157,7 +157,7 @@
     "params": {
       "edit": "Tham số",
       "editorTitle": "Tham số của dashboard",
-      "editorHint": "Mỗi điều khiển đặt một tham số truy vấn cho các widget nó áp dụng. Giá trị đã lưu là giá trị mọi người thấy cho đến khi họ đổi — thay đổi của họ chỉ nằm trong liên kết và không bao giờ được lưu.",
+      "editorHint": "Mỗi điều khiển đặt một tham số truy vấn cho các widget nó áp dụng (một kỳ đặt hai tham số: từ và đến). Giá trị đã lưu là giá trị mọi người thấy cho đến khi họ đổi — thay đổi của họ chỉ nằm trong liên kết và không bao giờ được lưu.",
       "noParams": "Chưa có truy vấn nào trên dashboard này khai báo tham số. Hãy khai báo trên trang truy vấn trước.",
       "label": "Nhãn",
       "bindsTo": "đặt tham số {{param}}",
@@ -176,7 +176,27 @@
       "copied": "Đã sao chép liên kết — nó mở đúng chế độ xem này.",
       "copyFailed": "Không sao chép được liên kết.",
       "skipped": "Bỏ qua {{label}}",
-      "skippedWhy": "Truy vấn của widget này không dùng tham số {{param}}, nên điều khiển không thay đổi nó."
+      "skippedWhy": "Truy vấn của widget này không dùng tham số {{param}}, nên điều khiển không thay đổi nó.",
+      "range": {
+        "binds": "đặt kỳ",
+        "from": "từ",
+        "to": "đến",
+        "preset": "kỳ có sẵn",
+        "custom": "Tùy chọn",
+        "noSaved": "Không lưu kỳ",
+        "fixed": "Ngày cố định",
+        "add": "Khoảng ngày (hai tham số ngày)",
+        "defaultLabel": "Kỳ",
+        "reversed": "Kỳ kết thúc trước khi bắt đầu.",
+        "dataThrough": "Dữ liệu chỉ đến {{date}}",
+        "presets": {
+          "this_week": "Tuần này",
+          "last_week": "Tuần trước",
+          "last_7_days": "7 ngày qua",
+          "this_month": "Tháng này",
+          "last_month": "Tháng trước"
+        }
+      }
     },
     "dataFooter": "Dữ liệu: làm mới lúc {{when}}",
     "dataFooterRun": "lần chạy #{{n}}"

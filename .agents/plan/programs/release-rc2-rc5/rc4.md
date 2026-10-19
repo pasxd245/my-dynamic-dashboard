@@ -1,6 +1,8 @@
 # rc.4 — viewing by period
 
-Parent: [release-rc2-rc5.plan.md](release-rc2-rc5.plan.md). Starts only after rc.3 is tagged.
+Parent: [release-rc2-rc5.plan.md](release-rc2-rc5.plan.md). Starts only after rc.3 is tagged —
+opened 2026-10-19 on its own branch `release/v0.0.1-rc.4` (cut at the rc.3 head `458aabc`) ahead
+of the tag, the owner's call as for rc.3 (decision 12); nothing of rc.4 lands on rc.3.
 
 **Execution:** the four-role loop of
 [rc3.md § Execution](rc3.md#execution--the-four-role-loop-from-2026-10-18) — agents under
@@ -37,7 +39,8 @@ deployed, which is the least settled question.
 | Depends on | 3.7 parameters                                                                                         |
 | Design     | [`dashboards/dashboard-filters.md`](../../../design/dashboards/dashboard-filters.md) D4, D7 (Accepted) |
 
-_Re-based on the accepted design 2026-10-18._
+_Re-based on the accepted design 2026-10-18. Built `Round_198` (2026-10-19) — see
+[`dashboard-filters.md` § As built (4.2)](../../../design/dashboards/dashboard-filters.md)._
 
 - A `date_range` **control** (`DashboardDefinition.controls`, from 3.7b) binds **two date
   parameters** (`from`, `to`) the targeted queries declare and use (`between`, `gte` / `lte`).

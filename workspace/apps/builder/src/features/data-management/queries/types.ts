@@ -102,7 +102,16 @@ export type QueryParam = {
 export type DashboardRef = { id: string; widgetId: string };
 
 /** R194 — what a read used, per used parameter. Mirrors `_shared/query.yaml#/ResolvedParams`. */
-export type ResolvedParams = Record<string, { value: string | number; source: 'viewer' | 'dashboard' | 'default' }>;
+export type ResolvedParams = Record<
+  string,
+  {
+    value: string | number;
+    source: 'viewer' | 'dashboard' | 'default';
+    /** R198 (D7) — set when this date is an upper bound past the filtered
+     *  column's coverage `max`: the data ends on this day. */
+    dataThrough?: string;
+  }
+>;
 
 /** R120 — a saved aggregate transform step on a query (`GROUP BY → measures`).
  *  Mirrors `_shared/query.yaml#/AggregateStep`. */

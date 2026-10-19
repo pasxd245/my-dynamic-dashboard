@@ -60,6 +60,14 @@ export function withParam(search: URLSearchParams, name: string, value: string |
   return next;
 }
 
+/** R198 — several `p.<name>` entries set (or removed when empty) at once (a
+ *  period writes `from` and `to` together, one history entry). */
+export function withParams(search: URLSearchParams, values: Readonly<Record<string, string | undefined>>) {
+  let next = new URLSearchParams(search);
+  for (const [name, value] of Object.entries(values)) next = withParam(next, name, value);
+  return next;
+}
+
 /** The URL without any `p.*` entry ("Reset to saved"). */
 export function withoutParams(search: URLSearchParams): URLSearchParams {
   const next = new URLSearchParams();

@@ -84,11 +84,49 @@ export type Dashboard = {
 /** R195 (dashboard-filters.md D4, `kind: param`) — a control bound to one query
  *  parameter by name. `saved` is the dashboard's value (applied by the server);
  *  a viewer's value lives in the URL only. Mirrors `_shared/dashboard.yaml`. */
-export type DashboardControl = {
+export type ParamControl = {
   id: string;
   kind: 'param';
   label: string;
   param: string;
   targets: 'all' | string[];
-  saved?: string | number | { kind: 'today'; offsetDays: number };
+  saved?: string | number | RelativeDay;
 };
+
+/** "today ± n days" (`_shared/query.yaml#/RelativeDate`), resolved by the server. */
+export type RelativeDay = { kind: 'today'; offsetDays: number };
+
+/** R198 — the saved presets of a date-range control, resolved by the SERVER in
+ *  `backend.time_zone` on every read (weeks start on Monday; `last_7_days` is
+ *  today − 6 … today; months are calendar months). */
+export type DateRangePreset = 'this_week' | 'last_week' | 'last_7_days' | 'this_month' | 'last_month';
+export const DATE_RANGE_PRESETS: readonly DateRangePreset[] = [
+  'this_week',
+  'last_week',
+  'last_7_days',
+  'this_month',
+  'last_month',
+];
+
+/** R198 — a saved period: a preset, or a fixed pair (absolute or relative). */
+export type DateRangeValue = { preset: DateRangePreset } | { from: string | RelativeDay; to: string | RelativeDay };
+
+/** R198 (item 4.2, dashboard-filters.md D4, `kind: date_range`) — one control
+ *  that sets TWO date parameters, `from` and `to`. A viewer's period lives in
+ *  the URL as absolute dates (`p.<from>`, `p.<to>`). Mirrors `_shared/dashboard.yaml`. */
+export type DateRangeControl = {
+  id: string;
+  kind: 'date_range';
+  label: string;
+  from: string;
+  to: string;
+  targets: 'all' | string[];
+  saved?: DateRangeValue;
+};
+
+export type DashboardControl = ParamControl | DateRangeControl;
+
+/** The parameter names one control binds (a range binds two). */
+export function controlParams(c: DashboardControl): string[] {
+  return c.kind === 'date_range' ? [c.from, c.to] : [c.param];
+}

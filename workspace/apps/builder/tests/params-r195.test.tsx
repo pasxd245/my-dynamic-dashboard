@@ -20,7 +20,7 @@ import {
   shareUrl,
   useWidgetParamContext,
 } from '@/features/dashboard/DashboardParams';
-import type { DashboardControl, Widget } from '@/features/dashboard/types';
+import type { DashboardControl, ParamControl, Widget } from '@/features/dashboard/types';
 import { widgetsToDefinition } from '@/features/dashboard/wire';
 import { FilterPopover } from '@/features/data-management/datasets/filters/FilterPopover';
 import type { FilterPredicate } from '@/features/data-management/datasets/filters/types';
@@ -292,7 +292,7 @@ describe('R195 review round', () => {
   const ctl = (
     param: string,
     targets: DashboardControl['targets'],
-    saved?: DashboardControl['saved'],
+    saved?: ParamControl['saved'],
   ): DashboardControl => ({
     id: `ctl_0000000${param.length}`,
     kind: 'param',
@@ -327,7 +327,7 @@ describe('R195 review round', () => {
     const r = { a: { value: 'D', source: 'default' as const } };
     expect(controlValuesFrom([a], 'wdg_00000002', { a: { value: 'S', source: 'dashboard' } })).toEqual({});
     expect(controlValuesFrom([a], 'wdg_00000001', r)).toEqual({});
-    expect(controlValuesFrom([a], 'wdg_00000001', { a: { value: 'S', source: 'dashboard' } })).toEqual({ [a.id]: 'S' });
+    expect(controlValuesFrom([a], 'wdg_00000001', { a: { value: 'S', source: 'dashboard' } })).toEqual({ a: 'S' });
   });
 
   it('pins every control as an absolute value in the shared link', () => {
@@ -335,7 +335,7 @@ describe('R195 review round', () => {
       'http://x/dashboards/ws/d?p.a=2026-10-12',
       [ctl('a', 'all'), ctl('rel', 'all', { kind: 'today', offsetDays: -1 }), ctl('fixd', 'all', '2026-01-01')],
       { a: '2026-10-12' },
-      { ctl_00000003: '2026-10-17' },
+      { rel: '2026-10-17' },
     );
     const q = new URL(url).searchParams;
     expect(q.get('p.a')).toBe('2026-10-12');

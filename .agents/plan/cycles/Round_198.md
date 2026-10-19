@@ -70,15 +70,15 @@ targets, saved?}` where `from` / `to` are the names of two date parameters and `
 - a widget whose query uses neither parameter gets a value or a badge saying it was reached;
 - a date past the coverage `max` blocks a read instead of noting it.
 
-- [ ] **D** — no new design doc (`dashboard-filters.md` Accepted); preset semantics recorded in
+- [x] **D** — no new design doc (`dashboard-filters.md` Accepted); preset semantics recorded in
       Do and in the contract; `flow-selector`; `ux-design` facet check on the bar control
-- [ ] **C** — `_shared/dashboard.yaml` (`DateRangeControl`, `DateRangeValue`), `_shared/query.yaml`
+- [x] **C** — `_shared/dashboard.yaml` (`DateRangeControl`, `DateRangeValue`), `_shared/query.yaml`
       (`dataThrough`). **BA pass 1 at Contract exit.**
-- [ ] **B** — model union + save checks; `params.resolve_range` / presets in the zone;
+- [x] **B** — model union + save checks; `params.resolve_range` / presets in the zone;
       `dashboard_values` for a range; `dataThrough` at bind; the metadata anchor (R197) reads
       range controls; tests
-- [ ] **F** — types, bar control, editor, reach, share link, D7 note, MSW, EN/VI; tests
-- [ ] **I** — visual gate (light EN + VI; dark N/A — no theme)
+- [x] **F** — types, bar control, editor, reach, share link, D7 note, MSW, EN/VI; tests
+- [x] **I** — visual gate (light EN + VI; dark N/A — no theme)
 - [ ] Reviews: code review + QA in parallel, then BA pass 2; every P0/P1 fixed
 
 ## Risks / unknowns
@@ -107,9 +107,9 @@ targets, saved?}` where `from` / `to` are the names of two date parameters and `
 
 | Condition                            | Fired? | Justification                                                                                   |
 | ------------------------------------ | ------ | ----------------------------------------------------------------------------------------------- |
-| 1. >3 independent states/branches    | yes    | saved preset / saved fixed / viewer preset / viewer custom / reversed / past coverage / skipped  |
-| 2. New interaction pattern           | no     | a preset select + two date inputs, the R195 bar's inputs; URL state as `p.*`                   |
-| 3. High user-error risk              | no     | a viewer change is never saved; Reset to saved restores                                        |
+| 1. >3 independent states/branches    | yes    | saved preset / saved fixed / viewer preset / viewer custom / reversed / past coverage / skipped |
+| 2. New interaction pattern           | no     | a preset select + two date inputs, the R195 bar's inputs; URL state as `p.*`                    |
+| 3. High user-error risk              | no     | a viewer change is never saved; Reset to saved restores                                         |
 | 4. Contract depends on unresolved UI | no     | the control shape is fixed by D4 (two date parameters, presets as relative values)              |
 | 5. UX confidence below threshold     | no     | layout in the accepted design ("Period [2026-10-05 → 2026-10-11 ▾]")                            |
 
@@ -130,10 +130,48 @@ other a relative default that moved past it — stays a refusal (`param_invalid`
 `range_reversed`, `source: default`): the author set a floor or ceiling and the day crossed it;
 saying so beats an empty table that looks like "no calls". Row updated; the BA may dispute.
 
+### C, B, F
+
+- **C (`1f66291`)** — `_shared/dashboard.yaml`: `DashboardControl` = `ParamControl | DateRangeControl`
+  (discriminator `kind`), `ControlTargets`, `DateRangeValue` (preset table or `{from, to}`),
+  `DateOrRelative`; `_shared/query.yaml`: `ResolvedParams[name].dataThrough`. Contracts 49 green.
+  **BA pass 1 (contract exit): not run by the coder** — this session had no sub-agent spawning; the
+  orchestrator was asked to run it on `458aabc..1f66291` (its findings fold in the fix commit).
+- **B (`37e6804`)** — `models/common.py` union (`from` serialised from `from_`); `params.py`:
+  `PRESETS`, `resolve_range`, `control_params`, `control_bindings`, `saved_for_widget`,
+  `site_columns` (dtype + coverage), `_note_data_through` in `bind`; `dashboards.py`
+  `_validate_range_control`; `metadata.py` reads both control kinds through the same helpers.
+  `tests/test_date_range.py` (7): presets at a fixed clock in two zones across a Sunday midnight,
+  leap-year month end, criterion 9 (saved preset → `source: dashboard`, dates move with the clock,
+  viewer dates override, aggregate shares it), D5 (a query using neither is untouched), D7
+  (`dataThrough` on `lte` / `between.max`, on a datetime column, not on a lower bound, on
+  totals), the save checks, the R197 anchor (a note stamps the two dates). Backend 677 green.
+- **F** — `types.ts` (`ParamControl | DateRangeControl`, `DateRangeValue`, `controlParams`),
+  `dateRange.ts` (the presets' calendar, `presetOf`), `DashboardParams.tsx` (`DateRangeInput` in
+  the bar: preset select + two date inputs, a reversed pair warns; reach / routing / share link
+  over `controlParams`; the editor adds "Date range (two date parameters)", binds `from` → `to`,
+  saves a preset or fixed dates, refuses a reversed pair), `DashboardDetailPage.tsx` (resolved
+  values keyed by parameter name, `withParams` writes both URL dates in one history entry),
+  `WidgetView.tsx` + `ChartCard.tsx` ("Data only through <max>" note under the badge),
+  `params.ts` `withParams`, EN/VI (`dashboard.params.range.*`; the editor hint says a period sets
+  two). `tests/date-range-r198.test.tsx` (9); R195 tests follow the per-name keying. Builder 549
+  green, `tsc` clean.
+- **Visual gate (light, EN + VI; dark N/A — no theme):** real backend on an isolated data dir,
+  fake `calls_demo` (Acme, 14 days), a **Weekly** dashboard with a `Period` control saved
+  `this_week`. Screenshots (`scratchpad/r198/shots/`): the bar with viewer dates (outlined,
+  "Custom", Reset to saved), the saved preset resolved server-side ("This week", 10-19 → 10-25)
+  with "Data only through 2026-10-14" on both bound widgets and "Period skipped" on **All
+  calls**, the preset menu, the editor (EN + VI). Browser probe: picking "Last week" wrote
+  `?p.from=2026-10-12&p.to=2026-10-18`; the editor's Save is disabled on a reversed pair and a
+  fixed pair saves (`PUT` 200, GET returns `{from, to}`).
+- Design doc § As built (4.2); rc4.md § 4.2 and the program table → `review`; rolling-log rows
+  (the R194 row revisited; rc.4 before the tag; "this week" semantics; the viewer-side preset
+  zone; coverage on joins).
+
 ## Check
 
-- [ ] gates green (counts in Do)
-- [ ] Visual gate: light (EN + VI); dark N/A (no dark theme — owner)
+- [x] backend 677 · builder 549 · contracts 49 green; `tsc --noEmit`; `ruff check`; lints 0
+- [x] Visual gate: light (EN + VI); dark N/A (no dark theme — owner)
 - [ ] BA (contract exit + after build) · code review · QA — no open P0/P1
 - [ ] ⟢ At a glance **Studied** line written
 - [ ] **Acceptance walk** (human reviewer) — ⬜ verdicts, `coverage: 0 of N` (walk script from the

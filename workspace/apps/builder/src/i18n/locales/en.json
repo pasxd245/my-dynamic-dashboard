@@ -157,7 +157,7 @@
     "params": {
       "edit": "Parameters",
       "editorTitle": "Dashboard parameters",
-      "editorHint": "Each control sets one query parameter for the widgets it targets. The saved value is what everyone sees until they change it — their change stays in the link and is never saved.",
+      "editorHint": "Each control sets a query parameter for the widgets it targets (a period sets two: from and to). The saved value is what everyone sees until they change it — their change stays in the link and is never saved.",
       "noParams": "No query on this dashboard declares a parameter yet. Declare one on a query page first.",
       "label": "Label",
       "bindsTo": "sets parameter {{param}}",
@@ -176,7 +176,27 @@
       "copied": "Link copied — it opens this view.",
       "copyFailed": "Couldn't copy the link.",
       "skipped": "{{label}} skipped",
-      "skippedWhy": "This widget's query does not use parameter {{param}}, so the control does not change it."
+      "skippedWhy": "This widget's query does not use parameter {{param}}, so the control does not change it.",
+      "range": {
+        "binds": "sets period",
+        "from": "from",
+        "to": "to",
+        "preset": "preset",
+        "custom": "Custom",
+        "noSaved": "No saved period",
+        "fixed": "Fixed dates",
+        "add": "Date range (two date parameters)",
+        "defaultLabel": "Period",
+        "reversed": "The period ends before it starts.",
+        "dataThrough": "Data only through {{date}}",
+        "presets": {
+          "this_week": "This week",
+          "last_week": "Last week",
+          "last_7_days": "Last 7 days",
+          "this_month": "This month",
+          "last_month": "Last month"
+        }
+      }
     },
     "dataFooter": "Data: refreshed {{when}}",
     "dataFooterRun": "run #{{n}}"

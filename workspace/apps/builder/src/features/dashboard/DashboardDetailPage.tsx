@@ -58,7 +58,7 @@ import type { MetadataAnchor, MetadataEntries } from '@/features/metadata/types'
 import { useWorkspacesQuery } from '@/features/data-management/workspaces/hooks';
 import type { DashboardFilter } from './aggregate';
 import { useDashboardsQuery, useUpdateDashboardMutation } from './hooks';
-import type { DashboardControl, Widget } from './types';
+import { controlParams, type DashboardControl, type Widget } from './types';
 import type { ResolvedParams } from '@/features/data-management/queries/types';
 import { WidgetBuilder } from './WidgetBuilder';
 import { WidgetFilterDrawer } from './WidgetFilterDrawer';
@@ -74,7 +74,7 @@ import {
   controlValuesFrom,
   useWidgetParamContext,
 } from './DashboardParams';
-import { paramsFromSearch, withParam, withoutParams } from '@/features/data-management/queries/params';
+import { paramsFromSearch, withParams, withoutParams } from '@/features/data-management/queries/params';
 import { useQueriesQuery } from '@/features/data-management/queries/hooks';
 import { widgetsToDefinition } from './wire';
 
@@ -370,14 +370,26 @@ export function DashboardDetailPage() {
   const widgetsById = new Map(dash.widgets.map((w) => [w.id, w]));
   const queriesById = new Map((workspaceQueries.data ?? []).map((q) => [q.id, q]));
   const controls = dash.controls ?? [];
-  // R197 — "written for As of 2026-10-11": a control's label names its parameter.
-  const controlLabels = Object.fromEntries(controls.map((c) => [c.param, c.label]));
-  const resolvedByControl: Record<string, string | number> = {};
+  // R197 — "written for As of 2026-10-11": a control's label names its parameter;
+  // R198 — a range's two parameters read "Period · from" / "Period · to".
+  const controlLabels = Object.fromEntries(
+    controls.flatMap((c) =>
+      c.kind === 'date_range'
+        ? [
+            [c.from, `${c.label} · ${t('dashboard.params.range.from')}`],
+            [c.to, `${c.label} · ${t('dashboard.params.range.to')}`],
+          ]
+        : [[c.param, c.label]],
+    ),
+  );
+  // The server-resolved value per parameter name (R198: was per control id — a
+  // range control owns two names; one control per name is a save rule).
+  const resolvedByParam: Record<string, string | number> = {};
   for (const w of dash.widgets) {
     const r = resolvedByWidget[w.id];
     if (!r) continue;
-    for (const [id, v] of Object.entries(controlValuesFrom(controls, w.id, r))) {
-      if (resolvedByControl[id] === undefined) resolvedByControl[id] = v;
+    for (const [name, v] of Object.entries(controlValuesFrom(controls, w.id, r))) {
+      if (resolvedByParam[name] === undefined) resolvedByParam[name] = v;
     }
   }
   const bindable = bindableParams(dash.widgets, queriesById);
@@ -525,8 +537,8 @@ export function DashboardDetailPage() {
         controls={controls}
         params={bindable}
         viewer={viewer}
-        resolved={resolvedByControl}
-        onChange={(param, value) => setSearchParams(withParam(searchParams, param, value), { replace: true })}
+        resolved={resolvedByParam}
+        onChange={(values) => setSearchParams(withParams(searchParams, values), { replace: true })}
         onReset={() => setSearchParams(withoutParams(searchParams))}
       />
 
@@ -622,8 +634,10 @@ export function DashboardDetailPage() {
           viewer: {
             ...Object.fromEntries(
               controls
-                .filter((c) => c.targets === 'all' && resolvedByControl[c.id] !== undefined)
-                .map((c) => [c.param, String(resolvedByControl[c.id])]),
+                .filter((c) => c.targets === 'all')
+                .flatMap(controlParams)
+                .filter((name) => resolvedByParam[name] !== undefined)
+                .map((name) => [name, String(resolvedByParam[name])]),
             ),
             ...viewer,
           },
