@@ -45,6 +45,7 @@ from app.models.common import (
 from app.saved_copies import read_only_refusal
 from app import history
 from app.metadata import sweep as metadata_sweep
+from app.metadata import unsweep_widgets as metadata_unsweep_widgets
 from app.routers._shared import _now_iso
 
 
@@ -346,6 +347,8 @@ def update_dashboard(
             )
             # R197 (3.8) — a widget removed here takes its metadata entries with it.
             metadata_sweep(con, _now_iso())
+            # R200 (4.4, CR-1) — … and a widget that comes back (a restore) takes them back.
+            metadata_unsweep_widgets(con, id, _now_iso())
             # R200 (4.4) — a definition change (not a rename) writes one history row.
             history.record_if_changed(
                 con, "dashboard", id, old["definition_json"], definition_json, history.writer_of(authorization), _now_iso()

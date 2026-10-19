@@ -98,8 +98,8 @@ It opens a right-hand `<Drawer>` (width 520).
 ┌ History — Weekly ─────────────────────────────────────────────── ✕ ┐
 │ Every saved change of this dashboard's definition, newest first.   │
 │ Renaming is not a change. Restoring saves the old definition as a  │
-│ new version; nothing is removed. Names appear only for changes     │
-│ made through the API with a writer token.                          │
+│ new version; earlier versions stay in the list. Names appear only  │
+│ for changes made through the API with a writer token.              │
 │ ────────────────────────────────────────────────────────────────── │
 │ #5  [Current]                  Oct 19, 2026 14:02 · report-agent  │
 │     Version 3f1c9a0b7d2e                                [JSON]     │
@@ -138,7 +138,7 @@ It opens a right-hand `<Drawer>` (width 520).
   ```text
   Restore version #3?
   The definition of #3 is saved as a new version. The current definition stays in the
-  history; nothing is removed.
+  history, so you can restore it back.
   <kind line>
   [⚠ source line — a query whose sources changed after #3 was saved]
                                                       [Cancel] [Restore]
@@ -146,11 +146,16 @@ It opens a right-hand `<Drawer>` (width 520).
 
   The kind line: **query** — "Dashboards and workflows that use this query will read the
   restored definition."; **dashboard** — "Viewer links that name filters added since #3 will
-  open without those selections."; **workflow** — "The workflow's output is cleared; run it
+  open without those selections. Notes on widgets this version lacks are set aside and come
+  back with the widget." (CR-1 — see § The write rule); **workflow** — "The workflow's output is cleared; run it
   again to rebuild it." The **source line** (a warning `<Alert>`, queries only, when the version
   read answers `sourceChangedSince: true`): "The data source changed after this version was
   saved; column positions may differ — check the filters after restoring." On success: a toast
-  "Restored #3 as #6", the list refreshes, the page shows the restored definition. On a refusal:
+  "Restored #3 as #6" — or, when the save wrote no row (the newest `seq` did not move — the
+  definition was already that version), "#3 is already the current definition; nothing was
+  saved." (CR-5) — the list refreshes, the page shows the restored definition. The version read
+  behind the confirm is always fresh (`staleTime: 0`), and a dataset refresh or a re-publish
+  invalidates every cached history read (QA-1), so the source line is never a stale answer. On a refusal:
   an error toast with **one readable line** — "This version can no longer be saved: it does not
   fit the current data or queries." for a 422, the error's own message for a typed code — and
   nothing changes; the raw `detail[]` never reaches the toast (it goes to the console; BA-C9).
@@ -203,6 +208,15 @@ system`, BA-C4), of the `backend.metadata_tokens` entry whose token the request 
   question 2). The token labels; it never refuses or authorizes a definition save
   (those stay open, as before). The request body has no field for it.
 - **When** — `changed_at` is the server's UTC time, ISO-8601 with `Z`.
+- **Widget notes follow the widget (CR-1).** A dashboard PUT that drops a widget archives its
+  notes (R197 `sweep`); a PUT that brings the widget id back — a restore, or any save — moves
+  the newest archived note per namespace back to live, anchor and all (`metadata.unsweep_widgets`,
+  after the sweep, same transaction). So restoring an older version and then restoring back
+  loses nothing. A live note for the same key would be unexpected (widget ids are unique); if
+  one exists, the newer `written_at` wins and the other is archived.
+- **Workflow output** — the PUT clears the materialized output only when the definition's
+  version moves (the same null-stripped hash the history uses; CR-6), so an unchanged re-save
+  keeps the output.
 - **Delete** — deleting a query, dashboard or workflow (its route), the queries a dataset
   delete removes, and every noun a workspace delete removes, delete their rows in the same
   transaction (one orphan sweep beside the metadata sweep: rows whose noun is gone).
@@ -217,8 +231,9 @@ system`, BA-C4), of the `backend.metadata_tokens` entry whose token the request 
   `seq`, that row (404 when it does not carry the version) — plus its stored `definition`
   (parsed JSON, as stored). Read-only: there is no write route.
 - **`sourceChangedSince`** (queries only; absent for the other kinds) — `true` when a dataset
-  the version reads changed after the row was saved: its `refreshedAt` is later than the row's
-  `changedAt` (the asked row's — `seq`). The datasets are those of the **stored** definition — the query's `ds_` source
+  the version reads changed after the row was saved: its `refreshedAt` is not earlier than the
+  row's `changedAt` (the asked row's — `seq`; times are to the second, so a same-second tie
+  warns — CR-2). The datasets are those of the **stored** definition — the query's `ds_` source
   and the `ds_` ends of its joins; a `qr_` source or end counts through the leaf datasets of
   that query's current definition. For a `baseline` row the time the definition was written is
   unknown, so any source dataset ever refreshed (`dataVersion > 1`) counts. A source dataset
@@ -242,7 +257,8 @@ anchored to the restored version read _current_ again.
 
 ### The migration (`0011_definition_history`)
 
-- **Upgrade** creates the table and seeds one row per existing query, dashboard and workflow:
+- **Upgrade** creates the table (`IF NOT EXISTS`, and empties it before seeding — a backfill
+  that failed half-way can simply be run again; CR-4) and seeds one row per existing query, dashboard and workflow:
   `seq 1`, `change: baseline`, its current `definition_json`, `version` computed by the
   migration's own copy of the hash (a migration does not import the app; a test pins the copy
   to `app.metadata.definition_version`), `changed_at` = the upgrade time, `changed_by` NULL.

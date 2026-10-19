@@ -92,6 +92,8 @@ export function usePublishWorkflowMutation() {
       queryClient.invalidateQueries({ queryKey: ['dashboard-widget-data'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-widget-totals'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-widget-aggregate'] });
+      // R200 (QA-1) — a re-publish refreshes a dataset that query versions may read.
+      queryClient.invalidateQueries({ queryKey: HISTORY_QUERY_KEY });
     },
   });
 }

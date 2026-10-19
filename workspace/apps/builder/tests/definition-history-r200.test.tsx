@@ -65,10 +65,15 @@ const row = (seq: number) => q(`[data-component="HistoryRow"][data-seq="${seq}"]
  *  (deliberately NOT the clicked row's seq) so labels must come from the click. */
 const versionReads: URL[] = [];
 
-function serveHistory(route: string, id: string, list: HistoryList, extra: Record<string, unknown> = {}) {
+function serveHistory(
+  route: string,
+  id: string,
+  list: HistoryList | (() => HistoryList),
+  extra: Record<string, unknown> = {},
+) {
   versionReads.length = 0;
   server.use(
-    http.get(`*/${route}/${id}/history`, () => HttpResponse.json(list)),
+    http.get(`*/${route}/${id}/history`, () => HttpResponse.json(typeof list === 'function' ? list() : list)),
     http.get(`*/${route}/${id}/history/:version`, ({ params, request }) => {
       versionReads.push(new URL(request.url));
       return HttpResponse.json({
@@ -148,8 +153,13 @@ describe('R200 History drawer — workflow page', () => {
   });
 
   it('a restore sends the workflow PUT with the current name and the old definition; the confirm names the clicked row', async () => {
-    serveHistory('workflows', MOCK_WORKFLOW.id, { kind: 'workflow', id: MOCK_WORKFLOW.id, current: A, entries: ENTRIES });
     const puts: unknown[] = [];
+    serveHistory('workflows', MOCK_WORKFLOW.id, () => ({
+      kind: 'workflow',
+      id: MOCK_WORKFLOW.id,
+      current: puts.length ? B : A,
+      entries: puts.length ? [entry(5, B), ...ENTRIES] : ENTRIES,
+    }));
     server.use(
       http.put('*/workflows/:id', async ({ request }) => {
         puts.push(await request.json());
@@ -169,7 +179,22 @@ describe('R200 History drawer — workflow page', () => {
     fireEvent.click(within(confirm).getByRole('button', { name: 'Restore' }));
     await waitFor(() => expect(puts).toHaveLength(1));
     expect(puts[0]).toEqual({ name: MOCK_WORKFLOW.name, definition: { marker: `def-${B}` } });
-    expect(await screen.findByText('Restored #3 as #4')).toBeInTheDocument();
+    expect(await screen.findByText('Restored #3 as #5')).toBeInTheDocument();
+  });
+
+  it('CR-5 — a restore that wrote no row says so instead of "Restored #k as #n"', async () => {
+    serveHistory('workflows', MOCK_WORKFLOW.id, { kind: 'workflow', id: MOCK_WORKFLOW.id, current: A, entries: ENTRIES });
+    server.use(http.put('*/workflows/:id', () => HttpResponse.json(MOCK_WORKFLOW)));
+    page();
+    fireEvent.click(await screen.findByRole('button', { name: /History/ }));
+    await waitFor(() => expect(row(3)).not.toBeNull());
+    fireEvent.click(within(row(3)).getByRole('button', { name: 'Restore' }));
+    await screen.findAllByText('Restore version #3?');
+    const confirm = q('[data-component="HistoryRestoreConfirm"]')?.closest('.ant-modal') as HTMLElement;
+    fireEvent.click(within(confirm).getByRole('button', { name: 'Restore' }));
+    // the served list still ends at #4: nothing was written
+    expect(await screen.findByText('#3 is already the current definition; nothing was saved.')).toBeInTheDocument();
+    expect(screen.queryByText(/Restored #3 as/)).toBeNull();
   });
 
   it('BA-C7 — no History button while editing', async () => {
@@ -277,7 +302,9 @@ describe('R200 History drawer — dashboard page', () => {
     await waitFor(() => expect(row(1)).not.toBeNull());
     fireEvent.click(within(row(1)).getByRole('button', { name: 'Restore' }));
     expect(
-      await screen.findByText('Viewer links that name filters added since #1 will open without those selections.'),
+      await screen.findByText(
+        'Viewer links that name filters added since #1 will open without those selections. Notes on widgets this version lacks are set aside and come back with the widget.',
+      ),
     ).toBeInTheDocument();
     const confirm = q('[data-component="HistoryRestoreConfirm"]')?.closest('.ant-modal') as HTMLElement;
     fireEvent.click(within(confirm).getByRole('button', { name: 'Restore' }));

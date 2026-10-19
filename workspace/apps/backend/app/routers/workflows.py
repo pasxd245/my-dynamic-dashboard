@@ -256,7 +256,9 @@ def update_workflow(
             if old is None:  # deleted between the validation read and this write
                 con.rollback()
                 return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=ApiErrorNotFound().model_dump())
-            definition_changed = new_definition != json.loads(old["definition_json"])
+            # CR-6 — the same null-stripped hash as the history, so a re-save of an
+            # unchanged definition (other key order, `null`s spelled out) keeps the output.
+            definition_changed = definition_version(new_definition) != definition_version(json.loads(old["definition_json"]))
             if definition_changed:
                 # Invalidate the stale materialized output — must re-run.
                 # R187 — the run stamp goes with the output; the counter stays.

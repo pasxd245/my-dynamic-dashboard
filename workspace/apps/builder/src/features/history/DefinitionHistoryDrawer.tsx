@@ -106,15 +106,19 @@ export function DefinitionHistoryDrawer({ kind, nounId, nounName, open, onClose,
   const startRestore = async (entry: HistoryEntry) => {
     let version;
     try {
+      // QA-1 — always a fresh read: the source warning must reflect a refresh made
+      // since the JSON view (or anything else) cached this version (app staleTime 60 s).
       version = await queryClient.fetchQuery({
         queryKey: [...historyKey(kind, nounId), entry.version, entry.seq],
         queryFn: () => historyApi.version(kind, nounId, entry.version, entry.seq),
+        staleTime: 0,
       });
     } catch (err) {
       console.warn('history: version read failed', err);
       message.error(t('history.loadError'));
       return;
     }
+    const newestBefore = list.data?.entries[0]?.seq;
     modal.confirm({
       title: t('history.confirmTitle', { seq: entry.seq }),
       content: <ConfirmBody kind={kind} seq={entry.seq} sourceChanged={kind === 'query' && version.sourceChangedSince === true} />,
@@ -132,11 +136,17 @@ export function DefinitionHistoryDrawer({ kind, nounId, nounName, open, onClose,
         const fresh = await historyApi.list(kind, nounId).catch(() => null);
         if (fresh) queryClient.setQueryData(historyKey(kind, nounId), fresh);
         else void queryClient.invalidateQueries({ queryKey: historyKey(kind, nounId) });
-        message.success(
-          fresh?.entries[0]
-            ? t('history.restored', { from: entry.seq, to: fresh.entries[0].seq })
-            : t('history.restoredPlain', { from: entry.seq }),
-        );
+        const newest = fresh?.entries[0]?.seq;
+        if (newest !== undefined && newest === newestBefore) {
+          // CR-5 — the save wrote no row (the definition was already this version).
+          message.info(t('history.alreadyCurrent', { from: entry.seq }));
+        } else {
+          message.success(
+            newest !== undefined
+              ? t('history.restored', { from: entry.seq, to: newest })
+              : t('history.restoredPlain', { from: entry.seq }),
+          );
+        }
       },
     });
   };

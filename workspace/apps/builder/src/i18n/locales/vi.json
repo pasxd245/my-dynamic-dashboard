@@ -1284,7 +1284,7 @@
   "history": {
     "button": "Lịch sử",
     "title": "Lịch sử — {{name}}",
-    "intro": "Mọi thay đổi đã lưu của định nghĩa {{resource}} này, mới nhất trước. Đổi tên không tính là thay đổi. Khôi phục sẽ lưu định nghĩa cũ thành một phiên bản mới; không có gì bị xoá. Tên người thay đổi chỉ hiện với các thay đổi qua API có token ghi.",
+    "intro": "Mọi thay đổi đã lưu của định nghĩa {{resource}} này, mới nhất trước. Đổi tên không tính là thay đổi. Khôi phục sẽ lưu định nghĩa cũ thành một phiên bản mới; các phiên bản trước vẫn ở trong danh sách. Tên người thay đổi chỉ hiện với các thay đổi gửi qua API kèm mã ghi.",
     "resource": {
       "query": "truy vấn",
       "dashboard": "dashboard",
@@ -1299,15 +1299,16 @@
     "jsonTitle": "#{{seq}} — định nghĩa kỹ thuật (JSON), chỉ đọc",
     "restore": "Khôi phục",
     "confirmTitle": "Khôi phục phiên bản #{{seq}}?",
-    "confirmBody": "Định nghĩa của #{{seq}} được lưu thành một phiên bản mới. Định nghĩa hiện tại vẫn nằm trong lịch sử; không có gì bị xoá.",
+    "confirmBody": "Định nghĩa của #{{seq}} được lưu thành một phiên bản mới. Định nghĩa hiện tại vẫn nằm trong lịch sử, nên bạn có thể khôi phục lại.",
     "kindLine": {
       "query": "Các dashboard và quy trình dùng truy vấn này sẽ đọc định nghĩa đã khôi phục.",
-      "dashboard": "Các liên kết xem có chọn bộ lọc được thêm sau #{{seq}} sẽ mở mà không có các lựa chọn đó.",
+      "dashboard": "Các liên kết xem có chọn bộ lọc được thêm sau #{{seq}} sẽ mở mà không có các lựa chọn đó. Ghi chú trên các widget mà phiên bản này không có sẽ được cất riêng và trở lại cùng widget.",
       "workflow": "Kết quả của quy trình bị xoá; hãy chạy lại để tạo lại."
     },
     "sourceChanged": "Nguồn dữ liệu đã thay đổi sau khi lưu phiên bản này; vị trí cột có thể khác — hãy kiểm tra bộ lọc sau khi khôi phục.",
     "restored": "Đã khôi phục #{{from}} thành #{{to}}",
     "restoredPlain": "Đã khôi phục #{{from}}",
+    "alreadyCurrent": "#{{from}} đã là định nghĩa hiện tại; không có gì được lưu.",
     "refused": "Không thể lưu lại phiên bản này: nó không còn khớp với dữ liệu hoặc truy vấn hiện tại.",
     "refusedGone": "Mục này không còn tồn tại.",
     "refusedName": "Không thể lưu phiên bản này: tên hoặc liên kết đã được mục khác dùng.",

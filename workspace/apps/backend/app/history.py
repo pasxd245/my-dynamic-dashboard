@@ -182,7 +182,7 @@ def source_changed_since(con: sqlite3.Connection, query_id: str, definition: dic
     row was saved? A filter addresses its column by 0-based index and a refresh
     that drops or adds a column only warns, so restoring a pre-refresh version can
     validate and read another column. True when a source dataset's `refreshed_at`
-    is later than the row's `changed_at`; for a `baseline` row (written time
+    is not earlier than the row's `changed_at` (a same-second tie warns); for a `baseline` row (written time
     unknown) when one was ever refreshed (`data_version > 1`); when one no longer
     exists."""
     qrow = con.execute("SELECT source_id FROM queries WHERE id = ?", (query_id,)).fetchone()
@@ -196,6 +196,8 @@ def source_changed_since(con: sqlite3.Connection, query_id: str, definition: dic
         if entry["change"] == "baseline":
             if ds["data_version"] > 1:
                 return True
-        elif ds["refreshed_at"] is not None and ds["refreshed_at"] > entry["changedAt"]:
+        # CR-2 — `>=`: times have one-second resolution, so a refresh in the same
+        # second as the save may have come after it; warn on a tie.
+        elif ds["refreshed_at"] is not None and ds["refreshed_at"] >= entry["changedAt"]:
             return True
     return False

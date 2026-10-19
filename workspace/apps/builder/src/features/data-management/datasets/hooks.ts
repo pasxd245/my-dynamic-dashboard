@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { datasetsApi } from '@/api/datasetsApi';
 import { ApiErrorThrown } from '@/features/data-management/_shared/types';
 import { uploadsApi } from '@/api/uploadsApi';
+import { HISTORY_QUERY_KEY } from '@/features/history/hooks';
 import { cacheKeyForFilters } from './filters/serialize';
 import { groupsToParam } from './advanced-query/serialize';
 import type { PredicateGroups } from './advanced-query/types';
@@ -125,6 +126,8 @@ export function useDatasetsCommitMutation() {
     mutationFn: ({ workspaceId, body }) => datasetsApi.commitBatch(workspaceId, body),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: DATASETS_QUERY_KEY });
+      // R200 (QA-1) — a refresh can make a query version's `sourceChangedSince` true.
+      queryClient.invalidateQueries({ queryKey: HISTORY_QUERY_KEY });
     },
   });
 }

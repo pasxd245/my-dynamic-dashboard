@@ -464,3 +464,48 @@ def sweep(con: sqlite3.Connection, now: str) -> int:
     )
     cur = con.execute(f"DELETE FROM metadata_entries WHERE {ORPHAN_WHERE}")  # noqa: S608 — constants only
     return cur.rowcount
+
+
+def unsweep_widgets(con: sqlite3.Connection, dashboard_id: str, now: str) -> int:
+    """R200 (4.4, CR-1) — a widget that comes back to its dashboard takes its notes
+    back. A definition restore (or any PUT) that re-adds a widget id brings the
+    newest archived entry per (widget, namespace) back from `metadata_entries_swept`
+    — the column rule above, applied to widgets ("set aside, back with the noun").
+    A widget id is unique, so a live entry for the same key is not expected; if
+    one exists the newer `written_at` wins and the other is archived. Runs inside
+    the caller's transaction, after `sweep`; returns the number brought back."""
+    rows = con.execute(
+        "SELECT s.* FROM metadata_entries_swept s "
+        "WHERE s.kind = 'widget' AND s.noun_id IN ("
+        "  SELECT d.id || ':' || json_extract(w.value, '$.id') "
+        "  FROM dashboards d, json_each(d.definition_json, '$.widgets') w WHERE d.id = ?) "
+        "ORDER BY s.id DESC",
+        (dashboard_id,),
+    ).fetchall()
+    seen: set[tuple[str, str]] = set()
+    back = 0
+    for r in rows:
+        key = (r["noun_id"], r["namespace"])
+        if key in seen:
+            continue  # an older archived copy of the same note stays archived
+        seen.add(key)
+        live = con.execute(
+            "SELECT written_at FROM metadata_entries WHERE kind = 'widget' AND noun_id = ? AND namespace = ?", key
+        ).fetchone()
+        if live is not None:
+            if live["written_at"] >= r["written_at"]:
+                continue
+            con.execute(
+                f"INSERT INTO metadata_entries_swept ({_COLS}, swept_at) "  # noqa: S608 — constants only
+                f"SELECT {_COLS}, ? FROM metadata_entries WHERE kind = 'widget' AND noun_id = ? AND namespace = ?",
+                (now, *key),
+            )
+            con.execute("DELETE FROM metadata_entries WHERE kind = 'widget' AND noun_id = ? AND namespace = ?", key)
+        con.execute(
+            f"INSERT INTO metadata_entries ({_COLS}) SELECT {_COLS} FROM metadata_entries_swept WHERE id = ?",  # noqa: S608 — constants only
+            (r["id"],),
+        )
+        con.execute("DELETE FROM metadata_entries_swept WHERE id = ?", (r["id"],))
+        back += 1
+    return back
+

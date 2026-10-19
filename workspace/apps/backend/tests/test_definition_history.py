@@ -306,6 +306,13 @@ def test_a_writer_token_labels_the_change_and_never_refuses_it() -> None:
 # --- C9 · source changed since (BA-C2) ----------------------------------------------------------
 
 
+def _backdate_dataset(ds: str, when: str) -> None:
+    con = sqlite3.connect(db.get_db_path())
+    con.execute("UPDATE datasets SET refreshed_at = ? WHERE id = ?", (when, ds))
+    con.commit()
+    con.close()
+
+
 def _backdate(kind: str, noun: str) -> None:
     con = sqlite3.connect(db.get_db_path())
     con.execute(
@@ -319,6 +326,7 @@ def _backdate(kind: str, noun: str) -> None:
 def test_source_changed_since_flags_a_query_version_whose_dataset_was_refreshed_after_it() -> None:
     with TestClient(app) as client:
         ws, ds, cols, qid, dsh, wf = _three(client)
+        _backdate_dataset(ds, "1999-01-01T00:00:00Z")  # uploaded before the save (no same-second tie)
         v = _history(client, "queries", qid)["current"]
         fresh = _version(client, "queries", qid, v).json()
         _backdate("query", qid)  # the row was saved long before …
@@ -342,7 +350,8 @@ def test_seq_names_the_clicked_row_of_a_repeated_version() -> None:
         v1 = _history(client, "queries", qid)["current"]
         client.put(f"/queries/{qid}", json={"definition": _filter(cols, "South")})
         _backdate("query", qid)  # #1 and #2 saved long ago …
-        _refresh(client, ws, ds)  # … the source refreshed now …
+        _refresh(client, ws, ds)  # … the source refreshed (dated just after them) …
+        _backdate_dataset(ds, "2001-01-01T00:00:00Z")
         client.put(f"/queries/{qid}", json={"definition": _filter(cols, "North")})  # … #3 = #1's definition, now
         newest = _version(client, "queries", qid, v1).json()
         clicked = client.get(f"/queries/{qid}/history/{v1}?seq=1")
@@ -564,3 +573,149 @@ def test_the_migrations_hash_copy_matches_the_app() -> None:
     spec.loader.exec_module(module)
     samples = [json.loads(_Q_DEF), json.loads(_D_DEF), json.loads(_W_DEF), {"a": [None, {"b": None, "c": "é"}]}, {}]
     assert [module._version(s) for s in samples] == [definition_version(s) for s in samples]
+
+
+# --- fix round (code review / QA after F) -------------------------------------------------------------
+
+
+@pytest.mark.unit
+def test_cr1_a_restore_sets_widget_notes_aside_and_brings_them_back_with_the_widget() -> None:
+    """CR-1 — restoring a dashboard version without a widget archives that widget's
+    notes; restoring the version that has it brings them back, as they were."""
+    note_w = {"id": _W2, "title": "B", "chartType": "note", "span": 1, "md": "b"}
+    with TestClient(app) as client:
+        ws, _ds, _cols, qid, dsh, _wf = _three(client)
+        d1 = client.get(f"/dashboards/{dsh}").json()["definition"]
+        d2 = {**d1, "widgets": [*d1["widgets"], note_w]}
+        assert client.put(f"/dashboards/{dsh}", json={"name": "D", "slug": "d", "definition": d2}).status_code == 200
+        written = client.put(f"/metadata/widget/{dsh}:{_W2}/notes", json={"md": "about B"}, headers=_H)
+        before = client.get(f"/metadata/widget/{dsh}:{_W2}").json()["entries"]["notes"]
+        h = _history(client, "dashboards", dsh)
+        v1, v2 = h["entries"][1]["version"], h["entries"][0]["version"]
+        old = _version(client, "dashboards", dsh, v1).json()["definition"]
+        assert client.put(f"/dashboards/{dsh}", json={"name": "D", "slug": "d", "definition": old}).status_code == 200
+        gone = client.get(f"/metadata/widget/{dsh}:{_W2}")
+        set_aside = client.get(f"/metadata/dashboard/{dsh}").json().get("children", {})
+        newer = client.get(f"/dashboards/{dsh}/history/{v2}?seq=2").json()["definition"]
+        assert client.put(f"/dashboards/{dsh}", json={"name": "D", "slug": "d", "definition": newer}).status_code == 200
+        back = client.get(f"/metadata/widget/{dsh}:{_W2}")
+    con = sqlite3.connect(db.get_db_path())
+    try:
+        swept = con.execute("SELECT COUNT(*) FROM metadata_entries_swept").fetchone()[0]
+    finally:
+        con.close()
+
+    assert written.status_code == 201, written.text
+    assert gone.status_code == 404 and _W2 not in set_aside
+    assert back.status_code == 200
+    after = back.json()["entries"]["notes"]
+    assert after == before  # md, author, writtenAt, anchor and state as they were
+    assert after["state"] == "current"
+    assert swept == 0
+    assert ws and qid
+
+
+@pytest.mark.unit
+def test_cr1_a_live_note_newer_than_the_archived_one_is_kept() -> None:
+    with TestClient(app) as client:
+        _ws, _ds, _cols, _qid, dsh, _wf = _three(client)
+        assert client.put(f"/metadata/widget/{dsh}:{_W1}/notes", json={"md": "live"}, headers=_H).status_code == 201
+        con = sqlite3.connect(db.get_db_path())
+        con.execute(
+            "INSERT INTO metadata_entries_swept (kind, noun_id, namespace, md, source, author, written_at, "
+            "definition_version, anchor_json, swept_at) VALUES ('widget', ?, 'notes', 'older', 'ai', 'x', "
+            "'2000-01-01T00:00:00Z', 'v', NULL, '2000-01-02T00:00:00Z')",
+            (f"{dsh}:{_W1}",),
+        )
+        con.commit()
+        con.close()
+        d = client.get(f"/dashboards/{dsh}").json()["definition"]
+        client.put(f"/dashboards/{dsh}", json={"name": "D2", "slug": "d2", "definition": d})
+        md = client.get(f"/metadata/widget/{dsh}:{_W1}").json()["entries"]["notes"]["md"]
+    assert md == "live"
+
+
+@pytest.mark.unit
+def test_cr7_record_if_changed_ignores_key_order_and_spelled_out_nulls() -> None:
+    con = sqlite3.connect(":memory:")
+    con.row_factory = sqlite3.Row
+    con.execute(
+        "CREATE TABLE definition_history (kind TEXT, noun_id TEXT, seq INTEGER, version TEXT, definition_json TEXT, "
+        "change TEXT, changed_at TEXT, changed_by TEXT, changed_source TEXT)"
+    )
+    old = json.dumps({"q": None, "filters": [{"col": 1, "val": "a"}], "advanced": []})
+    same = [
+        json.dumps({"advanced": [], "filters": [{"val": "a", "col": 1}]}),  # reordered, null omitted
+        json.dumps({"filters": [{"col": 1, "val": "a", "min": None}], "advanced": [], "q": None, "steps": None}),
+    ]
+    moved = json.dumps({"q": None, "filters": [{"col": 1, "val": "b"}], "advanced": []})
+    wrote = [history.record_if_changed(con, "query", "qr_0000000a", old, s, (None, None), "t") for s in same]
+    wrote.append(history.record_if_changed(con, "query", "qr_0000000a", old, moved, (None, None), "t"))
+    assert wrote == [False, False, True]
+    assert con.execute("SELECT seq, change FROM definition_history").fetchall()[0][:] == (1, "update")
+
+
+@pytest.mark.unit
+def test_cr6_an_unchanged_workflow_resave_keeps_its_output() -> None:
+    with TestClient(app) as client:
+        _ws, _ds, _cols, _qid, _dsh, wf = _three(client)
+        assert client.post(f"/workflows/{wf}/run").status_code == 200
+        w = client.get(f"/workflows/{wf}").json()
+        # stored as another model wrote it: a member spelled out as `null` that today's
+        # model does not dump (same hash, unequal dict)
+        con = sqlite3.connect(db.get_db_path())
+        stored = json.loads(con.execute("SELECT definition_json FROM workflows WHERE id = ?", (wf,)).fetchone()[0])
+        con.execute("UPDATE workflows SET definition_json = ? WHERE id = ?", (json.dumps({**stored, "legacy": None}), wf))
+        con.commit()
+        con.close()
+        reordered = {k: w["definition"][k] for k in reversed(list(w["definition"]))}
+        r = client.put(f"/workflows/{wf}", json={"name": "wf", "definition": reordered})
+        after = client.get(f"/workflows/{wf}").json()
+    assert r.status_code == 200
+    assert w.get("materializedAt") and after.get("materializedAt") == w["materializedAt"]
+    assert after.get("run", {}).get("id") == w.get("run", {}).get("id")
+
+
+@pytest.mark.unit
+def test_cr4_0011_runs_again_after_a_backfill_that_failed_half_way(tmp_path: Path, _restore_db_path) -> None:
+    path = tmp_path / "half.sqlite"
+    db.set_db_path(path)
+    cfg = db._alembic_config()
+    command.upgrade(cfg, "0010_metadata_anchor")
+    _seed_at_0010(path)
+    con = sqlite3.connect(path)
+    # a second query whose definition is not JSON: the backfill fails on it (after the first)
+    con.execute(
+        "INSERT INTO queries (id, workspace_id, source_id, name, definition_json, created_at) "
+        "VALUES ('qr_0000000b', 'ws_0000000a', 'ds_0000000a', 'broken', '{not json', '2026-01-05T00:00:00Z')"
+    )
+    con.commit()
+    con.close()
+    with pytest.raises(Exception):  # noqa: B017, PT011 — any failure of the backfill
+        command.upgrade(cfg, "head")
+    assert db_version(path) == "0010_metadata_anchor"
+    con = sqlite3.connect(path)
+    con.execute("UPDATE queries SET definition_json = '{}' WHERE id = 'qr_0000000b'")
+    con.commit()
+    con.close()
+    command.upgrade(cfg, "head")  # the re-run: the table may exist, rows may exist
+    con = sqlite3.connect(path)
+    try:
+        rows = con.execute("SELECT kind, noun_id, seq, change FROM definition_history ORDER BY kind, noun_id").fetchall()
+    finally:
+        con.close()
+    assert db_version(path) == "0011_definition_history"
+    assert rows == [
+        ("dashboard", "dsh_0000000a", 1, "baseline"),
+        ("query", "qr_0000000a", 1, "baseline"),
+        ("query", "qr_0000000b", 1, "baseline"),
+        ("workflow", "wf_0000000a", 1, "baseline"),
+    ]
+
+
+def db_version(path: Path) -> str:
+    con = sqlite3.connect(path)
+    try:
+        return con.execute("SELECT version_num FROM alembic_version").fetchone()[0]
+    finally:
+        con.close()

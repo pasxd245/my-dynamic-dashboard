@@ -1284,7 +1284,7 @@
   "history": {
     "button": "History",
     "title": "History — {{name}}",
-    "intro": "Every saved change of this {{resource}}'s definition, newest first. Renaming is not a change. Restoring saves the old definition as a new version; nothing is removed. Names appear only for changes made through the API with a writer token.",
+    "intro": "Every saved change of this {{resource}}'s definition, newest first. Renaming is not a change. Restoring saves the old definition as a new version; earlier versions stay in the list. Names appear only for changes made through the API with a writer token.",
     "resource": {
       "query": "query",
       "dashboard": "dashboard",
@@ -1299,15 +1299,16 @@
     "jsonTitle": "#{{seq}} — technical definition (JSON), read-only",
     "restore": "Restore",
     "confirmTitle": "Restore version #{{seq}}?",
-    "confirmBody": "The definition of #{{seq}} is saved as a new version. The current definition stays in the history; nothing is removed.",
+    "confirmBody": "The definition of #{{seq}} is saved as a new version. The current definition stays in the history, so you can restore it back.",
     "kindLine": {
       "query": "Dashboards and workflows that use this query will read the restored definition.",
-      "dashboard": "Viewer links that name filters added since #{{seq}} will open without those selections.",
+      "dashboard": "Viewer links that name filters added since #{{seq}} will open without those selections. Notes on widgets this version lacks are set aside and come back with the widget.",
       "workflow": "The workflow's output is cleared; run it again to rebuild it."
     },
     "sourceChanged": "The data source changed after this version was saved; column positions may differ — check the filters after restoring.",
     "restored": "Restored #{{from}} as #{{to}}",
     "restoredPlain": "Restored #{{from}}",
+    "alreadyCurrent": "#{{from}} is already the current definition; nothing was saved.",
     "refused": "This version can no longer be saved: it does not fit the current data or queries.",
     "refusedGone": "This item no longer exists.",
     "refusedName": "This version could not be saved: another item already uses this name or link.",

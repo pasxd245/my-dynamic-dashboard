@@ -58,7 +58,7 @@ def _version(payload: object) -> str:
 
 def upgrade() -> None:
     op.execute(
-        """CREATE TABLE definition_history (
+        """CREATE TABLE IF NOT EXISTS definition_history (
              kind TEXT NOT NULL,
              noun_id TEXT NOT NULL,
              seq INTEGER NOT NULL,
@@ -76,6 +76,9 @@ def upgrade() -> None:
            )"""
     )
     bind = op.get_bind()
+    # CR-4 — re-runnable: a backfill that failed half-way left the table (SQLite DDL is
+    # not transactional here) and maybe some rows; start the seed from empty.
+    bind.execute(sa.text("DELETE FROM definition_history"))
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     insert = sa.text(
         "INSERT INTO definition_history (kind, noun_id, seq, version, definition_json, change, changed_at) "

@@ -316,6 +316,66 @@ baseline`), `HistoryEntry` `{seq, version, change, changedAt, changedBy}` (`chan
   `seq` sent. Re-shot: the warning shows for the pre-refresh row in EN and VI. Browser console:
   only the pre-existing `WidgetFilterDrawer` `width` deprecation.
 
+### Reviews after F
+
+- **Run by the orchestrator on `9b3ec3e..8ce7ba3`.** Code review **CHANGES** (1 P1, 7 P2); QA
+  **CHANGES** (1 P1, 2 P2). Green otherwise: QA's migration walk S0–S6 (upgrade; downgrade -1 with
+  history rows present; re-upgrade; downgrade to 0010; the startup migration) — nouns and hashes
+  identical, fk / integrity clean, the 76 shared GETs byte-identical; concurrent PUTs take
+  contiguous `seq` in-process and over HTTP.
+  - **CR-1 (P1)** — the R197 sweep inside a dashboard PUT archived the notes of a widget the
+    restored version lacks; restoring back returned the widget without its notes, so "nothing is
+    removed" was false (`scratchpad/r200/cr/probe3.py`).
+  - **QA-1 = CR-3 (P1, QA's grade taken)** — the restore confirm's version read used
+    `fetchQuery` with the app's 60 s `staleTime`, so the BA-C2 warning could come from a cache
+    older than a refresh.
+  - P2: CR-2 = QA-2 (a same-second refresh is not flagged), CR-4 (0011 not re-runnable after a
+    half-failed backfill), CR-5 (the toast claims a restore that wrote no row), CR-6 (the
+    workflow PUT clears the output on a dict difference the hash ignores), CR-7 (tests: key
+    order / nulls in `record_if_changed`; concurrency), CR-8 (bare "token" in VI), QA-3 (more
+    screenshots).
+- **Fix (`fix(R200): …`)** —
+  - **CR-1, the reversible path** (the hard-stop check passed: `metadata.md` calls the sweep
+    "archived, not dropped" and already lets a returning column's entries reappear; nothing says
+    a sweep is final). New `app.metadata.unsweep_widgets`, called in the dashboard PUT right after
+    the sweep, same transaction: a widget id the new definition carries takes back its newest
+    archived entry per namespace, anchor unchanged; a newer live entry for the same key would win
+    and the other be archived. Copy: the confirm no longer says "nothing is removed" (EN/VI
+    `confirmBody`, `intro`), the dashboard line adds "Notes on widgets this version lacks are set
+    aside and come back with the widget." `metadata.md` § Lifecycle gains the as-built line.
+    Tests: the round trip (note on W2 → restore #1 → 404 → restore #2 → the note is back exactly
+    as read before, state `current`, nothing left archived) and the newer-live-entry guard; the
+    round trip fails on `8ce7ba3`.
+  - **QA-1** — `staleTime: 0` on the confirm's version read; the dataset commit (refresh) and the
+    workflow publish mutations invalidate every history read. QA's builder file adopted as
+    `tests/definition-history-r200-adversarial.test.tsx` (3; its fresh-read case fails on
+    `8ce7ba3`).
+  - **CR-2** — `>=` for a non-baseline row (a same-second tie warns). Two existing tests that
+    created the dataset and the query in one second now date the upload first.
+  - **CR-4** — 0011 `CREATE TABLE IF NOT EXISTS` and empties the table before seeding; test: a
+    backfill that fails on a bad definition leaves the database at 0010, the re-run after the
+    repair seeds every baseline once (fails on `8ce7ba3`).
+  - **CR-5** — the toast compares the newest `seq` before and after: no new row → "#k is already
+    the current definition; nothing was saved." (EN/VI); tested.
+  - **CR-6** — the workflow PUT decides `definition_changed` by `definition_version`; test: a
+    stored definition carrying a `null` member today's model does not dump, re-saved → the
+    materialized output and the run stamp stay (fails on `8ce7ba3`).
+  - **CR-7** — a direct `record_if_changed` test (reordered keys, omitted and spelled-out nulls
+    write nothing; a value change writes `#1 update`); QA's backend file adopted as
+    `tests/test_definition_history_adversarial.py` (14, incl. the 12-thread concurrency case and
+    QA-2's same-second case; its "unchanged before the refresh" case dates the upload first).
+  - **CR-8** — VI "token" → "mã ghi" ("… gửi qua API kèm mã ghi").
+  - **QA-3** — new screenshots (`scratchpad/r200/shots2/`, isolated root `vis2-data`; a genuine
+    baseline: data written at head, `alembic downgrade -1`, the app's startup upgrade): the
+    query's _History started_ row; its restore confirm with the source warning (the refresh
+    dropped `agent`, so #1's `col: 2` now names `Source.Name` — the BA-C2 case, live); a refused
+    dashboard restore (#3's widget query deleted) → "This version can no longer be saved: it does
+    not fit the current data or queries."; the dashboard confirm with the links line and the
+    notes line; VI "Đã khôi phục #1 thành #5"; after restoring back, the widget's note in its
+    popover (CR-1 live).
+  - Gates: backend **756** (737 + 5 new + 14 adopted), ruff clean; builder **599** (595 + 1 new + 3 adopted;
+    full suite detached, backend idle), `tsc` clean; contracts 53; md / plan / design lints 0.
+
 ## Check
 
 _Gates, visual gate, reviewer verdicts and the walk script — at close-out._
@@ -332,7 +392,8 @@ _Rolling-log rows, promotion and prune check — at close-out._
   3. Is a readable view of an old version (column and widget names instead of indices / ids,
      or a diff) wanted? The BA notes it is arguably already met for queries. Today: the JSON,
      labelled technical.
-  4. _(Text not in the relay to the coder — copy from the BA pass-1 report.)_
+  4. Is an empty "who" acceptable for every in-app edit, given multi-user is out of scope (names
+     appear only for writer-token changes)?
   5. Should restoring a query version whose source datasets changed since be **refused**
      rather than warned (BA-C2; built: a warning in the confirm)?
 

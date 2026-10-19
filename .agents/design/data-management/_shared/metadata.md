@@ -289,11 +289,16 @@ their parent.
   query, workflow, dashboard, relationship, workspace or saved copy, and a widget removed from its
   dashboard. A **column that leaves** its dataset in a refresh is kept, unreadable while absent,
   and **reappears** if a column of the same name returns (flagged if its dtype differs).
+- **A widget that comes back** (R200, as built): a dashboard save that re-adds a widget id —
+  a definition restore, or any PUT — moves that widget's newest archived entry per namespace
+  back from `metadata_entries_swept` (`app.metadata.unsweep_widgets`, after the sweep, in the
+  same transaction), anchor unchanged; a newer live entry for the same key, if any, is kept.
+  A widget's notes are set aside with it and return with it — the column rule, for widgets.
 
 ### The triple anchor (R197, item 3.8)
 
 - **Stamped at write** by the server: `anchor {definitionVersion, dataVersions?, queryVersions?,
-  runId?, params?, assumedParams?}` — the noun's definition, the data behind it (a dataset /
+runId?, params?, assumedParams?}` — the noun's definition, the data behind it (a dataset /
   column: its own version; a relationship: both ends; a query: its plan's; a widget: its query's;
   a dashboard: all its widgets'), the queries behind a widget or dashboard, a workflow's current
   run, and the parameter values (a query / widget: as it reads; a dashboard: its controls as the
