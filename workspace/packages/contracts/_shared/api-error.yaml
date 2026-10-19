@@ -323,10 +323,14 @@ components:
             call is rejected; `columns_json` is untouched. Distinct from the
             FastAPI `{ detail }` envelope (a malformed request body) — the
             request is well-formed, but a referenced column name is unknown.
+            R199 — also `GET /queries/{id}/values?column=` when `column` is
+            not a column of the query's final result.
         column:
           type: string
           minLength: 1
-          description: The first `hidden` entry that is not a column of this dataset.
+          description: |
+            The first `hidden` entry that is not a column of this dataset
+            (R152), or the `column` asked of `/values` (R199).
 
     ApiErrorNoVisibleColumns:
       type: object

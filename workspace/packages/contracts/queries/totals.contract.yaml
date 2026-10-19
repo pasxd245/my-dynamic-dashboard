@@ -46,19 +46,13 @@ paths:
                 filters:
                   type: array
                   default: []
-                  description: The active dashboard filters (same shape and semantics as `/aggregate`).
+                  description: |
+                    The active dashboard filters (same shape and semantics as
+                    `/aggregate`). R199 — an item with `control` is a shared
+                    filter; a targeted `values` control with no item reads its
+                    `saved` selection (`RuntimeFilter`).
                   items:
-                    type: object
-                    required: [column, values]
-                    additionalProperties: false
-                    properties:
-                      column:
-                        type: string
-                        minLength: 1
-                      values:
-                        type: array
-                        items:
-                          type: [string, "null"]
+                    $ref: "../_shared/query.yaml#/components/schemas/RuntimeFilter"
                 params:
                   $ref: "../_shared/query.yaml#/components/schemas/ParamValues"
                 dashboard:
@@ -112,7 +106,11 @@ paths:
           description: |
             A column is not in the result, or is not numeric (FastAPI validation
             envelope); R194 — or a parameter has no value (`param_unbound`) or a
-            wrong-typed one (`param_invalid`).
+            wrong-typed one (`param_invalid`); R199 — or a `filters[].control`
+            without `dashboard` (`control_without_dashboard`), not a `values`
+            control of that dashboard (`unknown_control`), or on another
+            column than the control's (`control_column`) — envelope, the `loc`
+            naming the item.
           content:
             application/json:
               schema:

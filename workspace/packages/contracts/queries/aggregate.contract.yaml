@@ -29,7 +29,10 @@ info:
     aggregated widget still honours an active dashboard filter (else it
     would silently ignore it). `(blank)` is expressed on the wire as a
     `null` value (matches a NULL or empty cell), mirroring the client
-    `applyFilters`.
+    `applyFilters`. R199 (item 4.3) — an item carrying `control` is a SHARED
+    filter (a dashboard `values` control's selection); a targeted `values`
+    control with no item reads its `saved` selection, applied by the server
+    (`RuntimeFilter` in `_shared/query.yaml`).
 
     SCOPE (R119, first build): 0-or-1 dimension (scalar KPI = 0; bar/pie/
     line = 1) and 1 measure. Multi-dimension (series / crosstab),
@@ -171,11 +174,16 @@ paths:
           description: |
             The aggregate spec is structurally invalid against the query's
             EFFECTIVE columns: an unknown `dimensions[]` / `measures[].col`
-            / `filters[].column` name; a `sum` measure missing its `col`, or
+            name; a `sum` measure missing its `col`, or
             a `count` measure carrying one; a `sum` over a non-numeric
             column; or the request shape itself is malformed (FastAPI
-            validation envelope). R194 — or a parameter has no value
-            (`param_unbound`) or a wrong-typed one (`param_invalid`).
+            validation envelope). (A `filters[].column` the result lacks is
+            SKIPPED, not refused — R103 / D5.) R194 — or a parameter has no
+            value (`param_unbound`) or a wrong-typed one (`param_invalid`).
+            R199 — or a `filters[].control` without `dashboard`
+            (`control_without_dashboard`), not a `values` control of that
+            dashboard (`unknown_control`), or on another column than the
+            control's (`control_column`) — envelope, the `loc` naming the item.
           content:
             application/json:
               schema:

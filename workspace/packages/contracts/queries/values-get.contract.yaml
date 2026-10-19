@@ -1,0 +1,151 @@
+openapi: 3.1.0
+info:
+  title: my-dynamic-dashboard — GET /queries/{id}/values
+  version: 0.1.0
+  description: |
+    R199 (item 4.3, dashboard-filters.md D4) — the DISTINCT values of ONE
+    column of a saved query's final result: the option list of a dashboard
+    `values` control (a shared filter), read over the first targeted widget's
+    query. Not a capped row fetch: one DuckDB `SELECT DISTINCT` over the whole
+    final relation (the post-step relation when the query has transform
+    steps — the columns a widget sees), so the list is right when the rows a
+    widget shows are capped.
+
+    Values are the cells' TEXT (stringified like every read); a NULL or empty
+    cell is ONE `null` entry — the `(blank)` option — listed first; the rest
+    ascending. Capped at 1 000 non-blank values: `partial: true` says more
+    distinct values exist than listed (the bar shows "first 1 000 values").
+
+    The read resolves parameters like `GET /queries/{id}/rows` — `p.<name>=`
+    viewer values and, with `dashboard` + `widget`, the saved control values of
+    that dashboard widget (D3) — and answers with `resolvedParams` when any
+    were resolved. It applies NO runtime filter: not the widget's drawer, not
+    another control's selection, not this control's own `saved` (an option
+    list must show the alternatives to the current selection; cascading
+    controls are OUT — design § Scope boundary).
+
+paths:
+  /queries/{id}/values:
+    get:
+      operationId: queryValues
+      summary: Distinct values of one result column (a shared filter's options)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^qr_[0-9a-f]{8}$'
+        - name: column
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 200
+          description: The result column, by effective name (post-step when the query has steps).
+          examples:
+            team:
+              value: 'team'
+        - name: dashboard
+          in: query
+          required: false
+          schema:
+            type: string
+            pattern: '^dsh_[0-9a-f]{8}$'
+          description: |
+            With `widget`: the dashboard widget the options are read for, so the
+            server applies that dashboard's saved PARAMETER values (D3 level 2;
+            `DashboardRef` rules — both or neither, 422 otherwise).
+        - name: widget
+          in: query
+          required: false
+          schema:
+            type: string
+            pattern: '^wdg_[0-9a-f]{8}$'
+          description: See `dashboard`.
+      responses:
+        '200':
+          description: |
+            The distinct values, blank first then ascending, at most 1 000
+            non-blank; `partial` when capped. `dataVersions` (R196) and
+            `resolvedParams` (R194) as on every read.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [column, values, partial]
+                additionalProperties: false
+                properties:
+                  column:
+                    type: string
+                    minLength: 1
+                    description: The column asked, echoed.
+                  values:
+                    type: array
+                    maxItems: 1001
+                    description: |
+                      The distinct cell texts; `null` (at most once, first) is
+                      the `(blank)` option. Ascending text order after it.
+                    items:
+                      type: [string, 'null']
+                  partial:
+                    type: boolean
+                    description: |
+                      `true` when the column has more than 1 000 distinct
+                      non-blank values and the list holds the first 1 000.
+                  dataVersions:
+                    $ref: '../_shared/query.yaml#/components/schemas/DataVersions'
+                  resolvedParams:
+                    $ref: '../_shared/query.yaml#/components/schemas/ResolvedParams'
+              examples:
+                team:
+                  value:
+                    column: 'team'
+                    values: [null, 'East', 'North', 'South', 'West']
+                    partial: false
+                capped:
+                  summary: A high-cardinality column (an id) — the first 1 000, flagged
+                  value:
+                    column: 'deal_id'
+                    values: ['D-0001', 'D-0002']
+                    partial: true
+        '404':
+          description: No such query, or its source is gone.
+          content:
+            application/json:
+              schema:
+                $ref: '../_shared/api-error.yaml#/components/schemas/ApiErrorNotFound'
+        '409':
+          description: The query no longer validates against its source (`query_stale`), a join edge drifted (`relationship_stale`) or a step cannot run (`step_invalid`).
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '../_shared/api-error.yaml#/components/schemas/ApiErrorQueryStale'
+                  - $ref: '../_shared/api-error.yaml#/components/schemas/ApiErrorRelationshipStale'
+                  - $ref: '../_shared/api-error.yaml#/components/schemas/ApiErrorStepInvalid'
+        '422':
+          description: |
+            `column` is not a column of the final result (`unknown_column`,
+            naming it); `dashboard` without `widget` or an unknown dashboard /
+            widget (FastAPI validation envelope); R194 — a parameter the
+            definition uses has no value (`param_unbound`) or a `p.` value of
+            the wrong type (`param_invalid`).
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '../_shared/api-error.yaml#/components/schemas/ApiErrorUnknownColumn'
+                  - type: object
+                    required: [detail]
+                    properties:
+                      detail:
+                        type: array
+                        items:
+                          type: object
+                  - $ref: '../_shared/api-error.yaml#/components/schemas/ApiErrorParamUnbound'
+                  - $ref: '../_shared/api-error.yaml#/components/schemas/ApiErrorParamInvalid'
+              examples:
+                unknown:
+                  value: { code: unknown_column, column: 'region' }

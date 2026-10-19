@@ -148,7 +148,10 @@ paths:
             parameter's type, a non-whole number on an integer column, a
             `date_range` name that is not a date parameter), and for a
             `date_range` control `range_same_param` (`from` = `to`) and
-            `range_reversed` (a saved pair that ends before it starts).
+            `range_reversed` (a saved pair that ends before it starts). R199 —
+            for a `values` control `duplicate_column` (two `values` controls on
+            one column); its `column` is not checked against the targeted
+            queries (D5 skips a missing column at read).
           content:
             application/json:
               schema:

@@ -41,19 +41,13 @@ paths:
                 filters:
                   type: array
                   default: []
-                  description: The active dashboard filters (same shape and semantics as `/aggregate`).
+                  description: |
+                    The active dashboard filters (same shape and semantics as
+                    `/aggregate`). R199 — an item with `control` is a shared
+                    filter; a targeted `values` control with no item reads its
+                    `saved` selection (`RuntimeFilter`).
                   items:
-                    type: object
-                    required: [column, values]
-                    additionalProperties: false
-                    properties:
-                      column:
-                        type: string
-                        minLength: 1
-                      values:
-                        type: array
-                        items:
-                          type: [string, "null"]
+                    $ref: "../_shared/query.yaml#/components/schemas/RuntimeFilter"
                 params:
                   $ref: "../_shared/query.yaml#/components/schemas/ParamValues"
                 dashboard:
@@ -97,6 +91,15 @@ paths:
             R196 (3.2c) — the Filters sheet gains a `Data versions` block
             (`dataset | id | version`) and both formats carry `X-MDD-Data-Versions`
             (`DataVersions` as compact JSON): the data the file was read from.
+            R199 (D7) — the Filters sheet's filter rows gain two columns,
+            `column | values | scope | source`: `scope` is `widget filter` for
+            the widget's own drawer filter and `dashboard filter <label>` for
+            a shared one (the `values` control's label); `source` is `viewer`
+            (the request carried the selection) or `dashboard` (the control's
+            `saved` selection, applied by the server) for a shared filter and
+            empty for a widget filter. A shared filter the server skipped
+            (the result lacks its column) is not listed — it filtered
+            nothing. Without any filter the row stays `— | no filter`.
           headers:
             X-MDD-Data-Versions:
               description: R196 — `DataVersions` as compact JSON.
@@ -132,7 +135,11 @@ paths:
           description: |
             Over the row cap (`export_too_large`, with `rows` and `max`), or a bad
             totals column (FastAPI envelope); R194 — or a parameter has no value
-            (`param_unbound`) or a wrong-typed one (`param_invalid`).
+            (`param_unbound`) or a wrong-typed one (`param_invalid`); R199 — or
+            a `filters[].control` without `dashboard`
+            (`control_without_dashboard`), not a `values` control of that
+            dashboard (`unknown_control`), or on another column than the
+            control's (`control_column`) — envelope, the `loc` naming the item.
           content:
             application/json:
               schema:

@@ -239,29 +239,34 @@ components:
           type: array
           maxItems: 12
           description: |
-            R195 (dashboard-filters.md D4, `kind: param`) and R198 (item 4.2,
-            `kind: date_range`; `values` is item 4.3) — the controls in the bar
-            above the grid. Omitted when none. One control per parameter name
-            (a `date_range` control owns two); every listed target must be a
-            widget of this dashboard. A control reaches a widget when the widget
-            is targeted AND its query USES the parameter (a range: `from` or
-            `to`); otherwise it is skipped there, and the card's badge says why
-            (D5).
+            R195 (dashboard-filters.md D4, `kind: param`), R198 (item 4.2,
+            `kind: date_range`) and R199 (item 4.3, `kind: values` — a shared
+            filter) — the controls in the bar above the grid. Omitted when
+            none. One control per parameter name (a `date_range` control owns
+            two) and one `values` control per column; every listed target must
+            be a widget of this dashboard. A control reaches a widget when the
+            widget is targeted AND its query USES the parameter (a range:
+            `from` or `to`), or, for `values`, the widget's result HAS the
+            column; otherwise it is skipped there, and the card's badge says
+            why (D5).
           items:
             $ref: "#/components/schemas/DashboardControl"
 
     DashboardControl:
       description: |
         A dashboard control, by `kind`. R195 `param` binds one query parameter;
-        R198 `date_range` binds two date parameters driven by one control.
+        R198 `date_range` binds two date parameters driven by one control; R199
+        `values` is a shared filter on one result column.
       oneOf:
         - $ref: "#/components/schemas/ParamControl"
         - $ref: "#/components/schemas/DateRangeControl"
+        - $ref: "#/components/schemas/ValuesControl"
       discriminator:
         propertyName: kind
         mapping:
           param: "#/components/schemas/ParamControl"
           date_range: "#/components/schemas/DateRangeControl"
+          values: "#/components/schemas/ValuesControl"
 
     ParamControl:
       type: object
@@ -345,6 +350,81 @@ components:
           $ref: "#/components/schemas/ControlTargets"
         saved:
           $ref: "#/components/schemas/DateRangeValue"
+
+    ValuesControl:
+      type: object
+      required: [id, kind, label, column, targets]
+      additionalProperties: false
+      description: |
+        R199 (item 4.3, dashboard-filters.md D4) — a SHARED FILTER: the
+        per-widget drawer's filter made dashboard-wide. A name-based one-of on
+        one result column (`column`), reaching the targeted widgets whose
+        result HAS that column; a targeted widget whose result lacks it is
+        skipped and badged "no column <column>", never an error (D5). A note
+        widget is never reached.
+
+        It travels in the EXISTING runtime `filters` list of every read (no
+        second filter engine — `RuntimeFilter` in `_shared/query.yaml`):
+        `{column, values, control: <this id>}`, AND-composed with the widget's
+        own drawer filters. `null` in `values` is the `(blank)` option (a NULL
+        or empty cell).
+
+        `saved` (D3 level 2) is the dashboard's selection, applied by the
+        SERVER to every read that names this dashboard + widget and carries no
+        viewer value for this control — a client never asserts a "dashboard"
+        value (R195). A viewer's selection lives in the URL only, as
+        `?f.<controlId>=North,South` — values percent-encoded (a `,` inside a
+        value is `%2C`, a `~` is `%7E`), the blank option as the raw token
+        `~blank`; an EMPTY value (`?f.<controlId>=`) means the viewer cleared
+        the control (no filter from it, the saved selection NOT applied); an
+        absent key means the saved selection applies. Reset to saved drops the
+        key. Saving a selection is an edit (a dashboard PUT).
+
+        Options come from `GET /queries/{id}/values?column=` over the first
+        targeted widget's query (distinct, capped at 1 000, `partial` when
+        capped), never from a capped row fetch.
+
+        Save checks (422 naming the field): one `values` control per `column`
+        across the dashboard (`duplicate_column`), plus the shared target and
+        id checks. The column is NOT checked against the targeted queries'
+        results at save (D5: a missing column skips at read, so a control may
+        be added before a query grows the column).
+      properties:
+        id:
+          type: string
+          pattern: "^ctl_[0-9a-f]{8}$"
+          description: Client-generated, like widget ids.
+        kind:
+          type: string
+          enum: [values]
+        label:
+          type: string
+          minLength: 1
+          maxLength: 60
+        column:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: The result column the filter applies to, by effective name.
+        targets:
+          $ref: "#/components/schemas/ControlTargets"
+        saved:
+          $ref: "#/components/schemas/FilterValues"
+
+    FilterValues:
+      type: array
+      minItems: 1
+      maxItems: 200
+      uniqueItems: true
+      description: |
+        R199 — a saved selection of a `values` control: the values kept, by
+        their stringified cell text; `null` is the `(blank)` option. At least
+        one entry (a control with nothing selected has no `saved`).
+      items:
+        type: [string, "null"]
+      examples:
+        - ["North", "South"]
+        - [null]
 
     ControlTargets:
       description: '`"all"` or the widgets the control reaches (the editor picks).'

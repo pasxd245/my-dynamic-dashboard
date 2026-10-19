@@ -20,6 +20,24 @@ info:
     `RowsPage` shape as `GET /datasets/{id}/rows` (the BE delegates to the
     shipped `query_dataset_rows` path after hydrating the definition).
 
+    R199 (item 4.3, dashboard-filters.md D4) — plus one
+    `f.<controlId>=<v1>,<v2>` query parameter per dashboard `values` control
+    (the viewer's shared-filter selection; the same spelling as the dashboard
+    URL): values comma-separated and percent-encoded (a `,` inside a value is
+    `%2C`, a `~` is `%7E` — the server splits BEFORE decoding), the `(blank)`
+    option as the raw token `~blank`, an empty value (`f.<id>=`) = the viewer
+    cleared the control (no filter from it, its saved selection NOT applied).
+    With `dashboard` + `widget` the server also applies the `saved` selection
+    of every targeted `values` control the request does not override (D3 level
+    2), as a runtime filter (`RuntimeFilter` semantics: one-of by column name;
+    a column the result lacks is skipped, D5) applied BEFORE paging and the
+    `unpaged` cap, so `total` and the rows are the filtered ones. An `f.` key
+    naming a control that is not a `values` control of the named dashboard →
+    422 (`unknown_control`); one that does not target the widget is ignored;
+    `f.` keys without `dashboard` + `widget` → 422
+    (`control_without_dashboard`). The widget's OWN drawer filters stay
+    client-side on this path (R103); they never travel here.
+
     R107 — `unpaged=true` returns the result in ONE response (no paging),
     capped server-side at `dashboard_max_rows`. This is the dashboard
     widget's load path: one request instead of a paged-at-100 loop.
@@ -194,7 +212,10 @@ paths:
             {10, 25, 50, 100}, or `id` not matching `^qr_[0-9a-f]{8}$`.
             FastAPI validation-error envelope. R194 — or a parameter the
             definition uses has no value (`param_unbound`) or a `p.` value of
-            the wrong type (`param_invalid`).
+            the wrong type (`param_invalid`). R199 — or an `f.` key without
+            `dashboard` + `widget` (`control_without_dashboard`) or naming no
+            `values` control of that dashboard (`unknown_control`) — envelope,
+            the `loc` naming the key.
           content:
             application/json:
               schema:

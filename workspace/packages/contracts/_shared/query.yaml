@@ -100,6 +100,43 @@ components:
       additionalProperties:
         type: [string, number]
 
+    RuntimeFilter:
+      type: object
+      required: [column, values]
+      additionalProperties: false
+      description: |
+        R103 — one runtime filter of a read: a categorical one-of on an
+        effective result column BY NAME; keep rows whose `column` cell equals
+        one of `values` (`null` = a NULL/empty cell, the `(blank)` option).
+        AND-composed across the list. A filter on a column the result lacks is
+        SKIPPED (D5) — never an error. An EMPTY `values` list restricts
+        nothing.
+
+        R199 (dashboard-filters.md D4, item 4.3) — `control` marks a SHARED
+        filter: the viewer's selection for the `values` control of that id on
+        the dashboard the request names (`dashboard` is then REQUIRED — 422
+        `control_without_dashboard` otherwise). It overrides that control's
+        `saved` selection; a targeted `values` control with no item in the
+        list reads its `saved` (the SERVER applies D3 level 2). `column` must
+        equal the control's column (422 `control_column`); an id that is not
+        a `values` control of that dashboard → 422 `unknown_control`; a
+        control that does not target the widget is ignored (D5 — a viewer
+        value reaches only the widgets its control targets). Without
+        `control` the item is the widget's OWN drawer filter. The export's
+        Filters sheet tells the two apart (D7).
+      properties:
+        column:
+          type: string
+          minLength: 1
+        values:
+          type: array
+          items:
+            type: [string, 'null']
+        control:
+          type: string
+          pattern: '^ctl_[0-9a-f]{8}$'
+          description: R199 — the `values` control this selection belongs to.
+
     DashboardRef:
       type: object
       required: [id, widgetId]
@@ -107,9 +144,11 @@ components:
       description: |
         R194 (D3 level 2, "dashboard"; BA contract-exit F1) — the dashboard and
         widget a read is made for. The SERVER reads the values saved on that
-        dashboard's controls that reach the widget (`controls`, kind `param`,
-        3.7b) — a client never asserts a "dashboard" value itself. Until 3.7b
-        adds controls the level is empty. A dashboard that does not exist or is
+        dashboard's controls that reach the widget (`controls`: kind `param`,
+        3.7b; `date_range`, R198; and R199 a `values` control's `saved`
+        selection, applied as a runtime filter unless the request carries a
+        `RuntimeFilter` with that `control`) — a client never asserts a
+        "dashboard" value itself. A dashboard that does not exist or is
         in another workspace than the query → 422 (validation envelope).
       properties:
         id:
@@ -1222,20 +1261,11 @@ components:
             one-of on an effective column BY NAME: keep rows whose `column`
             cell equals one of `values`. AND-composed across filters; a
             `null` value matches a NULL/empty cell (the `(blank)` option).
-            Empty / omitted when no dashboard filter is active.
+            Empty / omitted when no dashboard filter is active. R199 — an
+            item carrying `control` is a SHARED filter (`RuntimeFilter`).
           default: []
           items:
-            type: object
-            required: [column, values]
-            additionalProperties: false
-            properties:
-              column:
-                type: string
-                minLength: 1
-              values:
-                type: array
-                items:
-                  type: [string, 'null']
+            $ref: '#/components/schemas/RuntimeFilter'
 
         params:
           $ref: '#/components/schemas/ParamValues'
