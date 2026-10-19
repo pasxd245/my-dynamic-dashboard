@@ -1,6 +1,6 @@
 # Round 201: definition pack — export and import by name (item 4.8)
 
-**Status**: In Progress
+**Status**: Review
 **Flow**: **DFCFBI (triggers 1, 3, 4)** — set at the Design gate via `flow-selector` (see Do).
 **Date started**: 2026-10-19
 **Date completed**: —
@@ -551,52 +551,104 @@ guard empty. Parity loop **10 / 10** (QA-4).
 Visual gate: `scratchpad/r201/vis2/shots/` (22, the fix head) + `scratchpad/r201/vis3/shots/` (14,
 FIX2, 1366×768, EN + VI) + QA's `scratchpad/r201/qa/shots/`; dark N/A (no theme).
 
-- ⬜ BA · code review · QA — no open P0/P1 — **re-check of QA-4 / QA-1 / BA-F1 … F9 pending**
-  (code review PASS at b249f3a).
+- [x] BA · code review · QA — no open P0/P1: code review PASS (`b249f3a`; aggregate order, planHash,
+  QA-1 depth two re-checked at `5b8389e`: PASS); QA PASS at `5b8389e` (QA-1, QA-4 closed; parity 10/10,
+  two-install probe 83/83, widget parity byte-identical 3/3); BA re-check PASS at `5b8389e`
+  (BA-F1..F9 closed; BA-F10 P2 logged in § Act)
 
-**Walk script** (the owner's, on fake data — `coverage: 0 of 17` — W1–W17, W0 is the setup). _The BA pass 2 report's
-verbatim W-lines were not among the coder's inputs; this script is the coder's draft of the BA's
-W0–W17 with the three adjustments it named (W5, W11, W15) — the BA to reconcile on re-check._
+**Walk script** (the owner's, on fake data — `coverage: 0 of 17`, W1–W17; W0 is the setup). Final
+text from the BA re-check at `5b8389e` (the coder's draft reconciled; F1 items folded in).
 
-- ⬜ **W0** Setup: an install with "Acme demo" (two uploads `calls_demo`, `teams_demo`; its queries,
-  the workflows "All calls" / "Calls by team", the dashboard "Weekly" with its date range, Team
-  filter and note), "Acme copy" (the same two uploads, nothing else) and "Acme empty".
-- ⬜ **W1** Export Acme demo: one file `Acme demo-definitions-<today>.json`; the toast names what it
-  holds.
-- ⬜ **W2** Export Acme empty: no file downloads; "This workspace has no queries, dashboards or
-  workflows to export."
-- ⬜ **W3** Import into Acme copy, drop the file: the drop zone becomes one line (file · from "Acme
-  demo" · date · Choose another file); the plan appears without a click.
-- ⬜ **W4** The summary line, the decision alert right under it, then the rows (kind, name, action,
-  why) — readable at 1366×768 without scrolling to the decision.
-- ⬜ **W5** `team_totals` ◷: "published by workflow Calls by team: run it and publish it as
-  **team_totals**, then import this pack again"; its readers Deferred.
-- ⬜ **W6** Import: "Imported into Acme copy: 6 new, 2 deferred."; the Queries / Workflows /
-  Dashboards lists show them without a reload.
-- ⬜ **W7** In Acme copy run "All calls" and "Calls by team", publish the latter as `team_totals`;
-  import the pack again: the two deferred rows are New, the rest Unchanged; Acme copy's "Weekly"
-  reads like Acme demo's (date range, Team filter, note, bars, totals).
-- ⬜ **W8** Import the same pack a third time: "Nothing to import — everything here already matches
-  the pack."; no Import button.
-- ⬜ **W9** Change "North calls" in a copy of the pack; import into Acme demo with Don't import:
-  Conflict, the next step "choose Replace it or Keep mine above", Import disabled.
-- ⬜ **W10** Keep mine: the kept row says "kept as it is here (the pack's definition differs)" with no
-  warning; its readers warn "numbers may differ"; the Keep mine alert under the summary; (with a new
-  query in the pack) Import → "… 1 kept (Keep mine)".
-- ⬜ **W11** Replace it: the History / slug / outside-readers warning; **edit "North calls" in
-  another tab before clicking Import → "This workspace changed since the check", the new plan,
-  nothing written**; Import again → replaced; its History shows #2 over #1 (restorable).
-- ⬜ **W12** A pack dashboard renamed but keeping the address "weekly": "dashboard Weekly here already
-  uses the address “weekly”"; its own next step names both ways out; Keep mine → "left out …", and
-  the toast counts "1 left out (address taken here)", not kept.
-- ⬜ **W13** A pack query that cannot save here (a filter on a column the dataset lacks): "would not
-  save here: a column it uses is not in the dataset here, or has another type"; Details shows the
-  server's line.
-- ⬜ **W14** A pack whose `packVersion` is 2: "This pack was made by a newer version …"; no plan.
-- ⬜ **W15** A saved workspace's menu: **Delete only — no Export, no Import**.
-- ⬜ **W16** Delete a query a dashboard of Acme copy uses, then export Acme copy: "Fix these before
-  exporting" lists the widget.
-- ⬜ **W17** In VI: W4, W5, W10 and W12 read naturally ("Giữ bản ở đây" the one word for Keep mine).
+- ⬜ **W0 · Setup** — one install (a second install is covered by AC 3's test and QA's two-install
+  probe; not practical for a non-developer): the coder starts the app on a fresh isolated data root
+  seeded with the parity fixture — "Acme demo" (uploads `calls_demo`, `teams_demo`; queries Calls by
+  region, Calls in period, North calls, South calls, Team totals view; workflows All calls, Calls by
+  team; dashboard Weekly with its date range, Team filter, note), "Acme copy" (the same two uploads,
+  nothing else), "Acme empty", and a saved copy of Acme demo. The coder also hands over three fake
+  files: a `calls_demo` with two columns swapped, a pack with `"packVersion": 2`, and (optional) a
+  pack with one query filtering a column that does not exist. The default database stays untouched.
+- ⬜ **W1 · Export** — Acme demo card ⋯ → **Export definitions**: `Acme demo-definitions-<today's
+  date>.json` downloads; toast "Exported 5 queries, 1 dashboard and 2 workflows." Then Acme empty ⋯
+  → Export definitions: "This workspace has no queries, dashboards or workflows to export." and no
+  file downloads.
+- ⬜ **W2 · Import, the check** — Acme copy ⋯ → **Import definitions…**; title "Import definitions
+  into Acme copy"; drop the file: the drop zone becomes one line "… · from "Acme demo" · <date>" with
+  **Choose another file**; the plan appears without a click. Datasets needed: calls_demo found,
+  teams_demo found, team_totals "published by workflow Calls by team: run it and publish it as
+  **team_totals**, then import this pack again"; summary "6 new · 2 deferred"; button **Import 6
+  into Acme copy**. F1 (c): are the title and the button enough confirmation before writing many
+  definitions into this workspace?
+- ⬜ **W3 · The plan table** — scroll the rows: Team totals view **Deferred** "needs team_totals —
+  run workflow Calls by team and publish it as team_totals, then import this pack again"; All calls,
+  Calls by team **New**; Weekly **Deferred** "needs Team totals view, which is not imported now".
+  F1 (f): on your laptop screen, is the decision line under the summary visible without scrolling,
+  and is the row box acceptable?
+- ⬜ **W4 · Import** — click **Import 6 into Acme copy**: toast "Imported into Acme copy: 6 new, 2
+  deferred."; without a reload, Queries shows the 4 new queries, Workflows shows All calls and Calls
+  by team ("Not run yet"), Dashboards has no Weekly yet.
+- ⬜ **W5 · Run and publish** — in Acme copy run All calls, then Calls by team; **Publish** Calls by
+  team and type the name **team_totals** (the box suggests the workflow's own name — replace it).
+- ⬜ **W6 · Import again** — the same file into Acme copy: "2 new · 6 unchanged" → Import 2 → toast
+  "Imported into Acme copy: 2 new, 6 unchanged." Open Weekly in Acme copy and in Acme demo side by
+  side: same date range, Team filter, note, bars and totals table — same numbers, same row order;
+  reload once and the order stays.
+- ⬜ **W7 · A third time** — "Nothing to import — everything here already matches the pack."; no
+  Import button; North calls' History still shows only #1.
+- ⬜ **W8 · Conflict — Don't import if anything conflicts** — in Acme copy change North calls' filter
+  and edit Weekly's note; import the file: North calls **Conflict** "already here with a different
+  definition"; Weekly **Conflict** with a second line "also reads North calls, which conflicts too";
+  All calls **Can't import** "needs North calls, which is not imported now"; red alert under the
+  summary "Nothing is imported yet: North calls, Weekly: choose Replace it or Keep mine above";
+  **Import into Acme copy** disabled. F1 (a): do the three choices and the help line make clear what
+  Keep mine does to the pack's dashboards?
+- ⬜ **W9 · Keep mine** — select **Keep mine**: North calls and Weekly **Keep mine** "kept as it is
+  here (the pack's definition differs)", no warning on them; All calls **Unchanged** with "uses the
+  query North calls here, which differs from the pack — numbers may differ"; the blue Keep mine alert
+  under the summary; "Nothing to import — the rest already matches the pack; the rows marked Keep
+  mine stay as they are here."
+- ⬜ **W10 · Replace it** — select **Replace it**: the yellow warning names History, the address
+  (slug) and readers outside the pack; **Import 2 into Acme copy** → toast "Imported into Acme copy:
+  2 replaced, 6 unchanged."; North calls' History shows #2 Current over #1 (your edit, restorable);
+  Weekly's note is the pack's again.
+- ⬜ **W11 · Changed since the check** — change North calls' filter in Acme copy again; open the
+  import with **Replace it** (North calls **Replace**). Leave it open; in another tab edit North calls
+  once more; click Import: "This workspace changed since the check. Review the new plan." — nothing
+  written; click Import again → replaced. Repeat, this time deleting North calls in the other tab: the
+  new plan shows North calls **New**.
+- ⬜ **W12 · Address taken** — in Acme copy rename Weekly to "Weekly old" (its address stays
+  "weekly"); import the file: Weekly **Conflict** "dashboard Weekly old here already uses the address
+  "weekly""; alert "Weekly: change the address of dashboard Weekly old here, or of Weekly in the pack's
+  workspace and export again, then import again"; still blocked under **Replace it**; under **Keep
+  mine** the row reads "left out — dashboard Weekly old here already uses the address "weekly"" and
+  the alert ends "A dashboard whose address is taken here is left out." (the tag still reads Keep mine
+  — BA-F10, logged). Cancel; rename "Weekly old" back to Weekly.
+- ⬜ **W13 · Reads another dataset** — in Acme copy delete South calls and create a query named
+  "South calls" on teams_demo; import the file under each of the three choices: South calls
+  **Conflict** "here it reads another dataset — a query cannot change its dataset" every time,
+  Keep mine included; alert "South calls: rename or delete that query here, or rename it in the
+  pack's workspace and export again". Clean up: delete that query, import with **Replace it** —
+  South calls **New**.
+- ⬜ **W14 · Missing datasets, columns, files that can't be read** — import the file into Acme
+  empty: calls_demo and teams_demo "not in this workspace"; alert "load calls_demo, teams_demo into
+  Acme empty first (with the pack's columns)"; **Import into Acme empty** disabled. Upload the
+  swapped-columns calls_demo into Acme empty and check again: "columns differ — column N is … in the
+  pack, … here" — F1 (b): is that line enough to know what to fix? Choose another file → the
+  version-2 pack: "This pack can't be read · This pack was made by a newer version (pack version 2);
+  this one reads version 1."; any other .json: "This file is not a definitions pack." (Optional) the
+  broken-column pack into Acme copy: "would not save here: a column it uses is not in the dataset
+  here, or has another type", with the server's line under **Details**.
+- ⬜ **W15 · Saved workspace** — the saved copy's card ⋯ offers **Delete** only — no Export, no
+  Import (F1 (e), answered).
+- ⬜ **W16 · Export with a deleted query (do this last)** — in Acme copy delete a query that a Weekly
+  widget uses; Export Acme copy: "Fix these before exporting Acme copy" with "Dashboard Weekly ›
+  widget "…": its query was deleted."; no file downloads.
+- ⬜ **W17 · VI** — switch to VI and repeat W14's first check and W9: "Nhập định nghĩa vào …",
+  "Không nhập nếu có xung đột / Thay thế / Giữ bản ở đây", "Chưa nhập được gì:", team_totals "… hãy
+  chạy và xuất bản nó với tên **team_totals** …", the Keep mine row "giữ nguyên như ở đây (định nghĩa
+  trong gói khác)", toasts "Đã nhập vào …: … được giữ (Giữ bản ở đây)". F1 (d): are the raw type words
+  (integer, string) acceptable in the VI column-difference line?
+
+coverage: 0 of 17
 
 Carried from BA pass 1 (the F1 feel-check, verbatim) — now: (e) answered by BA-F5 (no Export on a
 saved workspace); (f) addressed by BA-F6 (the decision under the summary; checked at 1366×768):
@@ -612,6 +664,11 @@ saved workspace); (f) addressed by BA-F6 (the decision under the summary; checke
   `vis3/10_blocked_1366`.
 
 ## Act
+
+- **BA re-check P2 (logged)** — BA-F10: under Keep mine a dashboard left out because its address
+  is taken still shows the **Keep mine** tag and is counted in the summary's "N keep mine"
+  (`ImportDefinitionsModal.tsx:218-226`, `ACTION_COLOR`); its Why line and the toast say "left
+  out". The summary should count it the way `keptCounts` does. Trigger: next touch of the modal.
 
 **Owner questions** (BA pass 2, verbatim; they supersede pass 1's three, folded into 1–3):
 
