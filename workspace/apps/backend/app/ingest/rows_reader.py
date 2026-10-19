@@ -61,12 +61,24 @@ _ORD = "_mdd_row_ord"
 _FRN = "file_row_number"
 
 
-def _parquet_has_column(path: str, name: str) -> bool:
-    """Does the parquet file's schema carry a column ``name``? (Read from the
-    footer, so it also sees columns the dataset hides.)"""
+def _parquet_column_names(path: str) -> set[str]:
+    """The parquet file's column names, LOWER-CASED: DuckDB's binder matches names
+    case-insensitively, so `File_Row_Number` collides with `file_row_number`
+    (R199 CR-6b). Read from the footer, so hidden columns count too."""
     with duck.connect() as con:
         rows = con.execute("SELECT name FROM parquet_schema(?)", [path]).fetchall()
-    return any(r[0] == name for r in rows)
+    return {str(r[0]).lower() for r in rows}
+
+
+def _free_name(base: str, taken: set[str]) -> str:
+    """``base``, or ``base_2``, ``base_3``… — the first name no column has, compared
+    case-insensitively (R199 CR-7: a user column `_mdd_row_ord` must never be the
+    one an ``ORDER BY`` binds to)."""
+    name, n = base, 1
+    while name.lower() in taken:
+        n += 1
+        name = f"{base}_{n}"
+    return name
 
 
 def positional_parquet(path: str) -> tuple[str, str]:
@@ -78,15 +90,18 @@ def positional_parquet(path: str) -> tuple[str, str]:
     a USER column named ``file_row_number`` DuckDB 1.1.3 cannot add its own (no
     rename option, no ``rowid`` on a parquet scan), so the position is numbered
     by ``row_number() OVER ()`` over the BARE scan — no filter, join or aggregate
-    below the window — under the reserved ``_ORD`` name, and the user's column is
-    left as theirs. That numbering is the order the unfiltered scan emits, i.e.
+    below the window — under ``_ORD`` (or ``_ORD_2``… when the file already has
+    that name, any case — CR-7), and the user's column is left as theirs. The
+    collision check is case-insensitive like DuckDB's binder (CR-6b). That numbering is the order the unfiltered scan emits, i.e.
     the R172 dataset-scan behaviour ``test_paging_partitions`` guards at 400k rows;
     it is NOT the filtered-scan reliance CR-1 broke (the filter sits above the
     numbering, so it cannot reorder it). It is the weaker of the two, used only
     for that collision (R199 CR-6; guarded in ``test_shared_filter_paging``)."""
-    if not _parquet_has_column(path, _FRN):
+    names = _parquet_column_names(path)
+    if _FRN not in names:
         return f"read_parquet(?, {_FRN}=true)", _FRN
-    return f"(SELECT *, row_number() OVER () AS {_ORD} FROM read_parquet(?))", _ORD
+    order = _free_name(_ORD, names)
+    return f"(SELECT *, row_number() OVER () AS {_quote_ident(order)} FROM read_parquet(?))", order
 
 
 def _driving_relation_with_order(relation: "Relation") -> tuple["Relation", str]:
@@ -317,6 +332,7 @@ def build_joined_select(
     advanced: list[list[FilterPredicate]] | None = None,
     order_expr: str | None = None,
     name_filters: list[tuple[str, list[Any]]] | None = None,
+    order_alias: str = _ORD,
 ) -> tuple[str, list[Any]]:
     """Build the TYPED relational SELECT (no CAST, no pagination) producing a
     (possibly joined) query's rows under their EFFECTIVE column names, with the
@@ -347,7 +363,10 @@ def build_joined_select(
     # (and through the filter wrapper's `SELECT *`) so the PAGED caller can
     # `ORDER BY` it. It is never cast into the output: `query_joined_rows`
     # projects only the effective columns.
-    projected_exprs = [*select_exprs, f"{order_expr} AS {_ORD}"] if order_expr else list(select_exprs)
+    # R199 CR-7 — `order_alias` is a name no effective column has (case-insensitive).
+    projected_exprs = (
+        [*select_exprs, f"{order_expr} AS {_quote_ident(order_alias)}"] if order_expr else list(select_exprs)
+    )
     projected = f"SELECT {', '.join(projected_exprs)} FROM {from_clause}"
     # Apply the query's own filters at a level ABOVE the projection so they
     # reference the effective (collision-qualified) names the select_exprs alias.
@@ -920,6 +939,9 @@ def query_joined_rows(
     # slice of a differently-ordered relation.
     ordered_driving, order_expr = _driving_relation_with_order(relations[0])
     relations = [ordered_driving, *relations[1:]]
+    # R199 CR-7 — the order alias must not be a user column's name, or `ORDER BY`
+    # binds to theirs and the pages silently re-order.
+    order_alias = _free_name(_ORD, {c.lower() for c in effective_columns})
     inner_sql, inner_params = build_joined_select(
         relations,
         join_keys=join_keys,
@@ -930,6 +952,7 @@ def query_joined_rows(
         advanced=advanced,
         order_expr=order_expr,
         name_filters=name_filters,
+        order_alias=order_alias,
     )
     quoted_eff = [_quote_ident(c) for c in effective_columns]
     select_list = ", ".join(f"CAST({c} AS VARCHAR)" for c in quoted_eff)
@@ -938,7 +961,7 @@ def query_joined_rows(
     with duck.connect() as con:
         rows_sql = (
             f"WITH joined AS ({inner_sql}) SELECT {select_list} FROM joined "
-            f"ORDER BY {_ORD} LIMIT ? OFFSET ?"
+            f"ORDER BY {_quote_ident(order_alias)} LIMIT ? OFFSET ?"
         )
         page_rows = con.execute(rows_sql, [*inner_params, page_size, offset]).fetchall()
 

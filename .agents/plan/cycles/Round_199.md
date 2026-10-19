@@ -20,7 +20,7 @@
   first, in the column's own order, "First 1 000 values" when capped). The export's Filters sheet
   says which filter was the dashboard's (`dashboard filter Team · viewer | dashboard`) and which
   the widget's.
-- Backend 710 · builder 581 · contracts 50; BA (both passes) PASS, QA PASS, code review CHANGES →
+- Backend 722 · builder 581 · contracts 50; BA (both passes) PASS, QA PASS, code review CHANGES →
   two P1s fixed (CR-1, and CR-6 which the CR-1 fix introduced); the owner's walk W1–W17 is open.
 
 **Studied** _(predicted → saw → now believe)_ — predicted the hard part was the URL: a comma
@@ -127,7 +127,7 @@ _Track: 1 (product). Pulled by: release program item 4.3
       MSW, EN/VI; tests
 - [x] **I** — visual gate (light EN + VI; dark N/A — no theme)
 - [x] Reviews: code review + QA in parallel, then BA pass 2; every P0/P1 fixed (CR-1..CR-5
-      re-checked at `588104b`: closed, CR-6 raised and fixed; CR-6 re-check pending)
+      re-checked at `588104b`: closed, CR-6 raised; CR-6 / CR-6b / CR-7 fixed, re-check pending)
 
 ## Risks / unknowns
 
@@ -366,15 +366,33 @@ source` columns), visual gate light EN 6/6 · VI 6/6; 37 adversarial tests hande
   unfiltered and filtered with the user's header and no order column; `/values`; `/totals`);
   a joined query whose driving dataset has the column. All five collision tests fail on
   `588104b`. Backend 710, ruff clean.
+- **Code review re-check (`9c47dba`)**: the exact `file_row_number` header fixed on every path,
+  the fallback below the WHERE everywhere, the non-collision path unchanged, no leaks; fallback
+  emission order 0 mismatches at 400k and 4M rows with 2 / 8 / 32 threads. **CR-6 still open
+  (CR-6b):** the collision check compared names exactly while DuckDB's binder matches them
+  case-insensitively — a `File_Row_Number` / `FILE_ROW_NUMBER` header still gave 500 on `/rows`
+  with `q`, `/export`, `/values`, `/totals` and the joined driving source. **New CR-7 (P2):** a
+  file with both a `file_row_number` column and a user `_mdd_row_ord` (any case) got a duplicate
+  name and `ORDER BY "_mdd_row_ord"` bound to the user's column — pages silently re-ordered.
+- **Fix CR-6b / CR-7** — `_parquet_column_names` lower-cases the footer's names, so the
+  collision check is case-insensitive like the binder; `_free_name` picks the fallback order
+  column as `_mdd_row_ord`, else `_mdd_row_ord_2`, `_3`… — the first name no column has, compared
+  case-insensitively. The paged join's order **alias** (R172's `AS _mdd_row_ord` over the
+  effective columns) had the same shadowing risk on the same read and takes a free name the same
+  way. Tests (`test_shared_filter_paging.py`, now 21 cases): the reader paging guard with
+  `File_Row_Number`, with exact `file_row_number` + a scrambled user `_MDD_ROW_ORD` (CR-7 alone)
+  and with both; every HTTP path for `File_Row_Number` and for `FILE_ROW_NUMBER` +
+  `_Mdd_Row_Ord`; the joined query with `FILE_ROW_NUMBER` + a user `_mdd_row_ord` whose order
+  differs from the file's. All new cases fail on `9c47dba`. Backend 722, ruff clean.
 
 ## Check
 
-- [x] backend 710 · builder 581 · contracts 50 green; `tsc --noEmit`; `ruff check`; md / plan /
+- [x] backend 722 · builder 581 · contracts 50 green; `tsc --noEmit`; `ruff check`; md / plan /
       design lints 0; M3 guard over `468befe..HEAD` empty
 - [x] Visual gate: light (EN + VI) — coder's run (`scratchpad/r199/shots/`, 10) and QA's (EN 6/6 ·
       VI 6/6, `scratchpad/r199/qa-shots/`); dark N/A (no dark theme — owner)
 - [ ] BA (contract exit + after build) · code review · QA — no open P0/P1 — **CR re-check
-      pending** (CR-6 at the CR-6 fix; CR-1, 2, 4, 5 closed at `588104b`); BA pass 1 CHANGES →
+      pending** (CR-6b / CR-7 at their fix; CR-1, 2, 4, 5 closed at `588104b`); BA pass 1 CHANGES →
       folded (`e475f5d`), BA pass 2 PASS (conditional on CR-1), QA PASS, code review CHANGES →
       CR-1 fixed (`588104b`), CR-6 fixed
 - [x] ⟢ At a glance **Studied** line written
