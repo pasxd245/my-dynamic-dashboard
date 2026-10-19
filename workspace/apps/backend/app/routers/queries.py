@@ -22,7 +22,7 @@ import secrets
 import sqlite3
 from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, Query, Request, status
+from fastapi import APIRouter, Header, HTTPException, Query, Request, status
 from fastapi import Path as FastApiPath
 from fastapi.responses import JSONResponse, Response
 
@@ -74,6 +74,7 @@ from app.query_engine import (
     _validate_aggregate,
 )
 from app.saved_copies import read_only_refusal
+from app import history
 from app.metadata import sweep as metadata_sweep
 from app.routers._shared import RowsPage, _is_unique_violation, _now_iso
 from app.storage import dataset_dir
@@ -151,7 +152,11 @@ def _query_from_row(con: sqlite3.Connection, row: sqlite3.Row) -> QueryModel:
 
 
 @router.post("/workspaces/{id}/queries", status_code=status.HTTP_201_CREATED)
-def create_query(id: WsIdPath, body: CreateQueryBody) -> JSONResponse:  # noqa: A002
+def create_query(
+    id: WsIdPath,  # noqa: A002
+    body: CreateQueryBody,
+    authorization: Annotated[str | None, Header()] = None,
+) -> JSONResponse:
     """Save a query. The source dataset must exist AND belong to this
     workspace; the definition is validated against its current columns
     (a definition that can't run is rejected 422). Names are unique
@@ -203,6 +208,8 @@ def create_query(id: WsIdPath, body: CreateQueryBody) -> JSONResponse:  # noqa: 
                 "VALUES (?, ?, ?, ?, ?, ?)",
                 (qid, id, source_id, body.name, definition_json, created_at),
             )
+            # R200 (4.4) — the first history row, in the create's transaction.
+            history.record(con, "query", qid, definition_json, "create", history.writer_of(authorization), created_at)
             con.commit()
     except sqlite3.IntegrityError as err:
         if "idx_queries_name_unique" in str(err) or _is_unique_violation(err, "queries.name"):
@@ -895,7 +902,11 @@ def preview_query(  # noqa: A002
 
 
 @router.put("/queries/{id}")
-def update_query(id: QueryIdPath, body: UpdateQueryBody) -> JSONResponse:  # noqa: A002
+def update_query(
+    id: QueryIdPath,  # noqa: A002
+    body: UpdateQueryBody,
+    authorization: Annotated[str | None, Header()] = None,
+) -> JSONResponse:
     """R72 — UPDATE a saved query's DEFINITION (the construction surface's Save).
     The first mutate-existing path. Validate-on-save mirrors create: the new
     definition is checked against current columns / the edge (a join edge must
@@ -929,7 +940,16 @@ def update_query(id: QueryIdPath, body: UpdateQueryBody) -> JSONResponse:  # noq
 
     definition_json = json.dumps(body.definition.model_dump())
     with get_conn() as con:
+        # R200 (4.4) — the write lock first, so the definition compared is the one replaced.
+        con.execute("BEGIN IMMEDIATE")
+        old = con.execute("SELECT definition_json FROM queries WHERE id = ?", (id,)).fetchone()
+        if old is None:  # deleted between the validation read and this write
+            con.rollback()
+            return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=ApiErrorNotFound().model_dump())
         con.execute("UPDATE queries SET definition_json = ? WHERE id = ?", (definition_json, id))
+        history.record_if_changed(
+            con, "query", id, old["definition_json"], definition_json, history.writer_of(authorization), _now_iso()
+        )
         con.commit()
         updated = _query_from_row(con, con.execute(_SELECT_QUERY, (id,)).fetchone())
     return JSONResponse(status_code=status.HTTP_200_OK, content=updated.model_dump(exclude_none=True))
@@ -948,5 +968,6 @@ def delete_query(id: QueryIdPath) -> Response:  # noqa: A002
         con.execute("DELETE FROM queries WHERE id = ?", (id,))
         # R197 (3.8) — its metadata entries go with it (archived in metadata_entries_swept).
         metadata_sweep(con, _now_iso())
+        history.sweep(con)  # R200 (4.4) — and its definition history
         con.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)

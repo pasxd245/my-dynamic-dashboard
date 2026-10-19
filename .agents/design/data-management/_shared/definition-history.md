@@ -221,9 +221,9 @@ system`, BA-C4), of the `backend.metadata_tokens` entry whose token the request 
   unknown, so any source dataset ever refreshed (`dataVersion > 1`) counts. A source dataset
   that no longer exists counts as changed (the restore will be refused anyway). Computed on
   read, never stored.
-- `404 not_found` when the noun does not exist (deleted, never existed, or its kind is the
-  wrong prefix), or when the version is not in its history. A malformed id or version (not 12
-  hex) is FastAPI's `422`.
+- `404 not_found` when the noun does not exist (deleted, never existed), or when the version
+  is not in its history. A malformed id — including an id of another kind (`dsh_…` under
+  `/queries`) — or version (not 12 hex) is FastAPI's `422`.
 
 ### Restore (client)
 
@@ -309,8 +309,8 @@ Reading what an old version did in plain words is not part of it (owner question
    the `definitionVersion` a metadata note written at that moment records.
 7. **Reads** _(pytest)_ — the list is newest first by `seq` with `current` = the noun's version;
    the version read returns the stored definition; 404 for an unknown noun, a version not in
-   this noun's history (including another noun's version), and a `dsh_` id under `/queries`;
-   422 for a malformed version; the noun's own GET and the lists are byte-identical to before.
+   this noun's history (including another noun's version); 422 for a malformed version and
+   for a `dsh_` id under `/queries` (built: the id pattern refuses it before any lookup); the noun's own GET and the lists are byte-identical to before.
 8. **Who** _(pytest)_ — a create / update carrying a configured writer token records its
    `author` as `changedBy` and its `source` as `changedSource`; no token or an unknown token
    records `null` for both, a body field cannot set them; the save itself is never refused for a

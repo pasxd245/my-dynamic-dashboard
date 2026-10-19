@@ -26,7 +26,7 @@ import sqlite3
 from collections.abc import Callable
 from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Header, HTTPException, status
 from fastapi import Path as FastApiPath
 from fastapi.responses import JSONResponse, Response
 
@@ -43,6 +43,7 @@ from app.models.common import (
     UpdateDashboardBody,
 )
 from app.saved_copies import read_only_refusal
+from app import history
 from app.metadata import sweep as metadata_sweep
 from app.routers._shared import _now_iso
 
@@ -237,7 +238,11 @@ def _dashboard_from_row(row: sqlite3.Row) -> DashboardModel:
 
 
 @router.post("/workspaces/{id}/dashboards", status_code=status.HTTP_201_CREATED)
-def create_dashboard(id: WsIdPath, body: CreateDashboardBody) -> JSONResponse:  # noqa: A002
+def create_dashboard(
+    id: WsIdPath,  # noqa: A002
+    body: CreateDashboardBody,
+    authorization: Annotated[str | None, Header()] = None,
+) -> JSONResponse:
     """Create a dashboard. Every widget's query must exist in this workspace
     (422 otherwise). Name + slug are unique per-workspace (409 on collision)."""
     # R193 — nothing inside a saved workspace can be changed.
@@ -258,6 +263,10 @@ def create_dashboard(id: WsIdPath, body: CreateDashboardBody) -> JSONResponse:  
                 "(id, workspace_id, name, slug, definition_json, created_at) "
                 "VALUES (?, ?, ?, ?, ?, ?)",
                 (dsh_id, id, body.name, body.slug, definition_json, created_at),
+            )
+            # R200 (4.4) — the first history row, in the create's transaction.
+            history.record(
+                con, "dashboard", dsh_id, definition_json, "create", history.writer_of(authorization), created_at
             )
             con.commit()
     except sqlite3.IntegrityError as err:
@@ -303,7 +312,11 @@ def get_dashboard(id: DashboardIdPath) -> JSONResponse:  # noqa: A002
 
 
 @router.put("/dashboards/{id}")
-def update_dashboard(id: DashboardIdPath, body: UpdateDashboardBody) -> JSONResponse:  # noqa: A002
+def update_dashboard(
+    id: DashboardIdPath,  # noqa: A002
+    body: UpdateDashboardBody,
+    authorization: Annotated[str | None, Header()] = None,
+) -> JSONResponse:
     """Full-representation update of name + slug + definition (every FE mutation
     resends the whole dashboard). Same guards as create: widget queries must be
     in-workspace (422); name + slug unique per-workspace (409)."""
@@ -321,12 +334,22 @@ def update_dashboard(id: DashboardIdPath, body: UpdateDashboardBody) -> JSONResp
     definition_json = json.dumps(definition_dict)
     try:
         with get_conn() as con:
+            # R200 (4.4) — the write lock first, so the definition compared is the one replaced.
+            con.execute("BEGIN IMMEDIATE")
+            old = con.execute("SELECT definition_json FROM dashboards WHERE id = ?", (id,)).fetchone()
+            if old is None:  # deleted between the validation read and this write
+                con.rollback()
+                return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=ApiErrorNotFound().model_dump())
             con.execute(
                 "UPDATE dashboards SET name = ?, slug = ?, definition_json = ? WHERE id = ?",
                 (body.name, body.slug, definition_json, id),
             )
             # R197 (3.8) — a widget removed here takes its metadata entries with it.
             metadata_sweep(con, _now_iso())
+            # R200 (4.4) — a definition change (not a rename) writes one history row.
+            history.record_if_changed(
+                con, "dashboard", id, old["definition_json"], definition_json, history.writer_of(authorization), _now_iso()
+            )
             con.commit()
             updated = _dashboard_from_row(con.execute(_SELECT_DASHBOARD, (id,)).fetchone())
     except sqlite3.IntegrityError as err:
@@ -354,5 +377,6 @@ def delete_dashboard(id: DashboardIdPath) -> Response:  # noqa: A002
         con.execute("DELETE FROM dashboards WHERE id = ?", (id,))
         # R197 (3.8) — its metadata entries go with it (archived in metadata_entries_swept).
         metadata_sweep(con, _now_iso())
+        history.sweep(con)  # R200 (4.4) — and its definition history
         con.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)

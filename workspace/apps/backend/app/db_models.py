@@ -285,3 +285,33 @@ class MetadataEntrySwept(SQLModel, table=True):
     definition_version: str = Field(sa_column=Column(Text, nullable=False))
     anchor_json: str | None = Field(default=None, sa_column=Column(Text, nullable=True))
     swept_at: str = Field(sa_column=Column(Text, nullable=False))
+
+
+class DefinitionHistory(SQLModel, table=True):
+    """R200 (item 4.4) — one row per DEFINITION change of a query, dashboard or
+    workflow, written in the same transaction as the change (``app.history``).
+    ``seq`` is the row's own number per noun (from 1); ``version`` is the
+    definition's 12-hex hash (decision 14 — the value a metadata note records as
+    ``definitionVersion``); ``change`` is ``create`` / ``update`` / ``baseline``
+    (the definition a noun had when 0011 seeded the history). ``changed_by`` /
+    ``changed_source`` are a writer token's ``author`` / ``source`` (NULL when the
+    change carried none). No FK: the three kinds live in three tables; a deleted
+    noun's rows are swept with it."""
+
+    __tablename__ = "definition_history"
+    __table_args__ = (
+        CheckConstraint("kind IN ('query', 'dashboard', 'workflow')"),
+        CheckConstraint("seq >= 1"),
+        CheckConstraint("change IN ('create', 'update', 'baseline')"),
+        CheckConstraint("changed_source IN ('ai', 'human', 'system')"),
+    )
+
+    kind: str = Field(sa_column=Column(Text, primary_key=True))
+    noun_id: str = Field(sa_column=Column(Text, primary_key=True))
+    seq: int = Field(sa_column=Column(Integer, primary_key=True, autoincrement=False))
+    version: str = Field(sa_column=Column(Text, nullable=False))
+    definition_json: str = Field(sa_column=Column(Text, nullable=False))
+    change: str = Field(sa_column=Column(Text, nullable=False))
+    changed_at: str = Field(sa_column=Column(Text, nullable=False))
+    changed_by: str | None = Field(default=None, sa_column=Column(Text, nullable=True))
+    changed_source: str | None = Field(default=None, sa_column=Column(Text, nullable=True))

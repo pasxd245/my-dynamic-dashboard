@@ -66,6 +66,7 @@ from app.models.common import (
     ParseOptions,
 )
 from app.saved_copies import read_only_refusal
+from app import history
 from app.metadata import sweep as metadata_sweep
 from app.routers._shared import (
     RowsPage,
@@ -1312,6 +1313,7 @@ def delete_dataset(id: DsIdPath) -> Response:  # noqa: A002
         con.execute("DELETE FROM datasets WHERE id = ?", (id,))
         # R197 (3.8) — its metadata entries go with it (archived in metadata_entries_swept).
         metadata_sweep(con, _now_iso())
+        history.sweep(con)  # R200 (4.4) — the removed nouns' definition history too
         con.commit()
 
     # Filesystem cleanup AFTER the DB commit. A failure here leaks a

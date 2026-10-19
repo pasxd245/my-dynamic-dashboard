@@ -162,6 +162,19 @@ CREATE TABLE IF NOT EXISTS metadata_entries_swept (
     anchor_json TEXT,
     swept_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS definition_history (
+    kind TEXT NOT NULL CHECK (kind IN ('query', 'dashboard', 'workflow')),
+    noun_id TEXT NOT NULL,
+    seq INTEGER NOT NULL CHECK (seq >= 1),
+    version TEXT NOT NULL,
+    definition_json TEXT NOT NULL,
+    change TEXT NOT NULL CHECK (change IN ('create', 'update', 'baseline')),
+    changed_at TEXT NOT NULL,
+    changed_by TEXT,
+    changed_source TEXT CHECK (changed_source IN ('ai', 'human', 'system')),
+    PRIMARY KEY (kind, noun_id, seq)
+);
 """
 
 _R25_UNIQUE_INDEXES = """
@@ -174,7 +187,10 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_datasets_published_unique
     ON datasets(workspace_id, published_workflow_id);
 """
 
-_TABLES = ("workspaces", "datasets", "queries", "relationships", "dashboards", "workflows", "metadata_entries")
+_TABLES = (
+    "workspaces", "datasets", "queries", "relationships", "dashboards", "workflows", "metadata_entries",
+    "definition_history",
+)
 _IGNORED_TABLES = {"alembic_version", "sqlite_sequence"}
 
 
@@ -318,7 +334,7 @@ def _introspect_models(tmp_path: Path) -> dict:
 def test_migration_leaves_alembic_version(tmp_path: Path, _restore_db_path):
     """The migrated DB is genuinely versioned (so subsequent boots take the
     fast versioned path). R88 collapsed history to `0001_baseline`; R197's
-    `0010_metadata_anchor` is the head."""
+    `0010_metadata_anchor` was the head; R200's `0011_definition_history` is."""
     migrated_path = tmp_path / "versioned.sqlite"
     db.set_db_path(migrated_path)
     db.run_startup_migrations()
@@ -328,4 +344,4 @@ def test_migration_leaves_alembic_version(tmp_path: Path, _restore_db_path):
         version = con.execute("SELECT version_num FROM alembic_version").fetchone()
     finally:
         con.close()
-    assert version is not None and version[0] == "0010_metadata_anchor"
+    assert version is not None and version[0] == "0011_definition_history"

@@ -36,6 +36,7 @@ import sqlite3
 from dataclasses import dataclass
 
 from app import data_versions
+from app._config import CONFIG
 from app import params as qparams
 from app.markdown_safe import markdown_problems
 
@@ -70,6 +71,20 @@ def _strip_none(v: object) -> object:
 def _version(payload: object) -> str:
     raw = json.dumps(_strip_none(payload), sort_keys=True, separators=(",", ":"), ensure_ascii=False)
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:12]
+
+
+def token_for(authorization: str | None):
+    """The configured writer token (`backend.metadata_tokens`) an
+    `Authorization: Bearer <token>` header names, or None (no header, not a
+    bearer header, an unknown token). R180 metadata writes are gated by it; R200
+    definition-history rows are only LABELLED with its author / source."""
+    if not authorization or not authorization.lower().startswith("bearer "):
+        return None
+    secret = authorization[7:].strip()
+    for tok in CONFIG.settings.backend.metadata_tokens:
+        if tok.token == secret:
+            return tok
+    return None
 
 
 def definition_version(definition: object) -> str:

@@ -31,7 +31,6 @@ from fastapi import APIRouter, Header, Path, Request, status
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, ConfigDict, Field
 
-from app._config import CONFIG
 from app.db import get_conn
 from app import params as qparams
 from app.metadata import (
@@ -43,6 +42,7 @@ from app.metadata import (
     entries_for,
     entry_dict,
     resolve_noun,
+    token_for,
     validate_entry,
 )
 from app.models.common import ApiErrorForbidden, ApiErrorMetadataInvalid, ApiErrorNotFound, ApiErrorUnauthorized
@@ -67,13 +67,9 @@ class MetadataWriteBody(BaseModel):
 
 
 def _token_for(authorization: str | None):
-    if not authorization or not authorization.lower().startswith("bearer "):
-        return None
-    secret = authorization[7:].strip()
-    for tok in CONFIG.settings.backend.metadata_tokens:
-        if tok.token == secret:
-            return tok
-    return None
+    # R200 — one lookup for every reader of the writer tokens (`app.metadata.token_for`;
+    # the definition history labels a change with the same token's author).
+    return token_for(authorization)
 
 
 def _not_found() -> JSONResponse:

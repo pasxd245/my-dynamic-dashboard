@@ -27,6 +27,7 @@ from app.models.common import (
     ApiErrorNotFound,
     Workspace,
 )
+from app import history
 from app.metadata import sweep as metadata_sweep
 from app.routers._shared import _dataset_from_row, _is_unique_violation, _now_iso
 from app.saved_copies import (
@@ -206,6 +207,7 @@ def delete_workspace(id: WsIdPath) -> Response:  # noqa: A002
         con.execute(f"DELETE FROM workspaces WHERE id IN ({marks})", scope)  # noqa: S608 — placeholders only
         # R197 (3.8) — every noun of the workspace took its metadata entries with it.
         metadata_sweep(con, _now_iso())
+        history.sweep(con)  # R200 (4.4) — the removed nouns' definition history too
         con.commit()
 
     return Response(status_code=status.HTTP_204_NO_CONTENT)

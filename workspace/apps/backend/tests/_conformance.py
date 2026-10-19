@@ -65,14 +65,22 @@ def _inline(node: Any, base_dir: Path, doc: dict[str, Any]) -> Any:
 
 
 def load_response_schema(
-    contract_rel_path: str, status_code: int | str, content_type: str = "application/json"
+    contract_rel_path: str,
+    status_code: int | str,
+    content_type: str = "application/json",
+    route: str | None = None,
 ) -> dict[str, Any]:
     path = contract_path(contract_rel_path)
     doc = _load_yaml(path)
     inlined = _inline(doc, path.parent, doc)
     paths = inlined["paths"]
     # OpenAPI: each `paths.<route>.<method>.responses["NNN"].content.<ct>.schema`
-    ((_route, route_obj),) = paths.items()
+    # R200 — a contract with several paths (the history list + version reads)
+    # names the one to check; a one-path contract needs no name.
+    if route is not None:
+        route_obj = paths[route]
+    else:
+        ((_route, route_obj),) = paths.items()
     ((_method, method_obj),) = (
         (m, mo) for m, mo in route_obj.items() if m in {"get", "post", "put", "delete", "patch"}
     )
@@ -86,6 +94,7 @@ def validate_response(
     body: Any,
     *,
     content_type: str = "application/json",
+    route: str | None = None,
 ) -> None:
-    schema = load_response_schema(contract_rel_path, status_code, content_type)
+    schema = load_response_schema(contract_rel_path, status_code, content_type, route)
     Draft202012Validator(schema).validate(body)

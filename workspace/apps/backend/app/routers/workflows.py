@@ -29,7 +29,7 @@ from typing import Annotated
 
 import pyarrow.parquet as pq
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, Header, HTTPException, Query, status
 from fastapi import Path as FastApiPath
 from fastapi.responses import JSONResponse, Response
 
@@ -54,6 +54,7 @@ from app.models.common import (
     WorkflowRun,
     WorkflowStaleSource,
 )
+from app import history
 from app.metadata import definition_version
 from app.metadata import sweep as metadata_sweep
 from app.workflow_runs import new_run_id, stale_sources, stamp_sources
@@ -165,7 +166,11 @@ def _validate_consolidation(con: sqlite3.Connection, sources: list[str], workspa
 
 
 @router.post("/workspaces/{id}/workflows", status_code=status.HTTP_201_CREATED)
-def create_workflow(id: WsIdPath, body: CreateWorkflowBody) -> JSONResponse:  # noqa: A002
+def create_workflow(
+    id: WsIdPath,  # noqa: A002
+    body: CreateWorkflowBody,
+    authorization: Annotated[str | None, Header()] = None,
+) -> JSONResponse:
     """Save a workflow. Every source query must exist AND belong to this
     workspace (else 422). Names are unique per workspace."""
     # R193 — nothing inside a saved workspace can be changed.
@@ -185,6 +190,8 @@ def create_workflow(id: WsIdPath, body: CreateWorkflowBody) -> JSONResponse:  # 
                 "INSERT INTO workflows (id, workspace_id, name, definition_json, created_at) VALUES (?, ?, ?, ?, ?)",
                 (wid, id, body.name, definition_json, created_at),
             )
+            # R200 (4.4) — the first history row, in the create's transaction.
+            history.record(con, "workflow", wid, definition_json, "create", history.writer_of(authorization), created_at)
             con.commit()
     except sqlite3.IntegrityError as err:
         if "idx_workflows_name_unique" in str(err) or _is_unique_violation(err, "workflows.name"):
@@ -219,7 +226,11 @@ def get_workflow(id: WfIdPath) -> JSONResponse:  # noqa: A002
 
 
 @router.put("/workflows/{id}")
-def update_workflow(id: WfIdPath, body: UpdateWorkflowBody) -> JSONResponse:  # noqa: A002
+def update_workflow(
+    id: WfIdPath,  # noqa: A002
+    body: UpdateWorkflowBody,
+    authorization: Annotated[str | None, Header()] = None,
+) -> JSONResponse:
     """Edit a saved workflow's name + definition. Every source must still exist in
     the workspace (422); names stay unique per workspace (409). Changing the
     DEFINITION invalidates the materialized output (the frozen result no longer
@@ -237,9 +248,15 @@ def update_workflow(id: WfIdPath, body: UpdateWorkflowBody) -> JSONResponse:  # 
         _validate_consolidation(con, list(body.definition.sources), row["workspace_id"])
 
         new_definition = body.definition.model_dump()
-        definition_changed = new_definition != json.loads(row["definition_json"])
         definition_json = json.dumps(new_definition)
         try:
+            # R200 (4.4) — the write lock first, so the definition compared is the one replaced.
+            con.execute("BEGIN IMMEDIATE")
+            old = con.execute("SELECT definition_json FROM workflows WHERE id = ?", (id,)).fetchone()
+            if old is None:  # deleted between the validation read and this write
+                con.rollback()
+                return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content=ApiErrorNotFound().model_dump())
+            definition_changed = new_definition != json.loads(old["definition_json"])
             if definition_changed:
                 # Invalidate the stale materialized output — must re-run.
                 # R187 — the run stamp goes with the output; the counter stays.
@@ -254,6 +271,10 @@ def update_workflow(id: WfIdPath, body: UpdateWorkflowBody) -> JSONResponse:  # 
                     "UPDATE workflows SET name = ?, definition_json = ? WHERE id = ?",
                     (body.name, definition_json, id),
                 )
+            # R200 (4.4) — a definition change (not a rename) writes one history row.
+            history.record_if_changed(
+                con, "workflow", id, old["definition_json"], definition_json, history.writer_of(authorization), _now_iso()
+            )
             con.commit()
         except sqlite3.IntegrityError as err:
             if "idx_workflows_name_unique" in str(err) or _is_unique_violation(err, "workflows.name"):
@@ -277,6 +298,7 @@ def delete_workflow(id: WfIdPath) -> Response:  # noqa: A002
         con.execute("DELETE FROM workflows WHERE id = ?", (id,))
         # R197 (3.8) — its metadata entries go with it (archived in metadata_entries_swept).
         metadata_sweep(con, _now_iso())
+        history.sweep(con)  # R200 (4.4) — and its definition history
         con.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 

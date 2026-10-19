@@ -68,7 +68,7 @@ paths:
                           changedSource: null,
                         }
         '404':
-          description: No such workflow (never existed, deleted, or an id of another kind).
+          description: No such workflow (never existed, or deleted). An id of another kind is a malformed id (422).
           content:
             application/json:
               schema:
@@ -77,7 +77,7 @@ paths:
                 missing:
                   value: { code: not_found }
         '422':
-          description: A malformed id (FastAPI validation envelope).
+          description: A malformed id, including an id of another kind (FastAPI validation envelope).
           content:
             application/json:
               schema:

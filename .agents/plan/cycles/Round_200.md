@@ -75,7 +75,7 @@ baseline}`; `changed_by` / `changed_source` nullable (BA-C4). The upgrade seeds 
       § Versions (history line); `flow-selector`; `ux-design` design-spec on the drawer
 - [ ] **C** — `_shared/history.yaml`, three `history-get` route contracts, the writer token on
       six create / update contracts. **BA pass 1 at Contract exit.**
-- [ ] **B** — migration 0011 + model + parity; `app/history.py` (record, sweep, list, read);
+- [x] **B** — migration 0011 + model + parity; `app/history.py` (record, sweep, list, read);
       the writes in the six routes; the sweep beside every metadata sweep; the six GET routes;
       tests (incl. upgrade → downgrade -1 → upgrade on a populated database)
 - [ ] **F** — `historyApi`, hooks, `DefinitionHistoryDrawer`, the three pages, MSW, EN/VI; tests
@@ -229,6 +229,43 @@ baseline`), `HistoryEntry` `{seq, version, change, changedAt, changedBy}` (`chan
   version, `WriterToken` without a pattern); the three route examples (`report-agent`,
   `changedSource`, `sourceChangedSince`); the rationale; the program table row and two
   rolling-log rows. Contracts 53 green.
+
+### B
+
+- **B** — `alembic/versions/0011_definition_history.py` (the table; one `baseline` per existing
+  query / dashboard / workflow with the migration's own copy of the hash; the downgrade drops
+  the table) + `db_models.DefinitionHistory` + the parity test's legacy schema, `_TABLES` and
+  head (`0011`). New `app/history.py`: `record` (`seq = COALESCE(MAX(seq), 0) + 1` in one
+  `INSERT … SELECT`), `record_if_changed` (by `definition_version`, so a rename or a re-save
+  writes nothing), `writer_of` (author + source of the R180 token — the lookup moved to
+  `app.metadata.token_for`, the metadata router calls it), `sweep` (orphan rows of the three
+  kinds), `entries` (`ORDER BY seq DESC`), `version_row` (newest row with the hash),
+  `source_changed_since` (BA-C2: the stored definition's `ds_` source and used join ends, a
+  `qr_` through its current definition; `refreshed_at > changed_at`; a baseline counts any
+  `data_version > 1`; a missing dataset counts). The six create / update routes record in the
+  noun's own transaction — the three PUTs open `BEGIN IMMEDIATE` and re-read the stored
+  definition under the write lock before comparing; every delete path that runs
+  `metadata.sweep` (query, dashboard, workflow, dataset, workspace) runs `history.sweep` beside
+  it. New `routers/history.py` (six GETs; 404 `not_found` for a missing noun / version; an id of
+  another kind fails the path pattern → 422 — the design and the three contracts said 404 for
+  that case and are corrected). `tests/_conformance.py` takes an optional `route` (the history
+  contracts carry two paths). `tests/test_definition_history.py` (14): C1 create → #1 per kind;
+  C2/C3 one row per change, none for a rename or an unchanged re-save; C4 a 422 / 409 / 404
+  writes none; C5/C6 restore → #3 with #1's hash, the version read answers #3, a note anchored
+  to #1 reads `other_definition` then `current` again; every row's version is its definition's
+  hash; C7 order, 404s (unknown noun, unknown / another noun's version), 422 (wrong prefix,
+  malformed version); C8 token → `report-agent` / `ai`, unknown or malformed token → null and
+  the save lands, a body `changedBy` → 422; C9 `sourceChangedSince` false → true after a refresh,
+  absent on dashboard / workflow versions, baseline + missing source, join ends; C10 every
+  delete path sweeps exactly the removed nouns' rows; C11 0011 on a populated 0010 database
+  (baselines with the app's hash, nouns byte-identical across downgrade and re-upgrade) and the
+  migration's hash copy pinned to the app's. Backend **736** green (722 + 14), ruff clean.
+- **Migration probe (QA's check, run by the coder)** — an isolated root
+  (`scratchpad/r200/probe-0011`, asserted empty and used as the app's data dir): fake "Acme
+  probe" data written through the real app (a dataset, a query edited 3×, a dashboard edited
+  once, a workflow → 7 history rows), then the alembic CLI: `downgrade -1` → `0010`, table gone;
+  `upgrade head` → `0011`, three `baseline` rows; the nouns' rows hash-identical across all three
+  states; `PRAGMA foreign_key_check` empty.
 
 ## Check
 
