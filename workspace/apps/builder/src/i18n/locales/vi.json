@@ -271,7 +271,111 @@
     "blockedDeleteGotIt": "Đã hiểu",
     "blockedDeleteBody_one": "<strong>{{name}}</strong> đang có {{count}} tập dữ liệu.",
     "blockedDeleteBody_other": "<strong>{{name}}</strong> có {{count}} tập dữ liệu.",
-    "blockedDeleteHint": "Hãy xóa hoặc chuyển các tập dữ liệu đó sang không gian khác trước."
+    "blockedDeleteHint": "Hãy xóa hoặc chuyển các tập dữ liệu đó sang không gian khác trước.",
+    "pack": {
+      "exportAction": "Xuất định nghĩa",
+      "importAction": "Nhập định nghĩa…",
+      "exported": "Đã xuất {{queries}}, {{dashboards}} và {{workflows}}.",
+      "nQueries_one": "{{count}} truy vấn",
+      "nQueries_other": "{{count}} truy vấn",
+      "nDashboards_one": "{{count}} bảng điều khiển",
+      "nDashboards_other": "{{count}} bảng điều khiển",
+      "nWorkflows_one": "{{count}} quy trình",
+      "nWorkflows_other": "{{count}} quy trình",
+      "exportEmpty": "Không gian làm việc này không có truy vấn, bảng điều khiển hay quy trình nào để xuất.",
+      "exportCouldnt": "Không xuất được định nghĩa: {{error}}",
+      "unresolvedTitle": "Hãy sửa những mục này trước khi xuất {{name}}",
+      "unresolvedIntro": "Các định nghĩa này trỏ tới thứ đã bị xoá. Xuất chúng sẽ tạo ra một gói nhập vào thành thứ khác. Hãy xoá hoặc sửa chúng rồi xuất lại.",
+      "unresolvedOk": "Đã hiểu",
+      "unresolved": {
+        "query_missing": "Bảng điều khiển {{name}} › tiện ích “{{ref}}”: truy vấn của nó đã bị xoá.",
+        "source_missing": "Quy trình {{name}}: một nguồn của nó đã bị xoá.",
+        "dataset_missing": "Truy vấn {{name}}: một tập dữ liệu nó nối tới đã bị xoá."
+      },
+      "importTitle": "Nhập định nghĩa vào {{name}}",
+      "importIntro": "Đưa vào các truy vấn, bảng điều khiển và quy trình đã xuất từ một không gian làm việc khác. Dữ liệu không được nhập: các tập dữ liệu chúng đọc phải có sẵn ở đây, cùng tên và cùng các cột.",
+      "dropHint": "Thả tệp định nghĩa (.json) vào đây, hoặc bấm để chọn",
+      "fileLine": "{{file}} · từ “{{workspace}}” · {{date}}",
+      "notAPack": "Tệp này không phải là gói định nghĩa.",
+      "fileTooLarge": "Tệp này lớn hơn {{mb}} MB.",
+      "conflictLabel": "Nếu một tên đã có ở đây:",
+      "conflict": {
+        "refuse": "Dừng",
+        "replace": "Thay thế",
+        "skip": "Giữ bản ở đây"
+      },
+      "conflictHelp": "Dừng: không nhập gì khi một tên ở đây có định nghĩa khác. Thay thế: định nghĩa trong gói được lưu đè lên. Giữ bản ở đây: tên đó được giữ nguyên như ở đây.",
+      "checking": "Đang đối chiếu gói với không gian làm việc này…",
+      "datasetsNeeded": "Tập dữ liệu cần có",
+      "datasetFound": "có",
+      "datasetMissing": "không có trong không gian làm việc này",
+      "emptyPack": "Gói không có định nghĩa nào.",
+      "count": {
+        "create_one": "{{count}} mới",
+        "create_other": "{{count}} mới",
+        "replace_one": "{{count}} thay thế",
+        "replace_other": "{{count}} thay thế",
+        "unchanged_one": "{{count}} không đổi",
+        "unchanged_other": "{{count}} không đổi",
+        "skip_one": "{{count}} bỏ qua",
+        "skip_other": "{{count}} bỏ qua",
+        "conflict_one": "{{count}} xung đột",
+        "conflict_other": "{{count}} xung đột",
+        "invalid_one": "{{count}} không nhập được",
+        "invalid_other": "{{count}} không nhập được"
+      },
+      "col": {
+        "kind": "Loại",
+        "name": "Tên",
+        "action": "Thao tác",
+        "why": "Lý do"
+      },
+      "kind": {
+        "query": "Truy vấn",
+        "workflow": "Quy trình",
+        "dashboard": "Bảng điều khiển",
+        "dataset": "Tập dữ liệu"
+      },
+      "action": {
+        "create": "Mới",
+        "replace": "Thay thế",
+        "unchanged": "Không đổi",
+        "skip": "Bỏ qua",
+        "conflict": "Xung đột",
+        "invalid": "Không nhập được"
+      },
+      "reason": {
+        "exists": "đã có ở đây với định nghĩa khác",
+        "source_differs": "ở đây nó đọc một tập dữ liệu khác — truy vấn không thể đổi tập dữ liệu",
+        "slug_taken": "một bảng điều khiển khác ở đây đang dùng địa chỉ “{{detail}}”",
+        "dataset_missing": "cần tập dữ liệu {{detail}}, không có trong không gian làm việc này",
+        "columns_differ": "tập dữ liệu {{detail}} ở đây có các cột khác",
+        "needs": "cần {{detail}}, mục này không nhập được",
+        "check_failed": "không lưu được: {{detail}}"
+      },
+      "importN_one": "Nhập {{count}}",
+      "importN_other": "Nhập {{count}}",
+      "nothingToImport": "Không có gì để nhập — mọi thứ ở đây đã khớp với gói.",
+      "replaceWarning": "Thay thế sẽ lưu định nghĩa trong gói thành một phiên bản mới; bản hiện tại vẫn nằm trong Lịch sử của nó và có thể khôi phục.",
+      "blocked": "Chưa nhập được gì cho tới khi các dòng Xung đột hoặc Không nhập được ở trên, và các tập dữ liệu đánh dấu ✗, được giải quyết.",
+      "changedSinceCheck": "Không gian làm việc này đã thay đổi kể từ lần đối chiếu. Hãy xem lại kế hoạch mới.",
+      "requestFailed": "Không đối chiếu hoặc nhập được gói",
+      "imported": "Đã nhập vào {{name}}: {{created}} mới, {{replaced}} thay thế, {{unchanged}} không đổi.",
+      "invalid": {
+        "title": "Không đọc được gói này",
+        "version": "Gói này được tạo bởi phiên bản mới hơn (phiên bản gói {{found}}); bản này đọc phiên bản {{supported}}.",
+        "tooLarge": "Gói lớn hơn {{mb}} MB hoặc có hơn 1 000 định nghĩa.",
+        "duplicate": "Hai mục {{kind}} trong gói cùng tên {{name}}.",
+        "duplicateSlug": "Hai bảng điều khiển trong gói dùng cùng địa chỉ “{{slug}}”.",
+        "reference": "{{kind}} {{name}} nhắc tới {{refKind}} {{ref}}, mục này không có trong gói.",
+        "cycle": "Các quy trình {{names}} đọc lẫn nhau."
+      },
+      "columnsDiffer": {
+        "changed": "các cột khác nhau — cột {{n}} trong gói là {{expected}}, ở đây là {{found}}",
+        "missing": "các cột khác nhau — cột {{n}}, {{expected}}, không có ở đây",
+        "extra": "các cột khác nhau — cột {{n}} ở đây, {{found}}, không có trong gói"
+      }
+    }
   },
   "datasets": {
     "savedCopy": {

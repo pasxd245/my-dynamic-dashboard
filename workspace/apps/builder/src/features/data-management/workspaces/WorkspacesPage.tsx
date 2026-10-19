@@ -1,10 +1,12 @@
 import {
   AppstoreOutlined,
   DeleteOutlined,
+  DownloadOutlined,
   EditOutlined,
   MoreOutlined,
   PlusOutlined,
   ShareAltOutlined,
+  UploadOutlined,
 } from '@ant-design/icons';
 import { PageCard, PageContainer, PageHeader } from '@mdd/ui';
 import {
@@ -41,6 +43,8 @@ import {
   useWorkspacesQuery,
 } from './hooks';
 import type { Workspace } from './types';
+import { ImportDefinitionsModal } from './definitionPack/ImportDefinitionsModal';
+import { useExportDefinitions } from './definitionPack/useExportDefinitions';
 
 /**
  * R13: TanStack Query against the real backend (`GET/POST /workspaces`).
@@ -63,6 +67,8 @@ function WorkspaceCard({
   onRelationships,
   onRename,
   onDelete,
+  onExport,
+  onImport,
   parentName,
 }: Readonly<{
   workspace: Workspace;
@@ -72,6 +78,10 @@ function WorkspaceCard({
   onRelationships: (id: string) => void;
   onRename: (ws: Workspace) => void;
   onDelete: (ws: Workspace) => void;
+  /** R201 (4.8) — download the workspace's definition pack. */
+  onExport: (ws: Workspace) => void;
+  /** R201 (4.8) — import a pack into this (main) workspace. */
+  onImport: (ws: Workspace) => void;
 }>) {
   const { t } = useTranslation();
   const { token } = theme.useToken();
@@ -105,10 +115,20 @@ function WorkspaceCard({
       <div style={{ position: 'absolute', top: 12, right: 12, zIndex: 1 }}>
         <Dropdown
           menu={{
-            // R193 — a saved (frozen-copies) workspace is read-only: Delete only.
+            // R193 — a saved (frozen-copies) workspace is read-only: Delete only
+            // (R201 — and Export definitions, a read).
             items:
               workspace.kind === 'saved'
                 ? [
+                    {
+                      key: 'export-definitions',
+                      icon: <DownloadOutlined />,
+                      label: t('workspaces.pack.exportAction'),
+                      onClick: ({ domEvent }) => {
+                        domEvent.stopPropagation();
+                        onExport(workspace);
+                      },
+                    },
                     {
                       key: 'delete',
                       icon: <DeleteOutlined />,
@@ -128,6 +148,24 @@ function WorkspaceCard({
                       onClick: ({ domEvent }) => {
                         domEvent.stopPropagation();
                         onRelationships(workspace.id);
+                      },
+                    },
+                    {
+                      key: 'export-definitions',
+                      icon: <DownloadOutlined />,
+                      label: t('workspaces.pack.exportAction'),
+                      onClick: ({ domEvent }) => {
+                        domEvent.stopPropagation();
+                        onExport(workspace);
+                      },
+                    },
+                    {
+                      key: 'import-definitions',
+                      icon: <UploadOutlined />,
+                      label: t('workspaces.pack.importAction'),
+                      onClick: ({ domEvent }) => {
+                        domEvent.stopPropagation();
+                        onImport(workspace);
                       },
                     },
                     {
@@ -270,6 +308,9 @@ export function WorkspacesPage() {
   ];
   const [createOpen, setCreateOpen] = useState(false);
   const [modalState, setModalState] = useState<ModalState>({ kind: 'idle' });
+  // R201 (4.8) — the definition pack: export downloads, import opens its modal.
+  const { exportDefinitions, exportModal } = useExportDefinitions();
+  const [importTarget, setImportTarget] = useState<Workspace | null>(null);
 
   const renameMutation = useRenameWorkspaceMutation();
   const deleteMutation = useDeleteWorkspaceMutation();
@@ -429,6 +470,8 @@ export function WorkspacesPage() {
               onRelationships={(id) => navigate(`/data-management/workspaces/${encodeURIComponent(id)}/relationships`)}
               onRename={onRename}
               onDelete={onDelete}
+              onExport={exportDefinitions}
+              onImport={setImportTarget}
             />
           </Col>
         ))}
@@ -467,6 +510,8 @@ export function WorkspacesPage() {
         open={modalState.kind === 'blocked'}
         onClose={closeModal}
       />
+      {exportModal}
+      <ImportDefinitionsModal workspace={importTarget} onClose={() => setImportTarget(null)} />
     </PageContainer>
   );
 }

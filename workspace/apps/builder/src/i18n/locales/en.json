@@ -271,7 +271,111 @@
     "blockedDeleteGotIt": "Got it",
     "blockedDeleteBody_one": "<strong>{{name}}</strong> has {{count}} dataset.",
     "blockedDeleteBody_other": "<strong>{{name}}</strong> has {{count}} datasets.",
-    "blockedDeleteHint": "Delete or move them to another workspace first."
+    "blockedDeleteHint": "Delete or move them to another workspace first.",
+    "pack": {
+      "exportAction": "Export definitions",
+      "importAction": "Import definitions…",
+      "exported": "Exported {{queries}}, {{dashboards}} and {{workflows}}.",
+      "nQueries_one": "{{count}} query",
+      "nQueries_other": "{{count}} queries",
+      "nDashboards_one": "{{count}} dashboard",
+      "nDashboards_other": "{{count}} dashboards",
+      "nWorkflows_one": "{{count}} workflow",
+      "nWorkflows_other": "{{count}} workflows",
+      "exportEmpty": "This workspace has no queries, dashboards or workflows to export.",
+      "exportCouldnt": "Couldn't export the definitions: {{error}}",
+      "unresolvedTitle": "Fix these before exporting {{name}}",
+      "unresolvedIntro": "These definitions point at something that was deleted. Exporting them would make a pack that imports as something else. Remove or repair them, then export again.",
+      "unresolvedOk": "Got it",
+      "unresolved": {
+        "query_missing": "Dashboard {{name}} › widget “{{ref}}”: its query was deleted.",
+        "source_missing": "Workflow {{name}}: one of its sources was deleted.",
+        "dataset_missing": "Query {{name}}: a dataset it joins was deleted."
+      },
+      "importTitle": "Import definitions into {{name}}",
+      "importIntro": "Bring queries, dashboards and workflows exported from another workspace. Data is not imported: the datasets they read must already be here, under the same names and with the same columns.",
+      "dropHint": "Drop a definitions file (.json) here, or click to choose one",
+      "fileLine": "{{file}} · from “{{workspace}}” · {{date}}",
+      "notAPack": "This file is not a definitions pack.",
+      "fileTooLarge": "This file is larger than {{mb}} MB.",
+      "conflictLabel": "If a name already exists here:",
+      "conflict": {
+        "refuse": "Stop",
+        "replace": "Replace it",
+        "skip": "Keep mine"
+      },
+      "conflictHelp": "Stop: nothing is imported while a name here holds a different definition. Replace: the pack's definition is saved over it. Keep mine: that name is left as it is here.",
+      "checking": "Checking the pack against this workspace…",
+      "datasetsNeeded": "Datasets needed",
+      "datasetFound": "found",
+      "datasetMissing": "not in this workspace",
+      "emptyPack": "The pack holds no definitions.",
+      "count": {
+        "create_one": "{{count}} new",
+        "create_other": "{{count}} new",
+        "replace_one": "{{count}} replace",
+        "replace_other": "{{count}} replace",
+        "unchanged_one": "{{count}} unchanged",
+        "unchanged_other": "{{count}} unchanged",
+        "skip_one": "{{count}} skip",
+        "skip_other": "{{count}} skip",
+        "conflict_one": "{{count}} conflict",
+        "conflict_other": "{{count}} conflicts",
+        "invalid_one": "{{count}} can't import",
+        "invalid_other": "{{count}} can't import"
+      },
+      "col": {
+        "kind": "Kind",
+        "name": "Name",
+        "action": "Action",
+        "why": "Why"
+      },
+      "kind": {
+        "query": "Query",
+        "workflow": "Workflow",
+        "dashboard": "Dashboard",
+        "dataset": "Dataset"
+      },
+      "action": {
+        "create": "New",
+        "replace": "Replace",
+        "unchanged": "Unchanged",
+        "skip": "Skip",
+        "conflict": "Conflict",
+        "invalid": "Can't import"
+      },
+      "reason": {
+        "exists": "already here with a different definition",
+        "source_differs": "here it reads another dataset — a query cannot change its dataset",
+        "slug_taken": "another dashboard here uses the address “{{detail}}”",
+        "dataset_missing": "needs dataset {{detail}}, which is not in this workspace",
+        "columns_differ": "dataset {{detail}} has different columns here",
+        "needs": "needs {{detail}}, which cannot be imported",
+        "check_failed": "would not save: {{detail}}"
+      },
+      "importN_one": "Import {{count}}",
+      "importN_other": "Import {{count}}",
+      "nothingToImport": "Nothing to import — everything here already matches the pack.",
+      "replaceWarning": "Replacing saves the pack's definition as a new version; the current one stays in its History, so it can be restored.",
+      "blocked": "Nothing can be imported until the rows above marked Conflict or Can't import, and the datasets marked ✗, are resolved.",
+      "changedSinceCheck": "This workspace changed since the check. Review the new plan.",
+      "requestFailed": "Couldn't check or import the pack",
+      "imported": "Imported into {{name}}: {{created}} new, {{replaced}} replaced, {{unchanged}} unchanged.",
+      "invalid": {
+        "title": "This pack can't be read",
+        "version": "This pack was made by a newer version (pack version {{found}}); this one reads version {{supported}}.",
+        "tooLarge": "The pack is larger than {{mb}} MB or holds more than 1 000 definitions.",
+        "duplicate": "Two of the pack's {{kind}} entries are named {{name}}.",
+        "duplicateSlug": "Two dashboards in the pack use the address “{{slug}}”.",
+        "reference": "{{kind}} {{name}} names {{refKind}} {{ref}}, which is not in the pack.",
+        "cycle": "Workflows {{names}} read each other."
+      },
+      "columnsDiffer": {
+        "changed": "columns differ — column {{n}} is {{expected}} in the pack, {{found}} here",
+        "missing": "columns differ — column {{n}}, {{expected}}, is not here",
+        "extra": "columns differ — column {{n}} here, {{found}}, is not in the pack"
+      }
+    }
   },
   "datasets": {
     "savedCopy": {

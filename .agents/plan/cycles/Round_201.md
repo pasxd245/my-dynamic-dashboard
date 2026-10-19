@@ -68,7 +68,7 @@ rc.4 by the owner's call of 2026-10-19._
 - [x] **D** — the 4.8 spec in `rc4.md` + the program-table row + the exit-gate line; design doc
       [`_shared/definition-pack.md`](../../design/data-management/_shared/definition-pack.md)
       (new, Draft); `workspaces.md` and `_noun-model.md` pointers; `flow-selector`
-- [ ] **F1** — the builder against MSW before the contract (types, `definitionsApi`, hooks, the
+- [x] **F1** — the builder against MSW before the contract (types, `definitionsApi`, hooks, the
       card actions, the import modal, MSW handlers, EN / VI, tests); interaction decisions frozen
 - [ ] **C** — `_shared/definition-pack.yaml`, `workspaces/definitions-get` +
       `definitions-import` route contracts (+ rationale), the three error codes through the whole
@@ -199,6 +199,44 @@ blocking: no per-noun choice (OUT with a trigger).
 
 Result: **Flow: DFCFBI (triggers 1, 3, 4)** — F1 (the builder against MSW) before the contract;
 F2 against the contract-derived MSW after it.
+
+### F1
+
+- 2026-10-19 — **F1** (the builder against MSW, before any contract; timebox ≤ 2 days — used part
+  of one session). New `features/data-management/workspaces/definitionPack/`: `types.ts` (the
+  pack, the plan, the three error bodies), `plan.ts` (`readPackText`, `packFileName`,
+  `packCounts`, `columnDifference`, `writeCount`, `canImport`, `nothingToImport`, `downloadPack`),
+  `hooks.ts` (`useImportPlanMutation` — the dry run, `useApplyPackMutation` with
+  `IMPORT_INVALIDATES`, `useExportPackMutation`), `useExportDefinitions.tsx` (download, toast, the
+  "Fix these before exporting" modal), `ImportDefinitionsModal.tsx` (drop zone, conflict radio,
+  datasets, plan table, Import / nothing-to-import / refused-on-apply / pack-invalid states);
+  `api/definitionsApi.ts` (`PackErrorThrown` carries the plan or the problems — the pack codes
+  are read by the client itself, so F1 touches no shared error union); the two card-menu items in
+  `WorkspacesPage.tsx` (Export on main and saved, Import on main only). MSW
+  `mocks/definitionPack.ts` (the fixture workspace's pack by name; the plan rules of design
+  § Import step 2–3 without the save checks; apply 409 when not ok; a saved workspace 409
+  `read_only_workspace`), registered as `exportDefinitions` / `importDefinitions` (no contract
+  yet → not validated until C). EN / VI under `workspaces.pack.*`.
+  `tests/definition-pack-r201.test.tsx` (18): the pure rules; the card menus (main / saved);
+  export download name + toast; the unresolved modal; not-a-pack sends nothing; a clean workspace
+  (missing dataset, Can't import + needs, Import disabled); columns in another order (the first
+  difference); the same pack again (nothing to import); conflict → Replace re-checks, warns,
+  imports, and a cached queries list re-reads under the app's 60 s `staleTime` (review-qa item
+  10); Keep mine; a 409 on Import shows the server's plan; pack version 2; a reference line; VI.
+  `tsc` clean. Found and fixed in F1: an i18next interpolation value named `replace` (an i18next
+  option) blanked every value of the import toast — renamed `created` / `replaced`.
+- **F1 against MSW in a real browser** (Vite dev with `VITE_MOCKS=1`, headless Chromium, light,
+  EN + VI): `scratchpad/r201/f1shots/` — menu, export toast, nothing to import, conflict / Stop,
+  Replace + warning, blocked (missing + columns differ), pack version 2, not a pack, imported
+  toast. Read back: the two full column lists of a differing dataset were unreadable in one red
+  line → changed to the first place the lists part (`columnDifference`, design § Layout); "that
+  noun's History" was jargon → "its History, so it can be restored".
+- **F1 gate closed** — the interaction decisions are frozen in
+  [`definition-pack.md` § Layout › Interaction decisions (F1)](../../design/data-management/_shared/definition-pack.md)
+  (six decisions + the shape questions handed to C); no open UX question is left for this round
+  (a per-noun choice stays OUT with its trigger). Committed as `feat(R201): F1 — …`. The human
+  feel-check the `dfcfbi-f1-needs-human-review` lesson asks for is not available in this session:
+  the BA's Contract-exit pass reads the screenshots, and the owner's walk covers the rest.
 
 ## Check
 

@@ -48,8 +48,8 @@ through the normal write path; a replaced definition stays restorable),
 | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- | ------------ | ------------------ | --------------------------------------------- |
 | `ImportDefinitionsModal` (file → plan → import)                                                 | `apps/builder/src/features/data-management/workspaces/definitionPack/ImportDefinitionsModal.tsx` | feature      | feature            | react, antd, @ant-design/icons, react-i18next |
 | `useExportDefinitions` (download + toast + refusal modal)                                       | `apps/builder/src/features/data-management/workspaces/definitionPack/useExportDefinitions.tsx`   | feature      | glue (server-data) | antd, react-i18next                           |
-| `planSummary` · `canImport` · `packFileName` · `readPackFile` (pure rules)                      | `apps/builder/src/features/data-management/workspaces/definitionPack/plan.ts`                    | feature      | pure               | none                                          |
-| `useImportPlanMutation` · `useApplyPackMutation` (cache invalidation after apply)               | `apps/builder/src/features/data-management/workspaces/definitionPack/hooks.ts`                   | feature      | glue (server-data) | @tanstack/react-query                         |
+| `readPackText` · `packFileName` · `packCounts` · `columnDifference` · `writeCount` · `canImport` · `nothingToImport` (pure rules); `downloadPack` | `apps/builder/src/features/data-management/workspaces/definitionPack/plan.ts` | feature | pure | none |
+| `useImportPlanMutation` · `useApplyPackMutation` (`IMPORT_INVALIDATES` after apply) · `useExportPackMutation` | `apps/builder/src/features/data-management/workspaces/definitionPack/hooks.ts` | feature | glue (server-data) | @tanstack/react-query |
 | `definitionsApi.export` / `.importPack`                                                         | `apps/builder/src/api/definitionsApi.ts`                                                    | builder-only | glue               | (fetch — no extra peer dep)                   |
 | `DefinitionPack` / `ImportPlan` / `PlanItem` / `PlanDataset` types                              | `apps/builder/src/features/data-management/workspaces/definitionPack/types.ts`                   | feature      | data type          | none                                          |
 | `GET /workspaces/{id}/definitions` · `POST /workspaces/{id}/definitions/import`                 | `apps/backend/app/routers/definitions.py`                                                   | backend      | feature            | (FastAPI — backend native)                    |
@@ -117,8 +117,8 @@ modal listing what to fix (see § Export).
 │ Datasets needed                                                            │
 │   ✓ calls_demo                                                             │
 │   ✗ agents_demo — not in this workspace                                    │
-│   ✗ teams_demo — columns differ: expected id (integer), team (text);       │
-│                  found team (text), id (integer)                           │
+│   ✗ teams_demo — columns differ — column 1 is id (integer) in the pack,    │
+│                  team (string) here                                        │
 │ ────────────────────────────────────────────────────────────────────────── │
 │ 2 new · 1 replace · 1 unchanged · 1 can't import                           │
 │  Kind       Name              Action           Why                         │
@@ -129,7 +129,7 @@ modal listing what to fix (see § Export).
 │  Dashboard  Daily             [Unchanged]                                  │
 │ ────────────────────────────────────────────────────────────────────────── │
 │ ⚠ Replacing saves the pack's definition as a new version; the current one  │
-│   stays in that noun's History.                                            │
+│   stays in its History, so it can be restored.                             │
 │                                                       [Cancel] [Import]    │
 └────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -142,8 +142,10 @@ modal listing what to fix (see § Export).
   `skip`) re-runs the dry run when changed. Help text under the radio: "Stop: nothing is imported
   while a name here holds a different definition. Replace: the pack's definition is saved over
   it. Keep mine: that name is left as it is here."
-- **Datasets needed**: one line per dataset the pack names — found (✓), missing, or columns
-  differ (expected vs found, in order, at most 12 columns each, then "… and N more").
+- **Datasets needed**: one line per dataset the pack names — found (✓), missing ("not in this
+  workspace"), or columns differ, said at the **first place the two lists part**: "column 3 is
+  amount (integer) in the pack, deal_id (string) here", "column 8, region (string), is not here",
+  or "column 8 here, region (string), is not in the pack" (F1: two full lists were unreadable).
 - **The plan table**: one row per noun — kind, name, action tag, why (the reason in words);
   queries first, then workflows, then dashboards (the order they are written), each by name. The
   summary line counts each action shown.
@@ -162,6 +164,29 @@ modal listing what to fix (see § Export).
   "Dashboard Weekly names query North calls, which is not in the pack.", "Two queries are named
   North calls.", "Workflows A and B read each other.", "The pack is larger than 10 MB." — and no
   plan.
+
+**Interaction decisions (F1, frozen 2026-10-19 — the builder against MSW, screenshots in the
+round's Do log):**
+
+1. One conflict choice per import, a radio above the plan, default **Stop**; every change re-runs
+   the dry run, so the plan on screen is the one Import applies.
+2. The dry run starts on file choice; a file the browser can already reject (not JSON, no numeric
+   `packVersion`, over 10 MB) shows its line and sends nothing.
+3. Import counts what it writes ("Import 3"), is disabled unless the plan is ok, and is absent when
+   nothing would be written ("Nothing to import"); a `Replace` row adds the History warning.
+4. A refusal never closes the modal: `409 pack_refused` swaps in the server's plan with the "changed
+   since the check" alert; `422 pack_invalid` replaces the plan with one line per problem.
+5. Success closes the modal with one toast and re-reads every list, single read, widget read,
+   workflow output, history and note an import can change (`IMPORT_INVALIDATES`), checked under
+   the app's 60 s `staleTime`.
+6. Export downloads at once and toasts the counts; an empty workspace downloads an empty pack and
+   says so; `pack_unresolved` opens "Fix these before exporting" with one line per problem.
+
+What F1 handed to the contract (shape questions, not answers): a plan item carries a **reason
+code** plus a **detail** (a name or the save check's message) so the builder words it in EN / VI;
+the 409 carries the **whole plan**; `counts` per action; a dataset's two column lists only when
+they differ; `pack_invalid` problems name `kind`, `name`, `ref`, `refKind`; `pack_unresolved`
+problems name `kind`, `name`, `reason` and — for a widget — its title as `ref`.
 
 States: no file · reading · not a pack · checking (spinner over the plan area) · plan ok · plan
 blocked (missing / differing datasets, conflicts, can't-import rows — Import disabled, the rows
@@ -182,7 +207,7 @@ stay).
   "exportedBy": "0.0.1.dev560",
   "workspace": "Acme demo",
   "datasets": [
-    { "name": "calls_demo", "columns": [{ "name": "id", "dtype": "integer" }, { "name": "team", "dtype": "text" }] }
+    { "name": "calls_demo", "columns": [{ "name": "id", "dtype": "integer" }, { "name": "team", "dtype": "string" }] }
   ],
   "queries": [
     { "name": "North calls", "dataset": "calls_demo", "definition": { "filters": [], "advanced": [], "relationships": [], "joins": [], "steps": [] } }

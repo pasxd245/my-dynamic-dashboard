@@ -29,6 +29,7 @@ import type { CreateRelationshipRequest } from '@/features/data-management/relat
 import type { CreateWorkflowRequest } from '@/features/data-management/workflows/types';
 import type { CreateDashboardRequest, UpdateDashboardRequest } from '@/features/dashboard/wire';
 import { withContractValidation } from './contract-validator';
+import { exportDefinitionsResolver, importDefinitionsResolver } from './definitionPack';
 import {
   MOCK_CHAIN_COLUMNS,
   MOCK_CHAIN_ROWS,
@@ -1007,6 +1008,17 @@ export const handlers = [
     });
   }),
   http.delete(api('/workspaces/:id'), () => new HttpResponse(null, { status: 204 })),
+  // R201 (4.8) — the definition pack (mock plan rules in ./definitionPack).
+  withContractValidation('get', api('/workspaces/:id/definitions'), 'exportDefinitions', ({ params }) =>
+    exportDefinitionsResolver(String(params.id)),
+  ),
+  withContractValidation(
+    'post',
+    api('/workspaces/:id/definitions/import'),
+    'importDefinitions',
+    async ({ params, request }) =>
+      importDefinitionsResolver(String(params.id), new URL(request.url), await request.json().catch(() => null)),
+  ),
   // R193 — save frozen copies: from MOCK_WORKSPACE into MOCK_SAVED_WORKSPACE;
   // saving FROM the saved workspace is refused; unknown workspace 404.
   withContractValidation('post', api('/workspaces/:id/saved-copies'), 'saveCopies', async ({ params, request }) => {
