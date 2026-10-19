@@ -20,8 +20,8 @@
   first, in the column's own order, "First 1 000 values" when capped). The export's Filters sheet
   says which filter was the dashboard's (`dashboard filter Team · viewer | dashboard`) and which
   the widget's.
-- Backend 705 · builder 581 · contracts 50; BA (both passes) PASS, QA PASS, code review CHANGES →
-  one P1 fixed; the owner's walk W1–W17 is open.
+- Backend 710 · builder 581 · contracts 50; BA (both passes) PASS, QA PASS, code review CHANGES →
+  two P1s fixed (CR-1, and CR-6 which the CR-1 fix introduced); the owner's walk W1–W17 is open.
 
 **Studied** _(predicted → saw → now believe)_ — predicted the hard part was the URL: a comma
 list split before decoding, with a raw `~blank`, surviving every write on a page that wrote
@@ -126,8 +126,8 @@ _Track: 1 (product). Pulled by: release program item 4.3
 - [x] **F** — types, bar control, URL state, per-widget routing, reach badge, editor, share link,
       MSW, EN/VI; tests
 - [x] **I** — visual gate (light EN + VI; dark N/A — no theme)
-- [x] Reviews: code review + QA in parallel, then BA pass 2; every P0/P1 fixed (CR re-check of
-      CR-1..CR-5 at `588104b` pending)
+- [x] Reviews: code review + QA in parallel, then BA pass 2; every P0/P1 fixed (CR-1..CR-5
+      re-checked at `588104b`: closed, CR-6 raised and fixed; CR-6 re-check pending)
 
 ## Risks / unknowns
 
@@ -338,16 +338,45 @@ source` columns), visual gate light EN 6/6 · VI 6/6; 37 adversarial tests hande
   BA-F1 in the close-out docs commit (design doc § As built (4.3), the stale lines fixed). BA-F2
   (contained only if `BLANK_LABEL` stops being the drawer's filter sentinel — not cheap), BA-F5,
   BA-F6 → rolling log. Builder touched files 56 green, `tsc` clean; full builder suite 581 green (detached).
+- **Code review re-check (`588104b`)**: CR-1, CR-2, CR-4, CR-5 **closed** (400k probe 19 900 /
+  19 900 on both shapes; unpaged and export in file order; no order-column leak). **New CR-6
+  (P1, introduced by the CR-1 fix):** DuckDB refuses `read_parquet(?, file_row_number=true)` on a
+  file that already has a column named `file_row_number`, and ingest keeps headers as uploaded —
+  so for such a dataset every filtered `/rows`, `q`, `/export` (even unfiltered), `/values` and
+  `/totals` answered 500 (200 at `42abfd2`). CR also confirmed the stepped / joined export order
+  row (150k rows, counts right, predates the round for drawer filters) and measured the CR-1 cost
+  (filtered single-source reads ~3–5×: 4M rows 0.055 s → 0.46–0.66 s unpaged; acceptable for
+  correct pages) → rolling log.
+- **Fix CR-6** — `rows_reader.positional_parquet(path)` gives every ordered read its source and
+  order column: DuckDB's `file_row_number` normally; when the parquet schema (footer — it sees
+  hidden columns too) has a user column of that name, `row_number() OVER ()` over the **bare**
+  scan under the reserved `_ORD` name, the user's column left as theirs. DuckDB 1.1.3 offers no
+  other positional handle (no rename option, no `rowid` on a parquet scan — probed). **Why the
+  fallback is acceptable and where it is weaker:** the numbering is the order the UNFILTERED
+  scan emits — the R172 dataset-scan behaviour `test_paging_partitions` guards at 400k rows —
+  and the filter sits above it, so the CR-1 failure (a filter reordering the scan) cannot move
+  the numbers; it is still an engine behaviour, not a stored position, so it is used only on the
+  collision (measured: 400k and 1M rows, two visits each, partition + file order). Used by the
+  filtered dataset read, the single-source export / `/values` / `/totals` relation, and R172's
+  joined driving source — which had the same latent 500 since R172 (a join over such a dataset)
+  and is fixed by the same helper. Tests (`test_shared_filter_paging.py`, now 9): the paging
+  guard parametrised with a colliding file (the user's column must keep its own values); every
+  HTTP path on a dataset with `id,team,file_row_number` (60k rows: `/rows` plain / `q` / `in`
+  atom / shared multi-value + blank, paged and unpaged, pages = the unpaged prefix; `/export`
+  unfiltered and filtered with the user's header and no order column; `/values`; `/totals`);
+  a joined query whose driving dataset has the column. All five collision tests fail on
+  `588104b`. Backend 710, ruff clean.
 
 ## Check
 
-- [x] backend 705 · builder 581 · contracts 50 green; `tsc --noEmit`; `ruff check`; md / plan /
+- [x] backend 710 · builder 581 · contracts 50 green; `tsc --noEmit`; `ruff check`; md / plan /
       design lints 0; M3 guard over `468befe..HEAD` empty
 - [x] Visual gate: light (EN + VI) — coder's run (`scratchpad/r199/shots/`, 10) and QA's (EN 6/6 ·
       VI 6/6, `scratchpad/r199/qa-shots/`); dark N/A (no dark theme — owner)
 - [ ] BA (contract exit + after build) · code review · QA — no open P0/P1 — **CR re-check
-      pending** (CR-1..CR-5 at `588104b`); BA pass 1 CHANGES → folded (`e475f5d`), BA pass 2 PASS
-      (conditional on CR-1), QA PASS, code review CHANGES → CR-1 fixed (`588104b`)
+      pending** (CR-6 at the CR-6 fix; CR-1, 2, 4, 5 closed at `588104b`); BA pass 1 CHANGES →
+      folded (`e475f5d`), BA pass 2 PASS (conditional on CR-1), QA PASS, code review CHANGES →
+      CR-1 fixed (`588104b`), CR-6 fixed
 - [x] ⟢ At a glance **Studied** line written
 - [ ] **Acceptance walk** (human reviewer) — ⬜ verdicts, `coverage: 0 of 17`. Light theme, fake
       data only. Walk script drafted by the BA (pass 2):
@@ -409,7 +438,9 @@ source`: viewer South,(blank) → `team | South, (blank) | dashboard filter Team
   `f.*`); QA-2 (`/aggregate` pre-step on a stepped query, API-only); BA-F5 (builder preview
   ignores an all-targeting values control); BA-F6 (reach badge from `resolvedColumns` on a
   widget whose join / steps no longer resolve); BA-F2 (VI "(blank)" outside the bar); the two
-  owner questions.
+  owner questions; CR re-check: the stepped / joined export order **confirmed**, the filtered-read
+  cost (~3–5×), and the CR-6 collision fallback (numbered over the bare scan, not a stored
+  position).
 - **Owner questions**: (1) should two `values` controls on one column with disjoint targets be
   allowed (built: refused, `duplicate_column`)? (2) should the export's Filters sheet list a
   _skipped_ shared filter as "skipped: no column" (built: unlisted — it filtered nothing; BA-C4)?

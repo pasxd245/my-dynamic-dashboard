@@ -296,7 +296,8 @@ use. A query without parameters reads exactly as in rc.2 (no `resolvedParams` ke
 - **Order.** A **filtered** single-source read pages `ORDER BY file_row_number` (and the
   single-source export lists in that order): an `IN` list or an `OR … IS NULL` term made the scan
   lose file order (R199 CR-1, which also covered the definition `in` atom). The unfiltered scan
-  keeps the R172 behaviour.
+  keeps the R172 behaviour. A dataset with its own `file_row_number` column (DuckDB then refuses
+  its positional option) is numbered over the bare scan under a reserved name instead (CR-6).
 - Not built (rolling log): the widget-builder preview does not carry a values control targeting
   all (BA-F5); the reach badge reads `resolvedColumns`, so a widget whose join/steps no longer
   resolve can be badged from its pre-step columns (BA-F6); `/aggregate` filters a stepped query

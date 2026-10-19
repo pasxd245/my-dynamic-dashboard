@@ -55,6 +55,39 @@ def _quote_ident(name: str) -> str:
 # column (effective names come from uploaded headers).
 _ORD = "_mdd_row_ord"
 
+# DuckDB's positional column. `read_parquet(?, file_row_number=true)` REFUSES a
+# file that already has a column of that name (Binder Error) — and ingest keeps
+# headers as uploaded, so a dataset can have one (R199 CR-6).
+_FRN = "file_row_number"
+
+
+def _parquet_has_column(path: str, name: str) -> bool:
+    """Does the parquet file's schema carry a column ``name``? (Read from the
+    footer, so it also sees columns the dataset hides.)"""
+    with duck.connect() as con:
+        rows = con.execute("SELECT name FROM parquet_schema(?)", [path]).fetchall()
+    return any(r[0] == name for r in rows)
+
+
+def positional_parquet(path: str) -> tuple[str, str]:
+    """A parquet source with an EXPLICIT row-position column, and that column's
+    name: ``(source SQL with one ? for the path, order column)``.
+
+    Normally DuckDB's own ``file_row_number`` — the row's position in the stored
+    file, identical across executions by construction (R172). When the file has
+    a USER column named ``file_row_number`` DuckDB 1.1.3 cannot add its own (no
+    rename option, no ``rowid`` on a parquet scan), so the position is numbered
+    by ``row_number() OVER ()`` over the BARE scan — no filter, join or aggregate
+    below the window — under the reserved ``_ORD`` name, and the user's column is
+    left as theirs. That numbering is the order the unfiltered scan emits, i.e.
+    the R172 dataset-scan behaviour ``test_paging_partitions`` guards at 400k rows;
+    it is NOT the filtered-scan reliance CR-1 broke (the filter sits above the
+    numbering, so it cannot reorder it). It is the weaker of the two, used only
+    for that collision (R199 CR-6; guarded in ``test_shared_filter_paging``)."""
+    if not _parquet_has_column(path, _FRN):
+        return f"read_parquet(?, {_FRN}=true)", _FRN
+    return f"(SELECT *, row_number() OVER () AS {_ORD} FROM read_parquet(?))", _ORD
+
 
 def _driving_relation_with_order(relation: "Relation") -> tuple["Relation", str]:
     """Give the DRIVING source (``T0``) a stable ordering column, and say how to
@@ -85,7 +118,9 @@ def _driving_relation_with_order(relation: "Relation") -> tuple["Relation", str]
     """
     sql, params = relation
     if sql == "read_parquet(?)":
-        return ("read_parquet(?, file_row_number=true)", params), "T0.file_row_number"
+        # R199 CR-6 — a user column named `file_row_number` refuses DuckDB's own.
+        source, order_col = positional_parquet(str(params[0]))
+        return (source, params), f"T0.{_quote_ident(order_col)}"
     return (f"(SELECT *, row_number() OVER () AS {_ORD} FROM {sql})", params), f"T0.{_ORD}"
 
 
@@ -156,10 +191,12 @@ def query_dataset_rows(
     # unfiltered scan keeps the R172 file-order behaviour (no ORDER BY, so page 1
     # of a large dataset still stops early); a filtered read already scans the
     # whole file for its count, so the ordered top-N costs little more.
+    # R199 CR-6 — the position column survives a user column of the same name.
     source = "read_parquet(?)"
     order_by = ""
     if where_clause:
-        source, order_by = "read_parquet(?, file_row_number=true)", " ORDER BY file_row_number"
+        source, order_col = positional_parquet(str(parquet_path))
+        order_by = f" ORDER BY {_quote_ident(order_col)}"
 
     with duck.connect() as con:
         rows_sql = f"SELECT {select_list} FROM {source} {where_clause}{order_by} LIMIT ? OFFSET ?"
@@ -345,12 +382,13 @@ def build_single_inner(
     query's own filters applied — no CAST, no pagination (the aggregate wrapper
     groups over it). Mirrors the front half of ``query_dataset_rows``.
 
-    R199 (CR-1) — ``row_number`` adds the parquet's ``file_row_number`` column so
-    a consumer that lists rows (the export) can ORDER BY it: a filtered scan is
-    not guaranteed to emit in file order."""
+    R199 (CR-1) — ``row_number`` adds an explicit position column
+    (``positional_parquet``: ``file_row_number``, or ``_ORD`` when the file has a
+    user column of that name — CR-6) so a consumer that lists rows (the export)
+    can ORDER BY it: a filtered scan is not guaranteed to emit in file order."""
     quoted_cols = [_quote_ident(c) for c in columns]
     where_clause, where_params = _build_where(quoted_cols, q, filters, advanced)
-    source = "read_parquet(?, file_row_number=true)" if row_number else "read_parquet(?)"
+    source = positional_parquet(str(parquet_path))[0] if row_number else "read_parquet(?)"
     sql = f"SELECT * FROM {source} {where_clause}"
     return sql, [str(parquet_path), *where_params]
 

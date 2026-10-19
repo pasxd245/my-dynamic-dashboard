@@ -37,6 +37,7 @@ from app.ingest.rows_reader import (
     _name_in_sql,
     _quote_ident,
     build_steps_relation,
+    positional_parquet,
     query_aggregate_rows,
     query_dataset_rows,
 )
@@ -62,6 +63,7 @@ from app.query_engine import (
     _aggregate_output_columns,
     _build_inner_relation,
     _chain_of,
+    _parquet_of,
     _execute_chain,
     _rels_of,
     _resolve_plan,
@@ -531,8 +533,9 @@ def _final_relation(
         "resolvedParams": resolved_params,
         "dataVersions": _data_versions(plan),
         "filters": shared,
-        # The relation's row-order column, when it has one (not a result column).
-        "order": "file_row_number" if ordered else None,
+        # The relation's row-order column, when it has one (not a result column;
+        # R199 CR-6: `_ORD` when the dataset has its own `file_row_number`).
+        "order": positional_parquet(_parquet_of(plan["ds"]))[1] if ordered else None,
     }, None
 
 
@@ -627,7 +630,7 @@ def export_query(id: QueryIdPath, body: ExportBody) -> Response:  # noqa: A002
     # The result columns by name (never `*`: the relation may carry its order
     # column), in file order for a single-source query (R199 CR-1).
     select_list = ", ".join(_quote_ident(c["name"]) for c in columns)
-    order_sql = f" ORDER BY {relation['order']}" if relation["order"] else ""
+    order_sql = f" ORDER BY {_quote_ident(relation['order'])}" if relation["order"] else ""
     sql = f"SELECT {select_list} FROM ({relation['sql']}) AS _final {where_sql}{order_sql}"  # noqa: S608 — composed from validated parts
     params = [*relation["params"], *where_params]
     with duck.connect() as con:
