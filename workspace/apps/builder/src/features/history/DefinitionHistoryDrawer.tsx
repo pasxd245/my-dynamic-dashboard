@@ -118,7 +118,6 @@ export function DefinitionHistoryDrawer({ kind, nounId, nounName, open, onClose,
       message.error(t('history.loadError'));
       return;
     }
-    const newestBefore = list.data?.entries[0]?.seq;
     modal.confirm({
       title: t('history.confirmTitle', { seq: entry.seq }),
       content: <ConfirmBody kind={kind} seq={entry.seq} sourceChanged={kind === 'query' && version.sourceChangedSince === true} />,
@@ -126,6 +125,10 @@ export function DefinitionHistoryDrawer({ kind, nounId, nounName, open, onClose,
       cancelText: t('common.cancel'),
       width: 480,
       onOk: async () => {
+        // BA-F4 — the newest row right before the PUT (another tab or an agent may have
+        // saved since the list was read), so "already current" is judged on fresh data.
+        const before = await historyApi.list(kind, nounId).catch(() => null);
+        const newestBefore = (before ?? list.data)?.entries[0]?.seq;
         try {
           await restore(version.definition);
         } catch (err) {

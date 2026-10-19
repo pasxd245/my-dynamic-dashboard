@@ -1302,7 +1302,7 @@
     "confirmBody": "The definition of #{{seq}} is saved as a new version. The current definition stays in the history, so you can restore it back.",
     "kindLine": {
       "query": "Dashboards and workflows that use this query will read the restored definition.",
-      "dashboard": "Viewer links that name filters added since #{{seq}} will open without those selections. Notes on widgets this version lacks are set aside and come back with the widget.",
+      "dashboard": "Viewer links that name filters this version lacks will open without those selections. Notes on widgets this version lacks are set aside and come back if you restore a version that has the widget.",
       "workflow": "The workflow's output is cleared; run it again to rebuild it."
     },
     "sourceChanged": "The data source changed after this version was saved; column positions may differ — check the filters after restoring.",

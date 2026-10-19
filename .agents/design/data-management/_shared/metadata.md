@@ -298,7 +298,7 @@ their parent.
 ### The triple anchor (R197, item 3.8)
 
 - **Stamped at write** by the server: `anchor {definitionVersion, dataVersions?, queryVersions?,
-runId?, params?, assumedParams?}` — the noun's definition, the data behind it (a dataset /
+  runId?, params?, assumedParams?}` — the noun's definition, the data behind it (a dataset /
   column: its own version; a relationship: both ends; a query: its plan's; a widget: its query's;
   a dashboard: all its widgets'), the queries behind a widget or dashboard, a workflow's current
   run, and the parameter values (a query / widget: as it reads; a dashboard: its controls as the

@@ -303,7 +303,7 @@ describe('R200 History drawer — dashboard page', () => {
     fireEvent.click(within(row(1)).getByRole('button', { name: 'Restore' }));
     expect(
       await screen.findByText(
-        'Viewer links that name filters added since #1 will open without those selections. Notes on widgets this version lacks are set aside and come back with the widget.',
+        'Viewer links that name filters this version lacks will open without those selections. Notes on widgets this version lacks are set aside and come back if you restore a version that has the widget.',
       ),
     ).toBeInTheDocument();
     const confirm = q('[data-component="HistoryRestoreConfirm"]')?.closest('.ant-modal') as HTMLElement;
@@ -342,5 +342,87 @@ describe('R200 MSW history', () => {
     expect(within(row(1)).getByText('Bắt đầu lịch sử')).toBeInTheDocument();
     expect(within(row(3)).getByText('Định nghĩa kỹ thuật (JSON)')).toBeInTheDocument();
     expect(within(row(3)).getByText('Khôi phục')).toBeInTheDocument();
+  });
+});
+
+describe('R200 BA pass 2 folds', () => {
+  /** The app's own QueryClient defaults (main.tsx): 60 s staleTime. */
+  function wrapApp(ui: React.ReactNode, path: string) {
+    const qc = new QueryClient({
+      defaultOptions: { queries: { retry: false, staleTime: 60_000, refetchOnWindowFocus: false } },
+    });
+    return render(
+      <QueryClientProvider client={qc}>
+        <AntdConfig>
+          <App>
+            <MemoryRouter initialEntries={[path]}>{ui}</MemoryRouter>
+          </App>
+        </AntdConfig>
+      </QueryClientProvider>,
+    );
+  }
+
+  const restoreRow = async (seq: number) => {
+    fireEvent.click(await screen.findByRole('button', { name: /History/ }));
+    await waitFor(() => expect(row(seq)).not.toBeNull());
+    fireEvent.click(within(row(seq)).getByRole('button', { name: 'Restore' }));
+    await screen.findAllByText(`Restore version #${seq}?`);
+    const confirm = q('[data-component="HistoryRestoreConfirm"]')?.closest('.ant-modal') as HTMLElement;
+    fireEvent.click(within(confirm).getByRole('button', { name: 'Restore' }));
+  };
+
+  it('BA-F1 — after a restore the Metadata panel re-reads (no 30 s stale notes)', async () => {
+    const metadataReads: string[] = [];
+    let restored = false;
+    serveHistory('queries', MOCK_QUERY.id, () => ({
+      kind: 'query',
+      id: MOCK_QUERY.id,
+      current: restored ? B : A,
+      entries: restored ? [entry(3, B), entry(2, A), entry(1, B, { change: 'create' })] : [entry(2, A), entry(1, B, { change: 'create' })],
+    }), { sourceChangedSince: false });
+    server.use(
+      http.get(`*/metadata/query/${MOCK_QUERY.id}`, ({ request }) => {
+        metadataReads.push(request.url);
+        return HttpResponse.json({ entries: {}, current: { definitionVersion: restored ? B : A } });
+      }),
+      http.put('*/queries/:id', async ({ request }) => {
+        restored = true;
+        const body = (await request.json()) as { definition: unknown };
+        return HttpResponse.json({ ...MOCK_QUERY, definition: { ...MOCK_QUERY.definition, ...(body.definition as object) } });
+      }),
+    );
+    wrapApp(
+      <Routes>
+        <Route path="/data-management/queries/:id" element={<QueryDetailPage />} />
+      </Routes>,
+      `/data-management/queries/${MOCK_QUERY.id}`,
+    );
+    await waitFor(() => expect(metadataReads.length).toBeGreaterThan(0));
+    const before = metadataReads.length;
+    await restoreRow(1);
+    expect(await screen.findByText('Restored #1 as #3')).toBeInTheDocument();
+    await waitFor(() => expect(metadataReads.length).toBeGreaterThan(before));
+  });
+
+  it('BA-F4 — "already current" is judged on the list re-read right before the PUT', async () => {
+    // The drawer reads #4 newest; meanwhile another tab restores #3 (→ #5 = B). Our
+    // restore of #3 then writes nothing: the toast must not claim "Restored #3 as #5".
+    let reads = 0;
+    serveHistory('workflows', MOCK_WORKFLOW.id, () => {
+      reads += 1;
+      return reads === 1
+        ? { kind: 'workflow', id: MOCK_WORKFLOW.id, current: A, entries: ENTRIES }
+        : { kind: 'workflow', id: MOCK_WORKFLOW.id, current: B, entries: [entry(5, B), ...ENTRIES] };
+    });
+    server.use(http.put('*/workflows/:id', () => HttpResponse.json(MOCK_WORKFLOW)));
+    wrapApp(
+      <Routes>
+        <Route path="/data-management/workflows/:id" element={<WorkflowDetailPage />} />
+      </Routes>,
+      `/data-management/workflows/${MOCK_WORKFLOW.id}`,
+    );
+    await restoreRow(3);
+    expect(await screen.findByText('#3 is already the current definition; nothing was saved.')).toBeInTheDocument();
+    expect(screen.queryByText(/Restored #3 as/)).toBeNull();
   });
 });

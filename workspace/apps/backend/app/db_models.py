@@ -270,7 +270,9 @@ class MetadataEntry(SQLModel, table=True):
 
 class MetadataEntrySwept(SQLModel, table=True):
     """R197 (3.8) — an entry whose noun was deleted, archived with the time it
-    was swept. Never read by the API; the migration's downgrade restores it."""
+    was swept. Not served by any route; the 0010 downgrade restores it, and R200's
+    ``app.metadata.unsweep_widgets`` moves a widget's entries back to live when a
+    dashboard save brings that widget id back (a definition restore)."""
 
     __tablename__ = "metadata_entries_swept"
 

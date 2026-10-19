@@ -1302,7 +1302,7 @@
     "confirmBody": "Định nghĩa của #{{seq}} được lưu thành một phiên bản mới. Định nghĩa hiện tại vẫn nằm trong lịch sử, nên bạn có thể khôi phục lại.",
     "kindLine": {
       "query": "Các dashboard và quy trình dùng truy vấn này sẽ đọc định nghĩa đã khôi phục.",
-      "dashboard": "Các liên kết xem có chọn bộ lọc được thêm sau #{{seq}} sẽ mở mà không có các lựa chọn đó. Ghi chú trên các widget mà phiên bản này không có sẽ được cất riêng và trở lại cùng widget.",
+      "dashboard": "Các liên kết xem có chọn bộ lọc mà phiên bản này không có sẽ mở mà không có các lựa chọn đó. Ghi chú trên các widget mà phiên bản này không có sẽ được cất riêng và trở lại nếu bạn khôi phục một phiên bản có widget đó.",
       "workflow": "Kết quả của quy trình bị xoá; hãy chạy lại để tạo lại."
     },
     "sourceChanged": "Nguồn dữ liệu đã thay đổi sau khi lưu phiên bản này; vị trí cột có thể khác — hãy kiểm tra bộ lọc sau khi khôi phục.",

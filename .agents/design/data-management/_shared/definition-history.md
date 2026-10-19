@@ -145,13 +145,15 @@ It opens a right-hand `<Drawer>` (width 520).
   ```
 
   The kind line: **query** — "Dashboards and workflows that use this query will read the
-  restored definition."; **dashboard** — "Viewer links that name filters added since #3 will
-  open without those selections. Notes on widgets this version lacks are set aside and come
-  back with the widget." (CR-1 — see § The write rule); **workflow** — "The workflow's output is cleared; run it
+  restored definition."; **dashboard** — "Viewer links that name filters this version lacks
+  will open without those selections. Notes on widgets this version lacks are set aside and
+  come back if you restore a version that has the widget." (CR-1, BA-F2/F3 — see § The write
+  rule); **workflow** — "The workflow's output is cleared; run it
   again to rebuild it." The **source line** (a warning `<Alert>`, queries only, when the version
   read answers `sourceChangedSince: true`): "The data source changed after this version was
   saved; column positions may differ — check the filters after restoring." On success: a toast
-  "Restored #3 as #6" — or, when the save wrote no row (the newest `seq` did not move — the
+  "Restored #3 as #6" — or, when the save wrote no row (the newest `seq`, re-read right before
+  the PUT — BA-F4 — did not move — the
   definition was already that version), "#3 is already the current definition; nothing was
   saved." (CR-5) — the list refreshes, the page shows the restored definition. The version read
   behind the confirm is always fresh (`staleTime: 0`), and a dataset refresh or a re-publish

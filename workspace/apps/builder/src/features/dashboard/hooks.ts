@@ -396,6 +396,9 @@ export function useUpdateDashboardMutation() {
       queryClient.invalidateQueries({ queryKey: ['dashboard-column-values'] });
       // R200 — a definition change (an edit or a restore) adds a history row.
       queryClient.invalidateQueries({ queryKey: HISTORY_QUERY_KEY });
+      // BA-F1 — … and moves the notes: a definition change (a restore) changes their
+      // state, and a dashboard save sets widget notes aside or brings them back.
+      queryClient.invalidateQueries({ queryKey: ['metadata'] });
     },
   });
 }
