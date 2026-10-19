@@ -154,7 +154,11 @@ export function bindableParams(
   return out;
 }
 
-export type Reach = { reached: DashboardControl[]; skipped: { control: DashboardControl; reason: string }[] };
+export type Reach = {
+  reached: DashboardControl[];
+  /** `reason` names the parameter(s) the query does not use; `count` picks the wording (BA-F1). */
+  skipped: { control: DashboardControl; reason: string; count?: number }[];
+};
 
 /** D4/D5 — a control reaches a widget when the widget is targeted AND its query
  *  uses the parameter (a range: `from` or `to`); a targeted widget whose query
@@ -168,7 +172,7 @@ export function controlReach(controls: readonly DashboardControl[], widget: Widg
     if (!targetsWidget(c, widget.id)) continue;
     const names = controlParams(c);
     if (names.some((n) => used.has(n))) reach.reached.push(c);
-    else reach.skipped.push({ control: c, reason: names.join(', ') });
+    else reach.skipped.push({ control: c, reason: names.join(', '), count: names.length });
   }
   return reach;
 }
@@ -184,12 +188,17 @@ export function ReachBadge({ reach }: Readonly<{ reach: Reach }>) {
           {c.label}
         </Tag>
       ))}
-      {reach.skipped.map(({ control, reason }) => (
-        <Tooltip key={control.id} title={t('dashboard.params.skippedWhy', { param: reason })}>
+      {reach.skipped.map(({ control, reason, count }) => (
+        <Tooltip
+          key={control.id}
+          title={t(count && count > 1 ? 'dashboard.params.skippedWhyMany' : 'dashboard.params.skippedWhy', {
+            param: reason,
+          })}
+        >
           <Tag
             color="warning"
             style={{ marginInlineEnd: 0 }}
-            aria-label={`${t('dashboard.params.skipped', { label: control.label })} — ${t('dashboard.params.skippedWhy', { param: reason })}`}
+            aria-label={`${t('dashboard.params.skipped', { label: control.label })} — ${t(count && count > 1 ? 'dashboard.params.skippedWhyMany' : 'dashboard.params.skippedWhy', { param: reason })}`}
             data-component="ReachSkippedTag"
           >
             {t('dashboard.params.skipped', { label: control.label })}
@@ -595,9 +604,12 @@ export function ControlsEditor({
           const entry = c.kind === 'param' ? params.get(c.param) : undefined;
           const type = entry?.decl.type ?? 'string';
           const relative = c.kind === 'param' && isRelative(c.saved);
-          // A range binds its own two names plus any free date parameter.
-          const rangeOptions = (own: string) =>
-            dateParams.filter((p) => p === own || !bound.has(p)).map((p) => ({ value: p, label: paramOption(p) }));
+          // A range may bind any date parameter no OTHER control binds — its own
+          // two included, so a pair added in the wrong order can be swapped
+          // (QA-1); `from` = `to` is refused below.
+          const boundByOthers = new Set(draft.filter((_, k) => k !== i).flatMap(controlParams));
+          const rangeOptions = () =>
+            dateParams.filter((p) => !boundByOthers.has(p)).map((p) => ({ value: p, label: paramOption(p) }));
           const savedMode =
             c.kind !== 'date_range' ? undefined : !c.saved ? 'none' : 'preset' in c.saved ? c.saved.preset : 'fixed';
           return (
@@ -629,7 +641,7 @@ export function ControlsEditor({
                     <Select
                       value={c.from}
                       onChange={(p: string) => set(i, { from: p })}
-                      options={rangeOptions(c.from)}
+                      options={rangeOptions()}
                       style={{ width: 160 }}
                       aria-label={t('dashboard.params.range.from')}
                       data-component="RangeFromParam"
@@ -638,7 +650,7 @@ export function ControlsEditor({
                     <Select
                       value={c.to}
                       onChange={(p: string) => set(i, { to: p })}
-                      options={rangeOptions(c.to)}
+                      options={rangeOptions()}
                       status={c.from === c.to ? 'error' : undefined}
                       style={{ width: 160 }}
                       aria-label={t('dashboard.params.range.to')}

@@ -140,6 +140,15 @@ paths:
             widget whose `queryId` is not a query in this workspace, a `sum`
             with no `measureCol` (or a `count` carrying one), or an out-of-range
             `chartType` / `agg` / `span`. FastAPI validation envelope.
+            R195 / R198 — `definition.controls` is checked the same way (the
+            `loc` names the control index and field; the `msg` starts with the
+            reason): `duplicate_control`, `duplicate_param` (a parameter bound
+            by two controls, of either kind), `duplicate_target`,
+            `unknown_widget`, `param_type` (a saved value not of the
+            parameter's type, a non-whole number on an integer column, a
+            `date_range` name that is not a date parameter), and for a
+            `date_range` control `range_same_param` (`from` = `to`) and
+            `range_reversed` (a saved pair that ends before it starts).
           content:
             application/json:
               schema:

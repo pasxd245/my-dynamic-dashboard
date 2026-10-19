@@ -196,7 +196,8 @@
           "this_month": "Tháng này",
           "last_month": "Tháng trước"
         }
-      }
+      },
+      "skippedWhyMany": "Truy vấn của widget này không dùng tham số nào trong ({{param}}), nên điều khiển không thay đổi nó."
     },
     "dataFooter": "Dữ liệu: làm mới lúc {{when}}",
     "dataFooterRun": "lần chạy #{{n}}"

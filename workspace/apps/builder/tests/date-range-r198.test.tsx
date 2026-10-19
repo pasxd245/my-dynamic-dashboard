@@ -103,7 +103,7 @@ describe('R198 pure rules', () => {
     expect(controlReach([RANGE], toOnly, TO_ONLY_QUERY).reached).toEqual([RANGE]);
     const skipped = controlReach([RANGE], neither, MOCK_QUERY);
     expect(skipped.reached).toEqual([]);
-    expect(skipped.skipped).toEqual([{ control: RANGE, reason: 'from, to' }]);
+    expect(skipped.skipped).toEqual([{ control: RANGE, reason: 'from, to', count: 2 }]);
     expect(controlReach([{ ...RANGE, targets: ['wdg_00000009'] }], both, PERIOD_QUERY)).toEqual({
       reached: [],
       skipped: [],
@@ -299,5 +299,61 @@ describe('R198 dashboard bar', () => {
     );
     expect(await screen.findByText('Data only through 2026-10-09')).toBeInTheDocument();
     expect(document.querySelectorAll('[data-component="WidgetDataThrough"]').length).toBe(1);
+  });
+});
+
+describe('R198 editor (QA-1) — a range pair bound in the wrong order can be swapped', () => {
+  const TO_FIRST: Query = {
+    ...MOCK_QUERY,
+    id: 'qr_00000196',
+    definition: {
+      ...MOCK_QUERY.definition,
+      params: [
+        { name: 'to', type: 'date', label: 'To' },
+        { name: 'from', type: 'date', label: 'From' },
+      ],
+      filters: [{ col: 2, dtype: 'date', op: 'between', min: { param: 'from' }, max: { param: 'to' } }],
+    },
+  };
+  const openSelect = (component: string) =>
+    fireEvent.mouseDown(document.querySelector(`[data-component="${component}"]`) as HTMLElement);
+  const lastDropdown = () => Array.from(document.querySelectorAll('.ant-select-dropdown')).at(-1);
+  const selectText = (component: string) =>
+    document.querySelector(`[data-component="${component}"] .ant-select-content`)?.getAttribute('title') ?? '';
+
+  it("offers this control's other name in each select, so from → to can be corrected", async () => {
+    const w = widget('wdg_00000196', TO_FIRST.id);
+    server.use(
+      http.get('*/workspaces/:id/dashboards', () =>
+        HttpResponse.json([{ ...MOCK_DASHBOARD, definition: { widgets: [w], controls: [] } }]),
+      ),
+      http.get('*/workspaces/:id/queries', () => HttpResponse.json([TO_FIRST])),
+      http.get('*/queries/:id', () => HttpResponse.json(TO_FIRST)),
+      http.get('*/queries/:id/rows', () => HttpResponse.json({ rows: [], page: 1, pageSize: 0, total: 0 })),
+    );
+    wrap(
+      <Routes>
+        <Route path="/dashboards/:workspaceId/:slug" element={<DashboardDetailPage />} />
+      </Routes>,
+      `/dashboards/${MOCK_WORKSPACE.id}/${MOCK_DASHBOARD.slug}`,
+    );
+    await waitFor(() => expect(document.querySelector('[data-component="DashboardEditControls"]')).not.toBeNull());
+    fireEvent.click(document.querySelector('[data-component="DashboardEditControls"]') as HTMLElement);
+    await waitFor(() => expect(document.querySelector('[data-component="ControlsEditor"]')).not.toBeNull());
+    openSelect('ControlAdd');
+    const add =
+      '.ant-select-dropdown:not(.ant-select-dropdown-hidden) .ant-select-item-option[title="Date range (two date parameters)"]';
+    await waitFor(() => expect(document.querySelectorAll(add).length).toBeGreaterThan(0));
+    fireEvent.click(document.querySelectorAll(add)[0] as HTMLElement);
+    await waitFor(() => expect(document.querySelector('[data-component="RangeFromParam"]')).not.toBeNull());
+    // Declaration order wins on add: the pair starts backwards…
+    expect([selectText('RangeFromParam'), selectText('RangeToParam')]).toEqual(['To (to)', 'From (from)']);
+    // …and each select offers the control's own other name, so it can be swapped.
+    openSelect('RangeFromParam');
+    await waitFor(() => expect(lastDropdown()?.querySelectorAll('.ant-select-item-option').length).toBeGreaterThan(0));
+    const titles = Array.from(lastDropdown()?.querySelectorAll('.ant-select-item-option') ?? []).map((o) =>
+      o.getAttribute('title'),
+    );
+    expect(titles).toContain('From (from)');
   });
 });

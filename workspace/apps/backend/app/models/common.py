@@ -1199,7 +1199,7 @@ class DateRangePair(BaseModel):
     """R198 — a saved period as a fixed pair of bounds (absolute or relative),
     inclusive on both ends."""
 
-    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    model_config = ConfigDict(extra="forbid")
 
     from_: DateOrRelative = Field(alias="from")
     to: DateOrRelative
@@ -1217,7 +1217,7 @@ class DateRangeControl(BaseModel):
     control that sets two date parameters, `from` and `to`. Mirrors
     `_shared/dashboard.yaml#/DateRangeControl`."""
 
-    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    model_config = ConfigDict(extra="forbid")
 
     id: Annotated[str, Field(pattern=r"^ctl_[0-9a-f]{8}$")]
     kind: Literal["date_range"]

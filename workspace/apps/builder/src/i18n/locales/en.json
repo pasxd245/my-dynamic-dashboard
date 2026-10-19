@@ -196,7 +196,8 @@
           "this_month": "This month",
           "last_month": "Last month"
         }
-      }
+      },
+      "skippedWhyMany": "This widget's query uses neither parameter ({{param}}), so the control does not change it."
     },
     "dataFooter": "Data: refreshed {{when}}",
     "dataFooterRun": "run #{{n}}"
