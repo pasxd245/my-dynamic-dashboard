@@ -164,6 +164,11 @@ saying so beats an empty table that looks like "no calls". Row updated; the BA m
   calls**, the preset menu, the editor (EN + VI). Browser probe: picking "Last week" wrote
   `?p.from=2026-10-12&p.to=2026-10-18`; the editor's Save is disabled on a reversed pair and a
   fixed pair saves (`PUT` 200, GET returns `{from, to}`).
+- **Reviews after F — pending.** The coder session had no sub-agent spawning, so the code review,
+  QA and BA pass 2 (and the BA pass 1 above) are to be run by the orchestrator on
+  `git diff 458aabc..HEAD` with this file; their P0/P1 fold in `fix(R198)` commits, then close-out
+  (§ Check, § Act, the `agents.csv` row, the bundle). The round stays `In Progress` until every role
+  reports PASS — a coder never grades its own work.
 - Design doc § As built (4.2); rc4.md § 4.2 and the program table → `review`; rolling-log rows
   (the R194 row revisited; rc.4 before the tag; "this week" semantics; the viewer-side preset
   zone; coverage on joins).
