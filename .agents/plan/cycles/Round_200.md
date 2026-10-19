@@ -37,9 +37,9 @@ dashboards (who changed what, when)" — and the R196 rolling-log row on `update
 **Expected outcome**:
 
 - **Migration `0011_definition_history`** — table `definition_history (kind, noun_id, seq,
-version, definition_json, change, changed_at, changed_by)`, primary key `(kind, noun_id,
-seq)`. `kind ∈ {query, dashboard, workflow}`; `change ∈ {create, update, baseline}`;
-  `changed_by` nullable. The upgrade seeds **one `baseline` row per existing query, dashboard
+version, definition_json, change, changed_at, changed_by, changed_source)`, primary key
+  `(kind, noun_id, seq)`. `kind ∈ {query, dashboard, workflow}`; `change ∈ {create, update,
+baseline}`; `changed_by` / `changed_source` nullable (BA-C4). The upgrade seeds **one `baseline` row per existing query, dashboard
   and workflow** (its current definition, version computed exactly as the app does); the
   downgrade drops the table and leaves every noun as it is.
 - **Writes** (same connection, same transaction as the noun's `INSERT` / `UPDATE`): create →
@@ -50,14 +50,15 @@ seq)`. `kind ∈ {query, dashboard, workflow}`; `change ∈ {create, update, bas
 - **Contract** (additive): `_shared/history.yaml` (`HistoryEntry`, `HistoryList`,
   `HistoryVersion`, the `WriterToken` header); `GET /queries|dashboards|workflows/{id}/history`
   → `{kind, id, current, entries}` newest first; `GET …/history/{version}` → one past
-  definition, read-only. The six create / update routes document the optional writer token that
+  definition, read-only, with `sourceChangedSince` for a query (BA-C2). The six create / update routes document the optional writer token that
   labels a change. No new error code (404 `not_found`, FastAPI 422 for a malformed id / version).
 - **Builder**: a **History** drawer on the query, dashboard and workflow pages — rows newest
-  first (`#seq`, time, writer, tags _Current_ / _Same as #k_ / _History started_), **View**
-  (the definition, read-only) and **Restore** (a confirm naming what happens, then the normal
-  PUT with the current name); EN/VI; MSW handlers.
+  first (`#seq`, time, writer, tags _Current_ / _Same as #k_ / _History started_), **Technical
+  definition (JSON)** (read-only) and **Restore** (absent on every row with the current version;
+  a confirm naming what happens, warning when a query's sources changed since; then the normal
+  PUT with the current name); delete confirms name the saved versions; EN/VI; MSW handlers.
 - **Tests**: every definition change writes one row; rename writes none; restore creates a new
-  version (rc4.md § 4.4), plus the design's criteria C1–C12.
+  version (rc4.md § 4.4), plus the design's criteria C1–C13.
 
 **Falsified if** any of these happens:
 
@@ -109,6 +110,7 @@ is a design call for the BA to judge at contract exit:
    unknown token, or the builder (which never sends one) → `null`, shown as no name. The token
    only **labels**; it never authorizes or refuses a save (definition writes stay open, as
    today), and the body has no `changedBy` (a client cannot assert it — decision 9's rule).
+   _BA pass 1: accepted; the token's `source` is stored too (`changed_source`, BA-C4)._
 4. **Ordering — newest first by `seq`, an explicit `ORDER BY seq DESC`.** `seq` is per noun,
    from 1, `MAX(seq) + 1` inside the write transaction (the noun's `UPDATE` takes SQLite's
    write lock first; the primary key refuses a duplicate). Time is not the order (two saves in
@@ -143,7 +145,7 @@ Other risks:
 - 2026-10-19 — **D**: new
   [`_shared/definition-history.md`](../../design/data-management/_shared/definition-history.md)
   (Draft — the write rule, the reads, restore through the noun's PUT, migration 0011 with a
-  baseline backfill, the drawer, criteria C1–C12, OUT with triggers); `_noun-model.md`
+  baseline backfill, the drawer, criteria C1–C12 (C1–C13 after BA pass 1), OUT with triggers); `_noun-model.md`
   § Versions gains the history line (the version stays the hash, not `seq`). Design lint,
   token parity, md lint 0.
 
@@ -189,6 +191,44 @@ baseline`), `HistoryEntry` `{seq, version, change, changedAt, changedBy}` (`chan
   under the MSW validator's Ajv and refuse an extra property.
 - **Contract exit** — handed to the orchestrator for **BA pass 1** (no sub-agent spawning in
   the coder session, as in R198 / R199). B / F wait for its findings.
+- **BA pass 1 (contract exit, `9b3ec3e..7154ab7`, run by the orchestrator): CHANGES** — 0 P0,
+  3 P1, 6 P2. All five design calls in § Risks accepted (workflows in; baseline backfill with
+  `seq` + `change`; `changed_by` from the writer token; `seq DESC`; unbounded retention,
+  deleted with the noun) and the restore semantics, with conditions (below).
+  - **BA-C1 (P1)** — an older row can carry the current version (#4 = A, #2 = A); its Restore
+    would PUT the same hash, write no row, and the toast "Restored #2 as #n" would lie. Folded:
+    Restore is hidden on **every** row whose `version == current`; tested in F.
+  - **BA-C2 (P1)** — query filters address columns by 0-based index and a refresh that drops or
+    adds a column only warns, so a restored pre-refresh query can validate and read the wrong
+    column. **Decided: warn, not refuse.** Folded: `HistoryVersion.sourceChangedSince` (queries
+    only, server-computed from the source datasets' `refreshedAt` vs the row's `changedAt`;
+    a `baseline` row counts any ever-refreshed source; a missing source counts); the confirm
+    shows "The data source changed after this version was saved; column positions may differ —
+    check the filters after restoring." (EN/VI). Refusal → owner question 5; the index
+    fragility → rolling log (pre-existing).
+  - **BA-C3 (P1)** — a JSON View cannot keep the journey's "see what it looked like before" for
+    a non-technical owner. **Decided: option (a)** — the journey and the walk narrow to which
+    version, when, who (when known) and put it back; View is labelled "Technical definition
+    (JSON)"; a name-resolving view / diff is OUT with the trigger "the owner asks to read an old
+    version" (owner question 3).
+  - **P2 folded:** BA-C4 `changed_source` column + `changedSource` on the entry (stored and
+    returned, no UI label — owner question 2); BA-C5 no `pattern` on `WriterToken`; BA-C6 a
+    neutral example author (`report-agent`); BA-C7 the workflow page's History button in view
+    mode only; BA-C8 delete confirms add "and its N saved versions"; BA-C9 a refused restore's
+    422 maps to one readable line (detail to the console, never raw `detail[]` in a toast).
+  - **Conditions:** View / Restore label by the CLICKED row's `#seq`, never the response's
+    (call 4); the drawer intro says "Names appear only for changes made through the API with a
+    writer token." (call 3); the program table row says "queries, dashboards and workflows —
+    pending owner confirmation" (owner question 1).
+  - **Logged (P2):** a restore sends the cached name / slug, so a rename made elsewhere since
+    the page loaded is reverted by the restore (concurrent-rename revert) — rolling log.
+- **Contract fold** — design doc (journey narrowed, Restore hidden on the current version, the
+  JSON label, the source warning, the delete line, the one-line refusal, clicked-row labels,
+  `changed_source`, criterion C9 `sourceChangedSince` → C1–C13, OUT rows); `_shared/history.yaml`
+  (`changedSource` required on the entry and the version, `sourceChangedSince` on a query
+  version, `WriterToken` without a pattern); the three route examples (`report-agent`,
+  `changedSource`, `sourceChangedSince`); the rationale; the program table row and two
+  rolling-log rows. Contracts 53 green.
 
 ## Check
 
@@ -197,6 +237,18 @@ _Gates, visual gate, reviewer verdicts and the walk script — at close-out._
 ## Act
 
 _Rolling-log rows, promotion and prune check — at close-out._
+
+- **Owner questions** (from BA pass 1, carried to close-out):
+  1. Workflows are in the definition history (and its drawer) alongside queries and
+     dashboards — the program row named only queries and dashboards. Confirm?
+  2. Should a change made by an agent (`changedSource: ai`) carry an AI label in the history
+     list, the way an agent's metadata note does? (Stored and returned; not shown.)
+  3. Is a readable view of an old version (column and widget names instead of indices / ids,
+     or a diff) wanted? The BA notes it is arguably already met for queries. Today: the JSON,
+     labelled technical.
+  4. _(Text not in the relay to the coder — copy from the BA pass-1 report.)_
+  5. Should restoring a query version whose source datasets changed since be **refused**
+     rather than warned (BA-C2; built: a warning in the confirm)?
 
 ## Feeds into → Round_201 (TBD)
 

@@ -21,7 +21,8 @@
 # it writes `#n+1` whose `version` equals the old row's. There is no restore
 # route and no client-sent version. The history is read-only.
 #
-# `changedBy` is stamped by the SERVER: the `author` of the configured writer
+# `changedBy` / `changedSource` are stamped by the SERVER: the `author` /
+# `source` of the configured writer
 # token (`backend.metadata_tokens`, R180) the create / update request carried
 # as `Authorization: Bearer <token>`; `null` when there was none or it matched
 # no token. A token only labels a change — it never authorizes or refuses one.
@@ -35,13 +36,13 @@ components:
       required: false
       schema:
         type: string
-        pattern: '^[Bb]earer .+$'
       description: |
-        R200 — optional. A configured writer token (`backend.metadata_tokens`,
-        the same tokens that write metadata) whose `author` the server records
-        as the change's `changedBy` in the definition history. It only
-        LABELS the change: no header, a malformed one or an unknown token is
-        not an error (the change is recorded with `changedBy: null`), and it
+        R200 — optional, `Bearer <token>`. A configured writer token
+        (`backend.metadata_tokens`, the same tokens that write metadata) whose
+        `author` and `source` the server records as the change's `changedBy`
+        and `changedSource` in the definition history. It only LABELS the
+        change: no header, a malformed one or an unknown token is not an error
+        (the change is recorded with both `null`), and it
         grants nothing — creating and updating definitions stays open as
         before.
       examples:
@@ -80,7 +81,7 @@ components:
 
     HistoryEntry:
       type: object
-      required: [seq, version, change, changedAt, changedBy]
+      required: [seq, version, change, changedAt, changedBy, changedSource]
       additionalProperties: false
       properties:
         seq:
@@ -102,6 +103,13 @@ components:
           minLength: 1
           maxLength: 120
           description: The writer token's author; `null` when the change carried none (every builder save).
+        changedSource:
+          type: [string, 'null']
+          enum: [ai, human, system, null]
+          description: |
+            BA-C4 — the writer token's `source`; `null` exactly when
+            `changedBy` is. Stored and returned; the builder shows no label for
+            it yet (owner question 2).
 
     HistoryList:
       type: object
@@ -136,7 +144,7 @@ components:
         Restoring it is the noun's ordinary PUT, which validates it like any
         edit.
       type: object
-      required: [seq, version, change, changedAt, changedBy, definition]
+      required: [seq, version, change, changedAt, changedBy, changedSource, definition]
       additionalProperties: false
       properties:
         seq:
@@ -149,6 +157,22 @@ components:
           $ref: '#/components/schemas/HistoryEntry/properties/changedAt'
         changedBy:
           $ref: '#/components/schemas/HistoryEntry/properties/changedBy'
+        changedSource:
+          $ref: '#/components/schemas/HistoryEntry/properties/changedSource'
+        sourceChangedSince:
+          type: boolean
+          description: |
+            BA-C2 — QUERIES ONLY (absent on a dashboard or workflow version).
+            `true` when a dataset this version reads changed after the row was
+            saved — its `refreshedAt` is later than the row's `changedAt` — so
+            the filters' 0-based column indices may now point at other columns
+            (a refresh that drops or adds a column only warns). The datasets
+            are the `ds_` source and `ds_` join ends of the STORED definition;
+            a `qr_` source or end counts through the leaf datasets of that
+            query's current definition. For a `baseline` row (written time
+            unknown) any such dataset ever refreshed (`dataVersion > 1`)
+            counts; a dataset that no longer exists counts. Computed on read.
+            The builder warns in the restore confirm; it never refuses.
         definition:
           type: object
           description: The stored definition (a QueryDefinition, DashboardDefinition or WorkflowDefinition as saved).

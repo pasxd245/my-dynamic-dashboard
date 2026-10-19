@@ -40,6 +40,15 @@ put it back. The previous definition was gone the moment a PUT landed.
   a writer token, so most rows are `null`; an agent writing through the API
   with its token is named. Server-stamped from configuration — the body has no
   such field (decision 9's rule for who wrote a thing).
+- **`changedSource` beside `changedBy`** (BA-C4) — the token's `ai | human |
+system`, stored while the table is new so an AI label can come later without
+  a migration; the builder does not show it yet (owner question 2).
+- **`sourceChangedSince` on a query version** (BA-C2) — a query's filters
+  address columns by 0-based index, and a refresh that drops or adds a column
+  only warns, so an old definition can validate and still read the wrong
+  column. The server knows the datasets' `refreshedAt`; the builder should not
+  guess, so the version read says whether a source changed after the row and
+  the restore confirm warns (warn, not refuse — owner question 5).
 - **`baseline`.** Migration 0011 seeded the definition each noun had at the
   upgrade; `change: baseline` says its time is when the history began, not
   when that definition was written.
