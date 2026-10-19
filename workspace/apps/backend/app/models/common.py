@@ -1164,10 +1164,17 @@ class Widget(BaseModel):
         return self
 
 
-class DashboardControl(BaseModel):
+ControlTargets = (
+    Literal["all"] | Annotated[list[Annotated[str, Field(pattern=ID_PATTERNS["widget"])]], Field(min_length=1)]
+)
+DateRangePreset = Literal["this_week", "last_week", "last_7_days", "this_month", "last_month"]
+# An absolute date or "today ± n days" (`_shared/dashboard.yaml#/DateOrRelative`).
+DateOrRelative = Annotated[str, Field(pattern=r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$")] | RelativeDate
+
+
+class ParamControl(BaseModel):
     """R195 (dashboard-filters.md D4) — a dashboard control bound to one query
-    parameter (`kind: param`; `date_range` is 4.2, `values` 4.3). Mirrors
-    `_shared/dashboard.yaml#/DashboardControl`."""
+    parameter (`kind: param`). Mirrors `_shared/dashboard.yaml#/ParamControl`."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -1175,8 +1182,65 @@ class DashboardControl(BaseModel):
     kind: Literal["param"]
     label: Annotated[str, Field(min_length=1, max_length=60)]
     param: ParamName
-    targets: Literal["all"] | Annotated[list[Annotated[str, Field(pattern=ID_PATTERNS["widget"])]], Field(min_length=1)]
+    targets: ControlTargets
     saved: StrictInt | StrictFloat | StrictStr | RelativeDate | None = None
+
+
+class DateRangePresetValue(BaseModel):
+    """R198 — a saved period as a preset, resolved by the server in
+    `backend.time_zone` on every read (`params.resolve_range`)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    preset: DateRangePreset
+
+
+class DateRangePair(BaseModel):
+    """R198 — a saved period as a fixed pair of bounds (absolute or relative),
+    inclusive on both ends."""
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    from_: DateOrRelative = Field(alias="from")
+    to: DateOrRelative
+
+    @model_serializer(mode="wrap")
+    def _serialize(self, handler):  # type: ignore[no-untyped-def]
+        data = handler(self)
+        if "from_" in data:
+            data = {"from": data.pop("from_"), **data}
+        return data
+
+
+class DateRangeControl(BaseModel):
+    """R198 (item 4.2, dashboard-filters.md D4) — the view-time date range: one
+    control that sets two date parameters, `from` and `to`. Mirrors
+    `_shared/dashboard.yaml#/DateRangeControl`."""
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    id: Annotated[str, Field(pattern=r"^ctl_[0-9a-f]{8}$")]
+    kind: Literal["date_range"]
+    label: Annotated[str, Field(min_length=1, max_length=60)]
+    from_: ParamName = Field(alias="from")
+    to: ParamName
+    targets: ControlTargets
+    saved: DateRangePresetValue | DateRangePair | None = None
+
+    @model_serializer(mode="wrap")
+    def _serialize(self, handler):  # type: ignore[no-untyped-def]
+        # Stored and sent as `from` (the contract's spelling); `from_` is only
+        # the Python-side name of a keyword.
+        data = handler(self)
+        if "from_" in data:
+            out: dict = {}
+            for k, v in data.items():
+                out["from" if k == "from_" else k] = v
+            data = out
+        return data
+
+
+DashboardControl = Annotated[ParamControl | DateRangeControl, Field(discriminator="kind")]
 
 
 class DashboardDefinition(BaseModel):

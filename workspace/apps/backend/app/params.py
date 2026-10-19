@@ -16,6 +16,12 @@ Only parameters the definition **uses** are resolved, required and echoed (BA
 contract-exit F2). A ``date`` parameter on a ``datetime`` column compares by
 calendar day: lower bounds start at 00:00, upper bounds end at 23:59:59.999999
 (F3); ``equals`` / ``ne`` / ``in`` / ``not_in`` there are refused at save.
+
+R198 (item 4.2) — a ``date_range`` control binds two date parameters; its saved
+period (a preset or a pair) is resolved here, in the zone, on every read
+(``resolve_range``). A date value used as an UPPER bound past the filtered
+column's coverage ``max`` is echoed as ``dataThrough`` (D7) — the read answers,
+the widget notes "Data only through <max>".
 """
 
 from __future__ import annotations
@@ -51,6 +57,10 @@ _FIT = {"date": "date", "datetime": "date", "integer": "number", "float": "numbe
 # On a datetime column a date parameter is a calendar day: these places take the
 # day's END, every other bound its start (BA contract-exit F3).
 _END_OF_DAY = {("lte", "val"), ("after", "val"), ("between", "max")}
+# Places where a date value is the period's END: past the column's coverage
+# `max` the data simply stops earlier (D7 `dataThrough`).
+_UPPER_BOUND = {("lte", "val"), ("lt", "val"), ("before", "val"), ("between", "max")}
+PRESETS = ("this_week", "last_week", "last_7_days", "this_month", "last_month")
 _DAY_ONLY_REFUSED = frozenset({"equals", "ne", "in", "not_in"})
 _ISO_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 # A decimal number, ASCII only (no `_` separators, no other scripts' digits).
@@ -200,6 +210,69 @@ def coerce(ptype: str, raw: object, *, allow_relative: bool) -> str | int | floa
     return raw
 
 
+def _month_end(d: date) -> date:
+    nxt = date(d.year + (d.month == 12), 1 if d.month == 12 else d.month + 1, 1)
+    return nxt - timedelta(days=1)
+
+
+def resolve_range(saved: dict | None) -> tuple[str, str] | None:
+    """R198 — a saved period (``{"preset"}`` or ``{"from", "to"}``) as two
+    ``YYYY-MM-DD`` strings, resolved now in ``backend.time_zone``. Weeks start
+    on Monday; ``last_7_days`` is today − 6 … today; months are calendar months.
+    ``None`` when nothing is saved; ``ValueError`` for a malformed value."""
+    if not saved:
+        return None
+    if "preset" in saved:
+        preset = saved["preset"]
+        t = today()
+        monday = t - timedelta(days=t.weekday())
+        if preset == "this_week":
+            lo, hi = monday, monday + timedelta(days=6)
+        elif preset == "last_week":
+            lo, hi = monday - timedelta(days=7), monday - timedelta(days=1)
+        elif preset == "last_7_days":
+            lo, hi = t - timedelta(days=6), t
+        elif preset == "this_month":
+            lo, hi = t.replace(day=1), _month_end(t)
+        elif preset == "last_month":
+            prev_end = t.replace(day=1) - timedelta(days=1)
+            lo, hi = prev_end.replace(day=1), prev_end
+        else:
+            raise ValueError("preset")
+        return lo.isoformat(), hi.isoformat()
+    return str(coerce("date", saved.get("from"), allow_relative=True)), str(
+        coerce("date", saved.get("to"), allow_relative=True)
+    )
+
+
+def control_params(control: dict) -> list[str]:
+    """The parameter names one dashboard control binds (a ``param`` control one,
+    a ``date_range`` two; a ``values`` control, 4.3, none)."""
+    kind = control.get("kind")
+    if kind == "param":
+        return [control["param"]]
+    if kind == "date_range":
+        return [control["from"], control["to"]]
+    return []
+
+
+def control_bindings(control: dict) -> dict[str, Any]:
+    """``{parameter name: saved raw value}`` for one control — the dashboard level
+    (D3 level 2). A ``date_range`` saved period is resolved to its two absolute
+    dates here, so callers treat every binding like a ``param`` control's
+    ``saved``. Nothing saved → empty."""
+    kind = control.get("kind")
+    if kind == "param":
+        return {control["param"]: control["saved"]} if control.get("saved") is not None else {}
+    if kind == "date_range":
+        try:
+            rng = resolve_range(control.get("saved"))
+        except (ValueError, TypeError):
+            return {}  # a malformed saved period (refused at save) binds nothing
+        return {control["from"]: rng[0], control["to"]: rng[1]} if rng else {}
+    return {}
+
+
 def resolve(
     definition: dict, *, viewer: dict | None = None, dashboard: dict | None = None, strict: bool = True
 ) -> tuple[dict[str, Any], dict[str, dict]]:
@@ -265,27 +338,27 @@ def placeholders(definition: dict) -> dict[str, Any]:
 # --- binding ------------------------------------------------------------------
 
 
-def site_dtypes(definition: dict, base_columns: list[dict]) -> dict[tuple, str]:
-    """The column dtype at every predicate site (by its loc). A step predicate's
+def site_columns(definition: dict, base_columns: list[dict]) -> dict[tuple, dict]:
+    """The column dict at every predicate site (by its loc). A step predicate's
     column is looked up in the column space at that step, folded with
     placeholder-bound steps; a site that does not resolve is left out (the
     engine's own validation reports it)."""
     from app.query_engine import _plan_one_step  # local: query_engine imports this module's callers
 
-    out: dict[tuple, str] = {}
+    out: dict[tuple, dict] = {}
     by_step: dict[int, list[Site]] = {}
     for s in _sites(definition):
         if s.step is None:
             col = s.pred.get("col")
             if isinstance(col, int) and not isinstance(col, bool) and 0 <= col < len(base_columns):
-                out[s.loc] = base_columns[col]["dtype"]
+                out[s.loc] = base_columns[col]
         else:
             by_step.setdefault(s.step, []).append(s)
     if by_step:
         steps = bind_placeholders(definition).get("steps") or []
         cur = base_columns
         for k, step in enumerate(steps):
-            by_name = {c["name"]: c["dtype"] for c in cur}
+            by_name = {c["name"]: c for c in cur}
             for s in by_step.get(k, []):
                 if s.pred.get("col") in by_name:
                     out[s.loc] = by_name[s.pred["col"]]
@@ -294,6 +367,11 @@ def site_dtypes(definition: dict, base_columns: list[dict]) -> dict[tuple, str]:
             except HTTPException:
                 break
     return out
+
+
+def site_dtypes(definition: dict, base_columns: list[dict]) -> dict[tuple, str]:
+    """The column dtype at every predicate site (by its loc) — see ``site_columns``."""
+    return {loc: c["dtype"] for loc, c in site_columns(definition, base_columns).items()}
 
 
 def bind(
@@ -310,7 +388,8 @@ def bind(
     if not used(definition):
         return definition
     out = copy.deepcopy(definition)
-    dtypes = site_dtypes(definition, base_columns) if base_columns is not None else {}
+    columns = site_columns(definition, base_columns) if base_columns is not None else {}
+    dtypes = {loc: c["dtype"] for loc, c in columns.items()}
     decls = declared(definition)
     for s in _sites(out):
         op = s.pred.get("op")
@@ -324,11 +403,10 @@ def bind(
                 if not v.is_integer():
                     raise _invalid(name, decls, resolved)
                 v = int(v)
-            if (
-                dtypes.get(s.loc) == "datetime"
-                and decls.get(name, {}).get("type") == "date"
-                and (op, suffix[0]) in _END_OF_DAY
-            ):
+            is_date = decls.get(name, {}).get("type") == "date"
+            if is_date and resolved is not None and (op, suffix[0]) in _UPPER_BOUND:
+                _note_data_through(name, str(v), columns.get(s.loc), resolved)
+            if dtypes.get(s.loc) == "datetime" and is_date and (op, suffix[0]) in _END_OF_DAY:
                 v = f"{v} 23:59:59.999999"
             if suffix[0] == "vals":
                 s.pred["vals"][suffix[1]] = v
@@ -337,6 +415,19 @@ def bind(
         if op == "between" and resolved is not None:
             _check_order(s, definition_site(definition, s.loc), values, decls, resolved)
     return out
+
+
+def _note_data_through(name: str, value: str, column: dict | None, resolved: dict) -> None:
+    """R198 (D7) — a date used as a period END past the column's coverage ``max``
+    (R178): echo the ``max`` as ``dataThrough`` on the parameter (the earliest
+    when several sites qualify). The read goes on; only the widget's note changes."""
+    cov_max = ((column or {}).get("coverage") or {}).get("max")
+    entry = resolved.get(name)
+    if not cov_max or entry is None:
+        return
+    through = str(cov_max)[:10]
+    if through < value[:10] and (entry.get("dataThrough") is None or through < entry["dataThrough"]):
+        entry["dataThrough"] = through
 
 
 def definition_site(definition: dict, loc: tuple) -> dict:
@@ -461,10 +552,10 @@ def check_workflow_steps(steps: list[dict]) -> None:
 
 
 def dashboard_values(con: sqlite3.Connection, ref: dict | None, query: sqlite3.Row, loc: list) -> dict[str, Any]:
-    """The values saved on ``ref``'s dashboard controls (kind ``param``) that reach
-    its widget — read by the server, never asserted by a client (BA contract-exit
-    F1). Empty until 3.7b adds ``controls``. An unknown dashboard or widget, or one
-    in another workspace → 422."""
+    """The values saved on ``ref``'s dashboard controls (``param`` and, R198,
+    ``date_range``) that reach its widget — read by the server, never asserted by
+    a client (BA contract-exit F1). An unknown dashboard or widget, or one in
+    another workspace → 422."""
     if not ref:
         return {}
     import json
@@ -497,11 +588,20 @@ def dashboard_values(con: sqlite3.Connection, ref: dict | None, query: sqlite3.R
                 }
             ],
         )
+    return saved_for_widget(definition, ref["widgetId"])
+
+
+def targets_widget(control: dict, widget_id: str) -> bool:
+    targets = control.get("targets")
+    return targets == "all" or (isinstance(targets, list) and widget_id in targets)
+
+
+def saved_for_widget(definition: dict, widget_id: str) -> dict[str, Any]:
+    """The saved values (by parameter name) of the controls targeting one widget —
+    a ``param`` control's ``saved``, a ``date_range`` control's resolved pair."""
     out: dict[str, Any] = {}
     for c in definition.get("controls") or []:
-        if c.get("kind") != "param" or c.get("saved") is None:
-            continue
-        targets = c.get("targets")
-        if targets == "all" or (isinstance(targets, list) and ref["widgetId"] in targets):
-            out.setdefault(c.get("param"), c["saved"])
+        if targets_widget(c, widget_id):
+            for name, raw in control_bindings(c).items():
+                out.setdefault(name, raw)
     return out

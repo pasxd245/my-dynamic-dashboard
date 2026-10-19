@@ -23,6 +23,7 @@ from __future__ import annotations
 import json
 import secrets
 import sqlite3
+from collections.abc import Callable
 from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, status
@@ -97,7 +98,9 @@ def _validate_widget_queries(con: sqlite3.Connection, workspace_id: str, definit
 def _validate_controls(con: sqlite3.Connection, workspace_id: str, definition: dict) -> None:
     """R195 (D4) — the controls a save may hold: unique ids and parameter names,
     targets that are widgets of this dashboard (no note), and a saved value of the
-    parameter's type in the targeted queries that use it (422 naming the field)."""
+    parameter's type in the targeted queries that use it (422 naming the field).
+    R198 — a ``date_range`` control binds two distinct date parameters; its saved
+    period must resolve and run forwards."""
     controls = definition.get("controls") or []
     widgets = {w["id"]: w for w in definition.get("widgets", [])}
 
@@ -113,15 +116,22 @@ def _validate_controls(con: sqlite3.Connection, workspace_id: str, definition: d
         if c["id"] in seen_ids:
             raise bad(i, "id", f"duplicate_control: {c['id']} appears twice")
         seen_ids.add(c["id"])
-        if c["param"] in seen_params:
-            raise bad(i, "param", f"duplicate_param: one control per parameter ({c['param']!r})")
-        seen_params.add(c["param"])
+        is_range = c["kind"] == "date_range"
+        if is_range and c["from"] == c["to"]:
+            raise bad(i, "to", "range_same_param: from and to must be two different parameters")
+        for field, name in (("from", c["from"]), ("to", c["to"])) if is_range else (("param", c["param"]),):
+            if name in seen_params:
+                raise bad(i, field, f"duplicate_param: one control per parameter ({name!r})")
+            seen_params.add(name)
         targets = list(widgets) if c["targets"] == "all" else c["targets"]
         if c["targets"] != "all" and len(set(targets)) != len(targets):
             raise bad(i, "targets", "duplicate_target: a widget is listed twice")
         for wid in targets:
             if wid not in widgets:
                 raise bad(i, "targets", f"unknown_widget: {wid} is not a widget of this dashboard")
+        if is_range:
+            _validate_range_control(con, workspace_id, widgets, targets, i, c, bad)
+            continue
         if c.get("saved") is None:
             continue
         for wid in targets:
@@ -147,6 +157,41 @@ def _validate_controls(con: sqlite3.Connection, workspace_id: str, definition: d
                     raise bad(i, "saved", "param_type: the saved value must be a whole number here")
             if qparams._is_relative(c["saved"]) and decl["type"] != "date":
                 raise bad(i, "saved", "param_type: a relative value is for date parameters")
+
+
+def _validate_range_control(
+    con: sqlite3.Connection,
+    workspace_id: str,
+    widgets: dict[str, dict],
+    targets: list[str],
+    i: int,
+    c: dict,
+    bad: Callable[[int, str, str], HTTPException],
+) -> None:
+    """R198 — each targeted query that uses `from` or `to` declares it as a
+    `date`; a saved period resolves (presets in the zone, a pair's bounds valid)
+    and its `to` is not before its `from`."""
+    for wid in targets:
+        qid = widgets[wid].get("queryId")
+        if qid is None:
+            continue
+        row = con.execute("SELECT workspace_id, definition_json FROM queries WHERE id = ?", (qid,)).fetchone()
+        if row is None or row["workspace_id"] != workspace_id:
+            continue
+        qdef = json.loads(row["definition_json"])
+        decls, used = qparams.declared(qdef), qparams.used(qdef)
+        for field in ("from", "to"):
+            decl = decls.get(c[field])
+            if decl is not None and c[field] in used and decl["type"] != "date":
+                raise bad(i, field, f"param_type: {c[field]!r} is a {decl['type']} parameter, not a date")
+    if c.get("saved") is None:
+        return
+    try:
+        rng = qparams.resolve_range(c["saved"])
+    except (ValueError, TypeError):
+        raise bad(i, "saved", "param_type: the saved period is not two dates") from None
+    if rng is not None and rng[1] < rng[0]:
+        raise bad(i, "saved", "range_reversed: the saved period ends before it starts")
 
 
 def _integer_site(con: sqlite3.Connection, qrow: sqlite3.Row, qdef: dict, name: str) -> bool:

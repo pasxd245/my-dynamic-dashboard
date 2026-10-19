@@ -252,11 +252,10 @@ def _widget_viewer(definition: dict, widget_id: str, viewer: dict | None) -> dic
         return {}
     out: dict = {}
     for c in definition.get("controls") or []:
-        if c.get("kind") != "param":
-            continue
-        t = c.get("targets")
-        if (t == "all" or (isinstance(t, list) and widget_id in t)) and c.get("param") in viewer:
-            out[c["param"]] = viewer[c["param"]]
+        if qparams.targets_widget(c, widget_id):
+            for name in qparams.control_params(c):  # R198 — a date_range binds two
+                if name in viewer:
+                    out[name] = viewer[name]
     return out
 
 
@@ -280,14 +279,8 @@ def _query_part(
 
 
 def _saved_for_widget(definition: dict, widget_id: str) -> dict:
-    out: dict = {}
-    for c in definition.get("controls") or []:
-        if c.get("kind") != "param" or c.get("saved") is None:
-            continue
-        t = c.get("targets")
-        if t == "all" or (isinstance(t, list) and widget_id in t):
-            out.setdefault(c.get("param"), c["saved"])
-    return out
+    # R198 — the same rule the reads apply (a date_range's pair resolved).
+    return qparams.saved_for_widget(definition, widget_id)
 
 
 def anchor_for(con: sqlite3.Connection, noun: Noun, viewer: dict | None, *, strict: bool) -> tuple[dict, list[str]]:
@@ -379,35 +372,14 @@ def _dashboard_anchor(
             decl_of[w.get("id")] = list(decls.items())
     values: dict = {}
     for c in definition.get("controls") or []:
-        if c.get("kind") != "param":
-            continue
-        name = c.get("param")
         t = c.get("targets")
         targets = [w.get("id") for w in widgets] if t == "all" else list(t or [])
-        decl = next((d for wid in targets for n, d in decl_of.get(wid, []) if n == name), None)
-        if decl is None or name in values:
-            continue
-        ptype = decl["type"]
-        for source, raw, relative in (
-            ("viewer", (viewer or {}).get(name), False),
-            ("dashboard", c.get("saved"), True),
-            ("default", decl.get("default"), True),
-        ):
-            if raw is None or raw == "":
+        saved = qparams.control_bindings(c)  # R198 — a date_range's pair, resolved
+        for name in qparams.control_params(c):
+            decl = next((d for wid in targets for n, d in decl_of.get(wid, []) if n == name), None)
+            if decl is None or name in values:
                 continue
-            try:
-                values[name] = qparams.coerce(ptype, raw, allow_relative=relative)
-            except (ValueError, TypeError):
-                if source == "viewer":
-                    if strict:
-                        raise qparams.ParamError(
-                            "param_invalid", name, label=decl.get("label"), expected=ptype, source="viewer"
-                        ) from None
-                    break  # a reader's bad value: not compared (QA P2-1)
-                continue
-            if source != "viewer":
-                assumed.append(name)
-            break
+            _resolve_level(name, decl, (viewer or {}).get(name), saved.get(name), values, assumed, strict)
     out: dict = {}
     if qvers:
         out["queryVersions"] = qvers
@@ -416,6 +388,33 @@ def _dashboard_anchor(
     if values:
         out["params"] = values
     return out
+
+
+def _resolve_level(
+    name: str, decl: dict, viewer_raw: object, saved_raw: object, values: dict, assumed: list[str], strict: bool
+) -> None:
+    """One control's parameter for the dashboard anchor: viewer → saved → default."""
+    ptype = decl["type"]
+    for source, raw, relative in (
+        ("viewer", viewer_raw, False),
+        ("dashboard", saved_raw, True),
+        ("default", decl.get("default"), True),
+    ):
+        if raw is None or raw == "":
+            continue
+        try:
+            values[name] = qparams.coerce(ptype, raw, allow_relative=relative)
+        except (ValueError, TypeError):
+            if source == "viewer":
+                if strict:
+                    raise qparams.ParamError(
+                        "param_invalid", name, label=decl.get("label"), expected=ptype, source="viewer"
+                    ) from None
+                break  # a reader's bad value: not compared (QA P2-1)
+            continue
+        if source != "viewer":
+            assumed.append(name)
+        break
 
 
 # --- R197 (3.8) the cascade -----------------------------------------------------
