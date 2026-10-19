@@ -26,6 +26,7 @@ import type {
 } from '@/features/data-management/queries/types';
 import type { Dashboard } from './types';
 import { wireToDashboard, type CreateDashboardRequest, type UpdateDashboardRequest } from './wire';
+import { HISTORY_QUERY_KEY } from '@/features/history/hooks';
 
 /** The seed's workspace name (scripts/dev/seed.py · WS_NAME). */
 export const SEED_WORKSPACE_NAME = 'Sales demo (seed)';
@@ -393,6 +394,8 @@ export function useUpdateDashboardMutation() {
       queryClient.invalidateQueries({ queryKey: ['dashboard-widget-totals'] });
       // R199 — a saved shared selection changes what the reads return, too.
       queryClient.invalidateQueries({ queryKey: ['dashboard-column-values'] });
+      // R200 — a definition change (an edit or a restore) adds a history row.
+      queryClient.invalidateQueries({ queryKey: HISTORY_QUERY_KEY });
     },
   });
 }

@@ -73,13 +73,13 @@ baseline}`; `changed_by` / `changed_source` nullable (BA-C4). The upgrade seeds 
 
 - [x] **D** — `data-management/_shared/definition-history.md` (new, Draft), `_noun-model.md`
       § Versions (history line); `flow-selector`; `ux-design` design-spec on the drawer
-- [ ] **C** — `_shared/history.yaml`, three `history-get` route contracts, the writer token on
+- [x] **C** — `_shared/history.yaml`, three `history-get` route contracts, the writer token on
       six create / update contracts. **BA pass 1 at Contract exit.**
 - [x] **B** — migration 0011 + model + parity; `app/history.py` (record, sweep, list, read);
       the writes in the six routes; the sweep beside every metadata sweep; the six GET routes;
       tests (incl. upgrade → downgrade -1 → upgrade on a populated database)
-- [ ] **F** — `historyApi`, hooks, `DefinitionHistoryDrawer`, the three pages, MSW, EN/VI; tests
-- [ ] **I** — visual gate (light EN + VI; dark N/A — no theme)
+- [x] **F** — `historyApi`, hooks, `DefinitionHistoryDrawer`, the three pages, MSW, EN/VI; tests
+- [x] **I** — visual gate (light EN + VI; dark N/A — no theme)
 - [ ] Reviews: code review + QA in parallel, then BA pass 2; every P0/P1 fixed
 
 ## Risks / unknowns
@@ -266,6 +266,55 @@ baseline`), `HistoryEntry` `{seq, version, change, changedAt, changedBy}` (`chan
   once, a workflow → 7 history rows), then the alembic CLI: `downgrade -1` → `0010`, table gone;
   `upgrade head` → `0011`, three `baseline` rows; the nouns' rows hash-identical across all three
   states; `PRAGMA foreign_key_check` empty.
+
+### F
+
+- **F** — new `features/history/` (`types.ts`; `hooks.ts` — `HISTORY_QUERY_KEY`,
+  `useHistoryQuery`, `useHistoryVersionQuery`; `sameAs.ts` — `sameAsOf`, `currentSeqOf`,
+  `canRestore` (BA-C1); `DefinitionHistoryDrawer.tsx` — `DefinitionHistoryButton`, the drawer,
+  `SavedVersionsLine` (BA-C8), `restoreErrorText` (BA-C9)) and `api/historyApi.ts` (read only).
+  The drawer: intro (the writer-token sentence), rows newest first with _Current_ / _Same as
+  #k_ / _History started_, the time and `· <writer>` when recorded, "Technical definition
+  (JSON)" expanding in place (BA-C3), Restore absent on every row with the current version
+  (BA-C1); Restore reads the clicked row's version, confirms with the kind line and — a query
+  with `sourceChangedSince` — the source warning (BA-C2), then calls the page's `restore`
+  (the noun's own update mutation: query `{definition}`, dashboard `{name, slug, definition}`,
+  workflow `{name, definition}`), re-reads the list and toasts "Restored #k as #n"; a refusal
+  toasts one readable line and logs the error to the console (BA-C9). Mounted on the query page
+  (every view-mode header, the stale / join-unavailable ones too — an earlier version may be the
+  repair; gone while editing), the workflow page (view mode only, BA-C7) and the dashboard header.
+  The three update mutations invalidate the history cache. `DeleteConfirmModal` takes an `extra`
+  line; the query and workflow delete confirms and the dashboard list's delete confirm show "This
+  also deletes its N saved versions." (BA-C8). MSW: an in-memory history per fixture noun (a
+  baseline of the fixture's definition, an `update` appended by the PUT mocks when a mock hash
+  moves), both reads contract-validated. EN / VI copy under `history.*`.
+  `tests/definition-history-r200.test.tsx` (14): the pure rules (Same as, Current, BA-C1), the
+  workflow drawer (rows, tags, writer, intro, Restore only off the current version; the JSON
+  labelled by the clicked row and read with its `seq`; a restore's PUT body = current name + old
+  definition, toast; no button while editing; the delete line), the query drawer (the source
+  warning shown / not shown; a 422 restore → one readable line, no `detail`; no button while
+  editing), the dashboard restore PUT (name + slug + old definition, the dashboard line), the MSW
+  store (baseline, no row for a rename, 404) and the VI copy. Builder **595** green (581 + 14,
+  detached full run), `tsc` clean.
+- **Visual gate (light, EN + VI; dark N/A — no theme, rolling log):** real backend on an
+  isolated root (`scratchpad/r200/vis-data`, the app's DB created there; the default
+  `workspace/apps/backend/data/app.sqlite` untouched — mtime before the round) with a configured
+  fake writer token (`report-agent`), vite on :3000; fake "Acme calls" data: a query edited 3×
+  (one change through the token, one undone by hand), its dataset refreshed after, a dashboard
+  edited through the token, a workflow edited once. Screenshots (`scratchpad/r200/shots/`, 13):
+  the query drawer (Current + Same as #1, `· report-agent` on the agent's row, no Restore on the
+  current-hash rows), the technical JSON of #2, the restore confirm with the source warning, the
+  restored list + "Restored #2 as #5" toast with the page re-read (South rows), the delete
+  confirm with "9 saved versions" (VI), the dashboard drawer, the workflow restore confirm (the
+  output line). **Found at the gate and fixed here:** the version read was keyed by hash only, so
+  for a definition saved before the refresh AND again after it (a restore) the confirm read the
+  newer row and showed no warning for the older one. The version read now takes an optional
+  `?seq=` (contract `Seq` parameter, additive; the drawer always sends the clicked row's) — the
+  answer and `sourceChangedSince` are that row's; a `seq` without that version is 404. Backend
+  test `test_seq_names_the_clicked_row_of_a_repeated_version` (backend **737**, ruff clean; commit
+  `df970b7`); the builder tests assert the
+  `seq` sent. Re-shot: the warning shows for the pre-refresh row in EN and VI. Browser console:
+  only the pre-existing `WidgetFilterDrawer` `width` deprecation.
 
 ## Check
 

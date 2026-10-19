@@ -1280,5 +1280,40 @@
     "definitionWarning": "The definition changed after this was written; it may not describe what you see.",
     "assumed": "Written under the saved or default value of: {{names}}",
     "beforePeriods": "Written before periods were recorded."
+  },
+  "history": {
+    "button": "History",
+    "title": "History — {{name}}",
+    "intro": "Every saved change of this {{resource}}'s definition, newest first. Renaming is not a change. Restoring saves the old definition as a new version; nothing is removed. Names appear only for changes made through the API with a writer token.",
+    "resource": {
+      "query": "query",
+      "dashboard": "dashboard",
+      "workflow": "workflow"
+    },
+    "current": "Current",
+    "sameAs": "Same as #{{seq}}",
+    "started": "History started",
+    "baselineNote": "The definition when history began; earlier changes were not recorded.",
+    "version": "Version {{version}}",
+    "json": "Technical definition (JSON)",
+    "jsonTitle": "#{{seq}} — technical definition (JSON), read-only",
+    "restore": "Restore",
+    "confirmTitle": "Restore version #{{seq}}?",
+    "confirmBody": "The definition of #{{seq}} is saved as a new version. The current definition stays in the history; nothing is removed.",
+    "kindLine": {
+      "query": "Dashboards and workflows that use this query will read the restored definition.",
+      "dashboard": "Viewer links that name filters added since #{{seq}} will open without those selections.",
+      "workflow": "The workflow's output is cleared; run it again to rebuild it."
+    },
+    "sourceChanged": "The data source changed after this version was saved; column positions may differ — check the filters after restoring.",
+    "restored": "Restored #{{from}} as #{{to}}",
+    "restoredPlain": "Restored #{{from}}",
+    "refused": "This version can no longer be saved: it does not fit the current data or queries.",
+    "refusedGone": "This item no longer exists.",
+    "refusedName": "This version could not be saved: another item already uses this name or link.",
+    "empty": "No saved changes yet.",
+    "loadError": "Could not load the history.",
+    "deleteLine_one": "This also deletes its {{count}} saved version.",
+    "deleteLine_other": "This also deletes its {{count}} saved versions."
   }
 }

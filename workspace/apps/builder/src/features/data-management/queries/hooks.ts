@@ -4,6 +4,7 @@ import { queriesApi } from '@/api/queriesApi';
 import { ApiErrorThrown } from '@/features/data-management/_shared/types';
 import type { RowsPage } from '@/features/data-management/datasets/types';
 import type { CreateQueryRequest, Query, QueryDefinition, QueryPreview, UpdateQueryRequest } from './types';
+import { HISTORY_QUERY_KEY } from '@/features/history/hooks';
 
 // R69 — Saved Query TanStack hooks. Key shapes mirror datasets:
 //   ['queries', { workspaceId }] — list (scoped to a workspace)
@@ -109,6 +110,8 @@ export function useUpdateQueryMutation() {
       queryClient.invalidateQueries({ queryKey: QUERIES_QUERY_KEY });
       queryClient.invalidateQueries({ queryKey: ['query', updated.id] });
       queryClient.invalidateQueries({ queryKey: ['query-rows', updated.id] });
+      // R200 — a definition change (an edit or a restore) adds a history row.
+      queryClient.invalidateQueries({ queryKey: HISTORY_QUERY_KEY });
     },
   });
 }

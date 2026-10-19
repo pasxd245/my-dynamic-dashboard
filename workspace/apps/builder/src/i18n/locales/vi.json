@@ -1280,5 +1280,40 @@
     "definitionWarning": "Định nghĩa đã đổi sau khi ghi chú này được viết; nội dung có thể không còn đúng với những gì bạn thấy.",
     "assumed": "Viết theo giá trị đã lưu hoặc mặc định của tham số: {{names}}",
     "beforePeriods": "Ghi chú này được viết trước khi có tham số kỳ."
+  },
+  "history": {
+    "button": "Lịch sử",
+    "title": "Lịch sử — {{name}}",
+    "intro": "Mọi thay đổi đã lưu của định nghĩa {{resource}} này, mới nhất trước. Đổi tên không tính là thay đổi. Khôi phục sẽ lưu định nghĩa cũ thành một phiên bản mới; không có gì bị xoá. Tên người thay đổi chỉ hiện với các thay đổi qua API có token ghi.",
+    "resource": {
+      "query": "truy vấn",
+      "dashboard": "dashboard",
+      "workflow": "quy trình"
+    },
+    "current": "Hiện tại",
+    "sameAs": "Giống #{{seq}}",
+    "started": "Bắt đầu lịch sử",
+    "baselineNote": "Định nghĩa lúc bắt đầu ghi lịch sử; các thay đổi trước đó không được ghi lại.",
+    "version": "Phiên bản {{version}}",
+    "json": "Định nghĩa kỹ thuật (JSON)",
+    "jsonTitle": "#{{seq}} — định nghĩa kỹ thuật (JSON), chỉ đọc",
+    "restore": "Khôi phục",
+    "confirmTitle": "Khôi phục phiên bản #{{seq}}?",
+    "confirmBody": "Định nghĩa của #{{seq}} được lưu thành một phiên bản mới. Định nghĩa hiện tại vẫn nằm trong lịch sử; không có gì bị xoá.",
+    "kindLine": {
+      "query": "Các dashboard và quy trình dùng truy vấn này sẽ đọc định nghĩa đã khôi phục.",
+      "dashboard": "Các liên kết xem có chọn bộ lọc được thêm sau #{{seq}} sẽ mở mà không có các lựa chọn đó.",
+      "workflow": "Kết quả của quy trình bị xoá; hãy chạy lại để tạo lại."
+    },
+    "sourceChanged": "Nguồn dữ liệu đã thay đổi sau khi lưu phiên bản này; vị trí cột có thể khác — hãy kiểm tra bộ lọc sau khi khôi phục.",
+    "restored": "Đã khôi phục #{{from}} thành #{{to}}",
+    "restoredPlain": "Đã khôi phục #{{from}}",
+    "refused": "Không thể lưu lại phiên bản này: nó không còn khớp với dữ liệu hoặc truy vấn hiện tại.",
+    "refusedGone": "Mục này không còn tồn tại.",
+    "refusedName": "Không thể lưu phiên bản này: tên hoặc liên kết đã được mục khác dùng.",
+    "empty": "Chưa có thay đổi nào được lưu.",
+    "loadError": "Không tải được lịch sử.",
+    "deleteLine_one": "Thao tác này cũng xoá {{count}} phiên bản đã lưu của nó.",
+    "deleteLine_other": "Thao tác này cũng xoá {{count}} phiên bản đã lưu của nó."
   }
 }

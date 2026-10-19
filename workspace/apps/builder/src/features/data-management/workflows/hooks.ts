@@ -6,6 +6,7 @@ import type { Column, Dataset, RowsPage } from '@/features/data-management/datas
 import { useDatasetQuery } from '@/features/data-management/datasets/hooks';
 import { useQueryQuery } from '@/features/data-management/queries/hooks';
 import type { CreateWorkflowRequest, Workflow } from './types';
+import { HISTORY_QUERY_KEY } from '@/features/history/hooks';
 
 // R132–R135 — Workflow TanStack hooks. Key shapes mirror queries:
 //   ['workflows', { workspaceId }]                  — list (workspace-scoped)
@@ -105,6 +106,8 @@ export function useUpdateWorkflowMutation() {
       queryClient.invalidateQueries({ queryKey: WORKFLOWS_QUERY_KEY });
       queryClient.invalidateQueries({ queryKey: ['workflow', updated.id] });
       queryClient.invalidateQueries({ queryKey: ['workflow-rows', updated.id] });
+      // R200 — a definition change (an edit or a restore) adds a history row.
+      queryClient.invalidateQueries({ queryKey: HISTORY_QUERY_KEY });
     },
   });
 }

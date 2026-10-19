@@ -28,6 +28,7 @@ import {
 import { NameModal } from './NameModal';
 import type { Dashboard } from './types';
 import { widgetsToDefinition } from './wire';
+import { SavedVersionsLine } from '@/features/history/DefinitionHistoryDrawer';
 
 function dashboardPath(d: Dashboard): string {
   return `/dashboards/${d.workspaceId}/${d.slug}`;
@@ -167,7 +168,13 @@ export function DashboardListPage() {
   const confirmDelete = (d: Dashboard) => {
     modal.confirm({
       title: t('dashboard.deleteTitle', { name: d.name }),
-      content: t('dashboard.deleteHint'),
+      // R200 (BA-C8) — the definition history goes with the dashboard; say how much.
+      content: (
+        <>
+          <div>{t('dashboard.deleteHint')}</div>
+          <SavedVersionsLine kind="dashboard" nounId={d.id} />
+        </>
+      ),
       okButtonProps: { danger: true },
       okText: t('common.delete'),
       onOk: () => deleteMutation.mutateAsync(d.id).catch(() => message.error(t('common.error'))),

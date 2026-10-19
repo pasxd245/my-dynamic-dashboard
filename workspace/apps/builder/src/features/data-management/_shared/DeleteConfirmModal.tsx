@@ -1,4 +1,5 @@
 import { Modal, Typography } from 'antd';
+import type { ReactNode } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 
 export type DeleteConfirmModalProps = Readonly<{
@@ -9,6 +10,8 @@ export type DeleteConfirmModalProps = Readonly<{
   isPending: boolean;
   onConfirm: () => void;
   onClose: () => void;
+  /** R200 — an extra line under the body ("… and its N saved versions"). */
+  extra?: ReactNode;
 }>;
 
 /** R26: shared delete-confirm modal. Renders R23 modal states 4 + 5
@@ -21,6 +24,7 @@ export function DeleteConfirmModal({
   isPending,
   onConfirm,
   onClose,
+  extra,
 }: DeleteConfirmModalProps) {
   const { t } = useTranslation();
   const handleCancel = () => {
@@ -51,6 +55,7 @@ export function DeleteConfirmModal({
           components={{ strong: <strong /> }}
         />
       </Typography.Paragraph>
+      {extra}
       <Typography.Text type="secondary">{t('deleteConfirm.warning')}</Typography.Text>
     </Modal>
   );

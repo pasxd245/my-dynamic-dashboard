@@ -87,7 +87,8 @@ import {
 } from './DashboardParams';
 import { paramsFromSearch } from '@/features/data-management/queries/params';
 import { useQueriesQuery } from '@/features/data-management/queries/hooks';
-import { widgetsToDefinition } from './wire';
+import { widgetsToDefinition, type DashboardDefinitionWire } from './wire';
+import { DefinitionHistoryButton } from '@/features/history/DefinitionHistoryDrawer';
 
 // R177 — the dashboard is a CSS grid (was an AntD flex-wrap Row/Col). A flex
 // row can only be as tall as its tallest card, so a widget two rows tall left
@@ -586,6 +587,19 @@ export function DashboardDetailPage() {
             >
               {t('dashboard.builder.add')}
             </Button>
+            {/* R200 (4.4) — the definition history; Restore re-saves an old definition
+                with the current name / slug through the ordinary update. */}
+            <DefinitionHistoryButton
+              kind="dashboard"
+              nounId={dash.id}
+              nounName={dash.name}
+              restore={(definition) =>
+                updateMutation.mutateAsync({
+                  id: dash.id,
+                  body: { name: dash.name, slug: dash.slug, definition: definition as DashboardDefinitionWire },
+                })
+              }
+            />
           </Space>
         }
         onNavigate={(r) => navigate(r)}

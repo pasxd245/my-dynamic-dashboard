@@ -862,6 +862,113 @@ function previewJson(
   return HttpResponse.json(body);
 }
 
+// ─── R200 (4.4) — definition history (mock) ─────────────────────────────
+//
+// An in-memory list per noun, seeded with a `baseline` of the fixture's
+// definition; the PUT handlers append an `update` when the mock hash moves (a
+// rename or an unchanged re-save appends nothing — the server's rule). The hash
+// is a MOCK stand-in (FNV-1a over sorted, null-free JSON), not the server's
+// sha256: the mock serves the shape and the write rule, not the value.
+
+type MockHistoryRow = {
+  seq: number;
+  version: string;
+  change: 'create' | 'update' | 'baseline';
+  changedAt: string;
+  changedBy: string | null;
+  changedSource: 'ai' | 'human' | 'system' | null;
+  definition: unknown;
+};
+type MockHistoryKind = 'query' | 'dashboard' | 'workflow';
+
+function canonical(v: unknown): unknown {
+  if (Array.isArray(v)) return v.map(canonical);
+  if (v && typeof v === 'object') {
+    return Object.fromEntries(
+      Object.keys(v as Record<string, unknown>)
+        .sort()
+        .filter((k) => (v as Record<string, unknown>)[k] !== null && (v as Record<string, unknown>)[k] !== undefined)
+        .map((k) => [k, canonical((v as Record<string, unknown>)[k])]),
+    );
+  }
+  return v;
+}
+
+export function mockDefinitionVersion(definition: unknown): string {
+  const text = JSON.stringify(canonical(definition));
+  const fnv = (seed: number) => {
+    let h = seed >>> 0;
+    for (let i = 0; i < text.length; i += 1) {
+      h ^= text.charCodeAt(i);
+      h = Math.imul(h, 0x01000193) >>> 0;
+    }
+    return h.toString(16).padStart(8, '0');
+  };
+  return (fnv(0x811c9dc5) + fnv(0x01000193)).slice(0, 12);
+}
+
+const MOCK_HISTORY_SEED: Record<MockHistoryKind, () => { id: string; definition: unknown }> = {
+  query: () => ({ id: MOCK_QUERY.id, definition: MOCK_QUERY.definition }),
+  dashboard: () => ({ id: MOCK_DASHBOARD.id, definition: MOCK_DASHBOARD.definition }),
+  workflow: () => ({ id: MOCK_WORKFLOW.id, definition: MOCK_WORKFLOW.definition }),
+};
+const mockHistory = new Map<string, MockHistoryRow[]>();
+const nowZ = () => new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
+
+function mockHistoryOf(kind: MockHistoryKind, id: string): MockHistoryRow[] | null {
+  const key = `${kind}:${id}`;
+  const rows = mockHistory.get(key);
+  if (rows) return rows;
+  const seed = MOCK_HISTORY_SEED[kind]();
+  if (seed.id !== id) return null;
+  const first: MockHistoryRow = {
+    seq: 1,
+    version: mockDefinitionVersion(seed.definition),
+    change: 'baseline',
+    changedAt: '2026-10-19T09:00:00Z',
+    changedBy: null,
+    changedSource: null,
+    definition: seed.definition,
+  };
+  mockHistory.set(key, [first]);
+  return mockHistory.get(key) as MockHistoryRow[];
+}
+
+function recordMockHistory(kind: MockHistoryKind, id: string, definition: unknown): void {
+  const rows = mockHistoryOf(kind, id);
+  if (!rows) return;
+  const version = mockDefinitionVersion(definition);
+  if (rows[rows.length - 1]?.version === version) return;
+  rows.push({ seq: rows.length + 1, version, change: 'update', changedAt: nowZ(), changedBy: null, changedSource: null, definition });
+}
+
+/** Tests: forget every recorded change (the next read re-seeds the baseline). */
+export function resetMockHistory(): void {
+  mockHistory.clear();
+}
+
+const entryOf = ({ definition: _d, ...entry }: MockHistoryRow) => entry;
+
+function historyHandlers(kind: MockHistoryKind, route: string, op: string) {
+  return [
+    withContractValidation('get', api(`/${route}/:id/history`), `${op}History`, ({ params }) => {
+      const rows = mockHistoryOf(kind, String(params.id));
+      if (!rows) return HttpResponse.json({ code: 'not_found' }, { status: 404 });
+      const newest = [...rows].reverse();
+      return HttpResponse.json({ kind, id: String(params.id), current: newest[0].version, entries: newest.map(entryOf) });
+    }),
+    withContractValidation('get', api(`/${route}/:id/history/:version`), `${op}HistoryVersion`, ({ params, request }) => {
+      const rows = mockHistoryOf(kind, String(params.id));
+      const seq = new URL(request.url).searchParams.get('seq');
+      const row = rows
+        ? [...rows].reverse().find((r) => r.version === params.version && (seq === null || r.seq === Number(seq)))
+        : undefined;
+      if (!row) return HttpResponse.json({ code: 'not_found' }, { status: 404 });
+      return HttpResponse.json({ ...row, ...(kind === 'query' ? { sourceChangedSince: false } : {}) });
+    }),
+  ];
+}
+
 // ─── Handlers ────────────────────────────────────────────────────────
 //
 // R45: every JSON-2xx handler is wrapped with `withContractValidation`
@@ -873,6 +980,10 @@ function previewJson(
 // bypass the validator by the content-type guard.
 
 export const handlers = [
+  // R200 (4.4) — definition history reads (mock store above).
+  ...historyHandlers('query', 'queries', 'query'),
+  ...historyHandlers('dashboard', 'dashboards', 'dashboard'),
+  ...historyHandlers('workflow', 'workflows', 'workflow'),
   // Workspaces
   withContractValidation('get', api('/workspaces'), 'listWorkspaces', () => HttpResponse.json([MOCK_WORKSPACE])),
   withContractValidation('post', api('/workspaces'), 'createWorkspace', async ({ request }) => {
@@ -1337,6 +1448,7 @@ export const handlers = [
   // chain; absent = single-source).
   withContractValidation('put', api('/queries/:id'), 'updateQuery', async ({ params, request }) => {
     const body = (await request.json()) as UpdateQueryRequest;
+    recordMockHistory('query', String(params.id), body.definition);
     const base = params.id === MOCK_JOINED_QUERY.id ? MOCK_JOINED_QUERY : MOCK_QUERY;
     const chain = body.definition?.joins ?? [];
     let resolvedColumns: typeof MOCK_CHAIN_COLUMNS | undefined;
@@ -1439,6 +1551,7 @@ export const handlers = [
     const body = (await request.json()) as Partial<CreateWorkflowRequest>;
     const dup = duplicateSourceError(body.definition?.sources ?? []);
     if (dup) return dup;
+    recordMockHistory('workflow', String(params.id), body.definition);
     return HttpResponse.json({
       ...MOCK_WORKFLOW,
       name: body.name ?? MOCK_WORKFLOW.name,
@@ -1478,6 +1591,7 @@ export const handlers = [
   }),
   withContractValidation('put', api('/dashboards/:id'), 'updateDashboard', async ({ params, request }) => {
     const body = (await request.json()) as UpdateDashboardRequest;
+    recordMockHistory('dashboard', String(params.id), body.definition);
     return HttpResponse.json({
       ...MOCK_DASHBOARD,
       id: String(params.id),

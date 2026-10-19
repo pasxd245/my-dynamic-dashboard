@@ -25,6 +25,8 @@ import { DeleteConfirmModal } from '../_shared/DeleteConfirmModal';
 import { PagedRowsView } from '../_shared/PagedRowsView';
 import { PublishButton, PublishedLine } from './PublishControls';
 import { WorkflowForm } from './WorkflowForm';
+import type { WorkflowDefinition } from './types';
+import { DefinitionHistoryButton, SavedVersionsLine } from '@/features/history/DefinitionHistoryDrawer';
 import {
   useDeleteWorkflowMutation,
   useRunWorkflowMutation,
@@ -246,6 +248,18 @@ export function WorkflowDetailPage() {
       <Button onClick={startEdit} data-component="WorkflowDetailEdit">
         {t('workflows.detail.edit')}
       </Button>
+      {/* R200 (4.4) — view mode only (BA-C7): a restore while editing would discard the draft. */}
+      <DefinitionHistoryButton
+        kind="workflow"
+        nounId={workflow.id}
+        nounName={workflow.name}
+        restore={(definition) =>
+          updateMutation.mutateAsync({
+            id: workflow.id,
+            body: { name: workflow.name, definition: definition as WorkflowDefinition },
+          })
+        }
+      />
       <Button danger onClick={() => setDeleteOpen(true)} data-component="WorkflowDetailDelete">
         {t('common.delete')}
       </Button>
@@ -384,6 +398,7 @@ export function WorkflowDetailPage() {
       <DeleteConfirmModal
         resourceLabel="workflow"
         resourceName={workflow.name}
+        extra={<SavedVersionsLine kind="workflow" nounId={workflow.id} />}
         open={deleteOpen}
         isPending={deleteMutation.isPending}
         onConfirm={confirmDelete}

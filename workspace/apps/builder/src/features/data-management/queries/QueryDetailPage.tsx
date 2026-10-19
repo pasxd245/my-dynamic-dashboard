@@ -30,7 +30,15 @@ import { paramsFromSearch, usedParams, withParam } from './params';
 import { ParamValueInputs } from './QueryParamsPanel';
 import { SaveQueryModal } from './SaveQueryModal';
 import { useQueryBuilder } from './useQueryBuilder';
-import { useCreateQueryMutation, useDeleteQueryMutation, useQueryQuery, useQueryRowsQuery } from './hooks';
+import {
+  useCreateQueryMutation,
+  useDeleteQueryMutation,
+  useQueryQuery,
+  useQueryRowsQuery,
+  useUpdateQueryMutation,
+} from './hooks';
+import type { QueryDefinition } from './types';
+import { DefinitionHistoryButton, SavedVersionsLine } from '@/features/history/DefinitionHistoryDrawer';
 
 function clampPageSize(raw: string | null): number {
   const n = Number(raw);
@@ -106,6 +114,8 @@ export function QueryDetailPage() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const deleteMutation = useDeleteQueryMutation();
+  // R200 (4.4) — Restore re-saves an old definition through the ordinary update.
+  const restoreMutation = useUpdateQueryMutation();
 
   // R166 — Duplicate. The SECOND create verb in the product, and it routes through
   // the SAME `SaveQueryModal` + `useCreateQueryMutation` as "Save filters as Query"
@@ -251,10 +261,25 @@ export function QueryDetailPage() {
     </Typography.Link>
   ) : null;
 
+  // R200 (4.4) — [History] sits beside Delete on every view-mode header (the
+  // stale / unavailable ones too: an earlier version may be the repair); it is
+  // absent while editing, where a restore would discard the working copy.
   const actions = (
-    <Button danger onClick={() => setDeleteOpen(true)} data-component="QueryDetailDelete">
-      {t('common.delete')}
-    </Button>
+    <span style={{ display: 'inline-flex', gap: 8 }}>
+      {query ? (
+        <DefinitionHistoryButton
+          kind="query"
+          nounId={query.id}
+          nounName={query.name}
+          restore={(definition) =>
+            restoreMutation.mutateAsync({ id: query.id, body: { definition: definition as QueryDefinition } })
+          }
+        />
+      ) : null}
+      <Button danger onClick={() => setDeleteOpen(true)} data-component="QueryDetailDelete">
+        {t('common.delete')}
+      </Button>
+    </span>
   );
   // R72 — the populated header offers [Edit]; in edit mode it swaps to
   // [Cancel] [Save] (the app's header-actions convention — the builder no
@@ -328,6 +353,7 @@ export function QueryDetailPage() {
         <DeleteConfirmModal
           resourceLabel="query"
           resourceName={query.name}
+          extra={<SavedVersionsLine kind="query" nounId={query.id} />}
           open={deleteOpen}
           isPending={deleteMutation.isPending}
           onConfirm={confirmDelete}
@@ -369,6 +395,7 @@ export function QueryDetailPage() {
         <DeleteConfirmModal
           resourceLabel="query"
           resourceName={query.name}
+          extra={<SavedVersionsLine kind="query" nounId={query.id} />}
           open={deleteOpen}
           isPending={deleteMutation.isPending}
           onConfirm={confirmDelete}
@@ -569,6 +596,7 @@ export function QueryDetailPage() {
       <DeleteConfirmModal
         resourceLabel="query"
         resourceName={query.name}
+        extra={<SavedVersionsLine kind="query" nounId={query.id} />}
         open={deleteOpen}
         isPending={deleteMutation.isPending}
         onConfirm={confirmDelete}
