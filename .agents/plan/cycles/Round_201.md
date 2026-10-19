@@ -74,7 +74,7 @@ rc.4 by the owner's call of 2026-10-19._
 - [x] **C** — `_shared/definition-pack.yaml`, `workspaces/definitions-get` +
       `definitions-import` route contracts (+ rationale), the three error codes through the whole
       chain; MSW validated against the YAML. **BA pass 1 at Contract exit.**
-- [ ] **F2** — the confirmation pass against the contract-derived MSW
+- [x] **F2** — the confirmation pass against the contract-derived MSW
 - [ ] **B** — extract the six create / update bodies; `app/definition_pack.py`;
       `routers/definitions.py`; tests (criteria 1–13)
 - [ ] **I** — the builder against the real backend; visual gate (light EN + VI; dark N/A — no theme)
@@ -336,6 +336,17 @@ F2 against the contract-derived MSW after it.
   reasons; EN / VI). Builder **626** green (621 + 5 in the pack file, now 25; detached full run),
   `tsc` clean; contracts 55; every route example re-validated against its schema. `exportedAt`
   lost its `format: date-time` (the repo's timestamps are plain strings; Ajv logged it as unknown).
+
+### F2
+
+- 2026-10-19 — **F2** (the confirmation pass against the contract-derived MSW): the folded builder
+  runs against `exportDefinitions` / `importDefinitions` handlers that the contract validator now
+  checks (the 2xx bodies — the pack, the dry-run plan ok / blocked / with deferred rows / with
+  `binds`, the applied plan — validate; an extra field does not); the 409 / 422 bodies follow the
+  YAML's error shapes (`reason` on `pack_refused`, `path` on `shape`). The modal needed no shape the
+  contract does not hold — no contract v2. Builder 626 at `f533100`.
+- **F2 gate closed** — confirmation complete, no shape change re-routed; committed as
+  `docs(R201): F2 — …`.
 
 ## Check
 
